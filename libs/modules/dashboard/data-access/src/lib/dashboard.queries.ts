@@ -13,32 +13,34 @@ import { dashboardKeys } from './dashboard.keys';
 export function useStablecoinOptionsQuery() {
   return useQuery({
     queryKey: dashboardKeys.stablecoins(),
-    queryFn: async ({ signal }) => (await getStablecoinOptions({ signal })) ?? [],
+    queryFn: async ({ signal }) =>
+      (await getStablecoinOptions({ signal })) ?? [],
   });
 }
 
-export function useStableCoinOverviewQuery() {
+export function useStableCoinOverviewQuery(stablecoinCode: string) {
   return useQuery({
-    queryKey: dashboardKeys.overview(),
-    queryFn: ({ signal }) => getStableCoinOverview({ signal }),
+    queryKey: dashboardKeys.overview(stablecoinCode),
+    queryFn: ({ signal }) => getStableCoinOverview(stablecoinCode, { signal }),
+    enabled: Boolean(stablecoinCode),
   });
 }
 
 export function useWalletStatisticsQuery(
   stablecoinCode: string,
-  range: TimeRangeKey
+  range: TimeRangeKey,
 ) {
-  const statisticsDateType = mapRangeToStatisticsDateType(range);
+  const timeRange = getTrendTimeRange(range);
 
   return useQuery({
     queryKey: dashboardKeys.wallet(stablecoinCode, range),
     queryFn: ({ signal }) =>
       getWalletStatistics(
         {
-          statisticsType: 1,
-          statisticsDateType,
+          stablecoinCode,
+          ...timeRange,
         },
-        { signal }
+        { signal },
       ),
     enabled: Boolean(stablecoinCode),
   });
@@ -46,31 +48,34 @@ export function useWalletStatisticsQuery(
 
 export function useTransactionStatisticsQuery(
   stablecoinCode: string,
-  range: TimeRangeKey
+  range: TimeRangeKey,
 ) {
-  const statisticsDateType = mapRangeToStatisticsDateType(range);
+  const timeRange = getTrendTimeRange(range);
 
   return useQuery({
     queryKey: dashboardKeys.transaction(stablecoinCode, range),
     queryFn: ({ signal }) =>
       getTransactionStatistics(
         {
-          statisticsType: 2,
-          statisticsDateType,
+          stablecoinCode,
+          ...timeRange,
         },
-        { signal }
+        { signal },
       ),
     enabled: Boolean(stablecoinCode),
   });
 }
 
-function mapRangeToStatisticsDateType(range: TimeRangeKey): number {
-  switch (range) {
-    case '7d':
-      return 1;
-    case '14d':
-      return 2;
-    case '30d':
-      return 3;
-  }
+function getTrendTimeRange(range: TimeRangeKey): {
+  startTime: number;
+  endTime: number;
+} {
+  const end = new Date();
+  end.setHours(0, 0, 0, 0);
+  const rangeDays = range === '7d' ? 7 : range === '14d' ? 14 : 30;
+
+  return {
+    endTime: end.getTime(),
+    startTime: end.getTime() - rangeDays * 24 * 60 * 60 * 1000,
+  };
 }

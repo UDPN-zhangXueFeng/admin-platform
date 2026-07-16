@@ -1,5 +1,3 @@
-import type { PaginationParams } from '@myorg/shared/model';
-
 export type TimeRangeKey = '7d' | '14d' | '30d';
 
 export interface StablecoinOption {
@@ -13,40 +11,35 @@ export interface StablecoinOption {
 }
 
 export interface StableCoinOverview {
-  surplusCount: number;
-  circulationTotal: number;
-  issueTotal: number;
-  destructionTotal: number;
-  numOfWallets: number;
+  repositoryBalance?: number;
+  circulation?: number;
+  totalMint?: number;
+  totalMelt?: number;
+  walletNumber?: number;
+  symbol?: string;
+  reserveBalance?: number;
+  currencySymbol?: string;
 }
 
-export interface WalletStatisticsRequest extends PaginationParams {
-  statisticsType: 1;
-  statisticsDateType: number;
-  startDate?: string;
-  endDate?: string;
+/** TD dashboard trend request. The backend requires timestamps in milliseconds. */
+export interface DashboardTrendRequest {
+  stablecoinCode: string;
+  startTime: number;
+  endTime: number;
 }
 
-export interface WalletStatisticsResponse {
-  dateList: string[];
-  statisticsCount: {
-    walletNum: number[];
-    newWalletNum: number[];
-  };
+export interface WalletStatisticsItem {
+  statisticsDay?: number;
+  walletNumber?: number;
+  walletNewNumber?: number;
 }
 
-export interface TransactionStatisticsRequest extends PaginationParams {
-  statisticsType: 2;
-  statisticsDateType: number;
-  startDate?: string;
-  endDate?: string;
+export interface TransactionStatisticsItem {
+  statisticsDay?: number;
+  topUpTotal?: number;
+  transferTotal?: number;
+  withdrawalTotal?: number;
 }
 
-export interface TransactionStatisticsResponse {
-  dateList: string[];
-  statisticsCount: {
-    purchaseTotal: number[];
-    transferTotal: number[];
-    withdrawalTotal: number[];
-  };
-}
+export type WalletStatisticsResponse = WalletStatisticsItem[];
+export type TransactionStatisticsResponse = TransactionStatisticsItem[];

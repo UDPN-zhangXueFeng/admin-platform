@@ -8,7 +8,7 @@
   "theme": {
     "mode": "system",
     "colors": {
-      "primary": "173 58% 39%",
+      "primary": "241.268 75.532% 63.137%",
       "background": "0 0% 100%",
       "foreground": "222.2 84% 4.9%",
       "primary-foreground": "210 40% 98%",
@@ -18,7 +18,7 @@
       "destructive": "0 84% 60%",
       "border": "214 32% 91%",
       "input": "214 32% 91%",
-      "ring": "173 58% 39%"
+      "ring": "241.268 75.532% 63.137%"
     },
     "radius": "0.5rem",
     "fontFamily": {

@@ -16,7 +16,7 @@ export interface ProjectConfig {
   theme: {
     /** "light" | "dark" | "system" */
     mode: string;
-    /** CSS-variable-name → HSL value, e.g. { "primary": "221 83% 53%" } */
+    /** CSS-variable-name → HSL value, e.g. { "primary": "241.268 75.532% 63.137%" } (#5D5AE8). */
     colors: Record<string, string>;
     /** e.g. "0.5rem" */
     radius: string;

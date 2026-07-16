@@ -2,7 +2,8 @@ import type { TimeRangeKey } from './dashboard.model';
 
 export const dashboardKeys = {
   all: ['dashboard'] as const,
-  overview: () => [...dashboardKeys.all, 'overview'] as const,
+  overview: (stablecoinCode: string) =>
+    [...dashboardKeys.all, 'overview', stablecoinCode] as const,
   stablecoins: () => [...dashboardKeys.all, 'stablecoins'] as const,
   wallet: (stablecoinCode: string, range: TimeRangeKey) =>
     [...dashboardKeys.all, 'wallet', stablecoinCode, range] as const,

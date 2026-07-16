@@ -1,35 +1,53 @@
-import { apiClient, type ApiRequestConfig } from '@myorg/shared/data-access-api';
+import {
+  apiClient,
+  type ApiRequestConfig,
+} from '@myorg/shared/data-access-api';
 import type {
   StableCoinOverview,
   StablecoinOption,
-  WalletStatisticsRequest,
+  DashboardTrendRequest,
   WalletStatisticsResponse,
-  TransactionStatisticsRequest,
   TransactionStatisticsResponse,
 } from './dashboard.model';
 
 export function getStablecoinOptions(
-  config?: ApiRequestConfig
+  config?: ApiRequestConfig,
 ): Promise<StablecoinOption[]> {
-  return apiClient.get('/api/manage/v1/common/stablecoin/enabled/searches', config);
+  return apiClient.get(
+    '/api/manage/v1/common/stablecoin/enabled/searches',
+    config,
+  );
 }
 
 export function getStableCoinOverview(
-  config?: ApiRequestConfig
+  stablecoinCode: string,
+  config?: ApiRequestConfig,
 ): Promise<StableCoinOverview> {
-  return apiClient.post('/api/manage/v1/statistics/getStableCoin', undefined, config);
+  return apiClient.post(
+    '/api/manage/v1/td/dashboard/stablecoin/statistics',
+    { stablecoinCode },
+    config,
+  );
 }
 
 export function getWalletStatistics(
-  params: WalletStatisticsRequest,
-  config?: ApiRequestConfig
+  params: DashboardTrendRequest,
+  config?: ApiRequestConfig,
 ): Promise<WalletStatisticsResponse> {
-  return apiClient.post('/api/manage/v1/td/dashboard/wallet/statistics', params, config);
+  return apiClient.post(
+    '/api/manage/v1/td/dashboard/wallet/statistics',
+    params,
+    config,
+  );
 }
 
 export function getTransactionStatistics(
-  params: TransactionStatisticsRequest,
-  config?: ApiRequestConfig
+  params: DashboardTrendRequest,
+  config?: ApiRequestConfig,
 ): Promise<TransactionStatisticsResponse> {
-  return apiClient.post('/api/manage/v1/td/dashboard/transaction/statistics', params, config);
+  return apiClient.post(
+    '/api/manage/v1/td/dashboard/transaction/statistics',
+    params,
+    config,
+  );
 }

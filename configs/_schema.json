@@ -29,7 +29,7 @@
           "type": "object",
           "required": ["primary", "background", "foreground", "primary-foreground", "secondary", "muted", "accent", "destructive", "border", "input", "ring"],
           "properties": {
-            "primary": { "type": "string", "description": "Primary color in CSS HSL format, e.g. \"221 83% 53%\"" },
+            "primary": { "type": "string", "description": "Primary color in CSS HSL format, e.g. \"241.268 75.532% 63.137%\" (#5D5AE8)" },
             "background": { "type": "string" },
             "foreground": { "type": "string" },
             "primary-foreground": { "type": "string" },

@@ -53,7 +53,7 @@ export const defaultLightColors: Record<string, string> = {
   [colorVariables.background]: '0 0% 100%',
   [colorVariables.foreground]: '222.2 84% 4.9%',
 
-  [colorVariables.primary]: '222.2 47.4% 11.2%',
+  [colorVariables.primary]: '241.268 75.532% 63.137%',
   [colorVariables['primary-foreground']]: '210 40% 98%',
 
   [colorVariables.secondary]: '210 40% 96.1%',
@@ -70,7 +70,7 @@ export const defaultLightColors: Record<string, string> = {
 
   [colorVariables.border]: '214.3 31.8% 91.4%',
   [colorVariables.input]: '214.3 31.8% 91.4%',
-  [colorVariables.ring]: '222.2 84% 4.9%',
+  [colorVariables.ring]: '241.268 75.532% 63.137%',
 
   [colorVariables.card]: '0 0% 100%',
   [colorVariables['card-foreground']]: '222.2 84% 4.9%',
@@ -87,8 +87,8 @@ export const defaultDarkColors: Record<string, string> = {
   [colorVariables.background]: '222.2 84% 4.9%',
   [colorVariables.foreground]: '210 40% 98%',
 
-  [colorVariables.primary]: '210 40% 98%',
-  [colorVariables['primary-foreground']]: '222.2 47.4% 11.2%',
+  [colorVariables.primary]: '241.268 75.532% 63.137%',
+  [colorVariables['primary-foreground']]: '210 40% 98%',
 
   [colorVariables.secondary]: '217.2 32.6% 17.5%',
   [colorVariables['secondary-foreground']]: '210 40% 98%',
@@ -104,7 +104,7 @@ export const defaultDarkColors: Record<string, string> = {
 
   [colorVariables.border]: '217.2 32.6% 17.5%',
   [colorVariables.input]: '217.2 32.6% 17.5%',
-  [colorVariables.ring]: '212.7 26.8% 83.9%',
+  [colorVariables.ring]: '241.268 75.532% 63.137%',
 
   [colorVariables.card]: '222.2 84% 4.9%',
   [colorVariables['card-foreground']]: '210 40% 98%',

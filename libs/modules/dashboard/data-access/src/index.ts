@@ -15,9 +15,10 @@ export {
 export type {
   StablecoinOption,
   StableCoinOverview,
-  WalletStatisticsRequest,
+  DashboardTrendRequest,
+  WalletStatisticsItem,
   WalletStatisticsResponse,
-  TransactionStatisticsRequest,
+  TransactionStatisticsItem,
   TransactionStatisticsResponse,
   TimeRangeKey,
 } from './lib/dashboard.model';

@@ -29,6 +29,33 @@
 - 后续同类任务：
 ```
 
+## 2026-07-16
+
+- 背景：参考 `tokenized-deposit-system` 的顶部 Banner，为当前共享 App Header 增加低干扰 SVG 渐变动效，并统一主色为 `#5D5AE8`。
+- 结论：Banner 背景 SVG 只消费 `--banner-start`、`--banner-mid`、`--banner-end`、`--banner-glow`、`--banner-highlight`、`--banner-wave` 六个变量；浅色和深色变量均定义于 `apps/admin/src/app/globals.css`。动效通过全局 CSS keyframes 实现，并对 `prefers-reduced-motion: reduce` 关闭，Header 本身不硬编码这些主题色。
+- 影响：主题调整只改变量，不改 SVG 或 Header 结构；共享 Header 的菜单、通知、账户菜单和登出行为保持不变。`shared-ui-layout` 现有 lint 受 Header 直接依赖 `modules-auth-data-access` 的边界违规阻断，test target 还指向不存在的 `jest.config.ts`。
+- 后续同类任务：更新 Header 视觉时优先保留现有 action 的 a11y 和交互，色彩由 CSS 变量统一驱动；动画必须提供 reduced-motion 降级，不新增动画运行时依赖。
+
+- 背景：Dashboard 刷新按钮点击后持续旋转，切换 token 时也无法判断请求是否真正完成。
+- 结论：`refreshPulse` 这种仅递增、不与请求完成事件绑定的 UI 状态会造成永久 loading；刷新图标与 disabled 状态必须直接使用 TanStack Query 的 `isFetching`。这样手动 refetch、token 切换和时间范围切换都以同一个请求生命周期收敛，完成或失败后都会停止。
+- 影响：不要为服务端请求另建“旋转次数/布尔 loading”状态，除非它由 mutation/query 的 settled 生命周期明确复位；同一请求进行中应禁用对应刷新按钮以避免重复提交。
+- 后续同类任务：出现永久 spinner 时，先搜索所有本地 loading state 是否在 `finally/onSettled` 复位；优先删除派生状态，直接使用 query 的 `isFetching/isLoading/isError`。
+
+- 背景：当前 Dashboard token selector 能加载 token，但概览和两张趋势图没有数据；需以旧 `statistic-analysis/index.tsx` 恢复真实接口链路。
+- 结论：TD Dashboard 不是全局聚合接口。概览必须调用 `POST /api/manage/v1/td/dashboard/stablecoin/statistics` 并传 `{stablecoinCode}`；钱包和交易趋势必须传 `{stablecoinCode,startTime,endTime}`（毫秒时间戳），响应为逐日行数组，字段分别是 `statisticsDay/walletNumber/walletNewNumber` 与 `statisticsDay/topUpTotal/transferTotal/withdrawalTotal`。`symbol` 仅用于展示，不能代替 `code` 作为后端请求标识。
+- 影响：Dashboard data-access 的 query key 必须包含 stablecoinCode；切换 selector 后概览与趋势必须随 code 重取。不要使用迁移时臆造的 `statisticsType/statisticsDateType` 或 `dateList/statisticsCount` 结构。
+- 后续同类任务：接口看似成功但图表为空时，优先对照旧页的请求 body 和响应行模型，而不是只检查 endpoint；至少用 data-access API contract test 锁定 URL、code 和时间范围。
+
+- 背景：Dashboard 需要参考外部 `usd-coin` 的数据工作台视觉迭代，同时明确冻结 Stablecoin token selector（筛选、搜索、视图切换、token 卡片和折叠区）。
+- 结论：Dashboard 仅调整 selector 外的 Header、概览指标卡和图表容器；保留 `StablecoinTabs → TokenSelector` 的实现、受控 props、API/query 与 token 选择逻辑。指标卡可以采用紧凑数值与完整数值并存的展示，但不能用 mock 数据替换现有接口结果。
+- 影响：Dashboard 视觉迭代时，应将 token selector 视为独立、已验收的 UI 边界；不要因页面重构改变其布局、状态机或数据映射。Admin 全量 lint/test 目前分别受既有 selector boundary 与 `specs/index.spec.tsx` 路径错误阻断，定向 selector 测试可用 `apps/admin` cwd + `jest.config.cts --runTestsByPath` 验证。
+- 后续同类任务：先确认用户是否冻结某一视觉组件；冻结时对该文件执行零 diff 检查，并只验证它的既有测试，不擅自改动以解决页面级样式需求。
+
+- 背景：需要基于当前仓库生成一份足够详细、可约束后续研发方向的整体框架与开发约束文档。
+- 结论：新增 `.doc/project-framework-and-development-constraints.md`，以实际源码和 Nx 配置为基线，将“当前事实、强制约束、已知债务、演进目标”分开描述；基线确认仓库当前包含 29 个业务 domain、112 个领域 library project 和 17 个 shared library project。
+- 影响：后续涉及目录职责、依赖边界、配置/路由/registry/i18n 接入、API business code、auth、测试门禁或 Definition of Done 时，应优先用该文档做完整性检查；`.doc/nx.md` 仍视为历史架构草案，不能覆盖当前代码事实。
+- 后续同类任务：重点避免扩大 shared 反向依赖 domain、未覆盖的新 domain scope constraint、root/app alias 与 Next 编译清单漂移、配置菜单存在但页面未接通等问题；新增模块必须把 config、route、app-local registry、compile、i18n、domain 和 verification 作为一条接入链验证。
+
 ## 2026-07-15
 
 - 背景：Dashboard 顶部 Stablecoin 选择器需要采用外部 `token-management-ui` 的交互设计，但继续使用当前真实 API 数据。
@@ -150,3 +177,9 @@
 - 结论：`AGENTS.md` 只保留仓库入口、关键约束和执行提醒；详细项目结构由 `pro.md` 维护，详细代码规范由 `rule.md` 维护。
 - 影响：后续修改项目结构、模块边界、技术栈、命名规范、lint/format/test 规则或代码设计约定时，需要同步更新对应文档。
 - 后续同类任务：先判断信息属于项目事实、代码规范还是对话经验，再分别写入 `pro.md`、`rule.md` 或 `memory.md`，避免多个文档重复维护同一段内容。
+## 2026-07-16
+
+- 背景：按旧系统 `td-manage/src/pages/tokenized-deposit/edit.tsx` 审计当前 Tokenized Deposit 编辑页的迁移完整性。
+- 结论：当前编辑入口由 `tokenized-deposit` registry 的 `edit` 页加载，`TokenizedDepositEditPage` 从 query `code` 回填；详情、下拉、钱包生成及新增/编辑提交沿用旧页面 endpoint 和 payload 语义。COA 的 `setup_required` 初始值仍是本地 mock（旧实现同样如此），因此不能据此宣称真实后端端到端验收完成。
+- 影响：后续改动该页时必须同时核对 `code` 路由、`useDetailInit` 回填、`useBlockchainEffect` 联动和 `useTokenizedDepositSubmit` 的 `createTDApply`/`editTDOperation` 分支；应补充至少覆盖回填和两条提交 payload 的 feature 测试。
+- 后续同类任务：`modules-tokenized-deposit-feature` 当前没有测试文件；普通 Jest 命令可能被 Watchman socket 权限阻塞，必要时以允许 Watchman 访问的环境运行，并明确区分“零测试通过”与“行为已覆盖”。
