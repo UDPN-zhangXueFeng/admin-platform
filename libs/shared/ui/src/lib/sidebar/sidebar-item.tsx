@@ -5,6 +5,7 @@ import { usePathname } from '@myorg/shared/util-i18n';
 import Link from 'next/link';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@myorg/shared/util-classnames';
+import { SidebarActiveBackdrop } from './sidebar-active-backdrop';
 
 export interface SidebarItemProps {
   id: string;
@@ -13,6 +14,9 @@ export interface SidebarItemProps {
   path: string;
   collapsed: boolean;
   disabled?: boolean;
+  /** Child entries follow the reference sidebar's compact text-only treatment. */
+  nested?: boolean;
+  onClick?: () => void;
 }
 
 /**
@@ -31,6 +35,8 @@ export function SidebarItem({
   path,
   collapsed,
   disabled = false,
+  nested = false,
+  onClick,
 }: SidebarItemProps) {
   const pathname = usePathname();
   const isActive = pathname === path || pathname?.startsWith(`${path}/`);
@@ -41,18 +47,22 @@ export function SidebarItem({
       aria-current={isActive ? 'page' : undefined}
       aria-disabled={disabled || undefined}
       tabIndex={disabled ? -1 : 0}
+      onClick={onClick}
       className={cn(
-        'group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+        'group relative flex min-h-11 items-center gap-3 overflow-hidden rounded-xl px-3 text-sm font-medium transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         isActive
-          ? 'bg-primary/10 text-primary'
+          ? 'bg-primary text-primary-foreground shadow-sm'
           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
         disabled && 'pointer-events-none opacity-50',
-        collapsed && 'justify-center px-2'
+        collapsed && 'size-11 min-h-0 justify-center p-0',
+        nested && 'min-h-9 rounded-lg py-0 text-sm shadow-none',
+        nested && isActive && 'bg-transparent text-primary shadow-none',
       )}
     >
-      <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-      {!collapsed && <span className="truncate">{label}</span>}
+      {isActive && !nested && <SidebarActiveBackdrop />}
+      {!nested && <Icon className="relative z-10 h-5 w-5 shrink-0" aria-hidden="true" />}
+      {!collapsed && <span className="relative z-10 truncate">{label}</span>}
     </Link>
   );
 

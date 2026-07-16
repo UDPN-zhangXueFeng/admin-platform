@@ -17,9 +17,9 @@ export interface SidebarGroupProps {
  */
 export function SidebarGroup({ title, children, className }: SidebarGroupProps) {
   return (
-    <div className={cn('flex flex-col gap-1 py-2', className)}>
+    <div className={cn('flex flex-col gap-1', className)}>
       {title && (
-        <h3 className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <h3 className="px-3 pb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           {title}
         </h3>
       )}

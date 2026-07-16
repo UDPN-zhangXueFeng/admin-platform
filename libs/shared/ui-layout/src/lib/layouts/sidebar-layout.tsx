@@ -3,10 +3,14 @@
 import * as React from 'react';
 import { useState } from 'react';
 import * as LucideIcons from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import {
+  PanelLeftClose,
+  PanelLeftOpen,
+  type LucideIcon,
+} from 'lucide-react';
 import type { ProjectConfig } from '@myorg/shared/util-config';
 import { cn } from '@myorg/shared/util-classnames';
-import { Sidebar } from '@myorg/shared/ui';
+import { Button, Sidebar } from '@myorg/shared/ui';
 import type { SidebarItemConfig } from '@myorg/shared/ui';
 import { Header } from '../header/header';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
@@ -56,7 +60,6 @@ export function SidebarLayout({ config, children }: SidebarLayoutProps) {
       <Header
         config={config}
         onMenuToggle={() => setMobileOpen((v) => !v)}
-        onSidebarToggle={() => setCollapsed((v) => !v)}
       />
 
       {/* Body: Sidebar + Content */}
@@ -88,11 +91,23 @@ export function SidebarLayout({ config, children }: SidebarLayoutProps) {
 
         {/* Main content */}
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {config.layout.breadcrumb.enabled && (
-            <div className="flex h-12 shrink-0 items-center border-b px-4 lg:px-6">
-              <Breadcrumb />
-            </div>
-          )}
+          <div className="flex h-12 shrink-0 items-center gap-2 border-b px-4 lg:px-6">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCollapsed((value) => !value)}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-pressed={collapsed}
+              className="hidden lg:inline-flex"
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <PanelLeftClose className="h-5 w-5" aria-hidden="true" />
+              )}
+            </Button>
+            {config.layout.breadcrumb.enabled && <Breadcrumb />}
+          </div>
           <div className="min-h-0 flex-1 overflow-auto p-4 lg:p-6">
             {children}
           </div>

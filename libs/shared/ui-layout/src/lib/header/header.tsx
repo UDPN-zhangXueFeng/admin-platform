@@ -5,7 +5,6 @@ import {
   Bell,
   LogOut,
   Menu,
-  PanelLeft,
   Settings,
   Shield,
   User,
@@ -26,8 +25,6 @@ export interface HeaderProps {
   config: ProjectConfig;
   /** Show a hamburger menu button (for mobile sidebar toggle). */
   onMenuToggle?: () => void;
-  /** Show a desktop sidebar collapse/expand toggle. */
-  onSidebarToggle?: () => void;
   /** Minimal mode: hides search/notifications to reduce chrome. */
   minimal?: boolean;
 }
@@ -36,7 +33,7 @@ export interface HeaderProps {
  * Reusable application header.
  *
  * Layout (left-to-right):
- * 1. Sidebar toggle (desktop) + Mobile menu toggle
+ * 1. Mobile menu toggle
  * 2. Logo / project name
  * 3. Spacer
  * 4. User Manual link
@@ -50,7 +47,6 @@ export interface HeaderProps {
 export function Header({
   config,
   onMenuToggle,
-  onSidebarToggle,
   minimal = false,
 }: HeaderProps) {
   const { user } = useAuth();
@@ -89,27 +85,12 @@ export function Header({
             </Button>
           )}
 
-          {onSidebarToggle && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onSidebarToggle}
-              aria-label="Toggle sidebar"
-              className="hidden text-white/85 hover:bg-white/10 hover:text-white lg:inline-flex"
-            >
-              <PanelLeft className="h-5 w-5" aria-hidden="true" />
-            </Button>
-          )}
-
           <div className="flex min-w-0 items-center gap-3">
-            {config.project.logo && (
-              <img
-                src={config.project.logo}
-                alt=""
-                className="h-8 w-8 shrink-0 rounded-lg bg-white/10 p-1"
-                aria-hidden="true"
-              />
-            )}
+            <img
+              src="/logo-icon.svg"
+              alt="UDPN"
+              className="h-12 w-[104px] shrink-0"
+            />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-wide text-white sm:text-base">
                 {config.project.name}

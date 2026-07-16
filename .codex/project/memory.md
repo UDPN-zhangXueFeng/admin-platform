@@ -179,6 +179,41 @@
 - 后续同类任务：先判断信息属于项目事实、代码规范还是对话经验，再分别写入 `pro.md`、`rule.md` 或 `memory.md`，避免多个文档重复维护同一段内容。
 ## 2026-07-16
 
+- 背景：原生 `input[type="date"]` 的显示应跟随操作系统/浏览器语言，而不是应用路由语言。
+- 结论：`FormDatePicker` 不向原生 input 传递 `lang`，避免 `next-intl` 的 `zh-CN` locale 强制覆盖浏览器的系统格式。
+- 影响：所有复用 `FormDatePicker` 的筛选和表单使用浏览器原生日期显示；日期值仍保留 HTML date 的 ISO 格式，接口契约不变。
+- 后续同类任务：只有需求明确要求“跟随应用语言”时才设置 `lang`；“跟随系统”应保留原生控件的浏览器默认 locale。
+
+- 背景：侧栏收起后，选中一级菜单的背景需要保持正方形。
+- 结论：收起态的普通项和含 children 的父项统一使用 `size-11`，使点击区域和激活背景固定为 44×44px；展开态不受影响。
+- 影响：图标菜单的视觉密度与点击目标一致，避免背景随图标或内边距形成非正方形。
+- 后续同类任务：收起态图标导航必须同时固定宽高，不能只固定高度或依赖内容宽度。
+
+- 背景：收起态打开二级 flyout 后，点击普通一级菜单时浮层未关闭。
+- 结论：普通 `SidebarItem` 提供可选 `onClick`，由 Sidebar 在收起态注入 flyout close 回调；路由跳转仍由 Link 处理，不将关闭行为散落到各菜单配置。
+- 影响：收起态下的一级导航不会遗留悬浮菜单；带 children 的一级项仍通过同一 flyout state 完成切换。
+- 后续同类任务：浮层状态与触发导航的叶子项必须同步；为通用导航项提供可选交互回调，而不是依赖路由切换时机隐式清理。
+
+- 背景：收起侧栏后仍需访问父级菜单的二级路由。
+- 结论：`shared-ui` Sidebar 在收起态对含 children 的菜单项使用 fixed portal flyout；浮层从原菜单按钮的 viewport top 定位，子项继续使用配置中的真实 `path`、`disabled` 和当前路由高亮，而不是复制菜单数据。
+- 影响：桌面侧栏可以收缩为图标模式而不丢失二级导航；展开态仍使用原有的内联折叠子菜单。
+- 后续同类任务：收起态浮层应渲染在 `document.body`，避免被侧栏的滚动和 overflow 裁切；子项动作必须沿用真实 Link 路由。
+
+- 背景：侧栏收缩入口需要从顶部 Header 移至内容区的面包屑前方。
+- 结论：桌面端收缩按钮由 `SidebarLayout` 在 Breadcrumb 工具栏内渲染，Header 只保留移动端抽屉菜单按钮；Breadcrumb 关闭时工具栏和收缩入口仍保留。
+- 影响：品牌 Banner 不再承担桌面布局控制，侧栏操作与当前页面上下文保持相邻。
+- 后续同类任务：布局控件应放在其控制对象或相关上下文附近；Header 仅承载全局操作。
+
+- 背景：管理后台 Header 需要使用 UDPN 新标识，且不再依赖旧 `/logo.svg` 静态资源。
+- 结论：Header 固定使用下载至 `apps/admin/public/logo-icon.svg` 的本地 UDPN SVG，不读取 `config.project.logo`；项目配置中的 logo 字段仍保留，避免改变通用配置 schema。
+- 影响：Header 的品牌标识不依赖内网运行时访问，且由可缓存的本地静态资源提供；后续若要支持每项目不同品牌，需要再将 Logo 作为受控组件或明确的配置类型扩展。
+- 后续同类任务：替换固定 Header 品牌时将已审核的资源放入应用 public 目录；不要为了单一固定标识修改所有项目 config。
+
+- 背景：Stablecoin 管理后台需要参考新的侧栏菜单样式和布局迭代现有导航。
+- 结论：菜单内容仍由 `configs/stablecoin.json` 保持原有 `id`、`path`、`enabled` 与 `disabled`；视觉统一在 `shared-ui` 的 Sidebar 实现，采用 288px 卡片式侧栏、44px 圆角一级菜单、实色激活态，以及带左侧引导线的紧凑子菜单。
+- 影响：侧栏视觉会被使用 shared Sidebar 的项目复用，原有路由匹配、折叠和移动端抽屉行为不受影响。
+- 后续同类任务：菜单内容变更与视觉变更分别落在 config 和 shared Sidebar；仅有视觉需求时不要修改业务菜单配置。
+
 - 背景：按旧系统 `td-manage/src/pages/tokenized-deposit/edit.tsx` 审计当前 Tokenized Deposit 编辑页的迁移完整性。
 - 结论：当前编辑入口由 `tokenized-deposit` registry 的 `edit` 页加载，`TokenizedDepositEditPage` 从 query `code` 回填；详情、下拉、钱包生成及新增/编辑提交沿用旧页面 endpoint 和 payload 语义。COA 的 `setup_required` 初始值仍是本地 mock（旧实现同样如此），因此不能据此宣称真实后端端到端验收完成。
 - 影响：后续改动该页时必须同时核对 `code` 路由、`useDetailInit` 回填、`useBlockchainEffect` 联动和 `useTokenizedDepositSubmit` 的 `createTDApply`/`editTDOperation` 分支；应补充至少覆盖回填和两条提交 payload 的 feature 测试。
