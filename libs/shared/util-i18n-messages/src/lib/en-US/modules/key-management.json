@@ -1,0 +1,20 @@
+{
+  "PUB_All": "All",
+  "PUB_Query": "Query",
+  "PUB_Reset": "Reset",
+  "PUB_NoData": "No data",
+  "key_management_0060": "Transaction record not found",
+  "token_type_1": "Stablecoin",
+  "token_type_5": "Stablecoin",
+  "common_task_status_1": "Saved",
+  "common_task_status_3": "Withdrawn",
+  "common_task_status_5": "Pending Approval",
+  "common_task_status_10": "Under Approval",
+  "common_task_status_15": "Rejected",
+  "common_task_status_20": "Approved",
+  "common_task_status_25": "Signed",
+  "common_task_status_30": "Processing",
+  "common_task_status_35": "Success",
+  "common_task_status_40": "Failed",
+  "common_task_status_45": "Deleted"
+}

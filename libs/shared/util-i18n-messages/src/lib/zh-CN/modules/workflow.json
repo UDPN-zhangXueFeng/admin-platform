@@ -1,0 +1,94 @@
+{
+  "title": "审批工作流",
+  "query": "查询",
+  "reset": "重置",
+  "all": "全部",
+  "records": "工作流列表",
+  "empty": "暂无工作流",
+  "invalidId": "工作流 ID 无效",
+  "yes": "是",
+  "no": "否",
+  "action": {
+    "view": "查看",
+    "edit": "编辑",
+    "disable": "禁用",
+    "enable": "启用",
+    "delete": "删除",
+    "add": "新增",
+    "back": "返回",
+    "cancel": "取消",
+    "save": "保存",
+    "submit": "确定",
+    "selected": "选择"
+  },
+  "field": {
+    "index": "序号",
+    "workflowName": "工作流名称",
+    "businessName": "业务功能",
+    "nodes": "节点数",
+    "createdDate": "创建时间",
+    "status": "状态",
+    "action": "操作",
+    "stepOrder": "步骤",
+    "stepType": "权限类型",
+    "assignees": "审批人",
+    "executionMode": "执行模式",
+    "executionModeValue": "每个节点需一名审批人",
+    "initiator": "发起人",
+    "authorizedUser": "拥有业务菜单权限的用户",
+    "withdraw": "撤回",
+    "revert": "退回上一步",
+    "escalate": "升级加签",
+    "userName": "用户名",
+    "roles": "角色",
+    "thresholdRule": "阈值规则",
+    "thresholdAmount": "阈值金额",
+    "thresholdEnable": "启用阈值"
+  },
+  "status": {
+    "active": "启用",
+    "inactive": "禁用"
+  },
+  "confirm": {
+    "disable": "确定要禁用工作流“{name}”吗？",
+    "enable": "确定要启用工作流“{name}”吗？",
+    "delete": "确定要删除工作流“{name}”吗？"
+  },
+  "business": {
+    "hint": "如需新增工作流触发条件，请联系管理员。"
+  },
+  "process": {
+    "title": "工作流流程",
+    "initiator": "发起人",
+    "authorizedUser": "拥有业务菜单权限的用户",
+    "approver": "审批人",
+    "end": "结束"
+  },
+  "config": {
+    "title": "工作流配置",
+    "withdrawHint": "该功能允许发起人在首位审批人处理前撤回申请。",
+    "revertHint": "该功能允许当前审批人将申请退回给上一位审批人。",
+    "escalateHint": "该功能允许当前审批人在当前步骤前后追加额外审批步骤以升级审批流程。"
+  },
+  "picker": {
+    "title": "选择用户",
+    "notFoundHint": "若所需用户不在列表中，请",
+    "goToUserMgmt": "前往用户管理"
+  },
+  "stepType": {
+    "5": "审批",
+    "10": "审批"
+  },
+  "validate": {
+    "thresholdLt": "必须大于上一步的阈值金额（{amount}）。"
+  },
+  "view": {
+    "title": "工作流详情"
+  },
+  "edit": {
+    "title": "编辑工作流"
+  },
+  "create": {
+    "title": "新增工作流"
+  }
+}

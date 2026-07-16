@@ -1,0 +1,20 @@
+{
+  "PUB_All": "全部",
+  "PUB_Query": "查询",
+  "PUB_Reset": "重置",
+  "PUB_NoData": "暂无数据",
+  "key_management_0060": "未找到交易记录",
+  "token_type_1": "稳定币",
+  "token_type_5": "稳定币",
+  "common_task_status_1": "已保存",
+  "common_task_status_3": "已撤回",
+  "common_task_status_5": "待审批",
+  "common_task_status_10": "审批中",
+  "common_task_status_15": "已拒绝",
+  "common_task_status_20": "已通过",
+  "common_task_status_25": "已签署",
+  "common_task_status_30": "处理中",
+  "common_task_status_35": "成功",
+  "common_task_status_40": "失败",
+  "common_task_status_45": "已删除"
+}

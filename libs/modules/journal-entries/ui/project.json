@@ -1,0 +1,15 @@
+{
+  "name": "modules-journal-entries-ui",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/journal-entries/ui/src",
+  "projectType": "library",
+  "tags": ["scope:journal-entries", "type:ui"],
+  "targets": {
+    "lint": { "executor": "@nx/eslint:lint", "outputs": ["{options.outputFile}"] },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": { "jestConfig": "libs/modules/journal-entries/ui/jest.config.ts", "passWithNoTests": true }
+    }
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "title": "Journal Entries",
+  "records": "Transaction Records",
+  "empty": "No Data",
+  "copy": "Copy",
+  "filter": {
+    "title": "Query",
+    "query": "Query",
+    "reset": "Reset",
+    "all": "All"
+  },
+  "field": {
+    "from": "From",
+    "to": "To",
+    "tokenName": "Token Name",
+    "tokenType": "Token Type",
+    "blockchain": "Blockchain",
+    "transactionType": "Transaction Type",
+    "transactionAmount": "Transaction Amount",
+    "transactionTime": "Transaction Time",
+    "transactionTimeFrom": "Start date",
+    "transactionTimeTo": "End date",
+    "transactionHash": "Transaction Hash",
+    "contractAddress": "Contract Address",
+    "actions": "Actions"
+  },
+  "placeholder": {
+    "address": "Enter address",
+    "transactionHash": "Enter transaction hash"
+  },
+  "action": {
+    "detail": "Details",
+    "back": "Back"
+  },
+  "tokenType": {
+    "1": "Stablecoin",
+    "5": "Tokenized Deposit"
+  },
+  "transactionType": {
+    "1": "Mint",
+    "2": "Melt",
+    "3": "Top-up",
+    "4": "Transfer",
+    "5": "Authorized Transfer",
+    "6": "Withdrawal",
+    "7": "WithdrawByBank",
+    "9": "Maintenance Fee",
+    "10": "Minimum Balance Fee",
+    "12": "Arranged Overdraft Fee",
+    "13": "Unarranged Overdraft Fee",
+    "16": "Deposit Interest",
+    "17": "Overdraft Interest",
+    "18": "Fund Dividend Distribution"
+  },
+  "detail": {
+    "rawData": "Raw Data",
+    "normalizationEngine": "Normalization Engine",
+    "postingEntry": "Posting Entry",
+    "tAccount": "T-Account",
+    "columnName": "Column Name",
+    "value": "Value",
+    "logicType": "Logic Type",
+    "blockHeight": "Block Height",
+    "blockHash": "Block Hash",
+    "blockTime": "Block Time",
+    "bookId": "Book ID",
+    "debit": "Debit",
+    "credit": "Credit",
+    "invalidId": "Invalid or missing transaction ID."
+  }
+}

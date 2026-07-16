@@ -1,0 +1,27 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Sign In" [level=1] [ref=e6]
+      - paragraph [ref=e7]: Enter your credentials to access the platform
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - text: Username
+        - textbox "Username" [ref=e10]:
+          - /placeholder: Enter your username
+      - generic [ref=e11]:
+        - text: Password
+        - textbox "Password" [ref=e12]:
+          - /placeholder: Enter your password
+      - generic [ref=e13]:
+        - text: Captcha
+        - textbox "Captcha" [ref=e15]:
+          - /placeholder: Enter captcha code
+      - button "Sign In" [ref=e16] [cursor=pointer]
+    - generic [ref=e17]: or
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - text: Username
+        - textbox "Username" [ref=e21]:
+          - /placeholder: Enter your username
+      - button "Connect with MetaMask" [disabled]
+  - button "Open Next.js Dev Tools" [ref=e27] [cursor=pointer]

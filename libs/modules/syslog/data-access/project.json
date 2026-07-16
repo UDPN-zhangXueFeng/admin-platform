@@ -1,0 +1,21 @@
+{
+  "name": "modules-syslog-data-access",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/syslog/data-access/src",
+  "projectType": "library",
+  "tags": ["scope:syslog", "type:data-access"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/modules/syslog/data-access/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}

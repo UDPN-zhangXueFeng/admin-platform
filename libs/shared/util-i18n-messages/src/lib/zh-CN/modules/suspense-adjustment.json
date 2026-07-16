@@ -1,0 +1,77 @@
+{
+  "title": "暂记户调账",
+  "list": {
+    "title": "暂记户调账",
+    "description": "暂记科目分录及其完整调账历史，用于对账与审计。"
+  },
+  "detail": {
+    "title": "暂记分录详情",
+    "basicInformation": "基本信息",
+    "suspenseEntries": "暂记分录",
+    "amountSummary": "金额汇总",
+    "adjustmentHistory": "调账历史",
+    "invalidId": "暂记记录 ID 无效。"
+  },
+  "edit": {
+    "title": "新建调账分录",
+    "basicInfo": "基本信息",
+    "overview": "概览",
+    "offsettingEntryFor": "抵账分录",
+    "addEntry": "+ 新增分录",
+    "reason": "调账原因",
+    "reasonPlaceholder": "请输入调账原因",
+    "summary": "调账汇总",
+    "thisAdjustment": "本次调账",
+    "remainingAfter": "本次后剩余",
+    "amountExceed": "合计不能超过未清金额（{amount} {currency}）。",
+    "submitSuccess": "调账提交成功。",
+    "submitFailed": "调账提交失败。"
+  },
+  "filter": {
+    "title": "查询",
+    "query": "查询",
+    "reset": "重置",
+    "all": "全部"
+  },
+  "placeholder": {
+    "suspenseTxnId": "暂记事务号",
+    "transactionId": "交易号"
+  },
+  "field": {
+    "postingDate": "记账日期",
+    "postingDateFrom": "记账日期起",
+    "postingDateTo": "记账日期止",
+    "suspenseTxnId": "暂记事务号",
+    "transactionId": "交易号",
+    "sourceType": "来源类型",
+    "drCr": "借/贷",
+    "account": "科目",
+    "originalAmount": "原始金额",
+    "totalAdjusted": "累计已清",
+    "outstandingAmount": "剩余未清",
+    "age": "账龄",
+    "status": "状态",
+    "actions": "操作",
+    "financeBookName": "账本",
+    "bookId": "账本编号",
+    "debit": "借方",
+    "credit": "贷方",
+    "exceptionContext": "异常上下文",
+    "createdBy": "创建人",
+    "createdOn": "创建时间",
+    "offsetAccount": "对方科目",
+    "amount": "金额",
+    "adjustmentReason": "调账原因"
+  },
+  "action": {
+    "adjust": "调账",
+    "viewDetails": "查看详情",
+    "back": "返回",
+    "detail": "详情",
+    "approval": "审批",
+    "submit": "提交",
+    "cancel": "取消"
+  },
+  "empty": "暂无暂记分录",
+  "ageDays": "{count} 天"
+}

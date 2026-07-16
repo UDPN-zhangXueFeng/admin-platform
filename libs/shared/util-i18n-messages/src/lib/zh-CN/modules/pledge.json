@@ -1,0 +1,177 @@
+{
+  "title": "储备资产",
+  "filter": {
+    "query": "查询",
+    "reset": "重置",
+    "all": "全部"
+  },
+  "field": {
+    "index": "序号",
+    "accountName": "储备资产名",
+    "currency": "币种",
+    "bookStatus": "账本状态",
+    "createTime": "创建时间",
+    "assetValue": "资产价值",
+    "assetCategories": "资产类别",
+    "tokenCount": "Token 数量",
+    "status": "状态",
+    "actions": "操作"
+  },
+  "bookStatus": {
+    "not_setup": "未配置",
+    "configured": "已配置"
+  },
+  "status": {
+    "10": "处理中",
+    "15": "已驳回",
+    "20": "启用",
+    "50": "停用"
+  },
+  "statusColor": {
+    "10": "processing",
+    "15": "error",
+    "20": "success",
+    "50": "default"
+  },
+  "action": {
+    "add": "新增",
+    "edit": "编辑",
+    "details": "详情",
+    "activate": "启用",
+    "deactivate": "停用",
+    "addAssetCategory": "新增资产类别",
+    "newTransaction": "新建交易",
+    "more": "更多",
+    "confirm": "确认",
+    "cancel": "取消"
+  },
+  "drawer": {
+    "newTitle": "新增储备资产",
+    "editTitle": "编辑储备资产",
+    "currencyLabel": "币种",
+    "currencyPlaceholder": "请选择币种",
+    "nameLabel": "储备资产名",
+    "namePlaceholder": "30 字符,字母、数字、空格、'_' 和 '-'",
+    "nameRequired": "请输入储备资产名",
+    "nameMax": "最多 30 个字符",
+    "namePattern": "仅允许字母、数字、空格、'_' 和 '-'",
+    "categoryLabel": "资产类别",
+    "categoryRequired": "请选择资产类别"
+  },
+  "confirmDeactivate": "确定要停用 {accountName} 吗?",
+  "confirmActivate": "确定要启用 {accountName} 吗?",
+  "operateSuccess": "操作成功",
+  "createSuccess": "新增成功",
+  "editSuccess": "编辑成功",
+  "empty": "暂无数据",
+  "categoryAdd": {
+    "title": "新增资产类别",
+    "placeholder": "50字符，字母、数字、空格、'_' 和 '-'",
+    "required": "请输入资产类别",
+    "max": "最多 50 个字符",
+    "pattern": "仅支持字母、数字、空格、'_' 和 '-'",
+    "add": "+ 新增",
+    "remove": "移除",
+    "back": "返回",
+    "submit": "提交"
+  },
+  "tabs": {
+    "basic": "基本信息",
+    "assetTransactions": "资产交易",
+    "operationRecords": "操作记录"
+  },
+  "txnStatus": {
+    "5": "待审批",
+    "10": "审批中",
+    "15": "已驳回",
+    "35": "已批准"
+  },
+  "opRecordStatus": {
+    "5": "待审批",
+    "10": "审批中",
+    "15": "已驳回",
+    "20": "已批准"
+  },
+  "operateType": {
+    "1": "新增",
+    "2": "编辑",
+    "3": "启用",
+    "4": "停用",
+    "5": "新增资产类别"
+  },
+  "assetTxn": {
+    "no": "序号",
+    "category": "资产类别",
+    "type": "交易类型",
+    "value": "资产价值",
+    "createdBy": "创建人",
+    "createdOn": "创建时间"
+  },
+  "operationRecord": {
+    "type": "操作类型",
+    "createdBy": "创建人",
+    "createdOn": "创建时间",
+    "status": "状态",
+    "actions": "操作"
+  },
+  "tokenType": {
+    "1": "稳定币",
+    "5": "代币化存款"
+  },
+  "viewBasic": {
+    "overviewTitle": "储备资产概览",
+    "reserveAssetName": "储备资产名:",
+    "currency": "币种:",
+    "createdOn": "创建时间:",
+    "status": "状态:",
+    "totalAssetValue": "总资产价值",
+    "tokens": "Tokens",
+    "summaryTitle": "储备资产汇总",
+    "summaryCategory": "资产类别",
+    "summaryValue": "总资产价值",
+    "summaryShare": "总储备占比",
+    "summaryUpdatedBy": "更新人",
+    "summaryUpdatedOn": "更新时间",
+    "summaryStatus": "状态",
+    "tokensOverview": "Tokens 概览",
+    "tokenName": "Token 名称:",
+    "tokenType": "Token 类型:",
+    "tokenPrice": "Token 价格:",
+    "blockchain": "区块链:",
+    "inCirculation": "流通量",
+    "goBack": "返回",
+    "categoryActive": {
+      "0": "未启用",
+      "1": "启用"
+    }
+  },
+  "assetTxnEdit": {
+    "reserveAssetPlaceholder": "请选择储备资产",
+    "reserveAssetRequired": "请选择储备资产",
+    "categoryPlaceholder": "请选择资产类别",
+    "categoryRequired": "请选择资产类别",
+    "transactionTypeRequired": "请选择交易类型",
+    "quantity": "数量",
+    "quantityPlaceholder": "请输入数量",
+    "assetValuePlaceholder": "请输入资产价值",
+    "assetValueRequired": "请输入资产价值"
+  },
+  "assetTxnList": {
+    "title": "储备资产交易",
+    "transactionRefNo": "交易参考号",
+    "assetName": "资产名称",
+    "assetCategory": "资产类别",
+    "transactionType": "交易类型",
+    "transactionAmount": "交易金额",
+    "createdBy": "创建人",
+    "createdOn": "创建时间",
+    "direction": {
+      "inflow": "流入",
+      "outflow": "流出",
+      "refund": "退款"
+    },
+    "newTransaction": "新建交易",
+    "importTransactions": "导入交易",
+    "adjustment": "调整"
+  }
+}

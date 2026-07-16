@@ -1,0 +1,21 @@
+{
+  "name": "modules-role-ui",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/role/ui/src",
+  "projectType": "library",
+  "tags": ["scope:role", "type:ui"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/modules/role/ui/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}

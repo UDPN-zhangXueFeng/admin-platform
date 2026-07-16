@@ -1,0 +1,7 @@
+{
+  "name": "@admin-platform/admin-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/admin-e2e",
+  "projectType": "application",
+  "tags": ["type:e2e"]
+}

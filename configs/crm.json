@@ -1,0 +1,69 @@
+{
+  "project": {
+    "id": "crm",
+    "name": "CRM 管理后台",
+    "logo": "/logo.svg",
+    "favicon": "/favicon.ico"
+  },
+  "theme": {
+    "mode": "system",
+    "colors": {
+      "primary": "142 76% 36%",
+      "background": "0 0% 100%",
+      "foreground": "222.2 84% 4.9%",
+      "primary-foreground": "210 40% 98%",
+      "secondary": "210 40% 96%",
+      "muted": "210 40% 96%",
+      "accent": "210 40% 96%",
+      "destructive": "0 84% 60%",
+      "border": "214 32% 91%",
+      "input": "214 32% 91%",
+      "ring": "142 76% 36%"
+    },
+    "radius": "0.5rem",
+    "fontFamily": {
+      "sans": "Inter system-ui sans-serif",
+      "mono": "JetBrains Mono monospace"
+    }
+  },
+  "layout": {
+    "type": "top-nav",
+    "header": {
+      "sticky": true,
+      "showProjectSwitcher": true,
+      "showSearch": true,
+      "showNotifications": true,
+      "showUserMenu": true
+    },
+    "breadcrumb": {
+      "enabled": true
+    }
+  },
+  "modules": {
+    "enabled": ["user", "order", "report", "setting"],
+    "order": [
+      { "id": "dashboard", "icon": "LayoutDashboard", "label": "仪表盘", "group": "core" },
+      { "id": "user", "icon": "Users", "label": "用户管理", "group": "system" },
+      { "id": "order", "icon": "ShoppingCart", "label": "订单管理", "group": "business" },
+      { "id": "report", "icon": "BarChart3", "label": "报表", "group": "analytics" },
+      { "id": "setting", "icon": "Settings", "label": "系统设置", "group": "system" }
+    ],
+    "dashboard": {
+      "widgets": [
+        { "id": "total-users", "type": "kpi", "title": "总用户数", "module": "user", "span": 1 },
+        { "id": "total-orders", "type": "kpi", "title": "总订单数", "module": "order", "span": 1 }
+      ]
+    }
+  },
+  "i18n": {
+    "defaultLocale": "en-US",
+    "locales": ["en-US", "zh-CN"]
+  },
+  "features": {
+    "darkMode": false,
+    "multiTab": false,
+    "fullscreen": true,
+    "exportCSV": true,
+    "bulkActions": true
+  }
+}

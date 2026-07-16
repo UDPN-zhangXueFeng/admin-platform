@@ -1,0 +1,15 @@
+{
+  "name": "modules-blockchain-util",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/blockchain/util/src",
+  "projectType": "library",
+  "tags": ["scope:blockchain", "type:util"],
+  "targets": {
+    "lint": { "executor": "@nx/eslint:lint", "outputs": ["{options.outputFile}"] },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": { "jestConfig": "libs/modules/blockchain/util/jest.config.ts", "passWithNoTests": true }
+    }
+  }
+}

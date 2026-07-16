@@ -1,0 +1,51 @@
+{
+  "title": "旅行规则",
+  "query": "查询",
+  "reset": "重置",
+  "records": "交易记录",
+  "empty": "暂无交易记录",
+  "copy": "复制",
+  "field": {
+    "transactionHash": "交易哈希",
+    "tokenName": "代币名称",
+    "sendingSp": "发起 SP",
+    "senderWallet": "发起方钱包",
+    "receivingSp": "接收 SP",
+    "receiverWallet": "接收方钱包",
+    "travelRuleHash": "旅行规则哈希",
+    "verificationStatus": "验证状态",
+    "confirmationTime": "确认时间",
+    "transactionType": "交易类型",
+    "transactionAmount": "交易金额",
+    "transactionTime": "交易时间",
+    "transactionTimeFrom": "交易时间(起)",
+    "transactionTimeTo": "交易时间(止)",
+    "confirmationTimeFrom": "确认时间(起)",
+    "confirmationTimeTo": "确认时间(止)"
+  },
+  "placeholder": {
+    "transactionHash": "请输入交易哈希",
+    "senderWallet": "请输入发起方钱包",
+    "receivingSp": "请输入接收 SP",
+    "receiverWallet": "请输入接收方钱包",
+    "travelRuleHash": "请输入旅行规则哈希",
+    "tokenName": "请输入代币名称",
+    "sendingSp": "请输入发起 SP"
+  },
+  "status": {
+    "Pending": "待验证",
+    "Verified": "已验证",
+    "Rejected": "已拒绝"
+  },
+  "transactionType": {
+    "all": "全部",
+    "transfer": "转账",
+    "authorizedTransfer": "授权转账"
+  },
+  "statusFilter": {
+    "all": "全部",
+    "Pending": "待验证",
+    "Verified": "已验证",
+    "Rejected": "已拒绝"
+  }
+}

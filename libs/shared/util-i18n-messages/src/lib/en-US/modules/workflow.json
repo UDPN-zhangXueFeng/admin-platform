@@ -1,0 +1,94 @@
+{
+  "title": "Workflow",
+  "query": "Query",
+  "reset": "Reset",
+  "all": "All",
+  "records": "Workflows",
+  "empty": "No workflows",
+  "invalidId": "Invalid workflow ID",
+  "yes": "Yes",
+  "no": "No",
+  "action": {
+    "view": "View",
+    "edit": "Edit",
+    "disable": "Disable",
+    "enable": "Enable",
+    "delete": "Delete",
+    "add": "Add",
+    "back": "Back",
+    "cancel": "Cancel",
+    "save": "Save",
+    "submit": "Submit",
+    "selected": "Selected"
+  },
+  "field": {
+    "index": "No.",
+    "workflowName": "Workflow Name",
+    "businessName": "Business Function",
+    "nodes": "Nodes",
+    "createdDate": "Created Time",
+    "status": "Status",
+    "action": "Action",
+    "stepOrder": "Steps",
+    "stepType": "Permissions",
+    "assignees": "Assignees",
+    "executionMode": "Execution Mode",
+    "executionModeValue": "One Assignee Required per Node",
+    "initiator": "Initiator",
+    "authorizedUser": "User with authorized business menu access",
+    "withdraw": "Withdraw",
+    "revert": "Revert",
+    "escalate": "Escalate",
+    "userName": "User Name",
+    "roles": "Roles",
+    "thresholdRule": "Threshold Rule",
+    "thresholdAmount": "Threshold Amount",
+    "thresholdEnable": "Enable Threshold"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "confirm": {
+    "disable": "Are you sure you want to disable workflow \"{name}\"?",
+    "enable": "Are you sure you want to enable workflow \"{name}\"?",
+    "delete": "Are you sure you want to delete workflow \"{name}\"?"
+  },
+  "business": {
+    "hint": "For inquiries about onboarding new workflow triggers, please contact the administrator."
+  },
+  "process": {
+    "title": "Workflow Process",
+    "initiator": "Initiator",
+    "authorizedUser": "User with authorized business menu access",
+    "approver": "Approver",
+    "end": "End"
+  },
+  "config": {
+    "title": "Workflow Configuration",
+    "withdrawHint": "This function allows request initiators to withdraw the request before the first approver has taken any action on it.",
+    "revertHint": "This function allows the current approver to revert the request back to the previous approver.",
+    "escalateHint": "This function allows the current approver to escalate the approval process by adding additional approval steps, either before or after the current step."
+  },
+  "picker": {
+    "title": "Select User",
+    "notFoundHint": "If the user you need is not in the list, please",
+    "goToUserMgmt": "go to User Management"
+  },
+  "stepType": {
+    "5": "Approve",
+    "10": "Approve"
+  },
+  "validate": {
+    "thresholdLt": "Must be greater than the previous step's threshold ({amount})."
+  },
+  "view": {
+    "title": "Workflow Detail"
+  },
+  "edit": {
+    "title": "Edit Workflow"
+  },
+  "create": {
+    "title": "Create Workflow"
+  }
+}

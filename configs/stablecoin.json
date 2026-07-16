@@ -1,0 +1,566 @@
+{
+  "project": {
+    "id": "stablecoin",
+    "name": "Tokenized Deposit/Stablecoin Management System",
+    "logo": "/logo.svg",
+    "favicon": "/favicon.ico"
+  },
+  "theme": {
+    "mode": "system",
+    "colors": {
+      "primary": "221 83% 53%",
+      "background": "0 0% 100%",
+      "foreground": "222.2 84% 4.9%",
+      "primary-foreground": "210 40% 98%",
+      "secondary": "210 40% 96%",
+      "muted": "210 40% 96%",
+      "accent": "210 40% 96%",
+      "destructive": "0 84% 60%",
+      "border": "214 32% 91%",
+      "input": "214 32% 91%",
+      "ring": "221 83% 53%"
+    },
+    "radius": "0.5rem",
+    "fontFamily": {
+      "sans": "Inter system-ui sans-serif",
+      "mono": "JetBrains Mono monospace"
+    }
+  },
+  "layout": {
+    "type": "sidebar",
+    "sidebar": {
+      "position": "left",
+      "width": "260px",
+      "collapsible": true,
+      "collapsedWidth": "68px",
+      "showIconsOnlyCollapsed": true
+    },
+    "header": {
+      "sticky": true,
+      "showProjectSwitcher": false,
+      "showSearch": false,
+      "showNotifications": true,
+      "showUserMenu": true
+    },
+    "breadcrumb": {
+      "enabled": true
+    }
+  },
+  "modules": {
+    "enabled": [
+      "dashboard",
+      "chart-of-accounts",
+      "journal-entries-new",
+      "posting-engine",
+      "transaction-event-configuration",
+      "workflow",
+      "token-management",
+      "key-management",
+      "sp-access",
+      "reserve-asset",
+      "pledge",
+      "wallet",
+      "accounting",
+      "travel-rule",
+      "reconciliation",
+      "interest",
+      "screening",
+      "statistics",
+      "approval",
+      "tokenized-deposit",
+      "transaction-flow",
+      "mmf",
+      "blockchain",
+      "cross-chain",
+      "networks",
+      "documentation",
+      "syslog",
+      "role",
+      "user",
+      "system",
+      "suspense-adjustment",
+      "audit-trail",
+      "statements",
+      "journal-entries"
+    ],
+    "order": [
+      {
+        "id": "dashboard",
+        "icon": "LayoutDashboard",
+        "label": "Dashboard",
+        "group": ""
+      },
+      {
+        "id": "workflow",
+        "icon": "Calendar",
+        "label": "Workflow Tasks",
+        "group": ""
+      },
+      {
+        "id": "token-management",
+        "icon": "Ticket",
+        "label": "Token Management",
+        "path": "/tokenized-deposit",
+        "group": ""
+      },
+      {
+        "id": "key-management",
+        "icon": "Key",
+        "label": "Key Management",
+        "group": "",
+        "children": [
+          {
+            "id": "key-service-configuration",
+            "icon": "Key",
+            "label": "Key Service Configuration",
+            "path": "/key-management/key-service-configuration"
+          },
+          {
+            "id": "key-policy-configuration",
+            "icon": "Key",
+            "label": "Key Policy Configuration",
+            "path": "/key-management/key-policy-configuration"
+          },
+          {
+            "id": "managed-wallets",
+            "icon": "Wallet",
+            "label": "Management Wallets",
+            "path": "/key-management/managed-wallets"
+          },
+          {
+            "id": "user-wallets",
+            "icon": "Wallet",
+            "label": "User Wallets",
+            "path": "/key-management/user-wallets"
+          },
+          {
+            "id": "key-signed-transactions",
+            "icon": "Key",
+            "label": "Key-Signed Transactions",
+            "path": "/key-management/key-signed-transactions"
+          }
+        ]
+      },
+      {
+        "id": "sp-access",
+        "icon": "SlidersVertical",
+        "label": "SP Access Management",
+        "group": ""
+      },
+      {
+        "id": "reserve-asset",
+        "icon": "Layers",
+        "label": "Reserve Asset Management",
+        "group": "",
+        "children": [
+          {
+            "id": "reserve-asset-list",
+            "icon": "Layers",
+            "label": "Reserve Asset List",
+            "path": "/pledge/reserve-asset-list"
+          },
+          {
+            "id": "asset-transaction",
+            "icon": "Layers",
+            "label": "Asset Transaction Management",
+            "path": "/pledge/asset-transaction"
+          },
+          {
+            "id": "proof-of-reserve",
+            "icon": "Layers",
+            "label": "Proof of Reserve Access",
+            "path": "/pledge/proof-of-reserve-access",
+            "disabled": true
+          },
+          {
+            "id": "redemption-records",
+            "icon": "Layers",
+            "label": "Redemption Records",
+            "path": "/pledge/redemption-records",
+            "disabled": true
+          }
+        ]
+      },
+      {
+        "id": "wallet",
+        "icon": "Wallet",
+        "label": "Wallet Management",
+        "group": "",
+        "children": [
+          {
+            "id": "wallet-type",
+            "icon": "Wallet",
+            "label": "Wallet Type",
+            "path": "/wallet/wallet-type"
+          },
+          {
+            "id": "user-wallet",
+            "icon": "Wallet",
+            "label": "User Wallet",
+            "path": "/wallet/user-wallet"
+          },
+          {
+            "id": "operational-wallet",
+            "icon": "Wallet",
+            "label": "Operational Wallet",
+            "path": "/wallet/operational-wallet"
+          }
+        ]
+      },
+      {
+        "id": "accounting",
+        "icon": "BarChart3",
+        "label": "Accounting Management",
+        "group": "",
+        "children": [
+          {
+            "id": "chart-of-accounts",
+            "icon": "BarChart3",
+            "label": "Chart of Accounts",
+            "path": "/chart-of-accounts"
+          },
+          {
+            "id": "normalization-engine",
+            "icon": "BarChart3",
+            "label": "Normalization Engine",
+            "path": "/financial/normalization-engine"
+          },
+          {
+            "id": "posting-engine",
+            "icon": "BarChart3",
+            "label": "Posting Engine",
+            "path": "/posting-engine"
+          },
+          {
+            "id": "transaction-event-configuration",
+            "icon": "Settings2",
+            "label": "Transaction Event Configuration",
+            "path": "/transaction-event-configuration"
+          },
+          {
+            "id": "journal-entries-new",
+            "icon": "BarChart3",
+            "label": "Journal Entries",
+            "path": "/journal-entries-new"
+          },
+          {
+            "id": "suspense-adjustment",
+            "icon": "BarChart3",
+            "label": "Suspense Adjustment",
+            "path": "/suspense-adjustment"
+          },
+          {
+            "id": "audit-trail",
+            "icon": "BarChart3",
+            "label": "Audit Trail",
+            "path": "/audit-trail"
+          },
+          {
+            "id": "travel-rule",
+            "icon": "BarChart3",
+            "label": "Travel Rule",
+            "path": "/travel-rule"
+          },
+          {
+            "id": "statements",
+            "icon": "FileText",
+            "label": "Statements",
+            "path": "/statements"
+          },
+          {
+            "id": "journal-entries",
+            "icon": "BookOpen",
+            "label": "Journal Entries",
+            "path": "/journal-entries"
+          }
+        ]
+      },
+      {
+        "id": "reconciliation",
+        "icon": "Building2",
+        "label": "Reconciliation",
+        "group": "",
+        "children": [
+          {
+            "id": "real-time-onchain",
+            "icon": "Building2",
+            "label": "Real-time On-chain Data",
+            "path": "/reconciliation/real-time",
+            "disabled": true
+          },
+          {
+            "id": "real-time-reserve",
+            "icon": "Building2",
+            "label": "Real-time Reserve",
+            "path": "/reconciliation/reserve",
+            "disabled": true
+          }
+        ]
+      },
+      {
+        "id": "interest",
+        "icon": "Receipt",
+        "label": "Interest Management",
+        "group": "",
+        "children": [
+          {
+            "id": "interest-policy",
+            "icon": "Receipt",
+            "label": "Policy",
+            "path": "/interest/policy"
+          },
+          {
+            "id": "interest-accrual",
+            "icon": "Receipt",
+            "label": "Accrual",
+            "path": "/interest/accrual"
+          },
+          {
+            "id": "interest-transactions",
+            "icon": "Receipt",
+            "label": "Transactions",
+            "path": "/interest/transactions"
+          }
+        ]
+      },
+      {
+        "id": "screening",
+        "icon": "LineChart",
+        "label": "Screening & Monitoring",
+        "group": "",
+        "children": [
+          {
+            "id": "screening-rule",
+            "icon": "LineChart",
+            "label": "Rule",
+            "path": "/screening-monitoring/rule"
+          },
+          {
+            "id": "transaction-monitoring",
+            "icon": "LineChart",
+            "label": "Transaction Monitoring",
+            "path": "/screening-monitoring/transaction-monitoring"
+          },
+          {
+            "id": "screening-providers",
+            "icon": "LineChart",
+            "label": "Screening Providers",
+            "path": "/screening-monitoring/screening-providers"
+          }
+        ]
+      },
+      {
+        "id": "statistics",
+        "icon": "TrendingUp",
+        "label": "Statistics & Analytics",
+        "group": "",
+        "children": [
+          {
+            "id": "ai-analytics",
+            "icon": "TrendingUp",
+            "label": "AI Analytics",
+            "path": "/statistics-reports/ai-analytics",
+            "disabled": true
+          },
+          {
+            "id": "statistics-reports",
+            "icon": "TrendingUp",
+            "label": "Statistics Reports",
+            "path": "/statistics-reports"
+          }
+        ]
+      },
+      {
+        "id": "approval",
+        "icon": "Calendar",
+        "label": "Approval Manage",
+        "group": "more"
+      },
+      {
+        "id": "tokenized-deposit",
+        "icon": "Ticket",
+        "label": "Tokenized Deposit",
+        "group": "more"
+      },
+      {
+        "id": "transaction-flow",
+        "icon": "Newspaper",
+        "label": "Transaction Flow",
+        "group": "more"
+      },
+      {
+        "id": "mmf",
+        "icon": "LineChart",
+        "label": "MMF",
+        "group": "more",
+        "children": [
+          {
+            "id": "mmf-accrual",
+            "icon": "LineChart",
+            "label": "Accrual",
+            "path": "/mmf/accrual"
+          },
+          {
+            "id": "mmf-settlement",
+            "icon": "LineChart",
+            "label": "Settlement",
+            "path": "/mmf/settlement"
+          }
+        ]
+      },
+      {
+        "id": "blockchain",
+        "icon": "Box",
+        "label": "Blockchain",
+        "group": "more",
+        "children": [
+          {
+            "id": "blockchain-node",
+            "icon": "Box",
+            "label": "Node",
+            "path": "/blockchain/node"
+          },
+          {
+            "id": "smart-contract",
+            "icon": "Box",
+            "label": "Smart Contract",
+            "path": "/blockchain/smart-contract"
+          },
+          {
+            "id": "deployment",
+            "icon": "Box",
+            "label": "Deployment",
+            "path": "/blockchain/deployment"
+          },
+          {
+            "id": "gas-station",
+            "icon": "Box",
+            "label": "Gas Station Management",
+            "path": "/blockchain/gas-station",
+            "disabled": true
+          }
+        ]
+      },
+      {
+        "id": "cross-chain",
+        "icon": "Link",
+        "label": "Cross Chain",
+        "group": "more",
+        "children": [
+          {
+            "id": "rd-bridge",
+            "icon": "Link",
+            "label": "RD Bridge",
+            "path": "/cross-chain/rd-bridge"
+          },
+          {
+            "id": "liquidity-pool",
+            "icon": "Link",
+            "label": "Liquidity Pool",
+            "path": "/cross-chain/liquidity-pool"
+          },
+          {
+            "id": "token-pair",
+            "icon": "Link",
+            "label": "Token Pair",
+            "path": "/cross-chain/token-pair"
+          },
+          {
+            "id": "cross-chain-transactions",
+            "icon": "Link",
+            "label": "Cross-chain Transactions",
+            "path": "/cross-chain/cross-chain-transactions"
+          },
+          {
+            "id": "fx-rate",
+            "icon": "Link",
+            "label": "FX Rate",
+            "path": "/cross-chain/fx-rate"
+          }
+        ]
+      },
+      {
+        "id": "networks",
+        "icon": "Globe",
+        "label": "Networks",
+        "group": "more"
+      },
+      {
+        "id": "documentation",
+        "icon": "FileText",
+        "label": "Documentation",
+        "group": "more",
+        "children": [
+          {
+            "id": "api-documentation",
+            "icon": "FileText",
+            "label": "API Documentation",
+            "path": "#"
+          },
+          {
+            "id": "user-manual",
+            "icon": "FileText",
+            "label": "User Manual",
+            "path": "#"
+          }
+        ]
+      },
+      {
+        "id": "system",
+        "icon": "LayoutGrid",
+        "label": "System",
+        "group": "more",
+        "children": [
+          {
+            "id": "sys-user",
+            "icon": "LayoutGrid",
+            "label": "User",
+            "path": "/sys/user"
+          },
+          {
+            "id": "sys-role",
+            "icon": "LayoutGrid",
+            "label": "Role",
+            "path": "/sys/role"
+          },
+          {
+            "id": "sys-workflow",
+            "icon": "LayoutGrid",
+            "label": "Workflow",
+            "path": "/sys/workflow"
+          },
+          {
+            "id": "sys-log",
+            "icon": "LayoutGrid",
+            "label": "SysLog",
+            "path": "/sys/sysLog"
+          }
+        ]
+      }
+    ],
+    "dashboard": {
+      "widgets": [
+        {
+          "id": "total-users",
+          "type": "kpi",
+          "title": "Total Users",
+          "span": 1
+        }
+      ]
+    }
+  },
+  "i18n": {
+    "defaultLocale": "en-US",
+    "locales": [
+      "en-US",
+      "zh-CN"
+    ]
+  },
+  "features": {
+    "darkMode": true,
+    "multiTab": false,
+    "fullscreen": true,
+    "exportCSV": true,
+    "bulkActions": true
+  }
+}

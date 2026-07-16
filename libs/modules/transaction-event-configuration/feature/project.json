@@ -1,0 +1,21 @@
+{
+  "name": "modules-transaction-event-configuration-feature",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/transaction-event-configuration/feature/src",
+  "projectType": "library",
+  "tags": ["scope:transaction-event-configuration", "type:feature"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/modules/transaction-event-configuration/feature/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}

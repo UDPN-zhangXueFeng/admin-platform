@@ -1,0 +1,14 @@
+{
+  "generators": {
+    "module": {
+      "factory": "./src/module/index#default",
+      "schema": "./src/module/schema.json",
+      "description": "Scaffold a full domain module (feature/ui/data-access/util)"
+    },
+    "ui-component": {
+      "factory": "./src/ui-component/index#default",
+      "schema": "./src/ui-component/schema.json",
+      "description": "Scaffold a shared UI component with Radix + Tailwind"
+    }
+  }
+}

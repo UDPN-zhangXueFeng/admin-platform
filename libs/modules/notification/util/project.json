@@ -1,0 +1,21 @@
+{
+  "name": "modules-notification-util",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/notification/util/src",
+  "projectType": "library",
+  "tags": ["scope:notification", "type:util"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/modules/notification/util/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}

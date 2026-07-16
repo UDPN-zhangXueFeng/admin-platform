@@ -1,0 +1,62 @@
+{
+  "title": "用户管理",
+  "query": "查询",
+  "reset": "重置",
+  "records": "用户列表",
+  "empty": "暂无用户",
+  "invalidId": "用户 ID 无效",
+  "action": {
+    "view": "查看",
+    "edit": "编辑",
+    "disable": "禁用",
+    "enable": "启用",
+    "reset": "重置密码",
+    "delete": "删除",
+    "add": "新增",
+    "back": "返回",
+    "cancel": "取消",
+    "save": "保存"
+  },
+  "field": {
+    "index": "序号",
+    "userName": "用户名",
+    "email": "邮箱",
+    "phoneNumber": "手机号",
+    "tdName": "可访问稳定币",
+    "createTime": "创建时间",
+    "updateTime": "更新时间",
+    "status": "状态",
+    "action": "操作",
+    "roleIds": "角色",
+    "tdIds": "可访问稳定币",
+    "blockchain": "所属链："
+  },
+  "status": {
+    "enabled": "正常",
+    "disabled": "禁用"
+  },
+  "confirm": {
+    "disable": "确定要禁用该用户吗？",
+    "enable": "确定要启用该用户吗？",
+    "reset": "确定要重置该用户的密码吗？",
+    "delete": "确定要删除该用户吗？"
+  },
+  "validation": {
+    "userName": "用户名须以字母开头，仅含字母和数字，且不超过 20 个字符",
+    "email": "请输入有效的邮箱地址",
+    "roleIds": "请至少选择一个角色"
+  },
+  "emptyOptions": {
+    "role": "暂无可选角色",
+    "td": "暂无可选稳定币"
+  },
+  "view": {
+    "title": "用户详情"
+  },
+  "edit": {
+    "title": "编辑用户"
+  },
+  "create": {
+    "title": "新增用户"
+  }
+}

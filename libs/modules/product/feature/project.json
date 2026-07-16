@@ -1,0 +1,21 @@
+{
+  "name": "modules-product-feature",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/product/feature/src",
+  "projectType": "library",
+  "tags": ["scope:modules", "scope:product", "type:feature"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/modules/product/feature/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}

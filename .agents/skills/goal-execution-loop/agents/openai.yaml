@@ -1,0 +1,4 @@
+interface:
+  display_name: "Goal Execution Loop"
+  short_description: "Execute goal prompts with supervised build and review loops."
+  default_prompt: "Use $goal-execution-loop to confirm this goal prompt, execute it, supervise implementation with a sub-agent, and iterate through review until the code satisfies the requirement without errors."

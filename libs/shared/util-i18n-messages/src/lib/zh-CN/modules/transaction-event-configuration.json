@@ -1,0 +1,121 @@
+{
+  "title": "交易事件配置",
+  "records": "标准化账本",
+  "empty": "暂无数据",
+  "copy": "复制",
+  "mappingRuleList": "映射规则",
+  "mappingRuleEdit": "编辑映射规则",
+  "mappingRuleDetail": "映射规则详情",
+  "filter": {
+    "title": "查询",
+    "query": "查询",
+    "reset": "重置",
+    "all": "全部"
+  },
+  "placeholder": {
+    "bookName": "请输入账本名称",
+    "currency": "请输入币种代码"
+  },
+  "field": {
+    "bookName": "账本名称",
+    "tokenType": "Token 类型",
+    "reserveAsset": "储备资产",
+    "currency": "币种",
+    "assetValue": "资产价值",
+    "tokens": "Tokens",
+    "createdOn": "创建时间",
+    "createdFrom": "创建开始日期",
+    "createdTo": "创建结束日期",
+    "effectiveFrom": "生效开始日期",
+    "effectiveTo": "生效结束日期",
+    "effectiveDate": "生效日期",
+    "status": "状态",
+    "actions": "操作",
+    "mappingRuleId": "映射规则 ID",
+    "sourceEventType": "源事件类型",
+    "creator": "创建人",
+    "targetField": "目标字段",
+    "mappingMethod": "映射方式",
+    "sourceField": "源字段",
+    "description": "描述",
+    "utIdentifier": "通用交易标识",
+    "userIdentifier": "用户通用标识",
+    "tokenName": "Token 名称",
+    "transactionDate": "交易日期",
+    "valueDate": "价值日期",
+    "finalityDate": "最终日期",
+    "organizationCode": "机构代码",
+    "blockchain": "区块链",
+    "from": "From",
+    "to": "To",
+    "transactionAmount": "交易金额",
+    "transactionHash": "交易哈希",
+    "transactionTime": "交易时间"
+  },
+  "action": {
+    "configureMappingRules": "配置映射规则",
+    "preview": "预览",
+    "edit": "编辑",
+    "detail": "详情",
+    "view": "查看",
+    "back": "返回",
+    "save": "保存",
+    "submit": "提交",
+    "cancel": "取消",
+    "add": "新增",
+    "remove": "删除"
+  },
+  "tokenType": {
+    "1": "稳定币",
+    "5": "代币化存款"
+  },
+  "bookStatus": {
+    "active": "活跃",
+    "inactive": "未激活",
+    "unknown": "--"
+  },
+  "ruleStatus": {
+    "active": "生效中",
+    "pendingActivation": "待生效",
+    "expired": "已失效"
+  },
+  "eventStatus": {
+    "draft": "草稿",
+    "pendingReview": "待审核",
+    "rejected": "已驳回"
+  },
+  "sourceEvent": {
+    "reserveIn": "储备注入",
+    "reserveOut": "储备流出",
+    "mint": "铸造",
+    "repositoryIn": "归集入",
+    "repositoryOut": "归集出",
+    "transfer": "转账",
+    "melt": "销毁",
+    "fundingIn": "资金注入",
+    "fundingOut": "资金流出"
+  },
+  "mappingMethod": {
+    "direct": "直接映射",
+    "constant": "常量",
+    "generate": "生成"
+  },
+  "detail": {
+    "invalidId": "ID 无效或缺失。",
+    "basicInformation": "基本信息",
+    "historicalRecords": "历史记录",
+    "fieldMappings": "字段映射配置"
+  },
+  "history": {
+    "systemGenerated": "系统自动生成",
+    "queryTitle": "查询",
+    "recordsTitle": "历史记录"
+  },
+  "edit": {
+    "placeholder": "编辑页（Phase 6）",
+    "basicInfoTitle": "基本信息",
+    "fieldMappingTitle": "字段映射配置",
+    "effectiveDateHint": "生效日期必须晚于今天。",
+    "invalidEffectiveDate": "生效日期必须晚于今天。"
+  }
+}

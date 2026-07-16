@@ -1,0 +1,159 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "admin-platform-config",
+  "title": "Admin Platform Project Config",
+  "description": "Schema for admin-platform project configuration files.",
+  "type": "object",
+  "required": ["project", "theme", "layout", "modules", "i18n", "features"],
+  "properties": {
+    "project": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string", "description": "Project unique identifier" },
+        "name": { "type": "string", "description": "Project display name" },
+        "logo": { "type": "string", "description": "Path to the project logo" },
+        "favicon": { "type": "string", "description": "Path to the project favicon" }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "required": ["mode", "colors", "radius", "fontFamily"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["light", "dark", "system"],
+          "description": "Default theme mode"
+        },
+        "colors": {
+          "type": "object",
+          "required": ["primary", "background", "foreground", "primary-foreground", "secondary", "muted", "accent", "destructive", "border", "input", "ring"],
+          "properties": {
+            "primary": { "type": "string", "description": "Primary color in CSS HSL format, e.g. \"221 83% 53%\"" },
+            "background": { "type": "string" },
+            "foreground": { "type": "string" },
+            "primary-foreground": { "type": "string" },
+            "secondary": { "type": "string" },
+            "muted": { "type": "string" },
+            "accent": { "type": "string" },
+            "destructive": { "type": "string" },
+            "border": { "type": "string" },
+            "input": { "type": "string" },
+            "ring": { "type": "string" }
+          }
+        },
+        "radius": { "type": "string", "description": "Border radius token, e.g. \"0.5rem\"" },
+        "fontFamily": {
+          "type": "object",
+          "properties": {
+            "sans": { "type": "string" },
+            "mono": { "type": "string" }
+          }
+        }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["sidebar", "top-nav", "compact"],
+          "description": "Overall layout type"
+        },
+        "sidebar": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "string", "enum": ["left", "right"] },
+            "width": { "type": "string" },
+            "collapsible": { "type": "boolean" },
+            "collapsedWidth": { "type": "string" },
+            "showIconsOnlyCollapsed": { "type": "boolean" }
+          }
+        },
+        "header": {
+          "type": "object",
+          "properties": {
+            "sticky": { "type": "boolean" },
+            "showProjectSwitcher": { "type": "boolean" },
+            "showSearch": { "type": "boolean" },
+            "showNotifications": { "type": "boolean" },
+            "showUserMenu": { "type": "boolean" }
+          }
+        },
+        "breadcrumb": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "modules": {
+      "type": "object",
+      "required": ["enabled", "order"],
+      "properties": {
+        "enabled": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of enabled module ids"
+        },
+        "order": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "icon", "label", "group"],
+            "properties": {
+              "id": { "type": "string" },
+              "icon": { "type": "string" },
+              "label": { "type": "string" },
+              "group": { "type": "string" }
+            }
+          },
+          "description": "Ordered list of navigation items"
+        },
+        "dashboard": {
+          "type": "object",
+          "properties": {
+            "widgets": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "type", "title", "module", "span"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "type": { "type": "string" },
+                  "title": { "type": "string" },
+                  "module": { "type": "string" },
+                  "span": { "type": "integer" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "i18n": {
+      "type": "object",
+      "required": ["defaultLocale", "locales"],
+      "properties": {
+        "defaultLocale": { "type": "string" },
+        "locales": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "required": ["darkMode", "multiTab", "fullscreen", "exportCSV", "bulkActions"],
+      "properties": {
+        "darkMode": { "type": "boolean" },
+        "multiTab": { "type": "boolean" },
+        "fullscreen": { "type": "boolean" },
+        "exportCSV": { "type": "boolean" },
+        "bulkActions": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "modules-syslog-util",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/syslog/util/src",
+  "projectType": "library",
+  "tags": ["scope:syslog", "type:util"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/modules/syslog/util/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+[    1032ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/logo.svg:0
+[    1922ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[    2816ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[    2877ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus) @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[    5562ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus) @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   62050ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   63970ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus)
+
+Import trace for requested module:
+../../libs/modules/user/data-access/src/index.ts
+../../libs/modules/user/feature/src/lib/user-list-page.tsx
+../../libs/modules/user/feature/src/index.ts
+../../libs/shared/util-config/src/lib/module-registry.ts @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   64016ms] [LOG] [Fast Refresh] done in 1965ms @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  122380ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  123666ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus)
+
+Import trace for requested module:
+../../libs/modules/user/data-access/src/index.ts
+../../libs/modules/user/feature/src/lib/user-list-page.tsx
+../../libs/modules/user/feature/src/index.ts
+../../libs/shared/util-config/src/lib/module-registry.ts @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  123720ms] [LOG] [Fast Refresh] done in 1341ms @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  125215ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  130713ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus)
+
+Import trace for requested module:
+../../libs/modules/user/data-access/src/index.ts
+../../libs/modules/user/feature/src/lib/user-list-page.tsx
+../../libs/modules/user/feature/src/index.ts
+../../libs/shared/util-config/src/lib/module-registry.ts @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  130769ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  133147ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/logo.svg:0
+[  134539ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  134913ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  134940ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus) @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27

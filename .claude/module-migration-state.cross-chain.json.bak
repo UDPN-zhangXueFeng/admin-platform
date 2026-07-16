@@ -1,0 +1,50 @@
+{
+  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/cross-chain",
+  "moduleName": "cross-chain",
+  "slug": "cross-chain",
+  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/cross-chain.md",
+  "phase": "developing",
+  "migrationRate": 1.00,
+  "acceptanceRate": 0.0,
+  "coverage": {
+    "sourceFiles": { "covered": 13, "total": 13, "missing": [] },
+    "apis": { "covered": 46, "total": 46, "missing": [] },
+    "pages": { "covered": 13, "total": 13, "missing": [] },
+    "uiMappings": { "covered": 48, "total": 48, "missing": [] }
+  },
+  "submodules": ["cross-chain-transactions", "fx-rate", "liquidity-pool", "rd-bridge", "token-pair"],
+  "products": {
+    "cc-1": "四层库骨架(data-access/feature/ui/util, project.json+tsconfig+jest+index.ts) + i18n(en 201key/zh en兜底, libs/shared/util-i18n-messages/src/lib/{en-US,zh-CN}/modules/cross-chain.json, 注册到 merge-messages.ts) + tsconfig.base.json+apps/admin/tsconfig.json paths 四层 + page.tsx GROUP_ENABLED_KEY +cross-chain + configs/stablecoin.json 已含5children group",
+    "cc-2": "data-access/src/lib/cross-chain.model.ts 888行 60+类型(5子模块 ListItem/Query/Detail/Form/操作记录/树节点/下拉选项)",
+    "cc-3": "util/src/lib/cross-chain.constants.ts 151行(5状态套COLOR+6 i18n前缀含ststus拼写保留+RD_BRIDGE_STATE/TOKEN_PAIR_UPDATE_STATE 35/50+16命名权限码+2未用hash注释) + util/src/lib/get-encryption-data.ts 46行(AES-CBC key reddatespartan25 iv hongzao25spartan Pkcs7 hexUpperCase, crypto-js已有依赖)"
+  },
+  "failLoud": [
+    "zh-CN/cross-chain.json 用 en 兜底(老项目无 zh 翻译,数据缺失)——待补 zh 翻译",
+    "i18n 含 ${decimalPrecision}/${status} 占位符(老项目自定义.replace()非ICU)——cc-8~15 实现页面时需决定处理方式",
+    "token-pair status 双向语义: 列表显示 1/3/5/10(TOKEN_PAIR_STATUS_COLOR) vs update 传 35/50(TOKEN_PAIR_UPDATE_STATE)——cc-13 edit 勿混",
+    "670504d5c9ae48afb4504f97c12450e6 权限码: cct Refund 死代码 + token-pair Enable 复用, 已保留",
+    "group 范本是 blockchain(非 target-arch.md §1.4 说的 sys/wallet, 文档过时)",
+    "updateTime 在 fx-rate 是 string(需 Number() 转), 其他模块 number"
+  ],
+  "tasks": [
+    {"id":"cc-1","name":"库骨架 + i18n + tsconfig paths + group 菜单注册","kind":"scaffold","model":"haiku","subModule":"shared","deps":[],"status":"completed","complexity":"中","summary":"nx建四层+i18n(保留ststus)+tsconfig paths两处+group菜单(GROUP_ENABLED_KEY)"},
+    {"id":"cc-2","name":"类型定义 cross-chain.model.ts","kind":"scaffold","model":"haiku","subModule":"shared","deps":["cc-1"],"status":"completed","complexity":"中","summary":"5子模块ListItem/Query/Detail/Form/树节点/操作记录/下拉选项类型, fx-rate无单条Detail"},
+    {"id":"cc-3","name":"常量 + AES 加密工具","kind":"scaffold","model":"haiku","subModule":"shared","deps":["cc-2"],"status":"completed","complexity":"中","summary":"5状态套COLOR+6i18n前缀(ststus保留)+启停35/50+18权限码(670504保留)+get-encryption-data AES-CBC"},
+    {"id":"cc-4","name":"API 函数 + Query key 工厂（动态 URL×3）","kind":"scaffold","model":"opus","subModule":"shared","deps":["cc-3"],"status":"pending","complexity":"高","summary":"33endpoint(11list+7detail+14写/子查询+公共下拉)。①list请求体pageNum/pageSize ②3动态URL模板拼id:getReceiveToken/getEndpointId/getLiquidityPool(尾部斜杠后拼id,GET) ③fx-rate前缀/api/fx/v1/rate/* ④三链下拉勿混:rd-bridge用cross/chain/getBlockChainList、cct/lp用common/blockchain/list、token-pair用common/blockchain/enableList ⑤getLiquidityPoolEmailList纠正源码Listt。keys按5子模块"},
+    {"id":"cc-5","name":"queries + mutations hooks","kind":"scaffold","model":"haiku","subModule":"shared","deps":["cc-4"],"status":"pending","complexity":"中","summary":"queries:5子模块list/detail/下拉hooks。mutations:rd-bridge(save/edit/update)、lp(save/edit/reauthorize/transferOut/generateWallet调wallet/keystore)、tp(save/edit/update)。成功invalidate list key。update status传35/50(非显示值1/3/5/10)"},
+    {"id":"cc-6","name":"CustomInformation 搬运 + 状态 Badge","kind":"ui","model":"haiku","subModule":"shared","deps":["cc-3"],"status":"pending","complexity":"低","summary":"搬CustomInformation(80行纯展示)到ui, tp/view+rb/view Drawer共用。先确认mmf-basic-details可否复用。status-badge按子模块取常量+i18n+antd Tag color→Tailwind Badge variant"},
+    {"id":"cc-7","name":"liquidity-pool-action-modal（Reauthorize/TransferOut 动态 Modal）","kind":"ui","model":"opus","subModule":"liquidity-pool","deps":["cc-3","cc-5"],"status":"pending","complexity":"高","summary":"按modalInfo.status分支:Reauthorize仅deductibleAmount;TransferOut含receiverWalletAddress(isHex)+amount(小数位+max=balance)+keystorePassword(AES加密)。调reauthorize/transferOut mutation。react-hook-form+Dialog。完整搬运勿简化"},
+    {"id":"cc-8","name":"fx-rate 列表+详情（最简先做）","kind":"page","model":"opus","subModule":"fx-rate","deps":["cc-5"],"status":"pending","complexity":"低","summary":"列表:货币对Select(currency/pair/list)+时间范围+DataTable。详情特殊:DataTable呈现历史汇率分页(非Descriptions),initialValues rateId。调fx/v1/rate/detail。无状态枚举无写操作"},
+    {"id":"cc-9","name":"cross-chain-transactions 列表+详情（Steps 分支）","kind":"page","model":"opus","subModule":"cross-chain-transactions","deps":["cc-5","cc-6"],"status":"pending","complexity":"中","summary":"列表6筛选+DataTable(方向ArrowRightCircle/from·to copyable/状态CROSS_CHAIN_TX_STATUS_COLOR)+行查看跳view?transferId=。Refund死代码不迁移(权限码670504勿删)。详情:8字段(区块链色块)+Steps垂直时间线(index0/1/2/3+分支:35success含txHash外链/20·30空/40error)+current定位首非成功。调transactions/detail+tree/details"},
+    {"id":"cc-10","name":"rd-bridge 列表+详情（isTokenPaired 拦截+Drawer）","kind":"page","model":"opus","subModule":"rd-bridge","deps":["cc-5","cc-6"],"status":"pending","complexity":"中","summary":"列表7筛选(链走getBlockChainList非common/list)+DataTable(状态RD_BRIDGE_STATUS_COLOR)+注册跳edit+行操作查看/编辑50/禁用35/启用50。Disable isTokenPaired===1弹warning拦截否则共用Disable/Enable Modal(remarks必填)调update(50/35)。详情2Tabs(Tab1三组Descriptions含reSet格式化/余额色块;Tab2操作记录表行查看→getCrossChainRecordDetail→Drawer CustomInformation)+返回"},
+    {"id":"cc-11","name":"rd-bridge 编辑页","kind":"page","model":"opus","subModule":"rd-bridge","deps":["cc-5"],"status":"pending","complexity":"中","summary":"新增/编辑共用(query.id)。链Select(getBlockChainList,编辑disabled,新增默认选首设symbol)+endpointId(InputNumber disabled)+3合约地址(hex校验)+4监控(verifier/submitter hex+MonitorValue)+notifyEmail(email批量≤20+Checkbox全员邮箱getAllUserEmailList)。onFinish按id分支save/edit(编辑剔除endpointId/blockchainId)"},
+    {"id":"cc-12","name":"token-pair 列表+详情（Disable/Enable+左右栏）","kind":"page","model":"opus","subModule":"token-pair","deps":["cc-5","cc-6"],"status":"pending","complexity":"中","summary":"列表6筛选(send链走enableList)+DataTable(方向色块blockchain_code_color+ArrowRightCircle/crossChainFee reSet/状态TOKEN_PAIR_STATUS_COLOR)+新增跳edit+行操作查看/编辑{3,5,10}/禁用5/启用10。Disable/Enable共用Modal调update(50/35,与显示值不同语义,两常量分开)。详情2Tabs(Tab1左右两栏CustomInformation+中间Image;Tab2操作记录表行查看跳/approval-manage/view)+返回"},
+    {"id":"cc-13","name":"token-pair 编辑页（联动+竞态保护，最复杂之一）","kind":"page","model":"opus","subModule":"token-pair","deps":["cc-5"],"status":"pending","complexity":"高","summary":"sendToken Select触发getReceiveTokenApi(stablecoinId)动态URL拼id→latestSendTokenIdRef竞态保护(切换Token抛弃过期响应)→resetReceiveTokenInfo清空→自动选receiveToken[0]填充全字段。send无流动性池提示跳lp/edit。crossChainFee小数位。编辑回填getTokenPairDetail。onFinish按id分支(编辑仅crossChainFee可改)。完整时序勿简化"},
+    {"id":"cc-14","name":"liquidity-pool 列表+详情（4 Tabs+3 DataTable）","kind":"page","model":"opus","subModule":"liquidity-pool","deps":["cc-5","cc-6","cc-7"],"status":"pending","complexity":"高","summary":"列表5筛选+DataTable(状态LIQUIDITY_POOL_STATUS_COLOR)+新增跳edit+行操作查看/编辑{0,5}/重新授权5/转出5(调cc-7 action-modal)。详情4Tabs(Tab1基本信息2组Descriptions;Tab2 transactions含transactionType===3显示N/A+type===2绿否则红+行查看跳cct/view;Tab3 authorization状态30/35/40/50;Tab4 operationRecords行查看跳/approval-manage/view)。调basicInformation+3 list。状态色LIQUIDITY_POOL_TX_STATUS_COLOR(i18n ststus保留)"},
+    {"id":"cc-15","name":"liquidity-pool 编辑页（生成钱包 Modal+AES，最复杂之一）","kind":"page","model":"opus","subModule":"liquidity-pool","deps":["cc-5"],"status":"pending","complexity":"高","summary":"tokenId Select(new/tokenList,onChange设symbol/decimalPrecision/blockName)+liquidityPoolWalletAddress(hex+生成钱包入口)+deductibleAmount(小数位)+keystore(TextArea)+keystorePassword(AES加密,编辑未改原样传)+threshold+emailRecipients(email≤20+Checkbox new/emailList)。生成钱包Modal:validate→confirm覆盖→password AES→wallet/keystore(chainType blockName==='Aptos'?aptos:evm)→回填。建议抽hook避免单文件过大"},
+    {"id":"cc-16","name":"module-manifest（5 子模块 group 注册）","kind":"scaffold","model":"opus","subModule":"shared","deps":["cc-8","cc-9","cc-10","cc-11","cc-12","cc-13","cc-14","cc-15"],"status":"pending","complexity":"中","summary":"5子模块manifest(group容器不进registry,各自manifest id=子模块名,routes component通用key)。必须读blockchain group范本对齐,否则/cross-chain/<child>解析成pageKey=detail→404。确认8内部跳转+跨模块/approval-manage/view路由注册"},
+    {"id":"cc-17","name":"lint + test + build 终验","kind":"verify","model":"opus","subModule":"shared","deps":["cc-16"],"status":"pending","complexity":"中","summary":"pnpm nx lint/test/build cross-chain全绿。重点:tp/edit竞态、lp/edit生成钱包AES、lp action-modal动态分支、rb Disable isTokenPaired拦截、3动态URL、5状态配色、18权限码、pageNum、5子模块group路由无404、i18n含ststus、跨模块跳转"}
+  ],
+  "currentIndex": 3,
+  "notes": "阶段四开发中。cc-1/2/3 completed(基础层60%:骨架+i18n+model+constants+AES,lint全绿)。下一步 cc-4(api+keys,opus高复杂度,3动态URL+3链下拉)→cc-5(queries)→cc-6/7(ui)→cc-8~15(5子模块页面,按fx→cct→rb→tp→lp复杂度递增)→cc-16(group manifest)→cc-17(终验)。模型:sonnet不可用,page全opus,scaffold haiku,关键(cc-4/16)升级opus。token checkpoint:说'继续'从cc-4恢复(状态文件为唯一进度来源)。"
+}

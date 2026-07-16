@@ -1,0 +1,21 @@
+{
+  "name": "modules-wallet-feature",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/wallet/feature/src",
+  "projectType": "library",
+  "tags": ["scope:wallet", "type:feature"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/modules/wallet/feature/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}

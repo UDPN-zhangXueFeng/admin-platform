@@ -1,0 +1,37 @@
+[   19686ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/en-US/login:0
+[   20992ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   21362ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   21391ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus) @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   37013ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   45524ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus)
+
+Import trace for requested module:
+../../libs/modules/user/data-access/src/index.ts
+../../libs/modules/user/feature/src/lib/user-list-page.tsx
+../../libs/modules/user/feature/src/index.ts
+../../libs/shared/util-config/src/lib/module-registry.ts @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   46039ms] [LOG] [Fast Refresh] done in 9026ms @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   48279ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   50163ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus)
+
+Import trace for requested module:
+../../libs/modules/user/data-access/src/index.ts
+../../libs/modules/user/feature/src/lib/user-list-page.tsx
+../../libs/modules/user/feature/src/index.ts
+../../libs/shared/util-config/src/lib/module-registry.ts @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   50181ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/aps/api/manage/v1/statistics/getStableCoin:0
+[   51106ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/logo.svg:0
+[   51131ms] [LOG] [Fast Refresh] done in 2853ms @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  108632ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  109468ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus)
+
+Import trace for requested module:
+../../libs/modules/user/data-access/src/index.ts
+../../libs/modules/user/feature/src/lib/user-list-page.tsx
+../../libs/modules/user/feature/src/index.ts
+../../libs/shared/util-config/src/lib/module-registry.ts @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  109493ms] [LOG] [Fast Refresh] done in 862ms @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27

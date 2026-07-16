@@ -1,0 +1,110 @@
+{
+  "title": "过账引擎",
+  "records": "过账账本",
+  "empty": "暂无数据",
+  "copy": "复制",
+  "filter": {
+    "title": "查询",
+    "query": "查询",
+    "reset": "重置",
+    "all": "全部"
+  },
+  "placeholder": {
+    "bookName": "请输入账本名称",
+    "currency": "请输入币种代码"
+  },
+  "field": {
+    "bookName": "账本名称",
+    "bookNo": "账本编号",
+    "currency": "币种",
+    "tokenType": "Token 类型",
+    "tokenCount": "Token 数量",
+    "totalEvents": "事件总数",
+    "configured": "已配置",
+    "lastRuleUpdate": "最近规则更新",
+    "lastRuleUpdateFrom": "最近规则更新起",
+    "lastRuleUpdateTo": "最近规则更新止",
+    "status": "状态",
+    "actions": "操作"
+  },
+  "action": {
+    "detail": "详情",
+    "mappingRules": "映射规则",
+    "edit": "编辑",
+    "view": "查看",
+    "back": "返回",
+    "save": "保存",
+    "cancel": "取消",
+    "approval": "审批"
+  },
+  "tokenType": {
+    "1": "稳定币",
+    "5": "代币化存款"
+  },
+  "status": {
+    "draft": "草稿",
+    "pendingReview": "待审核",
+    "rejected": "已驳回",
+    "submitted": "已提交",
+    "inReview": "审核中",
+    "approved": "已通过",
+    "disabled": "已停用",
+    "active": "启用",
+    "inactive": "未启用"
+  },
+  "sourceEvent": {
+    "reserveIn": "储备注入",
+    "fundingIn": "资金注入",
+    "mint": "铸造",
+    "repositoryOut": "库存出库",
+    "transfer": "划转",
+    "repositoryIn": "库存入库",
+    "melt": "销毁",
+    "reserveOut": "储备提取",
+    "fundingOut": "资金提取"
+  },
+  "mappingMethod": {
+    "direct": "直连",
+    "constant": "常量"
+  },
+  "detail": {
+    "bookTitle": "过账引擎账本详情",
+    "eventTitle": "过账引擎事件详情",
+    "basicInformation": "基本信息",
+    "postingEngineMatrix": "过账引擎矩阵",
+    "versionHistory": "版本历史",
+    "invalidId": "ID 无效或缺失。",
+    "reserveAsset": "储备资产",
+    "creator": "创建人",
+    "createTime": "创建时间",
+    "eventCode": "事件编码",
+    "versionId": "版本 ID",
+    "effectiveDate": "生效日期",
+    "updateTime": "更新时间",
+    "sourceEventType": "源事件类型",
+    "entryDirection": "借贷方向",
+    "transactionEventFields": "事务事件字段",
+    "entryTemplate": "分录模板",
+    "noVersion": "暂无版本历史。",
+    "remarks": "备注"
+  },
+  "versionHistory": {
+    "sourceEventType": "源事件类型",
+    "versionId": "版本 ID",
+    "entryDirection": "借贷方向",
+    "effectiveDate": "生效日期",
+    "createdBy": "创建人",
+    "createdOn": "创建时间",
+    "status": "状态",
+    "action": "操作"
+  },
+  "edit": {
+    "title": "编辑过账规则",
+    "effectiveDate": "生效日期",
+    "entryTemplate": "分录模板",
+    "drCr": "借/贷",
+    "account": "科目",
+    "method": "方式",
+    "value": "取值"
+  }
+}

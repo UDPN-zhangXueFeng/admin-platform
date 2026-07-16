@@ -1,0 +1,109 @@
+{
+  "title": "会计科目表",
+  "records": "财务账本",
+  "empty": "暂无财务账本",
+  "filter": {
+    "title": "查询",
+    "query": "查询",
+    "reset": "重置",
+    "all": "全部"
+  },
+  "field": {
+    "bookName": "账本名称",
+    "bookNo": "账本编号",
+    "bookId": "账本 ID",
+    "reserveAssetName": "储备资产",
+    "currency": "货币",
+    "tokenType": "Token 类型",
+    "tokens": "Tokens",
+    "eodCutoffTime": "EOD 截止时间",
+    "lastEodPostingRun": "上次 EOD 过账运行",
+    "status": "状态",
+    "actions": "操作",
+    "createdOnFrom": "创建开始",
+    "createdOnTo": "创建结束",
+    "createdBy": "创建人",
+    "createdOn": "创建时间"
+  },
+  "placeholder": {
+    "bookName": "请输入账本名称",
+    "bookNo": "请输入账本编号",
+    "reserveAssetName": "请输入储备资产"
+  },
+  "tokenType": {
+    "1": "稳定币",
+    "5": "代币化存款"
+  },
+  "status": {
+    "active": "启用",
+    "inactive": "停用"
+  },
+  "action": {
+    "edit": "编辑",
+    "viewStatements": "查看报表",
+    "detail": "详情",
+    "back": "返回"
+  },
+  "tab": {
+    "basicInformation": "基本信息",
+    "chartOfAccounts": "会计科目表",
+    "eodStatements": "EOD 报表"
+  },
+  "detail": {
+    "basicInformationTitle": "基本信息",
+    "financeBookId": "财务账本 ID",
+    "placeholderHint": "该模块正在迁移中，完整功能将在后续版本提供。"
+  },
+  "common": {
+    "cancel": "取消", "save": "保存", "confirm": "确认", "close": "关闭",
+    "edit": "编辑", "deactivate": "停用", "activate": "启用", "yes": "是", "no": "否"
+  },
+  "coa": {
+    "tabDescription": "{bookName} 的会计科目表",
+    "tabAlert": "草稿在本地保存，点击“保存草稿”后提交。",
+    "saveDraft": "保存草稿",
+    "newPrimaryHint": "在 {accountType} 下创建新的一级科目。",
+    "subAccountAlert": "新增子科目将禁用父科目的过账。",
+    "deactivateAlert": "停用该科目可能影响其子科目。",
+    "activateAlert": "启用该科目，可选择同时启用子科目。",
+    "recordLabel": "科目",
+    "subAccountsToDeactivate": "需停用的子科目",
+    "enableChildAccounts": "启用子科目",
+    "comment": "备注",
+    "accountType": "科目类型", "balanceSide": "余额方向", "parentAccount": "父科目",
+    "accountCode": "科目代码", "accountName": "科目名称", "allowPosting": "允许过账",
+    "suspenseAccount": "暂记科目", "description": "描述",
+    "assets": "资产", "liabilities": "负债", "asset": "资产", "liability": "负债",
+    "status": "状态", "statusActive": "启用", "statusInactive": "停用", "statusPending": "待提交",
+    "actions": "操作", "actionNewPrimary": "新建一级科目", "actionNewSub": "新建子科目",
+    "codeRequired": "请填写科目代码", "code2Digit": "须为 2 位数字", "code4Digit": "须为 4 位数字",
+    "nameRequired": "请填写科目名称", "nameMax": "最多 50 个字符", "namePattern": "仅限字母、空格和连字符",
+    "descriptionRequired": "请填写描述",
+    "modalNewPrimary": "新建一级科目", "modalNewSub": "新建子科目",
+    "modalEditPrimary": "编辑一级科目", "modalEditSub": "编辑子科目", "modalDeactivate": "停用科目",
+    "activateParentFirst": "请先启用父科目",
+    "duplicateCode": "科目代码已存在", "duplicateName": "科目名称已存在",
+    "invalidAccountType": "科目类型无效", "toggleFailed": "操作失败",
+    "saveSuccess": "保存成功", "saveFailed": "保存失败"
+  },
+  "eod": {
+    "tabDescription": "查看历史日终余额与对账状态。",
+    "eodDate": "日终日期", "postingDate": "过账日期", "totalAssets": "资产合计",
+    "totalLiabilities": "负债合计", "suspenseEntries": "暂记分录", "createdOn": "创建时间",
+    "accountingStatus": "记账状态", "clearingStatus": "清算状态", "actions": "操作",
+    "balanced": "已平账", "unbalanced": "未平账",
+    "clearingSettled": "已结算", "clearingSuspensed": "已暂记", "clearingAdjusted": "已调整",
+    "clearingPending": "待处理", "clearingNone": "无",
+    "actionPostToSuspense": "记入暂记", "actionReview": "审核", "actionDetails": "明细",
+    "rangeFrom": "开始", "rangeTo": "结束", "closedBy": "关账人",
+    "detailTitle": "日终余额", "date": "日期", "bookId": "账本 ID", "processedBy": "处理人",
+    "ofWhichSuspenseAssets": "其中暂记资产", "ofWhichSuspenseLiabilities": "其中暂记负债",
+    "voucherId": "凭证号", "drCr": "借/贷", "account": "科目", "amount": "金额", "transactionId": "交易号",
+    "postToSuspenseTitle": "记入暂记",
+    "postToSuspenseWarning": "手工强制平账是高风险操作，将立即触发审计告警。请确保已穷尽其他对账路径。",
+    "unbalancedAmount": "未平账金额", "proposedAdjustment": "建议调整分录",
+    "debitAccount": "借方科目", "creditAccount": "贷方科目", "reason": "原因",
+    "reviewSuspenseTitle": "审核暂记分录", "proposedSuspenseEntries": "建议暂记分录",
+    "suspenseTxnId": "暂记交易号", "comments": "意见", "commentsPlaceholder": "请输入意见"
+  }
+}

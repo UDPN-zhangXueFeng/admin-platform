@@ -1,0 +1,19 @@
+{
+  "loading": "加载中...",
+  "operationalWallet": {
+    "title": "营运钱包",
+    "detailTitle": "营运钱包详情"
+  },
+  "userWallet": {
+    "title": "用户钱包",
+    "detailTitle": "用户钱包详情",
+    "historyTitle": "用户钱包授权历史"
+  },
+  "walletType": {
+    "title": "钱包类型",
+    "detailTitle": "钱包类型详情",
+    "mffDetailTitle": "MMF 钱包类型详情",
+    "formTitle": "钱包类型表单",
+    "mffFormTitle": "MMF 钱包类型表单"
+  }
+}

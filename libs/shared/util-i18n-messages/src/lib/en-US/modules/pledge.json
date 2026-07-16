@@ -1,0 +1,177 @@
+{
+  "title": "Reserve Asset",
+  "filter": {
+    "query": "Query",
+    "reset": "Reset",
+    "all": "All"
+  },
+  "field": {
+    "index": "Index",
+    "accountName": "Reserve Asset Name",
+    "currency": "Currency",
+    "bookStatus": "Book Status",
+    "createTime": "Created On",
+    "assetValue": "Asset Value",
+    "assetCategories": "Asset Categories",
+    "tokenCount": "Token Count",
+    "status": "Status",
+    "actions": "Action"
+  },
+  "bookStatus": {
+    "not_setup": "Not Setup",
+    "configured": "Configured"
+  },
+  "status": {
+    "10": "Processing",
+    "15": "Rejected",
+    "20": "Active",
+    "50": "Inactive"
+  },
+  "statusColor": {
+    "10": "processing",
+    "15": "error",
+    "20": "success",
+    "50": "default"
+  },
+  "action": {
+    "add": "Add",
+    "edit": "Edit",
+    "details": "Details",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "addAssetCategory": "Add Asset Category",
+    "newTransaction": "New Transaction",
+    "more": "More",
+    "confirm": "Confirm",
+    "cancel": "Cancel"
+  },
+  "drawer": {
+    "newTitle": "New Reserve Asset",
+    "editTitle": "Edit Reserve Asset",
+    "currencyLabel": "Currency",
+    "currencyPlaceholder": "Please select currency",
+    "nameLabel": "Reserve Asset Name",
+    "namePlaceholder": "30 chars, letters, numbers, spaces, '_' and '-'",
+    "nameRequired": "Please enter reserve asset name",
+    "nameMax": "Max 30 characters",
+    "namePattern": "Only letters, numbers, spaces, '_' and '-'",
+    "categoryLabel": "Asset Category",
+    "categoryRequired": "Please select asset category"
+  },
+  "confirmDeactivate": "Are you sure you want to deactivate the {accountName}?",
+  "confirmActivate": "Are you sure you want to activate the {accountName}?",
+  "operateSuccess": "Operate success",
+  "createSuccess": "Create success",
+  "editSuccess": "Edit success",
+  "empty": "No data",
+  "categoryAdd": {
+    "title": "New Asset Category",
+    "placeholder": "50 chars, letters, numbers, spaces, '_' and '-'",
+    "required": "Please enter asset category",
+    "max": "Max 50 characters",
+    "pattern": "Only letters, numbers, spaces, '_' and '-'",
+    "add": "+ Add",
+    "remove": "Remove",
+    "back": "Back",
+    "submit": "Submit"
+  },
+  "tabs": {
+    "basic": "Basic Information",
+    "assetTransactions": "Asset Transactions",
+    "operationRecords": "Operation Records"
+  },
+  "txnStatus": {
+    "5": "Pending Approval",
+    "10": "Under Approval",
+    "15": "Rejected",
+    "35": "Approved"
+  },
+  "opRecordStatus": {
+    "5": "Pending Approval",
+    "10": "Under Approval",
+    "15": "Rejected",
+    "20": "Approved"
+  },
+  "operateType": {
+    "1": "Add",
+    "2": "Edit",
+    "3": "Activate",
+    "4": "Deactivate",
+    "5": "Add Asset Category"
+  },
+  "assetTxn": {
+    "no": "No.",
+    "category": "Asset Category",
+    "type": "Transaction Type",
+    "value": "Asset Value",
+    "createdBy": "Created by",
+    "createdOn": "Created on"
+  },
+  "operationRecord": {
+    "type": "Operation Type",
+    "createdBy": "Created by",
+    "createdOn": "Created on",
+    "status": "Status",
+    "actions": "Action"
+  },
+  "tokenType": {
+    "1": "Stablecoin",
+    "5": "Tokenized Deposit"
+  },
+  "viewBasic": {
+    "overviewTitle": "Reserve Asset Overview",
+    "reserveAssetName": "Reserve Asset Name:",
+    "currency": "Currency:",
+    "createdOn": "Created on:",
+    "status": "Status:",
+    "totalAssetValue": "Total Asset Value",
+    "tokens": "Tokens",
+    "summaryTitle": "Reserve Asset Summary",
+    "summaryCategory": "Asset Category",
+    "summaryValue": "Total Asset Value",
+    "summaryShare": "Share of Total Reserve",
+    "summaryUpdatedBy": "Updated by",
+    "summaryUpdatedOn": "Updated on",
+    "summaryStatus": "Status",
+    "tokensOverview": "Tokens Overview",
+    "tokenName": "Token Name:",
+    "tokenType": "Token Type:",
+    "tokenPrice": "Token Price:",
+    "blockchain": "Blockchain:",
+    "inCirculation": "In Circulation",
+    "goBack": "Go Back",
+    "categoryActive": {
+      "0": "Inactive",
+      "1": "Active"
+    }
+  },
+  "assetTxnEdit": {
+    "reserveAssetPlaceholder": "Select reserve asset",
+    "reserveAssetRequired": "Please select reserve asset",
+    "categoryPlaceholder": "Select asset category",
+    "categoryRequired": "Please select asset category",
+    "transactionTypeRequired": "Please select transaction type",
+    "quantity": "Quantity (Unit)",
+    "quantityPlaceholder": "Enter quantity",
+    "assetValuePlaceholder": "Enter asset value",
+    "assetValueRequired": "Please enter asset value"
+  },
+  "assetTxnList": {
+    "title": "Reserve Asset Transactions",
+    "transactionRefNo": "Transaction Ref No.",
+    "assetName": "Asset Name",
+    "assetCategory": "Asset Category",
+    "transactionType": "Transaction Type",
+    "transactionAmount": "Transaction Amount",
+    "createdBy": "Created by",
+    "createdOn": "Created on",
+    "direction": {
+      "inflow": "Inflow",
+      "outflow": "Outflow",
+      "refund": "Refund"
+    },
+    "newTransaction": "New Transaction",
+    "importTransactions": "Import Transactions",
+    "adjustment": "Adjustment"
+  }
+}

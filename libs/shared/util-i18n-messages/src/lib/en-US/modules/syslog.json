@@ -1,0 +1,22 @@
+{
+  "title": "System Log",
+  "query": "Query",
+  "reset": "Reset",
+  "records": "System Logs",
+  "empty": "No system logs",
+  "export": "Export",
+  "more": "More",
+  "all": "All",
+  "field": {
+    "logId": "Log ID",
+    "logTime": "Log Time",
+    "logTimeFrom": "Log Time From",
+    "logTimeTo": "Log Time To",
+    "userName": "User",
+    "module": "Module",
+    "operationType": "Operation Type",
+    "desc": "Description",
+    "sourceIp": "Source IP"
+  },
+  "operationType": {}
+}

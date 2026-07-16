@@ -1,0 +1,315 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "importHelpers": true,
+    "isolatedModules": true,
+    "lib": ["es2022"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmitOnError": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "es2022",
+    "customConditions": ["@admin-platform/source"],
+    "paths": {
+      "@myorg/modules/chart-of-accounts/data-access": [
+        "libs/modules/chart-of-accounts/data-access/src/index.ts"
+      ],
+      "@myorg/modules/chart-of-accounts/feature": [
+        "libs/modules/chart-of-accounts/feature/src/index.ts"
+      ],
+      "@myorg/modules/chart-of-accounts/ui": [
+        "libs/modules/chart-of-accounts/ui/src/index.ts"
+      ],
+      "@myorg/modules/chart-of-accounts/util": [
+        "libs/modules/chart-of-accounts/util/src/index.ts"
+      ],
+      "@myorg/modules/journal-entries-new/data-access": [
+        "libs/modules/journal-entries-new/data-access/src/index.ts"
+      ],
+      "@myorg/modules/journal-entries-new/feature": [
+        "libs/modules/journal-entries-new/feature/src/index.ts"
+      ],
+      "@myorg/modules/journal-entries-new/ui": [
+        "libs/modules/journal-entries-new/ui/src/index.ts"
+      ],
+      "@myorg/modules/journal-entries-new/util": [
+        "libs/modules/journal-entries-new/util/src/index.ts"
+      ],
+      "@myorg/modules/posting-engine/data-access": [
+        "libs/modules/posting-engine/data-access/src/index.ts"
+      ],
+      "@myorg/modules/posting-engine/feature": [
+        "libs/modules/posting-engine/feature/src/index.ts"
+      ],
+      "@myorg/modules/posting-engine/ui": [
+        "libs/modules/posting-engine/ui/src/index.ts"
+      ],
+      "@myorg/modules/posting-engine/util": [
+        "libs/modules/posting-engine/util/src/index.ts"
+      ],
+      "@myorg/modules/wallet/data-access": [
+        "libs/modules/wallet/data-access/src/index.ts"
+      ],
+      "@myorg/modules/wallet/feature": [
+        "libs/modules/wallet/feature/src/index.ts"
+      ],
+      "@myorg/modules/wallet/ui": [
+        "libs/modules/wallet/ui/src/index.ts"
+      ],
+      "@myorg/modules/wallet/util": [
+        "libs/modules/wallet/util/src/index.ts"
+      ],
+      "@myorg/modules/suspense-adjustment/data-access": [
+        "libs/modules/suspense-adjustment/data-access/src/index.ts"
+      ],
+      "@myorg/modules/suspense-adjustment/feature": [
+        "libs/modules/suspense-adjustment/feature/src/index.ts"
+      ],
+      "@myorg/modules/suspense-adjustment/ui": [
+        "libs/modules/suspense-adjustment/ui/src/index.ts"
+      ],
+      "@myorg/modules/suspense-adjustment/util": [
+        "libs/modules/suspense-adjustment/util/src/index.ts"
+      ],
+      "@myorg/modules/audit-trail/data-access": [
+        "libs/modules/audit-trail/data-access/src/index.ts"
+      ],
+      "@myorg/modules/audit-trail/feature": [
+        "libs/modules/audit-trail/feature/src/index.ts"
+      ],
+      "@myorg/modules/audit-trail/ui": [
+        "libs/modules/audit-trail/ui/src/index.ts"
+      ],
+      "@myorg/modules/audit-trail/util": [
+        "libs/modules/audit-trail/util/src/index.ts"
+      ],
+      "@myorg/modules/statements/data-access": [
+        "libs/modules/statements/data-access/src/index.ts"
+      ],
+      "@myorg/modules/statements/feature": [
+        "libs/modules/statements/feature/src/index.ts"
+      ],
+      "@myorg/modules/statements/ui": [
+        "libs/modules/statements/ui/src/index.ts"
+      ],
+      "@myorg/modules/statements/util": [
+        "libs/modules/statements/util/src/index.ts"
+      ],
+      "@myorg/modules/tokenized-deposit/data-access": [
+        "libs/modules/tokenized-deposit/data-access/src/index.ts"
+      ],
+      "@myorg/modules/tokenized-deposit/feature": [
+        "libs/modules/tokenized-deposit/feature/src/index.ts"
+      ],
+      "@myorg/modules/tokenized-deposit/ui": [
+        "libs/modules/tokenized-deposit/ui/src/index.ts"
+      ],
+      "@myorg/modules/tokenized-deposit/util": [
+        "libs/modules/tokenized-deposit/util/src/index.ts"
+      ],
+      "@myorg/modules/journal-entries/data-access": [
+        "libs/modules/journal-entries/data-access/src/index.ts"
+      ],
+      "@myorg/modules/journal-entries/feature": [
+        "libs/modules/journal-entries/feature/src/index.ts"
+      ],
+      "@myorg/modules/journal-entries/ui": [
+        "libs/modules/journal-entries/ui/src/index.ts"
+      ],
+      "@myorg/modules/journal-entries/util": [
+        "libs/modules/journal-entries/util/src/index.ts"
+      ],
+      "@myorg/modules/mmf/data-access": [
+        "libs/modules/mmf/data-access/src/index.ts"
+      ],
+      "@myorg/modules/mmf/feature": [
+        "libs/modules/mmf/feature/src/index.ts"
+      ],
+      "@myorg/modules/mmf/ui": [
+        "libs/modules/mmf/ui/src/index.ts"
+      ],
+      "@myorg/modules/mmf/util": [
+        "libs/modules/mmf/util/src/index.ts"
+      ],
+      "@myorg/modules/transaction-event-configuration/data-access": [
+        "libs/modules/transaction-event-configuration/data-access/src/index.ts"
+      ],
+      "@myorg/modules/transaction-event-configuration/feature": [
+        "libs/modules/transaction-event-configuration/feature/src/index.ts"
+      ],
+      "@myorg/modules/transaction-event-configuration/ui": [
+        "libs/modules/transaction-event-configuration/ui/src/index.ts"
+      ],
+      "@myorg/modules/transaction-event-configuration/util": [
+        "libs/modules/transaction-event-configuration/util/src/index.ts"
+      ],
+      "@myorg/modules/inventory/data-access": [
+        "libs/modules/inventory/data-access/src/index.ts"
+      ],
+      "@myorg/modules/inventory/feature": [
+        "libs/modules/inventory/feature/src/index.ts"
+      ],
+      "@myorg/modules/inventory/ui": ["libs/modules/inventory/ui/src/index.ts"],
+      "@myorg/modules/inventory/util": [
+        "libs/modules/inventory/util/src/index.ts"
+      ],
+      "@myorg/modules/blockchain/data-access": [
+        "libs/modules/blockchain/data-access/src/index.ts"
+      ],
+      "@myorg/modules/blockchain/feature": [
+        "libs/modules/blockchain/feature/src/index.ts"
+      ],
+      "@myorg/modules/blockchain/ui": [
+        "libs/modules/blockchain/ui/src/index.ts"
+      ],
+      "@myorg/modules/blockchain/util": [
+        "libs/modules/blockchain/util/src/index.ts"
+      ],
+      "@myorg/modules/cross-chain/data-access": [
+        "libs/modules/cross-chain/data-access/src/index.ts"
+      ],
+      "@myorg/modules/cross-chain/feature": [
+        "libs/modules/cross-chain/feature/src/index.ts"
+      ],
+      "@myorg/modules/cross-chain/ui": [
+        "libs/modules/cross-chain/ui/src/index.ts"
+      ],
+      "@myorg/modules/cross-chain/util": [
+        "libs/modules/cross-chain/util/src/index.ts"
+      ],
+      "@myorg/modules/pledge/data-access": [
+        "libs/modules/pledge/data-access/src/index.ts"
+      ],
+      "@myorg/modules/pledge/feature": [
+        "libs/modules/pledge/feature/src/index.ts"
+      ],
+      "@myorg/modules/pledge/ui": [
+        "libs/modules/pledge/ui/src/index.ts"
+      ],
+      "@myorg/modules/pledge/util": [
+        "libs/modules/pledge/util/src/index.ts"
+      ],
+      "@myorg/modules/notification/data-access": [
+        "libs/modules/notification/data-access/src/index.ts"
+      ],
+      "@myorg/modules/notification/feature": [
+        "libs/modules/notification/feature/src/index.ts"
+      ],
+      "@myorg/modules/notification/ui": [
+        "libs/modules/notification/ui/src/index.ts"
+      ],
+      "@myorg/modules/notification/util": [
+        "libs/modules/notification/util/src/index.ts"
+      ],
+      "@myorg/modules/order/data-access": [
+        "libs/modules/order/data-access/src/index.ts"
+      ],
+      "@myorg/modules/order/feature": [
+        "libs/modules/order/feature/src/index.ts"
+      ],
+      "@myorg/modules/order/ui": ["libs/modules/order/ui/src/index.ts"],
+      "@myorg/modules/order/util": ["libs/modules/order/util/src/index.ts"],
+      "@myorg/modules/product/data-access": [
+        "libs/modules/product/data-access/src/index.ts"
+      ],
+      "@myorg/modules/product/feature": [
+        "libs/modules/product/feature/src/index.ts"
+      ],
+      "@myorg/modules/product/ui": ["libs/modules/product/ui/src/index.ts"],
+      "@myorg/modules/product/util": ["libs/modules/product/util/src/index.ts"],
+      "@myorg/modules/report/data-access": [
+        "libs/modules/report/data-access/src/index.ts"
+      ],
+      "@myorg/modules/report/feature": [
+        "libs/modules/report/feature/src/index.ts"
+      ],
+      "@myorg/modules/report/ui": ["libs/modules/report/ui/src/index.ts"],
+      "@myorg/modules/report/util": ["libs/modules/report/util/src/index.ts"],
+      "@myorg/modules/setting/data-access": [
+        "libs/modules/setting/data-access/src/index.ts"
+      ],
+      "@myorg/modules/setting/feature": [
+        "libs/modules/setting/feature/src/index.ts"
+      ],
+      "@myorg/modules/setting/ui": ["libs/modules/setting/ui/src/index.ts"],
+      "@myorg/modules/setting/util": ["libs/modules/setting/util/src/index.ts"],
+      "@myorg/modules/travel-rule/data-access": [
+        "libs/modules/travel-rule/data-access/src/index.ts"
+      ],
+      "@myorg/modules/travel-rule/feature": [
+        "libs/modules/travel-rule/feature/src/index.ts"
+      ],
+      "@myorg/modules/travel-rule/ui": ["libs/modules/travel-rule/ui/src/index.ts"],
+      "@myorg/modules/travel-rule/util": ["libs/modules/travel-rule/util/src/index.ts"],
+      "@myorg/modules/syslog/data-access": [
+        "libs/modules/syslog/data-access/src/index.ts"
+      ],
+      "@myorg/modules/syslog/feature": ["libs/modules/syslog/feature/src/index.ts"],
+      "@myorg/modules/syslog/ui": ["libs/modules/syslog/ui/src/index.ts"],
+      "@myorg/modules/syslog/util": ["libs/modules/syslog/util/src/index.ts"],
+      "@myorg/modules/role/data-access": [
+        "libs/modules/role/data-access/src/index.ts"
+      ],
+      "@myorg/modules/role/feature": ["libs/modules/role/feature/src/index.ts"],
+      "@myorg/modules/role/ui": ["libs/modules/role/ui/src/index.ts"],
+      "@myorg/modules/role/util": ["libs/modules/role/util/src/index.ts"],
+      "@myorg/modules/workflow/data-access": [
+        "libs/modules/workflow/data-access/src/index.ts"
+      ],
+      "@myorg/modules/workflow/feature": [
+        "libs/modules/workflow/feature/src/index.ts"
+      ],
+      "@myorg/modules/workflow/ui": ["libs/modules/workflow/ui/src/index.ts"],
+      "@myorg/modules/workflow/util": ["libs/modules/workflow/util/src/index.ts"],
+      "@myorg/modules/user/data-access": [
+        "libs/modules/user/data-access/src/index.ts"
+      ],
+      "@myorg/modules/user/feature": ["libs/modules/user/feature/src/index.ts"],
+      "@myorg/modules/user/ui": ["libs/modules/user/ui/src/index.ts"],
+      "@myorg/modules/user/util": ["libs/modules/user/util/src/index.ts"],
+      "@myorg/modules/auth/util": ["libs/modules/auth/util/src/index.ts"],
+      "@myorg/modules/auth/data-access": [
+        "libs/modules/auth/data-access/src/index.ts"
+      ],
+      "@myorg/modules/dashboard/data-access": [
+        "libs/modules/dashboard/data-access/src/index.ts"
+      ],
+      "@myorg/modules/auth/ui": ["libs/modules/auth/ui/src/index.ts"],
+      "@myorg/modules/auth/feature": ["libs/modules/auth/feature/src/index.ts"],
+      "@myorg/shared/data-access-api": [
+        "libs/shared/data-access-api/src/index.ts"
+      ],
+      "@myorg/shared/data-access-query": [
+        "libs/shared/data-access-query/src/index.ts"
+      ],
+      "@myorg/shared/design-tokens": ["libs/shared/design-tokens/src/index.ts"],
+      "@myorg/shared/model": ["libs/shared/model/src/index.ts"],
+      "@myorg/shared/ui": ["libs/shared/ui/src/index.ts"],
+      "@myorg/shared/ui-charts": ["libs/shared/ui-charts/src/index.ts"],
+      "@myorg/shared/ui-forms": ["libs/shared/ui-forms/src/index.ts"],
+      "@myorg/shared/ui-layout": ["libs/shared/ui-layout/src/index.ts"],
+      "@myorg/shared/util-auth": ["libs/shared/util-auth/src/index.ts"],
+      "@myorg/shared/util-classnames": [
+        "libs/shared/util-classnames/src/index.ts"
+      ],
+      "@myorg/shared/util-config": ["libs/shared/util-config/src/index.ts"],
+      "@myorg/shared/util-dates": ["libs/shared/util-dates/src/index.ts"],
+      "@myorg/shared/util-formatting": [
+        "libs/shared/util-formatting/src/index.ts"
+      ],
+      "@myorg/shared/util-i18n": ["libs/shared/util-i18n/src/index.ts"],
+      "@myorg/shared/util-i18n-messages": [
+        "libs/shared/util-i18n-messages/src/index.ts"
+      ],
+      "@myorg/shared/util-state": ["libs/shared/util-state/src/index.ts"],
+      "@myorg/shared/util-testing": ["libs/shared/util-testing/src/index.ts"]
+    }
+  }
+}

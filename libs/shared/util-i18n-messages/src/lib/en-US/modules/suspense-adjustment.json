@@ -1,0 +1,77 @@
+{
+  "title": "Suspense Adjustment",
+  "list": {
+    "title": "Suspense Adjustment",
+    "description": "Suspense account entries and their full adjustment history for reconciliation and audit."
+  },
+  "detail": {
+    "title": "Suspense Entry Detail",
+    "basicInformation": "Basic Details",
+    "suspenseEntries": "Suspense Entries",
+    "amountSummary": "Amount Summary",
+    "adjustmentHistory": "Adjustment History",
+    "invalidId": "Invalid suspense record id."
+  },
+  "edit": {
+    "title": "New Adjustment Entry",
+    "basicInfo": "Basic Information",
+    "overview": "Overview",
+    "offsettingEntryFor": "Offsetting Entry For",
+    "addEntry": "+ Add Entry",
+    "reason": "Adjustment Reason",
+    "reasonPlaceholder": "Enter adjustment reason",
+    "summary": "Adjustment Summary",
+    "thisAdjustment": "This Adjustment",
+    "remainingAfter": "Remaining After This",
+    "amountExceed": "Total cannot exceed outstanding amount ({amount} {currency}).",
+    "submitSuccess": "Adjustment submitted successfully.",
+    "submitFailed": "Failed to submit adjustment."
+  },
+  "filter": {
+    "title": "Query",
+    "query": "Query",
+    "reset": "Reset",
+    "all": "All"
+  },
+  "placeholder": {
+    "suspenseTxnId": "Suspense Txn ID",
+    "transactionId": "Transaction ID"
+  },
+  "field": {
+    "postingDate": "Posting Date",
+    "postingDateFrom": "Posting Date From",
+    "postingDateTo": "Posting Date To",
+    "suspenseTxnId": "Suspense Txn ID",
+    "transactionId": "Transaction ID",
+    "sourceType": "Source Type",
+    "drCr": "Dr/Cr",
+    "account": "Account",
+    "originalAmount": "Original Amount",
+    "totalAdjusted": "Total Adjusted",
+    "outstandingAmount": "Outstanding Amount",
+    "age": "Age",
+    "status": "Status",
+    "actions": "Action",
+    "financeBookName": "Finance Book",
+    "bookId": "Book ID",
+    "debit": "Debit",
+    "credit": "Credit",
+    "exceptionContext": "Exception Context",
+    "createdBy": "Created By",
+    "createdOn": "Created On",
+    "offsetAccount": "Offsetting Account",
+    "amount": "Amount",
+    "adjustmentReason": "Adjustment Reason"
+  },
+  "action": {
+    "adjust": "Adjust",
+    "viewDetails": "View Details",
+    "back": "Back",
+    "detail": "Detail",
+    "approval": "Approval",
+    "submit": "Submit",
+    "cancel": "Cancel"
+  },
+  "empty": "No suspense entries found",
+  "ageDays": "{count} Day(s)"
+}

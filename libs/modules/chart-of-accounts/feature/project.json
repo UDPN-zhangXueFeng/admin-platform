@@ -1,0 +1,21 @@
+{
+  "name": "modules-chart-of-accounts-feature",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/chart-of-accounts/feature/src",
+  "projectType": "library",
+  "tags": ["scope:chart-of-accounts", "type:feature"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/modules/chart-of-accounts/feature/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}

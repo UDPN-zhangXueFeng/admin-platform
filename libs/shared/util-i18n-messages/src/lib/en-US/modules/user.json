@@ -1,0 +1,62 @@
+{
+  "title": "User Management",
+  "query": "Query",
+  "reset": "Reset",
+  "records": "User List",
+  "empty": "No users",
+  "invalidId": "Invalid user ID",
+  "action": {
+    "view": "View",
+    "edit": "Edit",
+    "disable": "Disable",
+    "enable": "Enable",
+    "reset": "Reset Password",
+    "delete": "Delete",
+    "add": "Add",
+    "back": "Back",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "field": {
+    "index": "No.",
+    "userName": "Username",
+    "email": "Email",
+    "phoneNumber": "Phone",
+    "tdName": "Accessible Tokens",
+    "createTime": "Created At",
+    "updateTime": "Updated At",
+    "status": "Status",
+    "action": "Action",
+    "roleIds": "Roles",
+    "tdIds": "Accessible Tokens",
+    "blockchain": "Chain: "
+  },
+  "status": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "confirm": {
+    "disable": "Are you sure you want to disable this user?",
+    "enable": "Are you sure you want to enable this user?",
+    "reset": "Are you sure you want to reset this user's password?",
+    "delete": "Are you sure you want to delete this user?"
+  },
+  "validation": {
+    "userName": "Username must start with a letter and contain only letters and digits (max 20 characters)",
+    "email": "Please enter a valid email address",
+    "roleIds": "Please select at least one role"
+  },
+  "emptyOptions": {
+    "role": "No roles available",
+    "td": "No tokens available"
+  },
+  "view": {
+    "title": "User Detail"
+  },
+  "edit": {
+    "title": "Edit User"
+  },
+  "create": {
+    "title": "Create User"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "title": "角色管理",
+  "query": "查询",
+  "reset": "重置",
+  "records": "角色列表",
+  "empty": "暂无角色",
+  "invalidId": "角色 ID 无效",
+  "action": {
+    "view": "查看",
+    "edit": "编辑",
+    "disable": "禁用",
+    "enable": "启用",
+    "delete": "删除",
+    "add": "新增",
+    "back": "返回",
+    "cancel": "取消",
+    "save": "保存"
+  },
+  "field": {
+    "index": "序号",
+    "roleName": "角色名称",
+    "status": "状态",
+    "action": "操作",
+    "menu": "菜单权限"
+  },
+  "status": {
+    "enabled": "启用",
+    "disabled": "禁用"
+  },
+  "confirm": {
+    "disable": "确定要禁用该角色吗？",
+    "enable": "确定要启用该角色吗？",
+    "delete": "确定要删除该角色吗？"
+  },
+  "view": {
+    "title": "角色详情"
+  },
+  "edit": {
+    "title": "编辑角色"
+  },
+  "create": {
+    "title": "新增角色"
+  }
+}

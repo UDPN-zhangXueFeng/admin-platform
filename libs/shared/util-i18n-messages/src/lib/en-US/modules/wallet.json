@@ -1,0 +1,19 @@
+{
+  "loading": "Loading...",
+  "operationalWallet": {
+    "title": "Operational Wallet",
+    "detailTitle": "Operational Wallet Detail"
+  },
+  "userWallet": {
+    "title": "User Wallet",
+    "detailTitle": "User Wallet Detail",
+    "historyTitle": "User Wallet Authorization History"
+  },
+  "walletType": {
+    "title": "Wallet Type",
+    "detailTitle": "Wallet Type Detail",
+    "mffDetailTitle": "MMF Wallet Type Detail",
+    "formTitle": "Wallet Type Form",
+    "mffFormTitle": "MMF Wallet Type Form"
+  }
+}

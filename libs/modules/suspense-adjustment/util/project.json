@@ -1,0 +1,21 @@
+{
+  "name": "modules-suspense-adjustment-util",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/suspense-adjustment/util/src",
+  "projectType": "library",
+  "tags": ["scope:suspense-adjustment", "type:util"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/modules/suspense-adjustment/util/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}

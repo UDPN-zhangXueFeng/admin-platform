@@ -1,0 +1,30 @@
+{
+  "name": "@admin-platform/admin",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/admin",
+  "projectType": "application",
+  "tags": ["scope:admin", "type:app"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec next build --webpack",
+        "cwd": "apps/admin"
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec next dev --webpack",
+        "cwd": "apps/admin"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec next start",
+        "cwd": "apps/admin"
+      }
+    }
+  }
+}

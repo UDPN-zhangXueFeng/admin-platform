@@ -1,0 +1,10 @@
+{
+  "title": "Order Management",
+  "list": "Order List",
+  "status": {
+    "pending": "Pending",
+    "processing": "Processing",
+    "shipped": "Shipped",
+    "delivered": "Delivered"
+  }
+}

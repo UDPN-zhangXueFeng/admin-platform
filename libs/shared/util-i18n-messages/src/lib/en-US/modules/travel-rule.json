@@ -1,0 +1,51 @@
+{
+  "title": "Travel Rule",
+  "query": "Query",
+  "reset": "Reset",
+  "records": "Transaction Records",
+  "empty": "No transaction records",
+  "copy": "Copy",
+  "field": {
+    "transactionHash": "Transaction Hash",
+    "tokenName": "Token Name",
+    "sendingSp": "Sending SP",
+    "senderWallet": "Sender Wallet",
+    "receivingSp": "Receiving SP",
+    "receiverWallet": "Receiver Wallet",
+    "travelRuleHash": "Travel Rule Hash",
+    "verificationStatus": "Verification Status",
+    "confirmationTime": "Confirmation Time",
+    "transactionType": "Transaction Type",
+    "transactionAmount": "Transaction Amount",
+    "transactionTime": "Transaction Time",
+    "transactionTimeFrom": "Transaction Time From",
+    "transactionTimeTo": "Transaction Time To",
+    "confirmationTimeFrom": "Confirmation Time From",
+    "confirmationTimeTo": "Confirmation Time To"
+  },
+  "placeholder": {
+    "transactionHash": "Enter transaction hash",
+    "senderWallet": "Enter sender wallet",
+    "receivingSp": "Enter receiving SP",
+    "receiverWallet": "Enter receiver wallet",
+    "travelRuleHash": "Enter travel rule hash",
+    "tokenName": "Enter token name",
+    "sendingSp": "Enter sending SP"
+  },
+  "status": {
+    "Pending": "Pending",
+    "Verified": "Verified",
+    "Rejected": "Rejected"
+  },
+  "transactionType": {
+    "all": "All",
+    "transfer": "Transfer",
+    "authorizedTransfer": "Authorized Transfer"
+  },
+  "statusFilter": {
+    "all": "All",
+    "Pending": "Pending",
+    "Verified": "Verified",
+    "Rejected": "Rejected"
+  }
+}

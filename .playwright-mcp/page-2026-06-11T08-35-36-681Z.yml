@@ -1,0 +1,28 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - heading "auth.title" [level=1] [ref=e6]
+      - paragraph [ref=e7]: auth.subtitle
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - text: auth.username
+        - textbox "auth.username" [ref=e10]:
+          - /placeholder: auth.usernamePlaceholder
+      - generic [ref=e11]:
+        - text: auth.password
+        - textbox "auth.password" [ref=e12]:
+          - /placeholder: auth.passwordPlaceholder
+      - generic [ref=e13]:
+        - text: auth.captcha
+        - textbox "auth.captcha" [ref=e15]:
+          - /placeholder: auth.captchaPlaceholder
+      - button "auth.login" [ref=e16] [cursor=pointer]
+    - generic [ref=e18]: auth.or
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - text: auth.username
+        - textbox "auth.username" [ref=e21]:
+          - /placeholder: auth.usernamePlaceholder
+      - button "auth.connectMetaMask" [disabled]
+  - button "Open Next.js Dev Tools" [ref=e27] [cursor=pointer]:
+    - img [ref=e28]
