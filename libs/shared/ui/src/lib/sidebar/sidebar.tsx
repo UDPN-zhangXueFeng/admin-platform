@@ -140,7 +140,7 @@ export function Sidebar({ items, collapsed, onToggle, className }: SidebarProps)
   return (
     <aside
       className={cn(
-        'flex h-full flex-col border-r border-border bg-card text-card-foreground shadow-xl shadow-foreground/5 transition-[width] duration-300 ease-in-out',
+        'flex h-full flex-col bg-card text-card-foreground shadow-[4px_0_10px_-8px_rgba(15,23,42,0.35)] transition-[width] duration-300 ease-in-out',
         collapsed ? 'w-20' : 'w-72',
         className
       )}

@@ -91,19 +91,19 @@ export function SidebarLayout({ config, children }: SidebarLayoutProps) {
 
         {/* Main content */}
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="flex h-12 shrink-0 items-center gap-2 border-b px-4 lg:px-6">
+          <div className="z-10 flex h-10 shrink-0 items-center gap-2 px-4 shadow-[0_4px_10px_-8px_rgba(15,23,42,0.35)] lg:px-6">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setCollapsed((value) => !value)}
               aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               aria-pressed={collapsed}
-              className="hidden lg:inline-flex"
+              className="hidden h-8 w-8 lg:inline-flex"
             >
               {collapsed ? (
-                <PanelLeftOpen className="h-5 w-5" aria-hidden="true" />
+                <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
               ) : (
-                <PanelLeftClose className="h-5 w-5" aria-hidden="true" />
+                <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
               )}
             </Button>
             {config.layout.breadcrumb.enabled && <Breadcrumb />}

@@ -246,15 +246,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-7">
-      {/* ---- Header ---- */}
-      <div className="flex min-h-8 items-start">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            {t('title')}
-          </h1>
-        </div>
-      </div>
-
       {/* ---- Token Selector + Overview Cards ---- */}
       <section className="space-y-6">
         <div className="min-w-0">
