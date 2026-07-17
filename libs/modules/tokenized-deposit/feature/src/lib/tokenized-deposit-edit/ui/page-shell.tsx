@@ -33,12 +33,20 @@ export interface OnboardHeaderProps {
   backLabel: string;
   title: string;
   badge?: string;
-  badgeVariant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost' | 'link';
+  badgeVariant?:
+    | 'default'
+    | 'secondary'
+    | 'destructive'
+    | 'outline'
+    | 'ghost'
+    | 'link';
   description?: string;
   progressLabel?: string;
   progress?: number;
   steps?: StepItem[];
   activeStep?: number;
+  maxReachedStep?: number;
+  onStepChange?: (index: number) => void;
 }
 
 export function OnboardHeader({
@@ -52,6 +60,8 @@ export function OnboardHeader({
   progress,
   steps,
   activeStep = 0,
+  maxReachedStep = activeStep,
+  onStepChange,
 }: OnboardHeaderProps): React.JSX.Element {
   return (
     <header className="border-b bg-card">
@@ -90,16 +100,24 @@ export function OnboardHeader({
           ) : null}
         </div>
         {steps && steps.length ? (
-          <nav aria-label="Onboarding steps" className="grid gap-2 md:grid-cols-3">
+          <nav
+            aria-label="Onboarding steps"
+            className="grid gap-2 md:grid-cols-3"
+          >
             {steps.map((step, index) => {
               const active = index === activeStep;
               const done = index < activeStep;
+              const reachable = index <= maxReachedStep;
               return (
-                <div
+                <button
+                  type="button"
                   key={step.title}
+                  disabled={!reachable || !onStepChange}
+                  onClick={() => onStepChange?.(index)}
+                  aria-current={active ? 'step' : undefined}
                   className={`flex items-center gap-3 rounded-lg border p-3 ${
                     active ? 'border-primary/30 bg-primary/5' : 'bg-muted/30'
-                  }`}
+                  } ${reachable ? 'text-left' : 'cursor-not-allowed text-left opacity-60'}`}
                 >
                   <span
                     className={`flex size-8 items-center justify-center rounded-full text-xs font-semibold ${
@@ -123,9 +141,12 @@ export function OnboardHeader({
                     </span>
                   </span>
                   {active ? (
-                    <ChevronRight className="size-4 text-primary" aria-hidden="true" />
+                    <ChevronRight
+                      className="size-4 text-primary"
+                      aria-hidden="true"
+                    />
                   ) : null}
-                </div>
+                </button>
               );
             })}
           </nav>
@@ -182,7 +203,10 @@ export function SummaryAside({
           <Separator />
           <div className="flex flex-col gap-3">
             {rows.map((row) => (
-              <div key={row.label} className="flex items-center justify-between">
+              <div
+                key={row.label}
+                className="flex items-center justify-between"
+              >
                 <span className="text-sm">{row.label}</span>
                 {row.complete ? (
                   <Check
@@ -234,6 +258,10 @@ export interface BottomActionBarProps {
   submitLabel: string;
   loading?: boolean;
   formId: string;
+  previousLabel?: string;
+  nextLabel?: string;
+  onPrevious?: () => void;
+  onNext?: () => void;
 }
 
 export function BottomActionBar({
@@ -242,6 +270,10 @@ export function BottomActionBar({
   submitLabel,
   loading = false,
   formId,
+  previousLabel,
+  nextLabel,
+  onPrevious,
+  onNext,
 }: BottomActionBarProps): React.JSX.Element {
   return (
     <div className="sticky bottom-0 z-30 border-t bg-card/95 backdrop-blur">
@@ -250,9 +282,24 @@ export function BottomActionBar({
           <ArrowLeft className="size-4" />
           {backLabel}
         </Button>
-        <Button type="submit" form={formId} disabled={loading}>
-          {submitLabel}
-        </Button>
+        <div className="flex items-center gap-3">
+          {onPrevious && previousLabel ? (
+            <Button variant="outline" onClick={onPrevious} disabled={loading}>
+              <ArrowLeft className="size-4" />
+              {previousLabel}
+            </Button>
+          ) : null}
+          {onNext && nextLabel ? (
+            <Button onClick={onNext} disabled={loading}>
+              {nextLabel}
+              <ChevronRight className="size-4" />
+            </Button>
+          ) : (
+            <Button type="submit" form={formId} disabled={loading}>
+              {submitLabel}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

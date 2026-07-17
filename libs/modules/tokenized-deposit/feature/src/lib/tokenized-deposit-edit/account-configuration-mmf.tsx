@@ -1,10 +1,21 @@
 'use client';
 
 import * as React from 'react';
-import { type Control, Controller, type UseFormSetValue } from 'react-hook-form';
+import {
+  type Control,
+  Controller,
+  type UseFormSetValue,
+} from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { KeyRound } from 'lucide-react';
-import { Card, CardContent, Checkbox, Field, FieldGroup, FieldLabel } from '@myorg/shared/ui';
+import {
+  Card,
+  CardContent,
+  Checkbox,
+  Field,
+  FieldGroup,
+  FieldLabel,
+} from '@myorg/shared/ui';
 
 import type { TDEditFormValues } from '@myorg/modules/tokenized-deposit/data-access';
 import { SectionHeading } from './ui/section-card';
@@ -26,30 +37,38 @@ export interface AccountConfigurationMMFProps {
   setValue: UseFormSetValue<TDEditFormValues>;
   hasCode: boolean;
   applyStatus?: number;
+  embedded?: boolean;
 }
 
 export function AccountConfigurationMMF({
   control,
   setValue,
+  embedded = false,
 }: AccountConfigurationMMFProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
 
   // mount 时固定 accountTypeList=[3]（源 useEffect [] 同）。
   React.useEffect(() => {
-    (setValue as (name: string, value: unknown) => void)(
-      'accountTypeList',
-      [3],
-    );
+    (setValue as (name: string, value: unknown) => void)('accountTypeList', [
+      3,
+    ]);
   }, [setValue]);
 
   return (
-    <Card>
+    <Card
+      className={
+        embedded
+          ? 'rounded-none border-x-0 border-b-0 border-t pt-7 shadow-none'
+          : undefined
+      }
+    >
       <SectionHeading
         icon={KeyRound}
         title={t('tokenized_deposit_0105')}
         description={t('td_section_account_desc_mmf')}
+        embedded={embedded}
       />
-      <CardContent className="py-6">
+      <CardContent className={embedded ? 'px-0 py-0' : 'py-6'}>
         <FieldGroup>
           <Controller
             control={control}
@@ -63,10 +82,10 @@ export function AccountConfigurationMMF({
                   : value.filter((el) => el !== type);
                 field.onChange(next);
                 if (type === 2 && !checked) {
-                  (setValue as (
-                    name: string,
-                    value: unknown,
-                  ) => void)('accountFeaturesList', []);
+                  (setValue as (name: string, value: unknown) => void)(
+                    'accountFeaturesList',
+                    [],
+                  );
                 }
               };
               return (

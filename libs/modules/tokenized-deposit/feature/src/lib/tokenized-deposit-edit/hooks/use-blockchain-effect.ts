@@ -84,7 +84,9 @@ export function useBlockchainEffect({
       (el) => el.status === 1,
     );
 
-    if (!code) {
+    // 幂等守卫：仅在尚未写入 blockchainId 时回填默认值，避免 tokenType 改变触发
+    // effect 重跑时覆盖用户已选的链/币种。
+    if (!code && !form.getValues('blockchainId')) {
       form.setValue('decimals', 8);
       form.setValue('currencySymbol', currencyList?.[0]?.value);
       form.setValue('blockchainId', activeBlockchain?.key);
@@ -155,6 +157,9 @@ export function useBlockchainEffect({
 
       if (selectedBlockchain.virtualMachineCode === 'tron') {
         form.setValue('metaType', 1);
+      } else {
+        // 离开 tron：清空 metaType 使其不进 payload，用户需在新链重新选择。
+        form.setValue('metaType', undefined);
       }
     },
     [

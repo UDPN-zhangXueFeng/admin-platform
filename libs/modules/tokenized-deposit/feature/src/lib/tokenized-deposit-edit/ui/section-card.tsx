@@ -2,11 +2,7 @@
 
 import * as React from 'react';
 import type { LucideIcon } from 'lucide-react';
-import {
-  Badge,
-  CardDescription,
-  CardTitle,
-} from '@myorg/shared/ui';
+import { Badge, CardDescription, CardTitle } from '@myorg/shared/ui';
 
 /**
  * SectionHeading —— 重设计风的 section 卡片标题带（迁移自 tokenized-deposit-redesign）。
@@ -26,7 +22,14 @@ export interface SectionHeadingProps {
   title: React.ReactNode;
   description?: React.ReactNode;
   badge?: React.ReactNode;
-  badgeVariant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost' | 'link';
+  embedded?: boolean;
+  badgeVariant?:
+    | 'default'
+    | 'secondary'
+    | 'destructive'
+    | 'outline'
+    | 'ghost'
+    | 'link';
 }
 
 export function SectionHeading({
@@ -34,8 +37,25 @@ export function SectionHeading({
   title,
   description,
   badge,
+  embedded = false,
   badgeVariant = 'secondary',
 }: SectionHeadingProps): React.JSX.Element {
+  if (embedded) {
+    return (
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <CardTitle className="text-sm">{title}</CardTitle>
+          {description ? (
+            <CardDescription className="mt-1 leading-6">
+              {description}
+            </CardDescription>
+          ) : null}
+        </div>
+        {badge ? <Badge variant={badgeVariant}>{badge}</Badge> : null}
+      </div>
+    );
+  }
+
   return (
     <div className="border-b bg-muted/35 px-6 py-5">
       <div className="flex items-start gap-3">

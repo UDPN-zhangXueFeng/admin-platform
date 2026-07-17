@@ -54,3 +54,16 @@ export {
   hasCoaSetupErrors,
   getNextCoaSetupErrors,
 } from './lib/coa-setup-utils';
+
+export {
+  saveDraft,
+  loadDraft,
+  clearDraft,
+  formatDraftTime,
+} from './lib/onboard-draft';
+export type {
+  OnboardDraft,
+  OnboardDraftFormValues,
+  OnboardDraftCoaInfo,
+  OnboardDraftCoaValues,
+} from './lib/onboard-draft';

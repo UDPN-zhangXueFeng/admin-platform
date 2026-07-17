@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { UseFormReturn } from 'react-hook-form';
+import { toast } from 'sonner';
 
 import {
   useAdminWalletListQuery,
@@ -130,6 +132,7 @@ export function useWalletManagement({
   const [rigsecConfirmLoading, setRigsecConfirmLoading] = useState(false);
 
   const generateWalletMutation = useGenerateWalletKeystoreMutation();
+  const t = useTranslations('modules.tokenized-deposit');
 
   // ── 当前 keyService（按 keyServiceName 匹配）──
   const currentKeyService = useMemo(
@@ -383,42 +386,48 @@ export function useWalletManagement({
         (selectedBlockchainInner as (BlockchainOption & { blockchainCode?: string }) | undefined)
           ?.blockchainCode || '';
 
-      const res = await generateWalletMutation.mutateAsync({
-        chainType,
-        // 注意：明文 password，generateWalletKeystore 内部 AES 加密。
-        password: password ?? '',
-        walletType: 1,
-        storageType,
-        roleName: String(modalInfo.type),
-        blockchainCode,
-        tokenName: tokenName ?? '',
-        ifAdd: true,
-      });
+      try {
+        const res = await generateWalletMutation.mutateAsync({
+          chainType,
+          // 注意：明文 password，generateWalletKeystore 内部 AES 加密。
+          password: password ?? '',
+          walletType: 1,
+          storageType,
+          roleName: String(modalInfo.type),
+          blockchainCode,
+          tokenName: tokenName ?? '',
+          ifAdd: true,
+        });
 
-      if (res) {
-        const { keystore, walletAddress } = res;
-        if (modalInfo.type === 1) {
-          form.setValue('walletAddressContractOwner', walletAddress);
-          form.setValue('keyStoreContractOwner', keystore);
-          (form.setValue as (name: string, value: unknown) => void)(
-            'passWordContractOwner',
-            password,
-          );
-        } else if (modalInfo.type === 2) {
-          form.setValue('walletAddressPaymentOfGasFee', walletAddress);
-          form.setValue('keyStorePaymentOfGasFee', keystore);
-          (form.setValue as (name: string, value: unknown) => void)(
-            'passWordPaymentOfGasFee',
-            password,
-          );
-        } else {
-          form.setValue('walletAddressManagementWallet', walletAddress);
-          form.setValue('keyStoreManagementWallet', keystore);
-          (form.setValue as (name: string, value: unknown) => void)(
-            'passWordManagementWallet',
-            password,
-          );
+        if (res) {
+          const { keystore, walletAddress } = res;
+          if (modalInfo.type === 1) {
+            form.setValue('walletAddressContractOwner', walletAddress);
+            form.setValue('keyStoreContractOwner', keystore);
+            (form.setValue as (name: string, value: unknown) => void)(
+              'passWordContractOwner',
+              password,
+            );
+          } else if (modalInfo.type === 2) {
+            form.setValue('walletAddressPaymentOfGasFee', walletAddress);
+            form.setValue('keyStorePaymentOfGasFee', keystore);
+            (form.setValue as (name: string, value: unknown) => void)(
+              'passWordPaymentOfGasFee',
+              password,
+            );
+          } else {
+            form.setValue('walletAddressManagementWallet', walletAddress);
+            form.setValue('keyStoreManagementWallet', keystore);
+            (form.setValue as (name: string, value: unknown) => void)(
+              'passWordManagementWallet',
+              password,
+            );
+          }
         }
+      } catch {
+        toast.error(t('td_toast_wallet_generate_failed'));
+      } finally {
+        // 无论成功/失败，均关闭 Modal 并重置密码表单，避免卡在 loading 态。
         form1.reset();
         setIsModalOpen(false);
       }
@@ -432,6 +441,7 @@ export function useWalletManagement({
       keyServiceList,
       keyServiceName,
       modalInfo.type,
+      t,
     ],
   );
 
@@ -477,11 +487,15 @@ export function useWalletManagement({
           form.setValue('walletAddressManagementWallet', walletAddress);
           form.setValue('keyStoreManagementWallet', keystore);
         }
-        setIsRigsecModalOpen(false);
         setWalletAttribute(defaultWalletAttribute);
       }
+    } catch {
+      toast.error(t('td_toast_wallet_generate_failed'));
     } finally {
+      // 无论成功/失败，均关闭 Modal、重置表单、关闭 loading，避免卡在 loading 态。
       setRigsecConfirmLoading(false);
+      setIsRigsecModalOpen(false);
+      form1.reset();
     }
   }, [
     blockchainList,
@@ -489,10 +503,12 @@ export function useWalletManagement({
     code,
     defaultWalletAttribute,
     form,
+    form1,
     generateWalletMutation,
     keyServiceList,
     keyServiceName,
     modalInfo.type,
+    t,
     walletAttribute,
   ]);
 

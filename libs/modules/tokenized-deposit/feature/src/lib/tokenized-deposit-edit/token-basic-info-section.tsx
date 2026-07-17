@@ -3,10 +3,9 @@
 import * as React from 'react';
 import { type Control, Controller } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
-import { FileKey, HelpCircle, Network } from 'lucide-react';
+import { HelpCircle, Network } from 'lucide-react';
 import {
-  Card,
-  CardContent,
+  Badge,
   Field,
   FieldGroup,
   FieldLabel,
@@ -114,118 +113,241 @@ export function TokenBasicInfoSection({
   const t = useTranslations('modules.tokenized-deposit');
 
   const isReadonly = hasCode && detailInfo.applyStatus === 35;
-  const showReserveAccount = !flag && mintMethod !== 20;
+  const showReserveAccount = !flag && mintMethod === 1;
 
   return (
-    <>
-      {/* ════ Card 1: Token details ════ */}
-      <Card>
-        <SectionHeading
-          icon={FileKey}
-          title={t('tokenized_deposit_basic_info_title')}
-          description={t('td_section_token_details_desc')}
-        />
-        <CardContent className="py-6">
-          <FieldGroup className="grid gap-5 md:grid-cols-3">
-            {/* mintMethod Select（onChange → onTokenTypeChange） */}
-            <Controller
-              control={control}
-              name="mintMethod"
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Field>
-                  <FieldLabel htmlFor="select-mintMethod">
+    <div className="flex flex-col gap-9">
+      <section>
+        <FieldGroup className="grid gap-5 md:grid-cols-2">
+          {/* mintMethod 卡片组选项（onChange → onTokenTypeChange） */}
+          <Controller
+            control={control}
+            name="mintMethod"
+            rules={{ required: true }}
+            render={({ field, fieldState }) => (
+              <Field className="md:col-span-2">
+                <div className="flex flex-col gap-1">
+                  <FieldLabel>
                     <Required />
-                    {t('tokenized_deposit_0062')}
+                    {t('td_form_token_classification')}
                   </FieldLabel>
-                  <Select
-                    value={field.value !== undefined ? String(field.value) : ''}
-                    onValueChange={(v) => {
-                      field.onChange(Number(v));
-                      onTokenTypeChange(Number(v));
-                    }}
-                    disabled={isReadonly}
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {t('td_form_token_classification_desc')}
+                  </p>
+                </div>
+                <div
+                  role="radiogroup"
+                  aria-label={t('td_form_token_classification')}
+                  className="grid gap-3 sm:grid-cols-3"
+                >
+                  {tokenTypeOptions.map((item) => {
+                    const value = Number(item.tokenTypeId);
+                    const selected = Number(field.value) === value;
+                    const disabled = isReadonly || item.status === 0;
+                    const description =
+                      value === 1
+                        ? t('td_form_token_type_stablecoin_desc')
+                        : value === 5
+                          ? t('td_form_token_type_deposit_desc')
+                          : value === 20
+                            ? t('td_form_token_type_mmf_desc')
+                            : t('td_form_token_type_generic_desc');
+
+                    return (
+                      <button
+                        key={item.tokenTypeId}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        disabled={disabled}
+                        onClick={() => {
+                          field.onChange(value);
+                          onTokenTypeChange(value);
+                        }}
+                        className={`rounded-md border p-4 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                          selected
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary/15'
+                            : 'border-border bg-card hover:border-muted-foreground/50'
+                        }`}
+                      >
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold">
+                            {item.tokenTypeName}
+                          </span>
+                          <span
+                            className={`size-4 rounded-full border-4 ${
+                              selected
+                                ? 'border-primary bg-card'
+                                : 'border-input bg-card'
+                            }`}
+                            aria-hidden="true"
+                          />
+                        </span>
+                        <span className="mt-2 block text-xs leading-5 text-muted-foreground">
+                          {description}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {fieldState.error ? (
+                  <p className="text-xs text-destructive">
+                    {t('td_form_token_classification_required')}
+                  </p>
+                ) : null}
+              </Field>
+            )}
+          />
+
+          <div className="border-t pt-6 md:col-span-2">
+            <h3 className="text-sm font-semibold">
+              {t('td_form_core_attributes')}
+            </h3>
+          </div>
+
+          {/* name Input（maxLength 32） */}
+          <Controller
+            control={control}
+            name="name"
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="field-name">
+                  <Required />
+                  {t('tokenized_deposit_0005')}
+                </FieldLabel>
+                <Input
+                  id="field-name"
+                  value={(field.value as string) ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  maxLength={32}
+                  className="h-10"
+                />
+              </Field>
+            )}
+          />
+
+          {/* symbol Input（maxLength 5） */}
+          <Controller
+            control={control}
+            name="symbol"
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="field-symbol">
+                  <Required />
+                  {t('tokenized_deposit_0006')}
+                </FieldLabel>
+                <Input
+                  id="field-symbol"
+                  value={(field.value as string) ?? ''}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  maxLength={5}
+                  className="h-10"
+                />
+              </Field>
+            )}
+          />
+
+          {/* decimals number input（max 8 min 0） */}
+          <Controller
+            control={control}
+            name="decimals"
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="field-decimals">
+                  <Required />
+                  {t('stablecoin_settings_009')}
+                </FieldLabel>
+                <Input
+                  id="field-decimals"
+                  type="number"
+                  value={
+                    field.value !== undefined && field.value !== null
+                      ? String(field.value)
+                      : ''
+                  }
+                  onChange={(e) =>
+                    field.onChange(
+                      e.target.value === ''
+                        ? undefined
+                        : Number(e.target.value),
+                    )
+                  }
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  min={0}
+                  max={8}
+                  step={1}
+                  disabled={isReadonly}
+                  placeholder={t('tokenized_deposit_0110')}
+                  className="h-10"
+                />
+              </Field>
+            )}
+          />
+
+          {/* currencySymbol Select（onChange → onCurrencyChange） */}
+          <Controller
+            control={control}
+            name="currencySymbol"
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="select-currencySymbol">
+                  <Required />
+                  {t('stablecoin_settings_039')}
+                </FieldLabel>
+                <Select
+                  value={(field.value as string) ?? ''}
+                  onValueChange={(v) => {
+                    field.onChange(v);
+                    onCurrencyChange(v);
+                  }}
+                  disabled={isReadonly}
+                >
+                  <SelectTrigger
+                    id="select-currencySymbol"
+                    className="h-10 w-full bg-background"
                   >
-                    <SelectTrigger id="select-mintMethod" className="h-10 w-full bg-background">
-                      <SelectValue placeholder={t('tokenized_deposit_0062')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tokenTypeOptions.map((item) => (
-                        <SelectItem
-                          key={item.tokenTypeId}
-                          value={String(item.tokenTypeId ?? '')}
-                          disabled={item.status === 0}
-                        >
-                          {item.tokenTypeName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-            />
+                    <SelectValue placeholder={t('stablecoin_settings_039')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(currencyList ?? []).map((item) => (
+                      <SelectItem key={item.key} value={item.value ?? ''}>
+                        {item.key}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+          />
 
-            {/* name Input（maxLength 32） */}
-            <Controller
-              control={control}
-              name="name"
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Field>
-                  <FieldLabel htmlFor="field-name">
-                    <Required />
-                    {t('tokenized_deposit_0005')}
-                  </FieldLabel>
-                  <Input
-                    id="field-name"
-                    value={(field.value as string) ?? ''}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    name={field.name}
-                    maxLength={32}
-                    className="h-10"
-                  />
-                </Field>
-              )}
-            />
-
-            {/* symbol Input（maxLength 5） */}
-            <Controller
-              control={control}
-              name="symbol"
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Field>
-                  <FieldLabel htmlFor="field-symbol">
-                    <Required />
-                    {t('tokenized_deposit_0006')}
-                  </FieldLabel>
-                  <Input
-                    id="field-symbol"
-                    value={(field.value as string) ?? ''}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    name={field.name}
-                    maxLength={5}
-                    className="h-10"
-                  />
-                </Field>
-              )}
-            />
-
-            {/* decimals number input（max 8 min 0） */}
-            <Controller
-              control={control}
-              name="decimals"
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Field>
-                  <FieldLabel htmlFor="field-decimals">
-                    <Required />
-                    {t('stablecoin_settings_009')}
-                  </FieldLabel>
-                  <Input
-                    id="field-decimals"
+          {/* usPrice number input（precision 2，addonBefore/After） */}
+          <Controller
+            control={control}
+            name="usPrice"
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="field-usPrice">
+                  <Required />
+                  {t('stablecoin_settings_040')}
+                </FieldLabel>
+                <div className="flex h-10 items-stretch overflow-hidden rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                  {symbol ? (
+                    <span className="flex items-center border-r bg-muted px-3 text-xs text-muted-foreground">
+                      1 {symbol} =
+                    </span>
+                  ) : null}
+                  <input
+                    id="field-usPrice"
                     type="number"
                     value={
                       field.value !== undefined && field.value !== null
@@ -234,48 +356,58 @@ export function TokenBasicInfoSection({
                     }
                     onChange={(e) =>
                       field.onChange(
-                        e.target.value === '' ? undefined : Number(e.target.value),
+                        e.target.value === '' ? undefined : e.target.value,
                       )
                     }
                     onBlur={field.onBlur}
                     name={field.name}
-                    min={0}
-                    max={8}
-                    step={1}
+                    maxLength={20}
+                    step={0.01}
                     disabled={isReadonly}
-                    placeholder={t('tokenized_deposit_0110')}
-                    className="h-10"
+                    className="w-full bg-transparent px-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
                   />
-                </Field>
-              )}
-            />
+                  <span className="flex items-center border-l bg-muted px-3 text-sm font-medium">
+                    {currency || ' '}
+                  </span>
+                </div>
+              </Field>
+            )}
+          />
 
-            {/* currencySymbol Select（onChange → onCurrencyChange） */}
+          {/* reserveAccountId（显隐：showReserveAccount） */}
+          {showReserveAccount ? (
             <Controller
               control={control}
-              name="currencySymbol"
+              name="reserveAccountId"
               rules={{ required: true }}
               render={({ field }) => (
-                <Field>
-                  <FieldLabel htmlFor="select-currencySymbol">
+                <Field className="md:col-span-2">
+                  <FieldLabel htmlFor="select-reserveAccountId">
                     <Required />
-                    {t('stablecoin_settings_039')}
+                    {t('tokenized_deposit_0174')}
                   </FieldLabel>
                   <Select
-                    value={(field.value as string) ?? ''}
-                    onValueChange={(v) => {
-                      field.onChange(v);
-                      onCurrencyChange(v);
-                    }}
+                    value={
+                      field.value !== undefined && field.value !== null
+                        ? String(field.value)
+                        : ''
+                    }
+                    onValueChange={field.onChange}
                     disabled={isReadonly}
                   >
-                    <SelectTrigger id="select-currencySymbol" className="h-10 w-full bg-background">
-                      <SelectValue placeholder={t('stablecoin_settings_039')} />
+                    <SelectTrigger
+                      id="select-reserveAccountId"
+                      className="h-10 w-full bg-background"
+                    >
+                      <SelectValue placeholder={t('tokenized_deposit_0174')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {(currencyList ?? []).map((item) => (
-                        <SelectItem key={item.key} value={item.value ?? ''}>
-                          {item.key}
+                      {(reserveList ?? []).map((item) => (
+                        <SelectItem
+                          key={item.reserveAccountId}
+                          value={String(item.reserveAccountId ?? '')}
+                        >
+                          {item.reserveAccountName}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -283,346 +415,300 @@ export function TokenBasicInfoSection({
                 </Field>
               )}
             />
+          ) : null}
+        </FieldGroup>
+      </section>
 
-            {/* usPrice number input（precision 2，addonBefore/After） */}
-            <Controller
-              control={control}
-              name="usPrice"
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Field>
-                  <FieldLabel htmlFor="field-usPrice">
-                    <Required />
-                    {t('stablecoin_settings_040')}
-                  </FieldLabel>
-                  <div className="flex h-10 items-stretch overflow-hidden rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-                    {symbol ? (
-                      <span className="flex items-center border-r bg-muted px-3 text-xs text-muted-foreground">
-                        1 {symbol} =
-                      </span>
-                    ) : null}
-                    <input
-                      id="field-usPrice"
-                      type="number"
-                      value={
-                        field.value !== undefined && field.value !== null
-                          ? String(field.value)
-                          : ''
-                      }
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === '' ? undefined : e.target.value,
-                        )
-                      }
-                      onBlur={field.onBlur}
-                      name={field.name}
-                      maxLength={20}
-                      step={0.01}
-                      disabled={isReadonly}
-                      className="w-full bg-transparent px-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                    <span className="flex items-center border-l bg-muted px-3 text-sm font-medium">
-                      {currency || ' '}
-                    </span>
-                  </div>
-                </Field>
-              )}
-            />
-
-            {/* reserveAccountId（显隐：showReserveAccount） */}
-            {showReserveAccount ? (
-              <Controller
-                control={control}
-                name="reserveAccountId"
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <Field className="md:col-span-2">
-                    <FieldLabel htmlFor="select-reserveAccountId">
-                      <Required />
-                      {t('tokenized_deposit_0174')}
-                    </FieldLabel>
-                    <Select
-                      value={
-                        field.value !== undefined && field.value !== null
-                          ? String(field.value)
-                          : ''
-                      }
-                      onValueChange={field.onChange}
-                      disabled={isReadonly}
-                    >
-                      <SelectTrigger id="select-reserveAccountId" className="h-10 w-full bg-background">
-                        <SelectValue placeholder={t('tokenized_deposit_0174')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(reserveList ?? []).map((item) => (
-                          <SelectItem
-                            key={item.reserveAccountId}
-                            value={String(item.reserveAccountId ?? '')}
-                          >
-                            {item.reserveAccountName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )}
-              />
-            ) : null}
-          </FieldGroup>
-        </CardContent>
-      </Card>
-
-      {/* ════ Card 2: Network & contract ════ */}
-      <Card>
+      <section className="border-t border-border pt-7">
         <SectionHeading
           icon={Network}
           title={t('td_section_network')}
           description={t('td_section_network_desc')}
+          embedded
         />
-        <CardContent className="py-6">
-          <FieldGroup className="grid gap-5 md:grid-cols-3">
-            {/* blockchainId Select（逐项 disabled status!==1，onChange → onBlockchainChange） */}
-            <Controller
-              control={control}
-              name="blockchainId"
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Field>
-                  <FieldLabel htmlFor="select-blockchainId">
-                    <Required />
-                    {t('tokenized_deposit_0007')}
-                  </FieldLabel>
-                  <Select
-                    value={(field.value as string) ?? ''}
-                    onValueChange={(v) => {
-                      field.onChange(v);
-                      onBlockchainChange(v);
-                    }}
-                    disabled={isReadonly}
+        <FieldGroup className="grid gap-5 md:grid-cols-2">
+          {/* blockchainId Select（逐项 disabled status!==1，onChange → onBlockchainChange） */}
+          <Controller
+            control={control}
+            name="blockchainId"
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="select-blockchainId">
+                  <Required />
+                  {t('tokenized_deposit_0007')}
+                </FieldLabel>
+                <Select
+                  value={(field.value as string) ?? ''}
+                  onValueChange={(v) => {
+                    field.onChange(v);
+                    onBlockchainChange(v);
+                  }}
+                  disabled={isReadonly}
+                >
+                  <SelectTrigger
+                    id="select-blockchainId"
+                    className="h-10 w-full bg-background"
                   >
-                    <SelectTrigger id="select-blockchainId" className="h-10 w-full bg-background">
-                      <SelectValue placeholder={t('tokenized_deposit_0007')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(blockchainList ?? []).map((item) => (
-                        <SelectItem
-                          key={item.key}
-                          value={item.key}
-                          disabled={item.status !== 1}
-                        >
-                          {item.value}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-            />
-
-            {/* smartContractPackageId Select */}
-            <Controller
-              control={control}
-              name="smartContractPackageId"
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Field>
-                  <FieldLabel htmlFor="select-smartContractPackageId">
-                    <Required />
-                    {t('tokenized_deposit_0016')}
-                  </FieldLabel>
-                  <Select
-                    value={(field.value as string) ?? ''}
-                    onValueChange={field.onChange}
-                    disabled={isReadonly}
-                  >
-                    <SelectTrigger id="select-smartContractPackageId" className="h-10 w-full bg-background">
-                      <SelectValue placeholder={t('tokenized_deposit_0016')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(smartContractNameList ?? []).map((item) => (
-                        <SelectItem key={String(item.key)} value={String(item.key ?? '')}>
-                          {item.value}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-            />
-
-            {/* whitelistMode Select（partial/noWhitelist disabled） */}
-            <Controller
-              control={control}
-              name="whitelistMode"
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Field>
-                  <FieldLabel htmlFor="select-whitelistMode">
-                    {t('tokenized_deposit_whitelist_mode')}
-                  </FieldLabel>
-                  <Select
-                    value={(field.value as string) ?? ''}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger id="select-whitelistMode" className="h-10 w-full bg-background">
-                      <SelectValue
-                        placeholder={t('tokenized_deposit_whitelist_mode_placeholder')}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {WHITELIST_MODE_OPTIONS.map((opt) => (
-                        <SelectItem
-                          key={opt.value}
-                          value={opt.value}
-                          disabled={opt.disabled}
-                        >
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-            />
-
-            {/* metaType RadioGroup（5=Yes/1=No，disabled isReadonly||tron） */}
-            <Controller
-              control={control}
-              name="metaType"
-              rules={{
-                required: true,
-                validate: (value) => value !== undefined && value !== null,
-              }}
-              render={({ field }) => (
-                <Field>
-                  <FieldLabel>
-                    {t('tokenized_deposit_0090')}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="size-4 cursor-help text-primary" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-sm">
-                          {t('tokenized_deposit_0136')}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </FieldLabel>
-                  <RadioGroup
-                    value={field.value !== undefined ? String(field.value) : ''}
-                    onValueChange={(v) => field.onChange(Number(v))}
-                    disabled={isReadonly || chainType === 'tron'}
-                    className="flex gap-6"
-                  >
-                    <label className="flex items-center gap-2 text-sm">
-                      <RadioGroupItem value="5" />
-                      {t('PUB_Yes')}
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                      <RadioGroupItem value="1" />
-                      {t('PUB_No')}
-                    </label>
-                  </RadioGroup>
-                </Field>
-              )}
-            />
-
-            {/* threshold 区（仅 mintMethod===1 显） */}
-            {mintMethod === 1 ? (
-              <Field className="md:col-span-3">
-                <FieldLabel>{t('tokenized_deposit_threshold_title')}</FieldLabel>
-                <div className="flex gap-1.5">
-                  {/* thresholdType Select */}
-                  <Controller
-                    control={control}
-                    name="thresholdType"
-                    render={({ field }) => (
-                      <div className="flex-[4]">
-                        <Select
-                          value={(field.value as string) ?? ''}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue
-                              placeholder={t('tokenized_deposit_threshold_type_placeholder')}
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {THRESHOLD_TYPE_OPTIONS.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  />
-                  {/* thresholdFrequency Select */}
-                  <Controller
-                    control={control}
-                    name="thresholdFrequency"
-                    render={({ field }) => (
-                      <div className="flex-[3]">
-                        <Select
-                          value={(field.value as string) ?? ''}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue
-                              placeholder={t('tokenized_deposit_threshold_frequency_placeholder')}
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {THRESHOLD_FREQUENCY_OPTIONS.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  />
-                  {/* thresholdValue number input */}
-                  <Controller
-                    control={control}
-                    name="thresholdValue"
-                    render={({ field }) => (
-                      <input
-                        type="number"
-                        value={
-                          field.value !== undefined && field.value !== null
-                            ? String(field.value)
-                            : ''
-                        }
-                        onChange={(e) =>
-                          field.onChange(
-                            e.target.value === '' ? undefined : e.target.value,
-                          )
-                        }
-                        onBlur={field.onBlur}
-                        name={field.name}
-                        min={0}
-                        step={0.01}
-                        placeholder="0"
-                        className="flex-[2] rounded-md border border-input bg-background px-2 py-2 text-center text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      />
-                    )}
-                  />
-                  {/* 后缀 Input（thresholdType==='volume'?symbol:'--'） */}
-                  <input
-                    value={thresholdType === 'volume' ? symbol || '--' : '--'}
-                    disabled
-                    readOnly
-                    className="flex-[2] rounded-md border border-input bg-muted px-2 py-2 text-center text-sm text-muted-foreground"
-                  />
-                </div>
+                    <SelectValue placeholder={t('tokenized_deposit_0007')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(blockchainList ?? []).map((item) => (
+                      <SelectItem
+                        key={item.key}
+                        value={item.key}
+                        disabled={item.status !== 1}
+                      >
+                        {item.value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
-            ) : null}
-          </FieldGroup>
-        </CardContent>
-      </Card>
-    </>
+            )}
+          />
+
+          {/* smartContractPackageId Select */}
+          <Controller
+            control={control}
+            name="smartContractPackageId"
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="select-smartContractPackageId">
+                  <Required />
+                  {t('tokenized_deposit_0016')}
+                </FieldLabel>
+                <Select
+                  value={(field.value as string) ?? ''}
+                  onValueChange={field.onChange}
+                  disabled={isReadonly}
+                >
+                  <SelectTrigger
+                    id="select-smartContractPackageId"
+                    className="h-10 w-full bg-background"
+                  >
+                    <SelectValue placeholder={t('tokenized_deposit_0016')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(smartContractNameList ?? []).map((item) => (
+                      <SelectItem
+                        key={String(item.key)}
+                        value={String(item.key ?? '')}
+                      >
+                        {item.value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+          />
+
+          {/* whitelistMode Select（partial/noWhitelist disabled） */}
+          <Controller
+            control={control}
+            name="whitelistMode"
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="select-whitelistMode">
+                  {t('tokenized_deposit_whitelist_mode')}
+                </FieldLabel>
+                <Select
+                  value={(field.value as string) ?? ''}
+                  onValueChange={field.onChange}
+                  disabled
+                >
+                  <SelectTrigger
+                    id="select-whitelistMode"
+                    className="h-10 w-full bg-background"
+                  >
+                    <SelectValue
+                      placeholder={t(
+                        'tokenized_deposit_whitelist_mode_placeholder',
+                      )}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WHITELIST_MODE_OPTIONS.map((opt) => (
+                      <SelectItem
+                        key={opt.value}
+                        value={opt.value}
+                        disabled={opt.disabled}
+                      >
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+          />
+
+          {/* metaType RadioGroup（5=Yes/1=No，disabled isReadonly||tron） */}
+          <Controller
+            control={control}
+            name="metaType"
+            rules={{
+              required: true,
+              validate: (value) => value !== undefined && value !== null,
+            }}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel>
+                  <Required />
+                  {t('tokenized_deposit_0090')}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="size-4 cursor-help text-primary" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-sm">
+                        {t('tokenized_deposit_0136')}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </FieldLabel>
+                <RadioGroup
+                  value={field.value !== undefined ? String(field.value) : ''}
+                  onValueChange={(v) => field.onChange(Number(v))}
+                  disabled={isReadonly || chainType === 'tron'}
+                  className="flex gap-6"
+                >
+                  <label className="flex items-center gap-2 text-sm">
+                    <RadioGroupItem value="5" />
+                    {t('PUB_Yes')}
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <RadioGroupItem value="1" />
+                    {t('PUB_No')}
+                  </label>
+                </RadioGroup>
+              </Field>
+            )}
+          />
+
+          {/* threshold 区（仅 mintMethod===1 显） */}
+          {mintMethod === 1 ? (
+            <Field className="border-t pt-7 md:col-span-2">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <FieldLabel>
+                    {t('tokenized_deposit_threshold_title')}
+                  </FieldLabel>
+                  <p className="text-sm text-muted-foreground">
+                    {t('td_form_threshold_desc')}
+                  </p>
+                </div>
+                <Badge variant="secondary">{t('td_form_optional')}</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t('td_whitelist_pending_contract')}
+              </p>
+              <div className="grid gap-5 md:grid-cols-3">
+                {/* thresholdType Select */}
+                <Controller
+                  control={control}
+                  name="thresholdType"
+                  render={({ field }) => (
+                    <Field>
+                      <FieldLabel>{t('td_form_threshold_metric')}</FieldLabel>
+                      <Select
+                        value={(field.value as string) ?? ''}
+                        onValueChange={field.onChange}
+                        disabled
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue
+                            placeholder={t(
+                              'tokenized_deposit_threshold_type_placeholder',
+                            )}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {THRESHOLD_TYPE_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  )}
+                />
+                {/* thresholdFrequency Select */}
+                <Controller
+                  control={control}
+                  name="thresholdFrequency"
+                  render={({ field }) => (
+                    <Field>
+                      <FieldLabel>{t('td_form_threshold_period')}</FieldLabel>
+                      <Select
+                        value={(field.value as string) ?? ''}
+                        onValueChange={field.onChange}
+                        disabled
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue
+                            placeholder={t(
+                              'tokenized_deposit_threshold_frequency_placeholder',
+                            )}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {THRESHOLD_FREQUENCY_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  )}
+                />
+                {/* thresholdValue number input */}
+                <Controller
+                  control={control}
+                  name="thresholdValue"
+                  render={({ field }) => (
+                    <Field>
+                      <FieldLabel>{t('td_form_threshold_value')}</FieldLabel>
+                      <div className="flex">
+                        <Input
+                          type="number"
+                          value={
+                            field.value !== undefined && field.value !== null
+                              ? String(field.value)
+                              : ''
+                          }
+                          onChange={(e) =>
+                            field.onChange(
+                              e.target.value === ''
+                                ? undefined
+                                : e.target.value,
+                            )
+                          }
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          min={0}
+                          step={0.01}
+                          placeholder="0"
+                          disabled
+                          className="rounded-r-none"
+                        />
+                        <span className="flex h-10 min-w-16 items-center justify-center rounded-r-md border border-l-0 border-input bg-muted px-3 text-sm text-muted-foreground">
+                          {thresholdType === 'volume' ? symbol || '--' : '--'}
+                        </span>
+                      </div>
+                    </Field>
+                  )}
+                />
+              </div>
+            </Field>
+          ) : null}
+        </FieldGroup>
+      </section>
+    </div>
   );
 }

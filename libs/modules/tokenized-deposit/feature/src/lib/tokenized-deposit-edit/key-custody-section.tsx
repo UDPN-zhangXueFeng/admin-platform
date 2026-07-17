@@ -5,9 +5,13 @@ import { type Control, Controller } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { KeyRound } from 'lucide-react';
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
   Card,
   CardContent,
   Field,
+  FieldError,
   FieldGroup,
   FieldLabel,
   Select,
@@ -45,6 +49,7 @@ export interface KeyCustodySectionProps {
   applyStatus?: number;
   keyServiceList?: KeyServiceOption[];
   onKeyServiceChange: (value: string) => void;
+  embedded?: boolean;
 }
 
 export function KeyCustodySection({
@@ -53,31 +58,43 @@ export function KeyCustodySection({
   applyStatus,
   keyServiceList,
   onKeyServiceChange,
+  embedded = false,
 }: KeyCustodySectionProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
 
   const isReadonly = hasCode && applyStatus === 35;
-  const disabled =
-    isReadonly || !keyServiceList || keyServiceList.length === 0;
+  const disabled = isReadonly || !keyServiceList || keyServiceList.length === 0;
 
   return (
-    <Card>
+    <Card
+      className={embedded ? 'rounded-none border-0 shadow-none' : undefined}
+    >
       <SectionHeading
         icon={KeyRound}
         title={t('key_custody_title')}
         description={t('td_section_custody_desc')}
+        embedded={embedded}
       />
-      <CardContent className="py-6">
-        <FieldGroup className="grid gap-5 md:grid-cols-3">
+      <CardContent className={embedded ? 'px-0 py-0' : 'py-6'}>
+        <FieldGroup className="max-w-md">
           <Controller
             control={control}
             name="keyServiceName"
-            render={({ field }) => (
+            rules={{ required: t('key_custody_required') }}
+            render={({ field, fieldState }) => (
               <Field>
                 <FieldLabel htmlFor="select-keyServiceName">
                   <Required />
                   {t('key_custody_label')}
                 </FieldLabel>
+                {keyServiceList && keyServiceList.length === 0 ? (
+                  <Alert variant="destructive">
+                    <AlertTitle>{t('td_keyservice_empty_title')}</AlertTitle>
+                    <AlertDescription>
+                      {t('td_keyservice_empty_desc')}
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
                 <Select
                   value={(field.value as string) ?? ''}
                   onValueChange={(v) => {
@@ -86,7 +103,10 @@ export function KeyCustodySection({
                   }}
                   disabled={disabled}
                 >
-                  <SelectTrigger id="select-keyServiceName" className="h-10 w-full bg-background">
+                  <SelectTrigger
+                    id="select-keyServiceName"
+                    className="h-10 w-full bg-background"
+                  >
                     <SelectValue placeholder={t('key_custody_placeholder')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -100,6 +120,7 @@ export function KeyCustodySection({
                     ))}
                   </SelectContent>
                 </Select>
+                <FieldError>{fieldState.error?.message}</FieldError>
               </Field>
             )}
           />

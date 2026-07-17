@@ -663,6 +663,8 @@ export interface CoaSetupCardProps {
   /** 字段变更回调。 */
   onChange?: (data: CoaSetupInfo) => void;
   className?: string;
+  /** 嵌入分步表单时移除独立卡片外观。 */
+  embedded?: boolean;
 }
 
 /**
@@ -953,13 +955,15 @@ export type SPRecordListResponse = PaginatedResponse<SPRecordItem>;
 export type WalletListResponse = PaginatedResponse<WalletItem>;
 
 /** 操作记录列表响应。 */
-export type OperationRecordListResponse = PaginatedResponse<OperationRecordItem>;
+export type OperationRecordListResponse =
+  PaginatedResponse<OperationRecordItem>;
 
 /** MMF 汇总列表响应。 */
 export type MMFSummaryListResponse = PaginatedResponse<MMFSummaryItem>;
 
 /** 合约包列表响应。 */
-export type ContractPackageListResponse = PaginatedResponse<ContractPackageItem>;
+export type ContractPackageListResponse =
+  PaginatedResponse<ContractPackageItem>;
 
 /** 合约明细列表响应。 */
 export type ContractDetailListResponse = PaginatedResponse<ContractDetailItem>;

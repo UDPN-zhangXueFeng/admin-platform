@@ -56,6 +56,7 @@ export interface AdminWalletSectionProps {
   shouldHideGenerateWalletAction: boolean;
   isAdminWalletDisabled: boolean;
   onGenerateWallet: (roleType: WalletRoleType) => void;
+  embedded?: boolean;
 }
 
 /** 3 角色钱包字段配置（roleType / fieldNames / labelKeys）。 */
@@ -121,6 +122,7 @@ export function AdminWalletSection({
   shouldHideGenerateWalletAction,
   isAdminWalletDisabled,
   onGenerateWallet,
+  embedded = false,
 }: AdminWalletSectionProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
 
@@ -142,8 +144,9 @@ export function AdminWalletSection({
     2: gasAddr,
     3: mgmtAddr,
   };
-  const completedWallets = [ownerAddr, gasAddr, mgmtAddr].filter(Boolean)
-    .length;
+  const completedWallets = [ownerAddr, gasAddr, mgmtAddr].filter(
+    Boolean,
+  ).length;
 
   // 生成按钮显隐：applyStatus!==35 且非 Ethereum Sepolia+Huawei KMS 特殊隐藏。
   const showGenerateAction =
@@ -158,15 +161,22 @@ export function AdminWalletSection({
   const showTip = applyStatus !== 35 && !shouldHideKeystoreAndPassword;
 
   return (
-    <Card>
+    <Card
+      className={
+        embedded
+          ? 'rounded-none border-x-0 border-b-0 border-t pt-7 shadow-none'
+          : undefined
+      }
+    >
       <SectionHeading
         icon={WalletCards}
         title={t('tokenized_deposit_0111')}
         description={t('td_section_admin_wallets_desc')}
         badge={t('td_section_admin_wallets_badge', { count: completedWallets })}
+        embedded={embedded}
       />
-      <CardContent className="py-6">
-        <div className="grid gap-4 xl:grid-cols-3">
+      <CardContent className={embedded ? 'px-0 py-0' : 'py-6'}>
+        <div className="grid gap-4 lg:grid-cols-3">
           {walletFieldGroups.map((group, index) => {
             const ready = !!addrByRole[group.roleType];
             return (

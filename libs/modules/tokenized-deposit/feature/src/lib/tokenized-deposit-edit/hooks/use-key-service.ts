@@ -49,6 +49,14 @@ export interface UseKeyServiceParams {
   blockchainId: number | string | undefined;
   /** 新增态传 true（默认选首项）；编辑态传 false（由 useDetailInit 回填）。 */
   shouldSelectFirst?: boolean;
+  /**
+   * 跳过一次「默认选首项」的 ref（草稿恢复用）。
+   *
+   * 草稿恢复 form.reset() 会改 blockchainId → query 重查 → data 到达时本 effect
+   * 会把 keyServiceName 覆盖为首项，clobber 恢复值。恢复前置 ref.current=true，
+   * effect 命中时重置为 false 并跳过本次，恢复值得以保留。
+   */
+  suppressSelectFirstOnceRef?: React.RefObject<boolean>;
 }
 
 export interface UseKeyServiceReturn {
@@ -62,10 +70,10 @@ export function useKeyService({
   form,
   blockchainId,
   shouldSelectFirst = true,
+  suppressSelectFirstOnceRef,
 }: UseKeyServiceParams): UseKeyServiceReturn {
-  const { data: keyServiceList, isLoading } = useKeyServiceListQuery(
-    blockchainId,
-  );
+  const { data: keyServiceList, isLoading } =
+    useKeyServiceListQuery(blockchainId);
 
   // 默认选首项（仅新增态；编辑态由 useDetailInit 回填负责，避免覆盖）。
   useEffect(() => {
@@ -73,13 +81,25 @@ export function useKeyService({
     if (isLoading) return;
     if (!keyServiceList) return;
 
+    // 草稿恢复后的首次到达跳过，保留恢复值（见 UseKeyServiceParams 注释）。
+    if (suppressSelectFirstOnceRef?.current) {
+      suppressSelectFirstOnceRef.current = false;
+      return;
+    }
+
     if (keyServiceList.length > 0) {
       const first = keyServiceList[0];
       form.setValue('keyServiceName', first?.keyServiceCode ?? '');
     } else {
       form.setValue('keyServiceName', '');
     }
-  }, [form, keyServiceList, isLoading, shouldSelectFirst]);
+  }, [
+    form,
+    keyServiceList,
+    isLoading,
+    shouldSelectFirst,
+    suppressSelectFirstOnceRef,
+  ]);
 
   return {
     keyServiceList: keyServiceList ?? [],

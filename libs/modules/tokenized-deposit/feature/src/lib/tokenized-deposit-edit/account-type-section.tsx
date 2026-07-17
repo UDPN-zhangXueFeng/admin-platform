@@ -1,10 +1,22 @@
 'use client';
 
 import * as React from 'react';
-import { type Control, Controller, type UseFormGetValues, type UseFormSetValue } from 'react-hook-form';
+import {
+  type Control,
+  Controller,
+  type UseFormGetValues,
+  type UseFormSetValue,
+} from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { Info, KeyRound } from 'lucide-react';
-import { Card, CardContent, Checkbox, Field, FieldGroup, FieldLabel } from '@myorg/shared/ui';
+import {
+  Card,
+  CardContent,
+  Checkbox,
+  Field,
+  FieldGroup,
+  FieldLabel,
+} from '@myorg/shared/ui';
 
 import type { TDEditFormValues } from '@myorg/modules/tokenized-deposit/data-access';
 import { SectionHeading } from './ui/section-card';
@@ -36,6 +48,7 @@ export interface AccountTypeSectionProps {
   getValues: UseFormGetValues<TDEditFormValues>;
   hasCode: boolean;
   applyStatus?: number;
+  embedded?: boolean;
 }
 
 export function AccountTypeSection({
@@ -44,18 +57,26 @@ export function AccountTypeSection({
   getValues,
   hasCode,
   applyStatus,
+  embedded = false,
 }: AccountTypeSectionProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
   const disabled = hasCode && applyStatus === 35;
 
   return (
-    <Card>
+    <Card
+      className={
+        embedded
+          ? 'rounded-none border-x-0 border-b-0 border-t pt-7 shadow-none'
+          : undefined
+      }
+    >
       <SectionHeading
         icon={KeyRound}
         title={t('tokenized_deposit_0105')}
         description={t('td_section_account_desc')}
+        embedded={embedded}
       />
-      <CardContent className="py-6">
+      <CardContent className={embedded ? 'px-0 py-0' : 'py-6'}>
         <FieldGroup className="grid gap-5 md:grid-cols-2">
           <div>
             <Controller
@@ -75,10 +96,10 @@ export function AccountTypeSection({
                       'accountFeaturesList' as keyof TDEditFormValues,
                     ) as unknown as number[] | undefined;
                     const filtered = features?.filter((el) => el !== 2);
-                    (setValue as (
-                      name: string,
-                      value: unknown,
-                    ) => void)('accountFeaturesList', filtered);
+                    (setValue as (name: string, value: unknown) => void)(
+                      'accountFeaturesList',
+                      filtered,
+                    );
                   }
                 };
                 return (

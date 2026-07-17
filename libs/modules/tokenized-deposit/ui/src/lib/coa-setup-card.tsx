@@ -126,6 +126,7 @@ export interface CoaSetupCardProps {
   /** 字段变更回调，参数为合并后的完整 data（patch 语义）。 */
   onChange?: (data: CoaSetupInfo) => void;
   className?: string;
+  embedded?: boolean;
 }
 
 // ── 时间格式（HH:mm:ss）常量与转换 ──
@@ -225,6 +226,7 @@ export function CoaSetupCard({
   errors,
   onChange,
   className = '',
+  embedded = false,
 }: CoaSetupCardProps) {
   const t = useTranslations('modules.tokenized-deposit');
 
@@ -286,40 +288,62 @@ export function CoaSetupCard({
 
   // ── 渲染标题行 + 状态徽标（重设计：图标 tile + 标题 + 状态徽标 + 描述）──
   const renderHeader = (): ReactNode => (
-    <div className="border-b bg-muted/35 px-6 py-5">
-      <div className="flex items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <RefreshCw className="size-4" aria-hidden="true" />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <CardTitle className="text-base">
+    <div
+      className={
+        embedded
+          ? 'mb-5 flex items-start justify-between gap-4'
+          : 'border-b bg-muted/35 px-6 py-5'
+      }
+    >
+      {embedded ? (
+        <>
+          <div>
+            <CardTitle className="text-sm">
               {t('tokenized_deposit_coa_title')}
             </CardTitle>
-            <Badge
-              variant="secondary"
-              style={{
-                backgroundColor: statusStyle?.bg,
-                color: statusStyle?.text,
-              }}
-            >
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: 'currentColor' }}
-              />
-              {t(`tokenized_deposit_coa_status_${data.status}`)}
-            </Badge>
+            <CardDescription className="mt-1 leading-6">
+              {t('td_section_coa_desc')}
+            </CardDescription>
           </div>
-          <CardDescription className="leading-relaxed">
-            {t('td_section_coa_desc')}
-          </CardDescription>
-          {data.headerNote ? (
-            <div className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {data.headerNote}
+          <Badge variant="secondary">
+            {t(`tokenized_deposit_coa_status_${data.status}`)}
+          </Badge>
+        </>
+      ) : (
+        <div className="flex items-start gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <RefreshCw className="size-4" aria-hidden="true" />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle className="text-base">
+                {t('tokenized_deposit_coa_title')}
+              </CardTitle>
+              <Badge
+                variant="secondary"
+                style={{
+                  backgroundColor: statusStyle?.bg,
+                  color: statusStyle?.text,
+                }}
+              >
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: 'currentColor' }}
+                />
+                {t(`tokenized_deposit_coa_status_${data.status}`)}
+              </Badge>
             </div>
-          ) : null}
+            <CardDescription className="leading-relaxed">
+              {t('td_section_coa_desc')}
+            </CardDescription>
+            {data.headerNote ? (
+              <div className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {data.headerNote}
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -370,7 +394,11 @@ export function CoaSetupCard({
   );
 
   return (
-    <Card className={`relative mb-4 ${className}`.trim()}>
+    <Card
+      className={`relative ${
+        embedded ? 'mb-0 rounded-none border-0 shadow-none' : 'mb-4'
+      } ${className}`.trim()}
+    >
       {/* loading 覆盖层（替代 antd Spin）：居中 Loader2 旋转 + 半透明遮罩 */}
       {loading ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
@@ -380,7 +408,9 @@ export function CoaSetupCard({
 
       {renderHeader()}
 
-      <div className="flex flex-col gap-5 px-6 py-6">
+      <div
+        className={`flex flex-col gap-5 ${embedded ? 'px-0 py-0' : 'px-6 py-6'}`}
+      >
         {renderLinkedMessage()}
 
         <div className="grid grid-cols-1 gap-x-12 gap-y-6 md:grid-cols-2">
@@ -418,7 +448,9 @@ export function CoaSetupCard({
               onValueChange={handleAccountTemplateChange}
             >
               <SelectTrigger
-                className={errors?.accountTemplateCode ? 'border-destructive' : ''}
+                className={
+                  errors?.accountTemplateCode ? 'border-destructive' : ''
+                }
               >
                 <SelectValue />
               </SelectTrigger>

@@ -1,17 +1,32 @@
 'use client';
 
 import * as React from 'react';
-import { type Control, Controller, type UseFormSetValue } from 'react-hook-form';
+import {
+  type Control,
+  Controller,
+  type UseFormSetValue,
+} from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { ShieldCheck } from 'lucide-react';
-import { Card, CardContent, Checkbox, Field, FieldGroup, FieldLabel } from '@myorg/shared/ui';
+import {
+  Card,
+  CardContent,
+  Checkbox,
+  Field,
+  FieldGroup,
+  FieldLabel,
+} from '@myorg/shared/ui';
 
 import type {
   ReserveAccountOption,
   TDEditDetail,
   TDEditFormValues,
 } from '@myorg/modules/tokenized-deposit/data-access';
-import { MINT_METHOD, RECON_DISABLED, RECON_ENABLED } from '@myorg/modules/tokenized-deposit/util';
+import {
+  MINT_METHOD,
+  RECON_DISABLED,
+  RECON_ENABLED,
+} from '@myorg/modules/tokenized-deposit/util';
 import { SectionHeading } from './ui/section-card';
 
 /**
@@ -44,6 +59,7 @@ export interface ReconciliationConfigSectionProps {
   reserveAccountId?: string | number;
   reserveReconValue?: number;
   mintMethod?: number;
+  embedded?: boolean;
 }
 
 export function ReconciliationConfigSection({
@@ -55,6 +71,7 @@ export function ReconciliationConfigSection({
   reserveAccountId,
   reserveReconValue,
   mintMethod,
+  embedded = false,
 }: ReconciliationConfigSectionProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
 
@@ -73,9 +90,13 @@ export function ReconciliationConfigSection({
   const isReserveReconLocked =
     showReserveRecon &&
     Number(
-      (selectedReserve as (ReserveAccountOption & {
-        enableReserveAssetReconciliation?: number;
-      }) | undefined)?.enableReserveAssetReconciliation,
+      (
+        selectedReserve as
+          | (ReserveAccountOption & {
+              enableReserveAssetReconciliation?: number;
+            })
+          | undefined
+      )?.enableReserveAssetReconciliation,
     ) === RECON_ENABLED;
 
   // 编辑态已启用 → disabled。
@@ -84,7 +105,8 @@ export function ReconciliationConfigSection({
   const reserveReconAlreadyEnabled =
     hasCode &&
     Number(detailInfo.enableReserveAssetReconciliation) === RECON_ENABLED;
-  const reserveReconDisabled = reserveReconAlreadyEnabled || isReserveReconLocked;
+  const reserveReconDisabled =
+    reserveReconAlreadyEnabled || isReserveReconLocked;
 
   // 账户级锁定 effect：锁定且当前值非 ENABLED → 强制设为 ENABLED（源 useEffect 同）。
   React.useEffect(() => {
@@ -94,13 +116,20 @@ export function ReconciliationConfigSection({
   }, [isReserveReconLocked, reserveReconValue, setValue]);
 
   return (
-    <Card>
+    <Card
+      className={
+        embedded
+          ? 'rounded-none border-x-0 border-b-0 border-t pt-7 shadow-none'
+          : undefined
+      }
+    >
       <SectionHeading
         icon={ShieldCheck}
         title={t('tokenized_deposit_recon_title')}
         description={t('td_section_operations_desc')}
+        embedded={embedded}
       />
-      <CardContent className="py-6">
+      <CardContent className={embedded ? 'px-0 py-0' : 'py-6'}>
         <FieldGroup
           className={
             showReserveRecon
@@ -113,7 +142,10 @@ export function ReconciliationConfigSection({
             control={control}
             name="enableTokenReconciliation"
             render={({ field }) => (
-              <Field orientation="horizontal">
+              <Field
+                orientation="horizontal"
+                className="items-start rounded-md border p-4"
+              >
                 <Checkbox
                   id="recon-token"
                   checked={Number(field.value) === RECON_ENABLED}
@@ -140,7 +172,10 @@ export function ReconciliationConfigSection({
               control={control}
               name="enableReserveAssetReconciliation"
               render={({ field }) => (
-                <Field orientation="horizontal">
+                <Field
+                  orientation="horizontal"
+                  className="items-start rounded-md border p-4"
+                >
                   <Checkbox
                     id="recon-reserve"
                     checked={Number(field.value) === RECON_ENABLED}

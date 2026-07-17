@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
 import {
@@ -86,8 +87,15 @@ export interface UseTokenizedDepositSubmitParams {
   stablecoinCoaData: CoaSetupInfo;
   timezoneOptions?: CoaSetupOption[];
   stablecoinCoaReadonly: boolean;
-  setTokenizedDepositCoaErrors: (errors: ReturnType<typeof validateCoaSetup>) => void;
+  setTokenizedDepositCoaErrors: (
+    errors: ReturnType<typeof validateCoaSetup>,
+  ) => void;
   setStablecoinCoaErrors: (errors: ReturnType<typeof validateCoaSetup>) => void;
+  /**
+   * 提交成功附加回调（可选，在 toast + routerBack 前调用）。
+   * add 模式用于 clearDraft（避免成功后草稿残留，下次进入误弹恢复横幅）。
+   */
+  onSubmitSuccess?: () => void;
 }
 
 export interface UseTokenizedDepositSubmitReturn {
@@ -110,15 +118,18 @@ export function useTokenizedDepositSubmit({
   stablecoinCoaReadonly,
   setTokenizedDepositCoaErrors,
   setStablecoinCoaErrors,
+  onSubmitSuccess,
 }: UseTokenizedDepositSubmitParams): UseTokenizedDepositSubmitReturn {
   const [loading, setLoading] = useState(false);
   const createMutation = useCreateTDApplyMutation();
   const editMutation = useEditTDOperationMutation();
+  const t = useTranslations('modules.tokenized-deposit');
 
   const successCallBack = useCallback(() => {
+    onSubmitSuccess?.();
     toast.success(successMessageKey.replace('****', ''));
     routerBack();
-  }, [routerBack, successMessageKey]);
+  }, [routerBack, successMessageKey, onSubmitSuccess]);
 
   const onSubmit = useCallback(
     (values: TDEditFormValues) => {
@@ -168,6 +179,41 @@ export function useTokenizedDepositSubmit({
           }
         ).passWordManagementWallet;
 
+        // ── P0-1-submit-guard：按 mintMethod 规范化提交字段（提交层兜底）──
+        // 在 payload 组装前覆盖局部变量（不改 values 本身），确保后端只收到与 mintMethod
+        // 匹配的字段，即便上游表单/草稿带入脏数据也不会越界。
+        const mm = Number(mintMethod) || 0;
+        // reserveId 仅稳定币保留（覆盖下面计算出的 reserveId 由 mm 判定）
+        const normalizedReserveId =
+          mm === MINT_METHOD.STABLECOIN
+            ? reserveAccountId !== undefined &&
+              reserveAccountId !== null &&
+              reserveAccountId !== ''
+              ? Number(reserveAccountId)
+              : undefined
+            : undefined;
+        // enableReserveAssetReconciliation 归一：非稳定币强制关闭
+        const normalizedEnableReserveAssetReconciliation =
+          mm === MINT_METHOD.STABLECOIN
+            ? Number(enableReserveAssetReconciliation ?? RECON_DISABLED) ===
+              RECON_ENABLED
+              ? RECON_ENABLED
+              : RECON_DISABLED
+            : RECON_DISABLED;
+        // accountTypeList 按 mm 过滤
+        let normalizedAccountTypeList: number[];
+        if (mm === MINT_METHOD.MMF) {
+          normalizedAccountTypeList = [3];
+        } else if (mm === MINT_METHOD.TOKENIZED_DEPOSIT) {
+          const filtered = (accountTypeList ?? [])
+            .map((type) => Number(type))
+            .filter((type) => type === 1 || type === 2);
+          normalizedAccountTypeList = filtered.length > 0 ? filtered : [1];
+        } else {
+          // STABLECOIN 或其它：用空数组
+          normalizedAccountTypeList = [];
+        }
+
         // ── adminWalletDTOList（含 AES password + keyStore）──
         const adminWalletDTOList = [
           {
@@ -197,23 +243,25 @@ export function useTokenizedDepositSubmit({
           { accountType: 3, walletAddress: walletAddressManagementWallet },
         ];
 
-        // ── reserveAccountId 归一 ──
-        const reserveId =
-          reserveAccountId !== undefined &&
-          reserveAccountId !== null &&
-          reserveAccountId !== ''
-            ? Number(reserveAccountId)
-            : undefined;
-
-        // ── storageType 判定（选中 keyService 或 detail 兜底）──
+        // ── P0-3c：keyService 存在性校验 ──
+        // 选中的 keyService 必须能在 keyServiceList 中命中；命中为空说明该密钥服务
+        // 已失效/被删，直接拦截并提示重新选择，避免后续以脏 storageType 提交。
         const selectedKeyService = keyServiceList?.find(
           (item) => item.keyServiceCode === keyServiceCode,
         );
+        if (!selectedKeyService) {
+          toast.error(t('td_toast_keyservice_invalid'));
+          setLoading(false);
+          return;
+        }
         const fallbackKeyServiceCode =
           keyServiceCode || detailInfo?.keyServiceCode;
+        // storageType 直接取选中 keyService 的值（不再回退 'key_keystore'，
+        // selectedKeyService 为空时上方已 return）。
         const storageType =
-          (selectedKeyService as (KeyServiceOption & { storageType?: string }) | undefined)
-            ?.storageType ||
+          (
+            selectedKeyService as KeyServiceOption & { storageType?: string }
+          ).storageType ||
           detailInfo?.storageType ||
           'key_keystore';
         // 按 storageType 分支选 walletPayload
@@ -249,8 +297,8 @@ export function useTokenizedDepositSubmit({
           Number(mintMethod) === MINT_METHOD.TOKENIZED_DEPOSIT
             ? tokenizedDepositCoaData
             : Number(mintMethod) === MINT_METHOD.STABLECOIN
-            ? stablecoinCoaData
-            : null;
+              ? stablecoinCoaData
+              : null;
         const coaPayload = mapCoaSetupToPayload(
           selectedCoaData,
           timezoneOptions,
@@ -265,7 +313,8 @@ export function useTokenizedDepositSubmit({
           usPrice: Number(usPrice),
           mintMethod: Number(mintMethod),
           smartContractPackageId: Number(smartContractPackageId),
-          accountTypeList: accountTypeList?.map((type) => Number(type)),
+          // P0-1-submit-guard：使用按 mintMethod 过滤后的 accountTypeList
+          accountTypeList: normalizedAccountTypeList,
           metaType: metaType !== undefined ? Number(metaType) : undefined,
           // 字段命名转换：表单 decimals → API decimalPrecision
           decimalPrecision: Number(decimals),
@@ -274,14 +323,14 @@ export function useTokenizedDepositSubmit({
             RECON_ENABLED
               ? RECON_ENABLED
               : RECON_DISABLED,
+          // P0-1-submit-guard：使用按 mintMethod 归一后的值
           enableReserveAssetReconciliation:
-            Number(enableReserveAssetReconciliation ?? RECON_DISABLED) ===
-            RECON_ENABLED
-              ? RECON_ENABLED
-              : RECON_DISABLED,
+            normalizedEnableReserveAssetReconciliation,
           ...walletPayload,
           ...coaPayload,
-          ...(reserveId !== undefined ? { reserveAccountId: reserveId } : {}),
+          ...(normalizedReserveId !== undefined
+            ? { reserveAccountId: normalizedReserveId }
+            : {}),
         };
 
         try {
@@ -303,6 +352,19 @@ export function useTokenizedDepositSubmit({
             });
             successCallBack();
           }
+        } catch (err) {
+          // G2：失败反馈。区分业务错误（有 response/业务 code 非 0）与网络异常。
+          const errAny = err as {
+            response?: { data?: { code?: number } };
+            code?: number;
+          };
+          const hasResponse =
+            !!errAny?.response || errAny?.code !== undefined;
+          if (hasResponse) {
+            toast.error(t('td_toast_submit_failed'));
+          } else {
+            toast.error(t('td_toast_submit_network_failed'));
+          }
         } finally {
           setLoading(false);
         }
@@ -320,6 +382,7 @@ export function useTokenizedDepositSubmit({
       stablecoinCoaData,
       stablecoinCoaReadonly,
       successCallBack,
+      t,
       timezoneOptions,
       tokenizedDepositCoaData,
       setStablecoinCoaErrors,
