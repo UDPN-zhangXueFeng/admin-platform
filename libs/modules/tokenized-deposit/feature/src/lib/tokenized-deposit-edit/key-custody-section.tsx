@@ -48,6 +48,8 @@ export interface KeyCustodySectionProps {
   hasCode: boolean;
   applyStatus?: number;
   keyServiceList?: KeyServiceOption[];
+  /** Key Service 查询失败标志（inline 错误反馈，文档 14.5）。 */
+  keyServiceError?: boolean;
   onKeyServiceChange: (value: string) => void;
   embedded?: boolean;
 }
@@ -57,6 +59,7 @@ export function KeyCustodySection({
   hasCode,
   applyStatus,
   keyServiceList,
+  keyServiceError = false,
   onKeyServiceChange,
   embedded = false,
 }: KeyCustodySectionProps): React.JSX.Element {
@@ -87,7 +90,14 @@ export function KeyCustodySection({
                   <Required />
                   {t('key_custody_label')}
                 </FieldLabel>
-                {keyServiceList && keyServiceList.length === 0 ? (
+                {keyServiceError ? (
+                  <Alert variant="destructive">
+                    <AlertTitle>{t('td_keyservice_empty_title')}</AlertTitle>
+                    <AlertDescription>
+                      {t('td_query_load_failed')}
+                    </AlertDescription>
+                  </Alert>
+                ) : keyServiceList && keyServiceList.length === 0 ? (
                   <Alert variant="destructive">
                     <AlertTitle>{t('td_keyservice_empty_title')}</AlertTitle>
                     <AlertDescription>

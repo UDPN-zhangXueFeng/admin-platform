@@ -95,6 +95,7 @@ function EditStacked({
     reserveAccountId,
     reserveReconValue,
     keyServiceList,
+    keyServiceError,
     resetAdminWalletFields,
     shouldHideKeystoreAndPassword,
     shouldHideGenerateWalletAction,
@@ -204,6 +205,7 @@ function EditStacked({
             hasCode={hasCode}
             applyStatus={applyStatus}
             keyServiceList={keyServiceList}
+            keyServiceError={keyServiceError}
             onKeyServiceChange={(value) => {
               form.setValue('keyServiceName', value);
               resetAdminWalletFields();

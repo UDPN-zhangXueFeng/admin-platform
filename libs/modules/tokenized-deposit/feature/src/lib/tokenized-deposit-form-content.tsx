@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { useAuth } from '@myorg/shared/util-auth';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -103,9 +104,13 @@ export function useTokenizedDepositForm({
 }: UseTokenizedDepositFormParams) {
   const t = useTranslations('modules.tokenized-deposit');
   const router = useRouter();
+  const { user } = useAuth();
   const hasCode = mode === 'edit' && !!code;
   const [currentStep, setCurrentStep] = React.useState(0);
   const [maxReachedStep, setMaxReachedStep] = React.useState(0);
+
+  // ── 草稿作用域（按用户隔离；anon 兜底对齐 draftKey 契约）──
+  const draftScope = React.useMemo(() => ({ userId: user?.id }), [user?.id]);
 
   // ── 主表单（react-hook-form）──
   const form = useForm<TDEditFormValues>({
@@ -165,6 +170,10 @@ export function useTokenizedDepositForm({
   const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 草稿恢复时跳过一次 keyService 默认选首项（保护恢复值）。 */
   const suppressSelectFirstOnceRef = React.useRef(false);
+  /** 自动保存失败提示节流：首次失败弹一次，成功后再允许重弹。 */
+  const draftSaveWarnedRef = React.useRef(false);
+  /** 草稿恢复后待 Options 异步校验标记（restoreRef 触发一次，校验完置 false）。 */
+  const restoredPendingRef = React.useRef(false);
   /** COA 本地 state 不在 RHF 内，单独追踪 touched 供自动保存判断。 */
   const coaTouchedRef = React.useRef(false);
   const [resetConfirmOpen, setResetConfirmOpen] = React.useState(false);
@@ -182,7 +191,7 @@ export function useTokenizedDepositForm({
   });
 
   // ── keyService（声明式监听 blockchainId）──
-  const { keyServiceList } = useKeyService({
+  const { keyServiceList, isError: keyServiceError } = useKeyService({
     form,
     blockchainId: blockchain,
     shouldSelectFirst: !hasCode,
@@ -308,8 +317,8 @@ export function useTokenizedDepositForm({
   // ── 提交成功附加动作（仅 add：清草稿并停自动保存，防清后重存）──
   const handleSubmitSuccess = React.useCallback(() => {
     draftReadyRef.current = false;
-    clearDraft();
-  }, []);
+    clearDraft(draftScope);
+  }, [draftScope]);
 
   // ── 提交（新增 useCreateTDApplyMutation / 编辑 useEditTDOperationMutation）──
   const { loading, onSubmit } = useTokenizedDepositSubmit({
@@ -339,6 +348,18 @@ export function useTokenizedDepositForm({
       setFlag(value === MINT_METHOD.TOKENIZED_DEPOSIT);
       setTokenTypeId(value);
       form.setValue('smartContractPackageId', '');
+      // P0-1：按类型统一清理不适用字段（文档 14.1 表），避免类型切换后残留污染 payload。
+      if (value === MINT_METHOD.STABLECOIN) {
+        form.setValue('accountTypeList', [1]);
+      } else if (value === MINT_METHOD.TOKENIZED_DEPOSIT) {
+        form.setValue('accountTypeList', [1]);
+        form.setValue('reserveAccountId', undefined);
+        form.setValue('enableReserveAssetReconciliation', RECON_DISABLED);
+      } else if (value === MINT_METHOD.MMF) {
+        form.setValue('accountTypeList', [3]);
+        form.setValue('reserveAccountId', undefined);
+        form.setValue('enableReserveAssetReconciliation', RECON_DISABLED);
+      }
     },
     [form],
   );
@@ -353,13 +374,13 @@ export function useTokenizedDepositForm({
   // ── 草稿：mount 检测（仅 add；有草稿先弹横幅，决定前暂停自动保存）──
   React.useEffect(() => {
     if (mode !== 'add') return;
-    const draft = loadDraft();
+    const draft = loadDraft(draftScope);
     if (draft) {
       setDraftBanner({ savedAt: draft.savedAt });
     } else {
       draftReadyRef.current = true;
     }
-  }, [mode]);
+  }, [mode, draftScope]);
 
   // ── 草稿：自动保存（400ms debounce）──
   // 仅「用户真实编辑过」（RHF isDirty 或 COA touched）才保存：mount 默认值
@@ -372,25 +393,36 @@ export function useTokenizedDepositForm({
     if (!isFormDirty && !coaTouchedRef.current) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      saveDraft(formValues, {
+      // DRAFT-GAP-4：保存失败提示一次（节流，成功后重置允许再弹）
+      const ok = saveDraft(draftScope, formValues, {
         tokenizedDeposit: tokenizedDepositCoaData,
         stablecoin: stablecoinCoaData,
       });
+      if (!ok) {
+        if (!draftSaveWarnedRef.current) {
+          draftSaveWarnedRef.current = true;
+          toast.warning(t('td_toast_draft_save_failed'));
+        }
+      } else {
+        draftSaveWarnedRef.current = false;
+      }
     }, 400);
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
   }, [
     mode,
+    draftScope,
     formValues,
     tokenizedDepositCoaData,
     stablecoinCoaData,
     isFormDirty,
+    t,
   ]);
 
   // ── 草稿：恢复（钱包/keystore/密码不缓存，恢复后保持为空）──
   const restoreDraft = React.useCallback(() => {
-    const draft = loadDraft();
+    const draft = loadDraft(draftScope);
     if (draft) {
       // blockchainId 变化会触发 keyService 重查，置标记跳过默认选首项；
       // 同链（query 缓存命中、effect 不重跑）则无需跳过。
@@ -436,26 +468,29 @@ export function useTokenizedDepositForm({
       }
       toast.info(t('td_toast_draft_restored'));
     }
+    // 触发 DRAFT-GAP-2：Options 加载后异步校验 reserve/contract/keyService 有效性
+    restoredPendingRef.current = !!draft;
     setDraftBanner(null);
     draftReadyRef.current = true;
   }, [
     form,
     blockchainList,
+    draftScope,
     setTokenizedDepositCoaData,
     setStablecoinCoaData,
     t,
   ]);
 
   const discardDraft = React.useCallback(() => {
-    clearDraft();
+    clearDraft(draftScope);
     setDraftBanner(null);
     draftReadyRef.current = true;
-  }, []);
+  }, [draftScope]);
 
   // ── Reset application（清草稿 + 默认值 + 重放 mount 默认链/币种）──
   const handleReset = React.useCallback(() => {
     const prevChain = form.getValues('blockchainId');
-    clearDraft();
+    clearDraft(draftScope);
     coaTouchedRef.current = false;
     form.reset(DEFAULT_FORM_VALUES);
     setTokenizedDepositCoaData(null);
@@ -508,6 +543,7 @@ export function useTokenizedDepositForm({
     form,
     blockchainList,
     currencyList,
+    draftScope,
     keyServiceList,
     setTokenizedDepositCoaData,
     setStablecoinCoaData,
@@ -515,6 +551,62 @@ export function useTokenizedDepositForm({
     setStablecoinCoaErrors,
     t,
   ]);
+
+  // ── G6：Stablecoin 下 Reserve 自动选首项（add only；TanStack Query 已无竞态）──
+  React.useEffect(() => {
+    if (mode !== 'add') return;
+    if (mintMethod !== MINT_METHOD.STABLECOIN) return;
+    const current = form.getValues('reserveAccountId');
+    if (!reserveList || reserveList.length === 0) {
+      if (current !== undefined && current !== null) {
+        form.setValue('reserveAccountId', undefined);
+      }
+      return;
+    }
+    const exists = reserveList.some(
+      (r) => String(r.reserveAccountId) === String(current),
+    );
+    if (!exists) {
+      form.setValue(
+        'reserveAccountId',
+        reserveList[0].reserveAccountId as number,
+      );
+    }
+  }, [mode, mintMethod, reserveList, form]);
+
+  // ── DRAFT-GAP-2：草稿恢复后异步校验 reserve/contract/keyService 是否仍存在于最新 Options ──
+  // restoredPendingRef 在 restoreDraft 置 true；等三类 Options 全部加载后校验一次，清失效值。
+  React.useEffect(() => {
+    if (!restoredPendingRef.current) return;
+    if (!reserveList || !smartContractNameList || !keyServiceList) return;
+    let cleared = false;
+    const ra = form.getValues('reserveAccountId');
+    if (
+      ra !== undefined &&
+      ra !== null &&
+      !reserveList.some((r) => String(r.reserveAccountId) === String(ra))
+    ) {
+      form.setValue('reserveAccountId', undefined);
+      cleared = true;
+    }
+    const sc = form.getValues('smartContractPackageId');
+    if (
+      sc &&
+      !smartContractNameList.some((s) => String(s.key) === String(sc))
+    ) {
+      form.setValue('smartContractPackageId', '');
+      cleared = true;
+    }
+    const ks = form.getValues('keyServiceName');
+    if (ks && !keyServiceList.some((k) => k.keyServiceCode === ks)) {
+      form.setValue('keyServiceName', '');
+      cleared = true;
+    }
+    if (cleared) {
+      toast.info(t('td_toast_keyservice_invalid'));
+    }
+    restoredPendingRef.current = false;
+  }, [reserveList, smartContractNameList, keyServiceList, form, t]);
 
   // ── AlertDialog 确认/取消 ──
   const handleOverwriteConfirm = React.useCallback(() => {
@@ -863,6 +955,7 @@ export function useTokenizedDepositForm({
     reserveList,
     smartContractNameList,
     keyServiceList,
+    keyServiceError,
     stablecoinCoaData,
     stablecoinCoaErrors,
     stablecoinCoaReadonly,

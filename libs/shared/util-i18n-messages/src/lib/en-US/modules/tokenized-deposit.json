@@ -499,5 +499,7 @@
   "td_summary_wallets_alert_title": "Wallets incomplete",
   "td_summary_wallets_alert_desc": "Generate all three role wallets before submission.",
   "td_save_draft": "Save draft",
-  "td_review_submit": "Review & submit"
+  "td_review_submit": "Review & submit",
+  "td_toast_draft_save_failed": "Draft auto-save failed; your latest changes may not be persisted.",
+  "td_query_load_failed": "Failed to load data, please retry."
 }

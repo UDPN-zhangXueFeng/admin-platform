@@ -499,5 +499,7 @@
   "td_summary_wallets_alert_title": "钱包未齐",
   "td_summary_wallets_alert_desc": "提交前请生成全部三个角色钱包。",
   "td_save_draft": "保存草稿",
-  "td_review_submit": "审核并提交"
+  "td_review_submit": "审核并提交",
+  "td_toast_draft_save_failed": "草稿自动保存失败，最新改动可能未持久化。",
+  "td_query_load_failed": "数据加载失败，请重试。"
 }

@@ -18,8 +18,24 @@
  * 调用方（feature）传入时 TypeScript 结构类型系统自动兼容。
  */
 
-const DRAFT_KEY = 'td-manage:tokenized-deposit:add-draft:v1';
 const DRAFT_TTL_MS = 12 * 60 * 60 * 1000; // 12 小时
+
+/**
+ * 草稿作用域。按用户隔离 storage key，避免同浏览器多账号互相覆盖草稿。
+ *
+ * `userId` 缺省（未登录 / 获取失败）时落入 `'anon'` 桶。
+ */
+export interface DraftScope {
+  userId?: string;
+}
+
+/**
+ * 计算草稿 storage key。形如
+ * `td-manage:{userId||'anon'}:tokenized-deposit:add-draft:v1`。
+ */
+export function draftKey(scope: DraftScope): string {
+  return `td-manage:${scope.userId ?? 'anon'}:tokenized-deposit:add-draft:v1`;
+}
 
 /**
  * 可入草稿的表单字段（TDEditFormValues 白名单子集）。
@@ -98,14 +114,17 @@ const WHITELIST: (keyof OnboardDraftFormValues)[] = [
 /**
  * 保存草稿（白名单字段 + 双套 COA）。调用方负责 debounce。
  *
+ * @param scope 草稿作用域（按用户隔离 key）
  * @param values 完整表单值（内部按白名单挑字段，钱包字段不会序列化）
  * @param coa 双套 COA 数据
+ * @returns 成功写入返回 `true`；storage 禁用/已满/序列化异常返回 `false`（不 throw）
  */
 export function saveDraft(
+  scope: DraftScope,
   values: OnboardDraftFormValues,
   coa: OnboardDraftCoaValues,
-): void {
-  if (typeof window === 'undefined') return;
+): boolean {
+  if (typeof window === 'undefined') return false;
   try {
     const formValues: Record<string, unknown> = {};
     for (const key of WHITELIST) formValues[key] = values[key];
@@ -115,39 +134,41 @@ export function saveDraft(
       formValues: formValues as OnboardDraftFormValues,
       coa,
     };
-    window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    window.sessionStorage.setItem(draftKey(scope), JSON.stringify(draft));
+    return true;
   } catch {
     // Storage 禁用或已满时不阻塞用户填写
+    return false;
   }
 }
 
 /** 读取草稿。版本不符 / 过期 / 解析失败时自动清除并返回 null。 */
-export function loadDraft(): OnboardDraft | null {
+export function loadDraft(scope: DraftScope): OnboardDraft | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.sessionStorage.getItem(DRAFT_KEY);
+    const raw = window.sessionStorage.getItem(draftKey(scope));
     if (!raw) return null;
     const draft = JSON.parse(raw) as OnboardDraft;
     if (draft.version !== 1 || typeof draft.savedAt !== 'number') {
-      clearDraft();
+      clearDraft(scope);
       return null;
     }
     if (Date.now() - draft.savedAt > DRAFT_TTL_MS) {
-      clearDraft();
+      clearDraft(scope);
       return null;
     }
     return draft;
   } catch {
-    clearDraft();
+    clearDraft(scope);
     return null;
   }
 }
 
 /** 清除草稿（提交成功 / 用户丢弃 / Reset 时调用）。 */
-export function clearDraft(): void {
+export function clearDraft(scope: DraftScope): void {
   if (typeof window === 'undefined') return;
   try {
-    window.sessionStorage.removeItem(DRAFT_KEY);
+    window.sessionStorage.removeItem(draftKey(scope));
   } catch {
     // ignore
   }

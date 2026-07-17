@@ -85,6 +85,10 @@ export interface TokenBasicInfoSectionProps {
   blockchainList?: BlockchainOption[];
   currencyList?: CurrencyOption[];
   smartContractNameList?: SmartContractOption[];
+  /** Smart Contract 查询失败标志（inline 错误反馈，文档 14.5）。 */
+  smartContractError?: boolean;
+  /** Reserve 查询失败标志（inline 错误反馈，文档 14.5）。 */
+  reserveError?: boolean;
   tokenTypeOptions: TokenTypeOption[];
   onBlockchainChange: (value: string) => void;
   onCurrencyChange: (value: string) => void;

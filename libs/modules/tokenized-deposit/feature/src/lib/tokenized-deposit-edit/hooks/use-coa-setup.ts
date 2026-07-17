@@ -76,6 +76,11 @@ export interface UseCoaSetupReturn {
   handleTokenizedDepositCoaChange: (data: CoaSetupInfo) => void;
   coaTemplateOptions: CoaSetupOption[];
   coaTimezoneOptions: CoaSetupOption[];
+  /**
+   * COA 相关查询（financeBook / template / timezone）任一失败的合并标志。
+   * inline 错误反馈用（文档 14.5）。
+   */
+  coaQueryError: boolean;
   shouldShowSetupRequiredCoaSetup: boolean;
   shouldShowStablecoinCoaSetup: boolean;
   setStablecoinCoaData: (data: CoaSetupInfo | null) => void;
@@ -108,16 +113,20 @@ export function useCoaSetup({
   const coaTemplateTokenType = getCoaTemplateTokenType(mintMethod);
 
   // ── 下拉查询（声明式）──
-  const { data: financeTemplateData } = useFinanceTemplateQuery(
-    coaTemplateTokenType,
-  );
-  const { data: timezoneData } = useTimezoneOptionsQuery();
+  const { data: financeTemplateData, isError: templateError } =
+    useFinanceTemplateQuery(coaTemplateTokenType);
+  const { data: timezoneData, isError: timezoneError } =
+    useTimezoneOptionsQuery();
   const {
     data: financeBookData,
     isLoading: coaSetupLoading,
+    isError: financeBookError,
   } = useFinanceBookByReserveQuery(
     shouldShowStablecoinCoaSetup ? reserveAccountId : undefined,
   );
+
+  // 任一 COA 相关查询失败的合并标志（inline 错误反馈用）。
+  const coaQueryError = templateError || timezoneError || financeBookError;
 
   // ── 下拉映射（FinanceTemplateOption → CoaSetupOption）──
   const coaTemplateOptions: CoaSetupOption[] = useMemo(() => {
@@ -313,6 +322,7 @@ export function useCoaSetup({
     handleTokenizedDepositCoaChange,
     coaTemplateOptions,
     coaTimezoneOptions,
+    coaQueryError,
     shouldShowSetupRequiredCoaSetup,
     shouldShowStablecoinCoaSetup,
     setStablecoinCoaData: setCoaSetupInfo,

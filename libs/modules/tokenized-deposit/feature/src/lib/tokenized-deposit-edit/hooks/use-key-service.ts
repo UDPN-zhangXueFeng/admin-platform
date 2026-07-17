@@ -64,6 +64,8 @@ export interface UseKeyServiceReturn {
   keyServiceList: KeyServiceOption[];
   /** 是否加载中。 */
   isLoading: boolean;
+  /** 查询是否失败（inline 错误反馈用）。 */
+  isError: boolean;
 }
 
 export function useKeyService({
@@ -72,8 +74,11 @@ export function useKeyService({
   shouldSelectFirst = true,
   suppressSelectFirstOnceRef,
 }: UseKeyServiceParams): UseKeyServiceReturn {
-  const { data: keyServiceList, isLoading } =
-    useKeyServiceListQuery(blockchainId);
+  const {
+    data: keyServiceList,
+    isLoading,
+    isError,
+  } = useKeyServiceListQuery(blockchainId);
 
   // 默认选首项（仅新增态；编辑态由 useDetailInit 回填负责，避免覆盖）。
   useEffect(() => {
@@ -104,5 +109,6 @@ export function useKeyService({
   return {
     keyServiceList: keyServiceList ?? [],
     isLoading,
+    isError,
   };
 }

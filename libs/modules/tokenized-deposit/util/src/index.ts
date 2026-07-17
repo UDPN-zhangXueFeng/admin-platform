@@ -60,10 +60,12 @@ export {
   loadDraft,
   clearDraft,
   formatDraftTime,
+  draftKey,
 } from './lib/onboard-draft';
 export type {
   OnboardDraft,
   OnboardDraftFormValues,
   OnboardDraftCoaInfo,
   OnboardDraftCoaValues,
+  DraftScope,
 } from './lib/onboard-draft';
