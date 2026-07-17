@@ -85,7 +85,8 @@ export function useBlockchainEffect({
     );
 
     // 幂等守卫：仅在尚未写入 blockchainId 时回填默认值，避免 tokenType 改变触发
-    // effect 重跑时覆盖用户已选的链/币种。
+    // effect 重跑时覆盖用户已选的链/币种。reserve 首查也仅在此跑一次——reserve 跟随
+    // currency（onCurrencyChange / restoreDraft / handleReset 触发），不应随 tokenType 切换。
     if (!code && !form.getValues('blockchainId')) {
       form.setValue('decimals', 8);
       form.setValue('currencySymbol', currencyList?.[0]?.value);
@@ -95,10 +96,9 @@ export function useBlockchainEffect({
           ? 'aptos'
           : 'evm',
       );
-    }
-
-    if (currencyList && currencyList.length > 0) {
-      getReserveList(currencyList[0]?.value);
+      if (currencyList && currencyList.length > 0) {
+        getReserveList(currencyList[0]?.value);
+      }
     }
 
     const currentBlockchainId = form.getValues('blockchainId');

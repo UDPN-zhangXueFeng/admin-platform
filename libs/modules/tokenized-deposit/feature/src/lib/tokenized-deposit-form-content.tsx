@@ -176,6 +176,8 @@ export function useTokenizedDepositForm({
   const restoredPendingRef = React.useRef(false);
   /** COA 本地 state 不在 RHF 内，单独追踪 touched 供自动保存判断。 */
   const coaTouchedRef = React.useRef(false);
+  /** G3：查询失败 toast 节流（任一查询失败弹一次，全部恢复后重置）。 */
+  const queryErrorToastedRef = React.useRef(false);
   const [resetConfirmOpen, setResetConfirmOpen] = React.useState(false);
 
   // ── 3 公共下拉（声明式）──
@@ -184,11 +186,13 @@ export function useTokenizedDepositForm({
   const { data: tokenTypeOptions } = useTokenTypeOptionsQuery();
 
   // ── reserveList / smartContractNameList（声明式 query，桥接源本地 state）──
-  const { data: reserveList } = useReserveListQuery(reserveCurrency);
-  const { data: smartContractNameList } = useSmartContractOptionsQuery({
-    contractLanguage,
-    tokenType,
-  });
+  const { data: reserveList, isError: reserveQueryError } =
+    useReserveListQuery(reserveCurrency);
+  const { data: smartContractNameList, isError: contractQueryError } =
+    useSmartContractOptionsQuery({
+      contractLanguage,
+      tokenType,
+    });
 
   // ── keyService（声明式监听 blockchainId）──
   const { keyServiceList, isError: keyServiceError } = useKeyService({
@@ -210,6 +214,7 @@ export function useTokenizedDepositForm({
     handleTokenizedDepositCoaChange,
     coaTemplateOptions,
     coaTimezoneOptions,
+    coaQueryError,
     shouldShowSetupRequiredCoaSetup,
     shouldShowStablecoinCoaSetup,
     setStablecoinCoaData,
@@ -492,7 +497,19 @@ export function useTokenizedDepositForm({
     const prevChain = form.getValues('blockchainId');
     clearDraft(draftScope);
     coaTouchedRef.current = false;
-    form.reset(DEFAULT_FORM_VALUES);
+    // G2：显式清钱包字段（DEFAULT_FORM_VALUES 不含钱包，与 restoreDraft 一致确保清空）
+    form.reset({
+      ...DEFAULT_FORM_VALUES,
+      walletAddressContractOwner: '',
+      walletAddressPaymentOfGasFee: '',
+      walletAddressManagementWallet: '',
+      keyStoreContractOwner: '',
+      keyStorePaymentOfGasFee: '',
+      keyStoreManagementWallet: '',
+      passWordContractOwner: '',
+      passWordPaymentOfGasFee: '',
+      passWordManagementWallet: '',
+    });
     setTokenizedDepositCoaData(null);
     setStablecoinCoaData(null);
     setTokenizedDepositCoaErrors({});
@@ -607,6 +624,24 @@ export function useTokenizedDepositForm({
     }
     restoredPendingRef.current = false;
   }, [reserveList, smartContractNameList, keyServiceList, form, t]);
+
+  // ── G3：查询加载失败统一反馈（reserve/contract/keyService/COA template/timezone）──
+  React.useEffect(() => {
+    const failed = [
+      reserveQueryError,
+      contractQueryError,
+      keyServiceError,
+      coaQueryError,
+    ].some(Boolean);
+    if (failed) {
+      if (!queryErrorToastedRef.current) {
+        queryErrorToastedRef.current = true;
+        toast.error(t('td_query_load_failed'));
+      }
+    } else if (queryErrorToastedRef.current) {
+      queryErrorToastedRef.current = false;
+    }
+  }, [reserveQueryError, contractQueryError, keyServiceError, coaQueryError, t]);
 
   // ── AlertDialog 确认/取消 ──
   const handleOverwriteConfirm = React.useCallback(() => {
