@@ -6,8 +6,8 @@ export interface StablecoinOption {
   name?: string;
   stablecoinId?: number;
   blockchainNameAbbreviation?: string;
-  tokenType?: string;
-  issueType?: string;
+  /** 发行类型（TdStablecoinRespVo.issueType）：1=Stablecoin，5=Tokenized Deposit，20=Tokenized MMF。 */
+  issueType?: number;
 }
 
 export interface StableCoinOverview {

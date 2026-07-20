@@ -1,0 +1,40 @@
+version: "3"
+services:
+  # ── Next.js 应用（环境无关，跨环境复用）──
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/aps}
+    container_name: ${COMPOSE_PROJECT_NAME:-admin-platform}-app
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    labels:
+      - "admin-platform.env=${ENV_NAME:-unknown}"
+      - "admin-platform.branch=${GIT_BRANCH:-unknown}"
+      - "admin-platform.build-time=${BUILD_TIME:-unknown}"
+      - "admin-platform.build-user=${BUILD_USER:-unknown}"
+    restart: unless-stopped
+
+  # ── nginx 反代（每环境单独 build，含后端地址）──
+  nginx:
+    build:
+      context: ./nginx
+      args:
+        NEXT_SERVICE_SERVER_URL: ${NEXT_SERVICE_SERVER_URL}
+    container_name: ${COMPOSE_PROJECT_NAME:-admin-platform}-nginx
+    ports:
+      - ${NGINX_PORT:-6241}:80
+    volumes:
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - app
+    labels:
+      - "admin-platform.env=${ENV_NAME:-unknown}"
+      - "admin-platform.port=${NGINX_PORT:-6241}"
+      - "admin-platform.api-url=${NEXT_SERVICE_SERVER_URL:-unknown}"
+      - "admin-platform.branch=${GIT_BRANCH:-unknown}"
+      - "admin-platform.build-time=${BUILD_TIME:-unknown}"
+    restart: unless-stopped

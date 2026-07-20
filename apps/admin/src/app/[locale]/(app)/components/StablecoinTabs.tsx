@@ -26,10 +26,13 @@ function getOptionId(option: StablecoinOption): string {
   return String(option.stablecoinId ?? option.code ?? option.symbol);
 }
 
+/**
+ * issueType（number）→ 图标类型：20=MMF(M)，5=TD(TD)，其余=Stablecoin(S)。
+ * 语义与 wallet 模块 ISSUE_TYPE 常量、老项目 token_type_*.svg（1/5/20）一致。
+ */
 function getTokenType(option: StablecoinOption): TokenSelectorOption['type'] {
-  const type = option.tokenType ?? option.issueType;
-  if (type === '2') return 'M';
-  if (type === '3') return 'TD';
+  if (option.issueType === 20) return 'M';
+  if (option.issueType === 5) return 'TD';
   return 'S';
 }
 

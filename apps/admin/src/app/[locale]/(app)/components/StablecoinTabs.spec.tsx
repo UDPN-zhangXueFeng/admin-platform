@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 jest.mock('next-intl', () => ({
@@ -44,6 +44,10 @@ jest.mock('@myorg/shared/ui', () => ({
 import { StablecoinTabs } from './StablecoinTabs';
 import type { StablecoinOption } from '@myorg/modules/dashboard/data-access';
 
+/**
+ * Mock 对齐 `enabled/searches` 真实返回（TdStablecoinRespVo）：
+ * 类型字段为数值 issueType —— 1=Stablecoin，5=Tokenized Deposit，20=Tokenized MMF。
+ */
 const options: StablecoinOption[] = [
   {
     stablecoinId: 101,
@@ -51,7 +55,7 @@ const options: StablecoinOption[] = [
     symbol: 'USDC',
     name: 'USDCoin',
     blockchainNameAbbreviation: 'Besu',
-    tokenType: '1',
+    issueType: 1,
   },
   {
     stablecoinId: 202,
@@ -59,7 +63,7 @@ const options: StablecoinOption[] = [
     symbol: 'SAR',
     name: 'SARCoin',
     blockchainNameAbbreviation: 'Besu',
-    tokenType: '1',
+    issueType: 5,
   },
   {
     stablecoinId: 303,
@@ -67,11 +71,33 @@ const options: StablecoinOption[] = [
     symbol: 'MMF',
     name: 'mmf-test-1',
     blockchainNameAbbreviation: 'CFLR',
-    tokenType: '2',
+    issueType: 20,
   },
 ];
 
 describe('StablecoinTabs', () => {
+  it('marks S / TD / M by numeric issueType like the Token Management page', () => {
+    render(
+      <StablecoinTabs
+        mode="tabs"
+        onModeChange={jest.fn()}
+        onValueChange={jest.fn()}
+        options={options}
+        value="101"
+      />,
+    );
+
+    expect(
+      within(screen.getByRole('tab', { name: /USDCoin/i })).getByText('S'),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('tab', { name: /SARCoin/i })).getByText('TD'),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('tab', { name: /mmf-test-1/i })).getByText('M'),
+    ).toBeInTheDocument();
+  });
+
   it('returns the stable token id because API ordering can change', async () => {
     const user = userEvent.setup();
     const handleValueChange = jest.fn();

@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Button, DataTable, useToast } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 
@@ -59,6 +59,7 @@ function formToParams(form: RoleFilterForm): RoleQueryParams {
 export function RoleListPage() {
   const t = useTranslations('modules.role');
   const router = useRouter();
+  const toast = useToast();
   const { register, handleSubmit, reset } = useForm<RoleFilterForm>({
     defaultValues: EMPTY_FORM,
   });
@@ -111,18 +112,30 @@ export function RoleListPage() {
           ? t('confirm.disable')
           : t('confirm.enable');
       if (!window.confirm(confirmKey)) return;
-      statusMutation.mutate({ roleId: row.roleId, status: nextStatus });
+      statusMutation.mutate(
+        { roleId: row.roleId, status: nextStatus },
+        {
+          onSuccess: () =>
+            toast.success(
+              nextStatus === RoleStatus.Disabled
+                ? t('toast.disableSuccess')
+                : t('toast.enableSuccess')
+            ),
+        }
+      );
     },
-    [statusMutation, t]
+    [statusMutation, t, toast]
   );
 
   /** 行操作：Delete，含 confirm（role.md 5.1）。 */
   const onDelete = React.useCallback(
     (row: RoleItem) => {
       if (!window.confirm(t('confirm.delete'))) return;
-      deleteMutation.mutate(row.roleId);
+      deleteMutation.mutate(row.roleId, {
+        onSuccess: () => toast.success(t('toast.deleteSuccess')),
+      });
     },
-    [deleteMutation, t]
+    [deleteMutation, t, toast]
   );
 
   const columns = React.useMemo<ColumnDef<RoleItem & { id: string }>[]>(

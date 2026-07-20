@@ -9,6 +9,10 @@ import createNextIntlPlugin from 'next-intl/plugin';
  * module" or "unexpected token" errors at build time.
  */
 const nextConfig: NextConfig = {
+  // Docker 部署：产出自包含 standalone 运行产物（.next/standalone），
+  // 自动打平 pnpm workspace 的符号链接依赖，免去在镜像内处理 node_modules 软链结构。
+  output: 'standalone',
+
   transpilePackages: [
     // ── modules (feature / ui / data-access / util) ──
     '@myorg/modules/user/feature',

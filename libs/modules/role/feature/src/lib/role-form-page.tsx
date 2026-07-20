@@ -10,6 +10,7 @@ import {
   Input,
   RadioGroup,
   RadioGroupItem,
+  useToast,
 } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 
@@ -52,6 +53,7 @@ function parseRoleId(raw: string | null): number | undefined {
 export function RoleFormPage() {
   const t = useTranslations('modules.role');
   const router = useRouter();
+  const toast = useToast();
   const searchParams = useSearchParams();
   const roleId = parseRoleId(searchParams.get('roleId'));
   const isEdit = roleId != null;
@@ -88,7 +90,12 @@ export function RoleFormPage() {
           status: values.status,
           menuIdList: values.menuIdList,
         },
-        { onSuccess: () => router.push('/sys/role') }
+        {
+          onSuccess: () => {
+            toast.success(t('toast.saveSuccess'));
+            router.push('/sys/role');
+          },
+        }
       );
     } else {
       saveMutation.mutate(
@@ -97,7 +104,12 @@ export function RoleFormPage() {
           status: values.status,
           menuIdList: values.menuIdList,
         },
-        { onSuccess: () => router.push('/sys/role') }
+        {
+          onSuccess: () => {
+            toast.success(t('toast.saveSuccess'));
+            router.push('/sys/role');
+          },
+        }
       );
     }
   });

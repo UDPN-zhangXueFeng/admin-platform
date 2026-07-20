@@ -32,6 +32,12 @@
     "enable": "确定要启用该角色吗？",
     "delete": "确定要删除该角色吗？"
   },
+  "toast": {
+    "disableSuccess": "禁用成功",
+    "enableSuccess": "启用成功",
+    "deleteSuccess": "删除成功",
+    "saveSuccess": "保存成功"
+  },
   "view": {
     "title": "角色详情"
   },
