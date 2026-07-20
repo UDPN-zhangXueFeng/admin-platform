@@ -31,23 +31,27 @@ const DEFAULT_PAGE_SIZE = 10;
  *   - `page.pageNum`       → `pagination.page`
  *   - `totalPages`         → 由 `total / pageSize` 向上取整（至少 1）
  *
- * 后端返回 `data: null`（如未授权 code=3）时，`raw` 为 null，结果为空分页（不抛错，
- * 由上层 query 的 error 态/响应拦截器处理认证）。
+ * 请求体遵循 RBAC `DataTable` DTO：`{ page: { pageNum, pageSize }, data }`。
  */
 export async function getRbacPaginated<T, P = unknown>(
   url: string,
   params: P,
   config?: ApiRequestConfig
 ): Promise<PaginatedResponse<T>> {
-  // 后端 RBAC listPage 约定分页字段为 pageNum/pageSize（同 td-manage CustomTable 约定）。
-  // 前端 PaginationParams 用 page，此处适配，避免字段名不匹配导致后端返回空数据。
-  const { page: pageParam, ...rest } = (params ?? {}) as { page?: number };
-  const apiParams = (pageParam !== undefined ? { ...rest, pageNum: pageParam } : rest) as P;
+  const {
+    page: pageNum = 1,
+    pageSize = DEFAULT_PAGE_SIZE,
+    ...data
+  } = (params ?? {}) as { page?: number; pageSize?: number };
+  const apiParams = {
+    page: { pageNum, pageSize },
+    data,
+  };
   const raw = await apiClient.post<RbacListData<T>>(url, apiParams, config);
 
   const rows = raw?.rows ?? [];
   const total = raw?.page?.total ?? 0;
-  const pageSize = raw?.page?.pageSize ?? DEFAULT_PAGE_SIZE;
+  const responsePageSize = raw?.page?.pageSize ?? DEFAULT_PAGE_SIZE;
   const page = raw?.page?.pageNum ?? 1;
 
   return {
@@ -56,10 +60,12 @@ export async function getRbacPaginated<T, P = unknown>(
     message: 'ok',
     pagination: {
       page,
-      pageSize,
+      pageSize: responsePageSize,
       total,
       totalPages:
-        pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1,
+        responsePageSize > 0
+          ? Math.max(1, Math.ceil(total / responsePageSize))
+          : 1,
     },
   };
 }

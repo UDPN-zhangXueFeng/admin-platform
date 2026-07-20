@@ -80,7 +80,7 @@ axiosClient.interceptors.response.use(
     const data = response.data as Record<string, unknown> | undefined;
     if (data && typeof data === 'object' && 'code' in data) {
       const code = data.code;
-      if (code === 3 || code === 4) {
+      if (code === 3 || code === 4 || code === '3' || code === '4') {
         logoutAndRedirect();
         return Promise.reject(new Error('Session expired'));
       }

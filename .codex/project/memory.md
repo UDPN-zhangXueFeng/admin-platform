@@ -29,6 +29,17 @@
 - 后续同类任务：
 ```
 
+## 2026-07-20
+
+- 背景：迁移后的用户与角色列表在同一 RBAC 后端下为空，同时 token 失效响应未稳定跳转登录页。
+- 结论：RBAC `listPage` 请求遵循 `DataTable` envelope，必须发送 `{ page: { pageNum, pageSize }, data: filters }`，不能拍平成 `{ pageNum, pageSize, ...filters }`；会话失效业务码需兼容数字和字符串形式的 `3/4`。
+- 影响：`getRbacPaginated` 是 user、role、syslog 的共享请求边界，修改请求 DTO 会同时影响三个模块；Axios response interceptor 在识别失效码后统一清理 session 并跳转 locale 登录页。
+- 后续同类任务：迁移 `listPage` 时先核对旧 `CustomTable` payload 与 OpenAPI `DataTableOf*` 类型，并用 API contract test 同时锁定请求 envelope 和响应 `{ rows, page }` 适配；认证业务码不能假设后端只返回 number。
+
+- 背景：侧栏同时存在主菜单 `Token Management` 与 `MORE` 下的 `Tokenized Deposit`，两者都指向同一业务模块。
+- 结论：主菜单 `token-management` 已通过 `path: /tokenized-deposit` 提供入口；移除 `MORE` 中 `tokenized-deposit` 的 order 配置即可去重，不应同时从 `modules.enabled` 删除模块。
+- 后续同类任务：调整侧栏菜单时先区分菜单 order、模块 enabled 和路由 registry；仅隐藏入口时只改 order，避免意外禁用现有页面。
+
 ## 2026-07-16
 
 - 背景：参考 `tokenized-deposit-system` 的顶部 Banner，为当前共享 App Header 增加低干扰 SVG 渐变动效，并统一主色为 `#5D5AE8`。

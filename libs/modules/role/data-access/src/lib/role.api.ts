@@ -30,7 +30,7 @@ export interface ResultInfo {
 
 /**
  * 角色分页列表。对应旧页 useCustomTable 的 `url: '/sys/role/listPage'`。
- * role.md 3.1：POST + `{ roleName?, page, size }`。
+ * role.md 3.1：POST + `{ page: { pageNum, pageSize }, data: { roleName? } }`。
  */
 export function getRoleList(
   params: RoleQueryParams,

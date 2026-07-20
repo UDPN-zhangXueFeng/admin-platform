@@ -38,7 +38,7 @@ export interface ResultInfo {
 
 /**
  * 用户分页列表。对应旧页 useCustomTable 的 `url: '/user/listPage'`。
- * user.md 3.1：POST + `{ userName?, email?, page, size }`。
+ * user.md 3.1：POST + `{ page: { pageNum, pageSize }, data: { userName?, email? } }`。
  */
 export function getUserList(
   params: UserQueryParams,

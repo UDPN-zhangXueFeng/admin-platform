@@ -377,12 +377,6 @@
         "group": "more"
       },
       {
-        "id": "tokenized-deposit",
-        "icon": "Ticket",
-        "label": "Tokenized Deposit",
-        "group": "more"
-      },
-      {
         "id": "transaction-flow",
         "icon": "Newspaper",
         "label": "Transaction Flow",
