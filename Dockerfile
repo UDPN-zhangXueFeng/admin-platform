@@ -23,7 +23,6 @@ WORKDIR /workspace
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps ./apps
 COPY libs ./libs
-COPY packages ./packages
 COPY tools ./tools
 COPY configs ./configs
 
