@@ -41,7 +41,7 @@ pipeline {
             description: '后端 API 地址（注入到 nginx，代理 /aps/*）'
         )
 
-        booleanParam(name: 'CLEAN_IMAGES', defaultValue: true, description: '是否清理未使用的 Docker 镜像')
+        booleanParam(name: 'CLEAN_IMAGES', defaultValue: false, description: '是否在部署成功后清理未使用的 Docker 镜像（默认关闭以保留构建缓存）')
         booleanParam(name: 'ONLY_SHOW_INFO', defaultValue: false, description: '勾选后只展示当前所有环境信息，不执行部署')
 
         string(
@@ -126,7 +126,9 @@ pipeline {
                     env.GIT_COMMIT_MSG    = sh(script: 'git log -1 --pretty=%B',    returnStdout: true).trim()
                     env.GIT_COMMIT_AUTHOR = sh(script: 'git log -1 --pretty=%an',   returnStdout: true).trim()
                     env.GIT_COMMIT_HASH   = sh(script: 'git log -1 --pretty=%h',    returnStdout: true).trim()
+                    env.APP_IMAGE_TAG     = "admin-platform-app:${env.GIT_COMMIT_HASH}"
                     echo "📝 ${env.GIT_COMMIT_HASH} by ${env.GIT_COMMIT_AUTHOR}: ${env.GIT_COMMIT_MSG}"
+                    echo "🐳 App 镜像标签: ${env.APP_IMAGE_TAG}"
                 }
             }
         }
@@ -136,52 +138,57 @@ pipeline {
             steps {
                 sh 'node -v'
                 sh 'docker -v'
+                sh 'docker buildx version'
                 sh 'docker-compose -v'
             }
         }
 
-        stage('停止旧容器') {
+        stage('构建镜像') {
             when { expression { !params.ONLY_SHOW_INFO } }
             steps {
                 script {
                     def projectName = "admin-platform-${params.ENV_NAME}"
-                    echo "🛑 停止旧容器: ${projectName}"
-                    sh "export COMPOSE_PROJECT_NAME=${projectName} && docker-compose down || true"
-                }
-            }
-        }
-
-        stage('清理镜像') {
-            when {
-                allOf {
-                    expression { !params.ONLY_SHOW_INFO }
-                    expression { params.CLEAN_IMAGES }
-                }
-            }
-            steps {
-                sh 'docker image prune -f || true'
-            }
-        }
-
-        stage('构建并启动') {
-            when { expression { !params.ONLY_SHOW_INFO } }
-            steps {
-                script {
-                    def projectName = "admin-platform-${params.ENV_NAME}"
-                    echo "🔨 构建并启动: ${projectName}（端口 ${env.NGINX_PORT}:80 → 后端 ${params.NEXT_SERVICE_SERVER_URL}）"
-                    // 不用 --build-arg：靠 compose 文件 args 插值，
-                    // app 只收 NEXT_PUBLIC_API_BASE_URL（环境无关），nginx 收 NEXT_SERVICE_SERVER_URL（环境相关）
+                    echo "🔨 构建镜像: ${projectName}（后端 ${params.NEXT_SERVICE_SERVER_URL}）"
                     sh """
                         export COMPOSE_PROJECT_NAME=${projectName}
                         export NGINX_PORT=${env.NGINX_PORT}
                         export NEXT_SERVICE_SERVER_URL=${params.NEXT_SERVICE_SERVER_URL}
+                        export APP_IMAGE_TAG=${env.APP_IMAGE_TAG}
+                        export ENV_NAME=${params.ENV_NAME}
+                        export GIT_BRANCH=${params.BRANCH_NAME}
+                        export BUILD_TIME="${env.BUILD_TIME}"
+                        export BUILD_USER="${env.BUILD_USER}"
+                        export DOCKER_BUILDKIT=1
+                        export COMPOSE_DOCKER_CLI_BUILD=1
+
+                        if docker image inspect "${env.APP_IMAGE_TAG}" >/dev/null 2>&1; then
+                            echo "♻️  复用已有 app 镜像: ${env.APP_IMAGE_TAG}"
+                        else
+                            docker-compose build app
+                        fi
+                        docker-compose build nginx
+                    """
+                }
+            }
+        }
+
+        stage('切换容器') {
+            when { expression { !params.ONLY_SHOW_INFO } }
+            steps {
+                script {
+                    def projectName = "admin-platform-${params.ENV_NAME}"
+                    echo "🚀 切换容器: ${projectName}（端口 ${env.NGINX_PORT}:80）"
+                    sh """
+                        export COMPOSE_PROJECT_NAME=${projectName}
+                        export NGINX_PORT=${env.NGINX_PORT}
+                        export NEXT_SERVICE_SERVER_URL=${params.NEXT_SERVICE_SERVER_URL}
+                        export APP_IMAGE_TAG=${env.APP_IMAGE_TAG}
                         export ENV_NAME=${params.ENV_NAME}
                         export GIT_BRANCH=${params.BRANCH_NAME}
                         export BUILD_TIME="${env.BUILD_TIME}"
                         export BUILD_USER="${env.BUILD_USER}"
 
-                        docker-compose build
-                        docker-compose up -d
+                        docker-compose up -d --force-recreate --remove-orphans
                     """
                 }
             }
@@ -219,6 +226,18 @@ pipeline {
                 script {
                     env.ALL_ENVS_INFO = sh(script: collectEnvsScript(), returnStdout: true).trim()
                 }
+            }
+        }
+
+        stage('清理镜像') {
+            when {
+                allOf {
+                    expression { !params.ONLY_SHOW_INFO }
+                    expression { params.CLEAN_IMAGES }
+                }
+            }
+            steps {
+                sh 'docker image prune -f || true'
             }
         }
 

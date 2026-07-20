@@ -40,6 +40,11 @@
 - 结论：主菜单 `token-management` 已通过 `path: /tokenized-deposit` 提供入口；移除 `MORE` 中 `tokenized-deposit` 的 order 配置即可去重，不应同时从 `modules.enabled` 删除模块。
 - 后续同类任务：调整侧栏菜单时先区分菜单 order、模块 enabled 和路由 registry；仅隐藏入口时只改 order，避免意外禁用现有页面。
 
+- 背景：Jenkins 使用 Docker-outside-of-Docker 部署时，每次源码变更都会重新安装 pnpm 依赖，并在 build 前停止容器和清理镜像，造成构建慢且延长停机。
+- 结论：Dockerfile 必须先复制 root/workspace manifest 再安装依赖，并以 BuildKit cache mount 保留 pnpm store；app 镜像按 commit tag 复用，Jenkins 仅在本地不存在该 tag 时构建；容器只在镜像就绪后 `up --force-recreate`，默认不执行 image prune。
+- 影响：该缓存依赖 Jenkins 节点的 Docker builder 持久化；临时 agent 无法跨节点复用，需要后续接 registry cache 或远端镜像仓库。
+- 后续同类任务：部署流水线优化时先确认 Docker BuildKit/buildx 能力，再验证 `docker-compose config`、缓存命中日志和首次/热构建耗时；不要在 build 前清理会影响 layer cache 的镜像。
+
 ## 2026-07-16
 
 - 背景：参考 `tokenized-deposit-system` 的顶部 Banner，为当前共享 App Header 增加低干扰 SVG 渐变动效，并统一主色为 `#5D5AE8`。

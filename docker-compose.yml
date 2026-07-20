@@ -2,6 +2,7 @@ version: "3"
 services:
   # ── Next.js 应用（环境无关，跨环境复用）──
   app:
+    image: ${APP_IMAGE_TAG:-admin-platform-app:latest}
     build:
       context: ./
       dockerfile: Dockerfile

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # ─────────────────────────────────────────────────────────────
 # admin-platform / apps/admin 运行镜像
 # Nx monorepo + pnpm workspace + Next.js 16 standalone
@@ -17,13 +18,18 @@ RUN corepack enable && corepack prepare pnpm@8.14.1 --activate
 
 WORKDIR /workspace
 
-# 拷入全部源码（.dockerignore 已排除 node_modules/.next/.git 等大目录）。
-# monorepo 的 package.json 与 tsconfig.base.json 等根级配置分散，整体拷入最稳，
-# 不会漏文件，目录增减也无需改 Dockerfile。
-COPY . .
+# 先仅复制依赖解析所需的 workspace manifest。业务源码变更不会使 pnpm install layer 失效。
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/admin/package.json ./apps/admin/package.json
+COPY apps/admin-e2e/package.json ./apps/admin-e2e/package.json
+COPY tools/generators/package.json ./tools/generators/package.json
 
-# 装依赖（对齐 td-manage 朴素模式，不依赖 BuildKit；内网走阿里云源）
-RUN pnpm install --frozen-lockfile
+# BuildKit cache mount 在同一 Jenkins Docker 节点跨构建复用 pnpm store。
+RUN --mount=type=cache,id=admin-platform-pnpm-store,target=/pnpm/store \
+    pnpm install --frozen-lockfile --store-dir=/pnpm/store
+
+# 依赖层完成后再复制源码；.dockerignore 已排除 node_modules/.next/.git 等大目录。
+COPY . .
 
 # 构建期 env：NEXT_PUBLIC_* 会被烘焙进前端 bundle，必须在 build 前确定
 ARG NEXT_PUBLIC_API_BASE_URL=/aps
