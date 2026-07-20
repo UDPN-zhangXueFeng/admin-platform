@@ -91,7 +91,7 @@ export function SidebarLayout({ config, children }: SidebarLayoutProps) {
 
         {/* Main content */}
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="z-10 flex h-10 shrink-0 items-center gap-2 px-4 shadow-[0_4px_10px_-8px_rgba(15,23,42,0.35)] lg:px-6">
+          <div className="z-10 flex h-10 shrink-0 items-center gap-2 px-4 shadow-[0_4px_10px_-8px_rgba(15,23,42,0.35)] min-[1600px]:px-6">
             <Button
               variant="ghost"
               size="icon"
@@ -108,7 +108,7 @@ export function SidebarLayout({ config, children }: SidebarLayoutProps) {
             </Button>
             {config.layout.breadcrumb.enabled && <Breadcrumb />}
           </div>
-          <div className="min-h-0 flex-1 overflow-auto p-4 lg:p-6">
+          <div className="min-h-0 flex-1 overflow-auto p-4 min-[1600px]:p-6">
             {children}
           </div>
         </main>

@@ -71,7 +71,7 @@ export function Header({
       <AnimatedBannerBackground />
       <div className="absolute inset-0 bg-[#171654]/15" aria-hidden="true" />
 
-      <div className="relative flex min-h-20 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="relative flex min-h-16 items-center justify-between gap-3 px-4 py-2 sm:px-6 min-[1600px]:min-h-20 min-[1600px]:gap-4 min-[1600px]:px-8 min-[1600px]:py-3">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           {onMenuToggle && (
             <Button
@@ -89,7 +89,7 @@ export function Header({
             <img
               src="/logo-icon.svg"
               alt="UDPN"
-              className="h-12 w-[104px] shrink-0"
+              className="h-10 w-[84px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[104px]"
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-wide text-white sm:text-base">

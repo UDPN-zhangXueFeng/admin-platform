@@ -245,9 +245,9 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-5 min-[1600px]:space-y-7">
       {/* ---- Token Selector + Overview Cards ---- */}
-      <section className="space-y-6">
+      <section className="space-y-4 min-[1600px]:space-y-6">
         <div className="min-w-0">
           <StablecoinTabs
             options={displayOptions}
@@ -283,7 +283,7 @@ export default function DashboardPage() {
           </div>
 
           {overviewQuery.isLoading || overviewQuery.data ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 min-[1600px]:grid-cols-5">
               {overviewQuery.isLoading
                 ? Array.from({ length: 5 }).map((_, i) => (
                     <SkeletonCard key={i} />
@@ -314,7 +314,7 @@ export default function DashboardPage() {
       </section>
 
       {/* ---- Charts ---- */}
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-4 min-[1600px]:grid-cols-2 min-[1600px]:gap-6">
         {/* Wallet Statistics */}
         <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
           <PanelHeader
@@ -325,7 +325,7 @@ export default function DashboardPage() {
             t={t}
             refreshing={walletQuery.isFetching}
           />
-          <div className="h-[320px] px-5 pb-5 pt-1 sm:px-6">
+          <div className="h-[280px] px-5 pb-4 pt-1 min-[1600px]:h-[320px] min-[1600px]:px-6 min-[1600px]:pb-5">
             {walletQuery.isLoading ? (
               <SkeletonChart />
             ) : walletChartData.length > 0 ? (
@@ -390,7 +390,7 @@ export default function DashboardPage() {
             t={t}
             refreshing={transactionQuery.isFetching}
           />
-          <div className="h-[320px] px-5 pb-5 pt-1 sm:px-6">
+          <div className="h-[280px] px-5 pb-4 pt-1 min-[1600px]:h-[320px] min-[1600px]:px-6 min-[1600px]:pb-5">
             {transactionQuery.isLoading ? (
               <SkeletonChart />
             ) : transactionChartData.length > 0 ? (

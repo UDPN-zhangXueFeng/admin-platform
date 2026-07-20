@@ -1,0 +1,193 @@
+- generic [active] [ref=f12e1]:
+  - generic [ref=f12e2]:
+    - banner [ref=f12e3]:
+      - generic [ref=f12e10]:
+        - generic [ref=f12e12]:
+          - img "UDPN" [ref=f12e13]
+          - generic [ref=f12e14]:
+            - paragraph [ref=f12e15]: Tokenized Deposit/Stablecoin Management System
+            - paragraph [ref=f12e16]: Stablecoin Management System
+        - generic [ref=f12e17]:
+          - link "User Manual" [ref=f12e18] [cursor=pointer]:
+            - /url: "#"
+          - link "API Documentation" [ref=f12e19] [cursor=pointer]:
+            - /url: "#"
+          - button "Notifications" [ref=f12e20] [cursor=pointer]:
+            - generic [ref=f12e21]: "21"
+          - button "Open user menu" [ref=f12e22] [cursor=pointer]:
+            - generic [ref=f12e24]: User
+    - generic [ref=f12e25]:
+      - complementary "Main navigation" [ref=f12e27]:
+        - navigation [ref=f12e28]:
+          - generic [ref=f12e30]:
+            - link "Dashboard" [ref=f12e31] [cursor=pointer]:
+              - /url: /dashboard
+            - link "Workflow Tasks" [ref=f12e38] [cursor=pointer]:
+              - /url: /workflow
+            - link "Token Management" [ref=f12e42] [cursor=pointer]:
+              - /url: /tokenized-deposit
+            - generic [ref=f12e46]:
+              - button "Key Management" [ref=f12e47] [cursor=pointer]
+              - generic [ref=f12e55]:
+                - link "Key Service Configuration" [ref=f12e56] [cursor=pointer]:
+                  - /url: /key-management/key-service-configuration
+                - link "Key Policy Configuration" [ref=f12e58] [cursor=pointer]:
+                  - /url: /key-management/key-policy-configuration
+                - link "Management Wallets" [ref=f12e60] [cursor=pointer]:
+                  - /url: /key-management/managed-wallets
+                - link "User Wallets" [ref=f12e62] [cursor=pointer]:
+                  - /url: /key-management/user-wallets
+                - link "Key-Signed Transactions" [ref=f12e64] [cursor=pointer]:
+                  - /url: /key-management/key-signed-transactions
+            - link "SP Access Management" [ref=f12e66] [cursor=pointer]:
+              - /url: /sp-access
+            - generic [ref=f12e69]:
+              - button "Reserve Asset Management" [ref=f12e70] [cursor=pointer]
+              - generic [ref=f12e78]:
+                - link "Reserve Asset List" [ref=f12e79] [cursor=pointer]:
+                  - /url: /pledge/reserve-asset-list
+                - link "Asset Transaction Management" [ref=f12e81] [cursor=pointer]:
+                  - /url: /pledge/asset-transaction
+                - link "Proof of Reserve Access" [disabled]:
+                  - /url: "#"
+                - link "Redemption Records" [disabled]:
+                  - /url: "#"
+            - generic [ref=f12e83]:
+              - button "Wallet Management" [ref=f12e84] [cursor=pointer]
+              - generic [ref=f12e91]:
+                - link "Wallet Type" [ref=f12e92] [cursor=pointer]:
+                  - /url: /wallet/wallet-type
+                - link "User Wallet" [ref=f12e94] [cursor=pointer]:
+                  - /url: /wallet/user-wallet
+                - link "Operational Wallet" [ref=f12e96] [cursor=pointer]:
+                  - /url: /wallet/operational-wallet
+            - generic [ref=f12e98]:
+              - button "Accounting Management" [ref=f12e99] [cursor=pointer]
+              - generic [ref=f12e105]:
+                - link "Chart of Accounts" [ref=f12e106] [cursor=pointer]:
+                  - /url: /chart-of-accounts
+                - link "Normalization Engine" [ref=f12e108] [cursor=pointer]:
+                  - /url: /financial/normalization-engine
+                - link "Posting Engine" [ref=f12e110] [cursor=pointer]:
+                  - /url: /posting-engine
+                - link "Transaction Event Configuration" [ref=f12e112] [cursor=pointer]:
+                  - /url: /transaction-event-configuration
+                - link "Journal Entries" [ref=f12e114] [cursor=pointer]:
+                  - /url: /journal-entries-new
+                - link "Suspense Adjustment" [ref=f12e116] [cursor=pointer]:
+                  - /url: /suspense-adjustment
+                - link "Audit Trail" [ref=f12e118] [cursor=pointer]:
+                  - /url: /audit-trail
+                - link "Travel Rule" [ref=f12e120] [cursor=pointer]:
+                  - /url: /travel-rule
+                - link "Statements" [ref=f12e122] [cursor=pointer]:
+                  - /url: /statements
+                - link "Journal Entries" [ref=f12e124] [cursor=pointer]:
+                  - /url: /journal-entries
+            - generic [ref=f12e126]:
+              - button "Reconciliation" [ref=f12e127] [cursor=pointer]
+              - generic [ref=f12e135]:
+                - link "Real-time On-chain Data" [disabled]:
+                  - /url: "#"
+                - link "Real-time Reserve" [disabled]:
+                  - /url: "#"
+            - generic [ref=f12e136]:
+              - button "Interest Management" [ref=f12e137] [cursor=pointer]
+              - generic [ref=f12e144]:
+                - link "Policy" [ref=f12e145] [cursor=pointer]:
+                  - /url: /interest/policy
+                - link "Accrual" [ref=f12e147] [cursor=pointer]:
+                  - /url: /interest/accrual
+                - link "Transactions" [ref=f12e149] [cursor=pointer]:
+                  - /url: /interest/transactions
+            - generic [ref=f12e151]:
+              - button "Screening & Monitoring" [ref=f12e152] [cursor=pointer]
+              - generic [ref=f12e159]:
+                - link "Rule" [ref=f12e160] [cursor=pointer]:
+                  - /url: /screening-monitoring/rule
+                - link "Transaction Monitoring" [ref=f12e162] [cursor=pointer]:
+                  - /url: /screening-monitoring/transaction-monitoring
+                - link "Screening Providers" [ref=f12e164] [cursor=pointer]:
+                  - /url: /screening-monitoring/screening-providers
+            - generic [ref=f12e166]:
+              - button "Statistics & Analytics" [ref=f12e167] [cursor=pointer]
+              - generic [ref=f12e174]:
+                - link "AI Analytics" [disabled]:
+                  - /url: "#"
+                - link "Statistics Reports" [ref=f12e175] [cursor=pointer]:
+                  - /url: /statistics-reports
+          - generic [ref=f12e177]:
+            - heading "more" [level=3] [ref=f12e178]
+            - generic [ref=f12e179]:
+              - link "Approval Manage" [ref=f12e180] [cursor=pointer]:
+                - /url: /approval
+              - link "Tokenized Deposit" [ref=f12e184] [cursor=pointer]:
+                - /url: /tokenized-deposit
+              - link "Transaction Flow" [ref=f12e188] [cursor=pointer]:
+                - /url: /transaction-flow
+              - generic [ref=f12e193]:
+                - button "MMF" [ref=f12e194] [cursor=pointer]
+                - generic [ref=f12e201]:
+                  - link "Accrual" [ref=f12e202] [cursor=pointer]:
+                    - /url: /mmf/accrual
+                  - link "Settlement" [ref=f12e204] [cursor=pointer]:
+                    - /url: /mmf/settlement
+              - generic [ref=f12e206]:
+                - button "Blockchain" [ref=f12e207] [cursor=pointer]
+                - generic [ref=f12e214]:
+                  - link "Node" [ref=f12e215] [cursor=pointer]:
+                    - /url: /blockchain/node
+                  - link "Smart Contract" [ref=f12e217] [cursor=pointer]:
+                    - /url: /blockchain/smart-contract
+                  - link "Deployment" [ref=f12e219] [cursor=pointer]:
+                    - /url: /blockchain/deployment
+                  - link "Gas Station Management" [disabled]:
+                    - /url: "#"
+              - generic [ref=f12e221]:
+                - button "Cross Chain" [ref=f12e222] [cursor=pointer]
+                - generic [ref=f12e229]:
+                  - link "RD Bridge" [ref=f12e230] [cursor=pointer]:
+                    - /url: /cross-chain/rd-bridge
+                  - link "Liquidity Pool" [ref=f12e232] [cursor=pointer]:
+                    - /url: /cross-chain/liquidity-pool
+                  - link "Token Pair" [ref=f12e234] [cursor=pointer]:
+                    - /url: /cross-chain/token-pair
+                  - link "Cross-chain Transactions" [ref=f12e236] [cursor=pointer]:
+                    - /url: /cross-chain/cross-chain-transactions
+                  - link "FX Rate" [ref=f12e238] [cursor=pointer]:
+                    - /url: /cross-chain/fx-rate
+              - link "Networks" [ref=f12e240] [cursor=pointer]:
+                - /url: /networks
+              - generic [ref=f12e245]:
+                - button "Documentation" [ref=f12e246] [cursor=pointer]
+                - generic [ref=f12e253]:
+                  - link "API Documentation" [ref=f12e254] [cursor=pointer]:
+                    - /url: "#"
+                  - link "User Manual" [ref=f12e256] [cursor=pointer]:
+                    - /url: "#"
+              - generic [ref=f12e258]:
+                - button "System" [ref=f12e259] [cursor=pointer]
+                - generic [ref=f12e268]:
+                  - link "User" [ref=f12e269] [cursor=pointer]:
+                    - /url: /sys/user
+                  - link "Role" [ref=f12e271] [cursor=pointer]:
+                    - /url: /sys/role
+                  - link "Workflow" [ref=f12e273] [cursor=pointer]:
+                    - /url: /sys/workflow
+                  - link "SysLog" [ref=f12e275] [cursor=pointer]:
+                    - /url: /sys/sysLog
+      - main [ref=f12e277]:
+        - generic [ref=f12e278]:
+          - button "Collapse sidebar" [ref=f12e279] [cursor=pointer]
+          - navigation "Breadcrumb" [ref=f12e280]:
+            - list [ref=f12e281]:
+              - listitem [ref=f12e282]:
+                - link "Home" [ref=f12e283] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=f12e288]
+              - listitem [ref=f12e291]:
+                - link "Tokenized Deposit" [ref=f12e292] [cursor=pointer]:
+                  - /url: /tokenized-deposit
+              - listitem [ref=f12e293]
+              - listitem [ref=f12e296]: Onboard
+  - button "Open Next.js Dev Tools" [ref=f12e303] [cursor=pointer]

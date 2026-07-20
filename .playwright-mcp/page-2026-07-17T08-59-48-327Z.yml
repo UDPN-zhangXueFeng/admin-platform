@@ -1,0 +1,334 @@
+- generic [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - banner [ref=f2e3]:
+      - generic [ref=f2e10]:
+        - generic [ref=f2e12]:
+          - img "UDPN" [ref=f2e13]
+          - generic [ref=f2e14]:
+            - paragraph [ref=f2e15]: Tokenized Deposit/Stablecoin Management System
+            - paragraph [ref=f2e16]: Stablecoin Management System
+        - generic [ref=f2e17]:
+          - link "User Manual" [ref=f2e18] [cursor=pointer]:
+            - /url: "#"
+          - link "API Documentation" [ref=f2e19] [cursor=pointer]:
+            - /url: "#"
+          - button "Notifications" [ref=f2e20] [cursor=pointer]:
+            - generic [ref=f2e21]: "21"
+          - button "Open user menu" [ref=f2e22] [cursor=pointer]:
+            - generic [ref=f2e24]: cuining
+    - generic [ref=f2e25]:
+      - complementary "Main navigation" [ref=f2e27]:
+        - navigation [ref=f2e28]:
+          - generic [ref=f2e30]:
+            - link "Dashboard" [ref=f2e31] [cursor=pointer]:
+              - /url: /dashboard
+            - link "Workflow Tasks" [ref=f2e38] [cursor=pointer]:
+              - /url: /workflow
+            - link "Token Management" [ref=f2e42] [cursor=pointer]:
+              - /url: /tokenized-deposit
+            - generic [ref=f2e46]:
+              - button "Key Management" [ref=f2e47] [cursor=pointer]
+              - generic [ref=f2e55]:
+                - link "Key Service Configuration" [ref=f2e56] [cursor=pointer]:
+                  - /url: /key-management/key-service-configuration
+                - link "Key Policy Configuration" [ref=f2e58] [cursor=pointer]:
+                  - /url: /key-management/key-policy-configuration
+                - link "Management Wallets" [ref=f2e60] [cursor=pointer]:
+                  - /url: /key-management/managed-wallets
+                - link "User Wallets" [ref=f2e62] [cursor=pointer]:
+                  - /url: /key-management/user-wallets
+                - link "Key-Signed Transactions" [ref=f2e64] [cursor=pointer]:
+                  - /url: /key-management/key-signed-transactions
+            - link "SP Access Management" [ref=f2e66] [cursor=pointer]:
+              - /url: /sp-access
+            - generic [ref=f2e69]:
+              - button "Reserve Asset Management" [ref=f2e70] [cursor=pointer]
+              - generic [ref=f2e78]:
+                - link "Reserve Asset List" [ref=f2e79] [cursor=pointer]:
+                  - /url: /pledge/reserve-asset-list
+                - link "Asset Transaction Management" [ref=f2e81] [cursor=pointer]:
+                  - /url: /pledge/asset-transaction
+                - link "Proof of Reserve Access" [disabled]:
+                  - /url: "#"
+                - link "Redemption Records" [disabled]:
+                  - /url: "#"
+            - generic [ref=f2e83]:
+              - button "Wallet Management" [ref=f2e84] [cursor=pointer]
+              - generic [ref=f2e91]:
+                - link "Wallet Type" [ref=f2e92] [cursor=pointer]:
+                  - /url: /wallet/wallet-type
+                - link "User Wallet" [ref=f2e94] [cursor=pointer]:
+                  - /url: /wallet/user-wallet
+                - link "Operational Wallet" [ref=f2e96] [cursor=pointer]:
+                  - /url: /wallet/operational-wallet
+            - generic [ref=f2e98]:
+              - button "Accounting Management" [ref=f2e99] [cursor=pointer]
+              - generic [ref=f2e105]:
+                - link "Chart of Accounts" [ref=f2e106] [cursor=pointer]:
+                  - /url: /chart-of-accounts
+                - link "Normalization Engine" [ref=f2e108] [cursor=pointer]:
+                  - /url: /financial/normalization-engine
+                - link "Posting Engine" [ref=f2e110] [cursor=pointer]:
+                  - /url: /posting-engine
+                - link "Transaction Event Configuration" [ref=f2e112] [cursor=pointer]:
+                  - /url: /transaction-event-configuration
+                - link "Journal Entries" [ref=f2e114] [cursor=pointer]:
+                  - /url: /journal-entries-new
+                - link "Suspense Adjustment" [ref=f2e116] [cursor=pointer]:
+                  - /url: /suspense-adjustment
+                - link "Audit Trail" [ref=f2e118] [cursor=pointer]:
+                  - /url: /audit-trail
+                - link "Travel Rule" [ref=f2e120] [cursor=pointer]:
+                  - /url: /travel-rule
+                - link "Statements" [ref=f2e122] [cursor=pointer]:
+                  - /url: /statements
+                - link "Journal Entries" [ref=f2e124] [cursor=pointer]:
+                  - /url: /journal-entries
+            - generic [ref=f2e126]:
+              - button "Reconciliation" [ref=f2e127] [cursor=pointer]
+              - generic [ref=f2e135]:
+                - link "Real-time On-chain Data" [disabled]:
+                  - /url: "#"
+                - link "Real-time Reserve" [disabled]:
+                  - /url: "#"
+            - generic [ref=f2e136]:
+              - button "Interest Management" [ref=f2e137] [cursor=pointer]
+              - generic [ref=f2e144]:
+                - link "Policy" [ref=f2e145] [cursor=pointer]:
+                  - /url: /interest/policy
+                - link "Accrual" [ref=f2e147] [cursor=pointer]:
+                  - /url: /interest/accrual
+                - link "Transactions" [ref=f2e149] [cursor=pointer]:
+                  - /url: /interest/transactions
+            - generic [ref=f2e151]:
+              - button "Screening & Monitoring" [ref=f2e152] [cursor=pointer]
+              - generic [ref=f2e159]:
+                - link "Rule" [ref=f2e160] [cursor=pointer]:
+                  - /url: /screening-monitoring/rule
+                - link "Transaction Monitoring" [ref=f2e162] [cursor=pointer]:
+                  - /url: /screening-monitoring/transaction-monitoring
+                - link "Screening Providers" [ref=f2e164] [cursor=pointer]:
+                  - /url: /screening-monitoring/screening-providers
+            - generic [ref=f2e166]:
+              - button "Statistics & Analytics" [ref=f2e167] [cursor=pointer]
+              - generic [ref=f2e174]:
+                - link "AI Analytics" [disabled]:
+                  - /url: "#"
+                - link "Statistics Reports" [ref=f2e175] [cursor=pointer]:
+                  - /url: /statistics-reports
+          - generic [ref=f2e177]:
+            - heading "more" [level=3] [ref=f2e178]
+            - generic [ref=f2e179]:
+              - link "Approval Manage" [ref=f2e180] [cursor=pointer]:
+                - /url: /approval
+              - link "Tokenized Deposit" [ref=f2e184] [cursor=pointer]:
+                - /url: /tokenized-deposit
+              - link "Transaction Flow" [ref=f2e188] [cursor=pointer]:
+                - /url: /transaction-flow
+              - generic [ref=f2e193]:
+                - button "MMF" [ref=f2e194] [cursor=pointer]
+                - generic [ref=f2e201]:
+                  - link "Accrual" [ref=f2e202] [cursor=pointer]:
+                    - /url: /mmf/accrual
+                  - link "Settlement" [ref=f2e204] [cursor=pointer]:
+                    - /url: /mmf/settlement
+              - generic [ref=f2e206]:
+                - button "Blockchain" [ref=f2e207] [cursor=pointer]
+                - generic [ref=f2e214]:
+                  - link "Node" [ref=f2e215] [cursor=pointer]:
+                    - /url: /blockchain/node
+                  - link "Smart Contract" [ref=f2e217] [cursor=pointer]:
+                    - /url: /blockchain/smart-contract
+                  - link "Deployment" [ref=f2e219] [cursor=pointer]:
+                    - /url: /blockchain/deployment
+                  - link "Gas Station Management" [disabled]:
+                    - /url: "#"
+              - generic [ref=f2e221]:
+                - button "Cross Chain" [ref=f2e222] [cursor=pointer]
+                - generic [ref=f2e229]:
+                  - link "RD Bridge" [ref=f2e230] [cursor=pointer]:
+                    - /url: /cross-chain/rd-bridge
+                  - link "Liquidity Pool" [ref=f2e232] [cursor=pointer]:
+                    - /url: /cross-chain/liquidity-pool
+                  - link "Token Pair" [ref=f2e234] [cursor=pointer]:
+                    - /url: /cross-chain/token-pair
+                  - link "Cross-chain Transactions" [ref=f2e236] [cursor=pointer]:
+                    - /url: /cross-chain/cross-chain-transactions
+                  - link "FX Rate" [ref=f2e238] [cursor=pointer]:
+                    - /url: /cross-chain/fx-rate
+              - link "Networks" [ref=f2e240] [cursor=pointer]:
+                - /url: /networks
+              - generic [ref=f2e245]:
+                - button "Documentation" [ref=f2e246] [cursor=pointer]
+                - generic [ref=f2e253]:
+                  - link "API Documentation" [ref=f2e254] [cursor=pointer]:
+                    - /url: "#"
+                  - link "User Manual" [ref=f2e256] [cursor=pointer]:
+                    - /url: "#"
+              - generic [ref=f2e258]:
+                - button "System" [ref=f2e259] [cursor=pointer]
+                - generic [ref=f2e268]:
+                  - link "User" [ref=f2e269] [cursor=pointer]:
+                    - /url: /sys/user
+                  - link "Role" [ref=f2e271] [cursor=pointer]:
+                    - /url: /sys/role
+                  - link "Workflow" [ref=f2e273] [cursor=pointer]:
+                    - /url: /sys/workflow
+                  - link "SysLog" [ref=f2e275] [cursor=pointer]:
+                    - /url: /sys/sysLog
+      - main [ref=f2e277]:
+        - generic [ref=f2e278]:
+          - button "Collapse sidebar" [ref=f2e279] [cursor=pointer]
+          - navigation "Breadcrumb" [ref=f2e280]:
+            - list [ref=f2e281]:
+              - listitem [ref=f2e282]:
+                - link "Home" [ref=f2e283] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=f2e288]
+              - listitem [ref=f2e291]:
+                - link "Tokenized Deposit" [ref=f2e292] [cursor=pointer]:
+                  - /url: /tokenized-deposit
+              - listitem [ref=f2e293]
+              - listitem [ref=f2e296]: Onboard
+        - generic [ref=f2e307]:
+          - generic [ref=f2e308]:
+            - paragraph [ref=f2e309]: Token issuance
+            - heading "Onboard a Token" [level=1] [ref=f2e310]
+            - paragraph [ref=f2e311]: Configure the token, operational controls, and signing wallets before deployment.
+          - main [ref=f2e312]:
+            - navigation "Onboarding progress" [ref=f2e313]:
+              - list [ref=f2e314]:
+                - listitem [ref=f2e315]:
+                  - button "1 Token details Identity and network" [ref=f2e316] [cursor=pointer]:
+                    - generic [ref=f2e317]: "1"
+                    - generic [ref=f2e318]:
+                      - generic [ref=f2e319]: Token details
+                      - generic [ref=f2e320]: Identity and network
+                - listitem [ref=f2e321]:
+                  - button "2 Accounting Ledger and reconciliation" [disabled] [ref=f2e323]:
+                    - generic [ref=f2e324]: "2"
+                    - generic [ref=f2e325]:
+                      - generic [ref=f2e326]: Accounting
+                      - generic [ref=f2e327]: Ledger and reconciliation
+                - listitem [ref=f2e328]:
+                  - button "3 Key Custody Configuration Select the key custody service for signing." [disabled] [ref=f2e330]:
+                    - generic [ref=f2e331]: "3"
+                    - generic [ref=f2e332]:
+                      - generic [ref=f2e333]: Key Custody Configuration
+                      - generic [ref=f2e334]: Select the key custody service for signing.
+                - listitem [ref=f2e335]:
+                  - button "4 Review Validate the application before submission" [disabled] [ref=f2e337]:
+                    - generic [ref=f2e338]: "4"
+                    - generic [ref=f2e339]:
+                      - generic [ref=f2e340]: Review
+                      - generic [ref=f2e341]: Validate the application before submission
+            - generic [ref=f2e342]:
+              - generic [ref=f2e344]:
+                - generic [ref=f2e345]:
+                  - paragraph [ref=f2e346]: Step 1 of 4
+                  - heading "Token details" [level=2] [ref=f2e347]
+                  - paragraph [ref=f2e348]: Identity and network
+                - generic [ref=f2e349]:
+                  - generic [ref=f2e351]:
+                    - group [ref=f2e352]:
+                      - generic [ref=f2e353]:
+                        - generic [ref=f2e354]:
+                          - generic [ref=f2e355]: "*"
+                          - text: Token classification
+                        - paragraph [ref=f2e356]: The classification determines the reserve, accounting, and wallet controls.
+                      - radiogroup "Token classification" [ref=f2e357]:
+                        - radio "Stablecoin Reserve-backed fiat token" [ref=f2e358] [cursor=pointer]:
+                          - generic [ref=f2e359]: Stablecoin
+                          - generic [ref=f2e362]: Reserve-backed fiat token
+                        - radio "Tokenized Deposit Commercial bank deposit token" [checked] [ref=f2e363] [cursor=pointer]:
+                          - generic [ref=f2e364]: Tokenized Deposit
+                          - generic [ref=f2e367]: Commercial bank deposit token
+                        - radio "Tokenized MMF Tokenized money market fund share" [ref=f2e368] [cursor=pointer]:
+                          - generic [ref=f2e369]: Tokenized MMF
+                          - generic [ref=f2e372]: Tokenized money market fund share
+                        - radio "Retail CBDC Token product configuration" [disabled] [ref=f2e373]:
+                          - generic [ref=f2e374]: Retail CBDC
+                          - generic [ref=f2e377]: Token product configuration
+                        - radio "Wholesale CBDC Token product configuration" [disabled] [ref=f2e378]:
+                          - generic [ref=f2e379]: Wholesale CBDC
+                          - generic [ref=f2e382]: Token product configuration
+                    - heading "Core attributes" [level=3] [ref=f2e384]
+                    - group [ref=f2e385]:
+                      - generic [ref=f2e386]:
+                        - generic [ref=f2e387]: "*"
+                        - text: Token Name
+                      - textbox "Token Name" [ref=f2e388]: MCP-TD-001
+                    - group [ref=f2e389]:
+                      - generic [ref=f2e390]:
+                        - generic [ref=f2e391]: "*"
+                        - text: Token Symbol
+                      - textbox "Token Symbol" [ref=f2e392]: MCTD1
+                    - group [ref=f2e393]:
+                      - generic [ref=f2e394]:
+                        - generic [ref=f2e395]: "*"
+                        - text: Decimal Precision
+                      - spinbutton "Decimal Precision" [ref=f2e396]: "8"
+                    - group [ref=f2e397]:
+                      - generic [ref=f2e398]:
+                        - generic [ref=f2e399]: "*"
+                        - text: Pegged Currency
+                      - combobox "Pegged Currency" [ref=f2e400] [cursor=pointer]:
+                        - generic: USD
+                      - combobox [ref=f2e403]
+                    - group [ref=f2e404]:
+                      - generic [ref=f2e405]:
+                        - generic [ref=f2e406]: "*"
+                        - text: Token Price
+                      - generic [ref=f2e407]:
+                        - generic [ref=f2e552]: 1 MCTD1 =
+                        - spinbutton "Token Price" [ref=f2e408]: "1"
+                        - generic [ref=f2e409]: USD
+                  - generic [ref=f2e410]:
+                    - generic [ref=f2e412]:
+                      - generic [ref=f2e413]: Network & contract
+                      - generic [ref=f2e414]: Choose the settlement network and the audited contract package.
+                    - generic [ref=f2e415]:
+                      - group [ref=f2e416]:
+                        - generic [ref=f2e417]:
+                          - generic [ref=f2e418]: "*"
+                          - text: Blockchain
+                        - combobox "Blockchain" [ref=f2e419] [cursor=pointer]:
+                          - generic: Hyperledger Besu-TD
+                        - combobox [ref=f2e422]
+                      - group [ref=f2e423]:
+                        - generic [ref=f2e424]:
+                          - generic [ref=f2e425]: "*"
+                          - text: Smart Contract Name
+                        - combobox "Smart Contract Name" [ref=f2e426] [cursor=pointer]
+                        - combobox [ref=f2e553]
+                      - group [ref=f2e430]:
+                        - generic [ref=f2e431]: Whitelist Mode
+                        - combobox "Whitelist Mode" [disabled] [ref=f2e432]:
+                          - generic: Full Whitelist
+                        - combobox [disabled] [ref=f2e435]
+                      - group [ref=f2e436]:
+                        - generic [ref=f2e437]:
+                          - generic [ref=f2e438]: "*"
+                          - text: Enable Meta Transactions/Gas Station
+                        - radiogroup [ref=f2e442]:
+                          - generic [ref=f2e443]:
+                            - radio "Yes" [ref=f2e444] [cursor=pointer]
+                            - radio
+                            - text: "Yes"
+                          - generic [ref=f2e445]:
+                            - radio "No" [checked] [active] [ref=f2e446] [cursor=pointer]
+                            - radio [checked]
+                            - text: "No"
+              - generic [ref=f2e447]:
+                - button "Reset application" [ref=f2e448] [cursor=pointer]
+                - button "Continue" [ref=f2e450] [cursor=pointer]
+          - paragraph [ref=f2e451]: Changes are saved automatically. Wallet credentials are never stored in drafts.
+  - button "Open Tanstack query devtools" [ref=f2e502] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=f2e557] [cursor=pointer]:
+    - generic [ref=f2e560]:
+      - text: Compiling
+      - generic [ref=f2e561]:
+        - generic [ref=f2e562]: .
+        - generic [ref=f2e563]: .
+        - generic [ref=f2e564]: .
+  - alert [ref=f2e551]

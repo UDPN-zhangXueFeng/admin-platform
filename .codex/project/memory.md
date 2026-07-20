@@ -179,6 +179,16 @@
 - 后续同类任务：先判断信息属于项目事实、代码规范还是对话经验，再分别写入 `pro.md`、`rule.md` 或 `memory.md`，避免多个文档重复维护同一段内容。
 ## 2026-07-16
 
+- 背景：MacBook 紧凑桌面密度下，侧栏宽高缩小后 14px 菜单字体仍显得偏大。
+- 结论：1024–1599px 的 Sidebar 一级、二级和收起态 flyout 菜单统一使用 13px，1600px 以上恢复 14px；分组标题继续使用 12px。
+- 影响：侧栏视觉密度与 240px 宽度及 40px 菜单高度匹配，不影响页面正文、表格和表单字体。
+- 后续同类任务：紧凑密度的字体调整应限制在高频导航等局部区域，不全局缩小正文基准字号。
+
+- 背景：当前后台在 4K 显示器下合适，但 MacBook 13/14/15 英寸逻辑视口中整体显得过大。
+- 结论：采用双桌面密度：1024–1599px 使用紧凑 Shell（64px Header、240/64px Sidebar、16px 内容边距）和较低 Dashboard 栅格密度；1600px 以上保留原舒适尺寸。
+- 影响：不通过全局 zoom 或根字号缩放，避免 Radix Portal、固定 px 与可访问点击区域失真；Dashboard 在紧凑桌面使用三列指标卡、单列 280px 图表。
+- 后续同类任务：新页面的 4K 多列布局统一延后到 `min-[1600px]`，MacBook 档位优先降低间距和列数，而不是缩小正文可读字号。
+
 - 背景：Dashboard 页面内容区的 H1 与 Breadcrumb 当前页名称重复。
 - 结论：Dashboard 移除内容区的重复 H1，仅通过 Breadcrumb 表示当前位置；Token Selector 直接作为内容区起始。
 - 影响：减少首屏无业务信息的垂直占用，不影响 dashboard 数据请求和可访问的页面上下文。
@@ -238,3 +248,10 @@
 - 结论：当前编辑入口由 `tokenized-deposit` registry 的 `edit` 页加载，`TokenizedDepositEditPage` 从 query `code` 回填；详情、下拉、钱包生成及新增/编辑提交沿用旧页面 endpoint 和 payload 语义。COA 的 `setup_required` 初始值仍是本地 mock（旧实现同样如此），因此不能据此宣称真实后端端到端验收完成。
 - 影响：后续改动该页时必须同时核对 `code` 路由、`useDetailInit` 回填、`useBlockchainEffect` 联动和 `useTokenizedDepositSubmit` 的 `createTDApply`/`editTDOperation` 分支；应补充至少覆盖回填和两条提交 payload 的 feature 测试。
 - 后续同类任务：`modules-tokenized-deposit-feature` 当前没有测试文件；普通 Jest 命令可能被 Watchman socket 权限阻塞，必要时以允许 Watchman 访问的环境运行，并明确区分“零测试通过”与“行为已覆盖”。
+
+## 2026-07-17
+
+- 背景：按 `/Users/zhangxuefeng/Downloads/临时（可删除）/token` 的表单参考重构 Tokenized Deposit Onboard 页面。
+- 结论：参考表单的有效结构是四步 Basic / Accounting / Custody / Review；当前页面外围 Header、Summary 和真实 TanStack Query/API 提交流程保持不变，Onboard 表单通过现有 RHF 字段和 COA 校验接入分步 Continue/Back/Review。
+- 影响：`TokenizedDepositFormContent` 只在 add 模式启用四步编排，edit 模式继续保留完整连续编辑表单；COA、账户类型、对账、密钥托管和管理员钱包组件增加 `embedded` 展示模式。
+- 后续同类任务：参考外部组件时先区分“表单交互/字段结构”和“页面外围布局”；涉及共享 add/edit 内核时优先用 embedded 或 mode 分支隔离视觉变化，避免误改编辑页行为。

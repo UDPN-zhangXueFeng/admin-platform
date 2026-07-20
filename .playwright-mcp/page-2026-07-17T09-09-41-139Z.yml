@@ -1,0 +1,421 @@
+- generic:
+  - generic:
+    - banner:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Tokenized Deposit/Stablecoin Management System
+              - paragraph: Stablecoin Management System
+        - generic:
+          - link:
+            - /url: "#"
+            - text: User Manual
+          - link:
+            - /url: "#"
+            - text: API Documentation
+          - button:
+            - generic: "21"
+          - button:
+            - generic: cuining
+    - generic:
+      - generic:
+        - complementary:
+          - navigation:
+            - generic:
+              - generic:
+                - link:
+                  - /url: /dashboard
+                  - generic: Dashboard
+                - link:
+                  - /url: /workflow
+                  - generic: Workflow Tasks
+                - link:
+                  - /url: /tokenized-deposit
+                  - generic: Token Management
+                - generic:
+                  - button:
+                    - generic: Key Management
+                  - generic:
+                    - link:
+                      - /url: /key-management/key-service-configuration
+                      - generic: Key Service Configuration
+                    - link:
+                      - /url: /key-management/key-policy-configuration
+                      - generic: Key Policy Configuration
+                    - link:
+                      - /url: /key-management/managed-wallets
+                      - generic: Management Wallets
+                    - link:
+                      - /url: /key-management/user-wallets
+                      - generic: User Wallets
+                    - link:
+                      - /url: /key-management/key-signed-transactions
+                      - generic: Key-Signed Transactions
+                - link:
+                  - /url: /sp-access
+                  - generic: SP Access Management
+                - generic:
+                  - button:
+                    - generic: Reserve Asset Management
+                  - generic:
+                    - link:
+                      - /url: /pledge/reserve-asset-list
+                      - generic: Reserve Asset List
+                    - link:
+                      - /url: /pledge/asset-transaction
+                      - generic: Asset Transaction Management
+                    - link [disabled]:
+                      - /url: "#"
+                      - generic: Proof of Reserve Access
+                    - link [disabled]:
+                      - /url: "#"
+                      - generic: Redemption Records
+                - generic:
+                  - button:
+                    - generic: Wallet Management
+                  - generic:
+                    - link:
+                      - /url: /wallet/wallet-type
+                      - generic: Wallet Type
+                    - link:
+                      - /url: /wallet/user-wallet
+                      - generic: User Wallet
+                    - link:
+                      - /url: /wallet/operational-wallet
+                      - generic: Operational Wallet
+                - generic:
+                  - button:
+                    - generic: Accounting Management
+                  - generic:
+                    - link:
+                      - /url: /chart-of-accounts
+                      - generic: Chart of Accounts
+                    - link:
+                      - /url: /financial/normalization-engine
+                      - generic: Normalization Engine
+                    - link:
+                      - /url: /posting-engine
+                      - generic: Posting Engine
+                    - link:
+                      - /url: /transaction-event-configuration
+                      - generic: Transaction Event Configuration
+                    - link:
+                      - /url: /journal-entries-new
+                      - generic: Journal Entries
+                    - link:
+                      - /url: /suspense-adjustment
+                      - generic: Suspense Adjustment
+                    - link:
+                      - /url: /audit-trail
+                      - generic: Audit Trail
+                    - link:
+                      - /url: /travel-rule
+                      - generic: Travel Rule
+                    - link:
+                      - /url: /statements
+                      - generic: Statements
+                    - link:
+                      - /url: /journal-entries
+                      - generic: Journal Entries
+                - generic:
+                  - button:
+                    - generic: Reconciliation
+                  - generic:
+                    - link [disabled]:
+                      - /url: "#"
+                      - generic: Real-time On-chain Data
+                    - link [disabled]:
+                      - /url: "#"
+                      - generic: Real-time Reserve
+                - generic:
+                  - button:
+                    - generic: Interest Management
+                  - generic:
+                    - link:
+                      - /url: /interest/policy
+                      - generic: Policy
+                    - link:
+                      - /url: /interest/accrual
+                      - generic: Accrual
+                    - link:
+                      - /url: /interest/transactions
+                      - generic: Transactions
+                - generic:
+                  - button:
+                    - generic: Screening & Monitoring
+                  - generic:
+                    - link:
+                      - /url: /screening-monitoring/rule
+                      - generic: Rule
+                    - link:
+                      - /url: /screening-monitoring/transaction-monitoring
+                      - generic: Transaction Monitoring
+                    - link:
+                      - /url: /screening-monitoring/screening-providers
+                      - generic: Screening Providers
+                - generic:
+                  - button:
+                    - generic: Statistics & Analytics
+                  - generic:
+                    - link [disabled]:
+                      - /url: "#"
+                      - generic: AI Analytics
+                    - link:
+                      - /url: /statistics-reports
+                      - generic: Statistics Reports
+            - generic:
+              - heading [level=3]: more
+              - generic:
+                - link:
+                  - /url: /approval
+                  - generic: Approval Manage
+                - link:
+                  - /url: /tokenized-deposit
+                  - generic: Tokenized Deposit
+                - link:
+                  - /url: /transaction-flow
+                  - generic: Transaction Flow
+                - generic:
+                  - button:
+                    - generic: MMF
+                  - generic:
+                    - link:
+                      - /url: /mmf/accrual
+                      - generic: Accrual
+                    - link:
+                      - /url: /mmf/settlement
+                      - generic: Settlement
+                - generic:
+                  - button:
+                    - generic: Blockchain
+                  - generic:
+                    - link:
+                      - /url: /blockchain/node
+                      - generic: Node
+                    - link:
+                      - /url: /blockchain/smart-contract
+                      - generic: Smart Contract
+                    - link:
+                      - /url: /blockchain/deployment
+                      - generic: Deployment
+                    - link [disabled]:
+                      - /url: "#"
+                      - generic: Gas Station Management
+                - generic:
+                  - button:
+                    - generic: Cross Chain
+                  - generic:
+                    - link:
+                      - /url: /cross-chain/rd-bridge
+                      - generic: RD Bridge
+                    - link:
+                      - /url: /cross-chain/liquidity-pool
+                      - generic: Liquidity Pool
+                    - link:
+                      - /url: /cross-chain/token-pair
+                      - generic: Token Pair
+                    - link:
+                      - /url: /cross-chain/cross-chain-transactions
+                      - generic: Cross-chain Transactions
+                    - link:
+                      - /url: /cross-chain/fx-rate
+                      - generic: FX Rate
+                - link:
+                  - /url: /networks
+                  - generic: Networks
+                - generic:
+                  - button:
+                    - generic: Documentation
+                  - generic:
+                    - link:
+                      - /url: "#"
+                      - generic: API Documentation
+                    - link:
+                      - /url: "#"
+                      - generic: User Manual
+                - generic:
+                  - button:
+                    - generic: System
+                  - generic:
+                    - link:
+                      - /url: /sys/user
+                      - generic: User
+                    - link:
+                      - /url: /sys/role
+                      - generic: Role
+                    - link:
+                      - /url: /sys/workflow
+                      - generic: Workflow
+                    - link:
+                      - /url: /sys/sysLog
+                      - generic: SysLog
+      - main:
+        - generic:
+          - button
+          - navigation:
+            - list:
+              - listitem:
+                - link:
+                  - /url: /
+                  - generic: Home
+              - listitem
+              - listitem:
+                - link:
+                  - /url: /tokenized-deposit
+                  - text: Tokenized Deposit
+              - listitem
+              - listitem: Onboard
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Token issuance
+              - heading [level=1]: Onboard a Token
+              - paragraph: Configure the token, operational controls, and signing wallets before deployment.
+            - generic:
+              - paragraph: An unsent draft from 2026-07-17 16:59 is available.
+              - generic:
+                - button: Resume draft
+                - button: Discard
+            - main:
+              - navigation:
+                - list:
+                  - listitem:
+                    - button:
+                      - generic: "1"
+                      - generic:
+                        - generic: Token details
+                        - generic: Identity and network
+                  - listitem:
+                    - button [disabled]:
+                      - generic: "2"
+                      - generic:
+                        - generic: Accounting
+                        - generic: Ledger and reconciliation
+                  - listitem:
+                    - button [disabled]:
+                      - generic: "3"
+                      - generic:
+                        - generic: Key Custody Configuration
+                        - generic: Select the key custody service for signing.
+                  - listitem:
+                    - button [disabled]:
+                      - generic: "4"
+                      - generic:
+                        - generic: Review
+                        - generic: Validate the application before submission
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - paragraph: Step 1 of 4
+                      - heading [level=2]: Token details
+                      - paragraph: Identity and network
+                    - generic:
+                      - generic:
+                        - generic:
+                          - group:
+                            - generic:
+                              - generic:
+                                - generic: "*"
+                                - text: Token classification
+                              - paragraph: The classification determines the reserve, accounting, and wallet controls.
+                            - radiogroup:
+                              - radio:
+                                - generic: Stablecoin
+                                - generic: Reserve-backed fiat token
+                              - radio [checked]:
+                                - generic: Tokenized Deposit
+                                - generic: Commercial bank deposit token
+                              - radio:
+                                - generic: Tokenized MMF
+                                - generic: Tokenized money market fund share
+                              - radio [disabled]:
+                                - generic: Retail CBDC
+                                - generic: Token product configuration
+                              - radio [disabled]:
+                                - generic: Wholesale CBDC
+                                - generic: Token product configuration
+                          - generic:
+                            - heading [level=3]: Core attributes
+                          - group:
+                            - generic:
+                              - generic: "*"
+                              - text: Token Name
+                            - textbox: MCP-TD-002
+                          - group:
+                            - generic:
+                              - generic: "*"
+                              - text: Token Symbol
+                            - textbox: MCT2
+                          - group:
+                            - generic:
+                              - generic: "*"
+                              - text: Decimal Precision
+                            - spinbutton: "8"
+                          - group:
+                            - generic:
+                              - generic: "*"
+                              - text: Pegged Currency
+                            - combobox:
+                              - generic: USD
+                            - combobox
+                          - group:
+                            - generic:
+                              - generic: "*"
+                              - text: Token Price
+                            - generic:
+                              - generic: 1 MCT2 =
+                              - spinbutton: "1"
+                              - generic: USD
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: Network & contract
+                            - generic: Choose the settlement network and the audited contract package.
+                        - generic:
+                          - group:
+                            - generic:
+                              - generic: "*"
+                              - text: Blockchain
+                            - combobox:
+                              - generic: Hyperledger Besu-TD
+                            - combobox
+                          - group:
+                            - generic:
+                              - generic: "*"
+                              - text: Smart Contract Name
+                            - combobox [expanded]:
+                              - generic: Tokenized Deposit Smart Contract Package - New (V1.0.0)
+                            - combobox
+                          - group:
+                            - generic: Whitelist Mode
+                            - combobox [disabled]:
+                              - generic: Full Whitelist
+                            - combobox [disabled]
+                          - group:
+                            - generic:
+                              - generic: "*"
+                              - text: Enable Meta Transactions/Gas Station
+                            - radiogroup:
+                              - generic:
+                                - radio
+                                - radio
+                                - text: "Yes"
+                              - generic:
+                                - radio
+                                - radio [checked]
+                                - text: "No"
+                - generic:
+                  - button: Reset application
+                  - generic:
+                    - button: Continue
+            - paragraph: Changes are saved automatically. Wallet credentials are never stored in drafts.
+  - generic:
+    - button
+  - button "Open Next.js Dev Tools" [ref=f3e556] [cursor=pointer]
+  - alert
+  - listbox [ref=f3e561]:
+    - option "Tokenized Deposit Smart Contract Package - New (V1.0.0)" [active] [selected] [ref=f3e570]
+    - option "StableCoin Smart Contract Package - New (V1.0.0)" [ref=f3e573]
+    - option "contract package test - bn - New (V1.1.0)" [ref=f3e576]

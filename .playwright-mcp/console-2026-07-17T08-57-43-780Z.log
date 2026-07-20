@@ -1,0 +1,13 @@
+[    2294ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[    3295ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[    3422ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus) @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[    8944ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus)
+
+Import trace for requested module:
+../../libs/modules/user/data-access/src/index.ts
+../../libs/modules/user/feature/src/lib/user-list-page.tsx
+../../libs/modules/user/feature/src/index.ts
+../../libs/shared/util-config/src/lib/module-registry.ts @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[    9326ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3001/_next/static/webpack/3bed32ddbc2c13de.webpack.hot-update.json:0

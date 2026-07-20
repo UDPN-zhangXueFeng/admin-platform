@@ -49,14 +49,14 @@ export function SidebarItem({
       tabIndex={disabled ? -1 : 0}
       onClick={onClick}
       className={cn(
-        'group relative flex min-h-11 items-center gap-3 overflow-hidden rounded-xl px-3 text-sm font-medium transition-colors',
+        'group relative flex min-h-10 items-center gap-3 overflow-hidden rounded-xl px-3 text-[13px] font-medium transition-colors min-[1600px]:min-h-11 min-[1600px]:text-sm',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         isActive
           ? 'bg-primary text-primary-foreground shadow-sm'
           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
         disabled && 'pointer-events-none opacity-50',
-        collapsed && 'size-11 min-h-0 justify-center p-0',
-        nested && 'min-h-9 rounded-lg py-0 text-sm shadow-none',
+        collapsed && 'size-10 min-h-0 justify-center p-0 min-[1600px]:size-11',
+        nested && 'min-h-8 rounded-lg py-0 shadow-none min-[1600px]:min-h-9',
         nested && isActive && 'bg-transparent text-primary shadow-none',
       )}
     >

@@ -141,13 +141,13 @@ export function Sidebar({ items, collapsed, onToggle, className }: SidebarProps)
     <aside
       className={cn(
         'flex h-full flex-col bg-card text-card-foreground shadow-[4px_0_10px_-8px_rgba(15,23,42,0.35)] transition-[width] duration-300 ease-in-out',
-        collapsed ? 'w-20' : 'w-72',
+        collapsed ? 'w-16 min-[1600px]:w-20' : 'w-60 min-[1600px]:w-72',
         className
       )}
       aria-label="Main navigation"
     >
       {/* Navigation */}
-      <nav className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-3 py-5">
+      <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 py-3 min-[1600px]:gap-6 min-[1600px]:px-3 min-[1600px]:py-5">
         {groups.map(([groupName, groupItems]) => (
           <SidebarGroup
             key={groupName || 'ungrouped'}
@@ -250,7 +250,7 @@ function CollapsibleNavItem({
         onClick={() => onToggle(item.id)}
         aria-expanded={isExpanded}
         className={cn(
-          'group relative flex h-11 w-full items-center gap-3 overflow-hidden rounded-xl px-3 text-sm font-medium transition-colors',
+          'group relative flex h-10 w-full items-center gap-3 overflow-hidden rounded-xl px-3 text-[13px] font-medium transition-colors min-[1600px]:h-11 min-[1600px]:text-sm',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
@@ -312,7 +312,7 @@ function CollapsedParentItem({ item, isActive, onOpen }: CollapsedParentItemProp
         aria-label={item.label}
         onClick={(event) => onOpen(event.currentTarget)}
         className={cn(
-          'group relative flex size-11 items-center justify-center overflow-hidden rounded-xl text-sm font-medium transition-colors',
+          'group relative flex size-10 items-center justify-center overflow-hidden rounded-xl text-[13px] font-medium transition-colors min-[1600px]:size-11 min-[1600px]:text-sm',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
@@ -345,7 +345,7 @@ function SidebarFlyout({ item, pathname, top, onClose }: SidebarFlyoutProps) {
 
   return (
     <div
-      className="fixed left-24 z-[60] w-64 rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-xl shadow-foreground/10"
+      className="fixed left-20 z-[60] w-64 rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-xl shadow-foreground/10 min-[1600px]:left-24"
       style={{ top }}
       role="menu"
       aria-label={`${item.label} submenu`}
@@ -355,7 +355,7 @@ function SidebarFlyout({ item, pathname, top, onClose }: SidebarFlyoutProps) {
           <Icon className="size-4" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{item.label}</p>
+          <p className="truncate text-[13px] font-semibold min-[1600px]:text-sm">{item.label}</p>
           <p className="text-xs text-muted-foreground">Select a feature</p>
         </div>
       </div>
@@ -377,7 +377,7 @@ function SidebarFlyout({ item, pathname, top, onClose }: SidebarFlyoutProps) {
           return (
             <li key={child.id}>
               {child.disabled ? (
-                <span className="flex min-h-9 w-full cursor-not-allowed items-center rounded-lg px-3 text-sm opacity-50">
+                <span className="flex min-h-9 w-full cursor-not-allowed items-center rounded-lg px-3 text-[13px] opacity-50 min-[1600px]:text-sm">
                   {content}
                 </span>
               ) : (
@@ -386,7 +386,7 @@ function SidebarFlyout({ item, pathname, top, onClose }: SidebarFlyoutProps) {
                   role="menuitem"
                   onClick={onClose}
                   className={cn(
-                    'flex min-h-9 w-full items-center rounded-lg px-3 text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    'flex min-h-9 w-full items-center rounded-lg px-3 text-[13px] transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-[1600px]:text-sm',
                     isActive && 'bg-primary/10 font-medium text-primary',
                   )}
                 >
