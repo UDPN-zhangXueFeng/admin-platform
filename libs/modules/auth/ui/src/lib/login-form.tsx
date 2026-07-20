@@ -10,6 +10,11 @@ import { loginSchema, type LoginFormValues } from '@myorg/modules/auth/util';
 import { getCaptcha, useLoginMutation } from '@myorg/modules/auth/data-access';
 import { useAuthUIStore } from '@myorg/modules/auth/data-access';
 
+const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
+const DEFAULT_LOGIN_VALUES: LoginFormValues = IS_DEVELOPMENT
+  ? { loginName: 'cuining', password: 'td#0415', code: '' }
+  : { loginName: '', password: '', code: '' };
+
 /**
  * Password login form — username + password + captcha.
  *
@@ -31,10 +36,10 @@ export function LoginForm() {
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { loginName: '', password: '', code: '' },
+    defaultValues: DEFAULT_LOGIN_VALUES,
   });
 
-  /** Fetch captcha image + randomstr */
+  /** Fetch captcha image + randomstr, and prefill the dev-only captcha code. */
   const refreshCaptcha = useCallback(async () => {
     try {
       const response = await getCaptcha();
@@ -42,6 +47,11 @@ export function LoginForm() {
       const url = URL.createObjectURL(blob);
       const rs = response.headers['randomstr'] ?? '';
       setCaptcha(url, rs);
+
+      if (IS_DEVELOPMENT) {
+        const captchaCode = response.headers['captchacode'];
+        setValue('code', typeof captchaCode === 'string' ? captchaCode : '');
+      }
     } catch {
       // Captcha fetch failure — form still usable without it
     }

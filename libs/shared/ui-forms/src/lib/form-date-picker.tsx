@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
-import { cn } from '@myorg/shared/util-classnames';
+import { DatePicker } from './date-picker';
 
 export interface FormDatePickerProps<TFieldValues extends FieldValues = FieldValues> {
   /** Field name - must match a key in the form schema */
@@ -11,6 +11,8 @@ export interface FormDatePickerProps<TFieldValues extends FieldValues = FieldVal
   control: Control<TFieldValues>;
   /** Visible label text */
   label: string;
+  /** Hides the local label when a parent fieldset already supplies one. */
+  hideLabel?: boolean;
   /** Error message to display */
   error?: string;
   /** Placeholder text */
@@ -26,23 +28,15 @@ export interface FormDatePickerProps<TFieldValues extends FieldValues = FieldVal
 }
 
 /**
- * FormDatePicker - Date input wired to react-hook-form via Controller.
+ * FormDatePicker - locale-controlled date picker wired to react-hook-form.
  *
- * Uses a native HTML date input (`type="date"`) for maximum compatibility,
- * zero bundle overhead, and built-in mobile keyboard support.
- *
- * Why native over a custom date picker?
- * - No extra dependencies (date-fns, react-day-picker, etc.).
- * - Accessible out of the box on all platforms.
- * - react-hook-form works seamlessly with native inputs.
- *
- * If a richer UX (calendar popover, range selection) is needed later,
- * swap this for a Radix-based date picker without changing the public API.
+ * Form state remains a `YYYY-MM-DD` string so API mappers are unaffected.
  */
 export function FormDatePicker<TFieldValues extends FieldValues = FieldValues>({
   name,
   control,
   label,
+  hideLabel,
   error,
   placeholder,
   required,
@@ -55,31 +49,31 @@ export function FormDatePicker<TFieldValues extends FieldValues = FieldValues>({
 
   return (
     <div>
-      <label
-        htmlFor={inputId}
-        className="mb-1.5 block text-sm font-medium text-foreground"
-      >
-        {label}
-        {required && <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>}
-      </label>
+      {!hideLabel && (
+        <label
+          htmlFor={inputId}
+          className="mb-1.5 block text-sm font-medium text-foreground"
+        >
+          {label}
+          {required && <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>}
+        </label>
+      )}
       <Controller
         name={name}
         control={control}
         render={({ field }) => (
-          <input
-            {...field}
+          <DatePicker
             id={inputId}
-            type="date"
+            value={typeof field.value === 'string' ? field.value : ''}
+            onChange={field.onChange}
             placeholder={placeholder}
+            ariaLabel={label}
+            ariaInvalid={!!error}
+            ariaDescribedBy={errorId}
             disabled={disabled}
             min={min}
             max={max}
-            aria-invalid={!!error}
-            aria-describedby={errorId}
-            className={cn(
-              'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-              error && 'border-destructive focus:ring-destructive'
-            )}
+            className={error ? 'border-destructive focus-visible:ring-destructive' : undefined}
           />
         )}
       />

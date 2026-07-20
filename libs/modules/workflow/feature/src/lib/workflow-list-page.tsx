@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 
 import { Button, DataTable, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@myorg/shared/ui';
+import { FormDatePicker } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import { WorkflowStatusTag } from '@myorg/modules/workflow/ui';
@@ -80,7 +81,7 @@ function formToParams(form: WorkflowFilterForm): WorkflowListParams {
 export function WorkflowListPage() {
   const t = useTranslations('modules.workflow');
   const router = useRouter();
-  const { register, handleSubmit, reset, watch, setValue } =
+  const { control, register, handleSubmit, reset, watch, setValue } =
     useForm<WorkflowFilterForm>({ defaultValues: EMPTY_FORM });
 
   const [params, setParams] = React.useState<WorkflowListParams>(() =>
@@ -289,9 +290,19 @@ export function WorkflowListPage() {
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium">{t('field.createdDate')}</label>
             <div className="flex items-center gap-2">
-              <Input type="date" {...register('beginDate')} />
+              <FormDatePicker
+                name="beginDate"
+                control={control}
+                label={t('field.createdDate')}
+                hideLabel
+              />
               <span className="text-muted-foreground">—</span>
-              <Input type="date" {...register('endDate')} />
+              <FormDatePicker
+                name="endDate"
+                control={control}
+                label={t('field.createdDate')}
+                hideLabel
+              />
             </div>
           </div>
         </div>

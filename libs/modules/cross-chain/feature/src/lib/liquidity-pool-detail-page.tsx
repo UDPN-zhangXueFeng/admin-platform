@@ -23,6 +23,7 @@ import {
 import { PermissionGuard } from '@myorg/shared/util-auth';
 import { formatDate } from '@myorg/shared/util-dates';
 import { CrossChainStatusBadge } from '@myorg/modules/cross-chain/ui';
+import { DatePicker } from '@myorg/shared/ui-forms';
 import {
   useLiquidityPoolAuthorizationQuery,
   useLiquidityPoolBasicInfoQuery,
@@ -1207,7 +1208,7 @@ function OpFilterBar({
 /**
  * 轻量日期选择字段（受控，value 为 '' 或 'YYYY-MM-DD' 字符串）。
  *
- * 子表筛选栏内嵌使用：原生 `<input type="date">` 直接受控于本地 useState，
+ * 子表筛选栏内嵌使用：直接受控于本地 useState，
  * 不依赖 react-hook-form（FormDatePicker 基于 RHF control，不便嵌入受控筛选栏）。
  * 输出 'YYYY-MM-DD' 字符串，与 startOfDay/endOfDay(parseISO(...)) 解析一致。
  * 视觉与筛选栏内 Input 文本框统一（h-9 + border-input + ring）。
@@ -1231,12 +1232,12 @@ function DatePickerField({
       >
         {label}
       </label>
-      <input
+      <DatePicker
         id={id}
-        type="date"
-        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
+        ariaLabel={label}
+        className="h-9 bg-transparent py-1 shadow-sm focus-visible:ring-1"
       />
     </div>
   );
