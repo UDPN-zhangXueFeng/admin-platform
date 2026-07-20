@@ -19,6 +19,12 @@ export interface RoleMenuTreeProps {
   /** true=只读（详情页），false=可勾选（编辑页）。 */
   disabled?: boolean;
   /**
+   * i18n 翻译函数。菜单节点的 menuName 为后端返回的 i18n key（如 'Router_0010_2'），
+   * 传入 t() 后渲染时调用 translate(menuName) 得到译文。
+   * 未传时退化为直接渲染 menuName 原文。
+   */
+  translate?: (key: string) => string;
+  /**
    * 勾选变化回调。返回「叶子+全选父」(checkedKeys) 与「半选父」(halfCheckedKeys)。
    * 提交给后端的是两者合并（role.md 5.3），由调用方合并。
    */
@@ -43,6 +49,7 @@ export function RoleMenuTree({
   menuList,
   checkedMenuIds,
   disabled = false,
+  translate,
   onCheck,
 }: RoleMenuTreeProps) {
   const checkedSet = React.useMemo(
@@ -148,6 +155,7 @@ export function RoleMenuTree({
           node={node}
           depth={0}
           disabled={disabled}
+          translate={translate}
           getState={getState}
           onToggle={toggle}
         />
@@ -160,6 +168,7 @@ interface RoleMenuTreeNodeProps {
   node: MenuTreeNodeLike;
   depth: number;
   disabled: boolean;
+  translate?: (key: string) => string;
   getState: (node: MenuTreeNodeLike) => { checked: boolean; indeterminate: boolean };
   onToggle: (node: MenuTreeNodeLike, nextChecked: boolean) => void;
 }
@@ -168,6 +177,7 @@ function RoleMenuTreeNode({
   node,
   depth,
   disabled,
+  translate,
   getState,
   onToggle,
 }: RoleMenuTreeNodeProps) {
@@ -184,7 +194,7 @@ function RoleMenuTreeNode({
           disabled={disabled}
           onCheckedChange={(value) => onToggle(node, value === true)}
         />
-        <span className="text-sm">{node.menuName}</span>
+        <span className="text-sm">{translate ? translate(node.menuName) : node.menuName}</span>
       </div>
       {node.children?.length
         ? node.children.map((child) => (
@@ -193,6 +203,7 @@ function RoleMenuTreeNode({
               node={child}
               depth={depth + 1}
               disabled={disabled}
+              translate={translate}
               getState={getState}
               onToggle={onToggle}
             />

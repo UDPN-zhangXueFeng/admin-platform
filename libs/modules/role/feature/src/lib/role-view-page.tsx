@@ -90,6 +90,7 @@ export function RoleViewPage() {
             menuList={menuList}
             checkedMenuIds={detail?.menuIdList ?? []}
             disabled
+            translate={t}
           />
         ) : (
           <p className="text-sm text-muted-foreground">{t('empty')}</p>

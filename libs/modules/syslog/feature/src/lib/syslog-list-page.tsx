@@ -48,8 +48,11 @@ const EMPTY_FORM: SysLogFilterForm = {
 const PROJECT_ID = 'stablecoin';
 
 /**
- * 由两个 `YYYY-MM-DD` 日期字符串构造秒级 epoch 时间范围 `[startLogTime, endLogTime]`，
- * 对齐旧页 RangePicker 取值后 `valueOf() / 1000` 的秒级约定。
+ * 由两个 `YYYY-MM-DD` 日期字符串构造毫秒级 epoch 时间范围 `[startLogTime, endLogTime]`，
+ * 对齐旧页 CustomTable 的 getTimestamp()（返回 `new Date(...).getTime()` 毫秒）。
+ *
+ * 旧页 sysLog/index.tsx 内定义过除以 1000 的 onFinish，但该段代码被整体注释，未生效；
+ * 真实运行时 CustomTable 的默认序列化直接输出 getTimestamp 毫秒值。
  */
 function toTimeRange(
   from?: string,
@@ -57,8 +60,8 @@ function toTimeRange(
 ): [number, number] | undefined {
   if (!from || !to) return undefined;
   return [
-    Math.floor(startOfDay(parseISO(from)).getTime() / 1000),
-    Math.floor(endOfDay(parseISO(to)).getTime() / 1000),
+    startOfDay(parseISO(from)).getTime(),
+    endOfDay(parseISO(to)).getTime(),
   ];
 }
 
@@ -177,7 +180,7 @@ export function SysLogListPage() {
         accessorKey: 'logTime',
         header: t('field.logTime'),
         cell: ({ row }) => (
-          <span>{formatDate(new Date(row.original.logTime))}</span>
+          <span>{formatDate(new Date(row.original.logTime), 'MMM dd, yyyy, HH:mm:ss')}</span>
         ),
       },
       { accessorKey: 'userName', header: t('field.userName') },

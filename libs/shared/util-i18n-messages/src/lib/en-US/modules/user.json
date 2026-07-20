@@ -15,7 +15,12 @@
     "add": "Add",
     "back": "Back",
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "saveSuccess": "Saved successfully",
+    "saveFailed": "Save failed. Please try again.",
+    "deleteSuccess": "Deleted successfully",
+    "statusUpdated": "Status updated successfully",
+    "passwordReset": "Password has been reset"
   },
   "field": {
     "index": "No.",

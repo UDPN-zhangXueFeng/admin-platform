@@ -624,7 +624,7 @@ export async function getSpAccessWalletRules(): Promise<SpAccessWalletRule[]> {
         name: rule.name,
         state: rule.state ?? 1,
       }))
-      .filter((rule): rule is { walletRuleId: number; name?: string; state: number } =>
+      .filter((rule): rule is { walletRuleId: number; name: string | undefined; state: number } =>
         typeof rule.walletRuleId === 'number',
       )
       .map((rule): SpAccessWalletRuleOption => ({

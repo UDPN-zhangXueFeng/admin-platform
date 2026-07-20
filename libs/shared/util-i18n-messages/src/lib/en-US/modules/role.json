@@ -14,7 +14,10 @@
     "add": "Add",
     "back": "Back",
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "saveSuccess": "Saved successfully",
+    "saveFailed": "Save failed. Please try again.",
+    "statusUpdated": "Status updated successfully"
   },
   "field": {
     "index": "No.",
@@ -46,5 +49,8 @@
   },
   "create": {
     "title": "Create Role"
+  },
+  "validation": {
+    "menuRequired": "Please select at least one menu permission"
   }
 }

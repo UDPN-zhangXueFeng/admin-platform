@@ -5,7 +5,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
-import { Button, Checkbox, Input } from '@myorg/shared/ui';
+import { Button, Checkbox, Input, useToast } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
@@ -134,6 +134,8 @@ export function UserFormPage() {
     setTdDisabled(applyRoleLinkage(detail.roleIds ?? []));
   }, [detail, isEdit, reset, applyRoleLinkage]);
 
+  const toast = useToast();
+
   const onSubmit = handleSubmit((values) => {
     if (isEdit && userId) {
       updateMutation.mutate(
@@ -146,7 +148,13 @@ export function UserFormPage() {
           tdIds: values.tdIds,
           orgId: DEFAULT_ORG_ID,
         },
-        { onSuccess: () => router.push('/sys/user') }
+        {
+          onSuccess: () => {
+            toast.success(t('action.saveSuccess'));
+            router.push('/sys/user');
+          },
+          onError: () => toast.error(t('action.saveFailed')),
+        }
       );
     } else {
       saveMutation.mutate(
@@ -159,7 +167,13 @@ export function UserFormPage() {
           tdIds: values.tdIds,
           orgId: DEFAULT_ORG_ID,
         },
-        { onSuccess: () => router.push('/sys/user') }
+        {
+          onSuccess: () => {
+            toast.success(t('action.saveSuccess'));
+            router.push('/sys/user');
+          },
+          onError: () => toast.error(t('action.saveFailed')),
+        }
       );
     }
   });

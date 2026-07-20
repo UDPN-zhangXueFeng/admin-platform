@@ -92,9 +92,10 @@ export function RoleFormPage() {
         },
         {
           onSuccess: () => {
-            toast.success(t('toast.saveSuccess'));
+            toast.success(t('action.saveSuccess'));
             router.push('/sys/role');
           },
+          onError: () => toast.error(t('action.saveFailed')),
         }
       );
     } else {
@@ -106,9 +107,10 @@ export function RoleFormPage() {
         },
         {
           onSuccess: () => {
-            toast.success(t('toast.saveSuccess'));
+            toast.success(t('action.saveSuccess'));
             router.push('/sys/role');
           },
+          onError: () => toast.error(t('action.saveFailed')),
         }
       );
     }
@@ -181,16 +183,23 @@ export function RoleFormPage() {
           <Controller
             control={control}
             name="menuIdList"
-            render={({ field }) => (
-              <RoleMenuTree
-                menuList={menuList}
-                checkedMenuIds={field.value}
-                onCheck={(checkedKeys, halfCheckedKeys) => {
-                  // role.md 5.3：提交「叶子+全选父」与「半选父」的并集，
-                  // 避免丢失父级菜单授权。
-                  field.onChange([...checkedKeys, ...halfCheckedKeys]);
-                }}
-              />
+            rules={{ validate: (v) => (Array.isArray(v) && v.length > 0) || 'Required' }}
+            render={({ field, fieldState }) => (
+              <>
+                <RoleMenuTree
+                  menuList={menuList}
+                  checkedMenuIds={field.value}
+                  translate={t}
+                  onCheck={(checkedKeys, halfCheckedKeys) => {
+                    // role.md 5.3：提交「叶子+全选父」与「半选父」的并集，
+                    // 避免丢失父级菜单授权。
+                    field.onChange([...checkedKeys, ...halfCheckedKeys]);
+                  }}
+                />
+                {fieldState.error ? (
+                  <p className="text-xs text-red-500 mt-1">{t('validation.menuRequired')}</p>
+                ) : null}
+              </>
             )}
           />
         ) : (

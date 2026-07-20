@@ -14,7 +14,10 @@
     "add": "新增",
     "back": "返回",
     "cancel": "取消",
-    "save": "保存"
+    "save": "保存",
+    "saveSuccess": "保存成功",
+    "saveFailed": "保存失败，请重试",
+    "statusUpdated": "状态更新成功"
   },
   "field": {
     "index": "序号",
@@ -46,5 +49,8 @@
   },
   "create": {
     "title": "新增角色"
+  },
+  "validation": {
+    "menuRequired": "请至少选择一个菜单权限"
   }
 }
