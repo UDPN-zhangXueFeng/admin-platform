@@ -17,14 +17,10 @@ RUN corepack enable && corepack prepare pnpm@8.14.1 --activate
 
 WORKDIR /workspace
 
-# 先拷 workspace 清单 + 全部子包源码，再装依赖。
-# monorepo 的 package.json 分散在 apps/ libs/ packages/ tools/ 下，无法逐个 COPY，
-# 故整体拷入；配合下方 BuildKit cache mount，改源码不会触发依赖重下载。
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
-COPY apps ./apps
-COPY libs ./libs
-COPY tools ./tools
-COPY configs ./configs
+# 拷入全部源码（.dockerignore 已排除 node_modules/.next/.git 等大目录）。
+# monorepo 的 package.json 与 tsconfig.base.json 等根级配置分散，整体拷入最稳，
+# 不会漏文件，目录增减也无需改 Dockerfile。
+COPY . .
 
 # 装依赖（对齐 td-manage 朴素模式，不依赖 BuildKit；内网走阿里云源）
 RUN pnpm install --frozen-lockfile

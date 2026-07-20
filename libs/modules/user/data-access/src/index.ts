@@ -9,8 +9,8 @@ export type {
   UserQueryParams,
 } from './lib/user.model';
 
+export type { ResultInfo } from './lib/user.api';
 export {
-  ResultInfo,
   getUserList,
   getUserDetail,
   saveUser,
