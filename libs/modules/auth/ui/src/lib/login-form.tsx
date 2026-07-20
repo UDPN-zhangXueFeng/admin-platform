@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useEffect, useCallback, useState } from 'react';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { Button, Input, Label } from '@myorg/shared/ui';
+import { useRouter } from '@myorg/shared/util-i18n';
 import { loginSchema, type LoginFormValues } from '@myorg/modules/auth/util';
 import { getCaptcha, useLoginMutation } from '@myorg/modules/auth/data-access';
 import { useAuthUIStore } from '@myorg/modules/auth/data-access';
@@ -24,6 +25,7 @@ const DEFAULT_LOGIN_VALUES: LoginFormValues = IS_DEVELOPMENT
  */
 export function LoginForm() {
   const t = useTranslations('auth');
+  const router = useRouter();
   const { captchaUrl, randomstr, setCaptcha, setTwoFactorToken, setLoginStep } =
     useAuthUIStore();
   const loginMutation = useLoginMutation();
@@ -80,8 +82,10 @@ export function LoginForm() {
       if (result.twoFactorAuth && result.twoFactorToken) {
         setTwoFactorToken(result.twoFactorToken);
         setLoginStep('twoFactor');
+        return;
       }
-      // Direct login success is handled by useLoginMutation.onSuccess
+
+      router.replace('/dashboard', { locale: 'en-US' });
     } catch {
       // Login failed — refresh captcha and clear code field
       refreshCaptcha();
