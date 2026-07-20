@@ -22,7 +22,9 @@ export function useUpdateSpAccessMutation() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: spAccessKeys.lists() }),
         queryClient.invalidateQueries({
-          queryKey: spAccessKeys.detail(variables.spId),
+          // updateSpAccess 的 payload 只有 spCode（无 spId），无法定位单条 detail；
+          // 失效全部 detail 缓存，update 后按需 refetch。
+          queryKey: spAccessKeys.details(),
         }),
       ]);
     },

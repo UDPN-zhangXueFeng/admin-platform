@@ -92,3 +92,9 @@ export interface UserQueryParams extends PaginationParams {
   userName?: string;
   email?: string;
 }
+
+/** User 模块筛选态（userName / email，user.md §5.1）。供 user-filter.store 使用。 */
+export interface UserFilters {
+  userName: string;
+  email: string;
+}

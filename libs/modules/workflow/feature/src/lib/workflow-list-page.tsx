@@ -130,6 +130,12 @@ export function WorkflowListPage() {
       { accessorKey: 'workflowName', header: t('field.workflowName') },
       { accessorKey: 'businessName', header: t('field.businessName') },
       {
+        /** Approval Type — 原项目固定文案列（td-manage sys_workflow_0004 / sys_workflow_0034）。 */
+        id: 'approvalType',
+        header: t('field.approvalType'),
+        cell: () => <span>{t('field.executionModeValue')}</span>,
+      },
+      {
         accessorKey: 'workflowNodes',
         header: t('field.nodes'),
       },

@@ -43,7 +43,8 @@
     "roles": "角色",
     "thresholdRule": "阈值规则",
     "thresholdAmount": "阈值金额",
-    "thresholdEnable": "启用阈值"
+    "thresholdEnable": "启用阈值",
+    "approvalType": "审批类型"
   },
   "status": {
     "active": "启用",

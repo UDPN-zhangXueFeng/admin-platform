@@ -409,6 +409,7 @@ export function SpAccessFormPage() {
     }
 
     const tdAccessList: SpAccessTdAccess[] = activeConfigs.map((config) => ({
+      stablecoinCode: config.stablecoinCode,
       tdId: config.tdId,
       walletAddress: config.walletAddress.trim(),
       contractAddress: config.contractAddress.trim(),

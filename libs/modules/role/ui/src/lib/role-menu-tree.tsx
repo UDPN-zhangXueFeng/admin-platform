@@ -194,7 +194,7 @@ function RoleMenuTreeNode({
           disabled={disabled}
           onCheckedChange={(value) => onToggle(node, value === true)}
         />
-        <span className="text-sm">{translate ? translate(node.menuName) : node.menuName}</span>
+        <span className="text-sm">{node.menuName && translate ? translate(node.menuName) : node.menuName}</span>
       </div>
       {node.children?.length
         ? node.children.map((child) => (

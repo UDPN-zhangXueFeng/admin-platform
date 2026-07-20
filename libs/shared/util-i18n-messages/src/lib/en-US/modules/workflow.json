@@ -43,7 +43,8 @@
     "roles": "Roles",
     "thresholdRule": "Threshold Rule",
     "thresholdAmount": "Threshold Amount",
-    "thresholdEnable": "Enable Threshold"
+    "thresholdEnable": "Enable Threshold",
+    "approvalType": "Approval Type"
   },
   "status": {
     "active": "Active",

@@ -32,6 +32,9 @@ interface SysLogFilterForm {
   sourceIp?: string;
 }
 
+/** DataTable 泛型约束要求行类型含 { id: string }，而 SysLogItem 用 logId，这里补 id 别名。 */
+type SysLogRow = SysLogItem & { id: string };
+
 const ALL = 'all';
 
 const EMPTY_FORM: SysLogFilterForm = {
@@ -108,7 +111,7 @@ export function SysLogListPage() {
   const { data: operationTypeOptions } = useSysLogOperationTypesQuery(PROJECT_ID);
   const { data: userOptions } = useSysLogUsersQuery(PROJECT_ID);
 
-  const rows = data?.data ?? [];
+  const rows: SysLogRow[] = (data?.data ?? []).map((d) => ({ ...d, id: d.logId }));
   const paginationMeta = data?.pagination;
 
   const onSubmit = React.useCallback((form: SysLogFilterForm) => {
@@ -173,7 +176,7 @@ export function SysLogListPage() {
     [operationTypeOptions, t]
   );
 
-  const columns = React.useMemo<ColumnDef<SysLogItem>[]>(
+  const columns = React.useMemo<ColumnDef<SysLogRow>[]>(
     () => [
       { accessorKey: 'logId', header: t('field.logId') },
       {
