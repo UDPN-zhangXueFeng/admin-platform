@@ -353,6 +353,11 @@
 
 ## 2026-07-17
 
+- 背景：Tokenized Deposit 表单的默认 mint method 用于初始化 state 时，被 TypeScript 推断为字面量类型 `1`，而回填回调传入的是 `number`，导致 Jenkins 的 production build 在 `setTokenTypeId(type)` 失败。
+- 结论：会接收接口或回调数值的 React state 必须显式声明为 `useState<number>(...)`，不能依赖常量初始值的字面量推断；扩展 `TokenSelectorLabels` 时必须同一次同步所有调用方和 `en-US` / `zh-CN` 消息 key。
+- 影响：`npx nx build admin` 已通过 TypeScript 与完整 Next.js production build；类型筛选的 Stablecoin / Tokenized Deposit / Tokenized MMF 文案也不会在运行时缺失。
+- 后续同类任务：提交前至少运行受影响 app 的 production build；开发服务器不会覆盖所有 Next.js TypeScript 检查和跨包接口完整性。
+
 - 背景：Stablecoin 的储备资产已锁定对账时，Onboard 渲染 `tokenized_deposit_recon_reserve_locked` 报 `MISSING_MESSAGE`。
 - 结论：条件分支的 i18n key 必须同时写入 `en-US` 与 `zh-CN` 的模块消息 JSON；本次补齐“储备资产已要求对账，不能更改”文案。`shared-util-i18n-messages` 当前 test target 指向不存在的 Jest config，暂以 lint 和 JSON/key 存在性检查验证。
 - 影响：锁定储备资产的 Onboard 页面不再因 i18n 缺失中断渲染。

@@ -4,15 +4,15 @@
   "slug": "key-policy-configuration",
   "parentModule": "key-management",
   "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/key-policy-configuration.md",
-  "phase": "developing",
+  "phase": "accepted-conditional",
   "migrationRate": 1.0,
-  "acceptanceRate": 0.0,
+  "acceptanceRate": 1.0,
   "scope": {
-    "subModule": "key-policy-configuration — key-management 第5个(最后)迁入子模块，最复杂",
+    "subModule": "key-policy-configuration — key-management 第5个(最后)子模块,最复杂,纯mock",
     "totalFiles": 4,
     "totalLines": 1768,
-    "pages": "list(index 717) + new(345) + edit(414) + detail(292)",
-    "sourceNote": "纯mock页(无API)。4份内联静态数据(policyList22/policyEditList4/policyDetail1/operationRecords5)。双状态机。复合频率表单。路由需扩展page.tsx支持<sub>/{new,edit,detail}。"
+    "pages": "list(717)+new(345)+edit(414)+detail(292)",
+    "sourceNote": "纯mock(无API)。4份内联数据(22+4+1+5)。双状态机。复合频率表单。key-management至此5子模块全部迁完。"
   },
   "coverage": {
     "sourceFiles": { "covered": 4, "total": 4, "missing": [] },
@@ -21,15 +21,17 @@
     "uiMappings": { "covered": 30, "total": 30, "missing": [] }
   },
   "tasks": [
-    { "id": "kpc-1", "name": "scaffold(model+4份mock-data+5常量+barrels)", "kind": "scaffold", "model": "haiku", "deps": [], "complexity": "中", "status": "pending" },
-    { "id": "kpc-2", "name": "list页(4筛选+8列+状态驱动行操作+Disable/Enable Dialog)", "kind": "page", "model": "opus", "deps": ["kpc-1"], "complexity": "高", "status": "pending" },
-    { "id": "kpc-3", "name": "new页(Business Name联动+复合频率+Radio)", "kind": "page", "model": "opus", "deps": ["kpc-1"], "complexity": "中", "status": "pending" },
-    { "id": "kpc-4", "name": "edit页(?id回填+parseRotationFrequency反解析)", "kind": "page", "model": "opus", "deps": ["kpc-1"], "complexity": "高", "status": "pending" },
-    { "id": "kpc-5", "name": "detail页(2 Tab+Operation Records筛选)", "kind": "page", "model": "opus", "deps": ["kpc-1"], "complexity": "中", "status": "pending" },
-    { "id": "kpc-6", "name": "接入(registry 4 loader+page.tsx路由扩展+barrel)", "kind": "scaffold", "model": "haiku+主循环", "deps": ["kpc-2","kpc-3","kpc-4","kpc-5"], "complexity": "中", "status": "pending", "note": "page.tsx IIFE扩展支持<sub>/{new,edit,detail}由主循环核对" },
-    { "id": "kpc-7", "name": "验收(lint/tsc+grep运行时坑+4路由307非404+4页冒烟)", "kind": "verify", "model": "opus", "deps": ["kpc-6"], "complexity": "中", "status": "pending" }
+    { "id": "kpc-1", "name": "scaffold(model+4份mock+5常量+barrels)", "kind": "scaffold", "model": "haiku", "deps": [], "complexity": "中", "status": "completed", "verified": "mock数据22+4+1+5+22角色全搬入,createdOn双格式分类型,lint exit0" },
+    { "id": "kpc-2", "name": "list页", "kind": "page", "model": "opus", "deps": ["kpc-1"], "complexity": "高", "status": "completed", "verified": "4筛选+8列+状态驱动行操作(4态)+Disable/Enable Dialog(Comments必填)+前端筛选;主动避开Rotation Methods TitleCase vs kebab坑(内联TitleCase options);lint exit0" },
+    { "kpc-3", "name": "new页", "kind": "page", "model": "opus", "deps": ["kpc-1"], "complexity": "中", "status": "completed", "verified": "Business Name联动+复合频率(1-12×Day/Month)+Radio+InfoCircle;频率值string(Radix契约);lint 0warn" },
+    { "kpc-4", "name": "edit页", "kind": "page", "model": "opus", "deps": ["kpc-1"], "complexity": "高", "status": "completed", "verified": "?id回填policyEditList+parseRotationFrequency正则+Title→kebab映射+时间字符串直传(无dayjs)+BusinessName禁用+找不到时空白;lint 0warn" },
+    { "kpc-5", "name": "detail页", "kind": "page", "model": "opus", "deps": ["kpc-1"], "complexity": "中", "status": "completed", "verified": "2Tab(Basic Info 10字段+Operation Records 5项筛选6列)+DetailItem+Actions占位死链忠实源+不按id查(mock固定);lint exit0" },
+    { "kpc-6", "name": "接入", "kind": "scaffold", "model": "haiku+主循环", "deps": ["kpc-2","kpc-3","kpc-4","kpc-5"], "complexity": "中", "status": "completed", "verified": "page.tsx modulePageKey IIFE扩展支持<sub>/{,new,edit,detail}(主循环改,向后兼容,tsc0相关错)+registry 4 loader+barrel 4 export;lint exit0" },
+    { "kpc-7", "name": "验收", "kind": "verify", "model": "opus", "deps": ["kpc-6"], "complexity": "中", "status": "completed", "verified": "lint 3lib 0err; tsc admin 4错<基线9零新增(kpc/page.tsx/registry无相关); 运行时坑grep 4page全过; 4路由(key-policy-config/new/edit/detail)全307非404 + managed-wallets/user-wallets回归307无影响" }
   ],
-  "currentIndex": 0,
+  "currentIndex": 7,
   "startedAt": "2026-07-21",
-  "notes": "key-management最后一个子模块,最复杂(4页1768行)。纯mock(无API,data-access仅model+mock-data)。双状态机(keyPolicyStatusMap4态/operationRecordStatusMap3态)。复合频率表单(new/edit)。路由需扩展page.tsx modulePageKey IIFE支持<sub>/{new,edit,detail}(现仅<sub>/detail)。5歧义点(createdOn双格式/edit与index mock不一致/detail不按id查/Actions死链/method命名不一致)。user-wallets状态已备份。用户授权'继续迁移'。"
+  "runtimeSmoke": "静态验收100%: lint(3lib 0err)+tsc(4<基线9,零新增)+运行时坑grep 4page全过。运行时:dev server在3000,4路由(/key-policy-configuration + /new + /edit + /detail)全返回307→login(非404,证明IIFE扩展生效+4页loader全接通+编译成功+session guard正常)。managed-wallets/user-wallets回归307无影响。完整页面渲染+交互冒烟受登录captcha阻,需用户在已登录环境验证4页:list筛选+行操作+Dialog / new表单校验 / edit回填反解析 / detail 2Tab。",
+  "phase5Notes": "验收率静态100%。key-management至此5子模块全部迁完。kpc是最复杂(4页1768行,纯mock,双状态机,复合频率表单,new/edit 414+345行)。关键产出: page.tsx modulePageKey IIFE经3次扩展(managed-wallets detail→user-wallets list→kpc new/edit/detail)现为通用子模块二级路由机制。list页主动避开Rotation Methods TitleCase/kebab筛选坑(文档§8.D)。edit反解析(parseRotationFrequency正则+method映射+时间直传无dayjs)。",
+  "knownIssues": ["纯mock: 无真实数据/提交/分页(前端),detail不按id查,Operation Records Actions死链(忠实源)", "写操作仅console.log不跳转(忠实源)", "i18n页面文案内联英文(纯mock不补key)", "运行时完整冒烟待用户验证(登录)", "token_type仅_1(既有)", "RangePicker降级原生date input"]
 }

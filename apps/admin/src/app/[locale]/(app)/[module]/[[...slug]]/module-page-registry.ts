@@ -54,6 +54,26 @@ const keyManagementPages: Record<
       default:
         m.UserWalletsListPage as unknown as ComponentType<unknown>,
     })),
+  'key-policy-configuration': () =>
+    import('@myorg/modules/key-management/feature').then((m) => ({
+      default:
+        m.KeyPolicyConfigurationListPage as unknown as ComponentType<unknown>,
+    })),
+  'key-policy-configuration-new': () =>
+    import('@myorg/modules/key-management/feature').then((m) => ({
+      default:
+        m.KeyPolicyConfigurationNewPage as unknown as ComponentType<unknown>,
+    })),
+  'key-policy-configuration-edit': () =>
+    import('@myorg/modules/key-management/feature').then((m) => ({
+      default:
+        m.KeyPolicyConfigurationEditPage as unknown as ComponentType<unknown>,
+    })),
+  'key-policy-configuration-detail': () =>
+    import('@myorg/modules/key-management/feature').then((m) => ({
+      default:
+        m.KeyPolicyConfigurationDetailPage as unknown as ComponentType<unknown>,
+    })),
 };
 
 export function loadSpAccessModulePage(

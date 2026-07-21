@@ -5,3 +5,7 @@ export { KeyServiceConfigurationListPage } from './lib/key-service-configuration
 export { ManagedWalletsListPage } from './lib/managed-wallets-list-page';
 export { ManagedWalletsDetailPage } from './lib/managed-wallets-detail-page';
 export { UserWalletsListPage } from './lib/user-wallets-list-page';
+export { KeyPolicyConfigurationListPage } from './lib/key-policy-configuration-list-page';
+export { KeyPolicyConfigurationNewPage } from './lib/key-policy-configuration-new-page';
+export { KeyPolicyConfigurationEditPage } from './lib/key-policy-configuration-edit-page';
+export { KeyPolicyConfigurationDetailPage } from './lib/key-policy-configuration-detail-page';

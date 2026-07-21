@@ -184,7 +184,7 @@ export function useTokenizedDepositForm({
   const [flag, setFlag] = React.useState(false);
   const [contractLanguage, setContractLanguage] = React.useState('');
   const [chainType, setChainType] = React.useState('evm');
-  const [tokenType, setTokenTypeId] = React.useState(
+  const [tokenType, setTokenTypeId] = React.useState<number>(
     MINT_METHOD.STABLECOIN,
   );
   // currencySymbol 桥接 state：getReserveList 回调 set 它，useReserveListQuery 监听它。

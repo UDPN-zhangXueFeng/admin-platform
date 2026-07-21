@@ -143,7 +143,6 @@ export function KeyPolicyConfigurationEditPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Mock-only submit — faithful to source: console.log, no navigation.
-    // eslint-disable-next-line no-console
     console.log('Submit:', watch());
   };
 

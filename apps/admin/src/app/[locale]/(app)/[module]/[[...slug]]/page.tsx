@@ -16,12 +16,13 @@ const keyManagementPageKeys: Record<string, string> = {
   'key-signed-transactions': 'key-signed-transactions',
   'managed-wallets': 'managed-wallets',
   'user-wallets': 'user-wallets',
+  'key-policy-configuration': 'key-policy-configuration',
 };
 
 /**
  * key-management 标准路由词（走 legacy registry：签名交易 list/detail 等）。
  * 子页面 slug 既不在 keyManagementPageKeys、也不在此集合时（即未迁移的子模块，
- * 如 key-policy-configuration），modulePageKey
+ * 当前 5 子模块已全部迁移完毕），modulePageKey
  * 返回 null → 落到下方的 "Page Not Found" 占位，避免被误当作 detail 渲染成
  * "Transaction record not found"。迁移新子模块时把其 slug 加入 keyManagementPageKeys，
  * 并在 module-page-registry 注册同名 list loader 与 <slug>-detail loader（见下方
@@ -96,9 +97,14 @@ export default function ModulePage({
     const subSlug = realSlug[0];
     const mapped = keyManagementPageKeys[subSlug];
     if (mapped) {
-      // 已迁子模块支持二级 detail 路由：/<sub> (list) 与 /<sub>/detail (detail)。
-      // 现有子模块 realSlug[1] 不会是 'detail'，行为不变（向后兼容）。
-      return realSlug[1] === 'detail' ? `${mapped}-detail` : mapped;
+      // 已迁子模块支持二级路由：/<sub> (list) /<sub>/new /<sub>/edit /<sub>/detail。
+      // 现有子模块无 new/edit（realSlug[1] 不会是这些值），行为不变（向后兼容）。
+      const sub = realSlug[1];
+      if (sub === undefined) return mapped;
+      if (sub === 'detail') return `${mapped}-detail`;
+      if (sub === 'new' || sub === 'create') return `${mapped}-new`;
+      if (sub === 'edit') return `${mapped}-edit`;
+      return mapped;
     }
     return KEY_MANAGEMENT_STANDARD_ROUTES.has(subSlug) ? pageKey : null;
   })();
