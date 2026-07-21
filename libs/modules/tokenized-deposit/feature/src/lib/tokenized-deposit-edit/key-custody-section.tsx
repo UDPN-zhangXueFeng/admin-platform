@@ -79,7 +79,7 @@ export function KeyCustodySection({
         embedded={embedded}
       />
       <CardContent className={embedded ? 'px-0 py-0' : 'py-6'}>
-        <FieldGroup className="max-w-md">
+        <FieldGroup className="max-w-[40rem]">
           <Controller
             control={control}
             name="keyServiceName"

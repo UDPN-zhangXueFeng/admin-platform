@@ -89,6 +89,7 @@ const DEFAULT_FORM_VALUES = {
   mintMethod: MINT_METHOD.STABLECOIN,
   usPrice: '1',
   accountTypeList: [1],
+  metaType: 5,
   whitelistMode: 'full',
   thresholdType: 'volume',
   thresholdFrequency: 'daily',

@@ -3,20 +3,13 @@
 import * as React from 'react';
 import { type Control, useWatch } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
-import {
-  CheckCircle2,
-  Circle,
-  Info,
-  Sparkles,
-  WalletCards,
-} from 'lucide-react';
+import { Info, Sparkles, WalletCards } from 'lucide-react';
 import {
   Alert,
   AlertDescription,
   AlertTitle,
   Button,
   Card,
-  CardAction,
   CardContent,
   CardFooter,
   CardHeader,
@@ -139,11 +132,6 @@ export function AdminWalletSection({
     control,
     name: 'walletAddressManagementWallet' as keyof TDEditFormValues,
   }) as string | undefined;
-  const addrByRole: Record<number, string | undefined> = {
-    1: ownerAddr,
-    2: gasAddr,
-    3: mgmtAddr,
-  };
   const completedWallets = [ownerAddr, gasAddr, mgmtAddr].filter(
     Boolean,
   ).length;
@@ -178,7 +166,6 @@ export function AdminWalletSection({
       <CardContent className={embedded ? 'px-0 py-0' : 'py-6'}>
         <div className="grid gap-4 lg:grid-cols-3">
           {walletFieldGroups.map((group, index) => {
-            const ready = !!addrByRole[group.roleType];
             return (
               <Card key={group.roleType} className="bg-muted/20">
                 <CardHeader className="py-4">
@@ -190,19 +177,6 @@ export function AdminWalletSection({
                       {t(group.labelKeys.walletAddress)}
                     </CardTitle>
                   </div>
-                  <CardAction>
-                    {ready ? (
-                      <CheckCircle2
-                        className="size-5 text-primary"
-                        aria-label="Ready"
-                      />
-                    ) : (
-                      <Circle
-                        className="size-5 text-muted-foreground"
-                        aria-label="Not ready"
-                      />
-                    )}
-                  </CardAction>
                 </CardHeader>
                 <CardContent className="pb-5">
                   <WalletFieldGroup

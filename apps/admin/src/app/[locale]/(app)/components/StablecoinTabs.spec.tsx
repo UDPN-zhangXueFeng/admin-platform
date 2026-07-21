@@ -5,9 +5,13 @@ import userEvent from '@testing-library/user-event';
 jest.mock('next-intl', () => ({
   useTranslations: () => (key: string, values?: Record<string, number>) => {
     const messages: Record<string, string> = {
-      tokenTabsLabel: 'Stablecoin',
+      tokenTabsLabel: 'Token Management',
       tokenSearch: 'Search tokens...',
       clearSearch: 'Clear token search',
+      allTokenTypes: 'All',
+      stablecoin: 'Stablecoin',
+      tokenizedDeposit: 'Tokenized Deposit',
+      tokenizedMmf: 'Tokenized MMF',
       allNetworks: 'All',
       tabView: 'Tab view',
       dropdownView: 'Dropdown view',
@@ -159,6 +163,30 @@ describe('StablecoinTabs', () => {
     ).not.toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: /mmf-test-1/i }));
     expect(handleValueChange).toHaveBeenCalledWith('303');
+  });
+
+  it('filters token types before applying the network filter', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <StablecoinTabs
+        mode="tabs"
+        onModeChange={jest.fn()}
+        onValueChange={jest.fn()}
+        options={options}
+        value="101"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Tokenized Deposit' }));
+
+    expect(screen.getByRole('tab', { name: /SARCoin/i })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /USDCoin/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /mmf-test-1/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Besu' }));
+
+    expect(screen.getByRole('tab', { name: /SARCoin/i })).toBeInTheDocument();
   });
 
   it('shows loading before empty feedback', () => {

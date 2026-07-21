@@ -80,3 +80,19 @@ export { getUserWallets } from './lib/user-wallets/user-wallets.api';
 export { userWalletKeys } from './lib/user-wallets/user-wallets.keys';
 
 export { useUserWalletsQuery } from './lib/user-wallets/user-wallets.queries';
+
+// Key Policy Configuration (pure mock — types + mock data only, no API/hooks)
+export {
+  type PolicyListItem,
+  type PolicyEditItem,
+  type PolicyDetail,
+  type OperationRecord,
+  type PolicyFormValues,
+} from './lib/key-policy-configuration/key-policy-configuration.model';
+
+export {
+  policyList,
+  policyEditList,
+  policyDetail,
+  operationRecords,
+} from './lib/key-policy-configuration/key-policy-configuration.mock-data';

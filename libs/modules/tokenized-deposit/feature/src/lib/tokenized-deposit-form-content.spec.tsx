@@ -109,6 +109,7 @@ describe('useTokenizedDepositForm — add 路径', () => {
     const { result } = renderHook(() => useTokenizedDepositForm({ mode: 'add' }));
 
     expect(result.current.form.getValues('mintMethod')).toBe(1);
+    expect(result.current.form.getValues('metaType')).toBe(5);
     expect(result.current.tokenType).toBe(1);
     expect(result.current.flag).toBe(false);
   });

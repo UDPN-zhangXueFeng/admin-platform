@@ -181,3 +181,175 @@ export const kycConfig: Record<number, string> = {
   0: 'No',
   1: 'Yes',
 };
+
+// ---------------------------------------------------------------------------
+// Key Policy Configuration
+// ---------------------------------------------------------------------------
+
+/**
+ * List page status map (index.tsx:64-69, 4 states).
+ * Separate from operationRecordStatusMap — the detail Operation Records
+ * table uses a different 3-state machine.
+ */
+export const keyPolicyStatusMap: Record<string, { label: string; tone: string }> = {
+  Processing: { label: 'Processing', tone: 'processing' },
+  Rejected: { label: 'Rejected', tone: 'error' },
+  Enabled: { label: 'Enabled', tone: 'success' },
+  Disabled: { label: 'Disabled', tone: 'default' },
+};
+
+/**
+ * Detail page Operation Records status map (detail.tsx:137-148, 3 states).
+ * Different from keyPolicyStatusMap above.
+ */
+export const operationRecordStatusMap: Record<string, { label: string; tone: string }> = {
+  'Pending Approval': { label: 'Pending Approval', tone: 'warning' },
+  Approved: { label: 'Approved', tone: 'success' },
+  Rejected: { label: 'Rejected', tone: 'error' },
+};
+
+/**
+ * 22 business roles — merged from index.businessNameOptions (lines 31-61)
+ * and new/edit.businessNameData (new.tsx:29-152 / edit.tsx:31-154).
+ * The "All" entry from index is excluded (list filter only).
+ * Description comes from new/edit businessNameData.
+ */
+export const roleNameOptions: { label: string; value: string; description: string }[] = [
+  {
+    label: 'Contract Owner',
+    value: 'Contract Owner',
+    description:
+      'The owner of the smart contract, responsible for deploying the contract and performing contract upgrades.',
+  },
+  {
+    label: 'Configuration Admin',
+    value: 'Configuration Admin',
+    description:
+      'The administrator responsible for configuring the stablecoin token contract, including setting the addresses of its management contract and other associated contracts.',
+  },
+  {
+    label: 'Role Admin',
+    value: 'Role Admin',
+    description:
+      'The role administrator, responsible for assigning or revoking all other operational roles within the system.',
+  },
+  {
+    label: 'Gas Fee',
+    value: 'Gas Fee',
+    description:
+      'The blockchain-native transaction signer responsible for paying gas fees required for all on-chain transactions.',
+  },
+  {
+    label: 'Wallet Configurator',
+    value: 'Wallet Configurator',
+    description: 'Configures wallet types and attributes.',
+  },
+  {
+    label: 'SP (Service Provider)',
+    value: 'SP (Service Provider)',
+    description:
+      'Authorized account for SP operations, designated during SP registration.',
+  },
+  {
+    label: 'Register Controller',
+    value: 'Register Controller',
+    description:
+      'Manages SP and wallet registration, wallet limits, and whitelist.',
+  },
+  {
+    label: 'Freeze Controller',
+    value: 'Freeze Controller',
+    description: 'Freezes/unfreezes wallets and wallet funds.',
+  },
+  {
+    label: 'Account Fees',
+    value: 'Account Fees',
+    description:
+      'Used to collect account management fees for different wallet types.',
+  },
+  {
+    label: 'Overdraft Fee',
+    value: 'Overdraft Fee',
+    description: 'Used to collect overdraft loan fees.',
+  },
+  {
+    label: 'Overdraft Interest',
+    value: 'Overdraft Interest',
+    description: 'Used to collect interest on overdraft loan.',
+  },
+  {
+    label: 'Deposit Interest (for payment)',
+    value: 'Deposit Interest (for payment)',
+    description: 'Used to pay deposit interest to customers.',
+  },
+  {
+    label: 'Deposit Interest (for receiving)',
+    value: 'Deposit Interest (for receiving)',
+    description: 'Used to charge fees on customers deposited funds.',
+  },
+  {
+    label: 'Fund Dividend Distribution',
+    value: 'Fund Dividend Distribution',
+    description: 'Used to distribute fund dividends to customers.',
+  },
+  {
+    label: 'Cold Burner',
+    value: 'Cold Burner',
+    description:
+      'Handles burn operations exceeding the threshold using cold wallet.',
+  },
+  {
+    label: 'Hot Burner',
+    value: 'Hot Burner',
+    description:
+      'Handles burn operations within the threshold using hot wallet.',
+  },
+  {
+    label: 'Cold Minter',
+    value: 'Cold Minter',
+    description:
+      'Handles mint operations exceeding the threshold using cold wallet.',
+  },
+  {
+    label: 'Hot Minter',
+    value: 'Hot Minter',
+    description:
+      'Handles mint operations within the threshold using hot wallet.',
+  },
+  {
+    label: 'Force Transfer',
+    value: 'Force Transfer',
+    description: 'Executes forced token transfers between wallets.',
+  },
+  {
+    label: 'Wipe',
+    value: 'Wipe',
+    description: 'Clears token balances from specified wallets.',
+  },
+  {
+    label: 'Pause Controller',
+    value: 'Pause Controller',
+    description: 'Pauses/unpauses contract operations.',
+  },
+  {
+    label: 'Customer Hosted Wallet',
+    value: 'Customer Hosted Wallet',
+    description:
+      'System-managed wallet for end customers, used to receive, store, and manage customer assets.',
+  },
+];
+
+/** Rotation method options (2 items, kebab-case value). */
+export const rotationMethodOptions = [
+  { label: 'System-initiated', value: 'system-initiated' },
+  { label: 'Manual approval', value: 'manual-approval' },
+];
+
+/** Detail page Operation Type filter options (detail.tsx:234-241, 5 items). */
+export const operationTypeOptions = [
+  { label: 'Enable', value: 'Enable' },
+  { label: 'Disable', value: 'Disable' },
+  { label: 'Edit', value: 'Edit' },
+  { label: 'Resubmit', value: 'Resubmit' },
+  { label: 'Add', value: 'Add' },
+];

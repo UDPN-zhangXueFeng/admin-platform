@@ -1,32 +1,35 @@
 {
-  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/key-management/user-wallets",
-  "moduleName": "user-wallets",
-  "slug": "user-wallets",
+  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/key-management/key-policy-configuration",
+  "moduleName": "key-policy-configuration",
+  "slug": "key-policy-configuration",
   "parentModule": "key-management",
-  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/user-wallets.md",
+  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/key-policy-configuration.md",
   "phase": "developing",
   "migrationRate": 1.0,
   "acceptanceRate": 0.0,
   "scope": {
-    "subModule": "user-wallets — key-management 第4个迁入子模块（极简：仅list页）",
-    "totalFiles": 1,
-    "totalLines": 271,
-    "pages": "list (index.tsx 271行, 无detail)",
-    "sourceNote": "源是半成品：筛选未接API(TODO index.tsx:83)+下拉空占位+GET无参响应{list,total}。迁移忠实保持源行为。"
+    "subModule": "key-policy-configuration — key-management 第5个(最后)迁入子模块，最复杂",
+    "totalFiles": 4,
+    "totalLines": 1768,
+    "pages": "list(index 717) + new(345) + edit(414) + detail(292)",
+    "sourceNote": "纯mock页(无API)。4份内联静态数据(policyList22/policyEditList4/policyDetail1/operationRecords5)。双状态机。复合频率表单。路由需扩展page.tsx支持<sub>/{new,edit,detail}。"
   },
   "coverage": {
-    "sourceFiles": { "covered": 1, "total": 1, "missing": [] },
-    "apis": { "covered": 1, "total": 1, "missing": [] },
-    "pages": { "covered": 1, "total": 1, "missing": [] },
-    "uiMappings": { "covered": 12, "total": 12, "missing": [] }
+    "sourceFiles": { "covered": 4, "total": 4, "missing": [] },
+    "apis": { "covered": 0, "total": 0, "missing": [], "note": "纯mock无API" },
+    "pages": { "covered": 4, "total": 4, "missing": [] },
+    "uiMappings": { "covered": 30, "total": 30, "missing": [] }
   },
   "tasks": [
-    { "id": "uw-1", "name": "data-access(model/api GET/keys/queries) + util kycConfig + barrels", "kind": "scaffold", "model": "haiku", "deps": [], "complexity": "低", "status": "pending" },
-    { "id": "uw-2", "name": "列表页 user-wallets-list-page.tsx(8筛选空占位+9列+前端分页)", "kind": "page", "model": "opus", "deps": ["uw-1"], "complexity": "中", "status": "pending", "overrideReason": "sonnet不可用降级opus" },
-    { "id": "uw-3", "name": "接入(registry user-wallets loader + page.tsx keyManagementPageKeys + barrel)", "kind": "scaffold", "model": "haiku", "deps": ["uw-2"], "complexity": "低", "status": "pending" },
-    { "id": "uw-4", "name": "验收(lint/tsc + grep运行时坑 + 路由307非404)", "kind": "verify", "model": "opus", "deps": ["uw-3"], "complexity": "低", "status": "pending" }
+    { "id": "kpc-1", "name": "scaffold(model+4份mock-data+5常量+barrels)", "kind": "scaffold", "model": "haiku", "deps": [], "complexity": "中", "status": "pending" },
+    { "id": "kpc-2", "name": "list页(4筛选+8列+状态驱动行操作+Disable/Enable Dialog)", "kind": "page", "model": "opus", "deps": ["kpc-1"], "complexity": "高", "status": "pending" },
+    { "id": "kpc-3", "name": "new页(Business Name联动+复合频率+Radio)", "kind": "page", "model": "opus", "deps": ["kpc-1"], "complexity": "中", "status": "pending" },
+    { "id": "kpc-4", "name": "edit页(?id回填+parseRotationFrequency反解析)", "kind": "page", "model": "opus", "deps": ["kpc-1"], "complexity": "高", "status": "pending" },
+    { "id": "kpc-5", "name": "detail页(2 Tab+Operation Records筛选)", "kind": "page", "model": "opus", "deps": ["kpc-1"], "complexity": "中", "status": "pending" },
+    { "id": "kpc-6", "name": "接入(registry 4 loader+page.tsx路由扩展+barrel)", "kind": "scaffold", "model": "haiku+主循环", "deps": ["kpc-2","kpc-3","kpc-4","kpc-5"], "complexity": "中", "status": "pending", "note": "page.tsx IIFE扩展支持<sub>/{new,edit,detail}由主循环核对" },
+    { "id": "kpc-7", "name": "验收(lint/tsc+grep运行时坑+4路由307非404+4页冒烟)", "kind": "verify", "model": "opus", "deps": ["kpc-6"], "complexity": "中", "status": "pending" }
   ],
   "currentIndex": 0,
   "startedAt": "2026-07-21",
-  "notes": "用户授权'继续迁移这块'(图#2: user-wallets Page Not Found)。模块极简(1文件271行,仅list),高度复用managed-wallets模式+刚打通的接入机制。源是半成品(筛选未接API),迁移忠实保持。GET响应{list,total}与managed-wallets{rows,page}不同。无detail(只注册list loader)。statusConfig复用walletStatusMap,kycConfig新增。managed-wallets状态已备份至module-migration-state.managed-wallets-archived.json。"
+  "notes": "key-management最后一个子模块,最复杂(4页1768行)。纯mock(无API,data-access仅model+mock-data)。双状态机(keyPolicyStatusMap4态/operationRecordStatusMap3态)。复合频率表单(new/edit)。路由需扩展page.tsx modulePageKey IIFE支持<sub>/{new,edit,detail}(现仅<sub>/detail)。5歧义点(createdOn双格式/edit与index mock不一致/detail不按id查/Actions死链/method命名不一致)。user-wallets状态已备份。用户授权'继续迁移'。"
 }

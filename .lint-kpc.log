@@ -1,0 +1,82 @@
+Creating project graph nodes with @nx/jest/plugin
+
+
+Creating project graph nodes with 6 plugins
+  - @nx/next/plugin
+  - @nx/eslint/plugin
+  - @nx/playwright/plugin
+  - @nx/jest/plugin
+  - nx/core/package-json
+  - nx/core/project-json
+Creating project graph nodes with 5 plugins
+  - @nx/next/plugin
+  - @nx/eslint/plugin
+  - @nx/playwright/plugin
+  - @nx/jest/plugin
+  - nx/core/project-json
+Creating project graph nodes with 4 plugins
+  - @nx/next/plugin
+  - @nx/eslint/plugin
+  - @nx/playwright/plugin
+  - @nx/jest/plugin
+Creating project graph nodes with 6 plugins
+  - @nx/js/typescript
+  - @nx/next/plugin
+  - @nx/eslint/plugin
+  - @nx/playwright/plugin
+  - @nx/jest/plugin
+  - nx/core/package-json
+Creating project graph nodes with 5 plugins
+  - @nx/js/typescript
+  - @nx/next/plugin
+  - @nx/eslint/plugin
+  - @nx/playwright/plugin
+  - @nx/jest/plugin
+Creating project graph nodes with 4 plugins
+  - @nx/next/plugin
+  - @nx/eslint/plugin
+  - @nx/playwright/plugin
+  - @nx/jest/plugin
+Creating project graph nodes with 3 plugins
+  - @nx/eslint/plugin
+  - @nx/playwright/plugin
+  - @nx/jest/plugin
+Creating project graph nodes with 2 plugins
+  - @nx/eslint/plugin
+  - @nx/jest/plugin
+Creating project graph nodes with 3 plugins
+  - @nx/next/plugin
+  - @nx/eslint/plugin
+  - @nx/jest/plugin
+Creating project graph nodes with 2 plugins
+  - @nx/eslint/plugin
+  - @nx/jest/plugin
+Creating project graph nodes with @nx/jest/plugin
+
+Creating project graph nodes with 6 plugins
+  - @nx/next/plugin
+  - @nx/eslint/plugin
+  - @nx/playwright/plugin
+  - @nx/jest/plugin
+  - nx/core/package-json
+  - nx/core/project-json
+Creating project graph nodes with 5 plugins
+  - @nx/next/plugin
+  - @nx/eslint/plugin
+  - @nx/playwright/plugin
+  - @nx/jest/plugin
+  - nx/core/package-json
+Creating project graph nodes with 4 plugins
+  - @nx/next/plugin
+  - @nx/eslint/plugin
+  - @nx/playwright/plugin
+  - @nx/jest/plugin
+Creating project graph nodes with 3 plugins
+  - @nx/eslint/plugin
+  - @nx/playwright/plugin
+  - @nx/jest/plugin
+Creating project graph nodes with 2 plugins
+  - @nx/eslint/plugin
+  - @nx/jest/plugin
+
+

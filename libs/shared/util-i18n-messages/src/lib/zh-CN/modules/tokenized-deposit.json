@@ -317,6 +317,7 @@
   "tokenized_deposit_coa_time_zone": "时区",
   "tokenized_deposit_coa_title": "账套设置（COA）",
   "tokenized_deposit_recon_reserve_label": "启用储备资产对账",
+  "tokenized_deposit_recon_reserve_desc": "将储备资产余额与关联储备账户进行对账。",
   "tokenized_deposit_recon_reserve_locked": "该储备资产已要求对账，不能更改。",
   "tokenized_deposit_recon_title": "对账配置",
   "tokenized_deposit_recon_token_desc": "将日记账分录与链上最终性记录进行匹配。",

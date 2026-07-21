@@ -246,12 +246,17 @@ export function WizardFooter({
           </Button>
         ) : null}
         {!isLastStep ? (
-          <Button type="button" disabled={loading} onClick={onContinue}>
+          <Button
+            key="continue"
+            type="button"
+            disabled={loading}
+            onClick={onContinue}
+          >
             {continueLabel}
             <ArrowRight className="size-4" />
           </Button>
         ) : (
-          <Button type="submit" disabled={loading}>
+          <Button key="submit" type="submit" disabled={loading}>
             {loading ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (

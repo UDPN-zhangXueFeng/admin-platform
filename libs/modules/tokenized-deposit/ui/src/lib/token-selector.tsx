@@ -21,6 +21,7 @@ import {
 
 export type TokenSelectorMode = 'tabs' | 'dropdown';
 export type TokenSelectorStatus = 'active' | 'pending' | 'inactive';
+type TokenSelectorType = TokenSelectorOption['type'] | 'ALL';
 
 export interface TokenSelectorOption {
   id: string;
@@ -36,6 +37,10 @@ export interface TokenSelectorLabels {
   count: (count: number) => string;
   search: string;
   clearSearch: string;
+  allTokenTypes: string;
+  stablecoin: string;
+  tokenizedDeposit: string;
+  tokenizedMmf: string;
   allNetworks: string;
   tabView: string;
   dropdownView: string;
@@ -65,6 +70,13 @@ export interface TokenSelectorProps {
 
 const CHIP_LIMIT = 48;
 const ALL_NETWORKS = 'ALL';
+const ALL_TOKEN_TYPES = 'ALL';
+const TOKEN_TYPES: readonly TokenSelectorType[] = [
+  ALL_TOKEN_TYPES,
+  'S',
+  'TD',
+  'M',
+];
 const NETWORK_COLOURS: Record<
   string,
   { background: string; foreground: string }
@@ -140,6 +152,8 @@ export function TokenSelector({
   onModeChange,
 }: TokenSelectorProps) {
   const [search, setSearch] = React.useState('');
+  const [activeType, setActiveType] =
+    React.useState<TokenSelectorType>(ALL_TOKEN_TYPES);
   const [activeNetwork, setActiveNetwork] = React.useState(ALL_NETWORKS);
   const [showAll, setShowAll] = React.useState(false);
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
@@ -160,9 +174,11 @@ export function TokenSelector({
         option.symbol?.toLowerCase().includes(query);
       const matchesNetwork =
         activeNetwork === ALL_NETWORKS || option.network === activeNetwork;
-      return matchesSearch && matchesNetwork;
+      const matchesType =
+        activeType === ALL_TOKEN_TYPES || option.type === activeType;
+      return matchesSearch && matchesNetwork && matchesType;
     });
-  }, [activeNetwork, options, search]);
+  }, [activeNetwork, activeType, options, search]);
   const activeOption = options.find((option) => option.id === value) ?? null;
   const displayedOptions = showAll
     ? filteredOptions
@@ -216,6 +232,34 @@ export function TokenSelector({
             })}
           </div>
         </div>
+      </div>
+
+      <div className="mb-2 flex flex-wrap items-center gap-1.5 px-1">
+        {TOKEN_TYPES.map((type) => {
+          const selected = activeType === type;
+          const label =
+            type === ALL_TOKEN_TYPES
+              ? labels.allTokenTypes
+              : type === 'S'
+                ? labels.stablecoin
+                : type === 'TD'
+                  ? labels.tokenizedDeposit
+                  : labels.tokenizedMmf;
+          return (
+            <button
+              key={type}
+              type="button"
+              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold ${selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+              onClick={() => {
+                setActiveType(type);
+                setShowAll(false);
+              }}
+              aria-pressed={selected}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-1.5 px-1">

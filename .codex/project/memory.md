@@ -31,6 +31,48 @@
 
 ## 2026-07-21
 
+- 背景：Dashboard 的 Token Management 选择器同时展示 Stablecoin、Tokenized Deposit 与 Tokenized MMF，原先仅支持链名称与关键字筛选。
+- 结论：`TokenSelector` 使用 `S`、`TD`、`M` 映射的第一层 Token Type 筛选（默认 All），链名称保留为第二层；Token Type、链与关键字取交集，筛选操作不得隐式改变当前 Dashboard 的选中 Token。
+- 影响：新增 Token Type 文案必须同步维护 `en-US`、`zh-CN` Dashboard 消息；三类资产共存时选择器标题应使用 Token Management，而不是 Stablecoin。
+- 后续同类任务：扩展 Token 筛选维度时优先在 `modules-tokenized-deposit/ui` 的通用选择器实现，并在应用层测试 API `issueType` 到 `S`/`TD`/`M` 映射后的组合筛选。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit onboarding 的全局 form handler 可能在 Review 前被原生 submit 事件触发，过早打开提交确认。
+- 结论：Add Wizard 仅在最后一步执行 `form.handleSubmit(onSubmit)`；Continue 和 Submit 使用不同 React key，步骤切换时不复用已聚焦的按钮节点。
+- 影响：第 3 步只进入 Review，第 4 步必须由用户点击 Submit 才会打开确认并提交。
+- 后续同类任务：多步表单不能把全局 onSubmit 直接暴露给所有步骤；最后一步前需显式阻断原生 submit，并测试 Continue 到 Submit 的节点切换。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit onboarding 的 Key Custody 和 Admin Wallet 区域存在非业务性的视觉干扰。
+- 结论：Key Custody 单字段容器在向导大屏下使用 `max-w-[40rem]`；Admin Wallet 三张角色卡移除只表示地址就绪状态的右上角图标。
+- 影响：钱包完成数量仍由地址字段派生并展示在 section badge，移除图标不影响表单、生成钱包或提交逻辑。
+- 后续同类任务：重复状态信息优先保留汇总 badge，避免在每张操作卡中增加无交互价值的装饰性图标。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit 新建表单的 Meta Transactions/Gas Station 单选项需要默认选择 Yes。
+- 结论：`TDEditFormValues.metaType` 使用 `5 = Yes`、`1 = No`；`DEFAULT_FORM_VALUES` 必须设置 `metaType: 5`，从而覆盖首次进入、Reset 和未含该字段的草稿恢复。
+- 影响：Tron 链联动仍会将该字段强制设为 `1`，不改变链级业务限制。
+- 后续同类任务：迁移旧表单时，除控件定义外还要核对旧 `initialValues`，并为关键默认值增加 hook 测试断言。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit onboard 向导的 Key Custody 单字段选择器在大屏下比其他表单列明显偏窄。
+- 结论：`KeyCustodySection` 的字段组使用 `max-w-xl`，而不是 `max-w-md`，使 Select 在向导中保持半列级别的可扫描宽度。
+- 影响：Select 本身保持 `w-full`，仅由字段组上限控制，不影响移动端宽度。
+- 后续同类任务：向导中单字段区域优先与两列表单的一列宽度对齐，避免无业务原因的窄控件和右侧空白。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit 的 reconciliation 区域按锁定状态切换说明文案，普通状态 key 曾缺失。
+- 结论：`tokenized_deposit_recon_reserve_desc` 必须与 `tokenized_deposit_recon_reserve_locked` 同时维护，并在 `en-US`、`zh-CN` 的模块消息文件中保持键集合一致。
+- 影响：next-intl 不会对缺失 key 降级，组件 render 时直接报 `MISSING_MESSAGE`。
+- 后续同类任务：添加状态分支的 i18n key 时，搜索所有分支 key 并同步双语消息；至少执行 JSON 解析和 `shared-util-i18n-messages` lint。
+
+## 2026-07-21
+
 - 背景：Tokenized Deposit COA 的 setup-required 页面需要回显默认模板、时区和 EOD，但这些参考字段不允许用户修改。
 - 结论：仅 Financial Book Name 在 `setup_required` 下可编辑；Account Template、Time Zone、EOD Cut-off Time 始终 disabled。原生 `input[type=time]` 已提供浏览器时钟，不能额外叠加自定义时钟图标。
 - 影响：EOD 采用 `step={1}` 保留秒位，同时移除重复图标；disabled 后不再出现原生时间分段输入的焦点选中样式。

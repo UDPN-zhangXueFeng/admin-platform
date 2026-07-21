@@ -121,6 +121,18 @@ function AddWizard({ s }: { s: TokenizedDepositFormState }): React.JSX.Element {
     sharedDialogs,
   } = s;
 
+  const handleFormSubmit = React.useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      if (currentStep !== steps.length - 1) {
+        event.preventDefault();
+        return;
+      }
+
+      void form.handleSubmit(onSubmit)(event);
+    },
+    [currentStep, form, onSubmit, steps.length],
+  );
+
   return (
     <div className="w-full px-2 py-4 sm:px-4 lg:px-6">
       <Toaster />
@@ -155,7 +167,7 @@ function AddWizard({ s }: { s: TokenizedDepositFormState }): React.JSX.Element {
         />
         <form
           id="td-onboard-form"
-          onSubmit={form.handleSubmit(onSubmit)}
+          onSubmit={handleFormSubmit}
           className={loading ? 'pointer-events-none opacity-60' : ''}
         >
           <Card className="rounded-none border-0 shadow-none">
