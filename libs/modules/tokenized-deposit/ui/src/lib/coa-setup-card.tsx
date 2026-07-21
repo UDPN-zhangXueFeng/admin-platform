@@ -5,7 +5,6 @@
  * 仅做 admin-platform 技术栈适配：
  *   - antd Input/Select/TimePicker/Spin → shared/ui Input + Radix Select + 原生 time input + Loader2
  *   - dayjs → date-fns（项目未装 dayjs，见 arch 文档第 6 节）
- *   - antd ClockCircleOutlined → lucide-react ClockCircle
  *
  * ## 受控契约
  *
@@ -23,8 +22,8 @@
  *
  * ## 字段禁用规则
  *
- * `isFieldDisabled = readonly || data.status !== 'setup_required'`
- * configured 态（含 stablecoin 已配置）整体只读，仅展示。
+ * - Financial Book Name: `readonly || data.status !== 'setup_required'`
+ * - Account Template / EOD Cut-off Time / Time Zone: 始终只读，仅展示默认或后端回填值。
  *
  * ## fallback option 机制
  *
@@ -45,9 +44,9 @@
  *
  * i18n namespace: `modules.tokenized-deposit`，label key 为相对 key（不带前缀）。
  */
-import { Clock as ClockCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { type ChangeEvent, type ReactNode } from 'react';
+import React, { type ChangeEvent, type ReactNode } from 'react';
 import { format, parse } from 'date-fns';
 
 import {
@@ -144,15 +143,12 @@ const FALLBACK_SELECT_VALUE = '__coa_fallback__';
 const TIME_REFERENCE_DATE = new Date(1970, 0, 1);
 
 /**
- * `HH:mm:ss`（数据层）→ 控件值（`HH:mm`，原生 time input 精度到分钟）。
+ * `HH:mm:ss`（数据层）→ 控件值（`HH:mm:ss`，原生 time input 秒级精度）。
  *
  * 用 date-fns `parse` 解析 `HH:mm:ss`（项目未装 dayjs，见 arch 文档第 6 节），
- * 再 `format` 成 `HH:mm`。非法值回落空串，使控件显示 placeholder 而非脏值。
+ * 再按 `HH:mm:ss` 输出。非法值回落空串，使控件显示 placeholder 而非脏值。
  *
- * 注意：原生 `<input type="time">` 仅支持 `HH:mm`，秒位在显示时丢失，
- * 但 `data.eodCutOffTime`（源数据）的秒位被完整保留，onChange 写回时
- * 用 {@link formatTimeValue} 归零补齐 `:00`。与源 antd TimePicker 行为一致——
- * 源 TimePicker format 虽含秒，但用户交互也只到分钟精度。
+ * `step={1}` 使原生控件显示和编辑秒位，与旧 TimePicker 的 `HH:mm:ss` 格式一致。
  */
 function parseTimeValue(value?: string): string {
   if (!value) return '';
@@ -160,19 +156,22 @@ function parseTimeValue(value?: string): string {
   const parsed = parse(value, EOD_TIME_FORMAT, TIME_REFERENCE_DATE);
   if (Number.isNaN(parsed.getTime())) return '';
 
-  return format(parsed, 'HH:mm');
+  return format(parsed, EOD_TIME_FORMAT);
 }
 
 /**
- * 控件值（`HH:mm`）→ `data.eodCutOffTime`（`HH:mm:ss`）。
+ * 控件值（`HH:mm:ss`）→ `data.eodCutOffTime`（`HH:mm:ss`）。
  *
- * 用 date-fns `format` 保证输出严格为 `HH:mm:ss`（秒位补 00）。
- * 与源码 antd TimePicker `onChange(_, timeString)` 写回 `HH:mm:ss` 语义一致。
+ * 兼容浏览器仅返回 `HH:mm` 的情况，缺失秒位时补 `00`。
  */
 function formatTimeValue(controlValue: string): string {
   if (!controlValue) return '';
 
-  const parsed = parse(controlValue, 'HH:mm', TIME_REFERENCE_DATE);
+  const parsed = parse(
+    controlValue,
+    controlValue.length === 5 ? 'HH:mm' : EOD_TIME_FORMAT,
+    TIME_REFERENCE_DATE,
+  );
   if (Number.isNaN(parsed.getTime())) return '';
 
   return format(parsed, EOD_TIME_FORMAT);
@@ -232,7 +231,8 @@ export function CoaSetupCard({
 
   // ── 派生状态 ──
   const isSetupRequired = data.status === 'setup_required';
-  const isFieldDisabled = readonly || !isSetupRequired;
+  const isFinancialBookNameDisabled = readonly || !isSetupRequired;
+  const isCoaReferenceFieldDisabled = true;
 
   // fallback option：options 为空但 data 有值时兜底展示
   const accountTemplateFallbackOptions = buildFallbackOption(
@@ -420,7 +420,7 @@ export function CoaSetupCard({
             errors?.financialBookName,
             <Input
               value={data.financialBookName ?? ''}
-              disabled={isFieldDisabled}
+              disabled={isFinancialBookNameDisabled}
               maxLength={FINANCIAL_BOOK_NAME_MAX_LENGTH}
               placeholder={
                 isSetupRequired
@@ -444,7 +444,7 @@ export function CoaSetupCard({
             errors?.accountTemplateCode,
             <Select
               value={data.accountTemplateCode ?? ''}
-              disabled={isFieldDisabled}
+              disabled={isCoaReferenceFieldDisabled}
               onValueChange={handleAccountTemplateChange}
             >
               <SelectTrigger
@@ -472,21 +472,16 @@ export function CoaSetupCard({
           {renderField(
             'tokenized_deposit_coa_eod_cutoff',
             errors?.eodCutOffTime,
-            <div className="relative w-full">
-              <input
-                type="time"
-                value={parseTimeValue(data.eodCutOffTime)}
-                disabled={isFieldDisabled}
-                onChange={handleEodCutOffTimeChange}
-                className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-9 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-                  errors?.eodCutOffTime ? 'border-destructive' : ''
-                }`}
-              />
-              <ClockCircle
-                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary"
-                aria-hidden
-              />
-            </div>,
+            <input
+              type="time"
+              step={1}
+              value={parseTimeValue(data.eodCutOffTime)}
+              disabled={isCoaReferenceFieldDisabled}
+              onChange={handleEodCutOffTimeChange}
+              className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                errors?.eodCutOffTime ? 'border-destructive' : ''
+              }`}
+            />,
             <div className="mt-2 text-sm text-muted-foreground">
               {t('tokenized_deposit_coa_rollover_notice')}
             </div>,
@@ -498,7 +493,7 @@ export function CoaSetupCard({
             errors?.timeZone,
             <Select
               value={data.timeZone ?? ''}
-              disabled={isFieldDisabled}
+              disabled={isCoaReferenceFieldDisabled}
               onValueChange={handleTimezoneChange}
             >
               <SelectTrigger

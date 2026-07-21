@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
   Card,
   CardContent,
+  Toaster,
 } from '@myorg/shared/ui';
 import type {
   BlockchainOption,
@@ -121,9 +122,9 @@ function AddWizard({ s }: { s: TokenizedDepositFormState }): React.JSX.Element {
   } = s;
 
   return (
-    <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+    <div className="w-full px-2 py-4 sm:px-4 lg:px-6">
+      <Toaster />
       <WizardHeader
-        eyebrow={t('td_onboard_eyebrow')}
         title={pageTitle}
         description={t('td_header_desc')}
       />

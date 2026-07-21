@@ -20,6 +20,7 @@ import {
   normalizeCoaSetupTimeZone,
   setupRequiredCoaSetupMock,
   withDefaultAccountTemplate,
+  withDefaultCoaTimezone,
 } from '@myorg/modules/tokenized-deposit/util';
 import { getCoaTemplateTokenType } from '@myorg/modules/tokenized-deposit/util';
 
@@ -42,7 +43,7 @@ import { getCoaTemplateTokenType } from '@myorg/modules/tokenized-deposit/util';
  * - 科目模板：useFinanceTemplateQuery(tokenType)，tokenType = getCoaTemplateTokenType(mintMethod)
  *   （1→1 / 5→5 / 20→undefined）。映射 FinanceTemplateOption → CoaSetupOption
  *   （value=String(bookTemplateId)||bookTemplateName, label=bookTemplateName）。
- * - 时区：useTimezoneOptionsQuery（model TimezoneOption {value,label}，与 CoaSetupOption 同构）。
+ * - 时区：useTimezoneOptionsQuery，兼容新 `{ value, label }` 与旧 `{ key, value }` 响应。
  *
  * ## 浏览器时区自适应
  *
@@ -131,21 +132,29 @@ export function useCoaSetup({
   // ── 下拉映射（FinanceTemplateOption → CoaSetupOption）──
   const coaTemplateOptions: CoaSetupOption[] = useMemo(() => {
     if (!financeTemplateData) return [];
-    return financeTemplateData.map((item: FinanceTemplateOption) => ({
-      value:
+    return financeTemplateData.map((item: FinanceTemplateOption) => {
+      const value =
         item.bookTemplateId !== undefined
           ? String(item.bookTemplateId)
-          : (item.bookTemplateName ?? ''),
-      label: item.bookTemplateName ?? '',
-    }));
+          : (item.templateCode ??
+            item.bookTemplateName ??
+            item.templateName ??
+            '');
+
+      return {
+        value,
+        label:
+          item.bookTemplateName ?? item.templateName ?? item.templateCode ?? value,
+      };
+    });
   }, [financeTemplateData]);
 
-  // 时区：TimezoneOption {value,label} 与 CoaSetupOption 同构，直接转。
+  // 时区：兼容新 {value,label} 和旧 {key,value}，统一为 CoaSetupOption。
   const coaTimezoneOptions: CoaSetupOption[] = useMemo(
     () =>
       (timezoneData ?? []).map((item: TimezoneOption) => ({
-        value: item.value ?? '',
-        label: item.label ?? item.value ?? '',
+        value: item.key ?? item.value ?? '',
+        label: item.label ?? item.value ?? item.key ?? '',
       })),
     [timezoneData],
   );
@@ -181,13 +190,21 @@ export function useCoaSetup({
   );
 
   const defaultCoaTemplateOption = coaTemplateOptions[0];
+  const defaultCoaTimezoneOption =
+    currentTimezoneOption ||
+    (currentTimeZone
+      ? { value: currentTimeZone, label: currentTimeZone }
+      : undefined);
 
   // ── TD COA（本地可编辑，withDefaultAccountTemplate + 时区归一化）──
   const tokenizedDepositCoaData: CoaSetupInfo = useMemo(
     () =>
       normalizeCoaSetupTimeZone(
         withDefaultAccountTemplate(
-          tokenizedDepositCoaSetupInfo ?? setupRequiredCoaSetupInfo,
+          withDefaultCoaTimezone(
+            tokenizedDepositCoaSetupInfo ?? setupRequiredCoaSetupInfo,
+            defaultCoaTimezoneOption,
+          ),
           defaultCoaTemplateOption,
         ),
         coaTimezoneOptions,
@@ -195,6 +212,7 @@ export function useCoaSetup({
     [
       coaTimezoneOptions,
       defaultCoaTemplateOption,
+      defaultCoaTimezoneOption,
       setupRequiredCoaSetupInfo,
       tokenizedDepositCoaSetupInfo,
     ],
@@ -205,10 +223,13 @@ export function useCoaSetup({
     () =>
       normalizeCoaSetupTimeZone(
         withDefaultAccountTemplate(
-          coaSetupInfo ?? {
-            ...setupRequiredCoaSetupInfo,
-            reserveAccountId,
-          },
+          withDefaultCoaTimezone(
+            coaSetupInfo ?? {
+              ...setupRequiredCoaSetupInfo,
+              reserveAccountId,
+            },
+            defaultCoaTimezoneOption,
+          ),
           defaultCoaTemplateOption,
         ),
         coaTimezoneOptions,
@@ -217,6 +238,7 @@ export function useCoaSetup({
       coaTimezoneOptions,
       coaSetupInfo,
       defaultCoaTemplateOption,
+      defaultCoaTimezoneOption,
       reserveAccountId,
       setupRequiredCoaSetupInfo,
     ],

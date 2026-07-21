@@ -24,7 +24,7 @@ import { Button } from '@myorg/shared/ui';
 // ── WizardHeader：页头（eyebrow + 标题 + 描述）──
 
 export interface WizardHeaderProps {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   description?: string;
 }
@@ -36,9 +36,11 @@ export function WizardHeader({
 }: WizardHeaderProps): React.JSX.Element {
   return (
     <div className="mb-6">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
-        {eyebrow}
-      </p>
+      {eyebrow ? (
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
+          {eyebrow}
+        </p>
+      ) : null}
       <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
         {title}
       </h1>

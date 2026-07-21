@@ -252,6 +252,25 @@ export const withDefaultAccountTemplate = (
   };
 };
 
+/**
+ * 当 COA 未返回时区时，填入当前浏览器时区对应的默认选项。
+ * 已配置的时区或展示标签始终优先，避免覆盖后端的 Financial Book 配置。
+ */
+export const withDefaultCoaTimezone = (
+  coaSetup: CoaSetupInfo,
+  defaultOption?: CoaSetupOption,
+): CoaSetupInfo => {
+  if (!defaultOption || coaSetup.timeZone || coaSetup.timeZoneLabel) {
+    return coaSetup;
+  }
+
+  return {
+    ...coaSetup,
+    timeZone: defaultOption.value,
+    timeZoneLabel: defaultOption.label,
+  };
+};
+
 // ═══════════════════════════════════════════════════════════════════
 // 函数 5: resolveCoaSetupTimeZone
 // ═══════════════════════════════════════════════════════════════════
@@ -306,7 +325,7 @@ export const normalizeCoaSetupTimeZone = (
   timezoneOptions?: CoaSetupOption[],
 ): CoaSetupInfo => {
   const resolvedTimeZone = resolveCoaSetupTimeZone(
-    coaSetup.timeZone,
+    coaSetup.timeZone || coaSetup.timeZoneLabel,
     timezoneOptions,
   );
 

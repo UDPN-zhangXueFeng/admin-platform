@@ -140,8 +140,10 @@ export function TokenBasicInfoSection({
                   </p>
                 </div>
                 <div
+                  id="field-mintMethod"
                   role="radiogroup"
                   aria-label={t('td_form_token_classification')}
+                  tabIndex={-1}
                   className="grid gap-3 sm:grid-cols-3"
                 >
                   {tokenTypeOptions.map((item) => {
@@ -346,7 +348,7 @@ export function TokenBasicInfoSection({
                 </FieldLabel>
                 <div className="flex h-10 items-stretch overflow-hidden rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
                   {symbol ? (
-                    <span className="flex items-center border-r bg-muted px-3 text-xs text-muted-foreground">
+                    <span className="flex shrink-0 whitespace-nowrap items-center border-r bg-muted px-3 text-xs text-muted-foreground">
                       1 {symbol} =
                     </span>
                   ) : null}
@@ -368,7 +370,7 @@ export function TokenBasicInfoSection({
                     maxLength={20}
                     step={0.01}
                     disabled={isReadonly}
-                    className="w-full bg-transparent px-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                    className="min-w-0 flex-1 bg-transparent px-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
                   />
                   <span className="flex items-center border-l bg-muted px-3 text-sm font-medium">
                     {currency || ' '}
@@ -385,7 +387,7 @@ export function TokenBasicInfoSection({
               name="reserveAccountId"
               rules={{ required: true }}
               render={({ field }) => (
-                <Field className="md:col-span-2">
+                <Field>
                   <FieldLabel htmlFor="select-reserveAccountId">
                     <Required />
                     {t('tokenized_deposit_0174')}
@@ -522,7 +524,7 @@ export function TokenBasicInfoSection({
                 <Select
                   value={(field.value as string) ?? ''}
                   onValueChange={field.onChange}
-                  disabled
+                  disabled={isReadonly}
                 >
                   <SelectTrigger
                     id="select-whitelistMode"
@@ -575,6 +577,7 @@ export function TokenBasicInfoSection({
                   </TooltipProvider>
                 </FieldLabel>
                 <RadioGroup
+                  id="field-metaType"
                   value={field.value !== undefined ? String(field.value) : ''}
                   onValueChange={(v) => field.onChange(Number(v))}
                   disabled={isReadonly || chainType === 'tron'}
@@ -607,9 +610,6 @@ export function TokenBasicInfoSection({
                 </div>
                 <Badge variant="secondary">{t('td_form_optional')}</Badge>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {t('td_whitelist_pending_contract')}
-              </p>
               <div className="grid gap-5 md:grid-cols-3">
                 {/* thresholdType Select */}
                 <Controller
@@ -621,7 +621,7 @@ export function TokenBasicInfoSection({
                       <Select
                         value={(field.value as string) ?? ''}
                         onValueChange={field.onChange}
-                        disabled
+                        disabled={isReadonly}
                       >
                         <SelectTrigger className="h-10">
                           <SelectValue
@@ -651,7 +651,7 @@ export function TokenBasicInfoSection({
                       <Select
                         value={(field.value as string) ?? ''}
                         onValueChange={field.onChange}
-                        disabled
+                        disabled={isReadonly}
                       >
                         <SelectTrigger className="h-10">
                           <SelectValue
@@ -678,7 +678,7 @@ export function TokenBasicInfoSection({
                   render={({ field }) => (
                     <Field>
                       <FieldLabel>{t('td_form_threshold_value')}</FieldLabel>
-                      <div className="flex">
+                      <div className="flex h-10 overflow-hidden rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
                         <Input
                           type="number"
                           value={
@@ -698,10 +698,10 @@ export function TokenBasicInfoSection({
                           min={0}
                           step={0.01}
                           placeholder="0"
-                          disabled
-                          className="rounded-r-none"
+                          disabled={isReadonly}
+                          className="min-w-0 flex-1 rounded-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                         />
-                        <span className="flex h-10 min-w-16 items-center justify-center rounded-r-md border border-l-0 border-input bg-muted px-3 text-sm text-muted-foreground">
+                        <span className="flex min-w-16 items-center justify-center border-l border-input bg-muted px-3 text-sm text-muted-foreground">
                           {thresholdType === 'volume' ? symbol || '--' : '--'}
                         </span>
                       </div>

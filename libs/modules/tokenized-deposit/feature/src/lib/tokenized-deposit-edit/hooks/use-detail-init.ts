@@ -141,6 +141,14 @@ export function useDetailInit({
     );
     form.setValue('smartContractPackageId', String(detail.smartContractPackageId ?? ''));
     form.setValue('reserveAccountId', detail.reserveAccountId);
+    form.setValue('thresholdType', detail.thresholdType ?? 'volume');
+    form.setValue('thresholdFrequency', detail.thresholdFrequency ?? 'daily');
+    form.setValue(
+      'thresholdValue',
+      detail.thresholdValue !== undefined
+        ? String(detail.thresholdValue)
+        : undefined,
+    );
     // 字段命名转换：API keyServiceCode → 表单 keyServiceName
     form.setValue('keyServiceName', detail.keyServiceCode);
     form.setValue('whitelistMode', 'full');

@@ -46,6 +46,7 @@ export {
   mapFinanceBookToCoaSetup,
   mapDetailToCoaSetup,
   withDefaultAccountTemplate,
+  withDefaultCoaTimezone,
   resolveCoaSetupTimeZone,
   normalizeCoaSetupTimeZone,
   mapCoaSetupToPayload,

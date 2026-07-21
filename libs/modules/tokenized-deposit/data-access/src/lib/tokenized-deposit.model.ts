@@ -428,6 +428,12 @@ export interface TDEditDetail {
   metaType?: number;
   /** 储备账户 ID。 */
   reserveAccountId?: number;
+  /** 重大稳定币发行方阈值指标。 */
+  thresholdType?: string;
+  /** 重大稳定币发行方阈值周期。 */
+  thresholdFrequency?: string;
+  /** 重大稳定币发行方阈值数值。 */
+  thresholdValue?: string | number;
   /** 管理员钱包 DTO 列表（storageType===key_keystore 时使用）。 */
   adminWalletDTOList?: Array<{
     accountType?: number;
@@ -1042,8 +1048,10 @@ export interface KeyServiceOption {
  * endpoint: GET /api/manage/v1/common/timezone/list
  */
 export interface TimezoneOption {
+  /** 旧接口字段：时区 IANA value。 */
+  key?: string;
   value: string;
-  label: string;
+  label?: string;
   [key: string]: unknown;
 }
 

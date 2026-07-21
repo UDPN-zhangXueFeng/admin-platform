@@ -138,3 +138,46 @@ export const signatureTypeOptions = Object.keys(signatureTypeMap).map((key) => (
   label: signatureTypeMap[key],
   value: key,
 }));
+
+// ---------------------------------------------------------------------------
+// Managed Wallets
+// ---------------------------------------------------------------------------
+
+/** Wallet status map — 3 states shared by list & detail. */
+export const walletStatusMap: Record<number, { label: string; tone: string }> = {
+  1: { label: 'Active', tone: 'success' },
+  2: { label: 'Inactive', tone: 'default' },
+  3: { label: 'Pending', tone: 'processing' },
+};
+
+/** Rotation status map — 8-state state machine used by the rotation history table. */
+export const rotationStatusMap: Record<number, { label: string; tone: string }> = {
+  1: { label: 'Pending Generation', tone: 'default' },
+  5: { label: 'Pending Review', tone: 'warning' },
+  10: { label: 'Reviewing', tone: 'processing' },
+  15: { label: 'Review Rejected', tone: 'error' },
+  20: { label: 'Pending Execution', tone: 'warning' },
+  30: { label: 'Executing', tone: 'processing' },
+  35: { label: 'Completed', tone: 'success' },
+  40: { label: 'Failed', tone: 'error' },
+};
+
+/**
+ * Role name map — based on the 3 values actually used by the list & detail pages
+ * (the data-contracts 5-value mapping is a dead spec; see managed-wallets.md §8.B).
+ */
+export const roleNameMap: Record<number, string> = {
+  1: 'Contract Owner',
+  2: 'Payment of gas fee',
+  3: 'Management wallet',
+};
+
+// ---------------------------------------------------------------------------
+// User Wallets
+// ---------------------------------------------------------------------------
+
+/** KYC required map — 0 = No, 1 = Yes. */
+export const kycConfig: Record<number, string> = {
+  0: 'No',
+  1: 'Yes',
+};

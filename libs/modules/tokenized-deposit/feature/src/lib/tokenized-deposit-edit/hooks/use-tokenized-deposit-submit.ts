@@ -147,6 +147,9 @@ export function useTokenizedDepositSubmit({
           accountTypeList,
           metaType,
           decimals,
+          thresholdType,
+          thresholdFrequency,
+          thresholdValue,
           walletAddressContractOwner,
           walletAddressPaymentOfGasFee,
           walletAddressManagementWallet,
@@ -200,6 +203,17 @@ export function useTokenizedDepositSubmit({
               ? RECON_ENABLED
               : RECON_DISABLED
             : RECON_DISABLED;
+        const thresholdPayload =
+          mm === MINT_METHOD.STABLECOIN
+            ? {
+                thresholdType,
+                thresholdFrequency,
+                thresholdValue:
+                  thresholdValue === undefined || thresholdValue === ''
+                    ? undefined
+                    : Number(thresholdValue),
+              }
+            : {};
         // accountTypeList 按 mm 过滤
         let normalizedAccountTypeList: number[];
         if (mm === MINT_METHOD.MMF) {
@@ -326,6 +340,7 @@ export function useTokenizedDepositSubmit({
           // P0-1-submit-guard：使用按 mintMethod 归一后的值
           enableReserveAssetReconciliation:
             normalizedEnableReserveAssetReconciliation,
+          ...thresholdPayload,
           ...walletPayload,
           ...coaPayload,
           ...(normalizedReserveId !== undefined

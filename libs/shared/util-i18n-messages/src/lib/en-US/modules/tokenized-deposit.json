@@ -317,6 +317,7 @@
   "tokenized_deposit_coa_time_zone": "Time Zone",
   "tokenized_deposit_coa_title": "Chart of Account (COA) Setup",
   "tokenized_deposit_recon_reserve_label": "Enable Reserve Asset Reconciliation",
+  "tokenized_deposit_recon_reserve_locked": "This reserve asset requires reconciliation and cannot be changed.",
   "tokenized_deposit_recon_title": "Reconciliation Configuration",
   "tokenized_deposit_recon_token_desc": "Matches journal entries against on-chain finality records.",
   "tokenized_deposit_recon_token_label": "Enable Token Reconciliation",

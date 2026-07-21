@@ -39,6 +39,16 @@ const keyManagementPages: Record<
       default:
         m.KeySignedTransactionsListPage as unknown as ComponentType<unknown>,
     })),
+  'managed-wallets': () =>
+    import('@myorg/modules/key-management/feature').then((m) => ({
+      default:
+        m.ManagedWalletsListPage as unknown as ComponentType<unknown>,
+    })),
+  'managed-wallets-detail': () =>
+    import('@myorg/modules/key-management/feature').then((m) => ({
+      default:
+        m.ManagedWalletsDetailPage as unknown as ComponentType<unknown>,
+    })),
 };
 
 export function loadSpAccessModulePage(

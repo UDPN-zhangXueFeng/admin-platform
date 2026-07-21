@@ -4,6 +4,7 @@
   "PUB_Reset": "重置",
   "PUB_NoData": "暂无数据",
   "key_management_0060": "未找到交易记录",
+  "key_management_0067": "该地址为最近一次轮换后生效的最新钱包地址。",
   "token_type_1": "稳定币",
   "token_type_5": "稳定币",
   "common_task_status_1": "已保存",

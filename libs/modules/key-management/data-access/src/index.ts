@@ -1,7 +1,7 @@
 /**
  * Key-Management data-access barrel.
  *
- * Re-exports all public APIs for key-signed-transactions.
+ * Re-exports all public APIs for key-signed-transactions and managed-wallets.
  */
 
 export {
@@ -38,3 +38,45 @@ export {
   useBlockchainOptionsQuery,
   useKeyServiceConfigurationsQuery,
 } from './lib/key-signed-transactions/key-signed-transactions.queries';
+
+// Managed Wallets
+export {
+  type ManagedWallet,
+  type ManagedWalletListFilters,
+  type ManagedWalletListParams,
+  type ManagedWalletListPage,
+  type ManagedWalletListResponse,
+  type ManagedWalletDetailReq,
+  type ManagedWalletDetail,
+  type WalletRotationHistory,
+  type WalletRotationHistoryFilters,
+  type WalletRotationHistoryParams,
+  type WalletRotationHistoryPage,
+  type WalletRotationHistoryResponse,
+} from './lib/managed-wallets/managed-wallets.model';
+
+export {
+  getManagedWallets,
+  getManagedWalletDetail,
+  getManagedWalletRotationHistory,
+} from './lib/managed-wallets/managed-wallets.api';
+
+export { managedWalletKeys } from './lib/managed-wallets/managed-wallets.keys';
+
+export {
+  useManagedWalletsQuery,
+  useManagedWalletDetailQuery,
+  useManagedWalletRotationHistoryQuery,
+} from './lib/managed-wallets/managed-wallets.queries';
+
+// User Wallets
+export {
+  type UserWalletItem,
+  type UserWalletListResponse,
+} from './lib/user-wallets/user-wallets.model';
+
+export { getUserWallets } from './lib/user-wallets/user-wallets.api';
+
+export { userWalletKeys } from './lib/user-wallets/user-wallets.keys';
+
+export { useUserWalletsQuery } from './lib/user-wallets/user-wallets.queries';

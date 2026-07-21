@@ -14,14 +14,17 @@ import {
 const keyManagementPageKeys: Record<string, string> = {
   'key-service-configuration': 'key-service-configuration',
   'key-signed-transactions': 'key-signed-transactions',
+  'managed-wallets': 'managed-wallets',
 };
 
 /**
  * key-management 标准路由词（走 legacy registry：签名交易 list/detail 等）。
  * 子页面 slug 既不在 keyManagementPageKeys、也不在此集合时（即未迁移的子模块，
- * 如 key-policy-configuration / managed-wallets / user-wallets），modulePageKey
+ * 如 key-policy-configuration / user-wallets），modulePageKey
  * 返回 null → 落到下方的 "Page Not Found" 占位，避免被误当作 detail 渲染成
- * "Transaction record not found"。迁移新子模块时把其 slug 加入 keyManagementPageKeys。
+ * "Transaction record not found"。迁移新子模块时把其 slug 加入 keyManagementPageKeys，
+ * 并在 module-page-registry 注册同名 list loader 与 <slug>-detail loader（见下方
+ * modulePageKey 对 /<sub>/detail 两段路由的处理）。
  */
 const KEY_MANAGEMENT_STANDARD_ROUTES = new Set([
   'detail',
@@ -87,11 +90,17 @@ export default function ModulePage({
     return 'detail';
   }, [realSlug]);
 
-  const modulePageKey: string | null =
-    module === 'key-management' && realSlug?.[0]
-      ? keyManagementPageKeys[realSlug[0]] ??
-        (KEY_MANAGEMENT_STANDARD_ROUTES.has(realSlug[0]) ? pageKey : null)
-      : pageKey;
+  const modulePageKey: string | null = (() => {
+    if (module !== 'key-management' || !realSlug?.[0]) return pageKey;
+    const subSlug = realSlug[0];
+    const mapped = keyManagementPageKeys[subSlug];
+    if (mapped) {
+      // 已迁子模块支持二级 detail 路由：/<sub> (list) 与 /<sub>/detail (detail)。
+      // 现有子模块 realSlug[1] 不会是 'detail'，行为不变（向后兼容）。
+      return realSlug[1] === 'detail' ? `${mapped}-detail` : mapped;
+    }
+    return KEY_MANAGEMENT_STANDARD_ROUTES.has(subSlug) ? pageKey : null;
+  })();
 
   const PageComponent = useMemo(() => {
     if (!isEnabled) return null;

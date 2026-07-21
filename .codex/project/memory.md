@@ -31,6 +31,27 @@
 
 ## 2026-07-21
 
+- 背景：Tokenized Deposit COA 的 setup-required 页面需要回显默认模板、时区和 EOD，但这些参考字段不允许用户修改。
+- 结论：仅 Financial Book Name 在 `setup_required` 下可编辑；Account Template、Time Zone、EOD Cut-off Time 始终 disabled。原生 `input[type=time]` 已提供浏览器时钟，不能额外叠加自定义时钟图标。
+- 影响：EOD 采用 `step={1}` 保留秒位，同时移除重复图标；disabled 后不再出现原生时间分段输入的焦点选中样式。
+- 后续同类任务：对浏览器原生控件先检查其内置 affordance，再决定是否增加图标；只读策略应按字段而非整张卡片统一推断。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit COA 下拉在新系统中沿用旧接口，但返回结构并不总是当前模型声明的字段名。
+- 结论：Finance Template 需兼容 `bookTemplateId/bookTemplateName` 与 `templateCode/templateName`；Time Zone 需兼容新 `{ value, label }` 和旧 `{ key, value }`。映射后再执行默认模板与浏览器时区回退。
+- 影响：直接以未经归一化的 API 字段作为受控 Select 的 `value` 会导致选项存在但显示为空。
+- 后续同类任务：迁移旧下拉接口时，必须对照旧页面的字段映射，而不能仅依据新 TypeScript model 推断响应结构；应以兼容映射测试固定两种结构。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit 的 COA 配置态字段在旧系统中虽不可编辑，仍展示模板、浏览器时区和秒级 EOD 时间。
+- 结论：`configured` COA 的 Account Template 与 Time Zone 缺失时，分别回退模板列表首项和 `Intl.DateTimeFormat().resolvedOptions().timeZone`；已有后端值不可覆盖。原生 `input[type=time]` 必须设置 `step={1}`，才能与旧系统的 `HH:mm:ss` EOD 语义一致。
+- 影响：仅有时区 label 的后端回填需先映射到 timezone option 的 value，避免只读 Select 无法显示选中项。
+- 后续同类任务：迁移只读表单字段时，不能将 disabled 误实现为空值展示；需分别核对旧系统的默认值、回填逻辑和格式精度。
+
+## 2026-07-21
+
 - 背景：登录页图形验证码需要在未提交表单期间自动轮换，避免长期停留页面后继续提交失效 challenge。
 - 结论：`modules-auth-ui` 的 `LoginForm` 在初次获取后，以组件级 `setInterval` 每 15 分钟刷新验证码；自动刷新成功后清空 production 环境的旧输入，development 继续采用接口响应中的 `captchacode` 预填。卸载时必须清理 interval。
 - 影响：定时刷新复用既有 `setCaptcha`，因此旧 blob URL 仍由 store 回收；手动点击刷新和登录失败后的刷新保持原有输入行为。
@@ -289,6 +310,21 @@
 - 后续同类任务：`modules-tokenized-deposit-feature` 当前没有测试文件；普通 Jest 命令可能被 Watchman socket 权限阻塞，必要时以允许 Watchman 访问的环境运行，并明确区分“零测试通过”与“行为已覆盖”。
 
 ## 2026-07-17
+
+- 背景：Stablecoin 的储备资产已锁定对账时，Onboard 渲染 `tokenized_deposit_recon_reserve_locked` 报 `MISSING_MESSAGE`。
+- 结论：条件分支的 i18n key 必须同时写入 `en-US` 与 `zh-CN` 的模块消息 JSON；本次补齐“储备资产已要求对账，不能更改”文案。`shared-util-i18n-messages` 当前 test target 指向不存在的 Jest config，暂以 lint 和 JSON/key 存在性检查验证。
+- 影响：锁定储备资产的 Onboard 页面不再因 i18n 缺失中断渲染。
+- 后续同类任务：为新条件分支增加 `t(key)` 前，先用 `rg` 对照所有 locale 文件；消息库 test target 修复前，不能把 `npx nx test shared-util-i18n-messages` 的配置错误误报为业务测试失败。
+
+- 背景：Tokenized Deposit 的 Significant Stablecoin Issuer Threshold 在新 Onboard 页面被禁用，但旧系统允许编辑。
+- 结论：旧组件允许编辑 `thresholdType`（Volume/TXN Count）、`thresholdFrequency`（Daily/Monthly/Yearly）和非负、两位精度的 `thresholdValue`，仅单位展示框只读；但旧、新提交 payload 都曾遗漏这三个字段，直接恢复 UI 会产生可填写但不保存的假功能。当前按同名字段假设将其接入 Stablecoin create/edit payload，并在详情同名字段存在时回填。
+- 影响：阈值仅对 Stablecoin 展示和提交，非 Stablecoin 的草稿残留不得进入 payload；`thresholdValue` 在 API payload 中归一为 number，空值不提交。
+- 后续同类任务：迁移遗留表单时必须同时审计“控件可编辑性、详情回填、提交 payload”三层；旧 UI 能输入不能证明后端实际持久化，接口契约未在仓库定义时需在真实联调中确认字段名和响应回显。
+
+- 背景：Tokenized Deposit Onboard 的 Continue 校验虽调用 `toast.error`，但用户无法看到提示。
+- 结论：当前 `apps/admin` 没有在根 layout 挂载 `Toaster`；在未完成全局装配前，使用 toast 的独立 feature 必须在自身页面挂载一次 `Toaster`。同时，Radix Select 与卡片式 radio 未注册原生 RHF ref，向导校验失败时应按字段 ID 显式滚动、聚焦到首个无效控件。
+- 影响：`/tokenized-deposit/onboard` 现在会显示校验提示，并将 Continue 失败定位到首个错误字段；Stablecoin 默认值还必须同步 `mintMethod`、契约查询 tokenType 与 reset/draft fallback，避免 UI 与数据查询分歧。
+- 后续同类任务：为后台统一补齐 root `<Toaster />` 时，移除 feature 内重复挂载；涉及 Radix 受控字段的表单校验，不要只依赖 `trigger({ shouldFocus: true })`，须验证实际聚焦目标。
 
 - 背景：按 `/Users/zhangxuefeng/Downloads/临时（可删除）/token` 的表单参考重构 Tokenized Deposit Onboard 页面。
 - 结论：参考表单的有效结构是四步 Basic / Accounting / Custody / Review；当前页面外围 Header、Summary 和真实 TanStack Query/API 提交流程保持不变，Onboard 表单通过现有 RHF 字段和 COA 校验接入分步 Continue/Back/Review。

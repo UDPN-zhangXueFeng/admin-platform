@@ -86,6 +86,7 @@ export interface UseTokenizedDepositFormParams {
 
 /** 源 initialValues 默认值（useForm defaultValues / Reset / 草稿恢复的公共基底）。 */
 const DEFAULT_FORM_VALUES = {
+  mintMethod: MINT_METHOD.STABLECOIN,
   usPrice: '1',
   accountTypeList: [1],
   whitelistMode: 'full',
@@ -94,6 +95,33 @@ const DEFAULT_FORM_VALUES = {
   enableTokenReconciliation: RECON_DISABLED,
   enableReserveAssetReconciliation: RECON_DISABLED,
 } as TDEditFormValues;
+
+/** RHF field 与实际可聚焦控件的稳定映射（Radix Select 不会注册原生 ref）。 */
+const VALIDATION_TARGET_IDS: Partial<Record<keyof TDEditFormValues, string>> =
+  {
+    mintMethod: 'field-mintMethod',
+    name: 'field-name',
+    symbol: 'field-symbol',
+    decimals: 'field-decimals',
+    currencySymbol: 'select-currencySymbol',
+    usPrice: 'field-usPrice',
+    reserveAccountId: 'select-reserveAccountId',
+    blockchainId: 'select-blockchainId',
+    smartContractPackageId: 'select-smartContractPackageId',
+    metaType: 'field-metaType',
+    whitelistMode: 'select-whitelistMode',
+    accountTypeList: 'account-type-1',
+    keyServiceName: 'select-keyServiceName',
+    walletAddressContractOwner: 'field-walletAddressContractOwner',
+    walletAddressPaymentOfGasFee: 'field-walletAddressPaymentOfGasFee',
+    walletAddressManagementWallet: 'field-walletAddressManagementWallet',
+    keyStoreContractOwner: 'field-keyStoreContractOwner',
+    keyStorePaymentOfGasFee: 'field-keyStorePaymentOfGasFee',
+    keyStoreManagementWallet: 'field-keyStoreManagementWallet',
+    passWordContractOwner: 'field-passWordContractOwner',
+    passWordPaymentOfGasFee: 'field-passWordPaymentOfGasFee',
+    passWordManagementWallet: 'field-passWordManagementWallet',
+  };
 
 /** add 模式向导步骤 key（顺序对齐 steps 数组：basic/finance/custody/review）。 */
 const WIZARD_STEP_KEYS = ['basic', 'finance', 'custody', 'review'] as const;
@@ -155,7 +183,9 @@ export function useTokenizedDepositForm({
   const [flag, setFlag] = React.useState(false);
   const [contractLanguage, setContractLanguage] = React.useState('');
   const [chainType, setChainType] = React.useState('evm');
-  const [tokenType, setTokenTypeId] = React.useState(0);
+  const [tokenType, setTokenTypeId] = React.useState(
+    MINT_METHOD.STABLECOIN,
+  );
   // currencySymbol 桥接 state：getReserveList 回调 set 它，useReserveListQuery 监听它。
   const [reserveCurrency, setReserveCurrency] = React.useState<
     string | undefined
@@ -350,6 +380,7 @@ export function useTokenizedDepositForm({
   );
   const onTokenTypeChange = React.useCallback(
     (value: number) => {
+      form.setValue('mintMethod', value);
       setFlag(value === MINT_METHOD.TOKENIZED_DEPOSIT);
       setTokenTypeId(value);
       form.setValue('smartContractPackageId', '');
@@ -457,7 +488,9 @@ export function useTokenizedDepositForm({
       if (draft.formValues.currencySymbol) {
         setReserveCurrency(draft.formValues.currencySymbol);
       }
-      setTokenTypeId(draft.formValues.mintMethod ?? 0);
+      setTokenTypeId(
+        draft.formValues.mintMethod ?? MINT_METHOD.STABLECOIN,
+      );
       setFlag(draft.formValues.mintMethod === MINT_METHOD.TOKENIZED_DEPOSIT);
       const chain = blockchainList?.find(
         (b) => b.key === draft.formValues.blockchainId,
@@ -516,7 +549,7 @@ export function useTokenizedDepositForm({
     setStablecoinCoaErrors({});
     setDetailInfo({});
     setFlag(false);
-    setTokenTypeId(0);
+    setTokenTypeId(MINT_METHOD.STABLECOIN);
     // 重放 useBlockchainEffect mount 默认值（effect 依赖未变不会自动重跑）
     const activeBlockchain = blockchainList?.find((b) => b.status === 1);
     form.setValue('decimals', 8);
@@ -573,6 +606,8 @@ export function useTokenizedDepositForm({
   React.useEffect(() => {
     if (mode !== 'add') return;
     if (mintMethod !== MINT_METHOD.STABLECOIN) return;
+    // 当用户在 effect 提交前切换类型时，过期闭包不能把 Reserve 写回新类型。
+    if (form.getValues('mintMethod') !== MINT_METHOD.STABLECOIN) return;
     const current = form.getValues('reserveAccountId');
     if (!reserveList || reserveList.length === 0) {
       if (current !== undefined && current !== null) {
@@ -736,6 +771,24 @@ export function useTokenizedDepositForm({
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
+  const focusFirstInvalidField = React.useCallback(
+    (fields: Array<keyof TDEditFormValues>) => {
+      const fieldName = fields.find(
+        (field) => form.getFieldState(field).invalid,
+      );
+      const targetId = fieldName ? VALIDATION_TARGET_IDS[fieldName] : undefined;
+      if (!targetId) return;
+
+      requestAnimationFrame(() => {
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.focus({ preventScroll: true });
+      });
+    },
+    [form],
+  );
+
   const validateStep = React.useCallback(
     async (index: number): Promise<boolean> => {
       if (index === 0) {
@@ -813,12 +866,51 @@ export function useTokenizedDepositForm({
   );
 
   const handleNextStep = React.useCallback(async () => {
-    if (!(await validateStep(currentStep))) return;
+    if (!(await validateStep(currentStep))) {
+      const fieldsByStep: Array<Array<keyof TDEditFormValues>> = [
+        [
+          'mintMethod',
+          'name',
+          'symbol',
+          'decimals',
+          'currencySymbol',
+          'usPrice',
+          'blockchainId',
+          'smartContractPackageId',
+          'metaType',
+          'whitelistMode',
+          'reserveAccountId',
+        ],
+        ['accountTypeList'],
+        [
+          'keyServiceName',
+          'walletAddressContractOwner',
+          'walletAddressPaymentOfGasFee',
+          'walletAddressManagementWallet',
+          'keyStoreContractOwner',
+          'keyStorePaymentOfGasFee',
+          'keyStoreManagementWallet',
+          'passWordContractOwner',
+          'passWordPaymentOfGasFee',
+          'passWordManagementWallet',
+        ],
+      ];
+      focusFirstInvalidField(fieldsByStep[currentStep] ?? []);
+      toast.error(t('td_toast_step_incomplete'));
+      return;
+    }
     const nextStep = Math.min(currentStep + 1, steps.length - 1);
     setCurrentStep(nextStep);
     setMaxReachedStep((value) => Math.max(value, nextStep));
     scrollToForm();
-  }, [currentStep, scrollToForm, steps.length, validateStep]);
+  }, [
+    currentStep,
+    focusFirstInvalidField,
+    scrollToForm,
+    steps.length,
+    t,
+    validateStep,
+  ]);
 
   // Stepper 点击导航：回跳自由；前跳逐步校验，失败停在首个无效步并提示。
   const goToStep = React.useCallback(

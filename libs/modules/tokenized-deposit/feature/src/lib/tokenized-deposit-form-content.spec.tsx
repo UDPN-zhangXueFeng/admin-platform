@@ -53,6 +53,13 @@ jest.mock('@myorg/shared/util-i18n', () => ({
 jest.mock('@myorg/shared/util-auth', () => ({
   useAuth: () => ({ user: { id: 'u1' } }),
 }));
+jest.mock('sonner', () => ({
+  toast: {
+    error: jest.fn(),
+    info: jest.fn(),
+    warning: jest.fn(),
+  },
+}));
 
 import { useTokenizedDepositForm } from './tokenized-deposit-form-content';
 
@@ -98,6 +105,37 @@ describe('useTokenizedDepositForm — add 路径', () => {
     expect(v.accountTypeList).not.toContain(3);
   });
 
+  it('新建默认选择 Stablecoin，且合约查询状态与默认 mint method 一致', () => {
+    const { result } = renderHook(() => useTokenizedDepositForm({ mode: 'add' }));
+
+    expect(result.current.form.getValues('mintMethod')).toBe(1);
+    expect(result.current.tokenType).toBe(1);
+    expect(result.current.flag).toBe(false);
+  });
+
+  it('Continue 校验失败时定位到首个无效字段，避免用户在当前步骤中自行查找', async () => {
+    document.body.innerHTML = '<input id="field-name" />';
+    const input = document.getElementById('field-name') as HTMLInputElement;
+    input.scrollIntoView = jest.fn();
+    window.requestAnimationFrame = (callback) => {
+      callback(0);
+      return 0;
+    };
+
+    const { result } = renderHook(() => useTokenizedDepositForm({ mode: 'add' }));
+    result.current.form.register('name', { required: true });
+
+    await act(async () => {
+      await result.current.handleNextStep();
+    });
+
+    expect(input.scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'center',
+    });
+    expect(document.activeElement).toBe(input);
+  });
+
   it('G2: handleReset 后钱包/keystore/password 字段为空', async () => {
     const { result } = renderHook(() => useTokenizedDepositForm({ mode: 'add' }));
     // 先写入一些钱包值
@@ -116,6 +154,8 @@ describe('useTokenizedDepositForm — add 路径', () => {
     expect(v.passWordContractOwner).toBe('');
     // accountTypeList 回默认 [1]
     expect(v.accountTypeList).toEqual([1]);
+    expect(v.mintMethod).toBe(1);
+    expect(result.current.tokenType).toBe(1);
   });
 
   it('草稿 mount 检测：sessionStorage 有当前 user 草稿时 draftBanner 非空', async () => {

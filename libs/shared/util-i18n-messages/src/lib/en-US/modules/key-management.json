@@ -4,6 +4,7 @@
   "PUB_Reset": "Reset",
   "PUB_NoData": "No data",
   "key_management_0060": "Transaction record not found",
+  "key_management_0067": "This is the latest wallet address after the recent rotation.",
   "token_type_1": "Stablecoin",
   "token_type_5": "Stablecoin",
   "common_task_status_1": "Saved",
