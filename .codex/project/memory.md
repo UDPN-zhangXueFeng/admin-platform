@@ -41,6 +41,7 @@
 - 背景：管理后台需要在用户连续 30 分钟无操作后自动退出，同时开发环境不能影响调试流程。
 - 结论：项目配置使用 `features.inactivityLogout` 控制该安全策略，schema 默认关闭；运行时还必须以 `NODE_ENV !== 'development'` 作为硬门槛。`stablecoin` production 配置开启，其余项目关闭。
 - 影响：空闲计时用 wall-clock 时间而不是仅依赖 timer；页面从后台或系统休眠恢复时会立即检查到期。会话清理同时删除最后活动时间，避免新登录会话继承旧计时。
+- TypeScript 实践：会被嵌套或异步回调捕获的可变状态不能依赖外层分支 narrowing；读取可空持久化状态后，先通过 `storedValue ?? fallback` 归一化为明确类型，而不是使用非空断言。
 - 后续同类任务：新增认证相关 feature flag 时，同时更新 Zod schema、ProjectConfig 类型、JSON schema、各项目 JSON 和项目结构说明；前端超时策略不能替代后端 token expiry 或撤销机制。
 
 ## 2026-07-21

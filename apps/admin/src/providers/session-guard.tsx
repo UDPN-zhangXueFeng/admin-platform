@@ -89,13 +89,12 @@ export function SessionGuard() {
   useEffect(() => {
     if (!isAuthenticated || !isInactivityLogoutActive) return;
 
-    let lastActivityAt = readLastActivityAt();
+    const storedLastActivityAt = readLastActivityAt();
+    let lastActivityAt = storedLastActivityAt ?? Date.now();
     let lastPersistedActivityAt = lastActivityAt;
     let timeoutId: number | undefined;
 
-    if (lastActivityAt === null) {
-      lastActivityAt = Date.now();
-      lastPersistedActivityAt = lastActivityAt;
+    if (storedLastActivityAt === null) {
       writeLastActivityAt(lastActivityAt);
     }
 
