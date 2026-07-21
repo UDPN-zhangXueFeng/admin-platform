@@ -1,0 +1,41 @@
+{
+  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/pledge",
+  "moduleName": "pledge",
+  "slug": "pledge",
+  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/pledge.md",
+  "phase": "accepted-conditional",
+  "migrationRate": 1.0,
+  "acceptanceRate": 1.0,
+  "runtimeSmoke": "静态验收22/22=100%。运行时:admin dev 在 3000 运行(用户实例),pledge 路由 307→login(非404,group机制运行时验证生效),app 整体正常。完整页面冒烟受登录captcha+无后端API阻,改用户在自己浏览器(已登录)逐页验证中。",
+  "scope": {
+    "subModules": "asset-transaction (2 files) + reserve-asset-list (8 files)",
+    "totalFiles": 10,
+    "totalLines": 3419,
+    "apiModule": "src/lib/api/pledge.ts"
+  },
+  "coverage": {
+    "sourceFiles": { "covered": 10, "total": 10, "missing": [] },
+    "apis": { "covered": 20, "total": 20, "missing": [] },
+    "pages": { "covered": 6, "total": 6, "missing": [] },
+    "uiMappings": { "covered": 44, "total": 44, "missing": [] }
+  },
+  "tasks": [
+    { "id": "pl-1", "name": "搭建 pledge 四层库骨架与 group 注册", "kind": "scaffold", "model": "opus", "deps": [], "subModule": "shared", "complexity": "中", "status": "completed", "overrideReason": "含 group 机制+6注册点,高频踩坑区,地基升级 opus", "verified": "主循环交叉验证 group 链路(registry/page.tsx/configs)全通,4库 lint/test 绿" },
+    { "id": "pl-2", "name": "实现 pledge constants 与 format 工具", "kind": "scaffold", "model": "haiku", "deps": ["pl-1"], "subModule": "shared", "complexity": "中", "status": "completed", "verified": "主循环 grep ALL_VALUE='all' 无空串 + 8组常量齐全 + lint pass" },
+    { "id": "pl-3", "name": "实现 model 类型与 api/queries/mutations", "kind": "scaffold", "model": "haiku", "deps": ["pl-2"], "subModule": "shared", "complexity": "中", "status": "completed", "verified": "主循环 grep pageNum+apiClient+无死代码残留+13函数,lint pass" },
+    { "id": "pl-4", "name": "实现储备资产列表页(bookStatus 前端过滤+状态机)", "kind": "page", "model": "opus", "deps": ["pl-3"], "subModule": "reserve-asset-list", "complexity": "高", "status": "completed", "verified": "opus 自查 grep 全过+lint/tsc pass;主循环复核 ALL_VALUE/pageNum/无双重前缀/无死代码误调;歧义9澄清 newTransaction=Drawer态非死代码;i18n namespace 矛盾待 pl-11 统一" },
+    { "id": "pl-5", "name": "抽出新增/编辑共用 Drawer", "kind": "page", "model": "opus", "deps": ["pl-4"], "subModule": "reserve-asset-list", "complexity": "高", "status": "completed", "verified": "opus 自查+lint/tsc pass;主循环复核接入+name→id映射+无死代码误调;修正源码 bug assetCategoryId→assetTypeId" },
+    { "id": "pl-6", "name": "实现详情页容器与 3 Tab 组件", "kind": "page", "model": "opus", "deps": ["pl-3"], "subModule": "reserve-asset-list", "complexity": "中", "status": "completed", "verified": "opus自查+lint pass;主循环复核 detail只调 reserve/asset/detail+两Tab pageNum;设计偏离(hook Query后缀/shadcn Tabs/Tailwind Tag)对齐代码库;approval-manage 404 标注" },
+    { "id": "pl-7", "name": "实现 view-basic 与 echarts→recharts 饼图迁移", "kind": "ui", "model": "opus", "deps": ["pl-6"], "subModule": "reserve-asset-list", "complexity": "高", "status": "completed", "verified": "opus自查+lint/tsc pass(pledge 0错);主循环复核 recharts用法+占位无残留+接入;三大难点全过;发现目标项目无antd用shadcn/admin tsc预存13错非pledge" },
+    { "id": "pl-8", "name": "实现新增资产类别页", "kind": "page", "model": "opus", "deps": ["pl-3"], "subModule": "reserve-asset-list", "complexity": "中", "status": "completed", "verified": "opus自查+lint pass;主循环复核 useFieldArray+正则校验+提交参数;回填兜底改空串(改进)" },
+    { "id": "pl-9", "name": "实现储备资产交易列表页", "kind": "page", "model": "opus", "deps": ["pl-3"], "subModule": "asset-transaction", "complexity": "中", "status": "completed", "verified": "opus自查+lint pass;主循环复核 New跳/create+ALL_VALUE21处+pageNum9处+无前缀;reserveAccountId改可选(源码列表全局不传)+行主键reserveOrderId(源bug)" },
+    { "id": "pl-10", "name": "实现新建储备资产交易页", "kind": "page", "model": "opus", "deps": ["pl-3"], "subModule": "asset-transaction", "complexity": "中", "status": "completed", "verified": "opus自查+lint pass;主循环复核 仅新建态+交易类型转换+提交参数;10个page任务全完成" },
+    { "id": "pl-11", "name": "补全 i18n 文案、权限码挂载与单元测试", "kind": "scaffold", "model": "opus", "deps": ["pl-4", "pl-5", "pl-6", "pl-7", "pl-8", "pl-9", "pl-10"], "subModule": "shared", "complexity": "中", "status": "completed", "verified": "opus汇总:manifest namespace改扁平+i18n110key零缺失+11权限全挂+3纯函数抽取25单测全绿+lint/test exit0;主循环复核namespace/ALL_VALUE无空串/ICU无双花括号" },
+    { "id": "pl-12", "name": "lint/test/build 全量验收", "kind": "verify", "model": "opus", "deps": ["pl-11"], "subModule": "shared", "complexity": "中", "status": "completed", "verified": "静态验收22/22=100%:lint/test全绿+tsc pledge 0错+13endpoint对接+7死代码不调+8枚举+11权限+运行时坑grep全过+group无回归;2 minor(admin build基线/approval-manage 404已知限制);运行时冒烟进行中" }
+  ],
+  "currentIndex": 11,
+  "knownIssues": ["admin tsc 预存 13 错误(user/syslog/sp-access 非pledge)阻塞 admin build — pl-12 标注基线", "i18n namespace 矛盾(manifest 子模块后缀 vs 页面 modules.pledge 扁平)— pl-11 统一", "approval-manage 跳转 404 风险(本批未迁移)— 已知限制"],
+  "startedAt": "2026-07-15",
+  "phase2Notes": "阶段二补全 2 个遗漏死代码 endpoint(updateReserveAccount/updateTransaction),API 覆盖 20/20。",
+  "phase3Notes": "阶段三 opus 拆 12 任务,交叉核对源码。group 机制对齐 cross-chain;sonnet 降级 opus(pl-4~11);死代码 7 endpoint 不迁移;approval-manage 跳转 404 风险;三大难点 bookStatus/echarts→recharts/714行index拆分。"
+}
