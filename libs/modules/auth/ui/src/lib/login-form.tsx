@@ -186,7 +186,9 @@ export function LoginForm() {
               src={captchaUrl}
               alt={t('captcha')}
               className="h-11 w-40 cursor-pointer border-l border-slate-300 object-fill"
-              onClick={refreshCaptcha}
+              onClick={() => {
+                void refreshCaptcha();
+              }}
               title={t('captchaRefresh')}
             />
           )}
