@@ -158,7 +158,7 @@ configs/
 - 菜单顺序与路径
 - 启用模块
 - dashboard 配置
-- i18n 与 feature 开关
+- i18n 与 feature 开关；`features.inactivityLogout` 仅在 production 生效，用于启用 30 分钟无操作自动退出
 
 修改菜单或模块启用状态时，需要同时检查：
 

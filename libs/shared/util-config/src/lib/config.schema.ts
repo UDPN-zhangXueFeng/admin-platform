@@ -106,6 +106,7 @@ const featuresSchema = z.object({
   fullscreen: z.boolean().default(true),
   exportCSV: z.boolean().default(true),
   bulkActions: z.boolean().default(true),
+  inactivityLogout: z.boolean().default(false),
 });
 
 /** Zod schema matching ProjectConfig. All fields optional with sensible defaults. */

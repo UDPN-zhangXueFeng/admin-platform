@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
-import { useEffect, useCallback, useState } from 'react';
+import * as React from 'react';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { Button, Input, Label } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
@@ -12,6 +12,7 @@ import { getCaptcha, useLoginMutation } from '@myorg/modules/auth/data-access';
 import { useAuthUIStore } from '@myorg/modules/auth/data-access';
 
 const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
+const CAPTCHA_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
 const DEFAULT_LOGIN_VALUES: LoginFormValues = IS_DEVELOPMENT
   ? { loginName: 'cuining', password: 'td#0415', code: '' }
   : { loginName: '', password: '', code: '' };
@@ -29,7 +30,7 @@ export function LoginForm() {
   const { captchaUrl, randomstr, setCaptcha, setTwoFactorToken, setLoginStep } =
     useAuthUIStore();
   const loginMutation = useLoginMutation();
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
 
   const {
     register,
@@ -42,7 +43,7 @@ export function LoginForm() {
   });
 
   /** Fetch captcha image + randomstr, and prefill the dev-only captcha code. */
-  const refreshCaptcha = useCallback(async () => {
+  const refreshCaptcha = React.useCallback(async (shouldClearCode = false) => {
     try {
       const response = await getCaptcha();
       const blob = response.data;
@@ -53,17 +54,27 @@ export function LoginForm() {
       if (IS_DEVELOPMENT) {
         const captchaCode = response.headers['captchacode'];
         setValue('code', typeof captchaCode === 'string' ? captchaCode : '');
+      } else if (shouldClearCode) {
+        setValue('code', '');
       }
     } catch {
       // Captcha fetch failure — form still usable without it
     }
-  }, [setCaptcha]);
+  }, [setCaptcha, setValue]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     refreshCaptcha();
   }, [refreshCaptcha]);
 
-  useEffect(() => {
+  React.useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      refreshCaptcha(true);
+    }, CAPTCHA_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [refreshCaptcha]);
+
+  React.useEffect(() => {
     return () => {
       if (captchaUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(captchaUrl);

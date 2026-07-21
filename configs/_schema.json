@@ -146,13 +146,14 @@
     },
     "features": {
       "type": "object",
-      "required": ["darkMode", "multiTab", "fullscreen", "exportCSV", "bulkActions"],
+      "required": ["darkMode", "multiTab", "fullscreen", "exportCSV", "bulkActions", "inactivityLogout"],
       "properties": {
         "darkMode": { "type": "boolean" },
         "multiTab": { "type": "boolean" },
         "fullscreen": { "type": "boolean" },
         "exportCSV": { "type": "boolean" },
-        "bulkActions": { "type": "boolean" }
+        "bulkActions": { "type": "boolean" },
+        "inactivityLogout": { "type": "boolean" }
       }
     }
   }

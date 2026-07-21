@@ -71,6 +71,7 @@
     "multiTab": false,
     "fullscreen": true,
     "exportCSV": true,
-    "bulkActions": true
+    "bulkActions": true,
+    "inactivityLogout": false
   }
 }

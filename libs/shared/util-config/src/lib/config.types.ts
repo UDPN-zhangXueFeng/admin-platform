@@ -70,6 +70,8 @@ export interface ProjectConfig {
     fullscreen: boolean;
     exportCSV: boolean;
     bulkActions: boolean;
+    /** Enables automatic logout after 30 minutes of client inactivity in production. */
+    inactivityLogout: boolean;
   };
 }
 

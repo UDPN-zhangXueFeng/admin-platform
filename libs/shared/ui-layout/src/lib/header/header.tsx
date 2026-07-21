@@ -1,19 +1,20 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Bell,
-  LogOut,
-  Menu,
-  Settings,
-  Shield,
-  User,
-} from 'lucide-react';
+import { Bell, LogOut, Menu, Settings, Shield, User } from 'lucide-react';
 import type { ProjectConfig } from '@myorg/shared/util-config';
 import { logoutAndRedirect, useAuth } from '@myorg/shared/util-auth';
 import { cn } from '@myorg/shared/util-classnames';
 import { logoutApi } from '@myorg/modules/auth/data-access';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -44,12 +45,10 @@ export interface HeaderProps {
  * All interactive elements are keyboard-focusable and include
  * `aria-label` for screen-reader context.
  */
-export function Header({
-  config,
-  onMenuToggle,
-  minimal = false,
-}: HeaderProps) {
+export function Header({ config, onMenuToggle, minimal = false }: HeaderProps) {
   const { user } = useAuth();
+  const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] =
+    React.useState(false);
 
   const handleLogout = React.useCallback(async () => {
     try {
@@ -60,6 +59,13 @@ export function Header({
       logoutAndRedirect();
     }
   }, []);
+
+  const handleLogoutConfirmationOpenChange = React.useCallback(
+    (open: boolean) => {
+      setIsLogoutConfirmationOpen(open);
+    },
+    [],
+  );
 
   return (
     <header
@@ -164,13 +170,36 @@ export function Header({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="gap-2 text-destructive"
-                  onClick={handleLogout}
+                  onClick={() => setIsLogoutConfirmationOpen(true)}
                 >
                   <LogOut className="h-4 w-4" aria-hidden="true" />
                   <span>Log Out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <AlertDialog
+              open={isLogoutConfirmationOpen}
+              onOpenChange={handleLogoutConfirmationOpenChange}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Log out?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to log out?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={handleLogout}
+                  >
+                    Log Out
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
       </div>
