@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
-import { Info } from 'lucide-react';
+import { Info, Loader2 } from 'lucide-react';
 import {
   Button,
   Dialog,
@@ -75,6 +75,7 @@ export function GenerateWalletModal({
   } = useForm<GenerateWalletFormValues>({
     defaultValues: { password: '' },
   });
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // 打开时重置表单（对齐源 destroyOnClose）。
   React.useEffect(() => {
@@ -83,12 +84,20 @@ export function GenerateWalletModal({
     }
   }, [open, reset]);
 
-  const onValid = (values: GenerateWalletFormValues) => {
-    onSubmit({ password: values.password });
+  const onValid = async (values: GenerateWalletFormValues) => {
+    setIsSubmitting(true);
+    try {
+      await onSubmit({ password: values.password });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onCancel()}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => !next && !isSubmitting && onCancel()}
+    >
       <DialogContent className="max-w-[30rem]">
         <DialogHeader>
           <DialogTitle>{t('PUB_Generate_Wallet')}</DialogTitle>
@@ -106,6 +115,7 @@ export function GenerateWalletModal({
               autoComplete="new-password"
               placeholder=""
               aria-invalid={!!errors.password}
+              disabled={isSubmitting}
               {...register('password', { required: true })}
             />
             <div className="mt-2 flex items-start text-sm text-primary">
@@ -120,10 +130,22 @@ export function GenerateWalletModal({
           </div>
 
           <DialogFooter className="mt-6 flex-row justify-center gap-4 sm:justify-center">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isSubmitting}
+            >
               {t('PUB_Cancel')}
             </Button>
-            <Button type="submit">{t('PUB_Confirm')}</Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              aria-busy={isSubmitting}
+            >
+              {isSubmitting ? <Loader2 className="animate-spin" /> : null}
+              {t('PUB_Confirm')}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

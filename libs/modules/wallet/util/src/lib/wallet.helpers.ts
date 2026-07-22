@@ -2,8 +2,8 @@
  * Wallet 模块纯函数 helpers。
  *
  * 迁移自 td-manage `src/pages/wallet/*`。全部为纯函数，便于单测。
- * NOTE: keystore 密码加密 `getEncryptionData` 在 Phase 7（mff-add/edit）按需从源
- * `libs/utils/get/getEncryptionData` 移植，此处暂不引入（避免未使用的加密依赖）。
+ * NOTE: keystore 密码加密 `getEncryptionData` 已在 Phase 7 移植到
+ * `./wallet.encryption.ts`（barrel 一并导出），此处不重复定义。
  */
 import { UNLIMITED_THRESHOLD } from './wallet.constants';
 

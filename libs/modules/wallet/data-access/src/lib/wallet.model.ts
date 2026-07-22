@@ -87,6 +87,8 @@ export interface OperationalWalletFilters {
   feeType?: number;
   state?: number;
   walletAddress?: string;
+  startCreateTime?: number | string;
+  endCreateTime?: number | string;
 }
 
 export interface OperationalWalletDetail {

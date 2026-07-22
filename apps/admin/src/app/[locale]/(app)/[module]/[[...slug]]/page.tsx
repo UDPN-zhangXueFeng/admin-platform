@@ -86,6 +86,11 @@ export default function ModulePage({
     if (!realSlug || realSlug.length === 0) return 'list';
     if (realSlug[0] === 'create') return 'create';
     if (realSlug[0] === 'edit') return 'edit';
+    // wallet-type 的 MMF 路由 `/wallet/wallet-type/mff/<mff-add|view>`：realModule=
+    // wallet-type, realSlug=['mff','mff-add'|'view']。'mff' 非标准路由词会落到
+    // 'detail'。按 realSlug[1] 区分：mff-add→edit（FormPage 渲染 MMF 表单），
+    // view→detail（DetailPage 渲染 mff-view 变体，见 wallet-type-detail-page）。
+    if (realSlug[0] === 'mff') return realSlug[1] === 'view' ? 'detail' : 'edit';
     // tokenized-deposit 新建页路由名 'onboard'（对齐 overview-shell ONBOARD_ROUTE），
     // 识别为独立 pageKey，否则会落到 detail 误渲染 ViewPage。
     if (realSlug[0] === 'onboard') return 'onboard';

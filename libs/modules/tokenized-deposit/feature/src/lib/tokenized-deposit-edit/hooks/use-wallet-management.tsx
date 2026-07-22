@@ -424,12 +424,12 @@ export function useWalletManagement({
             );
           }
         }
+        if (res) {
+          form1.reset();
+          setIsModalOpen(false);
+        }
       } catch {
         toast.error(t('td_toast_wallet_generate_failed'));
-      } finally {
-        // 无论成功/失败，均关闭 Modal 并重置密码表单，避免卡在 loading 态。
-        form1.reset();
-        setIsModalOpen(false);
       }
     },
     [

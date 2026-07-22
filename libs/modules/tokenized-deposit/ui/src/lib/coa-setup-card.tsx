@@ -22,8 +22,8 @@
  *
  * ## 字段禁用规则
  *
- * - Financial Book Name: `readonly || data.status !== 'setup_required'`
- * - Account Template / EOD Cut-off Time / Time Zone: 始终只读，仅展示默认或后端回填值。
+ * - 四个字段均遵循 `readonly || data.status !== 'setup_required'`。
+ * - Tokenized Deposit 的 `setup_required` 态可编辑；已配置的 Stablecoin COA 仅回显。
  *
  * ## fallback option 机制
  *
@@ -231,8 +231,7 @@ export function CoaSetupCard({
 
   // ── 派生状态 ──
   const isSetupRequired = data.status === 'setup_required';
-  const isFinancialBookNameDisabled = readonly || !isSetupRequired;
-  const isCoaReferenceFieldDisabled = true;
+  const isFieldDisabled = readonly || !isSetupRequired;
 
   // fallback option：options 为空但 data 有值时兜底展示
   const accountTemplateFallbackOptions = buildFallbackOption(
@@ -297,17 +296,14 @@ export function CoaSetupCard({
     >
       {embedded ? (
         <>
-          <div>
-            <CardTitle className="text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle className="text-base">
               {t('tokenized_deposit_coa_title')}
             </CardTitle>
-            <CardDescription className="mt-1 leading-6">
-              {t('td_section_coa_desc')}
-            </CardDescription>
+            <Badge variant="secondary">
+              {t(`tokenized_deposit_coa_status_${data.status}`)}
+            </Badge>
           </div>
-          <Badge variant="secondary">
-            {t(`tokenized_deposit_coa_status_${data.status}`)}
-          </Badge>
         </>
       ) : (
         <div className="flex items-start gap-3">
@@ -413,14 +409,14 @@ export function CoaSetupCard({
       >
         {renderLinkedMessage()}
 
-        <div className="grid grid-cols-1 gap-x-12 gap-y-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">
           {/* 1) Financial Book Name */}
           {renderField(
             'tokenized_deposit_coa_financial_book_name',
             errors?.financialBookName,
             <Input
               value={data.financialBookName ?? ''}
-              disabled={isFinancialBookNameDisabled}
+              disabled={isFieldDisabled}
               maxLength={FINANCIAL_BOOK_NAME_MAX_LENGTH}
               placeholder={
                 isSetupRequired
@@ -444,7 +440,7 @@ export function CoaSetupCard({
             errors?.accountTemplateCode,
             <Select
               value={data.accountTemplateCode ?? ''}
-              disabled={isCoaReferenceFieldDisabled}
+              disabled={isFieldDisabled}
               onValueChange={handleAccountTemplateChange}
             >
               <SelectTrigger
@@ -476,7 +472,7 @@ export function CoaSetupCard({
               type="time"
               step={1}
               value={parseTimeValue(data.eodCutOffTime)}
-              disabled={isCoaReferenceFieldDisabled}
+              disabled={isFieldDisabled}
               onChange={handleEodCutOffTimeChange}
               className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
                 errors?.eodCutOffTime ? 'border-destructive' : ''
@@ -493,7 +489,7 @@ export function CoaSetupCard({
             errors?.timeZone,
             <Select
               value={data.timeZone ?? ''}
-              disabled={isCoaReferenceFieldDisabled}
+              disabled={isFieldDisabled}
               onValueChange={handleTimezoneChange}
             >
               <SelectTrigger

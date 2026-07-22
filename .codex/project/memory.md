@@ -353,6 +353,16 @@
 
 ## 2026-07-17
 
+- 背景：Keystore 路径的 Generate Wallet 弹窗在 Confirm 后没有提交中反馈，且生成请求失败时 `finally` 仍会关闭弹窗。
+- 结论：弹窗本地 `isSubmitting` 必须 await 真实 `onSubmit`，期间禁用输入、取消和 Dialog dismiss，并在 Confirm 保留文本的同时显示 spinner；钱包 hook 仅在生成接口返回结果后 reset/close，失败时保留弹窗供重试。
+- 影响：用户能看到生成过程，重复请求被阻止，失败不会丢失密码输入。
+- 后续同类任务：异步弹窗的关闭应由成功路径决定，不能放在无条件 `finally`；若业务 hook 吞掉异常，组件仍应在 await 返回后恢复可操作状态。
+
+- 背景：Tokenized Deposit Onboard 的 COA 已回显默认 Account Template、Time Zone 和 EOD，但后三个控件仍被硬编码禁用，与旧系统及 TD `setup_required` 的可编辑语义不一致。
+- 结论：`CoaSetupCard` 的四个字段统一以 `readonly || status !== 'setup_required'` 决定禁用状态；TD `setup_required` 可编辑，Stablecoin `configured` 仍由父层传入 `readonly` 保持只读。
+- 影响：默认回显不再阻止用户调整模板、时区和 EOD，提交侧既有 COA 校验与 payload 路径无需变更；嵌入式标题将状态标签置于标题旁，收紧两列字段间距。
+- 后续同类任务：不要为“默认回显”单独硬编码禁用控件；必须从状态语义和父层 readonly 一起推导，并以组件测试覆盖可编辑和只读分支。
+
 - 背景：Tokenized Deposit 表单的默认 mint method 用于初始化 state 时，被 TypeScript 推断为字面量类型 `1`，而回填回调传入的是 `number`，导致 Jenkins 的 production build 在 `setTokenTypeId(type)` 失败。
 - 结论：会接收接口或回调数值的 React state 必须显式声明为 `useState<number>(...)`，不能依赖常量初始值的字面量推断；扩展 `TokenSelectorLabels` 时必须同一次同步所有调用方和 `en-US` / `zh-CN` 消息 key。
 - 影响：`npx nx build admin` 已通过 TypeScript 与完整 Next.js production build；类型筛选的 Stablecoin / Tokenized Deposit / Tokenized MMF 文案也不会在运行时缺失。

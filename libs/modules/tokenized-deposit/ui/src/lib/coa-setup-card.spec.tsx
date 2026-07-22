@@ -44,7 +44,7 @@ jest.mock('@myorg/shared/ui', () => {
 import { CoaSetupCard } from './coa-setup-card';
 
 describe('CoaSetupCard', () => {
-  it('keeps COA reference fields read-only after setup defaults are populated', () => {
+  it('keeps TD setup-required COA fields editable after defaults are populated', () => {
     render(
       <CoaSetupCard
         data={{
@@ -71,11 +71,11 @@ describe('CoaSetupCard', () => {
       />,
     );
 
-    expect(screen.getByDisplayValue('00:00:00')).toBeDisabled();
+    expect(screen.getByDisplayValue('00:00:00')).toBeEnabled();
     expect(screen.getAllByTestId('select')).toHaveLength(2);
     screen
       .getAllByTestId('select')
-      .forEach((select) => expect(select).toHaveAttribute('data-disabled', 'true'));
+      .forEach((select) => expect(select).toHaveAttribute('data-disabled', 'false'));
     expect(
       screen.getByPlaceholderText(
         'tokenized_deposit_coa_financial_book_placeholder',

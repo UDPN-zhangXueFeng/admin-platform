@@ -1,30 +1,63 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useParams, useSearchParams } from 'next/navigation';
+
+import { WalletTypeRegularForm } from './wallet-type-form-regular';
+import { WalletTypeMmfForm } from './wallet-type-form-mmf';
 
 /**
- * WalletTypeFormPage — 钱包类型表单（Phase 1 桩，slug[0] 分支）。
+ * WalletTypeFormPage — 钱包类型表单入口（无 props，page.tsx 渲染）。
  *
- * slug[0]=`edit`（query type=add|edit, id?, stablecoinId, ...）→ 常规类型条件表单；
- * slug[0]=`mff-add`（query type=add|edit, ...）→ MMF 类型表单 + 生成钱包弹窗。
- * 迁移自 td-manage `src/pages/wallet/wallet-type/edit.tsx`(1242) 与 `mff/mff-add.tsx`(531)。Phase 7 实现。
+ * 迁移自 td-manage `src/pages/wallet/wallet-type/{edit,mff/mff-add}.tsx`。
+ *
+ * 路由（wallet 分组模块，realModule=wallet-type，pageKey 均映射 'edit'）：
+ * - `/wallet/wallet-type/edit?type=add|edit&id?&stablecoinId&name&symbol&issueType&...`
+ *   → params.slug=['wallet-type','edit']，slug[1]='edit' → 常规条件表单。
+ * - `/wallet/wallet-type/mff/mff-add?type=add|edit&id?&...`
+ *   → params.slug=['wallet-type','mff','mff-add']，slug[1]='mff' → MMF 表单。
+ *
+ * 分支键 = params.slug?.[1]（'edit' → 常规；'mff' → MMF）。
+ * type/id/stablecoinId/name/symbol/issueType 从 useSearchParams 取（client + ssr:false，
+ * 无需 Suspense）。
+ *
+ * slug[1] 既非 'edit' 也非 'mff' 时回落常规表单（防御）。
  */
 export function WalletTypeFormPage() {
-  const t = useTranslations('modules.wallet');
   const params = useParams<{ slug?: string[] }>();
-  const slug0 = params.slug?.[0];
+  const slug1 = params.slug?.[1];
+
+  const searchParams = useSearchParams();
+  const idStr = searchParams.get('id') ?? '';
+  const ruleId = idStr !== '' ? Number(idStr) : undefined;
+  const stablecoinIdStr = searchParams.get('stablecoinId') ?? '';
+  const tdId = stablecoinIdStr !== '' ? Number(stablecoinIdStr) : 0;
+  const tokenName = searchParams.get('name') ?? undefined;
+  const symbol = searchParams.get('symbol') ?? undefined;
+  const issueTypeStr = searchParams.get('issueType') ?? '';
+  const issueType = issueTypeStr !== '' ? Number(issueTypeStr) : undefined;
+
+  // id 存在即编辑态（与源 query.id 判定一致）。
+  const effectiveRuleId =
+    ruleId !== undefined && !Number.isNaN(ruleId) ? ruleId : undefined;
+
+  if (slug1 === 'mff') {
+    return (
+      <WalletTypeMmfForm
+        ruleId={effectiveRuleId}
+        tdId={tdId}
+        tokenName={tokenName}
+        symbol={symbol}
+      />
+    );
+  }
 
   return (
-    <div className="rounded-lg border bg-card p-6 shadow-sm">
-      <div className="text-lg font-semibold">
-        {slug0 === 'mff-add'
-          ? t('walletType.mffFormTitle')
-          : t('walletType.formTitle')}
-      </div>
-      <p className="mt-2 text-sm text-muted-foreground">
-        slug0={slug0 ?? '(none)'}
-      </p>
-    </div>
+    <WalletTypeRegularForm
+      ruleId={effectiveRuleId}
+      tdId={tdId}
+      tokenName={tokenName}
+      symbol={symbol}
+      issueType={issueType}
+    />
   );
 }
