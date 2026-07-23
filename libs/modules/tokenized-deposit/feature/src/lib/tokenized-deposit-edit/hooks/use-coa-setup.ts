@@ -313,15 +313,15 @@ export function useCoaSetup({
   }, [shouldShowStablecoinCoaSetup]);
 
   // ── by-reserve 数据同步到 state（源 effect 6 主体）──
-  // mapFinanceBookToCoaSetup 内部处理 null → setupRequired fallback，
-  // 故 undefined data（成功但空 / 失败）也安全映射为 fallback。
+  // mapFinanceBookToCoaSetup 内部处理 null → setupRequired fallback。
+  // Query 加载初始态仍可能是 undefined，因此在映射边界归一化为 null。
   // loading 期间不同步（保持旧 state，避免闪烁），对齐源 setCoaSetupLoading 行为。
   useEffect(() => {
     if (!shouldShowStablecoinCoaSetup) return;
     if (coaSetupLoading) return;
 
     const mapped = mapFinanceBookToCoaSetup(
-      (financeBookData as FinanceBookInfo | undefined) ?? null,
+      (financeBookData as FinanceBookInfo | null | undefined) ?? null,
       reserveAccountId ?? '',
     );
     setCoaSetupInfo(mapped);

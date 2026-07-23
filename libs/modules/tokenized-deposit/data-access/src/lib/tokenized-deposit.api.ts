@@ -568,15 +568,16 @@ export async function getContractDetailList(
 export async function getContractDeployHistory(
   stablecoinCode: string,
   config?: ApiRequestConfig,
-): Promise<DeployHistoryItem | undefined> {
+): Promise<DeployHistoryItem | null> {
   const data = await apiClient.post<DeployHistoryItemApi[] | null, { stablecoinCode: string }>(
     CONTRACT_DEPLOY_HISTORY_URL,
     { stablecoinCode },
     config,
   );
   const first = (data ?? [])[0];
-  if (!first) return undefined;
-  return { ...first, id: String(first.packageName ?? 'deploy-history') };
+  return first
+    ? { ...first, id: String(first.packageName ?? 'deploy-history') }
+    : null;
 }
 
 /**
@@ -586,13 +587,13 @@ export async function getContractDeployHistory(
 export async function getDeployStepDetail(
   params: DeployStepDetailParams,
   config?: ApiRequestConfig,
-): Promise<DeployStepDetail | undefined> {
+): Promise<DeployStepDetail | null> {
   const data = await apiClient.post<DeployStepDetail[] | null, DeployStepDetailParams>(
     CONTRACT_DEPLOY_STEP_DETAIL_URL,
     params,
     config,
   );
-  return (data ?? [])[0];
+  return (data ?? [])[0] ?? null;
 }
 
 /**
@@ -916,14 +917,15 @@ export function getFinanceTemplateList(
  * 动态 URL GET：`/finance/v1/finance/book/by-reserve/${reserveAccountId}`。
  * 源 typings `financeBookBy_reserveApi`。
  */
-export function getFinanceBookByReserve(
+export async function getFinanceBookByReserve(
   reserveAccountId: FinanceBookByReserveParams['reserveAccountId'],
   config?: ApiRequestConfig,
-): Promise<FinanceBookInfo | undefined> {
-  return apiClient.get<FinanceBookInfo>(
+): Promise<FinanceBookInfo | null> {
+  const data = await apiClient.get<FinanceBookInfo | null>(
     `/api/finance/v1/finance/book/by-reserve/${reserveAccountId}`,
     config,
   );
+  return data ?? null;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1112,13 +1114,13 @@ export function getRoleWalletsList(
  */
 export function getRoleWalletDetail(
   roleWalletId: string,
-): Promise<RoleWalletItem | undefined> {
+): Promise<RoleWalletItem | null> {
   return new Promise((resolve) => {
     setTimeout(() => {
       const all = generateMockRoleWallets('TOKEN-001');
       const wallet = all.find((w) => w.roleWalletId === roleWalletId);
       if (!wallet) {
-        resolve(undefined);
+        resolve(null);
         return;
       }
       resolve({
@@ -1171,4 +1173,3 @@ export function configureRoleWallet(
     }, 500);
   });
 }
-

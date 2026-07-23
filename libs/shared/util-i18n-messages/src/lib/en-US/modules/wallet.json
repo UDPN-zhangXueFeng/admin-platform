@@ -44,7 +44,12 @@
     "1": "Fixed",
     "2": "Percentage",
     "10": "Maintenance Fee",
-    "11": "Minimum Balance Fee"
+    "11": "Minimum Balance Fee",
+    "20": "Arranged Overdraft Interest",
+    "25": "Unarranged Overdraft Amount",
+    "30": "Unarranged Overdraft Interest",
+    "50": "Deposit Interest",
+    "60": "Overdraft Interest"
   },
   "custodyModel": {
     "issuerCustody": "Issuer Custody",

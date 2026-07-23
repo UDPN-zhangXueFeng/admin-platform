@@ -405,7 +405,7 @@ export function CoaSetupCard({
       {renderHeader()}
 
       <div
-        className={`flex flex-col gap-5 ${embedded ? 'px-0 py-0' : 'px-6 py-6'}`}
+        className={`flex flex-col gap-5 ${embedded ? 'px-2 py-2' : 'px-6 py-6'}`}
       >
         {renderLinkedMessage()}
 

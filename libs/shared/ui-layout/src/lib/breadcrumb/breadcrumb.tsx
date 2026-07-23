@@ -5,6 +5,7 @@ import { ChevronRight, Home } from 'lucide-react';
 import { usePathname } from '@myorg/shared/util-i18n';
 import Link from 'next/link';
 import { cn } from '@myorg/shared/util-classnames';
+import { useModules } from '@myorg/shared/util-config';
 
 export interface BreadcrumbProps {
   className?: string;
@@ -19,13 +20,14 @@ export interface BreadcrumbProps {
  * - Home link is always present.
  * - Last segment is non-interactive (current page).
  *
- * Limitations:
- * - Labels are humanized from the URL segment (e.g. "user-list" → "User List").
- *   For production-grade labels, modules should expose a `breadcrumbLabel`
- *   in their manifest and this component should read from module metadata.
+ * Module labels:
+ * - The first segment resolves its label from `config.modules.order` so the
+ *   breadcrumb stays in sync with the sidebar menu. Remaining segments are
+ *   humanized from the URL slug (e.g. "user-list" → "User List").
  */
 export function Breadcrumb({ className }: BreadcrumbProps) {
   const pathname = usePathname();
+  const { order } = useModules();
   const segments = React.useMemo(() => {
     if (!pathname) return [];
     return pathname
@@ -53,7 +55,11 @@ export function Breadcrumb({ className }: BreadcrumbProps) {
         {segments.map((segment, index) => {
           const isLast = index === segments.length - 1;
           const href = '/' + segments.slice(0, index + 1).join('/');
-          const label = humanize(segment);
+          const label =
+            index === 0
+              ? (order?.find((m) => m.id === segment)?.label ??
+                humanize(segment))
+              : humanize(segment);
 
           return (
             <React.Fragment key={href}>

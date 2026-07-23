@@ -69,6 +69,7 @@ export default function ModulePage({
     mmf: 'mmf',
     'cross-chain': 'cross-chain',
     pledge: 'pledge',
+    reconciliation: 'reconciliation',
   };
   const groupKey = GROUP_ENABLED_KEY[module];
   const isGroup = Boolean(groupKey);

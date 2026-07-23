@@ -346,19 +346,22 @@ export function OverviewShell({
       : undefined,
   );
   // 实际响应含 tdName 等，断言为带额外字段的形状。
-  const deployInfoPayload = deployStepDetail as unknown as {
-    tdName?: string;
-    blockchainName?: string;
-    packageName?: string;
-    contractVersion?: string;
-    deployState?: number;
-    deployType?: number;
-    upgradeTaskCode?: string;
-  } | undefined;
+  const deployInfoPayload = deployStepDetail
+    ? (deployStepDetail as unknown as {
+        tdName?: string;
+        blockchainName?: string;
+        packageName?: string;
+        contractVersion?: string;
+        deployState?: number;
+        deployType?: number;
+        upgradeTaskCode?: string;
+      })
+    : undefined;
 
   // ── DeployHistoryModal 数据（源 smartHistory = getContractHistoryApi data[0]）──
   const { data: deployHistory } = useContractDeployHistoryQuery(
     currentTd?.code,
+    isModalOpenHistory,
   );
 
   // ── Tab 回调：tab-contracts 打开部署/升级 Modal ──
@@ -581,7 +584,7 @@ export function OverviewShell({
       {/* DeployHistoryModal（部署历史，useContractDeployHistoryQuery 取 data[0]） */}
       <DeployHistoryModal
         open={isModalOpenHistory}
-        history={deployHistory}
+        history={deployHistory ?? undefined}
         onCancel={() => setIsModalOpenHistory(false)}
       />
 

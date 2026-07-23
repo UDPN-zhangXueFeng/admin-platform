@@ -78,7 +78,7 @@ export function KeyCustodySection({
         description={t('td_section_custody_desc')}
         embedded={embedded}
       />
-      <CardContent className={embedded ? 'px-0 py-0' : 'py-6'}>
+      <CardContent className={embedded ? 'px-2 py-2' : 'py-6'}>
         <FieldGroup className="max-w-[40rem]">
           <Controller
             control={control}

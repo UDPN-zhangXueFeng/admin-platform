@@ -210,9 +210,17 @@ export function accountTypeMessageKey(accountType?: number | null): string | und
   return `accountType.${accountType}`;
 }
 
-/** feeType → i18n key（'feeType.10' 等）。 */
+/**
+ * wallet 已知 feeType 值域（与 wallet.json 的 `feeType` 对象 keys 同步）。
+ * 后端可能返回未定义的枚举值（如 35/40），未在白名单的值降级为 EMPTY_DISPLAY，
+ * 避免 next-intl 报 MISSING_MESSAGE。新增 feeType 文案时同步扩充此处与 wallet.json。
+ */
+const KNOWN_FEE_TYPES: Record<number, true> = { 1: true, 2: true, 10: true, 11: true, 20: true, 25: true, 30: true, 50: true, 60: true };
+
+/** feeType → i18n key（'feeType.10' 等）；未知值返回 undefined 以降级显示。 */
 export function feeTypeMessageKey(feeType?: number | null): string | undefined {
   if (feeType === undefined || feeType === null) return undefined;
+  if (!(feeType in KNOWN_FEE_TYPES)) return undefined;
   return `feeType.${feeType}`;
 }
 

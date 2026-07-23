@@ -1,0 +1,21 @@
+{
+  "name": "modules-approval-manage-ui",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/approval-manage/ui/src",
+  "projectType": "library",
+  "tags": ["scope:approval-manage", "type:ui"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/modules/approval-manage/ui/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}

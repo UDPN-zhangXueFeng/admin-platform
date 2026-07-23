@@ -1,0 +1,21 @@
+{
+  "name": "modules-reconciliation-feature",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/reconciliation/feature/src",
+  "projectType": "library",
+  "tags": ["scope:reconciliation", "type:feature"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/modules/reconciliation/feature/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}

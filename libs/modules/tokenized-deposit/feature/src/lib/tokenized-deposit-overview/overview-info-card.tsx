@@ -26,22 +26,26 @@
  *
  * i18n namespace: `modules.tokenized-deposit`。
  *
- * 注意：源码用 antd `Image` 渲染统计图标 SVG（`/stablecoin/images/*.svg`），
- * admin-platform 无该静态资源；迁移时统计图标改为左侧色块占位（保留统计文案 + 数值布局），
- * 图标资源缺失不影响数据正确性，运行时冒烟可按需补。
+ * 视觉实现使用轻量 SVG 渐变动效和项目已存在的 lucide-react 图标：不重新引入旧系统的
+ * 位图背景和遗失 SVG 资源，避免为单个概览卡增加静态资源维护成本。
  */
 'use client';
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
+import {
+  CircleDollarSign,
+  Coins,
+  Layers3,
+  Waves,
+  type LucideIcon,
+} from 'lucide-react';
 import { formatNumber } from '@myorg/shared/util-formatting';
 import {
   TokenizedDepositCopy,
   type TokenizedDepositCopyProps,
 } from '@myorg/modules/tokenized-deposit/ui';
-import {
-  TD_STATE_ICON_COLOR,
-} from '@myorg/modules/tokenized-deposit/util';
+import { TD_STATE_ICON_COLOR } from '@myorg/modules/tokenized-deposit/util';
 import type { ApplyListItem } from '@myorg/modules/tokenized-deposit/data-access';
 
 /** 数值格式化 locale（与源码 reSet 千分位 + 2 位小数对齐）。 */
@@ -66,6 +70,8 @@ function formatStat(value: number | string | undefined | null): string {
 
 /** TD 基本信息（getTDInfo）单行。 */
 interface InfoRow {
+  /** 稳定 React key。 */
+  key: string;
   label: string;
   /** 渲染值（支持 ReactNode，用于 state 图标行）。 */
   value: React.ReactNode;
@@ -81,6 +87,31 @@ interface StatItem {
   valueKey: 'surplusCount' | 'circulationCount' | 'issueCount' | 'removeCount';
 }
 
+interface StatVisual {
+  icon: LucideIcon;
+  className: string;
+}
+
+/** 统计值字段到视觉标识的固定映射，避免展示层依赖业务文案推断样式。 */
+const STAT_VISUALS: Record<StatItem['valueKey'], StatVisual> = {
+  surplusCount: {
+    icon: CircleDollarSign,
+    className: 'bg-violet-500 shadow-violet-500/25',
+  },
+  circulationCount: {
+    icon: Coins,
+    className: 'bg-fuchsia-500 shadow-fuchsia-500/25',
+  },
+  issueCount: {
+    icon: Layers3,
+    className: 'bg-amber-400 shadow-amber-400/25',
+  },
+  removeCount: {
+    icon: Waves,
+    className: 'bg-emerald-400 shadow-emerald-400/25',
+  },
+};
+
 /**
  * 计算左栏 TD 基本信息 6 项（getTDInfo）。
  *
@@ -92,19 +123,23 @@ function buildInfoRows(
 ): InfoRow[] {
   return [
     {
+      key: 'token-type',
       label: t('tokenized_deposit_0062'),
       value: td?.mintMethod != null ? t(`token_type_${td.mintMethod}`) : '--',
     },
     {
+      key: 'token-name',
       label: t('tokenized_deposit_0000'),
       value: td?.name ?? '--',
       state: td?.state,
     },
     {
+      key: 'token-symbol',
       label: t('tokenized_deposit_0001'),
       value: td?.symbol ?? '--',
     },
     {
+      key: 'token-price',
       label: t('tokenized_deposit_0011'),
       value:
         td?.stablecoinCount != null && td?.usPrice != null
@@ -114,10 +149,12 @@ function buildInfoRows(
           : '--',
     },
     {
+      key: 'blockchain',
       label: t('tokenized_deposit_0007'),
       value: td?.blockchainName ?? '--',
     },
     {
+      key: 'decimal-precision',
       label: t('stablecoin_settings_009'),
       value: td?.decimalPrecision != null ? String(td.decimalPrecision) : '--',
     },
@@ -140,9 +177,7 @@ function buildStatItems(
   const symbolUpper = td?.symbol?.toLocaleUpperCase() ?? '';
   return [
     {
-      label: isPledgeStablecoin
-        ? t('dashboard_0003')
-        : '', // 非质押稳定币首项隐藏
+      label: isPledgeStablecoin ? t('dashboard_0003') : '', // 非质押稳定币首项隐藏
       valueKey: 'surplusCount',
     },
     {
@@ -229,6 +264,65 @@ function StateIcon({ state }: { state?: number }): React.JSX.Element | null {
   );
 }
 
+/** 复用 Header 的主题色与低频动画类，避免为概览卡引入额外位图资源。 */
+function AnimatedOverviewBackground(): React.JSX.Element {
+  return (
+    <svg
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 h-full w-full"
+      preserveAspectRatio="none"
+      viewBox="0 0 800 340"
+    >
+      <defs>
+        <linearGradient id="token-overview-base" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stopColor="var(--banner-start)" />
+          <stop offset="0.52" stopColor="var(--banner-mid)" />
+          <stop offset="1" stopColor="var(--banner-end)" />
+        </linearGradient>
+        <radialGradient id="token-overview-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0" stopColor="var(--banner-glow)" stopOpacity="0.52" />
+          <stop offset="1" stopColor="var(--banner-glow)" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="token-overview-highlight" cx="50%" cy="50%" r="50%">
+          <stop
+            offset="0"
+            stopColor="var(--banner-highlight)"
+            stopOpacity="0.38"
+          />
+          <stop
+            offset="1"
+            stopColor="var(--banner-highlight)"
+            stopOpacity="0"
+          />
+        </radialGradient>
+      </defs>
+      <rect width="800" height="340" fill="url(#token-overview-base)" />
+      <ellipse
+        className="app-banner-orb-one"
+        cx="120"
+        cy="75"
+        rx="260"
+        ry="160"
+        fill="url(#token-overview-glow)"
+      />
+      <ellipse
+        className="app-banner-orb-two"
+        cx="670"
+        cy="290"
+        rx="280"
+        ry="175"
+        fill="url(#token-overview-highlight)"
+      />
+      <path
+        className="app-banner-wave"
+        d="M-80 240C70 195 180 295 350 236C500 183 615 280 880 184V340H-80Z"
+        fill="var(--banner-wave)"
+        opacity="0.2"
+      />
+    </svg>
+  );
+}
+
 export interface OverviewInfoCardProps {
   /** 当前选中 TD 的概览数据（applyList[activeKey]）。 */
   td: ApplyListItem | undefined;
@@ -260,72 +354,90 @@ export function OverviewInfoCard({
   };
 
   return (
-    <div className="my-4 flex w-full flex-col justify-between md:flex-row">
-      {/* 左栏：TD 基本信息（深色卡，hsb.png 背景） */}
-      <div className="mb-10 max-h-80 w-full rounded-xl !bg-cover p-5 text-white md:mb-0 md:w-[45%]">
-        <div className="flex">
-          <div className="flex-1">
-            {infoRows.map((row, index) => (
+    <section
+      className="my-4 grid w-full gap-5 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1fr)] min-[1600px]:grid-cols-[minmax(0,45fr)_minmax(0,55fr)]"
+      aria-label="Token overview"
+    >
+      {/* 左栏：Token 基本信息。渐变层替代旧系统缺失的 hsb.png 位图资源。 */}
+      <div className="relative isolate overflow-hidden rounded-2xl p-5 text-primary-foreground shadow-[0_16px_32px_rgba(83,88,181,0.18)] sm:p-6">
+        <AnimatedOverviewBackground />
+
+        <div className="relative flex items-start justify-between gap-5">
+          <dl className="grid min-w-0 flex-1 gap-y-4 pt-0.5">
+            {infoRows.map((row) => (
               <div
-                key={index}
-                className="mb-4 flex items-center text-base"
+                key={row.key}
+                className="grid grid-cols-[minmax(8.25rem,0.95fr)_minmax(0,1.15fr)] items-center gap-4 text-sm leading-6 sm:text-[15px]"
               >
-                <span className="mb-1 w-1/2">{row.label}</span>
-                <span className="flex flex-1 font-extrabold">
-                  {row.value}
-                  {index === 1 ? <StateIcon state={row.state} /> : null}
-                </span>
+                <dt className="text-primary-foreground/85">{row.label}</dt>
+                <dd className="flex min-w-0 items-center font-semibold tracking-[-0.01em]">
+                  <span className="truncate">{row.value}</span>
+                  {row.key === 'token-name' ? (
+                    <StateIcon state={row.state} />
+                  ) : null}
+                </dd>
               </div>
             ))}
-          </div>
+          </dl>
+
           {/* 右上角代币符号圆形徽标 */}
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white">
-            <div className="flex h-12 w-12 items-center justify-center pt-1 text-center text-xs font-extrabold leading-10 rounded-full bg-[#DEDEFA] text-indigo-600">
-              {td?.symbol ?? ''}
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-4 border-white/90 bg-white/25 p-1 shadow-lg backdrop-blur-sm">
+            <div className="flex h-full w-full items-center justify-center rounded-full bg-white/90 px-1 text-center text-sm font-bold text-primary">
+              <span className="truncate">{td?.symbol ?? '--'}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 右栏：储备区 + 4 统计（白卡） */}
-      <div className="w-full justify-between rounded-xl bg-white p-6 shadow-lg md:ml-10 md:w-[55%]">
+      {/* 右栏：储备区 + 统计。 */}
+      <div className="rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm sm:p-6">
         {/* 储备区（仅 mintMethod===1 稳定币） */}
         {isStablecoin ? (
-          <>
-            <div className="flex items-center">
-              <span>{t('tokenized_deposit_0175')}: </span>
-              <span className="ml-1 text-base">
-                <TokenizedDepositCopy {...reserveCopyProps} />
-              </span>
+          <div className="border-b border-border pb-5">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-base">
+              <span>{t('tokenized_deposit_0175')}:</span>
+              <TokenizedDepositCopy {...reserveCopyProps} />
             </div>
-            <div>
-              <span>{t('tokenized_deposit_0071')}: </span>
-              <span className="text-xl font-extrabold text-indigo-600">
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-base">
+              <span>{t('tokenized_deposit_0071')}:</span>
+              <span className="text-2xl font-bold tracking-[-0.03em] text-primary sm:text-[1.65rem]">
                 {formatStat(td?.reserveBalance)} {td?.currencySymbol ?? ''}
               </span>
             </div>
-          </>
+          </div>
         ) : null}
 
-        {/* 4 统计（首项 label 为空则隐藏） */}
-        <div className="flex flex-wrap">
-          {statItems.map((item, index) =>
-            item.label ? (
-              <div key={index} className="mt-8" style={{ width: '47%' }}>
-                <div className="flex items-center">
-                  <div className="h-12 w-12 shrink-0 rounded-md bg-indigo-50" />
-                  <div className="ml-4">
-                    <span className="mb-2 block">{item.label}</span>
-                    <span className="font-bold">
-                      {formatStat(td?.[item.valueKey])} {td?.symbol ?? ''}
-                    </span>
-                  </div>
+        {/* 首项 label 为空的 SP/MMF 资产只展示三项统计。 */}
+        <div className="grid grid-cols-1 gap-x-8 gap-y-5 pt-5 sm:grid-cols-2">
+          {statItems.map((item) => {
+            if (!item.label) return null;
+            const visual = STAT_VISUALS[item.valueKey];
+            const Icon = visual.icon;
+
+            return (
+              <div
+                key={item.valueKey}
+                className="flex min-w-0 items-center gap-4"
+              >
+                <div
+                  className={`flex h-[3.75rem] w-[3.75rem] shrink-0 items-center justify-center rounded-xl text-white shadow-lg ${visual.className}`}
+                  aria-hidden="true"
+                >
+                  <Icon className="h-7 w-7" strokeWidth={2.25} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[15px] leading-6 text-card-foreground/90 sm:text-base">
+                    {item.label}
+                  </p>
+                  <p className="mt-1 truncate text-lg font-bold tracking-[-0.02em]">
+                    {formatStat(td?.[item.valueKey])} {td?.symbol ?? ''}
+                  </p>
                 </div>
               </div>
-            ) : null,
-          )}
+            );
+          })}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

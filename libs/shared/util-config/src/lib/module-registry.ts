@@ -293,6 +293,23 @@ const moduleRegistry: Record<string, ModuleEntry> = {
         })),
     },
   },
+  // 顶层模块（源菜单单条 /approval-manage，非 group）：pages 用通用 key
+  // { list, detail }，对齐 statements / audit-trail 等顶层模块模式。
+  'approval-manage': {
+    manifest: () =>
+      import('@myorg/modules/approval-manage/feature').then((m) => m.manifest),
+    pages: {
+      list: () =>
+        import('@myorg/modules/approval-manage/feature').then((m) => ({
+          default: m.ApprovalManageListPage as unknown as ComponentType<unknown>,
+        })),
+      detail: () =>
+        import('@myorg/modules/approval-manage/feature').then((m) => ({
+          default:
+            m.ApprovalManageDetailPage as unknown as ComponentType<unknown>,
+        })),
+    },
+  },
   // mmf 分组路由（/mmf/<child>）：拆成 accrual / settlement 两个子模块 entry，
   // pages 用通用 key（list/detail）。对齐 sys group 范本（role/workflow 等）。
   accrual: {
@@ -583,6 +600,38 @@ const moduleRegistry: Record<string, ModuleEntry> = {
         import('@myorg/modules/pledge/feature').then((m) => ({
           default:
             m.ReserveAssetCategoryAddPage as unknown as ComponentType<unknown>,
+        })),
+    },
+  },
+  'real-time': {
+    manifest: () =>
+      import('@myorg/modules/reconciliation/feature').then(
+        (m) => m.realTimeManifest,
+      ),
+    pages: {
+      list: () =>
+        import('@myorg/modules/reconciliation/feature').then((m) => ({
+          default: m.RealTimeListPage as unknown as ComponentType<unknown>,
+        })),
+      detail: () =>
+        import('@myorg/modules/reconciliation/feature').then((m) => ({
+          default: m.RealTimeDetailPage as unknown as ComponentType<unknown>,
+        })),
+    },
+  },
+  reserve: {
+    manifest: () =>
+      import('@myorg/modules/reconciliation/feature').then(
+        (m) => m.reserveManifest,
+      ),
+    pages: {
+      list: () =>
+        import('@myorg/modules/reconciliation/feature').then((m) => ({
+          default: m.ReserveListPage as unknown as ComponentType<unknown>,
+        })),
+      detail: () =>
+        import('@myorg/modules/reconciliation/feature').then((m) => ({
+          default: m.ReserveDetailPage as unknown as ComponentType<unknown>,
         })),
     },
   },

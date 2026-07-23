@@ -109,3 +109,11 @@
 .app-banner-wave {
   animation: app-banner-wave-drift 3.8s ease-in-out infinite;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-banner-orb-one,
+  .app-banner-orb-two,
+  .app-banner-wave {
+    animation: none;
+  }
+}

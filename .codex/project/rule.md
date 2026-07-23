@@ -180,6 +180,8 @@ Type 约束：
 
 - 服务端状态使用 TanStack Query
 - query key 必须稳定、可序列化，并表达业务维度
+- `queryFn` 成功时不得返回 `undefined`；单对象“无数据”使用 `null`，列表“无数据”使用空数组，并由调用 UI 显式处理空态
+- 仅由弹窗、抽屉等按需 UI 消费的数据，使用 `enabled` 与其打开状态绑定，避免页面初始化时发起无意义请求
 - mutation 成功后明确 invalidate 或更新缓存
 - loading、empty、error 状态必须在 UI 中可感知
 

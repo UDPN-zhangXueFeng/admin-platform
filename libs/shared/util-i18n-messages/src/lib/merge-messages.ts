@@ -37,6 +37,8 @@ import enUSModulesKeyManagement from './en-US/modules/key-management.json';
 import enUSModulesCrossChain from './en-US/modules/cross-chain.json';
 import enUSModulesTokenizedDeposit from './en-US/modules/tokenized-deposit.json';
 import enUSModulesPledge from './en-US/modules/pledge.json';
+import enUSModulesApprovalManage from './en-US/modules/approval-manage.json';
+import enUSModulesReconciliation from './en-US/modules/reconciliation.json';
 import enUSProjectsEcommerce from './en-US/projects/ecommerce.json';
 import enUSProjectsStablecoin from './en-US/projects/stablecoin.json';
 
@@ -66,6 +68,8 @@ import zhCNModulesKeyManagement from './zh-CN/modules/key-management.json';
 import zhCNModulesCrossChain from './zh-CN/modules/cross-chain.json';
 import zhCNModulesTokenizedDeposit from './zh-CN/modules/tokenized-deposit.json';
 import zhCNModulesPledge from './zh-CN/modules/pledge.json';
+import zhCNModulesApprovalManage from './zh-CN/modules/approval-manage.json';
+import zhCNModulesReconciliation from './zh-CN/modules/reconciliation.json';
 import zhCNProjectsEcommerce from './zh-CN/projects/ecommerce.json';
 import zhCNProjectsStablecoin from './zh-CN/projects/stablecoin.json';
 
@@ -97,6 +101,8 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     'modules/cross-chain': enUSModulesCrossChain as unknown as Record<string, unknown>,
     'modules/tokenized-deposit': enUSModulesTokenizedDeposit as unknown as Record<string, unknown>,
     'modules/pledge': enUSModulesPledge as unknown as Record<string, unknown>,
+    'modules/approval-manage': enUSModulesApprovalManage as unknown as Record<string, unknown>,
+    'modules/reconciliation': enUSModulesReconciliation as unknown as Record<string, unknown>,
     'projects/ecommerce': enUSProjectsEcommerce as unknown as Record<string, unknown>,
     'projects/stablecoin': enUSProjectsStablecoin as unknown as Record<string, unknown>,
   },
@@ -126,6 +132,8 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     'modules/cross-chain': zhCNModulesCrossChain as unknown as Record<string, unknown>,
     'modules/tokenized-deposit': zhCNModulesTokenizedDeposit as unknown as Record<string, unknown>,
     'modules/pledge': zhCNModulesPledge as unknown as Record<string, unknown>,
+    'modules/approval-manage': zhCNModulesApprovalManage as unknown as Record<string, unknown>,
+    'modules/reconciliation': zhCNModulesReconciliation as unknown as Record<string, unknown>,
     'projects/ecommerce': zhCNProjectsEcommerce as unknown as Record<string, unknown>,
     'projects/stablecoin': zhCNProjectsStablecoin as unknown as Record<string, unknown>,
   },

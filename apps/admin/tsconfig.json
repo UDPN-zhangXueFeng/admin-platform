@@ -117,6 +117,18 @@
       "@myorg/modules/statements/util": [
         "../../libs/modules/statements/util/src/index.ts"
       ],
+      "@myorg/modules/approval-manage/data-access": [
+        "../../libs/modules/approval-manage/data-access/src/index.ts"
+      ],
+      "@myorg/modules/approval-manage/feature": [
+        "../../libs/modules/approval-manage/feature/src/index.ts"
+      ],
+      "@myorg/modules/approval-manage/ui": [
+        "../../libs/modules/approval-manage/ui/src/index.ts"
+      ],
+      "@myorg/modules/approval-manage/util": [
+        "../../libs/modules/approval-manage/util/src/index.ts"
+      ],
       "@myorg/modules/tokenized-deposit/data-access": [
         "../../libs/modules/tokenized-deposit/data-access/src/index.ts"
       ],
@@ -176,6 +188,18 @@
       ],
       "@myorg/modules/pledge/util": [
         "../../libs/modules/pledge/util/src/index.ts"
+      ],
+      "@myorg/modules/reconciliation/data-access": [
+        "../../libs/modules/reconciliation/data-access/src/index.ts"
+      ],
+      "@myorg/modules/reconciliation/feature": [
+        "../../libs/modules/reconciliation/feature/src/index.ts"
+      ],
+      "@myorg/modules/reconciliation/ui": [
+        "../../libs/modules/reconciliation/ui/src/index.ts"
+      ],
+      "@myorg/modules/reconciliation/util": [
+        "../../libs/modules/reconciliation/util/src/index.ts"
       ],
       "@myorg/modules/transaction-event-configuration/data-access": [
         "../../libs/modules/transaction-event-configuration/data-access/src/index.ts"

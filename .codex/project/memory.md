@@ -29,6 +29,48 @@
 - 后续同类任务：
 ```
 
+## 2026-07-23
+
+- 背景：approval-manage 三列表（queryTodoList/queryCompletedList/queryCreateList）运行时空表 "No data"，但旧系统 td-manage 同页有 7 行数据。根因不是前端渲染或权限，而是 `apps/admin/.env.local` **漏设 `NEXT_PUBLIC_CONFIG_ID`**。该变量在 `approval-manage.api.ts` 用于动态拼 URL：`TODO_LIST_URL = ${CONFIG_ID}v1/task/queryTodoList`，`CONFIG_ID = process.env.NEXT_PUBLIC_CONFIG_ID ?? ''`。缺失时 URL 退化为 `v1/task/queryTodoList`（无前缀），axios baseURL=/aps 合并后请求 `/aps/v1/task/queryTodoList`，经 Next.js rewrite 代理到 `http://10.0.48.123:30001/v1/task/queryTodoList`，后端无此路径 → 404 → query 失败 → 空表。
+- 结论：迁移 td-manage 时必须把 `.env` 的公共前缀变量同步到 `apps/admin/.env.local`。旧 `.env` 生效值：`NEXT_PUBLIC_AGENT_ID=/aps`（axios baseURL，新项目改名 `NEXT_PUBLIC_API_BASE_URL=/aps`）、`NEXT_PUBLIC_CONFIG_ID=/api/base/`（task/workflow/common 动态 URL 前缀）、`NEXT_PUBLIC_MESSAGE_ID=/api/base/`、`NEXT_PUBLIC_FILE_ID=/api/base/`、`NEXT_SERVICE_SERVER_URL=http://10.0.48.120:30001/`（新项目用 48.123）。`CONFIG_ID` 是完整路径段前缀，axios 对相对路径合并 baseURL，行为与旧 `request(...)` 一致。
+- 影响：`.env.local` 已补 `NEXT_PUBLIC_CONFIG_ID=/api/base/`。验证（curl POST，无 token）：修复前路径 `/aps/v1/task/queryTodoList` → `404 {"path":"/v1/task/queryTodoList","error":"Not Found"}`；修复后路径 `/aps/api/base/v1/task/queryTodoList` → `200 {"code":3,"message":"MSG_00_0004"}`。`code:3` 是后端"会话未认证"（axios-client.ts 响应拦截器对 code 3/4 触发登录重定向），不是"无数据"——用户带 session token 请求将得 `code:0` + 列表。
+- 后续：若其他模块列表也空，优先查是否缺 `MESSAGE_ID`/`FILE_ID` 等同类前缀变量。注意新系统后端 `10.0.48.123` 与旧 `10.0.48.120` 不同 IP——若修复 CONFIG_ID 后某模块仍无数据，可能是后端环境数据差异，需对齐 `.env.local` 的 `NEXT_SERVICE_SERVER_URL`。`NEXT_PUBLIC_*` 变量在进程启动时内联，改 env 必须重启 dev（`hub restart admin-dev`），HMR 不够。
+
+## 2026-07-23
+
+- 背景：侧栏菜单 label 已改为 "Workflow Tasks"，但 approval-manage 模块页面内部仍是 "Approval Manage"（面包屑）和 "Approval Management"（section 标题、manifest name），面向用户的模块名三个来源不同步。
+- 结论：模块显示名有三个独立来源——`config.modules.order[].label`（侧栏菜单）、i18n `modules.<id>.title` / `list.title`（页面 section 标题，locale-aware）、`module-manifest` 的 `name`/`routes[].label`（模块元数据）。重命名模块面向用户的名字时三层都要同步。本次把 approval-manage 的 i18n（en `Workflow Tasks` / zh `工作流任务`）和 manifest name/label 改为 Workflow Tasks。
+- 影响：关键架构改进——`breadcrumb.tsx` 原本 `humanize(segment)` 全靠 URL slug 推导（`approval-manage`→`Approval Manage`），导致面包屑与侧栏菜单不同步。现改为第一段（module）查 `config.modules.order` 的 label，其余段继续 humanize。这样面包屑与侧栏菜单同源（config order label）；`ModuleMenuItem.label` 是必填字段，所以 `?.label ?? humanize` 的 fallback 实际不会触发。id/path/registry 不变时，模块改名只需改 config label（菜单+面包屑）+ i18n（页面标题）。
+- 后续同类任务：模块重命名/对齐文案时，依次检查 config order label、i18n title/list.title、manifest name 三层；面包屑自本次起与 config order 同源，不再单独维护。注意 config label 是单语字面量（无 locale 查找），zh-CN 下侧栏与面包屑仍显示该字面量；若需 locale-aware 菜单名，需改 config label 机制（当前未做）。
+
+## 2026-07-23
+
+- 背景：`stablecoin.json` 的 `modules.order` 同时存在顶级 `workflow`（label "Workflow Tasks"，无 path）与 `approval-manage`（label "Approval Manage"，path `/approval-manage`）两条菜单，实际承载的都是旧项目 `/approval-manage` 审批待办中心（Pending/Actioned/Sent）。旧项目侧栏该项显示 "Workflow Tasks"，新项目却显示 "Approval Manage"，且顶级 `workflow` 占位项点击后进入的是 sys-workflow 管理员配置页而非待办。
+- 结论：审批待办中心的路由/registry 标识保留 `approval-manage`（`module-registry.ts` 的 `'approval-manage'` key + `libs/modules/approval-manage`，path `/approval-manage`），但菜单 label 必须用业务名 "Workflow Tasks"。删除顶级 `workflow` 占位项及其 `modules.enabled` 条目，把 `approval-manage` 项移到主区第二位（Dashboard 之后，`group: ""`）并改 label 为 "Workflow Tasks"。id/path/registry 不动。
+- 影响：关键陷阱 —— `libs/shared/ui-layout/.../sidebar-layout.tsx:46` 的 path 回退规则 `mod.path ?? \`/${mod.id}\`` 会把无 path 的占位菜单变成可点击链接。顶级 `workflow` 占位项因此被补成 `/workflow`，点击命中 registry `workflow` key（= `libs/modules/workflow`，即 sys-workflow 管理员配置页 `/sys/workflow`），而非审批待办。registry key `workflow` 已被 sys-workflow 占用，不能再用于审批待办占位。
+- 后续同类任务：调整侧栏菜单时区分三层——菜单 order（显示）、`modules.enabled`（白名单）、`module-registry` key（路由解析）。无 path 的 order 项不是"死占位"，会被回退成 `/{id}` 并尝试匹配同名 registry key；占位项要么给明确 path，要么彻底删除（含 enabled）。业务名（菜单 label）与路由名（id/path/registry key）分离时，label 对齐旧项目用户可见名，id/path 保持与 registry 一致；同名 registry key（如 `workflow`）被多个语义复用时尤其要核对路由回退结果。
+
+## 2026-07-22
+
+- 背景：Tokenized Deposit 概览卡从旧系统迁移后，左栏仅保留 `bg-cover` 而没有背景，白色文本在浅色页面不可见；右栏统计图标仍是空色块。
+- 结论：概览卡使用 `--banner-*` 主题变量构成局部 SVG 渐变动效，不复用旧系统 176 KB 位图；统计字段按 `valueKey` 映射至既有 `lucide-react` 图标和局部类别色。布局以 `lg` 为双栏边界，避免在 768px 过早横排，并由内容决定卡片高度；信息项使用 `dl/dt/dd` 和稳定 key，统计使用 `valueKey` 作为 key。SVG 沿用 Header 的低频动画类，并通过 `prefers-reduced-motion` 全局降级。
+- 影响：Tokenized Deposit 的真实数据、储备区显示条件和质押/非质押统计分支不变；浅色、深色和窄屏均不依赖缺失静态资源，减少动效偏好下不会播放背景动画。
+- 后续同类任务：迁移旧系统卡片时先确认背景和图标资源是否已进入当前仓库；资源缺失时优先使用现有 CSS 主题变量与已安装图标库，不以透明/空色块作为长期占位。为展示分支补测试时覆盖 `0` 值、条件区块和条目数量，不测试 Tailwind 实现细节。
+
+## 2026-07-22
+
+- 背景：Tokenized Deposit 概览页的部署历史接口在当前 token 没有记录时返回空数组，TanStack Query 随后报 `Query data cannot be undefined`。
+- 结论：TanStack Query 的 `queryFn` 不能以 `undefined` 表示成功但无数据。可选单对象查询统一将空数组、`null` 或缺失响应归一化为 `null`；列表归一化为空数组。`useContractDeployHistoryQuery` 仅在部署历史弹窗打开后启用，避免概览加载阶段预取非必要数据。
+- 影响：Tokenized Deposit data-access 中部署历史、部署步骤、Financial Book 和 mock 角色钱包详情的 query 契约均已移除 `undefined` 成功结果，并有 QueryClient 回归测试覆盖空部署历史/步骤不会进入 error 状态。
+- 后续同类任务：新增或迁移 TanStack Query 时，先确认 queryFn 的成功返回值在所有分支均为非 `undefined`；详情无数据建模为 `null`，并为允许为空的接口补充“查询保持 success + 空值”的测试。
+
+## 2026-07-22
+
+- 背景：检查管理后台当前 TypeScript 类型是否满足生产构建标准。
+- 结论：`npx nx build admin` 已通过 Webpack、Next TypeScript 检查、静态页面生成和构建收尾，exit code 为 0；因此 `apps/admin` 的真实生产构建类型门禁当前通过。独立执行 `npx tsc -b` 仍失败，主要集中在库级 project references 未完整声明、缺少 `baseUrl`、共享库 `lib` 仍为 `es2022` 与 `Intl.NumberFormat` 的 `roundingMode` 不匹配等工程配置问题。
+- 影响：后续报告类型检查时必须区分 Next app build 与 workspace-wide `tsc -b`：前者当前可作为应用发布门禁，后者不能宣称通过；`libs/shared/util-formatting` 的 `roundingMode` 和各库 project reference 应作为独立工程债务处理。
+- 后续同类任务：先运行 `npx nx build admin` 判断实际发布链路，再运行 `npx tsc -b` 检查库级声明/引用完整性；不要把 `TS6059/TS6307/TS6305` 的 project reference 级联错误直接等同于应用业务类型错误。
+
 ## 2026-07-21
 
 - 背景：Dashboard 的 Token Management 选择器同时展示 Stablecoin、Tokenized Deposit 与 Tokenized MMF，原先仅支持链名称与关键字筛选。

@@ -284,13 +284,13 @@ export function useContractDetailQuery(params: ContractDetailListParams) {
 
 /**
  * 部署历史查询（index 部署历史 Modal）。
- * 接口返回 data[0]，此处取首项。stablecoinCode 缺失时不发起。
+ * 接口返回 data[0]，空结果规范为 null。stablecoinCode 缺失时不发起。
  */
 export function useContractDeployHistoryQuery(
   stablecoinCode: number | string | undefined,
   enabled = true,
 ) {
-  return useQuery<DeployHistoryItem | undefined>({
+  return useQuery<DeployHistoryItem | null>({
     queryKey: tdKeys.overviewContractDeployHistory(String(stablecoinCode ?? '')),
     queryFn: ({ signal }) =>
       getContractDeployHistory(stablecoinCode as string, { signal }),
@@ -300,13 +300,13 @@ export function useContractDeployHistoryQuery(
 
 /**
  * 部署步骤详情查询（index 部署 Modal，body taskCode）。
- * taskCode 缺失时不发起。
+ * 空结果规范为 null；taskCode 缺失时不发起。
  */
 export function useDeployStepDetailQuery(
   params: DeployStepDetailParams | undefined,
   enabled = true,
 ) {
-  return useQuery<DeployStepDetail | undefined>({
+  return useQuery<DeployStepDetail | null>({
     queryKey: tdKeys.overviewDeployStepDetail(
       params ?? { taskCode: '' },
     ),
@@ -438,7 +438,7 @@ export function useFinanceBookByReserveQuery(
   reserveAccountId: number | string | undefined,
   enabled = true,
 ) {
-  return useQuery<FinanceBookInfo | undefined>({
+  return useQuery<FinanceBookInfo | null>({
     queryKey: tdKeys.editFinanceBookByReserve({
       reserveAccountId: reserveAccountId ?? '',
     }),
@@ -559,7 +559,7 @@ export function useRoleWalletDetailQuery(
   roleWalletId: number | string | undefined,
   enabled = true,
 ) {
-  return useQuery<RoleWalletItem | undefined>({
+  return useQuery<RoleWalletItem | null>({
     queryKey: tdKeys.roleWalletDetail(roleWalletId),
     queryFn: () => getRoleWalletDetail(roleWalletId as string),
     enabled: roleWalletId != null && roleWalletId !== '' && enabled,

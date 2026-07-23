@@ -53,7 +53,6 @@
       "journal-entries-new",
       "posting-engine",
       "transaction-event-configuration",
-      "workflow",
       "token-management",
       "key-management",
       "sp-access",
@@ -66,7 +65,7 @@
       "interest",
       "screening",
       "statistics",
-      "approval",
+      "approval-manage",
       "tokenized-deposit",
       "transaction-flow",
       "mmf",
@@ -91,9 +90,10 @@
         "group": ""
       },
       {
-        "id": "workflow",
+        "id": "approval-manage",
         "icon": "Calendar",
         "label": "Workflow Tasks",
+        "path": "/approval-manage",
         "group": ""
       },
       {
@@ -286,14 +286,14 @@
             "icon": "Building2",
             "label": "Real-time On-chain Data",
             "path": "/reconciliation/real-time",
-            "disabled": true
+            "disabled": false
           },
           {
             "id": "real-time-reserve",
             "icon": "Building2",
             "label": "Real-time Reserve",
             "path": "/reconciliation/reserve",
-            "disabled": true
+            "disabled": false
           }
         ]
       },
@@ -369,12 +369,6 @@
             "path": "/statistics-reports"
           }
         ]
-      },
-      {
-        "id": "approval",
-        "icon": "Calendar",
-        "label": "Approval Manage",
-        "group": "more"
       },
       {
         "id": "transaction-flow",
