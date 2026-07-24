@@ -45,6 +45,8 @@
   "common_select": "选择",
   "direction_1": "借",
   "direction_2": "贷",
+  "direction_debit": "借",
+  "direction_credit": "贷",
   "reconciliation_0015": "交易ID",
   "reconciliation_0016": "账户",
   "reconciliation_0017": "方向",

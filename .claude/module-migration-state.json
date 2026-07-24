@@ -1,53 +1,50 @@
 {
-  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/approval-manage",
-  "moduleName": "approval-manage",
-  "slug": "approval-manage",
+  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/reconciliation",
+  "moduleName": "reconciliation",
+  "slug": "reconciliation",
   "parentModule": null,
-  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/approval-manage.md",
+  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/reconciliation.md",
   "phase": "accepted-conditional",
   "migrationRate": 1.0,
   "acceptanceRate": 1.0,
-  "acceptanceNote": "可验证项100%(lint四层0err/tsc本域0错/test通过/build通过无chunk误报/运行时坑grep全0/SSR路由层list+view存在非404非error); 完整运行时交互冒烟(列表数据/审批提交/MetaMask签名/升级Drawer选人/文件下载)受auth限制待用户登录验证(同wallet/cross-chain/pledge惯例)",
-  "coverage": {
-    "sourceFiles": { "covered": 28, "total": 28, "missing": [] },
-    "apis": { "covered": 22, "total": 22, "missing": [] },
-    "pages": { "covered": 2, "total": 2, "missing": [] },
-    "uiMappings": { "covered": 47, "total": 47, "missing": [] }
-  },
+  "completedAt": "2026-07-24",
+  "workflowStats": {"agents": 10, "subagentTokens": 765368, "toolUses": 442, "durationMs": 2346299},
+  "acceptanceNote": "静态可验证项100%: lint五项目0err(feature/data-access/util/ui/i18n) + 缺失逻辑全补(Investigation过滤下沉query层select过滤status=3并重算total/PostToSuspense推断逻辑resolveDisplayUnmatchedType+toPostingDateEpoch+mapSuggestedSuspenseEntries+canConfirm/ReconLog TX_TYPE_REPOSITORY_OUT注入2002-2003/双视图Melt+Mint+warningText+statusAmountValue) + 运行时坑全绿(ALL_VALUE='all'无空串/ICU i18n json 0双花括号(feature内3处{{全为pagination JSX对象属性)/无reconciliation.reconciliation双重前缀/SelectItem空串仅注释) + group机制完整(registry real-time+reserve两entry通用key list/detail+manifest list+view/detail) + list→detail契约一致(?id=&tab=list|investigation) + diff干净(只feature 8改+4新建content+i18n 2改,底层data-access/util/ui/registry/菜单/路由零改动). 完整运行时交互冒烟(列表数据/4Modal打开填表提交/筛选下拉/状态枚举渲染)受auth限制待用户登录验证(同approval-manage/wallet/cross-chain/pledge惯例).",
   "scope": {
-    "subModules": "横切审批中心: 25个业务审核组件(6域) + CustomInformation + index三Tab + view 1074行dispatcher",
-    "totalFiles": 28,
-    "totalLines": 7342,
-    "pages": "index(三Tab列表) + view(dispatcher+审批操作区+MetaMask+Steps+升级Drawer)",
-    "sourceNote": "迁移完成。双审核双98%+全opus实现(经429限流补全)+静态验收全绿+SSR路由层通过。"
+    "subModules": "real-time(Token实时对账) + reserve(储备对账), group机制双子模块",
+    "totalFiles": 11,
+    "totalLines": 5731,
+    "sourceBreakdown": "pages 1870行(4文件) + lib/components/reconciliation 3861行(7核心+3 mock)",
+    "pages": "4页面(real-time/reserve 各 list+detail) + 4超大Modal(real-time/reserve 各 PostToSuspense+ReconLog) + adjustments子系统(不迁,半成品) + ReconciliationBasePage(不迁,占位)",
+    "endpoints": "13唯一endpoint(Token7+Reserve6, accounts/leaf复用tx域); 2写操作post-suspense(reserve端R1后端缺失mock顶位)",
+    "sourceNote": "重新迁移(上次功能/页面/弹窗缺失)。真实规模~5731行远超脚本统计的1870。重灾:4超大Modal内部逻辑2464行。"
+  },
+  "rebuildMode": "用户初选'推倒重来' → 阶段一发现data-access层完好,待用户确认是否改为精准重写feature层",
+  "phase1Finding": {
+    "intactLayers": "data-access(api/model/queries/mutations 13端点全有) + util(constants/helpers) + ui(3共享组件) + module-manifests + registry + 菜单 + 路由group均已存在且子agent判断质量高(待lint/test复核)",
+    "rootCause": "病根集中在feature层: ①real-time Investigation Queue前端过滤全缺(INVESTIGATION_STATUSES/filterInvestigationRows/investBadge grep未命中) ②real-time PostToSuspenseModal推断逻辑缩水31%(缺resolveDisplayUnmatchedType/toPostingDateEpoch/mapSuggestedSuspenseEntries) ③real-time ReconLogModal缩水19%(TX_TYPE_REPOSITORY_OUT(10)硬编码分录注入疑缺) ④reserve ReserveReconLogModal双视图疑完整(需运行时校验) ⑤ReservePostToSuspense详情页未挂载入口(R1,须保持feature-flag隐藏)",
+    "notMigrate": "adjustments子系统(老项目半成品无pages) + ReconciliationBasePage(占位未被引用) + 3 mock.ts(仅数据结构参考)"
+  },
+  "coverage": {
+    "sourceFiles": { "covered": 11, "total": 11, "missing": [] },
+    "apis": { "covered": 13, "total": 13, "missing": [] },
+    "pages": { "covered": 4, "total": 4, "missing": [] },
+    "uiMappings": { "covered": 18, "total": 18, "missing": [], "note": "4 Modal内部结构详述+6类状态枚举完整键值+3共享ui组件+3下拉hook映射+2跨模块detail路由" }
   },
   "tasks": [
-    { "id": "T1", "name": "建库+注册+manifest桩", "kind": "scaffold", "status": "completed" },
-    { "id": "T2", "name": "util constants+bus-code-map+helpers", "kind": "scaffold", "status": "completed" },
-    { "id": "T3", "name": "data-access model+api+queries/mutations", "kind": "scaffold", "status": "completed" },
-    { "id": "T4", "name": "列表页 三Tab+撤回Modal", "kind": "page", "status": "completed" },
-    { "id": "T5", "name": "dispatcher骨架+四套status+selectType", "kind": "dispatcher", "status": "completed" },
-    { "id": "T6", "name": "审核组件批次1 tokenized-deposit(3)", "kind": "page", "status": "completed" },
-    { "id": "T7", "name": "审核组件批次2 wallet(6)", "kind": "page", "status": "completed" },
-    { "id": "T8", "name": "审核组件批次3 sp-reserve(5)", "kind": "page", "status": "completed" },
-    { "id": "T9", "name": "审核组件批次4 monitoring-interest(4)", "kind": "page", "status": "completed" },
-    { "id": "T10", "name": "审核组件批次5 crosschain-settlement(3)", "kind": "page", "status": "completed" },
-    { "id": "T11", "name": "审核组件批次6 financial(4)", "kind": "page", "status": "completed" },
-    { "id": "T12", "name": "审批操作区+Steps日志+升级Drawer+退回Modal", "kind": "page", "status": "completed" },
-    { "id": "T13", "name": "MetaMask签名(ethers v5→v6改写)", "kind": "metamask", "status": "completed" },
-    { "id": "T14", "name": "i18n收敛+注册(10 namespace)", "kind": "scaffold", "status": "completed" },
-    { "id": "T15", "name": "终验", "kind": "verify", "status": "completed", "verified": "lint四层0err+tsc本域0错(3auth基线)+test通过+build通过无chunk误报+运行时坑grep全0(ALL_VALUE/ICU/双重前缀)+SSR路由层(list/view 307→login auth拦截 非404非error边界); 完整交互冒烟待用户登录(auth限制)" }
+    {"id":"T1","name":"基线检查+feature层缺失诊断(grep确认+lint/test基线)","kind":"verify","model":"opus","status":"completed","deps":[]},
+    {"id":"T2","name":"i18n补全(reconciliation_0095~0233,ICU单花括号)+model.ts字段补全","kind":"scaffold","model":"haiku","status":"completed","deps":["T1"]},
+    {"id":"T3","name":"重写real-time/post-to-suspense-modal(+content)补推断逻辑","kind":"page","model":"opus","status":"completed","deps":["T2"]},
+    {"id":"T4","name":"重写real-time/recon-log-modal(+content)补TX_TYPE_REPOSITORY_OUT分支","kind":"page","model":"opus","status":"completed","deps":["T2"]},
+    {"id":"T5","name":"重写real-time-detail-page补Investigation前端过滤+investBadge+条件action","kind":"page","model":"opus","status":"completed","deps":["T3","T4"]},
+    {"id":"T6","name":"校验real-time+reserve list-page动态下拉+ALL_VALUE+跳转query","kind":"page","model":"opus","status":"completed","deps":["T2"]},
+    {"id":"T7","name":"校验reserve/reserve-recon-log-modal(+content)双视图+warningText","kind":"page","model":"opus","status":"completed","deps":["T2"]},
+    {"id":"T8","name":"校验reserve/reserve-post-to-suspense-modal(+content)可编辑表+不挂载R1","kind":"page","model":"opus","status":"completed","deps":["T2"]},
+    {"id":"T9","name":"校验reserve-detail-page双Tab不过滤R2+2卡片+ReconLog action","kind":"page","model":"opus","status":"completed","deps":["T7","T8"]},
+    {"id":"T10","name":"拆4 Modal content子组件(nx lazy规避)+lint/test/build","kind":"verify","model":"opus","status":"completed","deps":["T3","T4","T5","T6","T7","T8","T9"]},
+    {"id":"T11","name":"终验+运行时坑grep(ALL_VALUE/ICU/双重前缀/pageNum)+运行时冒烟","kind":"verify","model":"opus","status":"completed","deps":["T10"]}
   ],
-  "currentIndex": 15,
-  "startedAt": "2026-07-22",
-  "completedAt": "2026-07-23",
-  "customFlow": {
-    "phase2": "双独立opus交叉审核4轮达双98%(A覆盖1.00+B正确性1.00)",
-    "phase4Model": "全opus",
-    "phase4Strategy": "T1-T5串行; T6-T11并行(经429限流中断,6批agent在429前tool_uses=292落地24组件,收尾opus补financial2+2index+注册25/25,修复opus修9tsc/3lint全绿); T12-T15串行",
-    "T13_note": "实测目标已装ethers@6.16.0(纠正降级假设)→完整移植v5→v6改写非降级",
-    "T14_note": "i18n en/zh各440key,319静态+25动态前缀NONE missing",
-    "finalAcceptance": "静态100%(lint/tsc/test/build/运行时坑)+SSR路由层通过(auth→login非404非error); 运行时完整交互待用户登录",
-    "walletStateBackedUp": ".claude/module-migration-state.wallet.bak.json"
-  }
+  "currentIndex": 11,
+  "startedAt": "2026-07-24",
+  "prevStateBackedUp": ".claude/module-migration-state.approval-manage.bak.json"
 }

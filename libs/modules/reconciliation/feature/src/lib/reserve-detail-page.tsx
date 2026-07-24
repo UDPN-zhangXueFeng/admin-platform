@@ -9,6 +9,13 @@ import {
   Button,
   CopyableEllipsisText,
   DataTable,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Tabs,
   TabsContent,
   TabsList,
@@ -21,6 +28,7 @@ import {
   StatusBadge,
 } from '@myorg/modules/reconciliation/ui';
 import {
+  type ReconciliationListParams,
   useReserveBasicDetailQuery,
   useReserveListQuery,
   useReserveInvestigationListQuery,
@@ -131,29 +139,179 @@ export function ReserveDetailPage() {
   const [investPageNum, setInvestPageNum] = React.useState(1);
   const pageSize = DEFAULT_PAGE_SIZE;
 
-  // ── Recon List 查询 ───────────────────────────────────────────────────────
-  const listFilters: ReserveReconListReqVo = {
-    reserveAccountId: reserveAccountId ?? 0,
+  // ── 筛选状态（Tab 独立；ALL_VALUE='all' 规避 Radix Select 空串崩溃） ────────
+  // 对齐源 `formItems`（keyword / type / reconciliationStatus 三项可交互筛选；
+  // 源两段 RangePicker 在目标侧详情页按 real-time 同级约定省略）。
+  interface ReserveFilterValues {
+    keyword: string;
+    type: string;
+    reconciliationStatus: string;
+  }
+
+  const defaultFilters: ReserveFilterValues = {
+    keyword: '',
+    type: 'all',
+    reconciliationStatus: 'all',
   };
 
-  const listResult = useReserveListQuery({
-    pageNum: listPageNum,
-    pageSize,
-    filters: listFilters,
-  });
+  // 已提交（驱动查询）的筛选值
+  const [listFilterValues, setListFilterValues] =
+    React.useState<ReserveFilterValues>(defaultFilters);
+  const [investFilterValues, setInvestFilterValues] =
+    React.useState<ReserveFilterValues>(defaultFilters);
+
+  // 表单内编辑态（提交前不触发查询）
+  const [listFormValues, setListFormValues] =
+    React.useState<ReserveFilterValues>(defaultFilters);
+  const [investFormValues, setInvestFormValues] =
+    React.useState<ReserveFilterValues>(defaultFilters);
+
+  const makeReserveParams = React.useCallback(
+    (
+      pageNum: number,
+      filters: ReserveFilterValues,
+    ): ReconciliationListParams<ReserveReconListReqVo> => ({
+      pageNum,
+      pageSize,
+      filters: {
+        reserveAccountId: reserveAccountId ?? 0,
+        keyword: filters.keyword || undefined,
+        type:
+          filters.type && filters.type !== 'all'
+            ? Number(filters.type)
+            : undefined,
+        reconciliationStatus:
+          filters.reconciliationStatus &&
+          filters.reconciliationStatus !== 'all'
+            ? Number(filters.reconciliationStatus)
+            : undefined,
+      },
+    }),
+    [reserveAccountId, pageSize],
+  );
+
+  // ── Recon List 查询 ───────────────────────────────────────────────────────
+  const listResult = useReserveListQuery(
+    makeReserveParams(listPageNum, listFilterValues),
+  );
 
   // ── Investigation 查询（R2: NOT pre-filtered） ────────────────────────────
-  const investResult = useReserveInvestigationListQuery({
-    pageNum: investPageNum,
-    pageSize,
-    filters: listFilters,
-  });
+  const investResult = useReserveInvestigationListQuery(
+    makeReserveParams(investPageNum, investFilterValues),
+  );
 
   const investTotal = investResult.data?.page?.total ?? 0;
 
   // ── Modal 状态 ────────────────────────────────────────────────────────────
   const [modal, setModal] = React.useState<ModalState>({ mode: null });
   const closeModal = () => setModal({ mode: null });
+
+  // ── 筛选提交（form 编辑态 → 已提交态，并重置分页） ──────────────────────────
+  const onListFilterSubmit = React.useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      setListFilterValues(listFormValues);
+      setListPageNum(1);
+    },
+    [listFormValues],
+  );
+
+  const onInvestFilterSubmit = React.useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      setInvestFilterValues(investFormValues);
+      setInvestPageNum(1);
+    },
+    [investFormValues],
+  );
+
+  // ── 筛选表单（对齐 real-time 详情页约定：keyword + type + status 原生 form） ──
+  const renderFilterForm = React.useCallback(
+    (tab: 'list' | 'investigation') => {
+      const values = tab === 'list' ? listFormValues : investFormValues;
+      const setValues =
+        tab === 'list' ? setListFormValues : setInvestFormValues;
+      const onSubmit =
+        tab === 'list' ? onListFilterSubmit : onInvestFilterSubmit;
+
+      return (
+        <form
+          onSubmit={onSubmit}
+          className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-4"
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor={`${tab}-keyword`}>
+              {t('reconciliation_0138')}
+            </Label>
+            <Input
+              id={`${tab}-keyword`}
+              placeholder={t('reconciliation_0138')}
+              value={values.keyword}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, keyword: e.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`${tab}-type`}>{t('reconciliation_0055')}</Label>
+            <Select
+              value={values.type}
+              onValueChange={(v) =>
+                setValues((prev) => ({ ...prev, type: v }))
+              }
+            >
+              <SelectTrigger id={`${tab}-type`}>
+                <SelectValue placeholder={t('common_all')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('common_all')}</SelectItem>
+                <SelectItem value="1">
+                  {t('reserve_type_1' as never)}
+                </SelectItem>
+                <SelectItem value="2">
+                  {t('reserve_type_2' as never)}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`${tab}-reconStatus`}>
+              {t('reconciliation_0136')}
+            </Label>
+            <Select
+              value={values.reconciliationStatus}
+              onValueChange={(v) =>
+                setValues((prev) => ({
+                  ...prev,
+                  reconciliationStatus: v,
+                }))
+              }
+            >
+              <SelectTrigger id={`${tab}-reconStatus`}>
+                <SelectValue placeholder={t('common_all')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('common_all')}</SelectItem>
+                <SelectItem value="2">
+                  {t('reserve_status_2' as never)}
+                </SelectItem>
+                <SelectItem value="3">
+                  {t('reserve_status_3' as never)}
+                </SelectItem>
+                <SelectItem value="4">
+                  {t('reserve_status_4' as never)}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end">
+            <Button type="submit">{t('common_query')}</Button>
+          </div>
+        </form>
+      );
+    },
+    [t, listFormValues, investFormValues, onListFilterSubmit, onInvestFilterSubmit],
+  );
 
   // ── 列定义 ────────────────────────────────────────────────────────────────
   const buildColumns = React.useCallback<
@@ -403,6 +561,7 @@ export function ReserveDetailPage() {
         </TabsList>
 
         <TabsContent value="list">
+          {renderFilterForm('list')}
           <DetailTablePanel
             columns={columns}
             data={listResult.data?.rows ?? []}
@@ -416,6 +575,7 @@ export function ReserveDetailPage() {
         </TabsContent>
 
         <TabsContent value="investigation">
+          {renderFilterForm('investigation')}
           <DetailTablePanel
             columns={columns}
             data={investResult.data?.rows ?? []}

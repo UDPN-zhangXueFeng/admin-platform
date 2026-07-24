@@ -45,6 +45,8 @@
   "common_select": "Select",
   "direction_1": "Dr",
   "direction_2": "Cr",
+  "direction_debit": "Dr",
+  "direction_credit": "Cr",
   "reconciliation_0015": "Transaction ID",
   "reconciliation_0016": "Account",
   "reconciliation_0017": "Direction",

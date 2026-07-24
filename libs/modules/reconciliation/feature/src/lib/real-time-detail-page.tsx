@@ -34,11 +34,16 @@ import {
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_FIELD_VALUE,
+  formatBlockHeight,
   formatCurrencyValue,
+  formatNonZeroNumber,
   formatTimestamp,
   getReconStatusKey,
   getTxTypeKey,
   RECON_STATUS_TONE,
+  resolveDetailTab,
+  TOKEN_TYPE,
+  TX_TYPE_VALUES,
 } from '@myorg/modules/reconciliation/util';
 import {
   ReconciliationMetricCard,
@@ -50,6 +55,47 @@ import { PostToSuspenseModal } from './real-time/post-to-suspense-modal';
 import { RealTimeReconLogModal } from './real-time/recon-log-modal';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * 交易类型筛选下拉项（对照源 `txTypeOptions(t, tokenType)`）。
+ *
+ * tokenType=Stablecoin(1) → 全集 5 项(5/10/15/20/25)；TD(5)/默认 → 裁剪为 3 项
+ * (5/15/25，排除 10/20，这两个类型仅 Stablecoin 存在)。
+ */
+function buildTxTypeOptions(
+  t: ReturnType<typeof useTranslations>,
+  tokenType?: number,
+) {
+  const allowed =
+    Number(tokenType) === TOKEN_TYPE.STABLECOIN
+      ? Array.from(TX_TYPE_VALUES)
+      : Array.from(TX_TYPE_VALUES).filter(
+          (v) => v !== 10 && v !== 20,
+        );
+  return allowed.map((value) => {
+    const key = getTxTypeKey(value);
+    return {
+      value: String(value),
+      label: key ? (t(key as never) ?? String(value)) : String(value),
+    };
+  });
+}
+
+/**
+ * 对账状态筛选下拉项（对照源 `statusOptions(t)`）：全部/2/3/5/6，排除 1/4
+ * （1=ReconExecuted / 4=Processing 非业务筛选态）。
+ */
+function buildStatusOptions(
+  t: ReturnType<typeof useTranslations>,
+) {
+  return [2, 3, 5, 6].map((value) => {
+    const key = getReconStatusKey(value);
+    return {
+      value: String(value),
+      label: key ? (t(key as never) ?? String(value)) : String(value),
+    };
+  });
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -67,13 +113,28 @@ export function RealTimeDetailPage() {
   } = useTokenBasicDetailQuery(tokenId, Boolean(tokenId));
 
   // ── Tab management ────────────────────────────────────────────────────────
-  const initialTab =
-    searchParams.get('tab') === 'investigation' ? 'investigation' : 'list';
+  // 对照源 `resolveDetailTab(query.tab)`：`investigation` → investigation，其余 → list。
+  const queryTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = React.useState<'list' | 'investigation'>(
-    initialTab,
+    resolveDetailTab(queryTab),
   );
 
-  const investTotal = basicInfo?.unmatchedCount ?? 0;
+  // URL ?tab 变化时同步 Tab（源 `useEffect([query.tab])`）。
+  React.useEffect(() => {
+    setActiveTab(resolveDetailTab(queryTab));
+  }, [queryTab]);
+
+  // Investigation Queue 总数角标（对照源 `investBadge`）。
+  // 优先取 basic-detail 的 unmatchedCount（权威汇总），缺失时回退轻量角标请求
+  // （pageSize=1 仅取 total，不阻塞主表）。后端全集经 query 层 `select` 二次过滤
+  // status=3 后的 total 即为 investigation 计数。
+  const investBadgeQuery = useTxInvestigationListQuery({
+    pageNum: 1,
+    pageSize: 1,
+    filters: { tokenId },
+  });
+  const investTotal =
+    basicInfo?.unmatchedCount ?? investBadgeQuery.data?.page?.total ?? 0;
 
   // ── Pagination per tab ────────────────────────────────────────────────────
   const [listPage, setListPage] = React.useState({
@@ -232,38 +293,69 @@ export function RealTimeDetailPage() {
       {
         id: 'financeAmount',
         header: t('reconciliation_0134'),
+        cell: ({ row }) => {
+          // 对照源 `renderAmountPair`：法币/Token 双行，各自非零才展示，全空 '--'。
+          const fiat = formatCurrencyValue(row.original.financeAmount);
+          const token = formatNonZeroNumber(row.original.financeCount);
+          const currency = row.original.currencyCode || basicInfo?.currencySymbol || '';
+          const hasFiat = fiat !== EMPTY_FIELD_VALUE;
+          const hasToken = token !== EMPTY_FIELD_VALUE;
+          if (!hasFiat && !hasToken) return <span>{EMPTY_FIELD_VALUE}</span>;
+          return (
+            <div className="leading-tight">
+              {hasFiat ? (
+                <div>
+                  {fiat} {currency}
+                </div>
+              ) : null}
+              {hasToken ? (
+                <div className="text-xs text-muted-foreground">
+                  {token} {row.original.tokenSymbol || ''}
+                </div>
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'blockHeight',
+        header: t('reconciliation_0118'),
         cell: ({ row }) => (
-          <div className="leading-tight">
-            <div>
-              {formatCurrencyValue(row.original.financeAmount)}{' '}
-              {row.original.currencyCode || basicInfo?.currencySymbol || ''}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {row.original.financeCount != null
-                ? `${row.original.financeCount.toLocaleString()} ${row.original.tokenSymbol || ''}`
-                : ''}
-            </div>
-          </div>
+          <span>{formatBlockHeight(row.original.blockHeight)}</span>
+        ),
+      },
+      {
+        accessorKey: 'chainTxTime',
+        header: t('reconciliation_0057'),
+        cell: ({ row }) => (
+          <span>{formatTimestamp(row.original.chainTxTime)}</span>
         ),
       },
       {
         accessorKey: 'chainAmount',
         header: t('reconciliation_0135'),
-        cell: ({ row }) => (
-          <div className="leading-tight">
-            <div>
-              {formatCurrencyValue(row.original.chainAmount)}{' '}
-              {row.original.currencyCode || basicInfo?.currencySymbol || ''}
+        cell: ({ row }) => {
+          const fiat = formatCurrencyValue(row.original.chainAmount);
+          const token = formatNonZeroNumber(row.original.chainCount);
+          const currency = row.original.currencyCode || basicInfo?.currencySymbol || '';
+          const hasFiat = fiat !== EMPTY_FIELD_VALUE;
+          const hasToken = token !== EMPTY_FIELD_VALUE;
+          if (!hasFiat && !hasToken) return <span>{EMPTY_FIELD_VALUE}</span>;
+          return (
+            <div className="leading-tight">
+              {hasFiat ? (
+                <div>
+                  {fiat} {currency}
+                </div>
+              ) : null}
+              {hasToken ? (
+                <div className="text-xs text-muted-foreground">
+                  {token} {row.original.tokenSymbol || ''}
+                </div>
+              ) : null}
             </div>
-            <div className="text-xs text-muted-foreground">
-              {(
-                row.original.chainCount
-              ) != null
-                ? `${Number(row.original.chainCount ?? 0).toLocaleString()} ${row.original.tokenSymbol || ''}`
-                : ''}
-            </div>
-          </div>
-        ),
+          );
+        },
       },
       {
         accessorKey: 'reconciliationStatus',
@@ -323,6 +415,16 @@ export function RealTimeDetailPage() {
     [buildTxColumns]
   );
 
+  // 筛选下拉项（txType 随 tokenType 条件裁剪；status 固定 4 项）。
+  const txTypeOptions = React.useMemo(
+    () => buildTxTypeOptions(t, basicInfo?.tokenType),
+    [t, basicInfo?.tokenType],
+  );
+  const statusOptions = React.useMemo(
+    () => buildStatusOptions(t),
+    [t],
+  );
+
   // ── Filter form component ─────────────────────────────────────────────────
   const renderFilterForm = React.useCallback(
     (tab: 'list' | 'investigation') => {
@@ -366,11 +468,11 @@ export function RealTimeDetailPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('common_all')}</SelectItem>
-                <SelectItem value="5">{t('tx_type_5' as never)}</SelectItem>
-                <SelectItem value="10">{t('tx_type_10' as never)}</SelectItem>
-                <SelectItem value="15">{t('tx_type_15' as never)}</SelectItem>
-                <SelectItem value="20">{t('tx_type_20' as never)}</SelectItem>
-                <SelectItem value="25">{t('tx_type_25' as never)}</SelectItem>
+                {txTypeOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -392,24 +494,11 @@ export function RealTimeDetailPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('common_all')}</SelectItem>
-                <SelectItem value="1">
-                  {t('reconciliation_status_1' as never)}
-                </SelectItem>
-                <SelectItem value="2">
-                  {t('reconciliation_status_2' as never)}
-                </SelectItem>
-                <SelectItem value="3">
-                  {t('reconciliation_status_3' as never)}
-                </SelectItem>
-                <SelectItem value="4">
-                  {t('reconciliation_status_4' as never)}
-                </SelectItem>
-                <SelectItem value="5">
-                  {t('reconciliation_status_5' as never)}
-                </SelectItem>
-                <SelectItem value="6">
-                  {t('reconciliation_status_6' as never)}
-                </SelectItem>
+                {statusOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -419,7 +508,15 @@ export function RealTimeDetailPage() {
         </form>
       );
     },
-    [t, listFormValues, investFormValues, onListFilterSubmit, onInvestFilterSubmit],
+    [
+      t,
+      listFormValues,
+      investFormValues,
+      onListFilterSubmit,
+      onInvestFilterSubmit,
+      txTypeOptions,
+      statusOptions,
+    ],
   );
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -602,7 +699,39 @@ export function RealTimeDetailPage() {
       <PostToSuspenseModal
         open={modalType === 'post'}
         reconciliationTxId={selectedRow?.reconciliationTxId}
-        financeBookId={basicInfo?.financeBookId}
+        unmatchedType={selectedRow?.unmatchedType}
+        postedAmount={
+          selectedRow
+            ? {
+                amount: selectedRow.chainAmount,
+                count: selectedRow.chainCount,
+                currency:
+                  selectedRow.currencyCode ?? basicInfo?.currencySymbol,
+                tokenSymbol: selectedRow.tokenSymbol,
+              }
+            : undefined
+        }
+        mismatchedAmount={
+          selectedRow
+            ? {
+                amount:
+                  selectedRow.chainAmount != null &&
+                  selectedRow.financeAmount != null
+                    ? Number(selectedRow.chainAmount) -
+                      Number(selectedRow.financeAmount)
+                    : null,
+                count:
+                  selectedRow.chainCount != null &&
+                  selectedRow.financeCount != null
+                    ? Number(selectedRow.chainCount) -
+                      Number(selectedRow.financeCount)
+                    : null,
+                currency:
+                  selectedRow.currencyCode ?? basicInfo?.currencySymbol,
+                tokenSymbol: selectedRow.tokenSymbol,
+              }
+            : undefined
+        }
         onOpenChange={(open) => {
           if (!open) closeModals();
         }}
