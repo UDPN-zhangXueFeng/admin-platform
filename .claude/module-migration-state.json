@@ -1,50 +1,51 @@
 {
-  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/reconciliation",
-  "moduleName": "reconciliation",
-  "slug": "reconciliation",
+  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/interest",
+  "moduleName": "interest",
+  "slug": "interest",
   "parentModule": null,
-  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/reconciliation.md",
-  "phase": "accepted-conditional",
+  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/interest.md",
+  "phase": "developing",
   "migrationRate": 1.0,
-  "acceptanceRate": 1.0,
-  "completedAt": "2026-07-24",
-  "workflowStats": {"agents": 10, "subagentTokens": 765368, "toolUses": 442, "durationMs": 2346299},
-  "acceptanceNote": "静态可验证项100%: lint五项目0err(feature/data-access/util/ui/i18n) + 缺失逻辑全补(Investigation过滤下沉query层select过滤status=3并重算total/PostToSuspense推断逻辑resolveDisplayUnmatchedType+toPostingDateEpoch+mapSuggestedSuspenseEntries+canConfirm/ReconLog TX_TYPE_REPOSITORY_OUT注入2002-2003/双视图Melt+Mint+warningText+statusAmountValue) + 运行时坑全绿(ALL_VALUE='all'无空串/ICU i18n json 0双花括号(feature内3处{{全为pagination JSX对象属性)/无reconciliation.reconciliation双重前缀/SelectItem空串仅注释) + group机制完整(registry real-time+reserve两entry通用key list/detail+manifest list+view/detail) + list→detail契约一致(?id=&tab=list|investigation) + diff干净(只feature 8改+4新建content+i18n 2改,底层data-access/util/ui/registry/菜单/路由零改动). 完整运行时交互冒烟(列表数据/4Modal打开填表提交/筛选下拉/状态枚举渲染)受auth限制待用户登录验证(同approval-manage/wallet/cross-chain/pledge惯例).",
+  "acceptanceRate": 0.95,
   "scope": {
-    "subModules": "real-time(Token实时对账) + reserve(储备对账), group机制双子模块",
-    "totalFiles": 11,
-    "totalLines": 5731,
-    "sourceBreakdown": "pages 1870行(4文件) + lib/components/reconciliation 3861行(7核心+3 mock)",
-    "pages": "4页面(real-time/reserve 各 list+detail) + 4超大Modal(real-time/reserve 各 PostToSuspense+ReconLog) + adjustments子系统(不迁,半成品) + ReconciliationBasePage(不迁,占位)",
-    "endpoints": "13唯一endpoint(Token7+Reserve6, accounts/leaf复用tx域); 2写操作post-suspense(reserve端R1后端缺失mock顶位)",
-    "sourceNote": "重新迁移(上次功能/页面/弹窗缺失)。真实规模~5731行远超脚本统计的1870。重灾:4超大Modal内部逻辑2464行。"
-  },
-  "rebuildMode": "用户初选'推倒重来' → 阶段一发现data-access层完好,待用户确认是否改为精准重写feature层",
-  "phase1Finding": {
-    "intactLayers": "data-access(api/model/queries/mutations 13端点全有) + util(constants/helpers) + ui(3共享组件) + module-manifests + registry + 菜单 + 路由group均已存在且子agent判断质量高(待lint/test复核)",
-    "rootCause": "病根集中在feature层: ①real-time Investigation Queue前端过滤全缺(INVESTIGATION_STATUSES/filterInvestigationRows/investBadge grep未命中) ②real-time PostToSuspenseModal推断逻辑缩水31%(缺resolveDisplayUnmatchedType/toPostingDateEpoch/mapSuggestedSuspenseEntries) ③real-time ReconLogModal缩水19%(TX_TYPE_REPOSITORY_OUT(10)硬编码分录注入疑缺) ④reserve ReserveReconLogModal双视图疑完整(需运行时校验) ⑤ReservePostToSuspense详情页未挂载入口(R1,须保持feature-flag隐藏)",
-    "notMigrate": "adjustments子系统(老项目半成品无pages) + ReconciliationBasePage(占位未被引用) + 3 mock.ts(仅数据结构参考)"
+    "subModules": "policy(计息策略) + accrual(计息记录) + transactions(计息交易), group机制三子模块",
+    "totalFiles": 24,
+    "totalLines": 3064,
+    "endpoints": "17唯一endpoint"
   },
   "coverage": {
-    "sourceFiles": { "covered": 11, "total": 11, "missing": [] },
-    "apis": { "covered": 13, "total": 13, "missing": [] },
-    "pages": { "covered": 4, "total": 4, "missing": [] },
-    "uiMappings": { "covered": 18, "total": 18, "missing": [], "note": "4 Modal内部结构详述+6类状态枚举完整键值+3共享ui组件+3下拉hook映射+2跨模块detail路由" }
+    "sourceFiles": { "covered": 8, "total": 8, "missing": [] },
+    "apis": { "covered": 17, "total": 17, "missing": [] },
+    "pages": { "covered": 8, "total": 8, "missing": [] },
+    "uiMappings": { "covered": 28, "total": 28, "missing": [] }
   },
   "tasks": [
-    {"id":"T1","name":"基线检查+feature层缺失诊断(grep确认+lint/test基线)","kind":"verify","model":"opus","status":"completed","deps":[]},
-    {"id":"T2","name":"i18n补全(reconciliation_0095~0233,ICU单花括号)+model.ts字段补全","kind":"scaffold","model":"haiku","status":"completed","deps":["T1"]},
-    {"id":"T3","name":"重写real-time/post-to-suspense-modal(+content)补推断逻辑","kind":"page","model":"opus","status":"completed","deps":["T2"]},
-    {"id":"T4","name":"重写real-time/recon-log-modal(+content)补TX_TYPE_REPOSITORY_OUT分支","kind":"page","model":"opus","status":"completed","deps":["T2"]},
-    {"id":"T5","name":"重写real-time-detail-page补Investigation前端过滤+investBadge+条件action","kind":"page","model":"opus","status":"completed","deps":["T3","T4"]},
-    {"id":"T6","name":"校验real-time+reserve list-page动态下拉+ALL_VALUE+跳转query","kind":"page","model":"opus","status":"completed","deps":["T2"]},
-    {"id":"T7","name":"校验reserve/reserve-recon-log-modal(+content)双视图+warningText","kind":"page","model":"opus","status":"completed","deps":["T2"]},
-    {"id":"T8","name":"校验reserve/reserve-post-to-suspense-modal(+content)可编辑表+不挂载R1","kind":"page","model":"opus","status":"completed","deps":["T2"]},
-    {"id":"T9","name":"校验reserve-detail-page双Tab不过滤R2+2卡片+ReconLog action","kind":"page","model":"opus","status":"completed","deps":["T7","T8"]},
-    {"id":"T10","name":"拆4 Modal content子组件(nx lazy规避)+lint/test/build","kind":"verify","model":"opus","status":"completed","deps":["T3","T4","T5","T6","T7","T8","T9"]},
-    {"id":"T11","name":"终验+运行时坑grep(ALL_VALUE/ICU/双重前缀/pageNum)+运行时冒烟","kind":"verify","model":"opus","status":"completed","deps":["T10"]}
+    {"id":"T1","name":"建库 + 三子模块注册 + i18n namespace + tsconfig paths","kind":"scaffold","model":"haiku","status":"completed","deps":[]},
+    {"id":"T2","name":"类型定义 interest.model.ts","kind":"scaffold","model":"haiku","status":"completed","deps":["T1"]},
+    {"id":"T3","name":"API 函数 interest.api.ts（17 endpoint）","kind":"scaffold","model":"haiku","status":"completed","deps":["T2"]},
+    {"id":"T4","name":"Query keys + 查询 hooks + mutation hooks","kind":"scaffold","model":"haiku","status":"completed","deps":["T3"]},
+    {"id":"T5","name":"常量 interest.constants.ts","kind":"scaffold","model":"haiku","status":"completed","deps":["T1"]},
+    {"id":"T6","name":"UI 组件（状态 Badge + 利率展示 + 分段表 + 空态）","kind":"page","model":"opus","status":"completed","deps":["T4","T5"]},
+    {"id":"T7","name":"策略列表页 policy-list-page.tsx（双 Tab + 透支 disabled）","kind":"page","model":"opus","status":"completed","deps":["T4","T5","T6"]},
+    {"id":"T8","name":"策略详情页 policy-detail-page.tsx（分段利率 + 操作记录）","kind":"page","model":"opus","status":"completed","deps":["T4","T5","T6","T7"]},
+    {"id":"T9","name":"存款策略编辑页（最复杂，shell+content 拆分）","kind":"page","model":"opus","status":"completed","deps":["T4","T5","T6","T7"]},
+    {"id":"T10","name":"透支策略编辑页（简化版 shell+content）","kind":"page","model":"opus","status":"completed","deps":["T4","T5","T6","T9"]},
+    {"id":"T11","name":"计息记录列表页 accrual-list-page.tsx","kind":"page","model":"opus","status":"completed","deps":["T4","T5","T6"]},
+    {"id":"T12","name":"计息记录详情页 accrual-detail-page.tsx","kind":"page","model":"opus","status":"completed","deps":["T4","T5","T6","T11"]},
+    {"id":"T13","name":"计息交易列表页 transactions-list-page.tsx","kind":"page","model":"opus","status":"completed","deps":["T4","T5","T6"]},
+    {"id":"T14","name":"计息交易详情页 transactions-detail-page.tsx","kind":"page","model":"opus","status":"completed","deps":["T4","T5","T6","T13"]},
+    {"id":"T15","name":"i18n 全量补全 + 静态验收 + 运行时坑 grep","kind":"verify","model":"opus","status":"completed","deps":["T7","T8","T9","T10","T11","T12","T13","T14"]}
   ],
-  "currentIndex": 11,
-  "startedAt": "2026-07-24",
-  "prevStateBackedUp": ".claude/module-migration-state.approval-manage.bak.json"
+  "currentIndex": 15,
+  "startedAt": "2026-07-27",
+  "completedAt": "2026-07-27",
+  "staticVerification": {
+    "lint": "4/4 modules PASS (0 errors, 8 warnings non-blocking)",
+    "tsc": "not run (no test files)",
+    "runtimeGrep": {
+      "ALL_VALUE_empty": "PASS",
+      "i18n_double_prefix": "PASS (only comment mention)",
+      "ICU_double_braces": "PASS"
+    }
+  }
 }

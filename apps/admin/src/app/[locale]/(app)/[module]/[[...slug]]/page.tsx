@@ -70,6 +70,7 @@ export default function ModulePage({
     'cross-chain': 'cross-chain',
     pledge: 'pledge',
     reconciliation: 'reconciliation',
+    interest: 'interest',
   };
   const groupKey = GROUP_ENABLED_KEY[module];
   const isGroup = Boolean(groupKey);

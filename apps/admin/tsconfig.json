@@ -189,6 +189,18 @@
       "@myorg/modules/pledge/util": [
         "../../libs/modules/pledge/util/src/index.ts"
       ],
+      "@myorg/modules/interest/data-access": [
+        "../../libs/modules/interest/data-access/src/index.ts"
+      ],
+      "@myorg/modules/interest/feature": [
+        "../../libs/modules/interest/feature/src/index.ts"
+      ],
+      "@myorg/modules/interest/ui": [
+        "../../libs/modules/interest/ui/src/index.ts"
+      ],
+      "@myorg/modules/interest/util": [
+        "../../libs/modules/interest/util/src/index.ts"
+      ],
       "@myorg/modules/reconciliation/data-access": [
         "../../libs/modules/reconciliation/data-access/src/index.ts"
       ],

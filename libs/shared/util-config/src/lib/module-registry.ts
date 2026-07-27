@@ -635,6 +635,64 @@ const moduleRegistry: Record<string, ModuleEntry> = {
         })),
     },
   },
+  // interest 分组路由（/interest/<child>）：拆成 policy / accrual / transactions
+  // 三个子模块 entry，pages 用通用 key（list/detail/edit/create）。对齐 reconciliation group 范本。
+  policy: {
+    manifest: () =>
+      import('@myorg/modules/interest/feature').then(
+        (m) => m.policyManifest,
+      ),
+    pages: {
+      list: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.PolicyListPage as unknown as ComponentType<unknown>,
+        })),
+      detail: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.PolicyDetailPage as unknown as ComponentType<unknown>,
+        })),
+      edit: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.PolicyDepositEditPage as unknown as ComponentType<unknown>,
+        })),
+      create: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.PolicyDepositEditPage as unknown as ComponentType<unknown>,
+        })),
+    },
+  },
+  accrual: {
+    manifest: () =>
+      import('@myorg/modules/interest/feature').then(
+        (m) => m.accrualManifest,
+      ),
+    pages: {
+      list: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.AccrualListPage as unknown as ComponentType<unknown>,
+        })),
+      detail: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.AccrualDetailPage as unknown as ComponentType<unknown>,
+        })),
+    },
+  },
+  transactions: {
+    manifest: () =>
+      import('@myorg/modules/interest/feature').then(
+        (m) => m.transactionsManifest,
+      ),
+    pages: {
+      list: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.TransactionsListPage as unknown as ComponentType<unknown>,
+        })),
+      detail: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.TransactionsDetailPage as unknown as ComponentType<unknown>,
+        })),
+    },
+  },
 };
 
 const manifestCache = new Map<string, ModuleManifest>();

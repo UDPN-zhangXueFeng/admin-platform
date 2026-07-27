@@ -38,6 +38,7 @@ import enUSModulesCrossChain from './en-US/modules/cross-chain.json';
 import enUSModulesTokenizedDeposit from './en-US/modules/tokenized-deposit.json';
 import enUSModulesPledge from './en-US/modules/pledge.json';
 import enUSModulesApprovalManage from './en-US/modules/approval-manage.json';
+import enUSModulesInterest from './en-US/modules/interest.json';
 import enUSModulesReconciliation from './en-US/modules/reconciliation.json';
 import enUSProjectsEcommerce from './en-US/projects/ecommerce.json';
 import enUSProjectsStablecoin from './en-US/projects/stablecoin.json';
@@ -103,6 +104,7 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     'modules/pledge': enUSModulesPledge as unknown as Record<string, unknown>,
     'modules/approval-manage': enUSModulesApprovalManage as unknown as Record<string, unknown>,
     'modules/reconciliation': enUSModulesReconciliation as unknown as Record<string, unknown>,
+    'modules/interest': enUSModulesInterest as unknown as Record<string, unknown>,
     'projects/ecommerce': enUSProjectsEcommerce as unknown as Record<string, unknown>,
     'projects/stablecoin': enUSProjectsStablecoin as unknown as Record<string, unknown>,
   },
