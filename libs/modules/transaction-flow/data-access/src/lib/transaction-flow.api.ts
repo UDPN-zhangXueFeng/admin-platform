@@ -1,0 +1,2 @@
+import { apiClient } from '@myorg/shared/data-access-api';import type { TxFlowFilters, TxFlowItem } from './transaction-flow.model';
+export const fetchTxFlowList = (p: { filters: TxFlowFilters; pageNum: number; pageSize: number }) => apiClient.post<{ page?: { total: number }; rows: TxFlowItem[] }>('/api/manage/v1/transaction/getStableCoinTxList', { data: p.filters, page: { pageNum: p.pageNum, pageSize: p.pageSize } });

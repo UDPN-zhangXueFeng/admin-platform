@@ -693,6 +693,56 @@ const moduleRegistry: Record<string, ModuleEntry> = {
         })),
     },
   },
+  // screening-monitoring 分组路由（/screening-monitoring/<child>）：拆成 rule / transaction-monitoring / screening-providers
+  rule: {
+    manifest: () => import('@myorg/modules/screening-monitoring/feature').then((m) => m.ruleManifest),
+    pages: {
+      list: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.RuleListPage as unknown as ComponentType<unknown> })),
+      detail: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.RuleDetailPage as unknown as ComponentType<unknown> })),
+      edit: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.RuleEditPage as unknown as ComponentType<unknown> })),
+      create: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.RuleEditPage as unknown as ComponentType<unknown> })),
+    },
+  },
+  'transaction-monitoring': {
+    manifest: () => import('@myorg/modules/screening-monitoring/feature').then((m) => m.transactionMonitoringManifest),
+    pages: {
+      list: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.TransactionMonitoringListPage as unknown as ComponentType<unknown> })),
+      detail: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.TransactionMonitoringDetailPage as unknown as ComponentType<unknown> })),
+    },
+  },
+  'screening-providers': {
+    manifest: () => import('@myorg/modules/screening-monitoring/feature').then((m) => m.screeningProvidersManifest),
+    pages: {
+      list: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.ScreeningProvidersPage as unknown as ComponentType<unknown> })),
+    },
+  },
+  'statistics-reports': {
+    manifest: () => import('@myorg/modules/statistics-reports/feature').then((m) => m.statisticsReportsManifest),
+    pages: { list: () => import('@myorg/modules/statistics-reports/feature').then((m) => ({ default: m.StatisticsReportsPage as unknown as ComponentType<unknown> })) },
+  },
+  'account-manage': {
+    manifest: () => import('@myorg/modules/account-manage/feature').then((m) => m.accountManageManifest),
+    pages: {
+      list: () => import('@myorg/modules/account-manage/feature').then((m) => ({ default: m.AccountManagePage as unknown as ComponentType<unknown> })),
+      detail: () => import('@myorg/modules/account-manage/feature').then((m) => ({ default: m.AccountRegisterPage as unknown as ComponentType<unknown> })),
+    },
+  },
+  'statistic-analysis': {
+    manifest: () => import('@myorg/modules/statistic-analysis/feature').then((m) => m.statisticAnalysisManifest),
+    pages: { list: () => import('@myorg/modules/statistic-analysis/feature').then((m) => ({ default: m.StatisticAnalysisPage as unknown as ComponentType<unknown> })) },
+  },
+  'transaction-flow': {
+    manifest: () => import('@myorg/modules/transaction-flow/feature').then((m) => m.transactionFlowManifest),
+    pages: { list: () => import('@myorg/modules/transaction-flow/feature').then((m) => ({ default: m.TransactionFlowPage as unknown as ComponentType<unknown> })) },
+  },
+  'data-export': {
+    manifest: () => import('@myorg/modules/data-export/feature').then((m) => m.dataExportManifest),
+    pages: { list: () => import('@myorg/modules/data-export/feature').then((m) => ({ default: m.DataExportPage as unknown as ComponentType<unknown> })) },
+  },
+  networks: {
+    manifest: () => import('@myorg/modules/networks/feature').then((m) => m.networksManifest),
+    pages: { list: () => import('@myorg/modules/networks/feature').then((m) => ({ default: m.NetworksPage as unknown as ComponentType<unknown> })) },
+  },
 };
 
 const manifestCache = new Map<string, ModuleManifest>();

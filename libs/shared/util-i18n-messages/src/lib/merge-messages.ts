@@ -39,6 +39,13 @@ import enUSModulesTokenizedDeposit from './en-US/modules/tokenized-deposit.json'
 import enUSModulesPledge from './en-US/modules/pledge.json';
 import enUSModulesApprovalManage from './en-US/modules/approval-manage.json';
 import enUSModulesInterest from './en-US/modules/interest.json';
+import enUSModulesScreeningMonitoring from './en-US/modules/screening-monitoring.json';
+import enUSModulesStatisticsReports from './en-US/modules/statistics-reports.json';
+import enUSModulesAccountManage from './en-US/modules/account-manage.json';
+import enUSModulesStatisticAnalysis from './en-US/modules/statistic-analysis.json';
+import enUSModulesTransactionFlow from './en-US/modules/transaction-flow.json';
+import enUSModulesNetworks from './en-US/modules/networks.json';
+import enUSModulesScreeningProviders from './en-US/modules/screening-providers.json';
 import enUSModulesReconciliation from './en-US/modules/reconciliation.json';
 import enUSProjectsEcommerce from './en-US/projects/ecommerce.json';
 import enUSProjectsStablecoin from './en-US/projects/stablecoin.json';
@@ -105,6 +112,13 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     'modules/approval-manage': enUSModulesApprovalManage as unknown as Record<string, unknown>,
     'modules/reconciliation': enUSModulesReconciliation as unknown as Record<string, unknown>,
     'modules/interest': enUSModulesInterest as unknown as Record<string, unknown>,
+    'modules/screening-monitoring': enUSModulesScreeningMonitoring as unknown as Record<string, unknown>,
+    'modules/statistics-reports': enUSModulesStatisticsReports as unknown as Record<string, unknown>,
+    'modules/account-manage': enUSModulesAccountManage as unknown as Record<string, unknown>,
+    'modules/statistic-analysis': enUSModulesStatisticAnalysis as unknown as Record<string, unknown>,
+    'modules/transaction-flow': enUSModulesTransactionFlow as unknown as Record<string, unknown>,
+    'modules/networks': enUSModulesNetworks as unknown as Record<string, unknown>,
+    'modules/screening-providers': enUSModulesScreeningProviders as unknown as Record<string, unknown>,
     'projects/ecommerce': enUSProjectsEcommerce as unknown as Record<string, unknown>,
     'projects/stablecoin': enUSProjectsStablecoin as unknown as Record<string, unknown>,
   },

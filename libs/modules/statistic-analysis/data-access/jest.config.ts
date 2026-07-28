@@ -1,0 +1,1 @@
+export default {displayName:'modules-statistic-analysis-data-access',preset:'../../../../jest.preset.js',testEnvironment:'jsdom',transform:{'^.+\\.[tj]sx?$':['@swc/jest']},moduleFileExtensions:['ts','tsx','js','jsx'],coverageDirectory:'../../../../coverage/libs/modules/statistic-analysis/data-access'};

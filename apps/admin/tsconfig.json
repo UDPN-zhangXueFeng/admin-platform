@@ -189,6 +189,50 @@
       "@myorg/modules/pledge/util": [
         "../../libs/modules/pledge/util/src/index.ts"
       ],
+      "@myorg/modules/account-manage/data-access": ["../../libs/modules/account-manage/data-access/src/index.ts"],
+      "@myorg/modules/account-manage/feature": ["../../libs/modules/account-manage/feature/src/index.ts"],
+      "@myorg/modules/account-manage/ui": ["../../libs/modules/account-manage/ui/src/index.ts"],
+      "@myorg/modules/account-manage/util": ["../../libs/modules/account-manage/util/src/index.ts"],
+      "@myorg/modules/statistic-analysis/data-access": ["../../libs/modules/statistic-analysis/data-access/src/index.ts"],
+      "@myorg/modules/statistic-analysis/feature": ["../../libs/modules/statistic-analysis/feature/src/index.ts"],
+      "@myorg/modules/statistic-analysis/ui": ["../../libs/modules/statistic-analysis/ui/src/index.ts"],
+      "@myorg/modules/statistic-analysis/util": ["../../libs/modules/statistic-analysis/util/src/index.ts"],
+      "@myorg/modules/transaction-flow/data-access": ["../../libs/modules/transaction-flow/data-access/src/index.ts"],
+      "@myorg/modules/transaction-flow/feature": ["../../libs/modules/transaction-flow/feature/src/index.ts"],
+      "@myorg/modules/transaction-flow/ui": ["../../libs/modules/transaction-flow/ui/src/index.ts"],
+      "@myorg/modules/transaction-flow/util": ["../../libs/modules/transaction-flow/util/src/index.ts"],
+      "@myorg/modules/data-export/data-access": ["../../libs/modules/data-export/data-access/src/index.ts"],
+      "@myorg/modules/data-export/feature": ["../../libs/modules/data-export/feature/src/index.ts"],
+      "@myorg/modules/data-export/ui": ["../../libs/modules/data-export/ui/src/index.ts"],
+      "@myorg/modules/data-export/util": ["../../libs/modules/data-export/util/src/index.ts"],
+      "@myorg/modules/networks/data-access": ["../../libs/modules/networks/data-access/src/index.ts"],
+      "@myorg/modules/networks/feature": ["../../libs/modules/networks/feature/src/index.ts"],
+      "@myorg/modules/networks/ui": ["../../libs/modules/networks/ui/src/index.ts"],
+      "@myorg/modules/networks/util": ["../../libs/modules/networks/util/src/index.ts"],
+      "@myorg/modules/statistics-reports/data-access": [
+        "../../libs/modules/statistics-reports/data-access/src/index.ts"
+      ],
+      "@myorg/modules/statistics-reports/feature": [
+        "../../libs/modules/statistics-reports/feature/src/index.ts"
+      ],
+      "@myorg/modules/statistics-reports/ui": [
+        "../../libs/modules/statistics-reports/ui/src/index.ts"
+      ],
+      "@myorg/modules/statistics-reports/util": [
+        "../../libs/modules/statistics-reports/util/src/index.ts"
+      ],
+      "@myorg/modules/screening-monitoring/data-access": [
+        "../../libs/modules/screening-monitoring/data-access/src/index.ts"
+      ],
+      "@myorg/modules/screening-monitoring/feature": [
+        "../../libs/modules/screening-monitoring/feature/src/index.ts"
+      ],
+      "@myorg/modules/screening-monitoring/ui": [
+        "../../libs/modules/screening-monitoring/ui/src/index.ts"
+      ],
+      "@myorg/modules/screening-monitoring/util": [
+        "../../libs/modules/screening-monitoring/util/src/index.ts"
+      ],
       "@myorg/modules/interest/data-access": [
         "../../libs/modules/interest/data-access/src/index.ts"
       ],
