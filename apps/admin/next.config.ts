@@ -51,6 +51,11 @@ const nextConfig: NextConfig = {
     '@myorg/modules/key-management/ui',
     '@myorg/modules/key-management/data-access',
     '@myorg/modules/key-management/util',
+    // ── account-manage module ──
+    '@myorg/modules/account-manage/feature',
+    '@myorg/modules/account-manage/ui',
+    '@myorg/modules/account-manage/data-access',
+    '@myorg/modules/account-manage/util',
     // ── sp-access module ──
     '@myorg/modules/sp-access/feature',
     '@myorg/modules/sp-access/data-access',

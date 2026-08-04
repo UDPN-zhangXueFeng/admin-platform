@@ -15,6 +15,7 @@
 import enUSCommon from './en-US/common.json';
 import enUSLayout from './en-US/layout.json';
 import enUSAuth from './en-US/auth.json';
+import enUSApiMsg from './en-US/api-msg.json';
 import enUSDashboard from './en-US/modules/dashboard.json';
 import enUSModulesOrder from './en-US/modules/order.json';
 import enUSModulesUser from './en-US/modules/user.json';
@@ -54,6 +55,7 @@ import enUSProjectsStablecoin from './en-US/projects/stablecoin.json';
 import zhCNCommon from './zh-CN/common.json';
 import zhCNLayout from './zh-CN/layout.json';
 import zhCNAuth from './zh-CN/auth.json';
+import zhCNApiMsg from './zh-CN/api-msg.json';
 import zhCNDashboard from './zh-CN/modules/dashboard.json';
 import zhCNModulesOrder from './zh-CN/modules/order.json';
 import zhCNModulesUser from './zh-CN/modules/user.json';
@@ -87,6 +89,7 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     common: enUSCommon as unknown as Record<string, unknown>,
     layout: enUSLayout as unknown as Record<string, unknown>,
     auth: enUSAuth as unknown as Record<string, unknown>,
+    'api-msg': enUSApiMsg as unknown as Record<string, unknown>,
     'modules/dashboard': enUSDashboard as unknown as Record<string, unknown>,
     'modules/order': enUSModulesOrder as unknown as Record<string, unknown>,
     'modules/user': enUSModulesUser as unknown as Record<string, unknown>,
@@ -126,6 +129,7 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     common: zhCNCommon as unknown as Record<string, unknown>,
     layout: zhCNLayout as unknown as Record<string, unknown>,
     auth: zhCNAuth as unknown as Record<string, unknown>,
+    'api-msg': zhCNApiMsg as unknown as Record<string, unknown>,
     'modules/dashboard': zhCNDashboard as unknown as Record<string, unknown>,
     'modules/order': zhCNModulesOrder as unknown as Record<string, unknown>,
     'modules/user': zhCNModulesUser as unknown as Record<string, unknown>,
@@ -215,6 +219,12 @@ export async function mergeMessages(
   const auth = getMessages(locale, 'auth');
   if (Object.keys(auth).length > 0) {
     result.auth = auth;
+  }
+
+  // 1.6 加载 api-msg 命名空间（API 错误消息，始终加载）
+  const apiMsg = getMessages(locale, 'api-msg');
+  if (Object.keys(apiMsg).length > 0) {
+    result['api-msg'] = apiMsg;
   }
 
   // 2. 加载启用模块的翻译（未启用的模块不加载）

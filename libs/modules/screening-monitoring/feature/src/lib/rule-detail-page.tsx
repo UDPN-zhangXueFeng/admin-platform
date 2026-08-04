@@ -2,9 +2,10 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
-import { useRouter, useSearchParams } from '@myorg/shared/util-i18n';
+import { useRouter } from '@myorg/shared/util-i18n';
+import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable, type DataTablePagination, Tabs, type TabItem, Table } from '@myorg/shared/ui';
+import { Button, DataTable, type DataTablePagination, Tabs, type TabItem } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import type { RuleDetailItem, RuleOperationLog, RuleOperationRecord } from '@myorg/modules/screening-monitoring/data-access';
 import { useRuleDetail, useRuleOperationLog, useRuleOperationRecords } from '@myorg/modules/screening-monitoring/data-access';

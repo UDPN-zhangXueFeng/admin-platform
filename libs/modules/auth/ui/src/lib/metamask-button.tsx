@@ -165,13 +165,13 @@ export function MetaMaskButton() {
         return;
       }
 
-      // 4. Login with RSV
+      // 4. Login with RSV — all fields must be encrypted to match backend expectations
       const response = await metaMaskLogin(
         {
           loginName: encrypt(loginName),
-          signR: rsv.r,
-          signS: rsv.s,
-          signV: rsv.v,
+          signR: encrypt(rsv.r),
+          signS: encrypt(rsv.s),
+          signV: encrypt(rsv.v),
         },
         randomstr,
       );

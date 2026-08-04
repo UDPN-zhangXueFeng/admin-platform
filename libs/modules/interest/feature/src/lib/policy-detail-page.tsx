@@ -8,7 +8,8 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter, useSearchParams } from '@myorg/shared/util-i18n';
+import { useRouter } from '@myorg/shared/util-i18n';
+import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import {

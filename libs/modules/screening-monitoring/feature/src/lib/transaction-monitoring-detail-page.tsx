@@ -2,9 +2,10 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
-import { useRouter, useSearchParams } from '@myorg/shared/util-i18n';
+import { useRouter } from '@myorg/shared/util-i18n';
+import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable, type DataTablePagination, Table } from '@myorg/shared/ui';
+import { Button, DataTable, type DataTablePagination } from '@myorg/shared/ui';
 import type { ProcessRecord, SuspiciousRuleDetail, SuspiciousTransactionItem } from '@myorg/modules/screening-monitoring/data-access';
 import { useSuspiciousDetail, useSuspiciousTransactions } from '@myorg/modules/screening-monitoring/data-access';
 import { ScreeningRiskLevelTag, ScreeningStatusBadge } from '@myorg/modules/screening-monitoring/ui';

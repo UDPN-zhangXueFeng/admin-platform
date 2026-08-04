@@ -9,7 +9,7 @@ import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { Button, Input, InputNumber, Select, Switch, TimePicker } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
-import { toast } from '@myorg/shared/ui-toast';
+import { toast } from '@myorg/shared/ui';
 import type { TEditFormValues, TEditRiskLevelRow } from '@myorg/modules/screening-monitoring/data-access';
 import { TEDIT_COLUMN_CONFIGS, TEDIT_RULE_SOURCE_OPTIONS, TEDIT_SCAN_TIMING_OPTIONS, TEDIT_TOKEN_OPTIONS, TEDIT_RISK_LEVEL_OPTIONS, TEDIT_TRANSACTION_ACTION_OPTIONS, TEDIT_WALLET_ACTION_OPTIONS, TEDIT_TRANSACTION_TYPE_OPTIONS, TEDIT_MONITORING_FREQ_OPTIONS, TEDIT_DEFAULT_DATA } from '@myorg/modules/screening-monitoring/util';
 

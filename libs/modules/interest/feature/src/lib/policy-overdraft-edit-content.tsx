@@ -9,7 +9,8 @@ import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
-import { useRouter, useSearchParams } from '@myorg/shared/util-i18n';
+import { useRouter } from '@myorg/shared/util-i18n';
+import { useSearchParams } from 'next/navigation';
 
 import { Button, Input, Select } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
@@ -21,7 +22,7 @@ import {
 } from '@myorg/modules/interest/data-access';
 import type { OverdraftPolicyFormValues } from '@myorg/modules/interest/data-access';
 import { INTEREST_RATE_PATTERN } from '@myorg/modules/interest/util';
-import { toast } from '@myorg/shared/ui-toast';
+import { toast } from '@myorg/shared/ui';
 
 export function OverdraftEditContent() {
   const t = useTranslations('modules.interest');

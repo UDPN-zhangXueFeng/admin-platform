@@ -2,10 +2,11 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
-import { useRouter, useSearchParams } from '@myorg/shared/util-i18n';
+import { useRouter } from '@myorg/shared/util-i18n';
+import { useSearchParams } from 'next/navigation';
 import { Button, Card, Dialog, Input } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
-import { toast } from '@myorg/shared/ui-toast';
+import { toast } from '@myorg/shared/ui';
 import Image from 'next/image';
 import { useQrCode, addTwoFactor, disableTwoFactor } from '@myorg/modules/account-manage/data-access';
 

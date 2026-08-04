@@ -2,6 +2,10 @@
 
 import * as React from 'react';
 import { Toaster as SonnerToaster, toast as sonnerToast } from 'sonner';
+
+// Re-export the raw sonner `toast` so callers can use `toast.success()` etc.
+// without needing the useToast() hook (e.g. in non-component contexts).
+export { sonnerToast as toast };
 import { cn } from '@myorg/shared/util-classnames';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning' | 'loading';

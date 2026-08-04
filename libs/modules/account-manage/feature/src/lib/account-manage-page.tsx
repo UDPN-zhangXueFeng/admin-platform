@@ -3,7 +3,7 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { Button, Card, Drawer, Dialog } from '@myorg/shared/ui';
-import { toast } from '@myorg/shared/ui-toast';
+import { toast } from '@myorg/shared/ui';
 import { useAccessKey, useUserInfo, useMetaMaskHistory, useTwoFactorStatus } from '@myorg/modules/account-manage/data-access';
 import { addMetaMask, disableMetaMask, editMetaMask } from '@myorg/modules/account-manage/data-access';
 

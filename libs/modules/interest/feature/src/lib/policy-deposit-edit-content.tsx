@@ -11,7 +11,8 @@ import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
-import { useRouter, useSearchParams } from '@myorg/shared/util-i18n';
+import { useRouter } from '@myorg/shared/util-i18n';
+import { useSearchParams } from 'next/navigation';
 
 import { Button, Input, Select } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
@@ -26,7 +27,7 @@ import {
   INTEREST_RATE_PATTERN,
   MAX_SAVE_DETAILS_ROWS,
 } from '@myorg/modules/interest/util';
-import { toast } from '@myorg/shared/ui-toast';
+import { toast } from '@myorg/shared/ui';
 
 function buildInitialSaveDetails(t: (k: string) => string): SaveDetailsFormItem[] {
   return Array.from({ length: 3 }, () => ({

@@ -18,7 +18,7 @@ import {
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
-import { toast } from '@myorg/shared/ui-toast';
+import { toast } from '@myorg/shared/ui';
 
 import type { TokenBill } from '@myorg/modules/interest/data-access';
 import {

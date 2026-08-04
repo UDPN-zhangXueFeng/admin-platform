@@ -21,7 +21,7 @@ import {
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
-import { toast } from '@myorg/shared/ui-toast';
+import { toast } from '@myorg/shared/ui';
 
 import {
   type InterestRule,
