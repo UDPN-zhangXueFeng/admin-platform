@@ -34,6 +34,7 @@ import {
   type ApprovalTask,
 } from '@myorg/modules/approval-manage/data-access';
 import {
+  APPROVAL_PERMISSIONS,
   APPROVAL_STATUS_COLOR,
   DEFAULT_PAGE_SIZE,
   EMPTY_FIELD_VALUE,
@@ -103,9 +104,9 @@ export function ApprovalManageListPage() {
   const authPermissions = useAuth().permissions ?? new Set<string>();
   /** 权限未配置（空集）时全放开（同 wallet/posting-engine 模式）。 */
   const canView =
-    authPermissions.size === 0 || authPermissions.has('approval-manage:view');
+    authPermissions.size === 0 || authPermissions.has(APPROVAL_PERMISSIONS.View);
   const canWithdraw =
-    authPermissions.size === 0 || authPermissions.has('approval-manage:withdraw');
+    authPermissions.size === 0 || authPermissions.has(APPROVAL_PERMISSIONS.Withdraw);
 
   // ── 三 Tab 各自分页（独立 pageNum，服务端分页） ─────────────────────────────
   const makeParams = React.useCallback(

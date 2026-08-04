@@ -356,19 +356,23 @@ export function resolveApprovalStepStatus(status?: number): 'error' | 'process' 
   return status === 3 || status === 15 || status === 40 ? 'error' : 'process';
 }
 
-// ── 权限（语义化，迁移自源 LIMIT_PERMISSIONS UUID）──────────────────────────────
+// ── 权限 UUID（迁移自源 actions.limit，TDManage userPermission 校验）──────────────
 
 /**
- * Approval 权限键（语义化占位）。
+ * Approval 权限 UUID（TDManage 环境下用于 `userPermission` 校验）。
  *
- * NOTE: 源项目用 localStorage('userPermission') 中的 UUID 做按钮门控：
- * - 82536c63366b40a586774192751e7060 → 列表行 View
- * - 5f1c684ec8374caf9a8d5e4b1f26796a → Tab3 Withdrawal
- * 目标映射为语义化字符串键；权限空集时全放开（同 wallet/posting-engine 模式）。
+ * 用于 `useAuth().permissions` 的可见性判断；权限未配置（空集）时全放开，
+ * 等价于源项目非 TDManage 环境（同 wallet / posting-engine / journal-entries 模式）。
+ *
+ * - View → 列表行 Detail（源 index.tsx 三个 Tab 的 `View` limit）
+ * - Withdraw → Tab3 Withdrawal（源 index.tsx Tab3 的 `Withdrawal` limit）
+ *
+ * NOTE: 值必须与后端下发的权限码（旧 UUID 格式）一致；早先用语义化字符串
+ * `'approval-manage:view'` 会导致 `.has()` 永不命中、actions 列全显示 `--`。
  */
 export const APPROVAL_PERMISSIONS = {
-  View: 'approval-manage:view',
-  Withdraw: 'approval-manage:withdraw',
+  View: '82536c63366b40a586774192751e7060',
+  Withdraw: '5f1c684ec8374caf9a8d5e4b1f26796a',
 } as const;
 
 // ── 动态 i18n key 前缀（§6.1 全集，确保 namespace 含词条，渲染时 `t(prefix + n)`）──
