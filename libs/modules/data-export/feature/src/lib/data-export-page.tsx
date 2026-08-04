@@ -1,7 +1,7 @@
 'use client';
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { DataTable, type DataTablePagination, Button } from '@myorg/shared/ui';
+import { DataTable, type DataTablePagination } from '@myorg/shared/ui';
 import { toast } from '@myorg/shared/ui';
 import type { ExportTask } from '@myorg/modules/data-export/data-access';
 import { useExportTaskList } from '@myorg/modules/data-export/data-access';

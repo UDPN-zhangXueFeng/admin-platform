@@ -1,4 +1,4 @@
-import apiMessages from '@myorg/shared/util-i18n-messages/src/lib/en-US/api-msg.json';
+import apiMessages from '@myorg/shared/util-i18n-messages/api-msg';
 
 /**
  * Static message map for backend MSG_xx_xxxx codes.

@@ -332,6 +332,9 @@
       "@myorg/shared/util-i18n-messages": [
         "libs/shared/util-i18n-messages/src/index.ts"
       ],
+      "@myorg/shared/util-i18n-messages/api-msg": [
+        "libs/shared/util-i18n-messages/src/lib/api-msg.ts"
+      ],
       "@myorg/shared/util-state": ["libs/shared/util-state/src/index.ts"],
       "@myorg/shared/util-testing": ["libs/shared/util-testing/src/index.ts"]
     }
