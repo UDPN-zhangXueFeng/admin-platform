@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 
-import { Tooltip, TooltipContent, TooltipTrigger } from '@myorg/shared/ui';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@myorg/shared/ui';
 
 import type { ApprovalLog } from '@myorg/modules/approval-manage/data-access';
 import {
@@ -75,14 +75,16 @@ function ReviewerNameList({
       <span>
         {names.slice(0, 5).join(separator)}
         {'...'}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="ml-1 cursor-pointer text-primary underline">
-              {`${rest.length} more`}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>{rest.join(separator)}</TooltipContent>
-        </Tooltip>
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="ml-1 cursor-pointer text-primary underline">
+                {`${rest.length} more`}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{rest.join(separator)}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </span>
     );
   }

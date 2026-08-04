@@ -29,6 +29,13 @@
 - 后续同类任务：
 ```
 
+## 2026-08-04
+
+- 背景：approval-manage（侧栏菜单 "Workflow Tasks"，`/approval-manage`）三 Tab 列表的 actions 列全部显示 `--`，而旧项目 td-manage 同页有 Detail / Withdraw 按钮。
+- 结论：后端 `useAuth().permissions` 下发的是旧 td-manage 的 **UUID** 权限码（Detail `82536c63366b40a586774192751e7060`、Withdrawal `5f1c684ec8374caf9a8d5e4b1f26796a`）。迁移时 `APPROVAL_PERMISSIONS` 被误改成自造语义串 `'approval-manage:view'/'approval-manage:withdraw'`，list-page 的 `canView/canWithdraw` 用 `.has(语义串)` 永不命中 → 恒为 false → cell 回退 `EMPTY_FIELD_VALUE('--')`，三 Tab 所有按钮消失。修复：常量改回真实 UUID，list-page 引用常量（`027b1c2`）。
+- 影响：仓库存在**两套并存权限体系，不可混淆**——(1) 模块级 `module-manifest.ts` 的 `permissions` 字段用**语义码**（`'order:read'`、`'role:read'`，符合 `module.model.ts` 注释示例，决定路由/菜单可见性，几乎所有模块如此）；(2) 按钮级 `PermissionGuard` / `useAuth().permissions.has()` 必须用**后端 UUID**（决定行内按钮可见性，journal-entries `df7766...`、posting-engine、reconciliation `RECONCILIATION_PERMISSIONS`、cross-chain/blockchain/mmf/pledge/product 全部如此，`role.constants.ts` 注释佐证）。迁移按钮权限务必从旧 `useCustomTable` 的 `actions[].limit` 取真实 UUID，不能"语义化"。
+- 后续同类任务：迁移含行级按钮权限的列表页时，对照旧页 `actions[].limit`（UUID）原样落到模块 util 的 `*_PERMISSIONS` 常量；若列表按钮全部隐藏或变占位符，优先查 `canView`/`PermissionGuard` 的权限码是否与后端下发格式（UUID）匹配，而非怀疑 DataTable 列定义。
+
 ## 2026-07-23
 
 - 背景：approval-manage 三列表（queryTodoList/queryCompletedList/queryCreateList）运行时空表 "No data"，但旧系统 td-manage 同页有 7 行数据。根因不是前端渲染或权限，而是 `apps/admin/.env.local` **漏设 `NEXT_PUBLIC_CONFIG_ID`**。该变量在 `approval-manage.api.ts` 用于动态拼 URL：`TODO_LIST_URL = ${CONFIG_ID}v1/task/queryTodoList`，`CONFIG_ID = process.env.NEXT_PUBLIC_CONFIG_ID ?? ''`。缺失时 URL 退化为 `v1/task/queryTodoList`（无前缀），axios baseURL=/aps 合并后请求 `/aps/v1/task/queryTodoList`，经 Next.js rewrite 代理到 `http://10.0.48.123:30001/v1/task/queryTodoList`，后端无此路径 → 404 → query 失败 → 空表。
