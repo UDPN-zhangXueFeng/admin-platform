@@ -14,7 +14,15 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useSearchParams } from 'next/navigation';
 
-import { Button, Input, Select } from '@myorg/shared/ui';
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
@@ -206,15 +214,21 @@ export function DepositEditContent() {
             <FormField
               name="interestPolicyName"
               label={t('interest_0002')}
-              control={form.control}
-              rules={{ required: true }}
+              register={form.register('interestPolicyName', { required: true })}
               disabled={isNameDisabled}
               maxLength={50}
               placeholder={t('interest_0050')}
             />
             <div className="w-[35%]">
               <label className="text-sm font-medium">{t('interest_0005')}</label>
-              <Select disabled defaultValue="2" options={[{ label: t('interest_account_type_2'), value: '2' }]} />
+              <Select disabled defaultValue="2">
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">{t('interest_account_type_2')}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -258,15 +272,14 @@ export function DepositEditContent() {
                         <FormField
                           name="annualInterestRate"
                           label={t('interest_0006')}
-                          control={form.control}
                           type="number"
-                          rules={{
+                          register={form.register('annualInterestRate', {
                             required: tc('PUB_Pleased').replace('****', t('interest_0006')),
                             pattern: {
                               value: INTEREST_RATE_PATTERN,
                               message: t('interest_0057'),
                             },
-                          }}
+                          })}
                         />
                       </div>
                       <span className="mt-7">%</span>
@@ -277,9 +290,8 @@ export function DepositEditContent() {
                     <FormField
                       name="effectiveTime"
                       label={t('interest_0003')}
-                      control={form.control}
                       type="date"
-                      rules={{ required: true }}
+                      register={form.register('effectiveTime', { required: true })}
                     />
                   </div>
                 </div>
@@ -292,9 +304,8 @@ export function DepositEditContent() {
                         <FormField
                           name={`saveDetails.${index}.minValue`}
                           label={index === 0 ? t('interest_0033') : ''}
-                          control={form.control}
                           type="number"
-                          rules={{
+                          register={form.register(`saveDetails.${index}.minValue`, {
                             required: tc('PUB_Pleased').replace('****', t('interest_0033')),
                             validate: (value, formValues) => {
                               const current = formValues.saveDetails?.[index];
@@ -305,7 +316,7 @@ export function DepositEditContent() {
                                 return t('interest_00121');
                               return true;
                             },
-                          }}
+                          })}
                         />
                       </div>
                       <span className="pt-5">-</span>
@@ -313,9 +324,8 @@ export function DepositEditContent() {
                         <FormField
                           name={`saveDetails.${index}.maxValue`}
                           label={index === 0 ? ' ' : ''}
-                          control={form.control}
                           type="number"
-                          rules={{
+                          register={form.register(`saveDetails.${index}.maxValue`, {
                             required: tc('PUB_Pleased').replace('****', t('interest_0033')),
                             validate: (value, formValues) => {
                               const current = formValues.saveDetails?.[index];
@@ -323,7 +333,7 @@ export function DepositEditContent() {
                                 return t('interest_00122');
                               return true;
                             },
-                          }}
+                          })}
                         />
                       </div>
                       <div className="flex items-start gap-1 flex-1">
@@ -342,15 +352,14 @@ export function DepositEditContent() {
                           <FormField
                             name={`saveDetails.${index}.interestRate`}
                             label={t('interest_0006')}
-                            control={form.control}
                             type="number"
-                            rules={{
+                            register={form.register(`saveDetails.${index}.interestRate`, {
                               required: tc('PUB_Pleased').replace('****', t('interest_0006')),
                               pattern: {
                                 value: INTEREST_RATE_PATTERN,
                                 message: t('interest_0057'),
                               },
-                            }}
+                            })}
                           />
                         </div>
                         <span className="mt-7">%</span>
@@ -378,9 +387,8 @@ export function DepositEditContent() {
                     <FormField
                       name="effectiveTime"
                       label={t('interest_0003')}
-                      control={form.control}
                       type="date"
-                      rules={{ required: true }}
+                      register={form.register('effectiveTime', { required: true })}
                     />
                   </div>
                 </>
@@ -406,9 +414,8 @@ export function DepositEditContent() {
               <FormField
                 name="calculateTimeDay"
                 label={t('interest_0012')}
-                control={form.control}
                 type="time"
-                rules={{ required: true }}
+                register={form.register('calculateTimeDay', { required: true })}
               />
               <div className="text-xs text-muted-foreground -mt-4">{t('interest_0028')}</div>
             </div>
@@ -428,9 +435,8 @@ export function DepositEditContent() {
               <FormField
                 name="calculateDayMonth"
                 label={t('interest_0052')}
-                control={form.control}
                 type="number"
-                rules={{ required: true, min: 1, max: 28 }}
+                register={form.register('calculateDayMonth', { required: true, min: 1, max: 28 })}
               />
             </div>
             <div className="w-20">
@@ -441,9 +447,8 @@ export function DepositEditContent() {
               <FormField
                 name="calculateTimeMonth"
                 label={t('interest_0098')}
-                control={form.control}
                 type="time"
-                rules={{ required: true }}
+                register={form.register('calculateTimeMonth', { required: true })}
               />
             </div>
           </div>

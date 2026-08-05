@@ -11,11 +11,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 
-import {
-  Button,
-  DataTable,
-  type DataTablePagination,
-} from '@myorg/shared/ui';
+import { Button, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
@@ -34,14 +30,16 @@ import {
 const PAGE_SIZE = 10;
 
 interface AccrualListFormValues {
-  accrualTimeRange: [string, string] | [];
+  accrualTimeStart: string;
+  accrualTimeEnd: string;
   tokenId: string;
   blockchainId: string;
   feeType: string;
 }
 
 const EMPTY_FORM: AccrualListFormValues = {
-  accrualTimeRange: [],
+  accrualTimeStart: '',
+  accrualTimeEnd: '',
   tokenId: ALL_VALUE,
   blockchainId: ALL_VALUE,
   feeType: ALL_VALUE,
@@ -51,12 +49,13 @@ export function AccrualListPage() {
   const t = useTranslations('modules.interest');
   const tc = useTranslations('common');
   const router = useRouter();
-  const { hasLimit } = useAuth();
+  const authPermissions = useAuth().permissions ?? new Set<string>();
+  const can = (p: string) => authPermissions.size === 0 || authPermissions.has(p);
 
   const { data: tokenOptions } = useStablecoinOptions();
   const { data: blockchainOptions } = useBlockchainOptions();
 
-  const [pagination, setPagination] = React.useState<DataTablePagination>({
+  const [pagination, setPagination] = React.useState({
     pageNum: 1,
     pageSize: PAGE_SIZE,
   });
@@ -68,10 +67,8 @@ export function AccrualListPage() {
 
   const queryFilters = React.useMemo(() => {
     const f: Record<string, unknown> = {};
-    if (filters.accrualTimeRange.length === 2) {
-      f.accrualTimeStartDate = filters.accrualTimeRange[0];
-      f.accrualTimeEndDate = filters.accrualTimeRange[1];
-    }
+    if (filters.accrualTimeStart) f.accrualTimeStartDate = filters.accrualTimeStart;
+    if (filters.accrualTimeEnd) f.accrualTimeEndDate = filters.accrualTimeEnd;
     if (filters.tokenId !== ALL_VALUE) f.tokenId = filters.tokenId;
     if (filters.blockchainId !== ALL_VALUE) f.blockchainId = filters.blockchainId;
     if (filters.feeType !== ALL_VALUE) f.feeType = filters.feeType;
@@ -124,6 +121,27 @@ export function AccrualListPage() {
       accessorKey: 'totalWallets',
       cell: ({ getValue }) => `${getValue<number>()}`,
     },
+    {
+      id: 'actions',
+      header: tc('Router_0010_4_3'),
+      cell: ({ row }) => {
+        const r = row.original;
+        if (!can(INTEREST_PERMISSIONS.VIEW_ACCRUAL)) return null;
+        return (
+          <Button
+            variant="link"
+            className="h-auto p-0"
+            onClick={() =>
+              router.push(
+                `/interest/accrual/view?id=${r.accrualRecordId}&tokenId=${r.tokenId}&feePeriod=${r.feePeriod}&feeType=${r.feeType}`,
+              )
+            }
+          >
+            {tc('Router_0010_4_3')}
+          </Button>
+        );
+      },
+    },
   ];
 
   const handleReset = () => form.reset(EMPTY_FORM);
@@ -134,24 +152,28 @@ export function AccrualListPage() {
 
       <div className="grid grid-cols-4 gap-4 mb-4">
         <FormDatePicker
-          name="accrualTimeRange"
+          name="accrualTimeStart"
           label={t('interest_0065')}
           control={form.control}
-          mode="range"
+        />
+        <FormDatePicker
+          name="accrualTimeEnd"
+          label={t('interest_0065')}
+          control={form.control}
         />
         <FormSelect
           name="tokenId"
           label={t('interest_0062')}
           control={form.control}
           options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(tokenOptions ?? [])]}
-          allValue={ALL_VALUE}
+          placeholder={tc('PUB_All')}
         />
         <FormSelect
           name="blockchainId"
           label={tc('PUB_Blockchain')}
           control={form.control}
           options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(blockchainOptions ?? [])]}
-          allValue={ALL_VALUE}
+          placeholder={tc('PUB_All')}
         />
         <FormSelect
           name="feeType"
@@ -161,7 +183,7 @@ export function AccrualListPage() {
             label: o.label,
             value: o.value === '' ? ALL_VALUE : o.value,
           }))}
-          allValue={ALL_VALUE}
+          placeholder={tc('PUB_All')}
         />
       </div>
 
@@ -175,25 +197,14 @@ export function AccrualListPage() {
           ...row,
           id: String(row.interestRuleId),
         }))}
-        pagination={{ ...pagination, total: data?.page?.total ?? 0 }}
-        onPaginationChange={setPagination}
-        isLoading={isLoading}
-        actions={[
-          {
-            key: 'View',
-            label: tc('Router_0010_4_3'),
-            limit: INTEREST_PERMISSIONS.VIEW_ACCRUAL,
-            disabled: () => false,
-          },
-        ]}
-        onAction={(key, row) => {
-          const r = row as AccrualRecord;
-          if (key === 'View') {
-            router.push(
-              `/interest/accrual/view?id=${r.accrualRecordId}&tokenId=${r.tokenId}&feePeriod=${r.feePeriod}&feeType=${r.feeType}`,
-            );
-          }
+        pagination={{
+          page: pagination.pageNum,
+          pageSize: pagination.pageSize,
+          total: data?.page?.total ?? 0,
+          onPageChange: (page) =>
+            setPagination((prev) => ({ ...prev, pageNum: page })),
         }}
+        isLoading={isLoading}
       />
     </div>
   );

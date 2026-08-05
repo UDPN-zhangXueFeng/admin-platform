@@ -15,9 +15,10 @@ import { type ColumnDef } from '@tanstack/react-table';
 import {
   Button,
   DataTable,
-  type DataTablePagination,
   Tabs,
-  type TabItem,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
@@ -41,15 +42,19 @@ const PAGE_SIZE = 10;
 
 interface PolicyListFormValues {
   interestPolicyName: string;
-  effectiveDateRange: [string, string] | [];
-  createDateRange: [string, string] | [];
+  effectiveTimeStart: string;
+  effectiveTimeEnd: string;
+  createTimeStart: string;
+  createTimeEnd: string;
   status: string;
 }
 
 const EMPTY_FORM: PolicyListFormValues = {
   interestPolicyName: '',
-  effectiveDateRange: [],
-  createDateRange: [],
+  effectiveTimeStart: '',
+  effectiveTimeEnd: '',
+  createTimeStart: '',
+  createTimeEnd: '',
   status: ALL_VALUE,
 };
 
@@ -125,10 +130,11 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
   const t = useTranslations('modules.interest');
   const tc = useTranslations('common');
   const router = useRouter();
-  const { hasLimit } = useAuth();
-  const columns = usePolicyColumns(t);
+  const authPermissions = useAuth().permissions ?? new Set<string>();
+  const can = (p: string) => authPermissions.size === 0 || authPermissions.has(p);
+  const baseColumns = usePolicyColumns(t);
 
-  const [pagination, setPagination] = React.useState<DataTablePagination>({
+  const [pagination, setPagination] = React.useState({
     pageNum: 1,
     pageSize: PAGE_SIZE,
   });
@@ -142,14 +148,10 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
     const f: Record<string, unknown> = { interestType };
     if (filters.interestPolicyName) f.interestPolicyName = filters.interestPolicyName;
     if (filters.status && filters.status !== ALL_VALUE) f.status = filters.status;
-    if (filters.effectiveDateRange.length === 2) {
-      f.effectiveStartDate = filters.effectiveDateRange[0];
-      f.effectiveEndDate = filters.effectiveDateRange[1];
-    }
-    if (filters.createDateRange.length === 2) {
-      f.startDate = filters.createDateRange[0];
-      f.endDate = filters.createDateRange[1];
-    }
+    if (filters.effectiveTimeStart) f.effectiveStartDate = filters.effectiveTimeStart;
+    if (filters.effectiveTimeEnd) f.effectiveEndDate = filters.effectiveTimeEnd;
+    if (filters.createTimeStart) f.startDate = filters.createTimeStart;
+    if (filters.createTimeEnd) f.endDate = filters.createTimeEnd;
     return f;
   }, [filters, interestType]);
 
@@ -163,6 +165,88 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
 
   const handleReset = () => form.reset(EMPTY_FORM);
 
+  const columns: ColumnDef<InterestRule>[] = [
+    ...baseColumns,
+    {
+      id: 'actions',
+      header: tc('PUB_Action'),
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <div className="flex items-center gap-3">
+            {can(INTEREST_PERMISSIONS.VIEW_POLICY) && (
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                onClick={() =>
+                  router.push(`/interest/policy/view?id=${r.interestRuleId}`)
+                }
+              >
+                {tc('Router_0010_4_3')}
+              </Button>
+            )}
+            {can(INTEREST_PERMISSIONS.EDIT_POLICY) && (
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                disabled={r.status === 1}
+                onClick={() =>
+                  router.push(`${createPath}?id=${r.interestRuleId}`)
+                }
+              >
+                {tc('Router_0010_4_2')}
+              </Button>
+            )}
+            {can(INTEREST_PERMISSIONS.DISABLE_POLICY) && (
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                disabled={r.status !== 10}
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      t('interest_0008').replace('${name}', r.interestPolicyName),
+                    )
+                  )
+                    return;
+                  await operateMutation.mutateAsync({
+                    interestRuleId: r.interestRuleId,
+                    state: 15,
+                  });
+                  toast.success(tc('PUB_Success'));
+                }}
+              >
+                {tc('Router_0010_4_5')}
+              </Button>
+            )}
+            {can(INTEREST_PERMISSIONS.ENABLE_POLICY) && (
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                disabled={r.status !== 15}
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      t('interest_0007').replace('${name}', r.interestPolicyName),
+                    )
+                  )
+                    return;
+                  await operateMutation.mutateAsync({
+                    interestRuleId: r.interestRuleId,
+                    state: 10,
+                  });
+                  toast.success(tc('PUB_Success'));
+                }}
+              >
+                {tc('Router_0010_4_4')}
+              </Button>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
   return (
     <div>
       {/* 筛选表单 */}
@@ -170,20 +254,28 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
         <FormField
           name="interestPolicyName"
           label={t('interest_0002')}
-          control={form.control}
+          register={form.register('interestPolicyName')}
           placeholder={tc('PUB_Query')}
         />
         <FormDatePicker
-          name="effectiveDateRange"
+          name="effectiveTimeStart"
           label={t('interest_0003')}
           control={form.control}
-          mode="range"
         />
         <FormDatePicker
-          name="createDateRange"
+          name="effectiveTimeEnd"
+          label={t('interest_0003')}
+          control={form.control}
+        />
+        <FormDatePicker
+          name="createTimeStart"
           label={tc('PUB_CreateTime')}
           control={form.control}
-          mode="range"
+        />
+        <FormDatePicker
+          name="createTimeEnd"
+          label={tc('PUB_CreateTime')}
+          control={form.control}
         />
         <FormSelect
           name="status"
@@ -193,7 +285,7 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
             label: o.label,
             value: o.value === '' ? ALL_VALUE : o.value,
           }))}
-          allValue={ALL_VALUE}
+          placeholder={tc('PUB_All')}
         />
       </div>
 
@@ -204,7 +296,7 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
             {tc('PUB_Reset')}
           </Button>
         </div>
-        {hasLimit(INTEREST_PERMISSIONS.CREATE_POLICY) && (
+        {can(INTEREST_PERMISSIONS.CREATE_POLICY) && (
           <Button onClick={() => router.push(createPath)}>
             {tc('PUB_New')}
           </Button>
@@ -219,60 +311,13 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
           id: String(row.interestRuleId),
         }))}
         pagination={{
-          ...pagination,
+          page: pagination.pageNum,
+          pageSize: pagination.pageSize,
           total: data?.page?.total ?? 0,
+          onPageChange: (page) =>
+            setPagination((prev) => ({ ...prev, pageNum: page })),
         }}
-        onPaginationChange={setPagination}
         isLoading={isLoading}
-        actions={[
-          {
-            key: 'View',
-            label: tc('Router_0010_4_3'),
-            limit: INTEREST_PERMISSIONS.VIEW_POLICY,
-            disabled: () => false,
-          },
-          {
-            key: 'Edit',
-            label: tc('Router_0010_4_2'),
-            limit: INTEREST_PERMISSIONS.EDIT_POLICY,
-            disabled: (row: InterestRule) => row.status === 1, // Processing 状态不可编辑
-          },
-          {
-            key: 'Disable',
-            label: tc('Router_0010_4_5'),
-            limit: INTEREST_PERMISSIONS.DISABLE_POLICY,
-            disabled: (row: InterestRule) => row.status !== 10, // 仅 Active 可停用
-            confirmText: (row: InterestRule) =>
-              t('interest_0008').replace('${name}', row.interestPolicyName),
-          },
-          {
-            key: 'Enable',
-            label: tc('Router_0010_4_4'),
-            limit: INTEREST_PERMISSIONS.ENABLE_POLICY,
-            disabled: (row: InterestRule) => row.status !== 15, // 仅 Inactive 可启用
-            confirmText: (row: InterestRule) =>
-              t('interest_0007').replace('${name}', row.interestPolicyName),
-          },
-        ]}
-        onAction={async (key, row) => {
-          const r = row as InterestRule;
-          switch (key) {
-            case 'View':
-              router.push(`/interest/policy/view?id=${r.interestRuleId}`);
-              break;
-            case 'Edit':
-              router.push(`${createPath}?id=${r.interestRuleId}`);
-              break;
-            case 'Disable':
-            case 'Enable':
-              await operateMutation.mutateAsync({
-                interestRuleId: r.interestRuleId,
-                state: key === 'Enable' ? 10 : 15,
-              });
-              toast.success(tc('PUB_Success'));
-              break;
-          }
-        }}
       />
     </div>
   );
@@ -283,30 +328,26 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
 export function PolicyListPage() {
   const t = useTranslations('modules.interest');
 
-  const tabs: TabItem[] = [
-    {
-      key: 'deposit',
-      label: t('interest_0001'), // Deposit Interest
-      disabled: false,
-      children: (
+  return (
+    <Tabs defaultValue="deposit">
+      <TabsList>
+        <TabsTrigger value="deposit">{t('interest_0001')}</TabsTrigger>
+        <TabsTrigger value="overdraft" disabled>
+          {t('interest_0000')}
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="deposit">
         <PolicyTab
           interestType={2}
           createPath="/interest/policy/create?type=deposit"
         />
-      ),
-    },
-    {
-      key: 'overdraft',
-      label: t('interest_0000'), // Overdraft Interest
-      disabled: true, // 源码 disabled: true，透支计息暂未启用
-      children: (
+      </TabsContent>
+      <TabsContent value="overdraft">
         <PolicyTab
           interestType={1}
           createPath="/interest/policy/create?type=overdraft"
         />
-      ),
-    },
-  ];
-
-  return <Tabs items={tabs} />;
+      </TabsContent>
+    </Tabs>
+  );
 }

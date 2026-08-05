@@ -5,11 +5,11 @@ import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useSearchParams } from 'next/navigation';
-import { Button, Input, Select, Switch, Textarea } from '@myorg/shared/ui';
+import { Button, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { toast } from '@myorg/shared/ui';
 import type { RuleFormValues, SaveDetailFormItem } from '@myorg/modules/screening-monitoring/data-access';
-import { useBusinessTypeList, useEditRule, useRuleDetail, useRuleUserList, useSaveRule, useStablecoinOptions } from '@myorg/modules/screening-monitoring/data-access';
+import { useBusinessTypeList, useEditRule, useRuleDetail, useSaveRule, useStablecoinOptions } from '@myorg/modules/screening-monitoring/data-access';
 import { HANDLE_TYPE_MAP, RISK_LEVEL_MAP } from '@myorg/modules/screening-monitoring/util';
 
 export function RuleEditContent() {
@@ -31,14 +31,14 @@ export function RuleEditContent() {
   useEffect(() => {
     if (isEdit && existing && !loaded) {
       setLoaded(true);
-      const { ruleName, tokenId, businessType, monitorFrequency, monitorUnit, compareTo: ct, detailList, alertList } = existing;
-      form.setValue('ruleName', ruleName); form.setValue('tokenId', tokenId); form.setValue('businessType', businessType);
-      form.setValue('monitorFrequency', businessType === 40 || businessType === 50 ? monitorFrequency : Number(monitorFrequency));
-      form.setValue('monitorFrequencyType', monitorUnit); form.setValue('compareTo', ct || 5);
+      const { ruleName, tokenId, businessType: bt, monitorFrequency, monitorUnit, detailList, alertList } = existing;
+      form.setValue('ruleName', ruleName); form.setValue('tokenId', tokenId); form.setValue('businessType', bt);
+      form.setValue('monitorFrequency', bt === 40 || bt === 50 ? monitorFrequency : Number(monitorFrequency));
+      form.setValue('monitorFrequencyType', monitorUnit); form.setValue('compareTo', 5);
       form.setValue('saveDetails', (detailList || []).map((el: SaveDetailFormItem) => ({ minValue: el.minValue, maxValue: el.maxValue, riskScoring: el.riskScoring, priority: el.priority, handleType: el.handleType })));
       form.setValue('turnOnAlert', Boolean(alertList?.length));
       form.setValue('alertList', (alertList || []).map((a: { contactInfo: string; priority: number; notifyType: number }) => ({ contactInfo: a.contactInfo, priority: a.priority, notifyType: a.notifyType })));
-      if (bizTypes) { const cur = bizTypes.find((b: { value: number }) => b.value === businessType); if (cur) setUnitList(cur.unitList); }
+      if (bizTypes) { const cur = bizTypes.find((b: { value: number }) => b.value === bt); if (cur) setUnitList(cur.unitList); }
     } else if (!isEdit && bizTypes && bizTypes.length && !loaded) {
       setLoaded(true);
       const first = bizTypes[0];
@@ -55,19 +55,11 @@ export function RuleEditContent() {
   useEffect(() => {
     if (saveDetails?.length) {
       if (!turnOnAlert) { form.setValue('alertList', []); } else {
-        const cur = form.getFieldValue('alertList') || [];
-        form.setValue('alertList', saveDetails.map((el, i) => ({ contactInfo: cur[i]?.contactInfo || '', priority: el.priority, notifyType: 1 })));
+        const cur = form.getValues('alertList') || [];
+        form.setValue('alertList', saveDetails.map((el, i) => ({ contactInfo: cur[i]?.contactInfo || '', priority: Number(el.priority), notifyType: 1 })));
       }
     }
   }, [saveDetails, turnOnAlert]);
-
-  const getUserEmail = async (index: number) => {
-    const tk = form.getFieldValue('tokenId') as number;
-    if (!tk) return;
-    // Auto-fill email via ruleUserListApi
-    const { useRuleUserList } = await import('@myorg/modules/screening-monitoring/data-access');
-    void index; // placeholder — full email auto-fill integration deferred to runtime verification
-  };
 
   const onSubmit = async (v: RuleFormValues) => {
     setSubmitting(true);
@@ -83,7 +75,6 @@ export function RuleEditContent() {
     } finally { setSubmitting(false); }
   };
 
-  const bizOptions = (bizTypes || []).map((b: { label: string; value: number; unitList: { monitorName: string; monitorUnit: number }[] }) => ({ label: b.label, value: b.value, unitList: b.unitList }));
   const isTimeType = businessType === 40 || businessType === 50;
 
   return (
@@ -93,9 +84,15 @@ export function RuleEditContent() {
       <div className="flex justify-between py-6 mb-6 border-b">
         <div className="w-[20%]"><span className="font-bold">{t('screening_monitoring_0004')}</span><p className="text-sm text-muted-foreground">{t('screening_monitoring_0006')}</p></div>
         <div className="w-[78%] flex justify-between">
-          <div className="w-[35%]"><FormField name="ruleName" label={t('screening_monitoring_0000')} control={form.control} rules={{ required: true }} disabled={isEdit} maxLength={50} placeholder={t('screening_monitoring_0052')} /></div>
-          <div className="w-[15%]"><FormSelect name="tokenId" label={t('screening_monitoring_0001')} control={form.control} options={tdList || []} rules={{ required: true }} disabled={isEdit} /></div>
-          <div className="w-[43%]"><FormSelect name="businessType" label={t('screening_monitoring_0002')} control={form.control} options={bizOptions} rules={{ required: true }} disabled={isEdit} onChange={(val, opt) => { setUnitList(opt?.unitList || []); form.setValue('compareTo', ''); form.setValue('monitorFrequency', ''); form.setValue('monitorFrequencyType', opt?.unitList?.[0]?.monitorUnit || 0); form.setValue('saveDetails', [{ minValue: '', maxValue: '', riskScoring: '', priority: '', handleType: '' }]); }} /></div>
+          <div className="w-[35%]"><FormField name="ruleName" label={t('screening_monitoring_0000')} register={form.register('ruleName', { required: true })} disabled={isEdit} maxLength={50} placeholder={t('screening_monitoring_0052')} /></div>
+          <div className="w-[15%]"><FormSelect name="tokenId" label={t('screening_monitoring_0001')} control={form.control} options={tdList || []} disabled={isEdit} /></div>
+          <div className="w-[43%]">
+            <label className="mb-1.5 block text-sm font-medium text-foreground">{t('screening_monitoring_0002')}</label>
+            <Select value={String(businessType ?? '')} onValueChange={(val) => { const cur = (bizTypes || []).find(b => String(b.value) === val); setUnitList(cur?.unitList || []); form.setValue('businessType', Number(val)); form.setValue('compareTo', 0); form.setValue('monitorFrequency', ''); form.setValue('monitorFrequencyType', cur?.unitList?.[0]?.monitorUnit || 0); form.setValue('saveDetails', [{ minValue: '', maxValue: '', riskScoring: '', priority: '', handleType: '' }]); }} disabled={isEdit}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{(bizTypes || []).map(b => <SelectItem key={String(b.value)} value={String(b.value)}>{b.label}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -106,26 +103,26 @@ export function RuleEditContent() {
           {isTimeType ? (
             <div className="flex flex-col">
               <div className="flex gap-4">
-                <div className="w-[20%]"><FormField name="monitorFrequency" label={t('screening_monitoring_0016')} control={form.control} type="time" rules={{ required: true }} /></div>
-                <div className="w-[20%]"><FormField name="compareTo" label={t('screening_monitoring_0026')} control={form.control} type="number" rules={{ required: true }} /></div>
+                <div className="w-[20%]"><FormField name="monitorFrequency" label={t('screening_monitoring_0016')} register={form.register('monitorFrequency', { required: true })} type="time" /></div>
+                <div className="w-[20%]"><FormField name="compareTo" label={t('screening_monitoring_0026')} register={form.register('compareTo', { required: true })} type="number" /></div>
               </div>
               <div className="text-xs text-muted-foreground -mt-2 mb-6">{t('screening_monitoring_0027').replace('****', String(compareTo || 5))}</div>
             </div>
           ) : (
             <div className="flex gap-4">
-              <div className="w-[25%]"><FormField name="monitorFrequency" label={t('screening_monitoring_0003')} control={form.control} type="number" rules={{ required: true }} /></div>
-              <div className="w-[15%]"><FormSelect name="monitorFrequencyType" label=" " control={form.control} options={unitList.map(u => ({ label: u.monitorName, value: u.monitorUnit }))} /></div>
+              <div className="w-[25%]"><FormField name="monitorFrequency" label={t('screening_monitoring_0003')} register={form.register('monitorFrequency', { required: true })} type="number" /></div>
+              <div className="w-[15%]"><FormSelect name="monitorFrequencyType" label=" " control={form.control} options={unitList.map(u => ({ label: u.monitorName, value: String(u.monitorUnit) }))} /></div>
             </div>
           )}
 
           {fields.map((field, idx) => (
             <div key={field.id} className="flex w-full mb-4 items-center gap-2">
-              <div className="w-[20%]"><FormField name={`saveDetails.${idx}.minValue`} label={isTimeType ? t('screening_monitoring_0028') : t('screening_monitoring_0009')} control={form.control} type="number" rules={{ required: true, validate: (val, fv) => { const cur = fv.saveDetails?.[idx]; const prev = fv.saveDetails?.[idx - 1]; if (cur?.maxValue && Number(val) >= Number(cur.maxValue)) return t('screening_monitoring_0078'); if (prev && Number(val) < Number(prev.maxValue)) return t('screening_monitoring_0078'); return true; } }} /></div>
+              <div className="w-[20%]"><FormField name={`saveDetails.${idx}.minValue`} label={isTimeType ? t('screening_monitoring_0028') : t('screening_monitoring_0009')} register={form.register(`saveDetails.${idx}.minValue`, { required: true, validate: (val: string | number, fv: RuleFormValues) => { const cur = fv.saveDetails?.[idx]; const prev = fv.saveDetails?.[idx - 1]; if (cur?.maxValue && Number(val) >= Number(cur.maxValue)) return t('screening_monitoring_0078'); if (prev && Number(val) < Number(prev.maxValue)) return t('screening_monitoring_0078'); return true; } })} type="number" /></div>
               <span>-</span>
-              <div className="w-[20%]"><FormField name={`saveDetails.${idx}.maxValue`} label=" " control={form.control} type="number" rules={{ required: true, validate: (val, fv) => { const cur = fv.saveDetails?.[idx]; const next = fv.saveDetails?.[idx + 1]; if (cur && Number(val) <= Number(cur.minValue)) return t('screening_monitoring_0078'); if (next?.minValue && Number(val) > Number(next.minValue)) return t('screening_monitoring_0078'); return true; } }} /></div>
-              <div className="w-[18%]"><FormField name={`saveDetails.${idx}.riskScoring`} label={t('screening_monitoring_0010')} control={form.control} rules={{ required: true }} /></div>
-              <div className="w-[16%]"><FormSelect name={`saveDetails.${idx}.priority`} label={t('screening_monitoring_0011')} control={form.control} options={[20, 30, 40].map(v => ({ label: t(RISK_LEVEL_MAP[v]), value: v }))} rules={{ required: true }} /></div>
-              <div className="w-[17%]"><FormSelect name={`saveDetails.${idx}.handleType`} label={t('screening_monitoring_0032')} control={form.control} options={[2, 1].map(v => ({ label: t(HANDLE_TYPE_MAP[v]), value: v }))} rules={{ required: true }} /></div>
+              <div className="w-[20%]"><FormField name={`saveDetails.${idx}.maxValue`} label=" " register={form.register(`saveDetails.${idx}.maxValue`, { required: true, validate: (val: string | number, fv: RuleFormValues) => { const cur = fv.saveDetails?.[idx]; const next = fv.saveDetails?.[idx + 1]; if (cur && Number(val) <= Number(cur.minValue)) return t('screening_monitoring_0078'); if (next?.minValue && Number(val) > Number(next.minValue)) return t('screening_monitoring_0078'); return true; } })} type="number" /></div>
+              <div className="w-[18%]"><FormField name={`saveDetails.${idx}.riskScoring`} label={t('screening_monitoring_0010')} register={form.register(`saveDetails.${idx}.riskScoring`, { required: true })} /></div>
+              <div className="w-[16%]"><FormSelect name={`saveDetails.${idx}.priority`} label={t('screening_monitoring_0011')} control={form.control} options={[20, 30, 40].map(v => ({ label: t(RISK_LEVEL_MAP[v]), value: String(v) }))} /></div>
+              <div className="w-[17%]"><FormSelect name={`saveDetails.${idx}.handleType`} label={t('screening_monitoring_0032')} control={form.control} options={[2, 1].map(v => ({ label: t(HANDLE_TYPE_MAP[v]), value: String(v) }))} /></div>
               {fields.length > 1 && fields.length === idx + 1 && <button type="button" className="text-red-500 pt-6" onClick={() => remove(idx)}>✕</button>}
             </div>
           ))}
@@ -137,7 +134,7 @@ export function RuleEditContent() {
       <div className="flex justify-between py-6 mb-6 border-b">
         <div className="w-[20%]"><span className="font-bold">{t('screening_monitoring_0029')}</span><p className="text-sm text-muted-foreground">{t('screening_monitoring_0030')}</p></div>
         <div className="w-[78%]">
-          <div className="mb-4"><label className="mr-3">{t('screening_monitoring_0031')}</label><Switch name="turnOnAlert" control={form.control} /></div>
+          <div className="mb-4"><label className="mr-3">{t('screening_monitoring_0031')}</label><Switch checked={Boolean(turnOnAlert)} onCheckedChange={(v) => form.setValue('turnOnAlert', v)} /></div>
           {turnOnAlert && <AlertListFields form={form} t={t} />}
         </div>
       </div>
@@ -160,7 +157,7 @@ function AlertListFields({ form, t }: { form: ReturnType<typeof useForm<RuleForm
         return (
           <div key={field.id} className="mb-4">
             <div className="text-sm font-medium mb-1">{priority ? t(RISK_LEVEL_MAP[priority as number] || '') + ' - Risk ' + t('screening_monitoring_0034') : t('screening_monitoring_0034')}</div>
-            <FormField name={`alertList.${idx}.contactInfo`} label="" control={form.control} rules={{ validate: (val) => { if (!val) return true; const emails = val.split(','); if (emails.length > 20) return t('screening_monitoring_0037'); const re = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/; return emails.every((e: string) => re.test(e.trim())) ? true : t('screening_monitoring_0036'); } }} placeholder={t('screening_monitoring_0033')} />
+            <FormField name={`alertList.${idx}.contactInfo`} label="" register={form.register(`alertList.${idx}.contactInfo`, { validate: (val: string) => { if (!val) return true; const emails = val.split(','); if (emails.length > 20) return t('screening_monitoring_0037'); const re = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/; return emails.every((e: string) => re.test(e.trim())) ? true : t('screening_monitoring_0036'); } })} placeholder={t('screening_monitoring_0033')} />
           </div>
         );
       })}

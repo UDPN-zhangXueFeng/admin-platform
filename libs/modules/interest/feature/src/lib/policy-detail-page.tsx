@@ -14,14 +14,15 @@ import { type ColumnDef } from '@tanstack/react-table';
 
 import {
   Button,
-  Card,
   DataTable,
-  type DataTablePagination,
   Tabs,
-  type TabItem,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '@myorg/shared/util-auth';
 
 import type {
   InterestRuleDetail,
@@ -160,7 +161,9 @@ function getOrdinalSuffix(day: number, t: (key: string) => string): string {
 
 function OperationRecordsTab({ interestRuleId, t, tc }: { interestRuleId: number; t: (k: string) => string; tc: (k: string) => string }) {
   const router = useRouter();
-  const [pagination, setPagination] = React.useState<DataTablePagination>({
+  const authPermissions = useAuth().permissions ?? new Set<string>();
+  const can = (p: string) => authPermissions.size === 0 || authPermissions.has(p);
+  const [pagination, setPagination] = React.useState({
     pageNum: 1,
     pageSize: PAGE_SIZE,
   });
@@ -215,8 +218,26 @@ function OperationRecordsTab({ interestRuleId, t, tc }: { interestRuleId: number
         );
       },
     },
+    {
+      id: 'actions',
+      header: tc('PUB_Action'),
+      cell: ({ row }) => {
+        const r = row.original;
+        if (!can('e338a3b41c21413db1d2ac7a90a65f5f')) return null;
+        return (
+          <Button
+            variant="link"
+            className="h-auto p-0"
+            onClick={() =>
+              router.push(`/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`)
+            }
+          >
+            {tc('Router_0010_4_3')}
+          </Button>
+        );
+      },
+    },
   ];
-
   return (
     <div>
       <div className="w-48 mb-4">
@@ -228,7 +249,7 @@ function OperationRecordsTab({ interestRuleId, t, tc }: { interestRuleId: number
             label: o.label,
             value: o.value === '' ? ALL_VALUE : o.value,
           }))}
-          allValue={ALL_VALUE}
+          placeholder={tc('PUB_All')}
         />
       </div>
       <DataTable
@@ -237,23 +258,14 @@ function OperationRecordsTab({ interestRuleId, t, tc }: { interestRuleId: number
           ...row,
           id: String(row.ruleRecordId),
         }))}
-        pagination={{ ...pagination, total: data?.page?.total ?? 0 }}
-        onPaginationChange={setPagination}
-        isLoading={isLoading}
-        actions={[
-          {
-            key: 'View',
-            label: tc('Router_0010_4_3'),
-            limit: 'e338a3b41c21413db1d2ac7a90a65f5f',
-            disabled: () => false,
-          },
-        ]}
-        onAction={(key, row) => {
-          const r = row as PolicyOperationRecord;
-          if (key === 'View') {
-            router.push(`/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`);
-          }
+        pagination={{
+          page: pagination.pageNum,
+          pageSize: pagination.pageSize,
+          total: data?.page?.total ?? 0,
+          onPageChange: (page) =>
+            setPagination((prev) => ({ ...prev, pageNum: page })),
         }}
+        isLoading={isLoading}
       />
     </div>
   );
@@ -273,29 +285,23 @@ export function PolicyDetailPage() {
   if (isLoading) return <div className="p-8">{tc('PUB_Query')}...</div>;
   if (!detail) return <div className="p-8 text-muted-foreground">Policy not found</div>;
 
-  const tabs: TabItem[] = [
-    {
-      key: 'basic',
-      label: t('interest_0009'),
-      children: (
-        <>
+  return (
+    <div>
+      <Tabs defaultValue="basic">
+        <TabsList>
+          <TabsTrigger value="basic">{t('interest_0009')}</TabsTrigger>
+          <TabsTrigger value="records">{t('interest_0010')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="basic">
           <PolicyBasicInfo detail={detail} t={t} />
           <div className="mt-6">
             <InterestEmptyWalletTable />
           </div>
-        </>
-      ),
-    },
-    {
-      key: 'records',
-      label: t('interest_0010'),
-      children: <OperationRecordsTab interestRuleId={id} t={t} tc={tc} />,
-    },
-  ];
-
-  return (
-    <div>
-      <Tabs items={tabs} />
+        </TabsContent>
+        <TabsContent value="records">
+          <OperationRecordsTab interestRuleId={id} t={t} tc={tc} />
+        </TabsContent>
+      </Tabs>
       <div className="flex justify-center mt-6">
         <Button variant="outline" onClick={() => router.back()}>
           {tc('PUB_GoBack')}

@@ -635,8 +635,92 @@ const moduleRegistry: Record<string, ModuleEntry> = {
         })),
     },
   },
-  // ⚠️ 暂时移出类型检查图：interest / screening-monitoring / statistics-reports 三个模块的
-  // 迁移尚未完成（合计 ~217 个类型错误），先从注册表摘除以恢复 CI 绿。待各自迁移完成后再接回。
+  // interest 分组路由（/interest/<child>）：拆成 interest-policy / interest-accrual /
+  // interest-transactions 三个子模块 entry。key 加 group 前缀避免与 mmf 的 accrual 等扁平 key 冲突。
+  // 路由解析（[[...slug]]/page.tsx）对 interest group 用 `${module}-${slug[0]}` 作为 registry key。
+  'interest-policy': {
+    manifest: () =>
+      import('@myorg/modules/interest/feature').then(
+        (m) => m.policyManifest,
+      ),
+    pages: {
+      list: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.PolicyListPage as unknown as ComponentType<unknown>,
+        })),
+      detail: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.PolicyDetailPage as unknown as ComponentType<unknown>,
+        })),
+      edit: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.PolicyDepositEditPage as unknown as ComponentType<unknown>,
+        })),
+      create: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.PolicyDepositEditPage as unknown as ComponentType<unknown>,
+        })),
+    },
+  },
+  'interest-accrual': {
+    manifest: () =>
+      import('@myorg/modules/interest/feature').then(
+        (m) => m.accrualManifest,
+      ),
+    pages: {
+      list: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.AccrualListPage as unknown as ComponentType<unknown>,
+        })),
+      detail: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.AccrualDetailPage as unknown as ComponentType<unknown>,
+        })),
+    },
+  },
+  'interest-transactions': {
+    manifest: () =>
+      import('@myorg/modules/interest/feature').then(
+        (m) => m.transactionsManifest,
+      ),
+    pages: {
+      list: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.TransactionsListPage as unknown as ComponentType<unknown>,
+        })),
+      detail: () =>
+        import('@myorg/modules/interest/feature').then((m) => ({
+          default: m.TransactionsDetailPage as unknown as ComponentType<unknown>,
+        })),
+    },
+  },
+  // screening-monitoring 分组路由（/screening-monitoring/<child>）：拆成 rule / transaction-monitoring / screening-providers
+  rule: {
+    manifest: () => import('@myorg/modules/screening-monitoring/feature').then((m) => m.ruleManifest),
+    pages: {
+      list: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.RuleListPage as unknown as ComponentType<unknown> })),
+      detail: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.RuleDetailPage as unknown as ComponentType<unknown> })),
+      edit: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.RuleEditPage as unknown as ComponentType<unknown> })),
+      create: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.RuleEditPage as unknown as ComponentType<unknown> })),
+    },
+  },
+  'transaction-monitoring': {
+    manifest: () => import('@myorg/modules/screening-monitoring/feature').then((m) => m.transactionMonitoringManifest),
+    pages: {
+      list: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.TransactionMonitoringListPage as unknown as ComponentType<unknown> })),
+      detail: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.TransactionMonitoringDetailPage as unknown as ComponentType<unknown> })),
+    },
+  },
+  'screening-providers': {
+    manifest: () => import('@myorg/modules/screening-monitoring/feature').then((m) => m.screeningProvidersManifest),
+    pages: {
+      list: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.ScreeningProvidersPage as unknown as ComponentType<unknown> })),
+    },
+  },
+  'statistics-reports': {
+    manifest: () => import('@myorg/modules/statistics-reports/feature').then((m) => m.statisticsReportsManifest),
+    pages: { list: () => import('@myorg/modules/statistics-reports/feature').then((m) => ({ default: m.StatisticsReportsPage as unknown as ComponentType<unknown> })) },
+  },
   'account-manage': {
     manifest: () => import('@myorg/modules/account-manage/feature').then((m) => m.accountManageManifest),
     pages: {
@@ -648,7 +732,10 @@ const moduleRegistry: Record<string, ModuleEntry> = {
     manifest: () => import('@myorg/modules/statistic-analysis/feature').then((m) => m.statisticAnalysisManifest),
     pages: { list: () => import('@myorg/modules/statistic-analysis/feature').then((m) => ({ default: m.StatisticAnalysisPage as unknown as ComponentType<unknown> })) },
   },
-  // ⚠️ 暂时移出：transaction-flow 迁移未完成（~11 个类型错误），待完成后接回。
+  'transaction-flow': {
+    manifest: () => import('@myorg/modules/transaction-flow/feature').then((m) => m.transactionFlowManifest),
+    pages: { list: () => import('@myorg/modules/transaction-flow/feature').then((m) => ({ default: m.TransactionFlowPage as unknown as ComponentType<unknown> })) },
+  },
   'data-export': {
     manifest: () => import('@myorg/modules/data-export/feature').then((m) => m.dataExportManifest),
     pages: { list: () => import('@myorg/modules/data-export/feature').then((m) => ({ default: m.DataExportPage as unknown as ComponentType<unknown> })) },

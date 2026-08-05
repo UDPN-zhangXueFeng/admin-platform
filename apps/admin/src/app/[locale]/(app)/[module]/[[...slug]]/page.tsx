@@ -76,8 +76,14 @@ export default function ModulePage({
   const groupKey = GROUP_ENABLED_KEY[module];
   const isGroup = Boolean(groupKey);
   // module id 统一归一化为小写：菜单 path `/sys/sysLog`（驼峰）仍命中 registry 的 'syslog'。
+  // interest 分组的子模块 registry key 带 group 前缀（interest-policy 等），避免与 mmf 的
+  // accrual 等扁平 key 冲突；其他 group（sys/wallet/mmf/...）仍用裸 slug[0] 作为 key。
+  const GROUP_PREFIXED: Record<string, boolean> = { interest: true };
+  const rawModule = isGroup && slug && slug.length > 0 ? slug[0] : module;
   const realModule = (
-    isGroup && slug && slug.length > 0 ? slug[0] : module
+    isGroup && GROUP_PREFIXED[module] && slug && slug.length > 0
+      ? `${module}-${slug[0]}`
+      : rawModule
   ).toLowerCase();
   const realSlug = isGroup ? (slug ? slug.slice(1) : []) : slug;
 

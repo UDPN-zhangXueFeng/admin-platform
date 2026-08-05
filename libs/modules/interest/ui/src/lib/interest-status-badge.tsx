@@ -7,9 +7,21 @@
  */
 'use client';
 
-import { Badge } from '@myorg/shared/ui';
+import { Badge, type BadgeProps } from '@myorg/shared/ui';
 import { useTranslations } from 'next-intl';
 import { POLICY_STATUS_MAP } from '@myorg/modules/interest/util';
+
+/**
+ * 语义颜色 → Badge variant 映射。
+ * shared/ui 的 Badge 只支持 default/secondary/destructive/outline/ghost/link，
+ * 将原模块的 success/processing/gray/destructive 语义色映射到可用 variant。
+ */
+const COLOR_TO_VARIANT: Record<string, BadgeProps['variant']> = {
+  success: 'default',
+  processing: 'secondary',
+  gray: 'outline',
+  destructive: 'destructive',
+};
 
 export interface InterestStatusBadgeProps {
   status: number;
@@ -24,17 +36,14 @@ export function InterestStatusBadge({ status, variant }: InterestStatusBadgeProp
     const config = POLICY_STATUS_MAP[status];
     if (!config) return <span>{status}</span>;
     return (
-      <Badge variant={config.color as 'success' | 'processing' | 'gray'}>
+      <Badge variant={COLOR_TO_VARIANT[config.color] ?? 'secondary'}>
         {t(config.label)}
       </Badge>
     );
   }
 
-  // transaction: 颜色从 common namespace 取
-  const colorKey = `approval_task_status_color_${status}`;
-  const labelKey = `common_task_status_${status}`;
-  // 注意：这两个 key 在 common namespace 中，需要用 common 的 useTranslations
-  // 此处通过 props 传入或使用 common namespace
+  // transaction variant 仅作占位：颜色/标签来自 common namespace，
+  // 实际渲染由 <TransactionStatusBadge /> 承担（见下）。
   return <span>{status}</span>;
 }
 
@@ -60,7 +69,7 @@ export function TransactionStatusBadge({ status }: { status: number }) {
   };
 
   return (
-    <Badge variant={colorVariant as 'success' | 'processing' | 'gray' | 'destructive'}>
+    <Badge variant={COLOR_TO_VARIANT[colorVariant] ?? 'secondary'}>
       {ti(labelMap[status] || labelKey)}
     </Badge>
   );

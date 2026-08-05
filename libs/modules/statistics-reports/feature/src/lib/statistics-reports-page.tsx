@@ -1,27 +1,28 @@
 'use client';
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Button, Card, DataTable, type DataTablePagination, Tabs, type TabItem, Select } from '@myorg/shared/ui';
-import { useAuth } from '@myorg/shared/util-auth';
+import { Button, Card, DataTable, type DataTablePagination, Tabs, TabsList, TabsTrigger, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@myorg/shared/ui';
 import dayjs from 'dayjs';
+import { type ColumnDef } from '@tanstack/react-table';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useTokenTypes, useStablecoinsOverview, useStablecoinList, useTokenizedDepositsList, useWalletQuantity, useSpTransaction, useAbcCount, useAbcVolume } from '@myorg/modules/statistics-reports/data-access';
-import type { ChartDataItem, CoinOption, DataPoint, DoubleDataPoint, MultiLineDataPoint } from '@myorg/modules/statistics-reports/data-access';
-import { TIME_RANGE_OPTIONS, DOWNLOAD_PERMISSION } from '@myorg/modules/statistics-reports/util';
+import type { ChartDataItem, CoinOption, TokenListItem } from '@myorg/modules/statistics-reports/data-access';
+import { TIME_RANGE_OPTIONS } from '@myorg/modules/statistics-reports/util';
 import { StatisticsPieCard } from '@myorg/modules/statistics-reports/ui';
 
 const PAGE_SIZE = 10;
 
+type TokenListRow = TokenListItem & { id: string };
+
 export function StatisticsReportsPage() {
   const t = useTranslations('modules.statistics-reports'); const tc = useTranslations('common');
-  const { hasLimit } = useAuth();
   const { data: tokenTypes } = useTokenTypes();
   const [tokenTypeId, setTokenTypeId] = React.useState<string>('');
   const [selectedCoin, setSelectedCoin] = React.useState('');
   const [coinOptions, setCoinOptions] = React.useState<CoinOption[]>([]);
   const [timeRange, setTimeRange] = React.useState('last7days');
   const [dateRange, setDateRange] = React.useState<[number, number] | null>(null);
-  const [pg, setPg] = React.useState<DataTablePagination>({ pageNum: 1, pageSize: PAGE_SIZE });
+  const [pg, setPg] = React.useState({ pageNum: 1, pageSize: PAGE_SIZE });
 
   React.useEffect(() => { if (tokenTypes?.length) { const active = tokenTypes.filter(tt => tt.status === 1); if (active.length) setTokenTypeId(active[0].tokenTypeId); } }, [tokenTypes]);
   const { data: overview } = useStablecoinsOverview(tokenTypeId);
@@ -55,51 +56,63 @@ export function StatisticsReportsPage() {
     { title: t('statistics_reports_0005'), count: overview.transactionCount, chartData: overview.transactionCountProportion?.map(i => ({ value: i.count, name: i.tokenName })) || [] },
   ] : [];
 
-  const walletChart = (walletData || []).map(d => ({ date: d.date, value: d.value }));
-  const spChart = (spData || []).map(d => ({ date: d.date, count: d.count, volume: d.volume }));
-  const abcCountChart = (abcCount || []).map(d => ({ date: d.date, TopUp: d.topUpCount, Transfer: d.transferCount, Withdrawal: d.withdrawalCount }));
-  const abcVolumeChart = (abcVolume || []).map(d => ({ date: d.date, TopUp: d.topUpVolume ?? d.topUpCount, Transfer: d.transferVolume ?? d.transferCount, Withdrawal: d.withdrawalVolume ?? d.withdrawalCount }));
+  const walletChart = (walletData || []).map(d => ({ date: d.time, value: d.numberOfNewWallets }));
+  const spChart = (spData || []).map(d => ({ date: d.spName, count: d.transactionCount, volume: d.transactionVolume }));
+  const abcCountChart = (abcCount || []).map(d => ({ date: d.time, TopUp: d.topUpCount, Transfer: d.transferCount, Withdrawal: d.withdrawalCount }));
+  const abcVolumeChart = (abcVolume || []).map(d => ({ date: d.time, TopUp: d.topUpCount, Transfer: d.transferCount, Withdrawal: d.withdrawalCount }));
 
   const selectedCoinObj = coinOptions.find(c => c.value === selectedCoin);
   const isStablecoin = Number(tokenTypeId) === 1;
-  const cols = isStablecoin ? [
-    { id: 'index', header: tc('PUB_Index'), accessorKey: 'todoId' as const, cell: (_: unknown, __: unknown, idx: number) => idx + 1 },
-    { id: 'tokenName', header: t('statistics_reports_0023'), accessorKey: 'tokenName' as const },
-    { id: 'tokenPrice', header: t('statistics_reports_0022'), accessorKey: 'tokenPrice' as const, cell: (_: unknown, row: { tokenSymbol: string; currencySymbol: string }) => `1 ${row.tokenSymbol} = 1 ${row.currencySymbol}` },
-    { id: 'blockchain', header: t('statistics_reports_0021'), accessorKey: 'blockchain' as const },
-    { id: 'reserveAccount', header: t('statistics_reports_0028'), accessorKey: 'reserveAccount' as const, cell: (_: unknown, row: { reserveAccount: number; currencySymbol: string }) => `${row.reserveAccount || '-'} ${row.currencySymbol}` },
-    { id: 'repositoryBalance', header: t('statistics_reports_0027'), accessorKey: 'repositoryBalance' as const, cell: (_: unknown, row: { repositoryBalance: number; tokenSymbol: string }) => `${row.repositoryBalance || '-'} ${row.tokenSymbol}` },
-    { id: 'circulation', header: t('statistics_reports_0026'), accessorKey: 'stablecoinsInCirculation' as const, cell: (_: unknown, row: { stablecoinsInCirculation: number; tokenSymbol: string }) => `${row.stablecoinsInCirculation || '-'} ${row.tokenSymbol}` },
-    { id: 'minted', header: t('statistics_reports_0025'), accessorKey: 'totalMinted' as const, cell: (_: unknown, row: { totalMinted: number; tokenSymbol: string }) => `${row.totalMinted || '-'} ${row.tokenSymbol}` },
-    { id: 'melted', header: t('statistics_reports_0024'), accessorKey: 'totalMelted' as const, cell: (_: unknown, row: { totalMelted: number; tokenSymbol: string }) => `${row.totalMelted || '-'} ${row.tokenSymbol}` },
-    { id: 'sp', header: t('statistics_reports_0003'), accessorKey: 'serviceProviders' as const },
-    { id: 'wallets', header: t('statistics_reports_0004'), accessorKey: 'wallets' as const },
-    { id: 'status', header: t('statistics_reports_0017'), accessorKey: 'tokenStatus' as const, cell: (_: unknown, row: { tokenStatus: number }) => row.tokenStatus === 1 ? 'Active' : 'Inactive' },
+  const cols: ColumnDef<TokenListRow>[] = isStablecoin ? [
+    { id: 'index', header: tc('PUB_Index'), cell: ({ row }) => row.index + 1 },
+    { accessorKey: 'tokenName', header: t('statistics_reports_0023') },
+    { id: 'tokenPrice', header: t('statistics_reports_0022'), cell: ({ row }) => `1 ${row.original.tokenSymbol} = 1 ${row.original.currencySymbol}` },
+    { accessorKey: 'blockchain', header: t('statistics_reports_0021') },
+    { accessorKey: 'reserveAccount', header: t('statistics_reports_0028'), cell: ({ row }) => `${row.original.reserveAccount || '-'} ${row.original.currencySymbol}` },
+    { accessorKey: 'repositoryBalance', header: t('statistics_reports_0027'), cell: ({ row }) => `${row.original.repositoryBalance || '-'} ${row.original.tokenSymbol}` },
+    { accessorKey: 'stablecoinsInCirculation', header: t('statistics_reports_0026'), cell: ({ row }) => `${row.original.stablecoinsInCirculation || '-'} ${row.original.tokenSymbol}` },
+    { accessorKey: 'totalMinted', header: t('statistics_reports_0025'), cell: ({ row }) => `${row.original.totalMinted || '-'} ${row.original.tokenSymbol}` },
+    { accessorKey: 'totalMelted', header: t('statistics_reports_0024'), cell: ({ row }) => `${row.original.totalMelted || '-'} ${row.original.tokenSymbol}` },
+    { accessorKey: 'serviceProviders', header: t('statistics_reports_0003') },
+    { accessorKey: 'wallets', header: t('statistics_reports_0004') },
+    { accessorKey: 'tokenStatus', header: t('statistics_reports_0017'), cell: ({ row }) => row.original.tokenStatus === 1 ? 'Active' : 'Inactive' },
   ] : [
-    { id: 'index', header: tc('PUB_Index'), accessorKey: 'todoId' as const, cell: (_: unknown, __: unknown, idx: number) => idx + 1 },
-    { id: 'tokenName', header: t('statistics_reports_0023'), accessorKey: 'tokenName' as const },
-    { id: 'tokenPrice', header: t('statistics_reports_0022'), accessorKey: 'tokenPrice' as const, cell: (_: unknown, row: { tokenSymbol: string; currencySymbol: string }) => `1 ${row.tokenSymbol} = 1 ${row.currencySymbol}` },
-    { id: 'blockchain', header: t('statistics_reports_0021'), accessorKey: 'blockchain' as const },
-    { id: 'circulation', header: t('statistics_reports_0020'), accessorKey: 'stablecoinsInCirculation' as const, cell: (_: unknown, row: { stablecoinsInCirculation: number; tokenSymbol: string }) => `${row.stablecoinsInCirculation || '-'} ${row.tokenSymbol}` },
-    { id: 'minted', header: t('statistics_reports_0019'), accessorKey: 'totalMinted' as const, cell: (_: unknown, row: { totalMinted: number; tokenSymbol: string }) => `${row.totalMinted || '-'} ${row.tokenSymbol}` },
-    { id: 'melted', header: t('statistics_reports_0018'), accessorKey: 'totalMelted' as const, cell: (_: unknown, row: { totalMelted: number; tokenSymbol: string }) => `${row.totalMelted || '-'} ${row.tokenSymbol}` },
-    { id: 'sp', header: t('statistics_reports_0003'), accessorKey: 'serviceProviders' as const },
-    { id: 'wallets', header: t('statistics_reports_0004'), accessorKey: 'wallets' as const },
-    { id: 'status', header: t('statistics_reports_0017'), accessorKey: 'tokenStatus' as const, cell: (_: unknown, row: { tokenStatus: number }) => row.tokenStatus === 1 ? t('statistics_reports_0015') : t('statistics_reports_0016') },
+    { id: 'index', header: tc('PUB_Index'), cell: ({ row }) => row.index + 1 },
+    { accessorKey: 'tokenName', header: t('statistics_reports_0023') },
+    { id: 'tokenPrice', header: t('statistics_reports_0022'), cell: ({ row }) => `1 ${row.original.tokenSymbol} = 1 ${row.original.currencySymbol}` },
+    { accessorKey: 'blockchain', header: t('statistics_reports_0021') },
+    { accessorKey: 'stablecoinsInCirculation', header: t('statistics_reports_0020'), cell: ({ row }) => `${row.original.stablecoinsInCirculation || '-'} ${row.original.tokenSymbol}` },
+    { accessorKey: 'totalMinted', header: t('statistics_reports_0019'), cell: ({ row }) => `${row.original.totalMinted || '-'} ${row.original.tokenSymbol}` },
+    { accessorKey: 'totalMelted', header: t('statistics_reports_0018'), cell: ({ row }) => `${row.original.totalMelted || '-'} ${row.original.tokenSymbol}` },
+    { accessorKey: 'serviceProviders', header: t('statistics_reports_0003') },
+    { accessorKey: 'wallets', header: t('statistics_reports_0004') },
+    { accessorKey: 'tokenStatus', header: t('statistics_reports_0017'), cell: ({ row }) => row.original.tokenStatus === 1 ? t('statistics_reports_0015') : t('statistics_reports_0016') },
   ];
 
-  const tabs: TabItem[] = (tokenTypes || []).filter(tt => tt.status === 1).map(tt => ({ key: tt.tokenTypeId, label: tt.tokenTypeName, children: null }));
+  const tablePagination = React.useMemo<DataTablePagination>(() => ({
+    page: pg.pageNum,
+    pageSize: pg.pageSize,
+    total: tokenList?.page?.total || 0,
+    onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })),
+  }), [pg.pageNum, pg.pageSize, tokenList?.page?.total]);
+
   const currentTime = dayjs().format('MMM D, YYYY, HH:mm:ss [UTC]Z');
 
   return (
     <div>
-      <Tabs items={tabs} defaultActiveKey={tokenTypeId} onChange={(k) => { setTokenTypeId(k); setSelectedCoin(''); }} />
+      <Tabs value={tokenTypeId} onValueChange={(k) => { setTokenTypeId(k); setSelectedCoin(''); }}>
+        <TabsList>
+          {(tokenTypes || []).filter(tt => tt.status === 1).map(tt => (
+            <TabsTrigger key={tt.tokenTypeId} value={tt.tokenTypeId}>{tt.tokenTypeName}</TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Overview Cards */}
       <Card>
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-extrabold text-base">{isStablecoin ? t('statistics_reports_0006') : Number(tokenTypeId) === 20 ? t('statistics_reports_0045') : t('statistics_reports_0007')}</h3>
-          {hasLimit(DOWNLOAD_PERMISSION) && <Button>{t('statistics_reports_0029')}</Button>}
+          <Button>{t('statistics_reports_0029')}</Button>
         </div>
         <div className="grid grid-cols-4 gap-4">
           {chartData.map((d, i) => (<StatisticsPieCard key={i} title={d.title} count={d.count} chartData={d.chartData} showChart={d.showChart !== false} />))}
@@ -110,8 +123,18 @@ export function StatisticsReportsPage() {
       <Card className="mt-4">
         <h3 className="font-extrabold text-base mb-4">{isStablecoin ? t('statistics_reports_0008') : Number(tokenTypeId) === 20 ? t('statistics_reports_0046') : t('statistics_reports_0009')}</h3>
         <div className="flex gap-4 mb-4">
-          <Select value={selectedCoin} onChange={(v) => setSelectedCoin(v as string)} options={coinOptions.map(c => ({ label: c.label, value: c.value }))} />
-          <Select value={timeRange} onChange={(v) => handleTimeRange(v as string)} options={TIME_RANGE_OPTIONS.map(o => ({ label: o.label, value: o.value }))} />
+          <Select value={selectedCoin} onValueChange={(v: string) => setSelectedCoin(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {coinOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={timeRange} onValueChange={(v: string) => handleTimeRange(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {TIME_RANGE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <ChartBox title="New Wallets"><ResponsiveContainer width="100%" height={200}><LineChart data={walletChart}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis /><Tooltip /><Line type="monotone" dataKey="value" stroke="#6366f1" /></LineChart></ResponsiveContainer></ChartBox>
@@ -124,7 +147,7 @@ export function StatisticsReportsPage() {
       {/* Data Table */}
       <Card className="mt-4">
         <h3 className="font-extrabold text-base mb-4">{isStablecoin ? t('statistics_reports_0010') : Number(tokenTypeId) === 20 ? t('statistics_reports_0047') : t('statistics_reports_0011')} ({t('statistics_reports_0034')} {currentTime})</h3>
-        <DataTable columns={cols} data={(tokenList?.rows || []).map((r, i) => ({ ...r, id: String(r.stablecoinId || i) }))} pagination={{ ...pg, total: tokenList?.page?.total || 0 }} onPaginationChange={setPg} actions={[]} />
+        <DataTable columns={cols} data={(tokenList?.rows || []).map((r, i) => ({ ...r, id: String(r.stablecoinId || i) }))} pagination={tablePagination} />
       </Card>
     </div>
   );

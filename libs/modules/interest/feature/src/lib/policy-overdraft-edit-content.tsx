@@ -12,7 +12,15 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useSearchParams } from 'next/navigation';
 
-import { Button, Input, Select } from '@myorg/shared/ui';
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 
 import {
@@ -120,8 +128,7 @@ export function OverdraftEditContent() {
               <FormField
                 name="interestPolicyName"
                 label={t('interest_0027')}
-                control={form.control}
-                rules={{ required: true }}
+                register={form.register('interestPolicyName', { required: true })}
                 disabled={isNameDisabled}
                 maxLength={50}
                 placeholder={t('interest_0050')}
@@ -129,7 +136,14 @@ export function OverdraftEditContent() {
             </div>
             <div className="w-[25%]">
               <label className="text-sm font-medium">{t('interest_0005')}</label>
-              <Select disabled defaultValue="1" options={[{ label: t('interest_account_type_1'), value: '1' }]} />
+              <Select disabled defaultValue="1">
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">{t('interest_account_type_1')}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="w-[70%] flex justify-between mt-4">
@@ -137,12 +151,11 @@ export function OverdraftEditContent() {
               <FormField
                 name="annualInterestRate"
                 label={t('interest_0006')}
-                control={form.control}
                 type="number"
-                rules={{
+                register={form.register('annualInterestRate', {
                   required: tc('PUB_Pleased').replace('****', t('interest_0006')),
                   pattern: { value: INTEREST_RATE_PATTERN, message: t('interest_0057') },
-                }}
+                })}
               />
               <div className="text-xs text-muted-foreground -mt-4">{t('interest_0011')}</div>
             </div>
@@ -150,9 +163,8 @@ export function OverdraftEditContent() {
               <FormField
                 name="effectiveTime"
                 label={t('interest_0003')}
-                control={form.control}
                 type="date"
-                rules={{ required: true }}
+                register={form.register('effectiveTime', { required: true })}
               />
             </div>
           </div>
@@ -177,9 +189,8 @@ export function OverdraftEditContent() {
               <FormField
                 name="calculateTimeDay"
                 label={t('interest_0012')}
-                control={form.control}
                 type="time"
-                rules={{ required: true }}
+                register={form.register('calculateTimeDay', { required: true })}
               />
               <div className="text-xs text-muted-foreground -mt-4">{t('interest_00136')}</div>
             </div>
@@ -205,9 +216,8 @@ export function OverdraftEditContent() {
               <FormField
                 name="calculateTimeMonth"
                 label={t('interest_0014')}
-                control={form.control}
                 type="time"
-                rules={{ required: true }}
+                register={form.register('calculateTimeMonth', { required: true })}
               />
               <div className="text-xs text-muted-foreground -mt-4">{t('interest_00136')}</div>
             </div>

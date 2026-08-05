@@ -16,11 +16,13 @@ import {
   Button,
   Card,
   DataTable,
-  type DataTablePagination,
   Tabs,
-  type TabItem,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { useAuth } from '@myorg/shared/util-auth';
 
 import type {
   TokenBillDetail,
@@ -86,7 +88,7 @@ interface DetailRecordsFilters {
 }
 
 function DetailRecordsTab({ tokenBillId, t, tc }: { tokenBillId: number; t: (k: string) => string; tc: (k: string) => string }) {
-  const [pagination, setPagination] = React.useState<DataTablePagination>({ pageNum: 1, pageSize: PAGE_SIZE });
+  const [pagination, setPagination] = React.useState({ pageNum: 1, pageSize: PAGE_SIZE });
   const form = useForm<DetailRecordsFilters>({ defaultValues: { walletAddress: '', status: ALL_VALUE } });
   const filters = form.watch();
 
@@ -146,7 +148,7 @@ function DetailRecordsTab({ tokenBillId, t, tc }: { tokenBillId: number; t: (k: 
   return (
     <div>
       <div className="flex gap-4 mb-4">
-        <FormField name="walletAddress" label={t('interest_0061')} control={form.control} />
+        <FormField name="walletAddress" label={t('interest_0061')} register={form.register('walletAddress')} />
         <FormSelect
           name="status"
           label={tc('PUB_Status')}
@@ -154,16 +156,20 @@ function DetailRecordsTab({ tokenBillId, t, tc }: { tokenBillId: number; t: (k: 
           options={TRANSACTION_STATUS_OPTIONS.filter(o => o.value !== '1').map(o => ({
             label: o.label, value: o.value === '' ? ALL_VALUE : o.value,
           }))}
-          allValue={ALL_VALUE}
+          placeholder={tc('PUB_All')}
         />
       </div>
       <DataTable
         columns={columns}
         data={(data?.rows ?? []).map(row => ({ ...row, id: String(row.ruleRecordId) }))}
-        pagination={{ ...pagination, total: data?.page?.total ?? 0 }}
-        onPaginationChange={setPagination}
+        pagination={{
+          page: pagination.pageNum,
+          pageSize: pagination.pageSize,
+          total: data?.page?.total ?? 0,
+          onPageChange: (page) =>
+            setPagination((prev) => ({ ...prev, pageNum: page })),
+        }}
         isLoading={isLoading}
-        actions={[]}
       />
     </div>
   );
@@ -173,7 +179,9 @@ function DetailRecordsTab({ tokenBillId, t, tc }: { tokenBillId: number; t: (k: 
 
 function OperationRecordsTab({ tokenBillId, tc }: { tokenBillId: number; tc: (k: string) => string }) {
   const router = useRouter();
-  const [pagination, setPagination] = React.useState<DataTablePagination>({ pageNum: 1, pageSize: PAGE_SIZE });
+  const authPermissions = useAuth().permissions ?? new Set<string>();
+  const can = (p: string) => authPermissions.size === 0 || authPermissions.has(p);
+  const [pagination, setPagination] = React.useState({ pageNum: 1, pageSize: PAGE_SIZE });
 
   const { data, isLoading } = useTransactionOperationRecords({
     pageNum: pagination.pageNum, pageSize: pagination.pageSize, filters: { tokenBillId },
@@ -209,25 +217,39 @@ function OperationRecordsTab({ tokenBillId, tc }: { tokenBillId: number; tc: (k:
         );
       },
     },
+    {
+      id: 'actions',
+      header: tc('PUB_Action'),
+      cell: ({ row }) => {
+        const r = row.original;
+        if (!can('e338a3b41c21413db1d2ac7a90a65f5f')) return null;
+        return (
+          <Button
+            variant="link"
+            className="h-auto p-0"
+            onClick={() =>
+              router.push(`/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`)
+            }
+          >
+            {tc('Router_0010_4_3')}
+          </Button>
+        );
+      },
+    },
   ];
 
   return (
     <DataTable
       columns={columns}
       data={(data?.rows ?? []).map(row => ({ ...row, id: String(row.ruleRecordId) }))}
-      pagination={{ ...pagination, total: data?.page?.total ?? 0 }}
-      onPaginationChange={setPagination}
-      isLoading={isLoading}
-      actions={[{
-        key: 'View',
-        label: tc('Router_0010_4_3'),
-        limit: 'e338a3b41c21413db1d2ac7a90a65f5f',
-        disabled: () => false,
-      }]}
-      onAction={(key, row) => {
-        const r = row as TransactionOperationRecord;
-        if (key === 'View') router.push(`/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`);
+      pagination={{
+        page: pagination.pageNum,
+        pageSize: pagination.pageSize,
+        total: data?.page?.total ?? 0,
+        onPageChange: (page) =>
+          setPagination((prev) => ({ ...prev, pageNum: page })),
       }}
+      isLoading={isLoading}
     />
   );
 }
@@ -246,28 +268,22 @@ export function TransactionsDetailPage() {
   if (isLoading) return <div className="p-8">{tc('PUB_Query')}...</div>;
   if (!detail) return <div className="p-8 text-muted-foreground">Transaction not found</div>;
 
-  const tabs: TabItem[] = [
-    {
-      key: 'basic',
-      label: t('interest_0009'),
-      children: (
-        <>
+  return (
+    <div>
+      <Tabs defaultValue="basic">
+        <TabsList>
+          <TabsTrigger value="basic">{t('interest_0009')}</TabsTrigger>
+          <TabsTrigger value="records">{t('interest_0010')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="basic">
           <BasicInfo detail={detail} t={t} tc={tc} />
           <div className="mb-8" />
           <DetailRecordsTab tokenBillId={id} t={t} tc={tc} />
-        </>
-      ),
-    },
-    {
-      key: 'records',
-      label: t('interest_0010'),
-      children: <OperationRecordsTab tokenBillId={id} tc={tc} />,
-    },
-  ];
-
-  return (
-    <div>
-      <Tabs items={tabs} />
+        </TabsContent>
+        <TabsContent value="records">
+          <OperationRecordsTab tokenBillId={id} tc={tc} />
+        </TabsContent>
+      </Tabs>
       <div className="flex justify-center mt-6">
         <Button variant="outline" onClick={() => router.back()}>
           {tc('PUB_GoBack')}

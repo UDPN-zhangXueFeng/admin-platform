@@ -7,11 +7,11 @@ import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { Button, Input, InputNumber, Select, Switch, TimePicker } from '@myorg/shared/ui';
+import { Button, Switch } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { toast } from '@myorg/shared/ui';
 import type { TEditFormValues, TEditRiskLevelRow } from '@myorg/modules/screening-monitoring/data-access';
-import { TEDIT_COLUMN_CONFIGS, TEDIT_RULE_SOURCE_OPTIONS, TEDIT_SCAN_TIMING_OPTIONS, TEDIT_TOKEN_OPTIONS, TEDIT_RISK_LEVEL_OPTIONS, TEDIT_TRANSACTION_ACTION_OPTIONS, TEDIT_WALLET_ACTION_OPTIONS, TEDIT_TRANSACTION_TYPE_OPTIONS, TEDIT_MONITORING_FREQ_OPTIONS, TEDIT_DEFAULT_DATA } from '@myorg/modules/screening-monitoring/util';
+import { TEDIT_COLUMN_CONFIGS, TEDIT_RULE_SOURCE_OPTIONS, TEDIT_SCAN_TIMING_OPTIONS, TEDIT_TOKEN_OPTIONS, TEDIT_RISK_LEVEL_OPTIONS, TEDIT_TRANSACTION_ACTION_OPTIONS, TEDIT_WALLET_ACTION_OPTIONS, TEDIT_TRANSACTION_TYPE_OPTIONS, TEDIT_DEFAULT_DATA } from '@myorg/modules/screening-monitoring/util';
 
 export function RuleTEditPage() {
   const router = useRouter();
@@ -63,10 +63,10 @@ export function RuleTEditPage() {
         <h1 className="text-xl font-semibold mb-2">New Monitoring Rule</h1>
         <p className="text-gray-600 mb-8">Fill in the monitoring rule name and select a transaction type for Token.</p>
         <div className="grid grid-cols-2 gap-6 max-w-[60rem]">
-          <FormField name="ruleName" label="Rule Name" control={form.control} rules={{ required: true }} maxLength={50} placeholder="Up to 50 alphanumeric characters" />
-          <FormSelect name="ruleSource" label="Rule Source" control={form.control} options={sourceOptions} rules={{ required: true }} />
-          <FormSelect name="scanTiming" label="Scan Timing" control={form.control} options={TEDIT_SCAN_TIMING_OPTIONS} rules={{ required: true }} />
-          <FormSelect name="tokenName" label="Token Name" control={form.control} options={TEDIT_TOKEN_OPTIONS} rules={{ required: true }} />
+          <FormField name="ruleName" label="Rule Name" register={form.register('ruleName', { required: true })} maxLength={50} placeholder="Up to 50 alphanumeric characters" />
+          <FormSelect name="ruleSource" label="Rule Source" control={form.control} options={sourceOptions} />
+          <FormSelect name="scanTiming" label="Scan Timing" control={form.control} options={TEDIT_SCAN_TIMING_OPTIONS} />
+          <FormSelect name="tokenName" label="Token Name" control={form.control} options={TEDIT_TOKEN_OPTIONS} />
         </div>
       </div>
 
@@ -74,8 +74,8 @@ export function RuleTEditPage() {
         <h2 className="text-lg font-semibold mb-2">Risk Level & Action</h2>
         <div className="grid grid-cols-3 gap-6 mb-6 max-w-[60rem]">
           {ruleSource === 'custom' && <FormSelect name="transactionType" label="Transaction Type" control={form.control} options={TEDIT_TRANSACTION_TYPE_OPTIONS} />}
-          {ruleSource === 'custom' && scanTiming === 'post' ? <FormField name="monitoringTime" label="Monitoring Time" control={form.control} type="time" /> : null}
-          <div><FormField name="compareTo" label="Compared to Past" control={form.control} type="number" rules={{ required: true }} /><div className="text-xs text-gray-600 mt-1">Compare over the last {compareTo || 5} days.</div></div>
+          {ruleSource === 'custom' && scanTiming === 'post' ? <FormField name="monitoringTime" label="Monitoring Time" register={form.register('monitoringTime')} type="time" /> : null}
+          <div><FormField name="compareTo" label="Compared to Past" register={form.register('compareTo', { required: true })} type="number" /><div className="text-xs text-gray-600 mt-1">Compare over the last {compareTo || 5} days.</div></div>
         </div>
 
         <div className="mb-4 grid grid-cols-12 gap-4 text-sm font-medium text-gray-700">
@@ -88,8 +88,8 @@ export function RuleTEditPage() {
 
         {fields.map((field, idx) => (
           <div key={field.id} className="grid grid-cols-12 gap-4 mb-3 items-center">
-            {config.showPercentage && (config.percentageAsRange ? <div className="col-span-3 flex gap-1"><FormField name={`riskLevelConfigs.${idx}.minValue`} label="" control={form.control} type="number" /><span>-</span><FormField name={`riskLevelConfigs.${idx}.maxValue`} label="" control={form.control} type="number" /></div> : <div className="col-span-3"><FormField name={`riskLevelConfigs.${idx}.minValue`} label="" control={form.control} type="number" /></div>)}
-            {config.showRiskScore && <div className="col-span-2">{config.riskScoreAsRange ? <div className="flex gap-1"><FormField name={`riskLevelConfigs.${idx}.minRiskScore`} label="" control={form.control} type="number" /><span>-</span><FormField name={`riskLevelConfigs.${idx}.maxRiskScore`} label="" control={form.control} type="number" /></div> : <FormField name={`riskLevelConfigs.${idx}.riskScore`} label="" control={form.control} />}</div>}
+            {config.showPercentage && (config.percentageAsRange ? <div className="col-span-3 flex gap-1"><FormField name={`riskLevelConfigs.${idx}.minValue`} label="" register={form.register(`riskLevelConfigs.${idx}.minValue`)} type="number" /><span>-</span><FormField name={`riskLevelConfigs.${idx}.maxValue`} label="" register={form.register(`riskLevelConfigs.${idx}.maxValue`)} type="number" /></div> : <div className="col-span-3"><FormField name={`riskLevelConfigs.${idx}.minValue`} label="" register={form.register(`riskLevelConfigs.${idx}.minValue`)} type="number" /></div>)}
+            {config.showRiskScore && <div className="col-span-2">{config.riskScoreAsRange ? <div className="flex gap-1"><FormField name={`riskLevelConfigs.${idx}.minRiskScore`} label="" register={form.register(`riskLevelConfigs.${idx}.minRiskScore`)} type="number" /><span>-</span><FormField name={`riskLevelConfigs.${idx}.maxRiskScore`} label="" register={form.register(`riskLevelConfigs.${idx}.maxRiskScore`)} type="number" /></div> : <FormField name={`riskLevelConfigs.${idx}.riskScore`} label="" register={form.register(`riskLevelConfigs.${idx}.riskScore`)} />}</div>}
             {config.showRiskLevel && <div className="col-span-2"><FormSelect name={`riskLevelConfigs.${idx}.riskLevel`} label="" control={form.control} options={TEDIT_RISK_LEVEL_OPTIONS} /></div>}
             {config.showTransactionAction && <div className="col-span-2"><FormSelect name={`riskLevelConfigs.${idx}.transactionAction`} label="" control={form.control} options={TEDIT_TRANSACTION_ACTION_OPTIONS} /></div>}
             {config.showWalletAction && <div className="col-span-2"><FormSelect name={`riskLevelConfigs.${idx}.walletAction`} label="" control={form.control} options={TEDIT_WALLET_ACTION_OPTIONS} /></div>}
@@ -101,7 +101,7 @@ export function RuleTEditPage() {
 
       <div className="bg-white shadow rounded-lg p-8">
         <h2 className="text-lg font-semibold mb-2">Risk Alert Configuration</h2>
-        <div className="mb-4 flex items-center gap-3"><span>Enable Email Notification</span><Switch name="enableEmailNotification" control={form.control} /></div>
+        <div className="mb-4 flex items-center gap-3"><span>Enable Email Notification</span><Switch checked={Boolean(enableEmail)} onCheckedChange={(v) => form.setValue('enableEmailNotification', v)} /></div>
         {enableEmail && <EmailRecipientFields form={form} ruleSource={ruleSource} />}
       </div>
 
@@ -124,7 +124,7 @@ function EmailRecipientFields({ form, ruleSource }: { form: ReturnType<typeof us
         return (
           <div key={field.id}>
             <div className="text-gray-700 font-medium mb-2">{label}-Risk Email Recipients</div>
-            <FormField name={`emailRecipients.${idx}.emails`} label="" control={form.control} rules={{ validate: (val) => { if (!val) return true; const emails = val.split(',').map((e: string) => e.trim()); if (emails.length > 20) return 'Max 20 emails'; const re = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/; return emails.every((e: string) => re.test(e)) ? true : 'Invalid email format'; } }} placeholder="email-1@email.com, email-2@email.com..." />
+            <FormField name={`emailRecipients.${idx}.emails`} label="" register={form.register(`emailRecipients.${idx}.emails`, { validate: (val: string) => { if (!val) return true; const emails = val.split(',').map((e: string) => e.trim()); if (emails.length > 20) return 'Max 20 emails'; const re = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/; return emails.every((e: string) => re.test(e)) ? true : 'Invalid email format'; } })} placeholder="email-1@email.com, email-2@email.com..." />
           </div>
         );
       })}

@@ -11,11 +11,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 
-import {
-  Button,
-  DataTable,
-  type DataTablePagination,
-} from '@myorg/shared/ui';
+import { Button, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 import { toast } from '@myorg/shared/ui';
@@ -39,7 +35,8 @@ import { TransactionStatusBadge } from '@myorg/modules/interest/ui';
 const PAGE_SIZE = 10;
 
 interface TxListFormValues {
-  postTimeRange: [string, string] | [];
+  postTimeStart: string;
+  postTimeEnd: string;
   tokenId: string;
   blockchainId: string;
   feeType: string;
@@ -47,7 +44,8 @@ interface TxListFormValues {
 }
 
 const EMPTY_FORM: TxListFormValues = {
-  postTimeRange: [],
+  postTimeStart: '',
+  postTimeEnd: '',
   tokenId: ALL_VALUE,
   blockchainId: ALL_VALUE,
   feeType: ALL_VALUE,
@@ -58,12 +56,13 @@ export function TransactionsListPage() {
   const t = useTranslations('modules.interest');
   const tc = useTranslations('common');
   const router = useRouter();
-  const { hasLimit } = useAuth();
+  const authPermissions = useAuth().permissions ?? new Set<string>();
+  const can = (p: string) => authPermissions.size === 0 || authPermissions.has(p);
 
   const { data: tokenOptions } = useStablecoinOptions();
   const { data: blockchainOptions } = useBlockchainOptions();
 
-  const [pagination, setPagination] = React.useState<DataTablePagination>({
+  const [pagination, setPagination] = React.useState({
     pageNum: 1,
     pageSize: PAGE_SIZE,
   });
@@ -73,10 +72,8 @@ export function TransactionsListPage() {
 
   const queryFilters = React.useMemo(() => {
     const f: Record<string, unknown> = {};
-    if (filters.postTimeRange.length === 2) {
-      f.postStartTime = filters.postTimeRange[0];
-      f.postEndTime = filters.postTimeRange[1];
-    }
+    if (filters.postTimeStart) f.postStartTime = filters.postTimeStart;
+    if (filters.postTimeEnd) f.postEndTime = filters.postTimeEnd;
     if (filters.tokenId !== ALL_VALUE) f.tokenId = filters.tokenId;
     if (filters.blockchainId !== ALL_VALUE) f.blockchainId = filters.blockchainId;
     if (filters.feeType !== ALL_VALUE) f.feeType = filters.feeType;
@@ -131,6 +128,67 @@ export function TransactionsListPage() {
       accessorKey: 'status',
       cell: ({ getValue }) => <TransactionStatusBadge status={getValue<number>()} />,
     },
+    {
+      id: 'actions',
+      header: tc('PUB_Action'),
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <div className="flex items-center gap-3">
+            {can(INTEREST_PERMISSIONS.VIEW_TRANSACTION) && (
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                onClick={() =>
+                  router.push(`/interest/transactions/view?id=${r.tokenBillId}`)
+                }
+              >
+                {tc('Router_0015_3_1')}
+              </Button>
+            )}
+            {can(INTEREST_PERMISSIONS.POST_TRANSACTION) && (
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                disabled={r.status !== 1}
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      t('interest_0093').replace('${token}', r.tokenName),
+                    )
+                  )
+                    return;
+                  await postMutation.mutateAsync({ tokenBillId: r.tokenBillId });
+                }}
+              >
+                {tc('Router_0015_3_4')}
+              </Button>
+            )}
+            {can(INTEREST_PERMISSIONS.RETRY_TRANSACTION) && (
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                disabled={r.status !== 40}
+                onClick={async () => {
+                  setSpinning(true);
+                  try {
+                    await retryMutation.mutateAsync({ tokenBillId: r.tokenBillId });
+                    await refetch();
+                    toast.success(
+                      tc('PUB_Success').replace('****', tc('PUB_Reset')),
+                    );
+                  } finally {
+                    setSpinning(false);
+                  }
+                }}
+              >
+                {tc('Router_0015_3_2')}
+              </Button>
+            )}
+          </div>
+        );
+      },
+    },
   ];
 
   const handleReset = () => form.reset(EMPTY_FORM);
@@ -141,38 +199,42 @@ export function TransactionsListPage() {
 
       <div className="grid grid-cols-5 gap-4 mb-4">
         <FormDatePicker
-          name="postTimeRange"
+          name="postTimeStart"
           label={t('interest_00113')}
           control={form.control}
-          mode="range"
+        />
+        <FormDatePicker
+          name="postTimeEnd"
+          label={t('interest_00113')}
+          control={form.control}
         />
         <FormSelect
           name="tokenId"
           label={t('interest_0062')}
           control={form.control}
           options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(tokenOptions ?? [])]}
-          allValue={ALL_VALUE}
+          placeholder={tc('PUB_All')}
         />
         <FormSelect
           name="blockchainId"
           label={tc('PUB_Blockchain')}
           control={form.control}
           options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(blockchainOptions ?? [])]}
-          allValue={ALL_VALUE}
+          placeholder={tc('PUB_All')}
         />
         <FormSelect
           name="feeType"
           label={t('interest_0080')}
           control={form.control}
           options={FEE_TYPE_OPTIONS.map(o => ({ label: o.label, value: o.value === '' ? ALL_VALUE : o.value }))}
-          allValue={ALL_VALUE}
+          placeholder={tc('PUB_All')}
         />
         <FormSelect
           name="status"
           label={tc('PUB_Status')}
           control={form.control}
           options={TRANSACTION_STATUS_OPTIONS.map(o => ({ label: o.label, value: o.value === '' ? ALL_VALUE : o.value }))}
-          allValue={ALL_VALUE}
+          placeholder={tc('PUB_All')}
         />
       </div>
 
@@ -183,53 +245,14 @@ export function TransactionsListPage() {
       <DataTable
         columns={columns}
         data={(data?.rows ?? []).map(row => ({ ...row, id: String(row.interestRuleId) }))}
-        pagination={{ ...pagination, total: data?.page?.total ?? 0 }}
-        onPaginationChange={setPagination}
-        isLoading={isLoading || spinning}
-        actions={[
-          {
-            key: 'View',
-            label: tc('Router_0015_3_1'),
-            limit: INTEREST_PERMISSIONS.VIEW_TRANSACTION,
-            disabled: () => false,
-          },
-          {
-            key: 'Post',
-            label: tc('Router_0015_3_4'),
-            limit: INTEREST_PERMISSIONS.POST_TRANSACTION,
-            disabled: (row: TokenBill) => row.status !== 1,
-            confirmText: (row: TokenBill) =>
-              t('interest_0093').replace('${token}', row.tokenName),
-          },
-          {
-            key: 'Reset',
-            label: tc('Router_0015_3_2'),
-            limit: INTEREST_PERMISSIONS.RETRY_TRANSACTION,
-            disabled: (row: TokenBill) => row.status !== 40,
-          },
-        ]}
-        onAction={async (key, row) => {
-          const r = row as TokenBill;
-          switch (key) {
-            case 'View':
-              router.push(`/interest/transactions/view?id=${r.tokenBillId}`);
-              break;
-            case 'Post':
-              await postMutation.mutateAsync({ tokenBillId: r.tokenBillId });
-              break;
-            case 'Reset': {
-              setSpinning(true);
-              try {
-                await retryMutation.mutateAsync({ tokenBillId: r.tokenBillId });
-                await refetch();
-                toast.success(tc('PUB_Success').replace('****', tc('PUB_Reset')));
-              } finally {
-                setSpinning(false);
-              }
-              break;
-            }
-          }
+        pagination={{
+          page: pagination.pageNum,
+          pageSize: pagination.pageSize,
+          total: data?.page?.total ?? 0,
+          onPageChange: (page) =>
+            setPagination((prev) => ({ ...prev, pageNum: page })),
         }}
+        isLoading={isLoading || spinning}
       />
     </div>
   );

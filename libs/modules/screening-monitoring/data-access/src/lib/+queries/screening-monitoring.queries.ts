@@ -9,10 +9,10 @@ export const useBusinessTypeList = () => useQuery({ queryKey: screeningKeys.busi
 
 export const useRuleList = (p: ScreeningListParams<RuleListFilters>) => useQuery({ queryKey: screeningKeys.ruleList(p.filters as Record<string, unknown>), queryFn: () => fetchRuleList(p) });
 export const useRuleDetail = (id: number) => useQuery({ queryKey: screeningKeys.ruleDetail(id), queryFn: () => fetchRuleDetail(id), enabled: id > 0 });
-export const useRuleOperationRecords = (p: ScreeningListParams<RuleOperationListFilters>) => useQuery({ queryKey: screeningKeys.ruleOperationRecords(p.filters as Record<string, unknown>), queryFn: () => fetchRuleOperationRecords(p) });
-export const useRuleOperationLog = (p: ScreeningListParams<RuleOperationLogFilters>) => useQuery({ queryKey: screeningKeys.ruleOperationLog(p.filters as Record<string, unknown>), queryFn: () => fetchRuleOperationLog(p) });
+export const useRuleOperationRecords = (p: ScreeningListParams<RuleOperationListFilters>) => useQuery({ queryKey: screeningKeys.ruleOperationRecords(p.filters as unknown as Record<string, unknown>), queryFn: () => fetchRuleOperationRecords(p) });
+export const useRuleOperationLog = (p: ScreeningListParams<RuleOperationLogFilters>) => useQuery({ queryKey: screeningKeys.ruleOperationLog(p.filters as unknown as Record<string, unknown>), queryFn: () => fetchRuleOperationLog(p) });
 export const useRuleUserList = (tokenId: number) => useQuery({ queryKey: screeningKeys.ruleUserList(tokenId), queryFn: () => fetchRuleUserList(tokenId), enabled: tokenId > 0 });
 
 export const useSuspiciousList = (p: ScreeningListParams<SuspiciousListFilters>) => useQuery({ queryKey: screeningKeys.suspiciousList(p.filters as Record<string, unknown>), queryFn: () => fetchSuspiciousList(p) });
 export const useSuspiciousDetail = (id: number) => useQuery({ queryKey: screeningKeys.suspiciousDetail(id), queryFn: () => fetchSuspiciousDetail(id), enabled: id > 0 });
-export const useSuspiciousTransactions = (p: ScreeningListParams<SuspiciousTransactionListFilters>) => useQuery({ queryKey: screeningKeys.suspiciousTransactions(p.filters as Record<string, unknown>), queryFn: () => fetchSuspiciousTransactionList(p) });
+export const useSuspiciousTransactions = (p: ScreeningListParams<SuspiciousTransactionListFilters>) => useQuery({ queryKey: screeningKeys.suspiciousTransactions(p.filters as unknown as Record<string, unknown>), queryFn: () => fetchSuspiciousTransactionList(p) });

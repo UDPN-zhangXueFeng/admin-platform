@@ -12,12 +12,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 
-import {
-  Button,
-  Card,
-  DataTable,
-  type DataTablePagination,
-} from '@myorg/shared/ui';
+import { Button, Card, DataTable } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 
 import type {
@@ -88,7 +83,7 @@ export function AccrualDetailPage() {
 
   const { data: detail, isLoading } = useAccrualRecordDetail(id);
 
-  const [pagination, setPagination] = React.useState<DataTablePagination>({
+  const [pagination, setPagination] = React.useState({
     pageNum: 1,
     pageSize: PAGE_SIZE,
   });
@@ -169,7 +164,7 @@ export function AccrualDetailPage() {
         <FormField
           name="walletAddress"
           label={t('interest_0061')}
-          control={form.control}
+          register={form.register('walletAddress')}
         />
       </div>
 
@@ -179,10 +174,14 @@ export function AccrualDetailPage() {
           ...row,
           id: String(row.ruleRecordId),
         }))}
-        pagination={{ ...pagination, total: historyData?.page?.total ?? 0 }}
-        onPaginationChange={setPagination}
+        pagination={{
+          page: pagination.pageNum,
+          pageSize: pagination.pageSize,
+          total: historyData?.page?.total ?? 0,
+          onPageChange: (page) =>
+            setPagination((prev) => ({ ...prev, pageNum: page })),
+        }}
         isLoading={historyLoading}
-        actions={[]}
       />
 
       <div className="flex justify-center mt-6">
