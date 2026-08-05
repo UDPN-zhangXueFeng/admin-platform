@@ -62,11 +62,12 @@ const EMPTY_FORM: PolicyListFormValues = {
 
 function usePolicyColumns(
   t: (key: string) => string,
+  tc: (key: string) => string,
 ): ColumnDef<InterestRule>[] {
   return [
     {
       id: 'index',
-      header: t('PUB_Index'),
+      header: tc('PUB_Index'),
       accessorKey: 'interestRuleId',
       size: 60,
     },
@@ -99,7 +100,7 @@ function usePolicyColumns(
     },
     {
       id: 'createTime',
-      header: t('PUB_CreateTime'),
+      header: tc('PUB_CreateTime'),
       accessorKey: 'createTime',
       cell: ({ getValue }) => {
         const val = getValue<string>();
@@ -109,7 +110,7 @@ function usePolicyColumns(
     },
     {
       id: 'status',
-      header: t('PUB_Status'),
+      header: tc('PUB_Status'),
       accessorKey: 'status',
       cell: ({ getValue }) => (
         <InterestStatusBadge status={getValue<number>()} variant="policy" />
@@ -132,7 +133,7 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
   const router = useRouter();
   const authPermissions = useAuth().permissions ?? new Set<string>();
   const can = (p: string) => authPermissions.size === 0 || authPermissions.has(p);
-  const baseColumns = usePolicyColumns(t);
+  const baseColumns = usePolicyColumns(t, tc);
 
   const [pagination, setPagination] = React.useState({
     pageNum: 1,

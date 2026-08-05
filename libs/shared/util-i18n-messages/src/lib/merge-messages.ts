@@ -80,6 +80,14 @@ import zhCNModulesTokenizedDeposit from './zh-CN/modules/tokenized-deposit.json'
 import zhCNModulesPledge from './zh-CN/modules/pledge.json';
 import zhCNModulesApprovalManage from './zh-CN/modules/approval-manage.json';
 import zhCNModulesReconciliation from './zh-CN/modules/reconciliation.json';
+import zhCNModulesInterest from './zh-CN/modules/interest.json';
+import zhCNModulesScreeningMonitoring from './zh-CN/modules/screening-monitoring.json';
+import zhCNModulesStatisticsReports from './zh-CN/modules/statistics-reports.json';
+import zhCNModulesAccountManage from './zh-CN/modules/account-manage.json';
+import zhCNModulesStatisticAnalysis from './zh-CN/modules/statistic-analysis.json';
+import zhCNModulesTransactionFlow from './zh-CN/modules/transaction-flow.json';
+import zhCNModulesNetworks from './zh-CN/modules/networks.json';
+import zhCNModulesScreeningProviders from './zh-CN/modules/screening-providers.json';
 import zhCNProjectsEcommerce from './zh-CN/projects/ecommerce.json';
 import zhCNProjectsStablecoin from './zh-CN/projects/stablecoin.json';
 
@@ -154,6 +162,14 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     'modules/pledge': zhCNModulesPledge as unknown as Record<string, unknown>,
     'modules/approval-manage': zhCNModulesApprovalManage as unknown as Record<string, unknown>,
     'modules/reconciliation': zhCNModulesReconciliation as unknown as Record<string, unknown>,
+    'modules/interest': zhCNModulesInterest as unknown as Record<string, unknown>,
+    'modules/screening-monitoring': zhCNModulesScreeningMonitoring as unknown as Record<string, unknown>,
+    'modules/statistics-reports': zhCNModulesStatisticsReports as unknown as Record<string, unknown>,
+    'modules/account-manage': zhCNModulesAccountManage as unknown as Record<string, unknown>,
+    'modules/statistic-analysis': zhCNModulesStatisticAnalysis as unknown as Record<string, unknown>,
+    'modules/transaction-flow': zhCNModulesTransactionFlow as unknown as Record<string, unknown>,
+    'modules/networks': zhCNModulesNetworks as unknown as Record<string, unknown>,
+    'modules/screening-providers': zhCNModulesScreeningProviders as unknown as Record<string, unknown>,
     'projects/ecommerce': zhCNProjectsEcommerce as unknown as Record<string, unknown>,
     'projects/stablecoin': zhCNProjectsStablecoin as unknown as Record<string, unknown>,
   },
