@@ -299,7 +299,7 @@ export function getBlockchainList(
 export function getNodeLocationList(
   config?: ApiRequestConfig,
 ): Promise<NodeLocationOption[]> {
-  return apiClient.post<NodeLocationOption[]>(NODE_LOCATION_LIST_URL, {}, config);
+  return apiClient.get<NodeLocationOption[]>(NODE_LOCATION_LIST_URL, config);
 }
 
 /**

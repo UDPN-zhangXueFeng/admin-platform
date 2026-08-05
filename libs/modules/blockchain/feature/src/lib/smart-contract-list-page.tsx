@@ -116,7 +116,7 @@ export function SmartContractListPage(): React.JSX.Element {
         },
         {
           onSuccess: () => toast.success(t('downloadSuccess')),
-          onError: () => toast.error(t('downloadSuccess')),
+          onError: () => toast.error(t('downloadFailed')),
         },
       );
     },

@@ -222,11 +222,10 @@ describe('blockchain.api — 公共下拉 API（4）', () => {
     expect(lastCall().url).toBe(ENDPOINT.blockchainList);
   });
 
-  it('getNodeLocationList POSTs an empty body to the node-location dropdown', async () => {
+  it('getNodeLocationList GETs the node-location dropdown endpoint', async () => {
     setResponse(ENDPOINT.nodeLocationList, []);
     await getNodeLocationList();
     expect(lastCall().url).toBe(ENDPOINT.nodeLocationList);
-    expect(lastCall().data).toEqual({});
   });
 
   it('getStablecoinSearches GETs the stablecoin searches endpoint', async () => {

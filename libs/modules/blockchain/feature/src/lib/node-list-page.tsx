@@ -209,7 +209,7 @@ export function NodeListPage(): React.JSX.Element {
         },
         {
           onSuccess: () => toast.success(t('saveSuccess')),
-          onError: () => toast.error(t('saveSuccess')),
+          onError: () => toast.error(t('saveFailed')),
         },
       );
     },
