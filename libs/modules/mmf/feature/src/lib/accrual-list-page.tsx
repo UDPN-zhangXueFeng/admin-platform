@@ -51,14 +51,13 @@ const DATE_FMT = 'YYYY-MM-DD';
  * 便于后续抽到 util（暂不抽，遵循 Rule 2：单一用途内联）。
  */
 function reSet(
-  value: number | undefined | null,
+  value: string | number | undefined | null,
   symbol?: string,
 ): string {
-  if (value == null || Number.isNaN(value) || value < 0) {
+  if (value == null || Number.isNaN(Number(value)) || Number(value) < 0) {
     return symbol ? `${EMPTY_DISPLAY} ${symbol}` : EMPTY_DISPLAY;
   }
-  const formatted = value
-    .toFixed(2)
+  const formatted = Number(value).toFixed(2)
     .replace(/(\d)(?=(\d{3})+\.)/g, '$1,');
   return symbol ? `${formatted} ${symbol}` : formatted;
 }

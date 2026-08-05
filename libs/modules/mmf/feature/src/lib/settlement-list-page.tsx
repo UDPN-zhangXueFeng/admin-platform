@@ -66,14 +66,13 @@ function formToFilters(f: SettlementFilterForm): SettlementListFilters {
  * 与 accrual-apply-modal 的 reSet 保持同款语义，便于后续抽到 util。
  */
 function reSet(
-  value: number | undefined | null,
+  value: string | number | undefined | null,
   symbol?: string,
 ): string {
-  if (value == null || Number.isNaN(value) || value < 0) {
+  if (value == null || Number.isNaN(Number(value)) || Number(value) < 0) {
     return symbol ? `${EMPTY_DISPLAY} ${symbol}` : EMPTY_DISPLAY;
   }
-  const formatted = value
-    .toFixed(2)
+  const formatted = Number(value).toFixed(2)
     .replace(/(\d)(?=(\d{3})+\.)/g, '$1,');
   return symbol ? `${formatted} ${symbol}` : formatted;
 }

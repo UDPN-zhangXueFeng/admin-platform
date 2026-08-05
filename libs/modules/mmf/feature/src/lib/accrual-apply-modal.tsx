@@ -54,13 +54,12 @@ type BatchRow = BatchSelectionRow;
  *
  * 与源码实现一致：先 `toFixed(2)` 再对小数点前的整数部分插入千分位。
  */
-function reSet(value: number | undefined | null, symbol?: string): string {
-  if (value == null || Number.isNaN(value) || value < 0) {
+function reSet(value: string | number | undefined | null, symbol?: string): string {
+  if (value == null || Number.isNaN(Number(value)) || Number(value) < 0) {
     return symbol ? `${EMPTY_DISPLAY} ${symbol}` : EMPTY_DISPLAY;
   }
   // toFixed(2) 保证小数部分固定 2 位，正则仅在整数部分插入千分位分隔符。
-  const formatted = value
-    .toFixed(2)
+  const formatted = Number(value).toFixed(2)
     .replace(/(\d)(?=(\d{3})+\.)/g, '$1,');
   return symbol ? `${formatted} ${symbol}` : formatted;
 }
@@ -105,7 +104,8 @@ function BatchApplyModal({
   const t = useTranslations('modules.mmf');
 
   const fundList = useFundListQuery();
-  const batchListMutation = useBatchApplyListMutation();
+  const { data: batchListData, mutate: batchMutate, isPending: batchLoading } =
+    useBatchApplyListMutation();
   const applyMutation = useApplyAccrualMutation();
 
   const fundOptions = React.useMemo(
@@ -133,7 +133,7 @@ function BatchApplyModal({
   const doQuery = React.useCallback(
     (ruleId: string, from: string, to: string) => {
       if (!ruleId) return;
-      batchListMutation.mutate({
+      batchMutate({
         ruleId: Number(ruleId),
         accrualTimeStartDate: from
           ? startOfDay(parseISO(from)).getTime()
@@ -141,7 +141,7 @@ function BatchApplyModal({
         accrualTimeEndDate: to ? endOfDay(parseISO(to)).getTime() : 0,
       });
     },
-    [batchListMutation],
+    [batchMutate],
   );
 
   // 打开时重置表单 + 清空选择 + 预查默认基金
@@ -162,11 +162,11 @@ function BatchApplyModal({
   // 表格数据（本地静态，非分页）：注入 id 满足 DataTable 契约
   const rows = React.useMemo<BatchRow[]>(
     () =>
-      (batchListMutation.data ?? []).map((r) => ({
+      (batchListData ?? []).map((r) => ({
         ...r,
         id: String(r.accrualRecordId ?? ''),
       })),
-    [batchListMutation.data],
+    [batchListData],
   );
 
   // 聚合 + payload（委托给纯函数 batch-apply-selection.ts，便于单测边界）
@@ -341,7 +341,7 @@ function BatchApplyModal({
               label={t('modal.appliedDate')}
             />
             <div className="flex gap-2 md:col-start-2 xl:col-start-3">
-              <Button type="submit" disabled={batchListMutation.isPending}>
+              <Button type="submit" disabled={batchLoading}>
                 {t('filter.query')}
               </Button>
               <Button type="button" variant="outline" onClick={onResetQuery}>
@@ -355,7 +355,7 @@ function BatchApplyModal({
             <DataTable
               columns={columns}
               data={rows}
-              isLoading={batchListMutation.isPending}
+              isLoading={batchLoading}
               emptyMessage={t('empty')}
               selection={{
                 selectedIds,

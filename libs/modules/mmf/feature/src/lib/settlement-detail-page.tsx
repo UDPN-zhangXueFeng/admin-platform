@@ -54,14 +54,13 @@ const APPROVAL_STATUS_LABEL_KEY = 'common_task_status_';
  * 与 settlement-list-page / accrual-apply-modal 同款语义，便于后续抽到 util。
  */
 function reSet(
-  value: number | undefined | null,
+  value: string | number | undefined | null,
   symbol?: string,
 ): string {
-  if (value == null || Number.isNaN(value) || value < 0) {
+  if (value == null || Number.isNaN(Number(value)) || Number(value) < 0) {
     return symbol ? `${EMPTY_DISPLAY} ${symbol}` : EMPTY_DISPLAY;
   }
-  const formatted = value
-    .toFixed(2)
+  const formatted = Number(value).toFixed(2)
     .replace(/(\d)(?=(\d{3})+\.)/g, '$1,');
   return symbol ? `${formatted} ${symbol}` : formatted;
 }
@@ -113,8 +112,8 @@ function walletFormToFilters(
 export function SettlementDetailPage() {
   const t = useTranslations('modules.mmf');
   const router = useRouter();
-  const params = useParams<{ id?: string }>();
-  const settlementIdRaw = params?.id;
+  const params = useParams<{ slug?: string[] }>();
+  const settlementIdRaw = params?.slug?.[1];
   const settlementId = settlementIdRaw ? Number(settlementIdRaw) : undefined;
   const hasId = settlementId != null && settlementId > 0;
   // 已校验的有效结算 ID（无 id 时退化为 0，保证子表格查询不报错；hasId false 时已早返回或显示空）。
