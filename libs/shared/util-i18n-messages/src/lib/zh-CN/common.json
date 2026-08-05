@@ -12,7 +12,6 @@
   "no": "否",
   "actions": "操作",
   "status": "状态",
-
   "common_task_status_1": "已保存",
   "common_task_status_3": "已撤回",
   "common_task_status_5": "待审批",
@@ -24,7 +23,6 @@
   "common_task_status_35": "成功",
   "common_task_status_40": "失败",
   "common_task_status_45": "已删除",
-
   "approval_task_status_color_1": "processing",
   "approval_task_status_color_3": "gray",
   "approval_task_status_color_5": "orange",
@@ -36,7 +34,6 @@
   "approval_task_status_color_35": "success",
   "approval_task_status_color_40": "error",
   "approval_task_status_color_45": "error",
-
   "blockchain_code_color_Besu": "#2B9AA3",
   "blockchain_code_color_Fabric": "#EF5549",
   "blockchain_code_color_SEPOLIA": "#5F7AE3",
@@ -69,5 +66,14 @@
   "PUB_Enabled": "已启用",
   "PUB_New": "新建",
   "PUB_Operation": "操作",
-  "PUB_UpdateOn": "更新时间"
+  "PUB_UpdateOn": "更新时间",
+  "Router_0010_4_2": "Edit",
+  "Router_0010_4_3": "Details",
+  "Router_0010_4_4": "Activate",
+  "Router_0010_4_5": "Deactivate",
+  "Router_0012_2_1": "Process",
+  "Router_0012_2_4": "Retry",
+  "Router_0015_3_1": "Details",
+  "Router_0015_3_2": "Retry",
+  "Router_0015_3_4": "Post"
 }

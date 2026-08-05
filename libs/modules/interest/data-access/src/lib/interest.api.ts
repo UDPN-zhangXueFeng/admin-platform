@@ -71,11 +71,11 @@ const TX_RETRY_URL = `${INTEREST_PREFIX}/tx/retry`;
 // ── 公共下拉 API ─────────────────────────────────────────────────────────────
 
 export function fetchStablecoinOptions() {
-  return apiClient.post<StablecoinOption[]>(STABLECOIN_SEARCHES_URL);
+  return apiClient.get<StablecoinOption[]>(STABLECOIN_SEARCHES_URL);
 }
 
 export function fetchBlockchainOptions() {
-  return apiClient.post<BlockchainOption[]>(BLOCKCHAIN_LIST_URL);
+  return apiClient.get<BlockchainOption[]>(BLOCKCHAIN_LIST_URL);
 }
 
 // ── Policy API ───────────────────────────────────────────────────────────────
