@@ -813,9 +813,8 @@ export function getCurrencyPairList(
 export function getCommonBlockchainList(
   config?: ApiRequestConfig,
 ): Promise<BlockchainOption[]> {
-  return apiClient.post<BlockchainOption[]>(
+  return apiClient.get<BlockchainOption[]>(
     COMMON_BLOCKCHAIN_LIST_URL,
-    {},
     config,
   );
 }
@@ -827,9 +826,8 @@ export function getCommonBlockchainList(
 export function getCommonBlockchainEnableList(
   config?: ApiRequestConfig,
 ): Promise<BlockchainEnableOption[]> {
-  return apiClient.post<BlockchainEnableOption[]>(
+  return apiClient.get<BlockchainEnableOption[]>(
     COMMON_BLOCKCHAIN_ENABLE_LIST_URL,
-    {},
     config,
   );
 }
@@ -841,9 +839,8 @@ export function getCommonBlockchainEnableList(
 export function getStablecoinSearches(
   config?: ApiRequestConfig,
 ): Promise<TokenOption[]> {
-  return apiClient.post<TokenOption[]>(
+  return apiClient.get<TokenOption[]>(
     COMMON_STABLECOIN_SEARCHES_URL,
-    {},
     config,
   );
 }
@@ -879,9 +876,8 @@ export function getRdBridgeAllUserEmailList(
 export function getLiquidityPoolTokenList(
   config?: ApiRequestConfig,
 ): Promise<LiquidityPoolTokenOption[]> {
-  return apiClient.post<LiquidityPoolTokenOption[]>(
+  return apiClient.get<LiquidityPoolTokenOption[]>(
     LP_NEW_TOKEN_LIST_URL,
-    {},
     config,
   );
 }
@@ -905,9 +901,8 @@ export function getLiquidityPoolEmailList(
 export function getSendTokenList(
   config?: ApiRequestConfig,
 ): Promise<SendTokenOption[]> {
-  return apiClient.post<SendTokenOption[]>(
+  return apiClient.get<SendTokenOption[]>(
     TOKEN_PAIR_SEND_TOKEN_URL,
-    {},
     config,
   );
 }

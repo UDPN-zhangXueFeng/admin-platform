@@ -29,6 +29,13 @@
 - 后续同类任务：
 ```
 
+## 2026-08-06
+
+- 背景：校验 cross-chain 模块（`/cross-chain/<child>`，5 子模块：cross-chain-transactions / fx-rate / liquidity-pool / rd-bridge / token-pair）。四库 lint 通过、ui test 33 个通过、`nx build admin` 通过。逐文件对照 td-manage 源（`src/lib/api/cross-chain.ts` + 各页面 `useSWR([url])`）发现 5 个公共下拉接口 HTTP 方法错误。
+- 结论：td-manage 全局 fetcher（`src/lib/axios.ts:156`）签名 `([url, param?])`，单元素数组 `[url]` → `method: GET`，双元素 `[url, payload]` → `method: POST`。cross-chain 的 5 个下拉（`getCommonBlockchainList` / `getCommonBlockchainEnableList` / `getStablecoinSearches` / `getLiquidityPoolTokenList` / `getSendTokenList`）在 td-manage 均用 `useSWR([url])` 即 GET，迁移版却写成 `apiClient.post(url, {}, config)`。注意区分：`getRdBridgeBlockchainList`（`getBlockChainListApi`）和 `getRdBridgeAllUserEmailList`（`getAllUserEmailListApi`）在 td-manage 是显式 `request(url,{method:'POST',data})`，迁移版保持 POST 正确。修复：5 个下拉改 `apiClient.get(url, config)`（commit 待提）。
+- 影响：这是**仓库内一致性破坏**——同接口 `getStablecoinSearches` / `getCommonBlockchainList` 在 blockchain / mmf / journal-entries / audit-trail 全部用 GET，唯独 cross-chain 用 POST（Rule 7 两套并存）。后端当前对 GET/POST 都返回 200（curl 实测），所以不会 405、功能"看似"可用，但违反 td-manage 源契约与全仓库约定，且一旦后端收紧方法校验（如 blockchain `nodeLocation` 之前报 405）就会暴露。校验时其余维度均无问题：group 路由解析（`realModule=slug[0]`、pageKey 落 detail）、searchParams 取 ID、reSet 数字防御（`Number(value)`）、mutations 解构稳定引用、i18n 208 键 en/zh 完全对齐、18 个 UUID 权限码、菜单 5 子项 path 与 registry 一致。
+- 后续同类任务：(a) 校验迁移模块的 API 层时，**必须对照 td-manage 源的 fetcher 语义**——`useSWR([url])` 单元素是 GET，`useSWR([url, payload])` 双元素是 POST；td-manage 显式 `request(url, {method})` 以 method 字段为准。不能只看 URL 猜方法。(b) 公共下拉接口（common/* 域、各模块 new/*List 域）在本仓库统一约定为 GET，blockchain/mmf/journal-entries 是范本；发现某模块用 POST 时优先怀疑迁移错误而非后端要求。(c) 后端对方法宽容（GET/POST 都 200）不代表方法正确——以源码契约为准，curl 只用于确认接口可达性，不能替代契约一致性判断。
+
 ## 2026-08-04
 
 - 背景：approval-manage（侧栏菜单 "Workflow Tasks"，`/approval-manage`）三 Tab 列表的 actions 列全部显示 `--`，而旧项目 td-manage 同页有 Detail / Withdraw 按钮。
