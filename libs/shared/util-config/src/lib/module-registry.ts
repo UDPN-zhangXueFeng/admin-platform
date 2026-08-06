@@ -702,6 +702,7 @@ const moduleRegistry: Record<string, ModuleEntry> = {
       detail: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.RuleDetailPage as unknown as ComponentType<unknown> })),
       edit: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.RuleEditPage as unknown as ComponentType<unknown> })),
       create: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.RuleEditPage as unknown as ComponentType<unknown> })),
+      t_edit: () => import('@myorg/modules/screening-monitoring/feature').then((m) => ({ default: m.RuleTEditPage as unknown as ComponentType<unknown> })),
     },
   },
   'transaction-monitoring': {

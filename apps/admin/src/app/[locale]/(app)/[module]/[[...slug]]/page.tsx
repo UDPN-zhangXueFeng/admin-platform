@@ -103,6 +103,10 @@ export default function ModulePage({
     // tokenized-deposit 新建页路由名 'onboard'（对齐 overview-shell ONBOARD_ROUTE），
     // 识别为独立 pageKey，否则会落到 detail 误渲染 ViewPage。
     if (realSlug[0] === 'onboard') return 'onboard';
+    // screening-monitoring rule 第三方规则新建页路由名 't_edit'（对齐 td-manage
+    // /screening-monitoring/rule/t_edit），识别为独立 pageKey，否则会落到 detail
+    // 误渲染 RuleDetailPage。
+    if (realSlug[0] === 't_edit') return 't_edit';
     return 'detail';
   }, [realSlug]);
 

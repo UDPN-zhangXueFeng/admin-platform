@@ -7,8 +7,8 @@ import type { BlockchainOption, BusinessTypeOption, RuleDetail, RuleListFilters,
 const PREFIX = '/api/manage/v1/audit';
 
 // 公共下拉
-export const fetchStablecoinOptions = () => apiClient.post<StablecoinOption[]>('/api/manage/v1/common/stablecoin/enabled/searches');
-export const fetchBlockchainOptions = () => apiClient.post<BlockchainOption[]>('/api/manage/v1/common/blockchain/list');
+export const fetchStablecoinOptions = () => apiClient.get<StablecoinOption[]>('/api/manage/v1/common/stablecoin/enabled/searches');
+export const fetchBlockchainOptions = () => apiClient.get<BlockchainOption[]>('/api/manage/v1/common/blockchain/list');
 export const fetchBusinessTypeList = () => apiClient.post<BusinessTypeOption[]>(`${PREFIX}/rule/set/query/business/type/unit`, {});
 
 // Rule set
