@@ -130,6 +130,9 @@ export interface KeyServiceConfiguration {
 export interface KeyServiceConfigurationFilters {
   keyServiceName?: string;
   status?: number;
+  /** 创建时间范围（RangePicker 透传 key: startCreateDate-endCreateDate）。 */
+  startCreateDate?: number;
+  endCreateDate?: number;
 }
 
 /** Server-paginated key service configuration query. */

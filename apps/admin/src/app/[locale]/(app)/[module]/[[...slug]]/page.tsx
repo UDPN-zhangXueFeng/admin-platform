@@ -122,6 +122,7 @@ export default function ModulePage({
       if (sub === 'detail') return `${mapped}-detail`;
       if (sub === 'new' || sub === 'create') return `${mapped}-new`;
       if (sub === 'edit') return `${mapped}-edit`;
+      if (sub === 'configure') return `${mapped}-configure`;
       return mapped;
     }
     return KEY_MANAGEMENT_STANDARD_ROUTES.has(subSlug) ? pageKey : null;

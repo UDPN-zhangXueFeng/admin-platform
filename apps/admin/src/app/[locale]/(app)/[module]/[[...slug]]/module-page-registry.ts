@@ -34,10 +34,30 @@ const keyManagementPages: Record<
       default:
         m.KeyServiceConfigurationListPage as unknown as ComponentType<unknown>,
     })),
+  'key-service-configuration-detail': () =>
+    import('@myorg/modules/key-management/feature').then((m) => ({
+      default:
+        m.KeyServiceConfigurationDetailPage as unknown as ComponentType<unknown>,
+    })),
+  'key-service-configuration-edit': () =>
+    import('@myorg/modules/key-management/feature').then((m) => ({
+      default:
+        m.KeyServiceConfigurationEditPage as unknown as ComponentType<unknown>,
+    })),
+  'key-service-configuration-configure': () =>
+    import('@myorg/modules/key-management/feature').then((m) => ({
+      default:
+        m.KeyServiceConfigurationConfigurePage as unknown as ComponentType<unknown>,
+    })),
   'key-signed-transactions': () =>
     import('@myorg/modules/key-management/feature').then((m) => ({
       default:
         m.KeySignedTransactionsListPage as unknown as ComponentType<unknown>,
+    })),
+  'key-signed-transactions-detail': () =>
+    import('@myorg/modules/key-management/feature').then((m) => ({
+      default:
+        m.KeySignedTransactionsDetailPage as unknown as ComponentType<unknown>,
     })),
   'managed-wallets': () =>
     import('@myorg/modules/key-management/feature').then((m) => ({

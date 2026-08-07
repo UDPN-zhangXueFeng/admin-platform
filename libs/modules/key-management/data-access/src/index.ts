@@ -39,6 +39,33 @@ export {
   useKeyServiceConfigurationsQuery,
 } from './lib/key-signed-transactions/key-signed-transactions.queries';
 
+// Key Service Configuration (detail / operation records / listKeyService)
+export {
+  type KeyServiceAccessParameter,
+  type KeyServiceSupportedChain,
+  type KeyServiceDetail,
+  type KeyServiceDetailReq,
+  type KeyServiceOperationRecord,
+  type KeyServiceOperationRecordFilters,
+  type KeyServiceOperationRecordParams,
+  type KeyServiceOperationRecordPage,
+  type KeyServiceOperationRecordResponse,
+} from './lib/key-service-configuration/key-service-configuration.model';
+
+export {
+  getKeyServiceConfigurationDetail,
+  getKeyServiceOperationRecords,
+  getKeyServiceList,
+} from './lib/key-service-configuration/key-service-configuration.api';
+
+export { keyServiceConfigurationKeys } from './lib/key-service-configuration/key-service-configuration.keys';
+
+export {
+  useKeyServiceConfigurationDetailQuery,
+  useKeyServiceOperationRecordsQuery,
+  useKeyServiceListQuery,
+} from './lib/key-service-configuration/key-service-configuration.queries';
+
 // Managed Wallets
 export {
   type ManagedWallet,

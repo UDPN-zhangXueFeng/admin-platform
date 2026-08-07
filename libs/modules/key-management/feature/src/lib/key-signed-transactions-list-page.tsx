@@ -14,6 +14,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
+import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
@@ -55,6 +56,7 @@ function formatTimestamp(ts?: number): string {
 
 export function KeySignedTransactionsListPage() {
   const t = useTranslations('modules.key-management');
+  const router = useRouter();
   const [page, setPage] = React.useState(1);
   const pageSize = 10;
 
@@ -102,6 +104,13 @@ export function KeySignedTransactionsListPage() {
   const handleReset = () => {
     reset();
     setPage(1);
+  };
+
+  const handleViewDetail = (txRecordId?: number) => {
+    if (txRecordId === undefined) return;
+    router.push(
+      `/key-management/key-signed-transactions/detail?id=${txRecordId}`,
+    );
   };
 
   const columns = React.useMemo<ColumnDef<KeySignedTransaction>[]>(
@@ -184,6 +193,19 @@ export function KeySignedTransactionsListPage() {
             </span>
           );
         },
+      },
+      {
+        id: 'actions',
+        header: 'Details',
+        cell: ({ row }) => (
+          <Button
+            variant="link"
+            className="h-auto p-0"
+            onClick={() => handleViewDetail(row.original.txRecordId)}
+          >
+            Details
+          </Button>
+        ),
       },
     ],
     [t]
