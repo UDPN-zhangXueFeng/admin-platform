@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 241.268 75.532% 63.137%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 241.268 75.532% 63.137%;
+    --radius: 0.5rem;
+    --banner-start: #5d5ae8;
+    --banner-mid: #706df0;
+    --banner-end: #4744c7;
+    --banner-glow: #aaa9ff;
+    --banner-highlight: #8987f4;
+    --banner-wave: #ffffff;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 241.268 75.532% 63.137%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 241.268 75.532% 63.137%;
+    --banner-start: #37348d;
+    --banner-mid: #5d5ae8;
+    --banner-end: #24225f;
+    --banner-glow: #8582f4;
+    --banner-highlight: #aeacff;
+    --banner-wave: #d9d8ff;
+  }
+}
+
+@keyframes app-banner-orb-one-drift {
+  0%,
+  100% {
+    transform: translateX(-12%) translateY(4%) scale(0.96);
+  }
+  50% {
+    transform: translateX(24%) translateY(-8%) scale(1.22);
+  }
+}
+
+@keyframes app-banner-orb-two-drift {
+  0%,
+  100% {
+    transform: translateX(12%) translateY(-3%) scale(1.08);
+  }
+  50% {
+    transform: translateX(-24%) translateY(9%) scale(0.82);
+  }
+}
+
+@keyframes app-banner-wave-drift {
+  0%,
+  100% {
+    transform: translateX(-3%) scaleX(1.18);
+  }
+  50% {
+    transform: translateX(-14%) scaleX(1.18);
+  }
+}
+
+.app-banner-orb-one,
+.app-banner-orb-two,
+.app-banner-wave {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.app-banner-orb-one {
+  animation: app-banner-orb-one-drift 6s ease-in-out infinite;
+}
+
+.app-banner-orb-two {
+  animation: app-banner-orb-two-drift 7s ease-in-out infinite;
+}
+
+.app-banner-wave {
+  animation: app-banner-wave-drift 3.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-banner-orb-one,
+  .app-banner-orb-two,
+  .app-banner-wave {
+    animation: none;
+  }
+}

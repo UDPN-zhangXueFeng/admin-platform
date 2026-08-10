@@ -1,0 +1,186 @@
+{
+  "project": {
+    "id": "lp-portal",
+    "name": "LP Portal",
+    "logo": "/logo.svg",
+    "favicon": "/favicon.ico"
+  },
+  "theme": {
+    "mode": "system",
+    "colors": {
+      "primary": "142.1 76.2% 36.3%",
+      "background": "0 0% 100%",
+      "foreground": "222.2 84% 4.9%",
+      "primary-foreground": "355.7 100% 97.3%",
+      "secondary": "210 40% 96%",
+      "muted": "210 40% 96%",
+      "accent": "210 40% 96%",
+      "destructive": "0 84% 60%",
+      "border": "214 32% 91%",
+      "input": "214 32% 91%",
+      "ring": "142.1 76.2% 36.3%"
+    },
+    "radius": "0.5rem",
+    "fontFamily": {
+      "sans": "Inter system-ui sans-serif",
+      "mono": "JetBrains Mono monospace"
+    }
+  },
+  "layout": {
+    "type": "sidebar",
+    "sidebar": {
+      "position": "left",
+      "width": "260px",
+      "collapsible": true,
+      "collapsedWidth": "68px",
+      "showIconsOnlyCollapsed": true
+    },
+    "header": {
+      "sticky": true,
+      "showProjectSwitcher": false,
+      "showSearch": false,
+      "showNotifications": true,
+      "showUserMenu": true
+    },
+    "breadcrumb": {
+      "enabled": true
+    }
+  },
+  "modules": {
+    "enabled": [
+      "dashboard",
+      "pool",
+      "topup",
+      "preauth",
+      "pair",
+      "rate",
+      "tx-flow",
+      "settle",
+      "receipt",
+      "notify",
+      "syslog",
+      "sys", "user", "role", "menu"
+    ],
+    "order": [
+      {
+        "id": "dashboard",
+        "icon": "LayoutDashboard",
+        "label": "工作台",
+        "path": "/dashboard",
+        "group": ""
+      },
+      {
+        "id": "pool",
+        "icon": "Wallet",
+        "label": "资金池管理",
+        "path": "/pool",
+        "group": ""
+      },
+      {
+        "id": "preauth",
+        "icon": "ShieldCheck",
+        "label": "预授权管理",
+        "path": "/preauth",
+        "group": ""
+      },
+      {
+        "id": "topup",
+        "icon": "ArrowDownToLine",
+        "label": "补资",
+        "path": "/topup",
+        "group": ""
+      },
+      {
+        "id": "pair",
+        "icon": "ArrowLeftRight",
+        "label": "货币对与资金池",
+        "path": "/pair",
+        "group": ""
+      },
+      {
+        "id": "rate",
+        "icon": "TrendingUp",
+        "label": "汇率",
+        "path": "/rate",
+        "group": ""
+      },
+      {
+        "id": "tx-flow",
+        "icon": "ListTree",
+        "label": "交易流水",
+        "path": "/tx-flow",
+        "group": ""
+      },
+      {
+        "id": "settle",
+        "icon": "ReceiptText",
+        "label": "结算",
+        "path": "/settle",
+        "group": ""
+      },
+      {
+        "id": "receipt",
+        "icon": "Download",
+        "label": "源端收款明细",
+        "path": "/receipt",
+        "group": "",
+        "disabled": false
+      },
+      {
+        "id": "notify",
+        "icon": "Bell",
+        "label": "通知中心",
+        "path": "/notify",
+        "group": "more"
+      },
+      {
+        "id": "syslog",
+        "icon": "ScrollText",
+        "label": "操作日志",
+        "path": "/syslog",
+        "group": "more"
+      },
+      {
+        "id": "user",
+        "icon": "Users",
+        "label": "用户管理",
+        "path": "/sys/user",
+        "group": "more"
+      },
+      {
+        "id": "role",
+        "icon": "ShieldCheck",
+        "label": "角色管理",
+        "path": "/sys/role",
+        "group": "more"
+      },
+      {
+        "id": "menu",
+        "icon": "Menu",
+        "label": "菜单与权限",
+        "path": "/sys/menu",
+        "group": "more"
+      }
+    ],
+    "dashboard": {
+      "widgets": [
+        { "id": "pool-balance",    "type": "kpi", "title": "资金池余额", "span": 1 },
+        { "id": "low-water-alert", "type": "kpi", "title": "水位告警", "span": 1 },
+        { "id": "pending-topup",   "type": "kpi", "title": "待补资", "span": 1 },
+        { "id": "unread-notify",   "type": "kpi", "title": "未读通知", "span": 1 }
+      ]
+    }
+  },
+  "i18n": {
+    "defaultLocale": "en-US",
+    "locales": ["en-US", "zh-CN"]
+  },
+  "features": {
+    "darkMode": true,
+    "multiTab": false,
+    "fullscreen": true,
+    "exportCSV": true,
+    "bulkActions": true,
+    "inactivityLogout": false
+  }
+}

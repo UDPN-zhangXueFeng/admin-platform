@@ -336,7 +336,25 @@
         "libs/shared/util-i18n-messages/src/lib/api-msg.ts"
       ],
       "@myorg/shared/util-state": ["libs/shared/util-state/src/index.ts"],
-      "@myorg/shared/util-testing": ["libs/shared/util-testing/src/index.ts"]
+      "@myorg/shared/util-testing": ["libs/shared/util-testing/src/index.ts"],
+      "@myorg/modules/kissen-admin/feature": [
+        "libs/modules/kissen-admin/feature/src/index.ts"
+      ],
+      "@myorg/modules/kissen-admin/data-access": [
+        "libs/modules/kissen-admin/data-access/src/index.ts"
+      ],
+      "@myorg/modules/kissen-gateway/feature": [
+        "libs/modules/kissen-gateway/feature/src/index.ts"
+      ],
+      "@myorg/modules/kissen-gateway/data-access": [
+        "libs/modules/kissen-gateway/data-access/src/index.ts"
+      ],
+      "@myorg/modules/lp-portal/feature": [
+        "libs/modules/lp-portal/feature/src/index.ts"
+      ],
+      "@myorg/modules/lp-portal/data-access": [
+        "libs/modules/lp-portal/data-access/src/index.ts"
+      ]
     }
   }
 }

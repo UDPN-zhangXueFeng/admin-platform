@@ -1,0 +1,126 @@
+{
+  "project": {
+    "id": "kissen-gateway",
+    "name": "Kissen Gateway Portal",
+    "logo": "/logo.svg",
+    "favicon": "/favicon.ico"
+  },
+  "theme": {
+    "mode": "system",
+    "colors": {
+      "primary": "221.2 83.2% 53.3%",
+      "background": "0 0% 100%",
+      "foreground": "222.2 84% 4.9%",
+      "primary-foreground": "210 40% 98%",
+      "secondary": "210 40% 96%",
+      "muted": "210 40% 96%",
+      "accent": "210 40% 96%",
+      "destructive": "0 84% 60%",
+      "border": "214 32% 91%",
+      "input": "214 32% 91%",
+      "ring": "221.2 83.2% 53.3%"
+    },
+    "radius": "0.5rem",
+    "fontFamily": {
+      "sans": "Inter system-ui sans-serif",
+      "mono": "JetBrains Mono monospace"
+    }
+  },
+  "layout": {
+    "type": "sidebar",
+    "sidebar": {
+      "position": "left",
+      "width": "260px",
+      "collapsible": true,
+      "collapsedWidth": "68px",
+      "showIconsOnlyCollapsed": true
+    },
+    "header": {
+      "sticky": true,
+      "showProjectSwitcher": false,
+      "showSearch": false,
+      "showNotifications": true,
+      "showUserMenu": true
+    },
+    "breadcrumb": {
+      "enabled": true
+    }
+  },
+  "modules": {
+    "enabled": [
+      "onboard",
+      "dashboard",
+      "tx",
+      "market", "currencypair", "lp", "rate",
+      "system", "user", "role", "menu", "log"
+    ],
+    "order": [
+      {
+        "id": "onboard",
+        "icon": "FileCheck2",
+        "label": "入网申请",
+        "path": "/onboard",
+        "group": ""
+      },
+      {
+        "id": "dashboard",
+        "icon": "LayoutDashboard",
+        "label": "仪表盘",
+        "path": "/dashboard",
+        "group": ""
+      },
+      {
+        "id": "tx",
+        "icon": "Receipt",
+        "label": "交易记录",
+        "path": "/tx",
+        "group": ""
+      },
+      {
+        "id": "market",
+        "icon": "Coins",
+        "label": "业务查看",
+        "path": "/market/currencypair",
+        "group": "",
+        "children": [
+          { "id": "currencypair", "icon": "ArrowRightLeft", "label": "货币对", "path": "/market/currencypair" },
+          { "id": "lp",           "icon": "Building2",      "label": "LP 列表", "path": "/market/lp" },
+          { "id": "rate",         "icon": "TrendingUp",     "label": "汇率",     "path": "/market/rate" }
+        ]
+      },
+      {
+        "id": "system",
+        "icon": "Shield",
+        "label": "系统管理",
+        "path": "/system/user",
+        "group": "",
+        "children": [
+          { "id": "user", "icon": "Users",       "label": "用户管理", "path": "/system/user" },
+          { "id": "role", "icon": "ShieldCheck", "label": "角色管理", "path": "/system/role" },
+          { "id": "menu", "icon": "ListTree",    "label": "菜单权限", "path": "/system/menu" },
+          { "id": "log",  "icon": "ScrollText",  "label": "操作日志", "path": "/system/log", "group": "more" }
+        ]
+      }
+    ],
+    "dashboard": {
+      "widgets": [
+        { "id": "total-tx",     "type": "kpi", "title": "交易总数", "span": 1 },
+        { "id": "pending-tx",   "type": "kpi", "title": "待处理交易", "span": 1 },
+        { "id": "active-pairs", "type": "kpi", "title": "活跃货币对", "span": 1 },
+        { "id": "active-lps",   "type": "kpi", "title": "活跃 LP", "span": 1 }
+      ]
+    }
+  },
+  "i18n": {
+    "defaultLocale": "en-US",
+    "locales": ["en-US", "zh-CN"]
+  },
+  "features": {
+    "darkMode": true,
+    "multiTab": false,
+    "fullscreen": true,
+    "exportCSV": true,
+    "bulkActions": true,
+    "inactivityLogout": false
+  }
+}

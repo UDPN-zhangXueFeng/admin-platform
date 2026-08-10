@@ -1,0 +1,182 @@
+{
+  "project": {
+    "id": "kissen-admin",
+    "name": "Kissen Admin",
+    "logo": "/logo.svg",
+    "favicon": "/favicon.ico"
+  },
+  "theme": {
+    "mode": "system",
+    "colors": {
+      "primary": "241.268 75.532% 63.137%",
+      "background": "0 0% 100%",
+      "foreground": "222.2 84% 4.9%",
+      "primary-foreground": "210 40% 98%",
+      "secondary": "210 40% 96%",
+      "muted": "210 40% 96%",
+      "accent": "210 40% 96%",
+      "destructive": "0 84% 60%",
+      "border": "214 32% 91%",
+      "input": "214 32% 91%",
+      "ring": "241.268 75.532% 63.137%"
+    },
+    "radius": "0.5rem",
+    "fontFamily": {
+      "sans": "Inter system-ui sans-serif",
+      "mono": "JetBrains Mono monospace"
+    }
+  },
+  "layout": {
+    "type": "sidebar",
+    "sidebar": {
+      "position": "left",
+      "width": "260px",
+      "collapsible": true,
+      "collapsedWidth": "68px",
+      "showIconsOnlyCollapsed": true
+    },
+    "header": {
+      "sticky": true,
+      "showProjectSwitcher": false,
+      "showSearch": false,
+      "showNotifications": true,
+      "showUserMenu": true
+    },
+    "breadcrumb": {
+      "enabled": true
+    }
+  },
+  "modules": {
+    "enabled": [
+      "dashboard",
+      "bank-onboard", "bank-info", "bank-approval", "gateway-register",
+      "lp-liquidity", "lp-info", "lp-pool", "lp-preauth", "lp-currency-pair", "lp-topup", "lp-water-level",
+      "fx-rate", "currency-pair", "rate-config", "rate-push-log",
+      "transaction", "tx-list", "tx-exception", "tx-reversal",
+      "settlement", "settle-record", "settle-order", "split-transfer", "reconcile",
+      "risk-compliance", "freeze", "monitor-rule", "monitor-hit",
+      "approval-center",
+      "system", "sys-user", "sys-role", "sys-menu", "workflow-config", "scheduled-task", "operate-log"
+    ],
+    "order": [
+      {
+        "id": "dashboard",
+        "icon": "LayoutDashboard",
+        "label": "运营驾驶舱",
+        "path": "/dashboard",
+        "group": ""
+      },
+      {
+        "id": "bank-onboard",
+        "icon": "Banknote",
+        "label": "银行入网管理",
+        "group": "",
+        "children": [
+          { "id": "bank-info",        "icon": "Banknote",     "label": "银行资料与配置", "path": "/bank-onboard/bank-info" },
+          { "id": "bank-approval",    "icon": "BadgeCheck",   "label": "入网审核与启用", "path": "/bank-onboard/bank-approval" },
+          { "id": "gateway-register", "icon": "Network",      "label": "Gateway 实例登记", "path": "/bank-onboard/gateway-register" }
+        ]
+      },
+      {
+        "id": "lp-liquidity",
+        "icon": "Layers",
+        "label": "LP 入网与流动性",
+        "group": "",
+        "children": [
+          { "id": "lp-info",          "icon": "Users",         "label": "LP 资料与初始化",   "path": "/lp-liquidity/lp-info" },
+          { "id": "lp-pool",          "icon": "Wallet",        "label": "资金池登记",         "path": "/lp-liquidity/lp-pool" },
+          { "id": "lp-preauth",       "icon": "KeyRound",      "label": "预授权管理",         "path": "/lp-liquidity/lp-preauth" },
+          { "id": "lp-currency-pair", "icon": "ArrowLeftRight","label": "参与货币对清单",    "path": "/lp-liquidity/lp-currency-pair" },
+          { "id": "lp-topup",         "icon": "PlusCircle",    "label": "补资流水",           "path": "/lp-liquidity/lp-topup" },
+          { "id": "lp-water-level",   "icon": "Gauge",         "label": "水位监控",           "path": "/lp-liquidity/lp-water-level" }
+        ]
+      },
+      {
+        "id": "fx-rate",
+        "icon": "TrendingUp",
+        "label": "汇率与货币对",
+        "group": "",
+        "children": [
+          { "id": "currency-pair",  "icon": "Coins",        "label": "货币对启停与限额", "path": "/fx-rate/currency-pair" },
+          { "id": "rate-config",    "icon": "TrendingUp",   "label": "汇率与加价率配置", "path": "/fx-rate/rate-config" },
+          { "id": "rate-push-log",  "icon": "Send",         "label": "汇率推送记录",     "path": "/fx-rate/rate-push-log" }
+        ]
+      },
+      {
+        "id": "transaction",
+        "icon": "Coins",
+        "label": "转账 / 交易管理",
+        "group": "",
+        "children": [
+          { "id": "tx-list",      "icon": "List",          "label": "交易查询",           "path": "/transaction/tx-list" },
+          { "id": "tx-exception", "icon": "AlertTriangle", "label": "异常(EXCEPTION)处理", "path": "/transaction/tx-exception" },
+          { "id": "tx-reversal",  "icon": "Undo2",         "label": "冲正记录",           "path": "/transaction/tx-reversal" }
+        ]
+      },
+      {
+        "id": "settlement",
+        "icon": "Scale",
+        "label": "结算与对账",
+        "group": "",
+        "children": [
+          { "id": "settle-record",   "icon": "Receipt",       "label": "结算流水",         "path": "/settlement/settle-record" },
+          { "id": "settle-order",    "icon": "GanttChart",    "label": "结算单确认",       "path": "/settlement/settle-order" },
+          { "id": "split-transfer",  "icon": "ArrowLeftRight","label": "分成划转",         "path": "/settlement/split-transfer" },
+          { "id": "reconcile",       "icon": "FileSearch",    "label": "日终对账与差异复核", "path": "/settlement/reconcile" }
+        ]
+      },
+      {
+        "id": "risk-compliance",
+        "icon": "Shield",
+        "label": "风控合规",
+        "group": "",
+        "children": [
+          { "id": "freeze",        "icon": "Snowflake",       "label": "紧急冻结 / 解冻", "path": "/risk-compliance/freeze" },
+          { "id": "monitor-rule",  "icon": "SlidersHorizontal","label": "监控规则",        "path": "/risk-compliance/monitor-rule" },
+          { "id": "monitor-hit",   "icon": "Flag",            "label": "命中记录",        "path": "/risk-compliance/monitor-hit" }
+        ]
+      },
+      {
+        "id": "approval-center",
+        "icon": "Bell",
+        "label": "审批中心",
+        "path": "/approval-center",
+        "group": ""
+      },
+      {
+        "id": "system",
+        "icon": "Settings",
+        "label": "系统管理",
+        "group": "",
+        "children": [
+          { "id": "sys-user",        "icon": "UserCog",    "label": "用户管理",     "path": "/system/sys-user" },
+          { "id": "sys-role",        "icon": "Users",      "label": "角色管理",     "path": "/system/sys-role" },
+          { "id": "sys-menu",        "icon": "ListTree",   "label": "菜单与接口权限", "path": "/system/sys-menu" },
+          { "id": "workflow-config", "icon": "Workflow",   "label": "审批流定义",   "path": "/system/workflow-config" },
+          { "id": "scheduled-task",  "icon": "Clock",      "label": "定时任务监控", "path": "/system/scheduled-task" },
+          { "id": "operate-log",     "icon": "ScrollText", "label": "操作日志",     "path": "/system/operate-log" }
+        ]
+      }
+    ],
+    "dashboard": {
+      "widgets": [
+        { "id": "pending-tx",       "type": "kpi", "title": "在途交易", "span": 1 },
+        { "id": "exception-tx",     "type": "kpi", "title": "EXCEPTION 待处理", "span": 1 },
+        { "id": "water-level-lp",   "type": "kpi", "title": "水位告警 LP", "span": 1 },
+        { "id": "pending-approval", "type": "kpi", "title": "待审批", "span": 1 }
+      ]
+    }
+  },
+  "i18n": {
+    "defaultLocale": "en-US",
+    "locales": ["en-US", "zh-CN"]
+  },
+  "features": {
+    "darkMode": true,
+    "multiTab": false,
+    "fullscreen": true,
+    "exportCSV": true,
+    "bulkActions": true,
+    "inactivityLogout": false
+  }
+}
