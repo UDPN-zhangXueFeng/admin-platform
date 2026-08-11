@@ -1,4 +1,4 @@
-export * from './lib/mock-components';
+export type { MockColumn, MockField } from '@myorg/shared/ui';
 export * from './lib/dashboard-page';
 export * from './lib/bank-onboard-pages';
 export * from './lib/lp-liquidity-pages';

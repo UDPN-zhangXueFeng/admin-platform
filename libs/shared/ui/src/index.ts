@@ -31,3 +31,5 @@ export * from './lib/badge';
 export * from './lib/alert';
 export * from './lib/textarea';
 export * from './lib/skeleton';
+export * from './lib/mock-page';
+export * from './lib/mock-login';

@@ -39,6 +39,7 @@ export default function middleware(request: NextRequest) {
 
   // Authenticated user on /login → redirect to dashboard
   if (isAuthenticated && pathWithoutLocale === '/login') {
+    const url = request.nextUrl.clone();
     url.pathname = `/${locale}/dashboard`;
     return NextResponse.redirect(url);
   }

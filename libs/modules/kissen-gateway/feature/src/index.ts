@@ -31,11 +31,4 @@ export {
 export type {
   MockColumn,
   MockField,
-} from './lib/mock-components';
-
-export {
-  MockListPage,
-  MockDetailPage,
-  MockFormPage,
-  MockDashboardPage,
-} from './lib/mock-components';
+} from '@myorg/shared/ui';

@@ -1,27 +1,26 @@
 'use client';
 
 import * as React from 'react';
-import { Badge } from '@myorg/shared/ui';
 import {
+  Badge,
   MockDetailPage,
   MockListPage,
   type MockColumn,
   type MockField,
-} from './mock-components';
-
+} from '@myorg/shared/ui';
 /* ------------------------------------------------------------------ *
- * 结算（settle）
- * 菜单标签：结算  路径：/settle
- * 页面键：list / detail
+ * Settlement (settle)
+ * Menu label: Settlement  Path: /settle
+ * Page keys: list / detail
  * ------------------------------------------------------------------ */
 
 const listColumns: MockColumn[] = [
-  { key: 'settleNo', label: '结算单号' },
-  { key: 'period', label: '结算周期' },
-  { key: 'pairCode', label: '货币对' },
-  { key: 'netAmount', label: '净额' },
-  { key: 'status', label: '状态' },
-  { key: 'settledAt', label: '结算时间' },
+  { key: 'settleNo', label: 'Settlement No.' },
+  { key: 'period', label: 'Settlement Period' },
+  { key: 'pairCode', label: 'Currency Pair' },
+  { key: 'netAmount', label: 'Net Amount' },
+  { key: 'status', label: 'Status' },
+  { key: 'settledAt', label: 'Settled At' },
 ];
 
 const listRows: Record<string, React.ReactNode>[] = [
@@ -30,7 +29,7 @@ const listRows: Record<string, React.ReactNode>[] = [
     period: '2026-08-01 ~ 2026-08-07',
     pairCode: 'CNY/USD',
     netAmount: '¥ 1,250,000.00',
-    status: <Badge>已结算</Badge>,
+    status: <Badge>Settled</Badge>,
     settledAt: '2026-08-08 02:00:00',
   },
   {
@@ -38,7 +37,7 @@ const listRows: Record<string, React.ReactNode>[] = [
     period: '2026-08-01 ~ 2026-08-07',
     pairCode: 'CNY/HKD',
     netAmount: 'HK$ 480,000.00',
-    status: <Badge variant="secondary">对账中</Badge>,
+    status: <Badge variant="secondary">Reconciling</Badge>,
     settledAt: '-',
   },
   {
@@ -46,20 +45,20 @@ const listRows: Record<string, React.ReactNode>[] = [
     period: '2026-07-25 ~ 2026-07-31',
     pairCode: 'USD/EUR',
     netAmount: '€ 95,000.00',
-    status: <Badge variant="destructive">异常</Badge>,
+    status: <Badge variant="destructive">Exception</Badge>,
     settledAt: '-',
   },
 ];
 
 const detailFields: MockField[] = [
-  { key: 'settleNo', label: '结算单号' },
-  { key: 'period', label: '结算周期' },
-  { key: 'pairCode', label: '货币对' },
-  { key: 'grossAmount', label: '总额' },
-  { key: 'fee', label: '手续费' },
-  { key: 'netAmount', label: '净额' },
-  { key: 'status', label: '状态' },
-  { key: 'settledAt', label: '结算时间' },
+  { key: 'settleNo', label: 'Settlement No.' },
+  { key: 'period', label: 'Settlement Period' },
+  { key: 'pairCode', label: 'Currency Pair' },
+  { key: 'grossAmount', label: 'Gross Amount' },
+  { key: 'fee', label: 'Fee' },
+  { key: 'netAmount', label: 'Net Amount' },
+  { key: 'status', label: 'Status' },
+  { key: 'settledAt', label: 'Settled At' },
 ];
 
 const detailData: Record<string, React.ReactNode> = {
@@ -69,22 +68,22 @@ const detailData: Record<string, React.ReactNode> = {
   grossAmount: '¥ 1,260,000.00',
   fee: '¥ 10,000.00',
   netAmount: '¥ 1,250,000.00',
-  status: <Badge>已结算</Badge>,
+  status: <Badge>Settled</Badge>,
   settledAt: '2026-08-08 02:00:00',
 };
 
 export function SettleListPage() {
   return (
     <MockListPage
-      title="结算"
-      description="按周期查看 LP 资金池结算单与对账状态"
+      title="Settlement"
+      description="View LP liquidity pool settlement statements and reconciliation statuses by period"
       columns={listColumns}
       rows={listRows}
-      actionLabel="导出"
+      actionLabel="Export"
     />
   );
 }
 
 export function SettleDetailPage() {
-  return <MockDetailPage title="结算详情" fields={detailFields} data={detailData} />;
+  return <MockDetailPage title="Settlement Detail" fields={detailFields} data={detailData} />;
 }

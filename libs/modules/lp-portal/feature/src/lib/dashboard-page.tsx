@@ -1,21 +1,21 @@
 'use client';
 
-import { MockDashboardPage } from './mock-components';
+import { MockDashboardPage } from '@myorg/shared/ui'
 
 /**
- * 工作台 —— LP Portal 运营驾驶舱。
- * KPI 项来自 configs/lp-portal.json 的 dashboard.widgets：
- * 资金池余额 / 水位告警 / 待补资 / 未读通知。
+ * Dashboard — LP Portal operations cockpit.
+ * KPI items come from configs/lp-portal.json dashboard.widgets:
+ * Liquidity pool balance / water-level alerts / pending top-ups / unread notifications.
  */
 export function DashboardPage() {
   return (
     <MockDashboardPage
-      title="工作台"
+      title="Dashboard"
       stats={[
-        { label: '资金池余额', value: '¥ 12,580,300.00' },
-        { label: '水位告警', value: '2' },
-        { label: '待补资', value: '5' },
-        { label: '未读通知', value: '7' },
+        { label: 'Liquidity Pool Balance', value: '¥ 12,580,300.00' },
+        { label: 'Water Level Alert', value: '2' },
+        { label: 'Pending Top-up', value: '5' },
+        { label: 'Unread Notifications', value: '7' },
       ]}
     />
   );

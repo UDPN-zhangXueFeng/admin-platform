@@ -4,65 +4,65 @@ import {
   MockListPage,
   MockDetailPage,
   MockFormPage,
+  Badge,
   type MockColumn,
   type MockField,
-} from './mock-components';
-import { Badge } from '@myorg/shared/ui';
+} from '@myorg/shared/ui';
 
 /* ------------------------------------------------------------------ */
-/* bank-info — 银行资料与配置                                          */
+/* bank-info — Bank Profile & Configuration                            */
 /* ------------------------------------------------------------------ */
 
 const bankInfoColumns: MockColumn[] = [
-  { key: 'id', label: '银行编号' },
-  { key: 'name', label: '银行名称' },
-  { key: 'code', label: '清算编码' },
-  { key: 'contact', label: '联系人' },
-  { key: 'status', label: '状态' },
+  { key: 'id', label: 'Bank ID' },
+  { key: 'name', label: 'Bank Name' },
+  { key: 'code', label: 'Clearing Code' },
+  { key: 'contact', label: 'Contact Person' },
+  { key: 'status', label: 'Status' },
 ];
 
 const bankInfoRows = [
-  { id: 'BK001', name: '示例银行 A', code: 'CLRBK001', contact: '张三', status: <Badge>已启用</Badge> },
-  { id: 'BK002', name: '示例银行 B', code: 'CLRBK002', contact: '李四', status: <Badge variant="secondary">待审核</Badge> },
-  { id: 'BK003', name: '示例银行 C', code: 'CLRBK003', contact: '王五', status: <Badge>已启用</Badge> },
-  { id: 'BK004', name: '示例银行 D', code: 'CLRBK004', contact: '赵六', status: <Badge variant="destructive">已停用</Badge> },
+  { id: 'BK001', name: 'Sample Bank A', code: 'CLRBK001', contact: 'Zhang San', status: <Badge>Enabled</Badge> },
+  { id: 'BK002', name: 'Sample Bank B', code: 'CLRBK002', contact: 'Li Si', status: <Badge variant="secondary">Pending Review</Badge> },
+  { id: 'BK003', name: 'Sample Bank C', code: 'CLRBK003', contact: 'Wang Wu', status: <Badge>Enabled</Badge> },
+  { id: 'BK004', name: 'Sample Bank D', code: 'CLRBK004', contact: 'Zhao Liu', status: <Badge variant="destructive">Disabled</Badge> },
 ];
 
 const bankInfoFields: MockField[] = [
-  { key: 'id', label: '银行编号' },
-  { key: 'name', label: '银行名称' },
-  { key: 'code', label: '清算编码' },
-  { key: 'contact', label: '联系人' },
-  { key: 'phone', label: '联系电话' },
-  { key: 'status', label: '状态' },
-  { key: 'settleAccount', label: '结算账户' },
-  { key: 'createdAt', label: '入网时间' },
+  { key: 'id', label: 'Bank ID' },
+  { key: 'name', label: 'Bank Name' },
+  { key: 'code', label: 'Clearing Code' },
+  { key: 'contact', label: 'Contact Person' },
+  { key: 'phone', label: 'Contact Phone' },
+  { key: 'status', label: 'Status' },
+  { key: 'settleAccount', label: 'Settlement Account' },
+  { key: 'createdAt', label: 'Onboarding Time' },
 ];
 
 const bankInfoData = {
   id: 'BK001',
-  name: '示例银行 A',
+  name: 'Sample Bank A',
   code: 'CLRBK001',
-  contact: '张三',
+  contact: 'Zhang San',
   phone: '138-0000-0001',
-  status: <Badge>已启用</Badge>,
+  status: <Badge>Enabled</Badge>,
   settleAccount: '6228 4800 0000 0001',
   createdAt: '2026-07-01 09:00:00',
 };
 
 const bankInfoFormFields: MockField[] = [
-  { key: 'name', label: '银行名称' },
-  { key: 'code', label: '清算编码' },
-  { key: 'contact', label: '联系人' },
-  { key: 'phone', label: '联系电话' },
-  { key: 'settleAccount', label: '结算账户' },
+  { key: 'name', label: 'Bank Name' },
+  { key: 'code', label: 'Clearing Code' },
+  { key: 'contact', label: 'Contact Person' },
+  { key: 'phone', label: 'Contact Phone' },
+  { key: 'settleAccount', label: 'Settlement Account' },
 ];
 
 export function BankInfoListPage() {
   return (
     <MockListPage
-      title="银行资料与配置"
-      description="管理入网银行的基础资料与清算配置"
+      title="Bank Profile & Configuration"
+      description="Manage basic profiles and clearing configuration of onboarded banks"
       columns={bankInfoColumns}
       rows={bankInfoRows}
     />
@@ -70,119 +70,119 @@ export function BankInfoListPage() {
 }
 
 export function BankInfoDetailPage() {
-  return <MockDetailPage title="银行详情" fields={bankInfoFields} data={bankInfoData} />;
+  return <MockDetailPage title="Bank Details" fields={bankInfoFields} data={bankInfoData} />;
 }
 
 export function BankInfoFormPage() {
-  return <MockFormPage title="银行资料编辑" fields={bankInfoFormFields} />;
+  return <MockFormPage title="Bank Profile Edit" fields={bankInfoFormFields} />;
 }
 
 /* ------------------------------------------------------------------ */
-/* bank-approval — 入网审核与启用                                      */
+/* bank-approval — Onboarding Review & Enablement                      */
 /* ------------------------------------------------------------------ */
 
 const bankApprovalColumns: MockColumn[] = [
-  { key: 'id', label: '申请编号' },
-  { key: 'bankName', label: '银行名称' },
-  { key: 'type', label: '申请类型' },
-  { key: 'applicant', label: '申请人' },
-  { key: 'status', label: '审核状态' },
+  { key: 'id', label: 'Application No.' },
+  { key: 'bankName', label: 'Bank Name' },
+  { key: 'type', label: 'Application Type' },
+  { key: 'applicant', label: 'Applicant' },
+  { key: 'status', label: 'Review Status' },
 ];
 
 const bankApprovalRows = [
-  { id: 'AP202608001', bankName: '示例银行 B', type: '新增入网', applicant: '李四', status: <Badge variant="secondary">待审核</Badge> },
-  { id: 'AP202608002', bankName: '示例银行 A', type: '信息变更', applicant: '张三', status: <Badge>已通过</Badge> },
-  { id: 'AP202608003', bankName: '示例银行 C', type: '启用变更', applicant: '王五', status: <Badge variant="secondary">待审核</Badge> },
-  { id: 'AP202608004', bankName: '示例银行 D', type: '停用申请', applicant: '赵六', status: <Badge variant="destructive">已驳回</Badge> },
+  { id: 'AP202608001', bankName: 'Sample Bank B', type: 'New Onboarding', applicant: 'Li Si', status: <Badge variant="secondary">Pending Review</Badge> },
+  { id: 'AP202608002', bankName: 'Sample Bank A', type: 'Information Update', applicant: 'Zhang San', status: <Badge>Approved</Badge> },
+  { id: 'AP202608003', bankName: 'Sample Bank C', type: 'Enablement Change', applicant: 'Wang Wu', status: <Badge variant="secondary">Pending Review</Badge> },
+  { id: 'AP202608004', bankName: 'Sample Bank D', type: 'Disable Request', applicant: 'Zhao Liu', status: <Badge variant="destructive">Rejected</Badge> },
 ];
 
 const bankApprovalFields: MockField[] = [
-  { key: 'id', label: '申请编号' },
-  { key: 'bankName', label: '银行名称' },
-  { key: 'type', label: '申请类型' },
-  { key: 'applicant', label: '申请人' },
-  { key: 'applyTime', label: '申请时间' },
-  { key: 'reviewer', label: '审核人' },
-  { key: 'reviewTime', label: '审核时间' },
-  { key: 'status', label: '审核状态' },
+  { key: 'id', label: 'Application No.' },
+  { key: 'bankName', label: 'Bank Name' },
+  { key: 'type', label: 'Application Type' },
+  { key: 'applicant', label: 'Applicant' },
+  { key: 'applyTime', label: 'Application Time' },
+  { key: 'reviewer', label: 'Reviewer' },
+  { key: 'reviewTime', label: 'Review Time' },
+  { key: 'status', label: 'Review Status' },
 ];
 
 const bankApprovalData = {
   id: 'AP202608001',
-  bankName: '示例银行 B',
-  type: '新增入网',
-  applicant: '李四',
+  bankName: 'Sample Bank B',
+  type: 'New Onboarding',
+  applicant: 'Li Si',
   applyTime: '2026-08-05 14:20:00',
   reviewer: '—',
   reviewTime: '—',
-  status: <Badge variant="secondary">待审核</Badge>,
+  status: <Badge variant="secondary">Pending Review</Badge>,
 };
 
 export function BankApprovalListPage() {
-  return <MockListPage title="入网审核与启用" columns={bankApprovalColumns} rows={bankApprovalRows} />;
+  return <MockListPage title="Onboarding Review & Enablement" columns={bankApprovalColumns} rows={bankApprovalRows} />;
 }
 
 export function BankApprovalDetailPage() {
-  return <MockDetailPage title="审核详情" fields={bankApprovalFields} data={bankApprovalData} />;
+  return <MockDetailPage title="Review Details" fields={bankApprovalFields} data={bankApprovalData} />;
 }
 
 /* ------------------------------------------------------------------ */
-/* gateway-register — Gateway 实例登记                                 */
+/* gateway-register — Gateway Instance Registration                    */
 /* ------------------------------------------------------------------ */
 
 const gatewayRegisterColumns: MockColumn[] = [
-  { key: 'id', label: '实例编号' },
-  { key: 'name', label: '实例名称' },
-  { key: 'region', label: '所属区域' },
-  { key: 'endpoint', label: '接入地址' },
-  { key: 'status', label: '状态' },
+  { key: 'id', label: 'Instance ID' },
+  { key: 'name', label: 'Instance Name' },
+  { key: 'region', label: 'Region' },
+  { key: 'endpoint', label: 'Endpoint' },
+  { key: 'status', label: 'Status' },
 ];
 
 const gatewayRegisterRows = [
-  { id: 'GW001', name: 'gateway-prod-cn', region: '华东 1', endpoint: 'https://gw-cn.example.com', status: <Badge>运行中</Badge> },
-  { id: 'GW002', name: 'gateway-prod-hk', region: '香港', endpoint: 'https://gw-hk.example.com', status: <Badge>运行中</Badge> },
-  { id: 'GW003', name: 'gateway-sg', region: '新加坡', endpoint: 'https://gw-sg.example.com', status: <Badge variant="secondary">待启用</Badge> },
-  { id: 'GW004', name: 'gateway-us', region: '美西', endpoint: 'https://gw-us.example.com', status: <Badge variant="destructive">已停用</Badge> },
+  { id: 'GW001', name: 'gateway-prod-cn', region: 'East China 1', endpoint: 'https://gw-cn.example.com', status: <Badge>Running</Badge> },
+  { id: 'GW002', name: 'gateway-prod-hk', region: 'Hong Kong', endpoint: 'https://gw-hk.example.com', status: <Badge>Running</Badge> },
+  { id: 'GW003', name: 'gateway-sg', region: 'Singapore', endpoint: 'https://gw-sg.example.com', status: <Badge variant="secondary">Pending Enable</Badge> },
+  { id: 'GW004', name: 'gateway-us', region: 'US West', endpoint: 'https://gw-us.example.com', status: <Badge variant="destructive">Disabled</Badge> },
 ];
 
 const gatewayRegisterFields: MockField[] = [
-  { key: 'id', label: '实例编号' },
-  { key: 'name', label: '实例名称' },
-  { key: 'region', label: '所属区域' },
-  { key: 'endpoint', label: '接入地址' },
-  { key: 'version', label: '网关版本' },
-  { key: 'bindBank', label: '绑定银行' },
-  { key: 'createdAt', label: '登记时间' },
-  { key: 'status', label: '状态' },
+  { key: 'id', label: 'Instance ID' },
+  { key: 'name', label: 'Instance Name' },
+  { key: 'region', label: 'Region' },
+  { key: 'endpoint', label: 'Endpoint' },
+  { key: 'version', label: 'Gateway Version' },
+  { key: 'bindBank', label: 'Bound Bank' },
+  { key: 'createdAt', label: 'Registration Time' },
+  { key: 'status', label: 'Status' },
 ];
 
 const gatewayRegisterData = {
   id: 'GW001',
   name: 'gateway-prod-cn',
-  region: '华东 1',
+  region: 'East China 1',
   endpoint: 'https://gw-cn.example.com',
   version: '2.4.1',
-  bindBank: '示例银行 A',
+  bindBank: 'Sample Bank A',
   createdAt: '2026-06-15 10:30:00',
-  status: <Badge>运行中</Badge>,
+  status: <Badge>Running</Badge>,
 };
 
 const gatewayRegisterFormFields: MockField[] = [
-  { key: 'name', label: '实例名称' },
-  { key: 'region', label: '所属区域' },
-  { key: 'endpoint', label: '接入地址' },
-  { key: 'version', label: '网关版本' },
-  { key: 'bindBank', label: '绑定银行' },
+  { key: 'name', label: 'Instance Name' },
+  { key: 'region', label: 'Region' },
+  { key: 'endpoint', label: 'Endpoint' },
+  { key: 'version', label: 'Gateway Version' },
+  { key: 'bindBank', label: 'Bound Bank' },
 ];
 
 export function GatewayRegisterListPage() {
-  return <MockListPage title="Gateway 实例登记" columns={gatewayRegisterColumns} rows={gatewayRegisterRows} />;
+  return <MockListPage title="Gateway Instance Registration" columns={gatewayRegisterColumns} rows={gatewayRegisterRows} />;
 }
 
 export function GatewayRegisterDetailPage() {
-  return <MockDetailPage title="实例详情" fields={gatewayRegisterFields} data={gatewayRegisterData} />;
+  return <MockDetailPage title="Instance Details" fields={gatewayRegisterFields} data={gatewayRegisterData} />;
 }
 
 export function GatewayRegisterFormPage() {
-  return <MockFormPage title="Gateway 实例登记" fields={gatewayRegisterFormFields} />;
+  return <MockFormPage title="Gateway Instance Registration" fields={gatewayRegisterFormFields} />;
 }

@@ -1,92 +1,91 @@
 'use client';
 
 import * as React from 'react';
-import { Badge } from '@myorg/shared/ui';
 import {
+  Badge,
   MockDetailPage,
   MockFormPage,
   MockListPage,
   type MockColumn,
   type MockField,
-} from './mock-components';
-
+} from '@myorg/shared/ui';
 /* ================================================================== *
- * 系统管理（sys 分组）
- * 路径：/sys/user | /sys/role | /sys/menu
+ * System Management (sys group)
+ * Path: /sys/user | /sys/role | /sys/menu
  * ================================================================== */
 
 /* ------------------------------------------------------------------ *
- * 用户管理（user）  list / create / edit / detail
+ * User Management (user)  list / create / edit / detail
  * ------------------------------------------------------------------ */
 
 const userListColumns: MockColumn[] = [
-  { key: 'username', label: '用户名' },
-  { key: 'name', label: '姓名' },
-  { key: 'role', label: '角色' },
-  { key: 'email', label: '邮箱' },
-  { key: 'status', label: '状态' },
+  { key: 'username', label: 'Username' },
+  { key: 'name', label: 'Name' },
+  { key: 'role', label: 'Role' },
+  { key: 'email', label: 'Email' },
+  { key: 'status', label: 'Status' },
 ];
 
 const userListRows: Record<string, React.ReactNode>[] = [
   {
     username: 'lp-admin',
-    name: '张管理',
-    role: '系统管理员',
+    name: 'Alice Zhang',
+    role: 'System Administrator',
     email: 'admin@lp.example',
-    status: <Badge>启用</Badge>,
+    status: <Badge>Enabled</Badge>,
   },
   {
     username: 'lp-ops',
-    name: '李运营',
-    role: '运营',
+    name: 'Brian Li',
+    role: 'Operations',
     email: 'ops@lp.example',
-    status: <Badge>启用</Badge>,
+    status: <Badge>Enabled</Badge>,
   },
   {
     username: 'lp-finance',
-    name: '王财务',
-    role: '财务',
+    name: 'Carol Wang',
+    role: 'Finance',
     email: 'finance@lp.example',
-    status: <Badge variant="secondary">停用</Badge>,
+    status: <Badge variant="secondary">Disabled</Badge>,
   },
 ];
 
 const userDetailFields: MockField[] = [
-  { key: 'username', label: '用户名' },
-  { key: 'name', label: '姓名' },
-  { key: 'role', label: '角色' },
-  { key: 'email', label: '邮箱' },
-  { key: 'phone', label: '手机号' },
-  { key: 'status', label: '状态' },
-  { key: 'lastLoginAt', label: '最后登录' },
-  { key: 'createdAt', label: '创建时间' },
+  { key: 'username', label: 'Username' },
+  { key: 'name', label: 'Name' },
+  { key: 'role', label: 'Role' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'status', label: 'Status' },
+  { key: 'lastLoginAt', label: 'Last Login' },
+  { key: 'createdAt', label: 'Created At' },
 ];
 
 const userDetailData: Record<string, React.ReactNode> = {
   username: 'lp-admin',
-  name: '张管理',
-  role: '系统管理员',
+  name: 'Alice Zhang',
+  role: 'System Administrator',
   email: 'admin@lp.example',
   phone: '138****0001',
-  status: <Badge>启用</Badge>,
+  status: <Badge>Enabled</Badge>,
   lastLoginAt: '2026-08-10 08:00:00',
   createdAt: '2026-01-01 00:00:00',
 };
 
 const userFormFields: MockField[] = [
-  { key: 'username', label: '用户名' },
-  { key: 'name', label: '姓名' },
-  { key: 'role', label: '角色', type: 'select', options: ['系统管理员', '运营', '财务', '只读'] },
-  { key: 'email', label: '邮箱' },
-  { key: 'phone', label: '手机号' },
-  { key: 'status', label: '状态', type: 'select', options: ['启用', '停用'] },
+  { key: 'username', label: 'Username' },
+  { key: 'name', label: 'Name' },
+  { key: 'role', label: 'Role', type: 'select', options: ['System Administrator', 'Operations', 'Finance', 'Read-only'] },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'status', label: 'Status', type: 'select', options: ['Enabled', 'Disabled'] },
 ];
 
 export function UserListPage() {
   return (
     <MockListPage
-      title="用户管理"
-      description="维护 LP Portal 用户账号与角色"
+      title="User Management"
+      description="Maintain LP Portal user accounts and roles"
       columns={userListColumns}
       rows={userListRows}
     />
@@ -95,80 +94,80 @@ export function UserListPage() {
 
 export function UserDetailPage() {
   return (
-    <MockDetailPage title="用户详情" fields={userDetailFields} data={userDetailData} />
+    <MockDetailPage title="User Detail" fields={userDetailFields} data={userDetailData} />
   );
 }
 
 export function UserFormPage() {
-  return <MockFormPage title="用户编辑" fields={userFormFields} />;
+  return <MockFormPage title="User Edit" fields={userFormFields} />;
 }
 
 /* ------------------------------------------------------------------ *
- * 角色管理（role）  list / create / edit / detail
+ * Role Management (role)  list / create / edit / detail
  * ------------------------------------------------------------------ */
 
 const roleListColumns: MockColumn[] = [
-  { key: 'roleCode', label: '角色编码' },
-  { key: 'roleName', label: '角色名称' },
-  { key: 'userCount', label: '用户数' },
-  { key: 'status', label: '状态' },
-  { key: 'updatedAt', label: '更新时间' },
+  { key: 'roleCode', label: 'Role Code' },
+  { key: 'roleName', label: 'Role Name' },
+  { key: 'userCount', label: 'User Count' },
+  { key: 'status', label: 'Status' },
+  { key: 'updatedAt', label: 'Updated At' },
 ];
 
 const roleListRows: Record<string, React.ReactNode>[] = [
   {
     roleCode: 'LP_ADMIN',
-    roleName: '系统管理员',
+    roleName: 'System Administrator',
     userCount: '2',
-    status: <Badge>启用</Badge>,
+    status: <Badge>Enabled</Badge>,
     updatedAt: '2026-07-01 10:00:00',
   },
   {
     roleCode: 'LP_OPS',
-    roleName: '运营',
+    roleName: 'Operations',
     userCount: '5',
-    status: <Badge>启用</Badge>,
+    status: <Badge>Enabled</Badge>,
     updatedAt: '2026-07-01 10:00:00',
   },
   {
     roleCode: 'LP_FINANCE',
-    roleName: '财务',
+    roleName: 'Finance',
     userCount: '3',
-    status: <Badge>启用</Badge>,
+    status: <Badge>Enabled</Badge>,
     updatedAt: '2026-07-01 10:00:00',
   },
 ];
 
 const roleDetailFields: MockField[] = [
-  { key: 'roleCode', label: '角色编码' },
-  { key: 'roleName', label: '角色名称' },
-  { key: 'userCount', label: '用户数' },
-  { key: 'status', label: '状态' },
-  { key: 'remark', label: '备注' },
-  { key: 'updatedAt', label: '更新时间' },
+  { key: 'roleCode', label: 'Role Code' },
+  { key: 'roleName', label: 'Role Name' },
+  { key: 'userCount', label: 'User Count' },
+  { key: 'status', label: 'Status' },
+  { key: 'remark', label: 'Remark' },
+  { key: 'updatedAt', label: 'Updated At' },
 ];
 
 const roleDetailData: Record<string, React.ReactNode> = {
   roleCode: 'LP_ADMIN',
-  roleName: '系统管理员',
+  roleName: 'System Administrator',
   userCount: '2',
-  status: <Badge>启用</Badge>,
-  remark: '拥有全部权限',
+  status: <Badge>Enabled</Badge>,
+  remark: 'Has all permissions',
   updatedAt: '2026-07-01 10:00:00',
 };
 
 const roleFormFields: MockField[] = [
-  { key: 'roleCode', label: '角色编码' },
-  { key: 'roleName', label: '角色名称' },
-  { key: 'status', label: '状态', type: 'select', options: ['启用', '停用'] },
-  { key: 'remark', label: '备注' },
+  { key: 'roleCode', label: 'Role Code' },
+  { key: 'roleName', label: 'Role Name' },
+  { key: 'status', label: 'Status', type: 'select', options: ['Enabled', 'Disabled'] },
+  { key: 'remark', label: 'Remark' },
 ];
 
 export function RoleListPage() {
   return (
     <MockListPage
-      title="角色管理"
-      description="维护角色与菜单/数据权限"
+      title="Role Management"
+      description="Maintain roles and menu/data permissions"
       columns={roleListColumns}
       rows={roleListRows}
     />
@@ -177,59 +176,59 @@ export function RoleListPage() {
 
 export function RoleDetailPage() {
   return (
-    <MockDetailPage title="角色详情" fields={roleDetailFields} data={roleDetailData} />
+    <MockDetailPage title="Role Detail" fields={roleDetailFields} data={roleDetailData} />
   );
 }
 
 export function RoleFormPage() {
-  return <MockFormPage title="角色编辑" fields={roleFormFields} />;
+  return <MockFormPage title="Role Edit" fields={roleFormFields} />;
 }
 
 /* ------------------------------------------------------------------ *
- * 菜单与权限（menu）  list （仅列表）
+ * Menu & Permissions (menu)  list (list only)
  * ------------------------------------------------------------------ */
 
 const menuListColumns: MockColumn[] = [
-  { key: 'menuCode', label: '菜单编码' },
-  { key: 'menuName', label: '菜单名称' },
-  { key: 'path', label: '路径' },
-  { key: 'group', label: '分组' },
-  { key: 'sort', label: '排序' },
-  { key: 'status', label: '状态' },
+  { key: 'menuCode', label: 'Menu Code' },
+  { key: 'menuName', label: 'Menu Name' },
+  { key: 'path', label: 'Path' },
+  { key: 'group', label: 'Group' },
+  { key: 'sort', label: 'Sort' },
+  { key: 'status', label: 'Status' },
 ];
 
 const menuListRows: Record<string, React.ReactNode>[] = [
   {
     menuCode: 'dashboard',
-    menuName: '工作台',
+    menuName: 'Dashboard',
     path: '/dashboard',
     group: '-',
     sort: '1',
-    status: <Badge>启用</Badge>,
+    status: <Badge>Enabled</Badge>,
   },
   {
     menuCode: 'pool',
-    menuName: '资金池管理',
+    menuName: 'Liquidity Pool Management',
     path: '/pool',
     group: '-',
     sort: '2',
-    status: <Badge>启用</Badge>,
+    status: <Badge>Enabled</Badge>,
   },
   {
     menuCode: 'user',
-    menuName: '用户管理',
+    menuName: 'User Management',
     path: '/sys/user',
     group: 'more',
     sort: '11',
-    status: <Badge>启用</Badge>,
+    status: <Badge>Enabled</Badge>,
   },
 ];
 
 export function MenuListPage() {
   return (
     <MockListPage
-      title="菜单与权限"
-      description="维护菜单结构与可见性"
+      title="Menu & Permissions"
+      description="Maintain menu structure and visibility"
       columns={menuListColumns}
       rows={menuListRows}
     />

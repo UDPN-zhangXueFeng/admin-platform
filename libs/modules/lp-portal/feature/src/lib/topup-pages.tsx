@@ -1,28 +1,27 @@
 'use client';
 
 import * as React from 'react';
-import { Badge } from '@myorg/shared/ui';
 import {
+  Badge,
   MockDetailPage,
   MockFormPage,
   MockListPage,
   type MockColumn,
   type MockField,
-} from './mock-components';
-
+} from '@myorg/shared/ui';
 /* ------------------------------------------------------------------ *
- * 补资（topup）
- * 菜单标签：补资  路径：/topup
- * 页面键：list / create / detail （无 edit）
+ * Top-up (topup)
+ * Menu label: Top-up  Path: /topup
+ * Page keys: list / create / detail (no edit)
  * ------------------------------------------------------------------ */
 
 const listColumns: MockColumn[] = [
-  { key: 'topupNo', label: '补资单号' },
-  { key: 'poolId', label: '目标资金池' },
-  { key: 'amount', label: '补资金额' },
-  { key: 'currency', label: '币种' },
-  { key: 'status', label: '状态' },
-  { key: 'createdAt', label: '创建时间' },
+  { key: 'topupNo', label: 'Top-up No.' },
+  { key: 'poolId', label: 'Target Liquidity Pool' },
+  { key: 'amount', label: 'Top-up Amount' },
+  { key: 'currency', label: 'Currency' },
+  { key: 'status', label: 'Status' },
+  { key: 'createdAt', label: 'Created At' },
 ];
 
 const listRows: Record<string, React.ReactNode>[] = [
@@ -31,7 +30,7 @@ const listRows: Record<string, React.ReactNode>[] = [
     poolId: 'POOL-EU-004',
     amount: '300,000.00',
     currency: 'EUR',
-    status: <Badge variant="secondary">待处理</Badge>,
+    status: <Badge variant="secondary">Pending</Badge>,
     createdAt: '2026-08-10 07:45:00',
   },
   {
@@ -39,7 +38,7 @@ const listRows: Record<string, React.ReactNode>[] = [
     poolId: 'POOL-HK-002',
     amount: '1,000,000.00',
     currency: 'HKD',
-    status: <Badge>已完成</Badge>,
+    status: <Badge>Completed</Badge>,
     createdAt: '2026-08-09 14:20:33',
   },
   {
@@ -47,20 +46,20 @@ const listRows: Record<string, React.ReactNode>[] = [
     poolId: 'POOL-US-003',
     amount: '200,000.00',
     currency: 'USD',
-    status: <Badge variant="destructive">已驳回</Badge>,
+    status: <Badge variant="destructive">Rejected</Badge>,
     createdAt: '2026-08-08 10:05:12',
   },
 ];
 
 const detailFields: MockField[] = [
-  { key: 'topupNo', label: '补资单号' },
-  { key: 'poolId', label: '目标资金池' },
-  { key: 'amount', label: '补资金额' },
-  { key: 'currency', label: '币种' },
-  { key: 'source', label: '资金来源' },
-  { key: 'status', label: '状态' },
-  { key: 'creator', label: '发起人' },
-  { key: 'createdAt', label: '创建时间' },
+  { key: 'topupNo', label: 'Top-up No.' },
+  { key: 'poolId', label: 'Target Liquidity Pool' },
+  { key: 'amount', label: 'Top-up Amount' },
+  { key: 'currency', label: 'Currency' },
+  { key: 'source', label: 'Fund Source' },
+  { key: 'status', label: 'Status' },
+  { key: 'creator', label: 'Initiator' },
+  { key: 'createdAt', label: 'Created At' },
 ];
 
 const detailData: Record<string, React.ReactNode> = {
@@ -68,25 +67,25 @@ const detailData: Record<string, React.ReactNode> = {
   poolId: 'POOL-EU-004',
   amount: '300,000.00',
   currency: 'EUR',
-  source: '银行汇款',
-  status: <Badge variant="secondary">待处理</Badge>,
+  source: 'Bank Transfer',
+  status: <Badge variant="secondary">Pending</Badge>,
   creator: 'lp-ops',
   createdAt: '2026-08-10 07:45:00',
 };
 
 const formFields: MockField[] = [
-  { key: 'poolId', label: '目标资金池', type: 'select', options: ['POOL-CN-001', 'POOL-HK-002', 'POOL-US-003', 'POOL-EU-004'] },
-  { key: 'amount', label: '补资金额', type: 'number' },
-  { key: 'currency', label: '币种', type: 'select', options: ['CNY', 'USD', 'HKD', 'EUR'] },
-  { key: 'source', label: '资金来源', type: 'select', options: ['银行汇款', '内部调拨', '其它'] },
-  { key: 'remark', label: '备注' },
+  { key: 'poolId', label: 'Target Liquidity Pool', type: 'select', options: ['POOL-CN-001', 'POOL-HK-002', 'POOL-US-003', 'POOL-EU-004'] },
+  { key: 'amount', label: 'Top-up Amount', type: 'number' },
+  { key: 'currency', label: 'Currency', type: 'select', options: ['CNY', 'USD', 'HKD', 'EUR'] },
+  { key: 'source', label: 'Fund Source', type: 'select', options: ['Bank Transfer', 'Internal Transfer', 'Other'] },
+  { key: 'remark', label: 'Remark' },
 ];
 
 export function TopupListPage() {
   return (
     <MockListPage
-      title="补资"
-      description="处理资金池补资申请与到账确认"
+      title="Top-up"
+      description="Process liquidity pool top-up requests and arrival confirmations"
       columns={listColumns}
       rows={listRows}
     />
@@ -94,9 +93,9 @@ export function TopupListPage() {
 }
 
 export function TopupDetailPage() {
-  return <MockDetailPage title="补资详情" fields={detailFields} data={detailData} />;
+  return <MockDetailPage title="Top-up Detail" fields={detailFields} data={detailData} />;
 }
 
 export function TopupFormPage() {
-  return <MockFormPage title="发起补资" fields={formFields} submitLabel="提交" />;
+  return <MockFormPage title="Initiate Top-up" fields={formFields} submitLabel="Submit" />;
 }

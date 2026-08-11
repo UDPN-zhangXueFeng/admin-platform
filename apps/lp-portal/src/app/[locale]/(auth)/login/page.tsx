@@ -1,48 +1,33 @@
 'use client';
 
-import { useRouter } from '@myorg/shared/util-i18n';
-import { useTranslations } from 'next-intl';
-import {
-  Button,
-  Input,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@myorg/shared/ui';
+import { MockLoginPage } from '@myorg/shared/ui';
 
 /**
- * Mock login route — /[locale]/login
+ * MOCK login route — /[locale]/login
  *
- * In mock mode there is no real backend. Submitting the form writes a fake
- * `lp_portal_token` cookie (the same name the middleware reads) and redirects
- * to the app root, satisfying the auth guard without any API call.
+ * Uses the shared branded split-screen MockLoginPage (admin-style layout).
+ * No backend call: on submit it writes a fake `lp_portal_token` cookie
+ * and redirects to the dashboard.
+ *
+ * The illustration SVG lives in the app's public/ dir (shared indigo theme).
  */
 export default function LoginRoute() {
-  const router = useRouter();
-  const t = useTranslations('auth');
-
   return (
-    <Card className="w-[400px]">
-      <CardHeader>
-        <CardTitle>{t('title')}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            document.cookie = 'lp_portal_token=mock-token; path=/; max-age=86400';
-            router.replace('/dashboard');
-          }}
-          className="space-y-4"
-        >
-          <Input placeholder="Username" defaultValue="admin" />
-          <Input type="password" placeholder="Password" defaultValue="admin123" />
-          <Button type="submit" className="w-full">
-            {t('submit')}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <MockLoginPage
+      projectName="LP Portal"
+      brandText="lp"
+      brandSuffix="Portal"
+      brandTagline="Liquidity provider pool management and settlement console."
+      svgPath="/login-illustration.svg"
+      cookieName="lp_portal_token"
+      redirectPath="/dashboard"
+      gradientClass="from-[#c6c7ff] via-[#8e8af5] to-[#4e48e8]"
+      brandBaseColor="text-[#001a98]"
+      brandAccentColor="text-[#00a5d5]"
+      brandSuffixBg="bg-[#00a5d5]"
+      taglineColor="text-[#172260]"
+      titleColor="text-[#554eea]"
+      submitLabel="Sign In"
+    />
   );
 }

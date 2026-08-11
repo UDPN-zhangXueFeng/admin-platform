@@ -4,40 +4,40 @@ import {
   MockListPage,
   MockDetailPage,
   MockFormPage,
+  Badge,
   type MockColumn,
   type MockField,
-} from './mock-components';
-import { Badge } from '@myorg/shared/ui';
+} from '@myorg/shared/ui';
 
 /* ------------------------------------------------------------------ */
-/* currency-pair — 货币对启停与限额                                    */
+/* currency-pair — Currency Pair Enable/Disable & Limits               */
 /* ------------------------------------------------------------------ */
 
 const currencyPairColumns: MockColumn[] = [
-  { key: 'pair', label: '货币对' },
-  { key: 'base', label: '基础币种' },
-  { key: 'quote', label: '报价币种' },
-  { key: 'minAmount', label: '最小金额' },
-  { key: 'maxAmount', label: '最大金额' },
-  { key: 'status', label: '状态' },
+  { key: 'pair', label: 'Currency Pair' },
+  { key: 'base', label: 'Base Currency' },
+  { key: 'quote', label: 'Quote Currency' },
+  { key: 'minAmount', label: 'Min Amount' },
+  { key: 'maxAmount', label: 'Max Amount' },
+  { key: 'status', label: 'Status' },
 ];
 
 const currencyPairRows = [
-  { pair: 'USDT/USD', base: 'USDT', quote: 'USD', minAmount: '10', maxAmount: '500,000', status: <Badge>启用</Badge> },
-  { pair: 'USDC/USD', base: 'USDC', quote: 'USD', minAmount: '10', maxAmount: '500,000', status: <Badge>启用</Badge> },
-  { pair: 'BTC/USDT', base: 'BTC', quote: 'USDT', minAmount: '0.001', maxAmount: '10', status: <Badge variant="secondary">暂停</Badge> },
-  { pair: 'ETH/USDT', base: 'ETH', quote: 'USDT', minAmount: '0.01', maxAmount: '100', status: <Badge>启用</Badge> },
+  { pair: 'USDT/USD', base: 'USDT', quote: 'USD', minAmount: '10', maxAmount: '500,000', status: <Badge>Enabled</Badge> },
+  { pair: 'USDC/USD', base: 'USDC', quote: 'USD', minAmount: '10', maxAmount: '500,000', status: <Badge>Enabled</Badge> },
+  { pair: 'BTC/USDT', base: 'BTC', quote: 'USDT', minAmount: '0.001', maxAmount: '10', status: <Badge variant="secondary">Paused</Badge> },
+  { pair: 'ETH/USDT', base: 'ETH', quote: 'USDT', minAmount: '0.01', maxAmount: '100', status: <Badge>Enabled</Badge> },
 ];
 
 const currencyPairFields: MockField[] = [
-  { key: 'pair', label: '货币对' },
-  { key: 'base', label: '基础币种' },
-  { key: 'quote', label: '报价币种' },
-  { key: 'minAmount', label: '最小金额' },
-  { key: 'maxAmount', label: '最大金额' },
-  { key: 'precision', label: '精度' },
-  { key: 'updatedAt', label: '更新时间' },
-  { key: 'status', label: '状态' },
+  { key: 'pair', label: 'Currency Pair' },
+  { key: 'base', label: 'Base Currency' },
+  { key: 'quote', label: 'Quote Currency' },
+  { key: 'minAmount', label: 'Min Amount' },
+  { key: 'maxAmount', label: 'Max Amount' },
+  { key: 'precision', label: 'Precision' },
+  { key: 'updatedAt', label: 'Updated At' },
+  { key: 'status', label: 'Status' },
 ];
 
 const currencyPairData = {
@@ -48,110 +48,110 @@ const currencyPairData = {
   maxAmount: '500,000',
   precision: '2',
   updatedAt: '2026-08-02 10:00:00',
-  status: <Badge>启用</Badge>,
+  status: <Badge>Enabled</Badge>,
 };
 
 const currencyPairFormFields: MockField[] = [
-  { key: 'base', label: '基础币种' },
-  { key: 'quote', label: '报价币种' },
-  { key: 'minAmount', label: '最小金额', type: 'number' },
-  { key: 'maxAmount', label: '最大金额', type: 'number' },
-  { key: 'precision', label: '精度', type: 'number' },
+  { key: 'base', label: 'Base Currency' },
+  { key: 'quote', label: 'Quote Currency' },
+  { key: 'minAmount', label: 'Min Amount', type: 'number' },
+  { key: 'maxAmount', label: 'Max Amount', type: 'number' },
+  { key: 'precision', label: 'Precision', type: 'number' },
 ];
 
 export function CurrencyPairListPage() {
-  return <MockListPage title="货币对启停与限额" columns={currencyPairColumns} rows={currencyPairRows} />;
+  return <MockListPage title="Currency Pair Enable/Disable & Limits" columns={currencyPairColumns} rows={currencyPairRows} />;
 }
 
 export function CurrencyPairDetailPage() {
-  return <MockDetailPage title="货币对详情" fields={currencyPairFields} data={currencyPairData} />;
+  return <MockDetailPage title="Currency Pair Details" fields={currencyPairFields} data={currencyPairData} />;
 }
 
 export function CurrencyPairFormPage() {
-  return <MockFormPage title="货币对配置" fields={currencyPairFormFields} />;
+  return <MockFormPage title="Currency Pair Configuration" fields={currencyPairFormFields} />;
 }
 
 /* ------------------------------------------------------------------ */
-/* rate-config — 汇率与加价率配置                                      */
+/* rate-config — Exchange Rate & Markup Configuration                  */
 /* ------------------------------------------------------------------ */
 
 const rateConfigColumns: MockColumn[] = [
-  { key: 'id', label: '配置编号' },
-  { key: 'pair', label: '货币对' },
-  { key: 'source', label: '汇率源' },
-  { key: 'markup', label: '加价率' },
-  { key: 'status', label: '状态' },
+  { key: 'id', label: 'Config ID' },
+  { key: 'pair', label: 'Currency Pair' },
+  { key: 'source', label: 'Rate Source' },
+  { key: 'markup', label: 'Markup Rate' },
+  { key: 'status', label: 'Status' },
 ];
 
 const rateConfigRows = [
-  { id: 'RC001', pair: 'USDT/USD', source: '主流源 A', markup: '0.20%', status: <Badge>生效中</Badge> },
-  { id: 'RC002', pair: 'USDC/USD', source: '主流源 A', markup: '0.20%', status: <Badge>生效中</Badge> },
-  { id: 'RC003', pair: 'BTC/USDT', source: '主流源 B', markup: '0.50%', status: <Badge variant="secondary">草稿</Badge> },
-  { id: 'RC004', pair: 'ETH/USDT', source: '主流源 B', markup: '0.50%', status: <Badge>生效中</Badge> },
+  { id: 'RC001', pair: 'USDT/USD', source: 'Primary Source A', markup: '0.20%', status: <Badge>Active</Badge> },
+  { id: 'RC002', pair: 'USDC/USD', source: 'Primary Source A', markup: '0.20%', status: <Badge>Active</Badge> },
+  { id: 'RC003', pair: 'BTC/USDT', source: 'Primary Source B', markup: '0.50%', status: <Badge variant="secondary">Draft</Badge> },
+  { id: 'RC004', pair: 'ETH/USDT', source: 'Primary Source B', markup: '0.50%', status: <Badge>Active</Badge> },
 ];
 
 const rateConfigFields: MockField[] = [
-  { key: 'id', label: '配置编号' },
-  { key: 'pair', label: '货币对' },
-  { key: 'source', label: '汇率源' },
-  { key: 'markup', label: '加价率' },
-  { key: 'spreadFloor', label: '点差下限' },
-  { key: 'spreadCap', label: '点差上限' },
-  { key: 'updatedAt', label: '更新时间' },
-  { key: 'status', label: '状态' },
+  { key: 'id', label: 'Config ID' },
+  { key: 'pair', label: 'Currency Pair' },
+  { key: 'source', label: 'Rate Source' },
+  { key: 'markup', label: 'Markup Rate' },
+  { key: 'spreadFloor', label: 'Spread Floor' },
+  { key: 'spreadCap', label: 'Spread Cap' },
+  { key: 'updatedAt', label: 'Updated At' },
+  { key: 'status', label: 'Status' },
 ];
 
 const rateConfigData = {
   id: 'RC001',
   pair: 'USDT/USD',
-  source: '主流源 A',
+  source: 'Primary Source A',
   markup: '0.20%',
   spreadFloor: '0.05%',
   spreadCap: '0.80%',
   updatedAt: '2026-08-04 09:30:00',
-  status: <Badge>生效中</Badge>,
+  status: <Badge>Active</Badge>,
 };
 
 const rateConfigFormFields: MockField[] = [
-  { key: 'pair', label: '货币对' },
-  { key: 'source', label: '汇率源' },
-  { key: 'markup', label: '加价率' },
-  { key: 'spreadFloor', label: '点差下限' },
-  { key: 'spreadCap', label: '点差上限' },
+  { key: 'pair', label: 'Currency Pair' },
+  { key: 'source', label: 'Rate Source' },
+  { key: 'markup', label: 'Markup Rate' },
+  { key: 'spreadFloor', label: 'Spread Floor' },
+  { key: 'spreadCap', label: 'Spread Cap' },
 ];
 
 export function RateConfigListPage() {
-  return <MockListPage title="汇率与加价率配置" columns={rateConfigColumns} rows={rateConfigRows} />;
+  return <MockListPage title="Exchange Rate & Markup Configuration" columns={rateConfigColumns} rows={rateConfigRows} />;
 }
 
 export function RateConfigDetailPage() {
-  return <MockDetailPage title="汇率配置详情" fields={rateConfigFields} data={rateConfigData} />;
+  return <MockDetailPage title="Rate Configuration Details" fields={rateConfigFields} data={rateConfigData} />;
 }
 
 export function RateConfigFormPage() {
-  return <MockFormPage title="汇率配置编辑" fields={rateConfigFormFields} />;
+  return <MockFormPage title="Rate Configuration Edit" fields={rateConfigFormFields} />;
 }
 
 /* ------------------------------------------------------------------ */
-/* rate-push-log — 汇率推送记录                                        */
+/* rate-push-log — Rate Push Logs                                      */
 /* ------------------------------------------------------------------ */
 
 const ratePushLogColumns: MockColumn[] = [
-  { key: 'id', label: '推送编号' },
-  { key: 'pair', label: '货币对' },
-  { key: 'rate', label: '推送汇率' },
-  { key: 'channel', label: '推送渠道' },
-  { key: 'pushedAt', label: '推送时间' },
-  { key: 'status', label: '状态' },
+  { key: 'id', label: 'Push ID' },
+  { key: 'pair', label: 'Currency Pair' },
+  { key: 'rate', label: 'Pushed Rate' },
+  { key: 'channel', label: 'Push Channel' },
+  { key: 'pushedAt', label: 'Push Time' },
+  { key: 'status', label: 'Status' },
 ];
 
 const ratePushLogRows = [
-  { id: 'RP2026080901', pair: 'USDT/USD', rate: '1.0002', channel: 'Gateway CN', pushedAt: '2026-08-09 08:00:00', status: <Badge>成功</Badge> },
-  { id: 'RP2026080902', pair: 'USDC/USD', rate: '1.0001', channel: 'Gateway HK', pushedAt: '2026-08-09 08:00:00', status: <Badge>成功</Badge> },
-  { id: 'RP2026080903', pair: 'BTC/USDT', rate: '58,200.00', channel: 'Gateway CN', pushedAt: '2026-08-09 08:01:00', status: <Badge variant="secondary">部分成功</Badge> },
-  { id: 'RP2026080904', pair: 'ETH/USDT', rate: '2,650.50', channel: 'Gateway US', pushedAt: '2026-08-09 08:01:00', status: <Badge variant="destructive">失败</Badge> },
+  { id: 'RP2026080901', pair: 'USDT/USD', rate: '1.0002', channel: 'Gateway CN', pushedAt: '2026-08-09 08:00:00', status: <Badge>Success</Badge> },
+  { id: 'RP2026080902', pair: 'USDC/USD', rate: '1.0001', channel: 'Gateway HK', pushedAt: '2026-08-09 08:00:00', status: <Badge>Success</Badge> },
+  { id: 'RP2026080903', pair: 'BTC/USDT', rate: '58,200.00', channel: 'Gateway CN', pushedAt: '2026-08-09 08:01:00', status: <Badge variant="secondary">Partial Success</Badge> },
+  { id: 'RP2026080904', pair: 'ETH/USDT', rate: '2,650.50', channel: 'Gateway US', pushedAt: '2026-08-09 08:01:00', status: <Badge variant="destructive">Failed</Badge> },
 ];
 
 export function RatePushLogListPage() {
-  return <MockListPage title="汇率推送记录" columns={ratePushLogColumns} rows={ratePushLogRows} />;
+  return <MockListPage title="Rate Push Logs" columns={ratePushLogColumns} rows={ratePushLogRows} />;
 }

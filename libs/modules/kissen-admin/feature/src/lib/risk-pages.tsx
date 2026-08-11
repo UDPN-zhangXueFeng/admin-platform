@@ -4,175 +4,175 @@ import {
   MockListPage,
   MockDetailPage,
   MockFormPage,
+  Badge,
   type MockColumn,
   type MockField,
-} from './mock-components';
-import { Badge } from '@myorg/shared/ui';
+} from '@myorg/shared/ui';
 
 /* ------------------------------------------------------------------ */
-/* freeze — 紧急冻结 / 解冻                                            */
+/* freeze — Emergency Freeze / Unfreeze                                */
 /* ------------------------------------------------------------------ */
 
 const freezeColumns: MockColumn[] = [
-  { key: 'id', label: '冻结编号' },
-  { key: 'target', label: '冻结对象' },
-  { key: 'type', label: '类型' },
-  { key: 'reason', label: '原因' },
-  { key: 'operator', label: '操作人' },
-  { key: 'status', label: '状态' },
+  { key: 'id', label: 'Freeze ID' },
+  { key: 'target', label: 'Frozen Target' },
+  { key: 'type', label: 'Type' },
+  { key: 'reason', label: 'Reason' },
+  { key: 'operator', label: 'Operator' },
+  { key: 'status', label: 'Status' },
 ];
 
 const freezeRows = [
-  { id: 'FZ001', target: 'LP004 (示例 LP Delta)', type: '资金池', reason: '可疑交易', operator: '风控管理员', status: <Badge variant="destructive">已冻结</Badge> },
-  { id: 'FZ002', target: 'BK004 (示例银行 D)', type: '账户', reason: '合规调查', operator: '风控管理员', status: <Badge variant="destructive">已冻结</Badge> },
-  { id: 'FZ003', target: 'TX20260810004', type: '单笔交易', reason: '链上异常', operator: '风控管理员', status: <Badge variant="destructive">已冻结</Badge> },
-  { id: 'FZ004', target: 'LP003 (示例 LP Gamma)', type: '资金池', reason: '临时风控', operator: '风控管理员', status: <Badge>已解冻</Badge> },
+  { id: 'FZ001', target: 'LP004 (Sample LP Delta)', type: 'Liquidity Pool', reason: 'Suspicious Transaction', operator: 'Risk Manager', status: <Badge variant="destructive">Frozen</Badge> },
+  { id: 'FZ002', target: 'BK004 (Sample Bank D)', type: 'Account', reason: 'Compliance Investigation', operator: 'Risk Manager', status: <Badge variant="destructive">Frozen</Badge> },
+  { id: 'FZ003', target: 'TX20260810004', type: 'Single Transaction', reason: 'On-chain Anomaly', operator: 'Risk Manager', status: <Badge variant="destructive">Frozen</Badge> },
+  { id: 'FZ004', target: 'LP003 (Sample LP Gamma)', type: 'Liquidity Pool', reason: 'Temporary Risk Control', operator: 'Risk Manager', status: <Badge>Unfrozen</Badge> },
 ];
 
 const freezeFields: MockField[] = [
-  { key: 'id', label: '冻结编号' },
-  { key: 'target', label: '冻结对象' },
-  { key: 'type', label: '类型' },
-  { key: 'reason', label: '原因' },
-  { key: 'detail', label: '详细说明' },
-  { key: 'operator', label: '操作人' },
-  { key: 'frozenAt', label: '冻结时间' },
-  { key: 'unfrozenAt', label: '解冻时间' },
-  { key: 'status', label: '状态' },
+  { key: 'id', label: 'Freeze ID' },
+  { key: 'target', label: 'Frozen Target' },
+  { key: 'type', label: 'Type' },
+  { key: 'reason', label: 'Reason' },
+  { key: 'detail', label: 'Detail' },
+  { key: 'operator', label: 'Operator' },
+  { key: 'frozenAt', label: 'Freeze Time' },
+  { key: 'unfrozenAt', label: 'Unfreeze Time' },
+  { key: 'status', label: 'Status' },
 ];
 
 const freezeData = {
   id: 'FZ001',
-  target: 'LP004 (示例 LP Delta)',
-  type: '资金池',
-  reason: '可疑交易',
-  detail: '检测到高频小额异常划转',
-  operator: '风控管理员',
+  target: 'LP004 (Sample LP Delta)',
+  type: 'Liquidity Pool',
+  reason: 'Suspicious Transaction',
+  detail: 'Detected high-frequency small-amount anomalous transfers',
+  operator: 'Risk Manager',
   frozenAt: '2026-08-09 22:00:00',
   unfrozenAt: '—',
-  status: <Badge variant="destructive">已冻结</Badge>,
+  status: <Badge variant="destructive">Frozen</Badge>,
 };
 
 export function FreezeListPage() {
-  return <MockListPage title="紧急冻结 / 解冻" columns={freezeColumns} rows={freezeRows} />;
+  return <MockListPage title="Emergency Freeze / Unfreeze" columns={freezeColumns} rows={freezeRows} />;
 }
 
 export function FreezeDetailPage() {
-  return <MockDetailPage title="冻结详情" fields={freezeFields} data={freezeData} />;
+  return <MockDetailPage title="Freeze Details" fields={freezeFields} data={freezeData} />;
 }
 
 /* ------------------------------------------------------------------ */
-/* monitor-rule — 监控规则                                             */
+/* monitor-rule — Monitor Rules                                        */
 /* ------------------------------------------------------------------ */
 
 const monitorRuleColumns: MockColumn[] = [
-  { key: 'id', label: '规则编号' },
-  { key: 'name', label: '规则名称' },
-  { key: 'metric', label: '监控指标' },
-  { key: 'threshold', label: '阈值' },
-  { key: 'level', label: '告警等级' },
-  { key: 'status', label: '状态' },
+  { key: 'id', label: 'Rule ID' },
+  { key: 'name', label: 'Rule Name' },
+  { key: 'metric', label: 'Monitor Metric' },
+  { key: 'threshold', label: 'Threshold' },
+  { key: 'level', label: 'Alert Level' },
+  { key: 'status', label: 'Status' },
 ];
 
 const monitorRuleRows = [
-  { id: 'MR001', name: '单笔大额告警', metric: '交易金额', threshold: '> 100,000', level: <Badge variant="destructive">高</Badge>, status: <Badge>生效中</Badge> },
-  { id: 'MR002', name: 'LP 低水位', metric: '资金池余额', threshold: '< 低水位阈值', level: <Badge variant="secondary">中</Badge>, status: <Badge>生效中</Badge> },
-  { id: 'MR003', name: '高频交易', metric: '同 IP 频次', threshold: '> 50/min', level: <Badge variant="secondary">中</Badge>, status: <Badge>生效中</Badge> },
-  { id: 'MR004', name: '汇率偏离', metric: '汇率偏差', threshold: '> 2%', level: <Badge variant="destructive">高</Badge>, status: <Badge variant="secondary">已停用</Badge> },
+  { id: 'MR001', name: 'Single Large Amount Alert', metric: 'Transaction Amount', threshold: '> 100,000', level: <Badge variant="destructive">High</Badge>, status: <Badge>Active</Badge> },
+  { id: 'MR002', name: 'LP Low Water Level', metric: 'Pool Balance', threshold: '< Low Water Mark', level: <Badge variant="secondary">Medium</Badge>, status: <Badge>Active</Badge> },
+  { id: 'MR003', name: 'High-Frequency Transaction', metric: 'Same-IP Frequency', threshold: '> 50/min', level: <Badge variant="secondary">Medium</Badge>, status: <Badge>Active</Badge> },
+  { id: 'MR004', name: 'Rate Deviation', metric: 'Rate Deviation', threshold: '> 2%', level: <Badge variant="destructive">High</Badge>, status: <Badge variant="secondary">Disabled</Badge> },
 ];
 
 const monitorRuleFields: MockField[] = [
-  { key: 'id', label: '规则编号' },
-  { key: 'name', label: '规则名称' },
-  { key: 'metric', label: '监控指标' },
-  { key: 'threshold', label: '阈值' },
-  { key: 'window', label: '统计窗口' },
-  { key: 'action', label: '触发动作' },
-  { key: 'level', label: '告警等级' },
-  { key: 'updatedAt', label: '更新时间' },
-  { key: 'status', label: '状态' },
+  { key: 'id', label: 'Rule ID' },
+  { key: 'name', label: 'Rule Name' },
+  { key: 'metric', label: 'Monitor Metric' },
+  { key: 'threshold', label: 'Threshold' },
+  { key: 'window', label: 'Statistics Window' },
+  { key: 'action', label: 'Trigger Action' },
+  { key: 'level', label: 'Alert Level' },
+  { key: 'updatedAt', label: 'Updated At' },
+  { key: 'status', label: 'Status' },
 ];
 
 const monitorRuleData = {
   id: 'MR001',
-  name: '单笔大额告警',
-  metric: '交易金额',
+  name: 'Single Large Amount Alert',
+  metric: 'Transaction Amount',
   threshold: '> 100,000',
-  window: '单笔',
-  action: '人工复核',
-  level: <Badge variant="destructive">高</Badge>,
+  window: 'Per Transaction',
+  action: 'Manual Review',
+  level: <Badge variant="destructive">High</Badge>,
   updatedAt: '2026-08-01 10:00:00',
-  status: <Badge>生效中</Badge>,
+  status: <Badge>Active</Badge>,
 };
 
 const monitorRuleFormFields: MockField[] = [
-  { key: 'name', label: '规则名称' },
-  { key: 'metric', label: '监控指标' },
-  { key: 'threshold', label: '阈值' },
-  { key: 'window', label: '统计窗口' },
-  { key: 'action', label: '触发动作' },
+  { key: 'name', label: 'Rule Name' },
+  { key: 'metric', label: 'Monitor Metric' },
+  { key: 'threshold', label: 'Threshold' },
+  { key: 'window', label: 'Statistics Window' },
+  { key: 'action', label: 'Trigger Action' },
 ];
 
 export function MonitorRuleListPage() {
-  return <MockListPage title="监控规则" columns={monitorRuleColumns} rows={monitorRuleRows} />;
+  return <MockListPage title="Monitor Rules" columns={monitorRuleColumns} rows={monitorRuleRows} />;
 }
 
 export function MonitorRuleDetailPage() {
-  return <MockDetailPage title="监控规则详情" fields={monitorRuleFields} data={monitorRuleData} />;
+  return <MockDetailPage title="Monitor Rule Details" fields={monitorRuleFields} data={monitorRuleData} />;
 }
 
 export function MonitorRuleFormPage() {
-  return <MockFormPage title="监控规则编辑" fields={monitorRuleFormFields} />;
+  return <MockFormPage title="Monitor Rule Edit" fields={monitorRuleFormFields} />;
 }
 
 /* ------------------------------------------------------------------ */
-/* monitor-hit — 命中记录                                              */
+/* monitor-hit — Hit Records                                           */
 /* ------------------------------------------------------------------ */
 
 const monitorHitColumns: MockColumn[] = [
-  { key: 'id', label: '命中编号' },
-  { key: 'ruleId', label: '规则' },
-  { key: 'target', label: '命中对象' },
-  { key: 'level', label: '告警等级' },
-  { key: 'hitAt', label: '命中时间' },
-  { key: 'status', label: '处置状态' },
+  { key: 'id', label: 'Hit ID' },
+  { key: 'ruleId', label: 'Rule' },
+  { key: 'target', label: 'Hit Target' },
+  { key: 'level', label: 'Alert Level' },
+  { key: 'hitAt', label: 'Hit Time' },
+  { key: 'status', label: 'Handling Status' },
 ];
 
 const monitorHitRows = [
-  { id: 'MH001', ruleId: 'MR001 单笔大额告警', target: 'TX20260810005', level: <Badge variant="destructive">高</Badge>, hitAt: '2026-08-10 08:45:00', status: <Badge variant="secondary">待处置</Badge> },
-  { id: 'MH002', ruleId: 'MR002 LP 低水位', target: 'POOL003', level: <Badge variant="secondary">中</Badge>, hitAt: '2026-08-10 07:00:00', status: <Badge>已处置</Badge> },
-  { id: 'MH003', ruleId: 'MR003 高频交易', target: 'IP 203.0.113.7', level: <Badge variant="secondary">中</Badge>, hitAt: '2026-08-09 23:30:00', status: <Badge>已处置</Badge> },
-  { id: 'MH004', ruleId: 'MR001 单笔大额告警', target: 'TX20260809100', level: <Badge variant="destructive">高</Badge>, hitAt: '2026-08-09 15:20:00', status: <Badge variant="destructive">已挂起</Badge> },
+  { id: 'MH001', ruleId: 'MR001 Single Large Amount Alert', target: 'TX20260810005', level: <Badge variant="destructive">High</Badge>, hitAt: '2026-08-10 08:45:00', status: <Badge variant="secondary">Pending Handling</Badge> },
+  { id: 'MH002', ruleId: 'MR002 LP Low Water Level', target: 'POOL003', level: <Badge variant="secondary">Medium</Badge>, hitAt: '2026-08-10 07:00:00', status: <Badge>Handled</Badge> },
+  { id: 'MH003', ruleId: 'MR003 High-Frequency Transaction', target: 'IP 203.0.113.7', level: <Badge variant="secondary">Medium</Badge>, hitAt: '2026-08-09 23:30:00', status: <Badge>Handled</Badge> },
+  { id: 'MH004', ruleId: 'MR001 Single Large Amount Alert', target: 'TX20260809100', level: <Badge variant="destructive">High</Badge>, hitAt: '2026-08-09 15:20:00', status: <Badge variant="destructive">Suspended</Badge> },
 ];
 
 const monitorHitFields: MockField[] = [
-  { key: 'id', label: '命中编号' },
-  { key: 'ruleId', label: '规则' },
-  { key: 'target', label: '命中对象' },
-  { key: 'actualValue', label: '实际值' },
-  { key: 'threshold', label: '阈值' },
-  { key: 'level', label: '告警等级' },
-  { key: 'hitAt', label: '命中时间' },
-  { key: 'handler', label: '处置人' },
-  { key: 'status', label: '处置状态' },
+  { key: 'id', label: 'Hit ID' },
+  { key: 'ruleId', label: 'Rule' },
+  { key: 'target', label: 'Hit Target' },
+  { key: 'actualValue', label: 'Actual Value' },
+  { key: 'threshold', label: 'Threshold' },
+  { key: 'level', label: 'Alert Level' },
+  { key: 'hitAt', label: 'Hit Time' },
+  { key: 'handler', label: 'Handler' },
+  { key: 'status', label: 'Handling Status' },
 ];
 
 const monitorHitData = {
   id: 'MH001',
-  ruleId: 'MR001 单笔大额告警',
+  ruleId: 'MR001 Single Large Amount Alert',
   target: 'TX20260810005',
   actualValue: '50,000',
   threshold: '> 100,000',
-  level: <Badge variant="destructive">高</Badge>,
+  level: <Badge variant="destructive">High</Badge>,
   hitAt: '2026-08-10 08:45:00',
   handler: '—',
-  status: <Badge variant="secondary">待处置</Badge>,
+  status: <Badge variant="secondary">Pending Handling</Badge>,
 };
 
 export function MonitorHitListPage() {
-  return <MockListPage title="命中记录" columns={monitorHitColumns} rows={monitorHitRows} />;
+  return <MockListPage title="Hit Records" columns={monitorHitColumns} rows={monitorHitRows} />;
 }
 
 export function MonitorHitDetailPage() {
-  return <MockDetailPage title="命中记录详情" fields={monitorHitFields} data={monitorHitData} />;
+  return <MockDetailPage title="Hit Record Details" fields={monitorHitFields} data={monitorHitData} />;
 }
