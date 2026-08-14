@@ -682,7 +682,7 @@ function formToFilter(form: TxFilterForm, mode: TxListMode): TransactionPageFilt
   return f;
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_DEFAULT = 10;
 
 /**
  * 交易列表核心。三种模式：
@@ -708,13 +708,14 @@ function TransactionListCore({
     formToFilter(defaultFilterForm(mode), mode),
   );
   const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const [showMore, setShowMore] = React.useState(false);
   const [resolveRow, setResolveRow] = React.useState<TransactionRow | null>(null);
   const [resolveOpen, setResolveOpen] = React.useState(false);
 
   const { data, isLoading } = useTransactionListQuery(KISSEN_PROJECT_ID, {
     pageNum,
-    pageSize: PAGE_SIZE,
+    pageSize,
     filter,
   });
   const { data: lpOptions } = useTransactionLpOptionsQuery(KISSEN_PROJECT_ID);
@@ -916,6 +917,7 @@ function TransactionListCore({
             name="txNo"
             label="交易单号"
             placeholder="精确匹配"
+            maxLength={32}
             register={register('txNo')}
           />
           {mode !== 'exception' && (
@@ -968,6 +970,7 @@ function TransactionListCore({
               name="txUuid"
               label="txUuid"
               placeholder="精确匹配"
+              maxLength={64}
               register={register('txUuid')}
             />
             <FormSelect
@@ -1019,6 +1022,11 @@ function TransactionListCore({
                   pageSize: paginationMeta.pageSize,
                   total: paginationMeta.total,
                   onPageChange: setPageNum,
+                  onPageSizeChange: (n) => {
+                    // 源 @size-change="onSearch"：切换条数即回第 1 页重查。
+                    setPageSize(n);
+                    setPageNum(1);
+                  },
                 }
               : undefined
           }

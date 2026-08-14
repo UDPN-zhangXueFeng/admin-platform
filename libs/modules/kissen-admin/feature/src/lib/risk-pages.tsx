@@ -20,11 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
   useToast,
-  MockDetailPage,
-  MockFormPage,
-  MockListPage,
-  type MockColumn,
-  type MockField,
 } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 
@@ -57,7 +52,7 @@ import {
 /* 共享格式化 / 展示辅助                                          */
 /* ============================================================ */
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_DEFAULT = 10;
 
 /** 毫秒时间戳 → 本地 YYYY-MM-DD HH:mm:ss；0/空 → '--'（目标约定 §4）。 */
 function formatTimestamp(ms: number | undefined | null): string {
@@ -201,17 +196,17 @@ export function FreezeListPage() {
 
   const bankQ = useFreezeBankListQuery(
     KISSEN_PROJECT_ID,
-    { pageNum, pageSize: PAGE_SIZE, filter: bankFilter },
+    { pageNum, pageSize: PAGE_SIZE_DEFAULT, filter: bankFilter },
     targetType === FREEZE_TARGET_BANK,
   );
   const lpQ = useFreezeLpListQuery(
     KISSEN_PROJECT_ID,
-    { pageNum, pageSize: PAGE_SIZE, filter: lpFilter },
+    { pageNum, pageSize: PAGE_SIZE_DEFAULT, filter: lpFilter },
     targetType === FREEZE_TARGET_LP,
   );
   const pairQ = useFreezePairListQuery(
     KISSEN_PROJECT_ID,
-    { pageNum, pageSize: PAGE_SIZE, filter: pairFilter },
+    { pageNum, pageSize: PAGE_SIZE_DEFAULT, filter: pairFilter },
     targetType === FREEZE_TARGET_PAIR,
   );
 
@@ -541,16 +536,21 @@ export function MonitorHitListPage() {
   const [form, setForm] = React.useState<MonitorHitFilterForm>(EMPTY_HIT_FILTER);
   const [applied, setApplied] = React.useState<MonitorHitFilterForm>(EMPTY_HIT_FILTER);
   const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
   const txIdNum = applied.transactionId ? Number(applied.transactionId) : undefined;
+  // 源 el-input-number :min=1 — 0/负数视为未填，不传给 query。
   const filter = {
     ruleCode: applied.ruleCode || undefined,
-    transactionId: Number.isFinite(txIdNum) ? txIdNum : undefined,
+    transactionId:
+      txIdNum !== undefined && Number.isFinite(txIdNum) && txIdNum > 0
+        ? txIdNum
+        : undefined,
   };
 
   const { data, isLoading } = useMonitorHitListQuery(KISSEN_PROJECT_ID, {
     pageNum,
-    pageSize: PAGE_SIZE,
+    pageSize,
     filter,
   });
 
@@ -678,6 +678,10 @@ export function MonitorHitListPage() {
                   pageSize: paginationMeta.pageSize,
                   total: paginationMeta.total,
                   onPageChange: setPageNum,
+                  onPageSizeChange: (n) => {
+                    setPageSize(n);
+                    setPageNum(1);
+                  },
                 }
               : undefined
           }
@@ -755,64 +759,3 @@ export function MonitorHitDetailPage() {
   );
 }
 
-/* ============================================================ */
-/* monitor-rule — 监控规则（源 rule CRUD 为 M14 定稿占位，保留 mock） */
-/* ============================================================ */
-// 无源功能，占位
-
-const monitorRuleColumns: MockColumn[] = [
-  { key: 'ruleId', label: '规则 ID' },
-  { key: 'ruleName', label: '规则名称' },
-  { key: 'ruleCode', label: '规则编码' },
-  { key: 'riskLevel', label: '风险等级' },
-  { key: 'status', label: '状态' },
-];
-
-const monitorRuleRows = [
-  { id: '1', ruleId: 'R-001', ruleName: '高频小额', ruleCode: 'HIGH_FREQ_SMALL', riskLevel: '中', status: '启用' },
-  { id: '2', ruleId: 'R-002', ruleName: '关联交易', ruleCode: 'SELF_TRANSFER', riskLevel: '高', status: '启用' },
-  { id: '3', ruleId: 'R-003', ruleName: '异常金额', ruleCode: 'ABNORMAL_AMOUNT', riskLevel: '高', status: '启用' },
-];
-
-const monitorRuleFields: MockField[] = [
-  { key: 'ruleId', label: '规则 ID' },
-  { key: 'ruleName', label: '规则名称' },
-  { key: 'ruleCode', label: '规则编码' },
-  { key: 'riskLevel', label: '风险等级' },
-  { key: 'threshold', label: '阈值' },
-  { key: 'status', label: '状态' },
-];
-
-const monitorRuleData = {
-  id: '1',
-  ruleId: 'R-001',
-  ruleName: '高频小额',
-  ruleCode: 'HIGH_FREQ_SMALL',
-  riskLevel: '中',
-  threshold: '单笔 < 10 且 10 分钟内 ≥ 5 笔',
-  status: '启用',
-};
-
-const monitorRuleFormFields: MockField[] = [
-  { key: 'ruleName', label: '规则名称' },
-  { key: 'ruleCode', label: '规则编码' },
-  { key: 'riskLevel', label: '风险等级', type: 'select', options: ['低', '中', '高'] },
-  { key: 'threshold', label: '阈值' },
-  { key: 'status', label: '状态', type: 'select', options: ['启用', '停用'] },
-];
-
-export function MonitorRuleListPage() {
-  return (
-    <MockListPage title="监控规则" columns={monitorRuleColumns} rows={monitorRuleRows} />
-  );
-}
-
-export function MonitorRuleDetailPage() {
-  return (
-    <MockDetailPage title="监控规则详情" fields={monitorRuleFields} data={monitorRuleData} />
-  );
-}
-
-export function MonitorRuleFormPage() {
-  return <MockFormPage title="监控规则编辑" fields={monitorRuleFormFields} />;
-}

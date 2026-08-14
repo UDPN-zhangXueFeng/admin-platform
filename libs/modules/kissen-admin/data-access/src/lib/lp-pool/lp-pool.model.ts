@@ -42,7 +42,7 @@ export interface LpPoolListReq {
 /** 资金池状态（save 直出 20=启用；50=停用）。 */
 export const LP_POOL_STATUS_LABEL: Record<number, string> = {
   1: '草稿',
-  20: '启用',
+  20: '审核通过',
   50: '停用',
 };
 

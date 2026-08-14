@@ -48,11 +48,11 @@ export interface LpPreauthListReq {
   filter: LpPreauthListFilter;
 }
 
-/** 预授权状态（源 views/liquidity/pool/preauth-dialog.vue：20 有效可撤销，50 已撤销）。 */
+/** 预授权状态（沿用 CommonStatusEnum；20 审核通过=生效可撤销，50 停用=已撤销）。 */
 export const LP_PREAUTH_STATUS_LABEL: Record<number, string> = {
-  1: '草稿',
-  20: '有效',
-  50: '已撤销',
+  1: '保存(草稿)',
+  20: '审核通过',
+  50: '停用',
 };
 
 export const LP_PREAUTH_STATUS_VARIANT: Record<

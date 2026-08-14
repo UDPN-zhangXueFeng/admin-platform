@@ -15,15 +15,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  MockDetailPage,
-  MockListPage,
   RadioGroup,
   RadioGroupItem,
   Skeleton,
   Textarea,
   useToast,
-  type MockColumn,
-  type MockField,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
@@ -56,6 +52,7 @@ import {
   type SettleOrderRow,
   type SplitTransferRow,
 } from '@myorg/modules/kissen-admin/data-access';
+import { peekRow, stashRow } from './row-stash';
 
 /* ============================================================ */
 /* 共享格式化 / 展示辅助                                          */
@@ -117,6 +114,16 @@ function toNumberOrUndef(v: string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/**
+ * 正整数过滤值：非数 / <=0 → undefined。
+ * 对齐源 el-input-number :min="1"（split orderId、reconcile transactionId），
+ * 避免 0/负数透传给后端。
+ */
+function positiveNumberOrUndef(v: string | undefined): number | undefined {
+  const n = toNumberOrUndef(v);
+  return n !== undefined && n >= 1 ? n : undefined;
+}
+
 /** 日期输入串 'YYYY-MM-DD' → 本地当日 00:00 毫秒（运营 GMT+8 口径，源 dayStart）。 */
 function dateStrToDayStartMs(str: string): number | undefined {
   if (!str) return undefined;
@@ -170,61 +177,6 @@ function LoadingBlock() {
       <Skeleton className="h-4 w-2/3" />
       <Skeleton className="h-4 w-1/2" />
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* settle-record — 无独立源（settle-order 即结算记录），保留 mock 兜底   */
-/* ------------------------------------------------------------------ */
-// 无源功能，占位
-
-const settleRecordColumns: MockColumn[] = [
-  { key: 'recordId', label: '记录 ID' },
-  { key: 'order', label: '结算单' },
-  { key: 'type', label: '类型' },
-  { key: 'amount', label: '金额' },
-  { key: 'status', label: '状态' },
-];
-
-const settleRecordRows = [
-  { id: '1', recordId: 'SR-1001', order: 'SO-2001', type: '分成划转', amount: '12,000.00', status: '成功' },
-  { id: '2', recordId: 'SR-1002', order: 'SO-2002', type: '本金结算', amount: '8,500.00', status: '处理中' },
-];
-
-const settleRecordFields: MockField[] = [
-  { key: 'recordId', label: '记录 ID' },
-  { key: 'order', label: '结算单' },
-  { key: 'type', label: '类型' },
-  { key: 'amount', label: '金额' },
-  { key: 'status', label: '状态' },
-];
-
-const settleRecordData = {
-  id: '1',
-  recordId: 'SR-1001',
-  order: 'SO-2001',
-  type: '分成划转',
-  amount: '12,000.00',
-  status: '成功',
-};
-
-export function SettleRecordListPage() {
-  return (
-    <MockListPage
-      title="结算记录"
-      columns={settleRecordColumns}
-      rows={settleRecordRows}
-    />
-  );
-}
-
-export function SettleRecordDetailPage() {
-  return (
-    <MockDetailPage
-      title="结算记录详情"
-      fields={settleRecordFields}
-      data={settleRecordData}
-    />
   );
 }
 
@@ -307,6 +259,16 @@ function SettleOrderGenerateDialog({
   const onSubmit = handleSubmit((values) => {
     const lpId = Number(values.lpId);
     const periodType = Number(values.periodType);
+    // 源 generate-dialog.vue rules：lpId/periodType 必填（「请选择 LP」「请选择周期类型」）。
+    // FormSelect 不透传 Controller rules，按工单约定在提交处手动 guard。
+    if (!Number.isFinite(lpId) || lpId <= 0) {
+      toast.warning('请选择 LP');
+      return;
+    }
+    if (!Number.isFinite(periodType) || periodType <= 0) {
+      toast.warning('请选择周期类型');
+      return;
+    }
     const periodStart = values.periodStart
       ? new Date(values.periodStart).getTime()
       : undefined;
@@ -404,6 +366,8 @@ export function SettleOrderListPage() {
   const [params, setParams] = React.useState(() =>
     settleFilterToParams(EMPTY_SETTLE_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
+  // 源 el-pagination page-sizes [10,20,50]：每页条数可切，切换即回第 1 页。
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
   const { data, isLoading } = useSettleOrderListQuery(KISSEN_PROJECT_ID, params);
   const { data: lpOptions } = useSettleLpOptionsQuery(KISSEN_PROJECT_ID);
@@ -425,13 +389,18 @@ export function SettleOrderListPage() {
   );
 
   const onSearch = React.useCallback((form: SettleOrderFilterForm) => {
-    setParams(settleFilterToParams(form, 1, PAGE_SIZE_DEFAULT));
-  }, []);
+    setParams(settleFilterToParams(form, 1, pageSize));
+  }, [pageSize]);
 
   const onResetSearch = React.useCallback(() => {
     reset(EMPTY_SETTLE_FILTER);
-    setParams(settleFilterToParams(EMPTY_SETTLE_FILTER, 1, PAGE_SIZE_DEFAULT));
-  }, [reset]);
+    setParams(settleFilterToParams(EMPTY_SETTLE_FILTER, 1, pageSize));
+  }, [reset, pageSize]);
+
+  const onPageSizeChange = React.useCallback((n: number) => {
+    setPageSize(n);
+    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+  }, []);
 
   /** 查看详情（有 GET detail 端点）。 */
   const onView = React.useCallback(
@@ -641,6 +610,7 @@ export function SettleOrderListPage() {
                   total: paginationMeta.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange,
                 }
               : undefined
           }
@@ -728,7 +698,7 @@ function splitFilterToParams(form: SplitFilterForm, pageNum: number, pageSize: n
     pageNum,
     pageSize,
     filter: {
-      orderId: toNumberOrUndef(form.orderId),
+      orderId: positiveNumberOrUndef(form.orderId),
       lpId: toNumberOrUndef(form.lpId),
       status: toNumberOrUndef(form.status),
     },
@@ -744,6 +714,8 @@ export function SplitTransferListPage() {
   const [params, setParams] = React.useState(() =>
     splitFilterToParams(EMPTY_SPLIT_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
+  // 源 el-pagination page-sizes [10,20,50]：每页条数可切，切换即回第 1 页。
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
   const { data, isLoading } = useSplitTransferListQuery(KISSEN_PROJECT_ID, params);
   const { data: lpOptions } = useSplitLpOptionsQuery(KISSEN_PROJECT_ID);
@@ -760,16 +732,25 @@ export function SplitTransferListPage() {
   );
 
   const onSearch = React.useCallback((form: SplitFilterForm) => {
-    setParams(splitFilterToParams(form, 1, PAGE_SIZE_DEFAULT));
-  }, []);
+    setParams(splitFilterToParams(form, 1, pageSize));
+  }, [pageSize]);
 
   const onResetSearch = React.useCallback(() => {
     reset(EMPTY_SPLIT_FILTER);
-    setParams(splitFilterToParams(EMPTY_SPLIT_FILTER, 1, PAGE_SIZE_DEFAULT));
-  }, [reset]);
+    setParams(splitFilterToParams(EMPTY_SPLIT_FILTER, 1, pageSize));
+  }, [reset, pageSize]);
 
+  const onPageSizeChange = React.useCallback((n: number) => {
+    setPageSize(n);
+    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+  }, []);
+
+  /** 查看：跳转前暂存行（源 view-dialog 直接传行对象；无 GET detail 端点）。 */
   const onView = React.useCallback(
-    (transferId: number) => router.push(`/split-transfer/detail?id=${transferId}`),
+    (row: SplitTransferRow) => {
+      stashRow('settle-split', row.transferId, row);
+      router.push(`/split-transfer/detail?id=${row.transferId}`);
+    },
     [router],
   );
 
@@ -829,7 +810,7 @@ export function SplitTransferListPage() {
       id: 'actions',
       header: '操作',
       cell: ({ row }) => (
-        <Button variant="link" size="sm" className="h-auto p-0" onClick={() => onView(row.original.transferId)}>
+        <Button variant="link" size="sm" className="h-auto p-0" onClick={() => onView(row.original)}>
           查看
         </Button>
       ),
@@ -853,6 +834,7 @@ export function SplitTransferListPage() {
             name="orderId"
             label="结算单 ID"
             type="number"
+            min={1}
             placeholder="精确匹配"
             register={register('orderId')}
           />
@@ -899,6 +881,7 @@ export function SplitTransferListPage() {
                   total: paginationMeta.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange,
                 }
               : undefined
           }
@@ -912,21 +895,24 @@ export function SplitTransferListPage() {
  * 分成划转详情（只读）。
  *
  * 源 view-dialog.vue 接收整行对象（无 GET detail 端点）。目标按路由约定用独立
- * detail 页承载：读取 transferId，经列表端点（pageSize 100）定位单行后展示。
- * 主查看路径仍为列表「查看」（与源一致），此页为路由标准化入口。
+ * detail 页承载：列表跳转前 stashRow 暂存行，此页优先消费暂存行；缺失（直链/
+ * 刷新）时回退经列表端点（pageSize 100）定位单行。此页为路由标准化入口。
  */
 export function SplitTransferDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const transferId = parseNum(searchParams.get('id'));
 
-  // 无 GET detail 端点：经列表定位（diff/split 均无 by-PK 查询）。
+  // 无 GET detail 端点：优先消费列表页暂存行，缺失再经列表扫描定位。
+  const [stashedRow] = React.useState(() =>
+    transferId !== undefined ? peekRow<SplitTransferRow>('settle-split', transferId) : null,
+  );
   const { data, isLoading } = useSplitTransferListQuery(
     KISSEN_PROJECT_ID,
     { pageNum: 1, pageSize: 100, filter: {} },
-    Boolean(transferId),
+    Boolean(transferId) && stashedRow === null,
   );
-  const row = data?.data.find((r) => r.transferId === transferId);
+  const row = stashedRow ?? data?.data.find((r) => r.transferId === transferId) ?? null;
 
   if (!transferId) {
     return (
@@ -1003,7 +989,7 @@ function reconcileFilterToParams(
       reconDate: dateStrToDayStartMs(form.reconDate),
       diffType: toNumberOrUndef(form.diffType),
       status: toNumberOrUndef(form.status),
-      transactionId: toNumberOrUndef(form.transactionId),
+      transactionId: positiveNumberOrUndef(form.transactionId),
     },
   };
 }
@@ -1130,6 +1116,8 @@ export function ReconcileListPage() {
   const [params, setParams] = React.useState(() =>
     reconcileFilterToParams(yesterdayFilter(), 1, PAGE_SIZE_DEFAULT),
   );
+  // 源 el-pagination page-sizes [10,20,50]：每页条数可切，切换即回第 1 页。
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   // 独立持有 reconDate 串（执行对账与确认标签需要），与表单同步。
   const [reconDateStr, setReconDateStr] = React.useState(yesterdayStr());
 
@@ -1144,17 +1132,22 @@ export function ReconcileListPage() {
   const onSearch = React.useCallback(
     (form: ReconcileFilterForm) => {
       setReconDateStr(form.reconDate);
-      setParams(reconcileFilterToParams(form, 1, PAGE_SIZE_DEFAULT));
+      setParams(reconcileFilterToParams(form, 1, pageSize));
     },
-    [],
+    [pageSize],
   );
 
   const onResetSearch = React.useCallback(() => {
     const fresh = yesterdayFilter();
     reset(fresh);
     setReconDateStr(fresh.reconDate);
-    setParams(reconcileFilterToParams(fresh, 1, PAGE_SIZE_DEFAULT));
-  }, [reset]);
+    setParams(reconcileFilterToParams(fresh, 1, pageSize));
+  }, [reset, pageSize]);
+
+  const onPageSizeChange = React.useCallback((n: number) => {
+    setPageSize(n);
+    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+  }, []);
 
   /** 执行对账：确认守卫；reconDate 空走后端缺省（昨日）。 */
   const onRun = React.useCallback(() => {
@@ -1307,6 +1300,7 @@ export function ReconcileListPage() {
             name="transactionId"
             label="交易 ID"
             type="number"
+            min={1}
             placeholder="精确匹配"
             register={register('transactionId')}
           />
@@ -1343,6 +1337,7 @@ export function ReconcileListPage() {
                   total: paginationMeta.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange,
                 }
               : undefined
           }

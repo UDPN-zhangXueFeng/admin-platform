@@ -53,7 +53,7 @@ import {
 /* 共享格式化 / 展示辅助（源 views/approval/{format,field-maps}.ts） */
 /* ============================================================ */
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_DEFAULT = 10;
 const STATUS_ALL = 'all';
 
 /** 路由 search param → 正整数（无效/缺失返回 undefined）。 */
@@ -601,6 +601,7 @@ function ApprovalDetailBody({
 export function ApprovalCenterListPage() {
   const [tab, setTab] = React.useState<'todo' | 'done'>('todo');
   const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
   const [businessCode, setBusinessCode] = React.useState('');
   const [keyword, setKeyword] = React.useState('');
@@ -623,12 +624,12 @@ export function ApprovalCenterListPage() {
 
   const todoQ = useApprovalTodoQuery(
     KISSEN_PROJECT_ID,
-    { pageNum, pageSize: PAGE_SIZE, filter: todoFilter },
+    { pageNum, pageSize, filter: todoFilter },
     tab === 'todo',
   );
   const doneQ = useApprovalDoneQuery(
     KISSEN_PROJECT_ID,
-    { pageNum, pageSize: PAGE_SIZE, filter: doneFilter },
+    { pageNum, pageSize, filter: doneFilter },
     tab === 'done',
   );
   const activeQ = tab === 'todo' ? todoQ : doneQ;
@@ -870,7 +871,11 @@ export function ApprovalCenterListPage() {
                       page: paginationMeta.page,
                       pageSize: paginationMeta.pageSize,
                       total: paginationMeta.total,
-                      onPageChange: setPageNum,
+                  onPageChange: setPageNum,
+                  onPageSizeChange: (n) => {
+                    setPageSize(n);
+                    setPageNum(1);
+                  },
                     }
                   : undefined
               }

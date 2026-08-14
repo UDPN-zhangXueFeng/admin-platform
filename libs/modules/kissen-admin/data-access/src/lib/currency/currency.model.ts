@@ -31,8 +31,8 @@ export interface CurrencyToggleReq {
   currencyId: number;
 }
 
-/** 通用启停状态映射：20 启用 / 50 停用（本域语义）。 */
+/** 状态标签（源状态列复用 approval/status COMMON_STATUS_MAP；本域语义 20 启用 / 50 停用）。 */
 export const CURRENCY_STATUS_LABEL: Record<number, string> = {
-  20: '启用',
+  20: '审核通过',
   50: '停用',
 };

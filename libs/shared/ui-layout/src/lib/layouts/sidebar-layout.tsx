@@ -20,6 +20,8 @@ export interface SidebarLayoutProps {
   children: React.ReactNode;
   /** Open the change-password dialog (passed through to Header). */
   onChangePassword?: () => void;
+  /** Project-specific logout (passed through to Header). */
+  onLogout?: () => void | Promise<void>;
 }
 
 /**
@@ -31,7 +33,7 @@ export interface SidebarLayoutProps {
  * - Header contains project switcher, search, notifications, and user menu.
  * - Keyboard accessible: sidebar toggle, mobile close, focus traps.
  */
-export function SidebarLayout({ config, children, onChangePassword }: SidebarLayoutProps) {
+export function SidebarLayout({ config, children, onChangePassword, onLogout }: SidebarLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -63,6 +65,7 @@ export function SidebarLayout({ config, children, onChangePassword }: SidebarLay
         config={config}
         onMenuToggle={() => setMobileOpen((v) => !v)}
         onChangePassword={onChangePassword}
+        onLogout={onLogout}
       />
 
       {/* Body: Sidebar + Content */}

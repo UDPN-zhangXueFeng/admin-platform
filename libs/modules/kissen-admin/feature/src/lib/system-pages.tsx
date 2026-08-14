@@ -18,8 +18,6 @@ import {
   DialogTitle,
   Input,
   Label,
-  MockDetailPage,
-  MockListPage,
   ScrollArea,
   Select,
   SelectContent,
@@ -29,12 +27,12 @@ import {
   Skeleton,
   Textarea,
   useToast,
-  type MockColumn,
-  type MockField,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { cn } from '@myorg/shared/util-classnames';
+import { peekRow, stashRow } from './row-stash';
+import { useKissenPerm } from './use-kissen-perm';
 
 import {
   KISSEN_PROJECT_ID,
@@ -331,6 +329,7 @@ function UserAssignRoleDialog({
 export function SysUserListPage() {
   const router = useRouter();
   const toast = useToast();
+  const hasPerm = useKissenPerm();
   const { register, handleSubmit, reset, control } = useForm<UserFilterForm>({
     defaultValues: EMPTY_USER_FILTER,
   });
@@ -338,6 +337,7 @@ export function SysUserListPage() {
   const [params, setParams] = React.useState(() =>
     userFilterToParams(EMPTY_USER_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const { data, isLoading } = useRbacUserListQuery(KISSEN_PROJECT_ID, params);
 
   const statusMutation = useUserStatusMutation(KISSEN_PROJECT_ID);
@@ -353,20 +353,23 @@ export function SysUserListPage() {
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
 
-  const onSearch = React.useCallback((form: UserFilterForm) => {
-    setParams(userFilterToParams(form, 1, PAGE_SIZE_DEFAULT));
-  }, []);
+  const onSearch = React.useCallback(
+    (form: UserFilterForm) => {
+      setParams(userFilterToParams(form, 1, pageSize));
+    },
+    [pageSize],
+  );
   const onResetSearch = React.useCallback(() => {
     reset(EMPTY_USER_FILTER);
-    setParams(userFilterToParams(EMPTY_USER_FILTER, 1, PAGE_SIZE_DEFAULT));
-  }, [reset]);
+    setParams(userFilterToParams(EMPTY_USER_FILTER, 1, pageSize));
+  }, [reset, pageSize]);
 
   /** 启停（源 userStatus：status 0 正常 / 1 停用）。 */
   const onToggleStatus = React.useCallback(
     (row: UserRow) => {
       const next = row.status === 0 ? 1 : 0;
       const verb = next === 1 ? '停用' : '启用';
-      if (!window.confirm(`确认${verb}用户「${row.loginName}」?`)) return;
+      if (!window.confirm(`确认${verb}「${row.userName}」?`)) return;
       statusMutation.mutate(
         { userId: row.userId, status: next },
         {
@@ -381,7 +384,7 @@ export function SysUserListPage() {
   /** 重置密码（源 userResetPwd → OneTimePassword）。 */
   const onResetPwd = React.useCallback(
     (row: UserRow) => {
-      if (!window.confirm(`确认重置用户「${row.loginName}」的密码?`)) return;
+      if (!window.confirm(`确认重置「${row.userName}」的密码?`)) return;
       resetMutation.mutate(row.userId, {
         onSuccess: (otp: OneTimePassword) =>
           setResetOtp({ userName: row.loginName, pwd: otp.oneTimePassword }),
@@ -394,7 +397,7 @@ export function SysUserListPage() {
   /** 强制下线（源 userForceLogout，踢出所有会话）。 */
   const onForceLogout = React.useCallback(
     (row: UserRow) => {
-      if (!window.confirm(`确认强制用户「${row.loginName}」下线?所有会话将立即失效。`))
+      if (!window.confirm(`强制下线「${row.userName}」?其所有会话将立即失效。`))
         return;
       forceLogoutMutation.mutate(row.userId, {
         onSuccess: () => toast.success('已强制下线'),
@@ -453,7 +456,10 @@ export function SysUserListPage() {
               variant="link"
               size="sm"
               className="h-auto p-0"
-              onClick={() => router.push(`/sys-user/detail?id=${u.userId}`)}
+              onClick={() => {
+                stashRow('user', u.userId, u);
+                router.push(`/sys-user/detail?id=${u.userId}`);
+              }}
             >
               查看
             </Button>
@@ -461,7 +467,10 @@ export function SysUserListPage() {
               variant="link"
               size="sm"
               className="h-auto p-0"
-              onClick={() => router.push(`/sys-user/edit?id=${u.userId}`)}
+              onClick={() => {
+                stashRow('user', u.userId, u);
+                router.push(`/sys-user/edit?id=${u.userId}`);
+              }}
             >
               编辑
             </Button>
@@ -520,13 +529,13 @@ export function SysUserListPage() {
             name="loginName"
             label="登录名"
             register={register('loginName')}
-            placeholder="精确登录名"
+            placeholder="模糊匹配"
           />
           <FormField
             name="userName"
             label="姓名"
             register={register('userName')}
-            placeholder="精确姓名"
+            placeholder="模糊匹配"
           />
           <FormSelect
             name="status"
@@ -547,9 +556,11 @@ export function SysUserListPage() {
       <div className="rounded-lg border bg-card shadow-sm">
         <div className="flex items-center justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">用户</div>
-          <Button size="sm" onClick={() => router.push('/sys-user/create')}>
-            新增用户
-          </Button>
+          {hasPerm('rbac:user:manage') && (
+            <Button size="sm" onClick={() => router.push('/sys-user/create')}>
+              新增用户
+            </Button>
+          )}
         </div>
         <DataTable
           columns={columns}
@@ -564,6 +575,10 @@ export function SysUserListPage() {
                   total: paginationMeta.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (n) => {
+                    setPageSize(n);
+                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                  },
                 }
               : undefined
           }
@@ -617,16 +632,20 @@ export function SysUserFormPage() {
     },
   });
 
-  /** 编辑回显：无 GET /user/{id}，经列表定位（pageSize 200）。 */
+  /** 编辑回显：无 GET /user/{id}，优先读列表页暂存行，缺失时经列表定位（pageSize 200）。 */
   const loadedRef = React.useRef(false);
+  const stashedUser = React.useMemo(
+    () => (isEdit && id != null ? peekRow<UserRow>('user', id) : null),
+    [isEdit, id],
+  );
   const { data: userPage } = useRbacUserListQuery(
     KISSEN_PROJECT_ID,
     { pageNum: 1, pageSize: 200, filter: {} },
-    isEdit,
+    isEdit && !stashedUser,
   );
   React.useEffect(() => {
-    if (isEdit && userPage && !loadedRef.current) {
-      const row = userPage.data.find((u) => u.userId === id);
+    if (isEdit && !loadedRef.current) {
+      const row = stashedUser ?? userPage?.data.find((u) => u.userId === id);
       if (row) {
         reset({
           loginName: row.loginName,
@@ -639,11 +658,20 @@ export function SysUserFormPage() {
         loadedRef.current = true;
       }
     }
-  }, [isEdit, userPage, id, reset]);
+  }, [isEdit, stashedUser, userPage, id, reset]);
 
   const [createdOtp, setCreatedOtp] = React.useState<string | null>(null);
 
   const onSubmit = handleSubmit((form) => {
+    // 源 formRules：loginName/userName 必填（新增与编辑共用）。
+    if (!form.loginName.trim()) {
+      toast.warning('请输入登录名');
+      return;
+    }
+    if (!form.userName.trim()) {
+      toast.warning('请输入姓名');
+      return;
+    }
     if (isEdit) {
       updateMutation.mutate(
         {
@@ -662,10 +690,6 @@ export function SysUserFormPage() {
         },
       );
     } else {
-      if (!form.loginName.trim() || !form.userName.trim()) {
-        toast.error('登录名与姓名必填');
-        return;
-      }
       saveMutation.mutate(
         {
           loginName: form.loginName,
@@ -761,13 +785,17 @@ export function SysUserDetailPage() {
   const id = parseNum(searchParams.get('id'));
   const { data: roles } = useRbacRoleOptionsQuery(KISSEN_PROJECT_ID);
 
-  /** 无 GET /user/{id}：经列表定位。 */
+  /** 无 GET /user/{id}：优先读列表页暂存行，缺失时经列表定位。 */
+  const stashedUser = React.useMemo(
+    () => (id != null ? peekRow<UserRow>('user', id) : null),
+    [id],
+  );
   const { data, isLoading } = useRbacUserListQuery(
     KISSEN_PROJECT_ID,
     { pageNum: 1, pageSize: 200, filter: {} },
-    !!id,
+    !!id && !stashedUser,
   );
-  const user = data?.data.find((u) => u.userId === id);
+  const user = stashedUser ?? data?.data.find((u) => u.userId === id);
   const roleNames = (user?.roleIds ?? [])
     .map((rid) => roles?.find((r) => r.roleId === rid)?.roleName)
     .filter(Boolean)
@@ -1030,10 +1058,17 @@ function RoleAssignMenuDialog({
             disabled={mutation.isPending}
             onClick={() => {
               if (!tree) return;
+              const menuIds = collectMenuIds(tree, checkedLeaves);
+              // 源 role/index.vue onAssign：空勾选需显式确认后才会清空。
+              if (
+                menuIds.length === 0 &&
+                !window.confirm('将清空该角色的全部菜单,确认?')
+              )
+                return;
               mutation.mutate(
                 {
                   roleId: role!.roleId,
-                  menuIds: collectMenuIds(tree, checkedLeaves),
+                  menuIds,
                 },
                 {
                   onSuccess: () => {
@@ -1056,6 +1091,7 @@ function RoleAssignMenuDialog({
 export function SysRoleListPage() {
   const router = useRouter();
   const toast = useToast();
+  const hasPerm = useKissenPerm();
   const { register, handleSubmit, reset } = useForm<RoleFilterForm>({
     defaultValues: EMPTY_ROLE_FILTER,
   });
@@ -1063,6 +1099,7 @@ export function SysRoleListPage() {
   const [params, setParams] = React.useState(() =>
     roleFilterToParams(EMPTY_ROLE_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const { data, isLoading } = useRbacRoleListQuery(KISSEN_PROJECT_ID, params);
 
   const deleteMutation = useRoleDeleteMutation(KISSEN_PROJECT_ID);
@@ -1071,13 +1108,16 @@ export function SysRoleListPage() {
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
 
-  const onSearch = React.useCallback((form: RoleFilterForm) => {
-    setParams(roleFilterToParams(form, 1, PAGE_SIZE_DEFAULT));
-  }, []);
+  const onSearch = React.useCallback(
+    (form: RoleFilterForm) => {
+      setParams(roleFilterToParams(form, 1, pageSize));
+    },
+    [pageSize],
+  );
   const onResetSearch = React.useCallback(() => {
     reset(EMPTY_ROLE_FILTER);
-    setParams(roleFilterToParams(EMPTY_ROLE_FILTER, 1, PAGE_SIZE_DEFAULT));
-  }, [reset]);
+    setParams(roleFilterToParams(EMPTY_ROLE_FILTER, 1, pageSize));
+  }, [reset, pageSize]);
 
   const onDelete = React.useCallback(
     (row: RoleRow) => {
@@ -1173,13 +1213,13 @@ export function SysRoleListPage() {
             name="roleCode"
             label="角色编码"
             register={register('roleCode')}
-            placeholder="精确角色编码"
+            placeholder="模糊匹配"
           />
           <FormField
             name="roleName"
             label="角色名称"
             register={register('roleName')}
-            placeholder="精确角色名称"
+            placeholder="模糊匹配"
           />
         </div>
         <div className="mt-4 flex gap-2">
@@ -1193,9 +1233,11 @@ export function SysRoleListPage() {
       <div className="rounded-lg border bg-card shadow-sm">
         <div className="flex items-center justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">角色</div>
-          <Button size="sm" onClick={() => router.push('/sys-role/create')}>
-            新增角色
-          </Button>
+          {hasPerm('rbac:role:manage') && (
+            <Button size="sm" onClick={() => router.push('/sys-role/create')}>
+              新增角色
+            </Button>
+          )}
         </div>
         <DataTable
           columns={columns}
@@ -1210,6 +1252,10 @@ export function SysRoleListPage() {
                   total: paginationMeta.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (n) => {
+                    setPageSize(n);
+                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                  },
                 }
               : undefined
           }
@@ -1921,6 +1967,7 @@ const WF_BUS_OPTIONS = [
 export function WorkflowConfigListPage() {
   const router = useRouter();
   const toast = useToast();
+  const hasPerm = useKissenPerm();
   const { handleSubmit, reset, control } =
     useForm<WorkflowFilterForm>({ defaultValues: EMPTY_WF_FILTER });
 
@@ -2066,14 +2113,16 @@ export function WorkflowConfigListPage() {
       <div className="rounded-lg border bg-card shadow-sm">
         <div className="flex items-center justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">审批流定义</div>
-          <Button
-            size="sm"
-            disabled={!canCreate}
-            onClick={() => router.push('/workflow-config/create')}
-            title={canCreate ? undefined : '所有业务均已配置审批流'}
-          >
-            新增审批流
-          </Button>
+          {hasPerm('workflow:config') && (
+            <Button
+              size="sm"
+              disabled={!canCreate}
+              onClick={() => router.push('/workflow-config/create')}
+              title={canCreate ? undefined : '所有业务均已配置审批流'}
+            >
+              新增审批流
+            </Button>
+          )}
         </div>
         <DataTable
           columns={columns}
@@ -2219,7 +2268,7 @@ export function WorkflowConfigFormPage() {
   const isEdit = !!id;
 
   const { data: users } = useRbacUserOptionsQuery(KISSEN_PROJECT_ID);
-  const { data: businesses } = useWorkflowBusinessesQuery(KISSEN_PROJECT_ID, !isEdit);
+  const { data: businesses } = useWorkflowBusinessesQuery(KISSEN_PROJECT_ID);
   const { data: detail } = useWorkflowDetailQuery(KISSEN_PROJECT_ID, id, isEdit);
 
   const saveMutation = useWorkflowSaveMutation(KISSEN_PROJECT_ID);
@@ -2229,27 +2278,29 @@ export function WorkflowConfigFormPage() {
   const [workflowName, setWorkflowName] = React.useState('');
   const [steps, setSteps] = React.useState<WfStepForm[]>([]);
 
-  // 编辑回显。
+  // 编辑回显（源 openDetail：无步骤时播种一行默认步骤）。
   React.useEffect(() => {
     if (isEdit && detail) {
       setBusinessId(detail.businessId);
       setWorkflowName(detail.workflowName);
+      const mapped = (detail.steps ?? []).map((s) => ({
+        stepName: s.stepName,
+        stepOrder: s.stepOrder,
+        stepType: s.stepType ?? 5,
+        userIds: s.userIds ?? [],
+      }));
       setSteps(
-        (detail.steps ?? []).map((s) => ({
-          stepName: s.stepName,
-          stepOrder: s.stepOrder,
-          stepType: s.stepType ?? 5,
-          userIds: s.userIds ?? [],
-        })),
+        mapped.length > 0
+          ? mapped
+          : [{ stepName: '审批', stepOrder: 1, stepType: 5, userIds: [] }],
       );
     }
   }, [isEdit, detail]);
 
   const addStep = () =>
     setSteps((prev) => [
-      ...prev,
       {
-        stepName: '',
+        stepName: `第${prev.length + 1}级`,
         stepOrder: prev.length + 1,
         stepType: 5,
         userIds: [],
@@ -2327,17 +2378,20 @@ export function WorkflowConfigFormPage() {
             </Label>
             {isEdit ? (
               <Input
-                value={
-                  businesses?.find((b) => b.businessId === businessId)
-                    ? `${detail?.businessCode ?? ''} ${detail?.businessName ?? ''}`
-                    : String(businessId ?? '')
-                }
+                value={`${detail?.businessCode ?? ''} ${detail?.businessName ?? ''}`}
                 disabled
               />
             ) : (
               <Select
                 value={businessId != null ? String(businessId) : undefined}
-                onValueChange={(v) => setBusinessId(Number(v))}
+                onValueChange={(v) => {
+                  // 源 onCreateBusinessChange：流程名称默认取业务名称，可修改。
+                  setBusinessId(Number(v));
+                  const b = (businesses ?? []).find(
+                    (x) => x.businessId === Number(v),
+                  );
+                  setWorkflowName(b?.businessName ?? '');
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择业务类型" />
@@ -2513,76 +2567,3 @@ export function WorkflowConfigDetailPage() {
   );
 }
 
-/* ============================================================ */
-/* scheduled-task — 定时任务（无源，保留 mock 兜底）              */
-/* ============================================================ */
-
-const scheduledTaskColumns: MockColumn[] = [
-  { key: 'jobName', label: '任务名称' },
-  { key: 'cron', label: 'Cron 表达式' },
-  { key: 'status', label: '状态' },
-  { key: 'lastRun', label: '上次执行' },
-];
-
-const scheduledTaskRows = [
-  { jobName: '结算单生成', cron: '0 0 1 * * ?', status: '运行中', lastRun: '2026-08-14 01:00:00' },
-  { jobName: '对账跑批', cron: '0 30 2 * * ?', status: '运行中', lastRun: '2026-08-14 02:30:00' },
-  { jobName: '汇率快照', cron: '0 */5 * * * ?', status: '已暂停', lastRun: '2026-08-13 23:55:00' },
-];
-
-const scheduledTaskFields: MockField[] = [
-  { key: 'jobName', label: '任务名称' },
-  { key: 'cron', label: 'Cron 表达式' },
-  { key: 'status', label: '状态' },
-  { key: 'lastRun', label: '上次执行时间' },
-];
-
-const scheduledTaskData = { jobName: '结算单生成', cron: '0 0 1 * * ?', status: '运行中', lastRun: '2026-08-14 01:00:00' };
-
-export function ScheduledTaskListPage() {
-  return (
-    <MockListPage
-      title="定时任务监控"
-      columns={scheduledTaskColumns}
-      rows={scheduledTaskRows}
-    />
-  );
-}
-
-export function ScheduledTaskDetailPage() {
-  return (
-    <MockDetailPage
-      title="定时任务详情"
-      fields={scheduledTaskFields}
-      data={scheduledTaskData}
-    />
-  );
-}
-
-/* ============================================================ */
-/* operate-log — 操作日志（无源，保留 mock 兜底）                 */
-/* ============================================================ */
-
-const operateLogColumns: MockColumn[] = [
-  { key: 'operator', label: '操作人' },
-  { key: 'module', label: '模块' },
-  { key: 'action', label: '操作' },
-  { key: 'ip', label: 'IP' },
-  { key: 'time', label: '时间' },
-];
-
-const operateLogRows = [
-  { operator: 'admin', module: '用户管理', action: '新增用户', ip: '10.0.0.1', time: '2026-08-14 10:23:11' },
-  { operator: 'ops01', module: '汇率', action: '更新汇率', ip: '10.0.0.2', time: '2026-08-14 09:15:42' },
-  { operator: 'admin', module: '审批流', action: '启停审批流', ip: '10.0.0.1', time: '2026-08-13 18:02:09' },
-];
-
-export function OperateLogListPage() {
-  return (
-    <MockListPage
-      title="操作日志"
-      columns={operateLogColumns}
-      rows={operateLogRows}
-    />
-  );
-}

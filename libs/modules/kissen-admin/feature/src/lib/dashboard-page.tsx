@@ -767,7 +767,7 @@ export function DashboardPage() {
                       variant="link"
                       size="sm"
                       className="h-auto p-0"
-                      onClick={() => router.push('/transfer/tx')}
+                      onClick={() => router.push('/transaction/tx-list')}
                     >
                       去处置
                     </Button>
@@ -795,7 +795,7 @@ export function DashboardPage() {
                   variant="link"
                   size="sm"
                   className="h-auto p-0"
-                  onClick={() => router.push('/risk/reconcile')}
+                  onClick={() => router.push('/settlement/reconcile')}
                 >
                   去处理
                 </Button>

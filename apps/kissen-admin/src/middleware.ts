@@ -17,11 +17,11 @@ import { routing } from '@myorg/shared/util-i18n';
  */
 const intlMiddleware = createMiddleware(routing);
 
-/** Paths that don't require authentication */
-const PUBLIC_PATHS = ['/login', '/api', '/kissen-api', '/_next'];
+/** Path prefixes that don't require authentication */
+const PUBLIC_PATH_PREFIXES = ['/login', '/api', '/v1', '/_next'];
 
 function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname.includes(p));
+  return PUBLIC_PATH_PREFIXES.some((p) => pathname.startsWith(p));
 }
 
 export default function middleware(request: NextRequest) {
@@ -50,6 +50,9 @@ export default function middleware(request: NextRequest) {
   if (!isAuthenticated && !isPublicPath(pathWithoutLocale)) {
     const url = request.nextUrl.clone();
     url.pathname = `/${locale}/login`;
+    // Carry the original path (incl. query) so login can return the user
+    // where they were (源 router/index.ts:64 /login?redirect=fullPath).
+    url.searchParams.set('redirect', `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(url);
   }
 
@@ -60,6 +63,6 @@ export default function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/',
-    '/((?!api|kissen-api|_next|_vercel|.*\\..*).*)',
+    '/((?!api|v1|_next|_vercel|.*\\..*).*)',
   ],
 };

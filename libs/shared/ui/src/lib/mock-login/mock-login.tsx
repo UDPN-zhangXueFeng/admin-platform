@@ -172,6 +172,7 @@ export function MockLoginPage({
                 placeholder="Enter your username"
                 defaultValue={onSubmit ? '' : 'admin'}
                 autoComplete="username"
+                required
               />
             </div>
 
@@ -184,6 +185,7 @@ export function MockLoginPage({
                 placeholder="Enter your password"
                 defaultValue={onSubmit ? '' : 'admin123'}
                 autoComplete="current-password"
+                required
               />
             </div>
 

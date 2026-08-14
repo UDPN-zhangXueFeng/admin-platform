@@ -40,7 +40,7 @@ export function useRateHistoryQuery(
   pageSize = 10,
 ) {
   return useQuery({
-    queryKey: rateKeys.history(projectId, pairId ?? 0),
+    queryKey: rateKeys.history(projectId, pairId ?? 0, pageNum, pageSize),
     queryFn: ({ signal }) =>
       getRateList(
         { pageNum, pageSize, filter: { pairId } },

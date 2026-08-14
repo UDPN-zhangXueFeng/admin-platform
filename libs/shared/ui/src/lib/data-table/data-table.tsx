@@ -12,12 +12,27 @@ import {
 } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { cn } from '@myorg/shared/util-classnames';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../select';
 
 export interface DataTablePagination {
   page: number;
   pageSize: number;
   total: number;
   onPageChange: (page: number) => void;
+  /**
+   * Page-size selector callback (e.g. switching between 10/20/50 rows).
+   * Rendered only when provided — pages that don't pass it keep the plain
+   * footer, so existing consumers are unaffected.
+   */
+  onPageSizeChange?: (pageSize: number) => void;
+  /** Selector options; defaults to [10, 20, 50]. */
+  pageSizeOptions?: number[];
 }
 
 export interface DataTableSelection {
@@ -168,9 +183,28 @@ export function DataTable<TData extends { id: string }>({
       {pagination && (
         <div className="flex items-center justify-between px-1">
           <div className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
+            {pagination.onPageSizeChange
+              ? `共 ${pagination.total} 条`
+              : `Page ${currentPage} of ${totalPages}`}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            {pagination.onPageSizeChange && (
+              <Select
+                value={String(pagination.pageSize)}
+                onValueChange={(v) => pagination.onPageSizeChange?.(Number(v))}
+              >
+                <SelectTrigger className="h-8 w-[110px]" aria-label="Rows per page">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(pagination.pageSizeOptions ?? [10, 20, 50]).map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size} / 页
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <PaginationButton
               aria-label="First page"
               disabled={currentPage <= 1}

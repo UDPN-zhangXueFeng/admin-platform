@@ -17,8 +17,17 @@ import type { ComponentType } from 'react';
  *   create → <Pascal>FormPage
  *   edit   → <Pascal>FormPage
  */
+
 type PageLoader = () => Promise<{ default: ComponentType<unknown> }>;
 
+/**
+ * 源 `views/placeholder.vue` 等价物 —— 菜单项存在但暂无对应页面（或该模块
+ * 仅有前端占位语义）时渲染「功能将在后续版本开放」空态，绝不渲染伪造数据。
+ */
+const placeholderLoader: PageLoader = () =>
+  import('@myorg/modules/kissen-admin/feature').then((m) => ({
+    default: m.KissenPlaceholderPage as unknown as ComponentType<unknown>,
+  }));
 
 const pages: Record<string, Record<string, PageLoader>> = {
   dashboard: {
@@ -79,7 +88,7 @@ const pages: Record<string, Record<string, PageLoader>> = {
   },
 
   'lp-water-level': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpWaterLevelListPage as unknown as ComponentType<unknown> })),
+    list: placeholderLoader,
   },
 
   'currency-pair': {
@@ -101,7 +110,7 @@ const pages: Record<string, Record<string, PageLoader>> = {
   },
 
   'rate-push-log': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.RatePushLogListPage as unknown as ComponentType<unknown> })),
+    list: placeholderLoader,
   },
 
   'tx-list': {
@@ -119,8 +128,8 @@ const pages: Record<string, Record<string, PageLoader>> = {
   },
 
   'settle-record': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SettleRecordListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SettleRecordDetailPage as unknown as ComponentType<unknown> })),
+    list: placeholderLoader,
+    detail: placeholderLoader,
   },
 
   'settle-order': {
@@ -144,10 +153,10 @@ const pages: Record<string, Record<string, PageLoader>> = {
   },
 
   'monitor-rule': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.MonitorRuleListPage as unknown as ComponentType<unknown> })),
-    create: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.MonitorRuleFormPage as unknown as ComponentType<unknown> })),
-    edit: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.MonitorRuleFormPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.MonitorRuleDetailPage as unknown as ComponentType<unknown> })),
+    list: placeholderLoader,
+    create: placeholderLoader,
+    edit: placeholderLoader,
+    detail: placeholderLoader,
   },
 
   'monitor-hit': {
@@ -186,12 +195,12 @@ const pages: Record<string, Record<string, PageLoader>> = {
   },
 
   'scheduled-task': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.ScheduledTaskListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.ScheduledTaskDetailPage as unknown as ComponentType<unknown> })),
+    list: placeholderLoader,
+    detail: placeholderLoader,
   },
 
   'operate-log': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.OperateLogListPage as unknown as ComponentType<unknown> })),
+    list: placeholderLoader,
   },
 };
 
@@ -204,8 +213,7 @@ export function loadKissenAdminModulePage(
   moduleId: string,
   pageKey: string,
 ): ComponentType<unknown> | null {
-  const loader = pages[moduleId]?.[pageKey];
-  if (!loader) return null;
+  const loader = pages[moduleId]?.[pageKey] ?? placeholderLoader;
   return dynamic(() => loader(), {
     ssr: false,
   }) as unknown as ComponentType<unknown>;

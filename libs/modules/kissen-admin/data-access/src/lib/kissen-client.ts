@@ -1,6 +1,10 @@
 import axios, { type AxiosError, type AxiosRequestConfig } from 'axios';
 
-import { getAccessToken, logoutAndRedirect } from '@myorg/shared/util-auth';
+import {
+  clearSessionStorage,
+  getAccessToken,
+  getLoginRedirectPath,
+} from '@myorg/shared/util-auth';
 import type { PaginatedResponse } from '@myorg/shared/model';
 
 /**
@@ -119,8 +123,12 @@ kissenAxios.interceptors.response.use(
   (error: AxiosError<unknown>) => {
     const status = error.response?.status;
     if (status === 401) {
-      // 与源一致：清除会话并跳登录。logoutAndRedirect 已含清理 + locale 登录跳转。
-      logoutAndRedirect();
+      // 与源一致：清会话、跳登录并标记 expired（登录页据此展示「登录已失效」，
+      // 源 request.ts:24-29 + login/index.vue:19-22 的语义）。
+      clearSessionStorage();
+      if (typeof window !== 'undefined') {
+        window.location.assign(`${getLoginRedirectPath()}?expired=1`);
+      }
       throw new KissenApiError('401', '登录已失效,请重新登录');
     }
     if (status === 403) {

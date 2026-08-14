@@ -46,12 +46,12 @@ export const LP_PAIR_TARGET_STATUS = {
 
 /** LP 货币对状态沿用 CommonStatusEnum。 */
 export const LP_PAIR_STATUS_LABEL: Record<number, string> = {
-  1: '草稿',
+  1: '保存(草稿)',
   3: '撤回',
   5: '待审核',
   10: '审核中',
   15: '审核拒绝',
-  20: '正常',
+  20: '审核通过',
   25: '已签名',
   30: '提交中',
   35: '最终确认',

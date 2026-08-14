@@ -23,6 +23,8 @@ export interface AppShellProps {
   children: React.ReactNode;
   /** Open the change-password dialog (passed through to Header). */
   onChangePassword?: () => void;
+  /** Project-specific logout (passed through to Header). */
+  onLogout?: () => void | Promise<void>;
 }
 
 interface LayoutProps {
@@ -30,6 +32,8 @@ interface LayoutProps {
   children: React.ReactNode;
   /** Open the change-password dialog (passed through to Header). */
   onChangePassword?: () => void;
+  /** Project-specific logout (passed through to Header). */
+  onLogout?: () => void | Promise<void>;
 }
 
 /**
@@ -43,11 +47,11 @@ interface LayoutProps {
  * - Layouts are small, always-needed UI shells.
  * - Dynamic import would add async complexity for zero bundle benefit.
  */
-export function AppShell({ config, children, onChangePassword }: AppShellProps) {
+export function AppShell({ config, children, onChangePassword, onLogout }: AppShellProps) {
   const Layout = layoutMap[config.layout.type] ?? SidebarLayout;
 
   return (
-    <Layout config={config} onChangePassword={onChangePassword}>
+    <Layout config={config} onChangePassword={onChangePassword} onLogout={onLogout}>
       {children}
     </Layout>
   );

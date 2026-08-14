@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import {
@@ -16,6 +16,11 @@ import {
   DialogTitle,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   useToast,
 } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
@@ -29,6 +34,7 @@ import {
   type CurrencySaveReq,
 } from '@myorg/modules/kissen-admin/data-access';
 
+import { useKissenPerm } from './use-kissen-perm';
 /**
  * 币种管理（源 `views/system/currency/index.vue` + `currency-dialog.vue`）。
  *
@@ -41,12 +47,20 @@ import {
  * 路由化无收益且偏离源交互。
  */
 
-const PAGE_SIZE_DEFAULT = 20;
+const PAGE_SIZE_DEFAULT = 10;
 
 const STATUS_VARIANT: Record<number, 'default' | 'secondary'> = {
   20: 'default',
   50: 'secondary',
 };
+
+/** 状态筛选 Select 的「全部」哨兵值（源 el-select clearable，shadcn 无原生 clear）。 */
+const STATUS_ALL = 'ALL';
+
+interface CurrencyFilterForm {
+  currencyCode: string;
+  status?: number;
+}
 
 function formatDateTime(value: number | null | undefined): string {
   if (!value) return '--';
@@ -55,9 +69,12 @@ function formatDateTime(value: number | null | undefined): string {
 
 export function CurrencyListPage() {
   const toast = useToast();
+  const hasPerm = useKissenPerm();
 
-  const { register, handleSubmit, reset } = useForm<{ currencyCode: string }>({
-    defaultValues: { currencyCode: '' },
+  const { register, handleSubmit, reset, control } = useForm<
+    CurrencyFilterForm
+  >({
+    defaultValues: { currencyCode: '', status: undefined },
   });
 
   const [params, setParams] = React.useState({
@@ -78,13 +95,16 @@ export function CurrencyListPage() {
     setParams((p) => ({
       ...p,
       pageNum: 1,
-      filter: { currencyCode: form.currencyCode.trim() || undefined },
+      filter: {
+        currencyCode: form.currencyCode.trim() || undefined,
+        status: form.status,
+      },
     }));
   });
 
   const onResetSearch = () => {
-    reset({ currencyCode: '' });
-    setParams({ pageNum: 1, pageSize: PAGE_SIZE_DEFAULT, filter: {} });
+    reset({ currencyCode: '', status: undefined });
+    setParams((p) => ({ ...p, pageNum: 1, filter: {} }));
   };
 
   const openCreate = () => {
@@ -98,12 +118,15 @@ export function CurrencyListPage() {
   };
 
   const onToggle = (row: CurrencyRow) => {
-    const verb = row.status === 20 ? '停用' : '启用';
-    if (!window.confirm(`确认${verb}币种「${row.currencyCode}」?`)) return;
+    const disable = row.status === 20;
+    const content = disable
+      ? `确认停用币种「${row.currencyCode}」?停用后新建银行将不可再选择该币种,已有银行币种关系不受影响。`
+      : `确认启用币种「${row.currencyCode}」?`;
+    if (!window.confirm(content)) return;
     toggleMutation.mutate(
       { currencyId: row.currencyId },
       {
-        onSuccess: () => toast.success(`已${verb}`),
+        onSuccess: () => toast.success('操作成功'),
         onError: (e) => toast.error((e as Error).message),
       },
     );
@@ -175,7 +198,9 @@ export function CurrencyListPage() {
     <div className="space-y-4 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">币种管理</h1>
-        <Button onClick={openCreate}>新建币种</Button>
+        {hasPerm('system:currency') && (
+          <Button onClick={openCreate}>新建币种</Button>
+        )}
       </div>
 
       <form
@@ -187,6 +212,32 @@ export function CurrencyListPage() {
             name="currencyCode"
             label="币种代码"
             register={register('currencyCode')}
+          />
+        </div>
+        <div className="w-48">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            状态
+          </label>
+          <Controller
+            control={control}
+            name="status"
+            render={({ field }) => (
+              <Select
+                value={field.value != null ? String(field.value) : STATUS_ALL}
+                onValueChange={(v) =>
+                  field.onChange(v === STATUS_ALL ? undefined : Number(v))
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="全部" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={STATUS_ALL}>全部</SelectItem>
+                  <SelectItem value="20">启用</SelectItem>
+                  <SelectItem value="50">停用</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           />
         </div>
         <Button type="submit">查询</Button>
@@ -205,6 +256,8 @@ export function CurrencyListPage() {
           total: data?.pagination?.total ?? 0,
           onPageChange: (page: number) =>
             setParams((p) => ({ ...p, pageNum: page })),
+          onPageSizeChange: (n: number) =>
+            setParams((p) => ({ ...p, pageNum: 1, pageSize: n })),
         }}
       />
 
@@ -227,6 +280,11 @@ interface CurrencySaveDialogProps {
   editing: CurrencyRow | null;
 }
 
+/** create 态 decimalDigits 不预填（源必填校验「请输入小数位」须可触发）。 */
+type CurrencyDialogFormValues = Omit<CurrencySaveReq, 'currencyId'> & {
+  decimalDigits?: number;
+};
+
 function CurrencySaveDialog({
   open,
   onOpenChange,
@@ -242,8 +300,8 @@ function CurrencySaveDialog({
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<Omit<CurrencySaveReq, 'currencyId'>>({
-    defaultValues: { currencyCode: '', currencyName: '', decimalDigits: 2 },
+  } = useForm<CurrencyDialogFormValues>({
+    defaultValues: { currencyCode: '', currencyName: '', decimalDigits: undefined },
   });
 
   React.useEffect(() => {
@@ -255,7 +313,11 @@ function CurrencySaveDialog({
               currencyName: editing.currencyName,
               decimalDigits: editing.decimalDigits,
             }
-          : { currencyCode: '', currencyName: '', decimalDigits: 2 },
+          : {
+              currencyCode: '',
+              currencyName: '',
+              decimalDigits: undefined,
+            },
       );
     }
   }, [open, editing, reset]);

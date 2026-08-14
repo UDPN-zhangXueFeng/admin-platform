@@ -104,21 +104,24 @@ const nextConfig: NextConfig = {
   },
 
   /**
-   * API proxy — rewrites /kissen-api/* requests to the kissen backend.
+   * API proxy — rewrites /v1/* requests to the kissen backend.
    *
-   * The client-side axios instance uses `/kissen-api` as baseURL (relative
-   * path), and Next.js proxies these requests to the actual backend defined
-   * by NEXT_SERVICE_SERVER_URL in .env.local. Mock mode makes no real calls,
-   * but the rewrite is kept for parity with the admin app shell.
+   * The client-side axios instance (kissen-client.ts) uses '/v1' as baseURL,
+   * matching the source app (vite proxies '/v1' → http://127.0.0.1:9000 and
+   * the production Nginx reverse proxy keeps the /v1 prefix). The rewrite
+   * therefore preserves the /v1 prefix on the destination.
+   *
+   * Override the backend origin with NEXT_SERVICE_SERVER_URL_KISSEN
+   * (defaults to the source dev backend at 127.0.0.1:9000).
    */
   async rewrites() {
-    const backendUrl = process.env.NEXT_SERVICE_SERVER_URL || 'http://localhost:8080';
-    const agentPrefix = process.env.NEXT_PUBLIC_API_BASE_URL || '/kissen-api';
+    const kissenBackend =
+      process.env.NEXT_SERVICE_SERVER_URL_KISSEN || 'http://127.0.0.1:9000';
 
     return [
       {
-        source: `${agentPrefix}/:path*`,
-        destination: `${backendUrl}/:path*`,
+        source: '/v1/:path*',
+        destination: `${kissenBackend}/v1/:path*`,
       },
     ];
   },

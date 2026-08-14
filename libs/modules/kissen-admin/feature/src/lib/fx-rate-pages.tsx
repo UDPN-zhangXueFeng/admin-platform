@@ -22,11 +22,10 @@ import {
   SelectValue,
   Skeleton,
   useToast,
-  MockListPage,
-  type MockColumn,
 } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { peekRow, stashRow } from './row-stash';
 
 import {
   KISSEN_PROJECT_ID,
@@ -59,14 +58,21 @@ import {
 
 const PROJECT_ID = KISSEN_PROJECT_ID;
 
+/** 列表默认每页条数（源 el-pagination page-size 10）。 */
+const PAGE_SIZE_DEFAULT = 10;
+
 // ---------------------------------------------------------------------------
 // 共享展示工具
 // ---------------------------------------------------------------------------
 
-/** 比率/金额原样展示；null/undefined/空 → '--'（conventions §4）。 */
+/** 比率/金额千分位分组（源 approval/format.ts formatMoney，保留原小数位）；null/undefined/空 → '-'。 */
 function formatRate(v: string | number | null | undefined): string {
-  if (v === null || v === undefined || v === '') return '--';
-  return String(v);
+  if (v === null || v === undefined || v === '') return '-';
+  const [int, dec] = String(v).split('.');
+  const sign = int.startsWith('-') ? '-' : '';
+  const digits = sign ? int.slice(1) : int;
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
 }
 
 /** 毫秒时间戳 → toLocaleString；0/空 → '--'（conventions §4）。 */
@@ -156,7 +162,7 @@ export function CurrencyPairListPage() {
     pageNum: number;
     pageSize: number;
     filter: CurrencyPairListFilter;
-  }>({ pageNum: 1, pageSize: 10, filter: {} });
+  }>({ pageNum: 1, pageSize: PAGE_SIZE_DEFAULT, filter: {} });
 
   const { data, isLoading } = useCurrencyPairListQuery(PROJECT_ID, params);
   const enableMutation = useEnableCurrencyPairMutation(PROJECT_ID);
@@ -176,12 +182,12 @@ export function CurrencyPairListPage() {
   const paginationMeta = data?.pagination;
 
   const onSubmit = React.useCallback((form: PairFilterForm) => {
-    setParams({ pageNum: 1, pageSize: 10, filter: form });
+    setParams((p) => ({ ...p, pageNum: 1, filter: form }));
   }, []);
 
   const onReset = React.useCallback(() => {
     reset(PAIR_EMPTY_FILTER);
-    setParams({ pageNum: 1, pageSize: 10, filter: {} });
+    setParams((p) => ({ ...p, pageNum: 1, filter: {} }));
   }, [reset]);
 
   const submitEnable = React.useCallback(
@@ -327,9 +333,10 @@ export function CurrencyPairListPage() {
                 variant="link"
                 size="sm"
                 className="h-auto p-0"
-                onClick={() =>
-                  router.push(`/currency-pair/detail?id=${item.pairId}`)
-                }
+                onClick={() => {
+                  stashRow('currency-pair', item.pairId, item);
+                  router.push(`/currency-pair/detail?id=${item.pairId}`);
+                }}
               >
                 查看
               </Button>
@@ -337,9 +344,10 @@ export function CurrencyPairListPage() {
                 variant="link"
                 size="sm"
                 className="h-auto p-0"
-                onClick={() =>
-                  router.push(`/currency-pair/edit?id=${item.pairId}`)
-                }
+                onClick={() => {
+                  stashRow('currency-pair', item.pairId, item);
+                  router.push(`/currency-pair/edit?id=${item.pairId}`);
+                }}
               >
                 编辑
               </Button>
@@ -510,6 +518,8 @@ export function CurrencyPairListPage() {
                   total: paginationMeta.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (n) =>
+                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n })),
                 }
               : undefined
           }
@@ -844,10 +854,17 @@ export function CurrencyPairFormPage() {
   const { data: detail } = useCurrencyPairDetailQuery(PROJECT_ID, pairId);
   const saveMutation = useSaveCurrencyPairMutation(PROJECT_ID);
 
+  /** 列表跳转前 stashRow 的行优先；无暂存（直链/刷新）回退列表扫描。 */
+  const [stashedRow] = React.useState(() =>
+    pairId != null ? peekRow<CurrencyPairRow>('currency-pair', pairId) : null,
+  );
+  const pairRow = detail ?? stashedRow;
+
   const currencyOptions = currencies ?? [];
   const currenciesEmpty = currencyOptions.length === 0;
   /** 已启用货币对加价率锁定（改加价率走 KRC/M6）。 */
-  const markupLocked = isEdit && detail?.status === CurrencyPairStatus.Enabled;
+  const markupLocked =
+    isEdit && pairRow?.status === CurrencyPairStatus.Enabled;
 
   const { control, register, handleSubmit, reset, watch } =
     useForm<PairFormValues>({
@@ -860,16 +877,18 @@ export function CurrencyPairFormPage() {
     });
 
   React.useEffect(() => {
-    if (!isEdit || !detail) return;
+    if (!isEdit || !pairRow) return;
     reset({
-      sourceCurrency: detail.sourceCurrency ?? '',
-      targetCurrency: detail.targetCurrency ?? '',
+      sourceCurrency: pairRow.sourceCurrency ?? '',
+      targetCurrency: pairRow.targetCurrency ?? '',
       markupRate:
-        detail.markupRate != null ? String(detail.markupRate) : '',
+        pairRow.markupRate != null ? String(pairRow.markupRate) : '',
       slippageThreshold:
-        detail.slippageThreshold != null ? String(detail.slippageThreshold) : '',
+        pairRow.slippageThreshold != null
+          ? String(pairRow.slippageThreshold)
+          : '',
     });
-  }, [detail, isEdit, reset]);
+  }, [pairRow, isEdit, reset]);
 
   const onSubmit = handleSubmit((values) => {
     const req: CurrencyPairSaveReq = {
@@ -1052,10 +1071,15 @@ export function CurrencyPairDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pairId = parseId(searchParams.get('id'));
-  const { data: detail, isLoading } = useCurrencyPairDetailQuery(
+  const [stashedRow] = React.useState(() =>
+    pairId != null ? peekRow<CurrencyPairRow>('currency-pair', pairId) : null,
+  );
+  const { data: scanned, isLoading } = useCurrencyPairDetailQuery(
     PROJECT_ID,
     pairId,
   );
+  /** 列表跳转前 stashRow 的行优先；无暂存（直链/刷新）回退列表扫描。 */
+  const detail = scanned ?? stashedRow;
 
   return (
     <div className="space-y-4">
@@ -1137,7 +1161,7 @@ export function RateConfigListPage() {
     pageNum: number;
     pageSize: number;
     filter: RateListFilter;
-  }>({ pageNum: 1, pageSize: 10, filter: {} });
+  }>({ pageNum: 1, pageSize: PAGE_SIZE_DEFAULT, filter: {} });
 
   const { data, isLoading } = useRateListQuery(PROJECT_ID, params);
   const rows = data?.data ?? [];
@@ -1148,12 +1172,12 @@ export function RateConfigListPage() {
     const pid = Number(form.pairId);
     if (form.pairId && Number.isFinite(pid) && pid > 0) filter.pairId = pid;
     if (form.status != null) filter.status = form.status;
-    setParams({ pageNum: 1, pageSize: 10, filter });
+    setParams({ pageNum: 1, pageSize: PAGE_SIZE_DEFAULT, filter });
   }, []);
 
   const onReset = React.useCallback(() => {
     reset(RATE_EMPTY_FILTER);
-    setParams({ pageNum: 1, pageSize: 10, filter: {} });
+    setParams((p) => ({ ...p, pageNum: 1, filter: {} }));
   }, [reset]);
 
   const columns = React.useMemo<
@@ -1319,6 +1343,8 @@ export function RateConfigListPage() {
                   total: paginationMeta.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (n) =>
+                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n })),
                 }
               : undefined
           }
@@ -1546,65 +1572,5 @@ export function RateConfigDetailPage() {
         )}
       </section>
     </div>
-  );
-}
-
-/* ======================================================================= */
-/* rate-push-log — 推送日志（无源 → mock 兜底）                            */
-/* ======================================================================= */
-
-// 无源功能，占位
-const ratePushLogColumns: MockColumn[] = [
-  { key: 'id', label: 'Push ID' },
-  { key: 'pair', label: 'Currency Pair' },
-  { key: 'rate', label: 'Pushed Rate' },
-  { key: 'channel', label: 'Push Channel' },
-  { key: 'pushedAt', label: 'Push Time' },
-  { key: 'status', label: 'Status' },
-];
-
-const ratePushLogRows = [
-  {
-    id: 'RP2026080901',
-    pair: 'USDT/USD',
-    rate: '1.0002',
-    channel: 'Gateway CN',
-    pushedAt: '2026-08-09 08:00:00',
-    status: <Badge>Success</Badge>,
-  },
-  {
-    id: 'RP2026080902',
-    pair: 'USDC/USD',
-    rate: '1.0001',
-    channel: 'Gateway HK',
-    pushedAt: '2026-08-09 08:00:00',
-    status: <Badge>Success</Badge>,
-  },
-  {
-    id: 'RP2026080903',
-    pair: 'BTC/USDT',
-    rate: '58,200.00',
-    channel: 'Gateway CN',
-    pushedAt: '2026-08-09 08:01:00',
-    status: <Badge variant="secondary">Partial Success</Badge>,
-  },
-  {
-    id: 'RP2026080904',
-    pair: 'ETH/USDT',
-    rate: '2,650.50',
-    channel: 'Gateway US',
-    pushedAt: '2026-08-09 08:01:00',
-    status: <Badge variant="destructive">Failed</Badge>,
-  },
-];
-
-/** 无源功能，占位——保留 mock 实现。 */
-export function RatePushLogListPage() {
-  return (
-    <MockListPage
-      title="Rate Push Logs"
-      columns={ratePushLogColumns}
-      rows={ratePushLogRows}
-    />
   );
 }

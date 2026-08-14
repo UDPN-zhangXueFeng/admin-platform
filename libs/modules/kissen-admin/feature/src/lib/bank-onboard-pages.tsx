@@ -29,6 +29,10 @@ import {
   TabsList,
   TabsTrigger,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   useToast,
 } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
@@ -73,7 +77,9 @@ import {
   type CurrencyRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_DEFAULT = 10;
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
+const STATUS_ALL = 'all';
 
 /* ================================================================== */
 /* 共用展示 helper（源 views/approval/format.ts 移植，bank 域内使用）     */
@@ -277,18 +283,21 @@ interface BankInfoFilterForm {
   bankCode?: string;
   status?: string;
 }
-
-const EMPTY_BANK_FILTER: BankInfoFilterForm = { bankName: '', bankCode: '', status: '' };
-
+const EMPTY_BANK_FILTER: BankInfoFilterForm = {
+  bankName: '',
+  bankCode: '',
+  status: STATUS_ALL,
+};
 function bankFormToParams(
   form: BankInfoFilterForm,
   pageNum: number,
+  pageSize: number,
 ): { pageNum: number; pageSize: number; filter: BankListFilter } {
   const filter: BankListFilter = {};
   if (form.bankName) filter.bankName = form.bankName;
   if (form.bankCode) filter.bankCode = form.bankCode;
-  if (form.status) filter.status = Number(form.status);
-  return { pageNum, pageSize: PAGE_SIZE, filter };
+  if (form.status && form.status !== STATUS_ALL) filter.status = Number(form.status);
+  return { pageNum, pageSize, filter };
 }
 
 export function BankInfoListPage() {
@@ -298,10 +307,11 @@ export function BankInfoListPage() {
   const { register, handleSubmit, reset, control } = useForm<BankInfoFilterForm>({
     defaultValues: EMPTY_BANK_FILTER,
   });
-
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const [params, setParams] = React.useState(() =>
-    bankFormToParams(EMPTY_BANK_FILTER, 1),
+    bankFormToParams(EMPTY_BANK_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
+
 
   const { data, isLoading } = useBankListQuery(KISSEN_PROJECT_ID, params);
   const submitMutation = useSubmitBankOnboardMutation(KISSEN_PROJECT_ID);
@@ -316,15 +326,15 @@ export function BankInfoListPage() {
 
   const onSearch = React.useCallback(
     (form: BankInfoFilterForm) => {
-      setParams(bankFormToParams(form, 1));
+      setParams(bankFormToParams(form, 1, pageSize));
     },
-    [],
+    [pageSize],
   );
 
   const onReset = React.useCallback(() => {
     reset(EMPTY_BANK_FILTER);
-    setParams(bankFormToParams(EMPTY_BANK_FILTER, 1));
-  }, [reset]);
+    setParams(bankFormToParams(EMPTY_BANK_FILTER, 1, pageSize));
+  }, [reset, pageSize]);
 
   const refreshList = React.useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: bankKeys.lists(KISSEN_PROJECT_ID) });
@@ -475,6 +485,16 @@ export function BankInfoListPage() {
               )}
               {s === 20 && (
                 <>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="link" size="sm" className="h-auto p-0" disabled>
+                          编辑
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>已启用银行不可编辑,限额变更走审批流</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <Button
                     variant="link"
                     size="sm"
@@ -552,13 +572,14 @@ export function BankInfoListPage() {
               name="status"
               render={({ field }) => (
                 <Select
-                  value={field.value ?? ''}
+                  value={field.value || STATUS_ALL}
                   onValueChange={field.onChange}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="全部" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={STATUS_ALL}>全部</SelectItem>
                     {BANK_STATUS_OPTIONS.map((o) => (
                       <SelectItem key={o.value} value={String(o.value)}>
                         {o.label}
@@ -602,6 +623,11 @@ export function BankInfoListPage() {
                   total: paginationMeta.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (n) => {
+                    setPageSize(n);
+                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                  },
+                  pageSizeOptions: PAGE_SIZE_OPTIONS,
                 }
               : undefined
           }
@@ -700,6 +726,7 @@ function LimitChangeDialog({
             label="新单笔限额"
             required
             type="number"
+            step="any"
             error={formState.errors.singleLimit ? '请输入新单笔限额' : undefined}
             register={register('singleLimit', {
               required: true,
@@ -711,6 +738,7 @@ function LimitChangeDialog({
             label="新日累计限额"
             required
             type="number"
+            step="any"
             error={formState.errors.dailyLimit ? '请输入新日累计限额' : undefined}
             register={register('dailyLimit', {
               required: true,
@@ -848,7 +876,9 @@ function GatewayConnectionPanel({
           label="网关端点 URL"
           required
           placeholder="请输入网关端点 URL"
-          register={register('endpointUrl', { required: true })}
+          maxLength={200}
+          error={formState.errors.endpointUrl ? '请输入网关端点 URL' : undefined}
+          register={register('endpointUrl', { required: true, maxLength: 200 })}
         />
         <div className="space-y-1.5">
           <label className="text-sm font-medium">密钥指纹</label>
@@ -857,9 +887,6 @@ function GatewayConnectionPanel({
             placeholder={notRegistered ? '请输入密钥指纹' : '留空保持原值'}
             {...register('keyFingerprint')}
           />
-          {formState.errors.endpointUrl && (
-            <p className="text-sm text-destructive">请输入网关端点 URL</p>
-          )}
         </div>
         <div className="flex justify-end gap-2">
           <Button
@@ -1017,7 +1044,7 @@ export function BankInfoFormPage() {
             label="单笔限额"
             required
             type="number"
-            placeholder="大于 0"
+            step="any"
             error={formState.errors.singleLimit ? '请输入单笔限额' : undefined}
             register={register('singleLimit', {
               required: true,
@@ -1030,6 +1057,7 @@ export function BankInfoFormPage() {
             required
             type="number"
             placeholder="大于 0"
+            step="any"
             error={formState.errors.dailyLimit ? '请输入日累计限额' : undefined}
             register={register('dailyLimit', {
               required: true,
@@ -1290,6 +1318,7 @@ export function BankApprovalListPage() {
   const router = useRouter();
   const [tab, setTab] = React.useState<ApprovalTab>('todo');
   const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const { register, handleSubmit, reset, control } = useForm<BankApprovalFilterForm>({
     defaultValues: {
       businessCode: BANK_BUSINESS_CODES.onboard,
@@ -1304,12 +1333,12 @@ export function BankApprovalListPage() {
 
   const todoQuery = useBankApprovalTodoQuery(
     KISSEN_PROJECT_ID,
-    { pageNum, pageSize: PAGE_SIZE, data: filter },
+    { pageNum, pageSize, data: filter },
     tab === 'todo',
   );
   const doneQuery = useBankApprovalDoneQuery(
     KISSEN_PROJECT_ID,
-    { pageNum, pageSize: PAGE_SIZE, data: filter },
+    { pageNum, pageSize, data: filter },
     tab === 'done',
   );
   const activeQuery = tab === 'todo' ? todoQuery : doneQuery;
@@ -1321,7 +1350,8 @@ export function BankApprovalListPage() {
     (form: BankApprovalFilterForm) => {
       const next: BankApprovalPageReq = { businessCode: form.businessCode };
       if (form.keyword) next.keyword = form.keyword;
-      if (tab === 'done' && form.status) next.status = Number(form.status);
+      if (tab === 'done' && form.status && form.status !== STATUS_ALL)
+        next.status = Number(form.status);
       setFilter(next);
       setPageNum(1);
     },
@@ -1381,24 +1411,22 @@ export function BankApprovalListPage() {
         },
       },
     ];
-    if (tab === 'done') {
-      base.push(
-        {
-          accessorKey: 'reviewerTime',
-          header: '处理时间',
-          cell: ({ row }) => (
-            <span>{formatTime((row.original as BankApprovalDoneRow).reviewerTime)}</span>
-          ),
-        },
-        {
-          accessorKey: 'reviewerRemarks',
-          header: '我的意见',
-          cell: ({ row }) => (
-            <span>{(row.original as BankApprovalDoneRow).reviewerRemarks || '--'}</span>
-          ),
-        },
-      );
-    }
+    base.push(
+      {
+        accessorKey: 'reviewerTime',
+        header: '处理时间',
+        cell: ({ row }) => (
+          <span>{formatTime((row.original as BankApprovalDoneRow).reviewerTime)}</span>
+        ),
+      },
+      {
+        accessorKey: 'reviewerRemarks',
+        header: '我的意见',
+        cell: ({ row }) => (
+          <span>{(row.original as BankApprovalDoneRow).reviewerRemarks || '--'}</span>
+        ),
+      },
+    );
     base.push({
       id: 'actions',
       header: '操作',
@@ -1468,13 +1496,14 @@ export function BankApprovalListPage() {
                 name="status"
                 render={({ field }) => (
                   <Select
-                    value={field.value ?? ''}
+                    value={field.value || STATUS_ALL}
                     onValueChange={field.onChange}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="全部" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value={STATUS_ALL}>全部</SelectItem>
                       <SelectItem value="3">通过</SelectItem>
                       <SelectItem value="2">拒绝</SelectItem>
                     </SelectContent>
@@ -1513,6 +1542,11 @@ export function BankApprovalListPage() {
                       pageSize: paginationMeta.pageSize,
                       total: paginationMeta.total,
                       onPageChange: setPageNum,
+                      onPageSizeChange: (n) => {
+                        setPageSize(n);
+                        setPageNum(1);
+                      },
+                      pageSizeOptions: PAGE_SIZE_OPTIONS,
                     }
                   : undefined
               }
@@ -1728,13 +1762,17 @@ export function BankApprovalDetailPage() {
                   {fieldLabelFor(busCode, key)}
                 </div>
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                  {nested.entries.map(([k, v]) => (
-                    <DetailField key={k} label={fieldLabelFor(busCode, k)}>
-                      {typeof v === 'string' || typeof v === 'number'
-                        ? v
-                        : JSON.stringify(v)}
-                    </DetailField>
-                  ))}
+                  {nested.entries.map(([k, v]) => {
+                    const fv = formatFieldValue(k, v);
+                    const text = typeof fv === 'string' ? fv : JSON.stringify(v);
+                    return (
+                      <DetailField key={k} label={fieldLabelFor(busCode, k)}>
+                        <span className={isNumericValue(text) ? 'font-mono tabular-nums' : ''}>
+                          {text}
+                        </span>
+                      </DetailField>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -1754,23 +1792,19 @@ export function BankApprovalDetailPage() {
             onChange={(e) => setRemarks(e.target.value)}
           />
           <div className="mt-4 flex flex-wrap gap-3">
-            {hasApprove && (
-              <>
-                <Button
-                  disabled={submitting}
-                  onClick={() => onApprove(3)}
-                >
-                  通过
-                </Button>
-                <Button
-                  variant="destructive"
-                  disabled={submitting}
-                  onClick={() => onApprove(2)}
-                >
-                  拒绝
-                </Button>
-              </>
-            )}
+            <Button
+              disabled={submitting}
+              onClick={() => onApprove(3)}
+            >
+              通过
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={submitting}
+              onClick={() => onApprove(2)}
+            >
+              拒绝
+            </Button>
             {hasBack && (
               <Button
                 variant="outline"
@@ -1811,9 +1845,10 @@ export function GatewayRegisterListPage() {
   const { register, handleSubmit, reset } = useForm<{ bankName?: string }>({
     defaultValues: { bankName: '' },
   });
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const [params, setParams] = React.useState(() => ({
     pageNum: 1,
-    pageSize: PAGE_SIZE,
+    pageSize: PAGE_SIZE_DEFAULT,
     filter: { status: 20 } as BankListFilter,
   }));
 
@@ -1822,16 +1857,19 @@ export function GatewayRegisterListPage() {
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
 
-  const onSearch = React.useCallback((form: { bankName?: string }) => {
-    const filter: BankListFilter = { status: 20 };
-    if (form.bankName) filter.bankName = form.bankName;
-    setParams({ pageNum: 1, pageSize: PAGE_SIZE, filter });
-  }, []);
+  const onSearch = React.useCallback(
+    (form: { bankName?: string }) => {
+      const filter: BankListFilter = { status: 20 };
+      if (form.bankName) filter.bankName = form.bankName;
+      setParams({ pageNum: 1, pageSize, filter });
+    },
+    [pageSize],
+  );
 
   const onReset = React.useCallback(() => {
     reset({ bankName: '' });
-    setParams({ pageNum: 1, pageSize: PAGE_SIZE, filter: { status: 20 } });
-  }, [reset]);
+    setParams({ pageNum: 1, pageSize, filter: { status: 20 } });
+  }, [reset, pageSize]);
 
   const columns = React.useMemo<ColumnDef<BankRow & { id: string }>[]>(() => {
     return [
@@ -1914,6 +1952,11 @@ export function GatewayRegisterListPage() {
                   total: paginationMeta.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (n) => {
+                    setPageSize(n);
+                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                  },
+                  pageSizeOptions: PAGE_SIZE_OPTIONS,
                 }
               : undefined
           }

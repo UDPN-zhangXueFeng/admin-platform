@@ -3,18 +3,17 @@
 /**
  * LP / 流动性业务组页面（源 `kissen-admin-frontend-main/src/views/liquidity` + `views/onboard`）。
  *
- * 路由组 `lp-liquidity`，子模块：lp-info / lp-pool / lp-preauth / lp-currency-pair / lp-topup /
- * lp-water-level（无源码 → 保留 mock）。
- *
+ * 路由组 `lp-liquidity`，子模块：lp-info / lp-pool / lp-preauth / lp-currency-pair / lp-topup
+ * （lp-water-level 无源码，registry 已指向占位页）。
  * 关键迁移决策（CONVENTIONS）：
  *  - message key 未在 kissen-admin messages 中注册，全部中文硬编码，避免 MISSING_MESSAGE 崩溃。
  *  - 列表筛选 text → FormField(register)；下拉 → FormSelect(control)；datetime 用原生
  *    `<input type="datetime-local">`（共享 UI 仅 FormDatePicker 日期粒度，预授权需时分）。
  *  - LP 入网/冻结/解冻、货币对状态变更、预授权撤销均为源内确认即生效（window.confirm）。
- *  - 无独立 detail 接口的域（pool/pair/preauth/topup），编辑回填与详情按主键扫首页 200 条定位
- *    （源这些对象 view/编辑均在弹窗内 backfill 整行；route 化后仅传 id，无 detail 端点可用）。
+ *  - 无独立 detail 接口的域（pool/pair/preauth/topup），编辑回填与详情优先读跳转时
+ *    stashRow 缓存的行数据；缺失时按主键扫首页 200 条兜底（源 view/编辑均传整行对象）。
  *  - lp-currency-pair 在源中无独立路由（增删改查均在弹窗），目标无 create/edit 路由 → 增改用
- *    页内 Dialog；查看走 detail 路由。lp-topup 声明补资同理用页内 Dialog。
+    页内 Dialog；查看走 detail 路由。lp-topup 声明补资同理用页内 Dialog。
  *  - LP 列表选项、货币对选项、资金池选项为跨组数据，已在各域 api 内薄调用，feature 仅消费本组 data-access。
  */
 
@@ -35,13 +34,12 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  MockListPage,
   Textarea,
   useToast,
-  type MockColumn,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { peekRow, stashRow } from './row-stash';
 
 import {
   CURRENCY_SYSTEM_TYPE_LABEL,
@@ -101,10 +99,11 @@ import {
 /* ================================================================== */
 
 const PROJECT_ID = KISSEN_PROJECT_ID;
-const PAGE_SIZE = 10;
-const LP_BASE = '/lp-liquidity';
-
+const PAGE_SIZE_DEFAULT = 10;
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
+
+const LP_BASE = '/lp-liquidity';
 
 const LBL = {
   query: '查询',
@@ -142,23 +141,28 @@ function parseId(raw: string | null): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
-/** 时间戳/ISO → 本地化日期时间串（后端时间为 ms 时间戳 number）。 */
+/** 时间戳/ISO → 本地化日期时间串（后端时间为 ms 时间戳 number；0=未设置 → '--'）。 */
 function formatDateTime(
   value: number | string | null | undefined,
 ): string {
-  if (value == null || value === '') return '--';
+  if (!value) return '--';
   const n = typeof value === 'number' ? value : Number(value);
   const d = Number.isFinite(n) ? new Date(n) : new Date(String(value));
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleString('zh-CN', { hour12: false });
 }
 
-/** 金额/比例展示：去掉无效尾零，最多 8 位小数。 */
+/**
+ * 金额/比例展示：去掉无效尾零（最多 8 位小数）并加千分位分组
+ * （对齐源 `views/approval/format.ts` formatMoney）。
+ */
 function formatAmount(value: number | string | null | undefined): string {
   if (value == null || value === '') return '--';
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return String(value);
-  return String(parseFloat(n.toFixed(8)));
+  const [int, dec] = String(parseFloat(n.toFixed(8))).split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return dec === undefined ? grouped : `${grouped}.${dec}`;
 }
 
 
@@ -166,17 +170,17 @@ function formatAmount(value: number | string | null | undefined): string {
 function toDatetimeLocal(
   value: number | string | null | undefined,
 ): string {
-  if (value == null || value === '') return '';
+  if (!value) return '';
   const n = typeof value === 'number' ? value : Number(value);
   const d = Number.isFinite(n) ? new Date(n) : new Date(String(value));
   if (Number.isNaN(d.getTime())) return '';
   const p = (x: number) => String(x).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(
     d.getHours(),
-  )}:${p(d.getMinutes())}`;
+  )}:${d.getMinutes()}`;
 }
 
-/** label map → 下拉选项（状态筛选用）。 */
+/** label map → 下拉选项（全量）。 */
 function statusOptions(
   labelMap: Record<number, string>,
 ): SelectOption[] {
@@ -186,11 +190,22 @@ function statusOptions(
   }));
 }
 
-/** LP 选项 → 下拉选项。 */
+/** label map → 筛选下拉选项（仅列源筛选项；对齐源各 index.vue 的 el-option 集合）。 */
+function statusFilterOptions(
+  labelMap: Record<number, string>,
+  statuses: number[],
+): SelectOption[] {
+  return statuses.map((s) => ({
+    value: String(s),
+    label: labelMap[s] ?? `状态 ${s}`,
+  }));
+}
+
+/** LP 选项 → 下拉选项（对齐源 `lpName(lpCode)` 展示）。 */
 function lpToOptions(list: LpOption[] | undefined): SelectOption[] {
   return (list ?? []).map((o) => ({
     value: String(o.lpId),
-    label: o.lpName,
+    label: `${o.lpName}(${o.lpCode})`,
   }));
 }
 
@@ -204,13 +219,13 @@ function pairToOptions(
   }));
 }
 
-/** 资金池选项 → 下拉选项（currency 展示）。 */
+/** 资金池选项 → 下拉选项（currency + 完整账户地址，对齐源 topup/lp-pair Dialog）。 */
 function poolToOptions(
   list: LpPoolOption[] | undefined,
 ): SelectOption[] {
   return (list ?? []).map((o) => ({
     value: String(o.poolId),
-    label: `${o.currency} · ${o.accountAddress.slice(0, 10)}…`,
+    label: `${o.currency}(${o.accountAddress})`,
   }));
 }
 
@@ -306,14 +321,13 @@ const LP_INFO_EMPTY: LpInfoFilter = { lpName: '', lpCode: '', status: '' };
 
 interface LpInfoParams {
   pageNum: number;
-  pageSize: number;
   lpName?: string;
   lpCode?: string;
   status?: number;
 }
 
 function lpInfoFormToParams(f: LpInfoFilter): LpInfoParams {
-  const p: LpInfoParams = { pageNum: 1, pageSize: PAGE_SIZE };
+  const p: LpInfoParams = { pageNum: 1 };
   if (f.lpName.trim()) p.lpName = f.lpName.trim();
   if (f.lpCode.trim()) p.lpCode = f.lpCode.trim();
   if (f.status) p.status = Number(f.status);
@@ -328,10 +342,11 @@ export function LpInfoListPage() {
   const [params, setParams] = React.useState<LpInfoParams>(() =>
     lpInfoFormToParams(LP_INFO_EMPTY),
   );
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
   const { data, isLoading } = useLpListQuery(PROJECT_ID, {
     pageNum: params.pageNum,
-    pageSize: params.pageSize,
+    pageSize,
     filter: {
       lpName: params.lpName,
       lpCode: params.lpCode,
@@ -356,7 +371,7 @@ export function LpInfoListPage() {
 
   const onSubmitOnboard = React.useCallback(
     (row: LpRow) => {
-      if (!window.confirm(`确认提交 LP「${row.lpName}」入网申请?`)) return;
+      if (!window.confirm(`确认提交「${row.lpName}」入网申请?`)) return;
       submitMutation.mutate(row.lpId, {
         onSuccess: () => toast.success('已提交入网申请'),
         onError: () => toast.error(LBL.opFailed),
@@ -368,12 +383,18 @@ export function LpInfoListPage() {
   const onToggleFreeze = React.useCallback(
     (row: LpRow) => {
       const freeze = row.status === 20;
-      if (!window.confirm(`确认${freeze ? '冻结' : '解冻'} LP「${row.lpName}」?`))
+      if (
+        !window.confirm(
+          freeze
+            ? `确认冻结 LP「${row.lpName}」?冻结后该 LP 立即退出匹配,其新解付请求将被拒绝。`
+            : `确认解冻 LP「${row.lpName}」?解冻后该 LP 恢复已启用,重新参与匹配。`,
+        )
+      )
         return;
       freezeMutation.mutate(
         { targetId: row.lpId, freeze },
         {
-          onSuccess: () => toast.success(LBL.opSuccess),
+          onSuccess: () => toast.success(freeze ? '已冻结' : '已解冻'),
           onError: () => toast.error(LBL.opFailed),
         },
       );
@@ -385,11 +406,9 @@ export function LpInfoListPage() {
     ColumnDef<LpRow & { id: string }>[]
   >(
     () => [
-      { accessorKey: 'lpName', header: 'LP 名称' },
-      { accessorKey: 'lpCode', header: 'LP 编码' },
       {
         accessorKey: 'splitRatio',
-        header: '分润比例',
+        header: '分成比例',
         cell: ({ row }) => <span>{formatAmount(row.original.splitRatio)}</span>,
       },
       {
@@ -399,7 +418,7 @@ export function LpInfoListPage() {
       },
       {
         accessorKey: 'riskAssessment',
-        header: '风险评级',
+        header: '风险评估',
         cell: ({ row }) => (
           <span className="line-clamp-1 max-w-[200px]">
             {row.original.riskAssessment || '--'}
@@ -447,6 +466,7 @@ export function LpInfoListPage() {
                 size="sm"
                 className="h-auto p-0"
                 disabled={!editable || submitMutation.isPending}
+                title={s === 20 ? '已启用 LP 不可编辑,变更走审批流' : undefined}
                 onClick={() =>
                   router.push(lpRoute('lp-info', 'edit', row.original.lpId))
                 }
@@ -460,7 +480,7 @@ export function LpInfoListPage() {
                 disabled={!editable || submitMutation.isPending}
                 onClick={() => onSubmitOnboard(row.original)}
               >
-                提交入驻
+                提交入网申请
               </Button>
               <Button
                 variant="link"
@@ -508,7 +528,7 @@ export function LpInfoListPage() {
             control={control}
             label="状态"
             placeholder={LBL.all}
-            options={statusOptions(LP_STATUS_LABEL)}
+            options={statusFilterOptions(LP_STATUS_LABEL, [1, 5, 10, 15, 20, 50])}
           />
         </div>
         <div className="mt-4 flex gap-2">
@@ -539,10 +559,15 @@ export function LpInfoListPage() {
             pagination
               ? {
                   page: pagination.page,
-                  pageSize: pagination.pageSize,
+                  pageSize,
                   total: pagination.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (n) => {
+                    setPageSize(n);
+                    setParams((prev) => ({ ...prev, pageNum: 1 }));
+                  },
+                  pageSizeOptions: PAGE_SIZE_OPTIONS,
                 }
               : undefined
           }
@@ -596,6 +621,8 @@ export function LpInfoFormPage() {
       initialPairIds: detail.initialPairIds ?? [],
     });
   }, [detail, isEdit, reset]);
+  /** 仅“审核通过”的货币对可选（源 lp-dialog.vue loadOptions 中 status===20 过滤）。 */
+  const selectablePairs = (pairOptions ?? []).filter((o) => o.status === 20);
 
   const onSubmit = handleSubmit((values) => {
     const req: LpSaveReq = {
@@ -609,7 +636,7 @@ export function LpInfoFormPage() {
     if (isEdit && lpId) req.lpId = lpId;
     saveMutation.mutate(req, {
       onSuccess: () => {
-        toast.success(LBL.saveSuccess);
+        toast.success(isEdit ? '已保存' : '已创建(草稿)');
         router.push(lpRoute('lp-info'));
       },
       onError: () => toast.error(LBL.saveFailed),
@@ -649,12 +676,12 @@ export function LpInfoFormPage() {
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              分润比例（0-1，4 位小数）
+              分成比例（0-1，4 位小数）
               <span className="ml-0.5 text-red-500">*</span>
             </label>
             <Input
               {...register('splitRatio', {
-                required: '请输入分润比例',
+                required: '请输入分成比例',
                 validate: (v) => {
                   const n = Number(v);
                   if (!Number.isFinite(n) || n < 0 || n > 1)
@@ -680,21 +707,20 @@ export function LpInfoFormPage() {
           </div>
         </div>
         <div className="mt-4 space-y-1.5">
-          <label className="text-sm font-medium">风险评级</label>
+          <label className="text-sm font-medium">风险评估</label>
           <Textarea rows={3} {...register('riskAssessment')} />
         </div>
       </section>
 
       <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
         <div className="mb-4 text-sm font-semibold">初始参与货币对</div>
-        {pairOptions?.length ? (
+        {selectablePairs.length ? (
           <Controller
             control={control}
             name="initialPairIds"
             render={({ field }) => (
               <div className="max-h-56 overflow-y-auto rounded-md border p-3">
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {pairOptions.map((o) => {
+                  {selectablePairs.map((o) => {
                     const checked = (field.value ?? []).includes(o.pairId);
                     return (
                       <label
@@ -717,7 +743,6 @@ export function LpInfoFormPage() {
                     );
                   })}
                 </div>
-              </div>
             )}
           />
         ) : (
@@ -771,7 +796,7 @@ export function LpInfoDetailPage() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         <ReadonlyField label="LP 名称" value={detail.lpName} />
         <ReadonlyField label="LP 编码" value={detail.lpCode} />
-        <ReadonlyField label="分润比例" value={formatAmount(detail.splitRatio)} />
+        <ReadonlyField label="分成比例" value={formatAmount(detail.splitRatio)} />
         <ReadonlyField label="最低流动性" value={formatAmount(detail.minLiquidity)} />
         <ReadonlyField
           label="状态"
@@ -785,7 +810,7 @@ export function LpInfoDetailPage() {
         />
         <ReadonlyField label="创建时间" value={formatDateTime(detail.createTime)} />
         <div className="md:col-span-2 lg:col-span-3">
-          <ReadonlyField label="风险评级" value={detail.riskAssessment} />
+          <ReadonlyField label="风险评估" value={detail.riskAssessment} />
         </div>
         <div className="md:col-span-2 lg:col-span-3">
           <ReadonlyField label="初始参与货币对" value={pairNames || '--'} />
@@ -808,14 +833,13 @@ const LP_POOL_EMPTY: LpPoolFilter = { lpId: '', currency: '', status: '' };
 
 interface LpPoolParams {
   pageNum: number;
-  pageSize: number;
   lpId?: number;
   currency?: string;
   status?: number;
 }
 
 function lpPoolFormToParams(f: LpPoolFilter): LpPoolParams {
-  const p: LpPoolParams = { pageNum: 1, pageSize: PAGE_SIZE };
+  const p: LpPoolParams = { pageNum: 1 };
   if (f.lpId) p.lpId = Number(f.lpId);
   if (f.currency.trim()) p.currency = f.currency.trim();
   if (f.status) p.status = Number(f.status);
@@ -830,18 +854,18 @@ export function LpPoolListPage() {
   const [params, setParams] = React.useState<LpPoolParams>(() =>
     lpPoolFormToParams(LP_POOL_EMPTY),
   );
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const { data: lpOptions } = useLpPoolLpOptionsQuery(PROJECT_ID);
 
   const { data, isLoading } = useLpPoolListQuery(PROJECT_ID, {
     pageNum: params.pageNum,
-    pageSize: params.pageSize,
+    pageSize,
     filter: {
       lpId: params.lpId,
       currency: params.currency,
       status: params.status,
     },
   });
-
   const rows = data?.data ?? [];
   const pagination = data?.pagination;
 
@@ -925,9 +949,10 @@ export function LpPoolListPage() {
                 variant="link"
                 size="sm"
                 className="h-auto p-0"
-                onClick={() =>
-                  router.push(lpRoute('lp-pool', 'detail', row.original.poolId))
-                }
+                onClick={() => {
+                  stashRow('lp-pool', row.original.poolId, row.original);
+                  router.push(lpRoute('lp-pool', 'detail', row.original.poolId));
+                }}
               >
                 {LBL.view}
               </Button>
@@ -935,9 +960,10 @@ export function LpPoolListPage() {
                 variant="link"
                 size="sm"
                 className="h-auto p-0"
-                onClick={() =>
-                  router.push(lpRoute('lp-pool', 'edit', row.original.poolId))
-                }
+                onClick={() => {
+                  stashRow('lp-pool', row.original.poolId, row.original);
+                  router.push(lpRoute('lp-pool', 'edit', row.original.poolId));
+                }}
               >
                 {LBL.edit}
               </Button>
@@ -988,7 +1014,7 @@ export function LpPoolListPage() {
             control={control}
             label="状态"
             placeholder={LBL.all}
-            options={statusOptions(LP_POOL_STATUS_LABEL)}
+            options={statusFilterOptions(LP_POOL_STATUS_LABEL, [1, 20, 50])}
           />
         </div>
         <div className="mt-4 flex gap-2">
@@ -1024,14 +1050,19 @@ export function LpPoolListPage() {
           emptyMessage={LBL.empty}
           pagination={
             pagination
-              ? {
-                  page: pagination.page,
-                  pageSize: pagination.pageSize,
-                  total: pagination.total,
-                  onPageChange: (page) =>
-                    setParams((prev) => ({ ...prev, pageNum: page })),
-                }
-              : undefined
+                ? {
+                    page: pagination.page,
+                    pageSize,
+                    total: pagination.total,
+                    onPageChange: (page) =>
+                      setParams((prev) => ({ ...prev, pageNum: page })),
+                    onPageSizeChange: (n) => {
+                      setPageSize(n);
+                      setParams((prev) => ({ ...prev, pageNum: 1 }));
+                    },
+                    pageSizeOptions: PAGE_SIZE_OPTIONS,
+                  }
+                : undefined
           }
         />
       </div>
@@ -1048,15 +1079,18 @@ interface LpPoolFormValues {
   remindThreshold: string;
 }
 
-/** 编辑回填：无 pool detail 端点，扫首页 200 条按 poolId 定位（源弹窗 backfill 整行）。 */
+/** 编辑/详情回填：优先取列表跳转时 stash 的行；无 pool detail 端点，兜底扫首页 200 条。 */
 function useLpPoolRowById(poolId: number | undefined) {
+  const [stashed] = React.useState(() =>
+    poolId != null ? peekRow<LpPoolRow>('lp-pool', poolId) : null,
+  );
   const { data, isLoading } = useLpPoolListQuery(
     PROJECT_ID,
     { pageNum: 1, pageSize: 200, filter: {} },
-    poolId != null,
+    poolId != null && !stashed,
   );
-  const row = data?.data.find((r) => r.poolId === poolId);
-  return { row, isLoading };
+  const row = stashed ?? data?.data.find((r) => r.poolId === poolId);
+  return { row, isLoading: stashed ? false : isLoading };
 }
 
 export function LpPoolFormPage() {
@@ -1068,13 +1102,12 @@ export function LpPoolFormPage() {
   const { data: lpOptions } = useLpPoolLpOptionsQuery(PROJECT_ID);
   const { row, isLoading } = useLpPoolRowById(poolId);
   const saveMutation = useSaveLpPoolMutation(PROJECT_ID);
-
   const { register, handleSubmit, reset, control } = useForm<LpPoolFormValues>({
     defaultValues: {
       lpId: '',
       currency: '',
       accountAddress: '',
-      currencySystemType: '',
+      currencySystemType: '1',
       minLimit: '',
       remindThreshold: '',
     },
@@ -1094,6 +1127,14 @@ export function LpPoolFormPage() {
   }, [row, isEdit, reset]);
 
   const onSubmit = handleSubmit((values) => {
+    if (!values.lpId) {
+      toast.warning('请选择 LP');
+      return;
+    }
+    if (!values.currencySystemType) {
+      toast.warning('请选择币种体系');
+      return;
+    }
     const req: LpPoolSaveReq = {
       lpId: Number(values.lpId),
       currency: values.currency.trim(),
@@ -1105,7 +1146,7 @@ export function LpPoolFormPage() {
     if (isEdit && poolId) req.poolId = poolId;
     saveMutation.mutate(req, {
       onSuccess: () => {
-        toast.success(LBL.saveSuccess);
+        toast.success(isEdit ? '已保存' : '已创建(启用)');
         router.push(lpRoute('lp-pool'));
       },
       onError: () => toast.error(LBL.saveFailed),
@@ -1277,7 +1318,6 @@ interface LpPreauthFilter {
 
 interface LpPreauthParams {
   pageNum: number;
-  pageSize: number;
   lpId?: number;
   poolId?: number;
   currency?: string;
@@ -1285,7 +1325,7 @@ interface LpPreauthParams {
 }
 
 function lpPreauthFormToParams(f: LpPreauthFilter): LpPreauthParams {
-  const p: LpPreauthParams = { pageNum: 1, pageSize: PAGE_SIZE };
+  const p: LpPreauthParams = { pageNum: 1 };
   if (f.lpId) p.lpId = Number(f.lpId);
   if (f.poolId) p.poolId = Number(f.poolId);
   if (f.currency.trim()) p.currency = f.currency.trim();
@@ -1313,6 +1353,7 @@ export function LpPreauthListPage() {
   const [params, setParams] = React.useState<LpPreauthParams>(() =>
     lpPreauthFormToParams(initial),
   );
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
   const { data: lpOptions } = useLpPreauthLpOptionsQuery(PROJECT_ID);
   const watchLpId = watch('lpId');
@@ -1324,7 +1365,7 @@ export function LpPreauthListPage() {
 
   const { data, isLoading } = useLpPreauthListQuery(PROJECT_ID, {
     pageNum: params.pageNum,
-    pageSize: params.pageSize,
+    pageSize,
     filter: {
       lpId: params.lpId,
       poolId: params.poolId,
@@ -1332,6 +1373,7 @@ export function LpPreauthListPage() {
       status: params.status,
     },
   });
+
   const revokeMutation = useRevokeLpPreauthMutation(PROJECT_ID);
 
   const rows = data?.data ?? [];
@@ -1339,9 +1381,9 @@ export function LpPreauthListPage() {
 
   const onRevoke = React.useCallback(
     (row: LpPreauthRow) => {
-      if (!window.confirm('确认撤销该预授权?')) return;
+      if (!window.confirm('确认撤销该预授权?撤销后立即失效。')) return;
       revokeMutation.mutate(row.preauthId, {
-        onSuccess: () => toast.success(LBL.opSuccess),
+        onSuccess: () => toast.success('已撤销'),
         onError: () => toast.error(LBL.opFailed),
       });
     },
@@ -1406,11 +1448,12 @@ export function LpPreauthListPage() {
               variant="link"
               size="sm"
               className="h-auto p-0"
-              onClick={() =>
+              onClick={() => {
+                stashRow('lp-preauth', row.original.preauthId, row.original);
                 router.push(
                   lpRoute('lp-preauth', 'detail', row.original.preauthId),
-                )
-              }
+                );
+              }}
             >
               {LBL.view}
             </Button>
@@ -1418,12 +1461,13 @@ export function LpPreauthListPage() {
               variant="link"
               size="sm"
               className="h-auto p-0"
-              onClick={() =>
+              onClick={() => {
+                stashRow('lp-preauth', row.original.preauthId, row.original);
                 router.push(
                   lpRoute('lp-preauth', 'edit', row.original.preauthId) +
                     `&lpId=${row.original.lpId}`,
-                )
-              }
+                );
+              }}
             >
               {LBL.edit}
             </Button>
@@ -1500,7 +1544,19 @@ export function LpPreauthListPage() {
           <Button
             type="button"
             size="sm"
-            onClick={() => router.push(lpRoute('lp-preauth', 'create'))}
+            onClick={() => {
+              const qs = [
+                seedLpId != null ? `lpId=${seedLpId}` : '',
+                seedPoolId != null ? `poolId=${seedPoolId}` : '',
+              ]
+                .filter(Boolean)
+                .join('&');
+              router.push(
+                qs
+                  ? `${lpRoute('lp-preauth', 'create')}?${qs}`
+                  : lpRoute('lp-preauth', 'create'),
+              );
+            }}
           >
             {LBL.add}
           </Button>
@@ -1514,10 +1570,15 @@ export function LpPreauthListPage() {
             pagination
               ? {
                   page: pagination.page,
-                  pageSize: pagination.pageSize,
+                  pageSize,
                   total: pagination.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (n) => {
+                    setPageSize(n);
+                    setParams((prev) => ({ ...prev, pageNum: 1 }));
+                  },
+                  pageSizeOptions: PAGE_SIZE_OPTIONS,
                 }
               : undefined
           }
@@ -1537,15 +1598,18 @@ interface LpPreauthFormValues {
   authCsTxId: string;
 }
 
-/** 编辑回填：无 preauth detail 端点，扫首页 200 条按 preauthId 定位。 */
+/** 编辑/详情回填：优先取列表跳转时 stash 的行；无 preauth detail 端点，兜底扫首页 200 条。 */
 function useLpPreauthRowById(preauthId: number | undefined) {
+  const [stashed] = React.useState(() =>
+    preauthId != null ? peekRow<LpPreauthRow>('lp-preauth', preauthId) : null,
+  );
   const { data, isLoading } = useLpPreauthListQuery(
     PROJECT_ID,
     { pageNum: 1, pageSize: 200, filter: {} },
-    preauthId != null,
+    preauthId != null && !stashed,
   );
-  const row = data?.data.find((r) => r.preauthId === preauthId);
-  return { row, isLoading };
+  const row = stashed ?? data?.data.find((r) => r.preauthId === preauthId);
+  return { row, isLoading: stashed ? false : isLoading };
 }
 
 export function LpPreauthFormPage() {
@@ -1582,13 +1646,26 @@ export function LpPreauthFormPage() {
     lpIdForPools,
   );
 
-  // LP 变更时重置 poolId（池与 LP 强绑定）。
+  // LP 变更时重置 poolId（池与 LP 强绑定）。跳过 mount 初值与编辑回填触发的变更，
+  // 避免清掉 seed/backfill 预填的 poolId。
+  const skipClearPoolRef = React.useRef(true);
+  const backfillLpIdRef = React.useRef<number | null>(
+    seedLpId != null ? seedLpId : null,
+  );
   React.useEffect(() => {
+    if (skipClearPoolRef.current) {
+      skipClearPoolRef.current = false;
+      return;
+    }
+    const currentLpId = watchLpId ? Number(watchLpId) : undefined;
+    if (isEdit && currentLpId != null && currentLpId === backfillLpIdRef.current)
+      return;
     setValue('poolId', '');
-  }, [watchLpId, setValue]);
+  }, [watchLpId, setValue, isEdit]);
 
   React.useEffect(() => {
     if (!isEdit || !row) return;
+    backfillLpIdRef.current = row.lpId;
     reset({
       lpId: String(row.lpId),
       poolId: String(row.poolId),
@@ -1601,11 +1678,15 @@ export function LpPreauthFormPage() {
   }, [row, isEdit, reset]);
 
   const onSubmit = handleSubmit((values) => {
-    if (!values.validFrom || !values.validTo) return;
-    if (new Date(values.validTo) <= new Date(values.validFrom)) {
-      toast.error('失效时间需晚于生效时间');
+    if (!values.lpId) {
+      toast.warning('请选择 LP');
       return;
     }
+    if (!values.poolId) {
+      toast.warning('请选择资金池');
+      return;
+    }
+    if (!values.validFrom || !values.validTo) return;
     const req: LpPreauthSaveReq = {
       lpId: Number(values.lpId),
       poolId: Number(values.poolId),
@@ -1618,7 +1699,7 @@ export function LpPreauthFormPage() {
     if (isEdit && preauthId) req.preauthId = preauthId;
     saveMutation.mutate(req, {
       onSuccess: () => {
-        toast.success(LBL.saveSuccess);
+        toast.success(isEdit ? '已保存' : '已创建(生效)');
         router.push(lpRoute('lp-preauth'));
       },
       onError: () => toast.error(LBL.saveFailed),
@@ -1779,7 +1860,6 @@ const LP_PAIR_EMPTY: LpPairFilter = { lpId: '', pairId: '', status: '' };
 
 interface LpPairParams {
   pageNum: number;
-  pageSize: number;
   lpId?: number;
   pairId?: number;
   status?: number;
@@ -1792,7 +1872,7 @@ interface LpPairParams {
 type LpPairTableRow = Omit<LpPairRow, 'id'> & { id: string };
 
 function lpPairFormToParams(f: LpPairFilter): LpPairParams {
-  const p: LpPairParams = { pageNum: 1, pageSize: PAGE_SIZE };
+  const p: LpPairParams = { pageNum: 1 };
   if (f.lpId) p.lpId = Number(f.lpId);
   if (f.pairId) p.pairId = Number(f.pairId);
   if (f.status) p.status = Number(f.status);
@@ -1831,6 +1911,14 @@ function LpPairFormDialog({ open, onOpenChange, editing }: LpPairDialogProps) {
   }, [open, editing, reset]);
 
   const onSubmit = handleSubmit((values) => {
+    if (!values.lpId) {
+      toast.warning('请选择 LP');
+      return;
+    }
+    if (!values.pairId) {
+      toast.warning('请选择货币对');
+      return;
+    }
     const req: LpPairSaveReq = {
       lpId: Number(values.lpId),
       pairId: Number(values.pairId),
@@ -1839,7 +1927,7 @@ function LpPairFormDialog({ open, onOpenChange, editing }: LpPairDialogProps) {
     if (editing) req.id = editing.id;
     saveMutation.mutate(req, {
       onSuccess: () => {
-        toast.success(LBL.saveSuccess);
+        toast.success(editing ? '已保存' : '已创建(草稿)');
         onOpenChange(false);
       },
       onError: () => toast.error(LBL.saveFailed),
@@ -1904,15 +1992,16 @@ export function LpCurrencyPairListPage() {
   const [params, setParams] = React.useState<LpPairParams>(() =>
     lpPairFormToParams(LP_PAIR_EMPTY),
   );
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingRow, setEditingRow] = React.useState<LpPairRow | null>(null);
 
   const { data: lpOptions } = useLpPairLpOptionsQuery(PROJECT_ID);
   const { data: pairOptions } = useLpPairCurrencyPairOptionsQuery(PROJECT_ID);
 
-  const { data, isLoading } = useLpPairListQuery(PROJECT_ID, {
+  const { data } = useLpPairListQuery(PROJECT_ID, {
     pageNum: params.pageNum,
-    pageSize: params.pageSize,
+    pageSize,
     filter: {
       lpId: params.lpId,
       pairId: params.pairId,
@@ -1937,9 +2026,9 @@ export function LpCurrencyPairListPage() {
 
   const onSubmit = React.useCallback(
     (row: LpPairRow) => {
-      if (!window.confirm('确认提交该货币对参与记录?')) return;
+      if (!window.confirm('确认提交该记录进入审批?')) return;
       submitMutation.mutate(row.id, {
-        onSuccess: () => toast.success(LBL.opSuccess),
+        onSuccess: () => toast.success('已提交审批'),
         onError: () => toast.error(LBL.opFailed),
       });
     },
@@ -1948,12 +2037,19 @@ export function LpCurrencyPairListPage() {
 
   const onToggle = React.useCallback(
     (row: LpPairRow, target: number) => {
-      const verb = target === LP_PAIR_TARGET_STATUS.disable ? '停用' : '恢复';
-      if (!window.confirm(`确认${verb}该货币对参与记录?`)) return;
+      const stopping = target === LP_PAIR_TARGET_STATUS.disable;
+      if (
+        !window.confirm(
+          stopping
+            ? '确认停用该 LP 参与货币对?停用后立即生效。'
+            : '确认恢复该 LP 参与货币对?恢复后需重新提交审批。',
+        )
+      )
+        return;
       statusMutation.mutate(
         { id: row.id, targetStatus: target },
         {
-          onSuccess: () => toast.success(LBL.opSuccess),
+          onSuccess: () => toast.success(stopping ? '已停用' : '已恢复为草稿'),
           onError: () => toast.error(LBL.opFailed),
         },
       );
@@ -1963,9 +2059,9 @@ export function LpCurrencyPairListPage() {
 
   const onRemove = React.useCallback(
     (row: LpPairRow) => {
-      if (!window.confirm('确认删除该货币对参与记录?删除后不可恢复。')) return;
+      if (!window.confirm('确认移除该 LP 参与货币对记录?移除后不可恢复。')) return;
       removeMutation.mutate(row.id, {
-        onSuccess: () => toast.success(LBL.opSuccess),
+        onSuccess: () => toast.success('已移除'),
         onError: () => toast.error(LBL.opFailed),
       });
     },
@@ -2030,11 +2126,12 @@ export function LpCurrencyPairListPage() {
                 variant="link"
                 size="sm"
                 className="h-auto p-0"
-                onClick={() =>
+                onClick={() => {
+                  stashRow('lp-pair', Number(row.original.id), toLpPairRow(row.original));
                   router.push(
                     lpRoute('lp-currency-pair', 'detail', Number(row.original.id)),
-                  )
-                }
+                  );
+                }}
               >
                 {LBL.view}
               </Button>
@@ -2054,7 +2151,7 @@ export function LpCurrencyPairListPage() {
                 disabled={!editable}
                 onClick={() => onSubmit(toLpPairRow(row.original))}
               >
-                提交
+                提交审批
               </Button>
               <Button
                 variant="link"
@@ -2076,7 +2173,7 @@ export function LpCurrencyPairListPage() {
                   onToggle(toLpPairRow(row.original), LP_PAIR_TARGET_STATUS.restore)
                 }
               >
-                恢复
+                恢复为草稿
               </Button>
               <Button
                 variant="link"
@@ -2125,9 +2222,12 @@ export function LpCurrencyPairListPage() {
           <FormSelect
             name="status"
             control={control}
+            options={statusFilterOptions(
+              LP_PAIR_STATUS_LABEL,
+              [1, 3, 5, 10, 15, 20, 50],
+            )}
             label="状态"
             placeholder={LBL.all}
-            options={statusOptions(LP_PAIR_STATUS_LABEL)}
           />
         </div>
         <div className="mt-4 flex gap-2">
@@ -2155,16 +2255,19 @@ export function LpCurrencyPairListPage() {
         <DataTable
           columns={columns}
           data={tableData}
-          isLoading={isLoading}
-          emptyMessage={LBL.empty}
           pagination={
             pagination
               ? {
                   page: pagination.page,
-                  pageSize: pagination.pageSize,
+                  pageSize,
                   total: pagination.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (n) => {
+                    setPageSize(n);
+                    setParams((prev) => ({ ...prev, pageNum: 1 }));
+                  },
+                  pageSizeOptions: PAGE_SIZE_OPTIONS,
                 }
               : undefined
           }
@@ -2184,12 +2287,15 @@ export function LpCurrencyPairDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = parseId(searchParams.get('id'));
+  const [stashed] = React.useState(() =>
+    id != null ? peekRow<LpPairRow>('lp-pair', id) : null,
+  );
   const { data, isLoading } = useLpPairListQuery(
     PROJECT_ID,
     { pageNum: 1, pageSize: 200, filter: {} },
-    id != null,
+    id != null && !stashed,
   );
-  const row = data?.data.find((r) => r.id === id);
+  const row = stashed ?? data?.data.find((r) => r.id === id);
 
   if (!id)
     return (
@@ -2246,14 +2352,13 @@ const LP_TOPUP_EMPTY: LpTopupFilter = { lpId: '', currency: '', status: '' };
 
 interface LpTopupParams {
   pageNum: number;
-  pageSize: number;
   lpId?: number;
   currency?: string;
   status?: number;
 }
 
 function lpTopupFormToParams(f: LpTopupFilter): LpTopupParams {
-  const p: LpTopupParams = { pageNum: 1, pageSize: PAGE_SIZE };
+  const p: LpTopupParams = { pageNum: 1 };
   if (f.lpId) p.lpId = Number(f.lpId);
   if (f.currency.trim()) p.currency = f.currency.trim();
   if (f.status) p.status = Number(f.status);
@@ -2294,6 +2399,14 @@ function LpTopupDeclareDialog({ open, onOpenChange }: LpTopupDialogProps) {
   }, [open, reset]);
 
   const onSubmit = handleSubmit((values) => {
+    if (!values.lpId) {
+      toast.warning('请选择 LP');
+      return;
+    }
+    if (!values.poolId) {
+      toast.warning('请选择资金池');
+      return;
+    }
     const addr = values.transferInAddress.trim();
     const req: LpTopupSaveReq = {
       lpId: Number(values.lpId),
@@ -2380,13 +2493,14 @@ export function LpTopupListPage() {
   const [params, setParams] = React.useState<LpTopupParams>(() =>
     lpTopupFormToParams(LP_TOPUP_EMPTY),
   );
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const [dialogOpen, setDialogOpen] = React.useState(false);
 
   const { data: lpOptions } = useLpTopupLpOptionsQuery(PROJECT_ID);
 
   const { data, isLoading } = useLpTopupListQuery(PROJECT_ID, {
     pageNum: params.pageNum,
-    pageSize: params.pageSize,
+    pageSize,
     filter: {
       lpId: params.lpId,
       currency: params.currency,
@@ -2457,10 +2571,10 @@ export function LpTopupListPage() {
             <Button
               variant="link"
               size="sm"
-              className="h-auto p-0"
-              onClick={() =>
-                router.push(lpRoute('lp-topup', 'detail', row.original.topupId))
-              }
+              onClick={() => {
+                stashRow('lp-topup', row.original.topupId, row.original);
+                router.push(lpRoute('lp-topup', 'detail', row.original.topupId));
+              }}
             >
               {LBL.view}
             </Button>
@@ -2531,10 +2645,15 @@ export function LpTopupListPage() {
             pagination
               ? {
                   page: pagination.page,
-                  pageSize: pagination.pageSize,
+                  pageSize,
                   total: pagination.total,
                   onPageChange: (page) =>
                     setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (n) => {
+                    setPageSize(n);
+                    setParams((prev) => ({ ...prev, pageNum: 1 }));
+                  },
+                  pageSizeOptions: PAGE_SIZE_OPTIONS,
                 }
               : undefined
           }
@@ -2550,12 +2669,15 @@ export function LpTopupDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const topupId = parseId(searchParams.get('id'));
+  const [stashed] = React.useState(() =>
+    topupId != null ? peekRow<LpTopupRow>('lp-topup', topupId) : null,
+  );
   const { data, isLoading } = useLpTopupListQuery(
     PROJECT_ID,
     { pageNum: 1, pageSize: 200, filter: {} },
-    topupId != null,
+    topupId != null && !stashed,
   );
-  const row = data?.data.find((r) => r.topupId === topupId);
+  const row = stashed ?? data?.data.find((r) => r.topupId === topupId);
 
   if (!topupId)
     return (
@@ -2599,26 +2721,3 @@ export function LpTopupDetailPage() {
   );
 }
 
-/* ================================================================== */
-/* lp-water-level — 水位监控（无源码 → 保留 mock）                       */
-/* ================================================================== */
-
-const lpWaterLevelColumns: MockColumn[] = [
-  { key: 'poolId', label: 'Pool ID' },
-  { key: 'lpName', label: 'Owning LP' },
-  { key: 'currency', label: 'Currency' },
-  { key: 'balance', label: 'Current Balance' },
-  { key: 'lowWaterMark', label: 'Low Water Level' },
-  { key: 'alert', label: 'Alert' },
-];
-
-const lpWaterLevelRows = [
-  { poolId: 'POOL001', lpName: 'Sample LP Alpha', currency: 'USDT', balance: '1,200,000', lowWaterMark: '200,000', alert: <Badge variant="secondary">Normal</Badge> },
-  { poolId: 'POOL002', lpName: 'Sample LP Alpha', currency: 'USDC', balance: '850,000', lowWaterMark: '200,000', alert: <Badge variant="secondary">Normal</Badge> },
-  { poolId: 'POOL003', lpName: 'Sample LP Gamma', currency: 'USDT', balance: '180,000', lowWaterMark: '200,000', alert: <Badge variant="destructive">Below Threshold</Badge> },
-  { poolId: 'POOL004', lpName: 'Sample LP Delta', currency: 'USDC', balance: '0', lowWaterMark: '100,000', alert: <Badge variant="destructive">Depleted</Badge> },
-];
-
-export function LpWaterLevelListPage() {
-  return <MockListPage title="Water Level Monitor" columns={lpWaterLevelColumns} rows={lpWaterLevelRows} />;
-}

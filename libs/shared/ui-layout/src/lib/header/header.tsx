@@ -30,6 +30,11 @@ export interface HeaderProps {
   minimal?: boolean;
   /** Open the change-password dialog (project-specific). */
   onChangePassword?: () => void;
+  /**
+   * Project-specific logout (e.g. calling the project's own logout API).
+   * When provided it fully replaces the default platform logout flow.
+   */
+  onLogout?: () => void | Promise<void>;
 }
 
 /**
@@ -47,12 +52,17 @@ export interface HeaderProps {
  * All interactive elements are keyboard-focusable and include
  * `aria-label` for screen-reader context.
  */
-export function Header({ config, onMenuToggle, minimal = false, onChangePassword }: HeaderProps) {
+export function Header({ config, onMenuToggle, minimal = false, onChangePassword, onLogout }: HeaderProps) {
   const { user } = useAuth();
   const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] =
     React.useState(false);
 
   const handleLogout = React.useCallback(async () => {
+    if (onLogout) {
+      // Project owns the whole flow (server logout + local clear + redirect).
+      await onLogout();
+      return;
+    }
     try {
       await logoutApi();
     } catch {
@@ -60,7 +70,7 @@ export function Header({ config, onMenuToggle, minimal = false, onChangePassword
     } finally {
       logoutAndRedirect();
     }
-  }, []);
+  }, [onLogout]);
 
   const handleLogoutConfirmationOpenChange = React.useCallback(
     (open: boolean) => {
@@ -157,6 +167,11 @@ export function Header({ config, onMenuToggle, minimal = false, onChangePassword
                   </div>
                   <span className="hidden text-sm font-medium sm:block">
                     {user?.name ?? 'User'}
+                    {user?.userType === 0 && (
+                      <span className="ml-1.5 rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none">
+                        超管
+                      </span>
+                    )}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
