@@ -21,11 +21,15 @@ const layoutMap: Record<string, React.ComponentType<LayoutProps>> = {
 export interface AppShellProps {
   config: ProjectConfig;
   children: React.ReactNode;
+  /** Open the change-password dialog (passed through to Header). */
+  onChangePassword?: () => void;
 }
 
 interface LayoutProps {
   config: ProjectConfig;
   children: React.ReactNode;
+  /** Open the change-password dialog (passed through to Header). */
+  onChangePassword?: () => void;
 }
 
 /**
@@ -39,8 +43,12 @@ interface LayoutProps {
  * - Layouts are small, always-needed UI shells.
  * - Dynamic import would add async complexity for zero bundle benefit.
  */
-export function AppShell({ config, children }: AppShellProps) {
+export function AppShell({ config, children, onChangePassword }: AppShellProps) {
   const Layout = layoutMap[config.layout.type] ?? SidebarLayout;
 
-  return <Layout config={config}>{children}</Layout>;
+  return (
+    <Layout config={config} onChangePassword={onChangePassword}>
+      {children}
+    </Layout>
+  );
 }

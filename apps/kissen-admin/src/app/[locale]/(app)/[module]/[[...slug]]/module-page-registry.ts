@@ -19,7 +19,6 @@ import type { ComponentType } from 'react';
  */
 type PageLoader = () => Promise<{ default: ComponentType<unknown> }>;
 
-const FEATURE = '@myorg/modules/kissen-admin/feature';
 
 const pages: Record<string, Record<string, PageLoader>> = {
   dashboard: {
@@ -88,6 +87,10 @@ const pages: Record<string, Record<string, PageLoader>> = {
     create: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.CurrencyPairFormPage as unknown as ComponentType<unknown> })),
     edit: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.CurrencyPairFormPage as unknown as ComponentType<unknown> })),
     detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.CurrencyPairDetailPage as unknown as ComponentType<unknown> })),
+  },
+
+  currency: {
+    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.CurrencyListPage as unknown as ComponentType<unknown> })),
   },
 
   'rate-config': {

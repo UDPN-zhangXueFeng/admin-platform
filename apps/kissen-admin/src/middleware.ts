@@ -32,12 +32,15 @@ export default function middleware(request: NextRequest) {
   const locale = localeMatch ? localeMatch[1] : routing.defaultLocale;
   const pathWithoutLocale = localeMatch?.[2] ?? '/';
 
-  // Read token from cookie
-  const token = request.cookies.get('kissen_admin_token')?.value;
+  // Read token from cookie — uses admin_platform_token (managed by
+  // setAccessToken/clearSessionStorage in shared/util-auth) so that logout
+  // clears it correctly. Previously read kissen_admin_token which was never
+  // cleared, causing an auth-guard bypass after 401.
+  const token = request.cookies.get('admin_platform_token')?.value;
   const isAuthenticated = !!token;
 
-  // Authenticated user on /login → redirect to dashboard
-  if (isAuthenticated && pathWithoutLocale === '/login') {
+  // Authenticated user on /login or locale root → redirect to dashboard
+  if (isAuthenticated && (pathWithoutLocale === '/login' || pathWithoutLocale === '/')) {
     const url = request.nextUrl.clone();
     url.pathname = `/${locale}/dashboard`;
     return NextResponse.redirect(url);

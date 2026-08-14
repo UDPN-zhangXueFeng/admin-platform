@@ -28,6 +28,8 @@ export interface HeaderProps {
   onMenuToggle?: () => void;
   /** Minimal mode: hides search/notifications to reduce chrome. */
   minimal?: boolean;
+  /** Open the change-password dialog (project-specific). */
+  onChangePassword?: () => void;
 }
 
 /**
@@ -45,7 +47,7 @@ export interface HeaderProps {
  * All interactive elements are keyboard-focusable and include
  * `aria-label` for screen-reader context.
  */
-export function Header({ config, onMenuToggle, minimal = false }: HeaderProps) {
+export function Header({ config, onMenuToggle, minimal = false, onChangePassword }: HeaderProps) {
   const { user } = useAuth();
   const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] =
     React.useState(false);
@@ -164,7 +166,11 @@ export function Header({ config, onMenuToggle, minimal = false }: HeaderProps) {
                   <Settings className="h-4 w-4" aria-hidden="true" />
                   <span>Manage Account</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={onChangePassword}
+                  disabled={!onChangePassword}
+                >
                   <Shield className="h-4 w-4" aria-hidden="true" />
                   <span>Change Password</span>
                 </DropdownMenuItem>

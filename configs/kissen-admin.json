@@ -56,7 +56,7 @@
       "settlement", "settle-record", "settle-order", "split-transfer", "reconcile",
       "risk-compliance", "freeze", "monitor-rule", "monitor-hit",
       "approval-center",
-      "system", "sys-user", "sys-role", "sys-menu", "workflow-config", "scheduled-task", "operate-log"
+      "system", "sys-user", "sys-role", "sys-menu", "currency", "workflow-config", "scheduled-task", "operate-log"
     ],
     "order": [
       {
@@ -152,6 +152,7 @@
           { "id": "sys-user",        "icon": "UserCog",    "label": "User Management",          "path": "/system/sys-user" },
           { "id": "sys-role",        "icon": "Users",      "label": "Role Management",          "path": "/system/sys-role" },
           { "id": "sys-menu",        "icon": "ListTree",   "label": "Menu & API Permissions",   "path": "/system/sys-menu" },
+          { "id": "currency",        "icon": "Coins",      "label": "Currency Management",       "path": "/system/currency" },
           { "id": "workflow-config", "icon": "Workflow",   "label": "Approval Workflow Definition", "path": "/system/workflow-config" },
           { "id": "scheduled-task",  "icon": "Clock",      "label": "Scheduled Task Monitor",   "path": "/system/scheduled-task" },
           { "id": "operate-log",     "icon": "ScrollText", "label": "Operation Log",            "path": "/system/operate-log" }

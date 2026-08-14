@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import { DatePicker } from './date-picker';
 

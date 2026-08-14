@@ -23,7 +23,7 @@ export interface MockLoginPageProps {
   /** Path to the illustration SVG served from the app's public dir. */
   svgPath: string;
   /** Cookie name written on submit — must match the middleware check. */
-  cookieName: string;
+  cookieName?: string;
   /** Post-login redirect path, locale-prefixed by the caller if needed. */
   redirectPath?: string;
   /** Left-panel gradient (Tailwind arbitrary value class). */
@@ -40,6 +40,8 @@ export interface MockLoginPageProps {
   titleColor?: string;
   /** Submit button label. */
   submitLabel?: string;
+  /** Custom submit handler (replaces mock cookie logic). When provided, the form calls this instead. */
+  onSubmit?: (credentials: { loginName: string; password: string }) => Promise<void>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -74,16 +76,35 @@ export function MockLoginPage({
   taglineColor = 'text-[#172260]',
   titleColor = 'text-[#554eea]',
   submitLabel = 'Sign In',
+  onSubmit,
 }: MockLoginPageProps) {
   const router = useRouter();
+  const [loading, setLoading] = React.useState(false);
 
   const handleSubmit = React.useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
-      document.cookie = `${cookieName}=mock-token; path=/; max-age=86400`;
+      const form = e.currentTarget as HTMLFormElement;
+      const fd = new FormData(form);
+      const loginName = String(fd.get('username') ?? '');
+      const password = String(fd.get('password') ?? '');
+
+      if (onSubmit) {
+        setLoading(true);
+        try {
+          await onSubmit({ loginName, password });
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (cookieName) {
+        document.cookie = `${cookieName}=mock-token; path=/; max-age=86400`;
+      }
       router.replace(redirectPath);
     },
-    [cookieName, redirectPath, router],
+    [cookieName, redirectPath, router, onSubmit],
   );
 
   return (
@@ -149,7 +170,7 @@ export function MockLoginPage({
                 id="username"
                 name="username"
                 placeholder="Enter your username"
-                defaultValue="admin"
+                defaultValue={onSubmit ? '' : 'admin'}
                 autoComplete="username"
               />
             </div>
@@ -161,25 +182,29 @@ export function MockLoginPage({
                 name="password"
                 type="password"
                 placeholder="Enter your password"
-                defaultValue="admin123"
+                defaultValue={onSubmit ? '' : 'admin123'}
                 autoComplete="current-password"
               />
             </div>
 
-            <Button type="submit" className="w-full" size="lg">
-              {submitLabel}
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+              {loading ? 'Signing in…' : submitLabel}
             </Button>
           </form>
 
-          <div className="my-8 flex items-center gap-4">
-            <Separator className="flex-1 bg-slate-200" />
-            <span className="text-sm text-slate-600">Demo Mode</span>
-            <Separator className="flex-1 bg-slate-200" />
-          </div>
+          {!onSubmit && (
+            <>
+              <div className="my-8 flex items-center gap-4">
+                <Separator className="flex-1 bg-slate-200" />
+                <span className="text-sm text-slate-600">Demo Mode</span>
+                <Separator className="flex-1 bg-slate-200" />
+              </div>
 
-          <p className="text-center text-sm text-slate-500">
-            Mock authentication — no backend required.
-          </p>
+              <p className="text-center text-sm text-slate-500">
+                Mock authentication — no backend required.
+              </p>
+            </>
+          )}
         </div>
       </section>
     </div>

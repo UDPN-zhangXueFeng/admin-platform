@@ -1,5 +1,6 @@
-import { AppShell } from '@myorg/shared/ui-layout';
 import { loadProjectConfig } from '@myorg/shared/util-config';
+import { KissenAppShell } from './kissen-app-shell';
+
 
 /**
  * App Layout — wraps authenticated routes with AppShell (sidebar + header).
@@ -14,5 +15,5 @@ export default async function AppLayout({
 }) {
   const config = await loadProjectConfig();
 
-  return <AppShell config={config}>{children}</AppShell>;
+  return <KissenAppShell config={config}>{children}</KissenAppShell>;
 }

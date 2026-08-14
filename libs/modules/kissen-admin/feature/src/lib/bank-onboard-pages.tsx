@@ -1,188 +1,2099 @@
 'use client';
 
+import * as React from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { useSearchParams } from 'next/navigation';
+import { ColumnDef } from '@tanstack/react-table';
+import { useQueryClient } from '@tanstack/react-query';
+
 import {
-  MockListPage,
-  MockDetailPage,
-  MockFormPage,
   Badge,
-  type MockColumn,
-  type MockField,
+  Button,
+  Checkbox,
+  DataTable,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Skeleton,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+  useToast,
 } from '@myorg/shared/ui';
+import { FormField } from '@myorg/shared/ui-forms';
+import { useRouter } from '@myorg/shared/util-i18n';
 
-/* ------------------------------------------------------------------ */
-/* bank-info — Bank Profile & Configuration                            */
-/* ------------------------------------------------------------------ */
+import {
+  BANK_BUSINESS_CODES,
+  BANK_BUSINESS_LABEL,
+  BANK_DETAIL_STATUS_LABEL,
+  BANK_STATUS_OPTIONS,
+  COMMON_STATUS_LABEL,
+  CONNECTIVITY_STATUS_LABEL,
+  CONNECTIVITY_STATUS_VARIANT,
+  KISSEN_PROJECT_ID,
+  bankDetailStatusVariant,
+  bankKeys,
+  bankStatusVariant,
+  testBankGateway,
+  useBankApprovalDetailQuery,
+  useBankApprovalDoneQuery,
+  useBankApprovalTodoQuery,
+  useBankDetailQuery,
+  useBankLimitChangeMutation,
+  useBankListQuery,
+  useBankGatewayInfoQuery,
+  usePreviousStepBankApprovalMutation,
+  useProcessBankApprovalMutation,
+  useRegisterBankGatewayMutation,
+  useSaveBankMutation,
+  useSubmitBankOnboardMutation,
+  useToggleBankFreezeMutation,
+  useWithdrawBankApprovalMutation,
+  useCurrencyEnabledQuery,
+  type BankApprovalDoneRow,
+  type BankApprovalPageReq,
+  type BankApprovalTodoRow,
+  type BankApproveButtonDTO,
+  type BankGatewayFormValues,
+  type BankListFilter,
+  type BankRow,
+  type BankSaveReq,
+  type CurrencyRow,
+} from '@myorg/modules/kissen-admin/data-access';
 
-const bankInfoColumns: MockColumn[] = [
-  { key: 'id', label: 'Bank ID' },
-  { key: 'name', label: 'Bank Name' },
-  { key: 'code', label: 'Clearing Code' },
-  { key: 'contact', label: 'Contact Person' },
-  { key: 'status', label: 'Status' },
-];
+const PAGE_SIZE = 10;
 
-const bankInfoRows = [
-  { id: 'BK001', name: 'Sample Bank A', code: 'CLRBK001', contact: 'Zhang San', status: <Badge>Enabled</Badge> },
-  { id: 'BK002', name: 'Sample Bank B', code: 'CLRBK002', contact: 'Li Si', status: <Badge variant="secondary">Pending Review</Badge> },
-  { id: 'BK003', name: 'Sample Bank C', code: 'CLRBK003', contact: 'Wang Wu', status: <Badge>Enabled</Badge> },
-  { id: 'BK004', name: 'Sample Bank D', code: 'CLRBK004', contact: 'Zhao Liu', status: <Badge variant="destructive">Disabled</Badge> },
-];
+/* ================================================================== */
+/* 共用展示 helper（源 views/approval/format.ts 移植，bank 域内使用）     */
+/* ================================================================== */
 
-const bankInfoFields: MockField[] = [
-  { key: 'id', label: 'Bank ID' },
-  { key: 'name', label: 'Bank Name' },
-  { key: 'code', label: 'Clearing Code' },
-  { key: 'contact', label: 'Contact Person' },
-  { key: 'phone', label: 'Contact Phone' },
-  { key: 'status', label: 'Status' },
-  { key: 'settleAccount', label: 'Settlement Account' },
-  { key: 'createdAt', label: 'Onboarding Time' },
-];
+/** 毫秒时间戳 → YYYY-MM-DD HH:mm:ss（源 formatTime，手写不引 dayjs）。 */
+function formatTime(ms: number | null | undefined): string {
+  if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '--';
+  const d = new Date(Number(ms));
+  if (Number.isNaN(d.getTime())) return '--';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(
+    d.getHours(),
+  )}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
 
-const bankInfoData = {
-  id: 'BK001',
-  name: 'Sample Bank A',
-  code: 'CLRBK001',
-  contact: 'Zhang San',
-  phone: '138-0000-0001',
-  status: <Badge>Enabled</Badge>,
-  settleAccount: '6228 4800 0000 0001',
-  createdAt: '2026-07-01 09:00:00',
-};
+/** 数字千分位（保留原小数位；源 formatMoney）。 */
+function formatMoney(v: number | string | null | undefined): string {
+  if (v === null || v === undefined || v === '') return '--';
+  const s = String(v);
+  const [int, dec] = s.split('.');
+  const sign = int.startsWith('-') ? '-' : '';
+  const digits = sign ? int.slice(1) : int;
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
+}
 
-const bankInfoFormFields: MockField[] = [
-  { key: 'name', label: 'Bank Name' },
-  { key: 'code', label: 'Clearing Code' },
-  { key: 'contact', label: 'Contact Person' },
-  { key: 'phone', label: 'Contact Phone' },
-  { key: 'settleAccount', label: 'Settlement Account' },
-];
+function parseBankId(raw: string | null): number | undefined {
+  if (!raw) return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
 
-export function BankInfoListPage() {
+/* ================================================================== */
+/* 状态徽标（约定 §5：纯展示组件 co-locate）                            */
+/* ================================================================== */
+
+function BankStatusBadge({ status }: { status: number }) {
   return (
-    <MockListPage
-      title="Bank Profile & Configuration"
-      description="Manage basic profiles and clearing configuration of onboarded banks"
-      columns={bankInfoColumns}
-      rows={bankInfoRows}
-    />
+    <Badge variant={bankStatusVariant(status)}>
+      {COMMON_STATUS_LABEL[status] ?? status}
+    </Badge>
   );
 }
 
-export function BankInfoDetailPage() {
-  return <MockDetailPage title="Bank Details" fields={bankInfoFields} data={bankInfoData} />;
+function ConnectivityBadge({ status }: { status: number }) {
+  const s = status ?? 0;
+  return (
+    <Badge variant={CONNECTIVITY_STATUS_VARIANT[s] ?? 'secondary'}>
+      {CONNECTIVITY_STATUS_LABEL[s] ?? '未知'}
+    </Badge>
+  );
+}
+
+/* ================================================================== */
+/* 银行审批详情字段映射 + 值格式化（源 field-maps.ts/format.ts bank 子集）*/
+/* ================================================================== */
+
+interface FieldDef {
+  key: string;
+  label: string;
+}
+
+/** 银行审批业务字段顺序（源 FIELD_MAPS 的 kissen_bank_onboard / kissen_limit_change）。 */
+const BANK_FIELD_MAPS: Record<string, FieldDef[]> = {
+  [BANK_BUSINESS_CODES.onboard]: [
+    { key: 'bankName', label: '银行名称' },
+    { key: 'bankCode', label: '银行编码' },
+    { key: 'bic', label: 'SWIFT BIC' },
+    { key: 'currencies', label: '支持币种' },
+    { key: 'singleLimit', label: '单笔限额' },
+    { key: 'dailyLimit', label: '日累计限额' },
+    { key: 'accountConfig', label: '账户配置' },
+    { key: 'kycInfo', label: 'KYC 信息' },
+    { key: 'status', label: '状态' },
+    { key: 'createTime', label: '创建时间' },
+  ],
+  [BANK_BUSINESS_CODES.limitChange]: [
+    { key: 'bankName', label: '银行名称' },
+    { key: 'oldSingleLimit', label: '原单笔限额' },
+    { key: 'oldDailyLimit', label: '原日累计限额' },
+    { key: 'newSingleLimit', label: '新单笔限额' },
+    { key: 'newDailyLimit', label: '新日累计限额' },
+  ],
+};
+
+/** 字段名 → 中文标签兜底词典（源 LABEL_DICT 子集 + limit 字段）。 */
+const FIELD_LABEL_DICT: Record<string, string> = {
+  bankId: '银行ID',
+  changeId: '限额变更ID',
+  bankName: '银行名称',
+  bankCode: '银行编码',
+  bic: 'SWIFT BIC',
+  singleLimit: '单笔限额',
+  dailyLimit: '日累计限额',
+  oldSingleLimit: '原单笔限额',
+  oldDailyLimit: '原日累计限额',
+  newSingleLimit: '新单笔限额',
+  newDailyLimit: '新日累计限额',
+  accountConfig: '账户配置',
+  status: '状态',
+  kycInfo: 'KYC 信息',
+  createTime: '创建时间',
+  currencies: '支持币种',
+};
+
+function fieldLabelFor(busCode: string, key: string): string {
+  const map = BANK_FIELD_MAPS[busCode];
+  const hit = map?.find((f) => f.key === key);
+  return hit?.label ?? FIELD_LABEL_DICT[key] ?? key;
+}
+
+interface NestedValue {
+  kind: 'nested';
+  title: string;
+  entries: Array<[string, unknown]>;
+}
+
+/**
+ * 通用值格式化（启发式，源 formatFieldValue）：
+ * null→'--' | 时间戳 | 布尔 | status 码 | 金额 | JSON 字符串递归 | 其余原样。
+ */
+function formatFieldValue(
+  key: string,
+  value: unknown,
+): string | NestedValue {
+  if (value === null || value === undefined || value === '') return '--';
+  if (typeof value === 'boolean') return value ? '是' : '否';
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return {
+      kind: 'nested',
+      title: key,
+      entries: Object.entries(value as Record<string, unknown>),
+    };
+  }
+  if (typeof value === 'number' || typeof value === 'string') {
+    const s = String(value);
+    if (key === 'status' && /^\d+$/.test(s)) {
+      const mapped = COMMON_STATUS_LABEL[Number(s)];
+      if (mapped !== undefined) return mapped;
+    }
+    if (
+      (/(time|date)/i.test(key) ||
+        /^period/i.test(key) ||
+        /(Start|End)$/.test(key)) &&
+      /^\d{10,13}$/.test(s)
+    ) {
+      return formatTime(Number(s));
+    }
+    if (/(amount|limit|rate|total)/i.test(key) && /^-?\d+(\.\d+)?$/.test(s)) {
+      return formatMoney(s);
+    }
+    const trimmed = s.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed: unknown = JSON.parse(trimmed);
+        if (parsed !== null && typeof parsed === 'object') {
+          return {
+            kind: 'nested',
+            title: key,
+            entries: Object.entries(parsed as Record<string, unknown>),
+          };
+        }
+      } catch {
+        /* 解析失败 → 原样显示 */
+      }
+    }
+    return s;
+  }
+  if (Array.isArray(value)) return value.map((v) => String(v)).join(', ');
+  return String(value);
+}
+
+/** 审批业务内容条目（按字段映射顺序 + 额外字段）。 */
+function buildContentEntries(
+  busCode: string,
+  content: Record<string, unknown> | undefined,
+): Array<[string, string | NestedValue]> {
+  const map = BANK_FIELD_MAPS[busCode];
+  const src = content ?? {};
+  const keys = map ? map.map((f) => f.key) : Object.keys(src);
+  const keySet = new Set(keys);
+  const extra = Object.keys(src).filter((k) => !keySet.has(k));
+  return [...keys, ...extra].map(
+    (k) => [k, formatFieldValue(k, src[k])] as [string, string | NestedValue],
+  );
+}
+
+function isNumericValue(v: unknown): boolean {
+  if (typeof v === 'number') return true;
+  if (typeof v !== 'string') return false;
+  return /^-?[\d,]+(\.\d+)?$/.test(v);
+}
+
+/* ================================================================== */
+/* BankInfoListPage — 银行入网列表（源 onboard/bank/index.vue）          */
+/* ================================================================== */
+
+interface BankInfoFilterForm {
+  bankName?: string;
+  bankCode?: string;
+  status?: string;
+}
+
+const EMPTY_BANK_FILTER: BankInfoFilterForm = { bankName: '', bankCode: '', status: '' };
+
+function bankFormToParams(
+  form: BankInfoFilterForm,
+  pageNum: number,
+): { pageNum: number; pageSize: number; filter: BankListFilter } {
+  const filter: BankListFilter = {};
+  if (form.bankName) filter.bankName = form.bankName;
+  if (form.bankCode) filter.bankCode = form.bankCode;
+  if (form.status) filter.status = Number(form.status);
+  return { pageNum, pageSize: PAGE_SIZE, filter };
+}
+
+export function BankInfoListPage() {
+  const router = useRouter();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const { register, handleSubmit, reset, control } = useForm<BankInfoFilterForm>({
+    defaultValues: EMPTY_BANK_FILTER,
+  });
+
+  const [params, setParams] = React.useState(() =>
+    bankFormToParams(EMPTY_BANK_FILTER, 1),
+  );
+
+  const { data, isLoading } = useBankListQuery(KISSEN_PROJECT_ID, params);
+  const submitMutation = useSubmitBankOnboardMutation(KISSEN_PROJECT_ID);
+  const freezeMutation = useToggleBankFreezeMutation(KISSEN_PROJECT_ID);
+
+  // 内联弹窗状态（源 index.vue 的三个 dialog）。
+  const [limitChangeRow, setLimitChangeRow] = React.useState<BankRow | null>(null);
+  const [gatewayRow, setGatewayRow] = React.useState<BankRow | null>(null);
+
+  const rows = data?.data ?? [];
+  const paginationMeta = data?.pagination;
+
+  const onSearch = React.useCallback(
+    (form: BankInfoFilterForm) => {
+      setParams(bankFormToParams(form, 1));
+    },
+    [],
+  );
+
+  const onReset = React.useCallback(() => {
+    reset(EMPTY_BANK_FILTER);
+    setParams(bankFormToParams(EMPTY_BANK_FILTER, 1));
+  }, [reset]);
+
+  const refreshList = React.useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: bankKeys.lists(KISSEN_PROJECT_ID) });
+  }, [queryClient]);
+
+  /** 提交入网申请（草稿/被拒 → status 5 待审核）。源 submitOnboard。 */
+  const onSubmitOnboard = React.useCallback(
+    (row: BankRow) => {
+      if (
+        !window.confirm(`确认提交「${row.bankName}」入网申请?提交后进入审批中心待办。`)
+      )
+        return;
+      submitMutation.mutate(row.bankId, {
+        onSuccess: () => toast.success('已提交入网申请'),
+        onError: (e) => toast.error((e as Error).message),
+      });
+    },
+    [submitMutation, toast],
+  );
+
+  /** 冻结（status 20→50，立即生效不走审批）。源 onFreeze。 */
+  const onFreeze = React.useCallback(
+    (row: BankRow) => {
+      if (
+        !window.confirm(
+          `确认冻结银行「${row.bankName}」?冻结后该行立即退出报价与匹配,状态变为停用。`,
+        )
+      )
+        return;
+      freezeMutation.mutate(
+        { bankId: row.bankId, freeze: true },
+        {
+          onSuccess: () => toast.success('已冻结'),
+          onError: (e) => toast.error((e as Error).message),
+        },
+      );
+    },
+    [freezeMutation, toast],
+  );
+
+  /** 解冻（status 50→20）。源 onUnfreeze。 */
+  const onUnfreeze = React.useCallback(
+    (row: BankRow) => {
+      if (
+        !window.confirm(
+          `确认解冻银行「${row.bankName}」?解冻后该行恢复已启用,重新参与报价与匹配。`,
+        )
+      )
+        return;
+      freezeMutation.mutate(
+        { bankId: row.bankId, freeze: false },
+        {
+          onSuccess: () => toast.success('已解冻'),
+          onError: (e) => toast.error((e as Error).message),
+        },
+      );
+    },
+    [freezeMutation, toast],
+  );
+
+  const columns = React.useMemo<ColumnDef<BankRow & { id: string }>[]>(() => {
+    return [
+      { accessorKey: 'bankName', header: '银行名称' },
+      { accessorKey: 'bankCode', header: '银行编码' },
+      {
+        accessorKey: 'bic',
+        header: 'SWIFT BIC',
+        cell: ({ row }) => <span>{row.original.bic || '--'}</span>,
+      },
+      {
+        accessorKey: 'currencies',
+        header: '支持币种',
+        cell: ({ row }) => (
+          <span>{row.original.currencies?.length ? row.original.currencies.join(', ') : '--'}</span>
+        ),
+      },
+      {
+        id: 'connectivity',
+        header: '连接状态',
+        cell: ({ row }) => (
+          <ConnectivityBadge status={row.original.connectivityStatus} />
+        ),
+      },
+      {
+        accessorKey: 'singleLimit',
+        header: '单笔限额',
+        cell: ({ row }) => (
+          <span className="font-mono tabular-nums">
+            {formatMoney(row.original.singleLimit)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'dailyLimit',
+        header: '日累计限额',
+        cell: ({ row }) => (
+          <span className="font-mono tabular-nums">
+            {formatMoney(row.original.dailyLimit)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'status',
+        header: '状态',
+        cell: ({ row }) => <BankStatusBadge status={row.original.status} />,
+      },
+      {
+        accessorKey: 'createTime',
+        header: '创建时间',
+        cell: ({ row }) => <span>{formatTime(row.original.createTime)}</span>,
+      },
+      {
+        id: 'actions',
+        header: '操作',
+        cell: ({ row }) => {
+          const item = row.original;
+          const s = item.status;
+          const canEdit = s === 1 || s === 15;
+          return (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => router.push(`/bank-info/detail?id=${item.bankId}`)}
+              >
+                查看
+              </Button>
+              {canEdit && (
+                <>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    onClick={() => router.push(`/bank-info/edit?id=${item.bankId}`)}
+                  >
+                    编辑
+                  </Button>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    onClick={() => onSubmitOnboard(item)}
+                  >
+                    提交入网申请
+                  </Button>
+                </>
+              )}
+              {s === 20 && (
+                <>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-destructive"
+                    onClick={() => onFreeze(item)}
+                  >
+                    冻结
+                  </Button>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    onClick={() => setLimitChangeRow(item)}
+                  >
+                    限额变更
+                  </Button>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    onClick={() => setGatewayRow(item)}
+                  >
+                    连接信息
+                  </Button>
+                </>
+              )}
+              {s === 50 && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  onClick={() => onUnfreeze(item)}
+                >
+                  解冻
+                </Button>
+              )}
+            </div>
+          );
+        },
+      },
+    ];
+  }, [router, onSubmitOnboard, onFreeze, onUnfreeze]);
+
+  const tableData = React.useMemo(
+    () => rows.map((r: BankRow) => ({ ...r, id: String(r.bankId) })),
+    [rows],
+  );
+
+  return (
+    <div className="space-y-4">
+      <form
+        onSubmit={handleSubmit(onSearch)}
+        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+      >
+        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <FormField
+            name="bankName"
+            label="银行名称"
+            placeholder="模糊匹配"
+            register={register('bankName')}
+          />
+          <FormField
+            name="bankCode"
+            label="银行编码"
+            placeholder="模糊匹配"
+            register={register('bankCode')}
+          />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
+              状态
+            </label>
+            <Controller
+              control={control}
+              name="status"
+              render={({ field }) => (
+                <Select
+                  value={field.value ?? ''}
+                  onValueChange={field.onChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="全部" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BANK_STATUS_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={String(o.value)}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex gap-2">
+          <Button type="submit">查询</Button>
+          <Button type="button" variant="outline" onClick={onReset}>
+            重置
+          </Button>
+        </div>
+      </form>
+
+      <div className="rounded-lg border bg-card shadow-sm">
+        <div className="flex items-center justify-between border-b px-6 py-3">
+          <div className="text-sm font-semibold">银行列表</div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => router.push('/bank-info/create')}
+          >
+            新建银行
+          </Button>
+        </div>
+        <DataTable
+          columns={columns}
+          data={tableData}
+          isLoading={isLoading}
+          emptyMessage="暂无数据"
+          pagination={
+            paginationMeta
+              ? {
+                  page: paginationMeta.page,
+                  pageSize: paginationMeta.pageSize,
+                  total: paginationMeta.total,
+                  onPageChange: (page) =>
+                    setParams((prev) => ({ ...prev, pageNum: page })),
+                }
+              : undefined
+          }
+        />
+      </div>
+
+      {/* 限额变更弹窗（仅 status=20；源 limit-change-dialog）。 */}
+      {limitChangeRow && (
+        <LimitChangeDialog
+          row={limitChangeRow}
+          onClose={() => {
+            setLimitChangeRow(null);
+            refreshList();
+          }}
+        />
+      )}
+
+      {/* 连接信息弹窗（仅 status=20；源 gateway-dialog）。 */}
+      {gatewayRow && (
+        <GatewayConnectionDialog
+          row={gatewayRow}
+          onClose={() => {
+            setGatewayRow(null);
+            refreshList();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* LimitChangeDialog — 限额变更（源 limit-change-dialog.vue，内联弹窗）  */
+/* ================================================================== */
+
+interface LimitChangeForm {
+  singleLimit: string;
+  dailyLimit: string;
+}
+
+function LimitChangeDialog({
+  row,
+  onClose,
+}: {
+  row: BankRow;
+  onClose: () => void;
+}) {
+  const toast = useToast();
+  const mutation = useBankLimitChangeMutation(KISSEN_PROJECT_ID);
+  const { register, handleSubmit, formState } = useForm<LimitChangeForm>({
+    defaultValues: { singleLimit: '', dailyLimit: '' },
+  });
+
+  const onSubmit = handleSubmit((v) => {
+    mutation.mutate(
+      {
+        bankId: row.bankId,
+        singleLimit: Number(v.singleLimit),
+        dailyLimit: Number(v.dailyLimit),
+      },
+      {
+        onSuccess: () => {
+          toast.success('已提交限额变更审批');
+          onClose();
+        },
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  });
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>银行限额变更</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">银行</label>
+            <div className="text-sm">{row.bankName}</div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">当前单笔限额</label>
+            <div className="font-mono tabular-nums text-sm">
+              {formatMoney(row.singleLimit)}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">当前日累计限额</label>
+            <div className="font-mono tabular-nums text-sm">
+              {formatMoney(row.dailyLimit)}
+            </div>
+          </div>
+          <FormField
+            name="singleLimit"
+            label="新单笔限额"
+            required
+            type="number"
+            error={formState.errors.singleLimit ? '请输入新单笔限额' : undefined}
+            register={register('singleLimit', {
+              required: true,
+              validate: (v) => v !== '' && Number(v) >= 0,
+            })}
+          />
+          <FormField
+            name="dailyLimit"
+            label="新日累计限额"
+            required
+            type="number"
+            error={formState.errors.dailyLimit ? '请输入新日累计限额' : undefined}
+            register={register('dailyLimit', {
+              required: true,
+              validate: (v) => v !== '' && Number(v) >= 0,
+            })}
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              取消
+            </Button>
+            <Button type="submit" disabled={mutation.isPending}>
+              提交审批
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ================================================================== */
+/* GatewayConnectionPanel — 网关连接信息 + 注册 + 测试（源 gateway-dialog）*/
+/* 复用于 BankInfoListPage 内联弹窗与 GatewayRegisterFormPage 路由页。   */
+/* ================================================================== */
+
+function GatewayConnectionPanel({
+  bankId,
+  onSaved,
+}: {
+  bankId: number;
+  onSaved?: () => void;
+}) {
+  const toast = useToast();
+  const infoQuery = useBankGatewayInfoQuery(KISSEN_PROJECT_ID, bankId);
+  const info = infoQuery.data;
+  const registerMutation = useRegisterBankGatewayMutation(KISSEN_PROJECT_ID);
+  const [testing, setTesting] = React.useState(false);
+
+  const { register, handleSubmit, reset, formState } =
+    useForm<BankGatewayFormValues>({
+      defaultValues: { endpointUrl: '', keyFingerprint: '' },
+    });
+
+  // 回填 endpointUrl（keyFingerprint 始终留空 = 保持原值）。
+  React.useEffect(() => {
+    if (info) {
+      reset({ endpointUrl: info.endpointUrl ?? '', keyFingerprint: '' });
+    }
+  }, [info, reset]);
+
+  const notRegistered = (info?.endpointUrl ?? '') === '';
+  const connectivity = info?.connectivityStatus ?? 0;
+
+  const onSave = handleSubmit((v) => {
+    if (notRegistered && !v.keyFingerprint.trim()) {
+      toast.error('首次登记请输入密钥指纹');
+      return;
+    }
+    registerMutation.mutate(
+      {
+        bankId,
+        endpointUrl: v.endpointUrl,
+        keyFingerprint: v.keyFingerprint || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success('已保存连接信息');
+          onSaved?.();
+        },
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  });
+
+  /** 测试连接：结果以后端回写的连通性为准，刷新 info 后判定（源 onTest）。 */
+  const onTest = async () => {
+    if (notRegistered) return;
+    setTesting(true);
+    try {
+      await testBankGateway(bankId);
+      const fresh = await infoQuery.refetch();
+      if (fresh.data?.connectivityStatus === 1) toast.success('连接正常');
+      else toast.warning('连接失败:网关端点不可达');
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* 连接状态 */}
+      <section className="space-y-3">
+        <div className="text-sm font-semibold">连接状态</div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <DetailField label="连通性">
+            {infoQuery.isLoading ? (
+              <Skeleton className="h-4 w-16" />
+            ) : (
+              <ConnectivityBadge status={connectivity} />
+            )}
+          </DetailField>
+          <DetailField label="最近心跳">
+            {infoQuery.isLoading ? (
+              <Skeleton className="h-4 w-32" />
+            ) : (
+              <span>{formatTime(info?.lastHeartbeatTime)}</span>
+            )}
+          </DetailField>
+          <DetailField label="当前密钥指纹">
+            {infoQuery.isLoading ? (
+              <Skeleton className="h-4 w-40" />
+            ) : (
+              <span>{info?.keyFingerprintMasked || '--'}</span>
+            )}
+          </DetailField>
+          <DetailField label="登记状态">
+            {infoQuery.isLoading ? (
+              <Skeleton className="h-4 w-16" />
+            ) : info?.registered ? (
+              <Badge variant="default">已登记</Badge>
+            ) : (
+              <Badge variant="outline">未登记</Badge>
+            )}
+          </DetailField>
+        </div>
+      </section>
+
+      {/* 连接设置 */}
+      <form onSubmit={onSave} className="space-y-4">
+        <div className="text-sm font-semibold">连接设置</div>
+        <FormField
+          name="endpointUrl"
+          label="网关端点 URL"
+          required
+          placeholder="请输入网关端点 URL"
+          register={register('endpointUrl', { required: true })}
+        />
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">密钥指纹</label>
+          <Input
+            maxLength={128}
+            placeholder={notRegistered ? '请输入密钥指纹' : '留空保持原值'}
+            {...register('keyFingerprint')}
+          />
+          {formState.errors.endpointUrl && (
+            <p className="text-sm text-destructive">请输入网关端点 URL</p>
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={notRegistered || testing}
+            onClick={onTest}
+          >
+            {testing ? '测试中…' : '测试连接'}
+          </Button>
+          <Button type="submit" disabled={registerMutation.isPending}>
+            保存
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function GatewayConnectionDialog({
+  row,
+  onClose,
+}: {
+  row: BankRow;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>银行连接信息</DialogTitle>
+          <DialogDescription>{row.bankName}</DialogDescription>
+        </DialogHeader>
+        <GatewayConnectionPanel bankId={row.bankId} onSaved={onClose} />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            关闭
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ================================================================== */
+/* BankInfoFormPage — 新建/编辑银行（源 bank-dialog create/edit）         */
+/* ================================================================== */
+
+interface BankInfoFormValues {
+  bankName: string;
+  bankCode: string;
+  bic: string;
+  currencies: string[];
+  singleLimit: string;
+  dailyLimit: string;
+  accountConfig: string;
+  kycInfo: string;
+}
+
+function mapDetailToForm(d: BankRow): BankInfoFormValues {
+  return {
+    bankName: d.bankName ?? '',
+    bankCode: d.bankCode ?? '',
+    bic: d.bic ?? '',
+    currencies: d.currencies ?? [],
+    singleLimit: d.singleLimit === 0 || d.singleLimit == null ? '' : String(d.singleLimit),
+    dailyLimit: d.dailyLimit === 0 || d.dailyLimit == null ? '' : String(d.dailyLimit),
+    accountConfig: d.accountConfig ?? '',
+    kycInfo: d.kycInfo ?? '',
+  };
 }
 
 export function BankInfoFormPage() {
-  return <MockFormPage title="Bank Profile Edit" fields={bankInfoFormFields} />;
+  const router = useRouter();
+  const toast = useToast();
+  const searchParams = useSearchParams();
+  const bankId = parseBankId(searchParams.get('id'));
+  const isEdit = bankId != null;
+
+  const { data: detail } = useBankDetailQuery(KISSEN_PROJECT_ID, bankId);
+  const { data: currencyList } = useCurrencyEnabledQuery(KISSEN_PROJECT_ID);
+  const saveMutation = useSaveBankMutation(KISSEN_PROJECT_ID);
+
+  const { control, register, handleSubmit, reset, formState } =
+    useForm<BankInfoFormValues>({
+      defaultValues: {
+        bankName: '',
+        bankCode: '',
+        bic: '',
+        currencies: [],
+        singleLimit: '',
+        dailyLimit: '',
+        accountConfig: '',
+        kycInfo: '',
+      },
+    });
+
+  // 编辑态回填。
+  React.useEffect(() => {
+    if (!isEdit || !detail) return;
+    reset(mapDetailToForm(detail));
+  }, [detail, isEdit, reset]);
+
+  const onSubmit = handleSubmit((v) => {
+    const payload: BankSaveReq = {
+      bankId: isEdit ? bankId : undefined,
+      bankName: v.bankName,
+      bankCode: v.bankCode,
+      bic: v.bic || undefined,
+      currencies: v.currencies,
+      singleLimit: v.singleLimit,
+      dailyLimit: v.dailyLimit,
+      accountConfig: v.accountConfig || undefined,
+      kycInfo: v.kycInfo || undefined,
+    };
+    saveMutation.mutate(payload, {
+      onSuccess: () => {
+        toast.success(isEdit ? '已保存' : '已创建(草稿)');
+        router.push('/bank-info');
+      },
+      onError: (e) => toast.error((e as Error).message),
+    });
+  });
+
+  const submitting = saveMutation.isPending;
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <div className="mb-6 text-base font-semibold">
+          {isEdit ? '编辑银行' : '新建银行'}
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <FormField
+            name="bankName"
+            label="银行名称"
+            required
+            error={formState.errors.bankName ? '请输入银行名称' : undefined}
+            register={register('bankName', { required: true, maxLength: 64 })}
+          />
+          <FormField
+            name="bankCode"
+            label="银行编码"
+            required
+            error={formState.errors.bankCode ? '请输入银行编码' : undefined}
+            register={register('bankCode', { required: true, maxLength: 32 })}
+          />
+          <FormField
+            name="bic"
+            label="SWIFT BIC"
+            register={register('bic', { maxLength: 16 })}
+          />
+          <FormField
+            name="singleLimit"
+            label="单笔限额"
+            required
+            type="number"
+            placeholder="大于 0"
+            error={formState.errors.singleLimit ? '请输入单笔限额' : undefined}
+            register={register('singleLimit', {
+              required: true,
+              validate: (v) => v !== '' && Number(v) > 0,
+            })}
+          />
+          <FormField
+            name="dailyLimit"
+            label="日累计限额"
+            required
+            type="number"
+            placeholder="大于 0"
+            error={formState.errors.dailyLimit ? '请输入日累计限额' : undefined}
+            register={register('dailyLimit', {
+              required: true,
+              validate: (v) => v !== '' && Number(v) > 0,
+            })}
+          />
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="text-sm font-medium">账户参数</label>
+            <Textarea
+              rows={3}
+              placeholder="JSON,选填"
+              {...register('accountConfig')}
+            />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="text-sm font-medium">KYC 信息</label>
+            <Textarea
+              rows={3}
+              placeholder="资质材料,选填"
+              {...register('kycInfo')}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 支持币种多选（数据源 currencyEnabledList；源 bank-dialog currencies）。 */}
+      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <div className="mb-4 text-sm font-semibold">
+          支持币种
+          <span className="ml-0.5 text-destructive">*</span>
+        </div>
+        <Controller
+          control={control}
+          name="currencies"
+          rules={{
+            validate: (v) =>
+              (Array.isArray(v) && v.length > 0) || '请至少选择一个支持币种',
+          }}
+          render={({ field, fieldState }) => (
+            <div className="space-y-2">
+              {currencyList?.length ? (
+                <div className="flex flex-wrap gap-4">
+                  {currencyList.map((c: CurrencyRow) => {
+                    const checked = field.value?.includes(c.currencyCode) ?? false;
+                    return (
+                      <label
+                        key={c.currencyId}
+                        className="flex items-center gap-1.5 text-sm"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(ck) => {
+                            const next = ck
+                              ? [...(field.value ?? []), c.currencyCode]
+                              : (field.value ?? []).filter(
+                                  (x) => x !== c.currencyCode,
+                                );
+                            field.onChange(next);
+                          }}
+                        />
+                        {c.currencyCode}
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">暂无可选币种</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                数据源为币种主数据启用项
+              </p>
+              {fieldState.error && (
+                <p className="text-sm text-destructive">{fieldState.error.message}</p>
+              )}
+            </div>
+          )}
+        />
+      </section>
+
+      <div className="flex justify-end gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => router.push('/bank-info')}
+          disabled={submitting}
+        >
+          取消
+        </Button>
+        <Button type="submit" disabled={submitting}>
+          保存
+        </Button>
+      </div>
+    </form>
+  );
 }
 
-/* ------------------------------------------------------------------ */
-/* bank-approval — Onboarding Review & Enablement                      */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
+/* BankInfoDetailPage — 银行详情只读（源 bank-dialog view）              */
+/* ================================================================== */
 
-const bankApprovalColumns: MockColumn[] = [
-  { key: 'id', label: 'Application No.' },
-  { key: 'bankName', label: 'Bank Name' },
-  { key: 'type', label: 'Application Type' },
-  { key: 'applicant', label: 'Applicant' },
-  { key: 'status', label: 'Review Status' },
+export function BankInfoDetailPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const bankId = parseBankId(searchParams.get('id'));
+
+  const { data: detail, isLoading } = useBankDetailQuery(
+    KISSEN_PROJECT_ID,
+    bankId,
+  );
+
+  if (!bankId) {
+    return (
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <p className="text-sm text-muted-foreground">缺少银行 ID</p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => router.push('/bank-info')}
+        >
+          返回
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <div className="mb-6 text-base font-semibold">银行详情</div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <DetailField label="银行名称">
+            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.bankName || '--'}
+          </DetailField>
+          <DetailField label="银行编码">
+            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.bankCode || '--'}
+          </DetailField>
+          <DetailField label="SWIFT BIC">
+            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.bic || '--'}
+          </DetailField>
+          <DetailField label="支持币种">
+            {isLoading ? (
+              <Skeleton className="h-4 w-40" />
+            ) : detail?.currencies?.length ? (
+              detail.currencies.join(', ')
+            ) : (
+              '--'
+            )}
+          </DetailField>
+          <DetailField label="单笔限额">
+            {isLoading ? (
+              <Skeleton className="h-4 w-24" />
+            ) : (
+              <span className="font-mono tabular-nums">
+                {formatMoney(detail?.singleLimit)}
+              </span>
+            )}
+          </DetailField>
+          <DetailField label="日累计限额">
+            {isLoading ? (
+              <Skeleton className="h-4 w-24" />
+            ) : (
+              <span className="font-mono tabular-nums">
+                {formatMoney(detail?.dailyLimit)}
+              </span>
+            )}
+          </DetailField>
+          <DetailField label="连接状态">
+            {isLoading ? (
+              <Skeleton className="h-4 w-16" />
+            ) : (
+              <ConnectivityBadge status={detail?.connectivityStatus ?? 0} />
+            )}
+          </DetailField>
+          <DetailField label="状态">
+            {isLoading ? (
+              <Skeleton className="h-4 w-20" />
+            ) : detail ? (
+              <BankStatusBadge status={detail.status} />
+            ) : (
+              '--'
+            )}
+          </DetailField>
+          <DetailField label="创建时间">
+            {isLoading ? <Skeleton className="h-4 w-40" /> : formatTime(detail?.createTime)}
+          </DetailField>
+          <DetailField label="账户参数">
+            {isLoading ? (
+              <Skeleton className="h-4 w-40" />
+            ) : (
+              <span className="whitespace-pre-wrap break-all">
+                {detail?.accountConfig || '--'}
+              </span>
+            )}
+          </DetailField>
+          <DetailField label="KYC 信息">
+            {isLoading ? (
+              <Skeleton className="h-4 w-40" />
+            ) : (
+              <span className="whitespace-pre-wrap break-all">
+                {detail?.kycInfo || '--'}
+              </span>
+            )}
+          </DetailField>
+        </div>
+      </section>
+
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={() => router.push('/bank-info')}>
+          返回
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* BankApprovalListPage — 银行审批中心（源 approval/index.vue，bank 限定）*/
+/* ================================================================== */
+
+type ApprovalTab = 'todo' | 'done';
+
+interface BankApprovalFilterForm {
+  businessCode: string;
+  keyword: string;
+  status: string;
+}
+
+const BANK_APPROVAL_BUSINESS_OPTIONS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: BANK_BUSINESS_LABEL[BANK_BUSINESS_CODES.onboard], value: BANK_BUSINESS_CODES.onboard },
+  { label: BANK_BUSINESS_LABEL[BANK_BUSINESS_CODES.limitChange], value: BANK_BUSINESS_CODES.limitChange },
 ];
 
-const bankApprovalRows = [
-  { id: 'AP202608001', bankName: 'Sample Bank B', type: 'New Onboarding', applicant: 'Li Si', status: <Badge variant="secondary">Pending Review</Badge> },
-  { id: 'AP202608002', bankName: 'Sample Bank A', type: 'Information Update', applicant: 'Zhang San', status: <Badge>Approved</Badge> },
-  { id: 'AP202608003', bankName: 'Sample Bank C', type: 'Enablement Change', applicant: 'Wang Wu', status: <Badge variant="secondary">Pending Review</Badge> },
-  { id: 'AP202608004', bankName: 'Sample Bank D', type: 'Disable Request', applicant: 'Zhao Liu', status: <Badge variant="destructive">Rejected</Badge> },
-];
-
-const bankApprovalFields: MockField[] = [
-  { key: 'id', label: 'Application No.' },
-  { key: 'bankName', label: 'Bank Name' },
-  { key: 'type', label: 'Application Type' },
-  { key: 'applicant', label: 'Applicant' },
-  { key: 'applyTime', label: 'Application Time' },
-  { key: 'reviewer', label: 'Reviewer' },
-  { key: 'reviewTime', label: 'Review Time' },
-  { key: 'status', label: 'Review Status' },
-];
-
-const bankApprovalData = {
-  id: 'AP202608001',
-  bankName: 'Sample Bank B',
-  type: 'New Onboarding',
-  applicant: 'Li Si',
-  applyTime: '2026-08-05 14:20:00',
-  reviewer: '—',
-  reviewTime: '—',
-  status: <Badge variant="secondary">Pending Review</Badge>,
-};
+/** 把列表行编码进详情路由 searchParams（详情页无单行查询端点，靠列表行透传）。 */
+function buildApprovalDetailHref(
+  row: BankApprovalTodoRow | BankApprovalDoneRow,
+  tab: ApprovalTab,
+): string {
+  const p = new URLSearchParams({
+    taskId: String(row.taskId),
+    busCode: row.businessCode,
+    applyCode: row.applyCode,
+    busDesc: row.busDesc,
+    stepName: row.stepName,
+    reviewerStatus: String(row.reviewerStatus),
+    createTime: String(row.createTime),
+    tab,
+  });
+  const done = row as BankApprovalDoneRow;
+  if (tab === 'done' && done.detailReviewerStatus !== undefined) {
+    p.set('reviewerTime', String(done.reviewerTime));
+    p.set('reviewerRemarks', done.reviewerRemarks ?? '');
+    p.set('detailReviewerStatus', String(done.detailReviewerStatus));
+  }
+  return `/bank-approval/detail?${p.toString()}`;
+}
 
 export function BankApprovalListPage() {
-  return <MockListPage title="Onboarding Review & Enablement" columns={bankApprovalColumns} rows={bankApprovalRows} />;
+  const router = useRouter();
+  const [tab, setTab] = React.useState<ApprovalTab>('todo');
+  const [pageNum, setPageNum] = React.useState(1);
+  const { register, handleSubmit, reset, control } = useForm<BankApprovalFilterForm>({
+    defaultValues: {
+      businessCode: BANK_BUSINESS_CODES.onboard,
+      keyword: '',
+      status: '',
+    },
+  });
+  const [filter, setFilter] = React.useState<BankApprovalPageReq>({
+    businessCode: BANK_BUSINESS_CODES.onboard,
+    keyword: '',
+  });
+
+  const todoQuery = useBankApprovalTodoQuery(
+    KISSEN_PROJECT_ID,
+    { pageNum, pageSize: PAGE_SIZE, data: filter },
+    tab === 'todo',
+  );
+  const doneQuery = useBankApprovalDoneQuery(
+    KISSEN_PROJECT_ID,
+    { pageNum, pageSize: PAGE_SIZE, data: filter },
+    tab === 'done',
+  );
+  const activeQuery = tab === 'todo' ? todoQuery : doneQuery;
+  const rows: Array<BankApprovalTodoRow | BankApprovalDoneRow> =
+    activeQuery.data?.data ?? [];
+  const paginationMeta = activeQuery.data?.pagination;
+
+  const onSearch = React.useCallback(
+    (form: BankApprovalFilterForm) => {
+      const next: BankApprovalPageReq = { businessCode: form.businessCode };
+      if (form.keyword) next.keyword = form.keyword;
+      if (tab === 'done' && form.status) next.status = Number(form.status);
+      setFilter(next);
+      setPageNum(1);
+    },
+    [tab],
+  );
+
+  const onReset = React.useCallback(() => {
+    reset({
+      businessCode: BANK_BUSINESS_CODES.onboard,
+      keyword: '',
+      status: '',
+    });
+    setFilter({ businessCode: BANK_BUSINESS_CODES.onboard });
+    setPageNum(1);
+  }, [reset]);
+
+  const onTabChange = (next: string) => {
+    if (next === 'todo' || next === 'done') {
+      setTab(next);
+      setPageNum(1);
+    }
+  };
+
+  const columns = React.useMemo<
+    ColumnDef<(BankApprovalTodoRow | BankApprovalDoneRow) & { id: string }>[]
+  >(() => {
+    const base: ColumnDef<(BankApprovalTodoRow | BankApprovalDoneRow) & { id: string }>[] = [
+      { accessorKey: 'applyCode', header: '审批编号' },
+      {
+        accessorKey: 'businessCode',
+        header: '业务类型',
+        cell: ({ row }) => (
+          <span>{BANK_BUSINESS_LABEL[row.original.businessCode] ?? row.original.businessCode}</span>
+        ),
+      },
+      { accessorKey: 'busDesc', header: '业务描述' },
+      { accessorKey: 'stepName', header: '当前节点' },
+      { accessorKey: 'createUserName', header: '申请人' },
+      {
+        accessorKey: 'createTime',
+        header: '申请时间',
+        cell: ({ row }) => <span>{formatTime(row.original.createTime)}</span>,
+      },
+      {
+        id: 'status',
+        header: '状态',
+        cell: ({ row }) => {
+          if (tab === 'todo') {
+            return <BankStatusBadge status={row.original.reviewerStatus} />;
+          }
+          const done = row.original as BankApprovalDoneRow;
+          return (
+            <Badge variant={bankDetailStatusVariant(done.detailReviewerStatus)}>
+              {BANK_DETAIL_STATUS_LABEL[done.detailReviewerStatus] ?? done.detailReviewerStatus}
+            </Badge>
+          );
+        },
+      },
+    ];
+    if (tab === 'done') {
+      base.push(
+        {
+          accessorKey: 'reviewerTime',
+          header: '处理时间',
+          cell: ({ row }) => (
+            <span>{formatTime((row.original as BankApprovalDoneRow).reviewerTime)}</span>
+          ),
+        },
+        {
+          accessorKey: 'reviewerRemarks',
+          header: '我的意见',
+          cell: ({ row }) => (
+            <span>{(row.original as BankApprovalDoneRow).reviewerRemarks || '--'}</span>
+          ),
+        },
+      );
+    }
+    base.push({
+      id: 'actions',
+      header: '操作',
+      cell: ({ row }) => (
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0"
+          onClick={() => router.push(buildApprovalDetailHref(row.original, tab))}
+        >
+          {tab === 'todo' ? '处理' : '查看'}
+        </Button>
+      ),
+    });
+    return base;
+  }, [router, tab]);
+
+  const tableData = React.useMemo(
+    () => rows.map((r: BankApprovalTodoRow | BankApprovalDoneRow) => ({ ...r, id: String(r.taskId) })),
+    [rows],
+  );
+
+  return (
+    <div className="space-y-4">
+      <form
+        onSubmit={handleSubmit(onSearch)}
+        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+      >
+        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
+              业务类型
+            </label>
+            <Controller
+              control={control}
+              name="businessCode"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="全部" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BANK_APPROVAL_BUSINESS_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+          <FormField
+            name="keyword"
+            label="关键字"
+            placeholder="审批编号 / 业务描述"
+            register={register('keyword')}
+          />
+          {tab === 'done' && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                结果
+              </label>
+              <Controller
+                control={control}
+                name="status"
+                render={({ field }) => (
+                  <Select
+                    value={field.value ?? ''}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="全部" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3">通过</SelectItem>
+                      <SelectItem value="2">拒绝</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          )}
+        </div>
+        <div className="mt-4 flex gap-2">
+          <Button type="submit">查询</Button>
+          <Button type="button" variant="outline" onClick={onReset}>
+            重置
+          </Button>
+        </div>
+      </form>
+
+      <Tabs value={tab} onValueChange={onTabChange}>
+        <div className="rounded-lg border bg-card shadow-sm">
+          <div className="border-b px-6 pt-4">
+            <TabsList>
+              <TabsTrigger value="todo">待办</TabsTrigger>
+              <TabsTrigger value="done">已办</TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="todo" className="mt-0">
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={todoQuery.isLoading}
+              emptyMessage="暂无数据"
+              pagination={
+                paginationMeta
+                  ? {
+                      page: paginationMeta.page,
+                      pageSize: paginationMeta.pageSize,
+                      total: paginationMeta.total,
+                      onPageChange: setPageNum,
+                    }
+                  : undefined
+              }
+            />
+          </TabsContent>
+          <TabsContent value="done" className="mt-0">
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={doneQuery.isLoading}
+              emptyMessage="暂无数据"
+              pagination={
+                paginationMeta
+                  ? {
+                      page: paginationMeta.page,
+                      pageSize: paginationMeta.pageSize,
+                      total: paginationMeta.total,
+                      onPageChange: setPageNum,
+                    }
+                  : undefined
+              }
+            />
+          </TabsContent>
+        </div>
+      </Tabs>
+    </div>
+  );
 }
+
+/* ================================================================== */
+/* BankApprovalDetailPage — 银行审批详情 + 操作（源 detail-drawer 路由化）*/
+/* ================================================================== */
 
 export function BankApprovalDetailPage() {
-  return <MockDetailPage title="Review Details" fields={bankApprovalFields} data={bankApprovalData} />;
+  const router = useRouter();
+  const toast = useToast();
+  const sp = useSearchParams();
+
+  const taskId = parseBankId(sp.get('taskId'));
+  const busCode = sp.get('busCode') ?? undefined;
+  const isDone = sp.get('tab') === 'done';
+
+  const applyCode = sp.get('applyCode') ?? '';
+  const busDesc = sp.get('busDesc') ?? '';
+  const stepName = sp.get('stepName') ?? '';
+  const reviewerStatusRaw = Number(sp.get('reviewerStatus'));
+  const reviewerStatus = Number.isFinite(reviewerStatusRaw) ? reviewerStatusRaw : 0;
+  const createTime = Number(sp.get('createTime')) || 0;
+  const reviewerTime = Number(sp.get('reviewerTime')) || 0;
+  const reviewerRemarks = sp.get('reviewerRemarks') ?? '';
+  const detailReviewerStatusRaw = Number(sp.get('detailReviewerStatus'));
+  const detailReviewerStatus = Number.isFinite(detailReviewerStatusRaw)
+    ? detailReviewerStatusRaw
+    : undefined;
+
+  const { data: detail, isLoading } = useBankApprovalDetailQuery(
+    KISSEN_PROJECT_ID,
+    busCode,
+    taskId,
+  );
+  const processMutation = useProcessBankApprovalMutation(KISSEN_PROJECT_ID);
+  const previousMutation = usePreviousStepBankApprovalMutation(KISSEN_PROJECT_ID);
+  const withdrawMutation = useWithdrawBankApprovalMutation(KISSEN_PROJECT_ID);
+
+  const [remarks, setRemarks] = React.useState('');
+
+  const buttons: BankApproveButtonDTO = detail?.approveButtonDTO ?? {};
+  const isTodo = !isDone;
+  const hasApprove = (buttons.approveType ?? 0) !== 0;
+  const hasBack = (buttons.previousStepType ?? 0) !== 0;
+  const hasWithdraw = (buttons.withdrawType ?? 0) !== 0;
+  const canOperate = isTodo && (hasApprove || hasBack || hasWithdraw);
+  const submitting =
+    processMutation.isPending || previousMutation.isPending || withdrawMutation.isPending;
+
+  const back = () => router.push('/bank-approval');
+
+  const onApprove = (approve: 3 | 2) => {
+    if (approve === 2 && !remarks.trim()) {
+      toast.warning('请填写拒绝原因');
+      return;
+    }
+    if (!busCode || !taskId) return;
+    if (!window.confirm(approve === 3 ? '确认通过该审批?' : '确认拒绝该审批?')) return;
+    processMutation.mutate(
+      { busCode, taskId, approve, remarks: remarks.trim() || undefined },
+      {
+        onSuccess: () => {
+          toast.success(approve === 3 ? '已通过' : '已拒绝');
+          back();
+        },
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  };
+
+  const onPreviousStep = () => {
+    if (!remarks.trim()) {
+      toast.warning('退回上一步必须填写退回原因');
+      return;
+    }
+    if (!busCode || !taskId) return;
+    if (!window.confirm('确认退回上一步?该节点审批意见将作废。')) return;
+    previousMutation.mutate(
+      { busCode, taskId, remarks: remarks.trim() },
+      {
+        onSuccess: () => {
+          toast.success('已退回上一步');
+          back();
+        },
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  };
+
+  const onWithdraw = () => {
+    if (!busCode || !taskId) return;
+    if (!window.confirm('撤回后该申请退回重新发起状态,确认撤回?')) return;
+    withdrawMutation.mutate(
+      { busCode, taskId, remarks: remarks.trim() || undefined },
+      {
+        onSuccess: () => {
+          toast.success('已撤回');
+          back();
+        },
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  };
+
+  if (!busCode || !taskId) {
+    return (
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <p className="text-sm text-muted-foreground">缺少审批任务参数</p>
+        <Button variant="outline" className="mt-4" onClick={back}>
+          返回
+        </Button>
+      </div>
+    );
+  }
+
+  const contentEntries = buildContentEntries(busCode, detail?.businessContent);
+  const flatEntries = contentEntries.filter(
+    ([, f]) => typeof f === 'string',
+  ) as Array<[string, string]>;
+  const nestedEntries = contentEntries.filter(
+    ([, f]) => typeof f !== 'string',
+  ) as Array<[string, NestedValue]>;
+
+  return (
+    <div className="space-y-4">
+      {/* 头部信息块 */}
+      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <div className="mb-6 text-base font-semibold">
+          {BANK_BUSINESS_LABEL[busCode] ?? busCode} - 详情
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <DetailField label="审批编号">{applyCode || '--'}</DetailField>
+          <DetailField label="业务类型">
+            {BANK_BUSINESS_LABEL[busCode] ?? busCode}
+          </DetailField>
+          <DetailField label="业务描述">{busDesc || '--'}</DetailField>
+          <DetailField label="当前节点">{stepName || '--'}</DetailField>
+          <DetailField label="状态">
+            {isLoading ? (
+              <Skeleton className="h-5 w-20" />
+            ) : (
+              <BankStatusBadge status={reviewerStatus} />
+            )}
+          </DetailField>
+          <DetailField label="申请时间">{formatTime(createTime)}</DetailField>
+          {isDone && (
+            <>
+              <DetailField label="审批结果">
+                {detailReviewerStatus !== undefined ? (
+                  <Badge variant={bankDetailStatusVariant(detailReviewerStatus)}>
+                    {BANK_DETAIL_STATUS_LABEL[detailReviewerStatus] ?? detailReviewerStatus}
+                  </Badge>
+                ) : (
+                  '--'
+                )}
+              </DetailField>
+              <DetailField label="处理时间">{formatTime(reviewerTime)}</DetailField>
+              <DetailField label="我的意见">{reviewerRemarks || '--'}</DetailField>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* 业务内容 */}
+      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <div className="mb-4 text-base font-semibold">业务内容</div>
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {flatEntries.map(([key, text]) => (
+                <DetailField key={key} label={fieldLabelFor(busCode, key)}>
+                  <span className={isNumericValue(text) ? 'font-mono tabular-nums' : ''}>
+                    {text}
+                  </span>
+                </DetailField>
+              ))}
+            </div>
+            {nestedEntries.map(([key, nested]) => (
+              <div key={key} className="space-y-2 rounded-md border p-3">
+                <div className="text-sm font-semibold">
+                  {fieldLabelFor(busCode, key)}
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  {nested.entries.map(([k, v]) => (
+                    <DetailField key={k} label={fieldLabelFor(busCode, k)}>
+                      {typeof v === 'string' || typeof v === 'number'
+                        ? v
+                        : JSON.stringify(v)}
+                    </DetailField>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 审批操作 */}
+      {canOperate && (
+        <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+          <div className="mb-4 text-base font-semibold">审批操作</div>
+          <Textarea
+            rows={3}
+            maxLength={200}
+            placeholder="可填写审批意见(选填)"
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+          />
+          <div className="mt-4 flex flex-wrap gap-3">
+            {hasApprove && (
+              <>
+                <Button
+                  disabled={submitting}
+                  onClick={() => onApprove(3)}
+                >
+                  通过
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={submitting}
+                  onClick={() => onApprove(2)}
+                >
+                  拒绝
+                </Button>
+              </>
+            )}
+            {hasBack && (
+              <Button
+                variant="outline"
+                disabled={submitting}
+                onClick={onPreviousStep}
+              >
+                退回上一步
+              </Button>
+            )}
+            {hasWithdraw && (
+              <Button
+                variant="secondary"
+                disabled={submitting}
+                onClick={onWithdraw}
+              >
+                撤回
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
+
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={back}>
+          返回
+        </Button>
+      </div>
+    </div>
+  );
 }
 
-/* ------------------------------------------------------------------ */
-/* gateway-register — Gateway Instance Registration                    */
-/* ------------------------------------------------------------------ */
-
-const gatewayRegisterColumns: MockColumn[] = [
-  { key: 'id', label: 'Instance ID' },
-  { key: 'name', label: 'Instance Name' },
-  { key: 'region', label: 'Region' },
-  { key: 'endpoint', label: 'Endpoint' },
-  { key: 'status', label: 'Status' },
-];
-
-const gatewayRegisterRows = [
-  { id: 'GW001', name: 'gateway-prod-cn', region: 'East China 1', endpoint: 'https://gw-cn.example.com', status: <Badge>Running</Badge> },
-  { id: 'GW002', name: 'gateway-prod-hk', region: 'Hong Kong', endpoint: 'https://gw-hk.example.com', status: <Badge>Running</Badge> },
-  { id: 'GW003', name: 'gateway-sg', region: 'Singapore', endpoint: 'https://gw-sg.example.com', status: <Badge variant="secondary">Pending Enable</Badge> },
-  { id: 'GW004', name: 'gateway-us', region: 'US West', endpoint: 'https://gw-us.example.com', status: <Badge variant="destructive">Disabled</Badge> },
-];
-
-const gatewayRegisterFields: MockField[] = [
-  { key: 'id', label: 'Instance ID' },
-  { key: 'name', label: 'Instance Name' },
-  { key: 'region', label: 'Region' },
-  { key: 'endpoint', label: 'Endpoint' },
-  { key: 'version', label: 'Gateway Version' },
-  { key: 'bindBank', label: 'Bound Bank' },
-  { key: 'createdAt', label: 'Registration Time' },
-  { key: 'status', label: 'Status' },
-];
-
-const gatewayRegisterData = {
-  id: 'GW001',
-  name: 'gateway-prod-cn',
-  region: 'East China 1',
-  endpoint: 'https://gw-cn.example.com',
-  version: '2.4.1',
-  bindBank: 'Sample Bank A',
-  createdAt: '2026-06-15 10:30:00',
-  status: <Badge>Running</Badge>,
-};
-
-const gatewayRegisterFormFields: MockField[] = [
-  { key: 'name', label: 'Instance Name' },
-  { key: 'region', label: 'Region' },
-  { key: 'endpoint', label: 'Endpoint' },
-  { key: 'version', label: 'Gateway Version' },
-  { key: 'bindBank', label: 'Bound Bank' },
-];
+/* ================================================================== */
+/* GatewayRegisterListPage — 网关连接维度列表（已启用银行 + 连通性）      */
+/* ================================================================== */
 
 export function GatewayRegisterListPage() {
-  return <MockListPage title="Gateway Instance Registration" columns={gatewayRegisterColumns} rows={gatewayRegisterRows} />;
+  const router = useRouter();
+  const { register, handleSubmit, reset } = useForm<{ bankName?: string }>({
+    defaultValues: { bankName: '' },
+  });
+  const [params, setParams] = React.useState(() => ({
+    pageNum: 1,
+    pageSize: PAGE_SIZE,
+    filter: { status: 20 } as BankListFilter,
+  }));
+
+  // 网关连接维度只列已启用（status=20）银行。
+  const { data, isLoading } = useBankListQuery(KISSEN_PROJECT_ID, params);
+  const rows = data?.data ?? [];
+  const paginationMeta = data?.pagination;
+
+  const onSearch = React.useCallback((form: { bankName?: string }) => {
+    const filter: BankListFilter = { status: 20 };
+    if (form.bankName) filter.bankName = form.bankName;
+    setParams({ pageNum: 1, pageSize: PAGE_SIZE, filter });
+  }, []);
+
+  const onReset = React.useCallback(() => {
+    reset({ bankName: '' });
+    setParams({ pageNum: 1, pageSize: PAGE_SIZE, filter: { status: 20 } });
+  }, [reset]);
+
+  const columns = React.useMemo<ColumnDef<BankRow & { id: string }>[]>(() => {
+    return [
+      { accessorKey: 'bankName', header: '银行名称' },
+      { accessorKey: 'bankCode', header: '银行编码' },
+      {
+        id: 'connectivity',
+        header: '连通性',
+        cell: ({ row }) => (
+          <ConnectivityBadge status={row.original.connectivityStatus} />
+        ),
+      },
+      {
+        id: 'actions',
+        header: '操作',
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0"
+              onClick={() => router.push(`/gateway-register/edit?id=${row.original.bankId}`)}
+            >
+              配置
+            </Button>
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0"
+              onClick={() => router.push(`/gateway-register/detail?id=${row.original.bankId}`)}
+            >
+              详情
+            </Button>
+          </div>
+        ),
+      },
+    ];
+  }, [router]);
+
+  const tableData = React.useMemo(
+    () => rows.map((r: BankRow) => ({ ...r, id: String(r.bankId) })),
+    [rows],
+  );
+
+  return (
+    <div className="space-y-4">
+      <form
+        onSubmit={handleSubmit(onSearch)}
+        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+      >
+        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <FormField
+            name="bankName"
+            label="银行名称"
+            placeholder="模糊匹配"
+            register={register('bankName')}
+          />
+        </div>
+        <div className="mt-4 flex gap-2">
+          <Button type="submit">查询</Button>
+          <Button type="button" variant="outline" onClick={onReset}>
+            重置
+          </Button>
+        </div>
+      </form>
+
+      <div className="rounded-lg border bg-card shadow-sm">
+        <div className="border-b px-6 py-3 text-sm font-semibold">网关连接列表</div>
+        <DataTable
+          columns={columns}
+          data={tableData}
+          isLoading={isLoading}
+          emptyMessage="暂无数据"
+          pagination={
+            paginationMeta
+              ? {
+                  page: paginationMeta.page,
+                  pageSize: paginationMeta.pageSize,
+                  total: paginationMeta.total,
+                  onPageChange: (page) =>
+                    setParams((prev) => ({ ...prev, pageNum: page })),
+                }
+              : undefined
+          }
+        />
+      </div>
+    </div>
+  );
 }
 
-export function GatewayRegisterDetailPage() {
-  return <MockDetailPage title="Instance Details" fields={gatewayRegisterFields} data={gatewayRegisterData} />;
-}
+/* ================================================================== */
+/* GatewayRegisterFormPage — 网关连接配置（路由化承载源 gateway-dialog）  */
+/* ================================================================== */
 
 export function GatewayRegisterFormPage() {
-  return <MockFormPage title="Gateway Instance Registration" fields={gatewayRegisterFormFields} />;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const bankId = parseBankId(searchParams.get('id'));
+
+  if (!bankId) {
+    return (
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <p className="text-sm text-muted-foreground">
+          请从网关连接列表选择银行后再配置。
+        </p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => router.push('/gateway-register')}
+        >
+          返回列表
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <div className="mb-6 text-base font-semibold">网关连接配置</div>
+        <GatewayConnectionPanel
+          bankId={bankId}
+          onSaved={() => router.push('/gateway-register')}
+        />
+      </section>
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={() => router.push('/gateway-register')}>
+          返回
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* GatewayRegisterDetailPage — 网关连接信息只读 + 测试连接               */
+/* ================================================================== */
+
+export function GatewayRegisterDetailPage() {
+  const router = useRouter();
+  const toast = useToast();
+  const searchParams = useSearchParams();
+  const bankId = parseBankId(searchParams.get('id'));
+
+  const infoQuery = useBankGatewayInfoQuery(KISSEN_PROJECT_ID, bankId);
+  const info = infoQuery.data;
+  const [testing, setTesting] = React.useState(false);
+
+  const onTest = async () => {
+    if (!bankId) return;
+    if ((info?.endpointUrl ?? '') === '') {
+      toast.warning('请先保存连接信息');
+      return;
+    }
+    setTesting(true);
+    try {
+      await testBankGateway(bankId);
+      const fresh = await infoQuery.refetch();
+      if (fresh.data?.connectivityStatus === 1) toast.success('连接正常');
+      else toast.warning('连接失败:网关端点不可达');
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  if (!bankId) {
+    return (
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <p className="text-sm text-muted-foreground">缺少银行 ID</p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => router.push('/gateway-register')}
+        >
+          返回
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <div className="mb-6 text-base font-semibold">网关连接信息</div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <DetailField label="登记状态">
+            {infoQuery.isLoading ? (
+              <Skeleton className="h-5 w-16" />
+            ) : info?.registered ? (
+              <Badge variant="default">已登记</Badge>
+            ) : (
+              <Badge variant="outline">未登记</Badge>
+            )}
+          </DetailField>
+          <DetailField label="连通性">
+            {infoQuery.isLoading ? (
+              <Skeleton className="h-5 w-16" />
+            ) : (
+              <ConnectivityBadge status={info?.connectivityStatus ?? 0} />
+            )}
+          </DetailField>
+          <DetailField label="网关端点 URL">
+            {infoQuery.isLoading ? (
+              <Skeleton className="h-4 w-48" />
+            ) : (
+              <span className="break-all">{info?.endpointUrl || '--'}</span>
+            )}
+          </DetailField>
+          <DetailField label="当前密钥指纹">
+            {infoQuery.isLoading ? (
+              <Skeleton className="h-4 w-40" />
+            ) : (
+              <span>{info?.keyFingerprintMasked || '--'}</span>
+            )}
+          </DetailField>
+          <DetailField label="最近心跳">
+            {infoQuery.isLoading ? (
+              <Skeleton className="h-4 w-32" />
+            ) : (
+              formatTime(info?.lastHeartbeatTime)
+            )}
+          </DetailField>
+        </div>
+      </section>
+
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={() => router.push('/gateway-register')}>
+          返回
+        </Button>
+        <Button
+          variant="outline"
+          disabled={testing || (info?.endpointUrl ?? '') === ''}
+          onClick={onTest}
+        >
+          {testing ? '测试中…' : '测试连接'}
+        </Button>
+        <Button onClick={() => router.push(`/gateway-register/edit?id=${bankId}`)}>
+          编辑
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* 通用只读字段组件                                                     */
+/* ================================================================== */
+
+function DetailField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium text-muted-foreground">{label}</label>
+      <div className="text-sm">{children}</div>
+    </div>
+  );
 }

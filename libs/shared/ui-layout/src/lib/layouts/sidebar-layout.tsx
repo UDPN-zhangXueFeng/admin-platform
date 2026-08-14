@@ -18,6 +18,8 @@ import { Breadcrumb } from '../breadcrumb/breadcrumb';
 export interface SidebarLayoutProps {
   config: ProjectConfig;
   children: React.ReactNode;
+  /** Open the change-password dialog (passed through to Header). */
+  onChangePassword?: () => void;
 }
 
 /**
@@ -29,7 +31,7 @@ export interface SidebarLayoutProps {
  * - Header contains project switcher, search, notifications, and user menu.
  * - Keyboard accessible: sidebar toggle, mobile close, focus traps.
  */
-export function SidebarLayout({ config, children }: SidebarLayoutProps) {
+export function SidebarLayout({ config, children, onChangePassword }: SidebarLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -60,6 +62,7 @@ export function SidebarLayout({ config, children }: SidebarLayoutProps) {
       <Header
         config={config}
         onMenuToggle={() => setMobileOpen((v) => !v)}
+        onChangePassword={onChangePassword}
       />
 
       {/* Body: Sidebar + Content */}

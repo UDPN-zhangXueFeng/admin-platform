@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import { usePathname } from '@myorg/shared/util-i18n';
 import Link from 'next/link';
 import { LucideIcon } from 'lucide-react';
