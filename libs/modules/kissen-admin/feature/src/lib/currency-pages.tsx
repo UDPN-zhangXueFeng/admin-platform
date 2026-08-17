@@ -21,6 +21,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   useToast,
 } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
@@ -154,7 +158,18 @@ export function CurrencyListPage() {
       },
       {
         id: 'status',
-        header: '状态',
+        header: () => (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>状态</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                本域语义:20 启用 / 50 停用(文案复用通用状态映射)
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ),
         cell: ({ row }) => (
           <Badge variant={STATUS_VARIANT[row.original.status] ?? 'secondary'}>
             {CURRENCY_STATUS_LABEL[row.original.status] ?? row.original.status}
@@ -393,6 +408,7 @@ function CurrencySaveDialog({
                 max: { value: 18, message: '最大 18' },
               })}
             />
+            <p className="text-xs text-muted-foreground">0~18,主流法币通常为 2</p>
             {errors.decimalDigits && (
               <p className="text-sm text-destructive">
                 {errors.decimalDigits.message}

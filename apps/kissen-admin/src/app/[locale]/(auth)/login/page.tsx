@@ -96,9 +96,9 @@ export default function LoginRoute() {
       )}
       <MockLoginPage
         projectName="Kissen Admin"
-        brandText="kissen"
-        brandSuffix="Admin"
-        brandTagline="Stablecoin settlement and liquidity operations console."
+        brandText="Kissen 清算网络"
+        brandSuffix="运营管理控制台"
+        brandTagline="跨行数字货币清算编排 · 内部运营系统"
         svgPath="/login-illustration.svg"
         redirectPath="/dashboard"
         gradientClass="from-[#c6c7ff] via-[#8e8af5] to-[#4e48e8]"
@@ -107,7 +107,7 @@ export default function LoginRoute() {
         brandSuffixBg="bg-[#00a5d5]"
         taglineColor="text-[#172260]"
         titleColor="text-[#554eea]"
-        submitLabel="Sign In"
+        submitLabel="登 录"
         onSubmit={handleSubmit}
       />
       <ChangePasswordDialog

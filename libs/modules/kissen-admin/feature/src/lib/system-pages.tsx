@@ -1121,7 +1121,7 @@ export function SysRoleListPage() {
 
   const onDelete = React.useCallback(
     (row: RoleRow) => {
-      if (!window.confirm(`确认删除角色「${row.roleName}」?`)) return;
+      if (!window.confirm(`删除角色「${row.roleName}」?内置角色或已被用户引用的角色无法删除。`)) return;
       deleteMutation.mutate(row.roleId, {
         onSuccess: () => toast.success('角色已删除'),
         onError: (e) => toast.error((e as Error).message),
@@ -1731,14 +1731,14 @@ export function SysMenuListPage() {
       updateMutation.mutate(
         { ...payload, menuId: form.menuId },
         {
-          onSuccess: () => toast.success('菜单已更新'),
+          onSuccess: () => toast.success('保存成功,重新登录后菜单生效'),
           onError: (e) => toast.error((e as Error).message),
         },
       );
     } else {
       saveMutation.mutate(payload, {
         onSuccess: () => {
-          toast.success('菜单已创建');
+          toast.success('保存成功,重新登录后菜单生效');
           setMode('view');
         },
         onError: (e) => toast.error((e as Error).message),
@@ -2110,6 +2110,13 @@ export function WorkflowConfigListPage() {
         </div>
       </form>
 
+      {/* 源 workflow/index.vue:41 — 同一 busCode 单启用版本语义提示 */}
+      <div
+        role="note"
+        className="rounded-md border border-border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground"
+      >
+        同一 busCode 仅一个启用版本;变更走新版本,不影响在途审批。审批人须为指定用户。
+      </div>
       <div className="rounded-lg border bg-card shadow-sm">
         <div className="flex items-center justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">审批流定义</div>

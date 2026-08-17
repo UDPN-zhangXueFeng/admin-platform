@@ -1286,6 +1286,7 @@ interface BankApprovalFilterForm {
 }
 
 const BANK_APPROVAL_BUSINESS_OPTIONS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: '全部', value: STATUS_ALL },
   { label: BANK_BUSINESS_LABEL[BANK_BUSINESS_CODES.onboard], value: BANK_BUSINESS_CODES.onboard },
   { label: BANK_BUSINESS_LABEL[BANK_BUSINESS_CODES.limitChange], value: BANK_BUSINESS_CODES.limitChange },
 ];
@@ -1321,15 +1322,12 @@ export function BankApprovalListPage() {
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const { register, handleSubmit, reset, control } = useForm<BankApprovalFilterForm>({
     defaultValues: {
-      businessCode: BANK_BUSINESS_CODES.onboard,
+      businessCode: STATUS_ALL,
       keyword: '',
       status: '',
     },
   });
-  const [filter, setFilter] = React.useState<BankApprovalPageReq>({
-    businessCode: BANK_BUSINESS_CODES.onboard,
-    keyword: '',
-  });
+  const [filter, setFilter] = React.useState<BankApprovalPageReq>({});
 
   const todoQuery = useBankApprovalTodoQuery(
     KISSEN_PROJECT_ID,
@@ -1348,7 +1346,9 @@ export function BankApprovalListPage() {
 
   const onSearch = React.useCallback(
     (form: BankApprovalFilterForm) => {
-      const next: BankApprovalPageReq = { businessCode: form.businessCode };
+      const next: BankApprovalPageReq = {};
+      if (form.businessCode && form.businessCode !== STATUS_ALL)
+        next.businessCode = form.businessCode;
       if (form.keyword) next.keyword = form.keyword;
       if (tab === 'done' && form.status && form.status !== STATUS_ALL)
         next.status = Number(form.status);
@@ -1360,11 +1360,11 @@ export function BankApprovalListPage() {
 
   const onReset = React.useCallback(() => {
     reset({
-      businessCode: BANK_BUSINESS_CODES.onboard,
+      businessCode: STATUS_ALL,
       keyword: '',
       status: '',
     });
-    setFilter({ businessCode: BANK_BUSINESS_CODES.onboard });
+    setFilter({});
     setPageNum(1);
   }, [reset]);
 
@@ -1565,6 +1565,11 @@ export function BankApprovalListPage() {
                       pageSize: paginationMeta.pageSize,
                       total: paginationMeta.total,
                       onPageChange: setPageNum,
+                      onPageSizeChange: (n) => {
+                        setPageSize(n);
+                        setPageNum(1);
+                      },
+                      pageSizeOptions: PAGE_SIZE_OPTIONS,
                     }
                   : undefined
               }
