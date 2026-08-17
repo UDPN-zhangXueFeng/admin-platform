@@ -463,3 +463,10 @@
 - 结论：参考表单的有效结构是四步 Basic / Accounting / Custody / Review；当前页面外围 Header、Summary 和真实 TanStack Query/API 提交流程保持不变，Onboard 表单通过现有 RHF 字段和 COA 校验接入分步 Continue/Back/Review。
 - 影响：`TokenizedDepositFormContent` 只在 add 模式启用四步编排，edit 模式继续保留完整连续编辑表单；COA、账户类型、对账、密钥托管和管理员钱包组件增加 `embedded` 展示模式。
 - 后续同类任务：参考外部组件时先区分“表单交互/字段结构”和“页面外围布局”；涉及共享 add/edit 内核时优先用 embedded 或 mode 分支隔离视觉变化，避免误改编辑页行为。
+
+## kissen-admin 迁移验证收尾（2026-08-17）
+- Radix `Select.Item` 禁止 `value=""`（运行时抛错，tsc/build 均不报）。「全部」选项须用哨兵值（各文件已有 `STATUS_ALL`），查询前 `!== STATUS_ALL` 过滤。
+- Radix Tabs 的 `element.click()` 合成点击不生效（aria-selected 不变、不触发 onValueChange）；须派发完整 pointerdown→mousedown→pointerup→mouseup→click 序列。DataTable 列头 Tooltip 须 `header: () => (<TooltipProvider>…)` 回调形式，直接 JSX Element 类型不过。
+- 运行时会话模拟三件套缺一不可：cookie `admin_platform_token` + localStorage `admin_platform_access_token` + `userInfo`（含 token 字段）；任一缺失→客户端 401→`clearSessionStorage`+`?expired=1` 踢回登录。kissen 后端鉴权用 `token` 头（非 Bearer），分页体为 `{page:{pageNum,pageSize},data:{}}` 嵌套结构。
+- RHF 规则存在但 `formState.errors` 未渲染 = 静默阻断提交，须配 `<p role="alert" className="text-sm text-destructive">`；规范样例 settlement-pages.tsx。
+- Phase 3 完整度审计结论：8 域对源 Vue 逐项对照，修复 8 项 partial 后全部 100%（矩阵 '/Users/zhangxuefeng/.omp/agent/sessions/-pi-cwd-20260601-admin-platform/2026-08-14T02-36-38-006Z_019ffe20-eaf6-7000-9ba2-315a4e54e0fa/local/kissen-completeness-matrix.json）。'
