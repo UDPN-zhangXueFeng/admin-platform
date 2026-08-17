@@ -19,6 +19,10 @@ import {
   RadioGroupItem,
   Skeleton,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   useToast,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
@@ -498,7 +502,16 @@ export function SettleOrderListPage() {
     },
     {
       accessorKey: 'status',
-      header: '状态',
+      header: () => (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>状态</span>
+            </TooltipTrigger>
+            <TooltipContent>本域语义:5 待审 / 10 审中 / 15 拒绝 / 20 已确认 / 35 已结算(文案复用通用状态映射)</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ),
       cell: ({ row }) => (
         <Badge variant={SETTLE_ORDER_STATUS_VARIANT[row.original.status] ?? 'outline'}>
           {SETTLE_ORDER_STATUS_LABEL[row.original.status] ?? row.original.status}

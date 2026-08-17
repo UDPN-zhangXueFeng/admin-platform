@@ -566,6 +566,9 @@ function ApprovalDetailBody({
             maxLength={200}
             placeholder="请输入审批意见（拒绝 / 退回上一步必填）"
           />
+          <div className="text-right text-xs text-muted-foreground">
+            {remarks.length}/200
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button disabled={submitting} onClick={() => onApprove(3)}>
               通过
@@ -788,6 +791,11 @@ export function ApprovalCenterListPage() {
 
   return (
     <div className="space-y-4">
+      {/* 页头（源 approval/index.vue page-head：eyebrow + 标题） */}
+      <div>
+        <div className="text-xs text-muted-foreground">APPROVAL</div>
+        <h1 className="text-xl font-semibold">审批中心</h1>
+      </div>
       <form
         onSubmit={(e) => {
           e.preventDefault();

@@ -406,6 +406,8 @@ export function LpInfoListPage() {
     ColumnDef<LpRow & { id: string }>[]
   >(
     () => [
+      { accessorKey: 'lpName', header: 'LP 名称' },
+      { accessorKey: 'lpCode', header: 'LP 编码' },
       {
         accessorKey: 'splitRatio',
         header: '分成比例',
@@ -597,7 +599,7 @@ export function LpInfoFormPage() {
   const { data: pairOptions } = useLpCurrencyPairOptionsQuery(PROJECT_ID);
   const saveMutation = useSaveLpMutation(PROJECT_ID);
 
-  const { control, register, handleSubmit, reset } =
+  const { control, register, handleSubmit, reset, formState: { errors } } =
     useForm<LpInfoFormValues>({
       defaultValues: {
         lpName: '',
@@ -661,8 +663,11 @@ export function LpInfoFormPage() {
                 validate: (v) => v.trim().length > 0 || '请输入 LP 名称',
               })}
             />
-          </div>
-          <div className="space-y-1.5">
+            {errors.lpName && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.lpName.message}
+              </p>
+            )}
             <label className="text-sm font-medium">
               LP 编码<span className="ml-0.5 text-red-500">*</span>
             </label>
@@ -673,8 +678,11 @@ export function LpInfoFormPage() {
                 validate: (v) => v.trim().length > 0 || '请输入 LP 编码',
               })}
             />
-          </div>
-          <div className="space-y-1.5">
+            {errors.lpCode && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.lpCode.message}
+              </p>
+            )}
             <label className="text-sm font-medium">
               分成比例（0-1，4 位小数）
               <span className="ml-0.5 text-red-500">*</span>
@@ -693,6 +701,11 @@ export function LpInfoFormPage() {
                 },
               })}
             />
+            {errors.splitRatio && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.splitRatio.message}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
@@ -704,6 +717,11 @@ export function LpInfoFormPage() {
                 validate: (v) => Number(v) > 0 || '需大于 0',
               })}
             />
+            {errors.minLiquidity && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.minLiquidity.message}
+              </p>
+            )}
           </div>
         </div>
         <div className="mt-4 space-y-1.5">
@@ -1102,7 +1120,8 @@ export function LpPoolFormPage() {
   const { data: lpOptions } = useLpPoolLpOptionsQuery(PROJECT_ID);
   const { row, isLoading } = useLpPoolRowById(poolId);
   const saveMutation = useSaveLpPoolMutation(PROJECT_ID);
-  const { register, handleSubmit, reset, control } = useForm<LpPoolFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } =
+    useForm<LpPoolFormValues>({
     defaultValues: {
       lpId: '',
       currency: '',
@@ -1182,6 +1201,11 @@ export function LpPoolFormPage() {
                 validate: (v) => v.trim().length > 0 || '请输入币种',
               })}
             />
+            {errors.currency && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.currency.message}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5 md:col-span-2">
             <label className="text-sm font-medium">
@@ -1195,6 +1219,11 @@ export function LpPoolFormPage() {
                 validate: (v) => v.trim().length > 0 || '请输入钱包地址',
               })}
             />
+            {errors.accountAddress && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.accountAddress.message}
+              </p>
+            )}
           </div>
           <FormSelect
             name="currencySystemType"
@@ -1216,6 +1245,11 @@ export function LpPoolFormPage() {
                 validate: (v) => Number(v) > 0 || '需大于 0',
               })}
             />
+            {errors.minLimit && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.minLimit.message}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
@@ -1236,8 +1270,13 @@ export function LpPoolFormPage() {
                 },
               })}
             />
+            {errors.remindThreshold && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.remindThreshold.message}
+              </p>
+            )}
           </div>
-        </div>
+          </div>
       </section>
 
       <div className="flex justify-end gap-3">
@@ -1626,7 +1665,7 @@ export function LpPreauthFormPage() {
   const { row, isLoading } = useLpPreauthRowById(preauthId);
   const saveMutation = useSaveLpPreauthMutation(PROJECT_ID);
 
-  const { register, handleSubmit, reset, control, watch, setValue } =
+  const { register, handleSubmit, reset, control, watch, setValue, getValues, formState: { errors } } =
     useForm<LpPreauthFormValues>({
       defaultValues: {
         lpId: seedLpId != null ? String(seedLpId) : '',
@@ -1743,6 +1782,11 @@ export function LpPreauthFormPage() {
                 validate: (v) => Number(v) > 0 || '需大于 0',
               })}
             />
+            {errors.authAmount && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.authAmount.message}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
@@ -1753,6 +1797,11 @@ export function LpPreauthFormPage() {
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
               {...register('validFrom', { required: '请选择生效时间' })}
             />
+            {errors.validFrom && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.validFrom.message}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
@@ -1761,8 +1810,23 @@ export function LpPreauthFormPage() {
             <input
               type="datetime-local"
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              {...register('validTo', { required: '请选择失效时间' })}
+              {...register('validTo', {
+                required: '请选择失效时间',
+                validate: (v) => {
+                  const from = getValues('validFrom');
+                  if (!v || !from) return true;
+                  return (
+                    new Date(v).getTime() > new Date(from).getTime() ||
+                    '失效时间必须晚于生效时间'
+                  );
+                },
+              })}
             />
+            {errors.validTo && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.validTo.message}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">授权凭证</label>
@@ -2375,7 +2439,7 @@ function LpTopupDeclareDialog({ open, onOpenChange }: LpTopupDialogProps) {
   const { data: lpOptions } = useLpTopupLpOptionsQuery(PROJECT_ID);
   const saveMutation = useSaveLpTopupMutation(PROJECT_ID);
 
-  const { control, register, handleSubmit, reset, watch, setValue } = useForm<{
+  const { control, register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<{
     lpId: string;
     poolId: string;
     amount: string;
@@ -2457,6 +2521,11 @@ function LpTopupDeclareDialog({ open, onOpenChange }: LpTopupDialogProps) {
                 validate: (v) => Number(v) > 0 || '需大于 0',
               })}
             />
+            {errors.amount && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.amount.message}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">转入地址</label>

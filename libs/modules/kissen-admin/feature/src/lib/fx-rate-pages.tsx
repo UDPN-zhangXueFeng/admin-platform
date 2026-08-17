@@ -866,7 +866,7 @@ export function CurrencyPairFormPage() {
   const markupLocked =
     isEdit && pairRow?.status === CurrencyPairStatus.Enabled;
 
-  const { control, register, handleSubmit, reset, watch } =
+  const { control, register, handleSubmit, reset, watch, formState: { errors } } =
     useForm<PairFormValues>({
       defaultValues: {
         sourceCurrency: '',
@@ -952,6 +952,11 @@ export function CurrencyPairFormPage() {
                 暂无已入网银行支持的币种
               </p>
             )}
+            {errors.sourceCurrency && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.sourceCurrency.message}
+              </p>
+            )}
           </div>
 
           {/* 目标币种：同源币种数据源；编辑态禁用 */}
@@ -986,6 +991,11 @@ export function CurrencyPairFormPage() {
                 </Select>
               )}
             />
+            {errors.targetCurrency && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.targetCurrency.message}
+              </p>
+            )}
           </div>
 
           {/* 管理侧加价率：已启用(status=20)编辑态锁定 */}
@@ -1008,6 +1018,11 @@ export function CurrencyPairFormPage() {
                 },
               })}
             />
+            {errors.markupRate && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.markupRate.message}
+              </p>
+            )}
             {markupLocked && (
               <p className="text-xs text-muted-foreground">
                 已启用货币对加价率变更走行操作「调整加价率」审批
@@ -1032,6 +1047,11 @@ export function CurrencyPairFormPage() {
                 },
               })}
             />
+            {errors.slippageThreshold && (
+              <p className="text-sm text-destructive" role="alert">
+                {errors.slippageThreshold.message}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
               基础汇率百分比,选填
             </p>

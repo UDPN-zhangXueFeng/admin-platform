@@ -1,9 +1,16 @@
 'use client';
 
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
+import {
+  Controller,
+  useForm,
+  type Control,
+  type FieldValues,
+  type Path,
+} from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
+import { Check, ChevronsUpDown } from 'lucide-react';
 
 import {
   Badge,
@@ -15,13 +22,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   RadioGroup,
   RadioGroupItem,
+  ScrollArea,
   Skeleton,
   Textarea,
   useToast,
 } from '@myorg/shared/ui';
-import { FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormField, FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { cn } from '@myorg/shared/util-classnames';
 
@@ -483,6 +495,111 @@ function DescGrid({
   );
 }
 
+/**
+ * 可搜索筛选下拉（源 el-select filterable → 搜索输入 + 选项列表）。
+ * Props 与 FormSelect 对齐，Controller 接 RHF；「全部」哨兵恒置顶不参与过滤，
+ * 其余按 label 子串过滤（Element Plus filterable 默认行为）。
+ */
+function FilterableFormSelect<TFieldValues extends FieldValues = FieldValues>({
+  name,
+  control,
+  label,
+  options,
+  placeholder = '全部',
+}: {
+  name: Path<TFieldValues>;
+  control: Control<TFieldValues>;
+  label: string;
+  options: SelectOption[];
+  placeholder?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [q, setQ] = React.useState('');
+  const needle = q.trim().toLowerCase();
+  const filtered = options.filter(
+    (o) =>
+      o.value === OPT_ALL || !needle || o.label.toLowerCase().includes(needle),
+  );
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium text-foreground">
+        {label}
+      </label>
+      <Controller
+        name={name}
+        control={control}
+        render={({ field }) => (
+          <Popover
+            open={open}
+            onOpenChange={(next) => {
+              // 每次展开重置搜索词（源 filterable 打开即输入）。
+              if (next) setQ('');
+              setOpen(next);
+            }}
+          >
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                className="w-full justify-between font-normal"
+              >
+                <span className="truncate">
+                  {options.find((o) => o.value === field.value)?.label ??
+                    placeholder}
+                </span>
+                <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              className="w-[var(--radix-popover-trigger-width)] p-0"
+            >
+              <div className="border-b p-2">
+                <Input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="输入关键字过滤"
+                  className="h-8"
+                />
+              </div>
+              <ScrollArea className="h-48">
+                <div className="p-1">
+                  {filtered.length === 0 ? (
+                    <p className="px-2 py-4 text-center text-sm text-muted-foreground">
+                      无匹配项
+                    </p>
+                  ) : (
+                    filtered.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          field.onChange(opt.value);
+                          setOpen(false);
+                        }}
+                        className={cn(
+                          'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent',
+                          opt.value === field.value && 'font-medium text-primary',
+                        )}
+                      >
+                        <span className="truncate">{opt.label}</span>
+                        {opt.value === field.value && (
+                          <Check className="size-4 shrink-0" aria-hidden="true" />
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+        )}
+      />
+    </div>
+  );
+}
+
 /* ================================================================== */
 /* 异常处置 Dialog（源 resolve-dialog.vue）                             */
 /* ================================================================== */
@@ -600,6 +717,11 @@ function ResolveDialog({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
+            <div className="flex justify-end">
+              <span className="text-muted-foreground text-xs">
+                {reason.length}/200
+              </span>
+            </div>
           </div>
         </div>
 
@@ -929,14 +1051,14 @@ function TransactionListCore({
               placeholder="全部"
             />
           )}
-          <FormSelect
+          <FilterableFormSelect
             name="lpId"
             control={control}
             label="LP"
             options={lpSelectOptions}
             placeholder="全部"
           />
-          <FormSelect
+          <FilterableFormSelect
             name="pairId"
             control={control}
             label="货币对"
@@ -973,14 +1095,14 @@ function TransactionListCore({
               maxLength={64}
               register={register('txUuid')}
             />
-            <FormSelect
+            <FilterableFormSelect
               name="sourceBankId"
               control={control}
               label="源银行"
               options={bankSelectOptions}
               placeholder="全部"
             />
-            <FormSelect
+            <FilterableFormSelect
               name="targetBankId"
               control={control}
               label="目标银行"

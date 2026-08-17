@@ -1791,6 +1791,9 @@ export function BankApprovalDetailPage() {
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
           />
+          <div className="text-right text-xs text-muted-foreground">
+            {remarks.length}/200
+          </div>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button
               disabled={submitting}
