@@ -1,0 +1,715 @@
+'use client';
+
+/**
+ * 菜单管理页（源 `views/system/menu.vue`，路由 /system/menu）。
+ *
+ * 源语义 1:1：
+ *  - 菜单树表格：el-table tree-props 层级展示 + default-expand-all →
+ *    展平渲染按深度缩进，默认全展开（collapsed 集合仅记录折叠项），
+ *    父节点行首箭头可折叠/展开。shared DataTable 不支持树形行，
+ *    用与其同视觉语言的原生 table（market-pages 货币对列表同模式）。
+ *  - 新增/编辑 Dialog：menuName / menuNameEn / menuKey 必填（源 formRules
+ *    三条 blur 校验文案原样）；编辑时父级菜单、菜单Key、类型禁改
+ *    （源 :disabled="editing"）。
+ *  - 保存分流（源 onSave）：新增 POST /menu/save 全量表单；编辑
+ *    POST /menu/update 仅可变字段（menuId + menuName/menuNameEn/orderNum/
+ *    visible/menuUrl/icon，不含 parentId/menuKey/menuType）。
+ *  - 删除：ElMessageBox.confirm 文案原样 → AlertDialog 确认弹窗；成功 toast
+ *    「删除成功」；成功后刷新由 mutation invalidate menuKeys → 树自动重取。
+ *  - 新增按钮 v-perm 'bank:menu:manage'（useGatewayPerm，未命中不渲染）；
+ *    表格内编辑/删除源未挂 v-perm，保持一致。
+ *  - 源菜单页没有 menu-permission 资源管理交互（端点 hook 已在
+ *    data-access menu.mutations 预置），页面不渲染该区块。
+ */
+import * as React from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { ChevronRight, Loader2, RefreshCw, X } from 'lucide-react';
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  useToast,
+} from '@myorg/shared/ui';
+import { FormField, FormSelect, createFormResolver } from '@myorg/shared/ui-forms';
+import { cn } from '@myorg/shared/util-classnames';
+import {
+  KISSEN_GATEWAY_PROJECT_ID,
+  useMenuRemoveMutation,
+  useMenuSaveMutation,
+  useMenuTreeQuery,
+  useMenuUpdateMutation,
+  type MenuTree,
+} from '@myorg/modules/kissen-gateway/data-access';
+import { useGatewayPerm } from './use-gateway-perm';
+
+/* ================================================================== */
+/* 常量与展示辅助（源 menu.vue MENU_TYPE_TEXT / MENU_TYPE_TAG）          */
+/* ================================================================== */
+
+type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
+
+/** 源 MENU_TYPE_TEXT：菜单类型文案。 */
+const MENU_TYPE_TEXT: Record<number, string> = {
+  0: '模块',
+  1: '系统',
+  2: '一级菜单',
+  3: '二级菜单',
+  4: '按钮',
+};
+
+/**
+ * 源 MENU_TYPE_TAG（el-tag type）→ shared Badge variant 映射：
+ * info→secondary、warning→outline、primary→default、danger→destructive
+ * （Badge 无 success/warning 色，以填充/描边区分层级，相对语义一致）。
+ */
+const MENU_TYPE_BADGE_VARIANT: Record<number, BadgeVariant> = {
+  0: 'secondary',
+  1: 'secondary',
+  2: 'outline',
+  3: 'default',
+  4: 'destructive',
+};
+
+/** 源 menuTypeText：未知类型 → `类型N`，undefined → '-'。 */
+function menuTypeText(t: number | undefined): string {
+  return t === undefined ? '-' : (MENU_TYPE_TEXT[t] ?? `类型${t}`);
+}
+
+/** 源 menuTypeTagType：未知类型兜底 'info'（→ secondary）。 */
+function menuTypeBadgeVariant(t: number | undefined): BadgeVariant {
+  return MENU_TYPE_BADGE_VARIANT[t ?? -1] ?? 'secondary';
+}
+
+/** 类型下拉选项（源 el-option：label `${val} ${text}`，value 为数值字符串）。 */
+const MENU_TYPE_OPTIONS = Object.entries(MENU_TYPE_TEXT).map(([val, text]) => ({
+  value: val,
+  label: `${val} ${text}`,
+}));
+
+/** 排序数字解析：空串/非法 → 0（源默认 orderNum 0；负数已由 schema 拦截）。 */
+function parseOrderNum(raw: string): number {
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/* ================================================================== */
+/* 树工具（源 el-table tree-props / el-tree-select）                    */
+/* ================================================================== */
+
+/** 树表行（展平 + 深度，源层级缩进展示）。 */
+interface MenuFlatRow {
+  node: MenuTree;
+  depth: number;
+}
+
+/** 展平菜单树为表格行；折叠集合中的节点跳过其子级（default-expand-all ↔ 初始空集合）。 */
+function flattenMenuTree(
+  nodes: MenuTree[],
+  collapsed: ReadonlySet<number>,
+  depth = 0,
+  out: MenuFlatRow[] = [],
+): MenuFlatRow[] {
+  for (const node of nodes) {
+    out.push({ node, depth });
+    if (node.children?.length && !collapsed.has(node.menuId)) {
+      flattenMenuTree(node.children, collapsed, depth + 1, out);
+    }
+  }
+  return out;
+}
+
+/** 父级菜单下拉选项（源 el-tree-select check-strictly：任意节点可选；全角空格缩进示层级）。 */
+function parentMenuOptions(
+  nodes: MenuTree[],
+  depth = 0,
+  out: Array<{ value: string; label: string }> = [],
+): Array<{ value: string; label: string }> {
+  for (const node of nodes) {
+    out.push({
+      value: String(node.menuId),
+      label: `${'\u3000'.repeat(depth)}${node.menuName}`,
+    });
+    if (node.children?.length) {
+      parentMenuOptions(node.children, depth + 1, out);
+    }
+  }
+  return out;
+}
+
+/* ================================================================== */
+/* 通用展示组件                                                         */
+/* ================================================================== */
+
+/** 页头（源 .page-head：eyebrow PORTAL + 标题 + 右侧动作区）。 */
+function PageHead({
+  title,
+  children,
+}: {
+  title: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <div className="text-xs font-semibold tracking-widest text-muted-foreground">
+          PORTAL
+        </div>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight">{title}</h1>
+      </div>
+      {children && <div className="flex items-center gap-2">{children}</div>}
+    </div>
+  );
+}
+
+/** 查询失败 + 重试（loading/empty/error 可感知约定）。 */
+function QueryErrorRetry({
+  error,
+  onRetry,
+}: {
+  error: unknown;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-8 text-center">
+      <p className="text-sm text-destructive">加载失败:{(error as Error).message}</p>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        <RefreshCw />
+        重试
+      </Button>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* 新增/编辑菜单 Dialog（源 el-dialog + el-form + formRules）           */
+/* ================================================================== */
+
+/** 弹窗状态：create（源 openCreate）/ edit（源 openEdit，携带当前行）。 */
+type MenuDialogState = { mode: 'create' } | { mode: 'edit'; row: MenuTree };
+
+/** 表单值（下拉/数字/单选以字符串承载，提交时转换；源 reactive form 字段 1:1）。 */
+interface MenuFormValues {
+  parentId: string;
+  menuName: string;
+  menuNameEn: string;
+  menuKey: string;
+  menuType: string;
+  orderNum: string;
+  visible: string;
+  menuUrl: string;
+  icon: string;
+}
+
+/** 源 openCreate 的表单默认值（menuType 2 一级菜单 / orderNum 0 / visible 0）。 */
+const MENU_FORM_CREATE_DEFAULTS: MenuFormValues = {
+  parentId: '',
+  menuName: '',
+  menuNameEn: '',
+  menuKey: '',
+  menuType: '2',
+  orderNum: '0',
+  visible: '0',
+  menuUrl: '',
+  icon: '',
+};
+
+/**
+ * 表单校验：源 formRules 三条必填文案原样；orderNum 为源 el-input-number
+ * :min="0" 的机械约束（负数/非法数字不可提交）。
+ */
+const menuFormSchema = z.object({
+  parentId: z.string(),
+  menuName: z.string().min(1, { message: '请输入菜单名称' }),
+  menuNameEn: z.string().min(1, { message: '请输入菜单英文名称' }),
+  menuKey: z.string().min(1, { message: '请输入菜单Key' }),
+  menuType: z.string(),
+  orderNum: z
+    .string()
+    .refine((v) => Number(v) >= 0, { message: '排序为不小于 0 的数字' }),
+  visible: z.string(),
+  menuUrl: z.string(),
+  icon: z.string(),
+});
+
+function MenuFormDialog({
+  state,
+  tree,
+  onClose,
+}: {
+  state: MenuDialogState;
+  tree: MenuTree[];
+  onClose: () => void;
+}) {
+  const toast = useToast();
+  const saveMutation = useMenuSaveMutation(KISSEN_GATEWAY_PROJECT_ID);
+  const updateMutation = useMenuUpdateMutation(KISSEN_GATEWAY_PROJECT_ID);
+  const editing = state.mode === 'edit';
+
+  const { register, handleSubmit, reset, control, formState } =
+    useForm<MenuFormValues>({
+      resolver: createFormResolver(menuFormSchema),
+      mode: 'onTouched',
+      defaultValues: MENU_FORM_CREATE_DEFAULTS,
+    });
+
+  /** 打开时回填（源 openCreate / openEdit 的 Object.assign(form, ...)）。 */
+  React.useEffect(() => {
+    if (state.mode === 'edit') {
+      const row = state.row;
+      reset({
+        parentId: row.parentId ? String(row.parentId) : '',
+        menuName: row.menuName,
+        menuNameEn: row.menuNameEn ?? '',
+        menuKey: row.menuKey,
+        menuType: String(row.menuType ?? 2),
+        orderNum: String(row.orderNum ?? 0),
+        visible: String(row.visible ?? 0),
+        menuUrl: row.menuUrl ?? '',
+        icon: row.icon ?? '',
+      });
+    } else {
+      reset(MENU_FORM_CREATE_DEFAULTS);
+    }
+  }, [state, reset]);
+
+  const onOk = handleSubmit((v) => {
+    // 源：ElMessage.success('保存成功') → 关弹窗 → load()（重取由 invalidate 承担）。
+    const onDone = {
+      onSuccess: () => {
+        toast.success('保存成功');
+        onClose();
+      },
+      onError: (e: Error) => toast.error(e.message),
+    };
+    if (state.mode === 'edit') {
+      // 源 update 分支：仅可变字段（父级/菜单Key/类型编辑时不可改，不上送）。
+      updateMutation.mutate(
+        {
+          menuId: state.row.menuId,
+          menuName: v.menuName,
+          menuNameEn: v.menuNameEn,
+          orderNum: parseOrderNum(v.orderNum),
+          visible: Number(v.visible),
+          menuUrl: v.menuUrl,
+          icon: v.icon,
+        },
+        onDone,
+      );
+    } else {
+      // 源 save 分支：{...form} 全量（parentId 空 = 顶级，不上送）。
+      saveMutation.mutate(
+        {
+          menuName: v.menuName,
+          menuNameEn: v.menuNameEn,
+          menuKey: v.menuKey,
+          parentId: v.parentId === '' ? undefined : Number(v.parentId),
+          menuType: Number(v.menuType),
+          orderNum: parseOrderNum(v.orderNum),
+          visible: Number(v.visible),
+          menuUrl: v.menuUrl,
+          icon: v.icon,
+        },
+        onDone,
+      );
+    }
+  });
+
+  const saving = saveMutation.isPending || updateMutation.isPending;
+  const parentOptions = React.useMemo(() => parentMenuOptions(tree), [tree]);
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>{editing ? '编辑菜单' : '新增菜单'}</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={onOk} className="space-y-4">
+          {/* 父级菜单（源 el-tree-select：check-strictly + clearable，编辑禁用）。 */}
+          <Controller
+            control={control}
+            name="parentId"
+            render={({ field }) => (
+              <div className="space-y-1.5">
+                <Label htmlFor="menu-parent-select">父级菜单</Label>
+                <div className="flex items-center gap-1.5">
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={editing}
+                  >
+                    <SelectTrigger id="menu-parent-select" className="w-full">
+                      <SelectValue placeholder="选择父菜单(留空为顶级)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {parentOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {field.value !== '' && !editing && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 shrink-0"
+                      aria-label="清除父级菜单"
+                      onClick={() => field.onChange('')}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          />
+          <FormField
+            name="menuName"
+            label="菜单名称"
+            required
+            error={formState.errors.menuName?.message}
+            register={register('menuName')}
+          />
+          <FormField
+            name="menuNameEn"
+            label="英文名称"
+            required
+            placeholder="如 User"
+            error={formState.errors.menuNameEn?.message}
+            register={register('menuNameEn')}
+          />
+          <FormField
+            name="menuKey"
+            label="菜单Key"
+            required
+            disabled={editing}
+            placeholder="如 bank:user:manage,唯一"
+            error={formState.errors.menuKey?.message}
+            register={register('menuKey')}
+          />
+          <FormSelect
+            name="menuType"
+            control={control}
+            label="类型"
+            options={MENU_TYPE_OPTIONS}
+            disabled={editing}
+          />
+          <FormField
+            name="orderNum"
+            label="排序"
+            type="number"
+            min={0}
+            step={1}
+            error={formState.errors.orderNum?.message}
+            register={register('orderNum')}
+          />
+          {/* 可见（源 el-radio-group：0 显示 / 1 隐藏）。 */}
+          <Controller
+            control={control}
+            name="visible"
+            render={({ field }) => (
+              <div className="space-y-1.5">
+                <Label>可见</Label>
+                <RadioGroup
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  className="flex items-center gap-6"
+                >
+                  <label className="flex items-center gap-2 text-sm">
+                    <RadioGroupItem value="0" />
+                    显示
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <RadioGroupItem value="1" />
+                    隐藏
+                  </label>
+                </RadioGroup>
+              </div>
+            )}
+          />
+          <FormField
+            name="menuUrl"
+            label="路由地址"
+            placeholder="如 /system/user"
+            register={register('menuUrl')}
+          />
+          <FormField
+            name="icon"
+            label="图标"
+            placeholder="可选"
+            register={register('icon')}
+          />
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              取消
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving && <Loader2 className="animate-spin" />}
+              保存
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ================================================================== */
+/* 菜单管理页（registry：/system/menu → MenuListPage，名字不可改）      */
+/* ================================================================== */
+
+const MENU_TABLE_HEADERS = [
+  '菜单名称',
+  '菜单Key',
+  '类型',
+  '可见',
+  '排序',
+  '路由地址',
+  '操作',
+] as const;
+
+export function MenuListPage() {
+  const toast = useToast();
+  const hasPerm = useGatewayPerm();
+  const { data: tree, isLoading, isError, error, refetch } =
+    useMenuTreeQuery(KISSEN_GATEWAY_PROJECT_ID);
+  const removeMutation = useMenuRemoveMutation(KISSEN_GATEWAY_PROJECT_ID);
+
+  /** 折叠集合（源 default-expand-all → 初始空集即全部展开）。 */
+  const [collapsed, setCollapsed] = React.useState<ReadonlySet<number>>(
+    () => new Set<number>(),
+  );
+  const [dialogState, setDialogState] = React.useState<MenuDialogState | null>(
+    null,
+  );
+  /** 删除确认目标（受控 open；行删除按钮仅选中，不直接触发 mutation）。 */
+  const [deleteTarget, setDeleteTarget] = React.useState<MenuTree | null>(
+    null,
+  );
+
+  const rows = React.useMemo(
+    () => flattenMenuTree(tree ?? [], collapsed),
+    [tree, collapsed],
+  );
+
+  const onToggleCollapse = React.useCallback((menuId: number) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(menuId)) {
+        next.delete(menuId);
+      } else {
+        next.add(menuId);
+      }
+      return next;
+    });
+  }, []);
+
+  /** 删除确认（源 onDelete：确认文案 1:1；成功 toast「删除成功」+ 树自动重取）。 */
+  const onConfirmDelete = React.useCallback(() => {
+    if (!deleteTarget) return;
+    removeMutation.mutate(deleteTarget.menuId, {
+      onSuccess: () => toast.success('删除成功'),
+      onError: (e) => toast.error((e as Error).message),
+    });
+    setDeleteTarget(null);
+  }, [deleteTarget, removeMutation, toast]);
+
+  return (
+    <div className="space-y-6">
+      <PageHead title="菜单管理">
+        {/* 源 v-perm="'bank:menu:manage'"（menuKeys 未命中即不渲染）。 */}
+        {hasPerm('bank:menu:manage') && (
+          <Button onClick={() => setDialogState({ mode: 'create' })}>
+            新增菜单
+          </Button>
+        )}
+      </PageHead>
+
+      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        {isError ? (
+          <QueryErrorRetry error={error} onRetry={() => refetch()} />
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full caption-bottom text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  {MENU_TABLE_HEADERS.map((header) => (
+                    <th
+                      key={header}
+                      scope="col"
+                      className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={`skeleton-${i}`}>
+                      {MENU_TABLE_HEADERS.map((header) => (
+                        <td key={header} className="px-4 py-3">
+                          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={MENU_TABLE_HEADERS.length}
+                      className="px-4 py-8 text-center text-muted-foreground"
+                    >
+                      暂无数据
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map(({ node, depth }) => {
+                    const hasChildren = !!node.children?.length;
+                    const expanded = !collapsed.has(node.menuId);
+                    return (
+                      <tr
+                        key={node.menuId}
+                        className="transition-colors hover:bg-muted/50"
+                      >
+                        {/* 菜单名称（源 tree-props 层级缩进 + 行首展开箭头）。 */}
+                        <td className="px-4 py-3 align-middle">
+                          <span
+                            className="flex items-center gap-1"
+                            style={{ paddingLeft: depth * 20 }}
+                          >
+                            {hasChildren ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 shrink-0"
+                                aria-label={expanded ? '折叠' : '展开'}
+                                aria-expanded={expanded}
+                                onClick={() => onToggleCollapse(node.menuId)}
+                              >
+                                <ChevronRight
+                                  className={cn(
+                                    'h-4 w-4 transition-transform',
+                                    expanded && 'rotate-90',
+                                  )}
+                                />
+                              </Button>
+                            ) : (
+                              <span className="inline-block h-5 w-5 shrink-0" />
+                            )}
+                            <span className="font-medium">{node.menuName}</span>
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 align-middle">{node.menuKey}</td>
+                        <td className="px-4 py-3 align-middle">
+                          <Badge variant={menuTypeBadgeVariant(node.menuType)}>
+                            {menuTypeText(node.menuType)}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 align-middle">
+                          {/* 源：visible 0=显示(success) / 1=隐藏(info) → Badge 填充/描边。 */}
+                          <Badge
+                            variant={node.visible === 0 ? 'secondary' : 'outline'}
+                          >
+                            {node.visible === 0 ? '显示' : '隐藏'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 align-middle tabular-nums">
+                          {node.orderNum ?? '-'}
+                        </td>
+                        <td className="px-4 py-3 align-middle">
+                          {node.menuUrl || '-'}
+                        </td>
+                        <td className="px-4 py-3 align-middle">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0"
+                              onClick={() =>
+                                setDialogState({ mode: 'edit', row: node })
+                              }
+                            >
+                              编辑
+                            </Button>
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-destructive"
+                              onClick={() => setDeleteTarget(node)}
+                            >
+                              删除
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {dialogState && (
+        <MenuFormDialog
+          state={dialogState}
+          tree={tree ?? []}
+          onClose={() => setDialogState(null)}
+        />
+      )}
+
+      {/* 删除确认弹窗（源 window.confirm 文案 1:1；删除为破坏性动作用 destructive）。 */}
+      <AlertDialog
+        open={deleteTarget != null}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除菜单</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除菜单「{deleteTarget?.menuName}」?存在子菜单或被角色引用将被拒绝。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={onConfirmDelete}
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
