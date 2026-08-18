@@ -1,12 +1,12 @@
 import { getMessages } from 'next-intl/server';
 import { NextIntlClientProvider } from 'next-intl';
 import { notFound } from 'next/navigation';
+import { locales, type Locale } from '@myorg/shared/util-i18n';
 import { ConfigProvider } from '@myorg/shared/util-config';
 import { QueryProvider } from '@myorg/shared/data-access-query';
 import { AuthProvider } from '@myorg/shared/util-auth';
 import { loadProjectConfig } from '@myorg/shared/util-config';
-import { locales, type Locale } from '@myorg/shared/util-i18n';
-import { SessionGuard } from '@/providers/session-guard';
+import { Toaster } from '@myorg/shared/ui';
 
 /**
  * Locale Layout — provides shared context for all locale-scoped routes.
@@ -40,8 +40,8 @@ export default async function LocaleLayout({
       <ConfigProvider initialConfig={config}>
         <QueryProvider>
           <AuthProvider>
-            <SessionGuard />
             {children}
+            <Toaster />
           </AuthProvider>
         </QueryProvider>
       </ConfigProvider>

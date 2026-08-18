@@ -1,59 +1,309 @@
 'use client';
 
+/**
+ * 系统操作日志页（C4，源 `src/views/system/log/index.vue` 1:1 迁移）。
+ *
+ * 源语义要点：
+ * - 只读分页列表（POST /lp/log/page，pageSize 固定 10，无 pageSize 选择器）；
+ * - lp_id 不传，后端按登录 LP 域过滤（跨域数据不可见）；
+ * - 筛选：模块（模糊）/ 操作人（模糊）/ 时间范围（源 datetimerange
+ *   value-format="x" 毫秒；datetime-local 经 Date.getTime() 等价产出）；
+ * - 首列展开行显 请求参数 operateParam / 异常信息 errorMsg（空 '-'）——
+ *   DataTable 无展开行，改为行点击 Dialog 展示（同信息、同空值规则）；
+ * - 业务类型 tag（BIZ_TEXT/BIZ_TAG 源码表 1:1）与 状态（0 正常/1 异常）；
+ * - 源系统页无 0024 降级条，错误由 lp-client 拦截器统一 toast（旧数据保留）。
+ */
 import * as React from 'react';
-import { MockListPage,
-type MockColumn, } from '@myorg/shared/ui'
+import { useForm } from 'react-hook-form';
+import { type ColumnDef } from '@tanstack/react-table';
+import { ChevronRight } from 'lucide-react';
 
-/* ------------------------------------------------------------------ *
- * Operation Log (syslog)
- * Menu label: Operation Log  Path: /syslog  Group: more
- * Page keys: list (list only)
- * ------------------------------------------------------------------ */
+import {
+  Badge,
+  Button,
+  DataTable,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@myorg/shared/ui';
+import { FormField } from '@myorg/shared/ui-forms';
 
-const listColumns: MockColumn[] = [
-  { key: 'operator', label: 'Operator' },
-  { key: 'action', label: 'Action' },
-  { key: 'module', label: 'Module' },
-  { key: 'target', label: 'Target' },
-  { key: 'ip', label: 'IP' },
-  { key: 'createdAt', label: 'Time' },
-];
+import {
+  LOG_BIZ_TAG,
+  LOG_BIZ_TEXT,
+  LP_PROJECT_ID,
+  useLogPageQuery,
+  type LogRow,
+} from '@myorg/modules/lp-portal/data-access';
 
-const listRows: Record<string, React.ReactNode>[] = [
-  {
-    operator: 'lp-ops',
-    action: 'Initiate Top-up',
-    module: 'Top-up',
-    target: 'TU-20260810-031',
-    ip: '10.0.1.23',
-    createdAt: '2026-08-10 07:45:00',
-  },
-  {
-    operator: 'lp-admin',
-    action: 'Update Water Mark',
-    module: 'Liquidity Pool Management',
-    target: 'POOL-CN-001',
-    ip: '10.0.1.12',
-    createdAt: '2026-08-09 18:20:00',
-  },
-  {
-    operator: 'lp-finance',
-    action: 'Export Settlement',
-    module: 'Settlement',
-    target: 'ST-202608-001',
-    ip: '10.0.1.31',
-    createdAt: '2026-08-09 10:05:00',
-  },
-];
+/* ================================================================== */
+/* 常量与筛选表单                                                       */
+/* ================================================================== */
+
+const PROJECT_ID = LP_PROJECT_ID;
+/** 源 el-pagination 固定 page-size 10（layout 'total, prev, pager, next'，无 size 选择器）。 */
+const PAGE_SIZE = 10;
+
+const LBL = {
+  query: '查询',
+  reset: '重置',
+  records: '操作日志',
+  empty: '暂无数据',
+} as const;
+
+interface LogFilterForm {
+  module: string;
+  operateName: string;
+  startTime: string;
+  endTime: string;
+}
+
+const EMPTY_FILTER: LogFilterForm = {
+  module: '',
+  operateName: '',
+  startTime: '',
+  endTime: '',
+};
+
+/** 已提交查询参数（时间已转毫秒 number；空串不进请求体）。 */
+interface LogQueryParams {
+  pageNum: number;
+  module?: string;
+  operateName?: string;
+  startTime?: number;
+  endTime?: number;
+}
+
+function formToParams(f: LogFilterForm, pageNum = 1): LogQueryParams {
+  return {
+    pageNum,
+    module: f.module.trim() || undefined,
+    operateName: f.operateName.trim() || undefined,
+    startTime: f.startTime ? new Date(f.startTime).getTime() : undefined,
+    endTime: f.endTime ? new Date(f.endTime).getTime() : undefined,
+  };
+}
+
+/** 源 fmtTime：toLocaleString('zh-CN', { hour12: false })；空值 '-'。 */
+function fmtTime(ms?: number): string {
+  return ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-';
+}
+
+/** 源 BIZ_TAG（el-tag type）→ Badge 呈现（warning/success 无原生 variant，用近似色）。 */
+const BIZ_BADGE: Record<string, { variant?: 'default' | 'secondary' | 'destructive'; className?: string }> = {
+  primary: { variant: 'default' },
+  warning: { className: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+  danger: { variant: 'destructive' },
+  success: { className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
+  info: { variant: 'secondary' },
+};
+
+function BizTag({ code }: { code?: number }) {
+  if (code == null || LOG_BIZ_TEXT[code] == null) {
+    return <span>-</span>;
+  }
+  const style = BIZ_BADGE[LOG_BIZ_TAG[code]] ?? BIZ_BADGE.info;
+  return (
+    <Badge {...style}>{LOG_BIZ_TEXT[code]}</Badge>
+  );
+}
+
+/* ================================================================== */
+/* 日志详情弹窗（源首列 expand 行等价物）                                */
+/* ================================================================== */
+
+function LogDetailDialog({
+  row,
+  onClose,
+}: {
+  row: LogRow | null;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={row != null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>日志详情</DialogTitle>
+          <DialogDescription>
+            {row ? `${row.module ?? '-'} · ${fmtTime(row.operateTime)}` : ''}
+          </DialogDescription>
+        </DialogHeader>
+        {row && (
+          <div className="space-y-4">
+            <div>
+              <div className="mb-1 text-sm font-medium">请求参数</div>
+              <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                {row.operateParam || '-'}
+              </pre>
+            </div>
+            <div>
+              <div className="mb-1 text-sm font-medium">异常信息</div>
+              <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                {row.errorMsg || '-'}
+              </pre>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ================================================================== */
+/* 列表页                                                               */
+/* ================================================================== */
 
 export function SyslogListPage() {
+  const { register, handleSubmit, reset } =
+    useForm<LogFilterForm>({ defaultValues: EMPTY_FILTER });
+  const [params, setParams] = React.useState<LogQueryParams>(() =>
+    formToParams(EMPTY_FILTER),
+  );
+  const [detailRow, setDetailRow] = React.useState<LogRow | null>(null);
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE);
+
+  const listQuery = useLogPageQuery(PROJECT_ID, {
+    pageNum: params.pageNum,
+    pageSize,
+    filter: {
+      module: params.module,
+      operateName: params.operateName,
+      startTime: params.startTime,
+      endTime: params.endTime,
+    },
+  });
+
+  const rows = listQuery.data?.data ?? [];
+  const total = listQuery.data?.pagination.total ?? 0;
+
+  const columns = React.useMemo<ColumnDef<LogRow & { id: string }>[]>(
+    () => [
+      {
+        id: 'detail',
+        header: '',
+        cell: ({ row }) => (
+          <button
+            type="button"
+            aria-label="查看日志详情"
+            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            onClick={() => setDetailRow(row.original)}
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        ),
+      },
+      { accessorKey: 'operateTime', header: '操作时间',
+      cell: ({ row }) => fmtTime(row.original.operateTime), },
+      { accessorKey: 'operateName', header: '操作人',
+      cell: ({ row }) => row.original.operateName || '-', },
+      { accessorKey: 'module', header: '模块',
+      cell: ({ row }) => row.original.module || '-', },
+      { accessorKey: 'businessType', header: '业务类型',
+      cell: ({ row }) => <BizTag code={row.original.businessType} />, },
+      { accessorKey: 'operateUrl', header: '操作接口',
+      cell: ({ row }) => (
+        <span className="break-all">{row.original.operateUrl || '-'}</span>
+      ), },
+      { accessorKey: 'status', header: '状态',
+      cell: ({ row }) =>
+        row.original.status === 0 ? (
+          <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+            正常
+          </Badge>
+        ) : (
+          <Badge variant="destructive">异常</Badge>
+        ), },
+      { accessorKey: 'costTime', header: '耗时',
+      cell: ({ row }) =>
+        row.original.costTime != null ? `${row.original.costTime}ms` : '-', },
+      { accessorKey: 'traceId', header: 'TraceId',
+      cell: ({ row }) => (
+        <span className="break-all font-mono text-xs text-muted-foreground">
+          {row.original.traceId || '-'}
+        </span>
+      ), },
+    ],
+    [],
+  );
+
+  const tableData = React.useMemo(
+    () => rows.map((r) => ({ ...r, id: String(r.operateLogId) })),
+    [rows],
+  );
+
   return (
-    <MockListPage
-      title="Operation Log"
-      description="Audit key operation records of LP Portal users"
-      columns={listColumns}
-      rows={listRows}
-      actionLabel="Export"
-    />
+    <div className="space-y-4">
+      <form
+        onSubmit={handleSubmit((f) => setParams(formToParams(f, 1)))}
+        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+      >
+        <div className="mb-4 text-sm font-semibold">查询条件</div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <FormField
+            name="module"
+            label="模块"
+            register={register('module')}
+          />
+          <FormField
+            name="operateName"
+            label="操作人"
+            register={register('operateName')}
+          />
+          <FormField
+            name="startTime"
+            label="开始时间"
+            type="datetime-local"
+            register={register('startTime')}
+          />
+          <FormField
+            name="endTime"
+            label="结束时间"
+            type="datetime-local"
+            register={register('endTime')}
+          />
+        </div>
+        <div className="mt-4 flex gap-2">
+          <Button type="submit">{LBL.query}</Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              reset(EMPTY_FILTER);
+              setParams(formToParams(EMPTY_FILTER, 1));
+            }}
+          >
+            {LBL.reset}
+          </Button>
+        </div>
+      </form>
+
+      <div className="rounded-lg border bg-card shadow-sm">
+        <div className="flex items-center justify-between border-b px-6 py-3">
+          <div className="text-sm font-semibold">{LBL.records}</div>
+        </div>
+        <DataTable
+          columns={columns}
+          data={tableData}
+          isLoading={listQuery.isLoading}
+          emptyMessage={LBL.empty}
+          pagination={{
+            page: params.pageNum,
+            pageSize,
+            total,
+            onPageChange: (page) =>
+              setParams((prev) => ({ ...prev, pageNum: page })),
+            onPageSizeChange: (n) => {
+              setPageSize(n);
+              setParams((prev) => ({ ...prev, pageNum: 1 }));
+            },
+            pageSizeOptions: [PAGE_SIZE],
+          }}
+        />
+      </div>
+
+      <LogDetailDialog row={detailRow} onClose={() => setDetailRow(null)} />
+    </div>
   );
 }

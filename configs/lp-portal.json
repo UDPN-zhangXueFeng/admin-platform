@@ -48,39 +48,22 @@
   },
   "modules": {
     "enabled": [
-      "dashboard",
       "pool",
       "topup",
-      "preauth",
       "pair",
       "rate",
       "tx-flow",
       "settle",
       "receipt",
-      "notify",
       "syslog",
-      "sys", "user", "role", "menu"
+      "sys"
     ],
     "order": [
-      {
-        "id": "dashboard",
-        "icon": "LayoutDashboard",
-        "label": "Dashboard",
-        "path": "/dashboard",
-        "group": ""
-      },
       {
         "id": "pool",
         "icon": "Wallet",
         "label": "Liquidity Pool Management",
         "path": "/pool",
-        "group": ""
-      },
-      {
-        "id": "preauth",
-        "icon": "ShieldCheck",
-        "label": "Pre-authorization Management",
-        "path": "/preauth",
         "group": ""
       },
       {
@@ -127,13 +110,6 @@
         "disabled": false
       },
       {
-        "id": "notify",
-        "icon": "Bell",
-        "label": "Notification Center",
-        "path": "/notify",
-        "group": "more"
-      },
-      {
         "id": "syslog",
         "icon": "ScrollText",
         "label": "Operation Log",
@@ -161,15 +137,7 @@
         "path": "/sys/menu",
         "group": "more"
       }
-    ],
-    "dashboard": {
-      "widgets": [
-        { "id": "pool-balance",    "type": "kpi", "title": "Liquidity Pool Balance", "span": 1 },
-        { "id": "low-water-alert", "type": "kpi", "title": "Water Level Alert", "span": 1 },
-        { "id": "pending-topup",   "type": "kpi", "title": "Pending Top-up", "span": 1 },
-        { "id": "unread-notify",   "type": "kpi", "title": "Unread Notifications", "span": 1 }
-      ]
-    }
+    ]
   },
   "i18n": {
     "defaultLocale": "en-US",

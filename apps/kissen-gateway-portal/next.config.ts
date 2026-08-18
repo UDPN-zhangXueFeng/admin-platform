@@ -106,17 +106,19 @@ const nextConfig: NextConfig = {
   /**
    * API proxy — rewrites /kissen-api/* requests to the gateway backend.
    *
-   * The client-side axios instance uses `/kissen-api` as baseURL (relative
-   * path), and Next.js proxies these requests to the actual backend defined
-   * by NEXT_SERVICE_SERVER_URL in .env.local.
+   * The client axios baseURL is `/kissen-api/bankgw/portal` (env
+   * NEXT_PUBLIC_API_BASE_URL). The proxy strips only the `/kissen-api`
+   * prefix, so the backend receives `/bankgw/portal/...` verbatim; the
+   * public brand endpoint (`/kissen-api/bankgw/brand`) matches the same
+   * rule and reaches `/bankgw/brand`. Backend origin comes from
+   * NEXT_SERVICE_SERVER_URL in .env.local.
    */
   async rewrites() {
     const backendUrl = process.env.NEXT_SERVICE_SERVER_URL || 'http://localhost:8080';
-    const agentPrefix = process.env.NEXT_PUBLIC_API_BASE_URL || '/kissen-api';
 
     return [
       {
-        source: `${agentPrefix}/:path*`,
+        source: '/kissen-api/:path*',
         destination: `${backendUrl}/:path*`,
       },
     ];

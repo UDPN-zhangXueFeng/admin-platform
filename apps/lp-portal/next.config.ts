@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
   // 自动打平 pnpm workspace 的符号链接依赖，免去在镜像内处理 node_modules 软链结构。
   output: 'standalone',
 
+  // 双 dev 实例隔离：第二个实例（如 stub 冒烟 NEXT_LP_DIST_DIR=.next-stub）
+  // 指向独立产物目录，避免与常驻 3311 实例争 .next/dev/lock；不设时走
+  // Next 缺省 .next，行为不变。
+  ...(process.env.NEXT_LP_DIST_DIR ? { distDir: process.env.NEXT_LP_DIST_DIR } : {}),
+
   transpilePackages: [
     // ── modules (feature / ui / data-access / util) ──
     '@myorg/modules/user/feature',
@@ -104,21 +109,22 @@ const nextConfig: NextConfig = {
   },
 
   /**
-   * API proxy — rewrites /kissen-api/* requests to the mock backend.
+   * API proxy — LP 后端 BFF 前缀 `/lp`（工作清单 A2）。
    *
-   * The client-side axios instance uses `/kissen-api` as baseURL (relative
-   * path), and Next.js proxies these requests to the backend defined by
-   * NEXT_SERVICE_SERVER_URL in .env.local. In mock mode no real backend is
-   * expected; this rewrite only matters once a real backend is wired up.
+   * lp-client（libs/modules/lp-portal/data-access）以 `/lp` 为 baseURL
+   * （源 vite proxy '/lp' → 127.0.0.1:8090 的 Next 等价物；生产由 Nginx
+   * 反代同前缀）。目标后端用 NEXT_LP_BACKEND_URL 覆盖（默认 LP 后端
+   * 10.0.7.103:8090），destination 保留 /lp 前缀（与源口径一致：全部
+   * 接口走 /lp BFF 前缀）。
    */
   async rewrites() {
-    const backendUrl = process.env.NEXT_SERVICE_SERVER_URL || 'http://localhost:8080';
-    const agentPrefix = process.env.NEXT_PUBLIC_API_BASE_URL || '/kissen-api';
+    const lpBackendUrl =
+      process.env.NEXT_LP_BACKEND_URL || 'http://10.0.7.103:8090';
 
     return [
       {
-        source: `${agentPrefix}/:path*`,
-        destination: `${backendUrl}/:path*`,
+        source: '/lp/:path*',
+        destination: `${lpBackendUrl}/lp/:path*`,
       },
     ];
   },

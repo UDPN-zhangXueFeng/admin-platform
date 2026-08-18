@@ -1,1 +1,53 @@
-export type { LpPortalModule } from './lib/types';
+/**
+ * @myorg/modules/lp-portal/data-access
+ *
+ * LP Portal data-access barrel：lp-client 基础设施 + 公共源类型 + 各业务域
+ * （auth / pool / topup / rate / pair / tx-flow / settle / user / menu /
+ * log / role）五件套聚合。
+ */
+export {
+  LP_PROJECT_ID,
+  lpAxios,
+  lpRequest,
+  lpPage,
+  LpApiError,
+  isServiceDown,
+  SERVICE_DOWN_CODE,
+  type LpRequest,
+  type LpResult,
+  type LpPageResult,
+  type LpPageReq,
+} from './lib/lp-client';
+
+/**
+ * 公共源类型（Vue 源 types/* 的全量平移，供各域消费）。
+ * 注意：PoolRow / TopupRow / TopupListReq 与 pool、topup 域 model 存在同名
+ * 双声明——两个 `export *` 的同名歧义（TS2308）会使该名字从 barrel 静默
+ * 消失。故在文件尾以显式重导出锚定域 model 版本（显式导出优先于 star
+ * 导出）。
+ *
+ * R2 域（pair / tx-flow / settle / user / menu / log）model 改用
+ * `export type { X } from '../types'` 重导出同一声明——两路 star 导出
+ * 指向同一 symbol，不构成歧义，types.ts 中同名类型无需剪除（逐域核查过，
+ * 见各域 model 头注释）。
+ */
+export * from './lib/types';
+export * from './lib/auth';
+export * from './lib/pool';
+export * from './lib/topup';
+export * from './lib/rate';
+export * from './lib/pair';
+export * from './lib/tx-flow';
+export * from './lib/settle';
+export * from './lib/user';
+export * from './lib/menu';
+export * from './lib/log';
+
+// 角色域（R3：C2 角色管理页 + user 页角色选项薄切片并入 useRoleOptionsQuery）。
+export * from './lib/role';
+
+// 显式锚定域 model 版本，消解与 types.ts star 导出的同名歧义（见上）。
+// TopupListReq 两处形状不同（types.ts 为扁平筛选体，域 model 为 hook 入参
+// {pageNum,pageSize,filter}），以 hook 实际消费的域版本为准。
+export { type PoolRow } from './lib/pool';
+export { type TopupRow, type TopupListReq } from './lib/topup';

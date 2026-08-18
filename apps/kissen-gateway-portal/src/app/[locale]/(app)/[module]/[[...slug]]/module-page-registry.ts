@@ -12,7 +12,6 @@ import type { ComponentType } from 'react';
  *
  * Page keys per contract §5.2 (✓ = registered):
  *   onboard      : list, create, edit, detail
- *   dashboard    : list
  *   tx           : list, detail
  *   currencypair : list, detail
  *   lp           : list, detail
@@ -24,7 +23,6 @@ import type { ComponentType } from 'react';
  */
 type PageLoader = () => Promise<{ default: ComponentType<unknown> }>;
 
-const F = '@myorg/modules/kissen-gateway/feature';
 
 const pages: Record<string, Record<string, PageLoader>> = {
   onboard: {
@@ -43,12 +41,6 @@ const pages: Record<string, Record<string, PageLoader>> = {
     detail: () =>
       import('@myorg/modules/kissen-gateway/feature').then((m) => ({
         default: m.OnboardDetailPage as unknown as ComponentType<unknown>,
-      })),
-  },
-  dashboard: {
-    list: () =>
-      import('@myorg/modules/kissen-gateway/feature').then((m) => ({
-        default: m.DashboardPage as unknown as ComponentType<unknown>,
       })),
   },
   tx: {

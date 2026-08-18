@@ -31,63 +31,49 @@ function lp(moduleExport: string): PageLoader {
  * `create` and `edit` both resolve to the module's single FormPage.
  */
 const pages: Record<string, Record<string, PageLoader>> = {
-  dashboard: {
-    list: lp('DashboardPage'),
-  },
+  // 资金池（B1 真实页）：源为单页只读视图，无 create/edit/detail 路由。
   pool: {
     list: lp('PoolListPage'),
-    create: lp('PoolFormPage'),
-    edit: lp('PoolFormPage'),
-    detail: lp('PoolDetailPage'),
   },
-  preauth: {
-    list: lp('PreauthListPage'),
-    create: lp('PreauthFormPage'),
-    edit: lp('PreauthFormPage'),
-    detail: lp('PreauthDetailPage'),
-  },
+  // 补资（B2 真实页）：源为只读分页列表，无 create/detail 路由。
   topup: {
     list: lp('TopupListPage'),
-    create: lp('TopupFormPage'),
-    detail: lp('TopupDetailPage'),
   },
+  // 货币对与资金池（B4 真实页）：源为单页主表+展开行聚合，无 detail 路由。
   pair: {
     list: lp('PairListPage'),
-    detail: lp('PairDetailPage'),
   },
   rate: {
     list: lp('RateListPage'),
   },
+  // 交易流水（B5/B6 真实页）：源为单页，链路明细即行点击开的页内抽屉，
+  // 无 detail 路由。
   'tx-flow': {
     list: lp('TxFlowListPage'),
-    detail: lp('TxFlowDetailPage'),
   },
+  // 结算（B7 真实页）：源为单页双 tab（流水/结算单），无 detail 路由。
   settle: {
     list: lp('SettleListPage'),
-    detail: lp('SettleDetailPage'),
   },
+  // 源端收款明细（D1 占位页）：源 source-receipt 路由挂 placeholder.vue，
+  // 登录后菜单可见即显示「功能建设中」占位，无 detail 路由。
   receipt: {
     list: lp('ReceiptListPage'),
-    detail: lp('ReceiptDetailPage'),
-  },
-  notify: {
-    list: lp('NotifyListPage'),
   },
   syslog: {
     list: lp('SyslogListPage'),
   },
+  // 用户管理（C1 真实页）：源为单页——新增/编辑/分配角色/重置密码均为
+  // 页内弹窗，无 create/edit/detail 路由。
   user: {
     list: lp('UserListPage'),
-    create: lp('UserFormPage'),
-    edit: lp('UserFormPage'),
-    detail: lp('UserDetailPage'),
   },
+  // 角色管理（C2/R3 真实页）：源为单页——新增/编辑/菜单分配均为页内
+  // 弹窗，无 create/edit/detail 路由。
   role: {
     list: lp('RoleListPage'),
-    create: lp('RoleFormPage'),
-    edit: lp('RoleFormPage'),
-    detail: lp('RoleDetailPage'),
   },
+  // 菜单管理（C3 真实页）：源为左树右表单单页，无子路由。
   menu: {
     list: lp('MenuListPage'),
   },

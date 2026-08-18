@@ -49,7 +49,6 @@
   "modules": {
     "enabled": [
       "onboard",
-      "dashboard",
       "tx",
       "market", "currencypair", "lp", "rate",
       "system", "user", "role", "menu", "log"
@@ -60,13 +59,6 @@
         "icon": "FileCheck2",
         "label": "Onboarding Application",
         "path": "/onboard",
-        "group": ""
-      },
-      {
-        "id": "dashboard",
-        "icon": "LayoutDashboard",
-        "label": "Dashboard",
-        "path": "/dashboard",
         "group": ""
       },
       {
@@ -101,15 +93,7 @@
           { "id": "log",  "icon": "ScrollText",  "label": "Operation Log", "path": "/system/log", "group": "more" }
         ]
       }
-    ],
-    "dashboard": {
-      "widgets": [
-        { "id": "total-tx",     "type": "kpi", "title": "Total Transactions", "span": 1 },
-        { "id": "pending-tx",   "type": "kpi", "title": "Pending Transactions", "span": 1 },
-        { "id": "active-pairs", "type": "kpi", "title": "Active Currency Pairs", "span": 1 },
-        { "id": "active-lps",   "type": "kpi", "title": "Active LP", "span": 1 }
-      ]
-    }
+    ]
   },
   "i18n": {
     "defaultLocale": "en-US",

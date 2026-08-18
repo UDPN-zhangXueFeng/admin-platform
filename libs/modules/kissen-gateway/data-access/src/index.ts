@@ -1,1 +1,11 @@
-export type { KissenGatewayModule } from './lib/types';
+export * from './lib/kissen-gateway-client';
+export * from './lib/auth';
+export * from './lib/onboard';
+export * from './lib/tx';
+export * from './lib/currencypair';
+export * from './lib/lp';
+export * from './lib/rate';
+export * from './lib/menu';
+export * from './lib/user';
+export * from './lib/role';
+export * from './lib/log';

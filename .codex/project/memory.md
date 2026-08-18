@@ -470,3 +470,13 @@
 - 运行时会话模拟三件套缺一不可：cookie `admin_platform_token` + localStorage `admin_platform_access_token` + `userInfo`（含 token 字段）；任一缺失→客户端 401→`clearSessionStorage`+`?expired=1` 踢回登录。kissen 后端鉴权用 `token` 头（非 Bearer），分页体为 `{page:{pageNum,pageSize},data:{}}` 嵌套结构。
 - RHF 规则存在但 `formState.errors` 未渲染 = 静默阻断提交，须配 `<p role="alert" className="text-sm text-destructive">`；规范样例 settlement-pages.tsx。
 - Phase 3 完整度审计结论：8 域对源 Vue 逐项对照，修复 8 项 partial 后全部 100%（矩阵 '/Users/zhangxuefeng/.omp/agent/sessions/-pi-cwd-20260601-admin-platform/2026-08-14T02-36-38-006Z_019ffe20-eaf6-7000-9ba2-315a4e54e0fa/local/kissen-completeness-matrix.json）。'
+
+## kissen-gateway 迁移三轮收尾（2026-08-18）
+- 代理链路：`next.config.ts` rewrite 用 `/kissen-api/:path*` 整段前缀剥离，后端收到 `/bankgw/portal/...` 原样路径；`/bankgw/brand` 在 /portal 外，用独立 baseURL `/kissen-api/bankgw`、不带 token、失败回退默认值。ResultInfo `code:'0'` 成功、`'2'` 未登录、`'MSG_24_0002'` 用户名或密码错误。
+- 首登语义（源 store 仅 localStorage）：目标 middleware 服务端只能读 cookie，登录时双写 localStorage（`bankgw.token`/`bankgw.user`，axios 拦截器用）+ cookie `kissen_gateway_token`（SameSite=Lax）；`firstLogin===0` 由客户端 session-guard 强制跳 `/change-pwd`。middleware 未登录重定向必须携带 `?redirect=`（源 `to.fullPath` 语义），login 页 `searchParams.redirect || '/onboard'` 消费。
+- `createFormResolver` 必须镜像 zodResolver 的 zod4 泛型签名 `<TFieldValues extends FieldValues, TContext, TOutput>`（`schema: z.ZodType<TOutput, TFieldValues>`），否则所有 `useForm+resolver` 调用点 TS2769/TS2344。
+- 跨切片并行契约由主控预写数据域（如 menu 域 api/model/queries/keys）再 fan-out，角色分配/菜单管理/侧栏过滤三方消费同一确定性导出，避免并行切片各自定义漂移。feature index 的组件导出名是 registry 契约，拆分 system-pages.tsx 为四域文件时导出名不可变。
+- 红线：确认弹窗一律 shared/ui AlertDialog（受控 target state + destructive Action），`window.confirm` 违反「UI 用本项目体系」按 0.5 扣分（R2 曾因此 93.33%）；全仓 kissen-gateway 范围 grep `confirm(` 应为 0。
+- 菜单权限：源 `filterTree`（保留自身或后代命中 menuKey 的节点）+ `MENU_ROUTE_MAP`（menuKey→path 9 项）折算允许路径过滤 config 菜单；树加载失败回退全量。按钮级 `v-perm` 等价 `useGatewayPerm()`（menuKeys Set 动态判定）。
+- 源死代码实证：`views/bank/info.vue` 零路由引用，`getBankInfo` 唯一消费方是 onboard 银行信息卡 → 并入 onboard 域（OnboardBankInfo），不迁移独立页面。dashboard 源项目不存在（'/' redirect /onboard），MockDashboardPage 连同 config/registry/index 导出全部清零。
+- tsc 快速环：`cd apps/kissen-gateway-portal && pnpm exec tsc --noEmit | grep "error TS" | grep -v TS6305`（TS6305 为 monorepo dist 既有噪音），比 nx build（~2-3 分钟/轮）快一个量级，适合修复循环；终验仍须 nx build + nx lint。

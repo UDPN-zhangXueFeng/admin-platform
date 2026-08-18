@@ -4,8 +4,6 @@ export {
   OnboardFormPage,
 } from './lib/onboard-pages';
 
-export { DashboardPage } from './lib/dashboard-page';
-
 export { TxListPage, TxDetailPage } from './lib/tx-pages';
 
 export {
@@ -21,14 +19,18 @@ export {
   UserListPage,
   UserDetailPage,
   UserFormPage,
+} from './lib/user-pages';
+
+export {
   RoleListPage,
   RoleDetailPage,
   RoleFormPage,
-  MenuListPage,
-  LogListPage,
-} from './lib/system-pages';
+} from './lib/role-pages';
 
-export type {
-  MockColumn,
-  MockField,
-} from '@myorg/shared/ui';
+export { MenuListPage } from './lib/menu-pages';
+
+export { LogListPage } from './lib/log-pages';
+
+export { ChangePasswordDialog } from './lib/change-password-dialog';
+
+export { useGatewayPerm } from './lib/use-gateway-perm';
