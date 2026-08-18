@@ -29,6 +29,9 @@ COPY apps/admin-e2e/package.json ./apps/admin-e2e/package.json
 COPY apps/kissen-admin/package.json ./apps/kissen-admin/package.json
 COPY tools/generators/package.json ./tools/generators/package.json
 
+# npm 源切国内镜像（目标节点对 registry.npmjs.org DNS 解析间歇失败 EAI_AGAIN）
+ENV npm_config_registry=https://registry.npmmirror.com
+
 # BuildKit cache mount 复用节点 pnpm store（与 admin 共享，内容寻址安全）。
 RUN --mount=type=cache,id=admin-platform-pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
