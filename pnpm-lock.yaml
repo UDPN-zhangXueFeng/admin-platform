@@ -330,6 +330,42 @@ importers:
 
   apps/admin-e2e: {}
 
+  apps/kissen-admin:
+    dependencies:
+      next:
+        specifier: ~16.1.6
+        version: 16.1.7(@babel/core@7.29.7)(@playwright/test@1.60.0)(react-dom@19.2.7)(react@19.2.7)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+
+  apps/kissen-gateway-portal:
+    dependencies:
+      next:
+        specifier: ~16.1.6
+        version: 16.1.7(@babel/core@7.29.7)(@playwright/test@1.60.0)(react-dom@19.2.7)(react@19.2.7)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+
+  apps/lp-portal:
+    dependencies:
+      next:
+        specifier: ~16.1.6
+        version: 16.1.7(@babel/core@7.29.7)(@playwright/test@1.60.0)(react-dom@19.2.7)(react@19.2.7)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+
   tools/generators: {}
 
 packages:
