@@ -121,9 +121,9 @@ function ConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={request?.onConfirm}>
-            {request?.confirmText ?? '确定'}
+            {request?.confirmText ?? 'Confirm'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -299,7 +299,7 @@ function AssignMenuDialog({
         { roleId: row.roleId, menuIds },
         {
           onSuccess: () => {
-            toast.success('分配成功,该角色用户下次请求即生效');
+            toast.success('Assigned successfully — effective on next request for users of this role');
             onClose(true);
           },
         },
@@ -307,8 +307,8 @@ function AssignMenuDialog({
     if (menuIds.length === 0) {
       // 源空勾选二次确认：后端空数组 = 事务清空该角色全部菜单
       setConfirm({
-        title: '清空菜单',
-        message: '将清空该角色的全部菜单,确认?',
+        title: 'Clear Menus',
+        message: 'This will clear all menus of this role. Continue?',
         onConfirm: submit,
       });
       return;
@@ -327,16 +327,16 @@ function AssignMenuDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>分配菜单:{row.roleName}</DialogTitle>
+          <DialogTitle>Assign Menus: {row.roleName}</DialogTitle>
         </DialogHeader>
         <div className="max-h-80 overflow-y-auto rounded-md border p-2">
           {menuIdsQuery.isLoading ? (
             <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-              加载中...
+              Loading...
             </p>
           ) : menuTree.length === 0 ? (
             <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-              暂无菜单
+              No menus
             </p>
           ) : (
             <MenuCheckTreeNodes
@@ -349,7 +349,7 @@ function AssignMenuDialog({
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          勾选父节点会级联子节点;叶子菜单为最小授权单位。
+          Checking a parent cascades to children; leaf menus are the minimum grant unit.
         </p>
         <DialogFooter>
           <Button
@@ -358,10 +358,10 @@ function AssignMenuDialog({
             disabled={saving}
             onClick={() => onClose(false)}
           >
-            取消
+            Cancel
           </Button>
           <Button type="button" disabled={saving} onClick={onSave}>
-            保存
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -412,7 +412,7 @@ function RoleFormDialog({
         },
         {
           onSuccess: () => {
-            toast.success('保存成功');
+            toast.success('Saved successfully');
             onClose(true);
           },
         },
@@ -423,7 +423,7 @@ function RoleFormDialog({
       { roleCode: v.roleCode, roleName: v.roleName, remarks: v.remarks },
       {
         onSuccess: () => {
-          toast.success('保存成功');
+          toast.success('Saved successfully');
           onClose(true);
         },
       },
@@ -439,7 +439,7 @@ function RoleFormDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? '编辑角色' : '新增角色'}</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit Role' : 'New Role'}</DialogTitle>
         </DialogHeader>
         <form
           id="role-form"
@@ -448,24 +448,24 @@ function RoleFormDialog({
         >
           <FormField
             name="roleCode"
-            label="角色编码"
+            label="Role Code"
             required
             disabled={isEdit}
             maxLength={30}
-            placeholder="如 ROLE_LP_FINANCE,唯一"
+            placeholder="e.g. ROLE_LP_FINANCE, unique"
             error={errors.roleCode?.message}
-            register={register('roleCode', { required: '请输入角色编码' })}
+            register={register('roleCode', { required: 'Please enter a role code' })}
           />
           <FormField
             name="roleName"
-            label="角色名称"
+            label="Role Name"
             required
             error={errors.roleName?.message}
-            register={register('roleName', { required: '请输入角色名称' })}
+            register={register('roleName', { required: 'Please enter a role name' })}
           />
           <div>
             <label htmlFor="role-remarks" className="mb-1.5 block text-sm">
-              备注
+              Remarks
             </label>
             <Textarea id="role-remarks" rows={2} {...register('remarks')} />
           </div>
@@ -477,10 +477,10 @@ function RoleFormDialog({
             disabled={saving}
             onClick={() => onClose(false)}
           >
-            取消
+            Cancel
           </Button>
           <Button type="submit" form="role-form" disabled={saving}>
-            保存
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -525,20 +525,20 @@ export function RoleListPage() {
 
   const onDelete = (row: RoleRow) => {
     setConfirm({
-      title: '删除角色',
-      message: `删除角色「${row.roleName}」?被用户引用的角色无法删除。`,
+      title: 'Delete Role',
+      message: `Delete role "${row.roleName}"? Roles referenced by users cannot be deleted.`,
       onConfirm: () =>
         removeMutation.mutate(row.roleId, {
-          onSuccess: () => toast.success('删除成功'),
+          onSuccess: () => toast.success('Deleted successfully'),
         }),
     });
   };
 
   const columns = React.useMemo<ColumnDef<RoleRow & { id: string }>[]>(
     () => [
-      { accessorKey: 'roleCode', header: '角色编码' },
-      { accessorKey: 'roleName', header: '角色名称' },
-      { accessorKey: 'roleType', header: '类型',
+      { accessorKey: 'roleCode', header: 'Role Code' },
+      { accessorKey: 'roleName', header: 'Role Name' },
+      { accessorKey: 'roleType', header: 'Type',
       cell: ({ row }) => (
         <Badge
           variant={row.original.roleType === 0 ? 'destructive' : 'default'}
@@ -547,7 +547,7 @@ export function RoleListPage() {
             row.original.roleType}
         </Badge>
       ), },
-      { accessorKey: 'status', header: '状态',
+      { accessorKey: 'status', header: 'Status',
       cell: ({ row }) => (
         <Badge
           variant={row.original.status === 0 ? 'default' : 'secondary'}
@@ -555,11 +555,11 @@ export function RoleListPage() {
           {ROLE_STATUS_TEXT[row.original.status] ?? row.original.status}
         </Badge>
       ), },
-      { accessorKey: 'remarks', header: '备注',
+      { accessorKey: 'remarks', header: 'Remarks',
       cell: ({ row }) => row.original.remarks || '-', },
       {
         id: 'actions',
-        header: '操作',
+        header: 'Actions',
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
             <Button
@@ -570,7 +570,7 @@ export function RoleListPage() {
                 setFormDialog({ mode: 'edit', row: row.original })
               }
             >
-              编辑
+              Edit
             </Button>
             <Button
               type="button"
@@ -578,7 +578,7 @@ export function RoleListPage() {
               className="h-auto p-0"
               onClick={() => setAssignRow(row.original)}
             >
-              分配菜单
+              Assign Menus
             </Button>
             {row.original.roleType === 0 ? (
               // 源 span 包裹使 tooltip 在 disabled 按钮上生效
@@ -592,11 +592,11 @@ export function RoleListPage() {
                         className="h-auto p-0 text-destructive"
                         disabled
                       >
-                        删除
+                        Delete
                       </Button>
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>内置角色不可删除</TooltipContent>
+                  <TooltipContent>Built-in roles cannot be deleted</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             ) : (
@@ -606,14 +606,13 @@ export function RoleListPage() {
                 className="h-auto p-0 text-destructive hover:underline"
                 onClick={() => onDelete(row.original)}
               >
-                删除
+                Delete
               </Button>
             )}
           </div>
         ),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [removeMutation.isPending, params, pageSize],
   );
 
@@ -630,38 +629,38 @@ export function RoleListPage() {
             SYSTEM
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-            角色管理
+            Role Management
           </h1>
         </div>
         <PermButton
           menuKey="lp:role"
           onClick={() => setFormDialog({ mode: 'create' })}
         >
-          新增角色
+          New Role
         </PermButton>
       </div>
 
       <form
         onSubmit={handleSubmit((f) => setParams(roleFormToParams(f, 1)))}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询条件</div>
+        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <FormField
             name="roleCode"
-            label="角色编码"
-            placeholder="模糊匹配"
+            label="Role Code"
+            placeholder="Fuzzy match"
             register={register('roleCode')}
           />
           <FormField
             name="roleName"
-            label="角色名称"
-            placeholder="模糊匹配"
+            label="Role Name"
+            placeholder="Fuzzy match"
             register={register('roleName')}
           />
         </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button type="submit">Search</Button>
           <Button
             type="button"
             variant="outline"
@@ -670,20 +669,20 @@ export function RoleListPage() {
               setParams(roleFormToParams(EMPTY_ROLE_FILTER, 1));
             }}
           >
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">角色列表</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
+          <div className="text-sm font-semibold">Role List</div>
         </div>
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={listQuery.isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={{
             page: params.pageNum,
             pageSize,

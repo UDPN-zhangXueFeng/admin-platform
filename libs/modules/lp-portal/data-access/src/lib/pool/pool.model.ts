@@ -26,15 +26,15 @@ export interface PoolRow {
 
 /** 货币系统形态映射（源 SYSTEM_TYPE_TEXT；未知码由页面显原值） */
 export const POOL_SYSTEM_TYPE_TEXT: Record<number, string> = {
-  1: '链上 EVM',
+  1: 'On-chain EVM',
   2: 'Aptos',
-  3: '内部系统',
+  3: 'Internal System',
 };
 
 /** 池状态文案（源 POOL_STATUS_TEXT；未知码由页面显原值） */
 export const POOL_STATUS_TEXT: Record<number, string> = {
-  20: '正常',
-  50: '停用',
+  20: 'Normal',
+  50: 'Disabled',
 };
 
 /** 池状态 → Badge variant（源 el-tag {20:success,50:info} 的等价映射，兜底 outline）。 */

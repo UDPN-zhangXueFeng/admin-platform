@@ -18,5 +18,3 @@ export {
   useModules,
   useFeatures,
 } from './lib/config.context';
-
-export { loadModulePage, getModuleManifest } from './lib/module-registry';

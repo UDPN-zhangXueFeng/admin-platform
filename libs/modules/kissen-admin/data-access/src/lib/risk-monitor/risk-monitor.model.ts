@@ -29,9 +29,9 @@ export interface MonitorHitListReq {
  * 未知编码兜底原样显示，不白屏。
  */
 export const RULE_CODE_MAP: Record<string, string> = {
-  HIGH_FREQ_SMALL: '高频小额',
-  SELF_TRANSFER: '关联交易',
-  ABNORMAL_AMOUNT: '异常金额',
+  HIGH_FREQ_SMALL: 'High-Frequency Small Amount',
+  SELF_TRANSFER: 'Related-Party Transaction',
+  ABNORMAL_AMOUNT: 'Abnormal Amount',
 };
 
 /**
@@ -39,9 +39,9 @@ export const RULE_CODE_MAP: Record<string, string> = {
  * 命中处理状态编号空间与审批主表冲突，仿 reconcile 页 DIFF_STATUS_MAP 惯例）。
  */
 export const HANDLE_STATUS_MAP: Record<number, string> = {
-  1: '待复核',
-  2: '已复核',
-  3: '忽略',
+  1: 'Pending Review',
+  2: 'Reviewed',
+  3: 'Ignored',
 };
 
 

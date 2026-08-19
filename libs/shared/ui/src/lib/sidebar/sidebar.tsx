@@ -23,6 +23,8 @@ export interface SidebarItemConfig {
 export interface SidebarProps {
   items: SidebarItemConfig[];
   collapsed: boolean;
+  /** Keep at most one parent menu expanded when enabled. */
+  singleExpand?: boolean;
   onToggle: () => void;
   className?: string;
 }
@@ -43,7 +45,13 @@ export interface SidebarProps {
  * purely decorative label on hover. The CSS tooltip is sufficient here
  * and keeps the component lightweight.
  */
-export function Sidebar({ items, collapsed, onToggle, className }: SidebarProps) {
+export function Sidebar({
+  items,
+  collapsed,
+  singleExpand = false,
+  onToggle,
+  className,
+}: SidebarProps) {
   const grouped = React.useMemo(() => {
     const map = new Map<string, SidebarItemConfig[]>();
     for (const item of items) {
@@ -113,6 +121,12 @@ export function Sidebar({ items, collapsed, onToggle, className }: SidebarProps)
     setExpandedIds((prev) => {
       const activeParents = getActiveParentIds();
       if (activeParents.size === 0) return prev;
+      if (singleExpand) {
+        const activeId = activeParents.values().next().value as string | undefined;
+        if (!activeId || (prev.size === 1 && prev.has(activeId))) return prev;
+        return new Set([activeId]);
+      }
+
       // Only add newly-active parents; never auto-collapse.
       // Return prev (same ref) when nothing actually changed, otherwise
       // `new Set(prev)` is a fresh reference and would trigger an extra render.
@@ -123,10 +137,14 @@ export function Sidebar({ items, collapsed, onToggle, className }: SidebarProps)
       if (next.size === prev.size) return prev;
       return next;
     });
-  }, [getActiveParentIds]);
+  }, [getActiveParentIds, singleExpand]);
 
   const toggleExpanded = React.useCallback((id: string) => {
     setExpandedIds((prev) => {
+      if (singleExpand) {
+        return prev.has(id) ? new Set() : new Set([id]);
+      }
+
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -135,7 +153,7 @@ export function Sidebar({ items, collapsed, onToggle, className }: SidebarProps)
       }
       return next;
     });
-  }, []);
+  }, [singleExpand]);
 
   return (
     <aside

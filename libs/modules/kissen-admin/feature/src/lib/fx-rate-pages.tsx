@@ -8,6 +8,8 @@ import { ColumnDef } from '@tanstack/react-table';
 import {
   Badge,
   Button,
+  createActionColumn,
+  type TableRowAction,
   DataTable,
   Dialog,
   DialogContent,
@@ -24,6 +26,7 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { peekRow, stashRow } from './row-stash';
 
@@ -75,10 +78,11 @@ function formatRate(v: string | number | null | undefined): string {
   return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
 }
 
-/** 毫秒时间戳 → toLocaleString；0/空 → '--'（conventions §4）。 */
+/** 毫秒时间戳 → 统一管理台时间格式；0/空/非法 → '--'（conventions §4）。 */
 function formatTime(ms: number | null | undefined): string {
   if (!ms) return '--';
-  return new Date(Number(ms)).toLocaleString();
+  const d = new Date(Number(ms));
+  return Number.isNaN(d.getTime()) ? '--' : formatAdminDateTime(d);
 }
 
 /** 路由 ?id= 解析为正整数；无值视为新建。 */
@@ -194,14 +198,14 @@ export function CurrencyPairListPage() {
     (row: CurrencyPairRow) => {
       if (
         !window.confirm(
-          `确认提交「${row.sourceCurrency}/${row.targetCurrency}」启用审批?审批通过后货币对启用并推送银行网关。`,
+          `Submit enable approval for "${row.sourceCurrency}/${row.targetCurrency}"? Once approved, the currency pair will be enabled and pushed to the bank gateway.`,
         )
       )
         return;
       enableMutation.mutate(
         { pairId: row.pairId },
         {
-          onSuccess: () => toast.success('已提交启用审批'),
+          onSuccess: () => toast.success('Enable approval submitted'),
           onError: (err) => toast.error((err as Error).message),
         },
       );
@@ -213,14 +217,14 @@ export function CurrencyPairListPage() {
     (row: CurrencyPairRow) => {
       if (
         !window.confirm(
-          `确认提交「${row.sourceCurrency}/${row.targetCurrency}」停用审批?审批通过后货币对全网停用并拒单。`,
+          `Submit disable approval for "${row.sourceCurrency}/${row.targetCurrency}"? Once approved, the currency pair will be disabled network-wide and will reject orders.`,
         )
       )
         return;
       disableMutation.mutate(
         { pairId: row.pairId },
         {
-          onSuccess: () => toast.success('已提交停用审批'),
+          onSuccess: () => toast.success('Disable approval submitted'),
           onError: (err) => toast.error((err as Error).message),
         },
       );
@@ -233,14 +237,14 @@ export function CurrencyPairListPage() {
     (row: CurrencyPairRow) => {
       if (
         !window.confirm(
-          `确认冻结货币对「${row.sourceCurrency}/${row.targetCurrency}」?冻结后该对立即退出报价与接单,状态变为停用。`,
+          `Freeze currency pair "${row.sourceCurrency}/${row.targetCurrency}"? The pair will immediately exit quoting and order taking, and its status will become Disabled.`,
         )
       )
         return;
       freezeMutation.mutate(
         { pairId: row.pairId, freeze: true },
         {
-          onSuccess: () => toast.success('已冻结'),
+          onSuccess: () => toast.success('Frozen'),
           onError: (err) => toast.error((err as Error).message),
         },
       );
@@ -253,14 +257,14 @@ export function CurrencyPairListPage() {
     (row: CurrencyPairRow) => {
       if (
         !window.confirm(
-          `确认解冻货币对「${row.sourceCurrency}/${row.targetCurrency}」?解冻后该对恢复启用,重新参与报价。`,
+          `Unfreeze currency pair "${row.sourceCurrency}/${row.targetCurrency}"? The pair will be re-enabled and resume quoting.`,
         )
       )
         return;
       freezeMutation.mutate(
         { pairId: row.pairId, freeze: false },
         {
-          onSuccess: () => toast.success('已解冻'),
+          onSuccess: () => toast.success('Unfrozen'),
           onError: (err) => toast.error((err as Error).message),
         },
       );
@@ -274,7 +278,7 @@ export function CurrencyPairListPage() {
     () => [
       {
         accessorKey: 'sourceCurrency',
-        header: '货币对',
+        header: 'Currency Pair',
         cell: ({ row }) => (
           <span>
             {row.original.sourceCurrency}/{row.original.targetCurrency}
@@ -283,7 +287,7 @@ export function CurrencyPairListPage() {
       },
       {
         accessorKey: 'markupRate',
-        header: '管理侧加价率',
+        header: 'Admin Markup Rate',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatRate(row.original.markupRate)}
@@ -292,7 +296,7 @@ export function CurrencyPairListPage() {
       },
       {
         accessorKey: 'slippageThreshold',
-        header: '滑点阈值',
+        header: 'Slippage Threshold',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatRate(row.original.slippageThreshold)}
@@ -301,7 +305,7 @@ export function CurrencyPairListPage() {
       },
       {
         accessorKey: 'baseRate',
-        header: '基础汇率',
+        header: 'Base Rate',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatRate(row.original.baseRate)}
@@ -310,119 +314,72 @@ export function CurrencyPairListPage() {
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => <PairStatusBadge status={row.original.status} />,
       },
       {
         accessorKey: 'createTime',
-        header: '创建时间',
+        header: 'Created At',
         cell: ({ row }) => (
           <span>{formatTime(row.original.createTime)}</span>
         ),
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => {
-          const item = row.original;
-          const enabled = item.status === CurrencyPairStatus.Enabled;
-          const disabled = item.status === CurrencyPairStatus.Disabled;
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => {
-                  stashRow('currency-pair', item.pairId, item);
-                  router.push(`/currency-pair/detail?id=${item.pairId}`);
-                }}
-              >
-                查看
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => {
-                  stashRow('currency-pair', item.pairId, item);
-                  router.push(`/currency-pair/edit?id=${item.pairId}`);
-                }}
-              >
-                编辑
-              </Button>
-              {!enabled && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  onClick={() => submitEnable(item)}
-                >
-                  提交启用
-                </Button>
-              )}
-              {enabled && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-destructive"
-                  onClick={() => submitDisable(item)}
-                >
-                  提交停用
-                </Button>
-              )}
-              {enabled && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  onClick={() => setMarkupRow(item)}
-                >
-                  调整加价率
-                </Button>
-              )}
-              {enabled && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  onClick={() => setBaseRateRow(item)}
-                >
-                  维护基础汇率
-                </Button>
-              )}
-              {enabled && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  onClick={() => onFreeze(item)}
-                >
-                  冻结
-                </Button>
-              )}
-              {disabled && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  onClick={() => onUnfreeze(item)}
-                >
-                  解冻
-                </Button>
-              )}
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => setHistoryRow(item)}
-              >
-                变更记录
-              </Button>
-            </div>
-          );
-        },
-      },
+      createActionColumn<CurrencyPairRow & { id: string }>((item) => {
+        const enabled = item.status === CurrencyPairStatus.Enabled;
+        const disabled = item.status === CurrencyPairStatus.Disabled;
+        const actions: TableRowAction<CurrencyPairRow & { id: string }>[] = [
+          {
+            label: 'View',
+            onClick: () => {
+              stashRow('currency-pair', item.pairId, item);
+              router.push(`/currency-pair/detail?id=${item.pairId}`);
+            },
+          },
+          {
+            label: 'Edit',
+            onClick: () => {
+              stashRow('currency-pair', item.pairId, item);
+              router.push(`/currency-pair/edit?id=${item.pairId}`);
+            },
+          },
+        ];
+        if (!enabled) {
+          actions.push({
+            label: 'Submit for Enable',
+            onClick: () => submitEnable(item),
+          });
+        }
+        if (enabled) {
+          actions.push({
+            label: 'Submit for Disable',
+            destructive: true,
+            onClick: () => submitDisable(item),
+          });
+          actions.push({
+            label: 'Adjust Markup Rate',
+            onClick: () => setMarkupRow(item),
+          });
+          actions.push({
+            label: 'Maintain Base Rate',
+            onClick: () => setBaseRateRow(item),
+          });
+          actions.push({
+            label: 'Freeze',
+            onClick: () => onFreeze(item),
+          });
+        }
+        if (disabled) {
+          actions.push({
+            label: 'Unfreeze',
+            onClick: () => onUnfreeze(item),
+          });
+        }
+        actions.push({
+          label: 'Change History',
+          onClick: () => setHistoryRow(item),
+        });
+        return actions;
+      }),
     ],
     [
       router,
@@ -442,25 +399,25 @@ export function CurrencyPairListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             name="sourceCurrency"
-            label="源币种"
-            placeholder="精确匹配,如 USD"
+            label="Source Currency"
+            placeholder="Exact match, e.g. USD"
             register={register('sourceCurrency')}
           />
           <FormField
             name="targetCurrency"
-            label="目标币种"
-            placeholder="精确匹配,如 EUR"
+            label="Target Currency"
+            placeholder="Exact match, e.g. EUR"
             register={register('targetCurrency')}
           />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-foreground">
-              状态
+              Status
             </label>
             <Controller
               control={control}
@@ -473,13 +430,13 @@ export function CurrencyPairListPage() {
                   }
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="全部" />
+                    <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={STATUS_ALL}>全部</SelectItem>
-                    <SelectItem value="1">保存(草稿)</SelectItem>
-                    <SelectItem value="20">审核通过</SelectItem>
-                    <SelectItem value="50">停用</SelectItem>
+                    <SelectItem value={STATUS_ALL}>All</SelectItem>
+                    <SelectItem value="1">Saved (Draft)</SelectItem>
+                    <SelectItem value="20">Approved</SelectItem>
+                    <SelectItem value="50">Disabled</SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -487,29 +444,29 @@ export function CurrencyPairListPage() {
           </div>
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onReset}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">货币对管理</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
+          <div className="text-sm font-semibold">Currency Pair Management</div>
           <Button
             type="button"
             size="sm"
             onClick={() => router.push('/currency-pair/create')}
           >
-            新建货币对
+            New Currency Pair
           </Button>
         </div>
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={
             paginationMeta
               ? {
@@ -569,18 +526,18 @@ function MarkupDialog({
   const handleSubmit = () => {
     const n = Number(markupRate);
     if (markupRate === '' || !Number.isFinite(n)) {
-      toast.error('请输入新加价率');
+      toast.error('Enter a new markup rate');
       return;
     }
     if (n < 0) {
-      toast.error('加价率不能为负');
+      toast.error('Markup rate cannot be negative');
       return;
     }
     mutation.mutate(
       { pairId: row.pairId, markupRate: n },
       {
         onSuccess: () => {
-          toast.success('已提交加价率变更审批');
+          toast.success('Markup rate change approval submitted');
           onClose();
         },
         onError: (err) => toast.error((err as Error).message),
@@ -592,22 +549,22 @@ function MarkupDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>调整加价率</DialogTitle>
+          <DialogTitle>Adjust Markup Rate</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">货币对</label>
+            <label className="text-sm font-medium">Currency Pair</label>
             <p className="text-sm">
               {row.sourceCurrency}/{row.targetCurrency}
             </p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">当前加价率</label>
+            <label className="text-sm font-medium">Current Markup Rate</label>
             <p className="text-sm tabular-nums">{formatRate(row.markupRate)}</p>
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              新加价率<span className="ml-0.5 text-destructive">*</span>
+              New Markup Rate<span className="ml-0.5 text-destructive">*</span>
             </label>
             <Input
               type="number"
@@ -615,19 +572,19 @@ function MarkupDialog({
               step={0.01}
               value={markupRate}
               onChange={(e) => setMarkupRate(e.target.value)}
-              placeholder="请输入新加价率"
+              placeholder="Enter new markup rate"
             />
             <p className="text-xs text-muted-foreground">
-              审批通过后写入货币对并推送银行网关
+              Once approved, it will be written to the currency pair and pushed to the bank gateway
             </p>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            取消
+            Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={mutation.isPending}>
-            提交
+            Submit
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -653,18 +610,18 @@ function BaseRateDialog({
   const handleSubmit = () => {
     const n = Number(baseRate);
     if (baseRate === '' || !Number.isFinite(n)) {
-      toast.error('请输入新基础汇率');
+      toast.error('Enter a new base rate');
       return;
     }
     if (n <= 0) {
-      toast.error('基础汇率必须大于 0');
+      toast.error('Base rate must be greater than 0');
       return;
     }
     mutation.mutate(
       { pairId: row.pairId, baseRate: n },
       {
         onSuccess: () => {
-          toast.success('已保存基础汇率');
+          toast.success('Base rate saved');
           onClose();
         },
         onError: (err) => toast.error((err as Error).message),
@@ -676,22 +633,22 @@ function BaseRateDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>维护基础汇率</DialogTitle>
+          <DialogTitle>Maintain Base Rate</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">货币对</label>
+            <label className="text-sm font-medium">Currency Pair</label>
             <p className="text-sm">
               {row.sourceCurrency}/{row.targetCurrency}
             </p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">当前基础汇率</label>
+            <label className="text-sm font-medium">Current Base Rate</label>
             <p className="text-sm tabular-nums">{formatRate(row.baseRate)}</p>
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              新基础汇率<span className="ml-0.5 text-destructive">*</span>
+              New Base Rate<span className="ml-0.5 text-destructive">*</span>
             </label>
             <Input
               type="number"
@@ -699,19 +656,19 @@ function BaseRateDialog({
               step={0.01}
               value={baseRate}
               onChange={(e) => setBaseRate(e.target.value)}
-              placeholder="请输入新基础汇率"
+              placeholder="Enter new base rate"
             />
             <p className="text-xs text-muted-foreground">
-              保存后立即生效,报价与超时重报价将使用新汇率(首版不走审批)
+              Takes effect immediately after saving; quoting and timeout re-quoting will use the new rate (no approval in the first version)
             </p>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            取消
+            Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={mutation.isPending}>
-            提交
+            Submit
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -747,7 +704,7 @@ function RateHistoryDialog({
     () => [
       {
         accessorKey: 'oldMarkupRate',
-        header: '原加价率',
+        header: 'Old Markup Rate',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatRate(row.original.oldMarkupRate)}
@@ -756,7 +713,7 @@ function RateHistoryDialog({
       },
       {
         accessorKey: 'newMarkupRate',
-        header: '新加价率',
+        header: 'New Markup Rate',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatRate(row.original.newMarkupRate)}
@@ -765,7 +722,7 @@ function RateHistoryDialog({
       },
       {
         accessorKey: 'changeType',
-        header: '变更类型',
+        header: 'Change Type',
         cell: ({ row }) => (
           <span>
             {RATE_CHANGE_TYPE_LABEL[row.original.changeType] ??
@@ -775,12 +732,12 @@ function RateHistoryDialog({
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => <RateStatusBadge status={row.original.status} />,
       },
       {
         accessorKey: 'approvalRecordId',
-        header: '审批记录',
+        header: 'Approval Record',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {row.original.approvalRecordId
@@ -791,7 +748,7 @@ function RateHistoryDialog({
       },
       {
         accessorKey: 'createTime',
-        header: '创建时间',
+        header: 'Created At',
         cell: ({ row }) => (
           <span>{formatTime(row.original.createTime)}</span>
         ),
@@ -805,14 +762,14 @@ function RateHistoryDialog({
       <DialogContent className="sm:max-w-[760px]">
         <DialogHeader>
           <DialogTitle>
-            变更记录:{row.sourceCurrency}/{row.targetCurrency}
+            Change History: {row.sourceCurrency}/{row.targetCurrency}
           </DialogTitle>
         </DialogHeader>
         <DataTable
           columns={columns}
           data={rows}
           isLoading={isLoading}
-          emptyMessage="暂无变更记录"
+          emptyMessage="No change history"
           pagination={
             paginationMeta
               ? {
@@ -826,7 +783,7 @@ function RateHistoryDialog({
         />
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            关闭
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -902,7 +859,7 @@ export function CurrencyPairFormPage() {
     }
     saveMutation.mutate(req, {
       onSuccess: () => {
-        toast.success(isEdit ? '已保存' : '已创建(草稿)');
+        toast.success(isEdit ? 'Saved' : 'Created (Draft)');
         router.push('/currency-pair');
       },
       onError: (err) => toast.error((err as Error).message),
@@ -914,20 +871,20 @@ export function CurrencyPairFormPage() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <div className="mb-6 text-base font-semibold">
-          {isEdit ? '编辑货币对' : '新建货币对'}
+          {isEdit ? 'Edit Currency Pair' : 'New Currency Pair'}
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {/* 源币种：Select 已入网银行支持币种并集；编辑态禁用 */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              源币种<span className="ml-0.5 text-destructive">*</span>
+              Source Currency<span className="ml-0.5 text-destructive">*</span>
             </label>
             <Controller
               control={control}
               name="sourceCurrency"
-              rules={{ required: '请选择源币种' }}
+              rules={{ required: 'Select source currency' }}
               render={({ field }) => (
                 <Select
                   value={field.value}
@@ -935,7 +892,7 @@ export function CurrencyPairFormPage() {
                   disabled={isEdit || currenciesEmpty}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="请选择源币种" />
+                    <SelectValue placeholder="Select source currency" />
                   </SelectTrigger>
                   <SelectContent>
                     {currencyOptions.map((c) => (
@@ -949,7 +906,7 @@ export function CurrencyPairFormPage() {
             />
             {currenciesEmpty && (
               <p className="text-xs text-muted-foreground">
-                暂无已入网银行支持的币种
+                No currencies supported by onboarded banks
               </p>
             )}
             {errors.sourceCurrency && (
@@ -962,15 +919,15 @@ export function CurrencyPairFormPage() {
           {/* 目标币种：同源币种数据源；编辑态禁用 */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              目标币种<span className="ml-0.5 text-destructive">*</span>
+              Target Currency<span className="ml-0.5 text-destructive">*</span>
             </label>
             <Controller
               control={control}
               name="targetCurrency"
               rules={{
-                required: '请选择目标币种',
+                required: 'Select target currency',
                 validate: (v) =>
-                  !v || v !== sourceCurrency || '源币种与目标币种不能相同',
+                  !v || v !== sourceCurrency || 'Source and target currencies cannot be the same',
               }}
               render={({ field }) => (
                 <Select
@@ -979,7 +936,7 @@ export function CurrencyPairFormPage() {
                   disabled={isEdit || currenciesEmpty}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="请选择目标币种" />
+                    <SelectValue placeholder="Select target currency" />
                   </SelectTrigger>
                   <SelectContent>
                     {currencyOptions.map((c) => (
@@ -1001,7 +958,7 @@ export function CurrencyPairFormPage() {
           {/* 管理侧加价率：已启用(status=20)编辑态锁定 */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              管理侧加价率<span className="ml-0.5 text-destructive">*</span>
+              Admin Markup Rate<span className="ml-0.5 text-destructive">*</span>
             </label>
             <Input
               type="number"
@@ -1010,10 +967,10 @@ export function CurrencyPairFormPage() {
               disabled={markupLocked}
               {...register('markupRate', {
                 validate: (v) => {
-                  if (v === '') return '请输入管理侧加价率';
+                  if (v === '') return 'Enter admin markup rate';
                   const n = Number(v);
-                  if (!Number.isFinite(n)) return '请输入管理侧加价率';
-                  if (n < 0) return '加价率不能为负';
+                  if (!Number.isFinite(n)) return 'Enter admin markup rate';
+                  if (n < 0) return 'Markup rate cannot be negative';
                   return true;
                 },
               })}
@@ -1025,24 +982,24 @@ export function CurrencyPairFormPage() {
             )}
             {markupLocked && (
               <p className="text-xs text-muted-foreground">
-                已启用货币对加价率变更走行操作「调整加价率」审批
+                Markup rate changes for enabled pairs go through the "Adjust Markup Rate" row action approval
               </p>
             )}
           </div>
 
           {/* 滑点阈值：基础汇率百分比，选填 */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">滑点阈值</label>
+            <label className="text-sm font-medium">Slippage Threshold</label>
             <Input
               type="number"
               min={0}
               step={0.01}
-              placeholder="默认 0"
+              placeholder="Default 0"
               {...register('slippageThreshold', {
                 validate: (v) => {
                   if (v === '') return true;
                   const n = Number(v);
-                  if (!Number.isFinite(n) || n < 0) return '滑点阈值不能为负';
+                  if (!Number.isFinite(n) || n < 0) return 'Slippage threshold cannot be negative';
                   return true;
                 },
               })}
@@ -1053,7 +1010,7 @@ export function CurrencyPairFormPage() {
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              基础汇率百分比,选填
+              Percentage of base rate, optional
             </p>
           </div>
         </div>
@@ -1066,10 +1023,10 @@ export function CurrencyPairFormPage() {
           onClick={() => router.push('/currency-pair')}
           disabled={submitting}
         >
-          取消
+          Cancel
         </Button>
         <Button type="submit" disabled={submitting}>
-          保存
+          Save
         </Button>
       </div>
     </form>
@@ -1104,12 +1061,12 @@ export function CurrencyPairDetailPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="text-base font-semibold">货币对详情</div>
+        <div className="text-base font-semibold">Currency Pair Details</div>
         <Button variant="outline" onClick={() => router.push('/currency-pair')}>
-          返回
+          Back
         </Button>
       </div>
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         {isLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-5 w-40" />
@@ -1118,32 +1075,32 @@ export function CurrencyPairDetailPage() {
           </div>
         ) : !detail ? (
           <p className="text-sm text-muted-foreground">
-            未找到该货币对（可能不在列表首页范围）。
+            Currency pair not found (it may be outside the first page of the list).
           </p>
         ) : (
           <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <DetailField label="货币对">
+            <DetailField label="Currency Pair">
               {detail.sourceCurrency}/{detail.targetCurrency}
             </DetailField>
-            <DetailField label="管理侧加价率">
+            <DetailField label="Admin Markup Rate">
               <span className="tabular-nums">
                 {formatRate(detail.markupRate)}
               </span>
             </DetailField>
-            <DetailField label="滑点阈值">
+            <DetailField label="Slippage Threshold">
               <span className="tabular-nums">
                 {formatRate(detail.slippageThreshold)}
               </span>
             </DetailField>
-            <DetailField label="基础汇率">
+            <DetailField label="Base Rate">
               <span className="tabular-nums">
                 {formatRate(detail.baseRate)}
               </span>
             </DetailField>
-            <DetailField label="状态">
+            <DetailField label="Status">
               <PairStatusBadge status={detail.status} />
             </DetailField>
-            <DetailField label="创建时间">
+            <DetailField label="Created At">
               {formatTime(detail.createTime)}
             </DetailField>
           </dl>
@@ -1206,7 +1163,7 @@ export function RateConfigListPage() {
     () => [
       {
         accessorKey: 'sourceCurrency',
-        header: '货币对',
+        header: 'Currency Pair',
         cell: ({ row }) => (
           <span>
             {row.original.sourceCurrency}/{row.original.targetCurrency}
@@ -1215,7 +1172,7 @@ export function RateConfigListPage() {
       },
       {
         accessorKey: 'oldMarkupRate',
-        header: '原加价率',
+        header: 'Old Markup Rate',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatRate(row.original.oldMarkupRate)}
@@ -1224,7 +1181,7 @@ export function RateConfigListPage() {
       },
       {
         accessorKey: 'newMarkupRate',
-        header: '新加价率',
+        header: 'New Markup Rate',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatRate(row.original.newMarkupRate)}
@@ -1233,7 +1190,7 @@ export function RateConfigListPage() {
       },
       {
         accessorKey: 'changeType',
-        header: '变更类型',
+        header: 'Change Type',
         cell: ({ row }) => (
           <span>
             {RATE_CHANGE_TYPE_LABEL[row.original.changeType] ??
@@ -1243,12 +1200,12 @@ export function RateConfigListPage() {
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => <RateStatusBadge status={row.original.status} />,
       },
       {
         accessorKey: 'approvalRecordId',
-        header: '审批记录',
+        header: 'Approval Record',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {row.original.approvalRecordId
@@ -1259,27 +1216,18 @@ export function RateConfigListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: '创建时间',
+        header: 'Created At',
         cell: ({ row }) => (
           <span>{formatTime(row.original.createTime)}</span>
         ),
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => (
-          <Button
-            variant="link"
-            size="sm"
-            className="h-auto p-0"
-            onClick={() =>
-              router.push(`/rate-config/detail?id=${row.original.recordId}`)
-            }
-          >
-            查看
-          </Button>
-        ),
-      },
+      createActionColumn<RateRecordRow & { id: string }>((item) => [
+        {
+          label: 'View',
+          onClick: () =>
+            router.push(`/rate-config/detail?id=${item.recordId}`),
+        },
+      ]),
     ],
     [router],
   );
@@ -1293,19 +1241,19 @@ export function RateConfigListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             name="pairId"
-            label="货币对ID"
-            placeholder="精确匹配,如 1"
+            label="Currency Pair ID"
+            placeholder="Exact match, e.g. 1"
             register={register('pairId')}
           />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-foreground">
-              状态
+              Status
             </label>
             <Controller
               control={control}
@@ -1318,13 +1266,13 @@ export function RateConfigListPage() {
                   }
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="全部" />
+                    <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={STATUS_ALL}>全部</SelectItem>
-                    <SelectItem value="5">待生效</SelectItem>
-                    <SelectItem value="15">已关闭</SelectItem>
-                    <SelectItem value="20">已生效</SelectItem>
+                    <SelectItem value={STATUS_ALL}>All</SelectItem>
+                    <SelectItem value="5">Pending</SelectItem>
+                    <SelectItem value="15">Closed</SelectItem>
+                    <SelectItem value="20">Effective</SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -1332,29 +1280,29 @@ export function RateConfigListPage() {
           </div>
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onReset}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">加价率变更记录</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
+          <div className="text-sm font-semibold">Markup Rate Change History</div>
           <Button
             type="button"
             size="sm"
             onClick={() => router.push('/rate-config/create')}
           >
-            提交加价率变更
+            Submit Markup Rate Change
           </Button>
         </div>
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={
             paginationMeta
               ? {
@@ -1421,23 +1369,23 @@ export function RateConfigFormPage() {
   const onSubmit = handleSubmit((values) => {
     const pairIdNum = Number(values.pairId);
     if (!values.pairId || !Number.isFinite(pairIdNum) || pairIdNum <= 0) {
-      toast.error('请选择货币对');
+      toast.error('Select a currency pair');
       return;
     }
     const markupNum = Number(values.markupRate);
     if (values.markupRate === '' || !Number.isFinite(markupNum)) {
-      toast.error('请输入新加价率');
+      toast.error('Enter a new markup rate');
       return;
     }
     if (markupNum < 0) {
-      toast.error('加价率不能为负');
+      toast.error('Markup rate cannot be negative');
       return;
     }
     mutation.mutate(
       { pairId: pairIdNum, markupRate: markupNum },
       {
         onSuccess: () => {
-          toast.success('已提交加价率变更审批');
+          toast.success('Markup rate change approval submitted');
           router.push('/rate-config');
         },
         onError: (err) => toast.error((err as Error).message),
@@ -1449,15 +1397,15 @@ export function RateConfigFormPage() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <div className="mb-6 text-base font-semibold">
-          {isEdit ? '调整加价率' : '提交加价率变更'}
+          {isEdit ? 'Adjust Markup Rate' : 'Submit Markup Rate Change'}
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {/* 货币对：新建态选择启用对；编辑态锁定 */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              货币对<span className="ml-0.5 text-destructive">*</span>
+              Currency Pair<span className="ml-0.5 text-destructive">*</span>
             </label>
             {isEdit ? (
               <Input
@@ -1472,11 +1420,11 @@ export function RateConfigFormPage() {
               <Controller
                 control={control}
                 name="pairId"
-                rules={{ required: '请选择货币对' }}
+                rules={{ required: 'Select a currency pair' }}
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="请选择启用的货币对" />
+                      <SelectValue placeholder="Select an enabled currency pair" />
                     </SelectTrigger>
                     <SelectContent>
                       {enabledPairs.map((p) => (
@@ -1494,17 +1442,17 @@ export function RateConfigFormPage() {
           {/* 新加价率 */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              新加价率<span className="ml-0.5 text-destructive">*</span>
+              New Markup Rate<span className="ml-0.5 text-destructive">*</span>
             </label>
             <Input
               type="number"
               min={0}
               step={0.01}
-              placeholder="请输入新加价率"
+              placeholder="Enter new markup rate"
               {...register('markupRate')}
             />
             <p className="text-xs text-muted-foreground">
-              审批通过后写入货币对并推送银行网关
+              Once approved, it will be written to the currency pair and pushed to the bank gateway
             </p>
           </div>
         </div>
@@ -1517,10 +1465,10 @@ export function RateConfigFormPage() {
           onClick={() => router.push('/rate-config')}
           disabled={submitting}
         >
-          取消
+          Cancel
         </Button>
         <Button type="submit" disabled={submitting}>
-          提交
+          Submit
         </Button>
       </div>
     </form>
@@ -1540,12 +1488,12 @@ export function RateConfigDetailPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="text-base font-semibold">变更记录详情</div>
+        <div className="text-base font-semibold">Change History Details</div>
         <Button variant="outline" onClick={() => router.push('/rate-config')}>
-          返回
+          Back
         </Button>
       </div>
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         {isLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-5 w-40" />
@@ -1554,38 +1502,38 @@ export function RateConfigDetailPage() {
           </div>
         ) : !record ? (
           <p className="text-sm text-muted-foreground">
-            未找到该变更记录（可能不在列表首页范围）。
+            Change record not found (it may be outside the first page of the list).
           </p>
         ) : (
           <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <DetailField label="货币对">
+            <DetailField label="Currency Pair">
               {record.sourceCurrency}/{record.targetCurrency}
             </DetailField>
-            <DetailField label="原加价率">
+            <DetailField label="Old Markup Rate">
               <span className="tabular-nums">
                 {formatRate(record.oldMarkupRate)}
               </span>
             </DetailField>
-            <DetailField label="新加价率">
+            <DetailField label="New Markup Rate">
               <span className="tabular-nums">
                 {formatRate(record.newMarkupRate)}
               </span>
             </DetailField>
-            <DetailField label="变更类型">
+            <DetailField label="Change Type">
               {RATE_CHANGE_TYPE_LABEL[record.changeType] ??
                 String(record.changeType)}
             </DetailField>
-            <DetailField label="状态">
+            <DetailField label="Status">
               <RateStatusBadge status={record.status} />
             </DetailField>
-            <DetailField label="审批记录">
+            <DetailField label="Approval Record">
               <span className="tabular-nums">
                 {record.approvalRecordId
                   ? String(record.approvalRecordId)
                   : '-'}
               </span>
             </DetailField>
-            <DetailField label="创建时间">
+            <DetailField label="Created At">
               {formatTime(record.createTime)}
             </DetailField>
           </dl>

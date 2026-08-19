@@ -15,8 +15,8 @@ export interface CurrencyPair {
 
 /** 货币对状态文案（源 currency-pair.vue：status === 20 ? '启用' : '停用'；未知状态按停用兜底）。 */
 export const CURRENCY_PAIR_STATUS_LABEL: Record<number, string> = {
-  20: '启用',
-  50: '停用',
+  20: 'Enabled',
+  50: 'Disabled',
 };
 
 /** 货币对状态 → Badge variant（启用=default，停用/未知=outline；对齐 kissen-admin conventions §5）。 */

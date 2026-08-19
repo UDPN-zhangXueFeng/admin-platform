@@ -44,8 +44,8 @@ export interface ExchangeRateSaveReq {
 
 /** 变更类型映射（源 rate-history-dialog CHANGE_TYPE_MAP）。 */
 export const RATE_CHANGE_TYPE_LABEL: Record<number, string> = {
-  1: '新增',
-  2: '修改',
+  1: 'Created',
+  2: 'Modified',
 };
 
 /**
@@ -53,9 +53,9 @@ export const RATE_CHANGE_TYPE_LABEL: Record<number, string> = {
  * 5 待生效 / 15 已关闭 / 20 已生效。
  */
 export const RATE_STATUS_LABEL: Record<number, string> = {
-  5: '待生效',
-  15: '已关闭',
-  20: '已生效',
+  5: 'Pending',
+  15: 'Closed',
+  20: 'Effective',
 };
 
 /** 变更记录状态 → Badge variant。5 待生效=outline / 20 已生效=default / 15 已关闭=secondary。 */

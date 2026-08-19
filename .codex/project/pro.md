@@ -179,9 +179,10 @@ libs/shared/util-config/src/lib/
 ├── config.defaults.ts      # 默认配置
 ├── config.loader.ts        # 配置加载逻辑
 ├── config.schema.ts        # 配置 schema
-├── config.types.ts         # 配置类型
-└── module-registry.ts      # 历史模块注册与解析；新增业务优先放到 app-local registry
+└── config.types.ts         # 配置类型
 ```
+
+历史 module-registry（40 个 admin 模块的动态 import 聚合）已迁至 `apps/admin/src/lib/module-registry.ts`：曾因 shared barrel 再导出，把全部 admin feature 拉进 kissen 应用的 client/server bundle（违反 "shared 不得依赖 libs/modules/*"）。kissen 应用只消费 `loadProjectConfig` 等纯配置能力。
 
 理解某个页面为什么显示、隐藏或无法加载时，优先检查配置、App Router 动态路由和 app-local module registry 是否一致。`shared-util-config` 不能新增对 `libs/modules/*` 的依赖；新模块应在 `apps/admin` 装配层接入动态页面加载。
 

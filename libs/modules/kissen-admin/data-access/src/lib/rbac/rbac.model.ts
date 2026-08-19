@@ -160,8 +160,8 @@ export interface MenuPermissionRow {
 
 /** 用户状态：0 正常 / 1 停用（与角色 status 同编号空间）。 */
 export const RBAC_USER_STATUS_LABEL: Record<number, string> = {
-  0: '正常',
-  1: '停用',
+  0: 'Normal',
+  1: 'Disabled',
 };
 
 export const RBAC_USER_STATUS_VARIANT: Record<
@@ -174,8 +174,8 @@ export const RBAC_USER_STATUS_VARIANT: Record<
 
 /** 用户类型：0 超级管理员 / 1 运营用户。 */
 export const RBAC_USER_TYPE_LABEL: Record<number, string> = {
-  0: '超管',
-  1: '运营',
+  0: 'Super Admin',
+  1: 'Operations',
 };
 
 export const RBAC_USER_TYPE_VARIANT: Record<
@@ -188,8 +188,8 @@ export const RBAC_USER_TYPE_VARIANT: Record<
 
 /** 首登状态：0 待改密 / 1 已改密。 */
 export const RBAC_FIRST_LOGIN_LABEL: Record<number, string> = {
-  0: '待改密',
-  1: '已改密',
+  0: 'Password Change Required',
+  1: 'Password Changed',
 };
 
 export const RBAC_FIRST_LOGIN_VARIANT: Record<
@@ -202,9 +202,9 @@ export const RBAC_FIRST_LOGIN_VARIANT: Record<
 
 /** 菜单类型：0 模块 / 1 系统 / 2 一级菜单 / 3 二级菜单 / 4 按钮。 */
 export const MENU_TYPE_LABEL: Record<number, string> = {
-  0: '模块',
-  1: '系统',
-  2: '一级菜单',
-  3: '二级菜单',
-  4: '按钮',
+  0: 'Module',
+  1: 'System',
+  2: 'First-Level Menu',
+  3: 'Second-Level Menu',
+  4: 'Button',
 };

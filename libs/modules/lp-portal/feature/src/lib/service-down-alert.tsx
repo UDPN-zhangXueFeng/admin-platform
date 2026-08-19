@@ -31,10 +31,10 @@ export function ServiceDownAlert({ traceId }: ServiceDownAlertProps) {
       <CloudOff className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       <div className="min-w-0">
         <p className="font-medium leading-snug">
-          Kissen 服务暂不可用,请稍后重试
+          Kissen service is temporarily unavailable, please try again later
         </p>
         <p className="text-sm text-amber-800">
-          数据加载失败,已展示的内容不受影响,请稍后重试。
+          Data failed to load. Displayed content is unaffected — please retry later.
           {traceId && (
             <span className="ml-1 font-mono text-xs text-amber-700">
               ({traceId})

@@ -109,7 +109,7 @@ function formatApprovalId(id: number | undefined): string {
 const ALL = 'all';
 
 function optAll() {
-  return { value: ALL, label: '全部' };
+  return { value: ALL, label: 'All' };
 }
 
 function toNumberOrUndef(v: string | undefined): number | undefined {
@@ -167,7 +167,7 @@ function DetailField({
 
 function DetailCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+    <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
       <div className="mb-6 text-base font-semibold">{title}</div>
       {children}
     </section>
@@ -266,11 +266,11 @@ function SettleOrderGenerateDialog({
     // 源 generate-dialog.vue rules：lpId/periodType 必填（「请选择 LP」「请选择周期类型」）。
     // FormSelect 不透传 Controller rules，按工单约定在提交处手动 guard。
     if (!Number.isFinite(lpId) || lpId <= 0) {
-      toast.warning('请选择 LP');
+      toast.warning('Please select an LP');
       return;
     }
     if (!Number.isFinite(periodType) || periodType <= 0) {
-      toast.warning('请选择周期类型');
+      toast.warning('Please select a period type');
       return;
     }
     const periodStart = values.periodStart
@@ -283,7 +283,7 @@ function SettleOrderGenerateDialog({
       { lpId, periodType, periodStart, periodEnd },
       {
         onSuccess: (res) => {
-          toast.success(`已生成结算单,单号 ${res.orderId}`);
+          toast.success(`Settlement order generated, order ID ${res.orderId}`);
           onClose();
         },
         onError: (err) => toast.error((err as Error).message),
@@ -295,7 +295,7 @@ function SettleOrderGenerateDialog({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>生成结算单</DialogTitle>
+          <DialogTitle>Generate Settlement Order</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <FormSelect
@@ -303,39 +303,39 @@ function SettleOrderGenerateDialog({
             control={control}
             label="LP"
             required
-            placeholder="选择 LP"
+            placeholder="Select LP"
             options={lpSelectOptions}
-            error={errors.lpId ? '请选择 LP' : undefined}
+            error={errors.lpId ? 'Please select an LP' : undefined}
           />
           <FormSelect
             name="periodType"
             control={control}
-            label="周期类型"
+            label="Period Type"
             required
-            placeholder="选择周期类型"
+            placeholder="Select period type"
             options={[
-              { value: '1', label: '日' },
-              { value: '2', label: '周' },
-              { value: '3', label: '月' },
+              { value: '1', label: 'Daily' },
+              { value: '2', label: 'Weekly' },
+              { value: '3', label: 'Monthly' },
             ]}
-            error={errors.periodType ? '请选择周期类型' : undefined}
+            error={errors.periodType ? 'Please select a period type' : undefined}
           />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField
               name="periodStart"
-              label="周期起"
+              label="Period Start"
               type="datetime-local"
               register={register('periodStart')}
             />
             <FormField
               name="periodEnd"
-              label="周期止"
+              label="Period End"
               type="datetime-local"
               register={register('periodEnd', {
                 validate: (v, vals) => {
                   if (v && vals.periodStart) {
                     if (new Date(v).getTime() <= new Date(vals.periodStart).getTime()) {
-                      return '周期止必须晚于周期起';
+                      return 'Period end must be later than period start';
                     }
                   }
                   return true;
@@ -345,14 +345,14 @@ function SettleOrderGenerateDialog({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            周期起止选填，留空用后端缺省周期窗口。
+            Period start and end are optional; leave blank to use the backend default period window.
           </p>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              取消
+              Cancel
             </Button>
             <Button type="submit" disabled={generateMutation.isPending}>
-              生成
+              Generate
             </Button>
           </DialogFooter>
         </form>
@@ -415,12 +415,12 @@ export function SettleOrderListPage() {
   /** 提交确认审批（KSC）；仅 status 5/15 可点。 */
   const onConfirm = React.useCallback(
     (row: SettleOrderRow) => {
-      if (!window.confirm(`确认提交结算单「${row.orderId}」确认审批?提交后进入审批中心待办。`))
+      if (!window.confirm(`Confirm submitting settlement order "${row.orderId}" for confirmation approval? It will enter the approval center to-do list after submission.`))
         return;
       confirmMutation.mutate(
         { orderId: row.orderId },
         {
-          onSuccess: () => toast.success('已提交结算单确认审批'),
+          onSuccess: () => toast.success('Settlement order confirmation approval submitted'),
           onError: (err) => toast.error((err as Error).message),
         },
       );
@@ -431,7 +431,7 @@ export function SettleOrderListPage() {
   /** 发起分成划转（KST）；仅 status 20 可点。 */
   const onSplitTransfer = React.useCallback(
     (row: SettleOrderRow) => {
-      if (!window.confirm(`确认对结算单「${row.orderId}」发起分成划转?提交后进入审批中心待办。`))
+      if (!window.confirm(`Confirm initiating a split transfer for settlement order "${row.orderId}"? It will enter the approval center to-do list after submission.`))
         return;
       splitSaveMutation.mutate(
         { orderId: row.orderId },
@@ -439,7 +439,7 @@ export function SettleOrderListPage() {
           onSuccess: () => {
             // 跨域刷新：发起划转后结算单 status 由 20→35，源 index.vue onSplitTransfer 成功后 load()。
             queryClient.invalidateQueries({ queryKey: settleOrderKeys.lists(KISSEN_PROJECT_ID) });
-            toast.success('已发起分成划转审批');
+            toast.success('Split transfer approval initiated');
           },
           onError: (err) => toast.error((err as Error).message),
         },
@@ -451,7 +451,7 @@ export function SettleOrderListPage() {
   const columns = React.useMemo<ColumnDef<SettleOrderRow & { id: string }>[]>(() => [
     {
       id: 'orderId',
-      header: '结算单 ID',
+      header: 'Settlement Order ID',
       cell: ({ row }) => <span>{row.original.orderId}</span>,
     },
     {
@@ -461,14 +461,14 @@ export function SettleOrderListPage() {
     },
     {
       id: 'periodType',
-      header: '周期类型',
+      header: 'Period Type',
       cell: ({ row }) => (
         <span>{SETTLE_PERIOD_TYPE_LABEL[row.original.periodType] ?? row.original.periodType}</span>
       ),
     },
     {
       id: 'periodRange',
-      header: '周期起止',
+      header: 'Period Start/End',
       cell: ({ row }) => (
         <span>
           {formatTimestamp(row.original.periodStart)} ~ {formatTimestamp(row.original.periodEnd)}
@@ -477,27 +477,27 @@ export function SettleOrderListPage() {
     },
     {
       accessorKey: 'txCount',
-      header: '笔数',
+      header: 'Txn Count',
       cell: ({ row }) => <span>{row.original.txCount}</span>,
     },
     {
       id: 'principalTotal',
-      header: '本金合计',
+      header: 'Principal Total',
       cell: ({ row }) => <span>{formatMoney(row.original.principalTotal)}</span>,
     },
     {
       id: 'markupTotal',
-      header: '加价合计',
+      header: 'Markup Total',
       cell: ({ row }) => <span>{formatMoney(row.original.markupTotal)}</span>,
     },
     {
       id: 'adminSplitTotal',
-      header: '管理侧分成',
+      header: 'Admin-Side Share',
       cell: ({ row }) => <span>{formatMoney(row.original.adminSplitTotal)}</span>,
     },
     {
       id: 'lpSplitTotal',
-      header: 'LP 分成',
+      header: 'LP Share',
       cell: ({ row }) => <span>{formatMoney(row.original.lpSplitTotal)}</span>,
     },
     {
@@ -506,9 +506,9 @@ export function SettleOrderListPage() {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span>状态</span>
+              <span>Status</span>
             </TooltipTrigger>
-            <TooltipContent>本域语义:5 待审 / 10 审中 / 15 拒绝 / 20 已确认 / 35 已结算(文案复用通用状态映射)</TooltipContent>
+            <TooltipContent>Domain semantics: 5 Pending Review / 10 Under Review / 15 Rejected / 20 Confirmed / 35 Settled (labels reuse the common status map)</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       ),
@@ -520,27 +520,27 @@ export function SettleOrderListPage() {
     },
     {
       accessorKey: 'createTime',
-      header: '创建时间',
+      header: 'Created At',
       cell: ({ row }) => <span>{formatTimestamp(row.original.createTime)}</span>,
     },
     {
       id: 'actions',
-      header: '操作',
+      header: 'Actions',
       cell: ({ row }) => {
         const item = row.original;
         return (
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="link" size="sm" className="h-auto p-0" onClick={() => onView(item.orderId)}>
-              查看
+              Details
             </Button>
             {(item.status === 5 || item.status === 15) && (
               <Button variant="link" size="sm" className="h-auto p-0" onClick={() => onConfirm(item)}>
-                提交确认
+                Submit Confirmation
               </Button>
             )}
             {item.status === 20 && (
               <Button variant="link" size="sm" className="h-auto p-0" onClick={() => onSplitTransfer(item)}>
-                发起分成划转
+                Initiate Split Transfer
               </Button>
             )}
           </div>
@@ -558,34 +558,34 @@ export function SettleOrderListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormSelect
             name="lpId"
             control={control}
             label="LP"
-            placeholder="全部"
+            placeholder="All"
             options={lpFilterOptions}
           />
           <FormSelect
             name="periodType"
             control={control}
-            label="周期类型"
-            placeholder="全部"
+            label="Period Type"
+            placeholder="All"
             options={[
               optAll(),
-              { value: '1', label: '日' },
-              { value: '2', label: '周' },
-              { value: '3', label: '月' },
+              { value: '1', label: 'Daily' },
+              { value: '2', label: 'Weekly' },
+              { value: '3', label: 'Monthly' },
             ]}
           />
           <FormSelect
             name="status"
             control={control}
-            label="状态"
-            placeholder="全部"
+            label="Status"
+            placeholder="All"
             options={[
               optAll(),
               ...SETTLE_ORDER_STATUS_VALUES.map((v) => ({
@@ -596,25 +596,25 @@ export function SettleOrderListPage() {
           />
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onResetSearch}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">结算单</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
+          <div className="text-sm font-semibold">Settlement Orders</div>
           <Button type="button" size="sm" onClick={() => setGenerateOpen(true)}>
-            生成结算单
+            Generate Settlement Order
           </Button>
         </div>
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={
             paginationMeta
               ? {
@@ -647,10 +647,10 @@ export function SettleOrderDetailPage() {
 
   if (!orderId) {
     return (
-      <DetailCard title="结算单详情">
-        <p className="text-sm text-muted-foreground">缺少结算单 ID。</p>
+      <DetailCard title="Settlement Order Details">
+        <p className="text-sm text-muted-foreground">Missing settlement order ID.</p>
         <Button variant="outline" className="mt-4" onClick={() => router.push('/settle-order')}>
-          返回
+          Back
         </Button>
       </DetailCard>
     );
@@ -658,36 +658,36 @@ export function SettleOrderDetailPage() {
 
   return (
     <div className="space-y-4">
-      <DetailCard title="结算单详情">
+      <DetailCard title="Settlement Order Details">
         {isLoading || !detail ? (
           <LoadingBlock />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <DetailField label="结算单 ID">{detail.orderId}</DetailField>
+            <DetailField label="Settlement Order ID">{detail.orderId}</DetailField>
             <DetailField label="LP">{detail.lpName || '--'}</DetailField>
-            <DetailField label="周期类型">
+            <DetailField label="Period Type">
               {SETTLE_PERIOD_TYPE_LABEL[detail.periodType] ?? detail.periodType}
             </DetailField>
-            <DetailField label="状态">
+            <DetailField label="Status">
               <Badge variant={SETTLE_ORDER_STATUS_VARIANT[detail.status] ?? 'outline'}>
                 {SETTLE_ORDER_STATUS_LABEL[detail.status] ?? detail.status}
               </Badge>
             </DetailField>
-            <DetailField label="周期起">{formatTimestamp(detail.periodStart)}</DetailField>
-            <DetailField label="周期止">{formatTimestamp(detail.periodEnd)}</DetailField>
-            <DetailField label="笔数">{detail.txCount}</DetailField>
-            <DetailField label="审批记录 ID">{formatApprovalId(detail.approvalRecordId)}</DetailField>
-            <DetailField label="本金合计">{formatMoney(detail.principalTotal)}</DetailField>
-            <DetailField label="加价合计">{formatMoney(detail.markupTotal)}</DetailField>
-            <DetailField label="管理侧分成">{formatMoney(detail.adminSplitTotal)}</DetailField>
-            <DetailField label="LP 分成">{formatMoney(detail.lpSplitTotal)}</DetailField>
-            <DetailField label="创建时间">{formatTimestamp(detail.createTime)}</DetailField>
+            <DetailField label="Period Start">{formatTimestamp(detail.periodStart)}</DetailField>
+            <DetailField label="Period End">{formatTimestamp(detail.periodEnd)}</DetailField>
+            <DetailField label="Txn Count">{detail.txCount}</DetailField>
+            <DetailField label="Approval Record ID">{formatApprovalId(detail.approvalRecordId)}</DetailField>
+            <DetailField label="Principal Total">{formatMoney(detail.principalTotal)}</DetailField>
+            <DetailField label="Markup Total">{formatMoney(detail.markupTotal)}</DetailField>
+            <DetailField label="Admin-Side Share">{formatMoney(detail.adminSplitTotal)}</DetailField>
+            <DetailField label="LP Share">{formatMoney(detail.lpSplitTotal)}</DetailField>
+            <DetailField label="Created At">{formatTimestamp(detail.createTime)}</DetailField>
           </div>
         )}
       </DetailCard>
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/settle-order')}>
-          返回
+          Back
         </Button>
       </div>
     </div>
@@ -770,12 +770,12 @@ export function SplitTransferListPage() {
   const columns = React.useMemo<ColumnDef<SplitTransferRow & { id: string }>[]>(() => [
     {
       id: 'transferId',
-      header: '划转 ID',
+      header: 'Transfer ID',
       cell: ({ row }) => <span>{row.original.transferId}</span>,
     },
     {
       id: 'orderId',
-      header: '结算单 ID',
+      header: 'Settlement Order ID',
       cell: ({ row }) => <span>{row.original.orderId}</span>,
     },
     {
@@ -785,29 +785,29 @@ export function SplitTransferListPage() {
     },
     {
       accessorKey: 'direction',
-      header: '方向',
+      header: 'Direction',
       cell: ({ row }) => (
         <span>{SPLIT_DIRECTION_LABEL[row.original.direction] ?? row.original.direction}</span>
       ),
     },
     {
       accessorKey: 'currency',
-      header: '币种',
+      header: 'Currency',
       cell: ({ row }) => <span>{row.original.currency || '--'}</span>,
     },
     {
       accessorKey: 'amount',
-      header: '金额',
+      header: 'Amount',
       cell: ({ row }) => <span>{formatMoney(row.original.amount)}</span>,
     },
     {
       accessorKey: 'csTxId',
-      header: '货币系统交易 ID',
+      header: 'Currency System Txn ID',
       cell: ({ row }) => <span>{row.original.csTxId || '--'}</span>,
     },
     {
       accessorKey: 'status',
-      header: '状态',
+      header: 'Status',
       cell: ({ row }) => (
         <Badge variant={SPLIT_STATUS_VARIANT[row.original.status] ?? 'outline'}>
           {SPLIT_STATUS_LABEL[row.original.status] ?? row.original.status}
@@ -816,15 +816,15 @@ export function SplitTransferListPage() {
     },
     {
       accessorKey: 'createTime',
-      header: '创建时间',
+      header: 'Created At',
       cell: ({ row }) => <span>{formatTimestamp(row.original.createTime)}</span>,
     },
     {
       id: 'actions',
-      header: '操作',
+      header: 'Actions',
       cell: ({ row }) => (
         <Button variant="link" size="sm" className="h-auto p-0" onClick={() => onView(row.original)}>
-          查看
+          Details
         </Button>
       ),
     },
@@ -839,53 +839,53 @@ export function SplitTransferListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             name="orderId"
-            label="结算单 ID"
+            label="Settlement Order ID"
             type="number"
             min={1}
-            placeholder="精确匹配"
+            placeholder="Exact Match"
             register={register('orderId')}
           />
           <FormSelect
             name="lpId"
             control={control}
             label="LP"
-            placeholder="全部"
+            placeholder="All"
             options={lpFilterOptions}
           />
           <FormSelect
             name="status"
             control={control}
-            label="状态"
-            placeholder="全部"
+            label="Status"
+            placeholder="All"
             options={[
               optAll(),
-              { value: '1', label: '处理中' },
-              { value: '2', label: '成功' },
-              { value: '3', label: '失败' },
+              { value: '1', label: 'Processing' },
+              { value: '2', label: 'Success' },
+              { value: '3', label: 'Failed' },
             ]}
           />
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onResetSearch}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="border-b px-6 py-3 text-sm font-semibold">分成划转</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="border-b border-border/50 px-6 py-3 text-sm font-semibold">Split Transfers</div>
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={
             paginationMeta
               ? {
@@ -929,10 +929,10 @@ export function SplitTransferDetailPage() {
 
   if (!transferId) {
     return (
-      <DetailCard title="分成划转详情">
-        <p className="text-sm text-muted-foreground">缺少划转 ID。</p>
+      <DetailCard title="Split Transfer Details">
+        <p className="text-sm text-muted-foreground">Missing transfer ID.</p>
         <Button variant="outline" className="mt-4" onClick={() => router.push('/split-transfer')}>
-          返回
+          Back
         </Button>
       </DetailCard>
     );
@@ -940,35 +940,35 @@ export function SplitTransferDetailPage() {
 
   return (
     <div className="space-y-4">
-      <DetailCard title="分成划转详情">
+      <DetailCard title="Split Transfer Details">
         {isLoading ? (
           <LoadingBlock />
         ) : !row ? (
-          <p className="text-sm text-muted-foreground">未找到该划转记录。</p>
+          <p className="text-sm text-muted-foreground">Transfer record not found.</p>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <DetailField label="划转 ID">{row.transferId}</DetailField>
-            <DetailField label="结算单 ID">{row.orderId}</DetailField>
+            <DetailField label="Transfer ID">{row.transferId}</DetailField>
+            <DetailField label="Settlement Order ID">{row.orderId}</DetailField>
             <DetailField label="LP">{row.lpName || '--'}</DetailField>
-            <DetailField label="方向">
+            <DetailField label="Direction">
               {SPLIT_DIRECTION_LABEL[row.direction] ?? row.direction}
             </DetailField>
-            <DetailField label="币种">{row.currency || '--'}</DetailField>
-            <DetailField label="金额">{formatMoney(row.amount)}</DetailField>
-            <DetailField label="货币系统交易 ID">{row.csTxId || '--'}</DetailField>
-            <DetailField label="审批记录 ID">{formatApprovalId(row.approvalRecordId)}</DetailField>
-            <DetailField label="状态">
+            <DetailField label="Currency">{row.currency || '--'}</DetailField>
+            <DetailField label="Amount">{formatMoney(row.amount)}</DetailField>
+            <DetailField label="Currency System Txn ID">{row.csTxId || '--'}</DetailField>
+            <DetailField label="Approval Record ID">{formatApprovalId(row.approvalRecordId)}</DetailField>
+            <DetailField label="Status">
               <Badge variant={SPLIT_STATUS_VARIANT[row.status] ?? 'outline'}>
                 {SPLIT_STATUS_LABEL[row.status] ?? row.status}
               </Badge>
             </DetailField>
-            <DetailField label="创建时间">{formatTimestamp(row.createTime)}</DetailField>
+            <DetailField label="Created At">{formatTimestamp(row.createTime)}</DetailField>
           </div>
         )}
       </DetailCard>
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/split-transfer')}>
-          返回
+          Back
         </Button>
       </div>
     </div>
@@ -1042,7 +1042,7 @@ function ReconcileReviewDialog({
       },
       {
         onSuccess: () => {
-          toast.success(values.reviewAction === '2' ? '已确认差异' : '已忽略差异');
+          toast.success(values.reviewAction === '2' ? 'Diff confirmed' : 'Diff ignored');
           onClose();
         },
         onError: (err) => toast.error((err as Error).message),
@@ -1054,27 +1054,27 @@ function ReconcileReviewDialog({
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>处理对账差异</DialogTitle>
+          <DialogTitle>Review Recon Diff</DialogTitle>
         </DialogHeader>
         <div className="mb-4 space-y-1.5 rounded-md border bg-muted/30 p-4 text-sm">
-          <div><span className="text-muted-foreground">差异 ID：</span>{row.diffId}</div>
-          <div><span className="text-muted-foreground">交易 ID：</span>{row.transactionId}</div>
+          <div><span className="text-muted-foreground">Diff ID: </span>{row.diffId}</div>
+          <div><span className="text-muted-foreground">Transaction ID: </span>{row.transactionId}</div>
           <div>
-            <span className="text-muted-foreground">差异类型：</span>
+            <span className="text-muted-foreground">Diff Type: </span>
             {RECONCILE_DIFF_TYPE_LABEL[row.diffType] ?? row.diffType}
           </div>
-          <div><span className="text-muted-foreground">预期：</span>{row.expected || '--'}</div>
-          <div><span className="text-muted-foreground">实际：</span>{row.actual || '--'}</div>
+          <div><span className="text-muted-foreground">Expected: </span>{row.expected || '--'}</div>
+          <div><span className="text-muted-foreground">Actual: </span>{row.actual || '--'}</div>
         </div>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              处理方式<span className="ml-0.5 text-destructive">*</span>
+              Review Action<span className="ml-0.5 text-destructive">*</span>
             </label>
             <Controller
               control={control}
               name="reviewAction"
-              rules={{ required: '请选择处理方式' }}
+              rules={{ required: 'Please select a review action' }}
               render={({ field }) => (
                 <RadioGroup
                   value={field.value}
@@ -1082,10 +1082,10 @@ function ReconcileReviewDialog({
                   className="flex gap-6"
                 >
                   <label className="flex items-center gap-2 text-sm">
-                    <RadioGroupItem value="2" /> 确认
+                    <RadioGroupItem value="2" /> Confirm
                   </label>
                   <label className="flex items-center gap-2 text-sm">
-                    <RadioGroupItem value="3" /> 忽略
+                    <RadioGroupItem value="3" /> Ignore
                   </label>
                 </RadioGroup>
               )}
@@ -1097,20 +1097,20 @@ function ReconcileReviewDialog({
             )}
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">备注</label>
+            <label className="text-sm font-medium">Remarks</label>
             <Textarea
               rows={3}
               maxLength={200}
-              placeholder="选填"
+              placeholder="Optional"
               {...register('reviewRemarks')}
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              取消
+              Cancel
             </Button>
             <Button type="submit" disabled={reviewMutation.isPending}>
-              提交
+              Submit
             </Button>
           </DialogFooter>
         </form>
@@ -1165,10 +1165,10 @@ export function ReconcileListPage() {
   /** 执行对账：确认守卫；reconDate 空走后端缺省（昨日）。 */
   const onRun = React.useCallback(() => {
     const dayMs = dateStrToDayStartMs(reconDateStr);
-    const dayLabel = dayMs ? formatDay(dayMs) : '昨日(后端缺省)';
+    const dayLabel = dayMs ? formatDay(dayMs) : 'Yesterday (backend default)';
     if (
       !window.confirm(
-        `确认对 ${dayLabel} 执行对账?该日已有待处理差异将被删除重建,已确认/已忽略保留。`,
+        `Confirm running reconciliation for ${dayLabel}? Existing pending diffs for that day will be deleted and rebuilt; confirmed/ignored ones are kept.`,
       )
     )
       return;
@@ -1176,7 +1176,7 @@ export function ReconcileListPage() {
       { reconDate: dayMs },
       {
         onSuccess: (res) => {
-          toast.success(`对账完成,发现 ${res.diffCount} 条差异`);
+          toast.success(`Reconciliation completed, ${res.diffCount} diff(s) found`);
           // 源 onRun 成功后回到首页查询（onSearch 等价）。
           setParams((prev) => ({ ...prev, pageNum: 1 }));
         },
@@ -1193,39 +1193,39 @@ export function ReconcileListPage() {
   const columns = React.useMemo<ColumnDef<ReconcileDiffRow & { id: string }>[]>(() => [
     {
       id: 'diffId',
-      header: '差异 ID',
+      header: 'Diff ID',
       cell: ({ row }) => <span>{row.original.diffId}</span>,
     },
     {
       accessorKey: 'reconDate',
-      header: '对账日期',
+      header: 'Recon Date',
       cell: ({ row }) => <span>{formatDay(row.original.reconDate)}</span>,
     },
     {
       accessorKey: 'diffType',
-      header: '差异类型',
+      header: 'Diff Type',
       cell: ({ row }) => (
         <span>{RECONCILE_DIFF_TYPE_LABEL[row.original.diffType] ?? row.original.diffType}</span>
       ),
     },
     {
       accessorKey: 'transactionId',
-      header: '交易 ID',
+      header: 'Transaction ID',
       cell: ({ row }) => <span>{row.original.transactionId}</span>,
     },
     {
       accessorKey: 'expected',
-      header: '预期',
+      header: 'Expected',
       cell: ({ row }) => <span>{row.original.expected || '--'}</span>,
     },
     {
       accessorKey: 'actual',
-      header: '实际',
+      header: 'Actual',
       cell: ({ row }) => <span>{row.original.actual || '--'}</span>,
     },
     {
       accessorKey: 'status',
-      header: '状态',
+      header: 'Status',
       cell: ({ row }) => (
         <Badge variant={RECONCILE_DIFF_STATUS_VARIANT[row.original.status] ?? 'outline'}>
           {RECONCILE_DIFF_STATUS_LABEL[row.original.status] ?? row.original.status}
@@ -1234,29 +1234,29 @@ export function ReconcileListPage() {
     },
     {
       accessorKey: 'reviewUserName',
-      header: '处理人',
+      header: 'Reviewed By',
       cell: ({ row }) => <span>{row.original.reviewUserName || '--'}</span>,
     },
     {
       accessorKey: 'reviewTime',
-      header: '处理时间',
+      header: 'Review Time',
       cell: ({ row }) => (
         <span>{row.original.reviewTime === 0 ? '--' : formatTimestamp(row.original.reviewTime)}</span>
       ),
     },
     {
       id: 'actions',
-      header: '操作',
+      header: 'Actions',
       cell: ({ row }) => {
         const item = row.original;
         return (
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="link" size="sm" className="h-auto p-0" onClick={() => onView(item.diffId)}>
-              查看
+              Details
             </Button>
             {item.status === 1 && (
               <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setReviewRow(item)}>
-                处理
+                Review
               </Button>
             )}
           </div>
@@ -1274,55 +1274,55 @@ export function ReconcileListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <FormField
             name="reconDate"
-            label="对账日期"
+            label="Recon Date"
             type="date"
             register={register('reconDate')}
           />
           <FormSelect
             name="diffType"
             control={control}
-            label="差异类型"
-            placeholder="全部"
+            label="Diff Type"
+            placeholder="All"
             options={[
               optAll(),
-              { value: '1', label: '时间轴缺失' },
-              { value: '2', label: '结算流水缺失' },
-              { value: '3', label: '金额不自洽' },
-              { value: '4', label: '链路异常' },
+              { value: '1', label: 'Timeline Missing' },
+              { value: '2', label: 'Settlement Record Missing' },
+              { value: '3', label: 'Amount Mismatch' },
+              { value: '4', label: 'Chain Anomaly' },
             ]}
           />
           <FormSelect
             name="status"
             control={control}
-            label="状态"
-            placeholder="全部"
+            label="Status"
+            placeholder="All"
             options={[
               optAll(),
-              { value: '1', label: '待处理' },
-              { value: '2', label: '已确认' },
-              { value: '3', label: '已忽略' },
+              { value: '1', label: 'Pending' },
+              { value: '2', label: 'Confirmed' },
+              { value: '3', label: 'Ignored' },
             ]}
           />
           <FormField
             name="transactionId"
-            label="交易 ID"
+            label="Transaction ID"
             type="number"
             min={1}
-            placeholder="精确匹配"
+            placeholder="Exact Match"
             register={register('transactionId')}
           />
         </div>
         <div className="mt-4 flex items-center justify-between gap-2">
           <div className="flex gap-2">
-            <Button type="submit">查询</Button>
+            <Button type="submit">Search</Button>
             <Button type="button" variant="outline" onClick={onResetSearch}>
-              重置
+              Reset
             </Button>
           </div>
           <Button
@@ -1330,18 +1330,18 @@ export function ReconcileListPage() {
             onClick={onRun}
             disabled={runMutation.isPending}
           >
-            执行对账
+            Run Reconciliation
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="border-b px-6 py-3 text-sm font-semibold">对账差异</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="border-b border-border/50 px-6 py-3 text-sm font-semibold">Recon Diffs</div>
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={
             paginationMeta
               ? {
@@ -1385,10 +1385,10 @@ export function ReconcileDetailPage() {
 
   if (!diffId) {
     return (
-      <DetailCard title="对账差异详情">
-        <p className="text-sm text-muted-foreground">缺少差异 ID。</p>
+      <DetailCard title="Recon Diff Details">
+        <p className="text-sm text-muted-foreground">Missing diff ID.</p>
         <Button variant="outline" className="mt-4" onClick={() => router.push('/reconcile')}>
-          返回
+          Back
         </Button>
       </DetailCard>
     );
@@ -1396,38 +1396,38 @@ export function ReconcileDetailPage() {
 
   return (
     <div className="space-y-4">
-      <DetailCard title="对账差异详情">
+      <DetailCard title="Recon Diff Details">
         {isLoading ? (
           <LoadingBlock />
         ) : !row ? (
-          <p className="text-sm text-muted-foreground">未找到该差异记录。</p>
+          <p className="text-sm text-muted-foreground">Diff record not found.</p>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <DetailField label="差异 ID">{row.diffId}</DetailField>
-            <DetailField label="对账日期">{formatDay(row.reconDate)}</DetailField>
-            <DetailField label="差异类型">
+            <DetailField label="Diff ID">{row.diffId}</DetailField>
+            <DetailField label="Recon Date">{formatDay(row.reconDate)}</DetailField>
+            <DetailField label="Diff Type">
               {RECONCILE_DIFF_TYPE_LABEL[row.diffType] ?? row.diffType}
             </DetailField>
-            <DetailField label="交易 ID">{row.transactionId}</DetailField>
-            <DetailField label="预期">{row.expected || '--'}</DetailField>
-            <DetailField label="实际">{row.actual || '--'}</DetailField>
-            <DetailField label="状态">
+            <DetailField label="Transaction ID">{row.transactionId}</DetailField>
+            <DetailField label="Expected">{row.expected || '--'}</DetailField>
+            <DetailField label="Actual">{row.actual || '--'}</DetailField>
+            <DetailField label="Status">
               <Badge variant={RECONCILE_DIFF_STATUS_VARIANT[row.status] ?? 'outline'}>
                 {RECONCILE_DIFF_STATUS_LABEL[row.status] ?? row.status}
               </Badge>
             </DetailField>
-            <DetailField label="处理人">{row.reviewUserName || '--'}</DetailField>
-            <DetailField label="处理时间">
+            <DetailField label="Reviewed By">{row.reviewUserName || '--'}</DetailField>
+            <DetailField label="Review Time">
               {row.reviewTime === 0 ? '--' : formatTimestamp(row.reviewTime)}
             </DetailField>
-            <DetailField label="备注">{row.reviewRemarks || '--'}</DetailField>
-            <DetailField label="创建时间">{formatTimestamp(row.createTime)}</DetailField>
+            <DetailField label="Remarks">{row.reviewRemarks || '--'}</DetailField>
+            <DetailField label="Created At">{formatTimestamp(row.createTime)}</DetailField>
           </div>
         )}
       </DetailCard>
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/reconcile')}>
-          返回
+          Back
         </Button>
       </div>
     </div>

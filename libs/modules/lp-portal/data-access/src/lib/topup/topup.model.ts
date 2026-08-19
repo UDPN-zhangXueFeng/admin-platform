@@ -39,9 +39,9 @@ export interface TopupListReq {
 
 /** 补资状态文案（源 views/topup TOPUP_STATUS_TEXT；未知码显原值兜底在页面）。 */
 export const TOPUP_STATUS_LABEL: Record<number, string> = {
-  1: '已声明',
-  2: '已到账',
-  3: '失败',
+  1: 'Declared',
+  2: 'Received',
+  3: 'Failed',
 };
 
 /**

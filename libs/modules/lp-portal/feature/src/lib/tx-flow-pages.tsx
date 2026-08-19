@@ -57,12 +57,12 @@ const PAGE_SIZE = 10;
 
 const LBL = {
   eyebrow: 'BUSINESS',
-  title: '交易流水',
-  query: '查询',
-  reset: '重置',
-  records: '交易流水',
-  empty: '暂无数据',
-  viewChain: '查看链路',
+  title: 'Transaction Flow',
+  query: 'Search',
+  reset: 'Reset',
+  records: 'Transaction Flow',
+  empty: 'No data',
+  viewChain: 'View Chain',
 } as const;
 
 /** 下拉「全部」哨兵（FormSelect 禁空 value，非 ALL 即转 number 参与查询）。 */
@@ -159,7 +159,7 @@ export function TxFlowListPage() {
 
   const pairSelectOptions = React.useMemo<SelectOption[]>(
     () => [
-      { value: ALL, label: '全部货币对' },
+      { value: ALL, label: 'All Currency Pairs' },
       ...(pairOptions ?? []).map((p) => ({
         value: String(p.pairId),
         label: `${p.sourceCurrency}→${p.targetCurrency}`,
@@ -173,7 +173,7 @@ export function TxFlowListPage() {
       {
         // 交易单号：txUuid 优先 txNo 兜底双兜底（F1）；show-overflow-tooltip
         accessorKey: 'txNo',
-        header: '交易单号',
+        header: 'Tx No.',
         cell: ({ row }) => {
           const text = txNoText(row.original);
           if (text === '-') return <span>-</span>;
@@ -193,19 +193,19 @@ export function TxFlowListPage() {
       },
       {
         accessorKey: 'transactionId',
-        header: '交易 ID',
+        header: 'Transaction ID',
         cell: ({ row }) => (
           <span className="font-mono text-xs">{row.original.transactionId}</span>
         ),
       },
       {
         accessorKey: 'pairId',
-        header: '货币对',
+        header: 'Currency Pair',
         cell: ({ row }) => <span>{pairText(row.original)}</span>,
       },
       {
         accessorKey: 'principal',
-        header: '本金',
+        header: 'Principal',
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
             {formatMoney(row.original.principal)}
@@ -214,12 +214,12 @@ export function TxFlowListPage() {
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => <TxStatusBadge status={row.original.status} />,
       },
       {
         accessorKey: 'createTime',
-        header: '创建时间',
+        header: 'Created At',
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
             {formatTime(row.original.createTime)}
@@ -228,7 +228,7 @@ export function TxFlowListPage() {
       },
       {
         accessorKey: 'completedTime',
-        header: '完成时间',
+        header: 'Completed At',
         // 源口径：completedTime === 0 严格判 0 = 未完成哨兵（非 truthy 判断）
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
@@ -240,7 +240,7 @@ export function TxFlowListPage() {
       },
       {
         id: 'actions',
-        header: '操作',
+        header: 'Actions',
         cell: ({ row }) => (
           <Button
             variant="link"
@@ -254,7 +254,6 @@ export function TxFlowListPage() {
       },
     ],
     // pairText 闭包依赖 pairMap（未知 pairId 回落显原始 id 的口径）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [pairMap],
   );
 
@@ -276,36 +275,36 @@ export function TxFlowListPage() {
 
       <form
         onSubmit={handleSubmit((f) => setParams(formToParams(f, 1)))}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询条件</div>
+        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <FormField
             name="startTime"
-            label="开始时间"
+            label="Start Time"
             type="datetime-local"
             register={register('startTime')}
           />
           <FormField
             name="endTime"
-            label="结束时间"
+            label="End Time"
             type="datetime-local"
             register={register('endTime')}
           />
           <FormSelect
             name="pairId"
             control={control}
-            label="货币对"
+            label="Currency Pair"
             options={pairSelectOptions}
           />
           <FormSelect
             name="status"
             control={control}
-            label="状态"
+            label="Status"
             options={STATUS_OPTIONS}
           />
         </div>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button type="submit">{LBL.query}</Button>
           <Button
             type="button"
@@ -321,8 +320,8 @@ export function TxFlowListPage() {
       </form>
 
       <TooltipProvider>
-        <div className="rounded-lg border bg-card shadow-sm">
-          <div className="flex items-center justify-between border-b px-6 py-3">
+        <div className="rounded-lg border-border/60 bg-card shadow-float">
+          <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
             <div className="text-sm font-semibold">{LBL.records}</div>
           </div>
           <DataTable

@@ -15,9 +15,9 @@ export type {
 
 /** 菜单类型文案（源 类型下拉 el-option label `N 文案`；0 模块〜4 按钮）。 */
 export const MENU_TYPE_TEXT: Record<number, string> = {
-  0: '模块',
-  1: '系统',
-  2: '一级菜单',
-  3: '二级菜单',
-  4: '按钮',
+  0: 'Module',
+  1: 'System',
+  2: 'Level-1 Menu',
+  3: 'Level-2 Menu',
+  4: 'Button',
 };

@@ -41,9 +41,9 @@ export interface SplitTransferSaveReq {
  * 规格标注「不可复用全局映射」，故域内独立维护。
  */
 export const SPLIT_STATUS_LABEL: Record<number, string> = {
-  1: '处理中',
-  2: '成功',
-  3: '失败',
+  1: 'Processing',
+  2: 'Success',
+  3: 'Failed',
 };
 
 /** 分成划转状态 → Badge variant（成功=default，失败=destructive，处理中=secondary）。 */
@@ -58,8 +58,8 @@ export const SPLIT_STATUS_VARIANT: Record<
 
 /** 方向映射（源 DIRECTION_MAP：1 Kissen 凭预授权划转 / 2 LP 主动划转）。 */
 export const SPLIT_DIRECTION_LABEL: Record<number, string> = {
-  1: 'Kissen 凭预授权划转',
-  2: 'LP 主动划转',
+  1: 'Kissen Pre-Authorized Transfer',
+  2: 'LP-Initiated Transfer',
 };
 
 /** LP 选项（跨域薄调用类型，仅取所需字段）。 */

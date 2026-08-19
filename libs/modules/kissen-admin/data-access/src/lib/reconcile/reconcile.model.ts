@@ -53,10 +53,10 @@ export interface ReconcileReviewReq {
 
 /** 差异类型本地映射（规格 §2.2，域内私有）。源 DIFF_TYPE_MAP。 */
 export const RECONCILE_DIFF_TYPE_LABEL: Record<number, string> = {
-  1: '时间轴缺失',
-  2: '结算流水缺失',
-  3: '金额不自洽',
-  4: '链路异常',
+  1: 'Timeline Missing',
+  2: 'Settlement Record Missing',
+  3: 'Amount Mismatch',
+  4: 'Chain Anomaly',
 };
 
 /**
@@ -64,9 +64,9 @@ export const RECONCILE_DIFF_TYPE_LABEL: Record<number, string> = {
  * 源 DIFF_STATUS_MAP：1 待处理 / 2 已确认 / 3 已忽略。
  */
 export const RECONCILE_DIFF_STATUS_LABEL: Record<number, string> = {
-  1: '待处理',
-  2: '已确认',
-  3: '已忽略',
+  1: 'Pending',
+  2: 'Confirmed',
+  3: 'Ignored',
 };
 
 /** 差异状态 → Badge variant（已确认=default，待处理=secondary，已忽略=outline）。 */

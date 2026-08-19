@@ -9,6 +9,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   Badge,
   Button,
+  createActionColumn,
+  type TableRowAction,
   Checkbox,
   DataTable,
   Dialog,
@@ -29,10 +31,6 @@ import {
   TabsList,
   TabsTrigger,
   Textarea,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
   useToast,
 } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
@@ -129,7 +127,7 @@ function ConnectivityBadge({ status }: { status: number }) {
   const s = status ?? 0;
   return (
     <Badge variant={CONNECTIVITY_STATUS_VARIANT[s] ?? 'secondary'}>
-      {CONNECTIVITY_STATUS_LABEL[s] ?? '未知'}
+      {CONNECTIVITY_STATUS_LABEL[s] ?? 'Unknown'}
     </Badge>
   );
 }
@@ -146,44 +144,44 @@ interface FieldDef {
 /** 银行审批业务字段顺序（源 FIELD_MAPS 的 kissen_bank_onboard / kissen_limit_change）。 */
 const BANK_FIELD_MAPS: Record<string, FieldDef[]> = {
   [BANK_BUSINESS_CODES.onboard]: [
-    { key: 'bankName', label: '银行名称' },
-    { key: 'bankCode', label: '银行编码' },
+    { key: 'bankName', label: 'Bank Name' },
+    { key: 'bankCode', label: 'Bank Code' },
     { key: 'bic', label: 'SWIFT BIC' },
-    { key: 'currencies', label: '支持币种' },
-    { key: 'singleLimit', label: '单笔限额' },
-    { key: 'dailyLimit', label: '日累计限额' },
-    { key: 'accountConfig', label: '账户配置' },
-    { key: 'kycInfo', label: 'KYC 信息' },
-    { key: 'status', label: '状态' },
-    { key: 'createTime', label: '创建时间' },
+    { key: 'currencies', label: 'Supported Currencies' },
+    { key: 'singleLimit', label: 'Single Limit' },
+    { key: 'dailyLimit', label: 'Daily Cumulative Limit' },
+    { key: 'accountConfig', label: 'Account Config' },
+    { key: 'kycInfo', label: 'KYC Information' },
+    { key: 'status', label: 'Status' },
+    { key: 'createTime', label: 'Created At' },
   ],
   [BANK_BUSINESS_CODES.limitChange]: [
-    { key: 'bankName', label: '银行名称' },
-    { key: 'oldSingleLimit', label: '原单笔限额' },
-    { key: 'oldDailyLimit', label: '原日累计限额' },
-    { key: 'newSingleLimit', label: '新单笔限额' },
-    { key: 'newDailyLimit', label: '新日累计限额' },
+    { key: 'bankName', label: 'Bank Name' },
+    { key: 'oldSingleLimit', label: 'Original Single Limit' },
+    { key: 'oldDailyLimit', label: 'Original Daily Cumulative Limit' },
+    { key: 'newSingleLimit', label: 'New Single Limit' },
+    { key: 'newDailyLimit', label: 'New Daily Cumulative Limit' },
   ],
 };
 
 /** 字段名 → 中文标签兜底词典（源 LABEL_DICT 子集 + limit 字段）。 */
 const FIELD_LABEL_DICT: Record<string, string> = {
-  bankId: '银行ID',
-  changeId: '限额变更ID',
-  bankName: '银行名称',
-  bankCode: '银行编码',
+  bankId: 'Bank ID',
+  changeId: 'Limit Change ID',
+  bankName: 'Bank Name',
+  bankCode: 'Bank Code',
   bic: 'SWIFT BIC',
-  singleLimit: '单笔限额',
-  dailyLimit: '日累计限额',
-  oldSingleLimit: '原单笔限额',
-  oldDailyLimit: '原日累计限额',
-  newSingleLimit: '新单笔限额',
-  newDailyLimit: '新日累计限额',
-  accountConfig: '账户配置',
-  status: '状态',
-  kycInfo: 'KYC 信息',
-  createTime: '创建时间',
-  currencies: '支持币种',
+  singleLimit: 'Single Limit',
+  dailyLimit: 'Daily Cumulative Limit',
+  oldSingleLimit: 'Original Single Limit',
+  oldDailyLimit: 'Original Daily Cumulative Limit',
+  newSingleLimit: 'New Single Limit',
+  newDailyLimit: 'New Daily Cumulative Limit',
+  accountConfig: 'Account Config',
+  status: 'Status',
+  kycInfo: 'KYC Information',
+  createTime: 'Created At',
+  currencies: 'Supported Currencies',
 };
 
 function fieldLabelFor(busCode: string, key: string): string {
@@ -207,7 +205,7 @@ function formatFieldValue(
   value: unknown,
 ): string | NestedValue {
   if (value === null || value === undefined || value === '') return '--';
-  if (typeof value === 'boolean') return value ? '是' : '否';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'object' && !Array.isArray(value)) {
     return {
       kind: 'nested',
@@ -344,11 +342,11 @@ export function BankInfoListPage() {
   const onSubmitOnboard = React.useCallback(
     (row: BankRow) => {
       if (
-        !window.confirm(`确认提交「${row.bankName}」入网申请?提交后进入审批中心待办。`)
+        !window.confirm(`Confirm submitting the onboarding application for "${row.bankName}"? It will enter the approval center as a pending task after submission.`)
       )
         return;
       submitMutation.mutate(row.bankId, {
-        onSuccess: () => toast.success('已提交入网申请'),
+        onSuccess: () => toast.success('Onboarding application submitted'),
         onError: (e) => toast.error((e as Error).message),
       });
     },
@@ -360,14 +358,14 @@ export function BankInfoListPage() {
     (row: BankRow) => {
       if (
         !window.confirm(
-          `确认冻结银行「${row.bankName}」?冻结后该行立即退出报价与匹配,状态变为停用。`,
+          `Confirm freezing bank "${row.bankName}"? Once frozen, the bank immediately exits quoting and matching, and its status becomes Disabled.`,
         )
       )
         return;
       freezeMutation.mutate(
         { bankId: row.bankId, freeze: true },
         {
-          onSuccess: () => toast.success('已冻结'),
+          onSuccess: () => toast.success('Frozen'),
           onError: (e) => toast.error((e as Error).message),
         },
       );
@@ -380,14 +378,14 @@ export function BankInfoListPage() {
     (row: BankRow) => {
       if (
         !window.confirm(
-          `确认解冻银行「${row.bankName}」?解冻后该行恢复已启用,重新参与报价与匹配。`,
+          `Confirm unfreezing bank "${row.bankName}"? Once unfrozen, the bank returns to Enabled and rejoins quoting and matching.`,
         )
       )
         return;
       freezeMutation.mutate(
         { bankId: row.bankId, freeze: false },
         {
-          onSuccess: () => toast.success('已解冻'),
+          onSuccess: () => toast.success('Unfrozen'),
           onError: (e) => toast.error((e as Error).message),
         },
       );
@@ -397,8 +395,8 @@ export function BankInfoListPage() {
 
   const columns = React.useMemo<ColumnDef<BankRow & { id: string }>[]>(() => {
     return [
-      { accessorKey: 'bankName', header: '银行名称' },
-      { accessorKey: 'bankCode', header: '银行编码' },
+      { accessorKey: 'bankName', header: 'Bank Name' },
+      { accessorKey: 'bankCode', header: 'Bank Code' },
       {
         accessorKey: 'bic',
         header: 'SWIFT BIC',
@@ -406,21 +404,21 @@ export function BankInfoListPage() {
       },
       {
         accessorKey: 'currencies',
-        header: '支持币种',
+        header: 'Supported Currencies',
         cell: ({ row }) => (
           <span>{row.original.currencies?.length ? row.original.currencies.join(', ') : '--'}</span>
         ),
       },
       {
         id: 'connectivity',
-        header: '连接状态',
+        header: 'Connectivity',
         cell: ({ row }) => (
           <ConnectivityBadge status={row.original.connectivityStatus} />
         ),
       },
       {
         accessorKey: 'singleLimit',
-        header: '单笔限额',
+        header: 'Single Limit',
         cell: ({ row }) => (
           <span className="font-mono tabular-nums">
             {formatMoney(row.original.singleLimit)}
@@ -429,7 +427,7 @@ export function BankInfoListPage() {
       },
       {
         accessorKey: 'dailyLimit',
-        header: '日累计限额',
+        header: 'Daily Cumulative Limit',
         cell: ({ row }) => (
           <span className="font-mono tabular-nums">
             {formatMoney(row.original.dailyLimit)}
@@ -438,103 +436,40 @@ export function BankInfoListPage() {
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => <BankStatusBadge status={row.original.status} />,
       },
       {
         accessorKey: 'createTime',
-        header: '创建时间',
+        header: 'Created At',
         cell: ({ row }) => <span>{formatTime(row.original.createTime)}</span>,
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => {
-          const item = row.original;
-          const s = item.status;
-          const canEdit = s === 1 || s === 15;
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => router.push(`/bank-info/detail?id=${item.bankId}`)}
-              >
-                查看
-              </Button>
-              {canEdit && (
-                <>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0"
-                    onClick={() => router.push(`/bank-info/edit?id=${item.bankId}`)}
-                  >
-                    编辑
-                  </Button>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0"
-                    onClick={() => onSubmitOnboard(item)}
-                  >
-                    提交入网申请
-                  </Button>
-                </>
-              )}
-              {s === 20 && (
-                <>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="link" size="sm" className="h-auto p-0" disabled>
-                          编辑
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>已启用银行不可编辑,限额变更走审批流</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-destructive"
-                    onClick={() => onFreeze(item)}
-                  >
-                    冻结
-                  </Button>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0"
-                    onClick={() => setLimitChangeRow(item)}
-                  >
-                    限额变更
-                  </Button>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0"
-                    onClick={() => setGatewayRow(item)}
-                  >
-                    连接信息
-                  </Button>
-                </>
-              )}
-              {s === 50 && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  onClick={() => onUnfreeze(item)}
-                >
-                  解冻
-                </Button>
-              )}
-            </div>
+      createActionColumn<BankRow & { id: string }>((item) => {
+        const s = item.status;
+        const canEdit = s === 1 || s === 15;
+        const actions: TableRowAction<BankRow & { id: string }>[] = [
+          { label: 'View', onClick: () => router.push(`/bank-info/detail?id=${item.bankId}`) },
+        ];
+        if (canEdit) {
+          actions.push(
+            { label: 'Edit', onClick: () => router.push(`/bank-info/edit?id=${item.bankId}`) },
+            { label: 'Submit Onboarding Application', onClick: () => onSubmitOnboard(item) },
           );
-        },
-      },
+        }
+        if (s === 20) {
+          actions.push(
+            // 源为禁用按钮 + Tooltip 说明文案；共享动作列无 tooltip 槽位，保留禁用语义。
+            { label: 'Edit', disabled: true, onClick: () => router.push(`/bank-info/edit?id=${item.bankId}`) },
+            { label: 'Freeze', destructive: true, onClick: () => onFreeze(item) },
+            { label: 'Limit Change', onClick: () => setLimitChangeRow(item) },
+            { label: 'Connection Info', onClick: () => setGatewayRow(item) },
+          );
+        }
+        if (s === 50) {
+          actions.push({ label: 'Unfreeze', onClick: () => onUnfreeze(item) });
+        }
+        return actions;
+      }),
     ];
   }, [router, onSubmitOnboard, onFreeze, onUnfreeze]);
 
@@ -547,25 +482,25 @@ export function BankInfoListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             name="bankName"
-            label="银行名称"
-            placeholder="模糊匹配"
+            label="Bank Name"
+            placeholder="Fuzzy match"
             register={register('bankName')}
           />
           <FormField
             name="bankCode"
-            label="银行编码"
-            placeholder="模糊匹配"
+            label="Bank Code"
+            placeholder="Fuzzy match"
             register={register('bankCode')}
           />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-foreground">
-              状态
+              Status
             </label>
             <Controller
               control={control}
@@ -576,10 +511,10 @@ export function BankInfoListPage() {
                   onValueChange={field.onChange}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="全部" />
+                    <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={STATUS_ALL}>全部</SelectItem>
+                    <SelectItem value={STATUS_ALL}>All</SelectItem>
                     {BANK_STATUS_OPTIONS.map((o) => (
                       <SelectItem key={o.value} value={String(o.value)}>
                         {o.label}
@@ -592,29 +527,29 @@ export function BankInfoListPage() {
           </div>
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onReset}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">银行列表</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
+          <div className="text-sm font-semibold">Bank List</div>
           <Button
             type="button"
             size="sm"
             onClick={() => router.push('/bank-info/create')}
           >
-            新建银行
+            Create Bank
           </Button>
         </div>
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={
             paginationMeta
               ? {
@@ -690,7 +625,7 @@ function LimitChangeDialog({
       },
       {
         onSuccess: () => {
-          toast.success('已提交限额变更审批');
+          toast.success('Limit change approval submitted');
           onClose();
         },
         onError: (e) => toast.error((e as Error).message),
@@ -702,32 +637,32 @@ function LimitChangeDialog({
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>银行限额变更</DialogTitle>
+          <DialogTitle>Bank Limit Change</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">银行</label>
+            <label className="text-sm font-medium">Bank</label>
             <div className="text-sm">{row.bankName}</div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">当前单笔限额</label>
+            <label className="text-sm font-medium">Current Single Limit</label>
             <div className="font-mono tabular-nums text-sm">
               {formatMoney(row.singleLimit)}
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">当前日累计限额</label>
+            <label className="text-sm font-medium">Current Daily Cumulative Limit</label>
             <div className="font-mono tabular-nums text-sm">
               {formatMoney(row.dailyLimit)}
             </div>
           </div>
           <FormField
             name="singleLimit"
-            label="新单笔限额"
+            label="New Single Limit"
             required
             type="number"
             step="any"
-            error={formState.errors.singleLimit ? '请输入新单笔限额' : undefined}
+            error={formState.errors.singleLimit ? 'Please enter the new single limit' : undefined}
             register={register('singleLimit', {
               required: true,
               validate: (v) => v !== '' && Number(v) >= 0,
@@ -735,11 +670,11 @@ function LimitChangeDialog({
           />
           <FormField
             name="dailyLimit"
-            label="新日累计限额"
+            label="New Daily Cumulative Limit"
             required
             type="number"
             step="any"
-            error={formState.errors.dailyLimit ? '请输入新日累计限额' : undefined}
+            error={formState.errors.dailyLimit ? 'Please enter the new daily cumulative limit' : undefined}
             register={register('dailyLimit', {
               required: true,
               validate: (v) => v !== '' && Number(v) >= 0,
@@ -747,10 +682,10 @@ function LimitChangeDialog({
           />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              取消
+              Cancel
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
-              提交审批
+              Submit for Approval
             </Button>
           </DialogFooter>
         </form>
@@ -794,7 +729,7 @@ function GatewayConnectionPanel({
 
   const onSave = handleSubmit((v) => {
     if (notRegistered && !v.keyFingerprint.trim()) {
-      toast.error('首次登记请输入密钥指纹');
+      toast.error('Please enter the key fingerprint for first-time registration');
       return;
     }
     registerMutation.mutate(
@@ -805,7 +740,7 @@ function GatewayConnectionPanel({
       },
       {
         onSuccess: () => {
-          toast.success('已保存连接信息');
+          toast.success('Connection info saved');
           onSaved?.();
         },
         onError: (e) => toast.error((e as Error).message),
@@ -820,8 +755,8 @@ function GatewayConnectionPanel({
     try {
       await testBankGateway(bankId);
       const fresh = await infoQuery.refetch();
-      if (fresh.data?.connectivityStatus === 1) toast.success('连接正常');
-      else toast.warning('连接失败:网关端点不可达');
+      if (fresh.data?.connectivityStatus === 1) toast.success('Connection normal');
+      else toast.warning('Connection failed: gateway endpoint unreachable');
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -833,36 +768,36 @@ function GatewayConnectionPanel({
     <div className="space-y-6">
       {/* 连接状态 */}
       <section className="space-y-3">
-        <div className="text-sm font-semibold">连接状态</div>
+        <div className="text-sm font-semibold">Connectivity</div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <DetailField label="连通性">
+          <DetailField label="Connectivity">
             {infoQuery.isLoading ? (
               <Skeleton className="h-4 w-16" />
             ) : (
               <ConnectivityBadge status={connectivity} />
             )}
           </DetailField>
-          <DetailField label="最近心跳">
+          <DetailField label="Last Heartbeat">
             {infoQuery.isLoading ? (
               <Skeleton className="h-4 w-32" />
             ) : (
               <span>{formatTime(info?.lastHeartbeatTime)}</span>
             )}
           </DetailField>
-          <DetailField label="当前密钥指纹">
+          <DetailField label="Current Key Fingerprint">
             {infoQuery.isLoading ? (
               <Skeleton className="h-4 w-40" />
             ) : (
               <span>{info?.keyFingerprintMasked || '--'}</span>
             )}
           </DetailField>
-          <DetailField label="登记状态">
+          <DetailField label="Registration Status">
             {infoQuery.isLoading ? (
               <Skeleton className="h-4 w-16" />
             ) : info?.registered ? (
-              <Badge variant="default">已登记</Badge>
+              <Badge variant="default">Registered</Badge>
             ) : (
-              <Badge variant="outline">未登记</Badge>
+              <Badge variant="outline">Not Registered</Badge>
             )}
           </DetailField>
         </div>
@@ -870,21 +805,21 @@ function GatewayConnectionPanel({
 
       {/* 连接设置 */}
       <form onSubmit={onSave} className="space-y-4">
-        <div className="text-sm font-semibold">连接设置</div>
+        <div className="text-sm font-semibold">Connection Settings</div>
         <FormField
           name="endpointUrl"
-          label="网关端点 URL"
+          label="Gateway Endpoint URL"
           required
-          placeholder="请输入网关端点 URL"
+          placeholder="Please enter the gateway endpoint URL"
           maxLength={200}
-          error={formState.errors.endpointUrl ? '请输入网关端点 URL' : undefined}
+          error={formState.errors.endpointUrl ? 'Please enter the gateway endpoint URL' : undefined}
           register={register('endpointUrl', { required: true, maxLength: 200 })}
         />
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">密钥指纹</label>
+          <label className="text-sm font-medium">Key Fingerprint</label>
           <Input
             maxLength={128}
-            placeholder={notRegistered ? '请输入密钥指纹' : '留空保持原值'}
+            placeholder={notRegistered ? 'Please enter the key fingerprint' : 'Leave blank to keep the current value'}
             {...register('keyFingerprint')}
           />
         </div>
@@ -895,10 +830,10 @@ function GatewayConnectionPanel({
             disabled={notRegistered || testing}
             onClick={onTest}
           >
-            {testing ? '测试中…' : '测试连接'}
+            {testing ? 'Testing…' : 'Test Connection'}
           </Button>
           <Button type="submit" disabled={registerMutation.isPending}>
-            保存
+            Save
           </Button>
         </div>
       </form>
@@ -917,13 +852,13 @@ function GatewayConnectionDialog({
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>银行连接信息</DialogTitle>
+          <DialogTitle>Bank Connection Info</DialogTitle>
           <DialogDescription>{row.bankName}</DialogDescription>
         </DialogHeader>
         <GatewayConnectionPanel bankId={row.bankId} onSaved={onClose} />
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            关闭
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1004,7 +939,7 @@ export function BankInfoFormPage() {
     };
     saveMutation.mutate(payload, {
       onSuccess: () => {
-        toast.success(isEdit ? '已保存' : '已创建(草稿)');
+        toast.success(isEdit ? 'Saved' : 'Created (Draft)');
         router.push('/bank-info');
       },
       onError: (e) => toast.error((e as Error).message),
@@ -1015,23 +950,23 @@ export function BankInfoFormPage() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <div className="mb-6 text-base font-semibold">
-          {isEdit ? '编辑银行' : '新建银行'}
+          {isEdit ? 'Edit Bank' : 'Create Bank'}
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             name="bankName"
-            label="银行名称"
+            label="Bank Name"
             required
-            error={formState.errors.bankName ? '请输入银行名称' : undefined}
+            error={formState.errors.bankName ? 'Please enter the bank name' : undefined}
             register={register('bankName', { required: true, maxLength: 64 })}
           />
           <FormField
             name="bankCode"
-            label="银行编码"
+            label="Bank Code"
             required
-            error={formState.errors.bankCode ? '请输入银行编码' : undefined}
+            error={formState.errors.bankCode ? 'Please enter the bank code' : undefined}
             register={register('bankCode', { required: true, maxLength: 32 })}
           />
           <FormField
@@ -1041,11 +976,11 @@ export function BankInfoFormPage() {
           />
           <FormField
             name="singleLimit"
-            label="单笔限额"
+            label="Single Limit"
             required
             type="number"
             step="any"
-            error={formState.errors.singleLimit ? '请输入单笔限额' : undefined}
+            error={formState.errors.singleLimit ? 'Please enter the single limit' : undefined}
             register={register('singleLimit', {
               required: true,
               validate: (v) => v !== '' && Number(v) > 0,
@@ -1053,30 +988,30 @@ export function BankInfoFormPage() {
           />
           <FormField
             name="dailyLimit"
-            label="日累计限额"
+            label="Daily Cumulative Limit"
             required
             type="number"
-            placeholder="大于 0"
+            placeholder="Greater than 0"
             step="any"
-            error={formState.errors.dailyLimit ? '请输入日累计限额' : undefined}
+            error={formState.errors.dailyLimit ? 'Please enter the daily cumulative limit' : undefined}
             register={register('dailyLimit', {
               required: true,
               validate: (v) => v !== '' && Number(v) > 0,
             })}
           />
           <div className="space-y-1.5 md:col-span-2">
-            <label className="text-sm font-medium">账户参数</label>
+            <label className="text-sm font-medium">Account Config</label>
             <Textarea
               rows={3}
-              placeholder="JSON,选填"
+              placeholder="JSON, optional"
               {...register('accountConfig')}
             />
           </div>
           <div className="space-y-1.5 md:col-span-2">
-            <label className="text-sm font-medium">KYC 信息</label>
+            <label className="text-sm font-medium">KYC Information</label>
             <Textarea
               rows={3}
-              placeholder="资质材料,选填"
+              placeholder="Qualification materials, optional"
               {...register('kycInfo')}
             />
           </div>
@@ -1084,9 +1019,9 @@ export function BankInfoFormPage() {
       </section>
 
       {/* 支持币种多选（数据源 currencyEnabledList；源 bank-dialog currencies）。 */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <div className="mb-4 text-sm font-semibold">
-          支持币种
+          Supported Currencies
           <span className="ml-0.5 text-destructive">*</span>
         </div>
         <Controller
@@ -1094,7 +1029,7 @@ export function BankInfoFormPage() {
           name="currencies"
           rules={{
             validate: (v) =>
-              (Array.isArray(v) && v.length > 0) || '请至少选择一个支持币种',
+              (Array.isArray(v) && v.length > 0) || 'Please select at least one supported currency',
           }}
           render={({ field, fieldState }) => (
             <div className="space-y-2">
@@ -1124,10 +1059,10 @@ export function BankInfoFormPage() {
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">暂无可选币种</p>
+                <p className="text-sm text-muted-foreground">No currencies available</p>
               )}
               <p className="text-xs text-muted-foreground">
-                数据源为币种主数据启用项
+                Data source: enabled currency master data
               </p>
               {fieldState.error && (
                 <p className="text-sm text-destructive">{fieldState.error.message}</p>
@@ -1144,10 +1079,10 @@ export function BankInfoFormPage() {
           onClick={() => router.push('/bank-info')}
           disabled={submitting}
         >
-          取消
+          Cancel
         </Button>
         <Button type="submit" disabled={submitting}>
-          保存
+          Save
         </Button>
       </div>
     </form>
@@ -1170,14 +1105,14 @@ export function BankInfoDetailPage() {
 
   if (!bankId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">缺少银行 ID</p>
+      <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <p className="text-sm text-muted-foreground">Missing bank ID</p>
         <Button
           variant="outline"
           className="mt-4"
           onClick={() => router.push('/bank-info')}
         >
-          返回
+          Back
         </Button>
       </div>
     );
@@ -1185,19 +1120,19 @@ export function BankInfoDetailPage() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <div className="mb-6 text-base font-semibold">银行详情</div>
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+        <div className="mb-6 text-base font-semibold">Bank Details</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <DetailField label="银行名称">
+          <DetailField label="Bank Name">
             {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.bankName || '--'}
           </DetailField>
-          <DetailField label="银行编码">
+          <DetailField label="Bank Code">
             {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.bankCode || '--'}
           </DetailField>
           <DetailField label="SWIFT BIC">
             {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.bic || '--'}
           </DetailField>
-          <DetailField label="支持币种">
+          <DetailField label="Supported Currencies">
             {isLoading ? (
               <Skeleton className="h-4 w-40" />
             ) : detail?.currencies?.length ? (
@@ -1206,7 +1141,7 @@ export function BankInfoDetailPage() {
               '--'
             )}
           </DetailField>
-          <DetailField label="单笔限额">
+          <DetailField label="Single Limit">
             {isLoading ? (
               <Skeleton className="h-4 w-24" />
             ) : (
@@ -1215,7 +1150,7 @@ export function BankInfoDetailPage() {
               </span>
             )}
           </DetailField>
-          <DetailField label="日累计限额">
+          <DetailField label="Daily Cumulative Limit">
             {isLoading ? (
               <Skeleton className="h-4 w-24" />
             ) : (
@@ -1224,14 +1159,14 @@ export function BankInfoDetailPage() {
               </span>
             )}
           </DetailField>
-          <DetailField label="连接状态">
+          <DetailField label="Connectivity">
             {isLoading ? (
               <Skeleton className="h-4 w-16" />
             ) : (
               <ConnectivityBadge status={detail?.connectivityStatus ?? 0} />
             )}
           </DetailField>
-          <DetailField label="状态">
+          <DetailField label="Status">
             {isLoading ? (
               <Skeleton className="h-4 w-20" />
             ) : detail ? (
@@ -1240,10 +1175,10 @@ export function BankInfoDetailPage() {
               '--'
             )}
           </DetailField>
-          <DetailField label="创建时间">
+          <DetailField label="Created At">
             {isLoading ? <Skeleton className="h-4 w-40" /> : formatTime(detail?.createTime)}
           </DetailField>
-          <DetailField label="账户参数">
+          <DetailField label="Account Config">
             {isLoading ? (
               <Skeleton className="h-4 w-40" />
             ) : (
@@ -1252,7 +1187,7 @@ export function BankInfoDetailPage() {
               </span>
             )}
           </DetailField>
-          <DetailField label="KYC 信息">
+          <DetailField label="KYC Information">
             {isLoading ? (
               <Skeleton className="h-4 w-40" />
             ) : (
@@ -1266,7 +1201,7 @@ export function BankInfoDetailPage() {
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/bank-info')}>
-          返回
+          Back
         </Button>
       </div>
     </div>
@@ -1286,7 +1221,7 @@ interface BankApprovalFilterForm {
 }
 
 const BANK_APPROVAL_BUSINESS_OPTIONS: ReadonlyArray<{ label: string; value: string }> = [
-  { label: '全部', value: STATUS_ALL },
+  { label: 'All', value: STATUS_ALL },
   { label: BANK_BUSINESS_LABEL[BANK_BUSINESS_CODES.onboard], value: BANK_BUSINESS_CODES.onboard },
   { label: BANK_BUSINESS_LABEL[BANK_BUSINESS_CODES.limitChange], value: BANK_BUSINESS_CODES.limitChange },
 ];
@@ -1379,25 +1314,25 @@ export function BankApprovalListPage() {
     ColumnDef<(BankApprovalTodoRow | BankApprovalDoneRow) & { id: string }>[]
   >(() => {
     const base: ColumnDef<(BankApprovalTodoRow | BankApprovalDoneRow) & { id: string }>[] = [
-      { accessorKey: 'applyCode', header: '审批编号' },
+      { accessorKey: 'applyCode', header: 'Approval No.' },
       {
         accessorKey: 'businessCode',
-        header: '业务类型',
+        header: 'Business Type',
         cell: ({ row }) => (
           <span>{BANK_BUSINESS_LABEL[row.original.businessCode] ?? row.original.businessCode}</span>
         ),
       },
-      { accessorKey: 'busDesc', header: '业务描述' },
-      { accessorKey: 'stepName', header: '当前节点' },
-      { accessorKey: 'createUserName', header: '申请人' },
+      { accessorKey: 'busDesc', header: 'Business Description' },
+      { accessorKey: 'stepName', header: 'Current Step' },
+      { accessorKey: 'createUserName', header: 'Applicant' },
       {
         accessorKey: 'createTime',
-        header: '申请时间',
+        header: 'Application Time',
         cell: ({ row }) => <span>{formatTime(row.original.createTime)}</span>,
       },
       {
         id: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => {
           if (tab === 'todo') {
             return <BankStatusBadge status={row.original.reviewerStatus} />;
@@ -1414,33 +1349,27 @@ export function BankApprovalListPage() {
     base.push(
       {
         accessorKey: 'reviewerTime',
-        header: '处理时间',
+        header: 'Processed At',
         cell: ({ row }) => (
           <span>{formatTime((row.original as BankApprovalDoneRow).reviewerTime)}</span>
         ),
       },
       {
         accessorKey: 'reviewerRemarks',
-        header: '我的意见',
+        header: 'My Remarks',
         cell: ({ row }) => (
           <span>{(row.original as BankApprovalDoneRow).reviewerRemarks || '--'}</span>
         ),
       },
     );
-    base.push({
-      id: 'actions',
-      header: '操作',
-      cell: ({ row }) => (
-        <Button
-          variant="link"
-          size="sm"
-          className="h-auto p-0"
-          onClick={() => router.push(buildApprovalDetailHref(row.original, tab))}
-        >
-          {tab === 'todo' ? '处理' : '查看'}
-        </Button>
-      ),
-    });
+    base.push(
+      createActionColumn<(BankApprovalTodoRow | BankApprovalDoneRow) & { id: string }>((item) => [
+        {
+          label: tab === 'todo' ? 'Process' : 'View',
+          onClick: () => router.push(buildApprovalDetailHref(item, tab)),
+        },
+      ]),
+    );
     return base;
   }, [router, tab]);
 
@@ -1453,13 +1382,13 @@ export function BankApprovalListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-foreground">
-              业务类型
+              Business Type
             </label>
             <Controller
               control={control}
@@ -1467,7 +1396,7 @@ export function BankApprovalListPage() {
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger>
-                    <SelectValue placeholder="全部" />
+                    <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
                     {BANK_APPROVAL_BUSINESS_OPTIONS.map((o) => (
@@ -1482,14 +1411,14 @@ export function BankApprovalListPage() {
           </div>
           <FormField
             name="keyword"
-            label="关键字"
-            placeholder="审批编号 / 业务描述"
+            label="Keyword"
+            placeholder="Approval No. / Business Description"
             register={register('keyword')}
           />
           {tab === 'done' && (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
-                结果
+                Result
               </label>
               <Controller
                 control={control}
@@ -1500,12 +1429,12 @@ export function BankApprovalListPage() {
                     onValueChange={field.onChange}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="全部" />
+                      <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={STATUS_ALL}>全部</SelectItem>
-                      <SelectItem value="3">通过</SelectItem>
-                      <SelectItem value="2">拒绝</SelectItem>
+                      <SelectItem value={STATUS_ALL}>All</SelectItem>
+                      <SelectItem value="3">Approved</SelectItem>
+                      <SelectItem value="2">Rejected</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -1514,19 +1443,19 @@ export function BankApprovalListPage() {
           )}
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onReset}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
       <Tabs value={tab} onValueChange={onTabChange}>
-        <div className="rounded-lg border bg-card shadow-sm">
+        <div className="rounded-lg border-border/60 bg-card shadow-float">
           <div className="border-b px-6 pt-4">
             <TabsList>
-              <TabsTrigger value="todo">待办</TabsTrigger>
-              <TabsTrigger value="done">已办</TabsTrigger>
+              <TabsTrigger value="todo">To Do</TabsTrigger>
+              <TabsTrigger value="done">Done</TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="todo" className="mt-0">
@@ -1534,7 +1463,7 @@ export function BankApprovalListPage() {
               columns={columns}
               data={tableData}
               isLoading={todoQuery.isLoading}
-              emptyMessage="暂无数据"
+              emptyMessage="No data"
               pagination={
                 paginationMeta
                   ? {
@@ -1557,7 +1486,7 @@ export function BankApprovalListPage() {
               columns={columns}
               data={tableData}
               isLoading={doneQuery.isLoading}
-              emptyMessage="暂无数据"
+              emptyMessage="No data"
               pagination={
                 paginationMeta
                   ? {
@@ -1631,16 +1560,16 @@ export function BankApprovalDetailPage() {
 
   const onApprove = (approve: 3 | 2) => {
     if (approve === 2 && !remarks.trim()) {
-      toast.warning('请填写拒绝原因');
+      toast.warning('Please provide a rejection reason');
       return;
     }
     if (!busCode || !taskId) return;
-    if (!window.confirm(approve === 3 ? '确认通过该审批?' : '确认拒绝该审批?')) return;
+    if (!window.confirm(approve === 3 ? 'Confirm approving this request?' : 'Confirm rejecting this request?')) return;
     processMutation.mutate(
       { busCode, taskId, approve, remarks: remarks.trim() || undefined },
       {
         onSuccess: () => {
-          toast.success(approve === 3 ? '已通过' : '已拒绝');
+          toast.success(approve === 3 ? 'Approved' : 'Rejected');
           back();
         },
         onError: (e) => toast.error((e as Error).message),
@@ -1650,16 +1579,16 @@ export function BankApprovalDetailPage() {
 
   const onPreviousStep = () => {
     if (!remarks.trim()) {
-      toast.warning('退回上一步必须填写退回原因');
+      toast.warning('A return reason is required to send back to the previous step');
       return;
     }
     if (!busCode || !taskId) return;
-    if (!window.confirm('确认退回上一步?该节点审批意见将作废。')) return;
+    if (!window.confirm('Confirm sending back to the previous step? Approval remarks for this node will be discarded.')) return;
     previousMutation.mutate(
       { busCode, taskId, remarks: remarks.trim() },
       {
         onSuccess: () => {
-          toast.success('已退回上一步');
+          toast.success('Sent back to the previous step');
           back();
         },
         onError: (e) => toast.error((e as Error).message),
@@ -1669,12 +1598,12 @@ export function BankApprovalDetailPage() {
 
   const onWithdraw = () => {
     if (!busCode || !taskId) return;
-    if (!window.confirm('撤回后该申请退回重新发起状态,确认撤回?')) return;
+    if (!window.confirm('After withdrawal, the application will return to the re-initiation state. Confirm withdrawal?')) return;
     withdrawMutation.mutate(
       { busCode, taskId, remarks: remarks.trim() || undefined },
       {
         onSuccess: () => {
-          toast.success('已撤回');
+          toast.success('Withdrawn');
           back();
         },
         onError: (e) => toast.error((e as Error).message),
@@ -1684,10 +1613,10 @@ export function BankApprovalDetailPage() {
 
   if (!busCode || !taskId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">缺少审批任务参数</p>
+      <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <p className="text-sm text-muted-foreground">Missing approval task parameters</p>
         <Button variant="outline" className="mt-4" onClick={back}>
-          返回
+          Back
         </Button>
       </div>
     );
@@ -1704,28 +1633,28 @@ export function BankApprovalDetailPage() {
   return (
     <div className="space-y-4">
       {/* 头部信息块 */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <div className="mb-6 text-base font-semibold">
-          {BANK_BUSINESS_LABEL[busCode] ?? busCode} - 详情
+          {BANK_BUSINESS_LABEL[busCode] ?? busCode} - Details
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <DetailField label="审批编号">{applyCode || '--'}</DetailField>
-          <DetailField label="业务类型">
+          <DetailField label="Approval No.">{applyCode || '--'}</DetailField>
+          <DetailField label="Business Type">
             {BANK_BUSINESS_LABEL[busCode] ?? busCode}
           </DetailField>
-          <DetailField label="业务描述">{busDesc || '--'}</DetailField>
-          <DetailField label="当前节点">{stepName || '--'}</DetailField>
-          <DetailField label="状态">
+          <DetailField label="Business Description">{busDesc || '--'}</DetailField>
+          <DetailField label="Current Step">{stepName || '--'}</DetailField>
+          <DetailField label="Status">
             {isLoading ? (
               <Skeleton className="h-5 w-20" />
             ) : (
               <BankStatusBadge status={reviewerStatus} />
             )}
           </DetailField>
-          <DetailField label="申请时间">{formatTime(createTime)}</DetailField>
+          <DetailField label="Application Time">{formatTime(createTime)}</DetailField>
           {isDone && (
             <>
-              <DetailField label="审批结果">
+              <DetailField label="Approval Result">
                 {detailReviewerStatus !== undefined ? (
                   <Badge variant={bankDetailStatusVariant(detailReviewerStatus)}>
                     {BANK_DETAIL_STATUS_LABEL[detailReviewerStatus] ?? detailReviewerStatus}
@@ -1734,16 +1663,16 @@ export function BankApprovalDetailPage() {
                   '--'
                 )}
               </DetailField>
-              <DetailField label="处理时间">{formatTime(reviewerTime)}</DetailField>
-              <DetailField label="我的意见">{reviewerRemarks || '--'}</DetailField>
+              <DetailField label="Processed At">{formatTime(reviewerTime)}</DetailField>
+              <DetailField label="My Remarks">{reviewerRemarks || '--'}</DetailField>
             </>
           )}
         </div>
       </section>
 
       {/* 业务内容 */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <div className="mb-4 text-base font-semibold">业务内容</div>
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+        <div className="mb-4 text-base font-semibold">Business Content</div>
         {isLoading ? (
           <div className="space-y-2">
             <Skeleton className="h-4 w-full" />
@@ -1787,12 +1716,12 @@ export function BankApprovalDetailPage() {
 
       {/* 审批操作 */}
       {canOperate && (
-        <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <div className="mb-4 text-base font-semibold">审批操作</div>
+        <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+          <div className="mb-4 text-base font-semibold">Approval Actions</div>
           <Textarea
             rows={3}
             maxLength={200}
-            placeholder="可填写审批意见(选填)"
+            placeholder="Approval remarks (optional)"
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
           />
@@ -1804,14 +1733,14 @@ export function BankApprovalDetailPage() {
               disabled={submitting}
               onClick={() => onApprove(3)}
             >
-              通过
+              Approve
             </Button>
             <Button
               variant="destructive"
               disabled={submitting}
               onClick={() => onApprove(2)}
             >
-              拒绝
+              Reject
             </Button>
             {hasBack && (
               <Button
@@ -1819,7 +1748,7 @@ export function BankApprovalDetailPage() {
                 disabled={submitting}
                 onClick={onPreviousStep}
               >
-                退回上一步
+                Send Back to Previous Step
               </Button>
             )}
             {hasWithdraw && (
@@ -1828,7 +1757,7 @@ export function BankApprovalDetailPage() {
                 disabled={submitting}
                 onClick={onWithdraw}
               >
-                撤回
+                Withdraw
               </Button>
             )}
           </div>
@@ -1837,7 +1766,7 @@ export function BankApprovalDetailPage() {
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={back}>
-          返回
+          Back
         </Button>
       </div>
     </div>
@@ -1881,39 +1810,19 @@ export function GatewayRegisterListPage() {
 
   const columns = React.useMemo<ColumnDef<BankRow & { id: string }>[]>(() => {
     return [
-      { accessorKey: 'bankName', header: '银行名称' },
-      { accessorKey: 'bankCode', header: '银行编码' },
+      { accessorKey: 'bankName', header: 'Bank Name' },
+      { accessorKey: 'bankCode', header: 'Bank Code' },
       {
         id: 'connectivity',
-        header: '连通性',
+        header: 'Connectivity',
         cell: ({ row }) => (
           <ConnectivityBadge status={row.original.connectivityStatus} />
         ),
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              onClick={() => router.push(`/gateway-register/edit?id=${row.original.bankId}`)}
-            >
-              配置
-            </Button>
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              onClick={() => router.push(`/gateway-register/detail?id=${row.original.bankId}`)}
-            >
-              详情
-            </Button>
-          </div>
-        ),
-      },
+      createActionColumn<BankRow & { id: string }>((item) => [
+        { label: 'Configure', onClick: () => router.push(`/gateway-register/edit?id=${item.bankId}`) },
+        { label: 'Details', onClick: () => router.push(`/gateway-register/detail?id=${item.bankId}`) },
+      ]),
     ];
   }, [router]);
 
@@ -1926,32 +1835,32 @@ export function GatewayRegisterListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             name="bankName"
-            label="银行名称"
-            placeholder="模糊匹配"
+            label="Bank Name"
+            placeholder="Fuzzy match"
             register={register('bankName')}
           />
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onReset}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="border-b px-6 py-3 text-sm font-semibold">网关连接列表</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="border-b border-border/50 px-6 py-3 text-sm font-semibold">Gateway Connection List</div>
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={
             paginationMeta
               ? {
@@ -1985,16 +1894,16 @@ export function GatewayRegisterFormPage() {
 
   if (!bankId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
         <p className="text-sm text-muted-foreground">
-          请从网关连接列表选择银行后再配置。
+          Please select a bank from the gateway connection list before configuring.
         </p>
         <Button
           variant="outline"
           className="mt-4"
           onClick={() => router.push('/gateway-register')}
         >
-          返回列表
+          Back to List
         </Button>
       </div>
     );
@@ -2002,8 +1911,8 @@ export function GatewayRegisterFormPage() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <div className="mb-6 text-base font-semibold">网关连接配置</div>
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+        <div className="mb-6 text-base font-semibold">Gateway Connection Config</div>
         <GatewayConnectionPanel
           bankId={bankId}
           onSaved={() => router.push('/gateway-register')}
@@ -2011,7 +1920,7 @@ export function GatewayRegisterFormPage() {
       </section>
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/gateway-register')}>
-          返回
+          Back
         </Button>
       </div>
     </div>
@@ -2035,15 +1944,15 @@ export function GatewayRegisterDetailPage() {
   const onTest = async () => {
     if (!bankId) return;
     if ((info?.endpointUrl ?? '') === '') {
-      toast.warning('请先保存连接信息');
+      toast.warning('Please save the connection info first');
       return;
     }
     setTesting(true);
     try {
       await testBankGateway(bankId);
       const fresh = await infoQuery.refetch();
-      if (fresh.data?.connectivityStatus === 1) toast.success('连接正常');
-      else toast.warning('连接失败:网关端点不可达');
+      if (fresh.data?.connectivityStatus === 1) toast.success('Connection normal');
+      else toast.warning('Connection failed: gateway endpoint unreachable');
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -2053,14 +1962,14 @@ export function GatewayRegisterDetailPage() {
 
   if (!bankId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">缺少银行 ID</p>
+      <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <p className="text-sm text-muted-foreground">Missing bank ID</p>
         <Button
           variant="outline"
           className="mt-4"
           onClick={() => router.push('/gateway-register')}
         >
-          返回
+          Back
         </Button>
       </div>
     );
@@ -2068,40 +1977,40 @@ export function GatewayRegisterDetailPage() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <div className="mb-6 text-base font-semibold">网关连接信息</div>
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+        <div className="mb-6 text-base font-semibold">Gateway Connection Info</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <DetailField label="登记状态">
+          <DetailField label="Registration Status">
             {infoQuery.isLoading ? (
               <Skeleton className="h-5 w-16" />
             ) : info?.registered ? (
-              <Badge variant="default">已登记</Badge>
+              <Badge variant="default">Registered</Badge>
             ) : (
-              <Badge variant="outline">未登记</Badge>
+              <Badge variant="outline">Not Registered</Badge>
             )}
           </DetailField>
-          <DetailField label="连通性">
+          <DetailField label="Connectivity">
             {infoQuery.isLoading ? (
               <Skeleton className="h-5 w-16" />
             ) : (
               <ConnectivityBadge status={info?.connectivityStatus ?? 0} />
             )}
           </DetailField>
-          <DetailField label="网关端点 URL">
+          <DetailField label="Gateway Endpoint URL">
             {infoQuery.isLoading ? (
               <Skeleton className="h-4 w-48" />
             ) : (
               <span className="break-all">{info?.endpointUrl || '--'}</span>
             )}
           </DetailField>
-          <DetailField label="当前密钥指纹">
+          <DetailField label="Current Key Fingerprint">
             {infoQuery.isLoading ? (
               <Skeleton className="h-4 w-40" />
             ) : (
               <span>{info?.keyFingerprintMasked || '--'}</span>
             )}
           </DetailField>
-          <DetailField label="最近心跳">
+          <DetailField label="Last Heartbeat">
             {infoQuery.isLoading ? (
               <Skeleton className="h-4 w-32" />
             ) : (
@@ -2113,17 +2022,17 @@ export function GatewayRegisterDetailPage() {
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/gateway-register')}>
-          返回
+          Back
         </Button>
         <Button
           variant="outline"
           disabled={testing || (info?.endpointUrl ?? '') === ''}
           onClick={onTest}
         >
-          {testing ? '测试中…' : '测试连接'}
+          {testing ? 'Testing…' : 'Test Connection'}
         </Button>
         <Button onClick={() => router.push(`/gateway-register/edit?id=${bankId}`)}>
-          编辑
+          Edit
         </Button>
       </div>
     </div>

@@ -47,8 +47,8 @@ export interface Brand {
 
 /** 品牌回退默认值（源 store/brand.ts DEFAULT）。 */
 export const DEFAULT_BRAND: Brand = {
-  name: 'Kissen 银行门户',
-  subtitle: '银行门户管理控制台',
+  name: 'Kissen Bank Portal',
+  subtitle: 'Bank Portal Management Console',
   logo: '🏦',
   primaryColor: '#0B6B53',
 };

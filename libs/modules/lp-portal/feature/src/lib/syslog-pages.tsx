@@ -47,10 +47,10 @@ const PROJECT_ID = LP_PROJECT_ID;
 const PAGE_SIZE = 10;
 
 const LBL = {
-  query: '查询',
-  reset: '重置',
-  records: '操作日志',
-  empty: '暂无数据',
+  query: 'Search',
+  reset: 'Reset',
+  records: 'Syslog',
+  empty: 'No data',
 } as const;
 
 interface LogFilterForm {
@@ -125,7 +125,7 @@ function LogDetailDialog({
     <Dialog open={row != null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>日志详情</DialogTitle>
+          <DialogTitle>Log Details</DialogTitle>
           <DialogDescription>
             {row ? `${row.module ?? '-'} · ${fmtTime(row.operateTime)}` : ''}
           </DialogDescription>
@@ -133,13 +133,13 @@ function LogDetailDialog({
         {row && (
           <div className="space-y-4">
             <div>
-              <div className="mb-1 text-sm font-medium">请求参数</div>
+              <div className="mb-1 text-sm font-medium">Request Params</div>
               <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs text-muted-foreground">
                 {row.operateParam || '-'}
               </pre>
             </div>
             <div>
-              <div className="mb-1 text-sm font-medium">异常信息</div>
+              <div className="mb-1 text-sm font-medium">Error Message</div>
               <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs text-muted-foreground">
                 {row.errorMsg || '-'}
               </pre>
@@ -186,7 +186,7 @@ export function SyslogListPage() {
         cell: ({ row }) => (
           <button
             type="button"
-            aria-label="查看日志详情"
+            aria-label="View log details"
             className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => setDetailRow(row.original)}
           >
@@ -194,28 +194,28 @@ export function SyslogListPage() {
           </button>
         ),
       },
-      { accessorKey: 'operateTime', header: '操作时间',
+      { accessorKey: 'operateTime', header: 'Operation Time',
       cell: ({ row }) => fmtTime(row.original.operateTime), },
-      { accessorKey: 'operateName', header: '操作人',
+      { accessorKey: 'operateName', header: 'Operator',
       cell: ({ row }) => row.original.operateName || '-', },
-      { accessorKey: 'module', header: '模块',
+      { accessorKey: 'module', header: 'Module',
       cell: ({ row }) => row.original.module || '-', },
-      { accessorKey: 'businessType', header: '业务类型',
+      { accessorKey: 'businessType', header: 'Business Type',
       cell: ({ row }) => <BizTag code={row.original.businessType} />, },
-      { accessorKey: 'operateUrl', header: '操作接口',
+      { accessorKey: 'operateUrl', header: 'Endpoint',
       cell: ({ row }) => (
         <span className="break-all">{row.original.operateUrl || '-'}</span>
       ), },
-      { accessorKey: 'status', header: '状态',
+      { accessorKey: 'status', header: 'Status',
       cell: ({ row }) =>
         row.original.status === 0 ? (
           <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-            正常
+            Normal
           </Badge>
         ) : (
-          <Badge variant="destructive">异常</Badge>
+          <Badge variant="destructive">Error</Badge>
         ), },
-      { accessorKey: 'costTime', header: '耗时',
+      { accessorKey: 'costTime', header: 'Duration',
       cell: ({ row }) =>
         row.original.costTime != null ? `${row.original.costTime}ms` : '-', },
       { accessorKey: 'traceId', header: 'TraceId',
@@ -237,34 +237,34 @@ export function SyslogListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit((f) => setParams(formToParams(f, 1)))}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询条件</div>
+        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <FormField
             name="module"
-            label="模块"
+            label="Module"
             register={register('module')}
           />
           <FormField
             name="operateName"
-            label="操作人"
+            label="Operator"
             register={register('operateName')}
           />
           <FormField
             name="startTime"
-            label="开始时间"
+            label="Start Time"
             type="datetime-local"
             register={register('startTime')}
           />
           <FormField
             name="endTime"
-            label="结束时间"
+            label="End Time"
             type="datetime-local"
             register={register('endTime')}
           />
         </div>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button type="submit">{LBL.query}</Button>
           <Button
             type="button"
@@ -279,8 +279,8 @@ export function SyslogListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
           <div className="text-sm font-semibold">{LBL.records}</div>
         </div>
         <DataTable

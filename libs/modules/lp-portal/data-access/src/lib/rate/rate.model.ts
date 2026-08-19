@@ -22,8 +22,8 @@ export interface RateListReq {
  * 源 `PAIR_STATUS_TEXT` + `pairStatusText` 兜底 `String(s)`。
  */
 export const RATE_PAIR_STATUS_LABEL: Record<number, string> = {
-  20: '启用',
-  50: '停用',
+  20: 'Enabled',
+  50: 'Disabled',
 };
 
 /** 货币对状态 → Badge variant（源 el-tag：20 success / 其他 info）。 */

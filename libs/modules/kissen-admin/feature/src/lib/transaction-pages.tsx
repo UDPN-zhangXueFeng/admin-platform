@@ -15,7 +15,9 @@ import { Check, ChevronsUpDown } from 'lucide-react';
 import {
   Badge,
   Button,
+  createActionColumn,
   DataTable,
+  type TableRowAction,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -34,8 +36,9 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
-import { useRouter } from '@myorg/shared/util-i18n';
 import { cn } from '@myorg/shared/util-classnames';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
+import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
   KISSEN_PROJECT_ID,
@@ -83,13 +86,11 @@ function formatMoney(v: number | string | null | undefined): string {
   return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
 }
 
-/** 毫秒时间戳 → YYYY-MM-DD HH:mm:ss；0/null/undefined/非法 → '-'。 */
+/** 毫秒时间戳 → 统一管理台时间格式；0/null/undefined/非法 → '-'。 */
 function formatTime(ms: number | null | undefined): string {
   if (!ms || !Number.isFinite(Number(ms))) return '-';
   const d = new Date(Number(ms));
-  if (Number.isNaN(d.getTime())) return '-';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return Number.isNaN(d.getTime()) ? '-' : formatAdminDateTime(d);
 }
 
 function pairText(source?: string, target?: string): string {
@@ -121,14 +122,14 @@ function orDash(v: string | number | null | undefined): string {
 
 /** 主线 8 节点：交易生命周期主路径。 */
 const RAIL_MAIN_LINE: ReadonlyArray<{ code: number; name: string }> = [
-  { code: 1, name: '已创建' },
-  { code: 5, name: '已报价' },
-  { code: 10, name: '已确认' },
-  { code: 20, name: '源端划转中' },
-  { code: 25, name: '源端已验证' },
-  { code: 30, name: '解付中' },
-  { code: 35, name: '已入账' },
-  { code: 40, name: '已完成' },
+  { code: 1, name: 'Created' },
+  { code: 5, name: 'Quoted' },
+  { code: 10, name: 'Confirmed' },
+  { code: 20, name: 'Source Transferring' },
+  { code: 25, name: 'Source Verified' },
+  { code: 30, name: 'Advancing' },
+  { code: 35, name: 'Settled' },
+  { code: 40, name: 'Completed' },
 ];
 
 /** 结算腿（钱真正移动的段）：结算金只允许出现在此语义。 */
@@ -138,11 +139,11 @@ type RailTone = 'danger' | 'info';
 
 /** 分支终态：forkCode 是离开主线前最后经过的主线节点（纯展示近似分叉位置）。 */
 const RAIL_BRANCH: Record<number, { name: string; tone: RailTone; forkCode: number }> = {
-  50: { name: '冲正中', tone: 'info', forkCode: 25 },
-  60: { name: '已冲正', tone: 'info', forkCode: 25 },
-  70: { name: '异常', tone: 'danger', forkCode: 30 },
-  80: { name: '已取消', tone: 'info', forkCode: 10 },
-  90: { name: '失败', tone: 'danger', forkCode: 20 },
+  50: { name: 'Reversing', tone: 'info', forkCode: 25 },
+  60: { name: 'Reversed', tone: 'info', forkCode: 25 },
+  70: { name: 'Exception', tone: 'danger', forkCode: 30 },
+  80: { name: 'Cancelled', tone: 'info', forkCode: 10 },
+  90: { name: 'Failed', tone: 'danger', forkCode: 20 },
 };
 
 interface RailStep {
@@ -228,7 +229,7 @@ function railLinkClass(next: RailStep): string {
 function StatusRail({ status }: { status: number }) {
   const steps = React.useMemo(() => computeRailSteps(status), [status]);
   const current = steps.find((s) => s.state === 'current');
-  const ariaLabel = current ? `交易状态：${current.name}` : '交易状态未知';
+  const ariaLabel = current ? `Transaction status: ${current.name}` : 'Unknown transaction status';
   return (
     <div
       className="flex items-start overflow-x-auto pb-1"
@@ -270,22 +271,22 @@ function StatusRail({ status }: { status: number }) {
 /* ================================================================== */
 
 const STAGE_STEP_LABEL: Record<number, string> = {
-  1: '报价',
-  2: '确认',
-  3: '源端划转',
-  4: '源端验证',
-  5: '垫资解付',
-  6: '入账',
-  7: '结算',
-  8: '完成',
+  1: 'Quote',
+  2: 'Confirm',
+  3: 'Source Transfer',
+  4: 'Source Verification',
+  5: 'Advancing',
+  6: 'Settled',
+  7: 'Settlement',
+  8: 'Completed',
 };
 
 const STAGE_STATUS_LABEL: Record<number, string> = {
-  1: '未开始',
-  2: '进行中',
-  3: '成功',
-  4: '失败',
-  5: '跳过',
+  1: 'Not Started',
+  2: 'In Progress',
+  3: 'Success',
+  4: 'Failed',
+  5: 'Skipped',
 };
 
 const STAGE_STATUS_VARIANT: Record<
@@ -300,7 +301,7 @@ const STAGE_STATUS_VARIANT: Record<
 };
 
 /** 事件类型映射（nodeType；1 环节/状态迁移不在表内，兜底显示数值）。 */
-const EVENT_TYPE_LABEL: Record<number, string> = { 2: '动作', 3: '报文', 4: '重试' };
+const EVENT_TYPE_LABEL: Record<number, string> = { 2: 'Action', 3: 'Message', 4: 'Retry' };
 
 /** 固定 8 段阶段轴：缺失 step 按未开始补齐（后端补齐 8 行，前端再兜底）。 */
 function buildStageList(stages: TransactionStage[]): TransactionStage[] {
@@ -328,7 +329,7 @@ function buildStageList(stages: TransactionStage[]): TransactionStage[] {
 /** 阶段标题：环节名；跳过阶段追加（跳过）后缀。 */
 function stageTitle(s: TransactionStage): string {
   const name = STAGE_STEP_LABEL[s.step] ?? `${s.step}`;
-  return s.status === 5 ? `${name}（跳过）` : name;
+  return s.status === 5 ? `${name} (Skipped)` : name;
 }
 
 /**
@@ -357,7 +358,7 @@ function TransactionChainView({
   }, [stageList, events]);
 
   if (stageList.length === 0) {
-    return <p className="text-sm text-muted-foreground">暂无阶段数据</p>;
+    return <p className="text-sm text-muted-foreground">No stage data</p>;
   }
 
   const currentStage = stageList.find((s) => s.step === selectedStep);
@@ -398,7 +399,7 @@ function TransactionChainView({
         <div className="mb-2 text-sm font-semibold">
           {STAGE_STEP_LABEL[selectedStep] ?? selectedStep}
           {currentStage
-            ? `（${STAGE_STATUS_LABEL[currentStage.status] ?? currentStage.status}）`
+            ? ` (${STAGE_STATUS_LABEL[currentStage.status] ?? currentStage.status})`
             : ''}
         </div>
         {selectedEvents.length ? (
@@ -407,7 +408,7 @@ function TransactionChainView({
               <li key={e.flowId} className="rounded-md border p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">
-                    {EVENT_TYPE_LABEL[e.nodeType] ?? `事件类型 ${e.nodeType}`}
+                    {EVENT_TYPE_LABEL[e.nodeType] ?? `Event type ${e.nodeType}`}
                   </Badge>
                   {(e.statusFrom !== 0 || e.statusTo !== 0) && (
                     <span className="text-muted-foreground">
@@ -420,24 +421,24 @@ function TransactionChainView({
                   </span>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  操作人：{orDash(e.operator)}
+                  Operator: {orDash(e.operator)}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  货币系统交易 ID：{orDash(e.csTxId)}
+                  Currency System Transaction ID: {orDash(e.csTxId)}
                 </div>
                 {e.remark && (
-                  <div className="text-xs text-muted-foreground">备注：{e.remark}</div>
+                  <div className="text-xs text-muted-foreground">Remarks: {e.remark}</div>
                 )}
                 {e.traceId && (
                   <div className="text-xs text-muted-foreground">
-                    traceId：{e.traceId}
+                    traceId: {e.traceId}
                   </div>
                 )}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted-foreground">该阶段暂无事件明细</p>
+          <p className="text-sm text-muted-foreground">No event details for this stage</p>
         )}
       </div>
     </div>
@@ -505,7 +506,7 @@ function FilterableFormSelect<TFieldValues extends FieldValues = FieldValues>({
   control,
   label,
   options,
-  placeholder = '全部',
+  placeholder = 'All',
 }: {
   name: Path<TFieldValues>;
   control: Control<TFieldValues>;
@@ -559,7 +560,7 @@ function FilterableFormSelect<TFieldValues extends FieldValues = FieldValues>({
                 <Input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder="输入关键字过滤"
+                  placeholder="Type keyword to filter"
                   className="h-8"
                 />
               </div>
@@ -567,7 +568,7 @@ function FilterableFormSelect<TFieldValues extends FieldValues = FieldValues>({
                 <div className="p-1">
                   {filtered.length === 0 ? (
                     <p className="px-2 py-4 text-center text-sm text-muted-foreground">
-                      无匹配项
+                      No matches
                     </p>
                   ) : (
                     filtered.map((opt) => (
@@ -605,15 +606,15 @@ function FilterableFormSelect<TFieldValues extends FieldValues = FieldValues>({
 /* ================================================================== */
 
 const RESOLVE_ACTION_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: '1', label: '完成' },
-  { value: '2', label: '失败' },
-  { value: '3', label: '冲正完成' },
+  { value: '1', label: 'Complete' },
+  { value: '2', label: 'Failed' },
+  { value: '3', label: 'Reversal Completed' },
 ];
 
 const RESOLVE_SUCCESS_MSG: Record<string, string> = {
-  1: '已标记交易完成',
-  2: '已标记交易失败',
-  3: '已完成冲正处置',
+  1: 'Transaction marked as completed',
+  2: 'Transaction marked as failed',
+  3: 'Reversal resolution completed',
 };
 
 /**
@@ -654,7 +655,7 @@ function ResolveDialog({
       },
       {
         onSuccess: () => {
-          toast.success(RESOLVE_SUCCESS_MSG[action] ?? '处置成功');
+          toast.success(RESOLVE_SUCCESS_MSG[action] ?? 'Resolved successfully');
           onOpenChange(false);
         },
         onError: (err: unknown) => toast.error((err as Error).message),
@@ -666,19 +667,19 @@ function ResolveDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>交易异常处置</DialogTitle>
-          <DialogDescription>仅异常（70）状态交易可裁定处置。</DialogDescription>
+          <DialogTitle>Transaction Exception Resolution</DialogTitle>
+          <DialogDescription>Only transactions in Exception (70) status can be resolved.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* 概要：与源 el-descriptions 一致 */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border p-3 text-sm">
-            <DescField label="交易单号">{orDash(row?.txNo)}</DescField>
-            <DescField label="交易 ID">{row?.transactionId ?? '-'}</DescField>
-            <DescField label="货币对">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-2 rounded-md border p-3 text-sm sm:grid-cols-2">
+            <DescField label="Transaction No.">{orDash(row?.txNo)}</DescField>
+            <DescField label="Transaction ID">{row?.transactionId ?? '-'}</DescField>
+            <DescField label="Currency Pair">
               {row ? pairText(row.sourceCurrency, row.targetCurrency) : '-'}
             </DescField>
-            <DescField label="用户扣款">
+            <DescField label="User Deduction">
               {row ? formatMoney(row.userDeduction) : '-'}
             </DescField>
           </div>
@@ -686,7 +687,7 @@ function ResolveDialog({
           {/* 处置方式（源 el-radio-group） */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              处置方式<span className="ml-0.5 text-destructive">*</span>
+              Resolution<span className="ml-0.5 text-destructive">*</span>
             </label>
             <RadioGroup value={action} onValueChange={setAction}>
               {RESOLVE_ACTION_OPTIONS.map((o) => (
@@ -699,21 +700,21 @@ function ResolveDialog({
               ))}
             </RadioGroup>
             <p className="text-xs text-muted-foreground">
-              完成：补记结算流水并发终态通知，交易置已完成
+              Complete: backfill the settlement record and send the final-state notification; the transaction moves to Completed
               <br />
-              失败：交易置失败并记录失败原因
+              Failed: the transaction moves to Failed and the failure reason is recorded
               <br />
-              冲正完成：补开或完成冲正单，交易迁移至已冲正
+              Reversal Completed: create or complete the reversal order; the transaction moves to Reversed
             </p>
           </div>
 
           {/* 裁定原因（选填，入 flow 留痕） */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">裁定原因</label>
+            <label className="text-sm font-medium">Resolution Reason</label>
             <Textarea
               rows={3}
               maxLength={200}
-              placeholder="选填，入 flow 留痕"
+              placeholder="Optional, recorded in the flow log"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
@@ -727,10 +728,10 @@ function ResolveDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            取消
+            Cancel
           </Button>
           <Button onClick={onSubmit} disabled={!action || submitting}>
-            {submitting ? '提交中…' : '提交'}
+            {submitting ? 'Submitting…' : 'Submit'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -880,12 +881,12 @@ function TransactionListCore({
     return [
       {
         id: 'txNo',
-        header: '交易单号',
+        header: 'Transaction No.',
         cell: ({ row }) => <span>{row.original.txNo || '-'}</span>,
       },
       {
         id: 'transactionId',
-        header: '交易 ID',
+        header: 'Transaction ID',
         cell: ({ row }) => <span>{row.original.transactionId}</span>,
       },
       {
@@ -902,7 +903,7 @@ function TransactionListCore({
       },
       {
         id: 'pair',
-        header: '货币对',
+        header: 'Currency Pair',
         cell: ({ row }) => (
           <span>
             {pairText(row.original.sourceCurrency, row.original.targetCurrency)}
@@ -916,7 +917,7 @@ function TransactionListCore({
       },
       {
         id: 'banks',
-        header: '源银行→目标银行',
+        header: 'Source Bank → Target Bank',
         cell: ({ row }) => (
           <span>
             {row.original.sourceBankName || '-'}→{row.original.targetBankName || '-'}
@@ -925,60 +926,43 @@ function TransactionListCore({
       },
       {
         id: 'principal',
-        header: '本金',
+        header: 'Principal',
         cell: ({ row }) => <span>{formatMoney(row.original.principal)}</span>,
       },
       {
         id: 'userDeduction',
-        header: '用户扣款',
+        header: 'User Deduction',
         cell: ({ row }) => <span>{formatMoney(row.original.userDeduction)}</span>,
       },
       {
         id: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => <TransactionStatusBadge status={row.original.status} />,
       },
       {
         id: 'createTime',
-        header: '创建时间',
+        header: 'Creation Time',
         cell: ({ row }) => <span>{formatTime(row.original.createTime)}</span>,
       },
       {
         id: 'completedTime',
-        header: '完成时间',
+        header: 'Completion Time',
         cell: ({ row }) => <span>{formatTime(row.original.completedTime)}</span>,
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => {
-          const item = row.original;
-          // 处置入口仅 EXCEPTION(70) 行可见；冲正模式行恒为 50/60，不会出现。
-          const canResolve = item.status === 70;
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => onView(item.transactionId)}
-              >
-                查看
-              </Button>
-              {canResolve && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-destructive"
-                  onClick={() => openResolve(item)}
-                >
-                  处置
-                </Button>
-              )}
-            </div>
-          );
-        },
-      },
+      createActionColumn<TransactionRow & { id: string }>((item) => {
+        // 处置入口仅 EXCEPTION(70) 行可见；冲正模式行恒为 50/60，不会出现。
+        const actions: TableRowAction<TransactionRow & { id: string }>[] = [
+          { label: 'View', onClick: () => onView(item.transactionId) },
+        ];
+        if (item.status === 70) {
+          actions.push({
+            label: 'Resolve',
+            destructive: true,
+            onClick: () => openResolve(item),
+          });
+        }
+        return actions;
+      }),
     ];
   }, [onView, openResolve]);
 
@@ -990,7 +974,7 @@ function TransactionListCore({
   // 下拉选项（首项「全部」哨兵；冲正模式状态仅 50/60）。
   const lpSelectOptions = React.useMemo(
     () => [
-      { value: OPT_ALL, label: '全部' },
+      { value: OPT_ALL, label: 'All' },
       ...(lpOptions ?? []).map((l) => ({
         value: String(l.lpId),
         label: `${l.lpName}(${l.lpCode})`,
@@ -1000,7 +984,7 @@ function TransactionListCore({
   );
   const pairSelectOptions = React.useMemo(
     () => [
-      { value: OPT_ALL, label: '全部' },
+      { value: OPT_ALL, label: 'All' },
       ...(pairOptions ?? []).map((p) => ({
         value: String(p.pairId),
         label: `${p.sourceCurrency}→${p.targetCurrency}`,
@@ -1010,7 +994,7 @@ function TransactionListCore({
   );
   const bankSelectOptions = React.useMemo(
     () => [
-      { value: OPT_ALL, label: '全部' },
+      { value: OPT_ALL, label: 'All' },
       ...(bankOptions ?? []).map((b) => ({
         value: String(b.bankId),
         label: b.bankName,
@@ -1024,21 +1008,21 @@ function TransactionListCore({
         (o) => o.value === '50' || o.value === '60',
       );
     }
-    return [{ value: OPT_ALL, label: '全部' }, ...TX_STATUS_OPTIONS];
+    return [{ value: OPT_ALL, label: 'All' }, ...TX_STATUS_OPTIONS];
   }, [mode]);
 
   return (
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">筛选条件</div>
+        <div className="mb-4 text-sm font-semibold">Filters</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             name="txNo"
-            label="交易单号"
-            placeholder="精确匹配"
+            label="Transaction No."
+            placeholder="Exact match"
             maxLength={32}
             register={register('txNo')}
           />
@@ -1046,9 +1030,9 @@ function TransactionListCore({
             <FormSelect
               name="status"
               control={control}
-              label="状态"
+              label="Status"
               options={statusSelectOptions}
-              placeholder="全部"
+              placeholder="All"
             />
           )}
           <FilterableFormSelect
@@ -1056,24 +1040,24 @@ function TransactionListCore({
             control={control}
             label="LP"
             options={lpSelectOptions}
-            placeholder="全部"
+            placeholder="All"
           />
           <FilterableFormSelect
             name="pairId"
             control={control}
-            label="货币对"
+            label="Currency Pair"
             options={pairSelectOptions}
-            placeholder="全部"
+            placeholder="All"
           />
           <FormField
             name="createTimeStart"
-            label="创建开始时间"
+            label="Creation Start Time"
             type="datetime-local"
             register={register('createTimeStart')}
           />
           <FormField
             name="createTimeEnd"
-            label="创建结束时间"
+            label="Creation End Time"
             type="datetime-local"
             register={register('createTimeEnd')}
           />
@@ -1083,39 +1067,39 @@ function TransactionListCore({
           <div className="mt-4 grid grid-cols-1 gap-4 border-t pt-4 md:grid-cols-2 xl:grid-cols-3">
             <FormField
               name="transactionId"
-              label="交易 ID"
-              placeholder="精确匹配"
+              label="Transaction ID"
+              placeholder="Exact match"
               type="number"
               register={register('transactionId')}
             />
             <FormField
               name="txUuid"
               label="txUuid"
-              placeholder="精确匹配"
+              placeholder="Exact match"
               maxLength={64}
               register={register('txUuid')}
             />
             <FilterableFormSelect
               name="sourceBankId"
               control={control}
-              label="源银行"
+              label="Source Bank"
               options={bankSelectOptions}
-              placeholder="全部"
+              placeholder="All"
             />
             <FilterableFormSelect
               name="targetBankId"
               control={control}
-              label="目标银行"
+              label="Target Bank"
               options={bankSelectOptions}
-              placeholder="全部"
+              placeholder="All"
             />
           </div>
         )}
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onReset}>
-            重置
+            Reset
           </Button>
           <Button
             type="button"
@@ -1123,20 +1107,20 @@ function TransactionListCore({
             className="h-auto p-0"
             onClick={() => setShowMore((v) => !v)}
           >
-            {showMore ? '收起筛选' : '更多筛选'}
+            {showMore ? 'Collapse Filters' : 'More Filters'}
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
           <div className="text-sm font-semibold">{title}</div>
         </div>
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无交易数据"
+          emptyMessage="No transaction data"
           pagination={
             paginationMeta
               ? {
@@ -1184,14 +1168,14 @@ function TransactionDetailCore() {
 
   if (!txId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">缺少交易 ID，无法查看详情。</p>
+      <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <p className="text-sm text-muted-foreground">Missing transaction ID; unable to view details.</p>
         <Button
           variant="outline"
           className="mt-4"
           onClick={() => router.back()}
         >
-          返回
+          Back
         </Button>
       </div>
     );
@@ -1200,9 +1184,9 @@ function TransactionDetailCore() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-base font-semibold">交易详情</h1>
+        <h1 className="text-base font-semibold">Transaction Details</h1>
         <Button variant="outline" size="sm" onClick={() => router.back()}>
-          返回
+          Back
         </Button>
       </div>
 
@@ -1220,8 +1204,8 @@ function TransactionDetailCore() {
           chainLoading={chainLoading && !chain}
         />
       ) : (
-        <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground shadow-sm">
-          暂无交易详情数据。
+        <div className="rounded-lg border-border/60 bg-card p-6 text-sm text-muted-foreground shadow-float">
+          No transaction detail data.
         </div>
       )}
     </div>
@@ -1243,7 +1227,7 @@ function DetailBody({
   return (
     <>
       {/* 状态轨道（移植源 StatusRail） */}
-      <section className="space-y-3 rounded-lg border bg-card p-6 shadow-sm">
+      <section className="space-y-3 rounded-lg border-border/60 bg-card p-6 shadow-float">
         <div className="text-xs font-medium tracking-wide text-muted-foreground">
           SETTLEMENT RAIL
         </div>
@@ -1251,79 +1235,79 @@ function DetailBody({
       </section>
 
       {/* 基本信息 */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
-        <div className="mb-4 text-sm font-semibold">基本信息</div>
+      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <div className="mb-4 text-sm font-semibold">Basic Information</div>
         <DescGrid cols={2}>
-          <DescField label="交易单号">{orDash(detail.txNo)}</DescField>
-          <DescField label="交易 ID">{detail.transactionId}</DescField>
+          <DescField label="Transaction No.">{orDash(detail.txNo)}</DescField>
+          <DescField label="Transaction ID">{detail.transactionId}</DescField>
           <DescField label="txUuid">{orDash(detail.txUuid)}</DescField>
-          <DescField label="货币对">
+          <DescField label="Currency Pair">
             {pairText(detail.sourceCurrency, detail.targetCurrency)}
           </DescField>
           <DescField label="LP">{orDash(detail.lpName)}</DescField>
-          <DescField label="源银行">{orDash(detail.sourceBankName)}</DescField>
-          <DescField label="目标银行">{orDash(detail.targetBankName)}</DescField>
-          <DescField label="状态">
+          <DescField label="Source Bank">{orDash(detail.sourceBankName)}</DescField>
+          <DescField label="Target Bank">{orDash(detail.targetBankName)}</DescField>
+          <DescField label="Status">
             <TransactionStatusBadge status={detail.status} />
           </DescField>
-          <DescField label="创建时间">{formatTime(detail.createTime)}</DescField>
-          <DescField label="完成时间">{formatTime(detail.completedTime)}</DescField>
+          <DescField label="Creation Time">{formatTime(detail.createTime)}</DescField>
+          <DescField label="Completion Time">{formatTime(detail.completedTime)}</DescField>
         </DescGrid>
       </section>
 
       {/* 金额与汇率 */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
-        <div className="mb-4 text-sm font-semibold">金额与汇率</div>
+      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <div className="mb-4 text-sm font-semibold">Amounts & Rates</div>
         <DescGrid cols={2}>
-          <DescField label="本金">{formatMoney(detail.principal)}</DescField>
-          <DescField label="加价率">{orDash(detail.markupRate)}</DescField>
-          <DescField label="用户扣款">{formatMoney(detail.userDeduction)}</DescField>
-          <DescField label="基础汇率">{orDash(detail.baseRate)}</DescField>
-          <DescField label="收款方到账">{formatMoney(detail.receiverAmount)}</DescField>
-          <DescField label="用户汇率">{orDash(detail.userRate)}</DescField>
+          <DescField label="Principal">{formatMoney(detail.principal)}</DescField>
+          <DescField label="Markup Rate">{orDash(detail.markupRate)}</DescField>
+          <DescField label="User Deduction">{formatMoney(detail.userDeduction)}</DescField>
+          <DescField label="Base Rate">{orDash(detail.baseRate)}</DescField>
+          <DescField label="Receiver Amount">{formatMoney(detail.receiverAmount)}</DescField>
+          <DescField label="User Rate">{orDash(detail.userRate)}</DescField>
         </DescGrid>
       </section>
 
       {/* 账户 */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
-        <div className="mb-4 text-sm font-semibold">账户</div>
+      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <div className="mb-4 text-sm font-semibold">Accounts</div>
         <DescGrid cols={1}>
-          <DescField label="付款账户">{orDash(detail.senderAccount)}</DescField>
-          <DescField label="收款账户">{orDash(detail.receiverAccount)}</DescField>
-          <DescField label="源端货币系统交易 ID">{orDash(detail.sourceCsTxId)}</DescField>
-          <DescField label="目标端货币系统交易 ID">
+          <DescField label="Sender Account">{orDash(detail.senderAccount)}</DescField>
+          <DescField label="Receiver Account">{orDash(detail.receiverAccount)}</DescField>
+          <DescField label="Source Currency System Transaction ID">{orDash(detail.sourceCsTxId)}</DescField>
+          <DescField label="Target Currency System Transaction ID">
             {orDash(detail.targetCsTxId)}
           </DescField>
         </DescGrid>
       </section>
 
       {/* 时间轴 */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
-        <div className="mb-4 text-sm font-semibold">时间轴</div>
+      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <div className="mb-4 text-sm font-semibold">Timeline</div>
         <DescGrid cols={2}>
-          <DescField label="报价版本">{detail.quoteVersion}</DescField>
-          <DescField label="报价过期时间">{formatTime(detail.quoteExpireTime)}</DescField>
-          <DescField label="确认窗口过期">{formatTime(detail.confirmExpireTime)}</DescField>
-          <DescField label="确认时间">{formatTime(detail.confirmTime)}</DescField>
-          <DescField label="源端验证时间">{formatTime(detail.sourceVerifiedTime)}</DescField>
-          <DescField label="解付时间">{formatTime(detail.advancingTime)}</DescField>
-          <DescField label="入账时间">{formatTime(detail.settledTime)}</DescField>
-          <DescField label="完成时间">{formatTime(detail.completedTime)}</DescField>
+          <DescField label="Quote Version">{detail.quoteVersion}</DescField>
+          <DescField label="Quote Expiry Time">{formatTime(detail.quoteExpireTime)}</DescField>
+          <DescField label="Confirmation Window Expiry">{formatTime(detail.confirmExpireTime)}</DescField>
+          <DescField label="Confirmation Time">{formatTime(detail.confirmTime)}</DescField>
+          <DescField label="Source Verification Time">{formatTime(detail.sourceVerifiedTime)}</DescField>
+          <DescField label="Advancing Time">{formatTime(detail.advancingTime)}</DescField>
+          <DescField label="Settled Time">{formatTime(detail.settledTime)}</DescField>
+          <DescField label="Completion Time">{formatTime(detail.completedTime)}</DescField>
         </DescGrid>
       </section>
 
       {/* 失败原因 */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
-        <div className="mb-4 text-sm font-semibold">失败原因</div>
+      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <div className="mb-4 text-sm font-semibold">Failure Reason</div>
         <DescGrid cols={1}>
-          <DescField label="失败原因">{orDash(detail.failReason)}</DescField>
-          <DescField label="备注">{orDash(detail.remark)}</DescField>
+          <DescField label="Failure Reason">{orDash(detail.failReason)}</DescField>
+          <DescField label="Remarks">{orDash(detail.remark)}</DescField>
         </DescGrid>
       </section>
 
       {/* 交易链路（8 阶段轴 + 事件流） */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
-        <div className="mb-4 text-sm font-semibold">交易链路</div>
+      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <div className="mb-4 text-sm font-semibold">Transaction Chain</div>
         {chainLoading ? (
           <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -1343,7 +1327,7 @@ function DetailBody({
 
 /** 交易查询列表（全状态）。 */
 export function TxListListPage() {
-  return <TransactionListCore mode="all" title="交易查询" detailModule="tx-list" />;
+  return <TransactionListCore mode="all" title="Transactions" detailModule="tx-list" />;
 }
 
 /** 交易查询详情。 */
@@ -1354,7 +1338,7 @@ export function TxListDetailPage() {
 /** 异常处理列表（status=70 过滤视图）。 */
 export function TxExceptionListPage() {
   return (
-    <TransactionListCore mode="exception" title="异常处理" detailModule="tx-exception" />
+    <TransactionListCore mode="exception" title="Exception Handling" detailModule="tx-exception" />
   );
 }
 
@@ -1369,5 +1353,5 @@ export function TxExceptionDetailPage() {
  * 详情跳「交易查询」详情（tx-reversal 无独立详情路由）。
  */
 export function TxReversalListPage() {
-  return <TransactionListCore mode="reversal" title="冲正记录" detailModule="tx-list" />;
+  return <TransactionListCore mode="reversal" title="Reversal Records" detailModule="tx-list" />;
 }

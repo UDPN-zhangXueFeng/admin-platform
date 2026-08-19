@@ -11,8 +11,8 @@
 export function ReceiptListPage() {
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 text-muted-foreground">
-      <p className="text-lg font-medium text-foreground">源端收款明细</p>
-      <p className="text-sm">功能将在后续版本开放</p>
+      <p className="text-lg font-medium text-foreground">Source Receipt Details</p>
+      <p className="text-sm">This feature will be available in a future release</p>
     </div>
   );
 }

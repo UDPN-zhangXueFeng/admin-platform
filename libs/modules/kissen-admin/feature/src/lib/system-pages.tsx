@@ -106,7 +106,7 @@ function formatTimestamp(ms: number | undefined | null): string {
 /** 「全部」哨兵值（Radix Select 禁空串 value）。 */
 const ALL = 'all';
 function optAll() {
-  return { value: ALL, label: '全部' };
+  return { value: ALL, label: 'All' };
 }
 
 /** 下拉字符串 → number；ALL/空 → undefined。 */
@@ -139,7 +139,7 @@ function DetailCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+    <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
       <div className="mb-6 text-base font-semibold">{title}</div>
       {children}
     </section>
@@ -178,16 +178,16 @@ function OneTimePasswordDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-sm">一次性登录密码（首登强制改密）：</p>
+          <p className="text-sm">One-time login password (password change required on first sign-in):</p>
           <div className="rounded-md border bg-muted p-3 text-center font-mono text-lg tracking-widest">
             {otp ?? '—'}
           </div>
           <p className="text-xs text-muted-foreground">
-            请安全交付给用户，关闭后无法再次查看。
+            Deliver it to the user securely; it cannot be viewed again after closing.
           </p>
         </div>
         <DialogFooter>
-          <Button onClick={onClose}>我已记录</Button>
+          <Button onClick={onClose}>I have recorded it</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -242,7 +242,7 @@ function RoleCheckboxGroup({
   onChange: (ids: number[]) => void;
 }) {
   if (options.length === 0) {
-    return <p className="text-sm text-muted-foreground">暂无可分配角色。</p>;
+    return <p className="text-sm text-muted-foreground">No roles available to assign.</p>;
   }
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -260,7 +260,7 @@ function RoleCheckboxGroup({
             }
           />
           <span>
-            {r.roleName}（{r.roleCode}）
+            {r.roleName} ({r.roleCode})
           </span>
         </label>
       ))}
@@ -289,9 +289,9 @@ function UserAssignRoleDialog({
     <Dialog open={!!user} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>分配角色 — {user?.userName}</DialogTitle>
+          <DialogTitle>Assign Roles — {user?.userName}</DialogTitle>
           <DialogDescription>
-            为用户「{user?.loginName}」分配角色，保存后立即生效。
+            Assign roles to user {user?.loginName}; takes effect immediately after saving.
           </DialogDescription>
         </DialogHeader>
         <RoleCheckboxGroup
@@ -301,7 +301,7 @@ function UserAssignRoleDialog({
         />
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            取消
+            Cancel
           </Button>
           <Button
             disabled={mutation.isPending}
@@ -310,7 +310,7 @@ function UserAssignRoleDialog({
                 { userId: user!.userId, roleIds: selected },
                 {
                   onSuccess: () => {
-                    toast.success('角色已更新');
+                    toast.success('Roles updated');
                     onClose();
                   },
                   onError: (e) => toast.error((e as Error).message),
@@ -318,7 +318,7 @@ function UserAssignRoleDialog({
               )
             }
           >
-            {mutation.isPending ? '保存中…' : '保存'}
+            {mutation.isPending ? 'Saving…' : 'Save'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -368,12 +368,12 @@ export function SysUserListPage() {
   const onToggleStatus = React.useCallback(
     (row: UserRow) => {
       const next = row.status === 0 ? 1 : 0;
-      const verb = next === 1 ? '停用' : '启用';
-      if (!window.confirm(`确认${verb}「${row.userName}」?`)) return;
+      const verb = next === 1 ? 'disable' : 'enable';
+      if (!window.confirm(`Are you sure you want to ${verb} "${row.userName}"?`)) return;
       statusMutation.mutate(
         { userId: row.userId, status: next },
         {
-          onSuccess: () => toast.success(`已${verb}`),
+          onSuccess: () => toast.success(`User ${verb}d`),
           onError: (e) => toast.error((e as Error).message),
         },
       );
@@ -384,7 +384,7 @@ export function SysUserListPage() {
   /** 重置密码（源 userResetPwd → OneTimePassword）。 */
   const onResetPwd = React.useCallback(
     (row: UserRow) => {
-      if (!window.confirm(`确认重置「${row.userName}」的密码?`)) return;
+      if (!window.confirm(`Are you sure you want to reset the password of "${row.userName}"?`)) return;
       resetMutation.mutate(row.userId, {
         onSuccess: (otp: OneTimePassword) =>
           setResetOtp({ userName: row.loginName, pwd: otp.oneTimePassword }),
@@ -397,10 +397,10 @@ export function SysUserListPage() {
   /** 强制下线（源 userForceLogout，踢出所有会话）。 */
   const onForceLogout = React.useCallback(
     (row: UserRow) => {
-      if (!window.confirm(`强制下线「${row.userName}」?其所有会话将立即失效。`))
+      if (!window.confirm(`Force sign out of "${row.userName}"? All of their sessions will be invalidated immediately.`))
         return;
       forceLogoutMutation.mutate(row.userId, {
-        onSuccess: () => toast.success('已强制下线'),
+        onSuccess: () => toast.success('Force signed out'),
         onError: (e) => toast.error((e as Error).message),
       });
     },
@@ -410,11 +410,11 @@ export function SysUserListPage() {
   const columns = React.useMemo<
     ColumnDef<UserRow & { id: string }>[]
   >(() => [
-    { accessorKey: 'loginName', header: '登录名' },
-    { accessorKey: 'userName', header: '姓名' },
+    { accessorKey: 'loginName', header: 'Login Name' },
+    { accessorKey: 'userName', header: 'Full Name' },
     {
       id: 'userType',
-      header: '类型',
+      header: 'Type',
       cell: ({ row }) => (
         <Badge variant={RBAC_USER_TYPE_VARIANT[row.original.userType]}>
           {RBAC_USER_TYPE_LABEL[row.original.userType] ?? row.original.userType}
@@ -423,7 +423,7 @@ export function SysUserListPage() {
     },
     {
       accessorKey: 'status',
-      header: '状态',
+      header: 'Status',
       cell: ({ row }) => (
         <Badge variant={RBAC_USER_STATUS_VARIANT[row.original.status]}>
           {RBAC_USER_STATUS_LABEL[row.original.status] ?? row.original.status}
@@ -432,7 +432,7 @@ export function SysUserListPage() {
     },
     {
       id: 'firstLogin',
-      header: '首登',
+      header: 'First Login',
       cell: ({ row }) => (
         <Badge variant={RBAC_FIRST_LOGIN_VARIANT[row.original.firstLogin]}>
           {RBAC_FIRST_LOGIN_LABEL[row.original.firstLogin] ??
@@ -442,12 +442,12 @@ export function SysUserListPage() {
     },
     {
       accessorKey: 'createTime',
-      header: '创建时间',
+      header: 'Created At',
       cell: ({ row }) => formatTimestamp(row.original.createTime),
     },
     {
       id: 'actions',
-      header: '操作',
+      header: 'Actions',
       cell: ({ row }) => {
         const u = row.original;
         return (
@@ -461,7 +461,7 @@ export function SysUserListPage() {
                 router.push(`/sys-user/detail?id=${u.userId}`);
               }}
             >
-              查看
+              View
             </Button>
             <Button
               variant="link"
@@ -472,7 +472,7 @@ export function SysUserListPage() {
                 router.push(`/sys-user/edit?id=${u.userId}`);
               }}
             >
-              编辑
+              Edit
             </Button>
             <Button
               variant="link"
@@ -480,7 +480,7 @@ export function SysUserListPage() {
               className="h-auto p-0"
               onClick={() => setAssignUser(u)}
             >
-              分配角色
+              Assign Roles
             </Button>
             <Button
               variant="link"
@@ -488,7 +488,7 @@ export function SysUserListPage() {
               className="h-auto p-0"
               onClick={() => onResetPwd(u)}
             >
-              重置密码
+              Reset Password
             </Button>
             <Button
               variant="link"
@@ -496,7 +496,7 @@ export function SysUserListPage() {
               className="h-auto p-0"
               onClick={() => onToggleStatus(u)}
             >
-              {u.status === 0 ? '停用' : '启用'}
+              {u.status === 0 ? 'Disable' : 'Enable'}
             </Button>
             <Button
               variant="link"
@@ -504,7 +504,7 @@ export function SysUserListPage() {
               className="h-auto p-0 text-destructive"
               onClick={() => onForceLogout(u)}
             >
-              强制下线
+              Force Sign Out
             </Button>
           </div>
         );
@@ -521,44 +521,44 @@ export function SysUserListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             name="loginName"
-            label="登录名"
+            label="Login Name"
             register={register('loginName')}
-            placeholder="模糊匹配"
+            placeholder="Fuzzy match"
           />
           <FormField
             name="userName"
-            label="姓名"
+            label="Full Name"
             register={register('userName')}
-            placeholder="模糊匹配"
+            placeholder="Fuzzy match"
           />
           <FormSelect
             name="status"
             control={control}
-            label="状态"
-            placeholder="全部"
+            label="Status"
+            placeholder="All"
             options={USER_STATUS_OPTIONS}
           />
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onResetSearch}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">用户</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
+          <div className="text-sm font-semibold">Users</div>
           {hasPerm('rbac:user:manage') && (
             <Button size="sm" onClick={() => router.push('/sys-user/create')}>
-              新增用户
+              Add User
             </Button>
           )}
         </div>
@@ -566,7 +566,7 @@ export function SysUserListPage() {
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={
             paginationMeta
               ? {
@@ -592,8 +592,8 @@ export function SysUserListPage() {
       <OneTimePasswordDialog
         open={!!resetOtp}
         onClose={() => setResetOtp(null)}
-        title="密码已重置"
-        description={`用户「${resetOtp?.userName ?? ''}」的一次性密码：`}
+        title="Password Reset"
+        description={`One-time password of user "${resetOtp?.userName ?? ''}":`}
         otp={resetOtp?.pwd ?? null}
       />
     </div>
@@ -665,11 +665,11 @@ export function SysUserFormPage() {
   const onSubmit = handleSubmit((form) => {
     // 源 formRules：loginName/userName 必填（新增与编辑共用）。
     if (!form.loginName.trim()) {
-      toast.warning('请输入登录名');
+      toast.warning('Please enter a login name');
       return;
     }
     if (!form.userName.trim()) {
-      toast.warning('请输入姓名');
+      toast.warning('Please enter a full name');
       return;
     }
     if (isEdit) {
@@ -683,7 +683,7 @@ export function SysUserFormPage() {
         },
         {
           onSuccess: () => {
-            toast.success('用户已更新');
+            toast.success('User updated');
             router.push('/sys-user');
           },
           onError: (e) => toast.error((e as Error).message),
@@ -710,20 +710,20 @@ export function SysUserFormPage() {
 
   return (
     <div className="space-y-4">
-      <DetailCard title={isEdit ? '编辑用户' : '新增用户'}>
+      <DetailCard title={isEdit ? 'Edit User' : 'Add User'}>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField
               name="loginName"
-              label="登录名"
+              label="Login Name"
               register={register('loginName')}
               required
               disabled={isEdit}
-              placeholder="登录名（创建后不可改）"
+              placeholder="Login name (immutable after creation)"
             />
             <FormField
               name="userName"
-              label="姓名"
+              label="Full Name"
               register={register('userName')}
               required
             />
@@ -731,18 +731,18 @@ export function SysUserFormPage() {
               name="userType"
               control={control}
               disabled={isEdit}
-              label="用户类型"
+              label="User Type"
               options={[
                 { value: '0', label: RBAC_USER_TYPE_LABEL[0] },
                 { value: '1', label: RBAC_USER_TYPE_LABEL[1] },
               ]}
             />
-            <FormField name="email" label="邮箱" register={register('email')} />
-            <FormField name="phoneNumber" label="手机号" register={register('phoneNumber')} />
+            <FormField name="email" label="Email" register={register('email')} />
+            <FormField name="phoneNumber" label="Phone Number" register={register('phoneNumber')} />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">角色</label>
+            <label className="text-sm font-medium">Roles</label>
             <RoleCheckboxGroup
               options={roles ?? []}
               selected={selectedRoles}
@@ -752,14 +752,14 @@ export function SysUserFormPage() {
 
           <div className="flex gap-2">
             <Button type="submit" disabled={saveMutation.isPending || updateMutation.isPending}>
-              {saveMutation.isPending || updateMutation.isPending ? '保存中…' : '保存'}
+              {saveMutation.isPending || updateMutation.isPending ? 'Saving…' : 'Save'}
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => router.push('/sys-user')}
             >
-              返回
+              Back
             </Button>
           </div>
         </form>
@@ -771,8 +771,8 @@ export function SysUserFormPage() {
           setCreatedOtp(null);
           router.push('/sys-user');
         }}
-        title="用户已创建"
-        description="请将以下一次性密码交付给用户（首登强制改密）："
+        title="User Created"
+        description="Deliver the following one-time password to the user (password change required on first sign-in):"
         otp={createdOtp}
       />
     </div>
@@ -799,14 +799,14 @@ export function SysUserDetailPage() {
   const roleNames = (user?.roleIds ?? [])
     .map((rid) => roles?.find((r) => r.roleId === rid)?.roleName)
     .filter(Boolean)
-    .join('、');
+    .join(', ');
 
   if (!id) {
     return (
-      <DetailCard title="用户详情">
-        <p className="text-sm text-muted-foreground">缺少用户 ID。</p>
+      <DetailCard title="User Details">
+        <p className="text-sm text-muted-foreground">Missing user ID.</p>
         <Button variant="outline" className="mt-4" onClick={() => router.push('/sys-user')}>
-          返回
+          Back
         </Button>
       </DetailCard>
     );
@@ -814,32 +814,32 @@ export function SysUserDetailPage() {
 
   return (
     <div className="space-y-4">
-      <DetailCard title="用户详情">
+      <DetailCard title="User Details">
         {isLoading || !user ? (
           <LoadingBlock />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <DetailField label="登录名">{user.loginName}</DetailField>
-            <DetailField label="姓名">{user.userName}</DetailField>
-            <DetailField label="类型">
+            <DetailField label="Login Name">{user.loginName}</DetailField>
+            <DetailField label="Full Name">{user.userName}</DetailField>
+            <DetailField label="Type">
               <Badge variant={RBAC_USER_TYPE_VARIANT[user.userType]}>
                 {RBAC_USER_TYPE_LABEL[user.userType] ?? user.userType}
               </Badge>
             </DetailField>
-            <DetailField label="状态">
+            <DetailField label="Status">
               <Badge variant={RBAC_USER_STATUS_VARIANT[user.status]}>
                 {RBAC_USER_STATUS_LABEL[user.status] ?? user.status}
               </Badge>
             </DetailField>
-            <DetailField label="首登">
+            <DetailField label="First Login">
               <Badge variant={RBAC_FIRST_LOGIN_VARIANT[user.firstLogin]}>
                 {RBAC_FIRST_LOGIN_LABEL[user.firstLogin] ?? user.firstLogin}
               </Badge>
             </DetailField>
-            <DetailField label="邮箱">{user.email || '--'}</DetailField>
-            <DetailField label="手机号">{user.phoneNumber || '--'}</DetailField>
-            <DetailField label="角色">{roleNames || '--'}</DetailField>
-            <DetailField label="创建时间">
+            <DetailField label="Email">{user.email || '--'}</DetailField>
+            <DetailField label="Phone Number">{user.phoneNumber || '--'}</DetailField>
+            <DetailField label="Roles">{roleNames || '--'}</DetailField>
+            <DetailField label="Created At">
               {formatTimestamp(user.createTime)}
             </DetailField>
           </div>
@@ -847,7 +847,7 @@ export function SysUserDetailPage() {
       </DetailCard>
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/sys-user')}>
-          返回
+          Back
         </Button>
       </div>
     </div>
@@ -1030,9 +1030,9 @@ function RoleAssignMenuDialog({
     <Dialog open={!!role} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>分配菜单 — {role?.roleName}</DialogTitle>
+          <DialogTitle>Assign Menus — {role?.roleName}</DialogTitle>
           <DialogDescription>
-            勾选菜单及按钮权限，保存后立即生效。
+            Check menu and button permissions; takes effect immediately after saving.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh] rounded-md border p-3">
@@ -1052,7 +1052,7 @@ function RoleAssignMenuDialog({
         </ScrollArea>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            取消
+            Cancel
           </Button>
           <Button
             disabled={mutation.isPending}
@@ -1062,7 +1062,7 @@ function RoleAssignMenuDialog({
               // 源 role/index.vue onAssign：空勾选需显式确认后才会清空。
               if (
                 menuIds.length === 0 &&
-                !window.confirm('将清空该角色的全部菜单,确认?')
+                !window.confirm('This will clear all menus of this role. Confirm?')
               )
                 return;
               mutation.mutate(
@@ -1072,7 +1072,7 @@ function RoleAssignMenuDialog({
                 },
                 {
                   onSuccess: () => {
-                    toast.success('菜单已更新');
+                    toast.success('Menus updated');
                     onClose();
                   },
                   onError: (e) => toast.error((e as Error).message),
@@ -1080,7 +1080,7 @@ function RoleAssignMenuDialog({
               );
             }}
           >
-            {mutation.isPending ? '保存中…' : '保存'}
+            {mutation.isPending ? 'Saving…' : 'Save'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1121,9 +1121,9 @@ export function SysRoleListPage() {
 
   const onDelete = React.useCallback(
     (row: RoleRow) => {
-      if (!window.confirm(`删除角色「${row.roleName}」?内置角色或已被用户引用的角色无法删除。`)) return;
+      if (!window.confirm(`Delete role "${row.roleName}"? Built-in roles or roles referenced by users cannot be deleted.`)) return;
       deleteMutation.mutate(row.roleId, {
-        onSuccess: () => toast.success('角色已删除'),
+        onSuccess: () => toast.success('Role deleted'),
         onError: (e) => toast.error((e as Error).message),
       });
     },
@@ -1133,27 +1133,27 @@ export function SysRoleListPage() {
   const columns = React.useMemo<
     ColumnDef<RoleRow & { id: string }>[]
   >(() => [
-    { accessorKey: 'roleCode', header: '角色编码' },
-    { accessorKey: 'roleName', header: '角色名称' },
+    { accessorKey: 'roleCode', header: 'Role Code' },
+    { accessorKey: 'roleName', header: 'Role Name' },
     {
       id: 'roleType',
-      header: '类型',
+      header: 'Type',
       cell: ({ row }) =>
-        row.original.roleType === 0 ? '内置' : '自定义',
+        row.original.roleType === 0 ? 'Built-in' : 'Custom',
     },
     {
       accessorKey: 'remarks',
-      header: '备注',
+      header: 'Remarks',
       cell: ({ row }) => row.original.remarks || '--',
     },
     {
       accessorKey: 'createTime',
-      header: '创建时间',
+      header: 'Created At',
       cell: ({ row }) => formatTimestamp(row.original.createTime),
     },
     {
       id: 'actions',
-      header: '操作',
+      header: 'Actions',
       cell: ({ row }) => {
         const r = row.original;
         return (
@@ -1164,7 +1164,7 @@ export function SysRoleListPage() {
               className="h-auto p-0"
               onClick={() => router.push(`/sys-role/detail?id=${r.roleId}`)}
             >
-              查看
+              View
             </Button>
             <Button
               variant="link"
@@ -1172,7 +1172,7 @@ export function SysRoleListPage() {
               className="h-auto p-0"
               onClick={() => router.push(`/sys-role/edit?id=${r.roleId}`)}
             >
-              编辑
+              Edit
             </Button>
             <Button
               variant="link"
@@ -1180,7 +1180,7 @@ export function SysRoleListPage() {
               className="h-auto p-0"
               onClick={() => setAssignRole(r)}
             >
-              分配菜单
+              Assign Menus
             </Button>
             <Button
               variant="link"
@@ -1188,7 +1188,7 @@ export function SysRoleListPage() {
               className="h-auto p-0 text-destructive"
               onClick={() => onDelete(r)}
             >
-              删除
+              Delete
             </Button>
           </div>
         );
@@ -1205,37 +1205,37 @@ export function SysRoleListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             name="roleCode"
-            label="角色编码"
+            label="Role Code"
             register={register('roleCode')}
-            placeholder="模糊匹配"
+            placeholder="Fuzzy match"
           />
           <FormField
             name="roleName"
-            label="角色名称"
+            label="Role Name"
             register={register('roleName')}
-            placeholder="模糊匹配"
+            placeholder="Fuzzy match"
           />
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onResetSearch}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">角色</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
+          <div className="text-sm font-semibold">Roles</div>
           {hasPerm('rbac:role:manage') && (
             <Button size="sm" onClick={() => router.push('/sys-role/create')}>
-              新增角色
+              Add Role
             </Button>
           )}
         </div>
@@ -1243,7 +1243,7 @@ export function SysRoleListPage() {
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={
             paginationMeta
               ? {
@@ -1316,7 +1316,7 @@ export function SysRoleFormPage() {
 
   const onSubmit = handleSubmit((form) => {
     if (!form.roleName.trim()) {
-      toast.error('角色名称必填');
+      toast.error('Role name is required');
       return;
     }
     if (isEdit) {
@@ -1324,7 +1324,7 @@ export function SysRoleFormPage() {
         { roleId: id!, roleName: form.roleName, remarks: form.remarks || undefined, status: currentRow?.status },
         {
           onSuccess: () => {
-            toast.success('角色已更新');
+            toast.success('Role updated');
             router.push('/sys-role');
           },
           onError: (e) => toast.error((e as Error).message),
@@ -1332,14 +1332,14 @@ export function SysRoleFormPage() {
       );
     } else {
       if (!form.roleCode.trim()) {
-        toast.error('角色编码必填');
+        toast.error('Role code is required');
         return;
       }
       saveMutation.mutate(
         { roleCode: form.roleCode, roleName: form.roleName, remarks: form.remarks || undefined },
         {
           onSuccess: () => {
-            toast.success('角色已创建');
+            toast.success('Role created');
             router.push('/sys-role');
           },
           onError: (e) => toast.error((e as Error).message),
@@ -1349,38 +1349,38 @@ export function SysRoleFormPage() {
   });
 
   return (
-    <DetailCard title={isEdit ? '编辑角色' : '新增角色'}>
+    <DetailCard title={isEdit ? 'Edit Role' : 'Add Role'}>
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             name="roleCode"
-            label="角色编码"
+            label="Role Code"
             register={register('roleCode')}
             required
             disabled={isEdit}
-            placeholder="唯一编码（创建后不可改）"
+            placeholder="Unique code (immutable after creation)"
           />
           <FormField
             name="roleName"
-            label="角色名称"
+            label="Role Name"
             register={register('roleName')}
             required
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="remarks">备注</Label>
+          <Label htmlFor="remarks">Remarks</Label>
           <Textarea id="remarks" rows={3} {...register('remarks')} />
         </div>
         <div className="flex gap-2">
           <Button type="submit" disabled={saveMutation.isPending || updateMutation.isPending}>
-            {saveMutation.isPending || updateMutation.isPending ? '保存中…' : '保存'}
+            {saveMutation.isPending || updateMutation.isPending ? 'Saving…' : 'Save'}
           </Button>
           <Button
             type="button"
             variant="outline"
             onClick={() => router.push('/sys-role')}
           >
-            返回
+            Back
           </Button>
         </div>
       </form>
@@ -1417,10 +1417,10 @@ export function SysRoleDetailPage() {
 
   if (!id) {
     return (
-      <DetailCard title="角色详情">
-        <p className="text-sm text-muted-foreground">缺少角色 ID。</p>
+      <DetailCard title="Role Details">
+        <p className="text-sm text-muted-foreground">Missing role ID.</p>
         <Button variant="outline" className="mt-4" onClick={() => router.push('/sys-role')}>
-          返回
+          Back
         </Button>
       </DetailCard>
     );
@@ -1428,36 +1428,36 @@ export function SysRoleDetailPage() {
 
   return (
     <div className="space-y-4">
-      <DetailCard title="角色详情">
+      <DetailCard title="Role Details">
         {isLoading || !role ? (
           <LoadingBlock />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <DetailField label="角色编码">{role.roleCode}</DetailField>
-            <DetailField label="角色名称">{role.roleName}</DetailField>
-            <DetailField label="类型">
-              {role.roleType === 0 ? '内置' : '自定义'}
+            <DetailField label="Role Code">{role.roleCode}</DetailField>
+            <DetailField label="Role Name">{role.roleName}</DetailField>
+            <DetailField label="Type">
+              {role.roleType === 0 ? 'Built-in' : 'Custom'}
             </DetailField>
-            <DetailField label="状态">
+            <DetailField label="Status">
               <Badge variant={RBAC_USER_STATUS_VARIANT[role.status]}>
                 {RBAC_USER_STATUS_LABEL[role.status] ?? role.status}
               </Badge>
             </DetailField>
-            <DetailField label="备注">{role.remarks || '--'}</DetailField>
-            <DetailField label="创建时间">
+            <DetailField label="Remarks">{role.remarks || '--'}</DetailField>
+            <DetailField label="Created At">
               {formatTimestamp(role.createTime)}
             </DetailField>
           </div>
         )}
       </DetailCard>
 
-      <DetailCard title="已分配菜单">
+      <DetailCard title="Assigned Menus">
         {isLoading ? (
           <LoadingBlock />
         ) : (
           <div className="flex flex-wrap gap-2">
             {(menuIds ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">未分配任何菜单。</p>
+              <p className="text-sm text-muted-foreground">No menus assigned.</p>
             ) : (
               (menuIds ?? []).map((mid) => (
                 <Badge key={mid} variant="secondary">
@@ -1471,7 +1471,7 @@ export function SysRoleDetailPage() {
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/sys-role')}>
-          返回
+          Back
         </Button>
       </div>
     </div>
@@ -1567,13 +1567,13 @@ function MenuPermEditor({ menuKey }: { menuKey: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="text-sm font-medium">接口权限（menuKey: {menuKey}）</div>
+      <div className="text-sm font-medium">API Permissions (menuKey: {menuKey})</div>
       {isLoading ? (
         <LoadingBlock />
       ) : (
         <div className="space-y-2">
           {items.length === 0 && (
-            <p className="text-sm text-muted-foreground">暂无接口权限。</p>
+            <p className="text-sm text-muted-foreground">No API permissions.</p>
           )}
           {items.map((it, idx) => (
             <div key={idx} className="flex items-center gap-2">
@@ -1610,7 +1610,7 @@ function MenuPermEditor({ menuKey }: { menuKey: string }) {
                   setItems((prev) => prev.filter((_, i) => i !== idx))
                 }
               >
-                移除
+                Remove
               </Button>
             </div>
           ))}
@@ -1621,7 +1621,7 @@ function MenuPermEditor({ menuKey }: { menuKey: string }) {
           value={newUrl}
           onChange={(e) => setNewUrl(e.target.value)}
           className="w-64"
-          placeholder="新增 URL"
+          placeholder="New URL"
         />
         <Input
           value={newMethod}
@@ -1643,7 +1643,7 @@ function MenuPermEditor({ menuKey }: { menuKey: string }) {
             setNewMethod('');
           }}
         >
-          添加
+          Add
         </Button>
         <Button
           type="button"
@@ -1653,13 +1653,13 @@ function MenuPermEditor({ menuKey }: { menuKey: string }) {
             saveMutation.mutate(
               { menuKey, items },
               {
-                onSuccess: () => toast.success('接口权限已保存'),
+                onSuccess: () => toast.success('API permissions saved'),
                 onError: (e) => toast.error((e as Error).message),
               },
             )
           }
         >
-          {saveMutation.isPending ? '保存中…' : '保存接口权限'}
+          {saveMutation.isPending ? 'Saving…' : 'Save API Permissions'}
         </Button>
       </div>
     </div>
@@ -1713,7 +1713,7 @@ export function SysMenuListPage() {
 
   const onSave = () => {
     if (!form.menuKey.trim()) {
-      toast.error('菜单 Key 必填');
+      toast.error('Menu Key is required');
       return;
     }
     const payload = {
@@ -1731,14 +1731,14 @@ export function SysMenuListPage() {
       updateMutation.mutate(
         { ...payload, menuId: form.menuId },
         {
-          onSuccess: () => toast.success('保存成功,重新登录后菜单生效'),
+          onSuccess: () => toast.success('Saved successfully; menus take effect after signing in again'),
           onError: (e) => toast.error((e as Error).message),
         },
       );
     } else {
       saveMutation.mutate(payload, {
         onSuccess: () => {
-          toast.success('保存成功,重新登录后菜单生效');
+          toast.success('Saved successfully; menus take effect after signing in again');
           setMode('view');
         },
         onError: (e) => toast.error((e as Error).message),
@@ -1748,11 +1748,11 @@ export function SysMenuListPage() {
 
   const onDelete = () => {
     if (form.menuId == null) return;
-    if (!window.confirm(`确认删除菜单「${form.menuName}」?存在子菜单或被引用将被拒绝。`))
+    if (!window.confirm(`Are you sure you want to delete menu "${form.menuName}"? Menus with submenus or references will be rejected.`))
       return;
     deleteMutation.mutate(form.menuId, {
       onSuccess: () => {
-        toast.success('菜单已删除');
+        toast.success('Menu deleted');
         setMode('view');
         setForm(EMPTY_MENU_FORM);
         setSelectedKey(null);
@@ -1766,11 +1766,11 @@ export function SysMenuListPage() {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
       {/* 左：菜单树 */}
-      <div className="rounded-lg border bg-card p-4 shadow-sm">
+      <div className="rounded-lg border-border/60 bg-card p-4 shadow-float">
         <div className="mb-3 flex items-center justify-between">
-          <div className="text-sm font-semibold">菜单树</div>
+          <div className="text-sm font-semibold">Menu Tree</div>
           <Button type="button" size="sm" variant="outline" onClick={startNewRoot}>
-            新增根菜单
+            Add Root Menu
           </Button>
         </div>
         {isLoading ? (
@@ -1779,7 +1779,7 @@ export function SysMenuListPage() {
           <ScrollArea className="max-h-[70vh]">
             {(tree ?? []).length === 0 ? (
               <p className="py-4 text-center text-sm text-muted-foreground">
-                暂无菜单
+                No menus
               </p>
             ) : (
               (tree ?? []).map((n) => (
@@ -1799,25 +1799,25 @@ export function SysMenuListPage() {
       {/* 右：表单 + 接口权限 */}
       <div className="space-y-4">
         {mode === 'view' && selectedKey == null ? (
-          <DetailCard title="菜单详情">
+          <DetailCard title="Menu Details">
             <p className="text-sm text-muted-foreground">
-              选择左侧菜单节点查看/编辑，或点击「新增根菜单」。
+              Select a menu node on the left to view/edit, or click Add Root Menu.
             </p>
           </DetailCard>
         ) : (
           <DetailCard
             title={
               mode === 'view'
-                ? '编辑菜单'
+                ? 'Edit Menu'
                 : mode === 'new-root'
-                  ? '新增根菜单'
-                  : '新增子菜单'
+                  ? 'Add Root Menu'
+                  : 'Add Submenu'
             }
           >
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>
-                  菜单名称<span className="text-destructive"> *</span>
+                  Menu Name<span className="text-destructive"> *</span>
                 </Label>
                 <Input
                   value={form.menuName}
@@ -1825,7 +1825,7 @@ export function SysMenuListPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>菜单名称(EN)</Label>
+                <Label>Menu Name (EN)</Label>
                 <Input
                   value={form.menuNameEn}
                   onChange={(e) => patch({ menuNameEn: e.target.value })}
@@ -1833,16 +1833,16 @@ export function SysMenuListPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>
-                  菜单 Key<span className="text-destructive"> *</span>
+                  Menu Key<span className="text-destructive"> *</span>
                 </Label>
                 <Input
                   value={form.menuKey}
                   onChange={(e) => patch({ menuKey: e.target.value })}
-                  placeholder="如 rbac:user:manage，唯一"
+                  placeholder="e.g. rbac:user:manage, unique"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>菜单类型</Label>
+                <Label>Menu Type</Label>
                 <Select
                   value={String(form.menuType)}
                   onValueChange={(v) =>
@@ -1862,7 +1862,7 @@ export function SysMenuListPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>排序</Label>
+                <Label>Sort Order</Label>
                 <Input
                   type="number"
                   value={form.orderNum}
@@ -1870,7 +1870,7 @@ export function SysMenuListPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>是否显示</Label>
+                <Label>Visible</Label>
                 <Select
                   value={String(form.visible)}
                   onValueChange={(v) =>
@@ -1881,32 +1881,32 @@ export function SysMenuListPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">显示</SelectItem>
-                    <SelectItem value="1">隐藏</SelectItem>
+                    <SelectItem value="0">Visible</SelectItem>
+                    <SelectItem value="1">Hidden</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>路由地址</Label>
+                <Label>Route Path</Label>
                 <Input
                   value={form.menuUrl}
                   onChange={(e) => patch({ menuUrl: e.target.value })}
-                  placeholder="前端路由，如 /system/user"
+                  placeholder="Frontend route, e.g. /system/user"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>图标</Label>
+                <Label>Icon</Label>
                 <Input
                   value={form.icon}
                   onChange={(e) => patch({ icon: e.target.value })}
-                  placeholder="可选"
+                  placeholder="Optional"
                 />
               </div>
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
               <Button type="button" disabled={isFormDisabled} onClick={onSave}>
-                {isFormDisabled ? '保存中…' : '保存'}
+                {isFormDisabled ? 'Saving…' : 'Save'}
               </Button>
               {mode === 'view' && (
                 <>
@@ -1915,7 +1915,7 @@ export function SysMenuListPage() {
                     variant="outline"
                     onClick={startNewChild}
                   >
-                    新增子菜单
+                    Add Submenu
                   </Button>
                   <Button
                     type="button"
@@ -1924,7 +1924,7 @@ export function SysMenuListPage() {
                     disabled={deleteMutation.isPending}
                     onClick={onDelete}
                   >
-                    删除
+                    Delete
                   </Button>
                 </>
               )}
@@ -1933,7 +1933,7 @@ export function SysMenuListPage() {
         )}
 
         {mode === 'view' && selectedKey != null && form.menuKey ? (
-          <DetailCard title="接口权限">
+          <DetailCard title="API Permissions">
             <MenuPermEditor menuKey={form.menuKey} />
           </DetailCard>
         ) : null}
@@ -1993,12 +1993,12 @@ export function WorkflowConfigListPage() {
   const onToggleStatus = React.useCallback(
     (row: WorkflowRow) => {
       const next = row.status === 1 ? 2 : 1;
-      const verb = next === 1 ? '启用' : '停用';
-      if (!window.confirm(`确认${verb}审批流「${row.workflowName}」?`)) return;
+      const verb = next === 1 ? 'enable' : 'disable';
+      if (!window.confirm(`Are you sure you want to ${verb} workflow "${row.workflowName}"?`)) return;
       statusMutation.mutate(
         { workflowId: row.workflowId, status: next },
         {
-          onSuccess: () => toast.success(`已${verb}`),
+          onSuccess: () => toast.success(`Workflow ${verb}d`),
           onError: (e) => toast.error((e as Error).message),
         },
       );
@@ -2011,22 +2011,22 @@ export function WorkflowConfigListPage() {
   >(() => [
     {
       id: 'business',
-      header: '业务',
+      header: 'Business',
       cell: ({ row }) => (
         <span>
           {row.original.businessCode} {row.original.businessName}
         </span>
       ),
     },
-    { accessorKey: 'workflowName', header: '审批流名称' },
+    { accessorKey: 'workflowName', header: 'Workflow Name' },
     {
       accessorKey: 'stepCount',
-      header: '步骤数',
+      header: 'Steps',
       cell: ({ row }) => row.original.stepCount,
     },
     {
       accessorKey: 'status',
-      header: '状态',
+      header: 'Status',
       cell: ({ row }) => (
         <Badge variant={WORKFLOW_STATUS_VARIANT[row.original.status]}>
           {WORKFLOW_STATUS_LABEL[row.original.status] ?? row.original.status}
@@ -2035,12 +2035,12 @@ export function WorkflowConfigListPage() {
     },
     {
       accessorKey: 'createTime',
-      header: '创建时间',
+      header: 'Created At',
       cell: ({ row }) => formatTimestamp(row.original.createTime),
     },
     {
       id: 'actions',
-      header: '操作',
+      header: 'Actions',
       cell: ({ row }) => {
         const w = row.original;
         return (
@@ -2053,7 +2053,7 @@ export function WorkflowConfigListPage() {
                 router.push(`/workflow-config/detail?id=${w.workflowId}`)
               }
             >
-              查看
+              View
             </Button>
             <Button
               variant="link"
@@ -2063,7 +2063,7 @@ export function WorkflowConfigListPage() {
                 router.push(`/workflow-config/edit?id=${w.workflowId}`)
               }
             >
-              编辑
+              Edit
             </Button>
             <Button
               variant="link"
@@ -2071,7 +2071,7 @@ export function WorkflowConfigListPage() {
               className="h-auto p-0"
               onClick={() => onToggleStatus(w)}
             >
-              {w.status === 1 ? '停用' : '启用'}
+              {w.status === 1 ? 'Disable' : 'Enable'}
             </Button>
           </div>
         );
@@ -2090,22 +2090,22 @@ export function WorkflowConfigListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormSelect
             name="busCode"
             control={control}
-            label="业务类型"
-            placeholder="全部"
+            label="Business Type"
+            placeholder="All"
             options={WF_BUS_OPTIONS}
           />
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onResetSearch}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
@@ -2115,19 +2115,19 @@ export function WorkflowConfigListPage() {
         role="note"
         className="rounded-md border border-border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground"
       >
-        同一 busCode 仅一个启用版本;变更走新版本,不影响在途审批。审批人须为指定用户。
+        Only one enabled version per busCode; changes go through a new version and do not affect in-flight approvals. Approvers must be designated users.
       </div>
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">审批流定义</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
+          <div className="text-sm font-semibold">Workflow Definitions</div>
           {hasPerm('workflow:config') && (
             <Button
               size="sm"
               disabled={!canCreate}
               onClick={() => router.push('/workflow-config/create')}
-              title={canCreate ? undefined : '所有业务均已配置审批流'}
+              title={canCreate ? undefined : 'All businesses already have workflows configured'}
             >
-              新增审批流
+              Add Workflow
             </Button>
           )}
         </div>
@@ -2135,7 +2135,7 @@ export function WorkflowConfigListPage() {
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
         />
       </div>
     </div>
@@ -2166,7 +2166,7 @@ function UserMultiSelect({
   return (
     <div className="space-y-2">
       <Input
-        placeholder="搜索姓名/登录名"
+        placeholder="Search by name/login name"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         className="h-8"
@@ -2184,7 +2184,7 @@ function UserMultiSelect({
                 }
               />
               <span>
-                {u.userName}（{u.loginName}）
+                {u.userName} ({u.loginName})
               </span>
             </label>
           ))}
@@ -2210,7 +2210,7 @@ function WfStepEditor({
   return (
     <div className="rounded-md border p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-medium">步骤 {index + 1}</span>
+        <span className="text-sm font-medium">Step {index + 1}</span>
         <Button
           type="button"
           variant="link"
@@ -2218,19 +2218,19 @@ function WfStepEditor({
           className="h-auto p-0 text-destructive"
           onClick={onRemove}
         >
-          移除
+          Remove
         </Button>
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="space-y-1.5">
-          <Label>步骤名称</Label>
+          <Label>Step Name</Label>
           <Input
             value={step.stepName}
             onChange={(e) => onChange({ ...step, stepName: e.target.value })}
           />
         </div>
         <div className="space-y-1.5">
-          <Label>顺序</Label>
+          <Label>Order</Label>
           <Input
             type="number"
             value={step.stepOrder}
@@ -2240,7 +2240,7 @@ function WfStepEditor({
           />
         </div>
         <div className="space-y-1.5">
-          <Label>步骤类型</Label>
+          <Label>Step Type</Label>
           <Select
             value={String(step.stepType)}
             onValueChange={(v) => onChange({ ...step, stepType: Number(v) })}
@@ -2256,7 +2256,7 @@ function WfStepEditor({
         </div>
       </div>
       <div className="mt-3 space-y-1.5">
-        <Label>审批人</Label>
+        <Label>Approvers</Label>
         <UserMultiSelect
           options={users}
           selected={step.userIds}
@@ -2299,7 +2299,7 @@ export function WorkflowConfigFormPage() {
       setSteps(
         mapped.length > 0
           ? mapped
-          : [{ stepName: '审批', stepOrder: 1, stepType: 5, userIds: [] }],
+          : [{ stepName: 'Review', stepOrder: 1, stepType: 5, userIds: [] }],
       );
     }
   }, [isEdit, detail]);
@@ -2307,7 +2307,7 @@ export function WorkflowConfigFormPage() {
   const addStep = () =>
     setSteps((prev) => [
       {
-        stepName: `第${prev.length + 1}级`,
+        stepName: `Level ${prev.length + 1}`,
         stepOrder: prev.length + 1,
         stepType: 5,
         userIds: [],
@@ -2321,23 +2321,23 @@ export function WorkflowConfigFormPage() {
 
   const onSave = () => {
     if (!workflowName.trim()) {
-      toast.error('审批流名称必填');
+      toast.error('Workflow name is required');
       return;
     }
     if (!businessId) {
-      toast.error('请选择业务类型');
+      toast.error('Please select a business type');
       return;
     }
     if (steps.length === 0) {
-      toast.error('至少需要一个审批步骤');
+      toast.error('At least one approval step is required');
       return;
     }
     if (steps.some((s) => !s.stepName.trim())) {
-      toast.error('每个步骤需填写名称');
+      toast.error('Each step needs a name');
       return;
     }
     if (steps.some((s) => s.userIds.length === 0)) {
-      toast.error('每个步骤至少选择一名审批人');
+      toast.error('Each step needs at least one approver');
       return;
     }
     const stepsReq = steps.map((s) => ({
@@ -2353,7 +2353,7 @@ export function WorkflowConfigFormPage() {
         { workflowId: id!, businessId, workflowName, steps: stepsReq },
         {
           onSuccess: () => {
-            toast.success('审批流已更新');
+            toast.success('Workflow updated');
             router.push('/workflow-config');
           },
           onError: (e) => toast.error((e as Error).message),
@@ -2364,7 +2364,7 @@ export function WorkflowConfigFormPage() {
         { businessId, workflowName, steps: stepsReq },
         {
           onSuccess: () => {
-            toast.success(isEdit ? '审批流已创建为新版本' : '审批流已创建');
+            toast.success(isEdit ? 'Workflow created as a new version' : 'Workflow created');
             router.push('/workflow-config');
           },
           onError: (e) => toast.error((e as Error).message),
@@ -2376,12 +2376,12 @@ export function WorkflowConfigFormPage() {
   const isPending = saveMutation.isPending || updateMutation.isPending;
 
   return (
-    <DetailCard title={isEdit ? '编辑审批流' : '新增审批流'}>
+    <DetailCard title={isEdit ? 'Edit Workflow' : 'Add Workflow'}>
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
             <Label>
-              业务类型<span className="text-destructive"> *</span>
+              Business Type<span className="text-destructive"> *</span>
             </Label>
             {isEdit ? (
               <Input
@@ -2401,7 +2401,7 @@ export function WorkflowConfigFormPage() {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="选择业务类型" />
+                  <SelectValue placeholder="Select business type" />
                 </SelectTrigger>
                 <SelectContent>
                   {businessOptions.map((o) => (
@@ -2415,7 +2415,7 @@ export function WorkflowConfigFormPage() {
           </div>
           <div className="space-y-1.5">
             <Label>
-              审批流名称<span className="text-destructive"> *</span>
+              Workflow Name<span className="text-destructive"> *</span>
             </Label>
             <Input
               value={workflowName}
@@ -2426,14 +2426,14 @@ export function WorkflowConfigFormPage() {
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">审批步骤</span>
+            <span className="text-sm font-medium">Approval Steps</span>
             <Button type="button" size="sm" variant="outline" onClick={addStep}>
-              添加步骤
+              Add Step
             </Button>
           </div>
           {steps.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              点击「添加步骤」配置审批链路。
+              Click the Add Step button to configure the approval chain.
             </p>
           )}
           {steps.map((s, i) => (
@@ -2454,14 +2454,14 @@ export function WorkflowConfigFormPage() {
 
         <div className="flex gap-2">
           <Button type="button" disabled={isPending} onClick={onSave}>
-            {isPending ? '保存中…' : '保存'}
+            {isPending ? 'Saving…' : 'Save'}
           </Button>
           <Button
             type="button"
             variant="outline"
             onClick={() => router.push('/workflow-config')}
           >
-            返回
+            Back
           </Button>
         </div>
       </div>
@@ -2481,20 +2481,20 @@ export function WorkflowConfigDetailPage() {
 
   const userNameById = React.useMemo(() => {
     const map = new Map<number, string>();
-    users?.forEach((u) => map.set(u.userId, `${u.userName}（${u.loginName}）`));
+    users?.forEach((u) => map.set(u.userId, `${u.userName} (${u.loginName})`));
     return map;
   }, [users]);
 
   if (!id) {
     return (
-      <DetailCard title="审批流详情">
-        <p className="text-sm text-muted-foreground">缺少审批流 ID。</p>
+      <DetailCard title="Workflow Details">
+        <p className="text-sm text-muted-foreground">Missing workflow ID.</p>
         <Button
           variant="outline"
           className="mt-4"
           onClick={() => router.push('/workflow-config')}
         >
-          返回
+          Back
         </Button>
       </DetailCard>
     );
@@ -2502,29 +2502,29 @@ export function WorkflowConfigDetailPage() {
 
   return (
     <div className="space-y-4">
-      <DetailCard title="审批流详情">
+      <DetailCard title="Workflow Details">
         {isLoading || !detail ? (
           <LoadingBlock />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <DetailField label="业务">
+            <DetailField label="Business">
               {detail.businessCode} {detail.businessName}
             </DetailField>
-            <DetailField label="审批流名称">{detail.workflowName}</DetailField>
-            <DetailField label="步骤数">{detail.stepCount}</DetailField>
-            <DetailField label="状态">
+            <DetailField label="Workflow Name">{detail.workflowName}</DetailField>
+            <DetailField label="Steps">{detail.stepCount}</DetailField>
+            <DetailField label="Status">
               <Badge variant={WORKFLOW_STATUS_VARIANT[detail.status]}>
                 {WORKFLOW_STATUS_LABEL[detail.status] ?? detail.status}
               </Badge>
             </DetailField>
-            <DetailField label="创建时间">
+            <DetailField label="Created At">
               {formatTimestamp(detail.createTime)}
             </DetailField>
           </div>
         )}
       </DetailCard>
 
-      <DetailCard title="审批步骤">
+      <DetailCard title="Approval Steps">
         {isLoading || !detail ? (
           <LoadingBlock />
         ) : (
@@ -2532,10 +2532,10 @@ export function WorkflowConfigDetailPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
-                  <th className="py-2 pr-4">顺序</th>
-                  <th className="py-2 pr-4">步骤名称</th>
-                  <th className="py-2 pr-4">类型</th>
-                  <th className="py-2 pr-4">审批人</th>
+                  <th className="py-2 pr-4">Order</th>
+                  <th className="py-2 pr-4">Step Name</th>
+                  <th className="py-2 pr-4">Type</th>
+                  <th className="py-2 pr-4">Approvers</th>
                 </tr>
               </thead>
               <tbody>
@@ -2552,7 +2552,7 @@ export function WorkflowConfigDetailPage() {
                     <td className="py-2 pr-4">
                       {(s.userIds ?? [])
                         .map((uid) => userNameById.get(uid) ?? `#${uid}`)
-                        .join('、') || '--'}
+                        .join(', ') || '--'}
                     </td>
                   </tr>
                 ))}
@@ -2567,10 +2567,9 @@ export function WorkflowConfigDetailPage() {
           variant="outline"
           onClick={() => router.push('/workflow-config')}
         >
-          返回
+          Back
         </Button>
       </div>
     </div>
   );
 }
-

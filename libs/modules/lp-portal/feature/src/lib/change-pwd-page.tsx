@@ -51,7 +51,7 @@ export function ChangePwdPage() {
         oldPassword: form.oldPassword,
         newPassword: form.newPassword,
       });
-      toast.success('密码修改成功');
+      toast.success('Password changed successfully');
       // firstLogin 已被 mutation onSuccess 置 1 → 守卫放行，root 落点接管。
       router.replace('/');
     } catch {
@@ -65,15 +65,15 @@ export function ChangePwdPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-xl">Kissen LP 门户</CardTitle>
+          <CardTitle className="text-xl">Kissen LP Portal</CardTitle>
           <p className="text-sm text-muted-foreground">
-            首次登录，请先修改密码
+            First login — please change your password first
           </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="oldPassword">原密码</Label>
+              <Label htmlFor="oldPassword">Current Password</Label>
               <Input
                 id="oldPassword"
                 type="password"
@@ -87,7 +87,7 @@ export function ChangePwdPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="newPassword">新密码</Label>
+              <Label htmlFor="newPassword">New Password</Label>
               <Input
                 id="newPassword"
                 type="password"
@@ -101,7 +101,7 @@ export function ChangePwdPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">确认新密码</Label>
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -117,7 +117,7 @@ export function ChangePwdPage() {
             </div>
 
             <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? '提交中…' : '确认修改'}
+              {pending ? 'Submitting…' : 'Confirm Change'}
             </Button>
           </form>
         </CardContent>

@@ -97,8 +97,8 @@ export default function ModulePage({
   if (denied) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 text-muted-foreground">
-        <p className="text-lg font-medium text-foreground">无权限访问该页面</p>
-        <p className="text-sm">正在返回首页…</p>
+        <p className="text-lg font-medium text-foreground">You do not have permission to access this page</p>
+        <p className="text-sm">Returning to home…</p>
       </div>
     );
   }

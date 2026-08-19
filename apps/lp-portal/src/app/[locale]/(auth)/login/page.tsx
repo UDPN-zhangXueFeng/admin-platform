@@ -38,13 +38,33 @@ export default function LoginRoute() {
     setSearchParams(new URLSearchParams(window.location.search));
   }, []);
 
-  // 401 踢回登录页时展示「登录已失效」横幅（源 login/index.vue 顶部警告）。
+  // 401 踢回登录页时 toast 提示「登录已失效」（源 login/index.vue 顶部警告）。
   const expired = searchParams?.get('expired') === '1';
   const redirectTarget =
     (searchParams?.get('redirect') || '/').replace(
       /^\/(en-US|zh-CN)(?=\/|$)/,
       '',
     ) || '/';
+
+  React.useEffect(() => {
+    if (expired) {
+      toast.warning('Your session has expired. Please sign in again.');
+    }
+  }, [expired, toast]);
+
+  // Dev-only credential prefill (internal LP portal test account).
+  // Inactive in production builds via the NODE_ENV gate; MockLoginPage
+  // inputs are uncontrolled, so fill them imperatively without
+  // overwriting browser autofill.
+  React.useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    const fill = (id: string, value: string) => {
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      if (el && !el.value) el.value = value;
+    };
+    fill('username', 'testlp01_admin');
+    fill('password', 'Kissen@123');
+  }, []);
 
   const handleSubmit = React.useCallback(
     async (credentials: { loginName: string; password: string }) => {
@@ -62,7 +82,7 @@ export default function LoginRoute() {
         };
         login(user, resp.token);
 
-        toast.success('登录成功');
+        toast.success('Signed in successfully');
 
         if (resp.firstLogin === 0) {
           router.replace('/change-pwd');
@@ -77,31 +97,21 @@ export default function LoginRoute() {
   );
 
   return (
-    <>
-      {expired && (
-        <div
-          role="alert"
-          className="fixed inset-x-0 top-0 z-50 bg-amber-500 px-4 py-2 text-center text-sm font-medium text-amber-950"
-        >
-          登录已失效，请重新登录
-        </div>
-      )}
-      <MockLoginPage
-        projectName="Kissen LP 门户"
-        brandText="kissen"
-        brandSuffix="LP"
-        brandTagline="流动性提供方专属管理门户"
-        svgPath="/login-illustration.svg"
-        redirectPath="/"
-        gradientClass="from-[#c6c7ff] via-[#8e8af5] to-[#4e48e8]"
-        brandBaseColor="text-[#001a98]"
-        brandAccentColor="text-[#00a5d5]"
-        brandSuffixBg="bg-[#00a5d5]"
-        taglineColor="text-[#172260]"
-        titleColor="text-[#554eea]"
-        submitLabel="登 录"
-        onSubmit={handleSubmit}
-      />
-    </>
+    <MockLoginPage
+      projectName="Kissen LP Portal"
+      brandText="kissen"
+      brandSuffix="LP"
+      brandTagline="Dedicated management portal for liquidity providers"
+      svgPath="/login-illustration.svg"
+      redirectPath="/"
+      gradientClass="from-[#c6c7ff] via-[#8e8af5] to-[#4e48e8]"
+      brandBaseColor="text-[#001a98]"
+      brandAccentColor="text-[#00a5d5]"
+      brandSuffixBg="bg-[#00a5d5]"
+      taglineColor="text-[#172260]"
+      titleColor="text-[#554eea]"
+      submitLabel="Sign In"
+      onSubmit={handleSubmit}
+    />
   );
 }

@@ -15,8 +15,6 @@ import { z } from 'zod';
 import { CheckCircle2, Info, Loader2, RefreshCw, XCircle } from 'lucide-react';
 
 import {
-  Alert,
-  AlertTitle,
   Badge,
   Button,
   Card,
@@ -131,10 +129,10 @@ function QueryErrorRetry({
 }) {
   return (
     <div className="flex flex-col items-center gap-3 py-8 text-center">
-      <p className="text-sm text-destructive">加载失败:{(error as Error).message}</p>
+      <p className="text-sm text-destructive">Failed to load: {(error as Error).message}</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
         <RefreshCw />
-        重试
+        Retry
       </Button>
     </div>
   );
@@ -189,11 +187,6 @@ function ResultPanel({
   );
 }
 
-/** 信息/警示 alert 色调（源 el-alert type=info/warning，shared Alert 仅 default/destructive）。 */
-const ALERT_INFO_CLASS =
-  'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-100';
-const ALERT_WARNING_CLASS =
-  'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100';
 
 /* ================================================================== */
 /* 银行基本信息卡（源 bankinfo-card + api/bank.ts GET /bank/info）       */
@@ -208,7 +201,7 @@ function BankInfoCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>银行基本信息</CardTitle>
+        <CardTitle>Bank Information</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -218,21 +211,21 @@ function BankInfoCard() {
         ) : !bankInfo ? (
           <div className="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
             <Info className="h-8 w-8" />
-            <p className="text-sm">暂无银行信息（由 Kissen 推送）</p>
+            <p className="text-sm">No bank information yet (pushed by Kissen)</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <DescField label="银行名称">{bankInfo.bankName || '-'}</DescField>
-            <DescField label="银行编码">{bankInfo.bankCode || '-'}</DescField>
+            <DescField label="Bank Name">{bankInfo.bankName || '-'}</DescField>
+            <DescField label="Bank Code">{bankInfo.bankCode || '-'}</DescField>
             <DescField label="BIC/SWIFT">{bankInfo.bic || '-'}</DescField>
-            <DescField label="状态">
+            <DescField label="Status">
               {bankInfo.status === ONBOARD_STATUS_APPROVED ? (
-                <Badge>启用</Badge>
+                <Badge>Enabled</Badge>
               ) : (
                 <Badge variant="outline">{bankInfo.status ?? '-'}</Badge>
               )}
             </DescField>
-            <DescField label="支持币种" span>
+            <DescField label="Supported Currencies" span>
               {currencies.length ? (
                 <span className="flex flex-wrap gap-1.5">
                   {currencies.map((c) => (
@@ -245,9 +238,9 @@ function BankInfoCard() {
                 '-'
               )}
             </DescField>
-            <DescField label="单笔限额">{bankInfo.singleLimit ?? '-'}</DescField>
-            <DescField label="日累计限额">{bankInfo.dailyLimit ?? '-'}</DescField>
-            <DescField label="账户参数" span>
+            <DescField label="Single Tx Limit">{bankInfo.singleLimit ?? '-'}</DescField>
+            <DescField label="Daily Limit">{bankInfo.dailyLimit ?? '-'}</DescField>
+            <DescField label="Account Config" span>
               {bankInfo.accountConfig || '-'}
             </DescField>
           </div>
@@ -263,22 +256,26 @@ function BankInfoCard() {
 
 /** 审核中 / 已通过 result（源模板 1:1；供 overview/detail 共用）。 */
 function OnboardStatusResult({ current }: { current: OnboardStatus }) {
+  const toast = useToast();
+  const reviewFeedback = isPendingStatus(current)
+    ? current.approveFeedback
+    : null;
+  React.useEffect(() => {
+    if (reviewFeedback) {
+      toast.info('Kissen review feedback', { description: reviewFeedback });
+    }
+  }, [reviewFeedback, toast]);
+
   if (isPendingStatus(current)) {
     return (
       <ResultPanel
         tone="info"
         icon={<Info className="h-8 w-8" />}
-        title="入网申请审核中"
-        subtitle="您的入网申请已提交,等待 Kissen 审核,通过后即可使用门户功能。"
+        title="Application Under Review"
+        subtitle="Your onboarding application has been submitted and is awaiting Kissen review. Portal features unlock once approved."
       >
-        {current.approveFeedback ? (
-          <Alert className={ALERT_INFO_CLASS}>
-            <Info className="h-4 w-4 shrink-0" />
-            <AlertTitle>{current.approveFeedback}</AlertTitle>
-          </Alert>
-        ) : null}
         <p className="text-sm text-muted-foreground">
-          申请时间:{formatTime(current.agreeTime)}
+          Submitted: {formatTime(current.agreeTime)}
         </p>
       </ResultPanel>
     );
@@ -287,11 +284,11 @@ function OnboardStatusResult({ current }: { current: OnboardStatus }) {
     <ResultPanel
       tone="success"
       icon={<CheckCircle2 className="h-8 w-8" />}
-      title="已通过"
-      subtitle="您的入网申请已审核通过,可正常使用门户各项功能。"
+      title="Approved"
+      subtitle="Your onboarding application has been approved. All portal features are available."
     >
       <p className="text-sm text-muted-foreground">
-        通过时间:{formatTime(current.agreeTime)}
+        Approved: {formatTime(current.agreeTime)}
       </p>
     </ResultPanel>
   );
@@ -305,8 +302,8 @@ function OnboardStatusResult({ current }: { current: OnboardStatus }) {
 const onboardApplySchema = z.object({
   agreeConfirmed: z
     .boolean()
-    .refine((v) => v, { message: '请先勾选入网协议' }),
-  contactName: z.string().min(1, { message: '请输入联系人' }),
+    .refine((v) => v, { message: 'Please accept the onboarding agreement' }),
+  contactName: z.string().min(1, { message: 'Please enter a contact name' }),
   contactInfo: z.string(),
 });
 
@@ -336,7 +333,7 @@ function OnboardApplyForm() {
       {
         onSuccess: () => {
           // 源：ElMessage.success → loadStatus() 刷新回状态视图（审核中）。
-          toast.success('入网申请已提交,请等待审核');
+          toast.success('Application submitted. Please wait for review');
           router.push('/onboard');
         },
         onError: (e) => toast.error((e as Error).message),
@@ -358,7 +355,7 @@ function OnboardApplyForm() {
                 onBlur={field.onBlur}
                 aria-invalid={!!formState.errors.agreeConfirmed}
               />
-              <span>我已阅读并同意《Kissen 银行网关入网服务协议》</span>
+              <span>I have read and agree to the Kissen Bank Gateway Onboarding Service Agreement</span>
             </label>
           )}
         />
@@ -370,19 +367,19 @@ function OnboardApplyForm() {
       </div>
       <FormField
         name="contactName"
-        label="联系人"
+        label="Contact Name"
         required
         maxLength={30}
-        placeholder="请输入联系人姓名"
+        placeholder="Enter the contact name"
         className="max-w-[360px]"
         error={formState.errors.contactName?.message}
         register={register('contactName')}
       />
       <FormField
         name="contactInfo"
-        label="联系方式"
+        label="Contact Info"
         maxLength={50}
-        placeholder="手机 / 邮箱等,便于平台联系"
+        placeholder="Phone or email, so the platform can reach you"
         className="max-w-[360px]"
         error={formState.errors.contactInfo?.message}
         register={register('contactInfo')}
@@ -390,20 +387,10 @@ function OnboardApplyForm() {
       <div>
         <Button type="submit" disabled={submitMutation.isPending}>
           {submitMutation.isPending && <Loader2 className="animate-spin" />}
-          提交入网申请
+          Submit Application
         </Button>
       </div>
     </form>
-  );
-}
-
-/** 被拒提示（源 reject-alert：type=warning，仅被拒且有反馈时展示）。 */
-function RejectAlert({ feedback }: { feedback: string }) {
-  return (
-    <Alert className={cn('mb-4', ALERT_WARNING_CLASS)}>
-      <XCircle className="h-4 w-4 shrink-0" />
-      <AlertTitle>上次申请未通过:{feedback}</AlertTitle>
-    </Alert>
   );
 }
 
@@ -416,13 +403,25 @@ export function OnboardListPage() {
   const { data: current, isLoading, isError, error, refetch } =
     useOnboardStatusQuery(KISSEN_GATEWAY_PROJECT_ID);
 
+  const toast = useToast();
+  const rejectFeedback = isRejectedStatus(current)
+    ? current.approveFeedback
+    : null;
+  React.useEffect(() => {
+    if (rejectFeedback) {
+      toast.warning('Previous application was rejected', {
+        description: rejectFeedback,
+      });
+    }
+  }, [rejectFeedback, toast]);
+
   return (
     <div className="space-y-6">
-      <PageHead title="入网申请" />
+      <PageHead title="Onboarding" />
       <BankInfoCard />
       <Card>
         <CardHeader>
-          <CardTitle>入网状态</CardTitle>
+          <CardTitle>Onboarding Status</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -434,15 +433,12 @@ export function OnboardListPage() {
               <OnboardStatusResult current={current} />
               <div className="flex justify-center">
                 <Button asChild variant="outline" size="sm">
-                  <Link href="/onboard/detail">查看详情</Link>
+                  <Link href="/onboard/detail">View Details</Link>
                 </Button>
               </div>
             </div>
           ) : (
             <div className="space-y-4">
-              {isRejectedStatus(current) && current.approveFeedback ? (
-                <RejectAlert feedback={current.approveFeedback} />
-              ) : null}
               <div className="flex flex-col items-center gap-3 py-6 text-center">
                 <Badge
                   variant={
@@ -453,13 +449,13 @@ export function OnboardListPage() {
                 >
                   {isRejectedStatus(current)
                     ? ONBOARD_STATUS_LABEL[ONBOARD_STATUS_REJECTED]
-                    : '未入网'}
+                    : 'Not Onboarded'}
                 </Badge>
                 <p className="text-sm text-muted-foreground">
-                  提交入网申请,等待 Kissen 审核,通过后即可使用门户功能。
+                  Submit an onboarding application and wait for Kissen review. Portal features unlock once approved.
                 </p>
                 <Button asChild>
-                  <Link href="/onboard/create">提交入网申请</Link>
+                  <Link href="/onboard/create">Submit Application</Link>
                 </Button>
               </div>
             </div>
@@ -475,13 +471,25 @@ export function OnboardFormPage() {
   const { data: current, isLoading, isError, error, refetch } =
     useOnboardStatusQuery(KISSEN_GATEWAY_PROJECT_ID);
 
+  const toast = useToast();
+  const rejectFeedback = isRejectedStatus(current)
+    ? current.approveFeedback
+    : null;
+  React.useEffect(() => {
+    if (rejectFeedback) {
+      toast.warning('Previous application was rejected', {
+        description: rejectFeedback,
+      });
+    }
+  }, [rejectFeedback, toast]);
+
   return (
     <div className="space-y-6">
-      <PageHead title="提交入网申请" />
+      <PageHead title="Submit Onboarding Application" />
       <BankInfoCard />
       <Card>
         <CardHeader>
-          <CardTitle>入网申请</CardTitle>
+          <CardTitle>Onboarding Application</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -493,9 +501,6 @@ export function OnboardFormPage() {
             <OnboardStatusResult current={current} />
           ) : (
             <>
-              {isRejectedStatus(current) && current.approveFeedback ? (
-                <RejectAlert feedback={current.approveFeedback} />
-              ) : null}
               <OnboardApplyForm />
             </>
           )}
@@ -512,11 +517,11 @@ export function OnboardDetailPage() {
 
   return (
     <div className="space-y-6">
-      <PageHead title="入网状态详情" />
+      <PageHead title="Onboarding Status" />
       <BankInfoCard />
       <Card>
         <CardHeader>
-          <CardTitle>入网状态</CardTitle>
+          <CardTitle>Onboarding Status</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -529,25 +534,25 @@ export function OnboardDetailPage() {
             <ResultPanel
               tone="danger"
               icon={<XCircle className="h-8 w-8" />}
-              title="上次申请未通过"
+              title="Previous Application Rejected"
               subtitle={current.approveFeedback}
             >
               <p className="text-sm text-muted-foreground">
-                申请时间:{formatTime(current.agreeTime)}
+                Submitted: {formatTime(current.agreeTime)}
               </p>
               <Button asChild size="sm">
-                <Link href="/onboard/create">重新提交入网申请</Link>
+                <Link href="/onboard/create">Resubmit Application</Link>
               </Button>
             </ResultPanel>
           ) : (
             <ResultPanel
               tone="info"
               icon={<Info className="h-8 w-8" />}
-              title="尚无入网申请"
-              subtitle="提交入网申请,等待 Kissen 审核,通过后即可使用门户功能。"
+              title="No Application Yet"
+              subtitle="Submit an onboarding application and wait for Kissen review. Portal features unlock once approved."
             >
               <Button asChild size="sm">
-                <Link href="/onboard/create">提交入网申请</Link>
+                <Link href="/onboard/create">Submit Application</Link>
               </Button>
             </ResultPanel>
           )}

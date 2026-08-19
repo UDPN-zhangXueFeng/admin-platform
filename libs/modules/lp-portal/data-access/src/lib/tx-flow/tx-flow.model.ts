@@ -25,19 +25,19 @@ export interface TxFlowListReq {
  * 未知码显原值兜底在页面。
  */
 export const TX_STATUS_LABEL: Record<number, string> = {
-  1: '已创建',
-  5: '已报价',
-  10: '已确认',
-  20: '源端划转中',
-  25: '源端已验证',
-  30: '解付中',
-  35: '已入账',
-  40: '已完成',
-  50: '冲正中',
-  60: '已冲正',
-  70: '异常',
-  80: '已取消',
-  90: '失败',
+  1: 'Created',
+  5: 'Quoted',
+  10: 'Confirmed',
+  20: 'Source Transferring',
+  25: 'Source Verified',
+  30: 'Disbursing',
+  35: 'Credited',
+  40: 'Completed',
+  50: 'Reversing',
+  60: 'Reversed',
+  70: 'Abnormal',
+  80: 'Cancelled',
+  90: 'Failed',
 };
 
 /**

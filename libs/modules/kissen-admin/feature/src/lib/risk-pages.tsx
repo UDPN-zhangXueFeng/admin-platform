@@ -100,7 +100,7 @@ function DetailCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+    <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
       <div className="mb-6 text-base font-semibold">{title}</div>
       {children}
     </section>
@@ -241,18 +241,18 @@ export function FreezeListPage() {
   const onToggle = React.useCallback(
     (row: FreezeListRow) => {
       const willFreeze = row.status === FREEZE_STATUS_ACTIVE;
-      const typeLabel = FREEZE_TARGET_TYPE_LABEL[row.targetType] ?? '目标';
-      const action = willFreeze ? '冻结' : '解冻';
+      const typeLabel = FREEZE_TARGET_TYPE_LABEL[row.targetType] ?? 'Target';
+      const action = willFreeze ? 'freeze' : 'unfreeze';
       if (
         !window.confirm(
-          `确认${action}${typeLabel}「${row.name}」?\n${willFreeze ? '冻结后将无法参与交易。' : '解冻后将恢复参与交易。'}`,
+          `Are you sure you want to ${action} ${typeLabel} "${row.name}"?\n${willFreeze ? 'Once frozen, it can no longer participate in transactions.' : 'Once unfrozen, it will resume participating in transactions.'}`,
         )
       )
         return;
       toggleMutation.mutate(
         { targetType: row.targetType, targetId: row.targetId, freeze: willFreeze },
         {
-          onSuccess: () => toast.success(`已${action}`),
+          onSuccess: () => toast.success(willFreeze ? 'Frozen' : 'Unfrozen'),
           onError: (err) => toast.error((err as Error).message),
         },
       );
@@ -272,17 +272,17 @@ export function FreezeListPage() {
     () => [
       {
         id: 'name',
-        header: '名称',
+        header: 'Name',
         cell: ({ row }) => <span>{row.original.name || '--'}</span>,
       },
       {
         id: 'code',
-        header: '编码',
+        header: 'Code',
         cell: ({ row }) => <span>{row.original.code || '--'}</span>,
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => (
           <Badge variant={freezeStatusVariant(row.original.status)}>
             {FREEZE_STATUS_LABEL[row.original.status] ?? row.original.status}
@@ -291,7 +291,7 @@ export function FreezeListPage() {
       },
       {
         id: 'actions',
-        header: '操作',
+        header: 'Actions',
         cell: ({ row }) => {
           const item = row.original;
           const canToggle = isFreezable(item.status);
@@ -306,7 +306,7 @@ export function FreezeListPage() {
                   disabled={toggleMutation.isPending}
                   onClick={() => onToggle(item)}
                 >
-                  {willFreeze ? '冻结' : '解冻'}
+                  {willFreeze ? 'Freeze' : 'Unfreeze'}
                 </Button>
               )}
               <Button
@@ -315,7 +315,7 @@ export function FreezeListPage() {
                 className="h-auto p-0"
                 onClick={() => onView(item)}
               >
-                详情
+                Details
               </Button>
             </div>
           );
@@ -329,9 +329,9 @@ export function FreezeListPage() {
     <div className="space-y-4">
       <Tabs value={String(targetType)} onValueChange={onTabChange}>
         <TabsList>
-          <TabsTrigger value={String(FREEZE_TARGET_BANK)}>银行</TabsTrigger>
+          <TabsTrigger value={String(FREEZE_TARGET_BANK)}>Bank</TabsTrigger>
           <TabsTrigger value={String(FREEZE_TARGET_LP)}>LP</TabsTrigger>
-          <TabsTrigger value={String(FREEZE_TARGET_PAIR)}>货币对</TabsTrigger>
+          <TabsTrigger value={String(FREEZE_TARGET_PAIR)}>Currency Pair</TabsTrigger>
         </TabsList>
         <TabsContent value={String(targetType)} className="space-y-4">
           <form
@@ -339,22 +339,22 @@ export function FreezeListPage() {
               e.preventDefault();
               onSearch();
             }}
-            className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+            className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
           >
-            <div className="mb-4 text-sm font-semibold">查询</div>
+            <div className="mb-4 text-sm font-semibold">Search</div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-muted-foreground">
-                  {targetType === FREEZE_TARGET_PAIR ? '源币种' : '名称'}
+                  {targetType === FREEZE_TARGET_PAIR ? 'Source Currency' : 'Name'}
                 </label>
                 <Input
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
-                  placeholder={targetType === FREEZE_TARGET_PAIR ? '按源币种搜索' : '请输入名称'}
+                  placeholder={targetType === FREEZE_TARGET_PAIR ? 'Search by source currency' : 'Enter name'}
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-muted-foreground">状态</label>
+                <label className="text-sm font-medium text-muted-foreground">Status</label>
                 <Select
                   value={statusFilter === undefined ? STATUS_ALL : String(statusFilter)}
                   onValueChange={(v) =>
@@ -362,33 +362,33 @@ export function FreezeListPage() {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="全部" />
+                    <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={STATUS_ALL}>全部</SelectItem>
-                    <SelectItem value={String(FREEZE_STATUS_ACTIVE)}>启用</SelectItem>
-                    <SelectItem value={String(FREEZE_STATUS_FROZEN)}>冻结</SelectItem>
+                    <SelectItem value={STATUS_ALL}>All</SelectItem>
+                    <SelectItem value={String(FREEZE_STATUS_ACTIVE)}>Enabled</SelectItem>
+                    <SelectItem value={String(FREEZE_STATUS_FROZEN)}>Frozen</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="mt-4 flex gap-2">
-              <Button type="submit">查询</Button>
+              <Button type="submit">Search</Button>
               <Button type="button" variant="outline" onClick={onReset}>
-                重置
+                Reset
               </Button>
             </div>
           </form>
 
-          <div className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              冻结管理 — {FREEZE_TARGET_TYPE_LABEL[targetType] ?? ''}
+          <div className="rounded-lg border-border/60 bg-card shadow-float">
+            <div className="border-b border-border/50 px-6 py-3 text-sm font-semibold">
+              Freeze Management — {FREEZE_TARGET_TYPE_LABEL[targetType] ?? ''}
             </div>
             <DataTable
               columns={columns}
               data={rows}
               isLoading={isLoading}
-              emptyMessage="暂无数据"
+              emptyMessage="No data"
               pagination={
                 paginationMeta
                   ? {
@@ -449,10 +449,10 @@ export function FreezeDetailPage() {
 
   if (!targetId) {
     return (
-      <DetailCard title="冻结详情">
-        <p className="text-sm text-muted-foreground">缺少目标 ID。</p>
+      <DetailCard title="Freeze Details">
+        <p className="text-sm text-muted-foreground">Missing target ID.</p>
         <Button variant="outline" className="mt-4" onClick={() => router.push('/freeze')}>
-          返回
+          Back
         </Button>
       </DetailCard>
     );
@@ -461,13 +461,17 @@ export function FreezeDetailPage() {
   const onToggle = () => {
     if (!target) return;
     const willFreeze = target.status === FREEZE_STATUS_ACTIVE;
-    const typeLabel = FREEZE_TARGET_TYPE_LABEL[target.targetType] ?? '目标';
-    if (!window.confirm(`确认${willFreeze ? '冻结' : '解冻'}${typeLabel}「${target.name}」?`))
+    const typeLabel = FREEZE_TARGET_TYPE_LABEL[target.targetType] ?? 'Target';
+    if (
+      !window.confirm(
+        `Are you sure you want to ${willFreeze ? 'freeze' : 'unfreeze'} ${typeLabel} "${target.name}"?`,
+      )
+    )
       return;
     toggleMutation.mutate(
       { targetType: target.targetType, targetId: target.targetId, freeze: willFreeze },
       {
-        onSuccess: () => toast.success(`已${willFreeze ? '冻结' : '解冻'}`),
+        onSuccess: () => toast.success(willFreeze ? 'Frozen' : 'Unfrozen'),
         onError: (err) => toast.error((err as Error).message),
       },
     );
@@ -475,23 +479,23 @@ export function FreezeDetailPage() {
 
   return (
     <div className="space-y-4">
-      <DetailCard title="冻结详情">
+      <DetailCard title="Freeze Details">
         {activeQ.isLoading || !activeQ.data ? (
           <LoadingBlock />
         ) : !target ? (
           <p className="text-sm text-muted-foreground">
-            未找到该目标（可能已不在前 {DETAIL_LOOKUP_SIZE} 条记录内）。
+            Target not found (it may be beyond the first {DETAIL_LOOKUP_SIZE} records).
           </p>
         ) : (
           <>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <DetailField label="目标类型">
+              <DetailField label="Target Type">
                 {FREEZE_TARGET_TYPE_LABEL[target.targetType] ?? target.targetType}
               </DetailField>
-              <DetailField label="目标 ID">{target.targetId}</DetailField>
-              <DetailField label="名称">{target.name || '--'}</DetailField>
-              <DetailField label="编码">{target.code || '--'}</DetailField>
-              <DetailField label="状态">
+              <DetailField label="Target ID">{target.targetId}</DetailField>
+              <DetailField label="Name">{target.name || '--'}</DetailField>
+              <DetailField label="Code">{target.code || '--'}</DetailField>
+              <DetailField label="Status">
                 <Badge variant={freezeStatusVariant(target.status)}>
                   {FREEZE_STATUS_LABEL[target.status] ?? target.status}
                 </Badge>
@@ -504,7 +508,7 @@ export function FreezeDetailPage() {
                   onClick={onToggle}
                   variant={target.status === FREEZE_STATUS_ACTIVE ? 'destructive' : 'default'}
                 >
-                  {target.status === FREEZE_STATUS_ACTIVE ? '冻结' : '解冻'}
+                  {target.status === FREEZE_STATUS_ACTIVE ? 'Freeze' : 'Unfreeze'}
                 </Button>
               </div>
             )}
@@ -513,7 +517,7 @@ export function FreezeDetailPage() {
       </DetailCard>
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/freeze')}>
-          返回
+          Back
         </Button>
       </div>
     </div>
@@ -566,29 +570,29 @@ export function MonitorHitListPage() {
     () => [
       {
         id: 'hitId',
-        header: '命中 ID',
+        header: 'Hit ID',
         cell: ({ row }) => <span>{row.original.hitId}</span>,
       },
       {
         id: 'transactionId',
-        header: '交易 ID',
+        header: 'Transaction ID',
         cell: ({ row }) => <span>{row.original.transactionId}</span>,
       },
       {
         accessorKey: 'ruleCode',
-        header: '命中规则',
+        header: 'Hit Rule',
         cell: ({ row }) => (
           <span>{RULE_CODE_MAP[row.original.ruleCode] ?? row.original.ruleCode}</span>
         ),
       },
       {
         accessorKey: 'hitDesc',
-        header: '命中描述',
+        header: 'Hit Description',
         cell: ({ row }) => <span>{row.original.hitDesc || '--'}</span>,
       },
       {
         accessorKey: 'handleStatus',
-        header: '处理状态',
+        header: 'Handling Status',
         cell: ({ row }) => (
           <Badge variant={handleStatusVariant(row.original.handleStatus)}>
             {HANDLE_STATUS_MAP[row.original.handleStatus] ?? row.original.handleStatus}
@@ -597,12 +601,12 @@ export function MonitorHitListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: '命中时间',
+        header: 'Hit Time',
         cell: ({ row }) => <span>{formatTimestamp(row.original.createTime)}</span>,
       },
       {
         id: 'actions',
-        header: '操作',
+        header: 'Actions',
         cell: ({ row }) => (
           <Button
             variant="link"
@@ -610,7 +614,7 @@ export function MonitorHitListPage() {
             className="h-auto p-0"
             onClick={() => router.push(`/monitor-hit/detail?id=${row.original.hitId}`)}
           >
-            详情
+            Details
           </Button>
         ),
       },
@@ -626,30 +630,30 @@ export function MonitorHitListPage() {
           setApplied(form);
           setPageNum(1);
         }}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground">命中规则</label>
+            <label className="text-sm font-medium text-muted-foreground">Hit Rule</label>
             <Input
               value={form.ruleCode}
               onChange={(e) => setForm((f) => ({ ...f, ruleCode: e.target.value }))}
-              placeholder="规则编码，如 HIGH_FREQ_SMALL"
+              placeholder="Rule code, e.g. HIGH_FREQ_SMALL"
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground">交易 ID</label>
+            <label className="text-sm font-medium text-muted-foreground">Transaction ID</label>
             <Input
               value={form.transactionId}
               onChange={(e) => setForm((f) => ({ ...f, transactionId: e.target.value }))}
-              placeholder="请输入交易 ID"
+              placeholder="Enter transaction ID"
               inputMode="numeric"
             />
           </div>
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button
             type="button"
             variant="outline"
@@ -659,18 +663,18 @@ export function MonitorHitListPage() {
               setPageNum(1);
             }}
           >
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="border-b px-6 py-3 text-sm font-semibold">监控命中</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="border-b border-border/50 px-6 py-3 text-sm font-semibold">Monitor Hits</div>
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={
             paginationMeta
               ? {
@@ -711,14 +715,14 @@ export function MonitorHitDetailPage() {
 
   if (!hitId) {
     return (
-      <DetailCard title="监控命中详情">
-        <p className="text-sm text-muted-foreground">缺少命中 ID。</p>
+      <DetailCard title="Monitor Hit Details">
+        <p className="text-sm text-muted-foreground">Missing hit ID.</p>
         <Button
           variant="outline"
           className="mt-4"
           onClick={() => router.push('/monitor-hit')}
         >
-          返回
+          Back
         </Button>
       </DetailCard>
     );
@@ -726,36 +730,35 @@ export function MonitorHitDetailPage() {
 
   return (
     <div className="space-y-4">
-      <DetailCard title="监控命中详情">
+      <DetailCard title="Monitor Hit Details">
         {isLoading || !data ? (
           <LoadingBlock />
         ) : !target ? (
           <p className="text-sm text-muted-foreground">
-            未找到该命中（可能已不在前 {DETAIL_LOOKUP_SIZE} 条记录内）。
+            Hit not found (it may be beyond the first {DETAIL_LOOKUP_SIZE} records).
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <DetailField label="命中 ID">{target.hitId}</DetailField>
-            <DetailField label="交易 ID">{target.transactionId}</DetailField>
-            <DetailField label="命中规则">
+            <DetailField label="Hit ID">{target.hitId}</DetailField>
+            <DetailField label="Transaction ID">{target.transactionId}</DetailField>
+            <DetailField label="Hit Rule">
               {RULE_CODE_MAP[target.ruleCode] ?? target.ruleCode}
             </DetailField>
-            <DetailField label="处理状态">
+            <DetailField label="Handling Status">
               <Badge variant={handleStatusVariant(target.handleStatus)}>
                 {HANDLE_STATUS_MAP[target.handleStatus] ?? target.handleStatus}
               </Badge>
             </DetailField>
-            <DetailField label="命中描述">{target.hitDesc || '--'}</DetailField>
-            <DetailField label="命中时间">{formatTimestamp(target.createTime)}</DetailField>
+            <DetailField label="Hit Description">{target.hitDesc || '--'}</DetailField>
+            <DetailField label="Hit Time">{formatTimestamp(target.createTime)}</DetailField>
           </div>
         )}
       </DetailCard>
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/monitor-hit')}>
-          返回
+          Back
         </Button>
       </div>
     </div>
   );
 }
-

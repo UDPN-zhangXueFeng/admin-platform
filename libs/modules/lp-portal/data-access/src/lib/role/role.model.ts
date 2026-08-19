@@ -23,12 +23,12 @@ export interface RolePageReq {
 
 /** 角色类型文案（源 tag：0 内置 danger / 1 自定义 primary；未知码页面显原值）。 */
 export const ROLE_TYPE_TEXT: Record<number, string> = {
-  0: '内置',
-  1: '自定义',
+  0: 'Built-in',
+  1: 'Custom',
 };
 
 /** 角色状态文案（源 tag：0 正常 success / 1 停用 info）。 */
 export const ROLE_STATUS_TEXT: Record<number, string> = {
-  0: '正常',
-  1: '停用',
+  0: 'Normal',
+  1: 'Disabled',
 };

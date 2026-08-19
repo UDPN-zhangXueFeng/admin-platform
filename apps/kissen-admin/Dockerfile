@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 # ─────────────────────────────────────────────────────────────
 # kissen-admin / apps/kissen-admin 运行镜像
 # 参照根 Dockerfile（apps/admin）。差异仅三处：
@@ -39,7 +38,11 @@ RUN --mount=type=cache,id=admin-platform-pnpm-store,target=/pnpm/store \
 # 依赖层完成后再复制源码
 COPY . .
 
-# 构建期 env：kissen 前端 baseURL 默认 /v1（走 nginx 代理，无需注入）；
+# 应用身份：loadProjectConfig() 无参调用时读 NX_PROJECT_ID 选 configs/<id>.json。
+# dev 下由 Nx 注入（NX_PROJECT_ID=kissen-admin）；Docker 内无 Nx，必须显式注入，
+# 否则 fallback 到 stablecoin（admin 平台菜单）。builder 阶段覆盖预渲染，runner 覆盖 SSR。
+ARG NX_PROJECT_ID=kissen-admin
+ENV NX_PROJECT_ID=$NX_PROJECT_ID
 # rewrites 兜底地址（生产 /v1 由 nginx 拦截，此值不生效，仅给默认）。
 ARG NEXT_PUBLIC_KISSEN_API_BASE_URL=/v1
 ENV NEXT_PUBLIC_KISSEN_API_BASE_URL=$NEXT_PUBLIC_KISSEN_API_BASE_URL
@@ -58,6 +61,8 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
+# 应用身份（与 builder 同值）：SSR 运行期 loadProjectConfig 依赖。
+ENV NX_PROJECT_ID=kissen-admin
 
 # Next 16 monorepo standalone 保留 workspace 相对路径
 # → server.js 位于 apps/kissen-admin/server.js

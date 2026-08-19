@@ -24,19 +24,19 @@ export const TxStatus = {
 
 /** 状态码 → 中文标签（源 `TRANSACTION_STATUS_MAP`，列表/详情/事件流共用）。 */
 export const TRANSACTION_STATUS_LABEL: Record<number, string> = {
-  1: '已创建',
-  5: '已报价',
-  10: '已确认',
-  20: '源端划转中',
-  25: '源端已验证',
-  30: '解付中',
-  35: '已入账',
-  40: '已完成',
-  50: '冲正中',
-  60: '已冲正',
-  70: '异常',
-  80: '已取消',
-  90: '失败',
+  1: 'Created',
+  5: 'Quoted',
+  10: 'Confirmed',
+  20: 'Source Transferring',
+  25: 'Source Verified',
+  30: 'Advancing',
+  35: 'Settled',
+  40: 'Completed',
+  50: 'Reversing',
+  60: 'Reversed',
+  70: 'Exception',
+  80: 'Cancelled',
+  90: 'Failed',
 };
 
 /**

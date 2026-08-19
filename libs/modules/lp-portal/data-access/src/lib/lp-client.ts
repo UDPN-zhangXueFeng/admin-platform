@@ -161,7 +161,7 @@ lpAxios.interceptors.response.use(
       // 0024 降级不发全局 toast，交由页面级 ServiceDownAlert 渲染（源语义）。
       if (!isServiceDown(apiError)) {
         notifyError(
-          `${body.message ?? '请求失败'}${body.traceId ? ` (${body.traceId})` : ''}`,
+          `${body.message ?? 'Request failed'}${body.traceId ? ` (${body.traceId})` : ''}`,
         );
       }
       throw apiError;
@@ -176,6 +176,7 @@ lpAxios.interceptors.response.use(
     if (axios.isCancel(error) || error.code === 'ERR_CANCELED') {
       throw error;
     }
+    const status = error.response?.status;
     if (status === 401) {
       // 与源一致：清会话、跳登录并标记 expired（登录页据此展示「登录已失效」）；
       // 目标带 locale 前缀（getLoginRedirectPath 从当前路径解析 /en-US|/zh-CN）。
@@ -183,18 +184,18 @@ lpAxios.interceptors.response.use(
       if (typeof window !== 'undefined') {
         window.location.assign(`${getLoginRedirectPath()}?expired=1`);
       }
-      notifyError('登录已失效,请重新登录');
-      throw new LpApiError('401', '登录已失效,请重新登录');
+      notifyError('Session expired, please log in again');
+      throw new LpApiError('401', 'Session expired, please log in again');
     }
     if (status === 403) {
-      notifyError('无权限执行该操作');
-      throw new LpApiError('403', '无权限执行该操作');
+      notifyError('You do not have permission to perform this operation');
+      throw new LpApiError('403', 'You do not have permission to perform this operation');
     }
-    notifyError(`网络错误:${error.message}`);
+    notifyError(`Network error: ${error.message}`);
     if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-      throw new LpApiError('timeout', `网络超时:${error.message}`);
+      throw new LpApiError('timeout', `Network timeout: ${error.message}`);
     }
-    throw new LpApiError('network', `网络错误:${error.message}`);
+    throw new LpApiError('network', `Network error: ${error.message}`);
   },
 );
 

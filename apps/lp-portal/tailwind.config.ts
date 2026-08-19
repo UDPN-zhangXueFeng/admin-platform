@@ -42,6 +42,10 @@ const config = {
           foreground: 'hsl(var(--popover-foreground))',
         },
       },
+      boxShadow: {
+        float: '0 1px 2px rgb(0 0 0 / 0.02), 0 6px 16px -4px rgb(0 0 0 / 0.05), 0 16px 40px -8px rgb(0 0 0 / 0.06)',
+        'float-lg': '0 2px 4px rgb(0 0 0 / 0.03), 0 10px 28px -6px rgb(0 0 0 / 0.08), 0 24px 56px -12px rgb(0 0 0 / 0.09)',
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',

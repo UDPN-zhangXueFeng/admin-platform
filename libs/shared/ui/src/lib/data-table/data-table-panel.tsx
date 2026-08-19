@@ -13,6 +13,7 @@ import type { DataTablePanelProps } from './data-table.types';
  */
 export function DataTablePanel<TData extends { id: string }>({
   title,
+  titleWrap = false,
   extra,
   filter,
   columns,
@@ -29,14 +30,20 @@ export function DataTablePanel<TData extends { id: string }>({
 
   return (
     <section
-      className={cn('rounded-md border bg-background', className)}
+      className={cn('rounded-lg border border-border/60 bg-card shadow-float', className)}
       aria-busy={isLoading || undefined}
       aria-describedby={error ? errorId : undefined}
     >
       {hasHeader && (
-        <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           {title && (
-            <div className="min-w-0 text-sm font-semibold text-foreground">
+            <div
+              className={cn(
+                'min-w-0 text-sm font-semibold text-foreground',
+                titleWrap ? 'whitespace-normal break-words' : 'truncate'
+              )}
+              title={!titleWrap && typeof title === 'string' ? title : undefined}
+            >
               {title}
             </div>
           )}
@@ -44,13 +51,13 @@ export function DataTablePanel<TData extends { id: string }>({
         </div>
       )}
 
-      {filter && <div className="border-b px-4 py-4">{filter}</div>}
+      {filter && <div className="border-b border-border/50 px-4 py-4">{filter}</div>}
 
       {error && (
         <div
           id={errorId}
           role="alert"
-          className="border-b bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          className="border-b border-border/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
           {error}
         </div>

@@ -113,7 +113,7 @@ export function MockLoginPage({
       <section
         className={`relative hidden min-h-screen overflow-hidden bg-gradient-to-br ${gradientClass} lg:flex lg:flex-col lg:items-center lg:justify-center`}
       >
-        <div className="relative z-10 flex h-full w-full max-w-[760px] flex-col px-16 py-12 xl:px-24">
+        <div className="relative z-10 flex h-full w-full flex-col px-16 py-12 xl:px-24">
           <div className="mt-auto">
             <div
               className="flex items-end justify-center"
@@ -153,8 +153,8 @@ export function MockLoginPage({
       </section>
 
       {/* ── Right: form panel ─────────────────────────────────────────────── */}
-      <section className="flex min-h-screen items-center justify-center px-6 py-10 sm:px-10 lg:px-14">
-        <div className="w-full max-w-[480px]">
+      <section className="flex min-h-screen items-center justify-center px-6 py-10 sm:px-10 lg:px-24">
+        <div className="w-full">
           <div className="mb-10 text-center">
             <h1
               className={`text-3xl font-bold leading-tight tracking-tight ${titleColor} sm:text-4xl`}

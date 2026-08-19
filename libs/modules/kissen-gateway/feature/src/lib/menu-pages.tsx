@@ -72,11 +72,11 @@ type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
 
 /** 源 MENU_TYPE_TEXT：菜单类型文案。 */
 const MENU_TYPE_TEXT: Record<number, string> = {
-  0: '模块',
-  1: '系统',
-  2: '一级菜单',
-  3: '二级菜单',
-  4: '按钮',
+  0: 'Module',
+  1: 'System',
+  2: 'Top Menu',
+  3: 'Sub Menu',
+  4: 'Button',
 };
 
 /**
@@ -94,7 +94,7 @@ const MENU_TYPE_BADGE_VARIANT: Record<number, BadgeVariant> = {
 
 /** 源 menuTypeText：未知类型 → `类型N`，undefined → '-'。 */
 function menuTypeText(t: number | undefined): string {
-  return t === undefined ? '-' : (MENU_TYPE_TEXT[t] ?? `类型${t}`);
+  return t === undefined ? '-' : (MENU_TYPE_TEXT[t] ?? `Type ${t}`);
 }
 
 /** 源 menuTypeTagType：未知类型兜底 'info'（→ secondary）。 */
@@ -193,10 +193,10 @@ function QueryErrorRetry({
 }) {
   return (
     <div className="flex flex-col items-center gap-3 py-8 text-center">
-      <p className="text-sm text-destructive">加载失败:{(error as Error).message}</p>
+      <p className="text-sm text-destructive">Failed to load: {(error as Error).message}</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
         <RefreshCw />
-        重试
+        Retry
       </Button>
     </div>
   );
@@ -241,13 +241,13 @@ const MENU_FORM_CREATE_DEFAULTS: MenuFormValues = {
  */
 const menuFormSchema = z.object({
   parentId: z.string(),
-  menuName: z.string().min(1, { message: '请输入菜单名称' }),
-  menuNameEn: z.string().min(1, { message: '请输入菜单英文名称' }),
-  menuKey: z.string().min(1, { message: '请输入菜单Key' }),
+  menuName: z.string().min(1, { message: 'Please enter a menu name' }),
+  menuNameEn: z.string().min(1, { message: 'Please enter an English menu name' }),
+  menuKey: z.string().min(1, { message: 'Please enter a menu key' }),
   menuType: z.string(),
   orderNum: z
     .string()
-    .refine((v) => Number(v) >= 0, { message: '排序为不小于 0 的数字' }),
+    .refine((v) => Number(v) >= 0, { message: 'Sort order must be a number no less than 0' }),
   visible: z.string(),
   menuUrl: z.string(),
   icon: z.string(),
@@ -298,7 +298,7 @@ function MenuFormDialog({
     // 源：ElMessage.success('保存成功') → 关弹窗 → load()（重取由 invalidate 承担）。
     const onDone = {
       onSuccess: () => {
-        toast.success('保存成功');
+        toast.success('Saved successfully');
         onClose();
       },
       onError: (e: Error) => toast.error(e.message),
@@ -343,7 +343,7 @@ function MenuFormDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>{editing ? '编辑菜单' : '新增菜单'}</DialogTitle>
+          <DialogTitle>{editing ? 'Edit Menu' : 'Create Menu'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={onOk} className="space-y-4">
@@ -353,7 +353,7 @@ function MenuFormDialog({
             name="parentId"
             render={({ field }) => (
               <div className="space-y-1.5">
-                <Label htmlFor="menu-parent-select">父级菜单</Label>
+                <Label htmlFor="menu-parent-select">Parent Menu</Label>
                 <div className="flex items-center gap-1.5">
                   <Select
                     value={field.value}
@@ -361,7 +361,7 @@ function MenuFormDialog({
                     disabled={editing}
                   >
                     <SelectTrigger id="menu-parent-select" className="w-full">
-                      <SelectValue placeholder="选择父菜单(留空为顶级)" />
+                      <SelectValue placeholder="Select a parent menu (leave empty for top level)" />
                     </SelectTrigger>
                     <SelectContent>
                       {parentOptions.map((opt) => (
@@ -377,7 +377,7 @@ function MenuFormDialog({
                       variant="outline"
                       size="icon"
                       className="h-9 w-9 shrink-0"
-                      aria-label="清除父级菜单"
+                      aria-label="Clear parent menu"
                       onClick={() => field.onChange('')}
                     >
                       <X className="h-4 w-4" />
@@ -389,38 +389,38 @@ function MenuFormDialog({
           />
           <FormField
             name="menuName"
-            label="菜单名称"
+            label="Menu Name"
             required
             error={formState.errors.menuName?.message}
             register={register('menuName')}
           />
           <FormField
             name="menuNameEn"
-            label="英文名称"
+            label="English Name"
             required
-            placeholder="如 User"
+            placeholder="e.g. User"
             error={formState.errors.menuNameEn?.message}
             register={register('menuNameEn')}
           />
           <FormField
             name="menuKey"
-            label="菜单Key"
+            label="Menu Key"
             required
             disabled={editing}
-            placeholder="如 bank:user:manage,唯一"
+            placeholder="e.g. bank:user:manage, unique"
             error={formState.errors.menuKey?.message}
             register={register('menuKey')}
           />
           <FormSelect
             name="menuType"
             control={control}
-            label="类型"
+            label="Type"
             options={MENU_TYPE_OPTIONS}
             disabled={editing}
           />
           <FormField
             name="orderNum"
-            label="排序"
+            label="Sort Order"
             type="number"
             min={0}
             step={1}
@@ -433,7 +433,7 @@ function MenuFormDialog({
             name="visible"
             render={({ field }) => (
               <div className="space-y-1.5">
-                <Label>可见</Label>
+                <Label>Visible</Label>
                 <RadioGroup
                   value={field.value}
                   onValueChange={field.onChange}
@@ -441,11 +441,11 @@ function MenuFormDialog({
                 >
                   <label className="flex items-center gap-2 text-sm">
                     <RadioGroupItem value="0" />
-                    显示
+                    Shown
                   </label>
                   <label className="flex items-center gap-2 text-sm">
                     <RadioGroupItem value="1" />
-                    隐藏
+                    Hidden
                   </label>
                 </RadioGroup>
               </div>
@@ -453,24 +453,24 @@ function MenuFormDialog({
           />
           <FormField
             name="menuUrl"
-            label="路由地址"
-            placeholder="如 /system/user"
+            label="Route URL"
+            placeholder="e.g. /system/user"
             register={register('menuUrl')}
           />
           <FormField
             name="icon"
-            label="图标"
-            placeholder="可选"
+            label="Icon"
+            placeholder="Optional"
             register={register('icon')}
           />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              取消
+              Cancel
             </Button>
             <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="animate-spin" />}
-              保存
+              Save
             </Button>
           </DialogFooter>
         </form>
@@ -484,13 +484,13 @@ function MenuFormDialog({
 /* ================================================================== */
 
 const MENU_TABLE_HEADERS = [
-  '菜单名称',
-  '菜单Key',
-  '类型',
-  '可见',
-  '排序',
-  '路由地址',
-  '操作',
+  'Menu Name',
+  'Menu Key',
+  'Type',
+  'Visible',
+  'Sort Order',
+  'Route URL',
+  'Actions',
 ] as const;
 
 export function MenuListPage() {
@@ -533,7 +533,7 @@ export function MenuListPage() {
   const onConfirmDelete = React.useCallback(() => {
     if (!deleteTarget) return;
     removeMutation.mutate(deleteTarget.menuId, {
-      onSuccess: () => toast.success('删除成功'),
+      onSuccess: () => toast.success('Deleted successfully'),
       onError: (e) => toast.error((e as Error).message),
     });
     setDeleteTarget(null);
@@ -541,16 +541,16 @@ export function MenuListPage() {
 
   return (
     <div className="space-y-6">
-      <PageHead title="菜单管理">
+      <PageHead title="Menu Management">
         {/* 源 v-perm="'bank:menu:manage'"（menuKeys 未命中即不渲染）。 */}
         {hasPerm('bank:menu:manage') && (
           <Button onClick={() => setDialogState({ mode: 'create' })}>
-            新增菜单
+            Create Menu
           </Button>
         )}
       </PageHead>
 
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         {isError ? (
           <QueryErrorRetry error={error} onRetry={() => refetch()} />
         ) : (
@@ -586,7 +586,7 @@ export function MenuListPage() {
                       colSpan={MENU_TABLE_HEADERS.length}
                       className="px-4 py-8 text-center text-muted-foreground"
                     >
-                      暂无数据
+                      No data
                     </td>
                   </tr>
                 ) : (
@@ -610,7 +610,7 @@ export function MenuListPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-5 w-5 shrink-0"
-                                aria-label={expanded ? '折叠' : '展开'}
+                                aria-label={expanded ? 'Collapse' : 'Expand'}
                                 aria-expanded={expanded}
                                 onClick={() => onToggleCollapse(node.menuId)}
                               >
@@ -638,7 +638,7 @@ export function MenuListPage() {
                           <Badge
                             variant={node.visible === 0 ? 'secondary' : 'outline'}
                           >
-                            {node.visible === 0 ? '显示' : '隐藏'}
+                            {node.visible === 0 ? 'Shown' : 'Hidden'}
                           </Badge>
                         </td>
                         <td className="px-4 py-3 align-middle tabular-nums">
@@ -657,7 +657,7 @@ export function MenuListPage() {
                                 setDialogState({ mode: 'edit', row: node })
                               }
                             >
-                              编辑
+                              Edit
                             </Button>
                             <Button
                               variant="link"
@@ -665,7 +665,7 @@ export function MenuListPage() {
                               className="h-auto p-0 text-destructive"
                               onClick={() => setDeleteTarget(node)}
                             >
-                              删除
+                              Delete
                             </Button>
                           </div>
                         </td>
@@ -694,18 +694,18 @@ export function MenuListPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>删除菜单</AlertDialogTitle>
+            <AlertDialogTitle>Delete Menu</AlertDialogTitle>
             <AlertDialogDescription>
-              删除菜单「{deleteTarget?.menuName}」?存在子菜单或被角色引用将被拒绝。
+              Delete menu "{deleteTarget?.menuName}"? Rejected if it has submenus or is referenced by roles.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={onConfirmDelete}
             >
-              删除
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

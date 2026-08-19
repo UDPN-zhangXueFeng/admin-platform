@@ -60,7 +60,7 @@ export function ProfilePage() {
         oldPassword: form.oldPassword,
         newPassword: form.newPassword,
       });
-      toast.success('密码修改成功');
+      toast.success('Password changed successfully');
       setForm(EMPTY_PWD_FORM);
       setErrors({});
     } catch {
@@ -70,18 +70,18 @@ export function ProfilePage() {
 
   const pending = changePwdMutation.isPending;
   const info: Array<{ label: string; value: string }> = [
-    { label: '登录名', value: session?.loginName || '-' },
-    { label: '姓名', value: session?.userName || '-' },
+    { label: 'Login Name', value: session?.loginName || '-' },
+    { label: 'Name', value: session?.userName || '-' },
     { label: 'LP ID', value: session?.lpId != null ? String(session.lpId) : '-' },
   ];
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight">个人中心</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>账号信息</CardTitle>
+          <CardTitle>Account Information</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-3">
@@ -97,12 +97,12 @@ export function ProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>修改密码</CardTitle>
+          <CardTitle>Change Password</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="max-w-sm space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="profile-oldPassword">原密码</Label>
+              <Label htmlFor="profile-oldPassword">Current Password</Label>
               <Input
                 id="profile-oldPassword"
                 type="password"
@@ -116,7 +116,7 @@ export function ProfilePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="profile-newPassword">新密码</Label>
+              <Label htmlFor="profile-newPassword">New Password</Label>
               <Input
                 id="profile-newPassword"
                 type="password"
@@ -130,7 +130,7 @@ export function ProfilePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="profile-confirmPassword">确认新密码</Label>
+              <Label htmlFor="profile-confirmPassword">Confirm New Password</Label>
               <Input
                 id="profile-confirmPassword"
                 type="password"
@@ -146,7 +146,7 @@ export function ProfilePage() {
             </div>
 
             <Button type="submit" disabled={pending}>
-              {pending ? '提交中…' : '确认修改'}
+              {pending ? 'Submitting…' : 'Confirm Change'}
             </Button>
           </form>
         </CardContent>

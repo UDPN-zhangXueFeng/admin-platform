@@ -38,9 +38,9 @@ export interface LpTopupListReq {
 
 /** 补资状态（源 api/lp-topup.ts status）。 */
 export const LP_TOPUP_STATUS_LABEL: Record<number, string> = {
-  1: '已声明',
-  2: '已到账',
-  3: '失败',
+  1: 'Declared',
+  2: 'Credited',
+  3: 'Failed',
 };
 
 export const LP_TOPUP_STATUS_VARIANT: Record<

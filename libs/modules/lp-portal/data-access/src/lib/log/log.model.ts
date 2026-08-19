@@ -19,11 +19,11 @@ export interface LogPageReq {
 
 /** 业务类型文案（源 BIZ_TEXT 码表 1〜5；未知码页面显原值）。 */
 export const LOG_BIZ_TEXT: Record<number, string> = {
-  1: '新增',
-  2: '修改',
-  3: '删除',
-  4: '登录',
-  5: '其他',
+  1: 'Create',
+  2: 'Update',
+  3: 'Delete',
+  4: 'Login',
+  5: 'Other',
 };
 
 /** 业务类型 tag 色（源 BIZ_TAG 码表 1〜5，el-tag type 原值）。 */

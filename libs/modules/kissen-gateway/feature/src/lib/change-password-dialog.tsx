@@ -85,7 +85,7 @@ export function ChangePasswordDialog({
       { oldPassword: values.oldPassword, newPassword: values.newPassword },
       {
         onSuccess: () => {
-          toast.success('密码修改成功');
+          toast.success('Password changed successfully');
           onOpenChange(false);
           if (forced) onForcedDone?.();
         },
@@ -106,19 +106,19 @@ export function ChangePasswordDialog({
         showCloseButton={!forced}
       >
         <DialogHeader>
-          <DialogTitle>{forced ? '首次登录,请修改密码' : '修改密码'}</DialogTitle>
-          <DialogDescription>请输入原密码与新密码</DialogDescription>
+          <DialogTitle>{forced ? 'Change Password Required' : 'Change Password'}</DialogTitle>
+          <DialogDescription>Enter your current and new password</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="gw-oldPassword">原密码</Label>
+            <Label htmlFor="gw-oldPassword">Current Password</Label>
             <Input
               id="gw-oldPassword"
               type="password"
               autoComplete="current-password"
               {...register('oldPassword', {
-                required: '请输入原密码',
+                required: 'Please enter your current password',
               })}
             />
             {errors.oldPassword && (
@@ -129,17 +129,17 @@ export function ChangePasswordDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="gw-newPassword">新密码</Label>
+            <Label htmlFor="gw-newPassword">New Password</Label>
             <Input
               id="gw-newPassword"
               type="password"
               autoComplete="new-password"
-              placeholder="至少 8 位,含字母与数字"
+              placeholder="At least 8 characters, with letters and numbers"
               {...register('newPassword', {
-                required: '请输入新密码',
+                required: 'Please enter a new password',
                 pattern: {
                   value: PASSWORD_PATTERN,
-                  message: '至少 8 位,含字母与数字',
+                  message: 'At least 8 characters, with letters and numbers',
                 },
               })}
             />
@@ -151,14 +151,14 @@ export function ChangePasswordDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="gw-confirm">确认新密码</Label>
+            <Label htmlFor="gw-confirm">Confirm New Password</Label>
             <Input
               id="gw-confirm"
               type="password"
               autoComplete="new-password"
               {...register('confirm', {
-                required: '请确认新密码',
-                validate: (v) => v === newPassword || '两次输入不一致',
+                required: 'Please confirm the new password',
+                validate: (v) => v === newPassword || 'Passwords do not match',
               })}
             />
             {errors.confirm && (
@@ -175,11 +175,11 @@ export function ChangePasswordDialog({
                 variant="outline"
                 onClick={() => onOpenChange(false)}
               >
-                取消
+                Cancel
               </Button>
             )}
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? '提交中…' : '确认修改'}
+              {mutation.isPending ? 'Submitting…' : 'Confirm'}
             </Button>
           </DialogFooter>
         </form>

@@ -52,9 +52,9 @@ export interface SettleOrderConfirmReq {
 
 /** 周期类型映射（源 index.vue PERIOD_TYPE_MAP：1 日 / 2 周 / 3 月）。 */
 export const SETTLE_PERIOD_TYPE_LABEL: Record<number, string> = {
-  1: '日',
-  2: '周',
-  3: '月',
+  1: 'Daily',
+  2: 'Weekly',
+  3: 'Monthly',
 };
 
 /**
@@ -62,11 +62,11 @@ export const SETTLE_PERIOD_TYPE_LABEL: Record<number, string> = {
  * COMMON_STATUS_MAP（"以 Vue 源码为唯一事实来源"，状态列/详情均取其文案，不 override）。
  */
 export const SETTLE_ORDER_STATUS_LABEL: Record<number, string> = {
-  5: '待审核',
-  10: '审核中',
-  15: '审核拒绝',
-  20: '审核通过',
-  35: '最终确认',
+  5: 'Pending Review',
+  10: 'Under Review',
+  15: 'Rejected',
+  20: 'Approved',
+  35: 'Final Confirmation',
 };
 
 /** 结算单状态下拉选项值域（源 SETTLE_STATUS_OPTIONS）。 */

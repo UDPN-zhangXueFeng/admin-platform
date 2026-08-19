@@ -20,14 +20,12 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Info } from 'lucide-react';
-
 import {
-  Alert,
   Badge,
   Button,
   DataTable,
   Tooltip,
+  useToast,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
@@ -55,20 +53,20 @@ const PROJECT_ID = LP_PROJECT_ID;
 const PAGE_SIZE = 10;
 
 const LBL = {
-  query: '查询',
-  reset: '重置',
-  records: '补资记录',
-  empty: '暂无数据',
+  query: 'Search',
+  reset: 'Reset',
+  records: 'Top-up Records',
+  empty: 'No data',
 } as const;
 
 /** 下拉「全部」哨兵（FormSelect 禁空 value，非 ALL 即转 number 参与查询）。 */
 const ALL = 'all';
 
 const STATUS_OPTIONS: SelectOption[] = [
-  { value: ALL, label: '全部' },
-  { value: '1', label: '已声明' },
-  { value: '2', label: '已到账' },
-  { value: '3', label: '失败' },
+  { value: ALL, label: 'All' },
+  { value: '1', label: 'Declared' },
+  { value: '2', label: 'Received' },
+  { value: '3', label: 'Failed' },
 ];
 
 interface TopupFilterForm {
@@ -115,6 +113,12 @@ export function TopupListPage() {
     formToParams(EMPTY_FILTER),
   );
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE);
+  const toast = useToast();
+
+  // Persistent info banner (source el-alert) migrated to a mount-time toast.
+  React.useEffect(() => {
+    toast.info('Top-up initiation will be available in a future release');
+  }, []);
 
   // 池下拉（非主数据：失败仅下拉为空，不触发降级条；错误 toast 由 lp-client 发）。
   const { data: poolOptions } = useTopupPoolOptionsQuery(PROJECT_ID);
@@ -139,7 +143,7 @@ export function TopupListPage() {
 
   const poolSelectOptions = React.useMemo<SelectOption[]>(
     () => [
-      { value: ALL, label: '全部' },
+      { value: ALL, label: 'All' },
       ...(poolOptions ?? []).map((p) => ({
         value: String(p.poolId),
         label: `${p.currency}(${maskAddress(p.accountAddress)})`,
@@ -152,15 +156,15 @@ export function TopupListPage() {
     () => [
       {
         accessorKey: 'topupId',
-        header: '补资 ID',
+        header: 'Top-up ID',
         cell: ({ row }) => (
           <span className="font-mono text-xs">{row.original.topupId}</span>
         ),
       },
-      { accessorKey: 'currency', header: '资金池' },
+      { accessorKey: 'currency', header: 'Liquidity Pool' },
       {
         accessorKey: 'amount',
-        header: '金额',
+        header: 'Amount',
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
             {formatMoney(row.original.amount)}
@@ -169,7 +173,7 @@ export function TopupListPage() {
       },
       {
         accessorKey: 'transferInAddress',
-        header: '转入地址',
+        header: 'Transfer-in Address',
         cell: ({ row }) => (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -185,14 +189,14 @@ export function TopupListPage() {
       },
       {
         accessorKey: 'declareTime',
-        header: '申报时间',
+        header: 'Declared At',
         cell: ({ row }) => (
           <span className="tabular-nums">{formatTime(row.original.declareTime)}</span>
         ),
       },
       {
         accessorKey: 'confirmTime',
-        header: '到账时间',
+        header: 'Confirmed At',
         // 源语义：confirmTime falsy（含 0=未到账）→ '-'
         cell: ({ row }) => (
           <span className="tabular-nums">
@@ -202,7 +206,7 @@ export function TopupListPage() {
       },
       {
         accessorKey: 'csTxId',
-        header: '货币系统交易 ID',
+        header: 'Currency System Tx ID',
         // 源 show-overflow-tooltip：截断展示 + tooltip 全文
         cell: ({ row }) => {
           const csTxId = row.original.csTxId;
@@ -223,7 +227,7 @@ export function TopupListPage() {
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         // 未知码兜底：文案显原值 + outline 变体（源 el-tag type 兜底 info）
         cell: ({ row }) => (
           <Badge variant={TOPUP_STATUS_VARIANT[row.original.status] ?? 'outline'}>
@@ -242,46 +246,40 @@ export function TopupListPage() {
 
   return (
     <div className="space-y-4">
-      {/* 常驻提示（源 el-alert info，不可关闭） */}
-      <Alert>
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-        <p className="font-medium leading-snug">补资发起将在后续版本开放</p>
-      </Alert>
-
       {serviceDown && <ServiceDownAlert traceId={serviceDown.traceId} />}
 
       <form
         onSubmit={handleSubmit((f) => setParams(formToParams(f, 1)))}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询条件</div>
+        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <FormSelect
             name="poolId"
             control={control}
-            label="资金池"
+            label="Liquidity Pool"
             options={poolSelectOptions}
           />
           <FormSelect
             name="status"
             control={control}
-            label="状态"
+            label="Status"
             options={STATUS_OPTIONS}
           />
           <FormField
             name="startTime"
-            label="开始时间"
+            label="Start Time"
             type="datetime-local"
             register={register('startTime')}
           />
           <FormField
             name="endTime"
-            label="结束时间"
+            label="End Time"
             type="datetime-local"
             register={register('endTime')}
           />
         </div>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button type="submit">{LBL.query}</Button>
           <Button
             type="button"
@@ -297,8 +295,8 @@ export function TopupListPage() {
       </form>
 
       <TooltipProvider>
-        <div className="rounded-lg border bg-card shadow-sm">
-          <div className="flex items-center justify-between border-b px-6 py-3">
+        <div className="rounded-lg border-border/60 bg-card shadow-float">
+          <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
             <div className="text-sm font-semibold">{LBL.records}</div>
           </div>
           <DataTable

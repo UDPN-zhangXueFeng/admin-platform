@@ -85,19 +85,19 @@ const IN_FLIGHT: Record<number, true> = {
 
 /** 交易状态映射（TransactionStatusEnum 13 值，与交易查询页一致）。 */
 const TX_STATUS_MAP: Record<number, string> = {
-  1: '已创建',
-  5: '已报价',
-  10: '已确认',
-  20: '源端划转中',
-  25: '源端已验证',
-  30: '解付中',
-  35: '已入账',
-  40: '已完成',
-  50: '冲正中',
-  60: '已冲正',
-  70: '异常',
-  80: '已取消',
-  90: '失败',
+  1: 'Created',
+  5: 'Quoted',
+  10: 'Confirmed',
+  20: 'Source Transfer in Progress',
+  25: 'Source Verified',
+  30: 'Disbursing',
+  35: 'Credited',
+  40: 'Completed',
+  50: 'Reversing',
+  60: 'Reversed',
+  70: 'Abnormal',
+  80: 'Cancelled',
+  90: 'Failed',
 };
 
 /** 异常队列网格列宽（源 .tx-head/.tx-row 同口径）。 */
@@ -334,7 +334,7 @@ function StatusRailCompact({ status }: { status: number }) {
     <div
       className="flex items-start overflow-x-auto"
       role="img"
-      aria-label={`交易状态：${TX_STATUS_MAP[status] ?? '未知'}`}
+      aria-label={`Transaction status: ${TX_STATUS_MAP[status] ?? 'Unknown'}`}
     >
       {steps.map((s, i) => (
         <React.Fragment key={s.key}>
@@ -407,7 +407,7 @@ function SectionHead({
 function BlockFail({ onRetry }: { onRetry?: () => void }) {
   return (
     <div className="flex items-center gap-2 py-1 text-sm text-muted-foreground">
-      <span>加载失败，刷新重试</span>
+      <span>Failed to load. Refresh to retry.</span>
       {onRetry && (
         <Button
           variant="link"
@@ -415,7 +415,7 @@ function BlockFail({ onRetry }: { onRetry?: () => void }) {
           className="h-auto p-0"
           onClick={onRetry}
         >
-          重试
+          Retry
         </Button>
       )}
     </div>
@@ -533,7 +533,7 @@ export function DashboardPage() {
       <header className="flex items-center justify-between">
         <div>
           <div className="text-xs text-muted-foreground">DAILY CLEARING</div>
-          <h1 className="text-xl font-semibold">今日清算</h1>
+          <h1 className="text-xl font-semibold">Today's Clearing</h1>
         </div>
         <Button
           variant="outline"
@@ -542,7 +542,7 @@ export function DashboardPage() {
           disabled={refreshing}
         >
           <RefreshIcon className={cn(refreshing && 'animate-spin')} />
-          刷新
+          Refresh
         </Button>
       </header>
 
@@ -552,38 +552,38 @@ export function DashboardPage() {
           <div className="grid grid-cols-2 items-center gap-6 md:grid-cols-4 md:gap-0">
             {todayQ.isError ? (
               <div className="col-span-2 py-1 text-sm text-muted-foreground md:col-span-3">
-                加载失败，刷新重试
+                Failed to load. Refresh to retry.
               </div>
             ) : todayQ.isLoading ? (
               <>
-                <FigureCell label="今日交易笔数">
+                <FigureCell label="Today's Transactions">
                   <Skeleton className="h-7 w-20" />
                 </FigureCell>
-                <FigureCell label="今日流水" divider>
+                <FigureCell label="Today's Volume" divider>
                   <Skeleton className="h-7 w-24" />
                 </FigureCell>
-                <FigureCell label="在途笔数" divider>
+                <FigureCell label="In-Flight Count" divider>
                   <Skeleton className="h-7 w-16" />
                 </FigureCell>
               </>
             ) : (
               <>
-                <FigureCell label="今日交易笔数">
+                <FigureCell label="Today's Transactions">
                   {formatMoney(todayCount)}
                 </FigureCell>
-                <FigureCell label="今日流水" divider>
+                <FigureCell label="Today's Volume" divider>
                   {todayVolumeText}
                 </FigureCell>
-                <FigureCell label="在途笔数" divider>
+                <FigureCell label="In-Flight Count" divider>
                   {formatMoney(inflightCount)}
                 </FigureCell>
               </>
             )}
             {/* 异常待处置（独立降级，与今日概览解耦） */}
-            <FigureCell label="异常待处置" divider>
+            <FigureCell label="Pending Exceptions" divider>
               {exceptionsQ.isError ? (
                 <span className="text-sm font-normal text-muted-foreground">
-                  加载失败，刷新重试
+                  Failed to load. Refresh to retry.
                 </span>
               ) : exceptionsQ.isLoading ? (
                 <Skeleton className="h-7 w-12" />
@@ -604,10 +604,10 @@ export function DashboardPage() {
           <CardContent className="py-6">
             <SectionHead
               eyebrow="NETWORK"
-              title="入网银行"
+              title="Onboarded Banks"
               extra={
                 !banksQ.isLoading && !banksQ.isError
-                  ? `共 ${banks.length} 家`
+                  ? `Total ${banks.length}`
                   : undefined
               }
             />
@@ -616,7 +616,7 @@ export function DashboardPage() {
             ) : banksQ.isLoading ? (
               <BlockSkeleton rows={3} />
             ) : banks.length === 0 ? (
-              <span className="text-sm text-muted-foreground">暂无入网银行</span>
+              <span className="text-sm text-muted-foreground">No onboarded banks</span>
             ) : (
               <div>
                 {banks.map((bank) => (
@@ -642,7 +642,7 @@ export function DashboardPage() {
                       ))}
                     </div>
                     <span className="ml-auto whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-                      单笔 {formatMoney(bank.singleLimit)} / 日{' '}
+                      Per Txn {formatMoney(bank.singleLimit)} / Daily{' '}
                       {formatMoney(bank.dailyLimit)}
                     </span>
                   </div>
@@ -655,13 +655,13 @@ export function DashboardPage() {
         {/* 资金池水位 */}
         <Card>
           <CardContent className="py-6">
-            <SectionHead eyebrow="POOL LEVEL" title="资金池水位" />
+            <SectionHead eyebrow="POOL LEVEL" title="Funding Pool Level" />
             {poolsQ.isError ? (
               <BlockFail onRetry={() => poolsQ.refetch()} />
             ) : poolsQ.isLoading ? (
               <BlockSkeleton rows={3} />
             ) : pools.length === 0 ? (
-              <span className="text-sm text-muted-foreground">暂无资金池</span>
+              <span className="text-sm text-muted-foreground">No funding pools</span>
             ) : (
               <div>
                 {pools.map((pool) => {
@@ -687,7 +687,7 @@ export function DashboardPage() {
                         </span>
                         {critical && (
                           <span className="text-xs font-medium text-amber-600">
-                            告急
+                            Critical
                           </span>
                         )}
                       </div>
@@ -715,12 +715,12 @@ export function DashboardPage() {
           <CardContent className="py-6">
             <SectionHead
               eyebrow="EXCEPTION QUEUE"
-              title="异常待处置"
+              title="Pending Exceptions"
               extra={
                 !exceptionsQ.isLoading &&
                 !exceptionsQ.isError &&
                 exceptionTotal > exceptionRows.length
-                  ? `共 ${exceptionTotal} 笔，展示前 ${exceptionRows.length} 笔`
+                  ? `Total ${exceptionTotal}, showing first ${exceptionRows.length}`
                   : undefined
               }
             />
@@ -731,7 +731,7 @@ export function DashboardPage() {
             ) : exceptionRows.length === 0 ? (
               <div className="flex items-center gap-1.5 py-1 text-sm text-muted-foreground">
                 <CheckCircleIcon className="h-4 w-4 text-emerald-500" />
-                当前没有待处置异常
+                No exceptions to handle
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -739,11 +739,11 @@ export function DashboardPage() {
                   className="grid items-center gap-3 border-b border-border pb-1.5 text-xs text-muted-foreground"
                   style={{ gridTemplateColumns: TX_GRID_COLS }}
                 >
-                  <span>交易单号</span>
-                  <span>货币对</span>
-                  <span>本金</span>
-                  <span>状态</span>
-                  <span>创建时间</span>
+                  <span>Txn No.</span>
+                  <span>Currency Pair</span>
+                  <span>Principal</span>
+                  <span>Status</span>
+                  <span>Created At</span>
                   <span />
                 </div>
                 {exceptionRows.map((row) => (
@@ -769,7 +769,7 @@ export function DashboardPage() {
                       className="h-auto p-0"
                       onClick={() => router.push('/transaction/tx-list')}
                     >
-                      去处置
+                      Resolve
                     </Button>
                   </div>
                 ))}
@@ -781,7 +781,7 @@ export function DashboardPage() {
         {/* 对账差异 */}
         <Card>
           <CardContent className="py-6">
-            <SectionHead eyebrow="RECONCILIATION" title="对账差异" />
+            <SectionHead eyebrow="RECONCILIATION" title="Reconciliation Differences" />
             {reconcileQ.isError ? (
               <BlockFail onRetry={() => reconcileQ.refetch()} />
             ) : reconcileQ.isLoading ? (
@@ -789,7 +789,7 @@ export function DashboardPage() {
             ) : diffPending > 0 ? (
               <div className="flex items-center gap-3 text-sm">
                 <span>
-                  <span className="tabular-nums">{diffPending}</span> 条差异未处理
+                  <span className="tabular-nums">{diffPending}</span> unresolved difference(s)
                 </span>
                 <Button
                   variant="link"
@@ -797,12 +797,12 @@ export function DashboardPage() {
                   className="h-auto p-0"
                   onClick={() => router.push('/settlement/reconcile')}
                 >
-                  去处理
+                  Resolve
                 </Button>
               </div>
             ) : (
               <span className="text-sm text-muted-foreground">
-                没有未处理差异
+                No unresolved differences
               </span>
             )}
           </CardContent>

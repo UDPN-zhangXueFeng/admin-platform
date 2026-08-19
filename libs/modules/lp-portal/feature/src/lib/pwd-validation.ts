@@ -23,14 +23,14 @@ export function validatePwdForm(
   form: PwdFormState,
 ): Partial<Record<keyof PwdFormState, string>> {
   const errors: Partial<Record<keyof PwdFormState, string>> = {};
-  if (!form.oldPassword) errors.oldPassword = '请输入原密码';
+  if (!form.oldPassword) errors.oldPassword = 'Please enter your current password';
   if (!form.newPassword) {
-    errors.newPassword = '请输入新密码';
+    errors.newPassword = 'Please enter a new password';
   } else if (!PASSWORD_PATTERN.test(form.newPassword)) {
-    errors.newPassword = '至少 8 位,含字母与数字';
+    errors.newPassword = 'At least 8 characters with letters and numbers';
   }
   if (form.confirmPassword !== form.newPassword) {
-    errors.confirmPassword = '两次输入不一致';
+    errors.confirmPassword = 'Passwords do not match';
   }
   return errors;
 }

@@ -26,16 +26,16 @@ const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 
 const changePwdSchema = z
   .object({
-    oldPassword: z.string().min(1, '请输入原密码'),
+    oldPassword: z.string().min(1, 'Current password is required'),
     newPassword: z
       .string()
-      .min(1, '请输入新密码')
-      .regex(PASSWORD_PATTERN, '至少 8 位,含字母与数字'),
+      .min(1, 'New password is required')
+      .regex(PASSWORD_PATTERN, 'At least 8 characters with letters and numbers'),
     confirm: z.string(),
   })
   .refine((values) => values.confirm === values.newPassword, {
     path: ['confirm'],
-    message: '两次输入不一致',
+    message: 'Passwords do not match',
   });
 
 type ChangePwdFormValues = z.infer<typeof changePwdSchema>;
@@ -59,7 +59,7 @@ export default function ChangePwdRoute() {
       { oldPassword: values.oldPassword, newPassword: values.newPassword },
       {
         onSuccess: () => {
-          toast.success('密码修改成功');
+          toast.success('Password changed successfully');
           router.replace('/system/user');
         },
         onError: (e) => {
@@ -76,15 +76,15 @@ export default function ChangePwdRoute() {
       <div className="w-full max-w-[420px] rounded-[10px] border bg-card p-9 pb-7 shadow-[0_8px_24px_rgba(26,29,33,0.08)]">
         {/* 源 login-brand：标题硬编码「Kissen 银行门户」+ eyebrow 副标题 */}
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-foreground">Kissen 银行门户</h1>
+          <h1 className="text-xl font-bold text-foreground">Kissen Bank Portal</h1>
           <p className="mt-1 text-xs tracking-[0.08em] text-muted-foreground">
-            首次登录,请先修改密码
+            First sign-in: please change your password
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="gw-page-oldPassword">原密码</Label>
+            <Label htmlFor="gw-page-oldPassword">Current Password</Label>
             <Input
               id="gw-page-oldPassword"
               type="password"
@@ -99,12 +99,12 @@ export default function ChangePwdRoute() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="gw-page-newPassword">新密码</Label>
+            <Label htmlFor="gw-page-newPassword">New Password</Label>
             <Input
               id="gw-page-newPassword"
               type="password"
               autoComplete="new-password"
-              placeholder="至少 8 位,含字母与数字"
+              placeholder="At least 8 characters with letters and numbers"
               {...register('newPassword')}
             />
             {errors.newPassword && (
@@ -115,7 +115,7 @@ export default function ChangePwdRoute() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="gw-page-confirm">确认新密码</Label>
+            <Label htmlFor="gw-page-confirm">Confirm New Password</Label>
             <Input
               id="gw-page-confirm"
               type="password"
@@ -130,7 +130,7 @@ export default function ChangePwdRoute() {
           </div>
 
           <Button type="submit" className="w-full" disabled={mutation.isPending}>
-            {mutation.isPending ? '提交中…' : '确认修改'}
+            {mutation.isPending ? 'Submitting…' : 'Confirm'}
           </Button>
         </form>
       </div>

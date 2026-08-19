@@ -14,7 +14,7 @@ export function KissenPlaceholderPage() {
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
       <Hourglass className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
       <p className="text-sm text-muted-foreground" role="status">
-        该功能将在后续版本开放
+        This feature will be available in a future release
       </p>
     </div>
   );

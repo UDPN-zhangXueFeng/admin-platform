@@ -44,6 +44,11 @@ const TooltipContent = React.forwardRef<
     {...props}
   />
 ));
-TooltipContent.displayName = TooltipPrimitive.Content.displayName;
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
+/**
+ * Small arrow pointing from the tooltip panel to its trigger.
+ * Compose inside `TooltipContent` when a pointer is wanted.
+ */
+const TooltipArrow = TooltipPrimitive.Arrow;
+
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TooltipArrow };

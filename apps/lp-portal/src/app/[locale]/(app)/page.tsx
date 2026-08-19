@@ -41,8 +41,8 @@ export default function RootLandingPage() {
   // 全候选未命中：占位（源 /placeholder el-empty 文案）
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 text-muted-foreground">
-      <p className="text-lg font-medium text-foreground">功能建设中</p>
-      <p className="text-sm">功能将在后续版本开放</p>
+      <p className="text-lg font-medium text-foreground">Feature under construction</p>
+      <p className="text-sm">This feature will be available in a future release</p>
     </div>
   );
 }

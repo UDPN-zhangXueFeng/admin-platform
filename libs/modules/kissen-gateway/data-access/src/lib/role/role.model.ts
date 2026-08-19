@@ -64,13 +64,13 @@ export const ROLE_TYPE_BUILTIN = 0;
 
 /** 状态筛选下拉选项（值沿用源状态枚举 0 正常 / 1 停用；value 字符串供 Select 使用）。 */
 export const ROLE_STATUS_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: '0', label: '正常' },
-  { value: '1', label: '停用' },
+  { value: '0', label: 'Active' },
+  { value: '1', label: 'Disabled' },
 ];
 
 /** 类型文案；源三元 1:1（0 内置 / 其余自定义）。 */
 export function roleTypeText(roleType?: number): string {
-  return roleType === ROLE_TYPE_BUILTIN ? '内置' : '自定义';
+  return roleType === ROLE_TYPE_BUILTIN ? 'Built-in' : 'Custom';
 }
 
 /** 类型 Badge variant；源 el-tag type 三元 1:1（内置 danger / 自定义 primary）。 */
@@ -80,7 +80,7 @@ export function roleTypeVariant(roleType?: number): RoleVariant {
 
 /** 状态文案；源三元 1:1（0 正常 / 其余停用）。 */
 export function roleStatusText(status?: number): string {
-  return status === 0 ? '正常' : '停用';
+  return status === 0 ? 'Active' : 'Disabled';
 }
 
 /** 状态 Badge variant；源 el-tag type 三元 1:1（正常 success / 停用 info）。 */

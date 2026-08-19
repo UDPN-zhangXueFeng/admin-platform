@@ -68,8 +68,8 @@ export interface BusinessOption {
 
 /** 审批流状态：1 启用 / 2 停用。 */
 export const WORKFLOW_STATUS_LABEL: Record<number, string> = {
-  1: '启用',
-  2: '停用',
+  1: 'Enabled',
+  2: 'Disabled',
 };
 
 export const WORKFLOW_STATUS_VARIANT: Record<number, 'default' | 'secondary'> = {
@@ -79,8 +79,8 @@ export const WORKFLOW_STATUS_VARIANT: Record<number, 'default' | 'secondary'> = 
 
 /** 步骤类型：5 审核 / 10 知会。 */
 export const WORKFLOW_STEP_TYPE_LABEL: Record<number, string> = {
-  5: '审核',
-  10: '知会',
+  5: 'Review',
+  10: 'Notify',
 };
 
 /**
@@ -91,13 +91,13 @@ export const WORKFLOW_BUSINESS_OPTIONS: ReadonlyArray<{
   code: string;
   name: string;
 }> = [
-  { code: 'kissen_bank_onboard', name: '银行入网审批' },
-  { code: 'kissen_lp_onboard', name: 'LP 入网审批' },
-  { code: 'kissen_lp_pair', name: 'LP 参与货币对变更' },
-  { code: 'kissen_rate_change', name: '汇率/加价率变更' },
-  { code: 'kissen_pair_toggle', name: '货币对启停' },
-  { code: 'kissen_freeze', name: '紧急冻结/解冻' },
-  { code: 'kissen_settle_confirm', name: '结算单确认' },
-  { code: 'kissen_split_transfer', name: '分成划转' },
-  { code: 'kissen_limit_change', name: '银行限额变更' },
+  { code: 'kissen_bank_onboard', name: 'Bank Onboarding Approval' },
+  { code: 'kissen_lp_onboard', name: 'LP Onboarding Approval' },
+  { code: 'kissen_lp_pair', name: 'LP Currency Pair Participation Change' },
+  { code: 'kissen_rate_change', name: 'Exchange Rate / Markup Rate Change' },
+  { code: 'kissen_pair_toggle', name: 'Currency Pair Enable/Disable' },
+  { code: 'kissen_freeze', name: 'Emergency Freeze/Unfreeze' },
+  { code: 'kissen_settle_confirm', name: 'Settlement Confirmation' },
+  { code: 'kissen_split_transfer', name: 'Revenue Share Transfer' },
+  { code: 'kissen_limit_change', name: 'Bank Limit Change' },
 ];

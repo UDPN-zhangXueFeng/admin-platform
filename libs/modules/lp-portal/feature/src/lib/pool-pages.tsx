@@ -56,12 +56,12 @@ import {
 
 const LBL = {
   eyebrow: 'LIQUIDITY',
-  title: '资金池',
-  poolCard: '资金池列表',
-  topupCard: '近期补资',
-  viewAll: '查看全部',
-  empty: '暂无数据',
-  lowLevel: '低水位',
+  title: 'Liquidity Pools',
+  poolCard: 'Liquidity Pool List',
+  topupCard: 'Recent Top-ups',
+  viewAll: 'View All',
+  empty: 'No data',
+  lowLevel: 'Low Level',
 } as const;
 
 /** 近期补资固定取前 5 条（源 topupApi.page pageSize:5；排序后端默认）。 */
@@ -116,10 +116,10 @@ export function PoolListPage() {
 
   const poolColumns = React.useMemo<ColumnDef<PoolRow & { id: string }>[]>(
     () => [
-      { accessorKey: 'currency', header: '币种' },
+      { accessorKey: 'currency', header: 'Currency' },
       {
         accessorKey: 'currencySystemType',
-        header: '系统形态',
+        header: 'System Type',
         cell: ({ row }) => (
           <span>
             {POOL_SYSTEM_TYPE_TEXT[row.original.currencySystemType] ??
@@ -129,7 +129,7 @@ export function PoolListPage() {
       },
       {
         accessorKey: 'accountAddress',
-        header: '账户地址',
+        header: 'Account Address',
         cell: ({ row }) => (
           <TooltipProvider delayDuration={200}>
             <Tooltip>
@@ -149,7 +149,7 @@ export function PoolListPage() {
       },
       {
         accessorKey: 'minLimit',
-        header: '最低限额',
+        header: 'Min Limit',
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
             {formatMoney(row.original.minLimit)}
@@ -158,7 +158,7 @@ export function PoolListPage() {
       },
       {
         accessorKey: 'remindThreshold',
-        header: '提醒阈值',
+        header: 'Alert Threshold',
         // 水位比值 0〜1，与 level 同口径展示为百分比（裁决 C-8，非金额）
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
@@ -168,7 +168,7 @@ export function PoolListPage() {
       },
       {
         accessorKey: 'availableBalanceCache',
-        header: '可用余额缓存',
+        header: 'Available Balance Cache',
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
             {formatMoney(row.original.availableBalanceCache)}
@@ -177,7 +177,7 @@ export function PoolListPage() {
       },
       {
         accessorKey: 'level',
-        header: '水位',
+        header: 'Level',
         cell: ({ row }) => {
           const { level } = row.original;
           // level 为 null（minLimit≤0）显 '-'，不画条（裁决 C-7）
@@ -214,7 +214,7 @@ export function PoolListPage() {
       },
       {
         accessorKey: 'balanceUpdateTime',
-        header: '数据更新时间',
+        header: 'Last Updated',
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
             {formatTime(row.original.balanceUpdateTime)}
@@ -223,7 +223,7 @@ export function PoolListPage() {
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => <PoolStatusBadge status={row.original.status} />,
       },
     ],
@@ -232,10 +232,10 @@ export function PoolListPage() {
 
   const topupColumns = React.useMemo<ColumnDef<TopupRow & { id: string }>[]>(
     () => [
-      { accessorKey: 'currency', header: '币种' },
+      { accessorKey: 'currency', header: 'Currency' },
       {
         accessorKey: 'amount',
-        header: '金额',
+        header: 'Amount',
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
             {formatMoney(row.original.amount)}
@@ -244,12 +244,12 @@ export function PoolListPage() {
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => <TopupStatusBadge status={row.original.status} />,
       },
       {
         accessorKey: 'declareTime',
-        header: '申报时间',
+        header: 'Declared At',
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
             {formatTime(row.original.declareTime)}
@@ -258,7 +258,7 @@ export function PoolListPage() {
       },
       {
         accessorKey: 'confirmTime',
-        header: '到账时间',
+        header: 'Confirmed At',
         // 源口径：confirmTime 为 falsy（含 0 = 未到账）显 '-'
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
@@ -270,7 +270,7 @@ export function PoolListPage() {
       },
       {
         accessorKey: 'csTxId',
-        header: '货币系统交易 ID',
+        header: 'Currency System Tx ID',
         cell: ({ row }) => (
           <span
             className="block max-w-[220px] truncate font-mono text-xs"
@@ -308,8 +308,8 @@ export function PoolListPage() {
 
       {down && <ServiceDownAlert traceId={down.traceId} />}
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
           <div className="text-sm font-semibold">{LBL.poolCard}</div>
         </div>
         <DataTable
@@ -320,8 +320,8 @@ export function PoolListPage() {
         />
       </div>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
           <div className="text-sm font-semibold">{LBL.topupCard}</div>
           <Button
             variant="link"

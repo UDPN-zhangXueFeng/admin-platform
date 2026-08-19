@@ -129,15 +129,15 @@ kissenAxios.interceptors.response.use(
       if (typeof window !== 'undefined') {
         window.location.assign(`${getLoginRedirectPath()}?expired=1`);
       }
-      throw new KissenApiError('401', '登录已失效,请重新登录');
+      throw new KissenApiError('401', 'Session expired, please sign in again');
     }
     if (status === 403) {
-      throw new KissenApiError('403', '无权限执行该操作');
+      throw new KissenApiError('403', 'No permission to perform this operation');
     }
     if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-      throw new KissenApiError('timeout', `网络超时:${error.message}`);
+      throw new KissenApiError('timeout', `Network timeout: ${error.message}`);
     }
-    throw new KissenApiError('network', `网络错误:${error.message}`);
+    throw new KissenApiError('network', `Network error: ${error.message}`);
   },
 );
 

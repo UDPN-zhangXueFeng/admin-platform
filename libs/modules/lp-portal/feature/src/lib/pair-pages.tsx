@@ -57,14 +57,14 @@ import {
 
 const LBL = {
   eyebrow: 'MARKET',
-  title: '货币对与资金池',
-  empty: '暂无数据',
-  aggEmpty: '暂无资金池聚合数据',
-  capable: '能力判定',
-  capableYes: '可解付',
-  capableNo: '不可解付',
-  expand: '展开',
-  collapse: '收起',
+  title: 'Currency Pairs & Liquidity Pools',
+  empty: 'No data',
+  aggEmpty: 'No liquidity pool aggregate data',
+  capable: 'Capability',
+  capableYes: 'Capable',
+  capableNo: 'Not Capable',
+  expand: 'Expand',
+  collapse: 'Collapse',
 } as const;
 
 /** 展开列 + 主列（货币对/参与状态/货币对状态/滑点阈值/解付能力）。 */
@@ -163,19 +163,19 @@ function AggItem({
 /** 源币种池块：缺池（缺口 NO_POOL）显「无源币种池」。 */
 function SourcePoolBlock({ pool }: { pool: PairPoolSourcePool | null }) {
   return (
-    <AggBlock title="源币种池">
+    <AggBlock title="Source Pool">
       {pool ? (
         <>
-          <AggItem label="币种">{pool.currency ?? '-'}</AggItem>
-          <AggItem label="余额缓存">
+          <AggItem label="Currency">{pool.currency ?? '-'}</AggItem>
+          <AggItem label="Balance Cache">
             <Num>{formatMoney(pool.availableBalanceCache ?? 0)}</Num>
           </AggItem>
-          <AggItem label="最近变动">
+          <AggItem label="Last Change">
             <Num>{lastTopupText(pool.lastTopup ?? null)}</Num>
           </AggItem>
         </>
       ) : (
-        <span className="text-xs text-muted-foreground">无源币种池</span>
+        <span className="text-xs text-muted-foreground">No source pool</span>
       )}
     </AggBlock>
   );
@@ -185,20 +185,20 @@ function SourcePoolBlock({ pool }: { pool: PairPoolSourcePool | null }) {
 function TargetPoolBlock({ pool }: { pool: PairPoolTargetPool | null }) {
   const low = pool != null && isLowLevel(pool);
   return (
-    <AggBlock title="目标币种池">
+    <AggBlock title="Target Pool">
       {pool ? (
         <>
-          <AggItem label="币种">{pool.currency ?? '-'}</AggItem>
-          <AggItem label="余额缓存">
+          <AggItem label="Currency">{pool.currency ?? '-'}</AggItem>
+          <AggItem label="Balance Cache">
             <Num>{formatMoney(pool.availableBalanceCache ?? 0)}</Num>
           </AggItem>
-          <AggItem label="最低限额">
+          <AggItem label="Min Limit">
             <Num>{formatMoney(pool.minLimit ?? 0)}</Num>
           </AggItem>
-          <AggItem label="提醒阈值">
+          <AggItem label="Alert Threshold">
             <Num>{formatMoney(pool.remindThreshold ?? 0)}</Num>
           </AggItem>
-          <AggItem label="水位">
+          <AggItem label="Level">
             <Num>
               <span className={low ? 'font-semibold text-amber-600' : ''}>
                 {levelText(pool.level ?? null)}
@@ -207,7 +207,7 @@ function TargetPoolBlock({ pool }: { pool: PairPoolTargetPool | null }) {
           </AggItem>
         </>
       ) : (
-        <span className="text-xs text-muted-foreground">无目标币种池</span>
+        <span className="text-xs text-muted-foreground">No target pool</span>
       )}
     </AggBlock>
   );
@@ -216,7 +216,7 @@ function TargetPoolBlock({ pool }: { pool: PairPoolTargetPool | null }) {
 /** 目标币种预授权块：逐条渲染，多条以分隔线隔开；空显「无有效预授权」。 */
 function PreauthBlock({ preauths }: { preauths: PreauthItem[] }) {
   return (
-    <AggBlock title="目标币种预授权">
+    <AggBlock title="Target Pre-authorization">
       {preauths.length > 0 ? (
         preauths.map((p, i) => (
           <div
@@ -225,25 +225,25 @@ function PreauthBlock({ preauths }: { preauths: PreauthItem[] }) {
               i > 0 ? 'mt-1 border-t pt-2' : ''
             }`}
           >
-            <AggItem label="额度">
+            <AggItem label="Quota">
               <Num>{formatMoney(p.authAmount)}</Num>
             </AggItem>
-            <AggItem label="已用">
+            <AggItem label="Used">
               <Num>{formatMoney(p.usedAmount)}</Num>
             </AggItem>
-            <AggItem label="剩余">
+            <AggItem label="Remaining">
               <Num>{formatMoney(p.remaining)}</Num>
             </AggItem>
-            <AggItem label="有效期">
-              <Num>{`${formatTime(p.validFrom)} 〜 ${formatTime(p.validTo)}`}</Num>
+            <AggItem label="Validity">
+              <Num>{`${formatTime(p.validFrom)} – ${formatTime(p.validTo)}`}</Num>
             </AggItem>
-            <AggItem label="状态">
+            <AggItem label="Status">
               <PreauthStatusBadge status={p.status} />
             </AggItem>
           </div>
         ))
       ) : (
-        <span className="text-xs text-muted-foreground">无有效预授权</span>
+        <span className="text-xs text-muted-foreground">No valid pre-authorization</span>
       )}
     </AggBlock>
   );
@@ -333,7 +333,7 @@ export function PairListPage() {
 
       {down && <ServiceDownAlert traceId={down.traceId} />}
 
-      <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-lg border-border/60 bg-card shadow-float">
         <table className="w-full caption-bottom text-sm">
           <thead className="bg-muted/50">
             <tr>
@@ -346,31 +346,31 @@ export function PairListPage() {
                 scope="col"
                 className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
               >
-                货币对
+                Currency Pair
               </th>
               <th
                 scope="col"
                 className="h-10 w-28 px-4 text-left align-middle font-medium text-muted-foreground"
               >
-                参与状态
+                Participation
               </th>
               <th
                 scope="col"
                 className="h-10 w-28 px-4 text-left align-middle font-medium text-muted-foreground"
               >
-                货币对状态
+                Pair Status
               </th>
               <th
                 scope="col"
                 className="h-10 w-28 px-4 text-left align-middle font-medium text-muted-foreground"
               >
-                滑点阈值
+                Slippage Threshold
               </th>
               <th
                 scope="col"
                 className="h-10 w-28 px-4 text-left align-middle font-medium text-muted-foreground"
               >
-                解付能力
+                Capability
               </th>
             </tr>
           </thead>

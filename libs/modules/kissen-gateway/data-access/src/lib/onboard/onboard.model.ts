@@ -50,9 +50,9 @@ export const ONBOARD_STATUS_APPROVED = 20;
 
 /** 入网状态 → 中文标签（源 el-result 标题派生）。 */
 export const ONBOARD_STATUS_LABEL: Record<number, string> = {
-  [ONBOARD_STATUS_PENDING]: '待审核',
-  [ONBOARD_STATUS_REJECTED]: '已拒绝',
-  [ONBOARD_STATUS_APPROVED]: '已通过',
+  [ONBOARD_STATUS_PENDING]: 'Pending Review',
+  [ONBOARD_STATUS_REJECTED]: 'Rejected',
+  [ONBOARD_STATUS_APPROVED]: 'Approved',
 };
 
 /** 入网状态 → Badge variant（conventions §5：成功=default、失败=destructive、中性=secondary）。 */

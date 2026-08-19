@@ -1,11 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Bell, LogOut, Menu, Settings, Shield, User } from 'lucide-react';
+import { LogOut, Menu, Settings, Shield, User } from 'lucide-react';
 import type { ProjectConfig } from '@myorg/shared/util-config';
 import { logoutAndRedirect, useAuth } from '@myorg/shared/util-auth';
 import { cn } from '@myorg/shared/util-classnames';
-import { logoutApi } from '@myorg/modules/auth/data-access';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,17 +40,11 @@ export interface HeaderProps {
 /**
  * Reusable application header.
  *
- * Layout (left-to-right):
  * 1. Mobile menu toggle
- * 2. Logo / project name
+ * 2. Logo image / project name
  * 3. Spacer
- * 4. User Manual link
- * 5. API Documentation link
- * 6. Notifications bell (with count badge)
- * 7. User avatar + display name
- *
+ * 4. User avatar + display name
  * All interactive elements are keyboard-focusable and include
- * `aria-label` for screen-reader context.
  */
 export function Header({ config, onMenuToggle, minimal = false, onChangePassword, onLogout }: HeaderProps) {
   const { user } = useAuth();
@@ -63,13 +57,9 @@ export function Header({ config, onMenuToggle, minimal = false, onChangePassword
       await onLogout();
       return;
     }
-    try {
-      await logoutApi();
-    } catch {
-      // Local logout must still complete even if the server session is already invalid.
-    } finally {
-      logoutAndRedirect();
-    }
+    // Default flow: local session clear + redirect. Projects with a server
+    // logout endpoint pass onLogout to own the whole flow.
+    logoutAndRedirect();
   }, [onLogout]);
 
   const handleLogoutConfirmationOpenChange = React.useCallback(
@@ -106,7 +96,7 @@ export function Header({ config, onMenuToggle, minimal = false, onChangePassword
           <div className="flex min-w-0 items-center gap-3">
             <img
               src="/logo-icon.svg"
-              alt="UDPN"
+              alt="Kissen"
               className="h-10 w-[84px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[104px]"
             />
             <div className="min-w-0">
@@ -122,30 +112,6 @@ export function Header({ config, onMenuToggle, minimal = false, onChangePassword
 
         {!minimal && (
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <a
-              href="#"
-              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white lg:block"
-            >
-              User Manual
-            </a>
-            <a
-              href="#"
-              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white md:block"
-            >
-              API Documentation
-            </a>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Notifications"
-              className="relative rounded-full border border-white/15 bg-white/[0.08] text-white hover:bg-white/[0.15] hover:text-white"
-            >
-              <Bell className="h-4 w-4" aria-hidden="true" />
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
-                21
-              </span>
-            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -169,7 +135,7 @@ export function Header({ config, onMenuToggle, minimal = false, onChangePassword
                     {user?.name ?? 'User'}
                     {user?.userType === 0 && (
                       <span className="ml-1.5 rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none">
-                        超管
+                        Super Admin
                       </span>
                     )}
                   </span>

@@ -9,9 +9,9 @@ export type FreezeTargetType =
 
 /** 冻结目标类型 → 中文名。 */
 export const FREEZE_TARGET_TYPE_LABEL: Record<number, string> = {
-  1: '银行',
+  1: 'Bank',
   2: 'LP',
-  3: '货币对',
+  3: 'Currency Pair',
 };
 
 /** 冻结/解冻请求：targetType 1 银行 / 2 LP / 3 货币对；freeze true 冻结 / false 解冻。 */
@@ -41,8 +41,8 @@ export function freezeStatusVariant(
 
 /** 冻结状态 → 中文（兜底原样）。 */
 export const FREEZE_STATUS_LABEL: Record<number, string> = {
-  20: '启用',
-  50: '冻结',
+  20: 'Enabled',
+  50: 'Frozen',
 };
 
 /**

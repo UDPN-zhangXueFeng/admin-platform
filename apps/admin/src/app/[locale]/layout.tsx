@@ -14,6 +14,7 @@ import { QueryProvider } from '@myorg/shared/data-access-query';
 import { AuthProvider } from '@myorg/shared/util-auth';
 import { loadProjectConfig } from '@myorg/shared/util-config';
 import { locales, type Locale } from '@myorg/shared/util-i18n';
+import { Toaster } from '@myorg/shared/ui';
 import { SessionGuard } from '@/providers/session-guard';
 
 /**
@@ -50,6 +51,8 @@ export default async function LocaleLayout({
           <AuthProvider>
             <SessionGuard />
             {children}
+            {/* 全局 toast 出口（sonner）——useToast/toast 命令式调用需要此挂载点。 */}
+            <Toaster />
           </AuthProvider>
         </QueryProvider>
       </ConfigProvider>

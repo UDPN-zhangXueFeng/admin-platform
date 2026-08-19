@@ -71,28 +71,28 @@ export interface BankFreezeReq {
  * 主表 reviewerStatus（CommonStatusEnum）中文映射。源 `views/approval/status.ts`。
  */
 export const COMMON_STATUS_LABEL: Record<number, string> = {
-  1: '保存(草稿)',
-  3: '撤回',
-  5: '待审核',
-  10: '审核中',
-  15: '审核拒绝',
-  20: '审核通过',
-  25: '已签名',
-  30: '提交中',
-  35: '最终确认',
-  40: '提交失败',
-  45: '删除',
-  50: '停用',
+  1: 'Saved (Draft)',
+  3: 'Withdrawn',
+  5: 'Pending Review',
+  10: 'Under Review',
+  15: 'Rejected',
+  20: 'Approved',
+  25: 'Signed',
+  30: 'Submitting',
+  35: 'Final Confirmation',
+  40: 'Submission Failed',
+  45: 'Deleted',
+  50: 'Disabled',
 };
 
 /** 银行列表筛选状态下拉（源 index.vue 状态筛选项）。 */
 export const BANK_STATUS_OPTIONS: ReadonlyArray<{ label: string; value: number }> = [
-  { label: '保存(草稿)', value: 1 },
-  { label: '待审核', value: 5 },
-  { label: '审核中', value: 10 },
-  { label: '审核拒绝', value: 15 },
-  { label: '审核通过', value: 20 },
-  { label: '停用', value: 50 },
+  { label: 'Saved (Draft)', value: 1 },
+  { label: 'Pending Review', value: 5 },
+  { label: 'Under Review', value: 10 },
+  { label: 'Rejected', value: 15 },
+  { label: 'Approved', value: 20 },
+  { label: 'Disabled', value: 50 },
 ];
 
 /**
@@ -153,11 +153,11 @@ export interface BankApprovalDetailResp {
 
 /** 审批节点结果中文（源 DETAIL_STATUS_MAP）。 */
 export const BANK_DETAIL_STATUS_LABEL: Record<number, string> = {
-  0: '无法审核',
-  1: '待审核',
-  2: '审核失败',
-  3: '审核成功',
-  4: '无需审核',
+  0: 'Not Reviewable',
+  1: 'Pending Review',
+  2: 'Review Failed',
+  3: 'Review Approved',
+  4: 'Review Not Required',
 };
 
 /** 已办节点结果 → Badge variant（3 通过→default、2 拒绝→destructive、其余→secondary）。 */
@@ -175,6 +175,6 @@ export const BANK_BUSINESS_CODES = {
 
 /** 银行相关审批业务中文名（源 BUSINESS_NAME_MAP 子集）。 */
 export const BANK_BUSINESS_LABEL: Record<string, string> = {
-  [BANK_BUSINESS_CODES.onboard]: '银行入网审批',
-  [BANK_BUSINESS_CODES.limitChange]: '银行限额变更',
+  [BANK_BUSINESS_CODES.onboard]: 'Bank Onboarding Approval',
+  [BANK_BUSINESS_CODES.limitChange]: 'Bank Limit Change',
 };

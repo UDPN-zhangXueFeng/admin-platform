@@ -46,6 +46,24 @@ export default function LoginRoute() {
   const expired = searchParams?.get('expired') === '1';
   const redirectTarget = searchParams?.get('redirect') || '/dashboard';
 
+  React.useEffect(() => {
+    if (expired) toast.warning('Session expired, please sign in again');
+  }, [expired, toast]);
+
+  // Dev-only credential prefill (internal ops console test account).
+  // Compiled out of behavior in production via the NODE_ENV gate; inputs are
+  // uncontrolled in shared MockLoginPage, so fill them imperatively without
+  // overwriting browser autofill.
+  React.useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    const fill = (id: string, value: string) => {
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      if (el && !el.value) el.value = value;
+    };
+    fill('username', 'admin');
+    fill('password', 'Kissen@123');
+  }, []);
+
   const handleSubmit = React.useCallback(
     async (credentials: { loginName: string; password: string }) => {
       try {
@@ -56,7 +74,9 @@ export default function LoginRoute() {
         // cookie. No separate cookie needed.
         const user: User = {
           id: String(resp.userId),
-          name: resp.userName,
+          // English-only console: display the ASCII login name; the backend
+          // userName is Chinese (e.g. 系统管理员) and must not surface.
+          name: resp.loginName,
           email: '',
           roles: [],
           permissions: resp.menuKeys,
@@ -66,7 +86,7 @@ export default function LoginRoute() {
         };
         login(user, resp.token);
 
-        toast.success('登录成功');
+        toast.success('Signed in successfully');
 
         if (resp.firstLogin === 0) {
           setPwdVisible(true);
@@ -78,7 +98,7 @@ export default function LoginRoute() {
         // kissenRequest interceptor throws KissenApiError with a message;
         // surface it to the user (源 relies on interceptor toast, target
         // interceptor only throws).
-        toast.error((e as Error).message || '登录失败');
+        toast.error((e as Error).message || 'Sign-in failed');
       }
     },
     [loginMutation, login, toast, router, redirectTarget],
@@ -86,28 +106,19 @@ export default function LoginRoute() {
 
   return (
     <>
-      {expired && (
-        <div
-          role="alert"
-          className="fixed inset-x-0 top-0 z-50 bg-destructive px-4 py-2 text-center text-sm font-medium text-destructive-foreground"
-        >
-          登录已失效，请重新登录
-        </div>
-      )}
       <MockLoginPage
         projectName="Kissen Admin"
-        brandText="Kissen 清算网络"
-        brandSuffix="运营管理控制台"
-        brandTagline="跨行数字货币清算编排 · 内部运营系统"
+        brandText="Kissen Clearing Network"
+        brandSuffix="Operations Console"
+        brandTagline="Interbank digital currency clearing orchestration · Internal operations system"
         svgPath="/login-illustration.svg"
         redirectPath="/dashboard"
-        gradientClass="from-[#c6c7ff] via-[#8e8af5] to-[#4e48e8]"
         brandBaseColor="text-[#001a98]"
         brandAccentColor="text-[#00a5d5]"
         brandSuffixBg="bg-[#00a5d5]"
         taglineColor="text-[#172260]"
         titleColor="text-[#554eea]"
-        submitLabel="登 录"
+        submitLabel="Sign In"
         onSubmit={handleSubmit}
       />
       <ChangePasswordDialog

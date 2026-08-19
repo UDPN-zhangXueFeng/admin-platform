@@ -42,8 +42,8 @@ const ChangePasswordDialog = dynamic(
  * 品牌与文案改为接口驱动 + 源中文文案。
  */
 const loginSchema = z.object({
-  loginName: z.string().min(1, '请输入登录名'),
-  password: z.string().min(1, '请输入密码'),
+  loginName: z.string().min(1, 'Username is required'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 interface LoginFormValues {
@@ -69,13 +69,23 @@ export default function LoginRoute() {
   const expired = searchParams?.get('expired') === '1';
   const redirectTarget = searchParams?.get('redirect') || '/onboard';
 
+  // 源 login/index.vue：route.query.expired === '1' → 失效提示（toast）。
+  React.useEffect(() => {
+    if (expired) toast.warning('Session expired, please sign in again');
+  }, [expired, toast]);
+
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: createFormResolver(loginSchema),
-    defaultValues: { loginName: '', password: '' },
+    // Dev-only credential prefill (internal bank portal test account);
+    // production builds get empty fields via the NODE_ENV gate.
+    defaultValues:
+      process.env.NODE_ENV === 'development'
+        ? { loginName: 'bank_admin', password: 'Kissen@123' }
+        : { loginName: '', password: '' },
   });
 
   const onSubmit = handleSubmit((values) => {
@@ -97,7 +107,7 @@ export default function LoginRoute() {
           resp.token,
         );
 
-        toast.success('登录成功');
+        toast.success('Signed in successfully');
 
         // 源 login/index.vue：firstLogin（===0）→ 留在本页弹强制改密框。
         if (resp.firstLogin === 0) {
@@ -108,28 +118,20 @@ export default function LoginRoute() {
       },
       onError: (e) => {
         // 源依赖拦截器 ElMessage；目标拦截器只抛 KissenApiError，这里统一提示。
-        toast.error((e as Error).message || '登录失败');
+        toast.error((e as Error).message || 'Sign-in failed');
       },
     });
   });
 
   return (
     <>
-      {expired && (
-        <div
-          role="alert"
-          className="fixed inset-x-0 top-0 z-50 bg-destructive px-4 py-2 text-center text-sm font-medium text-destructive-foreground"
-        >
-          登录已失效，请重新登录
-        </div>
-      )}
 
       <div className="grid min-h-screen bg-white lg:grid-cols-2">
         {/* ── 左：品牌渐变插画分屏（保留原布局风格）────────────────────── */}
         <section
           className="relative hidden min-h-screen overflow-hidden bg-gradient-to-br from-[#c6c7ff] via-[#8e8af5] to-[#4e48e8] lg:flex lg:flex-col lg:items-center lg:justify-center"
         >
-          <div className="relative z-10 flex h-full w-full max-w-[760px] flex-col px-16 py-12 xl:px-24">
+          <div className="relative z-10 flex h-full w-full flex-col px-16 py-12 xl:px-24">
             <div className="mt-auto">
               <div
                 className="flex items-end justify-center"
@@ -145,7 +147,7 @@ export default function LoginRoute() {
                   Gateway
                 </span>
               </div>
-              <p className="mx-auto mt-10 max-w-[510px] text-2xl font-semibold leading-relaxed text-[#172260]">
+              <p className="mx-auto mt-10 text-2xl font-semibold leading-relaxed text-[#172260]">
                 {brand.subtitle}
               </p>
             </div>
@@ -156,7 +158,7 @@ export default function LoginRoute() {
                 alt=""
                 width="720"
                 height="560"
-                className="h-auto max-h-[54vh] w-full max-w-[680px] select-none"
+                className="h-auto max-h-[54vh] w-full select-none"
               />
             </div>
           </div>
@@ -164,7 +166,7 @@ export default function LoginRoute() {
 
         {/* ── 右：登录表单（源 login/index.vue 卡片语义）────────────────── */}
         <section className="flex min-h-screen items-center justify-center px-6 py-10 sm:px-10 lg:px-14">
-          <div className="w-full max-w-[480px]">
+          <div className="w-full">
             <div className="mb-10 flex flex-col items-center gap-3 text-center">
               {/* 源 login-brand：logo + 标题 + 副标题 */}
               <span className="text-5xl leading-none" aria-hidden="true">
@@ -178,10 +180,10 @@ export default function LoginRoute() {
 
             <form onSubmit={onSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="loginName">登录名</Label>
+                <Label htmlFor="loginName">Username</Label>
                 <Input
                   id="loginName"
-                  placeholder="登录名"
+                  placeholder="Username"
                   autoComplete="username"
                   {...register('loginName')}
                 />
@@ -193,11 +195,11 @@ export default function LoginRoute() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">密码</Label>
+                <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="密码"
+                  placeholder="Password"
                   autoComplete="current-password"
                   {...register('password')}
                 />
@@ -215,12 +217,12 @@ export default function LoginRoute() {
                 disabled={loginMutation.isPending}
                 style={{ backgroundColor: brand.primaryColor }}
               >
-                {loginMutation.isPending ? '登录中…' : '登 录'}
+                {loginMutation.isPending ? 'Signing in…' : 'Sign In'}
               </Button>
             </form>
 
             <p className="mt-8 text-center text-xs text-slate-500">
-              跨行数字货币清算 · 银行门户
+              Cross-Bank Digital Currency Clearing · Bank Portal
             </p>
           </div>
         </section>

@@ -132,9 +132,9 @@ function ConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={request?.onConfirm}>
-            {request?.confirmText ?? '确定'}
+            {request?.confirmText ?? 'Confirm'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -169,7 +169,7 @@ function OtpDialog({
           {request?.message}
         </pre>
         <DialogFooter>
-          <Button onClick={onClose}>我已抄送</Button>
+          <Button onClick={onClose}>I Have Passed It On</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -188,9 +188,9 @@ interface UserFilterForm {
 const EMPTY_USER_FILTER: UserFilterForm = { loginName: '', status: ALL };
 
 const USER_STATUS_OPTIONS: SelectOption[] = [
-  { value: ALL, label: '全部' },
-  { value: '0', label: '正常' },
-  { value: '1', label: '停用' },
+  { value: ALL, label: 'All' },
+  { value: '0', label: 'Normal' },
+  { value: '1', label: 'Disabled' },
 ];
 
 interface UserQueryParams {
@@ -220,7 +220,7 @@ function RoleCheckboxList({
   if (roleOptions.length === 0) {
     return (
       <p className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">
-        暂无可选角色
+        No roles available
       </p>
     );
   }
@@ -312,7 +312,7 @@ function UserFormDialog({
         },
         {
           onSuccess: () => {
-            toast.success('保存成功');
+            toast.success('Saved successfully');
             onClose(true);
           },
         },
@@ -332,8 +332,8 @@ function UserFormDialog({
           // 先弹初始密码（一次性，首登强制改密），「我已抄送」后再关闭重载
           awaitingOtp.current = true;
           onOtp({
-            title: '初始密码',
-            message: `用户创建成功,初始密码(一次性,首登强制改密):\n\n${resp.oneTimePassword}\n\n请立即抄送用户。`,
+            title: 'Initial Password',
+            message: `User created successfully. Initial password (one-time, change required on first login):\n\n${resp.oneTimePassword}\n\nPlease forward it to the user immediately.`,
             onAcknowledge: () => {
               awaitingOtp.current = false;
               onClose(true);
@@ -353,7 +353,7 @@ function UserFormDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? '编辑用户' : '新增用户'}</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit User' : 'New User'}</DialogTitle>
         </DialogHeader>
         <form
           id="user-form"
@@ -362,40 +362,40 @@ function UserFormDialog({
         >
           <FormField
             name="loginName"
-            label="登录名"
+            label="Login Name"
             required
             disabled={isEdit}
             maxLength={30}
-            placeholder="全局唯一;字母/数字/下划线,最长 30 位"
+            placeholder="Globally unique; letters/digits/underscore, max 30 chars"
             error={errors.loginName?.message}
-            register={register('loginName', { required: '请输入登录名' })}
+            register={register('loginName', { required: 'Please enter a login name' })}
           />
           <FormField
             name="userName"
-            label="姓名"
+            label="Name"
             required
             error={errors.userName?.message}
-            register={register('userName', { required: '请输入姓名' })}
+            register={register('userName', { required: 'Please enter a name' })}
           />
           <FormField
             name="email"
-            label="邮箱"
+            label="Email"
             register={register('email')}
           />
           <FormField
             name="phone"
-            label="手机号"
+            label="Phone"
             register={register('phone')}
           />
           <div>
-            <Label className="mb-1.5 block">角色</Label>
+            <Label className="mb-1.5 block">Roles</Label>
             <RoleCheckboxList
               roleIds={roleIds}
               roleOptions={roleOptions}
               onToggle={toggleRole}
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              分配角色(保存后可再调整)
+              Assign roles (adjustable after saving)
             </p>
           </div>
         </form>
@@ -406,14 +406,14 @@ function UserFormDialog({
             disabled={saving}
             onClick={() => onClose(false)}
           >
-            取消
+            Cancel
           </Button>
           <Button
             type="submit"
             form="user-form"
             disabled={saving}
           >
-            保存
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -452,7 +452,7 @@ function AssignRoleDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>分配角色:{row.userName}</DialogTitle>
+          <DialogTitle>Assign Roles: {row.userName}</DialogTitle>
         </DialogHeader>
         <RoleCheckboxList
           roleIds={roleIds}
@@ -466,7 +466,7 @@ function AssignRoleDialog({
             disabled={assignMutation.isPending}
             onClick={() => onClose(false)}
           >
-            取消
+            Cancel
           </Button>
           <Button
             type="button"
@@ -476,14 +476,14 @@ function AssignRoleDialog({
                 { userId: row.userId, roleIds },
                 {
                   onSuccess: () => {
-                    toast.success('分配成功,该用户下次请求即生效');
+                    toast.success('Assigned successfully — effective on next request for this user');
                     onClose(true);
                   },
                 },
               )
             }
           >
-            保存
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -534,14 +534,14 @@ export function UserListPage() {
   const toggleStatus = (row: UserRow) => {
     const next = row.status === 0 ? 1 : 0;
     setConfirm({
-      title: '提示',
-      message: `确认${next === 1 ? '停用' : '启用'}「${row.userName}」?`,
+      title: 'Confirm',
+      message: `Confirm ${next === 1 ? 'disable' : 'enable'} "${row.userName}"?`,
       onConfirm: () =>
         statusMutation.mutate(
           { userId: row.userId, status: next },
           {
             onSuccess: () => {
-              toast.success('操作成功');
+              toast.success('Operation successful');
               // 本地翻转（源 row.status = next），随后 invalidate 触发 load()
               queryClient.setQueryData(
                 userKeys.list(PROJECT_ID, listParams),
@@ -563,15 +563,15 @@ export function UserListPage() {
 
   const onResetPwd = (row: UserRow) => {
     setConfirm({
-      title: '重置密码',
-      message: `确认重置「${row.userName}」的密码?`,
+      title: 'Reset Password',
+      message: `Reset the password of "${row.userName}"?`,
       onConfirm: () =>
         resetPwdMutation.mutate(row.userId, {
           onSuccess: (resp) => {
             // 后端重置后 first_login=0，用户下次登录强制改密
             setOtp({
-              title: '重置成功',
-              message: `新的一次性密码(首登强制改密):\n\n${resp.oneTimePassword}\n\n请立即抄送用户。`,
+              title: 'Reset Successful',
+              message: `New one-time password (change required on first login):\n\n${resp.oneTimePassword}\n\nPlease forward it to the user immediately.`,
             });
           },
         }),
@@ -580,25 +580,25 @@ export function UserListPage() {
 
   const onForceLogout = (row: UserRow) => {
     setConfirm({
-      title: '强制下线',
-      message: `强制下线「${row.userName}」?其所有会话将立即失效。`,
+      title: 'Force Logout',
+      message: `Force logout "${row.userName}"? All their sessions will be invalidated immediately.`,
       onConfirm: () =>
         forceLogoutMutation.mutate(row.userId, {
-          onSuccess: () => toast.success('已强制下线'),
+          onSuccess: () => toast.success('Forced logout'),
         }),
     });
   };
 
   const columns = React.useMemo<ColumnDef<UserRow & { id: string }>[]>(
     () => [
-      { accessorKey: 'userId', header: '用户 ID' },
-      { accessorKey: 'loginName', header: '登录名' },
-      { accessorKey: 'userName', header: '姓名' },
-      { accessorKey: 'status', header: '状态',
+      { accessorKey: 'userId', header: 'User ID' },
+      { accessorKey: 'loginName', header: 'Login Name' },
+      { accessorKey: 'userName', header: 'Name' },
+      { accessorKey: 'status', header: 'Status',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Switch
-            aria-label={`启停 ${row.original.userName}`}
+            aria-label={`Toggle status for ${row.original.userName}`}
             checked={row.original.status === 0}
             onCheckedChange={() => toggleStatus(row.original)}
             disabled={
@@ -613,13 +613,13 @@ export function UserListPage() {
           </Badge>
         </div>
       ), },
-      { accessorKey: 'phone', header: '手机号',
+      { accessorKey: 'phone', header: 'Phone',
       cell: ({ row }) => row.original.phone || '-', },
-      { accessorKey: 'createTime', header: '创建时间',
+      { accessorKey: 'createTime', header: 'Created At',
       cell: ({ row }) => fmtTime(row.original.createTime), },
       {
         id: 'actions',
-        header: '操作',
+        header: 'Actions',
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
             <Button
@@ -630,7 +630,7 @@ export function UserListPage() {
                 setFormDialog({ mode: 'edit', row: row.original })
               }
             >
-              编辑
+              Edit
             </Button>
             <Button
               type="button"
@@ -638,7 +638,7 @@ export function UserListPage() {
               className="h-auto p-0"
               onClick={() => setRolesRow(row.original)}
             >
-              分配角色
+              Assign Roles
             </Button>
             <Button
               type="button"
@@ -646,7 +646,7 @@ export function UserListPage() {
               className="h-auto p-0 text-amber-600 hover:underline"
               onClick={() => onResetPwd(row.original)}
             >
-              重置密码
+              Reset Password
             </Button>
             <Button
               type="button"
@@ -654,13 +654,12 @@ export function UserListPage() {
               className="h-auto p-0 text-destructive hover:underline"
               onClick={() => onForceLogout(row.original)}
             >
-              强制下线
+              Force Logout
             </Button>
           </div>
         ),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [statusMutation.isPending, statusMutation.variables, params, pageSize],
   );
 
@@ -677,38 +676,38 @@ export function UserListPage() {
             SYSTEM
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-            用户管理
+            User Management
           </h1>
         </div>
         <PermButton
           menuKey="lp:user"
           onClick={() => setFormDialog({ mode: 'create' })}
         >
-          新增用户
+          New User
         </PermButton>
       </div>
 
       <form
         onSubmit={handleSubmit((f) => setParams(userFormToParams(f, 1)))}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询条件</div>
+        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <FormField
             name="loginName"
-            label="登录名"
-            placeholder="模糊匹配"
+            label="Login Name"
+            placeholder="Fuzzy match"
             register={register('loginName')}
           />
           <FormSelect
             name="status"
             control={control}
-            label="状态"
+            label="Status"
             options={USER_STATUS_OPTIONS}
           />
         </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button type="submit">Search</Button>
           <Button
             type="button"
             variant="outline"
@@ -717,20 +716,20 @@ export function UserListPage() {
               setParams(userFormToParams(EMPTY_USER_FILTER, 1));
             }}
           >
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">用户列表</div>
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
+          <div className="text-sm font-semibold">User List</div>
         </div>
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={listQuery.isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={{
             page: params.pageNum,
             pageSize,
@@ -820,7 +819,7 @@ function MenuTreeNodes({
               {hasChildren ? (
                 <button
                   type="button"
-                  aria-label={isCollapsed ? '展开' : '折叠'}
+                  aria-label={isCollapsed ? 'Expand' : 'Collapse'}
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent"
                   onClick={() => onToggle(n.menuId)}
                 >
@@ -900,7 +899,6 @@ export function MenuListPage() {
   React.useEffect(() => {
     if (current == null) return;
     setCurrent((c) => (c ? (findMenuNode(tree, c.menuId) ?? null) : c));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tree]);
 
   // 服务端已保存行 + 本地未保存行（源同一 perms 数组的合并视图）
@@ -940,9 +938,9 @@ export function MenuListPage() {
   const onSaveMenu = () => {
     if (current == null) return;
     const errs: typeof formErrors = {};
-    if (!current.menuName?.trim()) errs.menuName = '请输入菜单名称';
-    if (!current.menuNameEn?.trim()) errs.menuNameEn = '请输入菜单英文名称';
-    if (!current.menuKey?.trim()) errs.menuKey = '请输入菜单 Key';
+    if (!current.menuName?.trim()) errs.menuName = 'Please enter a menu name';
+    if (!current.menuNameEn?.trim()) errs.menuNameEn = 'Please enter the English menu name';
+    if (!current.menuKey?.trim()) errs.menuKey = 'Please enter a menu key';
     setFormErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
@@ -959,7 +957,7 @@ export function MenuListPage() {
           menuUrl: current.menuUrl,
           icon: current.icon,
         },
-        { onSuccess: () => toast.success('保存成功,重新登录后菜单生效') },
+        { onSuccess: () => toast.success('Saved successfully — menus take effect after re-login') },
       );
       return;
     }
@@ -974,19 +972,19 @@ export function MenuListPage() {
         menuUrl: current.menuUrl,
         icon: current.icon,
       },
-      { onSuccess: () => toast.success('保存成功,重新登录后菜单生效') },
+      { onSuccess: () => toast.success('Saved successfully — menus take effect after re-login') },
     );
   };
 
   const onDeleteMenu = () => {
     if (current == null || current.menuId === 0) return;
     setConfirm({
-      title: '删除菜单',
-      message: `删除菜单「${current.menuName}」?存在子菜单或被角色引用将被拒绝。`,
+      title: 'Delete Menu',
+      message: `Delete menu "${current.menuName}"? It will be rejected if child menus exist or the menu is referenced by roles.`,
       onConfirm: () =>
         removeMutation.mutate(current.menuId, {
           onSuccess: () => {
-            toast.success('删除成功');
+            toast.success('Deleted successfully');
             setCurrent(null);
             setLocalPerms([]);
           },
@@ -997,12 +995,12 @@ export function MenuListPage() {
   const addPerm = () => {
     if (current == null) return;
     if (current.menuId === 0) {
-      toast.warning('请先保存菜单,再维护接口权限');
+      toast.warning('Save the menu first before managing API permissions');
       return;
     }
     const url = newPerm.url.trim();
     if (!url) {
-      toast.warning('请输入 URL');
+      toast.warning('Please enter a URL');
       return;
     }
     // 先入本地表，随「保存接口权限」逐行提交
@@ -1020,7 +1018,7 @@ export function MenuListPage() {
   const removePerm = (row: MenuPermissionItem, index: number) => {
     if (row.id) {
       // 后端仅提供 list/save(逐行新增)，删除已保存行随整菜单删除实现
-      toast.warning('暂不支持删除已保存的权限行;如需移除,请删除整个菜单后重建');
+      toast.warning('Deleting saved permission rows is not supported; to remove one, delete the whole menu and recreate it');
       return;
     }
     const localIndex = index - serverPerms.length;
@@ -1030,7 +1028,7 @@ export function MenuListPage() {
   const savePerms = async () => {
     if (current == null || current.menuId === 0 || permSaving) return;
     if (localPerms.length === 0) {
-      toast.info('没有待保存的新权限行');
+      toast.info('No new permission rows to save');
       return;
     }
     setPermSaving(true);
@@ -1043,7 +1041,7 @@ export function MenuListPage() {
           httpMethod: p.httpMethod,
         });
       }
-      toast.success('接口权限已保存,新请求即生效');
+      toast.success('API permissions saved — effective on new requests');
     } catch {
       /* 拦截器已提示 */
     } finally {
@@ -1062,18 +1060,18 @@ export function MenuListPage() {
             SYSTEM
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-            菜单管理
+            Menu Management
           </h1>
         </div>
         <PermButton menuKey="lp:menu" onClick={() => openCreate(0)}>
-          新增顶级
+          New Top Level
         </PermButton>
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {/* 左：菜单树（源 span 8/16 → lg 1/3） */}
-        <div className="rounded-lg border bg-card shadow-sm">
-          <div className="border-b px-4 py-3 text-sm font-semibold">菜单树</div>
+        <div className="rounded-lg border-border/60 bg-card shadow-float">
+          <div className="border-b px-4 py-3 text-sm font-semibold">Menu Tree</div>
           <div className="p-2">
             {treeQuery.isLoading ? (
               <div className="space-y-2 p-2">
@@ -1083,7 +1081,7 @@ export function MenuListPage() {
               </div>
             ) : tree.length === 0 ? (
               <p className="p-4 text-center text-sm text-muted-foreground">
-                暂无数据
+                No data
               </p>
             ) : (
               <MenuTreeNodes
@@ -1108,18 +1106,18 @@ export function MenuListPage() {
         {/* 右：节点详情 + 接口权限（源 span 16/16 → lg 2/3） */}
         <div className="lg:col-span-2">
           {current == null ? (
-            <div className="flex h-full min-h-64 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground shadow-sm">
-              选择左侧菜单节点查看/编辑
+            <div className="flex h-full min-h-64 items-center justify-center rounded-lg border-border/60 bg-card text-sm text-muted-foreground shadow-float">
+              Select a menu node on the left to view/edit
             </div>
           ) : (
-            <div className="space-y-6 rounded-lg border bg-card p-6 shadow-sm">
+            <div className="space-y-6 rounded-lg border-border/60 bg-card p-6 shadow-float">
               <div className="text-sm font-semibold">
-                节点详情:{current.menuName || '新增菜单'}
+                Node Details: {current.menuName || 'New Menu'}
               </div>
               <div className="max-w-xl space-y-4">
                 <FormField
                   name="menuName"
-                  label="菜单名称"
+                  label="Menu Name"
                   required
                   error={formErrors.menuName}
                   value={current.menuName ?? ''}
@@ -1127,7 +1125,7 @@ export function MenuListPage() {
                 />
                 <FormField
                   name="menuNameEn"
-                  label="菜单名称(EN)"
+                  label="Menu Name (EN)"
                   required
                   error={formErrors.menuNameEn}
                   value={current.menuNameEn ?? ''}
@@ -1137,16 +1135,16 @@ export function MenuListPage() {
                 />
                 <FormField
                   name="menuKey"
-                  label="菜单 Key"
+                  label="Menu Key"
                   required
                   disabled={isEditing}
-                  placeholder="如 lp:user,唯一"
+                  placeholder="e.g. lp:user, unique"
                   error={formErrors.menuKey}
                   value={current.menuKey ?? ''}
                   onChange={(e) => patchCurrent({ menuKey: e.target.value })}
                 />
                 <div>
-                  <Label className="mb-1.5 block">类型</Label>
+                  <Label className="mb-1.5 block">Type</Label>
                   <Select
                     disabled={isEditing}
                     value={String(current.menuType ?? 0)}
@@ -1166,7 +1164,7 @@ export function MenuListPage() {
                 </div>
                 <FormField
                   name="orderNum"
-                  label="排序"
+                  label="Sort Order"
                   type="number"
                   min={0}
                   value={String(current.orderNum ?? 0)}
@@ -1177,31 +1175,31 @@ export function MenuListPage() {
                   }
                 />
                 <div>
-                  <Label className="mb-1.5 block">可见</Label>
+                  <Label className="mb-1.5 block">Visibility</Label>
                   <RadioGroup
                     value={String(current.visible ?? 0)}
                     onValueChange={(v) => patchCurrent({ visible: Number(v) })}
                     className="flex gap-6"
                   >
                     <label className="flex items-center gap-2 text-sm">
-                      <RadioGroupItem value="0" /> 显示
+                      <RadioGroupItem value="0" /> Visible
                     </label>
                     <label className="flex items-center gap-2 text-sm">
-                      <RadioGroupItem value="1" /> 隐藏
+                      <RadioGroupItem value="1" /> Hidden
                     </label>
                   </RadioGroup>
                 </div>
                 <FormField
                   name="menuUrl"
-                  label="路由地址"
-                  placeholder="前端路由,如 /system/user"
+                  label="Route Path"
+                  placeholder="Frontend route, e.g. /system/user"
                   value={current.menuUrl ?? ''}
                   onChange={(e) => patchCurrent({ menuUrl: e.target.value })}
                 />
                 <FormField
                   name="icon"
-                  label="图标"
-                  placeholder="可选"
+                  label="Icon"
+                  placeholder="Optional"
                   value={current.icon ?? ''}
                   onChange={(e) => patchCurrent({ icon: e.target.value })}
                 />
@@ -1211,28 +1209,28 @@ export function MenuListPage() {
                     disabled={saving}
                     onClick={onSaveMenu}
                   >
-                    保存
+                    Save
                   </Button>
                   <PermButton
                     menuKey="lp:menu"
                     variant="outline"
                     onClick={() => openCreate(current.menuId)}
                   >
-                    新增子节点
+                    New Child Node
                   </PermButton>
                   <Button
                     type="button"
                     variant="destructive"
                     onClick={onDeleteMenu}
                   >
-                    删除
+                    Delete
                   </Button>
                 </div>
               </div>
 
               <div className="border-t pt-4">
                 <div className="mb-2 text-sm font-semibold">
-                  接口权限(method + URL,与 AuthFilter 权限表一致,支持 Ant 通配)
+                  API Permissions (method + URL, aligned with the AuthFilter permission table, Ant wildcards supported)
                 </div>
                 <div className="overflow-hidden rounded-md border">
                   <table className="w-full text-sm">
@@ -1243,7 +1241,7 @@ export function MenuListPage() {
                         </th>
                         <th className="px-3 py-2 text-left font-medium">URL</th>
                         <th className="w-20 px-3 py-2 text-left font-medium">
-                          操作
+                          Actions
                         </th>
                       </tr>
                     </thead>
@@ -1254,7 +1252,7 @@ export function MenuListPage() {
                             colSpan={3}
                             className="px-3 py-6 text-center text-muted-foreground"
                           >
-                            {permsQuery.isLoading ? '加载中…' : '暂无数据'}
+                            {permsQuery.isLoading ? 'Loading…' : 'No data'}
                           </td>
                         </tr>
                       )}
@@ -1271,7 +1269,7 @@ export function MenuListPage() {
                               className="h-auto p-0 text-destructive hover:underline"
                               onClick={() => removePerm(p, i)}
                             >
-                              移除
+                              Remove
                             </Button>
                           </td>
                         </tr>
@@ -1281,8 +1279,8 @@ export function MenuListPage() {
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Input
-                    aria-label="权限 URL"
-                    placeholder="如 /lp/user/**"
+                    aria-label="Permission URL"
+                    placeholder="e.g. /lp/user/**"
                     className="w-64"
                     value={newPerm.url}
                     onChange={(e) =>
@@ -1290,8 +1288,8 @@ export function MenuListPage() {
                     }
                   />
                   <Input
-                    aria-label="权限 Method"
-                    placeholder="POST/GET,空=不限"
+                    aria-label="Permission Method"
+                    placeholder="POST/GET, empty = any"
                     className="w-40"
                     value={newPerm.method}
                     onChange={(e) =>
@@ -1299,7 +1297,7 @@ export function MenuListPage() {
                     }
                   />
                   <Button type="button" onClick={addPerm}>
-                    添加
+                    Add
                   </Button>
                   <Button
                     type="button"
@@ -1308,7 +1306,7 @@ export function MenuListPage() {
                     disabled={permSaving}
                     onClick={() => void savePerms()}
                   >
-                    保存接口权限
+                    Save API Permissions
                   </Button>
                 </div>
               </div>

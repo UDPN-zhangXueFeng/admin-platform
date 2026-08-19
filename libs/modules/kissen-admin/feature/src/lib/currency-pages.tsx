@@ -7,6 +7,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import {
   Badge,
   Button,
+  createActionColumn,
   DataTable,
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import {
   KISSEN_PROJECT_ID,
   useCurrencyListQuery,
@@ -68,7 +70,7 @@ interface CurrencyFilterForm {
 
 function formatDateTime(value: number | null | undefined): string {
   if (!value) return '--';
-  return new Date(value).toLocaleString('zh-CN', { hour12: false });
+  return formatAdminDateTime(value);
 }
 
 export function CurrencyListPage() {
@@ -124,13 +126,13 @@ export function CurrencyListPage() {
   const onToggle = (row: CurrencyRow) => {
     const disable = row.status === 20;
     const content = disable
-      ? `确认停用币种「${row.currencyCode}」?停用后新建银行将不可再选择该币种,已有银行币种关系不受影响。`
-      : `确认启用币种「${row.currencyCode}」?`;
+      ? `Disable currency "${row.currencyCode}"? After disabling, new banks can no longer select this currency; existing bank-currency relationships are unaffected.`
+      : `Enable currency "${row.currencyCode}"?`;
     if (!window.confirm(content)) return;
     toggleMutation.mutate(
       { currencyId: row.currencyId },
       {
-        onSuccess: () => toast.success('操作成功'),
+        onSuccess: () => toast.success('Operation successful'),
         onError: (e) => toast.error((e as Error).message),
       },
     );
@@ -140,18 +142,18 @@ export function CurrencyListPage() {
     ColumnDef<CurrencyRow & { id: string }>[]
   >(
     () => [
-      { accessorKey: 'currencyCode', header: '币种代码' },
-      { accessorKey: 'currencyName', header: '币种名称' },
+      { accessorKey: 'currencyCode', header: 'Currency Code' },
+      { accessorKey: 'currencyName', header: 'Currency Name' },
       {
         accessorKey: 'decimalDigits',
-        header: '小数位',
+        header: 'Decimal Places',
         cell: ({ row }) => (
           <span>{row.original.decimalDigits}</span>
         ),
       },
       {
         accessorKey: 'createTime',
-        header: '创建时间',
+        header: 'Created At',
         cell: ({ row }) => (
           <span>{formatDateTime(row.original.createTime)}</span>
         ),
@@ -162,10 +164,10 @@ export function CurrencyListPage() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span>状态</span>
+                <span>Status</span>
               </TooltipTrigger>
               <TooltipContent>
-                本域语义:20 启用 / 50 停用(文案复用通用状态映射)
+                Domain semantics: 20 Enabled / 50 Disabled (labels reuse the common status map)
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -176,30 +178,13 @@ export function CurrencyListPage() {
           </Badge>
         ),
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              onClick={() => openEdit(row.original)}
-            >
-              编辑
-            </Button>
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              onClick={() => onToggle(row.original)}
-            >
-              {row.original.status === 20 ? '停用' : '启用'}
-            </Button>
-          </div>
-        ),
-      },
+      createActionColumn<CurrencyRow & { id: string }>((item) => [
+        { label: 'Edit', onClick: () => openEdit(item) },
+        {
+          label: item.status === 20 ? 'Disable' : 'Enable',
+          onClick: () => onToggle(item),
+        },
+      ]),
     ],
     [toggleMutation, toast],
   );
@@ -212,9 +197,9 @@ export function CurrencyListPage() {
   return (
     <div className="space-y-4 p-4 md:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">币种管理</h1>
+        <h1 className="text-xl font-semibold">Currency Management</h1>
         {hasPerm('system:currency') && (
-          <Button onClick={openCreate}>新建币种</Button>
+          <Button onClick={openCreate}>New Currency</Button>
         )}
       </div>
 
@@ -225,13 +210,13 @@ export function CurrencyListPage() {
         <div className="w-48">
           <FormField
             name="currencyCode"
-            label="币种代码"
+            label="Currency Code"
             register={register('currencyCode')}
           />
         </div>
         <div className="w-48">
           <label className="mb-1.5 block text-sm font-medium text-foreground">
-            状态
+            Status
           </label>
           <Controller
             control={control}
@@ -244,20 +229,20 @@ export function CurrencyListPage() {
                 }
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="全部" />
+                  <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={STATUS_ALL}>全部</SelectItem>
-                  <SelectItem value="20">启用</SelectItem>
-                  <SelectItem value="50">停用</SelectItem>
+                  <SelectItem value={STATUS_ALL}>All</SelectItem>
+                  <SelectItem value="20">Enabled</SelectItem>
+                  <SelectItem value="50">Disabled</SelectItem>
                 </SelectContent>
               </Select>
             )}
           />
         </div>
-        <Button type="submit">查询</Button>
+        <Button type="submit">Search</Button>
         <Button type="button" variant="outline" onClick={onResetSearch}>
-          重置
+          Reset
         </Button>
       </form>
 
@@ -345,7 +330,7 @@ function CurrencySaveDialog({
     };
     mutation.mutate(req, {
       onSuccess: () => {
-        toast.success(isEdit ? '币种已更新' : '币种已创建');
+        toast.success(isEdit ? 'Currency updated' : 'Currency created');
         onOpenChange(false);
       },
       onError: (e) => toast.error((e as Error).message),
@@ -356,21 +341,21 @@ function CurrencySaveDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
-          <DialogTitle>{isEdit ? '编辑币种' : '新建币种'}</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit Currency' : 'New Currency'}</DialogTitle>
           <DialogDescription>
-            {isEdit ? '修改币种信息' : '创建新的币种'}
+            {isEdit ? 'Modify currency information' : 'Create a new currency'}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="currencyCode">币种代码</Label>
+            <Label htmlFor="currencyCode">Currency Code</Label>
             <Input
               id="currencyCode"
-              placeholder="如 USD"
+              placeholder="e.g. USD"
               maxLength={10}
               disabled={isEdit}
-              {...register('currencyCode', { required: '请输入币种代码' })}
+              {...register('currencyCode', { required: 'Enter currency code' })}
             />
             {errors.currencyCode && (
               <p className="text-sm text-destructive">
@@ -380,12 +365,12 @@ function CurrencySaveDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="currencyName">币种名称</Label>
+            <Label htmlFor="currencyName">Currency Name</Label>
             <Input
               id="currencyName"
-              placeholder="如 美元"
+              placeholder="e.g. US Dollar"
               maxLength={50}
-              {...register('currencyName', { required: '请输入币种名称' })}
+              {...register('currencyName', { required: 'Enter currency name' })}
             />
             {errors.currencyName && (
               <p className="text-sm text-destructive">
@@ -395,7 +380,7 @@ function CurrencySaveDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="decimalDigits">小数位</Label>
+            <Label htmlFor="decimalDigits">Decimal Places</Label>
             <Input
               id="decimalDigits"
               type="number"
@@ -403,12 +388,12 @@ function CurrencySaveDialog({
               max={18}
               step={1}
               {...register('decimalDigits', {
-                required: '请输入小数位',
-                min: { value: 0, message: '最小 0' },
-                max: { value: 18, message: '最大 18' },
+                required: 'Enter decimal places',
+                min: { value: 0, message: 'Minimum 0' },
+                max: { value: 18, message: 'Maximum 18' },
               })}
             />
-            <p className="text-xs text-muted-foreground">0~18,主流法币通常为 2</p>
+            <p className="text-xs text-muted-foreground">0-18; mainstream fiat currencies typically use 2</p>
             {errors.decimalDigits && (
               <p className="text-sm text-destructive">
                 {errors.decimalDigits.message}
@@ -422,10 +407,10 @@ function CurrencySaveDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              取消
+              Cancel
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? '保存中…' : '保存'}
+              {mutation.isPending ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>
         </form>

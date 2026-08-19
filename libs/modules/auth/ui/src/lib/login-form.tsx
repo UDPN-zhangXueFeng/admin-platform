@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { Button, Input, Label } from '@myorg/shared/ui';
+import { Button, Input, Label, useToast } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { loginSchema, type LoginFormValues } from '@myorg/modules/auth/util';
 import { getCaptcha, useLoginMutation } from '@myorg/modules/auth/data-access';
@@ -29,6 +29,7 @@ export function LoginForm() {
   const router = useRouter();
   const { captchaUrl, randomstr, setCaptcha, setTwoFactorToken, setLoginStep } =
     useAuthUIStore();
+  const toast = useToast();
   const loginMutation = useLoginMutation();
   const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
 
@@ -97,8 +98,9 @@ export function LoginForm() {
       }
 
       router.replace('/dashboard', { locale: 'en-US' });
-    } catch {
-      // Login failed — refresh captcha and clear code field
+    } catch (e) {
+      // Login failed — surface via shared toast, refresh captcha and clear code field
+      toast.error((e as Error).message || t('loginFailed'));
       refreshCaptcha();
       setValue('code', '');
     }

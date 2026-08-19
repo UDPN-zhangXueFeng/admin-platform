@@ -17,9 +17,6 @@ import { z } from 'zod';
 import { ColumnDef } from '@tanstack/react-table';
 
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -177,9 +174,9 @@ function QueryErrorRetry({
 }) {
   return (
     <div className="flex flex-col items-center gap-3 py-8 text-center">
-      <p className="text-sm text-destructive">加载失败:{(error as Error).message}</p>
+      <p className="text-sm text-destructive">Failed to load: {(error as Error).message}</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
-        重试
+        Retry
       </Button>
     </div>
   );
@@ -207,7 +204,7 @@ function RoleCheckboxGroup({
   onChange: (ids: number[]) => void;
 }) {
   if (options.length === 0) {
-    return <p className="text-sm text-muted-foreground">暂无可分配角色(保存后可再调整)</p>;
+    return <p className="text-sm text-muted-foreground">No roles available to assign (adjustable after saving)</p>;
   }
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -257,9 +254,9 @@ function OneTimePasswordDialog({
     if (!otp) return;
     try {
       await navigator.clipboard.writeText(otp);
-      toast.success('一次性密码已复制');
+      toast.success('One-time password copied');
     } catch {
-      toast.error('复制失败,请手动抄录');
+      toast.error('Copy failed, please note it down manually');
     }
   }, [otp, toast]);
 
@@ -280,13 +277,13 @@ function OneTimePasswordDialog({
           >
             {otp ?? '—'}
           </div>
-          <p className="text-xs text-muted-foreground">请立即抄送用户。</p>
+          <p className="text-xs text-muted-foreground">Please forward it to the user immediately.</p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onCopy} disabled={!otp}>
-            复制
+            Copy
           </Button>
-          <Button onClick={onClose}>我已抄送</Button>
+          <Button onClick={onClose}>I Have Forwarded It</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -350,8 +347,8 @@ function UserAssignRoleDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>分配角色:{user.userName}</DialogTitle>
-          <DialogDescription>保存后该用户下次请求即生效。</DialogDescription>
+          <DialogTitle>Assign Roles: {user.userName}</DialogTitle>
+          <DialogDescription>Effective on this user's next request after saving.</DialogDescription>
         </DialogHeader>
         <RoleCheckboxGroup
           options={rolePage?.data ?? []}
@@ -360,7 +357,7 @@ function UserAssignRoleDialog({
         />
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            取消
+            Cancel
           </Button>
           <Button
             disabled={mutation.isPending}
@@ -370,7 +367,7 @@ function UserAssignRoleDialog({
                 {
                   onSuccess: () => {
                     // 源 onAssignRoles：ElMessage.success + 关弹窗 + load()（列表失效）。
-                    toast.success('分配成功,该用户下次请求即生效');
+                    toast.success('Roles assigned. Effective on next request for this user');
                     onClose();
                   },
                   onError: (e) => toast.error((e as Error).message),
@@ -378,7 +375,7 @@ function UserAssignRoleDialog({
               );
             }}
           >
-            {mutation.isPending ? '保存中…' : '保存'}
+            {mutation.isPending ? 'Saving…' : 'Save'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -425,6 +422,16 @@ export function UserListPage() {
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
 
+  // Load failure feedback is surfaced as a toast (retry via action) instead of a banner.
+  React.useEffect(() => {
+    if (isError) {
+      toast.error('Failed to load users', {
+        description: error instanceof Error ? error.message : 'Please try again later',
+        action: { label: 'Retry', onClick: () => refetch() },
+      });
+    }
+  }, [isError, error, refetch, toast]);
+
   const onSearch = React.useCallback(
     (form: UserFilterForm) => {
       setParams(userFilterToParams(form, 1, params.pageSize));
@@ -438,7 +445,7 @@ export function UserListPage() {
   }, [reset, params.pageSize]);
 
   /** 启停动作词（源 onToggle 文案「确认${停用|启用}「name」?」1:1）。 */
-  const toggleVerb = toggleTarget?.status === 0 ? '停用' : '启用';
+  const toggleVerb = toggleTarget?.status === 0 ? 'Disable' : 'Enable';
 
   /** 启停确认（源 onToggle：确认 → toggleStatus → 「操作成功」→ 刷新）。 */
   const onConfirmToggle = React.useCallback(() => {
@@ -447,7 +454,7 @@ export function UserListPage() {
     statusMutation.mutate(
       { userId: toggleTarget.userId, status: next },
       {
-        onSuccess: () => toast.success('操作成功'),
+        onSuccess: () => toast.success('Operation successful'),
         onError: (e) => toast.error((e as Error).message),
       },
     );
@@ -472,7 +479,7 @@ export function UserListPage() {
   const onConfirmForceLogout = React.useCallback(() => {
     if (!forceLogoutTarget) return;
     forceLogoutMutation.mutate(forceLogoutTarget.userId, {
-      onSuccess: () => toast.success('已强制下线'),
+      onSuccess: () => toast.success('Force logged out'),
       onError: (e) => toast.error((e as Error).message),
     });
     setForceLogoutTarget(null);
@@ -480,11 +487,11 @@ export function UserListPage() {
 
   const columns = React.useMemo<ColumnDef<UserRow & { id: string }>[]>(
     () => [
-      { accessorKey: 'loginName', header: '登录名' },
-      { accessorKey: 'userName', header: '姓名' },
+      { accessorKey: 'loginName', header: 'Username' },
+      { accessorKey: 'userName', header: 'Name' },
       {
         id: 'userType',
-        header: '类型',
+        header: 'Type',
         cell: ({ row }) => (
           <Badge variant={USER_TYPE_VARIANT[row.original.userType] ?? 'outline'}>
             {USER_TYPE_LABEL[row.original.userType] ?? row.original.userType}
@@ -493,7 +500,7 @@ export function UserListPage() {
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => (
           <Badge variant={USER_STATUS_VARIANT[row.original.status] ?? 'outline'}>
             {USER_STATUS_LABEL[row.original.status] ?? row.original.status}
@@ -502,12 +509,12 @@ export function UserListPage() {
       },
       {
         accessorKey: 'phone',
-        header: '手机号',
+        header: 'Phone',
         cell: ({ row }) => <span>{orDash(row.original.phone)}</span>,
       },
       {
         id: 'actions',
-        header: '操作',
+        header: 'Actions',
         cell: ({ row }) => {
           const u = row.original;
           return (
@@ -521,7 +528,7 @@ export function UserListPage() {
                   router.push(`/system/user/detail?id=${u.userId}`);
                 }}
               >
-                查看
+                View
               </Button>
               <Button
                 variant="link"
@@ -532,7 +539,7 @@ export function UserListPage() {
                   router.push(`/system/user/edit?id=${u.userId}`);
                 }}
               >
-                编辑
+                Edit
               </Button>
               <Button
                 variant="link"
@@ -540,7 +547,7 @@ export function UserListPage() {
                 className="h-auto p-0"
                 onClick={() => setAssignUser(u)}
               >
-                分配角色
+                Assign Roles
               </Button>
               <Button
                 variant="link"
@@ -548,7 +555,7 @@ export function UserListPage() {
                 className="h-auto p-0 text-amber-600 hover:text-amber-700"
                 onClick={() => setResetPwdTarget(u)}
               >
-                重置密码
+                Reset Password
               </Button>
               <Button
                 variant="link"
@@ -560,7 +567,7 @@ export function UserListPage() {
                 }
                 onClick={() => setToggleTarget(u)}
               >
-                {u.status === 0 ? '停用' : '启用'}
+                {u.status === 0 ? 'Disable' : 'Enable'}
               </Button>
               <Button
                 variant="link"
@@ -568,7 +575,7 @@ export function UserListPage() {
                 className="h-auto p-0 text-destructive hover:text-destructive"
                 onClick={() => setForceLogoutTarget(u)}
               >
-                强制下线
+                Force Logout
               </Button>
             </div>
           );
@@ -584,79 +591,60 @@ export function UserListPage() {
   );
 
   const statusSelectOptions = React.useMemo(
-    () => [{ value: OPT_ALL, label: '全部' }, ...USER_STATUS_OPTIONS],
+    () => [{ value: OPT_ALL, label: 'All' }, ...USER_STATUS_OPTIONS],
     [],
   );
 
   return (
     <div className="space-y-4">
-      <PageHead title="用户管理">
+      <PageHead title="User Management">
         {/* 源 v-perm="'bank:user:manage'"：未命中 menuKeys 不渲染。 */}
         {hasPerm('bank:user:manage') && (
           <Button onClick={() => router.push('/system/user/create')}>
-            新增用户
+            Create User
           </Button>
         )}
       </PageHead>
 
       <form
         onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">筛选条件</div>
+        <div className="mb-4 text-sm font-semibold">Filters</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             name="loginName"
-            label="登录名"
+            label="Username"
             register={register('loginName')}
-            placeholder="模糊匹配"
+            placeholder="Fuzzy match"
           />
           <FormField
             name="userName"
-            label="姓名"
+            label="Name"
             register={register('userName')}
-            placeholder="模糊匹配"
+            placeholder="Fuzzy match"
           />
           <FormSelect
             name="status"
             control={control}
-            label="状态"
+            label="Status"
             options={statusSelectOptions}
           />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onResetSearch}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      {isError && (
-        <Alert variant="destructive">
-          <div className="flex-1">
-            <AlertTitle>用户列表加载失败</AlertTitle>
-            <AlertDescription>
-              {error instanceof Error ? error.message : '请稍后重试'}
-            </AlertDescription>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              onClick={() => refetch()}
-            >
-              重新加载
-            </Button>
-          </div>
-        </Alert>
-      )}
-
-      <div className="rounded-lg border bg-card shadow-sm">
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={
             paginationMeta
               ? {
@@ -682,8 +670,8 @@ export function UserListPage() {
       <OneTimePasswordDialog
         open={!!resetOtp}
         onClose={() => setResetOtp(null)}
-        title="重置成功"
-        lead="新的一次性密码(首登强制改密):"
+        title="Password Reset"
+        lead="New one-time password (must be changed on first login):"
         otp={resetOtp?.pwd ?? null}
         tone="success"
       />
@@ -695,16 +683,16 @@ export function UserListPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{toggleVerb}用户</AlertDialogTitle>
+            <AlertDialogTitle>{toggleVerb} User</AlertDialogTitle>
             <AlertDialogDescription>
-              确认{toggleVerb}「{toggleTarget?.userName}」?
+              Are you sure you want to {toggleVerb.toLowerCase()} "{toggleTarget?.userName}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className={
-                toggleVerb === '停用'
+                toggleVerb === 'Disable'
                   ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
                   : undefined
               }
@@ -722,18 +710,18 @@ export function UserListPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>重置密码</AlertDialogTitle>
+            <AlertDialogTitle>Reset Password</AlertDialogTitle>
             <AlertDialogDescription>
-              确认重置「{resetPwdTarget?.userName}」的密码?
+              Reset the password for "{resetPwdTarget?.userName}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={onConfirmResetPwd}
             >
-              重置
+              Reset
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -745,18 +733,19 @@ export function UserListPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>强制下线</AlertDialogTitle>
+            <AlertDialogTitle>Force Logout</AlertDialogTitle>
             <AlertDialogDescription>
-              强制下线「{forceLogoutTarget?.userName}」?其所有会话将立即失效。
+              Force log out "{forceLogoutTarget?.userName}"? All their sessions will
+              be invalidated immediately.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={onConfirmForceLogout}
             >
-              强制下线
+              Force Logout
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -771,8 +760,8 @@ export function UserListPage() {
 
 /** 表单校验（源 formRules：loginName/userName 必填 blur 触发）。 */
 const userFormSchema = z.object({
-  loginName: z.string().min(1, { message: '请输入登录名' }),
-  userName: z.string().min(1, { message: '请输入姓名' }),
+  loginName: z.string().min(1, { message: 'Please enter a username' }),
+  userName: z.string().min(1, { message: 'Please enter a name' }),
   userType: z.string(),
   email: z.string(),
   phone: z.string(),
@@ -851,7 +840,7 @@ export function UserFormPage() {
         },
         {
           onSuccess: () => {
-            toast.success('保存成功');
+            toast.success('Saved successfully');
             router.push('/system/user');
           },
           onError: (e) => toast.error((e as Error).message),
@@ -880,8 +869,8 @@ export function UserFormPage() {
     if (scanning || !userPage) {
       return (
         <div className="space-y-4">
-          <PageHead title="编辑用户" />
-          <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <PageHead title="Edit User" />
+          <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
             <LoadingBlock />
           </div>
         </div>
@@ -889,15 +878,15 @@ export function UserFormPage() {
     }
     return (
       <div className="space-y-4">
-        <PageHead title="编辑用户" />
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <p className="text-sm text-muted-foreground">未找到该用户。</p>
+        <PageHead title="Edit User" />
+        <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+          <p className="text-sm text-muted-foreground">User not found.</p>
           <Button
             variant="outline"
             className="mt-4"
             onClick={() => router.push('/system/user')}
           >
-            返回
+            Back
           </Button>
         </div>
       </div>
@@ -906,24 +895,24 @@ export function UserFormPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead title={isEdit ? '编辑用户' : '新增用户'} />
+      <PageHead title={isEdit ? 'Edit User' : 'Create User'} />
       <form
         onSubmit={onSubmit}
-        className="space-y-5 rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="space-y-5 rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             name="loginName"
-            label="登录名"
+            label="Username"
             required
             disabled={isEdit}
-            placeholder="字母/数字/_.-,最长 30 位"
+            placeholder="Letters, digits, _.-, up to 30 characters"
             error={formState.errors.loginName?.message}
             register={register('loginName')}
           />
           <FormField
             name="userName"
-            label="姓名"
+            label="Name"
             required
             error={formState.errors.userName?.message}
             register={register('userName')}
@@ -931,7 +920,7 @@ export function UserFormPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">类型</label>
+          <label className="text-sm font-medium">Type</label>
           <Controller
             control={control}
             name="userType"
@@ -956,21 +945,21 @@ export function UserFormPage() {
           />
           {/* 源编辑态禁用类型，超管/运营创建后不可改。 */}
           {isEdit && (
-            <p className="text-xs text-muted-foreground">类型创建后不可修改</p>
+            <p className="text-xs text-muted-foreground">Type cannot be changed after creation</p>
           )}
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             name="email"
-            label="邮箱"
+            label="Email"
             register={register('email')}
           />
-          <FormField name="phone" label="手机号" register={register('phone')} />
+          <FormField name="phone" label="Phone" register={register('phone')} />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">角色</label>
+          <label className="text-sm font-medium">Roles</label>
           <Controller
             control={control}
             name="roleIds"
@@ -983,7 +972,7 @@ export function UserFormPage() {
             )}
           />
           <p className="text-xs text-muted-foreground">
-            分配角色(保存后可再调整)
+            Assign roles (adjustable after saving)
           </p>
         </div>
 
@@ -993,15 +982,15 @@ export function UserFormPage() {
             disabled={saveMutation.isPending || updateMutation.isPending}
           >
             {saveMutation.isPending || updateMutation.isPending
-              ? '保存中…'
-              : '保存'}
+              ? 'Saving…'
+              : 'Save'}
           </Button>
           <Button
             type="button"
             variant="outline"
             onClick={() => router.push('/system/user')}
           >
-            返回
+            Back
           </Button>
         </div>
       </form>
@@ -1013,8 +1002,8 @@ export function UserFormPage() {
           setCreatedOtp(null);
           router.push('/system/user');
         }}
-        title="初始密码"
-        lead="用户创建成功,初始密码(一次性,首登强制改密):"
+        title="Initial Password"
+        lead="User created. Initial password (one-time, must be changed on first login):"
         otp={createdOtp}
         tone="warning"
       />
@@ -1050,20 +1039,20 @@ export function UserDetailPage() {
   const roleNames = (user?.roleIds ?? [])
     .map((rid) => rolePage?.data.find((r) => r.roleId === rid)?.roleName)
     .filter(Boolean)
-    .join('、');
+    .join(', ');
 
   if (userId == null) {
     return (
       <div className="space-y-4">
-        <PageHead title="用户详情" />
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <p className="text-sm text-muted-foreground">缺少用户 ID。</p>
+        <PageHead title="User Detail" />
+        <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+          <p className="text-sm text-muted-foreground">Missing user ID.</p>
           <Button
             variant="outline"
             className="mt-4"
             onClick={() => router.push('/system/user')}
           >
-            返回
+            Back
           </Button>
         </div>
       </div>
@@ -1072,27 +1061,27 @@ export function UserDetailPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead title="用户详情">
+      <PageHead title="User Detail">
         <Button
           variant="outline"
           onClick={() => router.push(`/system/user/edit?id=${userId}`)}
         >
-          编辑
+          Edit
         </Button>
       </PageHead>
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
         {isError ? (
           <QueryErrorRetry error={error} onRetry={() => refetch()} />
         ) : isLoading || !user ? (
           user == null && !isLoading && data ? (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
-              <p className="text-sm text-muted-foreground">未找到该用户。</p>
+              <p className="text-sm text-muted-foreground">User not found.</p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => router.push('/system/user')}
               >
-                返回列表
+                Back to List
               </Button>
             </div>
           ) : (
@@ -1100,29 +1089,29 @@ export function UserDetailPage() {
           )
         ) : (
           <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-            <DetailField label="登录名">{user.loginName}</DetailField>
-            <DetailField label="姓名">{user.userName}</DetailField>
-            <DetailField label="类型">
+            <DetailField label="Username">{user.loginName}</DetailField>
+            <DetailField label="Name">{user.userName}</DetailField>
+            <DetailField label="Type">
               <Badge
                 variant={USER_TYPE_VARIANT[user.userType] ?? 'outline'}
               >
                 {USER_TYPE_LABEL[user.userType] ?? user.userType}
               </Badge>
             </DetailField>
-            <DetailField label="状态">
+            <DetailField label="Status">
               <Badge variant={USER_STATUS_VARIANT[user.status] ?? 'outline'}>
                 {USER_STATUS_LABEL[user.status] ?? user.status}
               </Badge>
             </DetailField>
-            <DetailField label="手机号">{orDash(user.phone)}</DetailField>
-            <DetailField label="邮箱">{orDash(user.email)}</DetailField>
-            <DetailField label="角色">{roleNames || '-'}</DetailField>
-            <DetailField label="首登">
+            <DetailField label="Phone">{orDash(user.phone)}</DetailField>
+            <DetailField label="Email">{orDash(user.email)}</DetailField>
+            <DetailField label="Roles">{roleNames || '-'}</DetailField>
+            <DetailField label="First Login">
               <Badge variant="outline">
                 {USER_FIRST_LOGIN_LABEL[user.firstLogin] ?? user.firstLogin}
               </Badge>
             </DetailField>
-            <DetailField label="创建时间">
+            <DetailField label="Created At">
               {formatTime(user.createTime)}
             </DetailField>
           </div>

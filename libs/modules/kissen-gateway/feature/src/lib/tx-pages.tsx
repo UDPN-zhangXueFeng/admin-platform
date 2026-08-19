@@ -8,14 +8,12 @@ import { z } from 'zod';
 import { ColumnDef } from '@tanstack/react-table';
 
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
   Badge,
   Button,
   Checkbox,
   DataTable,
   Skeleton,
+  useToast,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
@@ -152,6 +150,7 @@ const TX_PAGE_SIZE_DEFAULT = 10;
 
 export function TxListPage() {
   const router = useRouter();
+  const toast = useToast();
   const { register, handleSubmit, reset, control } = useForm<TxFilterForm>({
     resolver: zodResolver(txFilterSchema),
     defaultValues: TX_FILTER_DEFAULT,
@@ -171,6 +170,16 @@ export function TxListPage() {
 
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
+
+  React.useEffect(() => {
+    if (isError) {
+      toast.error('Failed to load transactions', {
+        description:
+          error instanceof Error ? error.message : 'Please try again later',
+        action: { label: 'Retry', onClick: () => refetch() },
+      });
+    }
+  }, [isError, error, refetch, toast]);
 
   const onSubmit = React.useCallback((form: TxFilterForm) => {
     setFilter(formToFilter(form));
@@ -192,7 +201,7 @@ export function TxListPage() {
   );
 
   const statusSelectOptions = React.useMemo(
-    () => [{ value: OPT_ALL, label: '全部状态' }, ...TX_STATUS_OPTIONS],
+    () => [{ value: OPT_ALL, label: 'All Statuses' }, ...TX_STATUS_OPTIONS],
     [],
   );
 
@@ -207,7 +216,7 @@ export function TxListPage() {
       },
       {
         id: 'bankRole',
-        header: '本行角色',
+        header: 'Bank Role',
         cell: ({ row }) => {
           const role = row.original.bankRole;
           return role != null && role !== 0 ? (
@@ -224,12 +233,12 @@ export function TxListPage() {
       },
       {
         id: 'principal',
-        header: '本金',
+        header: 'Principal',
         cell: ({ row }) => <span>{fmtAmount(row.original.principal)}</span>,
       },
       {
         id: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => (
           <Badge variant={txStatusVariant(row.original.status)}>
             {txStatusText(row.original.status)}
@@ -238,22 +247,22 @@ export function TxListPage() {
       },
       {
         id: 'pendingFlag',
-        header: '待处理',
+        header: 'Pending',
         cell: ({ row }) =>
           row.original.pendingFlag === 1 ? (
-            <Badge variant="secondary">待处理</Badge>
+            <Badge variant="secondary">Pending</Badge>
           ) : (
             <span>-</span>
           ),
       },
       {
         id: 'lastSyncTime',
-        header: '最近同步',
+        header: 'Last Sync',
         cell: ({ row }) => <span>{fmtTime(row.original.lastSyncTime)}</span>,
       },
       {
         id: 'actions',
-        header: '操作',
+        header: 'Actions',
         cell: ({ row }) => (
           <Button
             variant="link"
@@ -261,7 +270,7 @@ export function TxListPage() {
             className="h-auto p-0"
             onClick={() => onView(row.original.transactionId)}
           >
-            详情
+            Detail
           </Button>
         ),
       },
@@ -279,21 +288,21 @@ export function TxListPage() {
         <div className="text-xs font-medium tracking-wide text-muted-foreground">
           TRANSACTIONS
         </div>
-        <h1 className="mt-1 text-xl font-semibold">交易记录</h1>
+        <h1 className="mt-1 text-xl font-semibold">Transactions</h1>
       </div>
 
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">筛选条件</div>
+        <div className="mb-4 text-sm font-semibold">Filters</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormSelect
             name="status"
             control={control}
-            label="状态"
+            label="Status"
             options={statusSelectOptions}
-            placeholder="全部状态"
+            placeholder="All Statuses"
           />
           <Controller
             control={control}
@@ -304,7 +313,7 @@ export function TxListPage() {
                   htmlFor="field-pendingOnly"
                   className="mb-1.5 block text-sm font-medium text-foreground"
                 >
-                  待处理
+                  Pending
                 </label>
                 <div className="flex h-10 items-center gap-2">
                   <Checkbox
@@ -312,58 +321,40 @@ export function TxListPage() {
                     checked={field.value}
                     onCheckedChange={(checked) => field.onChange(checked === true)}
                   />
-                  <span className="text-sm text-foreground">仅看待处理</span>
+                  <span className="text-sm text-foreground">Pending only</span>
                 </div>
               </div>
             )}
           />
           <FormField
             name="startTime"
-            label="开始时间"
+            label="Start Time"
             type="datetime-local"
             register={register('startTime')}
           />
           <FormField
             name="endTime"
-            label="结束时间"
+            label="End Time"
             type="datetime-local"
             register={register('endTime')}
           />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onReset}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      {isError && (
-        <Alert variant="destructive">
-          <div className="flex-1">
-            <AlertTitle>交易记录加载失败</AlertTitle>
-            <AlertDescription>
-              {error instanceof Error ? error.message : '请稍后重试'}
-            </AlertDescription>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              onClick={() => refetch()}
-            >
-              重新加载
-            </Button>
-          </div>
-        </Alert>
-      )}
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
           pagination={
             paginationMeta
               ? {
@@ -416,7 +407,7 @@ function TxMessageItem({ message }: { message: TxMessage }) {
             <span className="break-all">{orDash(message.traceId)}</span>
           </div>
           <div className="flex gap-2">
-            <span className="w-14 shrink-0 text-muted-foreground">幂等键</span>
+            <span className="w-14 shrink-0 text-muted-foreground">Idempotency Key</span>
             <span className="break-all">{orDash(message.idempotentKey)}</span>
           </div>
         </div>
@@ -445,12 +436,36 @@ export function TxDetailPage() {
     refetch: refetchMessages,
   } = useTxMessages(transactionId);
 
+  const toast = useToast();
+  React.useEffect(() => {
+    if (detailError) {
+      toast.error('Failed to load transaction detail', {
+        description:
+          detailErrorInfo instanceof Error
+            ? detailErrorInfo.message
+            : 'Please try again later',
+        action: { label: 'Retry', onClick: () => refetchDetail() },
+      });
+    }
+  }, [detailError, detailErrorInfo, refetchDetail, toast]);
+  React.useEffect(() => {
+    if (messagesError) {
+      toast.error('Failed to load message trail', {
+        description:
+          messagesErrorInfo instanceof Error
+            ? messagesErrorInfo.message
+            : 'Please try again later',
+        action: { label: 'Retry', onClick: () => refetchMessages() },
+      });
+    }
+  }, [messagesError, messagesErrorInfo, refetchMessages, toast]);
+
   if (!transactionId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">缺少交易 ID，无法查看详情。</p>
+      <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <p className="text-sm text-muted-foreground">Missing a transaction ID. Unable to view details.</p>
         <Button variant="outline" className="mt-4" onClick={() => router.back()}>
-          返回
+          Back
         </Button>
       </div>
     );
@@ -459,46 +474,27 @@ export function TxDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-base font-semibold">交易详情 #{transactionId}</h1>
+        <h1 className="text-base font-semibold">Transaction Detail #{transactionId}</h1>
         <Button variant="outline" size="sm" onClick={() => router.back()}>
-          返回
+          Back
         </Button>
       </div>
 
-      {detailError ? (
-        <Alert variant="destructive">
-          <div className="flex-1">
-            <AlertTitle>交易详情加载失败</AlertTitle>
-            <AlertDescription>
-              {detailErrorInfo instanceof Error
-                ? detailErrorInfo.message
-                : '请稍后重试'}
-            </AlertDescription>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              onClick={() => refetchDetail()}
-            >
-              重新加载
-            </Button>
-          </div>
-        </Alert>
-      ) : detailLoading && !detail ? (
+      {detailLoading && !detail ? (
         <div className="space-y-2">
           <Skeleton className="h-24 w-full rounded-lg" />
           <Skeleton className="h-40 w-full rounded-lg" />
         </div>
       ) : detail ? (
-        <section className="rounded-lg border bg-card p-6 shadow-sm">
+        <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
           <DescGrid cols={2}>
-            <DescField label="记录 ID">
+            <DescField label="Record ID">
               <span>{detail.recordId ?? '-'}</span>
             </DescField>
             <DescField label="TransactionId">
               <span>{detail.transactionId ?? '-'}</span>
             </DescField>
-            <DescField label="本行角色">
+            <DescField label="Bank Role">
               {detail.bankRole != null && detail.bankRole !== 0 ? (
                 <Badge variant={txBankRoleVariant(detail.bankRole)}>
                   {txBankRoleText(detail.bankRole)}
@@ -510,66 +506,47 @@ export function TxDetailPage() {
             <DescField label="PairId">
               <span>{detail.pairId ?? '-'}</span>
             </DescField>
-            <DescField label="本金">
+            <DescField label="Principal">
               <span>{fmtAmount(detail.principal)}</span>
             </DescField>
-            <DescField label="状态">
+            <DescField label="Status">
               <Badge variant={txStatusVariant(detail.status)}>
                 {txStatusText(detail.status)}
               </Badge>
             </DescField>
-            <DescField label="源端交易 ID">
+            <DescField label="Source Tx ID">
               <span>{orDash(detail.sourceCsTxId)}</span>
             </DescField>
-            <DescField label="目标端交易 ID">
+            <DescField label="Target Tx ID">
               <span>{orDash(detail.targetCsTxId)}</span>
             </DescField>
-            <DescField label="待处理">
+            <DescField label="Pending">
               {detail.pendingFlag === 1 ? (
-                <Badge variant="secondary">待处理</Badge>
+                <Badge variant="secondary">Pending</Badge>
               ) : (
-                <span>否</span>
+                <span>No</span>
               )}
             </DescField>
-            <DescField label="待处理原因">
+            <DescField label="Pending Reason">
               <span>{orDash(detail.pendingReason)}</span>
             </DescField>
-            <DescField label="最近同步">
+            <DescField label="Last Sync">
               <span>{fmtTime(detail.lastSyncTime)}</span>
             </DescField>
-            <DescField label="创建时间">
+            <DescField label="Created At">
               <span>{fmtTime(detail.createTime)}</span>
             </DescField>
           </DescGrid>
         </section>
       ) : (
-        <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground shadow-sm">
-          暂无交易详情数据。
+        <div className="rounded-lg border-border/60 bg-card p-6 text-sm text-muted-foreground shadow-float">
+          No transaction detail available.
         </div>
       )}
 
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
-        <div className="mb-4 text-sm font-semibold">报文链路</div>
-        {messagesError ? (
-          <Alert variant="destructive">
-            <div className="flex-1">
-              <AlertTitle>报文链路加载失败</AlertTitle>
-              <AlertDescription>
-                {messagesErrorInfo instanceof Error
-                  ? messagesErrorInfo.message
-                  : '请稍后重试'}
-              </AlertDescription>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => refetchMessages()}
-              >
-                重新加载
-              </Button>
-            </div>
-          </Alert>
-        ) : messagesLoading && !messages ? (
+      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <div className="mb-4 text-sm font-semibold">Message Trail</div>
+        {messagesLoading && !messages ? (
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-16 w-full rounded-md" />
@@ -583,7 +560,7 @@ export function TxDetailPage() {
           </ol>
         ) : (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            暂无报文记录
+            No messages yet
           </p>
         )}
       </section>

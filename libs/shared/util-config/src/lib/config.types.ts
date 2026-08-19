@@ -36,6 +36,8 @@ export interface ProjectConfig {
       collapsible: boolean;
       collapsedWidth: string;
       showIconsOnlyCollapsed: boolean;
+      /** Whether only one parent menu can be expanded at a time. */
+      singleExpand: boolean;
     };
     header: {
       sticky: boolean;

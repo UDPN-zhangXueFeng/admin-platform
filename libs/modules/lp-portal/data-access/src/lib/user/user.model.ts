@@ -25,6 +25,6 @@ export interface UserPageReq {
 
 /** 用户状态文案（源状态 tag：0 正常 / 1 停用；未知码由页面显原值）。 */
 export const USER_STATUS_TEXT: Record<number, string> = {
-  0: '正常',
-  1: '停用',
+  0: 'Normal',
+  1: 'Disabled',
 };

@@ -480,3 +480,19 @@
 - 菜单权限：源 `filterTree`（保留自身或后代命中 menuKey 的节点）+ `MENU_ROUTE_MAP`（menuKey→path 9 项）折算允许路径过滤 config 菜单；树加载失败回退全量。按钮级 `v-perm` 等价 `useGatewayPerm()`（menuKeys Set 动态判定）。
 - 源死代码实证：`views/bank/info.vue` 零路由引用，`getBankInfo` 唯一消费方是 onboard 银行信息卡 → 并入 onboard 域（OnboardBankInfo），不迁移独立页面。dashboard 源项目不存在（'/' redirect /onboard），MockDashboardPage 连同 config/registry/index 导出全部清零。
 - tsc 快速环：`cd apps/kissen-gateway-portal && pnpm exec tsc --noEmit | grep "error TS" | grep -v TS6305`（TS6305 为 monorepo dist 既有噪音），比 nx build（~2-3 分钟/轮）快一个量级，适合修复循环；终验仍须 nx build + nx lint。
+
+- 背景：admin app（td-manage 迁移）登录失败曾静默（catch 只刷新验证码），且根 layout 未挂 `Toaster`，toast 全局不可见。
+- 结论：登录失败提示统一走 `@myorg/shared/ui` 的 `useToast().error((e as Error).message || t('auth.loginFailed'))`（ApiError.message 已由 `normalizeApiError`/`getMessage` 规范化）；`apps/admin/src/app/[locale]/layout.tsx` 已挂 root `<Toaster />`，`tokenized-deposit-add-form.tsx` 内 feature 级重复 `<Toaster />` 已移除（sonner 多 Toaster 同 app 双挂会重复弹）。`libs/modules/*` 直接 `import { toast } from 'sonner'` 与统一入口是同一 sonner 实例，运行时无差异，仅依赖治理层面待收敛（lp-portal/data-access 因 type 边界禁止依赖 shared/ui 属合法例外）。
+- 影响：admin 内所有 useToast/toast 调用点现在可见；后续新 feature 不再需要自挂 Toaster。
+- 后续同类任务：modules-auth-ui 的 `type:ui → data-access` lint error（login-form/metamask-button/two-factor-form）与 admin 的 StablecoinTabs scope error 均为既有债，与 toast 改动无关，待专项清理。
+- 登录页插画按 app 刻意差异化，勿再跨 app 同步 `public/login-illustration.svg`：kissen-admin=等距清算立方体（蓝）、kissen-gateway-portal=网关拱门+数据流（靛蓝/青）、lp-portal=三级流动性池+液流（紫/洋红）。共用约定：720×560 viewBox + `.float-a/.float-b/.pulse/.flow` CSS 动画 + prefers-reduced-motion 降级；新增浮动元素时 transform 定位须放外层 `<g>`，动画 class 放内层（CSS transform 会覆盖 transform 属性）。
+
+## 2026-08-19 kissen 三系统 English-only + 隔离收尾（orchestrator）
+
+- 共享 Header 的登出默认值不得 import 业务模块：`libs/shared/ui-layout/src/lib/header/header.tsx` 曾静态 import `@myorg/modules/auth/data-access` 的 `logoutApi`，导致所有消费方（含 kissen 三 app）tsc 报 TS6305 且 bundle 拖入 admin rbac。现默认分支仅 `logoutAndRedirect()`（本地清理+跳转）；有服务端会话的 app 传 `onLogout` 全权接管 —— admin 已在 `apps/admin/src/app/[locale]/(app)/admin-app-shell.tsx`（client 包装，因 layout 是 server component 不能传函数 prop）接管 `logoutApi()+logoutAndRedirect()`。
+- shared barrel 再导出会保留动态 import：`util-config/index.ts` 再导出 module-registry（40 个 admin feature 的 `() => import(...)`），即使 kissen app 只用 `loadProjectConfig`，webpack 仍把全部 admin feature 打成异步 chunk。教训：**shared 包里任何可达的动态 import 都是隐性公共依赖**；验证手段是生产构建后对 chunk 做 fingerprint grep（如 `approval-manage/view`、`walletTypeManifest`、`/api/rbac/v1`），而不是只看 import 语句。
+- 残留的 admin 痕迹属惰性数据而非代码：defaultConfig 的菜单 JSON（client chunk）与 i18n 全量 zh-CN catalog（server chunk）仍含 admin 菜单 id/文案，不构成功能泄漏；如需收敛须重构 config.defaults 与 messages 打包口径。
+- 网关门户登录页品牌名（如「测试银行」）来自后端 `GET /kissen-api/bankgw/brand` 实时数据（next.config rewrite 指向测试环境），非 UI 硬编码；English-only 校验时勿误判为代码回归。
+- lint：`// eslint-disable-next-line react-hooks/exhaustive-deps` 在本仓库 flat config 未注册该规则，每处都是 error；发现即删（共 6 处，lp-portal feature）。
+- admin 既有债（勿归因新改动）：StablecoinTabs scope error、auth feature/data-access TS6305（需 nx 依赖构建而非裸 tsc）、admin layout 曾被用户 WIP 删掉 SessionGuard import。
+- 浮动卡片规范（2026-08-19）：四 app 的 tailwind.config.ts（字节相同拷贝，须四处同步改）定义 `boxShadow.float/float-lg` 分层柔影；容器类组件统一「弱边框 + 浮影」：外层卡片 `border-border/60 + shadow-float`（Card 组件另有 hover:shadow-float-lg），内层表格/分隔线 `border-border/50`（DataTable wrapper、divide 行线、卡片标题 border-b）。页面级手写卡片容器（`rounded-lg border bg-card ... shadow-sm` 模式，~124 处，kissen-admin/kissen-gateway/lp-portal 三树已 codemod）新增页面时直接写 `rounded-lg border-border/60 bg-card ... shadow-float`，勿再引入 shadow-sm 边框卡片。表单控件（border-input + shadow-sm）不在该规范内。

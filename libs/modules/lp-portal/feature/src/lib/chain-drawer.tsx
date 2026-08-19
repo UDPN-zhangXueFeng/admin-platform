@@ -58,30 +58,30 @@ import { ServiceDownAlert } from './service-down-alert';
 
 /** 阶段映射（step 1〜8 阶段轴，固定顺序）。 */
 const STAGE_STEP_MAP: Record<number, string> = {
-  1: '报价',
-  2: '确认',
-  3: '源端划转',
-  4: '源端验证',
-  5: '垫资解付',
-  6: '入账',
-  7: '结算',
-  8: '完成',
+  1: 'Quote',
+  2: 'Confirm',
+  3: 'Source Transfer',
+  4: 'Source Verification',
+  5: 'Advance Disbursement',
+  6: 'Credit',
+  7: 'Settlement',
+  8: 'Complete',
 };
 
 /** 阶段状态映射（1 未开始 / 2 进行中 / 3 成功 / 4 失败 / 5 跳过）。 */
 const STAGE_STATUS_MAP: Record<number, string> = {
-  1: '未开始',
-  2: '进行中',
-  3: '成功',
-  4: '失败',
-  5: '跳过',
+  1: 'Not Started',
+  2: 'In Progress',
+  3: 'Success',
+  4: 'Failed',
+  5: 'Skipped',
 };
 
 /** 事件类型映射（nodeType 2 动作 / 3 报文 / 4 重试；1 环节兜底显数值）。 */
 const EVENT_TYPE_MAP: Record<number, string> = {
-  2: '动作',
-  3: '报文',
-  4: '重试',
+  2: 'Action',
+  3: 'Message',
+  4: 'Retry',
 };
 
 /** 阶段轴条目（响应无阶段对象，由扁平节点按 step 分组自建；裁决 C-10）。 */
@@ -245,7 +245,7 @@ function StageAxis({
       {stages.map((s, i) => {
         const selected = s.step === selectedStep;
         const name = STAGE_STEP_MAP[s.step] ?? `${s.step}`;
-        const title = s.status === 5 ? `${name}(跳过)` : name;
+        const title = s.status === 5 ? `${name} (Skipped)` : name;
         return (
           <li key={s.step} className="min-w-0 flex-1">
             <button
@@ -285,7 +285,7 @@ function StageAxis({
               <span className="mt-0.5 block font-mono text-[11px] leading-4 text-muted-foreground tabular-nums">
                 {fmtTime(s.startTime)}
                 <br />
-                至 {fmtTime(s.endTime)}
+                to {fmtTime(s.endTime)}
               </span>
             </button>
           </li>
@@ -310,7 +310,7 @@ function EventTimeline({ events }: { events: TxChainNode[] }) {
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <Badge variant="outline">
-              {EVENT_TYPE_MAP[e.nodeType] ?? `事件类型 ${e.nodeType}`}
+              {EVENT_TYPE_MAP[e.nodeType] ?? `Event type ${e.nodeType}`}
             </Badge>
             {hasTransit(e) && (
               <span className="font-mono text-[13px] text-muted-foreground">
@@ -319,14 +319,14 @@ function EventTimeline({ events }: { events: TxChainNode[] }) {
             )}
           </div>
           <div className="mt-1 text-xs leading-5 text-muted-foreground">
-            操作人:{e.operator || '-'}
+            Operator: {e.operator || '-'}
           </div>
           <div className="text-xs leading-5 text-muted-foreground">
-            货币系统交易 ID:
+            Currency System Tx ID:
             <span className="font-mono">{e.csTxId || '-'}</span>
           </div>
           <div className="text-xs leading-5 text-muted-foreground">
-            备注:{e.remark || '-'}
+            Remark: {e.remark || '-'}
           </div>
         </li>
       ))}
@@ -349,28 +349,28 @@ function DescItem({ label, children }: { label: string; children: React.ReactNod
 
 function BasicInfo({ row, pairText }: { row: TxRow; pairText: string }) {
   return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-md border bg-border">
-      <DescItem label="交易单号">
+    <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-2">
+      <DescItem label="Tx No.">
         <span className="font-mono text-xs">{txNoText(row)}</span>
       </DescItem>
-      <DescItem label="交易 ID">
+      <DescItem label="Transaction ID">
         <span className="font-mono text-xs">{row.transactionId}</span>
       </DescItem>
-      <DescItem label="货币对">{pairText}</DescItem>
-      <DescItem label="本金">
+      <DescItem label="Currency Pair">{pairText}</DescItem>
+      <DescItem label="Principal">
         <span className="font-mono text-xs tabular-nums">
           {formatMoney(row.principal)}
         </span>
       </DescItem>
-      <DescItem label="状态">
+      <DescItem label="Status">
         <TxStatusBadge status={row.status} />
       </DescItem>
-      <DescItem label="创建时间">
+      <DescItem label="Created At">
         <span className="font-mono text-xs tabular-nums">
           {formatTime(row.createTime)}
         </span>
       </DescItem>
-      <DescItem label="完成时间">
+      <DescItem label="Completed At">
         {/* 源口径：completedTime === 0 严格判 0 = 未完成哨兵（非 truthy） */}
         <span className="font-mono text-xs tabular-nums">
           {row.completedTime === 0 ? '-' : formatTime(row.completedTime)}
@@ -434,26 +434,26 @@ export function ChainDrawer({ row, pairText, onClosed }: ChainDrawerProps) {
 
   return (
     <Drawer open onOpenChange={(o) => !o && onClosed()}>
-      <DrawerContent className="w-[720px] max-w-[92vw] p-0 sm:max-w-[92vw]">
+      <DrawerContent className="w-full max-w-[720px] p-0">
         <div className="flex h-full flex-col">
           <DrawerHeader className="border-b px-6 py-4">
-            <DrawerTitle>交易链路</DrawerTitle>
+            <DrawerTitle>Transaction Chain</DrawerTitle>
           </DrawerHeader>
           <div className="flex-1 overflow-y-auto px-6 py-4">
             {drawerDown && <ServiceDownAlert traceId={drawerDown.traceId} />}
 
-            <h4 className="mt-0 text-sm font-semibold">基本信息</h4>
+            <h4 className="mt-0 text-sm font-semibold">Basic Information</h4>
             <BasicInfo row={row} pairText={pairText} />
 
-            <h4 className="mt-6 mb-3 text-sm font-semibold">交易链路</h4>
+            <h4 className="mt-6 mb-3 text-sm font-semibold">Transaction Chain</h4>
             {chainQuery.isPending ? (
-              <div className="space-y-2" aria-label="加载中">
+              <div className="space-y-2" aria-label="Loading">
                 <div className="h-7 w-full animate-pulse rounded bg-muted" />
                 <div className="h-16 w-full animate-pulse rounded bg-muted" />
               </div>
             ) : nodes.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
-                暂无阶段数据
+                No stage data
               </div>
             ) : (
               <>
@@ -470,7 +470,7 @@ export function ChainDrawer({ row, pairText, onClosed }: ChainDrawerProps) {
                   <EventTimeline events={selectedEvents} />
                 ) : (
                   <div className="py-6 text-center text-sm text-muted-foreground">
-                    该阶段暂无事件明细
+                    No event details for this stage
                   </div>
                 )}
               </>

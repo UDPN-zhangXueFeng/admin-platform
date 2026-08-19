@@ -135,7 +135,7 @@ function StatusBadge({
   if (status == null) return <span>-</span>;
   return (
     <Badge variant={variantMap[status] ?? 'outline'}>
-      {labelMap[status] ?? '停用'}
+      {labelMap[status] ?? 'Disabled'}
     </Badge>
   );
 }
@@ -163,7 +163,7 @@ function DescGrid({ children }: { children: React.ReactNode }) {
 
 function LoadingBlock() {
   return (
-    <div className="py-10 text-center text-sm text-muted-foreground">加载中…</div>
+    <div className="py-10 text-center text-sm text-muted-foreground">Loading…</div>
   );
 }
 
@@ -177,9 +177,9 @@ function ErrorBlock({
 }) {
   return (
     <div className="flex flex-col items-center gap-3 py-10 text-sm">
-      <span className="text-destructive">加载失败：{message}</span>
+      <span className="text-destructive">Failed to load: {message}</span>
       <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-        重试
+        Retry
       </Button>
     </div>
   );
@@ -207,11 +207,11 @@ function DetailShell({
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft className="h-4 w-4" />
-          返回
+          Back
         </Button>
         <h2 className="text-lg font-semibold">{title}</h2>
       </div>
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         {children}
       </section>
     </div>
@@ -273,9 +273,9 @@ function PairSelectField({
 function PairOptionsError({ onRetry }: { onRetry: () => void }) {
   return (
     <p className="text-sm text-destructive">
-      货币对列表加载失败，
+      Failed to load currency pairs.
       <button type="button" className="underline underline-offset-2" onClick={onRetry}>
-        重试
+        Retry
       </button>
     </p>
   );
@@ -287,11 +287,11 @@ function PairOptionsError({ onRetry }: { onRetry: () => void }) {
 
 const CP_HEADERS = [
   'PairId',
-  '源货币',
-  '目标货币',
-  '用户汇率',
-  '状态',
-  '推送时间',
+  'Source Currency',
+  'Target Currency',
+  'User Rate',
+  'Status',
+  'Push Time',
 ] as const;
 
 export function CurrencypairListPage() {
@@ -308,8 +308,8 @@ export function CurrencypairListPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead title="货币对" />
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <PageHead title="Currency Pairs" />
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         {isError ? (
           <ErrorBlock message={errText(error)} onRetry={() => refetch()} />
         ) : (
@@ -346,7 +346,7 @@ export function CurrencypairListPage() {
                         colSpan={CP_HEADERS.length}
                         className="px-4 py-8 text-center text-muted-foreground"
                       >
-                        暂无数据
+                        No data
                       </td>
                     </tr>
                   ) : (
@@ -395,7 +395,7 @@ export function CurrencypairListPage() {
               </table>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              点击行查看该货币对下的 LP 信息
+              Click a row to view LPs for that currency pair
             </p>
           </>
         )}
@@ -416,7 +416,7 @@ export function CurrencypairDetailPage() {
 
   return (
     <DetailShell
-      title="货币对详情"
+      title="Currency Pair Detail"
       onBack={() => router.push(`${MARKET_BASE}/currencypair`)}
     >
       {isError ? (
@@ -424,25 +424,25 @@ export function CurrencypairDetailPage() {
       ) : isLoading ? (
         <LoadingBlock />
       ) : !row ? (
-        <EmptyHint text="未找到对应记录" />
+        <EmptyHint text="Record not found" />
       ) : (
         <DescGrid>
           <DescField label="PairId">
             <span className="tabular-nums">{row.pairId}</span>
           </DescField>
-          <DescField label="源货币">{row.sourceCurrency}</DescField>
-          <DescField label="目标货币">{row.targetCurrency}</DescField>
-          <DescField label="用户汇率">
+          <DescField label="Source Currency">{row.sourceCurrency}</DescField>
+          <DescField label="Target Currency">{row.targetCurrency}</DescField>
+          <DescField label="User Rate">
             <span className="tabular-nums">{formatRate(row.userRate)}</span>
           </DescField>
-          <DescField label="状态">
+          <DescField label="Status">
             <StatusBadge
               status={row.status}
               labelMap={CURRENCY_PAIR_STATUS_LABEL}
               variantMap={CURRENCY_PAIR_STATUS_VARIANT}
             />
           </DescField>
-          <DescField label="推送时间">
+          <DescField label="Push Time">
             <span className="tabular-nums">{formatTime(row.pushTime)}</span>
           </DescField>
         </DescGrid>
@@ -464,7 +464,7 @@ const LP_COLUMNS: ColumnDef<LpRow>[] = [
     header: 'LP ID',
     cell: ({ row }) => <span className="tabular-nums">{row.original.lpId}</span>,
   },
-  { accessorKey: 'lpName', header: 'LP 名称' },
+  { accessorKey: 'lpName', header: 'LP Name' },
   {
     accessorKey: 'pairId',
     header: 'PairId',
@@ -472,7 +472,7 @@ const LP_COLUMNS: ColumnDef<LpRow>[] = [
   },
   {
     accessorKey: 'status',
-    header: '状态',
+    header: 'Status',
     cell: ({ row }) => (
       <StatusBadge
         status={row.original.status}
@@ -483,7 +483,7 @@ const LP_COLUMNS: ColumnDef<LpRow>[] = [
   },
   {
     accessorKey: 'pushTime',
-    header: '推送时间',
+    header: 'Push Time',
     cell: ({ row }) => (
       <span className="tabular-nums">{formatTime(row.original.pushTime)}</span>
     ),
@@ -520,23 +520,23 @@ export function LpListPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead title="LP 信息" />
-      <section className="space-y-4 rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <PageHead title="LP Info" />
+      <section className="space-y-4 rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <form
           className="flex flex-wrap items-center gap-3"
           onSubmit={handleSubmit(() => lpQuery.refetch())}
         >
           <label htmlFor="lp-pair-select" className="text-sm font-medium">
-            货币对
+            Currency Pair
           </label>
           <PairSelectField
             selectId="lp-pair-select"
             control={control}
-            placeholder="全部货币对"
+            placeholder="All Currency Pairs"
             options={options}
-            clearLabel="清除货币对筛选"
+            clearLabel="Clear currency pair filter"
           />
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
         </form>
         {pairsQuery.isError && (
           <PairOptionsError onRetry={() => pairsQuery.refetch()} />
@@ -551,7 +551,7 @@ export function LpListPage() {
             columns={LP_COLUMNS}
             data={tableData}
             isLoading={lpQuery.isLoading}
-            emptyMessage="暂无数据"
+            emptyMessage="No data"
           />
         )}
       </section>
@@ -569,30 +569,30 @@ export function LpDetailPage() {
   const row = data?.find((r) => r.lpId === lpId);
 
   return (
-    <DetailShell title="LP 详情" onBack={() => router.push(`${MARKET_BASE}/lp`)}>
+    <DetailShell title="LP Detail" onBack={() => router.push(`${MARKET_BASE}/lp`)}>
       {isError ? (
         <ErrorBlock message={errText(error)} onRetry={() => refetch()} />
       ) : isLoading ? (
         <LoadingBlock />
       ) : !row ? (
-        <EmptyHint text="未找到对应记录" />
+        <EmptyHint text="Record not found" />
       ) : (
         <DescGrid>
           <DescField label="LP ID">
             <span className="tabular-nums">{row.lpId}</span>
           </DescField>
-          <DescField label="LP 名称">{row.lpName}</DescField>
+          <DescField label="LP Name">{row.lpName}</DescField>
           <DescField label="PairId">
             <span className="tabular-nums">{row.pairId}</span>
           </DescField>
-          <DescField label="状态">
+          <DescField label="Status">
             <StatusBadge
               status={row.status}
               labelMap={LP_STATUS_LABEL}
               variantMap={LP_STATUS_VARIANT}
             />
           </DescField>
-          <DescField label="推送时间">
+          <DescField label="Push Time">
             <span className="tabular-nums">{formatTime(row.pushTime)}</span>
           </DescField>
         </DescGrid>
@@ -612,19 +612,19 @@ function RateSnapshotDesc({ rate }: { rate: RateSnapshot }) {
       <DescField label="PairId">
         <span className="tabular-nums">{rate.pairId}</span>
       </DescField>
-      <DescField label="版本号">
+      <DescField label="Version">
         <span className="tabular-nums">{rate.version ?? '-'}</span>
       </DescField>
-      <DescField label="基础汇率">
+      <DescField label="Base Rate">
         <span className="tabular-nums">{formatRate(rate.baseRate)}</span>
       </DescField>
-      <DescField label="加点汇率">
+      <DescField label="Markup Rate">
         <span className="tabular-nums">{formatRate(rate.markupRate)}</span>
       </DescField>
-      <DescField label="用户汇率">
+      <DescField label="User Rate">
         <span className="tabular-nums">{formatRate(rate.userRate)}</span>
       </DescField>
-      <DescField label="推送时间">
+      <DescField label="Push Time">
         <span className="tabular-nums">{formatTime(rate.pushTime)}</span>
       </DescField>
     </DescGrid>
@@ -649,25 +649,25 @@ export function RateListPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead title="最新汇率" />
-      <section className="space-y-4 rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <PageHead title="Latest Rates" />
+      <section className="space-y-4 rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <form className="flex flex-wrap items-center gap-3">
           <label htmlFor="rate-pair-select" className="text-sm font-medium">
-            货币对
+            Currency Pair
           </label>
           <PairSelectField
             selectId="rate-pair-select"
             control={control}
-            placeholder="选择货币对"
+            placeholder="Select a currency pair"
             options={options}
-            clearLabel="清除货币对选择"
+            clearLabel="Clear currency pair selection"
           />
         </form>
         {pairsQuery.isError && (
           <PairOptionsError onRetry={() => pairsQuery.refetch()} />
         )}
         {pairId == null ? (
-          <EmptyHint text="请选择货币对查看最新汇率" />
+          <EmptyHint text="Select a currency pair to view the latest rate" />
         ) : rateQuery.isError ? (
           <ErrorBlock
             message={errText(rateQuery.error)}
@@ -676,7 +676,7 @@ export function RateListPage() {
         ) : rateQuery.isLoading ? (
           <LoadingBlock />
         ) : rateQuery.data == null ? (
-          <EmptyHint text="请选择货币对查看最新汇率" />
+          <EmptyHint text="Select a currency pair to view the latest rate" />
         ) : (
           <RateSnapshotDesc rate={rateQuery.data} />
         )}
@@ -695,15 +695,15 @@ export function RateDetailPage() {
   const { data, isLoading, isError, error, refetch } = useLatestRateQuery(pairId);
 
   return (
-    <DetailShell title="汇率详情" onBack={() => router.push(`${MARKET_BASE}/rate`)}>
+    <DetailShell title="Rate Detail" onBack={() => router.push(`${MARKET_BASE}/rate`)}>
       {pairId == null ? (
-        <EmptyHint text="请选择货币对查看最新汇率" />
+        <EmptyHint text="Select a currency pair to view the latest rate" />
       ) : isError ? (
         <ErrorBlock message={errText(error)} onRetry={() => refetch()} />
       ) : isLoading ? (
         <LoadingBlock />
       ) : data == null ? (
-        <EmptyHint text="暂无汇率快照" />
+        <EmptyHint text="No rate snapshot" />
       ) : (
         <RateSnapshotDesc rate={data} />
       )}

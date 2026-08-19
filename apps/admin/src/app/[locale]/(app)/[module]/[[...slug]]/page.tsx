@@ -1,11 +1,10 @@
 'use client';
 
 import { use, useMemo } from 'react';
-import {
-  useConfig,
-  loadModulePage as loadLegacyModulePage,
-} from '@myorg/shared/util-config';
+import { useConfig } from '@myorg/shared/util-config';
 import type { ComponentType } from 'react';
+
+import { loadModulePage as loadLegacyModulePage } from '@/lib/module-registry';
 import {
   loadKeyManagementModulePage,
   loadSpAccessModulePage,

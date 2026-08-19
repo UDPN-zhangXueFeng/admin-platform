@@ -33,7 +33,8 @@
       "width": "260px",
       "collapsible": true,
       "collapsedWidth": "68px",
-      "showIconsOnlyCollapsed": true
+      "showIconsOnlyCollapsed": true,
+      "singleExpand": true
     },
     "header": {
       "sticky": true,
@@ -49,92 +50,51 @@
   "modules": {
     "enabled": [
       "dashboard",
-      "bank-onboard", "bank-info", "bank-approval", "gateway-register",
-      "lp-liquidity", "lp-info", "lp-pool", "lp-preauth", "lp-currency-pair", "lp-topup", "lp-water-level",
-      "fx-rate", "currency-pair", "rate-config", "rate-push-log",
-      "transaction", "tx-list", "tx-exception", "tx-reversal",
-      "settlement", "settle-record", "settle-order", "split-transfer", "reconcile",
-      "risk-compliance", "freeze", "monitor-rule", "monitor-hit",
+      "bank-onboard",
+      "bank-info",
+      "bank-approval",
+      "gateway-register",
+      "lp-liquidity",
+      "lp-info",
+      "lp-pool",
+      "lp-preauth",
+      "lp-currency-pair",
+      "lp-topup",
+      "lp-water-level",
+      "fx-rate",
+      "currency-pair",
+      "rate-config",
+      "rate-push-log",
+      "transaction",
+      "tx-list",
+      "tx-exception",
+      "tx-reversal",
+      "settlement",
+      "settle-record",
+      "settle-order",
+      "split-transfer",
+      "reconcile",
+      "risk-compliance",
+      "freeze",
+      "monitor-rule",
+      "monitor-hit",
       "approval-center",
-      "system", "sys-user", "sys-role", "sys-menu", "currency", "workflow-config", "scheduled-task", "operate-log"
+      "system",
+      "sys-user",
+      "sys-role",
+      "sys-menu",
+      "currency",
+      "workflow-config",
+      "scheduled-task",
+      "operate-log"
     ],
     "order": [
       {
         "id": "dashboard",
         "icon": "LayoutDashboard",
-        "label": "Operations Cockpit",
+        "label": "Workspace",
         "path": "/dashboard",
         "group": ""
-      },
-      {
-        "id": "bank-onboard",
-        "icon": "Banknote",
-        "label": "Bank Onboarding Management",
-        "group": "",
-        "children": [
-          { "id": "bank-info",        "icon": "Banknote",     "label": "Bank Profile & Configuration", "path": "/bank-onboard/bank-info" },
-          { "id": "bank-approval",    "icon": "BadgeCheck",   "label": "Onboarding Review & Enablement", "path": "/bank-onboard/bank-approval" },
-          { "id": "gateway-register", "icon": "Network",      "label": "Gateway Instance Registration", "path": "/bank-onboard/gateway-register" }
-        ]
-      },
-      {
-        "id": "lp-liquidity",
-        "icon": "Layers",
-        "label": "LP Onboarding & Liquidity",
-        "group": "",
-        "children": [
-          { "id": "lp-info",          "icon": "Users",         "label": "LP Profile & Initialization",   "path": "/lp-liquidity/lp-info" },
-          { "id": "lp-pool",          "icon": "Wallet",        "label": "Liquidity Pool Registration",   "path": "/lp-liquidity/lp-pool" },
-          { "id": "lp-preauth",       "icon": "KeyRound",      "label": "Pre-authorization Management",  "path": "/lp-liquidity/lp-preauth" },
-          { "id": "lp-currency-pair", "icon": "ArrowLeftRight","label": "Participating Currency Pairs",  "path": "/lp-liquidity/lp-currency-pair" },
-          { "id": "lp-topup",         "icon": "PlusCircle",    "label": "Top-up Records",                "path": "/lp-liquidity/lp-topup" },
-          { "id": "lp-water-level",   "icon": "Gauge",         "label": "Water Level Monitor",           "path": "/lp-liquidity/lp-water-level" }
-        ]
-      },
-      {
-        "id": "fx-rate",
-        "icon": "TrendingUp",
-        "label": "Exchange Rate & Currency Pairs",
-        "group": "",
-        "children": [
-          { "id": "currency-pair",  "icon": "Coins",        "label": "Currency Pair Enable/Disable & Limits", "path": "/fx-rate/currency-pair" },
-          { "id": "rate-config",    "icon": "TrendingUp",   "label": "Exchange Rate & Markup Configuration",  "path": "/fx-rate/rate-config" },
-          { "id": "rate-push-log",  "icon": "Send",         "label": "Rate Push Logs",                        "path": "/fx-rate/rate-push-log" }
-        ]
-      },
-      {
-        "id": "transaction",
-        "icon": "Coins",
-        "label": "Transfer / Transaction Management",
-        "group": "",
-        "children": [
-          { "id": "tx-list",      "icon": "List",          "label": "Transaction Query",     "path": "/transaction/tx-list" },
-          { "id": "tx-exception", "icon": "AlertTriangle", "label": "Exception Handling",    "path": "/transaction/tx-exception" },
-          { "id": "tx-reversal",  "icon": "Undo2",         "label": "Reversal Records",      "path": "/transaction/tx-reversal" }
-        ]
-      },
-      {
-        "id": "settlement",
-        "icon": "Scale",
-        "label": "Settlement & Reconciliation",
-        "group": "",
-        "children": [
-          { "id": "settle-record",   "icon": "Receipt",       "label": "Settlement Records",                 "path": "/settlement/settle-record" },
-          { "id": "settle-order",    "icon": "GanttChart",    "label": "Settlement Order Confirmation",      "path": "/settlement/settle-order" },
-          { "id": "split-transfer",  "icon": "ArrowLeftRight","label": "Split Transfer",                     "path": "/settlement/split-transfer" },
-          { "id": "reconcile",       "icon": "FileSearch",    "label": "End-of-Day Reconciliation & Review", "path": "/settlement/reconcile" }
-        ]
-      },
-      {
-        "id": "risk-compliance",
-        "icon": "Shield",
-        "label": "Risk Control & Compliance",
-        "group": "",
-        "children": [
-          { "id": "freeze",        "icon": "Snowflake",       "label": "Emergency Freeze / Unfreeze", "path": "/risk-compliance/freeze" },
-          { "id": "monitor-rule",  "icon": "SlidersHorizontal","label": "Monitor Rules",               "path": "/risk-compliance/monitor-rule" },
-          { "id": "monitor-hit",   "icon": "Flag",            "label": "Hit Records",                 "path": "/risk-compliance/monitor-hit" }
-        ]
       },
       {
         "id": "approval-center",
@@ -144,33 +104,270 @@
         "group": ""
       },
       {
+        "id": "bank-onboard",
+        "icon": "Banknote",
+        "label": "Onboarding",
+        "group": "",
+        "children": [
+          {
+            "id": "bank-info",
+            "icon": "Banknote",
+            "label": "Bank Profile",
+            "path": "/bank-onboard/bank-info"
+          },
+          {
+            "id": "bank-approval",
+            "icon": "BadgeCheck",
+            "label": "Onboarding Review",
+            "path": "/bank-onboard/bank-approval"
+          },
+          {
+            "id": "gateway-register",
+            "icon": "Network",
+            "label": "Gateway Registration",
+            "path": "/bank-onboard/gateway-register"
+          }
+        ]
+      },
+      {
+        "id": "lp-liquidity",
+        "icon": "Layers",
+        "label": "Liquidity",
+        "group": "",
+        "children": [
+          {
+            "id": "lp-info",
+            "icon": "Users",
+            "label": "LP Profile",
+            "path": "/lp-liquidity/lp-info"
+          },
+          {
+            "id": "lp-pool",
+            "icon": "Wallet",
+            "label": "Liquidity Pool",
+            "path": "/lp-liquidity/lp-pool"
+          },
+          {
+            "id": "lp-preauth",
+            "icon": "KeyRound",
+            "label": "Pre-authorization",
+            "path": "/lp-liquidity/lp-preauth"
+          },
+          {
+            "id": "lp-currency-pair",
+            "icon": "ArrowLeftRight",
+            "label": "Currency Pairs",
+            "path": "/lp-liquidity/lp-currency-pair"
+          },
+          {
+            "id": "lp-topup",
+            "icon": "PlusCircle",
+            "label": "Top-up Records",
+            "path": "/lp-liquidity/lp-topup"
+          },
+          {
+            "id": "lp-water-level",
+            "icon": "Gauge",
+            "label": "Liquidity Monitor",
+            "path": "/lp-liquidity/lp-water-level"
+          }
+        ]
+      },
+      {
+        "id": "fx-rate",
+        "icon": "TrendingUp",
+        "label": "FX & Rates",
+        "group": "",
+        "children": [
+          {
+            "id": "currency-pair",
+            "icon": "Coins",
+            "label": "Pair Settings",
+            "path": "/fx-rate/currency-pair"
+          },
+          {
+            "id": "rate-config",
+            "icon": "TrendingUp",
+            "label": "Rate Configuration",
+            "path": "/fx-rate/rate-config"
+          },
+          {
+            "id": "rate-push-log",
+            "icon": "Send",
+            "label": "Rate Push Logs",
+            "path": "/fx-rate/rate-push-log"
+          }
+        ]
+      },
+      {
+        "id": "transaction",
+        "icon": "Coins",
+        "label": "Trade Search",
+        "group": "",
+        "children": [
+          {
+            "id": "tx-list",
+            "icon": "List",
+            "label": "Trade Records",
+            "path": "/transaction/tx-list"
+          },
+          {
+            "id": "tx-exception",
+            "icon": "AlertTriangle",
+            "label": "Exceptions",
+            "path": "/transaction/tx-exception"
+          },
+          {
+            "id": "tx-reversal",
+            "icon": "Undo2",
+            "label": "Reversals",
+            "path": "/transaction/tx-reversal"
+          }
+        ]
+      },
+      {
+        "id": "settlement",
+        "icon": "Scale",
+        "label": "Settlement & Split",
+        "group": "",
+        "children": [
+          {
+            "id": "settle-record",
+            "icon": "Receipt",
+            "label": "Settlement Records",
+            "path": "/settlement/settle-record"
+          },
+          {
+            "id": "settle-order",
+            "icon": "GanttChart",
+            "label": "Settlement Confirmation",
+            "path": "/settlement/settle-order"
+          },
+          {
+            "id": "split-transfer",
+            "icon": "ArrowLeftRight",
+            "label": "Split Transfers",
+            "path": "/settlement/split-transfer"
+          },
+          {
+            "id": "reconcile",
+            "icon": "FileSearch",
+            "label": "Reconciliation",
+            "path": "/settlement/reconcile"
+          }
+        ]
+      },
+      {
+        "id": "risk-compliance",
+        "icon": "Shield",
+        "label": "Reconciliation & Risk",
+        "group": "",
+        "children": [
+          {
+            "id": "freeze",
+            "icon": "Snowflake",
+            "label": "Freeze Controls",
+            "path": "/risk-compliance/freeze"
+          },
+          {
+            "id": "monitor-rule",
+            "icon": "SlidersHorizontal",
+            "label": "Monitoring Rules",
+            "path": "/risk-compliance/monitor-rule"
+          },
+          {
+            "id": "monitor-hit",
+            "icon": "Flag",
+            "label": "Monitoring Alerts",
+            "path": "/risk-compliance/monitor-hit"
+          }
+        ]
+      },
+      {
         "id": "system",
         "icon": "Settings",
         "label": "System Management",
         "group": "",
         "children": [
-          { "id": "sys-user",        "icon": "UserCog",    "label": "User Management",          "path": "/system/sys-user" },
-          { "id": "sys-role",        "icon": "Users",      "label": "Role Management",          "path": "/system/sys-role" },
-          { "id": "sys-menu",        "icon": "ListTree",   "label": "Menu & API Permissions",   "path": "/system/sys-menu" },
-          { "id": "currency",        "icon": "Coins",      "label": "Currency Management",       "path": "/system/currency" },
-          { "id": "workflow-config", "icon": "Workflow",   "label": "Approval Workflow Definition", "path": "/system/workflow-config" },
-          { "id": "scheduled-task",  "icon": "Clock",      "label": "Scheduled Task Monitor",   "path": "/system/scheduled-task" },
-          { "id": "operate-log",     "icon": "ScrollText", "label": "Operation Log",            "path": "/system/operate-log" }
+          {
+            "id": "sys-user",
+            "icon": "UserCog",
+            "label": "Users",
+            "path": "/system/sys-user"
+          },
+          {
+            "id": "sys-role",
+            "icon": "Users",
+            "label": "Roles",
+            "path": "/system/sys-role"
+          },
+          {
+            "id": "sys-menu",
+            "icon": "ListTree",
+            "label": "Menu & API Access",
+            "path": "/system/sys-menu"
+          },
+          {
+            "id": "currency",
+            "icon": "Coins",
+            "label": "Currencies",
+            "path": "/system/currency"
+          },
+          {
+            "id": "workflow-config",
+            "icon": "Workflow",
+            "label": "Approval Workflow",
+            "path": "/system/workflow-config"
+          },
+          {
+            "id": "scheduled-task",
+            "icon": "Clock",
+            "label": "Scheduled Tasks",
+            "path": "/system/scheduled-task"
+          },
+          {
+            "id": "operate-log",
+            "icon": "ScrollText",
+            "label": "Operation Logs",
+            "path": "/system/operate-log"
+          }
         ]
       }
     ],
     "dashboard": {
       "widgets": [
-        { "id": "pending-tx",       "type": "kpi", "title": "In-Flight Transactions", "span": 1 },
-        { "id": "exception-tx",     "type": "kpi", "title": "EXCEPTION Pending", "span": 1 },
-        { "id": "water-level-lp",   "type": "kpi", "title": "Water Level Alert LP", "span": 1 },
-        { "id": "pending-approval", "type": "kpi", "title": "Pending Approval", "span": 1 }
+        {
+          "id": "pending-tx",
+          "type": "kpi",
+          "title": "In-Flight Transactions",
+          "span": 1
+        },
+        {
+          "id": "exception-tx",
+          "type": "kpi",
+          "title": "EXCEPTION Pending",
+          "span": 1
+        },
+        {
+          "id": "water-level-lp",
+          "type": "kpi",
+          "title": "Water Level Alert LP",
+          "span": 1
+        },
+        {
+          "id": "pending-approval",
+          "type": "kpi",
+          "title": "Pending Approval",
+          "span": 1
+        }
       ]
     }
   },
   "i18n": {
     "defaultLocale": "en-US",
-    "locales": ["en-US", "zh-CN"]
+    "locales": [
+      "en-US"
+    ]
   },
   "features": {
     "darkMode": true,

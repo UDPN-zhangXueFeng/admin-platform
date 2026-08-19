@@ -47,11 +47,11 @@ export interface LogRow {
 
 /** 业务类型文案（源 `views/system/log.vue` BIZ_TEXT 1-5）。 */
 export const LOG_BUSINESS_TYPE_TEXT: Record<number, string> = {
-  1: '新增',
-  2: '修改',
-  3: '删除',
-  4: '登录',
-  5: '其他',
+  1: 'Create',
+  2: 'Update',
+  3: 'Delete',
+  4: 'Sign-in',
+  5: 'Other',
 };
 
 /** 业务类型 Badge variant（源 BIZ_TAG：1 primary/2 warning→secondary、3 danger→destructive、4 success→default、5 info→outline）。 */
@@ -65,7 +65,7 @@ export const LOG_BUSINESS_TYPE_VARIANT: Record<number, LogVariant> = {
 
 /** 业务类型文案；undefined → '-'，未知码 → '其他'（源 bizText）。 */
 export function logBusinessTypeText(t?: number): string {
-  return t === undefined ? '-' : (LOG_BUSINESS_TYPE_TEXT[t] ?? '其他');
+  return t === undefined ? '-' : (LOG_BUSINESS_TYPE_TEXT[t] ?? 'Other');
 }
 
 /** 业务类型 Badge variant；未知码 → outline（源 bizTagType 的 info 兜底）。 */
@@ -75,7 +75,7 @@ export function logBusinessTypeVariant(t?: number): LogVariant {
 
 /** 状态文案：0 正常 / 其余（含 1、undefined）异常（源模板三元）。 */
 export function logStatusText(status?: number): string {
-  return status === 0 ? '正常' : '异常';
+  return status === 0 ? 'Normal' : 'Abnormal';
 }
 
 /** 状态 Badge variant：0 正常(success→default) / 其余 异常(danger→destructive)（源模板）。 */

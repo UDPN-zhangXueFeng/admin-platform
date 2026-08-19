@@ -50,7 +50,7 @@ const ROW_HIGHLIGHT_CLASS =
 const columns: ColumnDef<RateRow & { id: string }>[] = [
   {
     accessorKey: 'sourceCurrency',
-    header: '货币对',
+    header: 'Currency Pair',
     cell: ({ row }) => (
       <span
         className="inline-flex items-center gap-2"
@@ -59,34 +59,34 @@ const columns: ColumnDef<RateRow & { id: string }>[] = [
         <span>
           {row.original.sourceCurrency}→{row.original.targetCurrency}
         </span>
-        {row.original.participated ? <Badge>参与中</Badge> : null}
+        {row.original.participated ? <Badge>Participating</Badge> : null}
       </span>
     ),
   },
   {
     accessorKey: 'baseRate',
-    header: '基础汇率',
+    header: 'Base Rate',
     cell: ({ row }) => (
       <span className="tabular-nums">{row.original.baseRate ?? '-'}</span>
     ),
   },
   {
     accessorKey: 'markupRate',
-    header: '加价率',
+    header: 'Markup Rate',
     cell: ({ row }) => (
       <span className="tabular-nums">{row.original.markupRate ?? '-'}</span>
     ),
   },
   {
     accessorKey: 'userRate',
-    header: '用户汇率',
+    header: 'User Rate',
     cell: ({ row }) => (
       <span className="tabular-nums">{row.original.userRate ?? '-'}</span>
     ),
   },
   {
     accessorKey: 'pairStatus',
-    header: '货币对状态',
+    header: 'Pair Status',
     cell: ({ row }) => (
       <Badge
         variant={
@@ -100,7 +100,7 @@ const columns: ColumnDef<RateRow & { id: string }>[] = [
   },
   {
     accessorKey: 'updateTime',
-    header: '更新时间',
+    header: 'Update Time',
     cell: ({ row }) => <span>{formatTime(row.original.updateTime)}</span>,
   },
 ];
@@ -149,15 +149,15 @@ export function RateListPage() {
     <div className="space-y-4">
       {down ? <ServiceDownAlert traceId={down.traceId} /> : null}
 
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">汇率</div>
+      <div className="rounded-lg border-border/60 bg-card text-card-foreground shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
+          <div className="text-sm font-semibold">Rates</div>
         </div>
 
         {/* 货币对筛选：computed 响应式即时过滤，无查询/重置按钮（源同） */}
-        <div className="flex items-center gap-3 border-b px-6 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-b px-6 py-3">
           <label className="text-sm text-muted-foreground" htmlFor="rate-pair-filter">
-            货币对
+            Currency Pair
           </label>
           <Select
             value={filterPairId == null ? PAIR_ALL : String(filterPairId)}
@@ -165,11 +165,11 @@ export function RateListPage() {
               setFilterPairId(v === PAIR_ALL ? null : Number(v))
             }
           >
-            <SelectTrigger id="rate-pair-filter" className="w-[200px]">
-              <SelectValue placeholder="全部货币对" />
+            <SelectTrigger id="rate-pair-filter" className="w-full max-w-[200px]">
+              <SelectValue placeholder="All Currency Pairs" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={PAIR_ALL}>全部货币对</SelectItem>
+              <SelectItem value={PAIR_ALL}>All Currency Pairs</SelectItem>
               {pairOptions.map((p) => (
                 <SelectItem key={p.pairId} value={String(p.pairId)}>
                   {p.sourceCurrency}→{p.targetCurrency}
@@ -185,7 +185,7 @@ export function RateListPage() {
           columns={columns}
           data={tableData}
           isLoading={query.isLoading}
-          emptyMessage="暂无数据"
+          emptyMessage="No data"
         />
       </div>
     </div>

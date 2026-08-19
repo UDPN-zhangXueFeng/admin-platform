@@ -7,6 +7,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import {
   Badge,
   Button,
+  createActionColumn,
   DataTable,
   Drawer,
   DrawerContent,
@@ -27,6 +28,7 @@ import {
   Textarea,
   useToast,
 } from '@myorg/shared/ui';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
@@ -63,13 +65,11 @@ function parsePositiveInt(raw: string | null): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
-/** 毫秒时间戳 → 本地 YYYY-MM-DD HH:mm:ss；0/空 → '--'（目标约定 §4；源 formatTime 用 '-'）。 */
+/** 毫秒时间戳 → 统一管理台时间格式；0/空/非法 → '--'（目标约定 §4；源 formatTime 用 '-'）。 */
 function formatTime(ms: number | null | undefined): string {
   if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '--';
   const d = new Date(Number(ms));
-  if (Number.isNaN(d.getTime())) return '--';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return Number.isNaN(d.getTime()) ? '--' : formatAdminDateTime(d);
 }
 
 /** 数字千分位（保留原小数位）；源 approval/format.ts formatMoney。 */
@@ -99,7 +99,7 @@ function formatFieldValue(
   busCode?: string,
 ): string | NestedValue {
   if (value === null || value === undefined || value === '') return '--';
-  if (typeof value === 'boolean') return value ? '是' : '否';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'object' && !Array.isArray(value)) {
     return {
       kind: 'nested',
@@ -151,117 +151,117 @@ interface FieldDef {
 
 /** 字段名 → 中文标签（通用词典，未命中用原字段名兜底）；源 field-maps.ts LABEL_DICT。 */
 const LABEL_DICT: Record<string, string> = {
-  bankId: '银行ID',
-  changeId: '限额变更ID',
-  bankName: '银行名称',
-  bankCode: '银行编码',
+  bankId: 'Bank ID',
+  changeId: 'Limit Change ID',
+  bankName: 'Bank Name',
+  bankCode: 'Bank Code',
   bic: 'SWIFT BIC',
-  singleLimit: '单笔限额',
-  dailyLimit: '日累计限额',
-  accountConfig: '账户配置',
-  status: '状态',
-  kycInfo: 'KYC 信息',
-  createTime: '创建时间',
-  lpName: 'LP 名称',
-  lpCode: 'LP 编码',
-  pairName: '货币对',
-  baseCurrency: '基础币种',
-  quoteCurrency: '报价币种',
-  baseRate: '基础汇率',
-  markupRate: '加价率',
-  effectiveRate: '生效汇率',
-  orderNo: '结算单号',
-  settleAmount: '结算金额',
-  orderStatus: '单状态',
-  transferAmount: '划转金额',
-  targetAccount: '目标账户',
-  reason: '原因',
-  remarks: '备注',
+  singleLimit: 'Per-Transaction Limit',
+  dailyLimit: 'Daily Limit',
+  accountConfig: 'Account Configuration',
+  status: 'Status',
+  kycInfo: 'KYC Info',
+  createTime: 'Creation Time',
+  lpName: 'LP Name',
+  lpCode: 'LP Code',
+  pairName: 'Currency Pair',
+  baseCurrency: 'Base Currency',
+  quoteCurrency: 'Quote Currency',
+  baseRate: 'Base Rate',
+  markupRate: 'Markup Rate',
+  effectiveRate: 'Effective Rate',
+  orderNo: 'Settlement Order No.',
+  settleAmount: 'Settlement Amount',
+  orderStatus: 'Order Status',
+  transferAmount: 'Transfer Amount',
+  targetAccount: 'Target Account',
+  reason: 'Reason',
+  remarks: 'Remarks',
 };
 
 /** 8 类详配：字段顺序即展示顺序（按后端 VO 声明/业务重要性排）；源 FIELD_MAPS。 */
 const FIELD_MAPS: Record<string, FieldDef[]> = {
   kissen_bank_onboard: [
-    { key: 'bankName', label: '银行名称' },
-    { key: 'bankCode', label: '银行编码' },
+    { key: 'bankName', label: 'Bank Name' },
+    { key: 'bankCode', label: 'Bank Code' },
     { key: 'bic', label: 'SWIFT BIC' },
-    { key: 'currencies', label: '支持币种' },
-    { key: 'singleLimit', label: '单笔限额' },
-    { key: 'dailyLimit', label: '日累计限额' },
-    { key: 'accountConfig', label: '账户配置' },
-    { key: 'kycInfo', label: 'KYC 信息' },
-    { key: 'status', label: '状态' },
-    { key: 'createTime', label: '创建时间' },
+    { key: 'currencies', label: 'Supported Currencies' },
+    { key: 'singleLimit', label: 'Per-Transaction Limit' },
+    { key: 'dailyLimit', label: 'Daily Limit' },
+    { key: 'accountConfig', label: 'Account Configuration' },
+    { key: 'kycInfo', label: 'KYC Info' },
+    { key: 'status', label: 'Status' },
+    { key: 'createTime', label: 'Creation Time' },
   ],
   kissen_lp_onboard: [
-    { key: 'lpName', label: 'LP 名称' },
-    { key: 'lpCode', label: 'LP 编码' },
-    { key: 'splitRatio', label: '分成比例' },
-    { key: 'minLiquidity', label: '最低流动性' },
-    { key: 'riskAssessment', label: '风险评估' },
-    { key: 'initialPairIds', label: '参与货币对' },
-    { key: 'status', label: '状态' },
-    { key: 'createTime', label: '创建时间' },
+    { key: 'lpName', label: 'LP Name' },
+    { key: 'lpCode', label: 'LP Code' },
+    { key: 'splitRatio', label: 'Split Ratio' },
+    { key: 'minLiquidity', label: 'Minimum Liquidity' },
+    { key: 'riskAssessment', label: 'Risk Assessment' },
+    { key: 'initialPairIds', label: 'Participating Currency Pairs' },
+    { key: 'status', label: 'Status' },
+    { key: 'createTime', label: 'Creation Time' },
   ],
   kissen_lp_pair: [
-    { key: 'lpName', label: 'LP 名称' },
-    { key: 'sourceCurrency', label: '源币种' },
-    { key: 'targetCurrency', label: '目标币种' },
-    { key: 'remark', label: '备注' },
-    { key: 'status', label: '状态' },
-    { key: 'createTime', label: '创建时间' },
+    { key: 'lpName', label: 'LP Name' },
+    { key: 'sourceCurrency', label: 'Source Currency' },
+    { key: 'targetCurrency', label: 'Target Currency' },
+    { key: 'remark', label: 'Remarks' },
+    { key: 'status', label: 'Status' },
+    { key: 'createTime', label: 'Creation Time' },
   ],
   kissen_rate_change: [
-    { key: 'sourceCurrency', label: '源币种' },
-    { key: 'targetCurrency', label: '目标币种' },
-    { key: 'pendingAction', label: '待执行动作' },
-    { key: 'markupRate', label: '加价率' },
-    { key: 'slippageThreshold', label: '滑点阈值' },
-    { key: 'status', label: '状态' },
-    { key: 'createTime', label: '创建时间' },
-    { key: 'pairId', label: '货币对ID' },
+    { key: 'sourceCurrency', label: 'Source Currency' },
+    { key: 'targetCurrency', label: 'Target Currency' },
+    { key: 'pendingAction', label: 'Pending Action' },
+    { key: 'markupRate', label: 'Markup Rate' },
+    { key: 'slippageThreshold', label: 'Slippage Threshold' },
+    { key: 'status', label: 'Status' },
+    { key: 'createTime', label: 'Creation Time' },
+    { key: 'pairId', label: 'Currency Pair ID' },
   ],
   kissen_pair_toggle: [
-    { key: 'sourceCurrency', label: '源币种' },
-    { key: 'targetCurrency', label: '目标币种' },
-    { key: 'baseRate', label: '基础汇率' },
-    { key: 'markupRate', label: '加价率' },
-    { key: 'slippageThreshold', label: '滑点阈值' },
-    { key: 'pendingAction', label: '待执行动作' },
-    { key: 'status', label: '状态' },
-    { key: 'createTime', label: '创建时间' },
+    { key: 'sourceCurrency', label: 'Source Currency' },
+    { key: 'targetCurrency', label: 'Target Currency' },
+    { key: 'baseRate', label: 'Base Rate' },
+    { key: 'markupRate', label: 'Markup Rate' },
+    { key: 'slippageThreshold', label: 'Slippage Threshold' },
+    { key: 'pendingAction', label: 'Pending Action' },
+    { key: 'status', label: 'Status' },
+    { key: 'createTime', label: 'Creation Time' },
   ],
   kissen_settle_confirm: [
-    { key: 'orderId', label: '结算单ID' },
-    { key: 'lpName', label: 'LP 名称' },
-    { key: 'periodType', label: '结算周期(1 日 / 2 周 / 3 月)' },
-    { key: 'periodStart', label: '周期开始' },
-    { key: 'periodEnd', label: '周期结束' },
-    { key: 'txCount', label: '交易笔数' },
-    { key: 'principalTotal', label: '本金合计' },
-    { key: 'markupTotal', label: '加价合计' },
-    { key: 'adminSplitTotal', label: '管理方分成' },
-    { key: 'lpSplitTotal', label: 'LP 分成' },
-    { key: 'status', label: '状态' },
-    { key: 'createTime', label: '创建时间' },
+    { key: 'orderId', label: 'Settlement Order ID' },
+    { key: 'lpName', label: 'LP Name' },
+    { key: 'periodType', label: 'Settlement Period (1 Daily / 2 Weekly / 3 Monthly)' },
+    { key: 'periodStart', label: 'Period Start' },
+    { key: 'periodEnd', label: 'Period End' },
+    { key: 'txCount', label: 'Transaction Count' },
+    { key: 'principalTotal', label: 'Principal Total' },
+    { key: 'markupTotal', label: 'Markup Total' },
+    { key: 'adminSplitTotal', label: 'Admin Split' },
+    { key: 'lpSplitTotal', label: 'LP Split' },
+    { key: 'status', label: 'Status' },
+    { key: 'createTime', label: 'Creation Time' },
   ],
   kissen_split_transfer: [
-    { key: 'transferId', label: '划转ID' },
-    { key: 'orderId', label: '结算单ID' },
-    { key: 'lpName', label: 'LP 名称' },
-    { key: 'direction', label: '划转方向(1 凭预授权 / 2 LP 主动)' },
-    { key: 'currency', label: '币种' },
-    { key: 'amount', label: '划转金额' },
-    { key: 'csTxId', label: '通道交易号' },
-    { key: 'status', label: '状态' },
-    { key: 'createTime', label: '创建时间' },
+    { key: 'transferId', label: 'Transfer ID' },
+    { key: 'orderId', label: 'Settlement Order ID' },
+    { key: 'lpName', label: 'LP Name' },
+    { key: 'direction', label: 'Transfer Direction (1 Pre-Authorized / 2 LP Initiated)' },
+    { key: 'currency', label: 'Currency' },
+    { key: 'amount', label: 'Transfer Amount' },
+    { key: 'csTxId', label: 'Channel Transaction ID' },
+    { key: 'status', label: 'Status' },
+    { key: 'createTime', label: 'Creation Time' },
   ],
   kissen_limit_change: [
-    { key: 'bankName', label: '银行名称' },
-    { key: 'oldSingleLimit', label: '原单笔限额' },
-    { key: 'oldDailyLimit', label: '原日累计限额' },
-    { key: 'newSingleLimit', label: '新单笔限额' },
-    { key: 'newDailyLimit', label: '新日累计限额' },
+    { key: 'bankName', label: 'Bank Name' },
+    { key: 'oldSingleLimit', label: 'Original Per-Transaction Limit' },
+    { key: 'oldDailyLimit', label: 'Original Daily Limit' },
+    { key: 'newSingleLimit', label: 'New Per-Transaction Limit' },
+    { key: 'newDailyLimit', label: 'New Daily Limit' },
   ],
 };
 
@@ -433,10 +433,10 @@ function ApprovalDetailBody({
 
   const onApprove = (approve: number) => {
     if (approve === 2 && !remarks.trim()) {
-      toast.warning('请填写拒绝原因');
+      toast.warning('Please provide a rejection reason');
       return;
     }
-    if (!window.confirm(approve === 3 ? '确认通过该审批?' : '确认拒绝该审批?'))
+    if (!window.confirm(approve === 3 ? 'Confirm approval of this request?' : 'Confirm rejection of this request?'))
       return;
     processMutation.mutate(
       {
@@ -447,7 +447,7 @@ function ApprovalDetailBody({
       },
       {
         onSuccess: () => {
-          toast.success(approve === 3 ? '已通过' : '已拒绝');
+          toast.success(approve === 3 ? 'Approved' : 'Rejected');
           onDone();
         },
         onError: (err) => toast.error((err as Error).message),
@@ -457,15 +457,15 @@ function ApprovalDetailBody({
 
   const onPreviousStep = () => {
     if (!remarks.trim()) {
-      toast.warning('退回上一步必须填写退回原因');
+      toast.warning('A reason is required to send back to the previous step');
       return;
     }
-    if (!window.confirm('确认退回上一步?该节点审批意见将作废。')) return;
+    if (!window.confirm('Send back to the previous step? Review comments for this node will be discarded.')) return;
     prevMutation.mutate(
       { busCode: row.businessCode, taskId: row.taskId, remarks: remarks.trim() },
       {
         onSuccess: () => {
-          toast.success('已退回上一步');
+          toast.success('Sent back to previous step');
           onDone();
         },
         onError: (err) => toast.error((err as Error).message),
@@ -474,7 +474,7 @@ function ApprovalDetailBody({
   };
 
   const onWithdraw = () => {
-    if (!window.confirm('撤回后该申请退回重新发起状态,确认撤回?')) return;
+    if (!window.confirm('After withdrawal, this request returns to the re-initiated state. Confirm withdrawal?')) return;
     withdrawMutation.mutate(
       {
         busCode: row.businessCode,
@@ -483,7 +483,7 @@ function ApprovalDetailBody({
       },
       {
         onSuccess: () => {
-          toast.success('已撤回');
+          toast.success('Withdrawn');
           onDone();
         },
         onError: (err) => toast.error((err as Error).message),
@@ -501,27 +501,27 @@ function ApprovalDetailBody({
     <div className="space-y-4">
       {/* 头部信息块 */}
       <DescBlock>
-        <DescRow label="审批编号">{row.applyCode || '--'}</DescRow>
-        <DescRow label="业务类型">{businessName(row.businessCode)}</DescRow>
-        <DescRow label="业务描述">{row.busDesc || '--'}</DescRow>
-        <DescRow label="当前节点">{row.stepName || '--'}</DescRow>
-        <DescRow label="状态">
+        <DescRow label="Approval No.">{row.applyCode || '--'}</DescRow>
+        <DescRow label="Business Type">{businessName(row.businessCode)}</DescRow>
+        <DescRow label="Business Description">{row.busDesc || '--'}</DescRow>
+        <DescRow label="Current Node">{row.stepName || '--'}</DescRow>
+        <DescRow label="Status">
           <Badge variant={approvalStatusVariant(row.reviewerStatus)}>
             {COMMON_STATUS_MAP[row.reviewerStatus] ?? row.reviewerStatus}
           </Badge>
         </DescRow>
-        <DescRow label="申请时间">{formatTime(row.createTime)}</DescRow>
+        <DescRow label="Application Time">{formatTime(row.createTime)}</DescRow>
         {isDoneRow && (
           <>
-            <DescRow label="处理时间">{formatTime(row.reviewerTime)}</DescRow>
-            <DescRow label="我的意见">{row.reviewerRemarks || '--'}</DescRow>
+            <DescRow label="Processing Time">{formatTime(row.reviewerTime)}</DescRow>
+            <DescRow label="My Comments">{row.reviewerRemarks || '--'}</DescRow>
           </>
         )}
       </DescBlock>
 
       {/* 业务内容（扁平字段） */}
       <div>
-        <div className="mb-2 text-sm font-semibold">业务内容</div>
+        <div className="mb-2 text-sm font-semibold">Business Content</div>
         {flatEntries.length > 0 ? (
           <DescBlock>
             {flatEntries.map(([key, text]) => (
@@ -533,7 +533,7 @@ function ApprovalDetailBody({
             ))}
           </DescBlock>
         ) : (
-          <p className="text-sm text-muted-foreground">暂无业务内容</p>
+          <p className="text-sm text-muted-foreground">No business content</p>
         )}
       </div>
 
@@ -558,36 +558,36 @@ function ApprovalDetailBody({
       {/* 审批操作（仅待办且有可用能力位） */}
       {canOperate && (
         <div className="space-y-3">
-          <div className="text-sm font-semibold">审批操作</div>
+          <div className="text-sm font-semibold">Approval Actions</div>
           <Textarea
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
             rows={3}
             maxLength={200}
-            placeholder="请输入审批意见（拒绝 / 退回上一步必填）"
+            placeholder="Enter review comments (required for rejection / send back)"
           />
           <div className="text-right text-xs text-muted-foreground">
             {remarks.length}/200
           </div>
           <div className="flex flex-wrap gap-2">
             <Button disabled={submitting} onClick={() => onApprove(3)}>
-              通过
+              Approve
             </Button>
             <Button
               variant="destructive"
               disabled={submitting}
               onClick={() => onApprove(2)}
             >
-              拒绝
+              Reject
             </Button>
             {canBack && (
               <Button variant="outline" disabled={submitting} onClick={onPreviousStep}>
-                退回上一步
+                Send Back
               </Button>
             )}
             {canWithdraw && (
               <Button variant="outline" disabled={submitting} onClick={onWithdraw}>
-                撤回
+                Withdraw
               </Button>
             )}
           </div>
@@ -681,41 +681,39 @@ export function ApprovalCenterListPage() {
     () => [
       {
         accessorKey: 'applyCode',
-        header: '审批编号',
+        header: 'Approval No.',
         cell: ({ row }) => <span>{row.original.applyCode || '--'}</span>,
       },
       {
         id: 'businessName',
-        header: '业务类型',
+        header: 'Business Type',
         cell: ({ row }) => (
           <span>{businessName(row.original.businessCode)}</span>
         ),
       },
       {
         accessorKey: 'busDesc',
-        header: '业务描述',
-        cell: ({ row }) => (
-          <span className="line-clamp-2">{row.original.busDesc || '--'}</span>
-        ),
+        header: 'Business Description',
+        cell: ({ row }) => <span>{row.original.busDesc || '--'}</span>,
       },
       {
         accessorKey: 'stepName',
-        header: '当前节点',
+        header: 'Current Node',
         cell: ({ row }) => <span>{row.original.stepName || '--'}</span>,
       },
       {
         accessorKey: 'createUserName',
-        header: '申请人',
+        header: 'Applicant',
         cell: ({ row }) => <span>{row.original.createUserName || '--'}</span>,
       },
       {
         accessorKey: 'createTime',
-        header: '申请时间',
+        header: 'Application Time',
         cell: ({ row }) => <span>{formatTime(row.original.createTime)}</span>,
       },
       {
         id: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => {
           const isDone = row.original.detailReviewerStatus !== undefined;
           if (isDone) {
@@ -736,7 +734,7 @@ export function ApprovalCenterListPage() {
       },
       {
         id: 'reviewerTime',
-        header: '处理时间',
+        header: 'Processing Time',
         cell: ({ row }) => (
           <span>
             {row.original.detailReviewerStatus !== undefined
@@ -747,39 +745,33 @@ export function ApprovalCenterListPage() {
       },
       {
         id: 'reviewerRemarks',
-        header: '我的意见',
+        header: 'My Comments',
         cell: ({ row }) => (
-          <span className="line-clamp-2">
+          <span>
             {row.original.detailReviewerStatus !== undefined
               ? row.original.reviewerRemarks || '--'
               : '--'}
           </span>
         ),
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => {
-          const item = row.original;
-          if (NO_STRATEGY_BUSINESSES[item.businessCode]) {
-            return (
-              <Button variant="link" size="sm" className="h-auto p-0" disabled>
-                该业务详情待接入
-              </Button>
-            );
-          }
-          return (
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              onClick={() => openDetail(item)}
-            >
-              {tab === 'todo' ? '处理' : '查看'}
-            </Button>
-          );
-        },
-      },
+      createActionColumn<ApprovalListRow>((item) => {
+        // 无审批策略的业务暂无详情页：保留禁用入口占位（源渲染 disabled 链接按钮）。
+        if (NO_STRATEGY_BUSINESSES[item.businessCode]) {
+          return [
+            {
+              label: 'Detail pending integration',
+              disabled: true,
+              onClick: () => undefined,
+            },
+          ];
+        }
+        return [
+          {
+            label: tab === 'todo' ? 'Process' : 'View',
+            onClick: () => openDetail(item),
+          },
+        ];
+      }),
     ],
     [tab],
   );
@@ -794,28 +786,28 @@ export function ApprovalCenterListPage() {
       {/* 页头（源 approval/index.vue page-head：eyebrow + 标题） */}
       <div>
         <div className="text-xs text-muted-foreground">APPROVAL</div>
-        <h1 className="text-xl font-semibold">审批中心</h1>
+        <h1 className="text-xl font-semibold">Approval Center</h1>
       </div>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           onSearch();
         }}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询</div>
+        <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground">业务类型</label>
+            <label className="text-sm font-medium text-muted-foreground">Business Type</label>
             <Select
               value={businessCode || STATUS_ALL}
               onValueChange={(v) => setBusinessCode(v === STATUS_ALL ? '' : v)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="全部" />
+                <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={STATUS_ALL}>全部</SelectItem>
+                <SelectItem value={STATUS_ALL}>All</SelectItem>
                 {businessOptions.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}
@@ -825,16 +817,16 @@ export function ApprovalCenterListPage() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground">关键字</label>
+            <label className="text-sm font-medium text-muted-foreground">Keyword</label>
             <Input
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder="审批编号 / 业务描述"
+              placeholder="Approval No. / Business Description"
             />
           </div>
           {tab === 'done' && (
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-muted-foreground">结果</label>
+              <label className="text-sm font-medium text-muted-foreground">Result</label>
               <Select
                 value={doneStatus === undefined ? STATUS_ALL : String(doneStatus)}
                 onValueChange={(v) =>
@@ -842,37 +834,37 @@ export function ApprovalCenterListPage() {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="全部" />
+                <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={STATUS_ALL}>全部</SelectItem>
-                  <SelectItem value="3">通过</SelectItem>
-                  <SelectItem value="2">拒绝</SelectItem>
+                <SelectItem value={STATUS_ALL}>All</SelectItem>
+                <SelectItem value="3">Approved</SelectItem>
+                <SelectItem value="2">Rejected</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           )}
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onReset}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
       <Tabs value={tab} onValueChange={onTabChange}>
         <TabsList>
-          <TabsTrigger value="todo">待办</TabsTrigger>
-          <TabsTrigger value="done">已办</TabsTrigger>
+          <TabsTrigger value="todo">To Do</TabsTrigger>
+          <TabsTrigger value="done">Done</TabsTrigger>
         </TabsList>
         <TabsContent value={tab} className="space-y-4">
-          <div className="rounded-lg border bg-card shadow-sm">
+          <div className="rounded-lg border-border/60 bg-card p-3 shadow-float sm:p-4">
             <DataTable
               columns={columns}
               data={tableData}
               isLoading={isLoading}
-              emptyMessage="暂无数据"
+          emptyMessage="No data"
               pagination={
                 paginationMeta
                   ? {
@@ -896,9 +888,9 @@ export function ApprovalCenterListPage() {
         <DrawerContent className="max-h-[90vh] sm:max-w-[640px]">
           <DrawerHeader>
             <DrawerTitle>
-              {activeRow ? `${businessName(activeRow.businessCode)} - 详情` : '详情'}
+              {activeRow ? `${businessName(activeRow.businessCode)} - Details` : 'Details'}
             </DrawerTitle>
-            <DrawerDescription>审批详情</DrawerDescription>
+            <DrawerDescription>Approval Details</DrawerDescription>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-6">
             {activeRow && (
@@ -944,14 +936,14 @@ export function ApprovalCenterDetailPage() {
 
   if (!row) {
     return (
-      <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <p className="text-sm text-muted-foreground">缺少审批任务参数（taskId / busCode）。</p>
+      <div className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+        <p className="text-sm text-muted-foreground">Missing approval task parameters (taskId / busCode).</p>
         <Button
           variant="outline"
           className="mt-4"
           onClick={() => router.push('/approval-center')}
         >
-          返回
+          Back
         </Button>
       </div>
     );
@@ -959,9 +951,9 @@ export function ApprovalCenterDetailPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <div className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <div className="mb-4 text-base font-semibold">
-          {businessName(row.businessCode)} - 详情
+          {businessName(row.businessCode)} - Details
         </div>
         <ApprovalDetailBody
           row={row}
@@ -971,7 +963,7 @@ export function ApprovalCenterDetailPage() {
       </div>
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/approval-center')}>
-          返回
+          Back
         </Button>
       </div>
     </div>

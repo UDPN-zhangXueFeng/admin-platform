@@ -6,11 +6,9 @@ import { z } from 'zod';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
   Badge,
   Button,
+  useToast,
 } from '@myorg/shared/ui';
 import { FormField, createFormResolver } from '@myorg/shared/ui-forms';
 import { cn } from '@myorg/shared/util-classnames';
@@ -92,14 +90,13 @@ const LOG_PAGE_SIZE = 10;
 /** 列头（源列顺序；首列空头为展开开关）。 */
 const LOG_HEADERS = [
   '',
-  '操作时间',
-  '操作人',
-  '模块',
-  '业务类型',
-  '操作接口',
-  '状态',
-  '耗时(ms)',
-  'TraceId',
+  'Time',
+  'Operator',
+  'Module',
+  'Business Type',
+  'Endpoint',
+  'Status',
+  'Cost (ms)',
 ] as const;
 
 export function LogListPage() {
@@ -107,6 +104,7 @@ export function LogListPage() {
     resolver: createFormResolver(logFilterSchema),
     defaultValues: LOG_FILTER_DEFAULT,
   });
+  const toast = useToast();
 
   const [filter, setFilter] = React.useState<LogListReq>(() =>
     formToFilter(LOG_FILTER_DEFAULT),
@@ -120,6 +118,16 @@ export function LogListPage() {
 
   const rows = data?.data ?? [];
   const total = data?.pagination?.total ?? 0;
+
+  React.useEffect(() => {
+    if (isError) {
+      toast.error('Failed to load logs', {
+        description:
+          error instanceof Error ? error.message : 'Please try again later',
+        action: { label: 'Retry', onClick: () => refetch() },
+      });
+    }
+  }, [isError, error, refetch, toast]);
 
   /** 展开行集合（源 el-table type="expand"，可同时展开多行）。 */
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => new Set());
@@ -150,63 +158,45 @@ export function LogListPage() {
         <div className="text-xs font-semibold tracking-widest text-muted-foreground">
           PORTAL
         </div>
-        <h1 className="mt-1 text-xl font-semibold">操作日志</h1>
+        <h1 className="mt-1 text-xl font-semibold">Operation Log</h1>
       </div>
 
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">筛选条件</div>
+        <div className="mb-4 text-sm font-semibold">Filters</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             name="module"
-            label="操作模块"
-            placeholder="模糊匹配"
+            label="Module"
+            placeholder="Fuzzy match"
             register={register('module')}
           />
           <FormField
             name="startTime"
-            label="开始时间"
+            label="Start Time"
             type="datetime-local"
             register={register('startTime')}
           />
           <FormField
             name="endTime"
-            label="结束时间"
+            label="End Time"
             type="datetime-local"
             register={register('endTime')}
           />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit">查询</Button>
+          <Button type="submit">Search</Button>
           <Button type="button" variant="outline" onClick={onReset}>
-            重置
+            Reset
           </Button>
         </div>
       </form>
 
-      {isError && (
-        <Alert variant="destructive">
-          <div className="flex-1">
-            <AlertTitle>操作日志加载失败</AlertTitle>
-            <AlertDescription>
-              {error instanceof Error ? error.message : '请稍后重试'}
-            </AlertDescription>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              onClick={() => refetch()}
-            >
-              重新加载
-            </Button>
-          </div>
-        </Alert>
-      )}
 
-      <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <div className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <div className="overflow-hidden rounded-md border">
           <table className="w-full caption-bottom text-sm">
             <thead className="bg-muted/50">
@@ -239,7 +229,7 @@ export function LogListPage() {
                     colSpan={LOG_HEADERS.length}
                     className="px-4 py-8 text-center text-muted-foreground"
                   >
-                    暂无数据
+                    No data
                   </td>
                 </tr>
               ) : (
@@ -253,7 +243,7 @@ export function LogListPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            aria-label={expanded ? '收起详情' : '展开详情'}
+                            aria-label={expanded ? 'Collapse details' : 'Expand details'}
                             aria-expanded={expanded}
                             className="h-6 w-6"
                             onClick={() => toggleExpanded(id)}
@@ -325,7 +315,7 @@ function LogExpandRow({ row }: { row: LogRow }) {
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
             <span className="w-16 shrink-0 text-xs leading-5 text-muted-foreground">
-              请求参数
+              Request Params
             </span>
             <pre className="m-0 flex-1 whitespace-pre-wrap break-all rounded-md border bg-muted/40 px-2.5 py-2 text-xs leading-relaxed text-foreground">
               {row.operateParam || '-'}
@@ -333,7 +323,7 @@ function LogExpandRow({ row }: { row: LogRow }) {
           </div>
           <div className="flex gap-2">
             <span className="w-16 shrink-0 text-xs leading-5 text-muted-foreground">
-              异常信息
+              Error Info
             </span>
             <pre className="m-0 flex-1 whitespace-pre-wrap break-all rounded-md border bg-muted/40 px-2.5 py-2 text-xs leading-relaxed text-destructive">
               {row.errorMsg || '-'}
@@ -382,12 +372,12 @@ function LogPager({
 
   return (
     <div className="mt-3 flex items-center justify-between">
-      <span className="text-sm text-muted-foreground">共 {total} 条</span>
+      <span className="text-sm text-muted-foreground">{total} records</span>
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="icon"
-          aria-label="上一页"
+          aria-label="Previous page"
           disabled={pageNum <= 1}
           className="h-8 w-8"
           onClick={() => onPageChange(pageNum - 1)}
@@ -419,7 +409,7 @@ function LogPager({
         <Button
           variant="outline"
           size="icon"
-          aria-label="下一页"
+          aria-label="Next page"
           disabled={pageNum >= totalPages}
           className="h-8 w-8"
           onClick={() => onPageChange(pageNum + 1)}

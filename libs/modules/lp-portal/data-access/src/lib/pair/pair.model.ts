@@ -27,8 +27,8 @@ export type {
 
 /** 参与状态文案（源 PARTICIPATION_TEXT：20 生效 / 50 停用；未知码显原值）。 */
 export const PAIR_PARTICIPATION_TEXT: Record<number, string> = {
-  20: '生效',
-  50: '停用',
+  20: 'Active',
+  50: 'Disabled',
 };
 
 /** 参与状态 → Badge variant（源 el-tag：20 success / 其他 info 的中性映射）。 */
@@ -41,8 +41,8 @@ export const PAIR_PARTICIPATION_VARIANT: Record<
 
 /** 货币对状态文案（源 PAIR_STATUS_TEXT：20 启用 / 50 停用；未知码显原值）。 */
 export const PAIR_STATUS_TEXT: Record<number, string> = {
-  20: '启用',
-  50: '停用',
+  20: 'Enabled',
+  50: 'Disabled',
 };
 
 /** 货币对状态 → Badge variant（源 el-tag：20 success / 其他 info）。 */
@@ -55,8 +55,8 @@ export const PAIR_STATUS_VARIANT: Record<
 
 /** 预授权状态文案（源 PREAUTH_STATUS_TEXT：20 有效 / 50 已撤销；未知码显原值）。 */
 export const PREAUTH_STATUS_TEXT: Record<number, string> = {
-  20: '有效',
-  50: '已撤销',
+  20: 'Valid',
+  50: 'Revoked',
 };
 
 /** 预授权状态 → Badge variant（源 el-tag：20 success / 其他 info）。 */
@@ -72,10 +72,10 @@ export const PREAUTH_STATUS_VARIANT: Record<
  * capable/gaps 由 api 侧判定产出，前端仅按码表渲染。
  */
 export const PAIR_GAP_TEXT: Record<string, string> = {
-  NO_POOL: '缺资金池',
-  NO_PREAUTH: '缺预授权',
-  PREAUTH_EXPIRED: '授权已过期',
-  QUOTA_INSUFFICIENT: '额度不足',
-  LOW_LEVEL: '水位低于阈值',
-  PARTICIPATION_STOPPED: '参与已停用',
+  NO_POOL: 'No Liquidity Pool',
+  NO_PREAUTH: 'No Pre-authorization',
+  PREAUTH_EXPIRED: 'Pre-authorization Expired',
+  QUOTA_INSUFFICIENT: 'Insufficient Quota',
+  LOW_LEVEL: 'Level Below Threshold',
+  PARTICIPATION_STOPPED: 'Participation Disabled',
 };

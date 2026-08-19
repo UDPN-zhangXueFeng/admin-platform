@@ -24,9 +24,9 @@ export interface BankGatewayRegisterReq {
 
 /** 网关连通性中文映射（源 CONNECTIVITY_STATUS_MAP）。 */
 export const CONNECTIVITY_STATUS_LABEL: Record<number, string> = {
-  0: '未知',
-  1: '正常',
-  2: '断开',
+  0: 'Unknown',
+  1: 'Normal',
+  2: 'Disconnected',
 };
 
 /**

@@ -65,12 +65,12 @@ const PAGE_SIZE = 10;
 
 const LBL = {
   eyebrow: 'BUSINESS',
-  title: '结算',
-  tabRecords: '结算流水',
-  tabOrders: '结算单',
-  query: '查询',
-  reset: '重置',
-  empty: '暂无数据',
+  title: 'Settlement',
+  tabRecords: 'Settlement Records',
+  tabOrders: 'Settlement Orders',
+  query: 'Search',
+  reset: 'Reset',
+  empty: 'No data',
 } as const;
 
 /** 下拉「全部」哨兵（FormSelect 禁空 value，非 ALL 即转实参查询）。 */
@@ -82,17 +82,17 @@ const ALL = 'all';
  * period_type 1/2/3（裁决 C-1/D-7）。
  */
 const ORDER_STATUS_OPTIONS: SelectOption[] = [
-  { value: ALL, label: '全部' },
-  { value: '5', label: '生成' },
-  { value: '20', label: '已确认' },
-  { value: '35', label: '已结算' },
+  { value: ALL, label: 'All' },
+  { value: '5', label: 'Generated' },
+  { value: '20', label: 'Confirmed' },
+  { value: '35', label: 'Settled' },
 ];
 
 const ORDER_CYCLE_OPTIONS: SelectOption[] = [
-  { value: ALL, label: '全部' },
-  { value: 'day', label: '日' },
-  { value: 'week', label: '周' },
-  { value: 'month', label: '月' },
+  { value: ALL, label: 'All' },
+  { value: 'day', label: 'Daily' },
+  { value: 'week', label: 'Weekly' },
+  { value: 'month', label: 'Monthly' },
 ];
 
 /* ===== records tab（筛选仅时间范围，裁决 C-1）===== */
@@ -171,7 +171,7 @@ function recordPairText(row: SettleRecordRow): string {
 
 /** 周期列：起 〜 止（源 periodText，波浪符与源一致）。 */
 function periodText(row: SettleOrderRow): string {
-  return `${formatTime(row.periodStart)} 〜 ${formatTime(row.periodEnd)}`;
+  return `${formatTime(row.periodStart)} – ${formatTime(row.periodEnd)}`;
 }
 
 /** 金额单元格：formatMoney（千分位、不归一小数位、无符号）。 */
@@ -275,7 +275,7 @@ export function SettleListPage() {
     () => [
       {
         accessorKey: 'createTime',
-        header: '创建时间',
+        header: 'Created At',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatTime(row.original.createTime)}
@@ -284,37 +284,37 @@ export function SettleListPage() {
       },
       {
         accessorKey: 'pairId',
-        header: '货币对',
+        header: 'Currency Pair',
         cell: ({ row }) => recordPairText(row.original),
       },
       {
         accessorKey: 'principal',
-        header: '本金',
+        header: 'Principal',
         cell: ({ row }) => <Money v={row.original.principal} />,
       },
       {
         accessorKey: 'userDeduction',
-        header: '用户扣减',
+        header: 'User Deduction',
         cell: ({ row }) => <Money v={row.original.userDeduction} />,
       },
       {
         accessorKey: 'markupAmount',
-        header: '加价金额',
+        header: 'Markup Amount',
         cell: ({ row }) => <Money v={row.original.markupAmount} />,
       },
       {
         accessorKey: 'receiverAmount',
-        header: '解付金额',
+        header: 'Receiver Amount',
         cell: ({ row }) => <Money v={row.original.receiverAmount} />,
       },
       {
         accessorKey: 'lpSplitAmount',
-        header: 'LP 分成',
+        header: 'LP Split',
         cell: ({ row }) => <KeyFigure v={row.original.lpSplitAmount} />,
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => <RecordStatusBadge status={row.original.status} />,
       },
     ],
@@ -327,14 +327,14 @@ export function SettleListPage() {
     () => [
       {
         accessorKey: 'orderId',
-        header: '结算单 ID',
+        header: 'Settlement Order ID',
         cell: ({ row }) => (
           <span className="font-mono text-xs">{row.original.orderId}</span>
         ),
       },
       {
         accessorKey: 'periodType',
-        header: '周期类型',
+        header: 'Period Type',
         // 未知码兜底显原值（源 PERIOD_TYPE_MAP[row.periodType] ?? row.periodType）
         cell: ({ row }) => (
           <span>
@@ -345,14 +345,14 @@ export function SettleListPage() {
       },
       {
         accessorKey: 'periodStart',
-        header: '周期',
+        header: 'Period',
         cell: ({ row }) => (
           <span className="tabular-nums">{periodText(row.original)}</span>
         ),
       },
       {
         accessorKey: 'txCount',
-        header: '交易笔数',
+        header: 'Tx Count',
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
             {row.original.txCount}
@@ -361,22 +361,22 @@ export function SettleListPage() {
       },
       {
         accessorKey: 'principalTotal',
-        header: '本金合计',
+        header: 'Principal Total',
         cell: ({ row }) => <Money v={row.original.principalTotal} />,
       },
       {
         accessorKey: 'lpSplitTotal',
-        header: 'LP 分成合计',
+        header: 'LP Split Total',
         cell: ({ row }) => <KeyFigure v={row.original.lpSplitTotal} />,
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => <OrderStatusBadge status={row.original.status} />,
       },
       {
         accessorKey: 'createTime',
-        header: '生成时间',
+        header: 'Generated At',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatTime(row.original.createTime)}
@@ -412,7 +412,7 @@ export function SettleListPage() {
       {/* 页面级共享降级条（tab 外）：任一侧 0024 显示，orders 侧同 */}
       {down && <ServiceDownAlert traceId={down.traceId} />}
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
         <Tabs defaultValue="records" className="w-full">
           <TabsList className="m-4">
             <TabsTrigger value="records">{LBL.tabRecords}</TabsTrigger>
@@ -430,18 +430,18 @@ export function SettleListPage() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <FormField
                   name="startTime"
-                  label="开始时间"
+                  label="Start Time"
                   type="datetime-local"
                   register={recordsForm.register('startTime')}
                 />
                 <FormField
                   name="endTime"
-                  label="结束时间"
+                  label="End Time"
                   type="datetime-local"
                   register={recordsForm.register('endTime')}
                 />
               </div>
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <Button type="submit">{LBL.query}</Button>
                 <Button
                   type="button"
@@ -484,29 +484,29 @@ export function SettleListPage() {
                 <FormSelect
                   name="status"
                   control={ordersForm.control}
-                  label="状态"
+                  label="Status"
                   options={ORDER_STATUS_OPTIONS}
                 />
                 <FormSelect
                   name="cycle"
                   control={ordersForm.control}
-                  label="周期"
+                  label="Period"
                   options={ORDER_CYCLE_OPTIONS}
                 />
                 <FormField
                   name="startTime"
-                  label="开始时间"
+                  label="Start Time"
                   type="datetime-local"
                   register={ordersForm.register('startTime')}
                 />
                 <FormField
                   name="endTime"
-                  label="结束时间"
+                  label="End Time"
                   type="datetime-local"
                   register={ordersForm.register('endTime')}
                 />
               </div>
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <Button type="submit">{LBL.query}</Button>
                 <Button
                   type="button"

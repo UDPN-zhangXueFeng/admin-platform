@@ -91,6 +91,7 @@ export function SidebarLayout({ config, children, onChangePassword, onLogout }: 
           <Sidebar
             items={sidebarItems}
             collapsed={collapsed}
+            singleExpand={config.layout.sidebar.singleExpand}
             onToggle={() => setCollapsed((v) => !v)}
           />
         </div>

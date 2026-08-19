@@ -83,8 +83,8 @@ export interface UserRoleOption {
 
 /** 用户类型：0 超管 / 1 运营（源 user.vue 类型列 tag：danger→destructive、primary→secondary）。 */
 export const USER_TYPE_LABEL: Record<number, string> = {
-  0: '超管',
-  1: '运营',
+  0: 'Super Admin',
+  1: 'Operations',
 };
 
 /** 用户类型 Badge variant（源 tag type 映射）。 */
@@ -98,14 +98,14 @@ export const USER_TYPE_RADIO_OPTIONS: ReadonlyArray<{
   value: string;
   label: string;
 }> = [
-  { value: '0', label: '超级管理员' },
-  { value: '1', label: '运营用户' },
+  { value: '0', label: 'Super Administrator' },
+  { value: '1', label: 'Operations User' },
 ];
 
 /** 用户状态：0 正常 / 1 停用（源 tag：success→default、info→outline）。 */
 export const USER_STATUS_LABEL: Record<number, string> = {
-  0: '正常',
-  1: '停用',
+  0: 'Active',
+  1: 'Disabled',
 };
 
 /** 用户状态 Badge variant（源 tag type 映射）。 */
@@ -126,6 +126,6 @@ export const USER_STATUS_OPTIONS: ReadonlyArray<{ value: string; label: string }
  * 源 user.vue 列表未展示，detail 页扩展展示用）。
  */
 export const USER_FIRST_LOGIN_LABEL: Record<number, string> = {
-  0: '首登待改密',
-  1: '已就绪',
+  0: 'Pending Password Change',
+  1: 'Ready',
 };

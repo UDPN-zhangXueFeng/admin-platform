@@ -26,6 +26,8 @@ import { ArrowLeft } from 'lucide-react';
 import {
   Badge,
   Button,
+  createActionColumn,
+  type TableRowAction,
   Checkbox,
   DataTable,
   Dialog,
@@ -38,6 +40,7 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { peekRow, stashRow } from './row-stash';
 
@@ -106,25 +109,25 @@ type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
 const LP_BASE = '/lp-liquidity';
 
 const LBL = {
-  query: '查询',
-  reset: '重置',
-  records: '记录列表',
-  empty: '暂无数据',
-  loading: '加载中…',
-  add: '新增',
-  view: '查看',
-  edit: '编辑',
-  cancel: '取消',
-  save: '保存',
-  saving: '保存中…',
-  back: '返回',
-  saveSuccess: '保存成功',
-  saveFailed: '保存失败',
-  opSuccess: '操作成功',
-  opFailed: '操作失败',
-  invalidParam: '参数错误：缺少 id',
-  notFound: '未找到对应记录',
-  all: '全部',
+  query: 'Search',
+  reset: 'Reset',
+  records: 'Record List',
+  empty: 'No data',
+  loading: 'Loading...',
+  add: 'Add',
+  view: 'View',
+  edit: 'Edit',
+  cancel: 'Cancel',
+  save: 'Save',
+  saving: 'Saving...',
+  back: 'Back',
+  saveSuccess: 'Saved successfully',
+  saveFailed: 'Save failed',
+  opSuccess: 'Operation successful',
+  opFailed: 'Operation failed',
+  invalidParam: 'Invalid parameter: missing id',
+  notFound: 'No matching record found',
+  all: 'All',
 } as const;
 
 /** 路由拼装：module + 可选 action(create/edit/detail) + 可选 id。 */
@@ -141,7 +144,7 @@ function parseId(raw: string | null): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
-/** 时间戳/ISO → 本地化日期时间串（后端时间为 ms 时间戳 number；0=未设置 → '--'）。 */
+/** 时间戳/ISO → 统一管理台日期时间串（后端时间为 ms 时间戳 number；0=未设置 → '--'）。 */
 function formatDateTime(
   value: number | string | null | undefined,
 ): string {
@@ -149,7 +152,7 @@ function formatDateTime(
   const n = typeof value === 'number' ? value : Number(value);
   const d = Number.isFinite(n) ? new Date(n) : new Date(String(value));
   if (Number.isNaN(d.getTime())) return String(value);
-  return d.toLocaleString('zh-CN', { hour12: false });
+  return formatAdminDateTime(d);
 }
 
 /**
@@ -197,7 +200,7 @@ function statusFilterOptions(
 ): SelectOption[] {
   return statuses.map((s) => ({
     value: String(s),
-    label: labelMap[s] ?? `状态 ${s}`,
+    label: labelMap[s] ?? `Status ${s}`,
   }));
 }
 
@@ -241,7 +244,7 @@ function StatusBadge({
 }) {
   return (
     <Badge variant={variantMap[status] ?? 'outline'}>
-      {labelMap[status] ?? `状态 ${status}`}
+      {labelMap[status] ?? `Status ${status}`}
     </Badge>
   );
 }
@@ -283,7 +286,7 @@ function DetailShell({
         </Button>
         <h2 className="text-lg font-semibold">{title}</h2>
       </div>
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         {children}
       </section>
     </div>
@@ -371,9 +374,9 @@ export function LpInfoListPage() {
 
   const onSubmitOnboard = React.useCallback(
     (row: LpRow) => {
-      if (!window.confirm(`确认提交「${row.lpName}」入网申请?`)) return;
+      if (!window.confirm(`Confirm submitting the onboarding application for "${row.lpName}"?`)) return;
       submitMutation.mutate(row.lpId, {
-        onSuccess: () => toast.success('已提交入网申请'),
+        onSuccess: () => toast.success('Onboarding application submitted'),
         onError: () => toast.error(LBL.opFailed),
       });
     },
@@ -386,15 +389,15 @@ export function LpInfoListPage() {
       if (
         !window.confirm(
           freeze
-            ? `确认冻结 LP「${row.lpName}」?冻结后该 LP 立即退出匹配,其新解付请求将被拒绝。`
-            : `确认解冻 LP「${row.lpName}」?解冻后该 LP 恢复已启用,重新参与匹配。`,
+            ? `Confirm freezing LP "${row.lpName}"? Once frozen, the LP immediately stops matching, and its new settlement requests will be rejected.`
+            : `Confirm unfreezing LP "${row.lpName}"? Once unfrozen, the LP is re-enabled and resumes matching.`,
         )
       )
         return;
       freezeMutation.mutate(
         { targetId: row.lpId, freeze },
         {
-          onSuccess: () => toast.success(freeze ? '已冻结' : '已解冻'),
+          onSuccess: () => toast.success(freeze ? 'Frozen' : 'Unfrozen'),
           onError: () => toast.error(LBL.opFailed),
         },
       );
@@ -406,30 +409,29 @@ export function LpInfoListPage() {
     ColumnDef<LpRow & { id: string }>[]
   >(
     () => [
-      { accessorKey: 'lpName', header: 'LP 名称' },
-      { accessorKey: 'lpCode', header: 'LP 编码' },
+      { accessorKey: 'lpName', header: 'LP Name' },
+      { accessorKey: 'lpCode', header: 'LP Code' },
       {
         accessorKey: 'splitRatio',
-        header: '分成比例',
+        header: 'Split Ratio',
         cell: ({ row }) => <span>{formatAmount(row.original.splitRatio)}</span>,
       },
       {
         accessorKey: 'minLiquidity',
-        header: '最低流动性',
+        header: 'Minimum Liquidity',
         cell: ({ row }) => <span>{formatAmount(row.original.minLiquidity)}</span>,
       },
       {
         accessorKey: 'riskAssessment',
-        header: '风险评估',
+        header: 'Risk Assessment',
+        meta: { maxWidth: 200 },
         cell: ({ row }) => (
-          <span className="line-clamp-1 max-w-[200px]">
-            {row.original.riskAssessment || '--'}
-          </span>
+          <span>{row.original.riskAssessment || '--'}</span>
         ),
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => (
           <StatusBadge
             status={row.original.status}
@@ -440,72 +442,43 @@ export function LpInfoListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: '创建时间',
+        header: 'Created At',
         cell: ({ row }) => (
           <span>{formatDateTime(row.original.createTime)}</span>
         ),
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => {
-          const s = row.original.status;
-          const editable = s === 1 || s === 15;
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(lpRoute('lp-info', 'detail', row.original.lpId))
-                }
-              >
-                {LBL.view}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={!editable || submitMutation.isPending}
-                title={s === 20 ? '已启用 LP 不可编辑,变更走审批流' : undefined}
-                onClick={() =>
-                  router.push(lpRoute('lp-info', 'edit', row.original.lpId))
-                }
-              >
-                {LBL.edit}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={!editable || submitMutation.isPending}
-                onClick={() => onSubmitOnboard(row.original)}
-              >
-                提交入网申请
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={s !== 20 || freezeMutation.isPending}
-                onClick={() => onToggleFreeze(row.original)}
-              >
-                冻结
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={s !== 50 || freezeMutation.isPending}
-                onClick={() => onToggleFreeze(row.original)}
-              >
-                解冻
-              </Button>
-            </div>
-          );
-        },
-      },
+      createActionColumn<LpRow & { id: string }>((item) => {
+        const s = item.status;
+        const editable = s === 1 || s === 15;
+        // 原 Edit 按钮 s===20 时的 title 提示无 TableRowAction 对应字段，随迁移移除。
+        const actions: TableRowAction<LpRow & { id: string }>[] = [
+          {
+            label: LBL.view,
+            onClick: () => router.push(lpRoute('lp-info', 'detail', item.lpId)),
+          },
+          {
+            label: LBL.edit,
+            disabled: !editable || submitMutation.isPending,
+            onClick: () => router.push(lpRoute('lp-info', 'edit', item.lpId)),
+          },
+          {
+            label: 'Submit Onboarding Application',
+            disabled: !editable || submitMutation.isPending,
+            onClick: () => onSubmitOnboard(item),
+          },
+          {
+            label: 'Freeze',
+            disabled: s !== 20 || freezeMutation.isPending,
+            onClick: () => onToggleFreeze(item),
+          },
+          {
+            label: 'Unfreeze',
+            disabled: s !== 50 || freezeMutation.isPending,
+            onClick: () => onToggleFreeze(item),
+          },
+        ];
+        return actions;
+      }),
     ],
     [router, onSubmitOnboard, onToggleFreeze, submitMutation.isPending, freezeMutation.isPending],
   );
@@ -519,16 +492,16 @@ export function LpInfoListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询条件</div>
+        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField name="lpName" label="LP 名称" register={register('lpName')} />
-          <FormField name="lpCode" label="LP 编码" register={register('lpCode')} />
+          <FormField name="lpName" label="LP Name" register={register('lpName')} />
+          <FormField name="lpCode" label="LP Code" register={register('lpCode')} />
           <FormSelect
             name="status"
             control={control}
-            label="状态"
+            label="Status"
             placeholder={LBL.all}
             options={statusFilterOptions(LP_STATUS_LABEL, [1, 5, 10, 15, 20, 50])}
           />
@@ -541,8 +514,8 @@ export function LpInfoListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
           <div className="text-sm font-semibold">{LBL.records}</div>
           <Button
             type="button"
@@ -638,7 +611,7 @@ export function LpInfoFormPage() {
     if (isEdit && lpId) req.lpId = lpId;
     saveMutation.mutate(req, {
       onSuccess: () => {
-        toast.success(isEdit ? '已保存' : '已创建(草稿)');
+        toast.success(isEdit ? 'Saved' : 'Created (Draft)');
         router.push(lpRoute('lp-info'));
       },
       onError: () => toast.error(LBL.saveFailed),
@@ -647,20 +620,20 @@ export function LpInfoFormPage() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <div className="mb-6 text-base font-semibold">
-          {isEdit ? '编辑 LP' : '新增 LP'}
+          {isEdit ? 'Edit LP' : 'Add LP'}
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              LP 名称<span className="ml-0.5 text-red-500">*</span>
+              LP Name<span className="ml-0.5 text-red-500">*</span>
             </label>
             <Input
               maxLength={64}
               {...register('lpName', {
-                required: '请输入 LP 名称',
-                validate: (v) => v.trim().length > 0 || '请输入 LP 名称',
+                required: 'Please enter the LP name',
+                validate: (v) => v.trim().length > 0 || 'Please enter the LP name',
               })}
             />
             {errors.lpName && (
@@ -669,13 +642,13 @@ export function LpInfoFormPage() {
               </p>
             )}
             <label className="text-sm font-medium">
-              LP 编码<span className="ml-0.5 text-red-500">*</span>
+              LP Code<span className="ml-0.5 text-red-500">*</span>
             </label>
             <Input
               maxLength={32}
               {...register('lpCode', {
-                required: '请输入 LP 编码',
-                validate: (v) => v.trim().length > 0 || '请输入 LP 编码',
+                required: 'Please enter the LP code',
+                validate: (v) => v.trim().length > 0 || 'Please enter the LP code',
               })}
             />
             {errors.lpCode && (
@@ -684,20 +657,20 @@ export function LpInfoFormPage() {
               </p>
             )}
             <label className="text-sm font-medium">
-              分成比例（0-1，4 位小数）
+              Split Ratio (0-1, up to 4 decimal places)
               <span className="ml-0.5 text-red-500">*</span>
             </label>
             <Input
               {...register('splitRatio', {
-                required: '请输入分成比例',
+                required: 'Please enter the split ratio',
                 validate: (v) => {
                   const n = Number(v);
                   if (!Number.isFinite(n) || n < 0 || n > 1)
-                    return '比例需在 0-1 之间';
+                    return 'Ratio must be between 0 and 1';
                   const decimals = v.includes('.')
                     ? v.split('.')[1]?.length ?? 0
                     : 0;
-                  return decimals <= 4 || '最多 4 位小数';
+                  return decimals <= 4 || 'Up to 4 decimal places';
                 },
               })}
             />
@@ -709,12 +682,12 @@ export function LpInfoFormPage() {
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              最低流动性<span className="ml-0.5 text-red-500">*</span>
+              Minimum Liquidity<span className="ml-0.5 text-red-500">*</span>
             </label>
             <Input
               {...register('minLiquidity', {
-                required: '请输入最低流动性',
-                validate: (v) => Number(v) > 0 || '需大于 0',
+                required: 'Please enter the minimum liquidity',
+                validate: (v) => Number(v) > 0 || 'Must be greater than 0',
               })}
             />
             {errors.minLiquidity && (
@@ -725,13 +698,13 @@ export function LpInfoFormPage() {
           </div>
         </div>
         <div className="mt-4 space-y-1.5">
-          <label className="text-sm font-medium">风险评估</label>
+          <label className="text-sm font-medium">Risk Assessment</label>
           <Textarea rows={3} {...register('riskAssessment')} />
         </div>
       </section>
 
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <div className="mb-4 text-sm font-semibold">初始参与货币对</div>
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+        <div className="mb-4 text-sm font-semibold">Initial Currency Pairs</div>
         {selectablePairs.length ? (
           <Controller
             control={control}
@@ -764,7 +737,7 @@ export function LpInfoFormPage() {
             )}
           />
         ) : (
-          <p className="text-sm text-muted-foreground">暂无可选货币对</p>
+          <p className="text-sm text-muted-foreground">No selectable currency pairs</p>
         )}
       </section>
 
@@ -807,17 +780,17 @@ export function LpInfoDetailPage() {
       const o = pairOptions?.find((p) => p.pairId === id);
       return o ? `${o.sourceCurrency}/${o.targetCurrency}` : `#${id}`;
     })
-    .join('、');
+    .join(', ');
 
   return (
-    <DetailShell title="LP 详情" onBack={() => router.push(lpRoute('lp-info'))}>
+    <DetailShell title="LP Details" onBack={() => router.push(lpRoute('lp-info'))}>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <ReadonlyField label="LP 名称" value={detail.lpName} />
-        <ReadonlyField label="LP 编码" value={detail.lpCode} />
-        <ReadonlyField label="分成比例" value={formatAmount(detail.splitRatio)} />
-        <ReadonlyField label="最低流动性" value={formatAmount(detail.minLiquidity)} />
+        <ReadonlyField label="LP Name" value={detail.lpName} />
+        <ReadonlyField label="LP Code" value={detail.lpCode} />
+        <ReadonlyField label="Split Ratio" value={formatAmount(detail.splitRatio)} />
+        <ReadonlyField label="Minimum Liquidity" value={formatAmount(detail.minLiquidity)} />
         <ReadonlyField
-          label="状态"
+          label="Status"
           value={
             <StatusBadge
               status={detail.status}
@@ -826,12 +799,12 @@ export function LpInfoDetailPage() {
             />
           }
         />
-        <ReadonlyField label="创建时间" value={formatDateTime(detail.createTime)} />
+        <ReadonlyField label="Created At" value={formatDateTime(detail.createTime)} />
         <div className="md:col-span-2 lg:col-span-3">
-          <ReadonlyField label="风险评估" value={detail.riskAssessment} />
+          <ReadonlyField label="Risk Assessment" value={detail.riskAssessment} />
         </div>
         <div className="md:col-span-2 lg:col-span-3">
-          <ReadonlyField label="初始参与货币对" value={pairNames || '--'} />
+          <ReadonlyField label="Initial Currency Pairs" value={pairNames || '--'} />
         </div>
       </div>
     </DetailShell>
@@ -891,11 +864,11 @@ export function LpPoolListPage() {
     ColumnDef<LpPoolRow & { id: string }>[]
   >(
     () => [
-      { accessorKey: 'lpName', header: 'LP 名称' },
-      { accessorKey: 'currency', header: '币种' },
+      { accessorKey: 'lpName', header: 'LP Name' },
+      { accessorKey: 'currency', header: 'Currency' },
       {
         accessorKey: 'accountAddress',
-        header: '钱包地址',
+        header: 'Wallet Address',
         cell: ({ row }) => (
           <span className="font-mono text-xs">
             {row.original.accountAddress || '--'}
@@ -904,7 +877,7 @@ export function LpPoolListPage() {
       },
       {
         accessorKey: 'currencySystemType',
-        header: '币种体系',
+        header: 'Currency System',
         cell: ({ row }) => (
           <span>
             {CURRENCY_SYSTEM_TYPE_LABEL[row.original.currencySystemType] ??
@@ -914,40 +887,40 @@ export function LpPoolListPage() {
       },
       {
         accessorKey: 'minLimit',
-        header: '最低限额',
+        header: 'Minimum Limit',
         cell: ({ row }) => <span>{formatAmount(row.original.minLimit)}</span>,
       },
       {
         accessorKey: 'remindThreshold',
-        header: '提醒阈值',
+        header: 'Reminder Threshold',
         cell: ({ row }) => (
           <span>{formatAmount(row.original.remindThreshold)}</span>
         ),
       },
       {
         accessorKey: 'availableBalanceCache',
-        header: '可用余额',
+        header: 'Available Balance',
         cell: ({ row }) => (
           <span>{formatAmount(row.original.availableBalanceCache)}</span>
         ),
       },
       {
         accessorKey: 'balanceUpdateTime',
-        header: '余额更新时间',
+        header: 'Balance Updated At',
         cell: ({ row }) => (
           <span>{formatDateTime(row.original.balanceUpdateTime)}</span>
         ),
       },
       {
         accessorKey: 'createTime',
-        header: '创建时间',
+        header: 'Created At',
         cell: ({ row }) => (
           <span>{formatDateTime(row.original.createTime)}</span>
         ),
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => (
           <StatusBadge
             status={row.original.status}
@@ -956,52 +929,31 @@ export function LpPoolListPage() {
           />
         ),
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => {
-          const s = row.original.status;
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => {
-                  stashRow('lp-pool', row.original.poolId, row.original);
-                  router.push(lpRoute('lp-pool', 'detail', row.original.poolId));
-                }}
-              >
-                {LBL.view}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => {
-                  stashRow('lp-pool', row.original.poolId, row.original);
-                  router.push(lpRoute('lp-pool', 'edit', row.original.poolId));
-                }}
-              >
-                {LBL.edit}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={s !== 20}
-                onClick={() =>
-                  router.push(
-                    `${LP_BASE}/lp-preauth?poolId=${row.original.poolId}`,
-                  )
-                }
-              >
-                预授权
-              </Button>
-            </div>
-          );
-        },
-      },
+      createActionColumn<LpPoolRow & { id: string }>((item) => {
+        const actions: TableRowAction<LpPoolRow & { id: string }>[] = [
+          {
+            label: LBL.view,
+            onClick: () => {
+              stashRow('lp-pool', item.poolId, item);
+              router.push(lpRoute('lp-pool', 'detail', item.poolId));
+            },
+          },
+          {
+            label: LBL.edit,
+            onClick: () => {
+              stashRow('lp-pool', item.poolId, item);
+              router.push(lpRoute('lp-pool', 'edit', item.poolId));
+            },
+          },
+          {
+            label: 'Pre-Authorization',
+            disabled: item.status !== 20,
+            onClick: () =>
+              router.push(`${LP_BASE}/lp-preauth?poolId=${item.poolId}`),
+          },
+        ];
+        return actions;
+      }),
     ],
     [router],
   );
@@ -1015,9 +967,9 @@ export function LpPoolListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit((f) => setParams(lpPoolFormToParams(f)))}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询条件</div>
+        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormSelect
             name="lpId"
@@ -1026,11 +978,11 @@ export function LpPoolListPage() {
             placeholder={LBL.all}
             options={lpToOptions(lpOptions)}
           />
-          <FormField name="currency" label="币种" register={register('currency')} />
+          <FormField name="currency" label="Currency" register={register('currency')} />
           <FormSelect
             name="status"
             control={control}
-            label="状态"
+            label="Status"
             placeholder={LBL.all}
             options={statusFilterOptions(LP_POOL_STATUS_LABEL, [1, 20, 50])}
           />
@@ -1050,8 +1002,8 @@ export function LpPoolListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
           <div className="text-sm font-semibold">{LBL.records}</div>
           <Button
             type="button"
@@ -1147,11 +1099,11 @@ export function LpPoolFormPage() {
 
   const onSubmit = handleSubmit((values) => {
     if (!values.lpId) {
-      toast.warning('请选择 LP');
+      toast.warning('Please select an LP');
       return;
     }
     if (!values.currencySystemType) {
-      toast.warning('请选择币种体系');
+      toast.warning('Please select a currency system');
       return;
     }
     const req: LpPoolSaveReq = {
@@ -1165,7 +1117,7 @@ export function LpPoolFormPage() {
     if (isEdit && poolId) req.poolId = poolId;
     saveMutation.mutate(req, {
       onSuccess: () => {
-        toast.success(isEdit ? '已保存' : '已创建(启用)');
+        toast.success(isEdit ? 'Saved' : 'Created (Enabled)');
         router.push(lpRoute('lp-pool'));
       },
       onError: () => toast.error(LBL.saveFailed),
@@ -1176,9 +1128,9 @@ export function LpPoolFormPage() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <div className="mb-6 text-base font-semibold">
-          {isEdit ? '编辑资金池' : '新增资金池'}
+          {isEdit ? 'Edit Funding Pool' : 'Add Funding Pool'}
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormSelect
@@ -1187,18 +1139,18 @@ export function LpPoolFormPage() {
             label="LP"
             required
             disabled={isEdit}
-            placeholder="选择 LP"
+            placeholder="Select an LP"
             options={lpToOptions(lpOptions)}
           />
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              币种<span className="ml-0.5 text-red-500">*</span>
+              Currency<span className="ml-0.5 text-red-500">*</span>
             </label>
             <Input
               disabled={isEdit}
               {...register('currency', {
-                required: '请输入币种',
-                validate: (v) => v.trim().length > 0 || '请输入币种',
+                required: 'Please enter the currency',
+                validate: (v) => v.trim().length > 0 || 'Please enter the currency',
               })}
             />
             {errors.currency && (
@@ -1209,14 +1161,14 @@ export function LpPoolFormPage() {
           </div>
           <div className="space-y-1.5 md:col-span-2">
             <label className="text-sm font-medium">
-              钱包地址<span className="ml-0.5 text-red-500">*</span>
+              Wallet Address<span className="ml-0.5 text-red-500">*</span>
             </label>
             <Input
               maxLength={100}
               className="font-mono"
               {...register('accountAddress', {
-                required: '请输入钱包地址',
-                validate: (v) => v.trim().length > 0 || '请输入钱包地址',
+                required: 'Please enter the wallet address',
+                validate: (v) => v.trim().length > 0 || 'Please enter the wallet address',
               })}
             />
             {errors.accountAddress && (
@@ -1228,21 +1180,21 @@ export function LpPoolFormPage() {
           <FormSelect
             name="currencySystemType"
             control={control}
-            label="币种体系"
+            label="Currency System"
             required
-            placeholder="选择币种体系"
+            placeholder="Select a currency system"
             options={Object.entries(CURRENCY_SYSTEM_TYPE_LABEL).map(
               ([k, v]) => ({ value: k, label: v }),
             )}
           />
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              最低限额<span className="ml-0.5 text-red-500">*</span>
+              Minimum Limit<span className="ml-0.5 text-red-500">*</span>
             </label>
             <Input
               {...register('minLimit', {
-                required: '请输入最低限额',
-                validate: (v) => Number(v) > 0 || '需大于 0',
+                required: 'Please enter the minimum limit',
+                validate: (v) => Number(v) > 0 || 'Must be greater than 0',
               })}
             />
             {errors.minLimit && (
@@ -1253,20 +1205,20 @@ export function LpPoolFormPage() {
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              提醒阈值（0-1，4 位小数）
+              Reminder Threshold (0-1, up to 4 decimal places)
               <span className="ml-0.5 text-red-500">*</span>
             </label>
             <Input
               {...register('remindThreshold', {
-                required: '请输入提醒阈值',
+                required: 'Please enter the reminder threshold',
                 validate: (v) => {
                   const n = Number(v);
                   if (!Number.isFinite(n) || n < 0 || n > 1)
-                    return '阈值需在 0-1 之间';
+                    return 'Threshold must be between 0 and 1';
                   const decimals = v.includes('.')
                     ? v.split('.')[1]?.length ?? 0
                     : 0;
-                  return decimals <= 4 || '最多 4 位小数';
+                  return decimals <= 4 || 'Up to 4 decimal places';
                 },
               })}
             />
@@ -1313,18 +1265,18 @@ export function LpPoolDetailPage() {
     return <NotFoundBlock onBack={() => router.push(lpRoute('lp-pool'))} />;
 
   return (
-    <DetailShell title="资金池详情" onBack={() => router.push(lpRoute('lp-pool'))}>
+    <DetailShell title="Funding Pool Details" onBack={() => router.push(lpRoute('lp-pool'))}>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <ReadonlyField label="LP 名称" value={row.lpName} />
-        <ReadonlyField label="币种" value={row.currency} />
+        <ReadonlyField label="LP Name" value={row.lpName} />
+        <ReadonlyField label="Currency" value={row.currency} />
         <ReadonlyField
-          label="币种体系"
+          label="Currency System"
           value={CURRENCY_SYSTEM_TYPE_LABEL[row.currencySystemType]}
         />
-        <ReadonlyField label="最低限额" value={formatAmount(row.minLimit)} />
-        <ReadonlyField label="提醒阈值" value={formatAmount(row.remindThreshold)} />
+        <ReadonlyField label="Minimum Limit" value={formatAmount(row.minLimit)} />
+        <ReadonlyField label="Reminder Threshold" value={formatAmount(row.remindThreshold)} />
         <ReadonlyField
-          label="状态"
+          label="Status"
           value={
             <StatusBadge
               status={row.status}
@@ -1333,11 +1285,11 @@ export function LpPoolDetailPage() {
             />
           }
         />
-        <ReadonlyField label="可用余额" value={formatAmount(row.availableBalanceCache)} />
-        <ReadonlyField label="余额更新时间" value={formatDateTime(row.balanceUpdateTime)} />
-        <ReadonlyField label="创建时间" value={formatDateTime(row.createTime)} />
+        <ReadonlyField label="Available Balance" value={formatAmount(row.availableBalanceCache)} />
+        <ReadonlyField label="Balance Updated At" value={formatDateTime(row.balanceUpdateTime)} />
+        <ReadonlyField label="Created At" value={formatDateTime(row.createTime)} />
         <div className="md:col-span-2 lg:col-span-3">
-          <ReadonlyField label="钱包地址" value={<span className="font-mono text-xs">{row.accountAddress}</span>} />
+          <ReadonlyField label="Wallet Address" value={<span className="font-mono text-xs">{row.accountAddress}</span>} />
         </div>
       </div>
     </DetailShell>
@@ -1420,9 +1372,9 @@ export function LpPreauthListPage() {
 
   const onRevoke = React.useCallback(
     (row: LpPreauthRow) => {
-      if (!window.confirm('确认撤销该预授权?撤销后立即失效。')) return;
+      if (!window.confirm('Confirm revoking this pre-authorization? It becomes invalid immediately once revoked.')) return;
       revokeMutation.mutate(row.preauthId, {
-        onSuccess: () => toast.success('已撤销'),
+        onSuccess: () => toast.success('Revoked'),
         onError: () => toast.error(LBL.opFailed),
       });
     },
@@ -1433,21 +1385,21 @@ export function LpPreauthListPage() {
     ColumnDef<LpPreauthRow & { id: string }>[]
   >(
     () => [
-      { accessorKey: 'lpName', header: 'LP 名称' },
-      { accessorKey: 'currency', header: '币种' },
+      { accessorKey: 'lpName', header: 'LP Name' },
+      { accessorKey: 'currency', header: 'Currency' },
       {
         accessorKey: 'authAmount',
-        header: '授权额度',
+        header: 'Authorized Amount',
         cell: ({ row }) => <span>{formatAmount(row.original.authAmount)}</span>,
       },
       {
         accessorKey: 'usedAmount',
-        header: '已用额度',
+        header: 'Used Amount',
         cell: ({ row }) => <span>{formatAmount(row.original.usedAmount)}</span>,
       },
       {
         id: 'remaining',
-        header: '剩余额度',
+        header: 'Remaining Amount',
         cell: ({ row }) => (
           <span>
             {formatAmount(
@@ -1459,17 +1411,17 @@ export function LpPreauthListPage() {
       },
       {
         accessorKey: 'validFrom',
-        header: '生效时间',
+        header: 'Valid From',
         cell: ({ row }) => <span>{formatDateTime(row.original.validFrom)}</span>,
       },
       {
         accessorKey: 'validTo',
-        header: '失效时间',
+        header: 'Valid To',
         cell: ({ row }) => <span>{formatDateTime(row.original.validTo)}</span>,
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => (
           <StatusBadge
             status={row.original.status}
@@ -1478,50 +1430,32 @@ export function LpPreauthListPage() {
           />
         ),
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              onClick={() => {
-                stashRow('lp-preauth', row.original.preauthId, row.original);
-                router.push(
-                  lpRoute('lp-preauth', 'detail', row.original.preauthId),
-                );
-              }}
-            >
-              {LBL.view}
-            </Button>
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              onClick={() => {
-                stashRow('lp-preauth', row.original.preauthId, row.original);
-                router.push(
-                  lpRoute('lp-preauth', 'edit', row.original.preauthId) +
-                    `&lpId=${row.original.lpId}`,
-                );
-              }}
-            >
-              {LBL.edit}
-            </Button>
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0 text-destructive"
-              disabled={row.original.status !== 20 || revokeMutation.isPending}
-              onClick={() => onRevoke(row.original)}
-            >
-              撤销
-            </Button>
-          </div>
-        ),
-      },
+      createActionColumn<LpPreauthRow & { id: string }>((item) => {
+        const actions: TableRowAction<LpPreauthRow & { id: string }>[] = [
+          {
+            label: LBL.view,
+            onClick: () => {
+              stashRow('lp-preauth', item.preauthId, item);
+              router.push(lpRoute('lp-preauth', 'detail', item.preauthId));
+            },
+          },
+          {
+            label: LBL.edit,
+            onClick: () =>
+              router.push(
+                lpRoute('lp-preauth', 'edit', item.preauthId) +
+                  `&lpId=${item.lpId}`,
+              ),
+          },
+          {
+            label: 'Revoke',
+            destructive: true,
+            disabled: item.status !== 20 || revokeMutation.isPending,
+            onClick: () => onRevoke(item),
+          },
+        ];
+        return actions;
+      }),
     ],
     [router, onRevoke, revokeMutation.isPending],
   );
@@ -1535,9 +1469,9 @@ export function LpPreauthListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit((f) => setParams(lpPreauthFormToParams(f)))}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询条件</div>
+        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <FormSelect
             name="lpId"
@@ -1549,15 +1483,15 @@ export function LpPreauthListPage() {
           <FormSelect
             name="poolId"
             control={control}
-            label="资金池"
+            label="Funding Pool"
             placeholder={LBL.all}
             options={poolToOptions(poolOptions)}
           />
-          <FormField name="currency" label="币种" register={register('currency')} />
+          <FormField name="currency" label="Currency" register={register('currency')} />
           <FormSelect
             name="status"
             control={control}
-            label="状态"
+            label="Status"
             placeholder={LBL.all}
             options={statusOptions(LP_PREAUTH_STATUS_LABEL)}
           />
@@ -1577,8 +1511,8 @@ export function LpPreauthListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
           <div className="text-sm font-semibold">{LBL.records}</div>
           <Button
             type="button"
@@ -1718,11 +1652,11 @@ export function LpPreauthFormPage() {
 
   const onSubmit = handleSubmit((values) => {
     if (!values.lpId) {
-      toast.warning('请选择 LP');
+      toast.warning('Please select an LP');
       return;
     }
     if (!values.poolId) {
-      toast.warning('请选择资金池');
+      toast.warning('Please select a funding pool');
       return;
     }
     if (!values.validFrom || !values.validTo) return;
@@ -1738,7 +1672,7 @@ export function LpPreauthFormPage() {
     if (isEdit && preauthId) req.preauthId = preauthId;
     saveMutation.mutate(req, {
       onSuccess: () => {
-        toast.success(isEdit ? '已保存' : '已创建(生效)');
+        toast.success(isEdit ? 'Saved' : 'Created (Effective)');
         router.push(lpRoute('lp-preauth'));
       },
       onError: () => toast.error(LBL.saveFailed),
@@ -1749,9 +1683,9 @@ export function LpPreauthFormPage() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <div className="mb-6 text-base font-semibold">
-          {isEdit ? '编辑预授权' : '新增预授权'}
+          {isEdit ? 'Edit Pre-Authorization' : 'Add Pre-Authorization'}
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormSelect
@@ -1760,26 +1694,26 @@ export function LpPreauthFormPage() {
             label="LP"
             required
             disabled={isEdit}
-            placeholder="选择 LP"
+            placeholder="Select an LP"
             options={lpToOptions(lpOptions)}
           />
           <FormSelect
             name="poolId"
             control={control}
-            label="资金池"
+            label="Funding Pool"
             required
             disabled={isEdit || !lpIdForPools}
-            placeholder={lpIdForPools ? '选择资金池' : '请先选择 LP'}
+            placeholder={lpIdForPools ? 'Select a funding pool' : 'Select an LP first'}
             options={poolToOptions(poolOptions)}
           />
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              授权额度<span className="ml-0.5 text-red-500">*</span>
+              Authorized Amount<span className="ml-0.5 text-red-500">*</span>
             </label>
             <Input
               {...register('authAmount', {
-                required: '请输入授权额度',
-                validate: (v) => Number(v) > 0 || '需大于 0',
+                required: 'Please enter the authorized amount',
+                validate: (v) => Number(v) > 0 || 'Must be greater than 0',
               })}
             />
             {errors.authAmount && (
@@ -1790,12 +1724,12 @@ export function LpPreauthFormPage() {
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              生效时间<span className="ml-0.5 text-red-500">*</span>
+              Valid From<span className="ml-0.5 text-red-500">*</span>
             </label>
             <input
               type="datetime-local"
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              {...register('validFrom', { required: '请选择生效时间' })}
+              {...register('validFrom', { required: 'Please select the valid-from time' })}
             />
             {errors.validFrom && (
               <p className="text-sm text-destructive" role="alert">
@@ -1805,19 +1739,19 @@ export function LpPreauthFormPage() {
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              失效时间<span className="ml-0.5 text-red-500">*</span>
+              Valid To<span className="ml-0.5 text-red-500">*</span>
             </label>
             <input
               type="datetime-local"
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
               {...register('validTo', {
-                required: '请选择失效时间',
+                required: 'Please select the valid-to time',
                 validate: (v) => {
                   const from = getValues('validFrom');
                   if (!v || !from) return true;
                   return (
                     new Date(v).getTime() > new Date(from).getTime() ||
-                    '失效时间必须晚于生效时间'
+                    'Valid-to time must be later than valid-from time'
                   );
                 },
               })}
@@ -1829,11 +1763,11 @@ export function LpPreauthFormPage() {
             )}
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">授权凭证</label>
+            <label className="text-sm font-medium">Authorization Credential</label>
             <Input {...register('authCredential')} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">链上授权交易 ID</label>
+            <label className="text-sm font-medium">On-Chain Authorization Transaction ID</label>
             <Input {...register('authCsTxId')} />
           </div>
         </div>
@@ -1876,25 +1810,25 @@ export function LpPreauthDetailPage() {
 
   return (
     <DetailShell
-      title="预授权详情"
+      title="Pre-Authorization Details"
       onBack={() => router.push(lpRoute('lp-preauth'))}
     >
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <ReadonlyField label="LP 名称" value={row.lpName} />
-        <ReadonlyField label="币种" value={row.currency} />
-        <ReadonlyField label="资金池 ID" value={row.poolId} />
-        <ReadonlyField label="授权额度" value={formatAmount(row.authAmount)} />
-        <ReadonlyField label="已用额度" value={formatAmount(row.usedAmount)} />
+        <ReadonlyField label="LP Name" value={row.lpName} />
+        <ReadonlyField label="Currency" value={row.currency} />
+        <ReadonlyField label="Funding Pool ID" value={row.poolId} />
+        <ReadonlyField label="Authorized Amount" value={formatAmount(row.authAmount)} />
+        <ReadonlyField label="Used Amount" value={formatAmount(row.usedAmount)} />
         <ReadonlyField
-          label="剩余额度"
+          label="Remaining Amount"
           value={formatAmount(
             Number(row.authAmount ?? 0) - Number(row.usedAmount ?? 0),
           )}
         />
-        <ReadonlyField label="生效时间" value={formatDateTime(row.validFrom)} />
-        <ReadonlyField label="失效时间" value={formatDateTime(row.validTo)} />
+        <ReadonlyField label="Valid From" value={formatDateTime(row.validFrom)} />
+        <ReadonlyField label="Valid To" value={formatDateTime(row.validTo)} />
         <ReadonlyField
-          label="状态"
+          label="Status"
           value={
             <StatusBadge
               status={row.status}
@@ -1903,9 +1837,9 @@ export function LpPreauthDetailPage() {
             />
           }
         />
-        <ReadonlyField label="授权凭证" value={row.authCredential} />
-        <ReadonlyField label="链上授权交易 ID" value={row.authCsTxId} />
-        <ReadonlyField label="创建时间" value={formatDateTime(row.createTime)} />
+        <ReadonlyField label="Authorization Credential" value={row.authCredential} />
+        <ReadonlyField label="On-Chain Authorization Transaction ID" value={row.authCsTxId} />
+        <ReadonlyField label="Created At" value={formatDateTime(row.createTime)} />
       </div>
     </DetailShell>
   );
@@ -1976,11 +1910,11 @@ function LpPairFormDialog({ open, onOpenChange, editing }: LpPairDialogProps) {
 
   const onSubmit = handleSubmit((values) => {
     if (!values.lpId) {
-      toast.warning('请选择 LP');
+      toast.warning('Please select an LP');
       return;
     }
     if (!values.pairId) {
-      toast.warning('请选择货币对');
+      toast.warning('Please select a currency pair');
       return;
     }
     const req: LpPairSaveReq = {
@@ -1991,7 +1925,7 @@ function LpPairFormDialog({ open, onOpenChange, editing }: LpPairDialogProps) {
     if (editing) req.id = editing.id;
     saveMutation.mutate(req, {
       onSuccess: () => {
-        toast.success(editing ? '已保存' : '已创建(草稿)');
+        toast.success(editing ? 'Saved' : 'Created (Draft)');
         onOpenChange(false);
       },
       onError: () => toast.error(LBL.saveFailed),
@@ -2002,7 +1936,7 @@ function LpPairFormDialog({ open, onOpenChange, editing }: LpPairDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{editing ? '编辑参与货币对' : '新增参与货币对'}</DialogTitle>
+          <DialogTitle>{editing ? 'Edit Currency Pair Participation' : 'Add Currency Pair Participation'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <FormSelect
@@ -2011,20 +1945,20 @@ function LpPairFormDialog({ open, onOpenChange, editing }: LpPairDialogProps) {
             label="LP"
             required
             disabled={!!editing}
-            placeholder="选择 LP"
+            placeholder="Select an LP"
             options={lpToOptions(lpOptions)}
           />
           <FormSelect
             name="pairId"
             control={control}
-            label="货币对"
+            label="Currency Pair"
             required
             disabled={!!editing}
-            placeholder="选择货币对"
+            placeholder="Select a currency pair"
             options={pairToOptions(pairOptions)}
           />
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">备注</label>
+            <label className="text-sm font-medium">Remark</label>
             <Textarea rows={3} {...register('remark')} />
           </div>
           <DialogFooter>
@@ -2090,9 +2024,9 @@ export function LpCurrencyPairListPage() {
 
   const onSubmit = React.useCallback(
     (row: LpPairRow) => {
-      if (!window.confirm('确认提交该记录进入审批?')) return;
+      if (!window.confirm('Confirm submitting this record for approval?')) return;
       submitMutation.mutate(row.id, {
-        onSuccess: () => toast.success('已提交审批'),
+        onSuccess: () => toast.success('Submitted for approval'),
         onError: () => toast.error(LBL.opFailed),
       });
     },
@@ -2105,15 +2039,15 @@ export function LpCurrencyPairListPage() {
       if (
         !window.confirm(
           stopping
-            ? '确认停用该 LP 参与货币对?停用后立即生效。'
-            : '确认恢复该 LP 参与货币对?恢复后需重新提交审批。',
+            ? 'Confirm disabling this LP currency pair participation? It takes effect immediately.'
+            : 'Confirm restoring this LP currency pair participation? It must be resubmitted for approval after restoration.',
         )
       )
         return;
       statusMutation.mutate(
         { id: row.id, targetStatus: target },
         {
-          onSuccess: () => toast.success(stopping ? '已停用' : '已恢复为草稿'),
+          onSuccess: () => toast.success(stopping ? 'Disabled' : 'Restored to Draft'),
           onError: () => toast.error(LBL.opFailed),
         },
       );
@@ -2123,9 +2057,9 @@ export function LpCurrencyPairListPage() {
 
   const onRemove = React.useCallback(
     (row: LpPairRow) => {
-      if (!window.confirm('确认移除该 LP 参与货币对记录?移除后不可恢复。')) return;
+      if (!window.confirm('Confirm removing this LP currency pair participation record? This cannot be undone.')) return;
       removeMutation.mutate(row.id, {
-        onSuccess: () => toast.success('已移除'),
+        onSuccess: () => toast.success('Removed'),
         onError: () => toast.error(LBL.opFailed),
       });
     },
@@ -2136,10 +2070,10 @@ export function LpCurrencyPairListPage() {
     ColumnDef<LpPairTableRow>[]
   >(
     () => [
-      { accessorKey: 'lpName', header: 'LP 名称' },
+      { accessorKey: 'lpName', header: 'LP Name' },
       {
         id: 'pair',
-        header: '货币对',
+        header: 'Currency Pair',
         cell: ({ row }) => (
           <span>
             {row.original.sourceCurrency}/{row.original.targetCurrency}
@@ -2148,7 +2082,7 @@ export function LpCurrencyPairListPage() {
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => (
           <StatusBadge
             status={row.original.status}
@@ -2159,99 +2093,69 @@ export function LpCurrencyPairListPage() {
       },
       {
         accessorKey: 'approvalRecordId',
-        header: '审批记录',
+        header: 'Approval Record',
         cell: ({ row }) => (
           <span>{row.original.approvalRecordId || '--'}</span>
         ),
       },
       {
         accessorKey: 'remark',
-        header: '备注',
+        header: 'Remark',
         cell: ({ row }) => (
           <span>{row.original.remark || '--'}</span>
         ),
       },
       {
         accessorKey: 'createTime',
-        header: '创建时间',
+        header: 'Created At',
         cell: ({ row }) => (
           <span>{formatDateTime(row.original.createTime)}</span>
         ),
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => {
-          const s = row.original.status;
-          const editable = s === 1 || s === 15;
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => {
-                  stashRow('lp-pair', Number(row.original.id), toLpPairRow(row.original));
-                  router.push(
-                    lpRoute('lp-currency-pair', 'detail', Number(row.original.id)),
-                  );
-                }}
-              >
-                {LBL.view}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={!editable}
-                onClick={() => openEdit(toLpPairRow(row.original))}
-              >
-                {LBL.edit}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={!editable}
-                onClick={() => onSubmit(toLpPairRow(row.original))}
-              >
-                提交审批
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={s !== 20}
-                onClick={() =>
-                  onToggle(toLpPairRow(row.original), LP_PAIR_TARGET_STATUS.disable)
-                }
-              >
-                停用
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={s !== 50}
-                onClick={() =>
-                  onToggle(toLpPairRow(row.original), LP_PAIR_TARGET_STATUS.restore)
-                }
-              >
-                恢复为草稿
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-destructive"
-                disabled={!editable}
-                onClick={() => onRemove(toLpPairRow(row.original))}
-              >
-                移除
-              </Button>
-            </div>
-          );
-        },
-      },
+      createActionColumn<LpPairTableRow>((item) => {
+        const s = item.status;
+        const editable = s === 1 || s === 15;
+        const actions: TableRowAction<LpPairTableRow>[] = [
+          {
+            label: LBL.view,
+            onClick: () => {
+              stashRow('lp-pair', Number(item.id), toLpPairRow(item));
+              router.push(
+                lpRoute('lp-currency-pair', 'detail', Number(item.id)),
+              );
+            },
+          },
+          {
+            label: LBL.edit,
+            disabled: !editable,
+            onClick: () => openEdit(toLpPairRow(item)),
+          },
+          {
+            label: 'Submit for Approval',
+            disabled: !editable,
+            onClick: () => onSubmit(toLpPairRow(item)),
+          },
+          {
+            label: 'Disable',
+            disabled: s !== 20,
+            onClick: () =>
+              onToggle(toLpPairRow(item), LP_PAIR_TARGET_STATUS.disable),
+          },
+          {
+            label: 'Restore to Draft',
+            disabled: s !== 50,
+            onClick: () =>
+              onToggle(toLpPairRow(item), LP_PAIR_TARGET_STATUS.restore),
+          },
+          {
+            label: 'Remove',
+            destructive: true,
+            disabled: !editable,
+            onClick: () => onRemove(toLpPairRow(item)),
+          },
+        ];
+        return actions;
+      }),
     ],
     [router, openEdit, onSubmit, onToggle, onRemove],
   );
@@ -2265,9 +2169,9 @@ export function LpCurrencyPairListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit((f) => setParams(lpPairFormToParams(f)))}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询条件</div>
+        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <FormSelect
             name="lpId"
@@ -2279,7 +2183,7 @@ export function LpCurrencyPairListPage() {
           <FormSelect
             name="pairId"
             control={control}
-            label="货币对"
+            label="Currency Pair"
             placeholder={LBL.all}
             options={pairToOptions(pairOptions)}
           />
@@ -2290,7 +2194,7 @@ export function LpCurrencyPairListPage() {
               LP_PAIR_STATUS_LABEL,
               [1, 3, 5, 10, 15, 20, 50],
             )}
-            label="状态"
+            label="Status"
             placeholder={LBL.all}
           />
         </div>
@@ -2309,8 +2213,8 @@ export function LpCurrencyPairListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
           <div className="text-sm font-semibold">{LBL.records}</div>
           <Button type="button" size="sm" onClick={openCreate}>
             {LBL.add}
@@ -2377,17 +2281,17 @@ export function LpCurrencyPairDetailPage() {
 
   return (
     <DetailShell
-      title="参与货币对详情"
+      title="Currency Pair Participation Details"
       onBack={() => router.push(lpRoute('lp-currency-pair'))}
     >
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <ReadonlyField label="LP 名称" value={row.lpName} />
+        <ReadonlyField label="LP Name" value={row.lpName} />
         <ReadonlyField
-          label="货币对"
+          label="Currency Pair"
           value={`${row.sourceCurrency}/${row.targetCurrency}`}
         />
         <ReadonlyField
-          label="状态"
+          label="Status"
           value={
             <StatusBadge
               status={row.status}
@@ -2396,8 +2300,8 @@ export function LpCurrencyPairDetailPage() {
             />
           }
         />
-        <ReadonlyField label="备注" value={row.remark} />
-        <ReadonlyField label="创建时间" value={formatDateTime(row.createTime)} />
+        <ReadonlyField label="Remark" value={row.remark} />
+        <ReadonlyField label="Created At" value={formatDateTime(row.createTime)} />
       </div>
     </DetailShell>
   );
@@ -2464,11 +2368,11 @@ function LpTopupDeclareDialog({ open, onOpenChange }: LpTopupDialogProps) {
 
   const onSubmit = handleSubmit((values) => {
     if (!values.lpId) {
-      toast.warning('请选择 LP');
+      toast.warning('Please select an LP');
       return;
     }
     if (!values.poolId) {
-      toast.warning('请选择资金池');
+      toast.warning('Please select a funding pool');
       return;
     }
     const addr = values.transferInAddress.trim();
@@ -2480,7 +2384,7 @@ function LpTopupDeclareDialog({ open, onOpenChange }: LpTopupDialogProps) {
     };
     saveMutation.mutate(req, {
       onSuccess: () => {
-        toast.success('已提交补资声明');
+        toast.success('Top-up declaration submitted');
         onOpenChange(false);
       },
       onError: () => toast.error(LBL.saveFailed),
@@ -2491,7 +2395,7 @@ function LpTopupDeclareDialog({ open, onOpenChange }: LpTopupDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>声明补资</DialogTitle>
+          <DialogTitle>Declare Top-Up</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <FormSelect
@@ -2499,26 +2403,26 @@ function LpTopupDeclareDialog({ open, onOpenChange }: LpTopupDialogProps) {
             control={control}
             label="LP"
             required
-            placeholder="选择 LP"
+            placeholder="Select an LP"
             options={lpToOptions(lpOptions)}
           />
           <FormSelect
             name="poolId"
             control={control}
-            label="资金池"
+            label="Funding Pool"
             required
             disabled={!lpIdForPools}
-            placeholder={lpIdForPools ? '选择资金池' : '请先选择 LP'}
+            placeholder={lpIdForPools ? 'Select a funding pool' : 'Select an LP first'}
             options={poolToOptions(poolOptions)}
           />
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              补资金额<span className="ml-0.5 text-red-500">*</span>
+              Top-Up Amount<span className="ml-0.5 text-red-500">*</span>
             </label>
             <Input
               {...register('amount', {
-                required: '请输入补资金额',
-                validate: (v) => Number(v) > 0 || '需大于 0',
+                required: 'Please enter the top-up amount',
+                validate: (v) => Number(v) > 0 || 'Must be greater than 0',
               })}
             />
             {errors.amount && (
@@ -2528,10 +2432,10 @@ function LpTopupDeclareDialog({ open, onOpenChange }: LpTopupDialogProps) {
             )}
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">转入地址</label>
+            <label className="text-sm font-medium">Transfer-In Address</label>
             <Input
               className="font-mono"
-              placeholder="留空使用资金池账户地址"
+              placeholder="Leave blank to use the funding pool account address"
               {...register('transferInAddress')}
             />
           </div>
@@ -2545,7 +2449,7 @@ function LpTopupDeclareDialog({ open, onOpenChange }: LpTopupDialogProps) {
               {LBL.cancel}
             </Button>
             <Button type="submit" disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? LBL.saving : '提交声明'}
+              {saveMutation.isPending ? LBL.saving : 'Submit Declaration'}
             </Button>
           </DialogFooter>
         </form>
@@ -2584,16 +2488,16 @@ export function LpTopupListPage() {
     ColumnDef<LpTopupRow & { id: string }>[]
   >(
     () => [
-      { accessorKey: 'lpName', header: 'LP 名称' },
-      { accessorKey: 'currency', header: '币种' },
+      { accessorKey: 'lpName', header: 'LP Name' },
+      { accessorKey: 'currency', header: 'Currency' },
       {
         accessorKey: 'amount',
-        header: '补资金额',
+        header: 'Top-Up Amount',
         cell: ({ row }) => <span>{formatAmount(row.original.amount)}</span>,
       },
       {
         accessorKey: 'transferInAddress',
-        header: '转入地址',
+        header: 'Transfer-In Address',
         cell: ({ row }) => (
           <span className="font-mono text-xs">
             {row.original.transferInAddress || '--'}
@@ -2602,28 +2506,28 @@ export function LpTopupListPage() {
       },
       {
         accessorKey: 'declareTime',
-        header: '声明时间',
+        header: 'Declared At',
         cell: ({ row }) => (
           <span>{formatDateTime(row.original.declareTime)}</span>
         ),
       },
       {
         accessorKey: 'confirmTime',
-        header: '到账时间',
+        header: 'Credited At',
         cell: ({ row }) => (
           <span>{formatDateTime(row.original.confirmTime)}</span>
         ),
       },
       {
         accessorKey: 'csTxId',
-        header: '链上交易 ID',
+        header: 'On-Chain Transaction ID',
         cell: ({ row }) => (
           <span className="font-mono text-xs">{row.original.csTxId || '--'}</span>
         ),
       },
       {
         accessorKey: 'status',
-        header: '状态',
+        header: 'Status',
         cell: ({ row }) => (
           <StatusBadge
             status={row.original.status}
@@ -2632,24 +2536,18 @@ export function LpTopupListPage() {
           />
         ),
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => {
-                stashRow('lp-topup', row.original.topupId, row.original);
-                router.push(lpRoute('lp-topup', 'detail', row.original.topupId));
-              }}
-            >
-              {LBL.view}
-            </Button>
-          </div>
-        ),
-      },
+      createActionColumn<LpTopupRow & { id: string }>((item) => {
+        const actions: TableRowAction<LpTopupRow & { id: string }>[] = [
+          {
+            label: LBL.view,
+            onClick: () => {
+              stashRow('lp-topup', item.topupId, item);
+              router.push(lpRoute('lp-topup', 'detail', item.topupId));
+            },
+          },
+        ];
+        return actions;
+      }),
     ],
     [router],
   );
@@ -2663,9 +2561,9 @@ export function LpTopupListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit((f) => setParams(lpTopupFormToParams(f)))}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
-        <div className="mb-4 text-sm font-semibold">查询条件</div>
+        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <FormSelect
             name="lpId"
@@ -2674,11 +2572,11 @@ export function LpTopupListPage() {
             placeholder={LBL.all}
             options={lpToOptions(lpOptions)}
           />
-          <FormField name="currency" label="币种" register={register('currency')} />
+          <FormField name="currency" label="Currency" register={register('currency')} />
           <FormSelect
             name="status"
             control={control}
-            label="状态"
+            label="Status"
             placeholder={LBL.all}
             options={statusOptions(LP_TOPUP_STATUS_LABEL)}
           />
@@ -2698,11 +2596,11 @@ export function LpTopupListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-3">
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
           <div className="text-sm font-semibold">{LBL.records}</div>
           <Button type="button" size="sm" onClick={() => setDialogOpen(true)}>
-            声明补资
+            Declare Top-Up
           </Button>
         </div>
         <DataTable
@@ -2759,16 +2657,16 @@ export function LpTopupDetailPage() {
     return <NotFoundBlock onBack={() => router.push(lpRoute('lp-topup'))} />;
 
   return (
-    <DetailShell title="补资记录详情" onBack={() => router.push(lpRoute('lp-topup'))}>
+    <DetailShell title="Top-Up Record Details" onBack={() => router.push(lpRoute('lp-topup'))}>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <ReadonlyField label="LP 名称" value={row.lpName} />
-        <ReadonlyField label="币种" value={row.currency} />
-        <ReadonlyField label="资金池 ID" value={row.poolId} />
-        <ReadonlyField label="补资金额" value={formatAmount(row.amount)} />
-        <ReadonlyField label="声明时间" value={formatDateTime(row.declareTime)} />
-        <ReadonlyField label="到账时间" value={formatDateTime(row.confirmTime)} />
+        <ReadonlyField label="LP Name" value={row.lpName} />
+        <ReadonlyField label="Currency" value={row.currency} />
+        <ReadonlyField label="Funding Pool ID" value={row.poolId} />
+        <ReadonlyField label="Top-Up Amount" value={formatAmount(row.amount)} />
+        <ReadonlyField label="Declared At" value={formatDateTime(row.declareTime)} />
+        <ReadonlyField label="Credited At" value={formatDateTime(row.confirmTime)} />
         <ReadonlyField
-          label="状态"
+          label="Status"
           value={
             <StatusBadge
               status={row.status}
@@ -2777,11 +2675,11 @@ export function LpTopupDetailPage() {
             />
           }
         />
-        <ReadonlyField label="链上交易 ID" value={row.csTxId} />
-        <ReadonlyField label="创建时间" value={formatDateTime(row.createTime)} />
+        <ReadonlyField label="On-Chain Transaction ID" value={row.csTxId} />
+        <ReadonlyField label="Created At" value={formatDateTime(row.createTime)} />
         <div className="md:col-span-2 lg:col-span-3">
           <ReadonlyField
-            label="转入地址"
+            label="Transfer-In Address"
             value={<span className="font-mono text-xs">{row.transferInAddress}</span>}
           />
         </div>
@@ -2789,4 +2687,3 @@ export function LpTopupDetailPage() {
     </DetailShell>
   );
 }
-

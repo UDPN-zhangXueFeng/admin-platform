@@ -52,46 +52,46 @@ export interface ApprovalDetailResp {
 
 /** 主表 reviewerStatus（CommonStatusEnum，源 views/approval/status.ts COMMON_STATUS_MAP）。 */
 export const COMMON_STATUS_MAP: Record<number, string> = {
-  1: '保存(草稿)',
-  3: '撤回',
-  5: '待审核',
-  10: '审核中',
-  15: '审核拒绝',
-  20: '审核通过',
-  25: '已签名',
-  30: '提交中',
-  35: '最终确认',
-  40: '提交失败',
-  45: '删除',
-  50: '停用',
+  1: 'Saved (Draft)',
+  3: 'Withdrawn',
+  5: 'Pending Review',
+  10: 'Under Review',
+  15: 'Rejected',
+  20: 'Approved',
+  25: 'Signed',
+  30: 'Submitting',
+  35: 'Final Confirmation',
+  40: 'Submission Failed',
+  45: 'Deleted',
+  50: 'Disabled',
 };
 
 /** 节点 reviewerStatus（ApprovalStatusEnum，源 DETAIL_STATUS_MAP）。 */
 export const DETAIL_STATUS_MAP: Record<number, string> = {
-  0: '无法审核',
-  1: '待审核',
-  2: '审核失败',
-  3: '审核成功',
-  4: '无需审核',
+  0: 'Not Reviewable',
+  1: 'Pending Review',
+  2: 'Review Failed',
+  3: 'Review Approved',
+  4: 'Review Not Required',
 };
 
 /** 9 类业务中文名（WorkflowBusinessTypeEnum.description，源 BUSINESS_NAME_MAP）。 */
 export const BUSINESS_NAME_MAP: Record<string, string> = {
-  kissen_bank_onboard: '银行入网审批',
-  kissen_lp_onboard: 'LP 入网审批',
-  kissen_lp_pair: 'LP 参与货币对变更',
-  kissen_rate_change: '汇率加价率变更',
-  kissen_pair_toggle: '货币对启停',
-  kissen_freeze: '紧急冻结解冻',
-  kissen_settle_confirm: '结算单确认',
-  kissen_split_transfer: '分成划转',
-  kissen_limit_change: '银行限额变更',
+  kissen_bank_onboard: 'Bank Onboarding Approval',
+  kissen_lp_onboard: 'LP Onboarding Approval',
+  kissen_lp_pair: 'LP Currency Pair Participation Change',
+  kissen_rate_change: 'Exchange Rate Markup Change',
+  kissen_pair_toggle: 'Currency Pair Enable/Disable',
+  kissen_freeze: 'Emergency Freeze/Unfreeze',
+  kissen_settle_confirm: 'Settlement Order Confirmation',
+  kissen_split_transfer: 'Split Transfer',
+  kissen_limit_change: 'Bank Limit Change',
 };
 
 /** 业务特有状态码映射（优先于全局 COMMON_STATUS_MAP，源 views/approval/format.ts）。 */
 export const BUSINESS_STATUS_MAP: Record<string, Record<number, string>> = {
-  kissen_split_transfer: { 1: '处理中', 2: '成功', 3: '失败' },
-  kissen_settle_confirm: { 20: '已确认', 35: '已结算' },
+  kissen_split_transfer: { 1: 'Processing', 2: 'Success', 3: 'Failed' },
+  kissen_settle_confirm: { 20: 'Confirmed', 35: 'Settled' },
 };
 
 /**

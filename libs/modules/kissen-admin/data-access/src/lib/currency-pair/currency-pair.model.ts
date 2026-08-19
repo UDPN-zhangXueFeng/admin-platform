@@ -57,9 +57,9 @@ export const CurrencyPairStatus = {
 
 /** 货币对状态文案（复用源 COMMON_STATUS_MAP 子集）。 */
 export const CURRENCY_PAIR_STATUS_LABEL: Record<number, string> = {
-  1: '保存(草稿)',
-  20: '审核通过',
-  50: '停用',
+  1: 'Saved (Draft)',
+  20: 'Approved',
+  50: 'Disabled',
 };
 
 /**

@@ -43,6 +43,27 @@ export const DATETIME_FORMAT_SHORT = 'PPp';
 export const DATETIME_FORMAT_LONG = 'PPPppp';
 
 /**
+ * Admin table date-time format: "Jul 29, 2025, 10:08:35 UTC +08:00".
+ *
+ * Single canonical format for every admin table timestamp so columns stay
+ * sortable-by-eye and consistently aligned. The UTC offset rendered is the
+ * viewer's local offset (`XXX` token), i.e. the wall-clock time shown is the
+ * user's local time annotated with its offset from UTC.
+ */
+export const DATETIME_FORMAT_ADMIN = "MMM dd, yyyy, HH:mm:ss 'UTC' XXX";
+
+/**
+ * Formats a date value in the unified admin table format
+ * ("Jul 29, 2025, 10:08:35 UTC +08:00").
+ *
+ * @example
+ * formatAdminDateTime(new Date(2025, 6, 29, 10, 8, 35)) // => "Jul 29, 2025, 10:08:35 UTC +08:00" (at UTC+8)
+ */
+export function formatAdminDateTime(date: Date | number | string): string {
+  return formatDateFn(date, DATETIME_FORMAT_ADMIN);
+}
+
+/**
  * Converts legacy Moment-style date tokens to date-fns Unicode tokens.
  *
  * Existing migrated pages use `YYYY`/`YY`/`DD`, while date-fns rejects those

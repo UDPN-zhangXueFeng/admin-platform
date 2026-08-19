@@ -1,5 +1,8 @@
 'use client';
 
+// Ensures the `ColumnMeta` augmentation (overflow / maxWidth / stickyRight)
+// in data-table.types.ts is visible for the column defs consumed below.
+import type {} from './data-table.types';
 import * as React from 'react';
 import {
   ColumnDef,
@@ -10,7 +13,19 @@ import {
   RowSelectionState,
   PaginationState,
 } from '@tanstack/react-table';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from 'lucide-react';
+import {
+  Tooltip,
+  TooltipArrow,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../tooltip';
 import { cn } from '@myorg/shared/util-classnames';
 import {
   Select,
@@ -48,6 +63,102 @@ export interface DataTableProps<TData extends { id: string }> {
   selection?: DataTableSelection;
   emptyMessage?: string;
   className?: string;
+}
+
+const DEFAULT_CELL_MAX_WIDTH = 240;
+const WRAP_CELL_MAX_WIDTH = 360;
+
+/**
+ * Truncates content past `maxWidth` and reveals the full content in a Radix
+ * tooltip — but only when the content actually overflows (measured on hover),
+ * so short cells never pop a redundant tooltip.
+ */
+function EllipsisWithTooltip({
+  children,
+  maxWidth,
+}: {
+  children: React.ReactNode;
+  maxWidth: number;
+}) {
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const showTimer = React.useRef<number | undefined>(undefined);
+  const [open, setOpen] = React.useState(false);
+
+  const clearShowTimer = () => {
+    if (showTimer.current !== undefined) {
+      window.clearTimeout(showTimer.current);
+      showTimer.current = undefined;
+    }
+  };
+
+  React.useEffect(clearShowTimer, []);
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip open={open}>
+        <TooltipTrigger asChild>
+          <div
+            ref={contentRef}
+            onPointerEnter={() => {
+              const el = contentRef.current;
+              if (el && el.scrollWidth > el.clientWidth) {
+                showTimer.current = window.setTimeout(
+                  () => setOpen(true),
+                  150,
+                );
+              }
+            }}
+            onPointerLeave={() => {
+              clearShowTimer();
+              setOpen(false);
+            }}
+            className="truncate"
+            style={{ maxWidth }}
+          >
+            {children}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          sideOffset={6}
+          className="max-w-[var(--wrap-w)] select-text whitespace-normal break-all font-mono text-xs leading-relaxed shadow-lg"
+          style={{ ['--wrap-w' as string]: `${WRAP_CELL_MAX_WIDTH}px` }}
+        >
+          {children}
+          <TooltipArrow className="fill-popover" width={10} height={5} />
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function DataTableCellContent({
+  columnId,
+  meta,
+  children,
+}: {
+  columnId: string;
+  meta: { overflow?: 'ellipsis' | 'wrap' | 'none'; maxWidth?: number } | undefined;
+  children: React.ReactNode;
+}) {
+  if (columnId === 'actions' || meta?.overflow === 'none') {
+    return <>{children}</>;
+  }
+  if (meta?.overflow === 'wrap') {
+    return (
+      <div
+        className="whitespace-normal break-words"
+        style={{ maxWidth: meta.maxWidth ?? WRAP_CELL_MAX_WIDTH }}
+      >
+        {children}
+      </div>
+    );
+  }
+  return (
+    <EllipsisWithTooltip maxWidth={meta?.maxWidth ?? DEFAULT_CELL_MAX_WIDTH}>
+      {children}
+    </EllipsisWithTooltip>
+  );
 }
 
 /**
@@ -118,8 +229,8 @@ export function DataTable<TData extends { id: string }>({
 
   return (
     <div className={cn('flex flex-col gap-4', className)}>
-      <div className="overflow-hidden rounded-md border">
-        <table className="w-full caption-bottom text-sm">
+      <div className="overflow-x-auto rounded-md border border-border/50 bg-card">
+        <table className="w-full min-w-max caption-bottom text-sm">
           <thead className="bg-muted/50">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
@@ -127,7 +238,12 @@ export function DataTable<TData extends { id: string }>({
                   <th
                     key={header.id}
                     scope="col"
-                    className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                    className={cn(
+                      'h-10 px-4 text-left align-middle font-medium text-muted-foreground',
+                      (header.column.columnDef.meta?.stickyRight ??
+                        header.column.id === 'actions') &&
+                        'sticky right-0 z-20 border-l border-border/50 bg-muted shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]'
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
@@ -137,7 +253,7 @@ export function DataTable<TData extends { id: string }>({
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y">
+          <tbody className="divide-y divide-border/50">
             {isLoading ? (
               Array.from({ length: pagination?.pageSize ?? 5 }).map((_, i) => (
                 <tr key={`skeleton-${i}`}>
@@ -163,13 +279,26 @@ export function DataTable<TData extends { id: string }>({
                   key={row.id}
                   data-state={row.getIsSelected() ? 'selected' : undefined}
                   className={cn(
-                    'transition-colors hover:bg-muted/50',
+                    'group transition-colors hover:bg-muted/50',
                     row.getIsSelected() && 'bg-muted'
                   )}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 align-middle">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    <td
+                      key={cell.id}
+                      className={cn(
+                        'px-4 py-3 align-middle',
+                        (cell.column.columnDef.meta?.stickyRight ??
+                          cell.column.id === 'actions') &&
+                          'sticky right-0 z-10 border-l border-border/50 bg-card shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)] group-hover:bg-muted/60 group-data-[state=selected]:bg-muted'
+                      )}
+                    >
+                      <DataTableCellContent
+                        columnId={cell.column.id}
+                        meta={cell.column.columnDef.meta}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </DataTableCellContent>
                     </td>
                   ))}
                 </tr>
@@ -181,10 +310,10 @@ export function DataTable<TData extends { id: string }>({
 
       {/* Pagination */}
       {pagination && (
-        <div className="flex items-center justify-between px-1">
+        <div className="flex items-center justify-between px-4 pb-4">
           <div className="text-sm text-muted-foreground">
             {pagination.onPageSizeChange
-              ? `共 ${pagination.total} 条`
+              ? `Total ${pagination.total} items`
               : `Page ${currentPage} of ${totalPages}`}
           </div>
           <div className="flex items-center gap-2">
@@ -199,7 +328,7 @@ export function DataTable<TData extends { id: string }>({
                 <SelectContent>
                   {(pagination.pageSizeOptions ?? [10, 20, 50]).map((size) => (
                     <SelectItem key={size} value={String(size)}>
-                      {size} / 页
+                      {size} / page
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -34,6 +34,7 @@ const sidebarSchema = z.object({
   collapsible: z.boolean().default(true),
   collapsedWidth: z.string().default('68px'),
   showIconsOnlyCollapsed: z.boolean().default(true),
+  singleExpand: z.boolean().default(false),
 });
 
 const headerSchema = z.object({
