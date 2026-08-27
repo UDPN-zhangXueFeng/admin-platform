@@ -27,13 +27,30 @@ description: |
 | 状态文件 | `<admin-platform>/.claude/update-gateway-state.json` |
 | 目标实现 | `apps/kissen-gateway-portal`（**唯一目标**，本 skill 不处理其他 app/libs） |
 | 本 skill 范围 | 仅 admin-platform 项目；cwd 不是 admin-platform 根时直接报错，不猜测 |
+| 迁移基线文档 | `<admin-platform>/.doc/kissen/project/gateway/`（00–05 全量迁移文档集 + `verify/` 验收留档；详见下方小节） |
+
+## 迁移基线文档集（同步的对照起点，勿重做）
+
+`<admin-platform>/.doc/kissen/project/gateway/` 下已有一套**已完成的全量迁移文档**（P0–P4 全部完成、终审 PASS）：
+
+| 文档 | 内容 | 同步时的用途 |
+|------|------|--------------|
+| `00-README.md` | 规划总览：范围终裁、用户锁定约束（全英文文案/toast-only/login 铺满/1280×800/admin 隔离） | 同步任务同样受这五条锁定约束 |
+| `01-Vue功能全量清单与迁移矩阵.md` | 上游功能一比一权威基线（416 行，页面×按钮×API×类型级清单） | 判断「目标侧已实现什么」的第一事实源 |
+| `02-文档需求与现状差距.md` / `03-组件复用与UI方案.md` / `04-响应式适配方案.md` | 差距分析 / 组件映射 / 响应式规格 | 计划阶段复用组件映射与响应式断言 |
+| `05-实施计划与验收协议.md` | 批次划分 + 子 agent 校验协议 | 校验协议直接沿用 |
+| `verify/*.md` | 每页/每域验收报告留档 | 确认哪些页已被验证过对齐到哪一版上游快照 |
+
+**关键口径**：该文档集基于**某个历史上游快照**（01 头部记录了快照路径），不是最新 HEAD。
+因此本 skill 的每次增量同步 = 「既有文档基线 → 上游 HEAD」的差距分析；
+总结/计划必须先定位文档基线对应的近似上游 SHA，再写差距，禁止把已实现内容当新增重复立项。
 
 ## 流程总览
 
 | 阶段 | 做什么 | 完成标志 |
 |------|--------|----------|
 | 一·检查更新 | 跑脚本 fetch 上游，对比 state 里 lastSyncedSHA | 确认「有/无更新」及变更事实 |
-| 二·更新总结 | 读 diff + 变更文件源码，写按日期命名的开发文档 | 总结文档落盘，state.phase=summarized |
+| 二·更新总结+基线刷新 | 读 diff → 写日期总结文档 → 把增量合入基线文档集（00–05） | 总结落盘且 `01` 清单已对齐新上游 HEAD，phase=summarized |
 | 三·ultrathink 规划 | 最强推理把总结文档转为可开发计划文档 | 计划文档落盘，phase=planned |
 | 四·orchestrate 开发 | 按 orchestration skill 编排执行计划 | 计划内任务全部实现，phase=developed |
 | 五·校验循环 | 独立 reviewer 子 agent 对照计划校验，问题→修复→重验 | 全项通过，phase=verified，写回 lastSyncedSHA |
@@ -86,6 +103,12 @@ bash .claude/skills/update-gateway/scripts/check-updates.sh "$LAST_SYNCED_SHA"
   `## 批次 N：<old短SHA>..<new短SHA>` 章节继续写，不覆盖已有内容；
 - 只有日期没有第二份文件，保持单文件单日期。
 
+写总结前必做：读 `00-README.md` 与 `01-Vue功能全量清单与迁移矩阵.md` 的相关小节 + `verify/`
+对应页验收报告，确认目标侧**已实现到的语义版本**；涉及页面级大改（路由重排、菜单结构、删除页）时，
+用 `git log --follow -- src/router/index.ts` 等定位文档基线对应的近似上游 SHA，把本次 diff 拆成
+「已在文档基线内」与「真正新增」两段，只对后者立项。页面若在 00 §3 范围终裁中被裁掉
+（如 v2.0 增量、CSV 导出、menu-permission UI），同步时默认沿用既有裁定，除非用户新裁。
+
 写法（事实与判断分离，参照 module-migration 的成熟做法）：
 1. **事实段**（来自脚本，零改动照搬）：SHA 区间、时间范围、commit 列表、diff stat、变更文件清单。
 2. **判断段**（读上游仓库缓存里变更文件的**实际源码**后写，禁止只翻译 commit message）：
@@ -110,11 +133,26 @@ bash .claude/skills/update-gateway/scripts/check-updates.sh "$LAST_SYNCED_SHA"
 ## 4. 风险与依赖顺序
 ```
 
+### 基线文档集刷新（先于任何规划与开发，用户指定流程）
+
+总结确认后、进入阶段三之前，必须把本次增量合入 `<admin-platform>/.doc/kissen/project/gateway/`：
+1. `01-Vue功能全量清单与迁移矩阵.md`：被改页面的小节按新上游源码重写（按钮/API/类型/枚举级），
+   新增页面补全量条目，删除页面移入「已删除」记录；头部标注新的快照 SHA 与更新日期，
+   使 01 恢复「对齐 HEAD 的权威基线」地位。
+2. `00-README.md`：范围终裁、锁定约束如有变化同步修订；状态行注记最新同步 SHA 与日期。
+3. `03-组件复用与UI方案.md` / `04-响应式适配方案.md`：组件映射或响应式规格被波及时一并修订。
+4. `verify/`：旧验收报告只读保留（历史证据链）；被改页面标记「待重验」，
+   阶段五通过后在对应报告末尾追加新一轮 PASS 记录。
+
+刷新完成后：所有规划、开发、校验一律以**更新后的 01**为唯一对照基线；
+日期总结文档仅作为变更审计记录。
+
 写完置 `phase: summarized`，`summaryDoc` 记入状态。
 
 ## 阶段三：ultrathink 规划为开发计划
 
-对总结文档做 ultrathink 级深度推理（放慢、逐项推演目标侧文件改动与边界），产出：
+对总结文档做 ultrathink 级深度推理（放慢、逐项推演目标侧文件改动与边界），以**刷新后的
+`01-Vue功能全量清单与迁移矩阵.md`**为对照基线，产出：
 `.doc/kissen/project/gateway/YYYY-MM-DD-gateway开发计划.md`（与总结文档同日期）。
 
 计划必须可执行、可验收，每个任务包含：
@@ -123,8 +161,7 @@ bash .claude/skills/update-gateway/scripts/check-updates.sh "$LAST_SYNCED_SHA"
 ## 任务 T<n>：<名称>
 - 目标：<一句话>
 - 目标侧文件：<apps/libs 具体路径>
-- 上游依据：<总结文档 §2.x / 上游文件路径>
-- 步骤：<改动序列>
+- 上游依据：<总结文档 §2.x / 刷新后 01 §编号 / 上游文件路径>
 - 依赖：<T<m> 或 无>
 - 验收标准：<可核对条目，供阶段五逐项校验>
 ```
@@ -146,8 +183,11 @@ bash .claude/skills/update-gateway/scripts/check-updates.sh "$LAST_SYNCED_SHA"
 ## 阶段五：子 agent 校验循环（问题→修复→重验，直到通过）
 
 1. **独立 reviewer 子 agent**（未参与开发的 agent，如 `reviewer`），输入：
-   计划文档 + 本次变更的目标侧文件清单 + 总结文档路径。逐条核对每个任务的「验收标准」，
-   输出 `{item, passed, evidence}`；命中任一即视为未通过：
+   计划文档 + 本次变更的目标侧文件清单 + 总结文档路径
+   + `01-Vue功能全量清单与迁移矩阵.md` 中被改页面的对应小节（按钮级基线）
+   + `00-README §2` 五条锁定约束（全英文/toast-only/login 铺满/1280×800/admin 隔离，
+   同步改动不得回退这些已验收约束）。
+   逐条核对每个任务的「验收标准」，输出 `{item, passed, evidence}`；命中任一即视为未通过：
    - 验收标准任一条不满足；
    - 与上游变更语义不一致（字段名、枚举值、路由、i18n key 漏改错改）；
    - 破坏 admin-platform 现有约定（Nx boundary、i18n 前缀、shared 依赖方向）。

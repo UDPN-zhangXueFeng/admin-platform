@@ -81,3 +81,31 @@ describe('response interceptor session-expiry branch', () => {
     );
   });
 });
+
+/**
+ * blob 直通分支（源 request.ts 同款，/tx/export CSV 下载依赖）：
+ * 文件流响应（responseType: 'blob'）不经 ResultInfo 解包，整响应返回，
+ * 调用方从 resp.data 建 Blob 下载——不能当成 KissenResult 解析或丢弃 data。
+ */
+describe('response interceptor blob passthrough', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  it('returns the raw AxiosResponse for blob requests without unwrapping', async () => {
+    const csv = new Blob(['txNo\nKSN1'], { type: 'text/csv' });
+    kissenGatewayAxios.defaults.adapter = jest.fn().mockResolvedValue({
+      data: csv,
+      status: 200,
+      statusText: 'OK',
+      headers: { 'content-type': 'text/csv' },
+      config: { responseType: 'blob' },
+    }) as unknown as typeof kissenGatewayAxios.defaults.adapter;
+
+    const resp = await kissenGatewayAxios.post('/tx/export', {}, { responseType: 'blob' });
+    // 整响应返回，未解包 data、未按 ResultInfo 处理。
+    expect(resp).toMatchObject({ status: 200 });
+    expect(resp.data).toBe(csv);
+    expect((resp.data as Blob).type).toBe('text/csv');
+  });
+});

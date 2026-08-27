@@ -18,8 +18,12 @@
  *    「删除成功」；成功后刷新由 mutation invalidate menuKeys → 树自动重取。
  *  - 新增按钮 v-perm 'bank:menu:manage'（useGatewayPerm，未命中不渲染）；
  *    表格内编辑/删除源未挂 v-perm，保持一致。
- *  - 源菜单页没有 menu-permission 资源管理交互（端点 hook 已在
- *    data-access menu.mutations 预置），页面不渲染该区块。
+ *  - 接口权限面板（源 §2.6 新增「移除」操作）：编辑弹窗内按节点 menuKey
+ *    拉 /menu/menu-permission/list 展示 method+URL 行，行内 Remove →
+ *    confirm 弹窗 → permissionDelete(menuPermissionId)；成功 toast +
+ *    重拉列表即时刷新（invalidate 由 delete hook 承担）。错误 toast 为
+ *    client 抛出的英文 message（KissenApiError 内嵌 traceId）。
+ *    源同区块的「添加」输入行不在 T12 范围（任务仅覆盖移除操作）。
  */
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -56,10 +60,13 @@ import { FormField, FormSelect, createFormResolver } from '@myorg/shared/ui-form
 import { cn } from '@myorg/shared/util-classnames';
 import {
   KISSEN_GATEWAY_PROJECT_ID,
+  useMenuPermissionDeleteMutation,
+  useMenuPermissionListMutation,
   useMenuRemoveMutation,
   useMenuSaveMutation,
   useMenuTreeQuery,
   useMenuUpdateMutation,
+  type MenuPermissionRow,
   type MenuTree,
 } from '@myorg/modules/kissen-gateway/data-access';
 import { useGatewayPerm } from './use-gateway-perm';
@@ -301,7 +308,7 @@ function MenuFormDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[520px]">
+      <DialogContent className="sm:max-w-[520px] lg:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit Menu' : 'Create Menu'}</DialogTitle>
         </DialogHeader>
@@ -424,6 +431,14 @@ function MenuFormDialog({
             register={register('icon')}
           />
 
+          {/* 接口权限面板（源 el-divider + isEdit 区块；仅编辑已保存节点展示）。 */}
+          {editing && (
+            <MenuPermissionPanel
+              menuKey={state.row.menuKey}
+              menuName={state.row.menuName}
+            />
+          )}
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
@@ -436,6 +451,161 @@ function MenuFormDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ================================================================== */
+/* 接口权限面板（源 menu.vue isEdit 区块 + §2.6「移除」操作）           */
+/* ================================================================== */
+
+const PERM_TABLE_HEADERS = ['Method', 'URL', 'Actions'] as const;
+
+/**
+ * 编辑弹窗内的接口权限表（源 el-table :data="perms" 1:1）。
+ * list 为 POST 查询端点 → useMenuPermissionListMutation 命令式建模
+ * （data-access 预置 hook）；移除 → confirm 弹窗 → permissionDelete，
+ * delete hook onSuccess invalidate permissionList 维度，再 mutateAsync
+ * 重拉实现「删除后列表即时刷新」。
+ */
+function MenuPermissionPanel({
+  menuKey,
+  menuName,
+}: {
+  menuKey: string;
+  menuName: string;
+}) {
+  const toast = useToast();
+  const listMutation = useMenuPermissionListMutation(KISSEN_GATEWAY_PROJECT_ID);
+  const deleteMutation = useMenuPermissionDeleteMutation(
+    KISSEN_GATEWAY_PROJECT_ID,
+  );
+  const [permDeleteTarget, setPermDeleteTarget] =
+    React.useState<MenuPermissionRow | null>(null);
+
+  // 挂载即按当前节点 menuKey 拉取（源 onNodeClick → loadPerms）。
+  // 仅随节点切换重拉；mutate/listMutation 为稳定引用不纳入依赖。
+  React.useEffect(() => {
+    listMutation.mutate({ menuKey });
+  }, [menuKey, listMutation]);
+
+  const rows = listMutation.data ?? [];
+  const loading = listMutation.isPending;
+
+  /** 源 removePerm：确认后 permissionDelete → 重拉列表（invalidate + 显式 refetch）。 */
+  const onConfirmPermDelete = () => {
+    if (!permDeleteTarget) return;
+    const target = permDeleteTarget;
+    setPermDeleteTarget(null);
+    deleteMutation.mutate(target.menuPermissionId, {
+      onSuccess: () => {
+        toast.success('Permission removed');
+        void listMutation.mutateAsync({ menuKey });
+      },
+      // KissenApiError message 为英文且内嵌 (traceId)；非 Kissen 错误为英文兜底文案。
+      onError: (e) => toast.error((e as Error).message),
+    });
+  };
+
+  return (
+    <div className="space-y-2 border-t pt-4">
+      <p className="text-sm font-medium">
+        API Permissions (method + URL, aligned with the AuthFilter permission table, Ant wildcards supported)
+      </p>
+      <div className="overflow-hidden rounded-md border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50">
+            <tr>
+              {PERM_TABLE_HEADERS.map((header) => (
+                <th
+                  key={header}
+                  scope="col"
+                  className={
+                    header === 'Actions'
+                      ? 'h-9 w-20 px-3 text-left align-middle font-medium text-muted-foreground'
+                      : 'h-9 px-3 text-left align-middle font-medium text-muted-foreground'
+                  }
+                >
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {loading && rows.length === 0 ? (
+              <tr>
+                {PERM_TABLE_HEADERS.map((header) => (
+                  <td key={header} className="px-3 py-2.5">
+                    <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                  </td>
+                ))}
+              </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={PERM_TABLE_HEADERS.length}
+                  className="px-3 py-5 text-center text-muted-foreground"
+                >
+                  No data
+                </td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={row.menuPermissionId} className="hover:bg-muted/50">
+                  <td className="px-3 py-2 align-middle">
+                    <code className="text-xs">{row.httpMethod || '*'}</code>
+                  </td>
+                  <td className="break-all px-3 py-2 align-middle">
+                    {row.resourceUrl}
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-destructive"
+                      onClick={() => setPermDeleteTarget(row)}
+                    >
+                      Remove
+                    </Button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      {listMutation.isError && (
+        <p className="text-sm text-destructive">
+          {(listMutation.error as Error)?.message}
+        </p>
+      )}
+
+      {/* 权限行移除确认（T12 要求 confirm 提示；破坏性动作用 destructive）。 */}
+      <AlertDialog
+        open={permDeleteTarget != null}
+        onOpenChange={(o) => !o && setPermDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove API Permission</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove permission "{permDeleteTarget?.httpMethod || '*'}{' '}
+              {permDeleteTarget?.resourceUrl}" from menu "{menuName}"? The
+              gateway will stop matching this method + URL for menu key "
+              {menuKey}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={onConfirmPermDelete}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
 

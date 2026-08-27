@@ -45,3 +45,8 @@ export function getMenuPermissionList(
 export function saveMenuPermission(data: MenuPermissionSaveReq): Promise<void> {
   return kissenRequest.post('/menu/menu-permission/save', data);
 }
+
+/** 移除接口权限（POST /menu/menu-permission/delete/:menuPermissionId）。 */
+export function deleteMenuPermission(menuPermissionId: number): Promise<void> {
+  return kissenRequest.post(`/menu/menu-permission/delete/${menuPermissionId}`);
+}

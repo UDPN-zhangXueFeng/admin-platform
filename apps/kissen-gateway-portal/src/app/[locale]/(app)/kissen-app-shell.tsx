@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
+import { KeyRound } from 'lucide-react';
 
 import { AppShell } from '@myorg/shared/ui-layout';
 import type {
@@ -17,12 +18,13 @@ import {
   getGatewayToken,
   getGatewayUser,
   useAuthLogoutMutation,
+  useGatewayLockState,
   useMenuTreeQuery,
   type MenuTree,
 } from '@myorg/modules/kissen-gateway/data-access';
 
 // feature 库在本 app 内为 lazy-loaded（module-page-registry 动态导入），
-// 边界规则禁止静态导入 —— 改密弹窗仅在交互后渲染，走动态分片。
+// 边界规则禁止静态导入 —— 改密弹窗/实例密钥抽屉仅在交互后渲染，走动态分片。
 const ChangePasswordDialog = dynamic(
   () =>
     import('@myorg/modules/kissen-gateway/feature').then(
@@ -30,23 +32,36 @@ const ChangePasswordDialog = dynamic(
     ),
   { ssr: false },
 );
+const InstanceKeyDrawer = dynamic(
+  () =>
+    import('@myorg/modules/kissen-gateway/feature').then(
+      (m) => m.InstanceKeyDrawer,
+    ),
+  { ssr: false },
+);
+
+/** v-perm 'bank:key:manage'（源 MainLayout key-entry；gateway 无超管，按会话 menuKeys 判定）。 */
+const KEY_MANAGE_PERM = 'bank:key:manage';
 
 /**
- * 菜单键 → 页面路径映射（源 `router/index.ts` MENU_ROUTE_MAP 9 项原样照搬；
- * 映射值随目标 App Router 路由重排更新：源 /business/currency-pair|lp|rate
- * → /market/*，源 /tx/list → /tx，其余路径两侧一致）。
- * 侧栏过滤用它把「过滤后菜单树的 menuKey」折算成允许路径集合。
+ * 菜单键 → 页面路径映射（源 `router/index.ts` MENU_ROUTE_MAP v2.1.0 · GW-14
+ * 七一级扁平结构，11 项原样照搬；映射值随目标 App Router 路由形状调整：
+ * 源 /tx/list → /tx，其余路径两侧一致。`bank:key:manage` 无路由——右上角
+ * 常驻入口，不进侧栏折算）。侧栏过滤用它把「过滤后菜单树的 menuKey」
+ * 折算成允许路径集合。
  */
 const MENU_ROUTE_MAP: Record<string, string> = {
+  'bank:overview:view': '/overview',
+  'bank:onboard:submit': '/onboard',
+  'bank:token:manage': '/token/manage',
+  'bank:fx:view': '/fx',
+  'bank:bankquery:view': '/bank/query',
+  'bank:tx:view': '/tx',
   'bank:user:manage': '/system/user',
   'bank:role:manage': '/system/role',
   'bank:menu:manage': '/system/menu',
   'bank:log:view': '/system/log',
-  'bank:onboard:submit': '/onboard',
-  'bank:currencypair:view': '/market/currencypair',
-  'bank:lp:view': '/market/lp',
-  'bank:rate:view': '/market/rate',
-  'bank:tx:view': '/tx',
+  'bank:ui:setting': '/system/ui',
 };
 
 /**
@@ -113,6 +128,21 @@ function filterModuleItems(
 }
 
 /**
+ * 入网/激活锁定过滤（源 MainLayout navNodes gated 分支）：locked 时仅
+ * `bank:onboard:submit`（→ /onboard）可达——GW-14 七一级扁平结构下该键
+ * 是唯一无子节点的受留项，与源「menuKey 保留或有子节点保留」的递归
+ * 收敛结果一致；null=未知时不过滤（防上行失败误锁门户）。
+ */
+const LOCK_ALLOWED_PATH = '/onboard';
+
+function applyLockToPaths(allowedPaths: Set<string>, locked: boolean) {
+  if (!locked) return allowedPaths;
+  return new Set(
+    [...allowedPaths].filter((p) => p === LOCK_ALLOWED_PATH),
+  );
+}
+
+/**
  * 按服务端 orderNum 重排侧栏项（源 MainLayout navNodes sort((a,b)=>
  * a.orderNum-b.orderNum) 升序，§7#16）。父项取其可见子项的最小
  * orderNum；无服务端排序号的项保持 config 原相对位置（等价于源侧
@@ -163,11 +193,17 @@ function sortModuleItems(
  *   折算允许路径 → 过滤 config 菜单项。树未成功加载（加载中/失败）时
  *   保持全量菜单（源 loadMenuTree catch 语义）；登录/登出在本 app 均以
  *   整页跳转收尾，会话 menuKeys 挂载时读取一次即可。
+ * - 入网/激活锁定（源 MainLayout navNodes gated + store locked）：
+ *   useGatewayLockState（onboarded/instanceActive，null=未知不锁），
+ *   locked 时允许路径收敛到 /onboard，仅入网信息可见。
  * - 侧栏折叠持久化（A-1）：localStorage key 沿用源 MainLayout 的
  *   'bankgw.nav.collapsed'（初始读 ==='1'，toggle 写 '1'/'0'）。
  * - 侧栏宽度对齐源口径：展开 224px / 收起 68px（源 el-aside :width）。
  * - 品牌区点击回门户首页（源 brand @click router.push('/')）；用户菜单
  *   仅「Change Password / Log Out」两项（源 dropdown 无账号管理项）。
+ * - 顶栏实例密钥入口（源 header-actions key-entry，FR-BM-05-7）：
+ *   v-perm 'bank:key:manage' 命中且未 locked 才渲染，点击开
+ *   InstanceKeyDrawer（动态分片，同改密弹窗口径）。
  */
 export function KissenAppShell({
   config,
@@ -178,6 +214,7 @@ export function KissenAppShell({
 }) {
   const router = useRouter();
   const [pwdOpen, setPwdOpen] = React.useState(false);
+  const [keyDrawerOpen, setKeyDrawerOpen] = React.useState(false);
   const logoutMutation = useAuthLogoutMutation();
 
   const [sessionMenuKeys] = React.useState<Set<string>>(
@@ -185,6 +222,8 @@ export function KissenAppShell({
   );
   const [hasSession] = React.useState(() => getGatewayToken() !== null);
   const menuTreeQuery = useMenuTreeQuery(KISSEN_GATEWAY_PROJECT_ID, hasSession);
+  // 入网/激活双门控：null=未知不锁（防上行失败误锁），失败态 hook 内消化。
+  const { locked } = useGatewayLockState(hasSession);
 
   const filteredConfig = React.useMemo<ProjectConfig>(() => {
     if (!menuTreeQuery.data) return config;
@@ -195,17 +234,18 @@ export function KissenAppShell({
       allowedPaths,
       orderMap,
     );
+    const gatedPaths = applyLockToPaths(allowedPaths, locked);
     return {
       ...config,
       modules: {
         ...config.modules,
         order: sortModuleItems(
-          filterModuleItems(config.modules.order, allowedPaths),
+          filterModuleItems(config.modules.order, gatedPaths),
           orderMap,
         ),
       },
     };
-  }, [config, menuTreeQuery.data, sessionMenuKeys]);
+  }, [config, menuTreeQuery.data, sessionMenuKeys, locked]);
 
   const handleLogout = React.useCallback(async () => {
     try {
@@ -223,6 +263,11 @@ export function KissenAppShell({
     router.push('/');
   }, [router]);
 
+  // 实例密钥入口：源 `v-if="!locked" v-perm="'bank:key:manage'"`——
+  // locked（未入网/实例未激活）期间隐藏；权限按会话 menuKeys（与
+  // sessionMenuKeys 同源快照，登录/登出均为整页跳转，无需订阅）。
+  const showKeyEntry = !locked && sessionMenuKeys.has(KEY_MANAGE_PERM);
+
   return (
     <AppShell
       config={filteredConfig}
@@ -235,9 +280,23 @@ export function KissenAppShell({
         expanded: 'w-[224px] min-[1600px]:w-[224px]',
         collapsed: 'w-[68px] min-[1600px]:w-[68px]',
       }}
+      trailing={
+        showKeyEntry ? (
+          <button
+            type="button"
+            aria-label="Instance keys"
+            title="Instance keys"
+            onClick={() => setKeyDrawerOpen(true)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white/85 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <KeyRound className="h-[17px] w-[17px]" aria-hidden="true" />
+          </button>
+        ) : undefined
+      }
     >
       {children}
       <ChangePasswordDialog open={pwdOpen} onOpenChange={setPwdOpen} />
+      <InstanceKeyDrawer open={keyDrawerOpen} onOpenChange={setKeyDrawerOpen} />
     </AppShell>
   );
 }

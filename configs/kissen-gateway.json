@@ -49,13 +49,21 @@
   },
   "modules": {
     "enabled": [
+      "overview",
       "onboard",
+      "token", "fx", "bank",
       "tx",
-      "market", "currencypair", "lp", "rate",
       "system", "user", "role", "menu", "log",
-      "bank"
+      "market", "currencypair", "lp", "rate"
     ],
     "order": [
+      {
+        "id": "overview",
+        "icon": "Gauge",
+        "label": "Overview",
+        "path": "/overview",
+        "group": ""
+      },
       {
         "id": "onboard",
         "icon": "FileCheck2",
@@ -64,23 +72,32 @@
         "group": ""
       },
       {
+        "id": "token",
+        "icon": "Coins",
+        "label": "Token Management",
+        "path": "/token/manage",
+        "group": ""
+      },
+      {
+        "id": "fx",
+        "icon": "TrendingUp",
+        "label": "FX Rate Query",
+        "path": "/fx",
+        "group": ""
+      },
+      {
+        "id": "bank",
+        "icon": "Search",
+        "label": "Bank Query",
+        "path": "/bank/query",
+        "group": ""
+      },
+      {
         "id": "tx",
         "icon": "Receipt",
         "label": "Transaction Records",
         "path": "/tx",
         "group": ""
-      },
-      {
-        "id": "market",
-        "icon": "Coins",
-        "label": "Business View",
-        "path": "/market/currencypair",
-        "group": "",
-        "children": [
-          { "id": "currencypair", "icon": "ArrowRightLeft", "label": "Currency Pair", "path": "/market/currencypair" },
-          { "id": "lp",           "icon": "Building2",      "label": "LP List", "path": "/market/lp" },
-          { "id": "rate",         "icon": "TrendingUp",     "label": "Exchange Rate",     "path": "/market/rate" }
-        ]
       },
       {
         "id": "system",
@@ -92,7 +109,8 @@
           { "id": "user", "icon": "Users",       "label": "User Management", "path": "/system/user" },
           { "id": "role", "icon": "ShieldCheck", "label": "Role Management", "path": "/system/role" },
           { "id": "menu", "icon": "ListTree",    "label": "Menu Permission", "path": "/system/menu" },
-          { "id": "log",  "icon": "ScrollText",  "label": "Operation Log", "path": "/system/log", "group": "more" }
+          { "id": "log",  "icon": "ScrollText",  "label": "Operation Log", "path": "/system/log", "group": "more" },
+          { "id": "ui",   "icon": "Settings",    "label": "UI Setting",     "path": "/system/ui" }
         ]
       }
     ]

@@ -25,7 +25,7 @@
       "sans": "Inter system-ui sans-serif",
       "mono": "JetBrains Mono monospace"
     },
-    "defaultTheme": "violet",
+    "defaultTheme": "emerald",
     "themes": [
       {
         "id": "violet",

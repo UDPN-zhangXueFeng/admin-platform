@@ -24,7 +24,12 @@ export {
   updateGatewayUser,
   markFirstLoginDone,
   clearGatewaySession,
+  useGatewayHasSession,
+  useGatewayOnboardedQuery,
+  useGatewayInstanceActiveQuery,
+  useGatewayLockState,
 } from './auth.session';
+export type { GatewayLockState } from './auth.session';
 export {
   useAuthLoginMutation,
   useAuthLogoutMutation,

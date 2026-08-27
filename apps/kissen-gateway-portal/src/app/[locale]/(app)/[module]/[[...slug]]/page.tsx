@@ -21,12 +21,25 @@ const GROUP_ENABLED_KEY: Record<string, string> = {
 };
 
 /**
+ * Flat-module page segments（GW-14 两段顶层路径）: the first slug segment is
+ * a fixed page name, not an entity id. Upstream `router/index.ts`:
+ *   /token/manage → token manage page (main list)
+ *   /bank/query   → bank query page (main list)
+ * Such segments map to the module's 'list' page key in the registry.
+ */
+const FLAT_PAGE_SEGMENTS: ReadonlySet<string> = new Set(['manage', 'query']);
+
+/**
  * Dynamic module route — all module pages are served from this single entry.
  *
  * Route examples:
  *   /en/onboard           → module=onboard, slug=[]      → pageKey="list"
  *   /en/onboard/create    → module=onboard, slug=["create"] → pageKey="create"
  *   /en/onboard/123       → module=onboard, slug=["123"]   → pageKey="detail"
+ *
+ * Two-segment flat routes (GW-14):
+ *   /en/token/manage      → module=token, slug=["manage"] → pageKey="list"
+ *   /en/bank/query        → module=bank,   slug=["query"] → pageKey="list"
  *
  * Group routes:
  *   /en/market/tx         → module=market, slug=["tx"] → realModule="tx", pageKey="list"
@@ -51,10 +64,13 @@ export default function ModulePage({
 
   const pageKey = useMemo(() => {
     if (!realSlug || realSlug.length === 0) return 'list';
+    // GW-14: /token/manage、/bank/query 的首段是固定页名而非实体 id，
+    // 映射到 registry 的 'list' 主页键。
+    if (!isGroup && FLAT_PAGE_SEGMENTS.has(realSlug[0])) return 'list';
     if (realSlug[0] === 'create') return 'create';
     if (realSlug[0] === 'edit') return 'edit';
     return 'detail';
-  }, [realSlug]);
+  }, [realSlug, isGroup]);
 
   const PageComponent = useMemo(() => {
     if (!isEnabled) return null;

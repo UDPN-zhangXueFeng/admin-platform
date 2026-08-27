@@ -1,6 +1,11 @@
 'use client';
 
+import * as React from 'react';
+import { useQuery } from '@tanstack/react-query';
+
 import type { LoginRespVO } from './auth.model';
+import { getBankDetail, getBankOnboardStatus } from '../bank/bank.api';
+import { bankKeys } from '../bank/bank.keys';
 
 /**
  * 会话持久化（源 `src/store/user.ts` 的 TOKEN_KEY/USER_KEY 语义 + 目标
@@ -60,6 +65,7 @@ export function saveGatewaySession(user: LoginRespVO): void {
     document.cookie = `${GATEWAY_TOKEN_COOKIE}=${encodeURIComponent(
       user.token,
     )}; Path=/; SameSite=Lax; Max-Age=${COOKIE_MAX_AGE}`;
+    notifyGatewaySessionChanged();
   } catch {
     // 受限环境（如隐私模式）静默失败，与 shared util-auth 同策略
   }
@@ -88,7 +94,145 @@ export function clearGatewaySession(): void {
     window.localStorage.removeItem(TOKEN_KEY);
     window.localStorage.removeItem(USER_KEY);
     document.cookie = `${GATEWAY_TOKEN_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0`;
+    notifyGatewaySessionChanged();
   } catch {
     // 受限环境静默失败
   }
+}
+
+/* ── 会话响应性（目标特有补丁：源 store.token 是 Vue ref，天然响应；
+ * localStorage 无同页变更事件，写路径手动广播，跨页签借 storage）── */
+
+type GatewaySessionListener = () => void;
+
+const gatewaySessionListeners = new Set<GatewaySessionListener>();
+
+function notifyGatewaySessionChanged(): void {
+  for (const listener of gatewaySessionListeners) listener();
+}
+
+function onGatewayStorageEvent(event: StorageEvent): void {
+  // key 为 null（clear()）或本 token key 被他页改写时才广播。
+  if (event.key === null || event.key === TOKEN_KEY) {
+    for (const listener of gatewaySessionListeners) listener();
+  }
+}
+
+/** 订阅会话变化（本页写路径 + 跨页签 storage）。返回退订函数。 */
+export function subscribeGatewaySession(
+  listener: GatewaySessionListener,
+): () => void {
+  const isFirst = gatewaySessionListeners.size === 0;
+  gatewaySessionListeners.add(listener);
+  if (typeof window !== 'undefined' && isFirst) {
+    window.addEventListener('storage', onGatewayStorageEvent);
+  }
+  return () => {
+    gatewaySessionListeners.delete(listener);
+    if (typeof window !== 'undefined' && gatewaySessionListeners.size === 0) {
+      window.removeEventListener('storage', onGatewayStorageEvent);
+    }
+  };
+}
+
+/**
+ * hasSession 的响应式形态（token 存在即有会话）：挂载常驻的客户端
+ * 守卫在登录写入 token 后立即重渲染并启用双门控查询——源 locked 为
+ * computed，天然覆盖「先深链后登录」；目标用快照会在 SPA 跳转不重
+ * 挂载时失效。SSR 侧快照恒 false，与水合首帧一致。
+ */
+export function useGatewayHasSession(): boolean {
+  return React.useSyncExternalStore(
+    subscribeGatewaySession,
+    () => getGatewayToken() !== null,
+    () => false,
+  );
+}
+
+/* ── 入网/激活双门控（源 store/user.ts onboarded/instanceActive + MainLayout locked）──
+ *
+ * 源语义（store/user.ts:35-80）：
+ * - onboarded = getOnboardStatus().status === 20；请求失败保持 null。
+ * - instanceActive = bank/detail 按 instanceId 与 instances[] 匹配，任一匹配项
+ *   activated；instanceId 空/匹配不到/失败保持 null。
+ * - null = 未知：不过滤菜单、不锁门户（防上行失败误锁），locked 仅在
+ *   onboarded === false 或 instanceActive === false 时为 true。
+ *
+ * 目标实现为 TanStack Query 缓存上的派生 view（复用 bank 域 query key，
+ * onboard 页 infoSubmit/激活成功后的 invalidateQueries 自动刷新门控）；
+ * retry: false + placeholderData 保 null：失败态不上弹错误、不阻断导航。
+ */
+
+/** 入网完成判定（status===20；未知/失败 → null 不过滤）。源 loadOnboardStatus。 */
+export function useGatewayOnboardedQuery(enabled = true) {
+  return useQuery({
+    queryKey: bankKeys.onboardStatus(),
+    queryFn: ({ signal }) => getBankOnboardStatus({ signal }),
+    enabled,
+    retry: false,
+    // 失败时沿用上一次已知值；从未成功过则为 undefined（视同 null 不锁）。
+    placeholderData: (prev) => prev,
+    select: (st) => st?.status === 20,
+  });
+}
+
+/**
+ * 本行实例激活判定（源 loadInstanceStatus 匹配口径）。
+ * BankDetail.instanceId 与 instances[].instanceId 相等的那条 activated；
+ * instanceId 为空/匹配不到 → null（防误锁）。
+ */
+function deriveInstanceActive(
+  d: { instanceId?: string; instances: { instanceId: string; activated: boolean }[] } | undefined,
+): boolean | null {
+  if (!d) return null;
+  const matched = d.instanceId
+    ? d.instances.filter((i) => i.instanceId === d.instanceId)
+    : [];
+  return matched.length ? matched.some((i) => i.activated) : null;
+}
+
+/** 实例激活状态查询（未知/失败 → null 不锁；已入网才需要，源 onMounted 链）。 */
+export function useGatewayInstanceActiveQuery(enabled = true) {
+  return useQuery({
+    queryKey: bankKeys.detail(),
+    queryFn: ({ signal }) => getBankDetail({ signal }),
+    enabled,
+    retry: false,
+    placeholderData: (prev) => prev,
+    select: deriveInstanceActive,
+  });
+}
+
+/** 双门控聚合视图（源 MainLayout locked computed）。 */
+export interface GatewayLockState {
+  /** true=已入网（status 20）/ false=未入网 / null=未知。 */
+  onboarded: boolean | null;
+  /** true=本行实例已激活 / false=未激活 / null=未知。 */
+  instanceActive: boolean | null;
+  /** 门户锁定：仅明确 false 才锁（null 不锁，防上行失败误锁）。 */
+  locked: boolean;
+}
+
+/**
+ * 登录后自动拉取并聚合双门控状态（源 login→loadOnboardStatus、
+ * MainLayout onMounted 的「已入网才查实例」链）。
+ *
+ * 首次挂载即发起请求（enabled 由调用方传会话存在性）；失败不弹错、
+ * 不阻断导航（null 不锁），bank 域缓存失效后自动重判。
+ */
+export function useGatewayLockState(
+  enabled = getGatewayToken() !== null,
+): GatewayLockState {
+  // 先判入网；未入网已由 onboarded 锁定，无需再查实例（源 onMounted 顺序语义）。
+  const onboardStatus = useGatewayOnboardedQuery(enabled);
+  const onboarded = onboardStatus.data ?? null;
+  const instanceQuery = useGatewayInstanceActiveQuery(
+    enabled && onboarded === true,
+  );
+  const instanceActive = instanceQuery.data ?? null;
+  return {
+    onboarded,
+    instanceActive,
+    locked: onboarded === false || instanceActive === false,
+  };
 }

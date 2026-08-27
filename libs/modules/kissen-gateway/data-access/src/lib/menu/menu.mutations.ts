@@ -8,6 +8,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import {
+  deleteMenuPermission,
   getMenuPermissionList,
   removeMenu,
   saveMenu,
@@ -78,6 +79,19 @@ export function useMenuPermissionSaveMutation(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: MenuPermissionSaveReq) => saveMenuPermission(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: menuKeys.permissionList(projectId),
+      });
+    },
+  });
+}
+
+/** 移除接口权限（POST /menu/menu-permission/delete/:menuPermissionId）→ 失效权限资源维度。 */
+export function useMenuPermissionDeleteMutation(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (menuPermissionId: number) => deleteMenuPermission(menuPermissionId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: menuKeys.permissionList(projectId),

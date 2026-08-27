@@ -13,14 +13,6 @@ export interface OnboardSubmitReq {
   agreementVersion?: string;
 }
 
-/** 入网状态（GET /onboard/status）。status：5 待审核 / 15 拒绝 / 20 通过；尚无申请时为 null。 */
-export interface OnboardStatus {
-  applyId?: number;
-  status?: number;
-  approveFeedback?: string;
-  agreeTime?: number;
-}
-
 /** 银行信息推送缓存（GET /bank/info；源 types/business.ts `BankInfo`）。status：20 启用；supportedCurrencies 逗号分隔。 */
 export interface OnboardBankInfo {
   infoId?: number;

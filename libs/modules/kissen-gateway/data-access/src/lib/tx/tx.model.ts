@@ -1,5 +1,6 @@
 /**
- * Tx 域模型（源 `types/business.ts` TxRecord/TxListReq/TxMessage + `views/tx/list.vue` 状态映射）。
+ * Tx 域模型（源 `types/business.ts` TxRecord/TxListReq/TxMessage/TxFlowNode/TxChain +
+ * `views/tx/list.vue` 状态映射）。
  */
 
 /** Badge variant 约定（kissen 家族语义分层，Element tag type 映射见各映射表注释）。 */
@@ -25,12 +26,19 @@ export interface TxPageReq {
 /**
  * 本行相关交易本地缓存（gw_tx_record）。
  * bankRole：1 源端 / 2 目标端；status 对齐 TransactionStatusEnum；pendingFlag：0 无 / 1 待处理。
+ * senderBankName/receivingBankName/lpNames 为后端本地 join 派生（GW-14 UDPN 对齐）。
  */
 export interface TxRecord {
   recordId: number;
   transactionId: number;
+  /** 交易 UUID（调用方幂等键）。 */
+  txUuid?: string;
+  /** 交易编号（Kissen 侧业务编号，如 KSN20260814000006）。 */
+  txNo?: string;
   bankRole?: number;
   pairId?: number;
+  /** token 对编码（tx-event/链路同步带回，未同步时为空）。 */
+  pairCode?: string;
   principal?: number;
   status?: number;
   sourceCsTxId?: string;
@@ -42,6 +50,12 @@ export interface TxRecord {
   createUserId?: number;
   updateTime?: number;
   updateUserId?: number;
+  /** 付款银行名称（pairId → token 对 sourceBankCode → gw_bank_info；对侧行不可见时为编码）。 */
+  senderBankName?: string;
+  /** 收款银行名称（token 对 targetBankCode 口径同上）。 */
+  receivingBankName?: string;
+  /** 该 token 对启用 LP 名称列表（pairId 维度口径，非交易级 lpId）。 */
+  lpNames?: string[];
 }
 
 /**
@@ -59,6 +73,27 @@ export interface TxMessage {
   traceId?: string;
   createTime?: number;
   updateTime?: number;
+}
+
+/** Kissen 侧交易链路节点（tx_flow）：statusFrom/statusTo 对齐 TransactionStatusEnum。 */
+export interface TxFlowNode {
+  flowId: number;
+  parentFlowId: number;
+  nodeType?: number;
+  step?: number;
+  statusFrom?: number;
+  statusTo?: number;
+  eventTime?: number;
+  operator?: string;
+  csTxId?: string;
+  remark?: string;
+  children?: TxFlowNode[];
+}
+
+/** 交易链路（GET /tx/chain/{id}）：本地报文 + Kissen 状态迁移链。 */
+export interface TxChain {
+  localMessages: TxMessage[];
+  kissenChain: TxFlowNode[] | null;
 }
 
 /**

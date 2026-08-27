@@ -133,6 +133,9 @@ function isKissenResult(body: unknown): body is KissenResult<unknown> {
 
 kissenGatewayAxios.interceptors.response.use(
   (response) => {
+    // blob 直通（源 request.ts 同款）：文件流响应（如 /tx/export CSV）不经 ResultInfo
+    // 解包，整响应返回供调用方取 .data 建 Blob 下载。
+    if (response.config.responseType === 'blob') return response;
     const body = response.data;
     // 成功：code === '0'，解包返回 data。
     if (isKissenResult(body)) {
@@ -184,4 +187,58 @@ export const kissenRequest: KissenRequest = {
     kissenGatewayAxios.get(url, config) as unknown as Promise<T>,
   post: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
     kissenGatewayAxios.post(url, data, config) as unknown as Promise<T>,
+};
+
+/**
+ * 实例引导（bootstrap）专用客户端。
+ *
+ * 源 `api/bootstrap.ts` 的独立 axios 实例（G-13）：端点在 AuthFilter 白名单
+ * （/bankgw/bootstrap/**），**不带 token**（kissenBootstrapRequest 不注入请求头）；
+ * 响应同为 ResultInfo 但**无会话语义**——成功解包、失败抛 KissenApiError，绝不跳登录
+ * （与主实例的 code '2'/401 清会话分流不同，引导期本就无会话）。
+ */
+// 注意：不读 NEXT_PUBLIC_API_BASE_URL——该变量指向 portal 前缀
+//（/kissen-api/bankgw/portal），bootstrap 端点在前缀 /bankgw/bootstrap 白名单，
+// 必须独立硬编码，否则会错误地打到 portal base。
+const KISSEN_GATEWAY_BOOTSTRAP_BASE_URL = '/kissen-api/bankgw/bootstrap';
+
+export const kissenBootstrapAxios = axios.create({
+  baseURL: KISSEN_GATEWAY_BOOTSTRAP_BASE_URL,
+  timeout: 15000,
+});
+
+kissenBootstrapAxios.interceptors.response.use(
+  (response) => {
+    // blob 直通（与主实例同款，预留文件流响应）。
+    if (response.config.responseType === 'blob') return response;
+    const body = response.data;
+    if (isKissenResult(body)) {
+      if (body.code === '0') return body.data;
+      throw new KissenApiError(
+        body.code,
+        sanitizeKissenMessage(body.message, body.code),
+        body.traceId,
+      );
+    }
+    return body;
+  },
+  (error: AxiosError<unknown>) => {
+    // bootstrap 域免 token 无会话语义：不跳登录，仅按 HTTP 层翻译 KissenApiError。
+    const status = error.response?.status;
+    if (status === 403) {
+      throw new KissenApiError('403', 'You do not have permission to perform this action');
+    }
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      throw new KissenApiError('timeout', `Network timeout: ${error.message}`);
+    }
+    throw new KissenApiError('network', `Network error: ${error.message}`);
+  },
+);
+
+/** bootstrap 域请求门面（免 token；成功直接返回解包后的 data）。 */
+export const kissenBootstrapRequest: KissenRequest = {
+  get: <T>(url: string, config?: AxiosRequestConfig) =>
+    kissenBootstrapAxios.get(url, config) as unknown as Promise<T>,
+  post: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
+    kissenBootstrapAxios.post(url, data, config) as unknown as Promise<T>,
 };

@@ -7,7 +7,8 @@
 import type { AxiosRequestConfig } from 'axios';
 
 import { kissenRequest } from '../kissen-gateway-client';
-import type { OnboardBankInfo, OnboardStatus, OnboardSubmitReq } from './onboard.model';
+import type { OnboardBankInfo, OnboardSubmitReq } from './onboard.model';
+import type { OnboardStatus } from '../bank/bank.model';
 
 /** 当前入网状态（GET /onboard/status；尚无申请时后端返回 null）。 */
 export function getOnboardStatus(
