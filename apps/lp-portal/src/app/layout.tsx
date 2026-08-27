@@ -29,7 +29,12 @@ export default async function RootLayout({
   return (
     <html lang={config.i18n.defaultLocale} suppressHydrationWarning>
       <head>
-        <ThemeInjector colors={config.theme.colors} radius={config.theme.radius} />
+        <ThemeInjector
+          colors={config.theme.colors}
+          themes={config.theme.themes}
+          defaultTheme={config.theme.defaultTheme}
+          radius={config.theme.radius}
+        />
       </head>
       <body className="min-h-screen font-sans antialiased">
         {children}
@@ -39,23 +44,59 @@ export default async function RootLayout({
 }
 
 /**
- * Server component that injects a <style> tag to override CSS variables
- * based on the current project's theme.colors and theme.radius.
+ * Server component that injects the runtime theming layer:
+ *  1. `:root` baseline from theme.colors (+ the default palette merged in, so
+ *     a no-JS first paint already carries brand tokens);
+ *  2. one `[data-theme="<id>"]` block per switchable palette from
+ *     theme.themes (config-driven — adding/tuning a theme is a configs change);
+ *  3. a pre-paint script that restores the locally chosen palette (or the
+ *     configured default) onto <html data-theme> to avoid a flash.
  *
- * This runs once on the server; the client picks up the values immediately.
+ * Apps that omit theme.themes keep the legacy single-theme behavior: the
+ * script and data-theme blocks simply don't render.
  */
 function ThemeInjector({
   colors,
+  themes,
+  defaultTheme,
   radius,
 }: {
   colors: Record<string, string>;
+  themes: { id: string; label: string; colors: Record<string, string> }[];
+  defaultTheme?: string;
   radius: string;
 }) {
-  const cssVars = Object.entries(colors)
+  const defaultPalette = themes.find((t) => t.id === defaultTheme);
+  const baseline = { ...(defaultPalette?.colors ?? {}), ...colors };
+
+  const toVars = Object.entries(baseline)
     .map(([key, value]) => `--${key}: ${value};`)
-    .join('\n    ');
+    .join('');
+  const themeBlocks = themes
+    .map(
+      (t) =>
+        `[data-theme='${t.id}']{${Object.entries(t.colors)
+          .map(([key, value]) => `--${key}: ${value};`)
+          .join('')}}`,
+    )
+    .join('');
 
-  const css = `:root {\n    ${cssVars}\n    --radius: ${radius};\n  }`;
+  const css = `:root{${toVars}--radius:${radius};}${themeBlocks}`;
 
-  return <style dangerouslySetInnerHTML={{ __html: css }} />;
+  const themeIds = themes.map((t) => t.id);
+  const restoreScript =
+    themes.length > 0
+      ? `try{var t=localStorage.getItem('lp-theme');var ids=${JSON.stringify(themeIds)};${
+          defaultTheme ? `var d=${JSON.stringify(defaultTheme)};` : 'var d=null;'
+        }t=ids.indexOf(t)>=0?t:d;if(t)document.documentElement.dataset.theme=t;}catch(e){}`
+      : null;
+
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
+      {restoreScript && (
+        <script dangerouslySetInnerHTML={{ __html: restoreScript }} />
+      )}
+    </>
+  );
 }

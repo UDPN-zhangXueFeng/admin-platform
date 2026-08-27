@@ -41,6 +41,7 @@ export interface SidebarLayoutProps {
    * baseline user menu only offers Change Password / Log Out.
    */
   hideManageAccount?: boolean;
+  logo?: React.ReactNode;
   /**
    * Opt-in content rendered inside the header right-hand actions area,
    * passed through to Header's `trailing` slot (e.g. the notification bell).
@@ -68,6 +69,7 @@ export function SidebarLayout({
   sidebarWidths,
   onBrandClick,
   hideManageAccount,
+  logo,
   trailing,
 }: SidebarLayoutProps) {
   const [collapsed, setCollapsed] = useState(() =>
@@ -123,6 +125,7 @@ export function SidebarLayout({
         onLogout={onLogout}
         onBrandClick={onBrandClick}
         hideManageAccount={hideManageAccount}
+        logo={logo}
         trailing={trailing}
       />
 

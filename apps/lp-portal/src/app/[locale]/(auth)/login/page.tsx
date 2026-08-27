@@ -6,6 +6,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { useAuth } from '@myorg/shared/util-auth';
 import type { User } from '@myorg/shared/util-auth';
 import { MockLoginPage, useToast } from '@myorg/shared/ui';
+import { LoginIllustration } from '@/components/brand/login-illustration';
 import {
   LP_PROJECT_ID,
   flattenMenuKeys,
@@ -113,14 +114,14 @@ export default function LoginRoute() {
       brandText="kissen"
       brandSuffix="LP"
       brandTagline="Dedicated management portal for liquidity providers"
-      svgPath="/login-illustration.svg"
+      illustration={<LoginIllustration className="h-auto max-h-[54vh] w-full max-w-[680px] select-none" />}
       redirectPath="/"
-      gradientClass="from-[#c6c7ff] via-[#8e8af5] to-[#4e48e8]"
-      brandBaseColor="text-[#001a98]"
-      brandAccentColor="text-[#00a5d5]"
-      brandSuffixBg="bg-[#00a5d5]"
+      gradientClass="from-[var(--login-grad-a,#c6c7ff)] via-[var(--login-grad-b,#8e8af5)] to-[var(--login-grad-c,#4e48e8)]"
+      brandBaseColor="text-[var(--brand-deep,#001a98)]"
+      brandAccentColor="text-[var(--brand-accent,#00a5d5)]"
+      brandSuffixBg="bg-[var(--brand-accent,#00a5d5)]"
       taglineColor="text-[#172260]"
-      titleColor="text-[#554eea]"
+      titleColor="text-[hsl(var(--primary))]"
       submitLabel="Sign In"
       onSubmit={handleSubmit}
       lpCodeField

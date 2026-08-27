@@ -63,3 +63,5 @@ export { PreauthListPage } from './lib/preauth-pages';
 export { SplitListPage } from './lib/split-pages';
 // 壳层组（G6）：通知铃铛抽屉（lp-app-shell 经 AppShell trailing 插槽挂载）。
 export { NotificationBellDrawer } from './lib/notification-bell-drawer';
+export { ThemeSwitcher } from './lib/theme-switcher';
+export type { ThemeSwitcherProps } from './lib/theme-switcher';

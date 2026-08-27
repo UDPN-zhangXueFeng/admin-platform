@@ -2,7 +2,7 @@
   "project": {
     "id": "lp-portal",
     "name": "LP Portal",
-    "logo": "/logo.svg",
+    "logo": "/logo-icon.svg",
     "favicon": "/favicon.ico"
   },
   "theme": {
@@ -24,7 +24,82 @@
     "fontFamily": {
       "sans": "Inter system-ui sans-serif",
       "mono": "JetBrains Mono monospace"
-    }
+    },
+    "defaultTheme": "violet",
+    "themes": [
+      {
+        "id": "violet",
+        "label": "Violet",
+        "colors": {
+          "primary": "241.268 75.532% 63.137%",
+          "ring": "241.268 75.532% 63.137%",
+          "brand-deep": "#001A98",
+          "brand-accent": "#00A5D5",
+          "login-grad-a": "#c6c7ff",
+          "login-grad-b": "#8e8af5",
+          "login-grad-c": "#4e48e8",
+          "banner-start": "#5d5ae8",
+          "banner-mid": "#706df0",
+          "banner-end": "#4744c7",
+          "banner-glow": "#aaa9ff",
+          "banner-highlight": "#8987f4",
+          "illus-line": "#372a94",
+          "illus-deep": "#4333a6",
+          "illus-mid": "#7c66e8",
+          "illus-soft": "#c9b8ff",
+          "illus-accent": "#f0abfc",
+          "illus-accent-deep": "#c026d3"
+        }
+      },
+      {
+        "id": "teal",
+        "label": "Teal",
+        "colors": {
+          "primary": "187 100% 34%",
+          "ring": "187 100% 34%",
+          "brand-deep": "#0B4F5C",
+          "brand-accent": "#F59E0B",
+          "login-grad-a": "#a5f3fc",
+          "login-grad-b": "#22d3ee",
+          "login-grad-c": "#0e7490",
+          "banner-start": "#0e7490",
+          "banner-mid": "#06b6d4",
+          "banner-end": "#155e75",
+          "banner-glow": "#a5f3fc",
+          "banner-highlight": "#67e8f9",
+          "illus-line": "#0e7490",
+          "illus-deep": "#155e75",
+          "illus-mid": "#22d3ee",
+          "illus-soft": "#a5f3fc",
+          "illus-accent": "#fcd34d",
+          "illus-accent-deep": "#d97708"
+        }
+      },
+      {
+        "id": "emerald",
+        "label": "Emerald",
+        "colors": {
+          "primary": "160 84% 32%",
+          "ring": "160 84% 32%",
+          "brand-deep": "#065F46",
+          "brand-accent": "#34D399",
+          "login-grad-a": "#a7f3d0",
+          "login-grad-b": "#34d399",
+          "login-grad-c": "#047857",
+          "banner-start": "#047857",
+          "banner-mid": "#10b981",
+          "banner-end": "#065f46",
+          "banner-glow": "#a7f3d0",
+          "banner-highlight": "#6ee7b7",
+          "illus-line": "#047857",
+          "illus-deep": "#065f46",
+          "illus-mid": "#34d399",
+          "illus-soft": "#a7f3d0",
+          "illus-accent": "#7dd3fc",
+          "illus-accent-deep": "#0369a1"
+        }
+      }
+    ]
   },
   "layout": {
     "type": "sidebar",
@@ -157,7 +232,10 @@
   },
   "i18n": {
     "defaultLocale": "en-US",
-    "locales": ["en-US", "zh-CN"]
+    "locales": [
+      "en-US",
+      "zh-CN"
+    ]
   },
   "features": {
     "darkMode": true,

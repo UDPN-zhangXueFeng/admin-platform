@@ -21,7 +21,13 @@ export interface MockLoginPageProps {
   /** Tagline below the wordmark. */
   brandTagline: string;
   /** Path to the illustration SVG served from the app's public dir. */
-  svgPath: string;
+  svgPath?: string;
+  /**
+   * Opt-in inline illustration replacing the `svgPath` <img> — use an inline
+   * component when the artwork must track page CSS variables (an <img>-loaded
+   * SVG resolves vars in its own document and cannot follow themes).
+   */
+  illustration?: React.ReactNode;
   /** Cookie name written on submit — must match the middleware check. */
   cookieName?: string;
   /** Post-login redirect path, locale-prefixed by the caller if needed. */
@@ -84,6 +90,7 @@ export function MockLoginPage({
   brandSuffix,
   brandTagline,
   svgPath,
+  illustration,
   cookieName,
   redirectPath = '/dashboard',
   gradientClass = 'from-[#c6c7ff] via-[#8e8af5] to-[#4e48e8]',
@@ -165,13 +172,16 @@ export function MockLoginPage({
           </div>
 
           <div className="mt-7 flex min-h-0 flex-1 items-center justify-center">
-            <img
-              src={svgPath}
-              alt=""
-              width="720"
-              height="560"
-              className="h-auto max-h-[54vh] w-full max-w-[680px] select-none"
-            />
+            {illustration ??
+              (svgPath && (
+                <img
+                  src={svgPath}
+                  alt=""
+                  width="720"
+                  height="560"
+                  className="h-auto max-h-[54vh] w-full max-w-[680px] select-none"
+                />
+              ))}
           </div>
         </div>
       </section>

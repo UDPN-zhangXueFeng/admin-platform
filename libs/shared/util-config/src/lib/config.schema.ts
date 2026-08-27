@@ -24,9 +24,27 @@ const fontFamilySchema = z.object({
   mono: z.string().default('JetBrains Mono, monospace'),
 });
 
+const themePaletteSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  /**
+   * CSS-variable-name → raw CSS color value. Two conventions, both applied
+   * verbatim as `--<key>`:
+   *  - tokens consumed via Tailwind's `hsl(var(--x))` (primary, ring, …) use
+   *    HSL component triplets: "241.268 75.532% 63.137%";
+   *  - tokens consumed raw (brand-deep, login-grad-*, banner-*) use full
+   *    color values: "#001A98".
+   */
+  colors: z.record(z.string(), z.string()).default({}),
+});
+
 const themeSchema = z.object({
   mode: z.enum(['light', 'dark', 'system']).default('system'),
   colors: z.record(z.string(), z.string()).default({}),
+  /** Switchable brand palettes; apps that omit it keep single-theme behavior. */
+  themes: z.array(themePaletteSchema).default([]),
+  /** Palette id from `themes` applied before first paint when unset locally. */
+  defaultTheme: z.string().optional(),
   radius: z.string().default('0.5rem'),
   fontFamily: withDefault(fontFamilySchema),
 });

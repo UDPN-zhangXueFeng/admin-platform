@@ -20,6 +20,14 @@ export interface ProjectConfig {
     mode: string;
     /** CSS-variable-name → HSL value, e.g. { "primary": "241.268 75.532% 63.137%" } (#5D5AE8). */
     colors: Record<string, string>;
+    /** Switchable brand palettes; empty = single-theme (legacy behavior). */
+    themes: {
+      id: string;
+      label: string;
+      colors: Record<string, string>;
+    }[];
+    /** Palette id from `themes` applied before first paint when unset locally. */
+    defaultTheme?: string;
     /** e.g. "0.5rem" */
     radius: string;
     fontFamily: {

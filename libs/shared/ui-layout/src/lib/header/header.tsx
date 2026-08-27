@@ -46,6 +46,12 @@ export interface HeaderProps {
    */
   hideManageAccount?: boolean;
   /**
+   * Opt-in brand mark replacing the default <img src="/logo-icon.svg">.
+   * Use an inline SVG component when the mark must track page CSS variables
+   * (img-loaded SVGs resolve vars in their own document).
+   */
+  logo?: React.ReactNode;
+  /**
    * Opt-in content rendered inside the right-hand actions area, before
    * the user menu (reserved entry point, e.g. the notification bell).
    * Like the rest of the actions area it is hidden in minimal mode.
@@ -70,6 +76,7 @@ export function Header({
   onLogout,
   onBrandClick,
   hideManageAccount,
+  logo,
   trailing,
 }: HeaderProps) {
   const { user } = useAuth();
@@ -93,14 +100,15 @@ export function Header({
     },
     [],
   );
-
   const brandContent = (
     <>
-      <img
-        src="/logo-icon.svg"
-        alt="Kissen"
-        className="h-10 w-[84px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[104px]"
-      />
+      {logo ?? (
+        <img
+          src="/logo-icon.svg"
+          alt="Kissen"
+          className="h-10 w-[84px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[104px]"
+        />
+      )}
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold tracking-wide text-white sm:text-base">
           {config.project.name}

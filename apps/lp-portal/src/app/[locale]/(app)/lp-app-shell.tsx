@@ -57,7 +57,15 @@ const NotificationBellDrawer = dynamic(
   { ssr: false },
 );
 
+// 主题切换器与铃铛同槽：feature 库静态 import 违反懒加载边界，同款拆包。
+const ThemeSwitcher = dynamic(
+  () =>
+    import('@myorg/modules/lp-portal/feature').then((m) => m.ThemeSwitcher),
+  { ssr: false },
+);
+
 import { buildLpSidebarOrder } from '@/lib/lp-routes';
+import { LogoMark } from '@/components/brand/logo-mark';
 
 export function LpAppShell({
   config,
@@ -121,10 +129,12 @@ export function LpAppShell({
     // 门禁命中（真未登录 / 锁定期）：维持原跳转语义，过渡帧不渲染。
     return null;
   }
-
   return (
     <AppShell
       config={derivedConfig}
+      logo={
+        <LogoMark className="h-10 w-[84px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[104px]" />
+      }
       onChangePassword={() => router.push('/profile')}
       onLogout={async () => {
         try {
@@ -133,7 +143,12 @@ export function LpAppShell({
           logoutAndRedirect();
         }
       }}
-      trailing={<NotificationBellDrawer />}
+      trailing={
+        <>
+          <ThemeSwitcher themes={config.theme.themes} />
+          <NotificationBellDrawer />
+        </>
+      }
     >
       {bootstrapPending && (
         <Alert className="mb-4 border-amber-300 bg-amber-50 text-amber-900">
