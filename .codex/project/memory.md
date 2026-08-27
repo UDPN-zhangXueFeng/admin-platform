@@ -521,3 +521,25 @@
 - 上游克隆缓存在 `.doc/kissen/.cache/kissen-bank-gateway-frontend`（.doc/ gitignore 内，勿再克隆第二份）；force push/rebase 由脚本以 `HISTORY_REWRITTEN=1` + merge-base 兜底。
 - 踩坑：`git ls-remote --symref origin HEAD` 的 ref 行 `$2` 是 `refs/heads/<b>`，awk 需 `sub(/^refs\/heads\//,"",$2)`，勿带 `ref:` 前缀匹配（会拼出 `origin/refs/heads/main`）。
 - 2026-08-27 实测上游有待同步增量 `8a6034b..a82d82c`（GW-14 UDPN 菜单对齐 + bug fixed），首轮执行 update-gateway 时应从此区间开始。
+
+## 2026-08-27 LP Portal 重置迁移收尾（orchestrator）
+
+- **后端 code 语义要以实测定**：LP 后端（10.0.7.87:8090）`{code:"2"}` 实测＝未登录/过期
+ （message「未登录或登录已过期」）；`MSG_23_0024`＝下游 kissen-api 不可达（真降级码）。lp-client 的
+ 「code '2'→清会话回登录、0024→静默+页面 ServiceDownAlert」双分支经实测均正确。
+- **后端菜单树 menuName 是中文，侧栏英文化要在前端映射**：`apps/lp-portal/src/lib/lp-routes.ts`
+ 新增 `MENU_LABELS`（menuKey→英文，叶子对齐各页 h1），未知键回退 menuName。同构 app（gateway）
+ 如遇同问题可复用该模式；纯靠后端改数据不可行。
+- **LP 后端端点缺口要区分三类再定性**：404（/lp/token/list、/lp/split/list 等部署缺口）、
+ 0024（pool/pair 下游不可用）、正常（notification/user/log/tx-flow/settle）。前端端点与 Vue 源
+ api/*.ts 逐一比对一致后即可判定非移植缺陷；报告里按三类留档
+ （`.doc/kissen/project/LP/verify/responsive-sampling.md`）。
+- **浏览器验证无 vision 模型时的替代**：DOM 级核验够用——`documentElement.scrollWidth>clientWidth`
+ 扫横向溢出 + `body.innerText.match(/\p{Han}/)`（剔注释无法在 DOM 做，innerText 即用户可见口径）
+ + 表格 rows/cells/emptyCells 统计。全页截图用 puppeteer 原生 `page.screenshot({path})` 直存，
+ `tab.screenshot()` 不接收路径且落盘目录难回溯。
+- **topup 孤儿清理边界**：feature 页 + data-access 域整删；但 sync 域 `SyncDomainCode` 的 `'topup'`
+ 是后端 wire 枚举成员（1:1 对齐源契约）必须保留——删代码时先分清「页面/域孤儿」与「协议枚举值」。
+- **评审编排效率样本**：三路 reviewer（Shell/auth、Market/Liquidity、Biz/System）并行 + 修复批
+ 三 agent 并行 + 单复核 agent 收口。复核轮抓到两个自报冲突（D7 列数文档笔误、源 apply 无确认弹窗）
+ ——agent 以源为最高约束并写入文件头注释的做法值得沿用；基线文档笔误用【勘误】行内标注不改写历史。
