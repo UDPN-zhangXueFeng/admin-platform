@@ -31,6 +31,7 @@
  *     文案，提示不硬拒）；undefined（旧持久化会话缺字段）不显示。skeleton /
  *     isError 门禁分支保持原样。
  */
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo } from 'react';
 
 import type { ProjectConfig } from '@myorg/shared/util-config';
@@ -46,7 +47,15 @@ import {
   useLpSessionQuery,
 } from '@myorg/modules/lp-portal/data-access';
 
-import { NotificationBellDrawer } from '@myorg/modules/lp-portal/feature';
+// 壳层对 feature 库的静态 import 违反 @nx/dependency-checks 懒加载边界，
+// 与 profile 页同款 next/dynamic(ssr:false) 拆包（组件本身 client-only）。
+const NotificationBellDrawer = dynamic(
+  () =>
+    import('@myorg/modules/lp-portal/feature').then(
+      (m) => m.NotificationBellDrawer,
+    ),
+  { ssr: false },
+);
 
 import { buildLpSidebarOrder } from '@/lib/lp-routes';
 

@@ -122,8 +122,9 @@ export const MENU_ICONS: Record<string, string> = {
 export const UNKNOWN_MENU_PATH = '/placeholder';
 
 export function buildLpSidebarOrder(menuTree: MenuTreeRespVO[]): ModuleMenuItem[] {
-  const idFromPath = (path: string): string => path.split('/')[1] ?? path;
-
+  // id 必须全局唯一：直接用完整 path。此前取 path 首段（'/sys/user'→'sys'）
+  // 会让 /sys/* 兄弟项在 Sidebar 的 React key 上互撞（开发态重复 key 告警，
+  // 折叠态展开状态也会串台）。
   const toItems = (nodes: MenuTreeRespVO[]): ModuleMenuItem[] =>
     nodes
       .filter((n) => n.menuType !== 4 && n.visible !== 1)
@@ -135,10 +136,10 @@ export function buildLpSidebarOrder(menuTree: MenuTreeRespVO[]): ModuleMenuItem[
         if (children.length > 0) {
           const firstPath =
             children.find((c) => c.path)?.path ?? UNKNOWN_MENU_PATH;
-          return { id: idFromPath(firstPath), icon, label, children };
+          return { id: firstPath, icon, label, children };
         }
         const path = MENU_ROUTE_MAP[node.menuKey] ?? UNKNOWN_MENU_PATH;
-        return { id: idFromPath(path), icon, label, path };
+        return { id: path, icon, label, path };
       });
 
   return toItems(menuTree);
