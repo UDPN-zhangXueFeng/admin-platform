@@ -21,6 +21,9 @@ export const LP_PROJECT_ID = 'lp-portal';
  * - 401 清会话 + locale 前缀登录页 `?expired=1`；403「无权限执行该操作」toast
  * - `MSG_23_0024`（kissen-api 不可用降级码）静默 throw，不发全局 toast，
  *   由页面级 ServiceDownAlert 渲染降级条并保留旧数据
+* - HTTP 200 包体 code '2'（兼容数字 2，源 request.ts 同款双形态）＝未登录/失效：
+*   清会话回登录页并 toast「Session expired, please log in again」（仅此一处提示）
+* - 非 '0' 业务 message 经 {@link sanitizeLpMessage} 英文兜底（约束①用户可见文案零 CJK）
  *
  * 与 `@myorg/shared/data-access-api` 的 `apiClient` 并存：后者按数字
  * `code === 0` 判定成功，与 LP 字符串 '0' 约定不兼容（数字 0 会被放行吞错），
@@ -142,6 +145,38 @@ export async function lpPage<T, F = Record<string, unknown>>(
   };
 }
 
+/** code 维度英文兜底表（约束①）；未知码统一回退 'Request failed'。 */
+const LP_MESSAGE_FALLBACKS: Record<string, string> = {
+  [SERVICE_DOWN_CODE]: 'Service is temporarily unavailable',
+};
+
+/**
+ * 后端业务 message 可能携带中文，违反本门户约束①（用户可见文案零 CJK）。
+ * 非空且不含 CJK 时原样透传；空缺或含 CJK 时按 code 查 {@link LP_MESSAGE_FALLBACKS}
+ * 兜底（traceId 仍由 LpApiError 拼接保留，排障不丢）。toast 与 LpApiError 统一取本值。
+ */
+export function sanitizeLpMessage(
+  message: string | undefined,
+  code: string,
+): string {
+  const text = message?.trim();
+  if (text && !/[\u4e00-\u9fff]/.test(text)) return text;
+  return LP_MESSAGE_FALLBACKS[code] ?? 'Request failed';
+}
+
+/**
+ * 会话失效清场链路（与 HTTP 401 分支同语义，供包体 code '2'/'2 数字形态复用）：
+ * 清会话 → 带 locale 跳登录页 ?expired=1 → 英文 toast → 抛 '2' 错误短路调用链。
+ */
+function expireLpSessionAndThrow(traceId?: string): never {
+  clearLpSession();
+  if (typeof window !== 'undefined') {
+    window.location.assign(`${getLoginRedirectPath()}?expired=1`);
+  }
+  notifyError('Session expired, please log in again');
+  throw new LpApiError('2', 'Session expired, please log in again', traceId);
+}
+
 function isLpResult(body: unknown): body is LpResult<unknown> {
   return (
     typeof body === 'object' &&
@@ -157,14 +192,33 @@ lpAxios.interceptors.response.use(
     if (isLpResult(body)) {
       // 成功：code === '0'，解包返回 data（api 函数直接拿到业务数据）。
       if (body.code === '0') return body.data;
-      const apiError = new LpApiError(body.code, body.message, body.traceId);
+      // 实测后端不发 HTTP 401 时以 HTTP 200 + 包体 code '2' 表达未登录/失效；
+      // 在此处直接短路，绝不落入下方通用 toast 分支 —— 全程只弹一次提示。
+      if (body.code === '2') {
+        expireLpSessionAndThrow(body.traceId);
+      }
+      // 其余非 '0' 码：message 先英文化再 toast / 抛错（0024 静默分支不受影响）。
+      const message = sanitizeLpMessage(body.message, body.code);
+      const apiError = new LpApiError(body.code, message, body.traceId);
       // 0024 降级不发全局 toast，交由页面级 ServiceDownAlert 渲染（源语义）。
       if (!isServiceDown(apiError)) {
-        notifyError(
-          `${body.message ?? 'Request failed'}${body.traceId ? ` (${body.traceId})` : ''}`,
-        );
+        notifyError(`${message}${body.traceId ? ` (${body.traceId})` : ''}`);
       }
       throw apiError;
+    }
+    // 数字 code 形态兜底：isLpResult 只认字符串 code（LP 包体约定），历史后端
+    // 偶发的数字 2 若放行会当「非标准包体」被吞掉、永不触发跳转，故精准拦截此一种。
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      'code' in body &&
+      body.code === 2
+    ) {
+      const traceId =
+        'traceId' in body && typeof body.traceId === 'string'
+          ? body.traceId
+          : undefined;
+      expireLpSessionAndThrow(traceId);
     }
     // 非标准包体（如文件下载）原样返回。
     return body;

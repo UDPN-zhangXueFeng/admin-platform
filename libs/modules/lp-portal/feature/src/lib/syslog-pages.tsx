@@ -4,29 +4,32 @@
  * 系统操作日志页（C4，源 `src/views/system/log/index.vue` 1:1 迁移）。
  *
  * 源语义要点：
- * - 只读分页列表（POST /lp/log/page，pageSize 固定 10，无 pageSize 选择器）；
+ * - 只读分页列表（POST /lp/log/page，pageSize 固定 10；源分页 layout
+ *   'total, prev, pager, next' → 本地 Total + Prev/Next 页脚）；
  * - lp_id 不传，后端按登录 LP 域过滤（跨域数据不可见）；
  * - 筛选：模块（模糊）/ 操作人（模糊）/ 时间范围（源 datetimerange
- *   value-format="x" 毫秒；datetime-local 经 Date.getTime() 等价产出）；
- * - 首列展开行显 请求参数 operateParam / 异常信息 errorMsg（空 '-'）——
- *   DataTable 无展开行，改为行点击 Dialog 展示（同信息、同空值规则）；
- * - 业务类型 tag（BIZ_TEXT/BIZ_TAG 源码表 1:1）与 状态（0 正常/1 异常）；
- * - 源系统页无 0024 降级条，错误由 lp-client 拦截器统一 toast（旧数据保留）。
+ *   value-format="x" 毫秒字符串；datetime-local 经 Date.getTime() 等价产出 number）；
+ * - 首列行展开（el-table type="expand" 等价）：请求参数 operateParam pre（空 '-'）
+ *   + 异常信息 errorMsg 红色 pre（空 '-'）；shared DataTable 无展开结构，
+ *   按 pair-pages 既有先例手写平台样式表格（多行可同时展开）；
+ * - 业务类型 tag 五色码表（LOG_BIZ_TEXT/LOG_BIZ_TAG，未知码兜底 'Other'+info，
+ *   无码 '-'）；状态 0 正常 success / 否则 destructive；
+ * - 耗时 costTime 仅判空缺（?? '-'），不掺 0/非数值特判（源同款）；列头携带单位；
+ * - 操作接口 / TraceId 列截断省略 + hover 全文 tooltip（源 show-overflow-tooltip）；
+ * - 时间列一律共享 formatTime（feature/src/lib/format.ts，en-US 口径统一裁决），
+ *   私有 zh-CN fmtTime 变体废除。
  */
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
-import { type ColumnDef } from '@tanstack/react-table';
-import { ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import {
   Badge,
   Button,
-  DataTable,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 
@@ -37,6 +40,8 @@ import {
   useLogPageQuery,
   type LogRow,
 } from '@myorg/modules/lp-portal/data-access';
+
+import { formatTime } from './format';
 
 /* ================================================================== */
 /* 常量与筛选表单                                                       */
@@ -51,6 +56,8 @@ const LBL = {
   reset: 'Reset',
   records: 'Syslog',
   empty: 'No data',
+  expand: 'Expand',
+  collapse: 'Collapse',
 } as const;
 
 interface LogFilterForm {
@@ -86,68 +93,122 @@ function formToParams(f: LogFilterForm, pageNum = 1): LogQueryParams {
   };
 }
 
-/** 源 fmtTime：toLocaleString('zh-CN', { hour12: false })；空值 '-'。 */
-function fmtTime(ms?: number): string {
-  return ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-';
-}
+/* ================================================================== */
+/* 展开列表（shared DataTable 无 expand 结构：平台样式手写表格）          */
+/* ================================================================== */
+
+/** 展开列 + 主列（操作时间/操作人/模块/业务类型/接口/状态/耗时/TraceId）。 */
+const COL_COUNT = 9;
+
+
+type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
 
 /** 源 BIZ_TAG（el-tag type）→ Badge 呈现（warning/success 无原生 variant，用近似色）。 */
-const BIZ_BADGE: Record<string, { variant?: 'default' | 'secondary' | 'destructive'; className?: string }> = {
+const BIZ_BADGE: Record<
+  string,
+  { variant?: BadgeVariant; className?: string }
+> = {
   primary: { variant: 'default' },
   warning: { className: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
   danger: { variant: 'destructive' },
-  success: { className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
+  success: {
+    className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  },
   info: { variant: 'secondary' },
 };
 
+/**
+ * 业务类型 tag（源 bizText/bizTagType 组合语义：
+ * businessType 缺省 → '-' 纯文本；已知码走五色码表；未知码兜底 'Other'+info）。
+ */
 function BizTag({ code }: { code?: number }) {
-  if (code == null || LOG_BIZ_TEXT[code] == null) {
+  if (code == null) {
     return <span>-</span>;
   }
-  const style = BIZ_BADGE[LOG_BIZ_TAG[code]] ?? BIZ_BADGE.info;
+  const style = BIZ_BADGE[LOG_BIZ_TAG[code] ?? 'info'] ?? BIZ_BADGE.info;
+  return <Badge {...style}>{LOG_BIZ_TEXT[code] ?? 'Other'}</Badge>;
+}
+
+/** 数值文本（源 .num 类：等宽字体 + 表格数字对齐）。 */
+function Num({ children }: { children: React.ReactNode }) {
   return (
-    <Badge {...style}>{LOG_BIZ_TEXT[code]}</Badge>
+    <span className="font-mono text-xs tabular-nums">{children}</span>
   );
 }
 
-/* ================================================================== */
-/* 日志详情弹窗（源首列 expand 行等价物）                                */
-/* ================================================================== */
-
-function LogDetailDialog({
-  row,
-  onClose,
-}: {
-  row: LogRow | null;
-  onClose: () => void;
-}) {
+/** 截断省略 + 悬浮全文 tooltip（源 show-overflow-tooltip 等价：仅溢出时弹出）。 */
+function EllipsisCell({ children }: { children: React.ReactNode }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [open, setOpen] = React.useState(false);
   return (
-    <Dialog open={row != null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Log Details</DialogTitle>
-          <DialogDescription>
-            {row ? `${row.module ?? '-'} · ${fmtTime(row.operateTime)}` : ''}
-          </DialogDescription>
-        </DialogHeader>
-        {row && (
-          <div className="space-y-4">
-            <div>
-              <div className="mb-1 text-sm font-medium">Request Params</div>
-              <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs text-muted-foreground">
-                {row.operateParam || '-'}
-              </pre>
-            </div>
-            <div>
-              <div className="mb-1 text-sm font-medium">Error Message</div>
-              <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs text-muted-foreground">
-                {row.errorMsg || '-'}
-              </pre>
-            </div>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip open={open}>
+        <TooltipTrigger asChild>
+          <div
+            ref={ref}
+            onPointerEnter={() => {
+              const el = ref.current;
+              if (el && el.scrollWidth > el.clientWidth) setOpen(true);
+            }}
+            onPointerLeave={() => setOpen(false)}
+            className="truncate"
+          >
+            {children}
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          sideOffset={6}
+          className="max-w-80 select-text whitespace-normal break-all font-mono text-xs leading-relaxed"
+        >
+          {children}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+/** 行展开区：请求参数 pre（空 '-'）+ 异常信息红色 pre（空 '-'）（源 expand 模板）。 */
+function ExpandBody({ row }: { row: LogRow }) {
+  return (
+    <div className="flex flex-col gap-3 py-2 pl-12 pr-2">
+      <div>
+        <div className="mb-1 text-xs text-muted-foreground">
+          Request Params
+        </div>
+        <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border/50 bg-muted p-3 text-xs leading-relaxed text-muted-foreground">
+          {row.operateParam || '-'}
+        </pre>
+      </div>
+      <div>
+        <div className="mb-1 text-xs text-muted-foreground">Error Message</div>
+        <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border/50 bg-muted p-3 text-xs leading-relaxed text-destructive">
+          {row.errorMsg || '-'}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+/** 页脚翻页按钮（同 shared DataTable PaginationButton 样式口径）。 */
+function PagerButton({
+  children,
+  disabled,
+  onClick,
+  ...rest
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-sm font-medium ${
+        disabled ? 'pointer-events-none opacity-50' : ''
+      } hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`}
+      {...rest}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -161,8 +222,7 @@ export function SyslogListPage() {
   const [params, setParams] = React.useState<LogQueryParams>(() =>
     formToParams(EMPTY_FILTER),
   );
-  const [detailRow, setDetailRow] = React.useState<LogRow | null>(null);
-  const [pageSize, setPageSize] = React.useState(PAGE_SIZE);
+  const [pageSize] = React.useState(PAGE_SIZE);
 
   const listQuery = useLogPageQuery(PROJECT_ID, {
     pageNum: params.pageNum,
@@ -175,63 +235,27 @@ export function SyslogListPage() {
     },
   });
 
+  // 展开态（el-table expand 语义：多行可同时展开；翻页重建行 → 全部收起）
+  const [expanded, setExpanded] = React.useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
+  const toggleExpand = React.useCallback((id: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  const goToPage = (page: number) => {
+    setExpanded(new Set());
+    setParams((prev) => ({ ...prev, pageNum: page }));
+  };
+
   const rows = listQuery.data?.data ?? [];
   const total = listQuery.data?.pagination.total ?? 0;
-
-  const columns = React.useMemo<ColumnDef<LogRow & { id: string }>[]>(
-    () => [
-      {
-        id: 'detail',
-        header: '',
-        cell: ({ row }) => (
-          <button
-            type="button"
-            aria-label="View log details"
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => setDetailRow(row.original)}
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </button>
-        ),
-      },
-      { accessorKey: 'operateTime', header: 'Operation Time',
-      cell: ({ row }) => fmtTime(row.original.operateTime), },
-      { accessorKey: 'operateName', header: 'Operator',
-      cell: ({ row }) => row.original.operateName || '-', },
-      { accessorKey: 'module', header: 'Module',
-      cell: ({ row }) => row.original.module || '-', },
-      { accessorKey: 'businessType', header: 'Business Type',
-      cell: ({ row }) => <BizTag code={row.original.businessType} />, },
-      { accessorKey: 'operateUrl', header: 'Endpoint',
-      cell: ({ row }) => (
-        <span className="break-all">{row.original.operateUrl || '-'}</span>
-      ), },
-      { accessorKey: 'status', header: 'Status',
-      cell: ({ row }) =>
-        row.original.status === 0 ? (
-          <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-            Normal
-          </Badge>
-        ) : (
-          <Badge variant="destructive">Error</Badge>
-        ), },
-      { accessorKey: 'costTime', header: 'Duration',
-      cell: ({ row }) =>
-        row.original.costTime != null ? `${row.original.costTime}ms` : '-', },
-      { accessorKey: 'traceId', header: 'TraceId',
-      cell: ({ row }) => (
-        <span className="break-all font-mono text-xs text-muted-foreground">
-          {row.original.traceId || '-'}
-        </span>
-      ), },
-    ],
-    [],
-  );
-
-  const tableData = React.useMemo(
-    () => rows.map((r) => ({ ...r, id: String(r.operateLogId) })),
-    [rows],
-  );
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const isLoading = listQuery.isLoading;
 
   return (
     <div className="space-y-4">
@@ -244,11 +268,13 @@ export function SyslogListPage() {
           <FormField
             name="module"
             label="Module"
+            placeholder="Fuzzy match"
             register={register('module')}
           />
           <FormField
             name="operateName"
             label="Operator"
+            placeholder="Fuzzy match"
             register={register('operateName')}
           />
           <FormField
@@ -271,6 +297,7 @@ export function SyslogListPage() {
             variant="outline"
             onClick={() => {
               reset(EMPTY_FILTER);
+              setExpanded(new Set());
               setParams(formToParams(EMPTY_FILTER, 1));
             }}
           >
@@ -283,27 +310,182 @@ export function SyslogListPage() {
         <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
           <div className="text-sm font-semibold">{LBL.records}</div>
         </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={listQuery.isLoading}
-          emptyMessage={LBL.empty}
-          pagination={{
-            page: params.pageNum,
-            pageSize,
-            total,
-            onPageChange: (page) =>
-              setParams((prev) => ({ ...prev, pageNum: page })),
-            onPageSizeChange: (n) => {
-              setPageSize(n);
-              setParams((prev) => ({ ...prev, pageNum: 1 }));
-            },
-            pageSizeOptions: [PAGE_SIZE],
-          }}
-        />
-      </div>
+        <div className="gap-4 p-4">
+          <div className="overflow-x-auto rounded-md border border-border/50 bg-card">
+            <table className="w-full min-w-max caption-bottom text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th
+                    scope="col"
+                    className="h-10 w-12 px-2 text-left align-middle font-medium text-muted-foreground"
+                    aria-label={LBL.expand}
+                  />
+                  <th
+                    scope="col"
+                    className="h-10 whitespace-nowrap px-4 text-left align-middle font-medium text-muted-foreground"
+                  >
+                    Operation Time
+                  </th>
+                  <th
+                    scope="col"
+                    className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                  >
+                    Operator
+                  </th>
+                  <th
+                    scope="col"
+                    className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                  >
+                    Module
+                  </th>
+                  <th
+                    scope="col"
+                    className="h-10 w-28 px-4 text-left align-middle font-medium text-muted-foreground"
+                  >
+                    Business Type
+                  </th>
+                  <th
+                    scope="col"
+                    className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                  >
+                    Endpoint
+                  </th>
+                  <th
+                    scope="col"
+                    className="h-10 w-24 px-4 text-left align-middle font-medium text-muted-foreground"
+                  >
+                    Status
+                  </th>
+                  <th
+                    scope="col"
+                    className="h-10 w-24 px-4 text-left align-middle font-medium text-muted-foreground"
+                  >
+                    Duration (ms)
+                  </th>
+                  <th
+                    scope="col"
+                    className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                  >
+                    TraceId
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {isLoading ? (
+                  Array.from({ length: pageSize }).map((_, i) => (
+                    <tr key={`skeleton-${i}`}>
+                      {Array.from({ length: COL_COUNT }).map((__, ci) => (
+                        <td key={ci} className="px-4 py-3">
+                          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={COL_COUNT}
+                      className="px-4 py-8 text-center text-muted-foreground"
+                    >
+                      {LBL.empty}
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row) => {
+                    const open = expanded.has(row.operateLogId);
+                    return (
+                      <React.Fragment key={row.operateLogId}>
+                        <tr className="transition-colors hover:bg-muted/50">
+                          <td className="px-2 py-3 align-middle">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              aria-expanded={open}
+                              aria-label={open ? LBL.collapse : LBL.expand}
+                              onClick={() => toggleExpand(row.operateLogId)}
+                            >
+                              <ChevronRight
+                                className={`h-4 w-4 transition-transform ${
+                                  open ? 'rotate-90' : ''
+                                }`}
+                              />
+                            </Button>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 align-middle">
+                            <Num>{formatTime(row.operateTime)}</Num>
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            {row.operateName || '-'}
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            {row.module || '-'}
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <BizTag code={row.businessType} />
+                          </td>
+                          <td className="max-w-[280px] px-4 py-3 align-middle">
+                            <EllipsisCell>
+                              {row.operateUrl || '-'}
+                            </EllipsisCell>
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            {row.status === 0 ? (
+                              <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                                Normal
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive">Error</Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <Num>{row.costTime ?? '-'}</Num>
+                          </td>
+                          <td className="max-w-[220px] px-4 py-3 align-middle">
+                            <EllipsisCell>
+                              {row.traceId || '-'}
+                            </EllipsisCell>
+                          </td>
+                        </tr>
+                        {open && (
+                          <tr>
+                            <td colSpan={COL_COUNT} className="align-top">
+                              <ExpandBody row={row} />
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
 
-      <LogDetailDialog row={detailRow} onClose={() => setDetailRow(null)} />
+          {/* 源分页 layout 'total, prev, pager, next'：固定 pageSize，无 size 选择器 */}
+          <div className="flex items-center justify-between pt-3">
+            <div className="text-sm text-muted-foreground">
+              Total {total} items
+            </div>
+            <div className="flex items-center gap-2">
+              <PagerButton
+                aria-label="Previous page"
+                disabled={params.pageNum <= 1}
+                onClick={() => goToPage(params.pageNum - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </PagerButton>
+              <PagerButton
+                aria-label="Next page"
+                disabled={params.pageNum >= totalPages}
+                onClick={() => goToPage(params.pageNum + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </PagerButton>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

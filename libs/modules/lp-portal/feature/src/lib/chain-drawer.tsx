@@ -1,32 +1,30 @@
 'use client';
 
 /**
- * 交易链路抽屉（B6，源 `src/views/tx-flow/chain-drawer.vue` 1:1 语义迁移）。
+ * Transaction chain drawer (LP/03 B2 - page-internal piece of the tx-flow
+ * list page; opens on a row entry action and renders one transaction's
+ * transfer chain).
  *
- * 源语义要点（对照 map「交易链路抽屉」behaviors，一条不漏）：
- * - 抽屉 720px、标题「交易链路」；挂载即开（父页 v-if=drawerRow），
- *   关闭 → onClosed → 父页卸载；
- * - 基本信息取行 props 不二次请求（el-descriptions 2 列 border 等价）：
- *   交易单号 txUuid 优先 txNo 兜底双兜底（F1）、完成时间 completedTime
- *   === 0 显 '-'（严格 ===0 哨兵，与 confirmTime truthy 口径不同源）；
- * - GET /lp/tx-flow/chain/{transactionId}：响应可能为扁平数组或带
- *   children 的树 → flatten 递归摊平（节点 step>0 用自身，否则继承父
- *   step 浅拷贝替换；DFS 父后子追加）；
- * - 0024 → 抽屉内降级条 + nodes 保留（旧数据不清）；
- * - 固定 8 段阶段轴可点击（step 1〜8 缺失补齐，仅收 1≤step≤8 节点）；
- *   阶段状态由前端从 statusTo/交易终态推断，优先级链照源（见
- *   {@link buildStageList}，一条都不能错）；
- * - 事件时间线：选中阶段事件按 eventTime 升序、相同则 flowId 升序；
- *   timestamp 顶部放置；nodeType 2/3/4 映射动作/报文/重试（1 环节兜底
- *   显 `事件类型 ${nodeType}`）；statusFrom/statusTo 任非 0 显迁移文本；
- *   meta 三行 操作人/货币系统交易 ID/备注 空显 '-'；
- * - 两级空态：nodes 空「暂无阶段数据」；选中阶段无事件「该阶段暂无事件
- *   明细」。
+ * Behavior contract (doc 01 section D9 + E traps):
+ * - Radix dialog drawer anchored right, width min(720px, 90vw); closes on
+ *   ESC and on overlay click (built into the shared Drawer primitive;
+ *   parent unmounts us through onClosed).
+ * - Basic information panel with 9 source fields; money columns use the
+ *   drawer caliber fmtAmount (2..8 fraction digits, en-US grouping), NOT
+ *   the global formatMoney - both calibers must survive side by side.
+ * - Stage status uses the DRAWER status caliber (code 35 reads as success),
+ *   which intentionally differs from the LIST caliber rendered on the page.
+ * - Fixed 8-slot vertical stepper (no third-party step package): dot colors
+ *   follow stage status (wait gray / progress pulse / success / danger /
+ *   skipped gray) plus "(Skipped)" title suffix; start/end timestamps shown
+ *   under each slot; zero times render '-'.
+ * - Event timeline of the selected stage sorted by eventTime asc then
+ *   flowId asc; nodeType label badge (message tier tinted as success),
+ *   optional from->to status transition, operator / csTxId subtexts.
+ * - Service-down downgrade banner branch kept inside the drawer; failed
+ *   refetches keep previously loaded nodes.
  *
- * 本文件同时导出 {@link TxStatusBadge}：列表页与抽屉共用的状态徽标
- * （13 值文案 + 分层变体 + 50 冲正中警示描边），集中一处防两页口径分叉
- * （data-access 禁 UI 依赖，只能落在 feature 层；本文件是 tx-flow-pages
- * 的被依赖叶子，方向单一无环）。
+ * Inference tables live in ./tx-chain (pure module per LP/03 B2).
  */
 import * as React from 'react';
 import { Check, LoaderCircle, Minus, X } from 'lucide-react';
@@ -38,176 +36,40 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@myorg/shared/ui';
+
 import {
   LP_PROJECT_ID,
-  TX_STATUS_LABEL,
-  TX_STATUS_VARIANT,
-  TX_STATUS_WARN_CLASS,
   isServiceDown,
   txNoText,
   useTxFlowChainQuery,
   type TxChainNode,
   type TxRow,
 } from '@myorg/modules/lp-portal/data-access';
-import { formatMoney, formatTime } from './format';
+import {
+  EVENT_TYPE_MAP,
+  STAGE_STATUS_MAP,
+  STAGE_STEP_MAP,
+  asTxRowVO,
+  buildStageList,
+  completedTimeText,
+  flattenChain,
+  fmtAmount,
+  hasTransit,
+  pickInitialStep,
+  transitText,
+  txDrawerVariant,
+  txStatusLabel,
+  txWarnClass,
+  type StageItem,
+} from './tx-chain';
+import { formatTime } from './format';
 import { ServiceDownAlert } from './service-down-alert';
 
 /* ================================================================== */
-/* 码表与共享徽标                                                       */
+/* Stage stepper visuals                                               */
 /* ================================================================== */
 
-/** 阶段映射（step 1〜8 阶段轴，固定顺序）。 */
-const STAGE_STEP_MAP: Record<number, string> = {
-  1: 'Quote',
-  2: 'Confirm',
-  3: 'Source Transfer',
-  4: 'Source Verification',
-  5: 'Advance Disbursement',
-  6: 'Credit',
-  7: 'Settlement',
-  8: 'Complete',
-};
-
-/** 阶段状态映射（1 未开始 / 2 进行中 / 3 成功 / 4 失败 / 5 跳过）。 */
-const STAGE_STATUS_MAP: Record<number, string> = {
-  1: 'Not Started',
-  2: 'In Progress',
-  3: 'Success',
-  4: 'Failed',
-  5: 'Skipped',
-};
-
-/** 事件类型映射（nodeType 2 动作 / 3 报文 / 4 重试；1 环节兜底显数值）。 */
-const EVENT_TYPE_MAP: Record<number, string> = {
-  2: 'Action',
-  3: 'Message',
-  4: 'Retry',
-};
-
-/** 阶段轴条目（响应无阶段对象，由扁平节点按 step 分组自建；裁决 C-10）。 */
-interface StageItem {
-  step: number;
-  /** 1 未开始 / 2 进行中 / 3 成功 / 4 失败 / 5 跳过 */
-  status: number;
-  startTime: number;
-  endTime: number;
-}
-
-/** 交易状态徽标：列表页与抽屉共用（未知码显原值，兜底中性变体）。 */
-export function TxStatusBadge({ status }: { status: number }) {
-  const variant = TX_STATUS_VARIANT[status] ?? 'secondary';
-  return (
-    <Badge
-      variant={variant}
-      className={status === 50 ? TX_STATUS_WARN_CLASS : undefined}
-    >
-      {TX_STATUS_LABEL[status] ?? status}
-    </Badge>
-  );
-}
-
-/* ================================================================== */
-/* flatten 与阶段推断（照源逐条平移，勿改优先级链）                       */
-/* ================================================================== */
-
-/**
- * chain 响应可能为带 children 的树（TxFlowNodeVO）或扁平数组；递归摊平：
- * 节点 step>0 用自身，否则继承父 step（浅拷贝替换 step）；DFS 父后子追加。
- */
-export function flattenChain(
-  incoming: TxChainNode[] | null | undefined,
-  inheritedStep = 0,
-): TxChainNode[] {
-  const out: TxChainNode[] = [];
-  for (const n of incoming ?? []) {
-    const step = n.step > 0 ? n.step : inheritedStep;
-    out.push(step === n.step ? n : { ...n, step });
-    const children = (n as TxChainNode & { children?: TxChainNode[] })
-      .children;
-    if (children && children.length) out.push(...flattenChain(children, step));
-  }
-  return out;
-}
-
-/**
- * 固定 8 段阶段轴（照源 stageList 推断规则，一条不能错）：
- * - 仅收 1≤step≤8 节点，maxStep=最深有节点 step；
- * - 【无节点阶段】txStatus===40 → 3 成功；否则 step<maxStep → 5 跳过；
- *   否则 1 未开始（时间 0/0）；
- * - 【有节点阶段】startTime=最早 eventTime（初 0，`startTime===0 ||
- *   n.eventTime<startTime` 时更新）、endTime=最晚 eventTime；状态判定
- *   优先级链：任一节点 statusTo===70||90 → 4 失败；step<maxStep → 3 成功；
- *   txStatus 40|60|80（交易终态）→ 3；txStatus 70|90 → 4 失败；
- *   其余 → 2 进行中。
- */
-function buildStageList(nodes: TxChainNode[], txStatus: number): StageItem[] {
-  if (!nodes.length) return [];
-  const byStep = new Map<number, TxChainNode[]>();
-  let maxStep = 0;
-  for (const n of nodes) {
-    if (n.step < 1 || n.step > 8) continue;
-    const list = byStep.get(n.step) ?? [];
-    list.push(n);
-    byStep.set(n.step, list);
-    if (n.step > maxStep) maxStep = n.step;
-  }
-  const list: StageItem[] = [];
-  for (let step = 1; step <= 8; step++) {
-    const stepNodes = byStep.get(step);
-    if (!stepNodes) {
-      let status = 1;
-      if (txStatus === 40) status = 3;
-      else if (maxStep > 0 && step < maxStep) status = 5;
-      list.push({ step, status, startTime: 0, endTime: 0 });
-      continue;
-    }
-    let startTime = 0;
-    let endTime = 0;
-    for (const n of stepNodes) {
-      if (startTime === 0 || n.eventTime < startTime) startTime = n.eventTime;
-      if (n.eventTime > endTime) endTime = n.eventTime;
-    }
-    let status: number;
-    if (stepNodes.some((n) => n.statusTo === 70 || n.statusTo === 90))
-      status = 4;
-    else if (step < maxStep) status = 3;
-    else if (txStatus === 40 || txStatus === 60 || txStatus === 80) status = 3;
-    else if (txStatus === 70 || txStatus === 90) status = 4;
-    else status = 2;
-    list.push({ step, status, startTime, endTime });
-  }
-  return list;
-}
-
-/** 默认选中优先级：首个进行中(2)/失败(4)阶段 ?? 首个有事件节点的阶段 ?? step 1。 */
-function pickInitialStep(stages: StageItem[], nodes: TxChainNode[]): number {
-  const active =
-    stages.find((s) => s.status === 2 || s.status === 4) ??
-    stages.find((s) => nodes.some((n) => n.step === s.step));
-  return active ? active.step : 1;
-}
-
-/** 0 显 '-'，其余 formatTime（源 fmtTime）。 */
-function fmtTime(ms: number): string {
-  return ms === 0 ? '-' : formatTime(ms);
-}
-
-/** 状态迁移（from/to 均为 0 时不渲染）。 */
-function hasTransit(e: TxChainNode): boolean {
-  return (e.statusFrom ?? 0) !== 0 || (e.statusTo ?? 0) !== 0;
-}
-
-function transitText(e: TxChainNode): string {
-  const from = e.statusFrom ?? 0;
-  const to = e.statusTo ?? 0;
-  return `${TX_STATUS_LABEL[from] ?? from}→${TX_STATUS_LABEL[to] ?? to}`;
-}
-
-/* ================================================================== */
-/* 阶段轴与事件时间线视图                                               */
-/* ================================================================== */
-
-/** 阶段状态 → 图标（el-step status 映射 1/5 wait、2 process、3 finish、4 error）。 */
+/** Icon inside the step dot for each inferred stage status. */
 function StageIcon({ status }: { status: number }) {
   if (status === 3)
     return <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" />;
@@ -220,17 +82,21 @@ function StageIcon({ status }: { status: number }) {
         aria-hidden="true"
       />
     );
-  // 1 未开始 / 5 跳过
+  // 1 not started / 5 skipped
   return <Minus className="h-4 w-4 text-muted-foreground" aria-hidden="true" />;
 }
 
-/** 连接线配色：成功/跳过（已越过）绿、失败红、其余灰。 */
+/** Connector line tint between slots: crossed stages green, failed red, rest gray. */
 function connectorClass(status: number): string {
   if (status === 3 || status === 5) return 'bg-emerald-500';
   if (status === 4) return 'bg-red-500';
   return 'bg-border';
 }
 
+/**
+ * Vertical stepper (LP/03 B2): left rail of dots + connectors, selectable
+ * rows carrying title and start/end timestamps on the right.
+ */
 function StageAxis({
   stages,
   selectedStep,
@@ -241,51 +107,47 @@ function StageAxis({
   onSelect: (step: number) => void;
 }) {
   return (
-    <ol className="flex">
+    <ol className="flex flex-col">
       {stages.map((s, i) => {
         const selected = s.step === selectedStep;
         const name = STAGE_STEP_MAP[s.step] ?? `${s.step}`;
         const title = s.status === 5 ? `${name} (Skipped)` : name;
+        const last = i === stages.length - 1;
         return (
-          <li key={s.step} className="min-w-0 flex-1">
+          <li key={s.step}>
             <button
               type="button"
               onClick={() => onSelect(s.step)}
-              className="group block w-full cursor-pointer rounded px-1 py-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-current={selected ? 'step' : undefined}
+              className="group flex w-full cursor-pointer items-stretch gap-3 rounded px-1 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <span className="relative flex items-center justify-center">
-                {/* 与左邻阶段的连接线（同属左侧阶段的出线，取其配色） */}
-                {i > 0 && (
-                  <span
-                    aria-hidden="true"
-                    className={`absolute top-1/2 right-1/2 left-0 h-0.5 -translate-y-1/2 ${connectorClass(stages[i - 1].status)}`}
-                  />
-                )}
-                {/* 向右邻阶段的连接线（最后一段不画，源 CSS hack 等价语义） */}
-                {i < stages.length - 1 && (
-                  <span
-                    aria-hidden="true"
-                    className={`absolute top-1/2 left-1/2 right-0 h-0.5 -translate-y-1/2 ${connectorClass(s.status)}`}
-                  />
-                )}
-                <span className="relative z-10 flex h-7 w-7 items-center justify-center rounded-full border bg-background">
+              {/* Left rail: dot + downward connector to the next slot */}
+              <span className="flex w-7 shrink-0 flex-col items-center">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border bg-background">
                   <StageIcon status={s.status} />
                 </span>
+                {!last && (
+                  <span
+                    aria-hidden="true"
+                    className={`w-0.5 flex-1 rounded ${connectorClass(s.status)}`}
+                  />
+                )}
               </span>
-              <span
-                className={`mt-1.5 block truncate text-xs leading-4 ${
-                  selected
-                    ? 'font-semibold text-foreground underline'
-                    : 'text-foreground/80 group-hover:text-foreground'
-                }`}
-              >
-                {title}
-              </span>
-              <span className="mt-0.5 block font-mono text-[11px] leading-4 text-muted-foreground tabular-nums">
-                {fmtTime(s.startTime)}
-                <br />
-                to {fmtTime(s.endTime)}
+              <span className="min-w-0 flex-1 pt-0.5">
+                <span
+                  className={`block truncate text-sm leading-5 ${
+                    selected
+                      ? 'font-semibold text-foreground underline'
+                      : 'text-foreground/80 group-hover:text-foreground'
+                  }`}
+                >
+                  {title}
+                </span>
+                <span className="mt-0.5 block font-mono text-[11px] leading-4 text-muted-foreground tabular-nums">
+                  {completedTimeText(s.startTime)}
+                  {' '}
+                  to {completedTimeText(s.endTime)}
+                </span>
               </span>
             </button>
           </li>
@@ -294,6 +156,10 @@ function StageAxis({
     </ol>
   );
 }
+
+/* ================================================================== */
+/* Event timeline                                                      */
+/* ================================================================== */
 
 function EventTimeline({ events }: { events: TxChainNode[] }) {
   return (
@@ -304,12 +170,19 @@ function EventTimeline({ events }: { events: TxChainNode[] }) {
             aria-hidden="true"
             className="absolute top-1 -left-[27px] h-2.5 w-2.5 rounded-full border-2 border-background bg-primary"
           />
-          {/* el-timeline-item placement=top：时间戳置顶 */}
+          {/* Timestamp first (source el-timeline-item placement=top) */}
           <div className="font-mono text-xs text-muted-foreground tabular-nums">
-            {fmtTime(e.eventTime)}
+            {completedTimeText(e.eventTime)}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <Badge variant="outline">
+            <Badge
+              variant="outline"
+              className={
+                e.nodeType === 3
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                  : undefined
+              }
+            >
               {EVENT_TYPE_MAP[e.nodeType] ?? `Event type ${e.nodeType}`}
             </Badge>
             {hasTransit(e) && (
@@ -318,11 +191,11 @@ function EventTimeline({ events }: { events: TxChainNode[] }) {
               </span>
             )}
           </div>
-          <div className="mt-1 text-xs leading-5 text-muted-foreground">
+          <div className="text-xs leading-5 text-muted-foreground">
             Operator: {e.operator || '-'}
           </div>
           <div className="text-xs leading-5 text-muted-foreground">
-            Currency System Tx ID:
+            Currency System Tx ID:{' '}
             <span className="font-mono">{e.csTxId || '-'}</span>
           </div>
           <div className="text-xs leading-5 text-muted-foreground">
@@ -335,19 +208,36 @@ function EventTimeline({ events }: { events: TxChainNode[] }) {
 }
 
 /* ================================================================== */
-/* 基本信息                                                            */
+/* Basic information                                                   */
 /* ================================================================== */
 
-function DescItem({ label, children }: { label: string; children: React.ReactNode }) {
+function DescItem({
+  label,
+  span,
+  children,
+}: {
+  label: string;
+  span?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="bg-card px-3 py-2">
+    <div className={`bg-card px-3 py-2 ${span ? 'sm:col-span-2' : ''}`}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 min-w-0 break-all text-sm">{children}</dd>
     </div>
   );
 }
 
-function BasicInfo({ row, pairText }: { row: TxRow; pairText: string }) {
+/** Money cell in the drawer caliber (doc 01 E4), distinct from formatMoney. */
+function Amount({ v }: { v: number | null | undefined }) {
+  return (
+    <span className="font-mono text-xs tabular-nums">{fmtAmount(v)}</span>
+  );
+}
+function BasicInfo({ row }: { row: TxRow }) {
+  const vo = asTxRowVO(row);
+  const hasPair =
+    Boolean(vo.sourceCurrency) && Boolean(vo.targetCurrency);
   return (
     <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-2">
       <DescItem label="Tx No.">
@@ -356,47 +246,71 @@ function BasicInfo({ row, pairText }: { row: TxRow; pairText: string }) {
       <DescItem label="Transaction ID">
         <span className="font-mono text-xs">{row.transactionId}</span>
       </DescItem>
-      <DescItem label="Currency Pair">{pairText}</DescItem>
-      <DescItem label="Principal">
-        <span className="font-mono text-xs tabular-nums">
-          {formatMoney(row.principal)}
-        </span>
+      <DescItem label="Token Pair">
+        {/* Dual token tags joined by direction arrow; raw value fallback */}
+        {hasPair ? (
+          <span className="inline-flex items-center gap-1.5">
+            <Badge variant="outline">{vo.sourceCurrency}</Badge>
+            <span aria-hidden="true">→</span>
+            <Badge variant="outline">{vo.targetCurrency}</Badge>
+          </span>
+        ) : (
+          <span className="font-mono text-xs">{vo.pairCode || vo.pairId}</span>
+        )}
       </DescItem>
       <DescItem label="Status">
-        <TxStatusBadge status={row.status} />
+        <Badge
+          variant={txDrawerVariant(row.status)}
+          className={txWarnClass(row.status)}
+        >
+          {txStatusLabel(row.status)}
+        </Badge>
       </DescItem>
-      <DescItem label="Created At">
-        <span className="font-mono text-xs tabular-nums">
-          {formatTime(row.createTime)}
-        </span>
+      <DescItem label="Principal">
+        <Amount v={row.principal} />
+      </DescItem>
+      <DescItem label="Receiver Amount">
+        {/* Optional VO field: absent values render '-' without crashing */}
+        <Amount v={vo.receiverAmount ?? null} />
       </DescItem>
       <DescItem label="Completed At">
-        {/* 源口径：completedTime === 0 严格判 0 = 未完成哨兵（非 truthy） */}
+        {/* Strict === 0 unfinished sentinel, never routed through formatTime */}
         <span className="font-mono text-xs tabular-nums">
-          {row.completedTime === 0 ? '-' : formatTime(row.completedTime)}
+          {completedTimeText(row.completedTime)}
         </span>
       </DescItem>
+      <DescItem label="Data Time">
+        <span className="font-mono text-xs tabular-nums">
+          {vo.dataTime == null || vo.dataTime === 0
+            ? '-'
+            : formatTime(vo.dataTime)}
+        </span>
+      </DescItem>
+      {Boolean(vo.failReason) && (
+        <DescItem label="Failure Reason" span>
+          <span className="text-destructive">{vo.failReason}</span>
+        </DescItem>
+      )}
     </dl>
   );
 }
 
 /* ================================================================== */
-/* 抽屉主体                                                            */
+/* Drawer shell                                                        */
 /* ================================================================== */
 
 export interface ChainDrawerProps {
-  /** 行数据（基本信息取本对象，不二次请求）。 */
+  /** Row payload for the basic info panel (no second list request). */
   row: TxRow;
-  /** 父页算好的货币对文本（`S→T` 或原始 pairId）。 */
-  pairText: string;
-  /** 关闭回调（父页据此置 drawerRow=null 卸载抽屉）。 */
+  /** Close callback; parent clears its row state to unmount the drawer. */
   onClosed: () => void;
 }
 
-export function ChainDrawer({ row, pairText, onClosed }: ChainDrawerProps) {
+export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
   const chainQuery = useTxFlowChainQuery(LP_PROJECT_ID, row.transactionId);
 
-  // 摊平后的节点（扁平/树两结构兼容；refetch 失败时 query 保留旧 data）
+  // Flattened nodes (flat array or tree both accepted; failed refetch keeps
+  // last good data via the query cache).
   const nodes = React.useMemo(
     () => flattenChain(chainQuery.data),
     [chainQuery.data],
@@ -406,24 +320,24 @@ export function ChainDrawer({ row, pairText, onClosed }: ChainDrawerProps) {
     [nodes, row.status],
   );
 
-  // 当前选中阶段（点击切换，驱动事件区过滤）；挂载时若 query 缓存已有
-  // 数据则惰性取默认选中，避免首帧选中错档闪烁。
+  // Currently selected stage drives the event filter; re-derived after every
+  // successful load (mirrors initSelectedStep-on-loadChain-success ordering).
   const [selectedStep, setSelectedStep] = React.useState(() =>
     pickInitialStep(buildStageList(flattenChain(chainQuery.data), row.status), flattenChain(chainQuery.data)),
   );
-  // 每次链路数据装载成功重算默认选中（源 initSelectedStep 在 loadChain 成功后调用）
   React.useEffect(() => {
     setSelectedStep(pickInitialStep(stageList, nodes));
   }, [stageList, nodes]);
 
-  // 0024 → 抽屉内降级条；非 0024 失败清除降级条（nodes 保留，拦截器已 toast）
+  // 0024 -> banner inside the drawer; other failures clear the banner while
+  // keeping previous nodes (global toast handled by lp-client).
   const err = chainQuery.error;
   const drawerDown = err != null && isServiceDown(err) ? err : null;
 
   const currentStageStatus =
     stageList.find((s) => s.step === selectedStep)?.status ?? 1;
 
-  // 选中阶段事件：eventTime 升序，相同则 flowId 升序（源排序口径）
+  // Selected-stage events: eventTime ascending, flowId ascending on ties.
   const selectedEvents = React.useMemo(
     () =>
       nodes
@@ -434,7 +348,8 @@ export function ChainDrawer({ row, pairText, onClosed }: ChainDrawerProps) {
 
   return (
     <Drawer open onOpenChange={(o) => !o && onClosed()}>
-      <DrawerContent className="w-full max-w-[720px] p-0">
+      {/* Width pinned to min(720px, 90vw) per doc D9 */}
+      <DrawerContent className="w-[min(720px,90vw)] max-w-none p-0">
         <div className="flex h-full flex-col">
           <DrawerHeader className="border-b px-6 py-4">
             <DrawerTitle>Transaction Chain</DrawerTitle>
@@ -443,13 +358,15 @@ export function ChainDrawer({ row, pairText, onClosed }: ChainDrawerProps) {
             {drawerDown && <ServiceDownAlert traceId={drawerDown.traceId} />}
 
             <h4 className="mt-0 text-sm font-semibold">Basic Information</h4>
-            <BasicInfo row={row} pairText={pairText} />
+            <BasicInfo row={row} />
 
-            <h4 className="mt-6 mb-3 text-sm font-semibold">Transaction Chain</h4>
+            <h4 className="mt-6 mb-3 text-sm font-semibold">
+              Transaction Chain
+            </h4>
             {chainQuery.isPending ? (
               <div className="space-y-2" aria-label="Loading">
-                <div className="h-7 w-full animate-pulse rounded bg-muted" />
-                <div className="h-16 w-full animate-pulse rounded bg-muted" />
+                <div className="h-8 w-full animate-pulse rounded bg-muted" />
+                <div className="h-24 w-full animate-pulse rounded bg-muted" />
               </div>
             ) : nodes.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
@@ -463,8 +380,9 @@ export function ChainDrawer({ row, pairText, onClosed }: ChainDrawerProps) {
                   onSelect={setSelectedStep}
                 />
                 <div className="mt-6 mb-3 text-sm font-semibold">
-                  {STAGE_STEP_MAP[selectedStep] ?? selectedStep}(
-                  {STAGE_STATUS_MAP[currentStageStatus] ?? currentStageStatus})
+                  {STAGE_STEP_MAP[selectedStep] ?? selectedStep}
+                  {' - '}
+                  {STAGE_STATUS_MAP[currentStageStatus] ?? currentStageStatus}
                 </div>
                 {selectedEvents.length > 0 ? (
                   <EventTimeline events={selectedEvents} />

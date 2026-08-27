@@ -34,6 +34,44 @@ export interface ResultData<T> {
 
 // ===== 业务读路径（源 types/business.ts；契约依据 spec M2a 及合并裁决 C-7/C-9/C-10/C-11） =====
 
+// ===== Token 总览(POST /lp/token/list、GET /lp/token/bank-group,全局域本地副本) =====
+
+export interface TokenRow {
+  tokenId: number;
+  tokenNo: string;
+  tokenCode: string;
+  tokenName: string;
+  symbol: string;
+  decimalDigits: number;
+  chainType: string;
+  anchorFiat: string;
+  minLiquidity: string | number;
+  bankId: number;
+  bankCode: string;
+  bankName: string;
+  /** 本 LP 已开池(status=20)标注 */
+  pooled: boolean;
+  syncTime: number;
+}
+
+export interface BankGroupRow {
+  bankId: number;
+  bankCode: string;
+  bankName: string;
+  bankStatus: number;
+  tokens: Array<
+    Pick<
+      TokenRow,
+      | 'tokenId'
+      | 'tokenNo'
+      | 'tokenCode'
+      | 'symbol'
+      | 'chainType'
+      | 'anchorFiat'
+    >
+  >;
+}
+
 // ===== 资金池(POST /lp/pool/list,不分页) =====
 
 export interface PoolRow {
@@ -78,22 +116,23 @@ export interface TopupRow {
   status: number;
 }
 
-// ===== 汇率(POST /lp/rate/list,不分页) =====
+// ===== 汇率(POST /lp/rate/list,全局域本地副本,不分页) =====
 
 export interface RateRow {
   pairId: number;
-  sourceCurrency: string;
-  targetCurrency: string;
-  /** 基础汇率(原值直出;该货币对无汇率行时 baseRate/userRate/updateTime 均 null,后端 D-4) */
-  baseRate: number | null;
-  markupRate: number;
-  /** 用户汇率 = 基础 × (1 + 加价率),api 侧计算 */
-  userRate: number | null;
-  /** 货币对状态 20 启用 / 50 停用 */
+  pairCode: string;
+  sourceTokenCode: string;
+  sourceTokenNo: string;
+  targetTokenCode: string;
+  targetTokenNo: string;
+  baseRate: string | number | null;
+  markupRate: string | number;
+  userRate: string | number | null;
+  defaultSplitRatio: string | number;
+  /** 货币对状态 20 生效 / 50 停用 */
   pairStatus: number;
-  updateTime: number | null;
-  /** 本 LP 是否参与(参与置顶由前端做) */
   participated: boolean;
+  syncTime: number;
 }
 
 // ===== 货币对参与(POST /lp/pair/list,不分页) =====

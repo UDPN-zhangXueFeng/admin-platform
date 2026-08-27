@@ -1,28 +1,32 @@
 'use client';
 
 /**
- * 结算页（B7，源 `src/views/settle/index.vue` 1:1 迁移）。
+ * Settlement page (doc 01 section D10, semantic port of legacy
+ * `src/views/settle/index.vue`).
  *
- * 源语义要点：
- * - 双 tab：结算流水（默认，POST /lp/settle/records）/ 结算单
- *   （POST /lp/settle/orders）；各自独立筛选/分页/loading/query，页面挂载
- *   即并行首载两 query，切 tab 不重新加载（缓存命中；两 query 与筛选状态
- *   均挂在页面级，tab 面板卸载不丢状态）；
- * - 页面级共享单条降级条（tab 外、页顶）：任一侧 query.error 为 0024
- *   （isServiceDown）→ ServiceDownAlert（orders 侧 0024 同样在页顶显示）；
- *   非 0024 失败降级条清除、旧数据保留（keepPreviousData + query 缓存），
- *   lp-client 对 0024 已豁免全局 toast；
- * - records 筛选仅时间范围（records 表无周期列，裁决 C-1）；
- * - orders 筛选 3 个：状态（仅 5 生成 / 20 已确认 / 35 已结算 可筛——10 审中
- *   / 15 拒绝存在于状态机但源不可筛）+ 周期（字符串 day/week/month，后端
- *   映射 period_type 1/2/3，裁决 C-1/D-7）+ 时间范围；
- * - 源 datetimerange value-format="x" 产出毫秒时间戳字符串、load 时
- *   Number() 转入 query；此处 datetime-local 字符串经 Date.getTime()
- *   等价产出毫秒 number，清空 → undefined（不进请求体）；
- * - LP 分成 / LP 分成合计列 key-figure 强调（源 .key-figure
- *   `color:var(--ks-settle);font-weight:600` → 主题色 + semibold）；
- * - 分页固定 pageSize 10（源 layout 'total,prev,pager,next' 无 sizes）；
- * - lpId 由 BFF 登录域注入，前端不传。
+ * Behavior contract:
+ * - Dual tabs - Settlement Records / Settlement Orders - each tab owns its
+ *   own filter form, submitted params, pagination and query cache. Both
+ *   queries mount in parallel on page load; switching tabs never refires
+ *   (cache hit, filters and page survive unmount of a panel).
+ * - Domain refresh: SyncRefreshButton(domain='settle_order'). The settle
+ *   sync domain covers settlement orders only, so the success callback
+ *   refetches JUST the orders-tab query and leaves the records-tab cache
+ *   untouched (doc 01 E6 trap).
+ * - Orders status filter options derive mechanically from the shared
+ *   code-table keys; unknown codes are still selectable-safe because badge
+ *   rendering falls back to raw numbers without crashing.
+ * - Period filter exposes the daily/weekly/monthly granularity; wire values
+ *   use the API contract strings mapped to backend period_type 1/2/3.
+ * - Orders rows expose an operation link opening the token-pair breakdown
+ *   dialog (720px max width) reading row items directly - no second
+ *   request, empty state when items are absent, NO footer buttons. Items
+ *   arrive as an optional JSON field not yet declared on SettleOrderRow,
+ *   so access is defensive and renders '-' for missing cells.
+ * - Money columns share one caliber (global formatMoney thousands grouping);
+ *   my-split key figures keep their emphasized styling.
+ * - Service-down (0024) merges both sides into one page-level banner while
+ *   previously loaded rows stay on screen; non-0024 failures clear it.
  */
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -32,6 +36,10 @@ import {
   Badge,
   Button,
   DataTable,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   Tabs,
   TabsContent,
   TabsList,
@@ -44,8 +52,6 @@ import {
   SETTLE_ORDER_STATUS_LABEL,
   SETTLE_ORDER_STATUS_VARIANT,
   SETTLE_PERIOD_TYPE_LABEL,
-  SETTLE_RECORD_STATUS_LABEL,
-  SETTLE_RECORD_STATUS_VARIANT,
   isServiceDown,
   useSettleOrdersQuery,
   useSettleRecordsQuery,
@@ -53,14 +59,15 @@ import {
   type SettleRecordRow,
 } from '@myorg/modules/lp-portal/data-access';
 import { formatMoney, formatTime } from './format';
+import { SyncRefreshButton } from './sync-refresh-button';
 import { ServiceDownAlert } from './service-down-alert';
 
 /* ================================================================== */
-/* 常量与筛选表单                                                       */
+/* Constants                                                           */
 /* ================================================================== */
 
 const PROJECT_ID = LP_PROJECT_ID;
-/** 源 el-pagination 固定 page-size 10（layout 'total, prev, pager, next'）。 */
+/** Source el-pagination fixed page-size 10 (layout total, prev, pager, next). */
 const PAGE_SIZE = 10;
 
 const LBL = {
@@ -71,40 +78,63 @@ const LBL = {
   query: 'Search',
   reset: 'Reset',
   empty: 'No data',
+  breakdown: 'Token Pair Breakdown',
+  breakdownEmpty: 'No breakdown data',
 } as const;
 
-/** 下拉「全部」哨兵（FormSelect 禁空 value，非 ALL 即转实参查询）。 */
+/** Dropdown all sentinel (FormSelect forbids empty values). */
 const ALL = 'all';
 
 /**
- * 结算单状态筛选选项：源 clearable select 仅 5/20/35 三项
- * （10 审中 / 15 拒绝 不可筛，裁决 C-2）；周期：字符串值后端映射
- * period_type 1/2/3（裁决 C-1/D-7）。
+ * Orders status filter options derived from the shared code table. When the
+ * table collapses two codes onto one label (5/10 -> Generated), the raw code
+ * is appended so the dropdown stays unambiguous without inventing copy.
  */
-const ORDER_STATUS_OPTIONS: SelectOption[] = [
-  { value: ALL, label: 'All' },
-  { value: '5', label: 'Generated' },
-  { value: '20', label: 'Confirmed' },
-  { value: '35', label: 'Settled' },
-];
+function buildOrderStatusOptions(): SelectOption[] {
+  const seen = new Set<string>();
+  return [
+    { value: ALL, label: 'All' },
+    ...Object.keys(SETTLE_ORDER_STATUS_LABEL).map((k) => {
+      const code = Number(k);
+      const base = SETTLE_ORDER_STATUS_LABEL[code] ?? `${code}`;
+      const label = seen.has(base) ? `${base} (${code})` : base;
+      seen.add(base);
+      return { value: k, label };
+    }),
+  ];
+}
 
-const ORDER_CYCLE_OPTIONS: SelectOption[] = [
-  { value: ALL, label: 'All' },
-  { value: 'day', label: 'Daily' },
-  { value: 'week', label: 'Weekly' },
-  { value: 'month', label: 'Monthly' },
-];
+const ORDER_STATUS_OPTIONS = buildOrderStatusOptions();
 
-/* ===== records tab（筛选仅时间范围，裁决 C-1）===== */
+/** Display granularity -> API contract wire value (backend maps period_type). */
+const PERIOD_WIRE_VALUE: Record<number, 'day' | 'week' | 'month'> = {
+  1: 'day',
+  2: 'week',
+  3: 'month',
+};
+
+const ORDER_CYCLE_OPTIONS: SelectOption[] = Object.keys(
+  SETTLE_PERIOD_TYPE_LABEL,
+)
+  .map((k) => Number(k))
+  .filter((code) => PERIOD_WIRE_VALUE[code] !== undefined)
+  .map((code) => ({
+    value: PERIOD_WIRE_VALUE[code],
+    label: SETTLE_PERIOD_TYPE_LABEL[code],
+  }));
+
+/* ===== records tab (filters: completed-time range only) ===== */
 
 interface RecordsFilterForm {
   startTime: string;
   endTime: string;
 }
 
-const EMPTY_RECORDS_FILTER: RecordsFilterForm = { startTime: '', endTime: '' };
+const EMPTY_RECORDS_FILTER: RecordsFilterForm = {
+  startTime: '',
+  endTime: '',
+};
 
-/** 已提交查询参数（时间已转毫秒 number；undefined 字段不进请求体）。 */
 interface RecordsParams {
   pageNum: number;
   startTime?: number;
@@ -122,7 +152,7 @@ function recordsFormToParams(
   };
 }
 
-/* ===== orders tab（状态 + 周期 + 时间范围）===== */
+/* ===== orders tab (status + period + time range) ===== */
 
 interface OrdersFilterForm {
   status: string;
@@ -138,7 +168,6 @@ const EMPTY_ORDERS_FILTER: OrdersFilterForm = {
   endTime: '',
 };
 
-/** 已提交查询参数（status 转 number、cycle 保字符串；undefined 不进请求体）。 */
 interface OrdersParams {
   pageNum: number;
   status?: number;
@@ -159,29 +188,24 @@ function ordersFormToParams(f: OrdersFilterForm, pageNum = 1): OrdersParams {
 }
 
 /* ================================================================== */
-/* 单元格渲染                                                           */
+/* Cell helpers                                                        */
 /* ================================================================== */
 
-/** 货币对列：源/目标币种齐显「源→目标」，缺币种回落 pairId 原值（源 recordPairText）。 */
-function recordPairText(row: SettleRecordRow): string {
-  return row.sourceCurrency && row.targetCurrency
-    ? `${row.sourceCurrency}→${row.targetCurrency}`
-    : `${row.pairId}`;
+/** Ratio (0..1 fraction) rendered with two decimals; blank stays '-'. */
+function percentText(v: number | null | undefined): string {
+  return v === null || v === undefined
+    ? '-'
+    : `${(Number(v) * 100).toFixed(2)}%`;
 }
 
-/** 周期列：起 〜 止（源 periodText，波浪符与源一致）。 */
-function periodText(row: SettleOrderRow): string {
-  return `${formatTime(row.periodStart)} – ${formatTime(row.periodEnd)}`;
-}
-
-/** 金额单元格：formatMoney（千分位、不归一小数位、无符号）。 */
+/** Money cell: shared formatter (thousands grouping, backend decimals kept). */
 function Money({ v }: { v: number }) {
   return (
     <span className="font-mono text-xs tabular-nums">{formatMoney(v)}</span>
   );
 }
 
-/** key-figure 强调单元格（源 .key-figure 主题色 + semibold）。 */
+/** Key-figure emphasis for the my-split totals column. */
 function KeyFigure({ v }: { v: number }) {
   return (
     <span className="font-mono text-xs font-semibold tabular-nums text-primary">
@@ -190,16 +214,21 @@ function KeyFigure({ v }: { v: number }) {
   );
 }
 
-/** 结算流水状态 Badge：未知码显原值，variant 兜底 secondary（源 1 success 其余 info）。 */
-function RecordStatusBadge({ status }: { status: number }) {
-  return (
-    <Badge variant={SETTLE_RECORD_STATUS_VARIANT[status] ?? 'secondary'}>
-      {SETTLE_RECORD_STATUS_LABEL[status] ?? status}
-    </Badge>
-  );
+/** Token pair cell: currencies when present, otherwise the raw pair id. */
+function recordPairText(row: SettleRecordRow): string {
+  return row.sourceCurrency && row.targetCurrency
+    ? `${row.sourceCurrency}→${row.targetCurrency}`
+    : `${row.pairId}`;
 }
 
-/** 结算单状态 Badge：未知码显原值，variant 兜底 secondary（源 5/10 info）。 */
+/** Period range text rendered from both boundary timestamps. */
+function periodText(row: SettleOrderRow): string {
+  return `${formatTime(row.periodStart)} – ${formatTime(row.periodEnd)}`;
+}
+
+/** Record status badge; unknown codes show the raw number on neutral tone. */
+
+/** Order status badge; unknown codes show the raw number on neutral tone. */
 function OrderStatusBadge({ status }: { status: number }) {
   return (
     <Badge variant={SETTLE_ORDER_STATUS_VARIANT[status] ?? 'secondary'}>
@@ -209,16 +238,101 @@ function OrderStatusBadge({ status }: { status: number }) {
 }
 
 /* ================================================================== */
-/* 页面                                                                 */
+/* Order items (token-pair breakdown)                                  */
 /* ================================================================== */
 
 /**
- * 结算页：双 tab 各自独立分页独立筛选，共享页顶单条降级条。
- * 源为单页无 detail 子路由，行不可点击（registry 仅应挂 list，mock 的
- * SettleDetailPage 一并移除）。
+ * Item shape tolerance: the field ships as JSON on the order VO but is not
+ * yet part of the declared row type, so every cell is individually optional
+ * and falls back to '-' instead of crashing.
  */
+interface OrderItemVO {
+  pairCode?: string | null;
+  sourceCurrency?: string | null;
+  targetCurrency?: string | null;
+  txCount?: number | null;
+  principalTotal?: number | null;
+  markupTotal?: number | null;
+  lpSplitTotal?: number | null;
+}
+
+function readOrderItems(row: SettleOrderRow): OrderItemVO[] {
+  const raw = (row as SettleOrderRow & { items?: unknown }).items;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (x): x is OrderItemVO =>
+      x !== null && typeof x === 'object' && !Array.isArray(x),
+  );
+}
+
+function itemPairText(item: OrderItemVO): string {
+  if (item.pairCode) return item.pairCode;
+  if (item.sourceCurrency && item.targetCurrency)
+    return `${item.sourceCurrency}→${item.targetCurrency}`;
+  return '-';
+}
+
+/**
+ * Breakdown dialog body: five-item grid mirroring the legacy modal -
+ * token pair / tx count / principal total / markup total / my split.
+ * Purely presentational; no actions and no footer by design.
+ */
+function ItemsTable({ items }: { items: OrderItemVO[] }) {
+  if (items.length === 0) {
+    return (
+      <div className="py-6 text-center text-sm text-muted-foreground">
+        {LBL.breakdownEmpty}
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-md border">
+      <div className="grid grid-cols-5 gap-px bg-border text-xs text-muted-foreground">
+        <div className="bg-muted px-3 py-2">Token Pair</div>
+        <div className="bg-muted px-3 py-2">Tx Count</div>
+        <div className="bg-muted px-3 py-2">Principal Total</div>
+        <div className="bg-muted px-3 py-2">Markup Total</div>
+        <div className="bg-muted px-3 py-2">My Split</div>
+      </div>
+      <div className="grid grid-cols-5 gap-px bg-border text-sm">
+        {items.map((it, i) => (
+          <React.Fragment key={i}>
+            <div className="bg-card px-3 py-2 font-mono text-xs">
+              {itemPairText(it)}
+            </div>
+            <div className="bg-card px-3 py-2 font-mono text-xs tabular-nums">
+              {it.txCount ?? '-'}
+            </div>
+            <div className="bg-card px-3 py-2">
+              {it.principalTotal == null ? (
+                '-'
+              ) : (
+                <Money v={it.principalTotal} />
+              )}
+            </div>
+            <div className="bg-card px-3 py-2">
+              {it.markupTotal == null ? '-' : <Money v={it.markupTotal} />}
+            </div>
+            <div className="bg-card px-3 py-2">
+              {it.lpSplitTotal == null ? (
+                '-'
+              ) : (
+                <KeyFigure v={it.lpSplitTotal} />
+              )}
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* Page                                                                */
+/* ================================================================== */
+
 export function SettleListPage() {
-  // ===== 结算流水（records）=====
+  // ===== Settlement records =====
   const recordsForm = useForm<RecordsFilterForm>({
     defaultValues: EMPTY_RECORDS_FILTER,
   });
@@ -238,7 +352,7 @@ export function SettleListPage() {
   const recordRows = recordsQuery.data?.data ?? [];
   const recordsTotal = recordsQuery.data?.pagination.total ?? 0;
 
-  // ===== 结算单（orders）=====
+  // ===== Settlement orders =====
   const ordersForm = useForm<OrdersFilterForm>({
     defaultValues: EMPTY_ORDERS_FILTER,
   });
@@ -260,8 +374,13 @@ export function SettleListPage() {
   const orderRows = ordersQuery.data?.data ?? [];
   const ordersTotal = ordersQuery.data?.pagination.total ?? 0;
 
-  // 源共享 down 语义：页面级单个 down（tab 外页顶渲染），任一侧 0024 置位
-  // （orders 侧同样显示）；成功侧 query.error 归 null 即清除，旧数据保留。
+  // Breakdown dialog target; cleared on close to unmount.
+  const [breakdownRow, setBreakdownRow] = React.useState<SettleOrderRow | null>(
+    null,
+  );
+
+  // Page-level single banner: any side erroring with 0024 surfaces here;
+  // clearing happens automatically once the failing side recovers.
   const down = React.useMemo(() => {
     for (const err of [recordsQuery.error, ordersQuery.error]) {
       if (err != null && isServiceDown(err)) return { traceId: err.traceId };
@@ -269,22 +388,39 @@ export function SettleListPage() {
     return null;
   }, [recordsQuery.error, ordersQuery.error]);
 
+  /**
+   * Domain refresh semantics (settle_order): only the settlement-orders
+   * query refetches - the records-tab cache and its page stay untouched.
+   */
+  function refreshOrdersTab() {
+    void ordersQuery.refetch();
+  }
+
   const recordColumns = React.useMemo<
     ColumnDef<SettleRecordRow & { id: string }>[]
   >(
     () => [
       {
-        accessorKey: 'createTime',
-        header: 'Created At',
+        accessorKey: 'settleRecordId',
+        header: 'Record ID',
         cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatTime(row.original.createTime)}
+          <span className="font-mono text-xs tabular-nums">
+            {row.original.settleRecordId}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'transactionId',
+        header: 'Transaction ID',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums">
+            {row.original.transactionId}
           </span>
         ),
       },
       {
         accessorKey: 'pairId',
-        header: 'Currency Pair',
+        header: 'Token Pair',
         cell: ({ row }) => recordPairText(row.original),
       },
       {
@@ -293,29 +429,42 @@ export function SettleListPage() {
         cell: ({ row }) => <Money v={row.original.principal} />,
       },
       {
-        accessorKey: 'userDeduction',
-        header: 'User Deduction',
-        cell: ({ row }) => <Money v={row.original.userDeduction} />,
-      },
-      {
         accessorKey: 'markupAmount',
         header: 'Markup Amount',
         cell: ({ row }) => <Money v={row.original.markupAmount} />,
       },
       {
-        accessorKey: 'receiverAmount',
-        header: 'Receiver Amount',
-        cell: ({ row }) => <Money v={row.original.receiverAmount} />,
+        accessorKey: 'splitRatio',
+        header: 'Split Ratio',
+        // Ratio snapshot rides on the VO but is not declared yet; absent -> '-'
+        cell: ({ row }) => (
+          <span className="block font-mono text-xs tabular-nums">
+            {percentText(
+              (row.original as SettleRecordRow & {
+                splitRatioSnapshot?: number | null;
+                splitRatio?: number | null;
+              }).splitRatioSnapshot ??
+                (row.original as SettleRecordRow & {
+                  splitRatio?: number | null;
+                }).splitRatio ??
+                null,
+            )}
+          </span>
+        ),
       },
       {
         accessorKey: 'lpSplitAmount',
-        header: 'LP Split',
+        header: 'My Split',
         cell: ({ row }) => <KeyFigure v={row.original.lpSplitAmount} />,
       },
       {
-        accessorKey: 'status',
-        header: 'Status',
-        cell: ({ row }) => <RecordStatusBadge status={row.original.status} />,
+        accessorKey: 'createTime',
+        header: 'Completed At',
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatTime(row.original.createTime)}
+          </span>
+        ),
       },
     ],
     [],
@@ -335,19 +484,18 @@ export function SettleListPage() {
       {
         accessorKey: 'periodType',
         header: 'Period Type',
-        // 未知码兜底显原值（源 PERIOD_TYPE_MAP[row.periodType] ?? row.periodType）
+        // Unknown granularity shows the raw code (source PERIOD_TYPE_MAP ?? raw)
         cell: ({ row }) => (
-          <span>
-            {SETTLE_PERIOD_TYPE_LABEL[row.original.periodType] ??
-              row.original.periodType}
-          </span>
+          <span>{SETTLE_PERIOD_TYPE_LABEL[row.original.periodType] ?? row.original.periodType}</span>
         ),
       },
       {
         accessorKey: 'periodStart',
-        header: 'Period',
+        header: 'Period Range',
         cell: ({ row }) => (
-          <span className="tabular-nums">{periodText(row.original)}</span>
+          <span className="block min-w-[320px] whitespace-nowrap tabular-nums">
+            {periodText(row.original)}
+          </span>
         ),
       },
       {
@@ -365,6 +513,11 @@ export function SettleListPage() {
         cell: ({ row }) => <Money v={row.original.principalTotal} />,
       },
       {
+        accessorKey: 'markupTotal',
+        header: 'Markup Total',
+        cell: ({ row }) => <Money v={row.original.markupTotal} />,
+      },
+      {
         accessorKey: 'lpSplitTotal',
         header: 'LP Split Total',
         cell: ({ row }) => <KeyFigure v={row.original.lpSplitTotal} />,
@@ -375,12 +528,17 @@ export function SettleListPage() {
         cell: ({ row }) => <OrderStatusBadge status={row.original.status} />,
       },
       {
-        accessorKey: 'createTime',
-        header: 'Generated At',
+        id: 'actions',
+        header: 'Operations',
         cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatTime(row.original.createTime)}
-          </span>
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto whitespace-nowrap p-0"
+            onClick={() => setBreakdownRow(row.original)}
+          >
+            {LBL.breakdown}
+          </Button>
         ),
       },
     ],
@@ -402,14 +560,17 @@ export function SettleListPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          {LBL.eyebrow}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            {LBL.eyebrow}
+          </div>
+          <h1 className="text-xl font-semibold">{LBL.title}</h1>
         </div>
-        <h1 className="text-xl font-semibold">{LBL.title}</h1>
+        {/* settle_order domain intentionally refreshes orders only */}
+        <SyncRefreshButton domain="settle_order" onRefreshed={refreshOrdersTab} />
       </div>
 
-      {/* 页面级共享降级条（tab 外）：任一侧 0024 显示，orders 侧同 */}
       {down && <ServiceDownAlert traceId={down.traceId} />}
 
       <div className="rounded-lg border-border/60 bg-card shadow-float">
@@ -419,7 +580,7 @@ export function SettleListPage() {
             <TabsTrigger value="orders">{LBL.tabOrders}</TabsTrigger>
           </TabsList>
 
-          {/* ===== 结算流水 ===== */}
+          {/* ===== Settlement records ===== */}
           <TabsContent value="records" className="mt-0 px-6 pb-6">
             <form
               onSubmit={recordsForm.handleSubmit((f) =>
@@ -430,13 +591,13 @@ export function SettleListPage() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <FormField
                   name="startTime"
-                  label="Start Time"
+                  label="Completed From"
                   type="datetime-local"
                   register={recordsForm.register('startTime')}
                 />
                 <FormField
                   name="endTime"
-                  label="End Time"
+                  label="Completed To"
                   type="datetime-local"
                   register={recordsForm.register('endTime')}
                 />
@@ -472,7 +633,7 @@ export function SettleListPage() {
             />
           </TabsContent>
 
-          {/* ===== 结算单 ===== */}
+          {/* ===== Settlement orders ===== */}
           <TabsContent value="orders" className="mt-0 px-6 pb-6">
             <form
               onSubmit={ordersForm.handleSubmit((f) =>
@@ -491,17 +652,17 @@ export function SettleListPage() {
                   name="cycle"
                   control={ordersForm.control}
                   label="Period"
-                  options={ORDER_CYCLE_OPTIONS}
+                  options={[{ value: ALL, label: 'All' }, ...ORDER_CYCLE_OPTIONS]}
                 />
                 <FormField
                   name="startTime"
-                  label="Start Time"
+                  label="Completed From"
                   type="datetime-local"
                   register={ordersForm.register('startTime')}
                 />
                 <FormField
                   name="endTime"
-                  label="End Time"
+                  label="Completed To"
                   type="datetime-local"
                   register={ordersForm.register('endTime')}
                 />
@@ -538,6 +699,19 @@ export function SettleListPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Breakdown dialog reads the row payload directly; no footer buttons */}
+      <Dialog
+        open={breakdownRow !== null}
+        onOpenChange={(o) => !o && setBreakdownRow(null)}
+      >
+        <DialogContent className="sm:max-w-[720px]">
+          <DialogHeader>
+            <DialogTitle>{LBL.breakdown}</DialogTitle>
+          </DialogHeader>
+          {breakdownRow && <ItemsTable items={readOrderItems(breakdownRow)} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

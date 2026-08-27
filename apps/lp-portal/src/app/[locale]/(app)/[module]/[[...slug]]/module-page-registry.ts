@@ -31,20 +31,31 @@ function lp(moduleExport: string): PageLoader {
  * `create` and `edit` both resolve to the module's single FormPage.
  */
 const pages: Record<string, Record<string, PageLoader>> = {
+  // 通证总览（lp:token 新增键）：源为双 tab 单页，无 create/edit/detail 路由；
+  // 组件由后续页面组交付，本表不做存在性校验。
+  token: {
+    list: lp('TokenListPage'),
+  },
   // 资金池（B1 真实页）：源为单页只读视图，无 create/edit/detail 路由。
   pool: {
     list: lp('PoolListPage'),
-  },
-  // 补资（B2 真实页）：源为只读分页列表，无 create/detail 路由。
-  topup: {
-    list: lp('TopupListPage'),
   },
   // 货币对与资金池（B4 真实页）：源为单页主表+展开行聚合，无 detail 路由。
   pair: {
     list: lp('PairListPage'),
   },
+  // 我的分账（lp:split 新增键）：源为双卡片单页，无 create/edit/detail 路由；
+  // 组件由后续页面组交付，本表不做存在性校验。
+  split: {
+    list: lp('SplitListPage'),
+  },
   rate: {
     list: lp('RateListPage'),
+  },
+  // 预授权监控（lp:preauth 新增键）：源为只读单页，无 create/edit/detail 路由；
+  // 组件由后续页面组交付，本表不做存在性校验。
+  preauth: {
+    list: lp('PreauthListPage'),
   },
   // 交易流水（B5/B6 真实页）：源为单页，链路明细即行点击开的页内抽屉，
   // 无 detail 路由。

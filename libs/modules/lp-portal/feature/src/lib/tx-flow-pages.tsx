@@ -1,29 +1,37 @@
 'use client';
 
 /**
- * 交易流水页（B5，源 `src/views/tx-flow/index.vue` 1:1 语义迁移）。
+ * Transaction flow list page (doc 01 section D9, semantic port of legacy
+ * `src/views/tx-flow/index.vue`).
  *
- * 源语义要点（对照 map「交易流水页」behaviors）：
- * - 三筛选分页表：POST /lp/tx-flow/list（{page:{pageNum,pageSize},data:{筛选}}，
- *   pageSize 固定 10；lpId 由 BFF 登录域注入不传）；
- * - 货币对下拉选项 POST /lp/pair/list（label `S→T`、value pairId），
- *   失败仅下拉为空且 pairMap 空——货币对列回落显原始 pairId，不触发降级条；
- * - 状态下拉全 13 值（TX_STATUS_MAP 的 Object.keys 顺序生成）；
- * - MSG_23_0024 → 页面级降级条 + 保留旧数据（TanStack refetch 出错保留
- *   上次成功 data），无全局 toast；非 0024 失败降级条清除、旧数据保留；
- * - 交易单号 txUuid 优先 txNo 兜底双兜底（F1，data-access txNoText）；
- * - 完成时间 completedTime === 0 严格判 0 显 '-'（未完成哨兵）；
- * - 行点击开链路抽屉：@myorg/shared/ui DataTable 无 row-click API（本文件
- *   白名单不含 shared/ui），以「查看链路」操作列按钮等价提供入口，
- *   抽屉挂载/卸载语义与源一致（drawerRow 非空挂载、closed 置 null）。
- *
- * 文案中文硬编码（kissen-admin 先例），不注册 i18n key。
+ * Behavior contract:
+ * - Domain refresh: SyncRefreshButton(domain='tx_flow') refetches the list
+ *   keeping the current page number (source reload keeps pageNum).
+ * - Filters: status dropdown with the full 13-value TX table, a Token Pair
+ *   ID text input (native Enter inside the form submits = load(1)), and a
+ *   completed-time range whose values are converted to millisecond numbers
+ *   (source datetimerange value-format='x' then Number()).
+ * - Status badges follow the LIST caliber: 40 success, 70/90 danger,
+ *   50 warning stroke, 60/80 info; every other code - including 35 credited -
+ *   stays in-flight primary. Unknown codes fall back to a neutral badge
+ *   showing the raw number. The drawer intentionally renders its own
+ *   caliber (35 success) - see chain-drawer.tsx / tx-chain.ts.
+ * - completedTime is compared strictly against 0 (unfinished sentinel) and
+ *   rendered '-', never fed into formatTime's invalid branch.
+ * - Principal and Receiver Amount share one money caliber (global
+ *   formatMoney) so both columns group thousands identically.
+ * - Entry into the chain drawer: source opens it on row click; DataTable
+ *   has no row-click API, so an explicit View Chain action provides the
+ *   affordance while mount/unmount semantics match the source.
+ * - Service-down (0024) shows the page banner and keeps previous data;
+ *   non-0024 failures clear the banner (query cache retains old rows).
  */
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import {
+  Badge,
   Button,
   DataTable,
   Tooltip,
@@ -39,20 +47,26 @@ import {
   isServiceDown,
   txNoText,
   useTxFlowListQuery,
-  useTxFlowPairOptionsQuery,
-  type TxFlowPairOption,
   type TxRow,
 } from '@myorg/modules/lp-portal/data-access';
-import { ChainDrawer, TxStatusBadge } from './chain-drawer';
+import { ChainDrawer } from './chain-drawer';
 import { formatMoney, formatTime } from './format';
+import { SyncRefreshButton } from './sync-refresh-button';
 import { ServiceDownAlert } from './service-down-alert';
+import {
+  asTxRowVO,
+  completedTimeText,
+  txListVariant,
+  txStatusLabel,
+  txWarnClass,
+} from './tx-chain';
 
 /* ================================================================== */
-/* 常量与筛选表单                                                       */
+/* Constants and filter form                                           */
 /* ================================================================== */
 
 const PROJECT_ID = LP_PROJECT_ID;
-/** 源 el-pagination 固定 page-size 10（layout 'total, prev, pager, next'）。 */
+/** Source el-pagination fixed page-size 10 (layout total, prev, pager, next). */
 const PAGE_SIZE = 10;
 
 const LBL = {
@@ -65,14 +79,16 @@ const LBL = {
   viewChain: 'View Chain',
 } as const;
 
-/** 下拉「全部」哨兵（FormSelect 禁空 value，非 ALL 即转 number 参与查询）。 */
+/** Dropdown all sentinel (FormSelect forbids empty values). */
 const ALL = 'all';
 
-/** 状态下拉选项：TX_STATUS_LABEL 的键序生成（源 Object.keys(TX_STATUS_MAP)）。 */
-const STATUS_OPTIONS: SelectOption[] = Object.keys(TX_STATUS_LABEL).map((k) => ({
-  value: k,
-  label: TX_STATUS_LABEL[Number(k)],
-}));
+/** Status options generated in key order of the shared 13-value table. */
+const STATUS_OPTIONS: SelectOption[] = Object.keys(TX_STATUS_LABEL).map(
+  (k) => ({
+    value: k,
+    label: TX_STATUS_LABEL[Number(k)],
+  }),
+);
 
 interface TxFlowFilterForm {
   pairId: string;
@@ -82,13 +98,13 @@ interface TxFlowFilterForm {
 }
 
 const EMPTY_FILTER: TxFlowFilterForm = {
-  pairId: ALL,
+  pairId: '',
   status: ALL,
   startTime: '',
   endTime: '',
 };
 
-/** 已提交查询参数（时间已转毫秒 number；undefined 字段不进请求体）。 */
+/** Submitted query params (times already ms numbers; undefined stays out of body). */
 interface TxFlowQueryParams {
   pageNum: number;
   pairId?: number;
@@ -98,17 +114,39 @@ interface TxFlowQueryParams {
 }
 
 function formToParams(f: TxFlowFilterForm, pageNum = 1): TxFlowQueryParams {
+  const pairIdRaw = f.pairId.trim();
   return {
     pageNum,
-    pairId: f.pairId !== ALL ? Number(f.pairId) : undefined,
+    // Numeric token-pair id input; anything non-numeric is ignored (kept out
+    // of the request body instead of crashing Number()).
+    pairId:
+      pairIdRaw !== '' && /^\d+$/.test(pairIdRaw)
+        ? Number(pairIdRaw)
+        : undefined,
     status: f.status !== ALL ? Number(f.status) : undefined,
     startTime: f.startTime ? new Date(f.startTime).getTime() : undefined,
     endTime: f.endTime ? new Date(f.endTime).getTime() : undefined,
   };
 }
 
+/** List-caliber status badge; unknown codes fall back without throwing. */
+function TxStatusBadge({ status }: { status: number }) {
+  return (
+    <Badge variant={txListVariant(status)} className={txWarnClass(status)}>
+      {txStatusLabel(status)}
+    </Badge>
+  );
+}
+
+/** Money cell using the shared formatter - identical caliber for both columns. */
+function Money({ v }: { v: number }) {
+  return (
+    <span className="font-mono text-xs tabular-nums">{formatMoney(v)}</span>
+  );
+}
+
 /* ================================================================== */
-/* 列表页                                                               */
+/* List page                                                           */
 /* ================================================================== */
 
 export function TxFlowListPage() {
@@ -117,31 +155,13 @@ export function TxFlowListPage() {
   const [params, setParams] = React.useState<TxFlowQueryParams>(() =>
     formToParams(EMPTY_FILTER),
   );
-  const [pageSize, setPageSize] = React.useState(PAGE_SIZE);
 
-  // 行点击目标（链路抽屉；非空挂载，closed 置 null 卸载）
+  // Row target of the chain drawer; set on entry action, cleared to unmount.
   const [drawerRow, setDrawerRow] = React.useState<TxRow | null>(null);
-
-  // 货币对下拉（非主数据：失败仅下拉为空 + pairMap 空，货币对列回落显
-  // 原始 pairId，不触发降级条；错误 toast 由 lp-client 发）。
-  const { data: pairOptions } = useTxFlowPairOptionsQuery(PROJECT_ID);
-  const pairMap = React.useMemo(
-    () =>
-      new Map<number, TxFlowPairOption>(
-        (pairOptions ?? []).map((p): [number, TxFlowPairOption] => [p.pairId, p]),
-      ),
-    [pairOptions],
-  );
-
-  /** 货币对列：pairId 查映射显「源→目标」，未知 pairId 显原值。 */
-  function pairText(row: TxRow): string {
-    const p = pairMap.get(row.pairId);
-    return p ? `${p.sourceCurrency}→${p.targetCurrency}` : `${row.pairId}`;
-  }
 
   const listQuery = useTxFlowListQuery(PROJECT_ID, {
     pageNum: params.pageNum,
-    pageSize,
+    pageSize: PAGE_SIZE,
     filter: {
       pairId: params.pairId,
       status: params.status,
@@ -153,90 +173,114 @@ export function TxFlowListPage() {
   const rows = listQuery.data?.data ?? [];
   const total = listQuery.data?.pagination.total ?? 0;
 
-  // 0024 → 页面级降级条；非 0024 失败降级条清除（旧数据仍由 query 保留）。
+  // 0024 -> page-level banner; non-0024 failures clear it (previous data kept).
   const err = listQuery.error;
   const serviceDown = err != null && isServiceDown(err) ? err : null;
 
-  const pairSelectOptions = React.useMemo<SelectOption[]>(
-    () => [
-      { value: ALL, label: 'All Currency Pairs' },
-      ...(pairOptions ?? []).map((p) => ({
-        value: String(p.pairId),
-        label: `${p.sourceCurrency}→${p.targetCurrency}`,
-      })),
-    ],
-    [pairOptions],
-  );
+  /** Refetch keeps the current page number (source sync-reload semantics). */
+  function reloadKeepingPage() {
+    void listQuery.refetch();
+  }
 
   const columns = React.useMemo<ColumnDef<TxRow & { id: string }>[]>(
     () => [
       {
-        // 交易单号：txUuid 优先 txNo 兜底双兜底（F1）；show-overflow-tooltip
+        // Business number: txUuid preferred, txNo fallback, else '-'
         accessorKey: 'txNo',
         header: 'Tx No.',
-        cell: ({ row }) => {
-          const text = txNoText(row.original);
-          if (text === '-') return <span>-</span>;
-          return (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="block max-w-[220px] truncate font-mono text-xs">
-                  {text}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-sm break-all font-mono text-xs">
-                {text}
-              </TooltipContent>
-            </Tooltip>
-          );
-        },
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">{txNoText(row.original)}</span>
+        ),
       },
       {
         accessorKey: 'transactionId',
         header: 'Transaction ID',
         cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.transactionId}</span>
+          <span className="font-mono text-xs">
+            {row.original.transactionId}
+          </span>
         ),
       },
       {
-        accessorKey: 'pairId',
-        header: 'Currency Pair',
-        cell: ({ row }) => <span>{pairText(row.original)}</span>,
+        accessorKey: 'pairCode',
+        header: 'Token Pair',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">
+            {asTxRowVO(row.original).pairCode || '-'}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'direction',
+        header: 'Direction',
+        cell: ({ row }) => {
+          const vo = asTxRowVO(row.original);
+          return (
+            <span>
+              {vo.sourceCurrency}
+              {'→'}
+              {vo.targetCurrency}
+            </span>
+          );
+        },
       },
       {
         accessorKey: 'principal',
         header: 'Principal',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {formatMoney(row.original.principal)}
-          </span>
-        ),
+        cell: ({ row }) => <Money v={row.original.principal} />,
+      },
+      {
+        accessorKey: 'receiverAmount',
+        header: 'Receiver Amount',
+        cell: ({ row }) => {
+          const v = asTxRowVO(row.original).receiverAmount;
+          return typeof v === 'number' && Number.isFinite(v) ? (
+            <Money v={v} />
+          ) : (
+            <span>-</span>
+          );
+        },
       },
       {
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ row }) => <TxStatusBadge status={row.original.status} />,
-      },
-      {
-        accessorKey: 'createTime',
-        header: 'Created At',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {formatTime(row.original.createTime)}
-          </span>
-        ),
+        // failReason surfaces as a tooltip piggybacked on the status badge
+        cell: ({ row }) => {
+          const reason = asTxRowVO(row.original).failReason;
+          const badge = <TxStatusBadge status={row.original.status} />;
+          return reason ? (
+            <Tooltip>
+              <TooltipTrigger asChild>{badge}</TooltipTrigger>
+              <TooltipContent className="max-w-sm break-all">
+                {reason}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            badge
+          );
+        },
       },
       {
         accessorKey: 'completedTime',
         header: 'Completed At',
-        // 源口径：completedTime === 0 严格判 0 = 未完成哨兵（非 truthy 判断）
+        // Strict === 0 sentinel -> '-' (source caliber; not truthiness)
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
-            {row.original.completedTime === 0
-              ? '-'
-              : formatTime(row.original.completedTime)}
+            {completedTimeText(row.original.completedTime)}
           </span>
         ),
+      },
+      {
+        accessorKey: 'dataTime',
+        header: 'Data Time',
+        cell: ({ row }) => {
+          const t = asTxRowVO(row.original).dataTime;
+          return (
+            <span className="font-mono text-xs tabular-nums">
+              {t == null || t === 0 ? '-' : formatTime(t)}
+            </span>
+          );
+        },
       },
       {
         id: 'actions',
@@ -253,8 +297,7 @@ export function TxFlowListPage() {
         ),
       },
     ],
-    // pairText 闭包依赖 pairMap（未知 pairId 回落显原始 id 的口径）
-    [pairMap],
+    [],
   );
 
   const tableData = React.useMemo(
@@ -264,11 +307,15 @@ export function TxFlowListPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          {LBL.eyebrow}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            {LBL.eyebrow}
+          </div>
+          <h1 className="text-xl font-semibold">{LBL.title}</h1>
         </div>
-        <h1 className="text-xl font-semibold">{LBL.title}</h1>
+        {/* Domain sync: tx_flow; keeps current page after refresh */}
+        <SyncRefreshButton domain="tx_flow" onRefreshed={reloadKeepingPage} />
       </div>
 
       {serviceDown && <ServiceDownAlert traceId={serviceDown.traceId} />}
@@ -280,28 +327,29 @@ export function TxFlowListPage() {
         <div className="mb-4 text-sm font-semibold">Search Criteria</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <FormField
-            name="startTime"
-            label="Start Time"
-            type="datetime-local"
-            register={register('startTime')}
-          />
-          <FormField
-            name="endTime"
-            label="End Time"
-            type="datetime-local"
-            register={register('endTime')}
-          />
-          <FormSelect
             name="pairId"
-            control={control}
-            label="Currency Pair"
-            options={pairSelectOptions}
+            label="Token Pair ID"
+            type="text"
+            placeholder="Token pair ID, Enter to search"
+            register={register('pairId')}
           />
           <FormSelect
             name="status"
             control={control}
             label="Status"
-            options={STATUS_OPTIONS}
+            options={[{ value: ALL, label: 'All' }, ...STATUS_OPTIONS]}
+          />
+          <FormField
+            name="startTime"
+            label="Completed From"
+            type="datetime-local"
+            register={register('startTime')}
+          />
+          <FormField
+            name="endTime"
+            label="Completed To"
+            type="datetime-local"
+            register={register('endTime')}
           />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -331,27 +379,19 @@ export function TxFlowListPage() {
             emptyMessage={LBL.empty}
             pagination={{
               page: params.pageNum,
-              pageSize,
+              pageSize: PAGE_SIZE,
               total,
               onPageChange: (page) =>
                 setParams((prev) => ({ ...prev, pageNum: page })),
-              onPageSizeChange: (n) => {
-                setPageSize(n);
-                setParams((prev) => ({ ...prev, pageNum: 1 }));
-              },
               pageSizeOptions: [PAGE_SIZE],
             }}
           />
         </div>
       </TooltipProvider>
 
-      {/* 链路抽屉：条件挂载（drawerRow 非空），closed → 置 null 卸载 */}
+      {/* Drawer mounts only with a row target and unmounts once closed */}
       {drawerRow && (
-        <ChainDrawer
-          row={drawerRow}
-          pairText={pairText(drawerRow)}
-          onClosed={() => setDrawerRow(null)}
-        />
+        <ChainDrawer row={drawerRow} onClosed={() => setDrawerRow(null)} />
       )}
     </div>
   );

@@ -39,6 +39,11 @@ export interface AppShellProps {
   onBrandClick?: () => void;
   /** Hide the "Manage Account" user-menu entry (opt-in). */
   hideManageAccount?: boolean;
+  /**
+   * Opt-in content rendered inside the header right-hand actions area,
+   * passed through to Header's `trailing` slot (e.g. the notification bell).
+   */
+  trailing?: React.ReactNode;
 }
 
 interface LayoutProps {
@@ -62,6 +67,8 @@ interface LayoutProps {
   onBrandClick?: () => void;
   /** Hide the "Manage Account" user-menu entry (opt-in). */
   hideManageAccount?: boolean;
+  /** Opt-in header actions content, forwarded to Header's `trailing` slot. */
+  trailing?: React.ReactNode;
 }
 
 /**
@@ -84,6 +91,7 @@ export function AppShell({
   sidebarWidths,
   onBrandClick,
   hideManageAccount,
+  trailing,
 }: AppShellProps) {
   const Layout = layoutMap[config.layout.type] ?? SidebarLayout;
 
@@ -96,6 +104,7 @@ export function AppShell({
       sidebarWidths={sidebarWidths}
       onBrandClick={onBrandClick}
       hideManageAccount={hideManageAccount}
+      trailing={trailing}
     >
       {children}
     </Layout>

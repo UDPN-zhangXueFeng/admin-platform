@@ -3,114 +3,158 @@
 import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 
-import {
-  Badge,
-  DataTable,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@myorg/shared/ui';
+import { Badge, Checkbox, DataTable, Input } from '@myorg/shared/ui';
 
 import {
   LP_PROJECT_ID,
-  isServiceDown,
-  useLpRateListQuery,
   RATE_PAIR_STATUS_LABEL,
   RATE_PAIR_STATUS_VARIANT,
+  isServiceDown,
+  useLpRateListQuery,
   type RateRow,
 } from '@myorg/modules/lp-portal/data-access';
 
 import { formatTime } from './format';
 import { ServiceDownAlert } from './service-down-alert';
+import { SyncRefreshButton } from './sync-refresh-button';
 
 /* ------------------------------------------------------------------ *
- * 汇率（rate）— 全量拉取 + 客户端过滤/排序（源 src/views/rate/index.vue）
- * Menu key: lp:rate  Path: /rate  Page keys: list (list only, 只读)
+ * 汇率（rate）— 全量拉取 + 客户端过滤/排序（源 src/views/rate/index.vue，
+ * 01 §D6）Menu key: lp:rate  Path: /rate  Page keys: list (只读)
  * ------------------------------------------------------------------ */
 
-/**
- * 货币对筛选「全部」哨兵值（shadcn Select 无原生 clearable；
- * 源 el-select clearable 清空后非 number 值统一视为不过滤）。
- */
-const PAIR_ALL = 'ALL';
+const LBL = {
+  eyebrow: 'MARKET',
+  title: 'Rates',
+  keywordLabel: 'Currency Pair',
+  keywordPlaceholder: 'Filter by code or token',
+  onlyMine: 'Only my participation',
+  participating: 'Participating',
+  empty: 'No rate data',
+} as const;
 
 /**
- * 参与行整行高亮（源 .row-participated td：常青绿浅底 0.04 / hover 0.08）。
- *
- * DataTable 无斑马纹（无 stripe 冲突），但也不暴露 row-class 钩子，
- * 故经 :has() 选择器从表格容器挂到含 data-row-participated 标记的行；
- * hover 变体选择器多一个伪类，特异性高于默认 hover:bg-muted/50。
+ * 百分比两位小数：源 percentText：(v*100).toFixed(2)%，空值 → '-'。
+ * 加价率与对默认分成共用同一口径（加价率 **2 位小数** 为 §D6 硬要求），
+ * 4 处调用锁步，故独立命名公式而非内联。
  */
-const ROW_HIGHLIGHT_CLASS =
-  '[&_tr:has([data-row-participated])]:bg-[rgba(11,107,83,0.04)] [&_tr:has([data-row-participated]):hover]:bg-[rgba(11,107,83,0.08)]';
+function percentText(v: string | number | null | undefined): string {
+  return v == null || v === '' ? '-' : `${(Number(v) * 100).toFixed(2)}%`;
+}
 
-/** 汇率列表列定义（列序/文案照源；汇率三值原值直出，null → '-'）。 */
+type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
+
+/** 数值文本（源 .num 类：等宽 + 表格数字对齐；pair-pages 同款构件）。 */
+function Num({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-xs tabular-nums">{children}</span>
+  );
+}
+
+/** 右对齐数值列表头（Base/Markup/User/Split 四列锁步）。 */
+function NumHeader({ children }: { children: React.ReactNode }) {
+  return <div className="text-right">{children}</div>;
+}
+
+/** 货币对状态：pairStatus===20 生效 success，否则停用 info（未知码显原值）。 */
+function PairStatusBadge({ status }: { status: number }) {
+  const variant: BadgeVariant =
+    RATE_PAIR_STATUS_VARIANT[status] ?? 'secondary';
+  return (
+    <Badge variant={variant}>
+      {RATE_PAIR_STATUS_LABEL[status] ?? String(status)}
+    </Badge>
+  );
+}
+
+/** 汇率列表 9 列定义（列序/文案照源 §D6；四个比率列右对齐）。 */
 const columns: ColumnDef<RateRow & { id: string }>[] = [
   {
-    accessorKey: 'sourceCurrency',
-    header: 'Currency Pair',
+    accessorKey: 'pairCode',
+    header: 'Token Pair',
+    cell: ({ row }) => <Num>{row.original.pairCode}</Num>,
+  },
+  {
+    id: 'direction',
+    header: 'Direction',
     cell: ({ row }) => (
-      <span
-        className="inline-flex items-center gap-2"
-        data-row-participated={row.original.participated || undefined}
-      >
-        <span>
-          {row.original.sourceCurrency}→{row.original.targetCurrency}
-        </span>
-        {row.original.participated ? <Badge>Participating</Badge> : null}
+      <span className="whitespace-nowrap">
+        {row.original.sourceTokenCode} → {row.original.targetTokenCode}
       </span>
     ),
   },
   {
     accessorKey: 'baseRate',
-    header: 'Base Rate',
+    header: () => <NumHeader>Base Rate</NumHeader>,
+    // 汇率原值直出（无汇率行时 null → '-'，后端 D-4），React 渲染数字无需 String()
     cell: ({ row }) => (
-      <span className="tabular-nums">{row.original.baseRate ?? '-'}</span>
+      <Num>
+        <span className="block text-right">
+          {row.original.baseRate ?? '-'}
+        </span>
+      </Num>
     ),
   },
   {
     accessorKey: 'markupRate',
-    header: 'Markup Rate',
+    header: () => <NumHeader>Markup Rate</NumHeader>,
     cell: ({ row }) => (
-      <span className="tabular-nums">{row.original.markupRate ?? '-'}</span>
+      <Num>
+        <span className="block text-right">
+          {percentText(row.original.markupRate)}
+        </span>
+      </Num>
     ),
   },
   {
     accessorKey: 'userRate',
-    header: 'User Rate',
+    header: () => <NumHeader>User Rate</NumHeader>,
     cell: ({ row }) => (
-      <span className="tabular-nums">{row.original.userRate ?? '-'}</span>
+      <Num>
+        <span className="block text-right">
+          {row.original.userRate ?? '-'}
+        </span>
+      </Num>
+    ),
+  },
+  {
+    accessorKey: 'defaultSplitRatio',
+    header: () => <NumHeader>Default Split</NumHeader>,
+    cell: ({ row }) => (
+      <Num>
+        <span className="block text-right">
+          {percentText(row.original.defaultSplitRatio)}
+        </span>
+      </Num>
     ),
   },
   {
     accessorKey: 'pairStatus',
-    header: 'Pair Status',
-    cell: ({ row }) => (
-      <Badge
-        variant={
-          RATE_PAIR_STATUS_VARIANT[row.original.pairStatus] ?? 'secondary'
-        }
-      >
-        {RATE_PAIR_STATUS_LABEL[row.original.pairStatus] ??
-          String(row.original.pairStatus)}
-      </Badge>
-    ),
+    header: 'Status',
+    cell: ({ row }) => <PairStatusBadge status={row.original.pairStatus} />,
   },
   {
-    accessorKey: 'updateTime',
-    header: 'Update Time',
-    cell: ({ row }) => <span>{formatTime(row.original.updateTime)}</span>,
+    accessorKey: 'participated',
+    header: 'My Participation',
+    cell: ({ row }) =>
+      row.original.participated ? (
+        <Badge>{LBL.participating}</Badge>
+      ) : (
+        <span>-</span>
+      ),
+  },
+  {
+    accessorKey: 'syncTime',
+    header: 'Data Time',
+    cell: ({ row }) => <Num>{formatTime(row.original.syncTime)}</Num>,
   },
 ];
 
 export function RateListPage() {
-  // 货币对筛选为客户端过滤（rate/list 全量返回，不发二次请求）
-  const [filterPairId, setFilterPairId] = React.useState<number | null>(null);
+  const [keyword, setKeyword] = React.useState('');
+  const [onlyParticipated, setOnlyParticipated] = React.useState(false);
 
   const query = useLpRateListQuery(LP_PROJECT_ID);
-  const rows = query.data ?? [];
 
   // 0024 → 页面级降级条（traceId）；成功/非 0024 失败均清除，旧数据保留（源 down 语义）
   const down = React.useMemo(() => {
@@ -118,28 +162,28 @@ export function RateListPage() {
     return err && isServiceDown(err) ? { traceId: err.traceId } : null;
   }, [query.error]);
 
-  // 选项取已加载行按 pairId 去重（首个出现者）
-  const pairOptions = React.useMemo(() => {
-    const map = new Map<number, RateRow>();
-    for (const r of rows) {
-      if (!map.has(r.pairId)) map.set(r.pairId, r);
-    }
-    return [...map.values()];
-  }, [rows]);
+  // SyncRefreshButton 成功后重拉当前视图；客户端过滤不发二次请求、过滤态保持
+  const handleRefreshed = React.useCallback(() => {
+    void query.refetch();
+  }, [query]);
 
-  // 参与行置顶；同组内按 updateTime 降序（null 按 0 垫底，无汇率行的货币对沉底）
+  // 源 filtered computed 三段链：participated 过滤 → 关键词（pairCode/source/
+  // target includes lowercase）→ 参与置顶稳定排序（未参与者保持原序）
   const displayRows = React.useMemo(() => {
-    const list =
-      filterPairId != null
-        ? rows.filter((r) => r.pairId === filterPairId)
-        : rows.slice();
-    return list.sort((a, b) => {
-      if (a.participated !== b.participated) return a.participated ? -1 : 1;
-      return (b.updateTime ?? 0) - (a.updateTime ?? 0);
-    });
-  }, [rows, filterPairId]);
+    const kw = keyword.trim().toLowerCase();
+    return (query.data ?? [])
+      .filter((r) => (onlyParticipated ? r.participated : true))
+      .filter(
+        (r) =>
+          !kw ||
+          r.pairCode.toLowerCase().includes(kw) ||
+          r.sourceTokenCode.toLowerCase().includes(kw) ||
+          r.targetTokenCode.toLowerCase().includes(kw),
+      )
+      .sort((a, b) => Number(b.participated) - Number(a.participated));
+  }, [query.data, keyword, onlyParticipated]);
 
-  // DataTable 要求 id: string；行无唯一主键，取 pairId（同 pairId 多行仅展示，不参与选择）
+  // DataTable 要求 id: string；行主键取 pairId
   const tableData = React.useMemo(
     () => displayRows.map((r) => ({ ...r, id: String(r.pairId) })),
     [displayRows],
@@ -147,45 +191,48 @@ export function RateListPage() {
 
   return (
     <div className="space-y-4">
-      {down ? <ServiceDownAlert traceId={down.traceId} /> : null}
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            {LBL.eyebrow}
+          </div>
+          <h1 className="text-xl font-semibold">{LBL.title}</h1>
+        </div>
+        <SyncRefreshButton domain="rate" onRefreshed={handleRefreshed} />
+      </div>
+
+      {down && <ServiceDownAlert traceId={down.traceId} />}
 
       <div className="rounded-lg border-border/60 bg-card text-card-foreground shadow-float">
-        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">Rates</div>
-        </div>
-
-        {/* 货币对筛选：computed 响应式即时过滤，无查询/重置按钮（源同） */}
-        <div className="flex flex-wrap items-center gap-2 border-b px-6 py-3">
-          <label className="text-sm text-muted-foreground" htmlFor="rate-pair-filter">
-            Currency Pair
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-2">
+            <label
+              className="text-sm text-muted-foreground"
+              htmlFor="rate-keyword-filter"
+            >
+              {LBL.keywordLabel}
+            </label>
+            <Input
+              id="rate-keyword-filter"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder={LBL.keywordPlaceholder}
+              className="h-8 w-full max-w-[220px]"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={onlyParticipated}
+              onCheckedChange={(v) => setOnlyParticipated(v === true)}
+            />
+            {LBL.onlyMine}
           </label>
-          <Select
-            value={filterPairId == null ? PAIR_ALL : String(filterPairId)}
-            onValueChange={(v) =>
-              setFilterPairId(v === PAIR_ALL ? null : Number(v))
-            }
-          >
-            <SelectTrigger id="rate-pair-filter" className="w-full max-w-[200px]">
-              <SelectValue placeholder="All Currency Pairs" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={PAIR_ALL}>All Currency Pairs</SelectItem>
-              {pairOptions.map((p) => (
-                <SelectItem key={p.pairId} value={String(p.pairId)}>
-                  {p.sourceCurrency}→{p.targetCurrency}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
-
-        {/* 无分页（rate/list 不分页全量返回） */}
         <DataTable
-          className={ROW_HIGHLIGHT_CLASS}
           columns={columns}
           data={tableData}
-          isLoading={query.isLoading}
-          emptyMessage="No data"
+          isLoading={query.isPending}
+          emptyMessage={LBL.empty}
         />
       </div>
     </div>

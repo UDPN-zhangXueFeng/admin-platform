@@ -308,7 +308,7 @@ function AssignMenuDialog({
       // 源空勾选二次确认：后端空数组 = 事务清空该角色全部菜单
       setConfirm({
         title: 'Clear Menus',
-        message: 'This will clear all menus of this role. Continue?',
+        message: 'Will clear all menus of this role. Continue?',
         onConfirm: submit,
       });
       return;
@@ -596,7 +596,7 @@ export function RoleListPage() {
                       </Button>
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>Built-in roles cannot be deleted</TooltipContent>
+                  <TooltipContent>Built-in role cannot be deleted</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             ) : (

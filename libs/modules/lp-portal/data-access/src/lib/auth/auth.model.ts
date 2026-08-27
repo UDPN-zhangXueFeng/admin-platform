@@ -6,6 +6,8 @@
  */
 
 export interface LoginReq {
+  /** LP 编码（源 D1：提交前 trim().toUpperCase()，由页面归一化）。 */
+  lpCode: string;
   loginName: string;
   password: string;
 }

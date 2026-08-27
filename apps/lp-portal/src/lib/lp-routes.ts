@@ -14,13 +14,16 @@ import type { MenuTreeRespVO } from '@myorg/modules/lp-portal/data-access';
  * menuKey → 目标路径（源路径 → 注册表适配）。
  * 适配点：源 /pair-pool→/pair、/source-receipt→/receipt、/system/*→/sys/*；
  * lp:log → /syslog（注册表 syslog 模块，非 /sys/log）。
+ * 三键 lp:token / lp:preauth / lp:split：目标路径与源一致，无适配点。
  */
 export const MENU_ROUTE_MAP: Record<string, string> = {
   'lp:pool': '/pool',
-  'lp:topup': '/topup',
+  'lp:token': '/token',
   'lp:rate': '/rate',
   'lp:pair': '/pair',
+  'lp:split': '/split',
   'lp:txflow': '/tx-flow',
+  'lp:preauth': '/preauth',
   'lp:settle': '/settle',
   'lp:receipt': '/receipt',
   'lp:user': '/sys/user',
@@ -41,10 +44,12 @@ export const PATH_MENU_KEY: Record<string, string> = Object.fromEntries(
  * root 落点候选（源 ROOT_CANDIDATES 顺序 1:1——业务优先级即缺省首页）。
  */
 export const ROOT_CANDIDATES: readonly string[] = [
+  'lp:token',
   'lp:pool',
-  'lp:topup',
+  'lp:preauth',
   'lp:rate',
   'lp:pair',
+  'lp:split',
   'lp:txflow',
   'lp:settle',
   'lp:receipt',
@@ -77,10 +82,12 @@ export const MENU_ICONS: Record<string, string> = {
   system: 'Settings',
   // 源叶子图标（menuType=3 二级菜单）
   'lp:pool': 'Wallet',
-  'lp:topup': 'Coins',
+  'lp:token': 'Coins',
   'lp:rate': 'TrendingUp',
   'lp:pair': 'ArrowLeftRight',
+  'lp:split': 'PieChart',
   'lp:txflow': 'List',
+  'lp:preauth': 'LockKeyhole',
   'lp:settle': 'CreditCard',
   'lp:receipt': 'Ticket',
   'lp:user': 'Users',

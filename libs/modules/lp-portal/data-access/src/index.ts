@@ -46,6 +46,17 @@ export * from './lib/log';
 // 角色域（R3：C2 角色管理页 + user 页角色选项薄切片并入 useRoleOptionsQuery）。
 export * from './lib/role';
 
+// 市场组新增域（G2）：Token 总览 + 数据同步刷新（sync-refresh-button 消费）。
+export * from './lib/token';
+export * from './lib/sync';
+
+// 流动性组新增域（G3）：预授权快照 + 我的分成（只读，无 mutations）。
+export * from './lib/preauth';
+export * from './lib/split';
+
+// 壳层通知域（G6）：Header 铃铛抽屉消费（五件套 + markRead mutations）。
+export * from './lib/notification';
+
 // 显式锚定域 model 版本，消解与 types.ts star 导出的同名歧义（见上）。
 // TopupListReq 两处形状不同（types.ts 为扁平筛选体，域 model 为 hook 入参
 // {pageNum,pageSize,filter}），以 hook 实际消费的域版本为准。

@@ -28,7 +28,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ColumnDef } from '@tanstack/react-table';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, MoreHorizontal } from 'lucide-react';
 
 import {
   AlertDialog,
@@ -50,6 +50,10 @@ import {
   DialogTitle,
   Input,
   Label,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   RadioGroup,
   RadioGroupItem,
   Select,
@@ -90,16 +94,14 @@ import {
 
 import { PermButton } from './perm-button';
 
+import { formatTime } from './format';
+
 const PROJECT_ID = LP_PROJECT_ID;
 /** 源 el-pagination 固定 page-size 10（layout 'total, prev, pager, next'）。 */
 const PAGE_SIZE = 10;
 /** 下拉「全部」哨兵（FormSelect 禁空 value，非 ALL 即转 number 参与查询）。 */
 const ALL = 'all';
 
-/** 源 fmtTime：toLocaleString('zh-CN', { hour12: false })；空值（含 0）'-'。 */
-function fmtTime(ms?: number): string {
-  return ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-';
-}
 
 /* ================================================================== */
 /* 通用确认弹窗（ElMessageBox.confirm 等价）                            */
@@ -169,7 +171,7 @@ function OtpDialog({
           {request?.message}
         </pre>
         <DialogFooter>
-          <Button onClick={onClose}>I Have Passed It On</Button>
+          <Button onClick={onClose}>I have saved it</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -616,15 +618,16 @@ export function UserListPage() {
       { accessorKey: 'phone', header: 'Phone',
       cell: ({ row }) => row.original.phone || '-', },
       { accessorKey: 'createTime', header: 'Created At',
-      cell: ({ row }) => fmtTime(row.original.createTime), },
+      cell: ({ row }) => formatTime(row.original.createTime), },
       {
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
             <Button
               type="button"
               variant="link"
+              size="sm"
               className="h-auto p-0"
               onClick={() =>
                 setFormDialog({ mode: 'edit', row: row.original })
@@ -632,30 +635,39 @@ export function UserListPage() {
             >
               Edit
             </Button>
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => setRolesRow(row.original)}
-            >
-              Assign Roles
-            </Button>
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto p-0 text-amber-600 hover:underline"
-              onClick={() => onResetPwd(row.original)}
-            >
-              Reset Password
-            </Button>
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto p-0 text-destructive hover:underline"
-              onClick={() => onForceLogout(row.original)}
-            >
-              Force Logout
-            </Button>
+            {/* Q7 裁决：4 动作收纳为 Edit 直出 + ⋯ 下拉（源 el-table 240px 4 link 等价收纳） */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  aria-label="Row actions"
+                >
+                  <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => setRolesRow(row.original)}
+                >
+                  Assign Roles
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-amber-600 focus:text-amber-600"
+                  onClick={() => onResetPwd(row.original)}
+                >
+                  Reset Password
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => onForceLogout(row.original)}
+                >
+                  Force Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         ),
       },
@@ -750,14 +762,14 @@ export function UserListPage() {
           state={formDialog}
           roleOptions={roleOptions}
           onOtp={setOtp}
-          onClose={(saved) => setFormDialog(null)}
+          onClose={() => setFormDialog(null)}
         />
       )}
       {rolesRow && (
         <AssignRoleDialog
           row={rolesRow}
           roleOptions={roleOptions}
-          onClose={(saved) => setRolesRow(null)}
+          onClose={() => setRolesRow(null)}
         />
       )}
       <ConfirmDialog
@@ -842,7 +854,7 @@ function MenuTreeNodes({
             </div>
             {hasChildren && !isCollapsed && (
               <MenuTreeNodes
-                nodes={n.children!}
+                nodes={n.children ?? []}
                 depth={depth + 1}
                 selectedId={selectedId}
                 collapsed={collapsed}
@@ -901,11 +913,12 @@ export function MenuListPage() {
     setCurrent((c) => (c ? (findMenuNode(tree, c.menuId) ?? null) : c));
   }, [tree]);
 
-  // 服务端已保存行 + 本地未保存行（源同一 perms 数组的合并视图）
+  // 服务端已保存行 + 本地未保存行（源同一 perms 数组的合并视图）；
+  // menuId=0 新建节点时源 openCreate 清空 perms → 这里不展示任何已保存行
   const serverPerms = permsQuery.data ?? [];
   const perms = React.useMemo(
-    () => [...serverPerms, ...localPerms],
-    [serverPerms, localPerms],
+    () => (isEditing ? [...serverPerms, ...localPerms] : []),
+    [isEditing, serverPerms, localPerms],
   );
 
   const patchCurrent = (patch: Partial<MenuTree>) =>
@@ -957,7 +970,7 @@ export function MenuListPage() {
           menuUrl: current.menuUrl,
           icon: current.icon,
         },
-        { onSuccess: () => toast.success('Saved successfully — menus take effect after re-login') },
+        { onSuccess: () => toast.success('Saved. Menus take effect after re-login.') },
       );
       return;
     }
@@ -972,7 +985,7 @@ export function MenuListPage() {
         menuUrl: current.menuUrl,
         icon: current.icon,
       },
-      { onSuccess: () => toast.success('Saved successfully — menus take effect after re-login') },
+      { onSuccess: () => toast.success('Saved. Menus take effect after re-login.') },
     );
   };
 
@@ -1068,7 +1081,7 @@ export function MenuListPage() {
         </PermButton>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         {/* 左：菜单树（源 span 8/16 → lg 1/3） */}
         <div className="rounded-lg border-border/60 bg-card shadow-float">
           <div className="border-b px-4 py-3 text-sm font-semibold">Menu Tree</div>
@@ -1104,7 +1117,7 @@ export function MenuListPage() {
         </div>
 
         {/* 右：节点详情 + 接口权限（源 span 16/16 → lg 2/3） */}
-        <div className="lg:col-span-2">
+        <div>
           {current == null ? (
             <div className="flex h-full min-h-64 items-center justify-center rounded-lg border-border/60 bg-card text-sm text-muted-foreground shadow-float">
               Select a menu node on the left to view/edit

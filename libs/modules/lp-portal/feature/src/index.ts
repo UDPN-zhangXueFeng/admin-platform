@@ -57,3 +57,10 @@ export { UserListPage } from './lib/system-pages';
 export { RoleListPage } from './lib/role-pages';
 // 菜单管理（C3 真实页：左树右表单单页，无子路由）
 export { MenuListPage } from './lib/system-pages';
+// 市场组（G2）：Token 总览（双 tab：平铺列表 + 按银行分组）。
+export { TokenListPage } from './lib/token-pages';
+// 流动性组（G3）：预授权监控（只读快照）+ 我的分成（双卡片）。
+export { PreauthListPage } from './lib/preauth-pages';
+export { SplitListPage } from './lib/split-pages';
+// 壳层组（G6）：通知铃铛抽屉（lp-app-shell 经 AppShell trailing 插槽挂载）。
+export { NotificationBellDrawer } from './lib/notification-bell-drawer';

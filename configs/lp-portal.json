@@ -48,10 +48,12 @@
   },
   "modules": {
     "enabled": [
+      "token",
       "pool",
-      "topup",
       "pair",
+      "split",
       "rate",
+      "preauth",
       "tx-flow",
       "settle",
       "receipt",
@@ -60,17 +62,17 @@
     ],
     "order": [
       {
+        "id": "token",
+        "icon": "Coins",
+        "label": "Token Overview",
+        "path": "/token",
+        "group": ""
+      },
+      {
         "id": "pool",
         "icon": "Wallet",
         "label": "Liquidity Pool Management",
         "path": "/pool",
-        "group": ""
-      },
-      {
-        "id": "topup",
-        "icon": "ArrowDownToLine",
-        "label": "Top-up",
-        "path": "/topup",
         "group": ""
       },
       {
@@ -81,10 +83,24 @@
         "group": ""
       },
       {
+        "id": "split",
+        "icon": "PieChart",
+        "label": "My Splits",
+        "path": "/split",
+        "group": ""
+      },
+      {
         "id": "rate",
         "icon": "TrendingUp",
         "label": "Exchange Rate",
         "path": "/rate",
+        "group": ""
+      },
+      {
+        "id": "preauth",
+        "icon": "ShieldCheck",
+        "label": "Pre-auth Monitor",
+        "path": "/preauth",
         "group": ""
       },
       {

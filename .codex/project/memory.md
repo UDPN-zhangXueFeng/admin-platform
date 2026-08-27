@@ -513,3 +513,11 @@
 - **CDP 遍历 SPA 的坑**：`history.pushState` + `next.router.push` 混用会导致 h1 滞后 1-2 路由；纯 `await window.next.router.push(url, url)` + 固定延时才可靠。另 ErrorBlock 有 TanStack 重试退避，2200ms 内可能尚未出现，断言失败先怀疑时序。
 - **verify 报告会滞后于并行修复**：终审发现两处「报告称有问题、代码已被兄弟 agent 修好」（toast 措辞、陈旧注释）。闭环方式是在原报告追加「主控闭环」附记，不改历史结论。
 - `apps/kissen-gateway-portal/.env.local` 的 `NEXT_PUBLIC_DEV_LOGIN_*` 已被移除（W-4 治理后现状），登录页不预填；smoke 需手填凭据。另 admin/kissen-admin/lp-portal 的 .env.local 仍被 git 跟踪（跨 app 决策，待用户裁定）。
+
+## 2026-08-27 update-gateway skill 落地（网关上游同步）
+
+- 新增项目级 skill `.claude/skills/update-gateway/`：同步 GitLab 上游 `kissen-bank-gateway-frontend`（project id 2115，默认分支 main）增量到 `apps/kissen-gateway-portal`（用户明确：唯一目标，不含其他 app/libs）。流程：脚本检查更新 → 按日期总结文档（`.doc/kissen/project/gateway/`）→ ultrathink 规划 → orchestration 编排开发 → 独立 reviewer 子 agent 校验循环；进度事实在 `.claude/update-gateway-state.json` 的 `lastSyncedSHA`（仅校验通过才推进）。
+- GitLab（10.0.6.203:8088）匿名 API 一律 404；项目访问令牌放 `.doc/kissen/.gitlab-token`（.doc/ 已 gitignore，`.claude/` 被 git 跟踪故令牌绝不入库），脚本 `check-updates.sh` 读它拼 `oauth2:<token>@` 远端 URL，缺失时回退本机凭证。
+- 上游克隆缓存在 `.doc/kissen/.cache/kissen-bank-gateway-frontend`（.doc/ gitignore 内，勿再克隆第二份）；force push/rebase 由脚本以 `HISTORY_REWRITTEN=1` + merge-base 兜底。
+- 踩坑：`git ls-remote --symref origin HEAD` 的 ref 行 `$2` 是 `refs/heads/<b>`，awk 需 `sub(/^refs\/heads\//,"",$2)`，勿带 `ref:` 前缀匹配（会拼出 `origin/refs/heads/main`）。
+- 2026-08-27 实测上游有待同步增量 `8a6034b..a82d82c`（GW-14 UDPN 菜单对齐 + bug fixed），首轮执行 update-gateway 时应从此区间开始。

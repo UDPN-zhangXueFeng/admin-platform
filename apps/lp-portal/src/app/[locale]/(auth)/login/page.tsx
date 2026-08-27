@@ -38,38 +38,49 @@ export default function LoginRoute() {
     setSearchParams(new URLSearchParams(window.location.search));
   }, []);
 
-  // 401 踢回登录页时 toast 提示「登录已失效」（源 login/index.vue 顶部警告）。
-  const expired = searchParams?.get('expired') === '1';
+  // 401 踢回登录页 → ?expired=1 内联警告条（源 login/index.vue el-alert）。
   const redirectTarget =
     (searchParams?.get('redirect') || '/').replace(
       /^\/(en-US|zh-CN)(?=\/|$)/,
       '',
     ) || '/';
 
-  React.useEffect(() => {
-    if (expired) {
-      toast.warning('Your session has expired. Please sign in again.');
-    }
-  }, [expired, toast]);
+  const expiredNotice =
+    searchParams?.get('expired') === '1'
+      ? 'Your session has expired. Please sign in again.'
+      : undefined;
 
   // Dev-only credential prefill (internal LP portal test account).
-  // Inactive in production builds via the NODE_ENV gate; MockLoginPage
-  // inputs are uncontrolled, so fill them imperatively without
-  // overwriting browser autofill.
+  // Values come from NEXT_PUBLIC_LP_DEV_LP_CODE / NEXT_PUBLIC_LP_DEV_LOGIN_NAME
+  // / NEXT_PUBLIC_LP_DEV_PASSWORD (.env.local, template .env.local.example);
+  // unset or empty vars leave the field blank. Inactive in production builds
+  // via the NODE_ENV gate; inputs are uncontrolled in shared MockLoginPage,
+  // so fill them imperatively without overwriting browser autofill.
   React.useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
     const fill = (id: string, value: string) => {
       const el = document.getElementById(id) as HTMLInputElement | null;
       if (el && !el.value) el.value = value;
     };
-    fill('username', 'testlp01_admin');
-    fill('password', 'Kissen@123');
+    fill('lpCode', process.env['NEXT_PUBLIC_LP_DEV_LP_CODE'] ?? '');
+    fill('username', process.env['NEXT_PUBLIC_LP_DEV_LOGIN_NAME'] ?? '');
+    fill('password', process.env['NEXT_PUBLIC_LP_DEV_PASSWORD'] ?? '');
   }, []);
 
   const handleSubmit = React.useCallback(
-    async (credentials: { loginName: string; password: string }) => {
+    async (credentials: {
+      loginName: string;
+      password: string;
+      lpCode?: string;
+    }) => {
+      // 源 D1：lpCode 提交前 trim().toUpperCase()（输入框 uppercase 仅视觉）。
+      const payload = {
+        lpCode: (credentials.lpCode ?? '').trim().toUpperCase(),
+        loginName: credentials.loginName,
+        password: credentials.password,
+      };
       try {
-        const resp = await loginMutation.mutateAsync(credentials);
+        const resp = await loginMutation.mutateAsync(payload);
 
         const user: User = {
           id: String(resp.userId),
@@ -112,6 +123,8 @@ export default function LoginRoute() {
       titleColor="text-[#554eea]"
       submitLabel="Sign In"
       onSubmit={handleSubmit}
+      lpCodeField
+      warningNotice={expiredNotice}
     />
   );
 }

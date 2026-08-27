@@ -45,6 +45,12 @@ export interface HeaderProps {
    * baseline user menu only offers Change Password / Log Out.
    */
   hideManageAccount?: boolean;
+  /**
+   * Opt-in content rendered inside the right-hand actions area, before
+   * the user menu (reserved entry point, e.g. the notification bell).
+   * Like the rest of the actions area it is hidden in minimal mode.
+   */
+  trailing?: React.ReactNode;
 }
 
 /**
@@ -64,6 +70,7 @@ export function Header({
   onLogout,
   onBrandClick,
   hideManageAccount,
+  trailing,
 }: HeaderProps) {
   const { user } = useAuth();
   const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] =
@@ -148,6 +155,7 @@ export function Header({
 
         {!minimal && (
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {trailing != null && trailing}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

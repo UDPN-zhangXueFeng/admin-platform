@@ -41,8 +41,25 @@ export interface MockLoginPageProps {
   /** Submit button label. */
   submitLabel?: string;
   /** Custom submit handler (replaces mock cookie logic). When provided, the form calls this instead. */
-  onSubmit?: (credentials: { loginName: string; password: string }) => Promise<void>;
+  onSubmit?: (credentials: {
+    loginName: string;
+    password: string;
+    /** Sent only when `lpCodeField` is enabled. */
+    lpCode?: string;
+  }) => Promise<void>;
+  /**
+   * Render a required LP Code input as the first field (LP portal source
+   * login had lpCode/loginName/password). Value passes through untouched —
+   * normalization (trim/uppercase) stays with the caller.
+   */
+  lpCodeField?: boolean;
+  /**
+   * Inline warning banner above the form title (e.g. session-expired notice
+   * from `?expired=1`). Empty/undefined renders nothing.
+   */
+  warningNotice?: string;
 }
+
 
 /* -------------------------------------------------------------------------- */
 /*  Component                                                                    */
@@ -77,6 +94,8 @@ export function MockLoginPage({
   titleColor = 'text-[#554eea]',
   submitLabel = 'Sign In',
   onSubmit,
+  lpCodeField,
+  warningNotice,
 }: MockLoginPageProps) {
   const router = useRouter();
   const [loading, setLoading] = React.useState(false);
@@ -88,11 +107,16 @@ export function MockLoginPage({
       const fd = new FormData(form);
       const loginName = String(fd.get('username') ?? '');
       const password = String(fd.get('password') ?? '');
+      const lpCode = String(fd.get('lpCode') ?? '');
 
       if (onSubmit) {
         setLoading(true);
         try {
-          await onSubmit({ loginName, password });
+          await onSubmit({
+            loginName,
+            password,
+            ...(lpCodeField ? { lpCode } : {}),
+          });
         } finally {
           setLoading(false);
         }
@@ -104,7 +128,7 @@ export function MockLoginPage({
       }
       router.replace(redirectPath);
     },
-    [cookieName, redirectPath, router, onSubmit],
+    [cookieName, redirectPath, router, onSubmit, lpCodeField],
   );
 
   return (
@@ -155,6 +179,15 @@ export function MockLoginPage({
       {/* ── Right: form panel ─────────────────────────────────────────────── */}
       <section className="flex min-h-screen items-center justify-center px-6 py-10 sm:px-10 lg:px-24">
         <div className="w-full">
+          {warningNotice && (
+            <div
+              role="alert"
+              className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            >
+              {warningNotice}
+            </div>
+          )}
+
           <div className="mb-10 text-center">
             <h1
               className={`text-3xl font-bold leading-tight tracking-tight ${titleColor} sm:text-4xl`}
@@ -164,6 +197,20 @@ export function MockLoginPage({
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {lpCodeField && (
+              <div className="space-y-2">
+                <Label htmlFor="lpCode">LP Code</Label>
+                <Input
+                  id="lpCode"
+                  name="lpCode"
+                  placeholder="Enter your LP code"
+                  autoComplete="off"
+                  className="uppercase"
+                  required
+                />
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input
