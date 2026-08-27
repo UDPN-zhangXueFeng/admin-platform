@@ -2,7 +2,7 @@
  * @myorg/modules/lp-portal/data-access
  *
  * LP Portal data-access barrel：lp-client 基础设施 + 公共源类型 + 各业务域
- * （auth / pool / topup / rate / pair / tx-flow / settle / user / menu /
+ * （auth / pool / rate / pair / tx-flow / settle / user / menu /
  * log / role）五件套聚合。
  */
 export {
@@ -21,9 +21,9 @@ export {
 
 /**
  * 公共源类型（Vue 源 types/* 的全量平移，供各域消费）。
- * 注意：TopupRow / TopupListReq 与 topup 域 model 存在同名双声明——两个
- * `export *` 的同名歧义（TS2308）会使该名字从 barrel 静默消失。故在文件尾
- * 以显式重导出锚定域 model 版本（显式导出优先于 star 导出）。
+ * 注意：同名类型与域 model 存在双声明时，两个 `export *` 的同名歧义
+ * （TS2308）会使该名字从 barrel 静默消失。故以文件尾显式重导出锚定
+ * 域 model 版本（显式导出优先于 star 导出）。
  *
  * 其余域（pair / tx-flow / settle / user / menu / log / pool / token）model
  * 改用 `export type { X } from '../types'` 重导出同一声明——两路 star 导出
@@ -33,7 +33,6 @@ export {
 export * from './lib/types';
 export * from './lib/auth';
 export * from './lib/pool';
-export * from './lib/topup';
 export * from './lib/rate';
 export * from './lib/pair';
 export * from './lib/tx-flow';
@@ -56,8 +55,7 @@ export * from './lib/split';
 // 壳层通知域（G6）：Header 铃铛抽屉消费（五件套 + markRead mutations）。
 export * from './lib/notification';
 
-// 显式锚定域 model 版本，消解与 types.ts star 导出的同名歧义（见上）。
-// TopupListReq 两处形状不同（types.ts 为扁平筛选体，域 model 为 hook 入参
-// {pageNum,pageSize,filter}），以 hook 实际消费的域版本为准。
+// 显式锚定域 model 版本，消解与 types.ts star 导出的同名歧义（见上）；
+// pool 的 PoolRow 形状随 v2 契约更新（tokenNo/bankCode/rejectReason 等），
+// types.ts 旧形态已剪除。
 export { type PoolRow } from './lib/pool';
-export { type TopupRow, type TopupListReq } from './lib/topup';

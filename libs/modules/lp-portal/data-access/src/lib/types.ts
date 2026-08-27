@@ -93,30 +93,6 @@ export interface PoolRow {
   syncTime: number;
 }
 
-// ===== 补资(POST /lp/topup/list,分页;默认按 declare_time 倒序,裁决 C-12) =====
-
-export interface TopupListReq {
-  poolId?: number;
-  /** 1 已声明 / 2 已到账 / 3 失败 */
-  status?: number;
-  startTime?: number;
-  endTime?: number;
-}
-
-export interface TopupRow {
-  topupId: number;
-  poolId: number;
-  currency: string;
-  amount: number;
-  transferInAddress: string;
-  declareTime: number;
-  /** 0 = 未到账 */
-  confirmTime: number;
-  csTxId?: string;
-  /** 1 已声明 / 2 已到账 / 3 失败 */
-  status: number;
-}
-
 // ===== 汇率(POST /lp/rate/list,全局域本地副本,不分页) =====
 
 export interface RateRow {

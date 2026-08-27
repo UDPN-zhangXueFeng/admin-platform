@@ -71,6 +71,28 @@ export function resolveRootPath(menuKeys: ReadonlySet<string>): string | null {
 }
 
 /**
+ * 侧栏英文 label 映射（menuKey → 文案）。
+ * 后端 menuTree.menuName 为中文，约束①要求用户可见文案零 CJK：
+ * 叶子 label 与各页面 h1 对齐；未知键回退后端 menuName。
+ */
+export const MENU_LABELS: Record<string, string> = {
+  'lp:dashboard': 'Dashboard',
+  liquidity: 'Liquidity',
+  'lp:pool': 'Liquidity Pools',
+  'lp:preauth': 'Pre-authorization Monitoring',
+  'lp:token': 'Token Overview',
+  'lp:pair': 'Token Pairs',
+  'lp:txflow': 'Transaction Flow',
+  splitsettle: 'Splits & Settlement',
+  'lp:split': 'My Split',
+  'lp:settle': 'Settlement',
+  system: 'System',
+  'lp:user': 'User Management',
+  'lp:role': 'Roles & Permissions',
+  'lp:menu': 'Menu Management',
+  'lp:log': 'Operation Log',
+};
+/**
  * menuKey → lucide 图标名（源 MainLayout MENU_ICONS 的 Element Plus 图标
  * 到 lucide 的等价映射；未命中回退 'Menu'，源 fallback 语义）。
  */
@@ -107,15 +129,16 @@ export function buildLpSidebarOrder(menuTree: MenuTreeRespVO[]): ModuleMenuItem[
       .filter((n) => n.menuType !== 4 && n.visible !== 1)
       .sort((a, b) => (a.orderNum ?? 0) - (b.orderNum ?? 0))
       .map((node) => {
+        const label = MENU_LABELS[node.menuKey] ?? node.menuName;
         const icon = MENU_ICONS[node.menuKey] ?? 'Menu';
         const children = toItems(node.children ?? []);
         if (children.length > 0) {
           const firstPath =
             children.find((c) => c.path)?.path ?? UNKNOWN_MENU_PATH;
-          return { id: idFromPath(firstPath), icon, label: node.menuName, children };
+          return { id: idFromPath(firstPath), icon, label, children };
         }
         const path = MENU_ROUTE_MAP[node.menuKey] ?? UNKNOWN_MENU_PATH;
-        return { id: idFromPath(path), icon, label: node.menuName, path };
+        return { id: idFromPath(path), icon, label, path };
       });
 
   return toItems(menuTree);

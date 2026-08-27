@@ -28,7 +28,6 @@ export { ProfilePage } from './lib/profile-page';
 export { PoolListPage } from './lib/pool-pages';
 
 // ── 补资（B2 真实页：只读分页列表，无 create/detail 路由）──────────────
-export { TopupListPage } from './lib/topup-pages';
 
 // 货币对与资金池（B4 真实页：单页主表+展开行聚合，无 create/detail 路由）
 export { PairListPage } from './lib/pair-pages';
