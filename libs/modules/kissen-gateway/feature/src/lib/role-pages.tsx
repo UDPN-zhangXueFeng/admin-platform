@@ -30,6 +30,7 @@ import {
   Badge,
   Button,
   Checkbox,
+  createActionColumn,
   DataTable,
   Dialog,
   DialogContent,
@@ -40,12 +41,11 @@ import {
   Textarea,
   useToast,
 } from '@myorg/shared/ui';
-import { FormField, FormSelect, createFormResolver } from '@myorg/shared/ui-forms';
+import { FormField, createFormResolver } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { cn } from '@myorg/shared/util-classnames';
 import {
   KISSEN_GATEWAY_PROJECT_ID,
-  ROLE_STATUS_OPTIONS,
   ROLE_TYPE_BUILTIN,
   roleStatusText,
   roleStatusVariant,
@@ -67,18 +67,21 @@ import {
 
 import { useGatewayPerm } from './use-gateway-perm';
 
+import { DescField, DescGrid } from './desc-grid';
+import { formatTime, orDash } from './kit';
+import { PageHead } from './page-head';
+import {
+  ErrorBlock,
+  LoadingBlock,
+  MissingIdBlock,
+} from './state-blocks';
+
 /* ================================================================== */
 /* 常量与格式化                                                        */
 /* ================================================================== */
 
 /** 系统管理域路由基座（registry：/system/role）。 */
 const ROLE_BASE = '/system/role';
-
-/** 源 page-head eyebrow（role.vue 与系统页一致用 PORTAL）。 */
-const PAGE_EYEBROW = 'PORTAL';
-
-/** Select 的「全部状态」哨兵值（Radix SelectItem 不宜用空串）。 */
-const OPT_ALL = '__all__';
 
 /** 源 pageSize 默认值。 */
 const ROLE_PAGE_SIZE_DEFAULT = 10;
@@ -88,16 +91,6 @@ function parseRoleId(raw: string | null): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
   return Number.isInteger(n) && n > 0 ? n : undefined;
-}
-
-/** 毫秒时间戳 → zh-CN 本地时间串（24 小时制）；空值 → '-'。 */
-function formatTime(ms: number | null | undefined): string {
-  return ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-';
-}
-
-/** 空值统一 '-'（源 `|| '-'` 语义）。 */
-function orDash(v: string | null | undefined): string {
-  return v === null || v === undefined || v === '' ? '-' : v;
 }
 
 /* ================================================================== */
@@ -208,87 +201,6 @@ function MenuCheckNode({
             onToggle={onToggle}
           />
         ))}
-    </div>
-  );
-}
-
-/* ================================================================== */
-/* 通用展示组件                                                        */
-/* ================================================================== */
-
-/** 页头（源 .page-head：eyebrow + 标题）。 */
-function PageHead({ title }: { title: string }) {
-  return (
-    <div>
-      <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-        {PAGE_EYEBROW}
-      </div>
-      <h1 className="mt-1 text-xl font-semibold">{title}</h1>
-    </div>
-  );
-}
-
-/** 详情描述字段（el-descriptions-item 的 React 等价）。 */
-function DescField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-sm">{children}</dd>
-    </div>
-  );
-}
-
-/** 详情描述网格（源 el-descriptions 两列布局的 React 等价）。 */
-function DescGrid({ children }: { children: React.ReactNode }) {
-  return (
-    <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">{children}</dl>
-  );
-}
-
-function LoadingBlock() {
-  return (
-    <div className="py-10 text-center text-sm text-muted-foreground">Loading…</div>
-  );
-}
-
-/** 加载失败提示 + 重试（error 状态必须可感知并可恢复）。 */
-function ErrorBlock({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 py-10 text-sm">
-      <span className="text-destructive">Failed to load: {message}</span>
-      <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-        Retry
-      </Button>
-    </div>
-  );
-}
-
-/** 路由缺参/非法提示（edit/detail 无有效 id 时的可感知兜底）。 */
-function MissingIdBlock() {
-  const router = useRouter();
-  return (
-    <div className="flex flex-col items-center gap-3 py-10 text-sm">
-      <span className="text-destructive">Missing a valid role ID</span>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => router.push(ROLE_BASE)}
-      >
-        Back to List
-      </Button>
     </div>
   );
 }
@@ -423,12 +335,7 @@ function AssignMenuDialog({
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              onClick={onAssign}
-              disabled={assignMutation.isPending || menuIdsQuery.isLoading}
-            >
-              {assignMutation.isPending && <Loader2 className="animate-spin" />}
+            <Button type="button" onClick={onAssign}>
               Save
             </Button>
           </DialogFooter>
@@ -459,29 +366,26 @@ function AssignMenuDialog({
 }
 
 /* ================================================================== */
-/* 列表页（源筛选：角色编码/角色名称 + 状态；操作：编辑/分配菜单/删除）   */
+/* 列表页（源筛选：角色编码/角色名称；操作：编辑/分配菜单/删除）      */
 /* ================================================================== */
 
-/** 筛选表单校验（源无格式校验，仅必填于提交按钮语义；空值=不过滤）。 */
+/** 筛选表单校验（源无格式校验；空值=不过滤）。 */
 const roleFilterSchema = z.object({
   roleCode: z.string(),
   roleName: z.string(),
-  status: z.string(),
 });
 type RoleFilterForm = z.infer<typeof roleFilterSchema>;
 
 const ROLE_FILTER_DEFAULT: RoleFilterForm = {
   roleCode: '',
   roleName: '',
-  status: OPT_ALL,
 };
 
-/** RHF 筛选表单 → 后端 RoleListReq（空串/哨兵 → 不传该字段=不过滤）。 */
+/** RHF 筛选表单 → 后端 RoleListReq（空串 → 不传该字段=不过滤）。 */
 function formToFilter(form: RoleFilterForm): RoleListReq {
   return {
     roleCode: form.roleCode || undefined,
     roleName: form.roleName || undefined,
-    status: form.status === OPT_ALL ? undefined : Number(form.status),
   };
 }
 
@@ -490,7 +394,7 @@ export function RoleListPage() {
   const toast = useToast();
   const hasPerm = useGatewayPerm();
 
-  const { register, handleSubmit, reset, control } = useForm<RoleFilterForm>({
+  const { register, handleSubmit, reset } = useForm<RoleFilterForm>({
     resolver: createFormResolver(roleFilterSchema),
     defaultValues: ROLE_FILTER_DEFAULT,
   });
@@ -576,6 +480,22 @@ export function RoleListPage() {
     setDeleteTarget(null);
   }, [deleteTarget, removeMutation, toast]);
 
+  /** R-4：行内操作（Detail=O-5 超集）收纳进 ⋯ 菜单，保证 1280×800 不横向溢出。 */
+  const actionsColumn = React.useMemo(
+    () =>
+      createActionColumn<RoleRow & { id: string }>(() => [
+        { label: 'Detail', onClick: (r) => onDetail(r.roleId) },
+        { label: 'Edit', onClick: (r) => onEdit(r.roleId) },
+        { label: 'Assign Menu', onClick: (r) => onAssignRow(r) },
+        {
+          label: 'Delete',
+          destructive: true,
+          onClick: (r) => onDeleteClick(r),
+        },
+      ]),
+    [onDetail, onEdit, onAssignRow, onDeleteClick],
+  );
+
   const columns = React.useMemo<ColumnDef<RoleRow & { id: string }>[]>(
     () => [
       {
@@ -611,48 +531,9 @@ export function RoleListPage() {
         header: 'Remarks',
         cell: ({ row }) => <span>{orDash(row.original.remarks)}</span>,
       },
-      {
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }) => (
-          <div className="flex flex-wrap items-center gap-1">
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              onClick={() => onDetail(row.original.roleId)}
-            >
-              Detail
-            </Button>
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              onClick={() => onEdit(row.original.roleId)}
-            >
-              Edit
-            </Button>
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              onClick={() => onAssignRow(row.original)}
-            >
-              Assign Menu
-            </Button>
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0 text-destructive hover:text-destructive"
-              onClick={() => onDeleteClick(row.original)}
-            >
-              Delete
-            </Button>
-          </div>
-        ),
-      },
+      actionsColumn,
     ],
-    [onDetail, onEdit, onAssignRow, onDeleteClick],
+    [actionsColumn],
   );
 
   const tableData = React.useMemo(
@@ -660,29 +541,23 @@ export function RoleListPage() {
     [rows],
   );
 
-  const statusSelectOptions = React.useMemo(
-    () => [{ value: OPT_ALL, label: 'All Statuses' }, ...ROLE_STATUS_OPTIONS],
-    [],
-  );
-
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <PageHead title="Role Management" />
+      <PageHead variant="toolbar" title="Role Management">
         {/* 源 v-perm="'bank:role:manage'"：未命中 menuKeys 即不渲染。 */}
         {hasPerm('bank:role:manage') && (
           <Button type="button" onClick={() => router.push(`${ROLE_BASE}/create`)}>
             Create Role
           </Button>
         )}
-      </div>
+      </PageHead>
 
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
         <div className="mb-4 text-sm font-semibold">Filters</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             name="roleCode"
             label="Role Code"
@@ -694,13 +569,6 @@ export function RoleListPage() {
             label="Role Name"
             placeholder="Fuzzy match"
             register={register('roleName')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label="Status"
-            options={statusSelectOptions}
-            placeholder="All Statuses"
           />
         </div>
 
@@ -907,11 +775,11 @@ export function RoleFormPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead title={isEditRoute ? 'Edit Role' : 'Create Role'} />
+      <PageHead variant="toolbar" title={isEditRoute ? 'Edit Role' : 'Create Role'} />
       {!isEditRoute ? (
         <RoleForm />
       ) : roleId == null ? (
-        <MissingIdBlock />
+        <MissingIdBlock message="Missing a valid role ID" backTo={ROLE_BASE} />
       ) : detailQuery.isLoading ? (
         <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
           <div className="space-y-4">
@@ -959,8 +827,7 @@ export function RoleDetailPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <PageHead title="Role Detail" />
+      <PageHead variant="toolbar" title="Role Detail">
         <Button
           type="button"
           variant="outline"
@@ -970,10 +837,10 @@ export function RoleDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to List
         </Button>
-      </div>
+      </PageHead>
 
       {roleId == null ? (
-        <MissingIdBlock />
+        <MissingIdBlock message="Missing a valid role ID" backTo={ROLE_BASE} />
       ) : detailQuery.isLoading ? (
         <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
           <LoadingBlock />

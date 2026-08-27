@@ -12,9 +12,11 @@
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { CheckCircle2, Info, Loader2, RefreshCw, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Info, Loader2, XCircle } from 'lucide-react';
 
 import {
+  Alert,
+  AlertTitle,
   Badge,
   Button,
   Card,
@@ -22,7 +24,6 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
-  Skeleton,
   useToast,
 } from '@myorg/shared/ui';
 import { FormField, createFormResolver } from '@myorg/shared/ui-forms';
@@ -42,14 +43,14 @@ import {
   type OnboardStatus,
 } from '@myorg/modules/kissen-gateway/data-access';
 
+import { DescField, DescGrid } from './desc-grid';
+import { formatTime } from './kit';
+import { PageHead } from './page-head';
+import { LoadingBlock, QueryErrorRetry } from './state-blocks';
+
 /* ================================================================== */
 /* 展示工具（源 views/onboard/index.vue fmtTime / supportedCurrencies） */
 /* ================================================================== */
-
-/** 毫秒时间戳 → 本地时间（源 fmtTime，1:1 移植；空 → '-'）。 */
-function formatTime(ms: number | null | undefined): string {
-  return ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-';
-}
 
 /** supportedCurrencies 逗号分隔 → 币种数组（源 computed，1:1 移植）。 */
 function splitCurrencies(
@@ -83,70 +84,6 @@ function isRejectedStatus(
   current: OnboardStatus | null | undefined,
 ): current is OnboardStatusRecord {
   return current?.status === ONBOARD_STATUS_REJECTED;
-}
-
-/* ================================================================== */
-/* 通用展示组件                                                        */
-/* ================================================================== */
-
-/** 页头（源 .page-head：eyebrow + 标题）。 */
-function PageHead({ title }: { title: string }) {
-  return (
-    <div className="space-y-1">
-      <div className="text-xs font-semibold tracking-widest text-muted-foreground">
-        PORTAL
-      </div>
-      <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-    </div>
-  );
-}
-
-/** 详情描述字段（el-descriptions-item 的 React 等价）。 */
-function DescField({
-  label,
-  span = false,
-  children,
-}: {
-  label: string;
-  span?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={cn('space-y-1.5 rounded-md border px-4 py-3', span && 'sm:col-span-2')}>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-sm tabular-nums">{children}</div>
-    </div>
-  );
-}
-
-/** 查询失败 + 重试（loading/empty/error 可感知约定）。 */
-function QueryErrorRetry({
-  error,
-  onRetry,
-}: {
-  error: unknown;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 py-8 text-center">
-      <p className="text-sm text-destructive">Failed to load: {(error as Error).message}</p>
-      <Button variant="outline" size="sm" onClick={onRetry}>
-        <RefreshCw />
-        Retry
-      </Button>
-    </div>
-  );
-}
-
-/** 加载骨架（源 v-loading 的等价）。 */
-function LoadingBlock() {
-  return (
-    <div className="space-y-3 py-2">
-      <Skeleton className="h-4 w-1/3" />
-      <Skeleton className="h-4 w-2/3" />
-      <Skeleton className="h-4 w-1/2" />
-    </div>
-  );
 }
 
 /** el-result 的 React 等价（icon + title + sub-title + extra）。 */
@@ -199,33 +136,33 @@ function BankInfoCard() {
   const currencies = splitCurrencies(bankInfo);
 
   return (
-    <Card>
+    <Card className="max-w-[680px]">
       <CardHeader>
         <CardTitle>Bank Information</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <LoadingBlock />
+          <LoadingBlock variant="skeleton" />
         ) : isError ? (
-          <QueryErrorRetry error={error} onRetry={() => refetch()} />
+          <QueryErrorRetry error={error} onRetry={() => refetch()} withIcon />
         ) : !bankInfo ? (
           <div className="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
             <Info className="h-8 w-8" />
-            <p className="text-sm">No bank information yet (pushed by Kissen)</p>
+            <p className="text-sm">No bank information</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <DescField label="Bank Name">{bankInfo.bankName || '-'}</DescField>
-            <DescField label="Bank Code">{bankInfo.bankCode || '-'}</DescField>
-            <DescField label="BIC/SWIFT">{bankInfo.bic || '-'}</DescField>
-            <DescField label="Status">
+          <DescGrid cols={2}>
+            <DescField label="Bank Name" variant="boxed">{bankInfo.bankName || '-'}</DescField>
+            <DescField label="Bank Code" variant="boxed">{bankInfo.bankCode || '-'}</DescField>
+            <DescField label="BIC/SWIFT" variant="boxed">{bankInfo.bic || '-'}</DescField>
+            <DescField label="Status" variant="boxed">
               {bankInfo.status === ONBOARD_STATUS_APPROVED ? (
                 <Badge>Enabled</Badge>
               ) : (
                 <Badge variant="outline">{bankInfo.status ?? '-'}</Badge>
               )}
             </DescField>
-            <DescField label="Supported Currencies" span>
+            <DescField label="Supported Currencies" span variant="boxed">
               {currencies.length ? (
                 <span className="flex flex-wrap gap-1.5">
                   {currencies.map((c) => (
@@ -238,12 +175,12 @@ function BankInfoCard() {
                 '-'
               )}
             </DescField>
-            <DescField label="Single Tx Limit">{bankInfo.singleLimit ?? '-'}</DescField>
-            <DescField label="Daily Limit">{bankInfo.dailyLimit ?? '-'}</DescField>
-            <DescField label="Account Config" span>
+            <DescField label="Single Tx Limit" variant="boxed">{bankInfo.singleLimit ?? '-'}</DescField>
+            <DescField label="Daily Limit" variant="boxed">{bankInfo.dailyLimit ?? '-'}</DescField>
+            <DescField label="Account Config" span variant="boxed">
               {bankInfo.accountConfig || '-'}
             </DescField>
-          </div>
+          </DescGrid>
         )}
       </CardContent>
     </Card>
@@ -256,16 +193,6 @@ function BankInfoCard() {
 
 /** 审核中 / 已通过 result（源模板 1:1；供 overview/detail 共用）。 */
 function OnboardStatusResult({ current }: { current: OnboardStatus }) {
-  const toast = useToast();
-  const reviewFeedback = isPendingStatus(current)
-    ? current.approveFeedback
-    : null;
-  React.useEffect(() => {
-    if (reviewFeedback) {
-      toast.info('Kissen review feedback', { description: reviewFeedback });
-    }
-  }, [reviewFeedback, toast]);
-
   if (isPendingStatus(current)) {
     return (
       <ResultPanel
@@ -274,6 +201,13 @@ function OnboardStatusResult({ current }: { current: OnboardStatus }) {
         title="Application Under Review"
         subtitle="Your onboarding application has been submitted and is awaiting Kissen review. Portal features unlock once approved."
       >
+        {/* 源 L39：approveFeedback 有值 → info alert 持久内联展示（非 toast）。 */}
+        {current.approveFeedback ? (
+          <Alert className="max-w-md border-sky-200 bg-sky-50 text-sky-900">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <AlertTitle>{current.approveFeedback}</AlertTitle>
+          </Alert>
+        ) : null}
         <p className="text-sm text-muted-foreground">
           Submitted: {formatTime(current.agreeTime)}
         </p>
@@ -291,6 +225,17 @@ function OnboardStatusResult({ current }: { current: OnboardStatus }) {
         Approved: {formatTime(current.agreeTime)}
       </p>
     </ResultPanel>
+  );
+}
+
+/** 驳回反馈内联告警（源 L53-57 el-alert warning「上次申请未通过:${approveFeedback}」，有值才渲染）。 */
+function RejectFeedbackAlert({ current }: { current: OnboardStatusRecord }) {
+  if (!current.approveFeedback) return null;
+  return (
+    <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+      <AlertTitle>Previous application was rejected: {current.approveFeedback}</AlertTitle>
+    </Alert>
   );
 }
 
@@ -403,31 +348,19 @@ export function OnboardListPage() {
   const { data: current, isLoading, isError, error, refetch } =
     useOnboardStatusQuery(KISSEN_GATEWAY_PROJECT_ID);
 
-  const toast = useToast();
-  const rejectFeedback = isRejectedStatus(current)
-    ? current.approveFeedback
-    : null;
-  React.useEffect(() => {
-    if (rejectFeedback) {
-      toast.warning('Previous application was rejected', {
-        description: rejectFeedback,
-      });
-    }
-  }, [rejectFeedback, toast]);
-
   return (
     <div className="space-y-6">
-      <PageHead title="Onboarding" />
+      <PageHead variant="stacked" title="Onboarding" />
       <BankInfoCard />
-      <Card>
+      <Card className="max-w-[680px]">
         <CardHeader>
           <CardTitle>Onboarding Status</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <LoadingBlock />
+            <LoadingBlock variant="skeleton" />
           ) : isError ? (
-            <QueryErrorRetry error={error} onRetry={() => refetch()} />
+            <QueryErrorRetry error={error} onRetry={() => refetch()} withIcon />
           ) : isPendingStatus(current) || isApprovedStatus(current) ? (
             <div className="space-y-4">
               <OnboardStatusResult current={current} />
@@ -439,6 +372,10 @@ export function OnboardListPage() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* 源 L53-57：驳回态在表单/入口上方持久展示驳回原因。 */}
+              {isRejectedStatus(current) ? (
+                <RejectFeedbackAlert current={current} />
+              ) : null}
               <div className="flex flex-col items-center gap-3 py-6 text-center">
                 <Badge
                   variant={
@@ -449,7 +386,7 @@ export function OnboardListPage() {
                 >
                   {isRejectedStatus(current)
                     ? ONBOARD_STATUS_LABEL[ONBOARD_STATUS_REJECTED]
-                    : 'Not Onboarded'}
+                    : 'Not Submitted'}
                 </Badge>
                 <p className="text-sm text-muted-foreground">
                   Submit an onboarding application and wait for Kissen review. Portal features unlock once approved.
@@ -471,38 +408,30 @@ export function OnboardFormPage() {
   const { data: current, isLoading, isError, error, refetch } =
     useOnboardStatusQuery(KISSEN_GATEWAY_PROJECT_ID);
 
-  const toast = useToast();
-  const rejectFeedback = isRejectedStatus(current)
-    ? current.approveFeedback
-    : null;
-  React.useEffect(() => {
-    if (rejectFeedback) {
-      toast.warning('Previous application was rejected', {
-        description: rejectFeedback,
-      });
-    }
-  }, [rejectFeedback, toast]);
-
   return (
     <div className="space-y-6">
-      <PageHead title="Submit Onboarding Application" />
+      <PageHead variant="stacked" title="Submit Onboarding Application" />
       <BankInfoCard />
-      <Card>
+      <Card className="max-w-[680px]">
         <CardHeader>
           <CardTitle>Onboarding Application</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <LoadingBlock />
+            <LoadingBlock variant="skeleton" />
           ) : isError ? (
-            <QueryErrorRetry error={error} onRetry={() => refetch()} />
+            <QueryErrorRetry error={error} onRetry={() => refetch()} withIcon />
           ) : isPendingStatus(current) || isApprovedStatus(current) ? (
             // 源语义：审核中/已通过不渲染表单，只渲染状态结果。
             <OnboardStatusResult current={current} />
           ) : (
-            <>
+            <div className="space-y-4">
+              {/* 源 L53-57：驳回后重新提交 → 表单上方 warning alert 展示上次驳回原因。 */}
+              {isRejectedStatus(current) ? (
+                <RejectFeedbackAlert current={current} />
+              ) : null}
               <OnboardApplyForm />
-            </>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -517,17 +446,17 @@ export function OnboardDetailPage() {
 
   return (
     <div className="space-y-6">
-      <PageHead title="Onboarding Status" />
+      <PageHead variant="stacked" title="Onboarding Status" />
       <BankInfoCard />
-      <Card>
+      <Card className="max-w-[680px]">
         <CardHeader>
           <CardTitle>Onboarding Status</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <LoadingBlock />
+            <LoadingBlock variant="skeleton" />
           ) : isError ? (
-            <QueryErrorRetry error={error} onRetry={() => refetch()} />
+            <QueryErrorRetry error={error} onRetry={() => refetch()} withIcon />
           ) : isPendingStatus(current) || isApprovedStatus(current) ? (
             <OnboardStatusResult current={current} />
           ) : isRejectedStatus(current) ? (

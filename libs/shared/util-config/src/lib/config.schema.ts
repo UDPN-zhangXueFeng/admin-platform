@@ -12,6 +12,9 @@ function withDefault<T extends z.ZodTypeAny>(schema: T) {
 const projectSchema = z.object({
   id: z.string().default('ecommerce'),
   name: z.string().default('Admin Platform'),
+  // Historical header subtitle; kept as the default so existing projects
+  // render exactly what the shared Header hardcoded before this field existed.
+  subtitle: z.string().default('Stablecoin Management System'),
   logo: z.string().default('/logo.svg'),
   favicon: z.string().default('/favicon.ico'),
 });

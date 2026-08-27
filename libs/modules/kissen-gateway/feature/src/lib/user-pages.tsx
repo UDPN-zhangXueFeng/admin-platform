@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
+  createActionColumn,
   Checkbox,
   DataTable,
   Dialog,
@@ -37,7 +38,6 @@ import {
   DialogTitle,
   RadioGroup,
   RadioGroupItem,
-  Skeleton,
   useToast,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect, createFormResolver } from '@myorg/shared/ui-forms';
@@ -45,11 +45,14 @@ import { useRouter } from '@myorg/shared/util-i18n';
 
 import { useGatewayPerm } from './use-gateway-perm';
 
+import { DescField, DescGrid } from './desc-grid';
+import { OPT_ALL, formatTime, orDash } from './kit';
+import { PageHead } from './page-head';
+import { LoadingBlock, QueryErrorRetry } from './state-blocks';
+
 import {
   KISSEN_GATEWAY_PROJECT_ID,
   USER_FIRST_LOGIN_LABEL,
-  USER_STATUS_LABEL,
-  USER_STATUS_OPTIONS,
   USER_STATUS_VARIANT,
   USER_TYPE_LABEL,
   USER_TYPE_RADIO_OPTIONS,
@@ -73,24 +76,20 @@ import {
 
 const USER_PAGE_SIZE_DEFAULT = 10;
 
-/** Select 的「全部状态」哨兵值（Radix SelectItem 不宜用空串；源 clearable 语义）。 */
-const OPT_ALL = '__all__';
+/**
+ * 状态 tag/筛选文案（源 0 正常 success / 1 停用 info；本组英文口径
+ * Enabled/Disabled，variant 沿用 data-access 的 success→default / info→outline 映射）。
+ */
+const USER_STATUS_TAG_LABEL: Record<number, string> = {
+  0: 'Enabled',
+  1: 'Disabled',
+};
 
 /** 路由 query 中的用户 ID → 正整数；非法 → undefined。 */
 function parseUserId(raw: string | null): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
-/** 毫秒时间戳 → `zh-CN` 本地时间串（24 小时制）；空值 → '-'。 */
-function formatTime(ms: number | null | undefined): string {
-  return ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-';
-}
-
-/** 空值统一显示 '-'（源 `|| '-'` 语义）。 */
-function orDash(v: string | null | undefined): string {
-  return v === null || v === undefined || v === '' ? '-' : v;
 }
 
 /* ================================================================== */
@@ -121,76 +120,6 @@ function peekUserRow(userId: number): UserRow | null {
   } catch {
     return null;
   }
-}
-
-/* ================================================================== */
-/* 通用展示组件                                                        */
-/* ================================================================== */
-
-/** 页头（源 .page-head：eyebrow「PORTAL」+ 标题 + 右侧动作）。 */
-function PageHead({
-  title,
-  children,
-}: {
-  title: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <div className="text-xs font-semibold tracking-widest text-muted-foreground">
-          PORTAL
-        </div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight">{title}</h1>
-      </div>
-      {children && <div className="flex gap-2">{children}</div>}
-    </div>
-  );
-}
-
-/** 详情描述字段（el-descriptions-item 的 React 等价）。 */
-function DetailField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-sm tabular-nums">{children}</div>
-    </div>
-  );
-}
-
-/** 查询失败 + 重试（loading/empty/error 可感知约定）。 */
-function QueryErrorRetry({
-  error,
-  onRetry,
-}: {
-  error: unknown;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 py-8 text-center">
-      <p className="text-sm text-destructive">Failed to load: {(error as Error).message}</p>
-      <Button variant="outline" size="sm" onClick={onRetry}>
-        Retry
-      </Button>
-    </div>
-  );
-}
-
-/** 加载骨架（源 v-loading 的等价）。 */
-function LoadingBlock() {
-  return (
-    <div className="space-y-3 py-2">
-      <Skeleton className="h-4 w-1/3" />
-      <Skeleton className="h-4 w-2/3" />
-      <Skeleton className="h-4 w-1/2" />
-    </div>
-  );
 }
 
 /** 角色多选（源 el-select multiple → Checkbox 列表，角色数量有限）。 */
@@ -277,13 +206,13 @@ function OneTimePasswordDialog({
           >
             {otp ?? '—'}
           </div>
-          <p className="text-xs text-muted-foreground">Please forward it to the user immediately.</p>
+          <p className="text-xs text-muted-foreground">Please copy it to the user immediately.</p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onCopy} disabled={!otp}>
             Copy
           </Button>
-          <Button onClick={onClose}>I Have Forwarded It</Button>
+          <Button onClick={onClose}>I have copied it</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -359,15 +288,15 @@ function UserAssignRoleDialog({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
+          {/* 源基线 #3：分配角色保存按钮无 loading（仅新增/编辑弹窗有 saving）。 */}
           <Button
-            disabled={mutation.isPending}
             onClick={() => {
               mutation.mutate(
                 { userId: user.userId, roleIds: selected },
                 {
                   onSuccess: () => {
-                    // 源 onAssignRoles：ElMessage.success + 关弹窗 + load()（列表失效）。
-                    toast.success('Roles assigned. Effective on next request for this user');
+                    // 源 onAssignRoles：ElMessage.success + 关弹窗 + load()（mutation 失效列表缓存即刷新）。
+                    toast.success("Assigned. Takes effect on the user's next request.");
                     onClose();
                   },
                   onError: (e) => toast.error((e as Error).message),
@@ -375,7 +304,7 @@ function UserAssignRoleDialog({
               );
             }}
           >
-            {mutation.isPending ? 'Saving…' : 'Save'}
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -407,10 +336,7 @@ export function UserListPage() {
   );
 
   const [assignUser, setAssignUser] = React.useState<UserRow | null>(null);
-  const [resetOtp, setResetOtp] = React.useState<{
-    userName: string;
-    pwd: string;
-  } | null>(null);
+  const [resetOtp, setResetOtp] = React.useState<{ pwd: string } | null>(null);
   /* 行操作确认目标（受控 open；确认弹窗打开时行操作不直接触发 mutation）。 */
   const [toggleTarget, setToggleTarget] = React.useState<UserRow | null>(null);
   const [resetPwdTarget, setResetPwdTarget] = React.useState<UserRow | null>(
@@ -454,7 +380,7 @@ export function UserListPage() {
     statusMutation.mutate(
       { userId: toggleTarget.userId, status: next },
       {
-        onSuccess: () => toast.success('Operation successful'),
+        onSuccess: () => toast.success('Operation succeeded'),
         onError: (e) => toast.error((e as Error).message),
       },
     );
@@ -466,10 +392,7 @@ export function UserListPage() {
     if (!resetPwdTarget) return;
     resetPwdMutation.mutate(resetPwdTarget.userId, {
       onSuccess: (otp: OneTimePassword) =>
-        setResetOtp({
-          userName: resetPwdTarget.loginName,
-          pwd: otp.oneTimePassword,
-        }),
+        setResetOtp({ pwd: otp.oneTimePassword }),
       onError: (e) => toast.error((e as Error).message),
     });
     setResetPwdTarget(null);
@@ -479,7 +402,7 @@ export function UserListPage() {
   const onConfirmForceLogout = React.useCallback(() => {
     if (!forceLogoutTarget) return;
     forceLogoutMutation.mutate(forceLogoutTarget.userId, {
-      onSuccess: () => toast.success('Force logged out'),
+      onSuccess: () => toast.success('Forced offline'),
       onError: (e) => toast.error((e as Error).message),
     });
     setForceLogoutTarget(null);
@@ -503,7 +426,7 @@ export function UserListPage() {
         header: 'Status',
         cell: ({ row }) => (
           <Badge variant={USER_STATUS_VARIANT[row.original.status] ?? 'outline'}>
-            {USER_STATUS_LABEL[row.original.status] ?? row.original.status}
+            {USER_STATUS_TAG_LABEL[row.original.status] ?? row.original.status}
           </Badge>
         ),
       },
@@ -512,77 +435,44 @@ export function UserListPage() {
         header: 'Phone',
         cell: ({ row }) => <span>{orDash(row.original.phone)}</span>,
       },
-      {
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }) => {
-          const u = row.original;
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => {
-                  stashUserRow(u);
-                  router.push(`/system/user/detail?id=${u.userId}`);
-                }}
-              >
-                View
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => {
-                  stashUserRow(u);
-                  router.push(`/system/user/edit?id=${u.userId}`);
-                }}
-              >
-                Edit
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => setAssignUser(u)}
-              >
-                Assign Roles
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-amber-600 hover:text-amber-700"
-                onClick={() => setResetPwdTarget(u)}
-              >
-                Reset Password
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className={
-                  u.status === 0
-                    ? 'h-auto p-0 text-destructive hover:text-destructive'
-                    : 'h-auto p-0'
-                }
-                onClick={() => setToggleTarget(u)}
-              >
-                {u.status === 0 ? 'Disable' : 'Enable'}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-destructive hover:text-destructive"
-                onClick={() => setForceLogoutTarget(u)}
-              >
-                Force Logout
-              </Button>
-            </div>
-          );
+      /* R-3：源 260px fixed 操作列 5 链接按钮（+View 超集）→ ⋯ 菜单收纳，1280×800 不横向溢出。 */
+      createActionColumn<UserRow & { id: string }>((u) => [
+        {
+          label: 'View',
+          onClick: () => {
+            stashUserRow(u);
+            router.push(`/system/user/detail?id=${u.userId}`);
+          },
         },
-      },
+        {
+          label: 'Edit',
+          onClick: () => {
+            stashUserRow(u);
+            router.push(`/system/user/edit?id=${u.userId}`);
+          },
+        },
+        { label: 'Assign Roles', onClick: () => setAssignUser(u) },
+        { label: 'Reset Password', onClick: () => setResetPwdTarget(u) },
+        {
+          /* 源：停用 danger / 启用 success，文案随 row.status 切换。 */
+          label: u.status === 0 ? 'Disable' : 'Enable',
+          destructive: u.status === 0,
+          onClick: () => setToggleTarget(u),
+        },
+        {
+          label: 'Force Logout',
+          destructive: true,
+          onClick: () => setForceLogoutTarget(u),
+        },
+      ]),
     ],
-    [router, setResetPwdTarget, setToggleTarget, setForceLogoutTarget],
+    [
+      router,
+      setAssignUser,
+      setResetPwdTarget,
+      setToggleTarget,
+      setForceLogoutTarget,
+    ],
   );
 
   const tableData = React.useMemo(
@@ -590,14 +480,19 @@ export function UserListPage() {
     [rows],
   );
 
+  /* 状态筛选：Enabled=0 / Disabled=1（本组英文口径，详见 USER_STATUS_TAG_LABEL）。 */
   const statusSelectOptions = React.useMemo(
-    () => [{ value: OPT_ALL, label: 'All' }, ...USER_STATUS_OPTIONS],
+    () => [
+      { value: OPT_ALL, label: 'All' },
+      { value: '0', label: USER_STATUS_TAG_LABEL[0] },
+      { value: '1', label: USER_STATUS_TAG_LABEL[1] },
+    ],
     [],
   );
 
   return (
     <div className="space-y-4">
-      <PageHead title="User Management">
+      <PageHead variant="toolbar" title="User Management">
         {/* 源 v-perm="'bank:user:manage'"：未命中 menuKeys 不渲染。 */}
         {hasPerm('bank:user:manage') && (
           <Button onClick={() => router.push('/system/user/create')}>
@@ -670,13 +565,13 @@ export function UserListPage() {
       <OneTimePasswordDialog
         open={!!resetOtp}
         onClose={() => setResetOtp(null)}
-        title="Password Reset"
-        lead="New one-time password (must be changed on first login):"
+        title="Reset Successful"
+        lead="New one-time password (forced change on first login):"
         otp={resetOtp?.pwd ?? null}
         tone="success"
       />
 
-      {/* 行操作确认弹窗（源 window.confirm 文案 1:1；destructive 仅破坏性动作）。 */}
+      {/* 行操作确认弹窗（源 ElMessageBox.confirm 文案语义 1:1；destructive 仅破坏性动作）。 */}
       <AlertDialog
         open={toggleTarget != null}
         onOpenChange={(o) => !o && setToggleTarget(null)}
@@ -712,7 +607,7 @@ export function UserListPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset Password</AlertDialogTitle>
             <AlertDialogDescription>
-              Reset the password for "{resetPwdTarget?.userName}"?
+              Reset password for "{resetPwdTarget?.userName}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -735,8 +630,8 @@ export function UserListPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Force Logout</AlertDialogTitle>
             <AlertDialogDescription>
-              Force log out "{forceLogoutTarget?.userName}"? All their sessions will
-              be invalidated immediately.
+              Force logout "{forceLogoutTarget?.userName}"? All sessions of
+              "{forceLogoutTarget?.userName}" will be invalidated immediately.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -869,16 +764,16 @@ export function UserFormPage() {
     if (scanning || !userPage) {
       return (
         <div className="space-y-4">
-          <PageHead title="Edit User" />
+          <PageHead variant="toolbar" title="Edit User" />
           <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-            <LoadingBlock />
+            <LoadingBlock variant="skeleton" />
           </div>
         </div>
       );
     }
     return (
       <div className="space-y-4">
-        <PageHead title="Edit User" />
+        <PageHead variant="toolbar" title="Edit User" />
         <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
           <p className="text-sm text-muted-foreground">User not found.</p>
           <Button
@@ -895,7 +790,7 @@ export function UserFormPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead title={isEdit ? 'Edit User' : 'Create User'} />
+      <PageHead variant="toolbar" title={isEdit ? 'Edit User' : 'Create User'} />
       <form
         onSubmit={onSubmit}
         className="space-y-5 rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
@@ -1003,7 +898,7 @@ export function UserFormPage() {
           router.push('/system/user');
         }}
         title="Initial Password"
-        lead="User created. Initial password (one-time, must be changed on first login):"
+        lead="User created. Initial password (one-time, forced change on first login):"
         otp={createdOtp}
         tone="warning"
       />
@@ -1044,7 +939,7 @@ export function UserDetailPage() {
   if (userId == null) {
     return (
       <div className="space-y-4">
-        <PageHead title="User Detail" />
+        <PageHead variant="toolbar" title="User Detail" />
         <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
           <p className="text-sm text-muted-foreground">Missing user ID.</p>
           <Button
@@ -1061,7 +956,7 @@ export function UserDetailPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead title="User Detail">
+      <PageHead variant="toolbar" title="User Detail">
         <Button
           variant="outline"
           onClick={() => router.push(`/system/user/edit?id=${userId}`)}
@@ -1085,36 +980,36 @@ export function UserDetailPage() {
               </Button>
             </div>
           ) : (
-            <LoadingBlock />
+            <LoadingBlock variant="skeleton" />
           )
         ) : (
-          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-            <DetailField label="Username">{user.loginName}</DetailField>
-            <DetailField label="Name">{user.userName}</DetailField>
-            <DetailField label="Type">
+          <DescGrid>
+            <DescField label="Username" variant="plain">{user.loginName}</DescField>
+            <DescField label="Name" variant="plain">{user.userName}</DescField>
+            <DescField label="Type" variant="plain">
               <Badge
                 variant={USER_TYPE_VARIANT[user.userType] ?? 'outline'}
               >
                 {USER_TYPE_LABEL[user.userType] ?? user.userType}
               </Badge>
-            </DetailField>
-            <DetailField label="Status">
+            </DescField>
+            <DescField label="Status" variant="plain">
               <Badge variant={USER_STATUS_VARIANT[user.status] ?? 'outline'}>
-                {USER_STATUS_LABEL[user.status] ?? user.status}
+                {USER_STATUS_TAG_LABEL[user.status] ?? user.status}
               </Badge>
-            </DetailField>
-            <DetailField label="Phone">{orDash(user.phone)}</DetailField>
-            <DetailField label="Email">{orDash(user.email)}</DetailField>
-            <DetailField label="Roles">{roleNames || '-'}</DetailField>
-            <DetailField label="First Login">
+            </DescField>
+            <DescField label="Phone" variant="plain">{orDash(user.phone)}</DescField>
+            <DescField label="Email" variant="plain">{orDash(user.email)}</DescField>
+            <DescField label="Roles" variant="plain">{roleNames || '-'}</DescField>
+            <DescField label="First Login" variant="plain">
               <Badge variant="outline">
                 {USER_FIRST_LOGIN_LABEL[user.firstLogin] ?? user.firstLogin}
               </Badge>
-            </DetailField>
-            <DetailField label="Created At">
+            </DescField>
+            <DescField label="Created At" variant="plain">
               {formatTime(user.createTime)}
-            </DetailField>
-          </div>
+            </DescField>
+          </DescGrid>
         )}
       </div>
     </div>

@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { ColumnDef } from '@tanstack/react-table';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import {
   Badge,
@@ -17,7 +18,6 @@ import {
 } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { cn } from '@myorg/shared/util-classnames';
 
 import {
   TX_STATUS_OPTIONS,
@@ -38,31 +38,13 @@ import {
   type TxRecord,
 } from '@myorg/modules/kissen-gateway/data-access';
 
+import { DescField, DescGrid } from './desc-grid';
+import { OPT_ALL, fmtAmount, formatTime, orDash, toEpochMs } from './kit';
+
 /**
  * 交易记录域页面（源 `views/tx/list.vue`：列表筛选/分页 + 详情字段 + 报文链路）。
  * 详情从源 Dialog 改为独立路由页（registry：/tx + detail key）。
  */
-
-/* ================================================================== */
-/* 展示工具（源 views/tx/list.vue fmtAmount/fmtTime，语义 1:1）        */
-/* ================================================================== */
-
-/** 金额展示：源 `String(Number(v))`（去尾零的原始数值串）；null/undefined → '-'。 */
-function fmtAmount(v?: number): string {
-  return v == null ? '-' : String(Number(v));
-}
-
-/** 毫秒时间戳 → `zh-CN` 本地时间串（24 小时制，源 toLocaleString 语义）；空值 → '-'。 */
-function fmtTime(ms?: number): string {
-  return ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-';
-}
-
-/** datetime-local 字符串（YYYY-MM-DDTHH:mm）→ 毫秒时间戳（源 datetimerange value-format="x"）。 */
-function toEpochMs(value: string): number | undefined {
-  if (!value) return undefined;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? undefined : d.getTime();
-}
 
 /** 路由 query 中的交易 ID → 正整数；非法 → undefined。 */
 function parseTxId(raw: string | null): number | undefined {
@@ -71,55 +53,9 @@ function parseTxId(raw: string | null): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
-/** 空值统一显示 '-'（源 `|| '-'` 语义）。 */
-function orDash(v: string | number | null | undefined): string {
-  return v === null || v === undefined || v === '' ? '-' : String(v);
-}
-
-/** 详情描述字段（el-descriptions-item 的 React 等价）。 */
-function DescField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-sm">{children}</dd>
-    </div>
-  );
-}
-
-function DescGrid({
-  cols = 2,
-  className,
-  children,
-}: {
-  cols?: 1 | 2;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <dl
-      className={cn(
-        'grid gap-x-4 gap-y-3',
-        cols === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1',
-        className,
-      )}
-    >
-      {children}
-    </dl>
-  );
-}
-
 /* ================================================================== */
 /* 列表页（源筛选：状态 + 仅看待处理 + 时间范围）                       */
 /* ================================================================== */
-
-/** Select 的「全部状态」哨兵值（Radix SelectItem 不宜用空串）。 */
-const OPT_ALL = '__all__';
 
 const txFilterSchema = z.object({
   status: z.string(),
@@ -146,7 +82,34 @@ function formToFilter(form: TxFilterForm): TxListReq {
   };
 }
 
-const TX_PAGE_SIZE_DEFAULT = 10;
+/** 源分页 pageSize 固定 10（el-pagination layout 无 sizes/jumper）。 */
+const TX_PAGE_SIZE = 10;
+
+/** 列表 → 详情行数据暂存前缀（源 openDetail 先用行数据立即渲染，接口返回后覆盖）。 */
+const TX_STASH_PREFIX = 'kissen-gateway.tx.seed.';
+
+/** 暂存被点击的行（sessionStorage；写失败静默——详情页回退纯接口渲染）。 */
+function stashTxSeed(row: TxRecord): void {
+  try {
+    sessionStorage.setItem(
+      `${TX_STASH_PREFIX}${row.transactionId}`,
+      JSON.stringify(row),
+    );
+  } catch {
+    /* 隐私模式/配额超限时放弃暂存 */
+  }
+}
+
+/** 读取暂存行；缺失/损坏/ID 不符 → null。 */
+function readTxSeed(transactionId: number): TxRecord | null {
+  try {
+    const raw = sessionStorage.getItem(`${TX_STASH_PREFIX}${transactionId}`);
+    const parsed = raw ? (JSON.parse(raw) as TxRecord) : null;
+    return parsed?.transactionId === transactionId ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 export function TxListPage() {
   const router = useRouter();
@@ -160,16 +123,15 @@ export function TxListPage() {
     formToFilter(TX_FILTER_DEFAULT),
   );
   const [pageNum, setPageNum] = React.useState(1);
-  const [pageSize, setPageSize] = React.useState(TX_PAGE_SIZE_DEFAULT);
 
   const { data, isLoading, isError, error, refetch } = useTxPage({
     pageNum,
-    pageSize,
+    pageSize: TX_PAGE_SIZE,
     filter,
   });
 
   const rows = data?.data ?? [];
-  const paginationMeta = data?.pagination;
+  const total = data?.pagination?.total ?? 0;
 
   React.useEffect(() => {
     if (isError) {
@@ -192,10 +154,12 @@ export function TxListPage() {
     setPageNum(1);
   }, [reset]);
 
-  /** 详情跳转（registry：/tx + detail key；源行点击/详情按钮同一目标）。 */
+  /** 详情跳转（registry：/tx + detail key；源行点击/详情按钮同一目标）。
+   *  先暂存行数据——详情页据此立即渲染，等接口返回后覆盖（源 openDetail L194-207）。 */
   const onView = React.useCallback(
-    (transactionId: number) => {
-      router.push(`/tx/detail?id=${transactionId}`);
+    (row: TxRecord) => {
+      stashTxSeed(row);
+      router.push(`/tx/detail?id=${row.transactionId}`);
     },
     [router],
   );
@@ -258,7 +222,7 @@ export function TxListPage() {
       {
         id: 'lastSyncTime',
         header: 'Last Sync',
-        cell: ({ row }) => <span>{fmtTime(row.original.lastSyncTime)}</span>,
+        cell: ({ row }) => <span>{formatTime(row.original.lastSyncTime)}</span>,
       },
       {
         id: 'actions',
@@ -268,7 +232,7 @@ export function TxListPage() {
             variant="link"
             size="sm"
             className="h-auto p-0"
-            onClick={() => onView(row.original.transactionId)}
+            onClick={() => onView(row.original)}
           >
             Detail
           </Button>
@@ -348,28 +312,64 @@ export function TxListPage() {
         </div>
       </form>
 
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
+      <div className="rounded-lg border-border/60 bg-card p-4 shadow-float">
         <DataTable
           columns={columns}
           data={tableData}
           isLoading={isLoading}
           emptyMessage="No data"
-          pagination={
-            paginationMeta
-              ? {
-                  page: paginationMeta.page,
-                  pageSize: paginationMeta.pageSize,
-                  total: paginationMeta.total,
-                  onPageChange: setPageNum,
-                  onPageSizeChange: (n) => {
-                    setPageSize(n);
-                    setPageNum(1);
-                  },
-                }
-              : undefined
-          }
         />
+        <TxPager
+          total={total}
+          pageNum={pageNum}
+          onPageChange={setPageNum}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 分页（源 el-pagination layout `total, prev, pager, next`，pageSize 固定 10 无
+ * sizes/jumper。有意差异与 log-pages 同口径：省略页码 pager，仅 total + prev/next）。
+ */
+function TxPager({
+  total,
+  pageNum,
+  onPageChange,
+}: {
+  total: number;
+  pageNum: number;
+  onPageChange: (page: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / TX_PAGE_SIZE));
+
+  return (
+    <div className="mt-3 flex items-center justify-between">
+      <span className="text-sm text-muted-foreground">
+        {total} records · Page {pageNum} of {totalPages}
+      </span>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Previous page"
+          disabled={pageNum <= 1}
+          className="h-8 w-8"
+          onClick={() => onPageChange(pageNum - 1)}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Next page"
+          disabled={pageNum >= totalPages}
+          className="h-8 w-8"
+          onClick={() => onPageChange(pageNum + 1)}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
@@ -388,7 +388,7 @@ function TxMessageItem({ message }: { message: TxMessage }) {
         aria-hidden="true"
       />
       <div className="text-xs text-muted-foreground">
-        {fmtTime(message.createTime)}
+        {formatTime(message.createTime)}
       </div>
       <div className="mt-2 rounded-md border bg-muted/30 p-3">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -422,7 +422,7 @@ export function TxDetailPage() {
   const transactionId = parseTxId(searchParams.get('id'));
 
   const {
-    data: detail,
+    data: detailData,
     isLoading: detailLoading,
     isError: detailError,
     error: detailErrorInfo,
@@ -435,6 +435,16 @@ export function TxDetailPage() {
     error: messagesErrorInfo,
     refetch: refetchMessages,
   } = useTxMessages(transactionId);
+
+  /**
+   * 源 openDetail 语义：进入详情先用被点击的行立即渲染（messages 起始为空），
+   * detail 接口返回后覆盖；接口失败则停留行数据。直链无暂存时回退骨架屏。
+   */
+  const seed = React.useMemo(
+    () => (transactionId != null ? readTxSeed(transactionId) : null),
+    [transactionId],
+  );
+  const record = detailData ?? seed;
 
   const toast = useToast();
   React.useEffect(() => {
@@ -480,64 +490,64 @@ export function TxDetailPage() {
         </Button>
       </div>
 
-      {detailLoading && !detail ? (
-        <div className="space-y-2">
-          <Skeleton className="h-24 w-full rounded-lg" />
-          <Skeleton className="h-40 w-full rounded-lg" />
-        </div>
-      ) : detail ? (
+      {record ? (
         <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-          <DescGrid cols={2}>
+          <DescGrid>
             <DescField label="Record ID">
-              <span>{detail.recordId ?? '-'}</span>
+              <span>{record.recordId ?? '-'}</span>
             </DescField>
             <DescField label="TransactionId">
-              <span>{detail.transactionId ?? '-'}</span>
+              <span>{record.transactionId ?? '-'}</span>
             </DescField>
             <DescField label="Bank Role">
-              {detail.bankRole != null && detail.bankRole !== 0 ? (
-                <Badge variant={txBankRoleVariant(detail.bankRole)}>
-                  {txBankRoleText(detail.bankRole)}
+              {record.bankRole != null && record.bankRole !== 0 ? (
+                <Badge variant={txBankRoleVariant(record.bankRole)}>
+                  {txBankRoleText(record.bankRole)}
                 </Badge>
               ) : (
                 <span>-</span>
               )}
             </DescField>
             <DescField label="PairId">
-              <span>{detail.pairId ?? '-'}</span>
+              <span>{record.pairId ?? '-'}</span>
             </DescField>
             <DescField label="Principal">
-              <span>{fmtAmount(detail.principal)}</span>
+              <span>{fmtAmount(record.principal)}</span>
             </DescField>
             <DescField label="Status">
-              <Badge variant={txStatusVariant(detail.status)}>
-                {txStatusText(detail.status)}
+              <Badge variant={txStatusVariant(record.status)}>
+                {txStatusText(record.status)}
               </Badge>
             </DescField>
             <DescField label="Source Tx ID">
-              <span>{orDash(detail.sourceCsTxId)}</span>
+              <span>{orDash(record.sourceCsTxId)}</span>
             </DescField>
             <DescField label="Target Tx ID">
-              <span>{orDash(detail.targetCsTxId)}</span>
+              <span>{orDash(record.targetCsTxId)}</span>
             </DescField>
             <DescField label="Pending">
-              {detail.pendingFlag === 1 ? (
+              {record.pendingFlag === 1 ? (
                 <Badge variant="secondary">Pending</Badge>
               ) : (
                 <span>No</span>
               )}
             </DescField>
             <DescField label="Pending Reason">
-              <span>{orDash(detail.pendingReason)}</span>
+              <span>{orDash(record.pendingReason)}</span>
             </DescField>
             <DescField label="Last Sync">
-              <span>{fmtTime(detail.lastSyncTime)}</span>
+              <span>{formatTime(record.lastSyncTime)}</span>
             </DescField>
             <DescField label="Created At">
-              <span>{fmtTime(detail.createTime)}</span>
+              <span>{formatTime(record.createTime)}</span>
             </DescField>
           </DescGrid>
         </section>
+      ) : detailLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-40 w-full rounded-lg" />
+        </div>
       ) : (
         <div className="rounded-lg border-border/60 bg-card p-6 text-sm text-muted-foreground shadow-float">
           No transaction detail available.
@@ -560,7 +570,7 @@ export function TxDetailPage() {
           </ol>
         ) : (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No messages yet
+            No message records
           </p>
         )}
       </section>

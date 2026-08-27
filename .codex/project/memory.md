@@ -29,6 +29,13 @@
 - 后续同类任务：
 ```
 
+## 2026-08-26
+
+- 背景：kissen-gateway-portal 迭代重评估。参考快照 `~/Downloads/临时（可删除）/kissen-bank-gateway-frontend-main`（Vue 3.5 独立仓，无 git 历史）× monorepo `apps/kissen-gateway-portal` × 详设 v1.7 三方对照（scout 双盘点 + 人工核验）。
+- 结论：(1) **功能迁移等价度 ~100%**：9 页面/34 接口/全部枚举（TX 13 态、onboard 5/15/20、menuType 0-4）逐项一致，代码内「源 xxx」注释是移植对齐纪律的痕迹。(2) 真实差距在工程不在功能：portal 无 Dockerfile、`docker-compose.kissen.yml` 只构建 kissen-admin（P0）；文案英文硬编码未资源化（P1）；交易导出与 menu-permission UI 双侧未实现（P0/P1）。(3) **规划漂移**：plan 06 Step9 的 6 库拆分从未执行（实际单聚合库 `kissen-gateway/{feature,data-access}`），plan 08 filter-repo 路径清单全部过期——裁定接受现状回写计划，不补拆。(4) 后端契约口径以参考项目为准：`GET /menu/tree`（详设写 POST）、信封 `code:'0'` 字符串 + 自定义 `token` 头（admin 数字 code 不同构）、入网开关纯靠后端差异化 menuKeys（bankStatus 字段不存在）、交易链路=本地 `/tx/messages` 报文（无 /tx/chain 代理）。
+- 影响：新增 `.doc/kissen/project/kissen-bank-gateway-frontend/迭代需求重评估--v1.0-2026-08-26.md` 与 `.doc/kissen/project/kissen-gateway-portal/迁移工程重评估--v1.0-2026-08-26.md`（文档开始按实施项目分子目录存放）。两个易误判点已澄清：**middleware 强制 en-US 是有意决策**（middleware.ts:8-12 注释明确拒绝 Accept-Language 协商），i18n 债指「文案未资源化」而非「zh-CN 不可达」；**indigo 主题是有意分歧**（提交 5b2be93），参考项目 M19 常青绿私行风不迁移。
+- 后续同类任务：(a) scout 盘点给出的 gap 候选必须人工核验后才能写进文档——本轮 8 条候选中 3 条（log traceId 列、roleType 内置禁删、超管徽标）实际已存在，直接采信会误报。(b) 无 git 历史的参考项目无法做版本 diff，评估方法=「参考当前态 × 实施当前态 × 设计基线」三方对照，须在文档中声明此局限。(c) portal 容器化照 kissen-admin Dockerfile 模式（NX_PROJECT_ID=kissen-gateway、NEXT_PUBLIC_API_BASE_URL=/kissen-api/bankgw/portal），但 nginx 语义不同：admin 走 `/v1/` 前缀保留，portal 依赖 Next rewrites 剥 `/kissen-api` 前缀（standalone Node 服务内生效），nginx 只需 `/` 透传。
+
 ## 2026-08-07
 
 - 背景：校验 key-management 模块迁移完整性（5 子模块：key-service-configuration / key-policy-configuration / key-signed-transactions / managed-wallets / user-wallets），对照旧项目 td-manage。scout 基线审计发现整体约 78%：最大缺口在 key-service-configuration（仅约 20%——detail/edit/configure 三页全缺、list 缺操作列与停用弹窗）和 key-signed-transactions（5 个 API 缺 /api 前缀、detail 方法 GET 应 POST、detail 路由未注册、list 无详情导航）；managed-wallets 约 95%、user-wallets 与 key-policy-configuration 约 100%。经「scout 审计 → 缺口清单 → 并行补齐（KSC 全套 + key-signed 修复，无文件重叠）→ opus 子 agent 逐字段对照旧源校验 → 残留清单 → 补齐 → 重校」循环，最终逐字段 100%、0 残留。
@@ -496,3 +503,13 @@
 - lint：`// eslint-disable-next-line react-hooks/exhaustive-deps` 在本仓库 flat config 未注册该规则，每处都是 error；发现即删（共 6 处，lp-portal feature）。
 - admin 既有债（勿归因新改动）：StablecoinTabs scope error、auth feature/data-access TS6305（需 nx 依赖构建而非裸 tsc）、admin layout 曾被用户 WIP 删掉 SessionGuard import。
 - 浮动卡片规范（2026-08-19）：四 app 的 tailwind.config.ts（字节相同拷贝，须四处同步改）定义 `boxShadow.float/float-lg` 分层柔影；容器类组件统一「弱边框 + 浮影」：外层卡片 `border-border/60 + shadow-float`（Card 组件另有 hover:shadow-float-lg），内层表格/分隔线 `border-border/50`（DataTable wrapper、divide 行线、卡片标题 border-b）。页面级手写卡片容器（`rounded-lg border bg-card ... shadow-sm` 模式，~124 处，kissen-admin/kissen-gateway/lp-portal 三树已 codemod）新增页面时直接写 `rounded-lg border-border/60 bg-card ... shadow-float`，勿再引入 shadow-sm 边框卡片。表单控件（border-input + shadow-sm）不在该规范内。
+
+## 2026-08-27 kissen-gateway-portal 迁移 P4 收尾（orchestrator）
+
+- **后端环境事实要带时间戳**：10.0.7.87 的 currencypair/tx 接口曾在 verify 阶段返回 code 1（当时以 stub 留档），P4 终验时已恢复真实数据；`/bank/info` 仍 code 1。写报告必须写明「当日实测」，后续轮次先复测再引用旧结论。
+- **侧栏 orderNum 排序的复合键模式**：后端菜单树父组与叶子各有 orderNum（如 `bank:system=100`、子项 1-4）。侧栏若按「叶子自身 orderNum」排序会把 system 组（子项最小=1）顶到最前；正确做法是复合键 `父组 orderNum×10000 + 叶 orderNum`，父组间次序由父节点决定（`apps/kissen-gateway-portal/src/app/[locale]/(app)/kissen-app-shell.tsx` collectAllowedPaths/sortModuleItems）。
+- **bank_admin 的菜单树本就不含 market 键**（currencypair/lp/rate 不在其树中，overview/token/fx/bankquery 键不属于 gateway 的 MENU_ROUTE_MAP 9 键）——Business View 组不显示是权限过滤正确行为，勿当缺陷修。
+- **shared 层默认行为变更必须留档**：`Breadcrumb` 的 findModuleLabel 让非首段命中 config id 时取 config label（原为 humanize slug），影响所有同仓 app；已按「路由 slug 与模块 id 同源」论证无害并在 shell-layer.md 附记披露。同类改动要么 opt-in 要么显式披露，不能默默改默认。
+- **CDP 遍历 SPA 的坑**：`history.pushState` + `next.router.push` 混用会导致 h1 滞后 1-2 路由；纯 `await window.next.router.push(url, url)` + 固定延时才可靠。另 ErrorBlock 有 TanStack 重试退避，2200ms 内可能尚未出现，断言失败先怀疑时序。
+- **verify 报告会滞后于并行修复**：终审发现两处「报告称有问题、代码已被兄弟 agent 修好」（toast 措辞、陈旧注释）。闭环方式是在原报告追加「主控闭环」附记，不改历史结论。
+- `apps/kissen-gateway-portal/.env.local` 的 `NEXT_PUBLIC_DEV_LOGIN_*` 已被移除（W-4 治理后现状），登录页不预填；smoke 需手填凭据。另 admin/kissen-admin/lp-portal 的 .env.local 仍被 git 跟踪（跨 app 决策，待用户裁定）。

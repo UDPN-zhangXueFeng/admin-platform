@@ -2,8 +2,9 @@
   "project": {
     "id": "kissen-gateway",
     "name": "Kissen Gateway Portal",
+    "subtitle": "Stablecoin Management System",
     "logo": "/logo.svg",
-    "favicon": "/favicon.ico"
+    "favicon": "/favicon.svg"
   },
   "theme": {
     "mode": "system",
@@ -51,7 +52,8 @@
       "onboard",
       "tx",
       "market", "currencypair", "lp", "rate",
-      "system", "user", "role", "menu", "log"
+      "system", "user", "role", "menu", "log",
+      "bank"
     ],
     "order": [
       {

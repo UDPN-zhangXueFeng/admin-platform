@@ -108,6 +108,20 @@ export async function kissenPage<T, F = Record<string, unknown>>(
   };
 }
 
+/**
+ * 后端错误 message 可能为中文（如「未登录或登录已过期」）；本门户约束用户可见
+ * 文案零中文。英文原样透传；空缺或含 CJK 时以 code 维度兜底（traceId 仍由
+ * KissenApiError 拼接保留，排障不丢）。
+ */
+export function sanitizeKissenMessage(
+  message: string | undefined,
+  code: string,
+): string {
+  const text = message?.trim();
+  if (!text) return `Request failed (code ${code})`;
+  return /[\u4e00-\u9fff]/.test(text) ? `Request failed (code ${code})` : text;
+}
+
 function isKissenResult(body: unknown): body is KissenResult<unknown> {
   return (
     typeof body === 'object' &&
@@ -123,7 +137,17 @@ kissenGatewayAxios.interceptors.response.use(
     // 成功：code === '0'，解包返回 data。
     if (isKissenResult(body)) {
       if (body.code === '0') return body.data;
-      throw new KissenApiError(body.code, body.message, body.traceId);
+      // 实测（87 后端，2026-08-27）：未登录与失效 token 均为 HTTP 200 + code '2'
+      // （后端不发 401，两侧旧 401 跳转分支皆为死代码）。与 401 分支同语义：
+      // 清会话、跳登录并标记 expired（源 request.ts 401 分支的预期链路在此接通）。
+      if (body.code === '2') {
+        clearGatewaySession();
+        if (typeof window !== 'undefined') {
+          window.location.assign(`${getLoginRedirectPath()}?expired=1`);
+        }
+        throw new KissenApiError('2', 'Session expired. Please sign in again', body.traceId);
+      }
+      throw new KissenApiError(body.code, sanitizeKissenMessage(body.message, body.code), body.traceId);
     }
     // 非标准包体（如文件下载）原样返回。
     return body;

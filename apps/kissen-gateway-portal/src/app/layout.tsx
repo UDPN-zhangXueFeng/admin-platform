@@ -2,10 +2,18 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { loadProjectConfig } from '@myorg/shared/util-config';
 
-export const metadata: Metadata = {
-  title: 'Kissen Gateway Portal',
-  description: 'Kissen gateway portal — configuration-driven admin shell',
-};
+/**
+ * Metadata is resolved from the project config so <title> and the favicon
+ * link stay in sync with configs/kissen-gateway.json (name / favicon).
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await loadProjectConfig();
+  return {
+    title: config.project.name,
+    description: 'Kissen gateway portal — configuration-driven admin shell',
+    icons: { icon: config.project.favicon },
+  };
+}
 
 /**
  * Root Layout — the outermost layout required by Next.js App Router.

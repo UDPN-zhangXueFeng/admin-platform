@@ -9,6 +9,8 @@ export interface ProjectConfig {
   project: {
     id: string;
     name: string;
+    /** Header subtitle rendered under the project name. */
+    subtitle: string;
     logo: string;
     favicon: string;
   };

@@ -20,6 +20,8 @@ import type { ComponentType } from 'react';
  *   role         : list, create, edit, detail
  *   menu         : list
  *   log          : list
+ *   bank         : info, detail （O-8：源孤儿页，独立可路由 /bank/info，不进侧栏；
+ *                 slug 'info' 经 page.tsx 推导为 pageKey 'detail'）
  */
 type PageLoader = () => Promise<{ default: ComponentType<unknown> }>;
 
@@ -129,6 +131,18 @@ const pages: Record<string, Record<string, PageLoader>> = {
     list: () =>
       import('@myorg/modules/kissen-gateway/feature').then((m) => ({
         default: m.LogListPage as unknown as ComponentType<unknown>,
+      })),
+  },
+  bank: {
+    // /bank/info 的 slug 'info' 经 [module]/[[...slug]]/page.tsx 的 pageKey
+    // 推导落 'detail'；'info' 键按 O-8 契约命名保留为同义入口。
+    info: () =>
+      import('@myorg/modules/kissen-gateway/feature').then((m) => ({
+        default: m.BankInfoPage as unknown as ComponentType<unknown>,
+      })),
+    detail: () =>
+      import('@myorg/modules/kissen-gateway/feature').then((m) => ({
+        default: m.BankInfoPage as unknown as ComponentType<unknown>,
       })),
   },
 };

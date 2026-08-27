@@ -4,8 +4,6 @@ import * as React from 'react';
 import * as DrawerPrimitive from '@radix-ui/react-dialog';
 import { cn } from '@myorg/shared/util-classnames';
 
-/* eslint-disable @typescript-eslint/no-empty-object-type */
-
 /**
  * Drawer component.
  *

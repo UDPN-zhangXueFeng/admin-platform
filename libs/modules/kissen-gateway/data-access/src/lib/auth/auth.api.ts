@@ -44,6 +44,21 @@ const brandAxios = axios.create({
   timeout: 5000,
 });
 
+/**
+ * 品牌文案规整：后端 brand 接口当前返回中文（实测 87 环境「Kissen 银行门户」/
+ * 「银行门户管理控制台」），而本门户约束用户可见文案零中文（document.title 与
+ * 登录页品牌区均消费）。英文原样透传；空缺或含 CJK 时回退 DEFAULT_BRAND
+ * 对应默认值 —— 后端切换为英文白标数据后自动生效。
+ */
+export function sanitizeBrandText(
+  value: string | undefined,
+  fallback: string,
+): string {
+  const text = value?.trim();
+  if (!text) return fallback;
+  return /[\u4e00-\u9fff]/.test(text) ? fallback : text;
+}
+
 export async function getBrand(): Promise<Brand> {
   try {
     const resp = await brandAxios.get<{ code: string; data: Partial<Brand> }>(
@@ -51,7 +66,13 @@ export async function getBrand(): Promise<Brand> {
     );
     const body = resp.data;
     if (body && body.code === '0' && body.data) {
-      return { ...DEFAULT_BRAND, ...body.data };
+      const data = body.data;
+      return {
+        name: sanitizeBrandText(data.name, DEFAULT_BRAND.name),
+        subtitle: sanitizeBrandText(data.subtitle, DEFAULT_BRAND.subtitle),
+        logo: sanitizeBrandText(data.logo, DEFAULT_BRAND.logo),
+        primaryColor: data.primaryColor ?? DEFAULT_BRAND.primaryColor,
+      };
     }
     return DEFAULT_BRAND;
   } catch {

@@ -24,6 +24,9 @@ import {
   type LogRow,
 } from '@myorg/modules/kissen-gateway/data-access';
 
+import { formatTime, orDash, toEpochMs } from './kit';
+import { PageHead } from './page-head';
+
 /**
  * 操作日志页（源 `views/system/log.vue`：筛选 + 分页表格 + 展开行请求参数/异常信息）。
  * 路由对齐源 `/system/log`（registry：system/log → list）。
@@ -33,27 +36,6 @@ import {
  *   （含 loading 骨架/空态/分页）。
  * - 服务端状态 TanStack Query；loading/empty/error 三态均显式可感知。
  */
-
-/* ================================================================== */
-/* 展示工具（源 views/system/log.vue fmtTime，语义 1:1）                */
-/* ================================================================== */
-
-/** 毫秒时间戳 → `zh-CN` 本地时间串（24 小时制，源 toLocaleString 语义）；空值 → '-'。 */
-function fmtTime(ms?: number): string {
-  return ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-';
-}
-
-/** datetime-local 字符串（YYYY-MM-DDTHH:mm）→ 毫秒时间戳（源 datetimerange value-format="x"）。 */
-function toEpochMs(value: string): number | undefined {
-  if (!value) return undefined;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? undefined : d.getTime();
-}
-
-/** 空值统一显示 '-'（源 `|| '-'` 语义）。 */
-function orDash(v: string | number | null | undefined): string {
-  return v === null || v === undefined || v === '' ? '-' : String(v);
-}
 
 /* ================================================================== */
 /* 列表页（源筛选：操作模块模糊匹配 + 时间范围）                        */
@@ -97,6 +79,7 @@ const LOG_HEADERS = [
   'Endpoint',
   'Status',
   'Cost (ms)',
+  'TraceId',
 ] as const;
 
 export function LogListPage() {
@@ -154,12 +137,7 @@ export function LogListPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="text-xs font-semibold tracking-widest text-muted-foreground">
-          PORTAL
-        </div>
-        <h1 className="mt-1 text-xl font-semibold">Operation Log</h1>
-      </div>
+      <PageHead title="Operation Log" />
 
       <form
         onSubmit={handleSubmit(onSubmit)}
@@ -197,7 +175,7 @@ export function LogListPage() {
 
 
       <div className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <div className="overflow-hidden rounded-md border">
+        <div className="overflow-x-auto rounded-md border">
           <table className="w-full caption-bottom text-sm">
             <thead className="bg-muted/50">
               <tr>
@@ -257,7 +235,7 @@ export function LogListPage() {
                           </Button>
                         </td>
                         <td className="px-4 py-3 align-middle tabular-nums">
-                          {fmtTime(row.operateTime)}
+                          {formatTime(row.operateTime)}
                         </td>
                         <td className="px-4 py-3 align-middle">
                           {orDash(row.operateName)}
@@ -335,7 +313,11 @@ function LogExpandRow({ row }: { row: LogRow }) {
   );
 }
 
-/** 分页（源 el-pagination layout="total, prev, pager, next"，pageSize 固定）。 */
+/**
+ * 分页（源 el-pagination total + prev/next；pageSize 固定 10，无 sizes/jumper。
+ * 有意差异：省略源 layout 中的页码 pager，对齐 shared DataTable 无 sizes
+ * 选择器时的 prev/next 语义）。
+ */
 function LogPager({
   total,
   pageNum,
@@ -349,30 +331,11 @@ function LogPager({
 }) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  /**
-   * 页码窗口（>7 页时折叠中间段，el-pagination pager 语义）：
-   * 首尾恒显 + 当前页 ±1，窗口未贴边时补省略号（无重复页码/键）。
-   */
-  const pages: Array<number | '…'> = (() => {
-    if (totalPages <= 7) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    const windowPages = [pageNum - 1, pageNum, pageNum + 1].filter(
-      (p) => p >= 2 && p <= totalPages - 1,
-    );
-    const items: Array<number | '…'> = [1];
-    if (windowPages[0] !== 2) items.push('…');
-    items.push(...windowPages);
-    if (windowPages[windowPages.length - 1] !== totalPages - 1) {
-      items.push('…');
-    }
-    items.push(totalPages);
-    return items;
-  })();
-
   return (
     <div className="mt-3 flex items-center justify-between">
-      <span className="text-sm text-muted-foreground">{total} records</span>
+      <span className="text-sm text-muted-foreground">
+        {total} records · Page {pageNum} of {totalPages}
+      </span>
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
@@ -384,28 +347,6 @@ function LogPager({
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        {pages.map((p, i) =>
-          p === '…' ? (
-            <span key={`ellipsis-${i}`} className="px-1 text-sm text-muted-foreground">
-              …
-            </span>
-          ) : (
-            <button
-              key={p}
-              type="button"
-              aria-current={p === pageNum ? 'page' : undefined}
-              className={cn(
-                'inline-flex h-8 w-8 items-center justify-center rounded-md border text-sm font-medium',
-                p === pageNum
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'bg-background hover:bg-accent hover:text-accent-foreground',
-              )}
-              onClick={() => onPageChange(p)}
-            >
-              {p}
-            </button>
-          ),
-        )}
         <Button
           variant="outline"
           size="icon"

@@ -35,6 +35,16 @@ export interface HeaderProps {
    * When provided it fully replaces the default platform logout flow.
    */
   onLogout?: () => void | Promise<void>;
+  /**
+   * Click handler for the brand block (logo + project name). When omitted
+   * the brand stays static decoration (platform default).
+   */
+  onBrandClick?: () => void;
+  /**
+   * Hide the "Manage Account" user-menu entry. Opt-in for projects whose
+   * baseline user menu only offers Change Password / Log Out.
+   */
+  hideManageAccount?: boolean;
 }
 
 /**
@@ -46,7 +56,15 @@ export interface HeaderProps {
  * 4. User avatar + display name
  * All interactive elements are keyboard-focusable and include
  */
-export function Header({ config, onMenuToggle, minimal = false, onChangePassword, onLogout }: HeaderProps) {
+export function Header({
+  config,
+  onMenuToggle,
+  minimal = false,
+  onChangePassword,
+  onLogout,
+  onBrandClick,
+  hideManageAccount,
+}: HeaderProps) {
   const { user } = useAuth();
   const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] =
     React.useState(false);
@@ -67,6 +85,38 @@ export function Header({ config, onMenuToggle, minimal = false, onChangePassword
       setIsLogoutConfirmationOpen(open);
     },
     [],
+  );
+
+  const brandContent = (
+    <>
+      <img
+        src="/logo-icon.svg"
+        alt="Kissen"
+        className="h-10 w-[84px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[104px]"
+      />
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold tracking-wide text-white sm:text-base">
+          {config.project.name}
+        </p>
+        <p className="hidden truncate text-xs text-white/70 sm:block">
+          {config.project.subtitle}
+        </p>
+      </div>
+    </>
+  );
+
+  const brandBlock = onBrandClick ? (
+    <button
+      type="button"
+      onClick={onBrandClick}
+      title="Back to portal home"
+      aria-label="Back to portal home"
+      className="flex min-w-0 items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+    >
+      {brandContent}
+    </button>
+  ) : (
+    <div className="flex min-w-0 items-center gap-3">{brandContent}</div>
   );
 
   return (
@@ -93,21 +143,7 @@ export function Header({ config, onMenuToggle, minimal = false, onChangePassword
             </Button>
           )}
 
-          <div className="flex min-w-0 items-center gap-3">
-            <img
-              src="/logo-icon.svg"
-              alt="Kissen"
-              className="h-10 w-[84px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[104px]"
-            />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-wide text-white sm:text-base">
-                {config.project.name}
-              </p>
-              <p className="hidden truncate text-xs text-white/70 sm:block">
-                Stablecoin Management System
-              </p>
-            </div>
-          </div>
+          {brandBlock}
         </div>
 
         {!minimal && (
@@ -143,10 +179,12 @@ export function Header({ config, onMenuToggle, minimal = false, onChangePassword
               </DropdownMenuTrigger>
 
               <DropdownMenuContent align="end" className="min-w-[220px]">
-                <DropdownMenuItem className="gap-2">
-                  <Settings className="h-4 w-4" aria-hidden="true" />
-                  <span>Manage Account</span>
-                </DropdownMenuItem>
+                {!hideManageAccount && (
+                  <DropdownMenuItem className="gap-2">
+                    <Settings className="h-4 w-4" aria-hidden="true" />
+                    <span>Manage Account</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   className="gap-2"
                   onClick={onChangePassword}

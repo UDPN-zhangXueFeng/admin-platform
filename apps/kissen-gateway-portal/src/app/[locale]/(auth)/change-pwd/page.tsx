@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { Button, Input, Label, useToast } from '@myorg/shared/ui';
+import { Button, Label, PasswordField, useToast } from '@myorg/shared/ui';
 import { createFormResolver } from '@myorg/shared/ui-forms';
 import { useAuthChangePwdMutation } from '@myorg/modules/kissen-gateway/data-access';
 
@@ -78,16 +78,15 @@ export default function ChangePwdRoute() {
         <div className="mb-6">
           <h1 className="text-xl font-bold text-foreground">Kissen Bank Portal</h1>
           <p className="mt-1 text-xs tracking-[0.08em] text-muted-foreground">
-            First sign-in: please change your password
+            First login: change your password before continuing
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="gw-page-oldPassword">Current Password</Label>
-            <Input
+            <PasswordField
               id="gw-page-oldPassword"
-              type="password"
               autoComplete="current-password"
               {...register('oldPassword')}
             />
@@ -100,9 +99,8 @@ export default function ChangePwdRoute() {
 
           <div className="space-y-1.5">
             <Label htmlFor="gw-page-newPassword">New Password</Label>
-            <Input
+            <PasswordField
               id="gw-page-newPassword"
-              type="password"
               autoComplete="new-password"
               placeholder="At least 8 characters with letters and numbers"
               {...register('newPassword')}
@@ -116,9 +114,8 @@ export default function ChangePwdRoute() {
 
           <div className="space-y-1.5">
             <Label htmlFor="gw-page-confirm">Confirm New Password</Label>
-            <Input
+            <PasswordField
               id="gw-page-confirm"
-              type="password"
               autoComplete="new-password"
               {...register('confirm')}
             />

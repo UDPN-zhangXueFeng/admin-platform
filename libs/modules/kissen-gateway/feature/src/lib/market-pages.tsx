@@ -26,7 +26,7 @@ import * as React from 'react';
 import { type Control, Controller, useForm } from 'react-hook-form';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 import {
   Badge,
@@ -52,30 +52,27 @@ import {
   type RateSnapshot,
 } from '@myorg/modules/kissen-gateway/data-access';
 
+import { DescField, DescGrid } from './desc-grid';
+import { fmtAmount, formatTime } from './kit';
+import { PageHead } from './page-head';
+import {
+  DetailShell,
+  EmptyHint,
+  ErrorBlock,
+  LoadingBlock,
+} from './state-blocks';
+
 /* ================================================================== */
 /* 常量与格式化（源 currency-pair.vue / lp.vue / rate.vue fmtRate/fmtTime）*/
 /* ================================================================== */
 
 const MARKET_BASE = '/market';
 
-/** 源三页统一的 eyebrow（page-head 上方小标）。 */
-const PAGE_EYEBROW = 'BUSINESS';
-
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
 
 interface PairFilterForm {
   /** 货币对下拉值：'' = 未选（lp 全量 / rate 空态），否则为 pairId 字符串。 */
   pairId: string;
-}
-
-/** 汇率展示：null/undefined → '-'；Number() 归一去掉无效尾零（源 fmtRate）。 */
-function formatRate(value: number | null | undefined): string {
-  return value == null ? '-' : String(Number(value));
-}
-
-/** 毫秒时间戳 → zh-CN 本地化时间（24 小时制）；空值 → '-'（源 fmtTime）。 */
-function formatTime(ms: number | null | undefined): string {
-  return ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-';
 }
 
 /** 源 lp.vue 的 query 解析语义：Number() 后 falsy（''/0/NaN）一律视为未选择。 */
@@ -110,18 +107,6 @@ function pairToOptions(
 /* 通用展示组件                                                         */
 /* ================================================================== */
 
-/** 页头（源 page-head：eyebrow + 标题）。 */
-function PageHead({ title }: { title: string }) {
-  return (
-    <div>
-      <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-        {PAGE_EYEBROW}
-      </div>
-      <h1 className="mt-1 text-xl font-semibold">{title}</h1>
-    </div>
-  );
-}
-
 /** 启用/停用状态徽标（源 el-tag：status === 20 ? 启用 : 停用；lp 列 null 显示 '-'）。 */
 function StatusBadge({
   status,
@@ -137,84 +122,6 @@ function StatusBadge({
     <Badge variant={variantMap[status] ?? 'outline'}>
       {labelMap[status] ?? 'Disabled'}
     </Badge>
-  );
-}
-
-/** 详情描述字段（el-descriptions-item 的 React 等价）。 */
-function DescField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-sm">{children}</dd>
-    </div>
-  );
-}
-
-/** 详情描述网格（源 el-descriptions :column="2"）。 */
-function DescGrid({ children }: { children: React.ReactNode }) {
-  return <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">{children}</dl>;
-}
-
-function LoadingBlock() {
-  return (
-    <div className="py-10 text-center text-sm text-muted-foreground">Loading…</div>
-  );
-}
-
-/** 加载失败提示 + 重试（error 状态必须可感知并可恢复）。 */
-function ErrorBlock({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 py-10 text-sm">
-      <span className="text-destructive">Failed to load: {message}</span>
-      <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-        Retry
-      </Button>
-    </div>
-  );
-}
-
-/** 空态提示（源 el-empty description 的 React 等价）。 */
-function EmptyHint({ text }: { text: string }) {
-  return (
-    <div className="py-10 text-center text-sm text-muted-foreground">{text}</div>
-  );
-}
-
-/** 详情页外壳：返回列表 + 标题 + 内容卡。 */
-function DetailShell({
-  title,
-  onBack,
-  children,
-}: {
-  title: string;
-  onBack: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-        <h2 className="text-lg font-semibold">{title}</h2>
-      </div>
-      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        {children}
-      </section>
-    </div>
   );
 }
 
@@ -308,13 +215,13 @@ export function CurrencypairListPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead title="Currency Pairs" />
+      <PageHead eyebrow="BUSINESS" title="Currency Pairs" />
       <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         {isError ? (
           <ErrorBlock message={errText(error)} onRetry={() => refetch()} />
         ) : (
           <>
-            <div className="overflow-hidden rounded-md border">
+            <div className="overflow-x-auto rounded-md border">
               <table className="w-full caption-bottom text-sm">
                 <thead className="bg-muted/50">
                   <tr>
@@ -376,7 +283,7 @@ export function CurrencypairListPage() {
                           {row.targetCurrency}
                         </td>
                         <td className="px-4 py-3 align-middle tabular-nums">
-                          {formatRate(row.userRate)}
+                          {fmtAmount(row.userRate)}
                         </td>
                         <td className="px-4 py-3 align-middle">
                           <StatusBadge
@@ -395,7 +302,7 @@ export function CurrencypairListPage() {
               </table>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              Click a row to view LPs for that currency pair
+              Click a row to view LP information for that currency pair
             </p>
           </>
         )}
@@ -433,7 +340,7 @@ export function CurrencypairDetailPage() {
           <DescField label="Source Currency">{row.sourceCurrency}</DescField>
           <DescField label="Target Currency">{row.targetCurrency}</DescField>
           <DescField label="User Rate">
-            <span className="tabular-nums">{formatRate(row.userRate)}</span>
+            <span className="tabular-nums">{fmtAmount(row.userRate)}</span>
           </DescField>
           <DescField label="Status">
             <StatusBadge
@@ -520,7 +427,7 @@ export function LpListPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead title="LP Info" />
+      <PageHead eyebrow="BUSINESS" title="LP Info" />
       <section className="space-y-4 rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <form
           className="flex flex-wrap items-center gap-3"
@@ -616,13 +523,13 @@ function RateSnapshotDesc({ rate }: { rate: RateSnapshot }) {
         <span className="tabular-nums">{rate.version ?? '-'}</span>
       </DescField>
       <DescField label="Base Rate">
-        <span className="tabular-nums">{formatRate(rate.baseRate)}</span>
+        <span className="tabular-nums">{fmtAmount(rate.baseRate)}</span>
       </DescField>
       <DescField label="Markup Rate">
-        <span className="tabular-nums">{formatRate(rate.markupRate)}</span>
+        <span className="tabular-nums">{fmtAmount(rate.markupRate)}</span>
       </DescField>
       <DescField label="User Rate">
-        <span className="tabular-nums">{formatRate(rate.userRate)}</span>
+        <span className="tabular-nums">{fmtAmount(rate.userRate)}</span>
       </DescField>
       <DescField label="Push Time">
         <span className="tabular-nums">{formatTime(rate.pushTime)}</span>
@@ -649,7 +556,7 @@ export function RateListPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead title="Latest Rates" />
+      <PageHead eyebrow="BUSINESS" title="Latest Rates" />
       <section className="space-y-4 rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <form className="flex flex-wrap items-center gap-3">
           <label htmlFor="rate-pair-select" className="text-sm font-medium">

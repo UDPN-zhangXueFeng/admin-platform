@@ -49,7 +49,6 @@ export function Sidebar({
   items,
   collapsed,
   singleExpand = false,
-  onToggle,
   className,
 }: SidebarProps) {
   const grouped = React.useMemo(() => {

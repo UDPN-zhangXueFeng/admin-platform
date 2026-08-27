@@ -12,6 +12,7 @@
       "properties": {
         "id": { "type": "string", "description": "Project unique identifier" },
         "name": { "type": "string", "description": "Project display name" },
+        "subtitle": { "type": "string", "description": "Header subtitle shown under the project name" },
         "logo": { "type": "string", "description": "Path to the project logo" },
         "favicon": { "type": "string", "description": "Path to the project favicon" }
       }

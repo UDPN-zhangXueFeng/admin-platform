@@ -10,10 +10,6 @@ jest.mock('@myorg/shared/util-auth', () => ({
   useAuth: jest.fn(),
 }));
 
-jest.mock('@myorg/modules/auth/data-access', () => ({
-  logoutApi: jest.fn(),
-}));
-
 jest.mock('@myorg/shared/util-i18n', () => ({}));
 
 const { logoutAndRedirect: mockLogoutAndRedirect, useAuth: mockUseAuth } =
@@ -21,14 +17,12 @@ const { logoutAndRedirect: mockLogoutAndRedirect, useAuth: mockUseAuth } =
     logoutAndRedirect: jest.Mock;
     useAuth: jest.Mock;
   };
-const { logoutApi: mockLogoutApi } = jest.requireMock(
-  '@myorg/modules/auth/data-access',
-) as { logoutApi: jest.Mock };
 
 const config: ProjectConfig = {
   project: {
     id: 'test-project',
     name: 'Test Project',
+    subtitle: 'Stablecoin Management System',
     logo: '',
     favicon: '',
   },
@@ -71,11 +65,9 @@ const config: ProjectConfig = {
 describe('Header logout confirmation', () => {
   beforeEach(() => {
     mockUseAuth.mockReturnValue({ user: { name: 'Cui Ning' } });
-    mockLogoutApi.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
-    mockLogoutApi.mockClear();
     mockLogoutAndRedirect.mockClear();
   });
 
@@ -87,7 +79,6 @@ describe('Header logout confirmation', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Log Out' }));
 
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
-    expect(mockLogoutApi).not.toHaveBeenCalled();
     expect(mockLogoutAndRedirect).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -95,16 +86,31 @@ describe('Header logout confirmation', () => {
     await waitFor(() => {
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
-    expect(mockLogoutApi).not.toHaveBeenCalled();
     expect(mockLogoutAndRedirect).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: 'Open user menu' }));
     await user.click(screen.getByRole('menuitem', { name: 'Log Out' }));
     await user.click(screen.getByRole('button', { name: 'Log Out' }));
 
+    // 确认前两次打开/取消均不得触发；确认后默认平台流程恰好一次。
     await waitFor(() => {
-      expect(mockLogoutApi).toHaveBeenCalledTimes(1);
       expect(mockLogoutAndRedirect).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('delegates the whole flow to onLogout when the project provides it', async () => {
+    const user = userEvent.setup();
+    const onLogout = jest.fn().mockResolvedValue(undefined);
+    render(<Header config={config} onLogout={onLogout} />);
+
+    await user.click(screen.getByRole('button', { name: 'Open user menu' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Log Out' }));
+    await user.click(screen.getByRole('button', { name: 'Log Out' }));
+
+    await waitFor(() => {
+      expect(onLogout).toHaveBeenCalledTimes(1);
+    });
+    // 项目接管时不得再走平台默认登出（否则重复清理/跳转）。
+    expect(mockLogoutAndRedirect).not.toHaveBeenCalled();
   });
 });

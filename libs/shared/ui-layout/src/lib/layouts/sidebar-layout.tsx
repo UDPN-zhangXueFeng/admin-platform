@@ -22,6 +22,25 @@ export interface SidebarLayoutProps {
   onChangePassword?: () => void;
   /** Project-specific logout (passed through to Header). */
   onLogout?: () => void | Promise<void>;
+  /**
+   * localStorage key persisting the sidebar collapsed state ('1' = collapsed,
+   * '0' = expanded). Opt-in: when omitted the state stays session-only.
+   */
+  persistKey?: string;
+  /**
+   * Tailwind width classes overriding the default responsive sidebar widths,
+   * e.g. 'w-[224px] min-[1600px]:w-[224px]'. Values must be literal class
+   * strings in the caller's source so Tailwind can detect them at build time.
+   * Opt-in: when omitted the platform default widths apply.
+   */
+  sidebarWidths?: { expanded: string; collapsed: string };
+  /** Click handler for the header brand block (logo + project name). */
+  onBrandClick?: () => void;
+  /**
+   * Hide the "Manage Account" user-menu entry. Opt-in for projects whose
+   * baseline user menu only offers Change Password / Log Out.
+   */
+  hideManageAccount?: boolean;
 }
 
 /**
@@ -32,10 +51,40 @@ export interface SidebarLayoutProps {
  * - Collapsible sidebar with responsive mobile overlay.
  * - Header contains project switcher, search, notifications, and user menu.
  * - Keyboard accessible: sidebar toggle, mobile close, focus traps.
+ * - All persistence / width / brand overrides are opt-in props — apps that
+ *   do not pass them get the unchanged platform default behavior.
  */
-export function SidebarLayout({ config, children, onChangePassword, onLogout }: SidebarLayoutProps) {
-  const [collapsed, setCollapsed] = useState(false);
+export function SidebarLayout({
+  config,
+  children,
+  onChangePassword,
+  onLogout,
+  persistKey,
+  sidebarWidths,
+  onBrandClick,
+  hideManageAccount,
+}: SidebarLayoutProps) {
+  const [collapsed, setCollapsed] = useState(() =>
+    readPersistedCollapsed(persistKey),
+  );
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  /**
+   * Toggle + best-effort persistence. Mirrors the Vue baseline: storage is
+   * written only on explicit toggles ('1'/'0'), never on mount, and a
+   * throwing storage API (private mode / SSR) degrades to session-only state.
+   */
+  const toggleCollapsed = React.useCallback(() => {
+    const next = !collapsed;
+    setCollapsed(next);
+    if (persistKey) {
+      try {
+        window.localStorage.setItem(persistKey, next ? '1' : '0');
+      } catch {
+        // Storage unavailable — collapsing still works, just not persisted.
+      }
+    }
+  }, [collapsed, persistKey]);
 
   const sidebarItems: SidebarItemConfig[] = React.useMemo(() => {
     function mapModule(mod: ProjectConfig['modules']['order'][number]): SidebarItemConfig {
@@ -66,6 +115,8 @@ export function SidebarLayout({ config, children, onChangePassword, onLogout }: 
         onMenuToggle={() => setMobileOpen((v) => !v)}
         onChangePassword={onChangePassword}
         onLogout={onLogout}
+        onBrandClick={onBrandClick}
+        hideManageAccount={hideManageAccount}
       />
 
       {/* Body: Sidebar + Content */}
@@ -92,7 +143,14 @@ export function SidebarLayout({ config, children, onChangePassword, onLogout }: 
             items={sidebarItems}
             collapsed={collapsed}
             singleExpand={config.layout.sidebar.singleExpand}
-            onToggle={() => setCollapsed((v) => !v)}
+            onToggle={toggleCollapsed}
+            className={
+              sidebarWidths
+                ? collapsed
+                  ? sidebarWidths.collapsed
+                  : sidebarWidths.expanded
+                : undefined
+            }
           />
         </div>
 
@@ -102,7 +160,7 @@ export function SidebarLayout({ config, children, onChangePassword, onLogout }: 
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setCollapsed((value) => !value)}
+              onClick={toggleCollapsed}
               aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               aria-pressed={collapsed}
               className="hidden h-8 w-8 lg:inline-flex"
@@ -127,6 +185,19 @@ export function SidebarLayout({ config, children, onChangePassword, onLogout }: 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Read the persisted collapsed flag ('1' = collapsed). Best-effort: storage
+ * access can throw (SSR prerender / private mode) — default to expanded.
+ */
+function readPersistedCollapsed(key: string | undefined): boolean {
+  if (!key) return false;
+  try {
+    return window.localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
 
 /** Resolve a Lucide icon name (e.g. "Users") to the actual component. */
 function resolveIcon(name: string): LucideIcon {

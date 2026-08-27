@@ -1,8 +1,8 @@
 /**
  * 入网申请域 raw API 层（源 `api/onboard.ts` + `api/bank.ts`）。
  *
- * `GET /bank/info`（源 `api/bank.ts`）唯一消费方是入网页，源路由未挂载
- * `views/bank/info.vue`（死代码，不迁移页面），故调用落在本域。
+ * `GET /bank/info`（源 `api/bank.ts`）消费方：入网页内嵌 BankInfoCard 与
+ * 独立页 /bank/info（O-8 终裁迁移，见 feature bank-pages.tsx），调用落在本域。
  */
 import type { AxiosRequestConfig } from 'axios';
 

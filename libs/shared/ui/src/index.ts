@@ -23,6 +23,7 @@ export * from './lib/toggle';
 export * from './lib/context-menu';
 export * from './lib/drawer';
 export * from './lib/input';
+export * from './lib/password-field';
 export * from './lib/label';
 export * from './lib/separator';
 export * from './lib/card';

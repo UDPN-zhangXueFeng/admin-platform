@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useAuth } from '@myorg/shared/util-auth';
-import { Button, Input, Label, useToast } from '@myorg/shared/ui';
+import { Button, Input, Label, PasswordField, useToast } from '@myorg/shared/ui';
 import { createFormResolver } from '@myorg/shared/ui-forms';
 import {
   KISSEN_GATEWAY_PROJECT_ID,
@@ -34,9 +34,10 @@ const ChangePasswordDialog = dynamic(
  *     会话落 localStorage（bankgw.token/bankgw.user，含 firstLogin、menuKeys、
  *     loginName 等全字段）+ middleware 读取的 cookie kissen_gateway_token；
  *     同时写入共享 AuthProvider（Header 用户名展示）。
- *  3. firstLogin === 0 → 强制改密弹窗（forced，不可关闭），成功后跳
- *     /system/user（源 change-pwd-dialog.vue `router.push('/system/user')`）。
- *  4. URL 带 expired=1（401 拦截器跳回）→ 顶部「登录已失效，请重新登录」横幅。
+ *  3. firstLogin === 0 → 强制改密弹窗（forced，不可关闭）；成功后的 toast
+ *     与 /system/user 跳转由弹窗内部完成（源 change-pwd-dialog.vue）。
+ *  4. URL 带 expired=1（401 拦截器跳回）→ toast「Session expired, please
+ *     sign in again」（约束 2 裁定：全局统一 sonner toast，不用 alert 形态）。
  *
  * 保留原 MockLoginPage 的分屏插画布局风格（左侧渐变 + 插画，右侧表单），
  * 品牌与文案改为接口驱动 + 源中文文案。
@@ -67,7 +68,14 @@ export default function LoginRoute() {
     setSearchParams(new URLSearchParams(window.location.search));
   }, []);
   const expired = searchParams?.get('expired') === '1';
-  const redirectTarget = searchParams?.get('redirect') || '/onboard';
+  // 源 login/index.vue：redirect 回跳（兜底 /onboard）。middleware 携带的
+  // redirect 是含 locale 前缀的完整路径，而 i18n router 会自动补当前
+  // locale —— 先剥掉前缀，避免落成 /en-US/en-US/... 双前缀。
+  const redirectTarget =
+    (searchParams?.get('redirect') || '/onboard').replace(
+      /^\/en-US(?=\/|$)/,
+      '',
+    ) || '/';
 
   // 源 login/index.vue：route.query.expired === '1' → 失效提示（toast）。
   React.useEffect(() => {
@@ -80,23 +88,27 @@ export default function LoginRoute() {
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: createFormResolver(loginSchema),
-    // Dev-only credential prefill (internal bank portal test account);
-    // production builds get empty fields via the NODE_ENV gate.
+    // Dev-only credential prefill (internal bank portal test account).
+    // 取值来自 NEXT_PUBLIC_DEV_LOGIN_NAME / NEXT_PUBLIC_DEV_LOGIN_PASSWORD
+    // （.env.local，模板见 .env.local.example）——未设置或为空则不预填；
+    // 生产构建由下方 NODE_ENV 门控保证空字段。
     defaultValues:
       process.env.NODE_ENV === 'development'
-        ? { loginName: 'bank_admin', password: 'Kissen@123' }
+        ? {
+            loginName: process.env.NEXT_PUBLIC_DEV_LOGIN_NAME ?? '',
+            password: process.env.NEXT_PUBLIC_DEV_LOGIN_PASSWORD ?? '',
+          }
         : { loginName: '', password: '' },
   });
-
   const onSubmit = handleSubmit((values) => {
     loginMutation.mutate(values, {
       onSuccess: (resp) => {
         // mutation onSuccess 已落网关会话（localStorage + cookie）；
-        // 此处补共享 AuthProvider 快照供 Header 展示用户名/权限。
         login(
           {
             id: String(resp.userId),
-            name: resp.userName,
+            // 源 MainLayout L57-59：头部展示 userName || loginName（userName 空时兜底）。
+            name: resp.userName || resp.loginName,
             email: '',
             roles: [],
             permissions: resp.menuKeys,
@@ -128,29 +140,30 @@ export default function LoginRoute() {
 
       <div className="grid min-h-screen bg-white lg:grid-cols-2">
         {/* ── 左：品牌渐变插画分屏（保留原布局风格）────────────────────── */}
+        {/* R-5（04 §2）：徽标区固定面板顶部（不随视口高度下沉越过中线），
+            插画按比例适配剩余高度（46vh 上限 + max-w-full 等比缩放），
+            1280×800 下底部不被裁切；面板铺满、不设内容宽度上限（约束 3）。 */}
         <section
-          className="relative hidden min-h-screen overflow-hidden bg-gradient-to-br from-[#c6c7ff] via-[#8e8af5] to-[#4e48e8] lg:flex lg:flex-col lg:items-center lg:justify-center"
+          className="relative hidden overflow-hidden bg-gradient-to-br from-[#c6c7ff] via-[#8e8af5] to-[#4e48e8] lg:flex lg:flex-col"
         >
-          <div className="relative z-10 flex h-full w-full flex-col px-16 py-12 xl:px-24">
-            <div className="mt-auto">
-              <div
-                className="flex items-end justify-center"
-                aria-label={`${brand.name} Gateway`}
-              >
-                <span className="text-6xl font-black italic leading-none tracking-[-0.11em] text-[#001a98]">
-                  {brand.name.charAt(0)}
-                  <span className="text-[#00a5d5]">
-                    {brand.name.slice(1)}
-                  </span>
+          <div className="relative z-10 flex h-full w-full flex-1 flex-col px-16 py-12 xl:px-24">
+            <div
+              className="flex items-end justify-center"
+              aria-label={`${brand.name} Gateway`}
+            >
+              <span className="text-6xl font-black italic leading-none tracking-[-0.11em] text-[#001a98]">
+                {brand.name.charAt(0)}
+                <span className="text-[#00a5d5]">
+                  {brand.name.slice(1)}
                 </span>
-                <span className="mb-1 ml-3 rounded-sm bg-[#00a5d5] px-2 py-0.5 text-base font-medium text-white">
-                  Gateway
-                </span>
-              </div>
-              <p className="mx-auto mt-10 text-2xl font-semibold leading-relaxed text-[#172260]">
-                {brand.subtitle}
-              </p>
+              </span>
+              <span className="mb-1 ml-3 rounded-sm bg-[#00a5d5] px-2 py-0.5 text-base font-medium text-white">
+                Gateway
+              </span>
             </div>
+            <p className="mx-auto mt-10 text-2xl font-semibold leading-relaxed text-[#172260]">
+              {brand.subtitle}
+            </p>
 
             <div className="mt-7 flex min-h-0 flex-1 items-center justify-center">
               <img
@@ -158,7 +171,7 @@ export default function LoginRoute() {
                 alt=""
                 width="720"
                 height="560"
-                className="h-auto max-h-[54vh] w-full select-none"
+                className="h-auto w-auto max-h-[46vh] max-w-full select-none"
               />
             </div>
           </div>
@@ -196,9 +209,8 @@ export default function LoginRoute() {
 
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
+                <PasswordField
                   id="password"
-                  type="password"
                   placeholder="Password"
                   autoComplete="current-password"
                   {...register('password')}
@@ -228,13 +240,13 @@ export default function LoginRoute() {
         </section>
       </div>
 
-      {/* 首登强制改密（源 login/index.vue `:force="true"`），成功后跳
-          /system/user（源 change-pwd-dialog.vue，不跟随 redirect 参数） */}
+      {/* 首登强制改密（源 login/index.vue `:force="true"`）。成功后的
+          toast 与 /system/user 跳转由弹窗内部完成（源 change-pwd-dialog.vue
+          onClose + router.push 硬编码，不跟随 redirect 参数）。 */}
       <ChangePasswordDialog
         open={pwdVisible}
         onOpenChange={setPwdVisible}
         forced
-        onForcedDone={() => router.replace('/system/user')}
       />
     </>
   );

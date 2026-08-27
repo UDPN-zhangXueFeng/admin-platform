@@ -24,7 +24,7 @@
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ChevronRight, Loader2, RefreshCw, X } from 'lucide-react';
+import { ChevronRight, Loader2, X } from 'lucide-react';
 
 import {
   AlertDialog,
@@ -64,6 +64,10 @@ import {
 } from '@myorg/modules/kissen-gateway/data-access';
 import { useGatewayPerm } from './use-gateway-perm';
 
+import { orDash } from './kit';
+import { PageHead } from './page-head';
+import { QueryErrorRetry } from './state-blocks';
+
 /* ================================================================== */
 /* 常量与展示辅助（源 menu.vue MENU_TYPE_TEXT / MENU_TYPE_TAG）          */
 /* ================================================================== */
@@ -74,32 +78,32 @@ type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
 const MENU_TYPE_TEXT: Record<number, string> = {
   0: 'Module',
   1: 'System',
-  2: 'Top Menu',
-  3: 'Sub Menu',
+  2: 'Menu',
+  3: 'Sub-menu',
   4: 'Button',
 };
 
 /**
- * 源 MENU_TYPE_TAG（el-tag type）→ shared Badge variant 映射：
- * info→secondary、warning→outline、primary→default、danger→destructive
- * （Badge 无 success/warning 色，以填充/描边区分层级，相对语义一致）。
+ * 源 MENU_TYPE_TAG（el-tag type）→ Badge variant，沿用 kissen 家族分层约定
+ * （role/user/log/tx model 同一映射：success→default、primary/warning→secondary、
+ * danger→destructive、info→outline）。
  */
 const MENU_TYPE_BADGE_VARIANT: Record<number, BadgeVariant> = {
-  0: 'secondary',
-  1: 'secondary',
-  2: 'outline',
-  3: 'default',
+  0: 'outline',
+  1: 'outline',
+  2: 'secondary',
+  3: 'secondary',
   4: 'destructive',
 };
 
-/** 源 menuTypeText：未知类型 → `类型N`，undefined → '-'。 */
+/** 源 menuTypeText：未知类型 → `Type N`，undefined → '-'。 */
 function menuTypeText(t: number | undefined): string {
   return t === undefined ? '-' : (MENU_TYPE_TEXT[t] ?? `Type ${t}`);
 }
 
-/** 源 menuTypeTagType：未知类型兜底 'info'（→ secondary）。 */
+/** 源 menuTypeTagType：未知类型兜底 'info'（家族约定 info → outline）。 */
 function menuTypeBadgeVariant(t: number | undefined): BadgeVariant {
-  return MENU_TYPE_BADGE_VARIANT[t ?? -1] ?? 'secondary';
+  return MENU_TYPE_BADGE_VARIANT[t ?? -1] ?? 'outline';
 }
 
 /** 类型下拉选项（源 el-option：label `${val} ${text}`，value 为数值字符串）。 */
@@ -156,50 +160,6 @@ function parentMenuOptions(
     }
   }
   return out;
-}
-
-/* ================================================================== */
-/* 通用展示组件                                                         */
-/* ================================================================== */
-
-/** 页头（源 .page-head：eyebrow PORTAL + 标题 + 右侧动作区）。 */
-function PageHead({
-  title,
-  children,
-}: {
-  title: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <div className="text-xs font-semibold tracking-widest text-muted-foreground">
-          PORTAL
-        </div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">{title}</h1>
-      </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
-    </div>
-  );
-}
-
-/** 查询失败 + 重试（loading/empty/error 可感知约定）。 */
-function QueryErrorRetry({
-  error,
-  onRetry,
-}: {
-  error: unknown;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 py-8 text-center">
-      <p className="text-sm text-destructive">Failed to load: {(error as Error).message}</p>
-      <Button variant="outline" size="sm" onClick={onRetry}>
-        <RefreshCw />
-        Retry
-      </Button>
-    </div>
-  );
 }
 
 /* ================================================================== */
@@ -361,7 +321,7 @@ function MenuFormDialog({
                     disabled={editing}
                   >
                     <SelectTrigger id="menu-parent-select" className="w-full">
-                      <SelectValue placeholder="Select a parent menu (leave empty for top level)" />
+                      <SelectValue placeholder="Select parent (empty = top level)" />
                     </SelectTrigger>
                     <SelectContent>
                       {parentOptions.map((opt) => (
@@ -541,7 +501,7 @@ export function MenuListPage() {
 
   return (
     <div className="space-y-6">
-      <PageHead title="Menu Management">
+      <PageHead variant="banner" title="Menu Management">
         {/* 源 v-perm="'bank:menu:manage'"（menuKeys 未命中即不渲染）。 */}
         {hasPerm('bank:menu:manage') && (
           <Button onClick={() => setDialogState({ mode: 'create' })}>
@@ -552,7 +512,7 @@ export function MenuListPage() {
 
       <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
         {isError ? (
-          <QueryErrorRetry error={error} onRetry={() => refetch()} />
+          <QueryErrorRetry error={error} onRetry={() => refetch()} withIcon />
         ) : (
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full caption-bottom text-sm">
@@ -627,16 +587,20 @@ export function MenuListPage() {
                             <span className="font-medium">{node.menuName}</span>
                           </span>
                         </td>
-                        <td className="px-4 py-3 align-middle">{node.menuKey}</td>
+                        <td className="max-w-[16rem] px-4 py-3 align-middle">
+                          <span className="block truncate" title={node.menuKey}>
+                            {node.menuKey}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 align-middle">
                           <Badge variant={menuTypeBadgeVariant(node.menuType)}>
                             {menuTypeText(node.menuType)}
                           </Badge>
                         </td>
                         <td className="px-4 py-3 align-middle">
-                          {/* 源：visible 0=显示(success) / 1=隐藏(info) → Badge 填充/描边。 */}
+                          {/* 源：visible 0=显示(success) / 1=隐藏(info) → 家族约定 default/outline。 */}
                           <Badge
-                            variant={node.visible === 0 ? 'secondary' : 'outline'}
+                            variant={node.visible === 0 ? 'default' : 'outline'}
                           >
                             {node.visible === 0 ? 'Shown' : 'Hidden'}
                           </Badge>
@@ -644,8 +608,10 @@ export function MenuListPage() {
                         <td className="px-4 py-3 align-middle tabular-nums">
                           {node.orderNum ?? '-'}
                         </td>
-                        <td className="px-4 py-3 align-middle">
-                          {node.menuUrl || '-'}
+                        <td className="max-w-[16rem] px-4 py-3 align-middle">
+                          <span className="block truncate" title={orDash(node.menuUrl)}>
+                            {orDash(node.menuUrl)}
+                          </span>
                         </td>
                         <td className="px-4 py-3 align-middle">
                           <div className="flex items-center gap-2">
@@ -687,7 +653,7 @@ export function MenuListPage() {
         />
       )}
 
-      {/* 删除确认弹窗（源 window.confirm 文案 1:1；删除为破坏性动作用 destructive）。 */}
+      {/* 删除确认弹窗（源 ElMessageBox.confirm 文案 1:1；删除为破坏性动作用 destructive）。 */}
       <AlertDialog
         open={deleteTarget != null}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
@@ -696,7 +662,7 @@ export function MenuListPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Menu</AlertDialogTitle>
             <AlertDialogDescription>
-              Delete menu "{deleteTarget?.menuName}"? Rejected if it has submenus or is referenced by roles.
+              Delete menu "{deleteTarget?.menuName}"? Rejected if it has children or is referenced by roles.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

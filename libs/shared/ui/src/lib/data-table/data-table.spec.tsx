@@ -6,7 +6,6 @@ import {
   render,
   screen,
   act,
-  waitFor,
   fireEvent,
 } from '@testing-library/react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -14,9 +13,9 @@ import { DataTable } from './data-table';
 
 // Radix Popper (used by the tooltip arrow) observes size; jsdom lacks it.
 class ResizeObserverStub {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
+  observe() { /* noop: jsdom has no layout engine to observe */ }
+  unobserve() { /* noop */ }
+  disconnect() { /* noop */ }
 }
 global.ResizeObserver =
   ResizeObserverStub as unknown as typeof ResizeObserver;

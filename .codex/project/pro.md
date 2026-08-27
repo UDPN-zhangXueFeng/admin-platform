@@ -75,6 +75,10 @@ apps/admin/src/app/[locale]/(app)/[module]/[[...slug]]/
 
 `apps/admin-e2e` 是 Playwright E2E 测试工程，用于验证端到端业务流程。
 
+### kissen 应用族（`apps/kissen-admin`、`apps/kissen-gateway-portal`、`apps/lp-portal`）
+
+三个 Kissen 银行系独立门户（均带各自 `[locale]` App Router、middleware 会话守卫与 `configs/<app>.json` 项目配置），业务能力下沉在 `libs/modules/kissen-admin`、`libs/modules/kissen-gateway`（feature/data-access 分层）。与 `apps/admin` 仅共享 `libs/shared/*` 纯 UI/基础设施，禁止互相引用业务模块。规划、基线与逐页验收文档在 `.doc/kissen/project/`（gateway 子项目：`gateway/00-06` + `verify/` 复核报告集）。
+
 ## 4. 领域模块层：`libs/modules/`
 
 `libs/modules/` 按业务域拆分。当前存在的主要模块包括：
@@ -89,6 +93,7 @@ apps/admin/src/app/[locale]/(app)/[module]/[[...slug]]/
 - `report`
 - `setting`
 - `user`
+- `kissen-admin`、`kissen-gateway`（kissen 应用族领域层，见 §3）
 
 多数模块遵循以下分层：
 

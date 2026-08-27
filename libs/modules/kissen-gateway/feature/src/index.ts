@@ -31,6 +31,8 @@ export { MenuListPage } from './lib/menu-pages';
 
 export { LogListPage } from './lib/log-pages';
 
+export { BankInfoPage } from './lib/bank-pages';
+
 export { ChangePasswordDialog } from './lib/change-password-dialog';
 
 export { useGatewayPerm } from './lib/use-gateway-perm';

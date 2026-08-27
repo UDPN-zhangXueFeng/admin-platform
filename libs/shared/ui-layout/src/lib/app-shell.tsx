@@ -25,6 +25,20 @@ export interface AppShellProps {
   onChangePassword?: () => void;
   /** Project-specific logout (passed through to Header). */
   onLogout?: () => void | Promise<void>;
+  /**
+   * localStorage key persisting the sidebar collapsed state ('1'/'0').
+   * Consumed by the sidebar layout; opt-in, undefined = session-only state.
+   */
+  persistKey?: string;
+  /**
+   * Tailwind width classes overriding the default responsive sidebar widths.
+   * Consumed by the sidebar layout; opt-in, undefined = platform defaults.
+   */
+  sidebarWidths?: { expanded: string; collapsed: string };
+  /** Click handler for the header brand block (logo + project name). */
+  onBrandClick?: () => void;
+  /** Hide the "Manage Account" user-menu entry (opt-in). */
+  hideManageAccount?: boolean;
 }
 
 interface LayoutProps {
@@ -34,6 +48,20 @@ interface LayoutProps {
   onChangePassword?: () => void;
   /** Project-specific logout (passed through to Header). */
   onLogout?: () => void | Promise<void>;
+  /**
+   * localStorage key persisting the sidebar collapsed state ('1'/'0').
+   * Consumed by the sidebar layout; opt-in, undefined = session-only state.
+   */
+  persistKey?: string;
+  /**
+   * Tailwind width classes overriding the default responsive sidebar widths.
+   * Consumed by the sidebar layout; opt-in, undefined = platform defaults.
+   */
+  sidebarWidths?: { expanded: string; collapsed: string };
+  /** Click handler for the header brand block (logo + project name). */
+  onBrandClick?: () => void;
+  /** Hide the "Manage Account" user-menu entry (opt-in). */
+  hideManageAccount?: boolean;
 }
 
 /**
@@ -47,11 +75,28 @@ interface LayoutProps {
  * - Layouts are small, always-needed UI shells.
  * - Dynamic import would add async complexity for zero bundle benefit.
  */
-export function AppShell({ config, children, onChangePassword, onLogout }: AppShellProps) {
+export function AppShell({
+  config,
+  children,
+  onChangePassword,
+  onLogout,
+  persistKey,
+  sidebarWidths,
+  onBrandClick,
+  hideManageAccount,
+}: AppShellProps) {
   const Layout = layoutMap[config.layout.type] ?? SidebarLayout;
 
   return (
-    <Layout config={config} onChangePassword={onChangePassword} onLogout={onLogout}>
+    <Layout
+      config={config}
+      onChangePassword={onChangePassword}
+      onLogout={onLogout}
+      persistKey={persistKey}
+      sidebarWidths={sidebarWidths}
+      onBrandClick={onBrandClick}
+      hideManageAccount={hideManageAccount}
+    >
       {children}
     </Layout>
   );

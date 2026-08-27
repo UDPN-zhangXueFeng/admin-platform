@@ -21,10 +21,31 @@ export interface BreadcrumbProps {
  * - Last segment is non-interactive (current page).
  *
  * Module labels:
- * - The first segment resolves its label from `config.modules.order` so the
- *   breadcrumb stays in sync with the sidebar menu. Remaining segments are
- *   humanized from the URL slug (e.g. "user-list" → "User List").
+ * - Each segment resolves its label from `config.modules.order` (including
+ *   nested group children) so the breadcrumb stays in sync with sidebar menu
+ *   labels (e.g. /system/user → "User Management", not "User").
+ * - Segments matching no module id fall back to the humanized URL slug
+ *   (e.g. "user-list" → "User List"; detail ids show the id itself).
  */
+
+type OrderItem = { id: string; label?: string; children?: OrderItem[] };
+
+/** 深度查找模块标签：先在 order 顶层找，再递归各组 children。 */
+function findModuleLabel(
+  items: OrderItem[] | undefined,
+  segment: string,
+): string | undefined {
+  if (!items) return undefined;
+  for (const item of items) {
+    if (item.id === segment) return item.label;
+    if (item.children?.length) {
+      const nested = findModuleLabel(item.children, segment);
+      if (nested) return nested;
+    }
+  }
+  return undefined;
+}
+
 export function Breadcrumb({ className }: BreadcrumbProps) {
   const pathname = usePathname();
   const { order } = useModules();
@@ -56,11 +77,7 @@ export function Breadcrumb({ className }: BreadcrumbProps) {
           const isLast = index === segments.length - 1;
           const href = '/' + segments.slice(0, index + 1).join('/');
           const label =
-            index === 0
-              ? (order?.find((m) => m.id === segment)?.label ??
-                humanize(segment))
-              : humanize(segment);
-
+            findModuleLabel(order, segment) ?? humanize(segment);
           return (
             <React.Fragment key={href}>
               <li aria-hidden="true">

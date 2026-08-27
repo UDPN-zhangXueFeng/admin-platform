@@ -49,6 +49,10 @@ Thumbs.db
 .next
 out
 
+
+# Next.js local env files (each app ships a committed .env.local.example)
+.env*.local
+
 test-output
 
 # 代码变更归档目录（由 AI / hook 自动生成，不需纳入版本控制）
