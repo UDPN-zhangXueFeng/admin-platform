@@ -543,3 +543,23 @@
 - **评审编排效率样本**：三路 reviewer（Shell/auth、Market/Liquidity、Biz/System）并行 + 修复批
  三 agent 并行 + 单复核 agent 收口。复核轮抓到两个自报冲突（D7 列数文档笔误、源 apply 无确认弹窗）
  ——agent 以源为最高约束并写入文件头注释的做法值得沿用；基线文档笔误用【勘误】行内标注不改写历史。
+- **config 驱动品牌主题模式（LP 主题系统）**：主题定义全部放 `configs/lp-portal.json`
+ `theme.themes[{id,label,colors}]` + `defaultTheme`，ThemeInjector（layout.tsx）渲染
+ `:root` 基线（merge defaultTheme）+ `[data-theme='id']` 块 + 防闪 inline script（读
+ `localStorage['lp-theme']`）。加/调主题只改 JSON 不动 CSS。键名分两类：tailwind 消费键
+ （primary/ring 给 HSL 三段式）、raw 整值键（brand-*/login-grad-*/banner-*/illus-*）。
+- **SVG 跟主题必须内联**：`<img>` 加载的 SVG 是隔离文档吃不到页面 CSS 变量；mask/currentColor
+ 仅单色，不适用于双色 logo/多色插画。LP 的 LogoMark/login-illustration 均为 app 本地内联组件
+ （`apps/lp-portal/src/components/brand/`），fill/stopColor 写 `var(--token, 原hex)` 双保险。
+- **shared 层 opt-in 插槽先例**：mock-login 的 `illustration?: ReactNode`（替代 svgPath img）、
+ AppShell/Header 的 `logo?: ReactNode`（替代 /logo-icon.svg img）——不传则原行为逐像素不变
+ （gateway 实测回归：渐变首色 #c6c7ff、无 data-theme、仍用 img 插画）。跨系统共用组件的默认值
+ 一律保留原字面量，var 化由调用方传参完成。
+- **feature 库 index.ts 不能导出非组件值**：`module-page-registry` 用
+ `(m as Record<string, ComponentType>)` 取导出，导出 string 常量（如 LP_THEME_STORAGE_KEY）
+ 会炸 LP 生产构建的 TS 检查——常量留在组件文件内即可。
+- **共享 layout 透传链最小化**：trailing/logo 只穿 AppShell→sidebar-layout→Header；top-nav/
+ compact/dual-panel 三个 layout 本就未接 trailing，不加死管道，需要时再补。
+- **util-config 既有闸门缺口（HEAD 上已存在）**：lint 挂在 config.loader.ts 相对路径 import
+ configs/*.json（@nx/enforce-module-boundaries 9 处）；test target 无 jest.config.ts 无法跑。
+ 与主题 schema 改动无关，未在本轮修。
