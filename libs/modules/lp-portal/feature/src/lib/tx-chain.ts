@@ -73,14 +73,14 @@ export const EVENT_TYPE_MAP: Record<number, string> = {
  * - pairCode displayed raw with '-' fallback in the token pair column
  * - receiverAmount rendered with the shared money formatter
  * - failReason shown as a tooltip on the status cell
- * - dataTime is the sync-layer data timestamp; absent/0 renders '-'
+ * - syncTime is the sync-layer data timestamp; absent/0 renders '-'
  */
 export interface TxRowVO extends TxRow {
   txUuid?: string | null;
   pairCode?: string | null;
   receiverAmount?: number | null;
   failReason?: string | null;
-  dataTime?: number | null;
+  syncTime?: number | null;
 }
 
 /** Cast helper used by every consumer (one caliber, no per-page drift). */

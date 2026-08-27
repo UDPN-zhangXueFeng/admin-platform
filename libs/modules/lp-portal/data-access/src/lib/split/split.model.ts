@@ -78,9 +78,9 @@ export interface SplitDetailQuery {
 
 /**
  * 参与状态文案（源 PAIR_STATUS_TEXT：5 申请中 / 15 已驳回 / 20 参与生效 /
- * 50 停用；未知码页面显原值）。命名带 SPLIT_ 前缀：pair 域已有语义不同的
- * PAIR_STATUS_TEXT{20 Enabled,50 Disabled}，主 barrel 两路 star 导出同名会
- * TS2308 静默消失，严禁复用该名。
+ * 50 停用；未知码页面显原值）。SPLIT_ 前缀保留：与 pair 域
+ * PAIR_STATUS_TEXT（pair.pages v2 基线同码表同译文）并存时避免主 barrel
+ * 两路 star 导出同名歧义（TS2308）。
  */
 export const SPLIT_PAIR_STATUS_LABEL: Record<number, string> = {
   5: 'Pending',

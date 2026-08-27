@@ -1,282 +1,462 @@
 'use client';
 
 /**
- * 资金池页（源 `src/views/pool/index.vue` 1:1 语义迁移，工作清单 B1）。
+ * 资金池页（源 `src/views/pool/index.vue` 1:1 迁移，FAIL 修复 B，基线 01 §D4）。
  *
- * 结构：池表（水位条）+ 近期补资 top5 双卡片，纯只读、无筛选、无分页、
- * 无权限按钮（源即如此）。
- *
- * 关键迁移决策：
- * - 源 `loadAll()` 的 `Promise.allSettled([poolList, topupPage])` 映射为两条独立
- *   useQuery；「一侧失败另一侧旧数据保留」由 TanStack 错误保留上次成功 data 兜底，
- *   页面仅从两侧 error 推导降级条，不在 queryFn 层聚合。
- * - 0024 双侧降级语义（源 down.value = hit）：任一侧 error 命中 isServiceDown →
- *   渲染 ServiceDownAlert（traceId 取错误携带）；两侧都成功、或失败为非 0024 时
- *   hit 为 null → 降级条清除，但旧数据仍保留（不清 rows）。此为源有意行为，勿
- *   「顺手修正」。
- * - 近期补资取 pageSize=5、排序不传（后端 declare_time DESC，裁决 C-12），复用
- *   topup 域 useTopupListQuery（同 data-access 包域间协作，经主 barrel 消费）。
- * - percentText 容 undefined：v == null → '-'，否则 (Number(v)*100).toFixed(1)%
- *   （水位比值 0〜1 展示为百分比，非金额口径，裁决 C-8）。
- * - 水位条配色：源 CSS 变量 --ks-line/--ks-clearing/--ks-settle 在目标主题无对应
- *   token，按平台设计系统映射——轨道 bg-muted、正常 bg-primary、低水位/警示
- *   amber 系（与 ServiceDownAlert 的警示色族一致），不散落硬编码色值。
- * - 「查看全部」经 @myorg/shared/util-i18n 的 locale 感知 router 跳 /topup。
- * - 文案中文硬编码（kissen-admin 先例），不注册 i18n key。
+ * 源语义要点（行号对照源文件）：
+ * - 头部：eyebrow LIQUIDITY + 标题（源 6-7）；右 SyncRefreshButton domain=pool，
+ *   刷新成功重拉当前列表（源 10 @refreshed="load"）；主按钮「申请开通资金池」
+ *   经 PermButton 页面键门禁（源 11 el-button primary，LP 侧按钮粒度取页面键，
+ *   同 user/role/menu 先例）。
+ * - 表格 8 列全列序（源 17-58）：池 ID / Token tag / 池地址 maskAddress+tooltip
+ *   原文 / 可用余额 formatMoney 右对齐 / 水位条(level null→'-') /
+ *   余额数据时间(balanceUpdateTime falsy→'-') / 状态 tag(status===15 且
+ *   rejectReason 有值时 tooltip 驳回原因) / 数据时间。
+ * - STATUS 四码表：5 Pending / 15 Rejected / 20 Active / 50 Disabled（域模型）。
+ * - 开池弹窗 520px（源 63-93）：顶部固定 info alert；token 下拉（选项来自
+ *   token 列表接口，label `${tokenCode} (${bankName})`，选中后提示最低流动性
+ *   与链型）；池地址必填；货币系统形态 select 默认 1；补资提醒阈值 0〜1
+ *   step0.05 默认 0.2。手写校验缺 token 或地址 → warning toast（源 submitApply）；
+ *   成功 toast + 关窗 + 重载（源 ElMessage.success → close → load）。
+ * - 空态引导文案（源 60 empty description 英文化）；单页只读 + 页内弹窗，
+ *   无 create/edit/detail 子路由（barrel 导出 PoolListPage 不变）。
  */
 
 import * as React from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
+import { Info } from 'lucide-react';
 
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
   Badge,
   Button,
   DataTable,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  useToast,
 } from '@myorg/shared/ui';
-import { useRouter } from '@myorg/shared/util-i18n';
-import { ServiceDownAlert } from './service-down-alert';
-import { formatMoney, formatTime, maskAddress } from './format';
+import { FormField } from '@myorg/shared/ui-forms';
+
 import {
   LP_PROJECT_ID,
   POOL_STATUS_TEXT,
   POOL_STATUS_VARIANT,
   POOL_SYSTEM_TYPE_TEXT,
-  TOPUP_STATUS_LABEL,
-  TOPUP_STATUS_VARIANT,
-  isServiceDown,
+  usePoolApplyMutation,
   usePoolListQuery,
-  useTopupListQuery,
+  useTokenListQuery,
   type PoolRow,
-  type TopupRow,
+  type TokenRow,
 } from '@myorg/modules/lp-portal/data-access';
+
+import { SyncRefreshButton } from './sync-refresh-button';
+import { PermButton } from './perm-button';
+import { formatMoney, formatTime, maskAddress } from './format';
+
+/* ================================================================== */
+/* 常量                                                                 */
+/* ================================================================== */
 
 const LBL = {
   eyebrow: 'LIQUIDITY',
   title: 'Liquidity Pools',
-  poolCard: 'Liquidity Pool List',
-  topupCard: 'Recent Top-ups',
-  viewAll: 'View All',
-  empty: 'No data',
-  lowLevel: 'Low Level',
+  apply: 'Apply for Liquidity Pool',
+  dialogTitle: 'Apply for Liquidity Pool',
+  alertTitle: 'KLPP approval required',
+  alertBody:
+    'Applications are activated after admin-side (KLPP) approval; pools do not join matching until approved. Initial funding is topped up directly in the currency system once approval passes.',
+  empty:
+    'No liquidity pools yet — pick a token from the Token overview to submit an application',
 } as const;
 
-/** 近期补资固定取前 5 条（源 topupApi.page pageSize:5；排序后端默认）。 */
-const TOPUP_TOP_N = 5;
+/** 开池弹窗表单状态（源 reactive form 四字段同构）。 */
+interface ApplyFormState {
+  tokenId?: number;
+  accountAddress: string;
+  currencySystemType: number;
+  /** 水位提醒阈值，比率 0〜1，步进 0.05，默认 0.2（源 el-input-number 口径）。 */
+  remindThreshold: number;
+}
+
+const APPLY_INITIAL: ApplyFormState = {
+  accountAddress: '',
+  currencySystemType: 1,
+  remindThreshold: 0.2,
+};
+
+/** 货币系统形态下拉项（源三枚硬编码 option 的码表化）。 */
+const SYSTEM_TYPE_OPTIONS = [1, 2, 3].map((v) => ({
+  value: String(v),
+  label: POOL_SYSTEM_TYPE_TEXT[v],
+}));
+
+/* ================================================================== */
+/* 单元格渲染                                                           */
+/* ================================================================== */
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
 
-/** 小数比率 → 百分比文本，保留 1 位小数（裁决 C-7）；空（含 undefined）→ '-'。 */
+/** 数值文本（源 .num 类：等宽字体 + 数字对齐）。 */
+function Num({ children }: { children: React.ReactNode }) {
+  return <span className="font-mono text-xs tabular-nums">{children}</span>;
+}
+
+/** 金额单元格：formatMoney + 右对齐（源「可用余额」列 align="right"）。 */
+function MoneyCell({ v }: { v: number | string }) {
+  return (
+    <span className="block text-right font-mono text-xs tabular-nums">
+      {formatMoney(v)}
+    </span>
+  );
+}
+
+/** 小数比率 → 百分比文本，保留 1 位小数（源 percentText）；空（含 undefined）→ '-'。 */
 function percentText(v: number | string | null | undefined): string {
   return v == null ? '-' : `${(Number(v) * 100).toFixed(1)}%`;
 }
 
-/** 水位条宽 = clamp(level×100, 0, 100)%（裁决 C-7）。 */
+/** 水位条宽 = clamp(level×100, 0, 100)%（源 levelBarWidth）。 */
 function levelBarWidth(row: PoolRow): string {
   return `${Math.min(100, Math.max(0, Number(row.level) * 100))}%`;
 }
 
-/** 低水位判定（裁决 C-8）：level 与 remindThreshold 均为 0〜1 比值直接比较。 */
-function isLow(row: PoolRow): boolean {
-  return row.level != null && Number(row.level) < Number(row.remindThreshold);
+/**
+ * 池状态 Badge：未知码显原值，variant 兜底 secondary（源兜底 info 的中性映射）；
+ * status===15 且 rejectReason 有值时挂 tooltip 展示驳回原因（源状态列三元分支）。
+ */
+function PoolStatusCell({ row }: { row: PoolRow }) {
+  const variant: BadgeVariant = POOL_STATUS_VARIANT[row.status] ?? 'secondary';
+  const badge = (
+    <Badge variant={variant}>{POOL_STATUS_TEXT[row.status] ?? row.status}</Badge>
+  );
+  if (row.status === 15 && row.rejectReason) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{badge}</TooltipTrigger>
+        <TooltipContent className="max-w-sm break-all">
+          Rejection reason: {row.rejectReason}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+  return badge;
 }
 
-/** 池状态 Badge：未知码显原值，variant 兜底 secondary（源兜底 info 的中性映射）。 */
-function PoolStatusBadge({ status }: { status: number }) {
-  const variant: BadgeVariant = POOL_STATUS_VARIANT[status] ?? 'secondary';
-  return <Badge variant={variant}>{POOL_STATUS_TEXT[status] ?? status}</Badge>;
+/** 水位单元格：level 非 null 显 96px 宽进度条 + 百分比；null（分母缺失）显 '-'。 */
+function LevelCell({ row }: { row: PoolRow }) {
+  if (row.level == null) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+  return (
+    <div className="flex items-center gap-2">
+      {/* 96px 进度条：源 .level-bar/.level-fill 同款尺寸 */}
+      <div className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-primary"
+          style={{ width: levelBarWidth(row) }}
+        />
+      </div>
+      <Num>{percentText(row.level)}</Num>
+    </div>
+  );
 }
 
-/** 补资状态 Badge：未知码显原值，variant 兜底 secondary。 */
-function TopupStatusBadge({ status }: { status: number }) {
-  const variant: BadgeVariant = TOPUP_STATUS_VARIANT[status] ?? 'secondary';
-  return <Badge variant={variant}>{TOPUP_STATUS_LABEL[status] ?? status}</Badge>;
+/* ================================================================== */
+/* 开池申请弹窗（FR-LW-03）                                             */
+/* ================================================================== */
+
+function ApplyPoolDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+}) {
+  const toast = useToast();
+  const applyMutation = usePoolApplyMutation();
+  // token 下拉数据源（token 域 list，body {} 即已生效全集；TanStack 缓存
+  // 天然承接源「缓存空时拉取」，重复打开不重复请求新页面实例之外的负担）
+  const { data: tokens, isPending: loadingTokens } =
+    useTokenListQuery(LP_PROJECT_ID);
+  const [form, setForm] = React.useState<ApplyFormState>(APPLY_INITIAL);
+
+  // 源 openApply 语义：每次打开先重置四字段再展示
+  React.useEffect(() => {
+    if (open) setForm(APPLY_INITIAL);
+  }, [open]);
+
+  const patchForm = (patch: Partial<ApplyFormState>) =>
+    setForm((prev) => ({ ...prev, ...patch }));
+
+  const tokenOptions = React.useMemo(
+    () =>
+      (tokens ?? []).map((t: TokenRow) => ({
+        value: String(t.tokenId),
+        // 半角括号英文风格（工单指定；源为全角括号）
+        label: `${t.tokenCode} (${t.bankName})`,
+      })),
+    [tokens],
+  );
+
+  const selectedToken = (tokens ?? []).find(
+    (t) => t.tokenId === form.tokenId,
+  );
+
+  /** 阈值输入收敛：NaN→0、限幅 0〜1、precision 2（源 :min/:max/:precision）。 */
+  const handleThresholdChange = (raw: string) => {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) {
+      patchForm({ remindThreshold: 0 });
+      return;
+    }
+    const clamped = Math.min(1, Math.max(0, n));
+    patchForm({ remindThreshold: Math.round(clamped * 100) / 100 });
+  };
+
+  const submitApply = () => {
+    // 手写校验同源 submitApply：缺 token 或地址 → warning toast
+    if (!form.tokenId || !form.accountAddress.trim()) {
+      toast.warning('Please choose a token and enter the pool address');
+      return;
+    }
+    applyMutation.mutate(
+      {
+        tokenId: form.tokenId,
+        accountAddress: form.accountAddress.trim(),
+        currencySystemType: form.currencySystemType,
+        remindThreshold: form.remindThreshold,
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            'Application received — pending KLPP approval; the result will sync into this list automatically',
+          );
+          onOpenChange(false);
+        },
+        // 错误链路由 lp-client 拦截器统一提示（源 catch 静默等价）
+        // eslint-disable-next-line @typescript-eslint/no-empty-function -- silent: lp-client interceptor owns error surfacing
+        onError: () => {},
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>{LBL.dialogTitle}</DialogTitle>
+        </DialogHeader>
+
+        {/* 固定 info 提示（源 el-alert info 文案位） */}
+        <Alert>
+          <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+          <div>
+            <AlertTitle>{LBL.alertTitle}</AlertTitle>
+            <AlertDescription>{LBL.alertBody}</AlertDescription>
+          </div>
+        </Alert>
+
+        <div className="space-y-4">
+          <div>
+            <Label className="mb-1.5 block">Token</Label>
+            <SelectField
+              value={form.tokenId != null ? String(form.tokenId) : ''}
+              onValueChange={(v) => patchForm({ tokenId: Number(v) })}
+              placeholder="Select an active token"
+              options={tokenOptions}
+              disabled={loadingTokens}
+            />
+            {selectedToken && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Min liquidity {formatMoney(selectedToken.minLiquidity)} · Chain{' '}
+                {selectedToken.chainType || '-'}
+              </p>
+            )}
+          </div>
+
+          <FormField
+            name="accountAddress"
+            label="Pool Address"
+            required
+            placeholder="Account address in the currency system"
+            value={form.accountAddress}
+            onChange={(e) => patchForm({ accountAddress: e.target.value })}
+          />
+
+          <div>
+            <Label className="mb-1.5 block">Currency System Type</Label>
+            <SelectField
+              value={String(form.currencySystemType)}
+              onValueChange={(v) =>
+                patchForm({ currencySystemType: Number(v) })
+              }
+              options={SYSTEM_TYPE_OPTIONS}
+            />
+          </div>
+
+          <div>
+            <FormField
+              name="remindThreshold"
+              label="Top-up Reminder Threshold"
+              type="number"
+              min={0}
+              max={1}
+              step={0.05}
+              value={String(form.remindThreshold)}
+              onChange={(e) => handleThresholdChange(e.target.value)}
+            />
+            <p className="-mt-1 text-xs text-muted-foreground">
+              Level ratio, 0–1
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={submitApply} disabled={applyMutation.isPending}>
+            Submit Application
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ================================================================== */
+/* 列表页                                                               */
+/* ================================================================== */
+
+/**
+ * 受控 Select 薄封装（Radix）：弹窗内两处下拉共用；options 已由上游保证
+ * value 非空唯一（tokenId 主键 / 固定码表）。
+ */
+function SelectField({
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  disabled,
+}: {
+  value: string;
+  onValueChange: (v: string) => void;
+  options: Array<{ value: string; label: string }>;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 export function PoolListPage() {
-  const router = useRouter();
-  const poolQuery = usePoolListQuery(LP_PROJECT_ID);
-  const topupQuery = useTopupListQuery(LP_PROJECT_ID, {
-    pageNum: 1,
-    pageSize: TOPUP_TOP_N,
-    filter: {},
-  });
+  const [applyOpen, setApplyOpen] = React.useState(false);
 
-  // 源 down 语义：遍历两侧 settled 结果，rejected && isServiceDown → hit；
-  // 最终 down = hit —— 非 0024 失败时 hit 为 null 会清除降级条（旧数据保留）。
-  const down = React.useMemo(() => {
-    for (const err of [poolQuery.error, topupQuery.error]) {
-      if (err != null && isServiceDown(err)) return { traceId: err.traceId };
-    }
-    return null;
-  }, [poolQuery.error, topupQuery.error]);
+  // 主表数据源（不分页全量；源 load() 直连 poolApi.list 等价）
+  const listQuery = usePoolListQuery(LP_PROJECT_ID);
+  const rows = listQuery.data ?? [];
 
-  const poolColumns = React.useMemo<ColumnDef<PoolRow & { id: string }>[]>(
+  const columns = React.useMemo<ColumnDef<PoolRow & { id: string }>[]>(
     () => [
-      { accessorKey: 'currency', header: 'Currency' },
+      // 源列序 1：池 ID（width 90，num）
       {
-        accessorKey: 'currencySystemType',
-        header: 'System Type',
+        accessorKey: 'poolId',
+        header: 'Pool ID',
+        cell: ({ row }) => <Num>{row.original.poolId}</Num>,
+      },
+      // 源列序 2：Token（plain round tag → outline Badge）
+      {
+        accessorKey: 'tokenCode',
+        header: 'Token',
         cell: ({ row }) => (
-          <span>
-            {POOL_SYSTEM_TYPE_TEXT[row.original.currencySystemType] ??
-              row.original.currencySystemType}
-          </span>
+          <Badge variant="outline" className="rounded-full font-normal">
+            {row.original.tokenCode}
+          </Badge>
         ),
       },
+      // 源列序 3：池地址（maskAddress + tooltip 全文）
       {
-        accessorKey: 'accountAddress',
-        header: 'Account Address',
+        accessorKey: 'poolAddress',
+        header: 'Pool Address',
         cell: ({ row }) => (
-          <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="font-mono text-xs">
-                  {maskAddress(row.original.accountAddress)}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <span className="font-mono text-xs">
-                  {row.original.accountAddress}
-                </span>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="font-mono text-xs">
+                {maskAddress(row.original.poolAddress)}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-sm break-all font-mono text-xs">
+              {row.original.poolAddress}
+            </TooltipContent>
+          </Tooltip>
         ),
       },
-      {
-        accessorKey: 'minLimit',
-        header: 'Min Limit',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {formatMoney(row.original.minLimit)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'remindThreshold',
-        header: 'Alert Threshold',
-        // 水位比值 0〜1，与 level 同口径展示为百分比（裁决 C-8，非金额）
-        cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {percentText(row.original.remindThreshold)}
-          </span>
-        ),
-      },
+      // 源列序 4：可用余额（formatMoney 右对齐）
       {
         accessorKey: 'availableBalanceCache',
-        header: 'Available Balance Cache',
+        header: 'Available Balance',
         cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {formatMoney(row.original.availableBalanceCache)}
-          </span>
+          <MoneyCell v={row.original.availableBalanceCache} />
         ),
       },
+      // 源列序 5：水位（level!=null → 进度条 + 百分比；null → '-'）
       {
         accessorKey: 'level',
         header: 'Level',
-        cell: ({ row }) => {
-          const { level } = row.original;
-          // level 为 null（minLimit≤0）显 '-'，不画条（裁决 C-7）
-          if (level == null) return <span>-</span>;
-          const low = isLow(row.original);
-          return (
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full rounded-full ${
-                    low ? 'bg-amber-600' : 'bg-primary'
-                  }`}
-                  style={{ width: levelBarWidth(row.original) }}
-                />
-              </div>
-              <span
-                className={`font-mono text-xs tabular-nums ${
-                  low ? 'text-amber-600' : ''
-                }`}
-              >
-                {percentText(level)}
-              </span>
-              {low && (
-                <Badge
-                  variant="outline"
-                  className="border-amber-300 bg-amber-50 text-amber-900"
-                >
-                  {LBL.lowLevel}
-                </Badge>
-              )}
-            </div>
-          );
-        },
+        cell: ({ row }) => <LevelCell row={row.original} />,
       },
+      // 源列序 6：余额数据时间（balanceUpdateTime falsy → '-'）
       {
         accessorKey: 'balanceUpdateTime',
-        header: 'Last Updated',
+        header: 'Balance Data Time',
         cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {formatTime(row.original.balanceUpdateTime)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'status',
-        header: 'Status',
-        cell: ({ row }) => <PoolStatusBadge status={row.original.status} />,
-      },
-    ],
-    [],
-  );
-
-  const topupColumns = React.useMemo<ColumnDef<TopupRow & { id: string }>[]>(
-    () => [
-      { accessorKey: 'currency', header: 'Currency' },
-      {
-        accessorKey: 'amount',
-        header: 'Amount',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {formatMoney(row.original.amount)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'status',
-        header: 'Status',
-        cell: ({ row }) => <TopupStatusBadge status={row.original.status} />,
-      },
-      {
-        accessorKey: 'declareTime',
-        header: 'Declared At',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {formatTime(row.original.declareTime)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'confirmTime',
-        header: 'Confirmed At',
-        // 源口径：confirmTime 为 falsy（含 0 = 未到账）显 '-'
-        cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {row.original.confirmTime
-              ? formatTime(row.original.confirmTime)
+          <span className="tabular-nums text-xs">
+            {row.original.balanceUpdateTime
+              ? formatTime(row.original.balanceUpdateTime)
               : '-'}
           </span>
         ),
       },
+      // 源列序 7：状态（15 && rejectReason → tooltip 驳回原因）
       {
-        accessorKey: 'csTxId',
-        header: 'Currency System Tx ID',
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => <PoolStatusCell row={row.original} />,
+      },
+      // 源列序 8：数据时间
+      {
+        accessorKey: 'syncTime',
+        header: 'Data Time',
         cell: ({ row }) => (
-          <span
-            className="block max-w-[220px] truncate font-mono text-xs"
-            title={row.original.csTxId || undefined}
-          >
-            {row.original.csTxId || '-'}
+          <span className="tabular-nums text-xs">
+            {formatTime(row.original.syncTime)}
           </span>
         ),
       },
@@ -284,61 +464,50 @@ export function PoolListPage() {
     [],
   );
 
-  const poolData = React.useMemo(
-    () => (poolQuery.data ?? []).map((r) => ({ ...r, id: String(r.poolId) })),
-    [poolQuery.data],
-  );
-  const topupData = React.useMemo(
-    () =>
-      (topupQuery.data?.data ?? []).map((r) => ({
-        ...r,
-        id: String(r.topupId),
-      })),
-    [topupQuery.data],
+  const tableData = React.useMemo(
+    () => rows.map((r) => ({ ...r, id: String(r.poolId) })),
+    [rows],
   );
 
   return (
-    <div className="space-y-4">
-      <div>
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          {LBL.eyebrow}
+    <TooltipProvider delayDuration={200}>
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              {LBL.eyebrow}
+            </div>
+            <h1 className="text-xl font-semibold">{LBL.title}</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* 源 @refreshed="load"：仅重拉当前视图 */}
+            <SyncRefreshButton
+              domain="pool"
+              onRefreshed={() => void listQuery.refetch()}
+            />
+            {/* 源主按钮（页面键门禁，v-perm 移除语义等价） */}
+            <PermButton
+              menuKey="lp:pool"
+              onClick={() => {
+                setApplyOpen(true);
+              }}
+            >
+              {LBL.apply}
+            </PermButton>
+          </div>
         </div>
-        <h1 className="text-xl font-semibold">{LBL.title}</h1>
-      </div>
 
-      {down && <ServiceDownAlert traceId={down.traceId} />}
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">{LBL.poolCard}</div>
+        <div className="rounded-lg border-border/60 bg-card shadow-float">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={listQuery.isPending}
+            emptyMessage={LBL.empty}
+          />
         </div>
-        <DataTable
-          columns={poolColumns}
-          data={poolData}
-          isLoading={poolQuery.isPending}
-          emptyMessage={LBL.empty}
-        />
-      </div>
 
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">{LBL.topupCard}</div>
-          <Button
-            variant="link"
-            size="sm"
-            className="h-auto p-0"
-            onClick={() => router.push('/topup')}
-          >
-            {LBL.viewAll}
-          </Button>
-        </div>
-        <DataTable
-          columns={topupColumns}
-          data={topupData}
-          isLoading={topupQuery.isPending}
-          emptyMessage={LBL.empty}
-        />
+        <ApplyPoolDialog open={applyOpen} onOpenChange={setApplyOpen} />
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

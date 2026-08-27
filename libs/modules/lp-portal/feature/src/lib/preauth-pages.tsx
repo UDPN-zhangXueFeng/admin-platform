@@ -9,8 +9,8 @@
  *   快照由管理侧经银行 Gateway 轮询推送；
  * - SyncRefreshButton domain='preauth'，@refreshed 仅重拉列表（不刷池下拉）；
  * - onMounted 同时拉列表 + 池下拉（两侧独立 hook 并行首载）；
- * - 筛选资金池下拉 clearable（哨兵值等价）、label `${tokenCode}（${maskAddress(
- *   poolAddress)}）`——本仓币种口径为 currency/accountAddress；
+ * - 筛选资金池下拉 clearable（哨兵值等价）、label `${tokenCode} (${maskAddress(
+ *   poolAddress)})`（v2 源本地副本字段，01 §D4/D5 口径）；
  * - 9 列：快照ID、池ID、币种、4 金额列右对齐（授权/已用/可代转/剩余）、
  *   有效期至 validTo 空 → '-'、快照时间；无分页（全量列表）；空态文案。
  */
@@ -122,13 +122,13 @@ export function PreauthListPage() {
     [params.poolId, listQuery],
   );
 
-  /** 池下拉 options（label `${currency}（${maskAddress(accountAddress)}）`）。 */
+  /** 池下拉 options（label `${tokenCode} (${maskAddress(poolAddress)})`，01 §D5 口径）。 */
   const poolOptions = React.useMemo<SelectOption[]>(
     () => [
       { value: ALL, label: 'All Pools' },
       ...(poolRows ?? []).map((p) => ({
         value: String(p.poolId),
-        label: `${p.currency} (${maskAddress(p.accountAddress)})`,
+        label: `${p.tokenCode} (${maskAddress(p.poolAddress)})`,
       })),
     ],
     [poolRows],

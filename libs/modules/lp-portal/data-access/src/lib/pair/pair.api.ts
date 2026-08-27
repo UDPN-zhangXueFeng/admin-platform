@@ -1,23 +1,31 @@
 /**
- * LP 货币对与资金池域 raw API 层（源 `src/api/pair.ts` 1:1）。
+ * LP Token 对参与域 raw API 层（源 `src/api/pair.ts` 1:1，FR-LW-04）。
  *
- * 路径经 lp-client baseURL 拼 /lp 前缀（POST /lp/pair/list、
- * POST /lp/pair-pool/list）；lpId 由 BFF 登录域注入，前端不传。
- * 能力判定 capable 与缺口 gaps 由 api 侧计算（FR-P-10），前端只渲染。
+ * 本地副本查询 + 实时申请三端点；路径经 lp-client baseURL 拼 /lp 前缀。
+ * lpId 由后端登录态注入，前端不传。v1 聚合接口 POST /pair-pool/list 随
+ * pair-pool 聚合页废弃，不再保留 api 函数（禁臆造，反向亦不留死端点）。
  */
 import type { AxiosRequestConfig } from 'axios';
 
 import { lpRequest } from '../lp-client';
-import type { PairPoolAgg, PairRow } from '../types';
+import type { EligiblePairRow, PairRow } from './pair.model';
 
-/** 货币对参与清单（不分页全量，body {}）。 */
+/** 我的 token 对列表（状态 + 生效分成比例；不分页全量，body {}）。 */
 export function getPairList(config?: AxiosRequestConfig): Promise<PairRow[]> {
   return lpRequest.post<PairRow[]>('/pair/list', {}, config);
 }
 
-/** 货币对资金池聚合（不分页全量，body {}；页面按 pairId 建 Map O(1) 查）。 */
-export function getPairPoolList(
+/** 可申请视图（全网生效对 + 两侧池开通态；不分页全量，body {}）。 */
+export function getPairEligible(
   config?: AxiosRequestConfig,
-): Promise<PairPoolAgg[]> {
-  return lpRequest.post<PairPoolAgg[]>('/pair-pool/list', {}, config);
+): Promise<EligiblePairRow[]> {
+  return lpRequest.post<EligiblePairRow[]>('/pair/eligible', {}, config);
+}
+
+/** Token 对参与申请（实时调 Kissen，KLP 审批；受理即推回流）。 */
+export function postPairApply(
+  pairId: number,
+  config?: AxiosRequestConfig,
+): Promise<{ id: number }> {
+  return lpRequest.post<{ id: number }>('/pair/apply', { pairId }, config);
 }

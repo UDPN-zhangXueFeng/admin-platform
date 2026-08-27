@@ -629,7 +629,7 @@ export function RoleListPage() {
             SYSTEM
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-            Role Management
+            Roles &amp; Permissions
           </h1>
         </div>
         <PermButton

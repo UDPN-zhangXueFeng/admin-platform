@@ -281,9 +281,9 @@ function BasicInfo({ row }: { row: TxRow }) {
       </DescItem>
       <DescItem label="Data Time">
         <span className="font-mono text-xs tabular-nums">
-          {vo.dataTime == null || vo.dataTime === 0
+          {vo.syncTime == null || vo.syncTime === 0
             ? '-'
-            : formatTime(vo.dataTime)}
+            : formatTime(vo.syncTime)}
         </span>
       </DescItem>
       {Boolean(vo.failReason) && (

@@ -26,6 +26,10 @@
  *     新增清场路径）。rootRedirect 落点核验：resolveRootPath 现有链路在本组
  *     `(app)/page.tsx`，全候选未命中落英文占位卡片（源 /placeholder 语义，
  *     UNKNOWN_MENU_PATH 兜底同源）——现状已符合，本壳不重复实现。
+ *  6. bootstrapReady 横幅（源 MainLayout，矩阵 §B L40）：会话就绪且
+ *     session.bootstrapReady===false 时内容区顶部渲染 amber 警示横幅（固定英文
+ *     文案，提示不硬拒）；undefined（旧持久化会话缺字段）不显示。skeleton /
+ *     isError 门禁分支保持原样。
  */
 import { useEffect, useMemo } from 'react';
 
@@ -33,7 +37,7 @@ import type { ProjectConfig } from '@myorg/shared/util-config';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { logoutAndRedirect } from '@myorg/shared/util-auth';
 import { AppShell } from '@myorg/shared/ui-layout';
-import { Button, Skeleton } from '@myorg/shared/ui';
+import { Alert, Button, Skeleton } from '@myorg/shared/ui';
 
 import {
   LP_PROJECT_ID,
@@ -64,6 +68,11 @@ export function LpAppShell({
 
   const noSession = !isLoading && (!session || !session.menuTree?.length);
   const lockedFirstLogin = !isLoading && session?.firstLogin === 0;
+
+  // 源 MainLayout bootstrapPending 横幅（矩阵 §B）：userInfo.bootstrapReady===
+  // false → 内容区顶部黄色警示条，提示不硬拒；undefined 不显示（旧持久化会话
+  // 无此字段）。amber 族样式沿用域内 ServiceDownAlert 警示横幅先例，不自造色值。
+  const bootstrapPending = session?.bootstrapReady === false;
 
   useEffect(() => {
     if (isLoading) return;
@@ -117,6 +126,11 @@ export function LpAppShell({
       }}
       trailing={<NotificationBellDrawer />}
     >
+      {bootstrapPending && (
+        <Alert className="mb-4 border-amber-300 bg-amber-50 text-amber-900">
+          Replica initialization in progress; data shown may be stale.
+        </Alert>
+      )}
       {children}
     </AppShell>
   );

@@ -21,13 +21,12 @@ export {
 
 /**
  * 公共源类型（Vue 源 types/* 的全量平移，供各域消费）。
- * 注意：PoolRow / TopupRow / TopupListReq 与 pool、topup 域 model 存在同名
- * 双声明——两个 `export *` 的同名歧义（TS2308）会使该名字从 barrel 静默
- * 消失。故在文件尾以显式重导出锚定域 model 版本（显式导出优先于 star
- * 导出）。
+ * 注意：TopupRow / TopupListReq 与 topup 域 model 存在同名双声明——两个
+ * `export *` 的同名歧义（TS2308）会使该名字从 barrel 静默消失。故在文件尾
+ * 以显式重导出锚定域 model 版本（显式导出优先于 star 导出）。
  *
- * R2 域（pair / tx-flow / settle / user / menu / log）model 改用
- * `export type { X } from '../types'` 重导出同一声明——两路 star 导出
+ * 其余域（pair / tx-flow / settle / user / menu / log / pool / token）model
+ * 改用 `export type { X } from '../types'` 重导出同一声明——两路 star 导出
  * 指向同一 symbol，不构成歧义，types.ts 中同名类型无需剪除（逐域核查过，
  * 见各域 model 头注释）。
  */

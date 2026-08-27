@@ -1,5 +1,9 @@
 /**
- * 认证与菜单模型（源 `src/types/auth.ts` 1:1 移植）。
+ * 认证与菜单模型（源 `src/types/auth.ts` 移植）。
+ *
+ * 更正：原头注释称「1:1 移植」不实——LoginRespVO 此前遗漏源侧
+ * lpCode/lpName/bootstrapReady 三可选字段（FAIL 修复 A 已按源补齐，
+ * 逐字命名）；其余形态以源为对照基准。
  *
  * LoginRespVO 整体（含 menuTree）随会话持久化，驱动侧栏装配 / v-perm 按钮权限 /
  * root 落点；LP-3：全角色（含 ROLE_LP_ADMIN）走权限表装配，无 userType 旁路字段。
@@ -36,6 +40,12 @@ export interface LoginRespVO {
   userName: string;
   /** 0=首次登录需改密 */
   firstLogin: number;
+  /** 所属 LP 编码（源同名字段；个人中心「所属 LP」副行展示。可选：旧持久化会话可能缺省） */
+  lpCode?: string;
+  /** 所属 LP 名称（源同名字段；个人中心第三行主值展示） */
+  lpName?: string;
+  /** 业务副本初始化完成标记（源 MainLayout：===false → 壳层内容区顶部黄色横幅，提示不硬拒；undefined 不显示） */
+  bootstrapReady?: boolean;
   /** 后端按角色装配的可见菜单树,侧栏渲染/按钮权限/根路径落点均由它驱动(LP-3:全角色走权限表,无 userType 旁路) */
   menuTree: MenuTreeRespVO[];
 }

@@ -91,14 +91,14 @@ const STATUS_OPTIONS: SelectOption[] = Object.keys(TX_STATUS_LABEL).map(
 );
 
 interface TxFlowFilterForm {
-  pairId: string;
+  pairCode: string;
   status: string;
   startTime: string;
   endTime: string;
 }
 
 const EMPTY_FILTER: TxFlowFilterForm = {
-  pairId: '',
+  pairCode: '',
   status: ALL,
   startTime: '',
   endTime: '',
@@ -107,22 +107,18 @@ const EMPTY_FILTER: TxFlowFilterForm = {
 /** Submitted query params (times already ms numbers; undefined stays out of body). */
 interface TxFlowQueryParams {
   pageNum: number;
-  pairId?: number;
+  pairCode?: string;
   status?: number;
   startTime?: number;
   endTime?: number;
 }
 
 function formToParams(f: TxFlowFilterForm, pageNum = 1): TxFlowQueryParams {
-  const pairIdRaw = f.pairId.trim();
+  const pairCodeRaw = f.pairCode.trim();
   return {
     pageNum,
-    // Numeric token-pair id input; anything non-numeric is ignored (kept out
-    // of the request body instead of crashing Number()).
-    pairId:
-      pairIdRaw !== '' && /^\d+$/.test(pairIdRaw)
-        ? Number(pairIdRaw)
-        : undefined,
+    // Token-pair code input (e.g. PR-xxxx); empty stays out of the request body.
+    pairCode: pairCodeRaw || undefined,
     status: f.status !== ALL ? Number(f.status) : undefined,
     startTime: f.startTime ? new Date(f.startTime).getTime() : undefined,
     endTime: f.endTime ? new Date(f.endTime).getTime() : undefined,
@@ -163,7 +159,7 @@ export function TxFlowListPage() {
     pageNum: params.pageNum,
     pageSize: PAGE_SIZE,
     filter: {
-      pairId: params.pairId,
+      pairCode: params.pairCode,
       status: params.status,
       startTime: params.startTime,
       endTime: params.endTime,
@@ -271,10 +267,10 @@ export function TxFlowListPage() {
         ),
       },
       {
-        accessorKey: 'dataTime',
+        accessorKey: 'syncTime',
         header: 'Data Time',
         cell: ({ row }) => {
-          const t = asTxRowVO(row.original).dataTime;
+          const t = asTxRowVO(row.original).syncTime;
           return (
             <span className="font-mono text-xs tabular-nums">
               {t == null || t === 0 ? '-' : formatTime(t)}
@@ -327,11 +323,11 @@ export function TxFlowListPage() {
         <div className="mb-4 text-sm font-semibold">Search Criteria</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <FormField
-            name="pairId"
-            label="Token Pair ID"
+            name="pairCode"
+            label="Token Pair Code"
             type="text"
-            placeholder="Token pair ID, Enter to search"
-            register={register('pairId')}
+            placeholder="e.g. PR-0001, Enter to search"
+            register={register('pairCode')}
           />
           <FormSelect
             name="status"

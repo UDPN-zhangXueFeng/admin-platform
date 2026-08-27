@@ -1,47 +1,53 @@
 /**
- * LP 资金池域模型（源 `types/business.ts` PoolRow + `views/pool/index.vue` 码表）。
+ * LP 资金池域模型（源 `src/types/business.ts` PoolRow + `views/pool/index.vue`
+ * 码表 + `api/pool.ts` apply 入参）。
  *
- * pool/list 为不分页全量列表（源 api/pool.ts body {}）；`level` 为水位小数比率
- * 0〜1，minLimit≤0 时后端返回 null（裁决 C-7）；`remindThreshold` 与 level 同口径
- * 比值比较（裁决 C-8，非余额比金额）。lpId 由 BFF 登录域注入，前端不传。
+ * 行类型已在公共 `../types` 平移声明（v2 源本地副本：poolId/tokenId/tokenNo/
+ * tokenCode/bankCode/poolAddress/status 5|15|20|50/rejectReason/余额与水位
+ * 快照/syncTime），本域重导出锚定 + 补充视图级映射（pair/log 域同模式，主
+ * barrel star 导出无同名歧义）。
+ *
+ * pool/list 不分页全量返回；lpId 由 BFF 登录域注入，前端不传。
  */
+import type { PoolRow } from '../types';
 
-export interface PoolRow {
-  poolId: number;
-  currency: string;
-  /** 账户地址，页面经 maskAddress 掩码展示 */
+export type { PoolRow };
+
+/** 开池申请入参（FR-LW-03，POST /pool/apply；受理即回流列表「Pending」）。 */
+export interface PoolApplyReq {
+  tokenId: number;
+  /** 货币系统账户地址（页面 trim 后提交）。 */
   accountAddress: string;
-  /** 1 链上 EVM / 2 Aptos / 3 内部系统 */
-  currencySystemType: number;
-  minLimit: number | string;
-  /** 水位提醒阈值（比率 0〜1，与 level 比较，非金额；裁决 C-8） */
-  remindThreshold: number | string | null;
-  availableBalanceCache: number | string;
-  balanceUpdateTime: number | null;
-  /** 水位 = 余额缓存 ÷ 最低限额，小数比率；minLimit≤0 时 null（裁决 C-7） */
-  level: number | string | null;
-  /** 20 正常 / 50 停用 */
-  status: number;
+  currencySystemType?: number;
+  /** 水位提醒阈值（比率 0〜1，step 0.05，默认 0.2）。 */
+  remindThreshold?: number;
 }
 
-/** 货币系统形态映射（源 SYSTEM_TYPE_TEXT；未知码由页面显原值） */
+/** 货币系统形态映射（开池弹窗 select 码表；未知码由页面显原值）。 */
 export const POOL_SYSTEM_TYPE_TEXT: Record<number, string> = {
   1: 'On-chain EVM',
   2: 'Aptos',
   3: 'Internal System',
 };
 
-/** 池状态文案（源 POOL_STATUS_TEXT；未知码由页面显原值） */
+/** 池状态文案（源 STATUS_TEXT{5申请中,15已驳回,20已开通,50停用}；未知码显原值）。 */
 export const POOL_STATUS_TEXT: Record<number, string> = {
-  20: 'Normal',
+  5: 'Pending',
+  15: 'Rejected',
+  20: 'Active',
   50: 'Disabled',
 };
 
-/** 池状态 → Badge variant（源 el-tag {20:success,50:info} 的等价映射，兜底 outline）。 */
+/**
+ * 池状态 → Badge variant（源 el-tag {5:warning,15:danger,20:success,50:info}；
+ * warning→outline、info→secondary 同 tx-flow 域口径，未知码页面兜底 secondary）。
+ */
 export const POOL_STATUS_VARIANT: Record<
   number,
   'default' | 'secondary' | 'destructive' | 'outline'
 > = {
+  5: 'outline',
+  15: 'destructive',
   20: 'default',
   50: 'secondary',
 };

@@ -1,460 +1,499 @@
 'use client';
 
 /**
- * 货币对与资金池页（源 `src/views/pair-pool/index.vue` 1:1 语义迁移，工作清单 B4）。
+ * Token 对页（源 `src/views/pair/index.vue` §D7 1:1 迁移，FR-LW-04）。
  *
- * 结构：主表（货币对参与清单 POST /lp/pair/list）+ 每行可展开的资金池聚合
- * 三栏（POST /lp/pair-pool/list）。纯只读、无筛选、无分页、无权限按钮（源即如此）。
+ * 双 tab：Mine「我的 token 对」8 列 / Eligible「可申请」6 列含操作列
+ * （迁移矩阵 D7 行写 7 列，实对拍源模板 el-table-column 仅 6 列，以源为准，
+ * 见交付自报表）。两 tab 各自独立 useQuery（pairKeys.list / .eligible），
+ * Radix Tabs 未激活内容不挂载 ⇒ Eligible 首次切入才发请求（源懒加载等价）；
+ * 缓存互不干扰。源无关键词筛选、无状态下拉、无分页控件（两接口全量返回），
+ * 故不加任何筛选/分件（禁臆造）。
  *
- * 关键迁移决策：
- * - 源 `load()` 的 `Promise.allSettled([pairApi.list(), pairApi.pairPoolList()])`
- *   映射为两条独立 useQuery（pool 域同模式）：任一侧失败保留另一侧数据由
- *   TanStack 错误时保留上次成功 data 兜底；降级条由页面从两侧 error 推导，
- *   pair 侧优先（源先判 pairRes，agg 仅在 downHit 仍为 null 时补位）。
- * - 0024 语义（源 down.value = downHit）：任一侧 error 命中 isServiceDown →
- *   渲染 ServiceDownAlert；两侧成功、或失败为非 0024 → hit 为 null 清除降级条，
- *   但旧数据保留（不清 rows）。此为源有意行为，勿「顺手修正」。
- * - 聚合按 pairId 建 Map O(1) 查（源 aggMap）；未命中由展开区
- *   「暂无资金池聚合数据」空态兜底（源 el-empty image-size 60）。
- * - levelText 仅判 null 口径（源 `level === null`）：undefined 不在判定内，
- *   会渲染 NaN%——与源逐字一致，勿改成 `== null` 或 Number() 归一。
- * - isLowLevel 同源严格 `level !== null && level < remindThreshold`（阈值与
- *   水位同口径 0〜1 比率直接比较，裁决 C-8）。
- * - 缺口码中文文案映射由前端承担（裁决 C-4，PAIR_GAP_TEXT），未知码兜底显原码；
- *   capable 由 api 侧判定（FR-P-10），前端只渲染 tag。
- * - 主表展开行：shared DataTable 无 expand 结构，本页以平台表格样式
- *   （同 DataTable 的 border/divide-y/bg-muted 表头类）手写行展开；停用参与行
- *   灰显（源 .row-stopped #8A8F98 → text-muted-foreground，Badge 自带色不受影响）。
- * - 展开块 is-low 警示色：源 CSS 变量 --ks-settle 无对应主题 token，沿用
- *   pool 页低水位 amber 映射保持跨页一致；斑马纹/内网格线省略（平台表格无此样式）。
- * - 文案中文硬编码（kissen-admin 先例），不注册 i18n key。
+ * 申请参与：行内 link 按钮（源无 v-perm 指令，不加 PermButton——禁臆造权限键）
+ * → AlertDialog 确认（工单硬性要求新增的确认步，文案按源语义英译）→ POST
+ * /pair/apply 成功 toast 后切回 Mine 并家族级失效重载。失败提示统一走
+ * lp-client 拦截器 sonner toast，本页静默不二次弹错。SyncRefreshButton
+ * domain='pair' 照源存在：刷新失效两 key，激活 tab 立即重查、未激活 tab
+ * 下次挂载时刷新（源 loadAll 两视图同刷的可见行为等价）。
+ *
+ * 口径：金额/比率右对齐等宽字；状态/tag 色映射照源逐码
+ * （STATUS_TAG warning/danger/success/info → R1 先例 outline/destructive/
+ * default/secondary）；1280 主口径容器由壳层承担，页面仅纵向堆叠。
  */
 
 import * as React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { type ColumnDef } from '@tanstack/react-table';
+import { Info } from 'lucide-react';
 
-import { Badge, Button } from '@myorg/shared/ui';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  DataTable,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  useToast,
+} from '@myorg/shared/ui';
 
-import { ServiceDownAlert } from './service-down-alert';
-import { formatMoney, formatTime } from './format';
 import {
   LP_PROJECT_ID,
-  PAIR_GAP_TEXT,
-  PAIR_PARTICIPATION_TEXT,
-  PAIR_PARTICIPATION_VARIANT,
   PAIR_STATUS_TEXT,
   PAIR_STATUS_VARIANT,
-  PREAUTH_STATUS_TEXT,
-  PREAUTH_STATUS_VARIANT,
-  isServiceDown,
+  usePairApplyMutation,
+  usePairEligibleQuery,
   usePairListQuery,
-  usePairPoolListQuery,
-  type PairPoolAgg,
-  type PairPoolSourcePool,
-  type PairPoolTargetPool,
-  type PreauthItem,
+  type EligiblePairRow,
+  type PairRow,
+  pairKeys,
 } from '@myorg/modules/lp-portal/data-access';
+
+import { SyncRefreshButton } from './sync-refresh-button';
+import { formatTime } from './format';
+
+/* ================================================================== */
+/* 文案与渲染辅助                                                        */
+/* ================================================================== */
 
 const LBL = {
   eyebrow: 'MARKET',
-  title: 'Currency Pairs & Liquidity Pools',
-  empty: 'No data',
-  aggEmpty: 'No liquidity pool aggregate data',
-  capable: 'Capability',
-  capableYes: 'Capable',
-  capableNo: 'Not Capable',
-  expand: 'Expand',
-  collapse: 'Collapse',
+  title: 'Token Pairs',
+  mineTab: 'My Token Pairs',
+  eligibleTab: 'Eligible',
+  eligibleAlert:
+    'Only token pairs with liquidity pools opened on BOTH sides can apply for participation (KLP-approved; the overriding split ratio is set during approval). Please open the liquidity pool for the missing side first.',
+  /** 源申请成功 toast 直译。 */
+  applyToast:
+    'Application accepted (KLP approval pending); the result will sync automatically to My Token Pairs.',
+  dialogTitle: 'Apply for Participation',
+  dialogBody:
+    'Submit a participation application for this token pair? It goes to KLP approval in real time, and the overriding split ratio may be set during approval.',
+  dialogCancel: 'Cancel',
+  dialogConfirm: 'Submit Application',
+  status5Hint:
+    'The admin side may override the split ratio upon approval; this is the current reference value.',
+  rejectReasonPrefix: 'Rejection reason: ',
+  missingPoolTooltip:
+    'Please open the liquidity pool for the missing-side token on the Liquidity Pools page first.',
+  emptyMine:
+    'Not participating in any token pairs yet — switch to the Eligible tab to apply.',
+  emptyEligible: 'No eligible token pairs available.',
+  actionApply: 'Apply',
+  actionNoPool: 'No Pool',
 } as const;
-
-/** 展开列 + 主列（货币对/参与状态/货币对状态/滑点阈值/解付能力）。 */
-const COL_COUNT = 6;
-
-/** 主表骨架行数（无分页信息时对齐 shared DataTable 的加载占位）。 */
-const SKELETON_ROWS = 5;
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
 
-/** 水位文本（裁决 C-7）：仅判 null——null → '-'，否则 ×100 留 1 位小数。 */
-function levelText(level: number | null): string {
-  return level === null ? '-' : `${(level * 100).toFixed(1)}%`;
-}
-
-/** 低水位判定（裁决 C-8）：level 非 null 且低于提醒阈值（同口径 0〜1 比率）。 */
-function isLowLevel(pool: PairPoolTargetPool): boolean {
-  return pool.level !== null && pool.level < pool.remindThreshold;
-}
-
-/** 最近变动：源池最近一笔补资，有则「+金额 · 时间」，无则 '-'。 */
-function lastTopupText(t: PairPoolSourcePool['lastTopup']): string {
-  if (!t) return '-';
-  return `+${formatMoney(t.amount)} · ${formatTime(t.declareTime)}`;
-}
-
-/** 参与状态 Badge：未知码显原值，variant 兜底 secondary（源兜底 info 的中性映射）。 */
-function ParticipationBadge({ status }: { status: number }) {
-  const variant: BadgeVariant = PAIR_PARTICIPATION_VARIANT[status] ?? 'secondary';
-  return (
-    <Badge variant={variant}>
-      {PAIR_PARTICIPATION_TEXT[status] ?? String(status)}
-    </Badge>
-  );
-}
-
-/** 货币对状态 Badge：未知码显原值，variant 兜底 secondary。 */
-function PairStatusBadge({ status }: { status: number }) {
-  const variant: BadgeVariant = PAIR_STATUS_VARIANT[status] ?? 'secondary';
-  return (
-    <Badge variant={variant}>{PAIR_STATUS_TEXT[status] ?? String(status)}</Badge>
-  );
-}
-
-/** 预授权状态 Badge：未知码显原值，variant 兜底 secondary。 */
-function PreauthStatusBadge({ status }: { status: number }) {
-  const variant: BadgeVariant = PREAUTH_STATUS_VARIANT[status] ?? 'secondary';
-  return (
-    <Badge variant={variant}>
-      {PREAUTH_STATUS_TEXT[status] ?? String(status)}
-    </Badge>
-  );
+/** 比率（0〜1 小数）→ 百分比文本两位小数，空显 '-'（源 percentText 1:1）。 */
+function percentText(v: string | number | null | undefined): string {
+  return v == null || v === '' ? '-' : `${(Number(v) * 100).toFixed(2)}%`;
 }
 
 /** 数值文本（源 .num 类：等宽字体 + 表格数字对齐）。 */
 function Num({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="font-mono text-xs tabular-nums">{children}</span>
-  );
+  return <span className="font-mono text-xs tabular-nums">{children}</span>;
 }
 
-/** 聚合栏块（源 .agg-block：浅底 + 边框 + 小灰标题）。 */
-function AggBlock({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3">
-      <div className="text-xs font-medium text-muted-foreground">{title}</div>
-      {children}
-    </div>
-  );
+/** 右对齐数值列表头（比率列锁步）。 */
+function NumHeader({ children }: { children: React.ReactNode }) {
+  return <div className="text-right">{children}</div>;
 }
 
-/** 聚合键值行（源 .agg-item：固定宽灰 label + 可换行 value）。 */
-function AggItem({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex gap-2 text-sm">
-      <span className="w-14 shrink-0 text-xs leading-relaxed text-muted-foreground">
-        {label}
-      </span>
-      <span className="min-w-0 break-all leading-relaxed">{children}</span>
-    </div>
-  );
+/** 参与状态 Badge 文案（未知码显原值）。 */
+function statusText(status: number): string {
+  return PAIR_STATUS_TEXT[status] ?? String(status);
 }
 
-/** 源币种池块：缺池（缺口 NO_POOL）显「无源币种池」。 */
-function SourcePoolBlock({ pool }: { pool: PairPoolSourcePool | null }) {
-  return (
-    <AggBlock title="Source Pool">
-      {pool ? (
-        <>
-          <AggItem label="Currency">{pool.currency ?? '-'}</AggItem>
-          <AggItem label="Balance Cache">
-            <Num>{formatMoney(pool.availableBalanceCache ?? 0)}</Num>
-          </AggItem>
-          <AggItem label="Last Change">
-            <Num>{lastTopupText(pool.lastTopup ?? null)}</Num>
-          </AggItem>
-        </>
-      ) : (
-        <span className="text-xs text-muted-foreground">No source pool</span>
-      )}
-    </AggBlock>
-  );
+/** 状态 tag 兜底色 info→secondary（源 statusTagType ?? 'info' 等价）。 */
+function statusVariant(status: number): BadgeVariant {
+  return PAIR_STATUS_VARIANT[status] ?? 'secondary';
 }
 
-/** 目标币种池块：缺池显「无目标币种池」；水位低时 is-low 警示色。 */
-function TargetPoolBlock({ pool }: { pool: PairPoolTargetPool | null }) {
-  const low = pool != null && isLowLevel(pool);
-  return (
-    <AggBlock title="Target Pool">
-      {pool ? (
-        <>
-          <AggItem label="Currency">{pool.currency ?? '-'}</AggItem>
-          <AggItem label="Balance Cache">
-            <Num>{formatMoney(pool.availableBalanceCache ?? 0)}</Num>
-          </AggItem>
-          <AggItem label="Min Limit">
-            <Num>{formatMoney(pool.minLimit ?? 0)}</Num>
-          </AggItem>
-          <AggItem label="Alert Threshold">
-            <Num>{formatMoney(pool.remindThreshold ?? 0)}</Num>
-          </AggItem>
-          <AggItem label="Level">
-            <Num>
-              <span className={low ? 'font-semibold text-amber-600' : ''}>
-                {levelText(pool.level ?? null)}
-              </span>
-            </Num>
-          </AggItem>
-        </>
-      ) : (
-        <span className="text-xs text-muted-foreground">No target pool</span>
-      )}
-    </AggBlock>
-  );
-}
+/* ================================================================== */
+/* Mine tab：我的 token 对（8 列，列序照源 §D7）                          */
+/* ================================================================== */
 
-/** 目标币种预授权块：逐条渲染，多条以分隔线隔开；空显「无有效预授权」。 */
-function PreauthBlock({ preauths }: { preauths: PreauthItem[] }) {
-  return (
-    <AggBlock title="Target Pre-authorization">
-      {preauths.length > 0 ? (
-        preauths.map((p, i) => (
-          <div
-            key={p.preauthId}
-            className={`flex flex-col gap-1 ${
-              i > 0 ? 'mt-1 border-t pt-2' : ''
-            }`}
-          >
-            <AggItem label="Quota">
-              <Num>{formatMoney(p.authAmount)}</Num>
-            </AggItem>
-            <AggItem label="Used">
-              <Num>{formatMoney(p.usedAmount)}</Num>
-            </AggItem>
-            <AggItem label="Remaining">
-              <Num>{formatMoney(p.remaining)}</Num>
-            </AggItem>
-            <AggItem label="Validity">
-              <Num>{`${formatTime(p.validFrom)} – ${formatTime(p.validTo)}`}</Num>
-            </AggItem>
-            <AggItem label="Status">
-              <PreauthStatusBadge status={p.status} />
-            </AggItem>
+/**
+ * DataTable 行标识 id:string 与模型记录 ID:number 撞名，视图行以 recordId
+ * 承载原值（首列显示不变），id 转字符串满足 TanStack 泛型约束。
+ */
+type MineRow = Omit<PairRow, 'id'> & { id: string; recordId: number };
+
+function MineTable() {
+  const query = usePairListQuery(LP_PROJECT_ID);
+  const rows = React.useMemo<MineRow[]>(
+    () =>
+      (query.data ?? []).map((r) => ({
+        ...r,
+        id: String(r.id),
+        recordId: r.id,
+      })),
+    [query.data],
+  );
+
+  const columns = React.useMemo<ColumnDef<MineRow>[]>(
+    () => [
+      {
+        accessorKey: 'recordId',
+        header: 'Record ID',
+        cell: ({ row }) => <Num>{row.original.recordId}</Num>,
+      },
+      {
+        accessorKey: 'pairCode',
+        // 无码行回落 pairId 原值（源 row.pairCode || row.pairId）
+        cell: ({ row }) => (
+          <span>{row.original.pairCode || row.original.pairId}</span>
+        ),
+        meta: { overflow: 'ellipsis' },
+      },
+      {
+        id: 'direction',
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap">
+            {row.original.sourceTokenCode} → {row.original.targetTokenCode}
+          </span>
+        ),
+        meta: { overflow: 'none' },
+      },
+      {
+        accessorKey: 'mySplitRatio',
+        header: () => <NumHeader>My Split Ratio</NumHeader>,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1.5">
+            <Num>{percentText(row.original.mySplitRatio)}</Num>
+            {row.original.status === 5 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="shrink-0">
+                    ?
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-sm">
+                  {LBL.status5Hint}
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
-        ))
-      ) : (
-        <span className="text-xs text-muted-foreground">No valid pre-authorization</span>
-      )}
-    </AggBlock>
+        ),
+      },
+      {
+        accessorKey: 'defaultSplitRatio',
+        header: () => <NumHeader>Default Ratio</NumHeader>,
+        cell: ({ row }) => (
+          <Num>
+            <span className="block text-right">
+              {percentText(row.original.defaultSplitRatio)}
+            </span>
+          </Num>
+        ),
+      },
+      {
+        id: 'activation',
+        // 生效条件：仅 status===20 渲染两组缺口 tag，否则 '-'（源 1:1）
+        cell: ({ row }) =>
+          row.original.status !== 20 ? (
+            <span>-</span>
+          ) : (
+            <div className="flex flex-wrap items-center gap-1">
+              <Badge
+                variant={row.original.poolReady ? 'default' : 'destructive'}
+              >
+                {row.original.poolReady ? 'Pool Ready' : 'Pool Missing'}
+              </Badge>
+              <Badge variant={row.original.preauthOk ? 'default' : 'outline'}>
+                {row.original.preauthOk ? 'Pre-auth Valid' : 'Pre-auth Not Set'}
+              </Badge>
+            </div>
+          ),
+        meta: { overflow: 'none' },
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => {
+          const badge = (
+            <Badge variant={statusVariant(row.original.status)}>
+              {statusText(row.original.status)}
+            </Badge>
+          );
+          // 已驳回且带原因 → tooltip 展示驳回原因（源 1:1）
+          if (row.original.status === 15 && row.original.rejectReason) {
+            return (
+              <Tooltip>
+                <TooltipTrigger asChild>{badge}</TooltipTrigger>
+                <TooltipContent className="max-w-sm break-all">
+                  {LBL.rejectReasonPrefix}
+                  {row.original.rejectReason}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+          return badge;
+        },
+      },
+      {
+        accessorKey: 'syncTime',
+        header: 'Data Time',
+        cell: ({ row }) => <Num>{formatTime(row.original.syncTime)}</Num>,
+      },
+    ],
+    [],
+  );
+
+  return (
+    <DataTable
+      columns={columns}
+      data={rows}
+      isLoading={query.isPending}
+      emptyMessage={LBL.emptyMine}
+    />
   );
 }
 
-/** 展开区：无该 pairId 聚合 → 空态；否则能力判定行 + 三栏 grid。 */
-function PairExpandBody({ agg }: { agg: PairPoolAgg | undefined }) {
-  if (!agg) {
-    return (
-      <div className="py-6 text-center text-sm text-muted-foreground">
-        {LBL.aggEmpty}
-      </div>
-    );
+/* ================================================================== */
+/* Eligible tab：可申请（6 列含操作列，列序照源 §D7）                     */
+/* ================================================================== */
+
+function EligibleTable({ onApplied }: { onApplied: () => void }) {
+  const toast = useToast();
+  const query = usePairEligibleQuery(LP_PROJECT_ID);
+  const apply = usePairApplyMutation(LP_PROJECT_ID);
+
+  /** 待确认申请目标；非空即打开确认弹窗（工单要求的新增确认步）。 */
+  const [applyTarget, setApplyTarget] = React.useState<EligiblePairRow | null>(
+    null,
+  );
+
+  const rows = React.useMemo(
+    () => (query.data ?? []).map((r) => ({ ...r, id: String(r.pairId) })),
+    [query.data],
+  );
+
+  function confirmApply(target: EligiblePairRow) {
+    apply.mutate(target.pairId, {
+      onSuccess: () => {
+        toast.success(LBL.applyToast);
+        setApplyTarget(null);
+        onApplied();
+      },
+      // 错误链路由 lp-client 拦截器统一提示（源 catch 静默等价）。
+      // eslint-disable-next-line @typescript-eslint/no-empty-function -- silent: lp-client interceptor owns error surfacing
+      onError: () => {},
+    });
   }
+
+  const columns = React.useMemo<ColumnDef<EligiblePairRow & { id: string }>[]>(
+    () => [
+      {
+        accessorKey: 'pairCode',
+        // 无码行回落 pairId 原值（源 row.pairCode || row.pairId）
+        cell: ({ row }) => (
+          <span>{row.original.pairCode || row.original.pairId}</span>
+        ),
+        meta: { overflow: 'ellipsis' },
+      },
+      {
+        id: 'direction',
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap">
+            {row.original.sourceTokenCode} → {row.original.targetTokenCode}
+          </span>
+        ),
+        meta: { overflow: 'none' },
+      },
+      {
+        id: 'sourcePooled',
+        header: 'Source Pool',
+        cell: ({ row }) => (
+          <div className="flex justify-center">
+            <Badge variant={row.original.sourcePooled ? 'default' : 'destructive'}>
+              {row.original.sourcePooled ? 'Opened' : 'Not Opened'}
+            </Badge>
+          </div>
+        ),
+        meta: { overflow: 'none' },
+      },
+      {
+        id: 'targetPooled',
+        header: 'Target Pool',
+        cell: ({ row }) => (
+          <div className="flex justify-center">
+            <Badge variant={row.original.targetPooled ? 'default' : 'destructive'}>
+              {row.original.targetPooled ? 'Opened' : 'Not Opened'}
+            </Badge>
+          </div>
+        ),
+        meta: { overflow: 'none' },
+      },
+      {
+        accessorKey: 'defaultSplitRatio',
+        header: () => <NumHeader>Default Split</NumHeader>,
+        cell: ({ row }) => (
+          <Num>
+            <span className="block text-right">
+              {percentText(row.original.defaultSplitRatio)}
+            </span>
+          </Num>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        enableSorting: false,
+        meta: { overflow: 'none', stickyRight: true },
+        cell: ({ row }) =>
+          row.original.eligible ? (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0"
+              disabled={apply.isPending}
+              onClick={() => setApplyTarget(row.original)}
+            >
+              {LBL.actionApply}
+            </Button>
+          ) : (
+            // 缺侧池灰化 + tooltip 提示先开池（disabled 吞 hover，用 span 承接）
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex cursor-not-allowed">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="text-muted-foreground"
+                    disabled
+                  >
+                    {LBL.actionNoPool}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm">
+                {LBL.missingPoolTooltip}
+              </TooltipContent>
+            </Tooltip>
+          ),
+      },
+    ],
+    [apply.isPending],
+  );
+
   return (
-    <div className="flex flex-col gap-3 py-1 pl-10 pr-1">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground">{LBL.capable}</span>
-        {agg.capable ? (
-          <Badge>{LBL.capableYes}</Badge>
-        ) : (
-          <Badge variant="destructive">{LBL.capableNo}</Badge>
-        )}
-        {agg.gaps.map((g) => (
-          <Badge key={g} variant="destructive">
-            {/* 缺口码中文映射（裁决 C-4）；未知码兜底显原码 */}
-            {PAIR_GAP_TEXT[g] ?? g}
-          </Badge>
-        ))}
-      </div>
-      <div className="grid gap-3 md:grid-cols-3">
-        <SourcePoolBlock pool={agg.sourcePool} />
-        <TargetPoolBlock pool={agg.targetPool} />
-        <PreauthBlock preauths={agg.preauths} />
-      </div>
-    </div>
+    <>
+      <Alert className="mb-3">
+        <Info aria-hidden="true" className="h-4 w-4 shrink-0" />
+        <AlertDescription>{LBL.eligibleAlert}</AlertDescription>
+      </Alert>
+
+      <DataTable
+        columns={columns}
+        data={rows}
+        isLoading={query.isPending}
+        emptyMessage={LBL.emptyEligible}
+      />
+
+      {/* 申请确认弹窗（工单硬性要求的确认步；文案源意译英文） */}
+      <AlertDialog
+        open={applyTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setApplyTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{LBL.dialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {applyTarget
+                ? `${applyTarget.pairCode || applyTarget.pairId}: ${LBL.dialogBody}`
+                : LBL.dialogBody}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={apply.isPending}>
+              {LBL.dialogCancel}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={apply.isPending || !applyTarget}
+              onClick={(e) => {
+                e.preventDefault(); // 保持弹窗受控：成功后才关闭并切 tab
+                if (applyTarget) confirmApply(applyTarget);
+              }}
+            >
+              {apply.isPending ? 'Submitting…' : LBL.dialogConfirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
+
+/* ================================================================== */
+/* 页面装配                                                              */
+/* ================================================================== */
 
 export function PairListPage() {
-  const pairQuery = usePairListQuery(LP_PROJECT_ID);
-  const aggQuery = usePairPoolListQuery(LP_PROJECT_ID);
+  const queryClient = useQueryClient();
+  const [tab, setTab] = React.useState<'mine' | 'eligible'>('mine');
 
-  // 源 down 语义：pair 侧优先（源先判 pairRes），agg 侧仅在未命中时补位；
-  // 非 0024 失败不命中 → 降级条清除（旧数据保留）。
-  const down = React.useMemo(() => {
-    for (const err of [pairQuery.error, aggQuery.error]) {
-      if (err != null && isServiceDown(err)) return { traceId: err.traceId };
-    }
-    return null;
-  }, [pairQuery.error, aggQuery.error]);
-
-  // 聚合按 pairId 建 Map O(1) 查（源 aggMap）；一侧降级时另一侧数据仍在
-  const aggMap = React.useMemo(
-    () =>
-      new Map(
-        (aggQuery.data ?? []).map((a) => [a.pairId, a] as readonly [number, PairPoolAgg]),
-      ),
-    [aggQuery.data],
-  );
-
-  const rows = React.useMemo(() => pairQuery.data ?? [], [pairQuery.data]);
-
-  // 展开态（el-table expand 语义：多行可同时展开）
-  const [expanded, setExpanded] = React.useState<ReadonlySet<number>>(
-    () => new Set(),
-  );
-  const toggleExpand = React.useCallback((pairId: number) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(pairId)) next.delete(pairId);
-      else next.add(pairId);
-      return next;
+  /**
+   * 源 SyncRefreshButton @refreshed='loadAll'：两视图都刷。这里失效整个
+   * pair 家族——激活 tab 的活动查询立即重查；未挂载的 tab 缓存被标记失效，
+   * 下次切入自动重查（用户可见行为与 loadAll 等价，不会后台盲拉隐藏表）。
+   */
+  const refreshAll = React.useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: pairKeys.all(LP_PROJECT_ID),
     });
-  }, []);
-
-  const isLoading = pairQuery.isPending;
+  }, [queryClient]);
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          {LBL.eyebrow}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            {LBL.eyebrow}
+          </div>
+          <h1 className="text-xl font-semibold">{LBL.title}</h1>
         </div>
-        <h1 className="text-xl font-semibold">{LBL.title}</h1>
+        <SyncRefreshButton domain="pair" onRefreshed={refreshAll} />
       </div>
 
-      {down && <ServiceDownAlert traceId={down.traceId} />}
-
-      <div className="overflow-hidden rounded-lg border-border/60 bg-card shadow-float">
-        <table className="w-full caption-bottom text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th
-                scope="col"
-                className="h-10 w-12 px-2 text-left align-middle font-medium text-muted-foreground"
-                aria-label={LBL.expand}
-              />
-              <th
-                scope="col"
-                className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
-              >
-                Currency Pair
-              </th>
-              <th
-                scope="col"
-                className="h-10 w-28 px-4 text-left align-middle font-medium text-muted-foreground"
-              >
-                Participation
-              </th>
-              <th
-                scope="col"
-                className="h-10 w-28 px-4 text-left align-middle font-medium text-muted-foreground"
-              >
-                Pair Status
-              </th>
-              <th
-                scope="col"
-                className="h-10 w-28 px-4 text-left align-middle font-medium text-muted-foreground"
-              >
-                Slippage Threshold
-              </th>
-              <th
-                scope="col"
-                className="h-10 w-28 px-4 text-left align-middle font-medium text-muted-foreground"
-              >
-                Capability
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              Array.from({ length: SKELETON_ROWS }).map((_, i) => (
-                <tr key={`skeleton-${i}`}>
-                  {Array.from({ length: COL_COUNT }).map((__, ci) => (
-                    <td key={ci} className="px-4 py-3">
-                      <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-                    </td>
-                  ))}
-                </tr>
-              ))
-            ) : rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={COL_COUNT}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  {LBL.empty}
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => {
-                const open = expanded.has(row.pairId);
-                return (
-                  <React.Fragment key={row.pairId}>
-                    <tr
-                      className={`
-                        transition-colors hover:bg-muted/50
-                        ${row.participationStatus === 50 ? 'text-muted-foreground' : ''}
-                      `.trim()}
-                    >
-                      <td className="px-2 py-3 align-middle">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          aria-expanded={open}
-                          aria-label={open ? LBL.collapse : LBL.expand}
-                          onClick={() => toggleExpand(row.pairId)}
-                        >
-                          <ChevronRight
-                            className={`h-4 w-4 transition-transform ${
-                              open ? 'rotate-90' : ''
-                            }`}
-                          />
-                        </Button>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        {row.sourceCurrency}→{row.targetCurrency}
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <ParticipationBadge status={row.participationStatus} />
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <PairStatusBadge status={row.pairStatus} />
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <Num>{row.slippageThreshold ?? '-'}</Num>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        {row.capable ? (
-                          <Badge>{LBL.capableYes}</Badge>
-                        ) : (
-                          <Badge variant="destructive">{LBL.capableNo}</Badge>
-                        )}
-                      </td>
-                    </tr>
-                    {open && (
-                      <tr>
-                        <td colSpan={COL_COUNT} className="px-4 py-2 align-top">
-                          <PairExpandBody agg={aggMap.get(row.pairId)} />
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Card>
+        <CardContent className="pb-6">
+          <TooltipProvider delayDuration={200}>
+            <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+              <TabsList>
+                <TabsTrigger value="mine">{LBL.mineTab}</TabsTrigger>
+                <TabsTrigger value="eligible">{LBL.eligibleTab}</TabsTrigger>
+              </TabsList>
+              <TabsContent value="mine" className="mt-4">
+                <MineTable />
+              </TabsContent>
+              <TabsContent value="eligible" className="mt-4">
+                <EligibleTable onApplied={() => setTab('mine')} />
+              </TabsContent>
+            </Tabs>
+          </TooltipProvider>
+        </CardContent>
+      </Card>
     </div>
   );
 }

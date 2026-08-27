@@ -24,7 +24,7 @@ export { formatTime, formatMoney, maskAddress } from './lib/format';
 export { ChangePwdPage } from './lib/change-pwd-page';
 export { ProfilePage } from './lib/profile-page';
 
-// ── 资金池（B1 真实页：单页只读，无 create/edit/detail 子页面）─────────
+// ── 资金池（B1 真实页 v2：单页列表 + 开池申请页内弹窗，无 create/edit/detail 子路由）───
 export { PoolListPage } from './lib/pool-pages';
 
 // ── 补资（B2 真实页：只读分页列表，无 create/detail 路由）──────────────

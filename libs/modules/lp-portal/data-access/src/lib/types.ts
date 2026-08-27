@@ -72,24 +72,25 @@ export interface BankGroupRow {
   >;
 }
 
-// ===== 资金池(POST /lp/pool/list,不分页) =====
+// ===== 资金池(POST /lp/pool/list,不分页;v2 源本地副本,水位/状态随行下发) =====
 
 export interface PoolRow {
   poolId: number;
-  currency: string;
-  /** 账户地址,页面经 maskAddress 掩码展示 */
-  accountAddress: string;
-  /** 1 链上 EVM / 2 Aptos / 3 内部系统 */
-  currencySystemType: number;
-  minLimit: number;
-  /** 水位提醒阈值(比率 0〜1,与 level 比较,非金额;裁决 C-8) */
-  remindThreshold: number;
-  availableBalanceCache: number;
-  balanceUpdateTime: number;
-  /** 水位 = 余额缓存 ÷ 最低限额,小数比率(如 0.2 即 20%);minLimit≤0 时为 null(裁决 C-7) */
-  level: number | null;
-  /** 20 正常 / 50 停用 */
+  tokenId: number;
+  tokenNo: string;
+  tokenCode: string;
+  bankCode: string;
+  /** 池地址,页面经 maskAddress 掩码展示 */
+  poolAddress: string;
+  /** 5 申请中 / 15 已驳回 / 20 已开通 / 50 停用 */
   status: number;
+  /** 驳回原因(status=15 时状态格 tooltip 展示) */
+  rejectReason: string;
+  availableBalanceCache: string | number;
+  balanceUpdateTime: number | null;
+  /** 水位小数比率字符串(如 "0.2");分母(最低流动性)缺失时 null */
+  level: string | null;
+  syncTime: number;
 }
 
 // ===== 补资(POST /lp/topup/list,分页;默认按 declare_time 倒序,裁决 C-12) =====
@@ -135,91 +136,13 @@ export interface RateRow {
   syncTime: number;
 }
 
-// ===== 货币对参与(POST /lp/pair/list,不分页) =====
-
-export interface PairRow {
-  pairId: number;
-  sourceCurrency: string;
-  targetCurrency: string;
-  /** 参与状态 20 生效 / 50 停用(灰显) */
-  participationStatus: number;
-  /** 货币对状态 20 启用 / 50 停用 */
-  pairStatus: number;
-  /** 滑点阈值,空显 '-' */
-  slippageThreshold?: number | null;
-  /** 解付能力(api 侧判定 FR-P-10,前端只渲染) */
-  capable: boolean;
-}
-
-// ===== 预授权项(pair-pool 聚合内嵌,与 pool/detail 同构) =====
-
-export interface PreauthItem {
-  preauthId: number;
-  authAmount: number;
-  usedAmount: number;
-  /** 剩余 = 授权额度 减 已用 */
-  remaining: number;
-  validFrom: number;
-  validTo: number;
-  /** CommonStatusEnum:20 有效 / 50 已撤销 */
-  status: number;
-}
-
-// ===== 货币对资金池聚合(POST /lp/pair-pool/list,不分页;裁决 C-9 以后端契约为准) =====
-
-/** 源币种池;最近变动 = 该池最近一笔补资 */
-export interface PairPoolSourcePool {
-  poolId: number;
-  currency: string;
-  availableBalanceCache: number;
-  balanceUpdateTime: number;
-  /** 最近一笔补资;无则 null */
-  lastTopup: {
-    topupId: number;
-    amount: number;
-    declareTime: number;
-    /** 1 已声明 / 2 已到账 / 3 失败 */
-    status: number;
-  } | null;
-}
-
-/** 目标币种池 */
-export interface PairPoolTargetPool {
-  poolId: number;
-  currency: string;
-  availableBalanceCache: number;
-  minLimit: number;
-  /** 水位提醒阈值(比率 0〜1,与 level 比较,非金额;裁决 C-8) */
-  remindThreshold: number;
-  /** 水位小数比率(如 0.2 即 20%);minLimit≤0 时 null(裁决 C-7) */
-  level: number | null;
-  balanceUpdateTime: number;
-}
-
-export interface PairPoolAgg {
-  pairId: number;
-  sourceCurrency: string;
-  targetCurrency: string;
-  /** 参与状态 20 生效 / 50 停用 */
-  participationStatus: number;
-  /** 源币种池;缺池(缺口 NO_POOL)时 null */
-  sourcePool: PairPoolSourcePool | null;
-  /** 目标币种池;缺池(缺口 NO_POOL)时 null */
-  targetPool: PairPoolTargetPool | null;
-  /** 目标币种预授权列表(裁决 C-9:数组,非单个 preauth) */
-  preauths: PreauthItem[];
-  /** 解付能力判定(api 算,前端只渲染) */
-  capable: boolean;
-  /** 缺口码:NO_POOL/NO_PREAUTH/PREAUTH_EXPIRED/QUOTA_INSUFFICIENT/LOW_LEVEL/PARTICIPATION_STOPPED(中文文案映射由前端承担,裁决 C-4) */
-  gaps: string[];
-}
-
 // ===== 交易流水(POST /lp/tx-flow/list 分页;GET /lp/tx-flow/chain/{transactionId}) =====
 
 export interface TxListReq {
   /** TransactionStatusEnum 13 值 */
   status?: number;
-  pairId?: number;
+  /** 货币对编码（如 PR-xxxx），源 types/business.ts TxListReq.pairCode */
+  pairCode?: string;
   startTime?: number;
   endTime?: number;
 }

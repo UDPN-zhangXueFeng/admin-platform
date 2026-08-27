@@ -5,9 +5,9 @@
  *
  * AppShell 内（(app) 路由组，firstLogin 锁与会话门禁由 LpAppShell 承担）：
  * 账号信息卡 + 修改密码入口卡。会话读本地持久化的 LoginRespVO（kissen-lp.user，
- * 源 profile 直读 store.userInfo；无服务端读端点）。LoginRespVO 仅有 lpId，
- * 无 lpName/lpCode 字段——迁移矩阵 D11「所属 LP(lpName(lpCode))」与源实测
- * （LP ID 列）不符，按源渲染 LP ID（Rule 7：以直读源为准并在此标记）。
+ * 源 profile 直读 store.userInfo；无服务端读端点）。第三行「所属 LP」：
+ * lpName 主值 + 副行 (lpCode)，空值兜底 '-'（迁移矩阵 D11「所属 LP(lpName(lpCode))」）。
+ * 此前注释误判源无 lpName/lpCode 字段并降级渲染 LP ID，FAIL 修复 A 更正回源语义。
  *
  * 改造点：改密表单不再内嵌于本页（源卡2「修改密码表单」），收敛为入口跳转
  * /change-pwd —— useLpSessionQuery 读会话、useRouter 跳转（自动携带 locale
@@ -38,12 +38,14 @@ export function ProfilePage() {
   const { data: session } = useLpSessionQuery(LP_PROJECT_ID);
 
   // 源 el-descriptions :column="1" 三行；空值兜底 '-' 与源 ||'-'/??'-' 一致。
-  const info = [
+  const info: { label: string; value: string; sub?: string }[] = [
     { label: 'Login Name', value: session?.loginName || '-' },
     { label: 'Name', value: session?.userName || '-' },
     {
-      label: 'LP ID',
-      value: session?.lpId != null ? String(session.lpId) : '-',
+      label: 'Affiliated LP',
+      // 源语义：lpName 主值，副行 (lpCode)；空回退 '-'（矩阵 D11）。
+      value: session?.lpName ? session.lpName : '-',
+      sub: session?.lpCode ? `(${session.lpCode})` : '-',
     },
   ];
 
@@ -71,8 +73,13 @@ export function ProfilePage() {
                 <dt className="text-sm text-muted-foreground">
                   {item.label}
                 </dt>
-                <dd className="min-w-0 truncate text-sm font-medium">
-                  {item.value}
+                <dd className="min-w-0">
+                  <div className="truncate text-sm font-medium">{item.value}</div>
+                  {item.sub && (
+                    <div className="truncate text-xs text-muted-foreground">
+                      {item.sub}
+                    </div>
+                  )}
                 </dd>
               </div>
             ))}
