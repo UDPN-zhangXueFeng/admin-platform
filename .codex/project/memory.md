@@ -658,3 +658,50 @@
 4. **admin 会话 = cookie(TOKEN_COOKIE_KEY) + localStorage(userInfo) 双处**：浏览器冒烟清会话必须连 cookie 一起清，只删 localStorage 会被 auth guard 弹回 dashboard。
 5. **Radix DropdownMenu 偶发鼠标点击不开**（pointer-events 正常仍无响应）：自动化测试里用 focus + Enter 键盘路径稳定打开；switcher 三项下拉已实测可切换。
 6. 验证：tsc/lint ✅；实测 azure/midnight 切换、`--primary`/`--brand-deep`/`--illus-accent` 联动、刷新首帧防闪（domcontentloaded 时 data-theme 已就位）、localStorage 持久化、登录页内联插画跟随主题。截图 `.doc/kissen/project/admin/verify/theme/`。
+
+## 2026-08-28 三门户统一商务/区块链主题组
+
+- configs/kissen-admin.json、configs/kissen-gateway.json、configs/lp-portal.json 已统一为 5 个配置驱动 palette：deep-ocean、graphite-gold、chain-indigo、forest-mint、carbon-lime；默认均为 deep-ocean。
+- 每个 palette 保留完整的 primary/ring、登录渐变、banner 与插画 token；主题切换器、独立 localStorage key 和首帧防闪机制不变。后续调整主题只改三份配置的 theme.themes，不要回退到各项目独立色板。
+
+## 2026-08-28 登录品牌区主题绑定
+
+- kissen-admin 登录页左侧品牌区必须显式传入 login-grad-a/b/c，否则 shared MockLoginPage 会使用固定紫色默认渐变，导致与主题插画和字标脱节；tagline 同样使用 --brand-deep，内联 LoginIllustration 使用 --illus-*。
+- 三门户主题组现为 10 个：原有 5 个商务/区块链主题 + Pearl Cyan、Royal Sky、Amber Signal、Orchid Pink、Solar Mint 5 个亮色主题。
+
+## 2026-08-28 LP/Gateway 登录表单宽度
+
+- LP 与 gateway 登录页右侧表单容器统一 `max-width: 400px`，LP 通过 shared `MockLoginPage.formClassName` 显式传入，gateway 直接在页面容器声明；不要依赖 auth DOM selector 覆盖宽度。
+
+## 2026-08-28 三门户登录密码可见性
+
+- shared `MockLoginPage` 密码输入统一使用 `PasswordField`；gateway 登录页原本已使用该组件，因此三个门户均具备 Eye/EyeOff 切换和对应 aria-label，不要在各 app 内重复实现密码显示状态。
+
+## 2026-08-28 英文日期时间控件
+
+- kissen-admin 英文环境的 datetime-local 字段由 shared `FormField` 使用 Radix Popover + react-day-picker + Radix Select 组合，固定英文日期/时间 UI，提交值仍保持 `YYYY-MM-DDTHH:mm`；不要恢复原生 datetime-local，否则会重新受浏览器 locale 控制。
+
+## 2026-08-28 Gateway Header 品牌标识
+
+- Gateway `LogoMark` 的 viewBox 比例约为 5:1，使用固定窄宽度会把图标和字标压扁；Header 中应使用 `h-* w-auto` 保持原始比例，并控制高度与系统标题同一视觉层级。
+
+## 2026-08-28 Gateway 登录品牌插画
+
+- Gateway 登录页原来的 `public/login-illustration.svg` 使用固定紫色，不能跟随主题；登录页改用 `components/brand/login-illustration.tsx` 的 inline SVG，所有主要填充、描边和阴影接入 `--illus-*` token。品牌副标题使用 `--brand-deep`，Gateway badge 使用主题深色，避免亮色主题下对比度不足。
+- inline 版本必须同步保留原 SVG 的 float/pulse/flow CSS 动效，并通过 `prefers-reduced-motion` 关闭动画。
+
+## 2026-08-28 LP v2.4（上游 6c49396）split-settle 合并页同步
+
+- lp-portal 同步收口：split/settle/preauth 三页 clean cutover 为单页 `/split-settle`（registry/configs/lp-routes/barrel 全删无 shim，键名=路由段）；`lp:settle`→`/split-settle`，icon Money。
+- data-access 类型必须用 wire 真名：SplitRow 早期被改名 sourceCurrency/targetCurrency 但 raw api 无映射层，浏览器冒烟暴露 Token Pair 列全 '-'；改名只允许发生在展示层，改后以真实响应（git show 上游 types + network 面板）复核。
+- dashboard 页头 Refresh=summary+volume 双拉：refreshSeq state 传 VolumeCard 触发 refetch；折线 pair/currency 切换纯客户端重分组，network 面板零新请求即为实证。
+- lastSyncedSha 只经 `bash .claude/skills/lp-sync/scripts/diff-upstream.sh --apply <sha>` 推进；本轮已推进至 6c49396。
+- 浏览器冒烟入口：`xd://browser` open 超时的情况下改走 chrome-devtools MCP（new_page/take_snapshot/wait_for）；lp-portal dev 登录预填凭据在 apps/lp-portal/.env.local，端口 3300 非 4200。
+- edit 工具行号漂移在长文件上反复发作（本批次 3 次）；策略：大改 write 整文件、小段 PUT 后立即复查输出。
+
+## 2026-08-28 三门户服务器部署（10.0.7.20 :6242/:6243/:6244）
+
+- 部署形态：/data/{kissen-admin,lp-portal,kissen-gateway-portal} 三份都是本 monorepo 的完整镜像副本（无 git），各自 build.sh 用专属 docker-compose.*.yml 构建起 app+nginx 双容器；`bash /data/redeploy-all.sh` 串行三应用。
+- 同步用 `rsync -a --delete` + 保护过滤（exclude 即保护不删）：必须排除 build.sh、docker-compose.*.yml、nginx、nginx-kissen、**nginx-lp、nginx-gateway（各副本专属 nginx 上下文）**、logs、.env.local、.npmrc、*.tsbuildinfo、.git/node_modules/.next/.nx/.claude 等；漏一个服务器专有目录就会被 --delete 清掉（本次 nginx-gateway/Dockerfile+default.conf 被删，靠运行容器里的 conf 反抽 + 模板 Dockerfile 重建，proxy_pass 占位符手工回填 `${NEXT_SERVICE_SERVER_URL}`）。
+- BuildKit 拉 node:22-alpine metadata 偶发挂死（>10min 无输出）：kill 重跑即可（重试 90s 完成），不是代码问题。
+- 线上冒烟：chrome-devtools MCP 直开 http://10.0.7.20:6243（prod 无 dev 预填，手填 TESTLP01/testlp01_admin/Kissen@123）；6242/6244 以 `<title>` + 200 收口。

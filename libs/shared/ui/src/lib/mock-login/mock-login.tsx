@@ -4,8 +4,10 @@ import * as React from 'react';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { Button } from '../button';
 import { Input } from '../input';
+import { PasswordField } from '../password-field';
 import { Label } from '../label';
 import { Separator } from '../separator';
+import { cn } from '../utils';
 
 /* -------------------------------------------------------------------------- */
 /*  Props                                                                       */
@@ -44,6 +46,8 @@ export interface MockLoginPageProps {
   taglineColor?: string;
   /** Right-panel title colour. */
   titleColor?: string;
+  /** Maximum-width and layout classes for the right-panel form content. */
+  formClassName?: string;
   /** Submit button label. */
   submitLabel?: string;
   /** Custom submit handler (replaces mock cookie logic). When provided, the form calls this instead. */
@@ -99,6 +103,7 @@ export function MockLoginPage({
   brandSuffixBg = 'bg-[#00a5d5]',
   taglineColor = 'text-[#172260]',
   titleColor = 'text-[#554eea]',
+  formClassName,
   submitLabel = 'Sign In',
   onSubmit,
   lpCodeField,
@@ -188,7 +193,7 @@ export function MockLoginPage({
 
       {/* ── Right: form panel ─────────────────────────────────────────────── */}
       <section className="flex min-h-screen items-center justify-center px-6 py-10 sm:px-10 lg:px-24">
-        <div className="w-full">
+        <div className={cn('w-full', formClassName)}>
           {warningNotice && (
             <div
               role="alert"
@@ -235,10 +240,9 @@ export function MockLoginPage({
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordField
                 id="password"
                 name="password"
-                type="password"
                 placeholder="Enter your password"
                 defaultValue={onSubmit ? '' : 'admin123'}
                 autoComplete="current-password"
