@@ -99,6 +99,8 @@ export interface BankInfo {
  *  Official Website / Description / Registration Time 为协议扩展依赖（P1），下发前前端占位 '-'。 */
 export interface BankQueryItem {
   bankId?: number;
+  /** 是否本行（03716c8 新增：后端按 kissen.bank-code 比对下发；未下发按外部银行）。 */
+  self?: boolean;
   bankName?: string;
   bankCode?: string;
   bic?: string;

@@ -294,7 +294,7 @@ export function KissenAppShell({
         collapsed: 'w-[68px] min-[1600px]:w-[68px]',
       }}
       logo={
-        <LogoMark className="h-10 w-[52px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[62px]" />
+        <LogoMark className="h-8 w-auto shrink-0 min-[1600px]:h-9" />
       }
       trailing={
         <>

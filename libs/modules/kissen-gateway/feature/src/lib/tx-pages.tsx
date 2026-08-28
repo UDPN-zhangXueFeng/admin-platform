@@ -324,7 +324,7 @@ export function TxListPage() {
               <div className="flex items-center gap-2">
                 <div className="flex flex-col items-center gap-0.5">
                   <Badge variant="outline">
-                    {pair.sourceSymbol || pair.sourceTokenCode || '-'}
+                    {pair.sourceTokenSymbol || pair.sourceTokenCode || '-'}
                   </Badge>
                   <span className="text-[11px] text-muted-foreground">
                     {pair.sourceBankCode || '-'}
@@ -336,7 +336,7 @@ export function TxListPage() {
                     variant="outline"
                     className="border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400"
                   >
-                    {pair.targetSymbol || pair.targetTokenCode || '-'}
+                    {pair.targetTokenSymbol || pair.targetTokenCode || '-'}
                   </Badge>
                   <span className="text-[11px] text-muted-foreground">
                     {pair.targetBankCode || '-'}
@@ -371,7 +371,7 @@ export function TxListPage() {
               {/* 下行金额：本金 + 源侧符号（源 srcSymbol，缺缓存 '-'）。 */}
               <div className="mt-0.5 text-xs tabular-nums">
                 {fmtAmount(row.original.principal)}{' '}
-                {pair?.sourceSymbol || pair?.sourceTokenCode || '-'}
+                {pair?.sourceTokenSymbol || pair?.sourceTokenCode || '-'}
               </div>
             </div>
           );

@@ -135,7 +135,7 @@ function FxPairRow({ row }: { row: FxPairItem }) {
         <div className="inline-flex items-center gap-2.5">
           <div className="inline-flex flex-col items-center gap-[3px]">
             <Badge variant="outline">
-              {pair.sourceSymbol || pair.sourceTokenCode || '-'}
+              {pair.sourceTokenSymbol || pair.sourceTokenCode || '-'}
             </Badge>
             <span className="text-[11px] text-muted-foreground">
               {pair.sourceBankCode || '-'}
@@ -147,7 +147,7 @@ function FxPairRow({ row }: { row: FxPairItem }) {
               variant="outline"
               className="border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400"
             >
-              {pair.targetSymbol || pair.targetTokenCode || '-'}
+              {pair.targetTokenSymbol || pair.targetTokenCode || '-'}
             </Badge>
             <span className="text-[11px] text-muted-foreground">
               {pair.targetBankCode || '-'}

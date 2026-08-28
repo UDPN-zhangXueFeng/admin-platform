@@ -13,6 +13,7 @@ import {
   useAuthLoginMutation,
   useBrandQuery,
 } from '@myorg/modules/kissen-gateway/data-access';
+import { LoginIllustration } from '@/components/brand/login-illustration';
 
 // feature 库在本 app 内为 lazy-loaded（module-page-registry 动态导入），
 // 边界规则禁止静态导入 —— 首登改密弹窗仅在登录成功后渲染，走动态分片。
@@ -153,33 +154,27 @@ export default function LoginRoute() {
             >
               <span className="text-6xl font-black italic leading-none tracking-[-0.11em] text-[var(--brand-deep,#0B6B53)]">
                 {brand.name.charAt(0)}
-                <span className="text-[var(--brand-accent,#45D0A0)]">
+                <span className="text-white/80">
                   {brand.name.slice(1)}
                 </span>
               </span>
-              <span className="mb-1 ml-3 rounded-sm bg-[var(--brand-accent,#45D0A0)] px-2 py-0.5 text-base font-medium text-white">
+              <span className="mb-1 ml-3 rounded-sm bg-[var(--brand-deep,#0B1F3A)] px-2 py-0.5 text-base font-medium text-white">
                 Gateway
               </span>
             </div>
-            <p className="mx-auto mt-10 text-2xl font-semibold leading-relaxed text-[#172260]">
+            <p className="mx-auto mt-10 text-2xl font-semibold leading-relaxed text-[var(--brand-deep,#0B1F3A)]">
               {brand.subtitle}
             </p>
 
             <div className="mt-7 flex min-h-0 flex-1 items-center justify-center">
-              <img
-                src="/login-illustration.svg"
-                alt=""
-                width="720"
-                height="560"
-                className="h-auto w-auto max-h-[46vh] max-w-full select-none"
-              />
+              <LoginIllustration className="h-auto w-auto max-h-[46vh] max-w-full select-none" />
             </div>
           </div>
         </section>
 
         {/* ── 右：登录表单（源 login/index.vue 卡片语义）────────────────── */}
         <section className="flex min-h-screen items-center justify-center px-6 py-10 sm:px-10 lg:px-14">
-          <div className="w-full">
+          <div className="w-full max-w-[400px]">
             <div className="mb-10 flex flex-col items-center gap-3 text-center">
               {/* 源 login-brand：logo + 标题 + 副标题 */}
               <span className="text-5xl leading-none" aria-hidden="true">

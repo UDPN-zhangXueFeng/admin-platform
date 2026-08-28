@@ -65,6 +65,8 @@ type BankTokenSummary = {
 type BankQueryRow = {
   id: string;
   bankId?: number;
+  /** 是否本行（03716c8：后端按 kissen.bank-code 比对下发；未下发按外部银行）。 */
+  self?: boolean;
   bankName?: string;
   bankCode?: string;
   bic?: string;
@@ -94,9 +96,9 @@ function currencySystemText(row: BankQueryRow): string {
   return row.currencySystemName ? `${type} · ${row.currencySystemName}` : type;
 }
 
-/** 源列头（Bank ID/银行名称/银行编码/BIC/货币系统/官网/可交易 token/推送时间）。 */
+/** 源列头（03716c8 起 Bank Type/银行名称/银行编码/BIC/货币系统/官网/可交易 token/推送时间）。 */
 const BANK_QUERY_HEADERS = [
-  'Bank ID',
+  'Bank Type',
   'Bank Name',
   'Bank Code',
   'BIC',
@@ -134,10 +136,14 @@ export function BankQueryListPage() {
   const columns = React.useMemo<ColumnDef<BankQueryRow>[]>(
     () => [
       {
-        id: 'bankId',
+        // 03716c8 替换原 Bank ID 列：self → success「本行」/ info「外部银行」
+        //（Element tag 映射：success→default、info→outline，与 BANK_ONBOARD_STATUS 同口径）。
+        id: 'bankType',
         header: BANK_QUERY_HEADERS[0],
         cell: ({ row }) => (
-          <span className="tabular-nums">{row.original.bankId ?? '-'}</span>
+          <Badge variant={row.original.self ? 'default' : 'outline'}>
+            {row.original.self ? 'Own Bank' : 'External Bank'}
+          </Badge>
         ),
       },
       {

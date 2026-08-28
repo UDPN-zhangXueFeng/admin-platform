@@ -13,12 +13,14 @@ export interface FxTokenPair {
   sourceTokenNo?: string;
   sourceTokenCode: string;
   sourceTokenName?: string;
-  sourceSymbol?: string;
+  /** 源 token symbol（gw_token_pair.source_token_symbol；03716c8 由 sourceSymbol 重命名对齐后端字段名）。 */
+  sourceTokenSymbol?: string;
   sourceBankCode?: string;
   targetTokenNo?: string;
   targetTokenCode: string;
   targetTokenName?: string;
-  targetSymbol?: string;
+  /** 目标 token symbol（gw_token_pair.target_token_symbol；03716c8 由 targetSymbol 重命名）。 */
+  targetTokenSymbol?: string;
   targetBankCode?: string;
   userRate: number;
   status: number;

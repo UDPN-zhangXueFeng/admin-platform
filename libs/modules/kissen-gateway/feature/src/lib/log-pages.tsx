@@ -237,10 +237,16 @@ export function LogListPage() {
                         <td className="px-4 py-3 align-middle tabular-nums">
                           {formatTime(row.operateTime)}
                         </td>
-                        <td className="px-4 py-3 align-middle">
-                          {orDash(row.operateName)}
+                        <td className="max-w-[12rem] px-4 py-3 align-middle">
+                          <span className="block truncate" title={orDash(row.operateName)}>
+                            {orDash(row.operateName)}
+                          </span>
                         </td>
-                        <td className="px-4 py-3 align-middle">{row.module}</td>
+                        <td className="max-w-[10rem] px-4 py-3 align-middle">
+                          <span className="block truncate" title={orDash(row.module)}>
+                            {orDash(row.module)}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 align-middle">
                           <Badge variant={logBusinessTypeVariant(row.businessType)}>
                             {logBusinessTypeText(row.businessType)}

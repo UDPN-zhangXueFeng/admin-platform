@@ -654,8 +654,10 @@ function InstanceListCard({
               ) : (
                 detail.instances.map((row) => (
                   <tr key={row.instanceId}>
-                    <td className="px-4 py-3 align-middle font-mono">
-                      {orDash(row.instanceId)}
+                    <td className="max-w-[16rem] px-4 py-3 align-middle font-mono">
+                      <span className="block truncate" title={orDash(row.instanceId)}>
+                        {orDash(row.instanceId)}
+                      </span>
                     </td>
                     <td className="px-4 py-3 align-middle">
                       <Badge variant={instanceConnectivityVariant(row.connectivity)}>
@@ -667,8 +669,13 @@ function InstanceListCard({
                         {row.activated ? 'Activated' : 'Not Activated'}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 align-middle">
-                      {instanceCredentialModeText(row.credentialMode)}
+                    <td className="max-w-[10rem] px-4 py-3 align-middle">
+                      <span
+                        className="block truncate"
+                        title={instanceCredentialModeText(row.credentialMode)}
+                      >
+                        {instanceCredentialModeText(row.credentialMode)}
+                      </span>
                     </td>
                   </tr>
                 ))
