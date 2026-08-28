@@ -36,7 +36,12 @@ export function BrandProvider() {
     root.setProperty('--ks-clearing', brand.primaryColor);
     root.setProperty('--el-color-primary', brand.primaryColor);
     root.setProperty('--el-color-success', brand.primaryColor);
-    // 本项目主题映射（hex → HSL 通道三元组，见组件注释）
+    // 本项目主题映射（hex → HSL 通道三元组，见组件注释）。
+    // 主题系统激活时让位：config theme.themes 非空时 layout 防闪脚本
+    // 会在首帧前写 documentElement.dataset.theme，此刻以它为开关——
+    // --primary/--ring 归主题块接管（内联样式会压过任何 CSS 块，若
+    // 无条件注入则切主题对主色不生效）；无主题配置的部署保持源行为。
+    if (document.documentElement.dataset.theme) return;
     const hsl = hexToHslChannels(brand.primaryColor);
     root.setProperty('--primary', hsl);
     root.setProperty('--ring', hsl);

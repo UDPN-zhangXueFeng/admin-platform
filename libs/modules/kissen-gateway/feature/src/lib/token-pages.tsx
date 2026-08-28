@@ -1,15 +1,16 @@
 'use client';
 
 /**
- * Token 管理页（源 `views/token/manage.vue`：12 列表格 + 注册/重提 dialog）。
+ * Token 管理页（源 `views/token/manage.vue`：10 列表格 + 注册 dialog）。
  * 路由 /token/manage（registry：token → list）。
  *
- * - 12 列：tokenCode/tokenName/symbol/decimalDigits/chainType/anchorFiat/
- *   tokenType(P2 占位)/tokenNo/minLiquidity/status/pushTime/操作。
+ * - 10 列（39c8a2b UDPN 列序）：tokenName/symbol/decimalDigits/anchorFiat/
+ *   chainType/tokenCode/tokenNo/minLiquidity/status/pushTime。
  * - 状态列驳回原因：源 el-tooltip(:disabled="!row.rejectReason") → Badge 外
  *   包 span 的 Radix Tooltip（Badge 不转发 ref，asChild 需原生 span）。
- * - 仅 status===30（已驳回）且持 'bank:token:submit' 权限的行显示「Resubmit」；
- *   头部「Register Token」同权限门控（源 v-perm 未命中即不渲染）。
+ * - 39c8a2b：「同步状态」按钮与 status 驳回态行内「Resubmit」入口一并移除
+ *   （审核结果由平台 biz-event 推送回写）；仅头部「Register Token」保留
+ *   'bank:token:submit' 权限门控（源 v-perm 未命中即不渲染）。
  * - 源 el-select filterable allow-create（链类型/锚定法币可输入自定义值）→
  *   原生 input[datalist] 组合框（禁新依赖下最贴近的等价物：可选可输）。
  * - 服务端状态 TanStack Query；列表失败 toast + Retry（tx/user 页约定）。
@@ -35,7 +36,6 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-  createActionColumn,
   useToast,
 } from '@myorg/shared/ui';
 import { FormField, createFormResolver } from '@myorg/shared/ui-forms';
@@ -43,7 +43,6 @@ import { FormField, createFormResolver } from '@myorg/shared/ui-forms';
 import {
   tokenStatusText,
   tokenStatusVariant,
-  useRefreshTokensMutation,
   useSubmitTokenMutation,
   useTokenListQuery,
   type TokenInfo,
@@ -53,11 +52,9 @@ import { fmtAmount, formatTime } from './kit';
 import { PageHead } from './page-head';
 import { useGatewayPerm } from './use-gateway-perm';
 
-/** token 提交权限码（源 v-perm="'bank:token:submit'"，头部+行内两处）。 */
+/** token 提交权限码（源 v-perm="'bank:token:submit'"，头部注册入口）。 */
 const TOKEN_SUBMIT_PERM = 'bank:token:submit';
 
-/** 已驳回态（仅此状态行内出现「修改重提」，源 row.status === 30）。 */
-const TOKEN_STATUS_REJECTED = 30;
 
 /** 源 chainOptions（el-select allow-create 枚举，输入自定义值亦合法）。 */
 const CHAIN_OPTIONS = ['Ethereum', 'BSC', 'TRON', 'Aptos', 'Polygon', 'Arbitrum'];
@@ -65,22 +62,9 @@ const CHAIN_OPTIONS = ['Ethereum', 'BSC', 'TRON', 'Aptos', 'Polygon', 'Arbitrum'
 /** 源 fiatOptions（ISO 4217 锚定法币枚举，同样 allow-create）。 */
 const FIAT_OPTIONS = ['USD', 'CNY', 'EUR', 'HKD', 'JPY', 'KRW', 'SGD', 'GBP'];
 
-/**
- * token 类型文案（协议扩展 P2 占位，源 tokenTypeText）：1=Stablecoin /
- * 5=Tokenized Deposit / 20=Tokenized MMF；未下发 → '-'。
- */
-const TOKEN_TYPE_TEXT: Record<number, string> = {
-  1: 'Stablecoin',
-  5: 'Tokenized Deposit',
-  20: 'Tokenized MMF',
-};
-
-function tokenTypeText(type?: number): string {
-  return type == null ? '-' : (TOKEN_TYPE_TEXT[type] ?? `Unknown (${type})`);
-}
 
 /* ================================================================== */
-/* 注册/重提对话框（源 el-dialog 9 字段 + formRules 六项必填）           */
+/* 注册对话框（源 el-dialog 9 字段 + formRules 六项必填）           */
 /* ================================================================== */
 
 /**
@@ -121,44 +105,20 @@ const TOKEN_FORM_DEFAULT: TokenFormValues = {
   remark: '',
 };
 
-/** 对话框打开态：create=注册 / resubmit=驳回后修改重提（携带回填行）。 */
-interface TokenDialogState {
-  mode: 'create' | 'resubmit';
-  row?: TokenInfo;
-}
-
 /**
- * 注册/重提对话框。由父级条件渲染——每次打开重新挂载，defaultValues
- * 即回填结果（等价源 openCreate/openResubmit 的 Object.assign(form, …)
- * + nextTick clearValidate）。
+ * 注册对话框。由父级条件渲染——每次打开重新挂载（等价源 openCreate 的
+ * Object.assign(form, emptyForm()) + nextTick clearValidate）；39c8a2b 后
+ * 仅注册态（驳回重提流程已随「同步状态」一并移除）。
  */
-function TokenSubmitDialog({
-  state,
-  onClose,
-}: {
-  state: TokenDialogState;
-  onClose: () => void;
-}) {
+function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
   const toast = useToast();
   const submitMutation = useSubmitTokenMutation();
-  const editing = state.mode === 'resubmit';
 
   const { register, handleSubmit, control, formState } =
     useForm<TokenFormValues>({
       resolver: createFormResolver(tokenFormSchema),
       mode: 'onTouched',
-      defaultValues: editing
-        ? {
-            // 源 openResubmit：仅回填六个业务字段，可选三字段保持空。
-            ...TOKEN_FORM_DEFAULT,
-            tokenCode: state.row?.tokenCode ?? '',
-            tokenName: state.row?.tokenName ?? '',
-            symbol: state.row?.symbol ?? '',
-            decimalDigits: String(state.row?.decimalDigits ?? 8),
-            chainType: state.row?.chainType ?? '',
-            anchorFiat: state.row?.anchorFiat ?? '',
-          }
-        : TOKEN_FORM_DEFAULT,
+      defaultValues: TOKEN_FORM_DEFAULT,
     });
 
   const onSubmit = handleSubmit((v) => {
@@ -182,9 +142,9 @@ function TokenSubmitDialog({
             toast.warning(
               `An application with this token code already exists (current status: ${tokenStatusText(
                 resp.status,
-              )}); nothing was resubmitted`,
+              )}); the request was not sent again`,
             );
-          } else if (resp.status === 10) {
+          } else if (resp.status === 5) {
             // 源 success：已提交注册,等待平台审核。
             toast.success('Registration submitted, waiting for platform review');
           } else {
@@ -205,11 +165,9 @@ function TokenSubmitDialog({
       {/* 源 el-dialog width="560px"。 */}
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>{editing ? 'Resubmit Token' : 'Register Token'}</DialogTitle>
+          <DialogTitle>Register Token</DialogTitle>
           <DialogDescription>
-            {editing
-              ? 'Update the rejected application and resubmit it for review'
-              : 'Register a new token for this instance'}
+            Register a new token for this instance
           </DialogDescription>
         </DialogHeader>
 
@@ -219,7 +177,7 @@ function TokenSubmitDialog({
             label="Token Code"
             required
             maxLength={32}
-            placeholder="e.g. CNB-001 (unique within this instance)"
+            placeholder="e.g. CNB-001 (unique within this instance; also the currency system code)"
             error={formState.errors.tokenCode?.message}
             register={register('tokenCode')}
           />
@@ -342,7 +300,7 @@ function TokenSubmitDialog({
             </Button>
             <Button type="submit" disabled={submitMutation.isPending}>
               {submitMutation.isPending && <Loader2 className="animate-spin" />}
-              {editing ? 'Resubmit' : 'Submit Registration'}
+              Submit Registration
             </Button>
           </DialogFooter>
         </form>
@@ -359,10 +317,9 @@ function TokenSubmitDialog({
 export function TokenListPage() {
   const toast = useToast();
   const hasPerm = useGatewayPerm();
-  const refreshMutation = useRefreshTokensMutation();
   const { data, isLoading, isError, error, refetch } = useTokenListQuery();
 
-  const [dialog, setDialog] = React.useState<TokenDialogState | null>(null);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
 
   const rows = data ?? [];
 
@@ -377,27 +334,12 @@ export function TokenListPage() {
     }
   }, [isError, error, refetch, toast]);
 
-  /** 上行 Kissen 拉取权威申请状态（源 onRefresh；mutation 内部已失效列表缓存）。 */
-  const onRefresh = React.useCallback(() => {
-    refreshMutation.mutate(undefined, {
-      onSuccess: () => toast.success('Platform review status synced'),
-      onError: (e) => toast.error((e as Error).message),
-    });
-  }, [refreshMutation, toast]);
-
   const columns = React.useMemo<ColumnDef<TokenInfo & { id: string }>[]>(
     () => [
-      {
-        id: 'tokenCode',
-        header: 'Token Code',
-        cell: ({ row }) => (
-          <span className="font-mono">{row.original.tokenCode}</span>
-        ),
-      },
-      { accessorKey: 'tokenName', header: 'Name' },
+      { accessorKey: 'tokenName', header: 'Token Name' },
       {
         id: 'symbol',
-        header: 'Symbol',
+        header: 'Token Symbol',
         cell: ({ row }) => (
           <span className="font-mono">{row.original.symbol}</span>
         ),
@@ -409,12 +351,15 @@ export function TokenListPage() {
           <div className="text-right tabular-nums">{row.original.decimalDigits}</div>
         ),
       },
-      { accessorKey: 'chainType', header: 'Chain Type' },
-      { accessorKey: 'anchorFiat', header: 'Anchor Fiat' },
+      { accessorKey: 'anchorFiat', header: 'Anchored Fiat' },
+      { accessorKey: 'chainType', header: 'Chain' },
       {
-        id: 'tokenType',
-        header: 'Token Type',
-        cell: ({ row }) => tokenTypeText(row.original.tokenType),
+        // GW-16 合一：tokenCode 同时是货币系统标识（源列头「tokenCode（货币系统 code）」）。
+        id: 'tokenCode',
+        header: 'tokenCode (currency system code)',
+        cell: ({ row }) => (
+          <span className="font-mono">{row.original.tokenCode}</span>
+        ),
       },
       {
         id: 'tokenNo',
@@ -465,19 +410,8 @@ export function TokenListPage() {
           <span className="font-mono">{formatTime(row.original.pushTime)}</span>
         ),
       },
-      createActionColumn<TokenInfo & { id: string }>((row) =>
-        // 源 v-if="row.status === 30" + v-perm：双条件缺一不渲染。
-        row.status === TOKEN_STATUS_REJECTED && hasPerm(TOKEN_SUBMIT_PERM)
-          ? [
-              {
-                label: 'Resubmit',
-                onClick: () => setDialog({ mode: 'resubmit', row }),
-              },
-            ]
-          : [],
-      ),
     ],
-    [hasPerm],
+    [],
   );
 
   const tableData = React.useMemo(
@@ -488,20 +422,9 @@ export function TokenListPage() {
   return (
     <div className="space-y-4">
       <PageHead variant="toolbar" title="Token Management">
-        {/* 「同步状态」无权限门控（源无 v-perm）。 */}
-        <Button
-          variant="outline"
-          disabled={refreshMutation.isPending}
-          onClick={onRefresh}
-        >
-          {refreshMutation.isPending && <Loader2 className="animate-spin" />}
-          Sync Status
-        </Button>
         {/* 源 v-perm="'bank:token:submit'"：未命中 menuKeys 不渲染。 */}
         {hasPerm(TOKEN_SUBMIT_PERM) && (
-          <Button onClick={() => setDialog({ mode: 'create' })}>
-            Register Token
-          </Button>
+          <Button onClick={() => setDialogOpen(true)}>Register Token</Button>
         )}
       </PageHead>
 
@@ -512,17 +435,18 @@ export function TokenListPage() {
           isLoading={isLoading}
           emptyMessage="No data"
         />
-        {/* 源 .footnote（12px 灰）：注册前置/幂等/审核结果通道三段说明。 */}
+        {/* 源 .footnote（12px 灰）：注册前置/幂等/审核结果推送通道三段说明
+            （39c8a2b「同步状态」兜底字样移除）。 */}
         <p className="px-4 pb-4 text-xs text-muted-foreground">
           Prerequisites: the instance is activated and the bank is onboarded.
-          Resubmitting an existing token code returns the original application
-          status (idempotent). Review results are pushed by the platform, with
-          the Sync Status action as an uplink fallback.
+          Submitting an existing token code again returns the original application
+          status (idempotent). Review results are written back via platform
+          biz-event pushes.
         </p>
       </div>
 
-      {dialog && (
-        <TokenSubmitDialog state={dialog} onClose={() => setDialog(null)} />
+      {dialogOpen && (
+        <TokenSubmitDialog onClose={() => setDialogOpen(false)} />
       )}
     </div>
   );

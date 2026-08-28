@@ -19,9 +19,13 @@
  * - completedTime is compared strictly against 0 (unfinished sentinel) and
  *   rendered '-', never fed into formatTime's invalid branch.
  * - Principal and Receiver Amount share one money caliber (global
- *   formatMoney) so both columns group thousands identically.
+ *   formatMoney, v2.3 null fallback) so both columns group thousands
+ *   identically; an absent receiverAmount renders '-'.
+ * - Tokens column (v2.3) replaces the old direction column with the
+ *   compact two-line pair: symOf(src)/symOf(tgt) over the muted
+ *   bankOf(src) -> bankOf(tgt) row, resolved via useTokenMeta.
  * - Entry into the chain drawer: source opens it on row click; DataTable
- *   has no row-click API, so an explicit View Chain action provides the
+ *   has no row-click API, so an explicit Detail action provides the
  *   affordance while mount/unmount semantics match the source.
  * - Service-down (0024) shows the page banner and keeps previous data;
  *   non-0024 failures clear the banner (query cache retains old rows).
@@ -46,6 +50,7 @@ import {
   TX_STATUS_LABEL,
   isServiceDown,
   txNoText,
+  useTokenMeta,
   useTxFlowListQuery,
   type TxRow,
 } from '@myorg/modules/lp-portal/data-access';
@@ -54,7 +59,6 @@ import { formatMoney, formatTime } from './format';
 import { SyncRefreshButton } from './sync-refresh-button';
 import { ServiceDownAlert } from './service-down-alert';
 import {
-  asTxRowVO,
   completedTimeText,
   txListVariant,
   txStatusLabel,
@@ -76,7 +80,7 @@ const LBL = {
   reset: 'Reset',
   records: 'Transaction Flow',
   empty: 'No data',
-  viewChain: 'View Chain',
+  detail: 'Detail',
 } as const;
 
 /** Dropdown all sentinel (FormSelect forbids empty values). */
@@ -135,9 +139,27 @@ function TxStatusBadge({ status }: { status: number }) {
 }
 
 /** Money cell using the shared formatter - identical caliber for both columns. */
-function Money({ v }: { v: number }) {
+function Money({ v }: { v: string | number | null | undefined }) {
   return (
     <span className="font-mono text-xs tabular-nums">{formatMoney(v)}</span>
+  );
+}
+
+/**
+ * Tx No. cell: fixed v2.3 caliber (`txNo || '-'`, no txUuid/transactionId
+ * fallback), truncated with an overflow tooltip (source
+ * show-overflow-tooltip).
+ */
+function TxNoCell({ value }: { value: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="block max-w-44 truncate font-mono text-xs">
+          {value}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-sm break-all">{value}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -169,6 +191,9 @@ export function TxFlowListPage() {
   const rows = listQuery.data?.data ?? [];
   const total = listQuery.data?.pagination.total ?? 0;
 
+  // v2.3 unified token metadata (symbol + bank names) for the Tokens column.
+  const { symOf, bankOf } = useTokenMeta(PROJECT_ID);
+
   // 0024 -> page-level banner; non-0024 failures clear it (previous data kept).
   const err = listQuery.error;
   const serviceDown = err != null && isServiceDown(err) ? err : null;
@@ -181,44 +206,38 @@ export function TxFlowListPage() {
   const columns = React.useMemo<ColumnDef<TxRow & { id: string }>[]>(
     () => [
       {
-        // Business number: txUuid preferred, txNo fallback, else '-'
+        // v2.3 fixed caliber: txNo only - no txUuid/transactionId fallback;
+        // overflow tooltip mirrors source show-overflow-tooltip
         accessorKey: 'txNo',
         header: 'Tx No.',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs">{txNoText(row.original)}</span>
-        ),
-      },
-      {
-        accessorKey: 'transactionId',
-        header: 'Transaction ID',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs">
-            {row.original.transactionId}
-          </span>
-        ),
+        cell: ({ row }) => <TxNoCell value={txNoText(row.original)} />,
       },
       {
         accessorKey: 'pairCode',
         header: 'Token Pair',
         cell: ({ row }) => (
           <span className="font-mono text-xs">
-            {asTxRowVO(row.original).pairCode || '-'}
+            {row.original.pairCode || '-'}
           </span>
         ),
       },
       {
-        accessorKey: 'direction',
-        header: 'Direction',
-        cell: ({ row }) => {
-          const vo = asTxRowVO(row.original);
-          return (
-            <span>
-              {vo.sourceCurrency}
-              {'→'}
-              {vo.targetCurrency}
-            </span>
-          );
-        },
+        // v2.3 compact pair replaces the direction column: bold symbol row
+        // over the muted bank row (symOf/bankOf fall back to the raw code)
+        id: 'tokens',
+        header: 'Tokens',
+        cell: ({ row }) => (
+          <div className="min-w-0">
+            <div className="font-mono text-xs font-semibold tabular-nums">
+              {symOf(row.original.sourceTokenCode)}/
+              {symOf(row.original.targetTokenCode)}
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              {bankOf(row.original.sourceTokenCode)} →{' '}
+              {bankOf(row.original.targetTokenCode)}
+            </div>
+          </div>
+        ),
       },
       {
         accessorKey: 'principal',
@@ -228,21 +247,15 @@ export function TxFlowListPage() {
       {
         accessorKey: 'receiverAmount',
         header: 'Receiver Amount',
-        cell: ({ row }) => {
-          const v = asTxRowVO(row.original).receiverAmount;
-          return typeof v === 'number' && Number.isFinite(v) ? (
-            <Money v={v} />
-          ) : (
-            <span>-</span>
-          );
-        },
+        // Optional field: formatMoney's v2.3 null fallback renders '-'
+        cell: ({ row }) => <Money v={row.original.receiverAmount} />,
       },
       {
         accessorKey: 'status',
         header: 'Status',
         // failReason surfaces as a tooltip piggybacked on the status badge
         cell: ({ row }) => {
-          const reason = asTxRowVO(row.original).failReason;
+          const reason = row.original.failReason;
           const badge = <TxStatusBadge status={row.original.status} />;
           return reason ? (
             <Tooltip>
@@ -270,7 +283,7 @@ export function TxFlowListPage() {
         accessorKey: 'syncTime',
         header: 'Data Time',
         cell: ({ row }) => {
-          const t = asTxRowVO(row.original).syncTime;
+          const t = row.original.syncTime;
           return (
             <span className="font-mono text-xs tabular-nums">
               {t == null || t === 0 ? '-' : formatTime(t)}
@@ -288,12 +301,12 @@ export function TxFlowListPage() {
             className="h-auto p-0"
             onClick={() => setDrawerRow(row.original)}
           >
-            {LBL.viewChain}
+            {LBL.detail}
           </Button>
         ),
       },
     ],
-    [],
+    [symOf, bankOf],
   );
 
   const tableData = React.useMemo(

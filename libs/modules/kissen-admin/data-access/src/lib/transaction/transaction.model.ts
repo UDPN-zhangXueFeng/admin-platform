@@ -79,6 +79,9 @@ export interface TransactionRow {
   targetBankId: number;
   targetBankName: string;
   status: number;
+  /** 源端付款钱包（FX Transactions 列表 From/To 展示，2026-08-27）。 */
+  senderAccount: string;
+  receiverAccount: string;
   principal: string | number;
   markupRate: string | number;
   userDeduction: string | number;
@@ -188,11 +191,11 @@ export interface TxLpOption {
   lpCode: string;
 }
 
-/** 货币对下拉选项投影（源 `currencyPairList`）。 */
+/** Token 对下拉选项投影（源 `pairList`/`TokenPairRow`，v2.0 token-pair 域）。 */
 export interface TxPairOption {
   pairId: number;
-  sourceCurrency: string;
-  targetCurrency: string;
+  sourceTokenCode: string;
+  targetTokenCode: string;
 }
 
 /** 银行下拉选项投影（源 `bankList`）。 */

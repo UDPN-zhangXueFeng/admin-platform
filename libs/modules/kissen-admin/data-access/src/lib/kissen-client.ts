@@ -115,6 +115,15 @@ kissenAxios.interceptors.response.use(
     // 成功：code === '0'，解包返回 data。
     if (isKissenResult(body)) {
       if (body.code === '0') return body.data;
+      // 业务 code === '2'：未登录/会话过期（源 request.ts 响应拦截器语义）——
+      // 清会话并踢回登录页，与 HTTP 401 同径。
+      if (body.code === '2') {
+        clearSessionStorage();
+        if (typeof window !== 'undefined') {
+          window.location.assign(`${getLoginRedirectPath()}?expired=1`);
+        }
+        throw new KissenApiError('2', 'Session expired, please sign in again', body.traceId);
+      }
       throw new KissenApiError(body.code, body.message, body.traceId);
     }
     // 非标准包体（如文件下载）原样返回。

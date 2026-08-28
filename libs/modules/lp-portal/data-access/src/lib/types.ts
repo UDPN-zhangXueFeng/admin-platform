@@ -93,26 +93,10 @@ export interface PoolRow {
   syncTime: number;
 }
 
-// ===== 汇率(POST /lp/rate/list,全局域本地副本,不分页) =====
 
-export interface RateRow {
-  pairId: number;
-  pairCode: string;
-  sourceTokenCode: string;
-  sourceTokenNo: string;
-  targetTokenCode: string;
-  targetTokenNo: string;
-  baseRate: string | number | null;
-  markupRate: string | number;
-  userRate: string | number | null;
-  defaultSplitRatio: string | number;
-  /** 货币对状态 20 生效 / 50 停用 */
-  pairStatus: number;
-  participated: boolean;
-  syncTime: number;
-}
-
-// ===== 交易流水(POST /lp/tx-flow/list 分页;GET /lp/tx-flow/chain/{transactionId}) =====
+// ===== 交易流水(POST /lp/tx-flow/list 分页;GET /lp/tx-flow/chain/{transactionId};
+// v2.3 e591f85 行 VO:txUuid/txNo/receiverAmount/failReason/sourceCsTxId/
+// sourceVerifiedTime/quoteTime,方向列换 source/targetTokenCode) =====
 
 export interface TxListReq {
   /** TransactionStatusEnum 13 值 */
@@ -125,17 +109,36 @@ export interface TxListReq {
 
 export interface TxRow {
   transactionId: number;
-  /** 交易业务单号,空显 '-' */
+  /** 银行幂等号（抽屉「Bank Idempotency No.」项；v2.3） */
+  txUuid?: string;
+  /**
+   * 全网唯一交易业务单号（KSN 单号；v2.3 固定口径：列表/抽屉/split 明细/
+   * settle 流水一律 `txNo || '-'`，不再回退 txUuid/transactionId）。
+   */
   txNo?: string;
   pairId: number;
-  sourceCurrency: string;
-  targetCurrency: string;
-  principal: number;
+  /** 货币对编码（如 PR-xxxx）；空显 '-' */
+  pairCode?: string;
+  sourceTokenCode: string;
+  targetTokenCode: string;
+  principal: string | number;
+  /** 收款方到账金额（v2.3 列表列） */
+  receiverAmount?: string | number;
   /** 1 已创建/5 已报价/10 已确认/20 源端划转中/25 源端已验证/30 解付中/35 已入账/40 已完成/50 冲正中/60 已冲正/70 异常/80 已取消/90 失败 */
   status: number;
+  /** 失败原因（status=70/90 时状态格 tooltip 展示） */
+  failReason?: string;
+  /** 源端凭证号（v2.3 抽屉项；空显 '-'） */
+  sourceCsTxId?: string;
+  /** 源端验证时间（毫秒时间戳；v2.3） */
+  sourceVerifiedTime?: number;
+  /** 报价时间（毫秒时间戳；v2.3 抽屉项；!quoteTime → '-'） */
+  quoteTime?: number;
   createTime: number;
   /** 0 = 未完成 */
   completedTime: number;
+  /** 数据时间（毫秒时间戳；v2.3） */
+  syncTime?: number;
 }
 
 /**
@@ -167,26 +170,19 @@ export interface SettleRecordListReq {
   endTime?: number;
 }
 
-/** 结算流水行(裁决 C-11:无周期字段) */
+/** 结算流水行（v2.3 e591f85：txNo 替代原内部数字 ID，字段集对齐上游 1:1）。 */
 export interface SettleRecordRow {
-  settleRecordId: number;
-  transactionId: number;
-  pairId: number;
-  sourceCurrency: string;
-  targetCurrency: string;
-  principal: number;
-  userDeduction: number;
-  markupAmount: number;
-  baseRate: number;
-  markupRate: number;
-  userRate: number;
-  receiverAmount: number;
-  adminSplitAmount: number;
-  /** LP 分成(页面 key-figure 重点展示) */
-  lpSplitAmount: number;
-  /** 1 有效 / 45 作废 */
-  status: number;
-  createTime: number;
+  /** 全网唯一交易单号（KSN 单号；未同步到流水副本的记录空串显 '-'） */
+  txNo?: string;
+  /** 货币对编码；空值页面显 '-' */
+  pairCode?: string;
+  principal: string | number;
+  markupAmount: string | number;
+  /** 分成比例（0〜1，页面 ×100 显 %） */
+  splitRatio: string | number | null;
+  lpSplitAmount: string | number;
+  /** 完成时间（毫秒时间戳） */
+  completedTime: number;
 }
 
 export interface SettleOrderListReq {

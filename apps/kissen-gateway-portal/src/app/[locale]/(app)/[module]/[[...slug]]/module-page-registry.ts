@@ -16,16 +16,13 @@ import type { ComponentType } from 'react';
  *   token        : list （GW-14 新增，/token/manage 两段路径经 page.tsx 推导为 'list'）
  *   fx           : list （GW-14 新增，/fx）
  *   tx           : list, detail
- *   currencypair : list, detail （上游已删，T13 clean cutover 移除）
- *   lp           : list, detail （上游已删，T13 移除）
- *   rate         : list, detail （上游已删，T13 移除）
  *   user         : list, create, edit, detail
  *   role         : list, create, edit, detail
  *   menu         : list
  *   log          : list
- *   bank         : info, detail （O-8：源孤儿页，T13 随上游删除）+ list
- *                 （GW-14 新增 BankQueryListPage，/bank/query 两段路径经
- *                  page.tsx 推导为 'list'）
+ *   bank         : list（GW-14 新增 BankQueryListPage，/bank/query 两段
+ *                  路径经 page.tsx 推导为 'list'；源 bank/info 孤儿页随
+ *                  上游删除，不再注册）
  *   ui           : list （T4 新增，源 views/system/ui.vue 的 el-empty 空占位页；
  *                  上游权限键 bank:ui:setting → /system/ui，经组路由推导为
  *                  ('ui','list')）
@@ -104,36 +101,6 @@ const pages: Record<string, Record<string, PageLoader>> = {
     // T7 FxListPage（源 views/fx/index.vue）
     list: featurePage('FxListPage'),
   },
-  currencypair: {
-    list: () =>
-      import('@myorg/modules/kissen-gateway/feature').then((m) => ({
-        default: m.CurrencypairListPage as unknown as ComponentType<unknown>,
-      })),
-    detail: () =>
-      import('@myorg/modules/kissen-gateway/feature').then((m) => ({
-        default: m.CurrencypairDetailPage as unknown as ComponentType<unknown>,
-      })),
-  },
-  lp: {
-    list: () =>
-      import('@myorg/modules/kissen-gateway/feature').then((m) => ({
-        default: m.LpListPage as unknown as ComponentType<unknown>,
-      })),
-    detail: () =>
-      import('@myorg/modules/kissen-gateway/feature').then((m) => ({
-        default: m.LpDetailPage as unknown as ComponentType<unknown>,
-      })),
-  },
-  rate: {
-    list: () =>
-      import('@myorg/modules/kissen-gateway/feature').then((m) => ({
-        default: m.RateListPage as unknown as ComponentType<unknown>,
-      })),
-    detail: () =>
-      import('@myorg/modules/kissen-gateway/feature').then((m) => ({
-        default: m.RateDetailPage as unknown as ComponentType<unknown>,
-      })),
-  },
   user: {
     list: () =>
       import('@myorg/modules/kissen-gateway/feature').then((m) => ({
@@ -189,17 +156,8 @@ const pages: Record<string, Record<string, PageLoader>> = {
     list: featurePage('SystemUiPage'),
   },
   bank: {
-    // /bank/info 的 slug 'info' 经 [module]/[[...slug]]/page.tsx 的 pageKey
-    // 推导落 'detail'；'info' 键按 O-8 契约命名保留为同义入口（T13 随上游删除）。
-    info: () =>
-      import('@myorg/modules/kissen-gateway/feature').then((m) => ({
-        default: m.BankInfoPage as unknown as ComponentType<unknown>,
-      })),
-    detail: () =>
-      import('@myorg/modules/kissen-gateway/feature').then((m) => ({
-        default: m.BankInfoPage as unknown as ComponentType<unknown>,
-      })),
-    // T8 BankQueryListPage（源 views/bank/query.vue；/bank/query → 'list'）
+    // T8 BankQueryListPage（源 views/bank/query.vue；/bank/query → 'list'）。
+    // 源 bank/info 孤儿页已被上游删除（O-8 被 HEAD 演进推翻），不再注册。
     list: featurePage('BankQueryListPage'),
   },
 };

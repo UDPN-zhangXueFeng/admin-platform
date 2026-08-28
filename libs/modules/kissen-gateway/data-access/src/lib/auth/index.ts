@@ -26,7 +26,7 @@ export {
   clearGatewaySession,
   useGatewayHasSession,
   useGatewayOnboardedQuery,
-  useGatewayInstanceActiveQuery,
+  useGatewayDetailGatingQuery,
   useGatewayLockState,
 } from './auth.session';
 export type { GatewayLockState } from './auth.session';

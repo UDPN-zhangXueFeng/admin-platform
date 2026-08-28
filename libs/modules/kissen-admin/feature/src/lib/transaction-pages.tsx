@@ -8,7 +8,6 @@ import {
   type FieldValues,
   type Path,
 } from 'react-hook-form';
-import { useSearchParams } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
 import { Check, ChevronsUpDown } from 'lucide-react';
 
@@ -24,6 +23,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
   Input,
   Popover,
   PopoverContent,
@@ -38,7 +42,6 @@ import {
 import { FormField, FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
 import { cn } from '@myorg/shared/util-classnames';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
-import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
   KISSEN_PROJECT_ID,
@@ -62,19 +65,20 @@ import {
 /**
  * 交易域页面（源 `views/transfer/tx/**`：index / resolve-dialog / tx-detail-drawer）。
  *
- * 导出（registry 依赖，名字不可改）：
- *  - TxListListPage / TxListDetailPage      交易查询（全状态）
- *  - TxExceptionListPage / TxExceptionDetailPage  异常处理（status=70 过滤视图）
- *  - TxReversalListPage                     冲正记录（status 50/60 过滤视图，源无独立页）
+ * v2.0 全量补同步（01 文档 §D7 + 裁决 6/7）：
+ *  - tx-exception / tx-reversal 拆页退役，合并为单页 TxListListPage；
+ *    处置入口按行 status(70) 显隐。
+ *  - 详情由路由页收回 720px 抽屉（源 tx-detail-drawer.vue 照迁）。
+ *  - 「更多筛选」仅源/目标银行（transactionId/txUuid 不暴露，裁决 6）。
  *
- * 文案采用中文硬编码兜底（message key 未就绪，避免 MISSING_MESSAGE 崩溃）。
+ * 导出（registry 依赖，名字不可改）：TxListListPage。
  */
 
 /* ================================================================== */
-/* 展示工具（移植源 views/approval/format.ts 的 formatMoney/formatTime）*/
+/* 展示工具（源 views/approval/format.ts + index.vue fmtAmount）        */
 /* ================================================================== */
 
-/** 数字千分位（保留原小数位）；空/0/非数 → '-'。 */
+/** 数字千分位（保留原小数位）；源 resolve-dialog formatMoney。 */
 function formatMoney(v: number | string | null | undefined): string {
   if (v === null || v === undefined || v === '') return '-';
   const s = String(v);
@@ -84,6 +88,17 @@ function formatMoney(v: number | string | null | undefined): string {
   if (!/^\d*$/.test(digits)) return s; // 非纯数字原样返回，避免误格式化
   const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
+}
+
+/**
+ * 金额/汇率展示：千分位 + 至少 2 位小数（最多 8 位，去尾零但保 2 位）。
+ * 源 index.vue fmtAmount / tx-detail-drawer.vue fmtAmount·fmtRate。
+ */
+function fmtAmount(v: number | string | null | undefined): string {
+  if (v == null || v === '') return '-';
+  const n = Number(v);
+  if (Number.isNaN(n)) return String(v);
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
 }
 
 /** 毫秒时间戳 → 统一管理台时间格式；0/null/undefined/非法 → '-'。 */
@@ -104,13 +119,7 @@ function toEpochMs(value: string): number | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d.getTime();
 }
 
-function parseTxId(raw: string | null): number | undefined {
-  if (!raw) return undefined;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
-/** 货币对字符串展示（详情描述列）。 */
+/** 空值兜底展示（源 `|| '-'` 口径）。 */
 function orDash(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === '') return '-';
   return String(v);
@@ -267,9 +276,10 @@ function StatusRail({ status }: { status: number }) {
 }
 
 /* ================================================================== */
-/* 链路：8 阶段轴 + flat 事件（源 drawer 交易链路区）                   */
+/* 链路：8 阶段卡片 + 定宽时间列事件行（源 drawer 2026-08-27 降噪重排）  */
 /* ================================================================== */
 
+/** 阶段轴 step 1-8（源 STAGE_STEP_MAP：报价/确认/源端划转/源端验证/垫资解付/入账/结算/完成）。 */
 const STAGE_STEP_LABEL: Record<number, string> = {
   1: 'Quote',
   2: 'Confirm',
@@ -281,6 +291,7 @@ const STAGE_STEP_LABEL: Record<number, string> = {
   8: 'Completed',
 };
 
+/** 阶段状态 1 未开始 / 2 进行中 / 3 成功 / 4 失败 / 5 跳过。 */
 const STAGE_STATUS_LABEL: Record<number, string> = {
   1: 'Not Started',
   2: 'In Progress',
@@ -289,6 +300,7 @@ const STAGE_STATUS_LABEL: Record<number, string> = {
   5: 'Skipped',
 };
 
+/** 阶段状态 tag 语义（源 stageTagType：3 success / 4 danger / 2 warning / 其余 info）。 */
 const STAGE_STATUS_VARIANT: Record<
   number,
   'default' | 'secondary' | 'destructive' | 'outline'
@@ -300,7 +312,7 @@ const STAGE_STATUS_VARIANT: Record<
   5: 'outline',
 };
 
-/** 事件类型映射（nodeType；1 环节/状态迁移不在表内，兜底显示数值）。 */
+/** 事件类型映射（nodeType；1 环节/状态迁移不在表内，兜底显示 Event N）。 */
 const EVENT_TYPE_LABEL: Record<number, string> = { 2: 'Action', 3: 'Message', 4: 'Retry' };
 
 /** 固定 8 段阶段轴：缺失 step 按未开始补齐（后端补齐 8 行，前端再兜底）。 */
@@ -326,16 +338,33 @@ function buildStageList(stages: TransactionStage[]): TransactionStage[] {
   return list;
 }
 
-/** 阶段标题：环节名；跳过阶段追加（跳过）后缀。 */
+/** 阶段标题：环节名；跳过阶段追加 (Skipped) 后缀（源 stageTitle）。 */
 function stageTitle(s: TransactionStage): string {
   const name = STAGE_STEP_LABEL[s.step] ?? `${s.step}`;
   return s.status === 5 ? `${name} (Skipped)` : name;
 }
 
+interface ChainNode {
+  stage: TransactionStage;
+  events: TransactionFlowEvent[];
+}
+
 /**
- * 交易链路视图：纵向 8 阶段轴（可点选切换）+ 当前阶段事件流。
- * 移植源 drawer 的 el-steps + el-timeline（任务要求：纵向步骤 + Badge）。
+ * 链路节点（源 treeNodes computed 照迁）：固定 8 段补齐 + 每阶段挂自身事件，
+ * 过滤规则 `stage.status !== 1 || events.length > 0` 才渲染（未开始且无事件的阶段隐藏）。
  */
+function buildChainNodes(stages: TransactionStage[], events: TransactionFlowEvent[]): ChainNode[] {
+  const list = buildStageList(stages);
+  if (list.length === 0) return [];
+  return list
+    .map((stage) => ({
+      stage,
+      events: events.filter((e) => e.step === stage.step),
+    }))
+    .filter((n) => n.stage.status !== 1 || n.events.length > 0);
+}
+
+/** 交易链路视图：阶段一张卡，事件行定宽等宽时间列对齐（源 .chain-card/.chain-event）。 */
 function TransactionChainView({
   stages,
   events,
@@ -343,104 +372,86 @@ function TransactionChainView({
   stages: TransactionStage[];
   events: TransactionFlowEvent[];
 }) {
-  const stageList = React.useMemo(() => buildStageList(stages), [stages]);
-  const [selectedStep, setSelectedStep] = React.useState<number>(1);
+  const nodes = React.useMemo(() => buildChainNodes(stages, events), [stages, events]);
 
-  /**
-   * 默认选中：首个进行中(2)/失败(4)阶段；否则首个有事件的阶段；再否则 1。
-   * 与源 `initSelectedStep` 一致。
-   */
-  React.useEffect(() => {
-    const hit =
-      stageList.find((s) => s.status === 2 || s.status === 4) ??
-      stageList.find((s) => events.some((e) => e.step === s.step));
-    setSelectedStep(hit ? hit.step : 1);
-  }, [stageList, events]);
-
-  if (stageList.length === 0) {
-    return <p className="text-sm text-muted-foreground">No stage data</p>;
+  if (nodes.length === 0) {
+    return <p className="text-sm text-muted-foreground">No chain data</p>;
   }
 
-  const currentStage = stageList.find((s) => s.step === selectedStep);
-  const selectedEvents = events.filter((e) => e.step === selectedStep);
-
   return (
-    <div className="space-y-4">
-      <ol className="space-y-1">
-        {stageList.map((s) => {
-          const active = s.step === selectedStep;
-          return (
-            <li key={s.step}>
-              <button
-                type="button"
-                onClick={() => setSelectedStep(s.step)}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors',
-                  active
-                    ? 'border-primary bg-accent'
-                    : 'border-transparent hover:bg-accent/50',
-                )}
-              >
-                <span className="font-medium">{s.step}. {stageTitle(s)}</span>
-                <Badge variant={STAGE_STATUS_VARIANT[s.status] ?? 'outline'}>
-                  {STAGE_STATUS_LABEL[s.status] ?? s.status}
-                </Badge>
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {formatTime(s.startTime)}
-                  {s.endTime ? ` → ${formatTime(s.endTime)}` : ''}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-
-      <div>
-        <div className="mb-2 text-sm font-semibold">
-          {STAGE_STEP_LABEL[selectedStep] ?? selectedStep}
-          {currentStage
-            ? ` (${STAGE_STATUS_LABEL[currentStage.status] ?? currentStage.status})`
-            : ''}
-        </div>
-        {selectedEvents.length ? (
-          <ul className="space-y-3">
-            {selectedEvents.map((e) => (
-              <li key={e.flowId} className="rounded-md border p-3 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">
-                    {EVENT_TYPE_LABEL[e.nodeType] ?? `Event type ${e.nodeType}`}
-                  </Badge>
-                  {(e.statusFrom !== 0 || e.statusTo !== 0) && (
-                    <span className="text-muted-foreground">
-                      {TRANSACTION_STATUS_LABEL[e.statusFrom] ?? e.statusFrom} →{' '}
-                      {TRANSACTION_STATUS_LABEL[e.statusTo] ?? e.statusTo}
+    <div className="space-y-2.5">
+      {nodes.map(({ stage, events: stageEvents }) => (
+        <div
+          key={stage.step}
+          className={cn(
+            'rounded-lg border p-3',
+            stage.status === 4 && 'border-destructive/40 bg-destructive/5',
+            stage.status === 5 && 'opacity-55',
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'h-2 w-2 flex-shrink-0 rounded-full',
+                stage.status === 4
+                  ? 'bg-destructive'
+                  : stage.status === 5
+                    ? 'bg-muted-foreground'
+                    : 'bg-[var(--ks-clearing,#0b6b53)]',
+              )}
+            />
+            <span className="text-sm font-semibold">{stageTitle(stage)}</span>
+            <Badge variant={STAGE_STATUS_VARIANT[stage.status] ?? 'outline'}>
+              {STAGE_STATUS_LABEL[stage.status] ?? stage.status}
+            </Badge>
+            {stage.endTime !== 0 && (
+              <span className="ml-auto font-mono text-xs text-muted-foreground">
+                {formatTime(stage.endTime)}
+              </span>
+            )}
+          </div>
+          {stage.csTxId && (
+            <div className="mt-1.5 font-mono text-xs text-muted-foreground">
+              Currency System Tx ID: {stage.csTxId}
+            </div>
+          )}
+          {stageEvents.length > 0 && (
+            <div className="mt-2">
+              {stageEvents.map((ev) => (
+                <div
+                  key={ev.flowId}
+                  className="border-t border-dashed py-1.5 first:border-t-0"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="w-[148px] flex-shrink-0 font-mono text-xs text-muted-foreground">
+                      {formatTime(ev.eventTime)}
                     </span>
-                  )}
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {formatTime(e.eventTime)}
-                  </span>
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Operator: {orDash(e.operator)}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Currency System Transaction ID: {orDash(e.csTxId)}
-                </div>
-                {e.remark && (
-                  <div className="text-xs text-muted-foreground">Remarks: {e.remark}</div>
-                )}
-                {e.traceId && (
-                  <div className="text-xs text-muted-foreground">
-                    traceId: {e.traceId}
+                    <Badge variant="outline" className="text-[11px]">
+                      {EVENT_TYPE_LABEL[ev.nodeType] ?? `Event ${ev.nodeType}`}
+                    </Badge>
+                    {(ev.statusFrom !== 0 || ev.statusTo !== 0) && (
+                      <span className="text-xs text-muted-foreground">
+                        {TRANSACTION_STATUS_LABEL[ev.statusFrom] ?? ev.statusFrom} →{' '}
+                        {TRANSACTION_STATUS_LABEL[ev.statusTo] ?? ev.statusTo}
+                      </span>
+                    )}
+                    {ev.operator && (
+                      <span className="text-xs text-muted-foreground">
+                        Operator: {ev.operator}
+                      </span>
+                    )}
                   </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">No event details for this stage</p>
-        )}
-      </div>
+                  {ev.remark && (
+                    <div className="mt-0.5 break-all pl-[156px] text-xs text-muted-foreground/80">
+                      {ev.remark}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -449,7 +460,7 @@ function TransactionChainView({
 /* 通用展示组件                                                        */
 /* ================================================================== */
 
-/** 交易状态 Badge（列表/详情共用）。 */
+/** 交易状态 Badge（列表/详情/事件流共用；模型层 13 值映射）。 */
 function TransactionStatusBadge({ status }: { status: number }) {
   return (
     <Badge variant={TRANSACTION_STATUS_VARIANT[status] ?? 'secondary'}>
@@ -601,6 +612,9 @@ function FilterableFormSelect<TFieldValues extends FieldValues = FieldValues>({
   );
 }
 
+/** Select 的「全部」哨兵值（Radix SelectItem 不宜用空串，故用哨兵）。 */
+const OPT_ALL = '__all__';
+
 /* ================================================================== */
 /* 异常处置 Dialog（源 resolve-dialog.vue）                             */
 /* ================================================================== */
@@ -611,6 +625,7 @@ const RESOLVE_ACTION_OPTIONS: ReadonlyArray<{ value: string; label: string }> = 
   { value: '3', label: 'Reversal Completed' },
 ];
 
+/** 成功提示按 action 区分（源 RESOLVE_SUCCESS_MSG）。 */
 const RESOLVE_SUCCESS_MSG: Record<string, string> = {
   1: 'Transaction marked as completed',
   2: 'Transaction marked as failed',
@@ -619,7 +634,7 @@ const RESOLVE_SUCCESS_MSG: Record<string, string> = {
 
 /**
  * 交易异常处置弹窗。入口仅 EXCEPTION(70) 行可见（与后端「仅 70 可裁定」一致）。
- * action 1 完成 / 2 失败 / 3 冲正完成（设计 S2）。
+ * action 1 完成 / 2 失败 / 3 冲正完成（设计 S2 口径三行提示照迁）。
  */
 function ResolveDialog({
   row,
@@ -665,10 +680,16 @@ function ResolveDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent
+        className="sm:max-w-[560px]"
+        // 源 :close-on-click-modal="false"：点击遮罩不关闭。
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Transaction Exception Resolution</DialogTitle>
-          <DialogDescription>Only transactions in Exception (70) status can be resolved.</DialogDescription>
+          <DialogDescription>
+            Only transactions in Exception status can be resolved.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -684,7 +705,7 @@ function ResolveDialog({
             </DescField>
           </div>
 
-          {/* 处置方式（源 el-radio-group） */}
+          {/* 处置方式（源 el-radio-group 必填） */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
               Resolution<span className="ml-0.5 text-destructive">*</span>
@@ -699,7 +720,8 @@ function ResolveDialog({
                 </label>
               ))}
             </RadioGroup>
-            <p className="text-xs text-muted-foreground">
+            {/* 口径提示三行（源 .form-tip） */}
+            <p className="text-xs leading-relaxed text-muted-foreground">
               Complete: backfill the settlement record and send the final-state notification; the transaction moves to Completed
               <br />
               Failed: the transaction moves to Failed and the failure reason is recorded
@@ -708,7 +730,7 @@ function ResolveDialog({
             </p>
           </div>
 
-          {/* 裁定原因（选填，入 flow 留痕） */}
+          {/* 裁定原因（选填 maxlength 200 带字数，入 flow 留痕） */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Resolution Reason</label>
             <Textarea
@@ -740,18 +762,225 @@ function ResolveDialog({
 }
 
 /* ================================================================== */
-/* 列表核心（交易查询 / 异常处理 / 冲正记录 共用）                       */
+/* 详情抽屉（源 tx-detail-drawer.vue，720px）                           */
 /* ================================================================== */
 
-type TxListMode = 'all' | 'exception' | 'reversal';
+/** 源抽屉尺寸 720px（el-drawer size="720px"）。 */
+const DRAWER_WIDTH_CLASS = 'flex flex-col sm:max-w-[720px]';
 
-/** Select 的「全部」哨兵值（Radix SelectItem 不宜用空串，故用哨兵）。 */
-const OPT_ALL = '__all__';
+/**
+ * 交易详情抽屉：detail 与 chain 并行拉取（源 loadAll Promise.all），
+ * 链路供阶段树、详情供字段分组。
+ */
+function TxDetailDrawer({
+  txId,
+  open,
+  onOpenChange,
+}: {
+  txId: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: detail, isLoading: detailLoading } = useTransactionDetailQuery(
+    KISSEN_PROJECT_ID,
+    txId,
+  );
+  const { data: chain, isLoading: chainLoading } = useTransactionChainQuery(
+    KISSEN_PROJECT_ID,
+    txId,
+  );
+
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className={DRAWER_WIDTH_CLASS}>
+        <DrawerHeader>
+          <DrawerTitle>Transaction Details</DrawerTitle>
+          <DrawerDescription>
+            {detail
+              ? `Transaction No. ${detail.txNo || `#${txId}`}`
+              : `Transaction #${txId}`}
+          </DrawerDescription>
+        </DrawerHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+          {detailLoading && !detail ? (
+            <div className="space-y-2">
+              <Skeleton className="h-16 w-full rounded-lg" />
+              <Skeleton className="h-40 w-full rounded-lg" />
+              <Skeleton className="h-40 w-full rounded-lg" />
+            </div>
+          ) : detail ? (
+            <DetailBody
+              detail={detail}
+              stages={chain?.stages ?? []}
+              events={chain?.events ?? []}
+              chainLoading={chainLoading && !chain}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No transaction detail data.
+            </p>
+          )}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+/** 详情正文（源 drawer 四块：交易信息 / 转账信息双卡 / 其他信息 / 交易链路）。 */
+function DetailBody({
+  detail,
+  stages,
+  events,
+  chainLoading,
+}: {
+  detail: TransactionDetailRow;
+  stages: TransactionStage[];
+  events: TransactionFlowEvent[];
+  chainLoading: boolean;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* 状态轨道（源 .rail-block：SETTLEMENT RAIL 置顶 + hairline 分隔） */}
+      <section className="space-y-3 border-b pb-5">
+        <div className="text-xs font-medium tracking-wide text-muted-foreground">
+          SETTLEMENT RAIL
+        </div>
+        <StatusRail status={detail.status} />
+      </section>
+
+      {/* 块一：交易信息（源 el-descriptions :column="2"） */}
+      <section>
+        <h4 className="mb-3 text-sm font-semibold">Transaction Information</h4>
+        <DescGrid cols={2}>
+          <DescField label="Transaction No.">
+            <span className="font-mono">{orDash(detail.txNo)}</span>
+          </DescField>
+          <DescField label="Status">
+            <TransactionStatusBadge status={detail.status} />
+          </DescField>
+          <DescField label="Token Pair">
+            {detail.sourceCurrency && detail.targetCurrency ? (
+              <span className="inline-flex items-center gap-1">
+                <Badge variant="outline" className="rounded-full">
+                  {detail.sourceCurrency}
+                </Badge>
+                <span className="text-xs text-muted-foreground">→</span>
+                <Badge className="rounded-full">{detail.targetCurrency}</Badge>
+              </span>
+            ) : (
+              '-'
+            )}
+          </DescField>
+          <DescField label="LP">{orDash(detail.lpName)}</DescField>
+          <DescField label="Principal">
+            <span className="font-mono">{fmtAmount(detail.principal)}</span>
+          </DescField>
+          <DescField label="Receiver Amount">
+            <span className="font-mono">{fmtAmount(detail.receiverAmount)}</span>
+          </DescField>
+          <DescField label="Markup Rate">
+            <span className="font-mono">{fmtAmount(detail.markupRate)}</span>
+          </DescField>
+          <DescField label="Base Rate / User Rate">
+            <span className="font-mono">
+              {fmtAmount(detail.baseRate)} / {fmtAmount(detail.userRate)}
+            </span>
+          </DescField>
+          <DescField label="User Deduction">
+            <span className="font-mono">{fmtAmount(detail.userDeduction)}</span>
+          </DescField>
+          <DescField label="Quote Version">
+            <span className="font-mono">v{detail.quoteVersion}</span>
+          </DescField>
+        </DescGrid>
+      </section>
+
+      {/* 块二：转账信息（源端/目标端双卡 + 箭头，源 .leg-grid） */}
+      <section>
+        <h4 className="mb-3 text-sm font-semibold">
+          Transfer Information (Source → Target)
+        </h4>
+        <div className="flex items-stretch gap-2.5">
+          <div className="min-w-0 flex-1 rounded-lg border p-3">
+            <div className="mb-2 text-sm font-semibold">
+              Source · {detail.sourceBankName || 'Source Bank'}
+            </div>
+            <DescGrid cols={1}>
+              <DescField label="Sender Account">
+                <span className="break-all font-mono">{orDash(detail.senderAccount)}</span>
+              </DescField>
+              <DescField label="Deduction Principal">
+                <span className="font-mono">{fmtAmount(detail.userDeduction)}</span>
+              </DescField>
+              <DescField label="Currency System Tx ID">
+                <span className="break-all font-mono">{orDash(detail.sourceCsTxId)}</span>
+              </DescField>
+              <DescField label="Source Verified Time">
+                {formatTime(detail.sourceVerifiedTime)}
+              </DescField>
+            </DescGrid>
+          </div>
+          <div className="flex-shrink-0 self-center text-lg text-muted-foreground">→</div>
+          <div className="min-w-0 flex-1 rounded-lg border p-3">
+            <div className="mb-2 text-sm font-semibold text-[var(--ks-clearing,#0b6b53)]">
+              Target · {detail.targetBankName || 'Target Bank'}
+            </div>
+            <DescGrid cols={1}>
+              <DescField label="Receiver Account">
+                <span className="break-all font-mono">{orDash(detail.receiverAccount)}</span>
+              </DescField>
+              <DescField label="Receiver Amount">
+                <span className="font-mono">{fmtAmount(detail.receiverAmount)}</span>
+              </DescField>
+              <DescField label="Currency System Tx ID">
+                <span className="break-all font-mono">{orDash(detail.targetCsTxId)}</span>
+              </DescField>
+              <DescField label="Settled / Credited Time">
+                {detail.settledTime !== 0
+                  ? formatTime(detail.settledTime)
+                  : detail.advancingTime !== 0
+                    ? formatTime(detail.advancingTime)
+                    : '-'}
+              </DescField>
+            </DescGrid>
+          </div>
+        </div>
+      </section>
+
+      {/* 其他信息（源 :column="2"） */}
+      <section>
+        <h4 className="mb-3 text-sm font-semibold">Other Information</h4>
+        <DescGrid cols={2}>
+          <DescField label="Creation Time">{formatTime(detail.createTime)}</DescField>
+          <DescField label="Completion Time">{formatTime(detail.completedTime)}</DescField>
+          <DescField label="Failure Reason">{orDash(detail.failReason)}</DescField>
+          <DescField label="Remarks">{orDash(detail.remark)}</DescField>
+        </DescGrid>
+      </section>
+
+      {/* 块三：交易链路（阶段卡 + 定宽时间列事件行） */}
+      <section>
+        <h4 className="mb-3 text-sm font-semibold">Transaction Chain</h4>
+        {chainLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : (
+          <TransactionChainView stages={stages} events={events} />
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* 列表页核心（源 index.vue，单页全状态）                               */
+/* ================================================================== */
 
 interface TxFilterForm {
   txNo: string;
-  txUuid: string;
-  transactionId: string;
   status: string;
   lpId: string;
   pairId: string;
@@ -761,12 +990,10 @@ interface TxFilterForm {
   createTimeEnd: string;
 }
 
-function defaultFilterForm(mode: TxListMode): TxFilterForm {
+function defaultFilterForm(): TxFilterForm {
   return {
     txNo: '',
-    txUuid: '',
-    transactionId: '',
-    status: mode === 'exception' ? '70' : mode === 'reversal' ? '50' : OPT_ALL,
+    status: OPT_ALL,
     lpId: OPT_ALL,
     pairId: OPT_ALL,
     sourceBankId: OPT_ALL,
@@ -777,23 +1004,15 @@ function defaultFilterForm(mode: TxListMode): TxFilterForm {
 }
 
 /** RHF 筛选表单 → 后端 TransactionPageFilter；空/哨兵字段剔除。 */
-function formToFilter(form: TxFilterForm, mode: TxListMode): TransactionPageFilter {
+function formToFilter(form: TxFilterForm): TransactionPageFilter {
   const f: TransactionPageFilter = {};
   const txNo = form.txNo.trim();
   if (txNo) f.txNo = txNo;
-  const txUuid = form.txUuid.trim();
-  if (txUuid) f.txUuid = txUuid;
-  if (form.transactionId) {
-    const n = Number(form.transactionId);
-    if (Number.isFinite(n) && n > 0) f.transactionId = n;
-  }
+  if (form.status && form.status !== OPT_ALL) f.status = Number(form.status);
   if (form.lpId !== OPT_ALL) f.lpId = Number(form.lpId);
   if (form.pairId !== OPT_ALL) f.pairId = Number(form.pairId);
   if (form.sourceBankId !== OPT_ALL) f.sourceBankId = Number(form.sourceBankId);
   if (form.targetBankId !== OPT_ALL) f.targetBankId = Number(form.targetBankId);
-  // 异常模式强制 status=70；其余按表单值（哨兵视为不过滤）。
-  if (mode === 'exception') f.status = 70;
-  else if (form.status && form.status !== OPT_ALL) f.status = Number(form.status);
   if (form.createTimeStart) {
     const ms = toEpochMs(form.createTimeStart);
     if (ms) f.createTimeStart = ms;
@@ -807,40 +1026,27 @@ function formToFilter(form: TxFilterForm, mode: TxListMode): TransactionPageFilt
 
 const PAGE_SIZE_DEFAULT = 10;
 
-/**
- * 交易列表核心。三种模式：
- *  - all       交易查询（全状态，状态筛选可选）
- *  - exception 异常处理（status 锁定 70；处置入口对全部行可见）
- *  - reversal  冲正记录（status 限定 50/60；无处置入口；详情跳交易查询详情）
- */
-function TransactionListCore({
-  mode,
-  title,
-  detailModule,
-}: {
-  mode: TxListMode;
-  title: string;
-  detailModule: string;
-}) {
-  const router = useRouter();
+function TransactionListCore() {
   const { register, handleSubmit, reset, control } = useForm<TxFilterForm>({
-    defaultValues: defaultFilterForm(mode),
+    defaultValues: defaultFilterForm(),
   });
 
   const [filter, setFilter] = React.useState<TransactionPageFilter>(() =>
-    formToFilter(defaultFilterForm(mode), mode),
+    formToFilter(defaultFilterForm()),
   );
   const [pageNum, setPageNum] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const [showMore, setShowMore] = React.useState(false);
   const [resolveRow, setResolveRow] = React.useState<TransactionRow | null>(null);
   const [resolveOpen, setResolveOpen] = React.useState(false);
+  const [drawerTxId, setDrawerTxId] = React.useState<number | null>(null);
 
   const { data, isLoading } = useTransactionListQuery(KISSEN_PROJECT_ID, {
     pageNum,
     pageSize,
     filter,
   });
+  // 下拉三组并行拉取（源 loadOptions Promise.all → 三个独立 query 挂载即并行）。
   const { data: lpOptions } = useTransactionLpOptionsQuery(KISSEN_PROJECT_ID);
   const { data: pairOptions } = useTransactionPairOptionsQuery(KISSEN_PROJECT_ID);
   const { data: bankOptions } = useTransactionBankOptionsQuery(KISSEN_PROJECT_ID);
@@ -848,27 +1054,22 @@ function TransactionListCore({
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
 
-  const onSubmit = React.useCallback(
-    (form: TxFilterForm) => {
-      setFilter(formToFilter(form, mode));
-      setPageNum(1);
-    },
-    [mode],
-  );
+  const onSubmit = React.useCallback((form: TxFilterForm) => {
+    // 查询回第 1 页（源 onSearch）。
+    setFilter(formToFilter(form));
+    setPageNum(1);
+  }, []);
 
   const onReset = React.useCallback(() => {
-    const fresh = defaultFilterForm(mode);
+    const fresh = defaultFilterForm();
     reset(fresh);
-    setFilter(formToFilter(fresh, mode));
+    setFilter(formToFilter(fresh));
     setPageNum(1);
-  }, [mode, reset]);
+  }, [reset]);
 
-  const onView = React.useCallback(
-    (txId: number) => {
-      router.push(`/${detailModule}/detail?id=${txId}`);
-    },
-    [router, detailModule],
-  );
+  const onView = React.useCallback((row: TransactionRow) => {
+    setDrawerTxId(row.transactionId);
+  }, []);
 
   const openResolve = React.useCallback((row: TransactionRow) => {
     setResolveRow(row);
@@ -882,57 +1083,81 @@ function TransactionListCore({
       {
         id: 'txNo',
         header: 'Transaction No.',
-        cell: ({ row }) => <span>{row.original.txNo || '-'}</span>,
-      },
-      {
-        id: 'transactionId',
-        header: 'Transaction ID',
-        cell: ({ row }) => <span>{row.original.transactionId}</span>,
-      },
-      {
-        id: 'txUuid',
-        header: 'txUuid',
         cell: ({ row }) => (
-          <span
-            className="block max-w-[180px] truncate"
-            title={row.original.txUuid}
-          >
-            {row.original.txUuid || '-'}
-          </span>
+          <span className="font-mono">{row.original.txNo || '-'}</span>
         ),
       },
       {
-        id: 'pair',
-        header: 'Currency Pair',
+        id: 'tokens',
+        header: 'Tokens',
+        cell: ({ row }) => {
+          const r = row.original;
+          const banks = `${r.sourceBankName || '-'} → ${r.targetBankName || '-'}`;
+          return (
+            <div className="flex min-w-0 flex-col leading-snug">
+              <span className="font-mono text-[13px] font-semibold">
+                {r.sourceCurrency || '-'}/{r.targetCurrency || '-'}
+              </span>
+              <span className="truncate text-xs text-muted-foreground" title={banks}>
+                {banks}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        id: 'from',
+        header: 'From (Wallet / Amount)',
         cell: ({ row }) => (
-          <span>
-            {pairText(row.original.sourceCurrency, row.original.targetCurrency)}
+          <div className="flex min-w-0 flex-col leading-snug">
+            <span
+              className="max-w-[190px] truncate font-mono"
+              title={row.original.senderAccount}
+            >
+              {row.original.senderAccount || '-'}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {fmtAmount(row.original.userDeduction)}
+            </span>
+          </div>
+        ),
+      },
+      {
+        id: 'to',
+        header: 'To (Wallet / Amount)',
+        cell: ({ row }) => (
+          <div className="flex min-w-0 flex-col leading-snug">
+            <span
+              className="max-w-[190px] truncate font-mono"
+              title={row.original.receiverAccount}
+            >
+              {row.original.receiverAccount || '-'}
+            </span>
+            <span className="text-xs font-semibold text-[var(--ks-clearing,#0b6b53)]">
+              {fmtAmount(row.original.receiverAmount)}
+            </span>
+          </div>
+        ),
+      },
+      {
+        id: 'userRate',
+        header: 'FX Rate',
+        cell: ({ row }) => (
+          <span className="block text-right font-mono">
+            {row.original.userRate == null
+              ? '-'
+              : Number(row.original.userRate).toFixed(4)}
           </span>
         ),
       },
       {
         id: 'lpName',
         header: 'LP',
-        cell: ({ row }) => <span>{row.original.lpName || '-'}</span>,
-      },
-      {
-        id: 'banks',
-        header: 'Source Bank → Target Bank',
         cell: ({ row }) => (
-          <span>
-            {row.original.sourceBankName || '-'}→{row.original.targetBankName || '-'}
+          <span className="block max-w-[140px] truncate" title={row.original.lpName}>
+            {row.original.lpName || '-'}
           </span>
         ),
-      },
-      {
-        id: 'principal',
-        header: 'Principal',
-        cell: ({ row }) => <span>{formatMoney(row.original.principal)}</span>,
-      },
-      {
-        id: 'userDeduction',
-        header: 'User Deduction',
-        cell: ({ row }) => <span>{formatMoney(row.original.userDeduction)}</span>,
       },
       {
         id: 'status',
@@ -950,9 +1175,9 @@ function TransactionListCore({
         cell: ({ row }) => <span>{formatTime(row.original.completedTime)}</span>,
       },
       createActionColumn<TransactionRow & { id: string }>((item) => {
-        // 处置入口仅 EXCEPTION(70) 行可见；冲正模式行恒为 50/60，不会出现。
+        // 处置入口仅 EXCEPTION(70) 行可见（后端「仅 70 可裁定」的 UI 投影）。
         const actions: TableRowAction<TransactionRow & { id: string }>[] = [
-          { label: 'View', onClick: () => onView(item.transactionId) },
+          { label: 'View', onClick: () => onView(item) },
         ];
         if (item.status === 70) {
           actions.push({
@@ -971,7 +1196,7 @@ function TransactionListCore({
     [rows],
   );
 
-  // 下拉选项（首项「全部」哨兵；冲正模式状态仅 50/60）。
+  // 下拉选项（首项「全部」哨兵；LP/银行 pageSize=200 截断口径在 data-access）。
   const lpSelectOptions = React.useMemo(
     () => [
       { value: OPT_ALL, label: 'All' },
@@ -987,7 +1212,7 @@ function TransactionListCore({
       { value: OPT_ALL, label: 'All' },
       ...(pairOptions ?? []).map((p) => ({
         value: String(p.pairId),
-        label: `${p.sourceCurrency}→${p.targetCurrency}`,
+        label: `${p.sourceTokenCode}→${p.targetTokenCode}`,
       })),
     ],
     [pairOptions],
@@ -1002,17 +1227,19 @@ function TransactionListCore({
     ],
     [bankOptions],
   );
-  const statusSelectOptions = React.useMemo(() => {
-    if (mode === 'reversal') {
-      return TX_STATUS_OPTIONS.filter(
-        (o) => o.value === '50' || o.value === '60',
-      );
-    }
-    return [{ value: OPT_ALL, label: 'All' }, ...TX_STATUS_OPTIONS];
-  }, [mode]);
+  const statusSelectOptions = React.useMemo(
+    () => [{ value: OPT_ALL, label: 'All' }, ...TX_STATUS_OPTIONS],
+    [],
+  );
 
   return (
     <div className="space-y-4">
+      {/* 页头（源 page-head：eyebrow + 标题） */}
+      <div>
+        <div className="text-xs text-muted-foreground">FX</div>
+        <h1 className="text-xl font-semibold">FX Transactions</h1>
+      </div>
+
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
@@ -1026,15 +1253,13 @@ function TransactionListCore({
             maxLength={32}
             register={register('txNo')}
           />
-          {mode !== 'exception' && (
-            <FormSelect
-              name="status"
-              control={control}
-              label="Status"
-              options={statusSelectOptions}
-              placeholder="All"
-            />
-          )}
+          <FormSelect
+            name="status"
+            control={control}
+            label="Status"
+            options={statusSelectOptions}
+            placeholder="All"
+          />
           <FilterableFormSelect
             name="lpId"
             control={control}
@@ -1063,22 +1288,9 @@ function TransactionListCore({
           />
         </div>
 
+        {/* 更多筛选（会话态不持久化）：仅源/目标银行（裁决 6，不暴露 transactionId/txUuid） */}
         {showMore && (
           <div className="mt-4 grid grid-cols-1 gap-4 border-t pt-4 md:grid-cols-2 xl:grid-cols-3">
-            <FormField
-              name="transactionId"
-              label="Transaction ID"
-              placeholder="Exact match"
-              type="number"
-              register={register('transactionId')}
-            />
-            <FormField
-              name="txUuid"
-              label="txUuid"
-              placeholder="Exact match"
-              maxLength={64}
-              register={register('txUuid')}
-            />
             <FilterableFormSelect
               name="sourceBankId"
               control={control}
@@ -1114,7 +1326,7 @@ function TransactionListCore({
 
       <div className="rounded-lg border-border/60 bg-card shadow-float">
         <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">{title}</div>
+          <div className="text-sm font-semibold">Transactions</div>
         </div>
         <DataTable
           columns={columns}
@@ -1139,6 +1351,16 @@ function TransactionListCore({
         />
       </div>
 
+      {drawerTxId != null && (
+        <TxDetailDrawer
+          txId={drawerTxId}
+          open
+          onOpenChange={(o) => {
+            if (!o) setDrawerTxId(null);
+          }}
+        />
+      )}
+
       <ResolveDialog
         row={resolveRow}
         open={resolveOpen}
@@ -1149,209 +1371,10 @@ function TransactionListCore({
 }
 
 /* ================================================================== */
-/* 详情核心（交易查询详情 / 异常详情 共用）                              */
-/* ================================================================== */
-
-function TransactionDetailCore() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const txId = parseTxId(searchParams.get('id'));
-
-  const { data: detail, isLoading: detailLoading } = useTransactionDetailQuery(
-    KISSEN_PROJECT_ID,
-    txId,
-  );
-  const { data: chain, isLoading: chainLoading } = useTransactionChainQuery(
-    KISSEN_PROJECT_ID,
-    txId,
-  );
-
-  if (!txId) {
-    return (
-      <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-        <p className="text-sm text-muted-foreground">Missing transaction ID; unable to view details.</p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.back()}
-        >
-          Back
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-base font-semibold">Transaction Details</h1>
-        <Button variant="outline" size="sm" onClick={() => router.back()}>
-          Back
-        </Button>
-      </div>
-
-      {detailLoading && !detail ? (
-        <div className="space-y-2">
-          <Skeleton className="h-24 w-full rounded-lg" />
-          <Skeleton className="h-40 w-full rounded-lg" />
-          <Skeleton className="h-40 w-full rounded-lg" />
-        </div>
-      ) : detail ? (
-        <DetailBody
-          detail={detail}
-          stages={chain?.stages ?? []}
-          events={chain?.events ?? []}
-          chainLoading={chainLoading && !chain}
-        />
-      ) : (
-        <div className="rounded-lg border-border/60 bg-card p-6 text-sm text-muted-foreground shadow-float">
-          No transaction detail data.
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** 详情正文（拆出以便 detail 就绪后单独渲染）。 */
-function DetailBody({
-  detail,
-  stages,
-  events,
-  chainLoading,
-}: {
-  detail: TransactionDetailRow;
-  stages: TransactionStage[];
-  events: TransactionFlowEvent[];
-  chainLoading: boolean;
-}) {
-  return (
-    <>
-      {/* 状态轨道（移植源 StatusRail） */}
-      <section className="space-y-3 rounded-lg border-border/60 bg-card p-6 shadow-float">
-        <div className="text-xs font-medium tracking-wide text-muted-foreground">
-          SETTLEMENT RAIL
-        </div>
-        <StatusRail status={detail.status} />
-      </section>
-
-      {/* 基本信息 */}
-      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-        <div className="mb-4 text-sm font-semibold">Basic Information</div>
-        <DescGrid cols={2}>
-          <DescField label="Transaction No.">{orDash(detail.txNo)}</DescField>
-          <DescField label="Transaction ID">{detail.transactionId}</DescField>
-          <DescField label="txUuid">{orDash(detail.txUuid)}</DescField>
-          <DescField label="Currency Pair">
-            {pairText(detail.sourceCurrency, detail.targetCurrency)}
-          </DescField>
-          <DescField label="LP">{orDash(detail.lpName)}</DescField>
-          <DescField label="Source Bank">{orDash(detail.sourceBankName)}</DescField>
-          <DescField label="Target Bank">{orDash(detail.targetBankName)}</DescField>
-          <DescField label="Status">
-            <TransactionStatusBadge status={detail.status} />
-          </DescField>
-          <DescField label="Creation Time">{formatTime(detail.createTime)}</DescField>
-          <DescField label="Completion Time">{formatTime(detail.completedTime)}</DescField>
-        </DescGrid>
-      </section>
-
-      {/* 金额与汇率 */}
-      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-        <div className="mb-4 text-sm font-semibold">Amounts & Rates</div>
-        <DescGrid cols={2}>
-          <DescField label="Principal">{formatMoney(detail.principal)}</DescField>
-          <DescField label="Markup Rate">{orDash(detail.markupRate)}</DescField>
-          <DescField label="User Deduction">{formatMoney(detail.userDeduction)}</DescField>
-          <DescField label="Base Rate">{orDash(detail.baseRate)}</DescField>
-          <DescField label="Receiver Amount">{formatMoney(detail.receiverAmount)}</DescField>
-          <DescField label="User Rate">{orDash(detail.userRate)}</DescField>
-        </DescGrid>
-      </section>
-
-      {/* 账户 */}
-      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-        <div className="mb-4 text-sm font-semibold">Accounts</div>
-        <DescGrid cols={1}>
-          <DescField label="Sender Account">{orDash(detail.senderAccount)}</DescField>
-          <DescField label="Receiver Account">{orDash(detail.receiverAccount)}</DescField>
-          <DescField label="Source Currency System Transaction ID">{orDash(detail.sourceCsTxId)}</DescField>
-          <DescField label="Target Currency System Transaction ID">
-            {orDash(detail.targetCsTxId)}
-          </DescField>
-        </DescGrid>
-      </section>
-
-      {/* 时间轴 */}
-      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-        <div className="mb-4 text-sm font-semibold">Timeline</div>
-        <DescGrid cols={2}>
-          <DescField label="Quote Version">{detail.quoteVersion}</DescField>
-          <DescField label="Quote Expiry Time">{formatTime(detail.quoteExpireTime)}</DescField>
-          <DescField label="Confirmation Window Expiry">{formatTime(detail.confirmExpireTime)}</DescField>
-          <DescField label="Confirmation Time">{formatTime(detail.confirmTime)}</DescField>
-          <DescField label="Source Verification Time">{formatTime(detail.sourceVerifiedTime)}</DescField>
-          <DescField label="Advancing Time">{formatTime(detail.advancingTime)}</DescField>
-          <DescField label="Settled Time">{formatTime(detail.settledTime)}</DescField>
-          <DescField label="Completion Time">{formatTime(detail.completedTime)}</DescField>
-        </DescGrid>
-      </section>
-
-      {/* 失败原因 */}
-      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-        <div className="mb-4 text-sm font-semibold">Failure Reason</div>
-        <DescGrid cols={1}>
-          <DescField label="Failure Reason">{orDash(detail.failReason)}</DescField>
-          <DescField label="Remarks">{orDash(detail.remark)}</DescField>
-        </DescGrid>
-      </section>
-
-      {/* 交易链路（8 阶段轴 + 事件流） */}
-      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-        <div className="mb-4 text-sm font-semibold">Transaction Chain</div>
-        {chainLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full rounded-md" />
-            ))}
-          </div>
-        ) : (
-          <TransactionChainView stages={stages} events={events} />
-        )}
-      </section>
-    </>
-  );
-}
-/* ================================================================== */
 /* 导出页（registry 依赖，名字不可改）                                  */
 /* ================================================================== */
 
-/** 交易查询列表（全状态）。 */
+/** 交易查询列表（全状态单页；/transfer/tx）。 */
 export function TxListListPage() {
-  return <TransactionListCore mode="all" title="Transactions" detailModule="tx-list" />;
-}
-
-/** 交易查询详情。 */
-export function TxListDetailPage() {
-  return <TransactionDetailCore />;
-}
-
-/** 异常处理列表（status=70 过滤视图）。 */
-export function TxExceptionListPage() {
-  return (
-    <TransactionListCore mode="exception" title="Exception Handling" detailModule="tx-exception" />
-  );
-}
-
-/** 异常处理详情。 */
-export function TxExceptionDetailPage() {
-  return <TransactionDetailCore />;
-}
-
-/**
- * 冲正记录列表（status 50/60 过滤视图；源无独立页）。
- * 后端 status 为单值过滤，故状态下拉仅提供 50（冲正中）/60（已冲正）二选一。
- * 详情跳「交易查询」详情（tx-reversal 无独立详情路由）。
- */
-export function TxReversalListPage() {
-  return <TransactionListCore mode="reversal" title="Reversal Records" detailModule="tx-list" />;
+  return <TransactionListCore />;
 }

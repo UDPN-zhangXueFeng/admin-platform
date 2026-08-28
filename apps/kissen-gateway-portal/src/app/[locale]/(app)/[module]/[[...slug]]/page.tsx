@@ -6,17 +6,13 @@ import { useConfig } from '@myorg/shared/util-config';
 import { loadKissenGatewayModulePage } from './module-page-registry';
 
 /**
- * Group routing: `/market/<sub-module>/...` and `/system/<sub-module>/...`
- * treat the first slug segment as the sub-module name, the rest as that
- * sub-module's slug. The group's enabled state maps to the matching key in
- * `config.modules.enabled`.
+ * Group routing: `/system/<sub-module>/...` treats the first slug segment
+ * as the sub-module name, the rest as that sub-module's slug. The group's
+ * enabled state maps to the matching key in `config.modules.enabled`.
  *
- * e.g. /market/onboard      → onboard list
- *      /market/onboard/123  → onboard detail
- *      /system/user/create  → user create
+ * e.g. /system/user/create  → user create
  */
 const GROUP_ENABLED_KEY: Record<string, string> = {
-  market: 'market',
   system: 'system',
 };
 
@@ -42,7 +38,6 @@ const FLAT_PAGE_SEGMENTS: ReadonlySet<string> = new Set(['manage', 'query']);
  *   /en/bank/query        → module=bank,   slug=["query"] → pageKey="list"
  *
  * Group routes:
- *   /en/market/tx         → module=market, slug=["tx"] → realModule="tx", pageKey="list"
  *   /en/system/user/456   → module=system, slug=["user","456"] → realModule="user", pageKey="detail"
  */
 export default function ModulePage({

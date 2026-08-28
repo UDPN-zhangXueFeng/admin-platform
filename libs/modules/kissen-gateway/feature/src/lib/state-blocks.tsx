@@ -3,11 +3,11 @@
 /**
  * 列表/详情通用状态块：loading / error / 空态 / 缺参兜底 / 详情外壳。
  *
- * 由 market/role/tx-user-系副本收敛，两套并存的样式各自成对保留
+ * 由 role/tx-user-系副本收敛，两套并存的样式各自成对保留
  * （渲染输出与收敛前逐字节一致）：
- * - LoadingBlock：text（market/role 的 py-10 文案，默认）｜skeleton
+ * - LoadingBlock：text（role 的 py-10 文案，默认）｜skeleton
  *   （user/onboard 的三行骨架）。
- * - ErrorBlock（market/role：py-10、span、Button type="button"）与
+ * - ErrorBlock（role：py-10、span、Button type="button"）与
  *   QueryErrorRetry（user/menu/onboard：py-8 居中、p 文案；menu/onboard
  *   带 withIcon 刷新图标）是两套独立约定，不做合并。
  */
@@ -17,7 +17,7 @@ import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { Button, Skeleton } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 
-/** 加载态：text = py-10 居中文案（market/role）；skeleton = 三行骨架（user/onboard）。 */
+/** 加载态：text = py-10 居中文案（role）；skeleton = 三行骨架（user/onboard）。 */
 export function LoadingBlock({ variant = 'text' }: { variant?: 'text' | 'skeleton' }) {
   if (variant === 'skeleton') {
     return (
@@ -31,7 +31,7 @@ export function LoadingBlock({ variant = 'text' }: { variant?: 'text' | 'skeleto
   return <div className="py-10 text-center text-sm text-muted-foreground">Loading…</div>;
 }
 
-/** 加载失败提示 + 重试（market/role 约定；error 状态必须可感知并可恢复）。 */
+/** 加载失败提示 + 重试（role 约定；error 状态必须可感知并可恢复）。 */
 export function ErrorBlock({
   message,
   onRetry,
@@ -101,7 +101,7 @@ export function MissingIdBlock({
   );
 }
 
-/** 详情页外壳：返回列表 + 标题 + 内容卡（market 详情域）。 */
+/** 详情页外壳：返回列表 + 标题 + 内容卡（role/tx 详情域）。 */
 export function DetailShell({
   title,
   onBack,

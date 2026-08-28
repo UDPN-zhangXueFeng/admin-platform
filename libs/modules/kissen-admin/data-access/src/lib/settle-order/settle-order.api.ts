@@ -5,9 +5,11 @@ import { kissenPage, kissenRequest } from '../kissen-client';
 import type {
   SettleOrderConfirmReq,
   SettleOrderGenerateReq,
+  SettleOrderItemRow,
   SettleOrderListFilter,
   SettleOrderListReq,
   SettleOrderRow,
+  SettleOrderVoidReq,
 } from './settle-order.model';
 
 /** 结算单分页列表（POST /manage/settle-order/list，{ page, data }）。 */
@@ -48,7 +50,7 @@ export function settleOrderGenerate(
   );
 }
 
-/** 提交结算单确认审批（KSC）；仅 status 5/15 可操作（POST /manage/settle-order/confirm）。 */
+/** 提交结算单确认审批（KSC）；仅 status 10 待确认可操作（POST /manage/settle-order/confirm）。 */
 export function settleOrderConfirm(
   req: SettleOrderConfirmReq,
   config?: AxiosRequestConfig,
@@ -71,4 +73,30 @@ export async function getSettleLpOptions(
     config,
   );
   return res.data;
+}
+
+/**
+ * 作废结算单（v2.0/AD-25：仅 status 10 待确认 → 45 作废；
+ * 作废后同周期可重新生成，追溯流水归下期调整项）。
+ */
+export function settleOrderVoid(
+  req: SettleOrderVoidReq,
+  config?: AxiosRequestConfig,
+): Promise<void> {
+  return kissenRequest.post<void>('/manage/settle-order/void', req, config);
+}
+
+/**
+ * 结算单分项（v2.0：token 对分项 + 调整项；POST /manage/settle-order/items/{orderId}）。
+ * 列表展开行懒加载消费，金额为各 token 对自身货币单位。
+ */
+export function getSettleOrderItems(
+  orderId: number,
+  config?: AxiosRequestConfig,
+): Promise<SettleOrderItemRow[]> {
+  return kissenRequest.post<SettleOrderItemRow[]>(
+    `/manage/settle-order/items/${orderId}`,
+    undefined,
+    config,
+  );
 }

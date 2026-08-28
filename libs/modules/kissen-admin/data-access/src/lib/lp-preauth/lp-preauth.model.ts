@@ -1,44 +1,40 @@
-/** LP 预授权（源 `api/lp-preauth.ts`；rowKey=preauthId，限定池的可扣减额度）。 */
+/**
+ * LP 预授权（源 `api/lp-preauth.ts` LpPreauthRespVO；rowKey=preauthId）。
+ *
+ * v2.0 token 化：tokenId/tokenCode 替代 currency；凭证字段（authCredential/
+ * authCsTxId）不再返回（资金系统独占管理）；可用授权 preauthAvailable
+ * 直接采用接口 2 查询值（availableAmount 口径），非前端差值。
+ */
 
 export interface LpPreauthRow {
   preauthId: number;
   lpId: number;
   lpName: string;
   poolId: number;
-  currency: string;
-  /** 授权总额（BigDecimal）。 */
+  /** v2.0 token 维度（currency 列已废弃）。 */
+  tokenId: number;
+  tokenCode: string;
+  /** 授权总额。 */
   authAmount: string | number;
-  /** 已使用额度（BigDecimal）。 */
+  /** 已使用授权额。 */
   usedAmount: string | number;
-  /** 生效时间（后端 datetime：number 毫秒或 ISO string）。 */
-  validFrom: string | number;
-  /** 失效时间。 */
-  validTo: string | number;
-  /** 授权凭证（链上交易号 / 凭证串）。 */
-  authCredential: string | null;
-  /** 链上授权交易 ID。 */
-  authCsTxId: string | null;
+  /** 可用授权（接口 2 查询值，availableAmount 口径；非前端差值）。 */
+  availableAmount: string | number;
+  /** 授权起始时间（毫秒；页面未展示）。 */
+  validFrom: number;
+  /** 授权有效期至（毫秒；页面未展示）。 */
+  validTo: number;
+  /** 快照时间（毫秒）。 */
+  snapshotTime: number;
+  /** 20 有效 / 50 失效（LP_PREAUTH_STATUS_LABEL）。 */
   status: number;
   createTime: number;
-}
-
-/** 与后端 LpPreauthSaveReqVO 对齐；preauthId 空=新增，非空=编辑。 */
-export interface LpPreauthSaveReq {
-  preauthId?: number;
-  lpId: number;
-  poolId: number;
-  authAmount: string | number;
-  /** datetime，提交前转 epoch 毫秒（源 preauth-form-dialog `validFrom.getTime()`）。 */
-  validFrom: number;
-  validTo: number;
-  authCredential?: string;
-  authCsTxId?: string;
 }
 
 export interface LpPreauthListFilter {
   lpId?: number;
   poolId?: number;
-  currency?: string;
+  tokenId?: number;
   status?: number;
 }
 
@@ -48,19 +44,16 @@ export interface LpPreauthListReq {
   filter: LpPreauthListFilter;
 }
 
-/** 预授权状态（沿用 CommonStatusEnum；20 审核通过=生效可撤销，50 停用=已撤销）。 */
+/** 预授权状态（源 index.vue STATUS_MAP 定稿英文）。 */
 export const LP_PREAUTH_STATUS_LABEL: Record<number, string> = {
-  1: 'Saved (Draft)',
-  20: 'Approved',
-  50: 'Disabled',
+  20: 'Active',
+  50: 'Invalid',
 };
 
 export const LP_PREAUTH_STATUS_VARIANT: Record<
   number,
   'default' | 'secondary' | 'destructive' | 'outline'
 > = {
-  1: 'outline',
   20: 'default',
   50: 'outline',
 };
-

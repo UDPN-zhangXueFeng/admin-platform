@@ -68,11 +68,11 @@ export const TX_STATUS_WARN_CLASS =
   'border-amber-300 bg-amber-50 text-amber-900';
 
 /**
- * 交易单号展示（F1 发现：实际行 VO 字段为 txUuid，声明类型只有 txNo；
- * txUuid 优先、txNo 兜底双兜底必须保留，types 收敛留 W3 联调窗）。
- * 列表页与链路抽屉共用本实现，勿在页面各写一份分叉口径。
+ * 交易单号展示（v2.3 e591f85 固定口径：全网唯一 KSN 单号 `txNo || '-'`，
+ * 不再回退 txUuid/transactionId；txUuid 移作抽屉「Bank Idempotency No.」
+ * 独立项）。列表页、链路抽屉、split 明细、settle 流水共用本口径，勿在
+ * 页面各写一份分叉实现。
  */
-export function txNoText(row: TxRow): string {
-  const r = row as TxRow & { txUuid?: string };
-  return r.txUuid || row.txNo || '-';
+export function txNoText(row: Pick<TxRow, 'txNo'>): string {
+  return row.txNo || '-';
 }

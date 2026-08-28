@@ -9,6 +9,9 @@ export const settleOrderKeys = {
     [...settleOrderKeys.lists(projectId), params] as const,
   detail: (projectId: string, orderId: number) =>
     [...settleOrderKeys.all(projectId), 'detail', orderId] as const,
+  /** 结算单分项（展开行懒加载，orderId 维度缓存）。 */
+  items: (projectId: string, orderId: number) =>
+    [...settleOrderKeys.all(projectId), 'items', orderId] as const,
   /** LP 选项（生成结算单弹窗 / 筛选下拉数据源）。 */
   lpOptions: (projectId: string) =>
     [...settleOrderKeys.all(projectId), 'lpOptions'] as const,

@@ -1,6 +1,7 @@
 /**
- * LP Token 对参与域模型（源 `src/types/business.ts` PairRow/EligiblePairRow
- * 平移 + `src/views/pair/index.vue` §D7 码表，基线 kissen-lp-portal v2）。
+ * 平移 + `src/views/pair/index.vue` §D7 码表，基线 kissen-lp-portal v2.3
+ * e591f85：汇率三列（baseRate/markupRate/userRate，原汇率页字段）并入
+ * 双 tab 行 VO，rate 页随菜单退役（端点与 SyncDomainCode 'rate' 保留）。
  *
  * v1 的 types.ts 中转声明（旧 PairRow/PairPool* 形状）随 pair-pool 聚合页
  * 一并废弃剪除，PairRow 在本域以 v2 基线形状重新声明；EligiblePairRow 为
@@ -18,6 +19,12 @@ export interface PairRow {
   sourceTokenNo: string;
   targetTokenCode: string;
   targetTokenNo: string;
+  /** v2.3 并入的汇率字段：基础汇率（比值原值展示，不加 %；null → '-'）。 */
+  baseRate: string | number | null;
+  /** v2.3 并入的汇率字段：加价率（0〜1，页面 ×100 显 2 位小数 %）。 */
+  markupRate: string | number | null;
+  /** v2.3 并入的汇率字段：用户汇率 = 基础 + 加价。 */
+  userRate: string | number | null;
   /** 生效分成比例（覆盖值或对默认，推送定值）。 */
   mySplitRatio: string | number;
   defaultSplitRatio: string | number;
@@ -42,6 +49,10 @@ export interface EligiblePairRow {
   sourceTokenNo: string;
   targetTokenCode: string;
   targetTokenNo: string;
+  /** v2.3 并入的汇率字段（申请决策参考；展示口径同 PairRow）。 */
+  baseRate: string | number | null;
+  markupRate: string | number | null;
+  userRate: string | number | null;
   /** 源侧 token 资金池已开通。 */
   sourcePooled: boolean;
   /** 目标侧 token 资金池已开通。 */

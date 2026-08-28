@@ -32,7 +32,7 @@ import { PageHead } from './page-head';
  * 路由对齐源 `/system/log`（registry：system/log → list）。
  *
  * - shared DataTable 不支持展开子行，源 expand 列是核心交互 —— 沿用
- *   market-pages 的既有结论：用与 DataTable 同视觉语言的原生 table
+ *   既有结论：用与 DataTable 同视觉语言的原生 table
  *   （含 loading 骨架/空态/分页）。
  * - 服务端状态 TanStack Query；loading/empty/error 三态均显式可感知。
  */

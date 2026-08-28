@@ -8,6 +8,6 @@ export const lpKeys = {
     [...lpKeys.lists(projectId), params] as const,
   detail: (projectId: string, lpId: number) =>
     [...lpKeys.all(projectId), 'detail', lpId] as const,
-  currencyPairOptions: (projectId: string) =>
-    [...lpKeys.all(projectId), 'currencyPairOptions'] as const,
+  portalAccount: (projectId: string, lpId: number) =>
+    [...lpKeys.all(projectId), 'portalAccount', lpId] as const,
 } as const;

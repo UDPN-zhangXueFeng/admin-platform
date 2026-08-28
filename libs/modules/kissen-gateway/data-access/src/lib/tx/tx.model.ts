@@ -41,6 +41,10 @@ export interface TxRecord {
   pairCode?: string;
   principal?: number;
   status?: number;
+  /** 付款账户（用户）：源行 G-1 报价建账写入。 */
+  senderAccount?: string;
+  /** 收款账户：源行 G-1 / 目标行 G-4 toAccount。 */
+  receiverAccount?: string;
   sourceCsTxId?: string;
   targetCsTxId?: string;
   pendingFlag?: number;

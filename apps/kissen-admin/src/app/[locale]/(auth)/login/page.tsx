@@ -4,6 +4,7 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { MockLoginPage, useToast } from '@myorg/shared/ui';
+import { LoginIllustration } from '../../../../components/brand/login-illustration';
 import { useAuth } from '@myorg/shared/util-auth';
 import type { User } from '@myorg/shared/util-auth';
 import {
@@ -44,7 +45,7 @@ export default function LoginRoute() {
     setSearchParams(new URLSearchParams(window.location.search));
   }, []);
   const expired = searchParams?.get('expired') === '1';
-  const redirectTarget = searchParams?.get('redirect') || '/dashboard';
+  const redirectTarget = searchParams?.get('redirect') || '/workbench';
 
   React.useEffect(() => {
     if (expired) toast.warning('Session expired, please sign in again');
@@ -83,6 +84,10 @@ export default function LoginRoute() {
           loginName: resp.loginName,
           userType: resp.userType,
           firstLogin: resp.firstLogin,
+          // 源 store/user.ts menuTree —— 侧栏菜单以后端 menuTree 驱动
+          // （MainLayout 消费 store.menuTree），随 user 快照进 localStorage，
+          // 登出时由 clearSessionStorage 一并清除。
+          menuTree: resp.menuTree,
         };
         login(user, resp.token);
 
@@ -111,13 +116,13 @@ export default function LoginRoute() {
         brandText="Kissen Clearing Network"
         brandSuffix="Operations Console"
         brandTagline="Interbank digital currency clearing orchestration · Internal operations system"
-        svgPath="/login-illustration.svg"
+        illustration={<LoginIllustration />}
         redirectPath="/dashboard"
-        brandBaseColor="text-[#001a98]"
-        brandAccentColor="text-[#00a5d5]"
-        brandSuffixBg="bg-[#00a5d5]"
-        taglineColor="text-[#172260]"
-        titleColor="text-[#554eea]"
+        brandBaseColor="text-[var(--brand-deep,#0a3d7a)]"
+        brandAccentColor="text-[var(--brand-accent,#7fa8d9)]"
+        brandSuffixBg="bg-[var(--brand-accent,#7fa8d9)]"
+        taglineColor="text-[#1e2635]"
+        titleColor="text-[hsl(var(--primary))]"
         submitLabel="Sign In"
         onSubmit={handleSubmit}
       />

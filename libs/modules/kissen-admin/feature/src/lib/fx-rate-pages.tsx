@@ -1,15 +1,26 @@
 'use client';
 
 import * as React from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import { useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
+import { Controller, useForm } from 'react-hook-form';
+import { Info } from 'lucide-react';
 
 import {
+  Alert,
+  AlertDescription,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
+  Checkbox,
   createActionColumn,
-  type TableRowAction,
   DataTable,
   Dialog,
   DialogContent,
@@ -17,66 +28,40 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Skeleton,
   useToast,
+  type TableRowAction,
 } from '@myorg/shared/ui';
-import { FormField } from '@myorg/shared/ui-forms';
+
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
-import { useRouter } from '@myorg/shared/util-i18n';
-import { peekRow, stashRow } from './row-stash';
+import { FormField } from '@myorg/shared/ui-forms';
 
 import {
   KISSEN_PROJECT_ID,
-  // currency-pair domain
-  useCurrencyPairListQuery,
-  useCurrencyPairDetailQuery,
-  useCurrencyPairBankCurrenciesQuery,
-  useSaveCurrencyPairMutation,
-  useEnableCurrencyPairMutation,
-  useDisableCurrencyPairMutation,
-  useFreezeCurrencyPairMutation,
-  CurrencyPairStatus,
-  CURRENCY_PAIR_STATUS_LABEL,
-  CURRENCY_PAIR_STATUS_VARIANT,
-  type CurrencyPairRow,
-  type CurrencyPairSaveReq,
-  type CurrencyPairListFilter,
-  // rate domain
-  useRateListQuery,
-  useRateHistoryQuery,
-  useRateDetailQuery,
-  useSaveRateMutation,
-  useSaveExchangeRateMutation,
-  RATE_CHANGE_TYPE_LABEL,
-  RATE_STATUS_LABEL,
-  RATE_STATUS_VARIANT,
-  type RateRecordRow,
-  type RateListFilter,
+  PAIR_STATUS_LABEL,
+  PAIR_STATUS_VARIANT,
+  tokenList,
+  useDisableTokenPairMutation,
+  useEnableTokenPairMutation,
+  useSaveTokenPairMutation,
+  useSetTokenPairDefaultSplitMutation,
+  useTokenPairListQuery,
+  type TokenPairListFilter,
+  type TokenPairRow,
+  type TokenPairSaveReq,
+  type TokenRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
 const PROJECT_ID = KISSEN_PROJECT_ID;
 
-/** 列表默认每页条数（源 el-pagination page-size 10）。 */
-const PAGE_SIZE_DEFAULT = 10;
-
 // ---------------------------------------------------------------------------
 // 共享展示工具
 // ---------------------------------------------------------------------------
-
-/** 比率/金额千分位分组（源 approval/format.ts formatMoney，保留原小数位）；null/undefined/空 → '-'。 */
-function formatRate(v: string | number | null | undefined): string {
-  if (v === null || v === undefined || v === '') return '-';
-  const [int, dec] = String(v).split('.');
-  const sign = int.startsWith('-') ? '-' : '';
-  const digits = sign ? int.slice(1) : int;
-  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
-}
 
 /** 毫秒时间戳 → 统一管理台时间格式；0/空/非法 → '--'（conventions §4）。 */
 function formatTime(ms: number | null | undefined): string {
@@ -85,32 +70,35 @@ function formatTime(ms: number | null | undefined): string {
   return Number.isNaN(d.getTime()) ? '--' : formatAdminDateTime(d);
 }
 
-/** 路由 ?id= 解析为正整数；无值视为新建。 */
-function parseId(raw: string | null): number | undefined {
-  if (!raw) return undefined;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
+/** 比率 → 百分比展示（源 fmtPercent：空/非数字 → '-'，其余 (v*100).toFixed(2)+'%'）。 */
+function formatPercent(v: string | number | null | undefined): string {
+  if (v === null || v === undefined || v === '') return '-';
+  const n = Number(v);
+  return Number.isNaN(n) ? '-' : `${(n * 100).toFixed(2)}%`;
 }
 
-/** 货币对状态徽章（co-locate 展示组件，conventions §5）。 */
+/** 用户汇率 = 基础汇率 ÷ (1 + 加价率)（源 userRate；markup null/NaN 按 0，base 空整格 '-'）。 */
+function userRate(row: {
+  baseRate?: string | number | null;
+  markupRate?: string | number | null;
+}): string {
+  const base = row.baseRate == null ? Number.NaN : Number(row.baseRate);
+  const markup =
+    row.markupRate == null ? 0 : Number(row.markupRate) || 0;
+  if (Number.isNaN(base)) return '-';
+  return (base / (1 + markup)).toFixed(4);
+}
+
+/** Token 对状态徽章（co-locate 展示组件，conventions §5）。 */
 function PairStatusBadge({ status }: { status: number }) {
   return (
-    <Badge variant={CURRENCY_PAIR_STATUS_VARIANT[status] ?? 'outline'}>
-      {CURRENCY_PAIR_STATUS_LABEL[status] ?? String(status)}
+    <Badge variant={PAIR_STATUS_VARIANT[status] ?? 'outline'}>
+      {PAIR_STATUS_LABEL[status] ?? String(status)}
     </Badge>
   );
 }
 
-/** 变更记录状态徽章。 */
-function RateStatusBadge({ status }: { status: number }) {
-  return (
-    <Badge variant={RATE_STATUS_VARIANT[status] ?? 'outline'}>
-      {RATE_STATUS_LABEL[status] ?? String(status)}
-    </Badge>
-  );
-}
-
-/** 详情字段：label + 只读值（照 user-detail-page DetailField）。 */
+/** 只读详情字段：label + 值（照 user-detail DetailField 模式）。 */
 function DetailField({
   label,
   children,
@@ -126,181 +114,198 @@ function DetailField({
   );
 }
 
-/* ======================================================================= */
-/* currency-pair — 货币对管理（源 fx-rate/pair/index.vue + pair-dialog.vue）*/
-/* ======================================================================= */
+/** Token 对紧凑式单元格：SRC/TGT 主行 + 银行副行 + pairCode 等宽副行（源 pairx，symbol 优先）。 */
+function TokenPairCell({
+  sourceSymbol,
+  sourceTokenCode,
+  targetSymbol,
+  targetTokenCode,
+  sourceBankCode,
+  targetBankCode,
+  pairCode,
+}: {
+  sourceSymbol: string;
+  sourceTokenCode: string;
+  targetSymbol: string;
+  targetTokenCode: string;
+  sourceBankCode: string;
+  targetBankCode: string;
+  pairCode?: string;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col leading-snug">
+      <span className="font-mono text-[13px] font-semibold tabular-nums">
+        {sourceSymbol || sourceTokenCode || '-'}/
+        {targetSymbol || targetTokenCode || '-'}
+      </span>
+      <span className="text-xs text-muted-foreground">
+        {sourceBankCode || '-'} → {targetBankCode || '-'}
+      </span>
+      {pairCode !== undefined && (
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {pairCode || '-'}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 通用确认流：受控 AlertDialog（禁 window.confirm，锁定约束 2）。
+ * request 非空即打开；onConfirm 后由调用方负责清空 request。
+ */
+interface ConfirmRequest {
+  title: string;
+  message: string;
+  confirmText?: string;
+  destructive?: boolean;
+  onConfirm: () => void;
+}
+
+function ConfirmDialog({
+  request,
+  onClose,
+}: {
+  request: ConfirmRequest | null;
+  onClose: () => void;
+}) {
+  return (
+    <AlertDialog open={request != null} onOpenChange={(open) => !open && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{request?.title}</AlertDialogTitle>
+          <AlertDialogDescription>{request?.message}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className={
+              request?.destructive
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                : undefined
+            }
+            onClick={request?.onConfirm}
+          >
+            {request?.confirmText ?? 'Confirm'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TokenPairListPage — Token 对管理（源 fx-rate/pair/index.vue v2.0-tokenization）
+// ---------------------------------------------------------------------------
 
 interface PairFilterForm {
-  sourceCurrency?: string;
-  targetCurrency?: string;
+  pairCode?: string;
   status?: number;
 }
 
-const PAIR_EMPTY_FILTER: PairFilterForm = {
-  sourceCurrency: '',
-  targetCurrency: '',
-  status: undefined,
-};
+const PAIR_EMPTY_FILTER: PairFilterForm = { pairCode: '', status: undefined };
 
 /** 状态筛选 Select 的「全部」哨兵值（shadcn Select 无原生 clearable）。 */
 const STATUS_ALL = 'ALL';
 
 /**
- * CurrencyPairListPage — 货币对管理列表页。
+ * Token 对管理列表页（registry key `pair` → TokenPairListPage）。
  *
- * 迁移自源 `views/fx-rate/pair/index.vue`。
- * - 筛选：源币种 / 目标币种（精确 Input）/ 状态（Select）。
- * - 列：货币对 / 管理侧加价率 / 滑点阈值 / 基础汇率 / 状态 / 创建时间。
- * - 行操作：查看(路由) / 编辑(路由) / 提交启用(status≠20) / 提交停用(status=20)
- *   / 调整加价率(status=20,MarkupDialog) / 维护基础汇率(status=20,BaseRateDialog)
- *   / 冻结(status=20) / 解冻(status=50) / 变更记录(RateHistoryDialog)。
- * - 提交启停 / 冻结解冻用 window.confirm（与 user 模块一致）。
+ * 迁移自源 `views/fx-rate/pair/index.vue`（787ccc9）：
+ * - 筛选：pairCode（Input 模糊，回车触发查询）/ 状态（20 Enabled/30 Frozen/50 Disabled）。
+ * - 列：Token Pair 紧凑式（symbol 优先 + 银行副行 + pairCode）/ Base Rate / Markup Rate
+ *   / User Rate（=base/(1+markup)，GW 口径）/ Default Split / Status / Created At。
+ * - 行操作：View / Edit；status=20 → Disable + Adjust Default Split；status=50 → Enable；
+ *   status=30（Frozen）无启停/分成操作（源同款）。
+ * - 启停即时生效不走审批；确认流 AlertDialog，提示 sonner。
+ * - 滑点阈值列/输入不迁移（源 2026-08-27 已移除，01 文档 §G 裁决13）。
  */
-export function CurrencyPairListPage() {
-  const router = useRouter();
+export function TokenPairListPage() {
   const toast = useToast();
-  const { register, handleSubmit, reset, control } =
-    useForm<PairFilterForm>({ defaultValues: PAIR_EMPTY_FILTER });
 
-  const [params, setParams] = React.useState<{
-    pageNum: number;
-    pageSize: number;
-    filter: CurrencyPairListFilter;
-  }>({ pageNum: 1, pageSize: PAGE_SIZE_DEFAULT, filter: {} });
+  const { register, handleSubmit, reset, control } = useForm<PairFilterForm>({
+    defaultValues: PAIR_EMPTY_FILTER,
+  });
 
-  const { data, isLoading } = useCurrencyPairListQuery(PROJECT_ID, params);
-  const enableMutation = useEnableCurrencyPairMutation(PROJECT_ID);
-  const disableMutation = useDisableCurrencyPairMutation(PROJECT_ID);
-  const freezeMutation = useFreezeCurrencyPairMutation(PROJECT_ID);
+  const [filter, setFilter] = React.useState<TokenPairListFilter>({});
 
-  // 行内弹窗状态（MarkupDialog / BaseRateDialog / RateHistoryDialog）。
-  const [markupRow, setMarkupRow] = React.useState<CurrencyPairRow | null>(null);
-  const [baseRateRow, setBaseRateRow] = React.useState<CurrencyPairRow | null>(
-    null,
-  );
-  const [historyRow, setHistoryRow] = React.useState<CurrencyPairRow | null>(
-    null,
-  );
+  const { data: rows, isLoading } = useTokenPairListQuery(PROJECT_ID, filter);
+  const enableMutation = useEnableTokenPairMutation(PROJECT_ID);
+  const disableMutation = useDisableTokenPairMutation(PROJECT_ID);
 
-  const rows = data?.data ?? [];
-  const paginationMeta = data?.pagination;
+  // 页内弹窗（create/edit/view 收编原三路由页）+ 确认流 + 分成 prompt。
+  const [dialog, setDialog] = React.useState<{
+    mode: 'create' | 'edit' | 'view';
+    row: TokenPairRow | null;
+  } | null>(null);
+  const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
+  const [splitRow, setSplitRow] = React.useState<TokenPairRow | null>(null);
 
   const onSubmit = React.useCallback((form: PairFilterForm) => {
-    setParams((p) => ({ ...p, pageNum: 1, filter: form }));
+    setFilter({ pairCode: form.pairCode || undefined, status: form.status });
   }, []);
 
   const onReset = React.useCallback(() => {
     reset(PAIR_EMPTY_FILTER);
-    setParams((p) => ({ ...p, pageNum: 1, filter: {} }));
+    setFilter({});
   }, [reset]);
 
-  const submitEnable = React.useCallback(
-    (row: CurrencyPairRow) => {
-      if (
-        !window.confirm(
-          `Submit enable approval for "${row.sourceCurrency}/${row.targetCurrency}"? Once approved, the currency pair will be enabled and pushed to the bank gateway.`,
-        )
-      )
-        return;
-      enableMutation.mutate(
-        { pairId: row.pairId },
-        {
-          onSuccess: () => toast.success('Enable approval submitted'),
-          onError: (err) => toast.error((err as Error).message),
+  const onDisable = React.useCallback(
+    (row: TokenPairRow) => {
+      setConfirm({
+        title: 'Disable Token Pair',
+        message:
+          `Disable token pair "${row.pairCode}"? New quotes will be rejected once disabled ` +
+          '(the backend rejects the request if any active LP participation exists — disable those first).',
+        confirmText: 'Disable',
+        destructive: true,
+        onConfirm: () => {
+          setConfirm(null);
+          disableMutation.mutate(row.pairId, {
+            onSuccess: () => toast.success('Disabled'),
+            onError: (e) => toast.error((e as Error).message),
+          });
         },
-      );
-    },
-    [enableMutation, toast],
-  );
-
-  const submitDisable = React.useCallback(
-    (row: CurrencyPairRow) => {
-      if (
-        !window.confirm(
-          `Submit disable approval for "${row.sourceCurrency}/${row.targetCurrency}"? Once approved, the currency pair will be disabled network-wide and will reject orders.`,
-        )
-      )
-        return;
-      disableMutation.mutate(
-        { pairId: row.pairId },
-        {
-          onSuccess: () => toast.success('Disable approval submitted'),
-          onError: (err) => toast.error((err as Error).message),
-        },
-      );
+      });
     },
     [disableMutation, toast],
   );
 
-  /** 冻结：status 20→50，立即生效不走审批（FR-C-03）。 */
-  const onFreeze = React.useCallback(
-    (row: CurrencyPairRow) => {
-      if (
-        !window.confirm(
-          `Freeze currency pair "${row.sourceCurrency}/${row.targetCurrency}"? The pair will immediately exit quoting and order taking, and its status will become Disabled.`,
-        )
-      )
-        return;
-      freezeMutation.mutate(
-        { pairId: row.pairId, freeze: true },
-        {
-          onSuccess: () => toast.success('Frozen'),
-          onError: (err) => toast.error((err as Error).message),
+  const onEnable = React.useCallback(
+    (row: TokenPairRow) => {
+      setConfirm({
+        title: 'Enable Token Pair',
+        message: `Enable token pair "${row.pairCode}"?`,
+        confirmText: 'Enable',
+        onConfirm: () => {
+          setConfirm(null);
+          enableMutation.mutate(row.pairId, {
+            onSuccess: () => toast.success('Enabled'),
+            onError: (e) => toast.error((e as Error).message),
+          });
         },
-      );
+      });
     },
-    [freezeMutation, toast],
-  );
-
-  /** 解冻：status 50→20，恢复启用。 */
-  const onUnfreeze = React.useCallback(
-    (row: CurrencyPairRow) => {
-      if (
-        !window.confirm(
-          `Unfreeze currency pair "${row.sourceCurrency}/${row.targetCurrency}"? The pair will be re-enabled and resume quoting.`,
-        )
-      )
-        return;
-      freezeMutation.mutate(
-        { pairId: row.pairId, freeze: false },
-        {
-          onSuccess: () => toast.success('Unfrozen'),
-          onError: (err) => toast.error((err as Error).message),
-        },
-      );
-    },
-    [freezeMutation, toast],
+    [enableMutation, toast],
   );
 
   const columns = React.useMemo<
-    ColumnDef<CurrencyPairRow & { id: string }>[]
+    ColumnDef<TokenPairRow & { id: string }>[]
   >(
     () => [
       {
-        accessorKey: 'sourceCurrency',
-        header: 'Currency Pair',
+        id: 'pair',
+        header: 'Token Pair',
         cell: ({ row }) => (
-          <span>
-            {row.original.sourceCurrency}/{row.original.targetCurrency}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'markupRate',
-        header: 'Admin Markup Rate',
-        cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatRate(row.original.markupRate)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'slippageThreshold',
-        header: 'Slippage Threshold',
-        cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatRate(row.original.slippageThreshold)}
-          </span>
+          <TokenPairCell
+            sourceSymbol={row.original.sourceSymbol}
+            sourceTokenCode={row.original.sourceTokenCode}
+            targetSymbol={row.original.targetSymbol}
+            targetTokenCode={row.original.targetTokenCode}
+            sourceBankCode={row.original.sourceBankCode}
+            targetBankCode={row.original.targetBankCode}
+            pairCode={row.original.pairCode}
+          />
         ),
       },
       {
@@ -308,7 +313,34 @@ export function CurrencyPairListPage() {
         header: 'Base Rate',
         cell: ({ row }) => (
           <span className="tabular-nums">
-            {formatRate(row.original.baseRate)}
+            {row.original.baseRate == null
+              ? '-'
+              : Number(row.original.baseRate).toFixed(4)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'markupRate',
+        header: 'Markup Rate',
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatPercent(row.original.markupRate)}
+          </span>
+        ),
+      },
+      {
+        id: 'userRate',
+        header: 'User Rate',
+        cell: ({ row }) => (
+          <span className="tabular-nums">{userRate(row.original)}</span>
+        ),
+      },
+      {
+        accessorKey: 'defaultSplitRatio',
+        header: 'Default Split',
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatPercent(row.original.defaultSplitRatio)}
           </span>
         ),
       },
@@ -320,78 +352,34 @@ export function CurrencyPairListPage() {
       {
         accessorKey: 'createTime',
         header: 'Created At',
-        cell: ({ row }) => (
-          <span>{formatTime(row.original.createTime)}</span>
-        ),
+        cell: ({ row }) => <span>{formatTime(row.original.createTime)}</span>,
       },
-      createActionColumn<CurrencyPairRow & { id: string }>((item) => {
-        const enabled = item.status === CurrencyPairStatus.Enabled;
-        const disabled = item.status === CurrencyPairStatus.Disabled;
-        const actions: TableRowAction<CurrencyPairRow & { id: string }>[] = [
+      createActionColumn<TokenPairRow & { id: string }>((item) => {
+        const actions: TableRowAction<TokenPairRow & { id: string }>[] = [
           {
             label: 'View',
-            onClick: () => {
-              stashRow('currency-pair', item.pairId, item);
-              router.push(`/currency-pair/detail?id=${item.pairId}`);
-            },
+            onClick: () => setDialog({ mode: 'view', row: item }),
           },
           {
             label: 'Edit',
-            onClick: () => {
-              stashRow('currency-pair', item.pairId, item);
-              router.push(`/currency-pair/edit?id=${item.pairId}`);
-            },
+            onClick: () => setDialog({ mode: 'edit', row: item }),
           },
         ];
-        if (!enabled) {
-          actions.push({
-            label: 'Submit for Enable',
-            onClick: () => submitEnable(item),
-          });
+        if (item.status === 20) {
+          actions.push({ label: 'Disable', destructive: true, onClick: () => onDisable(item) });
+          actions.push({ label: 'Adjust Default Split', onClick: () => setSplitRow(item) });
         }
-        if (enabled) {
-          actions.push({
-            label: 'Submit for Disable',
-            destructive: true,
-            onClick: () => submitDisable(item),
-          });
-          actions.push({
-            label: 'Adjust Markup Rate',
-            onClick: () => setMarkupRow(item),
-          });
-          actions.push({
-            label: 'Maintain Base Rate',
-            onClick: () => setBaseRateRow(item),
-          });
-          actions.push({
-            label: 'Freeze',
-            onClick: () => onFreeze(item),
-          });
+        if (item.status === 50) {
+          actions.push({ label: 'Enable', onClick: () => onEnable(item) });
         }
-        if (disabled) {
-          actions.push({
-            label: 'Unfreeze',
-            onClick: () => onUnfreeze(item),
-          });
-        }
-        actions.push({
-          label: 'Change History',
-          onClick: () => setHistoryRow(item),
-        });
         return actions;
       }),
     ],
-    [
-      router,
-      submitEnable,
-      submitDisable,
-      onFreeze,
-      onUnfreeze,
-    ],
+    [onDisable, onEnable],
   );
 
   const tableData = React.useMemo(
-    () => rows.map((r) => ({ ...r, id: String(r.pairId) })),
+    () => (rows ?? []).map((r) => ({ ...r, id: String(r.pairId) })),
     [rows],
   );
 
@@ -404,27 +392,19 @@ export function CurrencyPairListPage() {
         <div className="mb-4 text-sm font-semibold">Search</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
-            name="sourceCurrency"
-            label="Source Currency"
-            placeholder="Exact match, e.g. USD"
-            register={register('sourceCurrency')}
-          />
-          <FormField
-            name="targetCurrency"
-            label="Target Currency"
-            placeholder="Exact match, e.g. EUR"
-            register={register('targetCurrency')}
+            name="pairCode"
+            label="Pair Code"
+            placeholder="Fuzzy match, e.g. PR-"
+            register={register('pairCode')}
           />
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Status
-            </label>
+            <Label className="mb-1.5 block">Status</Label>
             <Controller
               control={control}
               name="status"
               render={({ field }) => (
                 <Select
-                  value={field.value ? String(field.value) : STATUS_ALL}
+                  value={field.value != null ? String(field.value) : STATUS_ALL}
                   onValueChange={(v) =>
                     field.onChange(v === STATUS_ALL ? undefined : Number(v))
                   }
@@ -434,8 +414,8 @@ export function CurrencyPairListPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={STATUS_ALL}>All</SelectItem>
-                    <SelectItem value="1">Saved (Draft)</SelectItem>
-                    <SelectItem value="20">Approved</SelectItem>
+                    <SelectItem value="20">Enabled</SelectItem>
+                    <SelectItem value="30">Frozen</SelectItem>
                     <SelectItem value="50">Disabled</SelectItem>
                   </SelectContent>
                 </Select>
@@ -453,13 +433,13 @@ export function CurrencyPairListPage() {
 
       <div className="rounded-lg border-border/60 bg-card shadow-float">
         <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">Currency Pair Management</div>
+          <div className="text-sm font-semibold">Token Pair Management</div>
           <Button
             type="button"
             size="sm"
-            onClick={() => router.push('/currency-pair/create')}
+            onClick={() => setDialog({ mode: 'create', row: null })}
           >
-            New Currency Pair
+            New Token Pair
           </Button>
         </div>
         <DataTable
@@ -467,1078 +447,766 @@ export function CurrencyPairListPage() {
           data={tableData}
           isLoading={isLoading}
           emptyMessage="No data"
-          pagination={
-            paginationMeta
-              ? {
-                  page: paginationMeta.page,
-                  pageSize: paginationMeta.pageSize,
-                  total: paginationMeta.total,
-                  onPageChange: (page) =>
-                    setParams((prev) => ({ ...prev, pageNum: page })),
-                  onPageSizeChange: (n) =>
-                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n })),
-                }
-              : undefined
-          }
         />
       </div>
 
-      {/* 调整加价率弹窗（源 markup-dialog.vue，rateSave KRC 审批） */}
-      {markupRow && (
-        <MarkupDialog
-          row={markupRow}
-          onClose={() => setMarkupRow(null)}
+      {dialog && (
+        <TokenPairDialog
+          mode={dialog.mode}
+          row={dialog.row}
+          onClosed={() => setDialog(null)}
         />
       )}
-      {/* 维护基础汇率弹窗（源 base-rate-dialog.vue，exchangeRateSave 立即生效） */}
-      {baseRateRow && (
-        <BaseRateDialog
-          row={baseRateRow}
-          onClose={() => setBaseRateRow(null)}
-        />
+
+      {splitRow && (
+        <SplitDialog row={splitRow} onClosed={() => setSplitRow(null)} />
       )}
-      {/* 变更记录弹窗（源 rate-history-dialog.vue，rateList by pairId） */}
-      {historyRow && (
-        <RateHistoryDialog
-          row={historyRow}
-          onClose={() => setHistoryRow(null)}
-        />
-      )}
+
+      <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />
     </div>
   );
 }
 
-/**
- * MarkupDialog — 调整加价率弹窗。
- * 迁移自源 `markup-dialog.vue`。提交加价率变更（rateSave → KRC 审批）。
- */
-function MarkupDialog({
-  row,
-  onClose,
-}: {
-  row: CurrencyPairRow;
-  onClose: () => void;
-}) {
-  const toast = useToast();
-  const mutation = useSaveRateMutation(PROJECT_ID);
-  const [markupRate, setMarkupRate] = React.useState('');
+// ---------------------------------------------------------------------------
+// TokenPairDialog — 建对/编辑/查看（源 fx-rate/pair/pair-dialog.vue）
+// ---------------------------------------------------------------------------
 
-  const handleSubmit = () => {
-    const n = Number(markupRate);
-    if (markupRate === '' || !Number.isFinite(n)) {
-      toast.error('Enter a new markup rate');
-      return;
-    }
-    if (n < 0) {
-      toast.error('Markup rate cannot be negative');
-      return;
-    }
-    mutation.mutate(
-      { pairId: row.pairId, markupRate: n },
-      {
-        onSuccess: () => {
-          toast.success('Markup rate change approval submitted');
-          onClose();
-        },
-        onError: (err) => toast.error((err as Error).message),
-      },
-    );
-  };
+interface ComboRow {
+  sourceTokenId: number;
+  sourceTokenCode: string;
+  sourceSymbol: string;
+  sourceBankCode: string;
+  targetTokenId: number;
+  targetTokenCode: string;
+  targetSymbol: string;
+  targetBankCode: string;
+  /** 该组合是否已存在 token 对（判重键 sourceTokenId->targetTokenId，后端有向）。 */
+  exists: boolean;
+  /** 每组独立参数（源 2026-08-27 反馈：不做组合统一配置；滑点阈值输入已移除）。 */
+  baseRate: string;
+  markupRate: string;
+  defaultSplitRatio: string;
+  /**
+   * 勾选态挂在行数据上（源 1841ba1）：与表格内置 selection 完全解耦——
+   * 内置 selection 在行内输入触发重渲染时会重置，导致「一输入就掉选中」。
+   */
+  checked: boolean;
+}
 
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>Adjust Markup Rate</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Currency Pair</label>
-            <p className="text-sm">
-              {row.sourceCurrency}/{row.targetCurrency}
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Current Markup Rate</label>
-            <p className="text-sm tabular-nums">{formatRate(row.markupRate)}</p>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              New Markup Rate<span className="ml-0.5 text-destructive">*</span>
-            </label>
-            <Input
-              type="number"
-              min={0}
-              step={0.01}
-              value={markupRate}
-              onChange={(e) => setMarkupRate(e.target.value)}
-              placeholder="Enter new markup rate"
-            />
-            <p className="text-xs text-muted-foreground">
-              Once approved, it will be written to the currency pair and pushed to the bank gateway
-            </p>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={mutation.isPending}>
-            Submit
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+function comboKey(c: { sourceTokenId: number; targetTokenId: number }): string {
+  return `${c.sourceTokenId}->${c.targetTokenId}`;
 }
 
 /**
- * BaseRateDialog — 维护基础汇率弹窗。
- * 迁移自源 `base-rate-dialog.vue`。基础汇率手工维护（exchangeRateSave，立即生效）。
+ * 已生效 token 全组合（有向：i≠j 双层循环，A→B 与 B→A 均为候选，后端 save 有向判重）。
  */
-function BaseRateDialog({
-  row,
-  onClose,
-}: {
-  row: CurrencyPairRow;
-  onClose: () => void;
-}) {
-  const toast = useToast();
-  const mutation = useSaveExchangeRateMutation(PROJECT_ID);
-  const [baseRate, setBaseRate] = React.useState('');
-
-  const handleSubmit = () => {
-    const n = Number(baseRate);
-    if (baseRate === '' || !Number.isFinite(n)) {
-      toast.error('Enter a new base rate');
-      return;
-    }
-    if (n <= 0) {
-      toast.error('Base rate must be greater than 0');
-      return;
-    }
-    mutation.mutate(
-      { pairId: row.pairId, baseRate: n },
-      {
-        onSuccess: () => {
-          toast.success('Base rate saved');
-          onClose();
-        },
-        onError: (err) => toast.error((err as Error).message),
-      },
-    );
-  };
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>Maintain Base Rate</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Currency Pair</label>
-            <p className="text-sm">
-              {row.sourceCurrency}/{row.targetCurrency}
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Current Base Rate</label>
-            <p className="text-sm tabular-nums">{formatRate(row.baseRate)}</p>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              New Base Rate<span className="ml-0.5 text-destructive">*</span>
-            </label>
-            <Input
-              type="number"
-              min={0}
-              step={0.01}
-              value={baseRate}
-              onChange={(e) => setBaseRate(e.target.value)}
-              placeholder="Enter new base rate"
-            />
-            <p className="text-xs text-muted-foreground">
-              Takes effect immediately after saving; quoting and timeout re-quoting will use the new rate (no approval in the first version)
-            </p>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={mutation.isPending}>
-            Submit
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+function buildCombos(
+  tokens: TokenRow[],
+  existingPairs: TokenPairRow[],
+): ComboRow[] {
+  const existsSet = new Set(
+    existingPairs.map((p) => `${p.sourceTokenId}->${p.targetTokenId}`),
   );
+  const list: ComboRow[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    for (let j = 0; j < tokens.length; j++) {
+      if (i === j) continue;
+      const a = tokens[i]!;
+      const b = tokens[j]!;
+      list.push({
+        sourceTokenId: a.tokenId,
+        sourceTokenCode: a.tokenCode,
+        sourceSymbol: a.symbol || '',
+        sourceBankCode: a.bankCode ?? '',
+        targetTokenId: b.tokenId,
+        targetTokenCode: b.tokenCode,
+        targetSymbol: b.symbol || '',
+        targetBankCode: b.bankCode ?? '',
+        exists: existsSet.has(comboKey({ sourceTokenId: a.tokenId, targetTokenId: b.tokenId })),
+        baseRate: '',
+        markupRate: '',
+        defaultSplitRatio: '',
+        checked: false,
+      });
+    }
+  }
+  return list;
 }
 
+/** 行内校验（源 rowInvalid）：基础汇率必填>0；加价率填了须数字；默认分成 0~1。未勾选行不校验。 */
+function comboInvalidReason(row: ComboRow): string | null {
+  if (!row.checked) return null;
+  const base = Number(row.baseRate);
+  if (row.baseRate === '' || Number.isNaN(base) || base <= 0) {
+    return 'Base rate is required and must be greater than 0';
+  }
+  if (row.markupRate !== '' && Number.isNaN(Number(row.markupRate))) {
+    return 'Markup rate must be numeric';
+  }
+  if (row.defaultSplitRatio !== '') {
+    const r = Number(row.defaultSplitRatio);
+    if (Number.isNaN(r) || r < 0 || r > 1) {
+      return 'Default split must be between 0 and 1';
+    }
+  }
+  return null;
+}
+
+interface TokenPairFormValues {
+  sourceTokenId?: number;
+  targetTokenId?: number;
+  baseRate: string;
+  markupRate: string;
+  defaultSplitRatio: string;
+}
+
+const TOKEN_NONE = 'NONE';
+
 /**
- * RateHistoryDialog — 变更记录弹窗。
- * 迁移自源 `rate-history-dialog.vue`。按 pairId 查加价率变更记录列表。
+ * 建对/编辑/查看三态弹窗（源 pair-dialog.vue；原 /currency-pair/create|edit|detail
+ * 三路由页收编于此）。
+ *
+ * - create：按已生效 token（tokenList status=20）预生成有向全组合，排除同 token 与
+ *   已有 token 对；勾选态挂行数据，行内逐对填参；逐行串行 save，失败不中断，汇总提示。
+ * - edit/view：单对表单；源/目标 token 禁改（isEdit||isView）；view 追加 pairCode/
+ *   状态/创建时间只读项。滑点阈值字段不渲染（§G 裁决13）。
  */
-function RateHistoryDialog({
+function TokenPairDialog({
+  mode,
   row,
-  onClose,
+  onClosed,
 }: {
-  row: CurrencyPairRow;
-  onClose: () => void;
+  mode: 'create' | 'edit' | 'view';
+  row: TokenPairRow | null;
+  onClosed: () => void;
 }) {
-  const [pageNum, setPageNum] = React.useState(1);
-  const { data, isLoading } = useRateHistoryQuery(
+  const toast = useToast();
+  const isCreate = mode === 'create';
+  const isView = mode === 'view';
+  const isEdit = mode === 'edit';
+
+  // ---- 数据源：已生效 token（建对组合来源 + 单对表单下拉）+ 已有对（判重）----
+  const tokensQuery = useQuery({
+    queryKey: ['project', PROJECT_ID, 'token', 'options', { status: 20 }],
+    queryFn: () => tokenList({ status: 20 }),
+  });
+  const pairsQuery = useTokenPairListQuery(
     PROJECT_ID,
-    row.pairId,
-    pageNum,
-    10,
+    {},
+    isCreate,
   );
 
-  const rows = (data?.data ?? []).map((r) => ({ ...r, id: String(r.recordId) }));
-  const paginationMeta = data?.pagination;
+  // ---- create：组合状态（含勾选/行内参数，全挂行数据）----
+  const [combos, setCombos] = React.useState<ComboRow[]>([]);
+  const [comboFilter, setComboFilter] = React.useState('');
+  const [hideExisting, setHideExisting] = React.useState(true);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [confirmBatch, setConfirmBatch] = React.useState(false);
 
-  const columns = React.useMemo<
-    ColumnDef<RateRecordRow & { id: string }>[]
-  >(
-    () => [
-      {
-        accessorKey: 'oldMarkupRate',
-        header: 'Old Markup Rate',
-        cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatRate(row.original.oldMarkupRate)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'newMarkupRate',
-        header: 'New Markup Rate',
-        cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatRate(row.original.newMarkupRate)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'changeType',
-        header: 'Change Type',
-        cell: ({ row }) => (
-          <span>
-            {RATE_CHANGE_TYPE_LABEL[row.original.changeType] ??
-              String(row.original.changeType)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'status',
-        header: 'Status',
-        cell: ({ row }) => <RateStatusBadge status={row.original.status} />,
-      },
-      {
-        accessorKey: 'approvalRecordId',
-        header: 'Approval Record',
-        cell: ({ row }) => (
-          <span className="tabular-nums">
-            {row.original.approvalRecordId
-              ? String(row.original.approvalRecordId)
-              : '-'}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'createTime',
-        header: 'Created At',
-        cell: ({ row }) => (
-          <span>{formatTime(row.original.createTime)}</span>
-        ),
-      },
-    ],
+  const combosInitRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!isCreate || combosInitRef.current) return;
+    if (!tokensQuery.isSuccess || !pairsQuery.isSuccess) return;
+    combosInitRef.current = true;
+    setCombos(
+      buildCombos(tokensQuery.data ?? [], pairsQuery.data ?? []),
+    );
+  }, [isCreate, tokensQuery.isSuccess, pairsQuery.isSuccess, tokensQuery.data, pairsQuery.data]);
+
+  /** 已勾选组合 = 行上 checked 标记（派生，不依赖表格 selection）。 */
+  const selected = React.useMemo(
+    () => combos.filter((c) => c.checked && !c.exists),
+    [combos],
+  );
+
+  const keyword = comboFilter.trim().toLowerCase();
+  const isVisible = React.useCallback(
+    (c: ComboRow) => {
+      if (hideExisting && c.exists) return false;
+      if (!keyword) return true;
+      return [c.sourceTokenCode, c.targetTokenCode, c.sourceBankCode, c.targetBankCode].some(
+        (v) => (v ?? '').toLowerCase().includes(keyword),
+      );
+    },
+    [hideExisting, keyword],
+  );
+  const visibleCombos = React.useMemo(
+    () => combos.filter(isVisible),
+    [combos, isVisible],
+  );
+
+  // 表头三态全选仅作用于当前可见且可创建的组合（源 toggleAll 语义）。
+  const allChecked =
+    visibleCombos.length > 0 && visibleCombos.every((c) => c.checked);
+  const someChecked =
+    visibleCombos.some((c) => c.checked) && !allChecked;
+
+  const updateCombo = React.useCallback(
+    (key: string, patch: Partial<ComboRow>) => {
+      setCombos((prev) =>
+        prev.map((c) => (comboKey(c) === key ? { ...c, ...patch } : c)),
+      );
+    },
     [],
   );
 
+  const toggleAll = React.useCallback(
+    (on: boolean) => {
+      setCombos((prev) =>
+        prev.map((c) =>
+          !c.exists && isVisible(c) ? { ...c, checked: on } : c,
+        ),
+      );
+    },
+    [isVisible],
+  );
+
+  // ---- edit/view：单对表单 ----
+  const {
+    register,
+    handleSubmit,
+    reset,
+    control,
+    formState: { errors },
+  } = useForm<TokenPairFormValues>();
+
+  React.useEffect(() => {
+    if (isCreate || !row) return;
+    reset({
+      sourceTokenId: row.sourceTokenId,
+      targetTokenId: row.targetTokenId,
+      baseRate: row.baseRate == null ? '' : String(row.baseRate),
+      markupRate: row.markupRate == null ? '' : String(row.markupRate),
+      defaultSplitRatio:
+        row.defaultSplitRatio == null ? '' : String(row.defaultSplitRatio),
+    });
+  }, [isCreate, row, reset]);
+
+  const saveMutation = useSaveTokenPairMutation(PROJECT_ID);
+  const tokenOptions = tokensQuery.data ?? [];
+
+  // 批量创建：逐行取各自参数串行 save（后端单条幂等防重），失败汇总不中断（源 onBatchSave）。
+  const onBatchSave = React.useCallback(async () => {
+    setConfirmBatch(false);
+    setSubmitting(true);
+    let created = 0;
+    const failed: string[] = [];
+    try {
+      for (const c of selected) {
+        try {
+          await saveMutation.mutateAsync({
+            sourceTokenId: c.sourceTokenId,
+            targetTokenId: c.targetTokenId,
+            baseRate: c.baseRate,
+            markupRate: c.markupRate === '' ? undefined : c.markupRate,
+            defaultSplitRatio:
+              c.defaultSplitRatio === '' ? undefined : c.defaultSplitRatio,
+          });
+          created++;
+        } catch {
+          failed.push(`${c.sourceTokenCode}→${c.targetTokenCode}`);
+        }
+      }
+      if (failed.length) {
+        toast.warning(
+          `Created ${created}, failed ${failed.length}: ${failed.join(', ')} ` +
+            '(duplicates or backend validation failed)',
+        );
+      } else {
+        toast.success(`Created ${created} token pairs`);
+      }
+      onClosed();
+    } finally {
+      setSubmitting(false);
+    }
+  }, [onClosed, saveMutation, selected, toast]);
+
+  // 批量提交前逐对校验：任一勾选行不合法即中止并列出前 3 条原因（源同款）。
+  const requestBatchSave = React.useCallback(() => {
+    const invalids = selected
+      .map((r) => ({ row: r, reason: comboInvalidReason(r) }))
+      .filter((x): x is { row: ComboRow; reason: string } => !!x.reason);
+    if (invalids.length) {
+      const reasons = invalids
+        .slice(0, 3)
+        .map((x) => `${x.row.sourceTokenCode}→${x.row.targetTokenCode} (${x.reason})`)
+        .join('; ');
+      toast.error(
+        `${invalids.length} combination(s) failed validation (highlighted rows): ${reasons}` +
+          (invalids.length > 3 ? `; and ${invalids.length - 3} more` : ''),
+      );
+      return;
+    }
+    setConfirmBatch(true);
+  }, [selected, toast]);
+
+  const onEditSave = React.useCallback(
+    (values: TokenPairFormValues) => {
+      if (!row) return;
+      const req: TokenPairSaveReq = {
+        pairId: row.pairId,
+        sourceTokenId: values.sourceTokenId!,
+        targetTokenId: values.targetTokenId!,
+        baseRate: values.baseRate,
+        markupRate: values.markupRate === '' ? undefined : values.markupRate,
+        defaultSplitRatio:
+          values.defaultSplitRatio === '' ? undefined : values.defaultSplitRatio,
+      };
+      saveMutation.mutate(req, {
+        onSuccess: () => {
+          toast.success('Saved');
+          onClosed();
+        },
+        onError: (e) => toast.error((e as Error).message),
+      });
+    },
+    [onClosed, row, saveMutation, toast],
+  );
+
+  const comboLoading = isCreate && (!tokensQuery.isSuccess || !pairsQuery.isSuccess);
+  const comboLoadError = isCreate && (tokensQuery.isError || pairsQuery.isError);
+
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[760px]">
+    <>
+      <Dialog open onOpenChange={(open) => !open && onClosed()}>
+        <DialogContent
+          className={isCreate ? 'sm:max-w-[1080px]' : 'sm:max-w-[560px]'}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {isView
+                ? 'Token Pair Details'
+                : isEdit
+                  ? 'Edit Token Pair'
+                  : 'New Token Pair'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {isCreate ? (
+            <div className="space-y-3">
+              <Alert>
+                <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <AlertDescription>
+                  Pre-generates all combinations from active tokens (excluding
+                  same-token pairs and pairs that already exist). Tick rows and
+                  configure each token pair inline — parameters are per pair;
+                  base rate is required for creation.
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex flex-wrap items-center gap-4">
+                <Input
+                  value={comboFilter}
+                  onChange={(e) => setComboFilter(e.target.value)}
+                  placeholder="Filter by token code / bank"
+                  className="w-[220px]"
+                />
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={hideExisting}
+                    onCheckedChange={(v) => setHideExisting(v === true)}
+                  />
+                  Hide existing pairs
+                </label>
+                <span className="ml-auto text-sm text-muted-foreground">
+                  {visibleCombos.length} available ·{' '}
+                  <span className="font-medium text-foreground">
+                    {selected.length} selected
+                  </span>
+                </span>
+              </div>
+
+              {comboLoadError ? (
+                <div className="flex items-center justify-between rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                  <span>Failed to load active tokens or existing pairs.</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      tokensQuery.refetch();
+                      pairsQuery.refetch();
+                    }}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : comboLoading ? (
+                <div className="space-y-2 rounded-md border border-border/50 p-4">
+                  <div className="h-4 w-full animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+                </div>
+              ) : (
+                <div className="max-h-[400px] overflow-auto rounded-md border border-border/50">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-muted/50">
+                      <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <th className="w-12 px-3 py-2">
+                          <Checkbox
+                            checked={
+                              allChecked
+                                ? true
+                                : someChecked
+                                  ? 'indeterminate'
+                                  : false
+                            }
+                            disabled={!visibleCombos.length}
+                            onCheckedChange={(v) => toggleAll(v === true)}
+                            aria-label="Select all visible combinations"
+                          />
+                        </th>
+                        <th className="px-3 py-2 font-medium">Token Pair</th>
+                        <th className="px-3 py-2 font-medium">
+                          Base Rate <span className="text-destructive">*</span>
+                        </th>
+                        <th className="px-3 py-2 font-medium">Markup Rate</th>
+                        <th className="px-3 py-2 font-medium">Default Split</th>
+                        <th className="w-24 px-3 py-2 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {visibleCombos.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={6}
+                            className="px-4 py-8 text-center text-muted-foreground"
+                          >
+                            No data
+                          </td>
+                        </tr>
+                      )}
+                      {visibleCombos.map((c) => {
+                        const key = comboKey(c);
+                        const invalid = comboInvalidReason(c);
+                        return (
+                          <tr
+                            key={key}
+                            className={invalid ? 'bg-destructive/5' : undefined}
+                          >
+                            <td className="px-3 py-2">
+                              <Checkbox
+                                checked={c.checked}
+                                disabled={c.exists}
+                                onCheckedChange={(v) =>
+                                  updateCombo(key, { checked: v === true })
+                                }
+                                aria-label={`Select ${c.sourceTokenCode}-${c.targetTokenCode}`}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <TokenPairCell
+                                sourceSymbol={c.sourceSymbol}
+                                sourceTokenCode={c.sourceTokenCode}
+                                targetSymbol={c.targetSymbol}
+                                targetTokenCode={c.targetTokenCode}
+                                sourceBankCode={c.sourceBankCode}
+                                targetBankCode={c.targetBankCode}
+                              />
+                            </td>
+                            {/* 输入框常驻（未勾选禁用）：避免勾选切换重挂载导致失焦/输入异常（源 2026-08-28） */}
+                            <td className="px-3 py-2">
+                              <Input
+                                value={c.baseRate}
+                                onChange={(e) =>
+                                  updateCombo(key, { baseRate: e.target.value })
+                                }
+                                disabled={!c.checked}
+                                placeholder="Required, greater than 0"
+                                maxLength={14}
+                                inputMode="decimal"
+                                className="h-8 w-[130px]"
+                                aria-invalid={!!invalid}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                value={c.markupRate}
+                                onChange={(e) =>
+                                  updateCombo(key, { markupRate: e.target.value })
+                                }
+                                disabled={!c.checked}
+                                placeholder="e.g. 0.01 = 1%"
+                                maxLength={10}
+                                inputMode="decimal"
+                                className="h-8 w-[120px]"
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                value={c.defaultSplitRatio}
+                                onChange={(e) =>
+                                  updateCombo(key, {
+                                    defaultSplitRatio: e.target.value,
+                                  })
+                                }
+                                disabled={!c.checked}
+                                placeholder="0–1, e.g. 0.5"
+                                maxLength={8}
+                                inputMode="decimal"
+                                className="h-8 w-[120px]"
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              {c.exists ? (
+                                <Badge variant="outline">Paired</Badge>
+                              ) : (
+                                <Badge variant="default">Available</Badge>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : (
+            <form
+              id="token-pair-form"
+              onSubmit={handleSubmit(onEditSave)}
+              className="space-y-4"
+              noValidate
+            >
+              <div className="space-y-1">
+                <Label>Source Token</Label>
+                <Controller
+                  control={control}
+                  name="sourceTokenId"
+                  render={({ field }) => (
+                    <Select
+                      value={
+                        field.value != null ? String(field.value) : TOKEN_NONE
+                      }
+                      onValueChange={(v) =>
+                        field.onChange(v === TOKEN_NONE ? undefined : Number(v))
+                      }
+                      disabled={isEdit || isView}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select an active token" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tokenOptions.map((t) => (
+                          <SelectItem key={t.tokenId} value={String(t.tokenId)}>
+                            {t.tokenCode} ({t.bankCode || '-'} /{' '}
+                            {t.chainType || '-'})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Target Token</Label>
+                <Controller
+                  control={control}
+                  name="targetTokenId"
+                  render={({ field }) => (
+                    <Select
+                      value={
+                        field.value != null ? String(field.value) : TOKEN_NONE
+                      }
+                      onValueChange={(v) =>
+                        field.onChange(v === TOKEN_NONE ? undefined : Number(v))
+                      }
+                      disabled={isEdit || isView}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select an active token" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tokenOptions.map((t) => (
+                          <SelectItem key={t.tokenId} value={String(t.tokenId)}>
+                            {t.tokenCode} ({t.bankCode || '-'} /{' '}
+                            {t.chainType || '-'})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+              <FormField
+                name="baseRate"
+                label="Base Rate"
+                placeholder="Greater than 0, required for creation"
+                disabled={isView}
+                error={errors.baseRate?.message}
+                register={register('baseRate', {
+                  required: 'Base rate is required',
+                  validate: (v) =>
+                    !Number.isNaN(Number(v)) && Number(v) > 0
+                      ? true
+                      : 'Base rate must be greater than 0',
+                })}
+              />
+              <FormField
+                name="markupRate"
+                label="Markup Rate"
+                placeholder="e.g. 0.01 = 1%"
+                disabled={isView}
+                register={register('markupRate')}
+              />
+              <FormField
+                name="defaultSplitRatio"
+                label="Default Split"
+                placeholder="Platform-side ratio 0–1, e.g. 0.5"
+                disabled={isView}
+                error={errors.defaultSplitRatio?.message}
+                register={register('defaultSplitRatio', {
+                  validate: (v) =>
+                    v === '' ||
+                    (!Number.isNaN(Number(v)) &&
+                      Number(v) >= 0 &&
+                      Number(v) <= 1) ||
+                    'Split ratio must be between 0 and 1',
+                })}
+              />
+              {/* 滑点阈值输入已移除（源 2026-08-27；引擎与存量值仍生效，§G 裁决13） */}
+              {isView && row && (
+                <dl className="space-y-3 border-t border-border/50 pt-4">
+                  <DetailField label="Pair Code">{row.pairCode}</DetailField>
+                  <DetailField label="Status">
+                    <PairStatusBadge status={row.status} />
+                  </DetailField>
+                  <DetailField label="Created At">
+                    {formatTime(row.createTime)}
+                  </DetailField>
+                </dl>
+              )}
+            </form>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={onClosed}>
+              {isView ? 'Close' : 'Cancel'}
+            </Button>
+            {isCreate && (
+              <Button
+                type="button"
+                disabled={!selected.length || submitting}
+                onClick={requestBatchSave}
+              >
+                {submitting
+                  ? 'Creating…'
+                  : `Create ${selected.length} Token Pair${selected.length === 1 ? '' : 's'}`}
+              </Button>
+            )}
+            {isEdit && (
+              <Button
+                type="submit"
+                form="token-pair-form"
+                disabled={submitting}
+              >
+                Save
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        request={
+          confirmBatch
+            ? {
+                title: 'Create Token Pairs',
+                message: `Create ${selected.length} token pair${selected.length === 1 ? '' : 's'} with the per-row parameters above?`,
+                confirmText: 'Create',
+                onConfirm: () => void onBatchSave(),
+              }
+            : null
+        }
+        onClose={() => setConfirmBatch(false)}
+      />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SplitDialog — 调整默认分成（源 ElMessageBox.prompt 收编）
+// ---------------------------------------------------------------------------
+
+/** 百分比输入校验（源 inputPattern：0~100，最多 4 位小数）。 */
+const SPLIT_PCT_PATTERN = /^\d{1,3}(\.\d{1,4})?$/;
+
+/**
+ * 调整默认分成弹窗（源 ElMessageBox.prompt → Dialog）。
+ * 管理侧占加价的比例；即时生效于新交易的未覆盖 LP，历史交易按快照不变。
+ */
+function SplitDialog({
+  row,
+  onClosed,
+}: {
+  row: TokenPairRow;
+  onClosed: () => void;
+}) {
+  const toast = useToast();
+  const currentPct =
+    row.defaultSplitRatio != null
+      ? (Number(row.defaultSplitRatio) * 100).toFixed(2)
+      : '50.00';
+  const [value, setValue] = React.useState(currentPct);
+  const [error, setError] = React.useState<string | null>(null);
+  const splitMutation = useSetTokenPairDefaultSplitMutation(PROJECT_ID);
+
+  const onSave = React.useCallback(() => {
+    const v = value.trim();
+    if (!SPLIT_PCT_PATTERN.test(v)) {
+      setError('Enter a percentage between 0 and 100, e.g. 50 for 50%');
+      return;
+    }
+    setError(null);
+    splitMutation.mutate(
+      { pairId: row.pairId, defaultSplitRatio: Number(v) / 100 },
+      {
+        onSuccess: () => {
+          toast.success(`Default split updated to ${Number(v).toFixed(2)}%`);
+          onClosed();
+        },
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  }, [onClosed, row.pairId, splitMutation, toast, value]);
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClosed()}>
+      <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>
-            Change History: {row.sourceCurrency}/{row.targetCurrency}
-          </DialogTitle>
+          <DialogTitle>Adjust Default Split</DialogTitle>
         </DialogHeader>
-        <DataTable
-          columns={columns}
-          data={rows}
-          isLoading={isLoading}
-          emptyMessage="No change history"
-          pagination={
-            paginationMeta
-              ? {
-                  page: paginationMeta.page,
-                  pageSize: paginationMeta.pageSize,
-                  total: paginationMeta.total,
-                  onPageChange: setPageNum,
-                }
-              : undefined
-          }
-        />
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Adjust the default split ratio for {row.pairCode} (share of the
+            markup retained by the platform side, currently{' '}
+            {formatPercent(row.defaultSplitRatio)}). Takes effect immediately
+            for uncovered LPs on new transactions; historical transactions keep
+            their snapshot.
+          </p>
+          <FormField
+            name="defaultSplitPercent"
+            label="Default Split (%)"
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setError(null);
+            }}
+            error={error ?? undefined}
+            inputMode="decimal"
+            autoFocus
+          />
+        </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Close
+          <Button variant="outline" onClick={onClosed}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={onSave} disabled={splitMutation.isPending}>
+            {splitMutation.isPending ? 'Saving…' : 'Save'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/**
- * CurrencyPairFormPage — 货币对新建/编辑页。
- *
- * 迁移自源 `pair-dialog.vue`（create/edit 模式）。
- * - 源/目标币种：Select 已入网银行支持币种并集（编辑态禁用）。
- * - 管理侧加价率：编辑态且 status=20 时锁定（走行操作「调整加价率」审批）。
- * - 滑点阈值：选填，基础汇率百分比。
- * - 校验：源/目标必选且不相同；加价率必填非负。
- */
-export function CurrencyPairFormPage() {
-  const router = useRouter();
-  const toast = useToast();
-  const searchParams = useSearchParams();
-  const pairId = parseId(searchParams.get('id'));
-  const isEdit = pairId != null;
-
-  const { data: currencies } = useCurrencyPairBankCurrenciesQuery(PROJECT_ID);
-  const { data: detail } = useCurrencyPairDetailQuery(PROJECT_ID, pairId);
-  const saveMutation = useSaveCurrencyPairMutation(PROJECT_ID);
-
-  /** 列表跳转前 stashRow 的行优先；无暂存（直链/刷新）回退列表扫描。 */
-  const [stashedRow] = React.useState(() =>
-    pairId != null ? peekRow<CurrencyPairRow>('currency-pair', pairId) : null,
-  );
-  const pairRow = detail ?? stashedRow;
-
-  const currencyOptions = currencies ?? [];
-  const currenciesEmpty = currencyOptions.length === 0;
-  /** 已启用货币对加价率锁定（改加价率走 KRC/M6）。 */
-  const markupLocked =
-    isEdit && pairRow?.status === CurrencyPairStatus.Enabled;
-
-  const { control, register, handleSubmit, reset, watch, formState: { errors } } =
-    useForm<PairFormValues>({
-      defaultValues: {
-        sourceCurrency: '',
-        targetCurrency: '',
-        markupRate: '',
-        slippageThreshold: '',
-      },
-    });
-
-  React.useEffect(() => {
-    if (!isEdit || !pairRow) return;
-    reset({
-      sourceCurrency: pairRow.sourceCurrency ?? '',
-      targetCurrency: pairRow.targetCurrency ?? '',
-      markupRate:
-        pairRow.markupRate != null ? String(pairRow.markupRate) : '',
-      slippageThreshold:
-        pairRow.slippageThreshold != null
-          ? String(pairRow.slippageThreshold)
-          : '',
-    });
-  }, [pairRow, isEdit, reset]);
-
-  const onSubmit = handleSubmit((values) => {
-    const req: CurrencyPairSaveReq = {
-      pairId: isEdit ? pairId : undefined,
-      sourceCurrency: values.sourceCurrency,
-      targetCurrency: values.targetCurrency,
-      markupRate: values.markupRate !== '' ? Number(values.markupRate) : 0,
-    };
-    if (values.slippageThreshold !== '') {
-      req.slippageThreshold = Number(values.slippageThreshold);
-    }
-    saveMutation.mutate(req, {
-      onSuccess: () => {
-        toast.success(isEdit ? 'Saved' : 'Created (Draft)');
-        router.push('/currency-pair');
-      },
-      onError: (err) => toast.error((err as Error).message),
-    });
-  });
-
-  const submitting = saveMutation.isPending;
-  const sourceCurrency = watch('sourceCurrency');
-
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <div className="mb-6 text-base font-semibold">
-          {isEdit ? 'Edit Currency Pair' : 'New Currency Pair'}
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {/* 源币种：Select 已入网银行支持币种并集；编辑态禁用 */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Source Currency<span className="ml-0.5 text-destructive">*</span>
-            </label>
-            <Controller
-              control={control}
-              name="sourceCurrency"
-              rules={{ required: 'Select source currency' }}
-              render={({ field }) => (
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={isEdit || currenciesEmpty}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select source currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currencyOptions.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {currenciesEmpty && (
-              <p className="text-xs text-muted-foreground">
-                No currencies supported by onboarded banks
-              </p>
-            )}
-            {errors.sourceCurrency && (
-              <p className="text-sm text-destructive" role="alert">
-                {errors.sourceCurrency.message}
-              </p>
-            )}
-          </div>
-
-          {/* 目标币种：同源币种数据源；编辑态禁用 */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Target Currency<span className="ml-0.5 text-destructive">*</span>
-            </label>
-            <Controller
-              control={control}
-              name="targetCurrency"
-              rules={{
-                required: 'Select target currency',
-                validate: (v) =>
-                  !v || v !== sourceCurrency || 'Source and target currencies cannot be the same',
-              }}
-              render={({ field }) => (
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={isEdit || currenciesEmpty}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select target currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currencyOptions.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.targetCurrency && (
-              <p className="text-sm text-destructive" role="alert">
-                {errors.targetCurrency.message}
-              </p>
-            )}
-          </div>
-
-          {/* 管理侧加价率：已启用(status=20)编辑态锁定 */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Admin Markup Rate<span className="ml-0.5 text-destructive">*</span>
-            </label>
-            <Input
-              type="number"
-              min={0}
-              step={0.01}
-              disabled={markupLocked}
-              {...register('markupRate', {
-                validate: (v) => {
-                  if (v === '') return 'Enter admin markup rate';
-                  const n = Number(v);
-                  if (!Number.isFinite(n)) return 'Enter admin markup rate';
-                  if (n < 0) return 'Markup rate cannot be negative';
-                  return true;
-                },
-              })}
-            />
-            {errors.markupRate && (
-              <p className="text-sm text-destructive" role="alert">
-                {errors.markupRate.message}
-              </p>
-            )}
-            {markupLocked && (
-              <p className="text-xs text-muted-foreground">
-                Markup rate changes for enabled pairs go through the "Adjust Markup Rate" row action approval
-              </p>
-            )}
-          </div>
-
-          {/* 滑点阈值：基础汇率百分比，选填 */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Slippage Threshold</label>
-            <Input
-              type="number"
-              min={0}
-              step={0.01}
-              placeholder="Default 0"
-              {...register('slippageThreshold', {
-                validate: (v) => {
-                  if (v === '') return true;
-                  const n = Number(v);
-                  if (!Number.isFinite(n) || n < 0) return 'Slippage threshold cannot be negative';
-                  return true;
-                },
-              })}
-            />
-            {errors.slippageThreshold && (
-              <p className="text-sm text-destructive" role="alert">
-                {errors.slippageThreshold.message}
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Percentage of base rate, optional
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <div className="flex justify-end gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.push('/currency-pair')}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" disabled={submitting}>
-          Save
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-interface PairFormValues {
-  sourceCurrency: string;
-  targetCurrency: string;
-  markupRate: string;
-  slippageThreshold: string;
-}
-
-/**
- * CurrencyPairDetailPage — 货币对详情只读页。
- * 迁移自源 `pair-dialog.vue` view 模式。无 detail 端点，列表回查定位。
- */
-export function CurrencyPairDetailPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const pairId = parseId(searchParams.get('id'));
-  const [stashedRow] = React.useState(() =>
-    pairId != null ? peekRow<CurrencyPairRow>('currency-pair', pairId) : null,
-  );
-  const { data: scanned, isLoading } = useCurrencyPairDetailQuery(
-    PROJECT_ID,
-    pairId,
-  );
-  /** 列表跳转前 stashRow 的行优先；无暂存（直链/刷新）回退列表扫描。 */
-  const detail = scanned ?? stashedRow;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="text-base font-semibold">Currency Pair Details</div>
-        <Button variant="outline" onClick={() => router.push('/currency-pair')}>
-          Back
-        </Button>
-      </div>
-      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        {isLoading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-5 w-40" />
-            <Skeleton className="h-5 w-60" />
-            <Skeleton className="h-5 w-48" />
-          </div>
-        ) : !detail ? (
-          <p className="text-sm text-muted-foreground">
-            Currency pair not found (it may be outside the first page of the list).
-          </p>
-        ) : (
-          <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <DetailField label="Currency Pair">
-              {detail.sourceCurrency}/{detail.targetCurrency}
-            </DetailField>
-            <DetailField label="Admin Markup Rate">
-              <span className="tabular-nums">
-                {formatRate(detail.markupRate)}
-              </span>
-            </DetailField>
-            <DetailField label="Slippage Threshold">
-              <span className="tabular-nums">
-                {formatRate(detail.slippageThreshold)}
-              </span>
-            </DetailField>
-            <DetailField label="Base Rate">
-              <span className="tabular-nums">
-                {formatRate(detail.baseRate)}
-              </span>
-            </DetailField>
-            <DetailField label="Status">
-              <PairStatusBadge status={detail.status} />
-            </DetailField>
-            <DetailField label="Created At">
-              {formatTime(detail.createTime)}
-            </DetailField>
-          </dl>
-        )}
-      </section>
-    </div>
-  );
-}
-
-/* ======================================================================= */
-/* rate-config — 加价率变更记录（源 rate.ts rateList / rateSave）          */
-/* ======================================================================= */
-
-interface RateFilterForm {
-  pairId?: string;
-  status?: number;
-}
-
-const RATE_EMPTY_FILTER: RateFilterForm = { pairId: '', status: undefined };
-
-/**
- * RateConfigListPage — 加价率变更记录列表。
- * 迁移自源 `rate-history-dialog.vue` 的 rateList（独立全量视图）。
- * - 筛选：pairId（精确）/ 状态（Select）。
- * - 列：货币对 / 原加价率 / 新加价率 / 变更类型 / 状态 / 审批记录 / 创建时间。
- * - 行操作：查看（detail 路由）。
- */
-export function RateConfigListPage() {
-  const router = useRouter();
-  const { register, handleSubmit, reset, control } = useForm<RateFilterForm>({
-    defaultValues: RATE_EMPTY_FILTER,
-  });
-
-  const [params, setParams] = React.useState<{
-    pageNum: number;
-    pageSize: number;
-    filter: RateListFilter;
-  }>({ pageNum: 1, pageSize: PAGE_SIZE_DEFAULT, filter: {} });
-
-  const { data, isLoading } = useRateListQuery(PROJECT_ID, params);
-  const rows = data?.data ?? [];
-  const paginationMeta = data?.pagination;
-
-  const onSubmit = React.useCallback((form: RateFilterForm) => {
-    const filter: RateListFilter = {};
-    const pid = Number(form.pairId);
-    if (form.pairId && Number.isFinite(pid) && pid > 0) filter.pairId = pid;
-    if (form.status != null) filter.status = form.status;
-    setParams({ pageNum: 1, pageSize: PAGE_SIZE_DEFAULT, filter });
-  }, []);
-
-  const onReset = React.useCallback(() => {
-    reset(RATE_EMPTY_FILTER);
-    setParams((p) => ({ ...p, pageNum: 1, filter: {} }));
-  }, [reset]);
-
-  const columns = React.useMemo<
-    ColumnDef<RateRecordRow & { id: string }>[]
-  >(
-    () => [
-      {
-        accessorKey: 'sourceCurrency',
-        header: 'Currency Pair',
-        cell: ({ row }) => (
-          <span>
-            {row.original.sourceCurrency}/{row.original.targetCurrency}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'oldMarkupRate',
-        header: 'Old Markup Rate',
-        cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatRate(row.original.oldMarkupRate)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'newMarkupRate',
-        header: 'New Markup Rate',
-        cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatRate(row.original.newMarkupRate)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'changeType',
-        header: 'Change Type',
-        cell: ({ row }) => (
-          <span>
-            {RATE_CHANGE_TYPE_LABEL[row.original.changeType] ??
-              String(row.original.changeType)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'status',
-        header: 'Status',
-        cell: ({ row }) => <RateStatusBadge status={row.original.status} />,
-      },
-      {
-        accessorKey: 'approvalRecordId',
-        header: 'Approval Record',
-        cell: ({ row }) => (
-          <span className="tabular-nums">
-            {row.original.approvalRecordId
-              ? String(row.original.approvalRecordId)
-              : '-'}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'createTime',
-        header: 'Created At',
-        cell: ({ row }) => (
-          <span>{formatTime(row.original.createTime)}</span>
-        ),
-      },
-      createActionColumn<RateRecordRow & { id: string }>((item) => [
-        {
-          label: 'View',
-          onClick: () =>
-            router.push(`/rate-config/detail?id=${item.recordId}`),
-        },
-      ]),
-    ],
-    [router],
-  );
-
-  const tableData = React.useMemo(
-    () => rows.map((r) => ({ ...r, id: String(r.recordId) })),
-    [rows],
-  );
-
-  return (
-    <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="pairId"
-            label="Currency Pair ID"
-            placeholder="Exact match, e.g. 1"
-            register={register('pairId')}
-          />
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Status
-            </label>
-            <Controller
-              control={control}
-              name="status"
-              render={({ field }) => (
-                <Select
-                  value={field.value ? String(field.value) : STATUS_ALL}
-                  onValueChange={(v) =>
-                    field.onChange(v === STATUS_ALL ? undefined : Number(v))
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={STATUS_ALL}>All</SelectItem>
-                    <SelectItem value="5">Pending</SelectItem>
-                    <SelectItem value="15">Closed</SelectItem>
-                    <SelectItem value="20">Effective</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            Reset
-          </Button>
-        </div>
-      </form>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">Markup Rate Change History</div>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => router.push('/rate-config/create')}
-          >
-            Submit Markup Rate Change
-          </Button>
-        </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-          pagination={
-            paginationMeta
-              ? {
-                  page: paginationMeta.page,
-                  pageSize: paginationMeta.pageSize,
-                  total: paginationMeta.total,
-                  onPageChange: (page) =>
-                    setParams((prev) => ({ ...prev, pageNum: page })),
-                  onPageSizeChange: (n) =>
-                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n })),
-                }
-              : undefined
-          }
-        />
-      </div>
-    </div>
-  );
-}
-
-interface RateFormValues {
-  pairId: string;
-  markupRate: string;
-}
-
-/**
- * RateConfigFormPage — 提交加价率变更表单。
- * 迁移自源 `markup-dialog.vue` 的独立路由版（rateSave → KRC 审批）。
- * - 新建：选择启用(status=20)货币对 + 输入新加价率。
- * - 编辑：pairId 锁定（来自记录），加价率回填 newMarkupRate。
- * - 校验：pairId 必选；加价率必填非负。
- */
-export function RateConfigFormPage() {
-  const router = useRouter();
-  const toast = useToast();
-  const searchParams = useSearchParams();
-  const recordId = parseId(searchParams.get('id'));
-  const isEdit = recordId != null;
-
-  // 启用货币对选项（仅新建态需要选择；本域 query，无跨组耦合）。
-  const { data: enabledPairsData } = useCurrencyPairListQuery(
-    PROJECT_ID,
-    { pageNum: 1, pageSize: 200, filter: { status: CurrencyPairStatus.Enabled } },
-    !isEdit,
-  );
-  const { data: record } = useRateDetailQuery(PROJECT_ID, recordId);
-  const mutation = useSaveRateMutation(PROJECT_ID);
-
-  const enabledPairs = enabledPairsData?.data ?? [];
-
-  const { control, register, handleSubmit, reset } =
-    useForm<RateFormValues>({
-      defaultValues: { pairId: '', markupRate: '' },
-    });
-
-  React.useEffect(() => {
-    if (!isEdit || !record) return;
-    reset({
-      pairId: String(record.pairId),
-      markupRate:
-        record.newMarkupRate != null ? String(record.newMarkupRate) : '',
-    });
-  }, [record, isEdit, reset]);
-
-  const onSubmit = handleSubmit((values) => {
-    const pairIdNum = Number(values.pairId);
-    if (!values.pairId || !Number.isFinite(pairIdNum) || pairIdNum <= 0) {
-      toast.error('Select a currency pair');
-      return;
-    }
-    const markupNum = Number(values.markupRate);
-    if (values.markupRate === '' || !Number.isFinite(markupNum)) {
-      toast.error('Enter a new markup rate');
-      return;
-    }
-    if (markupNum < 0) {
-      toast.error('Markup rate cannot be negative');
-      return;
-    }
-    mutation.mutate(
-      { pairId: pairIdNum, markupRate: markupNum },
-      {
-        onSuccess: () => {
-          toast.success('Markup rate change approval submitted');
-          router.push('/rate-config');
-        },
-        onError: (err) => toast.error((err as Error).message),
-      },
-    );
-  });
-
-  const submitting = mutation.isPending;
-
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <div className="mb-6 text-base font-semibold">
-          {isEdit ? 'Adjust Markup Rate' : 'Submit Markup Rate Change'}
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {/* 货币对：新建态选择启用对；编辑态锁定 */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Currency Pair<span className="ml-0.5 text-destructive">*</span>
-            </label>
-            {isEdit ? (
-              <Input
-                value={
-                  record
-                    ? `${record.sourceCurrency}/${record.targetCurrency}`
-                    : ''
-                }
-                disabled
-              />
-            ) : (
-              <Controller
-                control={control}
-                name="pairId"
-                rules={{ required: 'Select a currency pair' }}
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select an enabled currency pair" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {enabledPairs.map((p) => (
-                        <SelectItem key={p.pairId} value={String(p.pairId)}>
-                          {p.sourceCurrency}/{p.targetCurrency}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            )}
-          </div>
-
-          {/* 新加价率 */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              New Markup Rate<span className="ml-0.5 text-destructive">*</span>
-            </label>
-            <Input
-              type="number"
-              min={0}
-              step={0.01}
-              placeholder="Enter new markup rate"
-              {...register('markupRate')}
-            />
-            <p className="text-xs text-muted-foreground">
-              Once approved, it will be written to the currency pair and pushed to the bank gateway
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <div className="flex justify-end gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.push('/rate-config')}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" disabled={submitting}>
-          Submit
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-/**
- * RateConfigDetailPage — 加价率变更记录详情只读页。
- * 无 detail 端点，列表回查定位（rateList 返回完整记录）。
- */
-export function RateConfigDetailPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const recordId = parseId(searchParams.get('id'));
-  const { data: record, isLoading } = useRateDetailQuery(PROJECT_ID, recordId);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="text-base font-semibold">Change History Details</div>
-        <Button variant="outline" onClick={() => router.push('/rate-config')}>
-          Back
-        </Button>
-      </div>
-      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        {isLoading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-5 w-40" />
-            <Skeleton className="h-5 w-60" />
-            <Skeleton className="h-5 w-48" />
-          </div>
-        ) : !record ? (
-          <p className="text-sm text-muted-foreground">
-            Change record not found (it may be outside the first page of the list).
-          </p>
-        ) : (
-          <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <DetailField label="Currency Pair">
-              {record.sourceCurrency}/{record.targetCurrency}
-            </DetailField>
-            <DetailField label="Old Markup Rate">
-              <span className="tabular-nums">
-                {formatRate(record.oldMarkupRate)}
-              </span>
-            </DetailField>
-            <DetailField label="New Markup Rate">
-              <span className="tabular-nums">
-                {formatRate(record.newMarkupRate)}
-              </span>
-            </DetailField>
-            <DetailField label="Change Type">
-              {RATE_CHANGE_TYPE_LABEL[record.changeType] ??
-                String(record.changeType)}
-            </DetailField>
-            <DetailField label="Status">
-              <RateStatusBadge status={record.status} />
-            </DetailField>
-            <DetailField label="Approval Record">
-              <span className="tabular-nums">
-                {record.approvalRecordId
-                  ? String(record.approvalRecordId)
-                  : '-'}
-              </span>
-            </DetailField>
-            <DetailField label="Created At">
-              {formatTime(record.createTime)}
-            </DetailField>
-          </dl>
-        )}
-      </section>
-    </div>
   );
 }

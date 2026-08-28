@@ -3,9 +3,9 @@
 /**
  * 页头（源 .page-head：eyebrow 小标 + 标题 + 可选右侧动作区）。
  *
- * 由 market/role/user/menu/onboard/log 各页面本地副本收敛；variant
+ * 由 role/user/menu/onboard/log 各页面本地副本收敛；variant
  * 精确对应迁移期既存的四组类名组合（渲染输出与收敛前逐字节一致）：
- * - compact（默认）：market/role/log —— 纯堆叠、eyebrow 大写风格、xl 标题。
+ * - compact（默认）：role/log —— 纯堆叠、eyebrow 大写风格、xl 标题。
  * - toolbar：user —— 动作区 items-start 对齐、gap-4、动作容器 flex gap-2。
  * - banner：menu —— 动作区 items-end 对齐、gap-3、2xl bold 标题。
  * - stacked：onboard —— space-y-1 紧凑堆叠、2xl bold 标题、无动作区。
@@ -54,7 +54,7 @@ export function PageHead({
   variant = 'compact',
   children,
 }: {
-  /** eyebrow 小标文本；绝大多数页面为 'PORTAL'（默认），market 域为 'BUSINESS'。 */
+  /** eyebrow 小标文本；绝大多数页面为 'PORTAL'（默认）。 */
   eyebrow?: string;
   title: string;
   variant?: PageHeadVariant;

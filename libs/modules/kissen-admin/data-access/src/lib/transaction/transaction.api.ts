@@ -79,17 +79,13 @@ export function getTransactionLpOptions(
 }
 
 /**
- * 货币对下拉选项（源 `currencyPairList`，pageSize=200）。
- * 端点 `POST /manage/currency-pair/list`，请求体 `{page:{pageNum,pageSize}, data:{}}`。
+ * Token 对下拉选项（源 `pairList({})`，v2.0 token-pair 域，响应为行数组无分页包装）。
+ * 端点 `POST /manage/token-pair/list`，请求体 `{}`。
  */
 export function getTransactionPairOptions(
   config?: AxiosRequestConfig,
 ): Promise<TxPairOption[]> {
-  return kissenPage<TxPairOption>(
-    '/manage/currency-pair/list',
-    { pageNum: 1, pageSize: 200 },
-    config,
-  ).then((res) => res.data);
+  return kissenRequest.post<TxPairOption[]>('/manage/token-pair/list', {}, config);
 }
 
 /**

@@ -9,9 +9,14 @@
  * - Radix dialog drawer anchored right, width min(720px, 90vw); closes on
  *   ESC and on overlay click (built into the shared Drawer primitive;
  *   parent unmounts us through onClosed).
- * - Basic information panel with 9 source fields; money columns use the
- *   drawer caliber fmtAmount (2..8 fraction digits, en-US grouping), NOT
- *   the global formatMoney - both calibers must survive side by side.
+ * - Title "Transaction Details" (v2.3 rename); the basic information
+ *   panel carries the fixed 11-item set - 10 always-on fields plus the
+ *   conditional failure reason spanning both columns; the old transaction
+ *   ID item is retired. Money items use the drawer caliber fmtAmount
+ *   (2..8 fraction digits, en-US grouping), NOT the global formatMoney -
+ *   both calibers must survive side by side.
+ * - Token Pair renders the v2.3 slash compact form via useTokenMeta
+ *   (symOf falls back to the raw token code).
  * - Stage status uses the DRAWER status caliber (code 35 reads as success),
  *   which intentionally differs from the LIST caliber rendered on the page.
  * - Fixed 8-slot vertical stepper (no third-party step package): dot colors
@@ -41,6 +46,7 @@ import {
   LP_PROJECT_ID,
   isServiceDown,
   txNoText,
+  useTokenMeta,
   useTxFlowChainQuery,
   type TxChainNode,
   type TxRow,
@@ -49,7 +55,6 @@ import {
   EVENT_TYPE_MAP,
   STAGE_STATUS_MAP,
   STAGE_STEP_MAP,
-  asTxRowVO,
   buildStageList,
   completedTimeText,
   flattenChain,
@@ -229,34 +234,22 @@ function DescItem({
 }
 
 /** Money cell in the drawer caliber (doc 01 E4), distinct from formatMoney. */
-function Amount({ v }: { v: number | null | undefined }) {
+function Amount({ v }: { v: string | number | null | undefined }) {
   return (
     <span className="font-mono text-xs tabular-nums">{fmtAmount(v)}</span>
   );
 }
 function BasicInfo({ row }: { row: TxRow }) {
-  const vo = asTxRowVO(row);
-  const hasPair =
-    Boolean(vo.sourceCurrency) && Boolean(vo.targetCurrency);
+  // v2.3: Token Pair renders the slash compact form via unified token meta.
+  const { symOf } = useTokenMeta(LP_PROJECT_ID);
   return (
     <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-2">
       <DescItem label="Tx No.">
+        {/* Fixed v2.3 caliber: txNo only, no txUuid/transactionId fallback */}
         <span className="font-mono text-xs">{txNoText(row)}</span>
       </DescItem>
-      <DescItem label="Transaction ID">
-        <span className="font-mono text-xs">{row.transactionId}</span>
-      </DescItem>
-      <DescItem label="Token Pair">
-        {/* Dual token tags joined by direction arrow; raw value fallback */}
-        {hasPair ? (
-          <span className="inline-flex items-center gap-1.5">
-            <Badge variant="outline">{vo.sourceCurrency}</Badge>
-            <span aria-hidden="true">→</span>
-            <Badge variant="outline">{vo.targetCurrency}</Badge>
-          </span>
-        ) : (
-          <span className="font-mono text-xs">{vo.pairCode || vo.pairId}</span>
-        )}
+      <DescItem label="Bank Idempotency No.">
+        <span className="font-mono text-xs">{row.txUuid || '-'}</span>
       </DescItem>
       <DescItem label="Status">
         <Badge
@@ -266,12 +259,26 @@ function BasicInfo({ row }: { row: TxRow }) {
           {txStatusLabel(row.status)}
         </Badge>
       </DescItem>
+      <DescItem label="Token Pair">
+        {/* Slash compact form (v2.3); symOf falls back to the raw code */}
+        <span className="font-mono text-[13px] font-semibold">
+          {symOf(row.sourceTokenCode)}/{symOf(row.targetTokenCode)}
+        </span>
+      </DescItem>
       <DescItem label="Principal">
         <Amount v={row.principal} />
       </DescItem>
       <DescItem label="Receiver Amount">
-        {/* Optional VO field: absent values render '-' without crashing */}
-        <Amount v={vo.receiverAmount ?? null} />
+        <Amount v={row.receiverAmount} />
+      </DescItem>
+      <DescItem label="Source Voucher No.">
+        <span className="font-mono text-xs">{row.sourceCsTxId || '-'}</span>
+      </DescItem>
+      <DescItem label="Quote Time">
+        {/* !quoteTime covers 0/undefined -> '-' (source caliber) */}
+        <span className="font-mono text-xs tabular-nums">
+          {!row.quoteTime ? '-' : formatTime(row.quoteTime)}
+        </span>
       </DescItem>
       <DescItem label="Completed At">
         {/* Strict === 0 unfinished sentinel, never routed through formatTime */}
@@ -281,14 +288,14 @@ function BasicInfo({ row }: { row: TxRow }) {
       </DescItem>
       <DescItem label="Data Time">
         <span className="font-mono text-xs tabular-nums">
-          {vo.syncTime == null || vo.syncTime === 0
+          {row.syncTime == null || row.syncTime === 0
             ? '-'
-            : formatTime(vo.syncTime)}
+            : formatTime(row.syncTime)}
         </span>
       </DescItem>
-      {Boolean(vo.failReason) && (
+      {Boolean(row.failReason) && (
         <DescItem label="Failure Reason" span>
-          <span className="text-destructive">{vo.failReason}</span>
+          <span className="text-destructive">{row.failReason}</span>
         </DescItem>
       )}
     </dl>
@@ -352,7 +359,7 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
       <DrawerContent className="w-[min(720px,90vw)] max-w-none p-0">
         <div className="flex h-full flex-col">
           <DrawerHeader className="border-b px-6 py-4">
-            <DrawerTitle>Transaction Chain</DrawerTitle>
+            <DrawerTitle>Transaction Details</DrawerTitle>
           </DrawerHeader>
           <div className="flex-1 overflow-y-auto px-6 py-4">
             {drawerDown && <ServiceDownAlert traceId={drawerDown.traceId} />}

@@ -1,14 +1,20 @@
 'use client';
 
 /**
- * Token 对页（源 `src/views/pair/index.vue` §D7 1:1 迁移，FR-LW-04）。
+ * Token Pair 管理页（源 `src/views/pair/index.vue` §D7 v2.3 e591f85 1:1 迁移，
+ * FR-LW-04）。原汇率页（rate）随 v2.3 菜单重组退役，汇率三列并入双 tab 行 VO。
  *
- * 双 tab：Mine「我的 token 对」8 列 / Eligible「可申请」6 列含操作列
- * （迁移矩阵 D7 行写 7 列，实对拍源模板 el-table-column 仅 6 列，以源为准，
- * 见交付自报表）。两 tab 各自独立 useQuery（pairKeys.list / .eligible），
- * Radix Tabs 未激活内容不挂载 ⇒ Eligible 首次切入才发请求（源懒加载等价）；
- * 缓存互不干扰。源无关键词筛选、无状态下拉、无分页控件（两接口全量返回），
- * 故不加任何筛选/分件（禁臆造）。
+ * 双 tab：Mine「我的 token 对」v2.3 改 10 列（Token对 + pairx 紧凑式两行 +
+ * 基础汇率/加价率/用户汇率 + 我的分成比例 + 对默认比例 + 生效条件 + 状态 +
+ * 数据时间）；Eligible「可申请」v2.3 改 8 列（pairx 紧凑式三行，第三行
+ * pairCode||pairId 占位色等宽；对默认分成移至源侧池之前）。Bank/Token 展示
+ * 统一走 useTokenMeta 口径（§E23/E24：symOf 优先、失败回退标识本身）；
+ * rateText/percentText 为页面级 helper（源同款，不入 format.ts）。
+ *
+ * 两 tab 各自独立 useQuery（pairKeys.list / .eligible），Radix Tabs 未激活
+ * 内容不挂载 ⇒ Eligible 首次切入才发请求（源懒加载等价）；缓存互不干扰。
+ * 源无关键词筛选、无状态下拉、无分页控件（两接口全量返回），故不加任何
+ * 筛选/分件（禁臆造）。
  *
  * 申请参与：行内 link 按钮（源无 v-perm 指令，不加 PermButton——禁臆造权限键）
  * → AlertDialog 确认（工单硬性要求新增的确认步，文案按源语义英译）→ POST
@@ -17,7 +23,7 @@
  * domain='pair' 照源存在：刷新失效两 key，激活 tab 立即重查、未激活 tab
  * 下次挂载时刷新（源 loadAll 两视图同刷的可见行为等价）。
  *
- * 口径：金额/比率右对齐等宽字；状态/tag 色映射照源逐码
+ * 口径：汇率/比率右对齐等宽字；状态/tag 色映射照源逐码
  * （STATUS_TAG warning/danger/success/info → R1 先例 outline/destructive/
  * default/secondary）；1280 主口径容器由壳层承担，页面仅纵向堆叠。
  */
@@ -64,6 +70,7 @@ import {
   type EligiblePairRow,
   type PairRow,
   pairKeys,
+  useTokenMeta,
 } from '@myorg/modules/lp-portal/data-access';
 
 import { SyncRefreshButton } from './sync-refresh-button';
@@ -75,7 +82,7 @@ import { formatTime } from './format';
 
 const LBL = {
   eyebrow: 'MARKET',
-  title: 'Token Pairs',
+  title: 'Token Pair Management',
   mineTab: 'My Token Pairs',
   eligibleTab: 'Eligible',
   eligibleAlert:
@@ -117,6 +124,49 @@ function NumHeader({ children }: { children: React.ReactNode }) {
   return <div className="text-right">{children}</div>;
 }
 
+/** 汇率值展示（源 rateText 1:1）：基础/用户汇率为比值原值，不加 %、空显 '-'。 */
+function rateText(v: string | number | null | undefined): string {
+  return v == null || v === '' ? '-' : String(v);
+}
+
+/** 右对齐数值单元格（源 .num align=right 等价；表头配 NumHeader）。 */
+function NumCell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex justify-end">
+      <Num>{children}</Num>
+    </div>
+  );
+}
+
+/**
+ * pairx 紧凑式（源 .pairx 1:1，§E24 symOf 优先、失败回退标识本身）：
+ * 第一行 symOf(src)/symOf(tgt) 等宽加粗、第二行 bankOf(src) → bankOf(tgt)
+ * 次要色；eligible 追加第三行 pairCode||pairId 占位色等宽（.pairx-code）。
+ */
+function Pairx({
+  tokens,
+  banks,
+  code,
+}: {
+  tokens: string;
+  banks: string;
+  code?: string;
+}) {
+  return (
+    <div className="whitespace-nowrap">
+      <div className="font-mono text-xs font-semibold tabular-nums">
+        {tokens}
+      </div>
+      <div className="text-xs text-muted-foreground">{banks}</div>
+      {code !== undefined && (
+        <div className="font-mono text-xs tabular-nums text-muted-foreground">
+          {code}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** 参与状态 Badge 文案（未知码显原值）。 */
 function statusText(status: number): string {
   return PAIR_STATUS_TEXT[status] ?? String(status);
@@ -128,36 +178,28 @@ function statusVariant(status: number): BadgeVariant {
 }
 
 /* ================================================================== */
-/* Mine tab：我的 token 对（8 列，列序照源 §D7）                          */
+/* Mine tab：我的 token 对（v2.3 改 10 列，列序照源 §D7）                   */
 /* ================================================================== */
 
 /**
- * DataTable 行标识 id:string 与模型记录 ID:number 撞名，视图行以 recordId
- * 承载原值（首列显示不变），id 转字符串满足 TanStack 泛型约束。
+ * DataTable 行标识 id:string 与模型记录 ID:number 撞名，id 转字符串满足
+ * TanStack 泛型约束（v2.3 源无记录 ID 列，原值不再单独承载）。
  */
-type MineRow = Omit<PairRow, 'id'> & { id: string; recordId: number };
+type MineRow = Omit<PairRow, 'id'> & { id: string };
 
 function MineTable() {
   const query = usePairListQuery(LP_PROJECT_ID);
+  const { symOf, bankOf } = useTokenMeta(LP_PROJECT_ID);
   const rows = React.useMemo<MineRow[]>(
-    () =>
-      (query.data ?? []).map((r) => ({
-        ...r,
-        id: String(r.id),
-        recordId: r.id,
-      })),
+    () => (query.data ?? []).map((r) => ({ ...r, id: String(r.id) })),
     [query.data],
   );
 
   const columns = React.useMemo<ColumnDef<MineRow>[]>(
     () => [
       {
-        accessorKey: 'recordId',
-        header: 'Record ID',
-        cell: ({ row }) => <Num>{row.original.recordId}</Num>,
-      },
-      {
         accessorKey: 'pairCode',
+        header: 'Pair Code',
         // 无码行回落 pairId 原值（源 row.pairCode || row.pairId）
         cell: ({ row }) => (
           <span>{row.original.pairCode || row.original.pairId}</span>
@@ -165,12 +207,37 @@ function MineTable() {
         meta: { overflow: 'ellipsis' },
       },
       {
-        id: 'direction',
+        id: 'pairx',
+        header: 'Token Pair',
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <Pairx
+              tokens={`${symOf(r.sourceTokenCode)}/${symOf(r.targetTokenCode)}`}
+              banks={`${bankOf(r.sourceTokenCode)} → ${bankOf(r.targetTokenCode)}`}
+            />
+          );
+        },
+        meta: { overflow: 'none' },
+      },
+      {
+        accessorKey: 'baseRate',
+        header: () => <NumHeader>Base Rate</NumHeader>,
+        cell: ({ row }) => <NumCell>{rateText(row.original.baseRate)}</NumCell>,
+        meta: { overflow: 'none' },
+      },
+      {
+        accessorKey: 'markupRate',
+        header: () => <NumHeader>Markup Rate</NumHeader>,
         cell: ({ row }) => (
-          <span className="whitespace-nowrap">
-            {row.original.sourceTokenCode} → {row.original.targetTokenCode}
-          </span>
+          <NumCell>{percentText(row.original.markupRate)}</NumCell>
         ),
+        meta: { overflow: 'none' },
+      },
+      {
+        accessorKey: 'userRate',
+        header: () => <NumHeader>User Rate</NumHeader>,
+        cell: ({ row }) => <NumCell>{rateText(row.original.userRate)}</NumCell>,
         meta: { overflow: 'none' },
       },
       {
@@ -198,14 +265,11 @@ function MineTable() {
         accessorKey: 'defaultSplitRatio',
         header: () => <NumHeader>Default Ratio</NumHeader>,
         cell: ({ row }) => (
-          <Num>
-            <span className="block text-right">
-              {percentText(row.original.defaultSplitRatio)}
-            </span>
-          </Num>
+          <NumCell>{percentText(row.original.defaultSplitRatio)}</NumCell>
         ),
       },
       {
+        header: 'Activation',
         id: 'activation',
         // 生效条件：仅 status===20 渲染两组缺口 tag，否则 '-'（源 1:1）
         cell: ({ row }) =>
@@ -255,7 +319,8 @@ function MineTable() {
         cell: ({ row }) => <Num>{formatTime(row.original.syncTime)}</Num>,
       },
     ],
-    [],
+    // symOf/bankOf 随 token 元数据缓存更新
+    [symOf, bankOf],
   );
 
   return (
@@ -269,13 +334,14 @@ function MineTable() {
 }
 
 /* ================================================================== */
-/* Eligible tab：可申请（6 列含操作列，列序照源 §D7）                     */
+/* Eligible tab：可申请（v2.3 改 8 列含操作列，列序照源 §D7）               */
 /* ================================================================== */
 
 function EligibleTable({ onApplied }: { onApplied: () => void }) {
   const toast = useToast();
   const query = usePairEligibleQuery(LP_PROJECT_ID);
   const apply = usePairApplyMutation(LP_PROJECT_ID);
+  const { symOf, bankOf } = useTokenMeta(LP_PROJECT_ID);
 
   /** 待确认申请目标；非空即打开确认弹窗（工单要求的新增确认步）。 */
   const [applyTarget, setApplyTarget] = React.useState<EligiblePairRow | null>(
@@ -303,21 +369,46 @@ function EligibleTable({ onApplied }: { onApplied: () => void }) {
   const columns = React.useMemo<ColumnDef<EligiblePairRow & { id: string }>[]>(
     () => [
       {
-        accessorKey: 'pairCode',
-        // 无码行回落 pairId 原值（源 row.pairCode || row.pairId）
-        cell: ({ row }) => (
-          <span>{row.original.pairCode || row.original.pairId}</span>
-        ),
-        meta: { overflow: 'ellipsis' },
+        id: 'pairx',
+        header: 'Token Pair',
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <Pairx
+              tokens={`${symOf(r.sourceTokenCode)}/${symOf(r.targetTokenCode)}`}
+              banks={`${bankOf(r.sourceTokenCode)} → ${bankOf(r.targetTokenCode)}`}
+              code={String(r.pairCode || r.pairId)}
+            />
+          );
+        },
+        meta: { overflow: 'none' },
       },
       {
-        id: 'direction',
+        accessorKey: 'baseRate',
+        header: () => <NumHeader>Base Rate</NumHeader>,
+        cell: ({ row }) => <NumCell>{rateText(row.original.baseRate)}</NumCell>,
+        meta: { overflow: 'none' },
+      },
+      {
+        accessorKey: 'markupRate',
+        header: () => <NumHeader>Markup Rate</NumHeader>,
         cell: ({ row }) => (
-          <span className="whitespace-nowrap">
-            {row.original.sourceTokenCode} → {row.original.targetTokenCode}
-          </span>
+          <NumCell>{percentText(row.original.markupRate)}</NumCell>
         ),
         meta: { overflow: 'none' },
+      },
+      {
+        accessorKey: 'userRate',
+        header: () => <NumHeader>User Rate</NumHeader>,
+        cell: ({ row }) => <NumCell>{rateText(row.original.userRate)}</NumCell>,
+        meta: { overflow: 'none' },
+      },
+      {
+        accessorKey: 'defaultSplitRatio',
+        header: () => <NumHeader>Default Split</NumHeader>,
+        cell: ({ row }) => (
+          <NumCell>{percentText(row.original.defaultSplitRatio)}</NumCell>
+        ),
       },
       {
         id: 'sourcePooled',
@@ -342,17 +433,6 @@ function EligibleTable({ onApplied }: { onApplied: () => void }) {
           </div>
         ),
         meta: { overflow: 'none' },
-      },
-      {
-        accessorKey: 'defaultSplitRatio',
-        header: () => <NumHeader>Default Split</NumHeader>,
-        cell: ({ row }) => (
-          <Num>
-            <span className="block text-right">
-              {percentText(row.original.defaultSplitRatio)}
-            </span>
-          </Num>
-        ),
       },
       {
         id: 'actions',
@@ -392,7 +472,8 @@ function EligibleTable({ onApplied }: { onApplied: () => void }) {
           ),
       },
     ],
-    [apply.isPending],
+    // symOf/bankOf 随 token 元数据缓存更新；isPending 锁申请按钮
+    [symOf, bankOf, apply.isPending],
   );
 
   return (

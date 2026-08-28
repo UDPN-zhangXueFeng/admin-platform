@@ -12,20 +12,19 @@ import type { MenuTreeRespVO } from '@myorg/modules/lp-portal/data-access';
 
 /**
  * menuKey → 目标路径（源路径 → 注册表适配）。
- * 适配点：源 /pair-pool→/pair、/source-receipt→/receipt、/system/*→/sys/*；
- * lp:log → /syslog（注册表 syslog 模块，非 /sys/log）。
+ * 适配点：源 /system/*→/sys/*；lp:log → /syslog（注册表 syslog 模块，非 /sys/log）。
+ * v2.3（上游 e591f85）：新增 lp:dashboard；lp:rate / lp:receipt 退役。
  * 三键 lp:token / lp:preauth / lp:split：目标路径与源一致，无适配点。
  */
 export const MENU_ROUTE_MAP: Record<string, string> = {
+  'lp:dashboard': '/dashboard',
   'lp:pool': '/pool',
   'lp:token': '/token',
-  'lp:rate': '/rate',
   'lp:pair': '/pair',
   'lp:split': '/split',
   'lp:txflow': '/tx-flow',
   'lp:preauth': '/preauth',
   'lp:settle': '/settle',
-  'lp:receipt': '/receipt',
   'lp:user': '/sys/user',
   'lp:role': '/sys/role',
   'lp:menu': '/sys/menu',
@@ -42,17 +41,17 @@ export const PATH_MENU_KEY: Record<string, string> = Object.fromEntries(
 
 /**
  * root 落点候选（源 ROOT_CANDIDATES 顺序 1:1——业务优先级即缺省首页）。
+ * v2.3：登录默认落 Dashboard，无 dashboard 权限按业务顺序回退。
  */
 export const ROOT_CANDIDATES: readonly string[] = [
-  'lp:token',
+  'lp:dashboard',
   'lp:pool',
   'lp:preauth',
-  'lp:rate',
   'lp:pair',
-  'lp:split',
   'lp:txflow',
+  'lp:split',
   'lp:settle',
-  'lp:receipt',
+  'lp:token',
   'lp:user',
   'lp:role',
   'lp:menu',
@@ -80,8 +79,8 @@ export const MENU_LABELS: Record<string, string> = {
   liquidity: 'Liquidity',
   'lp:pool': 'Liquidity Pools',
   'lp:preauth': 'Pre-authorization Monitoring',
-  'lp:token': 'Token Overview',
-  'lp:pair': 'Token Pairs',
+  'lp:token': 'Bank Token Directory',
+  'lp:pair': 'Token Pair Management',
   'lp:txflow': 'Transaction Flow',
   splitsettle: 'Splits & Settlement',
   'lp:split': 'My Split',
@@ -92,26 +91,25 @@ export const MENU_LABELS: Record<string, string> = {
   'lp:menu': 'Menu Management',
   'lp:log': 'Operation Log',
 };
+
 /**
  * menuKey → lucide 图标名（源 MainLayout MENU_ICONS 的 Element Plus 图标
  * 到 lucide 的等价映射；未命中回退 'Menu'，源 fallback 语义）。
+ * v2.3：组键 liquidity/splitsettle/system；dashboard=Gauge(Odometer)、
+ * preauth=Ticket、token=Coins(Coin)；rate/receipt/market/business 键移除。
  */
 export const MENU_ICONS: Record<string, string> = {
-  // 源分组图标（menuType=2 一级菜单）
   liquidity: 'Wallet',
-  market: 'Coins',
-  business: 'BarChart3',
+  splitsettle: 'CircleDollarSign',
   system: 'Settings',
-  // 源叶子图标（menuType=3 二级菜单）
+  'lp:dashboard': 'Gauge',
   'lp:pool': 'Wallet',
   'lp:token': 'Coins',
-  'lp:rate': 'TrendingUp',
   'lp:pair': 'ArrowLeftRight',
   'lp:split': 'PieChart',
   'lp:txflow': 'List',
-  'lp:preauth': 'LockKeyhole',
+  'lp:preauth': 'Ticket',
   'lp:settle': 'CreditCard',
-  'lp:receipt': 'Ticket',
   'lp:user': 'Users',
   'lp:role': 'ShieldCheck',
   'lp:menu': 'Menu',

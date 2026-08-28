@@ -5,10 +5,24 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import { bankQueryList, getBankDetail, getBankOnboardStatus } from './bank.api';
+import {
+  bankQueryList,
+  getBankDetail,
+  getBankInfo,
+  getBankOnboardStatus,
+} from './bank.api';
 import { bankKeys } from './bank.keys';
 
-/** 银行信息详情（实时上行 Kissen；degraded=true 表示已降级本地缓存）。 */
+/** 银行信息推送缓存（Kissen 推送；onboard 页 bankId 兜底展示）。 */
+export function useBankInfoQuery(enabled = true) {
+  return useQuery({
+    queryKey: bankKeys.bankInfo(),
+    queryFn: ({ signal }) => getBankInfo({ signal }),
+    enabled,
+  });
+}
+
+/** 银行信息详情（GW-17 纯本地化：本行库组装，新鲜度靠 G-14 推送/入网查询回写）。 */
 export function useBankDetailQuery(enabled = true) {
   return useQuery({
     queryKey: bankKeys.detail(),

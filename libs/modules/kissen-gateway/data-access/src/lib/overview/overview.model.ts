@@ -36,12 +36,23 @@ export interface OverviewStats {
   targetPrincipalSum: number;
   /** 本行已注册 token 总数。 */
   tokenTotal: number;
-  /** token 分状态数量（10 待审核/20 已生效/30 已驳回/50 已停用）。 */
+  /** token 分状态数量（5 待审核/20 已生效/15 已驳回/50 已停用）。 */
   tokenByStatus: Record<string, number>;
   /** 本行相关 token 对数。 */
   tokenPairCount: number;
   /** 最近交易动态（最新 10 条）。 */
   recentTxs: TxRecord[];
+  /** 交易量逐日时序（UDPN Dashboard 折线图数据源；日期轴按本地日连续生成，无交易日补 0）。 */
+  volumeSeries: VolumeDayPoint[];
+}
+
+/** 交易量单日数据点：byPair key=token 对编码（pairCode），bySymbol key=源端币种 symbol；
+ *  无法归属 pair/币种的交易计入 UNKNOWN 键，任一维度求和=当日交易总数。 */
+export interface VolumeDayPoint {
+  /** 日期 yyyy-MM-dd。 */
+  date: string;
+  byPair: Record<string, number>;
+  bySymbol: Record<string, number>;
 }
 
 /** 统计窗口筛选参数。period：TODAY / 7D / 30D / CUSTOM（空或非法回退 7D）；CUSTOM 时带 from/to 毫秒。 */

@@ -1,7 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from '@myorg/shared/util-i18n';
+
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 import { Badge, Skeleton } from '@myorg/shared/ui';
 
@@ -9,31 +19,29 @@ import {
   OVERVIEW_PERIOD_DEFAULT,
   OVERVIEW_PERIOD_OPTIONS,
   TOKEN_STATUS,
-  TX_STATUS,
-  txBankRoleText,
-  txBankRoleVariant,
-  txStatusText,
-  txStatusVariant,
   useOverviewStatsQuery,
   type OverviewPeriod,
+  type VolumeDayPoint,
 } from '@myorg/modules/kissen-gateway/data-access';
 
-import { fmtAmount, formatTime } from './kit';
+import { formatTime } from './kit';
 import { PageHead } from './page-head';
 import { ErrorBlock, EmptyHint } from './state-blocks';
 
 /**
- * 统计概览页（源 `views/overview/index.vue`：metrics 卡 + 源/目标口径 +
- * 状态分布条形 + 业务概览 + 最近交易动态，period 四档切换默认 7D）。
+ * 统计概览页（源 `views/overview/index.vue`：metrics 卡 + 业务概览（整宽）+
+ * 交易量统计折线图，period 四档切换默认 7D；39c8a2b UDPN 改版删除了
+ * 交易口径/状态分布/最近交易三卡，API 字段仍在仅 UI 移除）。
  * 路由 /overview（registry：overview → list）。
  *
  * - 服务端状态 TanStack Query（period/from/to 即 query key 维度）。
  * - 接口失败 fail-loud：ErrorBlock + Retry（源 catch 仅靠拦截器，目标
  *   约束升级为页面内可感知可恢复）。
- * - TX/TOKEN 状态映射复用 data-access 既有 TX_STATUS/TOKEN_STATUS（同一
- *   后端枚举，两页共用），Badge variant 分层与 tx/token 页一致。分布条
- *   底色例外：variant 分层折叠 primary/warning，页面以 status→色直查表
- *   （DIST_BAR_COLOR_BY_STATUS）恢复源逐色；CUSTOM 日界取本地零点。
+ * - TOKEN 状态映射复用 data-access 既有 TOKEN_STATUS（码值 5/20/15/50），
+ *   Badge variant 分层与 token 页一致，页面不硬编码码值。
+ * - 折线图 echarts → recharts（工作区既有依赖；约束禁 echarts）：
+ *   逐日 date 轴、y 轴整数刻度（源 minInterval=1）、序列按窗口总量降序、
+ *   UNKNOWN 键 legend 显示 Unsynced；轴/网格/tooltip 用主题 CSS 变量。
  */
 
 /* ================================================================== */
@@ -64,54 +72,8 @@ function dayRangeToEpochMs(value: string): number | undefined {
 }
 
 /* ================================================================== */
-/* 状态分布条形（源 dist-list：tag + 比例条 + 计数）                    */
+/* 业务概览 token 分状态 tags                                           */
 /* ================================================================== */
-
-/**
- * 源 distribution 条形底色直查表：status → barColor。逐态对齐源
- * overview/index.vue 的 TX_STATUS TagType × barColor()（warning 橙 #B45309、
- * primary 蓝 #3B82F6…）。data-access TX_STATUS 的 variant 分层把 primary/warning
- * 折叠成 secondary，按 variant 反推会把 30/50 错染成 primary 蓝且 secondary→warning
- * 回退不可达——故页面层建立 13 态直查恢复源色，未知码兜底源默认 info 灰。
- */
-const DIST_BAR_COLOR_BY_STATUS: Record<number, string> = {
-  1: '#9CA3AF', // info Created
-  5: '#3B82F6', // primary Quoted
-  10: '#3B82F6', // primary Confirmed
-  20: '#3B82F6', // primary Source Transfer in Progress
-  25: '#3B82F6', // primary Source Arrival Verified
-  30: '#B45309', // warning Disbursing
-  35: '#0B6B53', // success Credited
-  40: '#0B6B53', // success Completed
-  50: '#B45309', // warning Reversing
-  60: '#9CA3AF', // info Reversed
-  70: '#C2410C', // danger Error (Manual Handling)
-  80: '#9CA3AF', // info Cancelled
-  90: '#C2410C', // danger Failed
-};
-
-/** 未知码条形色（源 distribution 元数据缺省 type='info'）。 */
-const DIST_BAR_COLOR_FALLBACK = '#9CA3AF';
-
-/** 分布行：count>0 才显示，按 count 降序；percent 下限 2（源 distribution computed）。 */
-function buildDistribution(dist: Record<string, number> | undefined) {
-  const entries = Object.entries(dist ?? {});
-  const total = entries.reduce((a, [, b]) => a + Number(b), 0);
-  return entries
-    .map(([code, count]) => {
-      const c = Number(count);
-      const text = TX_STATUS[Number(code)]?.text ?? `Status (${code})`;
-      return {
-        code: Number(code),
-        text,
-        count: c,
-        percent: total ? Math.max(2, (c / total) * 100) : 0,
-        color: DIST_BAR_COLOR_BY_STATUS[Number(code)] ?? DIST_BAR_COLOR_FALLBACK,
-      };
-    })
-    .filter((d) => d.count > 0)
-    .sort((a, b) => b.count - a.count);
-}
 
 /** token 分状态 tags：count>0 才显示（源 tokenStatusList computed）。 */
 function buildTokenStatusList(dist: Record<string, number> | undefined) {
@@ -125,14 +87,74 @@ function buildTokenStatusList(dist: Record<string, number> | undefined) {
 }
 
 /* ================================================================== */
+/* 交易量折线（源 dimEntries + chartOption：echarts → recharts）        */
+/* ================================================================== */
+
+/** 折线维度切换项（源 el-radio-button 按汇率对/按币种，默认 pair）。 */
+const VOLUME_DIM_OPTIONS = [
+  { value: 'pair', label: 'By Pair' },
+  { value: 'symbol', label: 'By Symbol' },
+] as const;
+
+type VolumeDim = 'pair' | 'symbol';
+
+/** 源 UNKNOWN 序列键：legend/名称显示「Unsynced」（未同步）。 */
+const UNKNOWN_SERIES_KEY = 'UNKNOWN';
+
+/**
+ * 折线系列色板：主题未定义图表序列 token，取 tailwind 调色板 600 档循环
+ * （本项目自选，非上游 hex 直写）；轴/网格/tooltip 走主题 CSS 变量。
+ */
+const SERIES_COLORS = [
+  '#2563eb', // blue-600
+  '#0d9488', // teal-600
+  '#9333ea', // purple-600
+  '#ea580c', // orange-600
+  '#0e7490', // cyan-700
+  '#65a30d', // lime-600
+  '#db2777', // pink-600
+  '#475569', // slate-600
+];
+
+/**
+ * 折线数据装配（源 dimEntries + chartOption computed）：
+ * - 序列 = 当前维度各 key，按窗口总量降序（legend 顺序即此顺序）；
+ * - 行 = 逐日 date + 各序列当日量（缺省 0；后端已连续补 0，这里双保险）；
+ * - 列名用 s0/s1… 安全 id（key 可能含 '/' 等字符，直接作 dataKey 会被
+ *   recharts 按对象路径解析而取不到值），展示名由 Line name 承担；
+ * - 所有序列总量为 0/无数据 → empty（整卡 EmptyHint，不渲染图表）。
+ */
+function buildVolumeChart(points: VolumeDayPoint[] | undefined, dim: VolumeDim) {
+  const totals: Record<string, number> = {};
+  for (const p of points ?? []) {
+    const map = dim === 'pair' ? p.byPair : p.bySymbol;
+    for (const [k, v] of Object.entries(map)) totals[k] = (totals[k] ?? 0) + Number(v);
+  }
+  const entries = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  const rows = (points ?? []).map((p) => {
+    const map = dim === 'pair' ? p.byPair : p.bySymbol;
+    const row: Record<string, number | string> = { date: p.date };
+    entries.forEach(([key], i) => {
+      row[`s${i}`] = Number(map[key] ?? 0);
+    });
+    return row;
+  });
+  return {
+    series: entries.map(([key], i) => ({ key, id: `s${i}` })),
+    rows,
+    // 源 volumeEmpty = dimEntries(...).length === 0：有序列键即画图（全零平线），仅无键才空态。
+    empty: entries.length === 0,
+  };
+}
+
+/* ================================================================== */
 /* 页面                                                                 */
 /* ================================================================== */
 
 export function OverviewListPage() {
-  const router = useRouter();
-
   const [period, setPeriod] = React.useState<OverviewPeriod>(OVERVIEW_PERIOD_DEFAULT);
   const [range, setRange] = React.useState<[string, string] | null>(null);
+  const [volumeDim, setVolumeDim] = React.useState<VolumeDim>('pair');
 
   const params = React.useMemo(
     () => ({
@@ -145,47 +167,26 @@ export function OverviewListPage() {
 
   const { data: stats, isLoading, isError, error, refetch } = useOverviewStatsQuery(params);
 
-  const distribution = React.useMemo(
-    () => buildDistribution(stats?.statusDistribution),
-    [stats],
-  );
   const tokenStatusList = React.useMemo(
     () => buildTokenStatusList(stats?.tokenByStatus),
     [stats],
   );
-
-  /** 源 goTx：row-click 跳交易列表。 */
-  const goTx = React.useCallback(() => {
-    router.push('/tx');
-  }, [router]);
+  const volume = React.useMemo(
+    () => buildVolumeChart(stats?.volumeSeries, volumeDim),
+    [stats, volumeDim],
+  );
 
   return (
     <div className="space-y-4">
-      <PageHead variant="banner" title="Overview">
+      <PageHead variant="banner" title="Dashboard">
         <div className="flex flex-wrap items-center gap-2">
           {/* 源 el-radio-group size=small：四档互斥切换，选中即拉取。 */}
-          <div
-            role="radiogroup"
-            aria-label="Statistics period"
-            className="flex overflow-hidden rounded-md border"
-          >
-            {OVERVIEW_PERIOD_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={period === option.value}
-                onClick={() => onPeriodSelect(option.value, period, setPeriod, setRange)}
-                className={
-                  period === option.value
-                    ? 'h-8 border-border px-3 text-sm font-medium border-y border-l last:border-r bg-primary text-primary-foreground'
-                    : 'h-8 border-border px-3 text-sm font-medium border-y border-l last:border-r hover:bg-muted'
-                }
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedRadioGroup
+            ariaLabel="Statistics period"
+            options={OVERVIEW_PERIOD_OPTIONS}
+            value={period}
+            onSelect={(next) => onPeriodSelect(next, period, setPeriod, setRange)}
+          />
           {/* 源 el-date-picker daterange value-format="x"：起止日期 → 毫秒。 */}
           {period === 'CUSTOM' && (
             <span className="flex items-center gap-2 text-sm">
@@ -242,149 +243,100 @@ export function OverviewListPage() {
             <MetricCard value={formatSuccessRate(stats.successRate)} label="Success Rate" tone="ok" />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            {/* 源/目标口径（源「交易口径（本行角色）」descriptions） */}
-            <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-              <div className="mb-4 text-sm font-semibold">Transaction Breakdown (Bank Role)</div>
-              <div className="divide-y rounded-md border">
-                <DescRow label="Source Count">
-                  <span className="tabular-nums">{stats.sourceCount}</span>
-                </DescRow>
-                <DescRow label="Source Principal Sum">
-                  <span className="tabular-nums">{fmtAmount(stats.sourcePrincipalSum)}</span>
-                </DescRow>
-                <DescRow label="Target Count">
-                  <span className="tabular-nums">{stats.targetCount}</span>
-                </DescRow>
-                <DescRow label="Target Principal Sum">
-                  <span className="tabular-nums">{fmtAmount(stats.targetPrincipalSum)}</span>
-                </DescRow>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Principal amounts are summed directly in each transaction&apos;s source token, for reference only.
-              </p>
-            </section>
-
-            {/* 状态分布（源 dist-list：tag + 条 + 计数；空窗口 el-empty） */}
-            <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-              <div className="mb-4 text-sm font-semibold">Status Distribution</div>
-              {distribution.length > 0 ? (
-                <div className="flex flex-col gap-2.5">
-                  {distribution.map((d) => (
-                    <div key={d.code} className="flex items-center gap-2.5">
-                      <Badge variant="outline" className="w-28 shrink-0 justify-center">
-                        {d.text}
-                      </Badge>
-                      <div className="h-2 flex-1 overflow-hidden rounded bg-muted">
-                        <div
-                          className="h-full min-w-[2px] rounded"
-                          style={{ width: `${d.percent}%`, background: d.color }}
-                        />
-                      </div>
-                      <span className="w-12 text-right text-sm tabular-nums">{d.count}</span>
-                    </div>
+          {/* 业务概览（源「业务概览」descriptions；39c8a2b UDPN 改版整宽单卡） */}
+          <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+            <div className="mb-4 text-sm font-semibold">Business Overview</div>
+            <div className="divide-y rounded-md border">
+              <DescRow label="Registered Tokens">
+                <span className="tabular-nums">{stats.tokenTotal}</span>
+                <span className="ml-2.5 inline-flex flex-wrap gap-1.5">
+                  {tokenStatusList.map((t) => (
+                    <Badge key={t.code} variant={t.variant}>
+                      {t.text} {t.count}
+                    </Badge>
                   ))}
-                </div>
-              ) : (
-                <EmptyHint text="No transactions in this window" />
-              )}
-            </section>
-          </div>
+                </span>
+              </DescRow>
+              <DescRow label="Related Token Pairs">
+                <span className="tabular-nums">{stats.tokenPairCount}</span>
+              </DescRow>
+              <DescRow label="Statistics Window">
+                <span className="tabular-nums">
+                  {formatTime(stats.from)} ~ {formatTime(stats.to)}
+                </span>
+              </DescRow>
+            </div>
+          </section>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            {/* 业务概览（源「业务概览」descriptions） */}
-            <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-              <div className="mb-4 text-sm font-semibold">Business Overview</div>
-              <div className="divide-y rounded-md border">
-                <DescRow label="Registered Tokens">
-                  <span className="tabular-nums">{stats.tokenTotal}</span>
-                  <span className="ml-2.5 inline-flex flex-wrap gap-1.5">
-                    {tokenStatusList.map((t) => (
-                      <Badge key={t.code} variant={t.variant}>
-                        {t.text} {t.count}
-                      </Badge>
+          {/* 交易量统计（源 volume-head + echarts 折线；空窗口整卡 el-empty） */}
+          <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm font-semibold">Transaction Volume Statistics</div>
+              {/* 源 el-radio-group size=small：pair/symbol 两维度切换（默认 pair）。 */}
+              <SegmentedRadioGroup
+                ariaLabel="Volume dimension"
+                options={VOLUME_DIM_OPTIONS}
+                value={volumeDim}
+                onSelect={setVolumeDim}
+              />
+            </div>
+            {volume.empty ? (
+              <EmptyHint text="No transactions in this window" />
+            ) : (
+              /* ResponsiveContainer 需父容器固定高：源 .volume-chart 320px → h-80。 */
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={volume.rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+                    <CartesianGrid
+                      vertical={false}
+                      strokeDasharray="3 3"
+                      stroke="hsl(var(--border))"
+                    />
+                    <XAxis
+                      dataKey="date"
+                      minTickGap={24}
+                      tickLine={false}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                      tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    {/* 源 yAxis minInterval=1：整数刻度。 */}
+                    <YAxis
+                      allowDecimals={false}
+                      width={44}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <Tooltip
+                      cursor={{ stroke: 'hsl(var(--border))' }}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: 6,
+                        color: 'hsl(var(--card-foreground))',
+                        fontSize: 12,
+                      }}
+                    />
+                    {/* 源 legend bottom + 滚动；recharts 底部换行承载。 */}
+                    <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
+                    {volume.series.map((s, i) => (
+                      <Line
+                        key={s.key}
+                        dataKey={s.id}
+                        name={s.key === UNKNOWN_SERIES_KEY ? 'Unsynced' : s.key}
+                        type="monotone"
+                        strokeWidth={2}
+                        stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
+                        /* 源 showSymbol：仅窗口点数 ≤31 才画点符号。 */
+                        dot={volume.rows.length <= 31}
+                        isAnimationActive={false}
+                      />
                     ))}
-                  </span>
-                </DescRow>
-                <DescRow label="Related Token Pairs">
-                  <span className="tabular-nums">{stats.tokenPairCount}</span>
-                </DescRow>
-                <DescRow label="Statistics Window">
-                  <span className="tabular-nums">
-                    {formatTime(stats.from)} ~ {formatTime(stats.to)}
-                  </span>
-                </DescRow>
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-            </section>
-
-            {/* 最近交易动态（源 el-table max-height 320 row-click 跳列表） */}
-            <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-              <div className="mb-4 text-sm font-semibold">Recent Transactions</div>
-              <div className="overflow-x-auto rounded-md border">
-                <table className="w-full caption-bottom text-sm">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      {RECENT_TX_HEADERS.map((header) => (
-                        <th
-                          key={header}
-                          scope="col"
-                          className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
-                        >
-                          {header}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {stats.recentTxs.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={RECENT_TX_HEADERS.length}
-                          className="px-4 py-8 text-center text-muted-foreground"
-                        >
-                          No data
-                        </td>
-                      </tr>
-                    ) : (
-                      stats.recentTxs.map((row) => (
-                        <tr
-                          key={row.recordId}
-                          className="cursor-pointer transition-colors hover:bg-muted/50"
-                          onClick={goTx}
-                        >
-                          <td className="max-w-[17rem] px-4 py-3 align-middle tabular-nums">
-                            <span className="block truncate" title={recentTxNo(row)}>
-                              {recentTxNo(row) || '-'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 align-middle">
-                            {row.bankRole ? (
-                              <Badge variant={txBankRoleVariant(row.bankRole)}>
-                                {txBankRoleText(row.bankRole)}
-                              </Badge>
-                            ) : (
-                              <span>-</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right align-middle tabular-nums">
-                            {fmtAmount(row.principal)}
-                          </td>
-                          <td className="px-4 py-3 align-middle">
-                            <Badge variant={txStatusVariant(row.status)}>
-                              {txStatusText(row.status)}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 align-middle tabular-nums">
-                            {formatTime(row.createTime)}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </div>
+            )}
+          </section>
 
           <p className="text-center text-xs text-muted-foreground">
             Statistics are based on local instance data only (transaction records / token
@@ -399,20 +351,6 @@ export function OverviewListPage() {
 /* ================================================================== */
 /* 子组件                                                               */
 /* ================================================================== */
-
-/** 源列头（交易编号/本行角色/本金/状态/创建时间）。 */
-const RECENT_TX_HEADERS = [
-  'Transaction No.',
-  'Bank Role',
-  'Principal',
-  'Status',
-  'Create Time',
-] as const;
-
-/** 源 txNo || txUuid || transactionId 兜底链。 */
-function recentTxNo(row: { txNo?: string; txUuid?: string; transactionId: number }): string {
-  return row.txNo || row.txUuid || String(row.transactionId);
-}
 
 /** 源 successRate：null → '—'；否则 ×100 保留两位百分号。 */
 function formatSuccessRate(rate: number | null | undefined): string {
@@ -457,6 +395,47 @@ function DescRow({
     <div className="grid grid-cols-1 gap-1 px-4 py-2.5 sm:grid-cols-[minmax(0,11rem)_1fr] sm:gap-3">
       <div className="text-xs leading-6 text-muted-foreground">{label}</div>
       <div className="min-w-0 text-sm leading-6">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * 分段单选按钮组（源 el-radio-group size=small + el-radio-button 的连体
+ * 描边样式）：period 四档与 volume pair/symbol 维度切换共用同一视觉。
+ */
+function SegmentedRadioGroup<T extends string>({
+  options,
+  value,
+  onSelect,
+  ariaLabel,
+}: {
+  options: ReadonlyArray<{ value: T; label: string }>;
+  value: T;
+  onSelect: (next: T) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={ariaLabel}
+      className="flex overflow-hidden rounded-md border"
+    >
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="radio"
+          aria-checked={value === option.value}
+          onClick={() => onSelect(option.value)}
+          className={
+            value === option.value
+              ? 'h-8 border-border px-3 text-sm font-medium border-y border-l last:border-r bg-primary text-primary-foreground'
+              : 'h-8 border-border px-3 text-sm font-medium border-y border-l last:border-r hover:bg-muted'
+          }
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 }

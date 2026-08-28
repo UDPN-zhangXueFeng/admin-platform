@@ -1,13 +1,12 @@
 /**
  * @myorg/modules/lp-portal/feature
  *
- * 真实页（R1）：pool / topup / rate / change-pwd / profile。
  * 真实页（R2）：pair / tx-flow（链路抽屉内嵌）/ settle / syslog（C4 日志）
  * / system user+menu（C1/C3）+ 跨页构件（PermButton、ServiceDownAlert、
  * format 工具）。
  * 真实页（R3）：system role（C2 角色管理：列表 + 角色/分配菜单弹窗）。
- * D1：receipt 为源占位语义页（placeholder.vue）。mock 脚手架
- * （dashboard / preauth / notify）已随源无对应功能的确认全部删除。
+ * v2.3 e591f85：rate 页退役（汇率列并入 pair）、receipt 占位随上游路由
+ * 退役删除；新增 Dashboard 落地页（统计卡 + 资金池 + 自绘折线 + 最近交易）。
  */
 // ── 跨页构件 ──────────────────────────────────────────────────────────
 // A6 v-perm 等价（无 key 时移除按钮）
@@ -32,8 +31,7 @@ export { PoolListPage } from './lib/pool-pages';
 // 货币对与资金池（B4 真实页：单页主表+展开行聚合，无 create/detail 路由）
 export { PairListPage } from './lib/pair-pages';
 
-// 汇率
-export { RateListPage } from './lib/rate-pages';
+// Token 对管理（v2.3：汇率三列并入双 tab，rate 页退役）
 
 // 交易流水（B5/B6 真实页：单页列表，链路 ChainDrawer 为页内构件经相对
 // 路径消费，不入公共出口；源无 detail 路由）
@@ -42,9 +40,10 @@ export { TxFlowListPage } from './lib/tx-flow-pages';
 // 结算（B7 真实页：单页双 tab（流水/结算单）独立分页独立筛选，无 detail 路由）
 export { SettleListPage } from './lib/settle-pages';
 
-// 源端收款明细（D1 占位页：源 source-receipt 路由挂 placeholder.vue，
-// 「功能将在后续版本开放」，无接口无 detail 路由）
-export { ReceiptListPage } from './lib/receipt-pages';
+// Dashboard（v2.3 登录落地页，lp:dashboard：统计卡四宫格 + 我的资金池 +
+// Transaction Volume Statistics 自绘 SVG 折线 + 最近交易，只读无子路由）。
+export { DashboardPage } from './lib/dashboard-pages';
+
 
 // 操作日志（C4 真实页：只读分页，POST /lp/log/page，lp_id 后端注入）
 export { SyslogListPage } from './lib/syslog-pages';

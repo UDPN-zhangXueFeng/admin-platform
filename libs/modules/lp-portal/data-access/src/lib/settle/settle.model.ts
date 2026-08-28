@@ -38,23 +38,6 @@ export interface SettleOrdersQuery {
   filter: SettleOrderListReq;
 }
 
-/** 结算流水状态文案（源 RECORD_STATUS_MAP；裁决 C-11：仅 1 有效 / 45 作废 两态，未知码页面显原值）。 */
-export const SETTLE_RECORD_STATUS_LABEL: Record<number, string> = {
-  1: 'Valid',
-  45: 'Voided',
-};
-
-/**
- * 结算流水状态 → Badge variant（源 el-tag：1 success / 其余（45 及未知码）
- * info）。Badge 无 success/info 变体，按 R1 映射先例（pool 20、topup 2）
- * success→default、info→secondary；未知码兜底 secondary 由页面处理。
- */
-export const SETTLE_RECORD_STATUS_VARIANT: Record<
-  number,
-  'default' | 'secondary' | 'destructive' | 'outline'
-> = {
-  1: 'default',
-};
 
 /** 结算单状态文案（源 ORDER_STATUS_MAP；裁决 C-2：5/10 均「生成」，15 拒绝，20 已确认，35 已结算）。 */
 export const SETTLE_ORDER_STATUS_LABEL: Record<number, string> = {

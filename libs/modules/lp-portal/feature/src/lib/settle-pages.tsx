@@ -18,6 +18,9 @@
  *   rendering falls back to raw numbers without crashing.
  * - Period filter exposes the daily/weekly/monthly granularity; wire values
  *   use the API contract strings mapped to backend period_type 1/2/3.
+ * - Records table is 7 columns (v2.3 e591f85): tx number `txNo || '-'` via
+ *   the shared txNoText (mono, overflow tooltip) replaces the legacy
+ *   record/tx id pair; the ratio snapshot is now declared on the row VO.
  * - Orders rows expose an operation link opening the token-pair breakdown
  *   dialog (720px max width) reading row items directly - no second
  *   request, empty state when items are absent, NO footer buttons. Items
@@ -44,6 +47,10 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
 
@@ -55,6 +62,7 @@ import {
   isServiceDown,
   useSettleOrdersQuery,
   useSettleRecordsQuery,
+  txNoText,
   type SettleOrderRow,
   type SettleRecordRow,
 } from '@myorg/modules/lp-portal/data-access';
@@ -191,22 +199,22 @@ function ordersFormToParams(f: OrdersFilterForm, pageNum = 1): OrdersParams {
 /* Cell helpers                                                        */
 /* ================================================================== */
 
-/** Ratio (0..1 fraction) rendered with two decimals; blank stays '-'. */
-function percentText(v: number | null | undefined): string {
-  return v === null || v === undefined
+/** Ratio (0..1 fraction or numeric string) with two decimals; blank stays '-'. */
+function percentText(v: number | string | null | undefined): string {
+  return v === null || v === undefined || v === ''
     ? '-'
     : `${(Number(v) * 100).toFixed(2)}%`;
 }
 
 /** Money cell: shared formatter (thousands grouping, backend decimals kept). */
-function Money({ v }: { v: number }) {
+function Money({ v }: { v: number | string }) {
   return (
     <span className="font-mono text-xs tabular-nums">{formatMoney(v)}</span>
   );
 }
 
 /** Key-figure emphasis for the my-split totals column. */
-function KeyFigure({ v }: { v: number }) {
+function KeyFigure({ v }: { v: number | string }) {
   return (
     <span className="font-mono text-xs font-semibold tabular-nums text-primary">
       {formatMoney(v)}
@@ -214,19 +222,10 @@ function KeyFigure({ v }: { v: number }) {
   );
 }
 
-/** Token pair cell: currencies when present, otherwise the raw pair id. */
-function recordPairText(row: SettleRecordRow): string {
-  return row.sourceCurrency && row.targetCurrency
-    ? `${row.sourceCurrency}→${row.targetCurrency}`
-    : `${row.pairId}`;
-}
-
 /** Period range text rendered from both boundary timestamps. */
 function periodText(row: SettleOrderRow): string {
   return `${formatTime(row.periodStart)} – ${formatTime(row.periodEnd)}`;
 }
-
-/** Record status badge; unknown codes show the raw number on neutral tone. */
 
 /** Order status badge; unknown codes show the raw number on neutral tone. */
 function OrderStatusBadge({ status }: { status: number }) {
@@ -248,8 +247,6 @@ function OrderStatusBadge({ status }: { status: number }) {
  */
 interface OrderItemVO {
   pairCode?: string | null;
-  sourceCurrency?: string | null;
-  targetCurrency?: string | null;
   txCount?: number | null;
   principalTotal?: number | null;
   markupTotal?: number | null;
@@ -263,13 +260,6 @@ function readOrderItems(row: SettleOrderRow): OrderItemVO[] {
     (x): x is OrderItemVO =>
       x !== null && typeof x === 'object' && !Array.isArray(x),
   );
-}
-
-function itemPairText(item: OrderItemVO): string {
-  if (item.pairCode) return item.pairCode;
-  if (item.sourceCurrency && item.targetCurrency)
-    return `${item.sourceCurrency}→${item.targetCurrency}`;
-  return '-';
 }
 
 /**
@@ -298,7 +288,7 @@ function ItemsTable({ items }: { items: OrderItemVO[] }) {
         {items.map((it, i) => (
           <React.Fragment key={i}>
             <div className="bg-card px-3 py-2 font-mono text-xs">
-              {itemPairText(it)}
+              {it.pairCode || '-'}
             </div>
             <div className="bg-card px-3 py-2 font-mono text-xs tabular-nums">
               {it.txCount ?? '-'}
@@ -401,27 +391,33 @@ export function SettleListPage() {
   >(
     () => [
       {
-        accessorKey: 'settleRecordId',
-        header: 'Record ID',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {row.original.settleRecordId}
-          </span>
-        ),
+        // 交易单号：txNo||'-' 固定口径（共享 txNoText 勿自写分叉）；溢出
+        // tooltip 对应源 min-w180 show-overflow-tooltip
+        accessorKey: 'txNo',
+        header: 'Tx No.',
+        cell: ({ row }) => {
+          const no = txNoText(row.original);
+          return no === '-' ? (
+            <span className="font-mono text-xs">-</span>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="block max-w-[180px] truncate font-mono text-xs">
+                  {no}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm break-all font-mono text-xs">
+                {no}
+              </TooltipContent>
+            </Tooltip>
+          );
+        },
       },
       {
-        accessorKey: 'transactionId',
-        header: 'Transaction ID',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {row.original.transactionId}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'pairId',
+        accessorKey: 'pairCode',
         header: 'Token Pair',
-        cell: ({ row }) => recordPairText(row.original),
+        // 无码显 '-'（源 prop 直出列的空串占位等价）
+        cell: ({ row }) => <span>{row.original.pairCode || '-'}</span>,
       },
       {
         accessorKey: 'principal',
@@ -436,19 +432,9 @@ export function SettleListPage() {
       {
         accessorKey: 'splitRatio',
         header: 'Split Ratio',
-        // Ratio snapshot rides on the VO but is not declared yet; absent -> '-'
         cell: ({ row }) => (
           <span className="block font-mono text-xs tabular-nums">
-            {percentText(
-              (row.original as SettleRecordRow & {
-                splitRatioSnapshot?: number | null;
-                splitRatio?: number | null;
-              }).splitRatioSnapshot ??
-                (row.original as SettleRecordRow & {
-                  splitRatio?: number | null;
-                }).splitRatio ??
-                null,
-            )}
+            {percentText(row.original.splitRatio)}
           </span>
         ),
       },
@@ -458,11 +444,11 @@ export function SettleListPage() {
         cell: ({ row }) => <KeyFigure v={row.original.lpSplitAmount} />,
       },
       {
-        accessorKey: 'createTime',
+        accessorKey: 'completedTime',
         header: 'Completed At',
         cell: ({ row }) => (
           <span className="tabular-nums">
-            {formatTime(row.original.createTime)}
+            {formatTime(row.original.completedTime)}
           </span>
         ),
       },
@@ -546,11 +532,8 @@ export function SettleListPage() {
   );
 
   const recordTableData = React.useMemo(
-    () =>
-      recordRows.map((r) => ({
-        ...r,
-        id: String(r.settleRecordId),
-      })),
+    // v2.3 行 VO 无独立 ID 字段：只读表以行序作 row key（无重排/删除场景）
+    () => recordRows.map((r, i) => ({ ...r, id: String(i) })),
     [recordRows],
   );
   const orderTableData = React.useMemo(
@@ -617,20 +600,23 @@ export function SettleListPage() {
               </div>
             </form>
 
-            <DataTable
-              columns={recordColumns}
-              data={recordTableData}
-              isLoading={recordsQuery.isPending}
-              emptyMessage={LBL.empty}
-              pagination={{
-                page: recordsParams.pageNum,
-                pageSize: PAGE_SIZE,
-                total: recordsTotal,
-                onPageChange: (page) =>
-                  setRecordsParams((prev) => ({ ...prev, pageNum: page })),
-                pageSizeOptions: [PAGE_SIZE],
-              }}
-            />
+            {/* Provider 作用域覆盖 txNo tooltip（tooltip 仅存在于流水表） */}
+            <TooltipProvider delayDuration={200}>
+              <DataTable
+                columns={recordColumns}
+                data={recordTableData}
+                isLoading={recordsQuery.isPending}
+                emptyMessage={LBL.empty}
+                pagination={{
+                  page: recordsParams.pageNum,
+                  pageSize: PAGE_SIZE,
+                  total: recordsTotal,
+                  onPageChange: (page) =>
+                    setRecordsParams((prev) => ({ ...prev, pageNum: page })),
+                  pageSizeOptions: [PAGE_SIZE],
+                }}
+              />
+            </TooltipProvider>
           </TabsContent>
 
           {/* ===== Settlement orders ===== */}

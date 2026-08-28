@@ -6,6 +6,7 @@ import { settleOrderKeys } from './settle-order.keys';
 import {
   getSettleLpOptions,
   getSettleOrderDetail,
+  getSettleOrderItems,
   getSettleOrderList,
 } from './settle-order.api';
 import type { SettleOrderListReq } from './settle-order.model';
@@ -43,5 +44,22 @@ export function useSettleLpOptionsQuery(projectId: string, enabled = true) {
     queryKey: settleOrderKeys.lpOptions(projectId),
     queryFn: ({ signal }) => getSettleLpOptions({ signal }),
     enabled,
+  });
+}
+
+/**
+ * 结算单分项（展开行懒加载）。staleTime=Infinity 对齐源 expandItems Map 的
+ * 页面级缓存语义：某单展开加载过即不再重复请求。
+ */
+export function useSettleOrderItemsQuery(
+  projectId: string,
+  orderId: number,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: settleOrderKeys.items(projectId, orderId),
+    queryFn: ({ signal }) => getSettleOrderItems(orderId, { signal }),
+    enabled,
+    staleTime: Infinity,
   });
 }

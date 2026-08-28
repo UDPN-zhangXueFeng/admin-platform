@@ -1,27 +1,40 @@
 /** LP 主数据模型（源 `api/lp.ts` LpRespVO；BigDecimal 序列化为 string|number）。 */
 
-/** LP 列表行 / 详情（rowKey=lpId）。 */
+/**
+ * LP 列表行 / 详情（rowKey=lpId）。
+ *
+ * v2.0 tokenization：LP 级 splitRatio/minLiquidity 已删除——分成挂在 LP×token 对
+ * （lp-pair 域），最低流动性挂在 token 级；新增 contact 三件套 + settleCycle。
+ */
 export interface LpRow {
   lpId: number;
   lpName: string;
+  /** 联系人（源 2026-08-27 FR-LP-01 补充）。 */
+  contactName: string;
+  /** 联系邮箱。 */
+  contactEmail: string;
+  /** 地址。 */
+  address: string;
   lpCode: string;
-  splitRatio: string | number;
-  minLiquidity: string | number;
+  /** 结算周期：1 日结 / 2 周结 / 3 月结（见 SETTLE_CYCLE_MAP）。 */
+  settleCycle: number;
   riskAssessment: string | null;
   status: number;
   createTime: number;
-  /** 初始参与货币对 ID 列表；仅 detail 接口填充，列表行可能为 null。 */
-  initialPairIds: number[] | null;
 }
 
 /** 与后端 LpSaveReqVO 对齐；lpId 空=新建（草稿），非空=编辑。 */
 export interface LpSaveReq {
   lpId?: number;
   lpName: string;
+  contactName?: string;
+  contactEmail?: string;
+  address?: string;
   lpCode: string;
-  splitRatio: string | number;
-  minLiquidity: string | number;
+  /** 入网表单不设置（默认月结）；调整移至结算周期配置页（源 2026-08-27）。 */
+  settleCycle?: number;
   riskAssessment?: string;
+  /** v2 表单已不传，仅接口层保留（源 LpSaveReq 同名可选字段）。 */
   initialPairIds?: number[];
 }
 
@@ -29,6 +42,8 @@ export interface LpListFilter {
   lpName?: string;
   lpCode?: string;
   status?: number;
+  /** true=进行中/未通过（非 20），结算周期配置页 Tab 用。 */
+  notApproved?: boolean;
 }
 
 export interface LpListReq {
@@ -38,8 +53,8 @@ export interface LpListReq {
 }
 
 /**
- * LP 选项（表单 lpId 下拉数据源；跨组薄调用 POST /manage/lp/list 行子集）。
- * LP 各子域（pool/pair/preauth/topup）共用此类型，避免 barrel 重导出同名冲突。
+ * LP 选项（表单/筛选 lpId 下拉数据源；跨组薄调用 POST /manage/lp/list 行子集）。
+ * LP 各子域（pool/pair）共用此类型，避免 barrel 重导出同名冲突。
  */
 export interface LpOption {
   lpId: number;
@@ -48,18 +63,14 @@ export interface LpOption {
   status: number;
 }
 
-/**
- * 货币对选项（LP 表单 initialPairIds 多选数据源）。
- * 跨组薄调用 POST /manage/currency-pair/list 返回行子集（源 api/currency-pair.ts）。
- */
-export interface CurrencyPairOption {
-  pairId: number;
-  sourceCurrency: string;
-  targetCurrency: string;
-  status: number;
-}
+/** 结算周期文案（源 api/lp.ts SETTLE_CYCLE_MAP；上游中文定稿英文）。 */
+export const SETTLE_CYCLE_MAP: Record<number, string> = {
+  1: 'Daily',
+  2: 'Weekly',
+  3: 'Monthly',
+};
 
-/** LP 入网/状态沿用 CommonStatusEnum（源 views/approval/status.ts COMMON_STATUS_MAP）。 */
+/** LP 入网/状态沿用 CommonStatusEnum（源 views/approval/status.ts COMMON_STATUS_MAP 定稿英文）。 */
 export const LP_STATUS_LABEL: Record<number, string> = {
   1: 'Saved (Draft)',
   3: 'Withdrawn',
@@ -75,7 +86,7 @@ export const LP_STATUS_LABEL: Record<number, string> = {
   50: 'Disabled',
 };
 
-/** LP 状态 → Badge variant（conventions §5：成功/启用=default、失败=destructive、草稿/中性=outline）。 */
+/** LP 状态 → Badge variant（success=default、danger=destructive、warning=secondary、info/中性=outline）。 */
 export const LP_STATUS_VARIANT: Record<
   number,
   'default' | 'secondary' | 'destructive' | 'outline'
@@ -94,12 +105,16 @@ export const LP_STATUS_VARIANT: Record<
   50: 'outline',
 };
 
-/** 冻结/解冻请求体（源 api/freeze.ts FreezeToggleReq；targetType=2 LP）。 */
-export interface LpFreezeReq {
-  targetType: number;
-  targetId: number;
-  freeze: boolean;
+/** LP 门户账号状态（源 api/lp.ts PortalAccountStatus；KLO 审批通过自动开户，此为查询入口）。 */
+export interface PortalAccountStatus {
+  provisioned: boolean;
+  loginName: string;
+  status: number;
 }
 
-/** 冻结目标类型：1 银行 / 2 LP / 3 货币对（源 api/freeze.ts）。LP 用 2。 */
-export const LP_FREEZE_TARGET_TYPE = 2;
+/** 门户首管理员口令重置结果（源 api/lp.ts PortalAccountReset；OTP 一次性返回）。 */
+export interface PortalAccountReset {
+  loginName: string;
+  lpCode: string;
+  oneTimePassword: string;
+}

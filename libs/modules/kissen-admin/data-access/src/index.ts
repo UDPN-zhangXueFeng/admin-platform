@@ -30,8 +30,6 @@ export type {
   ChangePwdReq,
 } from './lib/auth.model';
 
-// ---- 共享业务域（主 agent 维护）----
-export * from './lib/currency';
 
 // ---- 业务域（迁移组 agent 填充，预声明导出）----
 export * from './lib/rbac';
@@ -42,12 +40,14 @@ export * from './lib/lp';
 export * from './lib/lp-pool';
 export * from './lib/lp-preauth';
 export * from './lib/lp-pair';
-export * from './lib/lp-topup';
-export * from './lib/currency-pair';
-export * from './lib/rate';
+export * from './lib/token';
+export * from './lib/token-pair';
+export * from './lib/gateway-instance';
+export * from './lib/access-key';
+export * from './lib/bank-interact';
+export * from './lib/operate-log';
 export * from './lib/transaction';
 export * from './lib/settle-order';
-export * from './lib/split-transfer';
 export * from './lib/reconcile';
 export * from './lib/risk-monitor';
 export * from './lib/freeze';

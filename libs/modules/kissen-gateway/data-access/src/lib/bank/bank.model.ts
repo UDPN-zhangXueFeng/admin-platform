@@ -43,7 +43,7 @@ export interface InstanceItem {
   credentialMode: string;
 }
 
-/** 银行信息详情（GET /bank/detail，实时上行 Kissen；失败降级本地缓存并置 degraded=true）。 */
+/** 银行信息详情（GET /bank/detail，GW-17 纯本地化：本行库组装，不再实时上行；新鲜度靠 G-14 推送/入网查询回写）。 */
 export interface BankDetail {
   bankCode: string;
   bankName: string;
@@ -56,11 +56,15 @@ export interface BankDetail {
   contactPhone?: string;
   contactEmail?: string;
   contactAddress?: string;
-  /** 货币系统对接说明（管理侧登记，透传）。 */
+  /** 货币系统对接说明（管理侧登记；GW-17 本地化后网关无存储列，下发前保持空）。 */
   csDesc?: string;
+  /** 货币系统类型（GW-16 重构值域）：0 未填/1 区块链/2 传统/3 其他。 */
+  currencySystemType?: number;
+  /** 货币系统名称（GW-16）。 */
+  currencySystemName?: string;
   /** 可交易 token 摘要 JSON 串（gw_bank_info.tokenList）。 */
   tokenList?: string;
-  /** 实时上行失败时置 true（已降级为本地缓存）。 */
+  /** GW-17 纯本地化后降级路径消亡；字段保留协议兼容。 */
   degraded: boolean;
   lastSyncTime?: number;
   instances: InstanceItem[];
@@ -76,6 +80,21 @@ export interface BankTokenItem {
   anchorFiat?: string;
 }
 
+/** 银行信息推送缓存（GET /bank/info，源 types/business.ts `BankInfo`；无数据时返回 null）。
+ *  onboard 页兜底展示 bankId（详情报文暂缺，协议扩展 P1）。 */
+export interface BankInfo {
+  infoId?: number;
+  bankId?: number;
+  bankName: string;
+  bankCode: string;
+  bic: string;
+  tokenList: string;
+  accountConfig: string;
+  status: number;
+  version?: number;
+  pushTime?: number;
+}
+
 /** 网络银行列表项（GET /bank/query/list，gw_bank_info 权限可见集合投影）。
  *  Official Website / Description / Registration Time 为协议扩展依赖（P1），下发前前端占位 '-'。 */
 export interface BankQueryItem {
@@ -83,6 +102,10 @@ export interface BankQueryItem {
   bankName?: string;
   bankCode?: string;
   bic?: string;
+  /** 货币系统类型（GW-16 重构值域）：0 未填/1 区块链/2 传统/3 其他。 */
+  currencySystemType?: number;
+  /** 货币系统名称（GW-16）。 */
+  currencySystemName?: string;
   /** 可交易 token 摘要 JSON 串（BankTokenItem[]）。 */
   tokenList?: string;
   pushTime?: number;

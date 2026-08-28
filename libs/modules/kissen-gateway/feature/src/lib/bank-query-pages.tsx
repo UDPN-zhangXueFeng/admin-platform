@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 
-import { Badge, Button, DataTable } from '@myorg/shared/ui';
+import { Badge, Button, DataTable, useToast } from '@myorg/shared/ui';
 import {
   Tooltip,
   TooltipContent,
@@ -27,6 +27,8 @@ import { PageHead } from './page-head';
  *   tokensOf try-catch 语义，fail-safe 不崩溃）。
  * - 时间 en-US 24h（kit.formatTime，英文-only 契约）；官网为协议扩展
  *   P1 占位列，恒 '-'。
+ * - 39c8a2b 增列：BIC 列头「BIC/SWIFT」→「BIC」；新增 Currency System 列
+ *   （GW-16 货币系统重构值域，源 csText）。
  */
 
 /** 源 tokensOf：tokenList JSON 串 → 可交易 token 摘要数组；空/坏值 → []。 */
@@ -66,23 +68,59 @@ type BankQueryRow = {
   bankName?: string;
   bankCode?: string;
   bic?: string;
+  /** 货币系统类型（GW-16 值域）：0 未填 / 1 区块链 / 2 传统 / 3 其他。 */
+  currencySystemType?: number;
+  /** 货币系统名称（类型已知但名称未下发时仅显类型）。 */
+  currencySystemName?: string;
   tokenList?: string;
   pushTime?: number;
 };
 
-/** 源列头（Bank ID/银行名称/银行编码/BIC-SWIFT/官网/可交易 token/推送时间）。 */
+/** 货币系统类型文案（GW-16 值域）：1=Blockchain / 2=Traditional / 3=Other。 */
+const CURRENCY_SYSTEM_TYPE_TEXT: Record<number, string> = {
+  1: 'Blockchain',
+  2: 'Traditional',
+  3: 'Other',
+};
+
+/** 源 csText：type 0/null 未填 → '-'；有名称「Type · Name」；未知码 `Unknown (n)`；无名称只显类型。 */
+function currencySystemText(row: BankQueryRow): string {
+  if (row.currencySystemType == null || row.currencySystemType === 0) {
+    return '-';
+  }
+  const type =
+    CURRENCY_SYSTEM_TYPE_TEXT[row.currencySystemType] ??
+    `Unknown (${row.currencySystemType})`;
+  return row.currencySystemName ? `${type} · ${row.currencySystemName}` : type;
+}
+
+/** 源列头（Bank ID/银行名称/银行编码/BIC/货币系统/官网/可交易 token/推送时间）。 */
 const BANK_QUERY_HEADERS = [
   'Bank ID',
   'Bank Name',
   'Bank Code',
-  'BIC/SWIFT',
+  'BIC',
+  'Currency System',
   'Official Website',
   'Tradable Tokens',
   'Push Time',
 ] as const;
 
 export function BankQueryListPage() {
-  const { data, isLoading, isFetching, refetch } = useBankQueryListQuery();
+  const toast = useToast();
+  const { data, isLoading, isFetching, isError, error, refetch } =
+    useBankQueryListQuery();
+
+  // 列表失败 toast + Retry（tx/log 页口径；表格区保持空态，页面整体不阻断）。
+  React.useEffect(() => {
+    if (isError) {
+      toast.error('Failed to load banks', {
+        description:
+          error instanceof Error ? error.message : 'Please try again later',
+        action: { label: 'Retry', onClick: () => refetch() },
+      });
+    }
+  }, [isError, error, refetch, toast]);
 
   const tableData = React.useMemo<BankQueryRow[]>(
     () =>
@@ -122,14 +160,20 @@ export function BankQueryListPage() {
         ),
       },
       {
+        // 39c8a2b 新增（GW-16）：货币系统「Type · Name」，未填/未知值域见 currencySystemText。
+        id: 'currencySystem',
+        header: BANK_QUERY_HEADERS[4],
+        cell: ({ row }) => currencySystemText(row.original),
+      },
+      {
         // 协议扩展 P1 占位：Kissen 下发 website 后自动亮起（源注释语义）。
         id: 'website',
-        header: BANK_QUERY_HEADERS[4],
+        header: BANK_QUERY_HEADERS[5],
         cell: () => <span>-</span>,
       },
       {
         id: 'tokenList',
-        header: BANK_QUERY_HEADERS[5],
+        header: BANK_QUERY_HEADERS[6],
         meta: { overflow: 'wrap', maxWidth: 360 },
         cell: ({ row }) => {
           const tokens = tokensOf(row.original);
@@ -159,7 +203,7 @@ export function BankQueryListPage() {
       },
       {
         id: 'pushTime',
-        header: BANK_QUERY_HEADERS[6],
+        header: BANK_QUERY_HEADERS[7],
         cell: ({ row }) => (
           <span className="tabular-nums">{formatTime(row.original.pushTime)}</span>
         ),

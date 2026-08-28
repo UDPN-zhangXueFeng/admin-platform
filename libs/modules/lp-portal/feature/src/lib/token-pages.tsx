@@ -52,8 +52,8 @@ import { SyncRefreshButton } from './sync-refresh-button';
 type GroupTokenRow = BankGroupRow['tokens'][number];
 
 const LBL = {
-  eyebrow: 'MARKET',
-  title: 'Token Overview',
+  eyebrow: 'DIRECTORY',
+  title: 'Bank Token Directory',
   tabList: 'Token List',
   tabGroup: 'By Bank',
   empty: 'No data',

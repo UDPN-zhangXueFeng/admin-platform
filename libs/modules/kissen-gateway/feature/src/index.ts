@@ -13,15 +13,6 @@ export {
 export { TxListPage, TxDetailPage } from './lib/tx-pages';
 
 export {
-  CurrencypairListPage,
-  CurrencypairDetailPage,
-  LpListPage,
-  LpDetailPage,
-  RateListPage,
-  RateDetailPage,
-} from './lib/market-pages';
-
-export {
   UserListPage,
   UserDetailPage,
   UserFormPage,
@@ -38,12 +29,11 @@ export { MenuListPage } from './lib/menu-pages';
 export { LogListPage } from './lib/log-pages';
 export { SystemUiPage } from './lib/system-ui-pages';
 
-export { BankInfoPage } from './lib/bank-pages';
-
 export { BankQueryListPage } from './lib/bank-query-pages';
 
 export { ChangePasswordDialog } from './lib/change-password-dialog';
 
 export { InstanceKeyDrawer } from './lib/instance-key-drawer';
+export { ThemeSwitcher } from './lib/theme-switcher';
 
 export { useGatewayPerm } from './lib/use-gateway-perm';

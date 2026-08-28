@@ -25,7 +25,7 @@
       "sans": "Inter system-ui sans-serif",
       "mono": "JetBrains Mono monospace"
     },
-    "defaultTheme": "emerald",
+    "defaultTheme": "teal",
     "themes": [
       {
         "id": "violet",
@@ -123,23 +123,29 @@
   },
   "modules": {
     "enabled": [
+      "dashboard",
       "token",
       "pool",
       "pair",
       "split",
-      "rate",
       "preauth",
       "tx-flow",
       "settle",
-      "receipt",
       "syslog",
       "sys"
     ],
     "order": [
       {
+        "id": "dashboard",
+        "icon": "Gauge",
+        "label": "Dashboard",
+        "path": "/dashboard",
+        "group": ""
+      },
+      {
         "id": "token",
         "icon": "Coins",
-        "label": "Token Overview",
+        "label": "Bank Token Directory",
         "path": "/token",
         "group": ""
       },
@@ -153,7 +159,7 @@
       {
         "id": "pair",
         "icon": "ArrowLeftRight",
-        "label": "Currency Pair & Liquidity Pool",
+        "label": "Token Pair Management",
         "path": "/pair",
         "group": ""
       },
@@ -162,13 +168,6 @@
         "icon": "PieChart",
         "label": "My Splits",
         "path": "/split",
-        "group": ""
-      },
-      {
-        "id": "rate",
-        "icon": "TrendingUp",
-        "label": "Exchange Rate",
-        "path": "/rate",
         "group": ""
       },
       {
@@ -191,14 +190,6 @@
         "label": "Settlement",
         "path": "/settle",
         "group": ""
-      },
-      {
-        "id": "receipt",
-        "icon": "Download",
-        "label": "Source Receipt Details",
-        "path": "/receipt",
-        "group": "",
-        "disabled": false
       },
       {
         "id": "syslog",

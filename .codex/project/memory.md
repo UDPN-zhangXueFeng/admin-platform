@@ -1,5 +1,12 @@
 # Codex 对话沉淀
 
+## 2026-08-28 kissen-gateway 品牌主题系统接入（jade/plum/bronze）
+
+1. **三主题家族定稿**：jade(165°, 默认, #0B6B53=DEFAULT_BRAND.primaryColor)/plum(286°)/bronze(27°)——gateway 自有绿系品牌 + 两个此前三项目均未占用的家族。初稿 sapphire(224° 蓝系)被否：admin 已整占蓝系（azure 210/midnight 222/cobalt 220），「配色不复制」要按家族维度避让，不是逐 hex 比对。每主题 18 键（2 tailwind + 2 brand + 3 login-grad + 5 banner + 6 illus；conventions 里「19 键」是笔误，LP 实际 18）。
+2. **BrandProvider 内联覆盖会压垮主题块**：gateway 存量 BrandProvider（源 MainLayout 品牌 API 驱动）用 `root.style.setProperty('--primary')` 注入，documentElement 内联样式优先级高于任何 `[data-theme]` CSS 块——主题系统接入时必须给这类运行时注入加让位条件（`documentElement.dataset.theme` 存在即让位，防闪脚本在 themes 非空时首帧前必写该属性，可作开关）。源语义变量（--ks-clearing/--el-color-primary）保留不动。
+3. **品牌 API 主色与主题并存口径**：登录页 Sign In 按钮原 `style={{backgroundColor: brand.primaryColor}}` 改 `bg-primary`（跟随主题）；品牌名/副标题仍 API 驱动。dev 环境真实后端 /bankgw/brand 返回 #1E4D8C（海军蓝），证明让位逻辑必要——否则切主题主色纹丝不动。
+4. 验证：tsc/build/lint 清零；实测 jade→plum→bronze 切换（下拉键盘路径，Radix 点击偶发不开是 admin 期已知坑）、防闪（domcontentloaded 时 data-theme 已就位）、localStorage['gw-theme'] 持久化、内联 LogoMark fill 跟随、--primary/--brand-deep/--login-grad-* 联动、BrandProvider 让位（--ks-clearing=#1E4D8C 而 --primary=jade）。截图 `.doc/kissen/project/gateway/verify/theme/`。
+
 ## 目的
 
 本文件用于记录每次与 Codex 协作后沉淀出的可复用经验，包括：
@@ -563,3 +570,91 @@
 - **util-config 既有闸门缺口（HEAD 上已存在）**：lint 挂在 config.loader.ts 相对路径 import
  configs/*.json（@nx/enforce-module-boundaries 9 处）；test target 无 jest.config.ts 无法跑。
  与主题 schema 改动无关，未在本轮修。
+- **lp-sync skill（上游 Vue → lp-portal 增量同步）**：上游 GitLab 仓
+ `kissen-lp-portal-frontend` clone 于 `~/repos/kissen-lp-portal-frontend`（默认分支 main）。
+ skill 在 `.claude/skills/lp-sync/`：SKILL.md（六步流程）+ `scripts/diff-upstream.sh`
+ （fetch+diff，`--apply <sha>` 推进水位线并校验后代关系）+ references（constraints/pitfalls/
+ conventions）。状态文件 `.doc/kissen/project/LP/sync-state.json`：`specBaselineSha=dd9e950`
+ 是文档 01 行为规格的锚点（经整树 diff 验证 Downloads 快照==dd9e950，只读永不推进），
+ `lastSyncedSha` 是同步水位线（只能脚本推进）。核心纪律：先改文档 01（规格保鲜）再改代码；
+ 上游代码是行为规格不是模板，UI 一律用本项目体系重写。
+- **上游漂移陷阱**：diff 只比较两端树——中间 commit 加了又删的文件（如 6636680 加的
+ source-receipt 真页被 902c11c 删除）不会出现在 `A/D` 清单里，判断"上游现状"必须以 HEAD
+ 树为准（`git ls-tree`），不能只看 commit 信息。截至 2026-08-28 待同步：dd9e950..171ee44
+ （receipt 真页加而复撤→占位仍有效；rate 并入 token 对；新增 dashboard；SRC/TGT 紧凑式）。
+- **三门户同步 skill 全家福**：lp-sync / gateway-sync / admin-sync 三套同构 skill 在
+ `.claude/skills/`（SKILL.md 六步流程 + scripts/diff-upstream.sh + references
+ constraints/conventions），核心纪律一致：先改行为规格文档再改代码、水位线只经脚本 `--apply`
+ 推进、上游代码是行为规格不是模板。三上游 clone 于 ~/repos/（kissen-lp-portal-frontend
+ main、kissen-bank-gateway-frontend main、kissen-admin-frontend **v2.0-tokenization 分支**）。
+ 状态文件分别在 .doc/kissen/project/{LP,gateway,admin}/sync-state.json。
+- **gateway-sync 基线**：specBaseline=lastSynced=a82d82c（gateway 六件套 01 已刷新到该语义）；
+ 下游 1a775c1..a82d82c 的 v2.0 差距已裁决单独立项（00-README §3 O-1），不归 sync 管。
+- **admin-sync 特殊性**：无迁移文档基线，specBaselineSha=null，首次运行必须走盘点模式
+ （建 .doc/kissen/project/admin/01-功能全量清单与迁移矩阵.md）；锚点 99dcd0c 为保守锚定
+ （monorepo 最后 kissen-admin 工作 2026-08-19 c3b7456 之前的最近上游 commit），积压 19
+ commit 含 v2.0 token 化重构（risk/currency/topup/split-transfer 域删，token/instance/log
+ 域增）。admin 上游以 v2.0-tokenization 分支为准，不是 main。
+- **admin 下游 feature 文件与上游 views 非一一对应**（risk-pages/currency-pages 无同名
+ upstream 目录），映射待盘点校准，state 文件里有 unmapped 标记。
+- **主题系统规则已入三个 sync skill**（references/conventions.md §6 + SKILL.md 第 4 步指引）：
+ 上游颜色值一律映射主题 token 禁止直写；权威规格=.doc/kissen/project/LP/06。现状：lp-portal.json
+ themes=3（default=emerald，已从 violet 改过）；kissen-gateway.json / kissen-admin.json 有 theme
+ 节但 themes=0 未接入。目标态：三个项目各有独立 3 套主题、配色互不复制、config 自定义
+ （加主题只改 JSON，19 键/主题；localStorage key 每项目独立；品牌 SVG 必须内联绑 var）。
+- **lp-sync v2.3 首次增量同步完成**（dd9e950 → e591f850，5 commit）：rate 域/页退役
+ （汇率三列并入 pair 双 tab）、receipt 占位删除、dashboard 新落地页（统计卡四宫格 +
+ My Pools 水位条封顶 100% + VolumeChart 自绘 SVG 折线 + 最近交易 7 列）。
+- **txNo 固定口径**（v2.3）：列表/抽屉/split 明细/settle 流水一律 `txNoText()=txNo||'-'`，
+ 不再回退 txUuid；txUuid 移作抽屉「Bank Idempotency No.」独立项。
+- **dashboard 交易状态 tag 是独立口径**（DASHBOARD_TX_STATUS_VARIANT：35|40→default、
+ 60|70|90→destructive、80→outline、其余 secondary），与 tx-flow 列表口径并存都保真，
+ 勿"统一"两套（文档 01 §E21）。
+- **useTokenMeta(projectId)**（data-access/lib/token-meta.ts）：token/list 全量建
+ tokenNo+tokenCode 双键索引，出口 label/bankOf/symOf，lookup 失败回退传入标识；Vue 的
+ 模块级缓存+inflight 去重在 React 侧由 TanStack Query 等价承载。
+- **自绘 SVG 折线（volume-chart.tsx）**：viewBox 720×240、y 全域 min~max 归一化（全等
+ ±1 压中轴）、稀疏序列按 day.slice(5) 补 0、x 刻度 ≤7 全标否则首/中/尾；色板映射
+ tailwind 语义类（stroke-emerald-700 等）+ 网格 stroke-border，不直写上游 hex；
+ preserveAspectRatio 不可设 none（会拉伸圆点/文字）。
+- **教训：块注释里写 `stroke-*/fill-*` 会提前闭合注释**导致 webpack Syntax Error；
+ **edit 工具行号漂移时 PUT 会打到错行**——误编辑后必须 read 现场再修，勿凭记忆续写。
+- **BFF 缺口**：10.0.7.103:8090 尚无 GET /lp/dashboard/volume（404），前端空态降级正确；
+ summary 正常。待网关部署 v2.3 后补验折线有数据形态。
+- 验证截图已更新 .doc/kissen/project/LP/verify/（rate/receipt 旧图已删）。
+
+## 2026-08-28 kissen-admin v2.0 token 化全量补同步（99dcd0c → 787ccc9）
+
+- **registry 键 = 菜单 id = 路由 slug[0]，v2.0 菜单树一次定稿**：`configs/kissen-admin.json` 的 modules.enabled/order、`module-page-registry.ts` 键位、`page.tsx` GROUP_ENABLED_KEY 三处必须同轮改，漏一处即整组页面 404。v2.0 键位：onboard/{bank,instance,token,lp,lp-pair}、fx-rate/pair、liquidity/pool、settle/{order,cycle}、transfer/tx、system/{user,role,menu,workflow,log} + 平铺 dashboard/approval。分组页（GROUP_ENABLED_KEY）只认组段前缀（onboard/fx-rate/liquidity/settle/transfer/system），叶子不再进该表。
+- **registry loader helper 模式**：top-level `import type * as KissenFeature` + `const loader = (pick: (m: typeof KissenFeature) => unknown): PageLoader => () => featureImport().then(...)`，杜绝 inline `import("pkg").Type`（ts-import-type 规则会拦）；loader 参数必须是字面量字符串（webpack 静态分析）。
+- **kissen-client 业务 code='2' 会话过期分支**（对齐 LP portal 已实测语义）：响应拦截器 `code==='2'` → 清会话 + `?expired=1` 跳登录，与 HTTP 401 同径。dev 冒烟中真实触发（会话过期中途被踢回登录页）——分支已被生产流量路径验证。
+- **全量补同步编排**：8 agent 并行（Bank/Token/Lp/Fx/Tx/Settle/System/Dash），文件互斥独占 + 共享契约文档（'/Users/zhangxuefeng/.omp/agent/sessions/-pi-cwd-20260601-admin-platform/2026-08-28T03-23-26-171Z_01a04664-cc5b-7546-b44c-4fb1a587a4c2/local/admin-v2-contract.md）+' 跨 agent 契约只两条（tokenList/TokenRow、lpSettleCycleList/Save），一次批跑无冲突。跨 agent 契约「提供方先定签名、消费方直接按契约 import」在同批并行下可行。
+- **wave 收敛踩坑**：①整文件重写的页面易丢 import（lp-liquidity 块注释未闭合吞掉整个 import 区；formatAdminDateTime/FormField/SETTLE_ORDER_STATUS_VARIANT/WorkflowRow 漏 import）——nx build 逐轮暴露太慢，用 `cd apps/<app> && npx tsc --noEmit` 一次枚举全量类型错再批量修；②DataTable 行键覆盖模式 `rows.map(r => ({...r, id: String(r.id)}))` 在 model 自带 `id: number` 时（LpPairRow）与列泛型 `LpPairRow & {id: string}` 冲突（id: number & string = never），须 `Omit<T,'id'> & {id:string}` 别名统一列/回调/弹窗 props；③上游 08-27 给 TransactionRespVO 加了 senderAccount/receiverAccount（列表 From/To 钱包列），照抄上游 interface 时要以最终上游为准。
+- **上游自身不一致的处置**：v2.0 workbench 仍保留「对账差异」卡片但链到的 reconcile 页已被 v2.0 删除（§G：删页面+菜单、api 保留）——下游保留卡片计数、去掉死链按钮，不产 404 路由。
+- 验证留档：build+lint 清零；dev 冒烟 17 页全绿 + 1280×800 截图存 `.doc/kissen/project/admin/verify/v2-sync/`；水位线已经 `diff-upstream.sh --apply` 推进到 787ccc93。fx 建对弹窗勾选挂行（1841ba1 核心）运行时验证需后端有 Active token 种子数据，本轮仅静态保证（ComboRow.checked 字段挂行）+ 页面渲染验证。
+
+## 2026-08-28 kissen-admin 侧栏切 menuTree 驱动（全对齐裁决）
+
+- **用户裁决「一个对一个功能，完全对接」推翻原 accepted divergence**：kissen-admin 侧栏原为静态 configs 驱动（kissen-app-shell.tsx 旧注释明示偏离），与上游 Vue（MainLayout 消费 store.menuTree）不一致——后端菜单重构（LP Management 组、FX Management 组并 transfer:tx 等）本地永远看不到，即「远程新增功能/菜单没同步」的根源。
+- **后端 menuTree 是运行时真相**：`/rbac/login` 响应含 `menuTree`（自带 `menuNameEn`，零 CJK 无需前端映射表，优于 LP portal 的 MENU_LABELS 模式）；同 key 可在 GitLab `ls-remote` 验证前端仓库无新提交——「没同步」要区分仓库增量与后端运行时数据两类。
+- 实现：login 把 `menuTree` 挂进 User 快照（索引签名透传，`userInfo` localStorage 持久化、登出随 clearSessionStorage 清除）；kissen-app-shell `toModuleItems()` 映射（visible=0 过滤、menuType=4 按钮剔除、orderNum 排序、children→分组、menuUrl→path、未知 key 落 registry placeholder）；configs 树降级为无会话/SSR 兜底。registry 增 `workbench` 键（后端 menuUrl=/workbench，`/dashboard` 保别名），enabled 增 workbench，登录默认跳转改 /workbench。
+- 后端 menuTree 无 risk:reconcile/risk:monitor-hit（服务端已撤）；上游 MENU_ROUTE_MAP 残留此二键属上游过渡期脏数据，前端 views/ 亦无对应文件。
+
+## 2026-08-28 kissen-gateway UDPN 改版增量同步（a82d82c → 39c8a2b）
+
+- **`npx nx dev` 卡死绕行**：@nx/jest plugin 使 project graph 构建挂起（`nx reset` 无效），直接 `cd apps/kissen-gateway-portal && npx next dev -p 4200` 绕过；hub daemon 名被污染后不可复用，起 daemon 前先 ps 确认。
+- **kissenPage mock 形状**：`POST */page` 回 `{code:'0', data:{rows:[...], page:{total}}}`，不是 `{records,total}`——mock 冒烟列表空必先核 kissen-gateway-client.ts 的解包字段。
+- **浏览器冒烟必须 mock `GET /bank/detail` 且 `onboardStatus:20`**：useGatewayLockState 无条件拉 detail，未入网态任何受控路由都会被单向纠偏重定向到 /onboard（该纠偏本身即门控行为，非 bug）。
+- **recharts dataKey 含 `/` 会被按对象路径解析**（如 `PR-A/B` 切成路径）：折线序列用 s0/s1 安全 id + `<Line name>` 展示名；UNKNOWN 键 legend 显示 'Unsynced'。零新增依赖约束下用 recharts（根 package.json ^3.8.1）替代上游 echarts。
+- 英文术语定稿：Pending Review/Rejected（token 5/15）、Onboard/Registered、Up to date/Synced N items、'Unsynced'。token refresh mutation 保留仅删 UI 入口（上游 onRefresh 同构）。
+- 验证：build+lint 清零；7 页浏览器 mock 冒烟全绿，截图存 `.doc/kissen/project/gateway/verify/39c8a2b-smoke/`；水位线已 `--apply` 到 39c8a2b3。sync-state.json 旧 note「1a775c1..a82d82c v2.0 差距单独立项」已过时，本次 delta 已全量同步。
+- **深度审计补丁**：volume 图空态曾加严为「全零序列也显示空态」，与上游 `volumeEmpty = entries.length === 0`（有键即画平线）不符，已改为严格对齐并双场景冒烟（全零键→平线+legend；无键→EmptyHint）。教训：对齐上游时勿自行「优化」边界条件。
+
+## 2026-08-28 kissen-admin 品牌主题系统接入（azure/midnight/cobalt）
+
+1. **三主题蓝系家族立品牌，accent 拉开辨识度**：azure(210°, 默认)/midnight(222°)/cobalt(220°)，accent 分别钢银/琥珀金/珊瑚橙——主 hue 避开 LP(violet 241/teal 187/emerald 160)与 gateway(靛/青)，id 三项目不重复。色板经预览页(`theme-preview/preview.html`)用户确认后落地。
+2. **SVG 表现属性不支持 `var()`**：内联插画组件的颜色必须走 `style={{stopColor:'var(--illus-x,#fallback)'}}` 对象形式（React JSX style 不接受字符串）；机械转换 SVG→JSX 时注意 `<g fill>` 也要进转换面、`#6B8EE5` vs `#6B8EF5` 这类仅末位差异的色值极易漏桶。
+3. **登录页品牌色原来直接照抄 LP violet 的 hex**（#001a98/#00a5d5/#554eea）——主题接入时全部 de-LP 化改绑 token。教训：跨 app 复制页面时品牌色值会静默跟随来源项目，接入主题系统时是集中清除点。
+4. **admin 会话 = cookie(TOKEN_COOKIE_KEY) + localStorage(userInfo) 双处**：浏览器冒烟清会话必须连 cookie 一起清，只删 localStorage 会被 auth guard 弹回 dashboard。
+5. **Radix DropdownMenu 偶发鼠标点击不开**（pointer-events 正常仍无响应）：自动化测试里用 focus + Enter 键盘路径稳定打开；switcher 三项下拉已实测可切换。
+6. 验证：tsc/lint ✅；实测 azure/midnight 切换、`--primary`/`--brand-deep`/`--illus-accent` 联动、刷新首帧防闪（domcontentloaded 时 data-theme 已就位）、localStorage 持久化、登录页内联插画跟随主题。截图 `.doc/kissen/project/admin/verify/theme/`。

@@ -2,8 +2,9 @@
  * @myorg/modules/lp-portal/data-access
  *
  * LP Portal data-access barrel：lp-client 基础设施 + 公共源类型 + 各业务域
- * （auth / pool / rate / pair / tx-flow / settle / user / menu /
- * log / role）五件套聚合。
+ * （auth / pool / pair / tx-flow / settle / user / menu /
+ * log / role / dashboard）五件套聚合。
+ * v2.3 e591f85：rate 域退役删除；新增 dashboard 域与 token-meta 统一口径。
  */
 export {
   LP_PROJECT_ID,
@@ -33,7 +34,6 @@ export {
 export * from './lib/types';
 export * from './lib/auth';
 export * from './lib/pool';
-export * from './lib/rate';
 export * from './lib/pair';
 export * from './lib/tx-flow';
 export * from './lib/settle';
@@ -52,8 +52,15 @@ export * from './lib/sync';
 export * from './lib/preauth';
 export * from './lib/split';
 
+
 // 壳层通知域（G6）：Header 铃铛抽屉消费（五件套 + markRead mutations）。
 export * from './lib/notification';
+
+// Dashboard 域（v2.3 登录落地页）：只读聚合 + 交易状态独立 tag 口径（§E21）。
+export * from './lib/dashboard';
+
+// 「Bank + Token」统一展示口径（v2.3）：token 元数据双键索引 + label/bankOf/symOf。
+export { useTokenMeta, type TokenMeta } from './lib/token-meta';
 
 // 显式锚定域 model 版本，消解与 types.ts star 导出的同名歧义（见上）；
 // pool 的 PoolRow 形状随 v2 契约更新（tokenNo/bankCode/rejectReason 等），

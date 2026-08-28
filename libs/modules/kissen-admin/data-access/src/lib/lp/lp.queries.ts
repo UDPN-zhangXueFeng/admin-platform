@@ -7,7 +7,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { lpKeys } from './lp.keys';
-import { getLpCurrencyPairOptions, getLpDetail, getLpList } from './lp.api';
+import { getLpDetail, getLpList, getPortalAccount, lpSettleCycleList } from './lp.api';
 import type { LpListReq } from './lp.model';
 
 /** LP 分页列表（翻页/筛选时保留旧数据）。 */
@@ -24,7 +24,24 @@ export function useLpListQuery(
   });
 }
 
-/** LP 详情（编辑回填；lpId 无效时不发起查询）。 */
+/**
+ * 结算周期配置页 LP 列表（SettleAgent cycle 页消费；契约导出同名 api 的 hook 形态）。
+ * key 与 useLpListQuery 共用（同端点同参数同缓存）。
+ */
+export function useLpSettleCycleListQuery(
+  projectId: string,
+  params: LpListReq,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: lpKeys.list(projectId, params),
+    queryFn: ({ signal }) => lpSettleCycleList(params, { signal }),
+    placeholderData: keepPreviousData,
+    enabled,
+  });
+}
+
+/** LP 详情（编辑/详情回填；lpId 无效时不发起查询）。 */
 export function useLpDetailQuery(
   projectId: string,
   lpId: number | undefined,
@@ -37,14 +54,15 @@ export function useLpDetailQuery(
   });
 }
 
-/** 货币对选项（LP 表单 initialPairIds 多选数据源）。 */
-export function useLpCurrencyPairOptionsQuery(
+/** LP 门户账号状态（门户账号弹窗打开即查；lpId 无效时不发起查询）。 */
+export function usePortalAccountQuery(
   projectId: string,
+  lpId: number | undefined,
   enabled = true,
 ) {
   return useQuery({
-    queryKey: lpKeys.currencyPairOptions(projectId),
-    queryFn: ({ signal }) => getLpCurrencyPairOptions({ signal }),
-    enabled,
+    queryKey: lpKeys.portalAccount(projectId, lpId ?? 0),
+    queryFn: ({ signal }) => getPortalAccount(lpId as number, { signal }),
+    enabled: enabled && lpId != null && lpId > 0,
   });
 }

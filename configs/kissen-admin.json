@@ -8,7 +8,7 @@
   "theme": {
     "mode": "system",
     "colors": {
-      "primary": "241.268 75.532% 63.137%",
+      "primary": "210 90% 48%",
       "background": "0 0% 100%",
       "foreground": "222.2 84% 4.9%",
       "primary-foreground": "210 40% 98%",
@@ -18,13 +18,88 @@
       "destructive": "0 84% 60%",
       "border": "214 32% 91%",
       "input": "214 32% 91%",
-      "ring": "241.268 75.532% 63.137%"
+      "ring": "210 90% 48%"
     },
     "radius": "0.5rem",
     "fontFamily": {
       "sans": "Inter system-ui sans-serif",
       "mono": "JetBrains Mono monospace"
-    }
+    },
+    "defaultTheme": "azure",
+    "themes": [
+      {
+        "id": "azure",
+        "label": "Azure Clearing",
+        "colors": {
+          "primary": "210 90% 48%",
+          "ring": "210 90% 48%",
+          "brand-deep": "#0A3D7A",
+          "brand-accent": "#7FA8D9",
+          "login-grad-a": "#D6E6FA",
+          "login-grad-b": "#7FB0F0",
+          "login-grad-c": "#0B4FA8",
+          "banner-start": "#1265C8",
+          "banner-mid": "#2E80E0",
+          "banner-end": "#0A3D7A",
+          "banner-glow": "#C7DCFA",
+          "banner-highlight": "#6FA3EC",
+          "illus-line": "#0A3D7A",
+          "illus-deep": "#114E9E",
+          "illus-mid": "#3E86E0",
+          "illus-soft": "#AFCDF7",
+          "illus-accent": "#2FC9E8",
+          "illus-accent-deep": "#1B8FA8"
+        }
+      },
+      {
+        "id": "midnight",
+        "label": "Midnight Gold",
+        "colors": {
+          "primary": "222 58% 34%",
+          "ring": "222 58% 34%",
+          "brand-deep": "#101F3C",
+          "brand-accent": "#E3A94C",
+          "login-grad-a": "#DDE4F2",
+          "login-grad-b": "#8FA3C8",
+          "login-grad-c": "#24457E",
+          "banner-start": "#2A4C86",
+          "banner-mid": "#3D639F",
+          "banner-end": "#101F3C",
+          "banner-glow": "#C9D4E8",
+          "banner-highlight": "#7E97C2",
+          "illus-line": "#101F3C",
+          "illus-deep": "#1B3560",
+          "illus-mid": "#52709F",
+          "illus-soft": "#B4C2DB",
+          "illus-accent": "#E8C98F",
+          "illus-accent-deep": "#B8862F"
+        }
+      },
+      {
+        "id": "cobalt",
+        "label": "Cobalt Signal",
+        "colors": {
+          "primary": "220 85% 50%",
+          "ring": "220 85% 50%",
+          "brand-deep": "#0E2F6E",
+          "brand-accent": "#E86A4A",
+          "login-grad-a": "#D5DBFA",
+          "login-grad-b": "#7D95F0",
+          "login-grad-c": "#1D3FB8",
+          "banner-start": "#1E46B8",
+          "banner-mid": "#3A63D4",
+          "banner-end": "#122E7E",
+          "banner-glow": "#C3CEFA",
+          "banner-highlight": "#7189EE",
+          "illus-line": "#122E7E",
+          "illus-deep": "#1C3D9E",
+          "illus-mid": "#4A6BDE",
+          "illus-soft": "#AEBEF7",
+          "illus-accent": "#F0A48F",
+          "illus-accent-deep": "#C24B2F"
+        }
+      }
+    ]
   },
   "layout": {
     "type": "sidebar",
@@ -49,287 +124,187 @@
   },
   "modules": {
     "enabled": [
-      "dashboard",
-      "bank-onboard",
-      "bank-info",
-      "bank-approval",
-      "gateway-register",
-      "lp-liquidity",
-      "lp-info",
-      "lp-pool",
-      "lp-preauth",
-      "lp-currency-pair",
-      "lp-topup",
-      "lp-water-level",
+      "workbench",
+      "approval",
+      "onboard",
+      "bank",
+      "instance",
+      "token",
+      "lp",
+      "lp-pair",
+      "liquidity",
+      "pool",
       "fx-rate",
-      "currency-pair",
-      "rate-config",
-      "rate-push-log",
-      "transaction",
-      "tx-list",
-      "tx-exception",
-      "tx-reversal",
-      "settlement",
-      "settle-record",
-      "settle-order",
-      "split-transfer",
-      "reconcile",
-      "risk-compliance",
-      "freeze",
-      "monitor-rule",
-      "monitor-hit",
-      "approval-center",
+      "pair",
+      "transfer",
+      "tx",
+      "settle",
+      "order",
+      "cycle",
       "system",
-      "sys-user",
-      "sys-role",
-      "sys-menu",
-      "currency",
-      "workflow-config",
-      "scheduled-task",
-      "operate-log"
+      "user",
+      "role",
+      "menu",
+      "workflow",
+      "log"
     ],
     "order": [
       {
-        "id": "dashboard",
-        "icon": "LayoutDashboard",
-        "label": "Workspace",
-        "path": "/dashboard",
+        "id": "workbench",
+        "icon": "Odometer",
+        "label": "Workbench",
+        "path": "/workbench",
         "group": ""
       },
       {
-        "id": "approval-center",
-        "icon": "Bell",
-        "label": "Approval Center",
-        "path": "/approval-center",
+        "id": "approval",
+        "icon": "Stamp",
+        "label": "Approval",
+        "path": "/approval",
         "group": ""
       },
       {
-        "id": "bank-onboard",
-        "icon": "Banknote",
-        "label": "Onboarding",
+        "id": "onboard",
+        "icon": "OfficeBuilding",
+        "label": "Onboard",
         "group": "",
         "children": [
           {
-            "id": "bank-info",
-            "icon": "Banknote",
-            "label": "Bank Profile",
-            "path": "/bank-onboard/bank-info"
+            "id": "bank",
+            "icon": "OfficeBuilding",
+            "label": "Bank",
+            "path": "/onboard/bank",
+            "group": ""
           },
           {
-            "id": "bank-approval",
-            "icon": "BadgeCheck",
-            "label": "Onboarding Review",
-            "path": "/bank-onboard/bank-approval"
-          },
-          {
-            "id": "gateway-register",
+            "id": "instance",
             "icon": "Network",
-            "label": "Gateway Registration",
-            "path": "/bank-onboard/gateway-register"
+            "label": "GatewayInstance",
+            "path": "/onboard/instance",
+            "group": ""
+          },
+          {
+            "id": "token",
+            "icon": "Coins",
+            "label": "TokenManage",
+            "path": "/onboard/token",
+            "group": ""
           }
         ]
       },
       {
-        "id": "lp-liquidity",
-        "icon": "Layers",
-        "label": "Liquidity",
+        "id": "lp",
+        "icon": "Users",
+        "label": "LP Management",
         "group": "",
         "children": [
           {
-            "id": "lp-info",
+            "id": "lp",
             "icon": "Users",
-            "label": "LP Profile",
-            "path": "/lp-liquidity/lp-info"
+            "label": "LP",
+            "path": "/onboard/lp",
+            "group": ""
           },
           {
-            "id": "lp-pool",
-            "icon": "Wallet",
-            "label": "Liquidity Pool",
-            "path": "/lp-liquidity/lp-pool"
-          },
-          {
-            "id": "lp-preauth",
-            "icon": "KeyRound",
-            "label": "Pre-authorization",
-            "path": "/lp-liquidity/lp-preauth"
-          },
-          {
-            "id": "lp-currency-pair",
+            "id": "lp-pair",
             "icon": "ArrowLeftRight",
-            "label": "Currency Pairs",
-            "path": "/lp-liquidity/lp-currency-pair"
+            "label": "LP Pair",
+            "path": "/onboard/lp-pair",
+            "group": ""
           },
           {
-            "id": "lp-topup",
-            "icon": "PlusCircle",
-            "label": "Top-up Records",
-            "path": "/lp-liquidity/lp-topup"
-          },
-          {
-            "id": "lp-water-level",
-            "icon": "Gauge",
-            "label": "Liquidity Monitor",
-            "path": "/lp-liquidity/lp-water-level"
+            "id": "pool",
+            "icon": "Droplets",
+            "label": "Pool",
+            "path": "/liquidity/pool",
+            "group": ""
           }
         ]
       },
       {
         "id": "fx-rate",
-        "icon": "TrendingUp",
-        "label": "FX & Rates",
+        "icon": "Money",
+        "label": "FX Management",
         "group": "",
         "children": [
           {
-            "id": "currency-pair",
-            "icon": "Coins",
-            "label": "Pair Settings",
-            "path": "/fx-rate/currency-pair"
-          },
-          {
-            "id": "rate-config",
-            "icon": "TrendingUp",
-            "label": "Rate Configuration",
-            "path": "/fx-rate/rate-config"
-          },
-          {
-            "id": "rate-push-log",
-            "icon": "Send",
-            "label": "Rate Push Logs",
-            "path": "/fx-rate/rate-push-log"
-          }
-        ]
-      },
-      {
-        "id": "transaction",
-        "icon": "Coins",
-        "label": "Trade Search",
-        "group": "",
-        "children": [
-          {
-            "id": "tx-list",
-            "icon": "List",
-            "label": "Trade Records",
-            "path": "/transaction/tx-list"
-          },
-          {
-            "id": "tx-exception",
-            "icon": "AlertTriangle",
-            "label": "Exceptions",
-            "path": "/transaction/tx-exception"
-          },
-          {
-            "id": "tx-reversal",
-            "icon": "Undo2",
-            "label": "Reversals",
-            "path": "/transaction/tx-reversal"
-          }
-        ]
-      },
-      {
-        "id": "settlement",
-        "icon": "Scale",
-        "label": "Settlement & Split",
-        "group": "",
-        "children": [
-          {
-            "id": "settle-record",
-            "icon": "Receipt",
-            "label": "Settlement Records",
-            "path": "/settlement/settle-record"
-          },
-          {
-            "id": "settle-order",
-            "icon": "GanttChart",
-            "label": "Settlement Confirmation",
-            "path": "/settlement/settle-order"
-          },
-          {
-            "id": "split-transfer",
+            "id": "pair",
             "icon": "ArrowLeftRight",
-            "label": "Split Transfers",
-            "path": "/settlement/split-transfer"
+            "label": "FX Rate Management",
+            "path": "/fx-rate/pair",
+            "group": ""
           },
           {
-            "id": "reconcile",
-            "icon": "FileSearch",
-            "label": "Reconciliation",
-            "path": "/settlement/reconcile"
+            "id": "tx",
+            "icon": "ArrowLeftRight",
+            "label": "FX Transactions",
+            "path": "/transfer/tx",
+            "group": ""
           }
         ]
       },
       {
-        "id": "risk-compliance",
-        "icon": "Shield",
-        "label": "Reconciliation & Risk",
+        "id": "settle",
+        "icon": "CalendarClock",
+        "label": "Settle",
         "group": "",
         "children": [
           {
-            "id": "freeze",
-            "icon": "Snowflake",
-            "label": "Freeze Controls",
-            "path": "/risk-compliance/freeze"
+            "id": "cycle",
+            "icon": "CalendarRange",
+            "label": "Settle Cycle",
+            "path": "/settle/cycle",
+            "group": ""
           },
           {
-            "id": "monitor-rule",
-            "icon": "SlidersHorizontal",
-            "label": "Monitoring Rules",
-            "path": "/risk-compliance/monitor-rule"
-          },
-          {
-            "id": "monitor-hit",
-            "icon": "Flag",
-            "label": "Monitoring Alerts",
-            "path": "/risk-compliance/monitor-hit"
+            "id": "order",
+            "icon": "FileText",
+            "label": "SettleOrder",
+            "path": "/settle/order",
+            "group": ""
           }
         ]
       },
       {
         "id": "system",
         "icon": "Settings",
-        "label": "System Management",
+        "label": "System",
         "group": "",
         "children": [
           {
-            "id": "sys-user",
-            "icon": "UserCog",
-            "label": "Users",
-            "path": "/system/sys-user"
+            "id": "user",
+            "icon": "User",
+            "label": "User",
+            "path": "/system/user",
+            "group": ""
           },
           {
-            "id": "sys-role",
-            "icon": "Users",
-            "label": "Roles",
-            "path": "/system/sys-role"
+            "id": "role",
+            "icon": "ShieldCheck",
+            "label": "Role",
+            "path": "/system/role",
+            "group": ""
           },
           {
-            "id": "sys-menu",
+            "id": "menu",
             "icon": "ListTree",
-            "label": "Menu & API Access",
-            "path": "/system/sys-menu"
+            "label": "Menu",
+            "path": "/system/menu",
+            "group": ""
           },
           {
-            "id": "currency",
-            "icon": "Coins",
-            "label": "Currencies",
-            "path": "/system/currency"
+            "id": "workflow",
+            "icon": "GitBranch",
+            "label": "Workflow",
+            "path": "/system/workflow",
+            "group": ""
           },
           {
-            "id": "workflow-config",
-            "icon": "Workflow",
-            "label": "Approval Workflow",
-            "path": "/system/workflow-config"
-          },
-          {
-            "id": "scheduled-task",
-            "icon": "Clock",
-            "label": "Scheduled Tasks",
-            "path": "/system/scheduled-task"
-          },
-          {
-            "id": "operate-log",
+            "id": "log",
             "icon": "ScrollText",
-            "label": "Operation Logs",
-            "path": "/system/operate-log"
+            "label": "OperateLog",
+            "path": "/system/log",
+            "group": ""
           }
         ]
       }

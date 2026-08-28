@@ -1,18 +1,23 @@
 'use client';
-
 import dynamic from 'next/dynamic';
 import type { ComponentType } from 'react';
+import type * as KissenFeature from '@myorg/modules/kissen-admin/feature';
 
 /**
- * Module page registry for kissen-admin.
+ * Module page registry for kissen-admin (v2.0 tokenization layout).
  *
- * Maps each module id (§5.1) → page key → dynamic loader that pulls the
- * matching mock component from @myorg/modules/kissen-admin/feature. Every
- * loader uses an inline string literal so webpack can statically resolve and
- * code-split each chunk (a bare variable would defeat static analysis).
+ * Maps each module id → page key → dynamic loader that pulls the matching
+ * component from @myorg/modules/kissen-admin/feature. Every loader uses an
+ * inline string literal so webpack can statically resolve and code-split each
+ * chunk (a bare variable would defeat static analysis).
  *
- * Page-key → component convention (§6.3):
- *   list   → <Pascal>ListPage      (dashboard → DashboardPage)
+ * v2.0 module ids mirror the upstream menu tree (787ccc9):
+ *   onboard/{bank,instance,token,lp,lp-pair}, fx-rate/pair,
+ *   liquidity/pool, settle/{order,cycle}, transfer/tx,
+ *   system/{user,role,menu,workflow,log}.
+ *
+ * Page-key → component convention:
+ *   list   → <Pascal>ListPage
  *   detail → <Pascal>DetailPage
  *   create → <Pascal>FormPage
  *   edit   → <Pascal>FormPage
@@ -29,177 +34,111 @@ const placeholderLoader: PageLoader = () =>
     default: m.KissenPlaceholderPage as unknown as ComponentType<unknown>,
   }));
 
+const featureImport = () => import('@myorg/modules/kissen-admin/feature');
+
+const loader =
+  (pick: (m: typeof KissenFeature) => unknown): PageLoader =>
+  () =>
+    featureImport().then((m) => ({
+      default: pick(m) as unknown as ComponentType<unknown>,
+    }));
+
 const pages: Record<string, Record<string, PageLoader>> = {
+  // 后端 menuTree 的 workbench 菜单项 menuUrl=/workbench（源 MENU_ROUTE_MAP
+  // 'workbench': '/workbench'）；/dashboard 保留为兼容别名。
   dashboard: {
-    list: () =>
-      import('@myorg/modules/kissen-admin/feature').then((m) => ({
-        default: m.DashboardPage as unknown as ComponentType<unknown>,
-      })),
+    list: loader((m) => m.DashboardPage),
   },
 
-  'bank-info': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.BankInfoListPage as unknown as ComponentType<unknown> })),
-    create: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.BankInfoFormPage as unknown as ComponentType<unknown> })),
-    edit: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.BankInfoFormPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.BankInfoDetailPage as unknown as ComponentType<unknown> })),
+  workbench: {
+    list: loader((m) => m.DashboardPage),
   },
 
-  'bank-approval': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.BankApprovalListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.BankApprovalDetailPage as unknown as ComponentType<unknown> })),
+  approval: {
+    list: loader((m) => m.ApprovalCenterListPage),
   },
 
-  'gateway-register': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.GatewayRegisterListPage as unknown as ComponentType<unknown> })),
-    create: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.GatewayRegisterFormPage as unknown as ComponentType<unknown> })),
-    edit: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.GatewayRegisterFormPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.GatewayRegisterDetailPage as unknown as ComponentType<unknown> })),
+  // ---- onboard ----
+  bank: {
+    list: loader((m) => m.BankInfoListPage),
+    create: loader((m) => m.BankInfoFormPage),
+    edit: loader((m) => m.BankInfoFormPage),
+    detail: loader((m) => m.BankInfoDetailPage),
   },
 
-  'lp-info': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpInfoListPage as unknown as ComponentType<unknown> })),
-    create: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpInfoFormPage as unknown as ComponentType<unknown> })),
-    edit: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpInfoFormPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpInfoDetailPage as unknown as ComponentType<unknown> })),
+  instance: {
+    list: loader((m) => m.GatewayInstanceListPage),
   },
 
-  'lp-pool': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpPoolListPage as unknown as ComponentType<unknown> })),
-    create: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpPoolFormPage as unknown as ComponentType<unknown> })),
-    edit: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpPoolFormPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpPoolDetailPage as unknown as ComponentType<unknown> })),
+  token: {
+    list: loader((m) => m.TokenManageListPage),
   },
 
-  'lp-preauth': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpPreauthListPage as unknown as ComponentType<unknown> })),
-    create: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpPreauthFormPage as unknown as ComponentType<unknown> })),
-    edit: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpPreauthFormPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpPreauthDetailPage as unknown as ComponentType<unknown> })),
+  lp: {
+    list: loader((m) => m.LpInfoListPage),
+    create: loader((m) => m.LpInfoFormPage),
+    edit: loader((m) => m.LpInfoFormPage),
+    detail: loader((m) => m.LpInfoDetailPage),
   },
 
-  'lp-currency-pair': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpCurrencyPairListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpCurrencyPairDetailPage as unknown as ComponentType<unknown> })),
+  'lp-pair': {
+    list: loader((m) => m.LpTokenPairListPage),
   },
 
-  'lp-topup': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpTopupListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.LpTopupDetailPage as unknown as ComponentType<unknown> })),
+  // ---- fx-rate / liquidity ----
+  pair: {
+    list: loader((m) => m.TokenPairListPage),
   },
 
-  'lp-water-level': {
-    list: placeholderLoader,
+  pool: {
+    list: loader((m) => m.LpPoolListPage),
   },
 
-  'currency-pair': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.CurrencyPairListPage as unknown as ComponentType<unknown> })),
-    create: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.CurrencyPairFormPage as unknown as ComponentType<unknown> })),
-    edit: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.CurrencyPairFormPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.CurrencyPairDetailPage as unknown as ComponentType<unknown> })),
+  // ---- settle ----
+  order: {
+    list: loader((m) => m.SettleOrderListPage),
   },
 
-  currency: {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.CurrencyListPage as unknown as ComponentType<unknown> })),
+  cycle: {
+    list: loader((m) => m.SettleCycleListPage),
   },
 
-  'rate-config': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.RateConfigListPage as unknown as ComponentType<unknown> })),
-    create: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.RateConfigFormPage as unknown as ComponentType<unknown> })),
-    edit: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.RateConfigFormPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.RateConfigDetailPage as unknown as ComponentType<unknown> })),
+  // ---- transfer ----
+  tx: {
+    list: loader((m) => m.TxListListPage),
   },
 
-  'rate-push-log': {
-    list: placeholderLoader,
+  // ---- system ----
+  user: {
+    list: loader((m) => m.SysUserListPage),
+    create: loader((m) => m.SysUserFormPage),
+    edit: loader((m) => m.SysUserFormPage),
+    detail: loader((m) => m.SysUserDetailPage),
   },
 
-  'tx-list': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.TxListListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.TxListDetailPage as unknown as ComponentType<unknown> })),
+  role: {
+    list: loader((m) => m.SysRoleListPage),
+    create: loader((m) => m.SysRoleFormPage),
+    edit: loader((m) => m.SysRoleFormPage),
+    detail: loader((m) => m.SysRoleDetailPage),
   },
 
-  'tx-exception': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.TxExceptionListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.TxExceptionDetailPage as unknown as ComponentType<unknown> })),
+  menu: {
+    list: loader((m) => m.SysMenuListPage),
   },
 
-  'tx-reversal': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.TxReversalListPage as unknown as ComponentType<unknown> })),
+  workflow: {
+    list: loader((m) => m.WorkflowConfigListPage),
+    create: loader((m) => m.WorkflowConfigFormPage),
+    edit: loader((m) => m.WorkflowConfigFormPage),
+    detail: loader((m) => m.WorkflowConfigDetailPage),
   },
 
-  'settle-record': {
-    list: placeholderLoader,
-    detail: placeholderLoader,
+  log: {
+    list: loader((m) => m.OperateLogListPage),
   },
 
-  'settle-order': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SettleOrderListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SettleOrderDetailPage as unknown as ComponentType<unknown> })),
-  },
-
-  'split-transfer': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SplitTransferListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SplitTransferDetailPage as unknown as ComponentType<unknown> })),
-  },
-
-  reconcile: {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.ReconcileListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.ReconcileDetailPage as unknown as ComponentType<unknown> })),
-  },
-
-  freeze: {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.FreezeListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.FreezeDetailPage as unknown as ComponentType<unknown> })),
-  },
-
-  'monitor-rule': {
-    list: placeholderLoader,
-    create: placeholderLoader,
-    edit: placeholderLoader,
-    detail: placeholderLoader,
-  },
-
-  'monitor-hit': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.MonitorHitListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.MonitorHitDetailPage as unknown as ComponentType<unknown> })),
-  },
-
-  'approval-center': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.ApprovalCenterListPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.ApprovalCenterDetailPage as unknown as ComponentType<unknown> })),
-  },
-
-  'sys-user': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SysUserListPage as unknown as ComponentType<unknown> })),
-    create: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SysUserFormPage as unknown as ComponentType<unknown> })),
-    edit: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SysUserFormPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SysUserDetailPage as unknown as ComponentType<unknown> })),
-  },
-
-  'sys-role': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SysRoleListPage as unknown as ComponentType<unknown> })),
-    create: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SysRoleFormPage as unknown as ComponentType<unknown> })),
-    edit: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SysRoleFormPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SysRoleDetailPage as unknown as ComponentType<unknown> })),
-  },
-
-  'sys-menu': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.SysMenuListPage as unknown as ComponentType<unknown> })),
-  },
-
-  'workflow-config': {
-    list: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.WorkflowConfigListPage as unknown as ComponentType<unknown> })),
-    create: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.WorkflowConfigFormPage as unknown as ComponentType<unknown> })),
-    edit: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.WorkflowConfigFormPage as unknown as ComponentType<unknown> })),
-    detail: () => import('@myorg/modules/kissen-admin/feature').then((m) => ({ default: m.WorkflowConfigDetailPage as unknown as ComponentType<unknown> })),
-  },
-
-  'scheduled-task': {
-    list: placeholderLoader,
-    detail: placeholderLoader,
-  },
-
-  'operate-log': {
+  _placeholder: {
     list: placeholderLoader,
   },
 };
@@ -213,8 +152,8 @@ export function loadKissenAdminModulePage(
   moduleId: string,
   pageKey: string,
 ): ComponentType<unknown> | null {
-  const loader = pages[moduleId]?.[pageKey] ?? placeholderLoader;
-  return dynamic(() => loader(), {
+  const loaderFn = pages[moduleId]?.[pageKey] ?? placeholderLoader;
+  return dynamic(() => loaderFn(), {
     ssr: false,
   }) as unknown as ComponentType<unknown>;
 }

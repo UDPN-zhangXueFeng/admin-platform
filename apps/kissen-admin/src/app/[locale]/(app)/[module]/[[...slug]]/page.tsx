@@ -15,12 +15,11 @@ import { loadKissenAdminModulePage } from './module-page-registry';
  * See contract §5.1 for the full GROUP_ENABLED_KEY table.
  */
 const GROUP_ENABLED_KEY: Record<string, string> = {
-  'bank-onboard': 'bank-onboard',
-  'lp-liquidity': 'lp-liquidity',
+  onboard: 'onboard',
   'fx-rate': 'fx-rate',
-  transaction: 'transaction',
-  settlement: 'settlement',
-  'risk-compliance': 'risk-compliance',
+  liquidity: 'liquidity',
+  settle: 'settle',
+  transfer: 'transfer',
   system: 'system',
 };
 

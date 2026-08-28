@@ -9,7 +9,7 @@
   "theme": {
     "mode": "system",
     "colors": {
-      "primary": "241.268 75.532% 63.137%",
+      "primary": "165 81% 23%",
       "background": "0 0% 100%",
       "foreground": "222.2 84% 4.9%",
       "primary-foreground": "210 40% 98%",
@@ -19,13 +19,88 @@
       "destructive": "0 84% 60%",
       "border": "214 32% 91%",
       "input": "214 32% 91%",
-      "ring": "241.268 75.532% 63.137%"
+      "ring": "165 81% 23%"
     },
     "radius": "0.5rem",
     "fontFamily": {
       "sans": "Inter system-ui sans-serif",
       "mono": "JetBrains Mono monospace"
-    }
+    },
+    "defaultTheme": "plum",
+    "themes": [
+      {
+        "id": "jade",
+        "label": "Jade",
+        "colors": {
+          "primary": "165 81% 23%",
+          "ring": "165 81% 23%",
+          "brand-deep": "#0B6B53",
+          "brand-accent": "#45D0A0",
+          "login-grad-a": "#B7F0DC",
+          "login-grad-b": "#5FD3AC",
+          "login-grad-c": "#0B6B53",
+          "banner-start": "#0F7A5F",
+          "banner-mid": "#16A37D",
+          "banner-end": "#0A5A46",
+          "banner-glow": "#B7F0DC",
+          "banner-highlight": "#6FE3BC",
+          "illus-line": "#0B6B53",
+          "illus-deep": "#0A5343",
+          "illus-mid": "#34C797",
+          "illus-soft": "#B7F0DC",
+          "illus-accent": "#F2B450",
+          "illus-accent-deep": "#C4841D"
+        }
+      },
+      {
+        "id": "plum",
+        "label": "Plum",
+        "colors": {
+          "primary": "286 63% 32%",
+          "ring": "286 63% 32%",
+          "brand-deep": "#6E1E86",
+          "brand-accent": "#C77DFF",
+          "login-grad-a": "#E4CCF7",
+          "login-grad-b": "#A96BD6",
+          "login-grad-c": "#6E1E86",
+          "banner-start": "#6E1E86",
+          "banner-mid": "#8E3FB0",
+          "banner-end": "#571569",
+          "banner-glow": "#E4CCF7",
+          "banner-highlight": "#B98ADC",
+          "illus-line": "#571569",
+          "illus-deep": "#4A1259",
+          "illus-mid": "#9B59C4",
+          "illus-soft": "#E4CCF7",
+          "illus-accent": "#FFC46B",
+          "illus-accent-deep": "#D99430"
+        }
+      },
+      {
+        "id": "bronze",
+        "label": "Bronze",
+        "colors": {
+          "primary": "27 73% 31%",
+          "ring": "27 73% 31%",
+          "brand-deep": "#8A4B16",
+          "brand-accent": "#1FA37E",
+          "login-grad-a": "#F3D9BC",
+          "login-grad-b": "#DBA768",
+          "login-grad-c": "#8A4B16",
+          "banner-start": "#8A4B16",
+          "banner-mid": "#B26E2C",
+          "banner-end": "#6F3B10",
+          "banner-glow": "#F3D9BC",
+          "banner-highlight": "#D9A05B",
+          "illus-line": "#6F3B10",
+          "illus-deep": "#5C2F0C",
+          "illus-mid": "#C98A45",
+          "illus-soft": "#F3D9BC",
+          "illus-accent": "#2BA383",
+          "illus-accent-deep": "#157A61"
+        }
+      }
+    ]
   },
   "layout": {
     "type": "sidebar",
@@ -53,21 +128,20 @@
       "onboard",
       "token", "fx", "bank",
       "tx",
-      "system", "user", "role", "menu", "log",
-      "market", "currencypair", "lp", "rate"
+      "system", "user", "role", "menu", "log"
     ],
     "order": [
       {
         "id": "overview",
         "icon": "Gauge",
-        "label": "Overview",
+        "label": "Dashboard",
         "path": "/overview",
         "group": ""
       },
       {
         "id": "onboard",
         "icon": "FileCheck2",
-        "label": "Onboarding Application",
+        "label": "Onboarding Information",
         "path": "/onboard",
         "group": ""
       },
@@ -81,7 +155,7 @@
       {
         "id": "fx",
         "icon": "TrendingUp",
-        "label": "FX Rate Query",
+        "label": "Gateway FX Query",
         "path": "/fx",
         "group": ""
       },

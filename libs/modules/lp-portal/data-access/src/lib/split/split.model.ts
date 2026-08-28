@@ -32,17 +32,18 @@ export interface SplitRow {
   syncTime: number;
 }
 
-/** 分成明细行（源 SplitDetailRow；即结算流水的分成切片）。 */
+/** 分成明细行（源 SplitDetailRow v2.3 e591f85：txNo 替代原 settleRecordId/
+ * transactionId 两字段；即结算流水的分成切片）。 */
 export interface SplitDetailRow {
-  settleRecordId: number;
-  transactionId: number;
+  /** 全网唯一交易单号（KSN 单号；未同步到流水副本的记录空串，页面显 '-'） */
+  txNo?: string;
   /** 货币对编码；空值页面显 '-' */
   pairCode?: string;
-  principal: number;
-  markupAmount: number;
+  principal: string | number;
+  markupAmount: string | number;
   /** 分成比例（0〜1，页面 ×100 显 %） */
-  splitRatio: number | null;
-  lpSplitAmount: number;
+  splitRatio: string | number | null;
+  lpSplitAmount: string | number;
   /** 完成时间（毫秒时间戳） */
   completedTime: number;
 }

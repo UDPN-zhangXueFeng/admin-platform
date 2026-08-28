@@ -1,6 +1,5 @@
 export * from './lib/kissen-gateway-client';
 export * from './lib/auth';
-export * from './lib/onboard';
 export * from './lib/tx';
 export * from './lib/bank';
 export * from './lib/bootstrap';
@@ -8,9 +7,6 @@ export * from './lib/instance-key';
 export * from './lib/overview';
 export * from './lib/fx';
 export * from './lib/token';
-export * from './lib/currencypair';
-export * from './lib/lp';
-export * from './lib/rate';
 export * from './lib/menu';
 export * from './lib/user';
 export * from './lib/role';

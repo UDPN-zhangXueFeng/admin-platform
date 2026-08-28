@@ -1,7 +1,7 @@
 /**
  * feature 库内共享的展示常量与格式化工具。
  *
- * 由 market/role/tx/user/log/onboard 各页面原本地副本收敛而来，
+ * 由 role/tx/user/log/onboard 各页面原本地副本收敛而来，
  * 语义 1:1（见各函数注释）；唯一有意变更：formatTime 的 locale
  * 由 zh-CN 统一为 en-US（门户用户可见文案英文-only 契约，任务批准）。
  */

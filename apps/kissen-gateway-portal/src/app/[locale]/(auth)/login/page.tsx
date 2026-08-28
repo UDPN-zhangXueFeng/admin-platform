@@ -144,20 +144,20 @@ export default function LoginRoute() {
             插画按比例适配剩余高度（46vh 上限 + max-w-full 等比缩放），
             1280×800 下底部不被裁切；面板铺满、不设内容宽度上限（约束 3）。 */}
         <section
-          className="relative hidden overflow-hidden bg-gradient-to-br from-[#c6c7ff] via-[#8e8af5] to-[#4e48e8] lg:flex lg:flex-col"
+          className="relative hidden overflow-hidden bg-gradient-to-br from-[var(--login-grad-a,#B7F0DC)] via-[var(--login-grad-b,#5FD3AC)] to-[var(--login-grad-c,#0B6B53)] lg:flex lg:flex-col"
         >
           <div className="relative z-10 flex h-full w-full flex-1 flex-col px-16 py-12 xl:px-24">
             <div
               className="flex items-end justify-center"
               aria-label={`${brand.name} Gateway`}
             >
-              <span className="text-6xl font-black italic leading-none tracking-[-0.11em] text-[#001a98]">
+              <span className="text-6xl font-black italic leading-none tracking-[-0.11em] text-[var(--brand-deep,#0B6B53)]">
                 {brand.name.charAt(0)}
-                <span className="text-[#00a5d5]">
+                <span className="text-[var(--brand-accent,#45D0A0)]">
                   {brand.name.slice(1)}
                 </span>
               </span>
-              <span className="mb-1 ml-3 rounded-sm bg-[#00a5d5] px-2 py-0.5 text-base font-medium text-white">
+              <span className="mb-1 ml-3 rounded-sm bg-[var(--brand-accent,#45D0A0)] px-2 py-0.5 text-base font-medium text-white">
                 Gateway
               </span>
             </div>
@@ -224,10 +224,9 @@ export default function LoginRoute() {
 
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full bg-primary hover:bg-primary/90"
                 size="lg"
                 disabled={loginMutation.isPending}
-                style={{ backgroundColor: brand.primaryColor }}
               >
                 {loginMutation.isPending ? 'Signing in…' : 'Sign In'}
               </Button>

@@ -1,20 +1,20 @@
 /**
  * LP 域 raw API 层（源 `api/lp.ts`）。
  *
- * 跨组依赖（货币对选项、冻结开关）以薄调用方式落在本域，避免并行耦合他组 data-access。
+ * 冻结开关复用 freeze 域端点（源 api/freeze.ts，targetType=2 LP）；
+ * 其余端点逐字对照源 api/lp.ts。
  */
 import type { AxiosRequestConfig } from 'axios';
 import type { PaginatedResponse } from '@myorg/shared/model';
 
 import { kissenPage, kissenRequest } from '../kissen-client';
-import {
-  LP_FREEZE_TARGET_TYPE,
-  type CurrencyPairOption,
-  type LpFreezeReq,
-  type LpListFilter,
-  type LpListReq,
-  type LpRow,
-  type LpSaveReq,
+import { freezeToggle } from '../freeze';
+import type {
+  LpListReq,
+  LpRow,
+  LpSaveReq,
+  PortalAccountReset,
+  PortalAccountStatus,
 } from './lp.model';
 
 /** LP 分页列表（POST /manage/lp/list）。 */
@@ -22,11 +22,22 @@ export function getLpList(
   req: LpListReq,
   config?: AxiosRequestConfig,
 ): Promise<PaginatedResponse<LpRow>> {
-  return kissenPage<LpRow, LpListFilter>(
+  return kissenPage<LpRow, LpListReq['filter']>(
     '/manage/lp/list',
     { pageNum: req.pageNum, pageSize: req.pageSize, filter: req.filter },
     config,
   );
+}
+
+/**
+ * 结算周期配置页 LP 列表（契约导出名；同端点 POST /manage/lp/list，
+ * filter 携带 lpName / notApproved——SettleAgent cycle 页消费）。
+ */
+export function lpSettleCycleList(
+  req: LpListReq,
+  config?: AxiosRequestConfig,
+): Promise<PaginatedResponse<LpRow>> {
+  return getLpList(req, config);
 }
 
 /** LP 详情 / 编辑回填（GET /manage/lp/detail/:lpId）。 */
@@ -53,34 +64,48 @@ export function submitLpOnboard(
   return kissenRequest.post('/manage/lp/onboard/submit', { lpId }, config);
 }
 
-/**
- * 货币对选项（LP 表单 initialPairIds 多选数据源）。
- * 薄调用 POST /manage/currency-pair/list（跨组 currency-pair 域，端点读源 api/currency-pair.ts）。
- */
-export async function getLpCurrencyPairOptions(
+/** LP 门户账号状态（GET /manage/lp/portal-account/:lpId；未开户返回 null）。 */
+export function getPortalAccount(
+  lpId: number,
   config?: AxiosRequestConfig,
-): Promise<CurrencyPairOption[]> {
-  const res = await kissenPage<CurrencyPairOption, Record<string, unknown>>(
-    '/manage/currency-pair/list',
-    { pageNum: 1, pageSize: 200 },
+): Promise<PortalAccountStatus | null> {
+  return kissenRequest.get<PortalAccountStatus | null>(
+    `/manage/lp/portal-account/${lpId}`,
     config,
   );
-  return res.data;
+}
+
+/** 重置门户首管理员口令（POST /manage/lp/portal-account/:lpId/reset；OTP 一次性返回）。 */
+export function resetPortalAccount(
+  lpId: number,
+  config?: AxiosRequestConfig,
+): Promise<PortalAccountReset> {
+  return kissenRequest.post<PortalAccountReset>(
+    `/manage/lp/portal-account/${lpId}/reset`,
+    undefined,
+    config,
+  );
 }
 
 /**
- * 冻结/解冻 LP（立即生效不走审批；规格 R-4）。
- * 薄调用 POST /manage/freeze/toggle（跨组 freeze 域，端点读源 api/freeze.ts）。
+ * 结算周期配置（契约导出名；仅此入口可改周期，生效于下一张结算单——
+ * POST /manage/lp/settle-cycle，源 api/lp.ts lpSettleCycle）。
+ */
+export function lpSettleCycleSave(
+  req: { lpId: number; settleCycle: number },
+  config?: AxiosRequestConfig,
+): Promise<void> {
+  return kissenRequest.post('/manage/lp/settle-cycle', req, config);
+}
+
+/**
+ * 冻结/解冻 LP（立即生效不走审批，规格 R-4；targetType=2）。
+ * 复用 freeze 域端点 POST /manage/freeze/toggle，非法状态后端 MSG_21_0067 兜底。
  */
 export function lpFreezeToggle(
   targetId: number,
   freeze: boolean,
   config?: AxiosRequestConfig,
 ): Promise<void> {
-  const req: LpFreezeReq = {
-    targetType: LP_FREEZE_TARGET_TYPE,
-    targetId,
-    freeze,
-  };
-  return kissenRequest.post('/manage/freeze/toggle', req, config);
+  return freezeToggle({ targetType: 2, targetId, freeze }, config);
 }

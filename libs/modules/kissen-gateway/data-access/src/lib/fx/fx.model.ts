@@ -2,8 +2,7 @@
  * 汇率查询聚合域模型（源 `types/business.ts` FxViewResp/FxPairItem/TokenPair/RateSnapshot）。
  *
  * GW-14 UDPN 对齐：GET /fx/view 一页融合 token 对 + LP + 最新汇率，替代原
- * tokenpair/lp/rate 三端点。目标侧 currencypair/lp/rate 域为旧版残留（T13 删除），
- * 本域自持源语义类型，不引用将被删除的域。
+ * tokenpair/lp/rate 三端点（旧域已随上游删除）。本域自持源语义类型。
  */
 
 /** token 对推送缓存（gw_token_pair，GW-11 token 化）。status：20 启用 / 50 停用(冻结)。 */

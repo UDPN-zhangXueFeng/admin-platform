@@ -1,10 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
   createActionColumn,
@@ -29,7 +36,6 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
-import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
   KISSEN_PROJECT_ID,
@@ -57,13 +63,6 @@ import {
 
 const PAGE_SIZE_DEFAULT = 10;
 const STATUS_ALL = 'all';
-
-/** 路由 search param → 正整数（无效/缺失返回 undefined）。 */
-function parsePositiveInt(raw: string | null): number | undefined {
-  if (!raw) return undefined;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-}
 
 /** 毫秒时间戳 → 统一管理台时间格式；0/空/非法 → '--'（目标约定 §4；源 formatTime 用 '-'）。 */
 function formatTime(ms: number | null | undefined): string {
@@ -370,8 +369,37 @@ function toApprovalListRow(
   };
 }
 
+/**
+ * 二次确认动作（唯一确认流：shared AlertDialog 取代源 ElMessageBox /
+ * 下游 v1.x 的 window.confirm）。process=通过/驳回共用，文案随 approve 切换。
+ */
+type ConfirmAction =
+  | { kind: 'process'; approve: number }
+  | { kind: 'previousStep' }
+  | { kind: 'withdraw' };
+
+/** 确认弹窗文案（语义保真自源确认流，英文定稿）。 */
+function confirmCopy(action: ConfirmAction): { title: string; body: string } {
+  switch (action.kind) {
+    case 'process':
+      return action.approve === 3
+        ? { title: 'Confirm Approval', body: 'Confirm approval of this request?' }
+        : { title: 'Confirm Rejection', body: 'Confirm rejection of this request?' };
+    case 'previousStep':
+      return {
+        title: 'Confirm Send Back',
+        body: 'Send back to the previous step? Review comments for this node will be discarded.',
+      };
+    case 'withdraw':
+      return {
+        title: 'Confirm Withdrawal',
+        body: 'After withdrawal, this request returns to the re-initiated state. Confirm withdrawal?',
+      };
+  }
+}
+
 /* ============================================================ */
-/* 审批详情正文（drawer 与路由详情页共用；源 detail-drawer.vue）    */
+/* 审批详情正文（列表抽屉内联渲染；源 detail-drawer.vue。上游无路由详情页，此处仅 drawer）。 */
 /* ============================================================ */
 
 function ApprovalDetailBody({
@@ -394,6 +422,10 @@ function ApprovalDetailBody({
   const prevMutation = useApprovalPreviousStepMutation(KISSEN_PROJECT_ID);
   const withdrawMutation = useApprovalWithdrawMutation(KISSEN_PROJECT_ID);
   const [remarks, setRemarks] = React.useState('');
+  // 待确认动作（非空即弹确认框；文案见 confirmCopy）。
+  const [confirmAction, setConfirmAction] = React.useState<ConfirmAction | null>(
+    null,
+  );
 
   const submitting =
     processMutation.isPending ||
@@ -430,29 +462,12 @@ function ApprovalDetailBody({
       ) as Array<[string, NestedValue]>,
     };
   }, [detail, row.businessCode]);
-
   const onApprove = (approve: number) => {
     if (approve === 2 && !remarks.trim()) {
       toast.warning('Please provide a rejection reason');
       return;
     }
-    if (!window.confirm(approve === 3 ? 'Confirm approval of this request?' : 'Confirm rejection of this request?'))
-      return;
-    processMutation.mutate(
-      {
-        busCode: row.businessCode,
-        taskId: row.taskId,
-        approve,
-        remarks: remarks.trim() || undefined,
-      },
-      {
-        onSuccess: () => {
-          toast.success(approve === 3 ? 'Approved' : 'Rejected');
-          onDone();
-        },
-        onError: (err) => toast.error((err as Error).message),
-      },
-    );
+    setConfirmAction({ kind: 'process', approve });
   };
 
   const onPreviousStep = () => {
@@ -460,35 +475,59 @@ function ApprovalDetailBody({
       toast.warning('A reason is required to send back to the previous step');
       return;
     }
-    if (!window.confirm('Send back to the previous step? Review comments for this node will be discarded.')) return;
-    prevMutation.mutate(
-      { busCode: row.businessCode, taskId: row.taskId, remarks: remarks.trim() },
-      {
-        onSuccess: () => {
-          toast.success('Sent back to previous step');
-          onDone();
-        },
-        onError: (err) => toast.error((err as Error).message),
-      },
-    );
+    setConfirmAction({ kind: 'previousStep' });
   };
 
   const onWithdraw = () => {
-    if (!window.confirm('After withdrawal, this request returns to the re-initiated state. Confirm withdrawal?')) return;
-    withdrawMutation.mutate(
-      {
-        busCode: row.businessCode,
-        taskId: row.taskId,
-        remarks: remarks.trim() || undefined,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Withdrawn');
-          onDone();
+    setConfirmAction({ kind: 'withdraw' });
+  };
+
+  /** 确认后分发；成功 toast + 关抽屉语义与源一致。 */
+  const runConfirmed = (action: ConfirmAction) => {
+    setConfirmAction(null);
+    if (action.kind === 'process') {
+      processMutation.mutate(
+        {
+          busCode: row.businessCode,
+          taskId: row.taskId,
+          approve: action.approve,
+          remarks: remarks.trim() || undefined,
         },
-        onError: (err) => toast.error((err as Error).message),
-      },
-    );
+        {
+          onSuccess: () => {
+            toast.success(action.approve === 3 ? 'Approved' : 'Rejected');
+            onDone();
+          },
+          onError: (err) => toast.error((err as Error).message),
+        },
+      );
+    } else if (action.kind === 'previousStep') {
+      prevMutation.mutate(
+        { busCode: row.businessCode, taskId: row.taskId, remarks: remarks.trim() },
+        {
+          onSuccess: () => {
+            toast.success('Sent back to previous step');
+            onDone();
+          },
+          onError: (err) => toast.error((err as Error).message),
+        },
+      );
+    } else {
+      withdrawMutation.mutate(
+        {
+          busCode: row.businessCode,
+          taskId: row.taskId,
+          remarks: remarks.trim() || undefined,
+        },
+        {
+          onSuccess: () => {
+            toast.success('Withdrawn');
+            onDone();
+          },
+          onError: (err) => toast.error((err as Error).message),
+        },
+      );
+    }
   };
 
   if (isLoading || !detail) {
@@ -593,6 +632,36 @@ function ApprovalDetailBody({
           </div>
         </div>
       )}
+
+      {/* 二次确认弹窗（唯一确认流；取代源 ElMessageBox / v1.x window.confirm） */}
+      <AlertDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction ? confirmCopy(confirmAction).title : ''}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction ? confirmCopy(confirmAction).body : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault(); // 保持受控：分发后统一关闭
+                if (confirmAction) runConfirmed(confirmAction);
+              }}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -907,65 +976,3 @@ export function ApprovalCenterListPage() {
   );
 }
 
-/* ============================================================ */
-/* 审批详情路由页（源无路由详情，drawer 内联；路由版读 taskId/busCode） */
-/* ============================================================ */
-
-export function ApprovalCenterDetailPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const taskId = parsePositiveInt(searchParams.get('taskId'));
-  const busCode = searchParams.get('busCode') ?? undefined;
-  // tab=done → 只读；缺省按待办可操作（与列表 drawer 行为一致）。
-  const readonly = searchParams.get('tab') === 'done';
-
-  const row: ApprovalListRow | null =
-    taskId && busCode
-      ? {
-          id: String(taskId),
-          taskId,
-          businessCode: busCode,
-          applyCode: '',
-          busDesc: '',
-          stepName: '',
-          reviewerStatus: 0,
-          createUserName: '',
-          createTime: 0,
-        }
-      : null;
-
-  if (!row) {
-    return (
-      <div className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <p className="text-sm text-muted-foreground">Missing approval task parameters (taskId / busCode).</p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.push('/approval-center')}
-        >
-          Back
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <div className="mb-4 text-base font-semibold">
-          {businessName(row.businessCode)} - Details
-        </div>
-        <ApprovalDetailBody
-          row={row}
-          readonly={readonly}
-          onDone={() => router.push('/approval-center')}
-        />
-      </div>
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => router.push('/approval-center')}>
-          Back
-        </Button>
-      </div>
-    </div>
-  );
-}

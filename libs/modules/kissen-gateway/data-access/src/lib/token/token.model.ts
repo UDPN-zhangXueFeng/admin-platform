@@ -1,7 +1,7 @@
 /**
  * Token 域模型（源 `types/token.ts` + `views/token/manage.vue` 状态映射）。
  *
- * status：10 待审核 / 20 已生效 / 30 已驳回 / 50 已停用；
+ * status：5 待审核 / 20 已生效 / 15 已驳回 / 50 已停用（对齐 Kissen CommonStatusEnum）；
  * tokenType（协议扩展 P2 占位）：1=Stablecoin / 5=Tokenized Deposit / 20=Tokenized MMF。
  */
 
@@ -13,7 +13,7 @@ export interface TokenInfo {
   tokenId: number;
   /** 全网唯一标识（32 位 hex UUID，审核通过后由 Kissen 分配；待审核时为空）。 */
   tokenNo?: string;
-  /** token 编码（本实例内唯一）。 */
+  /** token 编码（本实例内唯一；即货币系统 token code）。 */
   tokenCode: string;
   tokenName: string;
   symbol: string;
@@ -34,7 +34,7 @@ export interface TokenInfo {
   pushTime?: number;
 }
 
-/** token 注册/重提请求（POST /token/submit，G-12 上行）。 */
+/** token 注册/重提请求（POST /token/submit，G-12 上行）；tokenCode 即货币系统 token code。 */
 export interface TokenSubmitReq {
   tokenCode: string;
   tokenName: string;
@@ -60,9 +60,9 @@ export interface TokenSubmitResp {
  * variant 分层映射：Element warning→secondary、success→default、danger→destructive、info→outline。
  */
 export const TOKEN_STATUS: Record<number, { text: string; variant: TokenVariant }> = {
-  10: { text: 'Pending Review', variant: 'secondary' },
+  5: { text: 'Pending Review', variant: 'secondary' },
   20: { text: 'Active', variant: 'default' },
-  30: { text: 'Rejected', variant: 'destructive' },
+  15: { text: 'Rejected', variant: 'destructive' },
   50: { text: 'Disabled', variant: 'outline' },
 };
 

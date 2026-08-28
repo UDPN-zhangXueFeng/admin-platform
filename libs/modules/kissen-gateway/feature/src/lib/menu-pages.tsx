@@ -7,7 +7,7 @@
  *  - 菜单树表格：el-table tree-props 层级展示 + default-expand-all →
  *    展平渲染按深度缩进，默认全展开（collapsed 集合仅记录折叠项），
  *    父节点行首箭头可折叠/展开。shared DataTable 不支持树形行，
- *    用与其同视觉语言的原生 table（market-pages 货币对列表同模式）。
+ *    用与其同视觉语言的原生 table（log 页展开行同模式）。
  *  - 新增/编辑 Dialog：menuName / menuNameEn / menuKey 必填（源 formRules
  *    三条 blur 校验文案原样）；编辑时父级菜单、菜单Key、类型禁改
  *    （源 :disabled="editing"）。
@@ -476,6 +476,8 @@ function MenuPermissionPanel({
 }) {
   const toast = useToast();
   const listMutation = useMenuPermissionListMutation(KISSEN_GATEWAY_PROJECT_ID);
+  // v5 的 mutate 是稳定引用，可安全作为 effect 依赖；整体对象不是。
+  const { mutate: loadPerms } = listMutation;
   const deleteMutation = useMenuPermissionDeleteMutation(
     KISSEN_GATEWAY_PROJECT_ID,
   );
@@ -483,10 +485,11 @@ function MenuPermissionPanel({
     React.useState<MenuPermissionRow | null>(null);
 
   // 挂载即按当前节点 menuKey 拉取（源 onNodeClick → loadPerms）。
-  // 仅随节点切换重拉；mutate/listMutation 为稳定引用不纳入依赖。
+  // 仅随节点切换重拉；依赖用稳定的 mutate 而非整体 listMutation
+  // （后者每次渲染均为新字面量，入依赖会引发无限重拉）。
   React.useEffect(() => {
-    listMutation.mutate({ menuKey });
-  }, [menuKey, listMutation]);
+    loadPerms({ menuKey });
+  }, [menuKey, loadPerms]);
 
   const rows = listMutation.data ?? [];
   const loading = listMutation.isPending;

@@ -6,6 +6,14 @@ import { useSearchParams } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
 
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
   Checkbox,
@@ -37,6 +45,8 @@ import { useKissenPerm } from './use-kissen-perm';
 import {
   KISSEN_PROJECT_ID,
   MENU_TYPE_LABEL,
+  OPERATE_LOG_RESULT_LABEL,
+  OPERATE_LOG_RESULT_VARIANT,
   RBAC_FIRST_LOGIN_LABEL,
   RBAC_FIRST_LOGIN_VARIANT,
   RBAC_USER_STATUS_LABEL,
@@ -49,6 +59,7 @@ import {
   useMenuSaveMutation,
   useMenuTreeQuery,
   useMenuUpdateMutation,
+  useOperateLogListQuery,
   useRbacRoleListQuery,
   useRbacRoleOptionsQuery,
   useRbacUserListQuery,
@@ -77,6 +88,7 @@ import {
   type MenuPermissionItem,
   type MenuTreeRespVO,
   type OneTimePassword,
+  type OperateLogRow,
   type RoleRow,
   type UserRow,
   type WorkflowRow,
@@ -194,6 +206,56 @@ function OneTimePasswordDialog({
   );
 }
 
+
+interface ConfirmRequest {
+  title: string;
+  message: string;
+  confirmText?: string;
+  /** 破坏性动作（禁用/删除/强制下线）→ destructive 按钮样式。 */
+  destructive?: boolean;
+  onConfirm: () => void;
+}
+
+/**
+ * 行操作确认弹窗：源 `window.confirm` / ElMessageBox.confirm → 受控 AlertDialog。
+ * 各页面持 `useState<ConfirmRequest | null>`，点确认后关闭弹窗再执行动作。
+ */
+function ConfirmDialog({
+  request,
+  onClose,
+}: {
+  request: ConfirmRequest | null;
+  onClose: () => void;
+}) {
+  return (
+    <AlertDialog
+      open={request != null}
+      onOpenChange={(open) => !open && onClose()}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{request?.title}</AlertDialogTitle>
+          <AlertDialogDescription>{request?.message}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className={
+              request?.destructive
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                : undefined
+            }
+            onClick={() => request?.onConfirm()}
+          >
+            {request?.confirmText ?? 'Confirm'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/* ============================================================ */
 /* ============================================================ */
 /* sys-user — 用户管理（源 views/system/user/index.vue）          */
 /* ============================================================ */
@@ -349,6 +411,7 @@ export function SysUserListPage() {
     userName: string;
     pwd: string;
   } | null>(null);
+  const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
 
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
@@ -369,14 +432,20 @@ export function SysUserListPage() {
     (row: UserRow) => {
       const next = row.status === 0 ? 1 : 0;
       const verb = next === 1 ? 'disable' : 'enable';
-      if (!window.confirm(`Are you sure you want to ${verb} "${row.userName}"?`)) return;
-      statusMutation.mutate(
-        { userId: row.userId, status: next },
-        {
-          onSuccess: () => toast.success(`User ${verb}d`),
-          onError: (e) => toast.error((e as Error).message),
-        },
-      );
+      setConfirm({
+        title: verb === 'disable' ? 'Disable User' : 'Enable User',
+        message: `Are you sure you want to ${verb} "${row.userName}"?`,
+        confirmText: verb === 'disable' ? 'Disable' : 'Enable',
+        destructive: next === 1,
+        onConfirm: () =>
+          statusMutation.mutate(
+            { userId: row.userId, status: next },
+            {
+              onSuccess: () => toast.success(`User ${verb}d`),
+              onError: (e) => toast.error((e as Error).message),
+            },
+          ),
+      });
     },
     [statusMutation, toast],
   );
@@ -384,11 +453,15 @@ export function SysUserListPage() {
   /** 重置密码（源 userResetPwd → OneTimePassword）。 */
   const onResetPwd = React.useCallback(
     (row: UserRow) => {
-      if (!window.confirm(`Are you sure you want to reset the password of "${row.userName}"?`)) return;
-      resetMutation.mutate(row.userId, {
-        onSuccess: (otp: OneTimePassword) =>
-          setResetOtp({ userName: row.loginName, pwd: otp.oneTimePassword }),
-        onError: (e) => toast.error((e as Error).message),
+      setConfirm({
+        title: 'Reset Password',
+        message: `Are you sure you want to reset the password of "${row.userName}"?`,
+        onConfirm: () =>
+          resetMutation.mutate(row.userId, {
+            onSuccess: (otp: OneTimePassword) =>
+              setResetOtp({ userName: row.loginName, pwd: otp.oneTimePassword }),
+            onError: (e) => toast.error((e as Error).message),
+          }),
       });
     },
     [resetMutation, toast],
@@ -397,11 +470,16 @@ export function SysUserListPage() {
   /** 强制下线（源 userForceLogout，踢出所有会话）。 */
   const onForceLogout = React.useCallback(
     (row: UserRow) => {
-      if (!window.confirm(`Force sign out of "${row.userName}"? All of their sessions will be invalidated immediately.`))
-        return;
-      forceLogoutMutation.mutate(row.userId, {
-        onSuccess: () => toast.success('Force signed out'),
-        onError: (e) => toast.error((e as Error).message),
+      setConfirm({
+        title: 'Force Sign Out',
+        message: `Force sign out of "${row.userName}"? All of their sessions will be invalidated immediately.`,
+        confirmText: 'Force Sign Out',
+        destructive: true,
+        onConfirm: () =>
+          forceLogoutMutation.mutate(row.userId, {
+            onSuccess: () => toast.success('Force signed out'),
+            onError: (e) => toast.error((e as Error).message),
+          }),
       });
     },
     [forceLogoutMutation, toast],
@@ -458,7 +536,7 @@ export function SysUserListPage() {
               className="h-auto p-0"
               onClick={() => {
                 stashRow('user', u.userId, u);
-                router.push(`/sys-user/detail?id=${u.userId}`);
+                router.push(`/system/user/detail?id=${u.userId}`);
               }}
             >
               View
@@ -469,7 +547,7 @@ export function SysUserListPage() {
               className="h-auto p-0"
               onClick={() => {
                 stashRow('user', u.userId, u);
-                router.push(`/sys-user/edit?id=${u.userId}`);
+                router.push(`/system/user/edit?id=${u.userId}`);
               }}
             >
               Edit
@@ -557,7 +635,7 @@ export function SysUserListPage() {
         <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
           <div className="text-sm font-semibold">Users</div>
           {hasPerm('rbac:user:manage') && (
-            <Button size="sm" onClick={() => router.push('/sys-user/create')}>
+            <Button size="sm" onClick={() => router.push('/system/user/create')}>
               Add User
             </Button>
           )}
@@ -595,6 +673,10 @@ export function SysUserListPage() {
         title="Password Reset"
         description={`One-time password of user "${resetOtp?.userName ?? ''}":`}
         otp={resetOtp?.pwd ?? null}
+      />
+      <ConfirmDialog
+        request={confirm}
+        onClose={() => setConfirm(null)}
       />
     </div>
   );
@@ -684,7 +766,7 @@ export function SysUserFormPage() {
         {
           onSuccess: () => {
             toast.success('User updated');
-            router.push('/sys-user');
+            router.push('/system/user');
           },
           onError: (e) => toast.error((e as Error).message),
         },
@@ -757,7 +839,7 @@ export function SysUserFormPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.push('/sys-user')}
+              onClick={() => router.push('/system/user')}
             >
               Back
             </Button>
@@ -769,7 +851,7 @@ export function SysUserFormPage() {
         open={!!createdOtp}
         onClose={() => {
           setCreatedOtp(null);
-          router.push('/sys-user');
+          router.push('/system/user');
         }}
         title="User Created"
         description="Deliver the following one-time password to the user (password change required on first sign-in):"
@@ -805,7 +887,7 @@ export function SysUserDetailPage() {
     return (
       <DetailCard title="User Details">
         <p className="text-sm text-muted-foreground">Missing user ID.</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.push('/sys-user')}>
+        <Button variant="outline" className="mt-4" onClick={() => router.push('/system/user')}>
           Back
         </Button>
       </DetailCard>
@@ -846,7 +928,7 @@ export function SysUserDetailPage() {
         )}
       </DetailCard>
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => router.push('/sys-user')}>
+        <Button variant="outline" onClick={() => router.push('/system/user')}>
           Back
         </Button>
       </div>
@@ -1014,6 +1096,8 @@ function RoleAssignMenuDialog({
   const [checkedLeaves, setCheckedLeaves] = React.useState<Set<number>>(
     new Set(),
   );
+  const [clearConfirm, setClearConfirm] =
+    React.useState<ConfirmRequest | null>(null);
 
   // 回显：仅叶子（避免 check-strictly=false 下级联误勾父节点）。
   React.useEffect(() => {
@@ -1058,31 +1142,41 @@ function RoleAssignMenuDialog({
             disabled={mutation.isPending}
             onClick={() => {
               if (!tree) return;
-              const menuIds = collectMenuIds(tree, checkedLeaves);
+              const nextIds = collectMenuIds(tree, checkedLeaves);
               // 源 role/index.vue onAssign：空勾选需显式确认后才会清空。
-              if (
-                menuIds.length === 0 &&
-                !window.confirm('This will clear all menus of this role. Confirm?')
-              )
-                return;
-              mutation.mutate(
-                {
-                  roleId: role!.roleId,
-                  menuIds,
-                },
-                {
-                  onSuccess: () => {
-                    toast.success('Menus updated');
-                    onClose();
+              const doAssign = (menuIds: number[]) =>
+                mutation.mutate(
+                  {
+                    roleId: role!.roleId,
+                    menuIds,
                   },
-                  onError: (e) => toast.error((e as Error).message),
-                },
-              );
+                  {
+                    onSuccess: () => {
+                      toast.success('Menus updated');
+                      onClose();
+                    },
+                    onError: (e) => toast.error((e as Error).message),
+                  },
+                );
+              if (nextIds.length === 0) {
+                setClearConfirm({
+                  title: 'Clear Menus',
+                  message: 'This will clear all menus of this role. Confirm?',
+                  destructive: true,
+                  onConfirm: () => doAssign([]),
+                });
+                return;
+              }
+              doAssign(nextIds);
             }}
           >
             {mutation.isPending ? 'Saving…' : 'Save'}
           </Button>
         </DialogFooter>
+        <ConfirmDialog
+          request={clearConfirm}
+          onClose={() => setClearConfirm(null)}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -1104,6 +1198,7 @@ export function SysRoleListPage() {
 
   const deleteMutation = useRoleDeleteMutation(KISSEN_PROJECT_ID);
   const [assignRole, setAssignRole] = React.useState<RoleRow | null>(null);
+  const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
 
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
@@ -1121,10 +1216,15 @@ export function SysRoleListPage() {
 
   const onDelete = React.useCallback(
     (row: RoleRow) => {
-      if (!window.confirm(`Delete role "${row.roleName}"? Built-in roles or roles referenced by users cannot be deleted.`)) return;
-      deleteMutation.mutate(row.roleId, {
-        onSuccess: () => toast.success('Role deleted'),
-        onError: (e) => toast.error((e as Error).message),
+      setConfirm({
+        title: 'Delete Role',
+        message: `Delete role "${row.roleName}"? Built-in roles or roles referenced by users cannot be deleted.`,
+        destructive: true,
+        onConfirm: () =>
+          deleteMutation.mutate(row.roleId, {
+            onSuccess: () => toast.success('Role deleted'),
+            onError: (e) => toast.error((e as Error).message),
+          }),
       });
     },
     [deleteMutation, toast],
@@ -1162,7 +1262,7 @@ export function SysRoleListPage() {
               variant="link"
               size="sm"
               className="h-auto p-0"
-              onClick={() => router.push(`/sys-role/detail?id=${r.roleId}`)}
+              onClick={() => router.push(`/system/role/detail?id=${r.roleId}`)}
             >
               View
             </Button>
@@ -1170,7 +1270,7 @@ export function SysRoleListPage() {
               variant="link"
               size="sm"
               className="h-auto p-0"
-              onClick={() => router.push(`/sys-role/edit?id=${r.roleId}`)}
+              onClick={() => router.push(`/system/role/edit?id=${r.roleId}`)}
             >
               Edit
             </Button>
@@ -1234,7 +1334,7 @@ export function SysRoleListPage() {
         <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
           <div className="text-sm font-semibold">Roles</div>
           {hasPerm('rbac:role:manage') && (
-            <Button size="sm" onClick={() => router.push('/sys-role/create')}>
+            <Button size="sm" onClick={() => router.push('/system/role/create')}>
               Add Role
             </Button>
           )}
@@ -1265,6 +1365,10 @@ export function SysRoleListPage() {
       <RoleAssignMenuDialog
         role={assignRole}
         onClose={() => setAssignRole(null)}
+      />
+      <ConfirmDialog
+        request={confirm}
+        onClose={() => setConfirm(null)}
       />
     </div>
   );
@@ -1325,7 +1429,7 @@ export function SysRoleFormPage() {
         {
           onSuccess: () => {
             toast.success('Role updated');
-            router.push('/sys-role');
+            router.push('/system/role');
           },
           onError: (e) => toast.error((e as Error).message),
         },
@@ -1340,7 +1444,7 @@ export function SysRoleFormPage() {
         {
           onSuccess: () => {
             toast.success('Role created');
-            router.push('/sys-role');
+            router.push('/system/role');
           },
           onError: (e) => toast.error((e as Error).message),
         },
@@ -1378,7 +1482,7 @@ export function SysRoleFormPage() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push('/sys-role')}
+            onClick={() => router.push('/system/role')}
           >
             Back
           </Button>
@@ -1419,7 +1523,7 @@ export function SysRoleDetailPage() {
     return (
       <DetailCard title="Role Details">
         <p className="text-sm text-muted-foreground">Missing role ID.</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.push('/sys-role')}>
+        <Button variant="outline" className="mt-4" onClick={() => router.push('/system/role')}>
           Back
         </Button>
       </DetailCard>
@@ -1470,7 +1574,7 @@ export function SysRoleDetailPage() {
       </DetailCard>
 
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => router.push('/sys-role')}>
+        <Button variant="outline" onClick={() => router.push('/system/role')}>
           Back
         </Button>
       </div>
@@ -1678,6 +1782,7 @@ export function SysMenuListPage() {
     'view',
   );
   const [form, setForm] = React.useState<MenuFormState>(EMPTY_MENU_FORM);
+  const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
 
   const patch = (p: Partial<MenuFormState>) =>
     setForm((prev) => ({ ...prev, ...p }));
@@ -1748,16 +1853,20 @@ export function SysMenuListPage() {
 
   const onDelete = () => {
     if (form.menuId == null) return;
-    if (!window.confirm(`Are you sure you want to delete menu "${form.menuName}"? Menus with submenus or references will be rejected.`))
-      return;
-    deleteMutation.mutate(form.menuId, {
-      onSuccess: () => {
-        toast.success('Menu deleted');
-        setMode('view');
-        setForm(EMPTY_MENU_FORM);
-        setSelectedKey(null);
-      },
-      onError: (e) => toast.error((e as Error).message),
+    setConfirm({
+      title: 'Delete Menu',
+      message: `Are you sure you want to delete menu "${form.menuName}"? Menus with submenus or references will be rejected.`,
+      destructive: true,
+      onConfirm: () =>
+        deleteMutation.mutate(form.menuId!, {
+          onSuccess: () => {
+            toast.success('Menu deleted');
+            setMode('view');
+            setForm(EMPTY_MENU_FORM);
+            setSelectedKey(null);
+          },
+          onError: (e) => toast.error((e as Error).message),
+        }),
     });
   };
 
@@ -1938,6 +2047,10 @@ export function SysMenuListPage() {
           </DetailCard>
         ) : null}
       </div>
+      <ConfirmDialog
+        request={confirm}
+        onClose={() => setConfirm(null)}
+      />
     </div>
   );
 }
@@ -1979,6 +2092,7 @@ export function WorkflowConfigListPage() {
 
   const statusMutation = useWorkflowStatusMutation(KISSEN_PROJECT_ID);
   const { data: businesses } = useWorkflowBusinessesQuery(KISSEN_PROJECT_ID);
+  const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
 
   const rows = data ?? [];
 
@@ -1994,14 +2108,20 @@ export function WorkflowConfigListPage() {
     (row: WorkflowRow) => {
       const next = row.status === 1 ? 2 : 1;
       const verb = next === 1 ? 'enable' : 'disable';
-      if (!window.confirm(`Are you sure you want to ${verb} workflow "${row.workflowName}"?`)) return;
-      statusMutation.mutate(
-        { workflowId: row.workflowId, status: next },
-        {
-          onSuccess: () => toast.success(`Workflow ${verb}d`),
-          onError: (e) => toast.error((e as Error).message),
-        },
-      );
+      setConfirm({
+        title: verb === 'enable' ? 'Enable Workflow' : 'Disable Workflow',
+        message: `Are you sure you want to ${verb} workflow "${row.workflowName}"?`,
+        confirmText: verb === 'enable' ? 'Enable' : 'Disable',
+        destructive: next === 2,
+        onConfirm: () =>
+          statusMutation.mutate(
+            { workflowId: row.workflowId, status: next },
+            {
+              onSuccess: () => toast.success(`Workflow ${verb}d`),
+              onError: (e) => toast.error((e as Error).message),
+            },
+          ),
+      });
     },
     [statusMutation, toast],
   );
@@ -2050,7 +2170,7 @@ export function WorkflowConfigListPage() {
               size="sm"
               className="h-auto p-0"
               onClick={() =>
-                router.push(`/workflow-config/detail?id=${w.workflowId}`)
+                router.push(`/system/workflow/detail?id=${w.workflowId}`)
               }
             >
               View
@@ -2060,7 +2180,7 @@ export function WorkflowConfigListPage() {
               size="sm"
               className="h-auto p-0"
               onClick={() =>
-                router.push(`/workflow-config/edit?id=${w.workflowId}`)
+                router.push(`/system/workflow/edit?id=${w.workflowId}`)
               }
             >
               Edit
@@ -2124,7 +2244,7 @@ export function WorkflowConfigListPage() {
             <Button
               size="sm"
               disabled={!canCreate}
-              onClick={() => router.push('/workflow-config/create')}
+              onClick={() => router.push('/system/workflow/create')}
               title={canCreate ? undefined : 'All businesses already have workflows configured'}
             >
               Add Workflow
@@ -2138,13 +2258,16 @@ export function WorkflowConfigListPage() {
           emptyMessage="No data"
         />
       </div>
+      <ConfirmDialog
+        request={confirm}
+        onClose={() => setConfirm(null)}
+      />
     </div>
   );
 }
 
 interface WfStepForm {
   stepName: string;
-  stepOrder: number;
   stepType: number;
   userIds: number[];
 }
@@ -2221,22 +2344,12 @@ function WfStepEditor({
           Remove
         </Button>
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Step Name</Label>
           <Input
             value={step.stepName}
             onChange={(e) => onChange({ ...step, stepName: e.target.value })}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Order</Label>
-          <Input
-            type="number"
-            value={step.stepOrder}
-            onChange={(e) =>
-              onChange({ ...step, stepOrder: Number(e.target.value) })
-            }
           />
         </div>
         <div className="space-y-1.5">
@@ -2292,26 +2405,21 @@ export function WorkflowConfigFormPage() {
       setWorkflowName(detail.workflowName);
       const mapped = (detail.steps ?? []).map((s) => ({
         stepName: s.stepName,
-        stepOrder: s.stepOrder,
         stepType: s.stepType ?? 5,
         userIds: s.userIds ?? [],
       }));
       setSteps(
         mapped.length > 0
           ? mapped
-          : [{ stepName: 'Review', stepOrder: 1, stepType: 5, userIds: [] }],
+          : [{ stepName: 'Review', stepType: 5, userIds: [] }],
       );
     }
   }, [isEdit, detail]);
 
   const addStep = () =>
     setSteps((prev) => [
-      {
-        stepName: `Level ${prev.length + 1}`,
-        stepOrder: prev.length + 1,
-        stepType: 5,
-        userIds: [],
-      },
+      ...prev,
+      { stepName: `Level ${prev.length + 1}`, stepType: 5, userIds: [] },
     ]);
 
   const businessOptions = (businesses ?? []).map((b) => ({
@@ -2340,9 +2448,10 @@ export function WorkflowConfigFormPage() {
       toast.error('Each step needs at least one approver');
       return;
     }
-    const stepsReq = steps.map((s) => ({
+    const stepsReq = steps.map((s, i) => ({
       stepName: s.stepName,
-      stepOrder: s.stepOrder,
+      // 源 onSave：stepOrder 恒等于列表位置（i+1），不采信输入。
+      stepOrder: i + 1,
       stepType: s.stepType,
       userIds: s.userIds,
     }));
@@ -2354,7 +2463,7 @@ export function WorkflowConfigFormPage() {
         {
           onSuccess: () => {
             toast.success('Workflow updated');
-            router.push('/workflow-config');
+            router.push('/system/workflow');
           },
           onError: (e) => toast.error((e as Error).message),
         },
@@ -2365,7 +2474,7 @@ export function WorkflowConfigFormPage() {
         {
           onSuccess: () => {
             toast.success(isEdit ? 'Workflow created as a new version' : 'Workflow created');
-            router.push('/workflow-config');
+            router.push('/system/workflow');
           },
           onError: (e) => toast.error((e as Error).message),
         },
@@ -2459,7 +2568,7 @@ export function WorkflowConfigFormPage() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push('/workflow-config')}
+            onClick={() => router.push('/system/workflow')}
           >
             Back
           </Button>
@@ -2492,7 +2601,7 @@ export function WorkflowConfigDetailPage() {
         <Button
           variant="outline"
           className="mt-4"
-          onClick={() => router.push('/workflow-config')}
+          onClick={() => router.push('/system/workflow')}
         >
           Back
         </Button>
@@ -2565,11 +2674,290 @@ export function WorkflowConfigDetailPage() {
       <div className="flex justify-end gap-3">
         <Button
           variant="outline"
-          onClick={() => router.push('/workflow-config')}
+          onClick={() => router.push('/system/workflow')}
         >
           Back
         </Button>
       </div>
+    </div>
+  );
+}
+
+/* ============================================================ */
+/* log — 操作日志（源 views/system/log/index.vue）                */
+/* ============================================================ */
+
+interface OperateLogFilterForm {
+  module: string;
+  operateName: string;
+  status: string;
+}
+const EMPTY_OPERATE_LOG_FILTER: OperateLogFilterForm = {
+  module: '',
+  operateName: '',
+  status: ALL,
+};
+
+function operateLogFilterToParams(
+  form: OperateLogFilterForm,
+  pageNum: number,
+  pageSize: number,
+) {
+  return {
+    pageNum,
+    pageSize,
+    filter: {
+      module: form.module || undefined,
+      operateName: form.operateName || undefined,
+      status: toNum(form.status),
+    },
+  };
+}
+
+const OPERATE_LOG_RESULT_OPTIONS = [
+  optAll(),
+  { value: '0', label: OPERATE_LOG_RESULT_LABEL[0] },
+  { value: '1', label: OPERATE_LOG_RESULT_LABEL[1] },
+];
+
+/** 源 detail 参数：JSON 合法时格式化美化，否则原文展示；空 → '-'。 */
+function prettyOperateParam(raw: string | undefined | null): string {
+  if (!raw) return '-';
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
+/** 详情弹窗（源 el-dialog width=720px：参数美化 pre + 红色错误信息 pre）。 */
+function OperateLogDetailDialog({
+  row,
+  onClose,
+}: {
+  row: OperateLogRow | null;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={row != null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-[720px]">
+        <DialogHeader>
+          <DialogTitle>Operation Detail</DialogTitle>
+          <DialogDescription>
+            Log #{row?.operateLogId ?? ''} —{' '}
+            {formatTimestamp(row?.operateTime)}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <DetailField label="Operator">{row?.operateName || '--'}</DetailField>
+          <DetailField label="User ID">{row?.userId ?? '--'}</DetailField>
+          <div className="md:col-span-2">
+            <DetailField label="Module">{row?.module || '--'}</DetailField>
+          </div>
+          <div className="md:col-span-2">
+            <DetailField label="Method">{row?.method || '--'}</DetailField>
+          </div>
+          <div className="md:col-span-2">
+            <DetailField label="URL">
+              <span className="block break-all font-mono text-xs">
+                {row?.operateUrl || '--'}
+              </span>
+            </DetailField>
+          </div>
+          <DetailField label="IP">{row?.operateIp || '--'}</DetailField>
+          <DetailField label="Duration">
+            {row ? `${row.costTime}ms` : '--'}
+          </DetailField>
+          <div className="md:col-span-2">
+            <DetailField label="Parameters">
+              <pre className="max-h-[220px] overflow-auto whitespace-pre-wrap break-all rounded-md border bg-muted/40 p-3 font-mono text-xs">
+                {prettyOperateParam(row?.operateParam)}
+              </pre>
+            </DetailField>
+          </div>
+          {row?.errorMsg ? (
+            <div className="md:col-span-2">
+              <DetailField label="Error Message">
+                <pre className="max-h-[220px] overflow-auto whitespace-pre-wrap break-all rounded-md border border-destructive/30 bg-destructive/5 p-3 font-mono text-xs text-destructive">
+                  {row.errorMsg}
+                </pre>
+              </DetailField>
+            </div>
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** 操作日志列表（源仅一个查询端点：POST /manage/log/page，纯只读页）。 */
+export function OperateLogListPage() {
+  const { register, handleSubmit, reset, control } =
+    useForm<OperateLogFilterForm>({ defaultValues: EMPTY_OPERATE_LOG_FILTER });
+
+  const [params, setParams] = React.useState(() =>
+    operateLogFilterToParams(EMPTY_OPERATE_LOG_FILTER, 1, PAGE_SIZE_DEFAULT),
+  );
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
+  const { data, isLoading } = useOperateLogListQuery(
+    KISSEN_PROJECT_ID,
+    params,
+  );
+
+  const [detail, setDetail] = React.useState<OperateLogRow | null>(null);
+
+  const rows = data?.data ?? [];
+  const paginationMeta = data?.pagination;
+
+  const onSearch = React.useCallback(
+    (form: OperateLogFilterForm) => {
+      setParams(operateLogFilterToParams(form, 1, pageSize));
+    },
+    [pageSize],
+  );
+  const onResetSearch = React.useCallback(() => {
+    reset(EMPTY_OPERATE_LOG_FILTER);
+    setParams(operateLogFilterToParams(EMPTY_OPERATE_LOG_FILTER, 1, pageSize));
+  }, [reset, pageSize]);
+
+  const columns = React.useMemo<
+    ColumnDef<OperateLogRow & { id: string }>[]
+  >(() => [
+    {
+      accessorKey: 'operateTime',
+      header: 'Time',
+      cell: ({ row }) => formatTimestamp(row.original.operateTime),
+    },
+    { accessorKey: 'operateName', header: 'Operator' },
+    { accessorKey: 'module', header: 'Module' },
+    {
+      accessorKey: 'operateUrl',
+      header: 'Request URL',
+      cell: ({ row }) => (
+        <span className="font-mono text-xs">{row.original.operateUrl}</span>
+      ),
+    },
+    {
+      id: 'costTime',
+      header: 'Duration',
+      cell: ({ row }) => (
+        <div className="text-right font-mono tabular-nums">
+          {row.original.costTime}ms
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Result',
+      cell: ({ row }) => (
+        <Badge
+          variant={
+            OPERATE_LOG_RESULT_VARIANT[row.original.status] ?? 'secondary'
+          }
+        >
+          {OPERATE_LOG_RESULT_LABEL[row.original.status] ??
+            row.original.status}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'traceId',
+      header: 'TraceId',
+      cell: ({ row }) => (
+        <span className="font-mono text-xs">{row.original.traceId || '-'}</span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => (
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0"
+          onClick={() => setDetail(row.original)}
+        >
+          Detail
+        </Button>
+      ),
+    },
+  ], []);
+
+  const tableData = React.useMemo(
+    () => rows.map((r) => ({ ...r, id: String(r.operateLogId) })),
+    [rows],
+  );
+
+  return (
+    <div className="space-y-4">
+      <form
+        onSubmit={handleSubmit(onSearch)}
+        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
+      >
+        <div className="mb-4 text-sm font-semibold">Search</div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <FormField
+            name="module"
+            label="Module"
+            register={register('module')}
+            placeholder="Fuzzy match"
+          />
+          <FormField
+            name="operateName"
+            label="Operator"
+            register={register('operateName')}
+            placeholder="Fuzzy match"
+          />
+          <FormSelect
+            name="status"
+            control={control}
+            label="Result"
+            placeholder="All"
+            options={OPERATE_LOG_RESULT_OPTIONS}
+          />
+        </div>
+        <div className="mt-4 flex gap-2">
+          <Button type="submit">Search</Button>
+          <Button type="button" variant="outline" onClick={onResetSearch}>
+            Reset
+          </Button>
+        </div>
+      </form>
+
+      <div className="rounded-lg border-border/60 bg-card shadow-float">
+        <div className="border-b border-border/50 px-6 py-3 text-sm font-semibold">
+          Operation Logs
+        </div>
+        <DataTable
+          columns={columns}
+          data={tableData}
+          isLoading={isLoading}
+          emptyMessage="No data"
+          pagination={
+            paginationMeta
+              ? {
+                  page: paginationMeta.page,
+                  pageSize: paginationMeta.pageSize,
+                  total: paginationMeta.total,
+                  onPageChange: (page) =>
+                    setParams((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (n) => {
+                    setPageSize(n);
+                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                  },
+                }
+              : undefined
+          }
+        />
+      </div>
+
+      <OperateLogDetailDialog
+        row={detail}
+        onClose={() => setDetail(null)}
+      />
     </div>
   );
 }

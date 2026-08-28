@@ -1,21 +1,26 @@
 /**
  * bank 域 raw API 层（源 `api/bank.ts`，对齐 HEAD 端点清单）。
- *
- * 与 onboard 域并存：onboard 域保留旧 `GET /onboard/status`（T13 前兼容），
- * 本域为 HEAD 语义终点（GET /bank/detail、POST /bank/info-submit 等）。
+ * 旧 onboard 域（/onboard/status、/onboard/submit）已被上游删除，语义
+ * 并入本域（GET /bank/detail、POST /bank/info-submit 等）。
  */
 import type { AxiosRequestConfig } from 'axios';
 
 import { kissenRequest } from '../kissen-gateway-client';
 import type {
   BankDetail,
+  BankInfo,
   BankInfoSubmitReq,
   BankInfoSubmitResp,
   BankQueryItem,
   OnboardStatus,
 } from './bank.model';
 
-/** 银行信息详情（GET /bank/detail，实时上行 Kissen；失败降级本地缓存并置 degraded=true）。 */
+/** 银行信息推送缓存（GET /bank/info；由 Kissen 推送，无数据时返回 null）。 */
+export function getBankInfo(config?: AxiosRequestConfig): Promise<BankInfo | null> {
+  return kissenRequest.get<BankInfo | null>('/bank/info', config);
+}
+
+/** 银行信息详情（GET /bank/detail，GW-17 纯本地化：本行库组装，不再实时上行；新鲜度靠 G-14 推送/入网查询回写）。 */
 export function getBankDetail(config?: AxiosRequestConfig): Promise<BankDetail> {
   return kissenRequest.get<BankDetail>('/bank/detail', config);
 }

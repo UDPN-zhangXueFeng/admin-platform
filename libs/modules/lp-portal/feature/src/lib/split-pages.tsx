@@ -8,9 +8,13 @@
  * - ⚠️ SyncRefresh 域陷阱（迁移矩阵 E-6）：本页 sync 域是 **'pair' 不是
  *   'split'**——后端没有独立 split 同步域，分成数据随货币对域刷新。回调对应
  *   源 @refreshed="loadAll"：比例卡与明细卡同时重拉，且明细保持当前页码；
- * - 卡1 当前生效比例 6 列：货币对(pairCode||pairId)、方向、我的分成比例
+ * - 卡1 当前生效比例 5 列（v2.3 e591f85）：Token Pair 紧凑式三行（symOf/
+ *   symOf mono 加粗行 + bankOf → bankOf 次要色行 + pairCode||pairId 占位色
+ *   行，useTokenMeta 统一口径，替代原货币对+方向两列）、我的分成比例
  *   （overridden 追加警示标）、对默认比例、状态、数据时间；
- * - 卡2 分成明细分页 pageSize10（layout total,prev,pager,next）；header 右
+ * - 卡2 分成明细 7 列（v2.3）：交易单号 txNoText||'-'（等宽+溢出 tooltip）
+ *   替代原流水ID/交易ID 两列；分页 pageSize10（layout total,prev,pager,next）；
+ *   header 右
  *   汇总行 `N entries · Markup total X · My split Y`；响应不走 ResultData
  *   包装（split/detail 域 api 层注释详述）；筛选「查询」恒回第 1 页；
  * - datetimerange 等价件：源 el-date-picker value-format='x'（毫秒字符串）
@@ -29,6 +33,10 @@ import {
   CardHeader,
   CardTitle,
   DataTable,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@myorg/shared/ui';
 import {
   FormField,
@@ -44,6 +52,8 @@ import {
   useSplitRatiosQuery,
   type SplitDetailRow,
   type SplitRow,
+  txNoText,
+  useTokenMeta,
 } from '@myorg/modules/lp-portal/data-access';
 
 import { SyncRefreshButton } from './sync-refresh-button';
@@ -105,8 +115,8 @@ function percentText(v: number | string | null | undefined): string {
     : `${(Number(v) * 100).toFixed(2)}%`;
 }
 
-/** 金额单元格：formatMoney + 右对齐（源金额列 align="right"）。 */
-function MoneyCell({ v }: { v: number }) {
+/** 金额单元格：formatMoney + 右对齐（源金额列 align="right"；v2.3 金额字段 string|number）。 */
+function MoneyCell({ v }: { v: number | string }) {
   return (
     <span className="block text-right font-mono text-xs tabular-nums">
       {formatMoney(v)}
@@ -309,25 +319,32 @@ export function SplitListPage() {
 /* 卡片表格子件                                                         */
 /* ================================================================== */
 
-/** 卡1 当前生效比例（6 列；overridden 行内追加警示标，源 el-tag warning「覆盖」）。 */
+/** 卡1 当前生效比例（v2.3 5 列；overridden 行内追加警示标，源 el-tag warning「覆盖」）。 */
 function RatioTable({ rows, loading }: { rows: SplitRow[]; loading: boolean }) {
+  // 「银行 + Token」统一口径（v2.3）：元数据未加载/查不到时回退标识本身
+  const { bankOf, symOf } = useTokenMeta(PROJECT_ID);
+
   const columns = React.useMemo<ColumnDef<SplitRow & { id: string }>[]>(
     () => [
       {
-        accessorKey: 'pairId',
-        header: 'Currency Pair',
-        // pairCode 空回落 pairId 原值（源 row.pairCode || row.pairId）
+        // Token Pair 紧凑式三行（源 .pairx：symOf/symOf num 加粗、bankOf →
+        // bankOf 次要色、pairCode||pairId 占位色；替代原货币对+方向两列）
+        id: 'tokenPair',
+        header: 'Token Pair',
         cell: ({ row }) => (
-          <span>{row.original.pairCode || row.original.pairId}</span>
-        ),
-      },
-      {
-        accessorKey: 'sourceCurrency',
-        header: 'Direction',
-        cell: ({ row }) => (
-          <span>
-            {row.original.sourceCurrency}→{row.original.targetCurrency}
-          </span>
+          <div className="flex min-w-0 flex-col leading-normal">
+            <div className="font-mono text-xs font-semibold tabular-nums">
+              {symOf(row.original.sourceCurrency)}/
+              {symOf(row.original.targetCurrency)}
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              {bankOf(row.original.sourceCurrency)} →{' '}
+              {bankOf(row.original.targetCurrency)}
+            </div>
+            <div className="truncate font-mono text-[11px] tabular-nums text-muted-foreground/60">
+              {row.original.pairCode || row.original.pairId}
+            </div>
+          </div>
         ),
       },
       {
@@ -339,7 +356,12 @@ function RatioTable({ rows, loading }: { rows: SplitRow[]; loading: boolean }) {
               {percentText(row.original.mySplitRatio)}
             </span>
             {row.original.overridden && (
-              <Badge variant="outline" className="shrink-0">
+              // 源 el-tag type=warning；Badge 无 warning 变体，outline+amber
+              // 警示层沿用 TX_STATUS_WARN_CLASS 三件套先例
+              <Badge
+                variant="outline"
+                className="shrink-0 border-amber-300 bg-amber-50 text-amber-900"
+              >
                 Overridden
               </Badge>
             )}
@@ -380,7 +402,7 @@ function RatioTable({ rows, loading }: { rows: SplitRow[]; loading: boolean }) {
         ),
       },
     ],
-    [],
+    [bankOf, symOf],
   );
 
   const tableData = React.useMemo(
@@ -398,7 +420,7 @@ function RatioTable({ rows, loading }: { rows: SplitRow[]; loading: boolean }) {
   );
 }
 
-/** 卡2 分成明细（8 列分页 pageSize10，layout total,prev,pager,next）。 */
+/** 卡2 分成明细（v2.3 7 列，pageSize10，layout total,prev,pager,next）。 */
 function DetailTable({
   rows,
   loading,
@@ -415,26 +437,31 @@ function DetailTable({
   const columns = React.useMemo<ColumnDef<SplitDetailRow & { id: string }>[]>(
     () => [
       {
-        accessorKey: 'settleRecordId',
-        header: 'Record ID',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {row.original.settleRecordId}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'transactionId',
-        header: 'Transaction ID',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums">
-            {row.original.transactionId}
-          </span>
-        ),
+        // 交易单号：txNo||'-' 固定口径（共享 txNoText 勿自写分叉）；溢出
+        // tooltip 对应源 min-w180 show-overflow-tooltip
+        accessorKey: 'txNo',
+        header: 'Tx No.',
+        cell: ({ row }) => {
+          const no = txNoText(row.original);
+          return no === '-' ? (
+            <span className="font-mono text-xs">-</span>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="block max-w-[180px] truncate font-mono text-xs">
+                  {no}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm break-all font-mono text-xs">
+                {no}
+              </TooltipContent>
+            </Tooltip>
+          );
+        },
       },
       {
         accessorKey: 'pairCode',
-        header: 'Currency Pair',
+        header: 'Token Pair',
         // 无码显 '-'（源 prop 直出列的空串占位等价）
         cell: ({ row }) => <span>{row.original.pairCode || '-'}</span>,
       },
@@ -476,23 +503,27 @@ function DetailTable({
   );
 
   const tableData = React.useMemo(
-    () => rows.map((r) => ({ ...r, id: String(r.settleRecordId) })),
+    // v2.3 行 VO 无独立 ID 字段：只读表以行序作 row key（无重排/删除场景）
+    () => rows.map((r, i) => ({ ...r, id: String(i) })),
     [rows],
   );
 
   return (
-    <DataTable
-      columns={columns}
-      data={tableData}
-      isLoading={loading}
-      emptyMessage={LBL.emptyDetail}
-      pagination={{
-        page: pageNum,
-        pageSize: PAGE_SIZE,
-        total,
-        onPageChange,
-        pageSizeOptions: [PAGE_SIZE],
-      }}
-    />
+    // Provider 作用域覆盖 txNo tooltip（tooltip 仅存在于本表）
+    <TooltipProvider delayDuration={200}>
+      <DataTable
+        columns={columns}
+        data={tableData}
+        isLoading={loading}
+        emptyMessage={LBL.emptyDetail}
+        pagination={{
+          page: pageNum,
+          pageSize: PAGE_SIZE,
+          total,
+          onPageChange,
+          pageSizeOptions: [PAGE_SIZE],
+        }}
+      />
+    </TooltipProvider>
   );
 }

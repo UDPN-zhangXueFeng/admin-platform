@@ -152,9 +152,13 @@ export function useGatewayHasSession(): boolean {
 /* ── 入网/激活双门控（源 store/user.ts onboarded/instanceActive + MainLayout locked）──
  *
  * 源语义（store/user.ts:35-80）：
- * - onboarded = getOnboardStatus().status === 20；请求失败保持 null。
+ * - onboarded = getBankOnboardStatus().status === 20；请求失败保持 null。
  * - instanceActive = bank/detail 按 instanceId 与 instances[] 匹配，任一匹配项
  *   activated；instanceId 空/匹配不到/失败保持 null。
+ * - 39c8a2b 银行级纠偏：loadInstanceStatus 内 detail.onboardStatus === 20 时
+ *   直接 onboarded = true——申请级审批流可能停留中间态（如 admin 工作流
+ *   10=审核中），而银行主体已生效即视为已入网，防「页面显示已通过、菜单
+ *   却被申请级状态锁死」；纠偏单向（仅置 true），不反向降级。
  * - null = 未知：不过滤菜单、不锁门户（防上行失败误锁），locked 仅在
  *   onboarded === false 或 instanceActive === false 时为 true。
  *
@@ -177,35 +181,56 @@ export function useGatewayOnboardedQuery(enabled = true) {
 }
 
 /**
- * 本行实例激活判定（源 loadInstanceStatus 匹配口径）。
- * BankDetail.instanceId 与 instances[].instanceId 相等的那条 activated；
- * instanceId 为空/匹配不到 → null（防误锁）。
+ * bank/detail 双门控派生（源 loadInstanceStatus 匹配口径 + 39c8a2b 纠偏）：
+ * - instanceActive：instanceId 与 instances[].instanceId 相等的那条 activated；
+ *   instanceId 为空/匹配不到 → null（防误锁）。
+ * - bankApproved：detail.onboardStatus === 20（银行主体已生效），仅用于把
+ *   onboarded 纠偏为 true，不参与未入网判定。
  */
-function deriveInstanceActive(
-  d: { instanceId?: string; instances: { instanceId: string; activated: boolean }[] } | undefined,
-): boolean | null {
+interface DetailGating {
+  /** true=本行实例已激活 / false=未激活 / null=未知（防误锁）。 */
+  instanceActive: boolean | null;
+  /** 银行级已入网（detail.onboardStatus === 20）。 */
+  bankApproved: boolean;
+}
+
+function deriveDetailGating(
+  d: {
+    instanceId?: string;
+    onboardStatus?: number;
+    instances: { instanceId: string; activated: boolean }[];
+  } | undefined,
+): DetailGating | null {
   if (!d) return null;
   const matched = d.instanceId
     ? d.instances.filter((i) => i.instanceId === d.instanceId)
     : [];
-  return matched.length ? matched.some((i) => i.activated) : null;
+  return {
+    instanceActive: matched.length ? matched.some((i) => i.activated) : null,
+    bankApproved: d.onboardStatus === 20,
+  };
 }
 
-/** 实例激活状态查询（未知/失败 → null 不锁；已入网才需要，源 onMounted 链）。 */
-export function useGatewayInstanceActiveQuery(enabled = true) {
+/**
+ * 实例激活 + 银行级入网双派生查询（未知/失败 → null 不锁）。
+ * 39c8a2b：detail 无条件拉取（源 MainLayout onMounted 不再仅 onboarded
+ * === true 时）——除实例激活判定外，还用银行级 onboardStatus 纠偏申请级
+ * 审批流中间态造成的误锁。
+ */
+export function useGatewayDetailGatingQuery(enabled = true) {
   return useQuery({
     queryKey: bankKeys.detail(),
     queryFn: ({ signal }) => getBankDetail({ signal }),
     enabled,
     retry: false,
     placeholderData: (prev) => prev,
-    select: deriveInstanceActive,
+    select: deriveDetailGating,
   });
 }
 
 /** 双门控聚合视图（源 MainLayout locked computed）。 */
 export interface GatewayLockState {
-  /** true=已入网（status 20）/ false=未入网 / null=未知。 */
+  /** true=已入网（申请级 status 20，或银行级 detail.onboardStatus 20 纠偏）/ false=未入网 / null=未知。 */
   onboarded: boolean | null;
   /** true=本行实例已激活 / false=未激活 / null=未知。 */
   instanceActive: boolean | null;
@@ -215,7 +240,7 @@ export interface GatewayLockState {
 
 /**
  * 登录后自动拉取并聚合双门控状态（源 login→loadOnboardStatus、
- * MainLayout onMounted 的「已入网才查实例」链）。
+ * MainLayout onMounted 的「status + 无条件 detail」链）。
  *
  * 首次挂载即发起请求（enabled 由调用方传会话存在性）；失败不弹错、
  * 不阻断导航（null 不锁），bank 域缓存失效后自动重判。
@@ -223,13 +248,16 @@ export interface GatewayLockState {
 export function useGatewayLockState(
   enabled = getGatewayToken() !== null,
 ): GatewayLockState {
-  // 先判入网；未入网已由 onboarded 锁定，无需再查实例（源 onMounted 顺序语义）。
+  // 申请级入网判定（源 loadOnboardStatus）。
   const onboardStatus = useGatewayOnboardedQuery(enabled);
-  const onboarded = onboardStatus.data ?? null;
-  const instanceQuery = useGatewayInstanceActiveQuery(
-    enabled && onboarded === true,
-  );
-  const instanceActive = instanceQuery.data ?? null;
+  // 39c8a2b：detail 无条件拉取，不再仅 onboarded === true 时（源 onMounted）。
+  const detailGating = useGatewayDetailGatingQuery(enabled);
+  // 银行级纠偏单向：detail.onboardStatus === 20 → onboarded = true（源
+  // loadInstanceStatus 纠偏分支）；否则维持申请级口径（未知保持 null 不锁）。
+  const onboarded = detailGating.data?.bankApproved
+    ? true
+    : (onboardStatus.data ?? null);
+  const instanceActive = detailGating.data?.instanceActive ?? null;
   return {
     onboarded,
     instanceActive,

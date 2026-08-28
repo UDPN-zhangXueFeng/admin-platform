@@ -24,7 +24,7 @@ import {
   TX_STATUS_VARIANT,
   TX_STATUS_WARN_CLASS,
 } from '@myorg/modules/lp-portal/data-access';
-import type { TxChainNode, TxRow } from '@myorg/modules/lp-portal/data-access';
+import type { TxChainNode } from '@myorg/modules/lp-portal/data-access';
 
 import { formatTime } from './format';
 
@@ -59,34 +59,6 @@ export const EVENT_TYPE_MAP: Record<number, string> = {
   3: 'Message',
   4: 'Retry',
 };
-
-/* ================================================================== */
-/* List/drawer row shape extensions (backend VO drift window)          */
-/* ================================================================== */
-
-/**
- * Fields carried by the real row VO but not yet declared on `TxRow`
- * (same reconciliation pattern as `txNoText` for txUuid). Read through a
- * single cast here so pages never hand-roll divergent accessors:
- *
- * - txUuid preferred over txNo for the business number
- * - pairCode displayed raw with '-' fallback in the token pair column
- * - receiverAmount rendered with the shared money formatter
- * - failReason shown as a tooltip on the status cell
- * - syncTime is the sync-layer data timestamp; absent/0 renders '-'
- */
-export interface TxRowVO extends TxRow {
-  txUuid?: string | null;
-  pairCode?: string | null;
-  receiverAmount?: number | null;
-  failReason?: string | null;
-  syncTime?: number | null;
-}
-
-/** Cast helper used by every consumer (one caliber, no per-page drift). */
-export function asTxRowVO(row: TxRow): TxRowVO {
-  return row as TxRowVO;
-}
 
 /* ================================================================== */
 /* Dual-caliber transaction status badge                               */
@@ -138,11 +110,17 @@ export function txStatusLabel(status: number): string {
 /**
  * Drawer money caliber (doc 01 E4): en-US grouping that keeps 2..8 fraction
  * digits (`toLocaleString('en-US', {min 2, max 8})`) - deliberately NOT the
- * global `formatMoney` which preserves backend digits verbatim. Non-finite
- * or null input renders '-'.
+ * global `formatMoney` which preserves backend digits verbatim. Non-finite,
+ * empty or null input renders '-'; numeric strings are accepted.
  */
-export function fmtAmount(v: number | null | undefined): string {
-  if (v === null || v === undefined || !Number.isFinite(Number(v))) return '-';
+export function fmtAmount(v: number | string | null | undefined): string {
+  if (
+    v === null ||
+    v === undefined ||
+    v === '' ||
+    !Number.isFinite(Number(v))
+  )
+    return '-';
   return Number(v).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 8,

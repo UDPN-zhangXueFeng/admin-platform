@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { Badge, Button, Card, CardContent, Skeleton } from '@myorg/shared/ui';
+import { Button, Card, CardContent, Skeleton } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
 import { useRouter } from '@myorg/shared/util-i18n';
 
@@ -17,9 +17,9 @@ import {
  *
  * 迁移自 Vue 源 `views/workbench/index.vue`。聚合展示五块，数据全部来自现有
  * 列表接口，客户端聚合/过滤：
- * - 关键数字带：今日交易笔数 / 今日流水 / 在途笔数 / 异常待处置
- * - 入网银行（status 20 生效 + 网关连通性）
- * - 资金池水位（低于 remindThreshold 即告急）
+ * - 关键数字带：今日交易笔数 / 今日流水（按源币种分组，跨币种不混计） / 在途笔数 / 异常待处置
+ * - 入网银行（status 20 生效 + 网关连通性 + 联系人）
+ * - 资金池水位（token 维度，低于 remindThreshold 即告急）
  * - 异常待处置队列（status 70 前 5 笔）
  * - 对账差异（status 1 未处理条数）
  *
@@ -50,9 +50,8 @@ interface WorkbenchBankRow {
   bankId: number;
   bankName: string;
   bankCode: string;
-  currencies: string[];
-  singleLimit: string | number;
-  dailyLimit: string | number;
+  /** 联系人（v2.0 银行行展示字段，替代 v1.x 的币种/限额组） */
+  contactName: string;
   /** 20 入网生效（客户端过滤口径） */
   status: number;
   /** 网关连通性：0 未知 / 1 正常 / 2 断开（未登记实例为 0） */
@@ -62,9 +61,10 @@ interface WorkbenchBankRow {
 interface WorkbenchPoolRow {
   poolId: number;
   lpName: string;
-  currency: string;
-  /** 最低限额（水位分母） */
-  minLimit: string | number;
+  /** 池维度 token code（v2.0 资金池为 token 维度，不再有 currency） */
+  tokenCode: string;
+  /** 最低流动性（水位分母，token 维度） */
+  minLiquidity: string | number;
   /** 补资提醒阈值（水位低于此比例即告急） */
   remindThreshold: string | number;
   availableBalanceCache: string | number;
@@ -139,21 +139,21 @@ function pairText(row: WorkbenchTxRow): string {
 
 // ---- 资金池水位（移植自 workbench index.vue） ----
 
-/** 水位 = 可用余额 / 最低限额；低于补资提醒阈值即告急（lp_pool FR-L-03 口径）。 */
+/** 水位 = 可用余额 / 最低流动性（minLiquidity）；低于补资提醒阈值即告急（lp_pool FR-L-03 口径）。 */
 function isPoolCritical(pool: WorkbenchPoolRow): boolean {
-  const min = Number(pool.minLimit);
+  const min = Number(pool.minLiquidity);
   if (!(min > 0)) return false; // 分母无效无法判断水位，按正常展示
   return Number(pool.availableBalanceCache) / min < Number(pool.remindThreshold);
 }
 
-/** 是否画水位条：最低限额为正才有口径（分母口径同 isCritical）。 */
+/** 是否画水位条：最低流动性为正才有口径（分母口径同 isCritical）。 */
 function hasPoolBar(pool: WorkbenchPoolRow): boolean {
-  return Number(pool.minLimit) > 0;
+  return Number(pool.minLiquidity) > 0;
 }
 
 /** 水位条宽度百分比（封顶 100，不低于 0 以免出现非法宽度）。 */
 function poolBarWidth(pool: WorkbenchPoolRow): number {
-  const min = Number(pool.minLimit);
+  const min = Number(pool.minLiquidity);
   if (!(min > 0)) return 0;
   const ratio = Number(pool.availableBalanceCache) / min;
   return Math.max(0, Math.floor(Math.min(100, ratio * 100)));
@@ -507,12 +507,24 @@ export function DashboardPage() {
   // 今日概览（客户端聚合）
   const todayRows = todayQ.data?.data ?? [];
   const todayCount = todayRows.length;
-  const todayVolume = todayRows.reduce(
-    (sum, r) => sum + (Number(r.userDeduction) || 0),
-    0,
-  );
+  // 今日流水按源币种分组逐币种加总（userDeduction 属源币种金额，跨币种不可混计，
+  // 2026-08-27 用户反馈口径同上游）；按金额降序，空组显示占位符。
+  const todayVolumes = React.useMemo(() => {
+    const byCcy = new Map<string, number>();
+    for (const r of todayRows) {
+      const ccy = r.sourceCurrency || '-';
+      byCcy.set(ccy, (byCcy.get(ccy) ?? 0) + (Number(r.userDeduction) || 0));
+    }
+    return [...byCcy.entries()]
+      .map(([ccy, total]) => ({ ccy, total }))
+      .sort((a, b) => b.total - a.total);
+  }, [todayRows]);
   const inflightCount = todayRows.filter((r) => Boolean(IN_FLIGHT[r.status])).length;
-  const todayVolumeText = formatMoney(Number(todayVolume.toFixed(2)));
+  const todayVolumeText = todayVolumes.length
+    ? todayVolumes
+        .map((v) => `${v.ccy} ${formatMoney(Number(v.total.toFixed(2)))}`)
+        .join(' · ')
+    : '-';
 
   // 入网银行（客户端过滤 status 20）
   const banks = (banksQ.data?.data ?? []).filter((b) => b.status === 20);
@@ -559,8 +571,8 @@ export function DashboardPage() {
                 <FigureCell label="Today's Transactions">
                   <Skeleton className="h-7 w-20" />
                 </FigureCell>
-                <FigureCell label="Today's Volume" divider>
-                  <Skeleton className="h-7 w-24" />
+                <FigureCell label="Today's Volume by Currency" divider>
+                  <Skeleton className="h-7 w-32" />
                 </FigureCell>
                 <FigureCell label="In-Flight Count" divider>
                   <Skeleton className="h-7 w-16" />
@@ -571,7 +583,7 @@ export function DashboardPage() {
                 <FigureCell label="Today's Transactions">
                   {formatMoney(todayCount)}
                 </FigureCell>
-                <FigureCell label="Today's Volume" divider>
+                <FigureCell label="Today's Volume by Currency" divider>
                   {todayVolumeText}
                 </FigureCell>
                 <FigureCell label="In-Flight Count" divider>
@@ -634,16 +646,9 @@ export function DashboardPage() {
                     <span className="text-xs tabular-nums text-muted-foreground">
                       {bank.bankCode}
                     </span>
-                    <div className="flex flex-wrap items-center gap-1">
-                      {bank.currencies.map((c) => (
-                        <Badge key={c} variant="secondary">
-                          {c}
-                        </Badge>
-                      ))}
-                    </div>
-                    <span className="ml-auto whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-                      Per Txn {formatMoney(bank.singleLimit)} / Daily{' '}
-                      {formatMoney(bank.dailyLimit)}
+                    {/* v2.0 银行行：联系人取代 v1.x 币种徽标与单笔/日限额组 */}
+                    <span className="text-xs text-muted-foreground">
+                      {bank.contactName || '-'}
                     </span>
                   </div>
                 ))}
@@ -678,7 +683,7 @@ export function DashboardPage() {
                             critical ? 'bg-amber-500' : 'bg-emerald-500',
                           )}
                         />
-                        <span className="font-medium">{pool.currency}</span>
+                        <span className="font-medium">{pool.tokenCode}</span>
                         <span className="text-xs text-muted-foreground">
                           {pool.lpName || '-'}
                         </span>
@@ -767,7 +772,7 @@ export function DashboardPage() {
                       variant="link"
                       size="sm"
                       className="h-auto p-0"
-                      onClick={() => router.push('/transaction/tx-list')}
+                      onClick={() => router.push('/transfer/tx')}
                     >
                       Resolve
                     </Button>
@@ -791,14 +796,7 @@ export function DashboardPage() {
                 <span>
                   <span className="tabular-nums">{diffPending}</span> unresolved difference(s)
                 </span>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  onClick={() => router.push('/settlement/reconcile')}
-                >
-                  Resolve
-                </Button>
+                {/* v2.0 对账差异页已下线（§G：删页面+菜单，api 保留）；卡片保留计数，不设跳转。 */}
               </div>
             ) : (
               <span className="text-sm text-muted-foreground">

@@ -3,15 +3,15 @@
 /**
  * 详情描述网格/字段（el-descriptions 的 React 等价）。
  *
- * 由 market/role/tx/user/onboard 各页面本地副本收敛；variant 精确对应
+ * 由 role/tx/user/onboard 各页面本地副本收敛；variant 精确对应
  * 迁移期既存的三组样式（渲染输出与收敛前逐字节一致）：
- * - dl：market/role/tx 的 dt/dd 字段（默认）。
+ * - dl：role/tx 的 dt/dd 字段（默认）。
  * - plain：user 详情的 DetailField（div 结构 + tabular-nums）。
  * - boxed：onboard 银行信息卡的描边盒字段（支持 span 跨两列）。
  *
  * DescGrid 默认响应式阶梯 grid-cols-1 → sm:2 → lg:3 → xl:4
  * （P0 唯一有意视觉变更，任务批准）；cols 指定列数上限时阶梯截止
- * 到该档（cols={2} 即原 market/role/tx 的两列语义）；className 透传追加。
+ * 到该档（cols={2} 即原 role/tx 的两列语义）；className 透传追加。
  */
 import type * as React from 'react';
 

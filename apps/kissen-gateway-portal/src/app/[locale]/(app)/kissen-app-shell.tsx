@@ -40,6 +40,18 @@ const InstanceKeyDrawer = dynamic(
   { ssr: false },
 );
 
+// 主题切换器与实例密钥同槽：feature 库静态 import 违反懒加载边界，同款
+// next/dynamic(ssr:false) 拆包（组件本身 client-only）。
+const ThemeSwitcher = dynamic(
+  () =>
+    import('@myorg/modules/kissen-gateway/feature').then(
+      (m) => m.ThemeSwitcher,
+    ),
+  { ssr: false },
+);
+
+import { LogoMark } from '@/components/brand/logo-mark';
+
 /** v-perm 'bank:key:manage'（源 MainLayout key-entry；gateway 无超管，按会话 menuKeys 判定）。 */
 const KEY_MANAGE_PERM = 'bank:key:manage';
 
@@ -194,7 +206,8 @@ function sortModuleItems(
  *   保持全量菜单（源 loadMenuTree catch 语义）；登录/登出在本 app 均以
  *   整页跳转收尾，会话 menuKeys 挂载时读取一次即可。
  * - 入网/激活锁定（源 MainLayout navNodes gated + store locked）：
- *   useGatewayLockState（onboarded/instanceActive，null=未知不锁），
+ *   useGatewayLockState（onboarded/instanceActive，null=未知不锁；39c8a2b
+ *   起 detail 无条件拉取，银行级 onboardStatus=20 纠偏防申请级中间态误锁），
  *   locked 时允许路径收敛到 /onboard，仅入网信息可见。
  * - 侧栏折叠持久化（A-1）：localStorage key 沿用源 MainLayout 的
  *   'bankgw.nav.collapsed'（初始读 ==='1'，toggle 写 '1'/'0'）。
@@ -280,18 +293,24 @@ export function KissenAppShell({
         expanded: 'w-[224px] min-[1600px]:w-[224px]',
         collapsed: 'w-[68px] min-[1600px]:w-[68px]',
       }}
+      logo={
+        <LogoMark className="h-10 w-[52px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[62px]" />
+      }
       trailing={
-        showKeyEntry ? (
-          <button
-            type="button"
-            aria-label="Instance keys"
-            title="Instance keys"
-            onClick={() => setKeyDrawerOpen(true)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white/85 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <KeyRound className="h-[17px] w-[17px]" aria-hidden="true" />
-          </button>
-        ) : undefined
+        <>
+          <ThemeSwitcher themes={config.theme.themes} />
+          {showKeyEntry ? (
+            <button
+              type="button"
+              aria-label="Instance keys"
+              title="Instance keys"
+              onClick={() => setKeyDrawerOpen(true)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white/85 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <KeyRound className="h-[17px] w-[17px]" aria-hidden="true" />
+            </button>
+          ) : null}
+        </>
       }
     >
       {children}

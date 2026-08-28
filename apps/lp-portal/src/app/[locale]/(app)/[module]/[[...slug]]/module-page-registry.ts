@@ -33,6 +33,11 @@ function lp(moduleExport: string): PageLoader {
 const pages: Record<string, Record<string, PageLoader>> = {
   // 通证总览（lp:token 新增键）：源为双 tab 单页，无 create/edit/detail 路由；
   // 组件由后续页面组交付，本表不做存在性校验。
+  // Dashboard（v2.3 登录落地页，lp:dashboard）：统计卡+资金池卡+折线图+最近交易，
+  // 单页只读，无 create/edit/detail 路由。
+  dashboard: {
+    list: lp('DashboardPage'),
+  },
   token: {
     list: lp('TokenListPage'),
   },
@@ -49,9 +54,6 @@ const pages: Record<string, Record<string, PageLoader>> = {
   split: {
     list: lp('SplitListPage'),
   },
-  rate: {
-    list: lp('RateListPage'),
-  },
   // 预授权监控（lp:preauth 新增键）：源为只读单页，无 create/edit/detail 路由；
   // 组件由后续页面组交付，本表不做存在性校验。
   preauth: {
@@ -65,11 +67,6 @@ const pages: Record<string, Record<string, PageLoader>> = {
   // 结算（B7 真实页）：源为单页双 tab（流水/结算单），无 detail 路由。
   settle: {
     list: lp('SettleListPage'),
-  },
-  // 源端收款明细（D1 占位页）：源 source-receipt 路由挂 placeholder.vue，
-  // 登录后菜单可见即显示「功能建设中」占位，无 detail 路由。
-  receipt: {
-    list: lp('ReceiptListPage'),
   },
   syslog: {
     list: lp('SyslogListPage'),

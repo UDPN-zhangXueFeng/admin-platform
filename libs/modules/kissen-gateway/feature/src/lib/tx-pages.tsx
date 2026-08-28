@@ -18,6 +18,10 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   useToast,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
@@ -35,9 +39,11 @@ import {
   txProcessStatusVariant,
   txStatusText,
   txStatusVariant,
+  useFxViewQuery,
   useTxChain,
   useTxDetail,
   useTxPage,
+  type FxPairItem,
   type TxFlowNode,
   type TxListReq,
   type TxMessage,
@@ -170,6 +176,21 @@ function readTxSeed(transactionId: number): TxRecord | null {
   }
 }
 
+/* ================================================================== */
+/* fx 聚合视图缓存派生（源 pairOf/srcSymbol/tgtSymbol/pairRateOf）        */
+/* ================================================================== */
+
+/**
+ * 行 token 对聚合项（源 pairOf：pairId → fxView 聚合视图缓存）。
+ * 缓存保留整个 FxPairItem——tokenPair 供 tokens/From 列，rate 供 FX Rate 列。
+ */
+function pairViewOf(
+  pairId: number | null | undefined,
+  pairMap: ReadonlyMap<number, FxPairItem>,
+): FxPairItem | undefined {
+  return pairId != null ? pairMap.get(pairId) : undefined;
+}
+
 export function TxListPage() {
   const router = useRouter();
   const toast = useToast();
@@ -190,6 +211,20 @@ export function TxListPage() {
     pageSize: TX_PAGE_SIZE,
     filter,
   });
+
+  /**
+   * fx 聚合视图缓存（源 onMounted fxView → pairViews）：tokens/From/FX Rate 列
+   * 的 token 对与最新汇率数据源。与 /fx 页共用同一 query key，缓存命中不新增请求。
+   */
+  const { data: fxViewData } = useFxViewQuery();
+  /** pairId → 聚合项索引（整项保留：tokenPair 与 rate 快照均可取）。 */
+  const pairMap = React.useMemo(() => {
+    const map = new Map<number, FxPairItem>();
+    for (const item of fxViewData?.pairs ?? []) {
+      map.set(item.tokenPair.pairId, item);
+    }
+    return map;
+  }, [fxViewData]);
 
   const rows = data?.data ?? [];
   const total = data?.pagination?.total ?? 0;
@@ -254,64 +289,185 @@ export function TxListPage() {
     [],
   );
 
+  /**
+   * 列序对齐 UDPN 评审建议（39c8a2b）：Transaction No. / tokens / From / To /
+   * FX Rate / LP / Status / Last Sync / Action；源端·目标端交易ID 与本行角色/
+   * 银行/本金/待处理单列移入详情页（详情 Descriptions 已覆盖）。
+   */
   const columns = React.useMemo<ColumnDef<TxRecord & { id: string }>[]>(() => {
     return [
       {
-        id: 'transactionId',
-        header: 'TransactionId',
-        cell: ({ row }) => <span>{row.original.transactionId}</span>,
+        id: 'txNo',
+        header: 'Transaction No.',
+        cell: ({ row }) => (
+          <span className="font-mono">
+            {row.original.txNo || row.original.txUuid || row.original.transactionId}
+          </span>
+        ),
       },
       {
-        id: 'bankRole',
-        header: 'Bank Role',
+        id: 'tokens',
+        header: 'tokens',
+        meta: { overflow: 'none' },
         cell: ({ row }) => {
-          const role = row.original.bankRole;
-          return role != null && role !== 0 ? (
-            <Badge variant={txBankRoleVariant(role)}>
-              {txBankRoleText(role)}
-            </Badge>
-          ) : (
-            <span>-</span>
+          const view = pairViewOf(row.original.pairId, pairMap);
+          /* 缺缓存回退：`#pairId ?? '-'`（源 num 样式兜底）。 */
+          if (!view) {
+            return (
+              <span className="font-mono">#{row.original.pairId ?? '-'}</span>
+            );
+          }
+          const pair = view.tokenPair;
+          return (
+            <div>
+              {/* 源 pair-cell：双侧「tag + 下方 11px 灰字 bankCode」纵排（token + Bank）。 */}
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col items-center gap-0.5">
+                  <Badge variant="outline">
+                    {pair.sourceSymbol || pair.sourceTokenCode || '-'}
+                  </Badge>
+                  <span className="text-[11px] text-muted-foreground">
+                    {pair.sourceBankCode || '-'}
+                  </span>
+                </div>
+                <span className="text-xs text-muted-foreground">→</span>
+                <div className="flex flex-col items-center gap-0.5">
+                  <Badge
+                    variant="outline"
+                    className="border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400"
+                  >
+                    {pair.targetSymbol || pair.targetTokenCode || '-'}
+                  </Badge>
+                  <span className="text-[11px] text-muted-foreground">
+                    {pair.targetBankCode || '-'}
+                  </span>
+                </div>
+              </div>
+              {/* pairCode 小字（行内值优先，回退缓存 token 对编码）。 */}
+              <div className="mt-0.5 break-all font-mono text-[11px] tracking-wide text-muted-foreground">
+                {row.original.pairCode || pair.pairCode || '-'}
+              </div>
+            </div>
           );
         },
       },
       {
-        id: 'pairId',
-        header: 'PairId',
-        cell: ({ row }) => <span>{row.original.pairId ?? '-'}</span>,
+        id: 'from',
+        header: 'From',
+        meta: { overflow: 'none' },
+        cell: ({ row }) => {
+          const pair = pairViewOf(row.original.pairId, pairMap)?.tokenPair;
+          return (
+            <div>
+              {/* 钱包地址为主（title 悬浮全量），存量/缺地址回退银行名。 */}
+              <div
+                className="max-w-[15rem] truncate"
+                title={row.original.senderAccount || undefined}
+              >
+                {row.original.senderAccount ||
+                  row.original.senderBankName ||
+                  '-'}
+              </div>
+              {/* 下行金额：本金 + 源侧符号（源 srcSymbol，缺缓存 '-'）。 */}
+              <div className="mt-0.5 text-xs tabular-nums">
+                {fmtAmount(row.original.principal)}{' '}
+                {pair?.sourceSymbol || pair?.sourceTokenCode || '-'}
+              </div>
+            </div>
+          );
+        },
       },
       {
-        id: 'principal',
-        header: 'Principal',
-        cell: ({ row }) => <span>{fmtAmount(row.original.principal)}</span>,
-      },
-      {
-        id: 'status',
-        header: 'Status',
+        id: 'to',
+        header: 'To',
+        meta: { overflow: 'none' },
         cell: ({ row }) => (
-          <Badge variant={txStatusVariant(row.original.status)}>
-            {txStatusText(row.original.status)}
-          </Badge>
+          <div>
+            <div
+              className="max-w-[15rem] truncate"
+              title={row.original.receiverAccount || undefined}
+            >
+              {row.original.receiverAccount ||
+                row.original.receivingBankName ||
+                '-'}
+            </div>
+            {/* 解付金额本地不落库（网关无交易状态机），以 Kissen 详情为准。 */}
+            <div className="mt-0.5 text-xs text-muted-foreground/60">-</div>
+          </div>
         ),
       },
       {
-        id: 'pendingFlag',
-        header: 'Pending',
+        id: 'fxRate',
+        header: 'FX Rate',
+        cell: ({ row }) => {
+          /* 快照口径非成交时点（源 pairRateOf）：未推送/未知 '-'。 */
+          const rate = pairViewOf(row.original.pairId, pairMap)?.rate;
+          return (
+            <span className="tabular-nums">
+              {rate?.userRate != null ? String(rate.userRate) : '-'}
+            </span>
+          );
+        },
+      },
+      {
+        id: 'lp',
+        header: 'LP',
         cell: ({ row }) =>
-          row.original.pendingFlag === 1 ? (
-            <Badge variant="secondary">Pending</Badge>
+          row.original.lpNames?.length ? (
+            <span className="flex flex-wrap gap-1.5">
+              {row.original.lpNames.map((name) => (
+                <Badge key={name} variant="secondary">
+                  {name}
+                </Badge>
+              ))}
+            </span>
           ) : (
             <span>-</span>
           ),
       },
       {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <span className="inline-flex items-center gap-1">
+            <Badge variant={txStatusVariant(row.original.status)}>
+              {txStatusText(row.original.status)}
+            </Badge>
+            {/* 待处理不再单列，收进状态旁小号 warning 角标（Badge 不转发 ref，asChild 需原生 span）。 */}
+            {row.original.pendingFlag === 1 && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex cursor-default">
+                      <Badge
+                        variant="outline"
+                        className="border-amber-300 px-1.5 text-[10px] text-amber-700 dark:border-amber-700 dark:text-amber-400"
+                      >
+                        Pending
+                      </Badge>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    Pending (ACTION_REQUIRED), see detail for reason
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </span>
+        ),
+      },
+      {
         id: 'lastSyncTime',
         header: 'Last Sync',
-        cell: ({ row }) => <span>{formatTime(row.original.lastSyncTime)}</span>,
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatTime(row.original.lastSyncTime)}
+          </span>
+        ),
       },
       {
         id: 'actions',
-        header: 'Actions',
+        header: 'Action',
         cell: ({ row }) => (
           <Button
             variant="link"
@@ -324,7 +480,7 @@ export function TxListPage() {
         ),
       },
     ];
-  }, [onView]);
+  }, [onView, pairMap]);
 
   const tableData = React.useMemo(
     () => rows.map((r) => ({ ...r, id: String(r.recordId) })),
@@ -694,6 +850,17 @@ export function TxDetailPage() {
             </DescField>
             <DescField label="Target Tx ID">
               <span>{orDash(record.targetCsTxId)}</span>
+            </DescField>
+            {/* 39c8a2b 新增：付款/收款账户（钱包地址，num 样式；空 '-'）。 */}
+            <DescField label="Sender Account">
+              <span className="break-all font-mono">
+                {orDash(record.senderAccount)}
+              </span>
+            </DescField>
+            <DescField label="Receiver Account">
+              <span className="break-all font-mono">
+                {orDash(record.receiverAccount)}
+              </span>
             </DescField>
             <DescField label="Pending">
               {record.pendingFlag === 1 ? (
