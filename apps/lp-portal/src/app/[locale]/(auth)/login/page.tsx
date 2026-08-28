@@ -122,6 +122,7 @@ export default function LoginRoute() {
       brandSuffixBg="bg-[var(--brand-accent,#00a5d5)]"
       taglineColor="text-[#172260]"
       titleColor="text-[hsl(var(--primary))]"
+      formClassName="max-w-[400px]"
       submitLabel="Sign In"
       onSubmit={handleSubmit}
       lpCodeField

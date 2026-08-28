@@ -80,6 +80,8 @@ export interface PoolRow {
   tokenNo: string;
   tokenCode: string;
   bankCode: string;
+  /** v2.4：Token 列第二行（bankName 缺失回退 bankCode） */
+  bankName?: string;
   /** 池地址,页面经 maskAddress 掩码展示 */
   poolAddress: string;
   /** 5 申请中 / 15 已驳回 / 20 已开通 / 50 停用 */
@@ -90,6 +92,10 @@ export interface PoolRow {
   balanceUpdateTime: number | null;
   /** 水位小数比率字符串(如 "0.2");分母(最低流动性)缺失时 null */
   level: string | null;
+  /** v2.4：授权额度（该池最新预授权快照；null=无快照，显 '-' 带 tooltip） */
+  preauthAuthAmount?: string | number | null;
+  /** v2.4：可用授权额度（同 null 语义） */
+  preauthAvailableAmount?: string | number | null;
   syncTime: number;
 }
 
@@ -124,6 +130,12 @@ export interface TxRow {
   principal: string | number;
   /** 收款方到账金额（v2.3 列表列） */
   receiverAmount?: string | number;
+  /** v2.4 用户汇率（成交快照；0/null = 无快照显 '-'，非零 en-US 千分位 max 8 位小数） */
+  userRate?: string | number | null;
+  /** v2.4 From 钱包（源端账户；存量行为空串显 '-'，等宽截断+tooltip 原文） */
+  senderAccount?: string;
+  /** v2.4 To 钱包（收款方账户；同上） */
+  receiverAccount?: string;
   /** 1 已创建/5 已报价/10 已确认/20 源端划转中/25 源端已验证/30 解付中/35 已入账/40 已完成/50 冲正中/60 已冲正/70 异常/80 已取消/90 失败 */
   status: number;
   /** 失败原因（status=70/90 时状态格 tooltip 展示） */
@@ -162,20 +174,17 @@ export interface TxChainNode {
   traceId?: string;
 }
 
-// ===== 结算(POST /lp/settle/records、/lp/settle/orders,均分页) =====
+// ===== 结算(POST /lp/settle/orders 分页 + POST /lp/settle/order-records;
+// v2.4 6c49396：records 独立分页端点退役，流水按结算单周期过滤随抽屉拉取) =====
 
-/** records 筛选只留时间范围(records 表无周期列,cycle 不接线;裁决 C-1) */
-export interface SettleRecordListReq {
-  startTime?: number;
-  endTime?: number;
-}
-
-/** 结算流水行（v2.3 e591f85：txNo 替代原内部数字 ID，字段集对齐上游 1:1）。 */
+/** 结算流水行（split-settle 合并页抽屉「结算流水」表行；v2.4 增 currency）。 */
 export interface SettleRecordRow {
   /** 全网唯一交易单号（KSN 单号；未同步到流水副本的记录空串显 '-'） */
   txNo?: string;
   /** 货币对编码；空值页面显 '-' */
   pairCode?: string;
+  /** v2.4 分成币种（源端 token symbol 优先回退 code）；空显 '-' */
+  currency?: string;
   principal: string | number;
   markupAmount: string | number;
   /** 分成比例（0〜1，页面 ×100 显 %） */
@@ -185,13 +194,15 @@ export interface SettleRecordRow {
   completedTime: number;
 }
 
-export interface SettleOrderListReq {
-  /** 5/10 生成、15 拒绝、20 已确认、35 已结算(裁决 C-2;筛选选项 生成 5/已确认 20/已结算 35) */
-  status?: number;
-  /** 周期粒度 day/week/month,后端映射 period_type 1/2/3(裁决 C-1/D-7);空 = 全部 */
-  cycle?: 'day' | 'week' | 'month';
-  startTime?: number;
-  endTime?: number;
+/** 结算单分项（SettleOrderRow.items 元素；v2.4 增 currency）。 */
+export interface SettleOrderItem {
+  pairCode: string;
+  /** v2.4 该分项币种（源端 token）；空显 '-' */
+  currency?: string;
+  txCount: number;
+  principalTotal: string | number;
+  markupTotal: string | number;
+  lpSplitTotal: string | number;
 }
 
 export interface SettleOrderRow {
@@ -201,14 +212,23 @@ export interface SettleOrderRow {
   periodStart: number;
   periodEnd: number;
   txCount: number;
-  principalTotal: number;
-  markupTotal: number;
-  adminSplitTotal: number;
-  /** LP 分成合计(页面 key-figure 重点展示) */
-  lpSplitTotal: number;
-  /** 5 生成(待审)/10 生成(审中)/15 拒绝/20 已确认/35 已结算(裁决 C-2) */
+  principalTotal: string | number;
+  markupTotal: string | number;
+  kissenSplitTotal: string | number;
+  /** LP 分成合计 */
+  lpSplitTotal: string | number;
+  /** 10 待确认 / 20 已确认 / 35 已结算 / 45 已作废重开 */
   status: number;
-  createTime: number;
+  /** token 对分项（详情抽屉直读，非二次请求） */
+  items: SettleOrderItem[];
+  /** v2.4 单据涉及币种集合（'A / B'）；跨币种金额不可加总，单据层不展示金额合计 */
+  currencies: string;
+  syncTime: number;
+}
+
+export interface SettleOrderListReq {
+  periodType?: number;
+  status?: number;
 }
 
 // ===== 系统管理域(源 types/system.ts;F2 用户/角色、F3 菜单/接口权限、F4 日志) =====

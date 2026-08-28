@@ -1,34 +1,24 @@
 'use client';
 
 /**
- * LP Portal 结算域 read-query hooks。
+ * LP Portal 结算域 read-query hooks（v2.4 6c49396 合并页口径）。
  *
- * 双 tab 源语义（views/settle/index.vue）：records/orders 各自独立
- * loading/rows/total/pageNum/筛选——两 hook 独立 key 独立缓存，页面挂载时
- * 同时激活并行首载（源 onMounted loadRecords(1)+loadOrders(1)），切 tab
- * 不重新请求（缓存命中）。0024 降级由页面合并两侧 query.error 判定渲染
- * 共享单条 ServiceDownAlert（orders 侧 0024 也在页顶显示）；keepPreviousData
- * + TanStack refetch 出错保留上次成功 data，即源「错误时 rows 不清空」。
+ * - useSettleOrdersQuery：结算单分页（split-settle 卡3）。keepPreviousData
+ *   + TanStack 出错保留上次成功 data，即源「错误时 rows 不清空」。
+ * - useSettleOrderRecordsQuery：详情抽屉「结算流水（本单周期内）」按需
+ *   拉取——orderId 为 null（抽屉关闭）时 disabled；源语义为 open 后请求、
+ *   失败静默（拦截器已提示，页面不渲染错误横幅，仅空态）。0024 不重试
+ *   立即呈现（retryNotServiceDown，pair/split 域同款）。
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
+import { isServiceDown } from '../lp-client';
 import { settleKeys } from './settle.keys';
-import { getSettleOrders, getSettleRecords } from './settle.api';
-import type { SettleOrdersQuery, SettleRecordsQuery } from './settle.model';
+import { getSettleOrderRecords, getSettleOrders } from './settle.api';
+import type { SettleOrdersQuery } from './settle.model';
 
-/** 结算流水分页（POST /lp/settle/records）。 */
-export function useSettleRecordsQuery(
-  projectId: string,
-  params: SettleRecordsQuery,
-  enabled = true,
-) {
-  return useQuery({
-    queryKey: settleKeys.recordsList(projectId, params),
-    queryFn: ({ signal }) => getSettleRecords(params, { signal }),
-    placeholderData: keepPreviousData,
-    enabled,
-  });
-}
+const retryNotServiceDown = (failureCount: number, error: unknown): boolean =>
+  failureCount < 2 && !isServiceDown(error);
 
 /** 结算单分页（POST /lp/settle/orders）。 */
 export function useSettleOrdersQuery(
@@ -41,5 +31,21 @@ export function useSettleOrdersQuery(
     queryFn: ({ signal }) => getSettleOrders(params, { signal }),
     placeholderData: keepPreviousData,
     enabled,
+  });
+}
+
+/**
+ * 结算单内结算流水（POST /lp/settle/order-records）。
+ * `orderId === null` 时 hook disabled（抽屉关闭不请求）。
+ */
+export function useSettleOrderRecordsQuery(
+  projectId: string,
+  orderId: number | null,
+) {
+  return useQuery({
+    queryKey: settleKeys.orderRecords(projectId, orderId ?? 0),
+    queryFn: ({ signal }) => getSettleOrderRecords(orderId as number, { signal }),
+    enabled: orderId !== null,
+    retry: retryNotServiceDown,
   });
 }

@@ -1,25 +1,24 @@
 'use client';
 
 /**
- * Dashboard 落地页（源 `src/views/dashboard/index.vue` v2.3 e591f85 1:1
- * 迁移，lp:dashboard 登录首屏）。
+ * Dashboard 落地页（源 `src/views/dashboard/index.vue` v2.4 6c49396 口径，
+ * lp:dashboard 登录首屏；v2.3 e591f85 引入，v2.4 修订）。
  *
- * 结构照源逐卡：统计卡四宫格（stats）→「My Pools」卡片列表（余额 / Water
- * Level 进度条封顶 100%、Pre-auth Available、foot 更新时间）→「Transaction
- * Volume Statistics」自绘折线（7/14/30 天 radio，独立 useQuery 分 key）→
- * 「Recent Transactions」7 列表。源两请求互不依赖、失败经拦截器统一提示，
- * 映射为两条独立 useQuery；头部 Refresh 仅重拉 summary（源 refreshBtn 语义）。
+ * 结构照源逐卡：统计卡四宫格（stats）→「My Pools」卡片列表（v2.4 池卡
+ * 重构：bank+token tag 头 / tokenName / poolAddress 第三行 / 余额 / 水位
+ * （含口径 tooltip）/ 授权可用额度 / foot 更新 balanceUpdateTime）→
+ * 「Transaction Volume Statistics」自绘折线（v2.4 双维度：按汇率对 /
+ * 按币种客户端重分组 + 7/14/30 天独立 useQuery 分 key）。
+ * v2.4 最近交易表退役（成交量口径走折线图，交易流水入口取消）。
  *
- * 状态口径：池状态复用 pool 域码表（同后端码表同译文）；交易状态 tag 用
- * dashboard 独立口径 DASHBOARD_TX_STATUS_VARIANT（与 tx-flow 列表口径并存
- * 保真，01 §E21）。tokens 紧凑式（symOf 行 + bankOf→bankOf 行）经
- * useTokenMeta。色值不直写：水位条映射 tailwind 语义类。
+ * 状态口径：池状态复用 pool 域码表（同后端码表同译文）。symOf 经
+ * useTokenMeta（源端币种名即 token symbol）。色值不直写：水位条映射
+ * tailwind 语义类。头部 Refresh 重拉 summary+volume（源 load 两请求）。
  */
 
 import * as React from 'react';
 import Link from 'next/link';
-import { type ColumnDef } from '@tanstack/react-table';
-import { ArrowRight, RefreshCw } from 'lucide-react';
+import { ArrowRight, CircleHelp, RefreshCw } from 'lucide-react';
 
 import {
   Badge,
@@ -29,19 +28,19 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  DataTable,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@myorg/shared/ui';
 
 import {
-  DASHBOARD_TX_STATUS_VARIANT,
   LP_PROJECT_ID,
   POOL_STATUS_TEXT,
   POOL_STATUS_VARIANT,
-  TX_STATUS_LABEL,
   useDashboardSummaryQuery,
   useDashboardVolumeQuery,
   useTokenMeta,
-  type DashboardRecentTx,
   type DashboardPoolCard,
 } from '@myorg/modules/lp-portal/data-access';
 
@@ -67,25 +66,23 @@ const LBL = {
   myPools: 'My Pools',
   balance: 'Balance',
   waterLevel: 'Water Level',
+  /** v2.4 由「授权额度」更名（源 授权可用额度）。 */
   preauthAvailable: 'Pre-auth Available',
+  waterLevelHelp: 'Balance ÷ token minimum liquidity (can exceed 100%)',
   updated: 'Updated',
   volumeTitle: 'Transaction Volume Statistics',
-  volumeSub: 'Daily volume by token pair',
+  volumeSub: 'Daily volume by token pair or currency',
+  /** v2.4 维度 radio（切换不重拉，客户端重分组）。 */
+  modePair: 'By Pair',
+  modeCurrency: 'By Currency',
+  /** currency 模式卡底右对齐注释（源端币种成交本金加总）。 */
+  currencyNote: 'By currency: principal total grouped by source-side token',
   last7: 'Last 7 Days',
   last14: 'Last 14 Days',
   last30: 'Last 30 Days',
-  recent: 'Recent Transactions',
   emptyPools: 'No pools opened yet — head to Liquidity Pools to open your first one.',
   openPool: 'Open a Pool',
-  emptyRecent: 'No transactions',
-  viewTxFlow: 'View Transaction Flow',
-  colTxNo: 'Tx No.',
-  colTokenPair: 'Token Pair',
-  colTokens: 'Tokens',
-  colPrincipal: 'Principal',
-  colReceiver: 'Receiver Amount',
-  colStatus: 'Status',
-  colCompleted: 'Completed Time',
+  unknownBank: 'Unknown Bank',
 } as const;
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
@@ -111,7 +108,7 @@ function Num({ children }: { children: React.ReactNode }) {
 }
 
 /* ================================================================== */
-/* 统计卡四宫格                                                          */
+/* 统计卡四宫格（stats 缺失显 '-'，源 v2.4 口径）                          */
 /* ================================================================== */
 
 interface StatCardProps {
@@ -135,10 +132,15 @@ function StatCard({ label, sub, value }: StatCardProps) {
 }
 
 /* ================================================================== */
-/* 我的资金池卡                                                          */
+/* 我的资金池卡（v2.4 重构）                                             */
 /* ================================================================== */
 
-/** 单池卡（源 pool-card 1:1：余额 / 水位条封顶 100% / 预授权可用 / foot）。 */
+/**
+ * 单池卡（源 pool-card v2.4：头=bank+tokenCode round plain tag+状态 tag；
+ * 第二行 tokenName||'-'；**第三行 poolAddress||'-'（等宽截断+tooltip 原文）**；
+ * 三行数据 余额/水位（进度条封顶 100 显示+口径 tooltip）/授权可用额度；
+ * foot '更新 '+balanceUpdateTime falsy→'-'）。
+ */
 function PoolCard({ pool }: { pool: DashboardPoolCard }) {
   const statusText = POOL_STATUS_TEXT[pool.status] ?? String(pool.status);
   const statusVariant: BadgeVariant =
@@ -147,16 +149,33 @@ function PoolCard({ pool }: { pool: DashboardPoolCard }) {
     <Card>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <p className="font-medium">{pool.tokenName || pool.tokenCode}</p>
-            <p className="text-xs text-muted-foreground">
-              {pool.bankName || pool.bankCode} · {pool.tokenCode}
-            </p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {pool.bankName || pool.bankCode || LBL.unknownBank}
+            </span>
+            <Badge
+              variant="outline"
+              className="rounded-full px-2 py-0 font-normal font-mono text-xs"
+            >
+              {pool.tokenCode}
+            </Badge>
           </div>
           <Badge variant={statusVariant}>{statusText}</Badge>
         </div>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-          <div className="flex justify-between gap-2">
+        <p className="mt-2 font-medium">{pool.tokenName || '-'}</p>
+        {/* v2.4 第三行：池地址（货币系统账户）；空显 '-'，等宽截断+tooltip */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <p className="truncate font-mono text-xs text-muted-foreground">
+              {pool.poolAddress || '-'}
+            </p>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-sm break-all font-mono text-xs">
+            {pool.poolAddress || '-'}
+          </TooltipContent>
+        </Tooltip>
+        <dl className="mt-3 space-y-2 text-sm">
+          <div className="flex items-center justify-between gap-2">
             <dt className="text-muted-foreground">{LBL.balance}</dt>
             <dd>
               <Num>
@@ -164,7 +183,34 @@ function PoolCard({ pool }: { pool: DashboardPoolCard }) {
               </Num>
             </dd>
           </div>
-          <div className="flex justify-between gap-2">
+          <div>
+            <div className="flex items-center justify-between text-xs">
+              <dt className="flex items-center gap-1 text-muted-foreground">
+                {LBL.waterLevel}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <CircleHelp
+                      className="h-3.5 w-3.5 cursor-help text-muted-foreground/70"
+                      aria-hidden="true"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>{LBL.waterLevelHelp}</TooltipContent>
+                </Tooltip>
+              </dt>
+              <dd>
+                <Num>{levelText(pool.level)}</Num>
+              </dd>
+            </div>
+            <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className={`h-full rounded-full ${levelBarClass(pool.level)}`}
+                style={{
+                  width: `${Math.min(Number(pool.level ?? 0) * 100, 100)}%`,
+                }}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
             <dt className="text-muted-foreground">{LBL.preauthAvailable}</dt>
             <dd>
               <Num>
@@ -175,22 +221,9 @@ function PoolCard({ pool }: { pool: DashboardPoolCard }) {
             </dd>
           </div>
         </dl>
-        <div className="mt-3">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{LBL.waterLevel}</span>
-            <span>{levelText(pool.level)}</span>
-          </div>
-          <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className={`h-full rounded-full ${levelBarClass(pool.level)}`}
-              style={{
-                width: `${Math.min(Number(pool.level ?? 0) * 100, 100)}%`,
-              }}
-            />
-          </div>
-        </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          {LBL.updated} {formatTime(pool.syncTime)}
+          {LBL.updated}{' '}
+          {pool.balanceUpdateTime ? formatTime(pool.balanceUpdateTime) : '-'}
         </p>
       </CardContent>
     </Card>
@@ -198,41 +231,65 @@ function PoolCard({ pool }: { pool: DashboardPoolCard }) {
 }
 
 /* ================================================================== */
-/* 折线卡：7/14/30 天 radio + VolumeChart                                */
+/* 折线卡：维度 radio（pair/currency）+ 7/14/30 天 radio + VolumeChart    */
 /* ================================================================== */
 
 const DAY_OPTIONS = [7, 14, 30] as const;
+
+type VolumeMode = 'pair' | 'currency';
 
 /** 本地日切窗口（GMT+8 由后端聚合口径决定；前端仅生成日期序列名）。 */
 function localDays(count: number): string[] {
   const out: string[] = [];
   const today = new Date();
   for (let i = count - 1; i >= 0; i -= 1) {
-    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+    const d = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() - i,
+    );
     const p = (n: number) => String(n).padStart(2, '0');
     out.push(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
   }
   return out;
 }
 
-function VolumeCard() {
+/**
+ * 折线卡（v2.4 双维度）：mode 切换**纯客户端重分组**（不重拉数据）；days
+ * 切换重拉 `GET /dashboard/volume?days=N`；refreshSeq 由页头 Refresh 递增
+ * 触发重拉（源 load = summary+volume 两请求）。
+ */
+function VolumeCard({ refreshSeq }: { refreshSeq: number }) {
+  const [mode, setMode] = React.useState<VolumeMode>('pair');
   const [days, setDays] = React.useState<number>(7);
   const query = useDashboardVolumeQuery(LP_PROJECT_ID, days);
+  const { symOf } = useTokenMeta(LP_PROJECT_ID);
   const window = React.useMemo(() => localDays(days), [days]);
 
-  /** 行 → 按 token 对序列：`SRC→TGT` 命名、localeCompare 降序截前 6。 */
+  React.useEffect(() => {
+    if (refreshSeq > 0) void query.refetch();
+  }, [refreshSeq]);
+
+  /**
+   * 序列：pair 模式每 token 对一条 `SRC/TGT`（symOf 口径）；currency 模式
+   * 按源端币种 symOf(sourceTokenCode) 成交本金加总一条；均按 name
+   * localeCompare 降序截前 6。
+   */
   const series = React.useMemo<VolumeSeries[]>(() => {
-    const byPair = new Map<string, VolumeSeries>();
+    const byKey = new Map<string, VolumeSeries>();
     for (const row of query.data ?? []) {
-      const name = `${row.sourceTokenCode}→${row.targetTokenCode}`;
-      const cur = byPair.get(name) ?? { name, points: [] };
-      cur.points.push({ day: row.day, v: Number(row.total) });
-      byPair.set(name, cur);
+      const name =
+        mode === 'pair'
+          ? `${symOf(row.sourceTokenCode)}/${symOf(row.targetTokenCode)}`
+          : symOf(row.sourceTokenCode);
+      const cur = byKey.get(name) ?? { name, points: [] };
+      cur.points.push({ day: row.day, v: Number(row.total) || 0 });
+      byKey.set(name, cur);
     }
-    return [...byPair.values()]
+    return [...byKey.values()]
       .sort((a, b) => b.name.localeCompare(a.name))
       .slice(0, 6);
-  }, [query.data]);
+  }, [query.data, mode, symOf]);
 
   return (
     <Card>
@@ -241,138 +298,65 @@ function VolumeCard() {
           <CardTitle>{LBL.volumeTitle}</CardTitle>
           <CardDescription>{LBL.volumeSub}</CardDescription>
         </div>
-        <div
-          className="flex gap-1"
-          role="radiogroup"
-          aria-label={LBL.volumeTitle}
-        >
-          {DAY_OPTIONS.map((n) => (
-            <Button
-              key={n}
-              size="sm"
-              variant="outline"
-              aria-pressed={days === n}
-              className={
-                days === n ? 'border-primary text-primary' : undefined
-              }
-              onClick={() => setDays(n)}
-            >
-              {n === 7 ? LBL.last7 : n === 14 ? LBL.last14 : LBL.last30}
-            </Button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 维度 radio：切换不重拉（客户端重分组） */}
+          <div
+            className="flex gap-1"
+            role="radiogroup"
+            aria-label={LBL.volumeTitle}
+          >
+            {(
+              [
+                ['pair', LBL.modePair],
+                ['currency', LBL.modeCurrency],
+              ] as const
+            ).map(([m, text]) => (
+              <Button
+                key={m}
+                size="sm"
+                variant="outline"
+                aria-pressed={mode === m}
+                className={
+                  mode === m ? 'border-primary text-primary' : undefined
+                }
+                onClick={() => setMode(m)}
+              >
+                {text}
+              </Button>
+            ))}
+          </div>
+          <div
+            className="flex gap-1"
+            role="radiogroup"
+            aria-label={LBL.volumeTitle}
+          >
+            {DAY_OPTIONS.map((n) => (
+              <Button
+                key={n}
+                size="sm"
+                variant="outline"
+                aria-pressed={days === n}
+                className={
+                  days === n ? 'border-primary text-primary' : undefined
+                }
+                onClick={() => setDays(n)}
+              >
+                {n === 7 ? LBL.last7 : n === 14 ? LBL.last14 : LBL.last30}
+              </Button>
+            ))}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         <VolumeChart days={window} series={series} />
+        {/* currency 口径注释（卡底右对齐） */}
+        {mode === 'currency' && (
+          <p className="mt-2 text-right text-xs text-muted-foreground">
+            {LBL.currencyNote}
+          </p>
+        )}
       </CardContent>
     </Card>
-  );
-}
-
-/* ================================================================== */
-/* 最近交易表                                                            */
-/* ================================================================== */
-
-/** DataTable 行标识：id:string 与 transactionId:number 撞名拆分承载。 */
-type RecentRow = Omit<DashboardRecentTx, 'id' | 'transactionId'> & {
-  id: string;
-  transactionId: number;
-};
-
-function RecentTable() {
-  const query = useDashboardSummaryQuery(LP_PROJECT_ID);
-  const { symOf, bankOf } = useTokenMeta(LP_PROJECT_ID);
-
-  const rows = React.useMemo<RecentRow[]>(
-    () =>
-      (query.data?.recentTxs ?? []).map((t) => ({
-        ...t,
-        id: String(t.transactionId),
-      })),
-    [query.data],
-  );
-
-  const columns = React.useMemo<ColumnDef<RecentRow>[]>(
-    () => [
-      {
-        accessorFn: (r) => r.txNo || '-',
-        id: 'txNo',
-        header: LBL.colTxNo,
-        cell: (c) => <Num>{c.getValue<string>()}</Num>,
-      },
-      {
-        accessorFn: (r) => r.pairCode || '-',
-        id: 'pairCode',
-        header: LBL.colTokenPair,
-      },
-      {
-        id: 'tokens',
-        header: LBL.colTokens,
-        cell: (c) => {
-          const r = c.row.original;
-          return (
-            <div className="min-w-0">
-              <p className="truncate font-mono text-xs font-semibold tabular-nums">
-                {symOf(r.sourceTokenCode)}/{symOf(r.targetTokenCode)}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {bankOf(r.sourceTokenCode)} → {bankOf(r.targetTokenCode)}
-              </p>
-            </div>
-          );
-        },
-      },
-      {
-        accessorFn: (r) => r.principal,
-        id: 'principal',
-        header: () => <div className="text-right">{LBL.colPrincipal}</div>,
-        cell: (c) => (
-          <div className="text-right">
-            <Num>{formatMoney(c.row.original.principal)}</Num>
-          </div>
-        ),
-      },
-      {
-        accessorFn: (r) => r.receiverAmount,
-        id: 'receiverAmount',
-        header: () => <div className="text-right">{LBL.colReceiver}</div>,
-        cell: (c) => (
-          <div className="text-right">
-            <Num>{formatMoney(c.row.original.receiverAmount)}</Num>
-          </div>
-        ),
-      },
-      {
-        accessorFn: (r) => r.status,
-        id: 'status',
-        header: LBL.colStatus,
-        cell: (c) => {
-          const r = c.row.original;
-          const variant = DASHBOARD_TX_STATUS_VARIANT[r.status] ?? 'secondary';
-          const text = TX_STATUS_LABEL[r.status] ?? String(r.status);
-          return <Badge variant={variant as BadgeVariant}>{text}</Badge>;
-        },
-      },
-      {
-        accessorFn: (r) => r.completedTime,
-        id: 'completedTime',
-        header: LBL.colCompleted,
-        cell: (c) =>
-          c.row.original.completedTime === 0
-            ? '-'
-            : formatTime(c.row.original.completedTime),
-      },
-    ],
-    [symOf, bankOf],
-  );
-
-  return (
-    <DataTable
-      columns={columns}
-      data={rows}
-      isLoading={query.isLoading}
-      emptyMessage={LBL.emptyRecent}
-    />
   );
 }
 
@@ -384,98 +368,94 @@ export function DashboardPage() {
   const query = useDashboardSummaryQuery(LP_PROJECT_ID);
   const data = query.data;
   const stats = data?.stats;
+  /** 页头 Refresh 递增序号 → summary refetch + VolumeCard 重拉。 */
+  const [refreshSeq, setRefreshSeq] = React.useState(0);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            {LBL.eyebrow}
+    <TooltipProvider delayDuration={200}>
+      <div className="space-y-4">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              {LBL.eyebrow}
+            </div>
+            <h1 className="text-xl font-semibold">{LBL.title}</h1>
           </div>
-          <h1 className="text-xl font-semibold">{LBL.title}</h1>
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => void query.refetch()}
-          disabled={query.isFetching}
-        >
-          <RefreshCw
-            className={`mr-1.5 h-3.5 w-3.5 ${query.isFetching ? 'animate-spin' : ''}`}
-          />
-          Refresh
-        </Button>
-      </div>
-
-      {/* 统计卡四宫格 */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label={LBL.statPools}
-          value={String(stats?.poolsOpen ?? 0)}
-          sub={`${data?.pools.length ?? 0} ${LBL.statPoolsSub}`}
-        />
-        <StatCard
-          label={LBL.statPairs}
-          value={String(stats?.pairsActive ?? 0)}
-          sub={LBL.statPairsSub}
-        />
-        <StatCard
-          label={LBL.statToday}
-          value={`${stats?.txToday ?? 0} ${LBL.unitTx}`}
-          sub={LBL.statTodaySub}
-        />
-        <StatCard
-          label={LBL.statCompleted}
-          value={`${stats?.txCompleted ?? 0} ${LBL.unitTx}`}
-          sub={`${LBL.statCompletedSub} ${formatMoney(stats?.principalTotal ?? 0)}`}
-        />
-      </div>
-
-      {/* 我的资金池 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{LBL.myPools}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {data && data.pools.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-6 text-sm text-muted-foreground">
-              <p>{LBL.emptyPools}</p>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/pool">
-                  {LBL.openPool}
-                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                </Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {(data?.pools ?? []).map((p) => (
-                <PoolCard key={p.poolId} pool={p} />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 成交量折线 */}
-      <VolumeCard />
-
-      {/* 最近交易 */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>{LBL.recent}</CardTitle>
-          <Link
-            href="/tx-flow"
-            className="flex items-center gap-1 text-sm text-primary hover:underline"
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setRefreshSeq((n) => n + 1);
+              void query.refetch();
+            }}
+            disabled={query.isFetching}
           >
-            {LBL.viewTxFlow}
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </CardHeader>
-        <CardContent>
-          <RecentTable />
-        </CardContent>
-      </Card>
-    </div>
+            <RefreshCw
+              className={`mr-1.5 h-3.5 w-3.5 ${query.isFetching ? 'animate-spin' : ''}`}
+            />
+            Refresh
+          </Button>
+        </div>
+
+        {/* 统计卡四宫格（stats 缺失显 '-'） */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard
+            label={LBL.statPools}
+            value={stats ? String(stats.poolsOpen) : '-'}
+            sub={`${data?.pools.length ?? 0} ${LBL.statPoolsSub}`}
+          />
+          <StatCard
+            label={LBL.statPairs}
+            value={stats ? String(stats.pairsActive) : '-'}
+            sub={LBL.statPairsSub}
+          />
+          <StatCard
+            label={LBL.statToday}
+            value={
+              stats ? `${stats.txToday} ${LBL.unitTx}` : `- ${LBL.unitTx}`
+            }
+            sub={LBL.statTodaySub}
+          />
+          <StatCard
+            label={LBL.statCompleted}
+            value={
+              stats
+                ? `${stats.txCompleted} ${LBL.unitTx}`
+                : `- ${LBL.unitTx}`
+            }
+            sub={`${LBL.statCompletedSub} ${formatMoney(stats?.principalTotal ?? 0)}`}
+          />
+        </div>
+
+        {/* 我的资金池 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{LBL.myPools}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data && data.pools.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-6 text-sm text-muted-foreground">
+                <p>{LBL.emptyPools}</p>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/pool">
+                    {LBL.openPool}
+                    <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {(data?.pools ?? []).map((p) => (
+                  <PoolCard key={p.poolId} pool={p} />
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 成交量折线（v2.4 双维度） */}
+        <VolumeCard refreshSeq={refreshSeq} />
+      </div>
+    </TooltipProvider>
   );
 }

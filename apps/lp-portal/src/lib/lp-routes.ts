@@ -14,17 +14,16 @@ import type { MenuTreeRespVO } from '@myorg/modules/lp-portal/data-access';
  * menuKey → 目标路径（源路径 → 注册表适配）。
  * 适配点：源 /system/*→/sys/*；lp:log → /syslog（注册表 syslog 模块，非 /sys/log）。
  * v2.3（上游 e591f85）：新增 lp:dashboard；lp:rate / lp:receipt 退役。
- * 三键 lp:token / lp:preauth / lp:split：目标路径与源一致，无适配点。
+ * v2.4（上游 6c49396）：lp:settle → /split-settle（合并页）；lp:split /
+ * lp:preauth 退役（三页并为「分成与结算」单页）。
  */
 export const MENU_ROUTE_MAP: Record<string, string> = {
   'lp:dashboard': '/dashboard',
   'lp:pool': '/pool',
   'lp:token': '/token',
   'lp:pair': '/pair',
-  'lp:split': '/split',
   'lp:txflow': '/tx-flow',
-  'lp:preauth': '/preauth',
-  'lp:settle': '/settle',
+  'lp:settle': '/split-settle',
   'lp:user': '/sys/user',
   'lp:role': '/sys/role',
   'lp:menu': '/sys/menu',
@@ -46,10 +45,8 @@ export const PATH_MENU_KEY: Record<string, string> = Object.fromEntries(
 export const ROOT_CANDIDATES: readonly string[] = [
   'lp:dashboard',
   'lp:pool',
-  'lp:preauth',
   'lp:pair',
   'lp:txflow',
-  'lp:split',
   'lp:settle',
   'lp:token',
   'lp:user',
@@ -78,13 +75,11 @@ export const MENU_LABELS: Record<string, string> = {
   'lp:dashboard': 'Dashboard',
   liquidity: 'Liquidity',
   'lp:pool': 'Liquidity Pools',
-  'lp:preauth': 'Pre-authorization Monitoring',
   'lp:token': 'Bank Token Directory',
   'lp:pair': 'Token Pair Management',
   'lp:txflow': 'Transaction Flow',
   splitsettle: 'Splits & Settlement',
-  'lp:split': 'My Split',
-  'lp:settle': 'Settlement',
+  'lp:settle': 'Splits & Settlement',
   system: 'System',
   'lp:user': 'User Management',
   'lp:role': 'Roles & Permissions',
@@ -96,7 +91,8 @@ export const MENU_LABELS: Record<string, string> = {
  * menuKey → lucide 图标名（源 MainLayout MENU_ICONS 的 Element Plus 图标
  * 到 lucide 的等价映射；未命中回退 'Menu'，源 fallback 语义）。
  * v2.3：组键 liquidity/splitsettle/system；dashboard=Gauge(Odometer)、
- * preauth=Ticket、token=Coins(Coin)；rate/receipt/market/business 键移除。
+ * token=Coins(Coin)；rate/receipt/market/business 键移除。
+ * v2.4：settle=Money（源 el-icon Money）；split/preauth 键随页面退役移除。
  */
 export const MENU_ICONS: Record<string, string> = {
   liquidity: 'Wallet',
@@ -106,10 +102,8 @@ export const MENU_ICONS: Record<string, string> = {
   'lp:pool': 'Wallet',
   'lp:token': 'Coins',
   'lp:pair': 'ArrowLeftRight',
-  'lp:split': 'PieChart',
   'lp:txflow': 'List',
-  'lp:preauth': 'Ticket',
-  'lp:settle': 'CreditCard',
+  'lp:settle': 'Money',
   'lp:user': 'Users',
   'lp:role': 'ShieldCheck',
   'lp:menu': 'Menu',

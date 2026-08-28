@@ -8,8 +8,9 @@
  * lpRequest 拦截器对无 code 字段的包体原样透传，本域直读不做二次解包。
  * `/split/list` 则为普通行数组。
  *
- * 字段沿用本仓裁决口径：源 sourceTokenCode/targetTokenCode →
- * sourceCurrency/targetCurrency、金额 number 直读（settle/tx-flow 域同款）；
+ * 字段沿用源 wire 真名 sourceTokenCode/targetTokenCode（实测后端返回即此
+ * 名，旧文档的 sourceCurrency 裁决口径作废——类型改名但无映射层导致
+ * 页面渲染 '-'）；金额 number 直读（settle/tx-flow 域同款）；
  * pairCode 允许缺省（后端旧数据无码，页面回落 pairId 展示）。
  */
 
@@ -18,8 +19,8 @@ export interface SplitRow {
   pairId: number;
   /** 货币对编码；空值页面回落 String(pairId) */
   pairCode?: string;
-  sourceCurrency: string;
-  targetCurrency: string;
+  sourceTokenCode: string;
+  targetTokenCode: string;
   /** 我的分成比例（0〜1 小数比率；null 页面显 '-'） */
   mySplitRatio: number | null;
   /** 对默认分成比例（0〜1） */
@@ -39,6 +40,8 @@ export interface SplitDetailRow {
   txNo?: string;
   /** 货币对编码；空值页面显 '-' */
   pairCode?: string;
+  /** v2.4 分成币种（源端 token symbol 优先回退 code）；空显 '-' */
+  currency?: string;
   principal: string | number;
   markupAmount: string | number;
   /** 分成比例（0〜1，页面 ×100 显 %） */

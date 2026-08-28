@@ -47,3 +47,14 @@
 - DataTable 行键覆盖 × model 自带 `id: number`：`{...r, id:String(r.id)}` 使 `T & {id:string}` 的 id 变 never；用 `Omit<T,'id'> & {id:string}` 模块级别名统一列/回调/弹窗 props。
 - 浏览器批量走查：工具默认 30s 超时，拆批 ≤4 页 + 显式 timeout；截图用 `page.screenshot({path})` 直存（`tab.screenshot()` 不收路径）；登录态会中途过期把批内后半踢到登录页（同时是 code='2' 分支实测机会），批前先登录。
 - 写操作流程的运行时实证需后端种子数据；无种子以「渲染全绿 + 只读交互实测 + 按钮级矩阵静态保证」收口并明示边界。
+
+## v2.4 LP5 门户批次（上游 6c49396，2026-08-28 同步实录）
+
+- 结算单层**不可加总跨币种金额**：currencies 集合列展示，金额只在 token 对分项；抽屉「本单周期内」流水来自独立端点 /settle/order-records（非 items 内嵌）。同步时易把分项金额上卷成单据总额。
+- 折线双维度：mode 切换**纯客户端重分组不重拉**（浏览器 network 实证零新请求）；currency 序列按 symOf(sourceTokenCode) 聚合源端本金；pair 序列 name v2.4 改用 symOf（v2.3 是 tokenCode）。
+- tx-flow FX Rate：userRate 0/缺失→'-'（0=无成交快照不是免费），非零 en-US 千分位 max 8 位小数。
+- preauth 页面退役 ≠ 数据退役：preauth 快照消费方=pool 两列 + Dashboard 池卡；SyncDomainCode 'preauth' 枚举保留。
+- **类型改名无映射层=线上渲染 '-'**（本批次实测翻车）：早期裁决把 wire 字段 sourceTokenCode/targetTokenCode 改名 sourceCurrency/targetCurrency 写进 SplitRow，raw api 无映射——浏览器冒烟才暴露 Token Pair 列全 '-'。教训：data-access 类型必须用 wire 真名，「裁决改名」只允许发生在展示层。
+- 页头 Refresh=summary+volume 双拉语义：refreshSeq state 传 VolumeCard 触发 refetch，勿把 mode 切换误接进重拉链路。
+- dashboard 池卡 bankName 是 DashboardPoolCard 必有字段（转录时漏过一次）；写类型逐字段对照上游 template，勿凭记忆。
+- edit 工具行号漂移本批次复发三次（重复键/吞注释斜杠/覆盖相邻行）：大改用 write 整文件重写；小段 PUT 后立即读输出复查；报 "no longer parses" 先读破坏区再续。

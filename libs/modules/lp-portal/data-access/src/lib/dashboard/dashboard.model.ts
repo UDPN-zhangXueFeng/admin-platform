@@ -1,8 +1,8 @@
 /**
  * Dashboard 域模型（源 `src/types/business.ts` DashboardStats /
- * DashboardPoolCard / DashboardRecentTx / DashboardSummary + `src/api/
- * dashboard.ts` VolumeRow + `src/views/dashboard/index.vue` 码表，v2.3
- * e591f85 登录落地页）。
+ * DashboardPoolCard / DashboardSummary + `src/api/dashboard.ts` VolumeRow +
+ * `src/views/dashboard/index.vue` 码表，v2.3 e591f85 登录落地页；
+ * v2.4 6c49396：池卡增 poolAddress、recentTxs 移除）。
  *
  * 只读聚合域：无 mutations；池状态码表复用 pool 域（同一后端码表同一译文）；
  * 交易状态 tag 采用 dashboard 独立口径（⚠️ 与 tx-flow 列表口径并存，01 §E21）。
@@ -29,6 +29,8 @@ export interface DashboardPoolCard {
   tokenName: string;
   bankCode: string;
   bankName: string;
+  /** v2.4 池地址（货币系统账户）；卡片第三行，空显 '-'（等宽截断+tooltip 原文） */
+  poolAddress?: string;
   balance: string | number | null;
   /** 水位 = 余额 ÷ token 最低流动性（null = 分母缺失；可超 100%，进度条封顶 100 显示） */
   level: string | null;
@@ -39,27 +41,11 @@ export interface DashboardPoolCard {
   syncTime: number;
 }
 
-/** 「最近交易」表行（summary → recentTxs，无分页全量）。 */
-export interface DashboardRecentTx {
-  transactionId: number;
-  /** 空显 '-'（txNo 固定口径，v2.3） */
-  txNo?: string;
-  /** 空显 '-' */
-  pairCode?: string;
-  sourceTokenCode: string;
-  targetTokenCode: string;
-  principal: string | number;
-  receiverAmount: string | number;
-  status: number;
-  /** 0 = 未完成，显 '-' */
-  completedTime: number;
-}
-
-/** GET /dashboard/summary 聚合响应（lpId 后端登录态注入，前端不传）。 */
+/** GET /dashboard/summary 聚合响应（lpId 后端登录态注入，前端不传）；
+ * v2.4 移除 recentTxs（最近交易退役，成交量口径走折线图）。 */
 export interface DashboardSummary {
   stats: DashboardStats;
   pools: DashboardPoolCard[];
-  recentTxs: DashboardRecentTx[];
 }
 
 /** 近 N 天按 token 对日粒度成交量行（GET /dashboard/volume?days=N，折线图数据源）。 */

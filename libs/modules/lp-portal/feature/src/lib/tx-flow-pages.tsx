@@ -43,7 +43,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@myorg/shared/ui';
-import { FormField, FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
+import {
+  FormField,
+  FormSelect,
+  type SelectOption,
+} from '@myorg/shared/ui-forms';
 
 import {
   LP_PROJECT_ID,
@@ -138,12 +142,6 @@ function TxStatusBadge({ status }: { status: number }) {
   );
 }
 
-/** Money cell using the shared formatter - identical caliber for both columns. */
-function Money({ v }: { v: string | number | null | undefined }) {
-  return (
-    <span className="font-mono text-xs tabular-nums">{formatMoney(v)}</span>
-  );
-}
 
 /**
  * Tx No. cell: fixed v2.3 caliber (`txNo || '-'`, no txUuid/transactionId
@@ -168,8 +166,9 @@ function TxNoCell({ value }: { value: string }) {
 /* ================================================================== */
 
 export function TxFlowListPage() {
-  const { register, handleSubmit, reset, control } =
-    useForm<TxFlowFilterForm>({ defaultValues: EMPTY_FILTER });
+  const { register, handleSubmit, reset, control } = useForm<TxFlowFilterForm>({
+    defaultValues: EMPTY_FILTER,
+  });
   const [params, setParams] = React.useState<TxFlowQueryParams>(() =>
     formToParams(EMPTY_FILTER),
   );
@@ -213,15 +212,6 @@ export function TxFlowListPage() {
         cell: ({ row }) => <TxNoCell value={txNoText(row.original)} />,
       },
       {
-        accessorKey: 'pairCode',
-        header: 'Token Pair',
-        cell: ({ row }) => (
-          <span className="font-mono text-xs">
-            {row.original.pairCode || '-'}
-          </span>
-        ),
-      },
-      {
         // v2.3 compact pair replaces the direction column: bold symbol row
         // over the muted bank row (symOf/bankOf fall back to the raw code)
         id: 'tokens',
@@ -240,15 +230,67 @@ export function TxFlowListPage() {
         ),
       },
       {
-        accessorKey: 'principal',
-        header: 'Principal',
-        cell: ({ row }) => <Money v={row.original.principal} />,
+        // v2.4 From column: sender wallet (tooltip full text, mono
+        // truncated) over the principal amount (source .wallet/.amount)
+        id: 'from',
+        header: 'From',
+        cell: ({ row }) => (
+          <div className="min-w-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="max-w-[200px] truncate font-mono text-xs">
+                  {row.original.senderAccount || '-'}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm break-all font-mono text-xs">
+                {row.original.senderAccount || '-'}
+              </TooltipContent>
+            </Tooltip>
+            <div className="font-mono text-xs tabular-nums text-muted-foreground">
+              {formatMoney(row.original.principal)}
+            </div>
+          </div>
+        ),
       },
       {
-        accessorKey: 'receiverAmount',
-        header: 'Receiver Amount',
-        // Optional field: formatMoney's v2.3 null fallback renders '-'
-        cell: ({ row }) => <Money v={row.original.receiverAmount} />,
+        // v2.4 To column: receiver wallet + receiver amount (same two-line
+        // shape as From; optional fields fall back to '-' via formatMoney)
+        id: 'to',
+        header: 'To',
+        cell: ({ row }) => (
+          <div className="min-w-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="max-w-[200px] truncate font-mono text-xs">
+                  {row.original.receiverAccount || '-'}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm break-all font-mono text-xs">
+                {row.original.receiverAccount || '-'}
+              </TooltipContent>
+            </Tooltip>
+            <div className="font-mono text-xs tabular-nums text-muted-foreground">
+              {formatMoney(row.original.receiverAmount)}
+            </div>
+          </div>
+        ),
+      },
+      {
+        // v2.4 FX Rate: userRate null/''/NaN/0 -> '-', else en-US grouping
+        // with up to 8 fraction digits (source rateText, admin FX caliber)
+        accessorKey: 'userRate',
+        header: 'FX Rate',
+        cell: ({ row }) => {
+          const v = row.original.userRate;
+          const n = v == null || v === '' ? NaN : Number(v);
+          return (
+            <span className="block text-right font-mono text-xs tabular-nums">
+              {Number.isNaN(n) || n === 0
+                ? '-'
+                : n.toLocaleString('en-US', { maximumFractionDigits: 8 })}
+            </span>
+          );
+        },
       },
       {
         accessorKey: 'status',
@@ -280,16 +322,17 @@ export function TxFlowListPage() {
         ),
       },
       {
-        accessorKey: 'syncTime',
-        header: 'Data Time',
-        cell: ({ row }) => {
-          const t = row.original.syncTime;
-          return (
-            <span className="font-mono text-xs tabular-nums">
-              {t == null || t === 0 ? '-' : formatTime(t)}
-            </span>
-          );
-        },
+        // v2.4 Created At: createTime falsy -> '-' (new column; the Data
+        // Time / syncTime column was retired upstream)
+        accessorKey: 'createTime',
+        header: 'Created At',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums">
+            {row.original.createTime
+              ? formatTime(row.original.createTime)
+              : '-'}
+          </span>
+        ),
       },
       {
         id: 'actions',

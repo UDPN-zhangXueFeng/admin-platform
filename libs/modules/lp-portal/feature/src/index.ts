@@ -6,7 +6,9 @@
  * format 工具）。
  * 真实页（R3）：system role（C2 角色管理：列表 + 角色/分配菜单弹窗）。
  * v2.3 e591f85：rate 页退役（汇率列并入 pair）、receipt 占位随上游路由
- * 退役删除；新增 Dashboard 落地页（统计卡 + 资金池 + 自绘折线 + 最近交易）。
+ * 退役删除；新增 Dashboard 落地页。
+ * v2.4 6c49396：preauth/split/settle 三页退役，合并为 split-settle
+ * 单页（分成与结算）；dashboard 删最近交易、折线双维度。
  */
 // ── 跨页构件 ──────────────────────────────────────────────────────────
 // A6 v-perm 等价（无 key 时移除按钮）
@@ -37,13 +39,13 @@ export { PairListPage } from './lib/pair-pages';
 // 路径消费，不入公共出口；源无 detail 路由）
 export { TxFlowListPage } from './lib/tx-flow-pages';
 
-// 结算（B7 真实页：单页双 tab（流水/结算单）独立分页独立筛选，无 detail 路由）
-export { SettleListPage } from './lib/settle-pages';
+// 分成与结算（v2.4 6c49396 合并页：当前生效比例 + 分成明细 + 结算单 +
+// 详情抽屉（分项 + 本单流水）；取代原 split/settle/preauth 三页）
+export { SplitSettlePage } from './lib/split-settle-pages';
 
 // Dashboard（v2.3 登录落地页，lp:dashboard：统计卡四宫格 + 我的资金池 +
-// Transaction Volume Statistics 自绘 SVG 折线 + 最近交易，只读无子路由）。
+// Transaction Volume Statistics 自绘 SVG 折线（v2.4 双维度），只读无子路由）。
 export { DashboardPage } from './lib/dashboard-pages';
-
 
 // 操作日志（C4 真实页：只读分页，POST /lp/log/page，lp_id 后端注入）
 export { SyslogListPage } from './lib/syslog-pages';
@@ -57,9 +59,8 @@ export { RoleListPage } from './lib/role-pages';
 export { MenuListPage } from './lib/system-pages';
 // 市场组（G2）：Token 总览（双 tab：平铺列表 + 按银行分组）。
 export { TokenListPage } from './lib/token-pages';
-// 流动性组（G3）：预授权监控（只读快照）+ 我的分成（双卡片）。
-export { PreauthListPage } from './lib/preauth-pages';
-export { SplitListPage } from './lib/split-pages';
+// 流动性组（G3）：v2.4 6c49396——preauth 监控页与我的分成独立页退役，
+// 行为并入 split-settle 合并页与 pool/Dashboard 的预授权列。
 // 壳层组（G6）：通知铃铛抽屉（lp-app-shell 经 AppShell trailing 插槽挂载）。
 export { NotificationBellDrawer } from './lib/notification-bell-drawer';
 export { ThemeSwitcher } from './lib/theme-switcher';

@@ -5,6 +5,7 @@
  * （auth / pool / pair / tx-flow / settle / user / menu /
  * log / role / dashboard）五件套聚合。
  * v2.3 e591f85：rate 域退役删除；新增 dashboard 域与 token-meta 统一口径。
+ * v2.4 6c49396：preauth 域退役删除；settle 域改 orders + order-records。
  */
 export {
   LP_PROJECT_ID,
@@ -48,8 +49,8 @@ export * from './lib/role';
 export * from './lib/token';
 export * from './lib/sync';
 
-// 流动性组新增域（G3）：预授权快照 + 我的分成（只读，无 mutations）。
-export * from './lib/preauth';
+// 流动性组（G3）：我的分成（只读，无 mutations）。v2.4 6c49396：preauth
+// 快照域随上游 preauth 页退役删除（消费方并入 pool 列与 Dashboard 池卡）。
 export * from './lib/split';
 
 

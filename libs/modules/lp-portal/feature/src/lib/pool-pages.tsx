@@ -142,7 +142,9 @@ function levelBarWidth(row: PoolRow): string {
 function PoolStatusCell({ row }: { row: PoolRow }) {
   const variant: BadgeVariant = POOL_STATUS_VARIANT[row.status] ?? 'secondary';
   const badge = (
-    <Badge variant={variant}>{POOL_STATUS_TEXT[row.status] ?? row.status}</Badge>
+    <Badge variant={variant}>
+      {POOL_STATUS_TEXT[row.status] ?? row.status}
+    </Badge>
   );
   if (row.status === 15 && row.rejectReason) {
     return (
@@ -213,9 +215,7 @@ function ApplyPoolDialog({
     [tokens],
   );
 
-  const selectedToken = (tokens ?? []).find(
-    (t) => t.tokenId === form.tokenId,
-  );
+  const selectedToken = (tokens ?? []).find((t) => t.tokenId === form.tokenId);
 
   /** 阈值输入收敛：NaN→0、限幅 0〜1、precision 2（源 :min/:max/:precision）。 */
   const handleThresholdChange = (raw: string) => {
@@ -391,14 +391,22 @@ export function PoolListPage() {
         header: 'Pool ID',
         cell: ({ row }) => <Num>{row.original.poolId}</Num>,
       },
-      // 源列序 2：Token（plain round tag → outline Badge）
+      // 源列序 2：Token（plain round tag + 银行行；v2.4 两行式）
       {
         accessorKey: 'tokenCode',
         header: 'Token',
         cell: ({ row }) => (
-          <Badge variant="outline" className="rounded-full font-normal">
-            {row.original.tokenCode}
-          </Badge>
+          <div className="flex flex-col gap-0.5">
+            <Badge
+              variant="outline"
+              className="w-fit rounded-full font-normal font-mono"
+            >
+              {row.original.tokenCode}
+            </Badge>
+            <div className="text-xs text-muted-foreground">
+              {row.original.bankName || row.original.bankCode || '-'}
+            </div>
+          </div>
         ),
       },
       // 源列序 3：池地址（maskAddress + tooltip 全文）
@@ -422,17 +430,43 @@ export function PoolListPage() {
       {
         accessorKey: 'availableBalanceCache',
         header: 'Available Balance',
-        cell: ({ row }) => (
-          <MoneyCell v={row.original.availableBalanceCache} />
-        ),
+        cell: ({ row }) => <MoneyCell v={row.original.availableBalanceCache} />,
       },
-      // 源列序 5：水位（level!=null → 进度条 + 百分比；null → '-'）
+      // 源列序 5（v2.4 新增）：授权额度（preauthAuthAmount；null → '-'
+      // 挂 tooltip「暂无预授权快照」——preauth 独立页退役后快照并入池列表）
+      {
+        accessorKey: 'preauthAuthAmount',
+        header: 'Authorized Amount',
+        cell: ({ row }) =>
+          row.original.preauthAuthAmount == null ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>-</span>
+              </TooltipTrigger>
+              <TooltipContent>No pre-authorization snapshot</TooltipContent>
+            </Tooltip>
+          ) : (
+            <MoneyCell v={row.original.preauthAuthAmount} />
+          ),
+      },
+      // 源列序 6（v2.4 新增）：可用授权额度（null → '-'，无 tooltip）
+      {
+        accessorKey: 'preauthAvailableAmount',
+        header: 'Available Authorization',
+        cell: ({ row }) =>
+          row.original.preauthAvailableAmount == null ? (
+            <span>-</span>
+          ) : (
+            <MoneyCell v={row.original.preauthAvailableAmount} />
+          ),
+      },
+      // 源列序 7：水位（level!=null → 进度条 + 百分比；null → '-'）
       {
         accessorKey: 'level',
         header: 'Level',
         cell: ({ row }) => <LevelCell row={row.original} />,
       },
-      // 源列序 6：余额数据时间（balanceUpdateTime falsy → '-'）
+      // 源列序 8：余额数据时间（balanceUpdateTime falsy → '-'）
       {
         accessorKey: 'balanceUpdateTime',
         header: 'Balance Data Time',

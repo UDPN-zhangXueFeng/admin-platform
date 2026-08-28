@@ -10,7 +10,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <main className="block min-h-screen bg-background">
+    <main className="kissen-auth block min-h-screen bg-background">
       {children}
     </main>
   );

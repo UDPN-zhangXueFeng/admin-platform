@@ -49,24 +49,16 @@ const pages: Record<string, Record<string, PageLoader>> = {
   pair: {
     list: lp('PairListPage'),
   },
-  // 我的分账（lp:split 新增键）：源为双卡片单页，无 create/edit/detail 路由；
-  // 组件由后续页面组交付，本表不做存在性校验。
-  split: {
-    list: lp('SplitListPage'),
-  },
-  // 预授权监控（lp:preauth 新增键）：源为只读单页，无 create/edit/detail 路由；
-  // 组件由后续页面组交付，本表不做存在性校验。
-  preauth: {
-    list: lp('PreauthListPage'),
+  // 分成与结算（v2.4 6c49396 合并页 lp:settle → /split-settle）：三分区
+  // 单页（当前生效比例/分成明细/结算单）+ 详情抽屉（分项+本单流水），
+  // 无 create/edit/detail 路由。原 split / preauth 独立页退役。
+  'split-settle': {
+    list: lp('SplitSettlePage'),
   },
   // 交易流水（B5/B6 真实页）：源为单页，链路明细即行点击开的页内抽屉，
   // 无 detail 路由。
   'tx-flow': {
     list: lp('TxFlowListPage'),
-  },
-  // 结算（B7 真实页）：源为单页双 tab（流水/结算单），无 detail 路由。
-  settle: {
-    list: lp('SettleListPage'),
   },
   syslog: {
     list: lp('SyslogListPage'),
