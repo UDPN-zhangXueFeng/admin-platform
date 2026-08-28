@@ -11,6 +11,8 @@ export interface InteractTokenRow {
   tokenId: number;
   tokenCode: string;
   tokenName?: string;
+  /** Symbol abbreviation; token display uses symbol first, falling back to code (source 2023418). */
+  symbol: string;
   /** true = this bank is banned from transacting this peer token. */
   banned: boolean;
 }

@@ -46,14 +46,13 @@ import {
   PAIR_STATUS_LABEL,
   PAIR_STATUS_VARIANT,
   tokenList,
+  useChangeTokenPairMutation,
   useDisableTokenPairMutation,
   useEnableTokenPairMutation,
   useSaveTokenPairMutation,
-  useSetTokenPairDefaultSplitMutation,
   useTokenPairListQuery,
   type TokenPairListFilter,
   type TokenPairRow,
-  type TokenPairSaveReq,
   type TokenRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
@@ -211,12 +210,14 @@ const STATUS_ALL = 'ALL';
 /**
  * Token 对管理列表页（registry key `pair` → TokenPairListPage）。
  *
- * 迁移自源 `views/fx-rate/pair/index.vue`（787ccc9）：
- * - 筛选：pairCode（Input 模糊，回车触发查询）/ 状态（20 Enabled/30 Frozen/50 Disabled）。
+ * 迁移自源 `views/fx-rate/pair/index.vue`（2023418）：
+ * - 筛选：pairCode（Input 模糊，回车触发查询）/ 状态（5 Pending Approval/
+ *   15 Rejected/20 Enabled/30 Frozen/50 Disabled，无 10——源同款）。
  * - 列：Token Pair 紧凑式（symbol 优先 + 银行副行 + pairCode）/ Base Rate / Markup Rate
  *   / User Rate（=base/(1+markup)，GW 口径）/ Default Split / Status / Created At。
- * - 行操作：View / Edit；status=20 → Disable + Adjust Default Split；status=50 → Enable；
- *   status=30（Frozen）无启停/分成操作（源同款）。
+ * - 行操作（2023418 审批口径）：View；status=20 → Change（pendingChange 时禁用，
+ *   KRC 审批）+ Disable；status=15 → Resubmit（KPT 重提）；status=50 → Enable。
+ *   Edit 与 Adjust Default Split 退役。
  * - 启停即时生效不走审批；确认流 AlertDialog，提示 sonner。
  * - 滑点阈值列/输入不迁移（源 2026-08-27 已移除，01 文档 §G 裁决13）。
  */
@@ -233,13 +234,16 @@ export function TokenPairListPage() {
   const enableMutation = useEnableTokenPairMutation(PROJECT_ID);
   const disableMutation = useDisableTokenPairMutation(PROJECT_ID);
 
-  // 页内弹窗（create/edit/view 收编原三路由页）+ 确认流 + 分成 prompt。
+  // 页内弹窗（create/view）+ 确认流 + 变更/重提弹窗（KRC/KPT）。
   const [dialog, setDialog] = React.useState<{
-    mode: 'create' | 'edit' | 'view';
+    mode: 'create' | 'view';
     row: TokenPairRow | null;
   } | null>(null);
   const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
-  const [splitRow, setSplitRow] = React.useState<TokenPairRow | null>(null);
+  const [change, setChange] = React.useState<{
+    mode: 'change' | 'resubmit';
+    row: TokenPairRow;
+  } | null>(null);
 
   const onSubmit = React.useCallback((form: PairFilterForm) => {
     setFilter({ pairCode: form.pairCode || undefined, status: form.status });
@@ -360,14 +364,21 @@ export function TokenPairListPage() {
             label: 'View',
             onClick: () => setDialog({ mode: 'view', row: item }),
           },
-          {
-            label: 'Edit',
-            onClick: () => setDialog({ mode: 'edit', row: item }),
-          },
         ];
+        // 2023418 审批口径：生效对改参合并为 Change（KRC）；已驳回重提走 Resubmit（KPT）。
         if (item.status === 20) {
+          actions.push({
+            label: item.pendingChange ? 'Change In Approval' : 'Change',
+            disabled: !!item.pendingChange,
+            onClick: () => setChange({ mode: 'change', row: item }),
+          });
           actions.push({ label: 'Disable', destructive: true, onClick: () => onDisable(item) });
-          actions.push({ label: 'Adjust Default Split', onClick: () => setSplitRow(item) });
+        }
+        if (item.status === 15) {
+          actions.push({
+            label: 'Resubmit',
+            onClick: () => setChange({ mode: 'resubmit', row: item }),
+          });
         }
         if (item.status === 50) {
           actions.push({ label: 'Enable', onClick: () => onEnable(item) });
@@ -414,6 +425,8 @@ export function TokenPairListPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={STATUS_ALL}>All</SelectItem>
+                    <SelectItem value="5">Pending Approval</SelectItem>
+                    <SelectItem value="15">Rejected</SelectItem>
                     <SelectItem value="20">Enabled</SelectItem>
                     <SelectItem value="30">Frozen</SelectItem>
                     <SelectItem value="50">Disabled</SelectItem>
@@ -458,8 +471,12 @@ export function TokenPairListPage() {
         />
       )}
 
-      {splitRow && (
-        <SplitDialog row={splitRow} onClosed={() => setSplitRow(null)} />
+      {change && (
+        <PairChangeDialog
+          mode={change.mode}
+          row={change.row}
+          onClosed={() => setChange(null)}
+        />
       )}
 
       <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />
@@ -468,7 +485,7 @@ export function TokenPairListPage() {
 }
 
 // ---------------------------------------------------------------------------
-// TokenPairDialog — 建对/编辑/查看（源 fx-rate/pair/pair-dialog.vue）
+// TokenPairDialog — 建对/查看（源 fx-rate/pair/pair-dialog.vue；2023418 起 edit 退役）
 // ---------------------------------------------------------------------------
 
 interface ComboRow {
@@ -563,27 +580,26 @@ interface TokenPairFormValues {
 const TOKEN_NONE = 'NONE';
 
 /**
- * 建对/编辑/查看三态弹窗（源 pair-dialog.vue；原 /currency-pair/create|edit|detail
- * 三路由页收编于此）。
+ * 建对/查看两态弹窗（源 pair-dialog.vue；原 /currency-pair/create|edit|detail
+ * 三路由页收编于此。2023418：edit 退役——SaveReq 无 pairId，生效对改参走
+ * PairChangeDialog（KRC）；create 语义=批量提交开通申请（KPT），通过后生效）。
  *
  * - create：按已生效 token（tokenList status=20）预生成有向全组合，排除同 token 与
  *   已有 token 对；勾选态挂行数据，行内逐对填参；逐行串行 save，失败不中断，汇总提示。
- * - edit/view：单对表单；源/目标 token 禁改（isEdit||isView）；view 追加 pairCode/
- *   状态/创建时间只读项。滑点阈值字段不渲染（§G 裁决13）。
+ * - view：单对只读表单，追加 pairCode/状态/创建时间只读项。滑点阈值字段不渲染（§G 裁决13）。
  */
 function TokenPairDialog({
   mode,
   row,
   onClosed,
 }: {
-  mode: 'create' | 'edit' | 'view';
+  mode: 'create' | 'view';
   row: TokenPairRow | null;
   onClosed: () => void;
 }) {
   const toast = useToast();
   const isCreate = mode === 'create';
   const isView = mode === 'view';
-  const isEdit = mode === 'edit';
 
   // ---- 数据源：已生效 token（建对组合来源 + 单对表单下拉）+ 已有对（判重）----
   const tokensQuery = useQuery({
@@ -661,14 +677,8 @@ function TokenPairDialog({
     [isVisible],
   );
 
-  // ---- edit/view：单对表单 ----
-  const {
-    register,
-    handleSubmit,
-    reset,
-    control,
-    formState: { errors },
-  } = useForm<TokenPairFormValues>();
+  // ---- view：单对只读表单 ----
+  const { register, reset, control } = useForm<TokenPairFormValues>();
 
   React.useEffect(() => {
     if (isCreate || !row) return;
@@ -685,7 +695,7 @@ function TokenPairDialog({
   const saveMutation = useSaveTokenPairMutation(PROJECT_ID);
   const tokenOptions = tokensQuery.data ?? [];
 
-  // 批量创建：逐行取各自参数串行 save（后端单条幂等防重），失败汇总不中断（源 onBatchSave）。
+  // 批量提交开通申请：逐行取各自参数串行 save（后端单条幂等防重），失败汇总不中断（源 onBatchSave，KPT 审批语义）。
   const onBatchSave = React.useCallback(async () => {
     setConfirmBatch(false);
     setSubmitting(true);
@@ -709,11 +719,13 @@ function TokenPairDialog({
       }
       if (failed.length) {
         toast.warning(
-          `Created ${created}, failed ${failed.length}: ${failed.join(', ')} ` +
-            '(duplicates or backend validation failed)',
+          `Submitted ${created}, failed ${failed.length}: ${failed.join(', ')} ` +
+            '(already exists, in approval, or backend validation failed)',
         );
       } else {
-        toast.success(`Created ${created} token pairs`);
+        toast.success(
+          `Submitted ${created} opening request(s); pending KPT approval — pairs become effective once approved`,
+        );
       }
       onClosed();
     } finally {
@@ -740,28 +752,6 @@ function TokenPairDialog({
     setConfirmBatch(true);
   }, [selected, toast]);
 
-  const onEditSave = React.useCallback(
-    (values: TokenPairFormValues) => {
-      if (!row) return;
-      const req: TokenPairSaveReq = {
-        pairId: row.pairId,
-        sourceTokenId: values.sourceTokenId!,
-        targetTokenId: values.targetTokenId!,
-        baseRate: values.baseRate,
-        markupRate: values.markupRate === '' ? undefined : values.markupRate,
-        defaultSplitRatio:
-          values.defaultSplitRatio === '' ? undefined : values.defaultSplitRatio,
-      };
-      saveMutation.mutate(req, {
-        onSuccess: () => {
-          toast.success('Saved');
-          onClosed();
-        },
-        onError: (e) => toast.error((e as Error).message),
-      });
-    },
-    [onClosed, row, saveMutation, toast],
-  );
 
   const comboLoading = isCreate && (!tokensQuery.isSuccess || !pairsQuery.isSuccess);
   const comboLoadError = isCreate && (tokensQuery.isError || pairsQuery.isError);
@@ -774,11 +764,7 @@ function TokenPairDialog({
         >
           <DialogHeader>
             <DialogTitle>
-              {isView
-                ? 'Token Pair Details'
-                : isEdit
-                  ? 'Edit Token Pair'
-                  : 'New Token Pair'}
+              {isView ? 'Token Pair Details' : 'New Token Pair'}
             </DialogTitle>
           </DialogHeader>
 
@@ -789,8 +775,9 @@ function TokenPairDialog({
                 <AlertDescription>
                   Pre-generates all combinations from active tokens (excluding
                   same-token pairs and pairs that already exist). Tick rows and
-                  configure each token pair inline — parameters are per pair;
-                  base rate is required for creation.
+                  configure each token pair inline — each submission enters the
+                  KPT opening approval and only takes effect once approved.
+                  Base rate is required.
                 </AlertDescription>
               </Alert>
 
@@ -949,9 +936,9 @@ function TokenPairDialog({
                             </td>
                             <td className="px-3 py-2">
                               {c.exists ? (
-                                <Badge variant="outline">Paired</Badge>
+                                <Badge variant="outline">Exists</Badge>
                               ) : (
-                                <Badge variant="default">Available</Badge>
+                                <Badge variant="default">Submittable</Badge>
                               )}
                             </td>
                           </tr>
@@ -964,8 +951,6 @@ function TokenPairDialog({
             </div>
           ) : (
             <form
-              id="token-pair-form"
-              onSubmit={handleSubmit(onEditSave)}
               className="space-y-4"
               noValidate
             >
@@ -979,10 +964,7 @@ function TokenPairDialog({
                       value={
                         field.value != null ? String(field.value) : TOKEN_NONE
                       }
-                      onValueChange={(v) =>
-                        field.onChange(v === TOKEN_NONE ? undefined : Number(v))
-                      }
-                      disabled={isEdit || isView}
+                      disabled
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select an active token" />
@@ -1009,10 +991,7 @@ function TokenPairDialog({
                       value={
                         field.value != null ? String(field.value) : TOKEN_NONE
                       }
-                      onValueChange={(v) =>
-                        field.onChange(v === TOKEN_NONE ? undefined : Number(v))
-                      }
-                      disabled={isEdit || isView}
+                      disabled
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select an active token" />
@@ -1032,38 +1011,20 @@ function TokenPairDialog({
               <FormField
                 name="baseRate"
                 label="Base Rate"
-                placeholder="Greater than 0, required for creation"
-                disabled={isView}
-                error={errors.baseRate?.message}
-                register={register('baseRate', {
-                  required: 'Base rate is required',
-                  validate: (v) =>
-                    !Number.isNaN(Number(v)) && Number(v) > 0
-                      ? true
-                      : 'Base rate must be greater than 0',
-                })}
+                disabled
+                register={register('baseRate')}
               />
               <FormField
                 name="markupRate"
                 label="Markup Rate"
-                placeholder="e.g. 0.01 = 1%"
-                disabled={isView}
+                disabled
                 register={register('markupRate')}
               />
               <FormField
                 name="defaultSplitRatio"
                 label="Default Split"
-                placeholder="Platform-side ratio 0–1, e.g. 0.5"
-                disabled={isView}
-                error={errors.defaultSplitRatio?.message}
-                register={register('defaultSplitRatio', {
-                  validate: (v) =>
-                    v === '' ||
-                    (!Number.isNaN(Number(v)) &&
-                      Number(v) >= 0 &&
-                      Number(v) <= 1) ||
-                    'Split ratio must be between 0 and 1',
-                })}
+                disabled
+                register={register('defaultSplitRatio')}
               />
               {/* 滑点阈值输入已移除（源 2026-08-27；引擎与存量值仍生效，§G 裁决13） */}
               {isView && row && (
@@ -1091,17 +1052,8 @@ function TokenPairDialog({
                 onClick={requestBatchSave}
               >
                 {submitting
-                  ? 'Creating…'
-                  : `Create ${selected.length} Token Pair${selected.length === 1 ? '' : 's'}`}
-              </Button>
-            )}
-            {isEdit && (
-              <Button
-                type="submit"
-                form="token-pair-form"
-                disabled={submitting}
-              >
-                Save
+                  ? 'Submitting…'
+                  : `Submit ${selected.length} Opening Request${selected.length === 1 ? '' : 's'}`}
               </Button>
             )}
           </DialogFooter>
@@ -1112,9 +1064,9 @@ function TokenPairDialog({
         request={
           confirmBatch
             ? {
-                title: 'Create Token Pairs',
-                message: `Create ${selected.length} token pair${selected.length === 1 ? '' : 's'} with the per-row parameters above?`,
-                confirmText: 'Create',
+                title: 'Submit Opening Requests',
+                message: `Submit ${selected.length} token pair opening request${selected.length === 1 ? '' : 's'} with the per-row parameters above? Each enters the KPT approval flow and takes effect only once approved.`,
+                confirmText: 'Submit',
                 onConfirm: () => void onBatchSave(),
               }
             : null
@@ -1126,84 +1078,186 @@ function TokenPairDialog({
 }
 
 // ---------------------------------------------------------------------------
-// SplitDialog — 调整默认分成（源 ElMessageBox.prompt 收编）
+// PairChangeDialog — 变更参数（KRC）/ 重新提交开通申请（KPT）
+// （源 fx-rate/pair/pair-change-dialog.vue，2023418 新增）
 // ---------------------------------------------------------------------------
 
-/** 百分比输入校验（源 inputPattern：0~100，最多 4 位小数）。 */
-const SPLIT_PCT_PATTERN = /^\d{1,3}(\.\d{1,4})?$/;
+interface PairChangeFormState {
+  baseRate: string;
+  markupRate: string;
+  defaultSplitRatio: string;
+}
 
 /**
- * 调整默认分成弹窗（源 ElMessageBox.prompt → Dialog）。
- * 管理侧占加价的比例；即时生效于新交易的未覆盖 LP，历史交易按快照不变。
+ * 变更/重提弹窗（源 pair-change-dialog.vue，520px）。
+ * - change：生效对参数变更，提交进入 KRC 审批，通过前现值继续生效；
+ *   同对待审期间列表按钮已禁用，此处不再重复拦截。
+ * - resubmit：已驳回（status=15）组合修改参数后按 source+target 重新提交
+ *   开通申请（KPT；SaveReq 无 pairId，服务端按组合识别重提）。
  */
-function SplitDialog({
+function PairChangeDialog({
+  mode,
   row,
   onClosed,
 }: {
+  mode: 'change' | 'resubmit';
   row: TokenPairRow;
   onClosed: () => void;
 }) {
   const toast = useToast();
-  const currentPct =
-    row.defaultSplitRatio != null
-      ? (Number(row.defaultSplitRatio) * 100).toFixed(2)
-      : '50.00';
-  const [value, setValue] = React.useState(currentPct);
+  const isResubmit = mode === 'resubmit';
+  const [form, setForm] = React.useState<PairChangeFormState>({
+    baseRate: row.baseRate == null ? '' : String(row.baseRate),
+    markupRate: row.markupRate == null ? '' : String(row.markupRate),
+    defaultSplitRatio:
+      row.defaultSplitRatio == null ? '' : String(row.defaultSplitRatio),
+  });
   const [error, setError] = React.useState<string | null>(null);
-  const splitMutation = useSetTokenPairDefaultSplitMutation(PROJECT_ID);
+  const saveMutation = useSaveTokenPairMutation(PROJECT_ID);
+  const changeMutation = useChangeTokenPairMutation(PROJECT_ID);
+  const pending = saveMutation.isPending || changeMutation.isPending;
 
-  const onSave = React.useCallback(() => {
-    const v = value.trim();
-    if (!SPLIT_PCT_PATTERN.test(v)) {
-      setError('Enter a percentage between 0 and 100, e.g. 50 for 50%');
+  // 选填项空串转 undefined（源提交口径）；blur 即校验（源 blur 触发同款）。
+  const onSubmit = React.useCallback(() => {
+    const base = Number(form.baseRate);
+    if (form.baseRate === '' || Number.isNaN(base) || base <= 0) {
+      setError('Base rate is required and must be greater than 0');
+      return;
+    }
+    const markup = form.markupRate === '' ? undefined : Number(form.markupRate);
+    if (markup != null && Number.isNaN(markup)) {
+      setError('Markup rate must be numeric');
+      return;
+    }
+    const split =
+      form.defaultSplitRatio === '' ? undefined : Number(form.defaultSplitRatio);
+    if (split != null && (Number.isNaN(split) || split < 0 || split > 1)) {
+      setError('Default split must be between 0 and 1');
       return;
     }
     setError(null);
-    splitMutation.mutate(
-      { pairId: row.pairId, defaultSplitRatio: Number(v) / 100 },
-      {
-        onSuccess: () => {
-          toast.success(`Default split updated to ${Number(v).toFixed(2)}%`);
-          onClosed();
+    const payload = {
+      baseRate: form.baseRate,
+      markupRate: form.markupRate === '' ? undefined : form.markupRate,
+      defaultSplitRatio:
+        form.defaultSplitRatio === '' ? undefined : form.defaultSplitRatio,
+    };
+    if (isResubmit) {
+      saveMutation.mutate(
+        {
+          sourceTokenId: row.sourceTokenId,
+          targetTokenId: row.targetTokenId,
+          ...payload,
         },
-        onError: (e) => toast.error((e as Error).message),
-      },
-    );
-  }, [onClosed, row.pairId, splitMutation, toast, value]);
+        {
+          onSuccess: () => {
+            toast.success(
+              'Opening request resubmitted (KPT approval); effective once approved',
+            );
+            onClosed();
+          },
+          onError: (e) => toast.error((e as Error).message),
+        },
+      );
+    } else {
+      changeMutation.mutate(
+        { pairId: row.pairId, ...payload },
+        {
+          onSuccess: () => {
+            toast.success(
+              'Change request submitted (KRC approval); current values stay effective until approved',
+            );
+            onClosed();
+          },
+          onError: (e) => toast.error((e as Error).message),
+        },
+      );
+    }
+  }, [
+    changeMutation,
+    form,
+    isResubmit,
+    onClosed,
+    row,
+    saveMutation,
+    toast,
+  ]);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClosed()}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>Adjust Default Split</DialogTitle>
+          <DialogTitle>
+            {isResubmit ? 'Resubmit Opening Request' : 'Change Token Pair Parameters'}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Adjust the default split ratio for {row.pairCode} (share of the
-            markup retained by the platform side, currently{' '}
-            {formatPercent(row.defaultSplitRatio)}). Takes effect immediately
-            for uncovered LPs on new transactions; historical transactions keep
-            their snapshot.
-          </p>
+          <TokenPairCell
+            sourceSymbol={row.sourceSymbol}
+            sourceTokenCode={row.sourceTokenCode}
+            targetSymbol={row.targetSymbol}
+            targetTokenCode={row.targetTokenCode}
+            sourceBankCode={row.sourceBankCode}
+            targetBankCode={row.targetBankCode}
+          />
+          <p className="font-mono text-xs text-muted-foreground">{row.pairCode}</p>
+          <Alert>
+            <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <AlertDescription>
+              {isResubmit
+                ? 'The opening request for this token pair combination was rejected. Adjust the parameters and resubmit it for approval.'
+                : 'Base rate / markup rate / default split enter the KRC approval once submitted; the current values stay effective until approved. Duplicate submissions are blocked while a request is pending.'}
+            </AlertDescription>
+          </Alert>
           <FormField
-            name="defaultSplitPercent"
-            label="Default Split (%)"
-            value={value}
+            name="baseRate"
+            label="Base Rate"
+            value={form.baseRate}
             onChange={(e) => {
-              setValue(e.target.value);
+              setForm((f) => ({ ...f, baseRate: e.target.value }));
               setError(null);
             }}
             error={error ?? undefined}
+            placeholder="Required, greater than 0"
+            maxLength={14}
             inputMode="decimal"
             autoFocus
+          />
+          <FormField
+            name="markupRate"
+            label="Markup Rate"
+            value={form.markupRate}
+            onChange={(e) => {
+              setForm((f) => ({ ...f, markupRate: e.target.value }));
+              setError(null);
+            }}
+            placeholder="Optional, e.g. 0.01 = 1%"
+            maxLength={10}
+            inputMode="decimal"
+          />
+          <FormField
+            name="defaultSplitRatio"
+            label="Default Split"
+            value={form.defaultSplitRatio}
+            onChange={(e) => {
+              setForm((f) => ({ ...f, defaultSplitRatio: e.target.value }));
+              setError(null);
+            }}
+            placeholder="Optional, 0–1, e.g. 0.5"
+            maxLength={8}
+            inputMode="decimal"
           />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClosed}>
             Cancel
           </Button>
-          <Button type="button" onClick={onSave} disabled={splitMutation.isPending}>
-            {splitMutation.isPending ? 'Saving…' : 'Save'}
+          <Button type="button" onClick={onSubmit} disabled={pending}>
+            {pending
+              ? 'Submitting…'
+              : isResubmit
+                ? 'Resubmit'
+                : 'Submit Change'}
           </Button>
         </DialogFooter>
       </DialogContent>

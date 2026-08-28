@@ -29,3 +29,9 @@
 10. 截图落盘：`tab.screenshot()` 不接收路径；用 Node 侧 puppeteer 原生 `page.screenshot({ path })` 直存 verify 目录。
 11. **登录态会中途过期**：批内后半被踢到登录页 ≠ 页面 bug（同时是 `code='2'` 过期分支的实测机会）。批量走查前先登录；dev 预填凭据见 login/page.tsx（admin/Kissen@123）。React 非受控输入需 native setter + `input` 事件再 submit。
 12. **写操作流程的运行时实证需后端种子数据**；无种子时以「渲染全绿 + 只读交互实测 + 按钮级矩阵静态保证」收口，报告中明示边界，勿谎称全流程已验证。
+
+## 审批化改版同步（2023418 批次，2026-08-28）
+
+13. **model 字段以上游 VO 全量对照，不按「页面用到多少」猜**：`TokenPairRow` 初版漏了 `targetBankCode/baseRate/markupRate/defaultSplitRatio` 四个 VO 字段（列表列与弹窗回显全依赖），feature 层大面积 TS2339 才暴露。新批次同步时先 `git show <sha>:src/api/*.ts` 把 interface 逐字段抄全，再写 UI。
+14. **行内编辑工具的 auto-repair 会留旧行**（边界 echo 修复仅删重，不保证语法闭合）：大段替换后必须重读改动区域确认括号/注释闭合，本轮 3 次错位均靠「编辑响应的 syntax error 警告 + 立即重读」当场修复。
+15. **审批流改造的 UI 摘除要清干净三层**：api 函数（`setTokenPairDefaultSplit`）→ mutation hook → feature 弹窗与按钮，漏一层 tsc 才报 unused/dead 引用；barrel 为 `export *` 时 api 层删除即全链路失效，无单独 barrel 改动点。

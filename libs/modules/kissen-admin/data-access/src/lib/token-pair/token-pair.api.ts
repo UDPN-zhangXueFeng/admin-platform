@@ -1,13 +1,14 @@
 /**
  * Token 对域 raw API 层（源 `api/token-pair.ts` 逐字对照）。
- *
  * 上游 list 端点直返 `TokenPairRow[]`（非 PageResult 分页包体），故不走
- * kissenPage，直接 kissenRequest.post 解包数组。启停**即时生效不走审批**。
+ * kissenPage，直接 kissenRequest.post 解包数组。启停即时生效；建对/改参走
+ * KPT/KRC 审批（2023418，default-split 直改退役）。
  */
 import type { AxiosRequestConfig } from 'axios';
 
 import { kissenRequest } from '../kissen-client';
 import type {
+  TokenPairChangeReq,
   TokenPairListFilter,
   TokenPairRow,
   TokenPairSaveReq,
@@ -21,12 +22,24 @@ export function getTokenPairList(
   return kissenRequest.post<TokenPairRow[]>('/manage/token-pair/list', filter, config);
 }
 
-/** 新建/编辑（POST /manage/token-pair/save，pairCode 服务端生成）。 */
+/**
+ * Opening request (POST /manage/token-pair/save; source 2023418: submission
+ * enters KPT approval and only takes effect once approved). Rejected
+ * combinations are re-submitted on the same source+target row.
+ */
 export function saveTokenPair(
   req: TokenPairSaveReq,
   config?: AxiosRequestConfig,
 ): Promise<{ pairId: number; pairCode: string }> {
   return kissenRequest.post('/manage/token-pair/save', req, config);
+}
+
+/** Parameter-change request (POST /manage/token-pair/change; KRC approval, applied once approved). */
+export function changeTokenPair(
+  req: TokenPairChangeReq,
+  config?: AxiosRequestConfig,
+): Promise<{ pairId: number; pairCode: string }> {
+  return kissenRequest.post('/manage/token-pair/change', req, config);
 }
 
 /** 启用（POST /manage/token-pair/{pairId}/enable，即时生效）。 */
@@ -39,10 +52,3 @@ export function disableTokenPair(pairId: number, config?: AxiosRequestConfig): P
   return kissenRequest.post(`/manage/token-pair/${pairId}/disable`, undefined, config);
 }
 
-/** 调整默认分成（POST /manage/token-pair/default-split，0~1 小数）。 */
-export function setTokenPairDefaultSplit(
-  req: { pairId: number; defaultSplitRatio: string | number },
-  config?: AxiosRequestConfig,
-): Promise<void> {
-  return kissenRequest.post('/manage/token-pair/default-split', req, config);
-}

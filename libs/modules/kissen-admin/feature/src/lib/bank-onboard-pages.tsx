@@ -457,6 +457,11 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
 /* InteractDrawer — Token 交互规则（源 interact-drawer.vue，内联抽屉）    */
 /* ================================================================== */
 
+/** Token display name: symbol abbreviation first, falling back to code (source dd0410a). */
+function tokenLabel(token: InteractTokenRow): string {
+  return token.symbol || token.tokenCode;
+}
+
 function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void }) {
   const toast = useToast();
   const { data, isLoading } = useInteractViewQuery(KISSEN_PROJECT_ID, bank.bankId);
@@ -510,8 +515,8 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
           onSuccess: () => {
             toast.success(
               nextBanned
-                ? `Banned ${peer.bankCode} · ${token.tokenCode} for this bank`
-                : `Resumed interaction with ${peer.bankCode} · ${token.tokenCode}`,
+                ? `Banned ${peer.bankCode} · ${tokenLabel(token)} for this bank`
+                : `Resumed interaction with ${peer.bankCode} · ${tokenLabel(token)}`,
             );
           },
           onError: (e) => toast.error((e as Error).message),
@@ -520,6 +525,7 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
     },
     [bank.bankId, saveMutation, toast],
   );
+
 
   return (
     <>
@@ -590,7 +596,7 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
                               key={token.tokenId}
                               type="button"
                               disabled={saveMutation.isPending}
-                              title={`Click to ${token.banned ? 'resume' : 'ban'} interaction with ${peer.bankCode} · ${token.tokenCode}`}
+                              title={`Click to ${token.banned ? 'resume' : 'ban'} interaction with ${peer.bankCode} · ${tokenLabel(token)}`}
                               onClick={() => onToggleToken(peer, token)}
                               className={
                                 token.banned
@@ -599,7 +605,7 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
                               }
                             >
                               <span className={`font-mono ${token.banned ? 'text-destructive line-through' : ''}`}>
-                                {token.tokenCode}
+                                {tokenLabel(token)}
                               </span>
                               <span className={token.banned ? 'text-destructive' : 'text-primary'}>
                                 {token.banned ? 'Banned' : 'Allowed'}

@@ -117,11 +117,12 @@ export default function LoginRoute() {
         brandSuffix="Operations Console"
         brandTagline="Interbank digital currency clearing orchestration · Internal operations system"
         illustration={<LoginIllustration />}
+        gradientClass="from-[var(--login-grad-a,#d7f5f1)] via-[var(--login-grad-b,#63d8c8)] to-[var(--login-grad-c,#0b5670)]"
         redirectPath="/dashboard"
         brandBaseColor="text-[var(--brand-deep,#0a3d7a)]"
         brandAccentColor="text-[var(--brand-accent,#7fa8d9)]"
         brandSuffixBg="bg-[var(--brand-accent,#7fa8d9)]"
-        taglineColor="text-[#1e2635]"
+        taglineColor="text-[var(--brand-deep,#0b1f3a)]"
         titleColor="text-[hsl(var(--primary))]"
         submitLabel="Sign In"
         onSubmit={handleSubmit}

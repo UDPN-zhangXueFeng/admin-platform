@@ -1004,7 +1004,7 @@ function LpPairCell({ row }: { row: LpPairTableRow }) {
   );
 }
 
-/** 覆盖分成弹窗（源 lp-pair-dialog.vue prompt 语义；空/0=清除覆盖回落默认）。 */
+/** Override split change dialog (source lp-pair/index.vue prompt; 2023418: submits a KLS approval — empty/0 clears the override and falls back to the pair default). */
 function LpPairSplitDialog({
   row,
   onClosed,
@@ -1032,9 +1032,7 @@ function LpPairSplitDialog({
       {
         onSuccess: () => {
           toast.success(
-            ratio === 0
-              ? 'Override cleared; falling back to the token pair default split'
-              : `LP split set to ${Number(v).toFixed(2)}%`,
+            'LP split change submitted for approval (KLS); the current value stays effective until approved',
           );
           onClosed();
         },
@@ -1047,13 +1045,15 @@ function LpPairSplitDialog({
     <Dialog open onOpenChange={(open) => !open && onClosed()}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Set LP Split</DialogTitle>
+          <DialogTitle>Change LP Split</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Override the LP share of the markup for {row.lpName}{' '}
-            {row.sourceCurrency}/{row.targetCurrency}. Leave empty or 0 to
-            clear the override and fall back to the token pair default split.
+            Change the LP share of the markup override for {row.lpName}{' '}
+            {row.sourceCurrency}/{row.targetCurrency}. Leave empty or 0 to clear
+            the override and fall back to the token pair default split. The
+            change enters approval (KLS); the current value stays effective
+            until it is approved.
           </p>
           <FormField
             name="lpPairSplitPercent"
@@ -1262,8 +1262,8 @@ export function LpTokenPairListPage() {
         if (s === 20) {
           actions.push(
             {
-              label: 'Set Split',
-              disabled: statusMutation.isPending,
+              label: Number(item.pendingSplit) > 0 ? 'Split In Approval' : 'Set Split',
+              disabled: statusMutation.isPending || Number(item.pendingSplit) > 0,
               onClick: () => setSplitRow(item),
             },
             {

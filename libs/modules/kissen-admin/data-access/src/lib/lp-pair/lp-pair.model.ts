@@ -18,8 +18,10 @@ export interface LpPairRow {
   /** 源端/目标端银行名称（紧凑三行单元格副行）。 */
   sourceBankName: string;
   targetBankName: string;
-  /** 覆盖分成比例（0~1 小数；0=未设置，用 token 对默认值）。 */
+  /** Override split ratio (0–1 decimal; 0 = not set, falls back to the token pair default). */
   splitRatio: string | number;
+  /** Count of pending KLS override-split change requests (>0 blocks editing; source 2023418). */
+  pendingSplit: number;
   status: number;
   remark: string;
   approvalRecordId: number;
