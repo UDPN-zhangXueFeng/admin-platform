@@ -29,8 +29,8 @@ const ChangePasswordDialog = dynamic(
  *  2. login(user, token) stores token in localStorage + admin_platform_token
  *     cookie (middleware reads this cookie — same as setAccessToken/clearSessionStorage).
  *  3. If firstLogin === 0 → force-mode ChangePasswordDialog (源 `:force="true"`)
- *  4. Else → redirect to `?redirect=` param or /dashboard
- *     (源 login/index.vue:62-63 push(route.query.redirect || '/')).
+ *  4. Else → redirect to `?redirect=` param or /workbench
+ *     (源 login/index.vue:62-63 push(route.query.redirect || '/')；默认随 menuUrl)。
  */
 export default function LoginRoute() {
   const router = useRouter();
@@ -45,7 +45,12 @@ export default function LoginRoute() {
     setSearchParams(new URLSearchParams(window.location.search));
   }, []);
   const expired = searchParams?.get('expired') === '1';
-  const redirectTarget = searchParams?.get('redirect') || '/workbench';
+  // next-intl router auto-prefixes the locale — the middleware-written
+  // redirect param carries the full pathname (incl. /en-US), so strip the
+  // prefix or router.replace lands on /en-US/en-US/... (404 Module Not Found).
+  const rawRedirect = searchParams?.get('redirect');
+  const redirectTarget =
+    rawRedirect?.replace(/^\/en-US(?=\/|$)/, '') || '/workbench';
 
   React.useEffect(() => {
     if (expired) toast.warning('Session expired, please sign in again');
@@ -118,10 +123,9 @@ export default function LoginRoute() {
         brandTagline="Interbank digital currency clearing orchestration · Internal operations system"
         illustration={<LoginIllustration />}
         gradientClass="from-[var(--login-grad-a,#d7f5f1)] via-[var(--login-grad-b,#63d8c8)] to-[var(--login-grad-c,#0b5670)]"
-        redirectPath="/dashboard"
         brandBaseColor="text-[var(--brand-deep,#0a3d7a)]"
         brandAccentColor="text-[var(--brand-accent,#7fa8d9)]"
-        brandSuffixBg="bg-[var(--brand-accent,#7fa8d9)]"
+        redirectPath="/workbench"
         taglineColor="text-[var(--brand-deep,#0b1f3a)]"
         titleColor="text-[hsl(var(--primary))]"
         submitLabel="Sign In"

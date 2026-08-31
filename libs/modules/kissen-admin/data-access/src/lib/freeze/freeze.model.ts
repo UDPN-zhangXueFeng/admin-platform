@@ -74,16 +74,3 @@ export interface FreezeLpFilter {
   status?: number;
 }
 
-/** 冻结货币对行（薄类型，对齐源 api/currency-pair.ts CurrencyPairRow 子集）。 */
-export interface FreezePairRow {
-  pairId: number;
-  sourceCurrency: string;
-  targetCurrency: string;
-  status: number;
-}
-
-export interface FreezePairFilter {
-  sourceCurrency?: string;
-  targetCurrency?: string;
-  status?: number;
-}

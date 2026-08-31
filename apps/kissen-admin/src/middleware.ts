@@ -33,10 +33,11 @@ export default function middleware(request: NextRequest) {
   const token = request.cookies.get('admin_platform_token')?.value;
   const isAuthenticated = !!token;
 
-  // Authenticated user on /login or locale root → redirect to dashboard
+  // Authenticated user on /login or locale root → redirect to workbench
+  // (backend menuTree menuUrl; /dashboard stays a registry alias)
   if (isAuthenticated && (pathWithoutLocale === '/login' || pathWithoutLocale === '/')) {
     const url = request.nextUrl.clone();
-    url.pathname = `/en-US/dashboard`;
+    url.pathname = `/en-US/workbench`;
     return NextResponse.redirect(url);
   }
 

@@ -3,11 +3,10 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { freezeKeys } from './freeze.keys';
-import { getFreezeBankList, getFreezeLpList, getFreezePairList } from './freeze.api';
+import { getFreezeBankList, getFreezeLpList } from './freeze.api';
 import type {
   FreezeBankFilter,
   FreezeLpFilter,
-  FreezePairFilter,
 } from './freeze.model';
 
 interface FreezeListParams<F> {
@@ -44,16 +43,3 @@ export function useFreezeLpListQuery(
   });
 }
 
-/** 货币对冻结列表（风控聚合；按 targetType 启用）。 */
-export function useFreezePairListQuery(
-  projectId: string,
-  params: FreezeListParams<FreezePairFilter>,
-  enabled = true,
-) {
-  return useQuery({
-    queryKey: freezeKeys.pairList(projectId, params),
-    queryFn: ({ signal }) => getFreezePairList(params, { signal }),
-    placeholderData: keepPreviousData,
-    enabled,
-  });
-}

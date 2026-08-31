@@ -7,8 +7,6 @@ import type {
   FreezeBankRow,
   FreezeLpFilter,
   FreezeLpRow,
-  FreezePairFilter,
-  FreezePairRow,
   FreezeToggleReq,
 } from './freeze.model';
 
@@ -53,17 +51,3 @@ export function getFreezeLpList(
   );
 }
 
-/**
- * 货币对分页列表（薄调用，供冻结列表聚合）。
- * 端点同源 api/currency-pair.ts currencyPairList：POST /manage/currency-pair/list { page, data }。
- */
-export function getFreezePairList(
-  req: { pageNum: number; pageSize: number; filter: FreezePairFilter },
-  config?: AxiosRequestConfig,
-): Promise<PaginatedResponse<FreezePairRow>> {
-  return kissenPage<FreezePairRow, FreezePairFilter>(
-    '/manage/currency-pair/list',
-    { pageNum: req.pageNum, pageSize: req.pageSize, filter: req.filter },
-    config,
-  );
-}
