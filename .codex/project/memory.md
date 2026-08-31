@@ -1,5 +1,12 @@
 # Codex 对话沉淀
 
+## 2026-08-31 Kissen 三系统 UI-only 页面精细化规划
+
+- 背景：三门户功能与响应式迁移基本完整，但代表截图仍呈现“白卡片等权堆叠、Header 强而内容层级弱、默认组件拼装感”，用户要求单纯改造 UI 页面，不涉及功能。
+- 结论：新增 `.doc/kissen/UI页面精细化改造方案--v1.0-2026-08-31.md`。统一目标为可信、克制、精确；差异定位为 Admin 治理决策、Gateway 运行诊断、LP 资金运营。先完成 Admin Workbench、Gateway Overview、LP Dashboard 三个 Golden Page，通过后再提炼 shared 模式。
+- 边界：UI 改造不得改变 API、DTO、Query/Mutation、权限、路由、字段语义、业务状态机和按钮数量；发现功能问题独立记录。页面必须覆盖 populated/empty/loading/error 四态及 1280/1600/1920/2560 四档截图。
+- 验收：单页按构图层级、间距、排版数据、组件状态、业务视觉、响应式、a11y 共 100 分评估，≥90 PASS；正文对比度 ≥4.5:1，非文本 UI ≥3:1，目标尺寸至少 24×24 CSS px。
+
 ## 2026-08-28 kissen-gateway 品牌主题系统接入（jade/plum/bronze）
 
 1. **三主题家族定稿**：jade(165°, 默认, #0B6B53=DEFAULT_BRAND.primaryColor)/plum(286°)/bronze(27°)——gateway 自有绿系品牌 + 两个此前三项目均未占用的家族。初稿 sapphire(224° 蓝系)被否：admin 已整占蓝系（azure 210/midnight 222/cobalt 220），「配色不复制」要按家族维度避让，不是逐 hex 比对。每主题 18 键（2 tailwind + 2 brand + 3 login-grad + 5 banner + 6 illus；conventions 里「19 键」是笔误，LP 实际 18）。
@@ -705,3 +712,27 @@
 - 同步用 `rsync -a --delete` + 保护过滤（exclude 即保护不删）：必须排除 build.sh、docker-compose.*.yml、nginx、nginx-kissen、**nginx-lp、nginx-gateway（各副本专属 nginx 上下文）**、logs、.env.local、.npmrc、*.tsbuildinfo、.git/node_modules/.next/.nx/.claude 等；漏一个服务器专有目录就会被 --delete 清掉（本次 nginx-gateway/Dockerfile+default.conf 被删，靠运行容器里的 conf 反抽 + 模板 Dockerfile 重建，proxy_pass 占位符手工回填 `${NEXT_SERVICE_SERVER_URL}`）。
 - BuildKit 拉 node:22-alpine metadata 偶发挂死（>10min 无输出）：kill 重跑即可（重试 90s 完成），不是代码问题。
 - 线上冒烟：chrome-devtools MCP 直开 http://10.0.7.20:6243（prod 无 dev 预填，手填 TESTLP01/testlp01_admin/Kissen@123）；6242/6244 以 `<title>` + 200 收口。
+
+## 2026-08-31 kissen-admin 接口不通排障（chrome-devtools MCP 逐页走查）
+
+- **主根因是后端地址漂移**：`apps/kissen-admin/.env.local` 的 `NEXT_SERVICE_SERVER_URL_KISSEN` 指向过时部署 `10.0.7.87:9000`（`/manage/token|token-pair|lp-token-pair|log/**` 全 404、`bank/lp list` code=1 系统异常）。正确测试后端以 `.doc/kissen-admin-deployment.md` 为准：`http://10.0.7.103:9000`，切换后 16 页全部 code=0。「上游接口通、下游不通」时先核对两端打的是不是同一个后端（vite 上游走 127.0.0.1:9000 隧道，与 next rewrites 的目标可能不同源）。
+- **诊断顺序**：先 curl 直打后端复现（区分前端请求体 bug vs 后端异常/路由缺失），再浏览器抓 network。HTTP 200 ≠ 成功，kissen 网关错误藏在 body `code` 里；chrome-devtools MCP `list_network_requests` 只见 200，必须 `get_network_request` 看 body。
+- **next-intl router 双前缀坑**：middleware 写入的 `redirect` 参数带完整 pathname（含 `/en-US`），login 页用 `@myorg/shared/util-i18n` 的 `useRouter().replace()`（自动加 locale 前缀）→ `/en-US/en-US/...` Module Not Found。修法：replace 前剥离 `^\/en-US(?=\/|$)`。默认跳转统一 `/workbench`（menuUrl），`/dashboard` 以 enabled 别名保留。
+- **端点机械 diff 的口径**：上下游都用多行正则（`re.S` + `kissenPage`/`request.post` 双 facade + 泛型段跳过）提取，本轮 82/82 对齐；下游多出的 `/manage/currency-pair/list` 是 v1 残留死代码（上游已删 currency-pair.ts，103 后端 404），连 api/keys/queries 三层摘除（`useFreezePairListQuery` 零调用方）。
+- configs `modules.enabled` 新增 `"dashboard"` 时不可用字符串整体 replace（会误伤 `modules.dashboard` 配置块），直接 edit JSON 数组行。
+
+## 2026-08-31 三门户后端地址修正与重新部署（10.0.7.20）
+
+- **后端归属实测结论**（以端点行为为准，勿凭 host 想当然迁移）：kissen-admin 后端 = `10.0.7.103:9000`（/v1/rbac + /v1/manage）；LP 后端 = `10.0.7.103:8090`（/lp/**）；bankgw（gateway 门户）后端 = `10.0.7.87:8080`（/bankgw/**，上游 vite 代理同构 :8080）。87:8090 已死；103 只有 8090/9000 两端口，无 bankgw——「全部搬到 103」不成立，改之前必须逐端点探测（POST 空凭据看是否走到业务层：能返回"用户名或密码错误"=端点活着，401 code=2=被全局 filter 拦截=服务不存在）。
+- 线上 6244 曾被误配 `NEXT_SERVICE_SERVER_URL=103:9000` 导致全部 bankgw 接口 404（8-28 部署引入）；修正为 87:8080 后 `/kissen-api/bankgw/brand` code=0。
+- 三门户 build.sh 均为服务器专属（rsync 保护内）：改后端地址用 `ssh sed`，镜像 tag 按 `main-MMDD` 递进（wt-0828 → main-0831）。
+- LP 测试账号 TESTLP01/testlp01_admin/Kissen@123 在 87:8090 时代可用，103:8090 上返回 MSG_23_0013 凭据不符——属新后端测试数据未同步，非部署问题。
+
+## 2026-08-31 Kissen UI 精细化改造 P0+P1（token 层踩坑沉淀）
+
+- **主题 token 优先级链路**（详见 `.doc/kissen/ui/token-source-of-truth.md`）：configs/*.json `theme.colors` 经 ThemeInjector 内联 `:root` 注入，**压过 globals.css 的 `:root`**——config 已有键（destructive 等）只改 globals 无效，必须同步 config；新增键（success/warning/info）仅存 globals 即可；`.dark` 不被 config 覆盖。
+- **Tailwind v3 层展平**：globals 里 unlayered 的自定义类会压过 utilities（`t-data text-2xl` 渲染 14px）；自定义排版/密度类必须包 `@layer components`。
+- **Next 16 rewrites env 必须带 scheme**：`NEXT_SERVICE_SERVER_URL=127.0.0.1:9100`（无 http://）会让 next dev 启动即崩（Invalid rewrite found）；且 Next 16 不再从 .env.local 读监听端口，dev 需显式 env PORT。
+- **四态取证 stub 法**：`.doc/kissen/ui/audit/stub-server.mjs`（PORT/UPSTREAM/MODE=fixture|empty|latency|error|proxy）；kissen 系信封 code 是字符串 '0'（admin 是数字 200）；hub restart 不更新 env，切 MODE 要 stop+start；empty/error 态切换后须 full reload 清 react-query 缓存。
+- **对比度口径**：文本 ≥4.5:1 无小字豁免兜底；shadcn 默认 destructive（亮 0 84.2% 60.2% / 暗 0 62.8% 30.6%）作文本色不达标（3.76 / 2.0），P1 已改 0 72% 47% / 0 75% 62%（暗 fg 改 0 0% 10%）。
+- **密度类必须放 @layer utilities 且在 @tailwind utilities 之后**（P1 reviewer 实证踩坑）：`panel-pad` 放 components 层会被共享 Card 默认 `px-6/py-5` utilities 压制（横向恒 24px）；tailwind-merge 不认识自定义类不会去重，只能靠层序胜出。排版类 `.t-*` 则相反，留在 components 层让 utilities 可覆盖。

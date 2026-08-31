@@ -177,7 +177,7 @@ export function OverviewListPage() {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col section-gap">
       <PageHead variant="banner" title="Dashboard">
         <div className="flex flex-wrap items-center gap-2">
           {/* 源 el-radio-group size=small：四档互斥切换，选中即拉取。 */}
@@ -197,7 +197,7 @@ export function OverviewListPage() {
                 onChange={(e) =>
                   setRange((prev) => [e.target.value, prev?.[1] ?? ''])
                 }
-                className="h-8 rounded-md border border-input bg-transparent px-3 text-sm"
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
               />
               <span className="text-muted-foreground">to</span>
               <input
@@ -207,7 +207,7 @@ export function OverviewListPage() {
                 onChange={(e) =>
                   setRange((prev) => [prev?.[0] ?? '', e.target.value])
                 }
-                className="h-8 rounded-md border border-input bg-transparent px-3 text-sm"
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
               />
             </span>
           )}
@@ -215,7 +215,7 @@ export function OverviewListPage() {
       </PageHead>
 
       {isError ? (
-        <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+        <section className="rounded-lg border border-border/60 bg-card panel-pad text-card-foreground shadow-float">
           <ErrorBlock
             message={error instanceof Error ? error.message : String(error)}
             onRetry={() => refetch()}
@@ -223,7 +223,7 @@ export function OverviewListPage() {
         </section>
       ) : isLoading || !stats ? (
         /* 源 v-loading 覆盖指标卡区：首帧骨架。 */
-        <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+        <section className="rounded-lg border border-border/60 bg-card panel-pad text-card-foreground shadow-float">
           <div className="space-y-3">
             <Skeleton className="h-8 w-1/3" />
             <Skeleton className="h-8 w-2/3" />
@@ -244,11 +244,11 @@ export function OverviewListPage() {
           </div>
 
           {/* 业务概览（源「业务概览」descriptions；39c8a2b UDPN 改版整宽单卡） */}
-          <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-            <div className="mb-4 text-sm font-semibold">Business Overview</div>
+          <section className="rounded-lg border border-border/60 bg-card panel-pad text-card-foreground shadow-float">
+            <div className="mb-4 t-section-title">Business Overview</div>
             <div className="divide-y rounded-md border">
               <DescRow label="Registered Tokens">
-                <span className="tabular-nums">{stats.tokenTotal}</span>
+                <span>{stats.tokenTotal}</span>
                 <span className="ml-2.5 inline-flex flex-wrap gap-1.5">
                   {tokenStatusList.map((t) => (
                     <Badge key={t.code} variant={t.variant}>
@@ -258,10 +258,10 @@ export function OverviewListPage() {
                 </span>
               </DescRow>
               <DescRow label="Related Token Pairs">
-                <span className="tabular-nums">{stats.tokenPairCount}</span>
+                <span>{stats.tokenPairCount}</span>
               </DescRow>
               <DescRow label="Statistics Window">
-                <span className="tabular-nums">
+                <span>
                   {formatTime(stats.from)} ~ {formatTime(stats.to)}
                 </span>
               </DescRow>
@@ -269,9 +269,9 @@ export function OverviewListPage() {
           </section>
 
           {/* 交易量统计（源 volume-head + echarts 折线；空窗口整卡 el-empty） */}
-          <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+          <section className="rounded-lg border border-border/60 bg-card panel-pad text-card-foreground shadow-float">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <div className="text-sm font-semibold">Transaction Volume Statistics</div>
+              <div className="t-section-title">Transaction Volume Statistics</div>
               {/* 源 el-radio-group size=small：pair/symbol 两维度切换（默认 pair）。 */}
               <SegmentedRadioGroup
                 ariaLabel="Volume dimension"
@@ -338,7 +338,7 @@ export function OverviewListPage() {
             )}
           </section>
 
-          <p className="text-center text-xs text-muted-foreground">
+          <p className="text-center t-supporting text-muted-foreground">
             Statistics are based on local instance data only (transaction records / token
             registrations / token pair pushes), not network-wide figures.
           </p>
@@ -358,9 +358,9 @@ function formatSuccessRate(rate: number | null | undefined): string {
 }
 
 const METRIC_TONES: Record<string, string> = {
-  ok: 'text-emerald-700 dark:text-emerald-400',
-  bad: 'text-orange-700 dark:text-orange-400',
-  warn: 'text-amber-700 dark:text-amber-400',
+  ok: 'text-success',
+  bad: 'text-destructive',
+  warn: 'text-warning',
 };
 
 /** 指标卡（源 metric-card：26px mono 数值 + 12px 灰标；tone 为源 ok/bad/warn 色系）。 */
@@ -374,11 +374,11 @@ function MetricCard({
   tone: 'ok' | 'bad' | 'warn' | '';
 }) {
   return (
-    <div className="rounded-lg border-border/60 bg-card p-4 text-card-foreground shadow-float">
+    <div className="rounded-lg border border-border/60 bg-card panel-pad text-card-foreground shadow-float">
       <div className={`text-2xl font-semibold tabular-nums ${METRIC_TONES[tone] ?? ''}`}>
         {value}
       </div>
-      <div className="mt-1 text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 t-supporting text-muted-foreground">{label}</div>
     </div>
   );
 }
@@ -393,8 +393,8 @@ function DescRow({
 }) {
   return (
     <div className="grid grid-cols-1 gap-1 px-4 py-2.5 sm:grid-cols-[minmax(0,11rem)_1fr] sm:gap-3">
-      <div className="text-xs leading-6 text-muted-foreground">{label}</div>
-      <div className="min-w-0 text-sm leading-6">{children}</div>
+      <div className="t-supporting text-muted-foreground">{label}</div>
+      <div className="min-w-0 t-data">{children}</div>
     </div>
   );
 }

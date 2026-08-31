@@ -167,9 +167,16 @@ function connectivityTone(status: number): 'on' | 'off' | 'unknown' {
 }
 
 const CONN_DOT: Record<'on' | 'off' | 'unknown', string> = {
-  on: 'bg-emerald-500',
-  off: 'bg-red-500',
+  on: 'bg-success',
+  off: 'bg-destructive',
   unknown: 'bg-muted-foreground/30',
+};
+
+/** 连通性点的无障碍文案（纯色点须可读，通用规则 5）。 */
+const CONN_LABEL: Record<'on' | 'off' | 'unknown', string> = {
+  on: 'Connected',
+  off: 'Disconnected',
+  unknown: 'Unknown',
 };
 
 // ---- 查询 key ----
@@ -306,9 +313,9 @@ function buildRailSteps(status: number): RailStep[] {
 /** 圆点样式：主线清算蓝、结算腿结算金、分支终态 danger 红 / info 灰。 */
 function railDotClass(s: RailStep): string {
   if (s.tone === 'danger')
-    return 'bg-red-500 border-red-500 shadow-[0_0_0_3px_rgba(220,38,38,0.2)]';
+    return 'bg-destructive border-destructive shadow-[0_0_0_3px_rgba(206,34,34,0.2)]'; /* 光晕与 --destructive(0 72% 47% = rgb(206,34,34)) 同色 */
   if (s.tone === 'info')
-    return 'bg-slate-400 border-slate-400 shadow-[0_0_0_3px_rgba(100,116,139,0.2)]';
+    return 'border-muted-foreground/60 bg-muted-foreground/60 shadow-[0_0_0_3px_rgba(100,116,139,0.2)]';
   if (s.state === 'current')
     return cn(
       'shadow-[0_0_0_3px_rgba(11,107,83,0.2)]',
@@ -321,8 +328,8 @@ function railDotClass(s: RailStep): string {
 
 /** 连线样式：跟随下一节点的色调，未到达灰。 */
 function railLinkClass(next: RailStep): string {
-  if (next.tone === 'danger') return 'bg-red-500';
-  if (next.tone === 'info') return 'bg-slate-400';
+  if (next.tone === 'danger') return 'bg-destructive';
+  if (next.tone === 'info') return 'bg-muted-foreground/60';
   if (next.state === 'todo') return 'bg-muted-foreground/30';
   return 'bg-teal-700';
 }
@@ -376,7 +383,7 @@ function FigureCell({
         divider && 'md:border-l md:border-border md:px-6',
       )}
     >
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="t-supporting text-muted-foreground">{label}</div>
       <div className="text-2xl font-semibold leading-tight tabular-nums">
         {children}
       </div>
@@ -395,8 +402,8 @@ function SectionHead({
 }) {
   return (
     <div className="mb-4 flex items-baseline gap-2.5">
-      <span className="text-xs text-muted-foreground">{eyebrow}</span>
-      <span className="text-sm font-semibold">{title}</span>
+      <span className="t-supporting text-muted-foreground">{eyebrow}</span>
+      <span className="t-section-title">{title}</span>
       {extra !== undefined && (
         <span className="ml-auto text-xs text-muted-foreground">{extra}</span>
       )}
@@ -428,6 +435,16 @@ function BlockSkeleton({ rows = 3 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, i) => (
         <Skeleton key={i} className="h-5 w-full" />
       ))}
+    </div>
+  );
+}
+
+/** 区块空态：图标 + muted 文案（通用规则 2 的统一形态）。 */
+function BlockEmpty({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return (
+    <div className="flex items-center gap-1.5 py-1 text-sm text-muted-foreground">
+      {icon}
+      {text}
     </div>
   );
 }
@@ -476,6 +493,26 @@ function CheckCircleIcon({ className }: { className?: string }) {
   );
 }
 
+function InboxIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    </svg>
+  );
+}
+
 // ---- 页面 ----
 
 export function DashboardPage() {
@@ -508,7 +545,7 @@ export function DashboardPage() {
   const todayRows = todayQ.data?.data ?? [];
   const todayCount = todayRows.length;
   // 今日流水按源币种分组逐币种加总（userDeduction 属源币种金额，跨币种不可混计，
-  // 2026-08-27 用户反馈口径同上游）；按金额降序，空组显示占位符。
+  // 2026-08-27 用户反馈口径同上游）；按金额降序；无交易按零流水显示 0（0 ≠ 无数据）。
   const todayVolumes = React.useMemo(() => {
     const byCcy = new Map<string, number>();
     for (const r of todayRows) {
@@ -524,7 +561,7 @@ export function DashboardPage() {
     ? todayVolumes
         .map((v) => `${v.ccy} ${formatMoney(Number(v.total.toFixed(2)))}`)
         .join(' · ')
-    : '-';
+    : '0';
 
   // 入网银行（客户端过滤 status 20）
   const banks = (banksQ.data?.data ?? []).filter((b) => b.status === 20);
@@ -540,12 +577,12 @@ export function DashboardPage() {
   const diffPending = reconcileQ.data?.pagination.total ?? 0;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col section-gap">
       {/* 页头 */}
       <header className="flex items-center justify-between">
         <div>
-          <div className="text-xs text-muted-foreground">DAILY CLEARING</div>
-          <h1 className="text-xl font-semibold">Today's Clearing</h1>
+          <div className="t-supporting text-muted-foreground">DAILY CLEARING</div>
+          <h1 className="t-page-title">Today's Clearing</h1>
         </div>
         <Button
           variant="outline"
@@ -560,7 +597,7 @@ export function DashboardPage() {
 
       {/* 关键数字带：今日概览三格 + 异常待处置一格，各自独立降级 */}
       <Card>
-        <CardContent className="py-6">
+        <CardContent className="panel-pad">
           <div className="grid grid-cols-2 items-center gap-6 md:grid-cols-4 md:gap-0">
             {todayQ.isError ? (
               <div className="col-span-2 py-1 text-sm text-muted-foreground md:col-span-3">
@@ -600,9 +637,18 @@ export function DashboardPage() {
               ) : exceptionsQ.isLoading ? (
                 <Skeleton className="h-7 w-12" />
               ) : (
-                <span className={exceptionTotal > 0 ? 'text-destructive' : undefined}>
-                  {formatMoney(exceptionTotal)}
-                </span>
+                <>
+                  <span
+                    className={exceptionTotal > 0 ? 'text-destructive' : undefined}
+                  >
+                    {formatMoney(exceptionTotal)}
+                  </span>
+                  {exceptionTotal > 0 && (
+                    <span className="t-supporting block text-muted-foreground">
+                      Needs manual handling
+                    </span>
+                  )}
+                </>
               )}
             </FigureCell>
           </div>
@@ -610,10 +656,10 @@ export function DashboardPage() {
       </Card>
 
       {/* 分块网格：上排网络状态（入网银行 / 资金池水位），下排待办（异常队列 / 对账差异） */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
+      <div className="grid grid-cols-1 section-gap lg:grid-cols-[2fr_1fr]">
         {/* 入网银行 */}
         <Card>
-          <CardContent className="py-6">
+          <CardContent className="panel-pad">
             <SectionHead
               eyebrow="NETWORK"
               title="Onboarded Banks"
@@ -628,30 +674,35 @@ export function DashboardPage() {
             ) : banksQ.isLoading ? (
               <BlockSkeleton rows={3} />
             ) : banks.length === 0 ? (
-              <span className="text-sm text-muted-foreground">No onboarded banks</span>
+              <BlockEmpty icon={<InboxIcon className="h-4 w-4" />} text="No onboarded banks" />
             ) : (
               <div>
-                {banks.map((bank) => (
-                  <div
-                    key={bank.bankId}
-                    className="flex items-center gap-2.5 border-b border-border py-2.5 text-sm last:border-0"
-                  >
-                    <span
-                      className={cn(
-                        'h-2 w-2 shrink-0 rounded-full',
-                        CONN_DOT[connectivityTone(bank.connectivityStatus)],
-                      )}
-                    />
-                    <span className="font-medium">{bank.bankName}</span>
-                    <span className="text-xs tabular-nums text-muted-foreground">
-                      {bank.bankCode}
-                    </span>
-                    {/* v2.0 银行行：联系人取代 v1.x 币种徽标与单笔/日限额组 */}
-                    <span className="text-xs text-muted-foreground">
-                      {bank.contactName || '-'}
-                    </span>
-                  </div>
-                ))}
+                {banks.map((bank) => {
+                  const tone = connectivityTone(bank.connectivityStatus);
+                  return (
+                    <div
+                      key={bank.bankId}
+                      className="flex items-center gap-2.5 border-b border-border py-2.5 text-sm last:border-0"
+                    >
+                      <span
+                        role="img"
+                        aria-label={CONN_LABEL[tone]}
+                        className={cn(
+                          'h-2 w-2 shrink-0 rounded-full',
+                          CONN_DOT[tone],
+                        )}
+                      />
+                      <span className="font-medium">{bank.bankName}</span>
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        {bank.bankCode}
+                      </span>
+                      {/* v2.0 银行行：联系人取代 v1.x 币种徽标与单笔/日限额组 */}
+                      <span className="text-xs text-muted-foreground">
+                        {bank.contactName || '-'}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -659,14 +710,14 @@ export function DashboardPage() {
 
         {/* 资金池水位 */}
         <Card>
-          <CardContent className="py-6">
+          <CardContent className="panel-pad">
             <SectionHead eyebrow="POOL LEVEL" title="Funding Pool Level" />
             {poolsQ.isError ? (
               <BlockFail onRetry={() => poolsQ.refetch()} />
             ) : poolsQ.isLoading ? (
               <BlockSkeleton rows={3} />
             ) : pools.length === 0 ? (
-              <span className="text-sm text-muted-foreground">No funding pools</span>
+              <BlockEmpty icon={<InboxIcon className="h-4 w-4" />} text="No funding pools" />
             ) : (
               <div>
                 {pools.map((pool) => {
@@ -674,13 +725,20 @@ export function DashboardPage() {
                   return (
                     <div
                       key={pool.poolId}
-                      className="flex flex-col gap-1.5 border-b border-border py-2.5 text-sm last:border-0"
+                      className={cn(
+                        'flex flex-col gap-1.5 border-b border-border border-l-2 border-l-transparent py-2.5 text-sm last:border-0',
+                        critical && 'border-l-warning',
+                      )}
                     >
                       <div className="flex items-center gap-2.5">
                         <span
+                          role="img"
+                          aria-label={
+                            critical ? 'Pool level critical' : 'Pool level normal'
+                          }
                           className={cn(
                             'h-2 w-2 shrink-0 rounded-full',
-                            critical ? 'bg-amber-500' : 'bg-emerald-500',
+                            critical ? 'bg-warning' : 'bg-success',
                           )}
                         />
                         <span className="font-medium">{pool.tokenCode}</span>
@@ -691,7 +749,7 @@ export function DashboardPage() {
                           {formatMoney(pool.availableBalanceCache)}
                         </span>
                         {critical && (
-                          <span className="text-xs font-medium text-amber-600">
+                          <span className="text-xs font-medium text-warning">
                             Critical
                           </span>
                         )}
@@ -701,7 +759,7 @@ export function DashboardPage() {
                           <div
                             className={cn(
                               'h-full rounded-full',
-                              critical ? 'bg-amber-500' : 'bg-emerald-500',
+                              critical ? 'bg-warning' : 'bg-success',
                             )}
                             style={{ width: `${poolBarWidth(pool)}%` }}
                           />
@@ -717,7 +775,7 @@ export function DashboardPage() {
 
         {/* 异常待处置队列 */}
         <Card>
-          <CardContent className="py-6">
+          <CardContent className="panel-pad">
             <SectionHead
               eyebrow="EXCEPTION QUEUE"
               title="Pending Exceptions"
@@ -734,10 +792,10 @@ export function DashboardPage() {
             ) : exceptionsQ.isLoading ? (
               <BlockSkeleton rows={3} />
             ) : exceptionRows.length === 0 ? (
-              <div className="flex items-center gap-1.5 py-1 text-sm text-muted-foreground">
-                <CheckCircleIcon className="h-4 w-4 text-emerald-500" />
-                No exceptions to handle
-              </div>
+              <BlockEmpty
+                icon={<CheckCircleIcon className="h-4 w-4 text-success" />}
+                text="No exceptions to handle"
+              />
             ) : (
               <div className="overflow-x-auto">
                 <div
@@ -757,7 +815,7 @@ export function DashboardPage() {
                     className="grid items-center gap-3 border-b border-border py-3 text-sm last:border-0"
                     style={{ gridTemplateColumns: TX_GRID_COLS }}
                   >
-                    <span className="tabular-nums">
+                    <span className="t-identifier">
                       {row.txNo || row.txUuid}
                     </span>
                     <span>{pairText(row)}</span>
@@ -785,7 +843,7 @@ export function DashboardPage() {
 
         {/* 对账差异 */}
         <Card>
-          <CardContent className="py-6">
+          <CardContent className="panel-pad">
             <SectionHead eyebrow="RECONCILIATION" title="Reconciliation Differences" />
             {reconcileQ.isError ? (
               <BlockFail onRetry={() => reconcileQ.refetch()} />
@@ -799,9 +857,10 @@ export function DashboardPage() {
                 {/* v2.0 对账差异页已下线（§G：删页面+菜单，api 保留）；卡片保留计数，不设跳转。 */}
               </div>
             ) : (
-              <span className="text-sm text-muted-foreground">
-                No unresolved differences
-              </span>
+              <BlockEmpty
+                icon={<CheckCircleIcon className="h-4 w-4 text-success" />}
+                text="No unresolved differences"
+              />
             )}
           </CardContent>
         </Card>

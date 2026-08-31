@@ -18,7 +18,7 @@
     --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 72% 47%; /* AA 修复：文本 5.42:1（原 3.76），白字按钮 5.42:1 */
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
@@ -30,6 +30,13 @@
     --banner-glow: #aaa9ff;
     --banner-highlight: #8987f4;
     --banner-wave: #ffffff;
+    /* Kissen UI 改造 v1.0：语义状态色（纲领 §5.4，主题无关，仅亮/暗两档） */
+    --success: 142 72% 29%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 92% 34%; /* AA 修复：小字文本 5.04:1（原 4.38） */
+    --warning-foreground: 0 0% 100%;
+    --info: 221 83% 45%;
+    --info-foreground: 0 0% 100%;
   }
 
   .dark {
@@ -47,8 +54,8 @@
     --muted-foreground: 215 20.2% 65.1%;
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 75% 62%; /* AA 修复：暗底文本 5.55:1（原 2.0） */
+    --destructive-foreground: 0 0% 10%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 241.268 75.532% 63.137%;
@@ -58,6 +65,12 @@
     --banner-glow: #8582f4;
     --banner-highlight: #aeacff;
     --banner-wave: #d9d8ff;
+    --success: 142 69% 45%;
+    --success-foreground: 222.2 84% 4.9%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 222.2 84% 4.9%;
+    --info: 217 91% 65%;
+    --info-foreground: 222.2 84% 4.9%;
   }
 }
 
@@ -122,4 +135,80 @@
    viewports, matching the reference login composition. */
 .kissen-auth > div > section:nth-of-type(2) > div {
   max-width: 400px;
+}
+
+/* ============================================================
+   Kissen UI 改造 v1.0 — 密度与排版 token（纲领 §5.1/§5.2）
+   三 app 同步维护；页面层使用这些类，禁止任意 px 间距。
+   ============================================================ */
+
+:root {
+  /* 紧凑档 1024–1599 */
+  --page-gutter: 20px;
+  --section-gap: 24px;
+  --panel-pad: 16px;
+}
+
+@media (min-width: 1600px) {
+  :root {
+    /* 舒适档 ≥1600 */
+    --page-gutter: 28px;
+    --section-gap: 32px;
+    --panel-pad: 20px;
+  }
+}
+
+/* 排版角色（尺寸/行高/字重；颜色由使用处按语义指定）。
+   @layer components：允许页面用 utilities（如 text-2xl）覆盖字号。 */
+@layer components {
+  .t-page-title {
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 600;
+  }
+  .t-section-title {
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 600;
+  }
+  .t-body {
+    font-size: 14px;
+    line-height: 22px;
+  }
+  .t-supporting {
+    font-size: 12px;
+    line-height: 18px;
+  }
+  .t-data {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .t-identifier {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      'Liberation Mono', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 20px;
+  }
+}
+
+/* 密度工具类（utilities 层：须压过 Card 默认 px-6/py-5 等 padding utilities；
+   本块在 @tailwind utilities 之后，同层后序胜出） */
+@layer utilities {
+  /* 密度工具类 */
+  .page-pad {
+    padding: var(--page-gutter);
+  }
+  .section-gap {
+    gap: calc(var(--section-gap) - 4px);
+  }
+  @media (min-width: 1600px) {
+    .section-gap {
+      gap: var(--section-gap);
+    }
+  }
+  .panel-pad {
+    padding: var(--panel-pad);
+  }
 }

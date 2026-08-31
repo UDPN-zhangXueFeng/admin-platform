@@ -10,6 +10,7 @@
  * 网格线用主题 border token。
  */
 import * as React from 'react';
+import { ChartLine } from 'lucide-react';
 
 /** 单序列单日点（day 'YYYY-MM-DD'，v 为成交额数值）。 */
 export interface VolumePoint {
@@ -119,9 +120,14 @@ export function VolumeChart({ days, series }: VolumeChartProps) {
     : [];
 
   if (!filled.length) {
+    /* 空态与页面空态同构（图标 + muted 文案，golden-page-spec 通用规则 2） */
     return (
-      <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">
-        No transaction volume data in the selected window.
+      <div className="flex h-[240px] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+        <ChartLine
+          className="h-8 w-8 text-muted-foreground/60"
+          aria-hidden="true"
+        />
+        <p>No transaction volume data in the selected window.</p>
       </div>
     );
   }
