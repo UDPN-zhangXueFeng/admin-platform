@@ -3,33 +3,47 @@
 /**
  * 资金池页（源 `src/views/pool/index.vue` 1:1 迁移，FAIL 修复 B，基线 01 §D4）。
  *
- * 源语义要点（行号对照源文件）：
- * - 头部：eyebrow LIQUIDITY + 标题（源 6-7）；右 SyncRefreshButton domain=pool，
- *   刷新成功重拉当前列表（源 10 @refreshed="load"）；主按钮「申请开通资金池」
- *   经 PermButton 页面键门禁（源 11 el-button primary，LP 侧按钮粒度取页面键，
- *   同 user/role/menu 先例）。
- * - 表格 8 列全列序（源 17-58）：池 ID / Token tag / 池地址 maskAddress+tooltip
- *   原文 / 可用余额 formatMoney 右对齐 / 水位条(level null→'-') /
- *   余额数据时间(balanceUpdateTime falsy→'-') / 状态 tag(status===15 且
- *   rejectReason 有值时 tooltip 驳回原因) / 数据时间。
+ * 源语义要点（f0d5b6f 批多池出款池修订，行号对照源文件）：
+ * - 头部：eyebrow LIQUIDITY + 标题；右 SyncRefreshButton domain=
+ *   ['pool','preauth','topup']（依赖域拉齐），刷新成功重拉当前列表；
+ *   主按钮「申请开通资金池」经 PermButton 页面键门禁（LP 侧按钮粒度
+ *   取页面键，同 user/role/menu 先例）。
+ * - 表格 12 列全列序：池 ID / Token（tag tokenSymbol||tokenNo +
+ *   activeFlag===1 追加「Payout Pool」success 标；第二行银行）/
+ *   池地址 maskAddress+tooltip 原文 / 解付授权对象（spenderAddress →
+ *   maskAddress + ⧉ 可点复制；空 → muted「Not configured」）/ 可用余额 /
+ *   授权额度 / 可用授权额度 / 水位 / 余额数据时间 / 状态 / 数据时间 /
+ *   操作列（status===20：非激活 → 「Set as Payout Pool」链接按钮；已激活 →
+ *   muted「Current payout pool」占位；上游无 v-perm，不加门禁）。
+ * - 出款池切换 onActivate（f0d5b6f）：AlertDialog 确认（文案含「在途不受
+ *   影响：收款走原池、解付即时改走新池」）→ POST /pool/activate →
+ *   inFlightCount>0 warning 在途警示 else success → 重拉列表；取消/失败
+ *   静默（拦截器已提示）。
  * - STATUS 四码表：5 Pending / 15 Rejected / 20 Active / 50 Disabled（域模型）。
- * - 开池弹窗 520px（源 63-93）：顶部固定 info alert；token 下拉（选项来自
- *   token 列表接口，label `${tokenCode} (${bankName})`，选中后提示最低流动性
- *   与链型）；池地址必填；货币系统形态 select 默认 1；补资提醒阈值 0〜1
- *   step0.05 默认 0.2。手写校验缺 token 或地址 → warning toast（源 submitApply）；
- *   成功 toast + 关窗 + 重载（源 ElMessage.success → close → load）。
- * - 空态引导文案（源 60 empty description 英文化）；单页只读 + 页内弹窗，
- *   无 create/edit/detail 子路由（barrel 导出 PoolListPage 不变）。
+ * - 开池弹窗 520px：顶部固定 info alert；token 下拉 label
+ *   `${symbol||tokenNo} (${bankName||'-'})`，选中后提示 tokenName · tokenNo ·
+ *   最低流动性 · 链型；池地址必填；货币系统形态 select 默认 1；补资提醒
+ *   阈值 0〜1 step0.05 默认 0.2。手写校验缺 token 或地址 → warning toast；
+ *   成功 toast + 关窗 + 重载。
+ * - 空态引导文案英文化；单页只读 + 页内弹窗，无子路由。
  */
 
 import * as React from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Info } from 'lucide-react';
+import { Copy as CopyIcon, Info } from 'lucide-react';
 
 import {
   Alert,
   AlertDescription,
   AlertTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
   DataTable,
@@ -58,6 +72,7 @@ import {
   POOL_STATUS_VARIANT,
   POOL_SYSTEM_TYPE_TEXT,
   usePoolApplyMutation,
+  usePoolActivateMutation,
   usePoolListQuery,
   useTokenListQuery,
   type PoolRow,
@@ -71,7 +86,6 @@ import { formatMoney, formatTime, maskAddress } from './format';
 /* ================================================================== */
 /* 常量                                                                 */
 /* ================================================================== */
-
 const LBL = {
   eyebrow: 'LIQUIDITY',
   title: 'Liquidity Pools',
@@ -84,6 +98,21 @@ const LBL = {
     'Applications are activated after admin-side (KLPP) approval; pools do not join matching until approved. Initial funding is topped up directly in the currency system once approval passes.',
   empty:
     'No liquidity pools yet — pick a token from the Token overview to submit an application',
+  // f0d5b6f：解付授权对象列 + 出款池切换确认流文案
+  payoutPool: 'Payout Pool',
+  spenderNotConfigured: 'Not configured (cannot pay out)',
+  spenderTooltip:
+    'Approve this pool wallet for this token to this address in the currency system (copy it and run approve there); otherwise the pool cannot take part in payout settlement',
+  spenderCopied:
+    'Copied — approve this pool wallet for this token to this address in the currency system',
+  spenderCopyFailed: 'Copy failed — please copy the address manually',
+  activateTooltip:
+    'Set this pool as the current payout pool for the token — subsequent matching and settlement payouts are paid from this pool',
+  activateAction: 'Set as Payout Pool',
+  currentPayout: 'Current payout pool',
+  activateTitle: 'Switch Payout Pool',
+  activateConfirm: 'Confirm',
+  activateCancel: 'Cancel',
 } as const;
 
 /** 开池弹窗表单状态（源 reactive form 四字段同构）。 */
@@ -180,6 +209,51 @@ function LevelCell({ row }: { row: PoolRow }) {
   );
 }
 
+/**
+ * 解付授权对象单元（f0d5b6f）：spenderAddress 有值 → maskAddress + ⧉ 品牌
+ * 色可点复制（成功/失败分级 toast），tooltip 常挂解释授权语义；空 → muted
+ * 「Not configured (cannot pay out)」。
+ */
+function PayoutSpenderCell({ row }: { row: PoolRow }) {
+  const toast = useToast();
+  const spender = row.spenderAddress;
+  if (!spender) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {LBL.spenderNotConfigured}
+      </span>
+    );
+  }
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(spender);
+      toast.success(LBL.spenderCopied);
+    } catch {
+      toast.warning(LBL.spenderCopyFailed);
+    }
+  };
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="flex items-center gap-1">
+          <span className="font-mono text-xs">{maskAddress(spender)}</span>
+          <button
+            type="button"
+            aria-label="Copy spender address"
+            className="inline-flex h-5 w-5 items-center justify-center rounded text-primary hover:bg-primary/10"
+            onClick={handleCopy}
+          >
+            <CopyIcon className="size-3.5" aria-hidden="true" />
+          </button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-sm break-words">
+        {LBL.spenderTooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 /* ================================================================== */
 /* 开池申请弹窗（FR-LW-03）                                             */
 /* ================================================================== */
@@ -219,8 +293,8 @@ function ApplyPoolDialog({
     () =>
       (tokens ?? []).map((t: TokenRow) => ({
         value: String(t.tokenId),
-        // 半角括号英文风格（工单指定；源为全角括号）
-        label: `${t.tokenCode} (${t.bankName})`,
+        // f0d5b6f：tokenCode 退役，label 改 symbol||tokenNo；银行兜底 '-'
+        label: `${t.symbol || t.tokenNo} (${t.bankName || '-'})`,
       })),
     [tokens],
   );
@@ -316,7 +390,9 @@ function ApplyPoolDialog({
             )}
             {selectedToken && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Min liquidity {formatMoney(selectedToken.minLiquidity)} · Chain{' '}
+                {selectedToken.tokenName || '-'} · tokenNo{' '}
+                {selectedToken.tokenNo || '-'} · Min liquidity{' '}
+                {formatMoney(selectedToken.minLiquidity)} · Chain{' '}
                 {selectedToken.chainType || '-'}
               </p>
             )}
@@ -419,7 +495,33 @@ function SelectField({
 
 export function PoolListPage() {
   const [applyOpen, setApplyOpen] = React.useState(false);
+  const toast = useToast();
+  const activateMutation = usePoolActivateMutation();
+  // f0d5b6f：出款池切换确认目标（null=关闭）；确认后重拉列表
+  const [activateTarget, setActivateTarget] = React.useState<PoolRow | null>(
+    null,
+  );
 
+  const handleActivateConfirm = () => {
+    if (!activateTarget) return;
+    const target = activateTarget;
+    activateMutation.mutate(target.poolId, {
+      onSuccess: (res) => {
+        if (res.inFlightCount > 0) {
+          toast.warning(
+            `Payout pool switched — note this token currently has ${res.inFlightCount} in-flight transactions: receipts go to the original pool, payouts come from the new pool`,
+          );
+        } else {
+          toast.success('Payout pool switched');
+        }
+        setActivateTarget(null);
+        void listQuery.refetch();
+      },
+      // 失败链路由 lp-client 拦截器统一提示（源 catch 静默等价），弹窗保留
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      onError: () => {},
+    });
+  };
   // 主表数据源（不分页全量；源 load() 直连 poolApi.list 等价）
   const listQuery = usePoolListQuery(LP_PROJECT_ID);
   const rows = listQuery.data ?? [];
@@ -432,18 +534,22 @@ export function PoolListPage() {
         header: 'Pool ID',
         cell: ({ row }) => <Num>{row.original.poolId}</Num>,
       },
-      // 源列序 2：Token（plain round tag + 银行行；v2.4 两行式）
+      // 源列序 2：Token（f0d5b6f：tag 显 tokenSymbol||tokenNo，tokenCode 退役；
+      // activeFlag===1 追加「Payout Pool」success 标；第二行银行）
       {
-        accessorKey: 'tokenCode',
+        accessorKey: 'tokenSymbol',
         header: 'Token',
         cell: ({ row }) => (
           <div className="flex flex-col gap-0.5">
-            <Badge
-              variant="outline"
-              className="w-fit rounded-full font-normal font-mono"
-            >
-              {row.original.tokenCode}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge
+                variant="outline"
+                className="w-fit rounded-full font-normal font-mono"
+              >
+                {row.original.tokenSymbol || row.original.tokenNo || '-'}
+              </Badge>
+              {row.original.activeFlag === 1 && <Badge>{LBL.payoutPool}</Badge>}
+            </div>
             <div className="text-xs text-muted-foreground">
               {row.original.bankName || row.original.bankCode || '-'}
             </div>
@@ -467,7 +573,14 @@ export function PoolListPage() {
           </Tooltip>
         ),
       },
-      // 源列序 4：可用余额（formatMoney 右对齐）
+
+      // 源列序 4（f0d5b6f 新增）：解付授权对象（spenderAddress mask + 复制；
+      // 空 → Not configured）
+      {
+        accessorKey: 'spenderAddress',
+        header: 'Payout Spender',
+        cell: ({ row }) => <PayoutSpenderCell row={row.original} />,
+      },
       {
         accessorKey: 'availableBalanceCache',
         header: () => <div className="text-right">Available Balance</div>,
@@ -537,6 +650,41 @@ export function PoolListPage() {
           </span>
         ),
       },
+
+      // 源列序 12（f0d5b6f 新增）：操作列——status===20 且非激活 → 链接按钮
+      // 「Set as Payout Pool」；status===20 已激活 → muted「Current payout pool」
+      // 占位；其余状态空。上游无 v-perm，不加 PermButton。
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const r = row.original;
+          if (r.status !== 20) return null;
+          if (r.activeFlag === 1) {
+            return (
+              <span className="text-xs text-muted-foreground">
+                {LBL.currentPayout}
+              </span>
+            );
+          }
+          return (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                  onClick={() => setActivateTarget(r)}
+                >
+                  {LBL.activateAction}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm">
+                {LBL.activateTooltip}
+              </TooltipContent>
+            </Tooltip>
+          );
+        },
+      },
     ],
     [],
   );
@@ -577,7 +725,7 @@ export function PoolListPage() {
             <div className="flex shrink-0 items-center gap-2">
               {/* 源 @refreshed="load"：仅重拉当前视图 */}
               <SyncRefreshButton
-                domain="pool"
+                domain={['pool', 'preauth', 'topup']}
                 onRefreshed={() => void listQuery.refetch()}
               />
               {/* 源主按钮（页面键门禁，v-perm 移除语义等价） */}
@@ -603,6 +751,43 @@ export function PoolListPage() {
         </section>
 
         <ApplyPoolDialog open={applyOpen} onOpenChange={setApplyOpen} />
+
+        {/* f0d5b6f：出款池切换确认（共享 AlertDialog 确认流，文案含在途语义） */}
+        <AlertDialog
+          open={activateTarget != null}
+          onOpenChange={(next) => {
+            if (!next) setActivateTarget(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{LBL.activateTitle}</AlertDialogTitle>
+              <AlertDialogDescription>
+                Set pool{' '}
+                {activateTarget
+                  ? maskAddress(activateTarget.poolAddress)
+                  : ''}{' '}
+                of{' '}
+                {activateTarget
+                  ? activateTarget.tokenSymbol || activateTarget.tokenNo
+                  : ''}{' '}
+                as the current payout pool? Payouts for this token will be paid
+                from this address. In-flight transactions are unaffected: their
+                receipts still go to the original pool, while payouts switch to
+                the new pool immediately.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{LBL.activateCancel}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleActivateConfirm}
+                disabled={activateMutation.isPending}
+              >
+                {LBL.activateConfirm}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   );

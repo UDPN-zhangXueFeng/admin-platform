@@ -21,7 +21,12 @@ export interface SplitRow {
   pairCode?: string;
   sourceTokenCode: string;
   targetTokenCode: string;
-  /** 我的分成比例（0〜1 小数比率；null 页面显 '-'） */
+  /** f0d5b6f（a6889f5）并入的汇率字段：基础汇率（比值原值展示，不加 %；null/'' → '-'）。 */
+  baseRate?: string | number | null;
+  /** f0d5b6f：加价率（0〜1，页面 ×100 显 2 位小数 %）。 */
+  markupRate?: string | number | null;
+  /** f0d5b6f：用户汇率 = base ÷ (1 + markup)（比值原值展示）。 */
+  userRate?: string | number | null;
   mySplitRatio: number | null;
   /** 对默认分成比例（0〜1） */
   defaultSplitRatio: number | null;

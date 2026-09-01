@@ -275,6 +275,7 @@ function MineTable() {
           row.original.status !== 20 ? (
             <span>-</span>
           ) : (
+            <>
             <div className="flex flex-wrap items-center gap-1">
               <Badge
                 variant={row.original.poolReady ? 'default' : 'destructive'}
@@ -285,6 +286,39 @@ function MineTable() {
                 {row.original.preauthOk ? 'Pre-auth Valid' : 'Pre-auth Not Set'}
               </Badge>
             </div>
+            {/* f0d5b6f（9d7d156）：双 tag 下追加激活池地址两行；地址空不渲染 */}
+            {(row.original.sourcePoolAddress ||
+              row.original.targetPoolAddress) && (
+              <div className="mt-1 space-y-0.5">
+                {row.original.sourcePoolAddress && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="max-w-[230px] truncate font-mono text-[11px] text-muted-foreground">
+                        In {row.original.sourcePoolAddress}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-sm break-all font-mono text-xs">
+                      Source-side active pool (receiving address):{' '}
+                      {row.original.sourcePoolAddress}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {row.original.targetPoolAddress && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="max-w-[230px] truncate font-mono text-[11px] text-muted-foreground">
+                        Out {row.original.targetPoolAddress}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-sm break-all font-mono text-xs">
+                      Target-side active pool (payout address):{' '}
+                      {row.original.targetPoolAddress}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            )}
+            </>
           ),
         meta: { overflow: 'none' },
       },
@@ -586,7 +620,10 @@ export function PairListPage() {
             {LBL.entity}
           </div>
           <div className="shrink-0">
-            <SyncRefreshButton domain="pair" onRefreshed={refreshAll} />
+            <SyncRefreshButton
+              domain={['pair', 'rate']}
+              onRefreshed={refreshAll}
+            />
           </div>
         </div>
         <TooltipProvider delayDuration={200}>

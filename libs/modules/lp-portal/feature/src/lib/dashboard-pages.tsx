@@ -184,13 +184,14 @@ function PoolCard({ pool }: { pool: DashboardPoolCard }) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
-              {pool.bankName || pool.bankCode || LBL.unknownBank}
+              {pool.bankName || LBL.unknownBank}
             </span>
             <Badge
               variant="outline"
               className="rounded-full px-2 py-0 font-normal font-mono text-xs"
             >
-              {pool.tokenCode}
+              {/* f0d5b6f：tokenCode 退役，tag 显 tokenSymbol||tokenNo */}
+              {pool.tokenSymbol || pool.tokenNo}
             </Badge>
           </div>
           <Badge variant={statusVariant}>{statusText}</Badge>

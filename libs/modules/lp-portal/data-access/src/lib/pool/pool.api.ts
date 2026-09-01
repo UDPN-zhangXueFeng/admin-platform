@@ -23,3 +23,19 @@ export function postPoolApply(
 ): Promise<{ poolId: number }> {
   return lpRequest.post<{ poolId: number }>('/pool/apply', req, config);
 }
+
+/**
+ * 出款池切换（POST /pool/activate/{poolId}，f0d5b6f 多池模型）：将该池设为
+ * 该 token 当前出款池，后续匹配/解付按此寻址；inFlightCount=切换时该 token
+ * 在途交易数（>0 由 UI 层警示「收款进原池、解付从新池出」）。
+ */
+export function postPoolActivate(
+  poolId: number,
+  config?: AxiosRequestConfig,
+): Promise<{ inFlightCount: number }> {
+  return lpRequest.post<{ inFlightCount: number }>(
+    `/pool/activate/${poolId}`,
+    {},
+    config,
+  );
+}

@@ -26,8 +26,11 @@ export interface DashboardStats {
 export interface DashboardPoolCard {
   poolId: number;
   tokenCode: string;
+  /** f0d5b6f 口径统一：卡头 tag 优先 tokenSymbol，缺失回退 tokenNo（tokenCode 不再展示）。 */
+  tokenSymbol?: string;
+  /** f0d5b6f：全网唯一 token 标识（symbol 缺失时的兜底身份）。 */
+  tokenNo?: string;
   tokenName: string;
-  bankCode: string;
   bankName: string;
   /** v2.4 池地址（货币系统账户）；卡片第三行，空显 '-'（等宽截断+tooltip 原文） */
   poolAddress?: string;

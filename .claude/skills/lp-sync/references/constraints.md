@@ -23,5 +23,12 @@
 | 暂无通知 | No notifications |
 | 强制下线 | Force logout |
 | 一次性密码 | One-time password |
+| 出款池 | Payout Pool |
+| 设为出款池 / 当前出款池 | Set as payout pool / Current payout pool |
+| 解付授权对象 | Payout Spender |
+| 未配置（暂不能解付） | Not configured (cannot pay out) |
+| 部分域同步失败（X），已同步 N 条 | Partial sync failure (X) — synced N items |
+| 收 / 付（激活池地址前缀） | In / Out |
+| 所有序列已隐藏——点击图例恢复 | All series hidden — click a legend item to restore |
 
 新术语首次翻译时定稿并回填本表。

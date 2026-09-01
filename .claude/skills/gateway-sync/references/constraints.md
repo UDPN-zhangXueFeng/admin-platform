@@ -18,5 +18,6 @@
 | 查询 / 重置 | Search / Reset |
 | 已是最新 / 已同步 N 条 | Up to date / Synced N items |
 | 功能将在后续版本开放 | Coming soon |
+| 本行自转 / 自转 | Self-Trade |
 
 新术语首次翻译时定稿并回填本表（与 LP/gateway 两表保持一致，冲突时以先定稿者为准并在此标注）。

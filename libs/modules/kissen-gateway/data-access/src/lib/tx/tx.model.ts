@@ -60,6 +60,8 @@ export interface TxRecord {
   receivingBankName?: string;
   /** 该 token 对启用 LP 名称列表（pairId 维度口径，非交易级 lpId）。 */
   lpNames?: string[];
+  /** 本行自转（源端与目标端同一银行）：单条模型下 bankRole 会被 G-4 补账覆盖，角色展示以本标记优先。 */
+  selfTrade?: boolean;
 }
 
 /**

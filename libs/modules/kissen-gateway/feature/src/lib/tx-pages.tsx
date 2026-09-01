@@ -304,6 +304,26 @@ export function TxListPage() {
         cell: ({ row }) => (
           <span className="font-mono">
             {row.original.txNo || row.original.txUuid || row.original.transactionId}
+            {/* 源 f5009b3：selfTrade 追加「自转」warning plain 小 tag + tooltip（Badge 不转发 ref，asChild 需原生 span）。 */}
+            {row.original.selfTrade && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="ml-1 inline-flex cursor-default align-middle">
+                      <Badge
+                        variant="outline"
+                        className="border-amber-300 px-1.5 text-[10px] text-amber-700 dark:border-amber-700 dark:text-amber-400"
+                      >
+                        Self-Trade
+                      </Badge>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    Self-trade: source and target are both this bank
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </span>
         ),
       },
@@ -877,7 +897,15 @@ export function TxDetailPage() {
                   />
                 </DescField>
                 <DescField label="Bank Role">
-                  {record.bankRole != null && record.bankRole !== 0 ? (
+                  {record.selfTrade ? (
+                    /* 源 f5009b3：selfTrade 优先于 bankRole（单条模型 G-4 补账覆盖 bankRole）。 */
+                    <Badge
+                      variant="outline"
+                      className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400"
+                    >
+                      Self-Trade (Source + Target)
+                    </Badge>
+                  ) : record.bankRole != null && record.bankRole !== 0 ? (
                     <Badge variant={txBankRoleVariant(record.bankRole)}>
                       {txBankRoleText(record.bankRole)}
                     </Badge>

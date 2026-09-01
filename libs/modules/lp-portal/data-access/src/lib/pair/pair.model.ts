@@ -36,6 +36,10 @@ export interface PairRow {
   poolReady: boolean;
   /** 生效条件缺口之二：预授权是否有效（status===20 时渲染）。 */
   preauthOk: boolean;
+  /** f0d5b6f：源侧激活池地址（收款池；生效条件列「收」行，空不渲染）。 */
+  sourcePoolAddress?: string;
+  /** f0d5b6f：目标侧激活池地址（解付出款池；生效条件列「付」行，空不渲染）。 */
+  targetPoolAddress?: string;
   /** 数据时间（毫秒时间戳）。 */
   syncTime: number;
 }

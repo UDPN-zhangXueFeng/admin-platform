@@ -5,16 +5,19 @@
  *
  * Menu key: lp:token  Path: /token  Page keys: list (双 tab 单页，只读)
  *
- * 视图一「Token List」7 列：Token（圆角 tag + symbol 副行、第二行 tokenName）、
- * tokenNo（截断 tooltip，'-' 兜底）、所属银行 bankName(bankCode)、区块链/锚定
- * 「chainType / anchorFiat」、最低流动性 formatMoney 右对齐、我的状态
- * （pooled → Pool Opened / 未开通 Not Enabled）、数据时间 formatTime。
- * 视图二「By Bank」Accordion 按 bankId 分组，标题 bankName(bankCode) +
- * 「N tokens」，默认展开第一个银行；子表 4 列。
+ * f0d5b6f（8198348）口径统一：tokenCode 不再展示，身份 = Token Name +
+ * Symbol + tokenNo（全网唯一）。
+ * 视图一「Token List」8 列：Token Name（170px 截断 + title 原文）、
+ * Symbol（110px 等宽）、tokenNo (globally unique)、所属银行
+ * bankName(bankCode)、区块链/锚定「chainType / anchorFiat」、最低流动性
+ * formatMoney 右对齐、我的状态（pooled → Pool Opened / Not Enabled）、
+ * 数据时间 formatTime。视图二「By Bank」Accordion 按 bankId 分组，标题
+ * bankName(bankCode) + 「N tokens」，默认展开第一个银行；子表 4 列
+ * （Symbol / tokenNo / 区块链 / 锚定法币）。
  *
  * 源 load() 为 Promise.allSettled 两接口——映射为两条独立 useQuery：
  * 任一侧失败保留另一侧数据；0024 降级条优先取列表侧（源数组序）。
- * 刷新走 SyncRefreshButton(domain='token')：成功 toast 后按域重拉两视图。
+ * 刷新走 SyncRefreshButton(domain=['token','bank'])：成功后按域重拉两视图。
  */
 
 import * as React from 'react';
@@ -74,21 +77,10 @@ function Num({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Token 单元第一行：plain round tag tokenCode + 可选 symbol 副文本
- * （effect=plain 圆角等价 outline 变体 + rounded-full）。
+ * f0d5b6f（8198348）展示口径统一：tokenCode 是货币系统内部标识不再对 LP
+ * 展示——身份 = Token Name + Symbol + tokenNo（全网唯一）。TokenTag 组件
+ * 随 tag 列一并退役删除。
  */
-function TokenTag({ code, symbol }: { code: string; symbol?: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <Badge variant="outline" className="rounded-full font-mono">
-        {code}
-      </Badge>
-      {symbol ? (
-        <span className="text-xs text-muted-foreground">{symbol}</span>
-      ) : null}
-    </span>
-  );
-}
 
 /** 我的状态：pooled → success「已开池」，否则 info plain「未开通」（01 §D3）。 */
 function PooledStatus({ pooled }: { pooled: boolean }) {
@@ -101,25 +93,29 @@ function PooledStatus({ pooled }: { pooled: boolean }) {
   );
 }
 
-/** 视图一 7 列（列序/min-width 照源；金额列右对齐）。 */
+/** 视图一 8 列（f0d5b6f：Token 拆名称/Symbol 两列，tokenCode 移除；金额列右对齐）。 */
 const LIST_COLUMNS: ColumnDef<TokenRow & { id: string }>[] = [
   {
-    accessorKey: 'tokenCode',
-    header: 'Token',
-    // 双行单元关掉外层 truncate 包裹，避免副行被压成单行
-    meta: { overflow: 'none' },
+    accessorKey: 'tokenName',
+    header: 'Token Name',
     cell: ({ row }) => (
-      <div className="min-w-0">
-        <TokenTag code={row.original.tokenCode} symbol={row.original.symbol} />
-        <div className="mt-0.5 truncate text-xs text-muted-foreground">
-          {row.original.tokenName || '-'}
-        </div>
-      </div>
+      <span className="block max-w-[170px] truncate" title={row.original.tokenName || undefined}>
+        {row.original.tokenName || '-'}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'symbol',
+    header: 'Symbol',
+    cell: ({ row }) => (
+      <span className="block w-[110px] truncate font-mono text-xs tabular-nums">
+        {row.original.symbol || '-'}
+      </span>
     ),
   },
   {
     accessorKey: 'tokenNo',
-    header: 'tokenNo',
+    header: 'tokenNo (globally unique)',
     cell: ({ row }) => <Num>{row.original.tokenNo || '-'}</Num>,
   },
   {
@@ -169,18 +165,20 @@ const LIST_COLUMNS: ColumnDef<TokenRow & { id: string }>[] = [
   },
 ];
 
-/** 视图二银行分组子表 4 列（照源：Token / tokenNo / 区块链 / 锚定法币）。 */
+/** 视图二银行分组子表 4 列（f0d5b6f：Symbol 替换 Token tag 列；tokenNo 全网唯一口径）。 */
 const GROUP_COLUMNS: ColumnDef<GroupTokenRow & { id: string }>[] = [
   {
-    accessorKey: 'tokenCode',
-    header: 'Token',
+    accessorKey: 'symbol',
+    header: 'Symbol',
     cell: ({ row }) => (
-      <TokenTag code={row.original.tokenCode} symbol={row.original.symbol} />
+      <span className="block w-[110px] truncate font-mono text-xs tabular-nums">
+        {row.original.symbol || '-'}
+      </span>
     ),
   },
   {
     accessorKey: 'tokenNo',
-    header: 'tokenNo',
+    header: 'tokenNo (globally unique)',
     cell: ({ row }) => <Num>{row.original.tokenNo || '-'}</Num>,
   },
   {
@@ -280,7 +278,10 @@ export function TokenListPage() {
             ) : null}
           </div>
           <div className="shrink-0">
-            <SyncRefreshButton domain="token" onRefreshed={handleRefreshed} />
+            <SyncRefreshButton
+              domain={['token', 'bank']}
+              onRefreshed={handleRefreshed}
+            />
           </div>
         </div>
 

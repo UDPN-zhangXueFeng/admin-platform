@@ -96,6 +96,14 @@ export interface PoolRow {
   preauthAuthAmount?: string | number | null;
   /** v2.4：可用授权额度（同 null 语义） */
   preauthAvailableAmount?: string | number | null;
+  /** f0d5b6f：Token 展示口径统一——symbol 优先，缺失回退 tokenNo（旧环境可缺省） */
+  tokenSymbol?: string;
+  /** f0d5b6f：Token 名称（身份展示第二列；旧环境可缺省） */
+  tokenName?: string;
+  /** f0d5b6f：解付授权对象——货币系统 approve 目标地址（非池地址）；空=未配置不可解付 */
+  spenderAddress?: string;
+  /** f0d5b6f：1=该 token 当前出款池（多池模型，同 token 至多一池置位；旧环境可缺省） */
+  activeFlag?: number;
   syncTime: number;
 }
 

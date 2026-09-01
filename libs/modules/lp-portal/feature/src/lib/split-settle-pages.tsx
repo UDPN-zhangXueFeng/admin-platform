@@ -7,7 +7,8 @@
  * 行为契约（doc 01 §D8b）：
  * - 三卡片纵向：卡1 当前生效比例（pair 域数据）/ 卡2 分成明细（split/detail）
  *   / 卡3 结算单（settle/orders）；挂载即并行三查询。
- * - 三挂载点 SyncRefreshButton 域各异：卡1 domain='pair' 只刷比例；
+ * - 三挂载点 SyncRefreshButton 域各异：卡1 domain=['pair','rate'] 刷比例
+ *   与汇率（f0d5b6f 卡1 新增三汇率列）；
  *   卡2 domain='settle_record' 刷明细（保当前页码 refetch，不回跳首页）；
  *   卡3 domain='settle_order' 只刷结算单（01 §E6 域映射陷阱）。
  * - pairInfo(pairCode)：从卡1 rows 查双侧 token（紧凑两行式渲染卡2 行、
@@ -167,6 +168,24 @@ function percentText(v: number | string | null | undefined): string {
   return v === null || v === undefined || v === ''
     ? '-'
     : `${(Number(v) * 100).toFixed(2)}%`;
+}
+
+/** 汇率原值单元格（f0d5b6f a6889f5）：比值原值不加 %，空显 '-'；右对齐等宽。 */
+function RateCell({ v }: { v: string | number | null | undefined }) {
+  return (
+    <span className="block text-right font-mono text-xs tabular-nums">
+      {v == null || v === '' ? '-' : String(v)}
+    </span>
+  );
+}
+
+/** 比率百分比单元格（f0d5b6f a6889f5）：0〜1 比率 → 两位小数百分比。 */
+function PercentCell({ v }: { v: string | number | null | undefined }) {
+  return (
+    <span className="block text-right font-mono text-xs tabular-nums">
+      {percentText(v)}
+    </span>
+  );
 }
 
 /** 金额单元格：formatMoney + 右对齐（源金额列 align="right"）。 */
@@ -397,6 +416,25 @@ export function SplitSettlePage() {
             {symOf(row.original.sourceTokenCode)}
           </Badge>
         ),
+      },
+
+      // f0d5b6f（a6889f5）：Split Currency 与 My Split Ratio 之间插三汇率列。
+      // Base/User Rate 为比值原值（rateText 口径，空显 '-'）；Markup Rate
+      // 为 0〜1 比率 → 两位小数百分比。
+      {
+        accessorKey: 'baseRate',
+        header: () => <div className="text-right">Base Rate</div>,
+        cell: ({ row }) => <RateCell v={row.original.baseRate} />,
+      },
+      {
+        accessorKey: 'markupRate',
+        header: () => <div className="text-right">Markup Rate</div>,
+        cell: ({ row }) => <PercentCell v={row.original.markupRate} />,
+      },
+      {
+        accessorKey: 'userRate',
+        header: () => <div className="text-right">User Rate</div>,
+        cell: ({ row }) => <RateCell v={row.original.userRate} />,
       },
       {
         accessorKey: 'mySplitRatio',
@@ -638,7 +676,7 @@ export function SplitSettlePage() {
           <div className="shrink-0">
             {/* sync 域 'pair'（后端无独立 split 域，01 §E6）；只刷比例卡 */}
             <SyncRefreshButton
-              domain="pair"
+              domain={['pair', 'rate']}
               onRefreshed={() => void ratioQuery.refetch()}
             />
           </div>

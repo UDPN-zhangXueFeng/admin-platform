@@ -22,20 +22,26 @@ export type SyncDomainCode =
   | 'settle_record'
   | 'settle_order';
 
-/** 刷新响应：本次增量同步落库条数。 */
+/** 刷新响应：本次增量同步落库条数；failedDomains 非空=部分域失败（f0d5b6f 批 4d27ccf，成功域照常 applied）。 */
 export interface SyncRefreshResp {
   domain: string;
   applied: number;
+  /** CSV 域串（如 "rate,topup"）；全部成功时缺省。 */
+  failedDomains?: string;
 }
 
-/** 按域增量同步（POST /lp/sync/refresh?domain=X body {}）。 */
+/**
+ * 按域增量同步（POST /lp/sync/refresh?domain=X body {}）。f0d5b6f 批
+ * 4d27ccf 起 domain 支持数组（CSV 拼接），一次拉齐页面全部依赖域。
+ */
 export function postSyncRefresh(
-  domain: SyncDomainCode,
+  domain: SyncDomainCode | SyncDomainCode[],
   config?: AxiosRequestConfig,
 ): Promise<SyncRefreshResp> {
+  const domains = Array.isArray(domain) ? domain.join(',') : domain;
   return lpRequest.post<SyncRefreshResp>(
     '/sync/refresh',
     {},
-    { ...config, params: { ...config?.params, domain } },
+    { ...config, params: { ...config?.params, domain: domains } },
   );
 }

@@ -13,7 +13,8 @@ import { postSyncRefresh, type SyncDomainCode } from './sync.api';
 /** 域刷新 mutation：applied>0 有新数据，0 即已是最新。 */
 export function useSyncRefreshMutation() {
   return useMutation({
-    mutationFn: (domain: SyncDomainCode) => postSyncRefresh(domain),
+    mutationFn: (domain: SyncDomainCode | SyncDomainCode[]) =>
+      postSyncRefresh(domain),
     retry: false,
   });
 }

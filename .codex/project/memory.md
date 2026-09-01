@@ -1,5 +1,28 @@
 # Codex 对话沉淀
 
+## 2026-09-01 lp-portal 部署（10.0.7.20 :6243，main-0901）
+
+- 内容：lp-sync f0d5b6f 批次（出款池切换/Payout Spender 列、token 两视图口径、pair Activation 列、split-settle 三汇率列、dashboard 双系列折线）。
+- 形态：/data/lp-portal rsync 工作区同步（保护排除 build.sh*/docker-compose*.yml/nginx*/logs/.env*/.npmrc/*.tsbuildinfo/.git/node_modules/.next/.nx/.claude/.codex/.doc/body.ts/*.png）；干跑先核 `*deleting` 为零再实同步，md5 抽查 volume-chart.tsx 一致。
+- build.sh 更新：tag main-0831→**main-0901**（备份 build.sh.bak-0901），`NEXT_LP_BACKEND_URL` 103:8090→**http://10.0.7.87:8090**。切后端=重建 nginx 镜像（sed 注入 default.conf），改 app 容器 env 无效。
+- 后端实测（服务器视角）：87:8090 `/lp/login` 空 probing 凭据返回 MSG_23_0013（走到业务层，服务活；TESTLP01 真凭据属测试数据未同步）；103:8090 连接超时（000）已死——与用户切换指令互证。
+- 构建仅 ~45s（BuildKit 缓存热），无 metadata 卡死。验证：容器 Up（app main-0901 + nginx）、`/en-US/login` 200 + `<title>LP Portal</title>`、nginx `/lp/` 代理打 87 返回业务码、bundle chunk 445 含 `Payout Spender`/`Set as Payout Pool`/`Not configured (cannot pay out)` 新文案。
+- **browser 工具 tab 作用域坑**：`open` 新 tab（如 lp-prod）后 `run` 默认仍落在 tab "main"——共享 headless 浏览器里 main 是本机 3300 冒烟会话，页面数据看着像「线上有数据」实为串台；跨 origin 验证线上必须 `run` 带 `name` 指定目标 tab，且先断言 `page.url()` 的 origin。
+
+## 2026-09-01 lp-sync f0d5b6f 收尾（fixture 拦截冒烟法）
+
+- 背景：lp-portal 同步 6c49396d..f0d5b6f 后需浏览器冒烟，但真后端 10.0.7.103 已挂死、10.0.7.87 无有效凭据（TESTLP01 登录报 MSG_23_0013）。
+- **fixture 拦截冒烟法**：puppeteer `setRequestInterception` 拦 `/lp/*` 注入 wire-shape fixture（envelope `{code:'0',data}`、分页 `{rows,page:{total}}`、split/detail 裸 `{rows,total,summary}`、mock /lp/login 返回 LoginRespVO 含全量 menuTree）。五个关键坑：
+  1. **漏拦任何 /lp/ 请求都会打真后端** → 401 → 拦截器清会话跳 login?expired=1，页面当场白屏。必须 catch-all：未匹配的 /lp/ 一律 respond `ok(null)`，绝不 continue。
+  2. **会话 menuTree 会 persist 到 storage**：窄 menuTree 登录后，后续 run 即使换新 menuTree，守卫（PATH_MENU_KEY 反查 menuKeys）仍读旧缓存，出现「无权限回首页」假象。每个 run 前先 `localStorage.clear()+sessionStorage.clear()+clearBrowserCookies` 再登录。
+  3. **el.click()（DOM click）不触发 Radix TabsTrigger**：需真实 CDP 点击（tab.click(selector)）。普通 Button 的 DOM click 正常——只有依赖 pointer 语义的组件有此差异。
+  4. interception 是 run-scoped：run 结束后轮询打真后端又清会话，故导航+断言必须单 run 内完成；但单 run 工作量大会 protocolTimeout——解法是每轮 run 重做「清缓存→登录→goto 目标页」，一次只测一页。
+  5. 冒烟按钮断言用准确文案大小写：操作列是 `Set as Payout Pool`（大写 P），小写匹配会误报按钮缺失。
+- liquidity 组键删除（MENU_LABELS.liquidity/MENU_ICONS.liquidity）：上游 4d20380 只删了 Vue MainLayout 的图标映射，真正的组删除靠后端 SQL v2.4.2（lp:pool 提升一级）。本地后端未跑该 SQL 时侧栏组节点回退 `node.menuName` 显示中文，是数据滞后不是代码回归，勿回加映射。
+- 块注释 `*/` 陷阱再次验证：JSDoc 内写 `stroke-*/fill-*` 这类含 `*/` 的文本会提前终结注释，tsc 报一堆幽灵错误。改写为「stroke 与 fill 语义类」。
+- 冒烟结论：pool（12 列含 Payout Spender、掩码、Not configured、TN-0003/BK02 兜底、activate→warning toast、复制→success toast）、token（8 列 LIST + By Bank 4 列 Accordion + sync 双域）、pair（Activation 列 In/Out 全址、Pending '-'）、split-settle（卡1 三汇率列 + Overridden 标记 + 明细合计行）、dashboard（双系列 SVG 折线 4 path 2 gradient、图例开关、hover 气泡、PoolCard tag USDT/TN-0003 兜底）全部通过；`diff-upstream.sh --apply f0d5b6f` 已推进。
+- 遗留：10.0.7.87 真数据复核待有效凭据（.env.local 的 NEXT_PUBLIC_LP_DEV_* 预填值已随旧后端失效）。
+
 ## 2026-08-31 Kissen 三系统 UI-only 页面精细化规划
 
 - 背景：三门户功能与响应式迁移基本完整，但代表截图仍呈现“白卡片等权堆叠、Header 强而内容层级弱、默认组件拼装感”，用户要求单纯改造 UI 页面，不涉及功能。
@@ -736,3 +759,13 @@
 - **四态取证 stub 法**：`.doc/kissen/ui/audit/stub-server.mjs`（PORT/UPSTREAM/MODE=fixture|empty|latency|error|proxy）；kissen 系信封 code 是字符串 '0'（admin 是数字 200）；hub restart 不更新 env，切 MODE 要 stop+start；empty/error 态切换后须 full reload 清 react-query 缓存。
 - **对比度口径**：文本 ≥4.5:1 无小字豁免兜底；shadcn 默认 destructive（亮 0 84.2% 60.2% / 暗 0 62.8% 30.6%）作文本色不达标（3.76 / 2.0），P1 已改 0 72% 47% / 0 75% 62%（暗 fg 改 0 0% 10%）。
 - **密度类必须放 @layer utilities 且在 @tailwind utilities 之后**（P1 reviewer 实证踩坑）：`panel-pad` 放 components 层会被共享 Card 默认 `px-6/py-5` utilities 压制（横向恒 24px）；tailwind-merge 不认识自定义类不会去重，只能靠层序胜出。排版类 `.t-*` 则相反，留在 components 层让 utilities 可覆盖。
+
+## 2026-09-01 gateway f5009b3 selfTrade 同步（stub 冒烟方法论沉淀）
+
+- **87:8080 网关测试数据已恢复**：`bank_admin/Kissen@123` 登录 code=0（此前 MSG_24_0002 是数据未同步期）；该账号 menuKeys 仅 `bank:onboard:submit`，tx 页直链 `/en-US/tx` 仍可访问（页面 gating 走 config.modules.enabled，菜单键只过滤侧栏）。真实库暂无交易数据（空态正常）。
+- **共享 headless 浏览器多 tab localStorage 互踩（本轮最大坑）**：同 origin（localhost:3200）残留的 `/login?expired=1` tab 会在 HMR 重载/自身活动时对真实后端 401 → `clearGatewaySession` 清掉 **跨 tab 共享** 的 `bankgw.token/user`，把正在冒烟的 tab 一起登出。修法：`page.browser().targets()` 列出并 close 掉残留 login?expired=1 页再冒烟。
+- **stub 会话注入的正确姿势（缺一不可）**：① cookie 必须 CDP `page.setCookie`（document.cookie/evaluateOnNewDocument 都赶不上首个导航请求，middleware 服务端只见请求 cookie）；② localStorage 必须在应用代码前注入——水合后裸 `localStorage.setItem` 不触发 `useSyncExternalStore` 的 notify（auth.session 只在自身写路径广播），`hasSession` 快照锁 false、所有数据 query enabled=false、一个请求都不发；用 `page.evaluateOnNewDocument`。③ 拦截器 run-scoped，每个 run 全量重建。
+- **tx 路由形状**：列表是 `/en-US/tx`（configs path "/tx"，module 无 slug → 'list'）；`/tx/list` 会被 page.tsx 推导为 detail（slug[0] 非 create/edit/manage/query → 'detail'）→ 渲染详情页「Missing a transaction ID」。冒烟/直链勿用 /tx/list。
+- **stub 信封清单**（kissen 系 code 是字符串 '0'）：锁态双门控必须喂 `/bank/onboard/status {status:20}` + `/bank/detail {instanceId, instances[].activated:true, onboardStatus:20}`，否则 SessionGuard 拉去 /onboard；`/brand` 是 app 壳也拉的接口。
+- **puppeteer 细节**：`text/xxx` 选择器在 `page.$` 可用但与 CSS 复合会语法错误（复合用 `xpath/(...)[1]`）；长 run 会撞 Runtime.callFunctionOn protocolTimeout——分 run 短步骤，卡死的 page 对象直接换新 tab；截图用 `page.screenshot({path})` 直存 verify 目录。
+- **BuildKit metadata 卡死对策（0901 部署）**：服务器 build 偶发卡在 `load metadata for docker.io/library/nginx:alpine`（镜像源 docker.1ms.run 抖动；手动 `docker pull nginx:alpine` 反而能通）。对策：`pkill -f "bash build.sh"`（注意会连坐 ssh 自身会话）后用 `setsid nohup bash build.sh > 绝对路径.log < /dev/null &` 重启，重试即过。线上验证三件套：`<title>`、`/kissen-api/bankgw/brand` code=0、真实登录 code=0。

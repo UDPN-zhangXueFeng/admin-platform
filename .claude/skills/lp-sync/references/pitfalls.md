@@ -16,7 +16,7 @@
 
 ## 交互与流程
 
-10. SyncRefreshButton 域映射陷阱：**split→pair（复用 pair 域）**；settle→**settle_order（只刷结算单不刷 settle_record）**
+10. SyncRefreshButton 域映射陷阱（f0d5b6f 起按页面拉齐依赖域、数组 CSV）：token→**['token','bank']**、pool→**['pool','preauth','topup']**、pair→**['pair','rate']**、split-settle 卡1→**['pair','rate']（复用 pair 域）**；settle→**settle_order（只刷结算单不刷 settle_record）**；**failedDomains 非空=部分域失败须 warning toast（成功域照常 applied）**
 11. user 状态 el-switch 走 before-change 确认流（确认→本地翻转+toast+reload 双写）；后端拒停自己/最后管理员 23_0008 不做前端预检
 12. roleType===0 内置角色**前端 disabled 禁删**（gateway 是 confirm 报错拦截——两系统各自保真，不得混用）
 13. assign-menu 回显仅 setCheckedKeys 叶子 id（filterLeafIds 交集）防父键级联误勾；保存 = checked+halfChecked union 去重；空结果二次 confirm「将清空该角色的全部菜单」
@@ -58,3 +58,13 @@
 - 页头 Refresh=summary+volume 双拉语义：refreshSeq state 传 VolumeCard 触发 refetch，勿把 mode 切换误接进重拉链路。
 - dashboard 池卡 bankName 是 DashboardPoolCard 必有字段（转录时漏过一次）；写类型逐字段对照上游 template，勿凭记忆。
 - edit 工具行号漂移本批次复发三次（重复键/吞注释斜杠/覆盖相邻行）：大改用 write 整文件重写；小段 PUT 后立即读输出复查；报 "no longer parses" 先读破坏区再续。
+
+## f0d5b6f 多池出款池批次（上游 6c49396..f0d5b6f，2026-09-01 同步实录）
+
+- **多池出款池模型**：同 token 可多池，`activeFlag===1` 唯一标记当前出款池；切换=confirm（文案必含「在途不受影响：收款走原池、解付即时改走新池」）→ `POST /pool/activate/{poolId}` → `inFlightCount>0` warning「N 笔在途——收款进原池、解付从新池出」else success；操作列仅 status===20 渲染，已激活显示占位「Current payout pool」非按钮；上游无 v-perm，下游不加 PermButton。
+- **Token 展示口径统一（8198348）**：tokenCode 不再对 LP 展示，身份=Symbol+tokenNo（全网唯一）；PoolRow 新字段（tokenSymbol/tokenName/spenderAddress/activeFlag）旧环境可能缺失，页面必须 `||` 兜底（tokenSymbol||tokenNo）。
+- **解付授权对象（513d53d）**：spenderAddress 是货币系统 approve 目标（非池地址）；空值≠错误，是未配置（占位文案）；复制走 clipboard+成功/失败双 toast。
+- **折线图 v2（4d20380）**：y 轴改 0~nice-max（1/2/5×10^n）+ Catmull-Rom 平滑 + 渐变面积 + hover 十字线 DOM 气泡 + 图例点击隐藏；v2.4 的 y 全域 min~max 归一化口径作废；tooltip 小数位 4→2。上游隐藏序列后线条色按可见序重排而图例色按原始序（呈现 bug）——下游统一按原始序列 index 稳定分配色（呈现层偏差，已在文档 01 §D20 注明）。
+- **资金池菜单拍平（4d20380）**：上游删 MainLayout MENU_ICONS 的 liquidity 组键（后端 menuTree 不再有资金池组）；下游对应删 lp-routes.ts MENU_LABELS.liquidity / MENU_ICONS.liquidity，菜单仍 menuTree 驱动无需改 configs。
+- **split 行 VO 并入汇率三列（a6889f5）**：卡1 汇率列展示口径与 pair 页一致（rateText/percentText 2 位小数）。
+- **SVG 渐变主题 token 方案**：`<linearGradient className="text-emerald-700">` + `<stop stopColor="currentColor">`——currentColor 从 gradient 元素继承 color，绕开 tailwind 无 stop-* 工具类的问题，不写 hex。
