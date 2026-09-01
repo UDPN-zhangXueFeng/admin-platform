@@ -27,10 +27,6 @@ import { type ColumnDef } from '@tanstack/react-table';
 import {
   Badge,
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   DataTable,
   Drawer,
   DrawerContent,
@@ -87,8 +83,8 @@ const LBL = {
   query: 'Search',
   reset: 'Reset',
   emptyRatios: 'Not participating in any token pairs yet',
-  emptyDetail: 'No split records',
-  emptyOrders: 'No settlement orders',
+  emptyDetail: 'No split records for the current filters',
+  emptyOrders: 'No settlement orders for the current filters',
   breakdown: 'Details',
   drawerTitle: 'Settlement Order Details',
   drawerHint:
@@ -403,7 +399,7 @@ export function SplitSettlePage() {
       },
       {
         accessorKey: 'mySplitRatio',
-        header: 'My Split Ratio',
+        header: () => <div className="text-right">My Split Ratio</div>,
         cell: ({ row }) => (
           <div className="flex items-center justify-end gap-1.5">
             <span className="font-mono text-xs tabular-nums">
@@ -423,7 +419,7 @@ export function SplitSettlePage() {
       },
       {
         accessorKey: 'defaultSplitRatio',
-        header: 'Default Ratio',
+        header: () => <div className="text-right">Default Ratio</div>,
         cell: ({ row }) => (
           <span className="block text-right font-mono text-xs tabular-nums">
             {percentText(row.original.defaultSplitRatio)}
@@ -486,17 +482,17 @@ export function SplitSettlePage() {
       },
       {
         accessorKey: 'principal',
-        header: 'Principal',
+        header: () => <div className="text-right">Principal</div>,
         cell: ({ row }) => <Money v={row.original.principal} />,
       },
       {
         accessorKey: 'markupAmount',
-        header: 'Markup Amount',
+        header: () => <div className="text-right">Markup Amount</div>,
         cell: ({ row }) => <Money v={row.original.markupAmount} />,
       },
       {
         accessorKey: 'splitRatio',
-        header: 'Split Ratio',
+        header: () => <div className="text-right">Split Ratio</div>,
         cell: ({ row }) => (
           <span className="block text-right font-mono text-xs tabular-nums">
             {percentText(row.original.splitRatio)}
@@ -505,7 +501,7 @@ export function SplitSettlePage() {
       },
       {
         accessorKey: 'lpSplitAmount',
-        header: 'My Split',
+        header: () => <div className="text-right">My Split</div>,
         cell: ({ row }) => <KeyFigure v={row.original.lpSplitAmount} />,
       },
       {
@@ -565,7 +561,7 @@ export function SplitSettlePage() {
       },
       {
         accessorKey: 'txCount',
-        header: 'Tx Count',
+        header: () => <div className="text-right">Tx Count</div>,
         cell: ({ row }) => (
           <span className="block text-right font-mono text-xs tabular-nums">
             {row.original.txCount}
@@ -621,30 +617,48 @@ export function SplitSettlePage() {
       </div>
 
       {/* ===== 卡1 当前生效比例 ===== */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{LBL.ratiosCard}</CardTitle>
-          {/* sync 域 'pair'（后端无独立 split 域，01 §E6）；只刷比例卡 */}
-          <SyncRefreshButton
-            domain="pair"
-            onRefreshed={() => void ratioQuery.refetch()}
-          />
-        </CardHeader>
-        <CardContent className="pb-6">
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              {LBL.ratiosCard}
+            </div>
+            {ratioQuery.data != null && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {ratioRows.length} pairs
+              </span>
+            )}
+            {ratioQuery.dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatTime(ratioQuery.dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
+          <div className="shrink-0">
+            {/* sync 域 'pair'（后端无独立 split 域，01 §E6）；只刷比例卡 */}
+            <SyncRefreshButton
+              domain="pair"
+              onRefreshed={() => void ratioQuery.refetch()}
+            />
+          </div>
+        </div>
+        <div className="p-4">
           <DataTable
             columns={ratioColumns}
             data={ratioTableData}
             isLoading={ratioQuery.isPending}
             emptyMessage={LBL.emptyRatios}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* ===== 卡2 分成明细 ===== */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{LBL.detailCard}</CardTitle>
-          <div className="flex items-center gap-3">
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              {LBL.detailCard}
+            </div>
             {/* header 右汇总行（随分页响应下发的时间窗汇总，formatMoney 口径） */}
             {detailSummary && (
               <span className="text-sm text-muted-foreground">
@@ -659,63 +673,70 @@ export function SplitSettlePage() {
                 </span>
               </span>
             )}
+            {detailQuery.dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatTime(detailQuery.dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
+          <div className="shrink-0">
             {/* v2.4 新增挂载点：settle_record 域刷明细，保当前页码 refetch */}
             <SyncRefreshButton
               domain="settle_record"
               onRefreshed={() => void detailQuery.refetch()}
             />
           </div>
-        </CardHeader>
-        <CardContent className="pb-6">
-          <form
-            onSubmit={detailForm.handleSubmit((f) =>
-              setDetailParams({
-                pageNum: 1,
-                pairCode: resolvePairCode(f.pairCode),
-                startTime: f.startTime
-                  ? new Date(f.startTime).getTime()
-                  : undefined,
-                endTime: f.endTime ? new Date(f.endTime).getTime() : undefined,
-              }),
-            )}
-            className="mb-4"
-          >
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <FormSelect
-                name="pairCode"
-                control={detailForm.control}
-                label="Token Pair"
-                options={pairOptions}
-              />
-              {/* 源 datetimerange(value-format='x')：双字段承接，提交转毫秒 number */}
-              <FormField
-                name="startTime"
-                label="Completed From"
-                type="datetime-local"
-                register={detailForm.register('startTime')}
-              />
-              <FormField
-                name="endTime"
-                label="Completed To"
-                type="datetime-local"
-                register={detailForm.register('endTime')}
-              />
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button type="submit">{LBL.query}</Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  detailForm.reset(EMPTY_DETAIL_FILTER);
-                  setDetailParams({ pageNum: 1 });
-                }}
-              >
-                {LBL.reset}
-              </Button>
-            </div>
-          </form>
+        </div>
 
+        <form
+          onSubmit={detailForm.handleSubmit((f) =>
+            setDetailParams({
+              pageNum: 1,
+              pairCode: resolvePairCode(f.pairCode),
+              startTime: f.startTime
+                ? new Date(f.startTime).getTime()
+                : undefined,
+              endTime: f.endTime ? new Date(f.endTime).getTime() : undefined,
+            }),
+          )}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormSelect
+              name="pairCode"
+              control={detailForm.control}
+              label="Token Pair"
+              options={pairOptions}
+            />
+            {/* 源 datetimerange(value-format='x')：双字段承接，提交转毫秒 number */}
+            <FormField
+              name="startTime"
+              label="Completed From"
+              type="datetime-local"
+              register={detailForm.register('startTime')}
+            />
+            <FormField
+              name="endTime"
+              label="Completed To"
+              type="datetime-local"
+              register={detailForm.register('endTime')}
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="submit">{LBL.query}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                detailForm.reset(EMPTY_DETAIL_FILTER);
+                setDetailParams({ pageNum: 1 });
+              }}
+            >
+              {LBL.reset}
+            </Button>
+          </div>
+        </form>
+        <div className="p-4">
           <TooltipProvider delayDuration={200}>
             <DataTable
               columns={detailColumns}
@@ -732,66 +753,82 @@ export function SplitSettlePage() {
               }}
             />
           </TooltipProvider>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* ===== 卡3 结算单 ===== */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{LBL.ordersCard}</CardTitle>
-          {/* settle_order 域只刷结算单（01 §E6：不刷 settle_record） */}
-          <SyncRefreshButton
-            domain="settle_order"
-            onRefreshed={() => void ordersQuery.refetch()}
-          />
-        </CardHeader>
-        <CardContent className="pb-6">
-          <form
-            onSubmit={ordersForm.handleSubmit((f) =>
-              setOrdersParams({
-                pageNum: 1,
-                periodType:
-                  f.periodType !== ALL ? Number(f.periodType) : undefined,
-                status: f.status !== ALL ? Number(f.status) : undefined,
-              }),
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              {LBL.ordersCard}
+            </div>
+            {ordersQuery.data != null && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {ordersTotal} orders
+              </span>
             )}
-            className="mb-4"
-          >
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <FormSelect
-                name="periodType"
-                control={ordersForm.control}
-                label="Period"
-                options={[
-                  { value: ALL, label: 'All' },
-                  ...ORDER_PERIOD_OPTIONS,
-                ]}
-              />
-              <FormSelect
-                name="status"
-                control={ordersForm.control}
-                label="Status"
-                options={[
-                  { value: ALL, label: 'All' },
-                  ...ORDER_STATUS_OPTIONS,
-                ]}
-              />
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button type="submit">{LBL.query}</Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  ordersForm.reset(EMPTY_ORDERS_FILTER);
-                  setOrdersParams({ pageNum: 1 });
-                }}
-              >
-                {LBL.reset}
-              </Button>
-            </div>
-          </form>
+            {ordersQuery.dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatTime(ordersQuery.dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
+          <div className="shrink-0">
+            {/* settle_order 域只刷结算单（01 §E6：不刷 settle_record） */}
+            <SyncRefreshButton
+              domain="settle_order"
+              onRefreshed={() => void ordersQuery.refetch()}
+            />
+          </div>
+        </div>
 
+        <form
+          onSubmit={ordersForm.handleSubmit((f) =>
+            setOrdersParams({
+              pageNum: 1,
+              periodType:
+                f.periodType !== ALL ? Number(f.periodType) : undefined,
+              status: f.status !== ALL ? Number(f.status) : undefined,
+            }),
+          )}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormSelect
+              name="periodType"
+              control={ordersForm.control}
+              label="Period"
+              options={[
+                { value: ALL, label: 'All' },
+                ...ORDER_PERIOD_OPTIONS,
+              ]}
+            />
+            <FormSelect
+              name="status"
+              control={ordersForm.control}
+              label="Status"
+              options={[
+                { value: ALL, label: 'All' },
+                ...ORDER_STATUS_OPTIONS,
+              ]}
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="submit">{LBL.query}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                ordersForm.reset(EMPTY_ORDERS_FILTER);
+                setOrdersParams({ pageNum: 1 });
+              }}
+            >
+              {LBL.reset}
+            </Button>
+          </div>
+        </form>
+        <div className="p-4">
           <DataTable
             columns={orderColumns}
             data={orderTableData}
@@ -806,8 +843,8 @@ export function SplitSettlePage() {
               pageSizeOptions: [PAGE_SIZE],
             }}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* ===== 结算单详情抽屉（760px）：单据信息 + Token 对分项 + 本单流水 ===== */}
       <Drawer
@@ -869,8 +906,8 @@ export function SplitSettlePage() {
                   </h4>
                   {recordsQuery.isPending ? (
                     <div className="space-y-2" aria-label="Loading">
-                      <div className="h-8 w-full animate-pulse rounded bg-muted" />
-                      <div className="h-8 w-full animate-pulse rounded bg-muted" />
+                      <div className="h-8 w-full motion-safe:animate-pulse rounded bg-muted" />
+                      <div className="h-8 w-full motion-safe:animate-pulse rounded bg-muted" />
                     </div>
                   ) : (
                     <RecordsTable

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 
 import {
   Badge,
@@ -94,10 +94,12 @@ export function LogListPage() {
   );
   const [pageNum, setPageNum] = React.useState(1);
 
-  const { data, isLoading, isError, error, refetch } = useLogPageQuery(
-    KISSEN_GATEWAY_PROJECT_ID,
-    { pageNum, pageSize: LOG_PAGE_SIZE, filter },
-  );
+  const { data, isLoading, isError, error, refetch, dataUpdatedAt } =
+    useLogPageQuery(KISSEN_GATEWAY_PROJECT_ID, {
+      pageNum,
+      pageSize: LOG_PAGE_SIZE,
+      filter,
+    });
 
   const rows = data?.data ?? [];
   const total = data?.pagination?.total ?? 0;
@@ -139,154 +141,180 @@ export function LogListPage() {
     <div className="space-y-4">
       <PageHead title="Operation Log" />
 
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Filters</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="module"
-            label="Module"
-            placeholder="Fuzzy match"
-            register={register('module')}
-          />
-          <FormField
-            name="startTime"
-            label="Start Time"
-            type="datetime-local"
-            register={register('startTime')}
-          />
-          <FormField
-            name="endTime"
-            label="End Time"
-            type="datetime-local"
-            register={register('endTime')}
-          />
+      <section className="rounded-lg border border-border/60 bg-card">
+        {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间。 */}
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              Operation Log
+            </div>
+            {data && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {total} results
+              </span>
+            )}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatTime(dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            Reset
-          </Button>
-        </div>
-      </form>
+        {/* §6.2 Filter Bar：3–4 列栅格；Search 主动作、Reset 次动作。 */}
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField
+              name="module"
+              label="Module"
+              placeholder="Fuzzy match"
+              register={register('module')}
+            />
+            <FormField
+              name="startTime"
+              label="Start Time"
+              type="datetime-local"
+              register={register('startTime')}
+            />
+            <FormField
+              name="endTime"
+              label="End Time"
+              type="datetime-local"
+              register={register('endTime')}
+            />
+          </div>
 
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="submit">Search</Button>
+            <Button type="button" variant="outline" onClick={onReset}>
+              Reset
+            </Button>
+          </div>
+        </form>
 
-      <div className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full caption-bottom text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                {LOG_HEADERS.map((header, i) => (
-                  <th
-                    key={header || `expand-${i}`}
-                    scope="col"
-                    className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
-                  >
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {isLoading ? (
-                Array.from({ length: LOG_PAGE_SIZE }).map((_, i) => (
-                  <tr key={`skeleton-${i}`}>
-                    {LOG_HEADERS.map((header, ci) => (
-                      <td key={ci} className="px-4 py-3">
-                        <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : rows.length === 0 ? (
+        <div className="p-4">
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full caption-bottom text-sm">
+              <thead className="bg-muted/50">
                 <tr>
-                  <td
-                    colSpan={LOG_HEADERS.length}
-                    className="px-4 py-8 text-center text-muted-foreground"
-                  >
-                    No data
-                  </td>
+                  {LOG_HEADERS.map((header, i) => (
+                    <th
+                      key={header || `expand-${i}`}
+                      scope="col"
+                      className="h-10 whitespace-nowrap border-b border-border/50 px-4 text-left align-middle font-medium text-muted-foreground"
+                    >
+                      {header}
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                rows.map((row) => {
-                  const id = String(row.operateLogId);
-                  const expanded = expandedIds.has(id);
-                  return (
-                    <React.Fragment key={id}>
-                      <tr className="transition-colors hover:bg-muted/50">
-                        <td className="px-4 py-3 align-middle">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={expanded ? 'Collapse details' : 'Expand details'}
-                            aria-expanded={expanded}
-                            className="h-6 w-6"
-                            onClick={() => toggleExpanded(id)}
-                          >
-                            <ChevronRight
-                              className={cn(
-                                'h-4 w-4 transition-transform',
-                                expanded && 'rotate-90',
-                              )}
-                            />
-                          </Button>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {isLoading ? (
+                  Array.from({ length: LOG_PAGE_SIZE }).map((_, i) => (
+                    <tr key={`skeleton-${i}`}>
+                      {LOG_HEADERS.map((header, ci) => (
+                        <td key={ci} className="px-4 py-3">
+                          <div className="h-4 w-24 motion-safe:animate-pulse rounded bg-muted" />
                         </td>
-                        <td className="px-4 py-3 align-middle tabular-nums">
-                          {formatTime(row.operateTime)}
-                        </td>
-                        <td className="max-w-[12rem] px-4 py-3 align-middle">
-                          <span className="block truncate" title={orDash(row.operateName)}>
-                            {orDash(row.operateName)}
-                          </span>
-                        </td>
-                        <td className="max-w-[10rem] px-4 py-3 align-middle">
-                          <span className="block truncate" title={orDash(row.module)}>
-                            {orDash(row.module)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 align-middle">
-                          <Badge variant={logBusinessTypeVariant(row.businessType)}>
-                            {logBusinessTypeText(row.businessType)}
-                          </Badge>
-                        </td>
-                        <td className="max-w-[16rem] px-4 py-3 align-middle">
-                          <span className="block truncate" title={orDash(row.operateUrl)}>
-                            {orDash(row.operateUrl)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 align-middle">
-                          <Badge variant={logStatusVariant(row.status)}>
-                            {logStatusText(row.status)}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 align-middle tabular-nums">
-                          {row.costTime ?? '-'}
-                        </td>
-                        <td className="max-w-[12rem] px-4 py-3 align-middle tabular-nums">
-                          <span className="block truncate" title={orDash(row.traceId)}>
-                            {orDash(row.traceId)}
-                          </span>
-                        </td>
-                      </tr>
-                      {expanded && <LogExpandRow row={row} />}
-                    </React.Fragment>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                      ))}
+                    </tr>
+                  ))
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={LOG_HEADERS.length} className="px-4 py-10">
+                      <div className="flex flex-col items-center justify-center gap-2 text-center">
+                        <Inbox
+                          className="h-9 w-9 text-muted-foreground/40"
+                          strokeWidth={1.5}
+                          aria-hidden="true"
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          No operation logs found
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row) => {
+                    const id = String(row.operateLogId);
+                    const expanded = expandedIds.has(id);
+                    return (
+                      <React.Fragment key={id}>
+                        <tr className="motion-safe:transition-colors hover:bg-muted/50">
+                          <td className="px-4 py-3 align-middle">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={expanded ? 'Collapse details' : 'Expand details'}
+                              aria-expanded={expanded}
+                              className="h-6 w-6"
+                              onClick={() => toggleExpanded(id)}
+                            >
+                              <ChevronRight
+                                className={cn(
+                                  'h-4 w-4 motion-safe:transition-transform',
+                                  expanded && 'rotate-90',
+                                )}
+                              />
+                            </Button>
+                          </td>
+                          <td className="px-4 py-3 align-middle tabular-nums">
+                            {formatTime(row.operateTime)}
+                          </td>
+                          <td className="max-w-[12rem] px-4 py-3 align-middle">
+                            <span className="block truncate" title={orDash(row.operateName)}>
+                              {orDash(row.operateName)}
+                            </span>
+                          </td>
+                          <td className="max-w-[10rem] px-4 py-3 align-middle">
+                            <span className="block truncate" title={orDash(row.module)}>
+                              {orDash(row.module)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <Badge variant={logBusinessTypeVariant(row.businessType)}>
+                              {logBusinessTypeText(row.businessType)}
+                            </Badge>
+                          </td>
+                          <td className="max-w-[16rem] px-4 py-3 align-middle">
+                            <span className="block truncate" title={orDash(row.operateUrl)}>
+                              {orDash(row.operateUrl)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <Badge variant={logStatusVariant(row.status)}>
+                              {logStatusText(row.status)}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-right align-middle tabular-nums">
+                            {row.costTime ?? '-'}
+                          </td>
+                          <td className="max-w-[12rem] px-4 py-3 align-middle tabular-nums">
+                            <span className="block truncate font-mono" title={orDash(row.traceId)}>
+                              {orDash(row.traceId)}
+                            </span>
+                          </td>
+                        </tr>
+                        {expanded && <LogExpandRow row={row} />}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        <LogPager
-          total={total}
-          pageNum={pageNum}
-          pageSize={LOG_PAGE_SIZE}
-          onPageChange={setPageNum}
-        />
-      </div>
+          <LogPager
+            total={total}
+            pageNum={pageNum}
+            pageSize={LOG_PAGE_SIZE}
+            onPageChange={setPageNum}
+          />
+        </div>
+      </section>
     </div>
   );
 }
@@ -338,8 +366,8 @@ function LogPager({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div className="mt-3 flex items-center justify-between">
-      <span className="text-sm text-muted-foreground">
+    <div className="mt-4 flex items-center justify-between">
+      <span className="text-xs tabular-nums text-muted-foreground">
         {total} records · Page {pageNum} of {totalPages}
       </span>
       <div className="flex items-center gap-2">

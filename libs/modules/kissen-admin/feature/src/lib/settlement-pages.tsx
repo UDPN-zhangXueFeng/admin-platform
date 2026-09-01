@@ -35,7 +35,6 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Label,
   RadioGroup,
   RadioGroupItem,
   Select,
@@ -50,6 +49,7 @@ import {
   TooltipTrigger,
   useToast,
 } from '@myorg/shared/ui';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
@@ -507,16 +507,16 @@ function SettleOrderGroupTable({
             const expanded = expandedOrders.has(order.orderId);
             return (
               <React.Fragment key={order.orderId}>
-                <tr className="transition-colors hover:bg-muted/50">
+                <tr className="motion-safe:transition-colors hover:bg-muted/50">
                   <td className={GROUP_TD}>
                     <button
                       type="button"
                       aria-label={expanded ? 'Collapse items' : 'Expand items'}
                       onClick={() => onToggleOrder(order.orderId)}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground motion-safe:transition-colors hover:bg-muted hover:text-foreground"
                     >
                       <ChevronDown
-                        className={`h-4 w-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+                        className={`h-4 w-4 motion-safe:transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
                       />
                     </button>
                   </td>
@@ -533,7 +533,7 @@ function SettleOrderGroupTable({
                       {SETTLE_ORDER_STATUS_LABEL[order.status] ?? order.status}
                     </Badge>
                   </td>
-                  <td className={`${GROUP_TD} whitespace-nowrap`}>{formatTimestamp(order.createTime)}</td>
+                  <td className={`${GROUP_TD} whitespace-nowrap tabular-nums`}>{formatTimestamp(order.createTime)}</td>
                   <td className={`${GROUP_TD} text-right whitespace-nowrap`}>
                     <div className="flex justify-end gap-2">
                       <Button
@@ -669,7 +669,7 @@ export function SettleOrderListPage() {
   // 源 el-pagination page-sizes [10,20,50]：每页条数可切，切换即回第 1 页。
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
-  const { data, isLoading } = useSettleOrderListQuery(KISSEN_PROJECT_ID, params);
+  const { data, isLoading, dataUpdatedAt } = useSettleOrderListQuery(KISSEN_PROJECT_ID, params);
   const { data: lpOptions } = useSettleLpOptionsQuery(KISSEN_PROJECT_ID);
   const confirmMutation = useSettleOrderConfirmMutation(KISSEN_PROJECT_ID);
   const voidMutation = useSettleOrderVoidMutation(KISSEN_PROJECT_ID);
@@ -796,60 +796,72 @@ export function SettleOrderListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormSelect
-            name="lpId"
-            control={control}
-            label="LP"
-            placeholder="All"
-            options={lpFilterOptions}
-          />
-          <FormSelect
-            name="periodType"
-            control={control}
-            label="Period Type"
-            placeholder="All"
-            options={[
-              optAll(),
-              { value: '1', label: 'Daily' },
-              { value: '2', label: 'Weekly' },
-              { value: '3', label: 'Monthly' },
-            ]}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label="Status"
-            placeholder="All"
-            options={[
-              optAll(),
-              ...SETTLE_ORDER_STATUS_VALUES.map((v) => ({
-                value: String(v),
-                label: SETTLE_ORDER_STATUS_LABEL[v] ?? String(v),
-              })),
-            ]}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="outline" onClick={onResetSearch}>
-            Reset
-          </Button>
-        </div>
-      </form>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">Settlement Orders</div>
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              Settlement Orders
+            </div>
+            {!isLoading && paginationMeta ? (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {paginationMeta.total} results
+              </span>
+            ) : null}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatAdminDateTime(dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
           <Button type="button" size="sm" onClick={() => setGenerateOpen(true)}>
             Generate Settlement Order
           </Button>
         </div>
+        <form
+          onSubmit={handleSubmit(onSearch)}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormSelect
+              name="lpId"
+              control={control}
+              label="LP"
+              placeholder="All"
+              options={lpFilterOptions}
+            />
+            <FormSelect
+              name="periodType"
+              control={control}
+              label="Period Type"
+              placeholder="All"
+              options={[
+                optAll(),
+                { value: '1', label: 'Daily' },
+                { value: '2', label: 'Weekly' },
+                { value: '3', label: 'Monthly' },
+              ]}
+            />
+            <FormSelect
+              name="status"
+              control={control}
+              label="Status"
+              placeholder="All"
+              options={[
+                optAll(),
+                ...SETTLE_ORDER_STATUS_VALUES.map((v) => ({
+                  value: String(v),
+                  label: SETTLE_ORDER_STATUS_LABEL[v] ?? String(v),
+                })),
+              ]}
+            />
+            <div className="flex items-end gap-2">
+              <Button type="submit">Search</Button>
+              <Button type="button" variant="outline" onClick={onResetSearch}>
+                Reset
+              </Button>
+            </div>
+          </div>
+        </form>
 
         {isLoading && !rows.length ? (
           <div className="p-6">
@@ -901,7 +913,7 @@ export function SettleOrderListPage() {
             onPageSizeChange={onPageSizeChange}
           />
         ) : null}
-      </div>
+      </section>
 
       <SettleOrderGenerateDialog open={generateOpen} onClose={() => setGenerateOpen(false)} />
       {viewTarget ? (
@@ -1001,7 +1013,7 @@ export function SettleCycleListPage() {
     [params],
   );
 
-  const { data, isLoading } = useLpSettleCycleListQuery(KISSEN_PROJECT_ID, queryParams);
+  const { data, isLoading, dataUpdatedAt } = useLpSettleCycleListQuery(KISSEN_PROJECT_ID, queryParams);
   const saveMutation = useLpSettleCycleSaveMutation(KISSEN_PROJECT_ID);
 
   const rows = data?.data ?? [];
@@ -1126,62 +1138,81 @@ export function SettleCycleListPage() {
         </AlertDescription>
       </Alert>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSearch();
-        }}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search</div>
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="settle-cycle-lp-name">LP Name</Label>
-            <Input
-              id="settle-cycle-lp-name"
-              value={lpNameInput}
-              placeholder="Fuzzy match"
-              className="w-[180px]"
-              onChange={(e) => setLpNameInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') onSearch();
-              }}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Status</Label>
-            <RadioGroup
-              value={viewTab}
-              onValueChange={(v) => setViewTab(v as CycleViewTab)}
-              className="flex h-10 items-center gap-4"
-            >
-              <label className="flex items-center gap-2 text-sm">
-                <RadioGroupItem value="approved" /> Approved
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <RadioGroupItem value="others" /> Inactive / Rejected
-              </label>
-            </RadioGroup>
-          </div>
-          <div className="flex gap-2">
-            <Button type="submit">Search</Button>
-            <Button type="button" variant="outline" onClick={onReset}>
-              Reset
-            </Button>
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              LP Settlement Cycles
+            </div>
+            {!isLoading && paginationMeta ? (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {paginationMeta.total} results
+              </span>
+            ) : null}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatAdminDateTime(dataUpdatedAt)}
+              </span>
+            ) : null}
           </div>
         </div>
-      </form>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">Settlement Cycle Configuration</div>
-        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSearch();
+          }}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="settle-cycle-lp-name"
+                className="text-sm font-medium leading-snug text-foreground"
+              >
+                LP Name
+              </label>
+              <Input
+                id="settle-cycle-lp-name"
+                value={lpNameInput}
+                placeholder="Fuzzy match"
+                className="w-full"
+                onChange={(e) => setLpNameInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onSearch();
+                }}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium leading-snug text-foreground">
+                Status
+              </label>
+              <RadioGroup
+                value={viewTab}
+                onValueChange={(v) => setViewTab(v as CycleViewTab)}
+                className="flex h-10 items-center gap-4"
+              >
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="approved" /> Approved
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="others" /> Inactive / Rejected
+                </label>
+              </RadioGroup>
+            </div>
+            <div className="flex items-end gap-2">
+              <Button type="submit">Search</Button>
+              <Button type="button" variant="outline" onClick={onReset}>
+                Reset
+              </Button>
+            </div>
+          </div>
+        </form>
         <div className="p-4">
           <DataTable
             columns={columns}
             data={tableData}
             isLoading={isLoading}
-            emptyMessage="No data"
+            emptyMessage="No LPs found"
             pagination={
               paginationMeta
                 ? {
@@ -1197,7 +1228,7 @@ export function SettleCycleListPage() {
             }
           />
         </div>
-      </div>
+      </section>
     </div>
   );
 }

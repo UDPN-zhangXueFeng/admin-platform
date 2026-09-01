@@ -75,6 +75,8 @@ import { formatMoney, formatTime, maskAddress } from './format';
 const LBL = {
   eyebrow: 'LIQUIDITY',
   title: 'Liquidity Pools',
+  entity: 'Pools',
+  countUnit: 'pools',
   apply: 'Apply for Liquidity Pool',
   dialogTitle: 'Apply for Liquidity Pool',
   alertTitle: 'KLPP approval required',
@@ -429,14 +431,14 @@ export function PoolListPage() {
       // 源列序 4：可用余额（formatMoney 右对齐）
       {
         accessorKey: 'availableBalanceCache',
-        header: 'Available Balance',
+        header: () => <div className="text-right">Available Balance</div>,
         cell: ({ row }) => <MoneyCell v={row.original.availableBalanceCache} />,
       },
       // 源列序 5（v2.4 新增）：授权额度（preauthAuthAmount；null → '-'
       // 挂 tooltip「暂无预授权快照」——preauth 独立页退役后快照并入池列表）
       {
         accessorKey: 'preauthAuthAmount',
-        header: 'Authorized Amount',
+        header: () => <div className="text-right">Authorized Amount</div>,
         cell: ({ row }) =>
           row.original.preauthAuthAmount == null ? (
             <Tooltip>
@@ -452,7 +454,9 @@ export function PoolListPage() {
       // 源列序 6（v2.4 新增）：可用授权额度（null → '-'，无 tooltip）
       {
         accessorKey: 'preauthAvailableAmount',
-        header: 'Available Authorization',
+        header: () => (
+          <div className="text-right">Available Authorization</div>
+        ),
         cell: ({ row }) =>
           row.original.preauthAvailableAmount == null ? (
             <span>-</span>
@@ -506,39 +510,58 @@ export function PoolListPage() {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              {LBL.eyebrow}
-            </div>
-            <h1 className="text-xl font-semibold">{LBL.title}</h1>
+        <div>
+          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            {LBL.eyebrow}
           </div>
-          <div className="flex items-center gap-2">
-            {/* 源 @refreshed="load"：仅重拉当前视图 */}
-            <SyncRefreshButton
-              domain="pool"
-              onRefreshed={() => void listQuery.refetch()}
-            />
-            {/* 源主按钮（页面键门禁，v-perm 移除语义等价） */}
-            <PermButton
-              menuKey="lp:pool"
-              onClick={() => {
-                setApplyOpen(true);
-              }}
-            >
-              {LBL.apply}
-            </PermButton>
-          </div>
+          <h1 className="text-xl font-semibold">{LBL.title}</h1>
         </div>
 
-        <div className="rounded-lg border-border/60 bg-card shadow-float">
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={listQuery.isPending}
-            emptyMessage={LBL.empty}
-          />
-        </div>
+        {/* §6.2 Table Panel：实体名 + 结果数 + 数据时间 + 页面级操作右置 */}
+        <section className="rounded-lg border border-border/60 bg-card">
+          <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+              <div className="text-base font-semibold leading-6 text-foreground">
+                {LBL.entity}
+              </div>
+            {listQuery.data != null && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {rows.length} {LBL.countUnit}
+              </span>
+            )}
+            {listQuery.dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatTime(listQuery.dataUpdatedAt)}
+              </span>
+            ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {/* 源 @refreshed="load"：仅重拉当前视图 */}
+              <SyncRefreshButton
+                domain="pool"
+                onRefreshed={() => void listQuery.refetch()}
+              />
+              {/* 源主按钮（页面键门禁，v-perm 移除语义等价） */}
+              <PermButton
+                menuKey="lp:pool"
+                onClick={() => {
+                  setApplyOpen(true);
+                }}
+              >
+                {LBL.apply}
+              </PermButton>
+            </div>
+          </div>
+
+          <div className="p-4">
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={listQuery.isPending}
+              emptyMessage={LBL.empty}
+            />
+          </div>
+        </section>
 
         <ApplyPoolDialog open={applyOpen} onOpenChange={setApplyOpen} />
       </div>

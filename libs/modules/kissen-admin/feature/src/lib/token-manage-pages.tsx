@@ -52,6 +52,7 @@ import {
   TooltipTrigger,
   useToast,
 } from '@myorg/shared/ui';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 
 import {
   CONNECTIVITY_STATUS_LABEL,
@@ -325,7 +326,7 @@ export function TokenManageListPage() {
   const [form, setForm] = React.useState<TokenFilterForm>(EMPTY_TOKEN_FILTER);
   const [filter, setFilter] = React.useState<TokenListFilter>({});
 
-  const { data, isLoading } = useTokenListQuery(KISSEN_PROJECT_ID, filter);
+  const { data, isLoading, dataUpdatedAt } = useTokenListQuery(KISSEN_PROJECT_ID, filter);
   const { data: bankData } = useBankListQuery(KISSEN_PROJECT_ID, {
     pageNum: 1,
     pageSize: 100,
@@ -558,7 +559,9 @@ export function TokenManageListPage() {
       {
         accessorKey: 'createTime',
         header: 'Registered At',
-        cell: ({ row }) => <span>{formatTime(row.original.createTime)}</span>,
+        cell: ({ row }) => (
+          <span className="tabular-nums">{formatTime(row.original.createTime)}</span>
+        ),
       },
       createActionColumn<TokenRow & { id: string }>((item) => {
         const actions: TableRowAction<TokenRow & { id: string }>[] = [];
@@ -595,81 +598,101 @@ export function TokenManageListPage() {
         <h1 className="text-xl font-semibold">Token Management</h1>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSearch();
-        }}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground">Token Code</label>
-            <Input
-              value={form.tokenCode}
-              placeholder="Fuzzy match"
-              onChange={(e) => setForm((prev) => ({ ...prev, tokenCode: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground">Bank</label>
-            <Select
-              value={form.bankId}
-              onValueChange={(v) => setForm((prev) => ({ ...prev, bankId: v }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={STATUS_ALL}>All</SelectItem>
-                {bankOptions.map((b) => (
-                  <SelectItem key={b.bankId} value={String(b.bankId)}>
-                    {`${b.bankName} (${b.bankCode})`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground">Status</label>
-            <Select
-              value={form.status}
-              onValueChange={(v) => setForm((prev) => ({ ...prev, status: v }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={STATUS_ALL}>All</SelectItem>
-                <SelectItem value="5">{TOKEN_STATUS_LABEL[5]}</SelectItem>
-                <SelectItem value="15">{TOKEN_STATUS_LABEL[15]}</SelectItem>
-                <SelectItem value="20">{TOKEN_STATUS_LABEL[20]}</SelectItem>
-                <SelectItem value="50">{TOKEN_STATUS_LABEL[50]}</SelectItem>
-              </SelectContent>
-            </Select>
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              Tokens
+            </div>
+            {!isLoading ? (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {tableData.length} results
+              </span>
+            ) : null}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatAdminDateTime(dataUpdatedAt)}
+              </span>
+            ) : null}
           </div>
         </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            Reset
-          </Button>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSearch();
+          }}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium leading-snug text-foreground">
+                Token Code
+              </label>
+              <Input
+                value={form.tokenCode}
+                placeholder="Fuzzy match"
+                onChange={(e) => setForm((prev) => ({ ...prev, tokenCode: e.target.value }))}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium leading-snug text-foreground">
+                Bank
+              </label>
+              <Select
+                value={form.bankId}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, bankId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={STATUS_ALL}>All</SelectItem>
+                  {bankOptions.map((b) => (
+                    <SelectItem key={b.bankId} value={String(b.bankId)}>
+                      {`${b.bankName} (${b.bankCode})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium leading-snug text-foreground">
+                Status
+              </label>
+              <Select
+                value={form.status}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, status: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={STATUS_ALL}>All</SelectItem>
+                  <SelectItem value="5">{TOKEN_STATUS_LABEL[5]}</SelectItem>
+                  <SelectItem value="15">{TOKEN_STATUS_LABEL[15]}</SelectItem>
+                  <SelectItem value="20">{TOKEN_STATUS_LABEL[20]}</SelectItem>
+                  <SelectItem value="50">{TOKEN_STATUS_LABEL[50]}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end gap-2">
+              <Button type="submit">Search</Button>
+              <Button type="button" variant="outline" onClick={onReset}>
+                Reset
+              </Button>
+            </div>
+          </div>
+        </form>
+        <div className="p-4">
+          {/* 源无分页/多选/导出 → 不传 pagination。 */}
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No tokens registered yet"
+          />
         </div>
-      </form>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="border-b border-border/50 px-6 py-3 text-sm font-semibold">
-          Token List
-        </div>
-        {/* 源无分页/多选/导出 → 不传 pagination。 */}
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-        />
-      </div>
+      </section>
 
       <PromptDialog request={promptRequest} onClose={() => setPromptRequest(null)} />
       <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
@@ -815,7 +838,7 @@ export function GatewayInstanceListPage() {
     filter: instanceFormToFilter(EMPTY_INSTANCE_FILTER),
   }));
 
-  const { data, isLoading } = useInstanceListQuery(KISSEN_PROJECT_ID, req);
+  const { data, isLoading, dataUpdatedAt } = useInstanceListQuery(KISSEN_PROJECT_ID, req);
   const { data: bankData } = useBankListQuery(KISSEN_PROJECT_ID, {
     pageNum: 1,
     pageSize: 100,
@@ -1034,7 +1057,11 @@ export function GatewayInstanceListPage() {
       {
         accessorKey: 'lastHeartbeatTime',
         header: 'Last Heartbeat',
-        cell: ({ row }) => <span>{formatTime(row.original.lastHeartbeatTime)}</span>,
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatTime(row.original.lastHeartbeatTime)}
+          </span>
+        ),
       },
       createActionColumn<InstanceRow & { id: string }>((item) => {
         const actions: TableRowAction<InstanceRow & { id: string }>[] = [];
@@ -1074,97 +1101,114 @@ export function GatewayInstanceListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="text-xs text-muted-foreground">GATEWAY INSTANCE</div>
-          <h1 className="text-xl font-semibold">Instance Management</h1>
-        </div>
-        <Button type="button" onClick={openRegister}>
-          Register Instance
-        </Button>
+      {/* 页头（源 page-head：eyebrow + 标题）。 */}
+      <div>
+        <div className="text-xs text-muted-foreground">GATEWAY INSTANCE</div>
+        <h1 className="text-xl font-semibold">Instance Management</h1>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSearch();
-        }}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground">Bank</label>
-            <Select
-              value={form.bankId}
-              onValueChange={(v) => setForm((prev) => ({ ...prev, bankId: v }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={STATUS_ALL}>All</SelectItem>
-                {bankOptions.map((b) => (
-                  <SelectItem key={b.bankId} value={String(b.bankId)}>
-                    {`${b.bankName} (${b.bankCode})`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              Gateway Instances
+            </div>
+            {!isLoading && paginationMeta ? (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {paginationMeta.total} results
+              </span>
+            ) : null}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatAdminDateTime(dataUpdatedAt)}
+              </span>
+            ) : null}
           </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground">Status</label>
-            <Select
-              value={form.status}
-              onValueChange={(v) => setForm((prev) => ({ ...prev, status: v }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={STATUS_ALL}>All</SelectItem>
-                <SelectItem value="1">{INSTANCE_STATUS_LABEL[1]}</SelectItem>
-                <SelectItem value="10">{INSTANCE_STATUS_LABEL[10]}</SelectItem>
-                <SelectItem value="20">{INSTANCE_STATUS_LABEL[20]}</SelectItem>
-                <SelectItem value="50">{INSTANCE_STATUS_LABEL[50]}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            Reset
+          <Button type="button" size="sm" onClick={openRegister}>
+            Register Instance
           </Button>
         </div>
-      </form>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="border-b border-border/50 px-6 py-3 text-sm font-semibold">
-          Instance List
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSearch();
+          }}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium leading-snug text-foreground">
+                Bank
+              </label>
+              <Select
+                value={form.bankId}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, bankId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={STATUS_ALL}>All</SelectItem>
+                  {bankOptions.map((b) => (
+                    <SelectItem key={b.bankId} value={String(b.bankId)}>
+                      {`${b.bankName} (${b.bankCode})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium leading-snug text-foreground">
+                Status
+              </label>
+              <Select
+                value={form.status}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, status: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={STATUS_ALL}>All</SelectItem>
+                  <SelectItem value="1">{INSTANCE_STATUS_LABEL[1]}</SelectItem>
+                  <SelectItem value="10">{INSTANCE_STATUS_LABEL[10]}</SelectItem>
+                  <SelectItem value="20">{INSTANCE_STATUS_LABEL[20]}</SelectItem>
+                  <SelectItem value="50">{INSTANCE_STATUS_LABEL[50]}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end gap-2">
+              <Button type="submit">Search</Button>
+              <Button type="button" variant="outline" onClick={onReset}>
+                Reset
+              </Button>
+            </div>
+          </div>
+        </form>
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No gateway instances registered"
+            pagination={
+              paginationMeta
+                ? {
+                    page: paginationMeta.page,
+                    pageSize: paginationMeta.pageSize,
+                    total: paginationMeta.total,
+                    onPageChange: (page) =>
+                      setReq((prev) => ({ ...prev, pageNum: page })),
+                    onPageSizeChange: (n) =>
+                      // 源 size-change → onSearch（回第 1 页）。
+                      setReq((prev) => ({ ...prev, pageNum: 1, pageSize: n })),
+                    pageSizeOptions: PAGE_SIZE_OPTIONS,
+                  }
+                : undefined
+            }
+          />
         </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-          pagination={
-            paginationMeta
-              ? {
-                  page: paginationMeta.page,
-                  pageSize: paginationMeta.pageSize,
-                  total: paginationMeta.total,
-                  onPageChange: (page) =>
-                    setReq((prev) => ({ ...prev, pageNum: page })),
-                  onPageSizeChange: (n) =>
-                    // 源 size-change → onSearch（回第 1 页）。
-                    setReq((prev) => ({ ...prev, pageNum: 1, pageSize: n })),
-                  pageSizeOptions: PAGE_SIZE_OPTIONS,
-                }
-              : undefined
-          }
-        />
-      </div>
+      </section>
 
       {/* 登记实例 Dialog（源 el-dialog 520px，字段/占位/手写校验逐条照迁）。 */}
       <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>

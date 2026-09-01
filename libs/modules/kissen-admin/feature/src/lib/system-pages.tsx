@@ -39,6 +39,7 @@ import {
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { cn } from '@myorg/shared/util-classnames';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { peekRow, stashRow } from './row-stash';
 import { useKissenPerm } from './use-kissen-perm';
 
@@ -2802,7 +2803,7 @@ export function OperateLogListPage() {
     operateLogFilterToParams(EMPTY_OPERATE_LOG_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
-  const { data, isLoading } = useOperateLogListQuery(
+  const { data, isLoading, dataUpdatedAt } = useOperateLogListQuery(
     KISSEN_PROJECT_ID,
     params,
   );
@@ -2829,7 +2830,11 @@ export function OperateLogListPage() {
     {
       accessorKey: 'operateTime',
       header: 'Time',
-      cell: ({ row }) => formatTimestamp(row.original.operateTime),
+      cell: ({ row }) => (
+        <span className="tabular-nums">
+          {formatTimestamp(row.original.operateTime)}
+        </span>
+      ),
     },
     { accessorKey: 'operateName', header: 'Operator' },
     { accessorKey: 'module', header: 'Module' },
@@ -2893,66 +2898,80 @@ export function OperateLogListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="module"
-            label="Module"
-            register={register('module')}
-            placeholder="Fuzzy match"
-          />
-          <FormField
-            name="operateName"
-            label="Operator"
-            register={register('operateName')}
-            placeholder="Fuzzy match"
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label="Result"
-            placeholder="All"
-            options={OPERATE_LOG_RESULT_OPTIONS}
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              Operation Logs
+            </div>
+            {!isLoading && paginationMeta ? (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {paginationMeta.total} results
+              </span>
+            ) : null}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatAdminDateTime(dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <form
+          onSubmit={handleSubmit(onSearch)}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField
+              name="module"
+              label="Module"
+              register={register('module')}
+              placeholder="Fuzzy match"
+            />
+            <FormField
+              name="operateName"
+              label="Operator"
+              register={register('operateName')}
+              placeholder="Fuzzy match"
+            />
+            <FormSelect
+              name="status"
+              control={control}
+              label="Result"
+              placeholder="All"
+              options={OPERATE_LOG_RESULT_OPTIONS}
+            />
+            <div className="flex items-end gap-2">
+              <Button type="submit">Search</Button>
+              <Button type="button" variant="outline" onClick={onResetSearch}>
+                Reset
+              </Button>
+            </div>
+          </div>
+        </form>
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No operation logs found"
+            pagination={
+              paginationMeta
+                ? {
+                    page: paginationMeta.page,
+                    pageSize: paginationMeta.pageSize,
+                    total: paginationMeta.total,
+                    onPageChange: (page) =>
+                      setParams((prev) => ({ ...prev, pageNum: page })),
+                    onPageSizeChange: (n) => {
+                      setPageSize(n);
+                      setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                    },
+                  }
+                : undefined
+            }
           />
         </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="outline" onClick={onResetSearch}>
-            Reset
-          </Button>
-        </div>
-      </form>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="border-b border-border/50 px-6 py-3 text-sm font-semibold">
-          Operation Logs
-        </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-          pagination={
-            paginationMeta
-              ? {
-                  page: paginationMeta.page,
-                  pageSize: paginationMeta.pageSize,
-                  total: paginationMeta.total,
-                  onPageChange: (page) =>
-                    setParams((prev) => ({ ...prev, pageNum: page })),
-                  onPageSizeChange: (n) => {
-                    setPageSize(n);
-                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
-                  },
-                }
-              : undefined
-          }
-        />
-      </div>
+      </section>
 
       <OperateLogDetailDialog
         row={detail}

@@ -21,7 +21,7 @@
  */
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 
 import {
   Badge,
@@ -52,10 +52,13 @@ const PROJECT_ID = LP_PROJECT_ID;
 const PAGE_SIZE = 10;
 
 const LBL = {
+  eyebrow: 'SYSTEM',
+  title: 'System Log',
+  entity: 'System Logs',
+  countUnit: 'logs',
   query: 'Search',
   reset: 'Reset',
-  records: 'Syslog',
-  empty: 'No data',
+  empty: 'No operation logs match the current filters',
   expand: 'Expand',
   collapse: 'Collapse',
 } as const;
@@ -259,112 +262,135 @@ export function SyslogListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit((f) => setParams(formToParams(f, 1)))}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <FormField
-            name="module"
-            label="Module"
-            placeholder="Fuzzy match"
-            register={register('module')}
-          />
-          <FormField
-            name="operateName"
-            label="Operator"
-            placeholder="Fuzzy match"
-            register={register('operateName')}
-          />
-          <FormField
-            name="startTime"
-            label="Start Time"
-            type="datetime-local"
-            register={register('startTime')}
-          />
-          <FormField
-            name="endTime"
-            label="End Time"
-            type="datetime-local"
-            register={register('endTime')}
-          />
+      <div>
+        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          {LBL.eyebrow}
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit">{LBL.query}</Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              reset(EMPTY_FILTER);
-              setExpanded(new Set());
-              setParams(formToParams(EMPTY_FILTER, 1));
-            }}
-          >
-            {LBL.reset}
-          </Button>
-        </div>
-      </form>
+        <h1 className="text-xl font-semibold">{LBL.title}</h1>
+      </div>
 
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">{LBL.records}</div>
+      {/* §6.2 List Panel：header → filter 条 → 表格（手写展开表对齐 DataTable 口径） */}
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              {LBL.entity}
+            </div>
+            {listQuery.data != null && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {total} {LBL.countUnit}
+              </span>
+            )}
+            {listQuery.dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatTime(listQuery.dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
         </div>
-        <div className="gap-4 p-4">
-          <div className="overflow-x-auto rounded-md border border-border/50 bg-card">
+
+        <form
+          onSubmit={handleSubmit((f) => setParams(formToParams(f, 1)))}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField
+              name="module"
+              label="Module"
+              placeholder="Fuzzy match"
+              register={register('module')}
+            />
+            <FormField
+              name="operateName"
+              label="Operator"
+              placeholder="Fuzzy match"
+              register={register('operateName')}
+            />
+            <FormField
+              name="startTime"
+              label="Start Time"
+              type="datetime-local"
+              register={register('startTime')}
+            />
+            <FormField
+              name="endTime"
+              label="End Time"
+              type="datetime-local"
+              register={register('endTime')}
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="submit">{LBL.query}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                reset(EMPTY_FILTER);
+                setExpanded(new Set());
+                setParams(formToParams(EMPTY_FILTER, 1));
+              }}
+            >
+              {LBL.reset}
+            </Button>
+          </div>
+        </form>
+
+        <div className="p-4">
+          <div className="flex flex-col gap-4">
+            <div className="overflow-x-auto rounded-md border border-border/50 bg-card">
             <table className="w-full min-w-max caption-bottom text-sm">
               <thead className="bg-muted/50">
                 <tr>
                   <th
                     scope="col"
-                    className="h-10 w-12 px-2 text-left align-middle font-medium text-muted-foreground"
+                    className="h-10 w-12 border-b border-border/50 px-2 text-left align-middle font-medium text-muted-foreground"
                     aria-label={LBL.expand}
                   />
                   <th
                     scope="col"
-                    className="h-10 whitespace-nowrap px-4 text-left align-middle font-medium text-muted-foreground"
+                    className="h-10 whitespace-nowrap border-b border-border/50 px-4 text-left align-middle font-medium text-muted-foreground"
                   >
                     Operation Time
                   </th>
                   <th
                     scope="col"
-                    className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                    className="h-10 whitespace-nowrap border-b border-border/50 px-4 text-left align-middle font-medium text-muted-foreground"
                   >
                     Operator
                   </th>
                   <th
                     scope="col"
-                    className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                    className="h-10 whitespace-nowrap border-b border-border/50 px-4 text-left align-middle font-medium text-muted-foreground"
                   >
                     Module
                   </th>
                   <th
                     scope="col"
-                    className="h-10 w-28 px-4 text-left align-middle font-medium text-muted-foreground"
+                    className="h-10 w-28 whitespace-nowrap border-b border-border/50 px-4 text-left align-middle font-medium text-muted-foreground"
                   >
                     Business Type
                   </th>
                   <th
                     scope="col"
-                    className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                    className="h-10 whitespace-nowrap border-b border-border/50 px-4 text-left align-middle font-medium text-muted-foreground"
                   >
                     Endpoint
                   </th>
                   <th
                     scope="col"
-                    className="h-10 w-24 px-4 text-left align-middle font-medium text-muted-foreground"
+                    className="h-10 w-24 whitespace-nowrap border-b border-border/50 px-4 text-left align-middle font-medium text-muted-foreground"
                   >
                     Status
                   </th>
                   <th
                     scope="col"
-                    className="h-10 w-24 px-4 text-left align-middle font-medium text-muted-foreground"
+                    className="h-10 w-24 whitespace-nowrap border-b border-border/50 px-4 text-right align-middle font-medium text-muted-foreground"
                   >
                     Duration (ms)
                   </th>
                   <th
                     scope="col"
-                    className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                    className="h-10 whitespace-nowrap border-b border-border/50 px-4 text-left align-middle font-medium text-muted-foreground"
                   >
                     TraceId
                   </th>
@@ -376,7 +402,12 @@ export function SyslogListPage() {
                     <tr key={`skeleton-${i}`}>
                       {Array.from({ length: COL_COUNT }).map((__, ci) => (
                         <td key={ci} className="px-4 py-3">
-                          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                          {/* 展开列宽 w-12：首格窄条，其余按 DataTable w-24 口径 */}
+                          <div
+                            className={`h-4 motion-safe:animate-pulse rounded bg-muted ${
+                              ci === 0 ? 'w-6' : 'w-24'
+                            }`}
+                          />
                         </td>
                       ))}
                     </tr>
@@ -385,9 +416,18 @@ export function SyslogListPage() {
                   <tr>
                     <td
                       colSpan={COL_COUNT}
-                      className="px-4 py-8 text-center text-muted-foreground"
+                      className="px-4 py-10 text-center"
                     >
-                      {LBL.empty}
+                      <div className="flex flex-col items-center justify-center gap-2 text-center">
+                        <Inbox
+                          className="h-9 w-9 text-muted-foreground/40"
+                          strokeWidth={1.5}
+                          aria-hidden="true"
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          {LBL.empty}
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -395,7 +435,7 @@ export function SyslogListPage() {
                     const open = expanded.has(row.operateLogId);
                     return (
                       <React.Fragment key={row.operateLogId}>
-                        <tr className="transition-colors hover:bg-muted/50">
+                        <tr className="motion-safe:transition-colors hover:bg-muted/50">
                           <td className="px-2 py-3 align-middle">
                             <Button
                               variant="ghost"
@@ -406,7 +446,7 @@ export function SyslogListPage() {
                               onClick={() => toggleExpand(row.operateLogId)}
                             >
                               <ChevronRight
-                                className={`h-4 w-4 transition-transform ${
+                                className={`h-4 w-4 motion-safe:transition-transform ${
                                   open ? 'rotate-90' : ''
                                 }`}
                               />
@@ -438,7 +478,7 @@ export function SyslogListPage() {
                               <Badge variant="destructive">Error</Badge>
                             )}
                           </td>
-                          <td className="px-4 py-3 align-middle">
+                          <td className="px-4 py-3 text-right align-middle">
                             <Num>{row.costTime ?? '-'}</Num>
                           </td>
                           <td className="max-w-[220px] px-4 py-3 align-middle">
@@ -463,8 +503,8 @@ export function SyslogListPage() {
           </div>
 
           {/* 源分页 layout 'total, prev, pager, next'：固定 pageSize，无 size 选择器 */}
-          <div className="flex items-center justify-between pt-3">
-            <div className="text-sm text-muted-foreground">
+          <div className="flex items-center justify-between">
+            <div className="text-xs tabular-nums text-muted-foreground">
               Total {total} items
             </div>
             <div className="flex items-center gap-2">
@@ -484,8 +524,9 @@ export function SyslogListPage() {
               </PagerButton>
             </div>
           </div>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

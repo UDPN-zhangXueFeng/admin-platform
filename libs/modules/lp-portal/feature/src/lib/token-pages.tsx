@@ -54,12 +54,16 @@ type GroupTokenRow = BankGroupRow['tokens'][number];
 const LBL = {
   eyebrow: 'DIRECTORY',
   title: 'Bank Token Directory',
+  entity: 'Tokens',
   tabList: 'Token List',
   tabGroup: 'By Bank',
-  empty: 'No data',
+  emptyList:
+    'No tokens in the directory yet — refresh to pull the latest bank tokens',
+  emptyGroup: 'No bank groups yet',
   poolOpened: 'Pool Opened',
   notEnabled: 'Not Enabled',
   tokensCount: 'tokens',
+  banksCount: 'banks',
 } as const;
 
 /** 数值文本（源 .num 类：等宽 + 表格数字对齐）。 */
@@ -231,27 +235,60 @@ export function TokenListPage() {
     );
   }, [groups]);
 
+  // 面板 header 需按视图展示结果数/数据时间：Tabs 由非受控改受控（行为不变）
+  const [view, setView] = React.useState<'list' | 'group'>('list');
+
   const tableData = React.useMemo(
     () => listQuery.data?.map((r) => ({ ...r, id: String(r.tokenId) })) ?? [],
     [listQuery.data],
   );
 
+  // 激活视图的元信息（结果数按视图单位：list→tokens / group→banks）
+  const activeQuery = view === 'list' ? listQuery : groupQuery;
+  const activeCount =
+    view === 'list'
+      ? `${tableData.length} ${LBL.tokensCount}`
+      : `${groups.length} ${LBL.banksCount}`;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            {LBL.eyebrow}
-          </div>
-          <h1 className="text-xl font-semibold">{LBL.title}</h1>
+      <div>
+        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          {LBL.eyebrow}
         </div>
-        <SyncRefreshButton domain="token" onRefreshed={handleRefreshed} />
+        <h1 className="text-xl font-semibold">{LBL.title}</h1>
       </div>
 
       {down && <ServiceDownAlert traceId={down.traceId} />}
 
-      <div className="rounded-lg border-border/60 bg-card text-card-foreground shadow-float">
-        <Tabs defaultValue="list" className="p-4 sm:p-6">
+      {/* §6.2 Table Panel：实体名 + 结果数 + 数据时间 + 页面级操作右置 */}
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              {LBL.entity}
+            </div>
+            {activeQuery.data != null && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {activeCount}
+              </span>
+            )}
+            {activeQuery.dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatTime(activeQuery.dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
+          <div className="shrink-0">
+            <SyncRefreshButton domain="token" onRefreshed={handleRefreshed} />
+          </div>
+        </div>
+
+        <Tabs
+          value={view}
+          onValueChange={(v) => setView(v as typeof view)}
+          className="p-4"
+        >
           <TabsList>
             <TabsTrigger value="list">{LBL.tabList}</TabsTrigger>
             <TabsTrigger value="group">{LBL.tabGroup}</TabsTrigger>
@@ -262,7 +299,7 @@ export function TokenListPage() {
               columns={LIST_COLUMNS}
               data={tableData}
               isLoading={listQuery.isPending}
-              emptyMessage={LBL.empty}
+              emptyMessage={LBL.emptyList}
             />
           </TabsContent>
 
@@ -272,13 +309,13 @@ export function TokenListPage() {
                 {Array.from({ length: GROUP_SKELETON_ROWS }).map((_, i) => (
                   <div
                     key={`skeleton-${i}`}
-                    className="h-8 animate-pulse rounded bg-muted"
+                    className="h-8 motion-safe:animate-pulse rounded bg-muted"
                   />
                 ))}
               </div>
             ) : groups.length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground">
-                {LBL.empty}
+                {LBL.emptyGroup}
               </div>
             ) : (
               <Accordion
@@ -305,7 +342,7 @@ export function TokenListPage() {
                           ...t,
                           id: String(t.tokenId),
                         }))}
-                        emptyMessage={LBL.empty}
+                        emptyMessage={LBL.emptyList}
                       />
                     </AccordionContent>
                   </AccordionItem>
@@ -314,7 +351,7 @@ export function TokenListPage() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
+      </section>
     </div>
   );
 }

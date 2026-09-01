@@ -52,6 +52,7 @@ import {
 
 import { DescField, DescGrid } from './desc-grid';
 import { OPT_ALL, fmtAmount, formatTime, orDash, toEpochMs } from './kit';
+import { PageHead } from './page-head';
 import { useGatewayPerm } from './use-gateway-perm';
 
 /**
@@ -206,7 +207,7 @@ export function TxListPage() {
   const [pageNum, setPageNum] = React.useState(1);
   const [exporting, setExporting] = React.useState(false);
 
-  const { data, isLoading, isError, error, refetch } = useTxPage({
+  const { data, isLoading, isError, error, refetch, dataUpdatedAt } = useTxPage({
     pageNum,
     pageSize: TX_PAGE_SIZE,
     filter,
@@ -403,7 +404,7 @@ export function TxListPage() {
           /* 快照口径非成交时点（源 pairRateOf）：未推送/未知 '-'。 */
           const rate = pairViewOf(row.original.pairId, pairMap)?.rate;
           return (
-            <span className="tabular-nums">
+            <span className="block text-right tabular-nums">
               {rate?.userRate != null ? String(rate.userRate) : '-'}
             </span>
           );
@@ -489,90 +490,104 @@ export function TxListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="text-xs font-medium tracking-wide text-muted-foreground">
-            TRANSACTIONS
-          </div>
-          <h1 className="mt-1 text-xl font-semibold">Transactions</h1>
-        </div>
-        {/* 源 page-head-actions 的导出按钮：v-perm 'bank:tx:export' 未命中不渲染。 */}
-        {hasPerm(TX_EXPORT_PERM) && (
-          <Button variant="outline" disabled={exporting} onClick={onExport}>
-            {exporting && <Loader2 className="animate-spin" />}
-            Export CSV
-          </Button>
-        )}
-      </div>
+      <PageHead eyebrow="TRANSACTIONS" title="Transactions" />
 
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Filters</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormSelect
-            name="status"
-            control={control}
-            label="Status"
-            options={statusSelectOptions}
-            placeholder="All Statuses"
-          />
-          <Controller
-            control={control}
-            name="pendingOnly"
-            render={({ field }) => (
-              <div>
-                <label
-                  htmlFor="field-pendingOnly"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  Pending
-                </label>
-                <div className="flex h-10 items-center gap-2">
-                  <Checkbox
-                    id="field-pendingOnly"
-                    checked={field.value}
-                    onCheckedChange={(checked) =>
-                      field.onChange(checked === true)
-                    }
-                  />
-                  <span className="text-sm text-foreground">Pending only</span>
-                </div>
-              </div>
+      <section className="rounded-lg border border-border/60 bg-card">
+        {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + 页面级操作右置。 */}
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              Transactions
+            </div>
+            {data && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {total} results
+              </span>
             )}
-          />
-          <FormField
-            name="startTime"
-            label="Start Time"
-            type="datetime-local"
-            register={register('startTime')}
-          />
-          <FormField
-            name="endTime"
-            label="End Time"
-            type="datetime-local"
-            register={register('endTime')}
-          />
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatTime(dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
+          {/* 源 page-head-actions 的导出按钮：v-perm 'bank:tx:export' 未命中不渲染。 */}
+          {hasPerm(TX_EXPORT_PERM) && (
+            <Button variant="outline" disabled={exporting} onClick={onExport}>
+              {exporting && <Loader2 className="motion-safe:animate-spin" />}
+              Export CSV
+            </Button>
+          )}
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            Reset
-          </Button>
-        </div>
-      </form>
+        {/* §6.2 Filter Bar：3–4 列栅格；Search 主动作、Reset 次动作。 */}
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormSelect
+              name="status"
+              control={control}
+              label="Status"
+              options={statusSelectOptions}
+              placeholder="All Statuses"
+            />
+            <Controller
+              control={control}
+              name="pendingOnly"
+              render={({ field }) => (
+                <div>
+                  <label
+                    htmlFor="field-pendingOnly"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    Pending
+                  </label>
+                  <div className="flex h-10 items-center gap-2">
+                    <Checkbox
+                      id="field-pendingOnly"
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
+                    />
+                    <span className="text-sm text-foreground">Pending only</span>
+                  </div>
+                </div>
+              )}
+            />
+            <FormField
+              name="startTime"
+              label="Start Time"
+              type="datetime-local"
+              register={register('startTime')}
+            />
+            <FormField
+              name="endTime"
+              label="End Time"
+              type="datetime-local"
+              register={register('endTime')}
+            />
+          </div>
 
-      <div className="rounded-lg border-border/60 bg-card p-4 shadow-float">
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-        />
-        <TxPager total={total} pageNum={pageNum} onPageChange={setPageNum} />
-      </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="submit">Search</Button>
+            <Button type="button" variant="outline" onClick={onReset}>
+              Reset
+            </Button>
+          </div>
+        </form>
+
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No transactions found"
+          />
+          <TxPager total={total} pageNum={pageNum} onPageChange={setPageNum} />
+        </div>
+      </section>
     </div>
   );
 }
@@ -593,8 +608,8 @@ function TxPager({
   const totalPages = Math.max(1, Math.ceil(total / TX_PAGE_SIZE));
 
   return (
-    <div className="mt-3 flex items-center justify-between">
-      <span className="text-sm text-muted-foreground">
+    <div className="mt-4 flex items-center justify-between">
+      <span className="text-xs tabular-nums text-muted-foreground">
         {total} records · Page {pageNum} of {totalPages}
       </span>
       <div className="flex items-center gap-2">

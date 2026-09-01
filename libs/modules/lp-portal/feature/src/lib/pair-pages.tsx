@@ -46,8 +46,6 @@ import {
   AlertDescription,
   Badge,
   Button,
-  Card,
-  CardContent,
   DataTable,
   Tabs,
   TabsContent,
@@ -83,6 +81,7 @@ import { formatTime } from './format';
 const LBL = {
   eyebrow: 'MARKET',
   title: 'Token Pair Management',
+  entity: 'Token Pairs',
   mineTab: 'My Token Pairs',
   eligibleTab: 'Eligible',
   eligibleAlert:
@@ -324,12 +323,26 @@ function MineTable() {
   );
 
   return (
-    <DataTable
-      columns={columns}
-      data={rows}
-      isLoading={query.isPending}
-      emptyMessage={LBL.emptyMine}
-    />
+    <>
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {query.data != null && (
+          <span className="text-sm text-muted-foreground tabular-nums">
+            {rows.length} pairs
+          </span>
+        )}
+        {query.dataUpdatedAt ? (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Updated {formatTime(query.dataUpdatedAt)}
+          </span>
+        ) : null}
+      </div>
+      <DataTable
+        columns={columns}
+        data={rows}
+        isLoading={query.isPending}
+        emptyMessage={LBL.emptyMine}
+      />
+    </>
   );
 }
 
@@ -483,6 +496,18 @@ function EligibleTable({ onApplied }: { onApplied: () => void }) {
         <AlertDescription>{LBL.eligibleAlert}</AlertDescription>
       </Alert>
 
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {query.data != null && (
+          <span className="text-sm text-muted-foreground tabular-nums">
+            {rows.length} eligible pairs
+          </span>
+        )}
+        {query.dataUpdatedAt ? (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Updated {formatTime(query.dataUpdatedAt)}
+          </span>
+        ) : null}
+      </div>
       <DataTable
         columns={columns}
         data={rows}
@@ -547,34 +572,42 @@ export function PairListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            {LBL.eyebrow}
-          </div>
-          <h1 className="text-xl font-semibold">{LBL.title}</h1>
+      <div>
+        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          {LBL.eyebrow}
         </div>
-        <SyncRefreshButton domain="pair" onRefreshed={refreshAll} />
+        <h1 className="text-xl font-semibold">{LBL.title}</h1>
       </div>
 
-      <Card>
-        <CardContent className="pb-6">
-          <TooltipProvider delayDuration={200}>
-            <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-              <TabsList>
-                <TabsTrigger value="mine">{LBL.mineTab}</TabsTrigger>
-                <TabsTrigger value="eligible">{LBL.eligibleTab}</TabsTrigger>
-              </TabsList>
-              <TabsContent value="mine" className="mt-4">
-                <MineTable />
-              </TabsContent>
-              <TabsContent value="eligible" className="mt-4">
-                <EligibleTable onApplied={() => setTab('mine')} />
-              </TabsContent>
-            </Tabs>
-          </TooltipProvider>
-        </CardContent>
-      </Card>
+      {/* §6.2 Table Panel：实体名 + 页面级操作右置（结果数/时间在 tab 体内随查询渲染） */}
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-base font-semibold leading-6 text-foreground">
+            {LBL.entity}
+          </div>
+          <div className="shrink-0">
+            <SyncRefreshButton domain="pair" onRefreshed={refreshAll} />
+          </div>
+        </div>
+        <TooltipProvider delayDuration={200}>
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTab(v as typeof tab)}
+            className="p-4"
+          >
+            <TabsList>
+              <TabsTrigger value="mine">{LBL.mineTab}</TabsTrigger>
+              <TabsTrigger value="eligible">{LBL.eligibleTab}</TabsTrigger>
+            </TabsList>
+            <TabsContent value="mine" className="mt-4">
+              <MineTable />
+            </TabsContent>
+            <TabsContent value="eligible" className="mt-4">
+              <EligibleTable onApplied={() => setTab('mine')} />
+            </TabsContent>
+          </Tabs>
+        </TooltipProvider>
+      </section>
     </div>
   );
 }

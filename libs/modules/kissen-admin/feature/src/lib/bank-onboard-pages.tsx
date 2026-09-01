@@ -59,6 +59,7 @@ import {
 } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 
 import {
   BANK_STATUS_LABEL,
@@ -698,7 +699,7 @@ export function BankInfoListPage() {
     bankFormToParams(EMPTY_BANK_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
 
-  const { data, isLoading } = useBankListQuery(KISSEN_PROJECT_ID, params);
+  const { data, isLoading, dataUpdatedAt } = useBankListQuery(KISSEN_PROJECT_ID, params);
   const disableMutation = useBankDisableMutation(KISSEN_PROJECT_ID);
   const enableMutation = useBankEnableMutation(KISSEN_PROJECT_ID);
 
@@ -781,7 +782,9 @@ export function BankInfoListPage() {
       {
         accessorKey: 'createTime',
         header: 'Created At',
-        cell: ({ row }) => <span>{formatTime(row.original.createTime)}</span>,
+        cell: ({ row }) => (
+          <span className="tabular-nums">{formatTime(row.original.createTime)}</span>
+        ),
       },
       createActionColumn<BankRow & { id: string }>((item) => {
         const s = item.status;
@@ -817,86 +820,104 @@ export function BankInfoListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="bankName"
-            label="Bank Name"
-            placeholder="Fuzzy match"
-            register={register('bankName')}
-          />
-          <FormField
-            name="bankCode"
-            label="Bank Code"
-            placeholder="Fuzzy match"
-            register={register('bankCode')}
-          />
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Status
-            </label>
-            <Controller
-              control={control}
-              name="status"
-              render={({ field }) => (
-                <Select value={field.value || STATUS_ALL} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={STATUS_ALL}>All</SelectItem>
-                    {BANK_STATUS_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={String(o.value)}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              Banks
+            </div>
+            {!isLoading && paginationMeta ? (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {paginationMeta.total} results
+              </span>
+            ) : null}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatAdminDateTime(dataUpdatedAt)}
+              </span>
+            ) : null}
           </div>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            Reset
-          </Button>
-        </div>
-      </form>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">Bank List</div>
-          <Button type="button" size="sm" onClick={() => router.push(`${LIST_PATH}/create`)}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => router.push(`${LIST_PATH}/create`)}
+          >
             Register Bank
           </Button>
         </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-          pagination={
-            paginationMeta
-              ? {
-                  page: paginationMeta.page,
-                  pageSize: paginationMeta.pageSize,
-                  total: paginationMeta.total,
-                  onPageChange: (page) => setParams((prev) => ({ ...prev, pageNum: page })),
-                  onPageSizeChange: (n) => {
-                    setPageSize(n);
-                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
-                  },
-                  pageSizeOptions: PAGE_SIZE_OPTIONS,
-                }
-              : undefined
-          }
-        />
-      </div>
+        <form
+          onSubmit={handleSubmit(onSearch)}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField
+              name="bankName"
+              label="Bank Name"
+              placeholder="Fuzzy match"
+              register={register('bankName')}
+            />
+            <FormField
+              name="bankCode"
+              label="Bank Code"
+              placeholder="Fuzzy match"
+              register={register('bankCode')}
+            />
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium leading-snug text-foreground">
+                Status
+              </label>
+              <Controller
+                control={control}
+                name="status"
+                render={({ field }) => (
+                  <Select value={field.value || STATUS_ALL} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={STATUS_ALL}>All</SelectItem>
+                      {BANK_STATUS_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={String(o.value)}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button type="submit">Search</Button>
+              <Button type="button" variant="outline" onClick={onReset}>
+                Reset
+              </Button>
+            </div>
+          </div>
+        </form>
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No banks yet"
+            pagination={
+              paginationMeta
+                ? {
+                    page: paginationMeta.page,
+                    pageSize: paginationMeta.pageSize,
+                    total: paginationMeta.total,
+                    onPageChange: (page) => setParams((prev) => ({ ...prev, pageNum: page })),
+                    onPageSizeChange: (n) => {
+                      setPageSize(n);
+                      setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                    },
+                    pageSizeOptions: PAGE_SIZE_OPTIONS,
+                  }
+                : undefined
+            }
+          />
+        </div>
+      </section>
 
       {accessKeyBank && (
         <AccessKeyDrawer

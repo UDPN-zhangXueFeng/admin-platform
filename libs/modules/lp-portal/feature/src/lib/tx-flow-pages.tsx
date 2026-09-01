@@ -83,7 +83,8 @@ const LBL = {
   query: 'Search',
   reset: 'Reset',
   records: 'Transaction Flow',
-  empty: 'No data',
+  countUnit: 'transactions',
+  empty: 'No transactions match the current filters',
   detail: 'Detail',
 } as const;
 
@@ -279,7 +280,7 @@ export function TxFlowListPage() {
         // v2.4 FX Rate: userRate null/''/NaN/0 -> '-', else en-US grouping
         // with up to 8 fraction digits (source rateText, admin FX caliber)
         accessorKey: 'userRate',
-        header: 'FX Rate',
+        header: () => <div className="text-right">FX Rate</div>,
         cell: ({ row }) => {
           const v = row.original.userRate;
           const n = v == null || v === '' ? NaN : Number(v);
@@ -359,87 +360,104 @@ export function TxFlowListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            {LBL.eyebrow}
-          </div>
-          <h1 className="text-xl font-semibold">{LBL.title}</h1>
+      <div>
+        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          {LBL.eyebrow}
         </div>
-        {/* Domain sync: tx_flow; keeps current page after refresh */}
-        <SyncRefreshButton domain="tx_flow" onRefreshed={reloadKeepingPage} />
+        <h1 className="text-xl font-semibold">{LBL.title}</h1>
       </div>
 
       {serviceDown && <ServiceDownAlert traceId={serviceDown.traceId} />}
 
-      <form
-        onSubmit={handleSubmit((f) => setParams(formToParams(f, 1)))}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <FormField
-            name="pairCode"
-            label="Token Pair Code"
-            type="text"
-            placeholder="e.g. PR-0001, Enter to search"
-            register={register('pairCode')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label="Status"
-            options={[{ value: ALL, label: 'All' }, ...STATUS_OPTIONS]}
-          />
-          <FormField
-            name="startTime"
-            label="Completed From"
-            type="datetime-local"
-            register={register('startTime')}
-          />
-          <FormField
-            name="endTime"
-            label="Completed To"
-            type="datetime-local"
-            register={register('endTime')}
-          />
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit">{LBL.query}</Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              reset(EMPTY_FILTER);
-              setParams(formToParams(EMPTY_FILTER, 1));
-            }}
-          >
-            {LBL.reset}
-          </Button>
-        </div>
-      </form>
-
-      <TooltipProvider>
-        <div className="rounded-lg border-border/60 bg-card shadow-float">
-          <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-            <div className="text-sm font-semibold">{LBL.records}</div>
+      {/* §6.2 List Panel：header（实体名 + 结果数 + 数据时间 + 操作）→ filter 条 → 表格 */}
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              {LBL.records}
+            </div>
+            {listQuery.data != null && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {total} {LBL.countUnit}
+              </span>
+            )}
+            {listQuery.dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatTime(listQuery.dataUpdatedAt)}
+              </span>
+            ) : null}
           </div>
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={listQuery.isLoading}
-            emptyMessage={LBL.empty}
-            pagination={{
-              page: params.pageNum,
-              pageSize: PAGE_SIZE,
-              total,
-              onPageChange: (page) =>
-                setParams((prev) => ({ ...prev, pageNum: page })),
-              pageSizeOptions: [PAGE_SIZE],
-            }}
-          />
+          <div className="shrink-0">
+            {/* Domain sync: tx_flow; keeps current page after refresh */}
+            <SyncRefreshButton domain="tx_flow" onRefreshed={reloadKeepingPage} />
+          </div>
         </div>
-      </TooltipProvider>
+
+        <form
+          onSubmit={handleSubmit((f) => setParams(formToParams(f, 1)))}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField
+              name="pairCode"
+              label="Token Pair Code"
+              type="text"
+              placeholder="e.g. PR-0001, Enter to search"
+              register={register('pairCode')}
+            />
+            <FormSelect
+              name="status"
+              control={control}
+              label="Status"
+              options={[{ value: ALL, label: 'All' }, ...STATUS_OPTIONS]}
+            />
+            <FormField
+              name="startTime"
+              label="Completed From"
+              type="datetime-local"
+              register={register('startTime')}
+            />
+            <FormField
+              name="endTime"
+              label="Completed To"
+              type="datetime-local"
+              register={register('endTime')}
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="submit">{LBL.query}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                reset(EMPTY_FILTER);
+                setParams(formToParams(EMPTY_FILTER, 1));
+              }}
+            >
+              {LBL.reset}
+            </Button>
+          </div>
+        </form>
+
+        <div className="p-4">
+          <TooltipProvider>
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={listQuery.isLoading}
+              emptyMessage={LBL.empty}
+              pagination={{
+                page: params.pageNum,
+                pageSize: PAGE_SIZE,
+                total,
+                onPageChange: (page) =>
+                  setParams((prev) => ({ ...prev, pageNum: page })),
+                pageSizeOptions: [PAGE_SIZE],
+              }}
+            />
+          </TooltipProvider>
+        </div>
+      </section>
 
       {/* Drawer mounts only with a row target and unmounts once closed */}
       {drawerRow && (

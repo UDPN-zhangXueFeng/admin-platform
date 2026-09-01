@@ -230,7 +230,7 @@ export function TokenPairListPage() {
 
   const [filter, setFilter] = React.useState<TokenPairListFilter>({});
 
-  const { data: rows, isLoading } = useTokenPairListQuery(PROJECT_ID, filter);
+  const { data: rows, isLoading, dataUpdatedAt } = useTokenPairListQuery(PROJECT_ID, filter);
   const enableMutation = useEnableTokenPairMutation(PROJECT_ID);
   const disableMutation = useDisableTokenPairMutation(PROJECT_ID);
 
@@ -316,7 +316,7 @@ export function TokenPairListPage() {
         accessorKey: 'baseRate',
         header: 'Base Rate',
         cell: ({ row }) => (
-          <span className="tabular-nums">
+          <span className="block text-right tabular-nums">
             {row.original.baseRate == null
               ? '-'
               : Number(row.original.baseRate).toFixed(4)}
@@ -327,7 +327,7 @@ export function TokenPairListPage() {
         accessorKey: 'markupRate',
         header: 'Markup Rate',
         cell: ({ row }) => (
-          <span className="tabular-nums">
+          <span className="block text-right tabular-nums">
             {formatPercent(row.original.markupRate)}
           </span>
         ),
@@ -336,14 +336,16 @@ export function TokenPairListPage() {
         id: 'userRate',
         header: 'User Rate',
         cell: ({ row }) => (
-          <span className="tabular-nums">{userRate(row.original)}</span>
+          <span className="block text-right tabular-nums">
+            {userRate(row.original)}
+          </span>
         ),
       },
       {
         accessorKey: 'defaultSplitRatio',
         header: 'Default Split',
         cell: ({ row }) => (
-          <span className="tabular-nums">
+          <span className="block text-right tabular-nums">
             {formatPercent(row.original.defaultSplitRatio)}
           </span>
         ),
@@ -356,7 +358,9 @@ export function TokenPairListPage() {
       {
         accessorKey: 'createTime',
         header: 'Created At',
-        cell: ({ row }) => <span>{formatTime(row.original.createTime)}</span>,
+        cell: ({ row }) => (
+          <span className="tabular-nums">{formatTime(row.original.createTime)}</span>
+        ),
       },
       createActionColumn<TokenPairRow & { id: string }>((item) => {
         const actions: TableRowAction<TokenPairRow & { id: string }>[] = [
@@ -396,57 +400,23 @@ export function TokenPairListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="pairCode"
-            label="Pair Code"
-            placeholder="Fuzzy match, e.g. PR-"
-            register={register('pairCode')}
-          />
-          <div>
-            <Label className="mb-1.5 block">Status</Label>
-            <Controller
-              control={control}
-              name="status"
-              render={({ field }) => (
-                <Select
-                  value={field.value != null ? String(field.value) : STATUS_ALL}
-                  onValueChange={(v) =>
-                    field.onChange(v === STATUS_ALL ? undefined : Number(v))
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={STATUS_ALL}>All</SelectItem>
-                    <SelectItem value="5">Pending Approval</SelectItem>
-                    <SelectItem value="15">Rejected</SelectItem>
-                    <SelectItem value="20">Enabled</SelectItem>
-                    <SelectItem value="30">Frozen</SelectItem>
-                    <SelectItem value="50">Disabled</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              Token Pairs
+            </div>
+            {!isLoading ? (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {tableData.length} results
+              </span>
+            ) : null}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatAdminDateTime(dataUpdatedAt)}
+              </span>
+            ) : null}
           </div>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            Reset
-          </Button>
-        </div>
-      </form>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">Token Pair Management</div>
           <Button
             type="button"
             size="sm"
@@ -455,13 +425,63 @@ export function TokenPairListPage() {
             New Token Pair
           </Button>
         </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-        />
-      </div>
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField
+              name="pairCode"
+              label="Pair Code"
+              placeholder="Fuzzy match, e.g. PR-"
+              register={register('pairCode')}
+            />
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium leading-snug text-foreground">
+                Status
+              </label>
+              <Controller
+                control={control}
+                name="status"
+                render={({ field }) => (
+                  <Select
+                    value={field.value != null ? String(field.value) : STATUS_ALL}
+                    onValueChange={(v) =>
+                      field.onChange(v === STATUS_ALL ? undefined : Number(v))
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={STATUS_ALL}>All</SelectItem>
+                      <SelectItem value="5">Pending Approval</SelectItem>
+                      <SelectItem value="15">Rejected</SelectItem>
+                      <SelectItem value="20">Enabled</SelectItem>
+                      <SelectItem value="30">Frozen</SelectItem>
+                      <SelectItem value="50">Disabled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button type="submit">Search</Button>
+              <Button type="button" variant="outline" onClick={onReset}>
+                Reset
+              </Button>
+            </div>
+          </div>
+        </form>
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No token pairs configured yet"
+          />
+        </div>
+      </section>
 
       {dialog && (
         <TokenPairDialog

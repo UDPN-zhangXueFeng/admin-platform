@@ -110,7 +110,7 @@ const BANK_QUERY_HEADERS = [
 
 export function BankQueryListPage() {
   const toast = useToast();
-  const { data, isLoading, isFetching, isError, error, refetch } =
+  const { data, isLoading, isFetching, isError, error, refetch, dataUpdatedAt } =
     useBankQueryListQuery();
 
   // 列表失败 toast + Retry（tx/log 页口径；表格区保持空态，页面整体不阻断）。
@@ -220,32 +220,52 @@ export function BankQueryListPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead variant="banner" eyebrow="BANK QUERY" title="Bank Query">
-        {/* 源 el-button :loading="loading" @click="load" —— 仅刷新，无其他动作。 */}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={isFetching}
-          onClick={() => refetch()}
-        >
-          Refresh
-        </Button>
-      </PageHead>
+      <PageHead variant="banner" eyebrow="BANK QUERY" title="Bank Query" />
 
-      <div className="rounded-lg border-border/60 bg-card p-4 text-card-foreground shadow-float">
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-        />
-        {/* 源 footnote：可见集合与 DEC-05 过滤口径说明。 */}
-        <p className="mt-3 text-xs text-muted-foreground">
-          Network bank list (permission-visible set pushed by Kissen); token
-          summaries are filtered by this row&apos;s transaction permissions.
-        </p>
-      </div>
+      <section className="rounded-lg border border-border/60 bg-card">
+        {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + 页面级操作右置。 */}
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              Banks
+            </div>
+            {data && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {tableData.length} results
+              </span>
+            )}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatTime(dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
+          {/* 源 el-button :loading="loading" @click="load" —— 仅刷新，无其他动作。 */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isFetching}
+            onClick={() => refetch()}
+          >
+            Refresh
+          </Button>
+        </div>
+
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No banks pushed yet"
+          />
+          {/* 源 footnote：可见集合与 DEC-05 过滤口径说明。 */}
+          <p className="mt-4 text-xs text-muted-foreground">
+            Network bank list (permission-visible set pushed by Kissen); token
+            summaries are filtered by this row&apos;s transaction permissions.
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

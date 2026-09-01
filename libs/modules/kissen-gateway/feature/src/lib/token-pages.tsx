@@ -317,7 +317,8 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
 export function TokenListPage() {
   const toast = useToast();
   const hasPerm = useGatewayPerm();
-  const { data, isLoading, isError, error, refetch } = useTokenListQuery();
+  const { data, isLoading, isError, error, refetch, dataUpdatedAt } =
+    useTokenListQuery();
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
 
@@ -348,7 +349,9 @@ export function TokenListPage() {
         id: 'decimalDigits',
         header: 'Decimals',
         cell: ({ row }) => (
-          <div className="text-right tabular-nums">{row.original.decimalDigits}</div>
+          <span className="block text-right tabular-nums">
+            {row.original.decimalDigits}
+          </span>
         ),
       },
       { accessorKey: 'anchorFiat', header: 'Anchored Fiat' },
@@ -372,9 +375,9 @@ export function TokenListPage() {
         id: 'minLiquidity',
         header: 'Min Liquidity',
         cell: ({ row }) => (
-          <div className="text-right tabular-nums">
+          <span className="block text-right tabular-nums">
             {fmtAmount(row.original.minLiquidity)}
-          </div>
+          </span>
         ),
       },
       {
@@ -407,7 +410,7 @@ export function TokenListPage() {
         id: 'pushTime',
         header: 'Push Time',
         cell: ({ row }) => (
-          <span className="font-mono">{formatTime(row.original.pushTime)}</span>
+          <span className="tabular-nums">{formatTime(row.original.pushTime)}</span>
         ),
       },
     ],
@@ -421,29 +424,49 @@ export function TokenListPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead variant="toolbar" title="Token Management">
-        {/* 源 v-perm="'bank:token:submit'"：未命中 menuKeys 不渲染。 */}
-        {hasPerm(TOKEN_SUBMIT_PERM) && (
-          <Button onClick={() => setDialogOpen(true)}>Register Token</Button>
-        )}
-      </PageHead>
+      <PageHead variant="toolbar" title="Token Management" />
 
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-        />
-        {/* 源 .footnote（12px 灰）：注册前置/幂等/审核结果推送通道三段说明
-            （39c8a2b「同步状态」兜底字样移除）。 */}
-        <p className="px-4 pb-4 text-xs text-muted-foreground">
-          Prerequisites: the instance is activated and the bank is onboarded.
-          Submitting an existing token code again returns the original application
-          status (idempotent). Review results are written back via platform
-          biz-event pushes.
-        </p>
-      </div>
+      <section className="rounded-lg border border-border/60 bg-card">
+        {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + 页面级操作右置。 */}
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              Tokens
+            </div>
+            {data && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {rows.length} results
+              </span>
+            )}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatTime(dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
+          {/* 源 v-perm="'bank:token:submit'"：未命中 menuKeys 不渲染。 */}
+          {hasPerm(TOKEN_SUBMIT_PERM) && (
+            <Button onClick={() => setDialogOpen(true)}>Register Token</Button>
+          )}
+        </div>
+
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No tokens registered yet"
+          />
+          {/* 源 .footnote（12px 灰）：注册前置/幂等/审核结果推送通道三段说明
+              （39c8a2b「同步状态」兜底字样移除）。 */}
+          <p className="mt-4 text-xs text-muted-foreground">
+            Prerequisites: the instance is activated and the bank is onboarded.
+            Submitting an existing token code again returns the original
+            application status (idempotent). Review results are written back via
+            platform biz-event pushes.
+          </p>
+        </div>
+      </section>
 
       {dialogOpen && (
         <TokenSubmitDialog onClose={() => setDialogOpen(false)} />

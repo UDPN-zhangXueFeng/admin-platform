@@ -1041,7 +1041,7 @@ function TransactionListCore() {
   const [resolveOpen, setResolveOpen] = React.useState(false);
   const [drawerTxId, setDrawerTxId] = React.useState<number | null>(null);
 
-  const { data, isLoading } = useTransactionListQuery(KISSEN_PROJECT_ID, {
+  const { data, isLoading, dataUpdatedAt } = useTransactionListQuery(KISSEN_PROJECT_ID, {
     pageNum,
     pageSize,
     filter,
@@ -1143,7 +1143,7 @@ function TransactionListCore() {
         id: 'userRate',
         header: 'FX Rate',
         cell: ({ row }) => (
-          <span className="block text-right font-mono">
+          <span className="block text-right font-mono tabular-nums">
             {row.original.userRate == null
               ? '-'
               : Number(row.original.userRate).toFixed(4)}
@@ -1167,12 +1167,18 @@ function TransactionListCore() {
       {
         id: 'createTime',
         header: 'Creation Time',
-        cell: ({ row }) => <span>{formatTime(row.original.createTime)}</span>,
+        cell: ({ row }) => (
+          <span className="tabular-nums">{formatTime(row.original.createTime)}</span>
+        ),
       },
       {
         id: 'completedTime',
         header: 'Completion Time',
-        cell: ({ row }) => <span>{formatTime(row.original.completedTime)}</span>,
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatTime(row.original.completedTime)}
+          </span>
+        ),
       },
       createActionColumn<TransactionRow & { id: string }>((item) => {
         // 处置入口仅 EXCEPTION(70) 行可见（后端「仅 70 可裁定」的 UI 投影）。
@@ -1240,116 +1246,131 @@ function TransactionListCore() {
         <h1 className="text-xl font-semibold">FX Transactions</h1>
       </div>
 
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Filters</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="txNo"
-            label="Transaction No."
-            placeholder="Exact match"
-            maxLength={32}
-            register={register('txNo')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label="Status"
-            options={statusSelectOptions}
-            placeholder="All"
-          />
-          <FilterableFormSelect
-            name="lpId"
-            control={control}
-            label="LP"
-            options={lpSelectOptions}
-            placeholder="All"
-          />
-          <FilterableFormSelect
-            name="pairId"
-            control={control}
-            label="Currency Pair"
-            options={pairSelectOptions}
-            placeholder="All"
-          />
-          <FormField
-            name="createTimeStart"
-            label="Creation Start Time"
-            type="datetime-local"
-            register={register('createTimeStart')}
-          />
-          <FormField
-            name="createTimeEnd"
-            label="Creation End Time"
-            type="datetime-local"
-            register={register('createTimeEnd')}
-          />
-        </div>
-
-        {/* 更多筛选（会话态不持久化）：仅源/目标银行（裁决 6，不暴露 transactionId/txUuid） */}
-        {showMore && (
-          <div className="mt-4 grid grid-cols-1 gap-4 border-t pt-4 md:grid-cols-2 xl:grid-cols-3">
-            <FilterableFormSelect
-              name="sourceBankId"
-              control={control}
-              label="Source Bank"
-              options={bankSelectOptions}
-              placeholder="All"
-            />
-            <FilterableFormSelect
-              name="targetBankId"
-              control={control}
-              label="Target Bank"
-              options={bankSelectOptions}
-              placeholder="All"
-            />
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              Transactions
+            </div>
+            {!isLoading && paginationMeta ? (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {paginationMeta.total} results
+              </span>
+            ) : null}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatAdminDateTime(dataUpdatedAt)}
+              </span>
+            ) : null}
           </div>
-        )}
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            Reset
-          </Button>
-          <Button
-            type="button"
-            variant="link"
-            className="h-auto p-0"
-            onClick={() => setShowMore((v) => !v)}
-          >
-            {showMore ? 'Collapse Filters' : 'More Filters'}
-          </Button>
         </div>
-      </form>
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField
+              name="txNo"
+              label="Transaction No."
+              placeholder="Exact match"
+              maxLength={32}
+              register={register('txNo')}
+            />
+            <FormSelect
+              name="status"
+              control={control}
+              label="Status"
+              options={statusSelectOptions}
+              placeholder="All"
+            />
+            <FilterableFormSelect
+              name="lpId"
+              control={control}
+              label="LP"
+              options={lpSelectOptions}
+              placeholder="All"
+            />
+            <FilterableFormSelect
+              name="pairId"
+              control={control}
+              label="Currency Pair"
+              options={pairSelectOptions}
+              placeholder="All"
+            />
+            <FormField
+              name="createTimeStart"
+              label="Creation Start Time"
+              type="datetime-local"
+              register={register('createTimeStart')}
+            />
+            <FormField
+              name="createTimeEnd"
+              label="Creation End Time"
+              type="datetime-local"
+              register={register('createTimeEnd')}
+            />
+            <div className="flex flex-wrap items-end gap-2">
+              <Button type="submit">Search</Button>
+              <Button type="button" variant="outline" onClick={onReset}>
+                Reset
+              </Button>
+              <div className="flex h-10 items-center">
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0"
+                  onClick={() => setShowMore((v) => !v)}
+                >
+                  {showMore ? 'Collapse Filters' : 'More Filters'}
+                </Button>
+              </div>
+            </div>
+          </div>
 
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">Transactions</div>
+          {/* 更多筛选（会话态不持久化）：仅源/目标银行（裁决 6，不暴露 transactionId/txUuid） */}
+          {showMore && (
+            <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border/50 pt-3 sm:grid-cols-2 lg:grid-cols-4">
+              <FilterableFormSelect
+                name="sourceBankId"
+                control={control}
+                label="Source Bank"
+                options={bankSelectOptions}
+                placeholder="All"
+              />
+              <FilterableFormSelect
+                name="targetBankId"
+                control={control}
+                label="Target Bank"
+                options={bankSelectOptions}
+                placeholder="All"
+              />
+            </div>
+          )}
+        </form>
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No transactions found"
+            pagination={
+              paginationMeta
+                ? {
+                    page: paginationMeta.page,
+                    pageSize: paginationMeta.pageSize,
+                    total: paginationMeta.total,
+                    onPageChange: setPageNum,
+                    onPageSizeChange: (n) => {
+                      // 源 @size-change="onSearch"：切换条数即回第 1 页重查。
+                      setPageSize(n);
+                      setPageNum(1);
+                    },
+                  }
+                : undefined
+            }
+          />
         </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No transaction data"
-          pagination={
-            paginationMeta
-              ? {
-                  page: paginationMeta.page,
-                  pageSize: paginationMeta.pageSize,
-                  total: paginationMeta.total,
-                  onPageChange: setPageNum,
-                  onPageSizeChange: (n) => {
-                    // 源 @size-change="onSearch"：切换条数即回第 1 页重查。
-                    setPageSize(n);
-                    setPageNum(1);
-                  },
-                }
-              : undefined
-          }
-        />
-      </div>
+      </section>
 
       {drawerTxId != null && (
         <TxDetailDrawer

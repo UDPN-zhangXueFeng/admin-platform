@@ -20,7 +20,7 @@
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { AlertCircle, CheckCircle2, Info, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Inbox, Info, Loader2 } from 'lucide-react';
 
 import {
   Alert,
@@ -610,7 +610,13 @@ function InstanceListCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Gateway Instances of This Bank</CardTitle>
+        {/* §6.2 头条元信息：实体名 + 结果数（激活按钮保持 CardAction 右置）。 */}
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <CardTitle>Gateway Instances of This Bank</CardTitle>
+          <span className="text-sm text-muted-foreground tabular-nums">
+            {detail.instances.length} instances
+          </span>
+        </div>
         {needActivate && (
           <CardAction>
             <Button
@@ -619,7 +625,7 @@ function InstanceListCard({
               disabled={activating}
               onClick={onActivate}
             >
-              {activating && <Loader2 className="animate-spin" />}
+              {activating && <Loader2 className="motion-safe:animate-spin" />}
               Activate Instance
             </Button>
           </CardAction>
@@ -634,27 +640,39 @@ function InstanceListCard({
                   <th
                     key={header}
                     scope="col"
-                    className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                    className="h-10 whitespace-nowrap border-b border-border/50 px-4 text-left align-middle font-medium text-muted-foreground"
                   >
                     {header}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-border/50">
               {detail.instances.length === 0 ? (
                 <tr>
                   <td
                     colSpan={INSTANCE_TABLE_HEADERS.length}
-                    className="px-4 py-8 text-center text-muted-foreground"
+                    className="px-4 py-10"
                   >
-                    No data
+                    <div className="flex flex-col items-center justify-center gap-2 text-center">
+                      <Inbox
+                        className="h-9 w-9 text-muted-foreground/40"
+                        strokeWidth={1.5}
+                        aria-hidden="true"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        No gateway instances yet
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 detail.instances.map((row) => (
-                  <tr key={row.instanceId}>
-                    <td className="max-w-[16rem] px-4 py-3 align-middle font-mono">
+                  <tr
+                    key={row.instanceId}
+                    className="motion-safe:transition-colors hover:bg-muted/50"
+                  >
+                    <td className="max-w-[16rem] px-4 py-3 align-middle font-mono font-medium">
                       <span className="block truncate" title={orDash(row.instanceId)}>
                         {orDash(row.instanceId)}
                       </span>

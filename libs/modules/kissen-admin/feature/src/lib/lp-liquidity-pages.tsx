@@ -114,8 +114,7 @@ const LP_BASE = '/lp-liquidity';
 const LBL = {
   query: 'Search',
   reset: 'Reset',
-  records: 'Record List',
-  empty: 'No data',
+
   loading: 'Loading...',
   add: 'Add',
   view: 'View',
@@ -328,8 +327,8 @@ function FilterSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium">{label}</label>
+    <div className="flex flex-col gap-2">
+      <label className="text-sm font-medium leading-snug">{label}</label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="w-full">
           <SelectValue placeholder={placeholder} />
@@ -521,7 +520,7 @@ export function LpInfoListPage() {
     null,
   );
 
-  const { data, isLoading } = useLpListQuery(PROJECT_ID, {
+  const { data, isLoading, dataUpdatedAt } = useLpListQuery(PROJECT_ID, {
     pageNum: params.pageNum,
     pageSize,
     filter: {
@@ -613,7 +612,9 @@ export function LpInfoListPage() {
         accessorKey: 'createTime',
         header: 'Created At',
         cell: ({ row }) => (
-          <span>{formatDateTime(row.original.createTime)}</span>
+          <span className="tabular-nums">
+            {formatDateTime(row.original.createTime)}
+          </span>
         ),
       },
       createActionColumn<LpRow & { id: string }>((item) => {
@@ -704,33 +705,23 @@ export function LpInfoListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSearch)}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField name="lpName" label="LP Name" register={register('lpName')} />
-          <FormField name="lpCode" label="LP Code" register={register('lpCode')} />
-          <FormSelect
-            name="status"
-            control={control}
-            label="Status"
-            placeholder={LBL.all}
-            options={statusFilterOptions(LP_STATUS_LABEL, [1, 5, 10, 15, 20, 50])}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{LBL.query}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {LBL.reset}
-          </Button>
-        </div>
-      </form>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">{LBL.records}</div>
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              LPs
+            </div>
+            {!isLoading && pagination ? (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {pagination.total} results
+              </span>
+            ) : null}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatAdminDateTime(dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
           <Button
             type="button"
             size="sm"
@@ -739,29 +730,53 @@ export function LpInfoListPage() {
             {LBL.add}
           </Button>
         </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage={LBL.empty}
-          pagination={
-            pagination
-              ? {
-                  page: pagination.page,
-                  pageSize,
-                  total: pagination.total,
-                  onPageChange: (page) =>
-                    setParams((prev) => ({ ...prev, pageNum: page })),
-                  onPageSizeChange: (n) => {
-                    setPageSize(n);
-                    setParams((prev) => ({ ...prev, pageNum: 1 }));
-                  },
-                  pageSizeOptions: PAGE_SIZE_OPTIONS,
-                }
-              : undefined
-          }
-        />
-      </div>
+        <form
+          onSubmit={handleSubmit(onSearch)}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField name="lpName" label="LP Name" register={register('lpName')} />
+            <FormField name="lpCode" label="LP Code" register={register('lpCode')} />
+            <FormSelect
+              name="status"
+              control={control}
+              label="Status"
+              placeholder={LBL.all}
+              options={statusFilterOptions(LP_STATUS_LABEL, [1, 5, 10, 15, 20, 50])}
+            />
+            <div className="flex items-end gap-2">
+              <Button type="submit">{LBL.query}</Button>
+              <Button type="button" variant="outline" onClick={onReset}>
+                {LBL.reset}
+              </Button>
+            </div>
+          </div>
+        </form>
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No LPs yet"
+            pagination={
+              pagination
+                ? {
+                    page: pagination.page,
+                    pageSize,
+                    total: pagination.total,
+                    onPageChange: (page) =>
+                      setParams((prev) => ({ ...prev, pageNum: page })),
+                    onPageSizeChange: (n) => {
+                      setPageSize(n);
+                      setParams((prev) => ({ ...prev, pageNum: 1 }));
+                    },
+                    pageSizeOptions: PAGE_SIZE_OPTIONS,
+                  }
+                : undefined
+            }
+          />
+        </div>
+      </section>
 
       <ConfirmDialog request={confirm} onDismiss={() => setConfirm(null)} />
       {portalTarget && (
@@ -1154,7 +1169,7 @@ export function LpTokenPairListPage() {
   });
   const { data: tokenPairOptions } = useLpPairTokenPairOptionsQuery(PROJECT_ID);
 
-  const { data, isLoading } = useLpPairListQuery(PROJECT_ID, {
+  const { data, isLoading, dataUpdatedAt } = useLpPairListQuery(PROJECT_ID, {
     pageNum,
     pageSize,
     filter: {
@@ -1227,11 +1242,11 @@ export function LpTokenPairListPage() {
         cell: ({ row }) => {
           const ratio = Number(row.original.splitRatio);
           return ratio > 0 ? (
-            <span className="font-mono tabular-nums">
+            <span className="block text-right font-mono tabular-nums">
               {(ratio * 100).toFixed(2)}%
             </span>
           ) : (
-            <span className="text-muted-foreground">Default</span>
+            <span className="block text-right text-muted-foreground">Default</span>
           );
         },
       },
@@ -1250,7 +1265,9 @@ export function LpTokenPairListPage() {
         accessorKey: 'createTime',
         header: 'Created At',
         cell: ({ row }) => (
-          <span>{formatDateTime(row.original.createTime)}</span>
+          <span className="tabular-nums">
+            {formatDateTime(row.original.createTime)}
+          </span>
         ),
       },
       createActionColumn<LpPairTableRow>((item) => {
@@ -1321,84 +1338,101 @@ export function LpTokenPairListPage() {
         </AlertDescription>
       </Alert>
 
-      <div className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <FilterSelect
-            label="LP"
-            value={filter.lpId}
-            placeholder={LBL.all}
-            options={lpToOptions(lpList?.data)}
-            onChange={(v) => patchFilter({ lpId: v })}
-          />
-          <FilterSelect
-            label="Token Pair"
-            value={filter.pairId}
-            placeholder={LBL.all}
-            options={pairOptions}
-            onChange={(v) => patchFilter({ pairId: v })}
-          />
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Approval View</label>
-            <RadioGroup
-              value={filter.tab}
-              onValueChange={(v) => patchFilter({ tab: v as LpPairViewFilter['tab'] })}
-              className="flex gap-4 pt-1"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="approved" id="lp-pair-tab-approved" />
-                <Label htmlFor="lp-pair-tab-approved" className="text-sm font-normal">
-                  Approved
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="others" id="lp-pair-tab-others" />
-                <Label htmlFor="lp-pair-tab-others" className="text-sm font-normal">
-                  In Progress / Rejected
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-          <div className="flex items-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setFilter(LP_PAIR_VIEW_EMPTY);
-                setPageNum(1);
-              }}
-            >
-              {LBL.reset}
-            </Button>
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              LP Participations
+            </div>
+            {!isLoading && pagination ? (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {pagination.total} results
+              </span>
+            ) : null}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatAdminDateTime(dataUpdatedAt)}
+              </span>
+            ) : null}
           </div>
         </div>
-      </div>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">{LBL.records}</div>
+        <div className="border-b border-border/50 px-4 py-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FilterSelect
+              label="LP"
+              value={filter.lpId}
+              placeholder={LBL.all}
+              options={lpToOptions(lpList?.data)}
+              onChange={(v) => patchFilter({ lpId: v })}
+            />
+            <FilterSelect
+              label="Token Pair"
+              value={filter.pairId}
+              placeholder={LBL.all}
+              options={pairOptions}
+              onChange={(v) => patchFilter({ pairId: v })}
+            />
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium leading-snug">
+                Approval View
+              </label>
+              <RadioGroup
+                value={filter.tab}
+                onValueChange={(v) => patchFilter({ tab: v as LpPairViewFilter['tab'] })}
+                className="flex h-10 items-center gap-4"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="approved" id="lp-pair-tab-approved" />
+                  <Label htmlFor="lp-pair-tab-approved" className="text-sm font-normal">
+                    Approved
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="others" id="lp-pair-tab-others" />
+                  <Label htmlFor="lp-pair-tab-others" className="text-sm font-normal">
+                    In Progress / Rejected
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setFilter(LP_PAIR_VIEW_EMPTY);
+                  setPageNum(1);
+                }}
+              >
+                {LBL.reset}
+              </Button>
+            </div>
+          </div>
         </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage={LBL.empty}
-          pagination={
-            pagination
-              ? {
-                  page: pagination.page,
-                  pageSize,
-                  total: pagination.total,
-                  onPageChange: (page) => setPageNum(page),
-                  onPageSizeChange: (n) => {
-                    setPageSize(n);
-                    setPageNum(1);
-                  },
-                  pageSizeOptions: PAGE_SIZE_OPTIONS,
-                }
-              : undefined
-          }
-        />
-      </div>
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No participation records yet"
+            pagination={
+              pagination
+                ? {
+                    page: pagination.page,
+                    pageSize,
+                    total: pagination.total,
+                    onPageChange: (page) => setPageNum(page),
+                    onPageSizeChange: (n) => {
+                      setPageSize(n);
+                      setPageNum(1);
+                    },
+                    pageSizeOptions: PAGE_SIZE_OPTIONS,
+                  }
+                : undefined
+            }
+          />
+        </div>
+      </section>
 
       {viewRow && (
         <LpPairViewDialog row={viewRow} onClosed={() => setViewRow(null)} />
@@ -1504,7 +1538,7 @@ export function LpPoolListPage() {
     filter: {},
   });
 
-  const { data, isLoading } = useLpPoolListQuery(PROJECT_ID, {
+  const { data, isLoading, dataUpdatedAt } = useLpPoolListQuery(PROJECT_ID, {
     pageNum,
     pageSize,
     filter: {
@@ -1567,7 +1601,7 @@ export function LpPoolListPage() {
           row.original.authAmount == null ? (
             <Badge variant="secondary">Not Set</Badge>
           ) : (
-            <span className="block font-mono tabular-nums">
+            <span className="block text-right font-mono tabular-nums">
               {formatAmount(row.original.authAmount)}
             </span>
           ),
@@ -1580,7 +1614,7 @@ export function LpPoolListPage() {
           const n = Number(row.original.preauthAvailable);
           return (
             <span
-              className={`block font-mono tabular-nums ${
+              className={`block text-right font-mono tabular-nums ${
                 row.original.preauthAvailable != null && n <= 0
                   ? 'font-semibold text-destructive'
                   : ''
@@ -1596,7 +1630,7 @@ export function LpPoolListPage() {
         header: 'Data Time',
         enableSorting: false,
         cell: ({ row }) => (
-          <div className="space-y-0.5 text-xs">
+          <div className="space-y-0.5 text-xs tabular-nums">
             <div>
               <span className="text-muted-foreground">Bal </span>
               {formatDateTime(row.original.balanceUpdateTime)}
@@ -1644,70 +1678,85 @@ export function LpPoolListPage() {
         </AlertDescription>
       </Alert>
 
-      <div className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FilterSelect
-            label="LP"
-            value={lpId}
-            placeholder={LBL.all}
-            options={lpToOptions(lpList?.data)}
-            onChange={(v) => {
-              setLpId(v);
-              setPageNum(1);
-            }}
-          />
-          <FilterSelect
-            label="Status"
-            value={status}
-            placeholder={LBL.all}
-            options={statusFilterOptions(LP_POOL_STATUS_LABEL, [5, 15, 20, 50])}
-            onChange={(v) => {
-              setStatus(v);
-              setPageNum(1);
-            }}
-          />
-          <div className="flex items-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setLpId('');
-                setStatus('');
-                setPageNum(1);
-              }}
-            >
-              {LBL.reset}
-            </Button>
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              LP Pools
+            </div>
+            {!isLoading && pagination ? (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {pagination.total} results
+              </span>
+            ) : null}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatAdminDateTime(dataUpdatedAt)}
+              </span>
+            ) : null}
           </div>
         </div>
-      </div>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="border-b border-border/50 px-6 py-3">
-          <div className="text-sm font-semibold">{LBL.records}</div>
+        <div className="border-b border-border/50 px-4 py-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FilterSelect
+              label="LP"
+              value={lpId}
+              placeholder={LBL.all}
+              options={lpToOptions(lpList?.data)}
+              onChange={(v) => {
+                setLpId(v);
+                setPageNum(1);
+              }}
+            />
+            <FilterSelect
+              label="Status"
+              value={status}
+              placeholder={LBL.all}
+              options={statusFilterOptions(LP_POOL_STATUS_LABEL, [5, 15, 20, 50])}
+              onChange={(v) => {
+                setStatus(v);
+                setPageNum(1);
+              }}
+            />
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setLpId('');
+                  setStatus('');
+                  setPageNum(1);
+                }}
+              >
+                {LBL.reset}
+              </Button>
+            </div>
+          </div>
         </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage={LBL.empty}
-          pagination={
-            pagination
-              ? {
-                  page: pagination.page,
-                  pageSize,
-                  total: pagination.total,
-                  onPageChange: (page) => setPageNum(page),
-                  onPageSizeChange: (n) => {
-                    setPageSize(n);
-                    setPageNum(1);
-                  },
-                  pageSizeOptions: PAGE_SIZE_OPTIONS,
-                }
-              : undefined
-          }
-        />
-      </div>
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No pools yet"
+            pagination={
+              pagination
+                ? {
+                    page: pagination.page,
+                    pageSize,
+                    total: pagination.total,
+                    onPageChange: (page) => setPageNum(page),
+                    onPageSizeChange: (n) => {
+                      setPageSize(n);
+                      setPageNum(1);
+                    },
+                    pageSizeOptions: PAGE_SIZE_OPTIONS,
+                  }
+                : undefined
+            }
+          />
+        </div>
+      </section>
     </div>
   );
 }

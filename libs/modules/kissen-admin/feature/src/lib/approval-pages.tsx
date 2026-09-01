@@ -766,7 +766,9 @@ export function ApprovalCenterListPage() {
       {
         accessorKey: 'applyCode',
         header: 'Approval No.',
-        cell: ({ row }) => <span>{row.original.applyCode || '--'}</span>,
+        cell: ({ row }) => (
+          <span className="font-mono">{row.original.applyCode || '--'}</span>
+        ),
       },
       {
         id: 'businessName',
@@ -793,7 +795,11 @@ export function ApprovalCenterListPage() {
       {
         accessorKey: 'createTime',
         header: 'Application Time',
-        cell: ({ row }) => <span>{formatTime(row.original.createTime)}</span>,
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatTime(row.original.createTime)}
+          </span>
+        ),
       },
       {
         id: 'status',
@@ -820,7 +826,7 @@ export function ApprovalCenterListPage() {
         id: 'reviewerTime',
         header: 'Processing Time',
         cell: ({ row }) => (
-          <span>
+          <span className="tabular-nums">
             {row.original.detailReviewerStatus !== undefined
               ? formatTime(row.original.reviewerTime)
               : '--'}
@@ -872,99 +878,126 @@ export function ApprovalCenterListPage() {
         <div className="text-xs text-muted-foreground">APPROVAL</div>
         <h1 className="text-xl font-semibold">Approval Center</h1>
       </div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSearch();
-        }}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground">Business Type</label>
-            <Select
-              value={businessCode || STATUS_ALL}
-              onValueChange={(v) => setBusinessCode(v === STATUS_ALL ? '' : v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={STATUS_ALL}>All</SelectItem>
-                {businessOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground">Keyword</label>
-            <Input
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Approval No. / Business Description"
-            />
-          </div>
-          {tab === 'done' && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-muted-foreground">Result</label>
-              <Select
-                value={doneStatus === undefined ? STATUS_ALL : String(doneStatus)}
-                onValueChange={(v) =>
-                  setDoneStatus(v === STATUS_ALL ? undefined : Number(v))
-                }
-              >
-                <SelectTrigger>
-                <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                <SelectItem value={STATUS_ALL}>All</SelectItem>
-                <SelectItem value="3">Approved</SelectItem>
-                <SelectItem value="2">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            Reset
-          </Button>
-        </div>
-      </form>
-
       <Tabs value={tab} onValueChange={onTabChange}>
         <TabsList>
           <TabsTrigger value="todo">To Do</TabsTrigger>
           <TabsTrigger value="done">Done</TabsTrigger>
         </TabsList>
-        <TabsContent value={tab} className="space-y-4">
-          <div className="rounded-lg border-border/60 bg-card p-3 shadow-float sm:p-4">
-            <DataTable
-              columns={columns}
-              data={tableData}
-              isLoading={isLoading}
-          emptyMessage="No data"
-              pagination={
-                paginationMeta
-                  ? {
-                      page: paginationMeta.page,
-                      pageSize: paginationMeta.pageSize,
-                      total: paginationMeta.total,
-                  onPageChange: setPageNum,
-                  onPageSizeChange: (n) => {
-                    setPageSize(n);
-                    setPageNum(1);
-                  },
-                    }
-                  : undefined
-              }
-            />
-          </div>
+        <TabsContent value={tab} className="mt-4">
+          <section className="rounded-lg border border-border/60 bg-card">
+            <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+                <div className="text-base font-semibold leading-6 text-foreground">
+                  Approvals
+                </div>
+                {!isLoading && paginationMeta ? (
+                  <span className="text-sm text-muted-foreground tabular-nums">
+                    {paginationMeta.total} results
+                  </span>
+                ) : null}
+                {activeQ.dataUpdatedAt ? (
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    Updated {formatAdminDateTime(activeQ.dataUpdatedAt)}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                onSearch();
+              }}
+              className="border-b border-border/50 px-4 py-3"
+            >
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium leading-snug text-foreground">
+                    Business Type
+                  </label>
+                  <Select
+                    value={businessCode || STATUS_ALL}
+                    onValueChange={(v) => setBusinessCode(v === STATUS_ALL ? '' : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={STATUS_ALL}>All</SelectItem>
+                      {businessOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium leading-snug text-foreground">
+                    Keyword
+                  </label>
+                  <Input
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                    placeholder="Approval No. / Business Description"
+                  />
+                </div>
+                {tab === 'done' && (
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium leading-snug text-foreground">
+                      Result
+                    </label>
+                    <Select
+                      value={doneStatus === undefined ? STATUS_ALL : String(doneStatus)}
+                      onValueChange={(v) =>
+                        setDoneStatus(v === STATUS_ALL ? undefined : Number(v))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={STATUS_ALL}>All</SelectItem>
+                        <SelectItem value="3">Approved</SelectItem>
+                        <SelectItem value="2">Rejected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="flex items-end gap-2">
+                  <Button type="submit">Search</Button>
+                  <Button type="button" variant="outline" onClick={onReset}>
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            </form>
+            <div className="p-4">
+              <DataTable
+                columns={columns}
+                data={tableData}
+                isLoading={isLoading}
+                emptyMessage={
+                  tab === 'todo'
+                    ? 'No pending approvals'
+                    : 'No completed approvals'
+                }
+                pagination={
+                  paginationMeta
+                    ? {
+                        page: paginationMeta.page,
+                        pageSize: paginationMeta.pageSize,
+                        total: paginationMeta.total,
+                        onPageChange: setPageNum,
+                        onPageSizeChange: (n) => {
+                          setPageSize(n);
+                          setPageNum(1);
+                        },
+                      }
+                    : undefined
+                }
+              />
+            </div>
+          </section>
         </TabsContent>
       </Tabs>
 
