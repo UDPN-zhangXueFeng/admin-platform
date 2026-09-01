@@ -705,15 +705,16 @@ export function SysUserFormPage() {
   const saveMutation = useUserSaveMutation(KISSEN_PROJECT_ID);
   const updateMutation = useUserUpdateMutation(KISSEN_PROJECT_ID);
 
-  const { register, handleSubmit, reset, control } = useForm<UserFormValues>({
-    defaultValues: {
-      loginName: '',
-      userName: '',
-      userType: '1',
-      email: '',
-      phoneNumber: '',
-    },
-  });
+  const { register, handleSubmit, reset, control, formState: { isDirty } } =
+    useForm<UserFormValues>({
+      defaultValues: {
+        loginName: '',
+        userName: '',
+        userType: '1',
+        email: '',
+        phoneNumber: '',
+      },
+    });
 
   /** 编辑回显：无 GET /user/{id}，优先读列表页暂存行，缺失时经列表定位（pageSize 200）。 */
   const loadedRef = React.useRef(false);
@@ -742,6 +743,19 @@ export function SysUserFormPage() {
       }
     }
   }, [isEdit, stashedUser, userPage, id, reset]);
+
+  /** 视觉 dirty（零交互）：表单字段走 RHF isDirty；角色勾选是独立 state，与回显基线比较。 */
+  const rolesDirty = React.useMemo(() => {
+    if (isEdit && !loadedRef.current) return false;
+    const base = isEdit
+      ? (stashedUser ?? userPage?.data.find((u) => u.userId === id))
+          ?.roleIds ?? []
+      : [];
+    return (
+      base.length !== selectedRoles.length ||
+      base.some((r) => !selectedRoles.includes(r))
+    );
+  }, [isEdit, stashedUser, userPage, id, selectedRoles]);
 
   const [createdOtp, setCreatedOtp] = React.useState<string | null>(null);
 
@@ -795,31 +809,50 @@ export function SysUserFormPage() {
     <div className="space-y-4">
       <DetailCard title={isEdit ? 'Edit User' : 'Add User'}>
         <form onSubmit={onSubmit} className="space-y-4">
+          {(isDirty || rolesDirty) && (
+            <p className="text-xs font-medium text-warning">
+              ● Unsaved changes
+            </p>
+          )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField
-              name="loginName"
-              label="Login Name"
-              register={register('loginName')}
-              required
-              disabled={isEdit}
-              placeholder="Login name (immutable after creation)"
-            />
+            <div>
+              <FormField
+                name="loginName"
+                label="Login Name"
+                register={register('loginName')}
+                required
+                disabled={isEdit}
+                placeholder="Login name (immutable after creation)"
+              />
+              {isEdit && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Login name is immutable after creation.
+                </p>
+              )}
+            </div>
             <FormField
               name="userName"
               label="Full Name"
               register={register('userName')}
               required
             />
-            <FormSelect
-              name="userType"
-              control={control}
-              disabled={isEdit}
-              label="User Type"
-              options={[
-                { value: '0', label: RBAC_USER_TYPE_LABEL[0] },
-                { value: '1', label: RBAC_USER_TYPE_LABEL[1] },
-              ]}
-            />
+            <div>
+              <FormSelect
+                name="userType"
+                control={control}
+                disabled={isEdit}
+                label="User Type"
+                options={[
+                  { value: '0', label: RBAC_USER_TYPE_LABEL[0] },
+                  { value: '1', label: RBAC_USER_TYPE_LABEL[1] },
+                ]}
+              />
+              {isEdit && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  User type is immutable after creation.
+                </p>
+              )}
+            </div>
             <FormField name="email" label="Email" register={register('email')} />
             <FormField name="phoneNumber" label="Phone Number" register={register('phoneNumber')} />
           </div>
@@ -1040,22 +1073,17 @@ function toggleNode(
 
 function MenuCheckTreeNode({
   node,
-  depth,
   checkedLeaves,
   onToggle,
 }: {
   node: MenuTreeRespVO;
-  depth: number;
   checkedLeaves: Set<number>;
   onToggle: (n: MenuTreeRespVO) => void;
 }) {
   const st = nodeCheckState(node, checkedLeaves);
   return (
     <div>
-      <div
-        className="flex items-center gap-2 py-1"
-        style={{ paddingLeft: depth * 18 }}
-      >
+      <div className="flex items-center gap-2 px-2 py-1">
         <Checkbox
           checked={st.indeterminate ? 'indeterminate' : st.checked}
           onCheckedChange={() => onToggle(node)}
@@ -1064,16 +1092,22 @@ function MenuCheckTreeNode({
         <Badge variant="outline" className="text-[10px]">
           {MENU_TYPE_LABEL[node.menuType]}
         </Badge>
+        {st.indeterminate && (
+          <span className="text-xs text-muted-foreground">Partial</span>
+        )}
       </div>
-      {node.children?.map((c) => (
-        <MenuCheckTreeNode
-          key={c.menuId}
-          node={c}
-          depth={depth + 1}
-          checkedLeaves={checkedLeaves}
-          onToggle={onToggle}
-        />
-      ))}
+      {node.children?.length ? (
+        <div className="ml-4 border-l border-border/60">
+          {node.children.map((c) => (
+            <MenuCheckTreeNode
+              key={c.menuId}
+              node={c}
+              checkedLeaves={checkedLeaves}
+              onToggle={onToggle}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1128,7 +1162,6 @@ function RoleAssignMenuDialog({
               <MenuCheckTreeNode
                 key={n.menuId}
                 node={n}
-                depth={0}
                 checkedLeaves={checkedLeaves}
                 onToggle={onToggle}
               />
@@ -1391,9 +1424,10 @@ export function SysRoleFormPage() {
   const saveMutation = useRoleSaveMutation(KISSEN_PROJECT_ID);
   const updateMutation = useRoleUpdateMutation(KISSEN_PROJECT_ID);
 
-  const { register, handleSubmit, reset } = useForm<RoleFormValues>({
-    defaultValues: { roleCode: '', roleName: '', remarks: '' },
-  });
+  const { register, handleSubmit, reset, formState: { isDirty } } =
+    useForm<RoleFormValues>({
+      defaultValues: { roleCode: '', roleName: '', remarks: '' },
+    });
 
   const loadedRef = React.useRef(false);
   const { data: rolePage } = useRbacRoleListQuery(
@@ -1456,15 +1490,25 @@ export function SysRoleFormPage() {
   return (
     <DetailCard title={isEdit ? 'Edit Role' : 'Add Role'}>
       <form onSubmit={onSubmit} className="space-y-4">
+        {isDirty && (
+          <p className="text-xs font-medium text-warning">● Unsaved changes</p>
+        )}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField
-            name="roleCode"
-            label="Role Code"
-            register={register('roleCode')}
-            required
-            disabled={isEdit}
-            placeholder="Unique code (immutable after creation)"
-          />
+          <div>
+            <FormField
+              name="roleCode"
+              label="Role Code"
+              register={register('roleCode')}
+              required
+              disabled={isEdit}
+              placeholder="Unique code (immutable after creation)"
+            />
+            {isEdit && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Role code is immutable after creation.
+              </p>
+            )}
+          </div>
           <FormField
             name="roleName"
             label="Role Name"
@@ -1613,42 +1657,79 @@ const EMPTY_MENU_FORM: MenuFormState = {
   icon: '',
 };
 
+/** 树中按 menuId 递归查找节点（dirty 基线用）。 */
+function findMenuNode(
+  nodes: MenuTreeRespVO[],
+  menuId: number,
+): MenuTreeRespVO | undefined {
+  for (const n of nodes) {
+    if (n.menuId === menuId) return n;
+    const hit = n.children ? findMenuNode(n.children, menuId) : undefined;
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+/** 节点原始数据 → 表单基线（selectNode 与 dirty 比较共用同一映射，防漂移）。 */
+function menuNodeToForm(node: MenuTreeRespVO): MenuFormState {
+  return {
+    menuId: node.menuId,
+    menuName: node.menuName,
+    menuNameEn: node.menuNameEn ?? '',
+    menuKey: node.menuKey,
+    parentId: node.parentId,
+    menuType: node.menuType,
+    orderNum: node.orderNum,
+    visible: node.visible,
+    menuUrl: node.menuUrl ?? '',
+    icon: node.icon ?? '',
+  };
+}
+
 function MenuTreeNode({
   node,
-  depth,
   selectedKey,
   onSelect,
 }: {
   node: MenuTreeRespVO;
-  depth: number;
   selectedKey: number | null;
   onSelect: (n: MenuTreeRespVO) => void;
 }) {
+  const isSelected = selectedKey === node.menuId;
   return (
     <div>
       <button
         type="button"
+        aria-current={isSelected ? 'true' : undefined}
         onClick={() => onSelect(node)}
         className={cn(
-          'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent',
-          selectedKey === node.menuId && 'bg-accent font-medium',
+          'relative flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent',
+          isSelected && 'bg-accent font-medium',
         )}
-        style={{ paddingLeft: depth * 14 + 8 }}
       >
+        {isSelected && (
+          <span
+            aria-hidden="true"
+            className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary"
+          />
+        )}
         <span>{node.menuName}</span>
         <Badge variant="outline" className="text-[10px]">
           {MENU_TYPE_LABEL[node.menuType]}
         </Badge>
       </button>
-      {node.children?.map((c) => (
-        <MenuTreeNode
-          key={c.menuId}
-          node={c}
-          depth={depth + 1}
-          selectedKey={selectedKey}
-          onSelect={onSelect}
-        />
-      ))}
+      {node.children?.length ? (
+        <div className="ml-4 border-l border-border/60">
+          {node.children.map((c) => (
+            <MenuTreeNode
+              key={c.menuId}
+              node={c}
+              selectedKey={selectedKey}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1791,18 +1872,7 @@ export function SysMenuListPage() {
   const selectNode = (node: MenuTreeRespVO) => {
     setSelectedKey(node.menuId);
     setMode('view');
-    setForm({
-      menuId: node.menuId,
-      menuName: node.menuName,
-      menuNameEn: node.menuNameEn ?? '',
-      menuKey: node.menuKey,
-      parentId: node.parentId,
-      menuType: node.menuType,
-      orderNum: node.orderNum,
-      visible: node.visible,
-      menuUrl: node.menuUrl ?? '',
-      icon: node.icon ?? '',
-    });
+    setForm(menuNodeToForm(node));
   };
 
   const startNewRoot = () => {
@@ -1873,6 +1943,34 @@ export function SysMenuListPage() {
 
   const isFormDisabled = saveMutation.isPending || updateMutation.isPending;
 
+  /** 视觉 dirty 提示（零交互）：view 比较选中节点原始值，new 比较创建初始值；纯派生。 */
+  const isDirty = React.useMemo(() => {
+    let base: MenuFormState | undefined;
+    if (mode === 'view') {
+      if (selectedKey == null || form.menuId !== selectedKey) return false;
+      const node = findMenuNode(tree ?? [], selectedKey);
+      base = node && menuNodeToForm(node);
+    } else {
+      base = {
+        ...EMPTY_MENU_FORM,
+        parentId: mode === 'new-root' ? 0 : selectedKey ?? 0,
+        menuType: mode === 'new-root' ? 1 : 3,
+      };
+    }
+    if (!base) return false;
+    return (
+      form.menuName !== base.menuName ||
+      form.menuNameEn !== base.menuNameEn ||
+      form.menuKey !== base.menuKey ||
+      form.parentId !== base.parentId ||
+      form.menuType !== base.menuType ||
+      form.orderNum !== base.orderNum ||
+      form.visible !== base.visible ||
+      form.menuUrl !== base.menuUrl ||
+      form.icon !== base.icon
+    );
+  }, [mode, selectedKey, form, tree]);
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
       {/* 左：菜单树 */}
@@ -1896,7 +1994,6 @@ export function SysMenuListPage() {
                 <MenuTreeNode
                   key={n.menuId}
                   node={n}
-                  depth={0}
                   selectedKey={selectedKey}
                   onSelect={selectNode}
                 />
@@ -1924,6 +2021,11 @@ export function SysMenuListPage() {
                   : 'Add Submenu'
             }
           >
+            {isDirty && (
+              <p className="mb-4 text-xs font-medium text-warning">
+                ● Unsaved changes
+              </p>
+            )}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>
@@ -2297,6 +2399,11 @@ function UserMultiSelect({
       />
       <ScrollArea className="h-32 rounded-md border">
         <div className="space-y-1 p-2">
+          {filtered.length === 0 && (
+            <p className="px-1 py-1.5 text-sm text-muted-foreground">
+              No matched users
+            </p>
+          )}
           {filtered.map((u) => (
             <label key={u.userId} className="flex items-center gap-2 text-sm">
               <Checkbox
@@ -2334,7 +2441,12 @@ function WfStepEditor({
   return (
     <div className="rounded-md border p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-medium">Step {index + 1}</span>
+        <span className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+            {index + 1}
+          </span>
+          <span className="text-sm font-medium">Step {index + 1}</span>
+        </span>
         <Button
           type="button"
           variant="link"
@@ -2521,6 +2633,11 @@ export function WorkflowConfigFormPage() {
                   ))}
                 </SelectContent>
               </Select>
+            )}
+            {isEdit && (
+              <p className="text-xs text-muted-foreground">
+                Business type is immutable after creation.
+              </p>
             )}
           </div>
           <div className="space-y-1.5">

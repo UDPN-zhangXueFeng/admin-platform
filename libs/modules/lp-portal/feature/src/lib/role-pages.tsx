@@ -196,7 +196,13 @@ function MenuCheckTreeNodes({
   onToggle: (node: MenuTree, next: boolean) => void;
 }) {
   return (
-    <ul className="select-none">
+    <ul
+      className={
+        depth === 0
+          ? 'select-none'
+          : 'ml-2.5 select-none border-l border-border/60'
+      }
+    >
       {nodes.map((raw) => {
         const { node, fullyChecked, indeterminate } = toCheckNode(
           raw,
@@ -206,7 +212,7 @@ function MenuCheckTreeNodes({
           <li key={node.menuId}>
             <label
               className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1.5 text-sm hover:bg-muted/60"
-              style={{ paddingLeft: `${depth * 20 + 4}px` }}
+              style={{ paddingLeft: `${depth * 9 + 4}px` }}
             >
               <Checkbox
                 aria-label={node.menuName}
@@ -217,6 +223,14 @@ function MenuCheckTreeNodes({
                 onCheckedChange={(v) => onToggle(node, v === true)}
               />
               <span>{node.menuName}</span>
+              {indeterminate && (
+                <span
+                  className="text-xs text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  partial
+                </span>
+              )}
             </label>
             {node.children && node.children.length > 0 && (
               <MenuCheckTreeNodes

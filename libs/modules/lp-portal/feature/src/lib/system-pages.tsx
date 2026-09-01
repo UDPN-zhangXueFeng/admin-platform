@@ -797,6 +797,35 @@ function findMenuNode(
   return undefined;
 }
 
+/** menuId=0 新建未保存节点的本地 seed（顶级=一级菜单 2，子级=二级菜单 3；openCreate 与脏状态 baseline 共用）。 */
+function newMenuSeed(parentId: number): MenuTree {
+  return {
+    menuId: 0,
+    menuName: '',
+    menuNameEn: '',
+    menuKey: '',
+    parentId,
+    menuType: parentId === 0 ? 2 : 3,
+    orderNum: 0,
+    visible: 0,
+    menuUrl: '',
+    icon: '',
+  };
+}
+
+/** 脏状态比较覆盖的表单字段（编辑态 menuKey/类型/父级锁定，baseline 与 current 恒相等，不影响结果）。 */
+const MENU_FORM_FIELDS = [
+  'menuName',
+  'menuNameEn',
+  'menuKey',
+  'parentId',
+  'menuType',
+  'orderNum',
+  'visible',
+  'menuUrl',
+  'icon',
+] as const;
+
 /** 左侧菜单树（el-tree 等价：默认全展开、高亮当前、手风琴省略——源 default-expand-all）。 */
 function MenuTreeNodes({
   nodes,
@@ -814,7 +843,13 @@ function MenuTreeNodes({
   onSelect: (node: MenuTree) => void;
 }) {
   return (
-    <ul className="select-none">
+    <ul
+      className={
+        depth === 0
+          ? 'select-none'
+          : 'ml-3 select-none border-l border-border/60'
+      }
+    >
       {nodes.map((n) => {
         const hasChildren = (n.children?.length ?? 0) > 0;
         const isCollapsed = collapsed.has(n.menuId);
@@ -826,7 +861,7 @@ function MenuTreeNodes({
                   ? 'bg-accent text-accent-foreground'
                   : 'hover:bg-accent/50'
               }`}
-              style={{ paddingLeft: depth * 16 }}
+              style={{ paddingLeft: depth * 3 }}
             >
               {hasChildren ? (
                 <button
@@ -921,6 +956,22 @@ export function MenuListPage() {
     [isEditing, serverPerms, localPerms],
   );
 
+  // 脏状态仅作视觉提示（零交互）：menuId>0 与树内原始节点比，menuId=0 与 openCreate seed 比；
+  // 保存成功 → 菜单域失效重载 → 上方 effect 重定位 current，dirty 随之归零
+  const baseline = React.useMemo(
+    () =>
+      current == null
+        ? null
+        : current.menuId > 0
+          ? (findMenuNode(tree, current.menuId) ?? null)
+          : newMenuSeed(current.parentId ?? 0),
+    [current, tree],
+  );
+  const dirty = React.useMemo(() => {
+    if (current == null || baseline == null) return false;
+    return MENU_FORM_FIELDS.some((f) => (current[f] ?? '') !== (baseline[f] ?? ''));
+  }, [current, baseline]);
+
   const patchCurrent = (patch: Partial<MenuTree>) =>
     setCurrent((c) => (c ? { ...c, ...patch } : c));
 
@@ -932,18 +983,7 @@ export function MenuListPage() {
 
   const openCreate = (parentId: number) => {
     // seed 口径：顶级为一级菜单(2)，子级为二级菜单(3)
-    setCurrent({
-      menuId: 0,
-      menuName: '',
-      menuNameEn: '',
-      menuKey: '',
-      parentId,
-      menuType: parentId === 0 ? 2 : 3,
-      orderNum: 0,
-      visible: 0,
-      menuUrl: '',
-      icon: '',
-    });
+    setCurrent(newMenuSeed(parentId));
     setLocalPerms([]);
     setFormErrors({});
   };
@@ -1124,8 +1164,22 @@ export function MenuListPage() {
             </div>
           ) : (
             <div className="space-y-6 rounded-lg border-border/60 bg-card p-6 shadow-float">
-              <div className="text-sm font-semibold">
-                Node Details: {current.menuName || 'New Menu'}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-sm font-semibold">
+                    Node Details: {current.menuName || 'New Menu'}
+                  </span>
+                  {current.menuId === 0 && (
+                    <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                      draft
+                    </span>
+                  )}
+                </div>
+                {dirty && (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    ● Unsaved changes
+                  </span>
+                )}
               </div>
               <div className="max-w-xl space-y-4">
                 <FormField

@@ -796,15 +796,22 @@ export function UserFormPage() {
         className="space-y-5 rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField
-            name="loginName"
-            label="Username"
-            required
-            disabled={isEdit}
-            placeholder="Letters, digits, _.-, up to 30 characters"
-            error={formState.errors.loginName?.message}
-            register={register('loginName')}
-          />
+          <div className="space-y-1">
+            <FormField
+              name="loginName"
+              label="Username"
+              required
+              disabled={isEdit}
+              placeholder="Letters, digits, _.-, up to 30 characters"
+              error={formState.errors.loginName?.message}
+              register={register('loginName')}
+            />
+            {isEdit && (
+              <p className="text-xs text-muted-foreground">
+                Username cannot be changed after creation
+              </p>
+            )}
+          </div>
           <FormField
             name="userName"
             label="Name"
@@ -871,7 +878,7 @@ export function UserFormPage() {
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Button
             type="submit"
             disabled={saveMutation.isPending || updateMutation.isPending}
@@ -887,6 +894,11 @@ export function UserFormPage() {
           >
             Back
           </Button>
+          {formState.isDirty && (
+            <span className="text-xs text-muted-foreground" role="status">
+              ● Unsaved changes
+            </span>
+          )}
         </div>
       </form>
 

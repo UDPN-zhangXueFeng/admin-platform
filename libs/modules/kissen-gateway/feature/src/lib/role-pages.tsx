@@ -161,13 +161,11 @@ function collectAssignedMenuIds(
 /** 勾选树节点（源 default-expand-all：整树平铺渲染）。 */
 function MenuCheckNode({
   node,
-  depth,
   checked,
   readOnly = false,
   onToggle,
 }: {
   node: MenuTree;
-  depth: number;
   checked: ReadonlySet<number>;
   readOnly?: boolean;
   onToggle?: (node: MenuTree) => void;
@@ -181,7 +179,6 @@ function MenuCheckNode({
           'flex items-center gap-2 rounded px-1 py-1',
           !readOnly && 'cursor-pointer hover:bg-muted/50',
         )}
-        style={{ paddingLeft: depth * 20 }}
       >
         <Checkbox
           checked={full ? true : indeterminate ? 'indeterminate' : false}
@@ -189,18 +186,27 @@ function MenuCheckNode({
           onCheckedChange={() => onToggle?.(node)}
         />
         <span className="text-sm">{node.menuName}</span>
+        {/* 半选父节点轻量标记（勾选态纯派生，只做视觉差异）。 */}
+        {!full && indeterminate && (
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+            Partial
+          </span>
+        )}
       </label>
-      {children.length > 0 &&
-        children.map((child) => (
-          <MenuCheckNode
-            key={child.menuId}
-            node={child}
-            depth={depth + 1}
-            checked={checked}
-            readOnly={readOnly}
-            onToggle={onToggle}
-          />
-        ))}
+      {/* 子层级连接引导线：层级缩进由嵌套容器承载（每级约 20px，单色）。 */}
+      {children.length > 0 && (
+        <div className="ml-[10px] border-l border-border/60 pl-[10px]">
+          {children.map((child) => (
+            <MenuCheckNode
+              key={child.menuId}
+              node={child}
+              checked={checked}
+              readOnly={readOnly}
+              onToggle={onToggle}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -317,7 +323,6 @@ function AssignMenuDialog({
                 <MenuCheckNode
                   key={node.menuId}
                   node={node}
-                  depth={0}
                   checked={checkedIds}
                   onToggle={onToggleNode}
                 />
@@ -715,16 +720,22 @@ function RoleForm({
       onSubmit={onSubmit}
       className="space-y-5 rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
     >
-      <FormField
-        name="roleCode"
-        label="Role Code"
-        required
-        disabled={isEdit}
-        placeholder="e.g. ROLE_OPS, unique"
-        className="max-w-[420px]"
-        error={formState.errors.roleCode?.message}
-        register={register('roleCode')}
-      />
+      <div className="max-w-[420px] space-y-1">
+        <FormField
+          name="roleCode"
+          label="Role Code"
+          required
+          disabled={isEdit}
+          placeholder="e.g. ROLE_OPS, unique"
+          error={formState.errors.roleCode?.message}
+          register={register('roleCode')}
+        />
+        {isEdit && (
+          <p className="text-xs text-muted-foreground">
+            Role code cannot be changed after creation
+          </p>
+        )}
+      </div>
       <FormField
         name="roleName"
         label="Role Name"
@@ -887,7 +898,6 @@ export function RoleDetailPage() {
                   <MenuCheckNode
                     key={node.menuId}
                     node={node}
-                    depth={0}
                     checked={checkedIds}
                     readOnly
                   />

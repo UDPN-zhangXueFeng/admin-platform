@@ -351,6 +351,11 @@ function MenuFormDialog({
                     </Button>
                   )}
                 </div>
+                {editing && (
+                  <p className="text-xs text-muted-foreground">
+                    Parent menu cannot be changed after creation
+                  </p>
+                )}
               </div>
             )}
           />
@@ -369,22 +374,36 @@ function MenuFormDialog({
             error={formState.errors.menuNameEn?.message}
             register={register('menuNameEn')}
           />
-          <FormField
-            name="menuKey"
-            label="Menu Key"
-            required
-            disabled={editing}
-            placeholder="e.g. bank:user:manage, unique"
-            error={formState.errors.menuKey?.message}
-            register={register('menuKey')}
-          />
-          <FormSelect
-            name="menuType"
-            control={control}
-            label="Type"
-            options={MENU_TYPE_OPTIONS}
-            disabled={editing}
-          />
+          <div className="space-y-1">
+            <FormField
+              name="menuKey"
+              label="Menu Key"
+              required
+              disabled={editing}
+              placeholder="e.g. bank:user:manage, unique"
+              error={formState.errors.menuKey?.message}
+              register={register('menuKey')}
+            />
+            {editing && (
+              <p className="text-xs text-muted-foreground">
+                Menu key cannot be changed after creation
+              </p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <FormSelect
+              name="menuType"
+              control={control}
+              label="Type"
+              options={MENU_TYPE_OPTIONS}
+              disabled={editing}
+            />
+            {editing && (
+              <p className="text-xs text-muted-foreground">
+                Type cannot be changed after creation
+              </p>
+            )}
+          </div>
           <FormField
             name="orderNum"
             label="Sort Order"
