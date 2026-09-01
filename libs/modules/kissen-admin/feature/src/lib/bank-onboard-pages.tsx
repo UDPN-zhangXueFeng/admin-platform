@@ -721,7 +721,7 @@ export function BankInfoListPage() {
     bankFormToParams(EMPTY_BANK_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
 
-  const { data, isLoading, dataUpdatedAt } = useBankListQuery(KISSEN_PROJECT_ID, params);
+  const { data, isLoading, isError, dataUpdatedAt } = useBankListQuery(KISSEN_PROJECT_ID, params);
   const disableMutation = useBankDisableMutation(KISSEN_PROJECT_ID);
   const enableMutation = useBankEnableMutation(KISSEN_PROJECT_ID);
 
@@ -917,27 +917,33 @@ export function BankInfoListPage() {
           </div>
         </form>
         <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={isLoading}
-            emptyMessage="No banks yet"
-            pagination={
-              paginationMeta
-                ? {
-                    page: paginationMeta.page,
-                    pageSize: paginationMeta.pageSize,
-                    total: paginationMeta.total,
-                    onPageChange: (page) => setParams((prev) => ({ ...prev, pageNum: page })),
-                    onPageSizeChange: (n) => {
-                      setPageSize(n);
-                      setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
-                    },
-                    pageSizeOptions: PAGE_SIZE_OPTIONS,
-                  }
-                : undefined
-            }
-          />
+          {isError ? (
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+            </Alert>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={isLoading}
+              emptyMessage="No banks yet"
+              pagination={
+                paginationMeta
+                  ? {
+                      page: paginationMeta.page,
+                      pageSize: paginationMeta.pageSize,
+                      total: paginationMeta.total,
+                      onPageChange: (page) => setParams((prev) => ({ ...prev, pageNum: page })),
+                      onPageSizeChange: (n) => {
+                        setPageSize(n);
+                        setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                      },
+                      pageSizeOptions: PAGE_SIZE_OPTIONS,
+                    }
+                  : undefined
+              }
+            />
+          )}
         </div>
       </section>
 

@@ -12,6 +12,8 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Check, ChevronsUpDown } from 'lucide-react';
 
 import {
+  Alert,
+  AlertTitle,
   Badge,
   Button,
   CopyableEllipsisText,
@@ -1082,7 +1084,7 @@ function TransactionListCore() {
   const [resolveOpen, setResolveOpen] = React.useState(false);
   const [drawerTxId, setDrawerTxId] = React.useState<number | null>(null);
 
-  const { data, isLoading, dataUpdatedAt } = useTransactionListQuery(KISSEN_PROJECT_ID, {
+  const { data, isLoading, isError, dataUpdatedAt } = useTransactionListQuery(KISSEN_PROJECT_ID, {
     pageNum,
     pageSize,
     filter,
@@ -1389,27 +1391,33 @@ function TransactionListCore() {
           )}
         </form>
         <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={isLoading}
-            emptyMessage="No transactions found"
-            pagination={
-              paginationMeta
-                ? {
-                    page: paginationMeta.page,
-                    pageSize: paginationMeta.pageSize,
-                    total: paginationMeta.total,
-                    onPageChange: setPageNum,
-                    onPageSizeChange: (n) => {
-                      // 源 @size-change="onSearch"：切换条数即回第 1 页重查。
-                      setPageSize(n);
-                      setPageNum(1);
-                    },
-                  }
-                : undefined
-            }
-          />
+          {isError ? (
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+            </Alert>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={isLoading}
+              emptyMessage="No transactions found"
+              pagination={
+                paginationMeta
+                  ? {
+                      page: paginationMeta.page,
+                      pageSize: paginationMeta.pageSize,
+                      total: paginationMeta.total,
+                      onPageChange: setPageNum,
+                      onPageSizeChange: (n) => {
+                        // 源 @size-change="onSearch"：切换条数即回第 1 页重查。
+                        setPageSize(n);
+                        setPageNum(1);
+                      },
+                    }
+                  : undefined
+              }
+            />
+          )}
         </div>
       </section>
 

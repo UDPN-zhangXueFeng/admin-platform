@@ -4,6 +4,8 @@ import * as React from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import {
+  Alert,
+  AlertTitle,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -783,6 +785,7 @@ export function ApprovalCenterListPage() {
   const rows = activeQ.data?.data ?? [];
   const paginationMeta = activeQ.data?.pagination;
   const isLoading = activeQ.isLoading;
+  const isError = activeQ.isError;
 
   const tableData = React.useMemo(
     () => rows.map(toApprovalListRow),
@@ -1028,30 +1031,36 @@ export function ApprovalCenterListPage() {
               </div>
             </form>
             <div className="p-4">
-              <DataTable
-                columns={columns}
-                data={tableData}
-                isLoading={isLoading}
-                emptyMessage={
-                  tab === 'todo'
-                    ? 'No pending approvals'
-                    : 'No completed approvals'
-                }
-                pagination={
-                  paginationMeta
-                    ? {
-                        page: paginationMeta.page,
-                        pageSize: paginationMeta.pageSize,
-                        total: paginationMeta.total,
-                        onPageChange: setPageNum,
-                        onPageSizeChange: (n) => {
-                          setPageSize(n);
-                          setPageNum(1);
-                        },
-                      }
-                    : undefined
-                }
-              />
+              {isError ? (
+                <Alert variant="destructive" role="alert">
+                  <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+                </Alert>
+              ) : (
+                <DataTable
+                  columns={columns}
+                  data={tableData}
+                  isLoading={isLoading}
+                  emptyMessage={
+                    tab === 'todo'
+                      ? 'No pending approvals'
+                      : 'No completed approvals'
+                  }
+                  pagination={
+                    paginationMeta
+                      ? {
+                          page: paginationMeta.page,
+                          pageSize: paginationMeta.pageSize,
+                          total: paginationMeta.total,
+                          onPageChange: setPageNum,
+                          onPageSizeChange: (n) => {
+                            setPageSize(n);
+                            setPageNum(1);
+                          },
+                        }
+                      : undefined
+                  }
+                />
+              )}
             </div>
           </section>
         </TabsContent>

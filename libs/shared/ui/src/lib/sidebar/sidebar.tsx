@@ -157,7 +157,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        'flex h-full flex-col bg-card text-card-foreground shadow-[4px_0_10px_-8px_rgba(15,23,42,0.35)] transition-[width] duration-300 ease-in-out',
+        'flex h-full flex-col bg-card text-card-foreground shadow-[4px_0_10px_-8px_rgba(15,23,42,0.35)] motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-in-out',
         collapsed ? 'w-16 min-[1600px]:w-20' : 'w-60 min-[1600px]:w-72',
         className
       )}
@@ -267,7 +267,7 @@ function CollapsibleNavItem({
         onClick={() => onToggle(item.id)}
         aria-expanded={isExpanded}
         className={cn(
-          'group relative flex h-10 w-full items-center gap-3 overflow-hidden rounded-xl px-3 text-[13px] font-medium transition-colors min-[1600px]:h-11 min-[1600px]:text-sm',
+          'group relative flex h-10 w-full items-center gap-3 overflow-hidden rounded-xl px-3 text-[13px] font-medium motion-safe:transition-colors min-[1600px]:h-11 min-[1600px]:text-sm',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
@@ -279,7 +279,7 @@ function CollapsibleNavItem({
         <span className="relative z-10 flex-1 truncate text-left">{item.label}</span>
         <ChevronRight
           className={cn(
-            'relative z-10 h-4 w-4 shrink-0 transition-transform duration-200',
+            'relative z-10 h-4 w-4 shrink-0 motion-safe:transition-transform motion-safe:duration-200',
             isActive ? 'text-primary-foreground' : 'text-muted-foreground',
             isExpanded && 'rotate-90'
           )}
@@ -290,7 +290,7 @@ function CollapsibleNavItem({
       {/* Child items */}
       <div
         className={cn(
-          'overflow-hidden transition-all duration-200 ease-in-out',
+          'overflow-hidden motion-safe:transition-all motion-safe:duration-200 motion-safe:ease-in-out',
           isExpanded ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'
         )}
       >
@@ -329,7 +329,7 @@ function CollapsedParentItem({ item, isActive, onOpen }: CollapsedParentItemProp
         aria-label={item.label}
         onClick={(event) => onOpen(event.currentTarget)}
         className={cn(
-          'group relative flex size-10 items-center justify-center overflow-hidden rounded-xl text-[13px] font-medium transition-colors min-[1600px]:size-11 min-[1600px]:text-sm',
+          'group relative flex size-10 items-center justify-center overflow-hidden rounded-xl text-[13px] font-medium motion-safe:transition-colors min-[1600px]:size-11 min-[1600px]:text-sm',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
@@ -340,7 +340,7 @@ function CollapsedParentItem({ item, isActive, onOpen }: CollapsedParentItemProp
         <item.icon className="relative z-10 h-5 w-5 shrink-0" aria-hidden="true" />
       </button>
       <span
-        className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+        className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow-md motion-safe:transition-opacity group-hover:opacity-100"
         role="tooltip"
       >
         {item.label}
@@ -403,7 +403,7 @@ function SidebarFlyout({ item, pathname, top, onClose }: SidebarFlyoutProps) {
                   role="menuitem"
                   onClick={onClose}
                   className={cn(
-                    'flex min-h-9 w-full items-center rounded-lg px-3 text-[13px] transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-[1600px]:text-sm',
+                    'flex min-h-9 w-full items-center rounded-lg px-3 text-[13px] motion-safe:transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-[1600px]:text-sm',
                     isActive && 'bg-primary/10 font-medium text-primary',
                   )}
                 >

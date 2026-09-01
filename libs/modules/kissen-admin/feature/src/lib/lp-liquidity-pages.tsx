@@ -521,7 +521,7 @@ export function LpInfoListPage() {
     null,
   );
 
-  const { data, isLoading, dataUpdatedAt } = useLpListQuery(PROJECT_ID, {
+  const { data, isLoading, isError, dataUpdatedAt } = useLpListQuery(PROJECT_ID, {
     pageNum: params.pageNum,
     pageSize,
     filter: {
@@ -754,28 +754,34 @@ export function LpInfoListPage() {
           </div>
         </form>
         <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={isLoading}
-            emptyMessage="No LPs yet"
-            pagination={
-              pagination
-                ? {
-                    page: pagination.page,
-                    pageSize,
-                    total: pagination.total,
-                    onPageChange: (page) =>
-                      setParams((prev) => ({ ...prev, pageNum: page })),
-                    onPageSizeChange: (n) => {
-                      setPageSize(n);
-                      setParams((prev) => ({ ...prev, pageNum: 1 }));
-                    },
-                    pageSizeOptions: PAGE_SIZE_OPTIONS,
-                  }
-                : undefined
-            }
-          />
+          {isError ? (
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+            </Alert>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={isLoading}
+              emptyMessage="No LPs yet"
+              pagination={
+                pagination
+                  ? {
+                      page: pagination.page,
+                      pageSize,
+                      total: pagination.total,
+                      onPageChange: (page) =>
+                        setParams((prev) => ({ ...prev, pageNum: page })),
+                      onPageSizeChange: (n) => {
+                        setPageSize(n);
+                        setParams((prev) => ({ ...prev, pageNum: 1 }));
+                      },
+                      pageSizeOptions: PAGE_SIZE_OPTIONS,
+                    }
+                  : undefined
+              }
+            />
+          )}
         </div>
       </section>
 
@@ -1209,7 +1215,7 @@ export function LpTokenPairListPage() {
   });
   const { data: tokenPairOptions } = useLpPairTokenPairOptionsQuery(PROJECT_ID);
 
-  const { data, isLoading, dataUpdatedAt } = useLpPairListQuery(PROJECT_ID, {
+  const { data, isLoading, isError, dataUpdatedAt } = useLpPairListQuery(PROJECT_ID, {
     pageNum,
     pageSize,
     filter: {
@@ -1450,27 +1456,33 @@ export function LpTokenPairListPage() {
           </div>
         </div>
         <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={isLoading}
-            emptyMessage="No participation records yet"
-            pagination={
-              pagination
-                ? {
-                    page: pagination.page,
-                    pageSize,
-                    total: pagination.total,
-                    onPageChange: (page) => setPageNum(page),
-                    onPageSizeChange: (n) => {
-                      setPageSize(n);
-                      setPageNum(1);
-                    },
-                    pageSizeOptions: PAGE_SIZE_OPTIONS,
-                  }
-                : undefined
-            }
-          />
+          {isError ? (
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+            </Alert>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={isLoading}
+              emptyMessage="No participation records yet"
+              pagination={
+                pagination
+                  ? {
+                      page: pagination.page,
+                      pageSize,
+                      total: pagination.total,
+                      onPageChange: (page) => setPageNum(page),
+                      onPageSizeChange: (n) => {
+                        setPageSize(n);
+                        setPageNum(1);
+                      },
+                      pageSizeOptions: PAGE_SIZE_OPTIONS,
+                    }
+                  : undefined
+              }
+            />
+          )}
         </div>
       </section>
 
@@ -1578,7 +1590,7 @@ export function LpPoolListPage() {
     filter: {},
   });
 
-  const { data, isLoading, dataUpdatedAt } = useLpPoolListQuery(PROJECT_ID, {
+  const { data, isLoading, isError, dataUpdatedAt } = useLpPoolListQuery(PROJECT_ID, {
     pageNum,
     pageSize,
     filter: {
@@ -1774,27 +1786,33 @@ export function LpPoolListPage() {
           </div>
         </div>
         <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={isLoading}
-            emptyMessage="No pools yet"
-            pagination={
-              pagination
-                ? {
-                    page: pagination.page,
-                    pageSize,
-                    total: pagination.total,
-                    onPageChange: (page) => setPageNum(page),
-                    onPageSizeChange: (n) => {
-                      setPageSize(n);
-                      setPageNum(1);
-                    },
-                    pageSizeOptions: PAGE_SIZE_OPTIONS,
-                  }
-                : undefined
-            }
-          />
+          {isError ? (
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+            </Alert>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={isLoading}
+              emptyMessage="No pools yet"
+              pagination={
+                pagination
+                  ? {
+                      page: pagination.page,
+                      pageSize,
+                      total: pagination.total,
+                      onPageChange: (page) => setPageNum(page),
+                      onPageSizeChange: (n) => {
+                        setPageSize(n);
+                        setPageNum(1);
+                      },
+                      pageSizeOptions: PAGE_SIZE_OPTIONS,
+                    }
+                  : undefined
+              }
+            />
+          )}
         </div>
       </section>
     </div>

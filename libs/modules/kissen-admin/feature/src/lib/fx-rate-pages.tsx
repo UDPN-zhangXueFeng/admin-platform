@@ -9,6 +9,7 @@ import { Info } from 'lucide-react';
 import {
   Alert,
   AlertDescription,
+  AlertTitle,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -230,7 +231,7 @@ export function TokenPairListPage() {
 
   const [filter, setFilter] = React.useState<TokenPairListFilter>({});
 
-  const { data: rows, isLoading, dataUpdatedAt } = useTokenPairListQuery(PROJECT_ID, filter);
+  const { data: rows, isLoading, isError, dataUpdatedAt } = useTokenPairListQuery(PROJECT_ID, filter);
   const enableMutation = useEnableTokenPairMutation(PROJECT_ID);
   const disableMutation = useDisableTokenPairMutation(PROJECT_ID);
 
@@ -474,12 +475,18 @@ export function TokenPairListPage() {
           </div>
         </form>
         <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={isLoading}
-            emptyMessage="No token pairs configured yet"
-          />
+          {isError ? (
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+            </Alert>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={isLoading}
+              emptyMessage="No token pairs configured yet"
+            />
+          )}
         </div>
       </section>
 

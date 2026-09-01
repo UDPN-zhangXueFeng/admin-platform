@@ -17,6 +17,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { TableRowAction } from '@myorg/shared/ui';
 
 import {
+  Alert,
+  AlertTitle,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -338,7 +340,7 @@ export function TokenManageListPage() {
   const [form, setForm] = React.useState<TokenFilterForm>(EMPTY_TOKEN_FILTER);
   const [filter, setFilter] = React.useState<TokenListFilter>({});
 
-  const { data, isLoading, dataUpdatedAt } = useTokenListQuery(KISSEN_PROJECT_ID, filter);
+  const { data, isLoading, isError, dataUpdatedAt } = useTokenListQuery(KISSEN_PROJECT_ID, filter);
   const { data: bankData } = useBankListQuery(KISSEN_PROJECT_ID, {
     pageNum: 1,
     pageSize: 100,
@@ -697,12 +699,18 @@ export function TokenManageListPage() {
         </form>
         <div className="p-4">
           {/* 源无分页/多选/导出 → 不传 pagination。 */}
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={isLoading}
-            emptyMessage="No tokens registered yet"
-          />
+          {isError ? (
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+            </Alert>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={isLoading}
+              emptyMessage="No tokens registered yet"
+            />
+          )}
         </div>
       </section>
 

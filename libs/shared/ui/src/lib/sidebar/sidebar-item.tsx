@@ -49,7 +49,7 @@ export function SidebarItem({
       tabIndex={disabled ? -1 : 0}
       onClick={onClick}
       className={cn(
-        'group relative flex min-h-10 items-center gap-3 overflow-hidden rounded-xl px-3 text-[13px] font-medium transition-colors min-[1600px]:min-h-11 min-[1600px]:text-sm',
+        'group relative flex min-h-10 items-center gap-3 overflow-hidden rounded-xl px-3 text-[13px] font-medium motion-safe:transition-colors min-[1600px]:min-h-11 min-[1600px]:text-sm',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         isActive
           ? 'bg-primary text-primary-foreground shadow-sm'
@@ -75,7 +75,7 @@ export function SidebarItem({
           className={cn(
             'pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2',
             'rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md',
-            'opacity-0 transition-opacity group-hover:opacity-100',
+            'opacity-0 motion-safe:transition-opacity group-hover:opacity-100',
             'whitespace-nowrap border'
           )}
           role="tooltip"

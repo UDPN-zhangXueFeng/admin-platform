@@ -18,6 +18,7 @@ import {
   AccordionTrigger,
   Alert,
   AlertDescription,
+  AlertTitle,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -715,7 +716,7 @@ export function SettleOrderListPage() {
   // 源 el-pagination page-sizes [10,20,50]：每页条数可切，切换即回第 1 页。
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
-  const { data, isLoading, dataUpdatedAt } = useSettleOrderListQuery(KISSEN_PROJECT_ID, params);
+  const { data, isLoading, isError, dataUpdatedAt } = useSettleOrderListQuery(KISSEN_PROJECT_ID, params);
   const { data: lpOptions } = useSettleLpOptionsQuery(KISSEN_PROJECT_ID);
   const confirmMutation = useSettleOrderConfirmMutation(KISSEN_PROJECT_ID);
   const voidMutation = useSettleOrderVoidMutation(KISSEN_PROJECT_ID);
@@ -909,7 +910,13 @@ export function SettleOrderListPage() {
           </div>
         </form>
 
-        {isLoading && !rows.length ? (
+        {isError ? (
+          <div className="p-4">
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+            </Alert>
+          </div>
+        ) : isLoading && !rows.length ? (
           <div className="p-6">
             <LoadingBlock />
           </div>
@@ -1059,7 +1066,7 @@ export function SettleCycleListPage() {
     [params],
   );
 
-  const { data, isLoading, dataUpdatedAt } = useLpSettleCycleListQuery(KISSEN_PROJECT_ID, queryParams);
+  const { data, isLoading, isError, dataUpdatedAt } = useLpSettleCycleListQuery(KISSEN_PROJECT_ID, queryParams);
   const saveMutation = useLpSettleCycleSaveMutation(KISSEN_PROJECT_ID);
 
   const rows = data?.data ?? [];
@@ -1254,25 +1261,31 @@ export function SettleCycleListPage() {
           </div>
         </form>
         <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={isLoading}
-            emptyMessage="No LPs found"
-            pagination={
-              paginationMeta
-                ? {
-                    page: paginationMeta.page,
-                    pageSize: paginationMeta.pageSize,
-                    total: paginationMeta.total,
-                    onPageChange: (page) =>
-                      setParams((prev) => ({ ...prev, pageNum: page })),
-                    onPageSizeChange: (n) =>
-                      setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n })),
-                  }
-                : undefined
-            }
-          />
+          {isError ? (
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+            </Alert>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={isLoading}
+              emptyMessage="No LPs found"
+              pagination={
+                paginationMeta
+                  ? {
+                      page: paginationMeta.page,
+                      pageSize: paginationMeta.pageSize,
+                      total: paginationMeta.total,
+                      onPageChange: (page) =>
+                        setParams((prev) => ({ ...prev, pageNum: page })),
+                      onPageSizeChange: (n) =>
+                        setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n })),
+                    }
+                  : undefined
+              }
+            />
+          )}
         </div>
       </section>
     </div>

@@ -6,6 +6,8 @@ import { useSearchParams } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
 
 import {
+  Alert,
+  AlertTitle,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -401,7 +403,7 @@ export function SysUserListPage() {
     userFilterToParams(EMPTY_USER_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
-  const { data, isLoading } = useRbacUserListQuery(KISSEN_PROJECT_ID, params);
+  const { data, isLoading, isError } = useRbacUserListQuery(KISSEN_PROJECT_ID, params);
 
   const statusMutation = useUserStatusMutation(KISSEN_PROJECT_ID);
   const resetMutation = useUserResetPwdMutation(KISSEN_PROJECT_ID);
@@ -641,27 +643,33 @@ export function SysUserListPage() {
             </Button>
           )}
         </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-          pagination={
-            paginationMeta
-              ? {
-                  page: paginationMeta.page,
-                  pageSize: paginationMeta.pageSize,
-                  total: paginationMeta.total,
-                  onPageChange: (page) =>
-                    setParams((prev) => ({ ...prev, pageNum: page })),
-                  onPageSizeChange: (n) => {
-                    setPageSize(n);
-                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
-                  },
-                }
-              : undefined
-          }
-        />
+        {isError ? (
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+          </Alert>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No data"
+            pagination={
+              paginationMeta
+                ? {
+                    page: paginationMeta.page,
+                    pageSize: paginationMeta.pageSize,
+                    total: paginationMeta.total,
+                    onPageChange: (page) =>
+                      setParams((prev) => ({ ...prev, pageNum: page })),
+                    onPageSizeChange: (n) => {
+                      setPageSize(n);
+                      setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                    },
+                  }
+                : undefined
+            }
+          />
+        )}
       </div>
 
       <UserAssignRoleDialog
@@ -1228,7 +1236,7 @@ export function SysRoleListPage() {
     roleFilterToParams(EMPTY_ROLE_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
-  const { data, isLoading } = useRbacRoleListQuery(KISSEN_PROJECT_ID, params);
+  const { data, isLoading, isError } = useRbacRoleListQuery(KISSEN_PROJECT_ID, params);
 
   const deleteMutation = useRoleDeleteMutation(KISSEN_PROJECT_ID);
   const [assignRole, setAssignRole] = React.useState<RoleRow | null>(null);
@@ -1373,27 +1381,33 @@ export function SysRoleListPage() {
             </Button>
           )}
         </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-          pagination={
-            paginationMeta
-              ? {
-                  page: paginationMeta.page,
-                  pageSize: paginationMeta.pageSize,
-                  total: paginationMeta.total,
-                  onPageChange: (page) =>
-                    setParams((prev) => ({ ...prev, pageNum: page })),
-                  onPageSizeChange: (n) => {
-                    setPageSize(n);
-                    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
-                  },
-                }
-              : undefined
-          }
-        />
+        {isError ? (
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+          </Alert>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No data"
+            pagination={
+              paginationMeta
+                ? {
+                    page: paginationMeta.page,
+                    pageSize: paginationMeta.pageSize,
+                    total: paginationMeta.total,
+                    onPageChange: (page) =>
+                      setParams((prev) => ({ ...prev, pageNum: page })),
+                    onPageSizeChange: (n) => {
+                      setPageSize(n);
+                      setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                    },
+                  }
+                : undefined
+            }
+          />
+        )}
       </div>
 
       <RoleAssignMenuDialog
@@ -2188,7 +2202,7 @@ export function WorkflowConfigListPage() {
     useForm<WorkflowFilterForm>({ defaultValues: EMPTY_WF_FILTER });
 
   const [busCode, setBusCode] = React.useState<string | undefined>(undefined);
-  const { data, isLoading } = useWorkflowListQuery(
+  const { data, isLoading, isError } = useWorkflowListQuery(
     KISSEN_PROJECT_ID,
     busCode,
   );
@@ -2354,12 +2368,18 @@ export function WorkflowConfigListPage() {
             </Button>
           )}
         </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-        />
+        {isError ? (
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+          </Alert>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No data"
+          />
+        )}
       </div>
       <ConfirmDialog
         request={confirm}
@@ -2920,7 +2940,7 @@ export function OperateLogListPage() {
     operateLogFilterToParams(EMPTY_OPERATE_LOG_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
-  const { data, isLoading, dataUpdatedAt } = useOperateLogListQuery(
+  const { data, isLoading, isError, dataUpdatedAt } = useOperateLogListQuery(
     KISSEN_PROJECT_ID,
     params,
   );
@@ -3066,27 +3086,33 @@ export function OperateLogListPage() {
           </div>
         </form>
         <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={isLoading}
-            emptyMessage="No operation logs found"
-            pagination={
-              paginationMeta
-                ? {
-                    page: paginationMeta.page,
-                    pageSize: paginationMeta.pageSize,
-                    total: paginationMeta.total,
-                    onPageChange: (page) =>
-                      setParams((prev) => ({ ...prev, pageNum: page })),
-                    onPageSizeChange: (n) => {
-                      setPageSize(n);
-                      setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
-                    },
-                  }
-                : undefined
-            }
-          />
+          {isError ? (
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
+            </Alert>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={isLoading}
+              emptyMessage="No operation logs found"
+              pagination={
+                paginationMeta
+                  ? {
+                      page: paginationMeta.page,
+                      pageSize: paginationMeta.pageSize,
+                      total: paginationMeta.total,
+                      onPageChange: (page) =>
+                        setParams((prev) => ({ ...prev, pageNum: page })),
+                      onPageSizeChange: (n) => {
+                        setPageSize(n);
+                        setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                      },
+                    }
+                  : undefined
+              }
+            />
+          )}
         </div>
       </section>
 
