@@ -115,28 +115,52 @@ export function ChangePasswordDialog({
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="gw-oldPassword">Current Password</Label>
+          <div>
+            <Label
+              htmlFor="gw-oldPassword"
+              className="mb-1.5 block text-sm font-medium text-foreground"
+            >
+              Current Password
+              <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+            </Label>
             <PasswordField
               id="gw-oldPassword"
               autoComplete="current-password"
+              aria-invalid={!!errors.oldPassword}
+              aria-describedby={
+                errors.oldPassword ? 'gw-oldPassword-error' : undefined
+              }
               {...register('oldPassword', {
                 required: 'Current password is required',
               })}
             />
             {errors.oldPassword && (
-              <p className="text-sm text-destructive">
+              <p
+                id="gw-oldPassword-error"
+                className="mt-1 text-sm text-destructive"
+                role="alert"
+              >
                 {errors.oldPassword.message}
               </p>
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="gw-newPassword">New Password</Label>
+          <div>
+            <Label
+              htmlFor="gw-newPassword"
+              className="mb-1.5 block text-sm font-medium text-foreground"
+            >
+              New Password
+              <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+            </Label>
             <PasswordField
               id="gw-newPassword"
               autoComplete="new-password"
               placeholder="At least 8 characters with letters and numbers"
+              aria-invalid={!!errors.newPassword}
+              aria-describedby={
+                errors.newPassword ? 'gw-newPassword-error' : undefined
+              }
               {...register('newPassword', {
                 required: 'New password is required',
                 pattern: {
@@ -146,23 +170,39 @@ export function ChangePasswordDialog({
               })}
             />
             {errors.newPassword && (
-              <p className="text-sm text-destructive">
+              <p
+                id="gw-newPassword-error"
+                className="mt-1 text-sm text-destructive"
+                role="alert"
+              >
                 {errors.newPassword.message}
               </p>
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="gw-confirm">Confirm New Password</Label>
+          <div>
+            <Label
+              htmlFor="gw-confirm"
+              className="mb-1.5 block text-sm font-medium text-foreground"
+            >
+              Confirm New Password
+              <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+            </Label>
             <PasswordField
               id="gw-confirm"
               autoComplete="new-password"
+              aria-invalid={!!errors.confirm}
+              aria-describedby={errors.confirm ? 'gw-confirm-error' : undefined}
               {...register('confirm', {
                 validate: (v) => v === newPassword || 'Passwords do not match',
               })}
             />
             {errors.confirm && (
-              <p className="text-sm text-destructive">
+              <p
+                id="gw-confirm-error"
+                className="mt-1 text-sm text-destructive"
+                role="alert"
+              >
                 {errors.confirm.message}
               </p>
             )}

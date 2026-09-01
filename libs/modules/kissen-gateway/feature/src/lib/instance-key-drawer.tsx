@@ -160,11 +160,19 @@ function PrivateKeyPromptDialog({
             private key. The plaintext is shown only this once.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-1.5">
-          <Label htmlFor="gw-key-password">Login Password</Label>
+        <div>
+          <Label
+            htmlFor="gw-key-password"
+            className="mb-1.5 block text-sm font-medium text-foreground"
+          >
+            Login Password
+            <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+          </Label>
           <PasswordField
             id="gw-key-password"
             autoComplete="current-password"
+            aria-invalid={invalid}
+            aria-describedby={invalid ? 'gw-key-password-error' : undefined}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onBlur={() => setTouched(true)}
@@ -174,7 +182,11 @@ function PrivateKeyPromptDialog({
           />
           {/* 源 inputValidator：空值提示「请输入登录口令」。 */}
           {invalid && (
-            <p className="text-sm text-destructive">
+            <p
+              id="gw-key-password-error"
+              className="mt-1 text-sm text-destructive"
+              role="alert"
+            >
               Login password is required
             </p>
           )}

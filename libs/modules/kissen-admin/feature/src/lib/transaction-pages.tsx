@@ -724,6 +724,10 @@ function ResolveDialog({
                 </label>
               ))}
             </RadioGroup>
+            {/* §6.4：必选说明（判定不变，Submit 仍以 disabled 兜底）。 */}
+            <p className="text-xs text-muted-foreground">
+              Select a resolution option before submitting.
+            </p>
             {/* 口径提示三行（源 .form-tip） */}
             <p className="text-xs leading-relaxed text-muted-foreground">
               Complete: backfill the settlement record and send the final-state notification; the transaction moves to Completed

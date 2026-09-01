@@ -442,6 +442,8 @@ function ApprovalDetailBody({
   const prevMutation = useApprovalPreviousStepMutation(KISSEN_PROJECT_ID);
   const withdrawMutation = useApprovalWithdrawMutation(KISSEN_PROJECT_ID);
   const [remarks, setRemarks] = React.useState('');
+  // §6.4：guard 判定不变，错误同步下沉到 Textarea 旁（输入即清）。
+  const [remarksError, setRemarksError] = React.useState<string | null>(null);
   // 待确认动作（非空即弹确认框；文案见 confirmCopy）。
   const [confirmAction, setConfirmAction] = React.useState<ConfirmAction | null>(
     null,
@@ -484,6 +486,7 @@ function ApprovalDetailBody({
   }, [detail, row.businessCode]);
   const onApprove = (approve: number) => {
     if (approve === 2 && !remarks.trim()) {
+      setRemarksError('Please provide a rejection reason');
       toast.warning('Please provide a rejection reason');
       return;
     }
@@ -492,6 +495,7 @@ function ApprovalDetailBody({
 
   const onPreviousStep = () => {
     if (!remarks.trim()) {
+      setRemarksError('A reason is required to send back to the previous step');
       toast.warning('A reason is required to send back to the previous step');
       return;
     }
@@ -646,13 +650,32 @@ function ApprovalDetailBody({
       {canOperate && (
         <div className="space-y-3">
           <div className="text-sm font-semibold">Approval Actions</div>
-          <Textarea
-            value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
-            rows={3}
-            maxLength={200}
-            placeholder="Enter review comments (required for rejection / send back)"
-          />
+          <div className="space-y-1.5">
+            <label htmlFor="approval-remarks" className="text-sm font-medium">
+              Review Comments
+              <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                (required for Reject / Send Back)
+              </span>
+            </label>
+            <Textarea
+              id="approval-remarks"
+              value={remarks}
+              onChange={(e) => {
+                setRemarks(e.target.value);
+                setRemarksError(null);
+              }}
+              rows={3}
+              maxLength={200}
+              placeholder="Enter review comments"
+              aria-invalid={remarksError ? true : undefined}
+              aria-describedby={remarksError ? 'approval-remarks-error' : undefined}
+            />
+            {remarksError && (
+              <p id="approval-remarks-error" role="alert" className="text-sm text-destructive">
+                {remarksError}
+              </p>
+            )}
+          </div>
           <div className="text-right text-xs text-muted-foreground">
             {remarks.length}/200
           </div>

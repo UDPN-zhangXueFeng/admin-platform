@@ -859,10 +859,18 @@ export function LpInfoFormPage() {
         <div className="mb-6 text-base font-semibold">
           {isEdit ? 'Edit LP' : 'Add LP'}
         </div>
+
+        {/* §6.4 Section：基本信息 / 联系 / 风评（标题 + 说明 + 分隔）。 */}
+        <div className="mb-4">
+          <div className="text-sm font-medium">Basic Information</div>
+          <p className="text-sm text-muted-foreground">
+            Identity of the LP; name and code are required.
+          </p>
+        </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              LP Name<span className="ml-0.5 text-red-500">*</span>
+              LP Name<span className="ml-0.5 text-destructive">*</span>
             </label>
             <Input
               maxLength={64}
@@ -879,7 +887,7 @@ export function LpInfoFormPage() {
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              LP Code<span className="ml-0.5 text-red-500">*</span>
+              LP Code<span className="ml-0.5 text-destructive">*</span>
             </label>
             <Input
               maxLength={32}
@@ -894,6 +902,15 @@ export function LpInfoFormPage() {
               </p>
             )}
           </div>
+        </div>
+        <div className="mt-6 border-t border-border/50 pt-6">
+          <div className="mb-4">
+            <div className="text-sm font-medium">Contact</div>
+            <p className="text-sm text-muted-foreground">
+              Operational contact and mailing address (optional).
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Contact Name</label>
             <Input maxLength={50} {...register('contactName')} />
@@ -916,17 +933,23 @@ export function LpInfoFormPage() {
             )}
           </div>
         </div>
-        <div className="mt-4 space-y-1.5">
-          <label className="text-sm font-medium">Address</label>
-          <Input maxLength={300} {...register('address')} />
+          <div className="mt-4 space-y-1.5">
+            <label className="text-sm font-medium">Address</label>
+            <Input maxLength={300} {...register('address')} />
+          </div>
         </div>
-        <div className="mt-4 space-y-1.5">
-          <label className="text-sm font-medium">Risk Assessment</label>
-          <Textarea rows={3} {...register('riskAssessment')} />
+        <div className="mt-6 border-t border-border/50 pt-6">
+          <label htmlFor="riskAssessment" className="block text-sm font-medium">
+            Risk Assessment
+          </label>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Internal risk evaluation notes (optional).
+          </p>
+          <Textarea id="riskAssessment" rows={3} {...register('riskAssessment')} />
         </div>
       </section>
 
-      <div className="flex justify-end gap-3">
+      <div className="flex items-center justify-between rounded-lg border-border/60 bg-card p-4 text-card-foreground shadow-float">
         <Button
           type="button"
           variant="outline"

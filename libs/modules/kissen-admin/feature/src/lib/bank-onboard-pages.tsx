@@ -1068,7 +1068,13 @@ export function BankInfoFormPage() {
           </AlertDescription>
         </Alert>
 
-        <div className="mb-3 text-sm font-semibold">Basic Information</div>
+        {/* §6.4 Section：标题 + 说明 + 分隔组织字段（Basic / Integration / Account）。 */}
+        <div className="mb-4">
+          <div className="text-sm font-medium">Basic Information</div>
+          <p className="text-sm text-muted-foreground">
+            Bank identity and currency-system basics.
+          </p>
+        </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             name="bankName"
@@ -1132,27 +1138,37 @@ export function BankInfoFormPage() {
             register={register('currencySystemUrl', { maxLength: 300 })}
           />
         </div>
-        <div className="mt-4 space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Integration Notes</label>
-            <Textarea
-              rows={2}
-              placeholder="Optional"
-              {...register('currencySystemDesc')}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Account Config</label>
-            <Textarea
-              rows={3}
-              placeholder="JSON, optional"
-              {...register('accountConfig')}
-            />
-          </div>
+        <div className="mt-6 border-t border-border/50 pt-6">
+          <label htmlFor="currencySystemDesc" className="block text-sm font-medium">
+            Integration Notes
+          </label>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Optional notes for connecting to the bank&rsquo;s currency system.
+          </p>
+          <Textarea
+            id="currencySystemDesc"
+            rows={2}
+            placeholder="Optional"
+            {...register('currencySystemDesc')}
+          />
+        </div>
+        <div className="mt-6 border-t border-border/50 pt-6">
+          <label htmlFor="accountConfig" className="block text-sm font-medium">
+            Account Config
+          </label>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Optional JSON consumed by the currency system.
+          </p>
+          <Textarea
+            id="accountConfig"
+            rows={3}
+            placeholder="JSON, optional"
+            {...register('accountConfig')}
+          />
         </div>
       </section>
 
-      <div className="flex justify-end gap-3">
+      <div className="flex items-center justify-between rounded-lg border-border/60 bg-card p-4 text-card-foreground shadow-float">
         <Button
           type="button"
           variant="outline"
@@ -1169,8 +1185,7 @@ export function BankInfoFormPage() {
   );
 }
 
-/* ================================================================== */
-/* BankInfoDetailPage — 查看态（源 bank-dialog view）                    */
+/* BankInfoDetailPage — 查看态（源 bank-dialog view） */
 /* ================================================================== */
 
 export function BankInfoDetailPage() {

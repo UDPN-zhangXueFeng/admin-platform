@@ -265,70 +265,93 @@ function OnboardApplyForm({ onSubmitted }: { onSubmitted: () => void }) {
   });
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      <div className="space-y-1.5">
-        <Controller
-          control={control}
-          name="agreeConfirmed"
-          render={({ field }) => (
-            <label className="flex items-start gap-2 text-sm">
-              <Checkbox
-                checked={field.value}
-                onCheckedChange={(checked) => field.onChange(checked === true)}
-                onBlur={field.onBlur}
-                aria-invalid={!!formState.errors.agreeConfirmed}
-              />
-              <span>
-                I have read and agree to the Kissen Bank Gateway Onboarding
-                Service Agreement
-              </span>
-            </label>
-          )}
-        />
-        {formState.errors.agreeConfirmed && (
-          <p className="text-sm text-destructive" role="alert">
-            {formState.errors.agreeConfirmed.message}
+    <form onSubmit={onSubmit} className="space-y-6">
+      {/* 轻分节（§6.4）：协议确认 / 联系人信息各自成组，不堆叠同质 Card。 */}
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-foreground">
+            Onboarding Agreement
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Acceptance is required before the application can be submitted
           </p>
-        )}
-      </div>
-      <FormField
-        name="contactName"
-        label="Contact Name"
-        required
-        maxLength={30}
-        placeholder="Enter the contact name"
-        className="max-w-[360px]"
-        error={formState.errors.contactName?.message}
-        register={register('contactName')}
-      />
-      <FormField
-        name="contactPhone"
-        label="Contact Phone"
-        required
-        maxLength={30}
-        placeholder="Phone number, so the platform can reach you"
-        className="max-w-[360px]"
-        error={formState.errors.contactPhone?.message}
-        register={register('contactPhone')}
-      />
-      <FormField
-        name="contactEmail"
-        label="Email"
-        maxLength={64}
-        placeholder="Optional"
-        className="max-w-[360px]"
-        error={formState.errors.contactEmail?.message}
-        register={register('contactEmail')}
-      />
-      <FormField
-        name="contactAddress"
-        label="Address"
-        maxLength={128}
-        placeholder="Optional"
-        className="max-w-[360px]"
-        error={formState.errors.contactAddress?.message}
-        register={register('contactAddress')}
-      />
+        </div>
+        <div className="space-y-1.5">
+          <Controller
+            control={control}
+            name="agreeConfirmed"
+            render={({ field }) => (
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                  onBlur={field.onBlur}
+                  aria-invalid={!!formState.errors.agreeConfirmed}
+                />
+                <span>
+                  I have read and agree to the Kissen Bank Gateway Onboarding
+                  Service Agreement
+                </span>
+              </label>
+            )}
+          />
+          {formState.errors.agreeConfirmed && (
+            <p className="text-sm text-destructive" role="alert">
+              {formState.errors.agreeConfirmed.message}
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-foreground">
+            Bank Contact Information
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            How the platform reaches your bank during the onboarding review
+          </p>
+        </div>
+        <FormField
+          name="contactName"
+          label="Contact Name"
+          required
+          maxLength={30}
+          placeholder="Enter the contact name"
+          className="max-w-[360px]"
+          error={formState.errors.contactName?.message}
+          register={register('contactName')}
+        />
+        <FormField
+          name="contactPhone"
+          label="Contact Phone"
+          required
+          maxLength={30}
+          placeholder="Phone number, so the platform can reach you"
+          className="max-w-[360px]"
+          error={formState.errors.contactPhone?.message}
+          register={register('contactPhone')}
+        />
+        <FormField
+          name="contactEmail"
+          label="Email"
+          maxLength={64}
+          placeholder="Optional"
+          className="max-w-[360px]"
+          error={formState.errors.contactEmail?.message}
+          register={register('contactEmail')}
+        />
+        <FormField
+          name="contactAddress"
+          label="Address"
+          maxLength={128}
+          placeholder="Optional"
+          className="max-w-[360px]"
+          error={formState.errors.contactAddress?.message}
+          register={register('contactAddress')}
+        />
+      </section>
+
       <div>
         <Button type="submit" disabled={submitMutation.isPending}>
           {submitMutation.isPending && <Loader2 className="animate-spin" />}

@@ -898,7 +898,11 @@ function TokenPairDialog({
                                 placeholder="Required, greater than 0"
                                 maxLength={14}
                                 inputMode="decimal"
-                                className="h-8 w-[130px]"
+                                className={`h-8 w-[130px]${
+                                  invalid
+                                    ? ' border-destructive focus-visible:ring-destructive'
+                                    : ''
+                                }`}
                                 aria-invalid={!!invalid}
                               />
                             </td>
@@ -1100,7 +1104,12 @@ function PairChangeDialog({
     defaultSplitRatio:
       row.defaultSplitRatio == null ? '' : String(row.defaultSplitRatio),
   });
-  const [error, setError] = React.useState<string | null>(null);
+  // §6.4：错误按字段下沉（判定逻辑不变）；改哪个字段清哪个。
+  const [errors, setErrors] = React.useState<{
+    baseRate?: string;
+    markupRate?: string;
+    defaultSplitRatio?: string;
+  }>({});
   const saveMutation = useSaveTokenPairMutation(PROJECT_ID);
   const changeMutation = useChangeTokenPairMutation(PROJECT_ID);
   const pending = saveMutation.isPending || changeMutation.isPending;
@@ -1109,21 +1118,21 @@ function PairChangeDialog({
   const onSubmit = React.useCallback(() => {
     const base = Number(form.baseRate);
     if (form.baseRate === '' || Number.isNaN(base) || base <= 0) {
-      setError('Base rate is required and must be greater than 0');
+      setErrors({ baseRate: 'Base rate is required and must be greater than 0' });
       return;
     }
     const markup = form.markupRate === '' ? undefined : Number(form.markupRate);
     if (markup != null && Number.isNaN(markup)) {
-      setError('Markup rate must be numeric');
+      setErrors({ markupRate: 'Markup rate must be numeric' });
       return;
     }
     const split =
       form.defaultSplitRatio === '' ? undefined : Number(form.defaultSplitRatio);
     if (split != null && (Number.isNaN(split) || split < 0 || split > 1)) {
-      setError('Default split must be between 0 and 1');
+      setErrors({ defaultSplitRatio: 'Default split must be between 0 and 1' });
       return;
     }
-    setError(null);
+    setErrors({});
     const payload = {
       baseRate: form.baseRate,
       markupRate: form.markupRate === '' ? undefined : form.markupRate,
@@ -1200,12 +1209,13 @@ function PairChangeDialog({
           <FormField
             name="baseRate"
             label="Base Rate"
+            required
             value={form.baseRate}
             onChange={(e) => {
               setForm((f) => ({ ...f, baseRate: e.target.value }));
-              setError(null);
+              setErrors((prev) => ({ ...prev, baseRate: undefined }));
             }}
-            error={error ?? undefined}
+            error={errors.baseRate}
             placeholder="Required, greater than 0"
             maxLength={14}
             inputMode="decimal"
@@ -1217,8 +1227,9 @@ function PairChangeDialog({
             value={form.markupRate}
             onChange={(e) => {
               setForm((f) => ({ ...f, markupRate: e.target.value }));
-              setError(null);
+              setErrors((prev) => ({ ...prev, markupRate: undefined }));
             }}
+            error={errors.markupRate}
             placeholder="Optional, e.g. 0.01 = 1%"
             maxLength={10}
             inputMode="decimal"
@@ -1229,8 +1240,9 @@ function PairChangeDialog({
             value={form.defaultSplitRatio}
             onChange={(e) => {
               setForm((f) => ({ ...f, defaultSplitRatio: e.target.value }));
-              setError(null);
+              setErrors((prev) => ({ ...prev, defaultSplitRatio: undefined }));
             }}
+            error={errors.defaultSplitRatio}
             placeholder="Optional, 0–1, e.g. 0.5"
             maxLength={8}
             inputMode="decimal"

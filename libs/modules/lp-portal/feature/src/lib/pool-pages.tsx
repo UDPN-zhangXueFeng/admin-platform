@@ -198,10 +198,18 @@ function ApplyPoolDialog({
   const { data: tokens, isPending: loadingTokens } =
     useTokenListQuery(LP_PROJECT_ID);
   const [form, setForm] = React.useState<ApplyFormState>(APPLY_INITIAL);
+  // 提交 guard 命中字段的 inline error（判定/阻断不变，仅 toast 之外的下沉呈现）
+  const [errors, setErrors] = React.useState<{
+    tokenId?: string;
+    accountAddress?: string;
+  }>({});
 
-  // 源 openApply 语义：每次打开先重置四字段再展示
+  // 源 openApply 语义：每次打开先重置四字段与字段级 error 再展示
   React.useEffect(() => {
-    if (open) setForm(APPLY_INITIAL);
+    if (open) {
+      setForm(APPLY_INITIAL);
+      setErrors({});
+    }
   }, [open]);
 
   const patchForm = (patch: Partial<ApplyFormState>) =>
@@ -231,9 +239,16 @@ function ApplyPoolDialog({
   };
 
   const submitApply = () => {
-    // 手写校验同源 submitApply：缺 token 或地址 → warning toast
+    // 手写校验同源 submitApply：缺 token 或地址 → warning toast；同分支下沉
+    // 字段级 inline error（判定条件与 return 阻断完全不变，仅增加呈现位置）
     if (!form.tokenId || !form.accountAddress.trim()) {
       toast.warning('Please choose a token and enter the pool address');
+      setErrors({
+        tokenId: form.tokenId ? undefined : 'Please choose a token',
+        accountAddress: form.accountAddress.trim()
+          ? undefined
+          : 'Please enter the pool address',
+      });
       return;
     }
     applyMutation.mutate(
@@ -275,14 +290,30 @@ function ApplyPoolDialog({
 
         <div className="space-y-4">
           <div>
-            <Label className="mb-1.5 block">Token</Label>
+            <Label className="mb-1.5 block">
+              Token
+              {/* 必填星标：与 FormField required 同形态 */}
+              <span className="ml-0.5 text-destructive" aria-hidden="true">
+                *
+              </span>
+            </Label>
             <SelectField
               value={form.tokenId != null ? String(form.tokenId) : ''}
-              onValueChange={(v) => patchForm({ tokenId: Number(v) })}
+              onValueChange={(v) => {
+                patchForm({ tokenId: Number(v) });
+                setErrors((prev) =>
+                  prev.tokenId ? { ...prev, tokenId: undefined } : prev,
+                );
+              }}
               placeholder="Select an active token"
               options={tokenOptions}
               disabled={loadingTokens}
             />
+            {errors.tokenId && (
+              <p className="mt-1 text-sm text-destructive" role="alert">
+                {errors.tokenId}
+              </p>
+            )}
             {selectedToken && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Min liquidity {formatMoney(selectedToken.minLiquidity)} · Chain{' '}
@@ -297,7 +328,15 @@ function ApplyPoolDialog({
             required
             placeholder="Account address in the currency system"
             value={form.accountAddress}
-            onChange={(e) => patchForm({ accountAddress: e.target.value })}
+            error={errors.accountAddress}
+            onChange={(e) => {
+              patchForm({ accountAddress: e.target.value });
+              setErrors((prev) =>
+                prev.accountAddress
+                  ? { ...prev, accountAddress: undefined }
+                  : prev,
+              );
+            }}
           />
 
           <div>
@@ -322,7 +361,7 @@ function ApplyPoolDialog({
               value={String(form.remindThreshold)}
               onChange={(e) => handleThresholdChange(e.target.value)}
             />
-            <p className="-mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               Level ratio, 0–1
             </p>
           </div>

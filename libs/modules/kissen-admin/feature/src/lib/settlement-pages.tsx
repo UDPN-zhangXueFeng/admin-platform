@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   ChevronDown,
@@ -221,13 +221,29 @@ function SettleOrderGenerateDialog({
     defaultValues: { lpId: '', periodType: '', periodStart: '', periodEnd: '' },
   });
 
+  // §6.4：guard 判定不变（FormSelect 不透传 rules），错误同步下沉到字段旁；改选即清。
+  const [selectErrors, setSelectErrors] = React.useState<{
+    lpId?: string;
+    periodType?: string;
+  }>({});
+
   // 每次打开重置表单（避免上次残留）。
   React.useEffect(() => {
     if (open) {
       reset({ lpId: '', periodType: '', periodStart: '', periodEnd: '' });
+      setSelectErrors({});
     }
   }, [open, reset]);
-
+  const lpIdValue = useWatch({ control, name: 'lpId' });
+  const periodTypeValue = useWatch({ control, name: 'periodType' });
+  React.useEffect(() => {
+    setSelectErrors((prev) => (prev.lpId ? { ...prev, lpId: undefined } : prev));
+  }, [lpIdValue]);
+  React.useEffect(() => {
+    setSelectErrors((prev) =>
+      prev.periodType ? { ...prev, periodType: undefined } : prev,
+    );
+  }, [periodTypeValue]);
   const lpSelectOptions = React.useMemo(
     () => (lpOptions ?? []).map((lp) => ({
       value: String(lp.lpId),
@@ -242,10 +258,12 @@ function SettleOrderGenerateDialog({
     // 源 generate-dialog.vue rules：lpId/periodType 必填（「请选择 LP」「请选择周期类型」）。
     // FormSelect 不透传 Controller rules，按工单约定在提交处手动 guard。
     if (!Number.isFinite(lpId) || lpId <= 0) {
+      setSelectErrors((prev) => ({ ...prev, lpId: 'Please select an LP' }));
       toast.warning('Please select an LP');
       return;
     }
     if (!Number.isFinite(periodType) || periodType <= 0) {
+      setSelectErrors((prev) => ({ ...prev, periodType: 'Please select a period type' }));
       toast.warning('Please select a period type');
       return;
     }
@@ -281,7 +299,7 @@ function SettleOrderGenerateDialog({
             required
             placeholder="Select LP"
             options={lpSelectOptions}
-            error={errors.lpId ? 'Please select an LP' : undefined}
+            error={selectErrors.lpId ?? (errors.lpId ? 'Please select an LP' : undefined)}
           />
           <FormSelect
             name="periodType"
@@ -294,7 +312,10 @@ function SettleOrderGenerateDialog({
               { value: '2', label: 'Weekly' },
               { value: '3', label: 'Monthly' },
             ]}
-            error={errors.periodType ? 'Please select a period type' : undefined}
+            error={
+              selectErrors.periodType ??
+              (errors.periodType ? 'Please select a period type' : undefined)
+            }
           />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField

@@ -258,33 +258,44 @@ function PromptDialog({
           <DialogTitle>{request?.title}</DialogTitle>
           <DialogDescription>{request?.description}</DialogDescription>
         </DialogHeader>
-        {request?.multiline ? (
-          <Textarea
-            autoFocus
-            value={value}
-            maxLength={request.maxLength}
-            placeholder={request.placeholder}
-            onChange={(e) => {
-              setValue(e.target.value);
-              setError(null);
-            }}
-          />
-        ) : (
-          <Input
-            autoFocus
-            value={value}
-            maxLength={request?.maxLength}
-            placeholder={request?.placeholder}
-            onChange={(e) => {
-              setValue(e.target.value);
-              setError(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submit();
-            }}
-          />
-        )}
-        {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        {/* §6.4：error 紧贴输入框正下方（与字段同组，而非弹窗级散落）。 */}
+        <div className="space-y-1.5">
+          {request?.multiline ? (
+            <Textarea
+              autoFocus
+              value={value}
+              maxLength={request.maxLength}
+              placeholder={request.placeholder}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? 'prompt-dialog-error' : undefined}
+              onChange={(e) => {
+                setValue(e.target.value);
+                setError(null);
+              }}
+            />
+          ) : (
+            <Input
+              autoFocus
+              value={value}
+              maxLength={request?.maxLength}
+              placeholder={request?.placeholder}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? 'prompt-dialog-error' : undefined}
+              onChange={(e) => {
+                setValue(e.target.value);
+                setError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit();
+              }}
+            />
+          )}
+          {error ? (
+            <p id="prompt-dialog-error" role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancel
@@ -889,6 +900,11 @@ export function GatewayInstanceListPage() {
     instanceName: '',
     endpointUrl: '',
   });
+  // §6.4：guard 判定不变，错误同步下沉到字段旁（onChange / 重新打开清除）。
+  const [registerErrors, setRegisterErrors] = React.useState<{
+    bankId?: string;
+    endpointUrl?: string;
+  }>({});
 
   const openRegister = React.useCallback(() => {
     setRegisterForm({
@@ -897,6 +913,7 @@ export function GatewayInstanceListPage() {
       instanceName: '',
       endpointUrl: '',
     });
+    setRegisterErrors({});
     setRegisterOpen(true);
   }, []);
 
@@ -904,6 +921,10 @@ export function GatewayInstanceListPage() {
   const submitRegister = React.useCallback(() => {
     const bankId = registerForm.bankId !== STATUS_ALL ? Number(registerForm.bankId) : 0;
     if (!bankId || !registerForm.endpointUrl) {
+      setRegisterErrors({
+        bankId: !bankId ? 'Select a bank' : undefined,
+        endpointUrl: !registerForm.endpointUrl ? 'Fill in the endpoint URL' : undefined,
+      });
       toast.warning('Select a bank and fill in the endpoint URL');
       return;
     }
@@ -1231,9 +1252,15 @@ export function GatewayInstanceListPage() {
               </label>
               <Select
                 value={registerForm.bankId}
-                onValueChange={(v) => setRegisterForm((prev) => ({ ...prev, bankId: v }))}
+                onValueChange={(v) => {
+                  setRegisterForm((prev) => ({ ...prev, bankId: v }));
+                  setRegisterErrors((prev) => ({ ...prev, bankId: undefined }));
+                }}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  aria-invalid={registerErrors.bankId ? true : undefined}
+                  aria-describedby={registerErrors.bankId ? 'register-bank-error' : undefined}
+                >
                   <SelectValue placeholder="Select a bank" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1244,6 +1271,11 @@ export function GatewayInstanceListPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {registerErrors.bankId && (
+                <p id="register-bank-error" role="alert" className="text-sm text-destructive">
+                  {registerErrors.bankId}
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Instance Code</label>
@@ -1275,10 +1307,18 @@ export function GatewayInstanceListPage() {
                 value={registerForm.endpointUrl}
                 placeholder="http://bank-gateway:8080"
                 maxLength={300}
-                onChange={(e) =>
-                  setRegisterForm((prev) => ({ ...prev, endpointUrl: e.target.value }))
-                }
+                aria-invalid={registerErrors.endpointUrl ? true : undefined}
+                aria-describedby={registerErrors.endpointUrl ? 'register-endpoint-error' : undefined}
+                onChange={(e) => {
+                  setRegisterForm((prev) => ({ ...prev, endpointUrl: e.target.value }));
+                  setRegisterErrors((prev) => ({ ...prev, endpointUrl: undefined }));
+                }}
               />
+              {registerErrors.endpointUrl && (
+                <p id="register-endpoint-error" role="alert" className="text-sm text-destructive">
+                  {registerErrors.endpointUrl}
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>

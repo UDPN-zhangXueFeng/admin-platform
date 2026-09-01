@@ -171,128 +171,162 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <FormField
-            name="tokenCode"
-            label="Token Code"
-            required
-            maxLength={32}
-            placeholder="e.g. CNB-001 (unique within this instance; also the currency system code)"
-            error={formState.errors.tokenCode?.message}
-            register={register('tokenCode')}
-          />
-          <FormField
-            name="tokenName"
-            label="Token Name"
-            required
-            maxLength={64}
-            placeholder="e.g. Kissen CNY Bond"
-            error={formState.errors.tokenName?.message}
-            register={register('tokenName')}
-          />
-          <FormField
-            name="symbol"
-            label="Symbol"
-            required
-            maxLength={16}
-            placeholder="e.g. kCNY"
-            error={formState.errors.symbol?.message}
-            register={register('symbol')}
-          />
-          <FormField
-            name="decimalDigits"
-            label="Decimal Places"
-            required
-            type="number"
-            min={0}
-            max={18}
-            step={1}
-            placeholder="0-18"
-            className="max-w-[180px]"
-            error={formState.errors.decimalDigits?.message}
-            register={register('decimalDigits')}
-          />
-
-          {/* 源 el-select filterable allow-create → input + datalist 组合框。 */}
-          <Controller
-            control={control}
-            name="chainType"
-            render={({ field }) => (
-              <>
-                <datalist id="gw-token-chain-options">
-                  {CHAIN_OPTIONS.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-                <FormField
-                  name="chainType"
-                  label="Chain Type"
-                  required
-                  placeholder="Select or enter a chain type"
-                  className="max-w-[180px]"
-                  error={formState.errors.chainType?.message}
-                  list="gw-token-chain-options"
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                />
-              </>
-            )}
-          />
-          <Controller
-            control={control}
-            name="anchorFiat"
-            render={({ field }) => (
-              <>
-                <datalist id="gw-token-fiat-options">
-                  {FIAT_OPTIONS.map((f) => (
-                    <option key={f} value={f} />
-                  ))}
-                </datalist>
-                <FormField
-                  name="anchorFiat"
-                  label="Anchor Fiat"
-                  required
-                  placeholder="ISO 4217 fiat code"
-                  className="max-w-[180px]"
-                  error={formState.errors.anchorFiat?.message}
-                  list="gw-token-fiat-options"
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                />
-              </>
-            )}
-          />
-
-          <FormField
-            name="contractAddress"
-            label="Contract Address"
-            maxLength={128}
-            placeholder="Optional, for admin-side registration"
-            error={formState.errors.contractAddress?.message}
-            register={register('contractAddress')}
-          />
-          <FormField
-            name="issuerDesc"
-            label="Issuer Description"
-            maxLength={128}
-            placeholder="Optional"
-            error={formState.errors.issuerDesc?.message}
-            register={register('issuerDesc')}
-          />
-          <div className="space-y-1.5">
-            <label htmlFor="gw-token-remark" className="block text-sm font-medium text-foreground">
-              Remarks
-            </label>
-            <Textarea
-              id="gw-token-remark"
-              rows={2}
-              maxLength={200}
-              placeholder="Optional"
-              {...register('remark')}
+        <form onSubmit={onSubmit} className="space-y-6">
+          {/* 轻分节（§6.4）：身份 / 价值锚定 / 补充说明三组，字段语义就近。 */}
+          <section className="space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-foreground">
+                Token Identity
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                What this token is and the chain it lives on
+              </p>
+            </div>
+            <FormField
+              name="tokenCode"
+              label="Token Code"
+              required
+              maxLength={32}
+              placeholder="e.g. CNB-001 (unique within this instance; also the currency system code)"
+              error={formState.errors.tokenCode?.message}
+              register={register('tokenCode')}
             />
-          </div>
+            <FormField
+              name="tokenName"
+              label="Token Name"
+              required
+              maxLength={64}
+              placeholder="e.g. Kissen CNY Bond"
+              error={formState.errors.tokenName?.message}
+              register={register('tokenName')}
+            />
+            <FormField
+              name="symbol"
+              label="Symbol"
+              required
+              maxLength={16}
+              placeholder="e.g. kCNY"
+              error={formState.errors.symbol?.message}
+              register={register('symbol')}
+            />
+            {/* 源 el-select filterable allow-create → input + datalist 组合框。 */}
+            <Controller
+              control={control}
+              name="chainType"
+              render={({ field }) => (
+                <>
+                  <datalist id="gw-token-chain-options">
+                    {CHAIN_OPTIONS.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                  <FormField
+                    name="chainType"
+                    label="Chain Type"
+                    required
+                    placeholder="Select or enter a chain type"
+                    className="max-w-[180px]"
+                    error={formState.errors.chainType?.message}
+                    list="gw-token-chain-options"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                  />
+                </>
+              )}
+            />
+          </section>
+
+          <section className="space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-foreground">
+                Value &amp; Anchor
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Monetary precision and how the token value is anchored
+              </p>
+            </div>
+            <FormField
+              name="decimalDigits"
+              label="Decimal Places"
+              required
+              type="number"
+              min={0}
+              max={18}
+              step={1}
+              placeholder="0-18"
+              className="max-w-[180px]"
+              error={formState.errors.decimalDigits?.message}
+              register={register('decimalDigits')}
+            />
+            <Controller
+              control={control}
+              name="anchorFiat"
+              render={({ field }) => (
+                <>
+                  <datalist id="gw-token-fiat-options">
+                    {FIAT_OPTIONS.map((f) => (
+                      <option key={f} value={f} />
+                    ))}
+                  </datalist>
+                  <FormField
+                    name="anchorFiat"
+                    label="Anchor Fiat"
+                    required
+                    placeholder="ISO 4217 fiat code"
+                    className="max-w-[180px]"
+                    error={formState.errors.anchorFiat?.message}
+                    list="gw-token-fiat-options"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                  />
+                </>
+              )}
+            />
+            <FormField
+              name="contractAddress"
+              label="Contract Address"
+              maxLength={128}
+              placeholder="Optional, for admin-side registration"
+              error={formState.errors.contractAddress?.message}
+              register={register('contractAddress')}
+            />
+          </section>
+
+          <section className="space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-foreground">
+                Additional Information
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Optional context for the platform review
+              </p>
+            </div>
+            <FormField
+              name="issuerDesc"
+              label="Issuer Description"
+              maxLength={128}
+              placeholder="Optional"
+              error={formState.errors.issuerDesc?.message}
+              register={register('issuerDesc')}
+            />
+            <div>
+              <label
+                htmlFor="gw-token-remark"
+                className="mb-1.5 block text-sm font-medium text-foreground"
+              >
+                Remarks
+              </label>
+              <Textarea
+                id="gw-token-remark"
+                rows={2}
+                maxLength={200}
+                placeholder="Optional"
+                {...register('remark')}
+              />
+            </div>
+          </section>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>

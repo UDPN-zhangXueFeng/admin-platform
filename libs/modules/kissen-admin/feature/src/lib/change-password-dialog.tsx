@@ -111,7 +111,10 @@ export function ChangePasswordDialog({
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="oldPassword">Current Password</Label>
+            <Label htmlFor="oldPassword">
+              Current Password
+              <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+            </Label>
             <Input
               id="oldPassword"
               type="password"
@@ -128,7 +131,10 @@ export function ChangePasswordDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="newPassword">New Password</Label>
+            <Label htmlFor="newPassword">
+              New Password
+              <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+            </Label>
             <Input
               id="newPassword"
               type="password"
@@ -150,7 +156,10 @@ export function ChangePasswordDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="confirm">Confirm New Password</Label>
+            <Label htmlFor="confirm">
+              Confirm New Password
+              <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+            </Label>
             <Input
               id="confirm"
               type="password"
