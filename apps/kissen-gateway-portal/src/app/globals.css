@@ -131,12 +131,6 @@
   }
 }
 
-/* Keep the auth form readable when the branded panel is hidden at narrow
-   viewports, matching the reference login composition. */
-.kissen-auth > div > section:nth-of-type(2) > div {
-  max-width: 400px;
-}
-
 /* ============================================================
    Kissen UI 改造 v1.0 — 密度与排版 token（纲领 §5.1/§5.2）
    三 app 同步维护；页面层使用这些类，禁止任意 px 间距。

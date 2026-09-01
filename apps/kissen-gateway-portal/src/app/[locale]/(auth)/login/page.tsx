@@ -152,7 +152,7 @@ export default function LoginRoute() {
               className="flex items-end justify-center"
               aria-label={`${brand.name} Gateway`}
             >
-              <span className="text-6xl font-black italic leading-none tracking-[-0.11em] text-[var(--brand-deep,#0B6B53)]">
+              <span className="text-6xl font-black italic leading-none tracking-[-0.11em] text-[var(--brand-deep,#0B1F3A)]">
                 {brand.name.charAt(0)}
                 <span className="text-white/80">
                   {brand.name.slice(1)}
@@ -183,7 +183,10 @@ export default function LoginRoute() {
               <h1 className="text-3xl font-bold leading-tight tracking-tight text-[#1a1d21] sm:text-4xl">
                 {brand.name}
               </h1>
-              <p className="text-sm text-muted-foreground">{brand.subtitle}</p>
+              {/* 表单任务引导：右板副题不与左板品牌 subtitle（:165）逐字重复（§6.6 A）。 */}
+              <p className="text-sm text-muted-foreground">
+                Sign in to the bank gateway console
+              </p>
             </div>
 
             <form onSubmit={onSubmit} className="space-y-5">
@@ -191,12 +194,20 @@ export default function LoginRoute() {
                 <Label htmlFor="loginName">Username</Label>
                 <Input
                   id="loginName"
-                  placeholder="Username"
+                  placeholder="Enter your username"
                   autoComplete="username"
+                  aria-invalid={!!errors.loginName}
+                  aria-describedby={
+                    errors.loginName ? 'loginName-error' : undefined
+                  }
                   {...register('loginName')}
                 />
                 {errors.loginName && (
-                  <p className="text-sm text-destructive">
+                  <p
+                    id="loginName-error"
+                    className="text-sm text-destructive"
+                    role="alert"
+                  >
                     {errors.loginName.message}
                   </p>
                 )}
@@ -206,12 +217,20 @@ export default function LoginRoute() {
                 <Label htmlFor="password">Password</Label>
                 <PasswordField
                   id="password"
-                  placeholder="Password"
+                  placeholder="Enter your password"
                   autoComplete="current-password"
+                  aria-invalid={!!errors.password}
+                  aria-describedby={
+                    errors.password ? 'password-error' : undefined
+                  }
                   {...register('password')}
                 />
                 {errors.password && (
-                  <p className="text-sm text-destructive">
+                  <p
+                    id="password-error"
+                    className="text-sm text-destructive"
+                    role="alert"
+                  >
                     {errors.password.message}
                   </p>
                 )}

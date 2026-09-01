@@ -43,20 +43,21 @@ export function ProfilePage() {
     { label: 'Name', value: session?.userName || '-' },
     {
       label: 'Affiliated LP',
-      // 源语义：lpName 主值，副行 (lpCode)；空回退 '-'（矩阵 D11）。
+      // 源语义：lpName 主值，副行 (lpCode)；lpName 空回退 '-'（矩阵 D11），
+      // lpCode 空则不渲染副行（避免主副双 '-'）。
       value: session?.lpName ? session.lpName : '-',
-      sub: session?.lpCode ? `(${session.lpCode})` : '-',
+      sub: session?.lpCode ? `(${session.lpCode})` : undefined,
     },
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
-      {/* 源 page-head：eyebrow ACCOUNT + 页标题 */}
+    <div className="mx-auto flex w-full max-w-xl flex-col section-gap">
+      {/* 源 page-head：eyebrow ACCOUNT + 页标题（dashboard t-supporting/t-page-title 范式） */}
       <div>
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+        <div className="t-supporting uppercase tracking-widest text-muted-foreground">
           {LBL.eyebrow}
         </div>
-        <h1 className="text-xl font-semibold">{LBL.title}</h1>
+        <h1 className="t-page-title">{LBL.title}</h1>
       </div>
 
       <Card>

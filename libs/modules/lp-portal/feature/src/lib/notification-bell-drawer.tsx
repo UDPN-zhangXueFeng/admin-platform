@@ -26,7 +26,7 @@
 import * as React from 'react';
 import { Bell } from 'lucide-react';
 
-import { Badge, Button } from '@myorg/shared/ui';
+import { Badge, Button, Skeleton } from '@myorg/shared/ui';
 import {
   Drawer,
   DrawerContent,
@@ -49,8 +49,8 @@ import { formatTime } from './format';
 const COPY = {
   title: 'Notifications',
   bellLabel: 'Notifications',
-  loading: 'Loading…',
   empty: 'No notifications',
+  error: 'Failed to load notifications',
 } as const;
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
@@ -101,7 +101,12 @@ function NotifyItem({
           {formatTime(row.createTime)}
         </span>
       </div>
-      <div className="mb-1 text-sm font-semibold">{row.title}</div>
+      <div className="mb-1 flex items-center gap-1.5 text-sm font-semibold">
+        {row.readFlag === 0 && (
+          <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
+        )}
+        {row.title}
+      </div>
       <div className="whitespace-pre-wrap break-all text-xs leading-relaxed text-muted-foreground">
         {row.content}
       </div>
@@ -153,7 +158,21 @@ export function NotificationBellDrawer() {
           </DrawerHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
             {listQuery.isFetching ? (
-              <Placeholder>{COPY.loading}</Placeholder>
+              <div className="space-y-2.5">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="rounded-lg border bg-card p-3">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <Skeleton className="h-5 w-16" />
+                      <Skeleton className="h-3.5 w-20" />
+                    </div>
+                    <Skeleton className="mb-1 h-4 w-2/5" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-3/5" />
+                  </div>
+                ))}
+              </div>
+            ) : listQuery.isError ? (
+              <Placeholder>{COPY.error}</Placeholder>
             ) : rows.length === 0 ? (
               <Placeholder>{COPY.empty}</Placeholder>
             ) : (

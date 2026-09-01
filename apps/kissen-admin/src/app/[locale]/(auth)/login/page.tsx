@@ -118,10 +118,15 @@ export default function LoginRoute() {
     <>
       <MockLoginPage
         projectName="Kissen Admin"
+        subtitle="Sign in with your admin credentials"
         brandText="Kissen Clearing Network"
         brandSuffix="Operations Console"
         brandTagline="Interbank digital currency clearing orchestration · Internal operations system"
-        illustration={<LoginIllustration />}
+        illustration={
+          <div className="flex max-h-[46vh] max-w-full items-center justify-center">
+            <LoginIllustration />
+          </div>
+        }
         gradientClass="from-[var(--login-grad-a,#d7f5f1)] via-[var(--login-grad-b,#63d8c8)] to-[var(--login-grad-c,#0b5670)]"
         brandBaseColor="text-[var(--brand-deep,#0a3d7a)]"
         brandAccentColor="text-[var(--brand-accent,#7fa8d9)]"

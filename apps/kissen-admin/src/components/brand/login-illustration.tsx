@@ -17,6 +17,7 @@ export function LoginIllustration() {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
+      className="h-auto w-auto max-h-[46vh] max-w-full"
     >
       <style
         dangerouslySetInnerHTML={{

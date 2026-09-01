@@ -11,8 +11,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
   Label,
+  PasswordField,
   useToast,
 } from '@myorg/shared/ui';
 
@@ -115,16 +115,23 @@ export function ChangePasswordDialog({
               Current Password
               <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
             </Label>
-            <Input
+            <PasswordField
               id="oldPassword"
-              type="password"
               autoComplete="current-password"
+              aria-invalid={!!errors.oldPassword}
+              aria-describedby={
+                errors.oldPassword ? 'oldPassword-error' : undefined
+              }
               {...register('oldPassword', {
                 required: 'Enter current password',
               })}
             />
             {errors.oldPassword && (
-              <p className="text-sm text-destructive">
+              <p
+                id="oldPassword-error"
+                className="text-sm text-destructive"
+                role="alert"
+              >
                 {errors.oldPassword.message}
               </p>
             )}
@@ -135,11 +142,14 @@ export function ChangePasswordDialog({
               New Password
               <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
             </Label>
-            <Input
+            <PasswordField
               id="newPassword"
-              type="password"
               autoComplete="new-password"
               placeholder="At least 8 characters with letters and numbers"
+              aria-invalid={!!errors.newPassword}
+              aria-describedby={
+                errors.newPassword ? 'newPassword-error' : undefined
+              }
               {...register('newPassword', {
                 required: 'Enter new password',
                 pattern: {
@@ -149,7 +159,11 @@ export function ChangePasswordDialog({
               })}
             />
             {errors.newPassword && (
-              <p className="text-sm text-destructive">
+              <p
+                id="newPassword-error"
+                className="text-sm text-destructive"
+                role="alert"
+              >
                 {errors.newPassword.message}
               </p>
             )}
@@ -160,17 +174,22 @@ export function ChangePasswordDialog({
               Confirm New Password
               <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
             </Label>
-            <Input
+            <PasswordField
               id="confirm"
-              type="password"
               autoComplete="new-password"
+              aria-invalid={!!errors.confirm}
+              aria-describedby={errors.confirm ? 'confirm-error' : undefined}
               {...register('confirm', {
                 required: 'Confirm new password',
                 validate: (v) => v === newPassword || 'Passwords do not match',
               })}
             />
             {errors.confirm && (
-              <p className="text-sm text-destructive">
+              <p
+                id="confirm-error"
+                className="text-sm text-destructive"
+                role="alert"
+              >
                 {errors.confirm.message}
               </p>
             )}

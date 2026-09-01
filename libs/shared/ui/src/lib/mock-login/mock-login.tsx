@@ -16,7 +16,12 @@ import { cn } from '../utils';
 export interface MockLoginPageProps {
   /** App title shown on the right panel (e.g. "Kissen Admin"). */
   projectName: string;
-  /** Brand wordmark on the left panel (e.g. "kissen"). */
+  /**
+   * Optional subtitle under the right-panel title (task-oriented hint, e.g.
+   * "Sign in with your admin credentials"). Empty/undefined renders nothing —
+   * existing consumers keep pixel-identical output.
+   */
+  subtitle?: string;
   brandText: string;
   /** Accent suffix next to the wordmark (e.g. "Admin", "Gateway"). */
   brandSuffix: string;
@@ -90,6 +95,7 @@ export interface MockLoginPageProps {
  */
 export function MockLoginPage({
   projectName,
+  subtitle,
   brandText,
   brandSuffix,
   brandTagline,
@@ -209,6 +215,9 @@ export function MockLoginPage({
             >
               {projectName}
             </h1>
+            {subtitle && (
+              <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -223,6 +232,9 @@ export function MockLoginPage({
                   className="uppercase"
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  Case-insensitive — normalized to uppercase on submit.
+                </p>
               </div>
             )}
 

@@ -114,15 +114,16 @@ export default function LoginRoute() {
       brandText="kissen"
       brandSuffix="LP"
       brandTagline="Dedicated management portal for liquidity providers"
-      illustration={<LoginIllustration className="h-auto max-h-[54vh] w-full max-w-[680px] select-none" />}
+      illustration={<LoginIllustration className="h-auto max-h-[46vh] w-full max-w-[560px] select-none" />}
       redirectPath="/"
       gradientClass="from-[var(--login-grad-a,#c6c7ff)] via-[var(--login-grad-b,#8e8af5)] to-[var(--login-grad-c,#4e48e8)]"
       brandBaseColor="text-[var(--brand-deep,#001a98)]"
       brandAccentColor="text-[var(--brand-accent,#00a5d5)]"
       brandSuffixBg="bg-[var(--brand-accent,#00a5d5)]"
-      taglineColor="text-[#172260]"
+      taglineColor="text-[var(--brand-deep,#172260)]"
       titleColor="text-[hsl(var(--primary))]"
       formClassName="max-w-[400px]"
+      subtitle="Sign in with your LP account credentials"
       submitLabel="Sign In"
       onSubmit={handleSubmit}
       lpCodeField

@@ -103,50 +103,85 @@ export function ChangePwdPage() {
           <h1 className="text-xl font-bold text-foreground">
             Kissen LP Portal
           </h1>
-          <p className="mt-1 text-xs tracking-[0.08em] text-muted-foreground">
+          <p className="mt-1 t-supporting uppercase tracking-widest text-muted-foreground">
             First login: please change your password first
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
           <div className="space-y-1.5">
-            <Label htmlFor="oldPassword">Current Password</Label>
+            <Label htmlFor="oldPassword">
+              Current Password
+              <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+            </Label>
             <PasswordField
               id="oldPassword"
               autoComplete="current-password"
+              aria-invalid={!!errors.oldPassword}
+              aria-describedby={
+                errors.oldPassword ? 'lp-oldPassword-error' : undefined
+              }
               {...register('oldPassword')}
             />
             {errors.oldPassword && (
-              <p className="text-sm text-destructive">
+              <p
+                id="lp-oldPassword-error"
+                className="text-sm text-destructive"
+                role="alert"
+              >
                 {errors.oldPassword.message}
               </p>
             )}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="newPassword">New Password</Label>
+            <Label htmlFor="newPassword">
+              New Password
+              <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+            </Label>
             <PasswordField
               id="newPassword"
               autoComplete="new-password"
-              placeholder="At least 8 characters with letters and numbers"
+              aria-invalid={!!errors.newPassword}
+              aria-describedby={
+                errors.newPassword ? 'lp-newPassword-error' : undefined
+              }
               {...register('newPassword')}
             />
+            <p className="text-xs text-muted-foreground">
+              At least 8 characters with letters and numbers
+            </p>
             {errors.newPassword && (
-              <p className="text-sm text-destructive">
+              <p
+                id="lp-newPassword-error"
+                className="text-sm text-destructive"
+                role="alert"
+              >
                 {errors.newPassword.message}
               </p>
             )}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="confirm">Confirm New Password</Label>
+            <Label htmlFor="confirm">
+              Confirm New Password
+              <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+            </Label>
             <PasswordField
               id="confirm"
               autoComplete="new-password"
+              aria-invalid={!!errors.confirm}
+              aria-describedby={errors.confirm ? 'lp-confirm-error' : undefined}
               {...register('confirm')}
             />
             {errors.confirm && (
-              <p className="text-sm text-destructive">{errors.confirm.message}</p>
+              <p
+                id="lp-confirm-error"
+                className="text-sm text-destructive"
+                role="alert"
+              >
+                {errors.confirm.message}
+              </p>
             )}
           </div>
 
