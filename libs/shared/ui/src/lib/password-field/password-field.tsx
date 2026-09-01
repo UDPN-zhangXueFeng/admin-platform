@@ -37,9 +37,10 @@ const PasswordField = React.forwardRef<HTMLInputElement, PasswordFieldProps>(
           type="button"
           variant="ghost"
           size="icon"
-          className="absolute inset-y-0 right-0 h-auto w-10 rounded-l-none"
+          className="absolute inset-y-0 right-0 h-auto w-10 rounded-l-none text-muted-foreground hover:text-accent-foreground"
           onClick={() => setVisible((v) => !v)}
           aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-pressed={visible}
           disabled={props.disabled}
         >
           {visible ? <EyeOff /> : <Eye />}

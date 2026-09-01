@@ -20,6 +20,12 @@
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
+    --success: 142 72% 29%;
+    --success-foreground: 210 40% 98%;
+    --warning: 32 92% 34%;
+    --warning-foreground: 210 40% 98%;
+    --info: 221 83% 45%;
+    --info-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 241.268 75.532% 63.137%;
@@ -45,10 +51,18 @@
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
+    /* P2: destructive doubles as text/icon color (Badge/Alert/Toast/FieldError) —
+       AA on dark bg requires the lighter red (5.55:1), not shadcn's solid-button 30.6% L */
+    --destructive: 0 75% 62%;
+    --destructive-foreground: 0 0% 10%;
+    --success: 142 69% 45%;
+    --success-foreground: 210 40% 98%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 222.2 47.4% 11.2%;
+    --info: 217 91% 65%;
+    --info-foreground: 222.2 47.4% 11.2%;
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 241.268 75.532% 63.137%;

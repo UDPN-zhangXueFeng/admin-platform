@@ -17,7 +17,14 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       <textarea
         ref={ref}
         className={cn(
-          'flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+          'flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm',
+          // Placeholder keeps full muted-foreground: /70 = 2.71:1 on light bg — fails 4.5:1
+          'placeholder:text-muted-foreground',
+          // Edge-hugging focus ring, same as Input; error state via aria-invalid
+          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          'aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive',
+          'motion-safe:transition-colors motion-safe:duration-150',
+          'disabled:cursor-not-allowed disabled:opacity-50',
           className,
         )}
         {...props}

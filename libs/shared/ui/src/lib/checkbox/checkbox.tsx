@@ -23,6 +23,7 @@ const Checkbox = React.forwardRef<
       'peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
       'disabled:cursor-not-allowed disabled:opacity-50',
+      'motion-safe:transition-colors motion-safe:duration-150',
       'data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground',
       'data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground',
       className
@@ -30,7 +31,11 @@ const Checkbox = React.forwardRef<
     {...props}
   >
     <CheckboxPrimitive.Indicator
-      className={cn('flex items-center justify-center text-current')}
+      className={cn(
+        'flex items-center justify-center text-current',
+        // 150ms pop-in on mount (Indicator unmounts when unchecked)
+        'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-150'
+      )}
     >
       <Check className="h-4 w-4" strokeWidth={3} />
     </CheckboxPrimitive.Indicator>

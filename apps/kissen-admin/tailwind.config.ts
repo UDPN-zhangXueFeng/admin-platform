@@ -5,6 +5,10 @@ const config = {
     '../../libs/modules/**/*.{js,ts,jsx,tsx,mdx}',
     '../../libs/shared/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  // Class mode: app is light-only in production; only the dev ui-showcase toggles .dark.
+  // Default media mode applied dark:* utilities to OS-dark users without the .dark var
+  // block — a broken hybrid state.
+  darkMode: ['class'],
   theme: {
     extend: {
       colors: {

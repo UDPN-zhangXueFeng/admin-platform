@@ -46,7 +46,7 @@ describe('DataTablePanel', () => {
     );
 
     expect(screen.queryByText('No users found')).not.toBeInTheDocument();
-    expect(document.querySelectorAll('.animate-pulse')).toHaveLength(5);
+    expect(document.querySelectorAll("[class*='animate-pulse']")).toHaveLength(5);
   });
 
   it('renders the configured empty message when loading has finished with no rows', () => {

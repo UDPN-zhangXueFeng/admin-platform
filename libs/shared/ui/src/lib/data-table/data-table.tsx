@@ -18,6 +18,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Inbox,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -239,7 +240,7 @@ export function DataTable<TData extends { id: string }>({
                     key={header.id}
                     scope="col"
                     className={cn(
-                      'h-10 px-4 text-left align-middle font-medium text-muted-foreground',
+                      'h-10 whitespace-nowrap border-b border-border/50 px-4 text-left align-middle font-medium text-muted-foreground',
                       (header.column.columnDef.meta?.stickyRight ??
                         header.column.id === 'actions') &&
                         'sticky right-0 z-20 border-l border-border/50 bg-muted shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]'
@@ -259,18 +260,28 @@ export function DataTable<TData extends { id: string }>({
                 <tr key={`skeleton-${i}`}>
                   {columns.map((_, ci) => (
                     <td key={ci} className="px-4 py-3">
-                      <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                      {/* First bar wider to echo the emphasized primary column. */}
+                      <div
+                        className={cn(
+                          'h-4 motion-safe:animate-pulse rounded bg-muted',
+                          ci === 0 ? 'w-32' : 'w-24'
+                        )}
+                      />
                     </td>
                   ))}
                 </tr>
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  {emptyMessage}
+                <td colSpan={columns.length} className="px-4 py-10">
+                  <div className="flex flex-col items-center justify-center gap-2 text-center">
+                    <Inbox
+                      className="h-9 w-9 text-muted-foreground/40"
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -279,18 +290,34 @@ export function DataTable<TData extends { id: string }>({
                   key={row.id}
                   data-state={row.getIsSelected() ? 'selected' : undefined}
                   className={cn(
-                    'group transition-colors hover:bg-muted/50',
-                    row.getIsSelected() && 'bg-muted'
+                    'group motion-safe:transition-colors',
+                    // Selected is resolved in JS (not a hover:* variant) so the
+                    // selected surface deterministically wins over hover —
+                    // Tailwind stylesheet order, not class order, would decide.
+                    row.getIsSelected()
+                      ? 'bg-accent hover:bg-accent'
+                      : 'hover:bg-muted/50'
                   )}
                 >
-                  {row.getVisibleCells().map((cell) => (
+                  {row.getVisibleCells().map((cell, cellIndex) => (
                     <td
                       key={cell.id}
                       className={cn(
                         'px-4 py-3 align-middle',
+                        // First data column carries the primary object
+                        // (scheme §6.2) → medium weight; the actions column
+                        // is never treated as the primary column.
+                        cellIndex === 0 &&
+                          cell.column.id !== 'actions' &&
+                          'font-medium',
                         (cell.column.columnDef.meta?.stickyRight ??
                           cell.column.id === 'actions') &&
-                          'sticky right-0 z-10 border-l border-border/50 bg-card shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)] group-hover:bg-muted/60 group-data-[state=selected]:bg-muted'
+                          cn(
+                            'sticky right-0 z-10 border-l border-border/50 shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]',
+                            row.getIsSelected()
+                              ? 'bg-accent group-hover:bg-accent'
+                              : 'bg-card group-hover:bg-muted/50'
+                          )
                       )}
                     >
                       <DataTableCellContent
@@ -311,7 +338,7 @@ export function DataTable<TData extends { id: string }>({
       {/* Pagination */}
       {pagination && (
         <div className="flex items-center justify-between px-4 pb-4">
-          <div className="text-sm text-muted-foreground">
+          <div className="text-xs tabular-nums text-muted-foreground">
             {pagination.onPageSizeChange
               ? `Total ${pagination.total} items`
               : `Page ${currentPage} of ${totalPages}`}

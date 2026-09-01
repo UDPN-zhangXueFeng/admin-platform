@@ -98,3 +98,49 @@ describe('DataTable cell ellipsis tooltip', () => {
     expect(screen.getAllByRole('tooltip')).toHaveLength(1);
   });
 });
+
+/**
+ * Why: the empty state is a structural contract (icon + message), not a bare
+ * text cell — the icon is decorative and must stay out of the accessibility
+ * tree while spanning every column so panel bands keep their rhythm.
+ */
+describe('DataTable empty state', () => {
+  it('renders an icon + message structure spanning all columns', () => {
+    render(<DataTable columns={columns} data={[]} emptyMessage="No data available." />);
+
+    const cell = screen.getByText('No data available.').closest('td');
+    expect(cell).toHaveAttribute('colspan', '2');
+    expect(cell?.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Why: the first data column carries the primary object (scheme §6.2) and is
+ * the only column emphasized; an actions-only table must not inherit the
+ * emphasis.
+ */
+describe('DataTable primary column emphasis', () => {
+  it('emphasizes only the first data column', () => {
+    render(<DataTable columns={columns} data={rows} />);
+
+    expect(
+      screen.getByText('KSN-35ee51941eb544a3a950df1cf98dfa58').closest('td')
+    ).toHaveClass('font-medium');
+    expect(screen.getByText('USD').closest('td')).not.toHaveClass('font-medium');
+  });
+
+  it('never treats the actions column as the primary column', () => {
+    const actionsOnly: ColumnDef<Row, unknown>[] = [
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: () => <button type="button">View</button>,
+      },
+    ];
+    render(<DataTable columns={actionsOnly} data={rows} />);
+
+    expect(
+      screen.getByRole('button', { name: 'View' }).closest('td')
+    ).not.toHaveClass('font-medium');
+  });
+});

@@ -30,7 +30,7 @@ export function DataTablePanel<TData extends { id: string }>({
 
   return (
     <section
-      className={cn('rounded-lg border border-border/60 bg-card shadow-float', className)}
+      className={cn('rounded-lg border border-border/60 bg-card', className)}
       aria-busy={isLoading || undefined}
       aria-describedby={error ? errorId : undefined}
     >
@@ -39,7 +39,7 @@ export function DataTablePanel<TData extends { id: string }>({
           {title && (
             <div
               className={cn(
-                'min-w-0 text-sm font-semibold text-foreground',
+                'min-w-0 text-base font-semibold leading-6 text-foreground',
                 titleWrap ? 'whitespace-normal break-words' : 'truncate'
               )}
               title={!titleWrap && typeof title === 'string' ? title : undefined}
@@ -51,7 +51,7 @@ export function DataTablePanel<TData extends { id: string }>({
         </div>
       )}
 
-      {filter && <div className="border-b border-border/50 px-4 py-4">{filter}</div>}
+      {filter && <div className="border-b border-border/50 px-4 py-3">{filter}</div>}
 
       {error && (
         <div
