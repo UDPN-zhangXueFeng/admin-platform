@@ -40,6 +40,7 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
+  CopyableEllipsisText,
   createActionColumn,
   type TableRowAction,
   DataTable,
@@ -239,7 +240,7 @@ function DetailShell({
         </Button>
         <h2 className="text-lg font-semibold">{title}</h2>
       </div>
-      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+      <section className="rounded-lg border border-border/60 bg-card p-4 sm:p-6">
         {children}
       </section>
     </div>
@@ -960,27 +961,43 @@ export function LpInfoDetailPage() {
 
   return (
     <DetailShell title="LP Details" onBack={() => router.push(lpRoute('lp-info'))}>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <ReadonlyField label="LP Name" value={detail.lpName} />
-        <ReadonlyField label="LP Code" value={detail.lpCode} />
+      {/* Hero Summary：LP 名 + 状态 + 编码（可复制）+ 创建时间（§6.3） */}
+      <div className="flex flex-col gap-1.5 border-b border-border/50 pb-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="text-base font-semibold leading-6 text-foreground">
+            {detail.lpName || '--'}
+          </span>
+          <StatusBadge
+            status={detail.status}
+            labelMap={LP_STATUS_LABEL}
+            variantMap={LP_STATUS_VARIANT}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          <CopyableEllipsisText
+            value={detail.lpCode}
+            emptyText="--"
+            maxWidth={200}
+            className="font-mono"
+          />
+          <span className="tabular-nums">
+            Created {formatDateTime(detail.createTime)}
+          </span>
+        </div>
+      </div>
+
+      {/* 正文：结算参数（核心）+ 联系信息（运营）；长文本单独占行，§6.3 */}
+      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <ReadonlyField
           label="Settle Cycle"
           value={SETTLE_CYCLE_MAP[detail.settleCycle] ?? '--'}
         />
         <ReadonlyField label="Contact Name" value={detail.contactName} />
         <ReadonlyField label="Contact Email" value={detail.contactEmail} />
-        <ReadonlyField label="Status" value={
-          <StatusBadge
-            status={detail.status}
-            labelMap={LP_STATUS_LABEL}
-            variantMap={LP_STATUS_VARIANT}
-          />
-        } />
-        <ReadonlyField label="Created At" value={formatDateTime(detail.createTime)} />
-        <div className="md:col-span-2">
+        <div className="sm:col-span-2 lg:col-span-3">
           <ReadonlyField label="Address" value={detail.address} />
         </div>
-        <div className="md:col-span-2 lg:col-span-3">
+        <div className="sm:col-span-2 lg:col-span-3">
           <ReadonlyField label="Risk Assessment" value={detail.riskAssessment} />
         </div>
       </div>

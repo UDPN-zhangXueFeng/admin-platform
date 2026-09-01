@@ -7,7 +7,7 @@
  * 迁移期既存的三组样式（渲染输出与收敛前逐字节一致）：
  * - dl：role/tx 的 dt/dd 字段（默认）。
  * - plain：user 详情的 DetailField（div 结构 + tabular-nums）。
- * - boxed：onboard 银行信息卡的描边盒字段（支持 span 跨两列）。
+ * - boxed：onboard 银行信息卡的描边盒字段（span 跨整行）。
  *
  * DescGrid 默认响应式阶梯 grid-cols-1 → sm:2 → lg:3 → xl:4
  * （P0 唯一有意视觉变更，任务批准）；cols 指定列数上限时阶梯截止
@@ -49,14 +49,15 @@ export function DescField({
   children,
 }: {
   label: string;
-  /** 仅 boxed 变体生效：自 sm 断点起跨满两列。 */
+  /** 长文本占满整行（§6.3；任意列数阶梯下均跨全部列）。 */
   span?: boolean;
+  /** 展示形态：dl（默认 dt/dd）/ plain / boxed（描边盒），收敛自迁移期三组样式。 */
   variant?: 'dl' | 'plain' | 'boxed';
   children: React.ReactNode;
 }) {
   if (variant === 'boxed') {
     return (
-      <div className={cn('space-y-1.5 rounded-md border px-4 py-3', span && 'sm:col-span-2')}>
+      <div className={cn('space-y-1.5 rounded-md border px-4 py-3', span && 'col-span-full')}>
         <div className="text-xs text-muted-foreground">{label}</div>
         <div className="text-sm tabular-nums">{children}</div>
       </div>
@@ -64,14 +65,14 @@ export function DescField({
   }
   if (variant === 'plain') {
     return (
-      <div className="space-y-1.5">
+      <div className={cn('space-y-1.5', span && 'col-span-full')}>
         <div className="text-xs text-muted-foreground">{label}</div>
         <div className="text-sm tabular-nums">{children}</div>
       </div>
     );
   }
   return (
-    <div className="space-y-1">
+    <div className={cn('space-y-1', span && 'col-span-full')}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-sm">{children}</dd>
     </div>

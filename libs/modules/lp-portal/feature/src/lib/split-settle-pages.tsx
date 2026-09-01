@@ -27,6 +27,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import {
   Badge,
   Button,
+  CopyableEllipsisText,
   DataTable,
   Drawer,
   DrawerContent,
@@ -226,7 +227,7 @@ function PairX({
       </div>
       {/* fallback 仅在无 pairInfo 时由调用方渲染纯文本，此第三行不出现 */}
       {fallback ? (
-        <div className="truncate font-mono text-[11px] tabular-nums text-muted-foreground/60">
+        <div className="truncate font-mono text-xs tabular-nums text-muted-foreground">
           {fallback}
         </div>
       ) : null}
@@ -858,25 +859,29 @@ export function SplitSettlePage() {
             </DrawerHeader>
             <div className="flex-1 overflow-y-auto px-6 py-4">
               {drawerOrder && (
-                <>
-                  {/* 单据信息 descriptions column2 border */}
-                  <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-md border bg-border text-sm">
-                    <Item label="Order ID">
-                      <span className="font-mono text-xs">
-                        {drawerOrder.orderId}
-                      </span>
-                    </Item>
-                    <Item label="Status">
-                      <OrderStatusBadge status={drawerOrder.status} />
-                    </Item>
+                <div className="space-y-5">
+                  {/* §6.3 Hero Summary：Order ID（复制贴字段）+ 状态 badge */}
+                  <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+                    <div className="min-w-0">
+                      <div className="text-xs text-muted-foreground">
+                        Order ID
+                      </div>
+                      <div className="mt-1">
+                        <CopyableEllipsisText
+                          value={String(drawerOrder.orderId)}
+                          maxWidth={340}
+                          className="font-mono text-base font-semibold leading-6"
+                        />
+                      </div>
+                    </div>
+                    <OrderStatusBadge status={drawerOrder.status} />
+                  </div>
+
+                  {/* DetailGrid：核心字段响应列；Period Range 长文本单独占行 */}
+                  <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-3">
                     <Item label="Period">
                       {SETTLE_PERIOD_TYPE_LABEL[drawerOrder.periodType] ??
                         drawerOrder.periodType}
-                    </Item>
-                    <Item label="Period Range">
-                      <span className="tabular-nums">
-                        {periodText(drawerOrder)}
-                      </span>
                     </Item>
                     <Item label="Currencies">
                       <span className="font-mono text-xs">
@@ -884,38 +889,55 @@ export function SplitSettlePage() {
                       </span>
                     </Item>
                     <Item label="Tx Count">
-                      <span className="font-mono text-xs tabular-nums">
+                      <span className="font-mono text-sm font-medium tabular-nums">
                         {drawerOrder.txCount}
                       </span>
                     </Item>
+                    <div className="sm:col-span-3">
+                      <Item label="Period Range">
+                        <span className="font-mono text-xs tabular-nums">
+                          {periodText(drawerOrder)}
+                        </span>
+                      </Item>
+                    </div>
                   </dl>
-                  <div className="mt-2 text-xs text-muted-foreground">
+                  <div className="text-xs leading-5 text-muted-foreground">
                     {LBL.drawerHint}
                   </div>
 
-                  <h4 className="mt-5 mb-2 text-sm font-semibold">
-                    {LBL.itemsSection}
-                  </h4>
-                  <ItemsTable
-                    items={drawerOrder.items ?? []}
-                    renderPairX={renderPairX}
-                  />
-
-                  <h4 className="mt-5 mb-2 text-sm font-semibold">
-                    {LBL.recordsSection}
-                  </h4>
-                  {recordsQuery.isPending ? (
-                    <div className="space-y-2" aria-label="Loading">
-                      <div className="h-8 w-full motion-safe:animate-pulse rounded bg-muted" />
-                      <div className="h-8 w-full motion-safe:animate-pulse rounded bg-muted" />
+                  {/* Token 对分项（金额合计仅此处，跨币种不可加总 01 §E29） */}
+                  <section className="rounded-lg border border-border/60 bg-card">
+                    <h4 className="border-b border-border/50 px-4 py-3 text-sm font-semibold text-foreground">
+                      {LBL.itemsSection}
+                    </h4>
+                    <div className="px-4 py-4">
+                      <ItemsTable
+                        items={drawerOrder.items ?? []}
+                        renderPairX={renderPairX}
+                      />
                     </div>
-                  ) : (
-                    <RecordsTable
-                      rows={drawerRecords}
-                      renderPairX={renderPairX}
-                    />
-                  )}
-                </>
+                  </section>
+
+                  {/* 本单周期内流水（panel 公式与列表批一致） */}
+                  <section className="rounded-lg border border-border/60 bg-card">
+                    <h4 className="border-b border-border/50 px-4 py-3 text-sm font-semibold text-foreground">
+                      {LBL.recordsSection}
+                    </h4>
+                    <div className="px-4 py-4">
+                      {recordsQuery.isPending ? (
+                        <div className="space-y-2" aria-label="Loading">
+                          <div className="h-8 w-full motion-safe:animate-pulse rounded bg-muted" />
+                          <div className="h-8 w-full motion-safe:animate-pulse rounded bg-muted" />
+                        </div>
+                      ) : (
+                        <RecordsTable
+                          rows={drawerRecords}
+                          renderPairX={renderPairX}
+                        />
+                      )}
+                    </div>
+                  </section>
+                </div>
               )}
             </div>
           </div>
@@ -937,9 +959,9 @@ function Item({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 bg-card px-3 py-2">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd>{children}</dd>
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 min-w-0 break-all text-sm">{children}</dd>
     </div>
   );
 }

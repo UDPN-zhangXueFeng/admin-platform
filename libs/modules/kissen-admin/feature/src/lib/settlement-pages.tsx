@@ -362,21 +362,46 @@ function SettleOrderViewDialog({
         {isLoading ? (
           <LoadingBlock />
         ) : detail ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <DetailField label="Settlement Order ID">{detail.orderId}</DetailField>
-            <DetailField label="LP">{detail.lpName || '--'}</DetailField>
-            <DetailField label="Period Type">{periodTypeLabel(detail.periodType)}</DetailField>
-            <DetailField label="Status">
-              <Badge variant={SETTLE_ORDER_STATUS_VARIANT[detail.status] ?? 'outline'}>
-                {SETTLE_ORDER_STATUS_LABEL[detail.status] ?? detail.status}
-              </Badge>
-            </DetailField>
-            <DetailField label="Period Start">{formatTimestamp(detail.periodStart)}</DetailField>
-            <DetailField label="Period End">{formatTimestamp(detail.periodEnd)}</DetailField>
-            <DetailField label="Txn Count">{detail.txCount}</DetailField>
-            <DetailField label="Approval Record ID">{formatApprovalId(detail.approvalRecordId)}</DetailField>
-            <div className="sm:col-span-2">
-              <DetailField label="Created At">{formatTimestamp(detail.createTime)}</DetailField>
+          <div className="space-y-4">
+            {/* Hero Summary：结算单号 + 状态 + LP + 创建时间（§6.3） */}
+            <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="text-base font-semibold leading-6 text-foreground">
+                    Order #{detail.orderId}
+                  </span>
+                  <Badge variant={SETTLE_ORDER_STATUS_VARIANT[detail.status] ?? 'outline'}>
+                    {SETTLE_ORDER_STATUS_LABEL[detail.status] ?? detail.status}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  <span>LP · {detail.lpName || '--'}</span>
+                  <span className="tabular-nums">
+                    Created {formatTimestamp(detail.createTime)}
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* 结算周期（核心信息） */}
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+              <DetailField label="Period Type">
+                {periodTypeLabel(detail.periodType)}
+              </DetailField>
+              <DetailField label="Txn Count">{detail.txCount}</DetailField>
+              <DetailField label="Period Start">
+                {formatTimestamp(detail.periodStart)}
+              </DetailField>
+              <DetailField label="Period End">{formatTimestamp(detail.periodEnd)}</DetailField>
+            </div>
+
+            {/* 审计（§6.3）：审批关联 */}
+            <div className="border-t border-border/50 pt-4">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                <DetailField label="Approval Record ID">
+                  {formatApprovalId(detail.approvalRecordId)}
+                </DetailField>
+              </div>
             </div>
           </div>
         ) : (
@@ -422,7 +447,7 @@ function SettleOrderItemsPanel({ order }: { order: SettleOrderRow }) {
           No token pair items
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-border/50 bg-card">
+        <div className="overflow-x-auto rounded-lg border border-border/60 bg-card">
           <table className="w-full min-w-max caption-bottom text-sm">
             <thead className="bg-muted/50">
               <tr>
@@ -435,7 +460,7 @@ function SettleOrderItemsPanel({ order }: { order: SettleOrderRow }) {
             </thead>
             <tbody className="divide-y divide-border/50">
               {list.map((item: SettleOrderItemRow) => (
-                <tr key={item.itemId} className="transition-colors hover:bg-muted/50">
+                <tr key={item.itemId} className="motion-safe:transition-colors hover:bg-muted/50">
                   <td className={`${GROUP_TD} tabular-nums`}>{item.pairCode || '--'}</td>
                   <td className={`${GROUP_TD} text-right tabular-nums`}>{item.txCount}</td>
                   <td className={`${GROUP_TD} text-right tabular-nums`}>{formatMoney(item.principalTotal)}</td>

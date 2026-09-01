@@ -37,6 +37,7 @@ import {
   DialogTitle,
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
   Input,
@@ -797,9 +798,11 @@ function HeartbeatDrawer({
     <Drawer open onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="w-full max-w-none sm:w-[520px]">
         <DrawerHeader>
-          <DrawerTitle>Heartbeat History · {instanceLabel}</DrawerTitle>
+          <DrawerTitle>Heartbeat History</DrawerTitle>
+          <DrawerDescription className="font-mono">{instanceLabel}</DrawerDescription>
         </DrawerHeader>
-        <div className="mt-2 overflow-auto">
+        {/* DataTable 自带容器边框：不再包 panel，仅补抽屉内边距（§6.3 快速核对） */}
+        <div className="mt-2 overflow-auto px-4 pb-4">
           {/* 源分页 layout 无 sizes → 不传 onPageSizeChange，页大小固定 10。 */}
           <DataTable
             columns={columns}

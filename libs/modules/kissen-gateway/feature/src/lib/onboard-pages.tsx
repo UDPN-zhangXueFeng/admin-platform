@@ -27,11 +27,6 @@ import {
   AlertTitle,
   Badge,
   Button,
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Checkbox,
   Dialog,
   DialogContent,
@@ -488,12 +483,52 @@ type BankDetailLike = NonNullable<
   registrationTime?: number;
 };
 
+
 /**
- * 卡 A 基本信息（源 el-descriptions column=2 border 八字段）。
- * Bank ID 以本地推送缓存 gw_bank_info.bankId 兜底（源 bankIdOf，协议扩展 P1
- * 前详情报文无此字段）；Registration Time 同为 P1 占位，已通过时以入网通过
- * 时间兜底；入网状态非 20 显示原始数字口径由 onboardStatusText 承接
- * （未知码 `Unknown (n)`，null '-'）。
+ * Hero Summary（§6.3）：对象名称 + 入网状态徽标 + Bank Code/Bank ID 标识行
+ * （t-identifier mono）。页面级主动作 Refresh 保持在 PageHead。
+ */
+function BankDetailHero({
+  detail,
+  bankId,
+}: {
+  detail: BankDetailLike;
+  bankId: string;
+}) {
+  return (
+    <section className="rounded-lg border border-border/60 bg-card panel-pad">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <h2 className="text-xl font-semibold leading-7 text-foreground">
+            {detail.bankName || '-'}
+          </h2>
+          <Badge variant={onboardStatusVariant(detail.onboardStatus)}>
+            {onboardStatusText(detail.onboardStatus)}
+          </Badge>
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span>
+            Bank Code{' '}
+            <span className="t-identifier text-foreground">
+              {detail.bankCode || '-'}
+            </span>
+          </span>
+          <span>
+            Bank ID{' '}
+            <span className="t-identifier text-foreground">{bankId}</span>
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * 卡 A 基本信息（源 el-descriptions column=2 border 八字段；名称/编码/ID/
+ * 入网状态上移 Hero 后余四字段）。Bank ID 以本地推送缓存 gw_bank_info.bankId
+ * 兜底（源 bankIdOf，协议扩展 P1 前详情报文无此字段）；Registration Time
+ * 同为 P1 占位，已通过时以入网通过时间兜底；入网状态非 20 显示原始数字口径
+ * 由 onboardStatusText 承接（未知码 `Unknown (n)`，null '-'）。
  */
 function BankDetailCards({
   detail,
@@ -508,49 +543,41 @@ function BankDetailCards({
   const bankId = String(detail.bankId ?? bankInfoBankId ?? '-');
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Basic Information</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <DescGrid cols={2}>
-          <DescField label="Bank Name" variant="boxed">
-            {detail.bankName || '-'}
-          </DescField>
-          <DescField label="Bank Code" variant="boxed">
-            {detail.bankCode || '-'}
-          </DescField>
-          <DescField label="Bank ID" variant="boxed">
-            <span className="font-mono">{bankId}</span>
-          </DescField>
-          <DescField label="BIC" variant="boxed">
-            {detail.bic || '-'}
-          </DescField>
-          <DescField label="Onboarding Status" variant="boxed">
-            <Badge variant={onboardStatusVariant(detail.onboardStatus)}>
-              {onboardStatusText(detail.onboardStatus)}
-            </Badge>
-          </DescField>
-          {/* 协议扩展 P1 占位：Kissen 下发 registrationTime 后自动亮起。 */}
-          <DescField label="Registration Time" variant="boxed">
-            <span className="font-mono">
-              {detail.registrationTime
-                ? formatTime(detail.registrationTime)
-                : agreeTimeFallback
-                  ? formatTime(agreeTimeFallback)
-                  : '-'}
-            </span>
-          </DescField>
-          {/* 协议扩展 P1 占位。 */}
-          <DescField label="Official Website" variant="boxed">
-            {detail.website || '-'}
-          </DescField>
-          <DescField label="Description" variant="boxed">
-            {detail.description || '-'}
-          </DescField>
-        </DescGrid>
-      </CardContent>
-    </Card>
+    <>
+      <BankDetailHero detail={detail} bankId={bankId} />
+
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="border-b border-border/50 px-4 py-3">
+          <h2 className="text-base font-semibold leading-6 text-foreground">
+            Basic Information
+          </h2>
+        </div>
+        <div className="panel-pad">
+          <DescGrid cols={2}>
+            <DescField label="BIC" variant="boxed">
+              {detail.bic || '-'}
+            </DescField>
+            {/* 协议扩展 P1 占位：Kissen 下发 registrationTime 后自动亮起。 */}
+            <DescField label="Registration Time" variant="boxed">
+              <span className="font-mono">
+                {detail.registrationTime
+                  ? formatTime(detail.registrationTime)
+                  : agreeTimeFallback
+                    ? formatTime(agreeTimeFallback)
+                    : '-'}
+              </span>
+            </DescField>
+            {/* 协议扩展 P1 占位。 */}
+            <DescField label="Official Website" variant="boxed" span>
+              {detail.website || '-'}
+            </DescField>
+            <DescField label="Description" variant="boxed" span>
+              {detail.description || '-'}
+            </DescField>
+          </DescGrid>
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -564,18 +591,18 @@ function ContactCard({
 }) {
   const hasPerm = useGatewayPerm();
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Contact</CardTitle>
-        <CardAction>
-          {hasPerm('bank:info:contact-edit') && (
-            <Button type="button" size="sm" variant="outline" onClick={onEdit}>
-              Edit
-            </Button>
-          )}
-        </CardAction>
-      </CardHeader>
-      <CardContent>
+    <section className="rounded-lg border border-border/60 bg-card">
+      <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-base font-semibold leading-6 text-foreground">
+          Contact
+        </h2>
+        {hasPerm('bank:info:contact-edit') && (
+          <Button type="button" size="sm" variant="outline" onClick={onEdit}>
+            Edit
+          </Button>
+        )}
+      </div>
+      <div className="panel-pad">
         <DescGrid cols={2}>
           <DescField label="Contact Name" variant="boxed">
             {detail.contactName || '-'}
@@ -590,8 +617,8 @@ function ContactCard({
             {detail.contactAddress || '-'}
           </DescField>
         </DescGrid>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -608,30 +635,30 @@ function InstanceListCard({
   onActivate: () => void;
 }) {
   return (
-    <Card>
-      <CardHeader>
-        {/* §6.2 头条元信息：实体名 + 结果数（激活按钮保持 CardAction 右置）。 */}
+    <section className="rounded-lg border border-border/60 bg-card">
+      <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* §6.2 头条元信息：实体名 + 结果数（激活按钮保持右置）。 */}
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-          <CardTitle>Gateway Instances of This Bank</CardTitle>
+          <h2 className="text-base font-semibold leading-6 text-foreground">
+            Gateway Instances of This Bank
+          </h2>
           <span className="text-sm text-muted-foreground tabular-nums">
             {detail.instances.length} instances
           </span>
         </div>
         {needActivate && (
-          <CardAction>
-            <Button
-              type="button"
-              size="sm"
-              disabled={activating}
-              onClick={onActivate}
-            >
-              {activating && <Loader2 className="motion-safe:animate-spin" />}
-              Activate Instance
-            </Button>
-          </CardAction>
+          <Button
+            type="button"
+            size="sm"
+            disabled={activating}
+            onClick={onActivate}
+          >
+            {activating && <Loader2 className="motion-safe:animate-spin" />}
+            Activate Instance
+          </Button>
         )}
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div className="panel-pad">
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full caption-bottom text-sm">
             <thead className="bg-muted/50">
@@ -701,8 +728,8 @@ function InstanceListCard({
             </tbody>
           </table>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -917,18 +944,15 @@ export function OnboardListPage() {
           />
         </>
       ) : isLoading ? (
-        <Card>
-          <CardContent className="py-5">
-            <LoadingBlock variant="skeleton" />
-          </CardContent>
-        </Card>
+        <section className="rounded-lg border border-border/60 bg-card panel-pad">
+          <LoadingBlock variant="skeleton" />
+        </section>
       ) : null}
 
       {/* 入网状态与申请卡（源 onboard-card max-width 680px；39c8a2b：approved
           且 detail 存在时整卡隐藏，防空壳/表单残留）。 */}
       {!hideOnboardCard ? (
-        <Card className="max-w-[680px]">
-          <CardContent className="py-5">
+        <section className="max-w-[680px] rounded-lg border border-border/60 bg-card panel-pad">
             {isPending ? (
               <ResultPanel
                 tone="info"
@@ -982,8 +1006,7 @@ export function OnboardListPage() {
                 />
               </div>
             )}
-          </CardContent>
-        </Card>
+        </section>
       ) : null}
 
       {/* 联系人编辑弹窗（条件渲染重挂载即回填）。 */}

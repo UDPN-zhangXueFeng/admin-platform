@@ -14,6 +14,7 @@ import { Check, ChevronsUpDown } from 'lucide-react';
 import {
   Badge,
   Button,
+  CopyableEllipsisText,
   createActionColumn,
   DataTable,
   type TableRowAction,
@@ -469,16 +470,19 @@ function TransactionStatusBadge({ status }: { status: number }) {
   );
 }
 
-/** 详情描述字段（el-descriptions-item 的 React 等价）。 */
+/** 详情描述字段（el-descriptions-item 的 React 等价；span=长文本单独占行，§6.3）。 */
 function DescField({
   label,
+  span = false,
   children,
 }: {
   label: string;
+  /** 自 sm 断点起跨满两列（长文本/备注类字段）。 */
+  span?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1">
+    <div className={cn('space-y-1', span && 'sm:col-span-2')}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-sm">{children}</dd>
     </div>
@@ -840,6 +844,35 @@ function DetailBody({
 }) {
   return (
     <div className="space-y-6">
+      {/* Hero Summary：单号（可复制）+ 状态 + 交易对 + LP（§6.3 详情模板） */}
+      <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <CopyableEllipsisText
+              value={detail.txNo || undefined}
+              emptyText="-"
+              maxWidth={280}
+              className="font-mono text-sm font-semibold text-foreground"
+            />
+            <TransactionStatusBadge status={detail.status} />
+          </div>
+          {((detail.sourceCurrency && detail.targetCurrency) || detail.lpName) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              {detail.sourceCurrency && detail.targetCurrency ? (
+                <span className="inline-flex items-center gap-1">
+                  <Badge variant="outline" className="rounded-full">
+                    {detail.sourceCurrency}
+                  </Badge>
+                  <span className="text-xs">→</span>
+                  <Badge className="rounded-full">{detail.targetCurrency}</Badge>
+                </span>
+              ) : null}
+              {detail.lpName ? <span>LP · {detail.lpName}</span> : null}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* 状态轨道（源 .rail-block：SETTLEMENT RAIL 置顶 + hairline 分隔） */}
       <section className="space-y-3 border-b pb-5">
         <div className="text-xs font-medium tracking-wide text-muted-foreground">
@@ -848,72 +881,62 @@ function DetailBody({
         <StatusRail status={detail.status} />
       </section>
 
-      {/* 块一：交易信息（源 el-descriptions :column="2"） */}
+      {/* 块一：交易信息（源 el-descriptions :column="2"；单号/状态/交易对/LP 已上移 Hero） */}
       <section>
         <h4 className="mb-3 text-sm font-semibold">Transaction Information</h4>
         <DescGrid cols={2}>
-          <DescField label="Transaction No.">
-            <span className="font-mono">{orDash(detail.txNo)}</span>
-          </DescField>
-          <DescField label="Status">
-            <TransactionStatusBadge status={detail.status} />
-          </DescField>
-          <DescField label="Token Pair">
-            {detail.sourceCurrency && detail.targetCurrency ? (
-              <span className="inline-flex items-center gap-1">
-                <Badge variant="outline" className="rounded-full">
-                  {detail.sourceCurrency}
-                </Badge>
-                <span className="text-xs text-muted-foreground">→</span>
-                <Badge className="rounded-full">{detail.targetCurrency}</Badge>
-              </span>
-            ) : (
-              '-'
-            )}
-          </DescField>
-          <DescField label="LP">{orDash(detail.lpName)}</DescField>
           <DescField label="Principal">
-            <span className="font-mono">{fmtAmount(detail.principal)}</span>
+            <span className="font-mono tabular-nums">{fmtAmount(detail.principal)}</span>
           </DescField>
           <DescField label="Receiver Amount">
-            <span className="font-mono">{fmtAmount(detail.receiverAmount)}</span>
+            <span className="font-mono tabular-nums">{fmtAmount(detail.receiverAmount)}</span>
           </DescField>
           <DescField label="Markup Rate">
-            <span className="font-mono">{fmtAmount(detail.markupRate)}</span>
+            <span className="font-mono tabular-nums">{fmtAmount(detail.markupRate)}</span>
           </DescField>
           <DescField label="Base Rate / User Rate">
-            <span className="font-mono">
+            <span className="font-mono tabular-nums">
               {fmtAmount(detail.baseRate)} / {fmtAmount(detail.userRate)}
             </span>
           </DescField>
           <DescField label="User Deduction">
-            <span className="font-mono">{fmtAmount(detail.userDeduction)}</span>
+            <span className="font-mono tabular-nums">{fmtAmount(detail.userDeduction)}</span>
           </DescField>
           <DescField label="Quote Version">
-            <span className="font-mono">v{detail.quoteVersion}</span>
+            <span className="font-mono tabular-nums">v{detail.quoteVersion}</span>
           </DescField>
         </DescGrid>
       </section>
 
-      {/* 块二：转账信息（源端/目标端双卡 + 箭头，源 .leg-grid） */}
+      {/* 块二：转账信息（源端/目标端双卡 + 箭头，源 .leg-grid；卡面走 P3 panel 公式） */}
       <section>
         <h4 className="mb-3 text-sm font-semibold">
           Transfer Information (Source → Target)
         </h4>
         <div className="flex items-stretch gap-2.5">
-          <div className="min-w-0 flex-1 rounded-lg border p-3">
+          <div className="min-w-0 flex-1 rounded-lg border border-border/60 bg-card p-3">
             <div className="mb-2 text-sm font-semibold">
               Source · {detail.sourceBankName || 'Source Bank'}
             </div>
             <DescGrid cols={1}>
               <DescField label="Sender Account">
-                <span className="break-all font-mono">{orDash(detail.senderAccount)}</span>
+                <CopyableEllipsisText
+                  value={detail.senderAccount || undefined}
+                  emptyText="-"
+                  maxWidth={280}
+                  className="font-mono"
+                />
               </DescField>
               <DescField label="Deduction Principal">
-                <span className="font-mono">{fmtAmount(detail.userDeduction)}</span>
+                <span className="font-mono tabular-nums">{fmtAmount(detail.userDeduction)}</span>
               </DescField>
               <DescField label="Currency System Tx ID">
-                <span className="break-all font-mono">{orDash(detail.sourceCsTxId)}</span>
+                <CopyableEllipsisText
+                  value={detail.sourceCsTxId || undefined}
+                  emptyText="-"
+                  maxWidth={280}
+                  className="font-mono"
+                />
               </DescField>
               <DescField label="Source Verified Time">
                 {formatTime(detail.sourceVerifiedTime)}
@@ -921,19 +944,29 @@ function DetailBody({
             </DescGrid>
           </div>
           <div className="flex-shrink-0 self-center text-lg text-muted-foreground">→</div>
-          <div className="min-w-0 flex-1 rounded-lg border p-3">
+          <div className="min-w-0 flex-1 rounded-lg border border-border/60 bg-card p-3">
             <div className="mb-2 text-sm font-semibold text-[var(--ks-clearing,#0b6b53)]">
               Target · {detail.targetBankName || 'Target Bank'}
             </div>
             <DescGrid cols={1}>
               <DescField label="Receiver Account">
-                <span className="break-all font-mono">{orDash(detail.receiverAccount)}</span>
+                <CopyableEllipsisText
+                  value={detail.receiverAccount || undefined}
+                  emptyText="-"
+                  maxWidth={280}
+                  className="font-mono"
+                />
               </DescField>
               <DescField label="Receiver Amount">
-                <span className="font-mono">{fmtAmount(detail.receiverAmount)}</span>
+                <span className="font-mono tabular-nums">{fmtAmount(detail.receiverAmount)}</span>
               </DescField>
               <DescField label="Currency System Tx ID">
-                <span className="break-all font-mono">{orDash(detail.targetCsTxId)}</span>
+                <CopyableEllipsisText
+                  value={detail.targetCsTxId || undefined}
+                  emptyText="-"
+                  maxWidth={280}
+                  className="font-mono"
+                />
               </DescField>
               <DescField label="Settled / Credited Time">
                 {detail.settledTime !== 0
@@ -947,14 +980,18 @@ function DetailBody({
         </div>
       </section>
 
-      {/* 其他信息（源 :column="2"） */}
+      {/* 其他信息（源 :column="2"；长文本单独占行，§6.3） */}
       <section>
         <h4 className="mb-3 text-sm font-semibold">Other Information</h4>
         <DescGrid cols={2}>
           <DescField label="Creation Time">{formatTime(detail.createTime)}</DescField>
           <DescField label="Completion Time">{formatTime(detail.completedTime)}</DescField>
-          <DescField label="Failure Reason">{orDash(detail.failReason)}</DescField>
-          <DescField label="Remarks">{orDash(detail.remark)}</DescField>
+          <DescField label="Failure Reason" span>
+            {orDash(detail.failReason)}
+          </DescField>
+          <DescField label="Remarks" span>
+            {orDash(detail.remark)}
+          </DescField>
         </DescGrid>
       </section>
 

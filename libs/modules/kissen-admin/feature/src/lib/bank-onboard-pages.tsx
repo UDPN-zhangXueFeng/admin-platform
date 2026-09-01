@@ -31,6 +31,7 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
+  CopyableEllipsisText,
   createActionColumn,
   DataTable,
   Dialog,
@@ -135,11 +136,22 @@ function BankStatusBadge({ status }: { status: number }) {
   );
 }
 
-function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
+function DetailField({
+  label,
+  span = false,
+  children,
+}: {
+  label: string;
+  /** 长文本：自 sm 断点起跨满两列（§6.3）。 */
+  span?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="space-y-1.5">
-      <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="text-sm font-medium">{children}</div>
+    <div className={span ? 'sm:col-span-2 lg:col-span-3' : undefined}>
+      <div className="space-y-1.5">
+        <div className="text-sm text-muted-foreground">{label}</div>
+        <div className="text-sm font-medium">{children}</div>
+      </div>
     </div>
   );
 }
@@ -387,10 +399,24 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
               key now and deliver it offline.
             </AlertDescription>
           </Alert>
-          <div className="space-y-3 rounded-lg border p-4">
+          <div className="space-y-3 rounded-lg border border-border/60 bg-card p-4">
             <div className="space-y-1">
               <div className="text-xs text-muted-foreground">Access Key</div>
-              <div className="break-all font-mono text-sm">{generated?.accessKey}</div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 break-all font-mono text-sm">
+                  {generated?.accessKey}
+                </div>
+                {/* 复制贴近字段（§6.3）：由页脚上移至字段旁，动作数不变 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={onCopyKey}
+                >
+                  <Copy className="mr-1.5 h-4 w-4" />
+                  Copy Key
+                </Button>
+              </div>
             </div>
             <div className="space-y-1">
               <div className="text-xs text-muted-foreground">Bank BIC</div>
@@ -402,10 +428,6 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={onCopyKey}>
-              <Copy className="mr-1.5 h-4 w-4" />
-              Copy Key
-            </Button>
             <Button onClick={() => setGenerated(null)}>I have saved it, close</Button>
           </DialogFooter>
         </DialogContent>
@@ -568,7 +590,7 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
                   className={
                     peer.wholeBanned
                       ? 'rounded-lg border border-destructive/40 bg-destructive/5 p-4'
-                      : 'rounded-lg border p-4'
+                      : 'rounded-lg border border-border/60 bg-card p-4'
                   }
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -601,8 +623,8 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
                               onClick={() => onToggleToken(peer, token)}
                               className={
                                 token.banned
-                                  ? 'inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs transition-colors hover:bg-destructive/20'
-                                  : 'inline-flex items-center gap-1.5 rounded-md border bg-muted px-2 py-1 text-xs transition-colors hover:bg-accent'
+                                  ? 'inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs motion-safe:transition-colors hover:bg-destructive/20'
+                                  : 'inline-flex items-center gap-1.5 rounded-md border bg-muted px-2 py-1 text-xs motion-safe:transition-colors hover:bg-accent'
                               }
                             >
                               <span className={`font-mono ${token.banned ? 'text-destructive line-through' : ''}`}>
@@ -1157,10 +1179,9 @@ export function BankInfoDetailPage() {
   const bankId = parseBankId(searchParams.get('id'));
 
   const { data: detail, isLoading } = useBankDetailQuery(KISSEN_PROJECT_ID, bankId);
-
   if (!bankId) {
     return (
-      <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+      <div className="rounded-lg border border-border/60 bg-card p-6">
         <p className="text-sm text-muted-foreground">Missing bank ID</p>
         <Button variant="outline" className="mt-4" onClick={() => router.push(LIST_PATH)}>
           Back
@@ -1171,99 +1192,123 @@ export function BankInfoDetailPage() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <div className="mb-6 text-base font-semibold">Bank Details</div>
-
-        <div className="mb-3 text-sm font-semibold">Basic Information</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <DetailField label="Bank Name">
-            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.bankName || '--'}
-          </DetailField>
-          <DetailField label="Bank Code">
-            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.bankCode || '--'}
-          </DetailField>
-          <DetailField label="SWIFT BIC">
-            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.bic || '--'}
-          </DetailField>
-          <DetailField label="Status">
-            {isLoading ? (
-              <Skeleton className="h-4 w-20" />
-            ) : detail ? (
-              <BankStatusBadge status={detail.status} />
-            ) : (
-              '--'
-            )}
-          </DetailField>
-          <DetailField label="Created At">
-            {isLoading ? <Skeleton className="h-4 w-40" /> : formatTime(detail?.createTime)}
-          </DetailField>
-        </div>
-
-        <div className="mb-3 mt-6 text-sm font-semibold">Currency System Information</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <DetailField label="Currency System Type">
-            {isLoading ? (
-              <Skeleton className="h-4 w-24" />
-            ) : (
-              (detail && CS_TYPE_LABEL[detail.currencySystemType]) || '--'
-            )}
-          </DetailField>
-          <DetailField label="Blockchain">
-            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.blockchain || '--'}
-          </DetailField>
-          <DetailField label="Currency System Name">
-            {isLoading ? <Skeleton className="h-4 w-40" /> : detail?.currencySystemName || '--'}
-          </DetailField>
-          <DetailField label="Currency System URL">
-            {isLoading ? <Skeleton className="h-4 w-40" /> : detail?.currencySystemUrl || '--'}
-          </DetailField>
-          <DetailField label="Integration Notes">
-            {isLoading ? (
-              <Skeleton className="h-4 w-40" />
-            ) : (
-              <span className="whitespace-pre-wrap break-all">
-                {detail?.currencySystemDesc || '--'}
-              </span>
-            )}
-          </DetailField>
-          <DetailField label="Account Config">
-            {isLoading ? (
-              <Skeleton className="h-4 w-40" />
-            ) : (
-              <span className="whitespace-pre-wrap break-all">
-                {detail?.accountConfig || '--'}
-              </span>
-            )}
-          </DetailField>
-        </div>
-
-        <div className="mb-3 mt-6 text-sm font-semibold">
-          Contact Information
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
-            Maintained by the bank via the bank portal (read-only here)
-          </span>
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <DetailField label="Contact Name">
-            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactName || '--'}
-          </DetailField>
-          <DetailField label="Contact Phone">
-            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactPhone || '--'}
-          </DetailField>
-          <DetailField label="Contact Email">
-            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactEmail || '--'}
-          </DetailField>
-          <DetailField label="Address">
-            {isLoading ? <Skeleton className="h-4 w-40" /> : detail?.address || '--'}
-          </DetailField>
+      {/* Hero Summary：银行名 + 状态 + 编码（可复制）/BIC/创建时间（§6.3）；Back 自页脚上移 */}
+      <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {isLoading ? (
+                <Skeleton className="h-6 w-40" />
+              ) : (
+                <span className="text-base font-semibold leading-6 text-foreground">
+                  {detail?.bankName || '--'}
+                </span>
+              )}
+              {isLoading ? (
+                <Skeleton className="h-5 w-16" />
+              ) : detail ? (
+                <BankStatusBadge status={detail.status} />
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              {isLoading ? (
+                <Skeleton className="h-4 w-64" />
+              ) : (
+                <>
+                  <CopyableEllipsisText
+                    value={detail?.bankCode}
+                    emptyText="--"
+                    maxWidth={200}
+                    className="font-mono"
+                  />
+                  <span>BIC {detail?.bic || '--'}</span>
+                  <span className="tabular-nums">
+                    Created {formatTime(detail?.createTime)}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => router.push(LIST_PATH)}
+          >
+            Back
+          </Button>
         </div>
       </section>
 
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => router.push(LIST_PATH)}>
-          Back
-        </Button>
-      </div>
+      {/* 正文：业务信息（Currency System）— 运营信息（Contact）分层，§6.3 */}
+      <section className="rounded-lg border border-border/60 bg-card p-4 sm:p-6">
+        <div>
+          <div className="mb-3 text-sm font-semibold">Currency System Information</div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DetailField label="Currency System Type">
+              {isLoading ? (
+                <Skeleton className="h-4 w-24" />
+              ) : (
+                (detail && CS_TYPE_LABEL[detail.currencySystemType]) || '--'
+              )}
+            </DetailField>
+            <DetailField label="Blockchain">
+              {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.blockchain || '--'}
+            </DetailField>
+            <DetailField label="Currency System Name">
+              {isLoading ? <Skeleton className="h-4 w-40" /> : detail?.currencySystemName || '--'}
+            </DetailField>
+            <DetailField label="Currency System URL">
+              {isLoading ? <Skeleton className="h-4 w-40" /> : detail?.currencySystemUrl || '--'}
+            </DetailField>
+            <DetailField label="Integration Notes" span>
+              {isLoading ? (
+                <Skeleton className="h-4 w-40" />
+              ) : (
+                <span className="whitespace-pre-wrap break-all">
+                  {detail?.currencySystemDesc || '--'}
+                </span>
+              )}
+            </DetailField>
+            <DetailField label="Account Config" span>
+              {isLoading ? (
+                <Skeleton className="h-4 w-40" />
+              ) : (
+                <span className="whitespace-pre-wrap break-all">
+                  {detail?.accountConfig || '--'}
+                </span>
+              )}
+            </DetailField>
+          </div>
+        </div>
+
+        <div className="mt-6 border-t border-border/50 pt-6">
+          <div className="mb-3 text-sm font-semibold">
+            Contact Information
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              Maintained by the bank via the bank portal (read-only here)
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DetailField label="Contact Name">
+              {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactName || '--'}
+            </DetailField>
+            <DetailField label="Contact Phone">
+              {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactPhone || '--'}
+            </DetailField>
+            <DetailField label="Contact Email">
+              {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactEmail || '--'}
+            </DetailField>
+            <DetailField label="Address" span>
+              {isLoading ? (
+                <Skeleton className="h-4 w-40" />
+              ) : (
+                <span className="whitespace-pre-wrap break-all">{detail?.address || '--'}</span>
+              )}
+            </DetailField>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

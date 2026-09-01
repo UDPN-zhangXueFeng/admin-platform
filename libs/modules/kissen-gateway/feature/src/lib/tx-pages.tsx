@@ -12,6 +12,7 @@ import {
   Badge,
   Button,
   Checkbox,
+  CopyableEllipsisText,
   DataTable,
   Skeleton,
   Tabs,
@@ -675,13 +676,23 @@ function TxMessageItem({ message }: { message: TxMessage }) {
         <div className="mt-2 space-y-1 text-xs">
           <div className="flex gap-2">
             <span className="w-14 shrink-0 text-muted-foreground">TraceId</span>
-            <span className="break-all">{orDash(message.traceId)}</span>
+            <CopyableEllipsisText
+              value={message.traceId}
+              emptyText="-"
+              maxWidth={320}
+              className="t-identifier"
+            />
           </div>
           <div className="flex gap-2">
             <span className="w-14 shrink-0 text-muted-foreground">
               Idempotency Key
             </span>
-            <span className="break-all">{orDash(message.idempotentKey)}</span>
+            <CopyableEllipsisText
+              value={message.idempotentKey}
+              emptyText="-"
+              maxWidth={320}
+              className="t-identifier"
+            />
           </div>
         </div>
       </div>
@@ -805,7 +816,7 @@ export function TxDetailPage() {
 
   if (!transactionId) {
     return (
-      <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+      <div className="rounded-lg border border-border/60 bg-card panel-pad">
         <p className="text-sm text-muted-foreground">
           Missing a transaction ID. Unable to view details.
         </p>
@@ -822,78 +833,136 @@ export function TxDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-base font-semibold">
-          Transaction Detail #{transactionId}
-        </h1>
-        <Button variant="outline" size="sm" onClick={() => router.back()}>
-          Back
-        </Button>
-      </div>
-
-      {record ? (
-        <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-          <DescGrid>
-            <DescField label="Record ID">
-              <span>{record.recordId ?? '-'}</span>
-            </DescField>
-            <DescField label="TransactionId">
-              <span>{record.transactionId ?? '-'}</span>
-            </DescField>
-            <DescField label="Bank Role">
-              {record.bankRole != null && record.bankRole !== 0 ? (
-                <Badge variant={txBankRoleVariant(record.bankRole)}>
-                  {txBankRoleText(record.bankRole)}
-                </Badge>
-              ) : (
-                <span>-</span>
-              )}
-            </DescField>
-            <DescField label="PairId">
-              <span>{record.pairId ?? '-'}</span>
-            </DescField>
-            <DescField label="Principal">
-              <span>{fmtAmount(record.principal)}</span>
-            </DescField>
-            <DescField label="Status">
+      {/* §6.3 Hero Summary：对象标识（可复制）+ 状态 + 页面主动作（Back 右置）。 */}
+      <section className="rounded-lg border border-border/60 bg-card panel-pad">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+            <h1 className="text-xl font-semibold leading-7 text-foreground">
+              Transaction Detail
+            </h1>
+            <div className="flex min-w-0 items-center gap-x-1 t-identifier text-muted-foreground">
+              <span aria-hidden="true">#</span>
+              <CopyableEllipsisText
+                value={transactionId}
+                emptyText="-"
+                className="text-foreground"
+              />
+            </div>
+            {record ? (
               <Badge variant={txStatusVariant(record.status)}>
                 {txStatusText(record.status)}
               </Badge>
-            </DescField>
-            <DescField label="Source Tx ID">
-              <span>{orDash(record.sourceCsTxId)}</span>
-            </DescField>
-            <DescField label="Target Tx ID">
-              <span>{orDash(record.targetCsTxId)}</span>
-            </DescField>
-            {/* 39c8a2b 新增：付款/收款账户（钱包地址，num 样式；空 '-'）。 */}
-            <DescField label="Sender Account">
-              <span className="break-all font-mono">
-                {orDash(record.senderAccount)}
-              </span>
-            </DescField>
-            <DescField label="Receiver Account">
-              <span className="break-all font-mono">
-                {orDash(record.receiverAccount)}
-              </span>
-            </DescField>
-            <DescField label="Pending">
-              {record.pendingFlag === 1 ? (
-                <Badge variant="secondary">Pending</Badge>
-              ) : (
-                <span>No</span>
-              )}
-            </DescField>
-            <DescField label="Pending Reason">
-              <span>{orDash(record.pendingReason)}</span>
-            </DescField>
-            <DescField label="Last Sync">
-              <span>{formatTime(record.lastSyncTime)}</span>
-            </DescField>
-            <DescField label="Created At">
-              <span>{formatTime(record.createTime)}</span>
-            </DescField>
-          </DescGrid>
+            ) : null}
+          </div>
+          <Button variant="outline" size="sm" onClick={() => router.back()}>
+            Back
+          </Button>
+        </div>
+      </section>
+
+      {record ? (
+        <section className="rounded-lg border border-border/60 bg-card panel-pad">
+          {/* §6.3 分层：核心信息 — 账户与路由 — 审计信息；长文本（账户/原因）占行。 */}
+          <div className="flex flex-col gap-5">
+            <div>
+              <h2 className="mb-2.5 text-sm font-semibold text-foreground">
+                Overview
+              </h2>
+              <DescGrid>
+                <DescField label="Record ID">
+                  <CopyableEllipsisText
+                    value={record.recordId}
+                    emptyText="-"
+                    className="t-identifier"
+                  />
+                </DescField>
+                <DescField label="Bank Role">
+                  {record.bankRole != null && record.bankRole !== 0 ? (
+                    <Badge variant={txBankRoleVariant(record.bankRole)}>
+                      {txBankRoleText(record.bankRole)}
+                    </Badge>
+                  ) : (
+                    <span>-</span>
+                  )}
+                </DescField>
+                <DescField label="Pair ID">
+                  <span className="tabular-nums">{record.pairId ?? '-'}</span>
+                </DescField>
+                <DescField label="Principal">
+                  <span className="t-data">{fmtAmount(record.principal)}</span>
+                </DescField>
+              </DescGrid>
+            </div>
+            <div>
+              <h2 className="mb-2.5 text-sm font-semibold text-foreground">
+                Accounts &amp; Routing
+              </h2>
+              <DescGrid>
+                <DescField label="Source Tx ID">
+                  <CopyableEllipsisText
+                    value={record.sourceCsTxId}
+                    emptyText="-"
+                    maxWidth={240}
+                    className="t-identifier"
+                  />
+                </DescField>
+                <DescField label="Target Tx ID">
+                  <CopyableEllipsisText
+                    value={record.targetCsTxId}
+                    emptyText="-"
+                    maxWidth={240}
+                    className="t-identifier"
+                  />
+                </DescField>
+                {/* 39c8a2b 新增：付款/收款账户（钱包地址；长文本占行可复制）。 */}
+                <DescField label="Sender Account" span>
+                  <CopyableEllipsisText
+                    value={record.senderAccount}
+                    emptyText="-"
+                    maxWidth={480}
+                    className="t-identifier"
+                  />
+                </DescField>
+                <DescField label="Receiver Account" span>
+                  <CopyableEllipsisText
+                    value={record.receiverAccount}
+                    emptyText="-"
+                    maxWidth={480}
+                    className="t-identifier"
+                  />
+                </DescField>
+                <DescField label="Pending">
+                  {record.pendingFlag === 1 ? (
+                    <Badge variant="secondary">Pending</Badge>
+                  ) : (
+                    <span>No</span>
+                  )}
+                </DescField>
+                <DescField label="Pending Reason" span>
+                  <span className="break-words">
+                    {orDash(record.pendingReason)}
+                  </span>
+                </DescField>
+              </DescGrid>
+            </div>
+            <div>
+              <h2 className="mb-2.5 text-sm font-semibold text-foreground">
+                Audit
+              </h2>
+              <DescGrid cols={2}>
+                <DescField label="Created At">
+                  <span className="font-mono">
+                    {formatTime(record.createTime)}
+                  </span>
+                </DescField>
+                <DescField label="Last Sync">
+                  <span className="font-mono">
+                    {formatTime(record.lastSyncTime)}
+                  </span>
+                </DescField>
+              </DescGrid>
+            </div>
+          </div>
         </section>
       ) : detailLoading ? (
         <div className="space-y-2">
@@ -901,13 +970,13 @@ export function TxDetailPage() {
           <Skeleton className="h-40 w-full rounded-lg" />
         </div>
       ) : (
-        <div className="rounded-lg border-border/60 bg-card p-6 text-sm text-muted-foreground shadow-float">
+        <div className="rounded-lg border border-border/60 bg-card panel-pad text-sm text-muted-foreground">
           No transaction detail available.
         </div>
       )}
 
       {/* 源 el-tabs（默认页签 chain 交易链路；报文留痕页签带条数后缀）。 */}
-      <section className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+      <section className="rounded-lg border border-border/60 bg-card panel-pad">
         <Tabs defaultValue="chain">
           <TabsList>
             <TabsTrigger value="chain">Transaction Chain</TabsTrigger>

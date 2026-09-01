@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
+  CopyableEllipsisText,
   createActionColumn,
   DataTable,
   Drawer,
@@ -322,26 +323,30 @@ function LoadingBlock() {
   );
 }
 
-/** 描述行（模仿 el-descriptions column=1 border：左标签右值）。 */
-function DescRow({
+/** 详情字段（§6.3 DetailGrid：label 上置；span=长文本单独占行）。 */
+function DetailField({
   label,
+  span = false,
   children,
 }: {
   label: string;
+  /** 自 sm 断点起跨满两列（描述/备注类长文本）。 */
+  span?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex border-b last:border-b-0">
-      <div className="w-40 shrink-0 bg-muted/40 px-3 py-2 text-sm font-medium text-muted-foreground">
-        {label}
-      </div>
-      <div className="flex-1 px-3 py-2 text-sm">{children}</div>
+    <div className={span ? 'sm:col-span-2' : undefined}>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 text-sm">{children}</dd>
     </div>
   );
 }
 
-function DescBlock({ children }: { children: React.ReactNode }) {
-  return <div className="overflow-hidden rounded-lg border">{children}</div>;
+/** 详情网格（640px 抽屉内 1→2 列响应，§6.3）。 */
+function DetailGrid({ children }: { children: React.ReactNode }) {
+  return (
+    <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">{children}</dl>
+  );
 }
 
 /* ============================================================ */
@@ -553,39 +558,48 @@ function ApprovalDetailBody({
 
   return (
     <div className="space-y-4">
-      {/* 头部信息块 */}
-      <DescBlock>
-        <DescRow label="Approval No.">{row.applyCode || '--'}</DescRow>
-        <DescRow label="Business Type">{businessName(row.businessCode)}</DescRow>
-        <DescRow label="Business Description">{row.busDesc || '--'}</DescRow>
-        <DescRow label="Current Node">{row.stepName || '--'}</DescRow>
-        <DescRow label="Status">
-          <Badge variant={approvalStatusVariant(row.reviewerStatus)}>
-            {COMMON_STATUS_MAP[row.reviewerStatus] ?? row.reviewerStatus}
-          </Badge>
-        </DescRow>
-        <DescRow label="Application Time">{formatTime(row.createTime)}</DescRow>
-        {isDoneRow && (
-          <>
-            <DescRow label="Processing Time">{formatTime(row.reviewerTime)}</DescRow>
-            <DescRow label="My Comments">{row.reviewerRemarks || '--'}</DescRow>
-          </>
-        )}
-      </DescBlock>
+      {/* Hero Summary：业务类型 + 申请单号（可复制）+ 状态 + 当前节点（§6.3） */}
+      <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="text-base font-semibold leading-6 text-foreground">
+              {businessName(row.businessCode)}
+            </span>
+            <Badge variant={approvalStatusVariant(row.reviewerStatus)}>
+              {COMMON_STATUS_MAP[row.reviewerStatus] ?? row.reviewerStatus}
+            </Badge>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            <CopyableEllipsisText
+              value={row.applyCode}
+              emptyText="--"
+              maxWidth={280}
+              className="font-mono"
+            />
+            <span>{row.stepName || '--'}</span>
+            <span className="tabular-nums">Applied {formatTime(row.createTime)}</span>
+          </div>
+        </div>
+      </section>
 
-      {/* 业务内容（扁平字段） */}
+      {/* 业务内容（扁平字段；Business Description 长文本单独占行） */}
       <div>
         <div className="mb-2 text-sm font-semibold">Business Content</div>
-        {flatEntries.length > 0 ? (
-          <DescBlock>
-            {flatEntries.map(([key, text]) => (
-              <DescRow key={key} label={fieldLabelFor(row.businessCode, key)}>
-                <span className={isNumericValue(text) ? 'tabular-nums' : undefined}>
-                  {text}
-                </span>
-              </DescRow>
-            ))}
-          </DescBlock>
+        {flatEntries.length > 0 || row.busDesc ? (
+          <div className="rounded-lg border border-border/60 bg-card p-4">
+            <DetailGrid>
+              <DetailField label="Business Description" span>
+                {row.busDesc || '--'}
+              </DetailField>
+              {flatEntries.map(([key, text]) => (
+                <DetailField key={key} label={fieldLabelFor(row.businessCode, key)}>
+                  <span className={isNumericValue(text) ? 'tabular-nums' : undefined}>
+                    {text}
+                  </span>
+                </DetailField>
+              ))}
+            </DetailGrid>
+          </div>
         ) : (
           <p className="text-sm text-muted-foreground">No business content</p>
         )}
@@ -594,20 +608,39 @@ function ApprovalDetailBody({
       {/* 嵌套子块 */}
       {nestedEntries.map(([key, nested]) => (
         <div key={key}>
-          <div className="mb-2 text-sm font-semibold text-primary">
+          <div className="mb-2 text-sm font-semibold">
             {fieldLabelFor(row.businessCode, key)}
           </div>
-          <DescBlock>
-            {nested.entries.map(([nk, nv]) => (
-              <DescRow key={nk} label={fieldLabelFor(row.businessCode, nk)}>
-                <span className={isNumericValue(nv) ? 'tabular-nums' : undefined}>
-                  {displayNested(row.businessCode, nk, nv)}
-                </span>
-              </DescRow>
-            ))}
-          </DescBlock>
+          <div className="rounded-lg border border-border/60 bg-card p-4">
+            <DetailGrid>
+              {nested.entries.map(([nk, nv]) => (
+                <DetailField key={nk} label={fieldLabelFor(row.businessCode, nk)}>
+                  <span className={isNumericValue(nv) ? 'tabular-nums' : undefined}>
+                    {displayNested(row.businessCode, nk, nv)}
+                  </span>
+                </DetailField>
+              ))}
+            </DetailGrid>
+          </div>
         </div>
       ))}
+
+      {/* 审计信息（已办专属：处理时间 + 我的意见；长文本单独占行） */}
+      {isDoneRow && (
+        <div>
+          <div className="mb-2 text-sm font-semibold">Review Record</div>
+          <div className="rounded-lg border border-border/60 bg-card p-4">
+            <DetailGrid>
+              <DetailField label="Processing Time">
+                <span className="tabular-nums">{formatTime(row.reviewerTime)}</span>
+              </DetailField>
+              <DetailField label="My Comments" span>
+                {row.reviewerRemarks || '--'}
+              </DetailField>
+            </DetailGrid>
+          </div>
+        </div>
+      )}
 
       {/* 审批操作（仅待办且有可用能力位） */}
       {canOperate && (

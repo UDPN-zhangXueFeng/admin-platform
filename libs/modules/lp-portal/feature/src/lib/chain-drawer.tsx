@@ -9,12 +9,14 @@
  * - Radix dialog drawer anchored right, width min(720px, 90vw); closes on
  *   ESC and on overlay click (built into the shared Drawer primitive;
  *   parent unmounts us through onClosed).
- * - Title "Transaction Details" (v2.3 rename); the basic information
- *   panel carries the fixed 11-item set - 10 always-on fields plus the
- *   conditional failure reason spanning both columns; the old transaction
- *   ID item is retired. Money items use the drawer caliber fmtAmount
- *   (2..8 fraction digits, en-US grouping), NOT the global formatMoney -
- *   both calibers must survive side by side.
+ * - Title "Transaction Details" (v2.3 rename); §6.3 layout: hero summary
+ *   (copyable KSN txNo + token-pair identity + drawer-caliber status
+ *   badge) above the fixed 11-item set re-layered as core amounts and
+ *   copyable business identifiers first, audit timestamps behind a
+ *   hairline, conditional failure reason on its own full row; the old
+ *   transaction ID item stays retired. Money items use the drawer caliber
+ *   fmtAmount (2..8 fraction digits, en-US grouping), NOT the global
+ *   formatMoney - both calibers must survive side by side.
  * - Token Pair renders the v2.3 slash compact form via useTokenMeta
  *   (symOf falls back to the raw token code).
  * - Stage status uses the DRAWER status caliber (code 35 reads as success),
@@ -36,6 +38,7 @@ import { Check, LoaderCircle, Minus, X } from 'lucide-react';
 
 import {
   Badge,
+  CopyableEllipsisText,
   Drawer,
   DrawerContent,
   DrawerHeader,
@@ -45,7 +48,6 @@ import {
 import {
   LP_PROJECT_ID,
   isServiceDown,
-  txNoText,
   useTokenMeta,
   useTxFlowChainQuery,
   type TxChainNode,
@@ -83,7 +85,7 @@ function StageIcon({ status }: { status: number }) {
   if (status === 2)
     return (
       <LoaderCircle
-        className="h-4 w-4 animate-spin text-primary"
+        className="h-4 w-4 motion-safe:animate-spin text-primary"
         aria-hidden="true"
       />
     );
@@ -124,7 +126,7 @@ function StageAxis({
               type="button"
               onClick={() => onSelect(s.step)}
               aria-current={selected ? 'step' : undefined}
-              className="group flex w-full cursor-pointer items-stretch gap-3 rounded px-1 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="group flex w-full cursor-pointer items-stretch gap-3 rounded px-1 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {/* Left rail: dot + downward connector to the next slot */}
               <span className="flex w-7 shrink-0 flex-col items-center">
@@ -138,7 +140,7 @@ function StageAxis({
                   />
                 )}
               </span>
-              <span className="min-w-0 flex-1 pt-0.5">
+              <span className="min-w-0 flex-1">
                 <span
                   className={`block truncate text-sm leading-5 ${
                     selected
@@ -148,7 +150,7 @@ function StageAxis({
                 >
                   {title}
                 </span>
-                <span className="mt-0.5 block font-mono text-[11px] leading-4 text-muted-foreground tabular-nums">
+                <span className="mt-0.5 block font-mono text-xs leading-5 text-muted-foreground tabular-nums">
                   {completedTimeText(s.startTime)}
                   {' '}
                   to {completedTimeText(s.endTime)}
@@ -218,17 +220,15 @@ function EventTimeline({ events }: { events: TxChainNode[] }) {
 
 function DescItem({
   label,
-  span,
   children,
 }: {
   label: string;
-  span?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className={`bg-card px-3 py-2 ${span ? 'sm:col-span-2' : ''}`}>
+    <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 min-w-0 break-all text-sm">{children}</dd>
+      <dd className="mt-1 min-w-0 break-all text-sm">{children}</dd>
     </div>
   );
 }
@@ -236,67 +236,74 @@ function DescItem({
 /** Money cell in the drawer caliber (doc 01 E4), distinct from formatMoney. */
 function Amount({ v }: { v: string | number | null | undefined }) {
   return (
-    <span className="font-mono text-xs tabular-nums">{fmtAmount(v)}</span>
+    <span className="font-mono text-sm font-medium tabular-nums">
+      {fmtAmount(v)}
+    </span>
   );
 }
+
+/**
+ * §6.3 layered detail grid: amounts + copyable identifiers (core) above a
+ * hairline, audit timestamps (muted, denser 3-col) below; failure reason
+ * keeps its own full row. Tx No. / Status / Token Pair moved to the hero.
+ */
 function BasicInfo({ row }: { row: TxRow }) {
-  // v2.3: Token Pair renders the slash compact form via unified token meta.
-  const { symOf } = useTokenMeta(LP_PROJECT_ID);
   return (
-    <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-2">
-      <DescItem label="Tx No.">
-        {/* Fixed v2.3 caliber: txNo only, no txUuid/transactionId fallback */}
-        <span className="font-mono text-xs">{txNoText(row)}</span>
-      </DescItem>
-      <DescItem label="Bank Idempotency No.">
-        <span className="font-mono text-xs">{row.txUuid || '-'}</span>
-      </DescItem>
-      <DescItem label="Status">
-        <Badge
-          variant={txDrawerVariant(row.status)}
-          className={txWarnClass(row.status)}
-        >
-          {txStatusLabel(row.status)}
-        </Badge>
-      </DescItem>
-      <DescItem label="Token Pair">
-        {/* Slash compact form (v2.3); symOf falls back to the raw code */}
-        <span className="font-mono text-[13px] font-semibold">
-          {symOf(row.sourceTokenCode)}/{symOf(row.targetTokenCode)}
-        </span>
-      </DescItem>
-      <DescItem label="Principal">
-        <Amount v={row.principal} />
-      </DescItem>
-      <DescItem label="Receiver Amount">
-        <Amount v={row.receiverAmount} />
-      </DescItem>
-      <DescItem label="Source Voucher No.">
-        <span className="font-mono text-xs">{row.sourceCsTxId || '-'}</span>
-      </DescItem>
-      <DescItem label="Quote Time">
-        {/* !quoteTime covers 0/undefined -> '-' (source caliber) */}
-        <span className="font-mono text-xs tabular-nums">
-          {!row.quoteTime ? '-' : formatTime(row.quoteTime)}
-        </span>
-      </DescItem>
-      <DescItem label="Completed At">
-        {/* Strict === 0 unfinished sentinel, never routed through formatTime */}
-        <span className="font-mono text-xs tabular-nums">
-          {completedTimeText(row.completedTime)}
-        </span>
-      </DescItem>
-      <DescItem label="Data Time">
-        <span className="font-mono text-xs tabular-nums">
-          {row.syncTime == null || row.syncTime === 0
-            ? '-'
-            : formatTime(row.syncTime)}
-        </span>
-      </DescItem>
-      {Boolean(row.failReason) && (
-        <DescItem label="Failure Reason" span>
-          <span className="text-destructive">{row.failReason}</span>
+    <dl className="space-y-4">
+      {/* 核心信息层：金额（Data 角色）+ 业务标识（Identifier，复制贴字段） */}
+      <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+        <DescItem label="Principal">
+          <Amount v={row.principal} />
         </DescItem>
+        <DescItem label="Receiver Amount">
+          <Amount v={row.receiverAmount} />
+        </DescItem>
+        <DescItem label="Bank Idempotency No.">
+          <CopyableEllipsisText
+            value={row.txUuid || ''}
+            emptyText="-"
+            maxWidth={280}
+            className="font-mono text-xs"
+          />
+        </DescItem>
+        <DescItem label="Source Voucher No.">
+          <CopyableEllipsisText
+            value={row.sourceCsTxId || ''}
+            emptyText="-"
+            maxWidth={280}
+            className="font-mono text-xs"
+          />
+        </DescItem>
+      </div>
+      {/* 审计信息层：时间戳弱化（Supporting），hairline 与核心层分隔 */}
+      <div className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-border/50 pt-4 sm:grid-cols-3">
+        <DescItem label="Quote Time">
+          {/* !quoteTime covers 0/undefined -> '-' (source caliber) */}
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {!row.quoteTime ? '-' : formatTime(row.quoteTime)}
+          </span>
+        </DescItem>
+        <DescItem label="Completed At">
+          {/* Strict === 0 unfinished sentinel, never routed through formatTime */}
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {completedTimeText(row.completedTime)}
+          </span>
+        </DescItem>
+        <DescItem label="Data Time">
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {row.syncTime == null || row.syncTime === 0
+              ? '-'
+              : formatTime(row.syncTime)}
+          </span>
+        </DescItem>
+      </div>
+      {/* 长文本单独占行（§6.3） */}
+      {Boolean(row.failReason) && (
+        <div className="border-t border-border/50 pt-4">
+          <DescItem label="Failure Reason">
+            <span className="text-sm text-destructive">{row.failReason}</span>
+          </DescItem>
+        </div>
       )}
     </dl>
   );
@@ -315,6 +322,10 @@ export interface ChainDrawerProps {
 
 export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
   const chainQuery = useTxFlowChainQuery(LP_PROJECT_ID, row.transactionId);
+
+  // §6.3 hero identity: token-pair slash compact form via unified meta
+  // (v2.3; symOf/bankOf fall back to the raw code).
+  const { symOf, bankOf } = useTokenMeta(LP_PROJECT_ID);
 
   // Flattened nodes (flat array or tree both accepted; failed refetch keeps
   // last good data via the query cache).
@@ -362,44 +373,92 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
             <DrawerTitle>Transaction Details</DrawerTitle>
           </DrawerHeader>
           <div className="flex-1 overflow-y-auto px-6 py-4">
-            {drawerDown && <ServiceDownAlert traceId={drawerDown.traceId} />}
+            <div className="space-y-5">
+              {drawerDown && (
+                <ServiceDownAlert traceId={drawerDown.traceId} />
+              )}
 
-            <h4 className="mt-0 text-sm font-semibold">Basic Information</h4>
-            <BasicInfo row={row} />
-
-            <h4 className="mt-6 mb-3 text-sm font-semibold">
-              Transaction Chain
-            </h4>
-            {chainQuery.isPending ? (
-              <div className="space-y-2" aria-label="Loading">
-                <div className="h-8 w-full animate-pulse rounded bg-muted" />
-                <div className="h-24 w-full animate-pulse rounded bg-muted" />
-              </div>
-            ) : nodes.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                No stage data
-              </div>
-            ) : (
-              <>
-                <StageAxis
-                  stages={stageList}
-                  selectedStep={selectedStep}
-                  onSelect={setSelectedStep}
-                />
-                <div className="mt-6 mb-3 text-sm font-semibold">
-                  {STAGE_STEP_MAP[selectedStep] ?? selectedStep}
-                  {' - '}
-                  {STAGE_STATUS_MAP[currentStageStatus] ?? currentStageStatus}
-                </div>
-                {selectedEvents.length > 0 ? (
-                  <EventTimeline events={selectedEvents} />
-                ) : (
-                  <div className="py-6 text-center text-sm text-muted-foreground">
-                    No event details for this stage
+              {/* §6.3 Hero Summary：KSN 单号（复制贴字段）+ Token 对标识 + 状态 */}
+              <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+                <div className="min-w-0">
+                  <div className="text-xs text-muted-foreground">Tx No.</div>
+                  <div className="mt-1">
+                    {/* Fixed v2.3 caliber: txNo only, '-' fallback; empty
+                        values are not copyable */}
+                    <CopyableEllipsisText
+                      value={row.txNo || ''}
+                      emptyText="-"
+                      maxWidth={340}
+                      className="font-mono text-base font-semibold leading-6"
+                    />
                   </div>
-                )}
-              </>
-            )}
+                  <div className="mt-2 font-mono text-[13px] font-semibold leading-5">
+                    {symOf(row.sourceTokenCode)}/
+                    {symOf(row.targetTokenCode)}
+                  </div>
+                  <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {bankOf(row.sourceTokenCode)} →{' '}
+                    {bankOf(row.targetTokenCode)}
+                  </div>
+                </div>
+                <Badge
+                  variant={txDrawerVariant(row.status)}
+                  className={txWarnClass(row.status)}
+                >
+                  {txStatusLabel(row.status)}
+                </Badge>
+              </div>
+
+              {/* 核心信息 + 审计信息（§6.3 分层；panel 公式与列表批一致） */}
+              <section className="rounded-lg border border-border/60 bg-card">
+                <h4 className="border-b border-border/50 px-4 py-3 text-sm font-semibold text-foreground">
+                  Basic Information
+                </h4>
+                <div className="px-4 py-4">
+                  <BasicInfo row={row} />
+                </div>
+              </section>
+
+              {/* 运行信息：stage 轴 + 事件时间线 */}
+              <section className="rounded-lg border border-border/60 bg-card">
+                <h4 className="border-b border-border/50 px-4 py-3 text-sm font-semibold text-foreground">
+                  Transaction Chain
+                </h4>
+                <div className="px-4 py-4">
+                  {chainQuery.isPending ? (
+                    <div className="space-y-2" aria-label="Loading">
+                      <div className="h-8 w-full motion-safe:animate-pulse rounded bg-muted" />
+                      <div className="h-24 w-full motion-safe:animate-pulse rounded bg-muted" />
+                    </div>
+                  ) : nodes.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-muted-foreground">
+                      No stage data
+                    </div>
+                  ) : (
+                    <>
+                      <StageAxis
+                        stages={stageList}
+                        selectedStep={selectedStep}
+                        onSelect={setSelectedStep}
+                      />
+                      <div className="mt-4 mb-3 text-sm font-semibold">
+                        {STAGE_STEP_MAP[selectedStep] ?? selectedStep}
+                        {' - '}
+                        {STAGE_STATUS_MAP[currentStageStatus] ??
+                          currentStageStatus}
+                      </div>
+                      {selectedEvents.length > 0 ? (
+                        <EventTimeline events={selectedEvents} />
+                      ) : (
+                        <div className="py-6 text-center text-sm text-muted-foreground">
+                          No event details for this stage
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </section>
+            </div>
           </div>
         </div>
       </DrawerContent>

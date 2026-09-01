@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
+  CopyableEllipsisText,
   Checkbox,
   createActionColumn,
   DataTable,
@@ -28,7 +29,6 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -107,8 +107,8 @@ function DetailField({
 }) {
   return (
     <div className="space-y-1">
-      <dt className="text-sm font-medium text-muted-foreground">{label}</dt>
-      <dd className="text-sm">{children}</dd>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 text-sm">{children}</dd>
     </div>
   );
 }
@@ -589,16 +589,6 @@ function comboInvalidReason(row: ComboRow): string | null {
   return null;
 }
 
-interface TokenPairFormValues {
-  sourceTokenId?: number;
-  targetTokenId?: number;
-  baseRate: string;
-  markupRate: string;
-  defaultSplitRatio: string;
-}
-
-const TOKEN_NONE = 'NONE';
-
 /**
  * 建对/查看两态弹窗（源 pair-dialog.vue；原 /currency-pair/create|edit|detail
  * 三路由页收编于此。2023418：edit 退役——SaveReq 无 pairId，生效对改参走
@@ -606,7 +596,7 @@ const TOKEN_NONE = 'NONE';
  *
  * - create：按已生效 token（tokenList status=20）预生成有向全组合，排除同 token 与
  *   已有 token 对；勾选态挂行数据，行内逐对填参；逐行串行 save，失败不中断，汇总提示。
- * - view：单对只读表单，追加 pairCode/状态/创建时间只读项。滑点阈值字段不渲染（§G 裁决13）。
+ * - view：单对只读详情（§6.3 分层），直读 row。滑点阈值字段不渲染（§G 裁决13）。
  */
 function TokenPairDialog({
   mode,
@@ -697,20 +687,6 @@ function TokenPairDialog({
     [isVisible],
   );
 
-  // ---- view：单对只读表单 ----
-  const { register, reset, control } = useForm<TokenPairFormValues>();
-
-  React.useEffect(() => {
-    if (isCreate || !row) return;
-    reset({
-      sourceTokenId: row.sourceTokenId,
-      targetTokenId: row.targetTokenId,
-      baseRate: row.baseRate == null ? '' : String(row.baseRate),
-      markupRate: row.markupRate == null ? '' : String(row.markupRate),
-      defaultSplitRatio:
-        row.defaultSplitRatio == null ? '' : String(row.defaultSplitRatio),
-    });
-  }, [isCreate, row, reset]);
 
   const saveMutation = useSaveTokenPairMutation(PROJECT_ID);
   const tokenOptions = tokensQuery.data ?? [];
@@ -970,95 +946,87 @@ function TokenPairDialog({
               )}
             </div>
           ) : (
-            <form
-              className="space-y-4"
-              noValidate
-            >
-              <div className="space-y-1">
-                <Label>Source Token</Label>
-                <Controller
-                  control={control}
-                  name="sourceTokenId"
-                  render={({ field }) => (
-                    <Select
-                      value={
-                        field.value != null ? String(field.value) : TOKEN_NONE
-                      }
-                      disabled
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select an active token" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tokenOptions.map((t) => (
-                          <SelectItem key={t.tokenId} value={String(t.tokenId)}>
-                            {t.tokenCode} ({t.bankCode || '-'} /{' '}
-                            {t.chainType || '-'})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Target Token</Label>
-                <Controller
-                  control={control}
-                  name="targetTokenId"
-                  render={({ field }) => (
-                    <Select
-                      value={
-                        field.value != null ? String(field.value) : TOKEN_NONE
-                      }
-                      disabled
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select an active token" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tokenOptions.map((t) => (
-                          <SelectItem key={t.tokenId} value={String(t.tokenId)}>
-                            {t.tokenCode} ({t.bankCode || '-'} /{' '}
-                            {t.chainType || '-'})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-              <FormField
-                name="baseRate"
-                label="Base Rate"
-                disabled
-                register={register('baseRate')}
-              />
-              <FormField
-                name="markupRate"
-                label="Markup Rate"
-                disabled
-                register={register('markupRate')}
-              />
-              <FormField
-                name="defaultSplitRatio"
-                label="Default Split"
-                disabled
-                register={register('defaultSplitRatio')}
-              />
-              {/* 滑点阈值输入已移除（源 2026-08-27；引擎与存量值仍生效，§G 裁决13） */}
-              {isView && row && (
-                <dl className="space-y-3 border-t border-border/50 pt-4">
-                  <DetailField label="Pair Code">{row.pairCode}</DetailField>
-                  <DetailField label="Status">
+            row ? (
+              <div className="space-y-4">
+                {/* Hero Summary：交易对 SRC/TGT + 状态（§6.3；只读直读 row，禁伪装表单控件） */}
+                <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <TokenPairCell
+                      sourceSymbol={row.sourceSymbol}
+                      sourceTokenCode={row.sourceTokenCode}
+                      targetSymbol={row.targetSymbol}
+                      targetTokenCode={row.targetTokenCode}
+                      sourceBankCode={row.sourceBankCode}
+                      targetBankCode={row.targetBankCode}
+                    />
                     <PairStatusBadge status={row.status} />
-                  </DetailField>
-                  <DetailField label="Created At">
-                    {formatTime(row.createTime)}
-                  </DetailField>
-                </dl>
-              )}
-            </form>
+                  </div>
+                </section>
+
+                {/* 参数（核心信息）：源/目标 token 定位 + 费率三参 */}
+                <div>
+                  <div className="mb-2 text-sm font-semibold">Pair Parameters</div>
+                  <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                    <DetailField label="Source Token">
+                      <span className="font-mono">
+                        {row.sourceTokenCode} ({row.sourceBankCode || '-'} /{' '}
+                        {tokenOptions.find((t) => t.tokenId === row.sourceTokenId)
+                          ?.chainType || '-'}
+                        )
+                      </span>
+                    </DetailField>
+                    <DetailField label="Target Token">
+                      <span className="font-mono">
+                        {row.targetTokenCode} ({row.targetBankCode || '-'} /{' '}
+                        {tokenOptions.find((t) => t.tokenId === row.targetTokenId)
+                          ?.chainType || '-'}
+                        )
+                      </span>
+                    </DetailField>
+                    <DetailField label="Base Rate">
+                      <span className="font-mono tabular-nums">
+                        {row.baseRate === null || row.baseRate === ''
+                          ? '--'
+                          : String(row.baseRate)}
+                      </span>
+                    </DetailField>
+                    <DetailField label="Markup Rate">
+                      <span className="font-mono tabular-nums">
+                        {row.markupRate === null || row.markupRate === ''
+                          ? '--'
+                          : String(row.markupRate)}
+                      </span>
+                    </DetailField>
+                    <DetailField label="Default Split">
+                      <span className="font-mono tabular-nums">
+                        {row.defaultSplitRatio === null || row.defaultSplitRatio === ''
+                          ? '--'
+                          : String(row.defaultSplitRatio)}
+                      </span>
+                    </DetailField>
+                  </dl>
+                </div>
+
+                {/* 审计（§6.3）：pairCode（可复制）+ 创建时间 */}
+                <div className="border-t border-border/50 pt-4">
+                  <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                    <DetailField label="Pair Code">
+                      <CopyableEllipsisText
+                        value={row.pairCode}
+                        emptyText="--"
+                        maxWidth={200}
+                        className="font-mono"
+                      />
+                    </DetailField>
+                    <DetailField label="Created At">
+                      <span className="tabular-nums">{formatTime(row.createTime)}</span>
+                    </DetailField>
+                  </dl>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No pair data.</p>
+            )
           )}
 
           <DialogFooter>
