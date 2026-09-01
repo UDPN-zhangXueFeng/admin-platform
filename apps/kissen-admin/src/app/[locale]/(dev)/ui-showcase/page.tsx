@@ -288,7 +288,7 @@ export default function UiShowcasePage() {
               page: 1,
               pageSize: 10,
               total: ROWS.length,
-              onPageChange: () => {},
+              onPageChange: () => undefined,
             }}
           />
         </Section>

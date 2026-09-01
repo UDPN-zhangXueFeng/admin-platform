@@ -35,3 +35,10 @@
 13. **model 字段以上游 VO 全量对照，不按「页面用到多少」猜**：`TokenPairRow` 初版漏了 `targetBankCode/baseRate/markupRate/defaultSplitRatio` 四个 VO 字段（列表列与弹窗回显全依赖），feature 层大面积 TS2339 才暴露。新批次同步时先 `git show <sha>:src/api/*.ts` 把 interface 逐字段抄全，再写 UI。
 14. **行内编辑工具的 auto-repair 会留旧行**（边界 echo 修复仅删重，不保证语法闭合）：大段替换后必须重读改动区域确认括号/注释闭合，本轮 3 次错位均靠「编辑响应的 syntax error 警告 + 立即重读」当场修复。
 15. **审批流改造的 UI 摘除要清干净三层**：api 函数（`setTokenPairDefaultSplit`）→ mutation hook → feature 弹窗与按钮，漏一层 tsc 才报 unused/dead 引用；barrel 为 `export *` 时 api 层删除即全链路失效，无单独 barrel 改动点。
+
+## v2.0-tokenization 增量批次（2023418..1a871d1，2026-09-01）
+
+16. **agent 插列会留重复列定义**：往 DataTable 列数组插入新列（如 Disbursement Pool）时，实现 agent 可能并列而非替换旧列，页面上同名表头出现两次才暴露。冒烟时核对 `thead` 表头全序；事后 `CUT` 重复列 + `tsc` 复验。
+17. **同一 app 不能双 dev 实例**：`.next/dev/lock` 互斥，第二个 `nx dev` 直接 exit 1。需要 stub 数据态时先停真实后端实例再起 stub 指向实例（复用同端口），测完再切回。
+18. **stub fixture 的 admin 信封必须 `code:'0'`（字符串）**：kissen-client `isKissenResult` 按字符串判成功；旧 fixture 的 `code: 200`（数字）会让 kissenPage 拿到 undefined rows，页面静默空表。见 stub-server.mjs `adminOk` helper。
+19. **真实后端优先冒烟，stub 兜 populated 态**：真实环境常缺新字段数据（本轮 settle 空、lp-pair baseRate 恰有值）。渲染结构走真实后端验证，数据渲染（三列换算、弹窗条目）走 stub fixture；两层都过才算冒烟完成。

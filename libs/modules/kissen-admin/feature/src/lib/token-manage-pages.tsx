@@ -14,10 +14,12 @@
 import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useQueryClient } from '@tanstack/react-query';
+import { Copy, Info } from 'lucide-react';
 import type { TableRowAction } from '@myorg/shared/ui';
 
 import {
   Alert,
+  AlertDescription,
   AlertTitle,
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +45,8 @@ import {
   DrawerHeader,
   DrawerTitle,
   Input,
+  Label,
+  PasswordField,
   Select,
   SelectContent,
   SelectItem,
@@ -63,6 +67,8 @@ import {
   INSTANCE_STATUS_LABEL,
   INSTANCE_STATUS_VARIANT,
   KISSEN_PROJECT_ID,
+  SPENDER_STATUS_LABEL,
+  SPENDER_STATUS_VARIANT,
   TOKEN_STATUS_LABEL,
   TOKEN_STATUS_VARIANT,
   gatewayInstanceKeys,
@@ -75,6 +81,9 @@ import {
   useInstanceRegisterMutation,
   useInstanceResetKeyMutation,
   useInstanceVerifyMutation,
+  useSpenderListQuery,
+  useSpenderSaveMutation,
+  useSpenderStatusMutation,
   useTokenAdjustMinLiquidityMutation,
   useTokenApproveMutation,
   useTokenDisableMutation,
@@ -370,6 +379,8 @@ export function TokenManageListPage() {
   }, []);
 
   // 弹窗状态：prompt（审核/驳回/调整）+ confirm（停用/启用）。
+  // 解付 Spender 抽屉（源 spenderToken ref；v-if 卸载式，关闭不刷新主列表）。
+  const [spenderToken, setSpenderToken] = React.useState<TokenRow | null>(null);
   const [promptRequest, setPromptRequest] = React.useState<PromptRequest | null>(null);
   const [confirmRequest, setConfirmRequest] = React.useState<ConfirmRequest | null>(null);
 
@@ -588,6 +599,7 @@ export function TokenManageListPage() {
         if (item.status === 20) {
           actions.push(
             { label: 'Adjust Min Liquidity', onClick: () => onAdjustMinLiquidity(item) },
+            { label: 'Disburse Spender', onClick: () => setSpenderToken(item) },
             { label: 'Disable', destructive: true, onClick: () => onDisable(item) },
           );
         }
@@ -716,7 +728,299 @@ export function TokenManageListPage() {
 
       <PromptDialog request={promptRequest} onClose={() => setPromptRequest(null)} />
       <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
+      {spenderToken ? (
+        <SpenderDrawer token={spenderToken} onClose={() => setSpenderToken(null)} />
+      ) : null}
     </div>
+  );
+}
+
+/* ================================================================== */
+/* 解付 Spender 抽屉（源 onboard/token/spender-drawer.vue，commit       */
+/* 5ace899；v-if 卸载式，打开即拉注册表）                                */
+/* ================================================================== */
+
+/**
+ * token 级解付签名身份维护（2026-08-31 解付签名模型改造）：
+ * 当前配置展示（地址可复制）+ 启停（AlertDialog 确认）+ 录入/轮换同一表单。
+ * 私钥 write-only：密文落库不回显、不预填（PasswordField 手输可见性切换）。
+ * save/status 成功后仅失效本域（tokenId 维度）缓存——源 drawer 内 load()
+ * 只重取自身，抽屉关闭不刷新 Token 主列表。
+ */
+function SpenderDrawer({
+  token,
+  onClose,
+}: {
+  token: TokenRow;
+  onClose: () => void;
+}) {
+  const toast = useToast();
+  // token 级单条注册：rows[0] 即当前配置（源 current）。
+  const { data, isLoading } = useSpenderListQuery(KISSEN_PROJECT_ID, token.tokenId);
+  const current = data && data.length > 0 ? data[0] : null;
+
+  const saveMutation = useSpenderSaveMutation(KISSEN_PROJECT_ID);
+  const statusMutation = useSpenderStatusMutation(KISSEN_PROJECT_ID);
+
+  // 源：已登记时表单默认收起（「轮换 / 修改」展开）；未登记常显录入表单。
+  const [formOpen, setFormOpen] = React.useState(false);
+  const [spenderAddress, setSpenderAddress] = React.useState('');
+  const [privateKey, setPrivateKey] = React.useState('');
+  const [remarks, setRemarks] = React.useState('');
+  const [confirmRequest, setConfirmRequest] = React.useState<ConfirmRequest | null>(null);
+
+  // 源 load()：已登记时地址/备注预填；私钥永不回显。
+  React.useEffect(() => {
+    setSpenderAddress(current?.spenderAddress ?? '');
+    setRemarks(current?.remarks ?? '');
+  }, [current]);
+
+  /** 录入/轮换（源 onSave）：地址+私钥必填；已登记且地址变化 → 覆盖二次确认。 */
+  const onSave = () => {
+    const address = spenderAddress.trim();
+    const key = privateKey.trim();
+    if (!address || !key) {
+      toast.warning('Spender address and private key are required');
+      return;
+    }
+    const doSave = () => {
+      saveMutation.mutate(
+        {
+          tokenId: token.tokenId,
+          spenderAddress: address,
+          privateKey: key,
+          remarks: remarks.trim() || undefined,
+        },
+        {
+          onSuccess: () => {
+            toast.success(current ? 'Rotated (enabled)' : 'Saved');
+            setPrivateKey('');
+            setFormOpen(false);
+          },
+          onError: (e) => toast.error((e as Error).message),
+        },
+      );
+    };
+    if (current && current.spenderAddress !== address) {
+      setConfirmRequest({
+        title: 'Confirm Rotation',
+        message:
+          'Rotation will overwrite the existing address and private key. Confirm the LP has authorized the new address in the currency system; otherwise disbursement for this token will fail.',
+        confirmText: 'Rotate',
+        destructive: true,
+        onConfirm: doSave,
+      });
+      return;
+    }
+    doSave();
+  };
+
+  /** 启停（源 onToggle）：停用 = 该 token 解付冻结。 */
+  const onToggle = () => {
+    if (!current) return;
+    const disable = current.status === 20;
+    setConfirmRequest({
+      title: disable ? 'Disable Spender' : 'Enable Spender',
+      message: disable
+        ? 'After disabling, disbursement for this token will be frozen (disbursement calls will fail). Confirm disabling?'
+        : 'Confirm enabling this spender?',
+      confirmText: disable ? 'Disable' : 'Enable',
+      destructive: disable,
+      onConfirm: () => {
+        statusMutation.mutate(
+          { tokenId: token.tokenId, disabled: disable },
+          {
+            onSuccess: () =>
+              toast.success(disable ? 'Spender disabled' : 'Spender enabled'),
+            onError: (e) => toast.error((e as Error).message),
+          },
+        );
+      },
+    });
+  };
+
+  /** 地址复制（源 copyAddress；失败提示手动选择）。 */
+  const copyAddress = () => {
+    if (!current) return;
+    navigator.clipboard
+      .writeText(current.spenderAddress)
+      .then(() => toast.success('Copied'))
+      .catch(() => toast.warning('Copy failed; select and copy manually'));
+  };
+
+  const showForm = !current || formOpen;
+
+  return (
+    <Drawer open onOpenChange={(open) => !open && onClose()}>
+      <DrawerContent className="w-[560px] max-w-none sm:max-w-[560px]">
+        <DrawerHeader>
+          <DrawerTitle>Disburse Spender</DrawerTitle>
+          <DrawerDescription>
+            {`${token.tokenName || token.tokenCode} · ${token.bankName || '--'}`}
+          </DrawerDescription>
+        </DrawerHeader>
+
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
+          {/* 源 el-alert info：抽屉定位说明 */}
+          <Alert>
+            <Info className="h-4 w-4 shrink-0" />
+            <AlertTitle>Disbursement signing wallet for this token</AlertTitle>
+            <AlertDescription>
+              The LP must authorize the pool wallet to the Spender address for
+              this tokenCode in the currency system before Kissen can execute
+              disbursement transfers.
+            </AlertDescription>
+          </Alert>
+
+          {isLoading ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Loading...
+            </p>
+          ) : current ? (
+            <>
+              {/* 当前配置（源 el-descriptions） */}
+              <div className="space-y-3 rounded-lg border border-border/60 bg-card p-4">
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Spender Address</div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 break-all font-mono text-sm">
+                      {current.spenderAddress}
+                    </div>
+                    {/* 复制贴近字段（§6.3）：与 bank-onboard 一次性密钥同式 */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={copyAddress}
+                    >
+                      <Copy className="mr-1.5 h-4 w-4" />
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Status</div>
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <Badge
+                      variant={SPENDER_STATUS_VARIANT[current.status] ?? 'destructive'}
+                    >
+                      {SPENDER_STATUS_LABEL[current.status] ?? current.status}
+                    </Badge>
+                    {current.status !== 20 ? (
+                      <span className="text-xs text-muted-foreground">
+                        Disbursement frozen for this token
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Updated At</div>
+                  <div className="text-sm tabular-nums">
+                    {formatTime(current.updateTime)}
+                  </div>
+                </div>
+                {current.remarks ? (
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground">Remarks</div>
+                    <div className="text-sm">{current.remarks}</div>
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={current.status === 20 ? 'destructive' : 'default'}
+                  disabled={statusMutation.isPending}
+                  onClick={onToggle}
+                >
+                  {current.status === 20 ? 'Disable' : 'Enable'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setFormOpen(true)}
+                >
+                  Rotate / Edit
+                </Button>
+              </div>
+            </>
+          ) : (
+            /* 源 el-empty：未配置（该 token 解付将报错，请先录入） */
+            <div className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+              Not configured — disbursement for this token will fail. Register a
+              spender below.
+            </div>
+          )}
+
+          {/* 录入/轮换表单（源 v-if="showForm || !current"） */}
+          {showForm ? (
+            <form
+              className="space-y-4 rounded-lg border border-border/60 bg-card p-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                onSave();
+              }}
+            >
+              {current ? (
+                /* 轮换运维顺序硬提示（源 rotate-hint，warning 色） */
+                <Alert variant="warning">
+                  <AlertTitle>Rotation order</AlertTitle>
+                  <AlertDescription>
+                    ① The LP first authorizes the pool wallet to the NEW
+                    spender address in the currency system → ② save the form
+                    below → ③ after verifying, disable the old address. Saving
+                    again immediately replaces the old key.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              <div className="space-y-1.5">
+                <Label htmlFor="spender-address">
+                  Spender Address
+                  <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+                </Label>
+                <Input
+                  id="spender-address"
+                  value={spenderAddress}
+                  placeholder="0x… (Kissen trading wallet address)"
+                  onChange={(e) => setSpenderAddress(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="spender-private-key">
+                  Private Key
+                  <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+                </Label>
+                {/* write-only：不回显不预填，仅本次提交（密文落库） */}
+                <PasswordField
+                  id="spender-private-key"
+                  value={privateKey}
+                  autoComplete="off"
+                  placeholder="secp256k1 private key hex (submitted once, stored encrypted, never displayed)"
+                  onChange={(e) => setPrivateKey(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="spender-remarks">Remarks</Label>
+                <Input
+                  id="spender-remarks"
+                  value={remarks}
+                  placeholder="e.g. 2026-08 rotation"
+                  onChange={(e) => setRemarks(e.target.value)}
+                />
+              </div>
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {current ? 'Rotate Key' : 'Save'}
+              </Button>
+            </form>
+          ) : null}
+        </div>
+
+        <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
+      </DrawerContent>
+    </Drawer>
   );
 }
 

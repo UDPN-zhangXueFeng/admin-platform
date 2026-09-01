@@ -84,7 +84,6 @@ import {
   useWorkflowSaveMutation,
   useWorkflowStatusMutation,
   useWorkflowUpdateMutation,
-  WORKFLOW_BUSINESS_OPTIONS,
   WORKFLOW_STATUS_LABEL,
   WORKFLOW_STATUS_VARIANT,
   WORKFLOW_STEP_TYPE_LABEL,
@@ -2186,14 +2185,6 @@ function wfFilterToBusCode(form: WorkflowFilterForm): string | undefined {
   return form.busCode === ALL ? undefined : form.busCode;
 }
 
-const WF_BUS_OPTIONS = [
-  optAll(),
-  ...WORKFLOW_BUSINESS_OPTIONS.map((b) => ({
-    value: b.code,
-    label: `${b.code} ${b.name}`,
-  })),
-];
-
 export function WorkflowConfigListPage() {
   const router = useRouter();
   const toast = useToast();
@@ -2212,6 +2203,25 @@ export function WorkflowConfigListPage() {
   const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
 
   const rows = data ?? [];
+
+  /**
+   * 业务类型筛选下拉：动态合成（可配置业务 businesses ∪ 已配置列表 rows 未覆盖的
+   * busCode），按 code 字典序——数据源 sys_business，随后端数据修正自动对齐，
+   * 不再硬编码业务清单（源 v2.0 815cfc1；label 为 `code name`）。
+   */
+  const wfBusOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const b of businesses ?? []) map.set(b.businessCode, b.businessName);
+    for (const r of rows) {
+      if (!map.has(r.businessCode)) map.set(r.businessCode, r.businessName);
+    }
+    return [
+      optAll(),
+      ...[...map.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([code, name]) => ({ value: code, label: `${code} ${name}` })),
+    ];
+  }, [businesses, rows]);
 
   const onSearch = React.useCallback((form: WorkflowFilterForm) => {
     setBusCode(wfFilterToBusCode(form));
@@ -2336,7 +2346,7 @@ export function WorkflowConfigListPage() {
             control={control}
             label="Business Type"
             placeholder="All"
-            options={WF_BUS_OPTIONS}
+            options={wfBusOptions}
           />
         </div>
         <div className="mt-4 flex gap-2">

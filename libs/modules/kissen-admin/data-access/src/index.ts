@@ -42,6 +42,7 @@ export * from './lib/lp-preauth';
 export * from './lib/lp-pair';
 export * from './lib/token';
 export * from './lib/token-pair';
+export * from './lib/disburse-spender';
 export * from './lib/gateway-instance';
 export * from './lib/access-key';
 export * from './lib/bank-interact';

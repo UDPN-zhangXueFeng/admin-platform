@@ -12,7 +12,15 @@ export const settleOrderKeys = {
   /** 结算单分项（展开行懒加载，orderId 维度缓存）。 */
   items: (projectId: string, orderId: number) =>
     [...settleOrderKeys.all(projectId), 'items', orderId] as const,
-  /** LP 选项（生成结算单弹窗 / 筛选下拉数据源）。 */
+  /** token 对分项逐笔结算明细（orderId × pairId 维度缓存）。 */
+  itemRecords: (projectId: string, orderId: number, pairId: number) =>
+    [
+      ...settleOrderKeys.all(projectId),
+      'itemRecords',
+      orderId,
+      pairId,
+    ] as const,
+  /** LP 选项（列表筛选下拉数据源）。 */
   lpOptions: (projectId: string) =>
     [...settleOrderKeys.all(projectId), 'lpOptions'] as const,
 } as const;

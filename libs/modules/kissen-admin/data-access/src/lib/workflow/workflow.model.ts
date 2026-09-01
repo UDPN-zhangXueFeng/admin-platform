@@ -82,22 +82,3 @@ export const WORKFLOW_STEP_TYPE_LABEL: Record<number, string> = {
   5: 'Review',
   10: 'Notify',
 };
-
-/**
- * 九类审批业务（源 `views/system/workflow/index.vue` busCodes 常量 +
- * `views/approval/status.ts` BUSINESS_NAME_MAP）。供列表筛选下拉与展示。
- */
-export const WORKFLOW_BUSINESS_OPTIONS: ReadonlyArray<{
-  code: string;
-  name: string;
-}> = [
-  { code: 'kissen_bank_onboard', name: 'Bank Onboarding Approval' },
-  { code: 'kissen_lp_onboard', name: 'LP Onboarding Approval' },
-  { code: 'kissen_lp_pair', name: 'LP Currency Pair Participation Change' },
-  { code: 'kissen_rate_change', name: 'Exchange Rate / Markup Rate Change' },
-  { code: 'kissen_pair_toggle', name: 'Currency Pair Enable/Disable' },
-  { code: 'kissen_freeze', name: 'Emergency Freeze/Unfreeze' },
-  { code: 'kissen_settle_confirm', name: 'Settlement Confirmation' },
-  { code: 'kissen_split_transfer', name: 'Revenue Share Transfer' },
-  { code: 'kissen_limit_change', name: 'Bank Limit Change' },
-];

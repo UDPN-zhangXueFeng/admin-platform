@@ -13,10 +13,14 @@ export interface LpPoolRow {
   /** v2.0 token 维度（currency 列已废弃）。 */
   tokenId: number;
   tokenCode: string;
+  /** token 缩写（symbol 优先回退 code；Token 列主显，code 悬浮可见；旧数据可缺失）。 */
+  tokenSymbol?: string;
   tokenNo: string;
   /** token 级最低流动性（水位分母，联查 token_info.min_liquidity；缺失/≤0 时水位整列 '-'）。 */
   minLiquidity: string | number;
   accountAddress: string;
+  /** 1=当前出款池（多池模型 2026-09-01；LP 门户手动切换；旧数据可缺失）。 */
+  activeFlag?: number;
   /** 货币系统形态：1 链上 EVM / 2 Aptos / 3 内部系统。 */
   currencySystemType: number;
   /** 低水位提醒阈值（0~1 比率）。 */

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   ChevronDown,
@@ -12,10 +12,6 @@ import {
 } from 'lucide-react';
 
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
   Alert,
   AlertDescription,
   AlertTitle,
@@ -51,7 +47,7 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
-import { FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormSelect } from '@myorg/shared/ui-forms';
 
 import {
   KISSEN_PROJECT_ID,
@@ -65,14 +61,15 @@ import {
   SETTLE_PERIOD_TYPE_LABEL,
   useLpSettleCycleListQuery,
   useLpSettleCycleSaveMutation,
+  useSettleItemRecordsQuery,
   useSettleLpOptionsQuery,
   useSettleOrderConfirmMutation,
   useSettleOrderDetailQuery,
-  useSettleOrderGenerateMutation,
   useSettleOrderItemsQuery,
   useSettleOrderListQuery,
   useSettleOrderVoidMutation,
   type LpRow,
+  type SettleItemRecordRow,
   type SettleOrderItemRow,
   type SettleOrderRow,
 } from '@myorg/modules/kissen-admin/data-access';
@@ -193,172 +190,6 @@ function settleFilterToParams(
   };
 }
 
-/** 生成结算单弹窗（源 generate-dialog.vue）。 */
-function SettleOrderGenerateDialog({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  const toast = useToast();
-  const { data: lpOptions } = useSettleLpOptionsQuery(KISSEN_PROJECT_ID, open);
-  const generateMutation = useSettleOrderGenerateMutation(KISSEN_PROJECT_ID);
-
-  interface GenerateForm {
-    lpId: string;
-    periodType: string;
-    periodStart: string;
-    periodEnd: string;
-  }
-
-  const {
-    control,
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<GenerateForm>({
-    defaultValues: { lpId: '', periodType: '', periodStart: '', periodEnd: '' },
-  });
-
-  // §6.4：guard 判定不变（FormSelect 不透传 rules），错误同步下沉到字段旁；改选即清。
-  const [selectErrors, setSelectErrors] = React.useState<{
-    lpId?: string;
-    periodType?: string;
-  }>({});
-
-  // 每次打开重置表单（避免上次残留）。
-  React.useEffect(() => {
-    if (open) {
-      reset({ lpId: '', periodType: '', periodStart: '', periodEnd: '' });
-      setSelectErrors({});
-    }
-  }, [open, reset]);
-  const lpIdValue = useWatch({ control, name: 'lpId' });
-  const periodTypeValue = useWatch({ control, name: 'periodType' });
-  React.useEffect(() => {
-    setSelectErrors((prev) => (prev.lpId ? { ...prev, lpId: undefined } : prev));
-  }, [lpIdValue]);
-  React.useEffect(() => {
-    setSelectErrors((prev) =>
-      prev.periodType ? { ...prev, periodType: undefined } : prev,
-    );
-  }, [periodTypeValue]);
-  const lpSelectOptions = React.useMemo(
-    () => (lpOptions ?? []).map((lp) => ({
-      value: String(lp.lpId),
-      label: `${lp.lpName}(${lp.lpCode})`,
-    })),
-    [lpOptions],
-  );
-
-  const onSubmit = handleSubmit((values) => {
-    const lpId = Number(values.lpId);
-    const periodType = Number(values.periodType);
-    // 源 generate-dialog.vue rules：lpId/periodType 必填（「请选择 LP」「请选择周期类型」）。
-    // FormSelect 不透传 Controller rules，按工单约定在提交处手动 guard。
-    if (!Number.isFinite(lpId) || lpId <= 0) {
-      setSelectErrors((prev) => ({ ...prev, lpId: 'Please select an LP' }));
-      toast.warning('Please select an LP');
-      return;
-    }
-    if (!Number.isFinite(periodType) || periodType <= 0) {
-      setSelectErrors((prev) => ({ ...prev, periodType: 'Please select a period type' }));
-      toast.warning('Please select a period type');
-      return;
-    }
-    const periodStart = values.periodStart
-      ? new Date(values.periodStart).getTime()
-      : undefined;
-    const periodEnd = values.periodEnd
-      ? new Date(values.periodEnd).getTime()
-      : undefined;
-    generateMutation.mutate(
-      { lpId, periodType, periodStart, periodEnd },
-      {
-        onSuccess: (res) => {
-          toast.success(`Settlement order generated, order ID ${res.orderId}`);
-          onClose();
-        },
-        onError: (err) => toast.error((err as Error).message),
-      },
-    );
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>Generate Settlement Order</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <FormSelect
-            name="lpId"
-            control={control}
-            label="LP"
-            required
-            placeholder="Select LP"
-            options={lpSelectOptions}
-            error={selectErrors.lpId ?? (errors.lpId ? 'Please select an LP' : undefined)}
-          />
-          <FormSelect
-            name="periodType"
-            control={control}
-            label="Period Type"
-            required
-            placeholder="Select period type"
-            options={[
-              { value: '1', label: 'Daily' },
-              { value: '2', label: 'Weekly' },
-              { value: '3', label: 'Monthly' },
-            ]}
-            error={
-              selectErrors.periodType ??
-              (errors.periodType ? 'Please select a period type' : undefined)
-            }
-          />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField
-              name="periodStart"
-              label="Period Start"
-              type="datetime-local"
-              register={register('periodStart')}
-            />
-            <FormField
-              name="periodEnd"
-              label="Period End"
-              type="datetime-local"
-              register={register('periodEnd', {
-                validate: (v, vals) => {
-                  if (v && vals.periodStart) {
-                    if (new Date(v).getTime() <= new Date(vals.periodStart).getTime()) {
-                      return 'Period end must be later than period start';
-                    }
-                  }
-                  return true;
-                },
-              })}
-              error={errors.periodEnd?.message}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Period start and end are optional; leave blank to use the backend default period window.
-          </p>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={generateMutation.isPending}>
-              Generate
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 /** 结算单详情弹窗（源 view-dialog.vue；§G 裁决5：640px 只读弹窗，单据层无金额字段）。 */
 function SettleOrderViewDialog({
   orderId,
@@ -440,7 +271,14 @@ function SettleOrderViewDialog({
 }
 
 /* 结算单分项面板（源 index.vue 展开行：meta 行 + token 对分项表，懒加载）。 */
-function SettleOrderItemsPanel({ order }: { order: SettleOrderRow }) {
+function SettleOrderItemsPanel({
+  order,
+  onItemRecords,
+}: {
+  order: SettleOrderRow;
+  /** 分项「Settlement details」：携 orderId + pairId 打开逐笔结算明细弹窗。 */
+  onItemRecords: (item: SettleOrderItemRow) => void;
+}) {
   const { data: items, isLoading } = useSettleOrderItemsQuery(
     KISSEN_PROJECT_ID,
     order.orderId,
@@ -478,6 +316,7 @@ function SettleOrderItemsPanel({ order }: { order: SettleOrderRow }) {
                 <th className={`${GROUP_TH} text-right`}>Principal Total</th>
                 <th className={`${GROUP_TH} text-right`}>Markup Total</th>
                 <th className={`${GROUP_TH} text-right`}>LP Share</th>
+                <th className={`${GROUP_TH} text-right`}>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
@@ -491,6 +330,17 @@ function SettleOrderItemsPanel({ order }: { order: SettleOrderRow }) {
                   <td className={`${GROUP_TD} text-right font-semibold text-emerald-600 tabular-nums dark:text-emerald-400`}>
                     {formatMoney(item.lpSplitTotal)}
                   </td>
+                  {/* 源 el-button link「结算明细」→ Settlement details（2026-08-28 cede878）。 */}
+                  <td className={`${GROUP_TD} text-right`}>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() => onItemRecords(item)}
+                    >
+                      Settlement details
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -501,27 +351,119 @@ function SettleOrderItemsPanel({ order }: { order: SettleOrderRow }) {
   );
 }
 
-/** LP 分组内单据小表（源 index.vue group-table：expand / 周期 / 起止 / ID / 笔数 / 状态 / 创建 / 操作）。 */
-function SettleOrderGroupTable({
-  group,
+/** 结算明细弹窗目标（源 detailCtx：orderId × pairId + 标题用 pairCode）。 */
+interface SettleItemRecordsTarget {
+  orderId: number;
+  pairId: number;
+  pairCode: string;
+}
+
+/**
+ * 结算明细内容（源 index.vue detailRows 表：交易单号/本金/加价/管理分成/LP 分成/结算时间）。
+ * 按 orderId×pairId 作 key 重挂载——换目标即清空旧数据重新查询（源 openItemRecords 语义）；
+ * 失败静默（拦截层已 toast），无数据走空态文案；recordTime 毫秒转日期。
+ */
+function SettleItemRecordsDialogContent({ target }: { target: SettleItemRecordsTarget }) {
+  const { data, isLoading } = useSettleItemRecordsQuery(
+    KISSEN_PROJECT_ID,
+    target.orderId,
+    target.pairId,
+  );
+  const list = data ?? [];
+
+  return isLoading ? (
+    <LoadingBlock />
+  ) : list.length === 0 ? (
+    <p className="py-6 text-center text-sm text-muted-foreground">
+      No settlement records for this token pair within the order period
+    </p>
+  ) : (
+    <div className="overflow-x-auto rounded-md border border-border/50 bg-card">
+      <table className="w-full min-w-max caption-bottom text-sm">
+        <thead className="bg-muted/50">
+          <tr>
+            <th className={GROUP_TH}>Tx No</th>
+            <th className={`${GROUP_TH} text-right`}>Principal</th>
+            <th className={`${GROUP_TH} text-right`}>Markup Amount</th>
+            <th className={`${GROUP_TH} text-right`}>Admin Split</th>
+            <th className={`${GROUP_TH} text-right`}>LP Split</th>
+            <th className={GROUP_TH}>Record Time</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border/50">
+          {list.map((row: SettleItemRecordRow, idx: number) => (
+            <tr
+              key={row.txNo || `record-${idx}`}
+              className="motion-safe:transition-colors hover:bg-muted/50"
+            >
+              <td className={`${GROUP_TD} tabular-nums`}>{row.txNo || '-'}</td>
+              <td className={`${GROUP_TD} text-right tabular-nums`}>{formatMoney(row.principal)}</td>
+              <td className={`${GROUP_TD} text-right tabular-nums`}>{formatMoney(row.markupAmount)}</td>
+              <td className={`${GROUP_TD} text-right tabular-nums`}>{formatMoney(row.adminSplitAmount)}</td>
+              {/* 源 .highlight：LP 分成高亮绿 → 主题 green 语义色（禁止上游 hex 直写）。 */}
+              <td className={`${GROUP_TD} text-right font-semibold text-emerald-600 tabular-nums dark:text-emerald-400`}>
+                {formatMoney(row.lpSplitAmount)}
+              </td>
+              <td className={`${GROUP_TD} whitespace-nowrap tabular-nums`}>
+                {formatTimestamp(row.recordTime)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** 结算明细弹窗（源 el-dialog width 780px，标题「结算明细 — {pairCode}」，无分页）。 */
+function SettleItemRecordsDialog({
+  target,
+  onClose,
+}: {
+  target: SettleItemRecordsTarget | null;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={!!target} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-[780px]">
+        <DialogHeader>
+          <DialogTitle>
+            Settlement Details —{' '}
+            {target ? target.pairCode || `pair #${target.pairId}` : ''}
+          </DialogTitle>
+        </DialogHeader>
+        {target ? (
+          <SettleItemRecordsDialogContent
+            key={`${target.orderId}-${target.pairId}`}
+            target={target}
+          />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * 扁平结算单表（源 v2.3.2 index.vue，2026-08-28 71c6077 撤 LP 分组折叠）：
+ * expand / Order ID / LP / 周期 / 周期起止 / 笔数 / 状态 / 创建时间 / 操作。
+ * LP 降为普通列，服务端分页扛量；token 对分项保留单层展开懒加载。
+ */
+function SettleOrdersTable({
+  orders,
   expandedOrders,
   onToggleOrder,
   onView,
   onConfirm,
   onVoid,
+  onItemRecords,
 }: {
-  group: {
-    key: string;
-    lpName: string;
-    orders: SettleOrderRow[];
-    totalTx: number;
-    pending: number;
-  };
+  orders: SettleOrderRow[];
   expandedOrders: ReadonlySet<number>;
   onToggleOrder: (orderId: number) => void;
   onView: (row: SettleOrderRow) => void;
   onConfirm: (row: SettleOrderRow) => void;
   onVoid: (row: SettleOrderRow) => void;
+  onItemRecords: (order: SettleOrderRow, item: SettleOrderItemRow) => void;
 }) {
   return (
     <div className="overflow-x-auto rounded-md border border-border/50 bg-card">
@@ -529,10 +471,11 @@ function SettleOrderGroupTable({
         <thead className="bg-muted/50">
           <tr>
             <th className={`${GROUP_TH} w-10`} />
+            <th className={`${GROUP_TH} text-right`}>Order ID</th>
+            <th className={GROUP_TH}>LP</th>
             <th className={GROUP_TH}>Period</th>
-            <th className={GROUP_TH}>Period Start/End</th>
-            <th className={`${GROUP_TH} text-right`}>Settlement Order ID</th>
-            <th className={`${GROUP_TH} text-right`}>Txn Count</th>
+            <th className={GROUP_TH}>Period Range</th>
+            <th className={`${GROUP_TH} text-right`}>Tx Count</th>
             <th className={GROUP_TH}>
               <TooltipProvider>
                 <Tooltip>
@@ -550,7 +493,7 @@ function SettleOrderGroupTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-border/50">
-          {group.orders.map((order) => {
+          {orders.map((order) => {
             const expanded = expandedOrders.has(order.orderId);
             return (
               <React.Fragment key={order.orderId}>
@@ -567,13 +510,28 @@ function SettleOrderGroupTable({
                       />
                     </button>
                   </td>
+                  <td className={`${GROUP_TD} text-right tabular-nums`}>{order.orderId}</td>
+                  <td className={GROUP_TD}>
+                    {/* 源 show-overflow-tooltip：截断 + tooltip 兜底显全名。 */}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="block max-w-[220px] truncate">
+                            {order.lpName || `LP #${order.lpId}`}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {order.lpName || `LP #${order.lpId}`}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </td>
                   <td className={GROUP_TD}>
                     <Badge variant="outline">{periodTypeLabel(order.periodType)}</Badge>
                   </td>
                   <td className={`${GROUP_TD} whitespace-nowrap tabular-nums`}>
                     {formatTimestamp(order.periodStart)} ~ {formatTimestamp(order.periodEnd)}
                   </td>
-                  <td className={`${GROUP_TD} text-right tabular-nums`}>{order.orderId}</td>
                   <td className={`${GROUP_TD} text-right tabular-nums`}>{order.txCount}</td>
                   <td className={GROUP_TD}>
                     <Badge variant={SETTLE_ORDER_STATUS_VARIANT[order.status] ?? 'outline'}>
@@ -616,8 +574,11 @@ function SettleOrderGroupTable({
                 </tr>
                 {expanded && (
                   <tr>
-                    <td colSpan={8} className="border-t border-border/50 bg-muted/30 px-4 py-3">
-                      <SettleOrderItemsPanel order={order} />
+                    <td colSpan={9} className="border-t border-border/50 bg-muted/30 px-4 py-3">
+                      <SettleOrderItemsPanel
+                        order={order}
+                        onItemRecords={(item) => onItemRecords(order, item)}
+                      />
                     </td>
                   </tr>
                 )}
@@ -630,8 +591,8 @@ function SettleOrderGroupTable({
   );
 }
 
-/** 结算单 LP 分组布局专用分页条（样式对齐 shared DataTable 分页；组表无法内嵌 DataTable 分页）。 */
-function GroupPager({
+/** 结算单扁平表专用分页条（样式对齐 shared DataTable 分页；展开行表无法内嵌 DataTable 分页）。 */
+function SettleOrderPager({
   page,
   pageSize,
   total,
@@ -721,10 +682,11 @@ export function SettleOrderListPage() {
   const confirmMutation = useSettleOrderConfirmMutation(KISSEN_PROJECT_ID);
   const voidMutation = useSettleOrderVoidMutation(KISSEN_PROJECT_ID);
 
-  const [generateOpen, setGenerateOpen] = React.useState(false);
   const [viewTarget, setViewTarget] = React.useState<SettleOrderRow | null>(null);
   const [confirmTarget, setConfirmTarget] = React.useState<SettleOrderRow | null>(null);
   const [voidTarget, setVoidTarget] = React.useState<SettleOrderRow | null>(null);
+  const [itemRecordsTarget, setItemRecordsTarget] =
+    React.useState<SettleItemRecordsTarget | null>(null);
 
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
@@ -736,50 +698,6 @@ export function SettleOrderListPage() {
     }))],
     [lpOptions],
   );
-
-  /*
-   * 按 LP 分组折叠（源 index.vue lpGroups，2026-08-28）：组序随查询排序
-   * （lp_id, period_end DESC），key=String(lpId ?? lpName ?? '-')；
-   * 组头统计：单据数 / 笔数合计（txCount 求和）/ 待确认数（status===10）。
-   */
-  const lpGroups = React.useMemo(() => {
-    const out: {
-      key: string;
-      lpName: string;
-      orders: SettleOrderRow[];
-      totalTx: number;
-      pending: number;
-    }[] = [];
-    const byKey = new Map<string, {
-      key: string;
-      lpName: string;
-      orders: SettleOrderRow[];
-      totalTx: number;
-      pending: number;
-    }>();
-    for (const r of rows) {
-      const key = String(r.lpId ?? r.lpName ?? '-');
-      let g = byKey.get(key);
-      if (!g) {
-        g = { key, lpName: r.lpName || `LP #${key}`, orders: [], totalTx: 0, pending: 0 };
-        byKey.set(key, g);
-        out.push(g);
-      }
-      g.orders.push(r);
-      g.totalTx += r.txCount ?? 0;
-      if (r.status === 10) g.pending += 1;
-    }
-    return out;
-  }, [rows]);
-
-  // 新数据默认展开首组（源 watch(rows)：expandedGroups 为空时置首组 key）。
-  const [expandedGroups, setExpandedGroups] = React.useState<string[]>([]);
-  React.useEffect(() => {
-    if (!rows.length) return;
-    setExpandedGroups((prev) =>
-      prev.length ? prev : [String(rows[0].lpId ?? rows[0].lpName ?? '-')],
-    );
-  }, [rows]);
 
   /** 单据层展开（token 对分项懒加载），orderId 维度记忆。 */
   const [expandedOrders, setExpandedOrders] = React.useState<ReadonlySet<number>>(
@@ -844,7 +762,8 @@ export function SettleOrderListPage() {
   return (
     <div className="space-y-4">
       <section className="rounded-lg border border-border/60 bg-card">
-        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* 生成入口已撤（源 36298ec）：KISSEN_SETTLEMENT_ORDER_GEN 按结算周期自动生成，页面不触发。 */}
+        <div className="border-b border-border/50 px-4 py-3">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
             <div className="text-base font-semibold leading-6 text-foreground">
               Settlement Orders
@@ -860,9 +779,6 @@ export function SettleOrderListPage() {
               </span>
             ) : null}
           </div>
-          <Button type="button" size="sm" onClick={() => setGenerateOpen(true)}>
-            Generate Settlement Order
-          </Button>
         </div>
         <form
           onSubmit={handleSubmit(onSearch)}
@@ -920,45 +836,32 @@ export function SettleOrderListPage() {
           <div className="p-6">
             <LoadingBlock />
           </div>
-        ) : lpGroups.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No settlement orders
+            No settle orders
           </div>
         ) : (
-          <Accordion
-            type="multiple"
-            value={expandedGroups}
-            onValueChange={setExpandedGroups}
-          >
-            {lpGroups.map((g) => (
-              <AccordionItem key={g.key} value={g.key}>
-                <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                  <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                    {g.lpName}
-                    <Badge variant="outline">{g.orders.length} orders</Badge>
-                    <Badge variant="outline">{g.totalTx} txns</Badge>
-                    {g.pending > 0 ? (
-                      <Badge variant="secondary">{g.pending} pending confirmation</Badge>
-                    ) : null}
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="px-4 pb-4">
-                  <SettleOrderGroupTable
-                    group={g}
-                    expandedOrders={expandedOrders}
-                    onToggleOrder={onToggleOrder}
-                    onView={(row) => setViewTarget(row)}
-                    onConfirm={(row) => setConfirmTarget(row)}
-                    onVoid={(row) => setVoidTarget(row)}
-                  />
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+          <div className="px-4 pb-4">
+            <SettleOrdersTable
+              orders={rows}
+              expandedOrders={expandedOrders}
+              onToggleOrder={onToggleOrder}
+              onView={(row) => setViewTarget(row)}
+              onConfirm={(row) => setConfirmTarget(row)}
+              onVoid={(row) => setVoidTarget(row)}
+              onItemRecords={(order, item) =>
+                setItemRecordsTarget({
+                  orderId: order.orderId,
+                  pairId: item.pairId,
+                  pairCode: item.pairCode,
+                })
+              }
+            />
+          </div>
         )}
 
         {paginationMeta ? (
-          <GroupPager
+          <SettleOrderPager
             page={paginationMeta.page}
             pageSize={paginationMeta.pageSize}
             total={paginationMeta.total}
@@ -968,7 +871,10 @@ export function SettleOrderListPage() {
         ) : null}
       </section>
 
-      <SettleOrderGenerateDialog open={generateOpen} onClose={() => setGenerateOpen(false)} />
+      <SettleItemRecordsDialog
+        target={itemRecordsTarget}
+        onClose={() => setItemRecordsTarget(null)}
+      />
       {viewTarget ? (
         <SettleOrderViewDialog
           orderId={viewTarget.orderId}

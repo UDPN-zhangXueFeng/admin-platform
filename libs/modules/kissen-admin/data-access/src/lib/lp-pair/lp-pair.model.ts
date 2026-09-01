@@ -11,6 +11,12 @@ export interface LpPairRow {
   lpName: string;
   pairId: number;
   pairCode: string;
+  /** 汇率两字段（2026-08-31 并入展示；用户汇率=base÷(1+markup) 前端派生；旧数据可缺失，markup 可为 null）。 */
+  baseRate?: string | number | null;
+  markupRate?: string | number | null;
+  /** 双侧激活池地址（多池模型 2026-09-01：收=源侧/付=解付出款；旧数据可缺失）。 */
+  sourcePoolAddress?: string;
+  targetPoolAddress?: string;
   /** 值为 tokenCode（v2 token 化）。 */
   sourceCurrency: string;
   /** 值为 tokenCode（v2 token 化）。 */

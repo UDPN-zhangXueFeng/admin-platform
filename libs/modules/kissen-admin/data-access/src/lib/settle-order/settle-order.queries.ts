@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { settleOrderKeys } from './settle-order.keys';
 import {
+  getSettleItemRecords,
   getSettleLpOptions,
   getSettleOrderDetail,
   getSettleOrderItems,
@@ -38,7 +39,7 @@ export function useSettleOrderDetailQuery(
   });
 }
 
-/** LP 选项（生成结算单弹窗 / 列表筛选下拉数据源）。 */
+/** LP 选项（列表筛选下拉数据源）。 */
 export function useSettleLpOptionsQuery(projectId: string, enabled = true) {
   return useQuery({
     queryKey: settleOrderKeys.lpOptions(projectId),
@@ -61,5 +62,21 @@ export function useSettleOrderItemsQuery(
     queryFn: ({ signal }) => getSettleOrderItems(orderId, { signal }),
     enabled,
     staleTime: Infinity,
+  });
+}
+
+/**
+ * token 对分项逐笔结算明细（Settlement details 弹窗）。orderId/pairId 无效时不发起查询。
+ */
+export function useSettleItemRecordsQuery(
+  projectId: string,
+  orderId: number,
+  pairId: number,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: settleOrderKeys.itemRecords(projectId, orderId, pairId),
+    queryFn: ({ signal }) => getSettleItemRecords(orderId, pairId, { signal }),
+    enabled: enabled && orderId > 0 && pairId > 0,
   });
 }

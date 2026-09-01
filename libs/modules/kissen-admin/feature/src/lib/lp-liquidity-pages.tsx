@@ -1048,7 +1048,23 @@ interface LpPairViewFilter {
 }
 const LP_PAIR_VIEW_EMPTY: LpPairViewFilter = { lpId: '', pairId: '', tab: 'approved' };
 
-/** LP×Token 对紧凑单元格：token 对三行式（源 index.vue el-tooltip 展示银行名+pairCode）。 */
+/**
+ * 用户汇率 = 基础汇率 ÷ (1 + 加价率)（与 FX Rate Management 页/GW 口径一致，前端派生；
+ * base 缺失/非数 → '-'；markup null/非数按 0）。空串 base 需显式排除——Number('') 会静默转 0。
+ */
+function lpPairUserRateText(row: Pick<LpPairRow, 'baseRate' | 'markupRate'>): string {
+  const raw = row.baseRate;
+  const base = raw == null || raw === '' ? Number.NaN : Number(raw);
+  if (Number.isNaN(base)) return '-';
+  const markupRaw = row.markupRate == null ? 0 : Number(row.markupRate);
+  const markup = Number.isNaN(markupRaw) ? 0 : markupRaw;
+  return (base / (1 + markup)).toFixed(4);
+}
+
+/**
+ * LP×Token 对紧凑单元格：token 对多行式（tokens/银行/激活池地址/pairCode，
+ * 源 index.vue el-tooltip 展示银行名+pairCode；池地址行收=源侧/付=解付出款，title 显完整地址）。
+ */
 function LpPairCell({ row }: { row: LpPairTableRow }) {
   return (
     <div className="space-y-0.5">
@@ -1058,6 +1074,22 @@ function LpPairCell({ row }: { row: LpPairTableRow }) {
       <div className="text-xs text-muted-foreground">
         {row.sourceBankName || '--'} → {row.targetBankName || '--'}
       </div>
+      {row.sourcePoolAddress ? (
+        <div
+          className="truncate font-mono text-xs text-muted-foreground"
+          title={`Recv ${row.sourcePoolAddress} — source-side active pool (receiving address)`}
+        >
+          Recv {row.sourcePoolAddress}
+        </div>
+      ) : null}
+      {row.targetPoolAddress ? (
+        <div
+          className="truncate font-mono text-xs text-muted-foreground"
+          title={`Pay ${row.targetPoolAddress} — target-side active pool (payout address)`}
+        >
+          Pay {row.targetPoolAddress}
+        </div>
+      ) : null}
       <div className="font-mono text-xs text-muted-foreground">
         {row.pairCode || '--'}
       </div>
@@ -1281,6 +1313,42 @@ export function LpTokenPairListPage() {
         id: 'tokenPair',
         header: 'Token Pair',
         cell: ({ row }) => <LpPairCell row={row.original} />,
+      },
+      {
+        accessorKey: 'baseRate',
+        header: 'Base Rate',
+        cell: ({ row }) => {
+          const raw = row.original.baseRate;
+          const n = raw == null || raw === '' ? Number.NaN : Number(raw);
+          return (
+            <span className="block text-right font-mono tabular-nums">
+              {Number.isNaN(n) ? '-' : n.toFixed(4)}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: 'markupRate',
+        header: 'Markup Rate',
+        cell: ({ row }) => {
+          const n =
+            row.original.markupRate == null ? 0 : Number(row.original.markupRate);
+          return (
+            <span className="block text-right font-mono tabular-nums">
+              {(n * 100).toFixed(2)}%
+            </span>
+          );
+        },
+      },
+      {
+        id: 'userRate',
+        header: 'User Rate',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="block text-right font-mono tabular-nums">
+            {lpPairUserRateText(row.original)}
+          </span>
+        ),
       },
       {
         accessorKey: 'splitRatio',
@@ -1612,9 +1680,18 @@ export function LpPoolListPage() {
         header: 'Token',
         cell: ({ row }) => (
           <div className="space-y-0.5">
-            <div className="font-mono text-sm font-semibold">
-              {row.original.tokenCode}
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-fit cursor-default font-mono text-sm font-semibold">
+                    {row.original.tokenSymbol || row.original.tokenCode || '--'}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  tokenCode: {row.original.tokenCode || '--'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <div className="text-xs text-muted-foreground">
               {row.original.tokenBankName || '--'}
             </div>
@@ -1628,6 +1705,22 @@ export function LpPoolListPage() {
           <span className="font-mono text-xs">
             {row.original.accountAddress || '--'}
           </span>
+        ),
+      },
+      {
+        id: 'activeFlag',
+        header: 'Disbursement Pool',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="text-center">
+            {row.original.activeFlag === 1 ? (
+              <Badge variant="success" size="sm">
+                Active
+              </Badge>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </div>
         ),
       },
       {

@@ -34,17 +34,6 @@ export interface SettleOrderListReq {
   filter: SettleOrderListFilter;
 }
 
-/**
- * 生成结算单请求。periodStart/periodEnd 毫秒可选，留空用后端缺省窗口；
- * 重复 -> MSG_21_0060，空窗口 -> MSG_21_0062（源 api 注释）。
- */
-export interface SettleOrderGenerateReq {
-  lpId: number;
-  periodType: number;
-  periodStart?: number;
-  periodEnd?: number;
-}
-
 /** 提交结算单确认审批（KSC）；仅 status 10 待确认可操作（确认前勾稽校验，不一致阻止）。 */
 export interface SettleOrderConfirmReq {
   orderId: number;
@@ -117,7 +106,21 @@ export const SETTLE_ITEM_TYPE_LABEL: Record<number, string> = {
 };
 
 /**
- * LP 选项（跨域薄调用类型，仅取所需字段）。源 generate-dialog / index.vue 用
+ * token 对分项逐笔结算明细（该单周期 × 该 pair 的结算流水，含交易单号；
+ * 源 SettleItemRecordRow，2026-08-28）。
+ */
+export interface SettleItemRecordRow {
+  txNo: string;
+  principal: string | number;
+  markupAmount: string | number;
+  adminSplitAmount: string | number;
+  lpSplitAmount: string | number;
+  /** 毫秒 */
+  recordTime: number;
+}
+
+/**
+ * LP 选项（跨域薄调用类型，仅取所需字段）。源 index.vue 用
  * api/lp.ts 的 lpList；为避免并行耦合他组 data-access，本域自写薄调用。
  */
 export interface SettleLpOption {

@@ -248,6 +248,24 @@ const FIELD_MAPS: Record<string, FieldDef[]> = {
     { key: 'status', label: 'Participation Status' },
     { key: 'createTime', label: 'Requested At' },
   ],
+  // 2026-08-31 新增：LP 资金池开通（KLPP）详情字段（源 da2229d）；
+  // currencySystemType 枚举值展示无既有机制 → 图例标注在 label，值原样。
+  kissen_lp_pool: [
+    { key: 'lpName', label: 'LP Name' },
+    { key: 'tokenCode', label: 'Token' },
+    { key: 'accountAddress', label: 'Pool Address' },
+    {
+      key: 'currencySystemType',
+      label: 'Currency System Type (1 EVM / 2 Aptos / 3 Internal)',
+    },
+    {
+      key: 'remindThreshold',
+      label: 'Replenishment Reminder Threshold (water-level ratio)',
+    },
+    { key: 'pendingAction', label: 'Pending Action' },
+    { key: 'status', label: 'Status' },
+    { key: 'createTime', label: 'Application Time' },
+  ],
   kissen_settle_confirm: [
     { key: 'orderId', label: 'Settlement Order ID' },
     { key: 'lpName', label: 'LP Name' },

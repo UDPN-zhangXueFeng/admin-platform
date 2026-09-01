@@ -3,8 +3,8 @@ import type { PaginatedResponse } from '@myorg/shared/model';
 
 import { kissenPage, kissenRequest } from '../kissen-client';
 import type {
+  SettleItemRecordRow,
   SettleOrderConfirmReq,
-  SettleOrderGenerateReq,
   SettleOrderItemRow,
   SettleOrderListFilter,
   SettleOrderListReq,
@@ -38,18 +38,6 @@ export function getSettleOrderDetail(
   );
 }
 
-/** 生成结算单（POST /manage/settle-order/generate）。 */
-export function settleOrderGenerate(
-  req: SettleOrderGenerateReq,
-  config?: AxiosRequestConfig,
-): Promise<{ orderId: number }> {
-  return kissenRequest.post<{ orderId: number }>(
-    '/manage/settle-order/generate',
-    req,
-    config,
-  );
-}
-
 /** 提交结算单确认审批（KSC）；仅 status 10 待确认可操作（POST /manage/settle-order/confirm）。 */
 export function settleOrderConfirm(
   req: SettleOrderConfirmReq,
@@ -59,7 +47,7 @@ export function settleOrderConfirm(
 }
 
 /**
- * LP 选项（跨域薄调用）。源 generate-dialog.vue / index.vue 用 api/lp.ts 的
+ * LP 选项（跨域薄调用）。源 index.vue 用 api/lp.ts 的
  * `lpList({ pageNum:1, pageSize:200, data:{} })`，此处忠实移植端点与请求体。
  */
 import type { SettleLpOption } from './settle-order.model';
@@ -97,6 +85,21 @@ export function getSettleOrderItems(
   return kissenRequest.post<SettleOrderItemRow[]>(
     `/manage/settle-order/items/${orderId}`,
     undefined,
+    config,
+  );
+}
+
+/**
+ * token 对分项逐笔结算明细（GET /manage/settle-order/items-records/{orderId}/{pairId}）。
+ * 该单周期 × 该 pair 的结算流水（含交易单号），分项「Settlement details」弹窗消费。
+ */
+export function getSettleItemRecords(
+  orderId: number,
+  pairId: number,
+  config?: AxiosRequestConfig,
+): Promise<SettleItemRecordRow[]> {
+  return kissenRequest.get<SettleItemRecordRow[]>(
+    `/manage/settle-order/items-records/${orderId}/${pairId}`,
     config,
   );
 }
