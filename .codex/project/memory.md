@@ -782,3 +782,11 @@
 - **背景**：已入网银行仍落 /onboard——下游三处落地（`/[locale]` 根路由、middleware 已登录 /login、login 兜底）停在 cb22c7a 旧语义；上游 v2.0 根路由已改 `/overview`。修复后统一落 `/overview`，login 兜底有意 diverge 上游 '/onboard'（决策记录在 gateway 文档 01 §7-31）。
 - **后端再次漂移**：build.sh 的 NEXT_SERVICE_SERVER_URL 已被改为 `10.0.7.85:8080`（bak-0902 备份，87/85 均 200，.85 是当前有效后端，bank_admin/Kissen@123 登录 code=0）。rsync 保护过滤按 0828 清单执行，30 文件零删除。
 - **部署验证升级四件套**：`<title>`、`/kissen-api/bankgw/brand` code=0、真实登录 code=0、**带 cookie curl 重定向链**（`/login`→307 `/en-US/overview`、`/en-US`→307 `/en-US/overview`）——服务端 redirect 类修复无需浏览器即可收口；headless 浏览器真实登录后确认落地 `/en-US/overview` 且 Dashboard 渲染完整（6 笔 Failed 为后端测试数据，非前端问题）。
+
+## 2026-09-02 三门户全量部署（kissen-admin/lp/gateway → 10.0.7.20 main-0902）
+
+- **rsync 排除参数 glob 陷阱（严重）**：`--exclude docker-compose.*.yml` 不加引号且经 `$EXCL` 变量展开时，被 bash 按当前目录 glob 展开成字面量 `docker-compose.kissen.yml`（仓库根恰好有此文件），导致 lp 的 `docker-compose.lp.yml` 和 gateway 的 `docker-compose.gateway.yml`（服务器专有、git 里没有）被 `--delete` 误删。修复：compose 文件均为 admin 模板变体（dockerfile 路径/nginx context/后端 ARG/端口不同），照 `docker-compose.kissen.yml` 重建。教训：**排除模式一律写 `'docker-compose.*.yml'` 单引号直传 rsync，不经 shell 变量二次展开；服务器专有文件改用 `--filter='P <name>'` 显式保护**。
+- **镜像源 nginx:alpine metadata 持续卡死**：docker.1ms.run 间歇性 manifest 挂死（握手 3s 正常但 BuildKit load metadata 可挂 4min+）。对策组合：`docker pull nginx:alpine` 预热本地（BuildKit 对本地已有 tag 直接命中）+ 前台重跑。多个卡死的 docker-compose build 互相堆积时会加剧卡死——先 `pgrep -f 'docker-compos[e]'` 清光孤儿再单跑。
+- **ssh 远程 kill 自杀链**：pkill/pgrep 模式若与 ssh 命令行字面量重合会杀掉自身会话（exit 255）。两次翻车：heredoc 内含 `redeploy-all.sh`、命令串含 `bash build.sh`。对策：字符类括号（`redeploy-al[l]`）只对不含该字面量的命令安全；复杂清理脚本一律 base64 投递到服务器执行。
+- **后台分离脚本在 build/up 之间静默死亡**：`setsid nohup bash build.sh &` 从 ssh 启动后，脚本在 `docker-compose build` 完成后、`up -d` 之前被回收（机制未明）。对策：镜像已缓存时直接 ssh 前台跑单个 build.sh（秒级~分钟级），不再用分离模式。
+- **部署验证**：三端口 `:6242/:6243/:6244` login 200 + title（Kissen Admin / LP Portal / Kissen Gateway Portal）；gateway brand code=0 + auth 重定向链 `/login`→`/en-US/overview`。lp build.sh 后端 `NEXT_LP_BACKEND_URL=http://10.0.7.87:8090`。
