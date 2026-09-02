@@ -329,6 +329,18 @@ function isNumericValue(v: unknown): boolean {
   return /^-?[\d,]+(\.\d+)?$/.test(v);
 }
 
+/** 业务描述若为 JSON，格式化为可读的多行文本，避免长字符串撑破详情布局。 */
+function formatBusinessDescription(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '--';
+
+  try {
+    return JSON.stringify(JSON.parse(trimmed), null, 2);
+  } catch {
+    return value;
+  }
+}
+
 /* ============================================================ */
 /* 共享小组件                                                     */
 /* ============================================================ */
@@ -355,9 +367,11 @@ function DetailField({
   children: React.ReactNode;
 }) {
   return (
-    <div className={span ? 'sm:col-span-2' : undefined}>
+    <div className={span ? 'min-w-0 sm:col-span-2' : 'min-w-0'}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-sm">{children}</dd>
+      <dd className="mt-1 min-w-0 break-words text-sm [overflow-wrap:anywhere]">
+        {children}
+      </dd>
     </div>
   );
 }
@@ -581,7 +595,7 @@ function ApprovalDetailBody({
   const isDoneRow = row.detailReviewerStatus !== undefined;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pt-4">
       {/* Hero Summary：业务类型 + 申请单号（可复制）+ 状态 + 当前节点（§6.3） */}
       <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
         <div className="flex flex-col gap-1.5">
@@ -613,7 +627,9 @@ function ApprovalDetailBody({
           <div className="rounded-lg border border-border/60 bg-card p-4">
             <DetailGrid>
               <DetailField label="Business Description" span>
-                {row.busDesc || '--'}
+                <pre className="m-0 whitespace-pre-wrap break-all font-sans text-sm">
+                  {formatBusinessDescription(row.busDesc)}
+                </pre>
               </DetailField>
               {flatEntries.map(([key, text]) => (
                 <DetailField key={key} label={fieldLabelFor(row.businessCode, key)}>
@@ -1085,14 +1101,14 @@ export function ApprovalCenterListPage() {
       </Tabs>
 
       <Drawer open={drawerOpen} onOpenChange={(v) => !v && closeDetail()}>
-        <DrawerContent className="max-h-[90vh] sm:max-w-[640px]">
+        <DrawerContent className="h-screen max-h-screen w-full max-w-full sm:w-[800px] sm:max-w-[calc(100vw-1rem)]">
           <DrawerHeader>
             <DrawerTitle>
               {activeRow ? `${businessName(activeRow.businessCode)} - Details` : 'Details'}
             </DrawerTitle>
             <DrawerDescription>Approval Details</DrawerDescription>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
             {activeRow && (
               <ApprovalDetailBody
                 row={activeRow}
@@ -1106,4 +1122,3 @@ export function ApprovalCenterListPage() {
     </div>
   );
 }
-

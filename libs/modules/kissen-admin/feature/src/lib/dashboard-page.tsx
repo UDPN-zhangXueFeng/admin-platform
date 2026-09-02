@@ -3,7 +3,16 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { Button, Card, CardContent, Skeleton } from '@myorg/shared/ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
 import { useRouter } from '@myorg/shared/util-i18n';
 
@@ -726,8 +735,7 @@ export function DashboardPage() {
                     <div
                       key={pool.poolId}
                       className={cn(
-                        'flex flex-col gap-1.5 border-b border-border border-l-2 border-l-transparent py-2.5 text-sm last:border-0',
-                        critical && 'border-l-warning',
+                        'flex flex-col gap-1.5 border-b border-border py-2.5 text-sm last:border-0',
                       )}
                     >
                       <div className="flex items-center gap-2.5">
@@ -797,46 +805,59 @@ export function DashboardPage() {
                 text="No exceptions to handle"
               />
             ) : (
-              <div className="overflow-x-auto">
-                <div
-                  className="grid items-center gap-3 border-b border-border pb-1.5 text-xs text-muted-foreground"
-                  style={{ gridTemplateColumns: TX_GRID_COLS }}
-                >
-                  <span>Txn No.</span>
-                  <span>Currency Pair</span>
-                  <span>Principal</span>
-                  <span>Status</span>
-                  <span>Created At</span>
-                  <span />
-                </div>
-                {exceptionRows.map((row) => (
+              <TooltipProvider delayDuration={200}>
+                <div className="overflow-x-auto">
                   <div
-                    key={row.transactionId}
-                    className="grid items-center gap-3 border-b border-border py-3 text-sm last:border-0"
+                    className="grid items-center gap-3 border-b border-border pb-1.5 text-xs text-muted-foreground"
                     style={{ gridTemplateColumns: TX_GRID_COLS }}
                   >
-                    <span className="t-identifier">
-                      {row.txNo || row.txUuid}
-                    </span>
-                    <span>{pairText(row)}</span>
-                    <span className="tabular-nums">
-                      {formatMoney(row.principal)}
-                    </span>
-                    <StatusRailCompact status={row.status} />
-                    <span className="tabular-nums text-muted-foreground">
-                      {formatTime(row.createTime)}
-                    </span>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0"
-                      onClick={() => router.push('/transfer/tx')}
-                    >
-                      Resolve
-                    </Button>
+                    <span>Txn No.</span>
+                    <span>Currency Pair</span>
+                    <span>Principal</span>
+                    <span>Status</span>
+                    <span>Created At</span>
+                    <span />
                   </div>
-                ))}
-              </div>
+                  {exceptionRows.map((row) => {
+                    const transactionNumber = row.txNo || row.txUuid;
+
+                    return (
+                      <div
+                        key={row.transactionId}
+                        className="grid items-center gap-3 border-b border-border py-3 text-sm last:border-0"
+                        style={{ gridTemplateColumns: TX_GRID_COLS }}
+                      >
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="t-identifier min-w-0 truncate">
+                              {transactionNumber}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-sm break-all font-mono text-xs">
+                            {transactionNumber}
+                          </TooltipContent>
+                        </Tooltip>
+                        <span>{pairText(row)}</span>
+                        <span className="tabular-nums">
+                          {formatMoney(row.principal)}
+                        </span>
+                        <StatusRailCompact status={row.status} />
+                        <span className="tabular-nums text-muted-foreground">
+                          {formatTime(row.createTime)}
+                        </span>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0"
+                          onClick={() => router.push('/transfer/tx')}
+                        >
+                          Resolve
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </TooltipProvider>
             )}
           </CardContent>
         </Card>

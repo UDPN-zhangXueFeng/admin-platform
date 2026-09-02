@@ -10,13 +10,17 @@ export function SidebarActiveBackdrop() {
     >
       <circle
         className="origin-center motion-safe:animate-ping"
+        style={{ animationDuration: '5s' }}
         cx="104"
         cy="22"
         r="13"
         stroke="currentColor"
         strokeOpacity="0.13"
       />
-      <g className="origin-[104px_22px] motion-safe:animate-spin [animation-duration:9s]">
+      <g
+        className="origin-[104px_22px] motion-safe:animate-spin"
+        style={{ animationDuration: '30s' }}
+      >
         <circle cx="104" cy="22" r="26" stroke="currentColor" strokeOpacity="0.14" strokeDasharray="22 14" />
         <circle cx="104" cy="22" r="18" stroke="currentColor" strokeOpacity="0.2" strokeDasharray="3 9" />
         <circle cx="104" cy="-4" r="2" fill="currentColor" fillOpacity="0.55" />

@@ -13,8 +13,9 @@ import {
 
 /**
  * 锁定期的放行路径：入网信息页本身 + 认证页。源 MainLayout 仅对默认
- * 落地页 '/overview' 做 replace('/onboard') 纠正；目标 '/' 落地即
- * /onboard，故口径为「除入网/认证外受锁页拉回 /onboard」。
+ * 落地页 '/overview' 做 replace('/onboard') 纠正；目标口径更宽——
+ * 「除入网/认证外受锁页一律拉回 /onboard」（'/' 落地已改 /overview，
+ * 见文档 01 §7-31）。
  */
 const LOCK_ALLOWED_PATHS = new Set(['/onboard', '/login', '/change-pwd']);
 

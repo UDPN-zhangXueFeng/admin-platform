@@ -69,11 +69,14 @@ export default function LoginRoute() {
     setSearchParams(new URLSearchParams(window.location.search));
   }, []);
   const expired = searchParams?.get('expired') === '1';
-  // 源 login/index.vue：redirect 回跳（兜底 /onboard）。middleware 携带的
-  // redirect 是含 locale 前缀的完整路径，而 i18n router 会自动补当前
-  // locale —— 先剥掉前缀，避免落成 /en-US/en-US/... 双前缀。
+  // redirect 回跳（兜底 /overview）。middleware 携带的 redirect 是含
+  // locale 前缀的完整路径，而 i18n router 会自动补当前 locale —— 先剥掉
+  // 前缀，避免落成 /en-US/en-US/... 双前缀。
+  // 兜底与源 login/index.vue:60 的 '/onboard'（cb22c7a 遗留，v2.0 根路由
+  // 已改 /overview）有意 diverge：已入网银行登录后应落 dashboard，未入网
+  // 由 SessionGuard locked 拉回 /onboard（2026-09-02 用户裁决）。
   const redirectTarget =
-    (searchParams?.get('redirect') || '/onboard').replace(
+    (searchParams?.get('redirect') || '/overview').replace(
       /^\/en-US(?=\/|$)/,
       '',
     ) || '/';

@@ -1,5 +1,12 @@
 # Codex 对话沉淀
 
+
+## 2026-09-02 kissen-gateway-portal 后端切换（10.0.7.87:8080 → 10.0.7.85:8080，main-0902）
+
+- 纯后端切换无代码变更：服务器 `/data/kissen-gateway-portal/build.sh` sed `NEXT_SERVICE_SERVER_URL` 85:8080 + tag main-0901→main-0902（备份 build.sh.bak-0902），本地 `.env.local`/`.env.local.example` 同步改。app 镜像全缓存命中，仅 nginx 镜像重建（地址构建期 sed 进 default.conf）。
+- BuildKit metadata 卡死复现：卡 `load metadata for docker.io/library/node:22-alpine` 13 分钟 0% CPU；服务器端 kill compose/build.sh 进程后重跑 99s 完成。注意 kill 前台 ssh 会话的 build.sh 会连坐本侧任务（exit 255），属预期。
+- 验证：两容器 Up（app main-0902）、nginx label `kissen-gateway.api-url=http://10.0.7.85:8080`、`/en-US/login` 200、`GET /kissen-api/bankgw/brand` code=0（GET 空 body 即 code=0；POST `{}` 会 code=1 系统异常，两后端相同，不能用来区分新旧）。85/87 当前返回内容一致，区分依据是构建日志 #30「Nginx 后端地址」与容器 label。
+
 ## 2026-09-01 lp-portal 部署（10.0.7.20 :6243，main-0901）
 
 - 内容：lp-sync f0d5b6f 批次（出款池切换/Payout Spender 列、token 两视图口径、pair Activation 列、split-settle 三汇率列、dashboard 双系列折线）。
@@ -769,3 +776,9 @@
 - **stub 信封清单**（kissen 系 code 是字符串 '0'）：锁态双门控必须喂 `/bank/onboard/status {status:20}` + `/bank/detail {instanceId, instances[].activated:true, onboardStatus:20}`，否则 SessionGuard 拉去 /onboard；`/brand` 是 app 壳也拉的接口。
 - **puppeteer 细节**：`text/xxx` 选择器在 `page.$` 可用但与 CSS 复合会语法错误（复合用 `xpath/(...)[1]`）；长 run 会撞 Runtime.callFunctionOn protocolTimeout——分 run 短步骤，卡死的 page 对象直接换新 tab；截图用 `page.screenshot({path})` 直存 verify 目录。
 - **BuildKit metadata 卡死对策（0901 部署）**：服务器 build 偶发卡在 `load metadata for docker.io/library/nginx:alpine`（镜像源 docker.1ms.run 抖动；手动 `docker pull nginx:alpine` 反而能通）。对策：`pkill -f "bash build.sh"`（注意会连坐 ssh 自身会话）后用 `setsid nohup bash build.sh > 绝对路径.log < /dev/null &` 重启，重试即过。线上验证三件套：`<title>`、`/kissen-api/bankgw/brand` code=0、真实登录 code=0。
+
+## 2026-09-02 gateway 落地页修复部署（10.0.7.20 :6244，main-0902 覆盖重建）
+
+- **背景**：已入网银行仍落 /onboard——下游三处落地（`/[locale]` 根路由、middleware 已登录 /login、login 兜底）停在 cb22c7a 旧语义；上游 v2.0 根路由已改 `/overview`。修复后统一落 `/overview`，login 兜底有意 diverge 上游 '/onboard'（决策记录在 gateway 文档 01 §7-31）。
+- **后端再次漂移**：build.sh 的 NEXT_SERVICE_SERVER_URL 已被改为 `10.0.7.85:8080`（bak-0902 备份，87/85 均 200，.85 是当前有效后端，bank_admin/Kissen@123 登录 code=0）。rsync 保护过滤按 0828 清单执行，30 文件零删除。
+- **部署验证升级四件套**：`<title>`、`/kissen-api/bankgw/brand` code=0、真实登录 code=0、**带 cookie curl 重定向链**（`/login`→307 `/en-US/overview`、`/en-US`→307 `/en-US/overview`）——服务端 redirect 类修复无需浏览器即可收口；headless 浏览器真实登录后确认落地 `/en-US/overview` 且 Dashboard 渲染完整（6 笔 Failed 为后端测试数据，非前端问题）。

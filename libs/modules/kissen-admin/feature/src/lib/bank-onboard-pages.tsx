@@ -315,7 +315,7 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
   return (
     <>
       <Drawer open onOpenChange={(open) => !open && onClose()}>
-        <DrawerContent className="w-[640px] max-w-none sm:max-w-[640px]">
+        <DrawerContent className="w-[640px] max-w-none  sm:max-w-[640px]">
           <DrawerHeader>
             <DrawerTitle>
               Access Keys — {bank.bankName} ({bank.bankCode})
@@ -325,7 +325,7 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
             </DrawerDescription>
           </DrawerHeader>
 
-          <div className="flex-1 space-y-4 overflow-y-auto px-4">
+          <div className="flex-1 space-y-4 overflow-y-auto px-4 pt-4">
             <Alert>
               <KeyRound className="mt-0.5 h-4 w-4 shrink-0" />
               <AlertTitle>Bootstrap authentication</AlertTitle>

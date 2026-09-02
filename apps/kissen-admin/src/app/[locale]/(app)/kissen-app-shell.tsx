@@ -128,6 +128,7 @@ export function KissenAppShell({
       config={shellConfig}
       onChangePassword={() => setPwdOpen(true)}
       onLogout={handleLogout}
+      hideManageAccount
       trailing={<ThemeSwitcher themes={config.theme.themes} />}
     >
       {children}

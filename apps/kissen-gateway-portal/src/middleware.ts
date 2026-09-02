@@ -14,9 +14,9 @@ import type { NextRequest } from 'next/server';
  *     Redirect unauthenticated users to /en-US/login, carrying the
  *     original path via ?redirect= (source router guard semantics).
  *     Redirect authenticated users away from /login back to the portal
- *     home /en-US/onboard (源 '/' → '/onboard'；首登 firstLogin 用户
- *     由客户端 SessionGuard 再拉回 /change-pwd —— middleware 读不到
- *     localStorage 的 userInfo.firstLogin)。
+ *     home /en-US/overview (源 beforeEach '/' → '/overview'；首登
+ *     firstLogin 用户由客户端 SessionGuard 再拉回 /change-pwd ——
+ *     middleware 读不到 localStorage 的 userInfo.firstLogin)。
  *
  * The token cookie (kissen_gateway_token) is written client-side by the
  * real login flow (kissen-gateway data-access auth.session saveGatewaySession
@@ -49,17 +49,17 @@ export default function middleware(request: NextRequest) {
   const token = request.cookies.get('kissen_gateway_token')?.value;
   const isAuthenticated = !!token;
 
-  // Authenticated user on /login → redirect to portal home (源 '/'→/onboard；
-  // 首登用户由客户端 session-guard 二次分流到 /change-pwd)
+  // Authenticated user on /login → redirect to portal home (源 beforeEach
+  // '/'→'/overview'；首登用户由客户端 session-guard 二次分流到 /change-pwd)
   if (isAuthenticated && pathWithoutLocale === '/login') {
     const url = request.nextUrl.clone();
-    url.pathname = `/en-US/onboard`;
+    url.pathname = `/en-US/overview`;
     return NextResponse.redirect(url);
   }
 
   // Unauthenticated user on protected route → redirect to login
   // （源 router.beforeEach：`{ path: '/login', query: { redirect: to.fullPath } }`；
-  //   登录页读取 redirect 优先跳回，兜底 /onboard —— 见 login/page.tsx）
+  //   登录页读取 redirect 优先跳回，兜底 /overview —— 见 login/page.tsx）
   if (!isAuthenticated && !isPublicPath(pathWithoutLocale)) {
     const url = request.nextUrl.clone();
     url.pathname = `/en-US/login`;
