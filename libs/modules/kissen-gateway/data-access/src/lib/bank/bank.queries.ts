@@ -6,6 +6,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import {
+  bankQueryDetail,
   bankQueryList,
   getBankDetail,
   getBankInfo,
@@ -46,5 +47,14 @@ export function useBankQueryListQuery(enabled = true) {
     queryKey: bankKeys.queryList(),
     queryFn: ({ signal }) => bankQueryList({ signal }),
     enabled,
+  });
+}
+
+/** 网络银行详情（GET /bank/query/detail/{bankId}，eafcab0；无匹配返回 null，页面按空态处理）。 */
+export function useBankQueryDetailQuery(bankId: number | undefined) {
+  return useQuery({
+    queryKey: bankKeys.queryDetail(bankId ?? 0),
+    queryFn: ({ signal }) => bankQueryDetail(bankId as number, { signal }),
+    enabled: bankId != null && Number.isFinite(bankId),
   });
 }

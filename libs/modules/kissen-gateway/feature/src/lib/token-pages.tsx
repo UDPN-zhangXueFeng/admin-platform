@@ -17,6 +17,7 @@
  */
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { ColumnDef } from '@tanstack/react-table';
 import { Loader2 } from 'lucide-react';
@@ -26,6 +27,7 @@ import {
   Button,
   DataTable,
   Dialog,
+  Skeleton,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -39,17 +41,23 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { FormField, createFormResolver } from '@myorg/shared/ui-forms';
+import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
+  tokenScopeText,
   tokenStatusText,
   tokenStatusVariant,
+  tokenTypeText,
   useSubmitTokenMutation,
+  useTokenDetailQuery,
   useTokenListQuery,
   type TokenInfo,
 } from '@myorg/modules/kissen-gateway/data-access';
 
-import { fmtAmount, formatTime } from './kit';
+import { DescField, DescGrid } from './desc-grid';
+import { fmtAmount, formatTime, orDash } from './kit';
 import { PageHead } from './page-head';
+import { EmptyHint, MissingIdBlock } from './state-blocks';
 import { useGatewayPerm } from './use-gateway-perm';
 
 /** token 提交权限码（源 v-perm="'bank:token:submit'"，头部注册入口）。 */
@@ -349,6 +357,7 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
 
 /** Token 管理页（registry token.list 键映射；导出名不可改）。 */
 export function TokenListPage() {
+  const router = useRouter();
   const toast = useToast();
   const hasPerm = useGatewayPerm();
   const { data, isLoading, isError, error, refetch, dataUpdatedAt } =
@@ -447,6 +456,25 @@ export function TokenListPage() {
           <span className="tabular-nums">{formatTime(row.original.pushTime)}</span>
         ),
       },
+      {
+        // eafcab0：源行点击 openDetail → 操作列 Detail 按钮（下游列表约定）。
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => (
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0"
+            onClick={() =>
+              router.push(
+                `/token/manage/detail?code=${encodeURIComponent(row.original.tokenCode)}`,
+              )
+            }
+          >
+            Detail
+          </Button>
+        ),
+      },
     ],
     [],
   );
@@ -504,6 +532,160 @@ export function TokenListPage() {
 
       {dialogOpen && (
         <TokenSubmitDialog onClose={() => setDialogOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* 详情页（eafcab0 源 `views/token/detail.vue`）                      */
+/* ================================================================== */
+
+/**
+ * token 详情页（registry token.detail；/token/manage/detail?code={tokenCode}）。
+ * 源布局：eyebrow TOKEN + tokenName + 状态 tag，Basic Information /
+ * Status & Sync 两卡；未命中（null）→ 空态（详情仅本行本实例可见）。
+ */
+export function TokenDetailPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tokenCode = searchParams.get('code')?.trim() ?? '';
+
+  const {
+    data: token,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useTokenDetailQuery(tokenCode || undefined);
+
+  const toast = useToast();
+  React.useEffect(() => {
+    if (isError) {
+      toast.error('Failed to load token detail', {
+        description:
+          error instanceof Error ? error.message : 'Please try again later',
+        action: { label: 'Retry', onClick: () => refetch() },
+      });
+    }
+  }, [isError, error, refetch, toast]);
+
+  if (!tokenCode) {
+    return (
+      <MissingIdBlock
+        message="Missing a token code. Unable to view details."
+        backTo="/token/manage"
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* §6.3 Hero：eyebrow TOKEN（源页面 eyebrow）+ tokenName + 状态 Badge + Back。 */}
+      <section className="rounded-lg border border-border/60 bg-card panel-pad">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Token
+              </div>
+              <h1 className="text-xl font-semibold leading-7 text-foreground">
+                {token ? token.tokenName : 'Token Detail'}
+              </h1>
+            </div>
+            {token ? (
+              <Badge variant={tokenStatusVariant(token.status)}>
+                {tokenStatusText(token.status)}
+              </Badge>
+            ) : null}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push('/token/manage')}
+          >
+            Back
+          </Button>
+        </div>
+      </section>
+
+      {token ? (
+        <>
+          <section className="rounded-lg border border-border/60 bg-card panel-pad">
+            <h2 className="mb-2.5 text-sm font-semibold text-foreground">
+              Basic Information
+            </h2>
+            <DescGrid cols={2}>
+              <DescField label="tokenCode (currency system code)">
+                <span className="font-mono">{token.tokenCode}</span>
+              </DescField>
+              <DescField label="csTokenCode">
+                <span className="font-mono">{orDash(token.csTokenCode)}</span>
+              </DescField>
+              <DescField label="Token Name">{token.tokenName}</DescField>
+              <DescField label="Symbol">
+                <span className="font-mono">{token.symbol}</span>
+              </DescField>
+              <DescField label="Decimals">
+                <span className="tabular-nums">{token.decimalDigits}</span>
+              </DescField>
+              <DescField label="Chain">{orDash(token.chainType)}</DescField>
+              <DescField label="Anchored Fiat">
+                {orDash(token.anchorFiat)}
+              </DescField>
+              <DescField label="Min Liquidity">
+                <span className="t-data tabular-nums">
+                  {fmtAmount(token.minLiquidity)}
+                </span>
+              </DescField>
+              <DescField label="Token Type">
+                {tokenTypeText(token.tokenType)}
+              </DescField>
+            </DescGrid>
+          </section>
+
+          <section className="rounded-lg border border-border/60 bg-card panel-pad">
+            <h2 className="mb-2.5 text-sm font-semibold text-foreground">
+              Status &amp; Sync
+            </h2>
+            <DescGrid cols={2}>
+              <DescField label="Status">
+                <Badge variant={tokenStatusVariant(token.status)}>
+                  {tokenStatusText(token.status)}
+                </Badge>
+              </DescField>
+              <DescField label="Reject Reason">
+                <span className="break-words">{orDash(token.rejectReason)}</span>
+              </DescField>
+              <DescField label="Token No. (assigned once active)">
+                {/* 源 tokenNo 空 → 「Pending」占位。 */}
+                {token.tokenNo ? (
+                  <span className="font-mono">{token.tokenNo}</span>
+                ) : (
+                  <Badge variant="secondary">Pending</Badge>
+                )}
+              </DescField>
+              <DescField label="Scope">
+                {tokenScopeText(token.tokenScope)}
+              </DescField>
+              <DescField label="Version">
+                <span className="tabular-nums">{orDash(token.version)}</span>
+              </DescField>
+              <DescField label="Push Time">
+                <span className="font-mono">{formatTime(token.pushTime)}</span>
+              </DescField>
+            </DescGrid>
+          </section>
+        </>
+      ) : isLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-40 w-full rounded-lg" />
+        </div>
+      ) : isError ? null : (
+        <section className="rounded-lg border border-border/60 bg-card panel-pad">
+          <EmptyHint text="Token not found (possibly not synced, or not visible to this bank)." />
+        </section>
       )}
     </div>
   );

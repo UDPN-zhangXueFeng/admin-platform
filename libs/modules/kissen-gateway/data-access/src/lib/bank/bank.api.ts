@@ -11,6 +11,7 @@ import type {
   BankInfo,
   BankInfoSubmitReq,
   BankInfoSubmitResp,
+  BankQueryDetail,
   BankQueryItem,
   OnboardStatus,
 } from './bank.model';
@@ -53,4 +54,15 @@ export function bankQueryList(
   config?: AxiosRequestConfig,
 ): Promise<BankQueryItem[]> {
   return kissenRequest.get<BankQueryItem[]>('/bank/query/list', config);
+}
+
+/** 网络银行详情（GET /bank/query/detail/{bankId}，eafcab0；tokens 结构化列表；无匹配返回 null）。 */
+export function bankQueryDetail(
+  bankId: number,
+  config?: AxiosRequestConfig,
+): Promise<BankQueryDetail | null> {
+  return kissenRequest.get<BankQueryDetail | null>(
+    `/bank/query/detail/${bankId}`,
+    config,
+  );
 }

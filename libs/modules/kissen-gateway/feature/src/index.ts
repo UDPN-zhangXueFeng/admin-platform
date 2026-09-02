@@ -1,8 +1,7 @@
 export { OverviewListPage } from './lib/overview-pages';
 
-export { FxListPage } from './lib/fx-pages';
-
-export { TokenListPage } from './lib/token-pages';
+export { FxListPage, FxDetailPage } from './lib/fx-pages';
+export { TokenListPage, TokenDetailPage } from './lib/token-pages';
 
 export {
   OnboardListPage,
@@ -29,7 +28,7 @@ export { MenuListPage } from './lib/menu-pages';
 export { LogListPage } from './lib/log-pages';
 export { SystemUiPage } from './lib/system-ui-pages';
 
-export { BankQueryListPage } from './lib/bank-query-pages';
+export { BankQueryListPage, BankQueryDetailPage } from './lib/bank-query-pages';
 
 export { ChangePasswordDialog } from './lib/change-password-dialog';
 

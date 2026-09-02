@@ -1,5 +1,5 @@
 /**
- * Token 域 raw API 层（源 `api/token.ts`，三端点）。
+ * Token 域 raw API 层（源 `api/token.ts`，四端点）。
  */
 import type { AxiosRequestConfig } from 'axios';
 
@@ -24,4 +24,15 @@ export function submitToken(
   config?: AxiosRequestConfig,
 ): Promise<TokenSubmitResp> {
   return kissenRequest.post<TokenSubmitResp>('/token/submit', data, config);
+}
+
+/** token 详情（GET /token/detail/{tokenCode}，仅本行本实例可见；无匹配返回 null）。tokenCode 路径段须 encodeURIComponent。 */
+export function getTokenDetail(
+  tokenCode: string,
+  config?: AxiosRequestConfig,
+): Promise<TokenInfo | null> {
+  return kissenRequest.get<TokenInfo | null>(
+    `/token/detail/${encodeURIComponent(tokenCode)}`,
+    config,
+  );
 }

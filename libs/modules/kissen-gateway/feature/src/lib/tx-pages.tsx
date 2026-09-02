@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
@@ -11,7 +11,6 @@ import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import {
   Badge,
   Button,
-  Checkbox,
   CopyableEllipsisText,
   DataTable,
   Skeleton,
@@ -126,7 +125,6 @@ function sortMessages(messages: TxMessage[] | null | undefined): TxMessage[] {
 
 const txFilterSchema = z.object({
   status: z.string(),
-  pendingOnly: z.boolean(),
   startTime: z.string(),
   endTime: z.string(),
 });
@@ -134,16 +132,14 @@ type TxFilterForm = z.infer<typeof txFilterSchema>;
 
 const TX_FILTER_DEFAULT: TxFilterForm = {
   status: OPT_ALL,
-  pendingOnly: false,
   startTime: '',
   endTime: '',
 };
 
-/** RHF 筛选表单 → 后端 TxListReq（源 load() 的 query 组装：pendingOnly→pendingFlag=1、时间→毫秒）。 */
+/** RHF 筛选表单 → 后端 TxListReq（源 load() 的 query 组装：时间→毫秒；eafcab0 删 pendingOnly）。 */
 function formToFilter(form: TxFilterForm): TxListReq {
   return {
     status: form.status === OPT_ALL ? undefined : Number(form.status),
-    pendingFlag: form.pendingOnly ? 1 : undefined,
     startTime: toEpochMs(form.startTime),
     endTime: toEpochMs(form.endTime),
   };
@@ -253,8 +249,9 @@ export function TxListPage() {
   }, [reset]);
 
   /**
-   * 导出 CSV（源 onExport）：POST /tx/export blob 直通，按当前筛选条件全量导出
-   * （列表与导出共用同一 filter 口径，即源 buildReq），文件名 `tx-export-{Date.now()}.csv`。
+   * 导出 Excel（源 onExport，eafcab0 起 CSV→xlsx）：POST /tx/export blob 直通，
+   * 按当前筛选条件全量导出（列表与导出共用同一 filter 口径，即源 buildReq），
+   * 文件名 `tx-export-{Date.now()}.xlsx`。
    */
   const onExport = React.useCallback(async () => {
     setExporting(true);
@@ -263,7 +260,7 @@ export function TxListPage() {
       const url = URL.createObjectURL(resp.data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `tx-export-${Date.now()}.csv`;
+      a.download = `tx-export-${Date.now()}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -535,7 +532,7 @@ export function TxListPage() {
           {hasPerm(TX_EXPORT_PERM) && (
             <Button variant="outline" disabled={exporting} onClick={onExport}>
               {exporting && <Loader2 className="motion-safe:animate-spin" />}
-              Export CSV
+              Export Excel
             </Button>
           )}
         </div>
@@ -545,37 +542,13 @@ export function TxListPage() {
           onSubmit={handleSubmit(onSubmit)}
           className="border-b border-border/50 px-4 py-3"
         >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <FormSelect
               name="status"
               control={control}
               label="Status"
               options={statusSelectOptions}
               placeholder="All Statuses"
-            />
-            <Controller
-              control={control}
-              name="pendingOnly"
-              render={({ field }) => (
-                <div>
-                  <label
-                    htmlFor="field-pendingOnly"
-                    className="mb-1.5 block text-sm font-medium text-foreground"
-                  >
-                    Pending
-                  </label>
-                  <div className="flex h-10 items-center gap-2">
-                    <Checkbox
-                      id="field-pendingOnly"
-                      checked={field.value}
-                      onCheckedChange={(checked) =>
-                        field.onChange(checked === true)
-                      }
-                    />
-                    <span className="text-sm text-foreground">Pending only</span>
-                  </div>
-                </div>
-              )}
             />
             <FormField
               name="startTime"

@@ -15,6 +15,10 @@ export interface TokenInfo {
   tokenNo?: string;
   /** token 编码（本实例内唯一；即货币系统 token code）。 */
   tokenCode: string;
+  /** 货币系统标识 code（GW-16；本实例注册上传时与 tokenCode 同值，详情展示用）。 */
+  csTokenCode?: string;
+  /** token 归属（GW-17）：1 本行本实例 / 2 本行其他实例 / 3 其他行实例。 */
+  tokenScope?: number;
   tokenName: string;
   symbol: string;
   /** 小数位数。 */
@@ -69,6 +73,33 @@ export const TOKEN_STATUS: Record<number, { text: string; variant: TokenVariant 
 /** token 状态文案；null/undefined → '-'，未知码 → `Unknown(${status})`（源 statusText）。 */
 export function tokenStatusText(status?: number): string {
   return status == null ? '-' : (TOKEN_STATUS[status]?.text ?? `Unknown (${status})`);
+}
+
+/** token 类型文案（协议扩展 P2 占位；源 TOKEN_TYPE_TEXT，1/5/20）。 */
+export const TOKEN_TYPE_TEXT: Record<number, string> = {
+  1: 'Stablecoin',
+  5: 'Tokenized Deposit',
+  20: 'Tokenized MMF',
+};
+
+/** token 类型；null/undefined → '-'，未知码 → `Unknown (n)`（源 tokenTypeText）。 */
+export function tokenTypeText(type?: number): string {
+  return type == null ? '-' : (TOKEN_TYPE_TEXT[type] ?? `Unknown (${type})`);
+}
+
+/**
+ * token 归属（源 views/token/detail.vue SCOPE_TEXT，GW-17）：
+ * 1 本行本实例 / 2 本行其他实例 / 3 其他行实例（英化文案，语义分层不变）。
+ */
+export const TOKEN_SCOPE_TEXT: Record<number, string> = {
+  1: 'Own bank · this instance',
+  2: 'Own bank · other instances',
+  3: "Other banks' instance",
+};
+
+/** token 归属文案；null/undefined → '-'，未知码 → `Unknown (n)`（源 scopeText）。 */
+export function tokenScopeText(scope?: number): string {
+  return scope == null ? '-' : (TOKEN_SCOPE_TEXT[scope] ?? `Unknown (${scope})`);
 }
 
 /** token 状态 Badge variant；未知码降级 outline（源 statusType 的 info 兜底）。 */

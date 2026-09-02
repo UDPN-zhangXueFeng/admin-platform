@@ -352,9 +352,9 @@ export function OverviewListPage() {
 /* 子组件                                                               */
 /* ================================================================== */
 
-/** 源 successRate：null → '—'；否则 ×100 保留两位百分号。 */
+/** 源 successRate：null → '—'；eafcab0 起后端直发百分数值，不再 ×100。 */
 function formatSuccessRate(rate: number | null | undefined): string {
-  return rate == null ? '—' : `${(Number(rate) * 100).toFixed(2)}%`;
+  return rate == null ? '—' : `${Number(rate).toFixed(2)}%`;
 }
 
 const METRIC_TONES: Record<string, string> = {

@@ -60,10 +60,14 @@ export default function ModulePage({
   const pageKey = useMemo(() => {
     if (!realSlug || realSlug.length === 0) return 'list';
     // GW-14: /token/manage、/bank/query 的首段是固定页名而非实体 id，
-    // 映射到 registry 的 'list' 主页键。
-    if (!isGroup && FLAT_PAGE_SEGMENTS.has(realSlug[0])) return 'list';
-    if (realSlug[0] === 'create') return 'create';
-    if (realSlug[0] === 'edit') return 'edit';
+    // 消耗掉该段后再看余下 slug（eafcab0：/token/manage/detail、
+    // /bank/query/detail 两段 flat 前缀 + 详情页）。
+    const offset =
+      !isGroup && FLAT_PAGE_SEGMENTS.has(realSlug[0]) ? 1 : 0;
+    const rest = realSlug.slice(offset);
+    if (rest.length === 0) return 'list';
+    if (rest[0] === 'create') return 'create';
+    if (rest[0] === 'edit') return 'edit';
     return 'detail';
   }, [realSlug, isGroup]);
 

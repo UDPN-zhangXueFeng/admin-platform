@@ -113,6 +113,38 @@ export interface BankQueryItem {
   pushTime?: number;
 }
 
+/** 银行可交易 token（货币系统口径；源 types/business.ts CsToken，eafcab0 结构化下发替代 tokenList JSON 串）。 */
+export interface CsToken {
+  tokenNo?: string;
+  /** 货币系统 token code（GW-16）。 */
+  csTokenCode?: string;
+  tokenCode?: string;
+  tokenName?: string;
+  symbol?: string;
+  chainType?: string;
+  anchorFiat?: string;
+}
+
+/** 网络银行详情（GET /bank/query/detail/{bankId}，eafcab0；tokens 为服务端按 scope 权限过滤后组装）。 */
+export interface BankQueryDetail {
+  bankId?: number;
+  bankName?: string;
+  bankCode?: string;
+  bic?: string;
+  /** 是否本行（后端按 kissen.bank-code 比对下发）。 */
+  self?: boolean;
+  /** 货币系统类型（GW-16 重构值域）：0 未填/1 区块链/2 传统/3 其他。 */
+  currencySystemType?: number;
+  /** 货币系统名称（GW-16）。 */
+  currencySystemName?: string;
+  /** 推送缓存状态（20 启用）。 */
+  status?: number;
+  version?: number;
+  pushTime?: number;
+  /** 可交易 token 结构化列表（不再下 JSON 串）。 */
+  tokens: CsToken[];
+}
+
 /**
  * 入网/银行状态（源 `views/onboard/index.vue` ONBOARD_STATUS，含 0 未入网态）。
  * variant 分层映射：Element info→outline、warning→secondary、danger→destructive、success→default。

@@ -48,6 +48,37 @@ export interface FxPairItem {
   rate: FxRateSnapshot | null;
 }
 
+/** LP 明细（gw_lp_info 全字段，含停用；源 types/business.ts LpInfo）。 */
+export interface FxLpInfo {
+  id: number;
+  lpId: number;
+  /** LP 编码（Kissen 侧 lp_code）。 */
+  lpCode?: string;
+  lpName: string;
+  pairId: number;
+  /** token 对编码（PR-xxx）。 */
+  pairCode?: string;
+  /** LP 源 token 资金池地址。 */
+  sourcePoolAddress?: string;
+  /** LP 目标 token 资金池地址。 */
+  targetPoolAddress?: string;
+  /** 20 启用 / 50 停用。 */
+  status: number;
+  version?: number;
+  pushTime?: number;
+}
+
+/** token 对详情（GET /fx/detail/{pairId}；无匹配返回 null）。 */
+export interface FxPairDetail {
+  tokenPair: FxTokenPair;
+  /** LP 明细（含停用，按 lpId 升序）。 */
+  lps: FxLpInfo[];
+  /** 最新汇率快照（无快照为 null）。 */
+  latestRate: FxRateSnapshot | null;
+  /** 最近快照历史（version 倒序 ≤10 条，首条与 latestRate 相同）。 */
+  recentRates: FxRateSnapshot[];
+}
+
 /** 汇率查询聚合响应（GET /fx/view，GW-14 UDPN 对齐）。 */
 export interface FxViewResp {
   pairs: FxPairItem[];

@@ -1,20 +1,34 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
 
-import { Badge, Button, DataTable, useToast } from '@myorg/shared/ui';
+import {
+  Badge,
+  Button,
+  DataTable,
+  Skeleton,
+  useToast,
+} from '@myorg/shared/ui';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@myorg/shared/ui';
+import { useRouter } from '@myorg/shared/util-i18n';
+import {
+  useBankQueryDetailQuery,
+  useBankQueryListQuery,
+  type CsToken,
+} from '@myorg/modules/kissen-gateway/data-access';
 
-import { useBankQueryListQuery } from '@myorg/modules/kissen-gateway/data-access';
-
+import { DescField, DescGrid } from './desc-grid';
 import { formatTime, orDash } from './kit';
 import { PageHead } from './page-head';
+import { EmptyHint, MissingIdBlock } from './state-blocks';
+
 
 /**
  * 银行查询页（源 `views/bank/query.vue`：gw_bank_info 权限可见集合只读表，
@@ -86,7 +100,9 @@ const CURRENCY_SYSTEM_TYPE_TEXT: Record<number, string> = {
 };
 
 /** 源 csText：type 0/null 未填 → '-'；有名称「Type · Name」；未知码 `Unknown (n)`；无名称只显类型。 */
-function currencySystemText(row: BankQueryRow): string {
+function currencySystemText(
+  row: Pick<BankQueryRow, 'currencySystemType' | 'currencySystemName'>,
+): string {
   if (row.currencySystemType == null || row.currencySystemType === 0) {
     return '-';
   }
@@ -109,6 +125,7 @@ const BANK_QUERY_HEADERS = [
 ] as const;
 
 export function BankQueryListPage() {
+  const router = useRouter();
   const toast = useToast();
   const { data, isLoading, isFetching, isError, error, refetch, dataUpdatedAt } =
     useBankQueryListQuery();
@@ -214,6 +231,27 @@ export function BankQueryListPage() {
           <span className="tabular-nums">{formatTime(row.original.pushTime)}</span>
         ),
       },
+      {
+        // eafcab0：源行点击 openDetail → 操作列 Detail 按钮（bankId 未下发时
+        // 源行点击不可达详情，目标等价 '-'）。
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) =>
+          row.original.bankId != null ? (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0"
+              onClick={() =>
+                router.push(`/bank/query/detail?id=${row.original.bankId}`)
+              }
+            >
+              Detail
+            </Button>
+          ) : (
+            <span>-</span>
+          ),
+      },
     ],
     [],
   );
@@ -266,6 +304,201 @@ export function BankQueryListPage() {
           </p>
         </div>
       </section>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* 详情页（eafcab0 源 `views/bank/query-detail.vue`）                  */
+/* ================================================================== */
+
+/**
+ * 网络银行详情页（registry bank.detail；/bank/query/detail?id={bankId}）。
+ * 源布局：bankName + self tag（Own Bank/External Bank）；基本信息 2 列卡 +
+ * 可交易 token 表 7 列（eafcab0 起服务端结构化下发，替代 tokenList JSON 串）。
+ */
+export function BankQueryDetailPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawId = searchParams.get('id');
+  const parsedId = rawId != null && rawId !== '' ? Number(rawId) : undefined;
+  const bankId =
+    parsedId != null && Number.isFinite(parsedId) ? parsedId : undefined;
+
+  const { data, isLoading, isError, error, refetch } =
+    useBankQueryDetailQuery(bankId);
+
+  const toast = useToast();
+  React.useEffect(() => {
+    if (isError) {
+      toast.error('Failed to load bank detail', {
+        description:
+          error instanceof Error ? error.message : 'Please try again later',
+        action: { label: 'Retry', onClick: () => refetch() },
+      });
+    }
+  }, [isError, error, refetch, toast]);
+
+  const tokenColumns = React.useMemo<ColumnDef<CsToken & { id: string }>[]>(
+    () => [
+      {
+        id: 'tokenCode',
+        header: 'tokenCode',
+        cell: ({ row }) => (
+          <span className="font-mono">{orDash(row.original.tokenCode)}</span>
+        ),
+      },
+      {
+        id: 'csTokenCode',
+        header: 'csTokenCode (currency system)',
+        cell: ({ row }) => (
+          <span className="font-mono">{orDash(row.original.csTokenCode)}</span>
+        ),
+      },
+      {
+        id: 'tokenName',
+        header: 'Token Name',
+        cell: ({ row }) => orDash(row.original.tokenName),
+      },
+      {
+        id: 'symbol',
+        header: 'Symbol',
+        cell: ({ row }) => (
+          <span className="font-mono">{orDash(row.original.symbol)}</span>
+        ),
+      },
+      {
+        id: 'chainType',
+        header: 'Chain',
+        cell: ({ row }) => orDash(row.original.chainType),
+      },
+      {
+        id: 'anchorFiat',
+        header: 'Anchored Fiat',
+        cell: ({ row }) => orDash(row.original.anchorFiat),
+      },
+      {
+        id: 'tokenNo',
+        header: 'Token No.',
+        cell: ({ row }) => (
+          <span className="font-mono">{orDash(row.original.tokenNo)}</span>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const tokenRows = React.useMemo(
+    () =>
+      (data?.tokens ?? []).map((t, i) => ({
+        ...t,
+        id: t.tokenCode || t.csTokenCode || String(i),
+      })),
+    [data],
+  );
+
+  if (bankId == null) {
+    return (
+      <MissingIdBlock
+        message="Missing a bank ID. Unable to view details."
+        backTo="/bank/query"
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* §6.3 Hero：bankName + self tag（与列表 Bank Type 列同口径）+ Back。 */}
+      <section className="rounded-lg border border-border/60 bg-card panel-pad">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Bank Query
+              </div>
+              <h1 className="text-xl font-semibold leading-7 text-foreground">
+                {data ? data.bankName || 'Bank Detail' : 'Bank Detail'}
+              </h1>
+            </div>
+            {data ? (
+              <Badge variant={data.self ? 'default' : 'outline'}>
+                {data.self ? 'Own Bank' : 'External Bank'}
+              </Badge>
+            ) : null}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push('/bank/query')}
+          >
+            Back
+          </Button>
+        </div>
+      </section>
+
+      {data ? (
+        <>
+          {/* 卡 1：基本信息（源 column2；货币系统口径与列表 csText 一致）。 */}
+          <section className="rounded-lg border border-border/60 bg-card panel-pad">
+            <h2 className="mb-2.5 text-sm font-semibold text-foreground">
+              Basic Information
+            </h2>
+            <DescGrid cols={2}>
+              <DescField label="Bank ID">
+                <span className="font-mono tabular-nums">
+                  {orDash(data.bankId)}
+                </span>
+              </DescField>
+              <DescField label="Bank Code">
+                <span className="font-mono">{orDash(data.bankCode)}</span>
+              </DescField>
+              <DescField label="BIC">
+                <span className="font-mono">{orDash(data.bic)}</span>
+              </DescField>
+              <DescField label="Currency System">
+                {currencySystemText(data)}
+              </DescField>
+              <DescField label="Status">
+                {/* 源推送缓存状态：20 启用（Enabled），其余 Disabled。 */}
+                <Badge variant={data.status === 20 ? 'default' : 'outline'}>
+                  {data.status === 20 ? 'Enabled' : 'Disabled'}
+                </Badge>
+              </DescField>
+              <DescField label="Version">
+                <span className="tabular-nums">{orDash(data.version)}</span>
+              </DescField>
+              <DescField label="Push Time">
+                <span className="font-mono">{formatTime(data.pushTime)}</span>
+              </DescField>
+            </DescGrid>
+          </section>
+
+          {/* 卡 2：可交易 token 表（源 el-table 7 列，服务端按权限过滤后组装）。 */}
+          <section className="rounded-lg border border-border/60 bg-card">
+            <div className="border-b border-border/50 px-4 py-3">
+              <h2 className="text-sm font-semibold text-foreground">
+                {`Tradable Tokens (${data.tokens.length})`}
+              </h2>
+            </div>
+            <div className="p-4">
+              <DataTable
+                columns={tokenColumns}
+                data={tokenRows}
+                emptyMessage="No tradable tokens for this bank"
+              />
+            </div>
+          </section>
+        </>
+      ) : isLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-40 w-full rounded-lg" />
+        </div>
+      ) : isError ? null : (
+        <section className="rounded-lg border border-border/60 bg-card panel-pad">
+          <EmptyHint text="Bank not found (possibly not pushed, or no permission to view)." />
+        </section>
+      )}
     </div>
   );
 }

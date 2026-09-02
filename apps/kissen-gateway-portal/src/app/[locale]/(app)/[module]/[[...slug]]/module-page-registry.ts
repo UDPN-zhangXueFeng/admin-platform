@@ -96,10 +96,14 @@ const pages: Record<string, Record<string, PageLoader>> = {
   token: {
     // T6 TokenListPage（源 views/token/manage.vue；/token/manage → 'list'）
     list: featurePage('TokenListPage'),
+    // eafcab0 TokenDetailPage（源 views/token/detail.vue；/token/manage/detail → 'detail'）
+    detail: featurePage('TokenDetailPage'),
   },
   fx: {
     // T7 FxListPage（源 views/fx/index.vue）
     list: featurePage('FxListPage'),
+    // eafcab0 FxDetailPage（源 views/fx/detail.vue；/fx/detail → 'detail'）
+    detail: featurePage('FxDetailPage'),
   },
   user: {
     list: () =>
@@ -159,6 +163,9 @@ const pages: Record<string, Record<string, PageLoader>> = {
     // T8 BankQueryListPage（源 views/bank/query.vue；/bank/query → 'list'）。
     // 源 bank/info 孤儿页已被上游删除（O-8 被 HEAD 演进推翻），不再注册。
     list: featurePage('BankQueryListPage'),
+    // eafcab0 BankQueryDetailPage（源 views/bank/query-detail.vue；
+    // /bank/query/detail → 'detail'）
+    detail: featurePage('BankQueryDetailPage'),
   },
 };
 

@@ -1,6 +1,15 @@
 # Codex 对话沉淀
 
 
+## 2026-09-02 gateway eafcab0 批次同步（f5009b36..eafcab0，详情页×3 + tx 导出 Excel）
+
+- **详情路由形状定案（查询参非路径参，tx 先例）**：token `/token/manage/detail?code=`、fx `/fx/detail?id=`、bank `/bank/query/detail?id=`。page.tsx pageKey 推导靠 FLAT_PAGE_SEGMENTS 白名单偏移，registry 增 `token.detail`/`fx.detail`/`bank.detail` 三键；本轮无菜单结构变化（详情页复用父列表菜单键前缀高亮）。
+- **DataTable 列型不变性**：ColumnDef 泛型对行类型不变（accessorFn 参数逆变），`React.useMemo(() => rows.map(r => ({...r, id: String(r.id)})))` 推断出归一化对象类型后与 `ColumnDef<T & {id:string}>` 不兼容——两个修法：memo 返回类型显式注解 `(T & {id: string})[]`；T 自带 `id: number` 时用 `Omit<T,'id'> & {id: string}`（FxLpInfo 踩过）。
+- **bank detail query key 命名**：`queryDetail(bankId)`——`detail()` 键已被 useBankDetailQuery（onboard 域）占用，同文件加键先查重。
+- **edit 工具行号漂移在本批再犯 6+ 次**（多 hunk 同范围 "kept only the last" 静默吞相邻行、PUT 锚进 JSX 吃掉 cell 开头）。纪律：一次 edit 只发一个 hunk；PUT 前必 grep 定位当前行号；长文件大改直接 write 整文件；warning 出现立即 read 实际区域。
+- **冒烟凭据**：gateway 测试账号是 `bank_admin/Kissen@123`（.85 后端；Abc123! 会 MSG_24_0002）。menuKeys 含 token/fx/bankquery/tx:export 全量键。overview successRate 后端已直发百分数（16.67%），前端删 ×100。
+- 验证：tsc/build/lint 清零；三列表 Detail→三详情 + overview/tx 回归实测（1280×800 截图 `.doc/kissen/project/gateway/verify/eafcab0/`，8 张）。lastSyncedSha 已推进 eafcab0。
+
 ## 2026-09-02 kissen-gateway-portal 后端切换（10.0.7.87:8080 → 10.0.7.85:8080，main-0902）
 
 - 纯后端切换无代码变更：服务器 `/data/kissen-gateway-portal/build.sh` sed `NEXT_SERVICE_SERVER_URL` 85:8080 + tag main-0901→main-0902（备份 build.sh.bak-0902），本地 `.env.local`/`.env.local.example` 同步改。app 镜像全缓存命中，仅 nginx 镜像重建（地址构建期 sed 进 default.conf）。
