@@ -25,6 +25,8 @@ export interface MockLoginPageProps {
   brandText: string;
   /** Accent suffix next to the wordmark (e.g. "Admin", "Gateway"). */
   brandSuffix: string;
+  /** Optional app-owned brand lockup replacing the generated wordmark block. */
+  brandMark?: React.ReactNode;
   /** Tagline below the wordmark. */
   brandTagline: string;
   /** Path to the illustration SVG served from the app's public dir. */
@@ -98,6 +100,7 @@ export function MockLoginPage({
   subtitle,
   brandText,
   brandSuffix,
+  brandMark,
   brandTagline,
   svgPath,
   illustration,
@@ -161,19 +164,23 @@ export function MockLoginPage({
               className="flex items-end justify-center"
               aria-label={`${brandText} ${brandSuffix}`}
             >
-              <span
-                className={`text-6xl font-black italic leading-none tracking-[-0.11em] ${brandBaseColor}`}
-              >
-                {brandText.charAt(0)}
-                <span className={brandAccentColor}>
-                  {brandText.slice(1)}
-                </span>
-              </span>
-              <span
-                className={`mb-1 ml-3 rounded-sm ${brandSuffixBg} px-2 py-0.5 text-base font-medium text-white`}
-              >
-                {brandSuffix}
-              </span>
+              {brandMark ?? (
+                <>
+                  <span
+                    className={`text-6xl font-black italic leading-none tracking-[-0.11em] ${brandBaseColor}`}
+                  >
+                    {brandText.charAt(0)}
+                    <span className={brandAccentColor}>
+                      {brandText.slice(1)}
+                    </span>
+                  </span>
+                  <span
+                    className={`mb-1 ml-3 rounded-sm ${brandSuffixBg} px-2 py-0.5 text-base font-medium text-white`}
+                  >
+                    {brandSuffix}
+                  </span>
+                </>
+              )}
             </div>
             <p
               className={`mx-auto mt-10 max-w-[510px] text-2xl font-semibold leading-relaxed ${taglineColor}`}

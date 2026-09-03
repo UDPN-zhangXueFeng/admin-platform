@@ -301,14 +301,14 @@
     "order": [
       {
         "id": "overview",
-        "icon": "Gauge",
+        "icon": "LayoutDashboard",
         "label": "Dashboard",
         "path": "/overview",
         "group": ""
       },
       {
         "id": "onboard",
-        "icon": "FileCheck2",
+        "icon": "ClipboardCheck",
         "label": "Onboarding Information",
         "path": "/onboard",
         "group": ""
@@ -322,7 +322,7 @@
       },
       {
         "id": "fx",
-        "icon": "TrendingUp",
+        "icon": "ChartCandlestick",
         "label": "Gateway FX Query",
         "path": "/fx",
         "group": ""
@@ -336,19 +336,19 @@
       },
       {
         "id": "tx",
-        "icon": "Receipt",
+        "icon": "ReceiptText",
         "label": "Transaction Records",
         "path": "/tx",
         "group": ""
       },
       {
         "id": "system",
-        "icon": "Shield",
+        "icon": "Settings",
         "label": "System Management",
         "path": "/system/user",
         "group": "",
         "children": [
-          { "id": "user", "icon": "Users",       "label": "User Management", "path": "/system/user" },
+          { "id": "user", "icon": "UsersRound",   "label": "User Management", "path": "/system/user" },
           { "id": "role", "icon": "ShieldCheck", "label": "Role Management", "path": "/system/role" },
           { "id": "menu", "icon": "ListTree",    "label": "Menu Permission", "path": "/system/menu" },
           { "id": "log",  "icon": "ScrollText",  "label": "Operation Log", "path": "/system/log", "group": "more" },

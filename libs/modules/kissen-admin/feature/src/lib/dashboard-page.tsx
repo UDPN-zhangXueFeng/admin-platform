@@ -2,11 +2,12 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Info } from 'lucide-react';
 
 import {
+  Badge,
   Button,
   Card,
-  CardContent,
   Skeleton,
   Tooltip,
   TooltipContent,
@@ -19,20 +20,24 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import {
   KISSEN_PROJECT_ID,
   kissenPage,
+  useInstanceListQuery,
+  useLpListQuery,
+  useSettleOrderListQuery,
+  useTokenPairListQuery,
 } from '@myorg/modules/kissen-admin/data-access';
 
 /**
  * DashboardPage —— 工作台「今日清算」总览（登录落点）。
  *
- * 迁移自 Vue 源 `views/workbench/index.vue`。聚合展示五块，数据全部来自现有
- * 列表接口，客户端聚合/过滤：
- * - 关键数字带：今日交易笔数 / 今日流水（按源币种分组，跨币种不混计） / 在途笔数 / 异常待处置
- * - 入网银行（status 20 生效 + 网关连通性 + 联系人）
+ * 迁移自 Vue 源 `views/workbench/index.vue`，并参考 `udpn-kissen` 重组为：
+ * 页头、四张 KPI 卡片、异常队列/结算摘要、资金池概览/网络概览。数据全部来自现有
+ * 列表接口，客户端只做展示所需的聚合/过滤：
+ * - KPI：今日交易笔数 / 今日流水（按源币种分组） / 在途笔数 / 异常待处置
+ * - 异常队列（status 70 前 5 笔）与结算状态（pending/confirmed/settled）
  * - 资金池水位（token 维度，低于 remindThreshold 即告急）
- * - 异常待处置队列（status 70 前 5 笔）
- * - 对账差异（status 1 未处理条数）
+ * - 网络概览（银行、网关实例、流动性提供方、Token Pairs）
  *
- * 五块各自独立 react-query 查询，任一接口失败只降级对应区块，不整页报错
+ * 各区块各自独立 react-query 查询，任一接口失败只降级对应区块，不整页报错
  * （与源 Promise.all + 各 try/catch 同语义）。无独立 data-access 域：统计端点
  * 经 kissenPage 直接在本 feature 内薄调用（端点路径读自源 api/transaction.ts、
  * api/bank.ts、api/lp-pool.ts、api/reconcile.ts）。
@@ -70,6 +75,7 @@ interface WorkbenchBankRow {
 interface WorkbenchPoolRow {
   poolId: number;
   lpName: string;
+  accountAddress?: string;
   /** 池维度 token code（v2.0 资金池为 token 维度，不再有 currency） */
   tokenCode: string;
   /** 最低流动性（水位分母，token 维度） */
@@ -77,6 +83,8 @@ interface WorkbenchPoolRow {
   /** 补资提醒阈值（水位低于此比例即告急） */
   remindThreshold: string | number;
   availableBalanceCache: string | number;
+  preauthAvailable: string | number | null;
+  status: number;
 }
 
 // ---- 常量 ----
@@ -109,9 +117,6 @@ const TX_STATUS_MAP: Record<number, string> = {
   90: 'Failed',
 };
 
-/** 异常队列网格列宽（源 .tx-head/.tx-row 同口径）。 */
-const TX_GRID_COLS = '180px 90px 120px minmax(160px, 1fr) 155px 64px';
-
 // ---- 格式化（移植自 views/approval/format.ts） ----
 
 /** 数字千分位（保留原小数位）。 */
@@ -131,6 +136,22 @@ function formatTime(ms: number | null | undefined): string {
   if (Number.isNaN(d.getTime())) return '-';
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+/** 时间戳 → 适合异常队列表格的相对时长。 */
+function formatAge(ms: number): string {
+  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - ms) / 60000));
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m`;
+  const hours = Math.floor(elapsedMinutes / 60);
+  return `${hours}h ${elapsedMinutes % 60}m`;
+}
+
+/** 地址保留首尾片段，避免破坏参考布局的表格密度。 */
+function formatAddress(address: string | undefined): string {
+  if (!address) return '-';
+  return address.length > 14
+    ? `${address.slice(0, 6)}…${address.slice(-4)}`
+    : address;
 }
 
 /** 今日 0 点毫秒（与对账页 dayStart 口径一致，运营环境 GMT+8）。 */
@@ -155,11 +176,6 @@ function isPoolCritical(pool: WorkbenchPoolRow): boolean {
   return Number(pool.availableBalanceCache) / min < Number(pool.remindThreshold);
 }
 
-/** 是否画水位条：最低流动性为正才有口径（分母口径同 isCritical）。 */
-function hasPoolBar(pool: WorkbenchPoolRow): boolean {
-  return Number(pool.minLiquidity) > 0;
-}
-
 /** 水位条宽度百分比（封顶 100，不低于 0 以免出现非法宽度）。 */
 function poolBarWidth(pool: WorkbenchPoolRow): number {
   const min = Number(pool.minLiquidity);
@@ -167,26 +183,6 @@ function poolBarWidth(pool: WorkbenchPoolRow): number {
   const ratio = Number(pool.availableBalanceCache) / min;
   return Math.max(0, Math.floor(Math.min(100, ratio * 100)));
 }
-
-/** 连通性色调：0 未知 / 1 正常 / 2 断开（口径同 api/bank.ts 注释）。 */
-function connectivityTone(status: number): 'on' | 'off' | 'unknown' {
-  if (status === 1) return 'on';
-  if (status === 2) return 'off';
-  return 'unknown';
-}
-
-const CONN_DOT: Record<'on' | 'off' | 'unknown', string> = {
-  on: 'bg-success',
-  off: 'bg-destructive',
-  unknown: 'bg-muted-foreground/30',
-};
-
-/** 连通性点的无障碍文案（纯色点须可读，通用规则 5）。 */
-const CONN_LABEL: Record<'on' | 'off' | 'unknown', string> = {
-  on: 'Connected',
-  off: 'Disconnected',
-  unknown: 'Unknown',
-};
 
 // ---- 查询 key ----
 
@@ -272,151 +268,334 @@ function useWorkbenchReconcileQuery(projectId: string) {
   });
 }
 
-// ---- StatusRail（紧凑模式，移植自 components/StatusRail.vue） ----
+// ---- 通用展示小块 ----
 
-/** 主线 8 节点：交易生命周期主路径。 */
-const RAIL_MAIN = [1, 5, 10, 20, 25, 30, 35, 40] as const;
-/** 结算腿节点（源端已验证→解付→入账）：钱真正移动的段。 */
-const RAIL_SETTLE: Record<number, true> = { 25: true, 30: true, 35: true };
-/**
- * 分支终态：forkCode 为交易离开主线前最后经过的主线节点（纯展示近似）。
- * 取消发生在钱未动之前，失败多在划转腿，冲正源自源端验证后，异常多在解付中。
- */
-const RAIL_BRANCH: Record<number, { tone: 'danger' | 'info'; forkCode: number }> = {
-  50: { tone: 'info', forkCode: 25 },
-  60: { tone: 'info', forkCode: 25 },
-  70: { tone: 'danger', forkCode: 30 },
-  80: { tone: 'info', forkCode: 10 },
-  90: { tone: 'danger', forkCode: 20 },
-};
-
-interface RailStep {
-  key: string;
-  state: 'done' | 'current' | 'todo';
-  settle: boolean;
-  tone?: 'danger' | 'info';
-}
-
-/** 由状态码推导渲染序列：主线画到当前位置/分叉点，分支终态末端追加一个节点。 */
-function buildRailSteps(status: number): RailStep[] {
-  const branch = RAIL_BRANCH[status];
-  if (branch) {
-    const forkIdx = RAIL_MAIN.findIndex((c) => c === branch.forkCode);
-    return [
-      ...RAIL_MAIN.slice(0, forkIdx + 1).map<RailStep>((c) => ({
-        key: `m${c}`,
-        state: 'done',
-        settle: Boolean(RAIL_SETTLE[c]),
-      })),
-      { key: `b${status}`, state: 'current', settle: false, tone: branch.tone },
-    ];
-  }
-  const curIdx = RAIL_MAIN.findIndex((c) => c === status);
-  return RAIL_MAIN.map<RailStep>((c, i) => ({
-    key: `m${c}`,
-    state: i < curIdx ? 'done' : i === curIdx ? 'current' : 'todo',
-    settle: Boolean(RAIL_SETTLE[c]),
-  }));
-}
-
-/** 圆点样式：主线清算蓝、结算腿结算金、分支终态 danger 红 / info 灰。 */
-function railDotClass(s: RailStep): string {
-  if (s.tone === 'danger')
-    return 'bg-destructive border-destructive shadow-[0_0_0_3px_rgba(206,34,34,0.2)]'; /* 光晕与 --destructive(0 72% 47% = rgb(206,34,34)) 同色 */
-  if (s.tone === 'info')
-    return 'border-muted-foreground/60 bg-muted-foreground/60 shadow-[0_0_0_3px_rgba(100,116,139,0.2)]';
-  if (s.state === 'current')
-    return cn(
-      'shadow-[0_0_0_3px_rgba(11,107,83,0.2)]',
-      s.settle ? 'bg-amber-600 border-amber-600' : 'bg-teal-700 border-teal-700',
-    );
-  if (s.state === 'done')
-    return s.settle ? 'bg-amber-600 border-amber-600' : 'bg-teal-700 border-teal-700';
-  return s.settle ? 'border-amber-600' : 'border-muted-foreground/40';
-}
-
-/** 连线样式：跟随下一节点的色调，未到达灰。 */
-function railLinkClass(next: RailStep): string {
-  if (next.tone === 'danger') return 'bg-destructive';
-  if (next.tone === 'info') return 'bg-muted-foreground/60';
-  if (next.state === 'todo') return 'bg-muted-foreground/30';
-  return 'bg-teal-700';
-}
-
-/** 紧凑状态轨道：横向节点（8px 圆点）加连线，无标签（列表行内嵌）。 */
-function StatusRailCompact({ status }: { status: number }) {
-  const steps = React.useMemo(() => buildRailSteps(status), [status]);
+function MetricLabel({ label, tooltip }: { label: string; tooltip?: string }) {
   return (
-    <div
-      className="flex items-start overflow-x-auto"
-      role="img"
-      aria-label={`Transaction status: ${TX_STATUS_MAP[status] ?? 'Unknown'}`}
-    >
-      {steps.map((s, i) => (
-        <React.Fragment key={s.key}>
-          <span
-            className={cn(
-              'mt-px h-2 w-2 shrink-0 rounded-full border-[1.5px] box-border',
-              railDotClass(s),
-            )}
-          />
-          {i < steps.length - 1 && (
+    <div className="flex items-center gap-1 text-xs font-semibold tracking-wide text-muted-foreground">
+      <span>{label}</span>
+      {tooltip ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
             <span
-              className={cn(
-                'mt-[3px] h-0.5 min-w-[12px] flex-1 rounded-sm',
-                railLinkClass(steps[i + 1]!),
-              )}
-            />
-          )}
-        </React.Fragment>
-      ))}
+              aria-label={`More information about ${label}`}
+              className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground"
+              tabIndex={0}
+            >
+              <Info className="h-3 w-3" aria-hidden="true" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-64 text-xs leading-relaxed">
+            {tooltip}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
     </div>
   );
 }
 
-// ---- 通用展示小块 ----
-
-function FigureCell({
+function MetricCard({
   label,
-  children,
-  divider,
+  tooltip,
+  value,
+  footer,
+  badge,
+  className,
+  valueClassName,
 }: {
   label: string;
-  children: React.ReactNode;
-  divider?: boolean;
+  tooltip?: string;
+  value: React.ReactNode;
+  footer?: React.ReactNode;
+  badge?: { label: string; variant: 'destructive' | 'mute' | 'success' };
+  className?: string;
+  valueClassName?: string;
 }) {
   return (
-    <div
+    <Card
       className={cn(
-        'flex flex-col gap-2',
-        divider && 'md:border-l md:border-border md:px-6',
+        'rounded-[10px] p-4 transition-colors hover:border-primary',
+        className,
       )}
     >
-      <div className="t-supporting text-muted-foreground">{label}</div>
-      <div className="text-2xl font-semibold leading-tight tabular-nums">
-        {children}
+      <div className="flex items-center justify-between gap-2">
+        <MetricLabel label={label} tooltip={tooltip} />
+        {badge ? (
+          <Badge variant={badge.variant} size="sm">
+            {badge.label}
+          </Badge>
+        ) : null}
+      </div>
+      <div
+        className={cn(
+          'mt-1.5 text-3xl font-bold tracking-tight tabular-nums',
+          valueClassName,
+        )}
+      >
+        {value}
+      </div>
+      {footer ? (
+        <div className="mt-1 text-xs font-medium text-muted-foreground">
+          {footer}
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+function PanelHeading({ title, action, onAction }: {
+  title: string;
+  action?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <div className="mb-3.5 flex items-baseline justify-between gap-3">
+      <h2 className="text-base font-semibold">{title}</h2>
+      {action && onAction ? (
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto shrink-0 p-0 text-xs font-semibold"
+          onClick={onAction}
+        >
+          {action}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function StatLine({ label, count, variant, hint }: {
+  label: string;
+  count: number | null;
+  variant: 'warning' | 'mute' | 'success';
+  hint?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-border py-2.5 last:border-b-0">
+      <span className="flex min-w-0 items-center gap-2 font-medium">
+        <Badge variant={variant} size="sm">
+          {label}
+        </Badge>
+        {hint ? (
+          <span className="truncate text-xs text-muted-foreground">{hint}</span>
+        ) : null}
+      </span>
+      <span className="shrink-0 font-bold tabular-nums">
+        {count == null ? '—' : count}{' '}
+        <span className="text-xs font-medium text-muted-foreground">
+          {count === 1 ? 'statement' : 'statements'}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function NetworkStat({ name, count, hint }: {
+  name: string;
+  count: number | null;
+  hint: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-b-0">
+      <div className="min-w-0 flex-1 font-semibold">
+        {name}
+        <span className="mt-px block truncate text-xs font-medium text-muted-foreground">
+          {hint}
+        </span>
+      </div>
+      <div className="shrink-0 text-right text-xl font-bold whitespace-nowrap">
+        {count == null ? '—' : count}{' '}
+        <span className="text-xs font-medium text-muted-foreground">active</span>
       </div>
     </div>
   );
 }
 
-function SectionHead({
-  eyebrow,
-  title,
-  extra,
+function StatusPill({ critical, disabled }: { critical: boolean; disabled: boolean }) {
+  return (
+    <Badge variant={disabled ? 'outline' : critical ? 'destructive' : 'success'}>
+      {disabled ? 'Disabled' : critical ? 'Low' : 'Sufficient'}
+    </Badge>
+  );
+}
+
+function PoolLevel({ pool }: { pool: WorkbenchPoolRow }) {
+  const critical = isPoolCritical(pool);
+  const minLiquidity = Number(pool.minLiquidity);
+  const percentage =
+    minLiquidity > 0
+      ? Math.round((Number(pool.availableBalanceCache) / minLiquidity) * 100)
+      : null;
+
+  return (
+    <div className="flex min-w-[130px] items-center gap-2.5">
+      <div className="relative h-1.5 w-[110px] rounded bg-muted">
+        {percentage != null ? (
+          <div
+            className={cn(
+              'absolute inset-y-0 left-0 rounded',
+              critical ? 'bg-warning' : 'bg-success',
+            )}
+            style={{ width: `${poolBarWidth(pool)}%` }}
+          />
+        ) : null}
+        {percentage != null ? (
+          <div className="absolute inset-y-[-3px] left-[45%] w-0.5 bg-muted-foreground/50" />
+        ) : null}
+      </div>
+      <span className="w-12 text-xs tabular-nums text-muted-foreground">
+        {percentage == null ? '—' : `${percentage}%`}
+      </span>
+    </div>
+  );
+}
+
+function PoolOverview({
+  pools,
+  isLoading,
+  isError,
+  onRetry,
+  onViewAll,
 }: {
-  eyebrow: string;
-  title: string;
-  extra?: React.ReactNode;
+  pools: WorkbenchPoolRow[];
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
+  onViewAll: () => void;
 }) {
   return (
-    <div className="mb-4 flex items-baseline gap-2.5">
-      <span className="t-supporting text-muted-foreground">{eyebrow}</span>
-      <span className="t-section-title">{title}</span>
-      {extra !== undefined && (
-        <span className="ml-auto text-xs text-muted-foreground">{extra}</span>
+    <Card className="rounded-[10px] p-5">
+      <PanelHeading
+        title="Pool Overview"
+        action={`All pools ${pools.length} →`}
+        onAction={onViewAll}
+      />
+      {isError ? (
+        <BlockFail onRetry={onRetry} />
+      ) : isLoading ? (
+        <BlockSkeleton rows={4} />
+      ) : pools.length === 0 ? (
+        <BlockEmpty icon={<InboxIcon className="h-4 w-4" />} text="No pools yet" />
+      ) : (
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[800px] border-collapse">
+          <thead>
+            <tr>
+              {[
+                'LP',
+                'Pool Address',
+                'Available Pre-Authorized',
+                'Token',
+                'Available Balance',
+                'Pool Level',
+                'Status',
+              ].map((heading, index) => (
+                <th
+                  key={heading}
+                  className={cn(
+                    'whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground',
+                    (index === 2 || index === 4) && 'text-right',
+                  )}
+                >
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {pools.map((pool) => {
+              const critical = isPoolCritical(pool);
+              return (
+                <tr key={pool.poolId} className="hover:bg-muted/40">
+                  <td className="border-b border-border px-3 py-2.5 text-sm">
+                    {pool.lpName || '-'}
+                  </td>
+                  <td className="border-b border-border px-3 py-2.5 font-mono text-xs text-muted-foreground">
+                    {formatAddress(pool.accountAddress)}
+                  </td>
+                  <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
+                    {pool.preauthAvailable == null
+                      ? '-'
+                      : formatMoney(pool.preauthAvailable)}
+                  </td>
+                  <td className="border-b border-border px-3 py-2.5 text-sm font-semibold">
+                    {pool.tokenCode || '-'}
+                  </td>
+                  <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
+                    {formatMoney(pool.availableBalanceCache)}
+                  </td>
+                  <td className="border-b border-border px-3 py-2.5">
+                    <PoolLevel pool={pool} />
+                  </td>
+                  <td className="border-b border-border px-3 py-2.5">
+                    <StatusPill critical={critical} disabled={pool.status === 50} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        </div>
       )}
-    </div>
+    </Card>
+  );
+}
+
+function SettlementOverview({ settleQuery, reconcileQuery, onViewAll }: {
+  settleQuery: ReturnType<typeof useSettleOrderListQuery>;
+  reconcileQuery: ReturnType<typeof useWorkbenchReconcileQuery>;
+  onViewAll: () => void;
+}) {
+  const rows = settleQuery.data?.data ?? [];
+  const settledSince = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const countByStatus = (status: number, since?: number) =>
+    rows.filter(
+      (row) => row.status === status && (since == null || row.createTime >= since),
+    ).length;
+  const diffPending = reconcileQuery.data?.pagination.total ?? 0;
+
+  return (
+    <Card className="rounded-[10px] p-5">
+      <PanelHeading
+        title="Settlement Statements"
+        action="View all →"
+        onAction={onViewAll}
+      />
+      {settleQuery.isError ? (
+        <BlockFail onRetry={() => settleQuery.refetch()} />
+      ) : settleQuery.isLoading ? (
+        <BlockSkeleton rows={3} />
+      ) : (
+        <>
+          <StatLine label="Pending Approval" count={countByStatus(10)} variant="warning" />
+          <StatLine label="Confirmed" count={countByStatus(20)} variant="mute" />
+          <StatLine
+            label="Settled"
+            count={countByStatus(35, settledSince)}
+            variant="success"
+            hint="last 7 days"
+          />
+        </>
+      )}
+      <div
+        className={cn(
+          'mt-3.5 flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-xs font-semibold',
+          reconcileQuery.isError || diffPending > 0
+            ? 'border-warning/30 bg-warning/10 text-warning'
+            : 'border-success/30 bg-success/10 text-success',
+        )}
+      >
+        <span aria-hidden="true">{reconcileQuery.isError || diffPending > 0 ? '!' : '✓'}</span>
+        <span>
+          {reconcileQuery.isError
+            ? 'Reconciliation status unavailable'
+            : diffPending > 0
+              ? `${diffPending} unresolved reconciliation difference(s)`
+              : 'Reconciliation — no unresolved differences'}
+        </span>
+      </div>
+    </Card>
   );
 }
 
@@ -532,13 +711,33 @@ export function DashboardPage() {
   const exceptionsQ = useWorkbenchExceptionsQuery(KISSEN_PROJECT_ID);
   const poolsQ = useWorkbenchPoolsQuery(KISSEN_PROJECT_ID);
   const reconcileQ = useWorkbenchReconcileQuery(KISSEN_PROJECT_ID);
+  const settleQ = useSettleOrderListQuery(KISSEN_PROJECT_ID, {
+    pageNum: 1,
+    pageSize: 200,
+    filter: {},
+  });
+  const instancesQ = useInstanceListQuery(KISSEN_PROJECT_ID, {
+    pageNum: 1,
+    pageSize: 200,
+    filter: { status: 20 },
+  });
+  const lpsQ = useLpListQuery(KISSEN_PROJECT_ID, {
+    pageNum: 1,
+    pageSize: 200,
+    filter: { status: 20 },
+  });
+  const tokenPairsQ = useTokenPairListQuery(KISSEN_PROJECT_ID, { status: 20 });
 
   const refreshing =
     todayQ.isFetching ||
     banksQ.isFetching ||
     exceptionsQ.isFetching ||
     poolsQ.isFetching ||
-    reconcileQ.isFetching;
+    reconcileQ.isFetching ||
+    settleQ.isFetching ||
+    instancesQ.isFetching ||
+    lpsQ.isFetching ||
+    tokenPairsQ.isFetching;
 
   const handleRefresh = React.useCallback(() => {
     void Promise.all([
@@ -547,8 +746,22 @@ export function DashboardPage() {
       exceptionsQ.refetch(),
       poolsQ.refetch(),
       reconcileQ.refetch(),
+      settleQ.refetch(),
+      instancesQ.refetch(),
+      lpsQ.refetch(),
+      tokenPairsQ.refetch(),
     ]);
-  }, [todayQ, banksQ, exceptionsQ, poolsQ, reconcileQ]);
+  }, [
+    todayQ,
+    banksQ,
+    exceptionsQ,
+    poolsQ,
+    reconcileQ,
+    settleQ,
+    instancesQ,
+    lpsQ,
+    tokenPairsQ,
+  ]);
 
   // 今日概览（客户端聚合）
   const todayRows = todayQ.data?.data ?? [];
@@ -566,12 +779,6 @@ export function DashboardPage() {
       .sort((a, b) => b.total - a.total);
   }, [todayRows]);
   const inflightCount = todayRows.filter((r) => Boolean(IN_FLIGHT[r.status])).length;
-  const todayVolumeText = todayVolumes.length
-    ? todayVolumes
-        .map((v) => `${v.ccy} ${formatMoney(Number(v.total.toFixed(2)))}`)
-        .join(' · ')
-    : '0';
-
   // 入网银行（客户端过滤 status 20）
   const banks = (banksQ.data?.data ?? []).filter((b) => b.status === 20);
 
@@ -582,310 +789,244 @@ export function DashboardPage() {
   // 资金池
   const pools = poolsQ.data?.data ?? [];
 
-  // 对账未处理差异
-  const diffPending = reconcileQ.data?.pagination.total ?? 0;
+  const networkCounts = {
+    banks: banksQ.isError ? null : banks.length,
+    instances: instancesQ.isError ? null : instancesQ.data?.data.length ?? null,
+    lps: lpsQ.isError ? null : lpsQ.data?.data.length ?? null,
+    tokenPairs: tokenPairsQ.isError ? null : tokenPairsQ.data?.length ?? null,
+  };
+  const latestUpdatedAt = Math.max(
+    todayQ.dataUpdatedAt,
+    banksQ.dataUpdatedAt,
+    exceptionsQ.dataUpdatedAt,
+    poolsQ.dataUpdatedAt,
+    reconcileQ.dataUpdatedAt,
+    settleQ.dataUpdatedAt,
+    instancesQ.dataUpdatedAt,
+    lpsQ.dataUpdatedAt,
+    tokenPairsQ.dataUpdatedAt,
+  );
 
   return (
-    <div className="flex flex-col section-gap">
-      {/* 页头 */}
-      <header className="flex items-center justify-between">
-        <div>
-          <div className="t-supporting text-muted-foreground">DAILY CLEARING</div>
-          <h1 className="t-page-title">Today's Clearing</h1>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={refreshing}
-        >
-          <RefreshIcon className={cn(refreshing && 'animate-spin')} />
-          Refresh
-        </Button>
-      </header>
-
-      {/* 关键数字带：今日概览三格 + 异常待处置一格，各自独立降级 */}
-      <Card>
-        <CardContent className="panel-pad">
-          <div className="grid grid-cols-2 items-center gap-6 md:grid-cols-4 md:gap-0">
-            {todayQ.isError ? (
-              <div className="col-span-2 py-1 text-sm text-muted-foreground md:col-span-3">
-                Failed to load. Refresh to retry.
-              </div>
-            ) : todayQ.isLoading ? (
-              <>
-                <FigureCell label="Today's Transactions">
-                  <Skeleton className="h-7 w-20" />
-                </FigureCell>
-                <FigureCell label="Today's Volume by Currency" divider>
-                  <Skeleton className="h-7 w-32" />
-                </FigureCell>
-                <FigureCell label="In-Flight Count" divider>
-                  <Skeleton className="h-7 w-16" />
-                </FigureCell>
-              </>
-            ) : (
-              <>
-                <FigureCell label="Today's Transactions">
-                  {formatMoney(todayCount)}
-                </FigureCell>
-                <FigureCell label="Today's Volume by Currency" divider>
-                  {todayVolumeText}
-                </FigureCell>
-                <FigureCell label="In-Flight Count" divider>
-                  {formatMoney(inflightCount)}
-                </FigureCell>
-              </>
-            )}
-            {/* 异常待处置（独立降级，与今日概览解耦） */}
-            <FigureCell label="Pending Exceptions" divider>
-              {exceptionsQ.isError ? (
-                <span className="text-sm font-normal text-muted-foreground">
-                  Failed to load. Refresh to retry.
-                </span>
-              ) : exceptionsQ.isLoading ? (
-                <Skeleton className="h-7 w-12" />
-              ) : (
-                <>
-                  <span
-                    className={exceptionTotal > 0 ? 'text-destructive' : undefined}
-                  >
-                    {formatMoney(exceptionTotal)}
-                  </span>
-                  {exceptionTotal > 0 && (
-                    <span className="t-supporting block text-muted-foreground">
-                      Needs manual handling
-                    </span>
-                  )}
-                </>
-              )}
-            </FigureCell>
+    <TooltipProvider delayDuration={200}>
+      <div className="flex flex-col gap-4">
+        {/* 页头 */}
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="t-supporting text-muted-foreground">NETWORK OPERATIONS</div>
+            <h1 className="t-page-title">Dashboard</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Network operations at a glance
+            </p>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">
+              Updated {latestUpdatedAt ? formatTime(latestUpdatedAt) : '-'} (UTC+8)
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              <RefreshIcon className={cn(refreshing && 'animate-spin')} />
+              Refresh
+            </Button>
+          </div>
+        </header>
 
-      {/* 分块网格：上排网络状态（入网银行 / 资金池水位），下排待办（异常队列 / 对账差异） */}
-      <div className="grid grid-cols-1 section-gap lg:grid-cols-[2fr_1fr]">
-        {/* 入网银行 */}
-        <Card>
-          <CardContent className="panel-pad">
-            <SectionHead
-              eyebrow="NETWORK"
-              title="Onboarded Banks"
-              extra={
-                !banksQ.isLoading && !banksQ.isError
-                  ? `Total ${banks.length}`
-                  : undefined
-              }
-            />
-            {banksQ.isError ? (
-              <BlockFail onRetry={() => banksQ.refetch()} />
-            ) : banksQ.isLoading ? (
-              <BlockSkeleton rows={3} />
-            ) : banks.length === 0 ? (
-              <BlockEmpty icon={<InboxIcon className="h-4 w-4" />} text="No onboarded banks" />
-            ) : (
-              <div>
-                {banks.map((bank) => {
-                  const tone = connectivityTone(bank.connectivityStatus);
-                  return (
-                    <div
-                      key={bank.bankId}
-                      className="flex items-center gap-2.5 border-b border-border py-2.5 text-sm last:border-0"
-                    >
-                      <span
-                        role="img"
-                        aria-label={CONN_LABEL[tone]}
-                        className={cn(
-                          'h-2 w-2 shrink-0 rounded-full',
-                          CONN_DOT[tone],
-                        )}
-                      />
-                      <span className="font-medium">{bank.bankName}</span>
-                      <span className="text-xs tabular-nums text-muted-foreground">
-                        {bank.bankCode}
-                      </span>
-                      {/* v2.0 银行行：联系人取代 v1.x 币种徽标与单笔/日限额组 */}
-                      <span className="text-xs text-muted-foreground">
-                        {bank.contactName || '-'}
-                      </span>
+        {/* KPI 卡片：与 udpn-kissen 参考布局保持四列独立卡片结构。 */}
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 min-[1600px]:grid-cols-4">
+          <MetricCard
+            label="Pending Exceptions"
+            tooltip="Transactions currently in Exception status and waiting for manual handling."
+            value={exceptionsQ.isError ? '—' : exceptionsQ.isLoading ? <Skeleton className="h-9 w-16" /> : formatMoney(exceptionTotal)}
+            footer={exceptionTotal > 0 ? 'Requires manual handling →' : 'No exceptions pending'}
+            badge={{
+              label: exceptionTotal > 0 ? 'Action needed' : 'Clear',
+              variant: exceptionTotal > 0 ? 'destructive' : 'success',
+            }}
+            className="border-destructive/30 bg-gradient-to-b from-card to-destructive/5"
+            valueClassName={exceptionTotal > 0 ? 'text-destructive' : undefined}
+          />
+          <MetricCard
+            label="Transactions in Progress"
+            tooltip="Created transactions that have not reached a final state."
+            value={todayQ.isError ? '—' : todayQ.isLoading ? <Skeleton className="h-9 w-16" /> : formatMoney(inflightCount)}
+            footer={inflightCount > 0 ? 'Live processing activity' : 'No transactions in progress'}
+            badge={{ label: 'Live', variant: 'mute' }}
+          />
+          <MetricCard
+            label="Today's Transactions"
+            tooltip="Transactions created today, from local midnight through now."
+            value={todayQ.isError ? '—' : todayQ.isLoading ? <Skeleton className="h-9 w-16" /> : formatMoney(todayCount)}
+          />
+          <MetricCard
+            label="Today's Volume by Token"
+            tooltip="Today's transaction volume grouped by source token."
+            value={
+              todayQ.isError ? (
+                '—'
+              ) : todayQ.isLoading ? (
+                <Skeleton className="h-9 w-28" />
+              ) : todayVolumes.length === 0 ? (
+                '0'
+              ) : (
+                <div className="flex flex-col gap-0.5 text-sm">
+                  {todayVolumes.slice(0, 3).map((volume) => (
+                    <div key={volume.ccy} className="flex justify-between gap-3">
+                      <span className="font-bold text-foreground">{volume.ccy}</span>
+                      <span>{formatMoney(Number(volume.total.toFixed(2)))}</span>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )
+            }
+            footer={`${todayVolumes.length} token${todayVolumes.length === 1 ? '' : 's'} traded today`}
+            valueClassName="mt-2 min-h-[54px] text-base font-normal"
+          />
+        </section>
 
-        {/* 资金池水位 */}
-        <Card>
-          <CardContent className="panel-pad">
-            <SectionHead eyebrow="POOL LEVEL" title="Funding Pool Level" />
-            {poolsQ.isError ? (
-              <BlockFail onRetry={() => poolsQ.refetch()} />
-            ) : poolsQ.isLoading ? (
-              <BlockSkeleton rows={3} />
-            ) : pools.length === 0 ? (
-              <BlockEmpty icon={<InboxIcon className="h-4 w-4" />} text="No funding pools" />
-            ) : (
-              <div>
-                {pools.map((pool) => {
-                  const critical = isPoolCritical(pool);
-                  return (
-                    <div
-                      key={pool.poolId}
-                      className={cn(
-                        'flex flex-col gap-1.5 border-b border-border py-2.5 text-sm last:border-0',
-                      )}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span
-                          role="img"
-                          aria-label={
-                            critical ? 'Pool level critical' : 'Pool level normal'
-                          }
-                          className={cn(
-                            'h-2 w-2 shrink-0 rounded-full',
-                            critical ? 'bg-warning' : 'bg-success',
-                          )}
-                        />
-                        <span className="font-medium">{pool.tokenCode}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {pool.lpName || '-'}
-                        </span>
-                        <span className="ml-auto tabular-nums">
-                          {formatMoney(pool.availableBalanceCache)}
-                        </span>
-                        {critical && (
-                          <span className="text-xs font-medium text-warning">
-                            Critical
-                          </span>
-                        )}
-                      </div>
-                      {hasPoolBar(pool) && (
-                        <div className="h-1 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className={cn(
-                              'h-full rounded-full',
-                              critical ? 'bg-warning' : 'bg-success',
-                            )}
-                            style={{ width: `${poolBarWidth(pool)}%` }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* 异常待处置队列 */}
-        <Card>
-          <CardContent className="panel-pad">
-            <SectionHead
-              eyebrow="EXCEPTION QUEUE"
-              title="Pending Exceptions"
-              extra={
-                !exceptionsQ.isLoading &&
-                !exceptionsQ.isError &&
-                exceptionTotal > exceptionRows.length
-                  ? `Total ${exceptionTotal}, showing first ${exceptionRows.length}`
-                  : undefined
-              }
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <Card className="min-w-0 rounded-[10px] p-5 lg:col-span-8">
+          <PanelHeading
+            title="Pending Exceptions"
+            action={
+              exceptionTotal > exceptionRows.length
+                ? `View all ${exceptionTotal} →`
+                : 'View all →'
+            }
+            onAction={() => router.push('/transfer/tx')}
+          />
+          {exceptionsQ.isError ? (
+            <BlockFail onRetry={() => exceptionsQ.refetch()} />
+          ) : exceptionsQ.isLoading ? (
+            <BlockSkeleton rows={4} />
+          ) : exceptionRows.length === 0 ? (
+            <BlockEmpty
+              icon={<CheckCircleIcon className="h-4 w-4 text-success" />}
+              text="No exceptions to handle"
             />
-            {exceptionsQ.isError ? (
-              <BlockFail onRetry={() => exceptionsQ.refetch()} />
-            ) : exceptionsQ.isLoading ? (
-              <BlockSkeleton rows={3} />
-            ) : exceptionRows.length === 0 ? (
-              <BlockEmpty
-                icon={<CheckCircleIcon className="h-4 w-4 text-success" />}
-                text="No exceptions to handle"
-              />
-            ) : (
-              <TooltipProvider delayDuration={200}>
-                <div className="overflow-x-auto">
-                  <div
-                    className="grid items-center gap-3 border-b border-border pb-1.5 text-xs text-muted-foreground"
-                    style={{ gridTemplateColumns: TX_GRID_COLS }}
-                  >
-                    <span>Txn No.</span>
-                    <span>Currency Pair</span>
-                    <span>Principal</span>
-                    <span>Status</span>
-                    <span>Created At</span>
-                    <span />
-                  </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] border-collapse">
+                <thead>
+                  <tr>
+                    {[
+                      'Transaction No.',
+                      'Token Pair',
+                      'Amount',
+                      'Status',
+                      'Created on',
+                      'Actions',
+                    ].map((heading) => (
+                      <th
+                        key={heading}
+                        className="whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground first:pl-0 last:pr-0"
+                      >
+                        {heading}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
                   {exceptionRows.map((row) => {
                     const transactionNumber = row.txNo || row.txUuid;
-
                     return (
-                      <div
-                        key={row.transactionId}
-                        className="grid items-center gap-3 border-b border-border py-3 text-sm last:border-0"
-                        style={{ gridTemplateColumns: TX_GRID_COLS }}
-                      >
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="t-identifier min-w-0 truncate">
+                      <tr key={row.transactionId} className="hover:bg-muted/40">
+                        <td className="max-w-[150px] truncate border-b border-border px-3 py-3 font-mono text-xs first:pl-0">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block truncate">{transactionNumber}</span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-sm break-all font-mono text-xs">
                               {transactionNumber}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-sm break-all font-mono text-xs">
-                            {transactionNumber}
-                          </TooltipContent>
-                        </Tooltip>
-                        <span>{pairText(row)}</span>
-                        <span className="tabular-nums">
+                            </TooltipContent>
+                          </Tooltip>
+                        </td>
+                        <td className="border-b border-border px-3 py-3 text-sm">
+                          {pairText(row)}
+                        </td>
+                        <td className="border-b border-border px-3 py-3 text-sm tabular-nums">
                           {formatMoney(row.principal)}
-                        </span>
-                        <StatusRailCompact status={row.status} />
-                        <span className="tabular-nums text-muted-foreground">
+                        </td>
+                        <td className="border-b border-border px-3 py-3">
+                          <div className="flex flex-col items-start gap-1">
+                            <Badge variant="destructive" size="sm">
+                              Exception
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {TX_STATUS_MAP[row.status] ?? 'Exception'} ·{' '}
+                              {formatAge(Date.now() - row.createTime)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap border-b border-border px-3 py-3 text-sm text-muted-foreground">
                           {formatTime(row.createTime)}
-                        </span>
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0"
-                          onClick={() => router.push('/transfer/tx')}
-                        >
-                          Resolve
-                        </Button>
-                      </div>
+                        </td>
+                        <td className="border-b border-border px-3 py-3 text-right last:pr-0">
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0"
+                            onClick={() => router.push('/transfer/tx')}
+                          >
+                            View
+                          </Button>
+                        </td>
+                      </tr>
                     );
                   })}
-                </div>
-              </TooltipProvider>
-            )}
-          </CardContent>
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
 
-        {/* 对账差异 */}
-        <Card>
-          <CardContent className="panel-pad">
-            <SectionHead eyebrow="RECONCILIATION" title="Reconciliation Differences" />
-            {reconcileQ.isError ? (
-              <BlockFail onRetry={() => reconcileQ.refetch()} />
-            ) : reconcileQ.isLoading ? (
-              <BlockSkeleton rows={1} />
-            ) : diffPending > 0 ? (
-              <div className="flex items-center gap-3 text-sm">
-                <span>
-                  <span className="tabular-nums">{diffPending}</span> unresolved difference(s)
-                </span>
-                {/* v2.0 对账差异页已下线（§G：删页面+菜单，api 保留）；卡片保留计数，不设跳转。 */}
-              </div>
-            ) : (
-              <BlockEmpty
-                icon={<CheckCircleIcon className="h-4 w-4 text-success" />}
-                text="No unresolved differences"
-              />
-            )}
-          </CardContent>
+        <div className="min-w-0 lg:col-span-4">
+          <SettlementOverview
+            settleQuery={settleQ}
+            reconcileQuery={reconcileQ}
+            onViewAll={() => router.push('/settle/order')}
+          />
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <div className="min-w-0 lg:col-span-8">
+          <PoolOverview
+            pools={pools}
+            isLoading={poolsQ.isLoading}
+            isError={poolsQ.isError}
+            onRetry={() => poolsQ.refetch()}
+            onViewAll={() => router.push('/liquidity/pool')}
+          />
+        </div>
+        <Card className="min-w-0 rounded-[10px] p-5 lg:col-span-4">
+          <PanelHeading title="Network Overview" />
+          <NetworkStat
+            name="Banks"
+            count={networkCounts.banks}
+            hint="Onboarded and active"
+          />
+          <NetworkStat
+            name="Gateway Instances"
+            count={networkCounts.instances}
+            hint="Connected gateways"
+          />
+          <NetworkStat
+            name="Liquidity Providers"
+            count={networkCounts.lps}
+            hint="Active providers"
+          />
+          <NetworkStat
+            name="Token Pairs"
+            count={networkCounts.tokenPairs}
+            hint="Supported pairs"
+          />
         </Card>
+      </section>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

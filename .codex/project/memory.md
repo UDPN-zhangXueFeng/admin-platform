@@ -1,5 +1,38 @@
 # Codex 对话沉淀
 
+## 2026-09-03 kissen-admin Bank 列表列标题
+
+- **结论**：`/onboard/bank` 列表表头使用 `Bank Name`、`Bank Code`、`BIC`、`Blockchain/Token System`、`Status`、`Created On`；`Actions` 操作列继续保留。
+- **后续同类任务**：银行列表的表头定义位于 `bank-onboard-pages.tsx` 的 `BankInfoListPage` columns；详情/编辑页的 `SWIFT BIC` 等表单 label 是独立文案来源，列表重命名时不要连带修改。
+
+## 2026-09-03 kissen-admin Bank 详情字段
+
+- **结论**：Bank detail 页面新增 `Basic Information`（银行基础字段、时区化 Created On、Official Website、Description）；`Currency System Information` 在查看页改为 `Token System Information`，仅保留 Token System Type、Blockchain、Token System Name；Contact Information 删除 Phone，Contact Email 改为 Email。
+- **边界**：`Currency System URL`、`Integration Notes`、`Account Config` 只从详情页展示移除，编辑页仍保留原保存字段，避免未经需求授权改变后端配置能力。`officialWebsite`/`description` 在 BankRow 中建模为可选详情字段，后端未返回时展示 `--`。
+
+## 2026-09-03 kissen-admin Gateway Connectivity 文案
+
+- **结论**：实例列表 Connectivity 展示统一改为 `Online`（状态码 1）、`Offline`（状态码 2）、`Degraded`（状态码 0）。状态码契约和连接验证逻辑不变。
+- **后续同类任务**：Connectivity 文案统一维护在 `bank-gateway.model.ts` 的 `CONNECTIVITY_STATUS_LABEL`，因为实例页和银行网关连接信息共用该映射；修改文案不应在 feature 页面另写一份映射。
+
+## 2026-09-03 kissen-admin Workbench 参考布局重组
+
+- **背景**：用户要求参考 `~/Downloads/临时（可删除）/udpn-kissen` 重做 `/en-US/workbench`，但当前项目的 `AppShell` 已负责 Header、侧栏和面包屑，不能把参考项目的整页壳层重复嵌入。
+- **结论**：Workbench 内容区采用参考项目的层级：页头（Dashboard/更新时间/Refresh）→ 四张独立 KPI 卡片 → `Pending Exceptions`（8/12）+ `Settlement Statements`（4/12）→ `Pool Overview`（8/12）+ `Network Overview`（4/12）。继续使用当前后端查询与空/加载/错误态，不复制参考项目的静态 mock 数据。
+- **影响**：新增 settlement、gateway instance、LP、token pair 查询用于结算摘要和 Network Overview；资金池表沿用 kissen-admin 的真实字段（Pool Address、Pre-Authorized、Available Balance、水位、Status），异常表提供 View 跳转至交易列表。桌面端保持 12 列栅格，小屏自动单列并允许表格横向滚动。
+- **后续同类任务**：参考外部页面时先拆分「页面壳层」和「内容层」；若宿主 AppShell 已提供壳层，只迁移内容信息架构和视觉层级。真实业务页面应保留后端数据/权限/路由语义，参考项目中的演示数据只能用于确定结构。
+
+## 2026-09-03 kissen-admin 侧栏图标映射
+
+- **背景**：侧栏通过 `lucide-react` 动态按名称解析图标，历史配置中的 `Odometer`、`OfficeBuilding`、`Money` 等 Element UI 名称在 Lucide 中不存在，解析失败后统一回退为 `Box`，造成多个顶级菜单显示相同立方体。
+- **结论**：顶级菜单改用已确认存在且互不重复的 Lucide 图标：Dashboard=`LayoutDashboard`、Workflow Tasks=`Stamp`、Bank Management=`Landmark`、Liquidity Provider Management=`UsersRound`、Settlement=`CalendarClock`、FX Management=`ChartCandlestick`、System Management=`Settings`。后端菜单 key 不稳定时，再按顶级英文 label 做兜底映射。
+- **后续同类任务**：修改侧栏图标前必须对照 `libs/shared/ui-layout/src/lib/layouts/sidebar-layout.tsx` 的 `resolveIcon` 实际图标库；不能直接把 Element UI/旧项目 icon 名填入配置。后端 menuTree 和静态 config 两条来源都要覆盖，并确认顶级菜单不重复。
+
+## 2026-09-03 LP/Gateway 侧栏图标映射
+
+- **结论**：LP 的运行时 `MENU_ICONS` 与 `configs/lp-portal.json` 已同步替换无效/旧名称（`Gauge`、`Wallet`、`List`、`Money` 等）；Gateway 静态 config 的 7 个顶级菜单也改为有效且互不重复的 Lucide 图标，`FileCheck2` 改为当前版本存在的 `ClipboardCheck`。
+- **后续同类任务**：三门户侧栏都由 shared `resolveIcon` 按字符串解析，图标修改必须同时检查运行时 menuTree 装配和静态 config fallback；任何无法在当前 `lucide-react` 导出中找到的名称都会退化为默认图标。
+
 
 ## 2026-09-02 gateway eafcab0 批次同步（f5009b36..eafcab0，详情页×3 + tx 导出 Excel）
 
@@ -799,3 +832,18 @@
 - **ssh 远程 kill 自杀链**：pkill/pgrep 模式若与 ssh 命令行字面量重合会杀掉自身会话（exit 255）。两次翻车：heredoc 内含 `redeploy-all.sh`、命令串含 `bash build.sh`。对策：字符类括号（`redeploy-al[l]`）只对不含该字面量的命令安全；复杂清理脚本一律 base64 投递到服务器执行。
 - **后台分离脚本在 build/up 之间静默死亡**：`setsid nohup bash build.sh &` 从 ssh 启动后，脚本在 `docker-compose build` 完成后、`up -d` 之前被回收（机制未明）。对策：镜像已缓存时直接 ssh 前台跑单个 build.sh（秒级~分钟级），不再用分离模式。
 - **部署验证**：三端口 `:6242/:6243/:6244` login 200 + title（Kissen Admin / LP Portal / Kissen Gateway Portal）；gateway brand code=0 + auth 重定向链 `/login`→`/en-US/overview`。lp build.sh 后端 `NEXT_LP_BACKEND_URL=http://10.0.7.87:8090`。
+
+## 2026-09-03 kissen-admin 品牌锁定区
+
+- 登录页与登录后 Header 的 `udpn Kissen` 字标不应继续复用 MockLoginPage 的「首字符深色、其余字符强调色」切分逻辑；kissen-admin 通过 app-local `KissenBrandMark`/`KissenHeaderMark` 注入 shared 的 `brandMark`/`logo` 插槽，登录页和顶部 banner 分别适配浅色渐变与深色 banner。
+- 字标颜色必须绑定 `--brand-deep`/`--brand-accent`，否则切换 kissen-admin 的 palette 会出现品牌色与主题不一致；Header 的项目名/副标题继续由 config 驱动。
+- kissen-admin 侧栏静态 `configs/kissen-admin.json` 仅作为无会话/首帧兜底；登录后 `menuTree` 的 `menuNameEn`/`menuName` 直接作为文案，`menuKey`、path、权限与模块 registry 保持独立。
+- kissen-admin 静态兜底名称已统一为 Dashboard、Workflow Tasks、Bank Management、Liquidity Provider Management、Settlement、System Management 及对应英文子菜单；后端返回的名称优先级高于这些静态值。
+- 三门户侧栏运行时文案统一以后端 `menuNameEn` 为首选、`menuName` 为回退；前端仅保留 menuKey→route/icon 的适配，不再按 menuKey 翻译显示名。gateway 的 config label 仅作为菜单树请求不可用时的兜底。
+- kissen-admin 的当前 LP 路由契约是 `/onboard/lp`、`/onboard/lp-pair`、`/liquidity/pool`，但旧后端/页面仍可能返回 `/lp-liquidity/lp-info/...`；动态路由需保留 `lp-liquidity` 分组与 `lp-info`、`lp-pool`、`lp-currency-pair` 子模块别名，否则会显示 Module Not Found。
+- 2026-09-03：Kissen Admin Token 列表查询区移除 Token Code，改为基于未筛选真实 `/manage/token/list` 返回值生成 Token Name、Blockchain 下拉；UI 的 Blockchain 对应接口字段 `chainType`，查询 filter 传 `tokenName`/`chainType`。
+- 2026-09-03：Kissen Admin Token 列表展示列使用 `Pegged Currency`、`Min. Liquidity`、`Registered On`，并移除表格中的 `Token Code` 列；查询区的 Token Name/Blockchain 筛选保持不变。
+- 2026-09-03：Token 列表 Actions 中的 `Adjust Min Liquidity` 文案改为 `Adjust Min. Liquidity`，操作逻辑不变。
+- 2026-09-03：Token 调整最低流动性弹窗显示独立字段标签 `Minimum Liquidity`、两位小数格式的当前值及 `Up to 2 decimal places.` 辅助说明；调整请求校验限制为最多 2 位小数。
+- 2026-09-03：Token 列表 Actions 中的 `Disburse Spender` 入口文案改为 `Spender Wallet`，点击后仍打开原 Spender 配置抽屉。
+- 2026-09-03：Spender 配置抽屉标题改为 `Disbursement Spender`，副标题统一为 `Token Name · Bank · Blockchain` 格式。

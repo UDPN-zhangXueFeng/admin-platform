@@ -1,7 +1,7 @@
 /**
  * bank-gateway 域模型（源 `api/bank-gateway.ts`）。
  *
- * 网关实例连通性（0 未知 / 1 正常 / 2 断开）与 tag 映射为银行列表与连接信息弹窗共用。
+ * 网关实例连通性（0 降级 / 1 在线 / 2 离线）与 tag 映射为银行列表与连接信息弹窗共用。
  */
 import type { BankBadgeVariant } from '../bank/bank.model';
 
@@ -22,11 +22,11 @@ export interface BankGatewayRegisterReq {
   keyFingerprint?: string;
 }
 
-/** 网关连通性中文映射（源 CONNECTIVITY_STATUS_MAP）。 */
+/** Gateway connectivity display labels: 0=degraded, 1=online, 2=offline. */
 export const CONNECTIVITY_STATUS_LABEL: Record<number, string> = {
-  0: 'Unknown',
-  1: 'Normal',
-  2: 'Disconnected',
+  0: 'Degraded',
+  1: 'Online',
+  2: 'Offline',
 };
 
 /**

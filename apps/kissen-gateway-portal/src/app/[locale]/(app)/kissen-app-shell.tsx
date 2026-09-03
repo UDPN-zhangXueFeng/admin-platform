@@ -194,6 +194,53 @@ function sortModuleItems(
     );
 }
 
+interface GatewayMenuLabels {
+  leaf: Map<string, string>;
+  group: Map<string, string>;
+}
+
+/** 从后端菜单树建立「适配后路径 → 后端显示名」索引。 */
+function collectMenuLabels(
+  nodes: MenuTree[],
+  labels: GatewayMenuLabels,
+): void {
+  for (const node of nodes) {
+    const label = node.menuNameEn?.trim() || node.menuName;
+    const path = MENU_ROUTE_MAP[node.menuKey];
+    if (path) labels.leaf.set(path, label);
+
+    const firstChildPath = node.children
+      ?.map((child) => MENU_ROUTE_MAP[child.menuKey])
+      .find((childPath): childPath is string => childPath != null);
+    if (firstChildPath) labels.group.set(firstChildPath, label);
+
+    if (node.children?.length) collectMenuLabels(node.children, labels);
+  }
+}
+
+/** 将后端菜单名称覆盖到 config 的已注册菜单结构，保留既有路由和图标。 */
+function applyMenuLabels(
+  items: ModuleMenuItem[],
+  labels: GatewayMenuLabels,
+): ModuleMenuItem[] {
+  return items.map((item) => {
+    const hasChildren = Boolean(item.children?.length);
+    const firstChildPath = item.children?.find((child) => child.path)?.path;
+    const lookupPath = item.path ?? firstChildPath;
+    const label = hasChildren
+      ? labels.group.get(lookupPath ?? '') ?? item.label
+      : labels.leaf.get(lookupPath ?? '') ?? item.label;
+
+    return {
+      ...item,
+      label,
+      children: item.children
+        ? applyMenuLabels(item.children, labels)
+        : undefined,
+    };
+  });
+}
+
 /**
  * App shell wrapper — kissen-gateway 门户的项目级壳（源 `layout/MainLayout.vue`）。
  *
@@ -242,18 +289,26 @@ export function KissenAppShell({
     if (!menuTreeQuery.data) return config;
     const allowedPaths = new Set<string>();
     const orderMap = new Map<string, number>();
+    const labels: GatewayMenuLabels = {
+      leaf: new Map(),
+      group: new Map(),
+    };
     collectAllowedPaths(
       filterMenuTree(menuTreeQuery.data, sessionMenuKeys),
       allowedPaths,
       orderMap,
     );
+    collectMenuLabels(menuTreeQuery.data, labels);
     const gatedPaths = applyLockToPaths(allowedPaths, locked);
     return {
       ...config,
       modules: {
         ...config.modules,
         order: sortModuleItems(
-          filterModuleItems(config.modules.order, gatedPaths),
+          applyMenuLabels(
+            filterModuleItems(config.modules.order, gatedPaths),
+            labels,
+          ),
           orderMap,
         ),
       },

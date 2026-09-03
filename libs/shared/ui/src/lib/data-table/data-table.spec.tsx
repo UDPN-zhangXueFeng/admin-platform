@@ -144,3 +144,30 @@ describe('DataTable primary column emphasis', () => {
     ).not.toHaveClass('font-medium');
   });
 });
+
+/**
+ * Why: paginated list panels can become narrow after the application sidebar
+ * is accounted for. When a page-size selector is present, the item total is
+ * redundant and must not compete with the selector and navigation controls.
+ */
+describe('DataTable pagination layout', () => {
+  it('hides the redundant item total when page-size selection is enabled', () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={rows}
+        pagination={{
+          page: 1,
+          pageSize: 10,
+          total: 3,
+          onPageChange: jest.fn(),
+          onPageSizeChange: jest.fn(),
+        }}
+      />,
+    );
+
+    expect(screen.queryByText('Total 3 items')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Rows per page')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'First page' })).toBeInTheDocument();
+  });
+});

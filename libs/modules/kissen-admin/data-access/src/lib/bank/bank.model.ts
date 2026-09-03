@@ -16,6 +16,9 @@ export interface BankRow {
   contactPhone?: string;
   contactEmail?: string;
   address?: string;
+  /** Detail-only bank profile fields returned by newer backend versions. */
+  officialWebsite?: string;
+  description?: string;
   /** Currency system: 0=Not specified, 1=Blockchain, 2=Conventional, 3=Other. */
   currencySystemType: number;
   currencySystemName?: string;

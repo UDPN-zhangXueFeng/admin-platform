@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { AppShell } from '@myorg/shared/ui-layout';
 import type { ProjectConfig } from '@myorg/shared/util-config';
 import { useAuth, logoutAndRedirect } from '@myorg/shared/util-auth';
+import { KissenHeaderMark } from '../../../components/brand/kissen-brand-mark';
 import {
   useUserLogoutMutation,
   type MenuTreeRespVO,
@@ -34,7 +35,8 @@ const ThemeSwitcher = dynamic(
  *   store.menuTree)：登录响应的 menuTree 存进 user 快照，此处映射为
  *   ProjectConfig.modules.order 注入 AppShell。分组=有 children 的节点，
  *   叶子路由取 menuUrl；label 取 menuNameEn（零 CJK），未实现 key 走
- *   registry 的 placeholder 兜底。静态 configs 树仅作无会话/SSR 首帧兜底。
+ *   registry 的 placeholder 兜底，label 直接取后端 menuNameEn（缺失时取
+ *   menuName）。静态 configs 树仅作无会话/SSR 首帧兜底。
  * - Self-service change-password dialog (源 `views/login/change-pwd.vue`)
  *   wired to the shared Header's "Change Password" menu item.
  * - Project-owned logout: POST /rbac/logout on the kissen gateway
@@ -44,22 +46,27 @@ const ThemeSwitcher = dynamic(
  *   拆包模式；组件 client-only）。
  */
 
-/** menuKey → Lucide 图标名（后端 icon 字段恒为空，沿用原静态树的图标）。 */
+/** menuKey → Lucide 图标名（后端 icon 字段恒为空，使用当前菜单语义图标）。 */
 const MENU_ICON_BY_KEY: Record<string, string> = {
-  workbench: 'Odometer',
+  workbench: 'LayoutDashboard',
   approval: 'Stamp',
-  onboard: 'OfficeBuilding',
-  'bank:onboard': 'OfficeBuilding',
+  onboard: 'Landmark',
+  bank: 'Landmark',
+  'bank:onboard': 'Landmark',
   'bank:instance': 'Network',
   'token:manage': 'Coins',
-  lp: 'Users',
-  'lp:onboard': 'Users',
+  lp: 'UsersRound',
+  'lp-liquidity': 'UsersRound',
+  'lp:onboard': 'UsersRound',
   'lp:currencypair': 'ArrowLeftRight',
   'liquidity:pool': 'Droplets',
-  fxmgmt: 'Money',
+  fxmgmt: 'ChartCandlestick',
+  fx: 'ChartCandlestick',
+  'fx-rate': 'ChartCandlestick',
   'fx-rate:pair': 'ArrowLeftRight',
   'transfer:tx': 'ArrowLeftRight',
   settle: 'CalendarClock',
+  settlement: 'CalendarClock',
   'settle:order': 'FileText',
   'settle:cycle': 'CalendarRange',
   system: 'Settings',
@@ -70,18 +77,35 @@ const MENU_ICON_BY_KEY: Record<string, string> = {
   'system:log': 'ScrollText',
 };
 
+/** 顶级菜单 label → 图标兜底，兼容后端 menuKey 与旧静态 key 不一致的情况。 */
+const TOP_LEVEL_ICON_BY_LABEL: Record<string, string> = {
+  Dashboard: 'LayoutDashboard',
+  'Workflow Tasks': 'Stamp',
+  'Bank Management': 'Landmark',
+  'Liquidity Provider Management': 'UsersRound',
+  Settlement: 'CalendarClock',
+  'FX Management': 'ChartCandlestick',
+  'System Management': 'Settings',
+};
+
 /**
  * menuTree → AppShell 侧栏项（源 MainLayout.vue:137 遍历 store.menuTree）。
  * 过滤隐藏项（visible=1）与按钮节点（menuType=4），同级按 orderNum 稳定排序。
  */
-function toModuleItems(tree: MenuTreeRespVO[]): ProjectConfig['modules']['order'] {
+function toModuleItems(
+  tree: MenuTreeRespVO[],
+  isTopLevel = true,
+): ProjectConfig['modules']['order'] {
   return [...tree]
     .filter((n) => n.visible === 0 && n.menuType !== 4)
     .sort((a, b) => a.orderNum - b.orderNum)
     .map((n) => {
-      const icon = MENU_ICON_BY_KEY[n.menuKey] ?? 'Box';
-      const label = n.menuNameEn?.trim() || n.menuKey;
-      const children = toModuleItems(n.children ?? []);
+      const label = n.menuNameEn?.trim() || n.menuName || n.menuKey;
+      const icon =
+        MENU_ICON_BY_KEY[n.menuKey] ??
+        (isTopLevel ? TOP_LEVEL_ICON_BY_LABEL[label] : undefined) ??
+        'Box';
+      const children = toModuleItems(n.children ?? [], false);
       if (children.length > 0) return { id: n.menuKey, icon, label, children };
       return {
         id: n.menuKey,
@@ -129,6 +153,7 @@ export function KissenAppShell({
       onChangePassword={() => setPwdOpen(true)}
       onLogout={handleLogout}
       hideManageAccount
+      logo={<KissenHeaderMark />}
       trailing={<ThemeSwitcher themes={config.theme.themes} />}
     >
       {children}

@@ -553,24 +553,22 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
   return (
     <>
       <Drawer open onOpenChange={(open) => !open && onClose()}>
-        <DrawerContent className="w-[640px] max-w-none sm:max-w-[640px]">
+        <DrawerContent className="w-[740px] max-w-none sm:max-w-[740px]">
           <DrawerHeader>
             <DrawerTitle>
               Bank Interact Rules — {bank.bankName} ({bank.bankCode})
             </DrawerTitle>
             <DrawerDescription>
-              Changes push to gateways immediately.
+              Changes take effect on gateways immediately.
             </DrawerDescription>
           </DrawerHeader>
 
-          <div className="flex-1 space-y-3 overflow-y-auto px-4">
+          <div className="flex-1 space-y-3 overflow-y-auto px-4 pt-4">
             <Alert>
               <Info className="mt-0.5 h-4 w-4 shrink-0" />
-              <AlertTitle>Fully open by default</AlertTitle>
+              <AlertTitle>Open by default </AlertTitle>
               <AlertDescription>
-                The bank interacts with every other onboarded bank across all of
-                their tokens. The row switch bans the whole peer; tap a token
-                chip to fine-tune a single token.
+              This bank is connected to all onboarded banks and all their tokens. To customize, add a rule below.
               </AlertDescription>
             </Alert>
 
@@ -668,8 +666,8 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
                   onConfirm: onToggleWhole,
                 }
               : {
-                  title: 'Ban Interaction',
-                  description: `Ban all interaction with ${peerName(rowConfirm.peer)}? The two banks will no longer participate in each other's transactions.`,
+                  title: 'Block Interaction',
+                  description: `Block all interactions with TD5? The two banks will no longer participate in each other's transactions.`,
                   actionLabel: 'Confirm Ban',
                   destructive: true,
                   onConfirm: onToggleWhole,
@@ -788,12 +786,12 @@ export function BankInfoListPage() {
       { accessorKey: 'bankCode', header: 'Bank Code' },
       {
         accessorKey: 'bic',
-        header: 'SWIFT BIC',
+        header: 'BIC',
         cell: ({ row }) => <span>{row.original.bic || '--'}</span>,
       },
       {
         id: 'csSystem',
-        header: 'Blockchain / Currency System',
+        header: 'Blockchain/Token System',
         cell: ({ row }) => <span>{csSystemText(row.original)}</span>,
       },
       {
@@ -803,7 +801,7 @@ export function BankInfoListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Created At',
+        header: 'Created On',
         cell: ({ row }) => (
           <span className="tabular-nums">{formatTime(row.original.createTime)}</span>
         ),
@@ -1213,7 +1211,7 @@ export function BankInfoDetailPage() {
 
   return (
     <div className="space-y-4">
-      {/* Hero Summary：银行名 + 状态 + 编码（可复制）/BIC/创建时间（§6.3）；Back 自页脚上移 */}
+      {/* Hero Summary：银行名 + 状态；详细字段统一放在 Basic Information。 */}
       <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-col gap-1.5">
@@ -1231,24 +1229,6 @@ export function BankInfoDetailPage() {
                 <BankStatusBadge status={detail.status} />
               ) : null}
             </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              {isLoading ? (
-                <Skeleton className="h-4 w-64" />
-              ) : (
-                <>
-                  <CopyableEllipsisText
-                    value={detail?.bankCode}
-                    emptyText="--"
-                    maxWidth={200}
-                    className="font-mono"
-                  />
-                  <span>BIC {detail?.bic || '--'}</span>
-                  <span className="tabular-nums">
-                    Created {formatTime(detail?.createTime)}
-                  </span>
-                </>
-              )}
-            </div>
           </div>
           <Button
             variant="outline"
@@ -1261,12 +1241,67 @@ export function BankInfoDetailPage() {
         </div>
       </section>
 
-      {/* 正文：业务信息（Currency System）— 运营信息（Contact）分层，§6.3 */}
+      <section className="rounded-lg border border-border/60 bg-card p-4 sm:p-6">
+        <div className="mb-3 text-sm font-semibold">Basic Information</div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <DetailField label="Bank Name">
+            {isLoading ? <Skeleton className="h-4 w-40" /> : detail?.bankName || '--'}
+          </DetailField>
+          <DetailField label="Bank Code">
+            {isLoading ? (
+              <Skeleton className="h-4 w-32" />
+            ) : (
+              <CopyableEllipsisText
+                value={detail?.bankCode}
+                emptyText="--"
+                maxWidth={200}
+                className="font-mono"
+              />
+            )}
+          </DetailField>
+          <DetailField label="BIC">
+            {isLoading ? <Skeleton className="h-4 w-24" /> : detail?.bic || '--'}
+          </DetailField>
+          <DetailField label="Blockchain/Token System">
+            {isLoading ? (
+              <Skeleton className="h-4 w-48" />
+            ) : detail ? (
+              csSystemText(detail)
+            ) : (
+              '--'
+            )}
+          </DetailField>
+          <DetailField label="Status">
+            {isLoading ? <Skeleton className="h-5 w-24" /> : detail ? <BankStatusBadge status={detail.status} /> : '--'}
+          </DetailField>
+          <DetailField label="Created On">
+            {isLoading ? (
+              <Skeleton className="h-4 w-60" />
+            ) : detail ? (
+              <span className="tabular-nums">{formatAdminDateTime(detail.createTime)}</span>
+            ) : (
+              '--'
+            )}
+          </DetailField>
+          <DetailField label="Official Website">
+            {isLoading ? <Skeleton className="h-4 w-48" /> : detail?.officialWebsite || '--'}
+          </DetailField>
+          <DetailField label="Description" span>
+            {isLoading ? (
+              <Skeleton className="h-4 w-64" />
+            ) : (
+              <span className="whitespace-pre-wrap break-words">{detail?.description || '--'}</span>
+            )}
+          </DetailField>
+        </div>
+      </section>
+
+      {/* 正文：业务信息（Token System）— 运营信息（Contact）分层，§6.3 */}
       <section className="rounded-lg border border-border/60 bg-card p-4 sm:p-6">
         <div>
-          <div className="mb-3 text-sm font-semibold">Currency System Information</div>
+          <div className="mb-3 text-sm font-semibold">Token System Information</div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <DetailField label="Currency System Type">
+            <DetailField label="Token System Type">
               {isLoading ? (
                 <Skeleton className="h-4 w-24" />
               ) : (
@@ -1276,29 +1311,8 @@ export function BankInfoDetailPage() {
             <DetailField label="Blockchain">
               {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.blockchain || '--'}
             </DetailField>
-            <DetailField label="Currency System Name">
+            <DetailField label="Token System Name">
               {isLoading ? <Skeleton className="h-4 w-40" /> : detail?.currencySystemName || '--'}
-            </DetailField>
-            <DetailField label="Currency System URL">
-              {isLoading ? <Skeleton className="h-4 w-40" /> : detail?.currencySystemUrl || '--'}
-            </DetailField>
-            <DetailField label="Integration Notes" span>
-              {isLoading ? (
-                <Skeleton className="h-4 w-40" />
-              ) : (
-                <span className="whitespace-pre-wrap break-all">
-                  {detail?.currencySystemDesc || '--'}
-                </span>
-              )}
-            </DetailField>
-            <DetailField label="Account Config" span>
-              {isLoading ? (
-                <Skeleton className="h-4 w-40" />
-              ) : (
-                <span className="whitespace-pre-wrap break-all">
-                  {detail?.accountConfig || '--'}
-                </span>
-              )}
             </DetailField>
           </div>
         </div>
@@ -1314,10 +1328,7 @@ export function BankInfoDetailPage() {
             <DetailField label="Contact Name">
               {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactName || '--'}
             </DetailField>
-            <DetailField label="Contact Phone">
-              {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactPhone || '--'}
-            </DetailField>
-            <DetailField label="Contact Email">
+            <DetailField label="Email">
               {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactEmail || '--'}
             </DetailField>
             <DetailField label="Address" span>

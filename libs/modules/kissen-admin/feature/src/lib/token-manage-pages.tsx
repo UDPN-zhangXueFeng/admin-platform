@@ -126,6 +126,13 @@ function fmt2(v: string | number | null | undefined): string {
   });
 }
 
+/** 输入框中的最低流动性按管理端约定固定显示两位小数。 */
+function formatLiquidityInput(v: string | number | null | undefined): string {
+  if (v === null || v === undefined || v === '') return '';
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(2) : String(v);
+}
+
 /**
  * 最低流动性校验：小数位跟随该 token 的 decimalDigits（源 liquidityRule，
  * 缺省 8；审核通过 / 调整两处复用同一精度口径）。
@@ -171,6 +178,13 @@ function ConnectivityBadge({ status }: { status: number }) {
       {CONNECTIVITY_STATUS_LABEL[s] ?? 'Unknown'}
     </Badge>
   );
+}
+
+function HeartbeatResultBadge({ ok, detail }: { ok: number; detail?: string }) {
+  const isTimeout = ok === 2 || /timeout/i.test(detail ?? '');
+  if (ok === 1) return <Badge variant="default">Success</Badge>;
+  if (isTimeout) return <Badge variant="warning">Timeout</Badge>;
+  return <Badge variant="destructive">Failed</Badge>;
 }
 
 function InstanceStatusBadge({ status }: { status: number }) {
@@ -226,6 +240,8 @@ function ConfirmDialog({
 interface PromptRequest {
   title: string;
   description: string;
+  inputLabel?: string;
+  inputHint?: string;
   initialValue?: string;
   placeholder?: string;
   multiline?: boolean;
@@ -271,9 +287,13 @@ function PromptDialog({
         </DialogHeader>
         {/* §6.4：error 紧贴输入框正下方（与字段同组，而非弹窗级散落）。 */}
         <div className="space-y-1.5">
+          {request?.inputLabel ? (
+            <Label htmlFor="prompt-dialog-input">{request.inputLabel}</Label>
+          ) : null}
           {request?.multiline ? (
             <Textarea
               autoFocus
+              id="prompt-dialog-input"
               value={value}
               maxLength={request.maxLength}
               placeholder={request.placeholder}
@@ -287,6 +307,7 @@ function PromptDialog({
           ) : (
             <Input
               autoFocus
+              id="prompt-dialog-input"
               value={value}
               maxLength={request?.maxLength}
               placeholder={request?.placeholder}
@@ -301,6 +322,9 @@ function PromptDialog({
               }}
             />
           )}
+          {request?.inputHint ? (
+            <p className="text-xs text-muted-foreground">{request.inputHint}</p>
+          ) : null}
           {error ? (
             <p id="prompt-dialog-error" role="alert" className="text-sm text-destructive">
               {error}
@@ -324,20 +348,22 @@ function PromptDialog({
 
 /** 过滤表单值（string 态便于 Select 绑定；提交时转 TokenListFilter）。 */
 interface TokenFilterForm {
-  tokenCode: string;
+  tokenName: string;
+  blockchain: string;
   bankId: string;
   status: string;
 }
 const EMPTY_TOKEN_FILTER: TokenFilterForm = {
-  tokenCode: '',
+  tokenName: STATUS_ALL,
+  blockchain: STATUS_ALL,
   bankId: STATUS_ALL,
   status: STATUS_ALL,
 };
 
 function tokenFormToFilter(form: TokenFilterForm): TokenListFilter {
   const filter: TokenListFilter = {};
-  const code = form.tokenCode.trim();
-  if (code) filter.tokenCode = code;
+  if (form.tokenName !== STATUS_ALL) filter.tokenName = form.tokenName;
+  if (form.blockchain !== STATUS_ALL) filter.chainType = form.blockchain;
   if (form.bankId !== STATUS_ALL) filter.bankId = Number(form.bankId);
   if (form.status !== STATUS_ALL) filter.status = Number(form.status);
   return filter;
@@ -350,12 +376,36 @@ export function TokenManageListPage() {
   const [filter, setFilter] = React.useState<TokenListFilter>({});
 
   const { data, isLoading, isError, dataUpdatedAt } = useTokenListQuery(KISSEN_PROJECT_ID, filter);
+  // 下拉选项固定来自未筛选的真实列表，避免应用筛选后选项集合被缩小。
+  const { data: tokenOptionData } = useTokenListQuery(KISSEN_PROJECT_ID, {});
   const { data: bankData } = useBankListQuery(KISSEN_PROJECT_ID, {
     pageNum: 1,
     pageSize: 100,
     filter: {},
   });
   const bankOptions = bankData?.data ?? [];
+  const tokenOptions = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (tokenOptionData ?? [])
+            .map((token) => token.tokenName?.trim())
+            .filter((name): name is string => Boolean(name)),
+        ),
+      ),
+    [tokenOptionData],
+  );
+  const blockchainOptions = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (tokenOptionData ?? [])
+            .map((token) => token.chainType?.trim())
+            .filter((chain): chain is string => Boolean(chain)),
+        ),
+      ),
+    [tokenOptionData],
+  );
 
   const approveMutation = useTokenApproveMutation(KISSEN_PROJECT_ID);
   const rejectMutation = useTokenRejectMutation(KISSEN_PROJECT_ID);
@@ -445,13 +495,13 @@ export function TokenManageListPage() {
   /** 调整最低流动性：预填当前值，同精度校验，即时生效口径。 */
   const onAdjustMinLiquidity = React.useCallback(
     (row: TokenRow) => {
-      const rule = liquidityRule(row.decimalDigits);
+      const rule = liquidityRule(2);
       setPromptRequest({
         title: 'Adjust Minimum Liquidity',
-        description: `Adjust the minimum liquidity of "${row.tokenCode}" (current ${row.minLiquidity}; takes effect immediately on related pool levels and alert baselines; up to ${
-          row.decimalDigits || 8
-        } decimal places):`,
-        initialValue: String(row.minLiquidity ?? ''),
+        description: `Set the minimum liquidity for token "${row.tokenCode}". This takes effect immediately on related pool levels and alert baselines.`,
+        inputLabel: 'Minimum Liquidity',
+        inputHint: 'Up to 2 decimal places.',
+        initialValue: formatLiquidityInput(row.minLiquidity),
         validate: (v) => (rule.pattern.test(v) ? null : rule.tip),
         onConfirm: (value) => {
           adjustMutation.mutate(
@@ -511,7 +561,7 @@ export function TokenManageListPage() {
     [enableMutation, refresh, toast],
   );
 
-  // 列序（2026-08-27 用户指定）：名称/symbol/tokenNo/锚定法币/银行/链/code/最低流动性/状态/时间。
+  // 列序：名称/symbol/tokenNo/锚定法币/银行/链/最低流动性/状态/注册时间。
   const columns = React.useMemo<ColumnDef<TokenRow & { id: string }>[]>(() => {
     return [
       {
@@ -537,7 +587,7 @@ export function TokenManageListPage() {
       },
       {
         accessorKey: 'anchorFiat',
-        header: 'Anchor Fiat',
+        header: 'Pegged Currency',
         cell: ({ row }) => <span>{row.original.anchorFiat || '--'}</span>,
       },
       {
@@ -556,15 +606,8 @@ export function TokenManageListPage() {
         cell: ({ row }) => <span>{row.original.chainType || '--'}</span>,
       },
       {
-        accessorKey: 'tokenCode',
-        header: 'Token Code',
-        cell: ({ row }) => (
-          <span className="font-mono">{row.original.tokenCode}</span>
-        ),
-      },
-      {
         accessorKey: 'minLiquidity',
-        header: 'Min Liquidity',
+        header: 'Min. Liquidity',
         cell: ({ row }) => (
           <span className="block text-right font-mono tabular-nums">
             {fmt2(row.original.minLiquidity)}
@@ -583,7 +626,7 @@ export function TokenManageListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Registered At',
+        header: 'Registered On',
         cell: ({ row }) => (
           <span className="tabular-nums">{formatTime(row.original.createTime)}</span>
         ),
@@ -598,8 +641,8 @@ export function TokenManageListPage() {
         }
         if (item.status === 20) {
           actions.push(
-            { label: 'Adjust Min Liquidity', onClick: () => onAdjustMinLiquidity(item) },
-            { label: 'Disburse Spender', onClick: () => setSpenderToken(item) },
+            { label: 'Adjust Min. Liquidity', onClick: () => onAdjustMinLiquidity(item) },
+            { label: 'Spender Wallet', onClick: () => setSpenderToken(item) },
             { label: 'Disable', destructive: true, onClick: () => onDisable(item) },
           );
         }
@@ -619,10 +662,7 @@ export function TokenManageListPage() {
   return (
     <div className="space-y-4">
       {/* 页头（源 page-head：eyebrow + 标题） */}
-      <div>
-        <div className="text-xs text-muted-foreground">TOKEN</div>
-        <h1 className="text-xl font-semibold">Token Management</h1>
-      </div>
+
 
       <section className="rounded-lg border border-border/60 bg-card">
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -649,16 +689,48 @@ export function TokenManageListPage() {
           }}
           className="border-b border-border/50 px-4 py-3"
         >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium leading-snug text-foreground">
-                Token Code
+                Token Name
               </label>
-              <Input
-                value={form.tokenCode}
-                placeholder="Fuzzy match"
-                onChange={(e) => setForm((prev) => ({ ...prev, tokenCode: e.target.value }))}
-              />
+              <Select
+                value={form.tokenName}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, tokenName: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={STATUS_ALL}>All</SelectItem>
+                  {tokenOptions.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium leading-snug text-foreground">
+                Blockchain
+              </label>
+              <Select
+                value={form.blockchain}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, blockchain: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={STATUS_ALL}>All</SelectItem>
+                  {blockchainOptions.map((chain) => (
+                    <SelectItem key={chain} value={chain}>
+                      {chain}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium leading-snug text-foreground">
@@ -860,15 +932,13 @@ function SpenderDrawer({
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
           {/* 源 el-alert info：抽屉定位说明 */}
           <Alert>
             <Info className="h-4 w-4 shrink-0" />
-            <AlertTitle>Disbursement signing wallet for this token</AlertTitle>
+            <AlertTitle>Disbursement signing wallet for this token </AlertTitle>
             <AlertDescription>
-              The LP must authorize the pool wallet to the Spender address for
-              this tokenCode in the currency system before Kissen can execute
-              disbursement transfers.
+             The LP must approve this spender address to draw from the pool wallet in the token system before UDPN Kissen can execute disbursement transfers.
             </AlertDescription>
           </Alert>
 
@@ -950,8 +1020,7 @@ function SpenderDrawer({
           ) : (
             /* 源 el-empty：未配置（该 token 解付将报错，请先录入） */
             <div className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-              Not configured — disbursement for this token will fail. Register a
-              spender below.
+              Not configured — Disbursements for this token will fail until a spender is registered. 
             </div>
           )}
 
@@ -1069,18 +1138,18 @@ function HeartbeatDrawer({
     return [
       {
         accessorKey: 'probeTime',
-        header: 'Probe Time',
+        header: 'Time',
         cell: ({ row }) => <span>{formatTime(row.original.probeTime)}</span>,
       },
       {
         accessorKey: 'ok',
         header: 'Result',
-        cell: ({ row }) =>
-          row.original.ok === 1 ? (
-            <Badge variant="default">Normal</Badge>
-          ) : (
-            <Badge variant="destructive">Failed</Badge>
-          ),
+        cell: ({ row }) => (
+          <HeartbeatResultBadge
+            ok={row.original.ok}
+            detail={row.original.detail}
+          />
+        ),
       },
       {
         accessorKey: 'mode',
@@ -1119,7 +1188,7 @@ function HeartbeatDrawer({
 
   return (
     <Drawer open onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="w-full max-w-none sm:w-[520px]">
+      <DrawerContent className="w-full max-w-none sm:w-[720px]">
         <DrawerHeader>
           <DrawerTitle>Heartbeat History</DrawerTitle>
           <DrawerDescription className="font-mono">{instanceLabel}</DrawerDescription>
@@ -1291,9 +1360,9 @@ export function GatewayInstanceListPage() {
     (row: InstanceRow) => {
       setConfirmRequest({
         title: 'Reset Downstream Key',
-        message: `Confirm resetting the downstream key of instance ${
+        message: `Reset the downstream key for instance ${
           row.instanceCode || row.instanceId
-        }? A new key pair will be generated and the new public key pushed; the old private key becomes invalid immediately.`,
+        }? A new key pair will be generated, and the new public key will be pushed to the gateway. The old key will be revoked immediately.`,
         confirmText: 'Reset Key',
         onConfirm: () => {
           resetKeyMutation.mutate(row.instanceId, {
@@ -1364,7 +1433,7 @@ export function GatewayInstanceListPage() {
       },
       {
         accessorKey: 'upKeyFingerprint',
-        header: 'Upstream Public Key Fingerprint',
+        header: 'Upstream Key Fingerprint',
         cell: ({ row }) => (
           <span className="font-mono tabular-nums">
             {row.original.upKeyFingerprint || '(Not pushed)'}
@@ -1438,10 +1507,7 @@ export function GatewayInstanceListPage() {
   return (
     <div className="space-y-4">
       {/* 页头（源 page-head：eyebrow + 标题）。 */}
-      <div>
-        <div className="text-xs text-muted-foreground">GATEWAY INSTANCE</div>
-        <h1 className="text-xl font-semibold">Instance Management</h1>
-      </div>
+
 
       <section className="rounded-lg border border-border/60 bg-card">
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">

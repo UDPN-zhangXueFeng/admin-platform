@@ -4,6 +4,7 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { MockLoginPage, useToast } from '@myorg/shared/ui';
+import { KissenBrandMark } from '../../../../components/brand/kissen-brand-mark';
 import { LoginIllustration } from '../../../../components/brand/login-illustration';
 import { useAuth } from '@myorg/shared/util-auth';
 import type { User } from '@myorg/shared/util-auth';
@@ -117,10 +118,11 @@ export default function LoginRoute() {
   return (
     <>
       <MockLoginPage
-        projectName="Kissen Admin"
+        projectName="UDPN Kissen Network Management System"
         subtitle="Sign in with your admin credentials"
-        brandText="Kissen Clearing Network"
-        brandSuffix="Operations Console"
+        brandText="UDPN Kissen"
+        brandSuffix="Network Management System"
+        brandMark={<KissenBrandMark />}
         brandTagline="Interbank digital currency clearing orchestration · Internal operations system"
         illustration={
           <div className="flex max-h-[46vh] max-w-full items-center justify-center">

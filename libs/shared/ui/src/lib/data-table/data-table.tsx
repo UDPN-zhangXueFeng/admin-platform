@@ -337,13 +337,13 @@ export function DataTable<TData extends { id: string }>({
 
       {/* Pagination */}
       {pagination && (
-        <div className="flex items-center justify-between px-4 pb-4">
-          <div className="text-xs tabular-nums text-muted-foreground">
-            {pagination.onPageSizeChange
-              ? `Total ${pagination.total} items`
-              : `Page ${currentPage} of ${totalPages}`}
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-4">
+          {!pagination.onPageSizeChange && (
+            <div className="mr-auto text-xs tabular-nums text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </div>
+          )}
+          <div className="flex shrink-0 items-center gap-1.5">
             {pagination.onPageSizeChange && (
               <Select
                 value={String(pagination.pageSize)}
@@ -408,7 +408,7 @@ function PaginationButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-sm font-medium',
+        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-background text-sm font-medium',
         'hover:bg-accent hover:text-accent-foreground',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         disabled && 'pointer-events-none opacity-50'

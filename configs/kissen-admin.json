@@ -2,6 +2,7 @@
   "project": {
     "id": "kissen-admin",
     "name": "Kissen Admin",
+    "subtitle": "UDPN Kissen Network Management System",
     "logo": "/logo.svg",
     "favicon": "/favicon.ico"
   },
@@ -320,42 +321,42 @@
     "order": [
       {
         "id": "workbench",
-        "icon": "Odometer",
-        "label": "Workbench",
+        "icon": "LayoutDashboard",
+        "label": "Dashboard",
         "path": "/workbench",
         "group": ""
       },
       {
         "id": "approval",
         "icon": "Stamp",
-        "label": "Approval",
+        "label": "Workflow Tasks",
         "path": "/approval",
         "group": ""
       },
       {
         "id": "onboard",
-        "icon": "OfficeBuilding",
-        "label": "Onboard",
+        "icon": "Landmark",
+        "label": "Bank Management",
         "group": "",
         "children": [
           {
             "id": "bank",
             "icon": "OfficeBuilding",
-            "label": "Bank",
+            "label": "Onboarding Management",
             "path": "/onboard/bank",
             "group": ""
           },
           {
             "id": "instance",
             "icon": "Network",
-            "label": "GatewayInstance",
+            "label": "Gateway Management",
             "path": "/onboard/instance",
             "group": ""
           },
           {
             "id": "token",
             "icon": "Coins",
-            "label": "TokenManage",
+            "label": "Token Management",
             "path": "/onboard/token",
             "group": ""
           }
@@ -363,28 +364,28 @@
       },
       {
         "id": "lp",
-        "icon": "Users",
-        "label": "LP Management",
+        "icon": "UsersRound",
+        "label": "Liquidity Provider Management",
         "group": "",
         "children": [
           {
             "id": "lp",
             "icon": "Users",
-            "label": "LP",
+            "label": "LP Onboarding",
             "path": "/onboard/lp",
             "group": ""
           },
           {
             "id": "lp-pair",
             "icon": "ArrowLeftRight",
-            "label": "LP Pair",
+            "label": "Supported Token Pairs",
             "path": "/onboard/lp-pair",
             "group": ""
           },
           {
             "id": "pool",
             "icon": "Droplets",
-            "label": "Pool",
+            "label": "Liquidity Pool Management",
             "path": "/liquidity/pool",
             "group": ""
           }
@@ -392,7 +393,7 @@
       },
       {
         "id": "fx-rate",
-        "icon": "Money",
+        "icon": "ChartCandlestick",
         "label": "FX Management",
         "group": "",
         "children": [
@@ -415,20 +416,20 @@
       {
         "id": "settle",
         "icon": "CalendarClock",
-        "label": "Settle",
+        "label": "Settlement",
         "group": "",
         "children": [
           {
             "id": "cycle",
             "icon": "CalendarRange",
-            "label": "Settle Cycle",
+            "label": "Settlement Cycle Setup",
             "path": "/settle/cycle",
             "group": ""
           },
           {
             "id": "order",
             "icon": "FileText",
-            "label": "SettleOrder",
+            "label": "Settlement Statements",
             "path": "/settle/order",
             "group": ""
           }
@@ -437,41 +438,41 @@
       {
         "id": "system",
         "icon": "Settings",
-        "label": "System",
+        "label": "System Management",
         "group": "",
         "children": [
           {
             "id": "user",
             "icon": "User",
-            "label": "User",
+            "label": "User Management",
             "path": "/system/user",
             "group": ""
           },
           {
             "id": "role",
             "icon": "ShieldCheck",
-            "label": "Role",
+            "label": "Role Management",
             "path": "/system/role",
             "group": ""
           },
           {
             "id": "menu",
             "icon": "ListTree",
-            "label": "Menu",
+            "label": "Menu Management",
             "path": "/system/menu",
             "group": ""
           },
           {
             "id": "workflow",
             "icon": "GitBranch",
-            "label": "Workflow",
+            "label": "Workflow Settings",
             "path": "/system/workflow",
             "group": ""
           },
           {
             "id": "log",
             "icon": "ScrollText",
-            "label": "OperateLog",
+            "label": "Operation Logs",
             "path": "/system/log",
             "group": ""
           }

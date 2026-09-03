@@ -18,9 +18,19 @@ const GROUP_ENABLED_KEY: Record<string, string> = {
   onboard: 'onboard',
   'fx-rate': 'fx-rate',
   liquidity: 'liquidity',
+  // Legacy backend menu URL: /lp-liquidity/lp-info/... maps to the current
+  // LP group enabled key while keeping the old URL backward compatible.
+  'lp-liquidity': 'lp',
   settle: 'settle',
   transfer: 'transfer',
   system: 'system',
+};
+
+/** Legacy LP child ids → current module registry ids. */
+const MODULE_ALIAS: Record<string, string> = {
+  'lp-info': 'lp',
+  'lp-pool': 'pool',
+  'lp-currency-pair': 'lp-pair',
 };
 
 /**
@@ -49,7 +59,9 @@ export default function ModulePage({
   const isGroup = Boolean(groupKey);
   // For group segments the first slug is the sub-module id; for flat modules
   // the module param is already the module id.
-  const realModule = isGroup && slug && slug.length > 0 ? slug[0] : module;
+  const requestedModule =
+    isGroup && slug && slug.length > 0 ? slug[0] : module;
+  const realModule = MODULE_ALIAS[requestedModule] ?? requestedModule;
   const realSlug = isGroup ? (slug ? slug.slice(1) : []) : slug;
 
   const isEnabled = isGroup

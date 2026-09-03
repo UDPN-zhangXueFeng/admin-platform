@@ -35,7 +35,10 @@ export interface TokenRow {
 export interface TokenListFilter {
   bankId?: number;
   instanceId?: number;
+  tokenName?: string;
   tokenCode?: string;
+  /** 页面展示为 Blockchain；Kissen token 接口的实际字段名为 chainType。 */
+  chainType?: string;
   status?: number;
 }
 

@@ -303,7 +303,7 @@
     "order": [
       {
         "id": "dashboard",
-        "icon": "Gauge",
+        "icon": "LayoutDashboard",
         "label": "Dashboard",
         "path": "/dashboard",
         "group": ""
@@ -317,7 +317,7 @@
       },
       {
         "id": "pool",
-        "icon": "Wallet",
+        "icon": "WalletCards",
         "label": "Liquidity Pool Management",
         "path": "/pool",
         "group": ""
@@ -331,14 +331,14 @@
       },
       {
         "id": "tx-flow",
-        "icon": "ListTree",
+        "icon": "ListChecks",
         "label": "Transaction Records",
         "path": "/tx-flow",
         "group": ""
       },
       {
         "id": "split-settle",
-        "icon": "Money",
+        "icon": "CircleDollarSign",
         "label": "Splits & Settlement",
         "path": "/split-settle",
         "group": ""
@@ -352,7 +352,7 @@
       },
       {
         "id": "user",
-        "icon": "Users",
+        "icon": "UsersRound",
         "label": "User Management",
         "path": "/sys/user",
         "group": "more"

@@ -67,46 +67,26 @@ export function resolveRootPath(menuKeys: ReadonlySet<string>): string | null {
 }
 
 /**
- * 侧栏英文 label 映射（menuKey → 文案）。
- * 后端 menuTree.menuName 为中文，约束①要求用户可见文案零 CJK：
- * 叶子 label 与各页面 h1 对齐；未知键回退后端 menuName。
- */
-export const MENU_LABELS: Record<string, string> = {
-  'lp:dashboard': 'Dashboard',
-  'lp:pool': 'Liquidity Pools',
-  'lp:token': 'Bank Token Directory',
-  'lp:pair': 'Token Pair Management',
-  'lp:txflow': 'Transaction Flow',
-  splitsettle: 'Splits & Settlement',
-  'lp:settle': 'Splits & Settlement',
-  system: 'System',
-  'lp:user': 'User Management',
-  'lp:role': 'Roles & Permissions',
-  'lp:menu': 'Menu Management',
-  'lp:log': 'Operation Log',
-};
-
-/**
  * menuKey → lucide 图标名（源 MainLayout MENU_ICONS 的 Element Plus 图标
  * 到 lucide 的等价映射；未命中回退 'Menu'，源 fallback 语义）。
- * v2.3：splitsettle/system；dashboard=Gauge(Odometer)、token=Coins(Coin)；
- * rate/receipt/market/business 键移除。v2.4：settle=Money（源 el-icon
- * Money）；split/preauth 键随页面退役移除。f0d5b6f：liquidity 组键移除
+ * v2.3：splitsettle/system；dashboard=LayoutDashboard；token=Coins(Coin)；
+ * rate/receipt/market/business 键移除。v2.4：settle=CircleDollarSign；
+ * split/preauth 键随页面退役移除。f0d5b6f：liquidity 组键移除
  * （池/代币直挂业务组，源 MainLayout 同批去组）。
  */
 export const MENU_ICONS: Record<string, string> = {
   splitsettle: 'CircleDollarSign',
   system: 'Settings',
-  'lp:dashboard': 'Gauge',
-  'lp:pool': 'Wallet',
+  'lp:dashboard': 'LayoutDashboard',
+  'lp:pool': 'WalletCards',
   'lp:token': 'Coins',
   'lp:pair': 'ArrowLeftRight',
-  'lp:txflow': 'List',
-  'lp:settle': 'Money',
-  'lp:user': 'Users',
+  'lp:txflow': 'ListChecks',
+  'lp:settle': 'CircleDollarSign',
+  'lp:user': 'UsersRound',
   'lp:role': 'ShieldCheck',
   'lp:menu': 'Menu',
-  'lp:log': 'FileText',
+  'lp:log': 'ScrollText',
 };
 
 /** 未知菜单键的落点（源 /placeholder 占位语义，由 catch-all 页兜底渲染）。 */
@@ -121,7 +101,7 @@ export function buildLpSidebarOrder(menuTree: MenuTreeRespVO[]): ModuleMenuItem[
       .filter((n) => n.menuType !== 4 && n.visible !== 1)
       .sort((a, b) => (a.orderNum ?? 0) - (b.orderNum ?? 0))
       .map((node) => {
-        const label = MENU_LABELS[node.menuKey] ?? node.menuName;
+        const label = node.menuNameEn?.trim() || node.menuName;
         const icon = MENU_ICONS[node.menuKey] ?? 'Menu';
         const children = toItems(node.children ?? []);
         if (children.length > 0) {
