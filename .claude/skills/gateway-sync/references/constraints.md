@@ -19,5 +19,8 @@
 | 已是最新 / 已同步 N 条 | Up to date / Synced N items |
 | 功能将在后续版本开放 | Coming soon |
 | 本行自转 / 自转 | Self-Trade |
+| 操作者 | Operator |
+| 源端金额 / 目标端金额 / 汇率 / 凭证 | Source Amount / Target Amount / Rate / Proof |
+| 六段事件标题：报价受理 / 用户确认 / 源端划转发起 / 源端到账核实 / 解付发起 / 入账完成 | Quote Accepted / User Confirmation / Source Transfer Initiated / Source Arrival Verified / Disbursement Initiated / Credited |
 
 新术语首次翻译时定稿并回填本表（与 LP/gateway 两表保持一致，冲突时以先定稿者为准并在此标注）。

@@ -40,6 +40,14 @@ export interface TxRecord {
   /** token 对编码（tx-event/链路同步带回，未同步时为空）。 */
   pairCode?: string;
   principal?: number;
+  /** 用户实际扣减金额（源端，G-1 报价快照；fe61223 新增）。 */
+  userDeduction?: number;
+  /** 目标端到账金额（源行 G-1 快照 / 目标行 G-5 execute 落账；fe61223 新增）。 */
+  receiverAmount?: number;
+  /** 用户汇率（报价快照，源行视角；目标行未同步时为空；fe61223 新增）。 */
+  userRate?: number;
+  /** LP 编码（G-4 补账回填；fe61223 新增）。 */
+  lpCode?: string;
   status?: number;
   /** 付款账户（用户）：源行 G-1 报价建账写入。 */
   senderAccount?: string;
@@ -81,12 +89,16 @@ export interface TxMessage {
   updateTime?: number;
 }
 
-/** Kissen 侧交易链路节点（tx_flow）：statusFrom/statusTo 对齐 TransactionStatusEnum。 */
+/**
+ * Kissen 侧交易链路节点（tx_flow）：statusFrom/statusTo 对齐 TransactionStatusEnum；
+ * stageStep=阶段归属（fe61223 对齐 admin 2026-09-04 六段口径：1~6，0=通用事件）。
+ */
 export interface TxFlowNode {
   flowId: number;
   parentFlowId: number;
   nodeType?: number;
   step?: number;
+  stageStep?: number;
   statusFrom?: number;
   statusTo?: number;
   eventTime?: number;
@@ -96,10 +108,27 @@ export interface TxFlowNode {
   children?: TxFlowNode[];
 }
 
-/** 交易链路（GET /tx/chain/{id}）：本地报文 + Kissen 状态迁移链。 */
+/**
+ * 交易阶段（fe61223 对齐 admin 2026-09-04 六段阶段轴，GW 侧由 flow 事件推导）：
+ * status 1 未开始 / 2 进行中 / 3 成功 / 4 失败 / 5 跳过。当前视图未消费，仅类型对齐。
+ */
+export interface TxStage {
+  step: number;
+  stepName: string;
+  status: number;
+  startTime: number;
+  endTime: number;
+  operator: string;
+  csTxId: string;
+  remark: string;
+}
+
+/** 交易链路（GET /tx/chain/{id}）：本地报文 + Kissen 状态迁移链 + 六段阶段轴。 */
 export interface TxChain {
   localMessages: TxMessage[];
   kissenChain: TxFlowNode[] | null;
+  /** fe61223 新增；当前视图未消费，仅类型对齐。 */
+  stages?: TxStage[];
 }
 
 /**
@@ -113,7 +142,8 @@ export const TX_STATUS: Record<number, { text: string; variant: TxVariant }> = {
   20: { text: 'Source Transfer in Progress', variant: 'secondary' },
   25: { text: 'Source Arrival Verified', variant: 'secondary' },
   30: { text: 'Disbursing', variant: 'secondary' },
-  35: { text: 'Credited', variant: 'default' },
+  /* fe61223：2026-09-02 起成功终态停 35，对外文案与 40 统一为 Completed。 */
+  35: { text: 'Completed', variant: 'default' },
   40: { text: 'Completed', variant: 'default' },
   50: { text: 'Reversing', variant: 'secondary' },
   60: { text: 'Reversed', variant: 'outline' },
@@ -138,6 +168,30 @@ export const TX_MSG_TYPE: Record<number, { text: string; variant: TxVariant }> =
   5: { text: 'Reversal', variant: 'secondary' },
   8: { text: 'Transaction Event', variant: 'outline' },
 };
+
+/**
+ * 六段阶段事件业务标题（fe61223 对齐 admin 2026-09-04 链路展示口径，源
+ * `views/tx/list.vue` STAGE_EVENT_TITLE）：stageStep 1~6 每段一个业务动作名。
+ */
+export const TX_STAGE_EVENT_TITLE: Record<number, string> = {
+  1: 'Quote Accepted',
+  2: 'User Confirmation',
+  3: 'Source Transfer Initiated',
+  4: 'Source Arrival Verified',
+  5: 'Disbursement Initiated',
+  6: 'Credited',
+};
+
+/**
+ * 链路节点事件标题（源 eventTitle）：阶段事件（stageStep 1~6）用业务动作名；
+ * 通用/分支事件（stageStep=0/缺省）回退迁移后状态文案。
+ */
+export function txFlowEventTitle(node: {
+  stageStep?: number;
+  statusTo?: number;
+}): string {
+  return TX_STAGE_EVENT_TITLE[node.stageStep ?? 0] ?? txStatusText(node.statusTo);
+}
 
 /** 交易状态文案；null/undefined → '-'，未知码 → `未知(${status})`（源 txStatusText）。 */
 export function txStatusText(status?: number): string {

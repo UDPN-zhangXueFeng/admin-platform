@@ -4,7 +4,7 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ArrowRight, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
+import { ArrowRight, LockKeyhole, UserRound } from 'lucide-react';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useAuth } from '@myorg/shared/util-auth';
 import {
@@ -37,7 +37,7 @@ const ChangePasswordDialog = dynamic(
  *
  * 流程与源一致：
  *  1. 登录前拉公开品牌接口 GET /bankgw/brand（失败回退默认值），
- *     品牌名 / logo / 副标题渲染在插画分屏布局上。
+ *     品牌数据用于登录页的辅助门户信息，UDPN / Kissen Gateway 为固定品牌层级。
  *  2. POST /login {loginName,password} → LoginRespVO。
  *     会话落 localStorage（bankgw.token/bankgw.user，含 firstLogin、menuKeys、
  *     loginName 等全字段）+ middleware 读取的 cookie kissen_gateway_token；
@@ -147,25 +147,33 @@ export default function LoginRoute() {
 
   return (
     <>
-      <div className="grid min-h-screen bg-[#f4f8f7] lg:grid-cols-[minmax(430px,0.92fr)_minmax(560px,1.08fr)]">
+      <div className="grid h-[100dvh] min-h-0 overflow-hidden bg-[#f4f8f7] lg:grid-cols-[minmax(430px,0.92fr)_minmax(560px,1.08fr)]">
         {/* Brand panel intentionally keeps the illustration outside the card flow so
             the visual identity remains stable while the form grows or shows errors. */}
-        <section className="relative hidden min-h-screen overflow-hidden bg-[var(--brand-deep,#0B1F3A)] lg:flex lg:flex-col">
+        <section className="relative hidden h-full min-h-0 overflow-hidden bg-[var(--brand-deep,#0B1F3A)] lg:flex lg:flex-col">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,color-mix(in_srgb,var(--brand-accent,#2DD4BF)_30%,transparent),transparent_34%),linear-gradient(145deg,var(--login-grad-c,#0B5670)_0%,var(--brand-deep,#0B1F3A)_62%)]" />
           <div className="absolute inset-0 opacity-[0.12] [background-image:linear-gradient(rgba(255,255,255,0.35)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.35)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:linear-gradient(to_bottom,black,transparent_78%)]" />
           <div className="relative z-10 flex h-full w-full flex-1 flex-col px-8 py-8 sm:px-12 lg:px-14 xl:px-20">
             <div
               className="flex items-center justify-between"
-              aria-label={`${brand.name} Gateway`}
+              aria-label="UDPN Kissen Gateway"
             >
               <div className="flex items-center gap-3">
-                <GatewayMark className="h-10 w-10 shrink-0" />
+                <div
+                  className="text-4xl font-black leading-none tracking-[-0.08em]"
+                  aria-label="UDPN"
+                  role="img"
+                >
+                  <span className="text-white">u</span>
+                  <span className="italic text-[var(--brand-accent,#2DD4BF)]">
+                    dp
+                  </span>
+                  <span className="text-white">n</span>
+                </div>
+                <span className="h-9 w-px bg-white/20" aria-hidden="true" />
                 <div>
-                  <p className="text-base font-semibold tracking-tight text-white">
+                  <p className="text-sm font-semibold tracking-tight text-white">
                     {brand.name}
-                  </p>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/55">
-                    Gateway console
                   </p>
                 </div>
               </div>
@@ -177,13 +185,14 @@ export default function LoginRoute() {
 
             <div className="mt-12 max-w-[440px]">
               <p className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--brand-accent,#2DD4BF)]">
-                Cross-bank infrastructure
+                UDPN network
               </p>
               <h2 className="max-w-[460px] text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-white xl:text-5xl">
-                {brand.subtitle}
+                Global value, managed in one gateway.
               </h2>
               <p className="mt-5 max-w-[380px] text-sm leading-6 text-white/60">
-                One secure control center for settlement, liquidity and digital
+                Kissen Gateway connects bank operations to the UDPN network with
+                one secure control center for settlement, liquidity and digital
                 currency operations.
               </p>
             </div>
@@ -199,32 +208,29 @@ export default function LoginRoute() {
           </div>
         </section>
 
-        <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-8 sm:px-10 lg:px-14 xl:px-20">
+        <section className="relative flex h-full min-h-0 items-center justify-center overflow-hidden px-5 py-8 sm:px-10 lg:px-14 xl:px-20">
           <div className="absolute right-[-8rem] top-[-8rem] h-80 w-80 rounded-full bg-[var(--brand-accent,#2DD4BF)]/10 blur-3xl" />
           <div className="relative w-full max-w-[460px] rounded-[28px] border border-slate-200/80 bg-white p-7 shadow-[0_24px_80px_-36px_rgba(11,31,58,0.28)] sm:p-10">
-            <div className="mb-9 flex items-start justify-between gap-5">
-              <div>
-                <div className="mb-6 flex items-center gap-3 lg:hidden">
-                  <GatewayMark className="h-9 w-9" />
-                  <span className="text-sm font-semibold text-slate-900">
-                    {brand.name}
-                  </span>
+            <div className="mb-9">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-deep,#0B1F3A)] text-2xl shadow-sm">
+                    <span role="img" aria-label={brand.name}>
+                      {brand.logo}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-lg font-semibold tracking-tight text-slate-950">
+                      {brand.name}
+                    </p>
+                    <p className="truncate text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+                      {brand.headerName}
+                    </p>
+                  </div>
                 </div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-                  Welcome back
+                <p className="mt-3 max-w-[360px] text-sm leading-6 text-slate-500">
+                  {brand.subtitle}
                 </p>
-                <h1 className="text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-[34px]">
-                  Sign in to continue
-                </h1>
-                <p className="mt-3 max-w-[300px] text-sm leading-6 text-slate-500">
-                  Access your bank gateway workspace securely.
-                </p>
-              </div>
-              <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-deep,#0B1F3A)] text-white shadow-lg shadow-slate-900/10 sm:flex">
-                <ShieldCheck
-                  className="h-6 w-6 text-[var(--brand-accent,#2DD4BF)]"
-                  aria-hidden="true"
-                />
               </div>
             </div>
 
@@ -313,8 +319,9 @@ export default function LoginRoute() {
             </form>
 
             <p className="mt-8 border-t border-slate-100 pt-5 text-center text-[11px] leading-5 text-slate-400">
-              Cross-Bank Digital Currency Clearing{' '}
-              <span className="px-1.5 text-slate-300">·</span> Bank Portal
+              UDPN <span className="px-1.5 text-slate-300">·</span> Kissen
+              Gateway <span className="px-1.5 text-slate-300">·</span> Bank
+              Portal
             </p>
           </div>
         </section>
@@ -329,33 +336,5 @@ export default function LoginRoute() {
         forced
       />
     </>
-  );
-}
-
-/** Compact bank mark used in both desktop and mobile brand lockups. */
-function GatewayMark({ className }: { className: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 40 40"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <rect width="40" height="40" rx="12" fill="var(--brand-accent,#2DD4BF)" />
-      <path
-        d="M10 27.5h20M12.5 27.5V18l7.5-5 7.5 5v9.5M9 18h22M16 27.5V21h8v6.5"
-        stroke="var(--brand-deep,#0B1F3A)"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M20 13v-2"
-        stroke="var(--brand-deep,#0B1F3A)"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }

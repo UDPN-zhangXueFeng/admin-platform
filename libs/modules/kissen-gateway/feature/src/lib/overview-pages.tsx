@@ -19,6 +19,7 @@ import {
   OVERVIEW_PERIOD_DEFAULT,
   OVERVIEW_PERIOD_OPTIONS,
   TOKEN_STATUS,
+  useFxViewQuery,
   useOverviewStatsQuery,
   type OverviewPeriod,
   type VolumeDayPoint,
@@ -122,9 +123,15 @@ const SERIES_COLORS = [
  * - 行 = 逐日 date + 各序列当日量（缺省 0；后端已连续补 0，这里双保险）；
  * - 列名用 s0/s1… 安全 id（key 可能含 '/' 等字符，直接作 dataKey 会被
  *   recharts 按对象路径解析而取不到值），展示名由 Line name 承担；
- * - 所有序列总量为 0/无数据 → empty（整卡 EmptyHint，不渲染图表）。
+ * - pair 维度的展示名优先使用 fx/view 返回的 source/target token symbol，
+ *   查询未命中时回退 pairCode；所有序列总量为 0/无数据 → empty（整卡
+ *   EmptyHint，不渲染图表）。
  */
-function buildVolumeChart(points: VolumeDayPoint[] | undefined, dim: VolumeDim) {
+function buildVolumeChart(
+  points: VolumeDayPoint[] | undefined,
+  dim: VolumeDim,
+  pairLabels?: Map<string, string>,
+) {
   const totals: Record<string, number> = {};
   for (const p of points ?? []) {
     const map = dim === 'pair' ? p.byPair : p.bySymbol;
@@ -140,7 +147,11 @@ function buildVolumeChart(points: VolumeDayPoint[] | undefined, dim: VolumeDim) 
     return row;
   });
   return {
-    series: entries.map(([key], i) => ({ key, id: `s${i}` })),
+    series: entries.map(([key], i) => ({
+      key,
+      id: `s${i}`,
+      label: dim === 'pair' ? pairLabels?.get(key) ?? key : key,
+    })),
     rows,
     // 源 volumeEmpty = dimEntries(...).length === 0：有序列键即画图（全零平线），仅无键才空态。
     empty: entries.length === 0,
@@ -166,14 +177,28 @@ export function OverviewListPage() {
   );
 
   const { data: stats, isLoading, isError, error, refetch } = useOverviewStatsQuery(params);
+  // pair 维度需要 token symbol；复用 FX 聚合查询，切到 By Symbol 时不发请求。
+  const { data: fxView } = useFxViewQuery(volumeDim === 'pair');
+
+  const pairLabels = React.useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const pair of fxView?.pairs ?? []) {
+      const { tokenPair } = pair;
+      if (!tokenPair.pairCode) continue;
+      const source = tokenPair.sourceTokenSymbol || tokenPair.sourceTokenCode || '-';
+      const target = tokenPair.targetTokenSymbol || tokenPair.targetTokenCode || '-';
+      labels.set(tokenPair.pairCode, `${source} → ${target}`);
+    }
+    return labels;
+  }, [fxView]);
 
   const tokenStatusList = React.useMemo(
     () => buildTokenStatusList(stats?.tokenByStatus),
     [stats],
   );
   const volume = React.useMemo(
-    () => buildVolumeChart(stats?.volumeSeries, volumeDim),
-    [stats, volumeDim],
+    () => buildVolumeChart(stats?.volumeSeries, volumeDim, pairLabels),
+    [stats, volumeDim, pairLabels],
   );
 
   return (
@@ -238,7 +263,7 @@ export function OverviewListPage() {
             <MetricCard value={String(stats.completedCount)} label="Completed" tone="ok" />
             <MetricCard value={String(stats.failedCount)} label="Failed" tone="bad" />
             <MetricCard value={String(stats.reversedCount)} label="Reversed" tone="" />
-            <MetricCard value={String(stats.exceptionCount)} label="Error (Manual Handling)" tone="bad" />
+            <MetricCard value={String(stats.exceptionCount)} label="Requires Manual Review" tone="bad" />
             <MetricCard value={String(stats.pendingCount)} label="Pending" tone="warn" />
             <MetricCard value={formatSuccessRate(stats.successRate)} label="Success Rate" tone="ok" />
           </div>
@@ -257,10 +282,10 @@ export function OverviewListPage() {
                   ))}
                 </span>
               </DescRow>
-              <DescRow label="Related Token Pairs">
+              <DescRow label="Token Pairs">
                 <span>{stats.tokenPairCount}</span>
               </DescRow>
-              <DescRow label="Statistics Window">
+              <DescRow label="Reporting Period">
                 <span>
                   {formatTime(stats.from)} ~ {formatTime(stats.to)}
                 </span>
@@ -323,7 +348,7 @@ export function OverviewListPage() {
                       <Line
                         key={s.key}
                         dataKey={s.id}
-                        name={s.key === UNKNOWN_SERIES_KEY ? 'Unsynced' : s.key}
+                        name={s.key === UNKNOWN_SERIES_KEY ? 'Unsynced' : s.label}
                         type="monotone"
                         strokeWidth={2}
                         stroke={SERIES_COLORS[i % SERIES_COLORS.length]}

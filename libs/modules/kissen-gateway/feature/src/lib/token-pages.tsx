@@ -56,7 +56,6 @@ import {
 
 import { DescField, DescGrid } from './desc-grid';
 import { fmtAmount, formatTime, orDash } from './kit';
-import { PageHead } from './page-head';
 import { EmptyHint, MissingIdBlock } from './state-blocks';
 import { useGatewayPerm } from './use-gateway-perm';
 
@@ -69,6 +68,13 @@ const CHAIN_OPTIONS = ['Ethereum', 'BSC', 'TRON', 'Aptos', 'Polygon', 'Arbitrum'
 
 /** 源 fiatOptions（ISO 4217 锚定法币枚举，同样 allow-create）。 */
 const FIAT_OPTIONS = ['USD', 'CNY', 'EUR', 'HKD', 'JPY', 'KRW', 'SGD', 'GBP'];
+
+/** Token 列表最低流动性：始终保留两位小数，空值/非法值显示 '-'. */
+function formatMinLiquidity(value: number | null | undefined): string {
+  if (value == null) return '-';
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount.toFixed(2) : '-';
+}
 
 
 /* ================================================================== */
@@ -397,29 +403,29 @@ export function TokenListPage() {
           </span>
         ),
       },
-      { accessorKey: 'anchorFiat', header: 'Anchored Fiat' },
+      { accessorKey: 'anchorFiat', header: 'Pegged Currency' },
       { accessorKey: 'chainType', header: 'Chain' },
       {
         // GW-16 合一：tokenCode 同时是货币系统标识（源列头「tokenCode（货币系统 code）」）。
         id: 'tokenCode',
-        header: 'tokenCode (currency system code)',
+        header: 'Token Code (Token System)',
         cell: ({ row }) => (
           <span className="font-mono">{row.original.tokenCode}</span>
         ),
       },
       {
         id: 'tokenNo',
-        header: 'Token No. (assigned once active)',
+        header: 'Token No (Network-wide Unique)',
         cell: ({ row }) => (
           <span className="font-mono">{row.original.tokenNo || '-'}</span>
         ),
       },
       {
         id: 'minLiquidity',
-        header: 'Min Liquidity',
+        header: 'Min. Liquidity',
         cell: ({ row }) => (
           <span className="block text-right tabular-nums">
-            {fmtAmount(row.original.minLiquidity)}
+            {formatMinLiquidity(row.original.minLiquidity)}
           </span>
         ),
       },
@@ -451,13 +457,13 @@ export function TokenListPage() {
       },
       {
         id: 'pushTime',
-        header: 'Push Time',
+        header: 'Synced on',
         cell: ({ row }) => (
           <span className="tabular-nums">{formatTime(row.original.pushTime)}</span>
         ),
       },
       {
-        // eafcab0：源行点击 openDetail → 操作列 Detail 按钮（下游列表约定）。
+        // eafcab0：源行点击 openDetail → 操作列 View 按钮（下游列表约定）。
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => (
@@ -471,7 +477,7 @@ export function TokenListPage() {
               )
             }
           >
-            Detail
+            View
           </Button>
         ),
       },
@@ -486,8 +492,6 @@ export function TokenListPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead variant="toolbar" title="Token Management" />
-
       <section className="rounded-lg border border-border/60 bg-card">
         {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + 页面级操作右置。 */}
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -522,10 +526,7 @@ export function TokenListPage() {
           {/* 源 .footnote（12px 灰）：注册前置/幂等/审核结果推送通道三段说明
               （39c8a2b「同步状态」兜底字样移除）。 */}
           <p className="mt-4 text-xs text-muted-foreground">
-            Prerequisites: the instance is activated and the bank is onboarded.
-            Submitting an existing token code again returns the original
-            application status (idempotent). Review results are written back via
-            platform biz-event pushes.
+       okens are registered on the platform after your gateway instance is activated. Registering a token that already exists simply returns its current status. Registration results appear here automatically once review is complete.
           </p>
         </div>
       </section>

@@ -39,9 +39,13 @@ export interface SidebarLayoutProps {
   /**
    * Hide the "Manage Account" user-menu entry. Opt-in for projects whose
    * baseline user menu only offers Change Password / Log Out.
-   */
+  */
   hideManageAccount?: boolean;
   logo?: React.ReactNode;
+  /** Hide the config project name when a custom logo includes its own lockup. */
+  hideProjectName?: boolean;
+  /** Use a 64px header at every breakpoint. */
+  compactHeader?: boolean;
   /**
    * Opt-in content rendered inside the header right-hand actions area,
    * passed through to Header's `trailing` slot (e.g. the notification bell).
@@ -70,6 +74,8 @@ export function SidebarLayout({
   onBrandClick,
   hideManageAccount,
   logo,
+  hideProjectName,
+  compactHeader,
   trailing,
 }: SidebarLayoutProps) {
   const [collapsed, setCollapsed] = useState(() =>
@@ -126,6 +132,8 @@ export function SidebarLayout({
         onBrandClick={onBrandClick}
         hideManageAccount={hideManageAccount}
         logo={logo}
+        hideProjectName={hideProjectName}
+        compact={compactHeader}
         trailing={trailing}
       />
 

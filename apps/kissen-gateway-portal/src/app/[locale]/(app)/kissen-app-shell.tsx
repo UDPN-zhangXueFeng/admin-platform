@@ -18,6 +18,7 @@ import {
   getGatewayToken,
   getGatewayUser,
   useAuthLogoutMutation,
+  useBrandQuery,
   useGatewayLockState,
   useMenuTreeQuery,
   type MenuTree,
@@ -258,7 +259,7 @@ function applyMenuLabels(
  *   locked 时允许路径收敛到 /onboard，仅入网信息可见。
  * - 侧栏折叠持久化（A-1）：localStorage key 沿用源 MainLayout 的
  *   'bankgw.nav.collapsed'（初始读 ==='1'，toggle 写 '1'/'0'）。
- * - 侧栏宽度对齐源口径：展开 224px / 收起 68px（源 el-aside :width）。
+ * - 侧栏宽度：展开 300px（大屏 320px）/ 收起 68px，保证长菜单名称完整可读。
  * - 品牌区点击回门户首页（源 brand @click router.push('/')）；用户菜单
  *   仅「Change Password / Log Out」两项（源 dropdown 无账号管理项）。
  * - 顶栏实例密钥入口（源 header-actions key-entry，FR-BM-05-7）：
@@ -275,7 +276,13 @@ export function KissenAppShell({
   const router = useRouter();
   const [pwdOpen, setPwdOpen] = React.useState(false);
   const [keyDrawerOpen, setKeyDrawerOpen] = React.useState(false);
+  const [isHydrated, setIsHydrated] = React.useState(false);
   const logoutMutation = useAuthLogoutMutation();
+  const { brand } = useBrandQuery(KISSEN_GATEWAY_PROJECT_ID);
+
+  React.useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   const [sessionMenuKeys] = React.useState<Set<string>>(
     () => new Set(getGatewayUser()?.menuKeys ?? []),
@@ -334,7 +341,8 @@ export function KissenAppShell({
   // 实例密钥入口：源 `v-if="!locked" v-perm="'bank:key:manage'"`——
   // locked（未入网/实例未激活）期间隐藏；权限按会话 menuKeys（与
   // sessionMenuKeys 同源快照，登录/登出均为整页跳转，无需订阅）。
-  const showKeyEntry = !locked && sessionMenuKeys.has(KEY_MANAGE_PERM);
+  const showKeyEntry =
+    isHydrated && !locked && sessionMenuKeys.has(KEY_MANAGE_PERM);
 
   return (
     <AppShell
@@ -343,13 +351,18 @@ export function KissenAppShell({
       onLogout={handleLogout}
       onBrandClick={handleBrandClick}
       hideManageAccount
+      hideProjectName
+      compactHeader
       persistKey="bankgw.nav.collapsed"
       sidebarWidths={{
-        expanded: 'w-[224px] min-[1600px]:w-[224px]',
+        expanded: 'w-[300px] min-[1600px]:w-[320px]',
         collapsed: 'w-[68px] min-[1600px]:w-[68px]',
       }}
       logo={
-        <LogoMark className="h-8 w-auto shrink-0 min-[1600px]:h-9" />
+        <LogoMark
+          className="h-10 w-auto shrink-0"
+          productName={brand.headerName}
+        />
       }
       trailing={
         <>

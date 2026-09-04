@@ -38,17 +38,18 @@ export function authChangePwd(
 const brandAxios = axios.create({
   baseURL:
     typeof process !== 'undefined'
-      ? (process.env['NEXT_PUBLIC_API_BASE_URL'] ?? '/kissen-api/bankgw/portal')
-          .replace(/\/portal$/, '')
+      ? (
+          process.env['NEXT_PUBLIC_API_BASE_URL'] ?? '/kissen-api/bankgw/portal'
+        ).replace(/\/portal$/, '')
       : '/kissen-api/bankgw',
   timeout: 5000,
 });
 
 /**
- * 品牌文案规整：后端 brand 接口当前返回中文（实测 87 环境「Kissen 银行门户」/
- * 「银行门户管理控制台」），而本门户约束用户可见文案零中文（document.title 与
- * 登录页品牌区均消费）。英文原样透传；空缺或含 CJK 时回退 DEFAULT_BRAND
- * 对应默认值 —— 后端切换为英文白标数据后自动生效。
+ * 品牌文案规整：后端 brand 接口的 name/subtitle/headerName 可能返回中文，
+ * 而本门户约束用户可见文案零中文（document.title 与登录页品牌区均消费）。
+ * 英文原样透传；空缺或含 CJK 时回退 DEFAULT_BRAND 对应默认值——后端切换
+ * 为英文白标数据后自动生效。
  */
 export function sanitizeBrandText(
   value: string | undefined,
@@ -72,6 +73,10 @@ export async function getBrand(): Promise<Brand> {
         subtitle: sanitizeBrandText(data.subtitle, DEFAULT_BRAND.subtitle),
         logo: sanitizeBrandText(data.logo, DEFAULT_BRAND.logo),
         primaryColor: data.primaryColor ?? DEFAULT_BRAND.primaryColor,
+        headerName: sanitizeBrandText(
+          data.headerName,
+          DEFAULT_BRAND.headerName,
+        ),
       };
     }
     return DEFAULT_BRAND;
@@ -86,6 +91,14 @@ export async function getBrand(): Promise<Brand> {
  * 与公开 GET 不同：写操作在登录后发起，走带 token 的 kissenRequest
  * （baseURL /kissen-api/bankgw/portal），而非免 token 的 brandAxios。
  */
-export function updateBrand(data: Brand, config?: AxiosRequestConfig): Promise<Brand> {
-  return kissenRequest.put<Brand>('/brand', data, config);
+export function updateBrand(
+  data: Brand,
+  config?: AxiosRequestConfig,
+): Promise<Brand> {
+  const { name, subtitle, logo, primaryColor } = data;
+  return kissenRequest.put<Brand>(
+    '/brand',
+    { name, subtitle, logo, primaryColor },
+    config,
+  );
 }

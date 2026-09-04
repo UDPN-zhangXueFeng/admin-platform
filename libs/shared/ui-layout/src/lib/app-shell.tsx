@@ -39,6 +39,10 @@ export interface AppShellProps {
   onBrandClick?: () => void;
   /** Hide the "Manage Account" user-menu entry (opt-in). */
   hideManageAccount?: boolean;
+  /** Hide the config project name when a custom logo includes its own lockup. */
+  hideProjectName?: boolean;
+  /** Use a 64px header at every breakpoint. */
+  compactHeader?: boolean;
   logo?: React.ReactNode;
   /**
    * Opt-in content rendered inside the header right-hand actions area,
@@ -68,6 +72,10 @@ interface LayoutProps {
   onBrandClick?: () => void;
   /** Hide the "Manage Account" user-menu entry (opt-in). */
   hideManageAccount?: boolean;
+  /** Hide the config project name when a custom logo includes its own lockup. */
+  hideProjectName?: boolean;
+  /** Use a 64px header at every breakpoint. */
+  compactHeader?: boolean;
   /** Opt-in brand mark replacing Header's default logo <img>. */
   logo?: React.ReactNode;
   /** Opt-in header actions content, forwarded to Header's `trailing` slot. */
@@ -95,6 +103,8 @@ export function AppShell({
   sidebarWidths,
   onBrandClick,
   hideManageAccount,
+  hideProjectName,
+  compactHeader,
   logo,
   trailing,
 }: AppShellProps) {
@@ -109,6 +119,8 @@ export function AppShell({
       sidebarWidths={sidebarWidths}
       onBrandClick={onBrandClick}
       hideManageAccount={hideManageAccount}
+      hideProjectName={hideProjectName}
+      compactHeader={compactHeader}
       logo={logo}
       trailing={trailing}
     >

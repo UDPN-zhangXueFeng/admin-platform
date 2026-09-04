@@ -1,8 +1,8 @@
 {
   "project": {
     "id": "kissen-gateway",
-    "name": "Kissen Gateway Portal",
-    "subtitle": "Stablecoin Management System",
+    "name": "UDPN Kissen Gateway Portal",
+    "subtitle": "",
     "logo": "/logo.svg",
     "favicon": "/favicon.svg"
   },

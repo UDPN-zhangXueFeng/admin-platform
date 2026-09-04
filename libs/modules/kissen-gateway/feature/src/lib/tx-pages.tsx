@@ -33,6 +33,7 @@ import {
   txBankRoleText,
   txBankRoleVariant,
   txDirectionText,
+  txFlowEventTitle,
   txMsgTypeText,
   txMsgTypeVariant,
   txProcessStatusText,
@@ -193,6 +194,61 @@ function pairViewOf(
   return pairId != null ? pairMap.get(pairId) : undefined;
 }
 
+/** pairId → fx 聚合项索引（整项保留：tokenPair 与 rate 快照均可取；列表/详情两页共用）。 */
+function buildPairMap(
+  pairs: FxPairItem[] | null | undefined,
+): ReadonlyMap<number, FxPairItem> {
+  const map = new Map<number, FxPairItem>();
+  for (const item of pairs ?? []) {
+    map.set(item.tokenPair.pairId, item);
+  }
+  return map;
+}
+/**
+ * 阶段事件关联字段行（fe61223 admin 同款口径，源 stageFields）：金额/汇率取交易
+ * 主表（值缺失整行跳过），金额带 token symbol（缺缓存退纯数字），凭证优先节点
+ * csTxId 回退主表 sourceCsTxId/targetCsTxId；step2 无字段，0=通用事件恒空。
+ */
+function stageFieldsOf(
+  node: TxFlowNode,
+  record: TxRecord | null | undefined,
+  pairMap: ReadonlyMap<number, FxPairItem>,
+): Array<{ label: string; value: string }> {
+  const step = node.stageStep ?? 0;
+  if (step === 0) return [];
+  const fields: Array<{ label: string; value: string }> = [];
+  const pair = pairViewOf(record?.pairId, pairMap)?.tokenPair;
+  const src = pair?.sourceTokenSymbol || pair?.sourceTokenCode;
+  const tgt = pair?.targetTokenSymbol || pair?.targetTokenCode;
+  const withSym = (
+    v: number | null | undefined,
+    sym: string | undefined,
+  ): string | undefined =>
+    v == null ? undefined : sym ? `${fmtAmount(v)} ${sym}` : fmtAmount(v);
+  const lp = record?.lpNames?.length
+    ? record.lpNames.join(', ')
+    : (record?.lpCode || undefined);
+  const principal = withSym(record?.principal, src);
+  const receiver = withSym(record?.receiverAmount, tgt);
+  const rate =
+    record?.userRate != null ? String(Number(record.userRate)) : undefined;
+  if (step === 1) {
+    if (lp) fields.push({ label: 'LP', value: lp });
+    if (principal) fields.push({ label: 'Source Amount', value: principal });
+    if (receiver) fields.push({ label: 'Target Amount', value: receiver });
+    if (rate) fields.push({ label: 'Rate', value: rate });
+  } else if (step === 3 || step === 4) {
+    if (principal) fields.push({ label: 'Source Amount', value: principal });
+    const proof = node.csTxId || record?.sourceCsTxId;
+    if (proof) fields.push({ label: 'Proof', value: proof });
+  } else if (step === 5 || step === 6) {
+    if (receiver) fields.push({ label: 'Target Amount', value: receiver });
+    const proof = node.csTxId || record?.targetCsTxId;
+    if (proof) fields.push({ label: 'Proof', value: proof });
+  }
+  return fields;
+}
+
 export function TxListPage() {
   const router = useRouter();
   const toast = useToast();
@@ -220,13 +276,10 @@ export function TxListPage() {
    */
   const { data: fxViewData } = useFxViewQuery();
   /** pairId → 聚合项索引（整项保留：tokenPair 与 rate 快照均可取）。 */
-  const pairMap = React.useMemo(() => {
-    const map = new Map<number, FxPairItem>();
-    for (const item of fxViewData?.pairs ?? []) {
-      map.set(item.tokenPair.pairId, item);
-    }
-    return map;
-  }, [fxViewData]);
+  const pairMap = React.useMemo(
+    () => buildPairMap(fxViewData?.pairs),
+    [fxViewData],
+  );
 
   const rows = data?.data ?? [];
   const total = data?.pagination?.total ?? 0;
@@ -698,12 +751,23 @@ function TxMessageItem({ message }: { message: TxMessage }) {
 }
 
 /**
- * 单条链路节点（源 chain tab 的 el-timeline-item）：状态迁移 `from → to` +
- * operator 标签 + remark/csTxId 元信息；终态（40|60|80|90）实心，中间态空心。
+ * 单条链路节点（fe61223 对齐 admin 六段最终口径，纯时间轴）：标题 =
+ * txFlowEventTitle（阶段业务动作名 / 通用事件回退状态文案）+ Operator 前缀标签；
+ * 字段行 = stageFieldsOf（LP/金额/汇率/凭证，label+value 逐行）；remark 独立行。
+ * 终态（35|40|60|80|90）实心，中间态空心。
  */
-function TxFlowItem({ node }: { node: TxFlowNode }) {
+function TxFlowItem({
+  node,
+  record,
+  pairMap,
+}: {
+  node: TxFlowNode;
+  record: TxRecord | null | undefined;
+  pairMap: ReadonlyMap<number, FxPairItem>;
+}) {
   const color = flowNodeColor(node.statusTo);
   const terminal = isFlowTerminal(node.statusTo);
+  const fields = stageFieldsOf(node, record, pairMap);
   return (
     <li className="relative pl-6">
       <span
@@ -719,20 +783,27 @@ function TxFlowItem({ node }: { node: TxFlowNode }) {
       <div className="mt-2 rounded-md border bg-muted/30 p-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-sm font-semibold">
-            {txStatusText(node.statusFrom)} → {txStatusText(node.statusTo)}
+            {txFlowEventTitle(node)}
           </span>
           {node.operator ? (
-            <Badge variant="outline">{node.operator}</Badge>
+            <Badge variant="outline">Operator: {node.operator}</Badge>
           ) : null}
         </div>
-        {(node.remark || node.csTxId) && (
-          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
-            {node.remark ? <span>{node.remark}</span> : null}
-            {node.csTxId ? (
-              <span className="font-mono">csTxId: {node.csTxId}</span>
-            ) : null}
+        {fields.length > 0 && (
+          <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+            {fields.map((f) => (
+              <div key={f.label}>
+                {f.label}{' '}
+                <span className="font-mono break-all">{f.value}</span>
+              </div>
+            ))}
           </div>
         )}
+        {node.remark ? (
+          <div className="mt-1 text-xs text-muted-foreground">
+            {node.remark}
+          </div>
+        ) : null}
       </div>
     </li>
   );
@@ -776,6 +847,16 @@ export function TxDetailPage() {
   );
   /** kissenChain=null → Kissen 不可达降级（源 el-empty 提示）。 */
   const chainDegraded = chainData != null && chainData.kissenChain == null;
+
+  /**
+   * fe61223 stageFields 的 token symbol 派生（源 pairOf 依赖的 pairViews 缓存）：
+   * 详情为独立路由页，须自取 fxView（与 /fx、列表页同 query key，缓存命中免请求）。
+   */
+  const { data: fxViewData } = useFxViewQuery();
+  const pairMap = React.useMemo(
+    () => buildPairMap(fxViewData?.pairs),
+    [fxViewData],
+  );
 
   /**
    * 源 openDetail 语义：进入详情先用被点击的行立即渲染（链路起始为空），
@@ -1000,7 +1081,12 @@ export function TxDetailPage() {
             ) : flowNodes.length > 0 ? (
               <ol className="relative space-y-6 border-l">
                 {flowNodes.map((n) => (
-                  <TxFlowItem key={n.flowId} node={n} />
+                  <TxFlowItem
+                    key={n.flowId}
+                    node={n}
+                    record={record}
+                    pairMap={pairMap}
+                  />
                 ))}
               </ol>
             ) : (

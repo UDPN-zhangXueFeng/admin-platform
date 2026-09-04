@@ -3,7 +3,8 @@
  * `views/onboard/index.vue`/`views/instance-key/drawer.vue` 状态映射）。
  *
  * 入网语义：onboardStatus 0 未入网 / 5 待审核 / 15 已拒绝 / 20 已通过；
- * 实例 connectivity：UP / DOWN；credentialMode：instance / bootstrap / legacy。
+ * 实例 connectivity：UP / DOWN / DEGRADED；credentialMode：instance /
+ * bootstrap / legacy。
  */
 
 /** Badge variant 约定（kissen 家族语义分层，Element tag type 映射见各映射表注释）。 */
@@ -36,7 +37,7 @@ export interface OnboardStatus {
 /** 本行 Gateway 实例条目（bank/detail 派生）。 */
 export interface InstanceItem {
   instanceId: string;
-  /** connectivity：UP / DOWN。 */
+  /** connectivity：UP / DOWN / DEGRADED。 */
   connectivity: string;
   activated: boolean;
   /** credentialMode：instance / bootstrap / legacy。 */
@@ -164,14 +165,51 @@ export function onboardStatusVariant(status?: number): BankVariant {
   return status == null ? 'outline' : (BANK_ONBOARD_STATUS[status]?.variant ?? 'outline');
 }
 
-/** 实例连通状态文案；UP/DOWN 原样展示，其余 '-'（源 onboard 模板直接输出 UP/DOWN）。 */
+/**
+ * 实例连通状态文案（与管理系统统一）：UP/ONLINE=Online，
+ * DOWN/OFFLINE=Offline，DEGRADED=Degraded；未知值为 '-'。
+ */
 export function instanceConnectivityText(connectivity?: string): string {
-  return connectivity === 'UP' || connectivity === 'DOWN' ? connectivity : '-';
+  const value = connectivity?.trim().toUpperCase();
+  if (value === 'UP' || value === 'ONLINE' || value === '1') return 'Online';
+  if (value === 'DOWN' || value === 'OFFLINE' || value === '2') return 'Offline';
+  if (value === 'DEGRADED' || value === '0') return 'Degraded';
+  return '-';
 }
 
-/** 实例连通状态 Badge variant：UP→default(success) / DOWN→destructive(danger)，未知降级 outline（源 onboard 模板）。 */
+/** 实例连通状态 Badge variant：Online→success / Offline→danger / Degraded→secondary。 */
 export function instanceConnectivityVariant(connectivity?: string): BankVariant {
-  return connectivity === 'UP' ? 'default' : connectivity === 'DOWN' ? 'destructive' : 'outline';
+  const text = instanceConnectivityText(connectivity);
+  return text === 'Online'
+    ? 'default'
+    : text === 'Offline'
+      ? 'destructive'
+      : text === 'Degraded'
+        ? 'secondary'
+        : 'outline';
+}
+
+/**
+ * 实例状态文案：激活实例为 Active；bootstrap 引导中的未激活实例为
+ * Pending；其他未激活实例为 Inactive。
+ */
+export function instanceStatusText(instance: Pick<InstanceItem, 'activated' | 'credentialMode'>): string {
+  if (instance.activated) return 'Active';
+  return instance.credentialMode?.trim().toLowerCase() === 'bootstrap'
+    ? 'Pending'
+    : 'Inactive';
+}
+
+/** 实例状态 Badge variant：Active success、Pending secondary、Inactive outline。 */
+export function instanceStatusVariant(
+  instance: Pick<InstanceItem, 'activated' | 'credentialMode'>,
+): BankVariant {
+  const status = instanceStatusText(instance);
+  return status === 'Active'
+    ? 'default'
+    : status === 'Pending'
+      ? 'secondary'
+      : 'outline';
 }
 
 /** 实例凭证模式文案；原样展示（instance/bootstrap/legacy），空值 '-'（源 onboard 模板 `row.credentialMode || '-'`）。 */

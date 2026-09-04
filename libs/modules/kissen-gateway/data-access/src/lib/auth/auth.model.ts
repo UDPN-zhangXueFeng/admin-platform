@@ -43,6 +43,8 @@ export interface Brand {
   subtitle: string;
   logo: string;
   primaryColor: string;
+  /** Gateway header name returned by the public brand endpoint. */
+  headerName: string;
 }
 
 /** 品牌回退默认值（源 store/brand.ts DEFAULT）。 */
@@ -51,4 +53,5 @@ export const DEFAULT_BRAND: Brand = {
   subtitle: 'Bank Portal Management Console',
   logo: '🏦',
   primaryColor: '#0B6B53',
+  headerName: 'UDPN Kissen Gateway Portal',
 };

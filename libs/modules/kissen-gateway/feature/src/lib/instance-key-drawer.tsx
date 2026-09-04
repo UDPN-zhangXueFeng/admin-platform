@@ -19,7 +19,20 @@
  *   静默（源 catch 注释「拦截器已提示」）。
  */
 import * as React from 'react';
-import { ChevronDown, Copy, KeyRound, Loader2 } from 'lucide-react';
+import {
+  ArrowDownToLine,
+  ArrowUpToLine,
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
+  Copy,
+  Fingerprint,
+  KeyRound,
+  Loader2,
+  ShieldAlert,
+  ShieldCheck,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import {
   AlertDialog,
@@ -60,6 +73,7 @@ import {
   usePrivateKeyDownloadMutation,
   usePublicKeyDownloadMutation,
   useResetInstanceKeyMutation,
+  type InstanceKeyView,
   type KeyResetReq,
 } from '@myorg/modules/kissen-gateway/data-access';
 
@@ -67,8 +81,9 @@ import { formatTime, orDash } from './kit';
 import { EmptyHint, LoadingBlock } from './state-blocks';
 import { DescField, DescGrid } from './desc-grid';
 
-/** 源抽屉尺寸 520px（el-drawer size="520px"）。 */
-const DRAWER_WIDTH_CLASS = 'sm:max-w-[520px]';
+/** 详情抽屉宽度：桌面展示长指纹/PEM，移动端保持全宽。 */
+const DRAWER_WIDTH_CLASS =
+  'w-full max-w-none sm:w-[760px] lg:w-[860px] xl:w-[960px]';
 
 /** PEM 文本落 .pem 文件下载（源 downloadPem，MIME 沿用 application/x-pem-file）。 */
 function downloadPem(content: string, filename: string): void {
@@ -95,15 +110,17 @@ function PemBlock({ label, pem }: { label: string; pem?: string }) {
   };
 
   return (
-    <div className="mt-2.5">
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="text-xs text-muted-foreground">{label}</div>
+    <div className="rounded-lg border border-border/50 bg-muted/20 p-3.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          {label}
+        </div>
         {pem ? (
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-6 gap-1 px-2 text-xs"
+            className="h-7 gap-1 px-2 text-xs"
             onClick={onCopy}
           >
             <Copy className="h-3 w-3" aria-hidden="true" />
@@ -111,9 +128,164 @@ function PemBlock({ label, pem }: { label: string; pem?: string }) {
           </Button>
         ) : null}
       </div>
-      <pre className="m-0 max-h-[120px] overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/50 px-2 py-2 font-mono text-[11px] leading-relaxed">
+      <pre className="m-0 max-h-[168px] overflow-auto whitespace-pre-wrap break-all rounded-md bg-background px-3 py-2.5 font-mono text-xs leading-6 text-foreground shadow-inner">
         {pem || '-'}
       </pre>
+    </div>
+  );
+}
+
+/** Summary metric used to make key state scannable before the long PEM blocks. */
+function SummaryMetric({
+  icon: Icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: React.ReactNode;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card px-3.5 py-3 shadow-float">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">
+        <Icon className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+        {label}
+      </div>
+      <div className="mt-2 truncate text-sm font-semibold text-foreground">
+        {value}
+      </div>
+      {hint ? (
+        <div className="mt-1 truncate text-[11px] text-muted-foreground">
+          {hint}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function KeyCardHeader({
+  direction,
+  title,
+  description,
+}: {
+  direction: 'upstream' | 'downstream';
+  title: string;
+  description: string;
+}) {
+  const Icon = direction === 'upstream' ? ArrowUpToLine : ArrowDownToLine;
+
+  return (
+    <div className="flex items-start gap-3 border-b border-border/50 px-5 py-4">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
+          {direction === 'upstream' ? 'Uplink' : 'Downlink'}
+        </p>
+        <h3 className="mt-0.5 text-base font-semibold leading-6 text-foreground">
+          {title}
+        </h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Security posture and trust-chain summary shown before sensitive key material. */
+function SecurityPosture({ view }: { view: InstanceKeyView }) {
+  const hasUplink = Boolean(view.uplinkPublicKey && view.uplinkFingerprint);
+  const hasDownlink = Boolean(
+    view.downlinkPublicKey && view.downlinkFingerprint,
+  );
+  const isProtected =
+    view.activated &&
+    view.accessKeyStatus === 'VALID' &&
+    hasUplink &&
+    hasDownlink;
+  const StatusIcon = isProtected ? ShieldCheck : ShieldAlert;
+
+  return (
+    <section
+      className={
+        isProtected
+          ? 'rounded-xl border border-success/25 bg-success/5 p-4'
+          : 'rounded-xl border border-warning/30 bg-warning/5 p-4'
+      }
+      aria-label="Security posture"
+    >
+      <div className="flex items-start gap-3">
+        <StatusIcon
+          className={
+            isProtected
+              ? 'mt-0.5 h-5 w-5 shrink-0 text-success'
+              : 'mt-0.5 h-5 w-5 shrink-0 text-warning'
+          }
+          aria-hidden="true"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="text-sm font-semibold text-foreground">
+              Security posture
+            </p>
+            <Badge variant={isProtected ? 'default' : 'secondary'}>
+              {isProtected ? 'Protected' : 'Action required'}
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {isProtected
+              ? 'This instance has an active access key and a complete bidirectional key trust chain.'
+              : 'Verify activation and complete both key directions before processing live operations.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        <TrustNode
+          label="Instance"
+          value={view.activated ? 'Active' : 'Inactive'}
+          ready={view.activated}
+        />
+        <TrustNode
+          label="Uplink → management"
+          value={hasUplink ? 'Verified' : 'Missing'}
+          ready={hasUplink}
+        />
+        <TrustNode
+          label="Management → downlink"
+          value={hasDownlink ? 'Verified' : 'Missing'}
+          ready={hasDownlink}
+        />
+      </div>
+    </section>
+  );
+}
+
+function TrustNode({
+  label,
+  value,
+  ready,
+}: {
+  label: string;
+  value: string;
+  ready: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2.5">
+      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+        <span
+          className={
+            ready
+              ? 'h-1.5 w-1.5 rounded-full bg-success'
+              : 'h-1.5 w-1.5 rounded-full bg-warning'
+          }
+          aria-hidden="true"
+        />
+        {label}
+      </div>
+      <div className="mt-1 text-xs font-semibold text-foreground">{value}</div>
     </div>
   );
 }
@@ -166,7 +338,9 @@ function PrivateKeyPromptDialog({
             className="mb-1.5 block text-sm font-medium text-foreground"
           >
             Login Password
-            <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+            <span className="ml-0.5 text-destructive" aria-hidden="true">
+              *
+            </span>
           </Label>
           <PasswordField
             id="gw-key-password"
@@ -241,7 +415,10 @@ function ResetConfirmDialog({
   onCancel: () => void;
 }) {
   return (
-    <AlertDialog open={direction != null} onOpenChange={(o) => !o && onCancel()}>
+    <AlertDialog
+      open={direction != null}
+      onOpenChange={(o) => !o && onCancel()}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Key Reset Confirmation</AlertDialogTitle>
@@ -297,8 +474,9 @@ export function InstanceKeyDrawer({
   /** 私钥口令弹窗开关（独立于抽屉）。 */
   const [pwdOpen, setPwdOpen] = React.useState(false);
   /** 重置目标方向（null=确认弹窗关闭）。 */
-  const [resetDirection, setResetDirection] =
-    React.useState<KeyResetReq['direction'] | null>(null);
+  const [resetDirection, setResetDirection] = React.useState<
+    KeyResetReq['direction'] | null
+  >(null);
 
   // 源 onDownloadPublic：GET public/download → uplink-public.pem。
   const onDownloadPublic = React.useCallback(() => {
@@ -317,9 +495,7 @@ export function InstanceKeyDrawer({
           onSuccess: (pem) => {
             downloadPem(pem, 'uplink-private.pem');
             // 源 success：私钥已下载,请妥善保管。
-            toast.success(
-              'Private key downloaded. Keep it in a safe place',
-            );
+            toast.success('Private key downloaded. Keep it in a safe place');
             setPwdOpen(false);
           },
           onError: (e) => toast.error((e as Error).message),
@@ -347,178 +523,229 @@ export function InstanceKeyDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className={DRAWER_WIDTH_CLASS}>
-        <DrawerHeader>
-          <DrawerTitle className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4" />
-            Instance Keys
-          </DrawerTitle>
-          <DrawerDescription>
-            Uplink key pair and downlink public key status
-          </DrawerDescription>
-        </DrawerHeader>
-
-        <div className="flex flex-col gap-3.5">
-          {viewQuery.isLoading ? (
-            <LoadingBlock />
-          ) : !view ? (
-            // 源 el-empty：暂无密钥信息（查询失败静默，拦截器已提示）。
-            <EmptyHint text="No key information available" />
-          ) : (
-            <>
-              {/* 激活徽标 + 实例号（源 key-meta）→ §6.3 Hero：状态 + 可复制标识。 */}
-              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                <Badge variant={view.activated ? 'default' : 'secondary'}>
-                  {view.activated ? 'Activated' : 'Not Activated'}
-                </Badge>
-                <span className="text-sm text-muted-foreground">Instance</span>
-                <CopyableEllipsisText
-                  value={view.instanceId}
-                  emptyText="-"
-                  maxWidth={260}
-                  className="t-identifier"
-                />
+      <DrawerContent className={`${DRAWER_WIDTH_CLASS} overflow-y-hidden p-0`}>
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-5 sm:px-7 lg:px-8">
+          <DrawerHeader className="border-b-0 pb-0">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <KeyRound className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0">
+                    <DrawerTitle>Instance Keys</DrawerTitle>
+                    <DrawerDescription className="mt-1 truncate">
+                      Uplink and downlink key status
+                    </DrawerDescription>
+                  </div>
+                </div>
               </div>
-
-              {/* 上行密钥对（本实例自生成）；指纹为核心信息（长文本占行 +
-                  可复制），时间/状态为审计支撑（§6.3 分层）。 */}
-              <section className="rounded-lg border border-border/60 bg-card">
-                <div className="border-b border-border/50 px-4 py-3">
-                  <h3 className="text-base font-semibold leading-6 text-foreground">
-                    Uplink Key Pair (generated by this instance)
-                  </h3>
-                </div>
-                <div className="panel-pad flex flex-col gap-3">
-                  <DescGrid cols={2}>
-                    <DescField label="Public Key Fingerprint" span>
-                      <CopyableEllipsisText
-                        value={view.uplinkFingerprint}
-                        emptyText="-"
-                        maxWidth={440}
-                        className="t-identifier"
-                      />
-                    </DescField>
-                    <DescField label="Private Key Fingerprint" span>
-                      <CopyableEllipsisText
-                        value={view.uplinkPrivateKeyFingerprint}
-                        emptyText="-"
-                        maxWidth={440}
-                        className="t-identifier"
-                      />
-                    </DescField>
-                    <DescField label="Generated At">
-                      <span className="font-mono text-xs">
-                        {formatTime(view.uplinkGeneratedTime)}
-                      </span>
-                    </DescField>
-                    <DescField label="Private Key Status">
-                      <span className="text-xs">
-                        {orDash(view.uplinkPrivateKeyStatus)}
-                      </span>
-                    </DescField>
-                  </DescGrid>
-                  <PemBlock label="Public Key PEM" pem={view.uplinkPublicKey} />
-                  {/* 下载动作贴近 PEM 字段（§6.3：动作贴近所服务的数据）。 */}
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      disabled={publicDownload.isPending}
-                      onClick={onDownloadPublic}
-                    >
-                      {publicDownload.isPending && (
-                        <Loader2 className="animate-spin" />
-                      )}
-                      Download Public Key
+              {view ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline" className="shrink-0">
+                      Reset keys
+                      <ChevronDown />
                     </Button>
-                    {/* 源 warning plain：下载需口令确认的语义以文案承载。 */}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={privateDownload.isPending}
-                      onClick={() => setPwdOpen(true)}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => setResetDirection('upstream')}
                     >
-                      Download Private Key (password required)
-                    </Button>
-                  </div>
-                </div>
-              </section>
+                      Reset uplink key
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setResetDirection('downstream')}
+                    >
+                      Reset downlink public key
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
+          </DrawerHeader>
 
-              {/* 下行公钥（管理侧下发）；指纹占行可复制（§6.3）。 */}
-              <section className="rounded-lg border border-border/60 bg-card">
-                <div className="border-b border-border/50 px-4 py-3">
-                  <h3 className="text-base font-semibold leading-6 text-foreground">
-                    Downlink Public Key (delivered by management side)
-                  </h3>
+          <div className="mt-5 flex flex-col gap-5">
+            {viewQuery.isLoading ? (
+              <LoadingBlock />
+            ) : !view ? (
+              // 源 el-empty：暂无密钥信息（查询失败静默，拦截器已提示）。
+              <EmptyHint text="No key information available" />
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <SummaryMetric
+                    icon={ShieldCheck}
+                    label="Instance"
+                    value={
+                      <Badge variant={view.activated ? 'default' : 'secondary'}>
+                        {view.activated ? 'Activated' : 'Not activated'}
+                      </Badge>
+                    }
+                    hint={view.instanceId || '-'}
+                  />
+                  <SummaryMetric
+                    icon={KeyRound}
+                    label="Access key"
+                    value={
+                      <Badge
+                        variant={accessKeyStatusVariant(view.accessKeyStatus)}
+                      >
+                        {accessKeyStatusText(view.accessKeyStatus)}
+                      </Badge>
+                    }
+                    hint="One-time key status"
+                  />
+                  <SummaryMetric
+                    icon={ArrowUpToLine}
+                    label="Uplink"
+                    value={view.uplinkPublicKey ? 'Available' : 'Missing'}
+                    hint={
+                      view.uplinkGeneratedTime
+                        ? formatTime(view.uplinkGeneratedTime)
+                        : 'No key generated'
+                    }
+                  />
+                  <SummaryMetric
+                    icon={ArrowDownToLine}
+                    label="Downlink"
+                    value={view.downlinkPublicKey ? 'Available' : 'Missing'}
+                    hint={
+                      view.downlinkPushTime
+                        ? formatTime(view.downlinkPushTime)
+                        : 'Not delivered'
+                    }
+                  />
                 </div>
-                <div className="panel-pad flex flex-col gap-3">
-                  <DescGrid cols={2}>
-                    <DescField label="Fingerprint" span>
-                      <CopyableEllipsisText
-                        value={view.downlinkFingerprint}
-                        emptyText="-"
-                        maxWidth={440}
-                        className="t-identifier"
-                      />
-                    </DescField>
-                    <DescField label="Delivered At">
-                      <span className="font-mono text-xs">
-                        {formatTime(view.downlinkPushTime)}
+
+                <SecurityPosture view={view} />
+
+                <section className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-float">
+                  <KeyCardHeader
+                    direction="upstream"
+                    title="Uplink key pair"
+                    description="Generated and managed by this instance"
+                  />
+                  <div className="flex flex-col gap-5 p-5">
+                    <DescGrid cols={2} className="gap-x-6 gap-y-5">
+                      <DescField label="Public key fingerprint" span>
+                        <CopyableEllipsisText
+                          value={view.uplinkFingerprint}
+                          emptyText="-"
+                          maxWidth={760}
+                          className="t-identifier max-w-full"
+                        />
+                      </DescField>
+                      <DescField
+                        label="Private key fingerprint · verification only"
+                        span
+                      >
+                        <CopyableEllipsisText
+                          value={view.uplinkPrivateKeyFingerprint}
+                          emptyText="-"
+                          maxWidth={760}
+                          className="t-identifier max-w-full"
+                        />
+                      </DescField>
+                      <DescField label="Generated at">
+                        <span className="inline-flex items-center gap-1.5 font-mono text-xs">
+                          <Clock3
+                            className="h-3.5 w-3.5 text-muted-foreground"
+                            aria-hidden="true"
+                          />
+                          {formatTime(view.uplinkGeneratedTime)}
+                        </span>
+                      </DescField>
+                      <DescField label="Private key status">
+                        <span className="inline-flex items-center gap-1.5 text-xs">
+                          {view.uplinkPrivateKeyStatus?.toUpperCase() ===
+                          'PRESENT' ? (
+                            <CheckCircle2
+                              className="h-3.5 w-3.5 text-success"
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                          {orDash(view.uplinkPrivateKeyStatus)}
+                        </span>
+                      </DescField>
+                    </DescGrid>
+                    <PemBlock
+                      label="Public key PEM"
+                      pem={view.uplinkPublicKey}
+                    />
+                    <div className="flex flex-wrap gap-2 border-t border-border/50 pt-4">
+                      <Button
+                        size="sm"
+                        disabled={publicDownload.isPending}
+                        onClick={onDownloadPublic}
+                      >
+                        {publicDownload.isPending && (
+                          <Loader2 className="animate-spin" />
+                        )}
+                        Download public key
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={privateDownload.isPending}
+                        onClick={() => setPwdOpen(true)}
+                      >
+                        Download private key · re-auth required
+                      </Button>
+                      <span className="self-center text-[11px] text-muted-foreground">
+                        Password required
                       </span>
-                    </DescField>
-                  </DescGrid>
-                  <PemBlock label="Public Key PEM" pem={view.downlinkPublicKey} />
-                </div>
-              </section>
+                    </div>
+                  </div>
+                </section>
 
-              {/* 一次性接入 key + 重置（源 key-card「接入与重置」）。
-                  Reset 属对象级破坏性低频操作，留在本卡上下文（§6.3 动作贴近字段）。 */}
-              <section className="rounded-lg border border-border/60 bg-card">
-                <div className="border-b border-border/50 px-4 py-3">
-                  <h3 className="text-base font-semibold leading-6 text-foreground">
-                    Access &amp; Reset
-                  </h3>
-                </div>
-                <div className="panel-pad flex flex-col gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      One-time Access Key
-                    </span>
-                    <Badge variant={accessKeyStatusVariant(view.accessKeyStatus)}>
-                      {accessKeyStatusText(view.accessKeyStatus)}
-                    </Badge>
-                    {/* 源 meta-hint：激活即失效,仅状态展示。 */}
-                    <span className="text-xs text-muted-foreground">
-                      Invalidated once activated; status display only
-                    </span>
+                <section className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-float">
+                  <KeyCardHeader
+                    direction="downstream"
+                    title="Downlink public key"
+                    description="Delivered by the management side"
+                  />
+                  <div className="flex flex-col gap-5 p-5">
+                    <DescGrid cols={2} className="gap-x-6 gap-y-5">
+                      <DescField label="Fingerprint" span>
+                        <CopyableEllipsisText
+                          value={view.downlinkFingerprint}
+                          emptyText="-"
+                          maxWidth={760}
+                          className="t-identifier max-w-full"
+                        />
+                      </DescField>
+                      <DescField label="Delivered at">
+                        <span className="inline-flex items-center gap-1.5 font-mono text-xs">
+                          <Clock3
+                            className="h-3.5 w-3.5 text-muted-foreground"
+                            aria-hidden="true"
+                          />
+                          {formatTime(view.downlinkPushTime)}
+                        </span>
+                      </DescField>
+                    </DescGrid>
+                    <PemBlock
+                      label="Public key PEM"
+                      pem={view.downlinkPublicKey}
+                    />
                   </div>
-                  <div className="flex gap-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="outline">
-                          Reset Keys
-                          <ChevronDown />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        <DropdownMenuItem
-                          onClick={() => setResetDirection('upstream')}
-                        >
-                          Reset uplink key (regenerate locally and re-push
-                          public key)
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setResetDirection('downstream')}
-                        >
-                          Reset downlink public key (management side
-                          regenerates and delivers)
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                </section>
+
+                <div className="flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs leading-5 text-muted-foreground">
+                  <Fingerprint
+                    className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+                    aria-hidden="true"
+                  />
+                  <span>
+                    Fingerprints are safe to share for verification. Private key
+                    material is never shown here and requires your login
+                    password for download.
+                  </span>
                 </div>
-              </section>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
       </DrawerContent>
 

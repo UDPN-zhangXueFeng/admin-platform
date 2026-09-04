@@ -47,10 +47,13 @@ export interface HeaderProps {
   hideManageAccount?: boolean;
   /**
    * Opt-in brand mark replacing the default <img src="/logo-icon.svg">.
-   * Use an inline SVG component when the mark must track page CSS variables
-   * (img-loaded SVGs resolve vars in their own document).
-   */
+   * Use an inline component when the mark must track page CSS variables.
+  */
   logo?: React.ReactNode;
+  /** Hide the config project name when a custom logo includes its own lockup. */
+  hideProjectName?: boolean;
+  /** Use a 64px header at every breakpoint. */
+  compact?: boolean;
   /**
    * Opt-in content rendered inside the right-hand actions area, before
    * the user menu (reserved entry point, e.g. the notification bell).
@@ -77,6 +80,8 @@ export function Header({
   onBrandClick,
   hideManageAccount,
   logo,
+  hideProjectName = false,
+  compact = false,
   trailing,
 }: HeaderProps) {
   const { user } = useAuth();
@@ -109,14 +114,18 @@ export function Header({
           className="h-10 w-[84px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[104px]"
         />
       )}
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold tracking-wide text-white sm:text-base">
-          {config.project.name}
-        </p>
-        <p className="hidden truncate text-xs text-white/70 sm:block">
-          {config.project.subtitle}
-        </p>
-      </div>
+      {!hideProjectName && (
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold tracking-wide text-white sm:text-base">
+            {config.project.name}
+          </p>
+          {config.project.subtitle ? (
+            <p className="hidden truncate text-xs text-white/70 sm:block">
+              {config.project.subtitle}
+            </p>
+          ) : null}
+        </div>
+      )}
     </>
   );
 
@@ -138,13 +147,16 @@ export function Header({
     <header
       className={cn(
         'relative isolate overflow-hidden border-b border-black/10 text-white shadow-md shadow-[#5D5AE8]/20',
+        compact
+          ? 'min-h-[64px] py-2 min-[1600px]:min-h-[64px] min-[1600px]:py-2'
+          : 'min-h-16 py-2 min-[1600px]:min-h-20 min-[1600px]:py-3',
         config.layout.header.sticky && 'sticky top-0 z-30',
       )}
     >
       <AnimatedBannerBackground />
       <div className="absolute inset-0 bg-[#171654]/15" aria-hidden="true" />
 
-      <div className="relative flex min-h-16 items-center justify-between gap-3 px-4 py-2 sm:px-6 min-[1600px]:min-h-20 min-[1600px]:gap-4 min-[1600px]:px-8 min-[1600px]:py-3">
+      <div className="relative flex items-center justify-between gap-3 px-4 sm:px-6 min-[1600px]:gap-4 min-[1600px]:px-8">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           {onMenuToggle && (
             <Button

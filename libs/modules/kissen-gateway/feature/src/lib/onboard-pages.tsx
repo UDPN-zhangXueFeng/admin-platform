@@ -42,6 +42,8 @@ import {
   instanceConnectivityText,
   instanceConnectivityVariant,
   instanceCredentialModeText,
+  instanceStatusText,
+  instanceStatusVariant,
   onboardStatusText,
   onboardStatusVariant,
   useBankContactUpdateMutation,
@@ -549,7 +551,7 @@ function BankDetailHero({
 /**
  * 卡 A 基本信息（源 el-descriptions column=2 border 八字段；名称/编码/ID/
  * 入网状态上移 Hero 后余四字段）。Bank ID 以本地推送缓存 gw_bank_info.bankId
- * 兜底（源 bankIdOf，协议扩展 P1 前详情报文无此字段）；Registration Time
+ * 兜底（源 bankIdOf，协议扩展 P1 前详情报文无此字段）；Registered on
  * 同为 P1 占位，已通过时以入网通过时间兜底；入网状态非 20 显示原始数字口径
  * 由 onboardStatusText 承接（未知码 `Unknown (n)`，null '-'）。
  */
@@ -581,7 +583,7 @@ function BankDetailCards({
               {detail.bic || '-'}
             </DescField>
             {/* 协议扩展 P1 占位：Kissen 下发 registrationTime 后自动亮起。 */}
-            <DescField label="Registration Time" variant="boxed">
+            <DescField label="Registered on" variant="boxed">
               <span className="font-mono">
                 {detail.registrationTime
                   ? formatTime(detail.registrationTime)
@@ -617,7 +619,7 @@ function ContactCard({
     <section className="rounded-lg border border-border/60 bg-card">
       <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-base font-semibold leading-6 text-foreground">
-          Contact
+          Contact Information
         </h2>
         {hasPerm('bank:info:contact-edit') && (
           <Button type="button" size="sm" variant="outline" onClick={onEdit}>
@@ -629,9 +631,6 @@ function ContactCard({
         <DescGrid cols={2}>
           <DescField label="Contact Name" variant="boxed">
             {detail.contactName || '-'}
-          </DescField>
-          <DescField label="Contact Phone" variant="boxed">
-            {detail.contactPhone || '-'}
           </DescField>
           <DescField label="Email" variant="boxed">
             {detail.contactEmail || '-'}
@@ -663,10 +662,11 @@ function InstanceListCard({
         {/* §6.2 头条元信息：实体名 + 结果数（激活按钮保持右置）。 */}
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="text-base font-semibold leading-6 text-foreground">
-            Gateway Instances of This Bank
+            Gateway Instances
           </h2>
           <span className="text-sm text-muted-foreground tabular-nums">
-            {detail.instances.length} instances
+            {detail.instances.length} instance
+            {detail.instances.length === 1 ? '' : 's'}
           </span>
         </div>
         {needActivate && (
@@ -733,8 +733,8 @@ function InstanceListCard({
                       </Badge>
                     </td>
                     <td className="px-4 py-3 align-middle">
-                      <Badge variant={row.activated ? 'default' : 'secondary'}>
-                        {row.activated ? 'Activated' : 'Not Activated'}
+                      <Badge variant={instanceStatusVariant(row)}>
+                        {instanceStatusText(row)}
                       </Badge>
                     </td>
                     <td className="max-w-[10rem] px-4 py-3 align-middle">
@@ -756,11 +756,11 @@ function InstanceListCard({
   );
 }
 
-/** 源实例表列头（实例编码/连通状态/激活状态/凭证模式）。 */
+/** 实例表列头（实例编码/连通状态/状态/凭证模式）。 */
 const INSTANCE_TABLE_HEADERS = [
   'Instance ID',
   'Connectivity',
-  'Activation',
+  'Status',
   'Credential Mode',
 ] as const;
 
