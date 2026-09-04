@@ -349,13 +349,6 @@ export function BankQueryDetailPage() {
         ),
       },
       {
-        id: 'csTokenCode',
-        header: 'csTokenCode (currency system)',
-        cell: ({ row }) => (
-          <span className="font-mono">{orDash(row.original.csTokenCode)}</span>
-        ),
-      },
-      {
         id: 'tokenName',
         header: 'Token Name',
         cell: ({ row }) => orDash(row.original.tokenName),
@@ -392,7 +385,7 @@ export function BankQueryDetailPage() {
     () =>
       (data?.tokens ?? []).map((t, i) => ({
         ...t,
-        id: t.tokenCode || t.csTokenCode || String(i),
+        id: t.tokenCode || String(i),
       })),
     [data],
   );

@@ -8,6 +8,7 @@ import { Toaster } from '@myorg/shared/ui';
 import { loadProjectConfig } from '@myorg/shared/util-config';
 import { locales, type Locale } from '@myorg/shared/util-i18n';
 import { SessionGuard } from '@/providers/session-guard';
+import { AppearanceSync } from '@/providers/appearance-sync';
 import { BrandProvider } from '@/providers/brand-provider';
 
 /**
@@ -43,6 +44,9 @@ export default async function LocaleLayout({
         <QueryProvider>
           <AuthProvider>
             <SessionGuard />
+            {/* 防闪补偿：React 19 hydration 会剥掉防闪脚本写在 <html> 上的
+                .dark / data-theme，mount 时重放（见 providers/appearance-sync） */}
+            <AppearanceSync />
             {/* 品牌应用（title + 主色 CSS 变量，源 store/brand.ts 启动加载） */}
             <BrandProvider />
             {children}

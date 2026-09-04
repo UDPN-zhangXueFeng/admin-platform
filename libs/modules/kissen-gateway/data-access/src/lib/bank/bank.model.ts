@@ -116,8 +116,6 @@ export interface BankQueryItem {
 /** 银行可交易 token（货币系统口径；源 types/business.ts CsToken，eafcab0 结构化下发替代 tokenList JSON 串）。 */
 export interface CsToken {
   tokenNo?: string;
-  /** 货币系统 token code（GW-16）。 */
-  csTokenCode?: string;
   tokenCode?: string;
   tokenName?: string;
   symbol?: string;

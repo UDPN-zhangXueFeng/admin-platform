@@ -847,3 +847,4 @@
 - 2026-09-03：Token 调整最低流动性弹窗显示独立字段标签 `Minimum Liquidity`、两位小数格式的当前值及 `Up to 2 decimal places.` 辅助说明；调整请求校验限制为最多 2 位小数。
 - 2026-09-03：Token 列表 Actions 中的 `Disburse Spender` 入口文案改为 `Spender Wallet`，点击后仍打开原 Spender 配置抽屉。
 - 2026-09-03：Spender 配置抽屉标题改为 `Disbursement Spender`，副标题统一为 `Token Name · Bank · Blockchain` 格式。
+- 2026-09-04：React 19 hydration 会剥掉 root layout 防闪 inline script 写在 `<html>` 上的 class/data-*（`suppressHydrationWarning` 只消警告不保属性）；kissen-gateway 硬刷新后暗色与调色板曾双双回落。对策是 `AppearanceSync`（app providers）mount layoutEffect 重放 `gw-appearance`→html.dark、`gw-theme`→data-theme（缺省回落 config.theme.defaultTheme），且必须挂在 BrandProvider 之前（让位分支依赖 dataset.theme 已就位）。适用于全部门户的防闪脚本模式，详见 gateway 迁移矩阵 §7-39。

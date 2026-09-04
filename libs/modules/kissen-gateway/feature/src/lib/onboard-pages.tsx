@@ -790,7 +790,6 @@ export function OnboardListPage() {
 
   const detail = detailQuery.data;
   const current = statusQuery.data;
-  const needActivate = needActivateOf(detail);
 
   /* ── 审核轮询：待审核期间 5s 刷新 status；终态 toast + 刷新详情 ── */
   const isPending = isPendingStatus(current);
@@ -805,6 +804,8 @@ export function OnboardListPage() {
   /** 已通过且详情已在上方展示：底部状态/申请卡整体隐藏（防空壳/表单残留）。 */
   const hideOnboardCard = approved && !!detail;
   const { refetch: refetchStatus } = statusQuery;
+  /** 78097e9：未入网通过不提供激活入口（源 needActivate 前置 if (!approved.value) return false）。 */
+  const needActivate = approved && needActivateOf(detail);
   const { refetch: refetchDetail } = detailQuery;
 
   React.useEffect(() => {

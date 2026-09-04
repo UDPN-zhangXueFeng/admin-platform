@@ -79,3 +79,13 @@ export async function getBrand(): Promise<Brand> {
     return DEFAULT_BRAND;
   }
 }
+
+/**
+ * 品牌保存（源 api/brand.ts updateBrand，bcfad98）：PUT /brand → 保存后回写值。
+ *
+ * 与公开 GET 不同：写操作在登录后发起，走带 token 的 kissenRequest
+ * （baseURL /kissen-api/bankgw/portal），而非免 token 的 brandAxios。
+ */
+export function updateBrand(data: Brand, config?: AxiosRequestConfig): Promise<Brand> {
+  return kissenRequest.put<Brand>('/brand', data, config);
+}

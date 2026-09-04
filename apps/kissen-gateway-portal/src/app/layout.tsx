@@ -43,6 +43,15 @@ export default async function RootLayout({
           defaultTheme={config.theme.defaultTheme}
           radius={config.theme.radius}
         />
+        {/* 外观（明暗）防闪脚本（源 index.html 渲染前挂 html.dark）：key
+            'gw-appearance' 与 feature 库 system-ui-pages 一致；与调色板轴
+            'gw-theme' 正交——.dark 管表面色、data-theme 管品牌色。 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(localStorage.getItem('gw-appearance')==='dark')document.documentElement.classList.add('dark');}catch(e){}",
+          }}
+        />
       </head>
       <body className="min-h-screen font-sans antialiased">
         {children}

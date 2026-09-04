@@ -619,9 +619,6 @@ export function TokenDetailPage() {
               <DescField label="tokenCode (currency system code)">
                 <span className="font-mono">{token.tokenCode}</span>
               </DescField>
-              <DescField label="csTokenCode">
-                <span className="font-mono">{orDash(token.csTokenCode)}</span>
-              </DescField>
               <DescField label="Token Name">{token.tokenName}</DescField>
               <DescField label="Symbol">
                 <span className="font-mono">{token.symbol}</span>

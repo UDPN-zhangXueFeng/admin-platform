@@ -92,10 +92,14 @@ function flowNodeColor(statusTo?: number): string {
   return FLOW_NODE_COLOR[statusTo ?? -1] ?? FLOW_NODE_COLOR_DEFAULT;
 }
 
-/** 终态判定（源 isTerminal）：40 完成 / 60 冲正 / 80 取消 / 90 失败 → 实心。 */
+/** 终态判定（源 isTerminal）：35 入账 / 40 完成 / 60 冲正 / 80 取消 / 90 失败 → 实心（cdc9fa0 补 35）。 */
 function isFlowTerminal(statusTo?: number): boolean {
   return (
-    statusTo === 40 || statusTo === 60 || statusTo === 80 || statusTo === 90
+    statusTo === 35 ||
+    statusTo === 40 ||
+    statusTo === 60 ||
+    statusTo === 80 ||
+    statusTo === 90
   );
 }
 

@@ -15,8 +15,6 @@ export interface TokenInfo {
   tokenNo?: string;
   /** token 编码（本实例内唯一；即货币系统 token code）。 */
   tokenCode: string;
-  /** 货币系统标识 code（GW-16；本实例注册上传时与 tokenCode 同值，详情展示用）。 */
-  csTokenCode?: string;
   /** token 归属（GW-17）：1 本行本实例 / 2 本行其他实例 / 3 其他行实例。 */
   tokenScope?: number;
   tokenName: string;

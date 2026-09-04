@@ -179,6 +179,8 @@ kissenGatewayAxios.interceptors.response.use(
 export interface KissenRequest {
   get<T>(url: string, config?: AxiosRequestConfig): Promise<T>;
   post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>;
+  /** PUT（源 request.ts bcfad98 新增 put helper，brand 保存用）。 */
+  put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>;
 }
 
 /** 请求门面，方法直接返回解包后的 data（与源 request 对象一致）。 */
@@ -187,6 +189,8 @@ export const kissenRequest: KissenRequest = {
     kissenGatewayAxios.get(url, config) as unknown as Promise<T>,
   post: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
     kissenGatewayAxios.post(url, data, config) as unknown as Promise<T>,
+  put: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
+    kissenGatewayAxios.put(url, data, config) as unknown as Promise<T>,
 };
 
 /**
@@ -241,4 +245,6 @@ export const kissenBootstrapRequest: KissenRequest = {
     kissenBootstrapAxios.get(url, config) as unknown as Promise<T>,
   post: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
     kissenBootstrapAxios.post(url, data, config) as unknown as Promise<T>,
+  put: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
+    kissenBootstrapAxios.put(url, data, config) as unknown as Promise<T>,
 };

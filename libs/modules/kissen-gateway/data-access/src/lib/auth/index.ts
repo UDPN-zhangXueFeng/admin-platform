@@ -3,6 +3,7 @@ export {
   authLogout,
   authChangePwd,
   getBrand,
+  updateBrand,
 } from './auth.api';
 export {
   authKeys,
@@ -35,4 +36,6 @@ export {
   useAuthLogoutMutation,
   useAuthChangePwdMutation,
   useBrandQuery,
+  useUpdateBrandMutation,
+  useResetBrandMutation,
 } from './auth.mutations';

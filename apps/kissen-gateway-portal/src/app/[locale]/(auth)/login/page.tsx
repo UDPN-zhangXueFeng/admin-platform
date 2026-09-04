@@ -183,7 +183,7 @@ export default function LoginRoute() {
               <span className="text-5xl leading-none" aria-hidden="true">
                 {brand.logo}
               </span>
-              <h1 className="text-3xl font-bold leading-tight tracking-tight text-[#1a1d21] sm:text-4xl">
+              <h1 className="text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
                 {brand.name}
               </h1>
               {/* 表单任务引导：右板副题不与左板品牌 subtitle（:165）逐字重复（§6.6 A）。 */}

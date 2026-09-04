@@ -3,9 +3,10 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { authKeys } from './auth.keys';
-import { authChangePwd, authLogin, authLogout, getBrand } from './auth.api';
+import { authChangePwd, authLogin, authLogout, getBrand, updateBrand } from './auth.api';
 import {
   DEFAULT_BRAND,
+  type Brand,
   type ChangePwdReq,
   type LoginReq,
   type LoginRespVO,
@@ -57,4 +58,24 @@ export function useBrandQuery(projectId: string) {
   });
 
   return { ...query, brand: query.data ?? DEFAULT_BRAND };
+}
+
+/**
+ * 品牌保存（源 system/ui.vue onSave，PUT /brand）。成功副作用由调用方处理
+ * （invalidate brand query → BrandProvider 重应用），保持本层薄。
+ */
+export function useUpdateBrandMutation() {
+  return useMutation({
+    mutationFn: (data: Brand) => updateBrand(data),
+  });
+}
+
+/**
+ * 品牌恢复默认（源 system/ui.vue onReset，PUT DEFAULT）——与保存同通道，
+ * 仅载荷固定为 DEFAULT_BRAND（源 onReset 调 updateBrand(DEFAULT)）。
+ */
+export function useResetBrandMutation() {
+  return useMutation({
+    mutationFn: () => updateBrand(DEFAULT_BRAND),
+  });
 }
