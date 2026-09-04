@@ -14,6 +14,7 @@ import { Check, ChevronsUpDown } from 'lucide-react';
 
 import {
   Alert,
+  AlertDescription,
   AlertTitle,
   Badge,
   Button,
@@ -41,6 +42,10 @@ import {
   ScrollArea,
   Skeleton,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   useToast,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
@@ -63,7 +68,6 @@ import {
   type TransactionFlowEvent,
   type TransactionPageFilter,
   type TransactionRow,
-  type TransactionStage,
 } from '@myorg/modules/kissen-admin/data-access';
 
 /**
@@ -95,14 +99,21 @@ function formatMoney(v: number | string | null | undefined): string {
 }
 
 /**
- * 金额/汇率展示：千分位 + 至少 2 位小数（最多 8 位，去尾零但保 2 位）。
- * 源 index.vue fmtAmount / tx-detail-drawer.vue fmtAmount·fmtRate。
+ * 金额/汇率展示：千分位 + 至少 2 位小数（最多 8 位，去尾零但保 2 位）；
+ * sym 追加币种后缀（源 index.vue fmtAmount / tx-detail-drawer.vue fmtAmount·fmtRate）。
  */
-function fmtAmount(v: number | string | null | undefined): string {
+function fmtAmount(
+  v: number | string | null | undefined,
+  sym?: string,
+): string {
   if (v == null || v === '') return '-';
   const n = Number(v);
   if (Number.isNaN(n)) return String(v);
-  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+  const formatted = n.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 8,
+  });
+  return sym ? `${formatted} ${sym}` : formatted;
 }
 
 /** 毫秒时间戳 → 统一管理台时间格式；0/null/undefined/非法 → '-'。 */
@@ -133,7 +144,7 @@ function orDash(v: string | number | null | undefined): string {
 /* StatusRail —— 移植源 components/StatusRail.vue（交易生命周期轨道）   */
 /* ================================================================== */
 
-/** 主线 8 节点：交易生命周期主路径。 */
+/** 主线 7 节点：35 即成功终态「Completed」（7e20c04 由 8 段合并，40 仅历史数据）。 */
 const RAIL_MAIN_LINE: ReadonlyArray<{ code: number; name: string }> = [
   { code: 1, name: 'Created' },
   { code: 5, name: 'Quoted' },
@@ -141,8 +152,7 @@ const RAIL_MAIN_LINE: ReadonlyArray<{ code: number; name: string }> = [
   { code: 20, name: 'Source Transferring' },
   { code: 25, name: 'Source Verified' },
   { code: 30, name: 'Advancing' },
-  { code: 35, name: 'Settled' },
-  { code: 40, name: 'Completed' },
+  { code: 35, name: 'Completed' },
 ];
 
 /** 结算腿（钱真正移动的段）：结算金只允许出现在此语义。 */
@@ -192,7 +202,11 @@ function computeRailSteps(status: number): RailStep[] {
       },
     ];
   }
-  const curIdx = RAIL_MAIN_LINE.findIndex((n) => n.code === status);
+  // 40 已不入主线：按主线终点渲染（避免 findIndex -1 全 todo）。
+  const curIdx =
+    status === 40
+      ? RAIL_MAIN_LINE.length - 1
+      : RAIL_MAIN_LINE.findIndex((n) => n.code === status);
   return RAIL_MAIN_LINE.map((n, i) => ({
     key: `m${n.code}`,
     name: n.name,
@@ -280,183 +294,248 @@ function StatusRail({ status }: { status: number }) {
 }
 
 /* ================================================================== */
-/* 链路：8 阶段卡片 + 定宽时间列事件行（源 drawer 2026-08-27 降噪重排）  */
+/* 链路：单时间轴业务化视图（源 6579522 chainTimeline；8 阶段卡退役）    */
 /* ================================================================== */
 
-/** 阶段轴 step 1-8（源 STAGE_STEP_MAP：报价/确认/源端划转/源端验证/垫资解付/入账/结算/完成）。 */
-const STAGE_STEP_LABEL: Record<number, string> = {
-  1: 'Quote',
-  2: 'Confirm',
-  3: 'Source Transfer',
-  4: 'Source Verification',
-  5: 'Advancing',
-  6: 'Settled',
-  7: 'Settlement',
-  8: 'Completed',
+/** 落点状态 → 节点标题（业务口径命名，替代技术性的「X → Y」）。 */
+const NODE_TITLES: Record<number, string> = {
+  5: 'Quote Accepted',
+  10: 'User Confirmed',
+  20: 'Source Transfer Initiated',
+  25: 'Source Arrival Verified',
+  30: 'Disbursement Initiated',
+  35: 'Payout Completed',
+  40: 'Payout Completed',
+  50: 'Reversal Initiated',
+  60: 'Reversal Completed',
+  70: 'Escalated to Manual Handling',
+  80: 'Transaction Cancelled',
+  90: 'Transaction Failed',
 };
 
-/** 阶段状态 1 未开始 / 2 进行中 / 3 成功 / 4 失败 / 5 跳过。 */
-const STAGE_STATUS_LABEL: Record<number, string> = {
-  1: 'Not Started',
-  2: 'In Progress',
-  3: 'Success',
-  4: 'Failed',
-  5: 'Skipped',
+/** 在途状态：最新节点带「进行中」角标 + 呼吸动画（源 IN_FLIGHT_STATUSES）。 */
+const CHAIN_IN_FLIGHT: Record<number, true> = {
+  1: true,
+  5: true,
+  10: true,
+  20: true,
+  25: true,
+  30: true,
+  50: true,
 };
 
-/** 阶段状态 tag 语义（源 stageTagType：3 success / 4 danger / 2 warning / 其余 info）。 */
-const STAGE_STATUS_VARIANT: Record<
-  number,
-  'default' | 'secondary' | 'destructive' | 'outline'
-> = {
-  1: 'outline',
-  2: 'secondary',
-  3: 'default',
-  4: 'destructive',
-  5: 'outline',
-};
+/**
+ * 根节点技术串过滤：上游以「含非 ASCII」判别中文业务文案（"quote v1" 类技术串不上）。
+ * 英文环境下改为按已知技术串模式过滤（quote vN / vN），其余 root remark 全保留。
+ */
+const TECHNICAL_ROOT_REMARK_RE = /^(quote\s*)?v?\d+$/i;
 
-/** 事件类型映射（nodeType；1 环节/状态迁移不在表内，兜底显示 Event N）。 */
-const EVENT_TYPE_LABEL: Record<number, string> = { 2: 'Action', 3: 'Message', 4: 'Retry' };
+interface ChainGroup {
+  key: string;
+  /** 落点状态（根节点 statusTo；0 = 无状态迁移的孤立组）。 */
+  to: number;
+  time: number;
+  operator: string;
+  title: string;
+  /** 金额汇总行（按落点状态三端口径；空串不渲染）。 */
+  money: string;
+  csTxIds: string[];
+  remarks: string[];
+}
 
-/** 固定 8 段阶段轴：缺失 step 按未开始补齐（后端补齐 8 行，前端再兜底）。 */
-function buildStageList(stages: TransactionStage[]): TransactionStage[] {
-  if (stages.length === 0) return [];
-  const byStep = new Map<number, TransactionStage>(
-    stages.map((s): [number, TransactionStage] => [s.step, s]),
-  );
-  const list: TransactionStage[] = [];
-  for (let step = 1; step <= 8; step++) {
-    list.push(
-      byStep.get(step) ?? {
-        step,
-        status: 1,
-        startTime: 0,
-        endTime: 0,
-        operator: '',
-        csTxId: '',
-        remark: '',
-      },
-    );
+/** 动作类节点标题：remark 首段（按常见中英文标点切分）截 24 字。 */
+function actionTitle(remark: string): string {
+  const firstSeg = remark.split(/[::,,。。;;\n]/)[0] ?? '';
+  const text = firstSeg.trim();
+  return text.length > 24 ? `${text.slice(0, 24)}…` : text;
+}
+
+/** 组标题：状态迁移取 NODE_TITLES，否则取首事件 remark 首段。 */
+function groupTitle(to: number, firstRemark: string): string {
+  if (to > 0) return NODE_TITLES[to] ?? `Status ${to}`;
+  return actionTitle(firstRemark) || 'Event';
+}
+
+/** 金额汇总行（源 money 行口径）：报价=LP+双边金额+率；20/25=源端；30/35/40=目标端。 */
+function groupMoney(to: number, detail: TransactionDetailRow): string {
+  if (to === 5) {
+    const parts = [
+      detail.lpName,
+      fmtAmount(detail.principal, detail.sourceCurrency || undefined),
+      fmtAmount(detail.receiverAmount, detail.targetCurrency || undefined),
+    ];
+    const userRate = fmtAmount(detail.userRate);
+    if (detail.sourceCurrency && detail.targetCurrency && userRate !== '-') {
+      parts.push(`1 ${detail.sourceCurrency} ≈ ${userRate} ${detail.targetCurrency}`);
+    }
+    return parts.filter(Boolean).join(' · ');
   }
-  return list;
-}
-
-/** 阶段标题：环节名；跳过阶段追加 (Skipped) 后缀（源 stageTitle）。 */
-function stageTitle(s: TransactionStage): string {
-  const name = STAGE_STEP_LABEL[s.step] ?? `${s.step}`;
-  return s.status === 5 ? `${name} (Skipped)` : name;
-}
-
-interface ChainNode {
-  stage: TransactionStage;
-  events: TransactionFlowEvent[];
+  if (to === 20 || to === 25) {
+    return fmtAmount(detail.userDeduction, detail.sourceCurrency || undefined);
+  }
+  if (to === 30 || to === 35 || to === 40) {
+    return fmtAmount(detail.receiverAmount, detail.targetCurrency || undefined);
+  }
+  return '';
 }
 
 /**
- * 链路节点（源 treeNodes computed 照迁）：固定 8 段补齐 + 每阶段挂自身事件，
- * 过滤规则 `stage.status !== 1 || events.length > 0` 才渲染（未开始且无事件的阶段隐藏）。
+ * 事件流 → 单时间轴分组（源 chainTimeline 算法 1:1 移植）：
+ * - 按 eventTime 升序（次序 flowId）；
+ * - 状态迁移根节点（nodeType=1 且 statusTo>0 且 statusFrom≠statusTo）开新组；
+ *   自环标记（statusFrom===statusTo）跳过，其后续动作并入前一节点；
+ * - 其余事件（动作/报文/重试）并入当前组：csTxId 去重收集、remark 去重收集；
+ * - 首事件无组时开 to=0 组。
  */
-function buildChainNodes(stages: TransactionStage[], events: TransactionFlowEvent[]): ChainNode[] {
-  const list = buildStageList(stages);
-  if (list.length === 0) return [];
-  return list
-    .map((stage) => ({
-      stage,
-      events: events.filter((e) => e.step === stage.step),
-    }))
-    .filter((n) => n.stage.status !== 1 || n.events.length > 0);
+function buildChainGroups(
+  events: TransactionFlowEvent[],
+  detail: TransactionDetailRow,
+): ChainGroup[] {
+  const sorted = [...events].sort((a, b) => a.eventTime - b.eventTime || a.flowId - b.flowId);
+  const groups: ChainGroup[] = [];
+  for (const ev of sorted) {
+    const isRoot =
+      ev.nodeType === 1 && ev.statusTo > 0 && ev.statusFrom !== ev.statusTo;
+    if (ev.nodeType === 1 && ev.statusTo > 0 && ev.statusFrom === ev.statusTo) {
+      continue; // 自环标记节点跳过（如存量 25→25）
+    }
+    if (isRoot || groups.length === 0) {
+      const to = isRoot ? ev.statusTo : 0;
+      groups.push({
+        key: `g${ev.flowId}`,
+        to,
+        time: ev.eventTime,
+        operator: ev.operator,
+        title: groupTitle(to, ev.remark),
+        money: '',
+        csTxIds: ev.csTxId ? [ev.csTxId] : [],
+        remarks: isRoot && ev.remark && !TECHNICAL_ROOT_REMARK_RE.test(ev.remark.trim())
+          ? [ev.remark]
+          : [],
+      });
+      continue;
+    }
+    const last = groups[groups.length - 1];
+    if (ev.csTxId && !last.csTxIds.includes(ev.csTxId)) last.csTxIds.push(ev.csTxId);
+    if (ev.remark && !last.remarks.includes(ev.remark)) last.remarks.push(ev.remark);
+    if (!last.title || last.title === 'Event') last.title = actionTitle(ev.remark);
+  }
+  for (const g of groups) {
+    g.money = groupMoney(g.to, detail);
+    // 凭证补齐：25 补源端凭证、35/40 补目标端凭证（源 chainTimeline csTxIds 合并）。
+    const extra =
+      g.to === 25 ? detail.sourceCsTxId : g.to === 35 || g.to === 40 ? detail.targetCsTxId : '';
+    if (extra && !g.csTxIds.includes(extra)) g.csTxIds.unshift(extra);
+  }
+  return groups;
 }
 
-/** 交易链路视图：阶段一张卡，事件行定宽等宽时间列对齐（源 .chain-card/.chain-event）。 */
+/** 节点色调（源 nodeTone）：成功绿 / 失败红 / 冲正黄 / 中性灰 / 其余主色。 */
+function chainDotClass(to: number): string {
+  if (to === 35 || to === 40) return 'bg-[var(--ks-clearing,#0b6b53)]';
+  if (to === 90 || to === 70) return 'bg-destructive';
+  if (to === 50) return 'bg-amber-600';
+  if (to === 60 || to === 80) return 'bg-muted-foreground';
+  return 'bg-primary';
+}
+
+/** remark 内 `lpId=N` 回退显示：N 等于交易 LP 时替换为 LP 名（源 pretty 规则）。 */
+function prettyRemark(remark: string, detail: TransactionDetailRow): string {
+  return remark.replace(/\blpId=(\d+)\b/g, (m, id: string) =>
+    Number(id) === detail.lpId && detail.lpName ? `LP ${detail.lpName}` : m,
+  );
+}
+
+/** 交易链路单时间轴（源 el-timeline 等价）：标题/金额/凭证 chip/描述/时间。 */
 function TransactionChainView({
-  stages,
+  detail,
   events,
 }: {
-  stages: TransactionStage[];
+  detail: TransactionDetailRow;
   events: TransactionFlowEvent[];
 }) {
-  const nodes = React.useMemo(() => buildChainNodes(stages, events), [stages, events]);
+  const groups = React.useMemo(() => buildChainGroups(events, detail), [events, detail]);
 
-  if (nodes.length === 0) {
+  if (groups.length === 0) {
     return <p className="text-sm text-muted-foreground">No chain data</p>;
   }
 
+  const live = CHAIN_IN_FLIGHT[detail.status] === true;
+
   return (
-    <div className="space-y-2.5">
-      {nodes.map(({ stage, events: stageEvents }) => (
-        <div
-          key={stage.step}
-          className={cn(
-            'rounded-lg border p-3',
-            stage.status === 4 && 'border-destructive/40 bg-destructive/5',
-            stage.status === 5 && 'opacity-55',
-          )}
-        >
-          <div className="flex items-center gap-2">
+    <ol className="m-0 list-none space-y-0 p-0">
+      {groups.map((g, i) => {
+        const isLast = i === groups.length - 1;
+        const showLive = live && isLast;
+        return (
+          <li
+            key={g.key}
+            className="relative border-l border-border pl-4 pb-4 last:pb-0"
+          >
             <span
+              aria-hidden
               className={cn(
-                'h-2 w-2 flex-shrink-0 rounded-full',
-                stage.status === 4
-                  ? 'bg-destructive'
-                  : stage.status === 5
-                    ? 'bg-muted-foreground'
-                    : 'bg-[var(--ks-clearing,#0b6b53)]',
+                'absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full',
+                chainDotClass(g.to),
+                showLive && 'animate-pulse',
               )}
             />
-            <span className="text-sm font-semibold">{stageTitle(stage)}</span>
-            <Badge variant={STAGE_STATUS_VARIANT[stage.status] ?? 'outline'}>
-              {STAGE_STATUS_LABEL[stage.status] ?? stage.status}
-            </Badge>
-            {stage.endTime !== 0 && (
-              <span className="ml-auto font-mono text-xs text-muted-foreground">
-                {formatTime(stage.endTime)}
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <span className="text-sm font-semibold">{g.title}</span>
+                {showLive && (
+                  <Badge variant="secondary" className="animate-pulse">
+                    In Progress
+                  </Badge>
+                )}
+              </div>
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                {formatTime(g.time)}
               </span>
+            </div>
+            {g.money && (
+              <div className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
+                {g.money}
+              </div>
             )}
-          </div>
-          {stage.csTxId && (
-            <div className="mt-1.5 font-mono text-xs text-muted-foreground">
-              Currency System Tx ID: {stage.csTxId}
-            </div>
-          )}
-          {stageEvents.length > 0 && (
-            <div className="mt-2">
-              {stageEvents.map((ev) => (
-                <div
-                  key={ev.flowId}
-                  className="border-t border-dashed py-1.5 first:border-t-0"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="w-[148px] flex-shrink-0 font-mono text-xs text-muted-foreground">
-                      {formatTime(ev.eventTime)}
-                    </span>
-                    <Badge variant="outline" className="text-[11px]">
-                      {EVENT_TYPE_LABEL[ev.nodeType] ?? `Event ${ev.nodeType}`}
-                    </Badge>
-                    {(ev.statusFrom !== 0 || ev.statusTo !== 0) && (
-                      <span className="text-xs text-muted-foreground">
-                        {TRANSACTION_STATUS_LABEL[ev.statusFrom] ?? ev.statusFrom} →{' '}
-                        {TRANSACTION_STATUS_LABEL[ev.statusTo] ?? ev.statusTo}
-                      </span>
-                    )}
-                    {ev.operator && (
-                      <span className="text-xs text-muted-foreground">
-                        Operator: {ev.operator}
-                      </span>
-                    )}
-                  </div>
-                  {ev.remark && (
-                    <div className="mt-0.5 break-all pl-[156px] text-xs text-muted-foreground/80">
-                      {ev.remark}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
+            {g.operator && (
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                Operator: {g.operator}
+              </div>
+            )}
+            {g.csTxIds.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {g.csTxIds.map((id) => (
+                  <span
+                    key={id}
+                    className="inline-flex max-w-full items-center rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5"
+                  >
+                    <CopyableEllipsisText
+                      value={id}
+                      maxWidth={140}
+                      copyLabel="Copy credential"
+                      className="font-mono text-xs"
+                    />
+                  </span>
+                ))}
+              </div>
+            )}
+            {g.remarks.length > 0 && (
+              <div className="mt-1.5 space-y-0.5">
+                {g.remarks.map((r) => (
+                  <p
+                    key={r}
+                    className="m-0 break-all text-xs text-muted-foreground/80"
+                  >
+                    {prettyRemark(r, detail)}
+                  </p>
+                ))}
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -772,6 +851,252 @@ function ResolveDialog({
   );
 }
 
+/** 详情正文（源 6579522 drawer：banner / 交易信息 / 转账双卡 / 其他 / 链路单时间轴）。 */
+function DetailBody({
+  detail,
+  events,
+  chainLoading,
+}: {
+  detail: TransactionDetailRow;
+  events: TransactionFlowEvent[];
+  chainLoading: boolean;
+}) {
+  const markupPercent = (() => {
+    const n = Number(detail.markupRate);
+    return Number.isNaN(n) ? null : `+${(n * 100).toFixed(4)}%`;
+  })();
+
+  return (
+    <div className="space-y-6">
+      {/* 失败/异常/冲正横幅（源 banner：原因置顶，无需翻到其他信息） */}
+      {(detail.status === 90 || detail.status === 70 || detail.status === 50) && (
+        <Alert
+          variant={detail.status === 50 ? 'warning' : 'destructive'}
+          className="mb-0"
+        >
+          <AlertTitle>
+            {detail.status === 90
+              ? 'Transaction failed'
+              : detail.status === 70
+                ? 'Transaction exception — manual handling required'
+                : 'Reversal in progress'}
+          </AlertTitle>
+          {detail.failReason ? (
+            <AlertDescription>{detail.failReason}</AlertDescription>
+          ) : null}
+        </Alert>
+      )}
+
+      {/* Hero Summary：单号（可复制）+ 状态 + 交易对 + LP（§6.3 详情模板） */}
+      <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <CopyableEllipsisText
+              value={detail.txNo || undefined}
+              emptyText="-"
+              maxWidth={280}
+              className="font-mono text-sm font-semibold text-foreground"
+            />
+            <TransactionStatusBadge status={detail.status} />
+          </div>
+          {((detail.sourceCurrency && detail.targetCurrency) || detail.lpName) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              {detail.sourceCurrency && detail.targetCurrency ? (
+                <span className="inline-flex items-center gap-1">
+                  <Badge variant="outline" className="rounded-full">
+                    {detail.sourceCurrency}
+                  </Badge>
+                  <span className="text-xs">→</span>
+                  <Badge className="rounded-full">{detail.targetCurrency}</Badge>
+                </span>
+              ) : null}
+              {detail.lpName ? <span>LP · {detail.lpName}</span> : null}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 状态轨道（源 .rail-block：SETTLEMENT RAIL 置顶 + hairline 分隔） */}
+      <section className="space-y-3 border-b pb-5">
+        <div className="text-xs font-medium tracking-wide text-muted-foreground">
+          SETTLEMENT RAIL
+        </div>
+        <StatusRail status={detail.status} />
+      </section>
+
+      {/* 块一：交易信息（单号/状态/交易对/LP 已上移 Hero；汇率为兑换方向语义 + tooltip） */}
+      <section>
+        <h4 className="mb-3 text-sm font-semibold">Transaction Information</h4>
+        <DescGrid cols={2}>
+          <DescField label="Principal">
+            <span className="font-mono tabular-nums">{fmtAmount(detail.principal)}</span>
+          </DescField>
+          <DescField label="Quote Version">
+            <span className="font-mono tabular-nums">v{detail.quoteVersion}</span>
+          </DescField>
+          <DescField label="Source Amount">
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help border-b border-dotted border-muted-foreground/60 font-mono tabular-nums">
+                    {fmtAmount(detail.userDeduction, detail.sourceCurrency || undefined)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  User pays principal × (1 + markup rate), in source token
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </DescField>
+          <DescField label="Target Amount">
+            <span className="font-mono tabular-nums">
+              {fmtAmount(detail.receiverAmount, detail.targetCurrency || undefined)}
+            </span>
+          </DescField>
+          <DescField label="Rate" span>
+            {detail.sourceCurrency && detail.targetCurrency ? (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help border-b border-dotted border-muted-foreground/60 font-mono tabular-nums">
+                      1 {detail.sourceCurrency} ≈ {fmtAmount(detail.userRate)}{' '}
+                      {detail.targetCurrency}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Base rate 1 {detail.sourceCurrency} = {fmtAmount(detail.baseRate)}{' '}
+                    {detail.targetCurrency}
+                    {markupPercent ? ` · Markup rate ${markupPercent}` : ''}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <span className="font-mono tabular-nums">{fmtAmount(detail.userRate)}</span>
+            )}
+          </DescField>
+        </DescGrid>
+      </section>
+
+      {/* 块二：转账信息双卡（金额为主角：大字金额 + 账户/池地址/凭证可复制） */}
+      <section>
+        <h4 className="mb-3 text-sm font-semibold">
+          Transfer Information (Source → Target)
+        </h4>
+        <div className="flex items-stretch gap-2.5">
+          <div className="min-w-0 flex-1 rounded-lg border border-border/60 bg-card p-3">
+            <div className="mb-2 text-sm font-semibold">
+              Source · {detail.sourceBankName || 'Source Bank'}
+            </div>
+            <div className="mb-2.5 font-mono text-lg font-semibold tabular-nums">
+              {fmtAmount(detail.userDeduction, detail.sourceCurrency || undefined)}
+            </div>
+            <DescGrid cols={1}>
+              <DescField label="Sender Account">
+                <CopyableEllipsisText
+                  value={detail.senderAccount || undefined}
+                  emptyText="-"
+                  maxWidth={280}
+                  className="font-mono"
+                />
+              </DescField>
+              <DescField label="Via LP Source Pool">
+                <CopyableEllipsisText
+                  value={detail.lpSourcePoolAddress || undefined}
+                  emptyText="-"
+                  maxWidth={280}
+                  className="font-mono"
+                />
+              </DescField>
+              <DescField label="Transfer Credential">
+                <CopyableEllipsisText
+                  value={detail.sourceCsTxId || undefined}
+                  emptyText="-"
+                  maxWidth={280}
+                  className="font-mono"
+                />
+              </DescField>
+              <DescField label="Source Verified Time">
+                {formatTime(detail.sourceVerifiedTime)}
+              </DescField>
+            </DescGrid>
+          </div>
+          <div className="flex-shrink-0 self-center text-lg text-muted-foreground">→</div>
+          <div className="min-w-0 flex-1 rounded-lg border border-border/60 bg-card p-3">
+            <div className="mb-2 text-sm font-semibold text-[var(--ks-clearing,#0b6b53)]">
+              Target · {detail.targetBankName || 'Target Bank'}
+            </div>
+            <div className="mb-2.5 font-mono text-lg font-semibold tabular-nums text-[var(--ks-clearing,#0b6b53)]">
+              {fmtAmount(detail.receiverAmount, detail.targetCurrency || undefined)}
+            </div>
+            <DescGrid cols={1}>
+              <DescField label="Receiver Account">
+                <CopyableEllipsisText
+                  value={detail.receiverAccount || undefined}
+                  emptyText="-"
+                  maxWidth={280}
+                  className="font-mono"
+                />
+              </DescField>
+              <DescField label="Via LP Target Pool">
+                <CopyableEllipsisText
+                  value={detail.lpTargetPoolAddress || undefined}
+                  emptyText="-"
+                  maxWidth={280}
+                  className="font-mono"
+                />
+              </DescField>
+              <DescField label="Settlement Credential">
+                <CopyableEllipsisText
+                  value={detail.targetCsTxId || undefined}
+                  emptyText="-"
+                  maxWidth={280}
+                  className="font-mono"
+                />
+              </DescField>
+              <DescField label="Settled / Credited Time">
+                {detail.settledTime !== 0
+                  ? formatTime(detail.settledTime)
+                  : detail.advancingTime !== 0
+                    ? formatTime(detail.advancingTime)
+                    : '-'}
+              </DescField>
+            </DescGrid>
+          </div>
+        </div>
+      </section>
+
+      {/* 其他信息（源 :column="2"；长文本单独占行，§6.3） */}
+      <section>
+        <h4 className="mb-3 text-sm font-semibold">Other Information</h4>
+        <DescGrid cols={2}>
+          <DescField label="Creation Time">{formatTime(detail.createTime)}</DescField>
+          <DescField label="Completion Time">{formatTime(detail.completedTime)}</DescField>
+          <DescField label="Failure Reason" span>
+            {orDash(detail.failReason)}
+          </DescField>
+          <DescField label="Remarks" span>
+            {orDash(detail.remark)}
+          </DescField>
+        </DescGrid>
+      </section>
+
+      {/* 块三：交易链路（单时间轴；events 驱动，stages 不再渲染） */}
+      <section>
+        <h4 className="mb-3 text-sm font-semibold">Transaction Chain</h4>
+        {chainLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : (
+          <TransactionChainView detail={detail} events={events} />
+        )}
+      </section>
+    </div>
+  );
+}
+
 /* ================================================================== */
 /* 详情抽屉（源 tx-detail-drawer.vue，720px）                           */
 /* ================================================================== */
@@ -780,8 +1105,8 @@ function ResolveDialog({
 const DRAWER_WIDTH_CLASS = 'flex flex-col sm:max-w-[720px]';
 
 /**
- * 交易详情抽屉：detail 与 chain 并行拉取（源 loadAll Promise.all），
- * 链路供阶段树、详情供字段分组。
+ * 交易详情抽屉：detail 与 chain 并行拉取（源 loadAll Promise.all）。
+ * 链路供单时间轴（events 驱动；stages 随 API 返回但不再渲染）。
  */
 function TxDetailDrawer({
   txId,
@@ -822,7 +1147,6 @@ function TxDetailDrawer({
           ) : detail ? (
             <DetailBody
               detail={detail}
-              stages={chain?.stages ?? []}
               events={chain?.events ?? []}
               chainLoading={chainLoading && !chain}
             />
@@ -834,188 +1158,6 @@ function TxDetailDrawer({
         </div>
       </DrawerContent>
     </Drawer>
-  );
-}
-
-/** 详情正文（源 drawer 四块：交易信息 / 转账信息双卡 / 其他信息 / 交易链路）。 */
-function DetailBody({
-  detail,
-  stages,
-  events,
-  chainLoading,
-}: {
-  detail: TransactionDetailRow;
-  stages: TransactionStage[];
-  events: TransactionFlowEvent[];
-  chainLoading: boolean;
-}) {
-  return (
-    <div className="space-y-6">
-      {/* Hero Summary：单号（可复制）+ 状态 + 交易对 + LP（§6.3 详情模板） */}
-      <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
-        <div className="flex flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <CopyableEllipsisText
-              value={detail.txNo || undefined}
-              emptyText="-"
-              maxWidth={280}
-              className="font-mono text-sm font-semibold text-foreground"
-            />
-            <TransactionStatusBadge status={detail.status} />
-          </div>
-          {((detail.sourceCurrency && detail.targetCurrency) || detail.lpName) && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              {detail.sourceCurrency && detail.targetCurrency ? (
-                <span className="inline-flex items-center gap-1">
-                  <Badge variant="outline" className="rounded-full">
-                    {detail.sourceCurrency}
-                  </Badge>
-                  <span className="text-xs">→</span>
-                  <Badge className="rounded-full">{detail.targetCurrency}</Badge>
-                </span>
-              ) : null}
-              {detail.lpName ? <span>LP · {detail.lpName}</span> : null}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* 状态轨道（源 .rail-block：SETTLEMENT RAIL 置顶 + hairline 分隔） */}
-      <section className="space-y-3 border-b pb-5">
-        <div className="text-xs font-medium tracking-wide text-muted-foreground">
-          SETTLEMENT RAIL
-        </div>
-        <StatusRail status={detail.status} />
-      </section>
-
-      {/* 块一：交易信息（源 el-descriptions :column="2"；单号/状态/交易对/LP 已上移 Hero） */}
-      <section>
-        <h4 className="mb-3 text-sm font-semibold">Transaction Information</h4>
-        <DescGrid cols={2}>
-          <DescField label="Principal">
-            <span className="font-mono tabular-nums">{fmtAmount(detail.principal)}</span>
-          </DescField>
-          <DescField label="Receiver Amount">
-            <span className="font-mono tabular-nums">{fmtAmount(detail.receiverAmount)}</span>
-          </DescField>
-          <DescField label="Markup Rate">
-            <span className="font-mono tabular-nums">{fmtAmount(detail.markupRate)}</span>
-          </DescField>
-          <DescField label="Base Rate / User Rate">
-            <span className="font-mono tabular-nums">
-              {fmtAmount(detail.baseRate)} / {fmtAmount(detail.userRate)}
-            </span>
-          </DescField>
-          <DescField label="User Deduction">
-            <span className="font-mono tabular-nums">{fmtAmount(detail.userDeduction)}</span>
-          </DescField>
-          <DescField label="Quote Version">
-            <span className="font-mono tabular-nums">v{detail.quoteVersion}</span>
-          </DescField>
-        </DescGrid>
-      </section>
-
-      {/* 块二：转账信息（源端/目标端双卡 + 箭头，源 .leg-grid；卡面走 P3 panel 公式） */}
-      <section>
-        <h4 className="mb-3 text-sm font-semibold">
-          Transfer Information (Source → Target)
-        </h4>
-        <div className="flex items-stretch gap-2.5">
-          <div className="min-w-0 flex-1 rounded-lg border border-border/60 bg-card p-3">
-            <div className="mb-2 text-sm font-semibold">
-              Source · {detail.sourceBankName || 'Source Bank'}
-            </div>
-            <DescGrid cols={1}>
-              <DescField label="Sender Account">
-                <CopyableEllipsisText
-                  value={detail.senderAccount || undefined}
-                  emptyText="-"
-                  maxWidth={280}
-                  className="font-mono"
-                />
-              </DescField>
-              <DescField label="Deduction Principal">
-                <span className="font-mono tabular-nums">{fmtAmount(detail.userDeduction)}</span>
-              </DescField>
-              <DescField label="Currency System Tx ID">
-                <CopyableEllipsisText
-                  value={detail.sourceCsTxId || undefined}
-                  emptyText="-"
-                  maxWidth={280}
-                  className="font-mono"
-                />
-              </DescField>
-              <DescField label="Source Verified Time">
-                {formatTime(detail.sourceVerifiedTime)}
-              </DescField>
-            </DescGrid>
-          </div>
-          <div className="flex-shrink-0 self-center text-lg text-muted-foreground">→</div>
-          <div className="min-w-0 flex-1 rounded-lg border border-border/60 bg-card p-3">
-            <div className="mb-2 text-sm font-semibold text-[var(--ks-clearing,#0b6b53)]">
-              Target · {detail.targetBankName || 'Target Bank'}
-            </div>
-            <DescGrid cols={1}>
-              <DescField label="Receiver Account">
-                <CopyableEllipsisText
-                  value={detail.receiverAccount || undefined}
-                  emptyText="-"
-                  maxWidth={280}
-                  className="font-mono"
-                />
-              </DescField>
-              <DescField label="Receiver Amount">
-                <span className="font-mono tabular-nums">{fmtAmount(detail.receiverAmount)}</span>
-              </DescField>
-              <DescField label="Currency System Tx ID">
-                <CopyableEllipsisText
-                  value={detail.targetCsTxId || undefined}
-                  emptyText="-"
-                  maxWidth={280}
-                  className="font-mono"
-                />
-              </DescField>
-              <DescField label="Settled / Credited Time">
-                {detail.settledTime !== 0
-                  ? formatTime(detail.settledTime)
-                  : detail.advancingTime !== 0
-                    ? formatTime(detail.advancingTime)
-                    : '-'}
-              </DescField>
-            </DescGrid>
-          </div>
-        </div>
-      </section>
-
-      {/* 其他信息（源 :column="2"；长文本单独占行，§6.3） */}
-      <section>
-        <h4 className="mb-3 text-sm font-semibold">Other Information</h4>
-        <DescGrid cols={2}>
-          <DescField label="Creation Time">{formatTime(detail.createTime)}</DescField>
-          <DescField label="Completion Time">{formatTime(detail.completedTime)}</DescField>
-          <DescField label="Failure Reason" span>
-            {orDash(detail.failReason)}
-          </DescField>
-          <DescField label="Remarks" span>
-            {orDash(detail.remark)}
-          </DescField>
-        </DescGrid>
-      </section>
-
-      {/* 块三：交易链路（阶段卡 + 定宽时间列事件行） */}
-      <section>
-        <h4 className="mb-3 text-sm font-semibold">Transaction Chain</h4>
-        {chainLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-lg" />
-            ))}
-          </div>
-        ) : (
-          <TransactionChainView stages={stages} events={events} />
-        )}
-      </section>
-    </div>
   );
 }
 

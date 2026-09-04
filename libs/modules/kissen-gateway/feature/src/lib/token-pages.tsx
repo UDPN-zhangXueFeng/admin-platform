@@ -55,7 +55,7 @@ import {
 } from '@myorg/modules/kissen-gateway/data-access';
 
 import { DescField, DescGrid } from './desc-grid';
-import { fmtAmount, formatTime, orDash } from './kit';
+import { formatTime, orDash } from './kit';
 import { EmptyHint, MissingIdBlock } from './state-blocks';
 import { useGatewayPerm } from './use-gateway-perm';
 
@@ -408,7 +408,7 @@ export function TokenListPage() {
       {
         // GW-16 合一：tokenCode 同时是货币系统标识（源列头「tokenCode（货币系统 code）」）。
         id: 'tokenCode',
-        header: 'Token Code (Token System)',
+        header: 'Token Code (Currency System)',
         cell: ({ row }) => (
           <span className="font-mono">{row.original.tokenCode}</span>
         ),
@@ -523,10 +523,13 @@ export function TokenListPage() {
             isLoading={isLoading}
             emptyMessage="No tokens registered yet"
           />
-          {/* 源 .footnote（12px 灰）：注册前置/幂等/审核结果推送通道三段说明
-              （39c8a2b「同步状态」兜底字样移除）。 */}
+          {/* 源 .footnote（12px 灰；d764217 全文重写：注册前置/幂等/审核结果
+              同步三段口径收敛）。 */}
           <p className="mt-4 text-xs text-muted-foreground">
-       okens are registered on the platform after your gateway instance is activated. Registering a token that already exists simply returns its current status. Registration results appear here automatically once review is complete.
+            Tokens are registered on the platform after your gateway instance
+            is activated. Registering a token that already exists simply
+            returns its current status. Registration results appear here
+            automatically once review is complete.
           </p>
         </div>
       </section>
@@ -609,7 +612,6 @@ export function TokenDetailPage() {
           </Button>
         </div>
       </section>
-
       {token ? (
         <>
           <section className="rounded-lg border border-border/60 bg-card panel-pad">
@@ -617,7 +619,8 @@ export function TokenDetailPage() {
               Basic Information
             </h2>
             <DescGrid cols={2}>
-              <DescField label="tokenCode (currency system code)">
+              {/* d764217：列头整理，与列表页统一。 */}
+              <DescField label="Token Code (Currency System)">
                 <span className="font-mono">{token.tokenCode}</span>
               </DescField>
               <DescField label="Token Name">{token.tokenName}</DescField>
@@ -628,12 +631,13 @@ export function TokenDetailPage() {
                 <span className="tabular-nums">{token.decimalDigits}</span>
               </DescField>
               <DescField label="Chain">{orDash(token.chainType)}</DescField>
-              <DescField label="Anchored Fiat">
+              <DescField label="Pegged Currency">
                 {orDash(token.anchorFiat)}
               </DescField>
-              <DescField label="Min Liquidity">
+              {/* d764217：最低流动性两位小数，与列表页 formatMinLiquidity 一致。 */}
+              <DescField label="Min. Liquidity">
                 <span className="t-data tabular-nums">
-                  {fmtAmount(token.minLiquidity)}
+                  {formatMinLiquidity(token.minLiquidity)}
                 </span>
               </DescField>
               <DescField label="Token Type">
@@ -655,7 +659,7 @@ export function TokenDetailPage() {
               <DescField label="Reject Reason">
                 <span className="break-words">{orDash(token.rejectReason)}</span>
               </DescField>
-              <DescField label="Token No. (assigned once active)">
+              <DescField label="Token No (Network-wide Unique)">
                 {/* 源 tokenNo 空 → 「Pending」占位。 */}
                 {token.tokenNo ? (
                   <span className="font-mono">{token.tokenNo}</span>
@@ -669,7 +673,7 @@ export function TokenDetailPage() {
               <DescField label="Version">
                 <span className="tabular-nums">{orDash(token.version)}</span>
               </DescField>
-              <DescField label="Push Time">
+              <DescField label="Synced on">
                 <span className="font-mono">{formatTime(token.pushTime)}</span>
               </DescField>
             </DescGrid>

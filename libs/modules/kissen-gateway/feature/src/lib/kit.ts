@@ -9,9 +9,20 @@
 /** Select 的「全部」哨兵值（Radix SelectItem 不宜用空串；源 clearable 语义）。 */
 export const OPT_ALL = '__all__';
 
-/** 毫秒时间戳 → en-US 本地时间串（24 小时制，源 toLocaleString 语义）；空值 → '-'。 */
+/**
+ * 本地时区标签（源 utils/timezone.ts tzLabel，d764217）：偏移为正 → `GMT+8`，
+ * 为负 → `GMT-5`，半时区 → `GMT+5.5`；全部时间展示统一追加。
+ */
+export function tzLabel(): string {
+  const off = -new Date().getTimezoneOffset() / 60;
+  return `GMT${off >= 0 ? '+' : ''}${off}`;
+}
+
+/** 毫秒时间戳 → en-US 本地时间串（24 小时制）+ tzLabel 时区后缀（d764217）；空值 → '-'。 */
 export function formatTime(ms: number | null | undefined): string {
-  return ms ? new Date(ms).toLocaleString('en-US', { hour12: false }) : '-';
+  return ms
+    ? `${new Date(ms).toLocaleString('en-US', { hour12: false })} ${tzLabel()}`
+    : '-';
 }
 
 /** datetime-local 字符串（YYYY-MM-DDTHH:mm）→ 毫秒时间戳（源 datetimerange value-format="x"）；空/无效 → undefined。 */

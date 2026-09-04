@@ -63,6 +63,12 @@ export interface EligiblePairRow {
   targetPooled: boolean;
   /** 双侧池齐备才可申请（false 灰化「缺资金池」+tooltip）。 */
   eligible: boolean;
+  /**
+   * 我的参与状态（2026-09-04 f95ec24：null=未参与；5 申请中 / 15 已驳回 /
+   * 20 参与生效 / 50 停用）。驱动可申请视图「我的状态」列与操作列前置
+   * 禁用（20/5 禁用防重复申请，15/50 换文案可重复发起）。
+   */
+  myStatus: number | null;
   defaultSplitRatio: string | number;
 }
 

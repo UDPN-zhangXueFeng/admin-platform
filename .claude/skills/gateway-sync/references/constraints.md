@@ -22,5 +22,9 @@
 | 操作者 | Operator |
 | 源端金额 / 目标端金额 / 汇率 / 凭证 | Source Amount / Target Amount / Rate / Proof |
 | 六段事件标题：报价受理 / 用户确认 / 源端划转发起 / 源端到账核实 / 解付发起 / 入账完成 | Quote Accepted / User Confirmation / Source Transfer Initiated / Source Arrival Verified / Disbursement Initiated / Credited |
+| 锚定货币（token 页） | Pegged Currency |
+| tokenNo（全网唯一） | Token No (Network-wide Unique) |
+| 需人工复核 | Requires Manual Review |
+| 时区标签 | GMT+8 / GMT-5 式后缀（tzLabel） |
 
 新术语首次翻译时定稿并回填本表（与 LP/gateway 两表保持一致，冲突时以先定稿者为准并在此标注）。

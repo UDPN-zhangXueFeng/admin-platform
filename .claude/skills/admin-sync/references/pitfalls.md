@@ -42,3 +42,11 @@
 17. **同一 app 不能双 dev 实例**：`.next/dev/lock` 互斥，第二个 `nx dev` 直接 exit 1。需要 stub 数据态时先停真实后端实例再起 stub 指向实例（复用同端口），测完再切回。
 18. **stub fixture 的 admin 信封必须 `code:'0'`（字符串）**：kissen-client `isKissenResult` 按字符串判成功；旧 fixture 的 `code: 200`（数字）会让 kissenPage 拿到 undefined rows，页面静默空表。见 stub-server.mjs `adminOk` helper。
 19. **真实后端优先冒烟，stub 兜 populated 态**：真实环境常缺新字段数据（本轮 settle 空、lp-pair baseRate 恰有值）。渲染结构走真实后端验证，数据渲染（三列换算、弹窗条目）走 stub fixture；两层都过才算冒烟完成。
+
+## v2.0-tokenization 增量批次（1a871d1..6579522，2026-09-04）
+
+20. **Edit 大范围 PUT 前必须 re-read 锚定终局行号**：本轮替换链路旧视图后全文件 +65 行，仍按旧行号 PUT DetailBody（850.=1030），起点落进 TxDetailDrawer 定义中间——drawer 与 `DRAWER_WIDTH_CLASS` 整体被吞，残留旧 JSX 尾巴，tsc 才报 `TxDetailDrawer` 未定义。任何「先改 A 区再改 B 区」的序列，改 B 前先重新 read/grep 锚定。
+21. **Radix Tooltip 无全局 Provider，须逐处自带**：kissen-admin 无全局 `TooltipProvider`，仓库惯例是每个 `Tooltip` 自包 `<TooltipProvider delayDuration={200}>`（dashboard/lp-liquidity/settlement/token-manage 同款）。漏包时 tooltip 静默不弹、无报错。
+22. **状态语义全局收敛要跨页核对**：上游把 35 定为成功终态「Completed」后，不只改 tx 详情——workbench `IN_FLIGHT` 需剔 35、`TX_STATUS_MAP[35]` 需 'Credited'→'Completed'，StatusRail 主线 8→7 段时 `status===40` 还需按主线终点兜底（findIndex -1 全 todo）。同步状态映射时 grep 全部消费点（`grep -n "35"` feature 层）逐一裁决。
+23. **链路单时间轴的分组算法以「根节点+挂载」为准**：状态迁移根（nodeType=1、statusTo>0、statusFrom≠statusTo）开组、自环跳过、动作/报文并入当前组——否则「源端到账核实」会重复出两条节点。凭证补齐（25 补 sourceCsTxId、35/40 补 targetCsTxId）在组分完后统一做，别在遍历里做。
+24. **上游「非 ASCII 才显示」的 remark 过滤在英文环境失效**：中文 remark 判别搬到英文 UI 会误杀全部英文业务文案。改为已知技术串模式过滤（`/^(quote\s*)?v?\d+$/i`），偏差记入 01 文档。

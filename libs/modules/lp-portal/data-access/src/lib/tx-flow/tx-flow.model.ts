@@ -22,7 +22,8 @@ export interface TxFlowListReq {
 
 /**
  * 交易状态文案（源 TransactionStatusEnum 13 值，TX_STATUS_MAP）。
- * 未知码显原值兜底在页面。
+ * 2026-09-04 aad34fa：35 即成功终态「已完成」（原「已入账/Credited」），
+ * 40 仅历史数据同文案。未知码显原值兜底在页面。
  */
 export const TX_STATUS_LABEL: Record<number, string> = {
   1: 'Created',
@@ -31,7 +32,7 @@ export const TX_STATUS_LABEL: Record<number, string> = {
   20: 'Source Transferring',
   25: 'Source Verified',
   30: 'Disbursing',
-  35: 'Credited',
+  35: 'Completed',
   40: 'Completed',
   50: 'Reversing',
   60: 'Reversed',
@@ -41,8 +42,9 @@ export const TX_STATUS_LABEL: Record<number, string> = {
 };
 
 /**
- * 交易状态 Badge 变体（源 el-tag 分层：35|40 success / 50 warning /
- * 60|80 info / 70|90 danger / 其余在途 primary）。
+ * 交易状态 Badge 变体（源 el-tag 分层：**35|40 success（2026-09-04 起
+ * 列表口径亦然，原 35 列表 primary 已升格）** / 50 warning / 60|80 info /
+ * 70|90 danger / 其余在途 primary）。
  *
  * Badge 无 success/warning/info 变体，按视觉语义映射并沿用 topup/rate 先例：
  * success→default（实底强调，topup 先例 success→default）、warning→outline

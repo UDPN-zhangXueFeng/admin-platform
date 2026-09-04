@@ -22,7 +22,7 @@ export const TxStatus = {
   Failed: 90,
 } as const;
 
-/** 状态码 → 中文标签（源 `TRANSACTION_STATUS_MAP`，列表/详情/事件流共用）。 */
+/** 状态码 → 英文标签（源 `TRANSACTION_STATUS_MAP`，列表/详情/事件流共用；2026-09-04：35 即成功终态与 40 同文案）。 */
 export const TRANSACTION_STATUS_LABEL: Record<number, string> = {
   1: 'Created',
   5: 'Quoted',
@@ -30,7 +30,7 @@ export const TRANSACTION_STATUS_LABEL: Record<number, string> = {
   20: 'Source Transferring',
   25: 'Source Verified',
   30: 'Advancing',
-  35: 'Settled',
+  35: 'Completed',
   40: 'Completed',
   50: 'Reversing',
   60: 'Reversed',
@@ -103,6 +103,10 @@ export interface TransactionDetailRow extends TransactionRow {
   receiverAccount: string;
   sourceCsTxId: string;
   targetCsTxId: string;
+  /** LP 源 token 资金池地址（用户源端划转目的地；无池空串，55aa521）。 */
+  lpSourcePoolAddress: string;
+  /** LP 目标 token 资金池地址（解付资金来源；无池空串）。 */
+  lpTargetPoolAddress: string;
   confirmTime: number;
   sourceVerifiedTime: number;
   advancingTime: number;
@@ -111,9 +115,9 @@ export interface TransactionDetailRow extends TransactionRow {
   remark: string;
 }
 
-/** 与后端 TransactionStageVO 对齐（chain 阶段轴；缺失 step 由前端按未开始补齐）。 */
+/** 与后端 TransactionStageVO 对齐（chain 阶段轴；缺失 step 由前端按未开始补齐；7e20c04 后 UI 改用事件时间轴，此接口仅随 API 保留）。 */
 export interface TransactionStage {
-  /** 阶段序号 1-8：报价/确认/源端划转/源端验证/垫资解付/入账/结算/完成。 */
+  /** 阶段序号 1-6：报价/确认/源端划转/源端验证/垫资解付/入账（35 即完成收口，2026-09-04 由 8 段合并）。 */
   step: number;
   /** 阶段状态 1 未开始 / 2 进行中 / 3 成功 / 4 失败 / 5 跳过。 */
   status: number;

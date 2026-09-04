@@ -5,36 +5,37 @@
  * list page; opens on a row entry action and renders one transaction's
  * transfer chain).
  *
- * Behavior contract (doc 01 section D9 + E traps):
+ * Behavior contract (doc 01 section D9 v3 + E traps, upstream 2026-09-04
+ * 35ca014):
  * - Radix dialog drawer anchored right, width min(720px, 90vw); closes on
  *   ESC and on overlay click (built into the shared Drawer primitive;
  *   parent unmounts us through onClosed).
  * - Title "Transaction Details" (v2.3 rename); §6.3 layout: hero summary
- *   (copyable KSN txNo + token-pair identity + drawer-caliber status
- *   badge) above the fixed 11-item set re-layered as core amounts and
- *   copyable business identifiers first, audit timestamps behind a
- *   hairline, conditional failure reason on its own full row; the old
- *   transaction ID item stays retired. Money items use the drawer caliber
- *   fmtAmount (2..8 fraction digits, en-US grouping), NOT the global
- *   formatMoney - both calibers must survive side by side.
+ *   (copyable KSN txNo + token-pair identity + status badge) above the
+ *   fixed 11-item set re-layered as core amounts and copyable business
+ *   identifiers first, audit timestamps behind a hairline, conditional
+ *   failure reason on its own full row; the old transaction ID item stays
+ *   retired. Money items use the drawer caliber fmtAmount (2..8 fraction
+ *   digits, en-US grouping), NOT the global formatMoney - both calibers
+ *   must survive side by side.
  * - Token Pair renders the v2.3 slash compact form via useTokenMeta
  *   (symOf falls back to the raw token code).
- * - Stage status uses the DRAWER status caliber (code 35 reads as success),
- *   which intentionally differs from the LIST caliber rendered on the page.
- * - Fixed 8-slot vertical stepper (no third-party step package): dot colors
- *   follow stage status (wait gray / progress pulse / success / danger /
- *   skipped gray) plus "(Skipped)" title suffix; start/end timestamps shown
- *   under each slot; zero times render '-'.
- * - Event timeline of the selected stage sorted by eventTime asc then
- *   flowId asc; nodeType label badge (message tier tinted as success),
- *   optional from->to status transition, operator / csTxId subtexts.
+ * - Status badge caliber: 35 renders success/"Completed" in the drawer
+ *   AND on the list since 2026-09-04 (the old dual-caliber trap E14 is
+ *   retired).
+ * - Chain section v3 (single business timeline, admin-parity): milestones
+ *   titled by landing status (NODE_TITLES), child nodes contribute voucher
+ *   chips only; tone per landing status (35/40 green, 90/70 red, 50 amber,
+ *   60/80 gray, rest brand via theme token); quote-lock and payout/
+ *   completion milestones carry amount/rate chips. Empty state renders
+ *   "No chain data" (no second empty tier - the per-stage event list is
+ *   retired with the stage axis).
  * - Service-down downgrade banner branch kept inside the drawer; failed
  *   refetches keep previously loaded nodes.
  *
  * Inference tables live in ./tx-chain (pure module per LP/03 B2).
  */
 import * as React from 'react';
-import { Check, LoaderCircle, Minus, X } from 'lucide-react';
 
 import {
   Badge,
@@ -50,164 +51,72 @@ import {
   isServiceDown,
   useTokenMeta,
   useTxFlowChainQuery,
-  type TxChainNode,
   type TxRow,
 } from '@myorg/modules/lp-portal/data-access';
 import {
-  EVENT_TYPE_MAP,
-  STAGE_STATUS_MAP,
-  STAGE_STEP_MAP,
-  buildStageList,
+  buildChainTimeline,
   completedTimeText,
   flattenChain,
   fmtAmount,
-  hasTransit,
-  pickInitialStep,
-  transitText,
   txDrawerVariant,
   txStatusLabel,
   txWarnClass,
-  type StageItem,
+  type TimelineItem,
+  type TimelineTone,
 } from './tx-chain';
 import { formatTime } from './format';
 import { ServiceDownAlert } from './service-down-alert';
 
 /* ================================================================== */
-/* Stage stepper visuals                                               */
+/* Single business timeline (v3, doc 01 D9)                            */
 /* ================================================================== */
 
-/** Icon inside the step dot for each inferred stage status. */
-function StageIcon({ status }: { status: number }) {
-  if (status === 3)
-    return <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" />;
-  if (status === 4)
-    return <X className="h-4 w-4 text-red-600" aria-hidden="true" />;
-  if (status === 2)
-    return (
-      <LoaderCircle
-        className="h-4 w-4 motion-safe:animate-spin text-primary"
-        aria-hidden="true"
-      />
-    );
-  // 1 not started / 5 skipped
-  return <Minus className="h-4 w-4 text-muted-foreground" aria-hidden="true" />;
-}
-
-/** Connector line tint between slots: crossed stages green, failed red, rest gray. */
-function connectorClass(status: number): string {
-  if (status === 3 || status === 5) return 'bg-emerald-500';
-  if (status === 4) return 'bg-red-500';
-  return 'bg-border';
-}
+/** Timeline dot tint per milestone tone; primary stays on the theme token. */
+const TONE_DOT: Record<TimelineTone, string> = {
+  success: 'bg-emerald-500',
+  danger: 'bg-red-500',
+  warning: 'bg-amber-500',
+  info: 'bg-muted-foreground',
+  primary: 'bg-primary',
+};
 
 /**
- * Vertical stepper (LP/03 B2): left rail of dots + connectors, selectable
- * rows carrying title and start/end timestamps on the right.
+ * Vertical single timeline: timestamp first (source el-timeline
+ * placement=top), bold milestone title with the operator beside it,
+ * amount / rate / voucher chips underneath.
  */
-function StageAxis({
-  stages,
-  selectedStep,
-  onSelect,
-}: {
-  stages: StageItem[];
-  selectedStep: number;
-  onSelect: (step: number) => void;
-}) {
+function ChainTimeline({ items }: { items: TimelineItem[] }) {
   return (
-    <ol className="flex flex-col">
-      {stages.map((s, i) => {
-        const selected = s.step === selectedStep;
-        const name = STAGE_STEP_MAP[s.step] ?? `${s.step}`;
-        const title = s.status === 5 ? `${name} (Skipped)` : name;
-        const last = i === stages.length - 1;
-        return (
-          <li key={s.step}>
-            <button
-              type="button"
-              onClick={() => onSelect(s.step)}
-              aria-current={selected ? 'step' : undefined}
-              className="group flex w-full cursor-pointer items-stretch gap-3 rounded px-1 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {/* Left rail: dot + downward connector to the next slot */}
-              <span className="flex w-7 shrink-0 flex-col items-center">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border bg-background">
-                  <StageIcon status={s.status} />
-                </span>
-                {!last && (
-                  <span
-                    aria-hidden="true"
-                    className={`w-0.5 flex-1 rounded ${connectorClass(s.status)}`}
-                  />
-                )}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span
-                  className={`block truncate text-sm leading-5 ${
-                    selected
-                      ? 'font-semibold text-foreground underline'
-                      : 'text-foreground/80 group-hover:text-foreground'
-                  }`}
-                >
-                  {title}
-                </span>
-                <span className="mt-0.5 block font-mono text-xs leading-5 text-muted-foreground tabular-nums">
-                  {completedTimeText(s.startTime)}
-                  {' '}
-                  to {completedTimeText(s.endTime)}
-                </span>
-              </span>
-            </button>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-/* ================================================================== */
-/* Event timeline                                                      */
-/* ================================================================== */
-
-function EventTimeline({ events }: { events: TxChainNode[] }) {
-  return (
-    <ol className="relative ml-3 border-l border-border">
-      {events.map((e) => (
+    <ol className="relative ml-1 border-l border-border">
+      {items.map((e) => (
         <li key={e.flowId} className="relative mb-5 ml-5 last:mb-0">
           <span
             aria-hidden="true"
-            className="absolute top-1 -left-[27px] h-2.5 w-2.5 rounded-full border-2 border-background bg-primary"
+            className={`absolute top-1 -left-[27px] h-2.5 w-2.5 rounded-full border-2 border-background ${TONE_DOT[e.tone]}`}
           />
-          {/* Timestamp first (source el-timeline-item placement=top) */}
           <div className="font-mono text-xs text-muted-foreground tabular-nums">
             {completedTimeText(e.eventTime)}
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <Badge
-              variant="outline"
-              className={
-                e.nodeType === 3
-                  ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
-                  : undefined
-              }
-            >
-              {EVENT_TYPE_MAP[e.nodeType] ?? `Event type ${e.nodeType}`}
-            </Badge>
-            {hasTransit(e) && (
-              <span className="font-mono text-[13px] text-muted-foreground">
-                {transitText(e)}
-              </span>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+            <span className="text-[13px] font-semibold leading-5 text-foreground">
+              {e.title}
+            </span>
+            {e.who && (
+              <span className="text-xs text-muted-foreground">{e.who}</span>
             )}
           </div>
-          <div className="text-xs leading-5 text-muted-foreground">
-            Operator: {e.operator || '-'}
-          </div>
-          <div className="text-xs leading-5 text-muted-foreground">
-            Currency System Tx ID:{' '}
-            <span className="font-mono">{e.csTxId || '-'}</span>
-          </div>
-          <div className="text-xs leading-5 text-muted-foreground">
-            Remark: {e.remark || '-'}
-          </div>
+          {e.extras.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {e.extras.map((x, i) => (
+                <span
+                  key={`${e.flowId}-${i}`}
+                  className="rounded-full bg-muted px-2 py-px font-mono text-xs leading-5 text-muted-foreground"
+                >
+                  {x}
+                </span>
+              ))}
+            </div>
+          )}
         </li>
       ))}
     </ol>
@@ -333,36 +242,18 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
     () => flattenChain(chainQuery.data),
     [chainQuery.data],
   );
-  const stageList = React.useMemo(
-    () => buildStageList(nodes, row.status),
-    [nodes, row.status],
-  );
 
-  // Currently selected stage drives the event filter; re-derived after every
-  // successful load (mirrors initSelectedStep-on-loadChain-success ordering).
-  const [selectedStep, setSelectedStep] = React.useState(() =>
-    pickInitialStep(buildStageList(flattenChain(chainQuery.data), row.status), flattenChain(chainQuery.data)),
+  // Single business timeline (v3): milestones from status-migration roots,
+  // amount extras taken from the row payload (no second list request).
+  const timeline = React.useMemo(
+    () => buildChainTimeline(nodes, row),
+    [nodes, row],
   );
-  React.useEffect(() => {
-    setSelectedStep(pickInitialStep(stageList, nodes));
-  }, [stageList, nodes]);
 
   // 0024 -> banner inside the drawer; other failures clear the banner while
   // keeping previous nodes (global toast handled by lp-client).
   const err = chainQuery.error;
   const drawerDown = err != null && isServiceDown(err) ? err : null;
-
-  const currentStageStatus =
-    stageList.find((s) => s.step === selectedStep)?.status ?? 1;
-
-  // Selected-stage events: eventTime ascending, flowId ascending on ties.
-  const selectedEvents = React.useMemo(
-    () =>
-      nodes
-        .filter((n) => n.step === selectedStep)
-        .sort((a, b) => a.eventTime - b.eventTime || a.flowId - b.flowId),
-    [nodes, selectedStep],
-  );
 
   return (
     <Drawer open onOpenChange={(o) => !o && onClosed()}>
@@ -419,7 +310,7 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
                 </div>
               </section>
 
-              {/* 运行信息：stage 轴 + 事件时间线 */}
+              {/* 运行信息：单时间轴业务里程碑（v3，阶段轴退役） */}
               <section className="rounded-lg border border-border/60 bg-card">
                 <h4 className="border-b border-border/50 px-4 py-3 text-sm font-semibold text-foreground">
                   Transaction Chain
@@ -430,31 +321,12 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
                       <div className="h-8 w-full motion-safe:animate-pulse rounded bg-muted" />
                       <div className="h-24 w-full motion-safe:animate-pulse rounded bg-muted" />
                     </div>
-                  ) : nodes.length === 0 ? (
+                  ) : timeline.length === 0 ? (
                     <div className="py-6 text-center text-sm text-muted-foreground">
-                      No stage data
+                      No chain data
                     </div>
                   ) : (
-                    <>
-                      <StageAxis
-                        stages={stageList}
-                        selectedStep={selectedStep}
-                        onSelect={setSelectedStep}
-                      />
-                      <div className="mt-4 mb-3 text-sm font-semibold">
-                        {STAGE_STEP_MAP[selectedStep] ?? selectedStep}
-                        {' - '}
-                        {STAGE_STATUS_MAP[currentStageStatus] ??
-                          currentStageStatus}
-                      </div>
-                      {selectedEvents.length > 0 ? (
-                        <EventTimeline events={selectedEvents} />
-                      ) : (
-                        <div className="py-6 text-center text-sm text-muted-foreground">
-                          No event details for this stage
-                        </div>
-                      )}
-                    </>
+                    <ChainTimeline items={timeline} />
                   )}
                 </div>
               </section>

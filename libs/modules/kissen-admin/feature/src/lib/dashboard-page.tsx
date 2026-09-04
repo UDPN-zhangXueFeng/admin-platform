@@ -92,7 +92,7 @@ interface WorkbenchPoolRow {
 
 // ---- 常量 ----
 
-/** 在途状态：完成前的主线节点（已创建→已入账）。 */
+/** 在途状态：完成前的主线节点（35 已是成功终态，2026-09-04 与上游对齐剔除）。 */
 const IN_FLIGHT: Record<number, true> = {
   1: true,
   5: true,
@@ -100,7 +100,6 @@ const IN_FLIGHT: Record<number, true> = {
   20: true,
   25: true,
   30: true,
-  35: true,
 };
 
 /** 交易状态映射（TransactionStatusEnum 13 值，与交易查询页一致）。 */
@@ -111,7 +110,7 @@ const TX_STATUS_MAP: Record<number, string> = {
   20: 'Source Transfer in Progress',
   25: 'Source Verified',
   30: 'Disbursing',
-  35: 'Credited',
+  35: 'Completed',
   40: 'Completed',
   50: 'Reversing',
   60: 'Reversed',

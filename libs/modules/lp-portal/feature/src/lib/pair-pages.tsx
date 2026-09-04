@@ -6,7 +6,9 @@
  *
  * 双 tab：Mine「我的 token 对」v2.3 改 10 列（Token对 + pairx 紧凑式两行 +
  * 基础汇率/加价率/用户汇率 + 我的分成比例 + 对默认比例 + 生效条件 + 状态 +
- * 数据时间）；Eligible「可申请」v2.3 改 8 列（pairx 紧凑式三行，第三行
+ * 数据时间）；Eligible「可申请」v2.3 改 8 列，2026-09-04 批（f95ec24）
+ * 在目标侧池与操作列之间插「我的状态」列（myStatus 五态），操作列按
+ * myStatus 前置禁用/换文案（pairx 紧凑式三行，第三行
  * pairCode||pairId 占位色等宽；对默认分成移至源侧池之前）。Bank/Token 展示
  * 统一走 useTokenMeta 口径（§E23/E24：symOf 优先、失败回退标识本身）；
  * rateText/percentText 为页面级 helper（源同款，不入 format.ts）。
@@ -17,7 +19,8 @@
  * 筛选/分件（禁臆造）。
  *
  * 申请参与：行内 link 按钮（源无 v-perm 指令，不加 PermButton——禁臆造权限键）
- * → AlertDialog 确认（工单硬性要求新增的确认步，文案按源语义英译）→ POST
+ * → AlertDialog 确认（2026-09-04 f95ec24 上游亦加二次确认：文案含对、
+ * KLP 流程、初始分成=对默认、管理侧可覆盖，取消不调接口）→ POST
  * /pair/apply 成功 toast 后切回 Mine 并家族级失效重载。失败提示统一走
  * lp-client 拦截器 sonner toast，本页静默不二次弹错。SyncRefreshButton
  * domain='pair' 照源存在：刷新失效两 key，激活 tab 立即重查、未激活 tab
@@ -90,10 +93,19 @@ const LBL = {
   applyToast:
     'Application accepted (KLP approval pending); the result will sync automatically to My Token Pairs.',
   dialogTitle: 'Apply for Participation',
-  dialogBody:
-    'Submit a participation application for this token pair? It goes to KLP approval in real time, and the overriding split ratio may be set during approval.',
+  dialogConfirm: 'Confirm Application',
   dialogCancel: 'Cancel',
-  dialogConfirm: 'Submit Application',
+  /**
+   * 申请二次确认正文（源 2026-09-04 f95ec24 ElMessageBox 文案英译）：
+   * 必含对、KLP 审批流程、通过即生效接单、初始分成=对默认、管理侧可覆盖。
+   */
+  applyConfirmIntro: 'Confirm applying to participate in',
+  applyConfirmKlp:
+    'The application enters the KLP approval flow; once approved, participation takes effect immediately and the pair starts receiving orders.',
+  applyConfirmSplitPrefix:
+    'The split ratio starts at the pair default of',
+  applyConfirmSplitSuffix:
+    'the admin side may set an overriding ratio during approval.',
   status5Hint:
     'The admin side may override the split ratio upon approval; this is the current reference value.',
   rejectReasonPrefix: 'Rejection reason: ',
@@ -103,7 +115,20 @@ const LBL = {
     'Not participating in any token pairs yet — switch to the Eligible tab to apply.',
   emptyEligible: 'No eligible token pairs available.',
   actionApply: 'Apply',
+  /** myStatus===15 驳回后可重复发起（源「重新申请」）。 */
+  actionReapply: 'Reapply',
+  /** myStatus===50 停用后可再次发起（源「再次参与」）。 */
+  actionRejoin: 'Participate Again',
   actionNoPool: 'No Pool',
+  /** 「我的状态」列表头（源「我的状态」，f95ec24 新列）。 */
+  myStatusHeader: 'My Status',
+  /** myStatus===20 禁用态按钮（源「已参与」）。 */
+  actionJoined: 'Participating',
+  /** myStatus===5 禁用态按钮（源「审批中」）。 */
+  actionReviewing: 'Reviewing',
+  joinedTooltip: 'Already participating — no need to apply again.',
+  reviewingTooltip:
+    'Application is under KLP approval — please wait for the result.',
 } as const;
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
@@ -175,6 +200,20 @@ function statusText(status: number): string {
 function statusVariant(status: number): BadgeVariant {
   return PAIR_STATUS_VARIANT[status] ?? 'secondary';
 }
+
+/**
+ * 「我的状态」列（源 2026-09-04 f95ec24：null→info plain「未参与」、
+ * 15→danger「已驳回」、50→info「已停用」、20/5→warning「已参与·生效中」/
+ * 「申请审批中」）。色映射沿用 R1 先例：info→secondary、danger→
+ * destructive、warning→outline；与 Mine tab 状态列（20→default）刻意
+ * 不同色——照源 el-tag 逐键迁移。null 未参与不入表，调用处兜底。
+ */
+const MY_STATUS_BADGE: Record<number, { label: string; variant: BadgeVariant }> = {
+  5: { label: 'Approval Pending', variant: 'outline' },
+  15: { label: 'Rejected', variant: 'destructive' },
+  20: { label: 'Participating', variant: 'outline' },
+  50: { label: 'Disabled', variant: 'secondary' },
+};
 
 /* ================================================================== */
 /* Mine tab：我的 token 对（v2.3 改 10 列，列序照源 §D7）                   */
@@ -379,9 +418,8 @@ function MineTable() {
     </>
   );
 }
-
 /* ================================================================== */
-/* Eligible tab：可申请（v2.3 改 8 列含操作列，列序照源 §D7）               */
+/* Eligible tab：可申请（v2.3 8 列 + 2026-09-04「我的状态」列 = 9 列）      */
 /* ================================================================== */
 
 function EligibleTable({ onApplied }: { onApplied: () => void }) {
@@ -482,23 +520,78 @@ function EligibleTable({ onApplied }: { onApplied: () => void }) {
         meta: { overflow: 'none' },
       },
       {
+        id: 'myStatus',
+        header: LBL.myStatusHeader,
+        cell: ({ row }) => {
+          const { myStatus } = row.original;
+          if (myStatus == null) {
+            return (
+              <div className="flex justify-center">
+                <Badge variant="secondary">Not Participating</Badge>
+              </div>
+            );
+          }
+          const badge =
+            MY_STATUS_BADGE[myStatus] ??
+            ({ label: String(myStatus), variant: 'secondary' } as const);
+          return (
+            <div className="flex justify-center">
+              <Badge variant={badge.variant}>{badge.label}</Badge>
+            </div>
+          );
+        },
+        meta: { overflow: 'none' },
+      },
+      {
         id: 'actions',
         header: 'Actions',
         enableSorting: false,
         meta: { overflow: 'none', stickyRight: true },
-        cell: ({ row }) =>
-          row.original.eligible ? (
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              disabled={apply.isPending}
-              onClick={() => setApplyTarget(row.original)}
-            >
-              {LBL.actionApply}
-            </Button>
-          ) : (
-            // 缺侧池灰化 + tooltip 提示先开池（disabled 吞 hover，用 span 承接）
+        cell: ({ row }) => {
+          const r = row.original;
+          // 优先级照源：20 已生效 > 5 审批中（均前置禁用防重复申请，
+          // 后端亦拦截）> eligible 可发起（15/50 换文案）> 缺资金池。
+          if (r.myStatus === 20 || r.myStatus === 5) {
+            const joined = r.myStatus === 20;
+            return (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex cursor-not-allowed">
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className={`h-auto p-0 ${joined ? 'text-emerald-600' : 'text-muted-foreground'}`}
+                      disabled
+                    >
+                      {joined ? LBL.actionJoined : LBL.actionReviewing}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-sm">
+                  {joined ? LBL.joinedTooltip : LBL.reviewingTooltip}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+          if (r.eligible) {
+            return (
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                disabled={apply.isPending}
+                onClick={() => setApplyTarget(r)}
+              >
+                {r.myStatus === 15
+                  ? LBL.actionReapply
+                  : r.myStatus === 50
+                    ? LBL.actionRejoin
+                    : LBL.actionApply}
+              </Button>
+            );
+          }
+          // 缺侧池灰化 + tooltip 提示先开池（disabled 吞 hover，用 span 承接）
+          return (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex cursor-not-allowed">
@@ -516,7 +609,8 @@ function EligibleTable({ onApplied }: { onApplied: () => void }) {
                 {LBL.missingPoolTooltip}
               </TooltipContent>
             </Tooltip>
-          ),
+          );
+        },
       },
     ],
     // symOf/bankOf 随 token 元数据缓存更新；isPending 锁申请按钮
@@ -549,7 +643,8 @@ function EligibleTable({ onApplied }: { onApplied: () => void }) {
         emptyMessage={LBL.emptyEligible}
       />
 
-      {/* 申请确认弹窗（工单硬性要求的确认步；文案源意译英文） */}
+      {/* 申请确认弹窗（源 2026-09-04 f95ec24 ElMessageBox 二次确认语义：
+          对、KLP 流程、初始分成口径、管理侧可覆盖） */}
       <AlertDialog
         open={applyTarget !== null}
         onOpenChange={(open) => {
@@ -560,9 +655,23 @@ function EligibleTable({ onApplied }: { onApplied: () => void }) {
           <AlertDialogHeader>
             <AlertDialogTitle>{LBL.dialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              {applyTarget
-                ? `${applyTarget.pairCode || applyTarget.pairId}: ${LBL.dialogBody}`
-                : LBL.dialogBody}
+              {applyTarget ? (
+                <>
+                  {LBL.applyConfirmIntro}{' '}
+                  <span className="font-mono font-semibold">
+                    {symOf(applyTarget.sourceTokenCode)}/
+                    {symOf(applyTarget.targetTokenCode)}
+                  </span>{' '}
+                  (
+                  {applyTarget.pairCode || applyTarget.pairId})?
+                  <br />
+                  {LBL.applyConfirmKlp} {LBL.applyConfirmSplitPrefix}{' '}
+                  <span className="font-mono">
+                    {percentText(applyTarget.defaultSplitRatio)}
+                  </span>
+                  ; {LBL.applyConfirmSplitSuffix}
+                </>
+              ) : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

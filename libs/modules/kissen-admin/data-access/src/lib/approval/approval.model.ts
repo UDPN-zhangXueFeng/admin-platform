@@ -44,10 +44,24 @@ export interface ApproveButtonDTO {
   metaMaskSignType?: number;
 }
 
-/** 审批详情（源 ApprovalDetailResp；businessContent 为动态业务字段）。 */
+/** 审批流转时间线节点（源 ApprovalHistoryNodeVO；stepOrder 升序）。 */
+export interface ApprovalHistoryNode {
+  detailId: number;
+  stepName: string;
+  stepOrder: number;
+  reviewerName: string;
+  reviewerTime: number;
+  reviewerRemarks: string;
+  /** 节点结果：2 拒绝 / 3 通过 / 9 退回（后端约定码；0/1/4 由后端过滤不入时间线）。 */
+  reviewerStatus: number;
+}
+
+/** 审批详情（源 ApprovalDetailResp；businessContent 为动态业务字段，history 为流转时间线）。 */
 export interface ApprovalDetailResp {
   approveButtonDTO: ApproveButtonDTO;
   businessContent: Record<string, unknown>;
+  /** 3bfe319 新增：审批历史流转记录；无历史时为 null。 */
+  history: ApprovalHistoryNode[] | null;
 }
 
 /** 主表 reviewerStatus（CommonStatusEnum，源 views/approval/status.ts COMMON_STATUS_MAP）。 */

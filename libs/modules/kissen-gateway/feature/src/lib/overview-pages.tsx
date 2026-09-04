@@ -180,14 +180,20 @@ export function OverviewListPage() {
   // pair 维度需要 token symbol；复用 FX 聚合查询，切到 By Symbol 时不发请求。
   const { data: fxView } = useFxViewQuery(volumeDim === 'pair');
 
+  // 源 pairSeriesName（d764217）：pairCode → 「source symbol → target symbol」；
+  // 映射结果重名的 pair 回退 pairCode（used.has 语义），避免图例撞名串线。
   const pairLabels = React.useMemo(() => {
     const labels = new Map<string, string>();
+    const used = new Set<string>();
     for (const pair of fxView?.pairs ?? []) {
       const { tokenPair } = pair;
       if (!tokenPair.pairCode) continue;
       const source = tokenPair.sourceTokenSymbol || tokenPair.sourceTokenCode || '-';
       const target = tokenPair.targetTokenSymbol || tokenPair.targetTokenCode || '-';
-      labels.set(tokenPair.pairCode, `${source} → ${target}`);
+      const name = `${source} → ${target}`;
+      if (used.has(name)) continue;
+      used.add(name);
+      labels.set(tokenPair.pairCode, name);
     }
     return labels;
   }, [fxView]);
@@ -265,7 +271,12 @@ export function OverviewListPage() {
             <MetricCard value={String(stats.reversedCount)} label="Reversed" tone="" />
             <MetricCard value={String(stats.exceptionCount)} label="Requires Manual Review" tone="bad" />
             <MetricCard value={String(stats.pendingCount)} label="Pending" tone="warn" />
-            <MetricCard value={formatSuccessRate(stats.successRate)} label="Success Rate" tone="ok" />
+            {/* d764217：成功率色分档 ≥90 ok / 60~90 warn / <60 bad，null 无色。 */}
+            <MetricCard
+              value={formatSuccessRate(stats.successRate)}
+              label="Success Rate"
+              tone={successRateTone(stats.successRate)}
+            />
           </div>
 
           {/* 业务概览（源「业务概览」descriptions；39c8a2b UDPN 改版整宽单卡） */}
@@ -380,6 +391,16 @@ export function OverviewListPage() {
 /** 源 successRate：null → '—'；eafcab0 起后端直发百分数值，不再 ×100。 */
 function formatSuccessRate(rate: number | null | undefined): string {
   return rate == null ? '—' : `${Number(rate).toFixed(2)}%`;
+}
+
+/** d764217 源指标色分档：≥90 ok / 60~90 warn / <60 bad；null → 无色。 */
+function successRateTone(
+  rate: number | null | undefined,
+): 'ok' | 'warn' | 'bad' | '' {
+  if (rate == null) return '';
+  if (rate >= 90) return 'ok';
+  if (rate >= 60) return 'warn';
+  return 'bad';
 }
 
 const METRIC_TONES: Record<string, string> = {

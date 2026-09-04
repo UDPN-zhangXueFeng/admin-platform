@@ -39,6 +39,7 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
+import { cn } from '@myorg/shared/util-classnames';
 
 import {
   KISSEN_PROJECT_ID,
@@ -67,9 +68,9 @@ import {
 const PAGE_SIZE_DEFAULT = 10;
 const STATUS_ALL = 'all';
 
-/** 毫秒时间戳 → 统一管理台时间格式；0/空/非法 → '--'（目标约定 §4；源 formatTime 用 '-'）。 */
+/** 毫秒时间戳 → 统一管理台时间格式；0/空/非法 → '--'（目标约定 §4；765eb51 起 0 也视为未发生）。 */
 function formatTime(ms: number | null | undefined): string {
-  if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '--';
+  if (!ms || Number.isNaN(Number(ms))) return '--';
   const d = new Date(Number(ms));
   return Number.isNaN(d.getTime()) ? '--' : formatAdminDateTime(d);
 }
@@ -84,242 +85,227 @@ function formatMoney(v: number | string): string {
   return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
 }
 
-/** 嵌套子块（源 NestedValue）。 */
-interface NestedValue {
-  kind: 'nested';
-  title: string;
-  entries: Array<[string, unknown]>;
+/** 比率（0~1）→ 百分比 2 位小数；无效值原样返回（源 formatPercent）。 */
+function formatPercent(v: unknown): string {
+  const n = Number(v);
+  if (v === null || v === undefined || v === '' || Number.isNaN(n)) return String(v ?? '');
+  return `${(n * 100).toFixed(2)}%`;
 }
 
-/**
- * 通用值格式化（启发式，按序）；源 approval/format.ts formatFieldValue。
- * null→'--' | 时间戳 | 布尔 | 状态码(status→业务特有优先) | 金额 | JSON 串递归 | 其余原样。
- */
-function formatFieldValue(
-  key: string,
-  value: unknown,
-  busCode?: string,
-): string | NestedValue {
-  if (value === null || value === undefined || value === '') return '--';
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  if (typeof value === 'object' && !Array.isArray(value)) {
-    return {
-      kind: 'nested',
-      title: key,
-      entries: Object.entries(value as Record<string, unknown>),
-    };
-  }
-  if (typeof value === 'number' || typeof value === 'string') {
-    const s = String(value);
-    if (key === 'status' && /^\d+$/.test(s)) {
-      const busMap = busCode ? BUSINESS_STATUS_MAP[busCode] : undefined;
-      const mapped = busMap?.[Number(s)] ?? COMMON_STATUS_MAP[Number(s)];
-      if (mapped !== undefined) return mapped;
-    }
-    if (
-      (/(time|date)/i.test(key) || /^period/i.test(key) || /(Start|End)$/.test(key)) &&
-      /^\d{10,13}$/.test(s)
-    ) {
-      return formatTime(Number(s));
-    }
-    if (/(amount|limit|rate|total)/i.test(key) && /^-?\d+(\.\d+)?$/.test(s)) {
-      return formatMoney(s);
-    }
-    const trimmed = s.trim();
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      try {
-        const parsed: unknown = JSON.parse(trimmed);
-        if (parsed !== null && typeof parsed === 'object') {
-          return {
-            kind: 'nested',
-            title: key,
-            entries: Object.entries(parsed as Record<string, unknown>),
-          };
-        }
-      } catch {
-        /* 解析失败 → 原样显示 */
-      }
-    }
-    return s;
-  }
-  if (Array.isArray(value)) return value.map((v) => String(v)).join(', ');
-  return String(value);
-}
+/** 字段渲染声明（源 field-maps.ts FieldDef.render + enumMap；启发式 formatFieldValue 废弃）。 */
+type FieldRender = 'money' | 'percent' | 'rate' | 'status' | 'time';
 
 interface FieldDef {
   key: string;
   label: string;
+  render?: FieldRender;
+  /** 数值枚举翻译（键为数字）。 */
+  enumMap?: Record<number, string>;
 }
 
-/** 字段名 → 中文标签（通用词典，未命中用原字段名兜底）；源 field-maps.ts LABEL_DICT。 */
-const LABEL_DICT: Record<string, string> = {
-  bankId: 'Bank ID',
-  changeId: 'Limit Change ID',
-  bankName: 'Bank Name',
-  bankCode: 'Bank Code',
-  bic: 'SWIFT BIC',
-  singleLimit: 'Per-Transaction Limit',
-  dailyLimit: 'Daily Limit',
-  accountConfig: 'Account Configuration',
-  status: 'Status',
-  kycInfo: 'KYC Info',
-  createTime: 'Creation Time',
-  lpName: 'LP Name',
-  lpCode: 'LP Code',
-  pairName: 'Currency Pair',
-  baseCurrency: 'Base Currency',
-  quoteCurrency: 'Quote Currency',
-  baseRate: 'Base Rate',
-  markupRate: 'Markup Rate',
-  effectiveRate: 'Effective Rate',
-  orderNo: 'Settlement Order No.',
-  settleAmount: 'Settlement Amount',
-  orderStatus: 'Order Status',
-  transferAmount: 'Transfer Amount',
-  targetAccount: 'Target Account',
-  reason: 'Reason',
-  remarks: 'Remarks',
+/** 结算周期（1 日结 / 2 周结 / 3 月结）。 */
+const PERIOD_ENUM: Record<number, string> = {
+  1: 'Daily',
+  2: 'Weekly',
+  3: 'Monthly',
 };
 
-/** 8 类详配：字段顺序即展示顺序（按后端 VO 声明/业务重要性排）；源 FIELD_MAPS。 */
+/** 货币系统形态（lp_pool.currencySystemType）。 */
+const CURRENCY_SYSTEM_ENUM: Record<number, string> = {
+  1: 'EVM On-chain',
+  2: 'Aptos',
+  3: 'Internal System',
+};
+
+/** 分成划转方向（split_transfer.direction）。 */
+const DIRECTION_ENUM: Record<number, string> = {
+  1: 'Pre-authorized Transfer',
+  2: 'LP-initiated Transfer',
+};
+
+/**
+ * 字段白名单（2026-09-04 6579522 全量重写；源 field-maps.ts）：
+ * 仅展示配置字段 → 主键/外键（orderId/transferId 等）与已退役字段不再渲染；
+ * kissen_limit_change 业务已退役未配置。字段顺序即展示顺序。
+ */
 const FIELD_MAPS: Record<string, FieldDef[]> = {
   kissen_bank_onboard: [
     { key: 'bankName', label: 'Bank Name' },
     { key: 'bankCode', label: 'Bank Code' },
     { key: 'bic', label: 'SWIFT BIC' },
-    { key: 'currencies', label: 'Supported Currencies' },
-    { key: 'singleLimit', label: 'Per-Transaction Limit' },
-    { key: 'dailyLimit', label: 'Daily Limit' },
     { key: 'accountConfig', label: 'Account Configuration' },
-    { key: 'kycInfo', label: 'KYC Info' },
-    { key: 'status', label: 'Status' },
-    { key: 'createTime', label: 'Creation Time' },
+    { key: 'status', label: 'Status', render: 'status' },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
   ],
   kissen_lp_onboard: [
     { key: 'lpName', label: 'LP Name' },
     { key: 'lpCode', label: 'LP Code' },
-    { key: 'splitRatio', label: 'Split Ratio' },
-    { key: 'minLiquidity', label: 'Minimum Liquidity' },
+    { key: 'settleCycle', label: 'Settlement Cycle', enumMap: PERIOD_ENUM },
     { key: 'riskAssessment', label: 'Risk Assessment' },
-    { key: 'initialPairIds', label: 'Participating Currency Pairs' },
-    { key: 'status', label: 'Status' },
-    { key: 'createTime', label: 'Creation Time' },
+    { key: 'status', label: 'Status', render: 'status' },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
   ],
-  kissen_lp_pair: [
-    { key: 'lpName', label: 'LP Name' },
-    { key: 'sourceCurrency', label: 'Source Currency' },
-    { key: 'targetCurrency', label: 'Target Currency' },
-    { key: 'remark', label: 'Remarks' },
-    { key: 'status', label: 'Status' },
-    { key: 'createTime', label: 'Creation Time' },
-  ],
-  // 2023418：rate_change=Token 对参数变更（KRC）；pair_toggle 承接开通申请（KPT）与启停。
-  kissen_rate_change: [
-    { key: 'pairCode', label: 'Pair Code' },
-    { key: 'sourceCurrency', label: 'Source Token' },
-    { key: 'targetCurrency', label: 'Target Token' },
-    { key: 'baseRate', label: 'Base Rate (Requested)' },
-    { key: 'markupRate', label: 'Markup Rate (Requested)' },
-    { key: 'defaultSplitRatio', label: 'Default Split (Requested)' },
-    { key: 'pendingAction', label: 'Pending Action' },
-    { key: 'status', label: 'Pair Status' },
-    { key: 'createTime', label: 'Requested At' },
-  ],
-  kissen_pair_toggle: [
-    { key: 'pairCode', label: 'Pair Code' },
-    { key: 'sourceCurrency', label: 'Source Token' },
-    { key: 'targetCurrency', label: 'Target Token' },
-    { key: 'baseRate', label: 'Base Rate' },
-    { key: 'markupRate', label: 'Markup Rate' },
-    { key: 'defaultSplitRatio', label: 'Default Split' },
-    { key: 'pendingAction', label: 'Pending Action' },
-    { key: 'status', label: 'Status' },
-    { key: 'createTime', label: 'Creation Time' },
-  ],
-  // 2023418 新增：LP 覆盖分成变更（KLS）；上游 BUSINESS_NAME_MAP 未加该 busCode，
-  // 下游对齐不加（key 兜底显示 busCode）。
-  kissen_lp_split: [
-    { key: 'lpName', label: 'LP Name' },
-    { key: 'sourceCurrency', label: 'Source Token' },
-    { key: 'targetCurrency', label: 'Target Token' },
-    { key: 'oldRatio', label: 'Current Split' },
-    { key: 'newRatio', label: 'Requested Split (0 = Clear)' },
-    { key: 'pendingAction', label: 'Pending Action' },
-    { key: 'status', label: 'Participation Status' },
-    { key: 'createTime', label: 'Requested At' },
-  ],
-  // 2026-08-31 新增：LP 资金池开通（KLPP）详情字段（源 da2229d）；
-  // currencySystemType 枚举值展示无既有机制 → 图例标注在 label，值原样。
   kissen_lp_pool: [
     { key: 'lpName', label: 'LP Name' },
     { key: 'tokenCode', label: 'Token' },
     { key: 'accountAddress', label: 'Pool Address' },
     {
       key: 'currencySystemType',
-      label: 'Currency System Type (1 EVM / 2 Aptos / 3 Internal)',
+      label: 'Currency System',
+      enumMap: CURRENCY_SYSTEM_ENUM,
     },
     {
       key: 'remindThreshold',
-      label: 'Replenishment Reminder Threshold (water-level ratio)',
+      label: 'Replenishment Threshold (water-level ratio)',
     },
     { key: 'pendingAction', label: 'Pending Action' },
-    { key: 'status', label: 'Status' },
-    { key: 'createTime', label: 'Application Time' },
+    { key: 'status', label: 'Status', render: 'status' },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
+  ],
+  kissen_lp_pair: [
+    { key: 'lpName', label: 'LP Name' },
+    { key: 'pairCode', label: 'Token Pair Code' },
+    { key: 'sourceCurrency', label: 'Source Token' },
+    { key: 'targetCurrency', label: 'Target Token' },
+    { key: 'baseRate', label: 'Base Rate', render: 'rate' },
+    { key: 'markupRate', label: 'Markup Rate', render: 'percent' },
+    { key: 'splitRatio', label: 'Override Split (0 = not set)', render: 'percent' },
+    { key: 'remark', label: 'Remarks' },
+    { key: 'status', label: 'Status', render: 'status' },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
+  ],
+  kissen_rate_change: [
+    { key: 'pairCode', label: 'Token Pair Code' },
+    { key: 'sourceCurrency', label: 'Source Token' },
+    { key: 'targetCurrency', label: 'Target Token' },
+    { key: 'pendingAction', label: 'Pending Action' },
+    { key: 'status', label: 'Current Status', render: 'status' },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
+  ],
+  kissen_pair_toggle: [
+    { key: 'pairCode', label: 'Token Pair Code' },
+    { key: 'sourceCurrency', label: 'Source Token' },
+    { key: 'targetCurrency', label: 'Target Token' },
+    { key: 'baseRate', label: 'Base Rate', render: 'rate' },
+    { key: 'markupRate', label: 'Markup Rate', render: 'percent' },
+    { key: 'defaultSplitRatio', label: 'Default Split', render: 'percent' },
+    { key: 'pendingAction', label: 'Pending Action' },
+    { key: 'status', label: 'Status', render: 'status' },
+    { key: 'createTime', label: 'Creation Time', render: 'time' },
+  ],
+  kissen_lp_split: [
+    { key: 'lpName', label: 'LP Name' },
+    { key: 'sourceCurrency', label: 'Source Token' },
+    { key: 'targetCurrency', label: 'Target Token' },
+    { key: 'pendingAction', label: 'Pending Action' },
+    { key: 'status', label: 'Participation Status', render: 'status' },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
   ],
   kissen_settle_confirm: [
-    { key: 'orderId', label: 'Settlement Order ID' },
     { key: 'lpName', label: 'LP Name' },
-    { key: 'periodType', label: 'Settlement Period (1 Daily / 2 Weekly / 3 Monthly)' },
-    { key: 'periodStart', label: 'Period Start' },
-    { key: 'periodEnd', label: 'Period End' },
+    { key: 'periodType', label: 'Settlement Cycle', enumMap: PERIOD_ENUM },
+    { key: 'periodStart', label: 'Period Start', render: 'time' },
+    { key: 'periodEnd', label: 'Period End', render: 'time' },
     { key: 'txCount', label: 'Transaction Count' },
-    { key: 'principalTotal', label: 'Principal Total' },
-    { key: 'markupTotal', label: 'Markup Total' },
-    { key: 'adminSplitTotal', label: 'Admin Split' },
-    { key: 'lpSplitTotal', label: 'LP Split' },
-    { key: 'status', label: 'Status' },
-    { key: 'createTime', label: 'Creation Time' },
+    { key: 'principalTotal', label: 'Principal Total', render: 'money' },
+    { key: 'markupTotal', label: 'Markup Total', render: 'money' },
+    { key: 'adminSplitTotal', label: 'Admin Split', render: 'money' },
+    { key: 'lpSplitTotal', label: 'LP Split', render: 'money' },
+    { key: 'status', label: 'Order Status', render: 'status' },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
   ],
   kissen_split_transfer: [
-    { key: 'transferId', label: 'Transfer ID' },
-    { key: 'orderId', label: 'Settlement Order ID' },
     { key: 'lpName', label: 'LP Name' },
-    { key: 'direction', label: 'Transfer Direction (1 Pre-Authorized / 2 LP Initiated)' },
+    { key: 'direction', label: 'Transfer Direction', enumMap: DIRECTION_ENUM },
     { key: 'currency', label: 'Currency' },
-    { key: 'amount', label: 'Transfer Amount' },
+    { key: 'amount', label: 'Transfer Amount', render: 'money' },
     { key: 'csTxId', label: 'Channel Transaction ID' },
-    { key: 'status', label: 'Status' },
-    { key: 'createTime', label: 'Creation Time' },
+    { key: 'status', label: 'Status', render: 'status' },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
   ],
-  kissen_limit_change: [
-    { key: 'bankName', label: 'Bank Name' },
-    { key: 'oldSingleLimit', label: 'Original Per-Transaction Limit' },
-    { key: 'oldDailyLimit', label: 'Original Daily Limit' },
-    { key: 'newSingleLimit', label: 'New Per-Transaction Limit' },
-    { key: 'newDailyLimit', label: 'New Daily Limit' },
+};
+
+/** 变更对比表定义（源 CHANGE_MAPS）：变更前快照键 → 申请值键。 */
+interface ChangeDef {
+  label: string;
+  fromKey: string;
+  toKey: string;
+  render: 'rate' | 'percent';
+}
+
+const CHANGE_MAPS: Record<string, ChangeDef[]> = {
+  kissen_rate_change: [
+    { label: 'Base Rate', fromKey: 'oldBaseRate', toKey: 'baseRate', render: 'rate' },
+    {
+      label: 'Markup Rate',
+      fromKey: 'oldMarkupRate',
+      toKey: 'markupRate',
+      render: 'percent',
+    },
+    {
+      label: 'Default Split',
+      fromKey: 'oldDefaultSplitRatio',
+      toKey: 'defaultSplitRatio',
+      render: 'percent',
+    },
   ],
+  kissen_lp_split: [
+    { label: 'Override Split', fromKey: 'oldRatio', toKey: 'newRatio', render: 'percent' },
+  ],
+};
+
+/** 流转时间线节点结论（源 APPROVAL_RESULT_MAP；9 = 退回约定码，765eb51）。 */
+const APPROVAL_RESULT_MAP: Record<
+  number,
+  { label: string; variant: 'default' | 'destructive' | 'secondary' }
+> = {
+  2: { label: 'Rejected', variant: 'destructive' },
+  3: { label: 'Approved', variant: 'default' },
+  9: { label: 'Returned', variant: 'secondary' },
 };
 
 function getFieldMap(busCode: string): FieldDef[] | null {
   return FIELD_MAPS[busCode] ?? null;
 }
 
-function fieldLabel(key: string): string {
-  return LABEL_DICT[key] ?? key;
+/** 未配置 busCode 的兜底白名单：全字段但过滤主键/审计键（源 /(Id|UserId|CreateTime|UpdateTime)$/i）。 */
+function fallbackFieldDefs(content: Record<string, unknown>): FieldDef[] {
+  return Object.keys(content)
+    .filter((k) => !/(Id|UserId|CreateTime|UpdateTime)$/i.test(k))
+    .map((k) => ({ key: k, label: k }));
 }
 
-function fieldLabelFor(busCode: string, key: string): string {
-  const map = getFieldMap(busCode);
-  if (map) {
-    const found = map.find((item) => item.key === key);
-    if (found) return found.label;
+/**
+ * 按显式声明渲染字段值（源 renderFieldValue；替代旧 formatFieldValue 启发式）：
+ * enumMap 命中优先 → render 分支（money 仅纯数字 / percent / rate 原值 /
+ * status 业务特有映射优先 / time 10-13 位时间戳）→ 默认原样；空值 '--'。
+ */
+function renderFieldValue(def: FieldDef, value: unknown, busCode: string): string {
+  if (value === null || value === undefined || value === '') return '--';
+  const s = String(value);
+  if (def.enumMap && /^\d+$/.test(s) && def.enumMap[Number(s)] !== undefined) {
+    return def.enumMap[Number(s)];
   }
-  return fieldLabel(key);
-}
-
-function displayNested(busCode: string, key: string, value: unknown): string {
-  const formatted = formatFieldValue(key, value, busCode);
-  return typeof formatted === 'string' ? formatted : JSON.stringify(value);
+  switch (def.render) {
+    case 'money':
+      return /^-?\d+(\.\d+)?$/.test(s) ? formatMoney(s) : s;
+    case 'percent':
+      return formatPercent(value);
+    case 'rate':
+      return s;
+    case 'status': {
+      if (/^\d+$/.test(s)) {
+        const busMap = BUSINESS_STATUS_MAP[busCode];
+        const mapped = busMap?.[Number(s)] ?? COMMON_STATUS_MAP[Number(s)];
+        if (mapped !== undefined) return mapped;
+      }
+      return s;
+    }
+    case 'time':
+      return /^\d{10,13}$/.test(s) ? formatTime(Number(s)) : s;
+    default:
+      return s;
+  }
 }
 
 /** 数字/千分位串 → 等宽显示（源 isNumericValue）。 */
@@ -494,30 +480,22 @@ function ApprovalDetailBody({
   const canWithdraw = (buttons.withdrawType ?? 0) !== 0;
   const canOperate = !readonly && (canApprove || canBack || canWithdraw);
 
-  // 业务内容条目：字段顺序由详配 FIELD_MAPS 决定（无策略则用 content 原序），
-  // 多余字段追加在后（源 detail-drawer contentEntries）。
-  const { flatEntries, nestedEntries } = React.useMemo(() => {
-    if (!detail) return { flatEntries: [], nestedEntries: [] };
+  // 业务字段白名单：FIELD_MAPS 命中按配置渲染；未配置 busCode 兜底全字段过滤主键/审计键。
+  const fieldDefs = React.useMemo(() => {
+    const content = detail?.businessContent ?? null;
+    if (!content) return [];
     const map = getFieldMap(row.businessCode);
-    const content = detail.businessContent ?? {};
-    const keys = map ? map.map((f) => f.key) : Object.keys(content);
-    const allKeys = [...keys, ...Object.keys(content).filter((k) => !keys.includes(k))];
-    const entries = allKeys.map(
-      (k) =>
-        [k, formatFieldValue(k, content[k], row.businessCode)] as [
-          string,
-          string | NestedValue,
-        ],
-    );
-    return {
-      flatEntries: entries.filter(
-        ([, f]) => typeof f === 'string',
-      ) as Array<[string, string]>,
-      nestedEntries: entries.filter(
-        ([, f]) => typeof f !== 'string',
-      ) as Array<[string, NestedValue]>,
-    };
+    return (map ?? fallbackFieldDefs(content)).filter((f) => f.key in content);
   }, [detail, row.businessCode]);
+
+  // 变更对比表（KRC/KLS）：变更前快照 → 申请值。
+  const changeDefs = CHANGE_MAPS[row.businessCode] ?? [];
+
+  // 流转时间线（stepOrder 升序）。
+  const history = React.useMemo(() => {
+    if (!detail?.history) return [];
+    return [...detail.history].sort((a, b) => a.stepOrder - b.stepOrder);
+  }, [detail]);
   const onApprove = (approve: number) => {
     if (approve === 2 && !remarks.trim()) {
       setRemarksError('Please provide a rejection reason');
@@ -596,7 +574,7 @@ function ApprovalDetailBody({
 
   return (
     <div className="space-y-4 pt-4">
-      {/* Hero Summary：业务类型 + 申请单号（可复制）+ 状态 + 当前节点（§6.3） */}
+      {/* 摘要头卡（源 head-card）：业务类型 + 状态 + 单号；当前节点/申请时间/业务描述；已办加处理时间/我的意见 */}
       <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
         <div className="flex flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -617,70 +595,163 @@ function ApprovalDetailBody({
             <span>{row.stepName || '--'}</span>
             <span className="tabular-nums">Applied {formatTime(row.createTime)}</span>
           </div>
+          {row.busDesc ? (
+            <p className="m-0 break-words text-sm text-muted-foreground">
+              {formatBusinessDescription(row.busDesc)}
+            </p>
+          ) : null}
+          {isDoneRow ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <span className="tabular-nums">
+                Processed {formatTime(row.reviewerTime)}
+              </span>
+              <span className="min-w-0 break-words">
+                My comments: {row.reviewerRemarks || '--'}
+              </span>
+            </div>
+          ) : null}
         </div>
       </section>
 
-      {/* 业务内容（扁平字段；Business Description 长文本单独占行） */}
+      {/* 流转记录时间线（源 history timeline；3bfe319） */}
+      {history.length > 0 && (
+        <div>
+          <div className="mb-2 text-sm font-semibold">Flow History</div>
+          <ol className="m-0 list-none space-y-0 p-0">
+            {history.map((node) => {
+              const result = APPROVAL_RESULT_MAP[node.reviewerStatus];
+              return (
+                <li
+                  key={node.detailId}
+                  className="relative border-l border-border pl-4 pb-4 last:pb-0"
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full border-2 border-card',
+                      result?.variant === 'destructive' && 'bg-destructive',
+                      result?.variant === 'default' && 'bg-primary',
+                      (!result || result.variant === 'secondary') && 'bg-muted-foreground/60',
+                    )}
+                  />
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="text-sm font-medium">{node.stepName}</span>
+                      {result ? (
+                        <Badge variant={result.variant}>{result.label}</Badge>
+                      ) : (
+                        <Badge variant="outline">{node.reviewerStatus}</Badge>
+                      )}
+                    </div>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {formatTime(node.reviewerTime)}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {node.reviewerName || '--'}
+                  </div>
+                  {node.reviewerRemarks ? (
+                    <blockquote className="mt-1 border-l-2 border-border pl-2 text-sm italic text-muted-foreground">
+                      {node.reviewerRemarks}
+                    </blockquote>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+
+      {/* 业务内容：变更对比表（KRC/KLS）+ 字段白名单卡 */}
       <div>
         <div className="mb-2 text-sm font-semibold">Business Content</div>
-        {flatEntries.length > 0 || row.busDesc ? (
+        {changeDefs.length > 0 && (
+          <div className="mb-3 overflow-x-auto rounded-lg border border-border/60 bg-card p-4">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th className="py-1.5 pr-3 font-medium">Item</th>
+                  <th className="py-1.5 pr-3 font-medium">Current</th>
+                  <th className="py-1.5 pr-3 font-medium" aria-label="Change direction" />
+                  <th className="py-1.5 font-medium">Requested</th>
+                </tr>
+              </thead>
+              <tbody>
+                {changeDefs.map((def) => {
+                  const content = detail.businessContent ?? {};
+                  const rawFrom = content[def.fromKey];
+                  const rawTo = content[def.toKey];
+                  const fromText =
+                    rawFrom === null || rawFrom === undefined || rawFrom === ''
+                      ? '--'
+                      : def.render === 'percent'
+                        ? formatPercent(rawFrom)
+                        : String(rawFrom);
+                  const toText =
+                    rawTo === null || rawTo === undefined || rawTo === ''
+                      ? '--'
+                      : def.render === 'percent'
+                        ? formatPercent(rawTo)
+                        : String(rawTo);
+                  const nFrom = Number(rawFrom);
+                  const nTo = Number(rawTo);
+                  const comparable =
+                    rawFrom !== null &&
+                    rawFrom !== undefined &&
+                    rawFrom !== '' &&
+                    rawTo !== null &&
+                    rawTo !== undefined &&
+                    rawTo !== '' &&
+                    !Number.isNaN(nFrom) &&
+                    !Number.isNaN(nTo) &&
+                    nFrom !== nTo;
+                  return (
+                    <tr key={def.fromKey} className="border-b border-border/60 last:border-b-0">
+                      <td className="py-2 pr-3">{def.label}</td>
+                      <td className="py-2 pr-3 tabular-nums">{fromText}</td>
+                      <td
+                        className={cn(
+                          'py-2 pr-3',
+                          comparable
+                            ? nTo > nFrom
+                              ? 'text-primary'
+                              : 'text-destructive'
+                            : 'text-muted-foreground',
+                        )}
+                      >
+                        {comparable ? (nTo > nFrom ? '↑' : '↓') : '→'}
+                      </td>
+                      <td className="py-2 font-medium tabular-nums">{toText}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {fieldDefs.length > 0 ? (
           <div className="rounded-lg border border-border/60 bg-card p-4">
             <DetailGrid>
-              <DetailField label="Business Description" span>
-                <pre className="m-0 whitespace-pre-wrap break-all font-sans text-sm">
-                  {formatBusinessDescription(row.busDesc)}
-                </pre>
-              </DetailField>
-              {flatEntries.map(([key, text]) => (
-                <DetailField key={key} label={fieldLabelFor(row.businessCode, key)}>
-                  <span className={isNumericValue(text) ? 'tabular-nums' : undefined}>
-                    {text}
-                  </span>
-                </DetailField>
-              ))}
+              {fieldDefs.map((def) => {
+                const text = renderFieldValue(
+                  def,
+                  detail.businessContent?.[def.key],
+                  row.businessCode,
+                );
+                return (
+                  <DetailField key={def.key} label={def.label}>
+                    <span className={isNumericValue(text) ? 'tabular-nums' : undefined}>
+                      {text}
+                    </span>
+                  </DetailField>
+                );
+              })}
             </DetailGrid>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No business content</p>
+          <p className="text-sm text-muted-foreground">No business fields</p>
         )}
       </div>
-
-      {/* 嵌套子块 */}
-      {nestedEntries.map(([key, nested]) => (
-        <div key={key}>
-          <div className="mb-2 text-sm font-semibold">
-            {fieldLabelFor(row.businessCode, key)}
-          </div>
-          <div className="rounded-lg border border-border/60 bg-card p-4">
-            <DetailGrid>
-              {nested.entries.map(([nk, nv]) => (
-                <DetailField key={nk} label={fieldLabelFor(row.businessCode, nk)}>
-                  <span className={isNumericValue(nv) ? 'tabular-nums' : undefined}>
-                    {displayNested(row.businessCode, nk, nv)}
-                  </span>
-                </DetailField>
-              ))}
-            </DetailGrid>
-          </div>
-        </div>
-      ))}
-
-      {/* 审计信息（已办专属：处理时间 + 我的意见；长文本单独占行） */}
-      {isDoneRow && (
-        <div>
-          <div className="mb-2 text-sm font-semibold">Review Record</div>
-          <div className="rounded-lg border border-border/60 bg-card p-4">
-            <DetailGrid>
-              <DetailField label="Processing Time">
-                <span className="tabular-nums">{formatTime(row.reviewerTime)}</span>
-              </DetailField>
-              <DetailField label="My Comments" span>
-                {row.reviewerRemarks || '--'}
-              </DetailField>
-            </DetailGrid>
-          </div>
-        </div>
-      )}
 
       {/* 审批操作（仅待办且有可用能力位） */}
       {canOperate && (

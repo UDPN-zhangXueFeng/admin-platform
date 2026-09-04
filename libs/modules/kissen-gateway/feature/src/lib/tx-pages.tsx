@@ -104,7 +104,10 @@ function isFlowTerminal(statusTo?: number): boolean {
   );
 }
 
-/** kissenChain 树展平 + eventTime 升序（源 openDetail 的 walk + sort）。 */
+/**
+ * kissenChain 树展平（源 openDetail 的 walk；d764217 起不再按 eventTime
+ * 升序重排——顺序由后端 gw_tx_flow ORDER BY step ASC, flow_id ASC 落库序保证）。
+ */
 function flattenChain(nodes: TxFlowNode[] | null | undefined): TxFlowNode[] {
   const flat: TxFlowNode[] = [];
   const walk = (list?: TxFlowNode[] | null): void => {
@@ -114,7 +117,7 @@ function flattenChain(nodes: TxFlowNode[] | null | undefined): TxFlowNode[] {
     });
   };
   walk(nodes);
-  return flat.sort((a, b) => (a.eventTime ?? 0) - (b.eventTime ?? 0));
+  return flat;
 }
 
 /** 本地报文按 createTime 升序（源 openDetail 的 messages sort）。 */
@@ -840,7 +843,7 @@ export function TxDetailPage() {
     () => sortMessages(chainData?.localMessages),
     [chainData],
   );
-  /** 源 openDetail：kissenChain 树展平后按 eventTime 升序。 */
+  /** 源 openDetail：kissenChain 树展平（d764217 起不重排，落库序直出）。 */
   const flowNodes = React.useMemo(
     () => flattenChain(chainData?.kissenChain),
     [chainData],
