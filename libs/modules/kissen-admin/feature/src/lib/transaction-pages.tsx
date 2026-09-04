@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Controller,
   useForm,
@@ -1046,6 +1047,30 @@ function defaultFilterForm(): TxFilterForm {
   };
 }
 
+/** 将详情页跳转携带的毫秒时间戳转换为 datetime-local 输入值。 */
+function toDateTimeLocalInput(value: string | null): string {
+  const ms = Number(value);
+  if (!value || !Number.isFinite(ms)) return '';
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** 交易列表深链筛选：结算单详情跳转时按 LP 和结算周期回填条件。 */
+function filterFormFromSearchParams(searchParams: {
+  get: (name: string) => string | null;
+}): TxFilterForm {
+  const form = defaultFilterForm();
+  const lpId = searchParams.get('lpId');
+  if (lpId && Number.isInteger(Number(lpId)) && Number(lpId) > 0) {
+    form.lpId = lpId;
+  }
+  form.createTimeStart = toDateTimeLocalInput(searchParams.get('createTimeStart'));
+  form.createTimeEnd = toDateTimeLocalInput(searchParams.get('createTimeEnd'));
+  return form;
+}
+
 /** RHF 筛选表单 → 后端 TransactionPageFilter；空/哨兵字段剔除。 */
 function formToFilter(form: TxFilterForm): TransactionPageFilter {
   const f: TransactionPageFilter = {};
@@ -1070,12 +1095,17 @@ function formToFilter(form: TxFilterForm): TransactionPageFilter {
 const PAGE_SIZE_DEFAULT = 10;
 
 function TransactionListCore() {
+  const searchParams = useSearchParams();
+  const initialFilterForm = React.useMemo(
+    () => filterFormFromSearchParams(searchParams),
+    [searchParams],
+  );
   const { register, handleSubmit, reset, control } = useForm<TxFilterForm>({
-    defaultValues: defaultFilterForm(),
+    defaultValues: initialFilterForm,
   });
 
   const [filter, setFilter] = React.useState<TransactionPageFilter>(() =>
-    formToFilter(defaultFilterForm()),
+    formToFilter(initialFilterForm),
   );
   const [pageNum, setPageNum] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);

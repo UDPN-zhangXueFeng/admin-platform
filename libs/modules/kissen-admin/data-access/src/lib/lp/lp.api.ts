@@ -31,7 +31,7 @@ export function getLpList(
 
 /**
  * 结算周期配置页 LP 列表（契约导出名；同端点 POST /manage/lp/list，
- * filter 携带 lpName / notApproved——SettleAgent cycle 页消费）。
+ * filter 携带 lpName / settleCycle / status——SettleAgent cycle 页消费）。
  */
 export function lpSettleCycleList(
   req: LpListReq,

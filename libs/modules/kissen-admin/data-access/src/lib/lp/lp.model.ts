@@ -41,8 +41,10 @@ export interface LpSaveReq {
 export interface LpListFilter {
   lpName?: string;
   lpCode?: string;
+  /** 按结算周期筛选：1 日结 / 2 周结 / 3 月结。 */
+  settleCycle?: number;
   status?: number;
-  /** true=进行中/未通过（非 20），结算周期配置页 Tab 用。 */
+  /** true=进行中/未通过（非 20），由 LP 入网相关页面使用。 */
   notApproved?: boolean;
 }
 

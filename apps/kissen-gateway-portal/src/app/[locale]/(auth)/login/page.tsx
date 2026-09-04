@@ -4,9 +4,16 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { ArrowRight, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useAuth } from '@myorg/shared/util-auth';
-import { Button, Input, Label, PasswordField, useToast } from '@myorg/shared/ui';
+import {
+  Button,
+  Input,
+  Label,
+  PasswordField,
+  useToast,
+} from '@myorg/shared/ui';
 import { createFormResolver } from '@myorg/shared/ui-forms';
 import {
   KISSEN_GATEWAY_PROJECT_ID,
@@ -62,9 +69,8 @@ export default function LoginRoute() {
   const [pwdVisible, setPwdVisible] = React.useState(false);
 
   // 源 login/index.vue：route.query.expired === '1' → 失效提示；redirect 兜底。
-  const [searchParams, setSearchParams] = React.useState<URLSearchParams | null>(
-    null,
-  );
+  const [searchParams, setSearchParams] =
+    React.useState<URLSearchParams | null>(null);
   React.useEffect(() => {
     setSearchParams(new URLSearchParams(window.location.search));
   }, []);
@@ -141,70 +147,112 @@ export default function LoginRoute() {
 
   return (
     <>
-
-      <div className="grid min-h-screen bg-white lg:grid-cols-2">
-        {/* ── 左：品牌渐变插画分屏（保留原布局风格）────────────────────── */}
-        {/* R-5（04 §2）：徽标区固定面板顶部（不随视口高度下沉越过中线），
-            插画按比例适配剩余高度（46vh 上限 + max-w-full 等比缩放），
-            1280×800 下底部不被裁切；面板铺满、不设内容宽度上限（约束 3）。 */}
-        <section
-          className="relative hidden overflow-hidden bg-gradient-to-br from-[var(--login-grad-a,#B7F0DC)] via-[var(--login-grad-b,#5FD3AC)] to-[var(--login-grad-c,#0B6B53)] lg:flex lg:flex-col"
-        >
-          <div className="relative z-10 flex h-full w-full flex-1 flex-col px-16 py-12 xl:px-24">
+      <div className="grid min-h-screen bg-[#f4f8f7] lg:grid-cols-[minmax(430px,0.92fr)_minmax(560px,1.08fr)]">
+        {/* Brand panel intentionally keeps the illustration outside the card flow so
+            the visual identity remains stable while the form grows or shows errors. */}
+        <section className="relative hidden min-h-screen overflow-hidden bg-[var(--brand-deep,#0B1F3A)] lg:flex lg:flex-col">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,color-mix(in_srgb,var(--brand-accent,#2DD4BF)_30%,transparent),transparent_34%),linear-gradient(145deg,var(--login-grad-c,#0B5670)_0%,var(--brand-deep,#0B1F3A)_62%)]" />
+          <div className="absolute inset-0 opacity-[0.12] [background-image:linear-gradient(rgba(255,255,255,0.35)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.35)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:linear-gradient(to_bottom,black,transparent_78%)]" />
+          <div className="relative z-10 flex h-full w-full flex-1 flex-col px-8 py-8 sm:px-12 lg:px-14 xl:px-20">
             <div
-              className="flex items-end justify-center"
+              className="flex items-center justify-between"
               aria-label={`${brand.name} Gateway`}
             >
-              <span className="text-6xl font-black italic leading-none tracking-[-0.11em] text-[var(--brand-deep,#0B1F3A)]">
-                {brand.name.charAt(0)}
-                <span className="text-white/80">
-                  {brand.name.slice(1)}
-                </span>
-              </span>
-              <span className="mb-1 ml-3 rounded-sm bg-[var(--brand-deep,#0B1F3A)] px-2 py-0.5 text-base font-medium text-white">
-                Gateway
-              </span>
+              <div className="flex items-center gap-3">
+                <GatewayMark className="h-10 w-10 shrink-0" />
+                <div>
+                  <p className="text-base font-semibold tracking-tight text-white">
+                    {brand.name}
+                  </p>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/55">
+                    Gateway console
+                  </p>
+                </div>
+              </div>
+              <div className="hidden items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white/75 sm:flex">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--brand-accent,#2DD4BF)] shadow-[0_0_10px_var(--brand-accent,#2DD4BF)]" />
+                Secure access
+              </div>
             </div>
-            <p className="mx-auto mt-10 text-2xl font-semibold leading-relaxed text-[var(--brand-deep,#0B1F3A)]">
-              {brand.subtitle}
-            </p>
 
-            <div className="mt-7 flex min-h-0 flex-1 items-center justify-center">
-              <LoginIllustration className="h-auto w-auto max-h-[46vh] max-w-full select-none" />
+            <div className="mt-12 max-w-[440px]">
+              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--brand-accent,#2DD4BF)]">
+                Cross-bank infrastructure
+              </p>
+              <h2 className="max-w-[460px] text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-white xl:text-5xl">
+                {brand.subtitle}
+              </h2>
+              <p className="mt-5 max-w-[380px] text-sm leading-6 text-white/60">
+                One secure control center for settlement, liquidity and digital
+                currency operations.
+              </p>
+            </div>
+
+            <div className="mt-4 flex min-h-0 flex-1 items-end justify-center">
+              <LoginIllustration className="h-auto max-h-[46vh] w-full max-w-[670px] object-contain select-none" />
+            </div>
+
+            <div className="flex items-center justify-between border-t border-white/10 pt-5 text-[11px] text-white/45">
+              <span>Bank-grade access control</span>
+              <span>v2.0 · Portal</span>
             </div>
           </div>
         </section>
 
-        {/* ── 右：登录表单（源 login/index.vue 卡片语义）────────────────── */}
-        <section className="flex min-h-screen items-center justify-center px-6 py-10 sm:px-10 lg:px-14">
-          <div className="w-full max-w-[400px]">
-            <div className="mb-10 flex flex-col items-center gap-3 text-center">
-              {/* 源 login-brand：logo + 标题 + 副标题 */}
-              <span className="text-5xl leading-none" aria-hidden="true">
-                {brand.logo}
-              </span>
-              <h1 className="text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
-                {brand.name}
-              </h1>
-              {/* 表单任务引导：右板副题不与左板品牌 subtitle（:165）逐字重复（§6.6 A）。 */}
-              <p className="text-sm text-muted-foreground">
-                Sign in to the bank gateway console
-              </p>
+        <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-8 sm:px-10 lg:px-14 xl:px-20">
+          <div className="absolute right-[-8rem] top-[-8rem] h-80 w-80 rounded-full bg-[var(--brand-accent,#2DD4BF)]/10 blur-3xl" />
+          <div className="relative w-full max-w-[460px] rounded-[28px] border border-slate-200/80 bg-white p-7 shadow-[0_24px_80px_-36px_rgba(11,31,58,0.28)] sm:p-10">
+            <div className="mb-9 flex items-start justify-between gap-5">
+              <div>
+                <div className="mb-6 flex items-center gap-3 lg:hidden">
+                  <GatewayMark className="h-9 w-9" />
+                  <span className="text-sm font-semibold text-slate-900">
+                    {brand.name}
+                  </span>
+                </div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                  Welcome back
+                </p>
+                <h1 className="text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-[34px]">
+                  Sign in to continue
+                </h1>
+                <p className="mt-3 max-w-[300px] text-sm leading-6 text-slate-500">
+                  Access your bank gateway workspace securely.
+                </p>
+              </div>
+              <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-deep,#0B1F3A)] text-white shadow-lg shadow-slate-900/10 sm:flex">
+                <ShieldCheck
+                  className="h-6 w-6 text-[var(--brand-accent,#2DD4BF)]"
+                  aria-hidden="true"
+                />
+              </div>
             </div>
 
             <form onSubmit={onSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="loginName">Username</Label>
-                <Input
-                  id="loginName"
-                  placeholder="Enter your username"
-                  autoComplete="username"
-                  aria-invalid={!!errors.loginName}
-                  aria-describedby={
-                    errors.loginName ? 'loginName-error' : undefined
-                  }
-                  {...register('loginName')}
-                />
+              <div className="space-y-2.5">
+                <Label
+                  className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600"
+                  htmlFor="loginName"
+                >
+                  Username
+                </Label>
+                <div className="relative">
+                  <UserRound
+                    className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    id="loginName"
+                    placeholder="Enter your username"
+                    autoComplete="username"
+                    className="h-12 rounded-xl border-slate-200 bg-slate-50/60 pl-10 shadow-none placeholder:text-slate-400 focus-visible:bg-white focus-visible:ring-2"
+                    aria-invalid={!!errors.loginName}
+                    aria-describedby={
+                      errors.loginName ? 'loginName-error' : undefined
+                    }
+                    {...register('loginName')}
+                  />
+                </div>
                 {errors.loginName && (
                   <p
                     id="loginName-error"
@@ -216,18 +264,30 @@ export default function LoginRoute() {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <PasswordField
-                  id="password"
-                  placeholder="Enter your password"
-                  autoComplete="current-password"
-                  aria-invalid={!!errors.password}
-                  aria-describedby={
-                    errors.password ? 'password-error' : undefined
-                  }
-                  {...register('password')}
-                />
+              <div className="space-y-2.5">
+                <Label
+                  className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600"
+                  htmlFor="password"
+                >
+                  Password
+                </Label>
+                <div className="relative">
+                  <LockKeyhole
+                    className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    aria-hidden="true"
+                  />
+                  <PasswordField
+                    id="password"
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    className="h-12 rounded-xl border-slate-200 bg-slate-50/60 pl-10 shadow-none placeholder:text-slate-400 focus-visible:bg-white focus-visible:ring-2"
+                    aria-invalid={!!errors.password}
+                    aria-describedby={
+                      errors.password ? 'password-error' : undefined
+                    }
+                    {...register('password')}
+                  />
+                </div>
                 {errors.password && (
                   <p
                     id="password-error"
@@ -241,16 +301,20 @@ export default function LoginRoute() {
 
               <Button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/90"
+                className="mt-2 h-12 w-full rounded-xl bg-[var(--brand-deep,#0B1F3A)] text-white shadow-lg shadow-slate-900/15 hover:bg-[var(--login-grad-c,#0B5670)] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 size="lg"
                 disabled={loginMutation.isPending}
               >
                 {loginMutation.isPending ? 'Signing in…' : 'Sign In'}
+                {!loginMutation.isPending && (
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                )}
               </Button>
             </form>
 
-            <p className="mt-8 text-center text-xs text-slate-500">
-              Cross-Bank Digital Currency Clearing · Bank Portal
+            <p className="mt-8 border-t border-slate-100 pt-5 text-center text-[11px] leading-5 text-slate-400">
+              Cross-Bank Digital Currency Clearing{' '}
+              <span className="px-1.5 text-slate-300">·</span> Bank Portal
             </p>
           </div>
         </section>
@@ -265,5 +329,33 @@ export default function LoginRoute() {
         forced
       />
     </>
+  );
+}
+
+/** Compact bank mark used in both desktop and mobile brand lockups. */
+function GatewayMark({ className }: { className: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 40 40"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <rect width="40" height="40" rx="12" fill="var(--brand-accent,#2DD4BF)" />
+      <path
+        d="M10 27.5h20M12.5 27.5V18l7.5-5 7.5 5v9.5M9 18h22M16 27.5V21h8v6.5"
+        stroke="var(--brand-deep,#0B1F3A)"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M20 13v-2"
+        stroke="var(--brand-deep,#0B1F3A)"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

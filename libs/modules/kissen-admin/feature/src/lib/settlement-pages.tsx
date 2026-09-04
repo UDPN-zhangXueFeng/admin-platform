@@ -31,9 +31,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
-  RadioGroup,
-  RadioGroupItem,
   Select,
   SelectContent,
   SelectItem,
@@ -48,6 +45,7 @@ import {
 } from '@myorg/shared/ui';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { FormSelect } from '@myorg/shared/ui-forms';
+import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
   KISSEN_PROJECT_ID,
@@ -89,6 +87,18 @@ function formatTimestamp(ms: number | undefined | null): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
+/** 毫秒时间戳 → 结算单详情中的分钟级时间。 */
+function formatTimestampMinute(ms: number | undefined | null): string {
+  const value = formatTimestamp(ms);
+  return value === '--' ? value : value.slice(0, 16);
+}
+
+/** 毫秒时间戳 → 结算周期详情中的日期。 */
+function formatDateOnly(ms: number | undefined | null): string {
+  const value = formatTimestamp(ms);
+  return value === '--' ? value : value.slice(0, 10);
+}
+
 /** 数字千分位（保留原小数位）；源 approval/format.ts formatMoney。 */
 function formatMoney(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === '') return '--';
@@ -98,11 +108,6 @@ function formatMoney(v: string | number | null | undefined): string {
   const digits = sign ? int.slice(1) : int;
   const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
-}
-
-/** 审批记录 ID：!id → '--'（源 view-dialog 用 `!id ? '-' : id`，目标统一 '--'）。 */
-function formatApprovalId(id: number | undefined): string {
-  return !id ? '--' : String(id);
 }
 
 /** 「全部」哨兵值：FormSelect 中代表不限定的选项（Radix Select 禁空串 value）。 */
@@ -200,6 +205,7 @@ function SettleOrderViewDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const { data: detail, isLoading } = useSettleOrderDetailQuery(
     KISSEN_PROJECT_ID,
     orderId,
@@ -230,31 +236,37 @@ function SettleOrderViewDialog({
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                   <span>LP · {detail.lpName || '--'}</span>
                   <span className="tabular-nums">
-                    Created {formatTimestamp(detail.createTime)}
+                    Created on {formatTimestampMinute(detail.createTime)}
                   </span>
                 </div>
               </div>
             </section>
 
-            {/* 结算周期（核心信息） */}
+            {/* 结算周期与关联交易 */}
             <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-              <DetailField label="Period Type">
-                {periodTypeLabel(detail.periodType)}
+              <DetailField label="Period">
+                <div>{periodTypeLabel(detail.periodType)}</div>
+                <div className="mt-1 text-muted-foreground">
+                  {formatDateOnly(detail.periodStart)} – {formatDateOnly(detail.periodEnd)}
+                </div>
               </DetailField>
-              <DetailField label="Txn Count">{detail.txCount}</DetailField>
-              <DetailField label="Period Start">
-                {formatTimestamp(detail.periodStart)}
+              <DetailField label="Transactions">
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-left"
+                  disabled={detail.txCount === 0}
+                  onClick={() => {
+                    onClose();
+                    // TODO: Use an exact settlementOrderId filter when the backend exposes it.
+                    router.push(
+                      `/transfer/tx?lpId=${detail.lpId}&createTimeStart=${detail.periodStart}&createTimeEnd=${detail.periodEnd}`,
+                    );
+                  }}
+                >
+                  View {detail.txCount} transactions →
+                </Button>
               </DetailField>
-              <DetailField label="Period End">{formatTimestamp(detail.periodEnd)}</DetailField>
-            </div>
-
-            {/* 审计（§6.3）：审批关联 */}
-            <div className="border-t border-border/50 pt-4">
-              <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-                <DetailField label="Approval Record ID">
-                  {formatApprovalId(detail.approvalRecordId)}
-                </DetailField>
-              </div>
             </div>
           </div>
         ) : (
@@ -445,7 +457,7 @@ function SettleItemRecordsDialog({
 
 /**
  * 扁平结算单表（源 v2.3.2 index.vue，2026-08-28 71c6077 撤 LP 分组折叠）：
- * expand / Order ID / LP / 周期 / 周期起止 / 笔数 / 状态 / 创建时间 / 操作。
+ * expand / Statement ID / LP / 周期 / 周期起止 / Transactions / 状态 / Created on / 操作。
  * LP 降为普通列，服务端分页扛量；token 对分项保留单层展开懒加载。
  */
 function SettleOrdersTable({
@@ -471,11 +483,11 @@ function SettleOrdersTable({
         <thead className="bg-muted/50">
           <tr>
             <th className={`${GROUP_TH} w-10`} />
-            <th className={`${GROUP_TH} text-right`}>Order ID</th>
+            <th className={`${GROUP_TH} text-right`}>Statement ID</th>
             <th className={GROUP_TH}>LP</th>
             <th className={GROUP_TH}>Period</th>
             <th className={GROUP_TH}>Period Range</th>
-            <th className={`${GROUP_TH} text-right`}>Tx Count</th>
+            <th className={`${GROUP_TH} text-right`}>Transactions</th>
             <th className={GROUP_TH}>
               <TooltipProvider>
                 <Tooltip>
@@ -488,7 +500,7 @@ function SettleOrdersTable({
                 </Tooltip>
               </TooltipProvider>
             </th>
-            <th className={GROUP_TH}>Created At</th>
+            <th className={GROUP_TH}>Created on</th>
             <th className={`${GROUP_TH} text-right`}>Actions</th>
           </tr>
         </thead>
@@ -556,7 +568,7 @@ function SettleOrdersTable({
                           className="h-auto p-0"
                           onClick={() => onConfirm(order)}
                         >
-                          Submit Confirmation
+                          Submit for Approval
                         </Button>
                       )}
                       {order.status === 10 && (
@@ -795,7 +807,7 @@ export function SettleOrderListPage() {
             <FormSelect
               name="periodType"
               control={control}
-              label="Period Type"
+              label="Period"
               placeholder="All"
               options={[
                 optAll(),
@@ -892,10 +904,9 @@ export function SettleOrderListPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Submit Confirmation</AlertDialogTitle>
+            <AlertDialogTitle>Submit for Approval</AlertDialogTitle>
             <AlertDialogDescription>
-              Submit settlement order &quot;{confirmTarget?.orderId}&quot; for confirmation
-              approval? It will enter the approval center to-do list after submission.
+              Submit settlement &quot;{confirmTarget?.orderId}&quot; for approval? The statement will be routed to the approval queue and cannot be edited while pending review.       
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -918,9 +929,7 @@ export function SettleOrderListPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Void Settlement Order</AlertDialogTitle>
             <AlertDialogDescription>
-              Void settlement order #{voidTarget?.orderId}? The same period can be
-              regenerated after voiding; retrospective transactions are carried forward
-              to the next period as adjustments.
+              Void settlement order #{voidTarget?.orderId}? The same period can be regenerated once voided. Late-arriving transactions will be carried forward to the next period as adjustments.    
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -942,56 +951,101 @@ export function SettleOrderListPage() {
 /* settle-cycle — 结算周期配置                                     */
 /* ============================================================ */
 
-/** 状态 Tab（源 viewTab：approved=审核通过默认 / others=未生效·已驳回，notApproved 布尔）。 */
-type CycleViewTab = 'approved' | 'others';
-
 interface CycleParams {
   pageNum: number;
   pageSize: number;
   lpName?: string;
-  notApproved: boolean;
+  settleCycle?: number;
+  status?: number;
 }
 
 export function SettleCycleListPage() {
   const toast = useToast();
-  const [lpNameInput, setLpNameInput] = React.useState('');
-  const [viewTab, setViewTab] = React.useState<CycleViewTab>('approved');
+  const [lpNameInput, setLpNameInput] = React.useState(ALL);
+  const [settleCycleInput, setSettleCycleInput] = React.useState(ALL);
+  const [statusInput, setStatusInput] = React.useState('20');
   const [params, setParams] = React.useState<CycleParams>({
     pageNum: 1,
     pageSize: PAGE_SIZE_DEFAULT,
     lpName: undefined,
-    notApproved: false,
+    status: 20,
   });
 
   const queryParams = React.useMemo<LpListReq>(
     () => ({
       pageNum: params.pageNum,
       pageSize: params.pageSize,
-      filter: { lpName: params.lpName, notApproved: params.notApproved },
+      filter: {
+        lpName: params.lpName,
+        settleCycle: params.settleCycle,
+        status: params.status,
+      },
     }),
     [params],
   );
+  const optionsQueryParams = React.useMemo<LpListReq>(
+    () => ({
+      pageNum: 1,
+      pageSize: 200,
+      filter: {},
+    }),
+    [],
+  );
 
   const { data, isLoading, isError, dataUpdatedAt } = useLpSettleCycleListQuery(KISSEN_PROJECT_ID, queryParams);
+  const { data: optionsData } = useLpSettleCycleListQuery(
+    KISSEN_PROJECT_ID,
+    optionsQueryParams,
+  );
   const saveMutation = useLpSettleCycleSaveMutation(KISSEN_PROJECT_ID);
 
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
+  const optionRows = optionsData?.data ?? rows;
+  const lpNameOptions = React.useMemo(() => {
+    const names = new Set(
+      optionRows
+        .map((row) => row.lpName?.trim())
+        .filter((name): name is string => Boolean(name)),
+    );
+    return [...names].sort((nameA, nameB) => nameA.localeCompare(nameB));
+  }, [optionRows]);
 
-  /** 源 onSearch：回第 1 页并提交 lpName（模糊匹配）。Tab 值随 load 一起提交（源语义：切 Tab 后点查询生效）。 */
+  // TODO: Replace this list-derived status source with a backend status-options API.
+  const statusOptions = React.useMemo(() => {
+    const statuses = new Map<number, string>();
+    for (const row of optionRows) {
+      if (!Number.isFinite(row.status)) continue;
+      statuses.set(row.status, LP_STATUS_LABEL[row.status] ?? String(row.status));
+    }
+    return [...statuses.entries()]
+      .sort(([statusA], [statusB]) => statusA - statusB)
+      .map(([value, label]) => ({ value: String(value), label }));
+  }, [optionRows]);
+
+  /** 搜索提交：回第 1 页，并提交当前下拉筛选值。 */
   const onSearch = React.useCallback(() => {
     setParams((prev) => ({
       ...prev,
       pageNum: 1,
-      lpName: lpNameInput.trim() || undefined,
-      notApproved: viewTab === 'others',
+      lpName: lpNameInput === ALL ? undefined : lpNameInput,
+      settleCycle: toNumberOrUndef(settleCycleInput),
+      status: toNumberOrUndef(statusInput),
     }));
-  }, [lpNameInput, viewTab]);
+  }, [lpNameInput, settleCycleInput, statusInput]);
 
-  /** 源 onReset：仅清 lpName，状态 Tab 保持不动。 */
+  /** 重置搜索条件，并恢复默认的 Approved 状态范围。 */
   const onReset = React.useCallback(() => {
-    setLpNameInput('');
-    setParams((prev) => ({ ...prev, pageNum: 1, lpName: undefined }));
+    setLpNameInput(ALL);
+    setSettleCycleInput(ALL);
+    setStatusInput('20');
+    setParams((prev) => ({
+      ...prev,
+      pageNum: 1,
+      lpName: undefined,
+      settleCycle: undefined,
+      status: 20,
+    }));
   }, []);
 
   /**
@@ -1092,8 +1146,7 @@ export function SettleCycleListPage() {
       {/* 页头 info alert（源 el-alert info：按 LP 配置周期，默认月结，下一张结算单生效）。 */}
       <Alert>
         <AlertDescription>
-          Configure the settlement order generation cycle per LP (daily/weekly/monthly,
-          monthly by default); changes take effect from the next settlement order.
+        Configure the settlement cycle for each LP: daily, weekly, or monthly (default: monthly). Changes apply from the next settlement order.
         </AlertDescription>
       </Alert>
 
@@ -1130,33 +1183,61 @@ export function SettleCycleListPage() {
               >
                 LP Name
               </label>
-              <Input
-                id="settle-cycle-lp-name"
-                value={lpNameInput}
-                placeholder="Fuzzy match"
-                className="w-full"
-                onChange={(e) => setLpNameInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') onSearch();
-                }}
-              />
+              <Select value={lpNameInput} onValueChange={setLpNameInput}>
+                <SelectTrigger id="settle-cycle-lp-name" className="w-full">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All</SelectItem>
+                  {lpNameOptions.map((lpName) => (
+                    <SelectItem key={lpName} value={lpName}>
+                      {lpName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium leading-snug text-foreground">
+              <label
+                htmlFor="settle-cycle-filter"
+                className="text-sm font-medium leading-snug text-foreground"
+              >
+                Settlement Cycle
+              </label>
+              <Select value={settleCycleInput} onValueChange={setSettleCycleInput}>
+                <SelectTrigger id="settle-cycle-filter" className="w-full">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All</SelectItem>
+                  {Object.entries(SETTLE_CYCLE_MAP).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="settle-cycle-status-filter"
+                className="text-sm font-medium leading-snug text-foreground"
+              >
                 Status
               </label>
-              <RadioGroup
-                value={viewTab}
-                onValueChange={(v) => setViewTab(v as CycleViewTab)}
-                className="flex h-10 items-center gap-4"
-              >
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="approved" /> Approved
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="others" /> Inactive / Rejected
-                </label>
-              </RadioGroup>
+              <Select value={statusInput} onValueChange={setStatusInput}>
+                <SelectTrigger id="settle-cycle-status-filter" className="w-full">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All</SelectItem>
+                  {statusOptions.map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-end gap-2">
               <Button type="submit">Search</Button>

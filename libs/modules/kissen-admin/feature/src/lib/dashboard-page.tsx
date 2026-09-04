@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Info } from 'lucide-react';
+import { Copy, Info } from 'lucide-react';
 
 import {
   Badge,
@@ -13,6 +13,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  useToast,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
 import { useRouter } from '@myorg/shared/util-i18n';
@@ -23,6 +24,7 @@ import {
   useInstanceListQuery,
   useLpListQuery,
   useSettleOrderListQuery,
+  useTokenListQuery,
   useTokenPairListQuery,
 } from '@myorg/modules/kissen-admin/data-access';
 
@@ -74,6 +76,7 @@ interface WorkbenchBankRow {
 
 interface WorkbenchPoolRow {
   poolId: number;
+  tokenId: number;
   lpName: string;
   accountAddress?: string;
   /** 池维度 token code（v2.0 资金池为 token 维度，不再有 currency） */
@@ -173,7 +176,9 @@ function pairText(row: WorkbenchTxRow): string {
 function isPoolCritical(pool: WorkbenchPoolRow): boolean {
   const min = Number(pool.minLiquidity);
   if (!(min > 0)) return false; // 分母无效无法判断水位，按正常展示
-  return Number(pool.availableBalanceCache) / min < Number(pool.remindThreshold);
+  return (
+    Number(pool.availableBalanceCache) / min < Number(pool.remindThreshold)
+  );
 }
 
 /** 水位条宽度百分比（封顶 100，不低于 0 以免出现非法宽度）。 */
@@ -188,11 +193,14 @@ function poolBarWidth(pool: WorkbenchPoolRow): number {
 
 const workbenchKeys = {
   all: (projectId: string) => ['project', projectId, 'workbench'] as const,
-  today: (projectId: string) => [...workbenchKeys.all(projectId), 'today'] as const,
-  banks: (projectId: string) => [...workbenchKeys.all(projectId), 'banks'] as const,
+  today: (projectId: string) =>
+    [...workbenchKeys.all(projectId), 'today'] as const,
+  banks: (projectId: string) =>
+    [...workbenchKeys.all(projectId), 'banks'] as const,
   exceptions: (projectId: string) =>
     [...workbenchKeys.all(projectId), 'exceptions'] as const,
-  pools: (projectId: string) => [...workbenchKeys.all(projectId), 'pools'] as const,
+  pools: (projectId: string) =>
+    [...workbenchKeys.all(projectId), 'pools'] as const,
   reconcile: (projectId: string) =>
     [...workbenchKeys.all(projectId), 'reconcile'] as const,
 } as const;
@@ -294,6 +302,66 @@ function MetricLabel({ label, tooltip }: { label: string; tooltip?: string }) {
   );
 }
 
+/** Compact copy action used by dense dashboard tables. */
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const toast = useToast();
+
+  const handleCopy = React.useCallback(() => {
+    const copyWithTextarea = (): boolean => {
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.top = '0';
+      textarea.style.left = '-9999px';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      try {
+        textarea.focus();
+        textarea.select();
+        textarea.setSelectionRange(0, value.length);
+        return document.execCommand('copy');
+      } catch {
+        return false;
+      } finally {
+        textarea.remove();
+      }
+    };
+
+    const notifyResult = (copied: boolean) => {
+      if (copied) {
+        toast.success('Copied');
+      } else {
+        toast.error('Copy failed');
+      }
+    };
+
+    if (!window.isSecureContext || !navigator.clipboard) {
+      notifyResult(copyWithTextarea());
+      return;
+    }
+
+    void navigator.clipboard.writeText(value).then(
+      () => notifyResult(true),
+      () => notifyResult(copyWithTextarea()),
+    );
+  }, [toast, value]);
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="iconSm"
+      className="h-6 w-6 text-muted-foreground"
+      aria-label={`Copy ${label}`}
+      title={`Copy ${label}`}
+      onClick={() => void handleCopy()}
+    >
+      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+    </Button>
+  );
+}
+
 function MetricCard({
   label,
   tooltip,
@@ -343,7 +411,11 @@ function MetricCard({
   );
 }
 
-function PanelHeading({ title, action, onAction }: {
+function PanelHeading({
+  title,
+  action,
+  onAction,
+}: {
   title: string;
   action?: string;
   onAction?: () => void;
@@ -365,7 +437,12 @@ function PanelHeading({ title, action, onAction }: {
   );
 }
 
-function StatLine({ label, count, variant, hint }: {
+function StatLine({
+  label,
+  count,
+  variant,
+  hint,
+}: {
   label: string;
   count: number | null;
   variant: 'warning' | 'mute' | 'success';
@@ -391,7 +468,11 @@ function StatLine({ label, count, variant, hint }: {
   );
 }
 
-function NetworkStat({ name, count, hint }: {
+function NetworkStat({
+  name,
+  count,
+  hint,
+}: {
   name: string;
   count: number | null;
   hint: string;
@@ -406,66 +487,88 @@ function NetworkStat({ name, count, hint }: {
       </div>
       <div className="shrink-0 text-right text-xl font-bold whitespace-nowrap">
         {count == null ? '—' : count}{' '}
-        <span className="text-xs font-medium text-muted-foreground">active</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          active
+        </span>
       </div>
     </div>
-  );
-}
-
-function StatusPill({ critical, disabled }: { critical: boolean; disabled: boolean }) {
-  return (
-    <Badge variant={disabled ? 'outline' : critical ? 'destructive' : 'success'}>
-      {disabled ? 'Disabled' : critical ? 'Low' : 'Sufficient'}
-    </Badge>
   );
 }
 
 function PoolLevel({ pool }: { pool: WorkbenchPoolRow }) {
   const critical = isPoolCritical(pool);
   const minLiquidity = Number(pool.minLiquidity);
-  const percentage =
-    minLiquidity > 0
-      ? Math.round((Number(pool.availableBalanceCache) / minLiquidity) * 100)
-      : null;
+  const availableBalance = Number(pool.availableBalanceCache);
+  const hasCalculation =
+    Number.isFinite(availableBalance) &&
+    Number.isFinite(minLiquidity) &&
+    minLiquidity > 0;
+  const percentage = hasCalculation
+    ? Math.round((availableBalance / minLiquidity) * 100)
+    : null;
+  const alertThreshold = Number(pool.remindThreshold);
+  const alertThresholdText = Number.isFinite(alertThreshold)
+    ? `${Math.round(alertThreshold * 100)}%`
+    : '—';
 
   return (
-    <div className="flex min-w-[130px] items-center gap-2.5">
-      <div className="relative h-1.5 w-[110px] rounded bg-muted">
-        {percentage != null ? (
-          <div
-            className={cn(
-              'absolute inset-y-0 left-0 rounded',
-              critical ? 'bg-warning' : 'bg-success',
-            )}
-            style={{ width: `${poolBarWidth(pool)}%` }}
-          />
-        ) : null}
-        {percentage != null ? (
-          <div className="absolute inset-y-[-3px] left-[45%] w-0.5 bg-muted-foreground/50" />
-        ) : null}
-      </div>
-      <span className="w-12 text-xs tabular-nums text-muted-foreground">
-        {percentage == null ? '—' : `${percentage}%`}
-      </span>
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex min-w-[220px] cursor-help items-center gap-2.5">
+          <div className="relative h-1.5 w-[110px] rounded bg-muted">
+            {percentage != null ? (
+              <div
+                className={cn(
+                  'absolute inset-y-0 left-0 rounded',
+                  critical ? 'bg-warning' : 'bg-success',
+                )}
+                style={{ width: `${poolBarWidth(pool)}%` }}
+              />
+            ) : null}
+            {percentage != null ? (
+              <div className="absolute inset-y-[-3px] left-[45%] w-0.5 bg-muted-foreground/50" />
+            ) : null}
+          </div>
+          <span className="w-12 text-xs tabular-nums text-muted-foreground">
+            {percentage == null ? '—' : `${percentage}%`}
+          </span>
+          <Badge variant={critical ? 'destructive' : 'success'} size="sm">
+            {critical ? 'Low' : 'Sufficient'}
+          </Badge>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent className="text-xs">
+        {hasCalculation ? (
+          <div>
+            {formatMoney(availableBalance.toFixed(2))} ÷{' '}
+            {formatMoney(minLiquidity.toFixed(2))} = {percentage}%
+          </div>
+        ) : (
+          <div>Pool level unavailable</div>
+        )}
+        <div>Alert threshold: {alertThresholdText}</div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
 function PoolOverview({
   pools,
+  tokenNames,
   isLoading,
   isError,
   onRetry,
   onViewAll,
 }: {
   pools: WorkbenchPoolRow[];
+  tokenNames: ReadonlyMap<number, string>;
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
   onViewAll: () => void;
 }) {
   return (
-    <Card className="rounded-[10px] p-5">
+    <Card className="h-full rounded-[10px] p-5">
       <PanelHeading
         title="Pool Overview"
         action={`All pools ${pools.length} →`}
@@ -476,73 +579,106 @@ function PoolOverview({
       ) : isLoading ? (
         <BlockSkeleton rows={4} />
       ) : pools.length === 0 ? (
-        <BlockEmpty icon={<InboxIcon className="h-4 w-4" />} text="No pools yet" />
+        <BlockEmpty
+          icon={<InboxIcon className="h-4 w-4" />}
+          text="No pools yet"
+        />
       ) : (
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[800px] border-collapse">
-          <thead>
-            <tr>
-              {[
-                'LP',
-                'Pool Address',
-                'Available Pre-Authorized',
-                'Token',
-                'Available Balance',
-                'Pool Level',
-                'Status',
-              ].map((heading, index) => (
-                <th
-                  key={heading}
-                  className={cn(
-                    'whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground',
-                    (index === 2 || index === 4) && 'text-right',
-                  )}
-                >
-                  {heading}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {pools.map((pool) => {
-              const critical = isPoolCritical(pool);
-              return (
-                <tr key={pool.poolId} className="hover:bg-muted/40">
-                  <td className="border-b border-border px-3 py-2.5 text-sm">
-                    {pool.lpName || '-'}
-                  </td>
-                  <td className="border-b border-border px-3 py-2.5 font-mono text-xs text-muted-foreground">
-                    {formatAddress(pool.accountAddress)}
-                  </td>
-                  <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
-                    {pool.preauthAvailable == null
-                      ? '-'
-                      : formatMoney(pool.preauthAvailable)}
-                  </td>
-                  <td className="border-b border-border px-3 py-2.5 text-sm font-semibold">
-                    {pool.tokenCode || '-'}
-                  </td>
-                  <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
-                    {formatMoney(pool.availableBalanceCache)}
-                  </td>
-                  <td className="border-b border-border px-3 py-2.5">
-                    <PoolLevel pool={pool} />
-                  </td>
-                  <td className="border-b border-border px-3 py-2.5">
-                    <StatusPill critical={critical} disabled={pool.status === 50} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+          <table className="w-full min-w-[760px] border-collapse">
+            <thead>
+              <tr>
+                {[
+                  'LP',
+                  'Pool Address',
+                  'Available Pre-Authorized',
+                  'Token',
+                  'Available Balance',
+                  'Pool Level',
+                ].map((heading, index) => (
+                  <th
+                    key={heading}
+                    className={cn(
+                      'whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground',
+                      (index === 2 || index === 4) && 'text-right',
+                    )}
+                  >
+                    {heading === 'Pool Level' ? (
+                      <span className="inline-flex items-center gap-1">
+                        {heading}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              aria-label="Pool level calculation"
+                              className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground"
+                              tabIndex={0}
+                            >
+                              <Info className="h-3 w-3" aria-hidden="true" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="text-xs">
+                            <div>
+                              Pool Level = Available Balance ÷ Min. Liquidity
+                            </div>
+                            <div>Alert threshold: 20%</div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </span>
+                    ) : (
+                      heading
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {pools.map((pool) => {
+                return (
+                  <tr key={pool.poolId} className="hover:bg-muted/40">
+                    <td className="border-b border-border px-3 py-2.5 text-sm">
+                      {pool.lpName || '-'}
+                    </td>
+                    <td className="border-b border-border px-3 py-2.5 font-mono text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        {formatAddress(pool.accountAddress)}
+                        {pool.accountAddress ? (
+                          <CopyButton
+                            value={pool.accountAddress}
+                            label="pool address"
+                          />
+                        ) : null}
+                      </span>
+                    </td>
+                    <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
+                      {pool.preauthAvailable == null
+                        ? '-'
+                        : formatMoney(pool.preauthAvailable)}
+                    </td>
+                    <td className="border-b border-border px-3 py-2.5 text-sm font-semibold">
+                      {tokenNames.get(pool.tokenId) || pool.tokenCode || '-'}
+                    </td>
+                    <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
+                      {formatMoney(pool.availableBalanceCache)}
+                    </td>
+                    <td className="border-b border-border px-3 py-2.5">
+                      <PoolLevel pool={pool} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </Card>
   );
 }
 
-function SettlementOverview({ settleQuery, reconcileQuery, onViewAll }: {
+function SettlementOverview({
+  settleQuery,
+  reconcileQuery,
+  onViewAll,
+}: {
   settleQuery: ReturnType<typeof useSettleOrderListQuery>;
   reconcileQuery: ReturnType<typeof useWorkbenchReconcileQuery>;
   onViewAll: () => void;
@@ -551,12 +687,13 @@ function SettlementOverview({ settleQuery, reconcileQuery, onViewAll }: {
   const settledSince = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const countByStatus = (status: number, since?: number) =>
     rows.filter(
-      (row) => row.status === status && (since == null || row.createTime >= since),
+      (row) =>
+        row.status === status && (since == null || row.createTime >= since),
     ).length;
   const diffPending = reconcileQuery.data?.pagination.total ?? 0;
 
   return (
-    <Card className="rounded-[10px] p-5">
+    <Card className="h-full rounded-[10px] p-5">
       <PanelHeading
         title="Settlement Statements"
         action="View all →"
@@ -568,8 +705,16 @@ function SettlementOverview({ settleQuery, reconcileQuery, onViewAll }: {
         <BlockSkeleton rows={3} />
       ) : (
         <>
-          <StatLine label="Pending Approval" count={countByStatus(10)} variant="warning" />
-          <StatLine label="Confirmed" count={countByStatus(20)} variant="mute" />
+          <StatLine
+            label="Pending Approval"
+            count={countByStatus(10)}
+            variant="warning"
+          />
+          <StatLine
+            label="Confirmed"
+            count={countByStatus(20)}
+            variant="mute"
+          />
           <StatLine
             label="Settled"
             count={countByStatus(35, settledSince)}
@@ -586,7 +731,9 @@ function SettlementOverview({ settleQuery, reconcileQuery, onViewAll }: {
             : 'border-success/30 bg-success/10 text-success',
         )}
       >
-        <span aria-hidden="true">{reconcileQuery.isError || diffPending > 0 ? '!' : '✓'}</span>
+        <span aria-hidden="true">
+          {reconcileQuery.isError || diffPending > 0 ? '!' : '✓'}
+        </span>
         <span>
           {reconcileQuery.isError
             ? 'Reconciliation status unavailable'
@@ -726,6 +873,7 @@ export function DashboardPage() {
     pageSize: 200,
     filter: { status: 20 },
   });
+  const tokensQ = useTokenListQuery(KISSEN_PROJECT_ID, { status: 20 });
   const tokenPairsQ = useTokenPairListQuery(KISSEN_PROJECT_ID, { status: 20 });
 
   const refreshing =
@@ -737,6 +885,7 @@ export function DashboardPage() {
     settleQ.isFetching ||
     instancesQ.isFetching ||
     lpsQ.isFetching ||
+    tokensQ.isFetching ||
     tokenPairsQ.isFetching;
 
   const handleRefresh = React.useCallback(() => {
@@ -749,6 +898,7 @@ export function DashboardPage() {
       settleQ.refetch(),
       instancesQ.refetch(),
       lpsQ.refetch(),
+      tokensQ.refetch(),
       tokenPairsQ.refetch(),
     ]);
   }, [
@@ -760,6 +910,7 @@ export function DashboardPage() {
     settleQ,
     instancesQ,
     lpsQ,
+    tokensQ,
     tokenPairsQ,
   ]);
 
@@ -778,7 +929,9 @@ export function DashboardPage() {
       .map(([ccy, total]) => ({ ccy, total }))
       .sort((a, b) => b.total - a.total);
   }, [todayRows]);
-  const inflightCount = todayRows.filter((r) => Boolean(IN_FLIGHT[r.status])).length;
+  const inflightCount = todayRows.filter((r) =>
+    Boolean(IN_FLIGHT[r.status]),
+  ).length;
   // 入网银行（客户端过滤 status 20）
   const banks = (banksQ.data?.data ?? []).filter((b) => b.status === 20);
 
@@ -788,12 +941,23 @@ export function DashboardPage() {
 
   // 资金池
   const pools = poolsQ.data?.data ?? [];
+  const tokenNames = React.useMemo(
+    () =>
+      new Map(
+        (tokensQ.data ?? [])
+          .filter((token) => token.tokenName?.trim())
+          .map((token) => [token.tokenId, token.tokenName.trim()]),
+      ),
+    [tokensQ.data],
+  );
 
   const networkCounts = {
     banks: banksQ.isError ? null : banks.length,
-    instances: instancesQ.isError ? null : instancesQ.data?.data.length ?? null,
-    lps: lpsQ.isError ? null : lpsQ.data?.data.length ?? null,
-    tokenPairs: tokenPairsQ.isError ? null : tokenPairsQ.data?.length ?? null,
+    instances: instancesQ.isError
+      ? null
+      : (instancesQ.data?.data.length ?? null),
+    lps: lpsQ.isError ? null : (lpsQ.data?.data.length ?? null),
+    tokenPairs: tokenPairsQ.isError ? null : (tokenPairsQ.data?.length ?? null),
   };
   const latestUpdatedAt = Math.max(
     todayQ.dataUpdatedAt,
@@ -804,6 +968,7 @@ export function DashboardPage() {
     settleQ.dataUpdatedAt,
     instancesQ.dataUpdatedAt,
     lpsQ.dataUpdatedAt,
+    tokensQ.dataUpdatedAt,
     tokenPairsQ.dataUpdatedAt,
   );
 
@@ -813,7 +978,9 @@ export function DashboardPage() {
         {/* 页头 */}
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="t-supporting text-muted-foreground">NETWORK OPERATIONS</div>
+            <div className="t-supporting text-muted-foreground">
+              NETWORK OPERATIONS
+            </div>
             <h1 className="t-page-title">Dashboard</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
               Network operations at a glance
@@ -821,7 +988,8 @@ export function DashboardPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">
-              Updated {latestUpdatedAt ? formatTime(latestUpdatedAt) : '-'} (UTC+8)
+              Updated {latestUpdatedAt ? formatTime(latestUpdatedAt) : '-'}{' '}
+              (UTC+8)
             </span>
             <Button
               variant="outline"
@@ -840,8 +1008,20 @@ export function DashboardPage() {
           <MetricCard
             label="Pending Exceptions"
             tooltip="Transactions currently in Exception status and waiting for manual handling."
-            value={exceptionsQ.isError ? '—' : exceptionsQ.isLoading ? <Skeleton className="h-9 w-16" /> : formatMoney(exceptionTotal)}
-            footer={exceptionTotal > 0 ? 'Requires manual handling →' : 'No exceptions pending'}
+            value={
+              exceptionsQ.isError ? (
+                '—'
+              ) : exceptionsQ.isLoading ? (
+                <Skeleton className="h-9 w-16" />
+              ) : (
+                formatMoney(exceptionTotal)
+              )
+            }
+            footer={
+              exceptionTotal > 0
+                ? 'Requires manual handling →'
+                : 'No exceptions pending'
+            }
             badge={{
               label: exceptionTotal > 0 ? 'Action needed' : 'Clear',
               variant: exceptionTotal > 0 ? 'destructive' : 'success',
@@ -852,14 +1032,34 @@ export function DashboardPage() {
           <MetricCard
             label="Transactions in Progress"
             tooltip="Created transactions that have not reached a final state."
-            value={todayQ.isError ? '—' : todayQ.isLoading ? <Skeleton className="h-9 w-16" /> : formatMoney(inflightCount)}
-            footer={inflightCount > 0 ? 'Live processing activity' : 'No transactions in progress'}
+            value={
+              todayQ.isError ? (
+                '—'
+              ) : todayQ.isLoading ? (
+                <Skeleton className="h-9 w-16" />
+              ) : (
+                formatMoney(inflightCount)
+              )
+            }
+            footer={
+              inflightCount > 0
+                ? 'Live processing activity'
+                : 'No transactions in progress'
+            }
             badge={{ label: 'Live', variant: 'mute' }}
           />
           <MetricCard
             label="Today's Transactions"
             tooltip="Transactions created today, from local midnight through now."
-            value={todayQ.isError ? '—' : todayQ.isLoading ? <Skeleton className="h-9 w-16" /> : formatMoney(todayCount)}
+            value={
+              todayQ.isError ? (
+                '—'
+              ) : todayQ.isLoading ? (
+                <Skeleton className="h-9 w-16" />
+              ) : (
+                formatMoney(todayCount)
+              )
+            }
           />
           <MetricCard
             label="Today's Volume by Token"
@@ -874,9 +1074,16 @@ export function DashboardPage() {
               ) : (
                 <div className="flex flex-col gap-0.5 text-sm">
                   {todayVolumes.slice(0, 3).map((volume) => (
-                    <div key={volume.ccy} className="flex justify-between gap-3">
-                      <span className="font-bold text-foreground">{volume.ccy}</span>
-                      <span>{formatMoney(Number(volume.total.toFixed(2)))}</span>
+                    <div
+                      key={volume.ccy}
+                      className="flex justify-between gap-3"
+                    >
+                      <span className="font-bold text-foreground">
+                        {volume.ccy}
+                      </span>
+                      <span>
+                        {formatMoney(Number(volume.total.toFixed(2)))}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -887,145 +1094,159 @@ export function DashboardPage() {
           />
         </section>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <Card className="min-w-0 rounded-[10px] p-5 lg:col-span-8">
-          <PanelHeading
-            title="Pending Exceptions"
-            action={
-              exceptionTotal > exceptionRows.length
-                ? `View all ${exceptionTotal} →`
-                : 'View all →'
-            }
-            onAction={() => router.push('/transfer/tx')}
-          />
-          {exceptionsQ.isError ? (
-            <BlockFail onRetry={() => exceptionsQ.refetch()} />
-          ) : exceptionsQ.isLoading ? (
-            <BlockSkeleton rows={4} />
-          ) : exceptionRows.length === 0 ? (
-            <BlockEmpty
-              icon={<CheckCircleIcon className="h-4 w-4 text-success" />}
-              text="No exceptions to handle"
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          <Card className="min-w-0 rounded-[10px] p-5 lg:col-span-8">
+            <PanelHeading
+              title="Pending Exceptions"
+              action={
+                exceptionTotal > exceptionRows.length
+                  ? `View all ${exceptionTotal} →`
+                  : 'View all →'
+              }
+              onAction={() => router.push('/transfer/tx')}
             />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] border-collapse">
-                <thead>
-                  <tr>
-                    {[
-                      'Transaction No.',
-                      'Token Pair',
-                      'Amount',
-                      'Status',
-                      'Created on',
-                      'Actions',
-                    ].map((heading) => (
-                      <th
-                        key={heading}
-                        className="whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground first:pl-0 last:pr-0"
-                      >
-                        {heading}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {exceptionRows.map((row) => {
-                    const transactionNumber = row.txNo || row.txUuid;
-                    return (
-                      <tr key={row.transactionId} className="hover:bg-muted/40">
-                        <td className="max-w-[150px] truncate border-b border-border px-3 py-3 font-mono text-xs first:pl-0">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="block truncate">{transactionNumber}</span>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-sm break-all font-mono text-xs">
-                              {transactionNumber}
-                            </TooltipContent>
-                          </Tooltip>
-                        </td>
-                        <td className="border-b border-border px-3 py-3 text-sm">
-                          {pairText(row)}
-                        </td>
-                        <td className="border-b border-border px-3 py-3 text-sm tabular-nums">
-                          {formatMoney(row.principal)}
-                        </td>
-                        <td className="border-b border-border px-3 py-3">
-                          <div className="flex flex-col items-start gap-1">
-                            <Badge variant="destructive" size="sm">
-                              Exception
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {TX_STATUS_MAP[row.status] ?? 'Exception'} ·{' '}
-                              {formatAge(Date.now() - row.createTime)}
+            {exceptionsQ.isError ? (
+              <BlockFail onRetry={() => exceptionsQ.refetch()} />
+            ) : exceptionsQ.isLoading ? (
+              <BlockSkeleton rows={4} />
+            ) : exceptionRows.length === 0 ? (
+              <BlockEmpty
+                icon={<CheckCircleIcon className="h-4 w-4 text-success" />}
+                text="No exceptions to handle"
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] border-collapse">
+                  <thead>
+                    <tr>
+                      {[
+                        'Transaction No.',
+                        'Token Pair',
+                        'Amount',
+                        'Status',
+                        'Created on',
+                        'Actions',
+                      ].map((heading) => (
+                        <th
+                          key={heading}
+                          className="whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground first:pl-0 last:pr-0"
+                        >
+                          {heading}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {exceptionRows.map((row) => {
+                      const transactionNumber = row.txNo || row.txUuid;
+                      return (
+                        <tr
+                          key={row.transactionId}
+                          className="hover:bg-muted/40"
+                        >
+                          <td className="max-w-[150px] truncate border-b border-border px-3 py-3 font-mono text-xs first:pl-0">
+                            <span className="inline-flex max-w-full items-center gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="block truncate">
+                                    {transactionNumber}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-sm break-all font-mono text-xs">
+                                  {transactionNumber}
+                                </TooltipContent>
+                              </Tooltip>
+                              {transactionNumber ? (
+                                <CopyButton
+                                  value={transactionNumber}
+                                  label="transaction number"
+                                />
+                              ) : null}
                             </span>
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap border-b border-border px-3 py-3 text-sm text-muted-foreground">
-                          {formatTime(row.createTime)}
-                        </td>
-                        <td className="border-b border-border px-3 py-3 text-right last:pr-0">
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0"
-                            onClick={() => router.push('/transfer/tx')}
-                          >
-                            View
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
+                          </td>
+                          <td className="border-b border-border px-3 py-3 text-sm">
+                            {pairText(row)}
+                          </td>
+                          <td className="border-b border-border px-3 py-3 text-sm tabular-nums">
+                            {formatMoney(row.principal)}
+                          </td>
+                          <td className="border-b border-border px-3 py-3">
+                            <div className="flex flex-col items-start gap-1">
+                              <Badge variant="destructive" size="sm">
+                                Exception
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {TX_STATUS_MAP[row.status] ?? 'Exception'} ·{' '}
+                                {formatAge(Date.now() - row.createTime)}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="whitespace-nowrap border-b border-border px-3 py-3 text-sm text-muted-foreground">
+                            {formatTime(row.createTime)}
+                          </td>
+                          <td className="border-b border-border px-3 py-3 text-right last:pr-0">
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0"
+                              onClick={() => router.push('/transfer/tx')}
+                            >
+                              View
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
 
-        <div className="min-w-0 lg:col-span-4">
-          <SettlementOverview
-            settleQuery={settleQ}
-            reconcileQuery={reconcileQ}
-            onViewAll={() => router.push('/settle/order')}
-          />
-        </div>
-      </section>
+          <div className="min-w-0 lg:col-span-4">
+            <SettlementOverview
+              settleQuery={settleQ}
+              reconcileQuery={reconcileQ}
+              onViewAll={() => router.push('/settle/order')}
+            />
+          </div>
+        </section>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <div className="min-w-0 lg:col-span-8">
-          <PoolOverview
-            pools={pools}
-            isLoading={poolsQ.isLoading}
-            isError={poolsQ.isError}
-            onRetry={() => poolsQ.refetch()}
-            onViewAll={() => router.push('/liquidity/pool')}
-          />
-        </div>
-        <Card className="min-w-0 rounded-[10px] p-5 lg:col-span-4">
-          <PanelHeading title="Network Overview" />
-          <NetworkStat
-            name="Banks"
-            count={networkCounts.banks}
-            hint="Onboarded and active"
-          />
-          <NetworkStat
-            name="Gateway Instances"
-            count={networkCounts.instances}
-            hint="Connected gateways"
-          />
-          <NetworkStat
-            name="Liquidity Providers"
-            count={networkCounts.lps}
-            hint="Active providers"
-          />
-          <NetworkStat
-            name="Token Pairs"
-            count={networkCounts.tokenPairs}
-            hint="Supported pairs"
-          />
-        </Card>
-      </section>
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          <div className="min-w-0 lg:col-span-8">
+            <PoolOverview
+              pools={pools}
+              tokenNames={tokenNames}
+              isLoading={poolsQ.isLoading}
+              isError={poolsQ.isError}
+              onRetry={() => poolsQ.refetch()}
+              onViewAll={() => router.push('/liquidity/pool')}
+            />
+          </div>
+          <Card className="min-w-0 rounded-[10px] p-5 lg:col-span-4">
+            <PanelHeading title="Network Overview" />
+            <NetworkStat
+              name="Banks"
+              count={networkCounts.banks}
+              hint="Onboarded and active"
+            />
+            <NetworkStat
+              name="Gateway Instances"
+              count={networkCounts.instances}
+              hint="Connected gateways"
+            />
+            <NetworkStat
+              name="Liquidity Providers"
+              count={networkCounts.lps}
+              hint="Active providers"
+            />
+            <NetworkStat
+              name="Token Pairs"
+              count={networkCounts.tokenPairs}
+              hint="Supported pairs"
+            />
+          </Card>
+        </section>
       </div>
     </TooltipProvider>
   );

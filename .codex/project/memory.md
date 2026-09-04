@@ -849,3 +849,11 @@
 - 2026-09-03：Spender 配置抽屉标题改为 `Disbursement Spender`，副标题统一为 `Token Name · Bank · Blockchain` 格式。
 - 2026-09-04：React 19 hydration 会剥掉 root layout 防闪 inline script 写在 `<html>` 上的 class/data-*（`suppressHydrationWarning` 只消警告不保属性）；kissen-gateway 硬刷新后暗色与调色板曾双双回落。对策是 `AppearanceSync`（app providers）mount layoutEffect 重放 `gw-appearance`→html.dark、`gw-theme`→data-theme（缺省回落 config.theme.defaultTheme），且必须挂在 BrandProvider 之前（让位分支依赖 dataset.theme 已就位）。适用于全部门户的防闪脚本模式，详见 gateway 迁移矩阵 §7-39。
 - 2026-09-04：gateway a39f51d 批次部署（:6244，main-0903→main-0904，commit 36ecfcd 推 feat/kissen）。rsync 16 文件零删除；构建 124s 无 metadata 卡死（提前 docker pull nginx:alpine 预热）。线上验证四件套 + 升级项全绿：title、brand code=0、真实登录 code=0（端点 /portal/login，字段 loginName 非 username）、cookie 链 /login→/en-US/overview 200、/system/ui 200 且两卡渲染、防闪脚本在 HTML。header 显示名「银行管理员」是后端 user.name 数据，零 CJK 约束不适用于后端数据。ssh root@10.0.7.20 密码登录用 expect 注入（本机无 sshpass）。
+- 2026-09-04：kissen-admin Dashboard 表格复制需兼容 HTTP 部署；`navigator.clipboard` 失败时使用用户点击事件内的隐藏 textarea + `document.execCommand('copy')` 回退，仍需尊重浏览器权限/iframe 安全策略。
+- 2026-09-04：kissen-admin Dashboard 的 Pool Level 需在表头 info tooltip 解释计算口径，在行内 tooltip 展示余额÷最低流动性公式；`Sufficient/Low` 状态 badge 与百分比同置于 Pool Level 单元格，不保留独立 Status 列。
+- 2026-09-04：共享 Breadcrumb 解析嵌套菜单时优先按配置项完整 `path` 匹配并保留父子 label；kissen-admin 的 LP 分组与 `lp` 子菜单存在重复 id，不能只按 URL segment 递归查 label，否则 `/onboard/lp*` 会错误显示 `Bank Management`。
+- 2026-09-04：结算周期配置页搜索栏的 Status 选项暂从不带 status 筛选的 LP 列表结果去重生成；LP list 当前仅返回 numeric status，文案可暂复用现有映射，代码留 TODO 等后端 status-options 接口后替换。
+- 2026-09-04：结算周期配置页的 LP Name 下拉与 Status 共用一份不带筛选条件的 LP 列表结果，LP 名称按 `lpName` 去重排序；All 通过不传 `filter.lpName` 表示全量。
+- 2026-09-04：结算单列表用户文案统一为 `Statement ID`、`Transactions`、`Created on`；结算单提交动作统一为 `Submit for Approval`，后端字段和 mutation 名称不变。
+- 2026-09-04：结算单详情弹窗按设计展示 `Created on` 分钟级时间、`Period` 日期范围和 `View N transactions`；当前详情接口只有 `txCount` 无交易 ID，跳转交易列表暂用 `lpId + createTimeStart/createTimeEnd` 深链筛选，代码留 TODO 等后端提供 `settlementOrderId` 精确筛选。
+- 2026-09-04：gateway 登录页视觉重设计仅改 `apps/kissen-gateway-portal/src/app/[locale]/(auth)/login/page.tsx`：保留品牌查询、登录 mutation、首登改密、过期提示与 redirect，桌面采用深色品牌插画面板 + 浅色浮层登录卡，移动端单栏降级；左栏插画继续复用 `LoginIllustration`，新增 `GatewayMark` 为 app-local 单次品牌图标。

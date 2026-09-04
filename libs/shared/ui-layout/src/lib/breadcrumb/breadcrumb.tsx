@@ -28,7 +28,12 @@ export interface BreadcrumbProps {
  *   (e.g. "user-list" → "User List"; detail ids show the id itself).
  */
 
-type OrderItem = { id: string; label?: string; children?: OrderItem[] };
+type OrderItem = {
+  id: string;
+  label?: string;
+  path?: string;
+  children?: OrderItem[];
+};
 
 /** 深度查找模块标签：先在 order 顶层找，再递归各组 children。 */
 function findModuleLabel(
@@ -46,6 +51,34 @@ function findModuleLabel(
   return undefined;
 }
 
+/**
+ * Resolve labels from configured route paths so nested groups with duplicate
+ * ids (for example the LP group and its `lp` child) keep their hierarchy.
+ */
+function findPathLabels(
+  items: OrderItem[] | undefined,
+  segments: string[],
+): string[] | undefined {
+  if (!items) return undefined;
+
+  for (const item of items) {
+    const nested = findPathLabels(item.children, segments);
+    if (nested) return item.label ? [item.label, ...nested] : nested;
+
+    const pathSegments = item.path
+      ?.split('/')
+      .filter((segment) => segment.length > 0 && !isLocaleSegment(segment));
+    if (
+      pathSegments?.length &&
+      pathSegments.every((segment, index) => segments[index] === segment)
+    ) {
+      return item.label ? [item.label] : [];
+    }
+  }
+
+  return undefined;
+}
+
 export function Breadcrumb({ className }: BreadcrumbProps) {
   const pathname = usePathname();
   const { order } = useModules();
@@ -55,6 +88,10 @@ export function Breadcrumb({ className }: BreadcrumbProps) {
       .split('/')
       .filter((s) => s.length > 0 && !isLocaleSegment(s));
   }, [pathname]);
+  const pathLabels = React.useMemo(
+    () => findPathLabels(order, segments),
+    [order, segments],
+  );
 
   return (
     <nav aria-label="Breadcrumb" className={className}>
@@ -65,7 +102,7 @@ export function Breadcrumb({ className }: BreadcrumbProps) {
             href="/"
             className={cn(
               'flex items-center gap-1 transition-colors hover:text-foreground',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             )}
           >
             <Home className="h-3.5 w-3.5" aria-hidden="true" />
@@ -77,7 +114,9 @@ export function Breadcrumb({ className }: BreadcrumbProps) {
           const isLast = index === segments.length - 1;
           const href = '/' + segments.slice(0, index + 1).join('/');
           const label =
-            findModuleLabel(order, segment) ?? humanize(segment);
+            pathLabels?.[index] ??
+            findModuleLabel(order, segment) ??
+            humanize(segment);
           return (
             <React.Fragment key={href}>
               <li aria-hidden="true">
@@ -96,7 +135,7 @@ export function Breadcrumb({ className }: BreadcrumbProps) {
                     href={href}
                     className={cn(
                       'transition-colors hover:text-foreground',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                     )}
                   >
                     {label}
@@ -123,7 +162,5 @@ function isLocaleSegment(segment: string): boolean {
 
 /** Convert a URL slug into a human-readable label. */
 function humanize(slug: string): string {
-  return slug
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
