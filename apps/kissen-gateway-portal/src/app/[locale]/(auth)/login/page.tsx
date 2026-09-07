@@ -223,14 +223,8 @@ export default function LoginRoute() {
                     <p className="truncate text-lg font-semibold tracking-tight text-slate-950">
                       {brand.name}
                     </p>
-                    <p className="truncate text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                      {brand.headerName}
-                    </p>
                   </div>
                 </div>
-                <p className="mt-3 max-w-[360px] text-sm leading-6 text-slate-500">
-                  {brand.subtitle}
-                </p>
               </div>
             </div>
 

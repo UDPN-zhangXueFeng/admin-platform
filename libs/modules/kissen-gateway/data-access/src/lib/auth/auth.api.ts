@@ -45,6 +45,8 @@ const brandAxios = axios.create({
   timeout: 5000,
 });
 
+const LEGACY_GATEWAY_HEADER_NAME = 'UDPN Kissen Gateway Portal';
+
 /**
  * 品牌文案规整：后端 brand 接口的 name/subtitle/headerName 可能返回中文，
  * 而本门户约束用户可见文案零中文（document.title 与登录页品牌区均消费）。
@@ -60,6 +62,14 @@ export function sanitizeBrandText(
   return /[\u4e00-\u9fff]/.test(text) ? fallback : text;
 }
 
+/** 将服务端已保存的旧默认产品名迁移为当前门户名称。 */
+function normalizeHeaderName(value: string | undefined): string {
+  const headerName = sanitizeBrandText(value, DEFAULT_BRAND.headerName);
+  return headerName === LEGACY_GATEWAY_HEADER_NAME
+    ? DEFAULT_BRAND.headerName
+    : headerName;
+}
+
 export async function getBrand(): Promise<Brand> {
   try {
     const resp = await brandAxios.get<{ code: string; data: Partial<Brand> }>(
@@ -73,10 +83,7 @@ export async function getBrand(): Promise<Brand> {
         subtitle: sanitizeBrandText(data.subtitle, DEFAULT_BRAND.subtitle),
         logo: sanitizeBrandText(data.logo, DEFAULT_BRAND.logo),
         primaryColor: data.primaryColor ?? DEFAULT_BRAND.primaryColor,
-        headerName: sanitizeBrandText(
-          data.headerName,
-          DEFAULT_BRAND.headerName,
-        ),
+        headerName: normalizeHeaderName(data.headerName),
       };
     }
     return DEFAULT_BRAND;

@@ -1,5 +1,5 @@
 /**
- * UDPN 主品牌字标 + Gateway 产品角标。
+ * UDPN 主品牌字标 + Bank Portal 产品名称。
  *
  * 这里刻意使用 JSX/CSS 而不是 SVG：`dp` 可以直接读取门户的主题变量，
  * 同时避免 SVG 文本在不同字体环境下产生额外的 viewBox 裁切问题。
@@ -10,10 +10,10 @@ interface LogoMarkProps {
 }
 
 export function LogoMark({ className, productName }: LogoMarkProps) {
-  const resolvedProductName = productName || 'UDPN Kissen Gateway Portal';
+  const resolvedProductName = productName || 'UDPN Kissen Bank Portal';
   const rootClassName = [
-    'relative inline-flex h-14 min-w-[360px] shrink-0 items-end pb-1',
-    'sm:min-w-[430px] min-[1600px]:h-16 min-[1600px]:min-w-[480px]',
+    'relative inline-flex h-14 min-w-[300px] shrink-0 items-end pb-1',
+    'sm:min-w-[360px] min-[1600px]:h-16 min-[1600px]:min-w-[430px]',
     className,
   ]
     .filter(Boolean)
@@ -48,7 +48,7 @@ export function LogoMark({ className, productName }: LogoMarkProps) {
         </span>
       </span>
 
-      <span className="absolute bottom-1  right-0 truncate  text-[1.25rem] font-semibold leading-none tracking-[-0.02em] text-white/85 min-[1600px]:left-36 min-[1600px]:text-[1.5rem]">
+      <span className="absolute bottom-1 left-[104px] right-0 truncate text-[clamp(0.95rem,1.25vw,1.5rem)] font-semibold leading-none tracking-[-0.02em] text-white/85 sm:left-32 min-[1600px]:left-36">
         {resolvedProductName}
       </span>
     </span>

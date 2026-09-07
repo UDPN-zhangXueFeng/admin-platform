@@ -53,5 +53,5 @@ export const DEFAULT_BRAND: Brand = {
   subtitle: 'Bank Portal Management Console',
   logo: '🏦',
   primaryColor: '#0B6B53',
-  headerName: 'UDPN Kissen Gateway Portal',
+  headerName: 'UDPN Kissen Bank Portal',
 };
