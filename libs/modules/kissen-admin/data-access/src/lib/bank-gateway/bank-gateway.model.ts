@@ -9,6 +9,12 @@ import type { BankBadgeVariant } from '../bank/bank.model';
 export interface BankGatewayInfo {
   bankId?: number;
   registered: boolean;
+  /** 货币系统信息（源 2026-09-08 自银行迁入，随网关实例登记）。 */
+  currencySystemType?: number;
+  blockchain?: string;
+  currencySystemName?: string;
+  currencySystemUrl?: string;
+  currencySystemDesc?: string;
   endpointUrl: string;
   keyFingerprintMasked: string;
   connectivityStatus: number;
@@ -18,6 +24,12 @@ export interface BankGatewayInfo {
 /** 网关注册/更新请求；keyFingerprint 空串/缺省 = 保持原值（已登记场景，裁决 C-6）。 */
 export interface BankGatewayRegisterReq {
   bankId: number;
+  /** 货币系统信息（源 2026-09-08 自银行迁入）。 */
+  currencySystemType?: number;
+  blockchain?: string;
+  currencySystemName?: string;
+  currencySystemUrl?: string;
+  currencySystemDesc?: string;
   endpointUrl: string;
   keyFingerprint?: string;
 }

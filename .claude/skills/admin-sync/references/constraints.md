@@ -30,5 +30,14 @@ admin 未做过六件套迁移立项，约束沿用同套五条口径执行；�
 | 已登记（未验证）/ 公钥已推送（可激活）/ 在用 / 已停用（instance） | Registered (Unverified) / Pubkey Pushed (Activatable) / Active / Disabled |
 | 月结（默认）等结算周期 | Daily / Weekly / Monthly |
 | 水位 | Water level（Low / Normal / Sufficient） |
+| 付款池 / 打款地址 | Payout / Payout tag |
+| 授权不足 / 余额不足 / 授权受限 | Insufficient Auth / Insufficient Balance / Auth Limited |
+| 调整汇率 | Adjust Rate |
+| 调整待审批（fx-rate 状态） | Adjustment Pending |
+| 持续（workbench 异常队列列） | Age |
+| 登记 LP | Register LP |
+| 银行编码（bank 实体新字段 bankBic） | Bank Code (BIC) |
+| 系统名称 / 系统类型（instance） | System Name / System Type |
+| 重发邀请 | Resend Invite |
 
 新术语首次翻译时定稿并回填本表（与 LP/gateway 两表保持一致，冲突时以先定稿者为准并在此标注）。

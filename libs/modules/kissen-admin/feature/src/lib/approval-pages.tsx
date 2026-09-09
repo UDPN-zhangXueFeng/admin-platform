@@ -68,7 +68,7 @@ import {
 const PAGE_SIZE_DEFAULT = 10;
 const STATUS_ALL = 'all';
 
-/** 毫秒时间戳 → 统一管理台时间格式；0/空/非法 → '--'（目标约定 §4；765eb51 起 0 也视为未发生）。 */
+/** 毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`；0/空/非法 → '--'。 */
 function formatTime(ms: number | null | undefined): string {
   if (!ms || Number.isNaN(Number(ms))) return '--';
   const d = new Date(Number(ms));
@@ -110,13 +110,6 @@ const PERIOD_ENUM: Record<number, string> = {
   3: 'Monthly',
 };
 
-/** 货币系统形态（lp_pool.currencySystemType）。 */
-const CURRENCY_SYSTEM_ENUM: Record<number, string> = {
-  1: 'EVM On-chain',
-  2: 'Aptos',
-  3: 'Internal System',
-};
-
 /** 分成划转方向（split_transfer.direction）。 */
 const DIRECTION_ENUM: Record<number, string> = {
   1: 'Pre-authorized Transfer',
@@ -131,7 +124,7 @@ const DIRECTION_ENUM: Record<number, string> = {
 const FIELD_MAPS: Record<string, FieldDef[]> = {
   kissen_bank_onboard: [
     { key: 'bankName', label: 'Bank Name' },
-    { key: 'bankCode', label: 'Bank Code' },
+    { key: 'bankBic', label: 'Bank Code (BIC)' },
     { key: 'bic', label: 'SWIFT BIC' },
     { key: 'accountConfig', label: 'Account Configuration' },
     { key: 'status', label: 'Status', render: 'status' },
@@ -149,15 +142,7 @@ const FIELD_MAPS: Record<string, FieldDef[]> = {
     { key: 'lpName', label: 'LP Name' },
     { key: 'tokenCode', label: 'Token' },
     { key: 'accountAddress', label: 'Pool Address' },
-    {
-      key: 'currencySystemType',
-      label: 'Currency System',
-      enumMap: CURRENCY_SYSTEM_ENUM,
-    },
-    {
-      key: 'remindThreshold',
-      label: 'Replenishment Threshold (water-level ratio)',
-    },
+    { key: 'remindThreshold', label: 'Replenishment Threshold (water-level ratio)' },
     { key: 'pendingAction', label: 'Pending Action' },
     { key: 'status', label: 'Status', render: 'status' },
     { key: 'createTime', label: 'Requested At', render: 'time' },

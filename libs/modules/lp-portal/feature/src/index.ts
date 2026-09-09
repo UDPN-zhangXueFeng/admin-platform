@@ -24,6 +24,8 @@ export { formatTime, formatMoney, maskAddress } from './lib/format';
 // ── 会话页（A4 首登强制改密 / A8 个人中心）────────────────────────────
 export { ChangePwdPage } from './lib/change-pwd-page';
 export { ProfilePage } from './lib/profile-page';
+// 邀请落地页（v2.1 a522963：免登录 (auth) 路由，?token= 一次性邀请）
+export { InviteAcceptPage } from './lib/invite-accept-page';
 
 // ── 资金池（B1 真实页 v2：单页列表 + 开池申请页内弹窗，无 create/edit/detail 子路由）───
 export { PoolListPage } from './lib/pool-pages';

@@ -22,6 +22,13 @@ export interface CopyableEllipsisTextProps
   copyable?: boolean;
   /** Max width in px before the text truncates with an ellipsis. Default `200`. */
   maxWidth?: number;
+  /**
+   * Truncation style. `end` (default) keeps the head and CSS-truncates the
+   * tail; `middle` shortens long identifiers head-8 / tail-4 around an
+   * ellipsis regardless of width (kissen gateway parity with the upstream
+   * `CopyText` middleEllipsis(8, 4) convention for addresses / IDs).
+   */
+  truncate?: 'end' | 'middle';
   /** Text shown for empty values. Default `'--'`. */
   emptyText?: string;
   /** Label of the copy action inside the tooltip. Default `'Copy'`. */
@@ -44,6 +51,7 @@ export function CopyableEllipsisText({
   value,
   copyable = true,
   maxWidth = DEFAULT_MAX_WIDTH,
+  truncate = 'end',
   emptyText = DEFAULT_EMPTY_DISPLAY,
   copyLabel = DEFAULT_COPY_LABEL,
   className,
@@ -52,7 +60,13 @@ export function CopyableEllipsisText({
   const toast = useToast();
 
   const isEmpty = value === null || value === undefined || String(value).trim() === '';
-  const displayText = isEmpty ? emptyText : String(value);
+  const raw = isEmpty ? emptyText : String(value);
+  // middleEllipsis(8, 4): values of 13 chars or fewer render in full.
+  const displayText =
+    truncate === 'middle' && raw.length > 12
+      ? `${raw.slice(0, 8)}…${raw.slice(-4)}`
+      : raw;
+
 
   const handleCopy = React.useCallback(async () => {
     if (value === null || value === undefined) return;
@@ -91,7 +105,7 @@ export function CopyableEllipsisText({
           </TooltipTrigger>
           <TooltipContent>
             <div className="flex items-center gap-2">
-              <span className="break-all">{displayText}</span>
+              <span className="break-all">{raw}</span>
               {copyable ? (
                 <button
                   type="button"

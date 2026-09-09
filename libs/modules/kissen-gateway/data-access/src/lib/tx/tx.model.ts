@@ -14,6 +14,14 @@ export interface TxListReq {
   pendingFlag?: number;
   startTime?: number;
   endTime?: number;
+  /** 交易编号模糊匹配（a9dc10e 筛选扩容，nz() trim 非空才传）。 */
+  txNo?: string;
+  /** 付款钱包地址模糊匹配（a9dc10e）。 */
+  senderAccount?: string;
+  /** 收款钱包地址模糊匹配（a9dc10e）。 */
+  receiverAccount?: string;
+  /** LP 名称模糊匹配（a9dc10e）。 */
+  lpName?: string;
 }
 
 /** 列表查询请求（喂 kissenPage）。 */

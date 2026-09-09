@@ -30,5 +30,9 @@
 | 部分域同步失败（X），已同步 N 条 | Partial sync failure (X) — synced N items |
 | 收 / 付（激活池地址前缀） | In / Out |
 | 所有序列已隐藏——点击图例恢复 | All series hidden — click a legend item to restore |
-
+| 管理员邀请 / 邀请链接无效 / 已过期 / 已使用 | Administrator Invitation / Invalid invitation link / Invitation link expired / Invitation link already used |
+| 设置密码（至少 8 位，含字母和数字） / 确认新密码 / 设置密码 | Set a password (min 8 characters, letters and numbers) / Confirm new password / Set Password |
+| 前往登录 / 密码设置成功 / 请使用新密码登录 LP 门户 | Go to Login / Password set successfully / Please sign in to the LP portal with your new password |
+| 正在验证邀请链接… / 请联系 Kissen 运营人员重新发送邀请 | Verifying invitation link… / Please contact Kissen operations to resend the invitation |
+| 登录账号 / 有效期至 | Login account / Valid until |
 新术语首次翻译时定稿并回填本表。

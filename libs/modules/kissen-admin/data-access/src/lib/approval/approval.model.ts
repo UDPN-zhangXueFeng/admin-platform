@@ -66,7 +66,7 @@ export interface ApprovalDetailResp {
 
 /** 主表 reviewerStatus（CommonStatusEnum，源 views/approval/status.ts COMMON_STATUS_MAP）。 */
 export const COMMON_STATUS_MAP: Record<number, string> = {
-  1: 'Saved (Draft)',
+  1: 'Draft',
   3: 'Withdrawn',
   5: 'Pending Review',
   10: 'Under Review',

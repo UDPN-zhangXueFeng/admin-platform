@@ -46,9 +46,9 @@ export interface InstanceItem {
 
 /** 银行信息详情（GET /bank/detail，GW-17 纯本地化：本行库组装，不再实时上行；新鲜度靠 G-14 推送/入网查询回写）。 */
 export interface BankDetail {
-  bankCode: string;
+  /** 银行编码(BIC)（2026-09-08 合并列，62d1c33：原 bankCode+bic 两字段合并）。 */
+  bankBic: string;
   bankName: string;
-  bic: string;
   /** 本机 Gateway 实例编码（与 instances[].instanceId 匹配判定激活状态）。 */
   instanceId?: string;
   /** onboardStatus：0 未入网 / 5 待审核 / 15 已拒绝 / 20 已通过。 */
@@ -57,12 +57,6 @@ export interface BankDetail {
   contactPhone?: string;
   contactEmail?: string;
   contactAddress?: string;
-  /** 货币系统对接说明（管理侧登记；GW-17 本地化后网关无存储列，下发前保持空）。 */
-  csDesc?: string;
-  /** 货币系统类型（GW-16 重构值域）：0 未填/1 区块链/2 传统/3 其他。 */
-  currencySystemType?: number;
-  /** 货币系统名称（GW-16）。 */
-  currencySystemName?: string;
   /** 可交易 token 摘要 JSON 串（gw_bank_info.tokenList）。 */
   tokenList?: string;
   /** GW-17 纯本地化后降级路径消亡；字段保留协议兼容。 */
@@ -87,8 +81,8 @@ export interface BankInfo {
   infoId?: number;
   bankId?: number;
   bankName: string;
-  bankCode: string;
-  bic: string;
+  /** 银行编码(BIC)（2026-09-08 合并列，62d1c33）。 */
+  bankBic: string;
   tokenList: string;
   accountConfig: string;
   status: number;
@@ -103,12 +97,8 @@ export interface BankQueryItem {
   /** 是否本行（03716c8 新增：后端按 kissen.bank-code 比对下发；未下发按外部银行）。 */
   self?: boolean;
   bankName?: string;
-  bankCode?: string;
-  bic?: string;
-  /** 货币系统类型（GW-16 重构值域）：0 未填/1 区块链/2 传统/3 其他。 */
-  currencySystemType?: number;
-  /** 货币系统名称（GW-16）。 */
-  currencySystemName?: string;
+  /** 银行编码(BIC)（2026-09-08 合并列，62d1c33）。 */
+  bankBic?: string;
   /** 可交易 token 摘要 JSON 串（BankTokenItem[]）。 */
   tokenList?: string;
   pushTime?: number;
@@ -128,14 +118,10 @@ export interface CsToken {
 export interface BankQueryDetail {
   bankId?: number;
   bankName?: string;
-  bankCode?: string;
-  bic?: string;
+  /** 银行编码(BIC)（2026-09-08 合并列，62d1c33）。 */
+  bankBic?: string;
   /** 是否本行（后端按 kissen.bank-code 比对下发）。 */
   self?: boolean;
-  /** 货币系统类型（GW-16 重构值域）：0 未填/1 区块链/2 传统/3 其他。 */
-  currencySystemType?: number;
-  /** 货币系统名称（GW-16）。 */
-  currencySystemName?: string;
   /** 推送缓存状态（20 启用）。 */
   status?: number;
   version?: number;

@@ -60,6 +60,9 @@ export * from './lib/notification';
 // Dashboard 域（v2.3 登录落地页）：只读聚合 + 交易状态独立 tag 口径（§E21）。
 export * from './lib/dashboard';
 
+// 邀请域（v2.1 a522963）：免登录落地页一次性 verify/accept。
+export * from './lib/invite';
+
 // 「Bank + Token」统一展示口径（v2.3）：token 元数据双键索引 + label/bankOf/symOf。
 export { useTokenMeta, type TokenMeta } from './lib/token-meta';
 

@@ -78,25 +78,22 @@ import {
 
 const PAGE_SIZE_DEFAULT = 10;
 
-/** 毫秒时间戳 → 本地 YYYY-MM-DD HH:mm:ss；0/空 → '--'（目标约定 §4）。 */
+/** 毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`；0/空 → '--'。 */
 function formatTimestamp(ms: number | undefined | null): string {
   if (!ms) return '--';
   const d = new Date(Number(ms));
-  if (Number.isNaN(d.getTime())) return '--';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return Number.isNaN(d.getTime()) ? '--' : formatAdminDateTime(d);
 }
 
 /** 毫秒时间戳 → 结算单详情中的分钟级时间。 */
 function formatTimestampMinute(ms: number | undefined | null): string {
-  const value = formatTimestamp(ms);
-  return value === '--' ? value : value.slice(0, 16);
+  return formatTimestamp(ms);
 }
 
 /** 毫秒时间戳 → 结算周期详情中的日期。 */
 function formatDateOnly(ms: number | undefined | null): string {
   const value = formatTimestamp(ms);
-  return value === '--' ? value : value.slice(0, 10);
+  return value === '--' ? value : value.replace(/, \d{2}:\d{2}:\d{2} \(UTC[^)]+\)$/, '');
 }
 
 /** 数字千分位（保留原小数位）；源 approval/format.ts formatMoney。 */
@@ -323,7 +320,7 @@ function SettleOrderItemsPanel({
           <table className="w-full min-w-max caption-bottom text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className={GROUP_TH}>Token Pair Code</th>
+                <th className={GROUP_TH}>Token Pair</th>
                 <th className={`${GROUP_TH} text-right`}>Txn Count</th>
                 <th className={`${GROUP_TH} text-right`}>Principal Total</th>
                 <th className={`${GROUP_TH} text-right`}>Markup Total</th>
@@ -334,7 +331,7 @@ function SettleOrderItemsPanel({
             <tbody className="divide-y divide-border/50">
               {list.map((item: SettleOrderItemRow) => (
                 <tr key={item.itemId} className="motion-safe:transition-colors hover:bg-muted/50">
-                  <td className={`${GROUP_TD} tabular-nums`}>{item.pairCode || '--'}</td>
+                  <td className={`${GROUP_TD} tabular-nums`}>{item.sourceSymbol || item.sourceTokenCode || '-'}/{item.targetSymbol || item.targetTokenCode || '-'}</td>
                   <td className={`${GROUP_TD} text-right tabular-nums`}>{item.txCount}</td>
                   <td className={`${GROUP_TD} text-right tabular-nums`}>{formatMoney(item.principalTotal)}</td>
                   <td className={`${GROUP_TD} text-right tabular-nums`}>{formatMoney(item.markupTotal)}</td>
@@ -363,11 +360,11 @@ function SettleOrderItemsPanel({
   );
 }
 
-/** 结算明细弹窗目标（源 detailCtx：orderId × pairId + 标题用 pairCode）。 */
+/** 结算明细弹窗目标（源 detailCtx：orderId × pairId + 标题用 symbol 对文本）。 */
 interface SettleItemRecordsTarget {
   orderId: number;
   pairId: number;
-  pairCode: string;
+  pairText: string;
 }
 
 /**
@@ -427,7 +424,7 @@ function SettleItemRecordsDialogContent({ target }: { target: SettleItemRecordsT
   );
 }
 
-/** 结算明细弹窗（源 el-dialog width 780px，标题「结算明细 — {pairCode}」，无分页）。 */
+/** 结算明细弹窗（源 el-dialog width 780px，标题「结算明细 — {pairText}」，无分页）。 */
 function SettleItemRecordsDialog({
   target,
   onClose,
@@ -441,7 +438,7 @@ function SettleItemRecordsDialog({
         <DialogHeader>
           <DialogTitle>
             Settlement Details —{' '}
-            {target ? target.pairCode || `pair #${target.pairId}` : ''}
+            {target ? target.pairText : ''}
           </DialogTitle>
         </DialogHeader>
         {target ? (
@@ -865,7 +862,7 @@ export function SettleOrderListPage() {
                 setItemRecordsTarget({
                   orderId: order.orderId,
                   pairId: item.pairId,
-                  pairCode: item.pairCode,
+                  pairText: `${item.sourceSymbol || item.sourceTokenCode || '-'}/${item.targetSymbol || item.targetTokenCode || '-'}`,
                 })
               }
             />

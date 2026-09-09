@@ -221,18 +221,17 @@ function OrderStatusBadge({ status }: { status: number }) {
 
 /**
  * Token 对紧凑两行式（源 .pairx：symOf/symOf 加粗行 + bankOf → bankOf
- * 次要色行）。pairInfo 未命中（卡1 无该 pairCode 行）时回退纯 pairCode 文本。
+ * 次要色行）。e0fad0a 起第三行 pairCode||pairId 占位行移除；pairInfo
+ * 未命中（卡1 无该 pairCode 行）时由调用方回退纯 pairCode 文本。
  */
 function PairX({
   source,
   target,
-  fallback,
   bankOf,
   symOf,
 }: {
   source: string;
   target: string;
-  fallback: string;
   bankOf: (code: string) => string;
   symOf: (code: string) => string;
 }) {
@@ -244,12 +243,6 @@ function PairX({
       <div className="truncate text-xs text-muted-foreground">
         {bankOf(source)} → {bankOf(target)}
       </div>
-      {/* fallback 仅在无 pairInfo 时由调用方渲染纯文本，此第三行不出现 */}
-      {fallback ? (
-        <div className="truncate font-mono text-xs tabular-nums text-muted-foreground">
-          {fallback}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -304,7 +297,6 @@ export function SplitSettlePage() {
           <PairX
             source={info.sourceTokenCode}
             target={info.targetTokenCode}
-            fallback=""
             bankOf={bankOf}
             symOf={symOf}
           />
@@ -391,17 +383,14 @@ export function SplitSettlePage() {
   const ratioColumns = React.useMemo<ColumnDef<SplitRow & { id: string }>[]>(
     () => [
       {
-        // Token Pair 紧凑式三行（源 .pairx：symOf/symOf num 加粗、
-        // bankOf → bankOf 次要色、pairCode||pairId 占位色）
+        // Token Pair 紧凑两行式（e0fad0a 起第三行 pairCode||pairId
+        // 占位行移除）
         id: 'tokenPair',
         header: 'Token Pair',
         cell: ({ row }) => (
           <PairX
             source={row.original.sourceTokenCode}
             target={row.original.targetTokenCode}
-            fallback={String(
-              row.original.pairCode || row.original.pairId || '',
-            )}
             bankOf={bankOf}
             symOf={symOf}
           />

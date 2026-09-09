@@ -9,8 +9,8 @@ export interface BootstrapState {
   /** 接入 key 状态：ABSENT 未配置 / VALID 可用（引导期）/ INVALID 已失效（激活后）。 */
   accessKeyStatus: string;
   instanceId?: string;
-  bankCode?: string;
-  bic?: string;
+  /** 银行编码(BIC)（2026-09-08 合并列，62d1c33：原 bankCode+bic 两字段合并）。 */
+  bankBic?: string;
   /** 上行密钥对是否已生成。 */
   uplinkReady?: boolean;
   /** 上行公钥指纹（SHA-256 hex）。 */

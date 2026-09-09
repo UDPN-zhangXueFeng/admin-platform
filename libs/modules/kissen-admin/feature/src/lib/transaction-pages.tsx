@@ -10,7 +10,7 @@ import {
   type Path,
 } from 'react-hook-form';
 import { ColumnDef } from '@tanstack/react-table';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Check, ChevronsUpDown, Copy } from 'lucide-react';
 
 import {
   Alert,
@@ -28,11 +28,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
   Input,
   Popover,
   PopoverContent,
@@ -51,6 +46,7 @@ import {
 import { FormField, FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
 import { cn } from '@myorg/shared/util-classnames';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
+import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
   KISSEN_PROJECT_ID,
@@ -71,16 +67,22 @@ import {
 } from '@myorg/modules/kissen-admin/data-access';
 
 /**
- * 交易域页面（源 `views/transfer/tx/**`：index / resolve-dialog / tx-detail-drawer）。
+ * 交易域页面（源 `views/transfer/tx/**`：index / resolve-dialog / detail）。
  *
- * v2.0 全量补同步（01 文档 §D7 + 裁决 6/7）：
+ * v2.0 增量同步（bb9c607d..3c4cfbb）：
+ *  - 列表页头移除（直入表格卡片）；「货币对」筛选 label → Tokens；
+ *    创建时间改单开始时间（filterStart → createTimeStart 毫秒）；「完成时间」列删除；
+ *    单号/From/To 钱包旁复制图标；View 改路由跳转详情独立页。
+ *  - 详情由 720px 抽屉改独立路由页 TxDetailPage（源 detail.vue：
+ *    返回按钮 + 页头，左主栏 + 右 400px sticky 链路时间轴两栏布局）。
  *  - tx-exception / tx-reversal 拆页退役，合并为单页 TxListListPage；
- *    处置入口按行 status(70) 显隐。
- *  - 详情由路由页收回 720px 抽屉（源 tx-detail-drawer.vue 照迁）。
- *  - 「更多筛选」仅源/目标银行（transactionId/txUuid 不暴露，裁决 6）。
+ *    处置入口按行 status(70) 显隐；「更多筛选」仅源/目标银行（裁决 6）。
  *
- * 导出（registry 依赖，名字不可改）：TxListListPage。
+ * 导出（registry 依赖，名字不可改）：TxListListPage / TxDetailPage。
  */
+
+/** 列表路由（config.modules `/transfer/tx`；列表 View 跳转与详情 Back 共用）。 */
+const TX_LIST_PATH = '/transfer/tx';
 
 /* ================================================================== */
 /* 展示工具（源 views/approval/format.ts + index.vue fmtAmount）        */
@@ -552,6 +554,31 @@ function TransactionStatusBadge({ status }: { status: number }) {
   );
 }
 
+/**
+ * 单元格内复制图标（源 index.vue cell-copy + copyText）：
+ * clipboard 写入 → sonner toast「Copied」，失败 toast 报错。
+ */
+function CopyCellIcon({ value }: { value: string }) {
+  const toast = useToast();
+  const onCopy = React.useCallback(() => {
+    navigator.clipboard
+      .writeText(value)
+      .then(() => toast.success('Copied'))
+      .catch(() => toast.error('Copy failed'));
+  }, [toast, value]);
+  return (
+    <button
+      type="button"
+      aria-label="Copy"
+      title="Copy"
+      onClick={onCopy}
+      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-accent hover:text-primary"
+    >
+      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+    </button>
+  );
+}
+
 /** 详情描述字段（el-descriptions-item 的 React 等价；span=长文本单独占行，§6.3）。 */
 function DescField({
   label,
@@ -851,16 +878,8 @@ function ResolveDialog({
   );
 }
 
-/** 详情正文（源 6579522 drawer：banner / 交易信息 / 转账双卡 / 其他 / 链路单时间轴）。 */
-function DetailBody({
-  detail,
-  events,
-  chainLoading,
-}: {
-  detail: TransactionDetailRow;
-  events: TransactionFlowEvent[];
-  chainLoading: boolean;
-}) {
+/** 详情左栏（源 detail.vue detail-left：banner / 进度轨 / 交易信息 / 转账双卡 / 其他）。 */
+function DetailBody({ detail }: { detail: TransactionDetailRow }) {
   const markupPercent = (() => {
     const n = Number(detail.markupRate);
     return Number.isNaN(n) ? null : `+${(n * 100).toFixed(4)}%`;
@@ -887,35 +906,6 @@ function DetailBody({
         </Alert>
       )}
 
-      {/* Hero Summary：单号（可复制）+ 状态 + 交易对 + LP（§6.3 详情模板） */}
-      <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
-        <div className="flex flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <CopyableEllipsisText
-              value={detail.txNo || undefined}
-              emptyText="-"
-              maxWidth={280}
-              className="font-mono text-sm font-semibold text-foreground"
-            />
-            <TransactionStatusBadge status={detail.status} />
-          </div>
-          {((detail.sourceCurrency && detail.targetCurrency) || detail.lpName) && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              {detail.sourceCurrency && detail.targetCurrency ? (
-                <span className="inline-flex items-center gap-1">
-                  <Badge variant="outline" className="rounded-full">
-                    {detail.sourceCurrency}
-                  </Badge>
-                  <span className="text-xs">→</span>
-                  <Badge className="rounded-full">{detail.targetCurrency}</Badge>
-                </span>
-              ) : null}
-              {detail.lpName ? <span>LP · {detail.lpName}</span> : null}
-            </div>
-          )}
-        </div>
-      </section>
-
       {/* 状态轨道（源 .rail-block：SETTLEMENT RAIL 置顶 + hairline 分隔） */}
       <section className="space-y-3 border-b pb-5">
         <div className="text-xs font-medium tracking-wide text-muted-foreground">
@@ -929,7 +919,9 @@ function DetailBody({
         <h4 className="mb-3 text-sm font-semibold">Transaction Information</h4>
         <DescGrid cols={2}>
           <DescField label="Principal">
-            <span className="font-mono tabular-nums">{fmtAmount(detail.principal)}</span>
+            <span className="font-mono tabular-nums">
+              {fmtAmount(detail.principal, detail.sourceCurrency || undefined)}
+            </span>
           </DescField>
           <DescField label="Quote Version">
             <span className="font-mono tabular-nums">v{detail.quoteVersion}</span>
@@ -1079,85 +1071,131 @@ function DetailBody({
           </DescField>
         </DescGrid>
       </section>
-
-      {/* 块三：交易链路（单时间轴；events 驱动，stages 不再渲染） */}
-      <section>
-        <h4 className="mb-3 text-sm font-semibold">Transaction Chain</h4>
-        {chainLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-lg" />
-            ))}
-          </div>
-        ) : (
-          <TransactionChainView detail={detail} events={events} />
-        )}
-      </section>
     </div>
   );
 }
 
 /* ================================================================== */
-/* 详情抽屉（源 tx-detail-drawer.vue，720px）                           */
+/* 详情独立页（源 detail.vue：抽屉改路由页，左主右栏 sticky 链路）        */
 /* ================================================================== */
 
-/** 源抽屉尺寸 720px（el-drawer size="720px"）。 */
-const DRAWER_WIDTH_CLASS = 'flex flex-col sm:max-w-[720px]';
-
 /**
- * 交易详情抽屉：detail 与 chain 并行拉取（源 loadAll Promise.all）。
- * 链路供单时间轴（events 驱动；stages 随 API 返回但不再渲染）。
+ * 交易详情独立页：detail 与 chain 并行拉取（源 loadAll Promise.all）。
+ * id 取自 query（Number()；缺失/非法 → Missing transaction ID + Back）。
+ * 布局照源 detail.vue：顶部 Back to list + 页头（单号+状态），
+ * 宽屏（≥1280px）左主栏 + 右 400px sticky 链路时间轴，窄屏单列。
  */
-function TxDetailDrawer({
-  txId,
-  open,
-  onOpenChange,
-}: {
-  txId: number;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+export function TxDetailPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawId = searchParams.get('id');
+  const txId = Number(rawId);
+  const hasId = rawId !== null && rawId !== '' && Number.isInteger(txId) && txId > 0;
+
+  // hasId 为假时传 undefined：query 层 enabled 门禁不发起请求。
   const { data: detail, isLoading: detailLoading } = useTransactionDetailQuery(
     KISSEN_PROJECT_ID,
-    txId,
+    hasId ? txId : undefined,
   );
   const { data: chain, isLoading: chainLoading } = useTransactionChainQuery(
     KISSEN_PROJECT_ID,
-    txId,
+    hasId ? txId : undefined,
   );
 
+  const backToList = React.useCallback(() => router.push(TX_LIST_PATH), [router]);
+
+  if (!hasId) {
+    return (
+      <div className="rounded-lg border border-border/60 bg-card p-6">
+        <p className="text-sm text-muted-foreground">Missing transaction ID</p>
+        <Button variant="outline" className="mt-4" onClick={backToList}>
+          Back
+        </Button>
+      </div>
+    );
+  }
+
+  const loading = detailLoading && !detail;
+
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className={DRAWER_WIDTH_CLASS}>
-        <DrawerHeader>
-          <DrawerTitle>Transaction Details</DrawerTitle>
-          <DrawerDescription>
-            {detail
-              ? `Transaction No. ${detail.txNo || `#${txId}`}`
-              : `Transaction #${txId}`}
-          </DrawerDescription>
-        </DrawerHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto pb-4">
-          {detailLoading && !detail ? (
-            <div className="space-y-2">
-              <Skeleton className="h-16 w-full rounded-lg" />
-              <Skeleton className="h-40 w-full rounded-lg" />
-              <Skeleton className="h-40 w-full rounded-lg" />
-            </div>
-          ) : detail ? (
-            <DetailBody
-              detail={detail}
-              events={chain?.events ?? []}
-              chainLoading={chainLoading && !chain}
+    <div className="space-y-4">
+      {/* 顶部返回列表（源 back-btn：文字小按钮 + 左箭头） */}
+      <Button
+        variant="link"
+        className="h-auto self-start p-0 text-muted-foreground"
+        onClick={backToList}
+      >
+        <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+        Back to list
+      </Button>
+
+      {/* 页头：单号（等宽可复制）+ 状态 + 交易对/LP 元信息（原 Hero 上移） */}
+      {loading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-56" />
+          <Skeleton className="h-4 w-40" />
+        </div>
+      ) : detail ? (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <CopyableEllipsisText
+              value={detail.txNo || undefined}
+              emptyText={`#${txId}`}
+              maxWidth={320}
+              className="font-mono text-base font-semibold text-foreground"
             />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No transaction detail data.
-            </p>
+            <TransactionStatusBadge status={detail.status} />
+          </div>
+          {((detail.sourceCurrency && detail.targetCurrency) || detail.lpName) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              {detail.sourceCurrency && detail.targetCurrency ? (
+                <span className="inline-flex items-center gap-1">
+                  <Badge variant="outline" className="rounded-full">
+                    {detail.sourceCurrency}
+                  </Badge>
+                  <span className="text-xs">→</span>
+                  <Badge className="rounded-full">{detail.targetCurrency}</Badge>
+                </span>
+              ) : null}
+              {detail.lpName ? <span>LP · {detail.lpName}</span> : null}
+            </div>
           )}
         </div>
-      </DrawerContent>
-    </Drawer>
+      ) : (
+        <p className="text-sm text-muted-foreground">No transaction detail data.</p>
+      )}
+
+      {/* 两栏（源 detail-grid）：左主 detail-left，右 400px sticky detail-right */}
+      {loading ? (
+        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="space-y-2">
+            <Skeleton className="h-16 w-full rounded-lg" />
+            <Skeleton className="h-40 w-full rounded-lg" />
+            <Skeleton className="h-40 w-full rounded-lg" />
+          </div>
+          <Skeleton className="h-96 w-full rounded-lg" />
+        </div>
+      ) : detail ? (
+        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="min-w-0">
+            <DetailBody detail={detail} />
+          </div>
+          <aside className="rounded-lg border border-border/60 bg-card px-4 py-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-120px)] xl:overflow-y-auto">
+            {/* 交易链路（单时间轴；events 驱动，stages 不再渲染） */}
+            <h4 className="mb-3 text-sm font-semibold">Transaction Chain</h4>
+            {chainLoading && !chain ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              <TransactionChainView detail={detail} events={chain?.events ?? []} />
+            )}
+          </aside>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -1173,7 +1211,6 @@ interface TxFilterForm {
   sourceBankId: string;
   targetBankId: string;
   createTimeStart: string;
-  createTimeEnd: string;
 }
 
 function defaultFilterForm(): TxFilterForm {
@@ -1185,7 +1222,6 @@ function defaultFilterForm(): TxFilterForm {
     sourceBankId: OPT_ALL,
     targetBankId: OPT_ALL,
     createTimeStart: '',
-    createTimeEnd: '',
   };
 }
 
@@ -1209,7 +1245,6 @@ function filterFormFromSearchParams(searchParams: {
     form.lpId = lpId;
   }
   form.createTimeStart = toDateTimeLocalInput(searchParams.get('createTimeStart'));
-  form.createTimeEnd = toDateTimeLocalInput(searchParams.get('createTimeEnd'));
   return form;
 }
 
@@ -1227,16 +1262,13 @@ function formToFilter(form: TxFilterForm): TransactionPageFilter {
     const ms = toEpochMs(form.createTimeStart);
     if (ms) f.createTimeStart = ms;
   }
-  if (form.createTimeEnd) {
-    const ms = toEpochMs(form.createTimeEnd);
-    if (ms) f.createTimeEnd = ms;
-  }
   return f;
 }
 
 const PAGE_SIZE_DEFAULT = 10;
 
 function TransactionListCore() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialFilterForm = React.useMemo(
     () => filterFormFromSearchParams(searchParams),
@@ -1254,7 +1286,6 @@ function TransactionListCore() {
   const [showMore, setShowMore] = React.useState(false);
   const [resolveRow, setResolveRow] = React.useState<TransactionRow | null>(null);
   const [resolveOpen, setResolveOpen] = React.useState(false);
-  const [drawerTxId, setDrawerTxId] = React.useState<number | null>(null);
 
   const { data, isLoading, isError, dataUpdatedAt } = useTransactionListQuery(KISSEN_PROJECT_ID, {
     pageNum,
@@ -1282,9 +1313,13 @@ function TransactionListCore() {
     setPageNum(1);
   }, [reset]);
 
-  const onView = React.useCallback((row: TransactionRow) => {
-    setDrawerTxId(row.transactionId);
-  }, []);
+  const onView = React.useCallback(
+    (row: TransactionRow) => {
+      // 源 openDetail：View 改路由跳转详情独立页（不再开抽屉）。
+      router.push(`${TX_LIST_PATH}/detail?id=${row.transactionId}`);
+    },
+    [router],
+  );
 
   const openResolve = React.useCallback((row: TransactionRow) => {
     setResolveRow(row);
@@ -1298,9 +1333,15 @@ function TransactionListCore() {
       {
         id: 'txNo',
         header: 'Transaction No.',
-        cell: ({ row }) => (
-          <span className="font-mono">{row.original.txNo || '-'}</span>
-        ),
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <div className="flex items-center gap-1">
+              <span className="font-mono">{r.txNo || '-'}</span>
+              {r.txNo ? <CopyCellIcon value={r.txNo} /> : null}
+            </div>
+          );
+        },
       },
       {
         id: 'tokens',
@@ -1323,36 +1364,48 @@ function TransactionListCore() {
       {
         id: 'from',
         header: 'From (Wallet / Amount)',
-        cell: ({ row }) => (
-          <div className="flex min-w-0 flex-col leading-snug">
-            <span
-              className="max-w-[190px] truncate font-mono"
-              title={row.original.senderAccount}
-            >
-              {row.original.senderAccount || '-'}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {fmtAmount(row.original.userDeduction)}
-            </span>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <div className="flex min-w-0 flex-col leading-snug">
+              <div className="flex min-w-0 items-center gap-1">
+                <span
+                  className="max-w-[190px] truncate font-mono"
+                  title={r.senderAccount}
+                >
+                  {r.senderAccount || '-'}
+                </span>
+                {r.senderAccount ? <CopyCellIcon value={r.senderAccount} /> : null}
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {fmtAmount(r.userDeduction, r.sourceCurrency || undefined)}
+              </span>
+            </div>
+          );
+        },
       },
       {
         id: 'to',
         header: 'To (Wallet / Amount)',
-        cell: ({ row }) => (
-          <div className="flex min-w-0 flex-col leading-snug">
-            <span
-              className="max-w-[190px] truncate font-mono"
-              title={row.original.receiverAccount}
-            >
-              {row.original.receiverAccount || '-'}
-            </span>
-            <span className="text-xs font-semibold text-[var(--ks-clearing,#0b6b53)]">
-              {fmtAmount(row.original.receiverAmount)}
-            </span>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <div className="flex min-w-0 flex-col leading-snug">
+              <div className="flex min-w-0 items-center gap-1">
+                <span
+                  className="max-w-[190px] truncate font-mono"
+                  title={r.receiverAccount}
+                >
+                  {r.receiverAccount || '-'}
+                </span>
+                {r.receiverAccount ? <CopyCellIcon value={r.receiverAccount} /> : null}
+              </div>
+              <span className="text-xs font-semibold text-[var(--ks-clearing,#0b6b53)]">
+                {fmtAmount(r.receiverAmount, r.targetCurrency || undefined)}
+              </span>
+            </div>
+          );
+        },
       },
       {
         id: 'userRate',
@@ -1384,15 +1437,6 @@ function TransactionListCore() {
         header: 'Creation Time',
         cell: ({ row }) => (
           <span className="tabular-nums">{formatTime(row.original.createTime)}</span>
-        ),
-      },
-      {
-        id: 'completedTime',
-        header: 'Completion Time',
-        cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatTime(row.original.completedTime)}
-          </span>
         ),
       },
       createActionColumn<TransactionRow & { id: string }>((item) => {
@@ -1455,12 +1499,6 @@ function TransactionListCore() {
 
   return (
     <div className="space-y-4">
-      {/* 页头（源 page-head：eyebrow + 标题） */}
-      <div>
-        <div className="text-xs text-muted-foreground">FX</div>
-        <h1 className="text-xl font-semibold">FX Transactions</h1>
-      </div>
-
       <section className="rounded-lg border border-border/60 bg-card">
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -1508,21 +1546,15 @@ function TransactionListCore() {
             <FilterableFormSelect
               name="pairId"
               control={control}
-              label="Currency Pair"
+              label="Tokens"
               options={pairSelectOptions}
               placeholder="All"
             />
             <FormField
               name="createTimeStart"
-              label="Creation Start Time"
+              label="Creation Time"
               type="datetime-local"
               register={register('createTimeStart')}
-            />
-            <FormField
-              name="createTimeEnd"
-              label="Creation End Time"
-              type="datetime-local"
-              register={register('createTimeEnd')}
             />
             <div className="flex flex-wrap items-end gap-2">
               <Button type="submit">Search</Button>
@@ -1592,16 +1624,6 @@ function TransactionListCore() {
           )}
         </div>
       </section>
-
-      {drawerTxId != null && (
-        <TxDetailDrawer
-          txId={drawerTxId}
-          open
-          onOpenChange={(o) => {
-            if (!o) setDrawerTxId(null);
-          }}
-        />
-      )}
 
       <ResolveDialog
         row={resolveRow}

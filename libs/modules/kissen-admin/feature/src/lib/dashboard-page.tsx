@@ -16,6 +16,7 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
@@ -65,7 +66,8 @@ interface WorkbenchTxRow {
 interface WorkbenchBankRow {
   bankId: number;
   bankName: string;
-  bankCode: string;
+  /** 银行编码（BIC；v2.0 字段名 bankBic，随上游模型更名） */
+  bankBic: string;
   /** 联系人（v2.0 银行行展示字段，替代 v1.x 的币种/限额组） */
   contactName: string;
   /** 20 入网生效（客户端过滤口径） */
@@ -81,6 +83,8 @@ interface WorkbenchPoolRow {
   accountAddress?: string;
   /** 池维度 token code（v2.0 资金池为 token 维度，不再有 currency） */
   tokenCode: string;
+  /** token 符号（余额展示追加，如 1.01 CF7） */
+  tokenSymbol: string;
   /** 最低流动性（水位分母，token 维度） */
   minLiquidity: string | number;
   /** 补资提醒阈值（水位低于此比例即告急） */
@@ -131,21 +135,21 @@ function formatMoney(v: number | string): string {
   return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
 }
 
-/** 毫秒时间戳 → YYYY-MM-DD HH:mm:ss（手写，不引 dayjs）。 */
+/** 毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`。 */
 function formatTime(ms: number | null | undefined): string {
   if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '-';
   const d = new Date(Number(ms));
-  if (Number.isNaN(d.getTime())) return '-';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return Number.isNaN(d.getTime()) ? '-' : formatAdminDateTime(d);
 }
 
-/** 时间戳 → 适合异常队列表格的相对时长。 */
-function formatAge(ms: number): string {
-  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - ms) / 60000));
-  if (elapsedMinutes < 60) return `${elapsedMinutes}m`;
-  const hours = Math.floor(elapsedMinutes / 60);
-  return `${hours}h ${elapsedMinutes % 60}m`;
+/** 异常持续时长：now - createTime → "8m" / "5h 12m" / "2d 3h"（无创建时间占位 -）。 */
+function formatAge(createTime: number): string {
+  if (!createTime) return '-';
+  const mins = Math.max(0, Math.floor((Date.now() - createTime) / 60000));
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ${mins % 60}m`;
+  return `${Math.floor(hours / 24)}d ${hours % 24}h`;
 }
 
 /** 地址保留首尾片段，避免破坏参考布局的表格密度。 */
@@ -171,20 +175,31 @@ function pairText(row: WorkbenchTxRow): string {
 
 // ---- 资金池水位（移植自 workbench index.vue） ----
 
-/** 水位 = 可用余额 / 最低流动性（minLiquidity）；低于补资提醒阈值即告急（lp_pool FR-L-03 口径）。 */
+/** 水位分子：可用余额与可用授权取小（未设置预授权时余额即分子，2026-09-08 口径）。 */
+function poolNumerator(pool: WorkbenchPoolRow): number {
+  const balance = Number(pool.availableBalanceCache);
+  const avail =
+    pool.preauthAvailable == null ? null : Number(pool.preauthAvailable);
+  return avail != null &&
+    !Number.isNaN(avail) &&
+    avail >= 0 &&
+    avail < balance
+    ? avail
+    : balance;
+}
+
+/** 水位 = min(可用授权, 可用余额) / 最低流动性（minLiquidity）；低于补资提醒阈值即告急（lp_pool FR-L-03 口径）。 */
 function isPoolCritical(pool: WorkbenchPoolRow): boolean {
   const min = Number(pool.minLiquidity);
   if (!(min > 0)) return false; // 分母无效无法判断水位，按正常展示
-  return (
-    Number(pool.availableBalanceCache) / min < Number(pool.remindThreshold)
-  );
+  return poolNumerator(pool) / min < Number(pool.remindThreshold);
 }
 
-/** 水位条宽度百分比（封顶 100，不低于 0 以免出现非法宽度）。 */
+/** 水位条宽度百分比（水位 = min(可用授权, 可用余额) / 最低限额，与告急同口径；封顶 100，不低于 0 以免出现非法宽度）。 */
 function poolBarWidth(pool: WorkbenchPoolRow): number {
   const min = Number(pool.minLiquidity);
   if (!(min > 0)) return 0;
-  const ratio = Number(pool.availableBalanceCache) / min;
+  const ratio = poolNumerator(pool) / min;
   return Math.max(0, Math.floor(Math.min(100, ratio * 100)));
 }
 
@@ -497,13 +512,13 @@ function NetworkStat({
 function PoolLevel({ pool }: { pool: WorkbenchPoolRow }) {
   const critical = isPoolCritical(pool);
   const minLiquidity = Number(pool.minLiquidity);
-  const availableBalance = Number(pool.availableBalanceCache);
+  const numerator = poolNumerator(pool);
   const hasCalculation =
-    Number.isFinite(availableBalance) &&
+    Number.isFinite(numerator) &&
     Number.isFinite(minLiquidity) &&
     minLiquidity > 0;
   const percentage = hasCalculation
-    ? Math.round((availableBalance / minLiquidity) * 100)
+    ? Math.round((numerator / minLiquidity) * 100)
     : null;
   const alertThreshold = Number(pool.remindThreshold);
   const alertThresholdText = Number.isFinite(alertThreshold)
@@ -539,7 +554,7 @@ function PoolLevel({ pool }: { pool: WorkbenchPoolRow }) {
       <TooltipContent className="text-xs">
         {hasCalculation ? (
           <div>
-            {formatMoney(availableBalance.toFixed(2))} ÷{' '}
+            {formatMoney(numerator.toFixed(2))} ÷{' '}
             {formatMoney(minLiquidity.toFixed(2))} = {percentage}%
           </div>
         ) : (
@@ -569,7 +584,7 @@ function PoolOverview({
   return (
     <Card className="h-full rounded-[10px] p-5">
       <PanelHeading
-        title="Pool Overview"
+        title="Liquidity Pool Overview"
         action={`All pools ${pools.length} →`}
         onAction={onViewAll}
       />
@@ -617,7 +632,8 @@ function PoolOverview({
                           </TooltipTrigger>
                           <TooltipContent className="text-xs">
                             <div>
-                              Pool Level = Available Balance ÷ Min. Liquidity
+                              Pool Level = min(Available Pre-Authorized,
+                              Available Balance) ÷ Min. Liquidity
                             </div>
                             <div>Alert threshold: 20%</div>
                           </TooltipContent>
@@ -658,6 +674,7 @@ function PoolOverview({
                     </td>
                     <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
                       {formatMoney(pool.availableBalanceCache)}
+                      {pool.tokenSymbol ? ` ${pool.tokenSymbol}` : null}
                     </td>
                     <td className="border-b border-border px-3 py-2.5">
                       <PoolLevel pool={pool} />
@@ -1115,24 +1132,30 @@ export function DashboardPage() {
               />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[720px] border-collapse">
+                <table className="w-full min-w-[820px] border-collapse">
                   <thead>
                     <tr>
-                      {[
-                        'Transaction No.',
-                        'Token Pair',
-                        'Amount',
-                        'Status',
-                        'Created on',
-                        'Actions',
-                      ].map((heading) => (
-                        <th
-                          key={heading}
-                          className="whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground first:pl-0 last:pr-0"
-                        >
-                          {heading}
-                        </th>
-                      ))}
+                    {[
+                      'Transaction No.',
+                      'Token Pair',
+                      'Amount',
+                      'Status',
+                      'Created on',
+                      'Age',
+                      'Actions',
+                    ].map((heading, index) => (
+                      <th
+                        key={heading}
+                        className={cn(
+                          'whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground first:pl-0 last:pr-0',
+                          index === 4 && 'w-[155px]',
+                          index === 5 && 'w-[72px]',
+                          index === 6 && 'w-[64px]',
+                        )}
+                      >
+                        {heading}
+                      </th>
+                    ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -1175,13 +1198,15 @@ export function DashboardPage() {
                                 Exception
                               </Badge>
                               <span className="text-xs text-muted-foreground">
-                                {TX_STATUS_MAP[row.status] ?? 'Exception'} ·{' '}
-                                {formatAge(Date.now() - row.createTime)}
+                                {TX_STATUS_MAP[row.status] ?? 'Exception'}
                               </span>
                             </div>
                           </td>
                           <td className="whitespace-nowrap border-b border-border px-3 py-3 text-sm text-muted-foreground">
                             {formatTime(row.createTime)}
+                          </td>
+                          <td className="whitespace-nowrap border-b border-border px-3 py-3 text-sm tabular-nums text-muted-foreground">
+                            {formatAge(row.createTime)}
                           </td>
                           <td className="border-b border-border px-3 py-3 text-right last:pr-0">
                             <Button

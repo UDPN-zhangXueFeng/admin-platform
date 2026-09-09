@@ -4,8 +4,8 @@
  * LP / 流动性业务组页面（源 `kissen-admin-frontend/src/views/onboard/{lp,lp-pair}` +
  * `views/liquidity/pool`；v2.0 token 化全量同步）。
  *
- * 注册页（module-page-registry 契约，仅 5 个导出）：
- *  - lp-info: LpInfoListPage / LpInfoFormPage / LpInfoDetailPage
+ * 注册页（module-page-registry 契约，仅 4 个导出）：
+ *  - lp-info: LpInfoListPage / LpInfoFormPage（v2.1 查看态退役，Detail 页已删）
  *  - lp-pair: LpTokenPairListPage
  *  - pool:    LpPoolListPage
  * v2.0 变更（对照上游 tokenization）：
@@ -14,6 +14,14 @@
  *  - lp-pair 端点切换 /manage/lp-token-pair/*；页面仅 查看/设置分成/停用/恢复草稿。
  *  - pool 页为纯监控视图（水位条 + 预授权快照），零行操作。
  *  - lp-preauth / lp-topup / lp-currency-pair 页面已删除（域内 API 层保留）。
+ * v2.1 增量（对照上游 bb9c607d..3c4cfbb，2026-09-08/09）：
+ *  - lp 列表：登记 LP 按钮 / Draft 筛选项 / View 退役；门户账号弹窗重发邀请
+ *    （新一次性链接 72h 有效，旧链接作废）。
+ *  - lp-pair：查看弹窗退役；notApproved Tab 改 Status 筛选（单一列表）；池地址
+ *    行默认首6…尾4、点击展开/复制；分成列无覆盖时回落 defaultSplitRatio 展示。
+ *  - pool：出款 Disbursement tag 并入池地址列；金额列追加 tokenSymbol；水位分子 =
+ *    min(可用授权, 可用余额) + 授权瓶颈可视化（Insufficient Auth / Insufficient
+ *    Balance / Auth Limited，瓶颈条琥珀）。
  * 迁移决策（CONVENTIONS）：
  *  - 确认流一律 shared AlertDialog（禁 window.confirm）；错误 toast 唯一出口
  *    sonner（useToast），onError 透出后端 message（对齐源拦截器统一提示）。
@@ -24,7 +32,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft, Copy, Info, TriangleAlert } from 'lucide-react';
+import { Copy, Info, TriangleAlert } from 'lucide-react';
 
 import {
   Alert,
@@ -40,7 +48,6 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
-  CopyableEllipsisText,
   createActionColumn,
   type TableRowAction,
   DataTable,
@@ -50,14 +57,11 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  RadioGroup,
-  RadioGroupItem,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -92,10 +96,12 @@ import {
   useLpPairTokenPairOptionsQuery,
   useLpPoolListQuery,
   usePortalAccountQuery,
+  usePortalAccountResendInviteMutation,
   usePortalAccountResetMutation,
   useSaveLpMutation,
   useSetLpPairSplitMutation,
   useSubmitLpOnboardMutation,
+  useTokenListQuery,
   useUpdateLpPairStatusMutation,
 } from '@myorg/modules/kissen-admin/data-access';
 
@@ -115,21 +121,15 @@ const LP_BASE = '/lp-liquidity';
 const LBL = {
   query: 'Search',
   reset: 'Reset',
-
   loading: 'Loading...',
-  add: 'Add',
-  view: 'View',
   edit: 'Edit',
   cancel: 'Cancel',
   save: 'Save',
   saving: 'Saving...',
-  back: 'Back',
-  invalidParam: 'Invalid parameter: missing id',
-  notFound: 'No matching record found',
   all: 'All',
 } as const;
 
-/** 路由拼装：module + 可选 action(create/edit/detail) + 可选 id。 */
+/** 路由拼装：module + 可选 action(create/edit) + 可选 id。 */
 function lpRoute(module: string, action?: string, id?: number): string {
   if (!action) return `${LP_BASE}/${module}`;
   const qs = id != null ? `?id=${id}` : '';
@@ -203,7 +203,7 @@ function StatusBadge({
   );
 }
 
-/** 详情页只读字段。 */
+/** 只读字段（label + 值；弹窗回显用）。 */
 function ReadonlyField({
   label,
   value,
@@ -221,48 +221,8 @@ function ReadonlyField({
   );
 }
 
-/** 详情页外壳：返回 + 标题 + 内容卡。 */
-function DetailShell({
-  title,
-  onBack,
-  children,
-}: {
-  title: string;
-  onBack: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          {LBL.back}
-        </Button>
-        <h2 className="text-lg font-semibold">{title}</h2>
-      </div>
-      <section className="rounded-lg border border-border/60 bg-card p-4 sm:p-6">
-        {children}
-      </section>
-    </div>
-  );
-}
-
 function LoadingBlock() {
   return <div className="py-10 text-center text-sm text-muted-foreground">{LBL.loading}</div>;
-}
-
-function NotFoundBlock({ onBack }: { onBack: () => void }) {
-  return (
-    <div className="space-y-4">
-      <Button variant="ghost" size="sm" onClick={onBack}>
-        <ArrowLeft className="mr-1 h-4 w-4" />
-        {LBL.back}
-      </Button>
-      <div className="py-10 text-center text-sm text-muted-foreground">
-        {LBL.notFound}
-      </div>
-    </div>
-  );
 }
 
 /** 确认请求（源 window.confirm 语义的 AlertDialog 化）。 */
@@ -357,6 +317,15 @@ interface LpInfoFilter {
 }
 const LP_INFO_EMPTY: LpInfoFilter = { lpName: '', lpCode: '', status: '' };
 
+/**
+ * 状态筛选选项 label（源 2026-09-09：status=1 选项「草稿」；列 badge 仍用
+ * LP_STATUS_LABEL 的「Draft」，与源筛选硬编码/列 COMMON_STATUS_MAP 分置一致）。
+ */
+const LP_INFO_FILTER_STATUS_LABEL: Record<number, string> = {
+  ...LP_STATUS_LABEL,
+  1: 'Draft',
+};
+
 interface LpInfoParams {
   pageNum: number;
   lpName?: string;
@@ -377,12 +346,15 @@ interface PortalAccountTarget {
   lpId: number;
   lpCode: string;
   lpName: string;
+  /** 重发邀请确认文案回显用（源 props.row.contactEmail）。 */
+  contactEmail?: string;
 }
 
 /**
  * LP 门户账号弹窗（源 onboard/lp/portal-account-dialog.vue）。
- * 打开即查状态；未开通（KLO 审批未通过）时禁用重置；
- * 重置返回的一次性口令仅本次展示，提供 Copy。
+ * 打开即查状态；未开通（KLO 审批未通过）时禁用重置/重发；
+ * 重发邀请（确认后新链接 72h 有效、旧链接作废）；重置返回的
+ * 一次性口令仅本次展示，提供 Copy。
  */
 function PortalAccountDialog({
   target,
@@ -392,12 +364,14 @@ function PortalAccountDialog({
   onClose: () => void;
 }) {
   const toast = useToast();
+  const [resendConfirmOpen, setResendConfirmOpen] = React.useState(false);
   const { data: account, isLoading } = usePortalAccountQuery(
     PROJECT_ID,
     target.lpId,
     true,
   );
   const resetMutation = usePortalAccountResetMutation(PROJECT_ID);
+  const resendMutation = usePortalAccountResendInviteMutation(PROJECT_ID);
   const resetResult = resetMutation.data;
 
   const onReset = React.useCallback(() => {
@@ -405,6 +379,17 @@ function PortalAccountDialog({
       onError: (e) => toast.error((e as Error).message),
     });
   }, [resetMutation, target.lpId, toast]);
+
+  /** 重发邀请（源 onResend：确认后新链接签发，旧待用链接立即作废）。 */
+  const confirmResendInvite = React.useCallback(() => {
+    resendMutation.mutate(target.lpId, {
+      onSuccess: (r) => {
+        toast.success(`Invitation email sent to ${r.email}`);
+        setResendConfirmOpen(false);
+      },
+      onError: (e) => toast.error((e as Error).message),
+    });
+  }, [resendMutation, target.lpId, toast]);
 
   const onCopy = React.useCallback(() => {
     if (!resetResult) return;
@@ -415,6 +400,7 @@ function PortalAccountDialog({
   }, [resetResult, toast]);
 
   return (
+    <>
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
@@ -429,9 +415,10 @@ function PortalAccountDialog({
               <AlertTitle>First portal admin</AlertTitle>
               <AlertDescription>
                 Provisioned automatically once the KLO onboarding approval
-                passes (login name = {target.lpCode}_admin). The initial
-                password is recorded in the approval record detail; use this
-                dialog to check provisioning and reset a lost password.
+                passes; an invitation email with a one-time link (valid for
+                72 hours to set the password) is sent to the LP contact
+                email. Use this dialog to check the status, resend the
+                invitation, or reset the initial password.
               </AlertDescription>
             </Alert>
 
@@ -490,7 +477,15 @@ function PortalAccountDialog({
                 </p>
               </div>
             ) : (
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setResendConfirmOpen(true)}
+                  disabled={!account?.provisioned || resendMutation.isPending}
+                >
+                  {resendMutation.isPending ? 'Resending…' : 'Resend Invite'}
+                </Button>
                 <Button
                   type="button"
                   onClick={onReset}
@@ -504,6 +499,22 @@ function PortalAccountDialog({
         )}
       </DialogContent>
     </Dialog>
+      <ConfirmDialog
+        request={
+          resendConfirmOpen
+            ? {
+                title: 'Resend Invite',
+                description: `Generate a new invitation link and resend the email to ${
+                  target.contactEmail || 'the LP contact email'
+                }? The previous link becomes invalid immediately; the new link is valid for 72 hours.`,
+                actionLabel: 'Resend',
+                onConfirm: confirmResendInvite,
+              }
+            : null
+        }
+        onDismiss={() => setResendConfirmOpen(false)}
+      />
+    </>
   );
 }
 
@@ -585,7 +596,7 @@ export function LpInfoListPage() {
       { accessorKey: 'lpCode', header: 'LP Code' },
       {
         accessorKey: 'settleCycle',
-        header: 'Settle Cycle',
+        header: 'Settlement Cycle',
         cell: ({ row }) => (
           <span>{SETTLE_CYCLE_MAP[row.original.settleCycle] ?? '--'}</span>
         ),
@@ -611,7 +622,7 @@ export function LpInfoListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Created At',
+        header: 'Created On',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatDateTime(row.original.createTime)}
@@ -623,12 +634,8 @@ export function LpInfoListPage() {
         const editable = s === 1 || s === 15;
         // status=20 的 Edit 为禁用态（已审批 LP 页面不可改）；源按钮的
         // title 提示无 TableRowAction 对应字段，随迁移移除（沿 wave-1 裁决）。
-        const actions: TableRowAction<LpRow & { id: string }>[] = [
-          {
-            label: LBL.view,
-            onClick: () => router.push(lpRoute('lp-info', 'detail', item.lpId)),
-          },
-        ];
+        // View 操作已随上游 v2.1 退役（详情态删除）。
+        const actions: TableRowAction<LpRow & { id: string }>[] = [];
         if (editable || s === 20) {
           actions.push({
             label: LBL.edit,
@@ -658,6 +665,7 @@ export function LpInfoListPage() {
                   lpId: item.lpId,
                   lpCode: item.lpCode,
                   lpName: item.lpName,
+                  contactEmail: item.contactEmail,
                 }),
             },
             {
@@ -710,7 +718,7 @@ export function LpInfoListPage() {
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
             <div className="text-base font-semibold leading-6 text-foreground">
-              LPs
+              Liquidity Providers
             </div>
             {!isLoading && pagination ? (
               <span className="text-sm text-muted-foreground tabular-nums">
@@ -728,7 +736,7 @@ export function LpInfoListPage() {
             size="sm"
             onClick={() => router.push(lpRoute('lp-info', 'create'))}
           >
-            {LBL.add}
+            Register LP
           </Button>
         </div>
         <form
@@ -743,7 +751,10 @@ export function LpInfoListPage() {
               control={control}
               label="Status"
               placeholder={LBL.all}
-              options={statusFilterOptions(LP_STATUS_LABEL, [1, 5, 10, 15, 20, 50])}
+              options={statusFilterOptions(
+                LP_INFO_FILTER_STATUS_LABEL,
+                [1, 5, 10, 15, 20, 50],
+              )}
             />
             <div className="flex items-end gap-2">
               <Button type="submit">{LBL.query}</Button>
@@ -972,68 +983,6 @@ export function LpInfoFormPage() {
   );
 }
 
-export function LpInfoDetailPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const lpId = parseId(searchParams.get('id'));
-  const { data: detail, isLoading } = useLpDetailQuery(PROJECT_ID, lpId);
-
-  if (!lpId) {
-    return (
-      <div className="py-10 text-center text-sm text-muted-foreground">
-        {LBL.invalidParam}
-      </div>
-    );
-  }
-  if (isLoading) return <LoadingBlock />;
-  if (!detail) return <NotFoundBlock onBack={() => router.push(lpRoute('lp-info'))} />;
-
-  return (
-    <DetailShell title="LP Details" onBack={() => router.push(lpRoute('lp-info'))}>
-      {/* Hero Summary：LP 名 + 状态 + 编码（可复制）+ 创建时间（§6.3） */}
-      <div className="flex flex-col gap-1.5 border-b border-border/50 pb-4">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-base font-semibold leading-6 text-foreground">
-            {detail.lpName || '--'}
-          </span>
-          <StatusBadge
-            status={detail.status}
-            labelMap={LP_STATUS_LABEL}
-            variantMap={LP_STATUS_VARIANT}
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-          <CopyableEllipsisText
-            value={detail.lpCode}
-            emptyText="--"
-            maxWidth={200}
-            className="font-mono"
-          />
-          <span className="tabular-nums">
-            Created {formatDateTime(detail.createTime)}
-          </span>
-        </div>
-      </div>
-
-      {/* 正文：结算参数（核心）+ 联系信息（运营）；长文本单独占行，§6.3 */}
-      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <ReadonlyField
-          label="Settle Cycle"
-          value={SETTLE_CYCLE_MAP[detail.settleCycle] ?? '--'}
-        />
-        <ReadonlyField label="Contact Name" value={detail.contactName} />
-        <ReadonlyField label="Contact Email" value={detail.contactEmail} />
-        <div className="sm:col-span-2 lg:col-span-3">
-          <ReadonlyField label="Address" value={detail.address} />
-        </div>
-        <div className="sm:col-span-2 lg:col-span-3">
-          <ReadonlyField label="Risk Assessment" value={detail.riskAssessment} />
-        </div>
-      </div>
-    </DetailShell>
-  );
-}
-
 /* ================================================================== */
 /* lp-pair — LP×Token 对参与关系                                        */
 /* ================================================================== */
@@ -1041,12 +990,13 @@ export function LpInfoDetailPage() {
 /** 分成百分比输入：1-3 位整数 + 至多 4 位小数；允许空（清除覆盖）。 */
 const LP_PAIR_SPLIT_PCT_PATTERN = /^(\d{1,3}(\.\d{1,4})?)?$/;
 
-interface LpPairViewFilter {
+interface LpPairFilter {
   lpId: string;
   pairId: string;
-  tab: 'approved' | 'others';
+  /** v2.1：取代 notApproved Tab 的状态下拉（源 el-select，变更即查）。 */
+  status: string;
 }
-const LP_PAIR_VIEW_EMPTY: LpPairViewFilter = { lpId: '', pairId: '', tab: 'approved' };
+const LP_PAIR_FILTER_EMPTY: LpPairFilter = { lpId: '', pairId: '', status: '' };
 
 /**
  * 用户汇率 = 基础汇率 ÷ (1 + 加价率)（与 FX Rate Management 页/GW 口径一致，前端派生；
@@ -1062,8 +1012,73 @@ function lpPairUserRateText(row: Pick<LpPairRow, 'baseRate' | 'markupRate'>): st
 }
 
 /**
- * LP×Token 对紧凑单元格：token 对多行式（tokens/银行/激活池地址/pairCode，
- * 源 index.vue el-tooltip 展示银行名+pairCode；池地址行收=源侧/付=解付出款，title 显完整地址）。
+ * 分成展示（源 v2.1）：覆盖 splitRatio>0 显覆盖%，否则显 token 对默认
+ * defaultSplitRatio%（不再显「Default」占位；缺省一并返回 '-'）。
+ */
+function lpPairSplitText(
+  row: Pick<LpPairRow, 'splitRatio' | 'defaultSplitRatio'>,
+): string {
+  const own = Number(row.splitRatio);
+  if (own > 0) return `${(own * 100).toFixed(2)}%`;
+  const def = Number(row.defaultSplitRatio);
+  return row.defaultSplitRatio != null && Number.isFinite(def)
+    ? `${(def * 100).toFixed(2)}%`
+    : '-';
+}
+
+/**
+ * 池地址行（源 v2.1）：默认收起显首6…尾4（长度 ≤12 直显），点击地址切换
+ * 展开/收起；复制图标直写剪贴板（两侧地址独立展开，toast 与既有 onCopy 一致）。
+ */
+function LpPairPoolAddressLine({
+  label,
+  address,
+  title,
+}: {
+  label: string;
+  address: string;
+  title: string;
+}) {
+  const toast = useToast();
+  const [expanded, setExpanded] = React.useState(false);
+  const text =
+    expanded || address.length <= 12
+      ? address
+      : `${address.slice(0, 6)}…${address.slice(-4)}`;
+  const onCopy = React.useCallback(() => {
+    navigator.clipboard
+      .writeText(address)
+      .then(() => toast.success('Copied'))
+      .catch(() => toast.warning('Copy failed; select and copy manually'));
+  }, [address, toast]);
+  return (
+    <div
+      className="flex items-center gap-1 font-mono text-xs text-muted-foreground"
+      title={title}
+    >
+      <span className="shrink-0">{label}</span>
+      <button
+        type="button"
+        className="cursor-pointer break-all text-left hover:text-primary"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {text}
+      </button>
+      <button
+        type="button"
+        aria-label="Copy address"
+        className="shrink-0 cursor-pointer hover:text-primary"
+        onClick={onCopy}
+      >
+        <Copy className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * LP×Token 对紧凑单元格：token 对多行式（tokens/银行/激活池地址；
+ * 源 v2.1 移除 pairCode 副行，池地址行可展开/复制，title 显完整地址）。
  */
 function LpPairCell({ row }: { row: LpPairTableRow }) {
   return (
@@ -1075,24 +1090,19 @@ function LpPairCell({ row }: { row: LpPairTableRow }) {
         {row.sourceBankName || '--'} → {row.targetBankName || '--'}
       </div>
       {row.sourcePoolAddress ? (
-        <div
-          className="truncate font-mono text-xs text-muted-foreground"
-          title={`Recv ${row.sourcePoolAddress} — source-side active pool (receiving address)`}
-        >
-          Recv {row.sourcePoolAddress}
-        </div>
+        <LpPairPoolAddressLine
+          label="Recv"
+          address={row.sourcePoolAddress}
+          title={`Recv ${row.sourcePoolAddress} — source-side active pool (receiving address); click the address to expand or collapse`}
+        />
       ) : null}
       {row.targetPoolAddress ? (
-        <div
-          className="truncate font-mono text-xs text-muted-foreground"
-          title={`Pay ${row.targetPoolAddress} — target-side active pool (payout address)`}
-        >
-          Pay {row.targetPoolAddress}
-        </div>
+        <LpPairPoolAddressLine
+          label="Pay"
+          address={row.targetPoolAddress}
+          title={`Pay ${row.targetPoolAddress} — target-side active pool (payout address); click the address to expand or collapse`}
+        />
       ) : null}
-      <div className="font-mono text-xs text-muted-foreground">
-        {row.pairCode || '--'}
-      </div>
     </div>
   );
 }
@@ -1138,15 +1148,15 @@ function LpPairSplitDialog({
     <Dialog open onOpenChange={(open) => !open && onClosed()}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Change LP Split</DialogTitle>
+          <DialogTitle>Set LP Split</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Change the LP share of the markup override for {row.lpName}{' '}
-            {row.sourceCurrency}/{row.targetCurrency}. Leave empty or 0 to clear
-            the override and fall back to the token pair default split. The
-            change enters approval (KLS); the current value stays effective
-            until it is approved.
+            Set the LP share of the markup override for {row.lpName} ·{' '}
+            {row.sourceCurrency}/{row.targetCurrency}. Leave empty or enter 0
+            to clear the override and fall back to the token pair default
+            split. The change requires approval; The current value remains
+            effective until approved.
           </p>
           <FormField
             name="lpPairSplitPercent"
@@ -1174,69 +1184,15 @@ function LpPairSplitDialog({
   );
 }
 
-/** 查看弹窗（props.row 直读，lp-pair 无 detail 接口——源查看即弹窗回显）。 */
-function LpPairViewDialog({
-  row,
-  onClosed,
-}: {
-  row: LpPairTableRow;
-  onClosed: () => void;
-}) {
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClosed()}>
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>Participation Details</DialogTitle>
-        </DialogHeader>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <ReadonlyField label="LP" value={row.lpName} />
-          <ReadonlyField label="Status" value={
-            <StatusBadge
-              status={row.status}
-              labelMap={LP_PAIR_STATUS_LABEL}
-              variantMap={LP_PAIR_STATUS_VARIANT}
-            />
-          } />
-          <ReadonlyField
-            label="Token Pair"
-            value={
-              <span className="font-mono">
-                {row.sourceCurrency} / {row.targetCurrency}
-              </span>
-            }
-          />
-          <ReadonlyField
-            label="Pair Code"
-            value={<span className="font-mono">{row.pairCode || '--'}</span>}
-          />
-          <ReadonlyField
-            label="Created At"
-            value={formatDateTime(row.createTime)}
-          />
-          <div className="sm:col-span-2">
-            <ReadonlyField label="Remark" value={row.remark} />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClosed}>
-            {LBL.cancel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 /**
  * LP×Token 对参与列表（源 onboard/lp-pair/index.vue）。
- * 参与由 LP 门户发起（KLP 审批）；本页仅 查看/设置分成/停用/恢复草稿。
- * Tab：Approved / In Progress & Rejected（notApproved）；筛选 change 即查。
+ * 参与由 LP 门户发起（KLP 审批）；本页仅 设置分成/停用/恢复草稿
+ * （v2.1：查看弹窗退役，notApproved Tab 改 Status 筛选；筛选 change 即查）。
  */
 export function LpTokenPairListPage() {
-  const [filter, setFilter] = React.useState<LpPairViewFilter>(LP_PAIR_VIEW_EMPTY);
+  const [filter, setFilter] = React.useState<LpPairFilter>(LP_PAIR_FILTER_EMPTY);
   const [pageNum, setPageNum] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
-  const [viewRow, setViewRow] = React.useState<LpPairTableRow | null>(null);
   const [splitRow, setSplitRow] = React.useState<LpPairTableRow | null>(null);
   const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
 
@@ -1253,7 +1209,7 @@ export function LpTokenPairListPage() {
     filter: {
       lpId: filter.lpId ? Number(filter.lpId) : undefined,
       pairId: filter.pairId ? Number(filter.pairId) : undefined,
-      notApproved: filter.tab === 'others' ? true : undefined,
+      status: filter.status ? Number(filter.status) : undefined,
     },
   });
   const statusMutation = useUpdateLpPairStatusMutation(PROJECT_ID);
@@ -1263,7 +1219,7 @@ export function LpTokenPairListPage() {
   const pagination = data?.pagination;
 
   const patchFilter = React.useCallback(
-    (patch: Partial<LpPairViewFilter>) => {
+    (patch: Partial<LpPairFilter>) => {
       setFilter((prev) => ({ ...prev, ...patch }));
       setPageNum(1);
     },
@@ -1354,13 +1310,14 @@ export function LpTokenPairListPage() {
         accessorKey: 'splitRatio',
         header: 'LP Split',
         cell: ({ row }) => {
-          const ratio = Number(row.original.splitRatio);
-          return ratio > 0 ? (
-            <span className="block text-right font-mono tabular-nums">
-              {(ratio * 100).toFixed(2)}%
+          const own = Number(row.original.splitRatio);
+          return (
+            <span
+              className="block text-right font-mono tabular-nums"
+              title={own > 0 ? 'LP override split' : 'Token pair default split'}
+            >
+              {lpPairSplitText(row.original)}
             </span>
-          ) : (
-            <span className="block text-right text-muted-foreground">Default</span>
           );
         },
       },
@@ -1377,7 +1334,7 @@ export function LpTokenPairListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Created At',
+        header: 'Created On',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatDateTime(row.original.createTime)}
@@ -1387,13 +1344,11 @@ export function LpTokenPairListPage() {
       createActionColumn<LpPairTableRow>((item) => {
         const s = item.status;
         const pairLabel = `${item.sourceCurrency}/${item.targetCurrency}`;
-        const actions: TableRowAction<LpPairTableRow>[] = [
-          { label: LBL.view, onClick: () => setViewRow(item) },
-        ];
+        const actions: TableRowAction<LpPairTableRow>[] = [];
         if (s === 20) {
           actions.push(
             {
-              label: Number(item.pendingSplit) > 0 ? 'Split In Approval' : 'Set Split',
+              label: Number(item.pendingSplit) > 0 ? 'Split In Approval' : 'Set LP Split',
               disabled: statusMutation.isPending || Number(item.pendingSplit) > 0,
               onClick: () => setSplitRow(item),
             },
@@ -1404,7 +1359,7 @@ export function LpTokenPairListPage() {
               onClick: () =>
                 setConfirm({
                   title: 'Disable Participation',
-                  description: `Disable ${item.lpName} ${pairLabel}? The pair is removed from matching candidates immediately.`,
+                  description: `Disable the ${pairLabel} participation for ${item.lpName}? The pair will be excluded from matching immediately.`,
                   actionLabel: 'Disable',
                   destructive: true,
                   onConfirm: () => confirmDisable(item),
@@ -1486,35 +1441,19 @@ export function LpTokenPairListPage() {
               options={pairOptions}
               onChange={(v) => patchFilter({ pairId: v })}
             />
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium leading-snug">
-                Approval View
-              </label>
-              <RadioGroup
-                value={filter.tab}
-                onValueChange={(v) => patchFilter({ tab: v as LpPairViewFilter['tab'] })}
-                className="flex h-10 items-center gap-4"
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="approved" id="lp-pair-tab-approved" />
-                  <Label htmlFor="lp-pair-tab-approved" className="text-sm font-normal">
-                    Approved
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="others" id="lp-pair-tab-others" />
-                  <Label htmlFor="lp-pair-tab-others" className="text-sm font-normal">
-                    In Progress / Rejected
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
+            <FilterSelect
+              label="Status"
+              value={filter.status}
+              placeholder={LBL.all}
+              options={statusFilterOptions(LP_PAIR_STATUS_LABEL, [5, 15, 20, 50])}
+              onChange={(v) => patchFilter({ status: v })}
+            />
             <div className="flex items-end">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setFilter(LP_PAIR_VIEW_EMPTY);
+                  setFilter(LP_PAIR_FILTER_EMPTY);
                   setPageNum(1);
                 }}
               >
@@ -1554,9 +1493,6 @@ export function LpTokenPairListPage() {
         </div>
       </section>
 
-      {viewRow && (
-        <LpPairViewDialog row={viewRow} onClosed={() => setViewRow(null)} />
-      )}
       {splitRow && (
         <LpPairSplitDialog row={splitRow} onClosed={() => setSplitRow(null)} />
       )}
@@ -1570,23 +1506,34 @@ export function LpTokenPairListPage() {
 /* ================================================================== */
 
 /**
- * 水位单元格（源 liquidity/pool/index.vue 自绘水位条）：
- * level = 余额 ÷ token 级最低流动性；低于提醒阈值=Low（红），>1=Sufficient（绿）。
- * minLiquidity 缺失/≤0 或余额未快照 → 整列 '--'。
+ * 水位单元格（源 liquidity/pool/index.vue 自绘水位条，2026-09-08 口径）：
+ * 有效分子 = min(可用预授权, 可用余额)（未设置预授权时=余额）；
+ * level = 分子 ÷ token 级最低流动性；低于提醒阈值=低水位（红，区分
+ * 授权不足/余额不足），预授权成为瓶颈时条色琥珀并追加 Auth Limited。
+ * minLiquidity 缺失/≤0 或分子未快照 → '--'。
  */
 function WaterLevelCell({ row }: { row: LpPoolRow }) {
   const balanceRaw = row.availableBalanceCache;
+  const preauthRaw = row.preauthAvailable;
   const min = Number(row.minLiquidity);
   const threshold = Number(row.remindThreshold);
-  const hasLevel =
-    balanceRaw != null &&
-    balanceRaw !== '' &&
-    Number.isFinite(Number(balanceRaw)) &&
-    Number.isFinite(min) &&
-    min > 0;
-  if (!hasLevel) return <span>--</span>;
+  const balanceNum =
+    balanceRaw != null && balanceRaw !== '' && Number.isFinite(Number(balanceRaw))
+      ? Number(balanceRaw)
+      : null;
+  const preauthNum =
+    preauthRaw != null && preauthRaw !== '' && Number.isFinite(Number(preauthRaw))
+      ? Number(preauthRaw)
+      : null;
+  // 瓶颈=预授权：可用预授权 < 可用余额（未设置/≥余额 时瓶颈均为余额）。
+  const isAuthLimited =
+    balanceNum != null && preauthNum != null && preauthNum < balanceNum;
+  const numerator = isAuthLimited && preauthNum != null ? preauthNum : balanceNum;
+  if (numerator == null || !Number.isFinite(min) || min <= 0) {
+    return <span>--</span>;
+  }
 
-  const level = Number(balanceRaw) / min;
+  const level = numerator / min;
   const isLow = Number.isFinite(threshold) && level < threshold;
   const isOverflow = level > 1;
   const percent = `${(level * 100).toFixed(1)}%`;
@@ -1594,22 +1541,27 @@ function WaterLevelCell({ row }: { row: LpPoolRow }) {
   const markLeft = Number.isFinite(threshold)
     ? Math.min(100, Math.max(0, threshold * 100))
     : 0;
+  // 条色优先级（源 CSS is-low 注释「红优先级最高」）：低水位红 > 授权瓶颈
+  // 琥珀 > 充足绿 > 常规。
   const barColor = isLow
     ? 'bg-destructive'
-    : isOverflow
-      ? 'bg-emerald-500'
-      : 'bg-primary';
+    : isAuthLimited
+      ? 'bg-warning'
+      : isOverflow
+        ? 'bg-emerald-500'
+        : 'bg-primary';
   const badgeVariant: BadgeVariant = isLow
     ? 'destructive'
     : isOverflow
       ? 'default'
       : 'outline';
+  const symbol = row.tokenSymbol || '';
 
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="w-[130px] cursor-default space-y-1">
+          <div className="w-[220px] cursor-default space-y-1">
             <div className="relative h-2 overflow-hidden rounded-full bg-muted">
               <div
                 className={`h-full rounded-full ${barColor}`}
@@ -1620,22 +1572,44 @@ function WaterLevelCell({ row }: { row: LpPoolRow }) {
                 style={{ left: `${markLeft}%` }}
               />
             </div>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-1">
               <span className="tabular-nums text-xs text-muted-foreground">
                 {percent}
               </span>
-              <Badge variant={badgeVariant}>
-                {isLow ? 'Low' : isOverflow ? 'Sufficient' : 'Normal'}
-              </Badge>
+              <span className="flex flex-wrap items-center gap-1">
+                <Badge variant={badgeVariant}>
+                  {isLow
+                    ? isAuthLimited
+                      ? 'Insufficient Auth'
+                      : 'Insufficient Balance'
+                    : isOverflow
+                      ? 'Sufficient'
+                      : 'Normal'}
+                </Badge>
+                {!isLow && isAuthLimited ? (
+                  <Badge variant="warning">Auth Limited</Badge>
+                ) : null}
+              </span>
             </div>
           </div>
         </TooltipTrigger>
-        <TooltipContent>
-          Balance {formatAmount(balanceRaw)} ÷ min liquidity{' '}
-          {formatAmount(row.minLiquidity)}
-          {Number.isFinite(threshold)
-            ? `, remind threshold ${(threshold * 100).toFixed(1)}%`
-            : ''}
+        <TooltipContent className="space-y-1 text-xs">
+          <div>
+            Available balance {formatAmount(balanceRaw)}
+            {symbol ? ` ${symbol}` : ''} · Available auth{' '}
+            {preauthRaw == null ? 'not set' : formatAmount(preauthRaw)}
+            {isAuthLimited ? ' (bottleneck)' : ''}
+          </div>
+          <div>
+            Effective level min(auth, balance) {formatAmount(numerator)} ÷ min
+            liquidity {formatAmount(row.minLiquidity)}
+          </div>
+          <div>
+            = {percent}
+            {Number.isFinite(threshold)
+              ? ` (remind threshold ${(threshold * 100).toFixed(0)}%)`
+              : ''}
+          </div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -1648,6 +1622,7 @@ function WaterLevelCell({ row }: { row: LpPoolRow }) {
  */
 export function LpPoolListPage() {
   const [lpId, setLpId] = React.useState('');
+  const [tokenId, setTokenId] = React.useState('');
   const [status, setStatus] = React.useState('');
   const [pageNum, setPageNum] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
@@ -1657,12 +1632,14 @@ export function LpPoolListPage() {
     pageSize: 200,
     filter: {},
   });
+  const { data: tokenList } = useTokenListQuery(PROJECT_ID, {});
 
   const { data, isLoading, isError, dataUpdatedAt } = useLpPoolListQuery(PROJECT_ID, {
     pageNum,
     pageSize,
     filter: {
       lpId: lpId ? Number(lpId) : undefined,
+      tokenId: tokenId ? Number(tokenId) : undefined,
       status: status ? Number(status) : undefined,
     },
   });
@@ -1702,23 +1679,12 @@ export function LpPoolListPage() {
         accessorKey: 'accountAddress',
         header: 'Pool Address',
         cell: ({ row }) => (
-          <span className="font-mono text-xs">
-            {row.original.accountAddress || '--'}
-          </span>
-        ),
-      },
-      {
-        id: 'activeFlag',
-        header: 'Disbursement Pool',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="text-center">
-            {row.original.activeFlag === 1 ? (
-              <Badge variant="success" size="sm">
-                Active
+          <div className="flex items-center gap-1.5 font-mono text-xs">
+            <span className="break-all">{row.original.accountAddress || '--'}</span>
+            {row.original.activeFlag === 1 && (
+              <Badge variant="success" size="sm" className="shrink-0">
+                Disbursement
               </Badge>
-            ) : (
-              <span className="text-muted-foreground">—</span>
             )}
           </div>
         ),
@@ -1729,6 +1695,7 @@ export function LpPoolListPage() {
         cell: ({ row }) => (
           <span className="block text-right font-mono tabular-nums">
             {formatAmount(row.original.availableBalanceCache)}
+            {row.original.tokenSymbol ? ` ${row.original.tokenSymbol}` : ''}
           </span>
         ),
       },
@@ -1740,7 +1707,7 @@ export function LpPoolListPage() {
       },
       {
         id: 'authAmount',
-        header: 'Auth Amount',
+        header: 'Pre-authorized Amount',
         enableSorting: false,
         cell: ({ row }) =>
           row.original.authAmount == null ? (
@@ -1748,12 +1715,13 @@ export function LpPoolListPage() {
           ) : (
             <span className="block text-right font-mono tabular-nums">
               {formatAmount(row.original.authAmount)}
+              {row.original.tokenSymbol ? ` ${row.original.tokenSymbol}` : ''}
             </span>
           ),
       },
       {
         id: 'preauthAvailable',
-        header: 'Available Auth',
+        header: 'Available Pre-authorization',
         enableSorting: false,
         cell: ({ row }) => {
           const n = Number(row.original.preauthAvailable);
@@ -1766,27 +1734,19 @@ export function LpPoolListPage() {
               }`}
             >
               {formatAmount(row.original.preauthAvailable)}
+              {row.original.tokenSymbol ? ` ${row.original.tokenSymbol}` : ''}
             </span>
           );
         },
       },
       {
         id: 'snapshotTime',
-        header: 'Data Time',
+        header: 'Updated On',
         enableSorting: false,
         cell: ({ row }) => (
-          <div className="space-y-0.5 text-xs tabular-nums">
-            <div>
-              <span className="text-muted-foreground">Bal </span>
-              {formatDateTime(row.original.balanceUpdateTime)}
-            </div>
-            <div className="text-muted-foreground">
-              <span>Preauth </span>
-              {row.original.preauthSnapshotTime
-                ? formatDateTime(row.original.preauthSnapshotTime)
-                : '--'}
-            </div>
-          </div>
+          <span className="text-xs tabular-nums">
+            {formatDateTime(row.original.balanceUpdateTime)}
+          </span>
         ),
       },
       {
@@ -1814,12 +1774,13 @@ export function LpPoolListPage() {
     <div className="space-y-4">
       <Alert>
         <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <AlertTitle>Monitoring only</AlertTitle>
+        <AlertTitle>Read only</AlertTitle>
         <AlertDescription>
-          Pools are requested by the LP on the portal (KLPP approval). Top-ups
-          and pre-authorization are handled by the LP in the currency system;
-          snapshots refresh periodically via the bank gateway — no operations
-          here.
+          Pools are applied by the LP via the LP portal. Each LP designates one
+          pool per token as its disbursement pool — only that pool is used for
+          outgoing transfers. Top-ups and pre-authorization are handled by the
+          LP in the token system; the data below is a snapshot refreshed
+          periodically from the bank gateway.
         </AlertDescription>
       </Alert>
 
@@ -1850,6 +1811,19 @@ export function LpPoolListPage() {
               options={lpToOptions(lpList?.data)}
               onChange={(v) => {
                 setLpId(v);
+                setPageNum(1);
+              }}
+            />
+            <FilterSelect
+              label="Token"
+              value={tokenId}
+              placeholder={LBL.all}
+              options={(tokenList ?? []).map((token) => ({
+                value: String(token.tokenId),
+                label: `${token.symbol || token.tokenNo || token.tokenCode} (${token.bankName || '--'})`,
+              }))}
+              onChange={(value) => {
+                setTokenId(value);
                 setPageNum(1);
               }}
             />

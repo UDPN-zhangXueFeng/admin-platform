@@ -20,7 +20,7 @@ import type { NextRequest } from 'next/server';
  * 无需登录的路径前缀（收紧为前缀匹配——原 includes() 子串匹配会把
  * /pool/api-x 之类误判为公开路径）。
  */
-const PUBLIC_PATH_PREFIXES = ['/login', '/change-pwd'];
+const PUBLIC_PATH_PREFIXES = ['/login', '/change-pwd', '/invite/accept'];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATH_PREFIXES.some(

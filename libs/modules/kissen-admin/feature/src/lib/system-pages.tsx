@@ -109,12 +109,11 @@ function parseNum(raw: string | null): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
-/** 毫秒时间戳 → 本地 YYYY-MM-DD HH:mm:ss；0/空 → '--'。 */
+/** 毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`；0/空 → '--'。 */
 function formatTimestamp(ms: number | undefined | null): string {
   if (!ms) return '--';
   const d = new Date(ms);
-  const p = (x: number) => String(x).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return Number.isNaN(d.getTime()) ? '--' : formatAdminDateTime(d);
 }
 
 /** 「全部」哨兵值（Radix Select 禁空串 value）。 */

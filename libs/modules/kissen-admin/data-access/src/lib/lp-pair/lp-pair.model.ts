@@ -26,6 +26,8 @@ export interface LpPairRow {
   targetBankName: string;
   /** Override split ratio (0–1 decimal; 0 = not set, falls back to the token pair default). */
   splitRatio: string | number;
+  /** Token-pair default split (list display when no override; source 2026-09-08). */
+  defaultSplitRatio: string | number;
   /** Count of pending KLS override-split change requests (>0 blocks editing; source 2023418). */
   pendingSplit: number;
   status: number;
@@ -71,7 +73,7 @@ export const LP_PAIR_TARGET_STATUS = {
 
 /** LP×Token 对状态沿用 CommonStatusEnum（源 views/approval/status.ts 定稿英文）。 */
 export const LP_PAIR_STATUS_LABEL: Record<number, string> = {
-  1: 'Saved (Draft)',
+  1: 'Draft',
   3: 'Withdrawn',
   5: 'Pending Review',
   10: 'Under Review',

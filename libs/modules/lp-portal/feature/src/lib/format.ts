@@ -4,21 +4,20 @@
  * 语义基线（工作清单 B8 / map json「通用格式化工具」）：
  * - formatMoney：v2.3 e591f85 起空值（null/undefined/''）→ '-'；其余千分位
  *   分组、保留后端原样小数位（不归一/不四舍五入）、无货币符号；
- * - formatTime：毫秒时间戳 → `YYYY-MM-DD HH:mm:ss`，非法/空 → '-'；
+ * - formatTime：毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`，非法/空 → '-'；
  * - maskAddress：长度 > 12 显前 6 + `****` + 后 4，否则原样，空值 → '-'。
  *
  * 后续域（topup/rate/pair/tx-flow/settle/system）只 import 本文件，勿改动既有签名。
  */
 
-/** 毫秒时间戳 → YYYY-MM-DD HH:mm:ss；非法/空 → '-' */
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
+
+/** 毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`；非法/空 → '-' */
 export function formatTime(ms: number | null | undefined): string {
   if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '-';
   const d = new Date(Number(ms));
   if (Number.isNaN(d.getTime())) return '-';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(
-    d.getHours(),
-  )}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return formatAdminDateTime(d);
 }
 
 /** 数字千分位（保留原小数位，不四舍五入，无货币符号，负号保留）；v2.3 起空值 → '-' */

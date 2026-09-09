@@ -9,10 +9,11 @@
  * Symbol + tokenNo（全网唯一）。
  * 视图一「Token List」8 列：Token Name（170px 截断 + title 原文）、
  * Symbol（110px 等宽）、tokenNo (globally unique)、所属银行
- * bankName(bankCode)、区块链/锚定「chainType / anchorFiat」、最低流动性
+ * bankName(bankBic)（a481ca1 起 wire 字段 bankBic，原 bankCode）、
+ * 区块链/锚定「chainType / anchorFiat」、最低流动性
  * formatMoney 右对齐、我的状态（pooled → Pool Opened / Not Enabled）、
  * 数据时间 formatTime。视图二「By Bank」Accordion 按 bankId 分组，标题
- * bankName(bankCode) + 「N tokens」，默认展开第一个银行；子表 4 列
+ * bankName(bankBic) + 「N tokens」，默认展开第一个银行；子表 4 列
  * （Symbol / tokenNo / 区块链 / 锚定法币）。
  *
  * 源 load() 为 Promise.allSettled 两接口——映射为两条独立 useQuery：
@@ -121,17 +122,17 @@ const LIST_COLUMNS: ColumnDef<TokenRow & { id: string }>[] = [
   {
     accessorKey: 'bankName',
     header: 'Bank',
-    cell: ({ row }) => (
-      <span>
-        {row.original.bankName || '-'}
-        {row.original.bankCode ? (
-          <span className="text-muted-foreground">
-            {' '}
-            ({row.original.bankCode})
-          </span>
-        ) : null}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const bic = row.original.bankBic || row.original.bankCode;
+      return (
+        <span>
+          {row.original.bankName || '-'}
+          {bic ? (
+            <span className="text-muted-foreground"> ({bic})</span>
+          ) : null}
+        </span>
+      );
+    },
   },
   {
     id: 'chain-anchor',
@@ -329,7 +330,7 @@ export function TokenListPage() {
                     <AccordionTrigger className="px-1 py-3 hover:no-underline">
                       <span className="flex flex-wrap items-center gap-2 pr-4 text-left">
                         <span className="font-semibold">
-                          {g.bankName} ({g.bankCode})
+                          {g.bankName} ({g.bankBic})
                         </span>
                         <Badge variant="secondary">
                           {g.tokens.length} {LBL.tokensCount}

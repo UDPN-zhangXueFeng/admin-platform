@@ -15,7 +15,8 @@
  * - 审核轮询 5s：status===5 待审核期间自动查询，终态（15 拒绝/20 通过）停止
  *   并刷新详情与门控缓存 + success/warning toast。
  * - 激活轮询 5s：pushPublicKey 受理后等待管理侧下发下行公钥，activated=true
- *   即解锁门户（toast + 刷新详情/门控缓存）。
+ *   即强制重登（2f92680：success 弹窗 → logout → 登录页，ESC/关闭视同确认，
+ *   不再就地刷新解锁）。
  */
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -23,6 +24,13 @@ import { z } from 'zod';
 import { AlertCircle, CheckCircle2, Inbox, Info, Loader2 } from 'lucide-react';
 
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Alert,
   AlertTitle,
   Badge,
@@ -36,6 +44,7 @@ import {
   DialogTitle,
   useToast,
 } from '@myorg/shared/ui';
+import { logoutAndRedirect } from '@myorg/shared/util-auth';
 import { FormField, createFormResolver } from '@myorg/shared/ui-forms';
 import { cn } from '@myorg/shared/util-classnames';
 import {
@@ -43,9 +52,10 @@ import {
   instanceConnectivityVariant,
   instanceCredentialModeText,
   instanceStatusText,
-  instanceStatusVariant,
   onboardStatusText,
+  instanceStatusVariant,
   onboardStatusVariant,
+  clearGatewaySession,
   useBankContactUpdateMutation,
   useBankDetailQuery,
   useBankInfoQuery,
@@ -53,6 +63,7 @@ import {
   useBankOnboardStatusQuery,
   useBootstrapStateQuery,
   usePushPublicKeyMutation,
+  useAuthLogoutMutation,
   type InstanceItem,
   type OnboardStatus,
 } from '@myorg/modules/kissen-gateway/data-access';
@@ -180,8 +191,8 @@ function ActivateConfirmDialog({
             The uplink public key of this instance will be pushed to the
             platform (authenticated by BIC + one-time access key). Once the
             platform verifies connectivity and delivers the downlink public
-            key, the instance is activated and portal features unlock.
-            Continue?
+            key, the instance is activated. A re-login is required after
+            activation to use the full portal (2f92680). Continue?
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -195,6 +206,36 @@ function ActivateConfirmDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * 激活成功强制重登弹窗（2f92680 源 ElMessageBox.alert type="success"：
+ * 「实例已激活。为加载完整门户功能,请重新登录。」）。ESC/关闭视同确认，
+ * 同样触发登出回登录页——不再就地刷新解锁。
+ */
+function ActivateReloginDialog({
+  open,
+  onConfirm,
+}: {
+  open: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog open={open} onOpenChange={(o) => !o && onConfirm()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Activation Successful</AlertDialogTitle>
+          <AlertDialogDescription>
+            The instance has been activated. To load the full portal
+            features, please sign in again.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction onClick={onConfirm}>Re-login</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -532,10 +573,11 @@ function BankDetailHero({
           </Badge>
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {/* 62d1c33：Bank Code + BIC 合并为 bankBic（Bank Code (BIC)）。 */}
           <span>
-            Bank Code{' '}
+            Bank Code (BIC){' '}
             <span className="t-identifier text-foreground">
-              {detail.bankCode || '-'}
+              {detail.bankBic || '-'}
             </span>
           </span>
           <span>
@@ -579,9 +621,7 @@ function BankDetailCards({
         </div>
         <div className="panel-pad">
           <DescGrid cols={2}>
-            <DescField label="BIC" variant="boxed">
-              {detail.bic || '-'}
-            </DescField>
+            {/* 62d1c33：原 BIC 项并入上方 Bank Code (BIC)。 */}
             {/* 协议扩展 P1 占位：Kissen 下发 registrationTime 后自动亮起。 */}
             <DescField label="Registered on" variant="boxed">
               <span className="font-mono">
@@ -876,10 +916,9 @@ export function OnboardListPage() {
       try {
         const res = await refetchBootstrap();
         if (res.data?.activated) {
-          toast.success('Instance activated. Portal features unlocked');
+          // 2f92680：不再就地解锁，弹强制重登确认（ESC/关闭视同确认）。
           setActivatePolling(false);
-          // 刷新详情（activated 列变化）+ 门控缓存（detail 复用同一 key）。
-          refetchDetail();
+          setReloginOpen(true);
           return;
         }
       } catch {
@@ -895,7 +934,7 @@ export function OnboardListPage() {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [activatePolling, refetchBootstrap, refetchDetail, toast]);
+  }, [activatePolling, refetchBootstrap]);
 
   /** 确认推送（源 onActivate 确认分支：pushPublicKey → toast → 启动轮询）。 */
   const onConfirmActivate = React.useCallback(() => {
@@ -910,6 +949,24 @@ export function OnboardListPage() {
       onError: (e) => toast.error((e as Error).message),
     });
   }, [pushKeyMutation, toast]);
+
+  /* ── 激活成功强制重登（2f92680：logout → 登录页整页跳转） ── */
+  const [reloginOpen, setReloginOpen] = React.useState(false);
+  /** 防重入：Action 点击与 onOpenChange(false) 可能连续触发。 */
+  const reloginStartedRef = React.useRef(false);
+  const logoutMutation = useAuthLogoutMutation();
+  /** 先 POST /logout 再清本地会话回登录页；服务端失败也必须完成本地登出（源 store.logout try/finally，与 app-shell 同口径）。 */
+  const onActivatedRelogin = React.useCallback(() => {
+    if (reloginStartedRef.current) return;
+    reloginStartedRef.current = true;
+    logoutMutation
+      .mutateAsync()
+      .catch(() => undefined)
+      .finally(() => {
+        clearGatewaySession();
+        logoutAndRedirect();
+      });
+  }, [logoutMutation]);
 
   /* ── 刷新（源 loadAll；query 缓存口径下为手动 refetch 四数据源） ── */
   /** 仅用户主动刷新期间置真：后台审核轮询的 isFetching 不得禁用 Refresh（源 :loading=loading）。 */
@@ -1052,6 +1109,12 @@ export function OnboardListPage() {
         activating={pushKeyMutation.isPending}
         onCancel={() => setActivateConfirmOpen(false)}
         onConfirm={onConfirmActivate}
+      />
+
+      {/* 激活成功强制重登弹窗（2f92680）。 */}
+      <ActivateReloginDialog
+        open={reloginOpen}
+        onConfirm={onActivatedRelogin}
       />
     </div>
   );

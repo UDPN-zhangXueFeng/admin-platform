@@ -8,8 +8,8 @@
  * 基础汇率/加价率/用户汇率 + 我的分成比例 + 对默认比例 + 生效条件 + 状态 +
  * 数据时间）；Eligible「可申请」v2.3 改 8 列，2026-09-04 批（f95ec24）
  * 在目标侧池与操作列之间插「我的状态」列（myStatus 五态），操作列按
- * myStatus 前置禁用/换文案（pairx 紧凑式三行，第三行
- * pairCode||pairId 占位色等宽；对默认分成移至源侧池之前）。Bank/Token 展示
+ * myStatus 前置禁用/换文案（e0fad0a 起 pairx 紧凑式改两行，第三行
+ * pairCode||pairId 占位行移除；对默认分成移至源侧池之前）。Bank/Token 展示
  * 统一走 useTokenMeta 口径（§E23/E24：symOf 优先、失败回退标识本身）；
  * rateText/percentText 为页面级 helper（源同款，不入 format.ts）。
  *
@@ -163,30 +163,17 @@ function NumCell({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * pairx 紧凑式（源 .pairx 1:1，§E24 symOf 优先、失败回退标识本身）：
+ * pairx 紧凑式（源 .pairx，§E24 symOf 优先、失败回退标识本身）：
  * 第一行 symOf(src)/symOf(tgt) 等宽加粗、第二行 bankOf(src) → bankOf(tgt)
- * 次要色；eligible 追加第三行 pairCode||pairId 占位色等宽（.pairx-code）。
+ * 次要色。e0fad0a 起 eligible 第三行 pairCode||pairId 占位行移除（两行式）。
  */
-function Pairx({
-  tokens,
-  banks,
-  code,
-}: {
-  tokens: string;
-  banks: string;
-  code?: string;
-}) {
+function Pairx({ tokens, banks }: { tokens: string; banks: string }) {
   return (
     <div className="whitespace-nowrap">
       <div className="font-mono text-xs font-semibold tabular-nums">
         {tokens}
       </div>
       <div className="text-xs text-muted-foreground">{banks}</div>
-      {code !== undefined && (
-        <div className="font-mono text-xs tabular-nums text-muted-foreground">
-          {code}
-        </div>
-      )}
     </div>
   );
 }
@@ -462,7 +449,6 @@ function EligibleTable({ onApplied }: { onApplied: () => void }) {
             <Pairx
               tokens={`${symOf(r.sourceTokenCode)}/${symOf(r.targetTokenCode)}`}
               banks={`${bankOf(r.sourceTokenCode)} → ${bankOf(r.targetTokenCode)}`}
-              code={String(r.pairCode || r.pairId)}
             />
           );
         },

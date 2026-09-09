@@ -78,7 +78,6 @@ const pages: Record<string, Record<string, PageLoader>> = {
     list: loader((m) => m.LpInfoListPage),
     create: loader((m) => m.LpInfoFormPage),
     edit: loader((m) => m.LpInfoFormPage),
-    detail: loader((m) => m.LpInfoDetailPage),
   },
 
   'lp-pair': {
@@ -106,6 +105,7 @@ const pages: Record<string, Record<string, PageLoader>> = {
   // ---- transfer ----
   tx: {
     list: loader((m) => m.TxListListPage),
+    detail: loader((m) => m.TxDetailPage),
   },
 
   // ---- system ----

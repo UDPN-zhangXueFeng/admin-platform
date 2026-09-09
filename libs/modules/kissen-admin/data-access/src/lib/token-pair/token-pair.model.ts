@@ -15,7 +15,11 @@ export interface TokenPairRow {
   /** symbol 缩写（上游 787ccc9 展示口径：源/目标优先 symbol，缺省回退 code）。 */
   sourceSymbol: string;
   sourceBankCode: string;
+  /** Bank display name (banks sub-row prefers name over code; source 2026-09-08). */
+  sourceBankName: string;
   targetBankCode: string;
+  /** Bank display name (banks sub-row prefers name over code). */
+  targetBankName: string;
   targetTokenId: number;
   targetTokenCode: string;
   /** symbol 缩写（展示用，缺省回退 code）。 */

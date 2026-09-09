@@ -17,7 +17,8 @@ import type { TokenRow } from './types';
 /** token 元数据（建索引用的行切片）。 */
 export interface TokenMeta {
   bankName: string;
-  bankCode: string;
+  /** 银行编码/BIC（a481ca1 前 wire 为 bankCode，此处兼容读双字段）。 */
+  bankBic: string;
   tokenName: string;
   /** 缩写（如 USDC）；token 对紧凑式源/目标优先用 symbol（v2.3.1 e591f85）。 */
   symbol: string;
@@ -28,7 +29,7 @@ function index(rows: TokenRow[]): Map<string, TokenMeta> {
   for (const r of rows) {
     const meta: TokenMeta = {
       bankName: r.bankName || '',
-      bankCode: r.bankCode || '',
+      bankBic: r.bankBic || r.bankCode || '',
       tokenName: r.tokenName || '',
       symbol: r.symbol || '',
     };
@@ -57,7 +58,7 @@ export function useTokenMeta(projectId: string) {
     (tokenKey?: string | null): string => {
       if (!tokenKey) return '-';
       const meta = metaMap.get(tokenKey);
-      const bank = meta?.bankName || meta?.bankCode || '';
+      const bank = meta?.bankName || meta?.bankBic || '';
       return bank ? `${bank} ${tokenKey}` : tokenKey;
     },
     [metaMap],
@@ -67,7 +68,7 @@ export function useTokenMeta(projectId: string) {
     (tokenKey?: string | null): string => {
       if (!tokenKey) return '-';
       const meta = metaMap.get(tokenKey);
-      return meta?.bankName || meta?.bankCode || tokenKey;
+      return meta?.bankName || meta?.bankBic || tokenKey;
     },
     [metaMap],
   );

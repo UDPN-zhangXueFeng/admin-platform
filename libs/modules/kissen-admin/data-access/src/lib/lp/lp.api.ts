@@ -87,6 +87,18 @@ export function resetPortalAccount(
   );
 }
 
+/** 重发邀请（v2.1 邀请链接）：POST /manage/lp/portal-account/:lpId/resend-invite。新 token 签发并邮件发送至 LP 联系邮箱（作废旧待用链接，72h 内有效）。 */
+export function resendPortalAccountInvite(
+  lpId: number,
+  config?: AxiosRequestConfig,
+): Promise<{ loginName: string; email: string }> {
+  return kissenRequest.post<{ loginName: string; email: string }>(
+    `/manage/lp/portal-account/${lpId}/resend-invite`,
+    undefined,
+    config,
+  );
+}
+
 /**
  * 结算周期配置（契约导出名；仅此入口可改周期，生效于下一张结算单——
  * POST /manage/lp/settle-cycle，源 api/lp.ts lpSettleCycle）。

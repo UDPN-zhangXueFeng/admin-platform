@@ -21,7 +21,8 @@ export interface InteractTokenRow {
 export interface InteractPeerRow {
   bankId: number;
   bankName?: string;
-  bankCode: string;
+  /** Merged bank code (BIC)（源 2026-09-08 bankCode→bankBic；bic 保留）。 */
+  bankBic: string;
   bic?: string;
   /** true = whole row banned (all interaction with this peer bank). */
   wholeBanned: boolean;

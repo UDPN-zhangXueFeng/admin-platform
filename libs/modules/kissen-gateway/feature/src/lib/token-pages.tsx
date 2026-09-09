@@ -181,7 +181,7 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
         <DialogHeader>
           <DialogTitle>Register Token</DialogTitle>
           <DialogDescription>
-            Register a new token for this instance
+            Submit a new token for platform review
           </DialogDescription>
         </DialogHeader>
 
@@ -201,10 +201,14 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
               label="Token Code"
               required
               maxLength={32}
-              placeholder="e.g. CNB-001 (unique within this instance; also the currency system code)"
+              placeholder="e.g. CNB-001"
               error={formState.errors.tokenCode?.message}
               register={register('tokenCode')}
             />
+            <p className="-mt-2 text-xs text-muted-foreground">
+              Must be unique within this instance. This code is used as the
+              currency system code.
+            </p>
             <FormField
               name="tokenName"
               label="Token Name"
@@ -236,9 +240,9 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
                   </datalist>
                   <FormField
                     name="chainType"
-                    label="Chain Type"
+                    label="Chain"
                     required
-                    placeholder="Select or enter a chain type"
+                    placeholder="e.g. Ethereum"
                     className="max-w-[180px]"
                     error={formState.errors.chainType?.message}
                     list="gw-token-chain-options"
@@ -262,7 +266,7 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
             </div>
             <FormField
               name="decimalDigits"
-              label="Decimal Places"
+              label="Decimals"
               required
               type="number"
               min={0}
@@ -285,7 +289,7 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
                   </datalist>
                   <FormField
                     name="anchorFiat"
-                    label="Anchor Fiat"
+                    label="Pegged Currency"
                     required
                     placeholder="ISO 4217 fiat code"
                     className="max-w-[180px]"
@@ -302,7 +306,7 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
               name="contractAddress"
               label="Contract Address"
               maxLength={128}
-              placeholder="Optional, for admin-side registration"
+              placeholder="Required if the token is already deployed on-chain."
               error={formState.errors.contractAddress?.message}
               register={register('contractAddress')}
             />
@@ -321,7 +325,7 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
               name="issuerDesc"
               label="Issuer Description"
               maxLength={128}
-              placeholder="Optional"
+              placeholder="e.g. Issued by Kissen Bank, 1:1 USD-backed"
               error={formState.errors.issuerDesc?.message}
               register={register('issuerDesc')}
             />
@@ -348,7 +352,7 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
             </Button>
             <Button type="submit" disabled={submitMutation.isPending}>
               {submitMutation.isPending && <Loader2 className="animate-spin" />}
-              Submit Registration
+              Submit
             </Button>
           </DialogFooter>
         </form>

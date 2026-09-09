@@ -99,18 +99,17 @@ const LBL = {
   empty:
     'No liquidity pools yet — pick a token from the Token overview to submit an application',
   // f0d5b6f：解付授权对象列 + 出款池切换确认流文案
-  payoutPool: 'Payout Pool',
+  payoutPool: 'Disbursement Pool',
   spenderNotConfigured: 'Not configured (cannot pay out)',
   spenderTooltip:
-    'Approve this pool wallet for this token to this address in the currency system (copy it and run approve there); otherwise the pool cannot take part in payout settlement',
+    'Approve this pool wallet for this token to this address in the token system (copy it and run approve there); otherwise the pool cannot take part in disbursement settlement',
   spenderCopied:
     'Copied — approve this pool wallet for this token to this address in the currency system',
   spenderCopyFailed: 'Copy failed — please copy the address manually',
   activateTooltip:
-    'Set this pool as the current payout pool for the token — subsequent matching and settlement payouts are paid from this pool',
-  activateAction: 'Set as Payout Pool',
-  currentPayout: 'Current payout pool',
-  activateTitle: 'Switch Payout Pool',
+    'Set this pool as the current disbursement pool for the token — subsequent matching and settlement disbursements are paid from this pool',
+  activateAction: 'Set as Disbursement Pool',
+  activateTitle: 'Switch Disbursement Pool',
   activateConfirm: 'Confirm',
   activateCancel: 'Cancel',
 } as const;
@@ -509,10 +508,10 @@ export function PoolListPage() {
       onSuccess: (res) => {
         if (res.inFlightCount > 0) {
           toast.warning(
-            `Payout pool switched — note this token currently has ${res.inFlightCount} in-flight transactions: receipts go to the original pool, payouts come from the new pool`,
+            `Disbursement pool switched — note this token currently has ${res.inFlightCount} in-flight transactions: receipts go to the original pool, disbursements come from the new pool`,
           );
         } else {
-          toast.success('Payout pool switched');
+          toast.success('Disbursement pool switched');
         }
         setActivateTarget(null);
         void listQuery.refetch();
@@ -578,7 +577,7 @@ export function PoolListPage() {
       // 空 → Not configured）
       {
         accessorKey: 'spenderAddress',
-        header: 'Payout Spender',
+        header: 'Disbursement Spender',
         cell: ({ row }) => <PayoutSpenderCell row={row.original} />,
       },
       {
@@ -652,7 +651,7 @@ export function PoolListPage() {
       },
 
       // 源列序 12（f0d5b6f 新增）：操作列——status===20 且非激活 → 链接按钮
-      // 「Set as Payout Pool」；status===20 已激活 → muted「Current payout pool」
+      // 「Set as Disbursement Pool」；已激活池不再展示 Current payout pool 占位
       // 占位；其余状态空。上游无 v-perm，不加 PermButton。
       {
         id: 'actions',
@@ -660,13 +659,7 @@ export function PoolListPage() {
         cell: ({ row }) => {
           const r = row.original;
           if (r.status !== 20) return null;
-          if (r.activeFlag === 1) {
-            return (
-              <span className="text-xs text-muted-foreground">
-                {LBL.currentPayout}
-              </span>
-            );
-          }
+          if (r.activeFlag === 1) return null;
           return (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -771,9 +764,9 @@ export function PoolListPage() {
                 {activateTarget
                   ? activateTarget.tokenSymbol || activateTarget.tokenNo
                   : ''}{' '}
-                as the current payout pool? Payouts for this token will be paid
+                as the current disbursement pool? Disbursements for this token will be paid
                 from this address. In-flight transactions are unaffected: their
-                receipts still go to the original pool, while payouts switch to
+                receipts still go to the original pool, while disbursements switch to
                 the new pool immediately.
               </AlertDialogDescription>
             </AlertDialogHeader>

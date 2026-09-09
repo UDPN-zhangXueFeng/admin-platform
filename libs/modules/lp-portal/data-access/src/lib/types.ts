@@ -47,7 +47,10 @@ export interface TokenRow {
   anchorFiat: string;
   minLiquidity: string | number;
   bankId: number;
-  bankCode: string;
+  /** 银行编码/BIC（a481ca1 起 wire 字段；上游 TokenRow 类型残留 bankCode 属源仓不一致）。 */
+  bankBic: string;
+  /** 旧环境过渡字段（a481ca1 前），展示层兼容读 bankBic||bankCode。 */
+  bankCode?: string;
   bankName: string;
   /** 本 LP 已开池(status=20)标注 */
   pooled: boolean;
@@ -56,7 +59,7 @@ export interface TokenRow {
 
 export interface BankGroupRow {
   bankId: number;
-  bankCode: string;
+  bankBic: string;
   bankName: string;
   bankStatus: number;
   tokens: Array<

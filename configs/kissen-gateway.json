@@ -337,7 +337,7 @@
       {
         "id": "tx",
         "icon": "ReceiptText",
-        "label": "Transaction Records",
+        "label": "Transactions",
         "path": "/tx",
         "group": ""
       },

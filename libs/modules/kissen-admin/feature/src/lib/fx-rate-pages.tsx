@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
-import { Controller, useForm } from 'react-hook-form';
-import { Info } from 'lucide-react';
+import { Controller, useForm, type Control } from 'react-hook-form';
+import { Check, ChevronsUpDown, Info } from 'lucide-react';
 
 import {
   Alert,
@@ -20,7 +20,6 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
-  CopyableEllipsisText,
   Checkbox,
   createActionColumn,
   DataTable,
@@ -30,6 +29,10 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  ScrollArea,
   Select,
   SelectContent,
   SelectItem,
@@ -39,6 +42,7 @@ import {
   type TableRowAction,
 } from '@myorg/shared/ui';
 
+import { cn } from '@myorg/shared/util-classnames';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { FormField } from '@myorg/shared/ui-forms';
 
@@ -98,39 +102,25 @@ function PairStatusBadge({ status }: { status: number }) {
   );
 }
 
-/** 只读详情字段：label + 值（照 user-detail DetailField 模式）。 */
-function DetailField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-sm">{children}</dd>
-    </div>
-  );
-}
-
-/** Token 对紧凑式单元格：SRC/TGT 主行 + 银行副行 + pairCode 等宽副行（源 pairx，symbol 优先）。 */
+/** Token 对紧凑式单元格：SRC/TGT 主行 + 银行名称副行（源 pairx；2026-09-08 bankName 优先回退 bankCode）。 */
 function TokenPairCell({
   sourceSymbol,
   sourceTokenCode,
   targetSymbol,
   targetTokenCode,
+  sourceBankName,
   sourceBankCode,
+  targetBankName,
   targetBankCode,
-  pairCode,
 }: {
   sourceSymbol: string;
   sourceTokenCode: string;
   targetSymbol: string;
   targetTokenCode: string;
+  sourceBankName?: string;
   sourceBankCode: string;
+  targetBankName?: string;
   targetBankCode: string;
-  pairCode?: string;
 }) {
   return (
     <div className="flex min-w-0 flex-col leading-snug">
@@ -139,16 +129,13 @@ function TokenPairCell({
         {targetSymbol || targetTokenCode || '-'}
       </span>
       <span className="text-xs text-muted-foreground">
-        {sourceBankCode || '-'} → {targetBankCode || '-'}
+        {sourceBankName || sourceBankCode || '-'} →{' '}
+        {targetBankName || targetBankCode || '-'}
       </span>
-      {pairCode !== undefined && (
-        <span className="font-mono text-[11px] text-muted-foreground">
-          {pairCode || '-'}
-        </span>
-      )}
     </div>
   );
 }
+
 
 /**
  * 通用确认流：受控 AlertDialog（禁 window.confirm，锁定约束 2）。
@@ -199,47 +186,176 @@ function ConfirmDialog({
 // ---------------------------------------------------------------------------
 
 interface PairFilterForm {
-  pairCode?: string;
+  pairId?: number;
   status?: number;
 }
 
-const PAIR_EMPTY_FILTER: PairFilterForm = { pairCode: '', status: undefined };
+const PAIR_EMPTY_FILTER: PairFilterForm = { pairId: undefined, status: undefined };
 
 /** 状态筛选 Select 的「全部」哨兵值（shadcn Select 无原生 clearable）。 */
 const STATUS_ALL = 'ALL';
 
+/** Token 对筛选下拉的「全部」哨兵值（value 用 String(pairId) 统一比较）。 */
+const PAIR_ALL = 'ALL';
+
+/** Token 对筛选下拉选项（源 pairList({}) 全量投影，label=`SRC/TGT` symbol 优先）。 */
+interface PairFilterOption {
+  value: string;
+  label: string;
+}
+
+/**
+ * 可搜索 Token 对筛选下拉（源 el-select filterable clearable → 搜索输入 + 选项列表，
+ * 2026-09-08 pairCode Input 退役）。「全部」哨兵恒置顶不参与过滤，其余按 label
+ * 子串过滤（Element Plus filterable 默认行为）；value=String(pairId)，onChange 还原数字。
+ */
+function PairFilterSelect({
+  control,
+  options,
+}: {
+  control: Control<PairFilterForm>;
+  options: PairFilterOption[];
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [q, setQ] = React.useState('');
+  const needle = q.trim().toLowerCase();
+  const filtered = options.filter(
+    (o) =>
+      o.value === PAIR_ALL || !needle || o.label.toLowerCase().includes(needle),
+  );
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-sm font-medium leading-snug text-foreground">
+        Token Pair
+      </label>
+      <Controller
+        control={control}
+        name="pairId"
+        render={({ field }) => {
+          // 未选（undefined）映射回哨兵，与选项 value 同域比较。
+          const selected =
+            field.value != null ? String(field.value) : PAIR_ALL;
+          return (
+            <Popover
+              open={open}
+              onOpenChange={(next) => {
+                // 每次展开重置搜索词（源 filterable 打开即输入）。
+                if (next) setQ('');
+                setOpen(next);
+              }}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={open}
+                  className="w-full justify-between font-normal"
+                >
+                  <span className="truncate">
+                    {options.find((o) => o.value === selected)?.label ?? 'All'}
+                  </span>
+                  <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+              >
+                <div className="border-b p-2">
+                  <Input
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Type keyword to filter"
+                    className="h-8"
+                  />
+                </div>
+                <ScrollArea className="h-48">
+                  <div className="p-1">
+                    {filtered.length === 0 ? (
+                      <p className="px-2 py-4 text-center text-sm text-muted-foreground">
+                        No matches
+                      </p>
+                    ) : (
+                      filtered.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            field.onChange(
+                              opt.value === PAIR_ALL
+                                ? undefined
+                                : Number(opt.value),
+                            );
+                            setOpen(false);
+                          }}
+                          className={cn(
+                            'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent',
+                            opt.value === selected && 'font-medium text-primary',
+                          )}
+                        >
+                          <span className="truncate">{opt.label}</span>
+                          {opt.value === selected && (
+                            <Check className="size-4 shrink-0" aria-hidden="true" />
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
+          );
+        }}
+      />
+    </div>
+  );
+}
+
 /**
  * Token 对管理列表页（registry key `pair` → TokenPairListPage）。
  *
- * 迁移自源 `views/fx-rate/pair/index.vue`（2023418）：
- * - 筛选：pairCode（Input 模糊，回车触发查询）/ 状态（5 Pending Approval/
- *   15 Rejected/20 Enabled/30 Frozen/50 Disabled，无 10——源同款）。
- * - 列：Token Pair 紧凑式（symbol 优先 + 银行副行 + pairCode）/ Base Rate / Markup Rate
- *   / User Rate（=base/(1+markup)，GW 口径）/ Default Split / Status / Created At。
- * - 行操作（2023418 审批口径）：View；status=20 → Change（pendingChange 时禁用，
- *   KRC 审批）+ Disable；status=15 → Resubmit（KPT 重提）；status=50 → Enable。
- *   Edit 与 Adjust Default Split 退役。
- * - 启停即时生效不走审批；确认流 AlertDialog，提示 sonner。
+ * 迁移自源 `views/fx-rate/pair/index.vue`（2023418；2026-09-08 批次修订）：
+ * - 筛选：Token Pair（pairId 下拉，options=pairList({}) 全量，label=`SRC/TGT`
+ *   symbol 优先）/ 状态（5 Pending Approval/15 Rejected/20 Enabled/30 Frozen/
+ *   50 Disabled，无 10——源同款）。
+ * - 列：Token Pair 紧凑式（symbol 优先 + 银行名称副行；pairCode 唯一标识展示
+ *   已移除，源 189498e）/ Base Rate / Markup Rate / User Rate（=base/(1+markup)，
+ *   GW 口径）/ Default Split / Status / Created On。
+ * - 行操作（2023418 审批口径）：status=20 → Adjust Rate（pendingChange 时禁用并
+ *   显示 Adjustment Pending，KRC 审批）+ Disable；status=15 → Resubmit（KPT 重提）；
+ *   status=50 → Enable。View 操作与详情弹窗退役（源 2026-09-08 删除 view 模式）；
+ *   Edit 与 Adjust Default Split 更早已退役。
+ * - 启停即时生效不走审批；确认流 AlertDialog（SRC/TGT symbol 标识对），提示 sonner。
  * - 滑点阈值列/输入不迁移（源 2026-08-27 已移除，01 文档 §G 裁决13）。
  */
 export function TokenPairListPage() {
   const toast = useToast();
 
-  const { register, handleSubmit, reset, control } = useForm<PairFilterForm>({
+  const { handleSubmit, reset, control } = useForm<PairFilterForm>({
     defaultValues: PAIR_EMPTY_FILTER,
   });
 
   const [filter, setFilter] = React.useState<TokenPairListFilter>({});
 
   const { data: rows, isLoading, isError, dataUpdatedAt } = useTokenPairListQuery(PROJECT_ID, filter);
+  // 筛选下拉选项源：pairList({}) 全量（与上方筛选结果查询相互独立，源同款双拉取）。
+  const { data: allPairs } = useTokenPairListQuery(PROJECT_ID, {});
   const enableMutation = useEnableTokenPairMutation(PROJECT_ID);
   const disableMutation = useDisableTokenPairMutation(PROJECT_ID);
 
-  // 页内弹窗（create/view）+ 确认流 + 变更/重提弹窗（KRC/KPT）。
-  const [dialog, setDialog] = React.useState<{
-    mode: 'create' | 'view';
-    row: TokenPairRow | null;
-  } | null>(null);
+  const pairFilterOptions = React.useMemo<PairFilterOption[]>(
+    () => [
+      { value: PAIR_ALL, label: 'All' },
+      ...(allPairs ?? []).map((p) => ({
+        value: String(p.pairId),
+        label: `${p.sourceSymbol || p.sourceTokenCode}/${p.targetSymbol || p.targetTokenCode}`,
+      })),
+    ],
+    [allPairs],
+  );
+
+  // 建对弹窗 + 确认流 + 变更/重提弹窗（KRC/KPT）。
+  const [createOpen, setCreateOpen] = React.useState(false);
   const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
   const [change, setChange] = React.useState<{
     mode: 'change' | 'resubmit';
@@ -247,8 +363,9 @@ export function TokenPairListPage() {
   } | null>(null);
 
   const onSubmit = React.useCallback((form: PairFilterForm) => {
-    setFilter({ pairCode: form.pairCode || undefined, status: form.status });
+    setFilter({ pairId: form.pairId, status: form.status });
   }, []);
+
 
   const onReset = React.useCallback(() => {
     reset(PAIR_EMPTY_FILTER);
@@ -260,7 +377,8 @@ export function TokenPairListPage() {
       setConfirm({
         title: 'Disable Token Pair',
         message:
-          `Disable token pair "${row.pairCode}"? New quotes will be rejected once disabled ` +
+          `Disable token pair "${row.sourceSymbol || row.sourceTokenCode}/${row.targetSymbol || row.targetTokenCode}"? ` +
+          'New quotes will be rejected once disabled ' +
           '(the backend rejects the request if any active LP participation exists — disable those first).',
         confirmText: 'Disable',
         destructive: true,
@@ -280,7 +398,7 @@ export function TokenPairListPage() {
     (row: TokenPairRow) => {
       setConfirm({
         title: 'Enable Token Pair',
-        message: `Enable token pair "${row.pairCode}"?`,
+        message: `Enable token pair "${row.sourceSymbol || row.sourceTokenCode}/${row.targetSymbol || row.targetTokenCode}"?`,
         confirmText: 'Enable',
         onConfirm: () => {
           setConfirm(null);
@@ -307,9 +425,10 @@ export function TokenPairListPage() {
             sourceTokenCode={row.original.sourceTokenCode}
             targetSymbol={row.original.targetSymbol}
             targetTokenCode={row.original.targetTokenCode}
+            sourceBankName={row.original.sourceBankName}
             sourceBankCode={row.original.sourceBankCode}
+            targetBankName={row.original.targetBankName}
             targetBankCode={row.original.targetBankCode}
-            pairCode={row.original.pairCode}
           />
         ),
       },
@@ -358,22 +477,17 @@ export function TokenPairListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Created At',
+        header: 'Created On',
         cell: ({ row }) => (
           <span className="tabular-nums">{formatTime(row.original.createTime)}</span>
         ),
       },
       createActionColumn<TokenPairRow & { id: string }>((item) => {
-        const actions: TableRowAction<TokenPairRow & { id: string }>[] = [
-          {
-            label: 'View',
-            onClick: () => setDialog({ mode: 'view', row: item }),
-          },
-        ];
-        // 2023418 审批口径：生效对改参合并为 Change（KRC）；已驳回重提走 Resubmit（KPT）。
+        // 2023418 审批口径：生效对改参走 Adjust Rate（KRC）；已驳回重提走 Resubmit（KPT）。
+        const actions: TableRowAction<TokenPairRow & { id: string }>[] = [];
         if (item.status === 20) {
           actions.push({
-            label: item.pendingChange ? 'Change In Approval' : 'Change',
+            label: item.pendingChange ? 'Adjustment Pending' : 'Edit Rates',
             disabled: !!item.pendingChange,
             onClick: () => setChange({ mode: 'change', row: item }),
           });
@@ -405,7 +519,7 @@ export function TokenPairListPage() {
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
             <div className="text-base font-semibold leading-6 text-foreground">
-              Token Pairs
+              FX Rates
             </div>
             {!isLoading ? (
               <span className="text-sm text-muted-foreground tabular-nums">
@@ -418,11 +532,7 @@ export function TokenPairListPage() {
               </span>
             ) : null}
           </div>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => setDialog({ mode: 'create', row: null })}
-          >
+          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
             New Token Pair
           </Button>
         </div>
@@ -431,12 +541,7 @@ export function TokenPairListPage() {
           className="border-b border-border/50 px-4 py-3"
         >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <FormField
-              name="pairCode"
-              label="Pair Code"
-              placeholder="Fuzzy match, e.g. PR-"
-              register={register('pairCode')}
-            />
+            <PairFilterSelect control={control} options={pairFilterOptions} />
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium leading-snug text-foreground">
                 Status
@@ -490,13 +595,8 @@ export function TokenPairListPage() {
         </div>
       </section>
 
-      {dialog && (
-        <TokenPairDialog
-          mode={dialog.mode}
-          row={dialog.row}
-          onClosed={() => setDialog(null)}
-        />
-      )}
+      {createOpen && <TokenPairDialog onClosed={() => setCreateOpen(false)} />}
+
 
       {change && (
         <PairChangeDialog
@@ -512,7 +612,7 @@ export function TokenPairListPage() {
 }
 
 // ---------------------------------------------------------------------------
-// TokenPairDialog — 建对/查看（源 fx-rate/pair/pair-dialog.vue；2023418 起 edit 退役）
+// TokenPairDialog — 建对（源 fx-rate/pair/pair-dialog.vue；view 模式 2026-09-08 退役）
 // ---------------------------------------------------------------------------
 
 interface ComboRow {
@@ -597,39 +697,25 @@ function comboInvalidReason(row: ComboRow): string | null {
 }
 
 /**
- * 建对/查看两态弹窗（源 pair-dialog.vue；原 /currency-pair/create|edit|detail
- * 三路由页收编于此。2023418：edit 退役——SaveReq 无 pairId，生效对改参走
- * PairChangeDialog（KRC）；create 语义=批量提交开通申请（KPT），通过后生效）。
+ * 建对弹窗（源 pair-dialog.vue；原 /currency-pair/create|edit|detail 三路由页
+ * 收编于此。2023418：edit 退役——SaveReq 无 pairId，生效对改参走 PairChangeDialog
+ * （KRC）；2026-09-08：view 模式删除，仅剩新建（源同款仅 create）。
  *
- * - create：按已生效 token（tokenList status=20）预生成有向全组合，排除同 token 与
- *   已有 token 对；勾选态挂行数据，行内逐对填参；逐行串行 save，失败不中断，汇总提示。
- * - view：单对只读详情（§6.3 分层），直读 row。滑点阈值字段不渲染（§G 裁决13）。
+ * 按已生效 token（tokenList status=20）预生成有向全组合，排除同 token 与已有
+ * token 对；勾选态挂行数据，行内逐对填参；逐行串行 save，失败不中断，汇总提示。
+ * 滑点阈值字段不渲染（§G 裁决13）。
  */
-function TokenPairDialog({
-  mode,
-  row,
-  onClosed,
-}: {
-  mode: 'create' | 'view';
-  row: TokenPairRow | null;
-  onClosed: () => void;
-}) {
+function TokenPairDialog({ onClosed }: { onClosed: () => void }) {
   const toast = useToast();
-  const isCreate = mode === 'create';
-  const isView = mode === 'view';
 
-  // ---- 数据源：已生效 token（建对组合来源 + 单对表单下拉）+ 已有对（判重）----
+  // ---- 数据源：已生效 token（建对组合来源）+ 已有对（判重）----
   const tokensQuery = useQuery({
     queryKey: ['project', PROJECT_ID, 'token', 'options', { status: 20 }],
     queryFn: () => tokenList({ status: 20 }),
   });
-  const pairsQuery = useTokenPairListQuery(
-    PROJECT_ID,
-    {},
-    isCreate,
-  );
+  const pairsQuery = useTokenPairListQuery(PROJECT_ID, {});
 
-  // ---- create：组合状态（含勾选/行内参数，全挂行数据）----
+  // ---- 组合状态（含勾选/行内参数，全挂行数据）----
   const [combos, setCombos] = React.useState<ComboRow[]>([]);
   const [comboFilter, setComboFilter] = React.useState('');
   const [hideExisting, setHideExisting] = React.useState(true);
@@ -638,13 +724,13 @@ function TokenPairDialog({
 
   const combosInitRef = React.useRef(false);
   React.useEffect(() => {
-    if (!isCreate || combosInitRef.current) return;
+    if (combosInitRef.current) return;
     if (!tokensQuery.isSuccess || !pairsQuery.isSuccess) return;
     combosInitRef.current = true;
     setCombos(
       buildCombos(tokensQuery.data ?? [], pairsQuery.data ?? []),
     );
-  }, [isCreate, tokensQuery.isSuccess, pairsQuery.isSuccess, tokensQuery.data, pairsQuery.data]);
+  }, [tokensQuery.isSuccess, pairsQuery.isSuccess, tokensQuery.data, pairsQuery.data]);
 
   /** 已勾选组合 = 行上 checked 标记（派生，不依赖表格 selection）。 */
   const selected = React.useMemo(
@@ -696,7 +782,7 @@ function TokenPairDialog({
 
 
   const saveMutation = useSaveTokenPairMutation(PROJECT_ID);
-  const tokenOptions = tokensQuery.data ?? [];
+
 
   // 批量提交开通申请：逐行取各自参数串行 save（后端单条幂等防重），失败汇总不中断（源 onBatchSave，KPT 审批语义）。
   const onBatchSave = React.useCallback(async () => {
@@ -755,23 +841,17 @@ function TokenPairDialog({
     setConfirmBatch(true);
   }, [selected, toast]);
 
-
-  const comboLoading = isCreate && (!tokensQuery.isSuccess || !pairsQuery.isSuccess);
-  const comboLoadError = isCreate && (tokensQuery.isError || pairsQuery.isError);
+  const comboLoading = !tokensQuery.isSuccess || !pairsQuery.isSuccess;
+  const comboLoadError = tokensQuery.isError || pairsQuery.isError;
 
   return (
     <>
       <Dialog open onOpenChange={(open) => !open && onClosed()}>
-        <DialogContent
-          className={isCreate ? 'sm:max-w-[1080px]' : 'sm:max-w-[560px]'}
-        >
+        <DialogContent className="sm:max-w-[1080px]">
           <DialogHeader>
-            <DialogTitle>
-              {isView ? 'Token Pair Details' : 'New Token Pair'}
-            </DialogTitle>
+            <DialogTitle>New Token Pair</DialogTitle>
           </DialogHeader>
 
-          {isCreate ? (
             <div className="space-y-3">
               <Alert>
                 <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -956,105 +1036,20 @@ function TokenPairDialog({
                 </div>
               )}
             </div>
-          ) : (
-            row ? (
-              <div className="space-y-4">
-                {/* Hero Summary：交易对 SRC/TGT + 状态（§6.3；只读直读 row，禁伪装表单控件） */}
-                <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                    <TokenPairCell
-                      sourceSymbol={row.sourceSymbol}
-                      sourceTokenCode={row.sourceTokenCode}
-                      targetSymbol={row.targetSymbol}
-                      targetTokenCode={row.targetTokenCode}
-                      sourceBankCode={row.sourceBankCode}
-                      targetBankCode={row.targetBankCode}
-                    />
-                    <PairStatusBadge status={row.status} />
-                  </div>
-                </section>
-
-                {/* 参数（核心信息）：源/目标 token 定位 + 费率三参 */}
-                <div>
-                  <div className="mb-2 text-sm font-semibold">Pair Parameters</div>
-                  <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-                    <DetailField label="Source Token">
-                      <span className="font-mono">
-                        {row.sourceTokenCode} ({row.sourceBankCode || '-'} /{' '}
-                        {tokenOptions.find((t) => t.tokenId === row.sourceTokenId)
-                          ?.chainType || '-'}
-                        )
-                      </span>
-                    </DetailField>
-                    <DetailField label="Target Token">
-                      <span className="font-mono">
-                        {row.targetTokenCode} ({row.targetBankCode || '-'} /{' '}
-                        {tokenOptions.find((t) => t.tokenId === row.targetTokenId)
-                          ?.chainType || '-'}
-                        )
-                      </span>
-                    </DetailField>
-                    <DetailField label="Base Rate">
-                      <span className="font-mono tabular-nums">
-                        {row.baseRate === null || row.baseRate === ''
-                          ? '--'
-                          : String(row.baseRate)}
-                      </span>
-                    </DetailField>
-                    <DetailField label="Markup Rate">
-                      <span className="font-mono tabular-nums">
-                        {row.markupRate === null || row.markupRate === ''
-                          ? '--'
-                          : String(row.markupRate)}
-                      </span>
-                    </DetailField>
-                    <DetailField label="Default Split">
-                      <span className="font-mono tabular-nums">
-                        {row.defaultSplitRatio === null || row.defaultSplitRatio === ''
-                          ? '--'
-                          : String(row.defaultSplitRatio)}
-                      </span>
-                    </DetailField>
-                  </dl>
-                </div>
-
-                {/* 审计（§6.3）：pairCode（可复制）+ 创建时间 */}
-                <div className="border-t border-border/50 pt-4">
-                  <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-                    <DetailField label="Pair Code">
-                      <CopyableEllipsisText
-                        value={row.pairCode}
-                        emptyText="--"
-                        maxWidth={200}
-                        className="font-mono"
-                      />
-                    </DetailField>
-                    <DetailField label="Created At">
-                      <span className="tabular-nums">{formatTime(row.createTime)}</span>
-                    </DetailField>
-                  </dl>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No pair data.</p>
-            )
-          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={onClosed}>
-              {isView ? 'Close' : 'Cancel'}
+              Cancel
             </Button>
-            {isCreate && (
-              <Button
-                type="button"
-                disabled={!selected.length || submitting}
-                onClick={requestBatchSave}
-              >
-                {submitting
-                  ? 'Submitting…'
-                  : `Submit ${selected.length} Opening Request${selected.length === 1 ? '' : 's'}`}
-              </Button>
-            )}
+            <Button
+              type="button"
+              disabled={!selected.length || submitting}
+              onClick={requestBatchSave}
+            >
+              {submitting
+                ? 'Submitting…'
+                : `Submit ${selected.length} Opening Request${selected.length === 1 ? '' : 's'}`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1192,7 +1187,7 @@ function PairChangeDialog({
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>
-            {isResubmit ? 'Resubmit Opening Request' : 'Change Token Pair Parameters'}
+            {isResubmit ? 'Resubmit Opening Request' : 'Edit Parameters'}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
@@ -1201,7 +1196,9 @@ function PairChangeDialog({
             sourceTokenCode={row.sourceTokenCode}
             targetSymbol={row.targetSymbol}
             targetTokenCode={row.targetTokenCode}
+            sourceBankName={row.sourceBankName}
             sourceBankCode={row.sourceBankCode}
+            targetBankName={row.targetBankName}
             targetBankCode={row.targetBankCode}
           />
           <p className="font-mono text-xs text-muted-foreground">{row.pairCode}</p>
@@ -1210,7 +1207,7 @@ function PairChangeDialog({
             <AlertDescription>
               {isResubmit
                 ? 'The opening request for this token pair combination was rejected. Adjust the parameters and resubmit it for approval.'
-                : 'Base rate / markup rate / default split enter the KRC approval once submitted; the current values stay effective until approved. Duplicate submissions are blocked while a request is pending.'}
+                : 'Submitted values require approval; current values remain effective until approved.'}
             </AlertDescription>
           </Alert>
           <FormField
@@ -1223,34 +1220,34 @@ function PairChangeDialog({
               setErrors((prev) => ({ ...prev, baseRate: undefined }));
             }}
             error={errors.baseRate}
-            placeholder="Required, greater than 0"
+            placeholder="1.0000"
             maxLength={14}
             inputMode="decimal"
             autoFocus
           />
           <FormField
             name="markupRate"
-            label="Markup Rate"
+            label="Markup Rate (%)"
             value={form.markupRate}
             onChange={(e) => {
               setForm((f) => ({ ...f, markupRate: e.target.value }));
               setErrors((prev) => ({ ...prev, markupRate: undefined }));
             }}
             error={errors.markupRate}
-            placeholder="Optional, e.g. 0.01 = 1%"
+            placeholder="1.00"
             maxLength={10}
             inputMode="decimal"
           />
           <FormField
             name="defaultSplitRatio"
-            label="Default Split"
+            label="Default Split (%)"
             value={form.defaultSplitRatio}
             onChange={(e) => {
               setForm((f) => ({ ...f, defaultSplitRatio: e.target.value }));
               setErrors((prev) => ({ ...prev, defaultSplitRatio: undefined }));
             }}
             error={errors.defaultSplitRatio}
-            placeholder="Optional, 0–1, e.g. 0.5"
+            placeholder="50.00"
             maxLength={8}
             inputMode="decimal"
           />
@@ -1264,7 +1261,7 @@ function PairChangeDialog({
               ? 'Submitting…'
               : isResubmit
                 ? 'Resubmit'
-                : 'Submit Change'}
+                : 'Submit'}
           </Button>
         </DialogFooter>
       </DialogContent>

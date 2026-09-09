@@ -124,21 +124,21 @@ export function completedTimeText(ms: number | null | undefined): string {
 
 /**
  * Milestone titles keyed by the landing status of a status-migration root
- * node (copy aligned with the desensitized kissen-api wording). Unknown
- * landing codes fall back to "Status updated".
+ * node (3576c80 final English wording). Unknown landing codes fall back to
+ * "Transaction updated".
  */
 export const NODE_TITLES: Record<number, string> = {
   1: 'Transaction created',
   5: 'Quote locked',
   10: 'Payment confirmed',
-  20: 'Waiting for source arrival',
+  20: 'Awaiting source arrival',
   25: 'Source arrival confirmed',
-  30: 'Payout processing',
-  35: 'Transaction completed — funds credited',
-  40: 'Transaction completed — funds credited',
+  30: 'Disbursement in progress',
+  35: 'Transaction completed, funds credited',
+  40: 'Transaction completed, funds credited',
   50: 'Reversal in progress',
   60: 'Funds returned',
-  70: 'Platform processing',
+  70: 'Processing by platform',
   80: 'Transaction cancelled',
   90: 'Transaction failed',
 };
@@ -254,7 +254,7 @@ export function buildChainTimeline(
         extras.push(`Principal ${fmtAmount(row.principal)}`);
       }
       if (row.receiverAmount != null) {
-        extras.push(`Receiver amount ${fmtAmount(row.receiverAmount)}`);
+        extras.push(`Target amount ${fmtAmount(row.receiverAmount)}`);
       }
       if (row.userRate != null) {
         extras.push(`Rate ${fmtRate(row.userRate)}`);
@@ -265,13 +265,13 @@ export function buildChainTimeline(
       (g.to === 30 || g.to === 35 || g.to === 40) &&
       row.receiverAmount != null
     ) {
-      extras.push(`Receiver amount ${fmtAmount(row.receiverAmount)}`);
+      extras.push(`Target amount ${fmtAmount(row.receiverAmount)}`);
     }
-    for (const c of g.csTxIds) extras.push(`Voucher ${c}`);
+    for (const c of g.csTxIds) extras.push(`Ref ${c}`);
     return {
       flowId: g.flowId,
       eventTime: g.time,
-      title: root ? (NODE_TITLES[g.to] ?? 'Status updated') : 'Processing',
+      title: root ? (NODE_TITLES[g.to] ?? 'Transaction updated') : 'Processing',
       who: g.operator ? g.operator : '',
       tone: nodeTone(g.to),
       extras,

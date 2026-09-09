@@ -54,7 +54,6 @@ import {
   SelectValue,
   Skeleton,
   Switch,
-  Textarea,
   type TableRowAction,
   useToast,
 } from '@myorg/shared/ui';
@@ -65,8 +64,6 @@ import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import {
   BANK_STATUS_LABEL,
   BANK_STATUS_OPTIONS,
-  CS_TYPE_LABEL,
-  CS_TYPE_OPTIONS,
   KEY_STATUS_LABEL,
   KISSEN_PROJECT_ID,
   REVOKE_REASON_LABEL,
@@ -101,31 +98,17 @@ const LIST_PATH = '/onboard/bank';
 /* 共用展示 helper                                                      */
 /* ================================================================== */
 
-/** 毫秒时间戳 → YYYY-MM-DD HH:mm:ss（源 formatTime，en-US 24h）。 */
+/** 毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`。 */
 function formatTime(ms: number | null | undefined): string {
   if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '--';
   const d = new Date(Number(ms));
-  if (Number.isNaN(d.getTime())) return '--';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(
-    d.getHours(),
-  )}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return Number.isNaN(d.getTime()) ? '--' : formatAdminDateTime(d);
 }
 
 function parseBankId(raw: string | null): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
-/** 货币系统列拼接（源：[blockchain, CS_TYPE_MAP[type], name].filter(Boolean).join(' · ')）。 */
-function csSystemText(row: Pick<BankRow, 'blockchain' | 'currencySystemType' | 'currencySystemName'>): string {
-  const parts = [
-    row.blockchain,
-    CS_TYPE_LABEL[row.currencySystemType],
-    row.currencySystemName,
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(' · ') : 'Not specified';
 }
 
 function BankStatusBadge({ status }: { status: number }) {
@@ -318,7 +301,7 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
         <DrawerContent className="w-[640px] max-w-none  sm:max-w-[640px]">
           <DrawerHeader>
             <DrawerTitle>
-              Access Keys — {bank.bankName} ({bank.bankCode})
+              Access Keys — {bank.bankName} ({bank.bankBic})
             </DrawerTitle>
             <DrawerDescription>
               The bootstrap auth pair is the bank BIC plus the access key.
@@ -388,7 +371,7 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
           <DialogHeader>
             <DialogTitle>Access Key Generated</DialogTitle>
             <DialogDescription>
-              Key #{generated?.keyId} for {bank.bankName} ({bank.bankCode})
+              Key #{generated?.keyId} for {bank.bankName} ({bank.bankBic})
             </DialogDescription>
           </DialogHeader>
           <Alert>
@@ -420,7 +403,7 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
             </div>
             <div className="space-y-1">
               <div className="text-xs text-muted-foreground">Bank BIC</div>
-              <div className="text-sm">{generated?.bankBic || bank.bic || '—'}</div>
+              <div className="text-sm">{generated?.bankBic || bank.bankBic || '—'}</div>
             </div>
             <div className="space-y-1">
               <div className="text-xs text-muted-foreground">Fingerprint</div>
@@ -499,7 +482,7 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
   } | null>(null);
 
   const peerName = React.useCallback(
-    (peer: InteractPeerRow) => peer.bankName || peer.bankCode,
+    (peer: InteractPeerRow) => peer.bankName || peer.bankBic,
     [],
   );
 
@@ -514,8 +497,8 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
           setRowConfirm(null);
           toast.success(
             allow
-              ? `Resumed interaction with ${peer.bankCode} (effective immediately)`
-              : `Banned interaction with ${peer.bankCode} (effective immediately)`,
+              ? `Resumed interaction with ${peer.bankBic} (effective immediately)`
+              : `Banned interaction with ${peer.bankBic} (effective immediately)`,
           );
         },
         onError: (e) => toast.error((e as Error).message),
@@ -538,8 +521,8 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
           onSuccess: () => {
             toast.success(
               nextBanned
-                ? `Banned ${peer.bankCode} · ${tokenLabel(token)} for this bank`
-                : `Resumed interaction with ${peer.bankCode} · ${tokenLabel(token)}`,
+                ? `Banned ${peer.bankBic} · ${tokenLabel(token)} for this bank`
+                : `Resumed interaction with ${peer.bankBic} · ${tokenLabel(token)}`,
             );
           },
           onError: (e) => toast.error((e as Error).message),
@@ -556,7 +539,7 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
         <DrawerContent className="w-[740px] max-w-none sm:max-w-[740px]">
           <DrawerHeader>
             <DrawerTitle>
-              Bank Interact Rules — {bank.bankName} ({bank.bankCode})
+              Bank Interact Rules — {bank.bankName} ({bank.bankBic})
             </DrawerTitle>
             <DrawerDescription>
               Changes take effect on gateways immediately.
@@ -594,7 +577,7 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{peerName(peer)}</div>
-                      <div className="text-xs text-muted-foreground">({peer.bankCode})</div>
+                      <div className="text-xs text-muted-foreground">({peer.bankBic})</div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="text-xs text-muted-foreground">
@@ -617,7 +600,7 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
                               key={token.tokenId}
                               type="button"
                               disabled={saveMutation.isPending}
-                              title={`Click to ${token.banned ? 'resume' : 'ban'} interaction with ${peer.bankCode} · ${tokenLabel(token)}`}
+                              title={`Click to ${token.banned ? 'resume' : 'ban'} interaction with ${peer.bankBic} · ${tokenLabel(token)}`}
                               onClick={() => onToggleToken(peer, token)}
                               className={
                                 token.banned
@@ -667,7 +650,7 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
                 }
               : {
                   title: 'Block Interaction',
-                  description: `Block all interactions with TD5? The two banks will no longer participate in each other's transactions.`,
+                  description: `Block all interactions with ${peerName(rowConfirm.peer)}? The two banks will no longer participate in each other's transactions.`,
                   actionLabel: 'Confirm Ban',
                   destructive: true,
                   onConfirm: onToggleWhole,
@@ -686,13 +669,13 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
 
 interface BankInfoFilterForm {
   bankName?: string;
-  bankCode?: string;
+  bankBic?: string;
   status?: string;
 }
 
 const EMPTY_BANK_FILTER: BankInfoFilterForm = {
   bankName: '',
-  bankCode: '',
+  bankBic: '',
   status: STATUS_ALL,
 };
 
@@ -703,7 +686,7 @@ function bankFormToParams(
 ): { pageNum: number; pageSize: number; filter: BankListFilter } {
   const filter: BankListFilter = {};
   if (form.bankName) filter.bankName = form.bankName;
-  if (form.bankCode) filter.bankCode = form.bankCode;
+  if (form.bankBic) filter.bankBic = form.bankBic;
   if (form.status && form.status !== STATUS_ALL) filter.status = Number(form.status);
   return { pageNum, pageSize, filter };
 }
@@ -782,17 +765,32 @@ export function BankInfoListPage() {
 
   const columns = React.useMemo<ColumnDef<BankRow & { id: string }>[]>(
     () => [
-      { accessorKey: 'bankName', header: 'Bank Name' },
-      { accessorKey: 'bankCode', header: 'Bank Code' },
       {
-        accessorKey: 'bic',
-        header: 'BIC',
-        cell: ({ row }) => <span>{row.original.bic || '--'}</span>,
+        accessorKey: 'bankName',
+        header: 'Bank Name',
+        cell: ({ row }) => (
+          <div className="flex min-w-0 items-center gap-2">
+            {row.original.logo ? (
+              <img
+                src={row.original.logo}
+                alt=""
+                className="h-5 w-5 shrink-0 rounded object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : null}
+            <span className="truncate">{row.original.bankName}</span>
+          </div>
+        ),
       },
+      { accessorKey: 'bankBic', header: 'Bank Code/BIC' },
       {
-        id: 'csSystem',
-        header: 'Blockchain/Token System',
-        cell: ({ row }) => <span>{csSystemText(row.original)}</span>,
+        accessorKey: 'website',
+        header: 'Official Website',
+        cell: ({ row }) => (
+          <span className="truncate">{row.original.website || '-'}</span>
+        ),
       },
       {
         accessorKey: 'status',
@@ -877,10 +875,10 @@ export function BankInfoListPage() {
               register={register('bankName')}
             />
             <FormField
-              name="bankCode"
-              label="Bank Code"
+              name="bankBic"
+              label="Bank Code (BIC)"
               placeholder="Fuzzy match"
-              register={register('bankCode')}
+              register={register('bankBic')}
             />
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium leading-snug text-foreground">
@@ -965,28 +963,26 @@ export function BankInfoListPage() {
 
 interface BankInfoFormValues {
   bankName: string;
-  bankCode: string;
-  bic: string;
-  /** 表单不渲染；编辑态透传，避免清空门户侧维护的联系地址（源一致）。 */
+  bankBic: string;
+  website: string;
+  logo: string;
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string;
   address: string;
-  currencySystemType: string;
-  blockchain: string;
-  currencySystemName: string;
-  currencySystemUrl: string;
-  currencySystemDesc: string;
+  /** 表单不渲染；编辑态透传，避免清空实例登记维护的账户配置（源一致）。 */
   accountConfig: string;
 }
 
 const EMPTY_FORM: BankInfoFormValues = {
   bankName: '',
-  bankCode: '',
-  bic: '',
+  bankBic: '',
+  website: '',
+  logo: '',
+  contactName: '',
+  contactPhone: '',
+  contactEmail: '',
   address: '',
-  currencySystemType: '0',
-  blockchain: '',
-  currencySystemName: '',
-  currencySystemUrl: '',
-  currencySystemDesc: '',
   accountConfig: '',
 };
 
@@ -1003,23 +999,22 @@ export function BankInfoFormPage() {
   );
   const saveMutation = useSaveBankMutation(KISSEN_PROJECT_ID);
 
-  const { register, handleSubmit, reset, control, formState } = useForm<BankInfoFormValues>({
+  const { register, handleSubmit, reset, formState } = useForm<BankInfoFormValues>({
     defaultValues: EMPTY_FORM,
   });
 
-  // 编辑态回填（源 loadDetail；address 为透传字段）。
+  // 编辑态回填（源 loadDetail；accountConfig 为透传字段，实例登记维护）。
   React.useEffect(() => {
     if (!isEdit || !detail) return;
     reset({
       bankName: detail.bankName ?? '',
-      bankCode: detail.bankCode ?? '',
-      bic: detail.bic ?? '',
+      bankBic: detail.bankBic ?? '',
+      website: detail.website ?? '',
+      logo: detail.logo ?? '',
+      contactName: detail.contactName ?? '',
+      contactPhone: detail.contactPhone ?? '',
+      contactEmail: detail.contactEmail ?? '',
       address: detail.address ?? '',
-      currencySystemType: String(detail.currencySystemType ?? 0),
-      blockchain: detail.blockchain ?? '',
-      currencySystemName: detail.currencySystemName ?? '',
-      currencySystemUrl: detail.currencySystemUrl ?? '',
-      currencySystemDesc: detail.currencySystemDesc ?? '',
       accountConfig: detail.accountConfig ?? '',
     });
   }, [detail, isEdit, reset]);
@@ -1028,14 +1023,13 @@ export function BankInfoFormPage() {
     const payload: BankSaveReq = {
       bankId: isEdit ? bankId : undefined,
       bankName: v.bankName.trim(),
-      bankCode: v.bankCode.trim(),
-      bic: v.bic || undefined,
-      address: v.address || undefined,
-      blockchain: v.blockchain || undefined,
-      currencySystemType: Number(v.currencySystemType),
-      currencySystemName: v.currencySystemName || undefined,
-      currencySystemUrl: v.currencySystemUrl || undefined,
-      currencySystemDesc: v.currencySystemDesc || undefined,
+      bankBic: v.bankBic.trim(),
+      website: v.website.trim() || undefined,
+      logo: v.logo.trim() || undefined,
+      contactName: v.contactName.trim() || undefined,
+      contactPhone: v.contactPhone.trim() || undefined,
+      contactEmail: v.contactEmail.trim() || undefined,
+      address: v.address.trim() || undefined,
       accountConfig: v.accountConfig || undefined,
     };
     saveMutation.mutate(payload, {
@@ -1067,16 +1061,17 @@ export function BankInfoFormPage() {
           <AlertDescription>
             Saving registers the bank as Registered (pending onboarding); formal
             onboarding is initiated by the bank via the bank portal plus KBO
-            approval. Tokens (registered with gateway instances) and limits
-            (managed by the currency system) are not configured here.
+            approval. Currency-system information is registered with the
+            gateway instance in Instance Management; tokens and limits are not
+            configured here.
           </AlertDescription>
         </Alert>
 
-        {/* §6.4 Section：标题 + 说明 + 分隔组织字段（Basic / Integration / Account）。 */}
+        {/* §6.4 Section：标题 + 说明 + 分隔组织字段。 */}
         <div className="mb-4">
           <div className="text-sm font-medium">Basic Information</div>
           <p className="text-sm text-muted-foreground">
-            Bank identity and currency-system basics.
+            Bank identity, website, and contact details.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1088,86 +1083,44 @@ export function BankInfoFormPage() {
             register={register('bankName', { required: true, maxLength: 64 })}
           />
           <FormField
-            name="bankCode"
-            label="Bank Code"
+            name="bankBic"
+            label="Bank Code/BIC"
             required
-            error={formState.errors.bankCode ? 'Please enter the bank code' : undefined}
-            register={register('bankCode', { required: true, maxLength: 32 })}
-          />
-          <FormField
-            name="bic"
-            label="SWIFT BIC"
             placeholder="Used for bootstrap auth (BIC + access key)"
-            register={register('bic', { maxLength: 16 })}
-          />
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Currency System Type
-            </label>
-            <Controller
-              control={control}
-              name="currencySystemType"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CS_TYPE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={String(o.value)}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-          <FormField
-            name="blockchain"
-            label="Blockchain"
-            placeholder="Optional, e.g. Ethereum / TD"
-            register={register('blockchain', { maxLength: 64 })}
+            error={
+              formState.errors.bankBic ? 'Please enter the bank code (BIC)' : undefined
+            }
+            register={register('bankBic', { required: true, maxLength: 64 })}
           />
           <FormField
-            name="currencySystemName"
-            label="Currency System Name"
-            placeholder="e.g. TD OpenAPI / Hyperledger Besu"
-            register={register('currencySystemName', { maxLength: 100 })}
+            name="website"
+            label="Official Website"
+            placeholder="Optional, e.g. https://bank.example.com"
+            register={register('website', { maxLength: 300 })}
           />
           <FormField
-            name="currencySystemUrl"
-            label="Currency System URL"
-            placeholder="e.g. http://td:18082"
-            register={register('currencySystemUrl', { maxLength: 300 })}
+            name="logo"
+            label="Bank Logo"
+            placeholder="Optional; shown next to the bank name in lists"
+            register={register('logo', { maxLength: 500 })}
           />
-        </div>
-        <div className="mt-6 border-t border-border/50 pt-6">
-          <label htmlFor="currencySystemDesc" className="block text-sm font-medium">
-            Integration Notes
-          </label>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Optional notes for connecting to the bank&rsquo;s currency system.
-          </p>
-          <Textarea
-            id="currencySystemDesc"
-            rows={2}
+          <FormField
+            name="contactName"
+            label="Contact Name"
+            placeholder="Optional; editable via the bank portal after onboarding"
+            register={register('contactName', { maxLength: 64 })}
+          />
+          <FormField
+            name="contactEmail"
+            label="Email"
+            placeholder="Optional; receives credential and approval notifications"
+            register={register('contactEmail', { maxLength: 128 })}
+          />
+          <FormField
+            name="address"
+            label="Address"
             placeholder="Optional"
-            {...register('currencySystemDesc')}
-          />
-        </div>
-        <div className="mt-6 border-t border-border/50 pt-6">
-          <label htmlFor="accountConfig" className="block text-sm font-medium">
-            Account Config
-          </label>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Optional JSON consumed by the currency system.
-          </p>
-          <Textarea
-            id="accountConfig"
-            rows={3}
-            placeholder="JSON, optional"
-            {...register('accountConfig')}
+            register={register('address', { maxLength: 200 })}
           />
         </div>
       </section>
@@ -1247,28 +1200,43 @@ export function BankInfoDetailPage() {
           <DetailField label="Bank Name">
             {isLoading ? <Skeleton className="h-4 w-40" /> : detail?.bankName || '--'}
           </DetailField>
-          <DetailField label="Bank Code">
+          <DetailField label="Bank Code/BIC">
             {isLoading ? (
               <Skeleton className="h-4 w-32" />
             ) : (
               <CopyableEllipsisText
-                value={detail?.bankCode}
+                value={detail?.bankBic}
                 emptyText="--"
                 maxWidth={200}
                 className="font-mono"
               />
             )}
           </DetailField>
-          <DetailField label="BIC">
-            {isLoading ? <Skeleton className="h-4 w-24" /> : detail?.bic || '--'}
-          </DetailField>
-          <DetailField label="Blockchain/Token System">
+          <DetailField label="Official Website">
             {isLoading ? (
               <Skeleton className="h-4 w-48" />
-            ) : detail ? (
-              csSystemText(detail)
             ) : (
-              '--'
+              <span className="break-all">{detail?.website || '--'}</span>
+            )}
+          </DetailField>
+          <DetailField label="Bank Logo">
+            {isLoading ? (
+              <Skeleton className="h-4 w-48" />
+            ) : (
+              <span className="break-all">{detail?.logo || '--'}</span>
+            )}
+          </DetailField>
+          <DetailField label="Contact Name">
+            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactName || '--'}
+          </DetailField>
+          <DetailField label="Contact Email">
+            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactEmail || '--'}
+          </DetailField>
+          <DetailField label="Address" span>
+            {isLoading ? (
+              <Skeleton className="h-4 w-40" />
+            ) : (
+              <span className="whitespace-pre-wrap break-all">{detail?.address || '--'}</span>
             )}
           </DetailField>
           <DetailField label="Status">
@@ -1283,62 +1251,6 @@ export function BankInfoDetailPage() {
               '--'
             )}
           </DetailField>
-          <DetailField label="Official Website">
-            {isLoading ? <Skeleton className="h-4 w-48" /> : detail?.officialWebsite || '--'}
-          </DetailField>
-          <DetailField label="Description" span>
-            {isLoading ? (
-              <Skeleton className="h-4 w-64" />
-            ) : (
-              <span className="whitespace-pre-wrap break-words">{detail?.description || '--'}</span>
-            )}
-          </DetailField>
-        </div>
-      </section>
-
-      {/* 正文：业务信息（Token System）— 运营信息（Contact）分层，§6.3 */}
-      <section className="rounded-lg border border-border/60 bg-card p-4 sm:p-6">
-        <div>
-          <div className="mb-3 text-sm font-semibold">Token System Information</div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <DetailField label="Token System Type">
-              {isLoading ? (
-                <Skeleton className="h-4 w-24" />
-              ) : (
-                (detail && CS_TYPE_LABEL[detail.currencySystemType]) || '--'
-              )}
-            </DetailField>
-            <DetailField label="Blockchain">
-              {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.blockchain || '--'}
-            </DetailField>
-            <DetailField label="Token System Name">
-              {isLoading ? <Skeleton className="h-4 w-40" /> : detail?.currencySystemName || '--'}
-            </DetailField>
-          </div>
-        </div>
-
-        <div className="mt-6 border-t border-border/50 pt-6">
-          <div className="mb-3 text-sm font-semibold">
-            Contact Information
-            <span className="ml-2 text-xs font-normal text-muted-foreground">
-              Maintained by the bank via the bank portal (read-only here)
-            </span>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <DetailField label="Contact Name">
-              {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactName || '--'}
-            </DetailField>
-            <DetailField label="Email">
-              {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactEmail || '--'}
-            </DetailField>
-            <DetailField label="Address" span>
-              {isLoading ? (
-                <Skeleton className="h-4 w-40" />
-              ) : (
-                <span className="whitespace-pre-wrap break-all">{detail?.address || '--'}</span>
-              )}
-            </DetailField>
-          </div>
         </div>
       </section>
     </div>

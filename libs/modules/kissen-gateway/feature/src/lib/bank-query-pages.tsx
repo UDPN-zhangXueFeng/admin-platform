@@ -7,15 +7,10 @@ import { ColumnDef } from '@tanstack/react-table';
 import {
   Badge,
   Button,
+  CopyableEllipsisText,
   DataTable,
   Skeleton,
   useToast,
-} from '@myorg/shared/ui';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 import {
@@ -26,7 +21,6 @@ import {
 
 import { DescField, DescGrid } from './desc-grid';
 import { formatTime, orDash } from './kit';
-import { PageHead } from './page-head';
 import { EmptyHint, MissingIdBlock } from './state-blocks';
 
 
@@ -41,8 +35,9 @@ import { EmptyHint, MissingIdBlock } from './state-blocks';
  *   tokensOf try-catch 语义，fail-safe 不崩溃）。
  * - 时间 en-US 24h（kit.formatTime，英文-only 契约）；官网为协议扩展
  *   P1 占位列，恒 '-'。
- * - 39c8a2b 增列：BIC 列头「BIC/SWIFT」→「BIC」；新增 Currency System 列
- *   （GW-16 货币系统重构值域，源 csText）。
+ * - 62d1c33：Bank Code + BIC 两列合并（bankBic），Currency System 列随货币
+ *   系统字段退役删除；a9dc10e：可交易 token 改显 tokenCode（e308f0b 的
+ *   tokenName 口径作废），列头 Bank Code/BIC、Synced On 全站对齐。
  */
 
 /** 源 tokensOf：tokenList JSON 串 → 可交易 token 摘要数组；空/坏值 → []。 */
@@ -57,71 +52,38 @@ function tokensOf(row: BankQueryRow): BankTokenSummary[] {
   }
 }
 
-/** 源 tag 文案：`symbol || tokenCode · tokenCode`（symbol 缺失时避免重复显示；'·' 为符号非文案）。 */
-function tokenTagText(t: BankTokenSummary): string {
-  return `${t.symbol || t.tokenCode} · ${t.tokenCode}`;
-}
-
-/** 源 tooltip 三段：tokenNo（'待分配' 英化为 'Pending'）/chainType/anchorFiat。 */
-function tokenTooltipText(t: BankTokenSummary): string {
-  return `tokenNo:${t.tokenNo || 'Pending'} · chain:${t.chainType || '-'} · anchor:${t.anchorFiat || '-'}`;
-}
 
 type BankTokenSummary = {
   tokenNo?: string;
   tokenCode: string;
+  tokenName?: string;
   symbol?: string;
   chainType?: string;
   anchorFiat?: string;
 };
 
-/** DataTable 行（id 由 bankCode 兜底序号派生，仅作 row key）。 */
+/** DataTable 行（id 由 bankBic 兜底序号派生，仅作 row key）。 */
 type BankQueryRow = {
   id: string;
   bankId?: number;
   /** 是否本行（03716c8：后端按 kissen.bank-code 比对下发；未下发按外部银行）。 */
   self?: boolean;
   bankName?: string;
-  bankCode?: string;
-  bic?: string;
-  /** 货币系统类型（GW-16 值域）：0 未填 / 1 区块链 / 2 传统 / 3 其他。 */
-  currencySystemType?: number;
-  /** 货币系统名称（类型已知但名称未下发时仅显类型）。 */
-  currencySystemName?: string;
+  /** 银行编码(BIC)（2026-09-08 合并列，62d1c33）。 */
+  bankBic?: string;
   tokenList?: string;
   pushTime?: number;
 };
 
-/** 货币系统类型文案（GW-16 值域）：1=Blockchain / 2=Traditional / 3=Other。 */
-const CURRENCY_SYSTEM_TYPE_TEXT: Record<number, string> = {
-  1: 'Blockchain',
-  2: 'Traditional',
-  3: 'Other',
-};
 
-/** 源 csText：type 0/null 未填 → '-'；有名称「Type · Name」；未知码 `Unknown (n)`；无名称只显类型。 */
-function currencySystemText(
-  row: Pick<BankQueryRow, 'currencySystemType' | 'currencySystemName'>,
-): string {
-  if (row.currencySystemType == null || row.currencySystemType === 0) {
-    return '-';
-  }
-  const type =
-    CURRENCY_SYSTEM_TYPE_TEXT[row.currencySystemType] ??
-    `Unknown (${row.currencySystemType})`;
-  return row.currencySystemName ? `${type} · ${row.currencySystemName}` : type;
-}
-
-/** 源列头（03716c8 起 Bank Type/银行名称/银行编码/BIC/货币系统/官网/可交易 token/推送时间）。 */
+/** 源列头（62d1c33 合并列；a9dc10e 起列头 Bank Code/BIC、Synced On）。 */
 const BANK_QUERY_HEADERS = [
   'Bank Type',
   'Bank Name',
-  'Bank Code',
-  'BIC',
-  'Currency System',
+  'Bank Code/BIC',
   'Official Website',
   'Tradable Tokens',
-  'Push Time',
+  'Synced On',
 ] as const;
 
 export function BankQueryListPage() {
@@ -145,7 +107,7 @@ export function BankQueryListPage() {
     () =>
       (data ?? []).map((row, index) => ({
         ...row,
-        id: row.bankCode || row.bankName || String(row.bankId ?? index),
+        id: row.bankBic || row.bankName || String(row.bankId ?? index),
       })),
     [data],
   );
@@ -169,64 +131,51 @@ export function BankQueryListPage() {
         cell: ({ row }) => orDash(row.original.bankName),
       },
       {
-        id: 'bankCode',
+        // 62d1c33：原 Bank Code + BIC 两列合并（bankBic 单字段）。
+        id: 'bankBic',
         header: BANK_QUERY_HEADERS[2],
         cell: ({ row }) => (
-          <span className="font-mono">{orDash(row.original.bankCode)}</span>
+          <CopyableEllipsisText
+            value={row.original.bankBic}
+            emptyText="-"
+            maxWidth={180}
+            className="font-mono"
+          />
         ),
-      },
-      {
-        id: 'bic',
-        header: BANK_QUERY_HEADERS[3],
-        cell: ({ row }) => (
-          <span className="font-mono">{orDash(row.original.bic)}</span>
-        ),
-      },
-      {
-        // 39c8a2b 新增（GW-16）：货币系统「Type · Name」，未填/未知值域见 currencySystemText。
-        id: 'currencySystem',
-        header: BANK_QUERY_HEADERS[4],
-        cell: ({ row }) => currencySystemText(row.original),
       },
       {
         // 协议扩展 P1 占位：Kissen 下发 website 后自动亮起（源注释语义）。
         id: 'website',
-        header: BANK_QUERY_HEADERS[5],
+        header: BANK_QUERY_HEADERS[3],
         cell: () => <span>-</span>,
       },
       {
         id: 'tokenList',
-        header: BANK_QUERY_HEADERS[6],
+        header: BANK_QUERY_HEADERS[4],
         meta: { overflow: 'wrap', maxWidth: 360 },
         cell: ({ row }) => {
+          /* a9dc10e：标签改 tokenCode + 中间省略可复制（源 CopyText；tooltip 三段随 tokenName 口径作废删除）。 */
           const tokens = tokensOf(row.original);
           if (tokens.length === 0) return <span>-</span>;
           return (
-            <TooltipProvider delayDuration={200}>
-              <span className="inline-flex flex-wrap gap-1.5">
-                {tokens.map((t, i) => (
-                  <Tooltip key={`${t.tokenCode}-${i}`}>
-                    <TooltipTrigger asChild>
-                      <Badge
-                        variant="secondary"
-                        className="cursor-default font-mono"
-                      >
-                        {tokenTagText(t)}
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="font-mono text-xs">
-                      {tokenTooltipText(t)}
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </span>
-            </TooltipProvider>
+            <span className="inline-flex flex-wrap gap-1.5">
+              {tokens.map((t, i) => (
+                <CopyableEllipsisText
+                  key={`${t.tokenCode}-${i}`}
+                  value={t.tokenCode}
+                  emptyText="-"
+                  maxWidth={160}
+                  truncate="middle"
+                  className="font-mono"
+                />
+              ))}
+            </span>
           );
         },
       },
       {
         id: 'pushTime',
-        header: BANK_QUERY_HEADERS[7],
+        header: BANK_QUERY_HEADERS[5],
         cell: ({ row }) => (
           <span className="tabular-nums">{formatTime(row.original.pushTime)}</span>
         ),
@@ -246,7 +195,7 @@ export function BankQueryListPage() {
                 router.push(`/bank/query/detail?id=${row.original.bankId}`)
               }
             >
-              Detail
+              View
             </Button>
           ) : (
             <span>-</span>
@@ -258,8 +207,6 @@ export function BankQueryListPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead variant="banner" eyebrow="BANK QUERY" title="Bank Query" />
-
       <section className="rounded-lg border border-border/60 bg-card">
         {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + 页面级操作右置。 */}
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -299,8 +246,8 @@ export function BankQueryListPage() {
           />
           {/* 源 footnote：可见集合与 DEC-05 过滤口径说明。 */}
           <p className="mt-4 text-xs text-muted-foreground">
-            Network bank list (permission-visible set pushed by Kissen); token
-            summaries are filtered by this row&apos;s transaction permissions.
+            Banks visible here are those your bank is permitted to transact
+            with. Token lists reflect the permissions granted to your bank.
           </p>
         </div>
       </section>
@@ -343,9 +290,13 @@ export function BankQueryDetailPage() {
     () => [
       {
         id: 'tokenCode',
-        header: 'tokenCode',
+        header: 'Token Code',
         cell: ({ row }) => (
-          <span className="font-mono">{orDash(row.original.tokenCode)}</span>
+          <CopyableEllipsisText
+            value={row.original.tokenCode}
+            emptyText="-"
+            className="font-mono"
+          />
         ),
       },
       {
@@ -367,14 +318,18 @@ export function BankQueryDetailPage() {
       },
       {
         id: 'anchorFiat',
-        header: 'Anchored Fiat',
+        header: 'Pegged Currency',
         cell: ({ row }) => orDash(row.original.anchorFiat),
       },
       {
         id: 'tokenNo',
         header: 'Token No.',
         cell: ({ row }) => (
-          <span className="font-mono">{orDash(row.original.tokenNo)}</span>
+          <CopyableEllipsisText
+            value={row.original.tokenNo}
+            emptyText="-"
+            className="font-mono"
+          />
         ),
       },
     ],
@@ -405,14 +360,10 @@ export function BankQueryDetailPage() {
       <section className="rounded-lg border border-border/60 bg-card panel-pad">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-            <div>
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Bank Query
-              </div>
-              <h1 className="text-xl font-semibold leading-7 text-foreground">
-                {data ? data.bankName || 'Bank Detail' : 'Bank Detail'}
-              </h1>
-            </div>
+            {/* a9dc10e：eyebrow「Bank Query」小字移除，仅留 bankName 主标题。 */}
+            <h1 className="text-xl font-semibold leading-7 text-foreground">
+              {data ? data.bankName || 'Bank Detail' : 'Bank Detail'}
+            </h1>
             {data ? (
               <Badge variant={data.self ? 'default' : 'outline'}>
                 {data.self ? 'Own Bank' : 'External Bank'}
@@ -431,7 +382,7 @@ export function BankQueryDetailPage() {
 
       {data ? (
         <>
-          {/* 卡 1：基本信息（源 column2；货币系统口径与列表 csText 一致）。 */}
+          {/* 卡 1：基本信息（源 column2）。 */}
           <section className="rounded-lg border border-border/60 bg-card panel-pad">
             <h2 className="mb-2.5 text-sm font-semibold text-foreground">
               Basic Information
@@ -442,14 +393,9 @@ export function BankQueryDetailPage() {
                   {orDash(data.bankId)}
                 </span>
               </DescField>
-              <DescField label="Bank Code">
-                <span className="font-mono">{orDash(data.bankCode)}</span>
-              </DescField>
-              <DescField label="BIC">
-                <span className="font-mono">{orDash(data.bic)}</span>
-              </DescField>
-              <DescField label="Currency System">
-                {currencySystemText(data)}
+              {/* 62d1c33：原 Bank Code + BIC 两项合并为 bankBic；Currency System 项删除。 */}
+              <DescField label="Bank Code/BIC">
+                <span className="font-mono">{orDash(data.bankBic)}</span>
               </DescField>
               <DescField label="Status">
                 {/* 源推送缓存状态：20 启用（Enabled），其余 Disabled。 */}
@@ -457,10 +403,7 @@ export function BankQueryDetailPage() {
                   {data.status === 20 ? 'Enabled' : 'Disabled'}
                 </Badge>
               </DescField>
-              <DescField label="Version">
-                <span className="tabular-nums">{orDash(data.version)}</span>
-              </DescField>
-              <DescField label="Push Time">
+              <DescField label="Synced On">
                 <span className="font-mono">{formatTime(data.pushTime)}</span>
               </DescField>
             </DescGrid>

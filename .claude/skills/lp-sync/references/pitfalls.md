@@ -38,6 +38,13 @@
 - e204ac1：12 项体验批次（FX 管理组/审批定向推送/列表重构/折线图）
 - 171ee44（2026-08-28）：token 对展示统一 SRC/TGT 紧凑式（pair/split/tx-flow/dashboard/详情抽屉）
 
+## 2026-09-09 同步批次（上游 35ca014..e0fad0a）
+
+- **e0fad0a pairx 第三行移除**：pair 可申请视图与 split 卡1 的 Token Pair 紧凑式改两行（symOf/bankOf），pairCode||pairId 占位行删除——但 pair「我的 token 对」Token对列、卡2 筛选下拉、applyRow 确认文案仍用 pairCode||pairId，勿一并删。
+- **a481ca1 bankBic 合并列**：wire 字段 bankCode→bankBic（token 列表行+分组行）；上游 TokenRow 类型与 token-meta 仍读 bankCode（源仓内部不一致）——下游类型用 wire 真名 bankBic，token-meta 兼容 bankBic||bankCode。
+- **3576c80 链路英文化**：NODE_TITLES 13 键 + extras 标签（Principal/Target amount/Rate/Ref）+兜底 Transaction updated/Processing；tx-flow 列表 TX_STATUS_MAP 上游仍中文，下游维持既有英文映射不动。
+- **邀请落地页（a522963/d90d91a，§D2b/§E38）**：免登录 (auth) 路由 + middleware 公开前缀；确认密码校验比较响应式 password；token 一次性；错误双通道（拦截器 toast + 内联 alert，标题按 23_0029/30/31）；无 token 参数不发请求直接错误态。
+
 ## 跨 app 通用陷阱（来源：admin-sync 2026-08-28 v2.0 全量补同步，三 skill 共享条目）
 
 - 「远程新增功能/菜单没同步」先分诊两类根因：①前端仓库增量（`git ls-remote` 对 branch tip vs lastSyncedSha）；②后端运行时数据（侧栏菜单 = 登录响应 menuTree 驱动，后端重构菜单时仓库无 diff 也会缺功能）。LP 侧已是 menuTree + MENU_LABELS 模式，此项天然免疫②，但诊断顺序通用。
@@ -47,6 +54,8 @@
 - DataTable 行键覆盖 × model 自带 `id: number`：`{...r, id:String(r.id)}` 使 `T & {id:string}` 的 id 变 never；用 `Omit<T,'id'> & {id:string}` 模块级别名统一列/回调/弹窗 props。
 - 浏览器批量走查：工具默认 30s 超时，拆批 ≤4 页 + 显式 timeout；截图用 `page.screenshot({path})` 直存（`tab.screenshot()` 不收路径）；登录态会中途过期把批内后半踢到登录页（同时是 code='2' 分支实测机会），批前先登录。
 - 写操作流程的运行时实证需后端种子数据；无种子以「渲染全绿 + 只读交互实测 + 按钮级矩阵静态保证」收口并明示边界。
+- 触发导航的按钮 `handle.click()` 会 8s 超时但点击实际已生效（gateway-sync 2026-09-09 实测登录 Sign In）：改用 `tab.evaluate` 内原生 `click()` / `form.requestSubmit()`；超时后先查 toast + localStorage 会话键再决定是否重试，勿盲目重试双提交。登录成功勿以 URL 判——dev 编译慢时 client redirect 延迟数秒，token 落盘后直接 `location.assign(目标页)` 继续走查。
+- lint 通则：`.catch(() => {})` 触发 `@typescript-eslint/no-empty-function`，统一写 `.catch(() => undefined)`。
 
 ## v2.4 LP5 门户批次（上游 6c49396，2026-08-28 同步实录）
 

@@ -60,22 +60,22 @@ import { VolumeChart, type VolumeSeries } from './volume-chart';
 const LBL = {
   eyebrow: 'OVERVIEW',
   title: 'Dashboard',
-  statPools: 'Pools Opened',
-  statPoolsSub: 'pool records',
+  statPools: 'Active Pools',
+  statPoolsSub: 'Across all tokens',
   statPairs: 'Active Token Pairs',
-  statPairsSub: 'Token pairs I participate in',
+  statPairsSub: 'Your active participations',
   statToday: "Today's Transactions",
-  statTodaySub: 'GMT+8 daily cutoff',
+  statTodaySub: 'Resets daily at 00:00 (UTC+8)',
   statCompleted: 'Total Completed',
-  statCompletedSub: 'Principal total',
-  unitTx: 'tx',
+  statCompletedSub: 'Total principal',
+  unitTx: 'transactions',
   myPools: 'My Pools',
   balance: 'Balance',
   waterLevel: 'Water Level',
   /** v2.4 由「授权额度」更名（源 授权可用额度）。 */
-  preauthAvailable: 'Pre-auth Available',
+  preauthAvailable: 'Available Pre-authorization',
   waterLevelHelp: 'Balance ÷ token minimum liquidity (can exceed 100%)',
-  updated: 'Updated',
+  updated: 'Updated On',
   volumeTitle: 'Transaction Volume Statistics',
   volumeSub: 'Daily volume by token pair or currency',
   /** v2.4 维度 radio（切换不重拉，客户端重分组）。 */
@@ -86,7 +86,7 @@ const LBL = {
   last7: 'Last 7 Days',
   last14: 'Last 14 Days',
   last30: 'Last 30 Days',
-  emptyPools: 'No pools opened yet — head to Liquidity Pools to open your first one.',
+  emptyPools: 'No pools yet. Open your first pool to start providing liquidity',
   openPool: 'Open a Pool',
   unknownBank: 'Unknown Bank',
   /** 通用规则 2：error 态统一文案。 */
@@ -122,6 +122,19 @@ function levelValueClass(level: string | null): string {
   if (n >= 1) return 'text-success';
   if (n >= 0.5) return 'text-warning';
   return 'text-destructive';
+}
+
+/** Dashboard 金额统一保留两位小数，并在有元数据时追加 token symbol。 */
+function formatTokenAmount(
+  value: string | number | null,
+  symbol?: string,
+): string {
+  if (value === null || value === undefined || value === '') return '-';
+  const numberValue = Number(value);
+  const amount = Number.isFinite(numberValue)
+    ? formatMoney(numberValue.toFixed(2))
+    : formatMoney(value);
+  return symbol ? `${amount} ${symbol}` : amount;
 }
 
 /** 数据数值文本（.t-data：14/20/500 + tabular-nums，纲领 §5.2 Data 角色）。 */
@@ -178,6 +191,7 @@ function PoolCard({ pool }: { pool: DashboardPoolCard }) {
   const statusText = POOL_STATUS_TEXT[pool.status] ?? String(pool.status);
   const statusVariant: BadgeVariant =
     POOL_STATUS_VARIANT[pool.status] ?? 'secondary';
+  const tokenSymbol = pool.tokenSymbol || pool.tokenNo;
   return (
     <Card>
       <CardContent className="panel-pad">
@@ -213,7 +227,7 @@ function PoolCard({ pool }: { pool: DashboardPoolCard }) {
             <dt className="t-supporting text-muted-foreground">{LBL.balance}</dt>
             <dd>
               <Num>
-                {pool.balance === null ? '-' : formatMoney(pool.balance)}
+                {formatTokenAmount(pool.balance, tokenSymbol)}
               </Num>
             </dd>
           </div>
@@ -253,9 +267,7 @@ function PoolCard({ pool }: { pool: DashboardPoolCard }) {
             </dt>
             <dd>
               <Num>
-                {pool.preauthAvailable === null
-                  ? '-'
-                  : formatMoney(pool.preauthAvailable)}
+                {formatTokenAmount(pool.preauthAvailable, tokenSymbol)}
               </Num>
             </dd>
           </div>
@@ -524,7 +536,7 @@ export function DashboardPage() {
                     ? `${stats.txCompleted} ${LBL.unitTx}`
                     : `- ${LBL.unitTx}`
                 }
-                sub={`${LBL.statCompletedSub} ${formatMoney(stats?.principalTotal ?? 0)}`}
+                sub={`${LBL.statCompletedSub} ${formatTokenAmount(stats?.principalTotal ?? 0)}`}
               />
             </div>
 

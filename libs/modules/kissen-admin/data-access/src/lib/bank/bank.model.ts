@@ -5,26 +5,23 @@
  * bankStatusVariant for the shared Badge.
  */
 
-/** Row of POST /manage/bank/list (source BankRow). */
+/** Row of POST /manage/bank/list (source BankRow @ 3c4cfbb). */
 export interface BankRow {
   bankId: number;
   bankName: string;
-  bankCode: string;
-  /** SWIFT BIC, also used as the bootstrap auth half (BIC + access key). */
-  bic?: string;
+  /**
+   * Bank code (BIC). Source 2026-09-08 merged the former bankCode + bic
+   * columns into one; also the bootstrap auth half (BIC + access key).
+   */
+  bankBic: string;
+  /** Official website URL. */
+  website: string;
+  /** Logo URL (20px img in the list name cell; hidden when it fails to load). */
+  logo: string;
   contactName?: string;
   contactPhone?: string;
   contactEmail?: string;
   address?: string;
-  /** Detail-only bank profile fields returned by newer backend versions. */
-  officialWebsite?: string;
-  description?: string;
-  /** Currency system: 0=Not specified, 1=Blockchain, 2=Conventional, 3=Other. */
-  currencySystemType: number;
-  currencySystemName?: string;
-  blockchain?: string;
-  currencySystemUrl?: string;
-  currencySystemDesc?: string;
   /** Gateway account config (JSON string), owned by instance registration. */
   accountConfig?: string;
   /** See BANK_STATUS_LABEL (1/5/10/15/20/50). */
@@ -37,7 +34,8 @@ export interface BankRow {
 /** Filter of POST /manage/bank/list (source data segment). */
 export interface BankListFilter {
   bankName?: string;
-  bankCode?: string;
+  /** Merged bank code (BIC) filter (source 2026-09-08 bankCode→bankBic). */
+  bankBic?: string;
   status?: number;
 }
 
@@ -51,23 +49,21 @@ export interface BankListReq {
  * Aligned with backend BankSaveReqVO; bankId absent=create (saved directly as
  * status 10 Registered - pending onboarding), present=edit.
  *
- * Contact fields and address are type-optional upstream passthroughs
- * (detail-only, maintained via the bank portal) and are not rendered by the form.
+ * Source 2026-09-08: bankCode+bic merged into bankBic; website/logo added;
+ * contact fields returned to the form (optional); currency-system fields
+ * moved to gateway-instance registration.
  */
 export interface BankSaveReq {
   bankId?: number;
   bankName: string;
-  bankCode: string;
-  bic?: string;
+  /** Merged bank code (BIC), max length 64. */
+  bankBic: string;
+  website?: string;
+  logo?: string;
   contactName?: string;
   contactPhone?: string;
   contactEmail?: string;
   address?: string;
-  blockchain?: string;
-  currencySystemType?: number;
-  currencySystemName?: string;
-  currencySystemUrl?: string;
-  currencySystemDesc?: string;
   accountConfig?: string;
 }
 

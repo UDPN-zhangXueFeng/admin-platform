@@ -89,7 +89,11 @@ export interface SettleOrderItemRow {
   pairId: number;
   pairCode: string;
   sourceTokenCode: string;
+  /** Symbol abbreviation (display-first, falls back to tokenCode; source 2026-09-08). */
+  sourceSymbol: string;
   targetTokenCode: string;
+  /** Symbol abbreviation (display-first, falls back to tokenCode). */
+  targetSymbol: string;
   txCount: number;
   principalTotal: string | number;
   markupTotal: string | number;

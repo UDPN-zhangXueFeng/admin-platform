@@ -74,7 +74,7 @@ export const SETTLE_CYCLE_MAP: Record<number, string> = {
 
 /** LP 入网/状态沿用 CommonStatusEnum（源 views/approval/status.ts COMMON_STATUS_MAP 定稿英文）。 */
 export const LP_STATUS_LABEL: Record<number, string> = {
-  1: 'Saved (Draft)',
+  1: 'Draft',
   3: 'Withdrawn',
   5: 'Pending Review',
   10: 'Under Review',

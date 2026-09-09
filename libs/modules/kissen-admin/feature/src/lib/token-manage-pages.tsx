@@ -6,7 +6,9 @@
  *
  * 行为规格：
  * - token 页 6026e51（移除 csTokenCode 列）/ c3840b3（列序 + fmt2）/ 84676f8（精度口径）
+ *   / 3499a7e（bank 下拉 bankBic）
  * - instance 页 7d338aa（verify 对 status=1 已登记可见）/ e13cd37 + c3840b3（心跳列 + 抽屉）
+ *   / bfef639（货币系统 5 字段 + 系统名称/类型列 + 详情抽屉收编密钥指纹）
  * - ElMessageBox prompt/confirm → Dialog+Input prompt / AlertDialog confirm；
  *   el-message → sonner toast（唯一出口）；时间 en-US 24h。
  */
@@ -62,6 +64,8 @@ import {
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
 
 import {
+  CS_TYPE_LABEL,
+  CS_TYPE_OPTIONS,
   CONNECTIVITY_STATUS_LABEL,
   CONNECTIVITY_STATUS_VARIANT,
   INSTANCE_STATUS_LABEL,
@@ -104,15 +108,11 @@ const HEARTBEAT_PAGE_SIZE = 10;
 /* 共用展示 helper                                                     */
 /* ================================================================== */
 
-/** 毫秒时间戳 → YYYY-MM-DD HH:mm:ss（en-US + 24h，手写不引 dayjs）。 */
+/** 毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`。 */
 function formatTime(ms: number | null | undefined): string {
   if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '--';
   const d = new Date(Number(ms));
-  if (Number.isNaN(d.getTime())) return '--';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(
-    d.getHours(),
-  )}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return Number.isNaN(d.getTime()) ? '--' : formatAdminDateTime(d);
 }
 
 /** 金额展示：千分位 + 强制两位小数（源 fmt2，2026-08-27 用户反馈）；非数字原样。 */
@@ -747,7 +747,7 @@ export function TokenManageListPage() {
                   <SelectItem value={STATUS_ALL}>All</SelectItem>
                   {bankOptions.map((b) => (
                     <SelectItem key={b.bankId} value={String(b.bankId)}>
-                      {`${b.bankName} (${b.bankCode})`}
+                      {`${b.bankName} (${b.bankBic})`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1114,6 +1114,28 @@ function instanceFormToFilter(form: InstanceFilterForm) {
   return filter;
 }
 
+/**
+ * 货币系统整行展示（源 csText）：`区块链 · 类型 · 名称`，缺省 '-'。
+ * 详情抽屉专用；列表「系统类型」见 instanceCsTypeText（bfef639 拆列口径）。
+ */
+function instanceCsText(row: InstanceRow): string {
+  const type = CS_TYPE_LABEL[row.currencySystemType ?? 0] ?? 'Not specified';
+  return (
+    [row.blockchain || '', type, row.currencySystemName || '']
+      .filter(Boolean)
+      .join(' · ') || '--'
+  );
+}
+
+/** 列表「系统类型」（源 csTypeText）：类型=区块链时带链名 `类型·链`。 */
+function instanceCsTypeText(row: InstanceRow): string {
+  const type = CS_TYPE_LABEL[row.currencySystemType ?? 0] ?? 'Not specified';
+  if (row.currencySystemType === 1 && row.blockchain) {
+    return `${type}·${row.blockchain}`;
+  }
+  return type;
+}
+
 /** 心跳历史抽屉（源 heartbeat-drawer.vue；v-if 卸载式，打开即取第 1 页）。 */
 function HeartbeatDrawer({
   instanceId,
@@ -1223,6 +1245,87 @@ type HeartbeatRowWithId = { id: string } & {
   probeTime: number;
 };
 
+/**
+ * 实例详情抽屉（源 bfef639，480px）：银行/实例/接入地址/货币系统/密钥指纹
+ * 等完整信息自列表列移入；行数据快照直读（打开不重取）。
+ */
+function InstanceDetailDrawer({
+  row,
+  onClose,
+}: {
+  row: InstanceRow;
+  onClose: () => void;
+}) {
+  return (
+    <Drawer open onOpenChange={(open) => !open && onClose()}>
+      <DrawerContent className="w-full max-w-none sm:w-[480px]">
+        <DrawerHeader>
+          <DrawerTitle>Instance Details — {row.instanceCode || row.instanceId}</DrawerTitle>
+          <DrawerDescription>Gateway instance</DrawerDescription>
+        </DrawerHeader>
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          {/* 源 el-descriptions column=1 border（SpenderDrawer 同式字段卡） */}
+          <div className="space-y-3 rounded-lg border border-border/60 bg-card p-4">
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">Bank</div>
+              <div className="text-sm">
+                {row.bankName || '--'}
+                {row.bankBic ? ` (${row.bankBic})` : ''}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">Instance</div>
+              <div className="text-sm">
+                {row.instanceCode || '--'} {row.instanceName}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">Endpoint</div>
+              <div className="break-all font-mono text-sm">{row.endpointUrl}</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">Currency System</div>
+              <div className="text-sm">{instanceCsText(row)}</div>
+            </div>
+            {row.currencySystemUrl ? (
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">Service URL</div>
+                <div className="break-all font-mono text-sm">{row.currencySystemUrl}</div>
+              </div>
+            ) : null}
+            {row.currencySystemDesc ? (
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">Integration Notes</div>
+                <div className="text-sm">{row.currencySystemDesc}</div>
+              </div>
+            ) : null}
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">Upstream Public Key Fingerprint</div>
+              <div className="break-all font-mono text-sm">
+                {row.upKeyFingerprint || '(Not pushed)'}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">Downstream Key Fingerprint</div>
+              <div className="break-all font-mono text-sm">
+                {row.downKeyFingerprint || '(Not generated)'}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">Last Heartbeat</div>
+              <div className="text-sm tabular-nums">{formatTime(row.lastHeartbeatTime)}</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">Registered At</div>
+              <div className="text-sm tabular-nums">{formatTime(row.createTime)}</div>
+            </div>
+          </div>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
 export function GatewayInstanceListPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -1273,26 +1376,38 @@ export function GatewayInstanceListPage() {
   // 弹窗状态。
   const [confirmRequest, setConfirmRequest] = React.useState<ConfirmRequest | null>(null);
   const [heartbeatRow, setHeartbeatRow] = React.useState<InstanceRow | null>(null);
+  // 详情抽屉（源 detailRow ref；行快照直读，随行数据渲染）。
+  const [detailRow, setDetailRow] = React.useState<InstanceRow | null>(null);
   const [registerOpen, setRegisterOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  // currencySystemType 用 string 态便于 Select 绑定（提交时转 number；默认 0 未填）。
   const [registerForm, setRegisterForm] = React.useState({
     bankId: STATUS_ALL,
     instanceCode: '',
     instanceName: '',
     endpointUrl: '',
+    currencySystemType: '0',
+    blockchain: '',
+    currencySystemName: '',
+    currencySystemUrl: '',
+    currencySystemDesc: '',
   });
   // §6.4：guard 判定不变，错误同步下沉到字段旁（onChange / 重新打开清除）。
   const [registerErrors, setRegisterErrors] = React.useState<{
     bankId?: string;
     endpointUrl?: string;
   }>({});
-
   const openRegister = React.useCallback(() => {
     setRegisterForm({
       bankId: STATUS_ALL,
       instanceCode: '',
       instanceName: '',
       endpointUrl: '',
+      currencySystemType: '0',
+      blockchain: '',
+      currencySystemName: '',
+      currencySystemUrl: '',
+      currencySystemDesc: '',
     });
     setRegisterErrors({});
     setRegisterOpen(true);
@@ -1316,6 +1431,11 @@ export function GatewayInstanceListPage() {
         instanceCode: registerForm.instanceCode || undefined,
         instanceName: registerForm.instanceName || undefined,
         endpointUrl: registerForm.endpointUrl,
+        currencySystemType: Number(registerForm.currencySystemType) || 0,
+        blockchain: registerForm.blockchain || undefined,
+        currencySystemName: registerForm.currencySystemName || undefined,
+        currencySystemUrl: registerForm.currencySystemUrl || undefined,
+        currencySystemDesc: registerForm.currencySystemDesc || undefined,
       },
       {
         onSuccess: () => {
@@ -1405,6 +1525,8 @@ export function GatewayInstanceListPage() {
     [disableMutation, enableMutation, refresh, toast],
   );
 
+  // 列序（源 bfef639 拆列口径）：银行(bankBic)/实例编码/实例名称/接入地址/
+  // 系统名称/系统类型/连通性/状态/最近心跳；密钥指纹移入详情抽屉。
   const columns = React.useMemo<ColumnDef<InstanceRow & { id: string }>[]>(() => {
     return [
       {
@@ -1413,41 +1535,35 @@ export function GatewayInstanceListPage() {
         cell: ({ row }) => (
           <span>
             {row.original.bankName || '--'}
-            {row.original.bankCode ? ` (${row.original.bankCode})` : ''}
+            {row.original.bankBic ? ` (${row.original.bankBic})` : ''}
           </span>
         ),
       },
       {
-        id: 'instance',
-        header: 'Instance',
+        accessorKey: 'instanceCode',
+        header: 'Instance Code',
         cell: ({ row }) => (
-          <span>
-            {row.original.instanceCode || '--'}
-            {row.original.instanceName ? ` ${row.original.instanceName}` : ''}
-          </span>
+          <span className="font-mono">{row.original.instanceCode || '--'}</span>
         ),
+      },
+      {
+        accessorKey: 'instanceName',
+        header: 'Instance Name',
+        cell: ({ row }) => <span>{row.original.instanceName || '--'}</span>,
       },
       {
         accessorKey: 'endpointUrl',
         header: 'Endpoint URL',
       },
       {
-        accessorKey: 'upKeyFingerprint',
-        header: 'Upstream Key Fingerprint',
-        cell: ({ row }) => (
-          <span className="font-mono tabular-nums">
-            {row.original.upKeyFingerprint || '(Not pushed)'}
-          </span>
-        ),
+        accessorKey: 'currencySystemName',
+        header: 'Token System Name',
+        cell: ({ row }) => <span>{row.original.currencySystemName || '--'}</span>,
       },
       {
-        accessorKey: 'downKeyFingerprint',
-        header: 'Downstream Key Fingerprint',
-        cell: ({ row }) => (
-          <span className="font-mono tabular-nums">
-            {row.original.downKeyFingerprint || '(Not generated)'}
-          </span>
-        ),
+        id: 'csType',
+        header: 'Token System Type',
+        cell: ({ row }) => <span>{instanceCsTypeText(row.original)}</span>,
       },
       {
         id: 'connectivity',
@@ -1468,8 +1584,11 @@ export function GatewayInstanceListPage() {
           </span>
         ),
       },
+      // 源操作列 width=360、详情居首（本表动作收纳进菜单，次序保真）。
       createActionColumn<InstanceRow & { id: string }>((item) => {
-        const actions: TableRowAction<InstanceRow & { id: string }>[] = [];
+        const actions: TableRowAction<InstanceRow & { id: string }>[] = [
+          { label: 'Details', onClick: () => setDetailRow(item) },
+        ];
         // 7d338aa：verify 对 status=1（已登记未验证）同样可见，仅 10 会漏已登记态。
         if (item.status === 1 || item.status === 10) {
           actions.push({ label: 'Verify & Activate', onClick: () => onVerify(item) });
@@ -1553,7 +1672,7 @@ export function GatewayInstanceListPage() {
                   <SelectItem value={STATUS_ALL}>All</SelectItem>
                   {bankOptions.map((b) => (
                     <SelectItem key={b.bankId} value={String(b.bankId)}>
-                      {`${b.bankName} (${b.bankCode})`}
+                      {`${b.bankName} (${b.bankBic})`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1644,7 +1763,7 @@ export function GatewayInstanceListPage() {
                 <SelectContent>
                   {bankOptions.map((b) => (
                     <SelectItem key={b.bankId} value={String(b.bankId)}>
-                      {`${b.bankName} (${b.bankCode})`}
+                      {`${b.bankName} (${b.bankBic})`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1663,17 +1782,6 @@ export function GatewayInstanceListPage() {
                 maxLength={50}
                 onChange={(e) =>
                   setRegisterForm((prev) => ({ ...prev, instanceCode: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Instance Name</label>
-              <Input
-                value={registerForm.instanceName}
-                placeholder="e.g. Production"
-                maxLength={100}
-                onChange={(e) =>
-                  setRegisterForm((prev) => ({ ...prev, instanceName: e.target.value }))
                 }
               />
             </div>
@@ -1698,6 +1806,44 @@ export function GatewayInstanceListPage() {
                 </p>
               )}
             </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Token System Type
+              </label>
+              <Select
+                value={registerForm.currencySystemType}
+                onValueChange={(v) =>
+                  setRegisterForm((prev) => ({ ...prev, currencySystemType: v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CS_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={String(opt.value)}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Token System Name
+              </label>
+              <Input
+                value={registerForm.currencySystemName}
+                placeholder="e.g. TD OpenAPI / Hyperledger Besu"
+                maxLength={100}
+                onChange={(e) =>
+                  setRegisterForm((prev) => ({
+                    ...prev,
+                    currencySystemName: e.target.value,
+                  }))
+                }
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRegisterOpen(false)}>
@@ -1718,6 +1864,9 @@ export function GatewayInstanceListPage() {
           instanceLabel={heartbeatRow.instanceCode || String(heartbeatRow.instanceId)}
           onClose={() => setHeartbeatRow(null)}
         />
+      ) : null}
+      {detailRow ? (
+        <InstanceDetailDrawer row={detailRow} onClose={() => setDetailRow(null)} />
       ) : null}
     </div>
   );

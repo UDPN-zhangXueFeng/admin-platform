@@ -8,10 +8,17 @@
 export interface InstanceRow {
   instanceId: number;
   bankId: number;
-  bankCode: string;
+  /** Merged bank code (BIC)（源 2026-09-08 bankCode→bankBic）。 */
+  bankBic: string;
   bankName: string;
   instanceCode: string;
   instanceName: string;
+  /** 货币系统信息（源 2026-09-08 自银行迁入，随实例登记）。 */
+  currencySystemType: number;
+  blockchain: string;
+  currencySystemName: string;
+  currencySystemUrl: string;
+  currencySystemDesc: string;
   endpointUrl: string;
   upKeyFingerprint: string;
   downKeyFingerprint: string;
@@ -42,6 +49,12 @@ export interface InstanceRegisterReq {
   bankId: number;
   instanceCode?: string;
   instanceName?: string;
+  /** 货币系统信息（源 2026-09-08 自银行迁入）。 */
+  currencySystemType?: number;
+  blockchain?: string;
+  currencySystemName?: string;
+  currencySystemUrl?: string;
+  currencySystemDesc?: string;
   endpointUrl: string;
 }
 

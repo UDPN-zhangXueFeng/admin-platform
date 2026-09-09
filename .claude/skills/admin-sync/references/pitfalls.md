@@ -29,6 +29,9 @@
 10. 截图落盘：`tab.screenshot()` 不接收路径；用 Node 侧 puppeteer 原生 `page.screenshot({ path })` 直存 verify 目录。
 11. **登录态会中途过期**：批内后半被踢到登录页 ≠ 页面 bug（同时是 `code='2'` 过期分支的实测机会）。批量走查前先登录；dev 预填凭据见 login/page.tsx（admin/Kissen@123）。React 非受控输入需 native setter + `input` 事件再 submit。
 12. **写操作流程的运行时实证需后端种子数据**；无种子时以「渲染全绿 + 只读交互实测 + 按钮级矩阵静态保证」收口，报告中明示边界，勿谎称全流程已验证。
+12a. **触发导航/路由跳转的按钮，`handle.click()` 会 8s 超时但点击实际已生效**（gateway-sync 2026-09-09 实测：登录 Sign In 连续两次超时报错，toast 与 token 已落）：改用 `tab.evaluate` 内原生 `click()` 或 `form.requestSubmit()`，超时报错后先查 toast/localStorage 再决定是否重试，盲目重试会双提交。
+12b. **登录成功判定以 sonner toast + localStorage 会话键（如 `bankgw.token`）为准，勿以 URL 判**：dev 首次编译慢时 client redirect 可能延迟数秒，URL 短暂停留 /login ≠ 登录失败；确认 token 落盘后直接 `location.assign(目标页)` 继续走查。
+12c. lint 通则：`.catch(() => {})` 触发 `@typescript-eslint/no-empty-function`，统一写 `.catch(() => undefined)`。
 
 ## 审批化改版同步（2023418 批次，2026-08-28）
 
@@ -50,3 +53,10 @@
 22. **状态语义全局收敛要跨页核对**：上游把 35 定为成功终态「Completed」后，不只改 tx 详情——workbench `IN_FLIGHT` 需剔 35、`TX_STATUS_MAP[35]` 需 'Credited'→'Completed'，StatusRail 主线 8→7 段时 `status===40` 还需按主线终点兜底（findIndex -1 全 todo）。同步状态映射时 grep 全部消费点（`grep -n "35"` feature 层）逐一裁决。
 23. **链路单时间轴的分组算法以「根节点+挂载」为准**：状态迁移根（nodeType=1、statusTo>0、statusFrom≠statusTo）开组、自环跳过、动作/报文并入当前组——否则「源端到账核实」会重复出两条节点。凭证补齐（25 补 sourceCsTxId、35/40 补 targetCsTxId）在组分完后统一做，别在遍历里做。
 24. **上游「非 ASCII 才显示」的 remark 过滤在英文环境失效**：中文 remark 判别搬到英文 UI 会误杀全部英文业务文案。改为已知技术串模式过滤（`/^(quote\s*)?v?\d+$/i`），偏差记入 01 文档。
+
+## v2.0-tokenization 增量批次（bb9c607d..3c4cfbb，2026-09-09）
+
+25. **Nx daemon 偶发 "Maximum call stack size exceeded"**：dev target 启动即死且与代码无关时，`npx nx reset` 清 daemon 后重启即恢复；勿先怀疑代码。
+26. **hub 托管 dev server 的 readiness 端口配错会留孤儿进程**：ready.port 写成 4200（实际 3100）导致超时误判失败，但 next-server 子进程已存活并占住 3100；下次 start 前 `lsof -nP -iTCP:3100 -sTCP:LISTEN` 查孤儿 kill，否则新实例起不来或打到旧编译。
+27. **DataTable 行操作 kebab 用合成 click 打不开**：`page.evaluate(el => el.click())` 对 Radix DropdownMenu trigger 无效（需 pointer 事件序列）。稳定做法：evaluate 内取 `getBoundingClientRect` 中心坐标 → `page.mouse.click(x, y)` → 再 evaluate 点 `[role=menuitem]` 文本项。直接 `handle.click()` 在 sticky 操作列上会 8s 超时。
+28. **element id 跨 eval cell 必失效**：`observe()` 的 id 在下一次工具调用即失效，observe→id 引用必须同一 cell 内完成；跨 cell 交互一律 `tab.run` 内联 evaluate。

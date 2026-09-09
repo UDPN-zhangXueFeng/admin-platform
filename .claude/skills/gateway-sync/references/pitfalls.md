@@ -11,3 +11,5 @@
 - DataTable 行键覆盖 × model 自带 `id: number`：`{...r, id:String(r.id)}` 使 `T & {id:string}` 的 id 变 never；用 `Omit<T,'id'> & {id:string}` 模块级别名统一列定义/行回调/弹窗 props。
 - 浏览器批量走查：工具默认 30s 超时，拆批 ≤4 页 + 显式 timeout；截图用 `page.screenshot({path})` 直存（`tab.screenshot()` 不收路径）；登录态会中途过期把批内后半踢到登录页（同时是 code='2' 过期分支实测机会），批前先登录。
 - 写操作流程的运行时实证需后端种子数据；无种子以「渲染全绿 + 只读交互实测 + §7 清单静态保证」收口并明示边界。
+- 触发导航的按钮 `handle.click()` 会 8s 超时但点击实际已生效（2026-09-09 实测登录 Sign In）：改用 `tab.evaluate` 内原生 `click()` / `form.requestSubmit()`；超时后先查 toast + localStorage 会话键（`bankgw.token`）再决定是否重试，勿盲目重试双提交。登录成功勿以 URL 判——dev 编译慢时 client redirect 延迟数秒，token 落盘后直接 `location.assign(目标页)` 继续走查。
+- lint 通则：`.catch(() => {})` 触发 `@typescript-eslint/no-empty-function`，统一写 `.catch(() => undefined)`。

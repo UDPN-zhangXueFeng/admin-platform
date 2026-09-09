@@ -12,6 +12,7 @@ import {
   lpFreezeToggle,
   lpSettleCycleSave,
   resetPortalAccount,
+  resendPortalAccountInvite,
   saveLp,
   submitLpOnboard,
 } from './lp.api';
@@ -56,6 +57,19 @@ export function usePortalAccountResetMutation(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (lpId: number) => resetPortalAccount(lpId),
+    onSuccess: (_data, lpId) => {
+      void queryClient.invalidateQueries({
+        queryKey: lpKeys.portalAccount(projectId, lpId),
+      });
+    },
+  });
+}
+
+/** 重发门户邀请（v2.1：新 token 签发并邮件发送，72h 内有效；失效账号状态缓存）。 */
+export function usePortalAccountResendInviteMutation(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (lpId: number) => resendPortalAccountInvite(lpId),
     onSuccess: (_data, lpId) => {
       void queryClient.invalidateQueries({
         queryKey: lpKeys.portalAccount(projectId, lpId),

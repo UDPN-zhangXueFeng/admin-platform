@@ -43,24 +43,36 @@ export const DATETIME_FORMAT_SHORT = 'PPp';
 export const DATETIME_FORMAT_LONG = 'PPPppp';
 
 /**
- * Admin table date-time format: "Jul 29, 2025, 10:08:35 UTC +08:00".
+ * Admin table date-time base format: "Jul 29, 2025, 10:08:35".
  *
  * Single canonical format for every admin table timestamp so columns stay
- * sortable-by-eye and consistently aligned. The UTC offset rendered is the
- * viewer's local offset (`XXX` token), i.e. the wall-clock time shown is the
- * user's local time annotated with its offset from UTC.
+ * sortable-by-eye and consistently aligned. The offset is appended by
+ * {@link formatAdminDateTime} as `(UTC+8)` (or the viewer's local offset).
  */
-export const DATETIME_FORMAT_ADMIN = "MMM dd, yyyy, HH:mm:ss 'UTC' XXX";
+export const DATETIME_FORMAT_ADMIN = 'MMM d, yyyy, HH:mm:ss';
+
+/** Formats the viewer-local UTC offset without a padded hour component. */
+function formatUtcOffset(date: Date): string {
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absoluteMinutes = Math.abs(offsetMinutes);
+  const hours = Math.floor(absoluteMinutes / 60);
+  const minutes = absoluteMinutes % 60;
+  return minutes === 0
+    ? `UTC${sign}${hours}`
+    : `UTC${sign}${hours}:${String(minutes).padStart(2, '0')}`;
+}
 
 /**
- * Formats a date value in the unified admin table format
- * ("Jul 29, 2025, 10:08:35 UTC +08:00").
+ * Formats a date value in the unified portal format
+ * ("Sep 2, 2026, 09:09:10 (UTC+8)").
  *
  * @example
- * formatAdminDateTime(new Date(2025, 6, 29, 10, 8, 35)) // => "Jul 29, 2025, 10:08:35 UTC +08:00" (at UTC+8)
+ * formatAdminDateTime(new Date(2026, 8, 2, 9, 9, 10)) // => "Sep 2, 2026, 09:09:10 (UTC+8)" (at UTC+8)
  */
 export function formatAdminDateTime(date: Date | number | string): string {
-  return formatDateFn(date, DATETIME_FORMAT_ADMIN);
+  const parsed = date instanceof Date ? date : new Date(date);
+  return `${formatDateFn(parsed, DATETIME_FORMAT_ADMIN)} (${formatUtcOffset(parsed)})`;
 }
 
 /**

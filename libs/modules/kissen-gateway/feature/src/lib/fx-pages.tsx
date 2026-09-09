@@ -10,6 +10,10 @@
  *   pair 列（每侧 tag 下方 11px 灰字，源 pair-side 纵排）。
  * - eafcab0：源行点击 openDetail → 操作列 Detail 按钮（下游列表约定，
  *   shared DataTable 无行点击支持；详情路由 /fx/detail?id={pairId}）。
+ * - a9dc10e：列表列头 FX Rates / Synced On；汇率一律 4 位小数（源 fmtRate）；
+ *   详情去 Version 项/列、token 对卡字段集重构（code (symbol)、Chain '-'/Bank、
+ *   合约地址 tokenNo 中间省略可复制）、LP 池地址可复制、卡头 Liquidity
+ *   Providers / Recent Rates。
  * - 服务端状态 TanStack Query（useFxViewQuery，无筛选维度 → 源页无搜索条件）。
  * - 源 catch 静默（拦截器已提示），目标约束升级为 fail-loud：
  *   ErrorBlock + Retry 页面内可感知可恢复。
@@ -27,6 +31,7 @@ import { Loader2 } from 'lucide-react';
 import {
   Badge,
   Button,
+  CopyableEllipsisText,
   DataTable,
   Skeleton,
   useToast,
@@ -41,8 +46,7 @@ import {
 } from '@myorg/modules/kissen-gateway/data-access';
 
 import { DescField, DescGrid } from './desc-grid';
-import { fmtAmount, formatTime, orDash } from './kit';
-import { PageHead } from './page-head';
+import { formatTime, orDash } from './kit';
 import { EmptyHint, ErrorBlock, MissingIdBlock } from './state-blocks';
 
 export function FxListPage() {
@@ -54,13 +58,13 @@ export function FxListPage() {
   /**
    * 列序对齐 UDPN 评审（39c8a2b）：token pair / FX Rate / Liquidity
    * Provider / Updated On。pair 簇 cell 与 tx 列表 tokens 列同构
-   * （双侧「tag + 下方 11px 灰字 bankCode」纵排 + pairCode 等宽小字）。
+   * （双侧「tag + 下方 11px 灰字 bankCode」纵排；pairCode 小字 57f6ca0 移除）。
    */
   const columns = React.useMemo<ColumnDef<FxPairItem & { id: string }>[]>(
     () => [
       {
         id: 'tokenPair',
-        header: 'token pair',
+        header: 'FX Rates',
         meta: { overflow: 'none' },
         cell: ({ row }) => {
           const pair = row.original.tokenPair;
@@ -88,9 +92,6 @@ export function FxListPage() {
                   </span>
                 </div>
               </div>
-              <div className="mt-0.5 break-all font-mono text-[11px] tracking-wide text-muted-foreground">
-                {pair.pairCode || '-'}
-              </div>
             </div>
           );
         },
@@ -101,7 +102,9 @@ export function FxListPage() {
         header: 'FX Rate',
         cell: ({ row }) => (
           <span className="block text-right tabular-nums">
-            {row.original.rate ? row.original.rate.userRate : '-'}
+            {row.original.rate?.userRate == null
+              ? '-'
+              : Number(row.original.rate.userRate).toFixed(4)}
           </span>
         ),
       },
@@ -124,9 +127,9 @@ export function FxListPage() {
           ),
       },
       {
-        // 源兜底口径：rate?.pushTime ?? tokenPair.pushTime（毫秒 → en-US 24h）。
+        // 源兜底口径：rate?.pushTime ?? tokenPair.pushTime（a9dc10e 列头 Synced On）。
         id: 'updatedOn',
-        header: 'Updated On',
+        header: 'Synced On',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatTime(
@@ -148,7 +151,7 @@ export function FxListPage() {
               router.push(`/fx/detail?id=${row.original.tokenPair.pairId}`)
             }
           >
-            Detail
+            View
           </Button>
         ),
       },
@@ -163,14 +166,12 @@ export function FxListPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead variant="banner" eyebrow="FX QUERY" title="Gateway FX Query" />
-
       <section className="rounded-lg border border-border/60 bg-card">
         {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + 页面级操作右置。 */}
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
             <div className="text-base font-semibold leading-6 text-foreground">
-              Token Pairs
+              FX Rates
             </div>
             {data && (
               <span className="text-sm text-muted-foreground tabular-nums">
@@ -235,6 +236,12 @@ function lpStatusVariant(status: number): 'default' | 'outline' {
   return status === 20 ? 'default' : 'outline';
 }
 
+/** 源 fmtRate：汇率 4 位小数（null → '-'；kit.fmtAmount 千分位口径不适用于汇率）。 */
+function fmtRate(v: number | null | undefined): string {
+  if (v == null) return '-';
+  return Number(v).toFixed(4);
+}
+
 /**
  * token 对详情页（registry fx.detail；/fx/detail?id={pairId}）。
  * 源布局：头部 pair 双侧（目标侧 success 色）+ 右侧 FX Rate 块；
@@ -294,18 +301,26 @@ export function FxDetailPage() {
         id: 'sourcePoolAddress',
         header: 'Source Pool Address',
         cell: ({ row }) => (
-          <span className="break-all font-mono text-xs">
-            {orDash(row.original.sourcePoolAddress)}
-          </span>
+          <CopyableEllipsisText
+            value={row.original.sourcePoolAddress}
+            emptyText="-"
+            maxWidth={240}
+            truncate="middle"
+            className="t-identifier"
+          />
         ),
       },
       {
         id: 'targetPoolAddress',
         header: 'Target Pool Address',
         cell: ({ row }) => (
-          <span className="break-all font-mono text-xs">
-            {orDash(row.original.targetPoolAddress)}
-          </span>
+          <CopyableEllipsisText
+            value={row.original.targetPoolAddress}
+            emptyText="-"
+            maxWidth={240}
+            truncate="middle"
+            className="t-identifier"
+          />
         ),
       },
       {
@@ -319,7 +334,7 @@ export function FxDetailPage() {
       },
       {
         id: 'pushTime',
-        header: 'Push Time',
+        header: 'Synced On',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatTime(row.original.pushTime)}
@@ -340,18 +355,11 @@ export function FxDetailPage() {
     React.useMemo<ColumnDef<FxRateSnapshot & { id: string }>[]>(
       () => [
         {
-          id: 'version',
-          header: 'Version',
-          cell: ({ row }) => (
-            <span className="tabular-nums">{orDash(row.original.version)}</span>
-          ),
-        },
-        {
           id: 'baseRate',
           header: 'Base Rate',
           cell: ({ row }) => (
             <span className="block text-right tabular-nums">
-              {fmtAmount(row.original.baseRate)}
+              {fmtRate(row.original.baseRate)}
             </span>
           ),
         },
@@ -360,7 +368,7 @@ export function FxDetailPage() {
           header: 'Markup Rate',
           cell: ({ row }) => (
             <span className="block text-right tabular-nums">
-              {fmtAmount(row.original.markupRate)}
+              {fmtRate(row.original.markupRate)}
             </span>
           ),
         },
@@ -369,13 +377,13 @@ export function FxDetailPage() {
           header: 'User Rate',
           cell: ({ row }) => (
             <span className="block text-right font-medium tabular-nums">
-              {fmtAmount(row.original.userRate)}
+              {fmtRate(row.original.userRate)}
             </span>
           ),
         },
         {
           id: 'pushTime',
-          header: 'Push Time',
+        header: 'Synced On',
           cell: ({ row }) => (
             <span className="tabular-nums">
               {formatTime(row.original.pushTime)}
@@ -410,14 +418,10 @@ export function FxDetailPage() {
       <section className="rounded-lg border border-border/60 bg-card panel-pad">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-            <div>
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                FX Pair
-              </div>
-              <h1 className="text-xl font-semibold leading-7 text-foreground">
-                {srcLabel} → {tgtLabel}
-              </h1>
-            </div>
+            {/* a9dc10e：eyebrow「FX Pair」kicker 移除，仅留 pair 主标题。 */}
+            <h1 className="text-xl font-semibold leading-7 text-foreground">
+              {srcLabel} → {tgtLabel}
+            </h1>
             {pair ? (
               <Badge variant={lpStatusVariant(pair.status)}>
                 {pair.status === 20 ? 'Enabled' : 'Disabled'}
@@ -451,18 +455,14 @@ export function FxDetailPage() {
                 </span>
               </div>
             </div>
-            {/* 源头部右侧 FX Rate 块：userRate + Updated 时间（兜底 tokenPair.pushTime）。 */}
+            {/* 源头部右侧 FX Rate 块：userRate 4 位小数 + Synced On（兜底 tokenPair.pushTime）。 */}
             <div className="text-right">
               <div className="text-xs text-muted-foreground">FX Rate</div>
               <div className="text-lg font-semibold tabular-nums text-foreground">
-                {detail?.latestRate ? (
-                  fmtAmount(detail.latestRate.userRate)
-                ) : (
-                  '-'
-                )}
+                {fmtRate(detail?.latestRate?.userRate)}
               </div>
               <div className="text-xs text-muted-foreground tabular-nums">
-                {`Updated ${formatTime(
+                {`Synced On ${formatTime(
                   detail?.latestRate?.pushTime ?? pair.pushTime,
                 )}`}
               </div>
@@ -482,25 +482,20 @@ export function FxDetailPage() {
               <DescGrid cols={3}>
                 <DescField label="User Rate">
                   <span className="t-data tabular-nums">
-                    {fmtAmount(detail.latestRate.userRate)}
+                    {fmtRate(detail.latestRate.userRate)}
                   </span>
                 </DescField>
                 <DescField label="Base Rate">
                   <span className="tabular-nums">
-                    {fmtAmount(detail.latestRate.baseRate)}
+                    {fmtRate(detail.latestRate.baseRate)}
                   </span>
                 </DescField>
                 <DescField label="Markup Rate">
                   <span className="tabular-nums">
-                    {fmtAmount(detail.latestRate.markupRate)}
+                    {fmtRate(detail.latestRate.markupRate)}
                   </span>
                 </DescField>
-                <DescField label="Version">
-                  <span className="tabular-nums">
-                    {orDash(detail.latestRate.version)}
-                  </span>
-                </DescField>
-                <DescField label="Push Time">
+                <DescField label="Synced On">
                   <span className="font-mono">
                     {formatTime(detail.latestRate.pushTime)}
                   </span>
@@ -511,7 +506,7 @@ export function FxDetailPage() {
             )}
           </section>
 
-          {/* 卡 2：token 对信息（源 column2；双侧 symbol（code · name）+ 子行）。 */}
+          {/* 卡 2：token 对信息（a9dc10e 字段集重构：code (symbol)、Chain '-'/Bank、合约地址）。 */}
           <section className="rounded-lg border border-border/60 bg-card panel-pad">
             <h2 className="mb-2.5 text-sm font-semibold text-foreground">
               Token Pair Information
@@ -520,46 +515,62 @@ export function FxDetailPage() {
               <DescField label="Pair ID">
                 <span className="tabular-nums">{pair.pairId}</span>
               </DescField>
-              <DescField label="Pair Code">
-                <span className="font-mono">{orDash(pair.pairCode)}</span>
-              </DescField>
-              <DescField label="Source Token">
-                <div className="flex flex-col gap-0.5">
-                  <span>
-                    {`${pair.sourceTokenSymbol || '-'} (${pair.sourceTokenCode} · ${
-                      pair.sourceTokenName || '-'
-                    })`}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {`No. ${orDash(pair.sourceTokenNo)} · Bank ${orDash(
-                      pair.sourceBankCode,
-                    )}`}
-                  </span>
-                </div>
-              </DescField>
-              <DescField label="Target Token">
-                <div className="flex flex-col gap-0.5">
-                  <span>
-                    {`${pair.targetTokenSymbol || '-'} (${pair.targetTokenCode} · ${
-                      pair.targetTokenName || '-'
-                    })`}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {`No. ${orDash(pair.targetTokenNo)} · Bank ${orDash(
-                      pair.targetBankCode,
-                    )}`}
-                  </span>
-                </div>
-              </DescField>
               <DescField label="Status">
                 <Badge variant={lpStatusVariant(pair.status)}>
                   {pair.status === 20 ? 'Enabled' : 'Disabled'}
                 </Badge>
               </DescField>
-              <DescField label="Version">
-                <span className="tabular-nums">{orDash(pair.version)}</span>
+              <DescField label="Source Token">
+                <span>
+                  {pair.sourceTokenSymbol &&
+                  pair.sourceTokenSymbol !== pair.sourceTokenCode
+                    ? `${pair.sourceTokenCode} (${pair.sourceTokenSymbol})`
+                    : pair.sourceTokenCode}
+                </span>
               </DescField>
-              <DescField label="Push Time">
+              <DescField label="Target Token">
+                <span>
+                  {pair.targetTokenSymbol &&
+                  pair.targetTokenSymbol !== pair.targetTokenCode
+                    ? `${pair.targetTokenCode} (${pair.targetTokenSymbol})`
+                    : pair.targetTokenCode}
+                </span>
+              </DescField>
+              <DescField label="Source Chain">
+                <span>-</span>
+              </DescField>
+              <DescField label="Source Bank">
+                <span className="font-mono">
+                  {orDash(pair.sourceBankCode)}
+                </span>
+              </DescField>
+              <DescField label="Target Chain">
+                <span>-</span>
+              </DescField>
+              <DescField label="Target Bank">
+                <span className="font-mono">
+                  {orDash(pair.targetBankCode)}
+                </span>
+              </DescField>
+              <DescField label="Source Contract Address" span>
+                <CopyableEllipsisText
+                  value={pair.sourceTokenNo}
+                  emptyText="-"
+                  maxWidth={480}
+                  truncate="middle"
+                  className="t-identifier"
+                />
+              </DescField>
+              <DescField label="Target Contract Address" span>
+                <CopyableEllipsisText
+                  value={pair.targetTokenNo}
+                  emptyText="-"
+                  maxWidth={480}
+                  truncate="middle"
+                  className="t-identifier"
+                />
+              </DescField>
+              <DescField label="Synced On">
                 <span className="font-mono">{formatTime(pair.pushTime)}</span>
               </DescField>
             </DescGrid>
@@ -569,7 +580,7 @@ export function FxDetailPage() {
           <section className="rounded-lg border border-border/60 bg-card">
             <div className="border-b border-border/50 px-4 py-3">
               <h2 className="text-sm font-semibold text-foreground">
-                {`LP Details (${detail.lps.length})`}
+                {`Liquidity Providers (${detail.lps.length})`}
               </h2>
             </div>
             <div className="p-4">
@@ -581,11 +592,11 @@ export function FxDetailPage() {
             </div>
           </section>
 
-          {/* 卡 4：最近快照表（version 倒序 ≤10 条，userRate 右对齐强调）。 */}
+          {/* 卡 4：最近快照表（version 倒序 ≤10 条；a9dc10e 去 Version 列，卡头去计数）。 */}
           <section className="rounded-lg border border-border/60 bg-card">
             <div className="border-b border-border/50 px-4 py-3">
               <h2 className="text-sm font-semibold text-foreground">
-                {`Recent Rate Snapshots (${detail.recentRates.length})`}
+                Recent Rates
               </h2>
             </div>
             <div className="p-4">
