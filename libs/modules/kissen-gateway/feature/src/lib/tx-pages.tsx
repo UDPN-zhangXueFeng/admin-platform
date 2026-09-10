@@ -228,6 +228,8 @@ function buildPairMap(
  * 阶段事件关联字段行（fe61223 admin 同款口径，源 stageFields）：金额/汇率取交易
  * 主表（值缺失整行跳过），金额带 token symbol（缺缓存退纯数字），凭证优先节点
  * csTxId 回退主表 sourceCsTxId/targetCsTxId；step2 无字段，0=通用事件恒空。
+ * ddd9fe2：源端金额口径=userDeduction（用户实际扣款，含汇率加价承担）；
+ * principal 仅为按接收金额换算的发起基准值，不作源端金额展示。
  */
 function stageFieldsOf(
   node: TxFlowNode,
@@ -248,17 +250,17 @@ function stageFieldsOf(
   const lp = record?.lpNames?.length
     ? record.lpNames.join(', ')
     : (record?.lpCode || undefined);
-  const principal = withSym(record?.principal, src);
+  const deduction = withSym(record?.userDeduction, src);
   const receiver = withSym(record?.receiverAmount, tgt);
   const rate =
     record?.userRate != null ? String(Number(record.userRate)) : undefined;
   if (step === 1) {
     if (lp) fields.push({ label: 'LP', value: lp });
-    if (principal) fields.push({ label: 'Source Amount', value: principal });
+    if (deduction) fields.push({ label: 'Source Amount', value: deduction });
     if (receiver) fields.push({ label: 'Target Amount', value: receiver });
     if (rate) fields.push({ label: 'Rate', value: rate });
   } else if (step === 3 || step === 4) {
-    if (principal) fields.push({ label: 'Source Amount', value: principal });
+    if (deduction) fields.push({ label: 'Source Amount', value: deduction });
     const proof = node.csTxId || record?.sourceCsTxId;
     if (proof) fields.push({ label: 'Proof', value: proof });
   } else if (step === 5 || step === 6) {
@@ -491,10 +493,17 @@ export function TxListPage() {
               ) : (
                 <span>{row.original.senderBankName || '-'}</span>
               )}
-              {/* 下行金额：本金 + 源侧符号（源 srcSymbol，缺缓存 '-'）。 */}
+              {/* ddd9fe2：下行金额改扣款口径 userDeduction（用户实际扣减，源币种，
+                  含汇率加价承担；缺失 muted '-'；principal 仅为换算基准值不展示）。 */}
               <div className="mt-0.5 text-xs tabular-nums">
-                {fmtAmount(row.original.principal)}{' '}
-                {pair?.sourceTokenSymbol || pair?.sourceTokenCode || '-'}
+                {row.original.userDeduction != null ? (
+                  <>
+                    {fmtAmount(row.original.userDeduction)}{' '}
+                    {pair?.sourceTokenSymbol || pair?.sourceTokenCode || '-'}
+                  </>
+                ) : (
+                  <span className="text-muted-foreground/60">-</span>
+                )}
               </div>
             </div>
           );
@@ -1110,13 +1119,20 @@ export function TxDetailPage() {
                         </span>
                       )}
                     </DescField>
-                    <DescField label="Principal">
-                      <span className="t-data">
-                        {fmtAmount(record.principal)}{' '}
-                        {recordPair?.sourceTokenSymbol ||
-                          recordPair?.sourceTokenCode ||
-                          '-'}
-                      </span>
+                    <DescField label="Deduction Amount">
+                      <div>
+                        <span className="t-data">
+                          {fmtAmount(record.userDeduction)}{' '}
+                          {recordPair?.sourceTokenSymbol ||
+                            recordPair?.sourceTokenCode ||
+                            '-'}
+                        </span>
+                        {/* ddd9fe2：扣款金额副行（上游 .sub-line 口径）。 */}
+                        <div className="text-[11px] text-muted-foreground">
+                          User's actual deduction (source currency, incl. FX
+                          markup)
+                        </div>
+                      </div>
                     </DescField>
                     {/* a9dc10e：到账金额（目标端 G-5 落账，未同步 '-'）。 */}
                     <DescField label="Receiver Amount">

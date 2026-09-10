@@ -21,6 +21,7 @@
 | 本行自转 / 自转 | Self-Trade |
 | 操作者 | Operator |
 | 源端金额 / 目标端金额 / 汇率 / 凭证 | Source Amount / Target Amount / Rate / Proof |
+| 扣款金额（用户实际扣减，源币种，含汇率加价承担） | Deduction Amount（副行 User's actual deduction (source currency, incl. FX markup)） |
 | 六段事件标题：报价受理 / 用户确认 / 源端划转发起 / 源端到账核实 / 解付发起 / 入账完成 | Quote Accepted / User Confirmation / Source Transfer Initiated / Source Arrival Verified / Disbursement Initiated / Credited |
 | 锚定货币（token 页） | Pegged Currency |
 | tokenNo（全网唯一） | Token No (Network-wide Unique) |
