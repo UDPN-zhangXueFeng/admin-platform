@@ -57,23 +57,6 @@ export default function LoginRoute() {
       ? 'Your session has expired. Please sign in again.'
       : undefined;
 
-  // Dev-only credential prefill (internal LP portal test account).
-  // Values come from NEXT_PUBLIC_LP_DEV_LP_CODE / NEXT_PUBLIC_LP_DEV_LOGIN_NAME
-  // / NEXT_PUBLIC_LP_DEV_PASSWORD (.env.local, template .env.local.example);
-  // unset or empty vars leave the field blank. Inactive in production builds
-  // via the NODE_ENV gate; inputs are uncontrolled in shared MockLoginPage,
-  // so fill them imperatively without overwriting browser autofill.
-  React.useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return;
-    const fill = (id: string, value: string) => {
-      const el = document.getElementById(id) as HTMLInputElement | null;
-      if (el && !el.value) el.value = value;
-    };
-    fill('lpCode', process.env['NEXT_PUBLIC_LP_DEV_LP_CODE'] ?? '');
-    fill('username', process.env['NEXT_PUBLIC_LP_DEV_LOGIN_NAME'] ?? '');
-    fill('password', process.env['NEXT_PUBLIC_LP_DEV_PASSWORD'] ?? '');
-  }, []);
-
   const handleSubmit = React.useCallback(
     async (credentials: {
       loginName: string;

@@ -5,7 +5,8 @@
  *
  * v1 的 types.ts 中转声明（旧 PairRow/PairPool* 形状）随 pair-pool 聚合页
  * 一并废弃剪除，PairRow 在本域以 v2 基线形状重新声明；EligiblePairRow 为
- * /pair/eligible 新端点行。lpId 由后端登录态注入，前端不传。
+ * 存量 /pair/eligible 接口行，页面入口虽下线但类型仍需供兼容层使用。
+ * lpId 由后端登录态注入，前端不传。
  */
 
 /** 我的 token 对行（参与清单；状态 + 生效分成比例，POST /pair/list）。 */
@@ -36,38 +37,28 @@ export interface PairRow {
   poolReady: boolean;
   /** 生效条件缺口之二：预授权是否有效（status===20 时渲染）。 */
   preauthOk: boolean;
-  /** f0d5b6f：源侧激活池地址（收款池；生效条件列「收」行，空不渲染）。 */
+  /** v1.4 兼容字段：源侧对侧池地址；页面不将其标记为出款池。 */
   sourcePoolAddress?: string;
-  /** f0d5b6f：目标侧激活池地址（解付出款池；生效条件列「付」行，空不渲染）。 */
+  /** v1.4 兼容字段：目标侧对侧池地址；页面不将其标记为出款池。 */
   targetPoolAddress?: string;
   /** 数据时间（毫秒时间戳）。 */
   syncTime: number;
 }
 
-/** 可申请视图行（全网生效对 + 两侧池开通态；缺侧灰化提示先开池）。 */
+/** 存量可申请视图行（后端审批闭环兼容；当前 Portal 不渲染）。 */
 export interface EligiblePairRow {
   pairId: number;
-  /** 无码行页面回落显示 pairId。 */
   pairCode: string;
   sourceTokenCode: string;
   sourceTokenNo: string;
   targetTokenCode: string;
   targetTokenNo: string;
-  /** v2.3 并入的汇率字段（申请决策参考；展示口径同 PairRow）。 */
   baseRate: string | number | null;
   markupRate: string | number | null;
   userRate: string | number | null;
-  /** 源侧 token 资金池已开通。 */
   sourcePooled: boolean;
-  /** 目标侧 token 资金池已开通。 */
   targetPooled: boolean;
-  /** 双侧池齐备才可申请（false 灰化「缺资金池」+tooltip）。 */
   eligible: boolean;
-  /**
-   * 我的参与状态（2026-09-04 f95ec24：null=未参与；5 申请中 / 15 已驳回 /
-   * 20 参与生效 / 50 停用）。驱动可申请视图「我的状态」列与操作列前置
-   * 禁用（20/5 禁用防重复申请，15/50 换文案可重复发起）。
-   */
   myStatus: number | null;
   defaultSplitRatio: string | number;
 }

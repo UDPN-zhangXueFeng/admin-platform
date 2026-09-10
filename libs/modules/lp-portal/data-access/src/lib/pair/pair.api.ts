@@ -15,14 +15,14 @@ export function getPairList(config?: AxiosRequestConfig): Promise<PairRow[]> {
   return lpRequest.post<PairRow[]>('/pair/list', {}, config);
 }
 
-/** 可申请视图（全网生效对 + 两侧池开通态；不分页全量，body {}）。 */
+/** 可申请视图（存量 KLP 审批兼容接口；页面入口已下线）。 */
 export function getPairEligible(
   config?: AxiosRequestConfig,
 ): Promise<EligiblePairRow[]> {
   return lpRequest.post<EligiblePairRow[]>('/pair/eligible', {}, config);
 }
 
-/** Token 对参与申请（实时调 Kissen，KLP 审批；受理即推回流）。 */
+/** Token 对参与申请（存量 KLP 审批兼容接口；Portal 页面不再调用）。 */
 export function postPairApply(
   pairId: number,
   config?: AxiosRequestConfig,

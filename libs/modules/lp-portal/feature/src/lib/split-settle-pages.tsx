@@ -5,16 +5,14 @@
  * 取代原「我的分成」split 页与「结算」settle 页两页）。
  *
  * 行为契约（doc 01 §D8b）：
- * - 三卡片纵向：卡1 当前生效比例（pair 域数据）/ 卡2 分成明细（split/detail）
- *   / 卡3 结算单（settle/orders）；挂载即并行三查询。
- * - 三挂载点 SyncRefreshButton 域各异：卡1 domain=['pair','rate'] 刷比例
- *   与汇率（f0d5b6f 卡1 新增三汇率列）；
- *   卡2 domain='settle_record' 刷明细（保当前页码 refetch，不回跳首页）；
- *   卡3 domain='settle_order' 只刷结算单（01 §E6 域映射陷阱）。
- * - pairInfo(pairCode)：从卡1 rows 查双侧 token（紧凑两行式渲染卡2 行、
- *   抽屉分项与流水行的 Token 对）；查不到回退纯 pairCode 文本。
- * - 卡2 响应不走 ResultData 包装（split 域 api 层注释详述）；header 右
- *   汇总行 `N entries · Markup total X · My split Y`。
+ * - 两张主卡纵向：卡1 当前生效比例（pair 域数据）/ 卡2 结算单
+ *   （settle/orders）。分成明细只在卡1 Token Pair 行的 Details 抽屉内按需查询，
+ *   首屏不请求 `/split/detail`。
+ * - 卡1 domain=['pair','rate'] 刷比例与汇率；卡2 domain='settle_order' 只刷
+ *   结算单（01 §E6 域映射陷阱）。
+ * - pairInfo(pairCode)：从卡1 rows 查双侧 token（抽屉分项与流水行的 Token
+ *   对展示）；查不到回退纯 pairCode 文本。
+ * - 抽屉明细响应不走 ResultData 包装（split 域 api 层注释详述）。
  * - 结算单层**跨币种金额不可加总**（01 §E29）：列表只展示 currencies 集合，
  *   金额合计仅出现在抽屉 token 对分项；抽屉「本单周期内」流水来自独立端点
  *   /settle/order-records（按 orderId 拉取，失败静默——拦截器已提示）。
@@ -40,7 +38,6 @@ import {
   TooltipTrigger,
 } from '@myorg/shared/ui';
 import {
-  FormField,
   FormSelect,
   type SelectOption,
 } from '@myorg/shared/ui-forms';
@@ -80,12 +77,11 @@ const LBL = {
   eyebrow: 'BUSINESS',
   title: 'Splits & Settlement',
   ratiosCard: 'Current Effective Ratios',
-  detailCard: 'Split Details',
   ordersCard: 'Settlement Orders',
   query: 'Search',
   reset: 'Reset',
   emptyRatios: 'Not participating in any token pairs yet',
-  emptyDetail: 'No split records for the current filters',
+  emptyDetail: 'No split records for this token pair',
   emptyOrders: 'No settlement orders for the current filters',
   breakdown: 'Details',
   drawerTitle: 'Settlement Order Details',
@@ -99,27 +95,6 @@ const LBL = {
 
 /** 下拉「全部」哨兵（FormSelect 禁空 value；非 ALL 即转实参查询）。 */
 const ALL = 'all';
-
-/** 卡2 筛选：Token 对下拉 + 完成时间范围。 */
-interface DetailFilterForm {
-  pairCode: string;
-  startTime: string;
-  endTime: string;
-}
-
-const EMPTY_DETAIL_FILTER: DetailFilterForm = {
-  pairCode: ALL,
-  startTime: '',
-  endTime: '',
-};
-
-/** 已提交明细查询参数（undefined 字段不进请求体 data 包）。 */
-interface DetailParams {
-  pageNum: number;
-  pairCode?: string;
-  startTime?: number;
-  endTime?: number;
-}
 
 /** 卡3 筛选：周期粒度 + 状态（v2.4 wire 数字码 periodType/status）。 */
 interface OrdersFilterForm {
@@ -307,48 +282,22 @@ export function SplitSettlePage() {
     [pairInfo, bankOf, symOf],
   );
 
-  // ===== 卡2 分成明细分页 =====
-  const detailForm = useForm<DetailFilterForm>({
-    defaultValues: EMPTY_DETAIL_FILTER,
-  });
-  const [detailParams, setDetailParams] = React.useState<DetailParams>({
-    pageNum: 1,
-  });
-  const detailQuery = useSplitDetailQuery(PROJECT_ID, {
-    pageNum: detailParams.pageNum,
-    pageSize: PAGE_SIZE,
-    filter: {
-      pairCode: detailParams.pairCode,
-      startTime: detailParams.startTime,
-      endTime: detailParams.endTime,
+  // ===== Token Pair 行内分成明细抽屉（按需查询） =====
+  const [detailPage, setDetailPage] = React.useState(1);
+  const [drawerPairCode, setDrawerPairCode] = React.useState<string | null>(
+    null,
+  );
+  const detailQuery = useSplitDetailQuery(
+    PROJECT_ID,
+    {
+      pageNum: detailPage,
+      pageSize: PAGE_SIZE,
+      filter: { pairCode: drawerPairCode ?? undefined },
     },
-  });
+    drawerPairCode !== null,
+  );
   const detailRows = detailQuery.data?.rows ?? [];
   const detailTotal = detailQuery.data?.total ?? 0;
-  const detailSummary = detailQuery.data?.summary;
-
-  /** 货币对下拉 options 取自卡1 rows（源 value=pairCode||'' 的等价实现，
-   * 无码行以 String(pairId) 占位满足 Radix Select 禁空 value，提交时还原）。 */
-  const pairOptions = React.useMemo<SelectOption[]>(
-    () => [
-      { value: ALL, label: 'All Token Pairs' },
-      ...ratioRows.map((r) => {
-        const text = r.pairCode || String(r.pairId);
-        return { value: text, label: text };
-      }),
-    ],
-    [ratioRows],
-  );
-
-  function resolvePairCode(v: string): string | undefined {
-    if (v === ALL) return undefined;
-    const selected = ratioRows.find(
-      (r) => r.pairCode === v || String(r.pairId) === v,
-    );
-    if (!selected) return undefined;
-    // 源口径保真：选中无码行时筛选值是空串（筛「无码行」）
-    return selected.pairCode || '';
-  }
 
   // ===== 卡3 结算单分页 =====
   const ordersForm = useForm<OrdersFilterForm>({
@@ -478,11 +427,30 @@ export function SplitSettlePage() {
           </span>
         ),
       },
+      {
+        id: 'details',
+        header: 'Details',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0"
+            disabled={!row.original.pairCode}
+            onClick={() => {
+              setDetailPage(1);
+              setDrawerPairCode(row.original.pairCode ?? null);
+            }}
+          >
+            Details
+          </Button>
+        ),
+      },
     ],
     [bankOf, symOf],
   );
 
-  /* ================= 卡2 列（v2.4 8 列） ================= */
+  /* ================= Split Details 抽屉列 ================= */
   const detailColumns = React.useMemo<
     ColumnDef<SplitDetailRow & { id: string }>[]
   >(
@@ -680,109 +648,33 @@ export function SplitSettlePage() {
         </div>
       </section>
 
-      {/* ===== 卡2 分成明细 ===== */}
-      <section className="rounded-lg border border-border/60 bg-card">
-        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-            <div className="text-base font-semibold leading-6 text-foreground">
-              {LBL.detailCard}
-            </div>
-            {/* header 右汇总行（随分页响应下发的时间窗汇总，formatMoney 口径） */}
-            {detailSummary && (
-              <span className="text-sm text-muted-foreground">
-                <span className="tabular-nums">{detailTotal}</span> entries ·
-                Markup total{' '}
-                <span className="font-mono tabular-nums">
-                  {formatMoney(detailSummary.markupTotal)}
-                </span>{' '}
-                · My split{' '}
-                <span className="font-mono tabular-nums">
-                  {formatMoney(detailSummary.lpSplitTotal)}
-                </span>
-              </span>
-            )}
-            {detailQuery.dataUpdatedAt ? (
-              <span className="text-xs text-muted-foreground tabular-nums">
-                Updated {formatTime(detailQuery.dataUpdatedAt)}
-              </span>
-            ) : null}
-          </div>
-          <div className="shrink-0">
-            {/* v2.4 新增挂载点：settle_record 域刷明细，保当前页码 refetch */}
-            <SyncRefreshButton
-              domain="settle_record"
-              onRefreshed={() => void detailQuery.refetch()}
-            />
-          </div>
-        </div>
-
-        <form
-          onSubmit={detailForm.handleSubmit((f) =>
-            setDetailParams({
-              pageNum: 1,
-              pairCode: resolvePairCode(f.pairCode),
-              startTime: f.startTime
-                ? new Date(f.startTime).getTime()
-                : undefined,
-              endTime: f.endTime ? new Date(f.endTime).getTime() : undefined,
-            }),
-          )}
-          className="border-b border-border/50 px-4 py-3"
-        >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <FormSelect
-              name="pairCode"
-              control={detailForm.control}
-              label="Token Pair"
-              options={pairOptions}
-            />
-            {/* 源 datetimerange(value-format='x')：双字段承接，提交转毫秒 number */}
-            <FormField
-              name="startTime"
-              label="Completed From"
-              type="datetime-local"
-              register={detailForm.register('startTime')}
-            />
-            <FormField
-              name="endTime"
-              label="Completed To"
-              type="datetime-local"
-              register={detailForm.register('endTime')}
-            />
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="submit">{LBL.query}</Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                detailForm.reset(EMPTY_DETAIL_FILTER);
-                setDetailParams({ pageNum: 1 });
-              }}
-            >
-              {LBL.reset}
-            </Button>
-          </div>
-        </form>
-        <div className="p-4">
-          <TooltipProvider delayDuration={200}>
+      <Drawer
+        open={drawerPairCode !== null}
+        onOpenChange={(open) => !open && setDrawerPairCode(null)}
+      >
+        <DrawerContent className="w-[min(900px,95vw)] max-w-none p-0">
+          <DrawerHeader className="border-b px-6 py-4">
+            <DrawerTitle>
+              Split Details{drawerPairCode ? ` · ${drawerPairCode}` : ''}
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto p-6">
             <DataTable
               columns={detailColumns}
               data={detailTableData}
               isLoading={detailQuery.isPending}
               emptyMessage={LBL.emptyDetail}
               pagination={{
-                page: detailParams.pageNum,
+                page: detailPage,
                 pageSize: PAGE_SIZE,
                 total: detailTotal,
-                onPageChange: (page) =>
-                  setDetailParams((prev) => ({ ...prev, pageNum: page })),
+                onPageChange: setDetailPage,
                 pageSizeOptions: [PAGE_SIZE],
               }}
             />
-          </TooltipProvider>
-        </div>
-      </section>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* ===== 卡3 结算单 ===== */}
       <section className="rounded-lg border border-border/60 bg-card">

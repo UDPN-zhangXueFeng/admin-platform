@@ -4,27 +4,15 @@
  * Token Pair 管理页（源 `src/views/pair/index.vue` §D7 v2.3 e591f85 1:1 迁移，
  * FR-LW-04）。原汇率页（rate）随 v2.3 菜单重组退役，汇率三列并入双 tab 行 VO。
  *
- * 双 tab：Mine「我的 token 对」v2.3 改 10 列（Token对 + pairx 紧凑式两行 +
+ * Mine「我的 token 对」v2.3 改 10 列（Token对 + pairx 紧凑式两行 +
  * 基础汇率/加价率/用户汇率 + 我的分成比例 + 对默认比例 + 生效条件 + 状态 +
- * 数据时间）；Eligible「可申请」v2.3 改 8 列，2026-09-04 批（f95ec24）
- * 在目标侧池与操作列之间插「我的状态」列（myStatus 五态），操作列按
- * myStatus 前置禁用/换文案（e0fad0a 起 pairx 紧凑式改两行，第三行
- * pairCode||pairId 占位行移除；对默认分成移至源侧池之前）。Bank/Token 展示
+ * 数据时间）。Portal 不再提供 Eligible/Apply 入口；参与对由管理侧发起并经
+ * 审批后同步，页面只读展示真实的 Mine 数据。Bank/Token 展示
  * 统一走 useTokenMeta 口径（§E23/E24：symOf 优先、失败回退标识本身）；
  * rateText/percentText 为页面级 helper（源同款，不入 format.ts）。
  *
- * 两 tab 各自独立 useQuery（pairKeys.list / .eligible），Radix Tabs 未激活
- * 内容不挂载 ⇒ Eligible 首次切入才发请求（源懒加载等价）；缓存互不干扰。
- * 源无关键词筛选、无状态下拉、无分页控件（两接口全量返回），故不加任何
- * 筛选/分件（禁臆造）。
- *
- * 申请参与：行内 link 按钮（源无 v-perm 指令，不加 PermButton——禁臆造权限键）
- * → AlertDialog 确认（2026-09-04 f95ec24 上游亦加二次确认：文案含对、
- * KLP 流程、初始分成=对默认、管理侧可覆盖，取消不调接口）→ POST
- * /pair/apply 成功 toast 后切回 Mine 并家族级失效重载。失败提示统一走
- * lp-client 拦截器 sonner toast，本页静默不二次弹错。SyncRefreshButton
- * domain='pair' 照源存在：刷新失效两 key，激活 tab 立即重查、未激活 tab
- * 下次挂载时刷新（源 loadAll 两视图同刷的可见行为等价）。
+ * 源无关键词筛选、无状态下拉、无分页控件（接口全量返回），故不加任何
+ * 筛选/分页（禁臆造）。SyncRefreshButton 刷新 pair/rate 实时数据。
  *
  * 口径：汇率/比率右对齐等宽字；状态/tag 色映射照源逐码
  * （STATUS_TAG warning/danger/success/info → R1 先例 outline/destructive/
@@ -34,21 +22,9 @@
 import * as React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Info } from 'lucide-react';
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  Alert,
-  AlertDescription,
   Badge,
-  Button,
   DataTable,
   Tabs,
   TabsContent,
@@ -58,17 +34,13 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-  useToast,
 } from '@myorg/shared/ui';
 
 import {
   LP_PROJECT_ID,
   PAIR_STATUS_TEXT,
   PAIR_STATUS_VARIANT,
-  usePairApplyMutation,
-  usePairEligibleQuery,
   usePairListQuery,
-  type EligiblePairRow,
   type PairRow,
   pairKeys,
   useTokenMeta,
@@ -86,49 +58,10 @@ const LBL = {
   title: 'Token Pair Management',
   entity: 'Token Pairs',
   mineTab: 'My Token Pairs',
-  eligibleTab: 'Eligible',
-  eligibleAlert:
-    'Only token pairs with liquidity pools opened on BOTH sides can apply for participation (KLP-approved; the overriding split ratio is set during approval). Please open the liquidity pool for the missing side first.',
-  /** 源申请成功 toast 直译。 */
-  applyToast:
-    'Application accepted (KLP approval pending); the result will sync automatically to My Token Pairs.',
-  dialogTitle: 'Apply for Participation',
-  dialogConfirm: 'Confirm Application',
-  dialogCancel: 'Cancel',
-  /**
-   * 申请二次确认正文（源 2026-09-04 f95ec24 ElMessageBox 文案英译）：
-   * 必含对、KLP 审批流程、通过即生效接单、初始分成=对默认、管理侧可覆盖。
-   */
-  applyConfirmIntro: 'Confirm applying to participate in',
-  applyConfirmKlp:
-    'The application enters the KLP approval flow; once approved, participation takes effect immediately and the pair starts receiving orders.',
-  applyConfirmSplitPrefix:
-    'The split ratio starts at the pair default of',
-  applyConfirmSplitSuffix:
-    'the admin side may set an overriding ratio during approval.',
   status5Hint:
     'The admin side may override the split ratio upon approval; this is the current reference value.',
   rejectReasonPrefix: 'Rejection reason: ',
-  missingPoolTooltip:
-    'Please open the liquidity pool for the missing-side token on the Liquidity Pools page first.',
-  emptyMine:
-    'Not participating in any token pairs yet — switch to the Eligible tab to apply.',
-  emptyEligible: 'No eligible token pairs available.',
-  actionApply: 'Apply',
-  /** myStatus===15 驳回后可重复发起（源「重新申请」）。 */
-  actionReapply: 'Reapply',
-  /** myStatus===50 停用后可再次发起（源「再次参与」）。 */
-  actionRejoin: 'Participate Again',
-  actionNoPool: 'No Pool',
-  /** 「我的状态」列表头（源「我的状态」，f95ec24 新列）。 */
-  myStatusHeader: 'My Status',
-  /** myStatus===20 禁用态按钮（源「已参与」）。 */
-  actionJoined: 'Participating',
-  /** myStatus===5 禁用态按钮（源「审批中」）。 */
-  actionReviewing: 'Reviewing',
-  joinedTooltip: 'Already participating — no need to apply again.',
-  reviewingTooltip:
-    'Application is under KLP approval — please wait for the result.',
+  emptyMine: 'No token pairs have been registered for this LP yet.',
 } as const;
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
@@ -187,20 +120,6 @@ function statusText(status: number): string {
 function statusVariant(status: number): BadgeVariant {
   return PAIR_STATUS_VARIANT[status] ?? 'secondary';
 }
-
-/**
- * 「我的状态」列（源 2026-09-04 f95ec24：null→info plain「未参与」、
- * 15→danger「已驳回」、50→info「已停用」、20/5→warning「已参与·生效中」/
- * 「申请审批中」）。色映射沿用 R1 先例：info→secondary、danger→
- * destructive、warning→outline；与 Mine tab 状态列（20→default）刻意
- * 不同色——照源 el-tag 逐键迁移。null 未参与不入表，调用处兜底。
- */
-const MY_STATUS_BADGE: Record<number, { label: string; variant: BadgeVariant }> = {
-  5: { label: 'Approval Pending', variant: 'outline' },
-  15: { label: 'Rejected', variant: 'destructive' },
-  20: { label: 'Participating', variant: 'outline' },
-  50: { label: 'Disabled', variant: 'secondary' },
-};
 
 /* ================================================================== */
 /* Mine tab：我的 token 对（v2.3 改 10 列，列序照源 §D7）                   */
@@ -312,38 +231,6 @@ function MineTable() {
                 {row.original.preauthOk ? 'Pre-auth Valid' : 'Pre-auth Not Set'}
               </Badge>
             </div>
-            {/* f0d5b6f（9d7d156）：双 tag 下追加激活池地址两行；地址空不渲染 */}
-            {(row.original.sourcePoolAddress ||
-              row.original.targetPoolAddress) && (
-              <div className="mt-1 space-y-0.5">
-                {row.original.sourcePoolAddress && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="max-w-[230px] truncate font-mono text-[11px] text-muted-foreground">
-                        In {row.original.sourcePoolAddress}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-sm break-all font-mono text-xs">
-                      Source-side active pool (receiving address):{' '}
-                      {row.original.sourcePoolAddress}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                {row.original.targetPoolAddress && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="max-w-[230px] truncate font-mono text-[11px] text-muted-foreground">
-                        Out {row.original.targetPoolAddress}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-sm break-all font-mono text-xs">
-                      Target-side active pool (payout address):{' '}
-                      {row.original.targetPoolAddress}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-            )}
             </>
           ),
         meta: { overflow: 'none' },
@@ -406,287 +293,11 @@ function MineTable() {
   );
 }
 /* ================================================================== */
-/* Eligible tab：可申请（v2.3 8 列 + 2026-09-04「我的状态」列 = 9 列）      */
-/* ================================================================== */
-
-function EligibleTable({ onApplied }: { onApplied: () => void }) {
-  const toast = useToast();
-  const query = usePairEligibleQuery(LP_PROJECT_ID);
-  const apply = usePairApplyMutation(LP_PROJECT_ID);
-  const { symOf, bankOf } = useTokenMeta(LP_PROJECT_ID);
-
-  /** 待确认申请目标；非空即打开确认弹窗（工单要求的新增确认步）。 */
-  const [applyTarget, setApplyTarget] = React.useState<EligiblePairRow | null>(
-    null,
-  );
-
-  const rows = React.useMemo(
-    () => (query.data ?? []).map((r) => ({ ...r, id: String(r.pairId) })),
-    [query.data],
-  );
-
-  function confirmApply(target: EligiblePairRow) {
-    apply.mutate(target.pairId, {
-      onSuccess: () => {
-        toast.success(LBL.applyToast);
-        setApplyTarget(null);
-        onApplied();
-      },
-      // 错误链路由 lp-client 拦截器统一提示（源 catch 静默等价）。
-      // eslint-disable-next-line @typescript-eslint/no-empty-function -- silent: lp-client interceptor owns error surfacing
-      onError: () => {},
-    });
-  }
-
-  const columns = React.useMemo<ColumnDef<EligiblePairRow & { id: string }>[]>(
-    () => [
-      {
-        id: 'pairx',
-        header: 'Token Pair',
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <Pairx
-              tokens={`${symOf(r.sourceTokenCode)}/${symOf(r.targetTokenCode)}`}
-              banks={`${bankOf(r.sourceTokenCode)} → ${bankOf(r.targetTokenCode)}`}
-            />
-          );
-        },
-        meta: { overflow: 'none' },
-      },
-      {
-        accessorKey: 'baseRate',
-        header: () => <NumHeader>Base Rate</NumHeader>,
-        cell: ({ row }) => <NumCell>{rateText(row.original.baseRate)}</NumCell>,
-        meta: { overflow: 'none' },
-      },
-      {
-        accessorKey: 'markupRate',
-        header: () => <NumHeader>Markup Rate</NumHeader>,
-        cell: ({ row }) => (
-          <NumCell>{percentText(row.original.markupRate)}</NumCell>
-        ),
-        meta: { overflow: 'none' },
-      },
-      {
-        accessorKey: 'userRate',
-        header: () => <NumHeader>User Rate</NumHeader>,
-        cell: ({ row }) => <NumCell>{rateText(row.original.userRate)}</NumCell>,
-        meta: { overflow: 'none' },
-      },
-      {
-        accessorKey: 'defaultSplitRatio',
-        header: () => <NumHeader>Default Split</NumHeader>,
-        cell: ({ row }) => (
-          <NumCell>{percentText(row.original.defaultSplitRatio)}</NumCell>
-        ),
-      },
-      {
-        id: 'sourcePooled',
-        header: 'Source Pool',
-        cell: ({ row }) => (
-          <div className="flex justify-center">
-            <Badge variant={row.original.sourcePooled ? 'default' : 'destructive'}>
-              {row.original.sourcePooled ? 'Opened' : 'Not Opened'}
-            </Badge>
-          </div>
-        ),
-        meta: { overflow: 'none' },
-      },
-      {
-        id: 'targetPooled',
-        header: 'Target Pool',
-        cell: ({ row }) => (
-          <div className="flex justify-center">
-            <Badge variant={row.original.targetPooled ? 'default' : 'destructive'}>
-              {row.original.targetPooled ? 'Opened' : 'Not Opened'}
-            </Badge>
-          </div>
-        ),
-        meta: { overflow: 'none' },
-      },
-      {
-        id: 'myStatus',
-        header: LBL.myStatusHeader,
-        cell: ({ row }) => {
-          const { myStatus } = row.original;
-          if (myStatus == null) {
-            return (
-              <div className="flex justify-center">
-                <Badge variant="secondary">Not Participating</Badge>
-              </div>
-            );
-          }
-          const badge =
-            MY_STATUS_BADGE[myStatus] ??
-            ({ label: String(myStatus), variant: 'secondary' } as const);
-          return (
-            <div className="flex justify-center">
-              <Badge variant={badge.variant}>{badge.label}</Badge>
-            </div>
-          );
-        },
-        meta: { overflow: 'none' },
-      },
-      {
-        id: 'actions',
-        header: 'Actions',
-        enableSorting: false,
-        meta: { overflow: 'none', stickyRight: true },
-        cell: ({ row }) => {
-          const r = row.original;
-          // 优先级照源：20 已生效 > 5 审批中（均前置禁用防重复申请，
-          // 后端亦拦截）> eligible 可发起（15/50 换文案）> 缺资金池。
-          if (r.myStatus === 20 || r.myStatus === 5) {
-            const joined = r.myStatus === 20;
-            return (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex cursor-not-allowed">
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className={`h-auto p-0 ${joined ? 'text-emerald-600' : 'text-muted-foreground'}`}
-                      disabled
-                    >
-                      {joined ? LBL.actionJoined : LBL.actionReviewing}
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-sm">
-                  {joined ? LBL.joinedTooltip : LBL.reviewingTooltip}
-                </TooltipContent>
-              </Tooltip>
-            );
-          }
-          if (r.eligible) {
-            return (
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={apply.isPending}
-                onClick={() => setApplyTarget(r)}
-              >
-                {r.myStatus === 15
-                  ? LBL.actionReapply
-                  : r.myStatus === 50
-                    ? LBL.actionRejoin
-                    : LBL.actionApply}
-              </Button>
-            );
-          }
-          // 缺侧池灰化 + tooltip 提示先开池（disabled 吞 hover，用 span 承接）
-          return (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex cursor-not-allowed">
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="text-muted-foreground"
-                    disabled
-                  >
-                    {LBL.actionNoPool}
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-sm">
-                {LBL.missingPoolTooltip}
-              </TooltipContent>
-            </Tooltip>
-          );
-        },
-      },
-    ],
-    // symOf/bankOf 随 token 元数据缓存更新；isPending 锁申请按钮
-    [symOf, bankOf, apply.isPending],
-  );
-
-  return (
-    <>
-      <Alert className="mb-3">
-        <Info aria-hidden="true" className="h-4 w-4 shrink-0" />
-        <AlertDescription>{LBL.eligibleAlert}</AlertDescription>
-      </Alert>
-
-      <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        {query.data != null && (
-          <span className="text-sm text-muted-foreground tabular-nums">
-            {rows.length} eligible pairs
-          </span>
-        )}
-        {query.dataUpdatedAt ? (
-          <span className="text-xs text-muted-foreground tabular-nums">
-            Updated {formatTime(query.dataUpdatedAt)}
-          </span>
-        ) : null}
-      </div>
-      <DataTable
-        columns={columns}
-        data={rows}
-        isLoading={query.isPending}
-        emptyMessage={LBL.emptyEligible}
-      />
-
-      {/* 申请确认弹窗（源 2026-09-04 f95ec24 ElMessageBox 二次确认语义：
-          对、KLP 流程、初始分成口径、管理侧可覆盖） */}
-      <AlertDialog
-        open={applyTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setApplyTarget(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{LBL.dialogTitle}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {applyTarget ? (
-                <>
-                  {LBL.applyConfirmIntro}{' '}
-                  <span className="font-mono font-semibold">
-                    {symOf(applyTarget.sourceTokenCode)}/
-                    {symOf(applyTarget.targetTokenCode)}
-                  </span>{' '}
-                  (
-                  {applyTarget.pairCode || applyTarget.pairId})?
-                  <br />
-                  {LBL.applyConfirmKlp} {LBL.applyConfirmSplitPrefix}{' '}
-                  <span className="font-mono">
-                    {percentText(applyTarget.defaultSplitRatio)}
-                  </span>
-                  ; {LBL.applyConfirmSplitSuffix}
-                </>
-              ) : null}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={apply.isPending}>
-              {LBL.dialogCancel}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={apply.isPending || !applyTarget}
-              onClick={(e) => {
-                e.preventDefault(); // 保持弹窗受控：成功后才关闭并切 tab
-                if (applyTarget) confirmApply(applyTarget);
-              }}
-            >
-              {apply.isPending ? 'Submitting…' : LBL.dialogConfirm}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-}
-
-/* ================================================================== */
 /* 页面装配                                                              */
 /* ================================================================== */
 
 export function PairListPage() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = React.useState<'mine' | 'eligible'>('mine');
 
   /**
    * 源 SyncRefreshButton @refreshed='loadAll'：两视图都刷。这里失效整个
@@ -723,19 +334,14 @@ export function PairListPage() {
         </div>
         <TooltipProvider delayDuration={200}>
           <Tabs
-            value={tab}
-            onValueChange={(v) => setTab(v as typeof tab)}
+            value="mine"
             className="p-4"
           >
             <TabsList>
               <TabsTrigger value="mine">{LBL.mineTab}</TabsTrigger>
-              <TabsTrigger value="eligible">{LBL.eligibleTab}</TabsTrigger>
             </TabsList>
             <TabsContent value="mine" className="mt-4">
               <MineTable />
-            </TabsContent>
-            <TabsContent value="eligible" className="mt-4">
-              <EligibleTable onApplied={() => setTab('mine')} />
             </TabsContent>
           </Tabs>
         </TooltipProvider>

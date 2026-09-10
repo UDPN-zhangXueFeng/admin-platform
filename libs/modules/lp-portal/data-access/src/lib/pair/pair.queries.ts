@@ -3,11 +3,8 @@
 /**
  * LP Token 对参与域 read-query hooks（源双 tab 各自独立 load 等价）。
  *
- * 源 Mine 挂载即载、Eligible tab-change 懒加载：映射为两条互不相干的
- * useQuery，懒加载由页面层承担（hook 只挂在激活 tab 的组件内，Radix Tabs
- * 未激活内容不挂载）。「旧数据保留」由 TanStack 错误时保留上次成功 data
- * 兜底；失败提示交 lp-client 拦截器统一 toast（源 catch 静默等价），页面
- * 不再渲染降级条。
+ * Mine 列表由单一真实查询提供。参与对新增和变更由管理侧发起审批，Portal
+ * 不再加载或提交 Eligible/Apply 数据。
  */
 import { useQuery } from '@tanstack/react-query';
 
@@ -31,7 +28,7 @@ export function usePairListQuery(projectId: string) {
   });
 }
 
-/** 可申请视图（Eligible tab 数据源，独立 key 与 Mine 互不干扰）。 */
+/** 存量可申请查询（页面入口已下线，供兼容审批闭环使用）。 */
 export function usePairEligibleQuery(projectId: string) {
   return useQuery({
     queryKey: pairKeys.eligible(projectId),

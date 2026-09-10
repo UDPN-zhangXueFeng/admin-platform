@@ -1,10 +1,8 @@
 /**
  * LP Token 对参与域 barrel。
  *
- * model / keys / api / queries / mutations 五件套（apply 是本域唯一写路径；
- * pool/rate 等只读域不含 mutations 件）。行类型 PairRow/EligiblePairRow 在
- * 本域声明导出（v1 公共 types.ts 中转声明已随聚合页废弃剪除），主 barrel
- * 追加 `export * from './lib/pair'` 时无同名歧义。
+ * Pair 域同时保留真实列表查询与历史申请 API。Portal 页面不再挂载申请入口，
+ * 但存量 KLP 审批闭环仍需保留这些 data-access 定义。
  */
 export * from './pair.model';
 export * from './pair.keys';

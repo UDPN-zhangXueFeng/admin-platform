@@ -1,6 +1,6 @@
 /**
  * LP 资金池域模型（源 `src/types/business.ts` PoolRow + `views/pool/index.vue`
- * 码表 + `api/pool.ts` apply 入参）。
+ * 码表 + 存量开池申请入参（页面入口已下线，类型保留兼容）。
  *
  * 行类型已在公共 `../types` 平移声明（v2 源本地副本：poolId/tokenId/tokenNo/
  * tokenCode/bankCode/poolAddress/status 5|15|20|50/rejectReason/余额与水位
@@ -13,17 +13,15 @@ import type { PoolRow } from '../types';
 
 export type { PoolRow };
 
-/** 开池申请入参（FR-LW-03，POST /pool/apply；受理即回流列表「Pending」）。 */
+/** 存量开池申请入参（FR-LW-03；当前 Portal 页面不调用）。 */
 export interface PoolApplyReq {
   tokenId: number;
-  /** 货币系统账户地址（页面 trim 后提交）。 */
   accountAddress: string;
   currencySystemType?: number;
-  /** 水位提醒阈值（比率 0〜1，step 0.05，默认 0.2）。 */
   remindThreshold?: number;
 }
 
-/** 货币系统形态映射（开池弹窗 select 码表；未知码由页面显原值）。 */
+/** 存量开池表单的系统类型码表（兼容层）。 */
 export const POOL_SYSTEM_TYPE_TEXT: Record<number, string> = {
   1: 'On-chain EVM',
   2: 'Aptos',

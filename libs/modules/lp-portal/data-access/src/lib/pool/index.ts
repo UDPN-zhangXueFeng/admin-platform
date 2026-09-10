@@ -1,8 +1,8 @@
 /**
  * LP 资金池域 barrel。
  *
- * pool 页 v2 源含开池申请写端点（FR-LW-03 POST /pool/apply），故为
- * model / keys / api / queries / mutations 五件 + 本 barrel（pair 域同构）。
+ * Pool 页当前只消费真实只读列表；开池/切换端点由后端兼容保留，页面不暴露
+ * 写入口，但 data-access 定义继续保留以支持存量审批闭环。
  */
 export * from './pool.model';
 export * from './pool.keys';

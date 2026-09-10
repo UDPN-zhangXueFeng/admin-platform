@@ -3,84 +3,43 @@
 /**
  * 资金池页（源 `src/views/pool/index.vue` 1:1 迁移，FAIL 修复 B，基线 01 §D4）。
  *
- * 源语义要点（f0d5b6f 批多池出款池修订，行号对照源文件）：
+ * 源语义要点（v1.4 职责迁移，行号对照源文件）：
  * - 头部：eyebrow LIQUIDITY + 标题；右 SyncRefreshButton domain=
  *   ['pool','preauth','topup']（依赖域拉齐），刷新成功重拉当前列表；
- *   主按钮「申请开通资金池」经 PermButton 页面键门禁（LP 侧按钮粒度
- *   取页面键，同 user/role/menu 先例）。
+ *   页面不提供申请、修改或切换写入操作，配置由 Admin 侧完成。
  * - 表格 12 列全列序：池 ID / Token（tag tokenSymbol||tokenNo +
- *   activeFlag===1 追加「Payout Pool」success 标；第二行银行）/
- *   池地址 maskAddress+tooltip 原文 / 解付授权对象（spenderAddress →
+ *   第二行银行）/
+ *   池地址 maskAddress+tooltip 原文 / 授权对象（spenderAddress →
  *   maskAddress + ⧉ 可点复制；空 → muted「Not configured」）/ 可用余额 /
  *   授权额度 / 可用授权额度 / 水位 / 余额数据时间 / 状态 / 数据时间 /
- *   操作列（status===20：非激活 → 「Set as Payout Pool」链接按钮；已激活 →
- *   muted「Current payout pool」占位；上游无 v-perm，不加门禁）。
- * - 出款池切换 onActivate（f0d5b6f）：AlertDialog 确认（文案含「在途不受
- *   影响：收款走原池、解付即时改走新池」）→ POST /pool/activate →
- *   inFlightCount>0 warning 在途警示 else success → 重拉列表；取消/失败
- *   静默（拦截器已提示）。
+ *   （无出款池标识或切换操作）。
  * - STATUS 四码表：5 Pending / 15 Rejected / 20 Active / 50 Disabled（域模型）。
- * - 开池弹窗 520px：顶部固定 info alert；token 下拉 label
- *   `${symbol||tokenNo} (${bankName||'-'})`，选中后提示 tokenName · tokenNo ·
- *   最低流动性 · 链型；池地址必填；货币系统形态 select 默认 1；补资提醒
- *   阈值 0〜1 step0.05 默认 0.2。手写校验缺 token 或地址 → warning toast；
- *   成功 toast + 关窗 + 重载。
- * - 空态引导文案英文化；单页只读 + 页内弹窗，无子路由。
+ * - 池页只读；管理侧负责地址、门槛和审批写入，Portal 不再提交申请。
  */
 
 import * as React from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Copy as CopyIcon, Info } from 'lucide-react';
+import { Copy as CopyIcon } from 'lucide-react';
 
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   Badge,
-  Button,
   DataTable,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
   useToast,
 } from '@myorg/shared/ui';
-import { FormField } from '@myorg/shared/ui-forms';
 
 import {
   LP_PROJECT_ID,
   POOL_STATUS_TEXT,
   POOL_STATUS_VARIANT,
-  POOL_SYSTEM_TYPE_TEXT,
-  usePoolApplyMutation,
-  usePoolActivateMutation,
   usePoolListQuery,
-  useTokenListQuery,
   type PoolRow,
-  type TokenRow,
 } from '@myorg/modules/lp-portal/data-access';
 
 import { SyncRefreshButton } from './sync-refresh-button';
-import { PermButton } from './perm-button';
 import { formatMoney, formatTime, maskAddress } from './format';
 
 /* ================================================================== */
@@ -91,49 +50,15 @@ const LBL = {
   title: 'Liquidity Pools',
   entity: 'Pools',
   countUnit: 'pools',
-  apply: 'Apply for Liquidity Pool',
-  dialogTitle: 'Apply for Liquidity Pool',
-  alertTitle: 'KLPP approval required',
-  alertBody:
-    'Applications are activated after admin-side (KLPP) approval; pools do not join matching until approved. Initial funding is topped up directly in the currency system once approval passes.',
   empty:
-    'No liquidity pools yet — pick a token from the Token overview to submit an application',
-  // f0d5b6f：解付授权对象列 + 出款池切换确认流文案
-  payoutPool: 'Disbursement Pool',
-  spenderNotConfigured: 'Not configured (cannot pay out)',
+    'No liquidity pools yet — pools are configured and maintained by the admin team',
+  spenderNotConfigured: 'Not configured (cannot settle)',
   spenderTooltip:
-    'Approve this pool wallet for this token to this address in the token system (copy it and run approve there); otherwise the pool cannot take part in disbursement settlement',
+    'Approve this pool wallet for this token to this address in the token system; otherwise settlement cannot use the authorized balance',
   spenderCopied:
     'Copied — approve this pool wallet for this token to this address in the currency system',
   spenderCopyFailed: 'Copy failed — please copy the address manually',
-  activateTooltip:
-    'Set this pool as the current disbursement pool for the token — subsequent matching and settlement disbursements are paid from this pool',
-  activateAction: 'Set as Disbursement Pool',
-  activateTitle: 'Switch Disbursement Pool',
-  activateConfirm: 'Confirm',
-  activateCancel: 'Cancel',
 } as const;
-
-/** 开池弹窗表单状态（源 reactive form 四字段同构）。 */
-interface ApplyFormState {
-  tokenId?: number;
-  accountAddress: string;
-  currencySystemType: number;
-  /** 水位提醒阈值，比率 0〜1，步进 0.05，默认 0.2（源 el-input-number 口径）。 */
-  remindThreshold: number;
-}
-
-const APPLY_INITIAL: ApplyFormState = {
-  accountAddress: '',
-  currencySystemType: 1,
-  remindThreshold: 0.2,
-};
-
-/** 货币系统形态下拉项（源三枚硬编码 option 的码表化）。 */
-const SYSTEM_TYPE_OPTIONS = [1, 2, 3].map((v) => ({
-  value: String(v),
-  label: POOL_SYSTEM_TYPE_TEXT[v],
-}));
 
 /* ================================================================== */
 /* 单元格渲染                                                           */
@@ -213,7 +138,7 @@ function LevelCell({ row }: { row: PoolRow }) {
  * 色可点复制（成功/失败分级 toast），tooltip 常挂解释授权语义；空 → muted
  * 「Not configured (cannot pay out)」。
  */
-function PayoutSpenderCell({ row }: { row: PoolRow }) {
+function AuthorizationSpenderCell({ row }: { row: PoolRow }) {
   const toast = useToast();
   const spender = row.spenderAddress;
   if (!spender) {
@@ -254,273 +179,10 @@ function PayoutSpenderCell({ row }: { row: PoolRow }) {
 }
 
 /* ================================================================== */
-/* 开池申请弹窗（FR-LW-03）                                             */
-/* ================================================================== */
-
-function ApplyPoolDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (next: boolean) => void;
-}) {
-  const toast = useToast();
-  const applyMutation = usePoolApplyMutation();
-  // token 下拉数据源（token 域 list，body {} 即已生效全集；TanStack 缓存
-  // 天然承接源「缓存空时拉取」，重复打开不重复请求新页面实例之外的负担）
-  const { data: tokens, isPending: loadingTokens } =
-    useTokenListQuery(LP_PROJECT_ID);
-  const [form, setForm] = React.useState<ApplyFormState>(APPLY_INITIAL);
-  // 提交 guard 命中字段的 inline error（判定/阻断不变，仅 toast 之外的下沉呈现）
-  const [errors, setErrors] = React.useState<{
-    tokenId?: string;
-    accountAddress?: string;
-  }>({});
-
-  // 源 openApply 语义：每次打开先重置四字段与字段级 error 再展示
-  React.useEffect(() => {
-    if (open) {
-      setForm(APPLY_INITIAL);
-      setErrors({});
-    }
-  }, [open]);
-
-  const patchForm = (patch: Partial<ApplyFormState>) =>
-    setForm((prev) => ({ ...prev, ...patch }));
-
-  const tokenOptions = React.useMemo(
-    () =>
-      (tokens ?? []).map((t: TokenRow) => ({
-        value: String(t.tokenId),
-        // f0d5b6f：tokenCode 退役，label 改 symbol||tokenNo；银行兜底 '-'
-        label: `${t.symbol || t.tokenNo} (${t.bankName || '-'})`,
-      })),
-    [tokens],
-  );
-
-  const selectedToken = (tokens ?? []).find((t) => t.tokenId === form.tokenId);
-
-  /** 阈值输入收敛：NaN→0、限幅 0〜1、precision 2（源 :min/:max/:precision）。 */
-  const handleThresholdChange = (raw: string) => {
-    const n = Number(raw);
-    if (!Number.isFinite(n)) {
-      patchForm({ remindThreshold: 0 });
-      return;
-    }
-    const clamped = Math.min(1, Math.max(0, n));
-    patchForm({ remindThreshold: Math.round(clamped * 100) / 100 });
-  };
-
-  const submitApply = () => {
-    // 手写校验同源 submitApply：缺 token 或地址 → warning toast；同分支下沉
-    // 字段级 inline error（判定条件与 return 阻断完全不变，仅增加呈现位置）
-    if (!form.tokenId || !form.accountAddress.trim()) {
-      toast.warning('Please choose a token and enter the pool address');
-      setErrors({
-        tokenId: form.tokenId ? undefined : 'Please choose a token',
-        accountAddress: form.accountAddress.trim()
-          ? undefined
-          : 'Please enter the pool address',
-      });
-      return;
-    }
-    applyMutation.mutate(
-      {
-        tokenId: form.tokenId,
-        accountAddress: form.accountAddress.trim(),
-        currencySystemType: form.currencySystemType,
-        remindThreshold: form.remindThreshold,
-      },
-      {
-        onSuccess: () => {
-          toast.success(
-            'Application received — pending KLPP approval; the result will sync into this list automatically',
-          );
-          onOpenChange(false);
-        },
-        // 错误链路由 lp-client 拦截器统一提示（源 catch 静默等价）
-        // eslint-disable-next-line @typescript-eslint/no-empty-function -- silent: lp-client interceptor owns error surfacing
-        onError: () => {},
-      },
-    );
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>{LBL.dialogTitle}</DialogTitle>
-        </DialogHeader>
-
-        {/* 固定 info 提示（源 el-alert info 文案位） */}
-        <Alert>
-          <Info className="mt-0.5 size-4 shrink-0 text-primary" />
-          <div>
-            <AlertTitle>{LBL.alertTitle}</AlertTitle>
-            <AlertDescription>{LBL.alertBody}</AlertDescription>
-          </div>
-        </Alert>
-
-        <div className="space-y-4">
-          <div>
-            <Label className="mb-1.5 block">
-              Token
-              {/* 必填星标：与 FormField required 同形态 */}
-              <span className="ml-0.5 text-destructive" aria-hidden="true">
-                *
-              </span>
-            </Label>
-            <SelectField
-              value={form.tokenId != null ? String(form.tokenId) : ''}
-              onValueChange={(v) => {
-                patchForm({ tokenId: Number(v) });
-                setErrors((prev) =>
-                  prev.tokenId ? { ...prev, tokenId: undefined } : prev,
-                );
-              }}
-              placeholder="Select an active token"
-              options={tokenOptions}
-              disabled={loadingTokens}
-            />
-            {errors.tokenId && (
-              <p className="mt-1 text-sm text-destructive" role="alert">
-                {errors.tokenId}
-              </p>
-            )}
-            {selectedToken && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {selectedToken.tokenName || '-'} · tokenNo{' '}
-                {selectedToken.tokenNo || '-'} · Min liquidity{' '}
-                {formatMoney(selectedToken.minLiquidity)} · Chain{' '}
-                {selectedToken.chainType || '-'}
-              </p>
-            )}
-          </div>
-
-          <FormField
-            name="accountAddress"
-            label="Pool Address"
-            required
-            placeholder="Account address in the currency system"
-            value={form.accountAddress}
-            error={errors.accountAddress}
-            onChange={(e) => {
-              patchForm({ accountAddress: e.target.value });
-              setErrors((prev) =>
-                prev.accountAddress
-                  ? { ...prev, accountAddress: undefined }
-                  : prev,
-              );
-            }}
-          />
-
-          <div>
-            <Label className="mb-1.5 block">Currency System Type</Label>
-            <SelectField
-              value={String(form.currencySystemType)}
-              onValueChange={(v) =>
-                patchForm({ currencySystemType: Number(v) })
-              }
-              options={SYSTEM_TYPE_OPTIONS}
-            />
-          </div>
-
-          <div>
-            <FormField
-              name="remindThreshold"
-              label="Top-up Reminder Threshold"
-              type="number"
-              min={0}
-              max={1}
-              step={0.05}
-              value={String(form.remindThreshold)}
-              onChange={(e) => handleThresholdChange(e.target.value)}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Level ratio, 0–1
-            </p>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={submitApply} disabled={applyMutation.isPending}>
-            Submit Application
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* ================================================================== */
 /* 列表页                                                               */
 /* ================================================================== */
 
-/**
- * 受控 Select 薄封装（Radix）：弹窗内两处下拉共用；options 已由上游保证
- * value 非空唯一（tokenId 主键 / 固定码表）。
- */
-function SelectField({
-  value,
-  onValueChange,
-  options,
-  placeholder,
-  disabled,
-}: {
-  value: string;
-  onValueChange: (v: string) => void;
-  options: Array<{ value: string; label: string }>;
-  placeholder?: string;
-  disabled?: boolean;
-}) {
-  return (
-    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
 export function PoolListPage() {
-  const [applyOpen, setApplyOpen] = React.useState(false);
-  const toast = useToast();
-  const activateMutation = usePoolActivateMutation();
-  // f0d5b6f：出款池切换确认目标（null=关闭）；确认后重拉列表
-  const [activateTarget, setActivateTarget] = React.useState<PoolRow | null>(
-    null,
-  );
-
-  const handleActivateConfirm = () => {
-    if (!activateTarget) return;
-    const target = activateTarget;
-    activateMutation.mutate(target.poolId, {
-      onSuccess: (res) => {
-        if (res.inFlightCount > 0) {
-          toast.warning(
-            `Disbursement pool switched — note this token currently has ${res.inFlightCount} in-flight transactions: receipts go to the original pool, disbursements come from the new pool`,
-          );
-        } else {
-          toast.success('Disbursement pool switched');
-        }
-        setActivateTarget(null);
-        void listQuery.refetch();
-      },
-      // 失败链路由 lp-client 拦截器统一提示（源 catch 静默等价），弹窗保留
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
-      onError: () => {},
-    });
-  };
   // 主表数据源（不分页全量；源 load() 直连 poolApi.list 等价）
   const listQuery = usePoolListQuery(LP_PROJECT_ID);
   const rows = listQuery.data ?? [];
@@ -534,7 +196,7 @@ export function PoolListPage() {
         cell: ({ row }) => <Num>{row.original.poolId}</Num>,
       },
       // 源列序 2：Token（f0d5b6f：tag 显 tokenSymbol||tokenNo，tokenCode 退役；
-      // activeFlag===1 追加「Payout Pool」success 标；第二行银行）
+      // Token + bank identity.
       {
         accessorKey: 'tokenSymbol',
         header: 'Token',
@@ -547,7 +209,6 @@ export function PoolListPage() {
               >
                 {row.original.tokenSymbol || row.original.tokenNo || '-'}
               </Badge>
-              {row.original.activeFlag === 1 && <Badge>{LBL.payoutPool}</Badge>}
             </div>
             <div className="text-xs text-muted-foreground">
               {row.original.bankName || row.original.bankCode || '-'}
@@ -577,8 +238,8 @@ export function PoolListPage() {
       // 空 → Not configured）
       {
         accessorKey: 'spenderAddress',
-        header: 'Disbursement Spender',
-        cell: ({ row }) => <PayoutSpenderCell row={row.original} />,
+        header: 'Authorization Spender',
+        cell: ({ row }) => <AuthorizationSpenderCell row={row.original} />,
       },
       {
         accessorKey: 'availableBalanceCache',
@@ -650,34 +311,6 @@ export function PoolListPage() {
         ),
       },
 
-      // 源列序 12（f0d5b6f 新增）：操作列——status===20 且非激活 → 链接按钮
-      // 「Set as Disbursement Pool」；已激活池不再展示 Current payout pool 占位
-      // 占位；其余状态空。上游无 v-perm，不加 PermButton。
-      {
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }) => {
-          const r = row.original;
-          if (r.status !== 20) return null;
-          if (r.activeFlag === 1) return null;
-          return (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="text-xs font-medium text-primary underline-offset-4 hover:underline"
-                  onClick={() => setActivateTarget(r)}
-                >
-                  {LBL.activateAction}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-sm">
-                {LBL.activateTooltip}
-              </TooltipContent>
-            </Tooltip>
-          );
-        },
-      },
     ],
     [],
   );
@@ -721,15 +354,6 @@ export function PoolListPage() {
                 domain={['pool', 'preauth', 'topup']}
                 onRefreshed={() => void listQuery.refetch()}
               />
-              {/* 源主按钮（页面键门禁，v-perm 移除语义等价） */}
-              <PermButton
-                menuKey="lp:pool"
-                onClick={() => {
-                  setApplyOpen(true);
-                }}
-              >
-                {LBL.apply}
-              </PermButton>
             </div>
           </div>
 
@@ -743,44 +367,6 @@ export function PoolListPage() {
           </div>
         </section>
 
-        <ApplyPoolDialog open={applyOpen} onOpenChange={setApplyOpen} />
-
-        {/* f0d5b6f：出款池切换确认（共享 AlertDialog 确认流，文案含在途语义） */}
-        <AlertDialog
-          open={activateTarget != null}
-          onOpenChange={(next) => {
-            if (!next) setActivateTarget(null);
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{LBL.activateTitle}</AlertDialogTitle>
-              <AlertDialogDescription>
-                Set pool{' '}
-                {activateTarget
-                  ? maskAddress(activateTarget.poolAddress)
-                  : ''}{' '}
-                of{' '}
-                {activateTarget
-                  ? activateTarget.tokenSymbol || activateTarget.tokenNo
-                  : ''}{' '}
-                as the current disbursement pool? Disbursements for this token will be paid
-                from this address. In-flight transactions are unaffected: their
-                receipts still go to the original pool, while disbursements switch to
-                the new pool immediately.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{LBL.activateCancel}</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleActivateConfirm}
-                disabled={activateMutation.isPending}
-              >
-                {LBL.activateConfirm}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     </TooltipProvider>
   );
