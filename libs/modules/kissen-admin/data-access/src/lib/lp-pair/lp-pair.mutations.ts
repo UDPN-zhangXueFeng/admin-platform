@@ -3,7 +3,7 @@
 /**
  * LP×Token 对域 mutation hooks。
  * 成功后失效列表缓存；错误 toast 由页面层 onError 呈现（对齐源拦截器统一提示语义）。
- * save/submit/remove hooks 保留 API 层一致性（页面无入口——参与由 LP 门户发起）。
+ * save/submit/remove hooks 保留 API 层一致性，供管理侧 KLP 审批入口复用。
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 

@@ -19,7 +19,7 @@ export interface LpPoolRow {
   /** token 级最低流动性（水位分母，联查 token_info.min_liquidity；缺失/≤0 时水位整列 '-'）。 */
   minLiquidity: string | number;
   accountAddress: string;
-  /** 1=当前出款池（多池模型 2026-09-01；LP 门户手动切换；旧数据可缺失）。 */
+  /** 兼容旧投影字段；v1.4 出款池概念退役，前端不得消费该字段。 */
   activeFlag?: number;
   /** 货币系统形态：1 链上 EVM / 2 Aptos / 3 内部系统。 */
   currencySystemType: number;

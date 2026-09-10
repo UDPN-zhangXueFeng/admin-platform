@@ -131,7 +131,7 @@
   }
 }
 
-/* Login form width — shared MockLoginPage ships a 480px form column,
+/* Login form width — the shared login form ships a 480px form column,
    too wide for this project's login. Capped to 400px via the (auth)
    layout wrapper (.kissen-auth); targets only the right panel's form
    container (left panel's inner column uses a different max-width). */

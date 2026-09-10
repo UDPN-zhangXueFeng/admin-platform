@@ -54,6 +54,10 @@ import {
   SelectValue,
   Skeleton,
   Switch,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   type TableRowAction,
   useToast,
 } from '@myorg/shared/ui';
@@ -64,6 +68,11 @@ import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import {
   BANK_STATUS_LABEL,
   BANK_STATUS_OPTIONS,
+  CONNECTIVITY_STATUS_LABEL,
+  CONNECTIVITY_STATUS_VARIANT,
+  CS_TYPE_LABEL,
+  INSTANCE_STATUS_LABEL,
+  INSTANCE_STATUS_VARIANT,
   KEY_STATUS_LABEL,
   KISSEN_PROJECT_ID,
   REVOKE_REASON_LABEL,
@@ -77,7 +86,9 @@ import {
   useBankListQuery,
   useInteractSaveMutation,
   useInteractViewQuery,
+  useInstanceListQuery,
   useSaveBankMutation,
+  useTokenListQuery,
   type AccessKeyGenerated,
   type AccessKeyRow,
   type BankListFilter,
@@ -85,6 +96,10 @@ import {
   type BankSaveReq,
   type InteractPeerRow,
   type InteractTokenRow,
+  type InstanceRow,
+  type TokenRow,
+  TOKEN_STATUS_LABEL,
+  TOKEN_STATUS_VARIANT,
 } from '@myorg/modules/kissen-admin/data-access';
 
 const PAGE_SIZE_DEFAULT = 10;
@@ -109,6 +124,55 @@ function parseBankId(raw: string | null): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/**
+ * Compress an uploaded image to a 64×64 PNG data URI for the bank logo
+ * (source 4685063: base has no file service, so the compressed data URI is
+ * stored directly in the `logo` column, ~3-6KB). Contain-fit on a
+ * transparent canvas.
+ */
+function resizeImageToDataUrl(file: File, size = 64): Promise<string> {
+  const { promise, resolve, reject } = Promise.withResolvers<string>();
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('canvas unavailable'));
+        return;
+      }
+      const scale = Math.min(size / img.width, size / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      resolve(canvas.toDataURL('image/png'));
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    reject(new Error('image load failed'));
+  };
+  img.src = url;
+  return promise;
+}
+
+function safeExternalUrl(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:'
+      ? url.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function BankStatusBadge({ status }: { status: number }) {
@@ -156,11 +220,16 @@ function ConfirmAlertDialog({
   onDismiss: () => void;
 }) {
   return (
-    <AlertDialog open={request != null} onOpenChange={(open) => !open && onDismiss()}>
+    <AlertDialog
+      open={request != null}
+      onOpenChange={(open) => !open && onDismiss()}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{request?.title}</AlertDialogTitle>
-          <AlertDialogDescription>{request?.description}</AlertDialogDescription>
+          <AlertDialogDescription>
+            {request?.description}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -188,15 +257,28 @@ interface LedgerRow extends AccessKeyRow {
   id: string;
 }
 
-function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void }) {
+function AccessKeyDrawer({
+  bank,
+  onClose,
+}: {
+  bank: BankRow;
+  onClose: () => void;
+}) {
   const toast = useToast();
-  const { data, isLoading } = useAccessKeyListQuery(KISSEN_PROJECT_ID, bank.bankId);
+  const { data, isLoading } = useAccessKeyListQuery(
+    KISSEN_PROJECT_ID,
+    bank.bankId,
+  );
   const generateMutation = useAccessKeyGenerateMutation(KISSEN_PROJECT_ID);
   const revokeMutation = useAccessKeyRevokeMutation(KISSEN_PROJECT_ID);
 
   const [generateConfirm, setGenerateConfirm] = React.useState(false);
-  const [generated, setGenerated] = React.useState<AccessKeyGenerated | null>(null);
-  const [revokeTarget, setRevokeTarget] = React.useState<LedgerRow | null>(null);
+  const [generated, setGenerated] = React.useState<AccessKeyGenerated | null>(
+    null,
+  );
+  const [revokeTarget, setRevokeTarget] = React.useState<LedgerRow | null>(
+    null,
+  );
   const [revokeReason, setRevokeReason] = React.useState('');
   const [revokeError, setRevokeError] = React.useState<string | null>(null);
 
@@ -255,7 +337,9 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
         accessorKey: 'keyFingerprint',
         header: 'Fingerprint',
         cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.keyFingerprint}</span>
+          <span className="font-mono text-xs">
+            {row.original.keyFingerprint}
+          </span>
         ),
       },
       {
@@ -271,14 +355,20 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
         accessorKey: 'revokeReason',
         header: 'Revoke Reason',
         cell: ({ row }) => (
-          <span>{REVOKE_REASON_LABEL[row.original.revokeReason ?? 0] ?? '—'}</span>
+          <span>
+            {REVOKE_REASON_LABEL[row.original.revokeReason ?? 0] ?? '—'}
+          </span>
         ),
       },
       {
         accessorKey: 'instanceId',
         header: 'Instance',
         cell: ({ row }) => (
-          <span>{row.original.instanceId && row.original.instanceId > 0 ? row.original.instanceId : '—'}</span>
+          <span>
+            {row.original.instanceId && row.original.instanceId > 0
+              ? row.original.instanceId
+              : '—'}
+          </span>
         ),
       },
       {
@@ -288,7 +378,13 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
       },
       createActionColumn<LedgerRow>((item) =>
         item.status === 20
-          ? [{ label: 'Revoke', destructive: true, onClick: () => openRevoke(item) }]
+          ? [
+              {
+                label: 'Revoke',
+                destructive: true,
+                onClick: () => openRevoke(item),
+              },
+            ]
           : [],
       ),
     ],
@@ -320,7 +416,9 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
             </Alert>
 
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{rows.length} keys</span>
+              <span className="text-sm text-muted-foreground">
+                {rows.length} keys
+              </span>
               <Button size="sm" onClick={() => setGenerateConfirm(true)}>
                 Generate Access Key
               </Button>
@@ -403,21 +501,30 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
             </div>
             <div className="space-y-1">
               <div className="text-xs text-muted-foreground">Bank BIC</div>
-              <div className="text-sm">{generated?.bankBic || bank.bankBic || '—'}</div>
+              <div className="text-sm">
+                {generated?.bankBic || bank.bankBic || '—'}
+              </div>
             </div>
             <div className="space-y-1">
               <div className="text-xs text-muted-foreground">Fingerprint</div>
-              <div className="break-all font-mono text-sm">{generated?.keyFingerprint}</div>
+              <div className="break-all font-mono text-sm">
+                {generated?.keyFingerprint}
+              </div>
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setGenerated(null)}>I have saved it, close</Button>
+            <Button onClick={() => setGenerated(null)}>
+              I have saved it, close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* 作废：原因必填 1-200 字符（源 ElMessageBox.prompt → Dialog + Input）。 */}
-      <Dialog open={revokeTarget != null} onOpenChange={(open) => !open && setRevokeTarget(null)}>
+      <Dialog
+        open={revokeTarget != null}
+        onOpenChange={(open) => !open && setRevokeTarget(null)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Revoke Access Key</DialogTitle>
@@ -428,7 +535,9 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
               Reason
-              <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+              <span className="ml-0.5 text-destructive" aria-hidden="true">
+                *
+              </span>
             </label>
             <Input
               value={revokeReason}
@@ -439,7 +548,9 @@ function AccessKeyDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void
                 setRevokeError(null);
               }}
             />
-            {revokeError && <p className="text-sm text-destructive">{revokeError}</p>}
+            {revokeError && (
+              <p className="text-sm text-destructive">{revokeError}</p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRevokeTarget(null)}>
@@ -468,9 +579,18 @@ function tokenLabel(token: InteractTokenRow): string {
   return token.symbol || token.tokenCode;
 }
 
-function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void }) {
+function InteractDrawer({
+  bank,
+  onClose,
+}: {
+  bank: BankRow;
+  onClose: () => void;
+}) {
   const toast = useToast();
-  const { data, isLoading } = useInteractViewQuery(KISSEN_PROJECT_ID, bank.bankId);
+  const { data, isLoading } = useInteractViewQuery(
+    KISSEN_PROJECT_ID,
+    bank.bankId,
+  );
   const saveMutation = useInteractSaveMutation(KISSEN_PROJECT_ID, bank.bankId);
 
   const peers = data?.peers ?? [];
@@ -532,7 +652,6 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
     [bank.bankId, saveMutation, toast],
   );
 
-
   return (
     <>
       <Drawer open onOpenChange={(open) => !open && onClose()}>
@@ -551,7 +670,8 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
               <Info className="mt-0.5 h-4 w-4 shrink-0" />
               <AlertTitle>Open by default </AlertTitle>
               <AlertDescription>
-              This bank is connected to all onboarded banks and all their tokens. To customize, add a rule below.
+                This bank is connected to all onboarded banks and all their
+                tokens. To customize, add a rule below.
               </AlertDescription>
             </Alert>
 
@@ -576,8 +696,12 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">{peerName(peer)}</div>
-                      <div className="text-xs text-muted-foreground">({peer.bankBic})</div>
+                      <div className="truncate text-sm font-medium">
+                        {peerName(peer)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        ({peer.bankBic})
+                      </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="text-xs text-muted-foreground">
@@ -586,7 +710,9 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
                       <Switch
                         checked={!peer.wholeBanned}
                         disabled={saveMutation.isPending}
-                        onCheckedChange={(checked) => setRowConfirm({ peer, allow: checked })}
+                        onCheckedChange={(checked) =>
+                          setRowConfirm({ peer, allow: checked })
+                        }
                       />
                     </div>
                   </div>
@@ -608,10 +734,18 @@ function InteractDrawer({ bank, onClose }: { bank: BankRow; onClose: () => void 
                                   : 'inline-flex items-center gap-1.5 rounded-md border bg-muted px-2 py-1 text-xs motion-safe:transition-colors hover:bg-accent'
                               }
                             >
-                              <span className={`font-mono ${token.banned ? 'text-destructive line-through' : ''}`}>
+                              <span
+                                className={`font-mono ${token.banned ? 'text-destructive line-through' : ''}`}
+                              >
                                 {tokenLabel(token)}
                               </span>
-                              <span className={token.banned ? 'text-destructive' : 'text-primary'}>
+                              <span
+                                className={
+                                  token.banned
+                                    ? 'text-destructive'
+                                    : 'text-primary'
+                                }
+                              >
                                 {token.banned ? 'Banned' : 'Allowed'}
                               </span>
                             </button>
@@ -687,27 +821,34 @@ function bankFormToParams(
   const filter: BankListFilter = {};
   if (form.bankName) filter.bankName = form.bankName;
   if (form.bankBic) filter.bankBic = form.bankBic;
-  if (form.status && form.status !== STATUS_ALL) filter.status = Number(form.status);
+  if (form.status && form.status !== STATUS_ALL)
+    filter.status = Number(form.status);
   return { pageNum, pageSize, filter };
 }
 
 export function BankInfoListPage() {
   const router = useRouter();
   const toast = useToast();
-  const { register, handleSubmit, reset, control } = useForm<BankInfoFilterForm>({
-    defaultValues: EMPTY_BANK_FILTER,
-  });
+  const { register, handleSubmit, reset, control } =
+    useForm<BankInfoFilterForm>({
+      defaultValues: EMPTY_BANK_FILTER,
+    });
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const [params, setParams] = React.useState(() =>
     bankFormToParams(EMPTY_BANK_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
 
-  const { data, isLoading, isError, dataUpdatedAt } = useBankListQuery(KISSEN_PROJECT_ID, params);
+  const { data, isLoading, isError, dataUpdatedAt } = useBankListQuery(
+    KISSEN_PROJECT_ID,
+    params,
+  );
   const disableMutation = useBankDisableMutation(KISSEN_PROJECT_ID);
   const enableMutation = useBankEnableMutation(KISSEN_PROJECT_ID);
 
   /** 内联抽屉（源 AccessKeyDrawer / InteractDrawer）。 */
-  const [accessKeyBank, setAccessKeyBank] = React.useState<BankRow | null>(null);
+  const [accessKeyBank, setAccessKeyBank] = React.useState<BankRow | null>(
+    null,
+  );
   const [interactBank, setInteractBank] = React.useState<BankRow | null>(null);
   const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
 
@@ -801,13 +942,18 @@ export function BankInfoListPage() {
         accessorKey: 'createTime',
         header: 'Created On',
         cell: ({ row }) => (
-          <span className="tabular-nums">{formatTime(row.original.createTime)}</span>
+          <span className="tabular-nums">
+            {formatTime(row.original.createTime)}
+          </span>
         ),
       },
       createActionColumn<BankRow & { id: string }>((item) => {
         const s = item.status;
         const actions: TableRowAction<BankRow & { id: string }>[] = [
-          { label: 'View', onClick: () => router.push(`${LIST_PATH}/detail?id=${item.bankId}`) },
+          {
+            label: 'Details',
+            onClick: () => router.push(`${LIST_PATH}/detail?id=${item.bankId}`),
+          },
         ];
         if (s !== 20) {
           actions.push({
@@ -816,7 +962,11 @@ export function BankInfoListPage() {
           });
         }
         if (s === 10 || s === 20) {
-          actions.push({ label: 'Disable', destructive: true, onClick: () => onDisable(item) });
+          actions.push({
+            label: 'Disable',
+            destructive: true,
+            onClick: () => onDisable(item),
+          });
         }
         if (s === 50) {
           actions.push({ label: 'Enable', onClick: () => onEnable(item) });
@@ -888,7 +1038,10 @@ export function BankInfoListPage() {
                 control={control}
                 name="status"
                 render={({ field }) => (
-                  <Select value={field.value || STATUS_ALL} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value || STATUS_ALL}
+                    onValueChange={field.onChange}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
@@ -929,10 +1082,15 @@ export function BankInfoListPage() {
                       page: paginationMeta.page,
                       pageSize: paginationMeta.pageSize,
                       total: paginationMeta.total,
-                      onPageChange: (page) => setParams((prev) => ({ ...prev, pageNum: page })),
+                      onPageChange: (page) =>
+                        setParams((prev) => ({ ...prev, pageNum: page })),
                       onPageSizeChange: (n) => {
                         setPageSize(n);
-                        setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                        setParams((prev) => ({
+                          ...prev,
+                          pageNum: 1,
+                          pageSize: n,
+                        }));
                       },
                       pageSizeOptions: PAGE_SIZE_OPTIONS,
                     }
@@ -950,9 +1108,15 @@ export function BankInfoListPage() {
         />
       )}
       {interactBank && (
-        <InteractDrawer bank={interactBank} onClose={() => setInteractBank(null)} />
+        <InteractDrawer
+          bank={interactBank}
+          onClose={() => setInteractBank(null)}
+        />
       )}
-      <ConfirmAlertDialog request={confirm} onDismiss={() => setConfirm(null)} />
+      <ConfirmAlertDialog
+        request={confirm}
+        onDismiss={() => setConfirm(null)}
+      />
     </div>
   );
 }
@@ -999,9 +1163,32 @@ export function BankInfoFormPage() {
   );
   const saveMutation = useSaveBankMutation(KISSEN_PROJECT_ID);
 
-  const { register, handleSubmit, reset, formState } = useForm<BankInfoFormValues>({
-    defaultValues: EMPTY_FORM,
-  });
+  const { register, handleSubmit, reset, setValue, watch, formState } =
+    useForm<BankInfoFormValues>({
+      defaultValues: EMPTY_FORM,
+    });
+  const logoValue = watch('logo');
+
+  // 源 onLogoChange（4685063）：前端压 64×64 PNG data URI 直存（base 无文件服务）。
+  const onLogoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.warning('Please choose an image file');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.warning('Image must be 2MB or smaller');
+      return;
+    }
+    try {
+      const dataUrl = await resizeImageToDataUrl(file);
+      setValue('logo', dataUrl, { shouldDirty: true });
+    } catch {
+      toast.warning('Could not read the image, please try another file');
+    }
+  };
 
   // 编辑态回填（源 loadDetail；accountConfig 为透传字段，实例登记维护）。
   React.useEffect(() => {
@@ -1061,8 +1248,8 @@ export function BankInfoFormPage() {
           <AlertDescription>
             Saving registers the bank as Registered (pending onboarding); formal
             onboarding is initiated by the bank via the bank portal plus KBO
-            approval. Currency-system information is registered with the
-            gateway instance in Instance Management; tokens and limits are not
+            approval. Currency-system information is registered with the gateway
+            instance in Instance Management; tokens and limits are not
             configured here.
           </AlertDescription>
         </Alert>
@@ -1079,7 +1266,11 @@ export function BankInfoFormPage() {
             name="bankName"
             label="Bank Name"
             required
-            error={formState.errors.bankName ? 'Please enter the bank name' : undefined}
+            error={
+              formState.errors.bankName
+                ? 'Please enter the bank name'
+                : undefined
+            }
             register={register('bankName', { required: true, maxLength: 64 })}
           />
           <FormField
@@ -1088,7 +1279,9 @@ export function BankInfoFormPage() {
             required
             placeholder="Used for bootstrap auth (BIC + access key)"
             error={
-              formState.errors.bankBic ? 'Please enter the bank code (BIC)' : undefined
+              formState.errors.bankBic
+                ? 'Please enter the bank code (BIC)'
+                : undefined
             }
             register={register('bankBic', { required: true, maxLength: 64 })}
           />
@@ -1098,12 +1291,49 @@ export function BankInfoFormPage() {
             placeholder="Optional, e.g. https://bank.example.com"
             register={register('website', { maxLength: 300 })}
           />
-          <FormField
-            name="logo"
-            label="Bank Logo"
-            placeholder="Optional; shown next to the bank name in lists"
-            register={register('logo', { maxLength: 500 })}
-          />
+          <div className="space-y-2">
+            <span className="text-sm font-medium leading-none">Bank Logo</span>
+            <div className="flex items-center gap-3">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/60 bg-muted/40">
+                {logoValue ? (
+                  <img
+                    src={logoValue}
+                    alt="Bank logo preview"
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <span className="text-xs text-muted-foreground">None</span>
+                )}
+              </div>
+              <label htmlFor="bank-logo-upload">
+                <Button variant="outline" size="sm" asChild>
+                  <span>{logoValue ? 'Change' : 'Upload Image'}</span>
+                </Button>
+              </label>
+              <input
+                id="bank-logo-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={onLogoChange}
+              />
+              {logoValue && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 text-destructive"
+                  disabled={submitting}
+                  onClick={() => setValue('logo', '', { shouldDirty: true })}
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Optional; auto-compressed to 64×64
+            </p>
+          </div>
           <FormField
             name="contactName"
             label="Contact Name"
@@ -1149,18 +1379,68 @@ export function BankInfoDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const bankId = parseBankId(searchParams.get('id'));
+  const [activeTab, setActiveTab] = React.useState('basic');
+  const [expandedInstanceId, setExpandedInstanceId] = React.useState<
+    number | null
+  >(null);
+  const [instancePage, setInstancePage] = React.useState(1);
 
-  const { data: detail, isLoading } = useBankDetailQuery(KISSEN_PROJECT_ID, bankId);
+  const detailQuery = useBankDetailQuery(KISSEN_PROJECT_ID, bankId);
+  const instancesQuery = useInstanceListQuery(
+    KISSEN_PROJECT_ID,
+    { pageNum: instancePage, pageSize: 100, filter: { bankId: bankId ?? 0 } },
+    bankId != null && activeTab === 'gateways',
+  );
+  const tokensQuery = useTokenListQuery(
+    KISSEN_PROJECT_ID,
+    { bankId: bankId ?? 0 },
+    bankId != null &&
+      (activeTab === 'tokens' ||
+        (activeTab === 'gateways' && expandedInstanceId != null)),
+  );
+  React.useEffect(() => {
+    if (activeTab !== 'gateways') setExpandedInstanceId(null);
+  }, [activeTab]);
   if (!bankId) {
     return (
       <div className="rounded-lg border border-border/60 bg-card p-6">
         <p className="text-sm text-muted-foreground">Missing bank ID</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.push(LIST_PATH)}>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => router.push(LIST_PATH)}
+        >
           Back
         </Button>
       </div>
     );
   }
+
+  const detail = detailQuery.data;
+  const websiteUrl = safeExternalUrl(detail?.website);
+  const instances = instancesQuery.data?.data ?? [];
+  const tokens = tokensQuery.data ?? [];
+  const renderQueryState = (
+    query: { isLoading: boolean; isError: boolean },
+    empty: boolean,
+    label: string,
+  ) => {
+    if (query.isLoading) return <Skeleton className="h-20 w-full" />;
+    if (query.isError) {
+      return (
+        <Alert variant="destructive">
+          <AlertTitle>Failed to load {label}.</AlertTitle>
+        </Alert>
+      );
+    }
+    if (empty)
+      return (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No {label} yet
+        </p>
+      );
+    return null;
+  };
 
   return (
     <div className="space-y-4">
@@ -1169,14 +1449,14 @@ export function BankInfoDetailPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              {isLoading ? (
+              {detailQuery.isLoading ? (
                 <Skeleton className="h-6 w-40" />
               ) : (
                 <span className="text-base font-semibold leading-6 text-foreground">
                   {detail?.bankName || '--'}
                 </span>
               )}
-              {isLoading ? (
+              {detailQuery.isLoading ? (
                 <Skeleton className="h-5 w-16" />
               ) : detail ? (
                 <BankStatusBadge status={detail.status} />
@@ -1194,65 +1474,321 @@ export function BankInfoDetailPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-border/60 bg-card p-4 sm:p-6">
-        <div className="mb-3 text-sm font-semibold">Basic Information</div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <DetailField label="Bank Name">
-            {isLoading ? <Skeleton className="h-4 w-40" /> : detail?.bankName || '--'}
-          </DetailField>
-          <DetailField label="Bank Code/BIC">
-            {isLoading ? (
-              <Skeleton className="h-4 w-32" />
-            ) : (
-              <CopyableEllipsisText
-                value={detail?.bankBic}
-                emptyText="--"
-                maxWidth={200}
-                className="font-mono"
-              />
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-4"
+      >
+        <TabsList>
+          <TabsTrigger value="basic">Basic Information</TabsTrigger>
+          <TabsTrigger value="gateways">Gateways</TabsTrigger>
+          <TabsTrigger value="tokens">Tokens</TabsTrigger>
+        </TabsList>
+        <TabsContent value="basic" className="mt-0">
+          <section className="rounded-lg border border-border/60 bg-card p-4 sm:p-6">
+            {detailQuery.isLoading ? (
+              <Skeleton className="mb-4 h-5 w-40" />
+            ) : null}
+            {detailQuery.isError ? (
+              <Alert variant="destructive">
+                <AlertTitle>Failed to load bank details.</AlertTitle>
+              </Alert>
+            ) : null}
+            {!detailQuery.isLoading && !detailQuery.isError && !detail ? (
+              <p className="text-sm text-muted-foreground">Bank not found.</p>
+            ) : null}
+            {detail ? (
+              <>
+                <div className="mb-3 text-sm font-semibold">
+                  Basic Information
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <DetailField label="Bank Name">
+                    {detail.bankName || '--'}
+                  </DetailField>
+                  <DetailField label="Bank Code/BIC">
+                    <CopyableEllipsisText
+                      value={detail.bankBic}
+                      emptyText="--"
+                      maxWidth={200}
+                      className="font-mono"
+                    />
+                  </DetailField>
+                  <DetailField label="Official Website">
+                    {websiteUrl ? (
+                      <a
+                        className="break-all text-primary underline"
+                        href={websiteUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {detail.website}
+                      </a>
+                    ) : (
+                      '--'
+                    )}
+                  </DetailField>
+                  <DetailField label="Bank Logo">
+                    {detail.logo ? (
+                      <img
+                        src={detail.logo}
+                        alt={`${detail.bankName} logo`}
+                        className="h-10 w-10 rounded object-contain"
+                        onError={(event) => {
+                          event.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      '--'
+                    )}
+                  </DetailField>
+                  <DetailField label="Contact Name">
+                    {detail.contactName || '--'}
+                  </DetailField>
+                  <DetailField label="Contact Phone">
+                    {detail.contactPhone || '--'}
+                  </DetailField>
+                  <DetailField label="Contact Email">
+                    {detail.contactEmail || '--'}
+                  </DetailField>
+                  <DetailField label="Address" span>
+                    <span className="whitespace-pre-wrap break-all">
+                      {detail.address || '--'}
+                    </span>
+                  </DetailField>
+                  <DetailField label="Status">
+                    <BankStatusBadge status={detail.status} />
+                  </DetailField>
+                  <DetailField label="Created On">
+                    <span className="tabular-nums">
+                      {formatTime(detail.createTime)}
+                    </span>
+                  </DetailField>
+                </div>
+              </>
+            ) : null}
+          </section>
+        </TabsContent>
+        <TabsContent value="gateways" className="mt-0">
+          <section className="overflow-x-auto rounded-lg border border-border/60 bg-card p-4 sm:p-6">
+            {renderQueryState(
+              instancesQuery,
+              instances.length === 0,
+              'gateways',
+            ) ?? (
+              <>
+                <table className="w-full min-w-[1000px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b text-muted-foreground">
+                      <th className="p-2">Instance</th>
+                      <th className="p-2">Endpoint</th>
+                      <th className="p-2">Currency System</th>
+                      <th className="p-2">Connectivity</th>
+                      <th className="p-2">Status</th>
+                      <th className="p-2">Last Heartbeat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {instances.map((row: InstanceRow) => (
+                      <React.Fragment key={row.instanceId}>
+                        <tr className="border-b">
+                          <td className="p-2">
+                            <button
+                              type="button"
+                              className="text-left text-primary underline"
+                              onClick={() =>
+                                setExpandedInstanceId((current) =>
+                                  current === row.instanceId
+                                    ? null
+                                    : row.instanceId,
+                                )
+                              }
+                            >
+                              {row.instanceCode || '--'} /{' '}
+                              {row.instanceName || '--'}
+                            </button>
+                          </td>
+                          <td className="max-w-[240px] break-all p-2 font-mono">
+                            {row.endpointUrl || '--'}
+                          </td>
+                          <td className="p-2">
+                            {[
+                              row.currencySystemName,
+                              CS_TYPE_LABEL[row.currencySystemType] ??
+                                'Not specified',
+                              row.blockchain,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ') || '--'}
+                          </td>
+                          <td className="p-2">
+                            <Badge
+                              variant={
+                                CONNECTIVITY_STATUS_VARIANT[
+                                  row.connectivityStatus
+                                ] ?? 'secondary'
+                              }
+                            >
+                              {CONNECTIVITY_STATUS_LABEL[
+                                row.connectivityStatus
+                              ] ?? 'Unknown'}
+                            </Badge>
+                          </td>
+                          <td className="p-2">
+                            <Badge
+                              variant={
+                                INSTANCE_STATUS_VARIANT[row.status] ?? 'outline'
+                              }
+                            >
+                              {INSTANCE_STATUS_LABEL[row.status] ?? row.status}
+                            </Badge>
+                          </td>
+                          <td className="p-2 tabular-nums">
+                            {formatTime(row.lastHeartbeatTime)}
+                          </td>
+                        </tr>
+                        {expandedInstanceId === row.instanceId ? (
+                          <tr className="border-b bg-muted/20">
+                            <td colSpan={6} className="p-3">
+                              <TokenRows
+                                // Tokens are bank-scoped in the real API, not
+                                // attached to a gateway instance.
+                                tokens={tokens}
+                                query={tokensQuery}
+                              />
+                            </td>
+                          </tr>
+                        ) : null}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+                {(instancesQuery.data?.pagination.totalPages ?? 1) > 1 ? (
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      Page {instancePage} of{' '}
+                      {instancesQuery.data?.pagination.totalPages}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={instancePage <= 1}
+                      onClick={() => {
+                        setInstancePage((page) => page - 1);
+                        setExpandedInstanceId(null);
+                      }}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={
+                        instancePage >=
+                        (instancesQuery.data?.pagination.totalPages ?? 1)
+                      }
+                      onClick={() => {
+                        setInstancePage((page) => page + 1);
+                        setExpandedInstanceId(null);
+                      }}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                ) : null}
+              </>
             )}
-          </DetailField>
-          <DetailField label="Official Website">
-            {isLoading ? (
-              <Skeleton className="h-4 w-48" />
-            ) : (
-              <span className="break-all">{detail?.website || '--'}</span>
+          </section>
+        </TabsContent>
+        <TabsContent value="tokens" className="mt-0">
+          <section className="overflow-x-auto rounded-lg border border-border/60 bg-card p-4 sm:p-6">
+            {renderQueryState(tokensQuery, tokens.length === 0, 'tokens') ?? (
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead>
+                  <tr className="border-b text-muted-foreground">
+                    <th className="p-2">Code</th>
+                    <th className="p-2">Symbol</th>
+                    <th className="p-2">Chain</th>
+                    <th className="p-2">Pegged Currency</th>
+                    <th className="p-2">Min Liquidity</th>
+                    <th className="p-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tokens.map((token) => (
+                    <TokenRowView key={token.tokenId} token={token} />
+                  ))}
+                </tbody>
+              </table>
             )}
-          </DetailField>
-          <DetailField label="Bank Logo">
-            {isLoading ? (
-              <Skeleton className="h-4 w-48" />
-            ) : (
-              <span className="break-all">{detail?.logo || '--'}</span>
-            )}
-          </DetailField>
-          <DetailField label="Contact Name">
-            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactName || '--'}
-          </DetailField>
-          <DetailField label="Contact Email">
-            {isLoading ? <Skeleton className="h-4 w-32" /> : detail?.contactEmail || '--'}
-          </DetailField>
-          <DetailField label="Address" span>
-            {isLoading ? (
-              <Skeleton className="h-4 w-40" />
-            ) : (
-              <span className="whitespace-pre-wrap break-all">{detail?.address || '--'}</span>
-            )}
-          </DetailField>
-          <DetailField label="Status">
-            {isLoading ? <Skeleton className="h-5 w-24" /> : detail ? <BankStatusBadge status={detail.status} /> : '--'}
-          </DetailField>
-          <DetailField label="Created On">
-            {isLoading ? (
-              <Skeleton className="h-4 w-60" />
-            ) : detail ? (
-              <span className="tabular-nums">{formatAdminDateTime(detail.createTime)}</span>
-            ) : (
-              '--'
-            )}
-          </DetailField>
-        </div>
-      </section>
+          </section>
+        </TabsContent>
+      </Tabs>
     </div>
+  );
+}
+
+function TokenRowView({ token }: { token: TokenRow }) {
+  return (
+    <tr className="border-b">
+      <td className="p-2 font-mono">{token.tokenCode || '--'}</td>
+      <td className="p-2">{token.symbol || '--'}</td>
+      <td className="p-2">{token.chainType || '--'}</td>
+      <td className="p-2">{token.anchorFiat || '--'}</td>
+      <td className="p-2 tabular-nums">{token.minLiquidity ?? '--'}</td>
+      <td className="p-2">
+        <Badge variant={TOKEN_STATUS_VARIANT[token.status] ?? 'outline'}>
+          {TOKEN_STATUS_LABEL[token.status] ?? token.status}
+        </Badge>
+      </td>
+    </tr>
+  );
+}
+
+function TokenRows({
+  tokens,
+  query,
+}: {
+  tokens: TokenRow[];
+  query: { isLoading: boolean; isError: boolean };
+}) {
+  if (query.isLoading) return <Skeleton className="h-12 w-full" />;
+  if (query.isError)
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Failed to load gateway tokens.</AlertTitle>
+      </Alert>
+    );
+  if (tokens.length === 0)
+    return (
+      <p className="text-sm text-muted-foreground">
+        No tokens for this gateway.
+      </p>
+    );
+  return (
+    <table className="w-full text-left text-sm">
+      <thead>
+        <tr className="border-b text-muted-foreground">
+          <th className="p-2">Code</th>
+          <th className="p-2">Symbol</th>
+          <th className="p-2">Chain</th>
+          <th className="p-2">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {tokens.map((token) => (
+          <tr key={token.tokenId}>
+            <td className="p-2 font-mono">{token.tokenCode || '--'}</td>
+            <td className="p-2">{token.symbol || '--'}</td>
+            <td className="p-2">{token.chainType || '--'}</td>
+            <td className="p-2">
+              {TOKEN_STATUS_LABEL[token.status] ?? token.status}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

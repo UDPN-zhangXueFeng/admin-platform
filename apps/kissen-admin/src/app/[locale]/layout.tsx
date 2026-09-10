@@ -7,7 +7,6 @@ import { AuthProvider } from '@myorg/shared/util-auth';
 import { Toaster } from '@myorg/shared/ui';
 import { loadProjectConfig } from '@myorg/shared/util-config';
 import { locales, type Locale } from '@myorg/shared/util-i18n';
-import { SessionGuard } from '@/providers/session-guard';
 
 /**
  * Locale Layout — provides shared context for all locale-scoped routes.
@@ -18,7 +17,7 @@ import { SessionGuard } from '@/providers/session-guard';
  *  3. QueryProvider — TanStack Query (needs config for projectId-based keys)
  *  4. AuthProvider — auth state
  *
- * SessionGuard is a no-op in mock mode (see providers/session-guard.tsx).
+ * Middleware validates the real session cookie before protected routes render.
  * Route-specific layout (AppShell vs. auth) is handled by (app)/layout.tsx
  * and (auth)/layout.tsx respectively.
  */
@@ -42,7 +41,6 @@ export default async function LocaleLayout({
       <ConfigProvider initialConfig={config}>
         <QueryProvider>
           <AuthProvider>
-            <SessionGuard />
             {children}
             {/* 全局 toast 出口（sonner）——useToast 命令式调用需要此挂载点，
                 对应源项目全局可用的 ElMessage。 */}

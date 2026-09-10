@@ -39,5 +39,6 @@ admin 未做过六件套迁移立项，约束沿用同套五条口径执行；�
 | 银行编码（bank 实体新字段 bankBic） | Bank Code (BIC) |
 | 系统名称 / 系统类型（instance） | System Name / System Type |
 | 重发邀请 | Resend Invite |
+| 上传图片 / 更换 / 移除（bank logo 上传 4685063） | Upload Image / Change / Remove |
 
 新术语首次翻译时定稿并回填本表（与 LP/gateway 两表保持一致，冲突时以先定稿者为准并在此标注）。

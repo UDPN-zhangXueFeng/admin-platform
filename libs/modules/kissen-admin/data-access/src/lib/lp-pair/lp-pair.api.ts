@@ -3,7 +3,7 @@
  *
  * v2.0 端点整体切换：/manage/lp-**token**-pair/*（原 lp-currency-pair 已废弃）。
  * Token 对选项为跨组数据（token-pair 域），以薄调用落在本域避免并行耦合。
- * save/submit/remove 保留 API 层（源注释：参与由 LP 门户发起，页面无入口）。
+ * save/submit/remove 保留 API 层，供管理侧迁移后的 KLP 审批入口复用。
  */
 import type { AxiosRequestConfig } from 'axios';
 import type { PaginatedResponse } from '@myorg/shared/model';

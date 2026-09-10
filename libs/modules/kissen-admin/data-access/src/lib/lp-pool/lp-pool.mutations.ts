@@ -2,7 +2,7 @@
 
 /**
  * LP 资金池域 mutation hooks。
- * save 无页面入口（池由 LP 门户申请，KLPP 审批），API 层保留；
+ * save 供管理侧 KLPP 迁移入口复用，池列表页面本身仍为只读；
  * 错误 toast 由页面层 onError 呈现（对齐源拦截器统一提示语义）。
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';

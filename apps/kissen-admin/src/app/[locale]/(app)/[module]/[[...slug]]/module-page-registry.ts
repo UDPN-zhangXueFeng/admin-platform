@@ -78,6 +78,7 @@ const pages: Record<string, Record<string, PageLoader>> = {
     list: loader((m) => m.LpInfoListPage),
     create: loader((m) => m.LpInfoFormPage),
     edit: loader((m) => m.LpInfoFormPage),
+    detail: loader((m) => m.LpInfoDetailPage),
   },
 
   'lp-pair': {
@@ -145,8 +146,8 @@ const pages: Record<string, Record<string, PageLoader>> = {
 
 /**
  * Resolve a module + page key to a lazily-loaded component, or null when no
- * loader is registered. The dynamic import is ssr:false so all mock pages run
- * client-side only.
+ * loader is registered. The dynamic import is ssr:false because module pages
+ * depend on client-side session and query state.
  */
 export function loadKissenAdminModulePage(
   moduleId: string,

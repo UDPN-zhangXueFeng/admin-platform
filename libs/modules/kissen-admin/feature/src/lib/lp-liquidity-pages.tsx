@@ -4,14 +4,14 @@
  * LP / 流动性业务组页面（源 `kissen-admin-frontend/src/views/onboard/{lp,lp-pair}` +
  * `views/liquidity/pool`；v2.0 token 化全量同步）。
  *
- * 注册页（module-page-registry 契约，仅 4 个导出）：
- *  - lp-info: LpInfoListPage / LpInfoFormPage（v2.1 查看态退役，Detail 页已删）
+ * 注册页（module-page-registry 契约）：
+ *  - lp-info: LpInfoListPage / LpInfoFormPage / LpInfoDetailPage
  *  - lp-pair: LpTokenPairListPage
  *  - pool:    LpPoolListPage
  * v2.0 变更（对照上游 tokenization）：
  *  - LP 模型：splitRatio/minLiquidity/initialPairIds 移除（分成挂 lp-pair、最低
  *    流动性挂 token 级），新增 contact 三件套 + settleCycle。
- *  - lp-pair 端点切换 /manage/lp-token-pair/*；页面仅 查看/设置分成/停用/恢复草稿。
+ *  - lp-pair 端点切换 /manage/lp-token-pair/*；页面展示真实参与状态并提供维护入口。
  *  - pool 页为纯监控视图（水位条 + 预授权快照），零行操作。
  *  - lp-preauth / lp-topup / lp-currency-pair 页面已删除（域内 API 层保留）。
  * v2.1 增量（对照上游 bb9c607d..3c4cfbb，2026-09-08/09）：
@@ -19,9 +19,8 @@
  *    （新一次性链接 72h 有效，旧链接作废）。
  *  - lp-pair：查看弹窗退役；notApproved Tab 改 Status 筛选（单一列表）；池地址
  *    行默认首6…尾4、点击展开/复制；分成列无覆盖时回落 defaultSplitRatio 展示。
- *  - pool：出款 Disbursement tag 并入池地址列；金额列追加 tokenSymbol；水位分子 =
- *    min(可用授权, 可用余额) + 授权瓶颈可视化（Insufficient Auth / Insufficient
- *    Balance / Auth Limited，瓶颈条琥珀）。
+ *  - pool：池页不再展示出款池标识；金额列追加 tokenSymbol；水位分子 =
+ *    min(可用授权, 可用余额) + 授权瓶颈可视化。
  * 迁移决策（CONVENTIONS）：
  *  - 确认流一律 shared AlertDialog（禁 window.confirm）；错误 toast 唯一出口
  *    sonner（useToast），onError 透出后端 message（对齐源拦截器统一提示）。
@@ -634,8 +633,13 @@ export function LpInfoListPage() {
         const editable = s === 1 || s === 15;
         // status=20 的 Edit 为禁用态（已审批 LP 页面不可改）；源按钮的
         // title 提示无 TableRowAction 对应字段，随迁移移除（沿 wave-1 裁决）。
-        // View 操作已随上游 v2.1 退役（详情态删除）。
-        const actions: TableRowAction<LpRow & { id: string }>[] = [];
+        // Details 使用独立只读页；Edit 仍受状态约束。
+        const actions: TableRowAction<LpRow & { id: string }>[] = [
+          {
+            label: 'Details',
+            onClick: () => router.push(`/onboard/lp/detail?id=${item.lpId}`),
+          },
+        ];
         if (editable || s === 20) {
           actions.push({
             label: LBL.edit,
@@ -983,6 +987,268 @@ export function LpInfoFormPage() {
   );
 }
 
+/**
+ * LP 详情页（真实接口聚合视图）。
+ *
+ * 当前后端已公开的 detail、lp-token-pair/list、lp-pool/list 均为真实查询；
+ * 未冻结的 full/precheck 契约不在这里臆造。池快照只读，出款池字段不参与展示。
+ */
+export function LpInfoDetailPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const lpId = parseId(searchParams.get('id'));
+  const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
+  const toast = useToast();
+
+  const detailQuery = useLpDetailQuery(PROJECT_ID, lpId);
+  const pairQuery = useLpPairListQuery(
+    PROJECT_ID,
+    { pageNum: 1, pageSize: 200, filter: { lpId } },
+    lpId != null,
+  );
+  const poolQuery = useLpPoolListQuery(
+    PROJECT_ID,
+    { pageNum: 1, pageSize: 200, filter: { lpId } },
+    lpId != null,
+  );
+  const freezeMutation = useLpFreezeToggleMutation(PROJECT_ID);
+
+  const toggleFreeze = React.useCallback(
+    (freeze: boolean) => {
+      if (!lpId) return;
+      freezeMutation.mutate(
+        { targetId: lpId, freeze },
+        {
+          onSuccess: () => {
+            toast.success(freeze ? 'Frozen' : 'Unfrozen');
+            setConfirm(null);
+            void detailQuery.refetch();
+          },
+          onError: (e) => toast.error((e as Error).message),
+        },
+      );
+    },
+    [detailQuery, freezeMutation, lpId, toast],
+  );
+
+  if (!lpId) {
+    return (
+      <Alert variant="destructive" role="alert">
+        <AlertTitle>Invalid LP</AlertTitle>
+        <AlertDescription>The LP id is missing or invalid.</AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (detailQuery.isLoading) return <LoadingBlock />;
+  if (detailQuery.isError || !detailQuery.data) {
+    return (
+      <Alert variant="destructive" role="alert">
+        <AlertTitle>Failed to load LP details</AlertTitle>
+        <AlertDescription>Refresh to retry.</AlertDescription>
+      </Alert>
+    );
+  }
+
+  const detail = detailQuery.data;
+  const pairs = pairQuery.data?.data ?? [];
+  const pools = (poolQuery.data?.data ?? []) as LpPoolRowWithBank[];
+  const canFreeze = detail.status === 20;
+  const canUnfreeze = detail.status === 50;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <Button type="button" variant="outline" onClick={() => router.back()}>
+            Back
+          </Button>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold">{detail.lpName}</h1>
+            <StatusBadge
+              status={detail.status}
+              labelMap={LP_STATUS_LABEL}
+              variantMap={LP_STATUS_VARIANT}
+            />
+          </div>
+        </div>
+        {canFreeze || canUnfreeze ? (
+          <Button
+            type="button"
+            variant={canFreeze ? 'destructive' : 'default'}
+            disabled={freezeMutation.isPending}
+            onClick={() =>
+              setConfirm({
+                title: canFreeze ? 'Freeze LP' : 'Unfreeze LP',
+                description: canFreeze
+                  ? `Freeze LP "${detail.lpName}"? It immediately stops matching.`
+                  : `Unfreeze LP "${detail.lpName}"? It resumes matching.`,
+                actionLabel: canFreeze ? 'Freeze' : 'Unfreeze',
+                destructive: canFreeze,
+                onConfirm: () => toggleFreeze(canFreeze),
+              })
+            }
+          >
+            {canFreeze ? 'Freeze' : 'Unfreeze'}
+          </Button>
+        ) : null}
+      </div>
+
+      <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
+        <h2 className="mb-4 text-base font-semibold">Basic Information</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ReadonlyField label="LP Code" value={detail.lpCode} />
+          <ReadonlyField label="Contact Name" value={detail.contactName} />
+          <ReadonlyField label="Contact Email" value={detail.contactEmail} />
+          <ReadonlyField label="Address" value={detail.address} />
+          <ReadonlyField
+            label="Settlement Cycle"
+            value={SETTLE_CYCLE_MAP[detail.settleCycle] ?? '--'}
+          />
+          <ReadonlyField label="Created On" value={formatDateTime(detail.createTime)} />
+          <ReadonlyField label="Risk Assessment" value={detail.riskAssessment} />
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-semibold">Token Pairs</h2>
+            <p className="text-sm text-muted-foreground">
+              Participation and pool addresses are read from the management API.
+            </p>
+          </div>
+          {pairQuery.dataUpdatedAt ? (
+            <span className="text-xs text-muted-foreground">
+              Updated {formatAdminDateTime(pairQuery.dataUpdatedAt)}
+            </span>
+          ) : null}
+        </div>
+        {pairQuery.isLoading ? (
+          <LoadingBlock />
+        ) : pairQuery.isError ? (
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>Failed to load token pairs</AlertTitle>
+            <AlertDescription>Refresh to retry.</AlertDescription>
+          </Alert>
+        ) : pairs.length === 0 ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            No participation records
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="px-3 py-2">Token Pair</th>
+                  <th className="px-3 py-2">Source Pool Address</th>
+                  <th className="px-3 py-2">Target Pool Address</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Created On</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pairs.map((pair) => (
+                  <tr key={pair.id} className="border-b last:border-0">
+                    <td className="px-3 py-3 font-medium">
+                      {pair.sourceCurrency}/{pair.targetCurrency}
+                    </td>
+                    <td className="break-all px-3 py-3 font-mono text-xs">
+                      {pair.sourcePoolAddress || '--'}
+                    </td>
+                    <td className="break-all px-3 py-3 font-mono text-xs">
+                      {pair.targetPoolAddress || '--'}
+                    </td>
+                    <td className="px-3 py-3">
+                      <StatusBadge
+                        status={pair.status}
+                        labelMap={LP_PAIR_STATUS_LABEL}
+                        variantMap={LP_PAIR_STATUS_VARIANT}
+                      />
+                    </td>
+                    <td className="px-3 py-3 tabular-nums">
+                      {formatDateTime(pair.createTime)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
+        <div className="mb-4">
+          <h2 className="text-base font-semibold">Pool Snapshots</h2>
+          <p className="text-sm text-muted-foreground">
+            Read-only snapshots refreshed from the bank Gateway. Pool selection and
+            address changes are not performed from this table.
+          </p>
+        </div>
+        {poolQuery.isLoading ? (
+          <LoadingBlock />
+        ) : poolQuery.isError ? (
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>Failed to load pool snapshots</AlertTitle>
+            <AlertDescription>Refresh to retry.</AlertDescription>
+          </Alert>
+        ) : pools.length === 0 ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            No pool snapshots
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="px-3 py-2">Token</th>
+                  <th className="px-3 py-2">Address</th>
+                  <th className="px-3 py-2">Available Balance</th>
+                  <th className="px-3 py-2">Available Pre-authorization</th>
+                  <th className="px-3 py-2">Updated On</th>
+                  <th className="px-3 py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pools.map((pool) => (
+                  <tr key={pool.poolId} className="border-b last:border-0">
+                    <td className="px-3 py-3">
+                      {pool.tokenSymbol || pool.tokenCode || '--'}
+                    </td>
+                    <td className="break-all px-3 py-3 font-mono text-xs">
+                      {pool.accountAddress || '--'}
+                    </td>
+                    <td className="px-3 py-3 font-mono tabular-nums">
+                      {formatAmount(pool.availableBalanceCache)}
+                      {pool.tokenSymbol ? ` ${pool.tokenSymbol}` : ''}
+                    </td>
+                    <td className="px-3 py-3 font-mono tabular-nums">
+                      {formatAmount(pool.preauthAvailable)}
+                      {pool.tokenSymbol ? ` ${pool.tokenSymbol}` : ''}
+                    </td>
+                    <td className="px-3 py-3 tabular-nums">
+                      {formatDateTime(pool.balanceUpdateTime)}
+                    </td>
+                    <td className="px-3 py-3">
+                      <StatusBadge
+                        status={pool.status}
+                        labelMap={LP_POOL_STATUS_LABEL}
+                        variantMap={LP_POOL_STATUS_VARIANT}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <ConfirmDialog request={confirm} onDismiss={() => setConfirm(null)} />
+    </div>
+  );
+}
+
 /* ================================================================== */
 /* lp-pair — LP×Token 对参与关系                                        */
 /* ================================================================== */
@@ -1091,16 +1357,16 @@ function LpPairCell({ row }: { row: LpPairTableRow }) {
       </div>
       {row.sourcePoolAddress ? (
         <LpPairPoolAddressLine
-          label="Recv"
+          label="Source"
           address={row.sourcePoolAddress}
-          title={`Recv ${row.sourcePoolAddress} — source-side active pool (receiving address); click the address to expand or collapse`}
+          title={`Source ${row.sourcePoolAddress} — pool address configured on the source side; click the address to expand or collapse`}
         />
       ) : null}
       {row.targetPoolAddress ? (
         <LpPairPoolAddressLine
-          label="Pay"
+          label="Target"
           address={row.targetPoolAddress}
-          title={`Pay ${row.targetPoolAddress} — target-side active pool (payout address); click the address to expand or collapse`}
+          title={`Target ${row.targetPoolAddress} — pool address configured on the target side; click the address to expand or collapse`}
         />
       ) : null}
     </div>
@@ -1186,8 +1452,8 @@ function LpPairSplitDialog({
 
 /**
  * LP×Token 对参与列表（源 onboard/lp-pair/index.vue）。
- * 参与由 LP 门户发起（KLP 审批）；本页仅 设置分成/停用/恢复草稿
- * （v2.1：查看弹窗退役，notApproved Tab 改 Status 筛选；筛选 change 即查）。
+ * 参与对由管理侧维护并沿用真实 KLP 审批接口；本页展示状态并提供分成、
+ * 停用/恢复等既有管理操作（v2.1：查看弹窗退役，notApproved Tab 改 Status 筛选）。
  */
 export function LpTokenPairListPage() {
   const [filter, setFilter] = React.useState<LpPairFilter>(LP_PAIR_FILTER_EMPTY);
@@ -1399,12 +1665,12 @@ export function LpTokenPairListPage() {
     <div className="space-y-4">
       <Alert>
         <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <AlertTitle>Portal-driven participation</AlertTitle>
-        <AlertDescription>
-          Participation requests are initiated by the LP on the portal (KLP
-          approval); this page provides view, enable/disable and split ratio
-          maintenance only.
-        </AlertDescription>
+          <AlertTitle>Administration-managed participation</AlertTitle>
+          <AlertDescription>
+          New participation and pool parameter changes are initiated by the
+          administration side through the approval workflow. This page displays
+          real participation data and keeps the existing split/status operations.
+          </AlertDescription>
       </Alert>
 
       <section className="rounded-lg border border-border/60 bg-card">
@@ -1618,7 +1884,7 @@ function WaterLevelCell({ row }: { row: LpPoolRow }) {
 
 /**
  * LP 资金池监控列表（源 liquidity/pool/index.vue）。
- * 池由 LP 门户申请（KLPP 审批）；本页纯监控零操作：余额/水位/预授权快照。
+ * 池由管理侧配置维护；本页纯监控零操作：余额/水位/预授权快照。
  */
 export function LpPoolListPage() {
   const [lpId, setLpId] = React.useState('');
@@ -1681,11 +1947,6 @@ export function LpPoolListPage() {
         cell: ({ row }) => (
           <div className="flex items-center gap-1.5 font-mono text-xs">
             <span className="break-all">{row.original.accountAddress || '--'}</span>
-            {row.original.activeFlag === 1 && (
-              <Badge variant="success" size="sm" className="shrink-0">
-                Disbursement
-              </Badge>
-            )}
           </div>
         ),
       },
@@ -1776,11 +2037,9 @@ export function LpPoolListPage() {
         <Info className="mt-0.5 h-4 w-4 shrink-0" />
         <AlertTitle>Read only</AlertTitle>
         <AlertDescription>
-          Pools are applied by the LP via the LP portal. Each LP designates one
-          pool per token as its disbursement pool — only that pool is used for
-          outgoing transfers. Top-ups and pre-authorization are handled by the
-          LP in the token system; the data below is a snapshot refreshed
-          periodically from the bank gateway.
+          Pools are configured and maintained by the administration side. Top-ups
+          and pre-authorization are handled in the token system; the data below
+          is a read-only snapshot refreshed periodically from the bank Gateway.
         </AlertDescription>
       </Alert>
 

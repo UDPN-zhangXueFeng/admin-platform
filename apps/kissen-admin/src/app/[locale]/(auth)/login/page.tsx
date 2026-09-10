@@ -78,20 +78,6 @@ export default function LoginRoute() {
     if (expired) toast.warning('Session expired, please sign in again');
   }, [expired, toast]);
 
-  // Dev-only credential prefill (internal ops console test account).
-  // Compiled out of behavior in production via the NODE_ENV gate; inputs are
-  // uncontrolled in shared MockLoginPage, so fill them imperatively without
-  // overwriting browser autofill.
-  React.useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return;
-    const fill = (id: string, value: string) => {
-      const el = document.getElementById(id) as HTMLInputElement | null;
-      if (el && !el.value) el.value = value;
-    };
-    fill('username', 'admin');
-    fill('password', 'Kissen@123');
-  }, []);
-
   const handleSubmit = React.useCallback(
     async (credentials: { loginName: string; password: string }) => {
       try {

@@ -16,7 +16,11 @@ export interface BankRow {
   bankBic: string;
   /** Official website URL. */
   website: string;
-  /** Logo URL (20px img in the list name cell; hidden when it fails to load). */
+  /**
+   * Logo stored as a 64×64 PNG data URI (source 2026-09-09 upload+compress,
+   * no file service) or a legacy URL. Rendered as a small img next to the
+   * bank name; hidden when it fails to load.
+   */
   logo: string;
   contactName?: string;
   contactPhone?: string;

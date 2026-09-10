@@ -1,6 +1,6 @@
 /**
  * LP 资金池域 raw API 层（源 `api/lp-pool.ts`）。
- * 监控视图只读；save 保留 API 层（页面无入口——池由 LP 门户申请，KLPP 审批）。
+ * 监控视图只读；save 保留 API 层，供管理侧 KLPP 迁移入口复用。
  */
 import type { AxiosRequestConfig } from 'axios';
 import type { PaginatedResponse } from '@myorg/shared/model';
