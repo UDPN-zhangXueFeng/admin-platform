@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { lpPairKeys } from './lp-pair.keys';
 import {
+  changeLpPair,
   removeLpPair,
   saveLpPair,
   setLpPairSplit,
@@ -16,6 +17,8 @@ import {
   updateLpPairStatus,
 } from './lp-pair.api';
 import type { LpPairSaveReq } from './lp-pair.model';
+import type { LpPoolSide } from '../lp/lp.model';
+import { lpKeys } from '../lp/lp.keys';
 
 /** 新增/编辑草稿（页面无入口，API 层保留）。 */
 export function useSaveLpPairMutation(projectId: string) {
@@ -70,6 +73,31 @@ export function useRemoveLpPairMutation(projectId: string) {
     mutationFn: (id: number) => removeLpPair(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: lpPairKeys.lists(projectId) });
+    },
+  });
+}
+
+/**
+ * 生效对参数变更申请（仅 20；KLP 审批，通过前现值继续服务）。
+ * 成功后失效参与对列表与 LP 详情聚合缓存（pendingChange/池快照会变化）。
+ */
+export function useChangeLpPairMutation(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      id: number;
+      lpId: number;
+      source: LpPoolSide;
+      target: LpPoolSide;
+    }) =>
+      changeLpPair({
+        id: vars.id,
+        source: vars.source,
+        target: vars.target,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: lpPairKeys.lists(projectId) });
+      void queryClient.invalidateQueries({ queryKey: lpKeys.all(projectId) });
     },
   });
 }

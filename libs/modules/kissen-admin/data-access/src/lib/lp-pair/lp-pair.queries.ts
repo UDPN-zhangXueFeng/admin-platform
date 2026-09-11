@@ -25,14 +25,18 @@ export function useLpPairListQuery(
   });
 }
 
-/** Token 对选项（pairId 筛选下拉数据源；源 tokenPairList({}) 全量）。 */
+/**
+ * Token 对选项（pairId 筛选下拉 / PairPoolEditor 数据源）。
+ * filter.status=20 供配池编辑器只列启用对（源 pairList({status:20})）。
+ */
 export function useLpPairTokenPairOptionsQuery(
   projectId: string,
+  filter?: { status?: number },
   enabled = true,
 ) {
   return useQuery({
-    queryKey: lpPairKeys.tokenPairOptions(projectId),
-    queryFn: ({ signal }) => getLpPairTokenPairOptions({ signal }),
+    queryKey: lpPairKeys.tokenPairOptions(projectId, filter),
+    queryFn: ({ signal }) => getLpPairTokenPairOptions(filter ?? {}, { signal }),
     enabled,
   });
 }

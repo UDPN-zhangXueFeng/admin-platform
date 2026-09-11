@@ -15,11 +15,16 @@ export interface LpPoolRow {
   tokenCode: string;
   /** token 缩写（symbol 优先回退 code；Token 列主显，code 悬浮可见；旧数据可缺失）。 */
   tokenSymbol?: string;
+  /** 发行银行名称（后端联查返回；Token 列副行）。 */
+  tokenBankName?: string | null;
   tokenNo: string;
-  /** token 级最低流动性（水位分母，联查 token_info.min_liquidity；缺失/≤0 时水位整列 '-'）。 */
+  /**
+   * token 级最低流动性（列已退役，仅兼容读；源 37010e0 注释定稿——
+   * 水位分母改 requiredMinSum）。
+   */
   minLiquidity: string | number;
   accountAddress: string;
-  /** 兼容旧投影字段；v1.4 出款池概念退役，前端不得消费该字段。 */
+  /** v1.4 出款池概念退役：内部派生缓存，展示不再消费（源 37010e0 注释定稿）。 */
   activeFlag?: number;
   /** 货币系统形态：1 链上 EVM / 2 Aptos / 3 内部系统。 */
   currencySystemType: number;
@@ -39,15 +44,12 @@ export interface LpPoolRow {
   preauthSnapshotTime: number | null;
   status: number;
   createTime: number;
+  /** 引用该地址的生效参与对 Σmin（水位分母，与 precheck 准入同尺；null=未被引用）。 */
+  requiredMinSum: string | number | null;
+  /** 引用该地址的生效参与对 Σauth（null/0 = 无授权要求）。 */
+  requiredAuthSum: string | number | null;
 }
 
-/**
- * 发行银行名称（源 index.vue 直接渲染 row.tokenBankName，而源 api interface 未声明——
- * 后端联查返回，本模型显式补充以防误判缺字段）。
- */
-export interface LpPoolRowWithBank extends LpPoolRow {
-  tokenBankName?: string | null;
-}
 
 /** 与后端 LpPoolSaveReqVO 对齐；poolId 空=开通（审批通过落地/管理侧直开），非空=编辑（lpId/tokenId 不可改）。 */
 export interface LpPoolSaveReq {
@@ -97,4 +99,35 @@ export const CURRENCY_SYSTEM_TYPE_LABEL: Record<number, string> = {
   1: 'EVM',
   2: 'Aptos',
   3: 'Internal',
+};
+
+/**
+ * 余额预检单项（POST /manage/lp-pool/precheck，源 16a3b8f）：
+ * 按 lp×token×池地址分组聚合 Σmin/Σauth，经 token 所属行激活 Gateway 实查余额。
+ */
+export interface LpPoolPrecheckItem {
+  tokenId: number;
+  tokenCode: string;
+  tokenSymbol: string;
+  address: string;
+  /** 实查余额（后端标注不可达时为 null → 展示「不可查」）。 */
+  balance: string | number | null;
+  minRequired: string | number;
+  authRequired: string | number | null;
+  pass: boolean;
+  reason: string | null;
+}
+
+export interface LpPoolPrecheckResp {
+  allPass: boolean;
+  items: LpPoolPrecheckItem[];
+}
+
+/** 预检失败原因文案（源 precheck-dialog.vue reason 映射，上游中文定稿英文）。 */
+export const PRECHECK_REASON_LABEL: Record<string, string> = {
+  MIN_NOT_MET: 'Insufficient balance',
+  AUTH_NOT_MET: 'Insufficient authorization',
+  NO_INSTANCE: 'No active gateway instance for the token',
+  GW_UNREACHABLE: 'Gateway unreachable',
+  TOKEN_MISSING: 'Token missing or inactive',
 };

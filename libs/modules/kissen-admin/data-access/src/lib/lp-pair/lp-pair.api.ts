@@ -14,6 +14,7 @@ import type {
   LpPairSaveReq,
   LpPairTokenPairOption,
 } from './lp-pair.model';
+import type { LpPoolSide } from '../lp/lp.model';
 
 interface LpPairPageReq {
   pageNum: number;
@@ -75,6 +76,17 @@ export function setLpPairSplit(
   return kissenRequest.post('/manage/lp-token-pair/split', req, config);
 }
 
+/**
+ * 生效对参数变更申请（POST /manage/lp-token-pair/change，源 16a3b8f）：
+ * KLP 审批，通过前现值继续服务，通过后物化 lp_pool；id 为 lp_token_pair 主键。
+ */
+export function changeLpPair(
+  req: { id: number; source: LpPoolSide; target: LpPoolSide },
+  config?: AxiosRequestConfig,
+): Promise<void> {
+  return kissenRequest.post('/manage/lp-token-pair/change', req, config);
+}
+
 /** 移除（POST /manage/lp-token-pair/remove；仅 1/15，物理删除；页面无入口，API 层保留）。 */
 export function removeLpPair(
   id: number,
@@ -83,13 +95,17 @@ export function removeLpPair(
   return kissenRequest.post('/manage/lp-token-pair/remove', { id }, config);
 }
 
-/** Token 对选项（薄调用 POST /manage/token-pair/list，扁平 body 全量——源 api/token-pair.ts pairList）。 */
+/**
+ * Token 对选项（薄调用 POST /manage/token-pair/list，扁平 body——源 api/token-pair.ts
+ * pairList；filter.status=20 供配池编辑器只列启用对）。
+ */
 export async function getLpPairTokenPairOptions(
+  filter: { status?: number } = {},
   config?: AxiosRequestConfig,
 ): Promise<LpPairTokenPairOption[]> {
   return kissenRequest.post<LpPairTokenPairOption[]>(
     '/manage/token-pair/list',
-    {},
+    filter,
     config,
   );
 }

@@ -85,8 +85,8 @@ interface WorkbenchPoolRow {
   tokenCode: string;
   /** token 符号（余额展示追加，如 1.01 CF7） */
   tokenSymbol: string;
-  /** 最低流动性（水位分母，token 维度） */
-  minLiquidity: string | number;
+  /** Σ min liquidity（水位分母 = 引用该地址的生效参与对累计门槛；null = 未挂参与对） */
+  requiredMinSum: string | number | null;
   /** 补资提醒阈值（水位低于此比例即告急） */
   remindThreshold: string | number;
   availableBalanceCache: string | number;
@@ -188,16 +188,16 @@ function poolNumerator(pool: WorkbenchPoolRow): number {
     : balance;
 }
 
-/** 水位 = min(可用授权, 可用余额) / 最低流动性（minLiquidity）；低于补资提醒阈值即告急（lp_pool FR-L-03 口径）。 */
+/** 水位 = min(可用授权, 可用余额) / Σ min liquidity（requiredMinSum，16a3b8f 口径）；低于补资提醒阈值即告急。 */
 function isPoolCritical(pool: WorkbenchPoolRow): boolean {
-  const min = Number(pool.minLiquidity);
-  if (!(min > 0)) return false; // 分母无效无法判断水位，按正常展示
+  const min = pool.requiredMinSum == null ? Number.NaN : Number(pool.requiredMinSum);
+  if (!(min > 0)) return false; // 分母无效（含未挂参与对）无法判断水位，按正常展示
   return poolNumerator(pool) / min < Number(pool.remindThreshold);
 }
 
-/** 水位条宽度百分比（水位 = min(可用授权, 可用余额) / 最低限额，与告急同口径；封顶 100，不低于 0 以免出现非法宽度）。 */
+/** 水位条宽度百分比（与告急同口径；封顶 100，不低于 0 以免出现非法宽度）。 */
 function poolBarWidth(pool: WorkbenchPoolRow): number {
-  const min = Number(pool.minLiquidity);
+  const min = pool.requiredMinSum == null ? Number.NaN : Number(pool.requiredMinSum);
   if (!(min > 0)) return 0;
   const ratio = poolNumerator(pool) / min;
   return Math.max(0, Math.floor(Math.min(100, ratio * 100)));
@@ -511,14 +511,15 @@ function NetworkStat({
 
 function PoolLevel({ pool }: { pool: WorkbenchPoolRow }) {
   const critical = isPoolCritical(pool);
-  const minLiquidity = Number(pool.minLiquidity);
+  const requiredMinSum =
+    pool.requiredMinSum == null ? Number.NaN : Number(pool.requiredMinSum);
   const numerator = poolNumerator(pool);
   const hasCalculation =
     Number.isFinite(numerator) &&
-    Number.isFinite(minLiquidity) &&
-    minLiquidity > 0;
+    Number.isFinite(requiredMinSum) &&
+    requiredMinSum > 0;
   const percentage = hasCalculation
-    ? Math.round((numerator / minLiquidity) * 100)
+    ? Math.round((numerator / requiredMinSum) * 100)
     : null;
   const alertThreshold = Number(pool.remindThreshold);
   const alertThresholdText = Number.isFinite(alertThreshold)
@@ -554,8 +555,8 @@ function PoolLevel({ pool }: { pool: WorkbenchPoolRow }) {
       <TooltipContent className="text-xs">
         {hasCalculation ? (
           <div>
-            {formatMoney(numerator.toFixed(2))} ÷{' '}
-            {formatMoney(minLiquidity.toFixed(2))} = {percentage}%
+            {formatMoney(numerator.toFixed(2))} ÷ Σ min liquidity (referencing
+            pairs) {formatMoney(requiredMinSum.toFixed(2))} = {percentage}%
           </div>
         ) : (
           <div>Pool level unavailable</div>

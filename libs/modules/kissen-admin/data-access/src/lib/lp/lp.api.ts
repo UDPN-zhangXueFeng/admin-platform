@@ -10,6 +10,8 @@ import type { PaginatedResponse } from '@myorg/shared/model';
 import { kissenPage, kissenRequest } from '../kissen-client';
 import { freezeToggle } from '../freeze';
 import type {
+  LpDetailRow,
+  LpFullDetail,
   LpListReq,
   LpRow,
   LpSaveReq,
@@ -40,12 +42,20 @@ export function lpSettleCycleList(
   return getLpList(req, config);
 }
 
-/** LP 详情 / 编辑回填（GET /manage/lp/detail/:lpId）。 */
+/** LP 详情 / 编辑回填（GET /manage/lp/detail/:lpId；pairs 为配池草稿预填）。 */
 export function getLpDetail(
   lpId: number,
   config?: AxiosRequestConfig,
-): Promise<LpRow> {
-  return kissenRequest.get<LpRow>(`/manage/lp/detail/${lpId}`, config);
+): Promise<LpDetailRow> {
+  return kissenRequest.get<LpDetailRow>(`/manage/lp/detail/${lpId}`, config);
+}
+
+/** LP 详情聚合（GET /manage/lp/full/:lpId；基本信息 + 参与对 + 资金池快照一屏）。 */
+export function getLpFullDetail(
+  lpId: number,
+  config?: AxiosRequestConfig,
+): Promise<LpFullDetail> {
+  return kissenRequest.get<LpFullDetail>(`/manage/lp/full/${lpId}`, config);
 }
 
 /** 新建/编辑 LP（草稿；POST /manage/lp/save）。 */

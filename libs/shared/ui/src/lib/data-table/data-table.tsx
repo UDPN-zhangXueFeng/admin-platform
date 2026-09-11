@@ -316,7 +316,7 @@ export function DataTable<TData extends { id: string }>({
                             'sticky right-0 z-10 border-l border-border/50 shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]',
                             row.getIsSelected()
                               ? 'bg-accent group-hover:bg-accent'
-                              : 'bg-card group-hover:bg-muted/50'
+                              : 'bg-card group-hover:bg-muted'
                           )
                       )}
                     >

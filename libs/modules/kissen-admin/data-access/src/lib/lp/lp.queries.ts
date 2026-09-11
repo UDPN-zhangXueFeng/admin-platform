@@ -7,7 +7,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { lpKeys } from './lp.keys';
-import { getLpDetail, getLpList, getPortalAccount, lpSettleCycleList } from './lp.api';
+import { getLpDetail, getLpFullDetail, getLpList, getPortalAccount, lpSettleCycleList } from './lp.api';
 import type { LpListReq } from './lp.model';
 
 /** LP 分页列表（翻页/筛选时保留旧数据）。 */
@@ -50,6 +50,19 @@ export function useLpDetailQuery(
   return useQuery({
     queryKey: lpKeys.detail(projectId, lpId ?? 0),
     queryFn: ({ signal }) => getLpDetail(lpId as number, { signal }),
+    enabled: enabled && lpId != null && lpId > 0,
+  });
+}
+
+/** LP 详情聚合（基本信息 + 参与对 + 资金池快照；详情页一屏消费）。 */
+export function useLpFullDetailQuery(
+  projectId: string,
+  lpId: number | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: lpKeys.full(projectId, lpId ?? 0),
+    queryFn: ({ signal }) => getLpFullDetail(lpId as number, { signal }),
     enabled: enabled && lpId != null && lpId > 0,
   });
 }

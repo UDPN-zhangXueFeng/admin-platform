@@ -8,8 +8,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { lpPoolKeys } from './lp-pool.keys';
-import { saveLpPool } from './lp-pool.api';
+import { lpPoolPrecheck, saveLpPool } from './lp-pool.api';
 import type { LpPoolSaveReq } from './lp-pool.model';
+import type { LpOnboardPair } from '../lp/lp.model';
 
 /** 开通/编辑资金池（页面无入口，API 层保留）。 */
 export function useSaveLpPoolMutation(projectId: string) {
@@ -19,5 +20,16 @@ export function useSaveLpPoolMutation(projectId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: lpPoolKeys.lists(projectId) });
     },
+  });
+}
+
+/**
+ * 余额预检（POST 非缓存，mutation 形态）：按 lp×token×地址分组 Σ 校验，
+ * 结果由页面层渲染 PrecheckDialog；allPass=false 时阻断提交。
+ */
+export function useLpPoolPrecheckMutation() {
+  return useMutation({
+    mutationFn: (vars: { lpId?: number; pairs: LpOnboardPair[] }) =>
+      lpPoolPrecheck(vars),
   });
 }

@@ -146,6 +146,32 @@ describe('DataTable primary column emphasis', () => {
 });
 
 /**
+ * Why: the actions column is pinned over horizontally scrolling cells. Its
+ * surface must remain opaque, including on hover, or the cells underneath
+ * bleed through and make row actions ambiguous.
+ */
+describe('DataTable sticky actions surface', () => {
+  it('keeps the actions header and cells opaque', () => {
+    const actionsOnly: ColumnDef<Row, unknown>[] = [
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: () => <button type="button">View</button>,
+      },
+    ];
+    render(<DataTable columns={actionsOnly} data={rows} />);
+
+    expect(screen.getByRole('columnheader', { name: 'Actions' })).toHaveClass(
+      'bg-muted',
+    );
+    expect(screen.getByRole('button', { name: 'View' }).closest('td')).toHaveClass(
+      'bg-card',
+      'group-hover:bg-muted',
+    );
+  });
+});
+
+/**
  * Why: paginated list panels can become narrow after the application sidebar
  * is accounted for. When a page-size selector is present, the item total is
  * redundant and must not compete with the selector and navigation controls.

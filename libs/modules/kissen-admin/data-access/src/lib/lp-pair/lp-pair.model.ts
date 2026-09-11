@@ -1,3 +1,5 @@
+import type { LpPoolSide } from '../lp/lp.model';
+
 /**
  * LP×Token 对参与关系（源 `api/lp-pair.ts` LpPairRespVO；rowKey=id）。
  *
@@ -30,6 +32,16 @@ export interface LpPairRow {
   defaultSplitRatio: string | number;
   /** Count of pending KLS override-split change requests (>0 blocks editing; source 2023418). */
   pendingSplit: number;
+  /** 源端池参数（联查对侧池；null = 未设置，Min 沿用 token 对默认）。 */
+  sourceMinLiquidity: string | number | null;
+  /** 目标端池参数（null = 未设置）。 */
+  targetMinLiquidity: string | number | null;
+  /** 源端授权门槛（null = 不校验）。 */
+  sourceAuthRequired: string | number | null;
+  /** 目标端授权门槛（null = 不校验）。 */
+  targetAuthRequired: string | number | null;
+  /** 生效对改参审批在途（改参按钮禁用；源 16a3b8f）。 */
+  pendingChange: boolean;
   status: number;
   remark: string;
   approvalRecordId: number;
@@ -44,6 +56,9 @@ export interface LpPairSaveReq {
   /** 覆盖分成比例。 */
   splitRatio?: string | number;
   remark?: string;
+  /** 对侧池参数（LP 详情页新增参与对入口；源 16a3b8f）。 */
+  source?: LpPoolSide;
+  target?: LpPoolSide;
 }
 
 export interface LpPairListFilter {
@@ -105,11 +120,22 @@ export const LP_PAIR_STATUS_VARIANT: Record<
   50: 'outline',
 };
 
-/** Token 对选项（pairId 筛选下拉；薄调用 POST /manage/token-pair/list 行子集，命名加前缀防 barrel 冲突）。 */
+/**
+ * Token 对选项（pairId 筛选下拉 + LP 配池编辑器；薄调用 POST /manage/token-pair/list
+ * 行子集，命名加前缀防 barrel 冲突。symbol/bank/min 字段供 PairPoolEditor 展示与预填）。
+ */
 export interface LpPairTokenPairOption {
   pairId: number;
   pairCode: string;
   sourceTokenCode: string;
   targetTokenCode: string;
+  /** symbol 缩写（label 主显，缺省回退 code）。 */
+  sourceSymbol: string;
+  targetSymbol: string;
+  sourceBankName: string;
+  targetBankName: string;
+  /** 源/目标端默认最低流动性（配池表单 Min 预填；源 16a3b8f token-pair 联查）。 */
+  sourceMinLiquidity: string | number;
+  targetMinLiquidity: string | number;
   status: number;
 }

@@ -21,6 +21,12 @@
  *    行默认首6…尾4、点击展开/复制；分成列无覆盖时回落 defaultSplitRatio 展示。
  *  - pool：池页不再展示出款池标识；金额列追加 tokenSymbol；水位分子 =
  *    min(可用授权, 可用余额) + 授权瓶颈可视化。
+ * 0c 批次增量（对照上游 4685063..37010e0，2026-09-11）：
+ *  - lp form：登记/编辑改独立页（37010e0），新增配池卡（PairPoolEditor +
+ *    余额校验 precheck）；详情页改 /manage/lp/full 聚合（参与对改参/停用/
+ *    恢复 + Σ 门槛池快照），Freeze/Unfreeze 收敛到列表页。
+ *  - pool/dashboard：水位分母换 requiredMinSum（引用地址的生效参与对累计
+ *    门槛）；出款池概念退役提示。
  * 迁移决策（CONVENTIONS）：
  *  - 确认流一律 shared AlertDialog（禁 window.confirm）；错误 toast 唯一出口
  *    sonner（useToast），onError 透出后端 message（对齐源拦截器统一提示）。
@@ -81,25 +87,34 @@ import {
   LP_POOL_STATUS_VARIANT,
   LP_STATUS_LABEL,
   LP_STATUS_VARIANT,
+  PRECHECK_REASON_LABEL,
   SETTLE_CYCLE_MAP,
+  type LpFullPairRow,
+  type LpOnboardPair,
   type LpOption,
+  type LpPairTokenPairOption,
   type LpPairRow,
+  type LpPoolPrecheckResp,
   type LpPoolRow,
-  type LpPoolRowWithBank,
   type LpRow,
   type LpSaveReq,
+  useChangeLpPairMutation,
   useLpDetailQuery,
   useLpFreezeToggleMutation,
+  useLpFullDetailQuery,
   useLpListQuery,
   useLpPairListQuery,
   useLpPairTokenPairOptionsQuery,
   useLpPoolListQuery,
+  useLpPoolPrecheckMutation,
   usePortalAccountQuery,
   usePortalAccountResendInviteMutation,
   usePortalAccountResetMutation,
   useSaveLpMutation,
+  useSaveLpPairMutation,
   useSetLpPairSplitMutation,
   useSubmitLpOnboardMutation,
+  useSubmitLpPairMutation,
   useTokenListQuery,
   useUpdateLpPairStatusMutation,
 } from '@myorg/modules/kissen-admin/data-access';
@@ -811,6 +826,293 @@ export function LpInfoListPage() {
   );
 }
 
+/* ================================================================== */
+/* PairPoolEditor / PrecheckDialog（源 pair-pool-editor.vue / precheck-dialog.vue，16a3b8f） */
+/* ================================================================== */
+
+/** 配池编辑器条目本地态（受控组件值；pairId 用 string 适配 Select）。 */
+interface PairPoolEntry {
+  pairId: string;
+  sourceAddress: string;
+  sourceMin: string;
+  sourceAuth: string;
+  targetAddress: string;
+  targetMin: string;
+  targetAuth: string;
+}
+
+const PAIR_POOL_ENTRY_EMPTY: PairPoolEntry = {
+  pairId: '',
+  sourceAddress: '',
+  sourceMin: '',
+  sourceAuth: '',
+  targetAddress: '',
+  targetMin: '',
+  targetAuth: '',
+};
+
+/** 已保存配池草稿（detail.pairs）→ 编辑器条目回填。 */
+function onboardPairToEntry(pair: LpOnboardPair): PairPoolEntry {
+  return {
+    pairId: String(pair.pairId ?? ''),
+    sourceAddress: pair.source?.address ?? '',
+    sourceMin: pair.source?.minLiquidity != null ? String(pair.source.minLiquidity) : '',
+    sourceAuth: pair.source?.authRequired != null ? String(pair.source.authRequired) : '',
+    targetAddress: pair.target?.address ?? '',
+    targetMin: pair.target?.minLiquidity != null ? String(pair.target.minLiquidity) : '',
+    targetAuth: pair.target?.authRequired != null ? String(pair.target.authRequired) : '',
+  };
+}
+
+/**
+ * 编辑器条目 → 请求体（LpOnboardPair/LpPoolSide）：
+ * Min/授权留空即不传（空 = token 对默认 / 不校验，源语义）；不完整返回 null。
+ */
+function pairPoolEntryToReq(entry: PairPoolEntry): LpOnboardPair | null {
+  const pairId = Number(entry.pairId);
+  const sourceAddress = entry.sourceAddress.trim();
+  const targetAddress = entry.targetAddress.trim();
+  if (!Number.isFinite(pairId) || pairId <= 0 || !sourceAddress || !targetAddress) {
+    return null;
+  }
+  const side = (address: string, min: string, auth: string) => ({
+    address,
+    ...(min.trim() !== '' ? { minLiquidity: min.trim() } : {}),
+    ...(auth.trim() !== '' ? { authRequired: auth.trim() } : {}),
+  });
+  return {
+    pairId,
+    source: side(sourceAddress, entry.sourceMin, entry.sourceAuth),
+    target: side(targetAddress, entry.targetMin, entry.targetAuth),
+  };
+}
+
+/**
+ * 配池编辑器（源 pair-pool-editor.vue）：Token Pair 选择（仅启用对）+ 源/目标
+ * 两张 side 卡（池地址必填 / Min 留空按 token 默认 / 授权门槛选填）。
+ * 换对保留已填地址，Min 按新对默认预填（源 watch pairId 行为）。
+ */
+function PairPoolEditor({
+  entry,
+  options,
+  onChange,
+  onRemove,
+  pairLocked = false,
+}: {
+  entry: PairPoolEntry;
+  options: LpPairTokenPairOption[];
+  onChange: (next: PairPoolEntry) => void;
+  onRemove?: () => void;
+  /** 改参场景：token 对不可更换，仅调两侧池参数。 */
+  pairLocked?: boolean;
+}) {
+  const selected = options.find((o) => String(o.pairId) === entry.pairId);
+  const pairOptions: SelectOption[] = options.map((o) => ({
+    value: String(o.pairId),
+    label: `${o.sourceSymbol || o.sourceTokenCode}/${o.targetSymbol || o.targetTokenCode} (${o.sourceBankName || '--'} → ${o.targetBankName || '--'})`,
+  }));
+  const onPairChange = (pairId: string) => {
+    const opt = options.find((o) => String(o.pairId) === pairId);
+    onChange({
+      ...entry,
+      pairId,
+      sourceMin: opt?.sourceMinLiquidity != null ? String(opt.sourceMinLiquidity) : '',
+      targetMin: opt?.targetMinLiquidity != null ? String(opt.targetMinLiquidity) : '',
+    });
+  };
+
+  const renderSide = (
+    sideLabel: 'Source' | 'Target',
+    symbol: string | undefined,
+    addressKey: 'sourceAddress' | 'targetAddress',
+    minKey: 'sourceMin' | 'targetMin',
+    authKey: 'sourceAuth' | 'targetAuth',
+    minDefault: string | number | null | undefined,
+  ) => (
+    <div className="flex-1 space-y-3 rounded-md border border-border/50 p-3">
+      <div className="text-sm font-medium">
+        {sideLabel}
+        {symbol ? ` · ${symbol}` : ''}
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs text-muted-foreground">
+          Pool Address<span className="ml-0.5 text-destructive">*</span>
+        </label>
+        <Input
+          maxLength={128}
+          value={entry[addressKey]}
+          onChange={(e) => onChange({ ...entry, [addressKey]: e.target.value })}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs text-muted-foreground">Min. Liquidity</label>
+        <Input
+          type="number"
+          min={0}
+          value={entry[minKey]}
+          placeholder={
+            minDefault != null && minDefault !== '' ? `Default: ${minDefault}` : 'Token default'
+          }
+          onChange={(e) => onChange({ ...entry, [minKey]: e.target.value })}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs text-muted-foreground">Auth Threshold</label>
+        <Input
+          type="number"
+          min={0}
+          value={entry[authKey]}
+          placeholder="Not checked if empty"
+          onChange={(e) => onChange({ ...entry, [authKey]: e.target.value })}
+        />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3 rounded-lg border border-border/60 p-3">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <label className="mb-1 block text-xs text-muted-foreground">Token Pair</label>
+          {pairLocked && selected ? (
+            <div className="text-sm font-medium">
+              {selected.sourceSymbol || selected.sourceTokenCode}/
+              {selected.targetSymbol || selected.targetTokenCode} (
+              {selected.sourceBankName || '--'} → {selected.targetBankName || '--'})
+            </div>
+          ) : (
+            <Select value={entry.pairId || undefined} onValueChange={onPairChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a token pair" />
+              </SelectTrigger>
+              <SelectContent>
+                {pairOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        {onRemove ? (
+          <Button type="button" variant="ghost" size="sm" className="mt-5" onClick={onRemove}>
+            Remove
+          </Button>
+        ) : null}
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        {renderSide(
+          'Source',
+          selected ? selected.sourceSymbol || selected.sourceTokenCode : undefined,
+          'sourceAddress',
+          'sourceMin',
+          'sourceAuth',
+          selected?.sourceMinLiquidity,
+        )}
+        {renderSide(
+          'Target',
+          selected ? selected.targetSymbol || selected.targetTokenCode : undefined,
+          'targetAddress',
+          'targetMin',
+          'targetAuth',
+          selected?.targetMinLiquidity,
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 余额预检结果弹窗（源 precheck-dialog.vue）：allPass 结论 alert + 逐地址
+ * 实查明细（不可查余额显 Unreachable；结论 = 通过或 reason 映射文案）。
+ */
+function PrecheckDialog({
+  result,
+  onClose,
+}: {
+  result: LpPoolPrecheckResp;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            {result.allPass ? 'Balance Check Passed' : 'Balance Check Failed'}
+          </DialogTitle>
+        </DialogHeader>
+        <Alert variant={result.allPass ? 'default' : 'destructive'}>
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <AlertTitle>
+            {result.allPass
+              ? 'All pool addresses meet the aggregated requirements.'
+              : 'Some addresses do not meet the requirements.'}
+          </AlertTitle>
+          {!result.allPass ? (
+            <AlertDescription>
+              Ask the LP to top up the pools or increase authorization, then retry.
+            </AlertDescription>
+          ) : null}
+        </Alert>
+        <div className="max-h-[50vh] overflow-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs text-muted-foreground">
+                <th className="px-2 py-2">Token</th>
+                <th className="px-2 py-2">Pool Address</th>
+                <th className="px-2 py-2 text-right">Live Balance</th>
+                <th className="px-2 py-2 text-right">Σ Min. Liquidity</th>
+                <th className="px-2 py-2 text-right">Σ Auth Threshold</th>
+                <th className="px-2 py-2">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.items.map((item) => (
+                <tr key={`${item.tokenId}-${item.address}`} className="border-b last:border-0">
+                  <td className="px-2 py-2 font-medium">
+                    {item.tokenSymbol || item.tokenCode || '--'}
+                  </td>
+                  <td className="break-all px-2 py-2 font-mono text-xs">{item.address}</td>
+                  <td className="px-2 py-2 text-right font-mono tabular-nums">
+                    {item.balance == null ? (
+                      <Badge variant="destructive">Unreachable</Badge>
+                    ) : (
+                      formatAmount(item.balance)
+                    )}
+                  </td>
+                  <td className="px-2 py-2 text-right font-mono tabular-nums">
+                    {formatAmount(item.minRequired)}
+                  </td>
+                  <td className="px-2 py-2 text-right font-mono tabular-nums">
+                    {item.authRequired == null ? '-' : formatAmount(item.authRequired)}
+                  </td>
+                  <td className="px-2 py-2">
+                    {item.pass ? (
+                      <Badge variant="default">Passed</Badge>
+                    ) : (
+                      <Badge variant="destructive">
+                        {(item.reason && PRECHECK_REASON_LABEL[item.reason]) ||
+                          item.reason ||
+                          'Failed'}
+                      </Badge>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <DialogFooter>
+          <Button type="button" onClick={onClose}>
+            OK
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface LpInfoFormValues {
   lpName: string;
   lpCode: string;
@@ -819,8 +1121,10 @@ interface LpInfoFormValues {
   address: string;
   riskAssessment: string;
 }
-
-/** LP 新建/编辑（v2.0 表单：contact 三件套；settleCycle 不在表单设置）。 */
+/**
+ * LP 登记/编辑独立页（源 37010e0 form.vue）：基本信息 + 配池卡
+ * （PairPoolEditor 列表 + 余额校验 precheck）；编辑态回填已保存配池草稿。
+ */
 export function LpInfoFormPage() {
   const router = useRouter();
   const toast = useToast();
@@ -830,7 +1134,15 @@ export function LpInfoFormPage() {
 
   const { data: detail } = useLpDetailQuery(PROJECT_ID, lpId);
   const saveMutation = useSaveLpMutation(PROJECT_ID);
-
+  const precheckMutation = useLpPoolPrecheckMutation();
+  const { data: pairOptionsRaw } = useLpPairTokenPairOptionsQuery(PROJECT_ID, {
+    status: 20,
+  });
+  const pairOptions = pairOptionsRaw ?? [];
+  /** 配池草稿（源 37010e0 form.vue pairs；草稿/驳回重提回填）。 */
+  const [pairs, setPairs] = React.useState<PairPoolEntry[]>([]);
+  const [precheckResult, setPrecheckResult] =
+    React.useState<LpPoolPrecheckResp | null>(null);
   const { register, handleSubmit, reset, formState: { errors } } =
     useForm<LpInfoFormValues>({
       defaultValues: {
@@ -853,9 +1165,40 @@ export function LpInfoFormPage() {
       address: detail.address ?? '',
       riskAssessment: detail.riskAssessment ?? '',
     });
+    setPairs((detail.pairs ?? []).map(onboardPairToEntry));
   }, [detail, isEdit, reset]);
 
+  /** 已添加的对必须完整（token 对 + 两端池地址）才能保存/校验（源校验语义）。 */
+  const buildPairs = (): LpOnboardPair[] | null => {
+    const built = pairs.map(pairPoolEntryToReq);
+    if (built.some((p) => p == null)) return null;
+    return built as LpOnboardPair[];
+  };
+
+  /** 余额校验（源「余额校验」按钮）：编辑态并入该 LP 已生效参与对累计门槛。 */
+  const onPrecheck = () => {
+    const built = buildPairs();
+    if (built == null) {
+      toast.warning('Complete every added token pair before checking balances');
+      return;
+    }
+    precheckMutation.mutate(
+      { lpId: isEdit ? lpId : undefined, pairs: built },
+      {
+        onSuccess: setPrecheckResult,
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  };
+
   const onSubmit = handleSubmit((values) => {
+    const built = buildPairs();
+    if (built == null) {
+      toast.warning(
+        'Complete every added token pair (pair + both pool addresses) before saving',
+      );
+      return;
+    }
     const req: LpSaveReq = {
       lpName: values.lpName.trim(),
       lpCode: values.lpCode.trim(),
@@ -863,6 +1206,7 @@ export function LpInfoFormPage() {
       contactEmail: values.contactEmail.trim() || undefined,
       address: values.address.trim() || undefined,
       riskAssessment: values.riskAssessment.trim() || undefined,
+      pairs: built,
     };
     if (isEdit && lpId) req.lpId = lpId;
     saveMutation.mutate(req, {
@@ -970,6 +1314,54 @@ export function LpInfoFormPage() {
         </div>
       </section>
 
+      <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
+        <div className="mb-4">
+          <div className="text-base font-semibold">Supported Token Pairs &amp; Pools</div>
+          <p className="text-sm text-muted-foreground">
+            Register one pool address for each side of every token pair. Leave Min.
+            Liquidity blank to use the token default; leave the auth threshold blank to
+            skip the check. An address shared across pairs is validated against the
+            aggregated requirements. Draft LPs may be saved with no pairs.
+          </p>
+        </div>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pairs.length === 0 || precheckMutation.isPending}
+            onClick={onPrecheck}
+          >
+            {precheckMutation.isPending ? 'Checking...' : 'Balance Check'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setPairs((prev) => [...prev, { ...PAIR_POOL_ENTRY_EMPTY }])}
+          >
+            + Add Token Pair
+          </Button>
+        </div>
+        {pairs.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            No token pairs added yet
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {pairs.map((entry, idx) => (
+              <PairPoolEditor
+                key={idx}
+                entry={entry}
+                options={pairOptions}
+                onChange={(next) =>
+                  setPairs((prev) => prev.map((p, i) => (i === idx ? next : p)))
+                }
+                onRemove={() => setPairs((prev) => prev.filter((_, i) => i !== idx))}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
       <div className="flex items-center justify-between rounded-lg border-border/60 bg-card p-4 text-card-foreground shadow-float">
         <Button
           type="button"
@@ -983,53 +1375,75 @@ export function LpInfoFormPage() {
           {saveMutation.isPending ? LBL.saving : LBL.save}
         </Button>
       </div>
+      {precheckResult ? (
+        <PrecheckDialog result={precheckResult} onClose={() => setPrecheckResult(null)} />
+      ) : null}
     </form>
   );
 }
 
 /**
- * LP 详情页（真实接口聚合视图）。
+ * LP 详情页（源 37010e0 detail.vue；GET /manage/lp/full 聚合视图）。
  *
- * 当前后端已公开的 detail、lp-token-pair/list、lp-pool/list 均为真实查询；
- * 未冻结的 full/precheck 契约不在这里臆造。池快照只读，出款池字段不参与展示。
+ * 基本信息只读 + 参与 Token 对表（Approved 可改参/停用、Disabled 可恢复并自动
+ * 重提 KLP；改参在途禁用）+ 资金池快照（含 Σ min/auth 参照门槛列）。
+ * 页头提供「+ Add Token Pair」（走 KLP 审批）。Freeze/Unfreeze 仅列表页提供。
  */
 export function LpInfoDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const lpId = parseId(searchParams.get('id'));
   const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
+  const [pairDialog, setPairDialog] = React.useState<PairDialogState | null>(null);
   const toast = useToast();
 
-  const detailQuery = useLpDetailQuery(PROJECT_ID, lpId);
-  const pairQuery = useLpPairListQuery(
-    PROJECT_ID,
-    { pageNum: 1, pageSize: 200, filter: { lpId } },
-    lpId != null,
-  );
-  const poolQuery = useLpPoolListQuery(
-    PROJECT_ID,
-    { pageNum: 1, pageSize: 200, filter: { lpId } },
-    lpId != null,
-  );
-  const freezeMutation = useLpFreezeToggleMutation(PROJECT_ID);
+  const detailQuery = useLpFullDetailQuery(PROJECT_ID, lpId);
+  const statusMutation = useUpdateLpPairStatusMutation(PROJECT_ID);
+  const submitMutation = useSubmitLpPairMutation(PROJECT_ID);
 
-  const toggleFreeze = React.useCallback(
-    (freeze: boolean) => {
-      if (!lpId) return;
-      freezeMutation.mutate(
-        { targetId: lpId, freeze },
-        {
-          onSuccess: () => {
-            toast.success(freeze ? 'Frozen' : 'Unfrozen');
-            setConfirm(null);
-            void detailQuery.refetch();
-          },
-          onError: (e) => toast.error((e as Error).message),
+  /** 停用生效对（20 → 50）：立即退出匹配候选，在途交易按状态机继续。 */
+  const disablePair = (pair: LpFullPairRow) => {
+    statusMutation.mutate(
+      { id: pair.id, targetStatus: LP_PAIR_TARGET_STATUS.disable },
+      {
+        onSuccess: () => {
+          toast.success('Disabled');
+          setConfirm(null);
+          void detailQuery.refetch();
         },
-      );
-    },
-    [detailQuery, freezeMutation, lpId, toast],
-  );
+        onError: (e) => {
+          setConfirm(null);
+          toast.error((e as Error).message);
+        },
+      },
+    );
+  };
+
+  /** 恢复停用对（50 → 1）：恢复为草稿并自动重提 KLP 审批。 */
+  const enablePair = (pair: LpFullPairRow) => {
+    statusMutation.mutate(
+      { id: pair.id, targetStatus: LP_PAIR_TARGET_STATUS.restore },
+      {
+        onSuccess: () => {
+          submitMutation.mutate(pair.id, {
+            onSuccess: () => {
+              toast.success('Restored and resubmitted for KLP approval');
+              setConfirm(null);
+              void detailQuery.refetch();
+            },
+            onError: (e) => {
+              setConfirm(null);
+              toast.error((e as Error).message);
+            },
+          });
+        },
+        onError: (e) => {
+          setConfirm(null);
+          toast.error((e as Error).message);
+        },
+      },
+    );
+  };
 
   if (!lpId) {
     return (
@@ -1050,11 +1464,8 @@ export function LpInfoDetailPage() {
     );
   }
 
-  const detail = detailQuery.data;
-  const pairs = pairQuery.data?.data ?? [];
-  const pools = (poolQuery.data?.data ?? []) as LpPoolRowWithBank[];
-  const canFreeze = detail.status === 20;
-  const canUnfreeze = detail.status === 50;
+  const { base, pairs, pools } = detailQuery.data;
+  const refreshDetail = () => void detailQuery.refetch();
 
   return (
     <div className="space-y-4">
@@ -1064,110 +1475,165 @@ export function LpInfoDetailPage() {
             Back
           </Button>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold">{detail.lpName}</h1>
+            <h1 className="text-xl font-semibold">{base.lpName}</h1>
+            <span className="font-mono text-sm text-muted-foreground">{base.lpCode}</span>
             <StatusBadge
-              status={detail.status}
+              status={base.status}
               labelMap={LP_STATUS_LABEL}
               variantMap={LP_STATUS_VARIANT}
             />
           </div>
         </div>
-        {canFreeze || canUnfreeze ? (
-          <Button
-            type="button"
-            variant={canFreeze ? 'destructive' : 'default'}
-            disabled={freezeMutation.isPending}
-            onClick={() =>
-              setConfirm({
-                title: canFreeze ? 'Freeze LP' : 'Unfreeze LP',
-                description: canFreeze
-                  ? `Freeze LP "${detail.lpName}"? It immediately stops matching.`
-                  : `Unfreeze LP "${detail.lpName}"? It resumes matching.`,
-                actionLabel: canFreeze ? 'Freeze' : 'Unfreeze',
-                destructive: canFreeze,
-                onConfirm: () => toggleFreeze(canFreeze),
-              })
-            }
-          >
-            {canFreeze ? 'Freeze' : 'Unfreeze'}
-          </Button>
-        ) : null}
+        <Button type="button" onClick={() => setPairDialog({ mode: 'add' })}>
+          + Add Token Pair
+        </Button>
       </div>
 
       <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
         <h2 className="mb-4 text-base font-semibold">Basic Information</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <ReadonlyField label="LP Code" value={detail.lpCode} />
-          <ReadonlyField label="Contact Name" value={detail.contactName} />
-          <ReadonlyField label="Contact Email" value={detail.contactEmail} />
-          <ReadonlyField label="Address" value={detail.address} />
+          <ReadonlyField label="LP Code" value={base.lpCode} />
+          <ReadonlyField label="Contact Name" value={base.contactName} />
+          <ReadonlyField label="Contact Email" value={base.contactEmail} />
+          <ReadonlyField label="Address" value={base.address} />
           <ReadonlyField
             label="Settlement Cycle"
-            value={SETTLE_CYCLE_MAP[detail.settleCycle] ?? '--'}
+            value={SETTLE_CYCLE_MAP[base.settleCycle] ?? '--'}
           />
-          <ReadonlyField label="Created On" value={formatDateTime(detail.createTime)} />
-          <ReadonlyField label="Risk Assessment" value={detail.riskAssessment} />
+          <ReadonlyField label="Created On" value={formatDateTime(base.createTime)} />
+          <ReadonlyField label="Risk Assessment" value={base.riskAssessment} />
         </div>
       </section>
 
       <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold">Token Pairs</h2>
-            <p className="text-sm text-muted-foreground">
-              Participation and pool addresses are read from the management API.
-            </p>
-          </div>
-          {pairQuery.dataUpdatedAt ? (
-            <span className="text-xs text-muted-foreground">
-              Updated {formatAdminDateTime(pairQuery.dataUpdatedAt)}
-            </span>
-          ) : null}
+        <div className="mb-4">
+          <h2 className="text-base font-semibold">Token Pairs</h2>
+          <p className="text-sm text-muted-foreground">
+            Participation and both-side pool parameters. Changes on approved pairs go
+            through KLP approval.
+          </p>
         </div>
-        {pairQuery.isLoading ? (
-          <LoadingBlock />
-        ) : pairQuery.isError ? (
-          <Alert variant="destructive" role="alert">
-            <AlertTitle>Failed to load token pairs</AlertTitle>
-            <AlertDescription>Refresh to retry.</AlertDescription>
-          </Alert>
-        ) : pairs.length === 0 ? (
+        {pairs.length === 0 ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
             No participation records
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="w-full min-w-[1080px] text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
                   <th className="px-3 py-2">Token Pair</th>
-                  <th className="px-3 py-2">Source Pool Address</th>
-                  <th className="px-3 py-2">Target Pool Address</th>
+                  <th className="px-3 py-2">Pool Addresses</th>
+                  <th className="px-3 py-2 text-right">Min. Liquidity (Src / Tgt)</th>
+                  <th className="px-3 py-2 text-right">Auth Threshold (Src / Tgt)</th>
                   <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Created On</th>
+                  <th className="px-3 py-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {pairs.map((pair) => (
                   <tr key={pair.id} className="border-b last:border-0">
-                    <td className="px-3 py-3 font-medium">
-                      {pair.sourceCurrency}/{pair.targetCurrency}
-                    </td>
-                    <td className="break-all px-3 py-3 font-mono text-xs">
-                      {pair.sourcePoolAddress || '--'}
-                    </td>
-                    <td className="break-all px-3 py-3 font-mono text-xs">
-                      {pair.targetPoolAddress || '--'}
+                    <td className="px-3 py-3">
+                      <div className="font-medium">
+                        {pair.sourceCurrency}/{pair.targetCurrency}
+                      </div>
+                      <div className="font-mono text-xs text-muted-foreground">
+                        {pair.pairCode}
+                      </div>
                     </td>
                     <td className="px-3 py-3">
-                      <StatusBadge
-                        status={pair.status}
-                        labelMap={LP_PAIR_STATUS_LABEL}
-                        variantMap={LP_PAIR_STATUS_VARIANT}
+                      <LpPairPoolAddressLine
+                        label=""
+                        address={pair.sourcePoolAddress || '--'}
+                        title={pair.sourcePoolAddress || '--'}
+                      />
+                      <LpPairPoolAddressLine
+                        label=""
+                        address={pair.targetPoolAddress || '--'}
+                        title={pair.targetPoolAddress || '--'}
                       />
                     </td>
-                    <td className="px-3 py-3 tabular-nums">
-                      {formatDateTime(pair.createTime)}
+                    <td className="px-3 py-3 text-right font-mono tabular-nums">
+                      <div>{formatAmount(pair.sourceMinLiquidity)}</div>
+                      <div>{formatAmount(pair.targetMinLiquidity)}</div>
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono tabular-nums">
+                      <div>
+                        {pair.sourceAuthRequired == null
+                          ? '-'
+                          : formatAmount(pair.sourceAuthRequired)}
+                      </div>
+                      <div>
+                        {pair.targetAuthRequired == null
+                          ? '-'
+                          : formatAmount(pair.targetAuthRequired)}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <StatusBadge
+                          status={pair.status}
+                          labelMap={LP_PAIR_STATUS_LABEL}
+                          variantMap={LP_PAIR_STATUS_VARIANT}
+                        />
+                        {pair.pendingChange ? (
+                          <Badge variant="secondary">Change Pending</Badge>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {pair.status === 20 ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={pair.pendingChange || pairDialog != null}
+                            onClick={() => setPairDialog({ mode: 'change', row: pair })}
+                          >
+                            Change Params
+                          </Button>
+                        ) : null}
+                        {pair.status === 20 ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={statusMutation.isPending}
+                            onClick={() =>
+                              setConfirm({
+                                title: 'Disable Token Pair',
+                                description:
+                                  'The pair immediately leaves the matching and payout candidate set; in-flight transactions continue per the state machine.',
+                                actionLabel: 'Disable',
+                                destructive: true,
+                                onConfirm: () => disablePair(pair),
+                              })
+                            }
+                          >
+                            Disable
+                          </Button>
+                        ) : null}
+                        {pair.status === 50 ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={statusMutation.isPending}
+                            onClick={() =>
+                              setConfirm({
+                                title: 'Enable Token Pair',
+                                description:
+                                  'The pair is restored as a draft and automatically resubmitted for KLP approval.',
+                                actionLabel: 'Enable',
+                                onConfirm: () => enablePair(pair),
+                              })
+                            }
+                          >
+                            Enable
+                          </Button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1181,30 +1647,25 @@ export function LpInfoDetailPage() {
         <div className="mb-4">
           <h2 className="text-base font-semibold">Pool Snapshots</h2>
           <p className="text-sm text-muted-foreground">
-            Read-only snapshots refreshed from the bank Gateway. Pool selection and
-            address changes are not performed from this table.
+            Read-only snapshots refreshed from the bank Gateway. Σ requirements are
+            aggregated over the approved pairs referencing each address (same scale as
+            the balance check).
           </p>
         </div>
-        {poolQuery.isLoading ? (
-          <LoadingBlock />
-        ) : poolQuery.isError ? (
-          <Alert variant="destructive" role="alert">
-            <AlertTitle>Failed to load pool snapshots</AlertTitle>
-            <AlertDescription>Refresh to retry.</AlertDescription>
-          </Alert>
-        ) : pools.length === 0 ? (
+        {pools.length === 0 ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
             No pool snapshots
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="w-full min-w-[980px] text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
                   <th className="px-3 py-2">Token</th>
                   <th className="px-3 py-2">Address</th>
-                  <th className="px-3 py-2">Available Balance</th>
-                  <th className="px-3 py-2">Available Pre-authorization</th>
+                  <th className="px-3 py-2 text-right">Balance Snapshot</th>
+                  <th className="px-3 py-2 text-right">Σ Min. Liquidity</th>
+                  <th className="px-3 py-2 text-right">Σ Auth Threshold</th>
                   <th className="px-3 py-2">Updated On</th>
                   <th className="px-3 py-2">Status</th>
                 </tr>
@@ -1215,16 +1676,24 @@ export function LpInfoDetailPage() {
                     <td className="px-3 py-3">
                       {pool.tokenSymbol || pool.tokenCode || '--'}
                     </td>
-                    <td className="break-all px-3 py-3 font-mono text-xs">
-                      {pool.accountAddress || '--'}
+                    <td className="px-3 py-3">
+                      <LpPairPoolAddressLine
+                        label=""
+                        address={pool.accountAddress || '--'}
+                        title={pool.accountAddress || '--'}
+                      />
                     </td>
-                    <td className="px-3 py-3 font-mono tabular-nums">
+                    <td className="px-3 py-3 text-right font-mono tabular-nums">
                       {formatAmount(pool.availableBalanceCache)}
                       {pool.tokenSymbol ? ` ${pool.tokenSymbol}` : ''}
                     </td>
-                    <td className="px-3 py-3 font-mono tabular-nums">
-                      {formatAmount(pool.preauthAvailable)}
-                      {pool.tokenSymbol ? ` ${pool.tokenSymbol}` : ''}
+                    <td className="px-3 py-3 text-right font-mono tabular-nums">
+                      {formatAmount(pool.requiredMinSum)}
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono tabular-nums">
+                      {pool.requiredAuthSum == null
+                        ? '-'
+                        : formatAmount(pool.requiredAuthSum)}
                     </td>
                     <td className="px-3 py-3 tabular-nums">
                       {formatDateTime(pool.balanceUpdateTime)}
@@ -1245,7 +1714,170 @@ export function LpInfoDetailPage() {
       </section>
 
       <ConfirmDialog request={confirm} onDismiss={() => setConfirm(null)} />
+      {pairDialog != null ? (
+        <LpPairConfigDialog
+          lpId={lpId}
+          state={pairDialog}
+          onDone={() => {
+            setPairDialog(null);
+            refreshDetail();
+          }}
+          onClose={() => setPairDialog(null)}
+        />
+      ) : null}
     </div>
+  );
+}
+
+/** 详情页新增/改参与对弹窗状态（change = 生效对改参，token 对锁定）。 */
+type PairDialogState = { mode: 'add' } | { mode: 'change'; row: LpFullPairRow };
+
+/**
+ * 新增/改参与对共用弹窗（源 detail.vue add/change Dialog）：
+ * Validate & Submit 先走 precheck（不通过弹结果并阻断），add = save + submit
+ * （KLP 审批），change = change 申请（通过前现值继续服务）。
+ */
+function LpPairConfigDialog({
+  lpId,
+  state,
+  onDone,
+  onClose,
+}: {
+  lpId: number;
+  state: PairDialogState;
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  const toast = useToast();
+  const { data: pairOptionsRaw } = useLpPairTokenPairOptionsQuery(PROJECT_ID, {
+    status: 20,
+  });
+  const pairOptions = pairOptionsRaw ?? [];
+  const precheckMutation = useLpPoolPrecheckMutation();
+  const saveMutation = useSaveLpPairMutation(PROJECT_ID);
+  const submitMutation = useSubmitLpPairMutation(PROJECT_ID);
+  const changeMutation = useChangeLpPairMutation(PROJECT_ID);
+  const [precheckResult, setPrecheckResult] =
+    React.useState<LpPoolPrecheckResp | null>(null);
+
+  const isChange = state.mode === 'change';
+  const [entry, setEntry] = React.useState<PairPoolEntry>(() =>
+    state.mode === 'change'
+      ? {
+          pairId: String(state.row.pairId),
+          sourceAddress: state.row.sourcePoolAddress ?? '',
+          sourceMin:
+            state.row.sourceMinLiquidity != null
+              ? String(state.row.sourceMinLiquidity)
+              : '',
+          sourceAuth:
+            state.row.sourceAuthRequired != null
+              ? String(state.row.sourceAuthRequired)
+              : '',
+          targetAddress: state.row.targetPoolAddress ?? '',
+          targetMin:
+            state.row.targetMinLiquidity != null
+              ? String(state.row.targetMinLiquidity)
+              : '',
+          targetAuth:
+            state.row.targetAuthRequired != null
+              ? String(state.row.targetAuthRequired)
+              : '',
+        }
+      : { ...PAIR_POOL_ENTRY_EMPTY },
+  );
+
+  const pending =
+    precheckMutation.isPending ||
+    saveMutation.isPending ||
+    submitMutation.isPending ||
+    changeMutation.isPending;
+
+  const onValidateAndSubmit = () => {
+    const req = pairPoolEntryToReq(entry);
+    if (!req) {
+      toast.warning('Select a token pair and fill in both pool addresses');
+      return;
+    }
+    precheckMutation.mutate(
+      { lpId, pairs: [req] },
+      {
+        onSuccess: (result) => {
+          if (!result.allPass) {
+            setPrecheckResult(result);
+            return;
+          }
+          if (state.mode === 'change') {
+            changeMutation.mutate(
+              { id: state.row.id, lpId, source: req.source, target: req.target },
+              {
+                onSuccess: () => {
+                  toast.success('Change request submitted');
+                  onDone();
+                },
+                onError: (e) => toast.error((e as Error).message),
+              },
+            );
+          } else {
+            saveMutation.mutate(
+              { lpId, pairId: req.pairId, source: req.source, target: req.target },
+              {
+                onSuccess: (saved) => {
+                  submitMutation.mutate(saved.id, {
+                    onSuccess: () => {
+                      toast.success('Submitted for KLP approval');
+                      onDone();
+                    },
+                    onError: (e) => toast.error((e as Error).message),
+                  });
+                },
+                onError: (e) => toast.error((e as Error).message),
+              },
+            );
+          }
+        },
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  };
+
+  return (
+    <>
+      <Dialog open onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {isChange ? 'Change Pair Params' : 'Add Token Pair'}
+            </DialogTitle>
+          </DialogHeader>
+          <Alert>
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <AlertDescription>
+              {isChange
+                ? 'The change request goes through KLP approval; current values keep serving until it is approved, and the pool is then updated automatically.'
+                : 'The new pair goes through KLP approval and does not take effect until it is approved.'}
+            </AlertDescription>
+          </Alert>
+          <PairPoolEditor
+            entry={entry}
+            options={pairOptions}
+            onChange={setEntry}
+            pairLocked={isChange}
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
+              {LBL.cancel}
+            </Button>
+            <Button type="button" onClick={onValidateAndSubmit} disabled={pending}>
+              {pending ? 'Submitting...' : 'Validate & Submit'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {precheckResult ? (
+        <PrecheckDialog result={precheckResult} onClose={() => setPrecheckResult(null)} />
+      ) : null}
+    </>
   );
 }
 
@@ -1772,16 +2404,18 @@ export function LpTokenPairListPage() {
 /* ================================================================== */
 
 /**
- * 水位单元格（源 liquidity/pool/index.vue 自绘水位条，2026-09-08 口径）：
+ * 水位单元格（源 liquidity/pool/index.vue 自绘水位条，16a3b8f 口径）：
  * 有效分子 = min(可用预授权, 可用余额)（未设置预授权时=余额）；
- * level = 分子 ÷ token 级最低流动性；低于提醒阈值=低水位（红，区分
- * 授权不足/余额不足），预授权成为瓶颈时条色琥珀并追加 Auth Limited。
- * minLiquidity 缺失/≤0 或分子未快照 → '--'。
+ * level = 分子 ÷ Σ min liquidity（requiredMinSum = 引用该地址的生效参与对
+ * 累计门槛，与 precheck 同尺）；低于提醒阈值=低水位（红，区分授权不足/
+ * 余额不足），预授权成为瓶颈时条色琥珀并追加 Auth Limited。
+ * requiredMinSum 缺失/≤0（含未挂参与对）或分子未快照 → '--'。
  */
 function WaterLevelCell({ row }: { row: LpPoolRow }) {
   const balanceRaw = row.availableBalanceCache;
   const preauthRaw = row.preauthAvailable;
-  const min = Number(row.minLiquidity);
+  const minRaw = row.requiredMinSum == null ? Number.NaN : Number(row.requiredMinSum);
+  const min = Number.isFinite(minRaw) ? minRaw : Number.NaN;
   const threshold = Number(row.remindThreshold);
   const balanceNum =
     balanceRaw != null && balanceRaw !== '' && Number.isFinite(Number(balanceRaw))
@@ -1863,12 +2497,16 @@ function WaterLevelCell({ row }: { row: LpPoolRow }) {
           <div>
             Available balance {formatAmount(balanceRaw)}
             {symbol ? ` ${symbol}` : ''} · Available auth{' '}
-            {preauthRaw == null ? 'not set' : formatAmount(preauthRaw)}
-            {isAuthLimited ? ' (bottleneck)' : ''}
           </div>
           <div>
-            Effective level min(auth, balance) {formatAmount(numerator)} ÷ min
-            liquidity {formatAmount(row.minLiquidity)}
+            Effective level min(auth, balance) {formatAmount(numerator)} ÷ Σ min
+            liquidity (referencing pairs) {formatAmount(row.requiredMinSum)}
+          </div>
+          <div>
+            Σ auth threshold{' '}
+            {row.requiredAuthSum == null
+              ? '-'
+              : formatAmount(row.requiredAuthSum)}
           </div>
           <div>
             = {percent}
@@ -1914,7 +2552,7 @@ export function LpPoolListPage() {
   const pagination = data?.pagination;
 
   const columns = React.useMemo<
-    ColumnDef<LpPoolRowWithBank & { id: string }>[]
+    ColumnDef<LpPoolRow & { id: string }>[]
   >(
     () => [
       { accessorKey: 'lpName', header: 'LP Name' },
@@ -2027,7 +2665,7 @@ export function LpPoolListPage() {
 
   const tableData = React.useMemo(
     () =>
-      (rows as LpPoolRowWithBank[]).map((r) => ({ ...r, id: String(r.poolId) })),
+      (rows as LpPoolRow[]).map((r) => ({ ...r, id: String(r.poolId) })),
     [rows],
   );
 
@@ -2037,9 +2675,11 @@ export function LpPoolListPage() {
         <Info className="mt-0.5 h-4 w-4 shrink-0" />
         <AlertTitle>Read only</AlertTitle>
         <AlertDescription>
-          Pools are configured and maintained by the administration side. Top-ups
-          and pre-authorization are handled in the token system; the data below
-          is a read-only snapshot refreshed periodically from the bank Gateway.
+          Pool addresses are registered on the LP onboarding form or the LP detail
+          page when configuring token pairs; the dedicated payout-pool concept has
+          been retired — matching and payout locate the address on the opposite
+          side of the pair a transaction belongs to. The data below is a read-only
+          snapshot refreshed periodically from the bank Gateway.
         </AlertDescription>
       </Alert>
 

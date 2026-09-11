@@ -6,6 +6,10 @@ export const lpPairKeys = {
   lists: (projectId: string) => [...lpPairKeys.all(projectId), 'list'] as const,
   list: (projectId: string, params: LpPairListReq) =>
     [...lpPairKeys.lists(projectId), params] as const,
-  tokenPairOptions: (projectId: string) =>
-    [...lpPairKeys.all(projectId), 'tokenPairOptions'] as const,
+  tokenPairOptions: (projectId: string, filter?: { status?: number }) =>
+    [
+      ...lpPairKeys.all(projectId),
+      'tokenPairOptions',
+      filter ?? {},
+    ] as const,
 } as const;

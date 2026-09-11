@@ -23,6 +23,26 @@ export interface LpRow {
   createTime: number;
 }
 
+/**
+ * LP 侧池参数（源 api/lp.ts LpPoolSide，2026-09-09 方案 v1.4）。
+ * 地址为权威池地址，不做查重；同地址被多对引用时 min/auth 按累计值校验。
+ */
+export interface LpPoolSide {
+  /** 对侧池地址（必填，≤128 字符）。 */
+  address: string;
+  /** 该地址最低流动性门槛（空 = 按 token 对默认 min）。 */
+  minLiquidity?: string | number;
+  /** 该地址授权门槛（空 = 不校验授权）。 */
+  authRequired?: string | number;
+}
+
+/** 入网携带的 token 对 + 两侧池配置（KLO 审批通过后物化 lp_token_pair/lp_pool）。 */
+export interface LpOnboardPair {
+  pairId: number;
+  source: LpPoolSide;
+  target: LpPoolSide;
+}
+
 /** 与后端 LpSaveReqVO 对齐；lpId 空=新建（草稿），非空=编辑。 */
 export interface LpSaveReq {
   lpId?: number;
@@ -34,8 +54,58 @@ export interface LpSaveReq {
   /** 入网表单不设置（默认月结）；调整移至结算周期配置页（源 2026-08-27）。 */
   settleCycle?: number;
   riskAssessment?: string;
-  /** v2 表单已不传，仅接口层保留（源 LpSaveReq 同名可选字段）。 */
-  initialPairIds?: number[];
+  /** 配池一体化（源 37010e0）：保存草稿时携带已编辑的对侧池配置；initialPairIds 已删。 */
+  pairs?: LpOnboardPair[];
+}
+
+/** 详情行（GET /manage/lp/detail；pairs = 已保存配池草稿，草稿/驳回重提预填）。 */
+export interface LpDetailRow extends LpRow {
+  onboardPairs?: Record<string, unknown>[];
+  pairs?: LpOnboardPair[];
+}
+
+/**
+ * LP 详情聚合 —— 参与 token 对行（GET /manage/lp/full）。
+ * min/auth 双侧为对侧池参数（null = 未设置）；pendingChange = 改参审批中（改参按钮禁用）。
+ */
+export interface LpFullPairRow {
+  id: number;
+  pairId: number;
+  pairCode: string;
+  sourceCurrency: string;
+  targetCurrency: string;
+  sourcePoolAddress: string;
+  targetPoolAddress: string;
+  sourceMinLiquidity: string | number | null;
+  targetMinLiquidity: string | number | null;
+  sourceAuthRequired: string | number | null;
+  targetAuthRequired: string | number | null;
+  splitRatio: string | number;
+  pendingChange: boolean;
+  status: number;
+  remark: string;
+  createTime: number;
+}
+
+/** LP 详情聚合 —— 资金池快照行（Σ 门槛 = 引用该地址的生效参与对求和，与 precheck 同尺）。 */
+export interface LpFullPoolRow {
+  poolId: number;
+  tokenId: number;
+  tokenCode: string;
+  tokenSymbol: string;
+  accountAddress: string;
+  availableBalanceCache: string | number | null;
+  balanceUpdateTime: number;
+  status: number;
+  requiredMinSum: string | number | null;
+  requiredAuthSum: string | number | null;
+}
+
+/** LP 详情聚合（GET /manage/lp/full/:lpId，源 16a3b8f）。 */
+export interface LpFullDetail {
+  base: LpDetailRow;
+  pairs: LpFullPairRow[];
+  pools: LpFullPoolRow[];
 }
 
 export interface LpListFilter {

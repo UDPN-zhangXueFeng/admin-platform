@@ -32,6 +32,10 @@ export interface TokenPairRow {
   defaultSplitRatio: string | number | null;
   /** Engine and existing values still apply, but the list/forms no longer render or accept it (01 §G ruling 13). */
   slippageThreshold: string | number;
+  /** 源端默认最低流动性（LP 配池表单 Min 预填源；源 16a3b8f）。 */
+  sourceMinLiquidity: string | number;
+  /** 目标端默认最低流动性。 */
+  targetMinLiquidity: string | number;
   /** A pending KRC parameter-change request exists (source 2023418). */
   pendingChange: boolean;
   status: number;
