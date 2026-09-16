@@ -36,6 +36,8 @@ import {
   RadioGroupItem,
   ScrollArea,
   Skeleton,
+  Stepper,
+  type StepperStep,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -218,81 +220,29 @@ function computeRailSteps(status: number): RailStep[] {
   }));
 }
 
-/** 圆点配色（主线 teal / 结算金 amber / 终态 danger 红·info 灰 / 未到达空心）。 */
-function railDotClass(s: RailStep): string {
-  if (s.state === 'current' && s.tone === 'danger') {
-    return 'border-red-600 bg-red-600 shadow-[0_0_0_3px_rgba(220,38,38,0.2)]';
-  }
-  if (s.state === 'current' && s.tone === 'info') {
-    return 'border-slate-500 bg-slate-500 shadow-[0_0_0_3px_rgba(100,116,139,0.2)]';
-  }
-  if (s.state === 'done') {
-    return s.settle ? 'border-amber-600 bg-amber-600' : 'border-teal-600 bg-teal-600';
-  }
-  if (s.state === 'current') {
-    return s.settle
-      ? 'border-amber-600 bg-amber-600 shadow-[0_0_0_3px_rgba(183,121,31,0.25)]'
-      : 'border-teal-600 bg-teal-600 shadow-[0_0_0_3px_rgba(11,107,83,0.2)]';
-  }
-  return 'border-stone-300 bg-transparent';
-}
-
-function railLabelClass(s: RailStep): string {
-  if (s.tone === 'danger') return 'font-medium text-red-600';
-  if (s.tone === 'info') return 'font-medium text-slate-500';
-  if (s.state === 'current') {
-    return s.settle ? 'font-medium text-amber-600' : 'font-medium text-teal-600';
-  }
-  if (s.state === 'done') return 'text-gray-600';
-  return 'text-gray-400';
-}
-
-/** 连线配色：分支段跟随终态色调，否则 done=teal / 未到达=灰。 */
-function railLinkClass(next: RailStep): string {
-  if (next.tone === 'danger') return 'bg-red-600';
-  if (next.tone === 'info') return 'bg-slate-500';
-  return next.state !== 'todo' ? 'bg-teal-600' : 'bg-stone-300';
-}
-
-/** StatusRail：横向节点 + 连线，品牌状态机图形语言（纯展示，自包含）。 */
+/** StatusRail：业务状态映射与 shared Stepper 视觉组件之间的适配层。 */
 function StatusRail({ status }: { status: number }) {
   const steps = React.useMemo(() => computeRailSteps(status), [status]);
   const current = steps.find((s) => s.state === 'current');
   const ariaLabel = current ? `Transaction status: ${current.name}` : 'Unknown transaction status';
-  return (
-    <div
-      className="flex items-start overflow-x-auto pb-1"
-      role="img"
-      aria-label={ariaLabel}
-    >
-      {steps.map((s, i) => {
-        const next = steps[i + 1];
-        return (
-          <React.Fragment key={s.key}>
-            <div className="flex flex-shrink-0 flex-col items-center">
-              <span className={cn('h-2 w-2 rounded-full border', railDotClass(s))} />
-              <span
-                className={cn(
-                  'mt-1.5 whitespace-nowrap text-xs leading-none',
-                  railLabelClass(s),
-                )}
-              >
-                {s.name}
-              </span>
-            </div>
-            {next && (
-              <span
-                className={cn(
-                  'mx-1 mt-[3px] h-0.5 min-w-[12px] flex-1 rounded-sm',
-                  railLinkClass(next),
-                )}
-              />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </div>
+  const stepperSteps = React.useMemo<StepperStep[]>(
+    () =>
+      steps.map((step) => ({
+        id: step.key,
+        label: step.name,
+        status:
+          step.state === 'done'
+            ? ('complete' as const)
+            : step.state === 'current'
+              ? ('current' as const)
+              : ('upcoming' as const),
+        tone: step.tone ?? (step.settle ? 'warning' : 'default'),
+        terminal: step.key === 'm35',
+      })),
+    [steps],
   );
+
+  return <Stepper steps={stepperSteps} ariaLabel={ariaLabel} />;
 }
 
 /* ================================================================== */
@@ -878,7 +828,32 @@ function ResolveDialog({
   );
 }
 
-/** 详情左栏（源 detail.vue detail-left：banner / 进度轨 / 交易信息 / 转账双卡 / 其他）。 */
+/** 详情异常提示（保持在状态轨道之前，并让下方两栏内容保持顶部对齐）。 */
+function TransactionStatusAlert({ detail }: { detail: TransactionDetailRow }) {
+  if (detail.status !== 90 && detail.status !== 70 && detail.status !== 50) {
+    return null;
+  }
+
+  return (
+    <Alert
+      variant={detail.status === 50 ? 'warning' : 'destructive'}
+      className="mb-0"
+    >
+      <AlertTitle>
+        {detail.status === 90
+          ? 'Transaction failed'
+          : detail.status === 70
+            ? 'Transaction exception — manual handling required'
+            : 'Reversal in progress'}
+      </AlertTitle>
+      {detail.failReason ? (
+        <AlertDescription>{detail.failReason}</AlertDescription>
+      ) : null}
+    </Alert>
+  );
+}
+
+/** 详情左栏（交易信息 / 转账双卡 / 其他信息）。 */
 function DetailBody({ detail }: { detail: TransactionDetailRow }) {
   const markupPercent = (() => {
     const n = Number(detail.markupRate);
@@ -887,33 +862,6 @@ function DetailBody({ detail }: { detail: TransactionDetailRow }) {
 
   return (
     <div className="space-y-6">
-      {/* 失败/异常/冲正横幅（源 banner：原因置顶，无需翻到其他信息） */}
-      {(detail.status === 90 || detail.status === 70 || detail.status === 50) && (
-        <Alert
-          variant={detail.status === 50 ? 'warning' : 'destructive'}
-          className="mb-0"
-        >
-          <AlertTitle>
-            {detail.status === 90
-              ? 'Transaction failed'
-              : detail.status === 70
-                ? 'Transaction exception — manual handling required'
-                : 'Reversal in progress'}
-          </AlertTitle>
-          {detail.failReason ? (
-            <AlertDescription>{detail.failReason}</AlertDescription>
-          ) : null}
-        </Alert>
-      )}
-
-      {/* 状态轨道（源 .rail-block：SETTLEMENT RAIL 置顶 + hairline 分隔） */}
-      <section className="space-y-3 border-b pb-5">
-        <div className="text-xs font-medium tracking-wide text-muted-foreground">
-          SETTLEMENT RAIL
-        </div>
-        <StatusRail status={detail.status} />
-      </section>
-
       {/* 块一：交易信息（单号/状态/交易对/LP 已上移 Hero；汇率为兑换方向语义 + tooltip） */}
       <section>
         <h4 className="mb-3 text-sm font-semibold">Transaction Information</h4>
@@ -1061,7 +1009,7 @@ function DetailBody({ detail }: { detail: TransactionDetailRow }) {
       <section>
         <h4 className="mb-3 text-sm font-semibold">Other Information</h4>
         <DescGrid cols={2}>
-          <DescField label="Creation Time">{formatTime(detail.createTime)}</DescField>
+          <DescField label="Created On">{formatTime(detail.createTime)}</DescField>
           <DescField label="Completion Time">{formatTime(detail.completedTime)}</DescField>
           <DescField label="Failure Reason" span>
             {orDash(detail.failReason)}
@@ -1176,24 +1124,37 @@ export function TxDetailPage() {
           <Skeleton className="h-96 w-full rounded-lg" />
         </div>
       ) : detail ? (
-        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
-          <div className="min-w-0">
-            <DetailBody detail={detail} />
+        <>
+          <TransactionStatusAlert detail={detail} />
+
+          {/* 状态轨道移出左栏，横向铺满详情内容区域。 */}
+          <section className="space-y-3 border-b pb-5">
+            <div className="text-xs font-medium tracking-wide text-muted-foreground">
+              SETTLEMENT RAIL
+            </div>
+            <StatusRail status={detail.status} />
+          </section>
+
+          {/* 两栏：右侧 Transaction Chain 与左侧 Transaction Information 对齐。 */}
+          <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
+            <div className="min-w-0">
+              <DetailBody detail={detail} />
+            </div>
+            <aside className="rounded-lg border border-border/60 bg-card px-4 py-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-120px)] xl:overflow-y-auto">
+              {/* 交易链路（单时间轴；events 驱动，stages 不再渲染） */}
+              <h4 className="mb-3 text-sm font-semibold">Transaction Chain</h4>
+              {chainLoading && !chain ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                  ))}
+                </div>
+              ) : (
+                <TransactionChainView detail={detail} events={chain?.events ?? []} />
+              )}
+            </aside>
           </div>
-          <aside className="rounded-lg border border-border/60 bg-card px-4 py-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-120px)] xl:overflow-y-auto">
-            {/* 交易链路（单时间轴；events 驱动，stages 不再渲染） */}
-            <h4 className="mb-3 text-sm font-semibold">Transaction Chain</h4>
-            {chainLoading && !chain ? (
-              <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
-                ))}
-              </div>
-            ) : (
-              <TransactionChainView detail={detail} events={chain?.events ?? []} />
-            )}
-          </aside>
-        </div>
+        </>
       ) : null}
     </div>
   );
@@ -1299,6 +1260,10 @@ function TransactionListCore() {
 
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
+  const pairOptionById = React.useMemo(
+    () => new Map((pairOptions ?? []).map((option) => [option.pairId, option])),
+    [pairOptions],
+  );
 
   const onSubmit = React.useCallback((form: TxFilterForm) => {
     // 查询回第 1 页（源 onSearch）。
@@ -1346,13 +1311,19 @@ function TransactionListCore() {
       {
         id: 'tokens',
         header: 'Tokens',
+        meta: { overflow: 'wrap', maxWidth: 220 },
         cell: ({ row }) => {
           const r = row.original;
+          const pair = pairOptionById.get(r.pairId);
           const banks = `${r.sourceBankName || '-'} → ${r.targetBankName || '-'}`;
+          const sourceToken =
+            pair?.sourceSymbol || pair?.sourceTokenCode || r.sourceCurrency;
+          const targetToken =
+            pair?.targetSymbol || pair?.targetTokenCode || r.targetCurrency;
           return (
             <div className="flex min-w-0 flex-col leading-snug">
               <span className="font-mono text-[13px] font-semibold">
-                {r.sourceCurrency || '-'}/{r.targetCurrency || '-'}
+                {sourceToken || '-'}/{targetToken || '-'}
               </span>
               <span className="truncate text-xs text-muted-foreground" title={banks}>
                 {banks}
@@ -1364,6 +1335,7 @@ function TransactionListCore() {
       {
         id: 'from',
         header: 'From (Wallet / Amount)',
+        meta: { overflow: 'wrap', maxWidth: 220 },
         cell: ({ row }) => {
           const r = row.original;
           return (
@@ -1387,6 +1359,7 @@ function TransactionListCore() {
       {
         id: 'to',
         header: 'To (Wallet / Amount)',
+        meta: { overflow: 'wrap', maxWidth: 220 },
         cell: ({ row }) => {
           const r = row.original;
           return (
@@ -1410,6 +1383,7 @@ function TransactionListCore() {
       {
         id: 'userRate',
         header: 'FX Rate',
+        meta: { overflow: 'none' },
         cell: ({ row }) => (
           <span className="block text-right font-mono tabular-nums">
             {row.original.userRate == null
@@ -1421,6 +1395,7 @@ function TransactionListCore() {
       {
         id: 'lpName',
         header: 'LP',
+        meta: { maxWidth: 150 },
         cell: ({ row }) => (
           <span className="block max-w-[140px] truncate" title={row.original.lpName}>
             {row.original.lpName || '-'}
@@ -1434,7 +1409,8 @@ function TransactionListCore() {
       },
       {
         id: 'createTime',
-        header: 'Creation Time',
+        header: 'Created On',
+        meta: { maxWidth: 220 },
         cell: ({ row }) => (
           <span className="tabular-nums">{formatTime(row.original.createTime)}</span>
         ),
@@ -1454,7 +1430,7 @@ function TransactionListCore() {
         return actions;
       }),
     ];
-  }, [onView, openResolve]);
+  }, [onView, openResolve, pairOptionById]);
 
   const tableData = React.useMemo(
     () => rows.map((r) => ({ ...r, id: String(r.transactionId) })),
@@ -1477,7 +1453,7 @@ function TransactionListCore() {
       { value: OPT_ALL, label: 'All' },
       ...(pairOptions ?? []).map((p) => ({
         value: String(p.pairId),
-        label: `${p.sourceTokenCode}→${p.targetTokenCode}`,
+        label: `${p.sourceSymbol || p.sourceTokenCode}→${p.targetSymbol || p.targetTokenCode}`,
       })),
     ],
     [pairOptions],
@@ -1552,7 +1528,7 @@ function TransactionListCore() {
             />
             <FormField
               name="createTimeStart"
-              label="Creation Time"
+              label="Created On"
               type="datetime-local"
               register={register('createTimeStart')}
             />

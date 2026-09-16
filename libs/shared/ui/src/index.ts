@@ -34,3 +34,4 @@ export * from './lib/textarea';
 export * from './lib/skeleton';
 export * from './lib/mock-page';
 export * from './lib/mock-login';
+export * from './lib/stepper';

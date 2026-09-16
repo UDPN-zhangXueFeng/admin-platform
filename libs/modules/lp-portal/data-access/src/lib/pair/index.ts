@@ -1,11 +1,11 @@
 /**
  * LP Token 对参与域 barrel。
  *
- * Pair 域同时保留真实列表查询与历史申请 API。Portal 页面不再挂载申请入口，
- * 但存量 KLP 审批闭环仍需保留这些 data-access 定义。
+ * 2026-09-11 3a57bbd「可申请」视图与申请入口下线（方案 v1.4 决议⑤）：
+ * eligible/apply 查询、mutation 与模型定义已剪除，仅保留我的 token 对
+ * 只读列表。
  */
 export * from './pair.model';
 export * from './pair.keys';
 export * from './pair.api';
 export * from './pair.queries';
-export * from './pair.mutations';

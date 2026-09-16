@@ -1,18 +1,20 @@
 'use client';
 
 /**
- * Token Pair 管理页（源 `src/views/pair/index.vue` §D7 v2.3 e591f85 1:1 迁移，
- * FR-LW-04）。原汇率页（rate）随 v2.3 菜单重组退役，汇率三列并入双 tab 行 VO。
+ * Token Pair 管理页（源 `src/views/pair/index.vue` §D7；2026-09-11 3a57bbd
+ * 单视图只读化：「可申请」视图与申请参与入口下线——方案 v1.4 决议⑤，
+ * 参与对由管理侧在 LP 详情配置，KLP 门户入口退役）。
  *
- * Mine「我的 token 对」v2.3 改 10 列（Token对 + pairx 紧凑式两行 +
- * 基础汇率/加价率/用户汇率 + 我的分成比例 + 对默认比例 + 生效条件 + 状态 +
- * 数据时间）。Portal 不再提供 Eligible/Apply 入口；参与对由管理侧发起并经
- * 审批后同步，页面只读展示真实的 Mine 数据。Bank/Token 展示
- * 统一走 useTokenMeta 口径（§E23/E24：symOf 优先、失败回退标识本身）；
- * rateText/percentText 为页面级 helper（源同款，不入 format.ts）。
+ * Mine「我的 token 对」10 列（Token对 + pairx 紧凑式两行 + 基础汇率/
+ * 加价率/用户汇率 + 我的分成比例 + 对默认比例 + 生效条件（含双侧池地址
+ * 两行，池跟 token 对口径）+ 状态 + 数据时间）。原汇率页（rate）随 v2.3
+ * 菜单重组退役，汇率三列并入行 VO。Bank/Token 展示统一走 useTokenMeta
+ * 口径（§E23/E24：symOf 优先、失败回退标识本身）；rateText/percentText
+ * 为页面级 helper（源同款，不入 format.ts）。
  *
  * 源无关键词筛选、无状态下拉、无分页控件（接口全量返回），故不加任何
- * 筛选/分页（禁臆造）。SyncRefreshButton 刷新 pair/rate 实时数据。
+ * 筛选/分页（禁臆造）。SyncRefreshButton @refreshed=loadMine 刷新
+ * pair/rate 实时数据（单视图）。
  *
  * 口径：汇率/比率右对齐等宽字；状态/tag 色映射照源逐码
  * （STATUS_TAG warning/danger/success/info → R1 先例 outline/destructive/
@@ -61,7 +63,8 @@ const LBL = {
   status5Hint:
     'The admin side may override the split ratio upon approval; this is the current reference value.',
   rejectReasonPrefix: 'Rejection reason: ',
-  emptyMine: 'No token pairs have been registered for this LP yet.',
+  emptyMine:
+    'No token pairs yet — pairs are configured by the admin in the LP detail view and appear automatically once approved',
 } as const;
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
@@ -215,23 +218,50 @@ function MineTable() {
       {
         header: 'Activation',
         id: 'activation',
-        // 生效条件：仅 status===20 渲染两组缺口 tag，否则 '-'（源 1:1）
+        // 生效条件：仅 status===20 渲染两组缺口 tag + 双侧池地址两行
+        //（3a57bbd 口径：池跟 token 对，地址按对配置），否则 '-'（源 1:1）
         cell: ({ row }) =>
           row.original.status !== 20 ? (
             <span>-</span>
           ) : (
-            <>
-            <div className="flex flex-wrap items-center gap-1">
-              <Badge
-                variant={row.original.poolReady ? 'default' : 'destructive'}
-              >
-                {row.original.poolReady ? 'Pool Ready' : 'Pool Missing'}
-              </Badge>
-              <Badge variant={row.original.preauthOk ? 'default' : 'outline'}>
-                {row.original.preauthOk ? 'Pre-auth Valid' : 'Pre-auth Not Set'}
-              </Badge>
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-1">
+                <Badge
+                  variant={row.original.poolReady ? 'default' : 'destructive'}
+                >
+                  {row.original.poolReady ? 'Pool Ready' : 'Pool Missing'}
+                </Badge>
+                <Badge
+                  variant={row.original.preauthOk ? 'default' : 'outline'}
+                >
+                  {row.original.preauthOk ? 'Pre-auth Valid' : 'Pre-auth Not Set'}
+                </Badge>
+              </div>
+              {row.original.sourcePoolAddress && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="block max-w-[230px] truncate text-[11px] text-muted-foreground">
+                      Recv {row.original.sourcePoolAddress}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm text-xs">
+                    Source-side pool address (collection address)
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {row.original.targetPoolAddress && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="block max-w-[230px] truncate text-[11px] text-muted-foreground">
+                      Pay {row.original.targetPoolAddress}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm text-xs">
+                    Target-side pool address (payout address)
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
-            </>
           ),
         meta: { overflow: 'none' },
       },

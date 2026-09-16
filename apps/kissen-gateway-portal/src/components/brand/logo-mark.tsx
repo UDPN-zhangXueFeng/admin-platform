@@ -12,8 +12,8 @@ interface LogoMarkProps {
 export function LogoMark({ className, productName }: LogoMarkProps) {
   const resolvedProductName = productName || 'UDPN Kissen Bank Portal';
   const rootClassName = [
-    'relative inline-flex h-14 min-w-[300px] shrink-0 items-end pb-1',
-    'sm:min-w-[360px] min-[1600px]:h-16 min-[1600px]:min-w-[430px]',
+    'relative inline-flex h-14 min-w-0 max-w-full items-end pb-1',
+    'min-[1600px]:h-16',
     className,
   ]
     .filter(Boolean)
@@ -48,7 +48,7 @@ export function LogoMark({ className, productName }: LogoMarkProps) {
         </span>
       </span>
 
-      <span className="absolute bottom-1 left-[104px] right-0 truncate text-[clamp(0.95rem,1.25vw,1.5rem)] font-semibold leading-none tracking-[-0.02em] text-white/85 sm:left-32 min-[1600px]:left-36">
+      <span className="absolute bottom-1 left-[104px] right-0 min-w-0 truncate text-[clamp(0.95rem,1.25vw,1.5rem)] font-semibold leading-none tracking-[-0.02em] text-white/85 sm:left-32 min-[1600px]:left-36">
         {resolvedProductName}
       </span>
     </span>

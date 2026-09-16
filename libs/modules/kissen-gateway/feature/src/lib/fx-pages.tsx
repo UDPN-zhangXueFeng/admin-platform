@@ -10,7 +10,7 @@
  *   pair 列（每侧 tag 下方 11px 灰字，源 pair-side 纵排）。
  * - eafcab0：源行点击 openDetail → 操作列 Detail 按钮（下游列表约定，
  *   shared DataTable 无行点击支持；详情路由 /fx/detail?id={pairId}）。
- * - a9dc10e：列表列头 FX Rates / Synced On；汇率一律 4 位小数（源 fmtRate）；
+ * - G-02：列表标题与第一列统一使用 Token Pair；汇率一律 4 位小数（源 fmtRate）；
  *   详情去 Version 项/列、token 对卡字段集重构（code (symbol)、Chain '-'/Bank、
  *   合约地址 tokenNo 中间省略可复制）、LP 池地址可复制、卡头 Liquidity
  *   Providers / Recent Rates。
@@ -64,8 +64,8 @@ export function FxListPage() {
     () => [
       {
         id: 'tokenPair',
-        header: 'FX Rates',
-        meta: { overflow: 'none' },
+        header: 'Token Pair',
+        meta: { overflow: 'wrap', maxWidth: 220 },
         cell: ({ row }) => {
           const pair = row.original.tokenPair;
           return (
@@ -100,6 +100,7 @@ export function FxListPage() {
         // 源 align="right" + num 类：rate 为 null 显 '-'。
         id: 'fxRate',
         header: 'FX Rate',
+        meta: { overflow: 'none' },
         cell: ({ row }) => (
           <span className="block text-right tabular-nums">
             {row.original.rate?.userRate == null
@@ -112,7 +113,7 @@ export function FxListPage() {
         // 源 LP 列：lpNames 逐个 el-tag type=info，空列表显 '-'。
         id: 'lpNames',
         header: 'Liquidity Provider',
-        meta: { overflow: 'none' },
+        meta: { overflow: 'wrap', maxWidth: 220 },
         cell: ({ row }) =>
           row.original.lpNames.length > 0 ? (
             <span className="flex flex-wrap gap-1.5">
@@ -130,6 +131,7 @@ export function FxListPage() {
         // 源兜底口径：rate?.pushTime ?? tokenPair.pushTime（a9dc10e 列头 Synced On）。
         id: 'updatedOn',
         header: 'Synced On',
+        meta: { maxWidth: 220 },
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatTime(
@@ -171,7 +173,7 @@ export function FxListPage() {
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
             <div className="text-base font-semibold leading-6 text-foreground">
-              FX Rates
+              Token Pair
             </div>
             {data && (
               <span className="text-sm text-muted-foreground tabular-nums">

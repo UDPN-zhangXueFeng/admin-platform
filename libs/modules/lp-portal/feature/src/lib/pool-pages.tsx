@@ -1,27 +1,29 @@
 'use client';
 
 /**
- * 资金池页（源 `src/views/pool/index.vue` 1:1 迁移，FAIL 修复 B，基线 01 §D4）。
+ * 资金池页（源 `src/views/pool/index.vue`，基线 01 §D4；2026-09-11 3a57bbd
+ * 只读快照化：出款池概念下线，申请/切换入口删除，方案 v1.4 决议⑤）。
  *
- * 源语义要点（v1.4 职责迁移，行号对照源文件）：
+ * 源语义要点（行号对照源文件）：
  * - 头部：eyebrow LIQUIDITY + 标题；右 SyncRefreshButton domain=
  *   ['pool','preauth','topup']（依赖域拉齐），刷新成功重拉当前列表；
- *   页面不提供申请、修改或切换写入操作，配置由 Admin 侧完成。
- * - 表格 12 列全列序：池 ID / Token（tag tokenSymbol||tokenNo +
- *   第二行银行）/
- *   池地址 maskAddress+tooltip 原文 / 授权对象（spenderAddress →
- *   maskAddress + ⧉ 可点复制；空 → muted「Not configured」）/ 可用余额 /
- *   授权额度 / 可用授权额度 / 水位 / 余额数据时间 / 状态 / 数据时间 /
- *   （无出款池标识或切换操作）。
+ *   3a57bbd 起新增表格上方 info alert「管理侧配置与维护」固定口径。
+ * - 表格 11 列全列序：池 ID / Token（tag tokenSymbol||tokenNo +
+ *   第二行银行，无出款池标识）/ 池地址 maskAddress+tooltip 原文 /
+ *   授权对象（spenderAddress → maskAddress + ⧉ 可点复制；空 → muted
+ *   「Not configured」）/ 可用余额 / 授权额度 / 可用授权额度 / 水位 /
+ *   余额数据时间 / 状态 / 数据时间（无操作列）。
  * - STATUS 四码表：5 Pending / 15 Rejected / 20 Active / 50 Disabled（域模型）。
- * - 池页只读；管理侧负责地址、门槛和审批写入，Portal 不再提交申请。
+ * - 池页只读；POST /pool/apply 与 /pool/activate 端点后端保留但门户
+ *   无调用方（data-access 已随 3a57bbd 剪除）。
  */
 
 import * as React from 'react';
+import { Copy as CopyIcon, Info as InfoIcon } from 'lucide-react';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Copy as CopyIcon } from 'lucide-react';
-
 import {
+  Alert,
+  AlertTitle,
   Badge,
   DataTable,
   Tooltip,
@@ -44,14 +46,16 @@ import { formatMoney, formatTime, maskAddress } from './format';
 
 /* ================================================================== */
 /* 常量                                                                 */
-/* ================================================================== */
 const LBL = {
   eyebrow: 'LIQUIDITY',
   title: 'Liquidity Pools',
   entity: 'Pools',
   countUnit: 'pools',
+  /** 源 3a57bbd info alert 固定文案（管理侧配置与维护口径）。 */
+  readonlyAlert:
+    'Pools are configured and maintained on the admin side: a pool opens automatically once your token pair participation is approved, with the pool address configured per pair. Top-ups and pre-authorization remain LP operations in the currency system; this page is a periodically synced snapshot with no actions.',
   empty:
-    'No liquidity pools yet — pools are configured and maintained by the admin team',
+    'No pools yet — pools appear automatically once your token pair participation is approved',
   spenderNotConfigured: 'Not configured (cannot settle)',
   spenderTooltip:
     'Approve this pool wallet for this token to this address in the token system; otherwise settlement cannot use the authorized balance',
@@ -71,11 +75,12 @@ function Num({ children }: { children: React.ReactNode }) {
   return <span className="font-mono text-xs tabular-nums">{children}</span>;
 }
 
-/** 金额单元格：formatMoney + 右对齐（源「可用余额」列 align="right"）。 */
-function MoneyCell({ v }: { v: number | string }) {
+/** 金额单元格：金额可识别时追加对应 token symbol，并保持右对齐。 */
+function MoneyCell({ v, symbol }: { v: number | string; symbol?: string }) {
+  const amount = formatMoney(v);
   return (
     <span className="block text-right font-mono text-xs tabular-nums">
-      {formatMoney(v)}
+      {amount !== '-' && symbol ? `${amount} ${symbol}` : amount}
     </span>
   );
 }
@@ -193,6 +198,7 @@ export function PoolListPage() {
       {
         accessorKey: 'poolId',
         header: 'Pool ID',
+        meta: { maxWidth: 90 },
         cell: ({ row }) => <Num>{row.original.poolId}</Num>,
       },
       // 源列序 2：Token（f0d5b6f：tag 显 tokenSymbol||tokenNo，tokenCode 退役；
@@ -200,6 +206,7 @@ export function PoolListPage() {
       {
         accessorKey: 'tokenSymbol',
         header: 'Token',
+        meta: { overflow: 'wrap', maxWidth: 180 },
         cell: ({ row }) => (
           <div className="flex flex-col gap-0.5">
             <div className="flex flex-wrap items-center gap-1.5">
@@ -220,6 +227,7 @@ export function PoolListPage() {
       {
         accessorKey: 'poolAddress',
         header: 'Pool Address',
+        meta: { maxWidth: 220 },
         cell: ({ row }) => (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -239,18 +247,26 @@ export function PoolListPage() {
       {
         accessorKey: 'spenderAddress',
         header: 'Authorization Spender',
+        meta: { overflow: 'wrap', maxWidth: 240 },
         cell: ({ row }) => <AuthorizationSpenderCell row={row.original} />,
       },
       {
         accessorKey: 'availableBalanceCache',
         header: () => <div className="text-right">Available Balance</div>,
-        cell: ({ row }) => <MoneyCell v={row.original.availableBalanceCache} />,
+        meta: { overflow: 'none' },
+        cell: ({ row }) => (
+          <MoneyCell
+            v={row.original.availableBalanceCache}
+            symbol={row.original.tokenSymbol || row.original.tokenNo}
+          />
+        ),
       },
       // 源列序 5（v2.4 新增）：授权额度（preauthAuthAmount；null → '-'
       // 挂 tooltip「暂无预授权快照」——preauth 独立页退役后快照并入池列表）
       {
         accessorKey: 'preauthAuthAmount',
         header: () => <div className="text-right">Authorized Amount</div>,
+        meta: { overflow: 'none' },
         cell: ({ row }) =>
           row.original.preauthAuthAmount == null ? (
             <Tooltip>
@@ -260,7 +276,10 @@ export function PoolListPage() {
               <TooltipContent>No pre-authorization snapshot</TooltipContent>
             </Tooltip>
           ) : (
-            <MoneyCell v={row.original.preauthAuthAmount} />
+            <MoneyCell
+              v={row.original.preauthAuthAmount}
+              symbol={row.original.tokenSymbol || row.original.tokenNo}
+            />
           ),
       },
       // 源列序 6（v2.4 新增）：可用授权额度（null → '-'，无 tooltip）
@@ -269,11 +288,15 @@ export function PoolListPage() {
         header: () => (
           <div className="text-right">Available Authorization</div>
         ),
+        meta: { overflow: 'none' },
         cell: ({ row }) =>
           row.original.preauthAvailableAmount == null ? (
             <span>-</span>
           ) : (
-            <MoneyCell v={row.original.preauthAvailableAmount} />
+            <MoneyCell
+              v={row.original.preauthAvailableAmount}
+              symbol={row.original.tokenSymbol || row.original.tokenNo}
+            />
           ),
       },
       // 源列序 7：水位（level!=null → 进度条 + 百分比；null → '-'）
@@ -286,6 +309,7 @@ export function PoolListPage() {
       {
         accessorKey: 'balanceUpdateTime',
         header: 'Balance Data Time',
+        meta: { maxWidth: 220 },
         cell: ({ row }) => (
           <span className="tabular-nums text-xs">
             {row.original.balanceUpdateTime
@@ -304,6 +328,7 @@ export function PoolListPage() {
       {
         accessorKey: 'syncTime',
         header: 'Data Time',
+        meta: { maxWidth: 220 },
         cell: ({ row }) => (
           <span className="tabular-nums text-xs">
             {formatTime(row.original.syncTime)}
@@ -329,6 +354,12 @@ export function PoolListPage() {
           </div>
           <h1 className="text-xl font-semibold">{LBL.title}</h1>
         </div>
+
+        {/* 源 3a57bbd：表格上方 info alert 固定文案（只读快照口径） */}
+        <Alert variant="info">
+          <InfoIcon className="h-4 w-4" aria-hidden="true" />
+          <AlertTitle>{LBL.readonlyAlert}</AlertTitle>
+        </Alert>
 
         {/* §6.2 Table Panel：实体名 + 结果数 + 数据时间 + 页面级操作右置 */}
         <section className="rounded-lg border border-border/60 bg-card">

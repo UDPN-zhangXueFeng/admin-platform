@@ -181,6 +181,43 @@ function formatAmount(value: number | string | null | undefined): string {
   return dec === undefined ? grouped : `${grouped}.${dec}`;
 }
 
+/** 金额存在 token 上下文时追加 symbol；缺少 symbol 时不猜测币种。 */
+function formatTokenAmount(
+  value: number | string | null | undefined,
+  symbol?: string,
+): string {
+  const amount = formatAmount(value);
+  return symbol && amount !== '--' ? `${amount} ${symbol}` : amount;
+}
+
+function InlineInfoTooltip({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={label}
+            title={label}
+            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Info className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-sm text-xs leading-relaxed">
+          {children}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 /** label map → 筛选下拉选项（仅列源筛选项；对齐源各 index.vue 的 el-option 集合）。 */
 function statusFilterOptions(
   labelMap: Record<number, string>,
@@ -1078,14 +1115,16 @@ function PrecheckDialog({
                     {item.balance == null ? (
                       <Badge variant="destructive">Unreachable</Badge>
                     ) : (
-                      formatAmount(item.balance)
+                      formatTokenAmount(item.balance, item.tokenSymbol)
                     )}
                   </td>
                   <td className="px-2 py-2 text-right font-mono tabular-nums">
-                    {formatAmount(item.minRequired)}
+                    {formatTokenAmount(item.minRequired, item.tokenSymbol)}
                   </td>
                   <td className="px-2 py-2 text-right font-mono tabular-nums">
-                    {item.authRequired == null ? '-' : formatAmount(item.authRequired)}
+                    {item.authRequired == null
+                      ? '-'
+                      : formatTokenAmount(item.authRequired, item.tokenSymbol)}
                   </td>
                   <td className="px-2 py-2">
                     {item.pass ? (
@@ -1554,19 +1593,19 @@ export function LpInfoDetailPage() {
                       />
                     </td>
                     <td className="px-3 py-3 text-right font-mono tabular-nums">
-                      <div>{formatAmount(pair.sourceMinLiquidity)}</div>
-                      <div>{formatAmount(pair.targetMinLiquidity)}</div>
+                      <div>{formatTokenAmount(pair.sourceMinLiquidity, pair.sourceCurrency)}</div>
+                      <div>{formatTokenAmount(pair.targetMinLiquidity, pair.targetCurrency)}</div>
                     </td>
                     <td className="px-3 py-3 text-right font-mono tabular-nums">
                       <div>
                         {pair.sourceAuthRequired == null
                           ? '-'
-                          : formatAmount(pair.sourceAuthRequired)}
+                          : formatTokenAmount(pair.sourceAuthRequired, pair.sourceCurrency)}
                       </div>
                       <div>
                         {pair.targetAuthRequired == null
                           ? '-'
-                          : formatAmount(pair.targetAuthRequired)}
+                          : formatTokenAmount(pair.targetAuthRequired, pair.targetCurrency)}
                       </div>
                     </td>
                     <td className="px-3 py-3">
@@ -1684,16 +1723,15 @@ export function LpInfoDetailPage() {
                       />
                     </td>
                     <td className="px-3 py-3 text-right font-mono tabular-nums">
-                      {formatAmount(pool.availableBalanceCache)}
-                      {pool.tokenSymbol ? ` ${pool.tokenSymbol}` : ''}
+                      {formatTokenAmount(pool.availableBalanceCache, pool.tokenSymbol)}
                     </td>
                     <td className="px-3 py-3 text-right font-mono tabular-nums">
-                      {formatAmount(pool.requiredMinSum)}
+                      {formatTokenAmount(pool.requiredMinSum, pool.tokenSymbol)}
                     </td>
                     <td className="px-3 py-3 text-right font-mono tabular-nums">
                       {pool.requiredAuthSum == null
                         ? '-'
-                        : formatAmount(pool.requiredAuthSum)}
+                        : formatTokenAmount(pool.requiredAuthSum, pool.tokenSymbol)}
                     </td>
                     <td className="px-3 py-3 tabular-nums">
                       {formatDateTime(pool.balanceUpdateTime)}
@@ -2162,15 +2200,17 @@ export function LpTokenPairListPage() {
     ColumnDef<LpPairTableRow>[]
   >(
     () => [
-      { accessorKey: 'lpName', header: 'LP Name' },
+      { accessorKey: 'lpName', header: 'LP Name', meta: { maxWidth: 180 } },
       {
         id: 'tokenPair',
         header: 'Token Pair',
+        meta: { overflow: 'wrap', maxWidth: 180 },
         cell: ({ row }) => <LpPairCell row={row.original} />,
       },
       {
         accessorKey: 'baseRate',
         header: 'Base Rate',
+        meta: { overflow: 'none' },
         cell: ({ row }) => {
           const raw = row.original.baseRate;
           const n = raw == null || raw === '' ? Number.NaN : Number(raw);
@@ -2184,6 +2224,7 @@ export function LpTokenPairListPage() {
       {
         accessorKey: 'markupRate',
         header: 'Markup Rate',
+        meta: { overflow: 'none' },
         cell: ({ row }) => {
           const n =
             row.original.markupRate == null ? 0 : Number(row.original.markupRate);
@@ -2198,6 +2239,7 @@ export function LpTokenPairListPage() {
         id: 'userRate',
         header: 'User Rate',
         enableSorting: false,
+        meta: { overflow: 'none' },
         cell: ({ row }) => (
           <span className="block text-right font-mono tabular-nums">
             {lpPairUserRateText(row.original)}
@@ -2207,6 +2249,7 @@ export function LpTokenPairListPage() {
       {
         accessorKey: 'splitRatio',
         header: 'LP Split',
+        meta: { overflow: 'none' },
         cell: ({ row }) => {
           const own = Number(row.original.splitRatio);
           return (
@@ -2295,21 +2338,16 @@ export function LpTokenPairListPage() {
 
   return (
     <div className="space-y-4">
-      <Alert>
-        <Info className="mt-0.5 h-4 w-4 shrink-0" />
-          <AlertTitle>Administration-managed participation</AlertTitle>
-          <AlertDescription>
-          New participation and pool parameter changes are initiated by the
-          administration side through the approval workflow. This page displays
-          real participation data and keeps the existing split/status operations.
-          </AlertDescription>
-      </Alert>
-
       <section className="rounded-lg border border-border/60 bg-card">
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-            <div className="text-base font-semibold leading-6 text-foreground">
-              LP Participations
+            <div className="flex min-w-0 flex-wrap items-center gap-2 text-base font-semibold leading-6 text-foreground">
+              <span>LP Participations</span>
+              <InlineInfoTooltip label="Administration-managed participation">
+                New participation and pool parameter changes are initiated by the
+                administration side through the approval workflow. This page displays
+                real participation data and keeps the existing split/status operations.
+              </InlineInfoTooltip>
             </div>
             {!isLoading && pagination ? (
               <span className="text-sm text-muted-foreground tabular-nums">
@@ -2495,18 +2533,17 @@ function WaterLevelCell({ row }: { row: LpPoolRow }) {
         </TooltipTrigger>
         <TooltipContent className="space-y-1 text-xs">
           <div>
-            Available balance {formatAmount(balanceRaw)}
-            {symbol ? ` ${symbol}` : ''} · Available auth{' '}
+            Available balance {formatTokenAmount(balanceRaw, symbol)} · Available auth{' '}
           </div>
           <div>
-            Effective level min(auth, balance) {formatAmount(numerator)} ÷ Σ min
-            liquidity (referencing pairs) {formatAmount(row.requiredMinSum)}
+            Effective level min(auth, balance) {formatTokenAmount(numerator, symbol)} ÷ Σ min
+            liquidity (referencing pairs) {formatTokenAmount(row.requiredMinSum, symbol)}
           </div>
           <div>
             Σ auth threshold{' '}
             {row.requiredAuthSum == null
               ? '-'
-              : formatAmount(row.requiredAuthSum)}
+              : formatTokenAmount(row.requiredAuthSum, symbol)}
           </div>
           <div>
             = {percent}
@@ -2555,10 +2592,11 @@ export function LpPoolListPage() {
     ColumnDef<LpPoolRow & { id: string }>[]
   >(
     () => [
-      { accessorKey: 'lpName', header: 'LP Name' },
+      { accessorKey: 'lpName', header: 'LP Name', meta: { maxWidth: 180 } },
       {
         id: 'token',
         header: 'Token',
+        meta: { overflow: 'wrap', maxWidth: 160 },
         cell: ({ row }) => (
           <div className="space-y-0.5">
             <TooltipProvider>
@@ -2582,6 +2620,7 @@ export function LpPoolListPage() {
       {
         accessorKey: 'accountAddress',
         header: 'Pool Address',
+        meta: { overflow: 'wrap', maxWidth: 220 },
         cell: ({ row }) => (
           <div className="flex items-center gap-1.5 font-mono text-xs">
             <span className="break-all">{row.original.accountAddress || '--'}</span>
@@ -2591,10 +2630,10 @@ export function LpPoolListPage() {
       {
         accessorKey: 'availableBalanceCache',
         header: 'Available Balance',
+        meta: { overflow: 'none' },
         cell: ({ row }) => (
           <span className="block text-right font-mono tabular-nums">
-            {formatAmount(row.original.availableBalanceCache)}
-            {row.original.tokenSymbol ? ` ${row.original.tokenSymbol}` : ''}
+            {formatTokenAmount(row.original.availableBalanceCache, row.original.tokenSymbol || row.original.tokenNo)}
           </span>
         ),
       },
@@ -2602,19 +2641,20 @@ export function LpPoolListPage() {
         id: 'waterLevel',
         header: 'Water Level',
         enableSorting: false,
+        meta: { overflow: 'none' },
         cell: ({ row }) => <WaterLevelCell row={row.original} />,
       },
       {
         id: 'authAmount',
         header: 'Pre-authorized Amount',
         enableSorting: false,
+        meta: { overflow: 'none' },
         cell: ({ row }) =>
           row.original.authAmount == null ? (
             <Badge variant="secondary">Not Set</Badge>
           ) : (
             <span className="block text-right font-mono tabular-nums">
-              {formatAmount(row.original.authAmount)}
-              {row.original.tokenSymbol ? ` ${row.original.tokenSymbol}` : ''}
+              {formatTokenAmount(row.original.authAmount, row.original.tokenSymbol || row.original.tokenNo)}
             </span>
           ),
       },
@@ -2622,6 +2662,7 @@ export function LpPoolListPage() {
         id: 'preauthAvailable',
         header: 'Available Pre-authorization',
         enableSorting: false,
+        meta: { overflow: 'none' },
         cell: ({ row }) => {
           const n = Number(row.original.preauthAvailable);
           return (
@@ -2632,8 +2673,7 @@ export function LpPoolListPage() {
                   : ''
               }`}
             >
-              {formatAmount(row.original.preauthAvailable)}
-              {row.original.tokenSymbol ? ` ${row.original.tokenSymbol}` : ''}
+              {formatTokenAmount(row.original.preauthAvailable, row.original.tokenSymbol || row.original.tokenNo)}
             </span>
           );
         },
@@ -2642,6 +2682,7 @@ export function LpPoolListPage() {
         id: 'snapshotTime',
         header: 'Updated On',
         enableSorting: false,
+        meta: { maxWidth: 220 },
         cell: ({ row }) => (
           <span className="text-xs tabular-nums">
             {formatDateTime(row.original.balanceUpdateTime)}
@@ -2651,6 +2692,7 @@ export function LpPoolListPage() {
       {
         accessorKey: 'status',
         header: 'Status',
+        meta: { overflow: 'none' },
         cell: ({ row }) => (
           <StatusBadge
             status={row.original.status}
@@ -2671,23 +2713,18 @@ export function LpPoolListPage() {
 
   return (
     <div className="space-y-4">
-      <Alert>
-        <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <AlertTitle>Read only</AlertTitle>
-        <AlertDescription>
-          Pool addresses are registered on the LP onboarding form or the LP detail
-          page when configuring token pairs; the dedicated payout-pool concept has
-          been retired — matching and payout locate the address on the opposite
-          side of the pair a transaction belongs to. The data below is a read-only
-          snapshot refreshed periodically from the bank Gateway.
-        </AlertDescription>
-      </Alert>
-
       <section className="rounded-lg border border-border/60 bg-card">
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-            <div className="text-base font-semibold leading-6 text-foreground">
-              LP Pools
+            <div className="flex min-w-0 flex-wrap items-center gap-2 text-base font-semibold leading-6 text-foreground">
+              <span>LP Pools</span>
+              <InlineInfoTooltip label="Read-only LP pool snapshot">
+                Pool addresses are registered on the LP onboarding form or the LP detail
+                page when configuring token pairs; the dedicated payout-pool concept has
+                been retired — matching and payout locate the address on the opposite
+                side of the pair a transaction belongs to. The data below is a read-only
+                snapshot refreshed periodically from the bank Gateway.
+              </InlineInfoTooltip>
             </div>
             {!isLoading && pagination ? (
               <span className="text-sm text-muted-foreground tabular-nums">

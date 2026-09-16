@@ -135,7 +135,17 @@ function formatMoney(v: number | string): string {
   return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
 }
 
-/** 毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`。 */
+/** 金额存在 token 上下文时追加 symbol；缺失元数据时保留原有金额兜底。 */
+function formatTokenAmount(
+  value: number | string | null | undefined,
+  symbol?: string,
+): string {
+  if (value == null) return '-';
+  const amount = formatMoney(value);
+  return symbol ? `${amount} ${symbol}` : amount;
+}
+
+/** 毫秒时间戳 → shared 管理台日期时间格式，并附查看者本地时区。 */
 function formatTime(ms: number | null | undefined): string {
   if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '-';
   const d = new Date(Number(ms));
@@ -160,7 +170,7 @@ function formatAddress(address: string | undefined): string {
     : address;
 }
 
-/** 今日 0 点毫秒（与对账页 dayStart 口径一致，运营环境 GMT+8）。 */
+/** 今日 0 点毫秒（与对账页 dayStart 口径一致，按运行环境本地日历计算）。 */
 function dayStartMs(): number {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -486,13 +496,15 @@ function NetworkStat({
   name,
   count,
   hint,
+  onClick,
 }: {
   name: string;
   count: number | null;
   hint: string;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-b-0">
+  const content = (
+    <>
       <div className="min-w-0 flex-1 font-semibold">
         {name}
         <span className="mt-px block truncate text-xs font-medium text-muted-foreground">
@@ -505,7 +517,21 @@ function NetworkStat({
           active
         </span>
       </div>
-    </div>
+    </>
+  );
+
+  const className = cn(
+    'flex w-full items-center justify-between gap-3 border-b border-border py-3 text-left last:border-b-0',
+    onClick &&
+      'cursor-pointer transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+  );
+
+  return onClick ? (
+    <button type="button" className={className} onClick={onClick}>
+      {content}
+    </button>
+  ) : (
+    <div className={className}>{content}</div>
   );
 }
 
@@ -555,8 +581,8 @@ function PoolLevel({ pool }: { pool: WorkbenchPoolRow }) {
       <TooltipContent className="text-xs">
         {hasCalculation ? (
           <div>
-            {formatMoney(numerator.toFixed(2))} ÷ Σ min liquidity (referencing
-            pairs) {formatMoney(requiredMinSum.toFixed(2))} = {percentage}%
+            {formatTokenAmount(numerator.toFixed(2), pool.tokenSymbol)} ÷ Σ min liquidity
+            (referencing pairs) {formatTokenAmount(requiredMinSum.toFixed(2), pool.tokenSymbol)} = {percentage}%
           </div>
         ) : (
           <div>Pool level unavailable</div>
@@ -600,7 +626,7 @@ function PoolOverview({
         />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse">
+          <table className="w-full min-w-[900px] table-fixed border-collapse">
             <thead>
               <tr>
                 {[
@@ -615,7 +641,12 @@ function PoolOverview({
                     key={heading}
                     className={cn(
                       'whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground',
-                      (index === 2 || index === 4) && 'text-right',
+                      index === 0 && 'w-[150px]',
+                      index === 1 && 'w-[180px]',
+                      index === 2 && 'w-[155px] text-right',
+                      index === 3 && 'w-[100px]',
+                      index === 4 && 'w-[160px] text-right',
+                      index === 5 && 'w-[130px]',
                     )}
                   >
                     {heading === 'Pool Level' ? (
@@ -668,14 +699,13 @@ function PoolOverview({
                     <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
                       {pool.preauthAvailable == null
                         ? '-'
-                        : formatMoney(pool.preauthAvailable)}
+                        : formatTokenAmount(pool.preauthAvailable, pool.tokenSymbol)}
                     </td>
                     <td className="border-b border-border px-3 py-2.5 text-sm font-semibold">
                       {tokenNames.get(pool.tokenId) || pool.tokenCode || '-'}
                     </td>
                     <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
-                      {formatMoney(pool.availableBalanceCache)}
-                      {pool.tokenSymbol ? ` ${pool.tokenSymbol}` : null}
+                      {formatTokenAmount(pool.availableBalanceCache, pool.tokenSymbol)}
                     </td>
                     <td className="border-b border-border px-3 py-2.5">
                       <PoolLevel pool={pool} />
@@ -1005,8 +1035,7 @@ export function DashboardPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">
-              Updated {latestUpdatedAt ? formatTime(latestUpdatedAt) : '-'}{' '}
-              (UTC+8)
+              Updated {latestUpdatedAt ? formatTime(latestUpdatedAt) : '-'}
             </span>
             <Button
               variant="outline"
@@ -1099,7 +1128,7 @@ export function DashboardPage() {
                         {volume.ccy}
                       </span>
                       <span>
-                        {formatMoney(Number(volume.total.toFixed(2)))}
+                        {formatTokenAmount(Number(volume.total.toFixed(2)), volume.ccy)}
                       </span>
                     </div>
                   ))}
@@ -1133,7 +1162,7 @@ export function DashboardPage() {
               />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[820px] border-collapse">
+                <table className="w-full min-w-[980px] table-fixed border-collapse">
                   <thead>
                     <tr>
                     {[
@@ -1149,8 +1178,12 @@ export function DashboardPage() {
                         key={heading}
                         className={cn(
                           'whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground first:pl-0 last:pr-0',
-                          index === 4 && 'w-[155px]',
-                          index === 5 && 'w-[72px]',
+                          index === 0 && 'w-[180px]',
+                          index === 1 && 'w-[150px]',
+                          index === 2 && 'w-[130px] text-right',
+                          index === 3 && 'w-[110px]',
+                          index === 4 && 'w-[165px]',
+                          index === 5 && 'w-[80px] text-right',
                           index === 6 && 'w-[64px]',
                         )}
                       >
@@ -1190,8 +1223,8 @@ export function DashboardPage() {
                           <td className="border-b border-border px-3 py-3 text-sm">
                             {pairText(row)}
                           </td>
-                          <td className="border-b border-border px-3 py-3 text-sm tabular-nums">
-                            {formatMoney(row.principal)}
+                          <td className="border-b border-border px-3 py-3 text-right text-sm tabular-nums">
+                            {formatTokenAmount(row.principal, row.sourceCurrency)}
                           </td>
                           <td className="border-b border-border px-3 py-3">
                             <div className="flex flex-col items-start gap-1">
@@ -1269,6 +1302,7 @@ export function DashboardPage() {
               name="Token Pairs"
               count={networkCounts.tokenPairs}
               hint="Supported pairs"
+              onClick={() => router.push('/fx-rate/pair')}
             />
           </Card>
         </section>

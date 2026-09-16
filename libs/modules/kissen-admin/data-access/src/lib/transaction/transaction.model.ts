@@ -199,7 +199,11 @@ export interface TxLpOption {
 export interface TxPairOption {
   pairId: number;
   sourceTokenCode: string;
+  /** Symbol abbreviation for display; falls back to sourceTokenCode when absent. */
+  sourceSymbol?: string;
   targetTokenCode: string;
+  /** Symbol abbreviation for display; falls back to targetTokenCode when absent. */
+  targetSymbol?: string;
 }
 
 /** 银行下拉选项投影（源 `bankList`）。 */

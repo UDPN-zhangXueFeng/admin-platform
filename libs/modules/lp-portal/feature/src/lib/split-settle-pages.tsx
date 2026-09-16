@@ -4,15 +4,17 @@
  * 分成与结算合并页（v2.4 6c49396，源 `src/views/split-settle/index.vue`；
  * 取代原「我的分成」split 页与「结算」settle 页两页）。
  *
- * 行为契约（doc 01 §D8b）：
+ * 行为契约（doc 01 §D8b；2026-09-11 3a57bbd 决议⑦）：
  * - 两张主卡纵向：卡1 当前生效比例（pair 域数据）/ 卡2 结算单
- *   （settle/orders）。分成明细只在卡1 Token Pair 行的 Details 抽屉内按需查询，
- *   首屏不请求 `/split/detail`。
+ *   （settle/orders）。分成明细独立区块已下线——明细只在卡1 Token Pair
+ *   行的 Details 抽屉内按需查询（时间筛选与汇总在抽屉内），首屏不请求
+ *   /split/detail。
  * - 卡1 domain=['pair','rate'] 刷比例与汇率；卡2 domain='settle_order' 只刷
  *   结算单（01 §E6 域映射陷阱）。
  * - pairInfo(pairCode)：从卡1 rows 查双侧 token（抽屉分项与流水行的 Token
  *   对展示）；查不到回退纯 pairCode 文本。
- * - 抽屉明细响应不走 ResultData 包装（split 域 api 层注释详述）。
+ * - 抽屉明细响应不走 ResultData 包装（split 域 api 层注释详述）；汇总行
+ *   共 N 笔 · 加价合计 · 我的分成合计 随分页响应 summary 下发。
  * - 结算单层**跨币种金额不可加总**（01 §E29）：列表只展示 currencies 集合，
  *   金额合计仅出现在抽屉 token 对分项；抽屉「本单周期内」流水来自独立端点
  *   /settle/order-records（按 orderId 拉取，失败静默——拦截器已提示）。
@@ -38,6 +40,7 @@ import {
   TooltipTrigger,
 } from '@myorg/shared/ui';
 import {
+  FormField,
   FormSelect,
   type SelectOption,
 } from '@myorg/shared/ui-forms';
@@ -81,13 +84,15 @@ const LBL = {
   query: 'Search',
   reset: 'Reset',
   emptyRatios: 'Not participating in any token pairs yet',
-  emptyDetail: 'No split records for this token pair',
-  emptyOrders: 'No settlement orders for the current filters',
   breakdown: 'Details',
+  detailFrom: 'Completed From',
+  detailTo: 'Completed To',
   drawerTitle: 'Settlement Order Details',
   drawerHint:
     'Amount totals are shown per token-pair item (amounts in different currencies cannot be summed)',
   itemsSection: 'Token-pair Items',
+  emptyDetail: 'No split records for this token pair',
+  emptyOrders: 'No settlement orders for the current filters',
   recordsSection: 'Settlement Records (within this order period)',
   emptyItems: 'No item data',
   emptyRecords: 'No records within this order period',
@@ -102,10 +107,18 @@ interface OrdersFilterForm {
   status: string;
 }
 
-const EMPTY_ORDERS_FILTER: OrdersFilterForm = {
-  periodType: ALL,
-  status: ALL,
-};
+const EMPTY_ORDERS_FILTER: OrdersFilterForm = { periodType: ALL, status: ALL };
+
+/**
+ * 抽屉时间筛选（3a57bbd 决议⑦）：datetime-local 字符串，提交时转毫秒
+ *（源 value-format='x' 等价，tx-flow 同款约定）。
+ */
+interface DetailTimeForm {
+  startTime: string;
+  endTime: string;
+}
+
+const EMPTY_DETAIL_TIME: DetailTimeForm = { startTime: '', endTime: '' };
 
 interface OrdersParams {
   pageNum: number;
@@ -282,22 +295,31 @@ export function SplitSettlePage() {
     [pairInfo, bankOf, symOf],
   );
 
-  // ===== Token Pair 行内分成明细抽屉（按需查询） =====
+  // ===== Token Pair 行内分成明细抽屉（按需查询；3a57bbd：时间筛选与汇总收进抽屉） =====
   const [detailPage, setDetailPage] = React.useState(1);
   const [drawerPairCode, setDrawerPairCode] = React.useState<string | null>(
     null,
   );
+  /** 已提交时间窗（毫秒）；开抽屉/重置清空（源 openPairDetail 置 null）。 */
+  const [detailTime, setDetailTime] = React.useState<{
+    startTime?: number;
+    endTime?: number;
+  }>({});
+  const detailForm = useForm<DetailTimeForm>({
+    defaultValues: EMPTY_DETAIL_TIME,
+  });
   const detailQuery = useSplitDetailQuery(
     PROJECT_ID,
     {
       pageNum: detailPage,
       pageSize: PAGE_SIZE,
-      filter: { pairCode: drawerPairCode ?? undefined },
+      filter: { pairCode: drawerPairCode ?? undefined, ...detailTime },
     },
     drawerPairCode !== null,
   );
   const detailRows = detailQuery.data?.rows ?? [];
   const detailTotal = detailQuery.data?.total ?? 0;
+  const detailSummary = detailQuery.data?.summary;
 
   // ===== 卡3 结算单分页 =====
   const ordersForm = useForm<OrdersFilterForm>({
@@ -431,15 +453,19 @@ export function SplitSettlePage() {
         id: 'details',
         header: 'Details',
         enableSorting: false,
+        // 3a57bbd：openPairDetail 无码行回退 String(pairId) 亦可开（源同款）
         cell: ({ row }) => (
           <Button
             variant="link"
             size="sm"
             className="h-auto p-0"
-            disabled={!row.original.pairCode}
             onClick={() => {
+              detailForm.reset(EMPTY_DETAIL_TIME);
+              setDetailTime({});
               setDetailPage(1);
-              setDrawerPairCode(row.original.pairCode ?? null);
+              setDrawerPairCode(
+                row.original.pairCode || String(row.original.pairId),
+              );
             }}
           >
             Details
@@ -659,6 +685,57 @@ export function SplitSettlePage() {
             </DrawerTitle>
           </DrawerHeader>
           <div className="flex-1 overflow-y-auto p-6">
+            {/* 3a57bbd 决议⑦：完成时间筛选收进抽屉（源 datetimerange 等价件） */}
+            <form
+              onSubmit={detailForm.handleSubmit((f) => {
+                setDetailPage(1);
+                setDetailTime({
+                  startTime: f.startTime
+                    ? new Date(f.startTime).getTime()
+                    : undefined,
+                  endTime: f.endTime ? new Date(f.endTime).getTime() : undefined,
+                });
+              })}
+              className="flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap"
+            >
+              <FormField
+                name="detailStartTime"
+                label={LBL.detailFrom}
+                type="datetime-local"
+                register={detailForm.register('startTime')}
+              />
+              <FormField
+                name="detailEndTime"
+                label={LBL.detailTo}
+                type="datetime-local"
+                register={detailForm.register('endTime')}
+              />
+              <div className="flex gap-2">
+                <Button type="submit" size="sm">
+                  {LBL.query}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    detailForm.reset(EMPTY_DETAIL_TIME);
+                    setDetailTime({});
+                    setDetailPage(1);
+                  }}
+                >
+                  {LBL.reset}
+                </Button>
+              </div>
+            </form>
+            {/* 源汇总行：共 N 笔 · 加价合计 · 我的分成合计（随分页响应下发） */}
+            {detailSummary && (
+              <div className="my-3 text-sm text-muted-foreground">
+                {detailTotal} records · Markup total{' '}
+                {formatMoney(detailSummary.markupTotal)} · My split total{' '}
+                {formatMoney(detailSummary.lpSplitTotal)}
+              </div>
+            )}
             <DataTable
               columns={detailColumns}
               data={detailTableData}

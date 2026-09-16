@@ -3,9 +3,6 @@
  */
 export const pairKeys = {
   all: (projectId: string) => ['project', projectId, 'pair'] as const,
-  /** POST /lp/pair/list 我的 token 对（Mine tab）。 */
+  /** POST /lp/pair/list 我的 token 对（单视图）。 */
   list: (projectId: string) => [...pairKeys.all(projectId), 'list'] as const,
-  /** POST /lp/pair/eligible 存量可申请查询（页面入口已下线）。 */
-  eligible: (projectId: string) =>
-    [...pairKeys.all(projectId), 'eligible'] as const,
 } as const;

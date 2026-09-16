@@ -1,15 +1,16 @@
 'use client';
 
 /**
- * LP Token 对参与域 read-query hooks（源双 tab 各自独立 load 等价）。
+ * LP Token 对参与域 read-query hooks（源单视图独立 load 等价）。
  *
  * Mine 列表由单一真实查询提供。参与对新增和变更由管理侧发起审批，Portal
- * 不再加载或提交 Eligible/Apply 数据。
+ * 不再加载或提交 Eligible/Apply 数据（3a57bbd 决议⑤，usePairEligibleQuery
+ * 已剪除）。
  */
 import { useQuery } from '@tanstack/react-query';
 
 import { isServiceDown } from '../lp-client';
-import { getPairEligible, getPairList } from './pair.api';
+import { getPairList } from './pair.api';
 import { pairKeys } from './pair.keys';
 
 /**
@@ -24,15 +25,6 @@ export function usePairListQuery(projectId: string) {
   return useQuery({
     queryKey: pairKeys.list(projectId),
     queryFn: ({ signal }) => getPairList({ signal }),
-    retry: retryNotServiceDown,
-  });
-}
-
-/** 存量可申请查询（页面入口已下线，供兼容审批闭环使用）。 */
-export function usePairEligibleQuery(projectId: string) {
-  return useQuery({
-    queryKey: pairKeys.eligible(projectId),
-    queryFn: ({ signal }) => getPairEligible({ signal }),
     retry: retryNotServiceDown,
   });
 }

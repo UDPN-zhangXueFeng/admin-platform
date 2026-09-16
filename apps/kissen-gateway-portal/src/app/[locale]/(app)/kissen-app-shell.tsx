@@ -360,7 +360,7 @@ export function KissenAppShell({
       }}
       logo={
         <LogoMark
-          className="h-10 w-auto shrink-0"
+          className="h-10 w-[min(420px,calc(100vw-10rem))] max-w-full min-w-0"
           productName={brand.headerName}
         />
       }

@@ -1,31 +1,17 @@
 /**
- * LP Token 对参与域 raw API 层（源 `src/api/pair.ts` 1:1，FR-LW-04）。
+ * LP Token 对参与域 raw API 层（源 `src/api/pair.ts`，FR-LW-04）。
  *
- * 本地副本查询 + 实时申请三端点；路径经 lp-client baseURL 拼 /lp 前缀。
- * lpId 由后端登录态注入，前端不传。v1 聚合接口 POST /pair-pool/list 随
- * pair-pool 聚合页废弃，不再保留 api 函数（禁臆造，反向亦不留死端点）。
+ * 本地副本查询端点；路径经 lp-client baseURL 拼 /lp 前缀。lpId 由后端登录态
+ * 注入，前端不传。v1 聚合接口 POST /pair-pool/list 随 pair-pool 聚合页废弃
+ * 剪除；2026-09-11 3a57bbd「可申请」视图与申请入口下线（方案 v1.4 决议⑤），
+ * /pair/eligible 与 /pair/apply 端点后端保留但门户无调用方，api 定义已剪除。
  */
 import type { AxiosRequestConfig } from 'axios';
 
 import { lpRequest } from '../lp-client';
-import type { EligiblePairRow, PairRow } from './pair.model';
+import type { PairRow } from './pair.model';
 
 /** 我的 token 对列表（状态 + 生效分成比例；不分页全量，body {}）。 */
 export function getPairList(config?: AxiosRequestConfig): Promise<PairRow[]> {
   return lpRequest.post<PairRow[]>('/pair/list', {}, config);
-}
-
-/** 可申请视图（存量 KLP 审批兼容接口；页面入口已下线）。 */
-export function getPairEligible(
-  config?: AxiosRequestConfig,
-): Promise<EligiblePairRow[]> {
-  return lpRequest.post<EligiblePairRow[]>('/pair/eligible', {}, config);
-}
-
-/** Token 对参与申请（存量 KLP 审批兼容接口；Portal 页面不再调用）。 */
-export function postPairApply(
-  pairId: number,
-  config?: AxiosRequestConfig,
-): Promise<{ id: number }> {
-  return lpRequest.post<{ id: number }>('/pair/apply', { pairId }, config);
 }
