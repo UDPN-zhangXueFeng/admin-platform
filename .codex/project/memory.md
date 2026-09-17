@@ -1,5 +1,12 @@
 # Codex 对话沉淀
 
+## 2026-09-17 Kissen 三门户 Jenkins 流水线
+
+- 服务器 `10.0.7.20` 的 Jenkins 容器为 `jenkins_gtnc-jenkins_GtNc-1`，Web 端口 `14808`；已有 job `kissen-admin`、`lp-portal`、`kissen-gateway-portal`，本次原地更新其 inline Pipeline，未重复创建。
+- 三条流水线均从 GitLab `http://10.0.6.203:8088/udpn-kissen/source-code/admin-platform.git` checkout，credential id 为 `zxfGitlab`，默认分支为 `feat/kissen`；应用代码以 GitLab 为准，不再引用 GitHub。
+- 固定部署映射：kissen-admin→6242、LP→6243、kissen-gateway-portal→6244；默认后端分别为 `87:9000`、`87:8090`、`85:8080`。Admin/LP 保留 API 前缀代理，Gateway 的 `/kissen-api/` 代理剥离前缀。
+- Jenkins job 原配置备份在各自 `config.xml.20260917-pre-gitlab-kissen`；本次只重载 Jenkins，未触发三门户实际构建或容器切换。
+
 ## 2026-09-11（同日三次）三门户重部署（统一 main-0919）
 
 - 内容：`shared/ui` data-table sticky 操作列 hover 背景 `group-hover:bg-muted/50`→`group-hover:bg-muted`（+spec 断言 26 行）；admin 登录页重构随 rsync 补齐到 lp/gateway 副本。门禁：三应用本地 build 113.7s + `nx test shared-ui` 绿。rsync 零删除；三构建串行 197.7s 全 DEPLOY_DONE。
