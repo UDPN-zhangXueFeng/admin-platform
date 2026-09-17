@@ -1,11 +1,17 @@
 # Codex 对话沉淀
 
+## 2026-09-17 Jenkins 节点兼容性修复
+
+- 背景：Jenkins 节点使用 Docker 26.1.3，但没有 `docker buildx` 子命令；流水线将 `docker buildx version` 作为强制检查，导致 Kissen Admin 在镜像构建前失败。失败通知同时因卡片 JSON 使用 `{{...}}` 返回 HTTP 400。
+- 结论：`docker buildx` 检查改为可选能力探测，缺失时继续使用 `docker-compose` 内置 builder；飞书卡片改为合法单大括号 JSON，并使用 `curl --fail-with-body` 暴露 HTTP 错误。
+- 后续同类任务：Jenkins 工具检查不能把非必需的 buildx 作为硬依赖；通知渠道要同时校验 HTTP 状态和实际 JSON，不要仅依据 curl 进程退出码判断发送成功。
+
 ## 2026-09-17 多应用 Jenkinsfile 参数化
 
 - 背景：根目录 Jenkinsfile 原先只部署 `apps/admin`，分支虽可选但 checkout 指向 GitHub，端口固定为 6241。
-- 结论：统一流水线的可部署项目为 `admin`、`kissen-admin`、`kissen-gateway-portal`、`lp-portal`；`admin-e2e` 是测试工程，不进入生产部署选择。项目映射为 admin→6241、kissen-admin→6242、lp-portal→6243、kissen-gateway-portal→6244。checkout 改用 GitLab `http://10.0.6.203:8088/udpn-kissen/source-code/admin-platform`，凭据 id 为 `zxfGitlab`。
-- 影响：`Jenkinsfile` 通过 `APP_PROJECT`、`NGINX_PORT`、`APP_DOCKERFILE`、`NGINX_CONTEXT` 参数化统一部署；`docker-compose.yml` 支持按变量选择 apps Dockerfile 和 nginx context；新增 `nginx-gateway/`、`nginx-lp/` 以覆盖 Gateway 的 `/kissen-api/` 去前缀代理和 LP 的 `/lp/` 保留前缀代理。
-- 后续同类任务：端口下拉当前只登记已确认的四个业务端口，新增部署环境/端口时要同时修改 Jenkinsfile 的 choice、`getAppConfig.allowedPorts` 和端口占用/环境信息逻辑；若需要真正随项目联动过滤端口，应引入并确认 Jenkins Active Choices 插件，而不是在 Declarative Pipeline 中伪造动态 choice。
+- 结论：统一流水线的可部署项目为 `admin`、`kissen-admin`、`kissen-gateway-portal`、`lp-portal`；`admin-e2e` 是测试工程，不进入生产部署选择。项目选择会自动绑定后端和端口：admin→`10.0.48.123:30001`/`6241`、kissen-admin→`10.0.7.87:9000`/`6242`、lp-portal→`10.0.7.87:8090`/`6243`、kissen-gateway-portal→`10.0.7.87:8080`/`6244`。checkout 改用 GitLab `http://10.0.6.203:8088/udpn-kissen/source-code/admin-platform`，凭据 id 为 `zxfGitlab`。
+- 影响：`Jenkinsfile` 仅保留 `APP_PROJECT` 作为应用选择，后端和端口从 `getAppConfig` 固定映射注入；`docker-compose.yml` 支持按变量选择 apps Dockerfile 和 nginx context；新增 `nginx-gateway/`、`nginx-lp/` 以覆盖 Gateway 的 `/kissen-api/` 去前缀代理和 LP 的 `/lp/` 保留前缀代理。
+- 后续同类任务：新增部署环境或调整项目后端/端口时，只修改 Jenkinsfile 的 `getAppConfig` 映射和应用选择说明，避免恢复独立的端口/后端手工参数，防止组合出错误配置。
 
 ## 2026-09-17 Kissen 三门户 Jenkins 流水线
 

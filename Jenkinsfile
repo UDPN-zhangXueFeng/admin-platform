@@ -29,37 +29,19 @@ pipeline {
                 'kissen-gateway-portal',
                 'lp-portal'
             ],
-            description: '选择 apps 下要构建和部署的应用（admin-e2e 为测试工程，不参与部署）'
+            description: '选择 apps 下要构建和部署的应用；后端和端口自动绑定：admin→10.0.48.123:30001/6241；kissen-admin→10.0.7.87:9000/6242；lp-portal→10.0.7.87:8090/6243；gateway→10.0.7.87:8080/6244（admin-e2e 不参与部署）'
         )
 
         choice(
             name: 'ENV_NAME',
             choices: ['main'],
-            description: '部署环境名称；同一应用需要多套环境时，在此追加名称并同步端口登记'
-        )
-
-        choice(
-            name: 'NGINX_PORT',
-            choices: ['6241', '6242', '6243', '6244'],
-            description: '选择宿主机端口：admin → 6241；kissen-admin → 6242；lp-portal → 6243；kissen-gateway-portal → 6244'
+            description: '部署环境名称；新增环境时需同步维护 getAppConfig 中对应的后端和端口映射'
         )
 
         string(
             name: 'SERVER_HOST',
             defaultValue: '10.0.7.20',
             description: '对外访问的服务器地址（用于生成访问链接）'
-        )
-
-        choice(
-            name: 'NEXT_SERVICE_SERVER_URL',
-            choices: [
-                'http://10.0.48.120:30001',
-                'http://10.0.48.123:30001',
-                'http://10.0.7.87:9000',
-                'http://10.0.7.87:8090',
-                'http://10.0.7.85:8080'
-            ],
-            description: '后端 API 地址（注入到 nginx；admin/kissen-admin/LP/Gateway 分别使用 /aps、/v1、/lp、/kissen-api 前缀）'
         )
 
         booleanParam(name: 'CLEAN_IMAGES', defaultValue: false, description: '是否在部署成功后清理未使用的 Docker 镜像（默认关闭以保留构建缓存）')
@@ -95,8 +77,9 @@ pipeline {
                     env.NX_PROJECT_ID = appConfig.projectId
                     env.NEXT_PUBLIC_API_BASE_URL = appConfig.apiBaseUrl
                     env.NEXT_PUBLIC_KISSEN_API_BASE_URL = appConfig.kissenApiBaseUrl
-                    env.NGINX_PORT = params.NGINX_PORT ?: appConfig.defaultPort
-                    echo "📦 应用 [${appConfig.displayName}]，环境 [${params.ENV_NAME}]，端口 [${env.NGINX_PORT}]"
+                    env.NGINX_PORT = appConfig.port
+                    env.NEXT_SERVICE_SERVER_URL = appConfig.backendUrl
+                    echo "📦 应用 [${appConfig.displayName}]，环境 [${params.ENV_NAME}]，后端 [${env.NEXT_SERVICE_SERVER_URL}]，端口 [${env.NGINX_PORT}]"
 
                     env.ALL_ENVS_INFO = sh(script: collectEnvsScript(), returnStdout: true).trim()
                     printEnvTable()
@@ -123,15 +106,10 @@ pipeline {
                     echo "🏷️  环境:   ${params.ENV_NAME}"
                     echo "🖥️  服务器: ${params.SERVER_HOST}"
                     echo "🔌 端口:   ${env.NGINX_PORT}"
-                    echo "🌐 后端:   ${params.NEXT_SERVICE_SERVER_URL}"
+                    echo "🌐 后端:   ${env.NEXT_SERVICE_SERVER_URL}"
                     echo "👤 构建人: ${env.BUILD_USER}"
                     echo "⏰ 时间:   ${env.BUILD_TIME}"
                     echo "========================================="
-
-                    def appConfig = getAppConfig(params.APP_PROJECT)
-                    if (!appConfig.allowedPorts.contains(params.NGINX_PORT)) {
-                        error("项目 ${params.APP_PROJECT} 的登记端口为 ${appConfig.allowedPorts.join(', ')}，当前选择 ${params.NGINX_PORT} 不匹配")
-                    }
 
                     def portInUse = sh(
                         script: "docker ps --format '{{.Names}}|{{.Ports}}' | grep '0.0.0.0:${env.NGINX_PORT}' | grep -v '${env.COMPOSE_PROJECT_NAME}-nginx' || echo ''",
@@ -173,7 +151,13 @@ pipeline {
             steps {
                 sh 'node -v'
                 sh 'docker -v'
-                sh 'docker buildx version'
+                sh '''
+                    if docker buildx version >/dev/null 2>&1; then
+                        docker buildx version
+                    else
+                        echo "⚠️ 当前 Jenkins 节点未安装 docker buildx，使用 docker-compose 内置 builder"
+                    fi
+                '''
                 sh 'docker-compose -v'
             }
         }
@@ -183,16 +167,16 @@ pipeline {
             steps {
                 script {
                     def projectName = env.COMPOSE_PROJECT_NAME
-                    echo "🔨 构建镜像: ${projectName}（${env.APP_DISPLAY_NAME}，后端 ${params.NEXT_SERVICE_SERVER_URL}）"
+                    echo "🔨 构建镜像: ${projectName}（${env.APP_DISPLAY_NAME}，后端 ${env.NEXT_SERVICE_SERVER_URL}）"
                     sh """
                         export COMPOSE_PROJECT_NAME="${projectName}"
                         export APP_PROJECT="${params.APP_PROJECT}"
                         export APP_DOCKERFILE="${env.APP_DOCKERFILE}"
                         export NGINX_CONTEXT="${env.NGINX_CONTEXT}"
                         export NGINX_PORT="${env.NGINX_PORT}"
-                        export NEXT_SERVICE_SERVER_URL="${params.NEXT_SERVICE_SERVER_URL}"
-                        export NEXT_SERVICE_SERVER_URL_KISSEN="${params.NEXT_SERVICE_SERVER_URL}"
-                        export NEXT_LP_BACKEND_URL="${params.NEXT_SERVICE_SERVER_URL}"
+                        export NEXT_SERVICE_SERVER_URL="${env.NEXT_SERVICE_SERVER_URL}"
+                        export NEXT_SERVICE_SERVER_URL_KISSEN="${env.NEXT_SERVICE_SERVER_URL}"
+                        export NEXT_LP_BACKEND_URL="${env.NEXT_SERVICE_SERVER_URL}"
                         export NEXT_PUBLIC_API_BASE_URL="${env.NEXT_PUBLIC_API_BASE_URL}"
                         export NEXT_PUBLIC_KISSEN_API_BASE_URL="${env.NEXT_PUBLIC_KISSEN_API_BASE_URL}"
                         export NX_PROJECT_ID="${env.NX_PROJECT_ID}"
@@ -227,9 +211,9 @@ pipeline {
                         export APP_DOCKERFILE="${env.APP_DOCKERFILE}"
                         export NGINX_CONTEXT="${env.NGINX_CONTEXT}"
                         export NGINX_PORT="${env.NGINX_PORT}"
-                        export NEXT_SERVICE_SERVER_URL="${params.NEXT_SERVICE_SERVER_URL}"
-                        export NEXT_SERVICE_SERVER_URL_KISSEN="${params.NEXT_SERVICE_SERVER_URL}"
-                        export NEXT_LP_BACKEND_URL="${params.NEXT_SERVICE_SERVER_URL}"
+                        export NEXT_SERVICE_SERVER_URL="${env.NEXT_SERVICE_SERVER_URL}"
+                        export NEXT_SERVICE_SERVER_URL_KISSEN="${env.NEXT_SERVICE_SERVER_URL}"
+                        export NEXT_LP_BACKEND_URL="${env.NEXT_SERVICE_SERVER_URL}"
                         export NEXT_PUBLIC_API_BASE_URL="${env.NEXT_PUBLIC_API_BASE_URL}"
                         export NEXT_PUBLIC_KISSEN_API_BASE_URL="${env.NEXT_PUBLIC_KISSEN_API_BASE_URL}"
                         export NX_PROJECT_ID="${env.NX_PROJECT_ID}"
@@ -324,7 +308,7 @@ pipeline {
  * 可部署应用配置。
  *
  * `apps/admin-e2e` 是 Playwright 工程，没有生产 Dockerfile，因此不纳入选择项。
- * 端口使用当前服务器已登记的固定映射，避免不同应用误用同一业务端口。
+ * 端口和后端使用当前服务器已登记的固定映射，避免构建时手动组合出错误配置。
  */
 def getAppConfig(String projectName) {
     def configs = [
@@ -335,8 +319,8 @@ def getAppConfig(String projectName) {
             dockerfile: 'Dockerfile',
             nginxContext: 'nginx',
             imagePrefix: 'admin-platform-app',
-            defaultPort: '6241',
-            allowedPorts: ['6241'],
+            port: '6241',
+            backendUrl: 'http://10.0.48.123:30001',
             apiBaseUrl: '/aps',
             kissenApiBaseUrl: '/v1'
         ],
@@ -347,8 +331,8 @@ def getAppConfig(String projectName) {
             dockerfile: 'apps/kissen-admin/Dockerfile',
             nginxContext: 'nginx-kissen',
             imagePrefix: 'kissen-admin-app',
-            defaultPort: '6242',
-            allowedPorts: ['6242'],
+            port: '6242',
+            backendUrl: 'http://10.0.7.87:9000',
             apiBaseUrl: '/v1',
             kissenApiBaseUrl: '/v1'
         ],
@@ -359,8 +343,8 @@ def getAppConfig(String projectName) {
             dockerfile: 'apps/kissen-gateway-portal/Dockerfile',
             nginxContext: 'nginx-gateway',
             imagePrefix: 'kissen-gateway-portal-app',
-            defaultPort: '6244',
-            allowedPorts: ['6244'],
+            port: '6244',
+            backendUrl: 'http://10.0.7.87:8080',
             apiBaseUrl: '/kissen-api/bankgw/portal',
             kissenApiBaseUrl: '/v1'
         ],
@@ -371,8 +355,8 @@ def getAppConfig(String projectName) {
             dockerfile: 'apps/lp-portal/Dockerfile',
             nginxContext: 'nginx-lp',
             imagePrefix: 'lp-portal-app',
-            defaultPort: '6243',
-            allowedPorts: ['6243'],
+            port: '6243',
+            backendUrl: 'http://10.0.7.87:8090',
             apiBaseUrl: '/lp',
             kissenApiBaseUrl: '/v1'
         ]
@@ -470,47 +454,47 @@ def sendFeishuNotification(String type) {
     if (type != 'info') {
         def commitMsg = (env.GIT_COMMIT_MSG ?: 'N/A').replaceAll(/["\\\r\n]+/, ' ').take(120)
         fields = """
-      {{
+      {
         "tag": "div",
         "fields": [
-          {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**📦 项目**\\n${params.APP_PROJECT}" }} }},
-          {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**🏷️ 环境**\\n${params.ENV_NAME}" }} }},
-          {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**🖥️ 服务器**\\n${params.SERVER_HOST}" }} }},
-          {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**🔌 端口**\\n${env.NGINX_PORT}" }} }},
-          {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**🌿 分支**\\n${params.BRANCH_NAME}" }} }},
-          {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**📝 提交**\\n${env.GIT_COMMIT_HASH ?: 'N/A'}" }} }},
-          {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**👤 构建人**\\n${env.BUILD_USER}" }} }},
-          {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**🌐 后端**\\n${params.NEXT_SERVICE_SERVER_URL}" }} }},
-          {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**💬 提交信息**\\n${commitMsg}" }} }}
+          { "is_short": true, "text": { "tag": "lark_md", "content": "**📦 项目**\\n${params.APP_PROJECT}" } },
+          { "is_short": true, "text": { "tag": "lark_md", "content": "**🏷️ 环境**\\n${params.ENV_NAME}" } },
+          { "is_short": true, "text": { "tag": "lark_md", "content": "**🖥️ 服务器**\\n${params.SERVER_HOST}" } },
+          { "is_short": true, "text": { "tag": "lark_md", "content": "**🔌 端口**\\n${env.NGINX_PORT}" } },
+          { "is_short": true, "text": { "tag": "lark_md", "content": "**🌿 分支**\\n${params.BRANCH_NAME}" } },
+          { "is_short": true, "text": { "tag": "lark_md", "content": "**📝 提交**\\n${env.GIT_COMMIT_HASH ?: 'N/A'}" } },
+          { "is_short": true, "text": { "tag": "lark_md", "content": "**👤 构建人**\\n${env.BUILD_USER}" } },
+          { "is_short": true, "text": { "tag": "lark_md", "content": "**🌐 后端**\\n${env.NEXT_SERVICE_SERVER_URL}" } },
+          { "is_short": true, "text": { "tag": "lark_md", "content": "**💬 提交信息**\\n${commitMsg}" } }
         ]
-      }},
+      },
 """
     }
 
     def accessBtn = (type == 'failed') ? '' : """
-      {{
+      {
         "tag": "action",
         "actions": [
-          {{ "tag": "button", "type": "default", "text": {{ "tag": "plain_text", "content": "🌐 访问应用" }}, "url": "http://${params.SERVER_HOST}:${env.NGINX_PORT}" }},
-          {{ "tag": "button", "type": "primary", "text": {{ "tag": "plain_text", "content": "📋 查看构建" }}, "url": "${env.BUILD_URL}" }}
+          { "tag": "button", "type": "default", "text": { "tag": "plain_text", "content": "🌐 访问应用" }, "url": "http://${params.SERVER_HOST}:${env.NGINX_PORT}" },
+          { "tag": "button", "type": "primary", "text": { "tag": "plain_text", "content": "📋 查看构建" }, "url": "${env.BUILD_URL}" }
         ]
-      }},"""
+      },"""
 
     def content = """{
   "msg_type": "interactive",
   "card": {
-    "header": {{ "title": {{ "content": "${title}", "tag": "plain_text" }}, "template": "${color}" }},
+    "header": { "title": { "content": "${title}", "tag": "plain_text" }, "template": "${color}" },
     "elements": [
 ${fields}
-      {{ "tag": "hr" }},
-      {{ "tag": "div", "text": {{ "tag": "lark_md", "content": "**📊 当前所有环境**\\n${envInfo}" }} }}${accessBtn}
+      { "tag": "hr" },
+      { "tag": "div", "text": { "tag": "lark_md", "content": "**📊 当前所有环境**\\n${envInfo}" } }${accessBtn}
     ]
   }
 }"""
 
     try {
         sh """
-            curl -s -X POST '${webhook}' \\
+            curl -sS --fail-with-body -X POST '${webhook}' \\
                 -H 'Content-Type: application/json' \\
                 -d '${content.replaceAll("'", "'\\''")}' \\
                 || echo "飞书通知发送失败"
