@@ -1,5 +1,12 @@
 # Codex 对话沉淀
 
+## 2026-09-17 多应用 Jenkinsfile 参数化
+
+- 背景：根目录 Jenkinsfile 原先只部署 `apps/admin`，分支虽可选但 checkout 指向 GitHub，端口固定为 6241。
+- 结论：统一流水线的可部署项目为 `admin`、`kissen-admin`、`kissen-gateway-portal`、`lp-portal`；`admin-e2e` 是测试工程，不进入生产部署选择。项目映射为 admin→6241、kissen-admin→6242、lp-portal→6243、kissen-gateway-portal→6244。checkout 改用 GitLab `http://10.0.6.203:8088/udpn-kissen/source-code/admin-platform`，凭据 id 为 `zxfGitlab`。
+- 影响：`Jenkinsfile` 通过 `APP_PROJECT`、`NGINX_PORT`、`APP_DOCKERFILE`、`NGINX_CONTEXT` 参数化统一部署；`docker-compose.yml` 支持按变量选择 apps Dockerfile 和 nginx context；新增 `nginx-gateway/`、`nginx-lp/` 以覆盖 Gateway 的 `/kissen-api/` 去前缀代理和 LP 的 `/lp/` 保留前缀代理。
+- 后续同类任务：端口下拉当前只登记已确认的四个业务端口，新增部署环境/端口时要同时修改 Jenkinsfile 的 choice、`getAppConfig.allowedPorts` 和端口占用/环境信息逻辑；若需要真正随项目联动过滤端口，应引入并确认 Jenkins Active Choices 插件，而不是在 Declarative Pipeline 中伪造动态 choice。
+
 ## 2026-09-17 Kissen 三门户 Jenkins 流水线
 
 - 服务器 `10.0.7.20` 的 Jenkins 容器为 `jenkins_gtnc-jenkins_GtNc-1`，Web 端口 `14808`；已有 job `kissen-admin`、`lp-portal`、`kissen-gateway-portal`，本次原地更新其 inline Pipeline，未重复创建。

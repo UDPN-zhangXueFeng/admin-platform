@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
-// admin-platform 部署流水线（参考 td-manage/Jenkinsfile）
-// 形态：Jenkins(DooD) → docker-compose 起 app(Next.js standalone) + nginx(反代/aps)
-//      app 镜像环境无关，nginx 镜像按后端地址单独 build。
+// admin-platform 多应用部署流水线
+// 形态：Jenkins(DooD) → docker-compose 起选定 app(Next.js standalone) + nginx(反代)
+//      app 镜像按应用和 commit 复用，nginx 镜像按后端地址单独 build。
 // ─────────────────────────────────────────────────────────────
 
 pipeline {
@@ -12,8 +12,9 @@ pipeline {
             name: 'BRANCH_NAME',
             type: 'PT_BRANCH',
             branchFilter: 'origin/(.*)',
-            defaultValue: 'main',
+            defaultValue: 'feat/kissen',
             description: '选择要构建的分支',
+            useRepository: 'http://10.0.6.203:8088/udpn-kissen/source-code/admin-platform',
             selectedValue: 'DEFAULT',
             sortMode: 'ASCENDING_SMART',
             quickFilterEnabled: true,
@@ -21,9 +22,26 @@ pipeline {
         )
 
         choice(
+            name: 'APP_PROJECT',
+            choices: [
+                'admin',
+                'kissen-admin',
+                'kissen-gateway-portal',
+                'lp-portal'
+            ],
+            description: '选择 apps 下要构建和部署的应用（admin-e2e 为测试工程，不参与部署）'
+        )
+
+        choice(
             name: 'ENV_NAME',
             choices: ['main'],
-            description: '部署环境，端口见 portMap（当前 main → 6241；新增环境时在此追加并同步下方 portMap）'
+            description: '部署环境名称；同一应用需要多套环境时，在此追加名称并同步端口登记'
+        )
+
+        choice(
+            name: 'NGINX_PORT',
+            choices: ['6241', '6242', '6243', '6244'],
+            description: '选择宿主机端口：admin → 6241；kissen-admin → 6242；lp-portal → 6243；kissen-gateway-portal → 6244'
         )
 
         string(
@@ -36,9 +54,12 @@ pipeline {
             name: 'NEXT_SERVICE_SERVER_URL',
             choices: [
                 'http://10.0.48.120:30001',
-                'http://10.0.48.123:30001'
+                'http://10.0.48.123:30001',
+                'http://10.0.7.87:9000',
+                'http://10.0.7.87:8090',
+                'http://10.0.7.85:8080'
             ],
-            description: '后端 API 地址（注入到 nginx，代理 /aps/*）'
+            description: '后端 API 地址（注入到 nginx；admin/kissen-admin/LP/Gateway 分别使用 /aps、/v1、/lp、/kissen-api 前缀）'
         )
 
         booleanParam(name: 'CLEAN_IMAGES', defaultValue: false, description: '是否在部署成功后清理未使用的 Docker 镜像（默认关闭以保留构建缓存）')
@@ -64,10 +85,18 @@ pipeline {
         stage('收集所有环境信息') {
             steps {
                 script {
-                    // 环境名 → 端口；新增环境在此追加
-                    def portMap = ['main': '6241']
-                    env.NGINX_PORT = portMap[params.ENV_NAME] ?: '6241'
-                    echo "🔌 环境 [${params.ENV_NAME}] 对应端口: ${env.NGINX_PORT}"
+                    def appConfig = getAppConfig(params.APP_PROJECT)
+                    env.APP_PROJECT = params.APP_PROJECT
+                    env.APP_DISPLAY_NAME = appConfig.displayName
+                    // 沿用各应用原有容器名前缀，保证迁移到统一流水线时能复用并重建旧容器。
+                    env.COMPOSE_PROJECT_NAME = "${appConfig.composeProjectPrefix}-${params.ENV_NAME}"
+                    env.APP_DOCKERFILE = appConfig.dockerfile
+                    env.NGINX_CONTEXT = appConfig.nginxContext
+                    env.NX_PROJECT_ID = appConfig.projectId
+                    env.NEXT_PUBLIC_API_BASE_URL = appConfig.apiBaseUrl
+                    env.NEXT_PUBLIC_KISSEN_API_BASE_URL = appConfig.kissenApiBaseUrl
+                    env.NGINX_PORT = params.NGINX_PORT ?: appConfig.defaultPort
+                    echo "📦 应用 [${appConfig.displayName}]，环境 [${params.ENV_NAME}]，端口 [${env.NGINX_PORT}]"
 
                     env.ALL_ENVS_INFO = sh(script: collectEnvsScript(), returnStdout: true).trim()
                     printEnvTable()
@@ -90,6 +119,7 @@ pipeline {
                     echo "📋 本次构建参数"
                     echo "========================================="
                     echo "🌿 分支:   ${params.BRANCH_NAME}"
+                    echo "📦 项目:   ${env.APP_DISPLAY_NAME} (${params.APP_PROJECT})"
                     echo "🏷️  环境:   ${params.ENV_NAME}"
                     echo "🖥️  服务器: ${params.SERVER_HOST}"
                     echo "🔌 端口:   ${env.NGINX_PORT}"
@@ -98,8 +128,13 @@ pipeline {
                     echo "⏰ 时间:   ${env.BUILD_TIME}"
                     echo "========================================="
 
+                    def appConfig = getAppConfig(params.APP_PROJECT)
+                    if (!appConfig.allowedPorts.contains(params.NGINX_PORT)) {
+                        error("项目 ${params.APP_PROJECT} 的登记端口为 ${appConfig.allowedPorts.join(', ')}，当前选择 ${params.NGINX_PORT} 不匹配")
+                    }
+
                     def portInUse = sh(
-                        script: "docker ps --format '{{.Names}}|{{.Ports}}' | grep '0.0.0.0:${env.NGINX_PORT}' | grep -v 'admin-platform-${params.ENV_NAME}-nginx' || echo ''",
+                        script: "docker ps --format '{{.Names}}|{{.Ports}}' | grep '0.0.0.0:${env.NGINX_PORT}' | grep -v '${env.COMPOSE_PROJECT_NAME}-nginx' || echo ''",
                         returnStdout: true
                     ).trim()
                     if (portInUse) {
@@ -117,16 +152,16 @@ pipeline {
                     branches: [[name: "${params.BRANCH_NAME}"]],
                     extensions: [],
                     userRemoteConfigs: [[
-                        // GitHub PAT 凭证（已在 Jenkins 配置，id = github-pat）
-                        credentialsId: 'github-pat',
-                        url: 'https://github.com/UDPN-zhangXueFeng/admin-platform.git'
+                        // GitLab 凭证已在 Jenkins 配置，id = zxfGitlab
+                        credentialsId: 'zxfGitlab',
+                        url: 'http://10.0.6.203:8088/udpn-kissen/source-code/admin-platform'
                     ]]
                 )
                 script {
                     env.GIT_COMMIT_MSG    = sh(script: 'git log -1 --pretty=%B',    returnStdout: true).trim()
                     env.GIT_COMMIT_AUTHOR = sh(script: 'git log -1 --pretty=%an',   returnStdout: true).trim()
                     env.GIT_COMMIT_HASH   = sh(script: 'git log -1 --pretty=%h',    returnStdout: true).trim()
-                    env.APP_IMAGE_TAG     = "admin-platform-app:${env.GIT_COMMIT_HASH}"
+                    env.APP_IMAGE_TAG     = "${getAppConfig(params.APP_PROJECT).imagePrefix}:${env.GIT_COMMIT_HASH}"
                     echo "📝 ${env.GIT_COMMIT_HASH} by ${env.GIT_COMMIT_AUTHOR}: ${env.GIT_COMMIT_MSG}"
                     echo "🐳 App 镜像标签: ${env.APP_IMAGE_TAG}"
                 }
@@ -147,15 +182,23 @@ pipeline {
             when { expression { !params.ONLY_SHOW_INFO } }
             steps {
                 script {
-                    def projectName = "admin-platform-${params.ENV_NAME}"
-                    echo "🔨 构建镜像: ${projectName}（后端 ${params.NEXT_SERVICE_SERVER_URL}）"
+                    def projectName = env.COMPOSE_PROJECT_NAME
+                    echo "🔨 构建镜像: ${projectName}（${env.APP_DISPLAY_NAME}，后端 ${params.NEXT_SERVICE_SERVER_URL}）"
                     sh """
-                        export COMPOSE_PROJECT_NAME=${projectName}
-                        export NGINX_PORT=${env.NGINX_PORT}
-                        export NEXT_SERVICE_SERVER_URL=${params.NEXT_SERVICE_SERVER_URL}
-                        export APP_IMAGE_TAG=${env.APP_IMAGE_TAG}
-                        export ENV_NAME=${params.ENV_NAME}
-                        export GIT_BRANCH=${params.BRANCH_NAME}
+                        export COMPOSE_PROJECT_NAME="${projectName}"
+                        export APP_PROJECT="${params.APP_PROJECT}"
+                        export APP_DOCKERFILE="${env.APP_DOCKERFILE}"
+                        export NGINX_CONTEXT="${env.NGINX_CONTEXT}"
+                        export NGINX_PORT="${env.NGINX_PORT}"
+                        export NEXT_SERVICE_SERVER_URL="${params.NEXT_SERVICE_SERVER_URL}"
+                        export NEXT_SERVICE_SERVER_URL_KISSEN="${params.NEXT_SERVICE_SERVER_URL}"
+                        export NEXT_LP_BACKEND_URL="${params.NEXT_SERVICE_SERVER_URL}"
+                        export NEXT_PUBLIC_API_BASE_URL="${env.NEXT_PUBLIC_API_BASE_URL}"
+                        export NEXT_PUBLIC_KISSEN_API_BASE_URL="${env.NEXT_PUBLIC_KISSEN_API_BASE_URL}"
+                        export NX_PROJECT_ID="${env.NX_PROJECT_ID}"
+                        export APP_IMAGE_TAG="${env.APP_IMAGE_TAG}"
+                        export ENV_NAME="${params.ENV_NAME}"
+                        export GIT_BRANCH="${params.BRANCH_NAME}"
                         export BUILD_TIME="${env.BUILD_TIME}"
                         export BUILD_USER="${env.BUILD_USER}"
                         export DOCKER_BUILDKIT=1
@@ -164,9 +207,9 @@ pipeline {
                         if docker image inspect "${env.APP_IMAGE_TAG}" >/dev/null 2>&1; then
                             echo "♻️  复用已有 app 镜像: ${env.APP_IMAGE_TAG}"
                         else
-                            docker-compose build app
+                            docker-compose -f docker-compose.yml build app
                         fi
-                        docker-compose build nginx
+                        docker-compose -f docker-compose.yml build nginx
                     """
                 }
             }
@@ -176,19 +219,27 @@ pipeline {
             when { expression { !params.ONLY_SHOW_INFO } }
             steps {
                 script {
-                    def projectName = "admin-platform-${params.ENV_NAME}"
+                    def projectName = env.COMPOSE_PROJECT_NAME
                     echo "🚀 切换容器: ${projectName}（端口 ${env.NGINX_PORT}:80）"
                     sh """
-                        export COMPOSE_PROJECT_NAME=${projectName}
-                        export NGINX_PORT=${env.NGINX_PORT}
-                        export NEXT_SERVICE_SERVER_URL=${params.NEXT_SERVICE_SERVER_URL}
-                        export APP_IMAGE_TAG=${env.APP_IMAGE_TAG}
-                        export ENV_NAME=${params.ENV_NAME}
-                        export GIT_BRANCH=${params.BRANCH_NAME}
+                        export COMPOSE_PROJECT_NAME="${projectName}"
+                        export APP_PROJECT="${params.APP_PROJECT}"
+                        export APP_DOCKERFILE="${env.APP_DOCKERFILE}"
+                        export NGINX_CONTEXT="${env.NGINX_CONTEXT}"
+                        export NGINX_PORT="${env.NGINX_PORT}"
+                        export NEXT_SERVICE_SERVER_URL="${params.NEXT_SERVICE_SERVER_URL}"
+                        export NEXT_SERVICE_SERVER_URL_KISSEN="${params.NEXT_SERVICE_SERVER_URL}"
+                        export NEXT_LP_BACKEND_URL="${params.NEXT_SERVICE_SERVER_URL}"
+                        export NEXT_PUBLIC_API_BASE_URL="${env.NEXT_PUBLIC_API_BASE_URL}"
+                        export NEXT_PUBLIC_KISSEN_API_BASE_URL="${env.NEXT_PUBLIC_KISSEN_API_BASE_URL}"
+                        export NX_PROJECT_ID="${env.NX_PROJECT_ID}"
+                        export APP_IMAGE_TAG="${env.APP_IMAGE_TAG}"
+                        export ENV_NAME="${params.ENV_NAME}"
+                        export GIT_BRANCH="${params.BRANCH_NAME}"
                         export BUILD_TIME="${env.BUILD_TIME}"
                         export BUILD_USER="${env.BUILD_USER}"
 
-                        docker-compose up -d --force-recreate --remove-orphans
+                        docker-compose -f docker-compose.yml up -d --force-recreate --remove-orphans
                     """
                 }
             }
@@ -198,8 +249,8 @@ pipeline {
             when { expression { !params.ONLY_SHOW_INFO } }
             steps {
                 script {
-                    def projectName = "admin-platform-${params.ENV_NAME}"
-                    sh "export COMPOSE_PROJECT_NAME=${projectName} && docker-compose ps"
+                    def projectName = env.COMPOSE_PROJECT_NAME
+                    sh "export COMPOSE_PROJECT_NAME='${projectName}' && docker-compose -f docker-compose.yml ps"
                     sleep(time: 8, unit: 'SECONDS')
                     def appStatus = sh(
                         script: "docker ps --filter 'name=${projectName}-app' --format '{{.Status}}'",
@@ -269,23 +320,106 @@ pipeline {
     }
 }
 
+/**
+ * 可部署应用配置。
+ *
+ * `apps/admin-e2e` 是 Playwright 工程，没有生产 Dockerfile，因此不纳入选择项。
+ * 端口使用当前服务器已登记的固定映射，避免不同应用误用同一业务端口。
+ */
+def getAppConfig(String projectName) {
+    def configs = [
+        'admin': [
+            displayName: 'Admin',
+            projectId: 'admin',
+            composeProjectPrefix: 'admin-platform',
+            dockerfile: 'Dockerfile',
+            nginxContext: 'nginx',
+            imagePrefix: 'admin-platform-app',
+            defaultPort: '6241',
+            allowedPorts: ['6241'],
+            apiBaseUrl: '/aps',
+            kissenApiBaseUrl: '/v1'
+        ],
+        'kissen-admin': [
+            displayName: 'Kissen Admin',
+            projectId: 'kissen-admin',
+            composeProjectPrefix: 'kissen-admin',
+            dockerfile: 'apps/kissen-admin/Dockerfile',
+            nginxContext: 'nginx-kissen',
+            imagePrefix: 'kissen-admin-app',
+            defaultPort: '6242',
+            allowedPorts: ['6242'],
+            apiBaseUrl: '/v1',
+            kissenApiBaseUrl: '/v1'
+        ],
+        'kissen-gateway-portal': [
+            displayName: 'Kissen Gateway Portal',
+            projectId: 'kissen-gateway',
+            composeProjectPrefix: 'kissen-gateway-portal',
+            dockerfile: 'apps/kissen-gateway-portal/Dockerfile',
+            nginxContext: 'nginx-gateway',
+            imagePrefix: 'kissen-gateway-portal-app',
+            defaultPort: '6244',
+            allowedPorts: ['6244'],
+            apiBaseUrl: '/kissen-api/bankgw/portal',
+            kissenApiBaseUrl: '/v1'
+        ],
+        'lp-portal': [
+            displayName: 'LP Portal',
+            projectId: 'lp-portal',
+            composeProjectPrefix: 'lp-portal',
+            dockerfile: 'apps/lp-portal/Dockerfile',
+            nginxContext: 'nginx-lp',
+            imagePrefix: 'lp-portal-app',
+            defaultPort: '6243',
+            allowedPorts: ['6243'],
+            apiBaseUrl: '/lp',
+            kissenApiBaseUrl: '/v1'
+        ]
+    ]
+
+    if (!configs.containsKey(projectName)) {
+        error("不支持的部署项目: ${projectName}")
+    }
+    return configs[projectName]
+}
+
 // ── 枚举所有 admin-platform 环境（nginx 容器）──
 // 输出格式：环境名|端口|后端地址|分支|构建时间|状态
 def collectEnvsScript() {
     return '''#!/bin/bash
-        containers=$(docker ps -a --filter "name=admin-platform" --format "{{.Names}}" | grep "nginx" | sort)
+        containers=$(docker ps -a --format "{{.Names}}" | grep -E '^(admin-platform|kissen-admin|lp-portal|kissen-gateway-portal).*nginx$' | sort)
         if [ -z "$containers" ]; then exit 0; fi
         for container in $containers; do
-            env_name=$(echo "$container" | sed 's/admin-platform-\\(.*\\)-nginx/\\1/')
-            port=$(docker port "$container" 80 2>/dev/null | grep -oE '[0-9]+$' | head -1); [ -z "$port" ] && port="N/A"
+            project=$(docker inspect "$container" --format '{{index .Config.Labels "admin-platform.project"}}' 2>/dev/null)
+            if [ -z "$project" ] || [ "$project" = "<no value>" ]; then
+                case "$container" in
+                    kissen-admin-*) project="kissen-admin" ;;
+                    lp-portal-*) project="lp-portal" ;;
+                    kissen-gateway-portal-*) project="kissen-gateway-portal" ;;
+                    *) project="admin" ;;
+                esac
+            fi
+            env_name=$(docker inspect "$container" --format '{{index .Config.Labels "admin-platform.env"}}' 2>/dev/null)
+            if [ -z "$env_name" ] || [ "$env_name" = "<no value>" ]; then
+                env_name="${container%-nginx}"
+                env_name="${env_name##*-}"
+            fi
+            [ "$project" = "admin" ] && [ "$env_name" = "main" ] && display_name="$env_name" || display_name="$project/$env_name"
+            port=$(docker inspect "$container" --format '{{index .Config.Labels "admin-platform.port"}}' 2>/dev/null)
+            [ -z "$port" ] || [ "$port" = "<no value>" ] && port=$(docker port "$container" 80 2>/dev/null | grep -oE '[0-9]+$' | head -1)
+            [ -z "$port" ] && port="N/A"
             api_url=$(docker inspect "$container" --format '{{index .Config.Labels "admin-platform.api-url"}}' 2>/dev/null)
+            if [ -z "$api_url" ] || [ "$api_url" = "<no value>" ]; then
+                api_url=$(docker inspect "$container" --format '{{index .Config.Labels "kissen-admin.api-url"}}' 2>/dev/null)
+            fi
             [ -z "$api_url" ] || [ "$api_url" = "<no value>" ] && api_url="N/A"
             branch=$(docker inspect "$container" --format '{{index .Config.Labels "admin-platform.branch"}}' 2>/dev/null)
             [ -z "$branch" ] || [ "$branch" = "<no value>" ] && branch="N/A"
             build_time=$(docker inspect "$container" --format '{{index .Config.Labels "admin-platform.build-time"}}' 2>/dev/null)
             [ -z "$build_time" ] || [ "$build_time" = "<no value>" ] && build_time="N/A"
             status=$(docker inspect "$container" --format '{{.State.Status}}' 2>/dev/null); [ -z "$status" ] && status="N/A"
-            printf "%s|%s|%s|%s|%s|%s\\n" "$env_name" "$port" "$api_url" "$branch" "$build_time" "$status"
+            printf "%s|%s|%s|%s|%s|%s\\n" "$display_name" "$port" "$api_url" "$branch" "$build_time" "$status"
         done
     '''
 }
@@ -339,6 +473,7 @@ def sendFeishuNotification(String type) {
       {{
         "tag": "div",
         "fields": [
+          {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**📦 项目**\\n${params.APP_PROJECT}" }} }},
           {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**🏷️ 环境**\\n${params.ENV_NAME}" }} }},
           {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**🖥️ 服务器**\\n${params.SERVER_HOST}" }} }},
           {{ "is_short": true, "text": {{ "tag": "lark_md", "content": "**🔌 端口**\\n${env.NGINX_PORT}" }} }},
@@ -393,7 +528,8 @@ def formatEnvInfo() {
     env.ALL_ENVS_INFO.split('\n').findAll { it.trim() && it.contains('|') && it.split('\\|').size() >= 6 }.eachWithIndex { line, i ->
         def p = line.split('\\|', -1)
         if (!p[0] || p[0] == 'N/A' || !p[1]?.isInteger()) { return }
-        def marker = (p[0] == params.ENV_NAME && !params.ONLY_SHOW_INFO) ? "🆕 " : "• "
+        def currentEnvKey = "${params.APP_PROJECT}/${params.ENV_NAME}"
+        def marker = (p[0] == currentEnvKey && !params.ONLY_SHOW_INFO) || (p[0] == params.ENV_NAME && params.APP_PROJECT == 'admin' && !params.ONLY_SHOW_INFO) ? "🆕 " : "• "
         result += "${marker}**${p[0].toUpperCase()}**  端口 ${p[1]}  后端 ${p[2]}  分支 ${p[3]}  状态 ${p[5]}\\n"
     }
     return result ?: "暂无有效环境信息"
