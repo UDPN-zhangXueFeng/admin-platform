@@ -7,6 +7,12 @@
 - 固定部署映射：kissen-admin→6242、LP→6243、kissen-gateway-portal→6244；默认后端分别为 `87:9000`、`87:8090`、`85:8080`。Admin/LP 保留 API 前缀代理，Gateway 的 `/kissen-api/` 代理剥离前缀。
 - Jenkins job 原配置备份在各自 `config.xml.20260917-pre-gitlab-kissen`；本次只重载 Jenkins，未触发三门户实际构建或容器切换。
 
+## 2026-09-17 Kissen Jenkins Bash 执行修复
+
+- `kissen-admin` 构建 #2 在 `Validate parameters` 阶段因 Jenkins 容器 `/bin/sh -> dash` 不支持 `set -o pipefail` 失败；原因是 Jenkinsfile 的 `#!/usr/bin/env bash` 位于缩进后，未被 Durable Task 当作 shebang。
+- 已在服务器三条 job（`kissen-admin`、`lp-portal`、`kissen-gateway-portal`）的 inline `config.xml` 及 `/data/<job>/Jenkinsfile` 中，将 6 个 shell block 的 shebang 调整为首字符 `#!/bin/bash`；修复前文件备份为 `.20260917-pre-bash-fix`。
+- 三份 XML 重新解析通过，Jenkins 重启后 HTTP 200 且完全启动；容器未重新部署，现有版本保持运行。Jenkins API 匿名请求为 403，因此本次只能完成服务器侧 Bash shebang/`pipefail` 执行验证，尚未触发新的 Jenkins 实际构建。
+
 ## 2026-09-11（同日三次）三门户重部署（统一 main-0919）
 
 - 内容：`shared/ui` data-table sticky 操作列 hover 背景 `group-hover:bg-muted/50`→`group-hover:bg-muted`（+spec 断言 26 行）；admin 登录页重构随 rsync 补齐到 lp/gateway 副本。门禁：三应用本地 build 113.7s + `nx test shared-ui` 绿。rsync 零删除；三构建串行 197.7s 全 DEPLOY_DONE。
