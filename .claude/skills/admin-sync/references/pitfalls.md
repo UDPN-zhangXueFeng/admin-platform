@@ -60,3 +60,10 @@
 26. **hub 托管 dev server 的 readiness 端口配错会留孤儿进程**：ready.port 写成 4200（实际 3100）导致超时误判失败，但 next-server 子进程已存活并占住 3100；下次 start 前 `lsof -nP -iTCP:3100 -sTCP:LISTEN` 查孤儿 kill，否则新实例起不来或打到旧编译。
 27. **DataTable 行操作 kebab 用合成 click 打不开**：`page.evaluate(el => el.click())` 对 Radix DropdownMenu trigger 无效（需 pointer 事件序列）。稳定做法：evaluate 内取 `getBoundingClientRect` 中心坐标 → `page.mouse.click(x, y)` → 再 evaluate 点 `[role=menuitem]` 文本项。直接 `handle.click()` 在 sticky 操作列上会 8s 超时。
 28. **element id 跨 eval cell 必失效**：`observe()` 的 id 在下一次工具调用即失效，observe→id 引用必须同一 cell 内完成；跨 cell 交互一律 `tab.run` 内联 evaluate。
+
+## v2.0-tokenization 增量批次（37010e0..4609208，2026-09-18）
+
+29. **pitfall 20 强化版——同文件连续编辑必须逐次 re-read，且 elided 区显示行号≠实际行号**：本批同一 tsx 内 10+ 次编辑，多次 PUT 起点落在错误位置（兜底分支多插一行、`</DescField>` 被吞、目标卡大字 `</div>` 丢失），tsc/next build 才暴露。更隐蔽的是 import 块整行替换式 PUT（`PUT 73.=74:` 加新 import）会连带吞掉范围内原有 `type X` 行，apps 内 `tsc --noEmit` 因 tsconfig 差异竟不报错，直到 `nx build` 才炸（`SettleOrderRow`/`useTransactionLpOptionsQuery` 两个 import 被吞）。规则：① 编辑 import 块用 `PUT >N:` 纯插入而非范围替换；② 任何 PUT 前重 read 目标区；③ 改完 import 必跑 `nx build`（不止 apps tsc）再进入冒烟。
+30. **tsx/npx 脚本化验证不可用时用 `node --experimental-strip-types`**：monorepo tsconfig paths 无 baseUrl，`tsx -e` 直接抛 "Non-relative paths are not allowed"；`node --experimental-strip-types /tmp/x.mts` 跑纯函数级验证零依赖即可（Node 23 内置）。注意 tuple 类型标注 `[any, number?, string]` 会被 node 解析器拒（optional element 语法），写成非 optional 或拆成对象。
+31. **用户长期存活的 dev 实例可直接复用冒烟**：Next dev 按需重编译，用户 webpack :3100 实例（勿动）serve 的就是最新代码；同 app 另起实例反而撞 `.next/dev/lock`（pitfall 17）。判定后直接 browser.open 该端口即可。
+32. **kissen 后端鉴权头是 `token`（非 Authorization Bearer）**：页面外直调 `/v1/*` 需 `headers: { token: localStorage['admin_platform_access_token'] }`；用 Bearer 会 401「未登录或登录已过期」，易误判为会话问题。

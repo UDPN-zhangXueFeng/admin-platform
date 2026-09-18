@@ -66,11 +66,14 @@ import {
   useSettleOrderItemsQuery,
   useSettleOrderListQuery,
   useSettleOrderVoidMutation,
+  useTokenMeta,
   type LpRow,
   type SettleItemRecordRow,
   type SettleOrderItemRow,
   type SettleOrderRow,
 } from '@myorg/modules/kissen-admin/data-access';
+
+import { formatAmount } from './format';
 
 /* ============================================================ */
 /* 共享格式化 / 展示辅助                                          */
@@ -94,17 +97,6 @@ function formatTimestampMinute(ms: number | undefined | null): string {
 function formatDateOnly(ms: number | undefined | null): string {
   const value = formatTimestamp(ms);
   return value === '--' ? value : value.replace(/, \d{2}:\d{2}:\d{2} \(UTC[^)]+\)$/, '');
-}
-
-/** 数字千分位（保留原小数位）；源 approval/format.ts formatMoney。 */
-function formatMoney(v: string | number | null | undefined): string {
-  if (v === null || v === undefined || v === '') return '--';
-  const s = String(v);
-  const [int, dec] = s.split('.');
-  const sign = int.startsWith('-') ? '-' : '';
-  const digits = sign ? int.slice(1) : int;
-  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
 }
 
 /** 「全部」哨兵值：FormSelect 中代表不限定的选项（Radix Select 禁空串 value）。 */
@@ -293,6 +285,8 @@ function SettleOrderItemsPanel({
     order.orderId,
   );
   const list = items ?? [];
+  // 合计金额按该行源 token 精度（4609208）。
+  const { decimalsOf: decOf } = useTokenMeta(KISSEN_PROJECT_ID);
 
   return (
     <div className="space-y-2">
@@ -333,11 +327,15 @@ function SettleOrderItemsPanel({
                 <tr key={item.itemId} className="motion-safe:transition-colors hover:bg-muted/50">
                   <td className={`${GROUP_TD} tabular-nums`}>{item.sourceSymbol || item.sourceTokenCode || '-'}/{item.targetSymbol || item.targetTokenCode || '-'}</td>
                   <td className={`${GROUP_TD} text-right tabular-nums`}>{item.txCount}</td>
-                  <td className={`${GROUP_TD} text-right tabular-nums`}>{formatMoney(item.principalTotal)}</td>
-                  <td className={`${GROUP_TD} text-right tabular-nums`}>{formatMoney(item.markupTotal)}</td>
+                  <td className={`${GROUP_TD} text-right tabular-nums`}>
+                    {formatAmount(item.principalTotal, decOf(item.sourceTokenCode))}
+                  </td>
+                  <td className={`${GROUP_TD} text-right tabular-nums`}>
+                    {formatAmount(item.markupTotal, decOf(item.sourceTokenCode))}
+                  </td>
                   {/* 源 .highlight：LP 分成高亮绿 → 主题 green 语义色（禁止上游 hex 直写）。 */}
                   <td className={`${GROUP_TD} text-right font-semibold text-emerald-600 tabular-nums dark:text-emerald-400`}>
-                    {formatMoney(item.lpSplitTotal)}
+                    {formatAmount(item.lpSplitTotal, decOf(item.sourceTokenCode))}
                   </td>
                   {/* 源 el-button link「结算明细」→ Settlement details（2026-08-28 cede878）。 */}
                   <td className={`${GROUP_TD} text-right`}>
@@ -360,11 +358,13 @@ function SettleOrderItemsPanel({
   );
 }
 
-/** 结算明细弹窗目标（源 detailCtx：orderId × pairId + 标题用 symbol 对文本）。 */
+/** 结算明细弹窗目标（源 detailCtx：orderId × pairId + 标题用 symbol 对文本 + 源 token 精度键）。 */
 interface SettleItemRecordsTarget {
   orderId: number;
   pairId: number;
   pairText: string;
+  /** 明细行无 token 字段，金额精度取打开时分项行的源 token（4609208）。 */
+  sourceTokenCode: string;
 }
 
 /**
@@ -379,6 +379,9 @@ function SettleItemRecordsDialogContent({ target }: { target: SettleItemRecordsT
     target.pairId,
   );
   const list = data ?? [];
+  // 金额均为源 token 计价：精度随分项行 sourceTokenCode（4609208）。
+  const { decimalsOf: decOf } = useTokenMeta(KISSEN_PROJECT_ID);
+  const dec = decOf(target.sourceTokenCode);
 
   return isLoading ? (
     <LoadingBlock />
@@ -406,12 +409,12 @@ function SettleItemRecordsDialogContent({ target }: { target: SettleItemRecordsT
               className="motion-safe:transition-colors hover:bg-muted/50"
             >
               <td className={`${GROUP_TD} tabular-nums`}>{row.txNo || '-'}</td>
-              <td className={`${GROUP_TD} text-right tabular-nums`}>{formatMoney(row.principal)}</td>
-              <td className={`${GROUP_TD} text-right tabular-nums`}>{formatMoney(row.markupAmount)}</td>
-              <td className={`${GROUP_TD} text-right tabular-nums`}>{formatMoney(row.adminSplitAmount)}</td>
+              <td className={`${GROUP_TD} text-right tabular-nums`}>{formatAmount(row.principal, dec)}</td>
+              <td className={`${GROUP_TD} text-right tabular-nums`}>{formatAmount(row.markupAmount, dec)}</td>
+              <td className={`${GROUP_TD} text-right tabular-nums`}>{formatAmount(row.adminSplitAmount, dec)}</td>
               {/* 源 .highlight：LP 分成高亮绿 → 主题 green 语义色（禁止上游 hex 直写）。 */}
               <td className={`${GROUP_TD} text-right font-semibold text-emerald-600 tabular-nums dark:text-emerald-400`}>
-                {formatMoney(row.lpSplitAmount)}
+                {formatAmount(row.lpSplitAmount, dec)}
               </td>
               <td className={`${GROUP_TD} whitespace-nowrap tabular-nums`}>
                 {formatTimestamp(row.recordTime)}
@@ -863,6 +866,7 @@ export function SettleOrderListPage() {
                   orderId: order.orderId,
                   pairId: item.pairId,
                   pairText: `${item.sourceSymbol || item.sourceTokenCode || '-'}/${item.targetSymbol || item.targetTokenCode || '-'}`,
+                  sourceTokenCode: item.sourceTokenCode || '',
                 })
               }
             />

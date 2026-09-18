@@ -62,12 +62,14 @@ import {
   useTransactionListQuery,
   useTransactionLpOptionsQuery,
   useTransactionPairOptionsQuery,
+  useTokenMeta,
   type TransactionDetailRow,
   type TransactionFlowEvent,
   type TransactionPageFilter,
   type TransactionRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
+import { formatAmount } from './format';
 /**
  * 交易域页面（源 `views/transfer/tx/**`：index / resolve-dialog / detail）。
  *
@@ -87,37 +89,28 @@ import {
 const TX_LIST_PATH = '/transfer/tx';
 
 /* ================================================================== */
-/* 展示工具（源 views/approval/format.ts + index.vue fmtAmount）        */
+/* 展示工具（源 views/approval/format.ts formatAmount + index.vue fmtAmount） */
 /* ================================================================== */
 
-/** 数字千分位（保留原小数位）；源 resolve-dialog formatMoney。 */
-function formatMoney(v: number | string | null | undefined): string {
-  if (v === null || v === undefined || v === '') return '-';
-  const s = String(v);
-  const [int, dec] = s.split('.');
-  const sign = int.startsWith('-') ? '-' : '';
-  const digits = sign ? int.slice(1) : int;
-  if (!/^\d*$/.test(digits)) return s; // 非纯数字原样返回，避免误格式化
-  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
-}
-
 /**
- * 金额/汇率展示：千分位 + 至少 2 位小数（最多 8 位，去尾零但保 2 位）；
- * sym 追加币种后缀（源 index.vue fmtAmount / tx-detail-drawer.vue fmtAmount·fmtRate）。
+ * 金额展示（4609208 2026-09-18）：千分位 + 按该行 token decimalDigits 固定位
+ * 小数 HALF_UP（纯字符串 BigInt，不经 Number）；dec 缺省回退 2（token DDL 默认）。
+ * sym 仅在金额有效（≠'-'）时追加——无效金额不拼符号。
  */
 function fmtAmount(
   v: number | string | null | undefined,
   sym?: string,
+  dec?: number,
 ): string {
-  if (v == null || v === '') return '-';
-  const n = Number(v);
-  if (Number.isNaN(n)) return String(v);
-  const formatted = n.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 8,
-  });
-  return sym ? `${formatted} ${sym}` : formatted;
+  const text = formatAmount(v, dec ?? 2);
+  return sym && text !== '-' ? `${text} ${sym}` : text;
+}
+
+/**
+ * 汇率展示（4609208 决议）：汇率不是 token 金额、不跟 token 精度走，固定 8 位。
+ */
+function fmtRate(v: number | string | null | undefined): string {
+  return formatAmount(v, 8);
 }
 
 /** 毫秒时间戳 → 统一管理台时间格式；0/null/undefined/非法 → '-'。 */
@@ -308,25 +301,48 @@ function groupTitle(to: number, firstRemark: string): string {
   return actionTitle(firstRemark) || 'Event';
 }
 
-/** 金额汇总行（源 money 行口径）：报价=LP+双边金额+率；20/25=源端；30/35/40=目标端。 */
-function groupMoney(to: number, detail: TransactionDetailRow): string {
+/**
+ * 金额汇总行（源 money 行口径）：报价=LP+双边金额+率；20/25=源端；30/35/40=目标端。
+ * decOf：tokenCode → decimalDigits（4609208 金额按 token 精度）；率固定 8 位（fmtRate）。
+ */
+function groupMoney(
+  to: number,
+  detail: TransactionDetailRow,
+  decOf: (key?: string | null) => number,
+): string {
   if (to === 5) {
     const parts = [
       detail.lpName,
-      fmtAmount(detail.principal, detail.sourceCurrency || undefined),
-      fmtAmount(detail.receiverAmount, detail.targetCurrency || undefined),
+      fmtAmount(
+        detail.principal,
+        detail.sourceCurrency || undefined,
+        decOf(detail.sourceCurrency),
+      ),
+      fmtAmount(
+        detail.receiverAmount,
+        detail.targetCurrency || undefined,
+        decOf(detail.targetCurrency),
+      ),
     ];
-    const userRate = fmtAmount(detail.userRate);
+    const userRate = fmtRate(detail.userRate);
     if (detail.sourceCurrency && detail.targetCurrency && userRate !== '-') {
       parts.push(`1 ${detail.sourceCurrency} ≈ ${userRate} ${detail.targetCurrency}`);
     }
     return parts.filter(Boolean).join(' · ');
   }
   if (to === 20 || to === 25) {
-    return fmtAmount(detail.userDeduction, detail.sourceCurrency || undefined);
+    return fmtAmount(
+      detail.userDeduction,
+      detail.sourceCurrency || undefined,
+      decOf(detail.sourceCurrency),
+    );
   }
   if (to === 30 || to === 35 || to === 40) {
-    return fmtAmount(detail.receiverAmount, detail.targetCurrency || undefined);
+    return fmtAmount(
+      detail.receiverAmount,
+      detail.targetCurrency || undefined,
+      decOf(detail.targetCurrency),
+    );
   }
   return '';
 }
@@ -342,6 +358,7 @@ function groupMoney(to: number, detail: TransactionDetailRow): string {
 function buildChainGroups(
   events: TransactionFlowEvent[],
   detail: TransactionDetailRow,
+  decOf: (key?: string | null) => number,
 ): ChainGroup[] {
   const sorted = [...events].sort((a, b) => a.eventTime - b.eventTime || a.flowId - b.flowId);
   const groups: ChainGroup[] = [];
@@ -373,7 +390,7 @@ function buildChainGroups(
     if (!last.title || last.title === 'Event') last.title = actionTitle(ev.remark);
   }
   for (const g of groups) {
-    g.money = groupMoney(g.to, detail);
+    g.money = groupMoney(g.to, detail, decOf);
     // 凭证补齐：25 补源端凭证、35/40 补目标端凭证（源 chainTimeline csTxIds 合并）。
     const extra =
       g.to === 25 ? detail.sourceCsTxId : g.to === 35 || g.to === 40 ? detail.targetCsTxId : '';
@@ -406,7 +423,12 @@ function TransactionChainView({
   detail: TransactionDetailRow;
   events: TransactionFlowEvent[];
 }) {
-  const groups = React.useMemo(() => buildChainGroups(events, detail), [events, detail]);
+  // tokenCode → decimalDigits：链路金额按 token 精度（4609208）。
+  const { decimalsOf: decOf } = useTokenMeta(KISSEN_PROJECT_ID);
+  const groups = React.useMemo(
+    () => buildChainGroups(events, detail, decOf),
+    [events, detail, decOf],
+  );
 
   if (groups.length === 0) {
     return <p className="text-sm text-muted-foreground">No chain data</p>;
@@ -710,6 +732,8 @@ function ResolveDialog({
 }) {
   const toast = useToast();
   const mutation = useResolveTransactionMutation(KISSEN_PROJECT_ID);
+  // 用户扣款按源 token 精度展示（4609208）。
+  const { decimalsOf: decOf } = useTokenMeta(KISSEN_PROJECT_ID);
   const [action, setAction] = React.useState('');
   const [reason, setReason] = React.useState('');
 
@@ -764,7 +788,13 @@ function ResolveDialog({
               {row ? pairText(row.sourceCurrency, row.targetCurrency) : '-'}
             </DescField>
             <DescField label="User Deduction">
-              {row ? formatMoney(row.userDeduction) : '-'}
+              {row
+                ? fmtAmount(
+                    row.userDeduction,
+                    row.sourceCurrency || undefined,
+                    decOf(row.sourceCurrency),
+                  )
+                : '-'}
             </DescField>
           </div>
 
@@ -855,6 +885,8 @@ function TransactionStatusAlert({ detail }: { detail: TransactionDetailRow }) {
 
 /** 详情左栏（交易信息 / 转账双卡 / 其他信息）。 */
 function DetailBody({ detail }: { detail: TransactionDetailRow }) {
+  // 金额按源/目标 token 精度；汇率固定 8 位（4609208）。
+  const { decimalsOf: decOf } = useTokenMeta(KISSEN_PROJECT_ID);
   const markupPercent = (() => {
     const n = Number(detail.markupRate);
     return Number.isNaN(n) ? null : `+${(n * 100).toFixed(4)}%`;
@@ -868,7 +900,11 @@ function DetailBody({ detail }: { detail: TransactionDetailRow }) {
         <DescGrid cols={2}>
           <DescField label="Principal">
             <span className="font-mono tabular-nums">
-              {fmtAmount(detail.principal, detail.sourceCurrency || undefined)}
+              {fmtAmount(
+                detail.principal,
+                detail.sourceCurrency || undefined,
+                decOf(detail.sourceCurrency),
+              )}
             </span>
           </DescField>
           <DescField label="Quote Version">
@@ -879,7 +915,11 @@ function DetailBody({ detail }: { detail: TransactionDetailRow }) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="cursor-help border-b border-dotted border-muted-foreground/60 font-mono tabular-nums">
-                    {fmtAmount(detail.userDeduction, detail.sourceCurrency || undefined)}
+                    {fmtAmount(
+                      detail.userDeduction,
+                      detail.sourceCurrency || undefined,
+                      decOf(detail.sourceCurrency),
+                    )}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -890,7 +930,11 @@ function DetailBody({ detail }: { detail: TransactionDetailRow }) {
           </DescField>
           <DescField label="Target Amount">
             <span className="font-mono tabular-nums">
-              {fmtAmount(detail.receiverAmount, detail.targetCurrency || undefined)}
+              {fmtAmount(
+                detail.receiverAmount,
+                detail.targetCurrency || undefined,
+                decOf(detail.targetCurrency),
+              )}
             </span>
           </DescField>
           <DescField label="Rate" span>
@@ -899,19 +943,17 @@ function DetailBody({ detail }: { detail: TransactionDetailRow }) {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="cursor-help border-b border-dotted border-muted-foreground/60 font-mono tabular-nums">
-                      1 {detail.sourceCurrency} ≈ {fmtAmount(detail.userRate)}{' '}
-                      {detail.targetCurrency}
+                      1 {detail.sourceCurrency} ≈ {fmtRate(detail.userRate)}{' '}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    Base rate 1 {detail.sourceCurrency} = {fmtAmount(detail.baseRate)}{' '}
-                    {detail.targetCurrency}
+                    Base rate 1 {detail.sourceCurrency} = {fmtRate(detail.baseRate)}{' '}
                     {markupPercent ? ` · Markup rate ${markupPercent}` : ''}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             ) : (
-              <span className="font-mono tabular-nums">{fmtAmount(detail.userRate)}</span>
+              <span className="font-mono tabular-nums">{fmtRate(detail.userRate)}</span>
             )}
           </DescField>
         </DescGrid>
@@ -928,7 +970,11 @@ function DetailBody({ detail }: { detail: TransactionDetailRow }) {
               Source · {detail.sourceBankName || 'Source Bank'}
             </div>
             <div className="mb-2.5 font-mono text-lg font-semibold tabular-nums">
-              {fmtAmount(detail.userDeduction, detail.sourceCurrency || undefined)}
+              {fmtAmount(
+                detail.userDeduction,
+                detail.sourceCurrency || undefined,
+                decOf(detail.sourceCurrency),
+              )}
             </div>
             <DescGrid cols={1}>
               <DescField label="Sender Account">
@@ -966,7 +1012,11 @@ function DetailBody({ detail }: { detail: TransactionDetailRow }) {
               Target · {detail.targetBankName || 'Target Bank'}
             </div>
             <div className="mb-2.5 font-mono text-lg font-semibold tabular-nums text-[var(--ks-clearing,#0b6b53)]">
-              {fmtAmount(detail.receiverAmount, detail.targetCurrency || undefined)}
+              {fmtAmount(
+                detail.receiverAmount,
+                detail.targetCurrency || undefined,
+                decOf(detail.targetCurrency),
+              )}
             </div>
             <DescGrid cols={1}>
               <DescField label="Receiver Account">
@@ -1231,6 +1281,8 @@ const PAGE_SIZE_DEFAULT = 10;
 function TransactionListCore() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // From/To 金额按源/目标 token 精度展示（4609208）。
+  const { decimalsOf: decOf } = useTokenMeta(KISSEN_PROJECT_ID);
   const initialFilterForm = React.useMemo(
     () => filterFormFromSearchParams(searchParams),
     [searchParams],
@@ -1350,7 +1402,11 @@ function TransactionListCore() {
                 {r.senderAccount ? <CopyCellIcon value={r.senderAccount} /> : null}
               </div>
               <span className="text-xs text-muted-foreground">
-                {fmtAmount(r.userDeduction, r.sourceCurrency || undefined)}
+                {fmtAmount(
+                  r.userDeduction,
+                  r.sourceCurrency || undefined,
+                  decOf(r.sourceCurrency),
+                )}
               </span>
             </div>
           );
@@ -1374,7 +1430,11 @@ function TransactionListCore() {
                 {r.receiverAccount ? <CopyCellIcon value={r.receiverAccount} /> : null}
               </div>
               <span className="text-xs font-semibold text-[var(--ks-clearing,#0b6b53)]">
-                {fmtAmount(r.receiverAmount, r.targetCurrency || undefined)}
+                {fmtAmount(
+                  r.receiverAmount,
+                  r.targetCurrency || undefined,
+                  decOf(r.targetCurrency),
+                )}
               </span>
             </div>
           );
