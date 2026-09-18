@@ -999,3 +999,4 @@
 - feature jest mapper 两条深路径规则必须按 rootDir 分开写：`feature/lib/*`→`<rootDir>/src/lib/*`、`data-access/lib/*`→`<rootDir>/../data-access/src/lib/*`；通用规则 `'^@myorg/(.*)$': libs/$1/src/index.ts` 不支持子路径（`util-i18n-messages/api-msg` 需单列 mapper）。
 - blockchain.constants.spec 的 `blockchain.` 前缀断言与 `ALL_VALUE=''` 是**旧结构即红**的既有失败（worktree 实测旧 HEAD 8 failed；i18n JSON 键无域前缀、ALL_VALUE 注释明确非空）：已按源码语义修正断言，勿再回改。
 - 迁移审计事故：204「丢失」文件中 203 是审计脚本 `Path.with_suffix` 对带点文件名的误报，真损失仅 `account-manage.constants.ts`（已重建）。教训：审计脚本先对易碎命名（文件名含点）做 dry-run 样本核对。
+- 2026-09-18：Kissen Admin Dashboard 的 `Requires manual handling →` 仅在存在待处理异常时显示，并跳转到 FX Management 第一个子菜单 `FX Rate Management`，路由为 `/fx-rate/pair`；使用现有 `useRouter` 与 link-style Button，保持无异常时的 `No exceptions pending` 文案。

@@ -1065,7 +1065,17 @@ export function DashboardPage() {
             }
             footer={
               exceptionTotal > 0
-                ? 'Requires manual handling →'
+                ? (
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="xs"
+                      className="h-auto p-0 text-xs font-medium text-muted-foreground"
+                      onClick={() => router.push('/fx-rate/pair')}
+                    >
+                      Requires manual handling →
+                    </Button>
+                  )
                 : 'No exceptions pending'
             }
             badge={{
