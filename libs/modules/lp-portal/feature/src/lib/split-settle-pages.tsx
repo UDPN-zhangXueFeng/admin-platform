@@ -65,7 +65,7 @@ import {
   type SplitRow,
 } from '@myorg/modules/lp-portal/data-access';
 
-import { formatMoney, formatTime } from './format';
+import { formatAmount, formatTime } from './format';
 import { SyncRefreshButton } from './sync-refresh-button';
 
 /* ================================================================== */
@@ -176,20 +176,20 @@ function PercentCell({ v }: { v: string | number | null | undefined }) {
   );
 }
 
-/** 金额单元格：formatMoney + 右对齐（源金额列 align="right"）。 */
-function Money({ v }: { v: number | string }) {
+/** 金额单元格：formatAmount 按源 token 精度（6a55188）+ 右对齐。 */
+function Money({ v, dec }: { v: number | string; dec: number }) {
   return (
     <span className="block text-right font-mono text-xs tabular-nums">
-      {formatMoney(v)}
+      {formatAmount(v, dec)}
     </span>
   );
 }
 
-/** Key-figure 强调（我的分成列）。 */
-function KeyFigure({ v }: { v: number | string }) {
+/** Key-figure 强调（我的分成列）；dec 同 Money 口径。 */
+function KeyFigure({ v, dec }: { v: number | string; dec: number }) {
   return (
     <span className="block text-right font-mono text-sm font-semibold tabular-nums">
-      {formatMoney(v)}
+      {formatAmount(v, dec)}
     </span>
   );
 }
@@ -258,7 +258,7 @@ function TxNoCell({ no }: { no: string }) {
 /* ================================================================== */
 
 export function SplitSettlePage() {
-  const { bankOf, symOf } = useTokenMeta(PROJECT_ID);
+  const { bankOf, symOf, decimalsOf } = useTokenMeta(PROJECT_ID);
 
   // ===== 卡1 当前生效比例（pair 域） =====
   const ratioQuery = useSplitRatiosQuery(PROJECT_ID);
@@ -274,6 +274,16 @@ export function SplitSettlePage() {
       return ratioRows.find((r) => r.pairCode === pairCode);
     },
     [ratioRows],
+  );
+
+  /**
+   * amt 口径（6a55188）：金额按 pairCode 对应源 token 的 decimalDigits
+   * 定小数位；pairInfo 未命中 / 元数据未加载回退 2（decimalsOf 兜底）。
+   */
+  const decOf = React.useCallback(
+    (pairCode: string | null | undefined): number =>
+      decimalsOf(pairInfo(pairCode)?.sourceTokenCode),
+    [decimalsOf, pairInfo],
   );
 
   /** 卡2/抽屉共用：Token 对紧凑式，pairInfo 未命中回退纯文本。 */
@@ -505,12 +515,19 @@ export function SplitSettlePage() {
       {
         accessorKey: 'principal',
         header: () => <div className="text-right">Principal</div>,
-        cell: ({ row }) => <Money v={row.original.principal} />,
+        cell: ({ row }) => (
+          <Money v={row.original.principal} dec={decOf(row.original.pairCode)} />
+        ),
       },
       {
         accessorKey: 'markupAmount',
         header: () => <div className="text-right">Markup Amount</div>,
-        cell: ({ row }) => <Money v={row.original.markupAmount} />,
+        cell: ({ row }) => (
+          <Money
+            v={row.original.markupAmount}
+            dec={decOf(row.original.pairCode)}
+          />
+        ),
       },
       {
         accessorKey: 'splitRatio',
@@ -524,7 +541,12 @@ export function SplitSettlePage() {
       {
         accessorKey: 'lpSplitAmount',
         header: () => <div className="text-right">My Split</div>,
-        cell: ({ row }) => <KeyFigure v={row.original.lpSplitAmount} />,
+        cell: ({ row }) => (
+          <KeyFigure
+            v={row.original.lpSplitAmount}
+            dec={decOf(row.original.pairCode)}
+          />
+        ),
       },
       {
         accessorKey: 'completedTime',
@@ -536,7 +558,7 @@ export function SplitSettlePage() {
         ),
       },
     ],
-    [renderPairX],
+    [renderPairX, decOf],
   );
 
   /* ================= 卡3 列（v2.4 7 列，金额三列移入抽屉分项） ================= */
@@ -732,8 +754,9 @@ export function SplitSettlePage() {
             {detailSummary && (
               <div className="my-3 text-sm text-muted-foreground">
                 {detailTotal} records · Markup total{' '}
-                {formatMoney(detailSummary.markupTotal)} · My split total{' '}
-                {formatMoney(detailSummary.lpSplitTotal)}
+                {formatAmount(detailSummary.markupTotal, decOf(drawerPairCode))}{' '}
+                · My split total{' '}
+                {formatAmount(detailSummary.lpSplitTotal, decOf(drawerPairCode))}
               </div>
             )}
             <DataTable
@@ -910,6 +933,7 @@ export function SplitSettlePage() {
                       <ItemsTable
                         items={drawerOrder.items ?? []}
                         renderPairX={renderPairX}
+                        decOf={decOf}
                       />
                     </div>
                   </section>
@@ -929,6 +953,7 @@ export function SplitSettlePage() {
                         <RecordsTable
                           rows={drawerRecords}
                           renderPairX={renderPairX}
+                          decOf={decOf}
                         />
                       )}
                     </div>
@@ -966,9 +991,12 @@ function Item({
 function ItemsTable({
   items,
   renderPairX,
+  decOf,
 }: {
   items: SettleOrderItem[];
   renderPairX: (pairCode: string | null | undefined) => React.ReactNode;
+  /** 6a55188：金额按 pairCode 源 token 精度。 */
+  decOf: (pairCode: string | null | undefined) => number;
 }) {
   const columns = React.useMemo<ColumnDef<SettleOrderItem & { id: string }>[]>(
     () => [
@@ -998,20 +1026,35 @@ function ItemsTable({
       {
         accessorKey: 'principalTotal',
         header: 'Principal Total',
-        cell: ({ row }) => <Money v={row.original.principalTotal} />,
+        cell: ({ row }) => (
+          <Money
+            v={row.original.principalTotal}
+            dec={decOf(row.original.pairCode)}
+          />
+        ),
       },
       {
         accessorKey: 'markupTotal',
         header: 'Markup Total',
-        cell: ({ row }) => <Money v={row.original.markupTotal} />,
+        cell: ({ row }) => (
+          <Money
+            v={row.original.markupTotal}
+            dec={decOf(row.original.pairCode)}
+          />
+        ),
       },
       {
         accessorKey: 'lpSplitTotal',
         header: 'My Split',
-        cell: ({ row }) => <KeyFigure v={row.original.lpSplitTotal} />,
+        cell: ({ row }) => (
+          <KeyFigure
+            v={row.original.lpSplitTotal}
+            dec={decOf(row.original.pairCode)}
+          />
+        ),
       },
     ],
-    [renderPairX],
+    [renderPairX, decOf],
   );
 
   const data = React.useMemo(
@@ -1033,9 +1076,12 @@ function ItemsTable({
 function RecordsTable({
   rows,
   renderPairX,
+  decOf,
 }: {
   rows: SettleRecordRow[];
   renderPairX: (pairCode: string | null | undefined) => React.ReactNode;
+  /** 6a55188：金额按 pairCode 源 token 精度。 */
+  decOf: (pairCode: string | null | undefined) => number;
 }) {
   const columns = React.useMemo<ColumnDef<SettleRecordRow & { id: string }>[]>(
     () => [
@@ -1061,17 +1107,32 @@ function RecordsTable({
       {
         accessorKey: 'principal',
         header: 'Principal',
-        cell: ({ row }) => <Money v={row.original.principal} />,
+        cell: ({ row }) => (
+          <Money
+            v={row.original.principal}
+            dec={decOf(row.original.pairCode)}
+          />
+        ),
       },
       {
         accessorKey: 'markupAmount',
         header: 'Markup Amount',
-        cell: ({ row }) => <Money v={row.original.markupAmount} />,
+        cell: ({ row }) => (
+          <Money
+            v={row.original.markupAmount}
+            dec={decOf(row.original.pairCode)}
+          />
+        ),
       },
       {
         accessorKey: 'lpSplitAmount',
         header: 'My Split',
-        cell: ({ row }) => <KeyFigure v={row.original.lpSplitAmount} />,
+        cell: ({ row }) => (
+          <KeyFigure
+            v={row.original.lpSplitAmount}
+            dec={decOf(row.original.pairCode)}
+          />
+        ),
       },
       {
         accessorKey: 'completedTime',
@@ -1083,7 +1144,7 @@ function RecordsTable({
         ),
       },
     ],
-    [renderPairX],
+    [renderPairX, decOf],
   );
 
   const data = React.useMemo(

@@ -139,6 +139,11 @@ export interface TxRow {
   sourceTokenCode: string;
   targetTokenCode: string;
   principal: string | number;
+  /**
+   * 用户实付（=本金×(1+加价率)，源 token 计价）：源端实际划出、即流入
+   * LP 源池的金额；From 列与抽屉「User Deduction」项（ed1a340）。
+   */
+  userDeduction: string | number;
   /** 收款方到账金额（v2.3 列表列） */
   receiverAmount?: string | number;
   /** v2.4 用户汇率（成交快照；0/null = 无快照显 '-'，非零 en-US 千分位 max 8 位小数） */

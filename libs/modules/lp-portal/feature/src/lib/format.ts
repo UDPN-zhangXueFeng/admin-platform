@@ -33,6 +33,43 @@ export function formatMoney(
   return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
 }
 
+/**
+ * 金额按 token 精度展示（源 utils/format.ts formatAmount，6a55188 2026-09-18）：
+ * 千分位 + 固定 decimals 位小数（HALF_UP，与后端 setScale 同尺）。
+ * 金额是 decimal(20,8)，转 Number 在大额时会丢末位精度，故全程字符串 + BigInt。
+ * - null / undefined / '' → '-'；非数字原样返回（不静默掩掉脏数据）
+ * - decimals < 0 钳 0；0 位渲染无小数点整数
+ */
+export function formatAmount(
+  v: number | string | null | undefined,
+  decimals = 2,
+): string {
+  if (v === null || v === undefined || v === '') return '-';
+  const scale = decimals < 0 ? 0 : decimals;
+  let s = String(v).trim();
+  let sign = '';
+  if (s.startsWith('-')) {
+    sign = '-';
+    s = s.slice(1);
+  }
+  const dot = s.indexOf('.');
+  const int = dot === -1 ? s : s.slice(0, dot);
+  const dec = dot === -1 ? '' : s.slice(dot + 1);
+  if (!/^\d+$/.test(int) || (dec !== '' && !/^\d+$/.test(dec))) return String(v);
+  // 整数位与保留的小数位拼成一个数字串；被舍位首位 ≥5 则整体 +1（HALF_UP），
+  // 进位自然传递（9.99 → 10.00），再按 scale 切回整数/小数。
+  let digits =
+    int + (dec.length <= scale ? dec.padEnd(scale, '0') : dec.slice(0, scale));
+  if (dec.length > scale && Number(dec[scale]) >= 5) {
+    digits = (BigInt(digits) + 1n).toString();
+  }
+  digits = digits.padStart(scale + 1, '0');
+  const intPart = scale === 0 ? digits : digits.slice(0, digits.length - scale);
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (scale === 0) return `${sign}${grouped}`;
+  return `${sign}${grouped}.${digits.slice(digits.length - scale)}`;
+}
+
 /** 账户地址掩码：长度大于 12 保留前 6 与后 4，中间 ****；否则原样，空值 → '-' */
 export function maskAddress(addr?: string | null): string {
   if (!addr) return '-';

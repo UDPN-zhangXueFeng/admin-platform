@@ -22,6 +22,8 @@ export interface TokenMeta {
   tokenName: string;
   /** 缩写（如 USDC）；token 对紧凑式源/目标优先用 symbol（v2.3.1 e591f85）。 */
   symbol: string;
+  /** 小数位（decimal_digits）；金额展示按此定小数位（6a55188）。 */
+  decimalDigits: number;
 }
 
 function index(rows: TokenRow[]): Map<string, TokenMeta> {
@@ -32,6 +34,11 @@ function index(rows: TokenRow[]): Map<string, TokenMeta> {
       bankBic: r.bankBic || r.bankCode || '',
       tokenName: r.tokenName || '',
       symbol: r.symbol || '',
+      // null/负数归 2（DDL NOT NULL DEFAULT 2；源 6a55188 同款兜底）。
+      decimalDigits:
+        r.decimalDigits == null || r.decimalDigits < 0
+          ? 2
+          : Number(r.decimalDigits),
     };
     if (r.tokenNo && !m.has(r.tokenNo)) m.set(r.tokenNo, meta);
     if (r.tokenCode && !m.has(r.tokenCode)) m.set(r.tokenCode, meta);
@@ -82,5 +89,15 @@ export function useTokenMeta(projectId: string) {
     [metaMap],
   );
 
-  return { metaMap, label, bankOf, symOf };
+  /** 该 token 的小数位；未加载/查不到回退 2（与 DDL 默认一致，源 6a55188）。 */
+  const decimalsOf = useCallback(
+    (tokenKey?: string | null): number => {
+      if (!tokenKey) return 2;
+      const meta = metaMap.get(tokenKey);
+      return meta ? meta.decimalDigits : 2;
+    },
+    [metaMap],
+  );
+
+  return { metaMap, label, bankOf, symOf, decimalsOf };
 }

@@ -18,9 +18,11 @@
  *   caliber (35 success) - see chain-drawer.tsx / tx-chain.ts.
  * - completedTime is compared strictly against 0 (unfinished sentinel) and
  *   rendered '-', never fed into formatTime's invalid branch.
- * - Principal and Receiver Amount share one money caliber (global
- *   formatMoney, v2.3 null fallback) so both columns group thousands
- *   identically; an absent receiverAmount renders '-'.
+ * - Money caliber (ed1a340/6a55188): From shows userDeduction (principal x
+ * (1 + markup), the amount actually debited at the source) at the SOURCE
+ * token precision, To shows receiverAmount at the TARGET token precision -
+ * both formatAmount(decimalDigits, HALF_UP) + symbol suffix; absent values
+ * render '-' without the suffix.
  * - Tokens column (v2.3) replaces the old direction column with the
  *   compact two-line pair: symOf(src)/symOf(tgt) over the muted
  *   bankOf(src) -> bankOf(tgt) row, resolved via useTokenMeta.
@@ -59,7 +61,7 @@ import {
   type TxRow,
 } from '@myorg/modules/lp-portal/data-access';
 import { ChainDrawer } from './chain-drawer';
-import { formatMoney, formatTime } from './format';
+import { formatAmount, formatTime } from './format';
 import { SyncRefreshButton } from './sync-refresh-button';
 import { ServiceDownAlert } from './service-down-alert';
 import {
@@ -192,7 +194,19 @@ export function TxFlowListPage() {
   const total = listQuery.data?.pagination.total ?? 0;
 
   // v2.3 unified token metadata (symbol + bank names) for the Tokens column.
-  const { symOf, bankOf } = useTokenMeta(PROJECT_ID);
+  const { symOf, bankOf, decimalsOf } = useTokenMeta(PROJECT_ID);
+
+  /**
+   * 金额口径（ed1a340/6a55188）：formatAmount 按对应 token 的 decimalDigits
+   * 定小数位（HALF_UP 千分位），后缀币种缩写；text 为 '-' 时不追加缩写。
+   */
+  const amountText = React.useCallback(
+    (v: string | number | null | undefined, tokenCode?: string | null) => {
+      const text = formatAmount(v, decimalsOf(tokenCode));
+      return text === '-' ? text : `${text} ${symOf(tokenCode)}`;
+    },
+    [decimalsOf, symOf],
+  );
 
   // 0024 -> page-level banner; non-0024 failures clear it (previous data kept).
   const err = listQuery.error;
@@ -232,7 +246,9 @@ export function TxFlowListPage() {
       },
       {
         // v2.4 From column: sender wallet (tooltip full text, mono
-        // truncated) over the principal amount (source .wallet/.amount)
+        // truncated) over the user deduction (ed1a340 semantic fix:
+        // principal x (1 + markup) actually debited at the source side),
+        // formatted at the SOURCE token precision + symbol (6a55188)
         id: 'from',
         header: 'From',
         cell: ({ row }) => (
@@ -248,14 +264,17 @@ export function TxFlowListPage() {
               </TooltipContent>
             </Tooltip>
             <div className="font-mono text-xs tabular-nums text-muted-foreground">
-              {formatMoney(row.original.principal)}
+              {amountText(
+                row.original.userDeduction,
+                row.original.sourceTokenCode,
+              )}
             </div>
           </div>
         ),
       },
       {
         // v2.4 To column: receiver wallet + receiver amount (same two-line
-        // shape as From; optional fields fall back to '-' via formatMoney)
+        // shape as From) at the TARGET token precision + symbol (6a55188)
         id: 'to',
         header: 'To',
         cell: ({ row }) => (
@@ -271,7 +290,10 @@ export function TxFlowListPage() {
               </TooltipContent>
             </Tooltip>
             <div className="font-mono text-xs tabular-nums text-muted-foreground">
-              {formatMoney(row.original.receiverAmount)}
+              {amountText(
+                row.original.receiverAmount,
+                row.original.targetTokenCode,
+              )}
             </div>
           </div>
         ),
@@ -350,7 +372,7 @@ export function TxFlowListPage() {
         ),
       },
     ],
-    [symOf, bankOf],
+    [symOf, bankOf, amountText],
   );
 
   const tableData = React.useMemo(

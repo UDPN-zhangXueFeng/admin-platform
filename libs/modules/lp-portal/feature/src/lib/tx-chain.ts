@@ -81,24 +81,16 @@ export function txStatusLabel(status: number): string {
 /* ================================================================== */
 
 /**
- * Drawer money caliber (doc 01 E4): en-US grouping that keeps 2..8 fraction
- * digits (`toLocaleString('en-US', {min 2, max 8})`) - deliberately NOT the
- * global `formatMoney` which preserves backend digits verbatim. Non-finite,
- * empty or null input renders '-'; numeric strings are accepted.
+ * Amount text injected by the drawer (ed1a340/6a55188): token-precision
+ * `formatAmount` + symbol suffix, keyed by the row's source/target token
+ * code. Kept as a parameter so this module stays pure / unit-testable; the
+ * old `fmtAmount` caliber (Number + toLocaleString min2/max8) is retired -
+ * the drawer builds the callback from `useTokenMeta` + `formatAmount`.
  */
-export function fmtAmount(v: number | string | null | undefined): string {
-  if (
-    v === null ||
-    v === undefined ||
-    v === '' ||
-    !Number.isFinite(Number(v))
-  )
-    return '-';
-  return Number(v).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 8,
-  });
-}
+export type AmountText = (
+  v: number | string | null | undefined,
+  tokenCode: string | null | undefined,
+) => string;
 
 /**
  * Rate caliber (doc 01 E31, shared with the list FX Rate cell): 0 / missing
@@ -200,13 +192,22 @@ export function flattenChain(
  * - Any other node folds into the previous milestone contributing only its
  *   csTxId (deduped). A leading child node with no open milestone opens a
  *   head group titled "Processing" (to=0, primary tone).
- * - Amount extras (drawer caliber) attach to root milestones only:
+ * - Amount extras attach to root milestones only, rendered through the
+ *   injected amountText callback (token precision + symbol, 6a55188):
  *   quote lock (to=5) carries principal / receiver amount / rate;
  *   payout & completion (30/35/40) carry the receiver amount.
  */
 export function buildChainTimeline(
   nodes: TxChainNode[],
-  row: Pick<TxRow, 'principal' | 'receiverAmount' | 'userRate'>,
+  row: Pick<
+    TxRow,
+    | 'principal'
+    | 'receiverAmount'
+    | 'userRate'
+    | 'sourceTokenCode'
+    | 'targetTokenCode'
+  >,
+  amountText: AmountText,
 ): TimelineItem[] {
   const sorted = [...nodes].sort(
     (a, b) => a.eventTime - b.eventTime || a.flowId - b.flowId,
@@ -251,10 +252,14 @@ export function buildChainTimeline(
     const extras: string[] = [];
     if (root && g.to === 5) {
       if (row.principal != null) {
-        extras.push(`Principal ${fmtAmount(row.principal)}`);
+        extras.push(
+          `Principal ${amountText(row.principal, row.sourceTokenCode)}`,
+        );
       }
       if (row.receiverAmount != null) {
-        extras.push(`Target amount ${fmtAmount(row.receiverAmount)}`);
+        extras.push(
+          `Target amount ${amountText(row.receiverAmount, row.targetTokenCode)}`,
+        );
       }
       if (row.userRate != null) {
         extras.push(`Rate ${fmtRate(row.userRate)}`);
@@ -265,7 +270,9 @@ export function buildChainTimeline(
       (g.to === 30 || g.to === 35 || g.to === 40) &&
       row.receiverAmount != null
     ) {
-      extras.push(`Target amount ${fmtAmount(row.receiverAmount)}`);
+      extras.push(
+        `Target amount ${amountText(row.receiverAmount, row.targetTokenCode)}`,
+      );
     }
     for (const c of g.csTxIds) extras.push(`Ref ${c}`);
     return {

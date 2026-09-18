@@ -76,4 +76,5 @@
 - **折线图 v2（4d20380）**：y 轴改 0~nice-max（1/2/5×10^n）+ Catmull-Rom 平滑 + 渐变面积 + hover 十字线 DOM 气泡 + 图例点击隐藏；v2.4 的 y 全域 min~max 归一化口径作废；tooltip 小数位 4→2。上游隐藏序列后线条色按可见序重排而图例色按原始序（呈现 bug）——下游统一按原始序列 index 稳定分配色（呈现层偏差，已在文档 01 §D20 注明）。
 - **资金池菜单拍平（4d20380）**：上游删 MainLayout MENU_ICONS 的 liquidity 组键（后端 menuTree 不再有资金池组）；下游对应删 lp-routes.ts MENU_LABELS.liquidity / MENU_ICONS.liquidity，菜单仍 menuTree 驱动无需改 configs。
 - **split 行 VO 并入汇率三列（a6889f5）**：卡1 汇率列展示口径与 pair 页一致（rateText/percentText 2 位小数）。
+- **edit 工具多 hunk 部分应用**（6a55188 批实测两次）：一次调用里多个 PUT hunk，某个锚行拒绝时会**部分应用**（如签名 hunk 成功、金额列 hunk 被静默丢弃），响应未必显式标出哪个失败——多 hunk 后必须 grep/read 逐个 hunk 复核「是否真的落上」，不能只看编辑响应行号；本批 tx-flow From/To cell 与 ItemsTable decOf 签名均靠 build 报错才发现未应用。另：单行替换为多行 body 偶发 "boundary row required" 拒绝，重 read 后原样重发即成功。
 - **SVG 渐变主题 token 方案**：`<linearGradient className="text-emerald-700">` + `<stop stopColor="currentColor">`——currentColor 从 gradient 元素继承 color，绕开 tailwind 无 stop-* 工具类的问题，不写 hex。

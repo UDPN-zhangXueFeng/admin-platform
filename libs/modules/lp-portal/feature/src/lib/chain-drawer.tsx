@@ -15,9 +15,10 @@
  *   fixed 11-item set re-layered as core amounts and copyable business
  *   identifiers first, audit timestamps behind a hairline, conditional
  *   failure reason on its own full row; the old transaction ID item stays
- *   retired. Money items use the drawer caliber fmtAmount (2..8 fraction
- *   digits, en-US grouping), NOT the global formatMoney - both calibers
- *   must survive side by side.
+ *   retired. Money items (principal / user deduction / receiver amount and
+ *   the timeline extras) render at their token's decimalDigits precision
+ *   with the symbol suffix (ed1a340/6a55188) via amountText - the old
+ *   min2/max8 fmtAmount caliber is retired.
  * - Token Pair renders the v2.3 slash compact form via useTokenMeta
  *   (symOf falls back to the raw token code).
  * - Status badge caliber: 35 renders success/"Completed" in the drawer
@@ -57,14 +58,14 @@ import {
   buildChainTimeline,
   completedTimeText,
   flattenChain,
-  fmtAmount,
+  type AmountText,
   txDrawerVariant,
   txStatusLabel,
   txWarnClass,
   type TimelineItem,
   type TimelineTone,
 } from './tx-chain';
-import { formatTime } from './format';
+import { formatAmount, formatTime } from './format';
 import { ServiceDownAlert } from './service-down-alert';
 
 /* ================================================================== */
@@ -142,12 +143,9 @@ function DescItem({
   );
 }
 
-/** Money cell in the drawer caliber (doc 01 E4), distinct from formatMoney. */
-function Amount({ v }: { v: string | number | null | undefined }) {
+function Amount({ text }: { text: string }) {
   return (
-    <span className="font-mono text-sm font-medium tabular-nums">
-      {fmtAmount(v)}
-    </span>
+    <span className="font-mono text-sm font-medium tabular-nums">{text}</span>
   );
 }
 
@@ -156,16 +154,26 @@ function Amount({ v }: { v: string | number | null | undefined }) {
  * hairline, audit timestamps (muted, denser 3-col) below; failure reason
  * keeps its own full row. Tx No. / Status / Token Pair moved to the hero.
  */
-function BasicInfo({ row }: { row: TxRow }) {
+function BasicInfo({
+  row,
+  amountText,
+}: {
+  row: TxRow;
+  amountText: AmountText;
+}) {
   return (
     <dl className="space-y-4">
       {/* 核心信息层：金额（Data 角色）+ 业务标识（Identifier，复制贴字段） */}
       <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
         <DescItem label="Principal">
-          <Amount v={row.principal} />
+          <Amount text={amountText(row.principal, row.sourceTokenCode)} />
+        </DescItem>
+        <DescItem label="User Deduction">
+          {/* ed1a340: principal × (1 + markup) actually debited at the source */}
+          <Amount text={amountText(row.userDeduction, row.sourceTokenCode)} />
         </DescItem>
         <DescItem label="Receiver Amount">
-          <Amount v={row.receiverAmount} />
+          <Amount text={amountText(row.receiverAmount, row.targetTokenCode)} />
         </DescItem>
         <DescItem label="Bank Idempotency No.">
           <CopyableEllipsisText
@@ -234,7 +242,19 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
 
   // §6.3 hero identity: token-pair slash compact form via unified meta
   // (v2.3; symOf/bankOf fall back to the raw code).
-  const { symOf, bankOf } = useTokenMeta(LP_PROJECT_ID);
+  const { symOf, bankOf, decimalsOf } = useTokenMeta(LP_PROJECT_ID);
+
+  /**
+   * 金额口径（ed1a340/6a55188）：formatAmount 按对应 token 的 decimalDigits
+   * 定小数位（HALF_UP 千分位），后缀币种缩写；text 为 '-' 时不追加缩写。
+   */
+  const amountText = React.useCallback<AmountText>(
+    (v, tokenCode) => {
+      const text = formatAmount(v, decimalsOf(tokenCode));
+      return text === '-' ? text : `${text} ${symOf(tokenCode)}`;
+    },
+    [decimalsOf, symOf],
+  );
 
   // Flattened nodes (flat array or tree both accepted; failed refetch keeps
   // last good data via the query cache).
@@ -246,8 +266,8 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
   // Single business timeline (v3): milestones from status-migration roots,
   // amount extras taken from the row payload (no second list request).
   const timeline = React.useMemo(
-    () => buildChainTimeline(nodes, row),
-    [nodes, row],
+    () => buildChainTimeline(nodes, row, amountText),
+    [nodes, row, amountText],
   );
 
   // 0024 -> banner inside the drawer; other failures clear the banner while
@@ -306,7 +326,7 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
                   Basic Information
                 </h4>
                 <div className="px-4 py-4">
-                  <BasicInfo row={row} />
+                  <BasicInfo row={row} amountText={amountText} />
                 </div>
               </section>
 
