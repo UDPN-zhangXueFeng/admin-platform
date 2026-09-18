@@ -555,8 +555,8 @@ function PoolLevel({ pool }: { pool: WorkbenchPoolRow }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="flex min-w-[220px] cursor-help items-center gap-2.5">
-          <div className="relative h-1.5 w-[110px] rounded bg-muted">
+        <div className="flex min-w-0 flex-wrap cursor-help items-center gap-x-2.5 gap-y-1 min-[1920px]:min-w-[220px] min-[1920px]:flex-nowrap">
+          <div className="relative h-1.5 min-w-[64px] flex-1 rounded bg-muted min-[1920px]:w-[110px] min-[1920px]:min-w-0 min-[1920px]:flex-none">
             {percentage != null ? (
               <div
                 className={cn(
@@ -625,8 +625,8 @@ function PoolOverview({
           text="No pools yet"
         />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] table-fixed border-collapse">
+        <div className="max-md:overflow-x-auto md:overflow-hidden">
+          <table className="w-full min-w-0 max-md:min-w-[760px] table-fixed border-collapse">
             <thead>
               <tr>
                 {[
@@ -640,17 +640,17 @@ function PoolOverview({
                   <th
                     key={heading}
                     className={cn(
-                      'whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground',
-                      index === 0 && 'w-[150px]',
-                      index === 1 && 'w-[180px]',
-                      index === 2 && 'w-[155px] text-right',
-                      index === 3 && 'w-[100px]',
-                      index === 4 && 'w-[160px] text-right',
-                      index === 5 && 'w-[130px]',
+                      'whitespace-normal border-b border-border px-3 py-2 text-left text-xs font-semibold leading-tight tracking-wide text-muted-foreground min-[1920px]:whitespace-nowrap',
+                      index === 0 && 'w-[14%] min-[1920px]:w-[150px]',
+                      index === 1 && 'w-[18%] min-[1920px]:w-[180px]',
+                      index === 2 && 'w-[20%] text-right min-[1920px]:w-[155px]',
+                      index === 3 && 'w-[12%] min-[1920px]:w-[100px]',
+                      index === 4 && 'w-[18%] text-right min-[1920px]:w-[160px]',
+                      index === 5 && 'w-[18%] min-[1920px]:w-[130px]',
                     )}
                   >
                     {heading === 'Pool Level' ? (
-                      <span className="inline-flex items-center gap-1">
+                      <span className="inline-flex max-w-full flex-wrap items-center gap-1">
                         {heading}
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -680,14 +680,29 @@ function PoolOverview({
             </thead>
             <tbody>
               {pools.map((pool) => {
+                const poolAddress = formatAddress(pool.accountAddress);
+                const preauthAmount =
+                  pool.preauthAvailable == null
+                    ? '-'
+                    : formatTokenAmount(pool.preauthAvailable, pool.tokenSymbol);
+                const tokenName =
+                  tokenNames.get(pool.tokenId) || pool.tokenCode || '-';
+                const availableBalance = formatTokenAmount(
+                  pool.availableBalanceCache,
+                  pool.tokenSymbol,
+                );
                 return (
                   <tr key={pool.poolId} className="hover:bg-muted/40">
                     <td className="border-b border-border px-3 py-2.5 text-sm">
-                      {pool.lpName || '-'}
+                      <span className="block truncate" title={pool.lpName || '-'}>
+                        {pool.lpName || '-'}
+                      </span>
                     </td>
                     <td className="border-b border-border px-3 py-2.5 font-mono text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        {formatAddress(pool.accountAddress)}
+                      <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                        <span className="truncate" title={poolAddress}>
+                          {poolAddress}
+                        </span>
                         {pool.accountAddress ? (
                           <CopyButton
                             value={pool.accountAddress}
@@ -697,15 +712,22 @@ function PoolOverview({
                       </span>
                     </td>
                     <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
-                      {pool.preauthAvailable == null
-                        ? '-'
-                        : formatTokenAmount(pool.preauthAvailable, pool.tokenSymbol)}
+                      <span className="block truncate" title={preauthAmount}>
+                        {preauthAmount}
+                      </span>
                     </td>
                     <td className="border-b border-border px-3 py-2.5 text-sm font-semibold">
-                      {tokenNames.get(pool.tokenId) || pool.tokenCode || '-'}
+                      <span className="block truncate" title={tokenName}>
+                        {tokenName}
+                      </span>
                     </td>
                     <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
-                      {formatTokenAmount(pool.availableBalanceCache, pool.tokenSymbol)}
+                      <span
+                        className="block truncate"
+                        title={availableBalance}
+                      >
+                        {availableBalance}
+                      </span>
                     </td>
                     <td className="border-b border-border px-3 py-2.5">
                       <PoolLevel pool={pool} />
@@ -1151,7 +1173,7 @@ export function DashboardPage() {
         </section>
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <Card className="min-w-0 rounded-[10px] p-5 lg:col-span-8">
+          <Card className="min-w-0 rounded-[10px] p-5 lg:col-span-12 min-[1600px]:col-span-8">
             <PanelHeading
               title="Pending Exceptions"
               action={
@@ -1171,8 +1193,8 @@ export function DashboardPage() {
                 text="No exceptions to handle"
               />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[980px] table-fixed border-collapse">
+              <div className="overflow-hidden">
+                <table className="w-full min-w-0 table-fixed border-collapse">
                   <thead>
                     <tr>
                     {[
@@ -1188,13 +1210,13 @@ export function DashboardPage() {
                         key={heading}
                         className={cn(
                           'whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground first:pl-0 last:pr-0',
-                          index === 0 && 'w-[180px]',
-                          index === 1 && 'w-[150px]',
-                          index === 2 && 'w-[130px] text-right',
-                          index === 3 && 'w-[110px]',
-                          index === 4 && 'w-[165px]',
-                          index === 5 && 'w-[80px] text-right',
-                          index === 6 && 'w-[64px]',
+                          index === 0 && 'w-[18%]',
+                          index === 1 && 'w-[14%]',
+                          index === 2 && 'w-[10%] text-right',
+                          index === 3 && 'w-[14%]',
+                          index === 4 && 'w-[24%]',
+                          index === 5 && 'w-[11%] text-right',
+                          index === 6 && 'w-[9%] text-right',
                         )}
                       >
                         {heading}
@@ -1205,6 +1227,8 @@ export function DashboardPage() {
                   <tbody>
                     {exceptionRows.map((row) => {
                       const transactionNumber = row.txNo || row.txUuid;
+                      const createdOn = formatTime(row.createTime);
+                      const age = formatAge(row.createTime);
                       return (
                         <tr
                           key={row.transactionId}
@@ -1231,7 +1255,12 @@ export function DashboardPage() {
                             </span>
                           </td>
                           <td className="border-b border-border px-3 py-3 text-sm">
-                            {pairText(row)}
+                            <span
+                              className="block truncate"
+                              title={pairText(row)}
+                            >
+                              {pairText(row)}
+                            </span>
                           </td>
                           <td className="border-b border-border px-3 py-3 text-right text-sm tabular-nums">
                             {formatTokenAmount(row.principal, row.sourceCurrency)}
@@ -1246,11 +1275,13 @@ export function DashboardPage() {
                               </span>
                             </div>
                           </td>
-                          <td className="whitespace-nowrap border-b border-border px-3 py-3 text-sm text-muted-foreground">
-                            {formatTime(row.createTime)}
+                          <td className="border-b border-border px-3 py-3 text-sm text-muted-foreground">
+                            <span className="block truncate" title={createdOn}>
+                              {createdOn}
+                            </span>
                           </td>
-                          <td className="whitespace-nowrap border-b border-border px-3 py-3 text-sm tabular-nums text-muted-foreground">
-                            {formatAge(row.createTime)}
+                          <td className="whitespace-nowrap border-b border-border px-3 py-3 text-right text-sm tabular-nums text-muted-foreground">
+                            {age}
                           </td>
                           <td className="border-b border-border px-3 py-3 text-right last:pr-0">
                             <Button
@@ -1271,7 +1302,7 @@ export function DashboardPage() {
             )}
           </Card>
 
-          <div className="min-w-0 lg:col-span-4">
+          <div className="min-w-0 lg:col-span-12 min-[1600px]:col-span-4">
             <SettlementOverview
               settleQuery={settleQ}
               reconcileQuery={reconcileQ}
@@ -1281,7 +1312,7 @@ export function DashboardPage() {
         </section>
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <div className="min-w-0 lg:col-span-8">
+          <div className="min-w-0 lg:col-span-12 min-[1600px]:col-span-8">
             <PoolOverview
               pools={pools}
               tokenNames={tokenNames}
@@ -1291,7 +1322,7 @@ export function DashboardPage() {
               onViewAll={() => router.push('/liquidity/pool')}
             />
           </div>
-          <Card className="min-w-0 rounded-[10px] p-5 lg:col-span-4">
+          <Card className="min-w-0 rounded-[10px] p-5 lg:col-span-12 min-[1600px]:col-span-4">
             <PanelHeading title="Network Overview" />
             <NetworkStat
               name="Banks"

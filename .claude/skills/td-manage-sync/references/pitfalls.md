@@ -23,3 +23,10 @@
 11. **`module-registry.ts` 的 enforce-module-boundaries 违规是已知妥协**：中央注册表必须 import 所有 `@myorg/modules/*`，不阻塞 build，勿当回归修。
 12. **迁移旧系统视觉资产先确认资源存在**：位图/图标缺失时用主题 CSS 变量与 lucide 图标替代，不留空色块占位。
 13. **资源/文案重命名三层同步**：config order label、i18n title、manifest name——只改一处 = 菜单/面包屑/页面标题互相打架。
+
+## 2026-09-18 admin dev 登录超时（同步排查踩坑）
+
+- apps/admin webpack dev 下每路由编译 42s（td-admin 合并库依赖图巨大），编译期间请求排队 → 浏览器连接池耗尽 → 登录 XHR 在浏览器内从未发出、axios 15s 超时。表象是「登录接口超时」，根因是 bundler，不是后端/代理/axios。
+- 排查顺序教训：先看 dev server 日志的 `compile:` 字段（GET /en-US 200 in 42s compile: 42s 一行就定案），再浏览器抓 Resource Timing `requestStart`。同页裸 fetch/XHR/CDN axios 探针全部正常也照样浪费了大量时间——探针不打断编译态，无法复现。
+- Next 16 `--webpack` 是 first commit 带入、无文档理由；dev 切 Turbopack（去 `--webpack`）即可，build 保持 webpack 不动。
+- Turbopack 两个坑：(1) 显式 `turbopack.root` 反而使 `[module]/[[...slug]]` 编译卡死，保持默认推断；(2) 任何 next.config 变更都会失效 filesystem cache，需 `rm -rf apps/admin/.next/dev` 冷启。
