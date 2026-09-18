@@ -1,5 +1,12 @@
 # Codex 对话沉淀
 
+## 2026-09-17 td-manage-sync skill 建档
+
+- 背景：apps/admin 需要跟踪上游 td-manage（GitLab `td_project/source-code/stack/td-manage`，`feature/zxf` 分支）的后续更新。新建 `.claude/skills/td-manage-sync/`（SKILL.md + constraints/conventions/pitfalls + diff-upstream.sh），结构与 admin-sync 同构。
+- 与 kissen 系 sync 的关键差异：上游是 Next.js Pages Router + SWR（非 Vue）；下游 apps/admin 双语文案（en-US/zh-CN 双份 messages，非零 CJK）；菜单是静态 configs/*.json 多项目驱动（无后端 menuTree 运行时层）；registry 双注册表（中央 `apps/admin/src/lib/module-registry.ts` 47 keys + app-local `module-page-registry.ts` 承载 sp-access/key-management）。
+- 水位线：上游已 clone 至 `~/repos/td-manage`，锚点经用户裁决为 `7cce629d`（2026-08-04）；状态文件 `.doc/td-manage/sync-state.json`。首跑积压仅 2 commits（Dockerfile + networks 换图 1 行）。
+- 后续同类任务：同步 td-manage 上游必须走该 skill 六步流程；HTTP 方法判定按上游 fetcher 语义（`useSWR([url])`=GET / `[url,payload]`=POST），按钮权限用后端 UUID——两者历史上都出过回归，见 skill 的 pitfalls.md。
+
 ## 2026-09-17 Jenkins 节点兼容性修复
 
 - 背景：Jenkins 节点使用 Docker 26.1.3，但没有 `docker buildx` 子命令；流水线将 `docker buildx version` 作为强制检查，导致 Kissen Admin 在镜像构建前失败。失败通知同时因卡片 JSON 使用 `{{...}}` 返回 HTTP 400。
@@ -980,3 +987,15 @@
 - 2026-09-16：G-02 已确认并落地：Gateway FX Query 页面标题和第一列表头统一使用 `Token Pair`；`FX Rate` 保留为汇率字段名称。
 - 2026-09-16：A-06 已确认并落地：Kissen Admin FX Transactions 的 Tokens 下拉及列表列均优先使用 `/manage/token-pair/list` 返回的 `sourceSymbol/targetSymbol`，查询值仍为 `pairId`，缺少 symbol 时回退 token code。
 - 2026-09-16：A-01 已确认并落地：Dashboard `Network Overview` 的 `Token Pairs` 行跳转到 FX Management 下第一个子菜单 `FX Rate Management` 列表，路由为 `/fx-rate/pair`；其他 Dashboard 区块跳转目标保持不变。
+
+## 2026-09-18 td-admin 模块收敛重构（37 域 → feature/data-access 两项目）
+
+- `libs/modules` 下 37 个非 kissen 域已收敛为 `libs/modules/td-admin/{feature,data-access}`（alias `@myorg/modules/td-admin/{feature,data-access}`），形态对齐 kissen 系。验证链全绿：`npx nx build admin`、kissen 三应用+lp-portal 回归 build、两项目 lint、feature 21 套件 166 测试 + data-access 11 套件 90 测试全过、`tsc --noEmit -p apps/admin/tsconfig.json` 0 错。
+- 顶层 barrel 消歧约定：`export *` 全量转发 + index.ts 末尾显式 re-export 段覆盖跨域同名符号（类型用 `export type`）；互斥消费的歧义符号（如 `BlockchainOption`）消费点走深路径 alias。定版：`StablecoinOption`→dashboard、`useStablecoinOptionsQuery`→key-management、`useStablecoinOptions`→interest。
+- **域 barrel 求值顺序 = index.ts export 出现顺序，模块顶层立即解引用 barrel import 的 const 是 TDZ 高危**：合并后 `from '.'` 值 import 会拉长求值链（badge 的 `STATUS_COLOR_MAP`、manifests 的 `permissions: [X.VIEW]` 两类都炸过 `Cannot access 'X' before initialization`，且只在 nx build minimize 后复现）。修法：域内值符号直连定义文件 `./{dom}.constants` 等；跨包一律 `@myorg/modules/td-admin/<pkg>/lib/<dom>` 深路径，禁跨包相对路径。调试时可临时 next.config.ts 加 `minimize=false` 拿可读栈，用完必删。
+- **jest 多域同名 `__mocks__/<pkg>.ts` 是 haste manual-mock 回环**：合并后 blockchain/mmf/cross-chain 三域都有 `__mocks__/next-intl.ts`，`jest.mock('next-intl', () => require('./__mocks__/next-intl'))` 触发 `RangeError: Maximum call stack size exceeded`。约定：spec mock 文件一律 `.stub.ts` 后缀（next-intl.stub.ts / data-access-api.stub.ts），脱离 haste 命名表。
+- **合并包改变了 jest.mock 边界**：旧结构 util 与 data-access 是两个包，spec 只 mock data-access；合并后 mock 顶层/域 barrel 会吞掉旧 util 的真值（loginSchema→zodResolver(undefined)、MINT_METHOD→undefined、getCoaTemplateTokenType is not a function）。复刻旧边界的写法：hooks import 与 mock 都指向文件级路径 `+queries/tokenized-deposit.queries` / `.mutations`，常量/工具函数直连定义文件（`tokenized-deposit.constants`、`coa-setup-utils`）；同目标两条 jest.mock 后者覆盖前者（曾静默丢 mutations stub）。
+- **spec 相对层级在迁移后整体 +1**：spec 从域根挪进 `+queries/` 或域子目录后，`require('../__mocks__/...')` 与 `messagesRoot` 的 `../../../..` 上溯层级都要重算（mmf 两 spec 是 5→6 级）；写死的相对层级是迁移易碎点，新 spec 建议以 `<rootDir>` 或模块解析为准。
+- feature jest mapper 两条深路径规则必须按 rootDir 分开写：`feature/lib/*`→`<rootDir>/src/lib/*`、`data-access/lib/*`→`<rootDir>/../data-access/src/lib/*`；通用规则 `'^@myorg/(.*)$': libs/$1/src/index.ts` 不支持子路径（`util-i18n-messages/api-msg` 需单列 mapper）。
+- blockchain.constants.spec 的 `blockchain.` 前缀断言与 `ALL_VALUE=''` 是**旧结构即红**的既有失败（worktree 实测旧 HEAD 8 failed；i18n JSON 键无域前缀、ALL_VALUE 注释明确非空）：已按源码语义修正断言，勿再回改。
+- 迁移审计事故：204「丢失」文件中 203 是审计脚本 `Path.with_suffix` 对带点文件名的误报，真损失仅 `account-manage.constants.ts`（已重建）。教训：审计脚本先对易碎命名（文件名含点）做 dry-run 样本核对。

@@ -7,8 +7,8 @@ import {
   type TokenSelectorLabels,
   type TokenSelectorMode,
   type TokenSelectorOption,
-} from '@myorg/modules/tokenized-deposit/ui';
-import type { StablecoinOption } from '@myorg/modules/dashboard/data-access';
+} from '@myorg/modules/td-admin/feature';
+import type { StablecoinOption } from '@myorg/modules/td-admin/data-access';
 
 export type StablecoinTabsDisplayMode = TokenSelectorMode;
 

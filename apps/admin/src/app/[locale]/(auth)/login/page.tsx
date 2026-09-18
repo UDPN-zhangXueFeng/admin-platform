@@ -1,4 +1,4 @@
-import { LoginPage } from '@myorg/modules/auth/feature';
+import { LoginPage } from '@myorg/modules/td-admin/feature';
 
 /**
  * Login route — /[locale]/login

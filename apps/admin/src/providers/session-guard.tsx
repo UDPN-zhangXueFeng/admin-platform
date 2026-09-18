@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import { getStablecoinOptions } from '@myorg/modules/dashboard/data-access';
-import { logoutApi } from '@myorg/modules/auth/data-access';
+import { getStablecoinOptions } from '@myorg/modules/td-admin/data-access';
+import { logoutApi } from '@myorg/modules/td-admin/data-access';
 import { useFeatures } from '@myorg/shared/util-config';
 import {
   getAccessToken,

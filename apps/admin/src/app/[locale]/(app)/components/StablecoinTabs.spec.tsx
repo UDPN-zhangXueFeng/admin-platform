@@ -46,7 +46,7 @@ jest.mock('@myorg/shared/ui', () => ({
 }));
 
 import { StablecoinTabs } from './StablecoinTabs';
-import type { StablecoinOption } from '@myorg/modules/dashboard/data-access';
+import type { StablecoinOption } from '@myorg/modules/td-admin/data-access';
 
 /**
  * Mock 对齐 `enabled/searches` 真实返回（TdStablecoinRespVo）：

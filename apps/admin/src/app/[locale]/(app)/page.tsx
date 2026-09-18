@@ -36,7 +36,7 @@ import {
   useWalletStatisticsQuery,
   useTransactionStatisticsQuery,
   type TimeRangeKey,
-} from '@myorg/modules/dashboard/data-access';
+} from '@myorg/modules/td-admin/data-access/lib/dashboard';
 import {
   StablecoinTabs,
   type StablecoinTabsDisplayMode,

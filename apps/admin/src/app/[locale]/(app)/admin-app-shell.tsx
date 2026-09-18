@@ -4,7 +4,7 @@ import * as React from 'react';
 import { AppShell } from '@myorg/shared/ui-layout';
 import type { ProjectConfig } from '@myorg/shared/util-config';
 import { logoutAndRedirect } from '@myorg/shared/util-auth';
-import { logoutApi } from '@myorg/modules/auth/data-access';
+import { logoutApi } from '@myorg/modules/td-admin/data-access';
 
 /**
  * Admin app shell — wires the admin-only server logout endpoint into the

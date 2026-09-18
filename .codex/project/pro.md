@@ -81,35 +81,27 @@ apps/admin/src/app/[locale]/(app)/[module]/[[...slug]]/
 
 ## 4. 领域模块层：`libs/modules/`
 
-`libs/modules/` 按业务域拆分。当前存在的主要模块包括：
+`libs/modules/` 按业务域拆分，现有两大块：
 
-- `auth`
-- `dashboard`
-- `inventory`
-- `key-management`
-- `notification`
-- `order`
-- `product`
-- `report`
-- `setting`
-- `user`
-- `kissen-admin`、`kissen-gateway`（kissen 应用族领域层，见 §3）
-
-多数模块遵循以下分层：
+- `td-admin`：`apps/admin` 的全部 37 个业务域（auth、dashboard、key-management、mmf、blockchain、tokenized-deposit、interest 等），收敛为两个 Nx 项目，形态对齐 kissen 系：
 
 ```text
-libs/modules/<domain>/
-├── feature/                # 页面级、场景级业务组件
-├── ui/                     # 模块内部可复用展示组件
-├── data-access/            # 接口、query、store、数据模型
-└── util/                   # 模块内常量、校验、权限、工具函数
+libs/modules/td-admin/
+├── feature/        # 页面级、场景级业务组件（alias @myorg/modules/td-admin/feature）
+└── data-access/    # 接口、query、store、数据模型、常量/校验等原 util 能力（alias @myorg/modules/td-admin/data-access）
 ```
+
+  - 顶层 barrel `export *` 全量转发 + 文件末尾显式 re-export 段消歧跨域同名导出（类型用 `export type`）；互斥消费的歧义符号走深路径 alias
+  - 深路径 alias：`@myorg/modules/td-admin/{feature,data-access}/lib/<dom>[/文件名]`（tsconfig 与两 jest.config 均已映射）。域内值符号直连定义文件；跨包一律深路径，禁用跨包相对路径
+  - 域内子目录 barrel（如 `lib/mmf/index.ts`）仍存在，但 spec/值符号 import 优先直连定义文件，避免 barrel 拉入页面组件链（next-intl ESM 在 jest 下不可解析）
+
+- `kissen-admin`、`kissen-gateway`（kissen 应用族领域层，见 §3）
 
 约束原则：
 
-- `feature` 可以依赖本模块或允许范围内的 `ui`、`data-access`、`util`、`model`
+- `feature` 只依赖 `data-access`（及 `libs/shared/*`）；`data-access` 不依赖 `feature`
 - 领域模块不应把旧系统耦合关系原样搬进新架构
-- 新业务优先落在对应 domain 下，不要为了单次使用新增 shared 抽象
+- 新业务优先落在 `td-admin` 对应域目录下，不要为了单次使用新增 shared 抽象
 
 ## 5. 共享基础层：`libs/shared/`
 
