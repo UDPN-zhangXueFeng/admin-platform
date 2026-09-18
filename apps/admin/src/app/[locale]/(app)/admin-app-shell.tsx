@@ -32,7 +32,17 @@ export function AdminAppShell({
   }, []);
 
   return (
-    <AppShell config={config} onLogout={handleLogout}>
+    <AppShell
+      config={config}
+      onLogout={handleLogout}
+      logo={
+        <img
+          src="/stablecoin/images/logo-icon.svg"
+          alt="Kissen"
+          className="h-10 w-[84px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[104px]"
+        />
+      }
+    >
       {children}
     </AppShell>
   );

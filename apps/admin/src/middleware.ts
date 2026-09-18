@@ -38,10 +38,15 @@ export default function middleware(request: NextRequest) {
   const token = request.cookies.get('admin_platform_token')?.value;
   const isAuthenticated = !!token;
 
-  // Authenticated user on /login → redirect to dashboard
-  if (isAuthenticated && pathWithoutLocale === '/login') {
+  // Authenticated users on the auth entry or locale root → dashboard.
+  // The login page can update auth state before its client-side redirect runs,
+  // so keep the canonical destination enforced at the routing boundary.
+  if (
+    isAuthenticated &&
+    (pathWithoutLocale === '/login' || pathWithoutLocale === '/')
+  ) {
     const url = request.nextUrl.clone();
-    url.pathname = `/${locale}`;
+    url.pathname = `/${locale}/dashboard`;
     return NextResponse.redirect(url);
   }
 
