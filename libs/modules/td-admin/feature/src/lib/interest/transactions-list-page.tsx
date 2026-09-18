@@ -25,11 +25,11 @@ import {
   useTokenBillList,
 } from '@myorg/modules/td-admin/data-access';
 import {
-  ALL_VALUE,
   FEE_TYPE_OPTIONS,
   INTEREST_PERMISSIONS,
   TRANSACTION_STATUS_OPTIONS,
 } from '.';
+import { ALL_VALUE } from './interest.constants';
 import { TransactionStatusBadge } from '.';
 
 const PAGE_SIZE = 10;

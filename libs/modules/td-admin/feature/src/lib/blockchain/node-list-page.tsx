@@ -32,13 +32,13 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 import { BlockchainStatusBadge } from '.';
 import {
-  ALL_VALUE,
   BLOCKCHAIN_PERMISSIONS,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
   NODE_STATE,
   NODE_STATUS_OPTIONS,
 } from '.';
+import { ALL_VALUE } from './blockchain.constants';
 import { NodeDeleteModal } from './node-delete-modal';
 
 const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';

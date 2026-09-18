@@ -22,10 +22,10 @@ import {
   useStablecoinOptions,
 } from '@myorg/modules/td-admin/data-access';
 import {
-  ALL_VALUE,
   FEE_TYPE_OPTIONS,
   INTEREST_PERMISSIONS,
 } from '.';
+import { ALL_VALUE } from './interest.constants';
 
 const PAGE_SIZE = 10;
 

@@ -20,7 +20,6 @@ import {
   type BillRuleListFilters,
 } from '@myorg/modules/td-admin/data-access';
 import {
-  ALL_VALUE,
   BILL_OPERATE_DISABLE,
   BILL_OPERATE_ENABLE,
   DEFAULT_PAGE_SIZE,
@@ -32,6 +31,7 @@ import {
   resolveTokenTypeMessageKey,
   statusToneClass,
 } from '.';
+import { ALL_VALUE } from './journal-entries.constants';
 
 const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 

@@ -17,13 +17,13 @@ import {
   type BillTxListFilters,
 } from '@myorg/modules/td-admin/data-access';
 import {
-  ALL_VALUE,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
   getTxTypesByTokenType,
   resolveLendingTypeMessageKey,
   resolveTxTypeMessageKey,
 } from '.';
+import { ALL_VALUE } from './journal-entries.constants';
 
 const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 

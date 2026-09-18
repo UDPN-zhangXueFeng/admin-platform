@@ -30,10 +30,10 @@ import {
   useOperateInterest,
 } from '@myorg/modules/td-admin/data-access';
 import {
-  ALL_VALUE,
   INTEREST_PERMISSIONS,
   POLICY_STATUS_OPTIONS,
 } from '.';
+import { ALL_VALUE } from './interest.constants';
 import { InterestStatusBadge } from '.';
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────

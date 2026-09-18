@@ -18,7 +18,6 @@ import {
   type NormalizationBookListParams,
 } from '@myorg/modules/td-admin/data-access';
 import {
-  ALL_VALUE,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
   FIXED_TOKEN_TYPES,
@@ -28,6 +27,7 @@ import {
   resolveBookListStatusMeta,
   statusToneClass,
 } from '.';
+import { ALL_VALUE } from './tx-event-config.constants';
 
 /**
  * react-hook-form 筛选表单形状。

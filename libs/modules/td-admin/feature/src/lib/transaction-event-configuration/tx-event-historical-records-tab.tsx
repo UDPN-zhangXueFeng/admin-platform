@@ -14,7 +14,6 @@ import {
   type NormalizationHistoryListFilters,
 } from '@myorg/modules/td-admin/data-access';
 import {
-  ALL_VALUE,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
   formatDate,
@@ -24,6 +23,7 @@ import {
   resolveEventStatusMeta,
   statusToneClass,
 } from '.';
+import { ALL_VALUE } from './tx-event-config.constants';
 
 const KNOWN_SOURCE_EVENTS = [
   'reserveIn',

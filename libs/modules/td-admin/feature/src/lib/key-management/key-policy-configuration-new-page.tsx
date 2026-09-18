@@ -26,9 +26,9 @@ import { FormSelect } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
-  roleNameOptions,
   rotationMethodOptions,
 } from '.';
+import { roleNameOptions } from './constants';
 
 // Frequency number options: 1–12 (source new.tsx:155-158).
 const frequencyNumberOptions = Array.from({ length: 12 }, (_, i) => ({

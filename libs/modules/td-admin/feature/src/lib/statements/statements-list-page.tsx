@@ -29,7 +29,6 @@ import {
   type ExportRuleListFilters,
 } from '@myorg/modules/td-admin/data-access';
 import {
-  ALL_VALUE,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
   EXPORT_FREQUENCY_VALUES,
@@ -46,6 +45,7 @@ import {
   statusToneClass,
   validateNotifyEmail,
 } from '.';
+import { ALL_VALUE } from './statements.constants';
 
 const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 

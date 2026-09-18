@@ -9,7 +9,8 @@ import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { toast } from '@myorg/shared/ui';
 import type { SuspiciousTransaction } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainOptions, useBusinessTypeList, useProcessSuspicious, useRetrySuspicious, useStablecoinOptions, useSuspiciousList } from '@myorg/modules/td-admin/data-access';
-import { ALL_VALUE, PROCESS_REVERSE_OPTIONS, RISK_LEVEL_OPTIONS, SUSPICIOUS_STATUS_OPTIONS } from '.';
+import { ALL_VALUE } from './screening-monitoring.constants';
+import { PROCESS_REVERSE_OPTIONS, RISK_LEVEL_OPTIONS, SUSPICIOUS_STATUS_OPTIONS } from '.';
 import { ScreeningRiskLevelTag, ScreeningStatusBadge } from '.';
 
 const PAGE_SIZE = 10;

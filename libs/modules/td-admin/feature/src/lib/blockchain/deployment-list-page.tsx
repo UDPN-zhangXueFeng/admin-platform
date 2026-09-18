@@ -26,7 +26,6 @@ import {
   type DeploymentRecordItem,
 } from '@myorg/modules/td-admin/data-access';
 import {
-  ALL_VALUE,
   BLOCKCHAIN_PERMISSIONS,
   DEFAULT_PAGE_SIZE,
   DEPLOYMENT_TYPE_LABEL_KEY_PREFIX,
@@ -34,6 +33,7 @@ import {
   EMPTY_DISPLAY,
   TOKEN_TYPE_LABEL_KEY_PREFIX,
 } from '.';
+import { ALL_VALUE } from './blockchain.constants';
 
 const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 

@@ -27,13 +27,13 @@ import {
 import { WalletStatusBadge } from '.';
 import {
   accountTypeMessageKey,
-  ALL_VALUE,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
   feeTypeMessageKey,
   toMillis,
   WALLET_PERMISSIONS,
 } from '.';
+import { ALL_VALUE } from './wallet.constants';
 
 /** 时间格式（与 posting-engine 列表/详情一致：年-月-日 时:分:秒）。 */
 const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';

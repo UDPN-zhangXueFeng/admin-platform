@@ -15,7 +15,6 @@ import { formatDate } from '@myorg/shared/util-dates';
 import { useAuditTrailListQuery, type AuditTrailItem, type AuditTrailListFilters, type ExportAuditTaskReq } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainListQuery, useCreateExportTaskMutation, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/audit-trail';
 import {
-  ALL_VALUE,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
   FIXED_TOKEN_TYPES,
@@ -23,6 +22,7 @@ import {
   resolveTokenTypeMessageKey,
   resolveTxTypeMessageKey,
 } from '.';
+import { ALL_VALUE } from './audit-trail.constants';
 
 const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 

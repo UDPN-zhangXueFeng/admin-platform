@@ -18,7 +18,6 @@ import {
   type PostingBookListParams,
 } from '@myorg/modules/td-admin/data-access';
 import {
-  ALL_VALUE,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
   FIXED_TOKEN_TYPES,
@@ -27,6 +26,7 @@ import {
   resolvePostingStatusMeta,
   resolveTokenTypeMessageKey,
 } from '.';
+import { ALL_VALUE } from './posting-engine.constants';
 
 /**
  * react-hook-form 筛选表单形状。

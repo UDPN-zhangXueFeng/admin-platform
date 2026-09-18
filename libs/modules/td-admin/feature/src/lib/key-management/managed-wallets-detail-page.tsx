@@ -40,9 +40,9 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 import {
   roleNameMap,
-  rotationStatusMap,
   walletStatusMap,
 } from '.';
+import { rotationStatusMap } from './constants';
 
 /** Format a Unix timestamp (ms) to a locale string. */
 function formatTimestamp(ts?: number): string {

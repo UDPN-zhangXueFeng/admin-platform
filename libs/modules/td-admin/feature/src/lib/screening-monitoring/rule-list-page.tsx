@@ -8,7 +8,8 @@ import { Button, DataTable, type DataTablePagination } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import type { RuleListItem } from '@myorg/modules/td-admin/data-access';
 import { useBusinessTypeList, useBlockchainOptions, useRuleList, useStablecoinOptions, useOperateRule } from '@myorg/modules/td-admin/data-access';
-import { ALL_VALUE, RULE_STATUS_OPTIONS } from '.';
+import { ALL_VALUE } from './screening-monitoring.constants';
+import { RULE_STATUS_OPTIONS } from '.';
 import { ScreeningStatusBadge } from '.';
 
 const PAGE_SIZE = 10;

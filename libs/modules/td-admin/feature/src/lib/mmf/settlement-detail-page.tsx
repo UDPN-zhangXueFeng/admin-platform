@@ -31,8 +31,8 @@ import {
   MmfStatusBadge,
   type MmfBasicDetailItem,
 } from '.';
+import { ALL_VALUE } from './mmf.constants';
 import {
-  ALL_VALUE,
   buildApprovalViewUrl,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,

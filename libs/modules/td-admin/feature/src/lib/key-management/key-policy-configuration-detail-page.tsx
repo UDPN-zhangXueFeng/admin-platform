@@ -48,8 +48,8 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 import {
   operationRecordStatusMap,
-  operationTypeOptions,
 } from '.';
+import { operationTypeOptions } from './constants';
 
 /** Sentinel value for the "All" filter option — must not be '' (plan §8.F). */
 const ALL_VALUE = 'all';

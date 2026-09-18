@@ -17,7 +17,6 @@ import { useJournalListQuery, type JournalListFilters, type JournalListParams } 
 import { useBlockchainListQuery, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/journal-entries-new';
 import type { JournalEntry } from '@myorg/modules/td-admin/data-access/lib/journal-entries-new';
 import {
-  ALL_VALUE,
   DEFAULT_PAGE_SIZE,
   FIXED_TOKEN_TYPES,
   JOURNAL_DATETIME_FORMAT,
@@ -27,6 +26,7 @@ import {
   resolveTokenTypeMessageKey,
   resolveTxTypeMessageKey,
 } from '.';
+import { ALL_VALUE } from './journal-entries-new.constants';
 
 const EMPTY_DISPLAY = '--';
 

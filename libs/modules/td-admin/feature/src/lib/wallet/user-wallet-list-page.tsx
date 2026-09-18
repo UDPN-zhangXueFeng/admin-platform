@@ -27,7 +27,6 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 import { WalletStatusBadge } from '.';
 import {
-  ALL_VALUE,
   custodyModelMessageKey,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
@@ -35,6 +34,7 @@ import {
   toMillis,
   WALLET_PERMISSIONS,
 } from '.';
+import { ALL_VALUE } from './wallet.constants';
 
 import { UserWalletActionDialog } from './user-wallet-action-dialog';
 
