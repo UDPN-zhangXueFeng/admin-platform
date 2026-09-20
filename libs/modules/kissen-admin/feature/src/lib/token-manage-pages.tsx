@@ -14,10 +14,27 @@
  */
 
 import * as React from 'react';
-import { ColumnDef } from '@tanstack/react-table';
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
 import { useQueryClient } from '@tanstack/react-query';
-import { Copy, Info } from 'lucide-react';
-import type { TableRowAction } from '@myorg/shared/ui';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Copy,
+  Inbox,
+  Info,
+} from 'lucide-react';
+import type {
+  DataTablePagination,
+  TableRowAction,
+} from '@myorg/shared/ui';
 
 import {
   Alert,
@@ -33,6 +50,9 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   createActionColumn,
   DataTable,
   Dialog,
@@ -1245,98 +1265,396 @@ type HeartbeatRowWithId = { id: string } & {
   probeTime: number;
 };
 
+const INSTANCE_TABLE_HEADER_BACKGROUND =
+  'color-mix(in srgb, hsl(var(--primary)) 6%, hsl(var(--background)))';
+const INSTANCE_TABLE_COLUMN_WIDTHS: Record<string, number> = {
+  lastHeartbeatTime: 300,
+  actions: 144,
+};
+
+type GatewayInstanceListRow = InstanceRow & { id: string };
+
 /**
- * 实例详情抽屉（源 bfef639，480px）：银行/实例/接入地址/货币系统/密钥指纹
- * 等完整信息自列表列移入；行数据快照直读（打开不重取）。
+ * The shared DataTable has no expanded-row slot. Keep this table local to the
+ * gateway-instance page so Radix Collapsible can render its content as a
+ * sibling table row without changing the shared table API.
  */
-function InstanceDetailDrawer({
-  row,
-  onClose,
+function GatewayInstanceDataTable({
+  columns,
+  data,
+  isLoading,
+  pagination,
+  expandedInstanceId,
+  onExpandedChange,
 }: {
-  row: InstanceRow;
-  onClose: () => void;
+  columns: ColumnDef<GatewayInstanceListRow, unknown>[];
+  data: GatewayInstanceListRow[];
+  isLoading: boolean;
+  pagination?: DataTablePagination;
+  expandedInstanceId: string | null;
+  onExpandedChange: (row: GatewayInstanceListRow, open: boolean) => void;
 }) {
+  const pageCount = pagination
+    ? Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
+    : 1;
+  const table = useReactTable({
+    data,
+    columns,
+    state: pagination
+      ? {
+          pagination: {
+            pageIndex: Math.max(0, pagination.page - 1),
+            pageSize: pagination.pageSize,
+          },
+        }
+      : {},
+    pageCount,
+    manualPagination: Boolean(pagination),
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: pagination ? getPaginationRowModel() : undefined,
+  });
+  const rows = table.getRowModel().rows;
+  const totalPages = pageCount;
+
   return (
-    <Drawer open onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="w-full max-w-none sm:w-[480px]">
-        <DrawerHeader>
-          <DrawerTitle>Instance Details — {row.instanceCode || row.instanceId}</DrawerTitle>
-          <DrawerDescription>Gateway instance</DrawerDescription>
-        </DrawerHeader>
-        <div className="flex-1 overflow-y-auto px-4 py-4">
-          {/* 源 el-descriptions column=1 border（SpenderDrawer 同式字段卡） */}
-          <div className="space-y-3 rounded-lg border border-border/60 bg-card p-4">
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">Bank</div>
-              <div className="text-sm">
-                {row.bankName || '--'}
-                {row.bankBic ? ` (${row.bankBic})` : ''}
-              </div>
+    <div className="flex flex-col gap-4">
+      <div className="overflow-hidden rounded-md border border-border/50 bg-card">
+        <table className="w-full table-fixed caption-bottom bg-card text-sm text-card-foreground">
+          <thead>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    scope="col"
+                    style={{
+                      backgroundColor: INSTANCE_TABLE_HEADER_BACKGROUND,
+                      width: INSTANCE_TABLE_COLUMN_WIDTHS[header.column.id],
+                    }}
+                    className="h-[60px] whitespace-normal break-words border-b border-border/50 px-4 py-0 text-left align-middle font-medium text-muted-foreground"
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          {isLoading ? (
+            <tbody className="divide-y divide-border/50">
+              {Array.from({ length: pagination?.pageSize ?? 5 }).map(
+                (_, rowIndex) => (
+                  <tr key={`skeleton-${rowIndex}`}>
+                    {columns.map((_, columnIndex) => (
+                      <td key={columnIndex} className="h-[60px] px-4 py-0">
+                        <div
+                          className={`h-4 motion-safe:animate-pulse rounded bg-muted ${
+                            columnIndex === 0 ? 'w-32' : 'w-24'
+                          }`}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ),
+              )}
+            </tbody>
+          ) : rows.length === 0 ? (
+            <tbody>
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-10">
+                  <div className="flex flex-col items-center justify-center gap-2 text-center">
+                    <Inbox
+                      className="h-9 w-9 text-muted-foreground/40"
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      No gateway instances registered
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          ) : (
+            rows.map((row) => {
+              const instanceId = row.original.id;
+              const isExpanded = expandedInstanceId === instanceId;
+
+              return (
+                <Collapsible
+                  key={row.id}
+                  asChild
+                  open={isExpanded}
+                  onOpenChange={(open) => onExpandedChange(row.original, open)}
+                >
+                  <tbody className="divide-y divide-border/50 border-b border-border/50 last:border-0">
+                    <tr
+                      className={`group motion-safe:transition-colors ${
+                        isExpanded
+                          ? 'bg-primary/[0.04]'
+                          : 'hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_4%,hsl(var(--background)))]'
+                      }`}
+                    >
+                      {row.getVisibleCells().map((cell, cellIndex) => {
+                        const meta = cell.column.columnDef.meta;
+                        const content = flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        );
+                        const value = cell.getValue();
+                        const title =
+                          typeof value === 'string' || typeof value === 'number'
+                            ? String(value)
+                            : undefined;
+                        const cellContent =
+                          cell.column.id === 'actions' ||
+                          meta?.overflow === 'none' ? (
+                            content
+                          ) : meta?.overflow === 'wrap' ? (
+                            <div
+                              className="whitespace-normal break-words"
+                              style={{ maxWidth: meta.maxWidth ?? 360 }}
+                            >
+                              {content}
+                            </div>
+                          ) : (
+                            <div
+                              className="truncate"
+                              title={title}
+                              style={{ maxWidth: meta?.maxWidth ?? 240 }}
+                            >
+                              {content}
+                            </div>
+                          );
+
+                        return (
+                          <td
+                            key={cell.id}
+                            style={{
+                              width: INSTANCE_TABLE_COLUMN_WIDTHS[cell.column.id],
+                            }}
+                            className={`h-[60px] px-4 py-0 align-middle text-[13px] ${
+                              cellIndex === 0 && cell.column.id !== 'actions'
+                                ? 'font-medium'
+                                : ''
+                            }`}
+                          >
+                            {cellIndex === 0 && cell.column.id !== 'actions' ? (
+                              <div className="flex min-w-0 items-center gap-2">
+                                <CollapsibleTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label={`${isExpanded ? 'Collapse' : 'Expand'} details for ${row.original.instanceCode || row.original.instanceName || instanceId}`}
+                                    className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                                  >
+                                    <ChevronRight
+                                      className={`size-4 transition-transform ${
+                                        isExpanded ? 'rotate-90' : ''
+                                      }`}
+                                      aria-hidden="true"
+                                    />
+                                  </button>
+                                </CollapsibleTrigger>
+                                <div className="min-w-0">{cellContent}</div>
+                              </div>
+                            ) : (
+                              cellContent
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    <CollapsibleContent
+                      asChild
+                      className="overflow-visible data-[state=closed]:animate-none data-[state=open]:animate-none"
+                    >
+                      <tr className="border-t border-border/50">
+                        <td
+                          colSpan={row.getVisibleCells().length}
+                          className="p-0"
+                        >
+                          <InstanceDetailPanel row={row.original} />
+                        </td>
+                      </tr>
+                    </CollapsibleContent>
+                  </tbody>
+                </Collapsible>
+              );
+            })
+          )}
+        </table>
+      </div>
+      {pagination ? (
+        <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-4">
+          {!pagination.onPageSizeChange ? (
+            <div className="mr-auto text-xs tabular-nums text-muted-foreground">
+              Page {pagination.page} of {totalPages}
             </div>
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">Instance</div>
-              <div className="text-sm">
-                {row.instanceCode || '--'} {row.instanceName}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">Endpoint</div>
-              <div className="break-all font-mono text-sm">{row.endpointUrl}</div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">Currency System</div>
-              <div className="text-sm">{instanceCsText(row)}</div>
-            </div>
-            {row.currencySystemUrl ? (
-              <div className="space-y-1">
-                <div className="text-xs text-muted-foreground">Service URL</div>
-                <div className="break-all font-mono text-sm">{row.currencySystemUrl}</div>
-              </div>
+          ) : null}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {pagination.onPageSizeChange ? (
+              <Select
+                value={String(pagination.pageSize)}
+                onValueChange={(value) =>
+                  pagination.onPageSizeChange?.(Number(value))
+                }
+              >
+                <SelectTrigger
+                  className="h-8 w-[110px]"
+                  aria-label="Rows per page"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(pagination.pageSizeOptions ?? [10, 20, 50]).map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size} / page
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             ) : null}
-            {row.currencySystemDesc ? (
-              <div className="space-y-1">
-                <div className="text-xs text-muted-foreground">Integration Notes</div>
-                <div className="text-sm">{row.currencySystemDesc}</div>
-              </div>
-            ) : null}
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">Upstream Public Key Fingerprint</div>
-              <div className="break-all font-mono text-sm">
-                {row.upKeyFingerprint || '(Not pushed)'}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">Downstream Key Fingerprint</div>
-              <div className="break-all font-mono text-sm">
-                {row.downKeyFingerprint || '(Not generated)'}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">Last Heartbeat</div>
-              <div className="text-sm tabular-nums">{formatTime(row.lastHeartbeatTime)}</div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">Registered At</div>
-              <div className="text-sm tabular-nums">{formatTime(row.createTime)}</div>
-            </div>
+            <InstancePaginationButton
+              aria-label="First page"
+              disabled={pagination.page <= 1}
+              onClick={() => pagination.onPageChange(1)}
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </InstancePaginationButton>
+            <InstancePaginationButton
+              aria-label="Previous page"
+              disabled={pagination.page <= 1}
+              onClick={() => pagination.onPageChange(pagination.page - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </InstancePaginationButton>
+            <InstancePaginationButton
+              aria-label="Next page"
+              disabled={pagination.page >= totalPages}
+              onClick={() => pagination.onPageChange(pagination.page + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </InstancePaginationButton>
+            <InstancePaginationButton
+              aria-label="Last page"
+              disabled={pagination.page >= totalPages}
+              onClick={() => pagination.onPageChange(totalPages)}
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </InstancePaginationButton>
           </div>
         </div>
-      </DrawerContent>
-    </Drawer>
+      ) : null}
+    </div>
+  );
+}
+
+function InstancePaginationButton({
+  children,
+  disabled,
+  onClick,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+        disabled ? 'pointer-events-none opacity-50' : ''
+      }`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+function InstanceDetailPanel({ row }: { row: InstanceRow }) {
+  return (
+    <dl className="grid grid-cols-1 gap-x-8 gap-y-5 border-t border-border/50 bg-primary/[0.03] px-5 py-5 sm:grid-cols-2 lg:grid-cols-4">
+      <InstanceDetailField label="Bank">
+        {row.bankName || '--'}
+        {row.bankBic ? ` (${row.bankBic})` : ''}
+      </InstanceDetailField>
+      <InstanceDetailField label="Instance">
+        {row.instanceCode || '--'} {row.instanceName}
+      </InstanceDetailField>
+      <InstanceDetailField label="Endpoint">
+        <span className="break-all font-mono">{row.endpointUrl || '--'}</span>
+      </InstanceDetailField>
+      <InstanceDetailField label="Currency System">
+        {instanceCsText(row)}
+      </InstanceDetailField>
+      {row.currencySystemUrl ? (
+        <InstanceDetailField label="Service URL">
+          <span className="break-all font-mono">{row.currencySystemUrl}</span>
+        </InstanceDetailField>
+      ) : null}
+      {row.currencySystemDesc ? (
+        <InstanceDetailField label="Integration Notes">
+          {row.currencySystemDesc}
+        </InstanceDetailField>
+      ) : null}
+      <InstanceDetailField label="Upstream Public Key Fingerprint">
+        <span className="break-all font-mono">
+          {row.upKeyFingerprint || '(Not pushed)'}
+        </span>
+      </InstanceDetailField>
+      <InstanceDetailField label="Downstream Key Fingerprint">
+        <span className="break-all font-mono">
+          {row.downKeyFingerprint || '(Not generated)'}
+        </span>
+      </InstanceDetailField>
+      <InstanceDetailField label="Last Heartbeat">
+        <span className="tabular-nums">
+          {formatTime(row.lastHeartbeatTime)}
+        </span>
+      </InstanceDetailField>
+      <InstanceDetailField label="Registered At">
+        <span className="tabular-nums">{formatTime(row.createTime)}</span>
+      </InstanceDetailField>
+    </dl>
+  );
+}
+
+function InstanceDetailField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <dt className="text-xs font-semibold text-muted-foreground">{label}</dt>
+      <dd className="break-words pt-1 text-sm leading-5 text-foreground">
+        {children}
+      </dd>
+    </div>
   );
 }
 
 export function GatewayInstanceListPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
-  const [form, setForm] = React.useState<InstanceFilterForm>(EMPTY_INSTANCE_FILTER);
+  const [form, setForm] = React.useState<InstanceFilterForm>(
+    EMPTY_INSTANCE_FILTER,
+  );
   const [req, setReq] = React.useState(() => ({
     pageNum: 1,
     pageSize: PAGE_SIZE_DEFAULT,
     filter: instanceFormToFilter(EMPTY_INSTANCE_FILTER),
   }));
 
-  const { data, isLoading, dataUpdatedAt } = useInstanceListQuery(KISSEN_PROJECT_ID, req);
+  const { data, isLoading, dataUpdatedAt } = useInstanceListQuery(
+    KISSEN_PROJECT_ID,
+    req,
+  );
   const { data: bankData } = useBankListQuery(KISSEN_PROJECT_ID, {
     pageNum: 1,
     pageSize: 100,
@@ -1352,6 +1670,9 @@ export function GatewayInstanceListPage() {
 
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
+  const [expandedInstanceId, setExpandedInstanceId] = React.useState<
+    string | null
+  >(null);
 
   const refresh = React.useCallback(() => {
     void queryClient.invalidateQueries({
@@ -1361,10 +1682,16 @@ export function GatewayInstanceListPage() {
 
   // 源语义：查询/重置回第 1 页；size-change 也回第 1 页。
   const onSearch = React.useCallback(() => {
-    setReq((prev) => ({ ...prev, pageNum: 1, filter: instanceFormToFilter(form) }));
+    setExpandedInstanceId(null);
+    setReq((prev) => ({
+      ...prev,
+      pageNum: 1,
+      filter: instanceFormToFilter(form),
+    }));
   }, [form]);
 
   const onReset = React.useCallback(() => {
+    setExpandedInstanceId(null);
     setForm(EMPTY_INSTANCE_FILTER);
     setReq((prev) => ({
       ...prev,
@@ -1374,10 +1701,11 @@ export function GatewayInstanceListPage() {
   }, []);
 
   // 弹窗状态。
-  const [confirmRequest, setConfirmRequest] = React.useState<ConfirmRequest | null>(null);
-  const [heartbeatRow, setHeartbeatRow] = React.useState<InstanceRow | null>(null);
-  // 详情抽屉（源 detailRow ref；行快照直读，随行数据渲染）。
-  const [detailRow, setDetailRow] = React.useState<InstanceRow | null>(null);
+  const [confirmRequest, setConfirmRequest] =
+    React.useState<ConfirmRequest | null>(null);
+  const [heartbeatRow, setHeartbeatRow] = React.useState<InstanceRow | null>(
+    null,
+  );
   const [registerOpen, setRegisterOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   // currencySystemType 用 string 态便于 Select 绑定（提交时转 number；默认 0 未填）。
@@ -1415,11 +1743,14 @@ export function GatewayInstanceListPage() {
 
   // 源无 el-form rules，全手写校验：缺银行或接入地址 → warning toast。
   const submitRegister = React.useCallback(() => {
-    const bankId = registerForm.bankId !== STATUS_ALL ? Number(registerForm.bankId) : 0;
+    const bankId =
+      registerForm.bankId !== STATUS_ALL ? Number(registerForm.bankId) : 0;
     if (!bankId || !registerForm.endpointUrl) {
       setRegisterErrors({
         bankId: !bankId ? 'Select a bank' : undefined,
-        endpointUrl: !registerForm.endpointUrl ? 'Fill in the endpoint URL' : undefined,
+        endpointUrl: !registerForm.endpointUrl
+          ? 'Fill in the endpoint URL'
+          : undefined,
       });
       toast.warning('Select a bank and fill in the endpoint URL');
       return;
@@ -1487,7 +1818,9 @@ export function GatewayInstanceListPage() {
         onConfirm: () => {
           resetKeyMutation.mutate(row.instanceId, {
             onSuccess: (res) => {
-              toast.success(`Reset (new fingerprint ${res.downKeyFingerprint || '-'})`);
+              toast.success(
+                `Reset (new fingerprint ${res.downKeyFingerprint || '-'})`,
+              );
               refresh();
             },
             onError: (e) => toast.error((e as Error).message),
@@ -1525,9 +1858,11 @@ export function GatewayInstanceListPage() {
     [disableMutation, enableMutation, refresh, toast],
   );
 
-  // 列序（源 bfef639 拆列口径）：银行(bankBic)/实例编码/实例名称/接入地址/
-  // 系统名称/系统类型/连通性/状态/最近心跳；密钥指纹移入详情抽屉。
-  const columns = React.useMemo<ColumnDef<InstanceRow & { id: string }>[]>(() => {
+  // 列表保留银行/系统名称/系统类型/连通性/状态/最近心跳；
+  // 实例编码、名称、接入地址及密钥指纹在行内详情展示。
+  const columns = React.useMemo<
+    ColumnDef<InstanceRow & { id: string }>[]
+  >(() => {
     return [
       {
         id: 'bank',
@@ -1540,25 +1875,11 @@ export function GatewayInstanceListPage() {
         ),
       },
       {
-        accessorKey: 'instanceCode',
-        header: 'Instance Code',
-        cell: ({ row }) => (
-          <span className="font-mono">{row.original.instanceCode || '--'}</span>
-        ),
-      },
-      {
-        accessorKey: 'instanceName',
-        header: 'Instance Name',
-        cell: ({ row }) => <span>{row.original.instanceName || '--'}</span>,
-      },
-      {
-        accessorKey: 'endpointUrl',
-        header: 'Endpoint URL',
-      },
-      {
         accessorKey: 'currencySystemName',
         header: 'Token System Name',
-        cell: ({ row }) => <span>{row.original.currencySystemName || '--'}</span>,
+        cell: ({ row }) => (
+          <span>{row.original.currencySystemName || '--'}</span>
+        ),
       },
       {
         id: 'csType',
@@ -1568,7 +1889,9 @@ export function GatewayInstanceListPage() {
       {
         id: 'connectivity',
         header: 'Connectivity',
-        cell: ({ row }) => <ConnectivityBadge status={row.original.connectivityStatus} />,
+        cell: ({ row }) => (
+          <ConnectivityBadge status={row.original.connectivityStatus} />
+        ),
       },
       {
         accessorKey: 'status',
@@ -1578,20 +1901,22 @@ export function GatewayInstanceListPage() {
       {
         accessorKey: 'lastHeartbeatTime',
         header: 'Last Heartbeat',
+        meta: { overflow: 'none' },
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatTime(row.original.lastHeartbeatTime)}
           </span>
         ),
       },
-      // 源操作列 width=360、详情居首（本表动作收纳进菜单，次序保真）。
+      // 源操作列 width=360（详情展开由首列箭头处理，其余动作收纳进菜单）。
       createActionColumn<InstanceRow & { id: string }>((item) => {
-        const actions: TableRowAction<InstanceRow & { id: string }>[] = [
-          { label: 'Details', onClick: () => setDetailRow(item) },
-        ];
+        const actions: TableRowAction<InstanceRow & { id: string }>[] = [];
         // 7d338aa：verify 对 status=1（已登记未验证）同样可见，仅 10 会漏已登记态。
         if (item.status === 1 || item.status === 10) {
-          actions.push({ label: 'Verify & Activate', onClick: () => onVerify(item) });
+          actions.push({
+            label: 'Verify & Activate',
+            onClick: () => onVerify(item),
+          });
         }
         if (item.status === 20) {
           actions.push(
@@ -1601,7 +1926,11 @@ export function GatewayInstanceListPage() {
               label: 'Heartbeat History',
               onClick: () => setHeartbeatRow(item),
             },
-            { label: 'Disable', destructive: true, onClick: () => onToggle(item, true) },
+            {
+              label: 'Disable',
+              destructive: true,
+              onClick: () => onToggle(item, true),
+            },
           );
         }
         if (item.status === 50) {
@@ -1626,7 +1955,6 @@ export function GatewayInstanceListPage() {
   return (
     <div className="space-y-4">
       {/* 页头（源 page-head：eyebrow + 标题）。 */}
-
 
       <section className="rounded-lg border border-border/60 bg-card">
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1663,7 +1991,9 @@ export function GatewayInstanceListPage() {
               </label>
               <Select
                 value={form.bankId}
-                onValueChange={(v) => setForm((prev) => ({ ...prev, bankId: v }))}
+                onValueChange={(v) =>
+                  setForm((prev) => ({ ...prev, bankId: v }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All" />
@@ -1684,7 +2014,9 @@ export function GatewayInstanceListPage() {
               </label>
               <Select
                 value={form.status}
-                onValueChange={(v) => setForm((prev) => ({ ...prev, status: v }))}
+                onValueChange={(v) =>
+                  setForm((prev) => ({ ...prev, status: v }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All" />
@@ -1692,9 +2024,15 @@ export function GatewayInstanceListPage() {
                 <SelectContent>
                   <SelectItem value={STATUS_ALL}>All</SelectItem>
                   <SelectItem value="1">{INSTANCE_STATUS_LABEL[1]}</SelectItem>
-                  <SelectItem value="10">{INSTANCE_STATUS_LABEL[10]}</SelectItem>
-                  <SelectItem value="20">{INSTANCE_STATUS_LABEL[20]}</SelectItem>
-                  <SelectItem value="50">{INSTANCE_STATUS_LABEL[50]}</SelectItem>
+                  <SelectItem value="10">
+                    {INSTANCE_STATUS_LABEL[10]}
+                  </SelectItem>
+                  <SelectItem value="20">
+                    {INSTANCE_STATUS_LABEL[20]}
+                  </SelectItem>
+                  <SelectItem value="50">
+                    {INSTANCE_STATUS_LABEL[50]}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1707,22 +2045,29 @@ export function GatewayInstanceListPage() {
           </div>
         </form>
         <div className="p-4">
-          <DataTable
+          <GatewayInstanceDataTable
             columns={columns}
             data={tableData}
             isLoading={isLoading}
-            emptyMessage="No gateway instances registered"
+            expandedInstanceId={expandedInstanceId}
+            onExpandedChange={(row, open) =>
+              setExpandedInstanceId(open ? row.id : null)
+            }
             pagination={
               paginationMeta
                 ? {
                     page: paginationMeta.page,
                     pageSize: paginationMeta.pageSize,
                     total: paginationMeta.total,
-                    onPageChange: (page) =>
-                      setReq((prev) => ({ ...prev, pageNum: page })),
-                    onPageSizeChange: (n) =>
+                    onPageChange: (page) => {
+                      setExpandedInstanceId(null);
+                      setReq((prev) => ({ ...prev, pageNum: page }));
+                    },
+                    onPageSizeChange: (n) => {
+                      setExpandedInstanceId(null);
                       // 源 size-change → onSearch（回第 1 页）。
-                      setReq((prev) => ({ ...prev, pageNum: 1, pageSize: n })),
+                      setReq((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
+                    },
                     pageSizeOptions: PAGE_SIZE_OPTIONS,
                   }
                 : undefined
@@ -1756,7 +2101,9 @@ export function GatewayInstanceListPage() {
               >
                 <SelectTrigger
                   aria-invalid={registerErrors.bankId ? true : undefined}
-                  aria-describedby={registerErrors.bankId ? 'register-bank-error' : undefined}
+                  aria-describedby={
+                    registerErrors.bankId ? 'register-bank-error' : undefined
+                  }
                 >
                   <SelectValue placeholder="Select a bank" />
                 </SelectTrigger>
@@ -1769,19 +2116,28 @@ export function GatewayInstanceListPage() {
                 </SelectContent>
               </Select>
               {registerErrors.bankId && (
-                <p id="register-bank-error" role="alert" className="text-sm text-destructive">
+                <p
+                  id="register-bank-error"
+                  role="alert"
+                  className="text-sm text-destructive"
+                >
                   {registerErrors.bankId}
                 </p>
               )}
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Instance Code</label>
+              <label className="text-sm font-medium text-foreground">
+                Instance Code
+              </label>
               <Input
                 value={registerForm.instanceCode}
                 placeholder="Unique within the bank, e.g. prod / dr"
                 maxLength={50}
                 onChange={(e) =>
-                  setRegisterForm((prev) => ({ ...prev, instanceCode: e.target.value }))
+                  setRegisterForm((prev) => ({
+                    ...prev,
+                    instanceCode: e.target.value,
+                  }))
                 }
               />
             </div>
@@ -1794,14 +2150,28 @@ export function GatewayInstanceListPage() {
                 placeholder="http://bank-gateway:8080"
                 maxLength={300}
                 aria-invalid={registerErrors.endpointUrl ? true : undefined}
-                aria-describedby={registerErrors.endpointUrl ? 'register-endpoint-error' : undefined}
+                aria-describedby={
+                  registerErrors.endpointUrl
+                    ? 'register-endpoint-error'
+                    : undefined
+                }
                 onChange={(e) => {
-                  setRegisterForm((prev) => ({ ...prev, endpointUrl: e.target.value }));
-                  setRegisterErrors((prev) => ({ ...prev, endpointUrl: undefined }));
+                  setRegisterForm((prev) => ({
+                    ...prev,
+                    endpointUrl: e.target.value,
+                  }));
+                  setRegisterErrors((prev) => ({
+                    ...prev,
+                    endpointUrl: undefined,
+                  }));
                 }}
               />
               {registerErrors.endpointUrl && (
-                <p id="register-endpoint-error" role="alert" className="text-sm text-destructive">
+                <p
+                  id="register-endpoint-error"
+                  role="alert"
+                  className="text-sm text-destructive"
+                >
                   {registerErrors.endpointUrl}
                 </p>
               )}
@@ -1813,7 +2183,10 @@ export function GatewayInstanceListPage() {
               <Select
                 value={registerForm.currencySystemType}
                 onValueChange={(v) =>
-                  setRegisterForm((prev) => ({ ...prev, currencySystemType: v }))
+                  setRegisterForm((prev) => ({
+                    ...prev,
+                    currencySystemType: v,
+                  }))
                 }
               >
                 <SelectTrigger>
@@ -1849,24 +2222,30 @@ export function GatewayInstanceListPage() {
             <Button variant="outline" onClick={() => setRegisterOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" disabled={submitting} onClick={submitRegister}>
+            <Button
+              type="button"
+              disabled={submitting}
+              onClick={submitRegister}
+            >
               Register
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
+      <ConfirmDialog
+        request={confirmRequest}
+        onClose={() => setConfirmRequest(null)}
+      />
       {/* 源 v-if 卸载式：条件渲染，关闭即卸载（非 keep-alive）。 */}
       {heartbeatRow ? (
         <HeartbeatDrawer
           instanceId={heartbeatRow.instanceId}
-          instanceLabel={heartbeatRow.instanceCode || String(heartbeatRow.instanceId)}
+          instanceLabel={
+            heartbeatRow.instanceCode || String(heartbeatRow.instanceId)
+          }
           onClose={() => setHeartbeatRow(null)}
         />
-      ) : null}
-      {detailRow ? (
-        <InstanceDetailDrawer row={detailRow} onClose={() => setDetailRow(null)} />
       ) : null}
     </div>
   );

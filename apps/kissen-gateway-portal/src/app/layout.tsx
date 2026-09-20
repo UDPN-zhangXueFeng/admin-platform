@@ -53,7 +53,7 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen font-sans antialiased">
+      <body className="kissen-tabs min-h-screen font-sans antialiased">
         {children}
       </body>
     </html>

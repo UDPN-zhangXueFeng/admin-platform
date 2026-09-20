@@ -14,7 +14,26 @@
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
-import { Copy, Info, KeyRound, TriangleAlert } from 'lucide-react';
+import {
+  Calendar,
+  Coins,
+  Copy,
+  ExternalLink,
+  Globe,
+  Hash,
+  Info,
+  KeyRound,
+  Landmark,
+  Mail,
+  MapPin,
+  Network,
+  Phone,
+  TriangleAlert,
+  User,
+  Wifi,
+  WifiOff,
+  type LucideIcon,
+} from 'lucide-react';
 import { ColumnDef } from '@tanstack/react-table';
 
 import {
@@ -184,22 +203,49 @@ function BankStatusBadge({ status }: { status: number }) {
 }
 
 function DetailField({
+  icon: Icon,
   label,
-  span = false,
   children,
 }: {
+  icon: LucideIcon;
   label: string;
-  /** 长文本：自 sm 断点起跨满两列（§6.3）。 */
-  span?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className={span ? 'sm:col-span-2 lg:col-span-3' : undefined}>
-      <div className="space-y-1.5">
-        <div className="text-sm text-muted-foreground">{label}</div>
-        <div className="text-sm font-medium">{children}</div>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <Icon className="size-3.5" aria-hidden="true" />
+        {label}
       </div>
+      <div className="text-sm text-foreground">{children}</div>
     </div>
+  );
+}
+
+function BankDetailSectionHeader({
+  icon: Icon,
+  title,
+  description,
+  aside,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  aside?: React.ReactNode;
+}) {
+  return (
+    <header className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+          <Icon className="size-4" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          <p className="text-xs text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      {aside}
+    </header>
   );
 }
 
@@ -1441,6 +1487,16 @@ export function BankInfoDetailPage() {
       );
     return null;
   };
+  const gatewaysState = renderQueryState(
+    instancesQuery,
+    instances.length === 0,
+    'gateways',
+  );
+  const tokensState = renderQueryState(
+    tokensQuery,
+    tokens.length === 0,
+    'tokens',
+  );
 
   return (
     <div className="space-y-4">
@@ -1477,194 +1533,264 @@ export function BankInfoDetailPage() {
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
-        className="space-y-4"
+        className="space-y-6"
       >
         <TabsList>
-          <TabsTrigger value="basic">Basic Information</TabsTrigger>
-          <TabsTrigger value="gateways">Gateways</TabsTrigger>
-          <TabsTrigger value="tokens">Tokens</TabsTrigger>
+          <TabsTrigger value="basic">
+            Basic Information
+          </TabsTrigger>
+          <TabsTrigger value="gateways">
+            Gateways
+          </TabsTrigger>
+          <TabsTrigger value="tokens">
+            Tokens
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="basic" className="mt-0">
-          <section className="rounded-lg border border-border/60 bg-card p-4 sm:p-6">
+          <section className="rounded-xl border border-border bg-card shadow-sm">
+            <BankDetailSectionHeader
+              icon={Landmark}
+              title="Basic Information"
+              description="Institution profile and contact details"
+            />
             {detailQuery.isLoading ? (
-              <Skeleton className="mb-4 h-5 w-40" />
+              <div className="p-6">
+                <Skeleton className="h-20 w-full" />
+              </div>
             ) : null}
             {detailQuery.isError ? (
-              <Alert variant="destructive">
-                <AlertTitle>Failed to load bank details.</AlertTitle>
-              </Alert>
+              <div className="p-6">
+                <Alert variant="destructive">
+                  <AlertTitle>Failed to load bank details.</AlertTitle>
+                </Alert>
+              </div>
             ) : null}
             {!detailQuery.isLoading && !detailQuery.isError && !detail ? (
-              <p className="text-sm text-muted-foreground">Bank not found.</p>
+              <p className="p-6 text-sm text-muted-foreground">
+                Bank not found.
+              </p>
             ) : null}
             {detail ? (
-              <>
-                <div className="mb-3 text-sm font-semibold">
-                  Basic Information
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  <DetailField label="Bank Name">
-                    {detail.bankName || '--'}
-                  </DetailField>
-                  <DetailField label="Bank Code/BIC">
-                    <CopyableEllipsisText
-                      value={detail.bankBic}
-                      emptyText="--"
-                      maxWidth={200}
-                      className="font-mono"
-                    />
-                  </DetailField>
-                  <DetailField label="Official Website">
-                    {websiteUrl ? (
-                      <a
-                        className="break-all text-primary underline"
-                        href={websiteUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {detail.website}
-                      </a>
-                    ) : (
-                      '--'
-                    )}
-                  </DetailField>
-                  <DetailField label="Bank Logo">
-                    {detail.logo ? (
-                      <img
-                        src={detail.logo}
-                        alt={`${detail.bankName} logo`}
-                        className="h-10 w-10 rounded object-contain"
-                        onError={(event) => {
-                          event.currentTarget.style.display = 'none';
-                        }}
+              <div className="grid grid-cols-1 gap-x-8 gap-y-6 p-6 sm:grid-cols-2 lg:grid-cols-3">
+                <DetailField icon={Landmark} label="Bank Name">
+                  {detail.bankName || '--'}
+                </DetailField>
+                <DetailField icon={Hash} label="Bank Code / BIC">
+                  <CopyableEllipsisText
+                    value={detail.bankBic}
+                    emptyText="--"
+                    maxWidth={200}
+                    className="font-mono"
+                  />
+                </DetailField>
+                <DetailField icon={Globe} label="Official Website">
+                  {websiteUrl ? (
+                    <a
+                      className="inline-flex items-center gap-1 break-all font-medium text-primary underline-offset-4 hover:underline"
+                      href={websiteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {(detail.website ?? '').replace(/^https?:\/\//, '')}
+                      <ExternalLink
+                        className="size-3.5 shrink-0"
+                        aria-hidden="true"
                       />
-                    ) : (
-                      '--'
-                    )}
-                  </DetailField>
-                  <DetailField label="Contact Name">
-                    {detail.contactName || '--'}
-                  </DetailField>
-                  <DetailField label="Contact Phone">
+                    </a>
+                  ) : (
+                    '--'
+                  )}
+                </DetailField>
+                <DetailField icon={Landmark} label="Bank Logo">
+                  {detail.logo ? (
+                    <img
+                      src={detail.logo}
+                      alt={`${detail.bankName} logo`}
+                      className="h-8 w-auto object-contain"
+                      onError={(event) => {
+                        event.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    '--'
+                  )}
+                </DetailField>
+                <DetailField icon={User} label="Contact Name">
+                  {detail.contactName || '--'}
+                </DetailField>
+                <DetailField icon={Phone} label="Contact Phone">
+                  <span className="font-mono">
                     {detail.contactPhone || '--'}
-                  </DetailField>
-                  <DetailField label="Contact Email">
-                    {detail.contactEmail || '--'}
-                  </DetailField>
-                  <DetailField label="Address" span>
-                    <span className="whitespace-pre-wrap break-all">
-                      {detail.address || '--'}
-                    </span>
-                  </DetailField>
-                  <DetailField label="Status">
-                    <BankStatusBadge status={detail.status} />
-                  </DetailField>
-                  <DetailField label="Created On">
-                    <span className="tabular-nums">
-                      {formatTime(detail.createTime)}
-                    </span>
-                  </DetailField>
-                </div>
-              </>
+                  </span>
+                </DetailField>
+                <DetailField icon={Mail} label="Contact Email">
+                  {detail.contactEmail ? (
+                    <a
+                      href={`mailto:${detail.contactEmail}`}
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      {detail.contactEmail}
+                    </a>
+                  ) : (
+                    '--'
+                  )}
+                </DetailField>
+                <DetailField icon={MapPin} label="Address">
+                  <span className="whitespace-pre-wrap break-all">
+                    {detail.address || '--'}
+                  </span>
+                </DetailField>
+                <div className="hidden lg:block" aria-hidden="true" />
+                <DetailField icon={Landmark} label="Status">
+                  <Badge variant={bankStatusVariant(detail.status)}>
+                    <span className="size-1.5 rounded-full bg-current" />
+                    {BANK_STATUS_LABEL[detail.status] ?? detail.status}
+                  </Badge>
+                </DetailField>
+                <DetailField icon={Calendar} label="Created On">
+                  <span className="font-mono text-[0.8125rem] tabular-nums">
+                    {formatTime(detail.createTime)}
+                  </span>
+                </DetailField>
+              </div>
             ) : null}
           </section>
         </TabsContent>
         <TabsContent value="gateways" className="mt-0">
-          <section className="overflow-x-auto rounded-lg border border-border/60 bg-card p-4 sm:p-6">
-            {renderQueryState(
-              instancesQuery,
-              instances.length === 0,
-              'gateways',
-            ) ?? (
+          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <BankDetailSectionHeader
+              icon={Network}
+              title="Gateways"
+              description="Connected gateway instances and their health"
+              aside={
+                <Badge variant="secondary">
+                  {instances.length} instance{instances.length === 1 ? '' : 's'}
+                </Badge>
+              }
+            />
+            {gatewaysState ? (
+              <div className="p-6">{gatewaysState}</div>
+            ) : (
               <>
-                <table className="w-full min-w-[1000px] text-left text-sm">
-                  <thead>
-                    <tr className="border-b text-muted-foreground">
-                      <th className="p-2">Instance</th>
-                      <th className="p-2">Endpoint</th>
-                      <th className="p-2">Currency System</th>
-                      <th className="p-2">Connectivity</th>
-                      <th className="p-2">Status</th>
-                      <th className="p-2">Last Heartbeat</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {instances.map((row: InstanceRow) => (
-                      <React.Fragment key={row.instanceId}>
-                        <tr className="border-b">
-                          <td className="p-2">
-                            <button
-                              type="button"
-                              className="text-left text-primary underline"
-                              onClick={() =>
-                                setExpandedInstanceId((current) =>
-                                  current === row.instanceId
-                                    ? null
-                                    : row.instanceId,
-                                )
-                              }
-                            >
-                              {row.instanceCode || '--'} /{' '}
-                              {row.instanceName || '--'}
-                            </button>
-                          </td>
-                          <td className="max-w-[240px] break-all p-2 font-mono">
-                            {row.endpointUrl || '--'}
-                          </td>
-                          <td className="p-2">
-                            {[
-                              row.currencySystemName,
-                              CS_TYPE_LABEL[row.currencySystemType] ??
-                                'Not specified',
-                              row.blockchain,
-                            ]
-                              .filter(Boolean)
-                              .join(' · ') || '--'}
-                          </td>
-                          <td className="p-2">
-                            <Badge
-                              variant={
-                                CONNECTIVITY_STATUS_VARIANT[
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[1000px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        <th className="px-6 py-3 font-medium">Instance</th>
+                        <th className="px-6 py-3 font-medium">Endpoint</th>
+                        <th className="px-6 py-3 font-medium">
+                          Currency System
+                        </th>
+                        <th className="px-6 py-3 font-medium">Connectivity</th>
+                        <th className="px-6 py-3 font-medium">Status</th>
+                        <th className="px-6 py-3 font-medium">
+                          Last Heartbeat
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {instances.map((row: InstanceRow) => (
+                        <React.Fragment key={row.instanceId}>
+                          <tr className="border-b border-border/60 transition-colors hover:bg-muted/40">
+                            <td className="px-6 py-4">
+                              <button
+                                type="button"
+                                className="text-left font-medium text-primary underline-offset-4 hover:underline"
+                                onClick={() =>
+                                  setExpandedInstanceId((current) =>
+                                    current === row.instanceId
+                                      ? null
+                                      : row.instanceId,
+                                  )
+                                }
+                              >
+                                {row.instanceCode || '--'} /{' '}
+                                {row.instanceName || '--'}
+                              </button>
+                            </td>
+                            <td className="max-w-[240px] break-all px-6 py-4">
+                              <code className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-foreground">
+                                {row.endpointUrl || '--'}
+                              </code>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {[
+                                  row.currencySystemName,
+                                  CS_TYPE_LABEL[row.currencySystemType] ??
+                                    'Not specified',
+                                  row.blockchain,
+                                ]
+                                  .filter(Boolean)
+                                  .map((label, index) => (
+                                    <Badge
+                                      key={`${row.instanceId}-${index}`}
+                                      variant="outline"
+                                      className="font-normal"
+                                    >
+                                      {label}
+                                    </Badge>
+                                  ))}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <Badge
+                                variant={
+                                  CONNECTIVITY_STATUS_VARIANT[
+                                    row.connectivityStatus
+                                  ] ?? 'secondary'
+                                }
+                              >
+                                {row.connectivityStatus === 2 ? (
+                                  <WifiOff
+                                    className="size-3.5"
+                                    aria-hidden="true"
+                                  />
+                                ) : (
+                                  <Wifi
+                                    className="size-3.5"
+                                    aria-hidden="true"
+                                  />
+                                )}
+                                {CONNECTIVITY_STATUS_LABEL[
                                   row.connectivityStatus
-                                ] ?? 'secondary'
-                              }
-                            >
-                              {CONNECTIVITY_STATUS_LABEL[
-                                row.connectivityStatus
-                              ] ?? 'Unknown'}
-                            </Badge>
-                          </td>
-                          <td className="p-2">
-                            <Badge
-                              variant={
-                                INSTANCE_STATUS_VARIANT[row.status] ?? 'outline'
-                              }
-                            >
-                              {INSTANCE_STATUS_LABEL[row.status] ?? row.status}
-                            </Badge>
-                          </td>
-                          <td className="p-2 tabular-nums">
-                            {formatTime(row.lastHeartbeatTime)}
-                          </td>
-                        </tr>
-                        {expandedInstanceId === row.instanceId ? (
-                          <tr className="border-b bg-muted/20">
-                            <td colSpan={6} className="p-3">
-                              <TokenRows
-                                // Tokens are bank-scoped in the real API, not
-                                // attached to a gateway instance.
-                                tokens={tokens}
-                                query={tokensQuery}
-                              />
+                                ] ?? 'Unknown'}
+                              </Badge>
+                            </td>
+                            <td className="px-6 py-4">
+                              <Badge
+                                variant={
+                                  INSTANCE_STATUS_VARIANT[row.status] ??
+                                  'outline'
+                                }
+                              >
+                                {INSTANCE_STATUS_LABEL[row.status] ??
+                                  row.status}
+                              </Badge>
+                            </td>
+                            <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-muted-foreground">
+                              {formatTime(row.lastHeartbeatTime)}
                             </td>
                           </tr>
-                        ) : null}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
+                          {expandedInstanceId === row.instanceId ? (
+                            <tr className="border-b bg-muted/20">
+                              <td colSpan={6} className="p-3">
+                                <TokenRows
+                                  // Tokens are bank-scoped in the real API, not
+                                  // attached to a gateway instance.
+                                  tokens={tokens}
+                                  query={tokensQuery}
+                                />
+                              </td>
+                            </tr>
+                          ) : null}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
                 {(instancesQuery.data?.pagination.totalPages ?? 1) > 1 ? (
-                  <div className="mt-3 flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-end gap-2 border-t border-border/60 px-6 py-3">
                     <span className="text-sm text-muted-foreground">
                       Page {instancePage} of{' '}
                       {instancesQuery.data?.pagination.totalPages}
@@ -1703,25 +1829,41 @@ export function BankInfoDetailPage() {
           </section>
         </TabsContent>
         <TabsContent value="tokens" className="mt-0">
-          <section className="overflow-x-auto rounded-lg border border-border/60 bg-card p-4 sm:p-6">
-            {renderQueryState(tokensQuery, tokens.length === 0, 'tokens') ?? (
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead>
-                  <tr className="border-b text-muted-foreground">
-                    <th className="p-2">Code</th>
-                    <th className="p-2">Symbol</th>
-                    <th className="p-2">Chain</th>
-                    <th className="p-2">Pegged Currency</th>
-                    <th className="p-2">Min Liquidity</th>
-                    <th className="p-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tokens.map((token) => (
-                    <TokenRowView key={token.tokenId} token={token} />
-                  ))}
-                </tbody>
-              </table>
+          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <BankDetailSectionHeader
+              icon={Coins}
+              title="Tokens"
+              description="Issued tokens and their on-chain configuration"
+              aside={
+                <Badge variant="secondary">
+                  {tokens.length} token{tokens.length === 1 ? '' : 's'}
+                </Badge>
+              }
+            />
+            {tokensState ? (
+              <div className="p-6">{tokensState}</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      <th className="px-6 py-3 font-medium">Code</th>
+                      <th className="px-6 py-3 font-medium">Symbol</th>
+                      <th className="px-6 py-3 font-medium">Chain</th>
+                      <th className="px-6 py-3 font-medium">Pegged Currency</th>
+                      <th className="px-6 py-3 text-right font-medium">
+                        Min Liquidity
+                      </th>
+                      <th className="px-6 py-3 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tokens.map((token) => (
+                      <TokenRowView key={token.tokenId} token={token} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </section>
         </TabsContent>
@@ -1732,13 +1874,22 @@ export function BankInfoDetailPage() {
 
 function TokenRowView({ token }: { token: TokenRow }) {
   return (
-    <tr className="border-b">
-      <td className="p-2 font-mono">{token.tokenCode || '--'}</td>
-      <td className="p-2">{token.symbol || '--'}</td>
-      <td className="p-2">{token.chainType || '--'}</td>
-      <td className="p-2">{token.anchorFiat || '--'}</td>
-      <td className="p-2 tabular-nums">{token.minLiquidity ?? '--'}</td>
-      <td className="p-2">
+    <tr className="border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40">
+      <td className="px-6 py-4 font-mono text-xs">{token.tokenCode || '--'}</td>
+      <td className="px-6 py-4 font-medium">{token.symbol || '--'}</td>
+      <td className="px-6 py-4">
+        <Badge variant="outline" className="font-normal">
+          <span className="size-1.5 rounded-full bg-primary" />
+          {token.chainType || '--'}
+        </Badge>
+      </td>
+      <td className="px-6 py-4 text-muted-foreground">
+        {token.anchorFiat || '--'}
+      </td>
+      <td className="px-6 py-4 text-right font-mono tabular-nums">
+        {token.minLiquidity ?? '--'}
+      </td>
+      <td className="px-6 py-4">
         <Badge variant={TOKEN_STATUS_VARIANT[token.status] ?? 'outline'}>
           {TOKEN_STATUS_LABEL[token.status] ?? token.status}
         </Badge>
@@ -1770,20 +1921,25 @@ function TokenRows({
   return (
     <table className="w-full text-left text-sm">
       <thead>
-        <tr className="border-b text-muted-foreground">
-          <th className="p-2">Code</th>
-          <th className="p-2">Symbol</th>
-          <th className="p-2">Chain</th>
-          <th className="p-2">Status</th>
+        <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+          <th className="px-4 py-2 font-medium">Code</th>
+          <th className="px-4 py-2 font-medium">Symbol</th>
+          <th className="px-4 py-2 font-medium">Chain</th>
+          <th className="px-4 py-2 font-medium">Status</th>
         </tr>
       </thead>
       <tbody>
         {tokens.map((token) => (
-          <tr key={token.tokenId}>
-            <td className="p-2 font-mono">{token.tokenCode || '--'}</td>
-            <td className="p-2">{token.symbol || '--'}</td>
-            <td className="p-2">{token.chainType || '--'}</td>
-            <td className="p-2">
+          <tr
+            key={token.tokenId}
+            className="border-b border-border/60 last:border-0"
+          >
+            <td className="px-4 py-2 font-mono text-xs">
+              {token.tokenCode || '--'}
+            </td>
+            <td className="px-4 py-2">{token.symbol || '--'}</td>
+            <td className="px-4 py-2">{token.chainType || '--'}</td>
+            <td className="px-4 py-2">
               {TOKEN_STATUS_LABEL[token.status] ?? token.status}
             </td>
           </tr>

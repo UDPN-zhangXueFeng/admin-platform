@@ -212,3 +212,47 @@
     padding: var(--panel-pad);
   }
 }
+
+/* The Kissen portals use the same compact, theme-aware segmented tab style.
+   Scoped to this app's body so the shared Tabs primitive stays unchanged for
+   other products in the monorepo. */
+body.kissen-tabs [role='tablist'] {
+  width: fit-content;
+  max-width: 100%;
+  height: auto;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: 0.75rem;
+  background-color: hsl(var(--muted) / 0.4);
+  padding: 0.25rem;
+}
+
+body.kissen-tabs [role='tab'] {
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background-color: transparent;
+  padding-inline: 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+body.kissen-tabs [role='tab']::after {
+  display: none;
+}
+
+body.kissen-tabs [role='tab']:not([data-state='active']) {
+  color: hsl(var(--muted-foreground));
+}
+
+body.kissen-tabs [role='tab']:not([data-state='active']):hover {
+  background-color: hsl(var(--background) / 0.6);
+  color: hsl(var(--foreground));
+}
+
+body.kissen-tabs [role='tab'][data-state='active'] {
+  background-color: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.08);
+}

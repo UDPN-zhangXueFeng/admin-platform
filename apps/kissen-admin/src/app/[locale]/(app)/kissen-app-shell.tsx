@@ -174,7 +174,6 @@ export function KissenAppShell({
       onLogout={handleLogout}
       hideManageAccount
       themedContentSurface
-      prominentMenuIcons
       logo={<KissenHeaderMark />}
       trailing={<ThemeSwitcher themes={config.theme.themes} />}
     >

@@ -133,7 +133,6 @@ export function LpAppShell({
     <AppShell
       config={derivedConfig}
       themedContentSurface
-      prominentMenuIcons
       logo={
         <LogoMark className="h-10 w-[84px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[104px]" />
       }
