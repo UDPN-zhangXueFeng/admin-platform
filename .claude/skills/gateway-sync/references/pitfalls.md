@@ -13,3 +13,4 @@
 - 写操作流程的运行时实证需后端种子数据；无种子以「渲染全绿 + 只读交互实测 + §7 清单静态保证」收口并明示边界。
 - 触发导航的按钮 `handle.click()` 会 8s 超时但点击实际已生效（2026-09-09 实测登录 Sign In）：改用 `tab.evaluate` 内原生 `click()` / `form.requestSubmit()`；超时后先查 toast + localStorage 会话键（`bankgw.token`）再决定是否重试，勿盲目重试双提交。登录成功勿以 URL 判——dev 编译慢时 client redirect 延迟数秒，token 落盘后直接 `location.assign(目标页)` 继续走查。
 - lint 通则：`.catch(() => {})` 触发 `@typescript-eslint/no-empty-function`，统一写 `.catch(() => undefined)`。
+- dev 冒烟前先 `lsof -nP -iTCP:<port> -sTCP:LISTEN` + 进程 cwd 确认端口归属：`.env.local` 的 `PORT=3200` 会被其他 app（实测 apps/admin 占用 3200/3400，kissen-admin 占 3100）抢占，gateway 实际用 `npx nx dev kissen-gateway-portal --port=3201` 显式起；绑到错误 app 时症状是登录后 middleware 仍弹回 /login（对端不认 `kissen_gateway_token` cookie）+ 登录页出现他 app 特征（如 MetaMask 按钮）。

@@ -161,12 +161,48 @@ describe('DataTable sticky actions surface', () => {
     ];
     render(<DataTable columns={actionsOnly} data={rows} />);
 
-    expect(screen.getByRole('columnheader', { name: 'Actions' })).toHaveClass(
-      'bg-muted',
+    expect(screen.getByRole('columnheader', { name: 'Actions' })).toHaveAttribute(
+      'style',
+      expect.stringContaining('var(--primary)'),
     );
     expect(screen.getByRole('button', { name: 'View' }).closest('td')).toHaveClass(
       'bg-card',
-      'group-hover:bg-muted',
+      'group-hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_4%,hsl(var(--background)))]',
+    );
+  });
+});
+
+/**
+ * Why: the table is used across the three portal apps, so row rhythm and
+ * theme surfaces must be defined by the shared component instead of a page
+ * wrapper. Fixed cell heights keep the header visually aligned with every
+ * data row while semantic Tailwind colors continue to follow light/dark theme
+ * tokens.
+ */
+describe('DataTable row rhythm and theme surfaces', () => {
+  it('uses the same fixed height and theme-aware surfaces for header and rows', () => {
+    render(<DataTable columns={columns} data={rows} />);
+
+    expect(screen.getByRole('columnheader', { name: 'Long Text' })).toHaveClass(
+      'h-[60px]',
+      'py-0',
+    );
+    expect(screen.getByText('USD').closest('td')).toHaveClass(
+      'h-[60px]',
+      'py-0',
+      'text-[13px]',
+    );
+    expect(screen.getByRole('table')).toHaveClass(
+      'bg-card',
+      'text-card-foreground',
+      'text-sm',
+    );
+    expect(screen.getByRole('columnheader', { name: 'Long Text' })).toHaveAttribute(
+      'style',
+      expect.stringContaining('var(--primary)'),
+    );
+    expect(screen.getByText('USD').closest('tr')).toHaveClass(
+      'hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_4%,hsl(var(--background)))]',
     );
   });
 });

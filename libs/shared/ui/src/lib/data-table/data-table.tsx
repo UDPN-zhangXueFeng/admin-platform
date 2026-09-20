@@ -68,6 +68,9 @@ export interface DataTableProps<TData extends { id: string }> {
 
 const DEFAULT_CELL_MAX_WIDTH = 240;
 const WRAP_CELL_MAX_WIDTH = 360;
+/** A subtle tint derived from the active brand palette and current light/dark surface. */
+const TABLE_HEADER_BACKGROUND =
+  'color-mix(in srgb, hsl(var(--primary)) 6%, hsl(var(--background)))';
 
 /**
  * Truncates content past `maxWidth` and reveals the full content in a Radix
@@ -231,19 +234,20 @@ export function DataTable<TData extends { id: string }>({
   return (
     <div className={cn('flex flex-col gap-4', className)}>
       <div className="overflow-x-auto rounded-md border border-border/50 bg-card">
-        <table className="w-full min-w-max caption-bottom text-sm">
-          <thead className="bg-muted/50">
+        <table className="w-full min-w-max caption-bottom bg-card text-card-foreground text-sm">
+          <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
                     scope="col"
+                    style={{ backgroundColor: TABLE_HEADER_BACKGROUND }}
                     className={cn(
-                      'h-10 whitespace-nowrap border-b border-border/50 px-4 text-left align-middle font-medium text-muted-foreground',
+                      'h-[60px] whitespace-nowrap border-b border-border/50 px-4 py-0 text-left align-middle font-medium text-muted-foreground',
                       (header.column.columnDef.meta?.stickyRight ??
                         header.column.id === 'actions') &&
-                        'sticky right-0 z-20 border-l border-border/50 bg-muted shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]'
+                        'sticky right-0 z-20 border-l border-border/50 shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]'
                     )}
                   >
                     {header.isPlaceholder
@@ -259,7 +263,7 @@ export function DataTable<TData extends { id: string }>({
               Array.from({ length: pagination?.pageSize ?? 5 }).map((_, i) => (
                 <tr key={`skeleton-${i}`}>
                   {columns.map((_, ci) => (
-                    <td key={ci} className="px-4 py-3">
+                    <td key={ci} className="h-[60px] px-4 py-0">
                       {/* First bar wider to echo the emphasized primary column. */}
                       <div
                         className={cn(
@@ -296,14 +300,14 @@ export function DataTable<TData extends { id: string }>({
                     // Tailwind stylesheet order, not class order, would decide.
                     row.getIsSelected()
                       ? 'bg-accent hover:bg-accent'
-                      : 'hover:bg-muted/50'
+                      : 'hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_4%,hsl(var(--background)))]'
                   )}
                 >
                   {row.getVisibleCells().map((cell, cellIndex) => (
                     <td
                       key={cell.id}
                       className={cn(
-                        'px-4 py-3 align-middle',
+                        'h-[60px] px-4 py-0 align-middle text-[13px]',
                         // First data column carries the primary object
                         // (scheme §6.2) → medium weight; the actions column
                         // is never treated as the primary column.
@@ -316,7 +320,7 @@ export function DataTable<TData extends { id: string }>({
                             'sticky right-0 z-10 border-l border-border/50 shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]',
                             row.getIsSelected()
                               ? 'bg-accent group-hover:bg-accent'
-                              : 'bg-card group-hover:bg-muted'
+                              : 'bg-card group-hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_4%,hsl(var(--background)))]'
                           )
                       )}
                     >

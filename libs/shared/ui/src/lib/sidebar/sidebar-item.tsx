@@ -16,6 +16,8 @@ export interface SidebarItemProps {
   disabled?: boolean;
   /** Child entries follow the reference sidebar's compact text-only treatment. */
   nested?: boolean;
+  /** Use a larger, slightly heavier Lucide icon for primary menu entries. */
+  prominentMenuIcons?: boolean;
   onClick?: () => void;
 }
 
@@ -36,6 +38,7 @@ export function SidebarItem({
   collapsed,
   disabled = false,
   nested = false,
+  prominentMenuIcons = false,
   onClick,
 }: SidebarItemProps) {
   const pathname = usePathname();
@@ -53,15 +56,26 @@ export function SidebarItem({
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         isActive
           ? 'bg-primary text-primary-foreground shadow-sm'
-          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+          : 'text-muted-foreground hover:bg-primary/5 hover:text-accent-foreground',
         disabled && 'pointer-events-none opacity-50',
         collapsed && 'size-10 min-h-0 justify-center p-0 min-[1600px]:size-11',
         nested && 'min-h-8 rounded-lg py-0 shadow-none min-[1600px]:min-h-9',
-        nested && isActive && 'bg-transparent text-primary shadow-none',
+        nested &&
+          isActive &&
+          'bg-primary/10 text-primary shadow-none hover:bg-primary/10',
       )}
     >
       {isActive && !nested && <SidebarActiveBackdrop />}
-      {!nested && <Icon className="relative z-10 h-5 w-5 shrink-0" aria-hidden="true" />}
+      {!nested && (
+        <Icon
+          className={cn(
+            'relative z-10 shrink-0',
+            prominentMenuIcons ? 'size-6' : 'h-5 w-5',
+          )}
+          strokeWidth={prominentMenuIcons ? 2.25 : undefined}
+          aria-hidden="true"
+        />
+      )}
       {!collapsed && <span className="relative z-10 truncate">{label}</span>}
     </Link>
   );

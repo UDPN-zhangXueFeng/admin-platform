@@ -51,6 +51,10 @@ export interface SidebarLayoutProps {
    * passed through to Header's `trailing` slot (e.g. the notification bell).
    */
   trailing?: React.ReactNode;
+  /** Add a very subtle tint derived from the active theme to the content surface. */
+  themedContentSurface?: boolean;
+  /** Use larger, slightly heavier Lucide icons in the primary sidebar menu. */
+  prominentMenuIcons?: boolean;
 }
 
 /**
@@ -77,6 +81,8 @@ export function SidebarLayout({
   hideProjectName,
   compactHeader,
   trailing,
+  themedContentSurface,
+  prominentMenuIcons,
 }: SidebarLayoutProps) {
   const [collapsed, setCollapsed] = useState(() =>
     readPersistedCollapsed(persistKey),
@@ -161,6 +167,7 @@ export function SidebarLayout({
             items={sidebarItems}
             collapsed={collapsed}
             singleExpand={config.layout.sidebar.singleExpand}
+            prominentMenuIcons={prominentMenuIcons}
             onToggle={toggleCollapsed}
             className={
               sidebarWidths
@@ -191,7 +198,13 @@ export function SidebarLayout({
             </Button>
             {config.layout.breadcrumb.enabled && <Breadcrumb />}
           </div>
-          <div className="min-h-0 flex-1 overflow-auto p-4 min-[1600px]:p-6">
+          <div
+            className={cn(
+              'min-h-0 flex-1 overflow-auto p-4 min-[1600px]:p-6',
+              themedContentSurface &&
+                'bg-[color:color-mix(in_srgb,hsl(var(--primary))_2%,hsl(var(--background)))]',
+            )}
+          >
             {children}
           </div>
         </main>

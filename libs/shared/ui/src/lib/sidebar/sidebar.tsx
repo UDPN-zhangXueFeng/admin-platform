@@ -25,6 +25,8 @@ export interface SidebarProps {
   collapsed: boolean;
   /** Keep at most one parent menu expanded when enabled. */
   singleExpand?: boolean;
+  /** Use larger, slightly heavier Lucide icons for the primary menu entries. */
+  prominentMenuIcons?: boolean;
   onToggle: () => void;
   className?: string;
 }
@@ -49,6 +51,7 @@ export function Sidebar({
   items,
   collapsed,
   singleExpand = false,
+  prominentMenuIcons = false,
   className,
 }: SidebarProps) {
   const grouped = React.useMemo(() => {
@@ -175,6 +178,7 @@ export function Sidebar({
                 key={item.id}
                 item={item}
                 collapsed={collapsed}
+                prominentMenuIcons={prominentMenuIcons}
                 expandedIds={expandedIds}
                 onToggle={toggleExpanded}
                 onFlyoutOpen={openFlyout}
@@ -205,6 +209,7 @@ export function Sidebar({
 interface CollapsibleNavItemProps {
   item: SidebarItemConfig;
   collapsed: boolean;
+  prominentMenuIcons: boolean;
   expandedIds: Set<string>;
   onToggle: (id: string) => void;
   onFlyoutOpen: (item: SidebarItemConfig, target: HTMLButtonElement) => void;
@@ -215,6 +220,7 @@ interface CollapsibleNavItemProps {
 function CollapsibleNavItem({
   item,
   collapsed,
+  prominentMenuIcons,
   expandedIds,
   onToggle,
   onFlyoutOpen,
@@ -243,6 +249,7 @@ function CollapsibleNavItem({
         label={item.label}
         path={item.path ?? '#'}
         collapsed={collapsed}
+        prominentMenuIcons={prominentMenuIcons}
         disabled={item.disabled}
         onClick={collapsed ? onFlyoutClose : undefined}
       />
@@ -254,6 +261,7 @@ function CollapsibleNavItem({
       <CollapsedParentItem
         item={item}
         isActive={isActive}
+        prominentMenuIcons={prominentMenuIcons}
         onOpen={(target) => onFlyoutOpen(item, target)}
       />
     );
@@ -271,11 +279,18 @@ function CollapsibleNavItem({
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
-            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+            : 'text-muted-foreground hover:bg-primary/5 hover:text-accent-foreground',
         )}
       >
         {isActive && <SidebarActiveBackdrop />}
-        <item.icon className="relative z-10 h-5 w-5 shrink-0" aria-hidden="true" />
+        <item.icon
+          className={cn(
+            'relative z-10 shrink-0',
+            prominentMenuIcons ? 'size-6' : 'h-5 w-5',
+          )}
+          strokeWidth={prominentMenuIcons ? 2.25 : undefined}
+          aria-hidden="true"
+        />
         <span className="relative z-10 flex-1 truncate text-left">{item.label}</span>
         <ChevronRight
           className={cn(
@@ -316,11 +331,17 @@ function CollapsibleNavItem({
 interface CollapsedParentItemProps {
   item: SidebarItemConfig;
   isActive: boolean;
+  prominentMenuIcons: boolean;
   onOpen: (target: HTMLButtonElement) => void;
 }
 
 /** Icon-only parent entry that opens its secondary navigation in a flyout. */
-function CollapsedParentItem({ item, isActive, onOpen }: CollapsedParentItemProps) {
+function CollapsedParentItem({
+  item,
+  isActive,
+  prominentMenuIcons,
+  onOpen,
+}: CollapsedParentItemProps) {
   return (
     <div className="group relative flex justify-center">
       <button
@@ -333,11 +354,18 @@ function CollapsedParentItem({ item, isActive, onOpen }: CollapsedParentItemProp
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
-            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            : 'text-muted-foreground hover:bg-primary/5 hover:text-accent-foreground',
         )}
       >
         {isActive && <SidebarActiveBackdrop />}
-        <item.icon className="relative z-10 h-5 w-5 shrink-0" aria-hidden="true" />
+        <item.icon
+          className={cn(
+            'relative z-10 shrink-0',
+            prominentMenuIcons ? 'size-6' : 'h-5 w-5',
+          )}
+          strokeWidth={prominentMenuIcons ? 2.25 : undefined}
+          aria-hidden="true"
+        />
       </button>
       <span
         className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow-md motion-safe:transition-opacity group-hover:opacity-100"
@@ -403,8 +431,9 @@ function SidebarFlyout({ item, pathname, top, onClose }: SidebarFlyoutProps) {
                   role="menuitem"
                   onClick={onClose}
                   className={cn(
-                    'flex min-h-9 w-full items-center rounded-lg px-3 text-[13px] motion-safe:transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-[1600px]:text-sm',
-                    isActive && 'bg-primary/10 font-medium text-primary',
+                    'flex min-h-9 w-full items-center rounded-lg px-3 text-[13px] motion-safe:transition-colors hover:bg-primary/5 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-[1600px]:text-sm',
+                    isActive &&
+                      'bg-primary/10 font-medium text-primary hover:bg-primary/10 hover:text-primary',
                   )}
                 >
                   {content}

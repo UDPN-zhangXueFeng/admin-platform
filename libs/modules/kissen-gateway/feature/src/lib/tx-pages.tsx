@@ -230,6 +230,7 @@ function buildPairMap(
  * csTxId 回退主表 sourceCsTxId/targetCsTxId；step2 无字段，0=通用事件恒空。
  * ddd9fe2：源端金额口径=userDeduction（用户实际扣款，含汇率加价承担）；
  * principal 仅为按接收金额换算的发起基准值，不作源端金额展示。
+ * ddae8d4：汇率展示统一 4 位小数（对齐 FX 页 / 交易列表口径）。
  */
 function stageFieldsOf(
   node: TxFlowNode,
@@ -253,7 +254,9 @@ function stageFieldsOf(
   const deduction = withSym(record?.userDeduction, src);
   const receiver = withSym(record?.receiverAmount, tgt);
   const rate =
-    record?.userRate != null ? String(Number(record.userRate)) : undefined;
+    record?.userRate != null
+      ? Number(record.userRate).toFixed(4)
+      : undefined;
   if (step === 1) {
     if (lp) fields.push({ label: 'LP', value: lp });
     if (deduction) fields.push({ label: 'Source Amount', value: deduction });

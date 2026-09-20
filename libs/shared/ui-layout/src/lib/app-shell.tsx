@@ -49,6 +49,10 @@ export interface AppShellProps {
    * passed through to Header's `trailing` slot (e.g. the notification bell).
    */
   trailing?: React.ReactNode;
+  /** Opt-in subtle brand tint for the main content surface. */
+  themedContentSurface?: boolean;
+  /** Opt-in larger, slightly heavier Lucide icons in the primary sidebar menu. */
+  prominentMenuIcons?: boolean;
 }
 
 interface LayoutProps {
@@ -80,6 +84,10 @@ interface LayoutProps {
   logo?: React.ReactNode;
   /** Opt-in header actions content, forwarded to Header's `trailing` slot. */
   trailing?: React.ReactNode;
+  /** Opt-in subtle brand tint for the main content surface. */
+  themedContentSurface?: boolean;
+  /** Opt-in larger, slightly heavier Lucide icons in the primary sidebar menu. */
+  prominentMenuIcons?: boolean;
 }
 
 
@@ -107,6 +115,8 @@ export function AppShell({
   compactHeader,
   logo,
   trailing,
+  themedContentSurface,
+  prominentMenuIcons,
 }: AppShellProps) {
   const Layout = layoutMap[config.layout.type] ?? SidebarLayout;
 
@@ -123,6 +133,8 @@ export function AppShell({
       compactHeader={compactHeader}
       logo={logo}
       trailing={trailing}
+      themedContentSurface={themedContentSurface}
+      prominentMenuIcons={prominentMenuIcons}
     >
       {children}
     </Layout>

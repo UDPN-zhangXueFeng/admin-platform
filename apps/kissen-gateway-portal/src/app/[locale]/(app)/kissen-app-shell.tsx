@@ -353,6 +353,8 @@ export function KissenAppShell({
       hideManageAccount
       hideProjectName
       compactHeader
+      themedContentSurface
+      prominentMenuIcons
       persistKey="bankgw.nav.collapsed"
       sidebarWidths={{
         expanded: 'w-[300px] min-[1600px]:w-[320px]',

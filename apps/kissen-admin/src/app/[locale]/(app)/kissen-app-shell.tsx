@@ -115,6 +115,22 @@ function toModuleItems(
       };
     });
 }
+
+/** Keep the LP menu on its legacy route so nested LP pages remain selected. */
+function normalizeMenuRouteAliases(
+  items: ProjectConfig['modules']['order'],
+): ProjectConfig['modules']['order'] {
+  return items.map((item) => ({
+    ...item,
+    ...(item.path === '/onboard/lp'
+      ? { path: '/lp-liquidity/lp-info' }
+      : {}),
+    ...(item.children
+      ? { children: normalizeMenuRouteAliases(item.children) }
+      : {}),
+  }));
+}
+
 export function KissenAppShell({
   config,
   children,
@@ -130,10 +146,14 @@ export function KissenAppShell({
   // configs 菜单（无树——SSR 首帧/会话缺失——回退静态树）。
   const shellConfig = React.useMemo<ProjectConfig>(() => {
     const tree = (user as { menuTree?: MenuTreeRespVO[] } | null)?.menuTree;
-    if (!tree || tree.length === 0) return config;
+    const menuOrder =
+      tree && tree.length > 0 ? toModuleItems(tree) : config.modules.order;
     return {
       ...config,
-      modules: { ...config.modules, order: toModuleItems(tree) },
+      modules: {
+        ...config.modules,
+        order: normalizeMenuRouteAliases(menuOrder),
+      },
     };
   }, [config, user]);
 
@@ -153,6 +173,8 @@ export function KissenAppShell({
       onChangePassword={() => setPwdOpen(true)}
       onLogout={handleLogout}
       hideManageAccount
+      themedContentSurface
+      prominentMenuIcons
       logo={<KissenHeaderMark />}
       trailing={<ThemeSwitcher themes={config.theme.themes} />}
     >

@@ -37,7 +37,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Copy, Info, TriangleAlert } from 'lucide-react';
+import { Copy, Info, LockKeyhole, TriangleAlert } from 'lucide-react';
 
 import {
   Alert,
@@ -75,8 +75,9 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
+import { cn } from '@myorg/shared/util-classnames';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
-import { useRouter } from '@myorg/shared/util-i18n';
+import { locales, useRouter } from '@myorg/shared/util-i18n';
 
 import {
   KISSEN_PROJECT_ID,
@@ -281,6 +282,7 @@ interface ConfirmRequest {
   title: string;
   description: string;
   actionLabel: string;
+  cancelLabel?: string;
   destructive?: boolean;
   onConfirm: () => void;
 }
@@ -304,7 +306,7 @@ function ConfirmDialog({
           <AlertDialogDescription>{request?.description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{LBL.cancel}</AlertDialogCancel>
+          <AlertDialogCancel>{request?.cancelLabel ?? LBL.cancel}</AlertDialogCancel>
           <AlertDialogAction
             className={
               request?.destructive
@@ -869,6 +871,7 @@ export function LpInfoListPage() {
 
 /** 配池编辑器条目本地态（受控组件值；pairId 用 string 适配 Select）。 */
 interface PairPoolEntry {
+  rowId: string;
   pairId: string;
   sourceAddress: string;
   sourceMin: string;
@@ -878,7 +881,7 @@ interface PairPoolEntry {
   targetAuth: string;
 }
 
-const PAIR_POOL_ENTRY_EMPTY: PairPoolEntry = {
+const PAIR_POOL_ENTRY_EMPTY: Omit<PairPoolEntry, 'rowId'> = {
   pairId: '',
   sourceAddress: '',
   sourceMin: '',
@@ -889,8 +892,9 @@ const PAIR_POOL_ENTRY_EMPTY: PairPoolEntry = {
 };
 
 /** 已保存配池草稿（detail.pairs）→ 编辑器条目回填。 */
-function onboardPairToEntry(pair: LpOnboardPair): PairPoolEntry {
+function onboardPairToEntry(pair: LpOnboardPair, rowId: string): PairPoolEntry {
   return {
+    rowId,
     pairId: String(pair.pairId ?? ''),
     sourceAddress: pair.source?.address ?? '',
     sourceMin: pair.source?.minLiquidity != null ? String(pair.source.minLiquidity) : '',
@@ -927,7 +931,7 @@ function pairPoolEntryToReq(entry: PairPoolEntry): LpOnboardPair | null {
 /**
  * 配池编辑器（源 pair-pool-editor.vue）：Token Pair 选择（仅启用对）+ 源/目标
  * 两张 side 卡（池地址必填 / Min 留空按 token 默认 / 授权门槛选填）。
- * 换对保留已填地址，Min 按新对默认预填（源 watch pairId 行为）。
+ * 换对保留已填地址并清空自定义 Min；留空时由 token 默认值生效。
  */
 function PairPoolEditor({
   entry,
@@ -949,12 +953,11 @@ function PairPoolEditor({
     label: `${o.sourceSymbol || o.sourceTokenCode}/${o.targetSymbol || o.targetTokenCode} (${o.sourceBankName || '--'} → ${o.targetBankName || '--'})`,
   }));
   const onPairChange = (pairId: string) => {
-    const opt = options.find((o) => String(o.pairId) === pairId);
     onChange({
       ...entry,
       pairId,
-      sourceMin: opt?.sourceMinLiquidity != null ? String(opt.sourceMinLiquidity) : '',
-      targetMin: opt?.targetMinLiquidity != null ? String(opt.targetMinLiquidity) : '',
+      sourceMin: '',
+      targetMin: '',
     });
   };
 
@@ -1160,6 +1163,19 @@ interface LpInfoFormValues {
   address: string;
   riskAssessment: string;
 }
+
+const LP_INFO_SECTIONS = [
+  { id: 'lp-info-basic', label: 'Basic Information' },
+  { id: 'lp-info-contact', label: 'Contact' },
+  { id: 'lp-info-settlement', label: 'Settlement' },
+  { id: 'lp-info-risk', label: 'Risk Assessment' },
+  { id: 'lp-info-pairs', label: 'Token Pairs & Pools' },
+] as const;
+
+type PendingLpInfoNavigation =
+  | { type: 'route'; href: string }
+  | { type: 'back' };
+
 /**
  * LP 登记/编辑独立页（源 37010e0 form.vue）：基本信息 + 配池卡
  * （PairPoolEditor 列表 + 余额校验 precheck）；编辑态回填已保存配池草稿。
@@ -1180,9 +1196,20 @@ export function LpInfoFormPage() {
   const pairOptions = pairOptionsRaw ?? [];
   /** 配池草稿（源 37010e0 form.vue pairs；草稿/驳回重提回填）。 */
   const [pairs, setPairs] = React.useState<PairPoolEntry[]>([]);
+  const initialPairsRef = React.useRef('[]');
+  const nextPairIdRef = React.useRef(0);
+  const pageRef = React.useRef<HTMLDivElement>(null);
+  const dirtyRef = React.useRef(false);
+  const allowPopNavigationRef = React.useRef(false);
+  const historyGuardId = React.useId();
+  const [activeSection, setActiveSection] = React.useState<string>(
+    LP_INFO_SECTIONS[0].id,
+  );
+  const [pendingNavigation, setPendingNavigation] =
+    React.useState<PendingLpInfoNavigation | null>(null);
   const [precheckResult, setPrecheckResult] =
     React.useState<LpPoolPrecheckResp | null>(null);
-  const { register, handleSubmit, reset, formState: { errors } } =
+  const { register, handleSubmit, reset, formState: { errors, isDirty } } =
     useForm<LpInfoFormValues>({
       defaultValues: {
         lpName: '',
@@ -1193,6 +1220,9 @@ export function LpInfoFormPage() {
         riskAssessment: '',
       },
     });
+  const hasUnsavedChanges =
+    isDirty || JSON.stringify(pairs) !== initialPairsRef.current;
+  dirtyRef.current = hasUnsavedChanges;
 
   React.useEffect(() => {
     if (!isEdit || !detail) return;
@@ -1204,8 +1234,140 @@ export function LpInfoFormPage() {
       address: detail.address ?? '',
       riskAssessment: detail.riskAssessment ?? '',
     });
-    setPairs((detail.pairs ?? []).map(onboardPairToEntry));
+    const restoredPairs = (detail.pairs ?? []).map((pair, index) =>
+      onboardPairToEntry(pair, `saved-${pair.pairId}-${index}`),
+    );
+    initialPairsRef.current = JSON.stringify(restoredPairs);
+    setPairs(restoredPairs);
   }, [detail, isEdit, reset]);
+
+  React.useEffect(() => {
+    const scrollRoot = pageRef.current?.parentElement;
+    if (!scrollRoot) return;
+
+    const updateActiveSection = () => {
+      const rootTop = scrollRoot.getBoundingClientRect().top;
+      const sections = pageRef.current?.querySelectorAll<HTMLElement>(
+        '[data-lp-info-section]',
+      );
+      if (!sections?.length) return;
+
+      let currentId: string = LP_INFO_SECTIONS[0].id;
+      const isAtScrollEnd =
+        scrollRoot.scrollTop > 0 &&
+        scrollRoot.scrollTop + scrollRoot.clientHeight >=
+          scrollRoot.scrollHeight - 1;
+      if (isAtScrollEnd) {
+        currentId = LP_INFO_SECTIONS[LP_INFO_SECTIONS.length - 1].id;
+      } else {
+        sections.forEach((section) => {
+          if (section.getBoundingClientRect().top - rootTop < 120) {
+            currentId = section.id;
+          }
+        });
+      }
+      setActiveSection((current) =>
+        current === currentId ? current : currentId,
+      );
+    };
+
+    scrollRoot.addEventListener('scroll', updateActiveSection, {
+      passive: true,
+    });
+    updateActiveSection();
+    return () => scrollRoot.removeEventListener('scroll', updateActiveSection);
+  }, []);
+
+  /** Protect unsaved form values when leaving through the sidebar or browser history. */
+  React.useEffect(() => {
+    const historyState = window.history.state;
+    if (historyState?.lpInfoFormGuard !== historyGuardId) {
+      window.history.pushState(
+        {
+          ...(historyState && typeof historyState === 'object'
+            ? historyState
+            : {}),
+          lpInfoFormGuard: historyGuardId,
+        },
+        '',
+        window.location.href,
+      );
+    }
+
+    const onDocumentClick = (event: MouseEvent) => {
+      if (
+        !dirtyRef.current ||
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const link = target.closest('a[href]');
+      if (!(link instanceof HTMLAnchorElement)) return;
+      if (link.target === '_blank' || link.hasAttribute('download')) return;
+
+      const targetUrl = new URL(link.href, window.location.href);
+      if (targetUrl.origin !== window.location.origin) return;
+      if (
+        targetUrl.pathname === window.location.pathname &&
+        targetUrl.search === window.location.search
+      ) {
+        return;
+      }
+
+      const pathname = locales.reduce((path, locale) => {
+        const prefix = `/${locale}`;
+        if (path === prefix) return '/';
+        return path.startsWith(`${prefix}/`) ? path.slice(prefix.length) : path;
+      }, targetUrl.pathname);
+
+      event.preventDefault();
+      event.stopPropagation();
+      setPendingNavigation({
+        type: 'route',
+        href: `${pathname}${targetUrl.search}${targetUrl.hash}`,
+      });
+    };
+
+    const onPopState = (event: PopStateEvent) => {
+      if (allowPopNavigationRef.current) {
+        allowPopNavigationRef.current = false;
+        return;
+      }
+      if (
+        event.state?.lpInfoFormGuard === historyGuardId ||
+        !dirtyRef.current
+      ) {
+        return;
+      }
+
+      event.stopImmediatePropagation();
+      setPendingNavigation({ type: 'back' });
+      window.history.forward();
+    };
+
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!dirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    document.addEventListener('click', onDocumentClick, true);
+    window.addEventListener('popstate', onPopState, true);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      document.removeEventListener('click', onDocumentClick, true);
+      window.removeEventListener('popstate', onPopState, true);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, [historyGuardId]);
 
   /** 已添加的对必须完整（token 对 + 两端池地址）才能保存/校验（源校验语义）。 */
   const buildPairs = (): LpOnboardPair[] | null => {
@@ -1257,167 +1419,408 @@ export function LpInfoFormPage() {
     });
   });
 
+  const confirmDiscardChanges = () => {
+    const navigation = pendingNavigation;
+    setPendingNavigation(null);
+    if (!navigation) return;
+
+    if (navigation.type === 'back') {
+      allowPopNavigationRef.current = true;
+      window.history.back();
+      return;
+    }
+
+    router.push(navigation.href);
+  };
+
+  const discardRequest: ConfirmRequest | null = pendingNavigation
+    ? {
+        title: 'Discard Changes',
+        description:
+          'Are you sure you want to discard your changes? Once discarded, the changes you made on this page will be lost.',
+        actionLabel: 'Discard Changes',
+        cancelLabel: 'Keep Editing',
+        destructive: true,
+        onConfirm: confirmDiscardChanges,
+      }
+    : null;
+
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <div className="mb-6 text-base font-semibold">
-          {isEdit ? 'Edit LP' : 'Add LP'}
-        </div>
+    <div ref={pageRef} className="w-full space-y-4">
+      <header>
+        <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight text-foreground">
+          {isEdit ? 'Edit Liquidity Provider' : 'Onboard Liquidity Provider'}
+          {!isEdit ? (
+            <Badge className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50">
+              Draft Mode
+            </Badge>
+          ) : null}
+        </h1>
+        <p className="mt-1.5 max-w-[640px] text-sm text-muted-foreground">
+          Register the identity, operational contact and settlement profile of a
+          liquidity provider. Saved records enter the list as Draft.
+        </p>
+      </header>
 
-        {/* §6.4 Section：基本信息 / 联系 / 风评（标题 + 说明 + 分隔）。 */}
-        <div className="mb-4">
-          <div className="text-sm font-medium">Basic Information</div>
-          <p className="text-sm text-muted-foreground">
-            Identity of the LP; name and code are required.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              LP Name<span className="ml-0.5 text-destructive">*</span>
-            </label>
-            <Input
-              maxLength={64}
-              {...register('lpName', {
-                required: 'Please enter the LP name',
-                validate: (v) => v.trim().length > 0 || 'Please enter the LP name',
-              })}
-            />
-            {errors.lpName && (
-              <p className="text-sm text-destructive" role="alert">
-                {errors.lpName.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              LP Code<span className="ml-0.5 text-destructive">*</span>
-            </label>
-            <Input
-              maxLength={32}
-              {...register('lpCode', {
-                required: 'Please enter the LP code',
-                validate: (v) => v.trim().length > 0 || 'Please enter the LP code',
-              })}
-            />
-            {errors.lpCode && (
-              <p className="text-sm text-destructive" role="alert">
-                {errors.lpCode.message}
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="mt-6 border-t border-border/50 pt-6">
-          <div className="mb-4">
-            <div className="text-sm font-medium">Contact</div>
-            <p className="text-sm text-muted-foreground">
-              Operational contact and mailing address (optional).
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Contact Name</label>
-            <Input maxLength={50} {...register('contactName')} />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Contact Email</label>
-            <Input
-              maxLength={100}
-              {...register('contactEmail', {
-                validate: (v) =>
-                  !v.trim() ||
-                  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ||
-                  'Invalid email format',
-              })}
-            />
-            {errors.contactEmail && (
-              <p className="text-sm text-destructive" role="alert">
-                {errors.contactEmail.message}
-              </p>
-            )}
-          </div>
-        </div>
-          <div className="mt-4 space-y-1.5">
-            <label className="text-sm font-medium">Address</label>
-            <Input maxLength={300} {...register('address')} />
-          </div>
-        </div>
-        <div className="mt-6 border-t border-border/50 pt-6">
-          <label htmlFor="riskAssessment" className="block text-sm font-medium">
-            Risk Assessment
-          </label>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Internal risk evaluation notes (optional).
-          </p>
-          <Textarea id="riskAssessment" rows={3} {...register('riskAssessment')} />
-        </div>
-      </section>
+      <nav
+        aria-label="LP onboarding sections"
+        className="sticky top-2 z-20 flex w-full flex-wrap items-center gap-1 rounded-xl border border-border/60 bg-background/90 p-1.5 shadow-sm backdrop-blur"
+      >
+        {LP_INFO_SECTIONS.map((section, index) => {
+          const isActive = activeSection === section.id;
+          return (
+            <a
+              key={section.id}
+              href={`#${section.id}`}
+              aria-current={isActive ? 'location' : undefined}
+              onClick={(event) => {
+                event.preventDefault();
+                setActiveSection(section.id);
+                const page = pageRef.current;
+                const scrollRoot = page?.parentElement;
+                const target = page?.querySelector(`#${section.id}`);
+                if (!scrollRoot || !target) return;
 
-      <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <div className="mb-4">
-          <div className="text-base font-semibold">Supported Token Pairs &amp; Pools</div>
-          <p className="text-sm text-muted-foreground">
-            Register one pool address for each side of every token pair. Leave Min.
-            Liquidity blank to use the token default; leave the auth threshold blank to
-            skip the check. An address shared across pairs is validated against the
-            aggregated requirements. Draft LPs may be saved with no pairs.
-          </p>
-        </div>
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pairs.length === 0 || precheckMutation.isPending}
-            onClick={onPrecheck}
-          >
-            {precheckMutation.isPending ? 'Checking...' : 'Balance Check'}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setPairs((prev) => [...prev, { ...PAIR_POOL_ENTRY_EMPTY }])}
-          >
-            + Add Token Pair
-          </Button>
-        </div>
-        {pairs.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">
-            No token pairs added yet
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {pairs.map((entry, idx) => (
-              <PairPoolEditor
-                key={idx}
-                entry={entry}
-                options={pairOptions}
-                onChange={(next) =>
-                  setPairs((prev) => prev.map((p, i) => (i === idx ? next : p)))
-                }
-                onRemove={() => setPairs((prev) => prev.filter((_, i) => i !== idx))}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+                const scrollMarginTop =
+                  Number.parseFloat(
+                    window.getComputedStyle(target).scrollMarginTop,
+                  ) || 0;
+                const top =
+                  scrollRoot.scrollTop +
+                  target.getBoundingClientRect().top -
+                  scrollRoot.getBoundingClientRect().top -
+                  scrollMarginTop;
+                scrollRoot.scrollTo({
+                  top,
+                  behavior: window.matchMedia(
+                    '(prefers-reduced-motion: reduce)',
+                  ).matches
+                    ? 'auto'
+                    : 'smooth',
+                });
+              }}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+                isActive
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-primary/5 hover:text-foreground',
+              )}
+            >
+              <span
+                className={cn(
+                  'inline-flex size-[18px] items-center justify-center rounded-md bg-muted text-[10px] font-bold',
+                  isActive && 'bg-primary text-primary-foreground',
+                )}
+              >
+                {index + 1}
+              </span>
+              {section.label}
+            </a>
+          );
+        })}
+      </nav>
 
-      <div className="flex items-center justify-between rounded-lg border-border/60 bg-card p-4 text-card-foreground shadow-float">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.push(lpRoute('lp-info'))}
-          disabled={saveMutation.isPending}
+      <form noValidate onSubmit={onSubmit} className="space-y-4">
+        <section
+          id={LP_INFO_SECTIONS[0].id}
+          data-lp-info-section
+          className="scroll-mt-16 overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground shadow-sm"
         >
-          {LBL.cancel}
-        </Button>
-        <Button type="submit" disabled={saveMutation.isPending}>
-          {saveMutation.isPending ? LBL.saving : LBL.save}
-        </Button>
-      </div>
+          <div className="flex items-start gap-3 border-b border-border/60 px-4 py-4 sm:px-5">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/5 text-xs font-bold text-primary">
+              1
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold">Basic Information</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Identity of the LP; name and code are required.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-5">
+            <div className="space-y-1.5">
+              <label htmlFor="lpName" className="text-sm font-medium">
+                LP Name<span className="ml-0.5 text-destructive">*</span>
+              </label>
+              <Input
+                id="lpName"
+                placeholder="Legal or trade name of the liquidity provider"
+                maxLength={64}
+                {...register('lpName', {
+                  required: 'Please enter the LP name',
+                  validate: (value) =>
+                    value.trim().length > 0 || 'Please enter the LP name',
+                })}
+              />
+              {errors.lpName && (
+                <p className="text-xs text-destructive" role="alert">
+                  {errors.lpName.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="lpCode" className="text-sm font-medium">
+                LP Code<span className="ml-0.5 text-destructive">*</span>
+              </label>
+              <Input
+                id="lpCode"
+                placeholder="LP code"
+                maxLength={32}
+                {...register('lpCode', {
+                  required: 'Please enter the LP code',
+                  validate: (value) =>
+                    value.trim().length > 0 || 'Please enter the LP code',
+                })}
+              />
+              {errors.lpCode && (
+                <p className="text-xs text-destructive" role="alert">
+                  {errors.lpCode.message}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section
+          id={LP_INFO_SECTIONS[1].id}
+          data-lp-info-section
+          className="scroll-mt-16 overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground shadow-sm"
+        >
+          <div className="flex items-start gap-3 border-b border-border/60 px-4 py-4 sm:px-5">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/5 text-xs font-bold text-primary">
+              2
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold">Contact</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Operational contact and mailing address; email is required for
+                portal setup and notifications.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-5">
+            <div className="space-y-1.5">
+              <label htmlFor="contactName" className="text-sm font-medium">
+                Contact Name
+              </label>
+              <Input
+                id="contactName"
+                placeholder="Full name"
+                maxLength={50}
+                {...register('contactName')}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="contactEmail" className="text-sm font-medium">
+                Contact Email<span className="ml-0.5 text-destructive">*</span>
+              </label>
+              <Input
+                id="contactEmail"
+                type="email"
+                placeholder="name@company.com"
+                maxLength={100}
+                {...register('contactEmail', {
+                  required: 'Please enter the contact email',
+                  validate: (value) =>
+                    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()) ||
+                    'Invalid email format',
+                })}
+              />
+              {errors.contactEmail && (
+                <p className="text-xs text-destructive" role="alert">
+                  {errors.contactEmail.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <label htmlFor="address" className="text-sm font-medium">
+                Address
+              </label>
+              <Input
+                id="address"
+                placeholder="Registered address"
+                maxLength={300}
+                {...register('address')}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section
+          id={LP_INFO_SECTIONS[2].id}
+          data-lp-info-section
+          className="scroll-mt-16 overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground shadow-sm"
+        >
+          <div className="flex items-start gap-3 border-b border-border/60 px-4 py-4 sm:px-5">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/5 text-xs font-bold text-primary">
+              3
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold">Settlement</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Settlement cycle of this LP.
+              </p>
+            </div>
+          </div>
+          <div className="p-4 sm:p-5">
+            <div className="max-w-md space-y-2">
+              <label className="text-sm font-medium">Settlement Cycle</label>
+              <div className="flex min-h-10 items-center justify-between rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+                <span>
+                  {SETTLE_CYCLE_MAP[detail?.settleCycle ?? 3] ?? 'Monthly'}
+                </span>
+                <LockKeyhole className="size-3.5" aria-hidden="true" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                To change it later, go to Settlement Cycle Setup.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id={LP_INFO_SECTIONS[3].id}
+          data-lp-info-section
+          className="scroll-mt-16 overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground shadow-sm"
+        >
+          <div className="flex items-start justify-between gap-4 border-b border-border/60 px-4 py-4 sm:px-5">
+            <div className="flex items-start gap-3">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/5 text-xs font-bold text-primary">
+                4
+              </span>
+              <div>
+                <h2 className="text-sm font-semibold">Risk Assessment</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Internal risk evaluation notes (optional).
+                </p>
+              </div>
+            </div>
+            <span className="pt-1 text-xs font-medium text-muted-foreground">
+              Optional
+            </span>
+          </div>
+          <div className="p-4 sm:p-5">
+            <label htmlFor="riskAssessment" className="sr-only">
+              Risk Assessment
+            </label>
+            <Textarea
+              id="riskAssessment"
+              rows={4}
+              {...register('riskAssessment')}
+            />
+          </div>
+        </section>
+
+        <section
+          id={LP_INFO_SECTIONS[4].id}
+          data-lp-info-section
+          className="scroll-mt-16 overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground shadow-sm"
+        >
+          <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+            <div className="flex items-start gap-3">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/5 text-xs font-bold text-primary">
+                5
+              </span>
+              <div>
+                <h2 className="text-sm font-semibold">
+                  Supported Token Pairs &amp; Pools
+                </h2>
+                <p className="mt-1 max-w-[680px] text-xs text-muted-foreground">
+                  Register one pool address for each side of every token pair.
+                  Leave Min. Liquidity blank to use the token default; leave the
+                  auth threshold blank to skip the check. An address shared
+                  across pairs is validated against the aggregated requirements.
+                  Draft LPs may be saved with no pairs.
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:pt-0.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pairs.length === 0 || precheckMutation.isPending}
+                onClick={onPrecheck}
+              >
+                {precheckMutation.isPending ? 'Checking...' : 'Balance Check'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const rowId = `new-${nextPairIdRef.current++}`;
+                  setPairs((current) => [
+                    ...current,
+                    { ...PAIR_POOL_ENTRY_EMPTY, rowId },
+                  ]);
+                }}
+              >
+                + Add Token Pair
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-4 p-4 sm:p-5">
+            {pairs.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                No token pairs added yet
+              </div>
+            ) : (
+              pairs.map((entry) => (
+                <PairPoolEditor
+                  key={entry.rowId}
+                  entry={entry}
+                  options={pairOptions}
+                  onChange={(next) =>
+                    setPairs((current) =>
+                      current.map((pair) =>
+                        pair.rowId === entry.rowId ? next : pair,
+                      ),
+                    )
+                  }
+                  onRemove={() =>
+                    setPairs((current) =>
+                      current.filter((pair) => pair.rowId !== entry.rowId),
+                    )
+                  }
+                />
+              ))
+            )}
+          </div>
+        </section>
+
+        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-card p-3 text-card-foreground shadow-sm sm:p-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              const href = lpRoute('lp-info');
+              if (dirtyRef.current) {
+                setPendingNavigation({ type: 'route', href });
+              } else {
+                router.push(href);
+              }
+            }}
+            disabled={saveMutation.isPending}
+          >
+            {LBL.cancel}
+          </Button>
+          <Button type="submit" disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? LBL.saving : LBL.save}
+          </Button>
+        </div>
+      </form>
+      <ConfirmDialog
+        request={discardRequest}
+        onDismiss={() => setPendingNavigation(null)}
+      />
       {precheckResult ? (
-        <PrecheckDialog result={precheckResult} onClose={() => setPrecheckResult(null)} />
+        <PrecheckDialog
+          result={precheckResult}
+          onClose={() => setPrecheckResult(null)}
+        />
       ) : null}
-    </form>
+    </div>
   );
 }
 
@@ -1802,6 +2205,7 @@ function LpPairConfigDialog({
   const [entry, setEntry] = React.useState<PairPoolEntry>(() =>
     state.mode === 'change'
       ? {
+          rowId: 'pair-change',
           pairId: String(state.row.pairId),
           sourceAddress: state.row.sourcePoolAddress ?? '',
           sourceMin:
@@ -1822,7 +2226,7 @@ function LpPairConfigDialog({
               ? String(state.row.targetAuthRequired)
               : '',
         }
-      : { ...PAIR_POOL_ENTRY_EMPTY },
+      : { ...PAIR_POOL_ENTRY_EMPTY, rowId: 'pair-add' },
   );
 
   const pending =
