@@ -16,6 +16,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  type BadgeProps,
 } from '@myorg/shared/ui';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { useRouter } from '@myorg/shared/util-i18n';
@@ -38,6 +39,8 @@ const INSTANCE_LIST_PATH = '/onboard/instance';
 const INSTANCE_ROW_STASH_SCOPE = 'gateway-instance';
 const DETAIL_FALLBACK_PAGE_SIZE = 200;
 const HEARTBEAT_PAGE_SIZE = 10;
+const ACTIVE_STATUS_CODE = 20;
+const ONLINE_CONNECTIVITY_CODE = 1;
 
 function parseInstanceId(raw: string | null): number | undefined {
   if (!raw) return undefined;
@@ -51,45 +54,145 @@ function formatTime(ms: number | null | undefined): string {
   return Number.isNaN(date.getTime()) ? '--' : formatAdminDateTime(date);
 }
 
-function DetailSection({
-  title,
-  children,
+/** Maps a Badge variant to a solid dot color so status reads at a glance. */
+function statusDotClass(variant: BadgeProps['variant']): string {
+  switch (variant) {
+    case 'default':
+      return 'bg-primary';
+    case 'destructive':
+      return 'bg-destructive';
+    case 'warning':
+      return 'bg-warning';
+    case 'success':
+      return 'bg-success';
+    case 'info':
+      return 'bg-info';
+    default:
+      return 'bg-muted-foreground';
+  }
+}
+
+function StatusPill({
+  label,
+  variant,
+  live = false,
 }: {
-  title: string;
-  children: React.ReactNode;
+  label: string;
+  variant: BadgeProps['variant'];
+  live?: boolean;
 }) {
+  const dotClass = statusDotClass(variant);
   return (
-    <section className="rounded-xl border border-border bg-card shadow-sm">
-      <h2 className="border-b border-border/50 px-5 py-3 text-sm font-semibold">
-        {title}
-      </h2>
-      <dl className="grid grid-cols-1 gap-x-8 gap-y-5 p-5 sm:grid-cols-2 xl:grid-cols-3">
-        {children}
-      </dl>
-    </section>
+    <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card px-3 py-1 text-sm font-medium text-foreground">
+      <span className="relative flex size-2 shrink-0">
+        {live ? (
+          <span
+            aria-hidden="true"
+            className={`absolute inline-flex size-full animate-ping rounded-full opacity-60 ${dotClass}`}
+          />
+        ) : null}
+        <span
+          aria-hidden="true"
+          className={`relative inline-flex size-2 rounded-full ${dotClass}`}
+        />
+      </span>
+      {label}
+    </span>
   );
 }
 
-function DetailField({
+function MetricStripItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 flex-1 px-5 py-3 first:pl-0 last:pr-0">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 truncate font-mono text-sm text-foreground">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function SpecGroup({
+  title,
+  accent = 'bg-primary',
+  children,
+}: {
+  title: string;
+  accent?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center gap-2 pb-2">
+        <span aria-hidden="true" className={`h-3 w-0.5 rounded-full ${accent}`} />
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </h3>
+      </div>
+      <dl className="divide-y divide-border/60 rounded-lg border border-border/60">
+        {children}
+      </dl>
+    </div>
+  );
+}
+
+function SpecRow({
   label,
   children,
   mono = false,
-  fullWidth = false,
+  stacked = false,
 }: {
   label: string;
   children: React.ReactNode;
   mono?: boolean;
-  fullWidth?: boolean;
+  stacked?: boolean;
 }) {
   return (
     <div
-      className={`min-w-0 space-y-1 ${fullWidth ? 'sm:col-span-2 xl:col-span-3' : ''}`}
+      className={`flex gap-4 px-4 py-2.5 text-sm ${
+        stacked ? 'flex-col' : 'items-center justify-between'
+      }`}
     >
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
       <dd
-        className={`min-w-0 break-words text-sm text-foreground ${mono ? 'font-mono' : ''}`}
+        className={`min-w-0 text-foreground ${stacked ? '' : 'text-right'} ${
+          mono ? 'break-all font-mono text-[13px]' : 'truncate'
+        }`}
       >
         {children}
+      </dd>
+    </div>
+  );
+}
+
+function KeyFingerprintRow({
+  label,
+  value,
+  fallback,
+}: {
+  label: string;
+  value: string | null | undefined;
+  fallback: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5 px-4 py-3">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="min-w-0">
+        {value ? (
+          <span className="inline-block max-w-full truncate rounded-md bg-muted px-2 py-1 font-mono text-[13px] text-foreground">
+            {value}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">{fallback}</span>
+        )}
       </dd>
     </div>
   );
@@ -241,8 +344,11 @@ export function GatewayInstanceDetailPage() {
     );
   }
 
+  const isActive = instance?.status === ACTIVE_STATUS_CODE;
+  const isOnline = instance?.connectivityStatus === ONLINE_CONNECTIVITY_CODE;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <Button
         variant="link"
         className="h-auto p-0 text-muted-foreground"
@@ -252,10 +358,10 @@ export function GatewayInstanceDetailPage() {
         Back to list
       </Button>
 
-      <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <section className="space-y-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-1">
-            <h1 className="truncate text-base font-semibold leading-6 text-foreground">
+            <h1 className="truncate text-xl font-semibold leading-7 text-foreground">
               {instance?.instanceName ||
                 instance?.instanceCode ||
                 `Gateway Instance ${instanceId}`}
@@ -269,28 +375,48 @@ export function GatewayInstanceDetailPage() {
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {instance ? (
               <>
-                <Badge
-                  variant={
-                    INSTANCE_STATUS_VARIANT[instance.status] ?? 'outline'
+                <StatusPill
+                  label={
+                    INSTANCE_STATUS_LABEL[instance.status] ?? instance.status
                   }
-                >
-                  {INSTANCE_STATUS_LABEL[instance.status] ?? instance.status}
-                </Badge>
-                <Badge
+                  variant={INSTANCE_STATUS_VARIANT[instance.status] ?? 'outline'}
+                  live={isActive}
+                />
+                <StatusPill
+                  label={
+                    CONNECTIVITY_STATUS_LABEL[instance.connectivityStatus] ??
+                    'Unknown'
+                  }
                   variant={
                     CONNECTIVITY_STATUS_VARIANT[instance.connectivityStatus] ??
                     'secondary'
                   }
-                >
-                  {CONNECTIVITY_STATUS_LABEL[instance.connectivityStatus] ??
-                    'Unknown'}
-                </Badge>
+                  live={isOnline}
+                />
               </>
             ) : fallbackQuery.isLoading ? (
-              <Skeleton className="h-5 w-28" />
+              <Skeleton className="h-7 w-40" />
             ) : null}
           </div>
         </div>
+
+        {instance ? (
+          <div className="flex flex-wrap divide-x divide-border/60 rounded-lg border border-border/60 bg-card">
+            <MetricStripItem label="Instance ID" value={instance.instanceId} />
+            <MetricStripItem
+              label="Last Heartbeat"
+              value={formatTime(instance.lastHeartbeatTime)}
+            />
+            <MetricStripItem
+              label="Last Verify"
+              value={formatTime(instance.lastVerifyTime)}
+            />
+            <MetricStripItem
+              label="Registered At"
+              value={formatTime(instance.createTime)}
+            />
+          </div>
+        ) : null}
       </section>
 
       <Tabs
@@ -305,9 +431,10 @@ export function GatewayInstanceDetailPage() {
 
         <TabsContent value="details" className="mt-0 space-y-4">
           {fallbackQuery.isLoading && !instance ? (
-            <section className="rounded-xl border border-border bg-card p-5">
-              <Skeleton className="h-24 w-full" />
-            </section>
+            <div className="space-y-3">
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
           ) : null}
           {fallbackQuery.isError && !instance ? (
             <Alert variant="destructive" role="alert">
@@ -315,96 +442,98 @@ export function GatewayInstanceDetailPage() {
             </Alert>
           ) : null}
           {!fallbackQuery.isLoading && !fallbackQuery.isError && !instance ? (
-            <section className="rounded-xl border border-border bg-card p-5">
+            <div className="rounded-lg border border-border/60 bg-card p-5">
               <p className="text-sm text-muted-foreground">
                 Gateway instance not found.
               </p>
-            </section>
+            </div>
           ) : null}
           {instance ? (
-            <>
-              <DetailSection title="Bank & Instance">
-                <DetailField label="Bank Name">
-                  {instance.bankName || '--'}
-                </DetailField>
-                <DetailField label="Bank BIC" mono>
-                  {instance.bankBic || '--'}
-                </DetailField>
-                <DetailField label="Instance ID" mono>
-                  {instance.instanceId}
-                </DetailField>
-                <DetailField label="Instance Code">
-                  {instance.instanceCode || '--'}
-                </DetailField>
-                <DetailField label="Instance Name">
-                  {instance.instanceName || '--'}
-                </DetailField>
-                <DetailField label="Status">
-                  <Badge
-                    variant={
-                      INSTANCE_STATUS_VARIANT[instance.status] ?? 'outline'
-                    }
-                  >
-                    {INSTANCE_STATUS_LABEL[instance.status] ?? instance.status}
-                  </Badge>
-                </DetailField>
-              </DetailSection>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="space-y-6">
+                <SpecGroup title="Identity">
+                  <SpecRow label="Bank Name">{instance.bankName || '--'}</SpecRow>
+                  <SpecRow label="Bank BIC" mono>
+                    {instance.bankBic || '--'}
+                  </SpecRow>
+                  <SpecRow label="Instance Code">
+                    {instance.instanceCode || '--'}
+                  </SpecRow>
+                  <SpecRow label="Instance Name">
+                    {instance.instanceName || '--'}
+                  </SpecRow>
+                  <SpecRow label="Status">
+                    <Badge
+                      variant={
+                        INSTANCE_STATUS_VARIANT[instance.status] ?? 'outline'
+                      }
+                    >
+                      {INSTANCE_STATUS_LABEL[instance.status] ??
+                        instance.status}
+                    </Badge>
+                  </SpecRow>
+                </SpecGroup>
 
-              <DetailSection title="Connectivity">
-                <DetailField label="Endpoint URL" mono fullWidth>
-                  {instance.endpointUrl || '--'}
-                </DetailField>
-                <DetailField label="Connectivity">
-                  <Badge
-                    variant={
-                      CONNECTIVITY_STATUS_VARIANT[
+                <SpecGroup title="Connectivity" accent="bg-info">
+                  <SpecRow label="Endpoint URL" mono stacked>
+                    {instance.endpointUrl || '--'}
+                  </SpecRow>
+                  <SpecRow label="Connectivity">
+                    <Badge
+                      variant={
+                        CONNECTIVITY_STATUS_VARIANT[
+                          instance.connectivityStatus
+                        ] ?? 'secondary'
+                      }
+                    >
+                      {CONNECTIVITY_STATUS_LABEL[
                         instance.connectivityStatus
-                      ] ?? 'secondary'
-                    }
-                  >
-                    {CONNECTIVITY_STATUS_LABEL[instance.connectivityStatus] ??
-                      'Unknown'}
-                  </Badge>
-                </DetailField>
-                <DetailField label="Last Verify">
-                  {formatTime(instance.lastVerifyTime)}
-                </DetailField>
-                <DetailField label="Last Heartbeat">
-                  {formatTime(instance.lastHeartbeatTime)}
-                </DetailField>
-                <DetailField label="Registered At">
-                  {formatTime(instance.createTime)}
-                </DetailField>
-              </DetailSection>
+                      ] ?? 'Unknown'}
+                    </Badge>
+                  </SpecRow>
+                  <SpecRow label="Last Verify">
+                    {formatTime(instance.lastVerifyTime)}
+                  </SpecRow>
+                  <SpecRow label="Last Heartbeat">
+                    {formatTime(instance.lastHeartbeatTime)}
+                  </SpecRow>
+                </SpecGroup>
+              </div>
 
-              <DetailSection title="Currency System">
-                <DetailField label="Type">
-                  {CS_TYPE_LABEL[instance.currencySystemType ?? 0] ??
-                    'Not specified'}
-                </DetailField>
-                <DetailField label="Blockchain">
-                  {instance.blockchain || '--'}
-                </DetailField>
-                <DetailField label="Name">
-                  {instance.currencySystemName || '--'}
-                </DetailField>
-                <DetailField label="URL" mono fullWidth>
-                  {instance.currencySystemUrl || '--'}
-                </DetailField>
-                <DetailField label="Description" fullWidth>
-                  {instance.currencySystemDesc || '--'}
-                </DetailField>
-              </DetailSection>
+              <div className="space-y-6">
+                <SpecGroup title="Currency System" accent="bg-warning">
+                  <SpecRow label="Type">
+                    {CS_TYPE_LABEL[instance.currencySystemType ?? 0] ??
+                      'Not specified'}
+                  </SpecRow>
+                  <SpecRow label="Blockchain">
+                    {instance.blockchain || '--'}
+                  </SpecRow>
+                  <SpecRow label="Name">
+                    {instance.currencySystemName || '--'}
+                  </SpecRow>
+                  <SpecRow label="URL" mono stacked>
+                    {instance.currencySystemUrl || '--'}
+                  </SpecRow>
+                  <SpecRow label="Description" stacked>
+                    {instance.currencySystemDesc || '--'}
+                  </SpecRow>
+                </SpecGroup>
 
-              <DetailSection title="Security">
-                <DetailField label="Upstream Key Fingerprint" mono>
-                  {instance.upKeyFingerprint || 'Not pushed'}
-                </DetailField>
-                <DetailField label="Downstream Key Fingerprint" mono>
-                  {instance.downKeyFingerprint || 'Not generated'}
-                </DetailField>
-              </DetailSection>
-            </>
+                <SpecGroup title="Security" accent="bg-destructive">
+                  <KeyFingerprintRow
+                    label="Upstream Key Fingerprint"
+                    value={instance.upKeyFingerprint}
+                    fallback="Not pushed"
+                  />
+                  <KeyFingerprintRow
+                    label="Downstream Key Fingerprint"
+                    value={instance.downKeyFingerprint}
+                    fallback="Not generated"
+                  />
+                </SpecGroup>
+              </div>
+            </div>
           ) : null}
         </TabsContent>
 
