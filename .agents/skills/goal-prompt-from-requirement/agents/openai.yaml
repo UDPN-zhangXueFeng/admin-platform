@@ -1,0 +1,4 @@
+interface:
+  display_name: "Goal Prompt From Requirement"
+  short_description: "Turn requirement Markdown into a concise goal prompt."
+  default_prompt: "Use $goal-prompt-from-requirement to read the requirement Markdown I provide and generate a clear Codex goal prompt with success criteria, constraints, and verification steps."

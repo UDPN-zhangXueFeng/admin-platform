@@ -1,0 +1,44 @@
+{
+  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/screening-monitoring",
+  "moduleName": "screening-monitoring",
+  "slug": "screening-monitoring",
+  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/screening-monitoring.md",
+  "phase": "developing",
+  "migrationRate": 1.0,
+  "acceptanceRate": 0.95,
+  "scope": {
+    "subModules": "rule(筛查规则) + transaction-monitoring(可疑交易) + screening-providers(服务商), group机制三子模块",
+    "totalFiles": 7,
+    "totalLines": 4218,
+    "endpoints": "16唯一endpoint"
+  },
+  "coverage": {
+    "sourceFiles": { "covered": 7, "total": 7, "missing": [] },
+    "apis": { "covered": 16, "total": 16, "missing": [] },
+    "pages": { "covered": 7, "total": 7, "missing": [] },
+    "uiMappings": { "covered": 23, "total": 23, "missing": [] }
+  },
+  "tasks": [
+    {"id":"T1","name":"建库 + 三子模块注册 + tsconfig + i18n 壳","kind":"scaffold","model":"haiku","status":"completed","deps":[]},
+    {"id":"T2","name":"类型定义 model.ts","kind":"scaffold","model":"haiku","status":"completed","deps":["T1"]},
+    {"id":"T3","name":"API 函数 api.ts（16 endpoint）","kind":"scaffold","model":"haiku","status":"completed","deps":["T2"]},
+    {"id":"T4","name":"Query keys + queries + mutations","kind":"scaffold","model":"haiku","status":"completed","deps":["T3"]},
+    {"id":"T5","name":"常量 constants.ts（状态映射 + 权限码 + t_edit 矩阵）","kind":"scaffold","model":"haiku","status":"completed","deps":["T2"]},
+    {"id":"T6","name":"UI：status-badge + risk-level-tag","kind":"page","model":"opus","status":"completed","deps":["T4","T5"]},
+    {"id":"T7","name":"rule-list-page.tsx","kind":"page","model":"opus","status":"completed","deps":["T4","T6"]},
+    {"id":"T8","name":"rule-detail-page.tsx（3 Tab）","kind":"page","model":"opus","status":"completed","deps":["T4","T6"]},
+    {"id":"T9","name":"rule-edit-page + content（businessType 联动）","kind":"page","model":"opus","status":"completed","deps":["T4","T6"]},
+    {"id":"T10","name":"rule-t-edit-page（⚠️ mock 1398行矩阵）","kind":"page","model":"opus","status":"completed","deps":["T4","T5","T6"]},
+    {"id":"T11","name":"screening-providers-page（⚠️ 纯静态）","kind":"page","model":"opus","status":"completed","deps":["T6"]},
+    {"id":"T12","name":"transaction-monitoring-list-page（Process Drawer）","kind":"page","model":"opus","status":"completed","deps":["T4","T6"]},
+    {"id":"T13","name":"transaction-monitoring-detail-page（条件渲染）","kind":"page","model":"opus","status":"completed","deps":["T4","T6"]},
+    {"id":"T14","name":"i18n 全量补全 + 静态验收 + 运行时坑 grep","kind":"verify","model":"opus","status":"completed","deps":["T7","T8","T9","T10","T11","T12","T13"]}
+  ],
+  "currentIndex": 14,
+  "startedAt": "2026-07-28",
+  "completedAt": "2026-07-28",
+  "staticVerification": {
+    "lint": "4/4 modules PASS (1 error fixed: empty catch block in rule-edit-content)",
+    "runtimeGrep": { "ALL_VALUE_empty": "PASS", "i18n_double_prefix": "PASS", "ICU_double_braces": "PASS" }
+  }
+}

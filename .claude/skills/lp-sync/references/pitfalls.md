@@ -1,0 +1,80 @@
+# 陷阱保真清单（来源：文档 01 §E，2026-08-27 实测于上游 dd9e950）
+
+用途：实现与验证时**逐条核对**。任何一条在同步中被回退即为 bug。随同步更新：上游行为变化时修订对应条目（注明 commit），新增陷阱追加。权威版本在文档 01 §E，本文件是同步执行视角的镜像，两处需同步改。
+
+## 状态与数据口径
+
+1. `firstLogin===0` = 首登待改密（语义反直觉，≠ kissen-gateway）
+2. `rootRedirect` 动态落点：menuKeys 全不命中 → `/placeholder`，禁止硬编码 `/`
+3. `completedTime===0` 显式 `-`（formatTime 对 0 不设防）
+4. 金额两个口径并存且都要保真：全局 formatMoney（千分位、保留原小数位）vs chain-drawer fmtAmount（min 2 / max 8 位小数）
+5. 时间格式统一裁决为 en-US 口径（上游 zh-CN 私有变体不迁移）
+6. TX 13 态：tag 色 40=success；90/70=danger；60/80=info；**其余 primary（35 列表 primary、抽屉 success）**
+7. 多套状态映射互异：pool{5,15,20,50} vs pair{20=参与生效} vs TX 13 态——不得合并成一张表
+8. split detail 的 summary 独立响应结构，**不走 ResultData 包装**
+9. rate participated 置顶为客户端布尔稳定排序
+
+## 交互与流程
+
+10. SyncRefreshButton 域映射陷阱（f0d5b6f 起按页面拉齐依赖域、数组 CSV）：token→**['token','bank']**、pool→**['pool','preauth','topup']**、pair→**['pair','rate']**、split-settle 卡1→**['pair','rate']（复用 pair 域）**；settle→**settle_order（只刷结算单不刷 settle_record）**；**failedDomains 非空=部分域失败须 warning toast（成功域照常 applied）**
+11. user 状态 el-switch 走 before-change 确认流（确认→本地翻转+toast+reload 双写）；后端拒停自己/最后管理员 23_0008 不做前端预检
+12. roleType===0 内置角色**前端 disabled 禁删**（gateway 是 confirm 报错拦截——两系统各自保真，不得混用）
+13. assign-menu 回显仅 setCheckedKeys 叶子 id（filterLeafIds 交集）防父键级联误勾；保存 = checked+halfChecked union 去重；空结果二次 confirm「将清空该角色的全部菜单」
+14. 菜单管理 `menuId===0` 是本地新建标记；update 不携带 menuKey/menuType/parentId；保存成功特殊 toast「保存成功，重新登录后菜单生效」（英文等价）
+15. 接口权限面板：已入库行（row.id 存在）禁移除；savePerms 仅提交新行逐条循环；空集 info 提示；23_0009/23_0010 后端拒绝场景由 confirm 文案预告
+16. user 新建成功 → dialog 弹一次性密码 +「我已抄送」确认；saving 中守卫关闭
+
+## 壳层与横切
+
+17. 通知中心：无全局轮询；unreadCount 只统计当前页 rows；markRead 失败静默；badge max99 且 0 隐藏
+18. bootstrapPending 横幅（bootstrapReady===false）：提示不硬拒
+19. 登录响应即菜单/权限来源，无独立菜单接口；menuTree 递归过滤 menuType!==4 且 visible!==1，orderNum 升序
+20. 请求层：code==='2'|2 → 清会话+过期登录跳转；MSG_23_0024 → 静默 reject 交 ServiceDownAlert（保留已有列表数据）；HTTP 401 同过期、403 固定文案
+
+## 待首次同步裁决（上游 dd9e950 之后的变化，diff dd9e950..171ee44）
+
+- 902c11c（v2.3）：新增 dashboard 页；汇率并入 token 对（rate 目录与 source-receipt 真页均被删除，receipt 回到占位态）——rate-pages 的存废需裁决
+- 6636680 的 source-receipt 真页已被 902c11c 撤销，文档 01「占位保真 P1」对 HEAD 仍有效，不需同步
+- e204ac1：12 项体验批次（FX 管理组/审批定向推送/列表重构/折线图）
+- 171ee44（2026-08-28）：token 对展示统一 SRC/TGT 紧凑式（pair/split/tx-flow/dashboard/详情抽屉）
+
+## 2026-09-09 同步批次（上游 35ca014..e0fad0a）
+
+- **e0fad0a pairx 第三行移除**：pair 可申请视图与 split 卡1 的 Token Pair 紧凑式改两行（symOf/bankOf），pairCode||pairId 占位行删除——但 pair「我的 token 对」Token对列、卡2 筛选下拉、applyRow 确认文案仍用 pairCode||pairId，勿一并删。
+- **a481ca1 bankBic 合并列**：wire 字段 bankCode→bankBic（token 列表行+分组行）；上游 TokenRow 类型与 token-meta 仍读 bankCode（源仓内部不一致）——下游类型用 wire 真名 bankBic，token-meta 兼容 bankBic||bankCode。
+- **3576c80 链路英文化**：NODE_TITLES 13 键 + extras 标签（Principal/Target amount/Rate/Ref）+兜底 Transaction updated/Processing；tx-flow 列表 TX_STATUS_MAP 上游仍中文，下游维持既有英文映射不动。
+- **邀请落地页（a522963/d90d91a，§D2b/§E38）**：免登录 (auth) 路由 + middleware 公开前缀；确认密码校验比较响应式 password；token 一次性；错误双通道（拦截器 toast + 内联 alert，标题按 23_0029/30/31）；无 token 参数不发请求直接错误态。
+
+## 跨 app 通用陷阱（来源：admin-sync 2026-08-28 v2.0 全量补同步，三 skill 共享条目）
+
+- 「远程新增功能/菜单没同步」先分诊两类根因：①前端仓库增量（`git ls-remote` 对 branch tip vs lastSyncedSha）；②后端运行时数据（侧栏菜单 = 登录响应 menuTree 驱动，后端重构菜单时仓库无 diff 也会缺功能）。LP 侧已是 menuTree + MENU_LABELS 模式，此项天然免疫②，但诊断顺序通用。
+- 上游脏数据不照搬：残留无 view 的路由键、链向已删页面的死链——保语义、去死链、留档。
+- 端点机械 diff 三种假缺失：①泛型调用 `post<T>('/x')` 漏配正则（用 `(?:<[^>]*>)?\(` 兼容）；②分页走包装 helper（本仓 `kissenPage`），URL 不在主 client 调用面；③view 内联 request 直调不在 api 文件。判定缺失前先追调用点（admin 实测 naive diff 误报 31 条，修正后 82/82）。
+- 整文件重写页面最易丢 import（典型：块注释未闭合吞掉整个 import 区）；收敛用 `cd apps/lp-portal && npx tsc --noEmit` 一次枚举全量类型错再批量修，勿 nx build 逐轮暴露。
+- DataTable 行键覆盖 × model 自带 `id: number`：`{...r, id:String(r.id)}` 使 `T & {id:string}` 的 id 变 never；用 `Omit<T,'id'> & {id:string}` 模块级别名统一列/回调/弹窗 props。
+- 浏览器批量走查：工具默认 30s 超时，拆批 ≤4 页 + 显式 timeout；截图用 `page.screenshot({path})` 直存（`tab.screenshot()` 不收路径）；登录态会中途过期把批内后半踢到登录页（同时是 code='2' 分支实测机会），批前先登录。
+- 写操作流程的运行时实证需后端种子数据；无种子以「渲染全绿 + 只读交互实测 + 按钮级矩阵静态保证」收口并明示边界。
+- 触发导航的按钮 `handle.click()` 会 8s 超时但点击实际已生效（gateway-sync 2026-09-09 实测登录 Sign In）：改用 `tab.evaluate` 内原生 `click()` / `form.requestSubmit()`；超时后先查 toast + localStorage 会话键再决定是否重试，勿盲目重试双提交。登录成功勿以 URL 判——dev 编译慢时 client redirect 延迟数秒，token 落盘后直接 `location.assign(目标页)` 继续走查。
+- lint 通则：`.catch(() => {})` 触发 `@typescript-eslint/no-empty-function`，统一写 `.catch(() => undefined)`。
+
+## v2.4 LP5 门户批次（上游 6c49396，2026-08-28 同步实录）
+
+- 结算单层**不可加总跨币种金额**：currencies 集合列展示，金额只在 token 对分项；抽屉「本单周期内」流水来自独立端点 /settle/order-records（非 items 内嵌）。同步时易把分项金额上卷成单据总额。
+- 折线双维度：mode 切换**纯客户端重分组不重拉**（浏览器 network 实证零新请求）；currency 序列按 symOf(sourceTokenCode) 聚合源端本金；pair 序列 name v2.4 改用 symOf（v2.3 是 tokenCode）。
+- tx-flow FX Rate：userRate 0/缺失→'-'（0=无成交快照不是免费），非零 en-US 千分位 max 8 位小数。
+- preauth 页面退役 ≠ 数据退役：preauth 快照消费方=pool 两列 + Dashboard 池卡；SyncDomainCode 'preauth' 枚举保留。
+- **类型改名无映射层=线上渲染 '-'**（本批次实测翻车）：早期裁决把 wire 字段 sourceTokenCode/targetTokenCode 改名 sourceCurrency/targetCurrency 写进 SplitRow，raw api 无映射——浏览器冒烟才暴露 Token Pair 列全 '-'。教训：data-access 类型必须用 wire 真名，「裁决改名」只允许发生在展示层。
+- 页头 Refresh=summary+volume 双拉语义：refreshSeq state 传 VolumeCard 触发 refetch，勿把 mode 切换误接进重拉链路。
+- dashboard 池卡 bankName 是 DashboardPoolCard 必有字段（转录时漏过一次）；写类型逐字段对照上游 template，勿凭记忆。
+- edit 工具行号漂移本批次复发三次（重复键/吞注释斜杠/覆盖相邻行）：大改用 write 整文件重写；小段 PUT 后立即读输出复查；报 "no longer parses" 先读破坏区再续。
+
+## f0d5b6f 多池出款池批次（上游 6c49396..f0d5b6f，2026-09-01 同步实录）
+
+- **多池出款池模型**：同 token 可多池，`activeFlag===1` 唯一标记当前出款池；切换=confirm（文案必含「在途不受影响：收款走原池、解付即时改走新池」）→ `POST /pool/activate/{poolId}` → `inFlightCount>0` warning「N 笔在途——收款进原池、解付从新池出」else success；操作列仅 status===20 渲染，已激活显示占位「Current payout pool」非按钮；上游无 v-perm，下游不加 PermButton。
+- **Token 展示口径统一（8198348）**：tokenCode 不再对 LP 展示，身份=Symbol+tokenNo（全网唯一）；PoolRow 新字段（tokenSymbol/tokenName/spenderAddress/activeFlag）旧环境可能缺失，页面必须 `||` 兜底（tokenSymbol||tokenNo）。
+- **解付授权对象（513d53d）**：spenderAddress 是货币系统 approve 目标（非池地址）；空值≠错误，是未配置（占位文案）；复制走 clipboard+成功/失败双 toast。
+- **折线图 v2（4d20380）**：y 轴改 0~nice-max（1/2/5×10^n）+ Catmull-Rom 平滑 + 渐变面积 + hover 十字线 DOM 气泡 + 图例点击隐藏；v2.4 的 y 全域 min~max 归一化口径作废；tooltip 小数位 4→2。上游隐藏序列后线条色按可见序重排而图例色按原始序（呈现 bug）——下游统一按原始序列 index 稳定分配色（呈现层偏差，已在文档 01 §D20 注明）。
+- **资金池菜单拍平（4d20380）**：上游删 MainLayout MENU_ICONS 的 liquidity 组键（后端 menuTree 不再有资金池组）；下游对应删 lp-routes.ts MENU_LABELS.liquidity / MENU_ICONS.liquidity，菜单仍 menuTree 驱动无需改 configs。
+- **split 行 VO 并入汇率三列（a6889f5）**：卡1 汇率列展示口径与 pair 页一致（rateText/percentText 2 位小数）。
+- **edit 工具多 hunk 部分应用**（6a55188 批实测两次）：一次调用里多个 PUT hunk，某个锚行拒绝时会**部分应用**（如签名 hunk 成功、金额列 hunk 被静默丢弃），响应未必显式标出哪个失败——多 hunk 后必须 grep/read 逐个 hunk 复核「是否真的落上」，不能只看编辑响应行号；本批 tx-flow From/To cell 与 ItemsTable decOf 签名均靠 build 报错才发现未应用。另：单行替换为多行 body 偶发 "boundary row required" 拒绝，重 read 后原样重发即成功。
+- **SVG 渐变主题 token 方案**：`<linearGradient className="text-emerald-700">` + `<stop stopColor="currentColor">`——currentColor 从 gradient 元素继承 color，绕开 tailwind 无 stop-* 工具类的问题，不写 hex。

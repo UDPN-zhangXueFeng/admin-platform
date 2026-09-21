@@ -1,0 +1,50 @@
+{
+  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/wallet",
+  "moduleName": "wallet",
+  "slug": "wallet",
+  "parentModule": null,
+  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/wallet.md",
+  "phase": "accepted-conditional",
+  "migrationRate": 0.98,
+  "acceptanceRate": 0.98,
+  "scope": {
+    "subModules": "wallet-type(5文件1773+511+509+531+1177) / user-wallet(3文件732+867+299) / operational-wallet(2文件250+293)",
+    "totalFiles": 10,
+    "totalLines": 6411,
+    "pages": "ow:list+detail / uw:list+view+history / wt:list+edit+view+mff-view+mff-add",
+    "sourceNote": "单库三入口分组模块(类比sys)。前人做完文档+Phase1-3基础,本次续做:补queries+实现6页面+终验。"
+  },
+  "tasks": [
+    { "id": "T0", "status": "completed", "verified": "wallet.queries.ts(35hooks)+barrel补api/keys/queries导出+i18n common骨架; 修了T0 import bug(./→../ for api/model); 不建detail-grid(遵循codebase手写kv约定,偏离文档§3)" },
+    { "id": "T1", "status": "completed", "verified": "ow list: 11筛选+12列+服务端分页+WalletStatusBadge+Detail跳转; 补model startCreateTime/endCreateTime消断言; lint0" },
+    { "id": "T2", "status": "completed", "verified": "ow detail: useSearchParams取ruleWalletId+walletAddress, 3tab(kv+交易表+操作表); lint0" },
+    { "id": "T3", "status": "completed", "verified": "uw list 711行+action-dialog 653行子组件: 5弹窗工作流(funds6/7,wallet2/3,changeType两步流availableTypes+submit); lint0" },
+    { "id": "T4", "status": "completed", "verified": "uw detail: slug[1]分支view(5条件tab basic/tx/op/accrual=5/distribute=20)+history(2tab auth/authorized); resolveWalletViewTabKey别名; 拆view-content/history-content; 修distribute status family(user-wallet→mmf-daily,35=success绿)" },
+    { "id": "T5", "status": "completed", "verified": "wt list(最复杂1177行): 4文件(list+card-grid360+table-section310+earnings-dialog280); stablecoin tab+卡片网格+启用禁用+2表+收益三段流(RHF+useEffect+命令式await+cancelled防竞态); PDF降级disabled(无FILE_ID/blob); lint0" },
+    { "id": "T6", "status": "completed", "verified": "wt form(edit1242+mff-add531=1773行): 4文件(form-page+fields+regular+mmf); accountType×interestFeature×issueType矩阵+99999999999↔-1归一+keystore加密(getEncryptionData移植wallet.encryption.ts)+生成钱包Dialog; page.tsx dispatcher加mff路由分支(后修正realSlug[1]区分mff-add/mff-view); lint feature+util 0" },
+    { "id": "T7", "status": "completed", "verified": "wt detail(view511+mff-view509=1020行): 4文件(detail-page+view-content+mff-view-content+dividend-drawer); view Descriptions多块+mff-view 2tab(basic+dailyYield)+累计收益+股息Drawer(summary+records); slug[1]分支view/mff; lint0" },
+    { "id": "T8", "status": "completed", "verified": "终验: 4层lint全绿(util/data-access/ui/feature)+tsc wallet零错(仅3 auth dist基线)+运行时坑grep全无命中(ALL_VALUE空串/双重前缀/ICU/SelectItem空串)+11路由curl全200(含mff修正路由)+SSR HTML渲染真实页面(非error边界)+状态族5族齐全+修distribute偏差; 运行时完整交互冒烟待用户登录(auth限制)" }
+  ],
+  "currentIndex": 9,
+  "startedAt": "2026-07-21",
+  "completedAt": "2026-07-21",
+  "staticAcceptance": "100%: 4层lint全绿 + tsc wallet零错(3 auth基线无关) + 11路由全200 + SSR渲染正常 + 运行时坑grep全过",
+  "runtimeSmoke": "路由层+SSR层冒烟完成: 11个wallet路由(3list+8detail/edit/mff)全HTTP200, dispatcher分组+registry+page.tsx mff路由修正全生效, SSR渲染真实页面(Wallet Type文案+loading,非Application error)。运行时完整交互冒烟(列表数据/筛选/弹窗/表单提交/收益三段流/股息抽屉)受auth captcha限制,待用户登录环境验证(同前序模块惯例)。dev server在3000(用户环境遗留,本次curl复用)。",
+  "knownIssues": [
+    "PDF下载降级disabled: 环境无NEXT_PUBLIC_FILE_ID + data-access无resources/search+sftp/download blob端点 + apiClient无responseType=blob能力(文档§6已知限制)",
+    "运行时完整交互冒烟待用户登录验证(auth captcha限制,同cross-chain/pledge/key-management惯例)",
+    "mmfFundType(1-8)/mmfRiskLevel(1-4)枚举值按推断兜底,需后端确认实际值",
+    "dailyStatisticalTime TimePicker降级原生input type=time(补:00秒,文档§6)",
+    "常规wallet-type view issueType硬编码5(TD,后端详情未返回issueType字段)",
+    "权4限UUID→语义化字符串映射(非1:1,合并operate权限位,posting-engine模式)",
+    "generateKeystore二次确认Dialog文案近似源Modal.confirm(非逐字)",
+    "裸/wallet返回200(文档§0预期PageNotFound,但middleware放行后渲染兜底;菜单不链接裸路径,不阻塞)"
+  ],
+  "keyArtifacts": {
+    "data-access": "wallet.queries.ts(35hooks,T0补)+wallet.api.ts(431,前人)+wallet.model.ts(512,前人+T1补filters)+wallet.keys.ts(75,前人)",
+    "util": "wallet.encryption.ts(getEncryptionData,T6移植)+wallet.constants.ts(5状态族,前人)+wallet.helpers.ts(前人)",
+    "feature": "6页面实现+8子组件(action-dialog/card-grid/table-section/earnings-dialog/form-fields/form-regular/form-mmf/view-content/history-content/mff-view-content/dividend-drawer)+module-manifests.ts(3manifest,前人)",
+    "dispatcher": "page.tsx 加mff路由分支(realSlug[1]区分mff-add/mff-view,T6+T8修正)",
+    "pageCount": "ow2+uw2+wt5=9页面路由(含mff变体),全部HTTP200"
+  }
+}

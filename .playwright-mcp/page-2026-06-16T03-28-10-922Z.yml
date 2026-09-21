@@ -1,0 +1,482 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - button "Toggle sidebar" [ref=e5] [cursor=pointer]:
+          - img
+        - generic [ref=e6]:
+          - img [ref=e7]
+          - generic [ref=e8]: Tokenized Deposit/Stablecoin Management System
+      - generic [ref=e9]:
+        - link "User Manual" [ref=e10] [cursor=pointer]:
+          - /url: "#"
+        - link "API Documentation" [ref=e11] [cursor=pointer]:
+          - /url: "#"
+        - button "Notifications" [ref=e12] [cursor=pointer]:
+          - img
+          - generic [ref=e13]: "21"
+        - generic [ref=e14]:
+          - img [ref=e16]
+          - generic [ref=e19]: User
+    - generic [ref=e20]:
+      - complementary "Main navigation" [ref=e22]:
+        - navigation [ref=e23]:
+          - generic [ref=e25]:
+            - link "Dashboard" [ref=e26] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e27]
+              - generic [ref=e32]: Dashboard
+            - link "Workflow Tasks" [ref=e33] [cursor=pointer]:
+              - /url: /workflow
+              - img [ref=e34]
+              - generic [ref=e36]: Workflow Tasks
+            - link "Token Management" [ref=e37] [cursor=pointer]:
+              - /url: /token-management
+              - img [ref=e38]
+              - generic [ref=e40]: Token Management
+            - generic [ref=e41]:
+              - button "Key Management" [ref=e42] [cursor=pointer]:
+                - img [ref=e43]
+                - generic [ref=e47]: Key Management
+                - img [ref=e48]
+              - generic [ref=e50]:
+                - link "Key Service Configuration" [ref=e51] [cursor=pointer]:
+                  - /url: /key-management/key-service-configuration
+                  - img [ref=e52]
+                  - generic [ref=e56]: Key Service Configuration
+                - link "Key Policy Configuration" [ref=e57] [cursor=pointer]:
+                  - /url: /key-management/key-policy-configuration
+                  - img [ref=e58]
+                  - generic [ref=e62]: Key Policy Configuration
+                - link "Management Wallets" [ref=e63] [cursor=pointer]:
+                  - /url: /key-management/managed-wallets
+                  - img [ref=e64]
+                  - generic [ref=e67]: Management Wallets
+                - link "User Wallets" [ref=e68] [cursor=pointer]:
+                  - /url: /key-management/user-wallets
+                  - img [ref=e69]
+                  - generic [ref=e72]: User Wallets
+                - link "Key-Signed Transactions" [ref=e73] [cursor=pointer]:
+                  - /url: /key-management/key-signed-transactions
+                  - img [ref=e74]
+                  - generic [ref=e78]: Key-Signed Transactions
+            - link "SP Access Management" [ref=e79] [cursor=pointer]:
+              - /url: /sp-access
+              - img [ref=e80]
+              - generic [ref=e81]: SP Access Management
+            - generic [ref=e82]:
+              - button "Reserve Asset Management" [ref=e83] [cursor=pointer]:
+                - img [ref=e84]
+                - generic [ref=e88]: Reserve Asset Management
+                - img [ref=e89]
+              - generic [ref=e91]:
+                - link "Reserve Asset List" [ref=e92] [cursor=pointer]:
+                  - /url: /pledge/reserve-asset-list
+                  - img [ref=e93]
+                  - generic [ref=e97]: Reserve Asset List
+                - link "Asset Transaction Management" [ref=e98] [cursor=pointer]:
+                  - /url: /pledge/asset-transaction
+                  - img [ref=e99]
+                  - generic [ref=e103]: Asset Transaction Management
+                - link "Proof of Reserve Access" [disabled]:
+                  - /url: "#"
+                  - img
+                  - generic: Proof of Reserve Access
+                - link "Redemption Records" [disabled]:
+                  - /url: "#"
+                  - img
+                  - generic: Redemption Records
+            - generic [ref=e104]:
+              - button "Wallet Management" [ref=e105] [cursor=pointer]:
+                - img [ref=e106]
+                - generic [ref=e109]: Wallet Management
+                - img [ref=e110]
+              - generic [ref=e112]:
+                - link "Wallet Type" [ref=e113] [cursor=pointer]:
+                  - /url: /wallet/wallet-type
+                  - img [ref=e114]
+                  - generic [ref=e117]: Wallet Type
+                - link "User Wallet" [ref=e118] [cursor=pointer]:
+                  - /url: /wallet/user-wallet
+                  - img [ref=e119]
+                  - generic [ref=e122]: User Wallet
+                - link "Operational Wallet" [ref=e123] [cursor=pointer]:
+                  - /url: /wallet/operational-wallet
+                  - img [ref=e124]
+                  - generic [ref=e127]: Operational Wallet
+            - generic [ref=e128]:
+              - button "Accounting Management" [ref=e129] [cursor=pointer]:
+                - img [ref=e130]
+                - generic [ref=e132]: Accounting Management
+                - img [ref=e133]
+              - generic [ref=e135]:
+                - link "Chart of Accounts" [ref=e136] [cursor=pointer]:
+                  - /url: /financial/chart-of-accounts
+                  - img [ref=e137]
+                  - generic [ref=e139]: Chart of Accounts
+                - link "Normalization Engine" [ref=e140] [cursor=pointer]:
+                  - /url: /financial/normalization-engine
+                  - img [ref=e141]
+                  - generic [ref=e143]: Normalization Engine
+                - link "Posting Engine" [ref=e144] [cursor=pointer]:
+                  - /url: /financial/posting-engine
+                  - img [ref=e145]
+                  - generic [ref=e147]: Posting Engine
+                - link "Journal Entries" [ref=e148] [cursor=pointer]:
+                  - /url: /financial/journal-entries-new
+                  - img [ref=e149]
+                  - generic [ref=e151]: Journal Entries
+                - link "Suspense Adjustment" [ref=e152] [cursor=pointer]:
+                  - /url: /financial/adjustments
+                  - img [ref=e153]
+                  - generic [ref=e155]: Suspense Adjustment
+                - link "Audit Trail" [ref=e156] [cursor=pointer]:
+                  - /url: /financial/audit-trail
+                  - img [ref=e157]
+                  - generic [ref=e159]: Audit Trail
+                - link "Travel Rule" [ref=e160] [cursor=pointer]:
+                  - /url: /financial/travel-rule
+                  - img [ref=e161]
+                  - generic [ref=e163]: Travel Rule
+            - generic [ref=e164]:
+              - button "Reconciliation" [ref=e165] [cursor=pointer]:
+                - img [ref=e166]
+                - generic [ref=e170]: Reconciliation
+                - img [ref=e171]
+              - generic [ref=e173]:
+                - link "Real-time On-chain Data" [disabled]:
+                  - /url: "#"
+                  - img
+                  - generic: Real-time On-chain Data
+                - link "Real-time Reserve" [disabled]:
+                  - /url: "#"
+                  - img
+                  - generic: Real-time Reserve
+            - generic [ref=e174]:
+              - button "Interest Management" [ref=e175] [cursor=pointer]:
+                - img [ref=e176]
+                - generic [ref=e179]: Interest Management
+                - img [ref=e180]
+              - generic [ref=e182]:
+                - link "Policy" [ref=e183] [cursor=pointer]:
+                  - /url: /interest/policy
+                  - img [ref=e184]
+                  - generic [ref=e187]: Policy
+                - link "Accrual" [ref=e188] [cursor=pointer]:
+                  - /url: /interest/accrual
+                  - img [ref=e189]
+                  - generic [ref=e192]: Accrual
+                - link "Transactions" [ref=e193] [cursor=pointer]:
+                  - /url: /interest/transactions
+                  - img [ref=e194]
+                  - generic [ref=e197]: Transactions
+            - generic [ref=e198]:
+              - button "Screening & Monitoring" [ref=e199] [cursor=pointer]:
+                - img [ref=e200]
+                - generic [ref=e203]: Screening & Monitoring
+                - img [ref=e204]
+              - generic [ref=e206]:
+                - link "Rule" [ref=e207] [cursor=pointer]:
+                  - /url: /screening-monitoring/rule
+                  - img [ref=e208]
+                  - generic [ref=e211]: Rule
+                - link "Transaction Monitoring" [ref=e212] [cursor=pointer]:
+                  - /url: /screening-monitoring/transaction-monitoring
+                  - img [ref=e213]
+                  - generic [ref=e216]: Transaction Monitoring
+                - link "Screening Providers" [ref=e217] [cursor=pointer]:
+                  - /url: /screening-monitoring/screening-providers
+                  - img [ref=e218]
+                  - generic [ref=e221]: Screening Providers
+            - generic [ref=e222]:
+              - button "Statistics & Analytics" [ref=e223] [cursor=pointer]:
+                - img [ref=e224]
+                - generic [ref=e227]: Statistics & Analytics
+                - img [ref=e228]
+              - generic [ref=e230]:
+                - link "AI Analytics" [disabled]:
+                  - /url: "#"
+                  - img
+                  - generic: AI Analytics
+                - link "Statistics Reports" [ref=e231] [cursor=pointer]:
+                  - /url: /statistics-reports
+                  - img [ref=e232]
+                  - generic [ref=e235]: Statistics Reports
+          - generic [ref=e236]:
+            - heading "more" [level=3] [ref=e237]
+            - generic [ref=e238]:
+              - link "Approval Manage" [ref=e239] [cursor=pointer]:
+                - /url: /approval
+                - img [ref=e240]
+                - generic [ref=e242]: Approval Manage
+              - link "Tokenized Deposit" [ref=e243] [cursor=pointer]:
+                - /url: /tokenized-deposit
+                - img [ref=e244]
+                - generic [ref=e246]: Tokenized Deposit
+              - link "Transaction Flow" [ref=e247] [cursor=pointer]:
+                - /url: /transaction-flow
+                - img [ref=e248]
+                - generic [ref=e251]: Transaction Flow
+              - generic [ref=e252]:
+                - button "MMF" [ref=e253] [cursor=pointer]:
+                  - img [ref=e254]
+                  - generic [ref=e257]: MMF
+                  - img [ref=e258]
+                - generic [ref=e260]:
+                  - link "Accrual" [ref=e261] [cursor=pointer]:
+                    - /url: /mmf/accrual
+                    - img [ref=e262]
+                    - generic [ref=e265]: Accrual
+                  - link "Settlement" [ref=e266] [cursor=pointer]:
+                    - /url: /mmf/settlement
+                    - img [ref=e267]
+                    - generic [ref=e270]: Settlement
+              - generic [ref=e271]:
+                - button "Blockchain" [ref=e272] [cursor=pointer]:
+                  - img [ref=e273]
+                  - generic [ref=e276]: Blockchain
+                  - img [ref=e277]
+                - generic [ref=e279]:
+                  - link "Node" [ref=e280] [cursor=pointer]:
+                    - /url: /blockchain/node
+                    - img [ref=e281]
+                    - generic [ref=e284]: Node
+                  - link "Smart Contract" [ref=e285] [cursor=pointer]:
+                    - /url: /blockchain/smart-contract
+                    - img [ref=e286]
+                    - generic [ref=e289]: Smart Contract
+                  - link "Deployment" [ref=e290] [cursor=pointer]:
+                    - /url: /blockchain/deployment
+                    - img [ref=e291]
+                    - generic [ref=e294]: Deployment
+                  - link "Gas Station Management" [disabled]:
+                    - /url: "#"
+                    - img
+                    - generic: Gas Station Management
+              - generic [ref=e295]:
+                - button "Cross Chain" [ref=e296] [cursor=pointer]:
+                  - img [ref=e297]
+                  - generic [ref=e300]: Cross Chain
+                  - img [ref=e301]
+                - generic [ref=e303]:
+                  - link "RD Bridge" [ref=e304] [cursor=pointer]:
+                    - /url: /cross-chain/rd-bridge
+                    - img [ref=e305]
+                    - generic [ref=e308]: RD Bridge
+                  - link "Liquidity Pool" [ref=e309] [cursor=pointer]:
+                    - /url: /cross-chain/liquidity-pool
+                    - img [ref=e310]
+                    - generic [ref=e313]: Liquidity Pool
+                  - link "Token Pair" [ref=e314] [cursor=pointer]:
+                    - /url: /cross-chain/token-pair
+                    - img [ref=e315]
+                    - generic [ref=e318]: Token Pair
+                  - link "Cross-chain Transactions" [ref=e319] [cursor=pointer]:
+                    - /url: /cross-chain/cross-chain-transactions
+                    - img [ref=e320]
+                    - generic [ref=e323]: Cross-chain Transactions
+                  - link "FX Rate" [ref=e324] [cursor=pointer]:
+                    - /url: /cross-chain/fx-rate
+                    - img [ref=e325]
+                    - generic [ref=e328]: FX Rate
+              - link "Networks" [ref=e329] [cursor=pointer]:
+                - /url: /networks
+                - img [ref=e330]
+                - generic [ref=e333]: Networks
+              - generic [ref=e334]:
+                - button "Documentation" [ref=e335] [cursor=pointer]:
+                  - img [ref=e336]
+                  - generic [ref=e339]: Documentation
+                  - img [ref=e340]
+                - generic [ref=e342]:
+                  - link "API Documentation" [ref=e343] [cursor=pointer]:
+                    - /url: "#"
+                    - img [ref=e344]
+                    - generic [ref=e347]: API Documentation
+                  - link "User Manual" [ref=e348] [cursor=pointer]:
+                    - /url: "#"
+                    - img [ref=e349]
+                    - generic [ref=e352]: User Manual
+              - generic [ref=e353]:
+                - button "System" [ref=e354] [cursor=pointer]:
+                  - img [ref=e355]
+                  - generic [ref=e360]: System
+                  - img [ref=e361]
+                - generic [ref=e363]:
+                  - link "User" [ref=e364] [cursor=pointer]:
+                    - /url: /sys/user
+                    - img [ref=e365]
+                    - generic [ref=e370]: User
+                  - link "Role" [ref=e371] [cursor=pointer]:
+                    - /url: /sys/role
+                    - img [ref=e372]
+                    - generic [ref=e377]: Role
+                  - link "Workflow" [ref=e378] [cursor=pointer]:
+                    - /url: /sys/workflow
+                    - img [ref=e379]
+                    - generic [ref=e384]: Workflow
+                  - link "SysLog" [ref=e385] [cursor=pointer]:
+                    - /url: /sys/sysLog
+                    - img [ref=e386]
+                    - generic [ref=e391]: SysLog
+      - main [ref=e392]:
+        - navigation "Breadcrumb" [ref=e394]:
+          - list [ref=e395]:
+            - listitem [ref=e396]:
+              - link "Home" [ref=e397] [cursor=pointer]:
+                - /url: /
+                - img [ref=e398]
+                - generic [ref=e401]: Home
+        - generic [ref=e402]:
+          - generic [ref=e403]:
+            - generic [ref=e404]:
+              - heading "Dashboard" [level=1] [ref=e405]
+              - paragraph [ref=e406]: Monitor stablecoin operations, wallet growth, and transfer activity from a single view.
+            - generic [ref=e407]:
+              - generic [ref=e408]: "Data source:"
+              - text: Reconstructed from td-manage dashboard requirements using local mock data.
+          - generic [ref=e409]:
+            - generic [ref=e410]:
+              - generic [ref=e411]:
+                - paragraph [ref=e412]: Stablecoin
+                - generic [ref=e413]:
+                  - button "HSB" [ref=e414] [cursor=pointer]
+                  - button "CBC" [ref=e415] [cursor=pointer]
+              - button "Refresh" [ref=e416] [cursor=pointer]:
+                - img
+                - text: Refresh
+            - generic [ref=e417]:
+              - generic [ref=e419]:
+                - generic [ref=e420]:
+                  - paragraph [ref=e421]: Repository Balance
+                  - paragraph [ref=e422]: 1,212,120HSB
+                - img [ref=e424]
+              - generic [ref=e428]:
+                - generic [ref=e429]:
+                  - paragraph [ref=e430]: HSB in Circulation
+                  - paragraph [ref=e431]: 854,320HSB
+                - img [ref=e433]
+              - generic [ref=e439]:
+                - generic [ref=e440]:
+                  - paragraph [ref=e441]: Total Minted
+                  - paragraph [ref=e442]: 1,289,450HSB
+                - img [ref=e444]
+              - generic [ref=e448]:
+                - generic [ref=e449]:
+                  - paragraph [ref=e450]: Total Melted
+                  - paragraph [ref=e451]: 435,130HSB
+                - img [ref=e453]
+              - generic [ref=e456]:
+                - generic [ref=e457]:
+                  - paragraph [ref=e458]: Number of Wallets
+                  - paragraph [ref=e459]: "540"
+                - img [ref=e461]
+          - generic [ref=e464]:
+            - generic [ref=e465]:
+              - generic [ref=e466]:
+                - generic [ref=e467]:
+                  - heading "Wallet Quantity Statistics" [level=2] [ref=e468]
+                  - button "Refresh" [ref=e469] [cursor=pointer]:
+                    - img
+                - combobox [ref=e471] [cursor=pointer]:
+                  - generic: Last 7 days
+                  - img [ref=e472]
+              - generic [ref=e476]:
+                - generic [ref=e477]:
+                  - generic [ref=e478]: Number of Wallets
+                  - generic [ref=e480]: Number of New Wallets
+                - generic [ref=e482]:
+                  - generic [ref=e483]:
+                    - generic [ref=e484]: D1
+                    - generic [ref=e485]:
+                      - generic [ref=e489]: "498"
+                      - generic [ref=e493]: "12"
+                  - generic [ref=e494]:
+                    - generic [ref=e495]: D2
+                    - generic [ref=e496]:
+                      - generic [ref=e500]: "505"
+                      - generic [ref=e504]: "10"
+                  - generic [ref=e505]:
+                    - generic [ref=e506]: D3
+                    - generic [ref=e507]:
+                      - generic [ref=e511]: "511"
+                      - generic [ref=e515]: "8"
+                  - generic [ref=e516]:
+                    - generic [ref=e517]: D4
+                    - generic [ref=e518]:
+                      - generic [ref=e522]: "520"
+                      - generic [ref=e526]: "14"
+                  - generic [ref=e527]:
+                    - generic [ref=e528]: D5
+                    - generic [ref=e529]:
+                      - generic [ref=e533]: "529"
+                      - generic [ref=e537]: "11"
+                  - generic [ref=e538]:
+                    - generic [ref=e539]: D6
+                    - generic [ref=e540]:
+                      - generic [ref=e544]: "535"
+                      - generic [ref=e548]: "9"
+                  - generic [ref=e549]:
+                    - generic [ref=e550]: D7
+                    - generic [ref=e551]:
+                      - generic [ref=e555]: "540"
+                      - generic [ref=e559]: "7"
+                - paragraph [ref=e560]: Wallet Statistics
+            - generic [ref=e561]:
+              - generic [ref=e562]:
+                - generic [ref=e563]:
+                  - heading "HSB Transaction Amount Statistics" [level=2] [ref=e564]
+                  - button "Refresh" [ref=e565] [cursor=pointer]:
+                    - img
+                - combobox [ref=e567] [cursor=pointer]:
+                  - generic: Last 7 days
+                  - img [ref=e568]
+              - generic [ref=e572]:
+                - generic [ref=e573]:
+                  - generic [ref=e574]: Purchase
+                  - generic [ref=e576]: Transfer
+                  - generic [ref=e578]: Withdrawal
+                - generic [ref=e580]:
+                  - generic [ref=e581]:
+                    - generic [ref=e582]:
+                      - paragraph [ref=e583]: Purchase
+                      - generic [ref=e584]: "170"
+                    - generic [ref=e585]:
+                      - generic [ref=e589]: D1
+                      - generic [ref=e593]: D2
+                      - generic [ref=e597]: D3
+                      - generic [ref=e601]: D4
+                      - generic [ref=e605]: D5
+                      - generic [ref=e609]: D6
+                      - generic [ref=e613]: D7
+                  - generic [ref=e614]:
+                    - generic [ref=e615]:
+                      - paragraph [ref=e616]: Transfer
+                      - generic [ref=e617]: "121"
+                    - generic [ref=e618]:
+                      - generic [ref=e622]: D1
+                      - generic [ref=e626]: D2
+                      - generic [ref=e630]: D3
+                      - generic [ref=e634]: D4
+                      - generic [ref=e638]: D5
+                      - generic [ref=e642]: D6
+                      - generic [ref=e646]: D7
+                  - generic [ref=e647]:
+                    - generic [ref=e648]:
+                      - paragraph [ref=e649]: Withdrawal
+                      - generic [ref=e650]: "37"
+                    - generic [ref=e651]:
+                      - generic [ref=e655]: D1
+                      - generic [ref=e659]: D2
+                      - generic [ref=e663]: D3
+                      - generic [ref=e667]: D4
+                      - generic [ref=e671]: D5
+                      - generic [ref=e675]: D6
+                      - generic [ref=e679]: D7
+  - generic [ref=e689]:
+    - img [ref=e691]
+    - button "Open Tanstack query devtools" [ref=e739] [cursor=pointer]:
+      - img [ref=e740]
+  - button "Open Next.js Dev Tools" [ref=e685] [cursor=pointer]:
+    - img [ref=e686]
+  - alert [ref=e788]

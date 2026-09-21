@@ -1,0 +1,111 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "importHelpers": true,
+    "isolatedModules": true,
+    "lib": [
+      "es2022"
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmitOnError": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "es2022",
+    "customConditions": [
+      "@admin-platform/source"
+    ],
+    "paths": {
+      "@myorg/shared/data-access-api": [
+        "libs/shared/data-access-api/src/index.ts"
+      ],
+      "@myorg/shared/data-access-query": [
+        "libs/shared/data-access-query/src/index.ts"
+      ],
+      "@myorg/shared/design-tokens": [
+        "libs/shared/design-tokens/src/index.ts"
+      ],
+      "@myorg/shared/model": [
+        "libs/shared/model/src/index.ts"
+      ],
+      "@myorg/shared/ui": [
+        "libs/shared/ui/src/index.ts"
+      ],
+      "@myorg/shared/ui-charts": [
+        "libs/shared/ui-charts/src/index.ts"
+      ],
+      "@myorg/shared/ui-forms": [
+        "libs/shared/ui-forms/src/index.ts"
+      ],
+      "@myorg/shared/ui-layout": [
+        "libs/shared/ui-layout/src/index.ts"
+      ],
+      "@myorg/shared/util-auth": [
+        "libs/shared/util-auth/src/index.ts"
+      ],
+      "@myorg/shared/util-classnames": [
+        "libs/shared/util-classnames/src/index.ts"
+      ],
+      "@myorg/shared/util-config": [
+        "libs/shared/util-config/src/index.ts"
+      ],
+      "@myorg/shared/util-dates": [
+        "libs/shared/util-dates/src/index.ts"
+      ],
+      "@myorg/shared/util-formatting": [
+        "libs/shared/util-formatting/src/index.ts"
+      ],
+      "@myorg/shared/util-i18n": [
+        "libs/shared/util-i18n/src/index.ts"
+      ],
+      "@myorg/shared/util-i18n-messages": [
+        "libs/shared/util-i18n-messages/src/index.ts"
+      ],
+      "@myorg/shared/util-i18n-messages/api-msg": [
+        "libs/shared/util-i18n-messages/src/lib/api-msg.ts"
+      ],
+      "@myorg/shared/util-state": [
+        "libs/shared/util-state/src/index.ts"
+      ],
+      "@myorg/shared/util-testing": [
+        "libs/shared/util-testing/src/index.ts"
+      ],
+      "@myorg/modules/kissen-admin/feature": [
+        "libs/modules/kissen-admin/feature/src/index.ts"
+      ],
+      "@myorg/modules/kissen-admin/data-access": [
+        "libs/modules/kissen-admin/data-access/src/index.ts"
+      ],
+      "@myorg/modules/kissen-gateway/feature": [
+        "libs/modules/kissen-gateway/feature/src/index.ts"
+      ],
+      "@myorg/modules/kissen-gateway/data-access": [
+        "libs/modules/kissen-gateway/data-access/src/index.ts"
+      ],
+      "@myorg/modules/lp-portal/feature": [
+        "libs/modules/lp-portal/feature/src/index.ts"
+      ],
+      "@myorg/modules/lp-portal/data-access": [
+        "libs/modules/lp-portal/data-access/src/index.ts"
+      ],
+      "@myorg/modules/td-admin/feature": [
+        "libs/modules/td-admin/feature/src/index.ts"
+      ],
+      "@myorg/modules/td-admin/data-access/lib/*": [
+        "libs/modules/td-admin/data-access/src/lib/*"
+      ],
+      "@myorg/modules/td-admin/feature/lib/*": [
+        "libs/modules/td-admin/feature/src/lib/*"
+      ],
+      "@myorg/modules/td-admin/data-access": [
+        "libs/modules/td-admin/data-access/src/index.ts"
+      ]
+    }
+  }
+}

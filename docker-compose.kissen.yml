@@ -1,0 +1,39 @@
+version: "3"
+services:
+  # ── Next.js 应用（环境无关，跨环境复用）──
+  app:
+    image: ${APP_IMAGE_TAG:-kissen-admin-app:latest}
+    build:
+      context: ./
+      dockerfile: apps/kissen-admin/Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-kissen-admin}-app
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    labels:
+      - "kissen-admin.env=${ENV_NAME:-unknown}"
+      - "kissen-admin.branch=${GIT_BRANCH:-unknown}"
+      - "kissen-admin.build-time=${BUILD_TIME:-unknown}"
+      - "kissen-admin.build-user=${BUILD_USER:-unknown}"
+    restart: unless-stopped
+
+  # ── nginx 反代（每环境单独 build，含后端地址）──
+  nginx:
+    build:
+      context: ./nginx-kissen
+      args:
+        NEXT_SERVICE_SERVER_URL: ${NEXT_SERVICE_SERVER_URL}
+    container_name: ${COMPOSE_PROJECT_NAME:-kissen-admin}-nginx
+    ports:
+      - ${NGINX_PORT:-6242}:80
+    volumes:
+      - ./nginx-kissen/logs:/var/log/nginx
+    depends_on:
+      - app
+    labels:
+      - "kissen-admin.env=${ENV_NAME:-unknown}"
+      - "kissen-admin.port=${NGINX_PORT:-6242}"
+      - "kissen-admin.api-url=${NEXT_SERVICE_SERVER_URL:-unknown}"
+      - "kissen-admin.branch=${GIT_BRANCH:-unknown}"
+      - "kissen-admin.build-time=${BUILD_TIME:-unknown}"
+    restart: unless-stopped

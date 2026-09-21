@@ -1,0 +1,126 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "jsx": "preserve",
+    "noEmit": true,
+    "emitDeclarationOnly": false,
+    "declaration": false,
+    "declarationMap": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@myorg/modules/td-admin/feature": [
+        "../../libs/modules/td-admin/feature/src/index.ts"
+      ],
+      "@myorg/modules/td-admin/data-access/lib/*": [
+        "../../libs/modules/td-admin/data-access/src/lib/*"
+      ],
+      "@myorg/modules/td-admin/feature/lib/*": [
+        "../../libs/modules/td-admin/feature/src/lib/*"
+      ],
+      "@myorg/modules/td-admin/data-access": [
+        "../../libs/modules/td-admin/data-access/src/index.ts"
+      ],
+      "@myorg/shared/data-access-api": [
+        "../../libs/shared/data-access-api/src/index.ts"
+      ],
+      "@myorg/shared/data-access-query": [
+        "../../libs/shared/data-access-query/src/index.ts"
+      ],
+      "@myorg/shared/design-tokens": [
+        "../../libs/shared/design-tokens/src/index.ts"
+      ],
+      "@myorg/shared/model": [
+        "../../libs/shared/model/src/index.ts"
+      ],
+      "@myorg/shared/ui": [
+        "../../libs/shared/ui/src/index.ts"
+      ],
+      "@myorg/shared/ui-charts": [
+        "../../libs/shared/ui-charts/src/index.ts"
+      ],
+      "@myorg/shared/ui-forms": [
+        "../../libs/shared/ui-forms/src/index.ts"
+      ],
+      "@myorg/shared/ui-layout": [
+        "../../libs/shared/ui-layout/src/index.ts"
+      ],
+      "@myorg/shared/util-auth": [
+        "../../libs/shared/util-auth/src/index.ts"
+      ],
+      "@myorg/shared/util-classnames": [
+        "../../libs/shared/util-classnames/src/index.ts"
+      ],
+      "@myorg/shared/util-config": [
+        "../../libs/shared/util-config/src/index.ts"
+      ],
+      "@myorg/shared/util-dates": [
+        "../../libs/shared/util-dates/src/index.ts"
+      ],
+      "@myorg/shared/util-formatting": [
+        "../../libs/shared/util-formatting/src/index.ts"
+      ],
+      "@myorg/shared/util-i18n": [
+        "../../libs/shared/util-i18n/src/index.ts"
+      ],
+      "@myorg/shared/util-i18n-messages": [
+        "../../libs/shared/util-i18n-messages/src/index.ts"
+      ],
+      "@myorg/shared/util-i18n-messages/api-msg": [
+        "../../libs/shared/util-i18n-messages/src/lib/api-msg.ts"
+      ],
+      "@myorg/shared/util-state": [
+        "../../libs/shared/util-state/src/index.ts"
+      ],
+      "@myorg/shared/util-testing": [
+        "../../libs/shared/util-testing/src/index.ts"
+      ]
+    },
+    "types": [
+      "jest",
+      "node"
+    ],
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "src/**/*.jsx",
+    "../../apps/admin/.next/types/**/*.ts",
+    "../../dist/apps/admin/.next/types/**/*.ts",
+    "next-env.d.ts"
+  ],
+  "exclude": [
+    "out-tsc",
+    "dist",
+    "node_modules",
+    "jest.config.ts",
+    "jest.config.cts",
+    "src/**/*.spec.ts",
+    "src/**/*.test.ts",
+    ".next",
+    "eslint.config.js",
+    "eslint.config.cjs",
+    "eslint.config.mjs"
+  ]
+}

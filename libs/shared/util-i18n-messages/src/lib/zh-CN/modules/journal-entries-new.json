@@ -1,0 +1,71 @@
+{
+  "title": "记账流水",
+  "records": "交易记录",
+  "empty": "暂无数据",
+  "copy": "复制",
+  "filter": {
+    "title": "查询",
+    "query": "查询",
+    "reset": "重置",
+    "all": "全部"
+  },
+  "field": {
+    "from": "发送地址",
+    "to": "接收地址",
+    "tokenName": "代币名称",
+    "tokenType": "代币类型",
+    "blockchain": "区块链",
+    "transactionType": "交易类型",
+    "transactionAmount": "交易金额",
+    "transactionTime": "交易时间",
+    "transactionTimeFrom": "开始日期",
+    "transactionTimeTo": "结束日期",
+    "transactionHash": "交易哈希",
+    "contractAddress": "合约地址",
+    "actions": "操作"
+  },
+  "placeholder": {
+    "address": "请输入地址",
+    "transactionHash": "请输入交易哈希"
+  },
+  "action": {
+    "detail": "详情",
+    "back": "返回"
+  },
+  "tokenType": {
+    "1": "稳定币",
+    "5": "代币化存款"
+  },
+  "transactionType": {
+    "1": "铸造",
+    "2": "销毁",
+    "3": "充值",
+    "4": "转账",
+    "5": "授权转账",
+    "6": "提现",
+    "7": "银行提现",
+    "9": "维护费",
+    "10": "最低余额费",
+    "12": "授权透支费",
+    "13": "非授权透支费",
+    "16": "存款利息",
+    "17": "透支利息",
+    "18": "基金分红分配"
+  },
+  "detail": {
+    "rawData": "原始数据",
+    "normalizationEngine": "标准化引擎",
+    "postingEntry": "记账分录",
+    "tAccount": "T 字账",
+    "columnName": "列名",
+    "value": "值",
+    "logicType": "逻辑类型",
+    "blockHeight": "区块高度",
+    "blockHash": "区块哈希",
+    "blockTime": "区块时间",
+    "bookId": "账本编号",
+    "debit": "借方",
+    "credit": "贷方",
+    "invalidId": "交易 ID 无效或缺失。"
+  }
+}

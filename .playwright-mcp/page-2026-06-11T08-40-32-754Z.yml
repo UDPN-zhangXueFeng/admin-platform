@@ -1,0 +1,35 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Sign In" [level=1] [ref=e6]
+      - paragraph [ref=e7]: Enter your credentials to access the platform
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - text: Username
+        - textbox "Username" [ref=e10]:
+          - /placeholder: Enter your username
+      - generic [ref=e11]:
+        - text: Password
+        - textbox "Password" [ref=e12]:
+          - /placeholder: Enter your password
+      - generic [ref=e13]:
+        - text: Captcha
+        - generic [ref=e14]:
+          - textbox "Captcha" [ref=e15]:
+            - /placeholder: Enter captcha code
+          - img "captcha" [ref=e16] [cursor=pointer]
+      - button "Sign In" [ref=e17] [cursor=pointer]
+    - generic [ref=e19]: or
+    - generic [ref=e20]:
+      - generic [ref=e21]:
+        - text: Username
+        - textbox "Username" [ref=e22]:
+          - /placeholder: Enter your username
+      - button "Connect with MetaMask" [disabled]
+  - generic [ref=e23]:
+    - img [ref=e25]
+    - button "Open Tanstack query devtools" [ref=e73] [cursor=pointer]:
+      - img [ref=e74]
+  - button "Open Next.js Dev Tools" [ref=e127] [cursor=pointer]:
+    - img [ref=e128]
+  - alert [ref=e131]

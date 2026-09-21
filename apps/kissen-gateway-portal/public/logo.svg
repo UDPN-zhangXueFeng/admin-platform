@@ -1,0 +1,13 @@
+<svg width="246" height="48" viewBox="0 0 246 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Kissen Gateway logo: gateway mark + wordmark.
+       Palette matches the site brand: Kissen deep blue + cyan (see logo-icon.svg
+       and the login brand lockup). No external resources. -->
+  <!-- Gateway mark: bank arch + clearing flow arrow -->
+  <rect x="0" y="4" width="40" height="40" rx="9" fill="#001A98"/>
+  <path d="M12 33V23a8 8 0 0 1 16 0v10" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M9 36h22" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M17 28h7m0 0-2.5-2.5M24 28l-2.5 2.5" stroke="#00A5D5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Wordmark -->
+  <text x="50" y="31" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" letter-spacing="0.5" fill="#001A98">Kissen</text>
+  <text x="138" y="31" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" letter-spacing="0.5" fill="#00A5D5">Gateway</text>
+</svg>

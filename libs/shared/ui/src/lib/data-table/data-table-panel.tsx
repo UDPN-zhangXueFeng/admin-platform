@@ -1,0 +1,78 @@
+'use client';
+
+import * as React from 'react';
+import { cn } from '@myorg/shared/util-classnames';
+import { DataTable } from './data-table';
+import type { DataTablePanelProps } from './data-table.types';
+
+/**
+ * Admin list panel that composes header, filters, state messaging, and DataTable.
+ *
+ * The panel is intentionally presentation-only: callers own API requests,
+ * query state, filtering, permissions, routing, and mutation invalidation.
+ */
+export function DataTablePanel<TData extends { id: string }>({
+  title,
+  titleWrap = false,
+  extra,
+  filter,
+  columns,
+  data,
+  isLoading = false,
+  error,
+  emptyMessage,
+  pagination,
+  selection,
+  className,
+}: DataTablePanelProps<TData>) {
+  const hasHeader = Boolean(title || extra);
+  const errorId = React.useId();
+
+  return (
+    <section
+      className={cn('rounded-lg border border-border/60 bg-card', className)}
+      aria-busy={isLoading || undefined}
+      aria-describedby={error ? errorId : undefined}
+    >
+      {hasHeader && (
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          {title && (
+            <div
+              className={cn(
+                'min-w-0 text-base font-semibold leading-6 text-foreground',
+                titleWrap ? 'whitespace-normal break-words' : 'truncate'
+              )}
+              title={!titleWrap && typeof title === 'string' ? title : undefined}
+            >
+              {title}
+            </div>
+          )}
+          {extra && <div className="shrink-0">{extra}</div>}
+        </div>
+      )}
+
+      {filter && <div className="border-b border-border/50 px-4 py-3">{filter}</div>}
+
+      {error && (
+        <div
+          id={errorId}
+          role="alert"
+          className="border-b border-border/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          {error}
+        </div>
+      )}
+
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={data}
+          isLoading={isLoading}
+          pagination={pagination}
+          selection={selection}
+          emptyMessage={emptyMessage}
+        />
+      </div>
+    </section>
+  );
+}

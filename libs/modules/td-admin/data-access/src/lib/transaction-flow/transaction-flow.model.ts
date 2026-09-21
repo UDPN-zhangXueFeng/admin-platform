@@ -1,0 +1,2 @@
+export interface TxFlowItem { txHash: string; name: string; tokenType: number; txFrom: string; txTo: string; blockchainName: string; blockchainCode: string; txType: number; txAmount: number; symbol: string; txTime: string; browserUrl?: string; }
+export interface TxFlowFilters { stablecoinId?: string; tokenType?: string; txFrom?: string; txTo?: string; txType?: string; blockchainId?: string; txStartTime?: string; txEndTime?: string; txHash?: string; }

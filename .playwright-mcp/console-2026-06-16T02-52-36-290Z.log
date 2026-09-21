@@ -1,0 +1,95 @@
+[    1204ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/en-US/login:0
+[    1292ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[    1421ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[    1580ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[    1728ms] [LOG] [Fast Refresh] done in 279ms @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[   16333ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[   18493ms] [LOG] [Fast Refresh] done in 2261ms @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[   18704ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[   19839ms] [LOG] [Fast Refresh] done in 1235ms @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[   34170ms] [WARNING] The resource http://localhost:3000/_next/static/chunks/%5Broot-of-the-server%5D__e4da2690._.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/en-US:0
+[  124825ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[  124869ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[  125244ms] [ERROR] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <RovingFocusGroupProvider scope={{...}} orientation="horizontal" dir="ltr" loop={true} currentTabStopId={null} ...>
+      <Primitive.div tabIndex={-1} data-orientation="horizontal" asChild={true} ref={function} style={{outline:"none"}} ...>
+        <Primitive.div.Slot tabIndex={-1} data-orientation="horizontal" style={{outline:"none"}} ...>
+          <Primitive.div role="tablist" aria-orientation="horizontal" className="h-10 items..." ref={function} ...>
+            <div role="tablist" aria-orientation="horizontal" className="h-10 items..." tabIndex={-1} ...>
+              <_c2 value="hsb">
+                <TabsTrigger ref={null} className="inline-fle..." value="hsb">
+                  <RovingFocusGroupItem asChild={true} __scopeRovingFocusGroup={{...}} focusable={true} active={true}>
+                    <RovingFocusGroupCollectionItemSlot scope={{...}} id="radix-_R_3..." focusable={true} active={true}>
+                      <RovingFocusGroupCollectionItemSlot.Slot data-radix-collection-item="" ref={function}>
+                        <Primitive.span tabIndex={-1} data-orientation="horizontal" asChild={true} ref={function} ...>
+                          <Primitive.span.Slot tabIndex={-1} data-orientation="horizontal" ...>
+                            <Primitive.button type="button" role="tab" aria-selected={true} aria-controls="radix-_R_i..." ...>
+                              <button
+                                type="button"
+                                role="tab"
+                                aria-selected={true}
++                               aria-controls="radix-_R_iqatrkndknelb_-content-hsb"
+-                               aria-controls="radix-_R_2b9bnekndknelb_-content-hsb"
+                                data-state="active"
+                                data-disabled={undefined}
+                                disabled={false}
++                               id="radix-_R_iqatrkndknelb_-trigger-hsb"
+-                               id="radix-_R_2b9bnekndknelb_-trigger-hsb"
+                                className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 p..."
+                                onMouseDown={function}
+                                onKeyDown={function}
+                                onFocus={function}
+                                tabIndex={-1}
+                                data-orientation="horizontal"
+                                data-radix-collection-item=""
+                                ref={function}
+                              >
++                               HSB
+              <_c2 value="cbc">
+                <TabsTrigger ref={null} className="inline-fle..." value="cbc">
+                  <RovingFocusGroupItem asChild={true} __scopeRovingFocusGroup={{...}} focusable={true} active={false}>
+                    <RovingFocusGroupCollectionItemSlot scope={{...}} id="radix-_R_5..." focusable={true} active={false}>
+                      <RovingFocusGroupCollectionItemSlot.Slot data-radix-collection-item="" ref={function}>
+                        <Primitive.span tabIndex={-1} data-orientation="horizontal" asChild={true} ref={function} ...>
+                          <Primitive.span.Slot tabIndex={-1} data-orientation="horizontal" ...>
+                            <Primitive.button type="button" role="tab" aria-selected={false} ...>
+                              <button
+                                type="button"
+                                role="tab"
+                                aria-selected={false}
++                               aria-controls="radix-_R_iqatrkndknelb_-content-cbc"
+-                               aria-controls="radix-_R_2b9bnekndknelb_-content-cbc"
+                                data-state="inactive"
+                                data-disabled={undefined}
+                                disabled={false}
++                               id="radix-_R_iqatrkndknelb_-trigger-cbc"
+-                               id="radix-_R_2b9bnekndknelb_-trigger-cbc"
+                                className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 p..."
+                                onMouseDown={function}
+                                onKeyDown={function}
+                                onFocus={function}
+                                tabIndex={-1}
+                                data-orientation="horizontal"
+                                data-radix-collection-item=""
+                                ref={function}
+                              >
++                               CBC
+ @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:3127
+[  125530ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[  134633ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[  134663ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[  138410ms] [WARNING] The resource http://localhost:3000/_next/static/chunks/%5Broot-of-the-server%5D__e4da2690._.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/en-US:0
+[  189053ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297
+[  189177ms] [LOG] [Fast Refresh] done in 148ms @ http://localhost:3000/_next/static/chunks/509c2_next_dist_512df543._.js:2297

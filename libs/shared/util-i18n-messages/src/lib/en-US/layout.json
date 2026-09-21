@@ -1,0 +1,9 @@
+{
+  "sidebar": {
+    "collapse": "Collapse sidebar"
+  },
+  "header": {
+    "search": "Search",
+    "notifications": "Notifications"
+  }
+}

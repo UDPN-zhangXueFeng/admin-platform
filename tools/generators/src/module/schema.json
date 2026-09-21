@@ -1,0 +1,25 @@
+{
+  "cli": "nx",
+  "id": "module",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Module name (kebab-case, e.g. 'inventory')",
+      "$default": {
+        "$source": "argv",
+        "index": 0
+      }
+    },
+    "displayName": {
+      "type": "string",
+      "description": "Human-readable display name (e.g. '库存管理')"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Lucide icon name (e.g. 'Package')",
+      "default": "FileText"
+    }
+  },
+  "required": ["name"]
+}

@@ -1,0 +1,110 @@
+{
+  "title": "Posting Engine",
+  "records": "Posting Books",
+  "empty": "No Data",
+  "copy": "Copy",
+  "filter": {
+    "title": "Query",
+    "query": "Query",
+    "reset": "Reset",
+    "all": "All"
+  },
+  "placeholder": {
+    "bookName": "Enter book name",
+    "currency": "Enter currency code"
+  },
+  "field": {
+    "bookName": "Book Name",
+    "bookNo": "Book ID",
+    "currency": "Currency",
+    "tokenType": "Token Type",
+    "tokenCount": "Token Count",
+    "totalEvents": "Total Events",
+    "configured": "Configured",
+    "lastRuleUpdate": "Last Rule Update",
+    "lastRuleUpdateFrom": "Last Rule Update From",
+    "lastRuleUpdateTo": "Last Rule Update To",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "action": {
+    "detail": "Details",
+    "mappingRules": "Mapping Rules",
+    "edit": "Edit",
+    "view": "View",
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "approval": "Approval"
+  },
+  "tokenType": {
+    "1": "Stablecoin",
+    "5": "Tokenized Deposit"
+  },
+  "status": {
+    "draft": "Draft",
+    "pendingReview": "Pending Review",
+    "rejected": "Rejected",
+    "submitted": "Submitted",
+    "inReview": "In Review",
+    "approved": "Approved",
+    "disabled": "Disabled",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "sourceEvent": {
+    "reserveIn": "Reserve In",
+    "fundingIn": "Funding In",
+    "mint": "Mint",
+    "repositoryOut": "Repository Out",
+    "transfer": "Transfer",
+    "repositoryIn": "Repository In",
+    "melt": "Melt",
+    "reserveOut": "Reserve Out",
+    "fundingOut": "Funding Out"
+  },
+  "mappingMethod": {
+    "direct": "Direct",
+    "constant": "Constant"
+  },
+  "detail": {
+    "bookTitle": "Posting Engine Book Detail",
+    "eventTitle": "Posting Engine Event Detail",
+    "basicInformation": "Basic Information",
+    "postingEngineMatrix": "Posting Engine Matrix",
+    "versionHistory": "Version History",
+    "invalidId": "Invalid or missing ID.",
+    "reserveAsset": "Reserve Asset",
+    "creator": "Creator",
+    "createTime": "Create Time",
+    "eventCode": "Event Code",
+    "versionId": "Version ID",
+    "effectiveDate": "Effective Date",
+    "updateTime": "Update Time",
+    "sourceEventType": "Source Event Type",
+    "entryDirection": "Entry Direction",
+    "transactionEventFields": "Transaction Event Fields",
+    "entryTemplate": "Entry Template",
+    "noVersion": "No version history.",
+    "remarks": "Remarks"
+  },
+  "versionHistory": {
+    "sourceEventType": "Source Event Type",
+    "versionId": "Version ID",
+    "entryDirection": "Entry Direction",
+    "effectiveDate": "Effective Date",
+    "createdBy": "Created By",
+    "createdOn": "Created On",
+    "status": "Status",
+    "action": "Action"
+  },
+  "edit": {
+    "title": "Edit Posting Rule",
+    "effectiveDate": "Effective Date",
+    "entryTemplate": "Entry Template",
+    "drCr": "Dr/Cr",
+    "account": "Account",
+    "method": "Method",
+    "value": "Value"
+  }
+}

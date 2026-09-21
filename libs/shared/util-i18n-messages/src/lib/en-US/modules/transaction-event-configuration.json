@@ -1,0 +1,121 @@
+{
+  "title": "Transaction Event Configuration",
+  "records": "Normalization Books",
+  "empty": "No Data",
+  "copy": "Copy",
+  "mappingRuleList": "Mapping Rules",
+  "mappingRuleEdit": "Edit Mapping Rule",
+  "mappingRuleDetail": "Mapping Rule Detail",
+  "filter": {
+    "title": "Query",
+    "query": "Query",
+    "reset": "Reset",
+    "all": "All"
+  },
+  "placeholder": {
+    "bookName": "Enter book name",
+    "currency": "Enter currency code"
+  },
+  "field": {
+    "bookName": "Book Name",
+    "tokenType": "Token Type",
+    "reserveAsset": "Reserve Asset",
+    "currency": "Currency",
+    "assetValue": "Asset Value",
+    "tokens": "Tokens",
+    "createdOn": "Created On",
+    "createdFrom": "Created From",
+    "createdTo": "Created To",
+    "effectiveFrom": "Effective From",
+    "effectiveTo": "Effective To",
+    "effectiveDate": "Effective Date",
+    "status": "Status",
+    "actions": "Actions",
+    "mappingRuleId": "Mapping Rule ID",
+    "sourceEventType": "Source Event Type",
+    "creator": "Creator",
+    "targetField": "Target Field",
+    "mappingMethod": "Mapping Method",
+    "sourceField": "Source Field",
+    "description": "Description",
+    "utIdentifier": "Universal Transaction Identifier",
+    "userIdentifier": "User Universal Identifier",
+    "tokenName": "Token Name",
+    "transactionDate": "Transaction Date",
+    "valueDate": "Value Date",
+    "finalityDate": "Finality Date",
+    "organizationCode": "Organization Code",
+    "blockchain": "Blockchain",
+    "from": "From",
+    "to": "To",
+    "transactionAmount": "Transaction Amount",
+    "transactionHash": "Transaction Hash",
+    "transactionTime": "Transaction Time"
+  },
+  "action": {
+    "configureMappingRules": "Configure Mapping Rules",
+    "preview": "Preview",
+    "edit": "Edit",
+    "detail": "Detail",
+    "view": "View",
+    "back": "Back",
+    "save": "Save",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "add": "Add",
+    "remove": "Remove"
+  },
+  "tokenType": {
+    "1": "Stablecoin",
+    "5": "Tokenized Deposit"
+  },
+  "bookStatus": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "unknown": "--"
+  },
+  "ruleStatus": {
+    "active": "Active",
+    "pendingActivation": "Pending Activation",
+    "expired": "Expired"
+  },
+  "eventStatus": {
+    "draft": "Draft",
+    "pendingReview": "Pending Review",
+    "rejected": "Rejected"
+  },
+  "sourceEvent": {
+    "reserveIn": "Reserve In",
+    "reserveOut": "Reserve Out",
+    "mint": "Mint",
+    "repositoryIn": "Repository In",
+    "repositoryOut": "Repository Out",
+    "transfer": "Transfer",
+    "melt": "Melt",
+    "fundingIn": "Funding In",
+    "fundingOut": "Funding Out"
+  },
+  "mappingMethod": {
+    "direct": "Direct",
+    "constant": "Constant",
+    "generate": "Generate"
+  },
+  "detail": {
+    "invalidId": "Invalid or missing ID.",
+    "basicInformation": "Basic Information",
+    "historicalRecords": "Historical Records",
+    "fieldMappings": "Field Mapping Configuration"
+  },
+  "history": {
+    "systemGenerated": "System Auto Generated",
+    "queryTitle": "Query",
+    "recordsTitle": "Historical Records"
+  },
+  "edit": {
+    "placeholder": "Edit page (Phase 6)",
+    "basicInfoTitle": "Basic Information",
+    "fieldMappingTitle": "Field Mapping Configuration",
+    "effectiveDateHint": "Effective date must be later than today.",
+    "invalidEffectiveDate": "Effective date must be later than today."
+  }
+}

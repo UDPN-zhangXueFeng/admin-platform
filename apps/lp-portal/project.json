@@ -1,0 +1,30 @@
+{
+  "name": "@admin-platform/lp-portal",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/lp-portal",
+  "projectType": "application",
+  "tags": ["scope:lp-portal", "type:app"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec next build --webpack",
+        "cwd": "apps/lp-portal"
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec next dev --webpack",
+        "cwd": "apps/lp-portal"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec next start",
+        "cwd": "apps/lp-portal"
+      }
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "title": "角色管理",
+  "query": "查询",
+  "reset": "重置",
+  "records": "角色列表",
+  "empty": "暂无角色",
+  "invalidId": "角色 ID 无效",
+  "action": {
+    "view": "查看",
+    "edit": "编辑",
+    "disable": "禁用",
+    "enable": "启用",
+    "delete": "删除",
+    "add": "新增",
+    "back": "返回",
+    "cancel": "取消",
+    "save": "保存",
+    "saveSuccess": "保存成功",
+    "saveFailed": "保存失败，请重试",
+    "statusUpdated": "状态更新成功"
+  },
+  "field": {
+    "index": "序号",
+    "roleName": "角色名称",
+    "status": "状态",
+    "action": "操作",
+    "menu": "菜单权限"
+  },
+  "status": {
+    "enabled": "启用",
+    "disabled": "禁用"
+  },
+  "confirm": {
+    "disable": "确定要禁用该角色吗？",
+    "enable": "确定要启用该角色吗？",
+    "delete": "确定要删除该角色吗？"
+  },
+  "toast": {
+    "disableSuccess": "禁用成功",
+    "enableSuccess": "启用成功",
+    "deleteSuccess": "删除成功",
+    "saveSuccess": "保存成功"
+  },
+  "view": {
+    "title": "角色详情"
+  },
+  "edit": {
+    "title": "编辑角色"
+  },
+  "create": {
+    "title": "新增角色"
+  },
+  "validation": {
+    "menuRequired": "请至少选择一个菜单权限"
+  }
+}

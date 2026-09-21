@@ -1,0 +1,11 @@
+import { apiClient } from '@myorg/shared/data-access-api';import type { AccessKeyInfo, MetaMaskHistory, MetaMaskInfo, TwoFactorInfo } from './account-manage.model';
+export const fetchAccessKey = (key?: string) => apiClient.post<AccessKeyInfo>('/api/rbac/v1/user/accessKey/get', { accessKey: key || '' });
+export const fetchUserInfo = () => apiClient.get<MetaMaskInfo | null>('/api/manage/v1/user/info');
+export const fetchMetaMaskHistory = () => apiClient.post<MetaMaskHistory[]>('/api/manage/v1/user/metamask/his');
+export const addMetaMask = (accountKey: string) => apiClient.post('/api/manage/v1/user/metamask/add', { accountKey });
+export const editMetaMask = (accountKey: string) => apiClient.post('/api/manage/v1/user/metamask/edit', { accountKey });
+export const disableMetaMask = () => apiClient.post('/api/manage/v1/user/metamask/status/up', { status: 1 });
+export const fetchTwoFactorStatus = () => apiClient.post<{ status: number }>('/api/manage/v1/user/twoFactor/status');
+export const fetchQrCode = () => apiClient.post<TwoFactorInfo>('/api/manage/v1/user/twoFactor/qrCode');
+export const addTwoFactor = (params: { code: string; password: string }) => apiClient.post('/api/manage/v1/user/twoFactor/add', params);
+export const disableTwoFactor = (params: { status: number; password: string }) => apiClient.post('/api/manage/v1/user/twoFactor/edit', params);

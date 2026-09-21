@@ -1,0 +1,48 @@
+- generic [active] [ref=f1e1]:
+  - main [ref=f1e2]:
+    - generic [ref=f1e3]:
+      - generic [ref=f1e6]:
+        - generic "UDPN Solutions" [ref=f1e7]:
+          - generic [ref=f1e8]: udpn
+          - generic [ref=f1e9]: Solutions
+        - paragraph [ref=f1e10]: 构建下一代基于 Token 的核心银行系统
+      - generic [ref=f1e13]:
+        - heading "Tokenized Deposit/Stablecoin Management System" [level=1] [ref=f1e15]
+        - generic [ref=f1e16]:
+          - generic [ref=f1e17]:
+            - generic [ref=f1e18]: "*用户名"
+            - textbox "用户名" [ref=f1e19]:
+              - /placeholder: 请输入用户名
+              - text: cuining
+          - generic [ref=f1e20]:
+            - generic [ref=f1e21]: "*密码"
+            - generic [ref=f1e22]:
+              - textbox "密码" [ref=f1e23]:
+                - /placeholder: 请输入密码
+                - text: td#0415
+              - button "显示密码" [ref=f1e24] [cursor=pointer]
+          - generic [ref=f1e28]:
+            - generic [ref=f1e29]: "*验证码"
+            - generic [ref=f1e30]:
+              - textbox "验证码" [ref=f1e31]:
+                - /placeholder: 请输入验证码
+                - text: RhGXnb
+              - img "验证码" [ref=f1e40] [cursor=pointer]
+          - button "登 录" [ref=f1e32] [cursor=pointer]
+        - generic [ref=f1e33]: 或
+        - generic [ref=f1e35]:
+          - generic [ref=f1e36]:
+            - generic [ref=f1e37]: "*用户名"
+            - textbox "用户名" [ref=f1e38]:
+              - /placeholder: 请输入用户名
+          - button "使用 MetaMask 连接" [disabled]
+          - paragraph [ref=f1e39]: 使用 MetaMask 登录前，请先输入用户名。
+  - button "Open Tanstack query devtools" [ref=f1e91] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=f1e150] [cursor=pointer]:
+    - generic [ref=f1e153]:
+      - text: Rendering
+      - generic [ref=f1e154]:
+        - generic [ref=f1e155]: .
+        - generic [ref=f1e156]: .
+        - generic [ref=f1e157]: .
+  - alert [ref=f1e149]

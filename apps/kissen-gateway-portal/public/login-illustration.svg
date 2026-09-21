@@ -1,0 +1,62 @@
+<svg width="720" height="560" viewBox="0 0 720 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .float-a{animation:float-a 5s ease-in-out infinite}.float-b{animation:float-b 6s ease-in-out infinite}.pulse{animation:pulse 3.2s ease-in-out infinite}.flow{animation:flow 6s linear infinite}@keyframes float-a{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}@keyframes float-b{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}@keyframes pulse{0%,100%{opacity:.35}50%{opacity:.9}}@keyframes flow{to{stroke-dashoffset:-80}}@media(prefers-reduced-motion:reduce){.float-a,.float-b,.pulse,.flow{animation:none}}
+  </style>
+  <defs>
+    <linearGradient id="lintel" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#4b3fae"/><stop offset="1" stop-color="#31286f"/></linearGradient>
+    <linearGradient id="pillar" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#453a9c"/><stop offset="1" stop-color="#2b2266"/></linearGradient>
+    <linearGradient id="pillar-side" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#382e82" stop-opacity=".9"/><stop offset="1" stop-color="#241b5e" stop-opacity=".6"/></linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5a4bb8" stop-opacity=".5"/><stop offset="1" stop-color="#2b2266" stop-opacity=".3"/></linearGradient>
+    <radialGradient id="portal" cx=".5" cy=".5" r=".5"><stop stop-color="#a5f3fc" stop-opacity=".9"/><stop offset=".55" stop-color="#22d3ee" stop-opacity=".38"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="14" stdDeviation="10" flood-color="#1a1240" flood-opacity=".3"/></filter>
+  </defs>
+
+  <ellipse cx="360" cy="322" rx="304" ry="176" stroke="#241b5e" stroke-opacity=".5" stroke-width="2"/>
+  <ellipse class="pulse" cx="360" cy="322" rx="250" ry="140" stroke="#67e8f9" stroke-opacity=".55" stroke-width="2"/>
+  <path class="flow" d="M70 336C160 262 250 260 360 302C470 344 560 342 650 276" stroke="#8fe9f2" stroke-opacity=".6" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 12"/>
+
+  <ellipse class="pulse" cx="360" cy="300" rx="46" ry="92" fill="url(#portal)"/>
+  <ellipse class="pulse" cx="360" cy="300" rx="30" ry="62" stroke="#a5f3fc" stroke-opacity=".7" stroke-width="2"/>
+  <ellipse cx="360" cy="300" rx="14" ry="30" stroke="#e0fbff" stroke-opacity=".6" stroke-width="2"/>
+
+  <g class="float-a" filter="url(#shadow)">
+    <path d="M150 425L360 330L570 425L360 520Z" fill="url(#floor)" stroke="#241b5e" stroke-opacity=".55"/>
+    <path d="M150 425L360 520V542L150 447Z" fill="#241b5e" fill-opacity=".4"/>
+    <path d="M570 425L360 520V542L570 447Z" fill="#1a1240" fill-opacity=".4"/>
+
+    <path d="M244 420L320 420L308 442L232 442Z" fill="#382e82" stroke="#241b5e" stroke-width="3"/>
+    <path d="M400 420L476 420L464 442L388 442Z" fill="#382e82" stroke="#241b5e" stroke-width="3"/>
+
+    <path d="M252 190H312V420H252Z" fill="url(#pillar)" stroke="#241b5e" stroke-width="3"/>
+    <path d="M312 190L332 176V406L312 420Z" fill="url(#pillar-side)" stroke="#241b5e" stroke-width="3"/>
+    <path d="M272 210V400" stroke="#67e8f9" stroke-opacity=".75" stroke-width="4" stroke-linecap="round"/>
+    <path d="M294 224V386" stroke="#8fe9f2" stroke-opacity=".45" stroke-width="2" stroke-linecap="round"/>
+
+    <path d="M408 190H468V420H408Z" fill="url(#pillar)" stroke="#241b5e" stroke-width="3"/>
+    <path d="M468 190L488 176V406L468 420Z" fill="url(#pillar-side)" stroke="#241b5e" stroke-width="3"/>
+    <path d="M428 210V400" stroke="#67e8f9" stroke-opacity=".75" stroke-width="4" stroke-linecap="round"/>
+    <path d="M450 224V386" stroke="#8fe9f2" stroke-opacity=".45" stroke-width="2" stroke-linecap="round"/>
+
+    <path d="M232 150H484V190H232Z" fill="url(#lintel)" stroke="#241b5e" stroke-width="3"/>
+    <path d="M232 150L254 132H506L484 150Z" fill="#5a4bb8" stroke="#241b5e" stroke-width="3"/>
+    <path d="M252 170H308" stroke="#8fe9f2" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/>
+    <path d="M412 170H468" stroke="#8fe9f2" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/>
+    <path class="pulse" d="M360 156L378 170L360 184L342 170Z" fill="#22d3ee" stroke="#cffafe" stroke-width="2"/>
+  </g>
+
+  <ellipse class="pulse" cx="360" cy="398" rx="96" ry="26" fill="url(#portal)"/>
+  <path class="flow" d="M348 228V384" stroke="#cffafe" stroke-opacity=".8" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 10"/>
+  <path class="flow" d="M372 228V384" stroke="#cffafe" stroke-opacity=".5" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 10"/>
+
+  <g class="float-b" filter="url(#shadow)">
+    <path d="M170 108L188 96L206 108L188 120Z" fill="#67e8f9" stroke="#a5f3fc" stroke-width="2"/>
+  </g>
+  <g class="float-b" filter="url(#shadow)">
+    <path d="M514 122L532 110L550 122L532 134Z" fill="#a5f3fc" stroke="#e0fbff" stroke-width="2"/>
+  </g>
+
+  <g fill="#a5f3fc">
+    <circle class="pulse" cx="86" cy="300" r="5"/><circle class="pulse" cx="634" cy="296" r="5"/><circle class="pulse" cx="360" cy="84" r="4"/>
+    <circle class="pulse" cx="140" cy="180" r="4"/><circle class="pulse" cx="580" cy="190" r="4"/>
+  </g>
+</svg>

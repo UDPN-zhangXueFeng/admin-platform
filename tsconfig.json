@@ -1,0 +1,28 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/admin-e2e"
+    },
+    {
+      "path": "./apps/admin"
+    },
+    {
+      "path": "./tools/generators"
+    },
+    {
+      "path": "./libs/modules/auth/data-access"
+    },
+    {
+      "path": "./libs/modules/auth/feature"
+    },
+    {
+      "path": "./libs/modules/auth/util"
+    },
+    {
+      "path": "./libs/modules/auth/ui"
+    }
+  ]
+}

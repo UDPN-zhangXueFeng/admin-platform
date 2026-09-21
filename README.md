@@ -1,92 +1,129 @@
-# admin platform
+# Admin Platform
 
+基于 **Nx monorepo** 的配置驱动管理后台。核心应用位于 `apps/admin`，使用 Next.js App Router 提供带 locale 前缀的后台页面；具体业务能力按领域沉淀在 `libs/modules`，跨领域基础能力位于 `libs/shared`。
 
+## 技术栈
 
-## Getting started
+- Nx 22、pnpm workspace
+- Next.js 16、React 19、TypeScript
+- Tailwind CSS、Radix UI
+- TanStack Query、Axios、Zustand
+- next-intl、Zod、React Hook Form
+- Jest、Testing Library、Playwright
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## 快速开始
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+### 运行环境
 
-## Add your files
+- Node.js：使用与 Next.js 16 兼容的当前 LTS 版本
+- pnpm：项目使用 `pnpm-lock.yaml` 锁定依赖，请勿混用 npm 或 Yarn 安装依赖
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+安装依赖：
 
+```bash
+pnpm install
 ```
-cd existing_repo
-git remote add origin http://10.0.6.203:8088/udpn-kissen/source-code/admin-platform.git
-git branch -M main
-git push -uf origin main
+
+### 配置本地 API 代理
+
+在 `apps/admin/.env.local` 中配置后端地址。客户端请求会通过 `NEXT_PUBLIC_API_BASE_URL` 指定的代理前缀，由 Next.js 转发至 `NEXT_SERVICE_SERVER_URL`。
+
+```bash
+# apps/admin/.env.local
+NEXT_PUBLIC_API_BASE_URL=/aps
+NEXT_SERVICE_SERVER_URL=http://<backend-host>:<port>
 ```
 
-## Integrate with your tools
+> `NEXT_SERVICE_SERVER_URL` 仅用于本地或部署环境配置，不应提交真实的内网地址或密钥。
 
-- [ ] [Set up project integrations](http://10.0.6.203:8088/udpn-kissen/source-code/admin-platform/-/settings/integrations)
+### 启动开发服务
 
-## Collaborate with your team
+```bash
+pnpm exec nx dev admin
+```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+默认访问地址为 `http://localhost:3000`。路由始终包含 locale 前缀，例如：
 
-## Test and Deploy
+```text
+http://localhost:3000/zh-CN/login
+http://localhost:3000/en-US/login
+```
 
-Use the built-in continuous integration in GitLab.
+## 项目配置
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+项目配置位于 `configs/`，当前内置 `stablecoin`、`ecommerce`、`crm`、`hospital` 和 `education` 等配置。配置决定项目主题、菜单、启用模块、国际化覆盖和 feature 开关。
 
-***
+默认加载 `stablecoin`。可通过 `NX_PROJECT_ID` 切换：
 
-# Editing this README
+```bash
+NX_PROJECT_ID=crm pnpm exec nx dev admin
+```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!).  Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+新增或调整菜单、模块时，需要同步核对以下三层：
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+1. `configs/*.json`：菜单路径与模块启用状态；
+2. `apps/admin/src/app`：App Router 与 locale 路由；
+3. `libs/shared/util-config`、`apps/admin` 的 module page registry：配置加载与页面装配。
 
-## Name
-Choose a self-explaining name for your project.
+## 常用命令
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+```bash
+# 开发与构建
+pnpm exec nx dev admin
+pnpm exec nx build admin
+pnpm exec nx start admin
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+# 查看应用可用 targets
+pnpm exec nx show project admin
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+# 质量检查（替换为实际项目名）
+pnpm exec nx lint <project>
+pnpm exec nx test <project>
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+# 端到端测试
+pnpm exec nx e2e admin-e2e
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+示例：
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```bash
+pnpm exec nx lint shared-ui
+pnpm exec nx test modules-user-feature
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## 目录说明
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+```text
+admin-platform/
+├── apps/
+│   ├── admin/                  # Next.js 管理后台应用与应用装配
+│   └── admin-e2e/              # Playwright 端到端测试
+├── libs/
+│   ├── modules/<domain>/       # 领域模块：feature / ui / data-access / util
+│   └── shared/                 # 跨模块共享基础设施与 UI
+├── configs/                    # 项目、主题、菜单、模块开关等 JSON 配置
+├── tools/generators/           # 本地 Nx generators
+└── .codex/project/             # 项目结构与研发规范文档
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+依赖方向：
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+```text
+apps/admin → libs/modules/* → libs/shared/*
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+`libs/shared` 禁止依赖 `libs/modules`。业务代码优先放入对应领域模块；只有跨模块且稳定复用的能力才进入 `shared`。
 
-## License
-For open source projects, say how it is licensed.
+## 开发约定
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- 应用层保持轻量，只负责 App Router、providers、配置装载与模块页面装配。
+- 使用 `@myorg/...` alias 从各库的公共入口导入，避免跨库深层路径或相对路径绕过 Nx module boundary。
+- 远程数据放在领域模块的 `data-access`，页面/场景级组件放在 `feature`，不要在 React 组件内散落 Axios 调用。
+- 变更行为后执行最窄范围的 lint、test 或 build；若无法执行，需明确说明原因。
+- 新增迁移模块时，除代码外还应更新配置、app-local page registry、`apps/admin/next.config.ts` 的 `transpilePackages` 和 TypeScript path 配置。
+
+## 进一步阅读
+
+- [项目结构说明](.codex/project/pro.md)
+- [前端代码设计与规范](.codex/project/rule.md)
+- [协作经验沉淀](.codex/project/memory.md)

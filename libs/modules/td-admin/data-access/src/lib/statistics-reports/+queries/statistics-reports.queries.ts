@@ -1,0 +1,13 @@
+import { useQuery } from '@tanstack/react-query';
+import { fetchAbcTransactionCount, fetchAbcTransactionVolume, fetchSpTransaction, fetchStablecoinList, fetchStablecoinsOverview, fetchTdList, fetchTokenTypeList, fetchTokenizedDepositsList, fetchWalletQuantity } from '../statistics-reports.api';
+import { statisticsKeys } from './statistics-reports.keys';
+
+export const useTokenTypes = () => useQuery({ queryKey: statisticsKeys.tokenTypes(), queryFn: fetchTokenTypeList, staleTime: 300000 });
+export const useStablecoinsOverview = (tokenType: string) => useQuery({ queryKey: statisticsKeys.overview(tokenType), queryFn: () => fetchStablecoinsOverview(tokenType), enabled: !!tokenType });
+export const useStablecoinList = (tokenTypeId: string) => useQuery({ queryKey: statisticsKeys.stablecoinList(tokenTypeId), queryFn: () => fetchStablecoinList(tokenTypeId), enabled: !!tokenTypeId, select: (d) => (Array.isArray(d) ? d : []).map(c => ({ value: c.stablecoinId, label: c.name + ' (' + c.blockchainNameAbbreviation + ') ', symbol: c.symbol })) });
+export const useTokenizedDepositsList = (tokenType: string, pageNum: number, pageSize = 10) => useQuery({ queryKey: statisticsKeys.tokenList(tokenType, pageNum), queryFn: () => fetchTokenizedDepositsList({ tokenType, pageNum, pageSize }), enabled: !!tokenType });
+export const useWalletQuantity = (tokenId: string, startTime: number, endTime: number) => useQuery({ queryKey: statisticsKeys.walletQuantity(tokenId, startTime, endTime), queryFn: () => fetchWalletQuantity({ tokenId, startTime, endTime }), enabled: !!tokenId && !!startTime && !!endTime });
+export const useSpTransaction = (tokenId: string, startTime: number, endTime: number) => useQuery({ queryKey: statisticsKeys.spTransaction(tokenId, startTime, endTime), queryFn: () => fetchSpTransaction({ tokenId, startTime, endTime }), enabled: !!tokenId && !!startTime && !!endTime });
+export const useAbcCount = (tokenId: string, startTime: number, endTime: number) => useQuery({ queryKey: statisticsKeys.abcCount(tokenId, startTime, endTime), queryFn: () => fetchAbcTransactionCount({ tokenId, startTime, endTime }), enabled: !!tokenId && !!startTime && !!endTime });
+export const useAbcVolume = (tokenId: string, startTime: number, endTime: number) => useQuery({ queryKey: statisticsKeys.abcVolume(tokenId, startTime, endTime), queryFn: () => fetchAbcTransactionVolume({ tokenId, startTime, endTime }), enabled: !!tokenId && !!startTime && !!endTime });
+export const useTdList = (tokenType: string) => useQuery({ queryKey: statisticsKeys.tdList(tokenType), queryFn: () => fetchTdList(tokenType), enabled: !!tokenType });

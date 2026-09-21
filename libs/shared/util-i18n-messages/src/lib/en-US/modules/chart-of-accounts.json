@@ -1,0 +1,109 @@
+{
+  "title": "Chart of Accounts",
+  "records": "Financial Books",
+  "empty": "No financial books",
+  "filter": {
+    "title": "Query",
+    "query": "Query",
+    "reset": "Reset",
+    "all": "All"
+  },
+  "field": {
+    "bookName": "Book Name",
+    "bookNo": "Book No",
+    "bookId": "Book ID",
+    "reserveAssetName": "Reserve Asset",
+    "currency": "Currency",
+    "tokenType": "Token Type",
+    "tokens": "Tokens",
+    "eodCutoffTime": "EOD Cutoff Time",
+    "lastEodPostingRun": "Last EOD Posting Run",
+    "status": "Status",
+    "actions": "Actions",
+    "createdOnFrom": "Created From",
+    "createdOnTo": "Created To",
+    "createdBy": "Created by",
+    "createdOn": "Created on"
+  },
+  "placeholder": {
+    "bookName": "Enter book name",
+    "bookNo": "Enter book no",
+    "reserveAssetName": "Enter reserve asset"
+  },
+  "tokenType": {
+    "1": "Stablecoin",
+    "5": "Tokenized Deposit"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "action": {
+    "edit": "Edit",
+    "viewStatements": "View Statements",
+    "detail": "Detail",
+    "back": "Back"
+  },
+  "tab": {
+    "basicInformation": "Basic Information",
+    "chartOfAccounts": "Chart of Accounts",
+    "eodStatements": "EOD Statements"
+  },
+  "detail": {
+    "basicInformationTitle": "Basic Information",
+    "financeBookId": "Finance Book ID",
+    "placeholderHint": "This section is being migrated. Full functionality will be available in a later release."
+  },
+  "common": {
+    "cancel": "Cancel", "save": "Save", "confirm": "Confirm", "close": "Close",
+    "edit": "Edit", "deactivate": "Deactivate", "activate": "Activate", "yes": "Yes", "no": "No"
+  },
+  "coa": {
+    "tabDescription": "Chart of accounts for {bookName}",
+    "tabAlert": "Drafts are saved locally and submitted on Save Draft.",
+    "saveDraft": "Save Draft",
+    "newPrimaryHint": "Create a new primary account under {accountType}.",
+    "subAccountAlert": "Adding a sub-account disables posting on the parent.",
+    "deactivateAlert": "Deactivating this account may affect child accounts.",
+    "activateAlert": "Activate this account and optionally its children.",
+    "recordLabel": "Account",
+    "subAccountsToDeactivate": "Sub-accounts to deactivate",
+    "enableChildAccounts": "Enable child accounts",
+    "comment": "Comment",
+    "accountType": "Account Type", "balanceSide": "Balance Side", "parentAccount": "Parent Account",
+    "accountCode": "Account Code", "accountName": "Account Name", "allowPosting": "Allow Posting",
+    "suspenseAccount": "Suspense Account", "description": "Description",
+    "assets": "Assets", "liabilities": "Liabilities", "asset": "Asset", "liability": "Liability",
+    "status": "Status", "statusActive": "Active", "statusInactive": "Inactive", "statusPending": "Pending Submit",
+    "actions": "Actions", "actionNewPrimary": "New Primary Account", "actionNewSub": "New Sub Account",
+    "codeRequired": "Account code is required", "code2Digit": "Must be a 2-digit number", "code4Digit": "Must be 4 digits",
+    "nameRequired": "Account name is required", "nameMax": "Up to 50 characters", "namePattern": "Letters, spaces and hyphens only",
+    "descriptionRequired": "Description is required",
+    "modalNewPrimary": "New Primary Account", "modalNewSub": "New Sub Account",
+    "modalEditPrimary": "Edit Primary Account", "modalEditSub": "Edit Sub Account", "modalDeactivate": "Deactivate Account",
+    "activateParentFirst": "Please activate the parent account first",
+    "duplicateCode": "Account code already exists", "duplicateName": "Account name already exists",
+    "invalidAccountType": "Account type is invalid", "toggleFailed": "Operation failed",
+    "saveSuccess": "Saved successfully", "saveFailed": "Save failed"
+  },
+  "eod": {
+    "tabDescription": "Reviewing historical end-of-day balances and reconciliation status.",
+    "eodDate": "EOD Date", "postingDate": "Posting Date", "totalAssets": "Total Assets",
+    "totalLiabilities": "Total Liabilities", "suspenseEntries": "Suspense Entries", "createdOn": "Created on",
+    "accountingStatus": "Accounting Status", "clearingStatus": "Clearing Status", "actions": "Actions",
+    "balanced": "Balanced", "unbalanced": "Unbalanced",
+    "clearingSettled": "Settled", "clearingSuspensed": "Suspensed", "clearingAdjusted": "Adjusted",
+    "clearingPending": "Pending", "clearingNone": "None",
+    "actionPostToSuspense": "Post to Suspense", "actionReview": "Review", "actionDetails": "Details",
+    "rangeFrom": "From", "rangeTo": "To", "closedBy": "Closed by",
+    "detailTitle": "EOD Balances", "date": "Date", "bookId": "Book ID", "processedBy": "Processed by",
+    "ofWhichSuspenseAssets": "of which suspense assets", "ofWhichSuspenseLiabilities": "of which suspense liabilities",
+    "voucherId": "Voucher ID", "drCr": "Dr/Cr", "account": "Account", "amount": "Amount", "transactionId": "Transaction ID",
+    "postToSuspenseTitle": "Post to Suspense",
+    "postToSuspenseWarning": "Manual force balancing is a high-risk operation and will trigger an immediate audit alert. Ensure all other reconciliation paths have been exhausted.",
+    "unbalancedAmount": "Unbalanced Amount", "proposedAdjustment": "Proposed Adjustment Entry",
+    "debitAccount": "Debit Account", "creditAccount": "Credit Account", "reason": "Reason",
+    "reviewSuspenseTitle": "Review Suspense Postings", "proposedSuspenseEntries": "Proposed Suspense Entries",
+    "suspenseTxnId": "Suspense Txn ID", "comments": "Comments", "commentsPlaceholder": "Enter comments"
+  }
+}
