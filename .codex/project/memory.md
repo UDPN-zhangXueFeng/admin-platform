@@ -1,5 +1,17 @@
 # Codex 对话沉淀
 
+## 2026-09-21 Gateway Management 实例详情页
+
+- Gateway 实例详情路由可沿用 `/onboard/instance/detail?id={instanceId}`：kissen-admin 动态路由按 `instance.detail` 解析，详情组件通过 `useSearchParams()` 读取 ID，与现有 bank/transaction detail 页面一致。
+- 列表复用 shared `DataTable`，每行提供直接 `Details` 按钮、状态操作保留在菜单；详情页有 Details / Heartbeat History 两个 Tab，心跳请求只在切入 Tab 后启用。
+- gateway-instance data-access 没有单实例详情 query/API；详情页复用 feature `row-stash.ts` 暂存行，同标签刷新可恢复。无暂存时从列表首 200 条回退查找；新会话下首 200 条以外的实例需后端详情接口，不猜接口路径或扫描全部分页。方案及边界见 `.doc/kissen/plan/10-网关实例详情与心跳历史改造方案.md`。
+- 验证：`npx nx lint modules-kissen-admin-feature`、`npx nx build kissen-admin` 均无错误；lint 仍报告 fx-rate/system-pages 中 8 个既有 warning。
+
+## 2026-09-21 Kissen Admin 开发登录预填
+
+- Kissen Admin 登录页在 development 环境读取 `NEXT_PUBLIC_DEV_LOGIN_NAME` / `NEXT_PUBLIC_DEV_LOGIN_PASSWORD` 作为表单默认值；`NEXT_PUBLIC_DISABLE_DEV_LOGIN_PREFILL` 只有精确为 `true` 时才禁用预填，未设置或 `false` 时保持启用。
+- 本地值放在 Git 忽略的 `apps/kissen-admin/.env.development.local`，模板放在 `apps/kissen-admin/.env.local.example`；生产环境不预填。
+
 ## 2026-09-21 Gateway Jenkins 新增 8082 环境
 
 - Jenkins 部署环境新增 `gateway-8082`，仅适用于 `kissen-gateway-portal`；后端为 `http://10.0.7.85:8082`，门户对外端口为 `6245`，与 `main` 的 `6244` 并存。

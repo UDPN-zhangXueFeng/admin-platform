@@ -2,39 +2,22 @@
 
 /**
  * Token 管理页 + 网关实例管理页（源 views/onboard/token/index.vue 与
- * views/onboard/instance/index.vue + heartbeat-drawer.vue，v2.0 新域）。
+ * views/onboard/instance/index.vue + heartbeat history，v2.0 新域）。
  *
  * 行为规格：
  * - token 页 6026e51（移除 csTokenCode 列）/ c3840b3（列序 + fmt2）/ 84676f8（精度口径）
  *   / 3499a7e（bank 下拉 bankBic）
- * - instance 页 7d338aa（verify 对 status=1 已登记可见）/ e13cd37 + c3840b3（心跳列 + 抽屉）
- *   / bfef639（货币系统 5 字段 + 系统名称/类型列 + 详情抽屉收编密钥指纹）
+ * - instance 页 7d338aa（verify 对 status=1 已登记可见）/ e13cd37 + c3840b3（心跳列 + 历史）
+ *   / bfef639（货币系统 5 字段 + 系统名称/类型列 + 详情收编密钥指纹）
  * - ElMessageBox prompt/confirm → Dialog+Input prompt / AlertDialog confirm；
  *   el-message → sonner toast（唯一出口）；时间 en-US 24h。
  */
 
 import * as React from 'react';
-import {
-  ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
+import { ColumnDef } from '@tanstack/react-table';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Copy,
-  Inbox,
-  Info,
-} from 'lucide-react';
-import type {
-  DataTablePagination,
-  TableRowAction,
-} from '@myorg/shared/ui';
+import { Copy, Info, MoreHorizontal } from 'lucide-react';
+import type { TableRowAction } from '@myorg/shared/ui';
 
 import {
   Alert,
@@ -50,9 +33,6 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   createActionColumn,
   DataTable,
   Dialog,
@@ -66,6 +46,10 @@ import {
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Label,
   PasswordField,
@@ -82,6 +66,7 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
+import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
   CS_TYPE_LABEL,
@@ -100,7 +85,6 @@ import {
   useBankListQuery,
   useInstanceDisableMutation,
   useInstanceEnableMutation,
-  useInstanceHeartbeatQuery,
   useInstanceListQuery,
   useInstanceRegisterMutation,
   useInstanceResetKeyMutation,
@@ -119,10 +103,11 @@ import {
   type TokenRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
+import { stashRow } from './row-stash';
+
 const STATUS_ALL = 'all';
 const PAGE_SIZE_DEFAULT = 10;
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
-const HEARTBEAT_PAGE_SIZE = 10;
 
 /* ================================================================== */
 /* 共用展示 helper                                                     */
@@ -198,13 +183,6 @@ function ConnectivityBadge({ status }: { status: number }) {
       {CONNECTIVITY_STATUS_LABEL[s] ?? 'Unknown'}
     </Badge>
   );
-}
-
-function HeartbeatResultBadge({ ok, detail }: { ok: number; detail?: string }) {
-  const isTimeout = ok === 2 || /timeout/i.test(detail ?? '');
-  if (ok === 1) return <Badge variant="default">Success</Badge>;
-  if (isTimeout) return <Badge variant="warning">Timeout</Badge>;
-  return <Badge variant="destructive">Failed</Badge>;
 }
 
 function InstanceStatusBadge({ status }: { status: number }) {
@@ -1134,19 +1112,6 @@ function instanceFormToFilter(form: InstanceFilterForm) {
   return filter;
 }
 
-/**
- * 货币系统整行展示（源 csText）：`区块链 · 类型 · 名称`，缺省 '-'。
- * 详情抽屉专用；列表「系统类型」见 instanceCsTypeText（bfef639 拆列口径）。
- */
-function instanceCsText(row: InstanceRow): string {
-  const type = CS_TYPE_LABEL[row.currencySystemType ?? 0] ?? 'Not specified';
-  return (
-    [row.blockchain || '', type, row.currencySystemName || '']
-      .filter(Boolean)
-      .join(' · ') || '--'
-  );
-}
-
 /** 列表「系统类型」（源 csTypeText）：类型=区块链时带链名 `类型·链`。 */
 function instanceCsTypeText(row: InstanceRow): string {
   const type = CS_TYPE_LABEL[row.currencySystemType ?? 0] ?? 'Not specified';
@@ -1156,567 +1121,10 @@ function instanceCsTypeText(row: InstanceRow): string {
   return type;
 }
 
-/** 心跳历史抽屉（源 heartbeat-drawer.vue；v-if 卸载式，打开即取第 1 页）。 */
-function HeartbeatDrawer({
-  instanceId,
-  instanceLabel,
-  onClose,
-}: {
-  instanceId: number;
-  instanceLabel: string;
-  onClose: () => void;
-}) {
-  const [page, setPage] = React.useState(1);
-  const { data, isLoading } = useInstanceHeartbeatQuery(
-    KISSEN_PROJECT_ID,
-    instanceId,
-    page,
-    HEARTBEAT_PAGE_SIZE,
-  );
-  const rows = data?.rows ?? [];
-  const total = data?.total ?? 0;
-
-  const columns = React.useMemo<ColumnDef<HeartbeatRowWithId>[]>(() => {
-    return [
-      {
-        accessorKey: 'probeTime',
-        header: 'Time',
-        cell: ({ row }) => <span>{formatTime(row.original.probeTime)}</span>,
-      },
-      {
-        accessorKey: 'ok',
-        header: 'Result',
-        cell: ({ row }) => (
-          <HeartbeatResultBadge
-            ok={row.original.ok}
-            detail={row.original.detail}
-          />
-        ),
-      },
-      {
-        accessorKey: 'mode',
-        header: 'Mode',
-        cell: ({ row }) => (
-          <span>
-            {row.original.mode === 'SIGNED'
-              ? 'Signed probe'
-              : row.original.mode === 'BARE'
-                ? 'Bare probe'
-                : '--'}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'latencyMs',
-        header: 'Latency',
-        cell: ({ row }) => (
-          <span className="block text-right font-mono tabular-nums">
-            {row.original.latencyMs}ms
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'detail',
-        header: 'Detail',
-        cell: ({ row }) => <span>{row.original.detail || '--'}</span>,
-      },
-    ];
-  }, []);
-
-  const tableData = React.useMemo(
-    () => rows.map((r) => ({ ...r, id: String(r.logId) })),
-    [rows],
-  );
-
-  return (
-    <Drawer open onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="w-full max-w-none sm:w-[720px]">
-        <DrawerHeader>
-          <DrawerTitle>Heartbeat History</DrawerTitle>
-          <DrawerDescription className="font-mono">{instanceLabel}</DrawerDescription>
-        </DrawerHeader>
-        {/* DataTable 自带容器边框：不再包 panel，仅补抽屉内边距（§6.3 快速核对） */}
-        <div className="mt-2 overflow-auto px-4 pb-4">
-          {/* 源分页 layout 无 sizes → 不传 onPageSizeChange，页大小固定 10。 */}
-          <DataTable
-            columns={columns}
-            data={tableData}
-            isLoading={isLoading}
-            emptyMessage="No data"
-            pagination={{
-              page,
-              pageSize: HEARTBEAT_PAGE_SIZE,
-              total,
-              onPageChange: setPage,
-            }}
-          />
-        </div>
-      </DrawerContent>
-    </Drawer>
-  );
-}
-
-type HeartbeatRowWithId = { id: string } & {
-  logId: number;
-  ok: number;
-  mode: string;
-  latencyMs: number;
-  detail: string;
-  probeTime: number;
-};
-
-const INSTANCE_TABLE_HEADER_BACKGROUND =
-  'color-mix(in srgb, hsl(var(--primary)) 6%, hsl(var(--background)))';
-const INSTANCE_TABLE_COLUMN_WIDTHS: Record<string, number> = {
-  lastHeartbeatTime: 300,
-  actions: 144,
-};
-
 type GatewayInstanceListRow = InstanceRow & { id: string };
 
-/**
- * The shared DataTable has no expanded-row slot. Keep this table local to the
- * gateway-instance page so Radix Collapsible can render its content as a
- * sibling table row without changing the shared table API.
- */
-function GatewayInstanceDataTable({
-  columns,
-  data,
-  isLoading,
-  pagination,
-  expandedInstanceId,
-  onExpandedChange,
-}: {
-  columns: ColumnDef<GatewayInstanceListRow, unknown>[];
-  data: GatewayInstanceListRow[];
-  isLoading: boolean;
-  pagination?: DataTablePagination;
-  expandedInstanceId: string | null;
-  onExpandedChange: (row: GatewayInstanceListRow, open: boolean) => void;
-}) {
-  const pageCount = pagination
-    ? Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
-    : 1;
-  const table = useReactTable({
-    data,
-    columns,
-    state: pagination
-      ? {
-          pagination: {
-            pageIndex: Math.max(0, pagination.page - 1),
-            pageSize: pagination.pageSize,
-          },
-        }
-      : {},
-    pageCount,
-    manualPagination: Boolean(pagination),
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: pagination ? getPaginationRowModel() : undefined,
-  });
-  const rows = table.getRowModel().rows;
-  const totalPages = pageCount;
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="overflow-hidden rounded-md border border-border/50 bg-card">
-        <table className="w-full table-fixed caption-bottom bg-card text-sm text-card-foreground">
-          <thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    scope="col"
-                    style={{
-                      backgroundColor: INSTANCE_TABLE_HEADER_BACKGROUND,
-                      width: INSTANCE_TABLE_COLUMN_WIDTHS[header.column.id],
-                    }}
-                    className="h-[60px] whitespace-normal break-words border-b border-border/50 px-4 py-0 text-left align-middle font-medium text-muted-foreground"
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          {isLoading ? (
-            <tbody className="divide-y divide-border/50">
-              {Array.from({ length: pagination?.pageSize ?? 5 }).map(
-                (_, rowIndex) => (
-                  <tr key={`skeleton-${rowIndex}`}>
-                    {columns.map((_, columnIndex) => (
-                      <td key={columnIndex} className="h-[60px] px-4 py-0">
-                        <div
-                          className={`h-4 motion-safe:animate-pulse rounded bg-muted ${
-                            columnIndex === 0 ? 'w-32' : 'w-24'
-                          }`}
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ),
-              )}
-            </tbody>
-          ) : rows.length === 0 ? (
-            <tbody>
-              <tr>
-                <td colSpan={columns.length} className="px-4 py-10">
-                  <div className="flex flex-col items-center justify-center gap-2 text-center">
-                    <Inbox
-                      className="h-9 w-9 text-muted-foreground/40"
-                      strokeWidth={1.5}
-                      aria-hidden="true"
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      No gateway instances registered
-                    </p>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          ) : (
-            rows.map((row) => {
-              const instanceId = row.original.id;
-              const isExpanded = expandedInstanceId === instanceId;
-
-              return (
-                <Collapsible
-                  key={row.id}
-                  asChild
-                  open={isExpanded}
-                  onOpenChange={(open) => onExpandedChange(row.original, open)}
-                >
-                  <tbody className="divide-y divide-border/50 border-b border-border/50 last:border-0">
-                    <tr
-                      className={`group motion-safe:transition-colors ${
-                        isExpanded
-                          ? 'bg-primary/[0.04]'
-                          : 'hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_4%,hsl(var(--background)))]'
-                      }`}
-                    >
-                      {row.getVisibleCells().map((cell, cellIndex) => {
-                        const meta = cell.column.columnDef.meta;
-                        const content = flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        );
-                        const value = cell.getValue();
-                        const title =
-                          typeof value === 'string' || typeof value === 'number'
-                            ? String(value)
-                            : undefined;
-                        const cellContent =
-                          cell.column.id === 'actions' ||
-                          meta?.overflow === 'none' ? (
-                            content
-                          ) : meta?.overflow === 'wrap' ? (
-                            <div
-                              className="whitespace-normal break-words"
-                              style={{ maxWidth: meta.maxWidth ?? 360 }}
-                            >
-                              {content}
-                            </div>
-                          ) : (
-                            <div
-                              className="truncate"
-                              title={title}
-                              style={{ maxWidth: meta?.maxWidth ?? 240 }}
-                            >
-                              {content}
-                            </div>
-                          );
-
-                        return (
-                          <td
-                            key={cell.id}
-                            style={{
-                              width: INSTANCE_TABLE_COLUMN_WIDTHS[cell.column.id],
-                            }}
-                            className={`h-[60px] px-4 py-0 align-middle text-[13px] ${
-                              cellIndex === 0 && cell.column.id !== 'actions'
-                                ? 'font-medium'
-                                : ''
-                            }`}
-                          >
-                            {cellIndex === 0 && cell.column.id !== 'actions' ? (
-                              <div className="flex min-w-0 items-center gap-2">
-                                <CollapsibleTrigger asChild>
-                                  <button
-                                    type="button"
-                                    aria-label={`${isExpanded ? 'Collapse' : 'Expand'} details for ${row.original.instanceCode || row.original.instanceName || instanceId}`}
-                                    className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                                  >
-                                    <ChevronRight
-                                      className={`size-4 transition-transform ${
-                                        isExpanded ? 'rotate-90' : ''
-                                      }`}
-                                      aria-hidden="true"
-                                    />
-                                  </button>
-                                </CollapsibleTrigger>
-                                <div className="min-w-0">{cellContent}</div>
-                              </div>
-                            ) : (
-                              cellContent
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                    <CollapsibleContent
-                      asChild
-                      className="overflow-visible data-[state=closed]:animate-none data-[state=open]:animate-none"
-                    >
-                      <tr className="border-t border-border/50">
-                        <td
-                          colSpan={row.getVisibleCells().length}
-                          className="p-0"
-                        >
-                          <InstanceDetailPanel row={row.original} />
-                        </td>
-                      </tr>
-                    </CollapsibleContent>
-                  </tbody>
-                </Collapsible>
-              );
-            })
-          )}
-        </table>
-      </div>
-      {pagination ? (
-        <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-4">
-          {!pagination.onPageSizeChange ? (
-            <div className="mr-auto text-xs tabular-nums text-muted-foreground">
-              Page {pagination.page} of {totalPages}
-            </div>
-          ) : null}
-          <div className="flex shrink-0 items-center gap-1.5">
-            {pagination.onPageSizeChange ? (
-              <Select
-                value={String(pagination.pageSize)}
-                onValueChange={(value) =>
-                  pagination.onPageSizeChange?.(Number(value))
-                }
-              >
-                <SelectTrigger
-                  className="h-8 w-[110px]"
-                  aria-label="Rows per page"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(pagination.pageSizeOptions ?? [10, 20, 50]).map((size) => (
-                    <SelectItem key={size} value={String(size)}>
-                      {size} / page
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : null}
-            <InstancePaginationButton
-              aria-label="First page"
-              disabled={pagination.page <= 1}
-              onClick={() => pagination.onPageChange(1)}
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </InstancePaginationButton>
-            <InstancePaginationButton
-              aria-label="Previous page"
-              disabled={pagination.page <= 1}
-              onClick={() => pagination.onPageChange(pagination.page - 1)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </InstancePaginationButton>
-            <InstancePaginationButton
-              aria-label="Next page"
-              disabled={pagination.page >= totalPages}
-              onClick={() => pagination.onPageChange(pagination.page + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </InstancePaginationButton>
-            <InstancePaginationButton
-              aria-label="Last page"
-              disabled={pagination.page >= totalPages}
-              onClick={() => pagination.onPageChange(totalPages)}
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </InstancePaginationButton>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function InstancePaginationButton({
-  children,
-  disabled,
-  onClick,
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-        disabled ? 'pointer-events-none opacity-50' : ''
-      }`}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** 连通性状态 → 拓补线 / 圆点的语义色（成功/失败/未知三态）。 */
-function connectivityTone(status: number | null | undefined): {
-  dot: string;
-  line: string;
-  text: string;
-} {
-  if (status === 1) return { dot: 'bg-success', line: 'bg-success/40', text: 'text-success' };
-  if (status === 0)
-    return { dot: 'bg-destructive', line: 'bg-destructive/30', text: 'text-destructive' };
-  return { dot: 'bg-muted-foreground/50', line: 'bg-border', text: 'text-muted-foreground' };
-}
-
-/** 拓补节点：Bank → Instance → Currency System，标签在上、值在下，占位保持三栏等宽。 */
-function InstanceTopologyNode({
-  label,
-  value,
-  sub,
-  align = 'center',
-}: {
-  label: string;
-  value: React.ReactNode;
-  sub?: React.ReactNode;
-  align?: 'start' | 'center' | 'end';
-}) {
-  const alignClass =
-    align === 'start' ? 'items-start text-left' : align === 'end' ? 'items-end text-right' : 'items-center text-center';
-  return (
-    <div className={`flex min-w-0 flex-1 flex-col gap-1 ${alignClass}`}>
-      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      <span className="max-w-full truncate text-sm font-semibold text-foreground">{value}</span>
-      {sub ? (
-        <span className="max-w-full truncate font-mono text-[11px] text-muted-foreground">
-          {sub}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-/** 拓补连线：中点圆点承载连通性语义色，线段两端渐隐。 */
-function InstanceTopologyLink({ tone }: { tone: ReturnType<typeof connectivityTone> }) {
-  return (
-    <div className="flex w-10 flex-none items-center justify-center self-center sm:w-16">
-      <div className="relative h-px w-full">
-        <div className={`absolute inset-0 rounded-full ${tone.line}`} aria-hidden="true" />
-        <span
-          className={`absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${tone.dot}`}
-          aria-hidden="true"
-        />
-      </div>
-    </div>
-  );
-}
-
-/** 只读账本行：等宽字体 + 前导虚线，营造终端 readout 感，而非表单标签样式。 */
-function InstanceLedgerRow({
-  label,
-  children,
-  muted = false,
-}: {
-  label: string;
-  children: React.ReactNode;
-  muted?: boolean;
-}) {
-  return (
-    <div className="flex items-baseline gap-2 py-1">
-      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
-      <span className="min-w-[12px] flex-1 border-b border-dotted border-border/70" aria-hidden="true" />
-      <span
-        className={`shrink-0 truncate font-mono text-xs ${
-          muted ? 'text-muted-foreground italic' : 'text-foreground'
-        }`}
-      >
-        {children}
-      </span>
-    </div>
-  );
-}
-
-function InstanceDetailPanel({ row }: { row: InstanceRow }) {
-  const tone = connectivityTone(row.connectivityStatus);
-
-  return (
-    <div className="border-t border-border/60 bg-muted/10 px-4 py-5 sm:px-8 sm:py-6">
-      {/* 拓补条：一眼看清 Bank ↔ Instance ↔ Currency System 的连接路径与实时连通性。 */}
-      <div className="flex items-stretch gap-1 sm:gap-2">
-        <InstanceTopologyNode
-          label="Bank"
-          value={row.bankName || '--'}
-          sub={row.bankBic}
-          align="start"
-        />
-        <InstanceTopologyLink tone={tone} />
-        <InstanceTopologyNode
-          label="Instance"
-          value={row.instanceName || row.instanceCode || '--'}
-          sub={row.endpointUrl}
-        />
-        <InstanceTopologyLink tone={tone} />
-        <InstanceTopologyNode
-          label="Currency System"
-          value={instanceCsText(row)}
-          sub={row.currencySystemUrl}
-          align="end"
-        />
-      </div>
-
-      {/* 账本区：密钥指纹（安全）与时间线（活动）分列，等宽字体强化「只读记录」质感。 */}
-      <div className="mt-5 grid gap-x-8 gap-y-4 border-t border-border/50 pt-4 sm:grid-cols-2">
-        <div>
-          <h4 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Security
-          </h4>
-          <InstanceLedgerRow label="Upstream key" muted={!row.upKeyFingerprint}>
-            {row.upKeyFingerprint || 'not pushed'}
-          </InstanceLedgerRow>
-          <InstanceLedgerRow label="Downstream key" muted={!row.downKeyFingerprint}>
-            {row.downKeyFingerprint || 'not generated'}
-          </InstanceLedgerRow>
-        </div>
-        <div>
-          <h4 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Timeline
-          </h4>
-          <InstanceLedgerRow label="Last heartbeat">
-            {formatTime(row.lastHeartbeatTime)}
-          </InstanceLedgerRow>
-          <InstanceLedgerRow label="Registered at">{formatTime(row.createTime)}</InstanceLedgerRow>
-        </div>
-      </div>
-
-      {row.currencySystemDesc ? (
-        <p className="mt-4 border-t border-border/50 pt-3 text-xs leading-5 text-muted-foreground">
-          {row.currencySystemDesc}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 export function GatewayInstanceListPage() {
+  const router = useRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = React.useState<InstanceFilterForm>(
@@ -1747,9 +1155,6 @@ export function GatewayInstanceListPage() {
 
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
-  const [expandedInstanceId, setExpandedInstanceId] = React.useState<
-    string | null
-  >(null);
 
   const refresh = React.useCallback(() => {
     void queryClient.invalidateQueries({
@@ -1759,7 +1164,6 @@ export function GatewayInstanceListPage() {
 
   // 源语义：查询/重置回第 1 页；size-change 也回第 1 页。
   const onSearch = React.useCallback(() => {
-    setExpandedInstanceId(null);
     setReq((prev) => ({
       ...prev,
       pageNum: 1,
@@ -1768,7 +1172,6 @@ export function GatewayInstanceListPage() {
   }, [form]);
 
   const onReset = React.useCallback(() => {
-    setExpandedInstanceId(null);
     setForm(EMPTY_INSTANCE_FILTER);
     setReq((prev) => ({
       ...prev,
@@ -1780,9 +1183,6 @@ export function GatewayInstanceListPage() {
   // 弹窗状态。
   const [confirmRequest, setConfirmRequest] =
     React.useState<ConfirmRequest | null>(null);
-  const [heartbeatRow, setHeartbeatRow] = React.useState<InstanceRow | null>(
-    null,
-  );
   const [registerOpen, setRegisterOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   // currencySystemType 用 string 态便于 Select ���定（提交时转 number；默认 0 未填）。
@@ -1935,11 +1335,8 @@ export function GatewayInstanceListPage() {
     [disableMutation, enableMutation, refresh, toast],
   );
 
-  // 列表保留银行/系统名称/系统类型/连通性/状态/最近心跳；
-  // 实例编码、名称、接入地址及密钥指纹在行内详情展示。
-  const columns = React.useMemo<
-    ColumnDef<InstanceRow & { id: string }>[]
-  >(() => {
+  // 列表保留概要字段；实例标识及完整配置从独立详情页查看。
+  const columns = React.useMemo<ColumnDef<GatewayInstanceListRow>[]>(() => {
     return [
       {
         id: 'bank',
@@ -1985,44 +1382,89 @@ export function GatewayInstanceListPage() {
           </span>
         ),
       },
-      // 源操作列 width=360（详情展开由首列箭头处理，其余动作收纳进菜单）。
-      createActionColumn<InstanceRow & { id: string }>((item) => {
-        const actions: TableRowAction<InstanceRow & { id: string }>[] = [];
-        // 7d338aa：verify 对 status=1（已登记未验证）同样可见，仅 10 会漏已登记态。
-        if (item.status === 1 || item.status === 10) {
-          actions.push({
-            label: 'Verify & Activate',
-            onClick: () => onVerify(item),
-          });
-        }
-        if (item.status === 20) {
-          actions.push(
-            { label: 'Reset Downstream Key', onClick: () => onResetKey(item) },
-            // 心跳历史入口不限状态（所有行可见）。
-            {
-              label: 'Heartbeat History',
-              onClick: () => setHeartbeatRow(item),
-            },
-            {
-              label: 'Disable',
-              destructive: true,
-              onClick: () => onToggle(item, true),
-            },
+      {
+        id: 'actions',
+        header: 'Actions',
+        enableSorting: false,
+        meta: { overflow: 'none', stickyRight: true },
+        cell: ({ row }) => {
+          const item = row.original;
+          const actions: TableRowAction<GatewayInstanceListRow>[] = [];
+          // 7d338aa：verify 对 status=1（已登记未验证）同样可见，仅 10 会漏已登记态。
+          if (item.status === 1 || item.status === 10) {
+            actions.push({
+              label: 'Verify & Activate',
+              onClick: () => onVerify(item),
+            });
+          }
+          if (item.status === 20) {
+            actions.push(
+              { label: 'Reset Downstream Key', onClick: () => onResetKey(item) },
+              {
+                label: 'Disable',
+                destructive: true,
+                onClick: () => onToggle(item, true),
+              },
+            );
+          }
+          if (item.status === 50) {
+            actions.push({
+              label: 'Enable',
+              onClick: () => onToggle(item, false),
+            });
+          }
+
+          return (
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => {
+                  stashRow('gateway-instance', item.instanceId, item);
+                  router.push(
+                    `/onboard/instance/detail?id=${item.instanceId}`,
+                  );
+                }}
+              >
+                Details
+              </Button>
+              {actions.length > 0 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label={`Actions for ${item.instanceCode || item.instanceId}`}
+                    >
+                      <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {actions.map((action) => (
+                      <DropdownMenuItem
+                        key={action.label}
+                        disabled={action.disabled}
+                        className={
+                          action.destructive
+                            ? 'text-destructive focus:text-destructive'
+                            : undefined
+                        }
+                        onClick={() => action.onClick(item)}
+                      >
+                        {action.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
           );
-        }
-        if (item.status === 50) {
-          actions.push(
-            {
-              label: 'Heartbeat History',
-              onClick: () => setHeartbeatRow(item),
-            },
-            { label: 'Enable', onClick: () => onToggle(item, false) },
-          );
-        }
-        return actions;
-      }),
+        },
+      },
     ];
-  }, [onVerify, onResetKey, onToggle]);
+  }, [onResetKey, onToggle, onVerify, router]);
 
   const tableData = React.useMemo(
     () => rows.map((r) => ({ ...r, id: String(r.instanceId) })),
@@ -2122,26 +1564,20 @@ export function GatewayInstanceListPage() {
           </div>
         </form>
         <div className="p-4">
-          <GatewayInstanceDataTable
+          <DataTable
             columns={columns}
             data={tableData}
             isLoading={isLoading}
-            expandedInstanceId={expandedInstanceId}
-            onExpandedChange={(row, open) =>
-              setExpandedInstanceId(open ? row.id : null)
-            }
+            emptyMessage="No gateway instances registered"
             pagination={
               paginationMeta
                 ? {
                     page: paginationMeta.page,
                     pageSize: paginationMeta.pageSize,
                     total: paginationMeta.total,
-                    onPageChange: (page) => {
-                      setExpandedInstanceId(null);
-                      setReq((prev) => ({ ...prev, pageNum: page }));
-                    },
+                    onPageChange: (page) =>
+                      setReq((prev) => ({ ...prev, pageNum: page })),
                     onPageSizeChange: (n) => {
-                      setExpandedInstanceId(null);
                       // 源 size-change → onSearch（回第 1 页）。
                       setReq((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
                     },
@@ -2314,16 +1750,6 @@ export function GatewayInstanceListPage() {
         request={confirmRequest}
         onClose={() => setConfirmRequest(null)}
       />
-      {/* 源 v-if 卸载式：条件渲染，关闭即卸载（非 keep-alive）。 */}
-      {heartbeatRow ? (
-        <HeartbeatDrawer
-          instanceId={heartbeatRow.instanceId}
-          instanceLabel={
-            heartbeatRow.instanceCode || String(heartbeatRow.instanceId)
-          }
-          onClose={() => setHeartbeatRow(null)}
-        />
-      ) : null}
     </div>
   );
 }

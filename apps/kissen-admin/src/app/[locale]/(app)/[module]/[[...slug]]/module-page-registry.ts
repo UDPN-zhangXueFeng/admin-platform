@@ -68,6 +68,7 @@ const pages: Record<string, Record<string, PageLoader>> = {
 
   instance: {
     list: loader((m) => m.GatewayInstanceListPage),
+    detail: loader((m) => m.GatewayInstanceDetailPage),
   },
 
   token: {

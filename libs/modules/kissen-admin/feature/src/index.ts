@@ -2,6 +2,7 @@ export * from './lib/change-password-dialog';
 export * from './lib/dashboard-page';
 export * from './lib/bank-onboard-pages';
 export * from './lib/token-manage-pages';
+export * from './lib/gateway-instance-detail-page';
 export * from './lib/lp-liquidity-pages';
 export * from './lib/fx-rate-pages';
 export * from './lib/transaction-pages';
