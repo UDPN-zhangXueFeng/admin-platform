@@ -63,7 +63,7 @@ export default function LoginRoute() {
       password: string;
       lpCode?: string;
     }) => {
-      // 源 D1：lpCode 提交前 trim().toUpperCase()（输入框 uppercase 仅视觉）。
+      // 源 D1：lpCode 提交前 trim().toUpperCase()，输入框保留用户输入大小写。
       const payload = {
         lpCode: (credentials.lpCode ?? '').trim().toUpperCase(),
         loginName: credentials.loginName,
@@ -264,7 +264,8 @@ export default function LoginRoute() {
                       name="lpCode"
                       placeholder="Enter your LP code"
                       autoComplete="off"
-                      className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-10 uppercase shadow-none placeholder:text-slate-400 focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-[var(--brand-accent,#2DD4BF)] sm:h-12"
+                      autoCapitalize="none"
+                      className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-10 shadow-none placeholder:text-slate-400 focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-[var(--brand-accent,#2DD4BF)] sm:h-12"
                       required
                     />
                   </div>

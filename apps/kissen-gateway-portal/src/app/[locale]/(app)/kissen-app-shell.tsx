@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { KeyRound } from 'lucide-react';
 
@@ -345,46 +346,82 @@ export function KissenAppShell({
     isHydrated && !locked && sessionMenuKeys.has(KEY_MANAGE_PERM);
 
   return (
-    <AppShell
-      config={filteredConfig}
-      onChangePassword={() => setPwdOpen(true)}
-      onLogout={handleLogout}
-      onBrandClick={handleBrandClick}
-      hideManageAccount
-      hideProjectName
-      compactHeader
-      themedContentSurface
-      persistKey="bankgw.nav.collapsed"
-      sidebarWidths={{
-        expanded: 'w-[300px] min-[1600px]:w-[320px]',
-        collapsed: 'w-[68px] min-[1600px]:w-[68px]',
-      }}
-      logo={
-        <LogoMark
-          className="h-10 w-[min(420px,calc(100vw-10rem))] max-w-full min-w-0"
-          productName={brand.headerName}
-        />
-      }
-      trailing={
-        <>
-          <ThemeSwitcher themes={config.theme.themes} />
-          {showKeyEntry ? (
-            <button
-              type="button"
-              aria-label="Instance keys"
-              title="Instance keys"
-              onClick={() => setKeyDrawerOpen(true)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white/85 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <KeyRound className="h-[17px] w-[17px]" aria-hidden="true" />
-            </button>
-          ) : null}
-        </>
-      }
-    >
-      {children}
-      <ChangePasswordDialog open={pwdOpen} onOpenChange={setPwdOpen} />
-      <InstanceKeyDrawer open={keyDrawerOpen} onOpenChange={setKeyDrawerOpen} />
-    </AppShell>
+    <>
+      <AppShell
+        config={filteredConfig}
+        onChangePassword={() => setPwdOpen(true)}
+        onLogout={handleLogout}
+        onBrandClick={handleBrandClick}
+        hideManageAccount
+        hideProjectName
+        compactHeader
+        themedContentSurface
+        persistKey="bankgw.nav.collapsed"
+        sidebarWidths={{
+          expanded: 'w-[300px] min-[1600px]:w-[320px]',
+          collapsed: 'w-[68px] min-[1600px]:w-[68px]',
+        }}
+        logo={
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-[60px] w-[160px] shrink-0 items-center justify-center">
+              <span
+                role="img"
+                aria-label={brand.name}
+                className="text-2xl leading-none"
+              >
+                {brand.logo}
+              </span>
+            </span>
+            <span className="truncate text-sm font-semibold tracking-tight text-white sm:text-base">
+              {brand.name}
+            </span>
+          </div>
+        }
+        trailing={
+          <>
+            <ThemeSwitcher themes={config.theme.themes} />
+            {showKeyEntry ? (
+              <button
+                type="button"
+                aria-label="Instance keys"
+                title="Instance keys"
+                onClick={() => setKeyDrawerOpen(true)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white/85 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <KeyRound className="h-[17px] w-[17px]" aria-hidden="true" />
+              </button>
+            ) : null}
+          </>
+        }
+      >
+        {children}
+        <ChangePasswordDialog open={pwdOpen} onOpenChange={setPwdOpen} />
+        <InstanceKeyDrawer open={keyDrawerOpen} onOpenChange={setKeyDrawerOpen} />
+      </AppShell>
+      <SidebarBrandFooter />
+    </>
+  );
+}
+
+/** Place the UDPN wordmark after the sidebar navigation so it stays at the bottom. */
+function SidebarBrandFooter() {
+  const [sidebar, setSidebar] = React.useState<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    const element = document.querySelector<HTMLElement>(
+      'aside[aria-label="Main navigation"]',
+    );
+    if (!element) return;
+
+    setSidebar(element);
+  }, []);
+
+  if (!sidebar) return null;
+
+  return createPortal(
+    <div className="flex h-14 shrink-0 items-center justify-end pr-2">
+      <LogoMark />
+    </div>,
+    sidebar,
   );
 }

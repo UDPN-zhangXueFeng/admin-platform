@@ -292,7 +292,6 @@
   "modules": {
     "enabled": [
       "dashboard",
-      "token",
       "pool",
       "pair",
       "tx-flow",
@@ -306,13 +305,6 @@
         "icon": "LayoutDashboard",
         "label": "Dashboard",
         "path": "/dashboard",
-        "group": ""
-      },
-      {
-        "id": "token",
-        "icon": "Coins",
-        "label": "Bank Token Directory",
-        "path": "/token",
         "group": ""
       },
       {

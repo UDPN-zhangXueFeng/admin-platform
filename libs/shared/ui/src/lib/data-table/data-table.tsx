@@ -353,8 +353,8 @@ export function DataTable<TData extends { id: string }>({
                 value={String(pagination.pageSize)}
                 onValueChange={(v) => pagination.onPageSizeChange?.(Number(v))}
               >
-                <SelectTrigger className="h-8 w-[110px]" aria-label="Rows per page">
-                  <SelectValue />
+                <SelectTrigger className="h-8 w-32 shrink-0" aria-label="Rows per page">
+                  <SelectValue className="whitespace-nowrap" />
                 </SelectTrigger>
                 <SelectContent>
                   {(pagination.pageSizeOptions ?? [10, 20, 50]).map((size) => (

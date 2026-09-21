@@ -279,7 +279,7 @@ function CollapsibleNavItem({
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
-            : 'text-muted-foreground hover:bg-primary/5 hover:text-accent-foreground',
+            : 'text-foreground/80 hover:bg-primary/5 hover:text-accent-foreground',
         )}
       >
         {isActive && <SidebarActiveBackdrop />}
@@ -295,7 +295,7 @@ function CollapsibleNavItem({
         <ChevronRight
           className={cn(
             'relative z-10 h-4 w-4 shrink-0 motion-safe:transition-transform motion-safe:duration-200',
-            isActive ? 'text-primary-foreground' : 'text-muted-foreground',
+            isActive ? 'text-primary-foreground' : 'text-foreground/80',
             isExpanded && 'rotate-90'
           )}
           aria-hidden="true"
@@ -354,7 +354,7 @@ function CollapsedParentItem({
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
-            : 'text-muted-foreground hover:bg-primary/5 hover:text-accent-foreground',
+            : 'text-foreground/80 hover:bg-primary/5 hover:text-accent-foreground',
         )}
       >
         {isActive && <SidebarActiveBackdrop />}

@@ -154,23 +154,15 @@ export default function LoginRoute() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,color-mix(in_srgb,var(--brand-accent,#2DD4BF)_30%,transparent),transparent_34%),linear-gradient(145deg,var(--login-grad-c,#0B5670)_0%,var(--brand-deep,#0B1F3A)_62%)]" />
           <div className="absolute inset-0 opacity-[0.12] [background-image:linear-gradient(rgba(255,255,255,0.35)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.35)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:linear-gradient(to_bottom,black,transparent_78%)]" />
           <div className="relative z-10 flex h-full w-full flex-1 flex-col px-8 py-8 sm:px-12 lg:px-14 xl:px-20">
-            <div
-              className="flex items-center justify-between"
-              aria-label="UDPN Kissen Gateway"
-            >
+            <div className="flex items-center justify-between" aria-label={brand.name}>
               <div className="flex items-center gap-3">
                 <div
-                  className="text-4xl font-black leading-none tracking-[-0.08em]"
-                  aria-label="UDPN"
-                  role="img"
+                  className="flex shrink-0 items-center justify-center rounded-2xl text-2xl shadow-sm"
                 >
-                  <span className="text-white">u</span>
-                  <span className="italic text-[var(--brand-accent,#2DD4BF)]">
-                    dp
+                  <span role="img" aria-label={brand.name}>
+                    {brand.logo}
                   </span>
-                  <span className="text-white">n</span>
                 </div>
-                <span className="h-9 w-px bg-white/20" aria-hidden="true" />
                 <div>
                   <p className="text-sm font-semibold tracking-tight text-white">
                     {brand.name}
@@ -214,7 +206,7 @@ export default function LoginRoute() {
             <div className="mb-9">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-deep,#0B1F3A)] text-2xl shadow-sm">
+                  <div className="flex shrink-0 items-center justify-center rounded-2xl text-2xl shadow-sm">
                     <span role="img" aria-label={brand.name}>
                       {brand.logo}
                     </span>
