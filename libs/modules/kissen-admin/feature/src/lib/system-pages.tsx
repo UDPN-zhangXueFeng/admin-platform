@@ -2905,7 +2905,7 @@ function OperateLogDetailDialog({
             <DetailField label="Method">{row?.method || '--'}</DetailField>
           </div>
           <div className="md:col-span-2">
-            <DetailField label="URL">
+            <DetailField label="Request URL">
               <span className="block break-all font-mono text-xs">
                 {row?.operateUrl || '--'}
               </span>
@@ -2913,7 +2913,7 @@ function OperateLogDetailDialog({
           </div>
           <DetailField label="IP">{row?.operateIp || '--'}</DetailField>
           <DetailField label="Duration">
-            {row ? `${row.costTime}ms` : '--'}
+            {row ? `${row.costTime} ms` : '--'}
           </DetailField>
           <div className="md:col-span-2">
             <DetailField label="Parameters">
@@ -2996,7 +2996,7 @@ export function OperateLogListPage() {
       header: 'Duration',
       cell: ({ row }) => (
         <div className="text-right font-mono tabular-nums">
-          {row.original.costTime}ms
+          {row.original.costTime} ms
         </div>
       ),
     },
@@ -3016,7 +3016,7 @@ export function OperateLogListPage() {
     },
     {
       accessorKey: 'traceId',
-      header: 'TraceId',
+      header: 'Trace ID',
       cell: ({ row }) => (
         <span className="font-mono text-xs">{row.original.traceId || '-'}</span>
       ),

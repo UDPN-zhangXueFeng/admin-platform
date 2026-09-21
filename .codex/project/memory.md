@@ -5,6 +5,23 @@
 - Jenkins 部署环境新增 `gateway-8082`，仅适用于 `kissen-gateway-portal`；后端为 `http://10.0.7.85:8082`，门户对外端口为 `6245`，与 `main` 的 `6244` 并存。
 - 配置通过 `getAppConfig(projectName, environmentName)` 选择；该环境使用独立 Compose 项目名，避免容器名冲突。此次只更新流水线配置，未触发 Jenkins 部署。
 
+## 2026-09-21 DataTable 页大小选项换行
+
+- Kissen Admin 银行列表的 `10 / page` 分成两行，根因在共享 `DataTable` 分页触发器：`110px` 宽度配合下拉箭头和间距后，标签可用宽度不足且允许换行。修复为 `w-32 shrink-0`，并给 `SelectValue` 加 `whitespace-nowrap`。
+- 排查类似列表布局问题时，先确认页面实际使用的组件；页面内容和分页来自不同层时，改页面本身的文案不会影响共享分页器。
+
+## 2026-09-21 LP Code 大小写输入
+
+- LP 登录输入框保留用户输入大小写显示，并用 `autoCapitalize="none"` 避免移动键盘自动大写；提交时仍 `trim().toUpperCase()`，保持 LP code 的既有规范化语义。
+
+## 2026-09-21 LP Token 菜单隐藏
+
+- LP 侧栏优先使用登录响应的 `menuTree`，会覆盖 `configs/lp-portal.json` 的 `modules.order`；隐藏菜单时须同时从静态 `enabled/order` 移除，并在 `buildLpSidebarOrder` 过滤该后端菜单键。`lp:token` 已按此方式隐藏，路由门禁也会拒绝直接访问。
+
+## 2026-09-21 Gateway 登录品牌图标
+
+- Gateway 登录页左侧品牌栏与表单卡片均使用后端品牌数据 `brand.logo`。左侧不再保留手写 `udpn` wordmark，以避免同页展示两套不一致的品牌标识。
+
 ## 2026-09-17 td-manage-sync skill 建档
 
 - 背景：apps/admin 需要跟踪上游 td-manage（GitLab `td_project/source-code/stack/td-manage`，`feature/zxf` 分支）的后续更新。新建 `.claude/skills/td-manage-sync/`（SKILL.md + constraints/conventions/pitfalls + diff-upstream.sh），结构与 admin-sync 同构。

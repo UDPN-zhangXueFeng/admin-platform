@@ -1574,67 +1574,144 @@ function InstancePaginationButton({
   );
 }
 
-function InstanceDetailPanel({ row }: { row: InstanceRow }) {
+/** 连通性状态 → 拓补线 / 圆点的语义色（成功/失败/未知三态）。 */
+function connectivityTone(status: number | null | undefined): {
+  dot: string;
+  line: string;
+  text: string;
+} {
+  if (status === 1) return { dot: 'bg-success', line: 'bg-success/40', text: 'text-success' };
+  if (status === 0)
+    return { dot: 'bg-destructive', line: 'bg-destructive/30', text: 'text-destructive' };
+  return { dot: 'bg-muted-foreground/50', line: 'bg-border', text: 'text-muted-foreground' };
+}
+
+/** 拓补节点：Bank → Instance → Currency System，标签在上、值在下，占位保持三栏等宽。 */
+function InstanceTopologyNode({
+  label,
+  value,
+  sub,
+  align = 'center',
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  align?: 'start' | 'center' | 'end';
+}) {
+  const alignClass =
+    align === 'start' ? 'items-start text-left' : align === 'end' ? 'items-end text-right' : 'items-center text-center';
   return (
-    <dl className="grid grid-cols-1 gap-x-8 gap-y-5 border-t border-border/50 bg-primary/[0.03] px-5 py-5 sm:grid-cols-2 lg:grid-cols-4">
-      <InstanceDetailField label="Bank">
-        {row.bankName || '--'}
-        {row.bankBic ? ` (${row.bankBic})` : ''}
-      </InstanceDetailField>
-      <InstanceDetailField label="Instance">
-        {row.instanceCode || '--'} {row.instanceName}
-      </InstanceDetailField>
-      <InstanceDetailField label="Endpoint">
-        <span className="break-all font-mono">{row.endpointUrl || '--'}</span>
-      </InstanceDetailField>
-      <InstanceDetailField label="Currency System">
-        {instanceCsText(row)}
-      </InstanceDetailField>
-      {row.currencySystemUrl ? (
-        <InstanceDetailField label="Service URL">
-          <span className="break-all font-mono">{row.currencySystemUrl}</span>
-        </InstanceDetailField>
+    <div className={`flex min-w-0 flex-1 flex-col gap-1 ${alignClass}`}>
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <span className="max-w-full truncate text-sm font-semibold text-foreground">{value}</span>
+      {sub ? (
+        <span className="max-w-full truncate font-mono text-[11px] text-muted-foreground">
+          {sub}
+        </span>
       ) : null}
-      {row.currencySystemDesc ? (
-        <InstanceDetailField label="Integration Notes">
-          {row.currencySystemDesc}
-        </InstanceDetailField>
-      ) : null}
-      <InstanceDetailField label="Upstream Public Key Fingerprint">
-        <span className="break-all font-mono">
-          {row.upKeyFingerprint || '(Not pushed)'}
-        </span>
-      </InstanceDetailField>
-      <InstanceDetailField label="Downstream Key Fingerprint">
-        <span className="break-all font-mono">
-          {row.downKeyFingerprint || '(Not generated)'}
-        </span>
-      </InstanceDetailField>
-      <InstanceDetailField label="Last Heartbeat">
-        <span className="tabular-nums">
-          {formatTime(row.lastHeartbeatTime)}
-        </span>
-      </InstanceDetailField>
-      <InstanceDetailField label="Registered At">
-        <span className="tabular-nums">{formatTime(row.createTime)}</span>
-      </InstanceDetailField>
-    </dl>
+    </div>
   );
 }
 
-function InstanceDetailField({
+/** 拓补连线：中点圆点承载连通性语义色，线段两端渐隐。 */
+function InstanceTopologyLink({ tone }: { tone: ReturnType<typeof connectivityTone> }) {
+  return (
+    <div className="flex w-10 flex-none items-center justify-center self-center sm:w-16">
+      <div className="relative h-px w-full">
+        <div className={`absolute inset-0 rounded-full ${tone.line}`} aria-hidden="true" />
+        <span
+          className={`absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${tone.dot}`}
+          aria-hidden="true"
+        />
+      </div>
+    </div>
+  );
+}
+
+/** 只读账本行：等宽字体 + 前导虚线，营造终端 readout 感，而非表单标签样式。 */
+function InstanceLedgerRow({
   label,
   children,
+  muted = false,
 }: {
   label: string;
   children: React.ReactNode;
+  muted?: boolean;
 }) {
   return (
-    <div className="min-w-0 space-y-1">
-      <dt className="text-xs font-semibold text-muted-foreground">{label}</dt>
-      <dd className="break-words pt-1 text-sm leading-5 text-foreground">
+    <div className="flex items-baseline gap-2 py-1">
+      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className="min-w-[12px] flex-1 border-b border-dotted border-border/70" aria-hidden="true" />
+      <span
+        className={`shrink-0 truncate font-mono text-xs ${
+          muted ? 'text-muted-foreground italic' : 'text-foreground'
+        }`}
+      >
         {children}
-      </dd>
+      </span>
+    </div>
+  );
+}
+
+function InstanceDetailPanel({ row }: { row: InstanceRow }) {
+  const tone = connectivityTone(row.connectivityStatus);
+
+  return (
+    <div className="border-t border-border/60 bg-muted/10 px-4 py-5 sm:px-8 sm:py-6">
+      {/* 拓补条：一眼看清 Bank ↔ Instance ↔ Currency System 的连接路径与实时连通性。 */}
+      <div className="flex items-stretch gap-1 sm:gap-2">
+        <InstanceTopologyNode
+          label="Bank"
+          value={row.bankName || '--'}
+          sub={row.bankBic}
+          align="start"
+        />
+        <InstanceTopologyLink tone={tone} />
+        <InstanceTopologyNode
+          label="Instance"
+          value={row.instanceName || row.instanceCode || '--'}
+          sub={row.endpointUrl}
+        />
+        <InstanceTopologyLink tone={tone} />
+        <InstanceTopologyNode
+          label="Currency System"
+          value={instanceCsText(row)}
+          sub={row.currencySystemUrl}
+          align="end"
+        />
+      </div>
+
+      {/* 账本区：密钥指纹（安全）与时间线（活动）分列，等宽字体强化「只读记录」质感。 */}
+      <div className="mt-5 grid gap-x-8 gap-y-4 border-t border-border/50 pt-4 sm:grid-cols-2">
+        <div>
+          <h4 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Security
+          </h4>
+          <InstanceLedgerRow label="Upstream key" muted={!row.upKeyFingerprint}>
+            {row.upKeyFingerprint || 'not pushed'}
+          </InstanceLedgerRow>
+          <InstanceLedgerRow label="Downstream key" muted={!row.downKeyFingerprint}>
+            {row.downKeyFingerprint || 'not generated'}
+          </InstanceLedgerRow>
+        </div>
+        <div>
+          <h4 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Timeline
+          </h4>
+          <InstanceLedgerRow label="Last heartbeat">
+            {formatTime(row.lastHeartbeatTime)}
+          </InstanceLedgerRow>
+          <InstanceLedgerRow label="Registered at">{formatTime(row.createTime)}</InstanceLedgerRow>
+        </div>
+      </div>
+
+      {row.currencySystemDesc ? (
+        <p className="mt-4 border-t border-border/50 pt-3 text-xs leading-5 text-muted-foreground">
+          {row.currencySystemDesc}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -1708,7 +1785,7 @@ export function GatewayInstanceListPage() {
   );
   const [registerOpen, setRegisterOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
-  // currencySystemType 用 string 态便于 Select 绑定（提交时转 number；默认 0 未填）。
+  // currencySystemType 用 string 态便于 Select ���定（提交时转 number；默认 0 未填）。
   const [registerForm, setRegisterForm] = React.useState({
     bankId: STATUS_ALL,
     instanceCode: '',

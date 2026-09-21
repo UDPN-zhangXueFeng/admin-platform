@@ -98,7 +98,13 @@ export function buildLpSidebarOrder(menuTree: MenuTreeRespVO[]): ModuleMenuItem[
   // 折叠态展开状态也会串台）。
   const toItems = (nodes: MenuTreeRespVO[]): ModuleMenuItem[] =>
     nodes
-      .filter((n) => n.menuType !== 4 && n.visible !== 1)
+      .filter(
+        (n) =>
+          n.menuType !== 4 &&
+          n.visible !== 1 &&
+          // Bank Token Query 已下线，不在 LP 侧栏展示。
+          n.menuKey !== 'lp:token',
+      )
       .sort((a, b) => (a.orderNum ?? 0) - (b.orderNum ?? 0))
       .map((node) => {
         const label = node.menuNameEn?.trim() || node.menuName;

@@ -56,7 +56,7 @@ export function SidebarItem({
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         isActive
           ? 'bg-primary text-primary-foreground shadow-sm'
-          : 'text-muted-foreground hover:bg-primary/5 hover:text-accent-foreground',
+          : 'text-foreground/80 hover:bg-primary/5 hover:text-accent-foreground',
         disabled && 'pointer-events-none opacity-50',
         collapsed && 'size-10 min-h-0 justify-center p-0 min-[1600px]:size-11',
         nested && 'min-h-8 rounded-lg py-0 shadow-none min-[1600px]:min-h-9',
