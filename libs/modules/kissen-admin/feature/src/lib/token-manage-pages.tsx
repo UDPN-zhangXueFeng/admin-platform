@@ -1580,64 +1580,67 @@ function InstanceDetailPanel({ row }: { row: InstanceRow }) {
     .join(' · ') || '--';
 
   return (
-    <div className="border-t border-border/60 bg-muted/10 px-4 py-5 sm:px-7 sm:py-6">
-      <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2 border-b border-border/70 pb-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
-              Gateway instance
-            </p>
-            <h3 className="truncate text-lg font-semibold tracking-tight text-foreground">
-              {instanceLabel}
-            </h3>
+    <div className="border-t border-border/60 bg-muted/20 px-4 py-4 sm:px-7 sm:py-5">
+      <div className="overflow-hidden rounded-md border border-border/70 bg-background">
+        <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-muted/40 px-4 py-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="h-3 w-0.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+            <span className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Instance
+            </span>
+            <span className="truncate font-mono text-xs text-foreground">{instanceLabel}</span>
           </div>
-          <p className="text-xs text-muted-foreground">Configuration details</p>
+          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+            {formatTime(row.lastHeartbeatTime)}
+          </span>
         </div>
 
-        <div className="divide-y divide-border/70 overflow-hidden border-y border-border/70">
-          <InstanceDetailGroup title="Connection" icon={Globe}>
-            <InstanceDetailField label="Bank">
-              {row.bankName || '--'}
-              {row.bankBic ? ` (${row.bankBic})` : ''}
-            </InstanceDetailField>
-            <InstanceDetailField label="Endpoint">
-              <InstanceDetailValue mono>{row.endpointUrl || '--'}</InstanceDetailValue>
-            </InstanceDetailField>
-            {row.currencySystemUrl ? (
-              <InstanceDetailField label="Service URL">
-                <InstanceDetailValue mono>{row.currencySystemUrl}</InstanceDetailValue>
-              </InstanceDetailField>
-            ) : null}
-          </InstanceDetailGroup>
+        <div className="grid divide-y divide-border/60 md:grid-cols-2 md:divide-x md:divide-y-0">
+          <div className="divide-y divide-border/60">
+            <InstanceDetailGroup title="Connection">
+              <InstanceDetailRow label="Bank">
+                {row.bankName || '--'}
+                {row.bankBic ? ` (${row.bankBic})` : ''}
+              </InstanceDetailRow>
+              <InstanceDetailRow label="Endpoint" mono>
+                {row.endpointUrl || '--'}
+              </InstanceDetailRow>
+              {row.currencySystemUrl ? (
+                <InstanceDetailRow label="Service URL" mono>
+                  {row.currencySystemUrl}
+                </InstanceDetailRow>
+              ) : null}
+            </InstanceDetailGroup>
 
-          <InstanceDetailGroup title="Currency system" icon={Coins}>
-            <InstanceDetailField label="System">{instanceCsText(row)}</InstanceDetailField>
-            {row.currencySystemDesc ? (
-              <InstanceDetailField label="Integration notes">{row.currencySystemDesc}</InstanceDetailField>
-            ) : null}
-          </InstanceDetailGroup>
+            <InstanceDetailGroup title="Currency system">
+              <InstanceDetailRow label="System">{instanceCsText(row)}</InstanceDetailRow>
+              {row.currencySystemDesc ? (
+                <InstanceDetailRow label="Integration notes">
+                  {row.currencySystemDesc}
+                </InstanceDetailRow>
+              ) : null}
+            </InstanceDetailGroup>
+          </div>
 
-          <InstanceDetailGroup title="Key fingerprints" icon={KeyRound}>
-            <InstanceDetailField label="Upstream public key">
-              <InstanceDetailValue mono muted={!row.upKeyFingerprint}>
+          <div className="divide-y divide-border/60">
+            <InstanceDetailGroup title="Key fingerprints">
+              <InstanceDetailRow label="Upstream public key" mono muted={!row.upKeyFingerprint}>
                 {row.upKeyFingerprint || 'Not pushed'}
-              </InstanceDetailValue>
-            </InstanceDetailField>
-            <InstanceDetailField label="Downstream key">
-              <InstanceDetailValue mono muted={!row.downKeyFingerprint}>
+              </InstanceDetailRow>
+              <InstanceDetailRow label="Downstream key" mono muted={!row.downKeyFingerprint}>
                 {row.downKeyFingerprint || 'Not generated'}
-              </InstanceDetailValue>
-            </InstanceDetailField>
-          </InstanceDetailGroup>
+              </InstanceDetailRow>
+            </InstanceDetailGroup>
 
-          <InstanceDetailGroup title="Activity" icon={Calendar}>
-            <InstanceDetailField label="Last heartbeat">
-              <InstanceDetailValue tabular>{formatTime(row.lastHeartbeatTime)}</InstanceDetailValue>
-            </InstanceDetailField>
-            <InstanceDetailField label="Registered at">
-              <InstanceDetailValue tabular>{formatTime(row.createTime)}</InstanceDetailValue>
-            </InstanceDetailField>
-          </InstanceDetailGroup>
+            <InstanceDetailGroup title="Activity">
+              <InstanceDetailRow label="Last heartbeat" tabular>
+                {formatTime(row.lastHeartbeatTime)}
+              </InstanceDetailRow>
+              <InstanceDetailRow label="Registered at" tabular>
+                {formatTime(row.createTime)}
+              </InstanceDetailRow>
+            </InstanceDetailGroup>
+          </div>
         </div>
       </div>
     </div>
@@ -1646,64 +1649,46 @@ function InstanceDetailPanel({ row }: { row: InstanceRow }) {
 
 function InstanceDetailGroup({
   title,
-  icon: Icon,
   children,
 }: {
   title: string;
-  icon: LucideIcon;
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3 px-0 py-4 first:pt-0 last:pb-0 sm:flex-row sm:gap-8">
-      <div className="flex shrink-0 items-center gap-2 sm:w-36 sm:items-start">
-        <Icon className="mt-0.5 size-4 text-primary" aria-hidden="true" />
-        <h4 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          {title}
-        </h4>
-      </div>
-      <dl className="grid min-w-0 flex-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-        {children}
-      </dl>
+    <section>
+      <h4 className="border-b border-border/50 bg-muted/20 px-4 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {title}
+      </h4>
+      <div className="divide-y divide-border/40 px-4">{children}</div>
     </section>
   );
 }
 
-function InstanceDetailField({
+function InstanceDetailRow({
   label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="min-w-0">
-      <dt className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="break-words text-sm leading-5 text-foreground">{children}</dd>
-    </div>
-  );
-}
-
-function InstanceDetailValue({
   children,
   mono = false,
   muted = false,
   tabular = false,
 }: {
+  label: string;
   children: React.ReactNode;
   mono?: boolean;
   muted?: boolean;
   tabular?: boolean;
 }) {
   return (
-    <span
-      className={`inline-block max-w-full break-all ${
-        mono ? 'font-mono text-[12px] text-foreground/90' : ''
-      } ${tabular ? 'tabular-nums' : ''} ${muted ? 'text-muted-foreground' : ''}`}
-    >
-      {children}
-    </span>
+    <div className="flex items-baseline justify-between gap-4 py-2">
+      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span
+        className={`min-w-0 max-w-[70%] truncate text-right text-sm leading-5 ${
+          mono ? 'font-mono text-[12px]' : ''
+        } ${tabular ? 'tabular-nums' : ''} ${muted ? 'text-muted-foreground' : 'text-foreground'}`}
+        title={typeof children === 'string' ? children : undefined}
+      >
+        {children}
+      </span>
+    </div>
   );
 }
 
