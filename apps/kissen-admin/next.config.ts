@@ -56,16 +56,17 @@ const nextConfig: NextConfig = {
   /**
    * API proxy — rewrites /v1/* requests to the kissen backend.
    *
-   * The client-side axios instance (kissen-client.ts) uses '/v1' as baseURL.
-   * The rewrite preserves the /v1 prefix on the backend destination.
+   * The client-side axios instance (kissen-client.ts) uses '/v1' as baseURL,
+   * matching the source app (vite proxies '/v1' → http://127.0.0.1:9000 and
+   * the production Nginx reverse proxy keeps the /v1 prefix). The rewrite
+   * therefore preserves the /v1 prefix on the destination.
    *
    * Override the backend origin with NEXT_SERVICE_SERVER_URL_KISSEN
-   * (defaults to https://kissen.showmarket.org).
+   * (defaults to the source dev backend at 127.0.0.1:9000).
    */
   async rewrites() {
     const kissenBackend =
-      process.env.NEXT_SERVICE_SERVER_URL_KISSEN ||
-      'https://kissen.showmarket.org';
+      process.env.NEXT_SERVICE_SERVER_URL_KISSEN || 'http://127.0.0.1:9000';
 
     return [
       {
