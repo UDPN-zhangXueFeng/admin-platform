@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { Resolver, FieldValues } from 'react-hook-form';
+import type { FieldValues, Resolver } from 'react-hook-form';
 import type { z } from 'zod';
 
 /**
@@ -18,9 +18,15 @@ import type { z } from 'zod';
  *   resolver: createFormResolver(schema),
  * });
  */
-export function createFormResolver<TSchema extends z.Schema>(
-  schema: TSchema
-): Resolver<FieldValues> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Zod v4 + RHF resolver type incompatibility requires a broad cast
-  return zodResolver(schema as any) as Resolver<FieldValues>;
+export function createFormResolver<
+  TFieldValues extends FieldValues,
+  TContext = unknown,
+  TOutput = TFieldValues,
+>(
+  schema: z.ZodType<TOutput, TFieldValues>,
+): Resolver<TFieldValues, TContext, TOutput> {
+  // 泛型镜像 zodResolver 的 zod4 重载（<Input, Context, Output>，zod v4 包中
+  // `zod` 入口按 $ZodType 结构匹配该重载），使调用本身类型成立，无需断言；
+  // 运行时仅原样转发，zodResolver 内部按 schema 实际 in/out 解析。
+  return zodResolver<TFieldValues, TContext, TOutput>(schema);
 }

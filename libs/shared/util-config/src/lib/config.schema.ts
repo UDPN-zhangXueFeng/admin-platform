@@ -12,6 +12,9 @@ function withDefault<T extends z.ZodTypeAny>(schema: T) {
 const projectSchema = z.object({
   id: z.string().default('ecommerce'),
   name: z.string().default('Admin Platform'),
+  // Historical header subtitle; kept as the default so existing projects
+  // render exactly what the shared Header hardcoded before this field existed.
+  subtitle: z.string().default('Stablecoin Management System'),
   logo: z.string().default('/logo.svg'),
   favicon: z.string().default('/favicon.ico'),
 });
@@ -21,9 +24,27 @@ const fontFamilySchema = z.object({
   mono: z.string().default('JetBrains Mono, monospace'),
 });
 
+const themePaletteSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  /**
+   * CSS-variable-name → raw CSS color value. Two conventions, both applied
+   * verbatim as `--<key>`:
+   *  - tokens consumed via Tailwind's `hsl(var(--x))` (primary, ring, …) use
+   *    HSL component triplets: "241.268 75.532% 63.137%";
+   *  - tokens consumed raw (brand-deep, login-grad-*, banner-*) use full
+   *    color values: "#001A98".
+   */
+  colors: z.record(z.string(), z.string()).default({}),
+});
+
 const themeSchema = z.object({
   mode: z.enum(['light', 'dark', 'system']).default('system'),
   colors: z.record(z.string(), z.string()).default({}),
+  /** Switchable brand palettes; apps that omit it keep single-theme behavior. */
+  themes: z.array(themePaletteSchema).default([]),
+  /** Palette id from `themes` applied before first paint when unset locally. */
+  defaultTheme: z.string().optional(),
   radius: z.string().default('0.5rem'),
   fontFamily: withDefault(fontFamilySchema),
 });
@@ -34,6 +55,7 @@ const sidebarSchema = z.object({
   collapsible: z.boolean().default(true),
   collapsedWidth: z.string().default('68px'),
   showIconsOnlyCollapsed: z.boolean().default(true),
+  singleExpand: z.boolean().default(false),
 });
 
 const headerSchema = z.object({
@@ -106,6 +128,7 @@ const featuresSchema = z.object({
   fullscreen: z.boolean().default(true),
   exportCSV: z.boolean().default(true),
   bulkActions: z.boolean().default(true),
+  inactivityLogout: z.boolean().default(false),
 });
 
 /** Zod schema matching ProjectConfig. All fields optional with sensible defaults. */

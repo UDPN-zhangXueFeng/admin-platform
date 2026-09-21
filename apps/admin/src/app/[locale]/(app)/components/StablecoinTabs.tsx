@@ -7,8 +7,8 @@ import {
   type TokenSelectorLabels,
   type TokenSelectorMode,
   type TokenSelectorOption,
-} from '@myorg/modules/tokenized-deposit/ui';
-import type { StablecoinOption } from '@myorg/modules/dashboard/data-access';
+} from '@myorg/modules/td-admin/feature';
+import type { StablecoinOption } from '@myorg/modules/td-admin/data-access';
 
 export type StablecoinTabsDisplayMode = TokenSelectorMode;
 
@@ -26,10 +26,13 @@ function getOptionId(option: StablecoinOption): string {
   return String(option.stablecoinId ?? option.code ?? option.symbol);
 }
 
+/**
+ * issueType（number）→ 图标类型：20=MMF(M)，5=TD(TD)，其余=Stablecoin(S)。
+ * 语义与 wallet 模块 ISSUE_TYPE 常量、老项目 token_type_*.svg（1/5/20）一致。
+ */
 function getTokenType(option: StablecoinOption): TokenSelectorOption['type'] {
-  const type = option.tokenType ?? option.issueType;
-  if (type === '2') return 'M';
-  if (type === '3') return 'TD';
+  if (option.issueType === 20) return 'M';
+  if (option.issueType === 5) return 'TD';
   return 'S';
 }
 
@@ -53,6 +56,10 @@ export function StablecoinTabs(props: StablecoinTabsProps) {
       count: (count) => t('tokenCount', { count }),
       search: t('tokenSearch'),
       clearSearch: t('clearSearch'),
+      allTokenTypes: t('allTokenTypes'),
+      stablecoin: t('stablecoin'),
+      tokenizedDeposit: t('tokenizedDeposit'),
+      tokenizedMmf: t('tokenizedMmf'),
       allNetworks: t('allNetworks'),
       tabView: t('tabView'),
       dropdownView: t('dropdownView'),

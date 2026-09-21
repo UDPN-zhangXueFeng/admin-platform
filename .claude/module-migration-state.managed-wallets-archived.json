@@ -1,0 +1,36 @@
+{
+  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/key-management/managed-wallets",
+  "moduleName": "managed-wallets",
+  "slug": "managed-wallets",
+  "parentModule": "key-management",
+  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/managed-wallets.md",
+  "phase": "accepted-conditional",
+  "migrationRate": 1.0,
+  "acceptanceRate": 1.0,
+  "scope": {
+    "subModule": "managed-wallets — key-management 第3个迁入子模块",
+    "totalFiles": 2,
+    "totalLines": 843,
+    "pages": "list (index.tsx 280行) + detail (detail.tsx 563行, 含2 Tab)"
+  },
+  "coverage": {
+    "sourceFiles": { "covered": 2, "total": 2, "missing": [] },
+    "apis": { "covered": 5, "total": 5, "missing": [] },
+    "pages": { "covered": 2, "total": 2, "missing": [] },
+    "uiMappings": { "covered": 27, "total": 27, "missing": [] }
+  },
+  "tasks": [
+    { "id": "mw-1", "name": "类型定义 managed-wallets.model.ts", "kind": "scaffold", "model": "haiku", "deps": [], "complexity": "低", "status": "completed", "verified": "grep: roleName可选/类型矛盾处理正确, 13类型接口" },
+    { "id": "mw-2", "name": "API + keys + queries", "kind": "scaffold", "model": "haiku", "deps": ["mw-1"], "complexity": "低", "status": "completed", "verified": "grep: 3 URL带/api + pageNum齐全, 3 hooks + detail enabled, 复用stablecoin/blockchain" },
+    { "id": "mw-3", "name": "util constants", "kind": "scaffold", "model": "haiku", "deps": [], "complexity": "低", "status": "completed", "verified": "grep: walletStatusMap/rotationStatusMap/roleNameMap 齐全 + barrel导出" },
+    { "id": "mw-4", "name": "列表页", "kind": "page", "model": "opus", "deps": ["mw-2", "mw-3"], "complexity": "中", "status": "completed", "verified": "无antd + ALL_VALUE='all' + 11列+行操作Button列(DataTable无actions) + lint exit0" },
+    { "id": "mw-5", "name": "详情页(2 Tab)", "kind": "page", "model": "opus", "deps": ["mw-2", "mw-3"], "complexity": "高", "status": "completed", "verified": "Radix Tabs手写 + 双card + RotationHistory独立查询表 + Copyable空值内置兜底 + history含pageNum + lint exit0" },
+    { "id": "mw-6", "name": "接入点", "kind": "scaffold", "model": "haiku+主循环", "deps": ["mw-4", "mw-5"], "complexity": "中", "status": "completed", "verified": "page.tsx modulePageKey改IIFE支持<sub>/detail(主循环改,向后兼容,tsc0错) + registry 2 loader + barrel 2 export + i18n key_management_0067 双语" },
+    { "id": "mw-7", "name": "验收", "kind": "verify", "model": "opus", "deps": ["mw-6"], "complexity": "中", "status": "completed", "verified": "lint 3lib 0err; tsc admin 9错(<基线13, managed-wallets/page.tsx 零新增, [locale]错是auth TS6305无关); 运行时坑grep全过; 路由307→login(非404,编译成功,session guard正常)" }
+  ],
+  "currentIndex": 7,
+  "startedAt": "2026-07-21",
+  "runtimeSmoke": "静态验收100%: lint(3lib 0err)+tsc(零新增,9<基线13)+运行时坑grep全过(双重前缀/ICU/空串/pageNum)。运行时:dev server在3000跑,curl /en-US/key-management/managed-wallets 返回307→login(非404,证明路由接通+编译成功+session guard正常,page.tsx改动生效)。完整页面渲染+数据冒烟受登录captcha+无后端API阻(同pledge),需用户在已登录+有后端环境逐页验证:①list 7筛选+11列+数据 ②Details跳detail ③detail Tab1双card ④detail Tab2轮换历史5筛选+10列+分页数据。",
+  "phase5Notes": "验收率静态100%。关键产出: page.tsx modulePageKey IIFE改动让key-management首次真正支持子模块detail路由(现有key-signed-transactions detail组件存在但registry未注册,本次顺带打通机制,向后兼容)。已知限制: RangePicker降级为原生date input(8F); roleName以页面1/2/3为准(8B,非data-contracts注释的1/5/10/15/20); token_type仅有_1 key(既有约束,非本次引入); detail省略Rotation History顶部说明文案(避免未i18n长句)。",
+  "knownIssues": ["运行时完整冒烟待用户验证(登录+后端)", "RangePicker降级原生date input", "roleName以1/2/3为准(源码矛盾)", "token_type仅_1(既有)", "detail省略history顶部说明文案"]
+}

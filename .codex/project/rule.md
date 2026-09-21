@@ -180,6 +180,8 @@ Type 约束：
 
 - 服务端状态使用 TanStack Query
 - query key 必须稳定、可序列化，并表达业务维度
+- `queryFn` 成功时不得返回 `undefined`；单对象“无数据”使用 `null`，列表“无数据”使用空数组，并由调用 UI 显式处理空态
+- 仅由弹窗、抽屉等按需 UI 消费的数据，使用 `enabled` 与其打开状态绑定，避免页面初始化时发起无意义请求
 - mutation 成功后明确 invalidate 或更新缓存
 - loading、empty、error 状态必须在 UI 中可感知
 
@@ -209,6 +211,14 @@ Zustand 只用于客户端共享状态，例如：
 - 不新增全局 CSS，除非是 reset、token 或 App 级全局能力
 - 不在业务组件中硬编码大量一次性 magic color，优先使用设计 token 或现有语义色
 - UI 组件应支持基本 a11y：label、aria、focus 状态、键盘操作
+
+### 响应式桌面密度
+
+- `<1024px` 使用移动端或抽屉式布局
+- `1024px–1599px` 使用紧凑桌面密度，优先减少 Shell 尺寸、内容边距、卡片间距和高密度栅格列数
+- `>=1600px` 使用舒适桌面密度，可恢复大屏侧栏、Header、内容边距和多列 Dashboard
+- 不使用全局 `zoom` 或修改根字号模拟缩放；Radix Portal、固定像素组件和可访问点击区域会因此产生不一致
+- Dashboard 等高密度页面不要在默认 `xl`（1280px）直接启用 4K 多列布局，使用统一的 `min-[1600px]` 密度边界
 
 当前未发现 stylelint 配置，因此不要声称 stylelint 已强制启用。若后续引入，应补充配置、脚本和本文档。
 

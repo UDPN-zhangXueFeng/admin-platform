@@ -1,0 +1,1 @@
+import type { ModuleManifest } from '@myorg/shared/model';export const dataExportManifest: ModuleManifest = { id: 'data-export', name: 'Data Export', icon: 'FileText', routes: [{ path: '/data-export', component: 'list', label: 'Data Export' }], permissions: [], i18nNamespace: 'modules.financial' };

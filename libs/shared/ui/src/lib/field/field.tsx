@@ -73,6 +73,8 @@ function FieldLabel({
     <Label
       className={cn(
         'flex w-fit items-center gap-1.5 text-sm font-medium leading-snug',
+        // Icon slot (required-mark, tooltip trigger): auto-size to 14px
+        '[&_svg]:size-3.5 [&_svg]:shrink-0',
         className,
       )}
       {...props}
@@ -83,7 +85,12 @@ function FieldLabel({
 function FieldDescription({ className, ...props }: React.ComponentProps<'p'>) {
   return (
     <p
-      className={cn('text-sm leading-normal text-muted-foreground', className)}
+      className={cn(
+        'flex items-start gap-1.5 text-sm leading-normal text-muted-foreground',
+        // Icon slot (info glyph): 14px, optically aligned to first text line
+        '[&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:mt-0.5',
+        className,
+      )}
       {...props}
     />
   );
@@ -98,7 +105,12 @@ function FieldError({
   return (
     <div
       role="alert"
-      className={cn('text-sm text-destructive', className)}
+      className={cn(
+        'flex items-center gap-1.5 text-sm leading-normal text-destructive',
+        // Icon slot (alert glyph): 14px, centered on the message line
+        '[&_svg]:size-3.5 [&_svg]:shrink-0',
+        className,
+      )}
       {...props}
     >
       {children}

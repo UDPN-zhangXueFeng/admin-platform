@@ -1,0 +1,1 @@
+import type { ModuleManifest } from '@myorg/shared/model';export const networksManifest: ModuleManifest = { id: 'networks', name: 'Networks', icon: 'Globe', routes: [{ path: '/networks', component: 'list', label: 'Networks' }], permissions: [], i18nNamespace: 'modules.networks' };

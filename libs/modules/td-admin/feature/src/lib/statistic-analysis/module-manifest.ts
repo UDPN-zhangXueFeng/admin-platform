@@ -1,0 +1,1 @@
+import type { ModuleManifest } from '@myorg/shared/model';export const statisticAnalysisManifest: ModuleManifest = { id: 'statistic-analysis', name: 'AI Analytics', icon: 'TrendingUp', routes: [{ path: '/statistic-analysis', component: 'list', label: 'AI Analytics' }], permissions: [], i18nNamespace: 'modules.statistic-analysis' };

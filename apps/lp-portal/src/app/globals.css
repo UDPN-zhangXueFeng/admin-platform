@@ -1,0 +1,258 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 241.268 75.532% 63.137%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 72% 47%; /* AA 修复：文本 5.42:1（原 3.76），白字按钮 5.42:1 */
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 241.268 75.532% 63.137%;
+    --radius: 0.5rem;
+    --banner-start: #5d5ae8;
+    --banner-mid: #706df0;
+    --banner-end: #4744c7;
+    --banner-glow: #aaa9ff;
+    --banner-highlight: #8987f4;
+    --banner-wave: #ffffff;
+    /* Kissen UI 改造 v1.0：语义状态色（纲领 §5.4，主题无关，仅亮/暗两档） */
+    --success: 142 72% 29%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 92% 34%; /* AA 修复：小字文本 5.04:1（原 4.38） */
+    --warning-foreground: 0 0% 100%;
+    --info: 221 83% 45%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 241.268 75.532% 63.137%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 75% 62%; /* AA 修复：暗底文本 5.55:1（原 2.0） */
+    --destructive-foreground: 0 0% 10%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 241.268 75.532% 63.137%;
+    --banner-start: #37348d;
+    --banner-mid: #5d5ae8;
+    --banner-end: #24225f;
+    --banner-glow: #8582f4;
+    --banner-highlight: #aeacff;
+    --banner-wave: #d9d8ff;
+    --success: 142 69% 45%;
+    --success-foreground: 222.2 84% 4.9%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 222.2 84% 4.9%;
+    --info: 217 91% 65%;
+    --info-foreground: 222.2 84% 4.9%;
+  }
+}
+
+@keyframes app-banner-orb-one-drift {
+  0%,
+  100% {
+    transform: translateX(-12%) translateY(4%) scale(0.96);
+  }
+  50% {
+    transform: translateX(24%) translateY(-8%) scale(1.22);
+  }
+}
+
+@keyframes app-banner-orb-two-drift {
+  0%,
+  100% {
+    transform: translateX(12%) translateY(-3%) scale(1.08);
+  }
+  50% {
+    transform: translateX(-24%) translateY(9%) scale(0.82);
+  }
+}
+
+@keyframes app-banner-wave-drift {
+  0%,
+  100% {
+    transform: translateX(-3%) scaleX(1.18);
+  }
+  50% {
+    transform: translateX(-14%) scaleX(1.18);
+  }
+}
+
+.app-banner-orb-one,
+.app-banner-orb-two,
+.app-banner-wave {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.app-banner-orb-one {
+  animation: app-banner-orb-one-drift 6s ease-in-out infinite;
+}
+
+.app-banner-orb-two {
+  animation: app-banner-orb-two-drift 7s ease-in-out infinite;
+}
+
+.app-banner-wave {
+  animation: app-banner-wave-drift 3.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-banner-orb-one,
+  .app-banner-orb-two,
+  .app-banner-wave {
+    animation: none;
+  }
+}
+
+/* Keep the auth form readable when the branded panel is hidden at narrow
+   viewports, matching the reference login composition. */
+.kissen-auth > div > section:nth-of-type(2) > div {
+  max-width: 400px;
+}
+
+/* ============================================================
+   Kissen UI 改造 v1.0 — 密度与排版 token（纲领 §5.1/§5.2）
+   三 app 同步维护；页面层使用这些类，禁止任意 px 间距。
+   ============================================================ */
+
+:root {
+  /* 紧凑档 1024–1599 */
+  --page-gutter: 20px;
+  --section-gap: 24px;
+  --panel-pad: 16px;
+}
+
+@media (min-width: 1600px) {
+  :root {
+    /* 舒适档 ≥1600 */
+    --page-gutter: 28px;
+    --section-gap: 32px;
+    --panel-pad: 20px;
+  }
+}
+
+/* 排版角色（尺寸/行高/字重；颜色由使用处按语义指定）。
+   @layer components：允许页面用 utilities（如 text-2xl）覆盖字号。 */
+@layer components {
+  .t-page-title {
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 600;
+  }
+  .t-section-title {
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 600;
+  }
+  .t-body {
+    font-size: 14px;
+    line-height: 22px;
+  }
+  .t-supporting {
+    font-size: 12px;
+    line-height: 18px;
+  }
+  .t-data {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .t-identifier {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      'Liberation Mono', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 20px;
+  }
+}
+
+/* 密度工具类（utilities 层：须压过 Card 默认 px-6/py-5 等 padding utilities；
+   本块在 @tailwind utilities 之后，同层后序胜出） */
+@layer utilities {
+  /* 密度工具类 */
+  .page-pad {
+    padding: var(--page-gutter);
+  }
+  .section-gap {
+    gap: calc(var(--section-gap) - 4px);
+  }
+  @media (min-width: 1600px) {
+    .section-gap {
+      gap: var(--section-gap);
+    }
+  }
+  .panel-pad {
+    padding: var(--panel-pad);
+  }
+}
+
+/* The Kissen portals use the same compact, theme-aware segmented tab style.
+   Scoped to this app's body so the shared Tabs primitive stays unchanged for
+   other products in the monorepo. */
+body.kissen-tabs [role='tablist'] {
+  width: fit-content;
+  max-width: 100%;
+  height: auto;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: 0.75rem;
+  background-color: hsl(var(--muted) / 0.4);
+  padding: 0.25rem;
+}
+
+body.kissen-tabs [role='tab'] {
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background-color: transparent;
+  padding-inline: 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+body.kissen-tabs [role='tab']::after {
+  display: none;
+}
+
+body.kissen-tabs [role='tab']:not([data-state='active']) {
+  color: hsl(var(--muted-foreground));
+}
+
+body.kissen-tabs [role='tab']:not([data-state='active']):hover {
+  background-color: hsl(var(--background) / 0.6);
+  color: hsl(var(--foreground));
+}
+
+body.kissen-tabs [role='tab'][data-state='active'] {
+  background-color: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.08);
+}

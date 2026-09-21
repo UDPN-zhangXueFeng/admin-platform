@@ -1,0 +1,121 @@
+import './globals.css';
+import type { Metadata } from 'next';
+import { loadProjectConfig } from '@myorg/shared/util-config';
+
+/**
+ * Metadata is resolved from the project config so <title> and the favicon
+ * link stay in sync with configs/kissen-gateway.json (name / favicon).
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await loadProjectConfig();
+  return {
+    title: config.project.name,
+    description: 'Kissen gateway portal — configuration-driven admin shell',
+    icons: { icon: config.project.favicon },
+  };
+}
+
+/**
+ * Root Layout — the outermost layout required by Next.js App Router.
+ *
+ * Responsibilities (and ONLY these):
+ * 1. Load project config server-side to resolve locale & theme defaults.
+ * 2. Set <html lang> from the config's default locale.
+ * 3. Inject ThemeInjector as an inline <style> tag with CSS variables
+ *    from config.theme.colors — this overrides the defaults in globals.css.
+ * 4. Set font class on <body>.
+ *
+ * No business logic, no module components, no providers.
+ */
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const config = await loadProjectConfig();
+
+  return (
+    <html lang={config.i18n.defaultLocale} suppressHydrationWarning>
+      <head>
+        <ThemeInjector
+          colors={config.theme.colors}
+          themes={config.theme.themes}
+          defaultTheme={config.theme.defaultTheme}
+          radius={config.theme.radius}
+        />
+        {/* 外观（明暗）防闪脚本（源 index.html 渲染前挂 html.dark）：key
+            'gw-appearance' 与 feature 库 system-ui-pages 一致；与调色板轴
+            'gw-theme' 正交——.dark 管表面色、data-theme 管品牌色。 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(localStorage.getItem('gw-appearance')==='dark')document.documentElement.classList.add('dark');}catch(e){}",
+          }}
+        />
+      </head>
+      <body className="kissen-tabs min-h-screen font-sans antialiased">
+        {children}
+      </body>
+    </html>
+  );
+}
+
+/**
+ * Server component that injects the runtime theming layer (LP 06 pattern):
+ *  1. `:root` baseline from theme.colors (+ the default palette merged in, so
+ *     a no-JS first paint already carries brand tokens);
+ *  2. one `[data-theme="<id>"]` block per switchable palette from
+ *     theme.themes (config-driven — adding/tuning a theme is a configs change);
+ *  3. a pre-paint script that restores the locally chosen palette (or the
+ *     configured default) onto <html data-theme> to avoid a flash.
+ *
+ * Apps that omit theme.themes keep the legacy single-theme behavior: the
+ * script and data-theme blocks simply don't render.
+ */
+function ThemeInjector({
+  colors,
+  themes,
+  defaultTheme,
+  radius,
+}: {
+  colors: Record<string, string>;
+  themes: { id: string; label: string; colors: Record<string, string> }[];
+  defaultTheme?: string;
+  radius: string;
+}) {
+  const defaultPalette = themes.find((t) => t.id === defaultTheme);
+  const baseline = { ...(defaultPalette?.colors ?? {}), ...colors };
+
+  const toVars = Object.entries(baseline)
+    .map(([key, value]) => `--${key}: ${value};`)
+    .join('');
+  const themeBlocks = themes
+    .map(
+      (t) =>
+        `[data-theme='${t.id}']{${Object.entries(t.colors)
+          .map(([key, value]) => `--${key}: ${value};`)
+          .join('')}}`,
+    )
+    .join('');
+
+  const css = `:root{${toVars}--radius:${radius};}${themeBlocks}`;
+
+  const themeIds = themes.map((t) => t.id);
+  const restoreScript =
+    themes.length > 0
+      ? `try{var t=localStorage.getItem('gw-theme');var ids=${JSON.stringify(
+          themeIds,
+        )};${
+          defaultTheme ? `var d=${JSON.stringify(defaultTheme)};` : 'var d=null;'
+        }t=ids.indexOf(t)>=0?t:d;if(t)document.documentElement.dataset.theme=t;}catch(e){}`
+      : null;
+
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
+      {restoreScript && (
+        <script dangerouslySetInnerHTML={{ __html: restoreScript }} />
+      )}
+    </>
+  );
+}

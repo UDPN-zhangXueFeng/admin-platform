@@ -7,16 +7,21 @@ import { cn } from '@myorg/shared/util-classnames';
 /**
  * Alert —— 内联提示框（shadcn 风，Tailwind v3）。
  *
- * 迁移自 tokenized-deposit-redesign 的 alert.tsx，简化 v4 `has-[>svg]`/`*:[svg]`
- * 选择器为稳健的 flex 布局；图标由调用方传入（lucide，自带 size）。
+ * 四语义 variant 齐备：default / success / warning / info / destructive。
+ * 语义变体统一「浅底 + 同色系 30% 边框 + 标题同色」：正文保持可读的
+ * 前景色，颜色信号由边框、底色与标题承载；图标由调用方传入（lucide，
+ * 自带 size，颜色继承标题色）。
  */
 const alertVariants = cva(
-  'flex w-full items-start gap-2 rounded-lg border px-3 py-2.5 text-left text-sm',
+  'flex w-full items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm [&_svg]:mt-0.5 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
         default: 'bg-card text-card-foreground',
-        destructive: 'bg-card text-destructive',
+        success: 'border-success/30 bg-success/5 text-success',
+        warning: 'border-warning/30 bg-warning/5 text-warning',
+        info: 'border-info/30 bg-info/5 text-info',
+        destructive: 'border-destructive/30 bg-destructive/5 text-destructive',
       },
     },
     defaultVariants: {

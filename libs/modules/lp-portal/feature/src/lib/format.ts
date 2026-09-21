@@ -1,0 +1,78 @@
+/**
+ * LP Portal 通用格式化工具（源 `src/utils/format.ts` 1:1 移植，不引 dayjs）。
+ *
+ * 语义基线（工作清单 B8 / map json「通用格式化工具」）：
+ * - formatMoney：v2.3 e591f85 起空值（null/undefined/''）→ '-'；其余千分位
+ *   分组、保留后端原样小数位（不归一/不四舍五入）、无货币符号；
+ * - formatTime：毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`，非法/空 → '-'；
+ * - maskAddress：长度 > 12 显前 6 + `****` + 后 4，否则原样，空值 → '-'。
+ *
+ * 后续域（topup/rate/pair/tx-flow/settle/system）只 import 本文件，勿改动既有签名。
+ */
+
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
+
+/** 毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`；非法/空 → '-' */
+export function formatTime(ms: number | null | undefined): string {
+  if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '-';
+  const d = new Date(Number(ms));
+  if (Number.isNaN(d.getTime())) return '-';
+  return formatAdminDateTime(d);
+}
+
+/** 数字千分位（保留原小数位，不四舍五入，无货币符号，负号保留）；v2.3 起空值 → '-' */
+export function formatMoney(
+  v: number | string | null | undefined,
+): string {
+  if (v === null || v === undefined || v === '') return '-';
+  const s = String(v);
+  const [int, dec] = s.split('.');
+  const sign = int.startsWith('-') ? '-' : '';
+  const digits = sign ? int.slice(1) : int;
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
+}
+
+/**
+ * 金额按 token 精度展示（源 utils/format.ts formatAmount，6a55188 2026-09-18）：
+ * 千分位 + 固定 decimals 位小数（HALF_UP，与后端 setScale 同尺）。
+ * 金额是 decimal(20,8)，转 Number 在大额时会丢末位精度，故全程字符串 + BigInt。
+ * - null / undefined / '' → '-'；非数字原样返回（不静默掩掉脏数据）
+ * - decimals < 0 钳 0；0 位渲染无小数点整数
+ */
+export function formatAmount(
+  v: number | string | null | undefined,
+  decimals = 2,
+): string {
+  if (v === null || v === undefined || v === '') return '-';
+  const scale = decimals < 0 ? 0 : decimals;
+  let s = String(v).trim();
+  let sign = '';
+  if (s.startsWith('-')) {
+    sign = '-';
+    s = s.slice(1);
+  }
+  const dot = s.indexOf('.');
+  const int = dot === -1 ? s : s.slice(0, dot);
+  const dec = dot === -1 ? '' : s.slice(dot + 1);
+  if (!/^\d+$/.test(int) || (dec !== '' && !/^\d+$/.test(dec))) return String(v);
+  // 整数位与保留的小数位拼成一个数字串；被舍位首位 ≥5 则整体 +1（HALF_UP），
+  // 进位自然传递（9.99 → 10.00），再按 scale 切回整数/小数。
+  let digits =
+    int + (dec.length <= scale ? dec.padEnd(scale, '0') : dec.slice(0, scale));
+  if (dec.length > scale && Number(dec[scale]) >= 5) {
+    digits = (BigInt(digits) + 1n).toString();
+  }
+  digits = digits.padStart(scale + 1, '0');
+  const intPart = scale === 0 ? digits : digits.slice(0, digits.length - scale);
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (scale === 0) return `${sign}${grouped}`;
+  return `${sign}${grouped}.${digits.slice(digits.length - scale)}`;
+}
+
+/** 账户地址掩码：长度大于 12 保留前 6 与后 4，中间 ****；否则原样，空值 → '-' */
+export function maskAddress(addr?: string | null): string {
+  if (!addr) return '-';
+  if (addr.length > 12) return `${addr.slice(0, 6)}****${addr.slice(-4)}`;
+  return addr;
+}

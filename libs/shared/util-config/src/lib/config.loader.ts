@@ -35,6 +35,15 @@ export async function loadProjectConfig(projectId?: string): Promise<ProjectConf
     case 'stablecoin':
       raw = (await import('../../../../../configs/stablecoin.json')) as unknown;
       break;
+    case 'kissen-admin':
+      raw = (await import('../../../../../configs/kissen-admin.json')) as unknown;
+      break;
+    case 'kissen-gateway':
+      raw = (await import('../../../../../configs/kissen-gateway.json')) as unknown;
+      break;
+    case 'lp-portal':
+      raw = (await import('../../../../../configs/lp-portal.json')) as unknown;
+      break;
     default:
       raw = (await import('../../../../../configs/ecommerce.json')) as unknown;
   }
@@ -52,5 +61,5 @@ export async function loadProjectConfig(projectId?: string): Promise<ProjectConf
  * This is synchronous and hardcoded to avoid filesystem access on the client.
  */
 export function getAvailableProjects(): string[] {
-  return ['ecommerce', 'crm', 'hospital', 'education', 'stablecoin'];
+  return ['ecommerce', 'crm', 'hospital', 'education', 'stablecoin', 'kissen-admin', 'kissen-gateway', 'lp-portal'];
 }

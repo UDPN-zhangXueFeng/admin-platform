@@ -1,0 +1,26 @@
+import type { SettleOrderListReq } from './settle-order.model';
+
+/** 结算单 query key factory（携带 projectId 隔离缓存）。 */
+export const settleOrderKeys = {
+  all: (projectId: string) => ['project', projectId, 'settle-order'] as const,
+  lists: (projectId: string) =>
+    [...settleOrderKeys.all(projectId), 'list'] as const,
+  list: (projectId: string, params: SettleOrderListReq) =>
+    [...settleOrderKeys.lists(projectId), params] as const,
+  detail: (projectId: string, orderId: number) =>
+    [...settleOrderKeys.all(projectId), 'detail', orderId] as const,
+  /** 结算单分项（展开行懒加载，orderId 维度缓存）。 */
+  items: (projectId: string, orderId: number) =>
+    [...settleOrderKeys.all(projectId), 'items', orderId] as const,
+  /** token 对分项逐笔结算明细（orderId × pairId 维度缓存）。 */
+  itemRecords: (projectId: string, orderId: number, pairId: number) =>
+    [
+      ...settleOrderKeys.all(projectId),
+      'itemRecords',
+      orderId,
+      pairId,
+    ] as const,
+  /** LP 选项（列表筛选下拉数据源）。 */
+  lpOptions: (projectId: string) =>
+    [...settleOrderKeys.all(projectId), 'lpOptions'] as const,
+} as const;

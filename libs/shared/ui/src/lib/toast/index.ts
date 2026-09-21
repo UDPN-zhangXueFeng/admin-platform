@@ -1,2 +1,2 @@
-export { Toaster, useToast } from './toast';
+export { Toaster, useToast, toast } from './toast';
 export type { ToastType, ToastOptions } from './toast';

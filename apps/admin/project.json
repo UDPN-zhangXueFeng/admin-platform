@@ -15,7 +15,7 @@
     "dev": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm exec next dev --webpack",
+        "command": "pnpm exec next dev",
         "cwd": "apps/admin"
       }
     },

@@ -23,6 +23,10 @@ export interface SidebarItemConfig {
 export interface SidebarProps {
   items: SidebarItemConfig[];
   collapsed: boolean;
+  /** Keep at most one parent menu expanded when enabled. */
+  singleExpand?: boolean;
+  /** Use larger, slightly heavier Lucide icons for the primary menu entries. */
+  prominentMenuIcons?: boolean;
   onToggle: () => void;
   className?: string;
 }
@@ -43,7 +47,13 @@ export interface SidebarProps {
  * purely decorative label on hover. The CSS tooltip is sufficient here
  * and keeps the component lightweight.
  */
-export function Sidebar({ items, collapsed, onToggle, className }: SidebarProps) {
+export function Sidebar({
+  items,
+  collapsed,
+  singleExpand = false,
+  prominentMenuIcons = false,
+  className,
+}: SidebarProps) {
   const grouped = React.useMemo(() => {
     const map = new Map<string, SidebarItemConfig[]>();
     for (const item of items) {
@@ -113,6 +123,12 @@ export function Sidebar({ items, collapsed, onToggle, className }: SidebarProps)
     setExpandedIds((prev) => {
       const activeParents = getActiveParentIds();
       if (activeParents.size === 0) return prev;
+      if (singleExpand) {
+        const activeId = activeParents.values().next().value as string | undefined;
+        if (!activeId || (prev.size === 1 && prev.has(activeId))) return prev;
+        return new Set([activeId]);
+      }
+
       // Only add newly-active parents; never auto-collapse.
       // Return prev (same ref) when nothing actually changed, otherwise
       // `new Set(prev)` is a fresh reference and would trigger an extra render.
@@ -123,10 +139,14 @@ export function Sidebar({ items, collapsed, onToggle, className }: SidebarProps)
       if (next.size === prev.size) return prev;
       return next;
     });
-  }, [getActiveParentIds]);
+  }, [getActiveParentIds, singleExpand]);
 
   const toggleExpanded = React.useCallback((id: string) => {
     setExpandedIds((prev) => {
+      if (singleExpand) {
+        return prev.has(id) ? new Set() : new Set([id]);
+      }
+
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -135,19 +155,19 @@ export function Sidebar({ items, collapsed, onToggle, className }: SidebarProps)
       }
       return next;
     });
-  }, []);
+  }, [singleExpand]);
 
   return (
     <aside
       className={cn(
-        'flex h-full flex-col bg-card text-card-foreground shadow-[4px_0_10px_-8px_rgba(15,23,42,0.35)] transition-[width] duration-300 ease-in-out',
-        collapsed ? 'w-20' : 'w-72',
+        'flex h-full flex-col bg-card text-card-foreground shadow-[4px_0_10px_-8px_rgba(15,23,42,0.35)] motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-in-out',
+        collapsed ? 'w-16 min-[1600px]:w-20' : 'w-60 min-[1600px]:w-72',
         className
       )}
       aria-label="Main navigation"
     >
       {/* Navigation */}
-      <nav className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-3 py-5">
+      <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 py-3 min-[1600px]:gap-6 min-[1600px]:px-3 min-[1600px]:py-5">
         {groups.map(([groupName, groupItems]) => (
           <SidebarGroup
             key={groupName || 'ungrouped'}
@@ -158,6 +178,7 @@ export function Sidebar({ items, collapsed, onToggle, className }: SidebarProps)
                 key={item.id}
                 item={item}
                 collapsed={collapsed}
+                prominentMenuIcons={prominentMenuIcons}
                 expandedIds={expandedIds}
                 onToggle={toggleExpanded}
                 onFlyoutOpen={openFlyout}
@@ -188,6 +209,7 @@ export function Sidebar({ items, collapsed, onToggle, className }: SidebarProps)
 interface CollapsibleNavItemProps {
   item: SidebarItemConfig;
   collapsed: boolean;
+  prominentMenuIcons: boolean;
   expandedIds: Set<string>;
   onToggle: (id: string) => void;
   onFlyoutOpen: (item: SidebarItemConfig, target: HTMLButtonElement) => void;
@@ -198,6 +220,7 @@ interface CollapsibleNavItemProps {
 function CollapsibleNavItem({
   item,
   collapsed,
+  prominentMenuIcons,
   expandedIds,
   onToggle,
   onFlyoutOpen,
@@ -226,6 +249,7 @@ function CollapsibleNavItem({
         label={item.label}
         path={item.path ?? '#'}
         collapsed={collapsed}
+        prominentMenuIcons={prominentMenuIcons}
         disabled={item.disabled}
         onClick={collapsed ? onFlyoutClose : undefined}
       />
@@ -237,6 +261,7 @@ function CollapsibleNavItem({
       <CollapsedParentItem
         item={item}
         isActive={isActive}
+        prominentMenuIcons={prominentMenuIcons}
         onOpen={(target) => onFlyoutOpen(item, target)}
       />
     );
@@ -250,20 +275,27 @@ function CollapsibleNavItem({
         onClick={() => onToggle(item.id)}
         aria-expanded={isExpanded}
         className={cn(
-          'group relative flex h-11 w-full items-center gap-3 overflow-hidden rounded-xl px-3 text-sm font-medium transition-colors',
+          'group relative flex h-10 w-full items-center gap-3 overflow-hidden rounded-xl px-3 text-[13px] font-medium motion-safe:transition-colors min-[1600px]:h-11 min-[1600px]:text-sm',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
-            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+            : 'text-foreground/80 hover:bg-primary/5 hover:text-accent-foreground',
         )}
       >
         {isActive && <SidebarActiveBackdrop />}
-        <item.icon className="relative z-10 h-5 w-5 shrink-0" aria-hidden="true" />
+        <item.icon
+          className={cn(
+            'relative z-10 shrink-0',
+            prominentMenuIcons ? 'size-6' : 'h-5 w-5',
+          )}
+          strokeWidth={prominentMenuIcons ? 2.25 : undefined}
+          aria-hidden="true"
+        />
         <span className="relative z-10 flex-1 truncate text-left">{item.label}</span>
         <ChevronRight
           className={cn(
-            'relative z-10 h-4 w-4 shrink-0 transition-transform duration-200',
-            isActive ? 'text-primary-foreground' : 'text-muted-foreground',
+            'relative z-10 h-4 w-4 shrink-0 motion-safe:transition-transform motion-safe:duration-200',
+            isActive ? 'text-primary-foreground' : 'text-foreground/80',
             isExpanded && 'rotate-90'
           )}
           aria-hidden="true"
@@ -273,7 +305,7 @@ function CollapsibleNavItem({
       {/* Child items */}
       <div
         className={cn(
-          'overflow-hidden transition-all duration-200 ease-in-out',
+          'overflow-hidden motion-safe:transition-all motion-safe:duration-200 motion-safe:ease-in-out',
           isExpanded ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'
         )}
       >
@@ -299,11 +331,17 @@ function CollapsibleNavItem({
 interface CollapsedParentItemProps {
   item: SidebarItemConfig;
   isActive: boolean;
+  prominentMenuIcons: boolean;
   onOpen: (target: HTMLButtonElement) => void;
 }
 
 /** Icon-only parent entry that opens its secondary navigation in a flyout. */
-function CollapsedParentItem({ item, isActive, onOpen }: CollapsedParentItemProps) {
+function CollapsedParentItem({
+  item,
+  isActive,
+  prominentMenuIcons,
+  onOpen,
+}: CollapsedParentItemProps) {
   return (
     <div className="group relative flex justify-center">
       <button
@@ -312,18 +350,25 @@ function CollapsedParentItem({ item, isActive, onOpen }: CollapsedParentItemProp
         aria-label={item.label}
         onClick={(event) => onOpen(event.currentTarget)}
         className={cn(
-          'group relative flex size-11 items-center justify-center overflow-hidden rounded-xl text-sm font-medium transition-colors',
+          'group relative flex size-10 items-center justify-center overflow-hidden rounded-xl text-[13px] font-medium motion-safe:transition-colors min-[1600px]:size-11 min-[1600px]:text-sm',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
-            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            : 'text-foreground/80 hover:bg-primary/5 hover:text-accent-foreground',
         )}
       >
         {isActive && <SidebarActiveBackdrop />}
-        <item.icon className="relative z-10 h-5 w-5 shrink-0" aria-hidden="true" />
+        <item.icon
+          className={cn(
+            'relative z-10 shrink-0',
+            prominentMenuIcons ? 'size-6' : 'h-5 w-5',
+          )}
+          strokeWidth={prominentMenuIcons ? 2.25 : undefined}
+          aria-hidden="true"
+        />
       </button>
       <span
-        className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+        className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow-md motion-safe:transition-opacity group-hover:opacity-100"
         role="tooltip"
       >
         {item.label}
@@ -345,7 +390,7 @@ function SidebarFlyout({ item, pathname, top, onClose }: SidebarFlyoutProps) {
 
   return (
     <div
-      className="fixed left-24 z-[60] w-64 rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-xl shadow-foreground/10"
+      className="fixed left-20 z-[60] w-64 rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-xl shadow-foreground/10 min-[1600px]:left-24"
       style={{ top }}
       role="menu"
       aria-label={`${item.label} submenu`}
@@ -355,7 +400,7 @@ function SidebarFlyout({ item, pathname, top, onClose }: SidebarFlyoutProps) {
           <Icon className="size-4" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{item.label}</p>
+          <p className="truncate text-[13px] font-semibold min-[1600px]:text-sm">{item.label}</p>
           <p className="text-xs text-muted-foreground">Select a feature</p>
         </div>
       </div>
@@ -377,7 +422,7 @@ function SidebarFlyout({ item, pathname, top, onClose }: SidebarFlyoutProps) {
           return (
             <li key={child.id}>
               {child.disabled ? (
-                <span className="flex min-h-9 w-full cursor-not-allowed items-center rounded-lg px-3 text-sm opacity-50">
+                <span className="flex min-h-9 w-full cursor-not-allowed items-center rounded-lg px-3 text-[13px] opacity-50 min-[1600px]:text-sm">
                   {content}
                 </span>
               ) : (
@@ -386,8 +431,9 @@ function SidebarFlyout({ item, pathname, top, onClose }: SidebarFlyoutProps) {
                   role="menuitem"
                   onClick={onClose}
                   className={cn(
-                    'flex min-h-9 w-full items-center rounded-lg px-3 text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    isActive && 'bg-primary/10 font-medium text-primary',
+                    'flex min-h-9 w-full items-center rounded-lg px-3 text-[13px] motion-safe:transition-colors hover:bg-primary/5 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-[1600px]:text-sm',
+                    isActive &&
+                      'bg-primary/10 font-medium text-primary hover:bg-primary/10 hover:text-primary',
                   )}
                 >
                   {content}

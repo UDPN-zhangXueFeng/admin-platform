@@ -1,5 +1,207 @@
 # Codex 对话沉淀
 
+## 2026-09-21 Gateway Management 实例详情页
+
+- Gateway 实例详情路由可沿用 `/onboard/instance/detail?id={instanceId}`：kissen-admin 动态路由按 `instance.detail` 解析，详情组件通过 `useSearchParams()` 读取 ID，与现有 bank/transaction detail 页面一致。
+- 列表复用 shared `DataTable`，每行提供直接 `Details` 按钮、状态操作保留在菜单；详情页有 Details / Heartbeat History 两个 Tab，心跳请求只在切入 Tab 后启用。
+- gateway-instance data-access 没有单实例详情 query/API；详情页复用 feature `row-stash.ts` 暂存行，同标签刷新可恢复。无暂存时从列表首 200 条回退查找；新会话下首 200 条以外的实例需后端详情接口，不猜接口路径或扫描全部分页。方案及边界见 `.doc/kissen/plan/10-网关实例详情与心跳历史改造方案.md`。
+- 验证：`npx nx lint modules-kissen-admin-feature`、`npx nx build kissen-admin` 均无错误；lint 仍报告 fx-rate/system-pages 中 8 个既有 warning。
+
+## 2026-09-21 Kissen Admin 开发登录预填
+
+- Kissen Admin 登录页在 development 环境读取 `NEXT_PUBLIC_DEV_LOGIN_NAME` / `NEXT_PUBLIC_DEV_LOGIN_PASSWORD` 作为表单默认值；`NEXT_PUBLIC_DISABLE_DEV_LOGIN_PREFILL` 只有精确为 `true` 时才禁用预填，未设置或 `false` 时保持启用。
+- 本地值放在 Git 忽略的 `apps/kissen-admin/.env.development.local`，模板放在 `apps/kissen-admin/.env.local.example`；生产环境不预填。
+
+## 2026-09-21 DataTable 页大小选项换行
+
+- Kissen Admin 银行列表的 `10 / page` 分成两行，根因在共享 `DataTable` 分页触发器：`110px` 宽度配合下拉箭头和间距后，标签可用宽度不足且允许换行。修复为 `w-32 shrink-0`，并给 `SelectValue` 加 `whitespace-nowrap`。
+- 排查类似列表布局问题时，先确认页面实际使用的组件；页面内容和分页来自不同层时，改页面本身的文案不会影响共享分页器。
+
+## 2026-09-21 LP Code 大小写输入
+
+- LP 登录输入框保留用户输入大小写显示，并用 `autoCapitalize="none"` 避免移动键盘自动大写；提交时仍 `trim().toUpperCase()`，保持 LP code 的既有规范化语义。
+
+## 2026-09-21 LP Token 菜单隐藏
+
+- LP 侧栏优先使用登录响应的 `menuTree`，会覆盖 `configs/lp-portal.json` 的 `modules.order`；隐藏菜单时须同时从静态 `enabled/order` 移除，并在 `buildLpSidebarOrder` 过滤该后端菜单键。`lp:token` 已按此方式隐藏，路由门禁也会拒绝直接访问。
+
+## 2026-09-21 Gateway 登录品牌图标
+
+- Gateway 登录页左侧品牌栏与表单卡片均使用后端品牌数据 `brand.logo`。左侧不再保留手写 `udpn` wordmark，以避免同页展示两套不一致的品牌标识。
+
+## 2026-09-17 td-manage-sync skill 建档
+
+- 背景：apps/admin 需要跟踪上游 td-manage（GitLab `td_project/source-code/stack/td-manage`，`feature/zxf` 分支）的后续更新。新建 `.claude/skills/td-manage-sync/`（SKILL.md + constraints/conventions/pitfalls + diff-upstream.sh），结构与 admin-sync 同构。
+- 与 kissen 系 sync 的关键差异：上游是 Next.js Pages Router + SWR（非 Vue）；下游 apps/admin 双语文案（en-US/zh-CN 双份 messages，非零 CJK）；菜单是静态 configs/*.json 多项目驱动（无后端 menuTree 运行时层）；registry 双注册表（中央 `apps/admin/src/lib/module-registry.ts` 47 keys + app-local `module-page-registry.ts` 承载 sp-access/key-management）。
+- 水位线：上游已 clone 至 `~/repos/td-manage`，锚点经用户裁决为 `7cce629d`（2026-08-04）；状态文件 `.doc/td-manage/sync-state.json`。首跑积压仅 2 commits（Dockerfile + networks 换图 1 行）。
+- 后续同类任务：同步 td-manage 上游必须走该 skill 六步流程；HTTP 方法判定按上游 fetcher 语义（`useSWR([url])`=GET / `[url,payload]`=POST），按钮权限用后端 UUID——两者历史上都出过回归，见 skill 的 pitfalls.md。
+
+## 2026-09-17 Jenkins 节点兼容性修复
+
+- 背景：Jenkins 节点使用 Docker 26.1.3，但没有 `docker buildx` 子命令；流水线将 `docker buildx version` 作为强制检查，导致 Kissen Admin 在镜像构建前失败。失败通知同时因卡片 JSON 使用 `{{...}}` 返回 HTTP 400。
+- 结论：`docker buildx` 检查改为可选能力探测，缺失时继续使用 `docker-compose` 内置 builder；飞书卡片改为合法单大括号 JSON，并使用 `curl --fail-with-body` 暴露 HTTP 错误。
+- 后续同类任务：Jenkins 工具检查不能把非必需的 buildx 作为硬依赖；通知渠道要同时校验 HTTP 状态和实际 JSON，不要仅依据 curl 进程退出码判断发送成功。
+
+## 2026-09-17 多应用 Jenkinsfile 参数化
+
+- 背景：根目录 Jenkinsfile 原先只部署 `apps/admin`，分支虽可选但 checkout 指向 GitHub，端口固定为 6241。
+- 结论：统一流水线的可部署项目为 `admin`、`kissen-admin`、`kissen-gateway-portal`、`lp-portal`；`admin-e2e` 是测试工程，不进入生产部署选择。项目选择会自动绑定后端和端口：admin→`10.0.48.123:30001`/`6241`、kissen-admin→`10.0.7.87:9000`/`6242`、lp-portal→`10.0.7.87:8090`/`6243`、kissen-gateway-portal→`10.0.7.87:8080`/`6244`。checkout 改用 GitLab `http://10.0.6.203:8088/udpn-kissen/source-code/admin-platform`，凭据 id 为 `zxfGitlab`。
+- 影响：`Jenkinsfile` 仅保留 `APP_PROJECT` 作为应用选择，后端和端口从 `getAppConfig` 固定映射注入；`docker-compose.yml` 支持按变量选择 apps Dockerfile 和 nginx context；新增 `nginx-gateway/`、`nginx-lp/` 以覆盖 Gateway 的 `/kissen-api/` 去前缀代理和 LP 的 `/lp/` 保留前缀代理。
+- 后续同类任务：新增部署环境或调整项目后端/端口时，只修改 Jenkinsfile 的 `getAppConfig` 映射和应用选择说明，避免恢复独立的端口/后端手工参数，防止组合出错误配置。
+
+## 2026-09-17 Kissen 三门户 Jenkins 流水线
+
+- 服务器 `10.0.7.20` 的 Jenkins 容器为 `jenkins_gtnc-jenkins_GtNc-1`，Web 端口 `14808`；已有 job `kissen-admin`、`lp-portal`、`kissen-gateway-portal`，本次原地更新其 inline Pipeline，未重复创建。
+- 三条流水线均从 GitLab `http://10.0.6.203:8088/udpn-kissen/source-code/admin-platform.git` checkout，credential id 为 `zxfGitlab`，默认分支为 `feat/kissen`；应用代码以 GitLab 为准，不再引用 GitHub。
+- 固定部署映射：kissen-admin→6242、LP→6243、kissen-gateway-portal→6244；默认后端分别为 `87:9000`、`87:8090`、`85:8080`。Admin/LP 保留 API 前缀代理，Gateway 的 `/kissen-api/` 代理剥离前缀。
+- Jenkins job 原配置备份在各自 `config.xml.20260917-pre-gitlab-kissen`；本次只重载 Jenkins，未触发三门户实际构建或容器切换。
+
+## 2026-09-17 Kissen Jenkins Bash 执行修复
+
+- `kissen-admin` 构建 #2 在 `Validate parameters` 阶段因 Jenkins 容器 `/bin/sh -> dash` 不支持 `set -o pipefail` 失败；原因是 Jenkinsfile 的 `#!/usr/bin/env bash` 位于缩进后，未被 Durable Task 当作 shebang。
+- 已在服务器三条 job（`kissen-admin`、`lp-portal`、`kissen-gateway-portal`）的 inline `config.xml` 及 `/data/<job>/Jenkinsfile` 中，将 6 个 shell block 的 shebang 调整为首字符 `#!/bin/bash`；修复前文件备份为 `.20260917-pre-bash-fix`。
+- 三份 XML 重新解析通过，Jenkins 重启后 HTTP 200 且完全启动；容器未重新部署，现有版本保持运行。Jenkins API 匿名请求为 403，因此本次只能完成服务器侧 Bash shebang/`pipefail` 执行验证，尚未触发新的 Jenkins 实际构建。
+
+## 2026-09-11（同日三次）三门户重部署（统一 main-0919）
+
+- 内容：`shared/ui` data-table sticky 操作列 hover 背景 `group-hover:bg-muted/50`→`group-hover:bg-muted`（+spec 断言 26 行）；admin 登录页重构随 rsync 补齐到 lp/gateway 副本。门禁：三应用本地 build 113.7s + `nx test shared-ui` 绿。rsync 零删除；三构建串行 197.7s 全 DEPLOY_DONE。
+- 验证：6 容器 Up main-0919、title 三件套、gateway brand code=0 + 真实登录 code=0、admin/lp 空参探针打到业务层；三个镜像 client chunk 均含新类 `group-hover:bg-muted`（用 `[^/]` 排除 `/50` 旧形态作区分）。
+
+## 2026-09-11 三门户例行部署（10.0.7.20，统一 main-0917）
+
+- 内容：工作树 HEAD（90be73f/348df1f/ff9130a，09-10 三个 commit 的最终收口态）。相对服务器快照：admin 0916→0917 差为 kissen-admin 模块 lp-pair/lp-pool data-access 收口 + module-page-registry；lp 0916→0917 差为 pair/pool 重构最终态；gateway 0914→0917 app 代码实质无变化（rsync 增量均为 admin/lp 侧文件），属 tag 对齐重建。rsync 唯一删除项 `session-guard.tsx` 为 348df1f 清理内容，预期。
+- 前置门禁：全仓 `tsc -b` 与 `tsc -b apps/kissen-*` 均被 libs/modules/auth 的 project-reference 工程债污染（TS5090/6059/6307/6305），不能作 kissen 门禁；有效门禁 = `nx run-many -t build -p kissen-admin lp-portal kissen-gateway-portal --skip-nx-cache`（80s 三应用全绿）。
+- rsync 干跑无输出的坑：`-rlptD` 不含 `-v`，干跑零输出 exit 0 ≠ 无差异；排查差异必须加 `-v`（或 `--itemize-changes`）。
+- 服务器 node:22-alpine 曾被清理（docker images 无 node），构建前预热 node:22-alpine + nginx:alpine（70s/95s）后三个前台构建 103s/77s/77s 无 metadata 卡死。
+- 验证：6 容器全 Up main-0917；title 三件套（Kissen Admin / LP Portal / UDPN Kissen Bank Portal）；gateway brand code=0 + 真实登录 bank_admin code=0；admin `/v1/rbac/user/login` 空参打到 87:9000 业务层（nginx label api-url=87:9000）——探针文案已从「登录名不能为空」漂移为 `code=2 未登录或登录已过期`，勿以旧文案判断；lp 空参 `/lp/login` 返回「LP 编码不能为空」（文案又漂回）。镜像抽查：admin chunk 930 含 `lp-token-pair/split`、lp server chunk 969 + client chunk 含 `pair/list`。
+- tree-shake 提醒：lp `pair/eligible`/`pair/apply` data-access 保留但 UI 无调用方，不进 bundle——镜像内容抽查要用「在用的端点字符串」，不能用死代码端点或 TS 类型名（编译即消失）。
+
+## 2026-09-11（同日二次）kissen-admin 重部署（main-0917→main-0918）
+
+- 内容：工作树未提交的登录页视觉重构（`apps/kissen-admin/src/app/[locale]/(auth)/login/page.tsx`：深色 brand-deep 画布 + 网格纹理 + Admin Console/Network Management System 头部）。本地 `nx build kissen-admin --skip-nx-cache` 61.8s 门禁绿；rsync 单文件差异零删除；服务器构建 70.8s。
+- 验证：容器 main-0918、title `Kissen Admin`、镜像 server page + client chunk 均含 `Administrative access`、`/v1/rbac/user/login` 探针正常打到 87:9000；浏览器实测清会话后停在 /en-US/login，header 渲染新文案、表单在（截图 /tmp/admin-main-0918-login-1280.png）。
+- 浏览器残留会话坑复现：共享 headless 浏览器有旧登录态，直开 :6242 会跳 /workbench，`waitForSelector('form')` 超时。需 `evaluateOnNewDocument` 清 localStorage/sessionStorage/cookie 再 goto。另：本环境 `page.context()` 不可用、goto 不接受 `networkidle`、Node 侧闭包里不能用 `document`（断言必须 `page.evaluate`）。
+
+
+## 2026-09-10 gateway-sync a9dc10e..ddd9fe2 批次（tx 源端金额口径切换）
+
+- 背景：上游单 commit `ddd9fe2`（bug fixed）改 `src/views/tx/detail.vue` + `list.vue`：tx 源端金额从 `principal`（=按接收金额换算的发起基准值，数值恒等于 receiverAmount 换算基数）切换为 `userDeduction`（用户实际扣款，源币种，含汇率加价承担）。
+- 结论：①列表 From 金额、详情基本信息卡（新 DescField `Deduction Amount` + 副行 "User's actual deduction (source currency, incl. FX markup)"，上游 `.sub-line` 11px/`--ks-text-3` → `text-[11px] text-muted-foreground`）、链路 stepFields `Source Amount` 三处同口径；②`userDeduction` 类型 fe61223 已在 `TxRecord`（tx.model.ts:52），纯展示层改动零 data-access；③null 态复用 To 列模式（`text-muted-foreground/60` + '-'）。
+- **fetch 冒烟对照鉴权头**：portal API 自定义头 `token`（非 Authorization Bearer），`fetch('/kissen-api/bankgw/portal/...', {headers:{token}})`；Bearer 会返回 `code:'2'` 过期。断言字段来源时用此法拉真实响应与 DOM innerText 对照。
+- 验证：tsc/build/lint 清零；浏览器实测 10 行 From 金额全部=`userDeduction` 派生值（1.01/0 CF7，`principal` 恒 1 未出现）；详情 Deduction Amount + 英文副行 + 链路 step1/3/4 Source Amount=1.01 CF7 全过；截图 `.doc/kissen/project/gateway/verify/ddd9fe2-smoke/`（1280×800，tab.run raw `page.screenshot` 绝对路径直存）。水位线已 `--apply` 推进 ddd9fe2197a。
+- 2026-09-10：gateway ddd9fe2 批次部署（:6244，main-0913→main-0914）。rsync 7 条目零删除（核心 `tx-pages.tsx`，admin 两文件顺带）；预热 nginx:alpine 后前台构建 160s 无 metadata 卡死。验证全绿：容器 app main-0914、title `UDPN Kissen Bank Portal`、brand code=0、真实登录 code=0、镜像 chunk 198 含 `FX markup`；线上浏览器实测 tx From=`1.01/0 CF7`（userDeduction 口径）、详情 `Deduction Amount | 1.01 CF7` + 英文副行。ssh 密码登录 expect 包装在 `/tmp/gw-ssh.exp`（单命令参数）。
+- 2026-09-10：kissen-admin 部署（:6242，main-0911→main-0915，0914 已被同日 gateway 占用）。内容为工作树未提交的银行 logo 批次：logo 改 64×64 PNG data URI 上传+压缩（无文件服务，`bank.model.ts` 注释更新 + `bank-onboard-pages.tsx` +657），本地 `verify/admin-logo-upload-1280.png` 为其验证截图。tsc 前置清零；rsync 7 条目零删除；构建 87s。降级验证全绿：容器 main-0915、title `Kissen Admin`、87:9000 业务层探针「登录名不能为空」、镜像 chunk 7903 含 `Bank Logo`。
+- 2026-09-10（晚）：kissen-admin 二次部署（:6242，main-0915→main-0916）。触发：本地 15:45 的 bank-onboard-pages.tsx 改动晚于 14:20 main-0915 快照——①银行列表操作 `View`→`Details`；②详情页 Gateways instance 展开行 TokenRows 由 `tokens.filter(t.instanceId===row.instanceId)` 改为全量 `tokens`（真实 API token 挂 bank 不挂 instance，附注释留档）。同批顺带：kissen-admin app 层清理（login 移除 dev 凭据预填、删 no-op SessionGuard、registry/globals 注释）、lp-portal pair/pool in-flight 重构（不影响 admin 构建）。前置 tsc+build 绿；rsync 干跑新增排除 `.playwright-mcp` 与 `build-*.log`（服务器残留旧日志会被 --delete 命中，属预期清理），实同步后 md5 对齐；tag sed 0915→0916、nginx:alpine 预热 87s、构建 157s。验证四件套全绿 + 线上浏览器实测：真实登录落 /workbench、kebab 菜单 `Details`、Gateways 展开行显示 bank-scoped token（CXC01）；截图 `verify/admin-main-0916-bank-detail-tokens.png`。踩坑：expect 里 `rsync | grep` 管道后 `$?` 是 grep 的退出码，勿据此判定 rsync 失败；rsync 不带 `-v` 时完全静默属正常，干跑必须 `-v` 才能看 deleting 清单。
+- 2026-09-10：lp-portal 部署（:6243，main-0912→main-0916；**0916 与同日晚些的另一会话 kissen-admin 部署撞号**——镜像名前缀不同无实际冲突，但全局日序惯例已破，下次部署前先 `docker ps` 核对当日已用号）。内容为并行会话的工作树增量：lp login 页移除 dev 预填、pair/pool data-access 重构（mutations 并入 queries，+94/-1195）；admin 文件顺带同步不影响 lp 构建。前置 tsc 清零 + 服务端 build（含类型检查）81s 双重门禁；rsync 3 删除项均预期。验证全绿：容器 main-0916、title `LP Portal`、:6243 `/lp/login` 空参打到业务层（本次报「登录名不能为空」而非旧记忆「LP 编码不能为空」——后端校验顺序已变，勿以旧文案判断）、镜像内 dev 预填标记清零。**并发提醒**：多会话共享工作树时 rsync 快照会混入他人 mid-flight 改动，部署前 tsc 是最低门禁。
+
+
+## 2026-09-09 kissen-admin admin-sync bb9c607d..3c4cfbb 批次收尾
+
+- 背景：上游 v2.0-tokenization 12 commits（银行实体 bankBic 化、instance 货币系统字段、Resend Invite、lp-pair/pool/fx-rate/settle/tx/approval 文案与列改造）同步至 kissen-admin。
+- 结论：(1) 上游存在「同概念双口径」——LP 筛选项「草稿」与列 badge COMMON_STATUS_MAP[1]='保存(草稿)' 分置，下游对应 Draft 筛选 + Saved (Draft) badge，勿强行统一。(2) 上游死代码不搬运：gateway-dialog.vue 无调用方，下游只同步模型层字段（bank-gateway 货币系统 5 字段）无 UI 消费方。(3) tx 详情独立页路由定案 `tx.detail` 用 `?id=` query 形态（`/transfer/tx/detail?id=N`），与 bank/lp 既有惯例一致，registry `lp.detail` 同批退役。
+- 影响：tsc/build/lint 全绿；15 页浏览器冒烟全过（含 Resend Invite 全链路 200+toast）。水位线已推进 3c4cfbb；新术语 10 条回填 constraints.md；pitfalls 新增 25-28 条（Nx daemon reset、hub readiness 端口孤儿、Radix kebab 需 mouse 坐标点击、observe id 跨 cell 失效）。
+- 后续同类任务：冒烟中后端数据自带 CJK（busDesc JSON、审批节点名/操作人、instanceName）是数据直显非 UI 文案，与上游一致不算违规；判定前先 `git show <sha>` 对照上游同字段渲染方式。
+
+## 2026-09-07 LP Portal 登录页视觉约束
+
+- **结论**：`/[locale]/login` 仅调整应用层展示，必须保留 LP Code / Username / Password 的 `id`、`name`、必填约束，以及页面既有的 LP Code 大写归一化、会话写入、首登改密与 redirect 流程。不要为了改样式切回 shared `MockLoginPage`，LP 与 Gateway 登录页应保持独立的信息架构。
+- **主题与动效**：登录页品牌色只消费 `configs/lp-portal.json` 已注入的 `--brand-*` / `--illus-*` CSS variables，不能写死某个 palette 的深蓝或青绿。该页最终不用 SVG 图；银行/清算语义由纯 HTML/CSS 的 Settlement Ledger 面板表达，低频动效须带 `prefers-reduced-motion` 降级。
+- **视口约束**：登录页外层采用固定 `100dvh` + `overflow-hidden`；桌面与 390×844 移动设备均需满足 document 的 `scrollWidth/scrollHeight` 等于 viewport，移动端隐藏装饰面板并压缩表单节奏，不能引入页面级 X/Y 滚动。
+- **开发预填凭据**：LP 登录页从 `apps/lp-portal/.env.local` 的 `NEXT_PUBLIC_LP_DEV_LP_CODE`、`NEXT_PUBLIC_LP_DEV_LOGIN_NAME`、`NEXT_PUBLIC_LP_DEV_PASSWORD` 读取开发态预填值；变更时同步 `.env.local.example`，且必须重启 LP dev server 才会重新内联 `NEXT_PUBLIC_*`。
+- **登录卡信息密度**：认证卡不展示额外的业务标题或说明，直接呈现字段与提交按钮；语义标题以 `sr-only` 保留，避免视觉层级与页面品牌区重复。
+- **Admin 登录差异化**：Kissen Admin 登录页沿用动态主题变量、固定 `100dvh` 和紧凑认证卡，但采用浅色治理画布 + 顶部 Admin Console 品牌栏 + 权限矩阵 CSS 视觉；Admin 的定位文案应围绕 access / workflow / audit，不复用 LP 的 liquidity 运营叙事，也不回退到 shared `MockLoginPage`。
+
+## 2026-09-09 kissen-admin 登录页平铺式布局
+
+- **主题来源**：`/[locale]/(auth)/login` 虽然不在 `(app)` 的 AppShell 内，但仍被 locale 层 `ConfigProvider` 包裹；登录页应直接通过 `useTheme()` 取得 `config.theme.themes` 并传给 `ThemeSwitcher`。不要再复制主题配置或向 `window` 注入第二份主题数据。
+- **视觉边界**：Admin 登录页采用固定 `100dvh` 的平铺两列：顶部深色品牌栏承载 `KissenHeaderMark` 与主题入口，左列仅保留认证表单，右列用纯 CSS 的身份/权限/审批链路表达网络治理。小屏隐藏右列，页面级保持 `overflow-hidden`，认证流程不因布局变化而改变。
+
+## 2026-09-03 kissen-admin Bank 列表列标题
+
+- **结论**：`/onboard/bank` 列表表头使用 `Bank Name`、`Bank Code`、`BIC`、`Blockchain/Token System`、`Status`、`Created On`；`Actions` 操作列继续保留。
+- **后续同类任务**：银行列表的表头定义位于 `bank-onboard-pages.tsx` 的 `BankInfoListPage` columns；详情/编辑页的 `SWIFT BIC` 等表单 label 是独立文案来源，列表重命名时不要连带修改。
+
+## 2026-09-03 kissen-admin Bank 详情字段
+
+- **结论**：Bank detail 页面新增 `Basic Information`（银行基础字段、时区化 Created On、Official Website、Description）；`Currency System Information` 在查看页改为 `Token System Information`，仅保留 Token System Type、Blockchain、Token System Name；Contact Information 删除 Phone，Contact Email 改为 Email。
+- **边界**：`Currency System URL`、`Integration Notes`、`Account Config` 只从详情页展示移除，编辑页仍保留原保存字段，避免未经需求授权改变后端配置能力。`officialWebsite`/`description` 在 BankRow 中建模为可选详情字段，后端未返回时展示 `--`。
+
+## 2026-09-03 kissen-admin Gateway Connectivity 文案
+
+- **结论**：实例列表 Connectivity 展示统一改为 `Online`（状态码 1）、`Offline`（状态码 2）、`Degraded`（状态码 0）。状态码契约和连接验证逻辑不变。
+- **后续同类任务**：Connectivity 文案统一维护在 `bank-gateway.model.ts` 的 `CONNECTIVITY_STATUS_LABEL`，因为实例页和银行网关连接信息共用该映射；修改文案不应在 feature 页面另写一份映射。
+
+## 2026-09-03 kissen-admin Workbench 参考布局重组
+
+- **背景**：用户要求参考 `~/Downloads/临时（可删除）/udpn-kissen` 重做 `/en-US/workbench`，但当前项目的 `AppShell` 已负责 Header、侧栏和面包屑，不能把参考项目的整页壳层重复嵌入。
+- **结论**：Workbench 内容区采用参考项目的层级：页头（Dashboard/更新时间/Refresh）→ 四张独立 KPI 卡片 → `Pending Exceptions`（8/12）+ `Settlement Statements`（4/12）→ `Pool Overview`（8/12）+ `Network Overview`（4/12）。继续使用当前后端查询与空/加载/错误态，不复制参考项目的静态 mock 数据。
+- **影响**：新增 settlement、gateway instance、LP、token pair 查询用于结算摘要和 Network Overview；资金池表沿用 kissen-admin 的真实字段（Pool Address、Pre-Authorized、Available Balance、水位、Status），异常表提供 View 跳转至交易列表。桌面端保持 12 列栅格，小屏自动单列并允许表格横向滚动。
+- **后续同类任务**：参考外部页面时先拆分「页面壳层」和「内容层」；若宿主 AppShell 已提供壳层，只迁移内容信息架构和视觉层级。真实业务页面应保留后端数据/权限/路由语义，参考项目中的演示数据只能用于确定结构。
+
+## 2026-09-03 kissen-admin 侧栏图标映射
+
+- **背景**：侧栏通过 `lucide-react` 动态按名称解析图标，历史配置中的 `Odometer`、`OfficeBuilding`、`Money` 等 Element UI 名称在 Lucide 中不存在，解析失败后统一回退为 `Box`，造成多个顶级菜单显示相同立方体。
+- **结论**：顶级菜单改用已确认存在且互不重复的 Lucide 图标：Dashboard=`LayoutDashboard`、Workflow Tasks=`Stamp`、Bank Management=`Landmark`、Liquidity Provider Management=`UsersRound`、Settlement=`CalendarClock`、FX Management=`ChartCandlestick`、System Management=`Settings`。后端菜单 key 不稳定时，再按顶级英文 label 做兜底映射。
+- **后续同类任务**：修改侧栏图标前必须对照 `libs/shared/ui-layout/src/lib/layouts/sidebar-layout.tsx` 的 `resolveIcon` 实际图标库；不能直接把 Element UI/旧项目 icon 名填入配置。后端 menuTree 和静态 config 两条来源都要覆盖，并确认顶级菜单不重复。
+
+## 2026-09-03 LP/Gateway 侧栏图标映射
+
+- **结论**：LP 的运行时 `MENU_ICONS` 与 `configs/lp-portal.json` 已同步替换无效/旧名称（`Gauge`、`Wallet`、`List`、`Money` 等）；Gateway 静态 config 的 7 个顶级菜单也改为有效且互不重复的 Lucide 图标，`FileCheck2` 改为当前版本存在的 `ClipboardCheck`。
+- **后续同类任务**：三门户侧栏都由 shared `resolveIcon` 按字符串解析，图标修改必须同时检查运行时 menuTree 装配和静态 config fallback；任何无法在当前 `lucide-react` 导出中找到的名称都会退化为默认图标。
+
+
+## 2026-09-02 gateway eafcab0 批次同步（f5009b36..eafcab0，详情页×3 + tx 导出 Excel）
+
+- **详情路由形状定案（查询参非路径参，tx 先例）**：token `/token/manage/detail?code=`、fx `/fx/detail?id=`、bank `/bank/query/detail?id=`。page.tsx pageKey 推导靠 FLAT_PAGE_SEGMENTS 白名单偏移，registry 增 `token.detail`/`fx.detail`/`bank.detail` 三键；本轮无菜单结构变化（详情页复用父列表菜单键前缀高亮）。
+- **DataTable 列型不变性**：ColumnDef 泛型对行类型不变（accessorFn 参数逆变），`React.useMemo(() => rows.map(r => ({...r, id: String(r.id)})))` 推断出归一化对象类型后与 `ColumnDef<T & {id:string}>` 不兼容——两个修法：memo 返回类型显式注解 `(T & {id: string})[]`；T 自带 `id: number` 时用 `Omit<T,'id'> & {id: string}`（FxLpInfo 踩过）。
+- **bank detail query key 命名**：`queryDetail(bankId)`——`detail()` 键已被 useBankDetailQuery（onboard 域）占用，同文件加键先查重。
+- **edit 工具行号漂移在本批再犯 6+ 次**（多 hunk 同范围 "kept only the last" 静默吞相邻行、PUT 锚进 JSX 吃掉 cell 开头）。纪律：一次 edit 只发一个 hunk；PUT 前必 grep 定位当前行号；长文件大改直接 write 整文件；warning 出现立即 read 实际区域。
+- **冒烟凭据**：gateway 测试账号是 `bank_admin/Kissen@123`（.85 后端；Abc123! 会 MSG_24_0002）。menuKeys 含 token/fx/bankquery/tx:export 全量键。overview successRate 后端已直发百分数（16.67%），前端删 ×100。
+- 验证：tsc/build/lint 清零；三列表 Detail→三详情 + overview/tx 回归实测（1280×800 截图 `.doc/kissen/project/gateway/verify/eafcab0/`，8 张）。lastSyncedSha 已推进 eafcab0。
+
+## 2026-09-02 kissen-gateway-portal 后端切换（10.0.7.87:8080 → 10.0.7.85:8080，main-0902）
+
+- 纯后端切换无代码变更：服务器 `/data/kissen-gateway-portal/build.sh` sed `NEXT_SERVICE_SERVER_URL` 85:8080 + tag main-0901→main-0902（备份 build.sh.bak-0902），本地 `.env.local`/`.env.local.example` 同步改。app 镜像全缓存命中，仅 nginx 镜像重建（地址构建期 sed 进 default.conf）。
+- BuildKit metadata 卡死复现：卡 `load metadata for docker.io/library/node:22-alpine` 13 分钟 0% CPU；服务器端 kill compose/build.sh 进程后重跑 99s 完成。注意 kill 前台 ssh 会话的 build.sh 会连坐本侧任务（exit 255），属预期。
+- 验证：两容器 Up（app main-0902）、nginx label `kissen-gateway.api-url=http://10.0.7.85:8080`、`/en-US/login` 200、`GET /kissen-api/bankgw/brand` code=0（GET 空 body 即 code=0；POST `{}` 会 code=1 系统异常，两后端相同，不能用来区分新旧）。85/87 当前返回内容一致，区分依据是构建日志 #30「Nginx 后端地址」与容器 label。
+
+## 2026-09-01 lp-portal 部署（10.0.7.20 :6243，main-0901）
+
+- 内容：lp-sync f0d5b6f 批次（出款池切换/Payout Spender 列、token 两视图口径、pair Activation 列、split-settle 三汇率列、dashboard 双系列折线）。
+- 形态：/data/lp-portal rsync 工作区同步（保护排除 build.sh*/docker-compose*.yml/nginx*/logs/.env*/.npmrc/*.tsbuildinfo/.git/node_modules/.next/.nx/.claude/.codex/.doc/body.ts/*.png）；干跑先核 `*deleting` 为零再实同步，md5 抽查 volume-chart.tsx 一致。
+- build.sh 更新：tag main-0831→**main-0901**（备份 build.sh.bak-0901），`NEXT_LP_BACKEND_URL` 103:8090→**http://10.0.7.87:8090**。切后端=重建 nginx 镜像（sed 注入 default.conf），改 app 容器 env 无效。
+- 后端实测（服务器视角）：87:8090 `/lp/login` 空 probing 凭据返回 MSG_23_0013（走到业务层，服务活；TESTLP01 真凭据属测试数据未同步）；103:8090 连接超时（000）已死——与用户切换指令互证。
+- 构建仅 ~45s（BuildKit 缓存热），无 metadata 卡死。验证：容器 Up（app main-0901 + nginx）、`/en-US/login` 200 + `<title>LP Portal</title>`、nginx `/lp/` 代理打 87 返回业务码、bundle chunk 445 含 `Payout Spender`/`Set as Payout Pool`/`Not configured (cannot pay out)` 新文案。
+- **browser 工具 tab 作用域坑**：`open` 新 tab（如 lp-prod）后 `run` 默认仍落在 tab "main"——共享 headless 浏览器里 main 是本机 3300 冒烟会话，页面数据看着像「线上有数据」实为串台；跨 origin 验证线上必须 `run` 带 `name` 指定目标 tab，且先断言 `page.url()` 的 origin。
+
+## 2026-09-01 lp-sync f0d5b6f 收尾（fixture 拦截冒烟法）
+
+- 背景：lp-portal 同步 6c49396d..f0d5b6f 后需浏览器冒烟，但真后端 10.0.7.103 已挂死、10.0.7.87 无有效凭据（TESTLP01 登录报 MSG_23_0013）。
+- **fixture 拦截冒烟法**：puppeteer `setRequestInterception` 拦 `/lp/*` 注入 wire-shape fixture（envelope `{code:'0',data}`、分页 `{rows,page:{total}}`、split/detail 裸 `{rows,total,summary}`、mock /lp/login 返回 LoginRespVO 含全量 menuTree）。五个关键坑：
+  1. **漏拦任何 /lp/ 请求都会打真后端** → 401 → 拦截器清会话跳 login?expired=1，页面当场白屏。必须 catch-all：未匹配的 /lp/ 一律 respond `ok(null)`，绝不 continue。
+  2. **会话 menuTree 会 persist 到 storage**：窄 menuTree 登录后，后续 run 即使换新 menuTree，守卫（PATH_MENU_KEY 反查 menuKeys）仍读旧缓存，出现「无权限回首页」假象。每个 run 前先 `localStorage.clear()+sessionStorage.clear()+clearBrowserCookies` 再登录。
+  3. **el.click()（DOM click）不触发 Radix TabsTrigger**：需真实 CDP 点击（tab.click(selector)）。普通 Button 的 DOM click 正常——只有依赖 pointer 语义的组件有此差异。
+  4. interception 是 run-scoped：run 结束后轮询打真后端又清会话，故导航+断言必须单 run 内完成；但单 run 工作量大会 protocolTimeout——解法是每轮 run 重做「清缓存→登录→goto 目标页」，一次只测一页。
+  5. 冒烟按钮断言用准确文案大小写：操作列是 `Set as Payout Pool`（大写 P），小写匹配会误报按钮缺失。
+- liquidity 组键删除（MENU_LABELS.liquidity/MENU_ICONS.liquidity）：上游 4d20380 只删了 Vue MainLayout 的图标映射，真正的组删除靠后端 SQL v2.4.2（lp:pool 提升一级）。本地后端未跑该 SQL 时侧栏组节点回退 `node.menuName` 显示中文，是数据滞后不是代码回归，勿回加映射。
+- 块注释 `*/` 陷阱再次验证：JSDoc 内写 `stroke-*/fill-*` 这类含 `*/` 的文本会提前终结注释，tsc 报一堆幽灵错误。改写为「stroke 与 fill 语义类」。
+- 冒烟结论：pool（12 列含 Payout Spender、掩码、Not configured、TN-0003/BK02 兜底、activate→warning toast、复制→success toast）、token（8 列 LIST + By Bank 4 列 Accordion + sync 双域）、pair（Activation 列 In/Out 全址、Pending '-'）、split-settle（卡1 三汇率列 + Overridden 标记 + 明细合计行）、dashboard（双系列 SVG 折线 4 path 2 gradient、图例开关、hover 气泡、PoolCard tag USDT/TN-0003 兜底）全部通过；`diff-upstream.sh --apply f0d5b6f` 已推进。
+- 遗留：10.0.7.87 真数据复核待有效凭据（.env.local 的 NEXT_PUBLIC_LP_DEV_* 预填值已随旧后端失效）。
+
+## 2026-08-31 Kissen 三系统 UI-only 页面精细化规划
+
+- 背景：三门户功能与响应式迁移基本完整，但代表截图仍呈现“白卡片等权堆叠、Header 强而内容层级弱、默认组件拼装感”，用户要求单纯改造 UI 页面，不涉及功能。
+- 结论：新增 `.doc/kissen/UI页面精细化改造方案--v1.0-2026-08-31.md`。统一目标为可信、克制、精确；差异定位为 Admin 治理决策、Gateway 运行诊断、LP 资金运营。先完成 Admin Workbench、Gateway Overview、LP Dashboard 三个 Golden Page，通过后再提炼 shared 模式。
+- 边界：UI 改造不得改变 API、DTO、Query/Mutation、权限、路由、字段语义、业务状态机和按钮数量；发现功能问题独立记录。页面必须覆盖 populated/empty/loading/error 四态及 1280/1600/1920/2560 四档截图。
+- 验收：单页按构图层级、间距、排版数据、组件状态、业务视觉、响应式、a11y 共 100 分评估，≥90 PASS；正文对比度 ≥4.5:1，非文本 UI ≥3:1，目标尺寸至少 24×24 CSS px。
+
+## 2026-08-28 kissen-gateway 品牌主题系统接入（jade/plum/bronze）
+
+1. **三主题家族定稿**：jade(165°, 默认, #0B6B53=DEFAULT_BRAND.primaryColor)/plum(286°)/bronze(27°)——gateway 自有绿系品牌 + 两个此前三项目均未占用的家族。初稿 sapphire(224° 蓝系)被否：admin 已整占蓝系（azure 210/midnight 222/cobalt 220），「配色不复制」要按家族维度避让，不是逐 hex 比对。每主题 18 键（2 tailwind + 2 brand + 3 login-grad + 5 banner + 6 illus；conventions 里「19 键」是笔误，LP 实际 18）。
+2. **BrandProvider 内联覆盖会压垮主题块**：gateway 存量 BrandProvider（源 MainLayout 品牌 API 驱动）用 `root.style.setProperty('--primary')` 注入，documentElement 内联样式优先级高于任何 `[data-theme]` CSS 块——主题系统接入时必须给这类运行时注入加让位条件（`documentElement.dataset.theme` 存在即让位，防闪脚本在 themes 非空时首帧前必写该属性，可作开关）。源语义变量（--ks-clearing/--el-color-primary）保留不动。
+3. **品牌 API 主色与主题并存口径**：登录页 Sign In 按钮原 `style={{backgroundColor: brand.primaryColor}}` 改 `bg-primary`（跟随主题）；品牌名/副标题仍 API 驱动。dev 环境真实后端 /bankgw/brand 返回 #1E4D8C（海军蓝），证明让位逻辑必要——否则切主题主色纹丝不动。
+4. 验证：tsc/build/lint 清零；实测 jade→plum→bronze 切换（下拉键盘路径，Radix 点击偶发不开是 admin 期已知坑）、防闪（domcontentloaded 时 data-theme 已就位）、localStorage['gw-theme'] 持久化、内联 LogoMark fill 跟随、--primary/--brand-deep/--login-grad-* 联动、BrandProvider 让位（--ks-clearing=#1E4D8C 而 --primary=jade）。截图 `.doc/kissen/project/gateway/verify/theme/`。
+
 ## 目的
 
 本文件用于记录每次与 Codex 协作后沉淀出的可复用经验，包括：
@@ -28,6 +230,190 @@
 - 影响：
 - 后续同类任务：
 ```
+
+## 2026-08-26
+
+- 背景：kissen-gateway-portal 迭代重评估。参考快照 `~/Downloads/临时（可删除）/kissen-bank-gateway-frontend-main`（Vue 3.5 独立仓，无 git 历史）× monorepo `apps/kissen-gateway-portal` × 详设 v1.7 三方对照（scout 双盘点 + 人工核验）。
+- 结论：(1) **功能迁移等价度 ~100%**：9 页面/34 接口/全部枚举（TX 13 态、onboard 5/15/20、menuType 0-4）逐项一致，代码内「源 xxx」注释是移植对齐纪律的痕迹。(2) 真实差距在工程不在功能：portal 无 Dockerfile、`docker-compose.kissen.yml` 只构建 kissen-admin（P0）；文案英文硬编码未资源化（P1）；交易导出与 menu-permission UI 双侧未实现（P0/P1）。(3) **规划漂移**：plan 06 Step9 的 6 库拆分从未执行（实际单聚合库 `kissen-gateway/{feature,data-access}`），plan 08 filter-repo 路径清单全部过期——裁定接受现状回写计划，不补拆。(4) 后端契约口径以参考项目为准：`GET /menu/tree`（详设写 POST）、信封 `code:'0'` 字符串 + 自定义 `token` 头（admin 数字 code 不同构）、入网开关纯靠后端差异化 menuKeys（bankStatus 字段不存在）、交易链路=本地 `/tx/messages` 报文（无 /tx/chain 代理）。
+- 影响：新增 `.doc/kissen/project/kissen-bank-gateway-frontend/迭代需求重评估--v1.0-2026-08-26.md` 与 `.doc/kissen/project/kissen-gateway-portal/迁移工程重评估--v1.0-2026-08-26.md`（文档开始按实施项目分子目录存放）。两个易误判点已澄清：**middleware 强制 en-US 是有意决策**（middleware.ts:8-12 注释明确拒绝 Accept-Language 协商），i18n 债指「文案未资源化」而非「zh-CN 不可达」；**indigo 主题是有意分歧**（提交 5b2be93），参考项目 M19 常青绿私行风不迁移。
+- 后续同类任务：(a) scout 盘点给出的 gap 候选必须人工核验后才能写进文档——本轮 8 条候选中 3 条（log traceId 列、roleType 内置禁删、超管徽标）实际已存在，直接采信会误报。(b) 无 git 历史的参考项目无法做版本 diff，评估方法=「参考当前态 × 实施当前态 × 设计基线」三方对照，须在文档中声明此局限。(c) portal 容器化照 kissen-admin Dockerfile 模式（NX_PROJECT_ID=kissen-gateway、NEXT_PUBLIC_API_BASE_URL=/kissen-api/bankgw/portal），但 nginx 语义不同：admin 走 `/v1/` 前缀保留，portal 依赖 Next rewrites 剥 `/kissen-api` 前缀（standalone Node 服务内生效），nginx 只需 `/` 透传。
+
+## 2026-08-07
+
+- 背景：校验 key-management 模块迁移完整性（5 子模块：key-service-configuration / key-policy-configuration / key-signed-transactions / managed-wallets / user-wallets），对照旧项目 td-manage。scout 基线审计发现整体约 78%：最大缺口在 key-service-configuration（仅约 20%——detail/edit/configure 三页全缺、list 缺操作列与停用弹窗）和 key-signed-transactions（5 个 API 缺 /api 前缀、detail 方法 GET 应 POST、detail 路由未注册、list 无详情导航）；managed-wallets 约 95%、user-wallets 与 key-policy-configuration 约 100%。经「scout 审计 → 缺口清单 → 并行补齐（KSC 全套 + key-signed 修复，无文件重叠）→ opus 子 agent 逐字段对照旧源校验 → 残留清单 → 补齐 → 重校」循环，最终逐字段 100%、0 残留。
+- 结论：(1) **API /api 前缀与方法**：key-signed 5 个端点（signedTransactions / signedTransactionDetail / keyServices / common stablecoin / blockchain）迁移时漏掉 `/api` 前缀且 detail 误用 GET，后端 404/405。修复：全部补 `/api`、detail 改 POST `{txRecordId}`（与 2026-08-06 screening、2026-08-04 cross-chain 同批 common 接口 GET/POST 误用规律一致——迁移者系统性把 td-manage `useSWR([url])` 单元素 GET 误写成 POST，且漏 /api 前缀）。(2) **KSC data-access**：detail POST `/api/manage/v1/key/config/detail {keyServiceCode}`、operationRecords POST `/api/manage/v1/key/config/operationRecords {data:{keyServiceCode,operationType?},page:{pageNum,pageSize}}`、listKeyService POST（配置页用，旧 V1.ts:3422）。(3) **KSC 三页**：detail（双 Tab——Basic Info 三卡 9 字段+Access Parameters 表+Supported Chains 表 / Operation Records operationType 筛选+分页表）；edit/configure（共享 3 区块表单：Key Service name+Wallet Attribute hot/cold 复选+条件 Wallet Group ID+Access Configuration url 必填+动态 Parameters 行+3 链，用 mode prop 复用 RHF+zod superRefine）；list 改造（Configure 按钮+状态驱动操作列 Edit/Deprecate/Resubmit/Details+Deprecate 弹窗 comments 必填 max200+supportedChains 「>2 显 +N」折叠）。(4) **路由**：module-page-registry 注册 key-service-configuration-{detail,edit,configure}+key-signed-transactions-detail 四个 loader；page.tsx 补 `if (sub === 'configure') return ${mapped}-configure` 分支（之前 /configure 落 fallback 到 list）。
+- 影响（3 个可复用沉淀）：(1) **新 lint 踩坑**：补齐代码写了 `// eslint-disable-next-line react-hooks/exhaustive-deps`，但本项目 ESLint **未注册 react-hooks 插件**，引用未定义规则直接报 error（"Definition for rule 'react-hooks/exhaustive-deps' was not found"），4 处 disable 注释导致 feature lint 失败。修复=删除注释（规则未启用，注释多余且报错）。(2) **antd RangePicker 迁移约定（重要，全仓库统一）**：旧 td-manage 用 antd Form `RangePicker`（name `xxxStart-xxxEnd` 透传，后端拆 `xxxStart`/`xxxEnd` 两字段）。新项目统一：用**两个** FormDatePicker（RHF 场景）或 DatePicker（受控场景），value 为 `YYYY-MM-DD` 字符串；filters/submit 时用 `startOfDay(parseISO(x)).getTime()`（起）/ `endOfDay(parseISO(x)).getTime()`（止）转 number 时间戳，字段名保持 `xxxStart`/`xxxEnd`。范本 cross-chain-transactions-list-page.tsx formToFilters:101-120；blockchain/audit-trail/interest/journal-entries/chart-of-accounts 全部如此。本轮 KSC list 创建时间筛选（startCreateDate/endCreateDate）按此补齐。(3) **表单模式冲突（surface，未统一）**：KSC list 主筛选用 useState 受控（补齐 agent 选择），而项目主流 list 页（cross-chain 等）用 RHF+FormDatePicker+handleSubmit。本轮补 date 时保持 useState 一致（surgical，不重构 agent 已有结构），但这是仓库内两套表单模式并存，后续统一表单模式时 KSC list 是待收敛点。
+- 后续同类任务：(a) 校验迁移模块不能只看「文件存在」，必须对照旧源逐字段逐操作（detail 字段/操作列按钮/弹窗/路由 slug→pageKey→loader 链路）；scout 审计+opus 逐字段校验+残留补齐+重校循环已验证有效。(b) 写 useMemo/useEffect 的 eslint-disable 注释前先确认规则已注册（本项目无 react-hooks 规则），否则 lint 报 "Definition for rule not found" error。(c) 迁移含日期范围筛选的列表，按 RangePicker→FormDatePicker×2/DatePicker×2 + date-fns startOfDay/endOfDay/parseISO 转 number 约定补齐，字段拆 xxxStart/xxxEnd。(d) detail 页的显式 Query 按钮可被 RHF watch() 自动查询替代（功能超集），属合理改进非缺失。(e) KSC list 的 useState 受控表单是已知偏差，统一表单模式时优先改它对齐 RHF。
+
+## 2026-08-06
+- 背景：校验 screening-monitoring 模块（`/screening-monitoring/<child>`，3 子模块：rule / transaction-monitoring / screening-providers）。四库 lint 通过（util-config 47 个 `@nx/enforce-module-boundaries` 错误是预存架构债，见下）、ui 无测试文件、`nx build admin` 通过（105s）。逐文件对照 td-manage 源（`src/pages/screening-monitoring/**` + `src/lib/api/screening-monitoring.ts`）发现 2 个问题。
+- 结论：(1) **API 方法**：`fetchStablecoinOptions`（`/common/stablecoin/enabled/searches`）和 `fetchBlockchainOptions`（`/common/blockchain/list`）误写成 POST——td-manage 用 `useSWR([url])` 单元素即 GET（与 cross-chain 完全相同的两个 common 下拉 URL，同一迁移者同一批错误）。修复：改 `apiClient.get`。其余 14 个端点（list/detail/operate/save/edit/suspicious 系列 + `business/type/unit`）方法均正确（POST）。(2) **路由 pageKey 漏注册**：td-manage rule list 页有两个"新建"按钮——`Add` → `/rule/edit`（自定义规则）、`Add1` → `/rule/t_edit`（第三方规则增强版，1398 行静态原型页）。admin 镜像了这两个按钮，但 catch-all 路由的 `pageKey` 解析只识别 `create/edit/mff/onboard`，`t_edit` 落到 fallback `'detail'` → 加载 `RuleDetailPage` 而非 `RuleTEditPage`，第三方规则新建页永远无法渲染。修复：page.tsx 加 `if (realSlug[0] === 't_edit') return 't_edit'`（onboard 同模式），module-registry.ts 注册 `rule.pages.t_edit` → `RuleTEditPage`。
+- 影响：t_edit bug 属于**迁移盲区**——页面组件已迁移（`rule-t-edit-page.tsx` 完整 133 行）、feature index 已导出（`RuleTEditPage`）、list 按钮已镜像，唯独 catch-all 路由解析未覆盖该 slug，导致组件虽存在却永不挂载。这种"组件齐全但路由断链"比"组件缺失"更隐蔽：lint/test/build 全绿，静态审查页面文件也发现不了，只有追到 `pageKey` 的 fallback 分支才暴露。校验新模块时不能只看 registry/pages 文件存在性，必须追踪**每个导航入口的 slug → pageKey → loader** 完整链路。其余维度均无问题：3 group 路由解析（`GROUP_ENABLED_KEY['screening-monitoring']`）、ID 用 searchParams query string、i18n 95+30 键 en/zh 对齐、9 个 UUID 权限码、菜单 3 子项 path 与 registry 一致、mutations 全在事件处理器中。
+- 后续同类任务：(a) **非标准路由词排查**：td-manage 页面 slug 不一定是 `index/view/edit`，可能有 `t_edit`、`onboard`、`mff` 等业务命名。校验每个 list 页的"新建"按钮 `routerPush/onClick` 目标 slug，确认该 slug 在 catch-all `pageKey` 解析里有显式分支（非 fallback detail）。对照清单：page.tsx 当前识别 `create/edit/mff/onboard/t_edit` + 单段为 detail。(b) **common 下拉 GET/POST 是高频迁移错误**：这是第二次发现（cross-chain 5 个 + screening 2 个 = 7 个），同一批 common 接口（`stablecoin/enabled/searches`、`blockchain/list`、`business/type/unit` 注意 unit 是 POST）。校验新模块时直接 grep `apiClient.post.*common` 快速定位疑似错误。(c) `module-registry.ts` 的 `@nx/enforce-module-boundaries` 违规是已知架构妥协——中央注册表必须 import 所有 `@myorg/modules/*`，scope:shared 边界不适用，不阻塞 build，勿当本次回归。
+
+
+- 背景：校验 cross-chain 模块（`/cross-chain/<child>`，5 子模块：cross-chain-transactions / fx-rate / liquidity-pool / rd-bridge / token-pair）。四库 lint 通过、ui test 33 个通过、`nx build admin` 通过。逐文件对照 td-manage 源（`src/lib/api/cross-chain.ts` + 各页面 `useSWR([url])`）发现 5 个公共下拉接口 HTTP 方法错误。
+- 结论：td-manage 全局 fetcher（`src/lib/axios.ts:156`）签名 `([url, param?])`，单元素数组 `[url]` → `method: GET`，双元素 `[url, payload]` → `method: POST`。cross-chain 的 5 个下拉（`getCommonBlockchainList` / `getCommonBlockchainEnableList` / `getStablecoinSearches` / `getLiquidityPoolTokenList` / `getSendTokenList`）在 td-manage 均用 `useSWR([url])` 即 GET，迁移版却写成 `apiClient.post(url, {}, config)`。注意区分：`getRdBridgeBlockchainList`（`getBlockChainListApi`）和 `getRdBridgeAllUserEmailList`（`getAllUserEmailListApi`）在 td-manage 是显式 `request(url,{method:'POST',data})`，迁移版保持 POST 正确。修复：5 个下拉改 `apiClient.get(url, config)`（commit 待提）。
+- 影响：这是**仓库内一致性破坏**——同接口 `getStablecoinSearches` / `getCommonBlockchainList` 在 blockchain / mmf / journal-entries / audit-trail 全部用 GET，唯独 cross-chain 用 POST（Rule 7 两套并存）。后端当前对 GET/POST 都返回 200（curl 实测），所以不会 405、功能"看似"可用，但违反 td-manage 源契约与全仓库约定，且一旦后端收紧方法校验（如 blockchain `nodeLocation` 之前报 405）就会暴露。校验时其余维度均无问题：group 路由解析（`realModule=slug[0]`、pageKey 落 detail）、searchParams 取 ID、reSet 数字防御（`Number(value)`）、mutations 解构稳定引用、i18n 208 键 en/zh 完全对齐、18 个 UUID 权限码、菜单 5 子项 path 与 registry 一致。
+- 后续同类任务：(a) 校验迁移模块的 API 层时，**必须对照 td-manage 源的 fetcher 语义**——`useSWR([url])` 单元素是 GET，`useSWR([url, payload])` 双元素是 POST；td-manage 显式 `request(url, {method})` 以 method 字段为准。不能只看 URL 猜方法。(b) 公共下拉接口（common/* 域、各模块 new/*List 域）在本仓库统一约定为 GET，blockchain/mmf/journal-entries 是范本；发现某模块用 POST 时优先怀疑迁移错误而非后端要求。(c) 后端对方法宽容（GET/POST 都 200）不代表方法正确——以源码契约为准，curl 只用于确认接口可达性，不能替代契约一致性判断。
+
+## 2026-08-04
+
+- 背景：approval-manage（侧栏菜单 "Workflow Tasks"，`/approval-manage`）三 Tab 列表的 actions 列全部显示 `--`，而旧项目 td-manage 同页有 Detail / Withdraw 按钮。
+- 结论：后端 `useAuth().permissions` 下发的是旧 td-manage 的 **UUID** 权限码（Detail `82536c63366b40a586774192751e7060`、Withdrawal `5f1c684ec8374caf9a8d5e4b1f26796a`）。迁移时 `APPROVAL_PERMISSIONS` 被误改成自造语义串 `'approval-manage:view'/'approval-manage:withdraw'`，list-page 的 `canView/canWithdraw` 用 `.has(语义串)` 永不命中 → 恒为 false → cell 回退 `EMPTY_FIELD_VALUE('--')`，三 Tab 所有按钮消失。修复：常量改回真实 UUID，list-page 引用常量（`027b1c2`）。
+- 影响：仓库存在**两套并存权限体系，不可混淆**——(1) 模块级 `module-manifest.ts` 的 `permissions` 字段用**语义码**（`'order:read'`、`'role:read'`，符合 `module.model.ts` 注释示例，决定路由/菜单可见性，几乎所有模块如此）；(2) 按钮级 `PermissionGuard` / `useAuth().permissions.has()` 必须用**后端 UUID**（决定行内按钮可见性，journal-entries `df7766...`、posting-engine、reconciliation `RECONCILIATION_PERMISSIONS`、cross-chain/blockchain/mmf/pledge/product 全部如此，`role.constants.ts` 注释佐证）。迁移按钮权限务必从旧 `useCustomTable` 的 `actions[].limit` 取真实 UUID，不能"语义化"。
+- 后续同类任务：迁移含行级按钮权限的列表页时，对照旧页 `actions[].limit`（UUID）原样落到模块 util 的 `*_PERMISSIONS` 常量；若列表按钮全部隐藏或变占位符，优先查 `canView`/`PermissionGuard` 的权限码是否与后端下发格式（UUID）匹配，而非怀疑 DataTable 列定义。
+
+- 背景：MMF 模块（`/mmf/accrual` + `/mmf/settlement`，各 list + detail + batch-apply modal）迁移后浏览器测试发现 3 个 runtime bug：(1) accrual 列表页 `value.toFixed is not a function` 崩溃；(2) accrual/settlement 详情页只显示标题、无数据；(3) Batch Apply 弹窗触发 `Maximum update depth exceeded` + 后端 429 Too Many Requests。
+- 结论（3 个独立根因）：
+  (1) **reSet 数字格式化函数**：后端返回的数值字段（`accrualUnits`、`totalWalletBalance` 等）实际类型是 **string** 而非 model 声明的 number。td-manage 源 `reSet` 接受 `any` 并用 `.toString()` 处理；迁移版假设 number 直接 `.toFixed(2)` → string 上调用崩溃。修复：`Number(value).toFixed(2)` + 放宽类型到 `string | number | undefined | null`。5 个文件各有一份 reSet 副本（accrual-apply-modal / accrual-detail-page / accrual-list-page / settlement-detail-page / settlement-list-page），全部同步修复。
+  (2) **catch-all 路由 ID 提取**：App Router 动态路由 `[locale]/(app)/[module]/[[...slug]]` 的 `useParams()` 返回 `{locale, module, slug}`，**没有** `id` 字段。MMF 是 group 路由（`module=mmf`，`slug[0]` = 子模块名 "accrual"/"settlement"，`slug[1]` = 业务 ID）。两个 detail 页错误地用 `useParams<{id?: string}>()` → `params.id` 恒为 undefined → `hasId=false` → 只渲染空壳占位。修复：改为 `useParams<{slug?: string[]}>()` → `params.slug?.[1]`。其他模块（posting-engine、statements、wallet）已正确使用 slug 数组或 searchParams 取 ID。
+  (3) **React Query mutation 对象稳定性**：`useBatchApplyListMutation()` 返回的对象**每次 render 都是新引用**。原代码 `useCallback(fn, [batchListMutation])` → doQuery 每次 render 重建 → `useEffect(..., [open, defaultRuleId, reset, doQuery])` 无限重跑 → `batchListMutation.mutate()` 循环调用 → 后端 429 + React Maximum update depth。修复：从 mutation 解构 `const { data, mutate, isPending } = useBatchApplyListMutation()`，`useCallback(fn, [batchMutate])`（React Query 保证 `mutate` 引用稳定）。此 bug 此前被 reSet crash 遮蔽——列表页渲染就崩了，根本到不了 modal。
+- 影响：commit `3c026f0`。所有 4 个 MMF 页面（accrual list/detail、settlement list/detail）+ batch-apply modal 浏览器验证零 runtime error，`nx build admin` 通过。
+- 后续同类任务：(a) 迁移数字格式化函数时，后端返回的数值字段可能是 string——始终用 `Number(value)` 做防御转换，不能信任 model 类型标注。(b) catch-all 路由 `[[...slug]]` 下，detail 页的 ID 在 `slug` 数组中——group 路由（mmf/wallet/sys 等）是 `slug[1]`，非 group 路由是 `slug[0]`。检查 detail 页是否用 `useParams<{id?: string}>()` 是快速排查"详情页空白"的方法。(c) React Query `useMutation` 返回对象不稳定——在 `useCallback`/`useEffect` 依赖中使用时必须解构出 `mutate`（稳定引用），不能直接依赖整个 mutation 对象。
+
+## 2026-07-23
+
+- 背景：approval-manage 三列表（queryTodoList/queryCompletedList/queryCreateList）运行时空表 "No data"，但旧系统 td-manage 同页有 7 行数据。根因不是前端渲染或权限，而是 `apps/admin/.env.local` **漏设 `NEXT_PUBLIC_CONFIG_ID`**。该变量在 `approval-manage.api.ts` 用于动态拼 URL：`TODO_LIST_URL = ${CONFIG_ID}v1/task/queryTodoList`，`CONFIG_ID = process.env.NEXT_PUBLIC_CONFIG_ID ?? ''`。缺失时 URL 退化为 `v1/task/queryTodoList`（无前缀），axios baseURL=/aps 合并后请求 `/aps/v1/task/queryTodoList`，经 Next.js rewrite 代理到 `http://10.0.48.123:30001/v1/task/queryTodoList`，后端无此路径 → 404 → query 失败 → 空表。
+- 结论：迁移 td-manage 时必须把 `.env` 的公共前缀变量同步到 `apps/admin/.env.local`。旧 `.env` 生效值：`NEXT_PUBLIC_AGENT_ID=/aps`（axios baseURL，新项目改名 `NEXT_PUBLIC_API_BASE_URL=/aps`）、`NEXT_PUBLIC_CONFIG_ID=/api/base/`（task/workflow/common 动态 URL 前缀）、`NEXT_PUBLIC_MESSAGE_ID=/api/base/`、`NEXT_PUBLIC_FILE_ID=/api/base/`、`NEXT_SERVICE_SERVER_URL=http://10.0.48.120:30001/`（新项目用 48.123）。`CONFIG_ID` 是完整路径段前缀，axios 对相对路径合并 baseURL，行为与旧 `request(...)` 一致。
+- 影响：`.env.local` 已补 `NEXT_PUBLIC_CONFIG_ID=/api/base/`。验证（curl POST，无 token）：修复前路径 `/aps/v1/task/queryTodoList` → `404 {"path":"/v1/task/queryTodoList","error":"Not Found"}`；修复后路径 `/aps/api/base/v1/task/queryTodoList` → `200 {"code":3,"message":"MSG_00_0004"}`。`code:3` 是后端"会话未认证"（axios-client.ts 响应拦截器对 code 3/4 触发登录重定向），不是"无数据"——用户带 session token 请求将得 `code:0` + 列表。
+- 后续：若其他模块列表也空，优先查是否缺 `MESSAGE_ID`/`FILE_ID` 等同类前缀变量。注意新系统后端 `10.0.48.123` 与旧 `10.0.48.120` 不同 IP——若修复 CONFIG_ID 后某模块仍无数据，可能是后端环境数据差异，需对齐 `.env.local` 的 `NEXT_SERVICE_SERVER_URL`。`NEXT_PUBLIC_*` 变量在进程启动时内联，改 env 必须重启 dev（`hub restart admin-dev`），HMR 不够。
+
+## 2026-07-23
+
+- 背景：侧栏菜单 label 已改为 "Workflow Tasks"，但 approval-manage 模块页面内部仍是 "Approval Manage"（面包屑）和 "Approval Management"（section 标题、manifest name），面向用户的模块名三个来源不同步。
+- 结论：模块显示名有三个独立来源——`config.modules.order[].label`（侧栏菜单）、i18n `modules.<id>.title` / `list.title`（页面 section 标题，locale-aware）、`module-manifest` 的 `name`/`routes[].label`（模块元数据）。重命名模块面向用户的名字时三层都要同步。本次把 approval-manage 的 i18n（en `Workflow Tasks` / zh `工作流任务`）和 manifest name/label 改为 Workflow Tasks。
+- 影响：关键架构改进——`breadcrumb.tsx` 原本 `humanize(segment)` 全靠 URL slug 推导（`approval-manage`→`Approval Manage`），导致面包屑与侧栏菜单不同步。现改为第一段（module）查 `config.modules.order` 的 label，其余段继续 humanize。这样面包屑与侧栏菜单同源（config order label）；`ModuleMenuItem.label` 是必填字段，所以 `?.label ?? humanize` 的 fallback 实际不会触发。id/path/registry 不变时，模块改名只需改 config label（菜单+面包屑）+ i18n（页面标题）。
+- 后续同类任务：模块重命名/对齐文案时，依次检查 config order label、i18n title/list.title、manifest name 三层；面包屑自本次起与 config order 同源，不再单独维护。注意 config label 是单语字面量（无 locale 查找），zh-CN 下侧栏与面包屑仍显示该字面量；若需 locale-aware 菜单名，需改 config label 机制（当前未做）。
+
+## 2026-07-23
+
+- 背景：`stablecoin.json` 的 `modules.order` 同时存在顶级 `workflow`（label "Workflow Tasks"，无 path）与 `approval-manage`（label "Approval Manage"，path `/approval-manage`）两条菜单，实际承载的都是旧项目 `/approval-manage` 审批待办中心（Pending/Actioned/Sent）。旧项目侧栏该项显示 "Workflow Tasks"，新项目却显示 "Approval Manage"，且顶级 `workflow` 占位项点击后进入的是 sys-workflow 管理员配置页而非待办。
+- 结论：审批待办中心的路由/registry 标识保留 `approval-manage`（`module-registry.ts` 的 `'approval-manage'` key + `libs/modules/approval-manage`，path `/approval-manage`），但菜单 label 必须用业务名 "Workflow Tasks"。删除顶级 `workflow` 占位项及其 `modules.enabled` 条目，把 `approval-manage` 项移到主区第二位（Dashboard 之后，`group: ""`）并改 label 为 "Workflow Tasks"。id/path/registry 不动。
+- 影响：关键陷阱 —— `libs/shared/ui-layout/.../sidebar-layout.tsx:46` 的 path 回退规则 `mod.path ?? \`/${mod.id}\`` 会把无 path 的占位菜单变成可点击链接。顶级 `workflow` 占位项因此被补成 `/workflow`，点击命中 registry `workflow` key（= `libs/modules/workflow`，即 sys-workflow 管理员配置页 `/sys/workflow`），而非审批待办。registry key `workflow` 已被 sys-workflow 占用，不能再用于审批待办占位。
+- 后续同类任务：调整侧栏菜单时区分三层——菜单 order（显示）、`modules.enabled`（白名单）、`module-registry` key（路由解析）。无 path 的 order 项不是"死占位"，会被回退成 `/{id}` 并尝试匹配同名 registry key；占位项要么给明确 path，要么彻底删除（含 enabled）。业务名（菜单 label）与路由名（id/path/registry key）分离时，label 对齐旧项目用户可见名，id/path 保持与 registry 一致；同名 registry key（如 `workflow`）被多个语义复用时尤其要核对路由回退结果。
+
+## 2026-07-22
+
+- 背景：Tokenized Deposit 概览卡从旧系统迁移后，左栏仅保留 `bg-cover` 而没有背景，白色文本在浅色页面不可见；右栏统计图标仍是空色块。
+- 结论：概览卡使用 `--banner-*` 主题变量构成局部 SVG 渐变动效，不复用旧系统 176 KB 位图；统计字段按 `valueKey` 映射至既有 `lucide-react` 图标和局部类别色。布局以 `lg` 为双栏边界，避免在 768px 过早横排，并由内容决定卡片高度；信息项使用 `dl/dt/dd` 和稳定 key，统计使用 `valueKey` 作为 key。SVG 沿用 Header 的低频动画类，并通过 `prefers-reduced-motion` 全局降级。
+- 影响：Tokenized Deposit 的真实数据、储备区显示条件和质押/非质押统计分支不变；浅色、深色和窄屏均不依赖缺失静态资源，减少动效偏好下不会播放背景动画。
+- 后续同类任务：迁移旧系统卡片时先确认背景和图标资源是否已进入当前仓库；资源缺失时优先使用现有 CSS 主题变量与已安装图标库，不以透明/空色块作为长期占位。为展示分支补测试时覆盖 `0` 值、条件区块和条目数量，不测试 Tailwind 实现细节。
+
+## 2026-07-22
+
+- 背景：Tokenized Deposit 概览页的部署历史接口在当前 token 没有记录时返回空数组，TanStack Query 随后报 `Query data cannot be undefined`。
+- 结论：TanStack Query 的 `queryFn` 不能以 `undefined` 表示成功但无数据。可选单对象查询统一将空数组、`null` 或缺失响应归一化为 `null`；列表归一化为空数组。`useContractDeployHistoryQuery` 仅在部署历史弹窗打开后启用，避免概览加载阶段预取非必要数据。
+- 影响：Tokenized Deposit data-access 中部署历史、部署步骤、Financial Book 和 mock 角色钱包详情的 query 契约均已移除 `undefined` 成功结果，并有 QueryClient 回归测试覆盖空部署历史/步骤不会进入 error 状态。
+- 后续同类任务：新增或迁移 TanStack Query 时，先确认 queryFn 的成功返回值在所有分支均为非 `undefined`；详情无数据建模为 `null`，并为允许为空的接口补充“查询保持 success + 空值”的测试。
+
+## 2026-07-22
+
+- 背景：检查管理后台当前 TypeScript 类型是否满足生产构建标准。
+- 结论：`npx nx build admin` 已通过 Webpack、Next TypeScript 检查、静态页面生成和构建收尾，exit code 为 0；因此 `apps/admin` 的真实生产构建类型门禁当前通过。独立执行 `npx tsc -b` 仍失败，主要集中在库级 project references 未完整声明、缺少 `baseUrl`、共享库 `lib` 仍为 `es2022` 与 `Intl.NumberFormat` 的 `roundingMode` 不匹配等工程配置问题。
+- 影响：后续报告类型检查时必须区分 Next app build 与 workspace-wide `tsc -b`：前者当前可作为应用发布门禁，后者不能宣称通过；`libs/shared/util-formatting` 的 `roundingMode` 和各库 project reference 应作为独立工程债务处理。
+- 后续同类任务：先运行 `npx nx build admin` 判断实际发布链路，再运行 `npx tsc -b` 检查库级声明/引用完整性；不要把 `TS6059/TS6307/TS6305` 的 project reference 级联错误直接等同于应用业务类型错误。
+
+## 2026-07-21
+
+- 背景：Dashboard 的 Token Management 选择器同时展示 Stablecoin、Tokenized Deposit 与 Tokenized MMF，原先仅支持链名称与关键字筛选。
+- 结论：`TokenSelector` 使用 `S`、`TD`、`M` 映射的第一层 Token Type 筛选（默认 All），链名称保留为第二层；Token Type、链与关键字取交集，筛选操作不得隐式改变当前 Dashboard 的选中 Token。
+- 影响：新增 Token Type 文案必须同步维护 `en-US`、`zh-CN` Dashboard 消息；三类资产共存时选择器标题应使用 Token Management，而不是 Stablecoin。
+- 后续同类任务：扩展 Token 筛选维度时优先在 `modules-tokenized-deposit/ui` 的通用选择器实现，并在应用层测试 API `issueType` 到 `S`/`TD`/`M` 映射后的组合筛选。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit onboarding 的全局 form handler 可能在 Review 前被原生 submit 事件触发，过早打开提交确认。
+- 结论：Add Wizard 仅在最后一步执行 `form.handleSubmit(onSubmit)`；Continue 和 Submit 使用不同 React key，步骤切换时不复用已聚焦的按钮节点。
+- 影响：第 3 步只进入 Review，第 4 步必须由用户点击 Submit 才会打开确认并提交。
+- 后续同类任务：多步表单不能把全局 onSubmit 直接暴露给所有步骤；最后一步前需显式阻断原生 submit，并测试 Continue 到 Submit 的节点切换。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit onboarding 的 Key Custody 和 Admin Wallet 区域存在非业务性的视觉干扰。
+- 结论：Key Custody 单字段容器在向导大屏下使用 `max-w-[40rem]`；Admin Wallet 三张角色卡移除只表示地址就绪状态的右上角图标。
+- 影响：钱包完成数量仍由地址字段派生并展示在 section badge，移除图标不影响表单、生成钱包或提交逻辑。
+- 后续同类任务：重复状态信息优先保留汇总 badge，避免在每张操作卡中增加无交互价值的装饰性图标。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit 新建表单的 Meta Transactions/Gas Station 单选项需要默认选择 Yes。
+- 结论：`TDEditFormValues.metaType` 使用 `5 = Yes`、`1 = No`；`DEFAULT_FORM_VALUES` 必须设置 `metaType: 5`，从而覆盖首次进入、Reset 和未含该字段的草稿恢复。
+- 影响：Tron 链联动仍会将该字段强制设为 `1`，不改变链级业务限制。
+- 后续同类任务：迁移旧表单时，除控件定义外还要核对旧 `initialValues`，并为关键默认值增加 hook 测试断言。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit onboard 向导的 Key Custody 单字段选择器在大屏下比其他表单列明显偏窄。
+- 结论：`KeyCustodySection` 的字段组使用 `max-w-xl`，而不是 `max-w-md`，使 Select 在向导中保持半列级别的可扫描宽度。
+- 影响：Select 本身保持 `w-full`，仅由字段组上限控制，不影响移动端宽度。
+- 后续同类任务：向导中单字段区域优先与两列表单的一列宽度对齐，避免无业务原因的窄控件和右侧空白。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit 的 reconciliation 区域按锁定状态切换说明文案，普通状态 key 曾缺失。
+- 结论：`tokenized_deposit_recon_reserve_desc` 必须与 `tokenized_deposit_recon_reserve_locked` 同时维护，并在 `en-US`、`zh-CN` 的模块消息文件中保持键集合一致。
+- 影响：next-intl 不会对缺失 key 降级，组件 render 时直接报 `MISSING_MESSAGE`。
+- 后续同类任务：添加状态分支的 i18n key 时，搜索所有分支 key 并同步双语消息；至少执行 JSON 解析和 `shared-util-i18n-messages` lint。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit COA 的 setup-required 页面需要回显默认模板、时区和 EOD，但这些参考字段不允许用户修改。
+- 结论：仅 Financial Book Name 在 `setup_required` 下可编辑；Account Template、Time Zone、EOD Cut-off Time 始终 disabled。原生 `input[type=time]` 已提供浏览器时钟，不能额外叠加自定义时钟图标。
+- 影响：EOD 采用 `step={1}` 保留秒位，同时移除重复图标；disabled 后不再出现原生时间分段输入的焦点选中样式。
+- 后续同类任务：对浏览器原生控件先检查其内置 affordance，再决定是否增加图标；只读策略应按字段而非整张卡片统一推断。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit COA 下拉在新系统中沿用旧接口，但返回结构并不总是当前模型声明的字段名。
+- 结论：Finance Template 需兼容 `bookTemplateId/bookTemplateName` 与 `templateCode/templateName`；Time Zone 需兼容新 `{ value, label }` 和旧 `{ key, value }`。映射后再执行默认模板与浏览器时区回退。
+- 影响：直接以未经归一化的 API 字段作为受控 Select 的 `value` 会导致选项存在但显示为空。
+- 后续同类任务：迁移旧下拉接口时，必须对照旧页面的字段映射，而不能仅依据新 TypeScript model 推断响应结构；应以兼容映射测试固定两种结构。
+
+## 2026-07-21
+
+- 背景：Tokenized Deposit 的 COA 配置态字段在旧系统中虽不可编辑，仍展示模板、浏览器时区和秒级 EOD 时间。
+- 结论：`configured` COA 的 Account Template 与 Time Zone 缺失时，分别回退模板列表首项和 `Intl.DateTimeFormat().resolvedOptions().timeZone`；已有后端值不可覆盖。原生 `input[type=time]` 必须设置 `step={1}`，才能与旧系统的 `HH:mm:ss` EOD 语义一致。
+- 影响：仅有时区 label 的后端回填需先映射到 timezone option 的 value，避免只读 Select 无法显示选中项。
+- 后续同类任务：迁移只读表单字段时，不能将 disabled 误实现为空值展示；需分别核对旧系统的默认值、回填逻辑和格式精度。
+
+## 2026-07-21
+
+- 背景：登录页图形验证码需要在未提交表单期间自动轮换，避免长期停留页面后继续提交失效 challenge。
+- 结论：`modules-auth-ui` 的 `LoginForm` 在初次获取后，以组件级 `setInterval` 每 15 分钟刷新验证码；自动刷新成功后清空 production 环境的旧输入，development 继续采用接口响应中的 `captchacode` 预填。卸载时必须清理 interval。
+- 影响：定时刷新复用既有 `setCaptcha`，因此旧 blob URL 仍由 store 回收；手动点击刷新和登录失败后的刷新保持原有输入行为。
+- 后续同类任务：涉及图形验证码轮换时，测试至少覆盖刷新时间边界、替换后的随机串/图片、旧输入失效以及组件卸载后不再发请求；JSDOM 未实现 `URL.createObjectURL` 时只在测试中局部 mock。
+
+## 2026-07-21
+
+- 背景：管理后台需要在用户连续 30 分钟无操作后自动退出，同时开发环境不能影响调试流程。
+- 结论：项目配置使用 `features.inactivityLogout` 控制该安全策略，schema 默认关闭；运行时还必须以 `NODE_ENV !== 'development'` 作为硬门槛。`stablecoin` production 配置开启，其余项目关闭。
+- 影响：空闲计时用 wall-clock 时间而不是仅依赖 timer；页面从后台或系统休眠恢复时会立即检查到期。会话清理同时删除最后活动时间，避免新登录会话继承旧计时。
+- TypeScript 实践：会被嵌套或异步回调捕获的可变状态不能依赖外层分支 narrowing；读取可空持久化状态后，先通过 `storedValue ?? fallback` 归一化为明确类型，而不是使用非空断言。
+- 后续同类任务：新增认证相关 feature flag 时，同时更新 Zod schema、ProjectConfig 类型、JSON schema、各项目 JSON 和项目结构说明；前端超时策略不能替代后端 token expiry 或撤销机制。
+
+## 2026-07-21
+
+- 背景：Header 用户菜单的 `Log Out` 入口会在点击后立刻结束会话，用户没有撤销机会。
+- 结论：登出这类不可逆会话操作应使用共享 `AlertDialog` 二次确认；菜单点击只打开受控对话框，只有确认按钮复用既有 `logoutApi` 与本地 `logoutAndRedirect` 链路。
+- 影响：取消、Esc 与关闭对话框均不触发服务端登出或本地会话清理；服务端 session 已失效时“确认登出仍完成本地退出”的既有容错语义保持不变。
+- 后续同类任务：在 Header 增加高影响账户操作时，优先使用 `AlertDialog` 并为“未确认不得产生副作用”添加组件测试。
+
+## 2026-07-20
+
+- 背景：迁移后的用户与角色列表在同一 RBAC 后端下为空，同时 token 失效响应未稳定跳转登录页。
+- 结论：RBAC `listPage` 请求遵循 `DataTable` envelope，必须发送 `{ page: { pageNum, pageSize }, data: filters }`，不能拍平成 `{ pageNum, pageSize, ...filters }`；会话失效业务码需兼容数字和字符串形式的 `3/4`。
+- 影响：`getRbacPaginated` 是 user、role、syslog 的共享请求边界，修改请求 DTO 会同时影响三个模块；Axios response interceptor 在识别失效码后统一清理 session 并跳转 locale 登录页。
+- 后续同类任务：迁移 `listPage` 时先核对旧 `CustomTable` payload 与 OpenAPI `DataTableOf*` 类型，并用 API contract test 同时锁定请求 envelope 和响应 `{ rows, page }` 适配；认证业务码不能假设后端只返回 number。
+
+- 背景：侧栏同时存在主菜单 `Token Management` 与 `MORE` 下的 `Tokenized Deposit`，两者都指向同一业务模块。
+- 结论：主菜单 `token-management` 已通过 `path: /tokenized-deposit` 提供入口；移除 `MORE` 中 `tokenized-deposit` 的 order 配置即可去重，不应同时从 `modules.enabled` 删除模块。
+- 后续同类任务：调整侧栏菜单时先区分菜单 order、模块 enabled 和路由 registry；仅隐藏入口时只改 order，避免意外禁用现有页面。
+
+- 背景：Jenkins 使用 Docker-outside-of-Docker 部署时，每次源码变更都会重新安装 pnpm 依赖，并在 build 前停止容器和清理镜像，造成构建慢且延长停机。
+- 结论：Dockerfile 必须先复制 root/workspace manifest 再安装依赖，并以 BuildKit cache mount 保留 pnpm store；app 镜像按 commit tag 复用，Jenkins 仅在本地不存在该 tag 时构建；容器只在镜像就绪后 `up --force-recreate`，默认不执行 image prune。
+- 影响：该缓存依赖 Jenkins 节点的 Docker builder 持久化；临时 agent 无法跨节点复用，需要后续接 registry cache 或远端镜像仓库。
+- 后续同类任务：部署流水线优化时先确认 Docker BuildKit/buildx 能力，再验证 `docker-compose config`、缓存命中日志和首次/热构建耗时；不要在 build 前清理会影响 layer cache 的镜像。
 
 ## 2026-07-16
 
@@ -177,7 +563,18 @@
 - 结论：`AGENTS.md` 只保留仓库入口、关键约束和执行提醒；详细项目结构由 `pro.md` 维护，详细代码规范由 `rule.md` 维护。
 - 影响：后续修改项目结构、模块边界、技术栈、命名规范、lint/format/test 规则或代码设计约定时，需要同步更新对应文档。
 - 后续同类任务：先判断信息属于项目事实、代码规范还是对话经验，再分别写入 `pro.md`、`rule.md` 或 `memory.md`，避免多个文档重复维护同一段内容。
+
 ## 2026-07-16
+
+- 背景：MacBook 紧凑桌面密度下，侧栏宽高缩小后 14px 菜单字体仍显得偏大。
+- 结论：1024–1599px 的 Sidebar 一级、二级和收起态 flyout 菜单统一使用 13px，1600px 以上恢复 14px；分组标题继续使用 12px。
+- 影响：侧栏视觉密度与 240px 宽度及 40px 菜单高度匹配，不影响页面正文、表格和表单字体。
+- 后续同类任务：紧凑密度的字体调整应限制在高频导航等局部区域，不全局缩小正文基准字号。
+
+- 背景：当前后台在 4K 显示器下合适，但 MacBook 13/14/15 英寸逻辑视口中整体显得过大。
+- 结论：采用双桌面密度：1024–1599px 使用紧凑 Shell（64px Header、240/64px Sidebar、16px 内容边距）和较低 Dashboard 栅格密度；1600px 以上保留原舒适尺寸。
+- 影响：不通过全局 zoom 或根字号缩放，避免 Radix Portal、固定 px 与可访问点击区域失真；Dashboard 在紧凑桌面使用三列指标卡、单列 280px 图表。
+- 后续同类任务：新页面的 4K 多列布局统一延后到 `min-[1600px]`，MacBook 档位优先降低间距和列数，而不是缩小正文可读字号。
 
 - 背景：Dashboard 页面内容区的 H1 与 Breadcrumb 当前页名称重复。
 - 结论：Dashboard 移除内容区的重复 H1，仅通过 Breadcrumb 表示当前位置；Token Selector 直接作为内容区起始。
@@ -238,3 +635,404 @@
 - 结论：当前编辑入口由 `tokenized-deposit` registry 的 `edit` 页加载，`TokenizedDepositEditPage` 从 query `code` 回填；详情、下拉、钱包生成及新增/编辑提交沿用旧页面 endpoint 和 payload 语义。COA 的 `setup_required` 初始值仍是本地 mock（旧实现同样如此），因此不能据此宣称真实后端端到端验收完成。
 - 影响：后续改动该页时必须同时核对 `code` 路由、`useDetailInit` 回填、`useBlockchainEffect` 联动和 `useTokenizedDepositSubmit` 的 `createTDApply`/`editTDOperation` 分支；应补充至少覆盖回填和两条提交 payload 的 feature 测试。
 - 后续同类任务：`modules-tokenized-deposit-feature` 当前没有测试文件；普通 Jest 命令可能被 Watchman socket 权限阻塞，必要时以允许 Watchman 访问的环境运行，并明确区分“零测试通过”与“行为已覆盖”。
+
+## 2026-07-17
+
+- 背景：Keystore 路径的 Generate Wallet 弹窗在 Confirm 后没有提交中反馈，且生成请求失败时 `finally` 仍会关闭弹窗。
+- 结论：弹窗本地 `isSubmitting` 必须 await 真实 `onSubmit`，期间禁用输入、取消和 Dialog dismiss，并在 Confirm 保留文本的同时显示 spinner；钱包 hook 仅在生成接口返回结果后 reset/close，失败时保留弹窗供重试。
+- 影响：用户能看到生成过程，重复请求被阻止，失败不会丢失密码输入。
+- 后续同类任务：异步弹窗的关闭应由成功路径决定，不能放在无条件 `finally`；若业务 hook 吞掉异常，组件仍应在 await 返回后恢复可操作状态。
+
+- 背景：Tokenized Deposit Onboard 的 COA 已回显默认 Account Template、Time Zone 和 EOD，但后三个控件仍被硬编码禁用，与旧系统及 TD `setup_required` 的可编辑语义不一致。
+- 结论：`CoaSetupCard` 的四个字段统一以 `readonly || status !== 'setup_required'` 决定禁用状态；TD `setup_required` 可编辑，Stablecoin `configured` 仍由父层传入 `readonly` 保持只读。
+- 影响：默认回显不再阻止用户调整模板、时区和 EOD，提交侧既有 COA 校验与 payload 路径无需变更；嵌入式标题将状态标签置于标题旁，收紧两列字段间距。
+- 后续同类任务：不要为“默认回显”单独硬编码禁用控件；必须从状态语义和父层 readonly 一起推导，并以组件测试覆盖可编辑和只读分支。
+
+- 背景：Tokenized Deposit 表单的默认 mint method 用于初始化 state 时，被 TypeScript 推断为字面量类型 `1`，而回填回调传入的是 `number`，导致 Jenkins 的 production build 在 `setTokenTypeId(type)` 失败。
+- 结论：会接收接口或回调数值的 React state 必须显式声明为 `useState<number>(...)`，不能依赖常量初始值的字面量推断；扩展 `TokenSelectorLabels` 时必须同一次同步所有调用方和 `en-US` / `zh-CN` 消息 key。
+- 影响：`npx nx build admin` 已通过 TypeScript 与完整 Next.js production build；类型筛选的 Stablecoin / Tokenized Deposit / Tokenized MMF 文案也不会在运行时缺失。
+- 后续同类任务：提交前至少运行受影响 app 的 production build；开发服务器不会覆盖所有 Next.js TypeScript 检查和跨包接口完整性。
+
+- 背景：Stablecoin 的储备资产已锁定对账时，Onboard 渲染 `tokenized_deposit_recon_reserve_locked` 报 `MISSING_MESSAGE`。
+- 结论：条件分支的 i18n key 必须同时写入 `en-US` 与 `zh-CN` 的模块消息 JSON；本次补齐“储备资产已要求对账，不能更改”文案。`shared-util-i18n-messages` 当前 test target 指向不存在的 Jest config，暂以 lint 和 JSON/key 存在性检查验证。
+- 影响：锁定储备资产的 Onboard 页面不再因 i18n 缺失中断渲染。
+- 后续同类任务：为新条件分支增加 `t(key)` 前，先用 `rg` 对照所有 locale 文件；消息库 test target 修复前，不能把 `npx nx test shared-util-i18n-messages` 的配置错误误报为业务测试失败。
+
+- 背景：Tokenized Deposit 的 Significant Stablecoin Issuer Threshold 在新 Onboard 页面被禁用，但旧系统允许编辑。
+- 结论：旧组件允许编辑 `thresholdType`（Volume/TXN Count）、`thresholdFrequency`（Daily/Monthly/Yearly）和非负、两位精度的 `thresholdValue`，仅单位展示框只读；但旧、新提交 payload 都曾遗漏这三个字段，直接恢复 UI 会产生可填写但不保存的假功能。当前按同名字段假设将其接入 Stablecoin create/edit payload，并在详情同名字段存在时回填。
+- 影响：阈值仅对 Stablecoin 展示和提交，非 Stablecoin 的草稿残留不得进入 payload；`thresholdValue` 在 API payload 中归一为 number，空值不提交。
+- 后续同类任务：迁移遗留表单时必须同时审计“控件可编辑性、详情回填、提交 payload”三层；旧 UI 能输入不能证明后端实际持久化，接口契约未在仓库定义时需在真实联调中确认字段名和响应回显。
+
+- 背景：Tokenized Deposit Onboard 的 Continue 校验虽调用 `toast.error`，但用户无法看到提示。
+- 结论：当前 `apps/admin` 没有在根 layout 挂载 `Toaster`；在未完成全局装配前，使用 toast 的独立 feature 必须在自身页面挂载一次 `Toaster`。同时，Radix Select 与卡片式 radio 未注册原生 RHF ref，向导校验失败时应按字段 ID 显式滚动、聚焦到首个无效控件。
+- 影响：`/tokenized-deposit/onboard` 现在会显示校验提示，并将 Continue 失败定位到首个错误字段；Stablecoin 默认值还必须同步 `mintMethod`、契约查询 tokenType 与 reset/draft fallback，避免 UI 与数据查询分歧。
+- 后续同类任务：为后台统一补齐 root `<Toaster />` 时，移除 feature 内重复挂载；涉及 Radix 受控字段的表单校验，不要只依赖 `trigger({ shouldFocus: true })`，须验证实际聚焦目标。
+
+- 背景：按 `/Users/zhangxuefeng/Downloads/临时（可删除）/token` 的表单参考重构 Tokenized Deposit Onboard 页面。
+- 结论：参考表单的有效结构是四步 Basic / Accounting / Custody / Review；当前页面外围 Header、Summary 和真实 TanStack Query/API 提交流程保持不变，Onboard 表单通过现有 RHF 字段和 COA 校验接入分步 Continue/Back/Review。
+- 影响：`TokenizedDepositFormContent` 只在 add 模式启用四步编排，edit 模式继续保留完整连续编辑表单；COA、账户类型、对账、密钥托管和管理员钱包组件增加 `embedded` 展示模式。
+- 后续同类任务：参考外部组件时先区分“表单交互/字段结构”和“页面外围布局”；涉及共享 add/edit 内核时优先用 embedded 或 mode 分支隔离视觉变化，避免误改编辑页行为。
+
+## kissen-admin 迁移验证收尾（2026-08-17）
+- Radix `Select.Item` 禁止 `value=""`（运行时抛错，tsc/build 均不报）。「全部」选项须用哨兵值（各文件已有 `STATUS_ALL`），查询前 `!== STATUS_ALL` 过滤。
+- Radix Tabs 的 `element.click()` 合成点击不生效（aria-selected 不变、不触发 onValueChange）；须派发完整 pointerdown→mousedown→pointerup→mouseup→click 序列。DataTable 列头 Tooltip 须 `header: () => (<TooltipProvider>…)` 回调形式，直接 JSX Element 类型不过。
+- 运行时会话模拟三件套缺一不可：cookie `admin_platform_token` + localStorage `admin_platform_access_token` + `userInfo`（含 token 字段）；任一缺失→客户端 401→`clearSessionStorage`+`?expired=1` 踢回登录。kissen 后端鉴权用 `token` 头（非 Bearer），分页体为 `{page:{pageNum,pageSize},data:{}}` 嵌套结构。
+- RHF 规则存在但 `formState.errors` 未渲染 = 静默阻断提交，须配 `<p role="alert" className="text-sm text-destructive">`；规范样例 settlement-pages.tsx。
+- Phase 3 完整度审计结论：8 域对源 Vue 逐项对照，修复 8 项 partial 后全部 100%（矩阵 '/Users/zhangxuefeng/.omp/agent/sessions/-pi-cwd-20260601-admin-platform/2026-08-14T02-36-38-006Z_019ffe20-eaf6-7000-9ba2-315a4e54e0fa/local/kissen-completeness-matrix.json）。'
+
+## kissen-gateway 迁移三轮收尾（2026-08-18）
+- 代理链路：`next.config.ts` rewrite 用 `/kissen-api/:path*` 整段前缀剥离，后端收到 `/bankgw/portal/...` 原样路径；`/bankgw/brand` 在 /portal 外，用独立 baseURL `/kissen-api/bankgw`、不带 token、失败回退默认值。ResultInfo `code:'0'` 成功、`'2'` 未登录、`'MSG_24_0002'` 用户名或密码错误。
+- 首登语义（源 store 仅 localStorage）：目标 middleware 服务端只能读 cookie，登录时双写 localStorage（`bankgw.token`/`bankgw.user`，axios 拦截器用）+ cookie `kissen_gateway_token`（SameSite=Lax）；`firstLogin===0` 由客户端 session-guard 强制跳 `/change-pwd`。middleware 未登录重定向必须携带 `?redirect=`（源 `to.fullPath` 语义），login 页 `searchParams.redirect || '/onboard'` 消费。
+- `createFormResolver` 必须镜像 zodResolver 的 zod4 泛型签名 `<TFieldValues extends FieldValues, TContext, TOutput>`（`schema: z.ZodType<TOutput, TFieldValues>`），否则所有 `useForm+resolver` 调用点 TS2769/TS2344。
+- 跨切片并行契约由主控预写数据域（如 menu 域 api/model/queries/keys）再 fan-out，角色分配/菜单管理/侧栏过滤三方消费同一确定性导出，避免并行切片各自定义漂移。feature index 的组件导出名是 registry 契约，拆分 system-pages.tsx 为四域文件时导出名不可变。
+- 红线：确认弹窗一律 shared/ui AlertDialog（受控 target state + destructive Action），`window.confirm` 违反「UI 用本项目体系」按 0.5 扣分（R2 曾因此 93.33%）；全仓 kissen-gateway 范围 grep `confirm(` 应为 0。
+- 菜单权限：源 `filterTree`（保留自身或后代命中 menuKey 的节点）+ `MENU_ROUTE_MAP`（menuKey→path 9 项）折算允许路径过滤 config 菜单；树加载失败回退全量。按钮级 `v-perm` 等价 `useGatewayPerm()`（menuKeys Set 动态判定）。
+- 源死代码实证：`views/bank/info.vue` 零路由引用，`getBankInfo` 唯一消费方是 onboard 银行信息卡 → 并入 onboard 域（OnboardBankInfo），不迁移独立页面。dashboard 源项目不存在（'/' redirect /onboard），MockDashboardPage 连同 config/registry/index 导出全部清零。
+- tsc 快速环：`cd apps/kissen-gateway-portal && pnpm exec tsc --noEmit | grep "error TS" | grep -v TS6305`（TS6305 为 monorepo dist 既有噪音），比 nx build（~2-3 分钟/轮）快一个量级，适合修复循环；终验仍须 nx build + nx lint。
+
+- 背景：admin app（td-manage 迁移）登录失败曾静默（catch 只刷新验证码），且根 layout 未挂 `Toaster`，toast 全局不可见。
+- 结论：登录失败提示统一走 `@myorg/shared/ui` 的 `useToast().error((e as Error).message || t('auth.loginFailed'))`（ApiError.message 已由 `normalizeApiError`/`getMessage` 规范化）；`apps/admin/src/app/[locale]/layout.tsx` 已挂 root `<Toaster />`，`tokenized-deposit-add-form.tsx` 内 feature 级重复 `<Toaster />` 已移除（sonner 多 Toaster 同 app 双挂会重复弹）。`libs/modules/*` 直接 `import { toast } from 'sonner'` 与统一入口是同一 sonner 实例，运行时无差异，仅依赖治理层面待收敛（lp-portal/data-access 因 type 边界禁止依赖 shared/ui 属合法例外）。
+- 影响：admin 内所有 useToast/toast 调用点现在可见；后续新 feature 不再需要自挂 Toaster。
+- 后续同类任务：modules-auth-ui 的 `type:ui → data-access` lint error（login-form/metamask-button/two-factor-form）与 admin 的 StablecoinTabs scope error 均为既有债，与 toast 改动无关，待专项清理。
+- 登录页插画按 app 刻意差异化，勿再跨 app 同步 `public/login-illustration.svg`：kissen-admin=等距清算立方体（蓝）、kissen-gateway-portal=网关拱门+数据流（靛蓝/青）、lp-portal=三级流动性池+液流（紫/洋红）。共用约定：720×560 viewBox + `.float-a/.float-b/.pulse/.flow` CSS 动画 + prefers-reduced-motion 降级；新增浮动元素时 transform 定位须放外层 `<g>`，动画 class 放内层（CSS transform 会覆盖 transform 属性）。
+
+## 2026-08-19 kissen 三系统 English-only + 隔离收尾（orchestrator）
+
+- 共享 Header 的登出默认值不得 import 业务模块：`libs/shared/ui-layout/src/lib/header/header.tsx` 曾静态 import `@myorg/modules/auth/data-access` 的 `logoutApi`，导致所有消费方（含 kissen 三 app）tsc 报 TS6305 且 bundle 拖入 admin rbac。现默认分支仅 `logoutAndRedirect()`（本地清理+跳转）；有服务端会话的 app 传 `onLogout` 全权接管 —— admin 已在 `apps/admin/src/app/[locale]/(app)/admin-app-shell.tsx`（client 包装，因 layout 是 server component 不能传函数 prop）接管 `logoutApi()+logoutAndRedirect()`。
+- shared barrel 再导出会保留动态 import：`util-config/index.ts` 再导出 module-registry（40 个 admin feature 的 `() => import(...)`），即使 kissen app 只用 `loadProjectConfig`，webpack 仍把全部 admin feature 打成异步 chunk。教训：**shared 包里任何可达的动态 import 都是隐性公共依赖**；验证手段是生产构建后对 chunk 做 fingerprint grep（如 `approval-manage/view`、`walletTypeManifest`、`/api/rbac/v1`），而不是只看 import 语句。
+- 残留的 admin 痕迹属惰性数据而非代码：defaultConfig 的菜单 JSON（client chunk）与 i18n 全量 zh-CN catalog（server chunk）仍含 admin 菜单 id/文案，不构成功能泄漏；如需收敛须重构 config.defaults 与 messages 打包口径。
+- 网关门户登录页品牌名（如「测试银行」）来自后端 `GET /kissen-api/bankgw/brand` 实时数据（next.config rewrite 指向测试环境），非 UI 硬编码；English-only 校验时勿误判为代码回归。
+- lint：`// eslint-disable-next-line react-hooks/exhaustive-deps` 在本仓库 flat config 未注册该规则，每处都是 error；发现即删（共 6 处，lp-portal feature）。
+- admin 既有债（勿归因新改动）：StablecoinTabs scope error、auth feature/data-access TS6305（需 nx 依赖构建而非裸 tsc）、admin layout 曾被用户 WIP 删掉 SessionGuard import。
+- 浮动卡片规范（2026-08-19）：四 app 的 tailwind.config.ts（字节相同拷贝，须四处同步改）定义 `boxShadow.float/float-lg` 分层柔影；容器类组件统一「弱边框 + 浮影」：外层卡片 `border-border/60 + shadow-float`（Card 组件另有 hover:shadow-float-lg），内层表格/分隔线 `border-border/50`（DataTable wrapper、divide 行线、卡片标题 border-b）。页面级手写卡片容器（`rounded-lg border bg-card ... shadow-sm` 模式，~124 处，kissen-admin/kissen-gateway/lp-portal 三树已 codemod）新增页面时直接写 `rounded-lg border-border/60 bg-card ... shadow-float`，勿再引入 shadow-sm 边框卡片。表单控件（border-input + shadow-sm）不在该规范内。
+
+## 2026-08-27 kissen-gateway-portal 迁移 P4 收尾（orchestrator）
+
+- **后端环境事实要带时间戳**：10.0.7.87 的 currencypair/tx 接口曾在 verify 阶段返回 code 1（当时以 stub 留档），P4 终验时已恢复真实数据；`/bank/info` 仍 code 1。写报告必须写明「当日实测」，后续轮次先复测再引用旧结论。
+- **侧栏 orderNum 排序的复合键模式**：后端菜单树父组与叶子各有 orderNum（如 `bank:system=100`、子项 1-4）。侧栏若按「叶子自身 orderNum」排序会把 system 组（子项最小=1）顶到最前；正确做法是复合键 `父组 orderNum×10000 + 叶 orderNum`，父组间次序由父节点决定（`apps/kissen-gateway-portal/src/app/[locale]/(app)/kissen-app-shell.tsx` collectAllowedPaths/sortModuleItems）。
+- **bank_admin 的菜单树本就不含 market 键**（currencypair/lp/rate 不在其树中，overview/token/fx/bankquery 键不属于 gateway 的 MENU_ROUTE_MAP 9 键）——Business View 组不显示是权限过滤正确行为，勿当缺陷修。
+- **shared 层默认行为变更必须留档**：`Breadcrumb` 的 findModuleLabel 让非首段命中 config id 时取 config label（原为 humanize slug），影响所有同仓 app；已按「路由 slug 与模块 id 同源」论证无害并在 shell-layer.md 附记披露。同类改动要么 opt-in 要么显式披露，不能默默改默认。
+- **CDP 遍历 SPA 的坑**：`history.pushState` + `next.router.push` 混用会导致 h1 滞后 1-2 路由；纯 `await window.next.router.push(url, url)` + 固定延时才可靠。另 ErrorBlock 有 TanStack 重试退避，2200ms 内可能尚未出现，断言失败先怀疑时序。
+- **verify 报告会滞后于并行修复**：终审发现两处「报告称有问题、代码已被兄弟 agent 修好」（toast 措辞、陈旧注释）。闭环方式是在原报告追加「主控闭环」附记，不改历史结论。
+- `apps/kissen-gateway-portal/.env.local` 的 `NEXT_PUBLIC_DEV_LOGIN_*` 曾被移除（W-4 治理）；2026-09-04 按用户要求恢复为本地开发预填 `bank_admin/Kissen@123`。登录页仍由 `NODE_ENV === 'development'` 门控，生产不预填；smoke 账号与 gateway 测试后端保持一致。另 admin/kissen-admin/lp-portal 的 .env.local 仍被 git 跟踪（跨 app 决策，待用户裁定）。
+
+## 2026-08-27 update-gateway skill 落地（网关上游同步）
+
+- 新增项目级 skill `.claude/skills/update-gateway/`：同步 GitLab 上游 `kissen-bank-gateway-frontend`（project id 2115，默认分支 main）增量到 `apps/kissen-gateway-portal`（用户明确：唯一目标，不含其他 app/libs）。流程：脚本检查更新 → 按日期总结文档（`.doc/kissen/project/gateway/`）→ ultrathink 规划 → orchestration 编排开发 → 独立 reviewer 子 agent 校验循环；进度事实在 `.claude/update-gateway-state.json` 的 `lastSyncedSHA`（仅校验通过才推进）。
+- GitLab（10.0.6.203:8088）匿名 API 一律 404；项目访问令牌放 `.doc/kissen/.gitlab-token`（.doc/ 已 gitignore，`.claude/` 被 git 跟踪故令牌绝不入库），脚本 `check-updates.sh` 读它拼 `oauth2:<token>@` 远端 URL，缺失时回退本机凭证。
+- 上游克隆缓存在 `.doc/kissen/.cache/kissen-bank-gateway-frontend`（.doc/ gitignore 内，勿再克隆第二份）；force push/rebase 由脚本以 `HISTORY_REWRITTEN=1` + merge-base 兜底。
+- 踩坑：`git ls-remote --symref origin HEAD` 的 ref 行 `$2` 是 `refs/heads/<b>`，awk 需 `sub(/^refs\/heads\//,"",$2)`，勿带 `ref:` 前缀匹配（会拼出 `origin/refs/heads/main`）。
+- 2026-08-27 实测上游有待同步增量 `8a6034b..a82d82c`（GW-14 UDPN 菜单对齐 + bug fixed），首轮执行 update-gateway 时应从此区间开始。
+
+## 2026-08-27 LP Portal 重置迁移收尾（orchestrator）
+
+- **后端 code 语义要以实测定**：LP 后端（10.0.7.87:8090）`{code:"2"}` 实测＝未登录/过期
+ （message「未登录或登录已过期」）；`MSG_23_0024`＝下游 kissen-api 不可达（真降级码）。lp-client 的
+ 「code '2'→清会话回登录、0024→静默+页面 ServiceDownAlert」双分支经实测均正确。
+- **后端菜单树 menuName 是中文，侧栏英文化要在前端映射**：`apps/lp-portal/src/lib/lp-routes.ts`
+ 新增 `MENU_LABELS`（menuKey→英文，叶子对齐各页 h1），未知键回退 menuName。同构 app（gateway）
+ 如遇同问题可复用该模式；纯靠后端改数据不可行。
+- **LP 后端端点缺口要区分三类再定性**：404（/lp/token/list、/lp/split/list 等部署缺口）、
+ 0024（pool/pair 下游不可用）、正常（notification/user/log/tx-flow/settle）。前端端点与 Vue 源
+ api/*.ts 逐一比对一致后即可判定非移植缺陷；报告里按三类留档
+ （`.doc/kissen/project/LP/verify/responsive-sampling.md`）。
+- **浏览器验证无 vision 模型时的替代**：DOM 级核验够用——`documentElement.scrollWidth>clientWidth`
+ 扫横向溢出 + `body.innerText.match(/\p{Han}/)`（剔注释无法在 DOM 做，innerText 即用户可见口径）
+ + 表格 rows/cells/emptyCells 统计。全页截图用 puppeteer 原生 `page.screenshot({path})` 直存，
+ `tab.screenshot()` 不接收路径且落盘目录难回溯。
+- **topup 孤儿清理边界**：feature 页 + data-access 域整删；但 sync 域 `SyncDomainCode` 的 `'topup'`
+ 是后端 wire 枚举成员（1:1 对齐源契约）必须保留——删代码时先分清「页面/域孤儿」与「协议枚举值」。
+- **评审编排效率样本**：三路 reviewer（Shell/auth、Market/Liquidity、Biz/System）并行 + 修复批
+ 三 agent 并行 + 单复核 agent 收口。复核轮抓到两个自报冲突（D7 列数文档笔误、源 apply 无确认弹窗）
+ ——agent 以源为最高约束并写入文件头注释的做法值得沿用；基线文档笔误用【勘误】行内标注不改写历史。
+- **config 驱动品牌主题模式（LP 主题系统）**：主题定义全部放 `configs/lp-portal.json`
+ `theme.themes[{id,label,colors}]` + `defaultTheme`，ThemeInjector（layout.tsx）渲染
+ `:root` 基线（merge defaultTheme）+ `[data-theme='id']` 块 + 防闪 inline script（读
+ `localStorage['lp-theme']`）。加/调主题只改 JSON 不动 CSS。键名分两类：tailwind 消费键
+ （primary/ring 给 HSL 三段式）、raw 整值键（brand-*/login-grad-*/banner-*/illus-*）。
+- **SVG 跟主题必须内联**：`<img>` 加载的 SVG 是隔离文档吃不到页面 CSS 变量；mask/currentColor
+ 仅单色，不适用于双色 logo/多色插画。LP 的 LogoMark/login-illustration 均为 app 本地内联组件
+ （`apps/lp-portal/src/components/brand/`），fill/stopColor 写 `var(--token, 原hex)` 双保险。
+- **shared 层 opt-in 插槽先例**：mock-login 的 `illustration?: ReactNode`（替代 svgPath img）、
+ AppShell/Header 的 `logo?: ReactNode`（替代 /logo-icon.svg img）——不传则原行为逐像素不变
+ （gateway 实测回归：渐变首色 #c6c7ff、无 data-theme、仍用 img 插画）。跨系统共用组件的默认值
+ 一律保留原字面量，var 化由调用方传参完成。
+- **feature 库 index.ts 不能导出非组件值**：`module-page-registry` 用
+ `(m as Record<string, ComponentType>)` 取导出，导出 string 常量（如 LP_THEME_STORAGE_KEY）
+ 会炸 LP 生产构建的 TS 检查——常量留在组件文件内即可。
+- **共享 layout 透传链最小化**：trailing/logo 只穿 AppShell→sidebar-layout→Header；top-nav/
+ compact/dual-panel 三个 layout 本就未接 trailing，不加死管道，需要时再补。
+- **util-config 既有闸门缺口（HEAD 上已存在）**：lint 挂在 config.loader.ts 相对路径 import
+ configs/*.json（@nx/enforce-module-boundaries 9 处）；test target 无 jest.config.ts 无法跑。
+ 与主题 schema 改动无关，未在本轮修。
+- **lp-sync skill（上游 Vue → lp-portal 增量同步）**：上游 GitLab 仓
+ `kissen-lp-portal-frontend` clone 于 `~/repos/kissen-lp-portal-frontend`（默认分支 main）。
+ skill 在 `.claude/skills/lp-sync/`：SKILL.md（六步流程）+ `scripts/diff-upstream.sh`
+ （fetch+diff，`--apply <sha>` 推进水位线并校验后代关系）+ references（constraints/pitfalls/
+ conventions）。状态文件 `.doc/kissen/project/LP/sync-state.json`：`specBaselineSha=dd9e950`
+ 是文档 01 行为规格的锚点（经整树 diff 验证 Downloads 快照==dd9e950，只读永不推进），
+ `lastSyncedSha` 是同步水位线（只能脚本推进）。核心纪律：先改文档 01（规格保鲜）再改代码；
+ 上游代码是行为规格不是模板，UI 一律用本项目体系重写。
+- **上游漂移陷阱**：diff 只比较两端树——中间 commit 加了又删的文件（如 6636680 加的
+ source-receipt 真页被 902c11c 删除）不会出现在 `A/D` 清单里，判断"上游现状"必须以 HEAD
+ 树为准（`git ls-tree`），不能只看 commit 信息。截至 2026-08-28 待同步：dd9e950..171ee44
+ （receipt 真页加而复撤→占位仍有效；rate 并入 token 对；新增 dashboard；SRC/TGT 紧凑式）。
+- **三门户同步 skill 全家福**：lp-sync / gateway-sync / admin-sync 三套同构 skill 在
+ `.claude/skills/`（SKILL.md 六步流程 + scripts/diff-upstream.sh + references
+ constraints/conventions），核心纪律一致：先改行为规格文档再改代码、水位线只经脚本 `--apply`
+ 推进、上游代码是行为规格不是模板。三上游 clone 于 ~/repos/（kissen-lp-portal-frontend
+ main、kissen-bank-gateway-frontend main、kissen-admin-frontend **v2.0-tokenization 分支**）。
+ 状态文件分别在 .doc/kissen/project/{LP,gateway,admin}/sync-state.json。
+- **gateway-sync 基线**：specBaseline=lastSynced=a82d82c（gateway 六件套 01 已刷新到该语义）；
+ 下游 1a775c1..a82d82c 的 v2.0 差距已裁决单独立项（00-README §3 O-1），不归 sync 管。
+- **admin-sync 特殊性**：无迁移文档基线，specBaselineSha=null，首次运行必须走盘点模式
+ （建 .doc/kissen/project/admin/01-功能全量清单与迁移矩阵.md）；锚点 99dcd0c 为保守锚定
+ （monorepo 最后 kissen-admin 工作 2026-08-19 c3b7456 之前的最近上游 commit），积压 19
+ commit 含 v2.0 token 化重构（risk/currency/topup/split-transfer 域删，token/instance/log
+ 域增）。admin 上游以 v2.0-tokenization 分支为准，不是 main。
+- **admin 下游 feature 文件与上游 views 非一一对应**（risk-pages/currency-pages 无同名
+ upstream 目录），映射待盘点校准，state 文件里有 unmapped 标记。
+- **主题系统规则已入三个 sync skill**（references/conventions.md §6 + SKILL.md 第 4 步指引）：
+ 上游颜色值一律映射主题 token 禁止直写；权威规格=.doc/kissen/project/LP/06。现状：lp-portal.json
+ themes=3（default=emerald，已从 violet 改过）；kissen-gateway.json / kissen-admin.json 有 theme
+ 节但 themes=0 未接入。目标态：三个项目各有独立 3 套主题、配色互不复制、config 自定义
+ （加主题只改 JSON，19 键/主题；localStorage key 每项目独立；品牌 SVG 必须内联绑 var）。
+- **lp-sync v2.3 首次增量同步完成**（dd9e950 → e591f850，5 commit）：rate 域/页退役
+ （汇率三列并入 pair 双 tab）、receipt 占位删除、dashboard 新落地页（统计卡四宫格 +
+ My Pools 水位条封顶 100% + VolumeChart 自绘 SVG 折线 + 最近交易 7 列）。
+- **txNo 固定口径**（v2.3）：列表/抽屉/split 明细/settle 流水一律 `txNoText()=txNo||'-'`，
+ 不再回退 txUuid；txUuid 移作抽屉「Bank Idempotency No.」独立项。
+- **dashboard 交易状态 tag 是独立口径**（DASHBOARD_TX_STATUS_VARIANT：35|40→default、
+ 60|70|90→destructive、80→outline、其余 secondary），与 tx-flow 列表口径并存都保真，
+ 勿"统一"两套（文档 01 §E21）。
+- **useTokenMeta(projectId)**（data-access/lib/token-meta.ts）：token/list 全量建
+ tokenNo+tokenCode 双键索引，出口 label/bankOf/symOf，lookup 失败回退传入标识；Vue 的
+ 模块级缓存+inflight 去重在 React 侧由 TanStack Query 等价承载。
+- **自绘 SVG 折线（volume-chart.tsx）**：viewBox 720×240、y 全域 min~max 归一化（全等
+ ±1 压中轴）、稀疏序列按 day.slice(5) 补 0、x 刻度 ≤7 全标否则首/中/尾；色板映射
+ tailwind 语义类（stroke-emerald-700 等）+ 网格 stroke-border，不直写上游 hex；
+ preserveAspectRatio 不可设 none（会拉伸圆点/文字）。
+- **教训：块注释里写 `stroke-*/fill-*` 会提前闭合注释**导致 webpack Syntax Error；
+ **edit 工具行号漂移时 PUT 会打到错行**——误编辑后必须 read 现场再修，勿凭记忆续写。
+- **BFF 缺口**：10.0.7.103:8090 尚无 GET /lp/dashboard/volume（404），前端空态降级正确；
+ summary 正常。待网关部署 v2.3 后补验折线有数据形态。
+- 验证截图已更新 .doc/kissen/project/LP/verify/（rate/receipt 旧图已删）。
+
+## 2026-08-28 kissen-admin v2.0 token 化全量补同步（99dcd0c → 787ccc9）
+
+- **registry 键 = 菜单 id = 路由 slug[0]，v2.0 菜单树一次定稿**：`configs/kissen-admin.json` 的 modules.enabled/order、`module-page-registry.ts` 键位、`page.tsx` GROUP_ENABLED_KEY 三处必须同轮改，漏一处即整组页面 404。v2.0 键位：onboard/{bank,instance,token,lp,lp-pair}、fx-rate/pair、liquidity/pool、settle/{order,cycle}、transfer/tx、system/{user,role,menu,workflow,log} + 平铺 dashboard/approval。分组页（GROUP_ENABLED_KEY）只认组段前缀（onboard/fx-rate/liquidity/settle/transfer/system），叶子不再进该表。
+- **registry loader helper 模式**：top-level `import type * as KissenFeature` + `const loader = (pick: (m: typeof KissenFeature) => unknown): PageLoader => () => featureImport().then(...)`，杜绝 inline `import("pkg").Type`（ts-import-type 规则会拦）；loader 参数必须是字面量字符串（webpack 静态分析）。
+- **kissen-client 业务 code='2' 会话过期分支**（对齐 LP portal 已实测语义）：响应拦截器 `code==='2'` → 清会话 + `?expired=1` 跳登录，与 HTTP 401 同径。dev 冒烟中真实触发（会话过期中途被踢回登录页）——分支已被生产流量路径验证。
+- **全量补同步编排**：8 agent 并行（Bank/Token/Lp/Fx/Tx/Settle/System/Dash），文件互斥独占 + 共享契约文档（'/Users/zhangxuefeng/.omp/agent/sessions/-pi-cwd-20260601-admin-platform/2026-08-28T03-23-26-171Z_01a04664-cc5b-7546-b44c-4fb1a587a4c2/local/admin-v2-contract.md）+' 跨 agent 契约只两条（tokenList/TokenRow、lpSettleCycleList/Save），一次批跑无冲突。跨 agent 契约「提供方先定签名、消费方直接按契约 import」在同批并行下可行。
+- **wave 收敛踩坑**：①整文件重写的页面易丢 import（lp-liquidity 块注释未闭合吞掉整个 import 区；formatAdminDateTime/FormField/SETTLE_ORDER_STATUS_VARIANT/WorkflowRow 漏 import）——nx build 逐轮暴露太慢，用 `cd apps/<app> && npx tsc --noEmit` 一次枚举全量类型错再批量修；②DataTable 行键覆盖模式 `rows.map(r => ({...r, id: String(r.id)}))` 在 model 自带 `id: number` 时（LpPairRow）与列泛型 `LpPairRow & {id: string}` 冲突（id: number & string = never），须 `Omit<T,'id'> & {id:string}` 别名统一列/回调/弹窗 props；③上游 08-27 给 TransactionRespVO 加了 senderAccount/receiverAccount（列表 From/To 钱包列），照抄上游 interface 时要以最终上游为准。
+- **上游自身不一致的处置**：v2.0 workbench 仍保留「对账差异」卡片但链到的 reconcile 页已被 v2.0 删除（§G：删页面+菜单、api 保留）——下游保留卡片计数、去掉死链按钮，不产 404 路由。
+- 验证留档：build+lint 清零；dev 冒烟 17 页全绿 + 1280×800 截图存 `.doc/kissen/project/admin/verify/v2-sync/`；水位线已经 `diff-upstream.sh --apply` 推进到 787ccc93。fx 建对弹窗勾选挂行（1841ba1 核心）运行时验证需后端有 Active token 种子数据，本轮仅静态保证（ComboRow.checked 字段挂行）+ 页面渲染验证。
+
+## 2026-08-28 kissen-admin 侧栏切 menuTree 驱动（全对齐裁决）
+
+- **用户裁决「一个对一个功能，完全对接」推翻原 accepted divergence**：kissen-admin 侧栏原为静态 configs 驱动（kissen-app-shell.tsx 旧注释明示偏离），与上游 Vue（MainLayout 消费 store.menuTree）不一致——后端菜单重构（LP Management 组、FX Management 组并 transfer:tx 等）本地永远看不到，即「远程新增功能/菜单没同步」的根源。
+- **后端 menuTree 是运行时真相**：`/rbac/login` 响应含 `menuTree`（自带 `menuNameEn`，零 CJK 无需前端映射表，优于 LP portal 的 MENU_LABELS 模式）；同 key 可在 GitLab `ls-remote` 验证前端仓库无新提交——「没同步」要区分仓库增量与后端运行时数据两类。
+- 实现：login 把 `menuTree` 挂进 User 快照（索引签名透传，`userInfo` localStorage 持久化、登出随 clearSessionStorage 清除）；kissen-app-shell `toModuleItems()` 映射（visible=0 过滤、menuType=4 按钮剔除、orderNum 排序、children→分组、menuUrl→path、未知 key 落 registry placeholder）；configs 树降级为无会话/SSR 兜底。registry 增 `workbench` 键（后端 menuUrl=/workbench，`/dashboard` 保别名），enabled 增 workbench，登录默认跳转改 /workbench。
+- 后端 menuTree 无 risk:reconcile/risk:monitor-hit（服务端已撤）；上游 MENU_ROUTE_MAP 残留此二键属上游过渡期脏数据，前端 views/ 亦无对应文件。
+
+## 2026-08-28 kissen-gateway UDPN 改版增量同步（a82d82c → 39c8a2b）
+
+- **`npx nx dev` 卡死绕行**：@nx/jest plugin 使 project graph 构建挂起（`nx reset` 无效），直接 `cd apps/kissen-gateway-portal && npx next dev -p 4200` 绕过；hub daemon 名被污染后不可复用，起 daemon 前先 ps 确认。
+- **kissenPage mock 形状**：`POST */page` 回 `{code:'0', data:{rows:[...], page:{total}}}`，不是 `{records,total}`——mock 冒烟列表空必先核 kissen-gateway-client.ts 的解包字段。
+- **浏览器冒烟必须 mock `GET /bank/detail` 且 `onboardStatus:20`**：useGatewayLockState 无条件拉 detail，未入网态任何受控路由都会被单向纠偏重定向到 /onboard（该纠偏本身即门控行为，非 bug）。
+- **recharts dataKey 含 `/` 会被按对象路径解析**（如 `PR-A/B` 切成路径）：折线序列用 s0/s1 安全 id + `<Line name>` 展示名；UNKNOWN 键 legend 显示 'Unsynced'。零新增依赖约束下用 recharts（根 package.json ^3.8.1）替代上游 echarts。
+- 英文术语定稿：Pending Review/Rejected（token 5/15）、Onboard/Registered、Up to date/Synced N items、'Unsynced'。token refresh mutation 保留仅删 UI 入口（上游 onRefresh 同构）。
+- 验证：build+lint 清零；7 页浏览器 mock 冒烟全绿，截图存 `.doc/kissen/project/gateway/verify/39c8a2b-smoke/`；水位线已 `--apply` 到 39c8a2b3。sync-state.json 旧 note「1a775c1..a82d82c v2.0 差距单独立项」已过时，本次 delta 已全量同步。
+- **深度审计补丁**：volume 图空态曾加严为「全零序列也显示空态」，与上游 `volumeEmpty = entries.length === 0`（有键即画平线）不符，已改为严格对齐并双场景冒烟（全零键→平线+legend；无键→EmptyHint）。教训：对齐上游时勿自行「优化」边界条件。
+
+## 2026-08-28 kissen-admin 品牌主题系统接入（azure/midnight/cobalt）
+
+1. **三主题蓝系家族立品牌，accent 拉开辨识度**：azure(210°, 默认)/midnight(222°)/cobalt(220°)，accent 分别钢银/琥珀金/珊瑚橙——主 hue 避开 LP(violet 241/teal 187/emerald 160)与 gateway(靛/青)，id 三项目不重复。色板经预览页(`theme-preview/preview.html`)用户确认后落地。
+2. **SVG 表现属性不支持 `var()`**：内联插画组件的颜色必须走 `style={{stopColor:'var(--illus-x,#fallback)'}}` 对象形式（React JSX style 不接受字符串）；机械转换 SVG→JSX 时注意 `<g fill>` 也要进转换面、`#6B8EE5` vs `#6B8EF5` 这类仅末位差异的色值极易漏桶。
+3. **登录页品牌色原来直接照抄 LP violet 的 hex**（#001a98/#00a5d5/#554eea）——主题接入时全部 de-LP 化改绑 token。教训：跨 app 复制页面时品牌色值会静默跟随来源项目，接入主题系统时是集中清除点。
+4. **admin 会话 = cookie(TOKEN_COOKIE_KEY) + localStorage(userInfo) 双处**：浏览器冒烟清会话必须连 cookie 一起清，只删 localStorage 会被 auth guard 弹回 dashboard。
+5. **Radix DropdownMenu 偶发鼠标点击不开**（pointer-events 正常仍无响应）：自动化测试里用 focus + Enter 键盘路径稳定打开；switcher 三项下拉已实测可切换。
+6. 验证：tsc/lint ✅；实测 azure/midnight 切换、`--primary`/`--brand-deep`/`--illus-accent` 联动、刷新首帧防闪（domcontentloaded 时 data-theme 已就位）、localStorage 持久化、登录页内联插画跟随主题。截图 `.doc/kissen/project/admin/verify/theme/`。
+
+## 2026-08-28 三门户统一商务/区块链主题组
+
+- configs/kissen-admin.json、configs/kissen-gateway.json、configs/lp-portal.json 已统一为 5 个配置驱动 palette：deep-ocean、graphite-gold、chain-indigo、forest-mint、carbon-lime；默认均为 deep-ocean。
+- 每个 palette 保留完整的 primary/ring、登录渐变、banner 与插画 token；主题切换器、独立 localStorage key 和首帧防闪机制不变。后续调整主题只改三份配置的 theme.themes，不要回退到各项目独立色板。
+
+## 2026-08-28 登录品牌区主题绑定
+
+- kissen-admin 登录页左侧品牌区必须显式传入 login-grad-a/b/c，否则 shared MockLoginPage 会使用固定紫色默认渐变，导致与主题插画和字标脱节；tagline 同样使用 --brand-deep，内联 LoginIllustration 使用 --illus-*。
+- 三门户主题组现为 10 个：原有 5 个商务/区块链主题 + Pearl Cyan、Royal Sky、Amber Signal、Orchid Pink、Solar Mint 5 个亮色主题。
+
+## 2026-08-28 LP/Gateway 登录表单宽度
+
+- LP 与 gateway 登录页右侧表单容器统一 `max-width: 400px`，LP 通过 shared `MockLoginPage.formClassName` 显式传入，gateway 直接在页面容器声明；不要依赖 auth DOM selector 覆盖宽度。
+
+## 2026-08-28 三门户登录密码可见性
+
+- shared `MockLoginPage` 密码输入统一使用 `PasswordField`；gateway 登录页原本已使用该组件，因此三个门户均具备 Eye/EyeOff 切换和对应 aria-label，不要在各 app 内重复实现密码显示状态。
+
+## 2026-08-28 英文日期时间控件
+
+- kissen-admin 英文环境的 datetime-local 字段由 shared `FormField` 使用 Radix Popover + react-day-picker + Radix Select 组合，固定英文日期/时间 UI，提交值仍保持 `YYYY-MM-DDTHH:mm`；不要恢复原生 datetime-local，否则会重新受浏览器 locale 控制。
+
+## 2026-08-28 Gateway Header 品牌标识
+
+- Gateway `LogoMark` 的 viewBox 比例约为 5:1，使用固定窄宽度会把图标和字标压扁；Header 中应使用 `h-* w-auto` 保持原始比例，并控制高度与系统标题同一视觉层级。
+
+## 2026-08-28 Gateway 登录品牌插画
+
+- Gateway 登录页原来的 `public/login-illustration.svg` 使用固定紫色，不能跟随主题；登录页改用 `components/brand/login-illustration.tsx` 的 inline SVG，所有主要填充、描边和阴影接入 `--illus-*` token。品牌副标题使用 `--brand-deep`，Gateway badge 使用主题深色，避免亮色主题下对比度不足。
+- inline 版本必须同步保留原 SVG 的 float/pulse/flow CSS 动效，并通过 `prefers-reduced-motion` 关闭动画。
+
+## 2026-08-28 LP v2.4（上游 6c49396）split-settle 合并页同步
+
+- lp-portal 同步收口：split/settle/preauth 三页 clean cutover 为单页 `/split-settle`（registry/configs/lp-routes/barrel 全删无 shim，键名=路由段）；`lp:settle`→`/split-settle`，icon Money。
+- data-access 类型必须用 wire 真名：SplitRow 早期被改名 sourceCurrency/targetCurrency 但 raw api 无映射层，浏览器冒烟暴露 Token Pair 列全 '-'；改名只允许发生在展示层，改后以真实响应（git show 上游 types + network 面板）复核。
+- dashboard 页头 Refresh=summary+volume 双拉：refreshSeq state 传 VolumeCard 触发 refetch；折线 pair/currency 切换纯客户端重分组，network 面板零新请求即为实证。
+- lastSyncedSha 只经 `bash .claude/skills/lp-sync/scripts/diff-upstream.sh --apply <sha>` 推进；本轮已推进至 6c49396。
+- 浏览器冒烟入口：`xd://browser` open 超时的情况下改走 chrome-devtools MCP（new_page/take_snapshot/wait_for）；lp-portal dev 登录预填凭据在 apps/lp-portal/.env.local，端口 3300 非 4200。
+- edit 工具行号漂移在长文件上反复发作（本批次 3 次）；策略：大改 write 整文件、小段 PUT 后立即复查输出。
+
+## 2026-08-28 三门户服务器部署（10.0.7.20 :6242/:6243/:6244）
+
+- 部署形态：/data/{kissen-admin,lp-portal,kissen-gateway-portal} 三份都是本 monorepo 的完整镜像副本（无 git），各自 build.sh 用专属 docker-compose.*.yml 构建起 app+nginx 双容器；`bash /data/redeploy-all.sh` 串行三应用。
+- 同步用 `rsync -a --delete` + 保护过滤（exclude 即保护不删）：必须排除 build.sh、docker-compose.*.yml、nginx、nginx-kissen、**nginx-lp、nginx-gateway（各副本专属 nginx 上下文）**、logs、.env.local、.npmrc、*.tsbuildinfo、.git/node_modules/.next/.nx/.claude 等；漏一个服务器专有目录就会被 --delete 清掉（本次 nginx-gateway/Dockerfile+default.conf 被删，靠运行容器里的 conf 反抽 + 模板 Dockerfile 重建，proxy_pass 占位符手工回填 `${NEXT_SERVICE_SERVER_URL}`）。
+- BuildKit 拉 node:22-alpine metadata 偶发挂死（>10min 无输出）：kill 重跑即可（重试 90s 完成），不是代码问题。
+- 线上冒烟：chrome-devtools MCP 直开 http://10.0.7.20:6243（prod 无 dev 预填，手填 TESTLP01/testlp01_admin/Kissen@123）；6242/6244 以 `<title>` + 200 收口。
+
+## 2026-08-31 kissen-admin 接口不通排障（chrome-devtools MCP 逐页走查）
+
+- **主根因是后端地址漂移**：`apps/kissen-admin/.env.local` 的 `NEXT_SERVICE_SERVER_URL_KISSEN` 指向过时部署 `10.0.7.87:9000`（`/manage/token|token-pair|lp-token-pair|log/**` 全 404、`bank/lp list` code=1 系统异常）。正确测试后端以 `.doc/kissen-admin-deployment.md` 为准：`http://10.0.7.103:9000`，切换后 16 页全部 code=0。「上游接口通、下游不通」时先核对两端打的是不是同一个后端（vite 上游走 127.0.0.1:9000 隧道，与 next rewrites 的目标可能不同源）。
+- **诊断顺序**：先 curl 直打后端复现（区分前端请求体 bug vs 后端异常/路由缺失），再浏览器抓 network。HTTP 200 ≠ 成功，kissen 网关错误藏在 body `code` 里；chrome-devtools MCP `list_network_requests` 只见 200，必须 `get_network_request` 看 body。
+- **next-intl router 双前缀坑**：middleware 写入的 `redirect` 参数带完整 pathname（含 `/en-US`），login 页用 `@myorg/shared/util-i18n` 的 `useRouter().replace()`（自动加 locale 前缀）→ `/en-US/en-US/...` Module Not Found。修法：replace 前剥离 `^\/en-US(?=\/|$)`。默认跳转统一 `/workbench`（menuUrl），`/dashboard` 以 enabled 别名保留。
+- **端点机械 diff 的口径**：上下游都用多行正则（`re.S` + `kissenPage`/`request.post` 双 facade + 泛型段跳过）提取，本轮 82/82 对齐；下游多出的 `/manage/currency-pair/list` 是 v1 残留死代码（上游已删 currency-pair.ts，103 后端 404），连 api/keys/queries 三层摘除（`useFreezePairListQuery` 零调用方）。
+- configs `modules.enabled` 新增 `"dashboard"` 时不可用字符串整体 replace（会误伤 `modules.dashboard` 配置块），直接 edit JSON 数组行。
+
+## 2026-08-31 三门户后端地址修正与重新部署（10.0.7.20）
+
+- **后端归属实测结论**（以端点行为为准，勿凭 host 想当然迁移）：kissen-admin 后端 = `10.0.7.103:9000`（/v1/rbac + /v1/manage）；LP 后端 = `10.0.7.103:8090`（/lp/**）；bankgw（gateway 门户）后端 = `10.0.7.87:8080`（/bankgw/**，上游 vite 代理同构 :8080）。87:8090 已死；103 只有 8090/9000 两端口，无 bankgw——「全部搬到 103」不成立，改之前必须逐端点探测（POST 空凭据看是否走到业务层：能返回"用户名或密码错误"=端点活着，401 code=2=被全局 filter 拦截=服务不存在）。
+- 线上 6244 曾被误配 `NEXT_SERVICE_SERVER_URL=103:9000` 导致全部 bankgw 接口 404（8-28 部署引入）；修正为 87:8080 后 `/kissen-api/bankgw/brand` code=0。
+- 三门户 build.sh 均为服务器专属（rsync 保护内）：改后端地址用 `ssh sed`，镜像 tag 按 `main-MMDD` 递进（wt-0828 → main-0831）。
+- LP 测试账号 TESTLP01/testlp01_admin/Kissen@123 在 87:8090 时代可用，103:8090 上返回 MSG_23_0013 凭据不符——属新后端测试数据未同步，非部署问题。
+
+## 2026-08-31 Kissen UI 精细化改造 P0+P1（token 层踩坑沉淀）
+
+- **主题 token 优先级链路**（详见 `.doc/kissen/ui/token-source-of-truth.md`）：configs/*.json `theme.colors` 经 ThemeInjector 内联 `:root` 注入，**压过 globals.css 的 `:root`**——config 已有键（destructive 等）只改 globals 无效，必须同步 config；新增键（success/warning/info）仅存 globals 即可；`.dark` 不被 config 覆盖。
+- **Tailwind v3 层展平**：globals 里 unlayered 的自定义类会压过 utilities（`t-data text-2xl` 渲染 14px）；自定义排版/密度类必须包 `@layer components`。
+- **Next 16 rewrites env 必须带 scheme**：`NEXT_SERVICE_SERVER_URL=127.0.0.1:9100`（无 http://）会让 next dev 启动即崩（Invalid rewrite found）；且 Next 16 不再从 .env.local 读监听端口，dev 需显式 env PORT。
+- **四态取证 stub 法**：`.doc/kissen/ui/audit/stub-server.mjs`（PORT/UPSTREAM/MODE=fixture|empty|latency|error|proxy）；kissen 系信封 code 是字符串 '0'（admin 是数字 200）；hub restart 不更新 env，切 MODE 要 stop+start；empty/error 态切换后须 full reload 清 react-query 缓存。
+- **对比度口径**：文本 ≥4.5:1 无小字豁免兜底；shadcn 默认 destructive（亮 0 84.2% 60.2% / 暗 0 62.8% 30.6%）作文本色不达标（3.76 / 2.0），P1 已改 0 72% 47% / 0 75% 62%（暗 fg 改 0 0% 10%）。
+- **密度类必须放 @layer utilities 且在 @tailwind utilities 之后**（P1 reviewer 实证踩坑）：`panel-pad` 放 components 层会被共享 Card 默认 `px-6/py-5` utilities 压制（横向恒 24px）；tailwind-merge 不认识自定义类不会去重，只能靠层序胜出。排版类 `.t-*` 则相反，留在 components 层让 utilities 可覆盖。
+
+## 2026-09-01 gateway f5009b3 selfTrade 同步（stub 冒烟方法论沉淀）
+
+- **87:8080 网关测试数据已恢复**：`bank_admin/Kissen@123` 登录 code=0（此前 MSG_24_0002 是数据未同步期）；该账号 menuKeys 仅 `bank:onboard:submit`，tx 页直链 `/en-US/tx` 仍可访问（页面 gating 走 config.modules.enabled，菜单键只过滤侧栏）。真实库暂无交易数据（空态正常）。
+- **共享 headless 浏览器多 tab localStorage 互踩（本轮最大坑）**：同 origin（localhost:3200）残留的 `/login?expired=1` tab 会在 HMR 重载/自身活动时对真实后端 401 → `clearGatewaySession` 清掉 **跨 tab 共享** 的 `bankgw.token/user`，把正在冒烟的 tab 一起登出。修法：`page.browser().targets()` 列出并 close 掉残留 login?expired=1 页再冒烟。
+- **stub 会话注入的正确姿势（缺一不可）**：① cookie 必须 CDP `page.setCookie`（document.cookie/evaluateOnNewDocument 都赶不上首个导航请求，middleware 服务端只见请求 cookie）；② localStorage 必须在应用代码前注入——水合后裸 `localStorage.setItem` 不触发 `useSyncExternalStore` 的 notify（auth.session 只在自身写路径广播），`hasSession` 快照锁 false、所有数据 query enabled=false、一个请求都不发；用 `page.evaluateOnNewDocument`。③ 拦截器 run-scoped，每个 run 全量重建。
+- **tx 路由形状**：列表是 `/en-US/tx`（configs path "/tx"，module 无 slug → 'list'）；`/tx/list` 会被 page.tsx 推导为 detail（slug[0] 非 create/edit/manage/query → 'detail'）→ 渲染详情页「Missing a transaction ID」。冒烟/直链勿用 /tx/list。
+- **stub 信封清单**（kissen 系 code 是字符串 '0'）：锁态双门控必须喂 `/bank/onboard/status {status:20}` + `/bank/detail {instanceId, instances[].activated:true, onboardStatus:20}`，否则 SessionGuard 拉去 /onboard；`/brand` 是 app 壳也拉的接口。
+- **puppeteer 细节**：`text/xxx` 选择器在 `page.$` 可用但与 CSS 复合会语法错误（复合用 `xpath/(...)[1]`）；长 run 会撞 Runtime.callFunctionOn protocolTimeout——分 run 短步骤，卡死的 page 对象直接换新 tab；截图用 `page.screenshot({path})` 直存 verify 目录。
+- **BuildKit metadata 卡死对策（0901 部署）**：服务器 build 偶发卡在 `load metadata for docker.io/library/nginx:alpine`（镜像源 docker.1ms.run 抖动；手动 `docker pull nginx:alpine` 反而能通）。对策：`pkill -f "bash build.sh"`（注意会连坐 ssh 自身会话）后用 `setsid nohup bash build.sh > 绝对路径.log < /dev/null &` 重启，重试即过。线上验证三件套：`<title>`、`/kissen-api/bankgw/brand` code=0、真实登录 code=0。
+
+## 2026-09-02 gateway 落地页修复部署（10.0.7.20 :6244，main-0902 覆盖重建）
+
+- **背景**：已入网银行仍落 /onboard——下游三处落地（`/[locale]` 根路由、middleware 已登录 /login、login 兜底）停在 cb22c7a 旧语义；上游 v2.0 根路由已改 `/overview`。修复后统一落 `/overview`，login 兜底有意 diverge 上游 '/onboard'（决策记录在 gateway 文档 01 §7-31）。
+- **后端再次漂移**：build.sh 的 NEXT_SERVICE_SERVER_URL 已被改为 `10.0.7.85:8080`（bak-0902 备份，87/85 均 200，.85 是当前有效后端，bank_admin/Kissen@123 登录 code=0）。rsync 保护过滤按 0828 清单执行，30 文件零删除。
+- **部署验证升级四件套**：`<title>`、`/kissen-api/bankgw/brand` code=0、真实登录 code=0、**带 cookie curl 重定向链**（`/login`→307 `/en-US/overview`、`/en-US`→307 `/en-US/overview`）——服务端 redirect 类修复无需浏览器即可收口；headless 浏览器真实登录后确认落地 `/en-US/overview` 且 Dashboard 渲染完整（6 笔 Failed 为后端测试数据，非前端问题）。
+
+## 2026-09-02 三门户全量部署（kissen-admin/lp/gateway → 10.0.7.20 main-0902）
+
+- **rsync 排除参数 glob 陷阱（严重）**：`--exclude docker-compose.*.yml` 不加引号且经 `$EXCL` 变量展开时，被 bash 按当前目录 glob 展开成字面量 `docker-compose.kissen.yml`（仓库根恰好有此文件），导致 lp 的 `docker-compose.lp.yml` 和 gateway 的 `docker-compose.gateway.yml`（服务器专有、git 里没有）被 `--delete` 误删。修复：compose 文件均为 admin 模板变体（dockerfile 路径/nginx context/后端 ARG/端口不同），照 `docker-compose.kissen.yml` 重建。教训：**排除模式一律写 `'docker-compose.*.yml'` 单引号直传 rsync，不经 shell 变量二次展开；服务器专有文件改用 `--filter='P <name>'` 显式保护**。
+- **镜像源 nginx:alpine metadata 持续卡死**：docker.1ms.run 间歇性 manifest 挂死（握手 3s 正常但 BuildKit load metadata 可挂 4min+）。对策组合：`docker pull nginx:alpine` 预热本地（BuildKit 对本地已有 tag 直接命中）+ 前台重跑。多个卡死的 docker-compose build 互相堆积时会加剧卡死——先 `pgrep -f 'docker-compos[e]'` 清光孤儿再单跑。
+- **ssh 远程 kill 自杀链**：pkill/pgrep 模式若与 ssh 命令行字面量重合会杀掉自身会话（exit 255）。两次翻车：heredoc 内含 `redeploy-all.sh`、命令串含 `bash build.sh`。对策：字符类括号（`redeploy-al[l]`）只对不含该字面量的命令安全；复杂清理脚本一律 base64 投递到服务器执行。
+- **后台分离脚本在 build/up 之间静默死亡**：`setsid nohup bash build.sh &` 从 ssh 启动后，脚本在 `docker-compose build` 完成后、`up -d` 之前被回收（机制未明）。对策：镜像已缓存时直接 ssh 前台跑单个 build.sh（秒级~分钟级），不再用分离模式。
+- **部署验证**：三端口 `:6242/:6243/:6244` login 200 + title（Kissen Admin / LP Portal / Kissen Gateway Portal）；gateway brand code=0 + auth 重定向链 `/login`→`/en-US/overview`。lp build.sh 后端 `NEXT_LP_BACKEND_URL=http://10.0.7.87:8090`。
+
+## 2026-09-03 kissen-admin 品牌锁定区
+
+- 登录页与登录后 Header 的 `udpn Kissen` 字标不应继续复用 MockLoginPage 的「首字符深色、其余字符强调色」切分逻辑；kissen-admin 通过 app-local `KissenBrandMark`/`KissenHeaderMark` 注入 shared 的 `brandMark`/`logo` 插槽，登录页和顶部 banner 分别适配浅色渐变与深色 banner。
+- 字标颜色必须绑定 `--brand-deep`/`--brand-accent`，否则切换 kissen-admin 的 palette 会出现品牌色与主题不一致；Header 的项目名/副标题继续由 config 驱动。
+- kissen-admin 侧栏静态 `configs/kissen-admin.json` 仅作为无会话/首帧兜底；登录后 `menuTree` 的 `menuNameEn`/`menuName` 直接作为文案，`menuKey`、path、权限与模块 registry 保持独立。
+- kissen-admin 静态兜底名称已统一为 Dashboard、Workflow Tasks、Bank Management、Liquidity Provider Management、Settlement、System Management 及对应英文子菜单；后端返回的名称优先级高于这些静态值。
+- 三门户侧栏运行时文案统一以后端 `menuNameEn` 为首选、`menuName` 为回退；前端仅保留 menuKey→route/icon 的适配，不再按 menuKey 翻译显示名。gateway 的 config label 仅作为菜单树请求不可用时的兜底。
+- kissen-admin 的当前 LP 路由契约是 `/onboard/lp`、`/onboard/lp-pair`、`/liquidity/pool`，但旧后端/页面仍可能返回 `/lp-liquidity/lp-info/...`；动态路由需保留 `lp-liquidity` 分组与 `lp-info`、`lp-pool`、`lp-currency-pair` 子模块别名，否则会显示 Module Not Found。
+- 2026-09-03：Kissen Admin Token 列表查询区移除 Token Code，改为基于未筛选真实 `/manage/token/list` 返回值生成 Token Name、Blockchain 下拉；UI 的 Blockchain 对应接口字段 `chainType`，查询 filter 传 `tokenName`/`chainType`。
+- 2026-09-03：Kissen Admin Token 列表展示列使用 `Pegged Currency`、`Min. Liquidity`、`Registered On`，并移除表格中的 `Token Code` 列；查询区的 Token Name/Blockchain 筛选保持不变。
+- 2026-09-03：Token 列表 Actions 中的 `Adjust Min Liquidity` 文案改为 `Adjust Min. Liquidity`，操作逻辑不变。
+- 2026-09-03：Token 调整最低流动性弹窗显示独立字段标签 `Minimum Liquidity`、两位小数格式的当前值及 `Up to 2 decimal places.` 辅助说明；调整请求校验限制为最多 2 位小数。
+- 2026-09-03：Token 列表 Actions 中的 `Disburse Spender` 入口文案改为 `Spender Wallet`，点击后仍打开原 Spender 配置抽屉。
+- 2026-09-03：Spender 配置抽屉标题改为 `Disbursement Spender`，副标题统一为 `Token Name · Bank · Blockchain` 格式。
+- 2026-09-04：React 19 hydration 会剥掉 root layout 防闪 inline script 写在 `<html>` 上的 class/data-*（`suppressHydrationWarning` 只消警告不保属性）；kissen-gateway 硬刷新后暗色与调色板曾双双回落。对策是 `AppearanceSync`（app providers）mount layoutEffect 重放 `gw-appearance`→html.dark、`gw-theme`→data-theme（缺省回落 config.theme.defaultTheme），且必须挂在 BrandProvider 之前（让位分支依赖 dataset.theme 已就位）。适用于全部门户的防闪脚本模式，详见 gateway 迁移矩阵 §7-39。
+- 2026-09-04：gateway a39f51d 批次部署（:6244，main-0903→main-0904，commit 36ecfcd 推 feat/kissen）。rsync 16 文件零删除；构建 124s 无 metadata 卡死（提前 docker pull nginx:alpine 预热）。线上验证四件套 + 升级项全绿：title、brand code=0、真实登录 code=0（端点 /portal/login，字段 loginName 非 username）、cookie 链 /login→/en-US/overview 200、/system/ui 200 且两卡渲染、防闪脚本在 HTML。header 显示名「银行管理员」是后端 user.name 数据，零 CJK 约束不适用于后端数据。ssh root@10.0.7.20 密码登录用 expect 注入（本机无 sshpass）。
+- 2026-09-04：kissen-admin Dashboard 表格复制需兼容 HTTP 部署；`navigator.clipboard` 失败时使用用户点击事件内的隐藏 textarea + `document.execCommand('copy')` 回退，仍需尊重浏览器权限/iframe 安全策略。
+- 2026-09-04：kissen-admin Dashboard 的 Pool Level 需在表头 info tooltip 解释计算口径，在行内 tooltip 展示余额÷最低流动性公式；`Sufficient/Low` 状态 badge 与百分比同置于 Pool Level 单元格，不保留独立 Status 列。
+- 2026-09-04：共享 Breadcrumb 解析嵌套菜单时优先按配置项完整 `path` 匹配并保留父子 label；kissen-admin 的 LP 分组与 `lp` 子菜单存在重复 id，不能只按 URL segment 递归查 label，否则 `/onboard/lp*` 会错误显示 `Bank Management`。
+- 2026-09-04：结算周期配置页搜索栏的 Status 选项暂从不带 status 筛选的 LP 列表结果去重生成；LP list 当前仅返回 numeric status，文案可暂复用现有映射，代码留 TODO 等后端 status-options 接口后替换。
+- 2026-09-04：结算周期配置页的 LP Name 下拉与 Status 共用一份不带筛选条件的 LP 列表结果，LP 名称按 `lpName` 去重排序；All 通过不传 `filter.lpName` 表示全量。
+- 2026-09-04：结算单列表用户文案统一为 `Statement ID`、`Transactions`、`Created on`；结算单提交动作统一为 `Submit for Approval`，后端字段和 mutation 名称不变。
+- 2026-09-04：结算单详情弹窗按设计展示 `Created on` 分钟级时间、`Period` 日期范围和 `View N transactions`；当前详情接口只有 `txCount` 无交易 ID，跳转交易列表暂用 `lpId + createTimeStart/createTimeEnd` 深链筛选，代码留 TODO 等后端提供 `settlementOrderId` 精确筛选。
+- 2026-09-04：gateway 登录页视觉重设计仅改 `apps/kissen-gateway-portal/src/app/[locale]/(auth)/login/page.tsx`：保留品牌查询、登录 mutation、首登改密、过期提示与 redirect，桌面采用深色品牌插画面板 + 浅色浮层登录卡，移动端单栏降级；登录页品牌标识最终使用 JSX/CSS 字标（u/n 白色、斜体 dp 跟随主题 accent），已登录 Portal Header 才使用独立 inline `LogoMark` SVG；根布局固定 `100dvh` 并禁止外溢，避免登录页出现 body 纵向滚动条。
+- 2026-09-04：gateway 登录插画中心标识改为通用货币符号 `¤` + 硬币/经纬线轨道组合，动画使用 SVG inline keyframes（轨道 dash 流动、中心呼吸），并在 `prefers-reduced-motion` 下关闭；该标识不绑定 USD/EUR/CNY 等单一货币，作为 gateway 品牌识别点。
+- 2026-09-04：gateway 登录页品牌层级调整为 `UDPN` 主品牌 → `Kissen Gateway` 子品牌 → `Bank Portal` 场景标签；动态 `brand.name` 降级为右侧登录卡辅助门户信息，不再占据主锁定区。
+- 2026-09-04：kissen-admin 部署（:6242，main-0905→main-0906，commit 0b108b0 含他人 WIP 验证后合入：dashboard 重构+settlement/transaction/breadcrumb）。rsync 23 文件零删除（脚本 /tmp/gw-deploy-rsync.sh 重写为「目标目录+模式」参数化，新增 exclude deploy-*.log/build-*.log/.playwright-mcp——干跑曾暴露要删服务器 5 个部署日志）。构建 113s。后端 87:9000 存活（登录接口走到业务层），但无可用 admin 真实凭据（文档密码已脱敏、本地 dev 是 mock 登录），线上验证降级为：title+登录页 UDPN 品牌文案+容器镜像内 grep 新代码三标记（Network operations at a glance/Settlement Cycle Setup/UDPN Kissen 全命中）+容器 main-0906 Up。本地冒烟走的是 nx dev + 真实页面（admin mock 登录后 workbench/transfer/tx/settle/order/settle/cycle 全渲染、零 CJK、零 console 错误）。教训：admin 正确路由是分组式 /transfer/tx、/settle/order（扁平 /tx/list 会落到 placeholder）。
+- 2026-09-04：gateway-sync fe61223 批次（a39f51d..fe61223，tx 链路六段口径）。要点：①六段事件标题/字段行属 tx 域常量，落 `tx.model.ts`（TX_STAGE_EVENT_TITLE + txFlowEventTitle），页面侧只做 stageFieldsOf 组装；②detail 是独立路由页，Vue 版靠同页 pairViews 缓存派生 token symbol，下游须在 TxDetailPage 自取 useFxViewQuery（与列表页同 query key 缓存命中免请求），pairMap 构建抽 buildPairMap 两页共用；③.85 后端已随 fe61223 下发 stageStep/receiverAmount/userRate/lpCode（tx 77 实测含 step1/2/4/6，无 step3 节点属数据非缺功能）；④remark 为后端中文数据，零 CJK 不适用（既定口径）。
+- 2026-09-04：已将 `/Users/zhangxuefeng/Downloads/knms-fields-dashboard-workflow-logs-20260903.md` 整理为 `.doc/kissen/project/admin/02-字段文案与页面修改待确认清单.md`；该清单覆盖全局登录/品牌、Dashboard、Workflow Tasks、Operation Logs，并将统计口径、排序、跳转、状态判定和 ⚠️ TODO 与纯文案修改分开，供实施前确认。
+- 2026-09-04：针对 kissen-admin 修改清单新增边界：本轮只更新文档，不修改代码；侧边栏菜单及后端下发菜单树、API 返回字段/枚举/请求参数/响应结构均只读核对。可继续评估的范围仅限前端展示文案、格式化、Tooltip、已有字段的筛选/排序/跳转和复制交互；缺少后端数据时记录接口 TODO，不补静态数据。
+- 2026-09-04：gateway Dashboard overview 文案：交易指标卡 `Error (Manual Handling)` 改为 `Requires Manual Review`，业务概览字段 `Related Token Pairs` 改为 `Token Pairs`，`Statistics Window` 改为 `Reporting Period`；交易状态模型中的同名状态文案保持不变。
+- 2026-09-04：gateway Dashboard 折线图 `By Pair` 的 series 名称复用 `/fx/view` 的 token pair 元数据，显示 `sourceTokenSymbol → targetTokenSymbol`；元数据未命中时回退 `pairCode`，切换 `By Symbol` 不请求 FX 元数据。
+- 2026-09-04：gateway Token Management 列表页移除页面级 `PageHead`（`PORTAL` + `Token Management`），保留顶部 Breadcrumb 与 Tokens 表格面板；Token 详情页页头不受影响。
+- 2026-09-04：gateway Token 列表字段文案统一：`Anchored Fiat`→`Pegged Currency`、`tokenCode (currency system code)`→`Token Code (Token System)`、`Token No. (assigned once active)`→`Token No (Network-wide Unique)`、`Min Liquidity`→`Min. Liquidity`、`Push Time`→`Synced on`、`Detail`→`View`；列表最低流动性固定显示两位小数，时间继续使用不带时区名称的 `formatTime`。
+- 2026-09-04：gateway `/onboard` 实例卡文案统一：标题 `Gateway Instances`，数量按 `instance/instances` 复数变化；connectivity 将 UP/ONLINE、DOWN/OFFLINE、DEGRADED 统一显示为 Online/Offline/Degraded；状态按 `activated` 与 `credentialMode=bootstrap` 显示 Active/Pending/Inactive。详情卡隐藏 Contact Phone，编辑弹窗保留以满足 contact-update 必填请求。
+- 2026-09-04：gateway Header 的实例密钥入口权限来自 `localStorage` 的 `bankgw.user.menuKeys`，服务端首帧无法读取；直接在 render 分支显示会造成 React hydration mismatch。此类客户端会话能力需在 `useEffect` hydration 标记后再显示；gateway 紧凑 Header 使用 shared `compactHeader`，固定 64px，避免大屏默认 80px Header 被 logo/padding 撑高。
+- 2026-09-04：gateway 登录页重设计批次部署（:6244，main-0904→main-0905）。rsync 27 文件零删除（含上批未同步的 kissen-admin 已提交文件，不影响 gateway 构建）；构建 117s 无 metadata 卡死（提前 docker pull nginx:alpine 预热）；后端保持 http://10.0.7.85:8080（build.sh.bak-0905 备份）。验证全绿：容器 app main-0905、title `UDPN Kissen Gateway Portal`、brand code=0、真实登录 code=0（bank_admin/Kissen@123，端点 **/kissen-api/bankgw/portal/login**，字段 loginName）、cookie 链 /login→308 /en-US/login→307 /en-US/overview、/en-US→307 /en-US/overview 200。注意：`/kissen-api/bankgw/login`（无 portal 段）返回 code=2，登录验证勿用。
+- 2026-09-04：gateway-sync d764217 批次（UDPN 字段整理，fe61223..d764217，3 commits）同步完成并推进 lastSyncedSha。注意：下游 d6980ad（登录页重设计，同日更晚 commit）已非正式应用了本批次大半内容（headerName 全链/onboard/列表文案），同步时先 `git log -S '<文案>' -- <file>` 追溯已落地项再补缺口，勿重复改。本批实际缺口与落点：①`kit.ts formatTime` 单点追加 `tzLabel()`（GMT±N，源 utils/timezone.ts）——下游所有时间渲染已收敛该函数，feature lib 内无第二处 toLocale*；②`tx-pages.tsx flattenChain` 删 eventTime 前端重排（后端 gw_tx_flow ORDER BY step ASC, flow_id ASC 保证，实测详情链路直出正常）；③overview 成功率色分档 `successRateTone`（≥90 ok/60~90 warn/<60 bad，null 无色；36.36% 实测 destructive 红）；④pairLabels 重名回退 pairCode（used Set）；⑤token 详情标签与列表统一（Currency System/Pegged Currency/Min. Liquidity 两位小数/Network-wide Unique/Synced on）+ 修复 d6980ad 引入的 footnote 坏编辑（丢失前导 T 与空白垃圾）。variant 映射按 bank.model 头注释：warning→secondary，故 Pending/Degraded 用 secondary 即上游 warning 语义。文档 01 已加 §7-41 并标注 §1.4/§1.6/§1.7/§3.1/§3.2/§4.5/§4.7/§4.7.1；constraints 术语表回填 4 条。
+- 2026-09-04：lp-sync f0d5b6f..35ca014 批次（4 commits）同步完成并推进 lastSyncedSha。要点：①pair 可申请视图新增「我的状态」列（`EligiblePairRow.myStatus: number|null`，五态 null/5/15/20/50），操作列状态机——20/5 前置禁用（emerald/灰 + tooltip）、15/50 换文案 Reapply/Participate Again 可重复发起；②申请参与 AlertDialog 正文改为上游 f95ec24 二次确认语义（对 symOf(src)/symOf(tgt)+pairCode、KLP 流程、初始分成 percentText(defaultSplitRatio)、管理侧可覆盖）；③TX 35 升格成功终态：`TX_STATUS_LABEL[35]='Completed'`，列表/抽屉口径统一 success（E14 双口径陷阱正式退役，`txDrawerVariant` 保留命名缝隙）；④链路抽屉 v3 单时间轴：`STAGE_STEP_MAP/buildStageList/pickInitialStep` 等阶段轴全套删除，`buildChainTimeline(nodes,row)` 按落点状态开里程碑组（自环跳过、子节点只收去重 csTxId、to=5 挂 Principal/Receiver amount/Rate、to∈{30,35,40} 挂 Receiver amount），NODE_TITLES 13 态标题 35/40 同文案；⑤上游 MainLayout/router 英文化（menuNameEn||menuName）无代码变更——下游壳层 lp-routes.ts 已先行实现，仅文档标注。fixture 拦截冒烟复验：pair 六行（五 myStatus 态+No Pool）列/按钮/弹窗/apply 请求体全对；tx-flow 35 行 Completed、抽屉 4 里程碑（Quote locked 带 Principal/Rate/Voucher、completed 绿点 bg-emerald-500）、5→5 自环跳过验证通过。坑复现：登录预填后表单在 hydration 前点击会原生 GET 提交（query 带明文密码）——冒烟须等 ~2.5s 再点 Sign In；Radix tab 切换与断言必须与 setRequestInterception 同 run。
+- 2026-09-04：三门户批次部署（lp main-0907 / kissen-admin main-0908 / gateway main-0909；tag 按全局日序递进，admin 的 main-0906 是其他会话 2 小时前部署）。内容为 d6980ad 之后的 18 文件工作树增量（admin 审批/交易/仪表盘模型、gateway kit/overview/token/tx 页、lp pair/tx-chain/chain-drawer）。rsync 46/33/17 文件零删除；服务器串行构建 223s 无卡死。验证：lp title `LP Portal` + login 200 + `/lp/login` 空参 code=1「LP 编码不能为空」（打到业务层=87:8090 活）；admin title `Kissen Admin` + `/v1/rbac/login` 空参 code=1「登录名不能为空」（87:9000 活）；gateway 四件套全绿（title/brand code=0/真实登录 code=0/307 链）。**$EXCL 未加引号再次复现 compose 误删坑**（干跑拦截，未损失）：排除模式必须单引号直传 rsync，禁止变量二次展开；lp 的 bak-0907 备份在 sed 之后才 cp（备份的是新内容），后续备份先 cp 再 sed。
+- 2026-09-07：gateway 品牌重命名批次部署（:6244，main-0909→main-0910）。内容：`Gateway Portal`→`Bank Portal`（登录页品牌区精简、LogoMark productName/宽度、`DEFAULT_BRAND.headerName`、auth.api 新增 `normalizeHeaderName` 把后端已存的旧默认 headerName 迁移为新名——后端 brand 接口实测 `name` 已新、`headerName` 仍旧，该迁移正是为此）。**踩坑两则**：① rsync 脚本忘加 `-v` 时 dry-run 零输出，极易误判「无变更」，干跑必须 verbose 列清单核对；② SSR 静态 `<title>` 来自 `configs/kissen-gateway.json` 的 `project.name`（`app/layout.tsx` metadata 消费），品牌重命名漏改它会出现 curl title 旧名/浏览器后闪新名——重命名清单必须含该 config。curl 验证会话用 `Cookie: kissen_gateway_token=<token>`（登录响应无 Set-Cookie，token 由前端双写 localStorage+cookie）。验证四件套全绿：容器 main-0910、SSR title `UDPN Kissen Bank Portal`、brand code=0、真实登录 code=0、已登录链 /login→308 /en-US/login→307 /en-US/overview→200（首跳是 locale 归一化，第二跳才是 auth 重定向）。
+- 2026-09-09：gateway-sync d764217..7949c8d 批次（4 commits：62d1c33/e308f0b/57f6ca0/2f92680）同步完成并推进 lastSyncedSha。要点：①bankBic 合并（五接口 bankCode+bic → `bankBic`）+ 货币系统字段全删；②bank 列表 token 标签改 `t.tokenName || '-'`（BankTokenSummary 增 `tokenName?`）；③pairCode 全站 UI 移除但**类型保留**（overview 图例/pairOf 缓存仍消费）；④onboard 激活成功强制重登：activated → `setReloginOpen(true)`，AlertDialog ESC/关闭视同确认（`onOpenChange(o => !o && onConfirm)` + ref 防双触发），登出走 `logoutMutation → clearGatewaySession → logoutAndRedirect`（kissen-app-shell 同口径）。冒烟工具坑（已入三 skill pitfalls 共享区）：触发导航的按钮 `handle.click()` 8s 超时但点击已生效，改 `tab.evaluate` 内原生 click/`requestSubmit()`，登录成功以 toast+localStorage `bankgw.token` 判、勿以 URL 判（dev 编译慢 redirect 延迟）；`.catch(() => {})` 触发 no-empty-function，统一 `.catch(() => undefined)`。验证边界：激活重登弹窗无法真机触发（需后端 activated 状态），以代码路径 + tsc/build/lint 全绿收口。
+- 2026-09-09：已将飞书文档《Kissen修改 20260907》读取并整理为 `.doc/kissen/kissen-bug/2026-09-09-feishu-bug-summary.md`；该文档是 Kissen Admin、Kissen Gateway、LP Portal 的 UI/字段/交互调整清单，不是完整缺陷日志。实现前需优先确认摘要中的 8 项歧义，尤其是 Supported Token Pairs 说明文案、FX Transactions 删除范围、CF7/CF8 token pair 和全局时间/amount 格式。
+- 2026-09-09：已将 `.doc/kissen/kissen-bug/2026-09-09-feishu-bug-summary.md` 扩展为可执行实施方案：对比页面直改、横切能力+业务工作流、领域重构三种方案，推荐方案 B；以“需求覆盖与验收通过率”定义 98%，要求需求编号、代码落点、验证证据和 8 项歧义闭环。当前只完成文档规划，未修改业务代码；后续实现需继续遵守 config → route → module registry 三层核对，以及 shared formatter 复用边界。
+- 2026-09-09：执行 Kissen bug/UI 清单时，三门户时间展示统一复用 `@myorg/shared/util-dates` 的 `formatAdminDateTime`，格式固定为 `MMM d, yyyy, HH:mm:ss (UTC±offset)`，例如 `Sep 2, 2026, 09:09:10 (UTC+8)`；offset 取查看者运行环境，不能用页面私有的 `toLocaleString` 或旧 `YYYY-MM-DD HH:mm:ss`。
+- 2026-09-09：Gateway Bank Query 的上游数据契约已合并 Bank Code+BIC 为 `bankBic`，因此 UI 不应为了匹配旧文档拆出两个重复列；长值使用 shared `CopyableEllipsisText`。Gateway Transaction Records 的 `TxListReq` 当前只有 pair/status/pending/time 字段，需求中的 Transaction No./Tokens/From/To/LP 筛选不能凭空添加，需后端字段确认后再接入。
+- 2026-09-09：Gateway Transaction detail 已采用宽屏左主栏+右侧 `Transaction Log`、窄屏单列布局；消息留痕仍来自原 `useTxChain` 的 localMessages，交易链路保留在主栏，未改变 query/mutation。
+- 2026-09-09：gateway-sync 7949c8d..a9dc10e 批次（20260907 Kissen §2.x 改版）同步完成并推进 lastSyncedSha。要点：①**取代本日早前两条口径**：gateway 时间展示不再用 shared formatAdminDateTime（en-US + UTC±offset），改 kit.formatTime 上游 fmtDateTime 同款 `YYYY-MM-DD HH:mm:ss GMT±X`（半时区 toFixed(1)）；TxListReq 筛选字段 txNo/senderAccount/receiverAccount/lpName 已获 a9dc10e 后端下发确认并接入（此前"需后端确认"已闭环）。②tx 列表扩 7 控件筛选（Tokens 下拉选项 label `src → tgt · srcBank→tgtBank` 由 fxView pairMap 派生）+ To 金额列 receiverAmount（null 显 muted '-'）；tx 详情对齐上游新 detail.vue：hero txNo 优先标识、Overview/Accounts 补 Tokens 双 tag、Receiver Amount、Sender/Receiving Bank、LP tags、Tx UUID（Record ID/Pair ID 随批移除），布局交换为「主栏基本信息+报文留痕 timeline、右侧 360px 交易链路 sticky aside」，单页签 Tabs 包装删除。③CopyableEllipsisText 加 `truncate?: 'end'|'middle'`（middle=头8尾4、tooltip 显全量、copy 仍原值），全站长地址/txNo/tokenNo/tokenCode 复用，勿新建组件；调用点显式传 `emptyText="-"` 对齐上游 CopyText。④fx 页汇率统一局部 `fmtRate`（4 位小数，勿动 kit.fmtAmount 千分位口径）；fx/bank 详情 hero eyebrow kicker 全删、PageHead 列表级移除（Token 页上一批已同款）。⑤坑：edit 工具 PUT 行号在上一 hunk 后会漂移，多 hunk 批量编辑必须以最新 read 的 tag 一次性下发且行号取该次快照，跨编辑调用复用旧行号会替换错区段（本批两次事故均靠重读修复）。
+- 2026-09-09：三门户批次部署（admin main-0911 / lp main-0912 / gateway main-0913；tag 全局日序递进，commit e9b50bc）。内容：admin 22 文件（approval/settlement/dashboard/token 等模型与页面）、lp 17+3 文件（新增 invite 邀请注册功能：data-access/invite + invite-accept-page + (auth)/invite 路由）、gateway 为 7949c8d..a9dc10e 同步批次。rsync 3×~470KB 零删除。**BuildKit nginx:alpine metadata 卡死再现**：预热 `docker pull nginx:alpine` 完成后已挂起的 buildkit metadata 请求不会自行恢复，必须 `pkill docker-compose build` 后重跑 build.sh（app 层有缓存，重启构建 ~2 分钟完成）。验证口径：容器 Image tag + nginx title（Kissen Admin/LP Portal/UDPN Kissen Bank Portal）+ 业务层探针（admin 87:9000 `/v1/rbac/login` 空参「登录名不能为空」、lp 经 nginx :6243 `/lp/login` 空参「LP 编码不能为空」、gateway :6244 `/kissen-api/bankgw/portal/login` 到业务层）+ 镜像内 grep 新代码标记（gateway chunks/257.js 含 Synced On/FX Rates/All Token Pairs；admin chunks/818.js 含 Statement ID；lp build 产物含 invite 路由）。注意 ：6242 上 `/kissen-api/*` 会被 locale 中间件 308 重定向，admin 探针直打后端 87:9000。
+- 2026-09-10：Kissen v1.4 LP 职责迁移同步要点：Portal 只下线开池/出款池/参与申请 UI，`pair eligible/apply` 与 `pool apply/activate` data-access 必须保留供存量审批闭环；Admin 新增 LP Details 入口可先聚合现有真实 detail、pair list、pool list，未冻结的 `lp/full`、precheck、两侧 min/auth/累计水位字段禁止用 mock 或猜测字段实现。
+- 2026-09-11：共享 DataTable 的 sticky 操作列必须使用不透明背景；悬停态避免 `bg-muted/50`，改用 `bg-muted`，否则横向滚动时底层单元格会透出。
+- 2026-09-11：admin-sync 4685063..37010e0 批次（bank/LP 页签化+LP 注册配池一体化+LP 独立页）同步完成并推进 lastSyncedSha。要点：①LP 注册/编辑配池一体化——LpSaveReq 删 initialPairIds 改 `pairs?: LpOnboardPair[]`，PairPoolEditor 双 side 卡（地址必填/Min 预填对默认/auth 选填）+ PrecheckDialog（allPass 结论+逐地址实查，balance null→Unreachable destructive badge）；②LP 详情页聚合 `GET /manage/lp/full/${lpId}`（pairs+pools），Freeze/Unfreeze 移出详情页（列表页保留）；③token-pair 选项接口带 `filter:{status:20}`，LpPairTokenPairOption 含 symbol/bank/minLiquidity 供换对保留地址+Min 预填；④水位分母换 `requiredMinSum`（Σ 引用参与对 min），null/0 不画条显 '--'，dashboard 同口径；⑤`LpPoolRowWithBank` 退役（tokenBankName 收进 LpPoolRow）。验证边界：TD 后端 `/manage/lp/detail` 对非草稿 LP 返回 `pairs:[]`（草稿配池回填只能验空数据路径）；写操作（saveLpPair/submitLpPair/changeLpPair）不真实提交避免污染审批数据，提交通路由 precheck 200+toast/alert 断言覆盖。工具坑三则：`edit` PUT N.=M 边界算错会吞行（tsc 报语法错即回读修正）；`tab.id(n).click()` 与 `tab.run(page.click)` 均挂死 30s，一律 `tab.evaluate` 内 `el.click()`，Radix 下拉补 pointerdown/mousedown/pointerup/mouseup/click 全序列；React 受控 input 必须 `HTMLInputElement.prototype.value` native setter + input event，先直赋 `.value=` 会污染 value tracker 使后续 fill 全失效（症状：DOM 有值但 state 空、校验 toast 仍报 incomplete）——发现此症状直接弃用当前 DOM 重来。
+- 2026-09-11：kissen-admin main-0920 部署（10.0.7.20:6242，前序 main-0919 他人 4 小时前所部）。内容为 admin-sync 4685063..37010e0 批次工作树增量 15 文件（rsync 干跑 0 删除后实传 215KB）。服务器构建 ~4 分钟无 BuildKit 卡死（build.sh 先 cp 备份 bak-0919 再 sed tag，docker pull nginx:alpine 预热）。验证：login 200 + title Kissen Admin；/v1/rbac/login 空参 code:1「登录名不能为空」（业务层活）；镜像内 grep 新代码标记 chunks/4301「Supported Token Pairs」+ chunks/7903「Balance Check」命中。**expect 包 rsync 的引号坑**：Tcl 不认 bash 单引号，`--exclude 'node_modules/'` 会带字面引号传给 rsync 导致 exclude 全失效（干跑可见 node_modules 全列 + --delete 会误删服务器端 build.sh）——expect 内 exclude 模式一律裸写不加引号；干跑必须核对 deleting 列表与传输清单。
+
+## 2026-09-16 Kissen 2026-09-15 UI 问题实施
+
+- 三门户时间展示继续以 `@myorg/shared/util-dates` 的 `formatAdminDateTime` 为唯一可见格式；Gateway `feature/src/lib/kit.ts` 的 `formatTime` 已从旧 `GMT+8` 输出切回 shared viewer-local 时区格式，空值/0 仍显示 `-`。
+- 可识别 token 的金额统一在展示层追加 `symbol`；缺少 token 元数据不猜测币种。Dashboard、Admin LP pool/detail/precheck、LP Portal pool 均按行上下文补齐，跨币种且无单一 token 上下文的汇总不拼接伪 symbol。
+- Kissen Admin 的 LP Participations/LP Pools 顶部说明改为标题旁可键盘聚焦的 Radix Tooltip；局部 DataTable 使用 column `meta.overflow/maxWidth` 处理长 token、LP 名、地址、时间和数值对齐，不改 shared DataTable。
+- 2026-09-15 摘要中的 A-01 已确认由 Dashboard `Network Overview` 的 `Token Pairs` 行跳转至 `/fx-rate/pair`；A-06 已确认按 symbol 优先展示、A-07 已按反馈完成详情布局、G-02 已确认 Gateway FX Query 使用 Token Pair。
+- 2026-09-16：交易详情 `StatusRail` 参考外部 Settlement Rail demo 重做为响应式语义化 Stepper；Radix 官方没有 Step/Stepper primitive，仓库也没有 shared Steps 封装，因此继续在 kissen-admin feature 内自绘，保留原交易状态机与异常分支映射。
+- 2026-09-16：交易详情 Stepper 图标语义约定：`m35` Completed 使用 Check 且不显示进行中动画；异常/失败分支使用 X；只有非终态 current 节点显示 Loader2。
+- 2026-09-16：lp-sync e0fad0a..3a57bbd 单 commit 同步完成（pool/pair 只读快照化 + split-settle 明细收进行内 Details 抽屉），并推进 lastSyncedSha。要点：①data-access 剪除 pool/pair 的 apply/activate/eligible 兼容层（mutations.ts 整删 + api/model/keys/barrel 同步），上游 HEAD 零调用方触发干净切换；②抽屉明细沿用 `{page:{pageNum,pageSize}, data:{pairCode,startTime,endTime}}` 双包结构（响应不走 ResultData 包装）；③冒烟凭据：`apps/lp-portal/.env.local` 的 dev 预填 reddate/reddate_admin/red@123456 在 87:8090 有效（TESTLP01 已失效）；④后端缺口：`/lp/split/detail` 任意入参均返 code=1 系统异常，前端按空数据渲染、汇总行不出现，待后端修复后复查真实数据列宽与汇总格式化；⑤datetime-local 表单走 shared DateTimePicker（隐藏 input 持值），DOM 直改 value 不触发 RHF 更新，浏览器冒烟只能验证结构，时间换算逻辑靠代码审阅 + tx-flow 先例。
+- 2026-09-16：交易生命周期 Stepper 已下沉为 `@myorg/shared/ui` 的 `Stepper`；kissen-admin 仅保留 status code→step 数据适配。LP/Gateway 当前是各自交易链路 Timeline（阶段轴已退役），没有同类横向 Stepper，不能为追求统一而替换。
+- 2026-09-16：G-02 已确认并落地：Gateway FX Query 页面标题和第一列表头统一使用 `Token Pair`；`FX Rate` 保留为汇率字段名称。
+- 2026-09-16：A-06 已确认并落地：Kissen Admin FX Transactions 的 Tokens 下拉及列表列均优先使用 `/manage/token-pair/list` 返回的 `sourceSymbol/targetSymbol`，查询值仍为 `pairId`，缺少 symbol 时回退 token code。
+- 2026-09-16：A-01 已确认并落地：Dashboard `Network Overview` 的 `Token Pairs` 行跳转到 FX Management 下第一个子菜单 `FX Rate Management` 列表，路由为 `/fx-rate/pair`；其他 Dashboard 区块跳转目标保持不变。
+
+## 2026-09-18 td-admin 模块收敛重构（37 域 → feature/data-access 两项目）
+
+- `libs/modules` 下 37 个非 kissen 域已收敛为 `libs/modules/td-admin/{feature,data-access}`（alias `@myorg/modules/td-admin/{feature,data-access}`），形态对齐 kissen 系。验证链全绿：`npx nx build admin`、kissen 三应用+lp-portal 回归 build、两项目 lint、feature 21 套件 166 测试 + data-access 11 套件 90 测试全过、`tsc --noEmit -p apps/admin/tsconfig.json` 0 错。
+- 顶层 barrel 消歧约定：`export *` 全量转发 + index.ts 末尾显式 re-export 段覆盖跨域同名符号（类型用 `export type`）；互斥消费的歧义符号（如 `BlockchainOption`）消费点走深路径 alias。定版：`StablecoinOption`→dashboard、`useStablecoinOptionsQuery`→key-management、`useStablecoinOptions`→interest。
+- **域 barrel 求值顺序 = index.ts export 出现顺序，模块顶层立即解引用 barrel import 的 const 是 TDZ 高危**：合并后 `from '.'` 值 import 会拉长求值链（badge 的 `STATUS_COLOR_MAP`、manifests 的 `permissions: [X.VIEW]` 两类都炸过 `Cannot access 'X' before initialization`，且只在 nx build minimize 后复现）。修法：域内值符号直连定义文件 `./{dom}.constants` 等；跨包一律 `@myorg/modules/td-admin/<pkg>/lib/<dom>` 深路径，禁跨包相对路径。调试时可临时 next.config.ts 加 `minimize=false` 拿可读栈，用完必删。
+- **jest 多域同名 `__mocks__/<pkg>.ts` 是 haste manual-mock 回环**：合并后 blockchain/mmf/cross-chain 三域都有 `__mocks__/next-intl.ts`，`jest.mock('next-intl', () => require('./__mocks__/next-intl'))` 触发 `RangeError: Maximum call stack size exceeded`。约定：spec mock 文件一律 `.stub.ts` 后缀（next-intl.stub.ts / data-access-api.stub.ts），脱离 haste 命名表。
+- **合并包改变了 jest.mock 边界**：旧结构 util 与 data-access 是两个包，spec 只 mock data-access；合并后 mock 顶层/域 barrel 会吞掉旧 util 的真值（loginSchema→zodResolver(undefined)、MINT_METHOD→undefined、getCoaTemplateTokenType is not a function）。复刻旧边界的写法：hooks import 与 mock 都指向文件级路径 `+queries/tokenized-deposit.queries` / `.mutations`，常量/工具函数直连定义文件（`tokenized-deposit.constants`、`coa-setup-utils`）；同目标两条 jest.mock 后者覆盖前者（曾静默丢 mutations stub）。
+- **spec 相对层级在迁移后整体 +1**：spec 从域根挪进 `+queries/` 或域子目录后，`require('../__mocks__/...')` 与 `messagesRoot` 的 `../../../..` 上溯层级都要重算（mmf 两 spec 是 5→6 级）；写死的相对层级是迁移易碎点，新 spec 建议以 `<rootDir>` 或模块解析为准。
+- feature jest mapper 两条深路径规则必须按 rootDir 分开写：`feature/lib/*`→`<rootDir>/src/lib/*`、`data-access/lib/*`→`<rootDir>/../data-access/src/lib/*`；通用规则 `'^@myorg/(.*)$': libs/$1/src/index.ts` 不支持子路径（`util-i18n-messages/api-msg` 需单列 mapper）。
+- blockchain.constants.spec 的 `blockchain.` 前缀断言与 `ALL_VALUE=''` 是**旧结构即红**的既有失败（worktree 实测旧 HEAD 8 failed；i18n JSON 键无域前缀、ALL_VALUE 注释明确非空）：已按源码语义修正断言，勿再回改。
+- 迁移审计事故：204「丢失」文件中 203 是审计脚本 `Path.with_suffix` 对带点文件名的误报，真损失仅 `account-manage.constants.ts`（已重建）。教训：审计脚本先对易碎命名（文件名含点）做 dry-run 样本核对。
+- 2026-09-18：Kissen Admin Dashboard 的 `Requires manual handling →` 仅在存在待处理异常时显示，并跳转到 FX Management 第一个子菜单 `FX Rate Management`，路由为 `/fx-rate/pair`；使用现有 `useRouter` 与 link-style Button，保持无异常时的 `No exceptions pending` 文案。
+- 2026-09-18：Kissen Admin Dashboard 的 Pending Exceptions 表格中，`Created on` 日期含时区后缀使用 `truncate + title`，表格列改为百分比布局并取消固定最小宽度；`Actions` 表头右对齐到行内 `View`。
+- 2026-09-18：Kissen Admin Dashboard 的 Liquidity Pool Overview 在 `768px` 以上使用响应式百分比列宽、仅 `768px` 以下保留横向滚动；`Pool Level` 紧凑宽度允许换行，`>=1920px` 恢复宽屏指标布局。
+- 2026-09-18：apps/admin dev 登录偶发 15s 超时（"Request timed out"）根因是 webpack dev 编译巨慢（每路由 42s、dashboard dev chunk 8.8MB）：编译期间 dev server 无响应 → 浏览器同源 6 连接池被占满 → 后续 XHR 在浏览器内排队从未发出（Resource Timing `requestStart=0`、transferSize=0）→ axios 15s 超时。后端/代理/axios 本体均无辜（同页裸 XHR/fetch、CDN axios 同配置全部毫秒级）。修复：`apps/admin/project.json` dev 命令去掉 `--webpack` 改用 Next 16 默认 Turbopack（build 保持 webpack）；Turbopack 下同路由编译 4.5s、登录 2-3s。注意：`turbopack.root` 显式配置曾导致 `[module]/[[...slug]]` 路由编译卡死 10 分钟 + cache compaction 47-74s，已回滚为默认推断（警告仅为 cosmetic）；改 next.config 会整体失效 Turbopack filesystem cache，改完需 `rm -rf apps/admin/.next/dev` 冷启一次。
+- 2026-09-18：诊断浏览器内"请求从未发出"的判定手法：Resource Timing 取 `requestStart>0` 区分「已发出未响应」vs「浏览器内排队」（连接池耗尽）；用 Puppeteer 主世界 hook `XMLHttpRequest.prototype.send` 抓调用栈定位发起者。
+- 2026-09-18：部署 10.0.7.20 后白屏 "Application error: a client-side exception"（仅生产构建复现，dev 正常）。根因还是域 barrel 循环依赖 TDZ：26 个域内文件在**模块顶层**（`EMPTY_FORM`/`EMPTY` 等筛选默认值对象）引用 `from '.'` 导入的 `ALL_VALUE` 等常量；webpack 把 barrel 与 constants 合并成单模块且 imports 全部提升到顶部，barrel 先于页面求值时顶层读 `let` → `Cannot access 'c' before initialization`。修复：只把**顶层引用**的符号拆成直连 `./{dom}.constants` 导入（函数体内走 barrel 是运行时求值，安全不动）；TypeScript AST 精确扫描（跳过嵌套函数体）修复后归零。生产冒烟 21 个修复域页面 + 登录全过、console 0 error。教训：**域内文件永远不要从 `'.'`（自家 barrel）导入值符号**，新页面一律直连定义文件；排查此类问题用 `next start` + 产物 offset 逆向定位模块号。
+- 2026-09-18：kissen-admin 同步上游 4609208（金额按 token 精度）落点与口径：`formatAmount(v, decimals)` 纯字符串 BigInt HALF_UP 放 `modules-kissen-admin-feature/lib/format.ts`（不进 shared——shared formatNumber 走 Number+Intl 会丢 decimal(20,8) 末位）；`useTokenMeta(projectId)` 复用 `useTokenListQuery(projectId, {})` 做双键（tokenNo/tokenCode）元数据，未命中回退 2（与上游 DDL 默认一致）；汇率一律固定 8 位（fmtRate），不跟 token 精度。冒烟注意：kissen 后端鉴权头是 `token` 而非 Bearer；tx 行 sourceCurrency 为 symbol 形态时双键 miss 回退 2，与上游 decOf 同行为。
+- 2026-09-18：lp-sync 3a57bbd..6a55188 批（userDeduction 语义 + token 精度金额）要点：①LP formatAmount 自带副本于 `modules-lp-portal-feature/lib/format.ts`，与管理侧 4609208 同款同日决议（HALF_UP 纯字符串 BigInt），勿上收 shared；②tx-chain 保纯函数——amountText 回调作 `buildChainTimeline` 第三参注入，fmtAmount 退役删除；③split-settle 行内只有 pairCode（currency 列是 symbol 展示名不能当精度键），经 pairInfo 反查 sourceTokenCode 取精度；④冒烟凭据 reddate/reddate_admin/red@123456（LP code/username/password，`.env.local` 有预填键）；⑤tx-flow 测试环境 0 条数据（code=0 total=0 后端缺口），金额管线实证改在 split-settle 真实数据上做（228.012→228.01、7600.4→7,600.40）；⑥edit 工具多 hunk 部分应用坑本批两次（见 lp-sync pitfalls），多 hunk 后必须逐 hunk grep 复核。

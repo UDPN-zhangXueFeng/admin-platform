@@ -29,6 +29,18 @@ export const colorVariables = {
   destructive: '--destructive',
   'destructive-foreground': '--destructive-foreground',
 
+  /**
+   * Kissen UI 改造 v1.0 语义状态色（纲领 §5.4）：
+   * success=已完成/健康，warning=待处理/临界，info=处理中/说明。
+   * 值由各 app 的 globals.css :root/.dark 注入（主题无关）。
+   */
+  success: '--success',
+  'success-foreground': '--success-foreground',
+  warning: '--warning',
+  'warning-foreground': '--warning-foreground',
+  info: '--info',
+  'info-foreground': '--info-foreground',
+
   border: '--border',
   input: '--input',
   ring: '--ring',

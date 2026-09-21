@@ -9,6 +9,8 @@ export interface ProjectConfig {
   project: {
     id: string;
     name: string;
+    /** Header subtitle rendered under the project name. */
+    subtitle: string;
     logo: string;
     favicon: string;
   };
@@ -18,6 +20,14 @@ export interface ProjectConfig {
     mode: string;
     /** CSS-variable-name → HSL value, e.g. { "primary": "241.268 75.532% 63.137%" } (#5D5AE8). */
     colors: Record<string, string>;
+    /** Switchable brand palettes; empty = single-theme (legacy behavior). */
+    themes: {
+      id: string;
+      label: string;
+      colors: Record<string, string>;
+    }[];
+    /** Palette id from `themes` applied before first paint when unset locally. */
+    defaultTheme?: string;
     /** e.g. "0.5rem" */
     radius: string;
     fontFamily: {
@@ -36,6 +46,8 @@ export interface ProjectConfig {
       collapsible: boolean;
       collapsedWidth: string;
       showIconsOnlyCollapsed: boolean;
+      /** Whether only one parent menu can be expanded at a time. */
+      singleExpand: boolean;
     };
     header: {
       sticky: boolean;
@@ -70,6 +82,8 @@ export interface ProjectConfig {
     fullscreen: boolean;
     exportCSV: boolean;
     bulkActions: boolean;
+    /** Enables automatic logout after 30 minutes of client inactivity in production. */
+    inactivityLogout: boolean;
   };
 }
 

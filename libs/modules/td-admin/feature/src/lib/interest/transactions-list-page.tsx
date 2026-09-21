@@ -1,0 +1,259 @@
+/**
+ * 计息交易列表页 — Post / Reset action + Spin loading。
+ *
+ * 迁移自 td-manage `src/pages/interest/transactions/index.tsx`（237 行）。
+ */
+'use client';
+
+import * as React from 'react';
+import { useForm } from 'react-hook-form';
+import { useTranslations } from 'next-intl';
+import { useRouter } from '@myorg/shared/util-i18n';
+import { type ColumnDef } from '@tanstack/react-table';
+
+import { Button, DataTable } from '@myorg/shared/ui';
+import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { useAuth } from '@myorg/shared/util-auth';
+import { toast } from '@myorg/shared/ui';
+
+import type { TokenBill } from '@myorg/modules/td-admin/data-access';
+import {
+  useBlockchainOptions,
+  usePostTransaction,
+  useRetryTransaction,
+  useStablecoinOptions,
+  useTokenBillList,
+} from '@myorg/modules/td-admin/data-access';
+import {
+  FEE_TYPE_OPTIONS,
+  INTEREST_PERMISSIONS,
+  TRANSACTION_STATUS_OPTIONS,
+} from '.';
+import { ALL_VALUE } from './interest.constants';
+import { TransactionStatusBadge } from '.';
+
+const PAGE_SIZE = 10;
+
+interface TxListFormValues {
+  postTimeStart: string;
+  postTimeEnd: string;
+  tokenId: string;
+  blockchainId: string;
+  feeType: string;
+  status: string;
+}
+
+const EMPTY_FORM: TxListFormValues = {
+  postTimeStart: '',
+  postTimeEnd: '',
+  tokenId: ALL_VALUE,
+  blockchainId: ALL_VALUE,
+  feeType: ALL_VALUE,
+  status: ALL_VALUE,
+};
+
+export function TransactionsListPage() {
+  const t = useTranslations('modules.interest');
+  const tc = useTranslations('common');
+  const router = useRouter();
+  const authPermissions = useAuth().permissions ?? new Set<string>();
+  const can = (p: string) => authPermissions.size === 0 || authPermissions.has(p);
+
+  const { data: tokenOptions } = useStablecoinOptions();
+  const { data: blockchainOptions } = useBlockchainOptions();
+
+  const [pagination, setPagination] = React.useState({
+    pageNum: 1,
+    pageSize: PAGE_SIZE,
+  });
+
+  const form = useForm<TxListFormValues>({ defaultValues: EMPTY_FORM });
+  const filters = form.watch();
+
+  const queryFilters = React.useMemo(() => {
+    const f: Record<string, unknown> = {};
+    if (filters.postTimeStart) f.postStartTime = filters.postTimeStart;
+    if (filters.postTimeEnd) f.postEndTime = filters.postTimeEnd;
+    if (filters.tokenId !== ALL_VALUE) f.tokenId = filters.tokenId;
+    if (filters.blockchainId !== ALL_VALUE) f.blockchainId = filters.blockchainId;
+    if (filters.feeType !== ALL_VALUE) f.feeType = filters.feeType;
+    if (filters.status !== ALL_VALUE) f.status = filters.status;
+    return f;
+  }, [filters]);
+
+  const { data, isLoading, refetch } = useTokenBillList({
+    pageNum: pagination.pageNum,
+    pageSize: pagination.pageSize,
+    filters: queryFilters as never,
+  });
+
+  const postMutation = usePostTransaction();
+  const retryMutation = useRetryTransaction();
+  const [spinning, setSpinning] = React.useState(false);
+
+  const columns: ColumnDef<TokenBill>[] = [
+    { id: 'index', header: tc('PUB_Index'), accessorKey: 'interestRuleId', size: 60 },
+    {
+      id: 'postTime',
+      header: t('interest_0067'),
+      accessorKey: 'postTime',
+      cell: ({ getValue }) => {
+        const v = getValue<string>();
+        return v ? new Date(Number(v)).toLocaleString() : '-';
+      },
+    },
+    { id: 'tokenName', header: t('interest_0062'), accessorKey: 'tokenName' },
+    { id: 'blockchainName', header: tc('PUB_Blockchain'), accessorKey: 'blockchainName' },
+    {
+      id: 'feeType',
+      header: t('interest_0080'),
+      accessorKey: 'feeType',
+      cell: ({ getValue }) => t(`interest_list_feeType_${getValue<number>()}`),
+    },
+    {
+      id: 'postRealityCount',
+      header: t('interest_0075'),
+      accessorKey: 'postRealityCount',
+      cell: ({ getValue, row }) => `${getValue<number>()} ${row.original.symbol}`,
+    },
+    {
+      id: 'postAccruedCount',
+      header: t('interest_0066'),
+      accessorKey: 'postAccruedCount',
+      cell: ({ getValue, row }) => `${getValue<number>()} ${row.original.symbol}`,
+    },
+    {
+      id: 'status',
+      header: tc('PUB_Status'),
+      accessorKey: 'status',
+      cell: ({ getValue }) => <TransactionStatusBadge status={getValue<number>()} />,
+    },
+    {
+      id: 'actions',
+      header: tc('PUB_Action'),
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <div className="flex items-center gap-3">
+            {can(INTEREST_PERMISSIONS.VIEW_TRANSACTION) && (
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                onClick={() =>
+                  router.push(`/interest/transactions/view?id=${r.tokenBillId}`)
+                }
+              >
+                {tc('Router_0015_3_1')}
+              </Button>
+            )}
+            {can(INTEREST_PERMISSIONS.POST_TRANSACTION) && (
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                disabled={r.status !== 1}
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      t('interest_0093').replace('${token}', r.tokenName),
+                    )
+                  )
+                    return;
+                  await postMutation.mutateAsync({ tokenBillId: r.tokenBillId });
+                }}
+              >
+                {tc('Router_0015_3_4')}
+              </Button>
+            )}
+            {can(INTEREST_PERMISSIONS.RETRY_TRANSACTION) && (
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                disabled={r.status !== 40}
+                onClick={async () => {
+                  setSpinning(true);
+                  try {
+                    await retryMutation.mutateAsync({ tokenBillId: r.tokenBillId });
+                    await refetch();
+                    toast.success(
+                      tc('PUB_Success').replace('****', tc('PUB_Reset')),
+                    );
+                  } finally {
+                    setSpinning(false);
+                  }
+                }}
+              >
+                {tc('Router_0015_3_2')}
+              </Button>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
+  const handleReset = () => form.reset(EMPTY_FORM);
+
+  return (
+    <div>
+      <h3 className="text-lg font-medium mb-4">{t('interest_0076')}</h3>
+
+      <div className="grid grid-cols-5 gap-4 mb-4">
+        <FormDatePicker
+          name="postTimeStart"
+          label={t('interest_00113')}
+          control={form.control}
+        />
+        <FormDatePicker
+          name="postTimeEnd"
+          label={t('interest_00113')}
+          control={form.control}
+        />
+        <FormSelect
+          name="tokenId"
+          label={t('interest_0062')}
+          control={form.control}
+          options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(tokenOptions ?? [])]}
+          placeholder={tc('PUB_All')}
+        />
+        <FormSelect
+          name="blockchainId"
+          label={tc('PUB_Blockchain')}
+          control={form.control}
+          options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(blockchainOptions ?? [])]}
+          placeholder={tc('PUB_All')}
+        />
+        <FormSelect
+          name="feeType"
+          label={t('interest_0080')}
+          control={form.control}
+          options={FEE_TYPE_OPTIONS.map(o => ({ label: o.label, value: o.value === '' ? ALL_VALUE : o.value }))}
+          placeholder={tc('PUB_All')}
+        />
+        <FormSelect
+          name="status"
+          label={tc('PUB_Status')}
+          control={form.control}
+          options={TRANSACTION_STATUS_OPTIONS.map(o => ({ label: o.label, value: o.value === '' ? ALL_VALUE : o.value }))}
+          placeholder={tc('PUB_All')}
+        />
+      </div>
+
+      <div className="flex justify-between mb-4">
+        <Button variant="outline" onClick={handleReset}>{tc('PUB_Reset')}</Button>
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={(data?.rows ?? []).map(row => ({ ...row, id: String(row.interestRuleId) }))}
+        pagination={{
+          page: pagination.pageNum,
+          pageSize: pagination.pageSize,
+          total: data?.page?.total ?? 0,
+          onPageChange: (page) =>
+            setPagination((prev) => ({ ...prev, pageNum: page })),
+        }}
+        isLoading={isLoading || spinning}
+      />
+    </div>
+  );
+}

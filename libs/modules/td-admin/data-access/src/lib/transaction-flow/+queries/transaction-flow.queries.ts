@@ -1,0 +1,2 @@
+import { useQuery } from '@tanstack/react-query';import { fetchTxFlowList } from '../transaction-flow.api';import type { TxFlowFilters } from '../transaction-flow.model';import { txFlowKeys } from './transaction-flow.keys';
+export const useTxFlowList = (filters: TxFlowFilters, pageNum: number, pageSize = 10) => useQuery({ queryKey: txFlowKeys.list(filters as Record<string, unknown>, pageNum), queryFn: () => fetchTxFlowList({ filters, pageNum, pageSize }) });

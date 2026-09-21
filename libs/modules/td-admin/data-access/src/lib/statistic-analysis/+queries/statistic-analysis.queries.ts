@@ -1,0 +1,5 @@
+import { useQuery } from '@tanstack/react-query';import { fetchCoinList, fetchStatistics, fetchTrendData, fetchTrendTzData } from '../statistic-analysis.api';
+export const useCoinList = () => useQuery({ queryKey: ['statistic-analysis', 'coins'], queryFn: fetchCoinList, staleTime: 300000 });
+export const useStatistics = (code: string) => useQuery({ queryKey: ['statistic-analysis', 'stats', code], queryFn: () => fetchStatistics(code), enabled: !!code });
+export const useTrendData = (code: string, start: string, end: string) => useQuery({ queryKey: ['statistic-analysis', 'trend', code, start, end], queryFn: () => fetchTrendData({ stablecoinCode: code, startTime: start, endTime: end }), enabled: !!code && !!start && !!end });
+export const useTrendTzData = (code: string, start: string, end: string) => useQuery({ queryKey: ['statistic-analysis', 'trendtz', code, start, end], queryFn: () => fetchTrendTzData({ stablecoinCode: code, startTime: start, endTime: end }), enabled: !!code && !!start && !!end });

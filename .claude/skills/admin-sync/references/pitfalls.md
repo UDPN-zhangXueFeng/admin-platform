@@ -1,0 +1,69 @@
+# 陷阱保真清单（admin-sync 执行视角镜像）
+
+用途：实现与验证时**逐条核对**。来源：2026-08-28 v2.0 token 化全量补同步（99dcd0c → 787ccc9）实战。
+权威版本：本文即权威（admin 无文档 01 §E 镜像关系）；与 lp-sync/gateway-sync 的 pitfalls 共享条目需三处同步改。
+
+## 诊断口径
+
+1. **「远程新增功能没同步」先分两类根因，勿混诊**：
+   - ①前端仓库增量：`git ls-remote origin <branch>` 对 branch tip vs `lastSyncedSha`——仓库级 diff 才走同步流程；
+   - ②后端运行时数据：**侧栏菜单 = 登录响应 menuTree 驱动**（非前端静态定义）。后端重构菜单（分组/顺序/增删）时，仓库无 diff 也会「缺功能/缺菜单」。
+   - 本轮实例：上游仓库 tip 就是已同步的 787ccc9（main 反而是其 19 commit 祖先），「缺菜单」真因是后端 menuTree 重构而下游侧栏用静态 configs。
+2. **上游脏数据不照搬**：MENU_ROUTE_MAP 残留无 view 的 `risk:*` 键、workbench 对账卡片链向已删页面（死链）。处置：保语义、去死链、留档偏差，不让下游产生 404 路由。
+
+## 侧栏与菜单契约（admin 特有，2026-08-28 定稿）
+
+3. **双层菜单一致性**：运行时层 = login 响应 `menuTree` 挂 User 快照（索引签名透传 → `userInfo` localStorage 持久化，登出随 `clearSessionStorage` 清除），`kissen-app-shell.tsx` 的 `toModuleItems()` 映射（`visible===0` 过滤、`menuType!==4` 剔按钮、`orderNum` 排序、`children`→分组、`menuUrl`→path、label 取 `menuNameEn`——后端自带英文，零 CJK 无需映射表）；兜底层 = `configs/kissen-admin.json` 静态树，**必须与后端 menuTree 镜像同步**（否则 SSR 首帧/无会话态展示过时分组）。未知 key 落 registry placeholder。
+4. **registry 键 = 路由 slug[0]**；`configs.modules.enabled` 是双口径检查（page.tsx：组段用 GROUP_ENABLED_KEY[module]，平铺用 module 本身）——新增键三处同轮改：registry + enabled + menu 树，漏一处整组 404。后端 `menuUrl=/workbench` 需独立 registry 键（`/dashboard` 保别名）；登录默认跳转随 menuUrl 走（现为 /workbench）。
+5. **registry loader 模式**：top-level `import type * as KissenFeature` + `loader((m) => m.X)`，import 路径必须字面量（webpack 静态分析）；inline `import("pkg").Type` 会被 ts-import-type lint 拦。
+
+## 收敛与类型
+
+6. **整文件重写页面最易丢 import**（典型：块注释未闭合吞掉整个 import 区）。收敛用 `cd apps/kissen-admin && npx tsc --noEmit` **一次枚举全量类型错再批量修**；nx build 逐轮暴露太慢。
+7. **DataTable 行键覆盖 × model 自带 `id: number` 冲突**：`rows.map(r => ({...r, id: String(r.id)}))` 使列泛型 `T & {id:string}` 里 id 变 `never`。正解：模块级 `type Row = Omit<T,'id'> & {id:string}`，统一列定义/行回调/弹窗 props；需要原始 id 处 `Number(row.id)`。
+8. **端点机械 diff 的三种假缺失**（对照上游 `src/api/*.ts` vs 本地 data-access 时）：①泛型调用 `post<T>('/x')` 漏配正则——用 `(?:<[^>]*>)?\(` 兼容；②分页走包装 helper（`kissenPage`），URL 不在 `kissenRequest` 调用面；③view 内联调用（如 heartbeat 在 drawer.vue 里 request 直调），api 文件扫不到。判定缺失前先追真实调用点，否则误报缺口。本轮实测： naive diff 报 31 缺，修正后 **82/82 全对齐**。
+
+## 浏览器冒烟工程
+
+9. 批量走查：工具默认 30s 超时，**拆批（≤4 页）+ 显式 `timeout` 参数**；页内 `tab.goto` 自带 60s。
+10. 截图落盘：`tab.screenshot()` 不接收路径；用 Node 侧 puppeteer 原生 `page.screenshot({ path })` 直存 verify 目录。
+11. **登录态会中途过期**：批内后半被踢到登录页 ≠ 页面 bug（同时是 `code='2'` 过期分支的实测机会）。批量走查前先登录；dev 预填凭据见 login/page.tsx（admin/Kissen@123）。React 非受控输入需 native setter + `input` 事件再 submit。
+12. **写操作流程的运行时实证需后端种子数据**；无种子时以「渲染全绿 + 只读交互实测 + 按钮级矩阵静态保证」收口，报告中明示边界，勿谎称全流程已验证。
+12a. **触发导航/路由跳转的按钮，`handle.click()` 会 8s 超时但点击实际已生效**（gateway-sync 2026-09-09 实测：登录 Sign In 连续两次超时报错，toast 与 token 已落）：改用 `tab.evaluate` 内原生 `click()` 或 `form.requestSubmit()`，超时报错后先查 toast/localStorage 再决定是否重试，盲目重试会双提交。
+12b. **登录成功判定以 sonner toast + localStorage 会话键（如 `bankgw.token`）为准，勿以 URL 判**：dev 首次编译慢时 client redirect 可能延迟数秒，URL 短暂停留 /login ≠ 登录失败；确认 token 落盘后直接 `location.assign(目标页)` 继续走查。
+12c. lint 通则：`.catch(() => {})` 触发 `@typescript-eslint/no-empty-function`，统一写 `.catch(() => undefined)`。
+
+## 审批化改版同步（2023418 批次，2026-08-28）
+
+13. **model 字段以上游 VO 全量对照，不按「页面用到多少」猜**：`TokenPairRow` 初版漏了 `targetBankCode/baseRate/markupRate/defaultSplitRatio` 四个 VO 字段（列表列与弹窗回显全依赖），feature 层大面积 TS2339 才暴露。新批次同步时先 `git show <sha>:src/api/*.ts` 把 interface 逐字段抄全，再写 UI。
+14. **行内编辑工具的 auto-repair 会留旧行**（边界 echo 修复仅删重，不保证语法闭合）：大段替换后必须重读改动区域确认括号/注释闭合，本轮 3 次错位均靠「编辑响应的 syntax error 警告 + 立即重读」当场修复。
+15. **审批流改造的 UI 摘除要清干净三层**：api 函数（`setTokenPairDefaultSplit`）→ mutation hook → feature 弹窗与按钮，漏一层 tsc 才报 unused/dead 引用；barrel 为 `export *` 时 api 层删除即全链路失效，无单独 barrel 改动点。
+
+## v2.0-tokenization 增量批次（2023418..1a871d1，2026-09-01）
+
+16. **agent 插列会留重复列定义**：往 DataTable 列数组插入新列（如 Disbursement Pool）时，实现 agent 可能并列而非替换旧列，页面上同名表头出现两次才暴露。冒烟时核对 `thead` 表头全序；事后 `CUT` 重复列 + `tsc` 复验。
+17. **同一 app 不能双 dev 实例**：`.next/dev/lock` 互斥，第二个 `nx dev` 直接 exit 1。需要 stub 数据态时先停真实后端实例再起 stub 指向实例（复用同端口），测完再切回。
+18. **stub fixture 的 admin 信封必须 `code:'0'`（字符串）**：kissen-client `isKissenResult` 按字符串判成功；旧 fixture 的 `code: 200`（数字）会让 kissenPage 拿到 undefined rows，页面静默空表。见 stub-server.mjs `adminOk` helper。
+19. **真实后端优先冒烟，stub 兜 populated 态**：真实环境常缺新字段数据（本轮 settle 空、lp-pair baseRate 恰有值）。渲染结构走真实后端验证，数据渲染（三列换算、弹窗条目）走 stub fixture；两层都过才算冒烟完成。
+
+## v2.0-tokenization 增量批次（1a871d1..6579522，2026-09-04）
+
+20. **Edit 大范围 PUT 前必须 re-read 锚定终局行号**：本轮替换链路旧视图后全文件 +65 行，仍按旧行号 PUT DetailBody（850.=1030），起点落进 TxDetailDrawer 定义中间——drawer 与 `DRAWER_WIDTH_CLASS` 整体被吞，残留旧 JSX 尾巴，tsc 才报 `TxDetailDrawer` 未定义。任何「先改 A 区再改 B 区」的序列，改 B 前先重新 read/grep 锚定。
+21. **Radix Tooltip 无全局 Provider，须逐处自带**：kissen-admin 无全局 `TooltipProvider`，仓库惯例是每个 `Tooltip` 自包 `<TooltipProvider delayDuration={200}>`（dashboard/lp-liquidity/settlement/token-manage 同款）。漏包时 tooltip 静默不弹、无报错。
+22. **状态语义全局收敛要跨页核对**：上游把 35 定为成功终态「Completed」后，不只改 tx 详情——workbench `IN_FLIGHT` 需剔 35、`TX_STATUS_MAP[35]` 需 'Credited'→'Completed'，StatusRail 主线 8→7 段时 `status===40` 还需按主线终点兜底（findIndex -1 全 todo）。同步状态映射时 grep 全部消费点（`grep -n "35"` feature 层）逐一裁决。
+23. **链路单时间轴的分组算法以「根节点+挂载」为准**：状态迁移根（nodeType=1、statusTo>0、statusFrom≠statusTo）开组、自环跳过、动作/报文并入当前组——否则「源端到账核实」会重复出两条节点。凭证补齐（25 补 sourceCsTxId、35/40 补 targetCsTxId）在组分完后统一做，别在遍历里做。
+24. **上游「非 ASCII 才显示」的 remark 过滤在英文环境失效**：中文 remark 判别搬到英文 UI 会误杀全部英文业务文案。改为已知技术串模式过滤（`/^(quote\s*)?v?\d+$/i`），偏差记入 01 文档。
+
+## v2.0-tokenization 增量批次（bb9c607d..3c4cfbb，2026-09-09）
+
+25. **Nx daemon 偶发 "Maximum call stack size exceeded"**：dev target 启动即死且与代码无关时，`npx nx reset` 清 daemon 后重启即恢复；勿先怀疑代码。
+26. **hub 托管 dev server 的 readiness 端口配错会留孤儿进程**：ready.port 写成 4200（实际 3100）导致超时误判失败，但 next-server 子进程已存活并占住 3100；下次 start 前 `lsof -nP -iTCP:3100 -sTCP:LISTEN` 查孤儿 kill，否则新实例起不来或打到旧编译。
+27. **DataTable 行操作 kebab 用合成 click 打不开**：`page.evaluate(el => el.click())` 对 Radix DropdownMenu trigger 无效（需 pointer 事件序列）。稳定做法：evaluate 内取 `getBoundingClientRect` 中心坐标 → `page.mouse.click(x, y)` → 再 evaluate 点 `[role=menuitem]` 文本项。直接 `handle.click()` 在 sticky 操作列上会 8s 超时。
+28. **element id 跨 eval cell 必失效**：`observe()` 的 id 在下一次工具调用即失效，observe→id 引用必须同一 cell 内完成；跨 cell 交互一律 `tab.run` 内联 evaluate。
+
+## v2.0-tokenization 增量批次（37010e0..4609208，2026-09-18）
+
+29. **pitfall 20 强化版——同文件连续编辑必须逐次 re-read，且 elided 区显示行号≠实际行号**：本批同一 tsx 内 10+ 次编辑，多次 PUT 起点落在错误位置（兜底分支多插一行、`</DescField>` 被吞、目标卡大字 `</div>` 丢失），tsc/next build 才暴露。更隐蔽的是 import 块整行替换式 PUT（`PUT 73.=74:` 加新 import）会连带吞掉范围内原有 `type X` 行，apps 内 `tsc --noEmit` 因 tsconfig 差异竟不报错，直到 `nx build` 才炸（`SettleOrderRow`/`useTransactionLpOptionsQuery` 两个 import 被吞）。规则：① 编辑 import 块用 `PUT >N:` 纯插入而非范围替换；② 任何 PUT 前重 read 目标区；③ 改完 import 必跑 `nx build`（不止 apps tsc）再进入冒烟。
+30. **tsx/npx 脚本化验证不可用时用 `node --experimental-strip-types`**：monorepo tsconfig paths 无 baseUrl，`tsx -e` 直接抛 "Non-relative paths are not allowed"；`node --experimental-strip-types /tmp/x.mts` 跑纯函数级验证零依赖即可（Node 23 内置）。注意 tuple 类型标注 `[any, number?, string]` 会被 node 解析器拒（optional element 语法），写成非 optional 或拆成对象。
+31. **用户长期存活的 dev 实例可直接复用冒烟**：Next dev 按需重编译，用户 webpack :3100 实例（勿动）serve 的就是最新代码；同 app 另起实例反而撞 `.next/dev/lock`（pitfall 17）。判定后直接 browser.open 该端口即可。
+32. **kissen 后端鉴权头是 `token`（非 Authorization Bearer）**：页面外直调 `/v1/*` 需 `headers: { token: localStorage['admin_platform_access_token'] }`；用 Bearer 会 401「未登录或登录已过期」，易误判为会话问题。

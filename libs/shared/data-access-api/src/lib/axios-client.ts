@@ -2,6 +2,7 @@ import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 
 import { getAccessToken, logoutAndRedirect } from '@myorg/shared/util-auth';
 import { ApiError } from './api-error';
 import { normalizeApiError } from './api-error';
+import { getMessage } from './api-messages';
 
 /**
  * Subset of Axios request config exposed to consumers.
@@ -80,19 +81,18 @@ axiosClient.interceptors.response.use(
     const data = response.data as Record<string, unknown> | undefined;
     if (data && typeof data === 'object' && 'code' in data) {
       const code = data.code;
-      if (code === 3 || code === 4) {
+      if (code === 3 || code === 4 || code === '3' || code === '4') {
         logoutAndRedirect();
         return Promise.reject(new Error('Session expired'));
       }
       if (typeof code === 'number' && code !== 0) {
+        const rawMessage =
+          typeof data.message === 'string' ? data.message : undefined;
         return Promise.reject(
           new ApiError({
             status: response.status,
             code,
-            message:
-              typeof data.message === 'string'
-                ? data.message
-                : `Request failed with business code ${code}.`,
+            message: getMessage(rawMessage),
           }),
         );
       }

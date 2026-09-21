@@ -1,5 +1,8 @@
 'use client';
 
+// Ensures the `ColumnMeta` augmentation (overflow / maxWidth / stickyRight)
+// in data-table.types.ts is visible for the column defs consumed below.
+import type {} from './data-table.types';
 import * as React from 'react';
 import {
   ColumnDef,
@@ -10,14 +13,42 @@ import {
   RowSelectionState,
   PaginationState,
 } from '@tanstack/react-table';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Inbox,
+} from 'lucide-react';
+import {
+  Tooltip,
+  TooltipArrow,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../tooltip';
 import { cn } from '@myorg/shared/util-classnames';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../select';
 
 export interface DataTablePagination {
   page: number;
   pageSize: number;
   total: number;
   onPageChange: (page: number) => void;
+  /**
+   * Page-size selector callback (e.g. switching between 10/20/50 rows).
+   * Rendered only when provided — pages that don't pass it keep the plain
+   * footer, so existing consumers are unaffected.
+   */
+  onPageSizeChange?: (pageSize: number) => void;
+  /** Selector options; defaults to [10, 20, 50]. */
+  pageSizeOptions?: number[];
 }
 
 export interface DataTableSelection {
@@ -33,6 +64,105 @@ export interface DataTableProps<TData extends { id: string }> {
   selection?: DataTableSelection;
   emptyMessage?: string;
   className?: string;
+}
+
+const DEFAULT_CELL_MAX_WIDTH = 240;
+const WRAP_CELL_MAX_WIDTH = 360;
+/** A subtle tint derived from the active brand palette and current light/dark surface. */
+const TABLE_HEADER_BACKGROUND =
+  'color-mix(in srgb, hsl(var(--primary)) 6%, hsl(var(--background)))';
+
+/**
+ * Truncates content past `maxWidth` and reveals the full content in a Radix
+ * tooltip — but only when the content actually overflows (measured on hover),
+ * so short cells never pop a redundant tooltip.
+ */
+function EllipsisWithTooltip({
+  children,
+  maxWidth,
+}: {
+  children: React.ReactNode;
+  maxWidth: number;
+}) {
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const showTimer = React.useRef<number | undefined>(undefined);
+  const [open, setOpen] = React.useState(false);
+
+  const clearShowTimer = () => {
+    if (showTimer.current !== undefined) {
+      window.clearTimeout(showTimer.current);
+      showTimer.current = undefined;
+    }
+  };
+
+  React.useEffect(clearShowTimer, []);
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip open={open}>
+        <TooltipTrigger asChild>
+          <div
+            ref={contentRef}
+            onPointerEnter={() => {
+              const el = contentRef.current;
+              if (el && el.scrollWidth > el.clientWidth) {
+                showTimer.current = window.setTimeout(
+                  () => setOpen(true),
+                  150,
+                );
+              }
+            }}
+            onPointerLeave={() => {
+              clearShowTimer();
+              setOpen(false);
+            }}
+            className="truncate"
+            style={{ maxWidth }}
+          >
+            {children}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          sideOffset={6}
+          className="max-w-[var(--wrap-w)] select-text whitespace-normal break-all font-mono text-xs leading-relaxed shadow-lg"
+          style={{ ['--wrap-w' as string]: `${WRAP_CELL_MAX_WIDTH}px` }}
+        >
+          {children}
+          <TooltipArrow className="fill-popover" width={10} height={5} />
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function DataTableCellContent({
+  columnId,
+  meta,
+  children,
+}: {
+  columnId: string;
+  meta: { overflow?: 'ellipsis' | 'wrap' | 'none'; maxWidth?: number } | undefined;
+  children: React.ReactNode;
+}) {
+  if (columnId === 'actions' || meta?.overflow === 'none') {
+    return <>{children}</>;
+  }
+  if (meta?.overflow === 'wrap') {
+    return (
+      <div
+        className="whitespace-normal break-words"
+        style={{ maxWidth: meta.maxWidth ?? WRAP_CELL_MAX_WIDTH }}
+      >
+        {children}
+      </div>
+    );
+  }
+  return (
+    <EllipsisWithTooltip maxWidth={meta?.maxWidth ?? DEFAULT_CELL_MAX_WIDTH}>
+      {children}
+    </EllipsisWithTooltip>
+  );
 }
 
 /**
@@ -103,16 +233,22 @@ export function DataTable<TData extends { id: string }>({
 
   return (
     <div className={cn('flex flex-col gap-4', className)}>
-      <div className="overflow-hidden rounded-md border">
-        <table className="w-full caption-bottom text-sm">
-          <thead className="bg-muted/50">
+      <div className="overflow-x-auto rounded-md border border-border/50 bg-card">
+        <table className="w-full min-w-max caption-bottom bg-card text-card-foreground text-sm">
+          <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
                     scope="col"
-                    className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                    style={{ backgroundColor: TABLE_HEADER_BACKGROUND }}
+                    className={cn(
+                      'h-[60px] whitespace-nowrap border-b border-border/50 px-4 py-0 text-left align-middle font-medium text-muted-foreground',
+                      (header.column.columnDef.meta?.stickyRight ??
+                        header.column.id === 'actions') &&
+                        'sticky right-0 z-20 border-l border-border/50 shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]'
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
@@ -122,24 +258,34 @@ export function DataTable<TData extends { id: string }>({
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y">
+          <tbody className="divide-y divide-border/50">
             {isLoading ? (
               Array.from({ length: pagination?.pageSize ?? 5 }).map((_, i) => (
                 <tr key={`skeleton-${i}`}>
                   {columns.map((_, ci) => (
-                    <td key={ci} className="px-4 py-3">
-                      <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                    <td key={ci} className="h-[60px] px-4 py-0">
+                      {/* First bar wider to echo the emphasized primary column. */}
+                      <div
+                        className={cn(
+                          'h-4 motion-safe:animate-pulse rounded bg-muted',
+                          ci === 0 ? 'w-32' : 'w-24'
+                        )}
+                      />
                     </td>
                   ))}
                 </tr>
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  {emptyMessage}
+                <td colSpan={columns.length} className="px-4 py-10">
+                  <div className="flex flex-col items-center justify-center gap-2 text-center">
+                    <Inbox
+                      className="h-9 w-9 text-muted-foreground/40"
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -148,13 +294,42 @@ export function DataTable<TData extends { id: string }>({
                   key={row.id}
                   data-state={row.getIsSelected() ? 'selected' : undefined}
                   className={cn(
-                    'transition-colors hover:bg-muted/50',
-                    row.getIsSelected() && 'bg-muted'
+                    'group motion-safe:transition-colors',
+                    // Selected is resolved in JS (not a hover:* variant) so the
+                    // selected surface deterministically wins over hover —
+                    // Tailwind stylesheet order, not class order, would decide.
+                    row.getIsSelected()
+                      ? 'bg-accent hover:bg-accent'
+                      : 'hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_4%,hsl(var(--background)))]'
                   )}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 align-middle">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  {row.getVisibleCells().map((cell, cellIndex) => (
+                    <td
+                      key={cell.id}
+                      className={cn(
+                        'h-[60px] px-4 py-0 align-middle text-[13px]',
+                        // First data column carries the primary object
+                        // (scheme §6.2) → medium weight; the actions column
+                        // is never treated as the primary column.
+                        cellIndex === 0 &&
+                          cell.column.id !== 'actions' &&
+                          'font-medium',
+                        (cell.column.columnDef.meta?.stickyRight ??
+                          cell.column.id === 'actions') &&
+                          cn(
+                            'sticky right-0 z-10 border-l border-border/50 shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]',
+                            row.getIsSelected()
+                              ? 'bg-accent group-hover:bg-accent'
+                              : 'bg-card group-hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_4%,hsl(var(--background)))]'
+                          )
+                      )}
+                    >
+                      <DataTableCellContent
+                        columnId={cell.column.id}
+                        meta={cell.column.columnDef.meta}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </DataTableCellContent>
                     </td>
                   ))}
                 </tr>
@@ -166,11 +341,30 @@ export function DataTable<TData extends { id: string }>({
 
       {/* Pagination */}
       {pagination && (
-        <div className="flex items-center justify-between px-1">
-          <div className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
-          </div>
-          <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-4">
+          {!pagination.onPageSizeChange && (
+            <div className="mr-auto text-xs tabular-nums text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </div>
+          )}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {pagination.onPageSizeChange && (
+              <Select
+                value={String(pagination.pageSize)}
+                onValueChange={(v) => pagination.onPageSizeChange?.(Number(v))}
+              >
+                <SelectTrigger className="h-8 w-32 shrink-0" aria-label="Rows per page">
+                  <SelectValue className="whitespace-nowrap" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(pagination.pageSizeOptions ?? [10, 20, 50]).map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size} / page
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <PaginationButton
               aria-label="First page"
               disabled={currentPage <= 1}
@@ -218,7 +412,7 @@ function PaginationButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-sm font-medium',
+        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-background text-sm font-medium',
         'hover:bg-accent hover:text-accent-foreground',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         disabled && 'pointer-events-none opacity-50'

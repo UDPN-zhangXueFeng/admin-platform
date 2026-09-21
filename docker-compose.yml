@@ -1,0 +1,48 @@
+version: "3"
+services:
+  # ── Next.js 应用（由 Jenkins 通过 APP_DOCKERFILE 选择具体 apps 项目）──
+  app:
+    image: ${APP_IMAGE_TAG:-admin-platform-app:latest}
+    build:
+      context: ./
+      dockerfile: ${APP_DOCKERFILE:-Dockerfile}
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/aps}
+        NEXT_PUBLIC_KISSEN_API_BASE_URL: ${NEXT_PUBLIC_KISSEN_API_BASE_URL:-/v1}
+        NEXT_SERVICE_SERVER_URL: ${NEXT_SERVICE_SERVER_URL:-}
+        NEXT_SERVICE_SERVER_URL_KISSEN: ${NEXT_SERVICE_SERVER_URL_KISSEN:-}
+        NEXT_LP_BACKEND_URL: ${NEXT_LP_BACKEND_URL:-}
+        NX_PROJECT_ID: ${NX_PROJECT_ID:-admin}
+    container_name: ${COMPOSE_PROJECT_NAME:-admin-platform}-app
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    labels:
+      - "admin-platform.project=${APP_PROJECT:-admin}"
+      - "admin-platform.env=${ENV_NAME:-unknown}"
+      - "admin-platform.branch=${GIT_BRANCH:-unknown}"
+      - "admin-platform.build-time=${BUILD_TIME:-unknown}"
+      - "admin-platform.build-user=${BUILD_USER:-unknown}"
+    restart: unless-stopped
+
+  # ── nginx 反代（由 Jenkins 通过 NGINX_CONTEXT 选择项目代理规则）──
+  nginx:
+    build:
+      context: ./${NGINX_CONTEXT:-nginx}
+      args:
+        NEXT_SERVICE_SERVER_URL: ${NEXT_SERVICE_SERVER_URL}
+    container_name: ${COMPOSE_PROJECT_NAME:-admin-platform}-nginx
+    ports:
+      - ${NGINX_PORT:-6241}:80
+    volumes:
+      - ./${NGINX_CONTEXT:-nginx}/logs:/var/log/nginx
+    depends_on:
+      - app
+    labels:
+      - "admin-platform.project=${APP_PROJECT:-admin}"
+      - "admin-platform.env=${ENV_NAME:-unknown}"
+      - "admin-platform.port=${NGINX_PORT:-6241}"
+      - "admin-platform.api-url=${NEXT_SERVICE_SERVER_URL:-unknown}"
+      - "admin-platform.branch=${GIT_BRANCH:-unknown}"
+      - "admin-platform.build-time=${BUILD_TIME:-unknown}"
+    restart: unless-stopped

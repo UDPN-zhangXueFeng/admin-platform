@@ -15,6 +15,7 @@
 import enUSCommon from './en-US/common.json';
 import enUSLayout from './en-US/layout.json';
 import enUSAuth from './en-US/auth.json';
+import enUSApiMsg from './en-US/api-msg.json';
 import enUSDashboard from './en-US/modules/dashboard.json';
 import enUSModulesOrder from './en-US/modules/order.json';
 import enUSModulesUser from './en-US/modules/user.json';
@@ -37,6 +38,16 @@ import enUSModulesKeyManagement from './en-US/modules/key-management.json';
 import enUSModulesCrossChain from './en-US/modules/cross-chain.json';
 import enUSModulesTokenizedDeposit from './en-US/modules/tokenized-deposit.json';
 import enUSModulesPledge from './en-US/modules/pledge.json';
+import enUSModulesApprovalManage from './en-US/modules/approval-manage.json';
+import enUSModulesInterest from './en-US/modules/interest.json';
+import enUSModulesScreeningMonitoring from './en-US/modules/screening-monitoring.json';
+import enUSModulesStatisticsReports from './en-US/modules/statistics-reports.json';
+import enUSModulesAccountManage from './en-US/modules/account-manage.json';
+import enUSModulesStatisticAnalysis from './en-US/modules/statistic-analysis.json';
+import enUSModulesTransactionFlow from './en-US/modules/transaction-flow.json';
+import enUSModulesNetworks from './en-US/modules/networks.json';
+import enUSModulesScreeningProviders from './en-US/modules/screening-providers.json';
+import enUSModulesReconciliation from './en-US/modules/reconciliation.json';
 import enUSProjectsEcommerce from './en-US/projects/ecommerce.json';
 import enUSProjectsStablecoin from './en-US/projects/stablecoin.json';
 
@@ -44,6 +55,7 @@ import enUSProjectsStablecoin from './en-US/projects/stablecoin.json';
 import zhCNCommon from './zh-CN/common.json';
 import zhCNLayout from './zh-CN/layout.json';
 import zhCNAuth from './zh-CN/auth.json';
+import zhCNApiMsg from './zh-CN/api-msg.json';
 import zhCNDashboard from './zh-CN/modules/dashboard.json';
 import zhCNModulesOrder from './zh-CN/modules/order.json';
 import zhCNModulesUser from './zh-CN/modules/user.json';
@@ -66,6 +78,16 @@ import zhCNModulesKeyManagement from './zh-CN/modules/key-management.json';
 import zhCNModulesCrossChain from './zh-CN/modules/cross-chain.json';
 import zhCNModulesTokenizedDeposit from './zh-CN/modules/tokenized-deposit.json';
 import zhCNModulesPledge from './zh-CN/modules/pledge.json';
+import zhCNModulesApprovalManage from './zh-CN/modules/approval-manage.json';
+import zhCNModulesReconciliation from './zh-CN/modules/reconciliation.json';
+import zhCNModulesInterest from './zh-CN/modules/interest.json';
+import zhCNModulesScreeningMonitoring from './zh-CN/modules/screening-monitoring.json';
+import zhCNModulesStatisticsReports from './zh-CN/modules/statistics-reports.json';
+import zhCNModulesAccountManage from './zh-CN/modules/account-manage.json';
+import zhCNModulesStatisticAnalysis from './zh-CN/modules/statistic-analysis.json';
+import zhCNModulesTransactionFlow from './zh-CN/modules/transaction-flow.json';
+import zhCNModulesNetworks from './zh-CN/modules/networks.json';
+import zhCNModulesScreeningProviders from './zh-CN/modules/screening-providers.json';
 import zhCNProjectsEcommerce from './zh-CN/projects/ecommerce.json';
 import zhCNProjectsStablecoin from './zh-CN/projects/stablecoin.json';
 
@@ -75,6 +97,7 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     common: enUSCommon as unknown as Record<string, unknown>,
     layout: enUSLayout as unknown as Record<string, unknown>,
     auth: enUSAuth as unknown as Record<string, unknown>,
+    'api-msg': enUSApiMsg as unknown as Record<string, unknown>,
     'modules/dashboard': enUSDashboard as unknown as Record<string, unknown>,
     'modules/order': enUSModulesOrder as unknown as Record<string, unknown>,
     'modules/user': enUSModulesUser as unknown as Record<string, unknown>,
@@ -97,6 +120,16 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     'modules/cross-chain': enUSModulesCrossChain as unknown as Record<string, unknown>,
     'modules/tokenized-deposit': enUSModulesTokenizedDeposit as unknown as Record<string, unknown>,
     'modules/pledge': enUSModulesPledge as unknown as Record<string, unknown>,
+    'modules/approval-manage': enUSModulesApprovalManage as unknown as Record<string, unknown>,
+    'modules/reconciliation': enUSModulesReconciliation as unknown as Record<string, unknown>,
+    'modules/interest': enUSModulesInterest as unknown as Record<string, unknown>,
+    'modules/screening-monitoring': enUSModulesScreeningMonitoring as unknown as Record<string, unknown>,
+    'modules/statistics-reports': enUSModulesStatisticsReports as unknown as Record<string, unknown>,
+    'modules/account-manage': enUSModulesAccountManage as unknown as Record<string, unknown>,
+    'modules/statistic-analysis': enUSModulesStatisticAnalysis as unknown as Record<string, unknown>,
+    'modules/transaction-flow': enUSModulesTransactionFlow as unknown as Record<string, unknown>,
+    'modules/networks': enUSModulesNetworks as unknown as Record<string, unknown>,
+    'modules/screening-providers': enUSModulesScreeningProviders as unknown as Record<string, unknown>,
     'projects/ecommerce': enUSProjectsEcommerce as unknown as Record<string, unknown>,
     'projects/stablecoin': enUSProjectsStablecoin as unknown as Record<string, unknown>,
   },
@@ -104,6 +137,7 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     common: zhCNCommon as unknown as Record<string, unknown>,
     layout: zhCNLayout as unknown as Record<string, unknown>,
     auth: zhCNAuth as unknown as Record<string, unknown>,
+    'api-msg': zhCNApiMsg as unknown as Record<string, unknown>,
     'modules/dashboard': zhCNDashboard as unknown as Record<string, unknown>,
     'modules/order': zhCNModulesOrder as unknown as Record<string, unknown>,
     'modules/user': zhCNModulesUser as unknown as Record<string, unknown>,
@@ -126,6 +160,16 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     'modules/cross-chain': zhCNModulesCrossChain as unknown as Record<string, unknown>,
     'modules/tokenized-deposit': zhCNModulesTokenizedDeposit as unknown as Record<string, unknown>,
     'modules/pledge': zhCNModulesPledge as unknown as Record<string, unknown>,
+    'modules/approval-manage': zhCNModulesApprovalManage as unknown as Record<string, unknown>,
+    'modules/reconciliation': zhCNModulesReconciliation as unknown as Record<string, unknown>,
+    'modules/interest': zhCNModulesInterest as unknown as Record<string, unknown>,
+    'modules/screening-monitoring': zhCNModulesScreeningMonitoring as unknown as Record<string, unknown>,
+    'modules/statistics-reports': zhCNModulesStatisticsReports as unknown as Record<string, unknown>,
+    'modules/account-manage': zhCNModulesAccountManage as unknown as Record<string, unknown>,
+    'modules/statistic-analysis': zhCNModulesStatisticAnalysis as unknown as Record<string, unknown>,
+    'modules/transaction-flow': zhCNModulesTransactionFlow as unknown as Record<string, unknown>,
+    'modules/networks': zhCNModulesNetworks as unknown as Record<string, unknown>,
+    'modules/screening-providers': zhCNModulesScreeningProviders as unknown as Record<string, unknown>,
     'projects/ecommerce': zhCNProjectsEcommerce as unknown as Record<string, unknown>,
     'projects/stablecoin': zhCNProjectsStablecoin as unknown as Record<string, unknown>,
   },
@@ -191,6 +235,12 @@ export async function mergeMessages(
   const auth = getMessages(locale, 'auth');
   if (Object.keys(auth).length > 0) {
     result.auth = auth;
+  }
+
+  // 1.6 加载 api-msg 命名空间（API 错误消息，始终加载）
+  const apiMsg = getMessages(locale, 'api-msg');
+  if (Object.keys(apiMsg).length > 0) {
+    result['api-msg'] = apiMsg;
   }
 
   // 2. 加载启用模块的翻译（未启用的模块不加载）

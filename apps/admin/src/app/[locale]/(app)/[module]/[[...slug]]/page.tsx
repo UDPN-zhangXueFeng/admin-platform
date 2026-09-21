@@ -1,11 +1,10 @@
 'use client';
 
 import { use, useMemo } from 'react';
-import {
-  useConfig,
-  loadModulePage as loadLegacyModulePage,
-} from '@myorg/shared/util-config';
+import { useConfig } from '@myorg/shared/util-config';
 import type { ComponentType } from 'react';
+
+import { loadModulePage as loadLegacyModulePage } from '@/lib/module-registry';
 import {
   loadKeyManagementModulePage,
   loadSpAccessModulePage,
@@ -14,14 +13,19 @@ import {
 const keyManagementPageKeys: Record<string, string> = {
   'key-service-configuration': 'key-service-configuration',
   'key-signed-transactions': 'key-signed-transactions',
+  'managed-wallets': 'managed-wallets',
+  'user-wallets': 'user-wallets',
+  'key-policy-configuration': 'key-policy-configuration',
 };
 
 /**
  * key-management 标准路由词（走 legacy registry：签名交易 list/detail 等）。
  * 子页面 slug 既不在 keyManagementPageKeys、也不在此集合时（即未迁移的子模块，
- * 如 key-policy-configuration / managed-wallets / user-wallets），modulePageKey
+ * 当前 5 子模块已全部迁移完毕），modulePageKey
  * 返回 null → 落到下方的 "Page Not Found" 占位，避免被误当作 detail 渲染成
- * "Transaction record not found"。迁移新子模块时把其 slug 加入 keyManagementPageKeys。
+ * "Transaction record not found"。迁移新子模块时把其 slug 加入 keyManagementPageKeys，
+ * 并在 module-page-registry 注册同名 list loader 与 <slug>-detail loader（见下方
+ * modulePageKey 对 /<sub>/detail 两段路由的处理）。
  */
 const KEY_MANAGEMENT_STANDARD_ROUTES = new Set([
   'detail',
@@ -64,12 +68,21 @@ export default function ModulePage({
     mmf: 'mmf',
     'cross-chain': 'cross-chain',
     pledge: 'pledge',
+    reconciliation: 'reconciliation',
+    interest: 'interest',
+    'screening-monitoring': 'screening-monitoring',
   };
   const groupKey = GROUP_ENABLED_KEY[module];
   const isGroup = Boolean(groupKey);
   // module id 统一归一化为小写：菜单 path `/sys/sysLog`（驼峰）仍命中 registry 的 'syslog'。
+  // interest 分组的子模块 registry key 带 group 前缀（interest-policy 等），避免与 mmf 的
+  // accrual 等扁平 key 冲突；其他 group（sys/wallet/mmf/...）仍用裸 slug[0] 作为 key。
+  const GROUP_PREFIXED: Record<string, boolean> = { interest: true };
+  const rawModule = isGroup && slug && slug.length > 0 ? slug[0] : module;
   const realModule = (
-    isGroup && slug && slug.length > 0 ? slug[0] : module
+    isGroup && GROUP_PREFIXED[module] && slug && slug.length > 0
+      ? `${module}-${slug[0]}`
+      : rawModule
   ).toLowerCase();
   const realSlug = isGroup ? (slug ? slug.slice(1) : []) : slug;
 
@@ -81,17 +94,38 @@ export default function ModulePage({
     if (!realSlug || realSlug.length === 0) return 'list';
     if (realSlug[0] === 'create') return 'create';
     if (realSlug[0] === 'edit') return 'edit';
+    // wallet-type 的 MMF 路由 `/wallet/wallet-type/mff/<mff-add|view>`：realModule=
+    // wallet-type, realSlug=['mff','mff-add'|'view']。'mff' 非标准路由词会落到
+    // 'detail'。按 realSlug[1] 区分：mff-add→edit（FormPage 渲染 MMF 表单），
+    // view→detail（DetailPage 渲染 mff-view 变体，见 wallet-type-detail-page）。
+    if (realSlug[0] === 'mff') return realSlug[1] === 'view' ? 'detail' : 'edit';
     // tokenized-deposit 新建页路由名 'onboard'（对齐 overview-shell ONBOARD_ROUTE），
     // 识别为独立 pageKey，否则会落到 detail 误渲染 ViewPage。
     if (realSlug[0] === 'onboard') return 'onboard';
+    // screening-monitoring rule 第三方规则新建页路由名 't_edit'（对齐 td-manage
+    // /screening-monitoring/rule/t_edit），识别为独立 pageKey，否则会落到 detail
+    // 误渲染 RuleDetailPage。
+    if (realSlug[0] === 't_edit') return 't_edit';
     return 'detail';
   }, [realSlug]);
 
-  const modulePageKey: string | null =
-    module === 'key-management' && realSlug?.[0]
-      ? keyManagementPageKeys[realSlug[0]] ??
-        (KEY_MANAGEMENT_STANDARD_ROUTES.has(realSlug[0]) ? pageKey : null)
-      : pageKey;
+  const modulePageKey: string | null = (() => {
+    if (module !== 'key-management' || !realSlug?.[0]) return pageKey;
+    const subSlug = realSlug[0];
+    const mapped = keyManagementPageKeys[subSlug];
+    if (mapped) {
+      // 已迁子模块支持二级路由：/<sub> (list) /<sub>/new /<sub>/edit /<sub>/detail。
+      // 现有子模块无 new/edit（realSlug[1] 不会是这些值），行为不变（向后兼容）。
+      const sub = realSlug[1];
+      if (sub === undefined) return mapped;
+      if (sub === 'detail') return `${mapped}-detail`;
+      if (sub === 'new' || sub === 'create') return `${mapped}-new`;
+      if (sub === 'edit') return `${mapped}-edit`;
+      if (sub === 'configure') return `${mapped}-configure`;
+      return mapped;
+    }
+    return KEY_MANAGEMENT_STANDARD_ROUTES.has(subSlug) ? pageKey : null;
+  })();
 
   const PageComponent = useMemo(() => {
     if (!isEnabled) return null;

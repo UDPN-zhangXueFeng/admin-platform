@@ -1,0 +1,34 @@
+{
+  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/key-management/user-wallets",
+  "moduleName": "user-wallets",
+  "slug": "user-wallets",
+  "parentModule": "key-management",
+  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/user-wallets.md",
+  "phase": "accepted-conditional",
+  "migrationRate": 1.0,
+  "acceptanceRate": 1.0,
+  "scope": {
+    "subModule": "user-wallets — key-management 第4个迁入子模块（极简：仅list页）",
+    "totalFiles": 1,
+    "totalLines": 271,
+    "pages": "list (index.tsx 271行, 无detail)",
+    "sourceNote": "源是半成品：筛选未接API(TODO)+下拉空占位+GET无参响应{list,total}。迁移忠实保持源行为。"
+  },
+  "coverage": {
+    "sourceFiles": { "covered": 1, "total": 1, "missing": [] },
+    "apis": { "covered": 1, "total": 1, "missing": [] },
+    "pages": { "covered": 1, "total": 1, "missing": [] },
+    "uiMappings": { "covered": 12, "total": 12, "missing": [] }
+  },
+  "tasks": [
+    { "id": "uw-1", "name": "data-access + util kycConfig + barrels", "kind": "scaffold", "model": "haiku", "deps": [], "complexity": "低", "status": "completed", "verified": "grep: GET /api 带前缀 + {list,total}结构 + getUserWallets导出 + kycConfig + barrel5导出, lint exit0" },
+    { "id": "uw-2", "name": "列表页", "kind": "page", "model": "opus", "deps": ["uw-1"], "complexity": "中", "status": "completed", "verified": "前端分页(DataTable manualPagination→本地slice+全量total) + 8筛选空占位(status接walletStatusMap其余空忠实源) + 9列 + 无行操作 + 无antd + ALL_VALUE='all' + lint exit0" },
+    { "id": "uw-3", "name": "接入", "kind": "scaffold", "model": "haiku", "deps": ["uw-2"], "complexity": "低", "status": "completed", "verified": "barrel UserWalletsListPage + registry user-wallets loader(仅list无detail) + page.tsx keyManagementPageKeys +user-wallets(modulePageKey自动适配) + lint exit0" },
+    { "id": "uw-4", "name": "验收", "kind": "verify", "model": "opus", "deps": ["uw-3"], "complexity": "低", "status": "completed", "verified": "lint 3lib 0err; tsc admin 9错=基线零新增(user-wallets/page.tsx/registry无相关); 运行时坑grep全过; 路由user-wallets 307非404 + managed-wallets 307回归无影响" }
+  ],
+  "currentIndex": 4,
+  "startedAt": "2026-07-21",
+  "runtimeSmoke": "静态验收100%: lint(3lib 0err)+tsc(9=基线,零新增)+运行时坑grep全过(空串/双重前缀)。运行时:dev server在3000,curl /en-US/key-management/user-wallets 返回307→login(非404,路由接通+编译成功+session guard正常)。managed-wallets 307回归确认无影响。完整页面渲染+数据冒烟受登录captcha+无后端API阻(同managed-wallets/pledge),需用户在已登录+有后端环境验证:user-wallets list 9列渲染+前端分页。",
+  "phase5Notes": "验收率静态100%。user-wallets极简(1文件271行,仅list),高度复用managed-wallets模式。关键: 源是半成品(筛选TODO未接API/下拉空占位/GET无参{list,total}),迁移忠实保持;DataTable manualPagination下前端slice当前页+全量total;status下拉接walletStatusMap(枚举确定)其余空占位忠实源。",
+  "knownIssues": ["源半成品: 筛选/下拉未接API(保持源行为,后续优化需后端支持查询参数)", "RangePicker降级原生date input", "运行时完整冒烟待用户验证(登录+后端)", "token_type仅_1(既有约束)"]
+}

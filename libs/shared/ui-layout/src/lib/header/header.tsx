@@ -1,19 +1,20 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Bell,
-  LogOut,
-  Menu,
-  Settings,
-  Shield,
-  User,
-} from 'lucide-react';
+import { LogOut, Menu, Settings, Shield, User } from 'lucide-react';
 import type { ProjectConfig } from '@myorg/shared/util-config';
 import { logoutAndRedirect, useAuth } from '@myorg/shared/util-auth';
 import { cn } from '@myorg/shared/util-classnames';
-import { logoutApi } from '@myorg/modules/auth/data-access';
+
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -27,51 +28,135 @@ export interface HeaderProps {
   onMenuToggle?: () => void;
   /** Minimal mode: hides search/notifications to reduce chrome. */
   minimal?: boolean;
+  /** Open the change-password dialog (project-specific). */
+  onChangePassword?: () => void;
+  /**
+   * Project-specific logout (e.g. calling the project's own logout API).
+   * When provided it fully replaces the default platform logout flow.
+   */
+  onLogout?: () => void | Promise<void>;
+  /**
+   * Click handler for the brand block (logo + project name). When omitted
+   * the brand stays static decoration (platform default).
+   */
+  onBrandClick?: () => void;
+  /**
+   * Hide the "Manage Account" user-menu entry. Opt-in for projects whose
+   * baseline user menu only offers Change Password / Log Out.
+   */
+  hideManageAccount?: boolean;
+  /**
+   * Opt-in brand mark replacing the default <img src="/logo-icon.svg">.
+   * Use an inline component when the mark must track page CSS variables.
+  */
+  logo?: React.ReactNode;
+  /** Hide the config project name when a custom logo includes its own lockup. */
+  hideProjectName?: boolean;
+  /** Use a 64px header at every breakpoint. */
+  compact?: boolean;
+  /**
+   * Opt-in content rendered inside the right-hand actions area, before
+   * the user menu (reserved entry point, e.g. the notification bell).
+   * Like the rest of the actions area it is hidden in minimal mode.
+   */
+  trailing?: React.ReactNode;
 }
 
 /**
  * Reusable application header.
  *
- * Layout (left-to-right):
  * 1. Mobile menu toggle
- * 2. Logo / project name
+ * 2. Logo image / project name
  * 3. Spacer
- * 4. User Manual link
- * 5. API Documentation link
- * 6. Notifications bell (with count badge)
- * 7. User avatar + display name
- *
+ * 4. User avatar + display name
  * All interactive elements are keyboard-focusable and include
- * `aria-label` for screen-reader context.
  */
 export function Header({
   config,
   onMenuToggle,
   minimal = false,
+  onChangePassword,
+  onLogout,
+  onBrandClick,
+  hideManageAccount,
+  logo,
+  hideProjectName = false,
+  compact = false,
+  trailing,
 }: HeaderProps) {
   const { user } = useAuth();
+  const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] =
+    React.useState(false);
 
   const handleLogout = React.useCallback(async () => {
-    try {
-      await logoutApi();
-    } catch {
-      // Local logout must still complete even if the server session is already invalid.
-    } finally {
-      logoutAndRedirect();
+    if (onLogout) {
+      // Project owns the whole flow (server logout + local clear + redirect).
+      await onLogout();
+      return;
     }
-  }, []);
+    // Default flow: local session clear + redirect. Projects with a server
+    // logout endpoint pass onLogout to own the whole flow.
+    logoutAndRedirect();
+  }, [onLogout]);
+
+  const handleLogoutConfirmationOpenChange = React.useCallback(
+    (open: boolean) => {
+      setIsLogoutConfirmationOpen(open);
+    },
+    [],
+  );
+  const brandContent = (
+    <>
+      {logo ?? (
+        <img
+          src="/logo-icon.svg"
+          alt="Kissen"
+          className="h-10 w-[84px] shrink-0 min-[1600px]:h-12 min-[1600px]:w-[104px]"
+        />
+      )}
+      {!hideProjectName && (
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold tracking-wide text-white sm:text-base">
+            {config.project.name}
+          </p>
+          {config.project.subtitle ? (
+            <p className="hidden truncate text-xs text-white/70 sm:block">
+              {config.project.subtitle}
+            </p>
+          ) : null}
+        </div>
+      )}
+    </>
+  );
+
+  const brandBlock = onBrandClick ? (
+    <button
+      type="button"
+      onClick={onBrandClick}
+      title="Back to portal home"
+      aria-label="Back to portal home"
+      className="flex min-w-0 items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+    >
+      {brandContent}
+    </button>
+  ) : (
+    <div className="flex min-w-0 items-center gap-3">{brandContent}</div>
+  );
 
   return (
     <header
       className={cn(
         'relative isolate overflow-hidden border-b border-black/10 text-white shadow-md shadow-[#5D5AE8]/20',
+        compact
+          ? 'min-h-[64px] py-2 min-[1600px]:min-h-[64px] min-[1600px]:py-2'
+          : 'min-h-16 py-2 min-[1600px]:min-h-20 min-[1600px]:py-3',
         config.layout.header.sticky && 'sticky top-0 z-30',
       )}
     >
       <AnimatedBannerBackground />
       <div className="absolute inset-0 bg-[#171654]/15" aria-hidden="true" />
 
-      <div className="relative flex min-h-20 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="relative flex items-center justify-between gap-3 px-4 sm:px-6 min-[1600px]:gap-4 min-[1600px]:px-8">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           {onMenuToggle && (
             <Button
@@ -85,49 +170,12 @@ export function Header({
             </Button>
           )}
 
-          <div className="flex min-w-0 items-center gap-3">
-            <img
-              src="/logo-icon.svg"
-              alt="UDPN"
-              className="h-12 w-[104px] shrink-0"
-            />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-wide text-white sm:text-base">
-                {config.project.name}
-              </p>
-              <p className="hidden truncate text-xs text-white/70 sm:block">
-                Stablecoin Management System
-              </p>
-            </div>
-          </div>
+          {brandBlock}
         </div>
 
         {!minimal && (
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <a
-              href="#"
-              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white lg:block"
-            >
-              User Manual
-            </a>
-            <a
-              href="#"
-              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white md:block"
-            >
-              API Documentation
-            </a>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Notifications"
-              className="relative rounded-full border border-white/15 bg-white/[0.08] text-white hover:bg-white/[0.15] hover:text-white"
-            >
-              <Bell className="h-4 w-4" aria-hidden="true" />
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
-                21
-              </span>
-            </Button>
+            {trailing != null && trailing}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -149,28 +197,62 @@ export function Header({
                   </div>
                   <span className="hidden text-sm font-medium sm:block">
                     {user?.name ?? 'User'}
+                    {user?.userType === 0 && (
+                      <span className="ml-1.5 rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none">
+                        Super Admin
+                      </span>
+                    )}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
 
               <DropdownMenuContent align="end" className="min-w-[220px]">
-                <DropdownMenuItem className="gap-2">
-                  <Settings className="h-4 w-4" aria-hidden="true" />
-                  <span>Manage Account</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2">
+                {!hideManageAccount && (
+                  <DropdownMenuItem className="gap-2">
+                    <Settings className="h-4 w-4" aria-hidden="true" />
+                    <span>Manage Account</span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={onChangePassword}
+                  disabled={!onChangePassword}
+                >
                   <Shield className="h-4 w-4" aria-hidden="true" />
                   <span>Change Password</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="gap-2 text-destructive"
-                  onClick={handleLogout}
+                  onClick={() => setIsLogoutConfirmationOpen(true)}
                 >
                   <LogOut className="h-4 w-4" aria-hidden="true" />
                   <span>Log Out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <AlertDialog
+              open={isLogoutConfirmationOpen}
+              onOpenChange={handleLogoutConfirmationOpenChange}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Log out?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to log out?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={handleLogout}
+                  >
+                    Log Out
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
       </div>

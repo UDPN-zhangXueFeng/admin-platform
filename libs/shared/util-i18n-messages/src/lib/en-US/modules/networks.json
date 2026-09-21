@@ -1,0 +1,9 @@
+{
+  "networks_0000": "Networks",
+  "networks_0001": "The UDPN Token-Based Core Banking System enables banks and enterprises to issue and manage the full lifecycle of regulated digital currencies—including stablecoins, tokenized deposits, and CBDCs—across major public and permissioned blockchains. This on-premise token system integrates seamlessly with existing core banking systems and is configurable to meet regulatory requirements across jurisdictions.",
+  "networks_0002": "Like traditional core banking systems connecting to SWIFT for interbank messaging, the UDPN Token-Based Core Banking System connects to the following networks:",
+  "networks_0003": "A bank-led initiative introduced by the German Banking Industry Committee (GBIC) to bring together bank-issued tokenized deposit systems with a unified inter-bank settlement mechanism, combining the benefits of DLT and commercial bank money.",
+  "networks_0004": "A token-based cross-border payment and settlement network for central banks and commercial banks to manage token-based account systems and conduct token transfers and foreign exchanges with other banks across different jurisdictions.",
+  "networks_0005": "A blockchain-based global settlement network grew out of Project Ubin that is designed to seamlessly interoperate with existing systems, enabling 24/7 atomic settlement for cross-border payments and FX PvP.",
+  "networks_0006": "A Hong Kong-based stablecoin messaging layer that interconnects regulated stablecoins across jurisdictions, enabling instant cross-border, cross-issuer, and cross-currency payments and FX swaps."
+}

@@ -4,6 +4,7 @@ const USER_INFO_KEY = 'userInfo';
 const USER_PERMISSION_KEY = 'userPermission';
 const TWO_FACTOR_TOKEN_KEY = 'twoFactorToken';
 const TODO_COUNT_KEY = 'todoCount';
+const LAST_ACTIVITY_STORAGE_KEY = 'admin_platform_last_activity_at';
 const LOCALE_PATTERN = /^\/(en-US|zh-CN)(?=\/|$)/;
 
 interface StoredUserInfo {
@@ -86,6 +87,7 @@ export function clearSessionStorage(): void {
     window.localStorage.removeItem(USER_PERMISSION_KEY);
     window.localStorage.removeItem(TWO_FACTOR_TOKEN_KEY);
     window.localStorage.removeItem(TODO_COUNT_KEY);
+    window.localStorage.removeItem(LAST_ACTIVITY_STORAGE_KEY);
     // Expire the cookie immediately
     document.cookie = `${TOKEN_COOKIE_KEY}=; Path=/; SameSite=Lax; Max-Age=0`;
   } catch {

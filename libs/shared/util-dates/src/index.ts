@@ -1,7 +1,8 @@
 export {
   formatDate,
   formatTime,
-  formatRelative,
+  formatAdminDateTime,
+  DATETIME_FORMAT_ADMIN,
   DATE_FORMAT_SHORT,
   DATE_FORMAT_LONG,
   DATE_FORMAT_NUMERIC,

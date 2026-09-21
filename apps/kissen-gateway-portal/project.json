@@ -1,0 +1,30 @@
+{
+  "name": "@admin-platform/kissen-gateway-portal",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/kissen-gateway-portal",
+  "projectType": "application",
+  "tags": ["scope:kissen-gateway", "type:app"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec next build --webpack",
+        "cwd": "apps/kissen-gateway-portal"
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec next dev --webpack",
+        "cwd": "apps/kissen-gateway-portal"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec next start",
+        "cwd": "apps/kissen-gateway-portal"
+      }
+    }
+  }
+}

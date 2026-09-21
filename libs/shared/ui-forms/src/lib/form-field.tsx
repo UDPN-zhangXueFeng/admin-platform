@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { DateTimePicker } from './date-time-picker';
+import { cn } from '@myorg/shared/util-classnames';
 
 export interface FormFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   /** Field name - used for form registration and id generation */
@@ -27,19 +29,16 @@ export interface FormFieldProps extends React.InputHTMLAttributes<HTMLInputEleme
 /**
  * FormField - Label + Input + error message wrapper.
  *
- * Integrates with react-hook-form via the `register` prop.
- * If `register` is provided, its properties are spread into the native input.
- * Otherwise, the component falls back to standard controlled/uncontrolled behavior.
- *
- * Why native input instead of a custom Input component?
- * - react-hook-form's `register` returns handlers optimized for native inputs.
- * - Avoids an extra layer of ref forwarding and event normalization.
- * - Keeps the bundle minimal; consumers can compose with @myorg/shared/ui Input if desired.
+ * datetime-local fields use the shared Radix date-time picker so their
+ * visible calendar and time controls are always English, independent of the
+ * browser locale. The submitted value remains YYYY-MM-DDTHH:mm.
  */
 export const FormField = React.forwardRef<HTMLInputElement, FormFieldProps>(
   ({ name, label, error, register, type = 'text', placeholder, required, className, ...rest }, ref) => {
     const inputId = `field-${name}`;
     const errorId = error ? `error-${name}` : undefined;
+    const dateTimeValue =
+      typeof rest.defaultValue === 'string' ? rest.defaultValue : '';
 
     return (
       <div className={className}>
@@ -50,20 +49,41 @@ export const FormField = React.forwardRef<HTMLInputElement, FormFieldProps>(
           {label}
           {required && <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>}
         </label>
-        <input
-          id={inputId}
-          type={type}
-          placeholder={placeholder}
-          aria-invalid={!!error}
-          aria-describedby={errorId}
-          className={cn(
-            'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-            error && 'border-destructive focus:ring-destructive'
-          )}
-          {...(register ?? { name })}
-          {...rest}
-          ref={register ? mergeRefs(register.ref, ref) : ref}
-        />
+        {type === 'datetime-local' ? (
+          <DateTimePicker
+            id={inputId}
+            name={name}
+            value={dateTimeValue}
+            ariaLabel={label}
+            ariaInvalid={!!error}
+            ariaDescribedBy={errorId}
+            disabled={rest.disabled}
+            min={typeof rest.min === 'string' ? rest.min : undefined}
+            max={typeof rest.max === 'string' ? rest.max : undefined}
+            className={error ? 'border-destructive focus-visible:ring-destructive' : undefined}
+            register={register}
+            onChange={(value) =>
+              register?.onChange({
+                target: { name: register.name, value },
+              } as React.ChangeEvent<HTMLInputElement>)
+            }
+          />
+        ) : (
+          <input
+            id={inputId}
+            type={type}
+            placeholder={placeholder}
+            aria-invalid={!!error}
+            aria-describedby={errorId}
+            className={cn(
+              'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+              error && 'border-destructive focus:ring-destructive'
+            )}
+            {...(register ?? { name })}
+            {...rest}
+            ref={register ? mergeRefs(register.ref, ref) : ref}
+          />
+        )}
         {error && (
           <p id={errorId} className="mt-1 text-sm text-destructive" role="alert">
             {error}
@@ -89,6 +109,3 @@ function mergeRefs<T>(
     }
   };
 }
-
-/** Re-export cn for internal use so the file is self-contained. */
-import { cn } from '@myorg/shared/util-classnames';

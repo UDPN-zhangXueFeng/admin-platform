@@ -8,19 +8,19 @@ const spAccessPages: Record<
   () => Promise<{ default: ComponentType<unknown> }>
 > = {
   list: () =>
-    import('@myorg/modules/sp-access/feature').then((m) => ({
+    import('@myorg/modules/td-admin/feature').then((m) => ({
       default: m.SpAccessListPage as unknown as ComponentType<unknown>,
     })),
   create: () =>
-    import('@myorg/modules/sp-access/feature').then((m) => ({
+    import('@myorg/modules/td-admin/feature').then((m) => ({
       default: m.SpAccessFormPage as unknown as ComponentType<unknown>,
     })),
   edit: () =>
-    import('@myorg/modules/sp-access/feature').then((m) => ({
+    import('@myorg/modules/td-admin/feature').then((m) => ({
       default: m.SpAccessFormPage as unknown as ComponentType<unknown>,
     })),
   detail: () =>
-    import('@myorg/modules/sp-access/feature').then((m) => ({
+    import('@myorg/modules/td-admin/feature').then((m) => ({
       default: m.SpAccessDetailPage as unknown as ComponentType<unknown>,
     })),
 };
@@ -30,14 +30,69 @@ const keyManagementPages: Record<
   () => Promise<{ default: ComponentType<unknown> }>
 > = {
   'key-service-configuration': () =>
-    import('@myorg/modules/key-management/feature').then((m) => ({
+    import('@myorg/modules/td-admin/feature').then((m) => ({
       default:
         m.KeyServiceConfigurationListPage as unknown as ComponentType<unknown>,
     })),
+  'key-service-configuration-detail': () =>
+    import('@myorg/modules/td-admin/feature').then((m) => ({
+      default:
+        m.KeyServiceConfigurationDetailPage as unknown as ComponentType<unknown>,
+    })),
+  'key-service-configuration-edit': () =>
+    import('@myorg/modules/td-admin/feature').then((m) => ({
+      default:
+        m.KeyServiceConfigurationEditPage as unknown as ComponentType<unknown>,
+    })),
+  'key-service-configuration-configure': () =>
+    import('@myorg/modules/td-admin/feature').then((m) => ({
+      default:
+        m.KeyServiceConfigurationConfigurePage as unknown as ComponentType<unknown>,
+    })),
   'key-signed-transactions': () =>
-    import('@myorg/modules/key-management/feature').then((m) => ({
+    import('@myorg/modules/td-admin/feature').then((m) => ({
       default:
         m.KeySignedTransactionsListPage as unknown as ComponentType<unknown>,
+    })),
+  'key-signed-transactions-detail': () =>
+    import('@myorg/modules/td-admin/feature').then((m) => ({
+      default:
+        m.KeySignedTransactionsDetailPage as unknown as ComponentType<unknown>,
+    })),
+  'managed-wallets': () =>
+    import('@myorg/modules/td-admin/feature').then((m) => ({
+      default:
+        m.ManagedWalletsListPage as unknown as ComponentType<unknown>,
+    })),
+  'managed-wallets-detail': () =>
+    import('@myorg/modules/td-admin/feature').then((m) => ({
+      default:
+        m.ManagedWalletsDetailPage as unknown as ComponentType<unknown>,
+    })),
+  'user-wallets': () =>
+    import('@myorg/modules/td-admin/feature').then((m) => ({
+      default:
+        m.UserWalletsListPage as unknown as ComponentType<unknown>,
+    })),
+  'key-policy-configuration': () =>
+    import('@myorg/modules/td-admin/feature').then((m) => ({
+      default:
+        m.KeyPolicyConfigurationListPage as unknown as ComponentType<unknown>,
+    })),
+  'key-policy-configuration-new': () =>
+    import('@myorg/modules/td-admin/feature').then((m) => ({
+      default:
+        m.KeyPolicyConfigurationNewPage as unknown as ComponentType<unknown>,
+    })),
+  'key-policy-configuration-edit': () =>
+    import('@myorg/modules/td-admin/feature').then((m) => ({
+      default:
+        m.KeyPolicyConfigurationEditPage as unknown as ComponentType<unknown>,
+    })),
+  'key-policy-configuration-detail': () =>
+    import('@myorg/modules/td-admin/feature').then((m) => ({
+      default:
+        m.KeyPolicyConfigurationDetailPage as unknown as ComponentType<unknown>,
     })),
 };
 

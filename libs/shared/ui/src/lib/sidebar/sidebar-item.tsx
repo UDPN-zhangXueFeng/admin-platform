@@ -16,6 +16,8 @@ export interface SidebarItemProps {
   disabled?: boolean;
   /** Child entries follow the reference sidebar's compact text-only treatment. */
   nested?: boolean;
+  /** Use a larger, slightly heavier Lucide icon for primary menu entries. */
+  prominentMenuIcons?: boolean;
   onClick?: () => void;
 }
 
@@ -36,6 +38,7 @@ export function SidebarItem({
   collapsed,
   disabled = false,
   nested = false,
+  prominentMenuIcons = false,
   onClick,
 }: SidebarItemProps) {
   const pathname = usePathname();
@@ -49,19 +52,30 @@ export function SidebarItem({
       tabIndex={disabled ? -1 : 0}
       onClick={onClick}
       className={cn(
-        'group relative flex min-h-11 items-center gap-3 overflow-hidden rounded-xl px-3 text-sm font-medium transition-colors',
+        'group relative flex min-h-10 items-center gap-3 overflow-hidden rounded-xl px-3 text-[13px] font-medium motion-safe:transition-colors min-[1600px]:min-h-11 min-[1600px]:text-sm',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         isActive
           ? 'bg-primary text-primary-foreground shadow-sm'
-          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+          : 'text-foreground/80 hover:bg-primary/5 hover:text-accent-foreground',
         disabled && 'pointer-events-none opacity-50',
-        collapsed && 'size-11 min-h-0 justify-center p-0',
-        nested && 'min-h-9 rounded-lg py-0 text-sm shadow-none',
-        nested && isActive && 'bg-transparent text-primary shadow-none',
+        collapsed && 'size-10 min-h-0 justify-center p-0 min-[1600px]:size-11',
+        nested && 'min-h-8 rounded-lg py-0 shadow-none min-[1600px]:min-h-9',
+        nested &&
+          isActive &&
+          'bg-primary/10 text-primary shadow-none hover:bg-primary/10',
       )}
     >
       {isActive && !nested && <SidebarActiveBackdrop />}
-      {!nested && <Icon className="relative z-10 h-5 w-5 shrink-0" aria-hidden="true" />}
+      {!nested && (
+        <Icon
+          className={cn(
+            'relative z-10 shrink-0',
+            prominentMenuIcons ? 'size-6' : 'h-5 w-5',
+          )}
+          strokeWidth={prominentMenuIcons ? 2.25 : undefined}
+          aria-hidden="true"
+        />
+      )}
       {!collapsed && <span className="relative z-10 truncate">{label}</span>}
     </Link>
   );
@@ -75,7 +89,7 @@ export function SidebarItem({
           className={cn(
             'pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2',
             'rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md',
-            'opacity-0 transition-opacity group-hover:opacity-100',
+            'opacity-0 motion-safe:transition-opacity group-hover:opacity-100',
             'whitespace-nowrap border'
           )}
           role="tooltip"

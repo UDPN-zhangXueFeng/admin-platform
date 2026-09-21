@@ -1,0 +1,45 @@
+[   24930ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   26363ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   26436ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus) @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   29240ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   41713ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus)
+
+Import trace for requested module:
+../../libs/modules/user/data-access/src/index.ts
+../../libs/modules/user/feature/src/lib/user-list-page.tsx
+../../libs/modules/user/feature/src/index.ts
+../../libs/shared/util-config/src/lib/module-registry.ts @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   41994ms] [LOG] [Fast Refresh] done in 12754ms @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   46245ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   46693ms] [LOG] [HMR] connected @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   46732ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus) @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   50397ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   51500ms] [WARNING] ../../libs/modules/user/data-access/src/index.ts
+export 'ResultInfo' (reexported as 'ResultInfo') was not found in './lib/user.api' (possible exports: deleteUser, getRoleOptions, getTdOptions, getUserDetail, getUserList, resetUserPassword, saveUser, updateUser, updateUserStatus)
+
+Import trace for requested module:
+../../libs/modules/user/data-access/src/index.ts
+../../libs/modules/user/feature/src/lib/user-list-page.tsx
+../../libs/modules/user/feature/src/index.ts
+../../libs/shared/util-config/src/lib/module-registry.ts @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   51538ms] [LOG] [Fast Refresh] done in 1141ms @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   92220ms] [WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   92221ms] [WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   92239ms] [WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[   92239ms] [WARNING] The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width. @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[  110829ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../node_modules/.pnpm/next@16.1.7_@babel+core@7.29.7_@playwright+test@1.60.0_react-dom@19.2.7_react@19.2.7/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27

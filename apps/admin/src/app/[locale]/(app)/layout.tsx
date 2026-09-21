@@ -1,5 +1,6 @@
-import { AppShell } from '@myorg/shared/ui-layout';
 import { loadProjectConfig } from '@myorg/shared/util-config';
+
+import { AdminAppShell } from './admin-app-shell';
 
 /**
  * App Layout — wraps authenticated routes with AppShell (sidebar + header).
@@ -13,6 +14,5 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const config = await loadProjectConfig();
-
-  return <AppShell config={config}>{children}</AppShell>;
+  return <AdminAppShell config={config}>{children}</AdminAppShell>;
 }

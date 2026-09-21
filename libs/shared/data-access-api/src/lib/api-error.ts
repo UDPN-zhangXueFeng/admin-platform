@@ -1,5 +1,6 @@
 import { AxiosError } from 'axios';
 import type { ApiError as ApiErrorShape } from '@myorg/shared/model';
+import { getMessage } from './api-messages';
 
 export { type ApiErrorShape };
 
@@ -34,7 +35,8 @@ export class ApiError extends Error implements ApiErrorShape {
  * Normalises an Axios error into a consistent {@link ApiError}.
  *
  * - If the server responded with an error payload, extracts `code`, `message`,
- *   and `errors` from the response body.
+ *   and `errors` from the response body. MSG codes in `message` are resolved
+ *   to human-readable strings via {@link getMessage}.
  * - For network errors or timeouts, synthesises a user-friendly message.
  * - Falls back to a generic message for unexpected failures.
  */
@@ -53,7 +55,7 @@ export function normalizeApiError(error: AxiosError<unknown>): ApiError {
     return new ApiError({
       status,
       code: typeof payload.code === 'number' ? payload.code : status,
-      message: payload.message as string,
+      message: getMessage(payload.message as string),
       errors:
         typeof payload.errors === 'object' && payload.errors !== null
           ? (payload.errors as Record<string, string[]>)

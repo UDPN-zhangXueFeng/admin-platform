@@ -6,6 +6,16 @@
 ## 项目结构与模块组织
 本仓库是以 `apps/admin` 为核心的 Nx monorepo。详细结构不要在本文件重复维护，以 `.codex/project/pro.md` 为准；代码规范不要在本文件重复维护，以 `.codex/project/rule.md` 为准。
 
+### 当前修改范围
+
+后续任务的代码、配置、测试及文档修改范围仅限以下三个 app：
+
+- `apps/kissen-admin`（kissen-admin）
+- `apps/lp-portal`（lp）
+- `apps/kissen-gateway-portal`（gateway）
+
+除非用户明确授权，不得修改其他 app、公共 `libs`、根配置或与上述三个 app 无关的文件。
+
 关键约束：
 
 - 应用层尽量薄，业务能力优先下沉到 `libs/modules/<domain>/*`

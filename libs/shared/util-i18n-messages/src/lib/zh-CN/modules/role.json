@@ -14,7 +14,10 @@
     "add": "新增",
     "back": "返回",
     "cancel": "取消",
-    "save": "保存"
+    "save": "保存",
+    "saveSuccess": "保存成功",
+    "saveFailed": "保存失败，请重试",
+    "statusUpdated": "状态更新成功"
   },
   "field": {
     "index": "序号",
@@ -32,6 +35,12 @@
     "enable": "确定要启用该角色吗？",
     "delete": "确定要删除该角色吗？"
   },
+  "toast": {
+    "disableSuccess": "禁用成功",
+    "enableSuccess": "启用成功",
+    "deleteSuccess": "删除成功",
+    "saveSuccess": "保存成功"
+  },
   "view": {
     "title": "角色详情"
   },
@@ -40,5 +49,8 @@
   },
   "create": {
     "title": "新增角色"
+  },
+  "validation": {
+    "menuRequired": "请至少选择一个菜单权限"
   }
 }
