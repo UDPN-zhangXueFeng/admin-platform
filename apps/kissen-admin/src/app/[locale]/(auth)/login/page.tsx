@@ -58,6 +58,15 @@ export default function LoginRoute() {
   const { themes } = useTheme();
   const loginMutation = useUserLoginMutation();
   const [pwdVisible, setPwdVisible] = React.useState(false);
+  const shouldPrefillDevCredentials =
+    process.env.NODE_ENV === 'development' &&
+    process.env.NEXT_PUBLIC_DISABLE_DEV_LOGIN_PREFILL !== 'true';
+  const defaultLoginName = shouldPrefillDevCredentials
+    ? process.env.NEXT_PUBLIC_DEV_LOGIN_NAME ?? ''
+    : '';
+  const defaultLoginPassword = shouldPrefillDevCredentials
+    ? process.env.NEXT_PUBLIC_DEV_LOGIN_PASSWORD ?? ''
+    : '';
 
   // 源 login/index.vue:19-22 — 401 踢回登录页时展示「登录已失效」横幅。
   const [searchParams, setSearchParams] =
@@ -263,6 +272,7 @@ export default function LoginRoute() {
                       <Input
                         id="username"
                         name="username"
+                        defaultValue={defaultLoginName}
                         placeholder="Enter your username"
                         autoComplete="username"
                         className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-10 shadow-none placeholder:text-slate-400 focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-[var(--brand-accent,#2DD4BF)] sm:h-12"
@@ -286,6 +296,7 @@ export default function LoginRoute() {
                       <PasswordField
                         id="password"
                         name="password"
+                        defaultValue={defaultLoginPassword}
                         placeholder="Enter your password"
                         autoComplete="current-password"
                         className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-10 shadow-none placeholder:text-slate-400 focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-[var(--brand-accent,#2DD4BF)] sm:h-12"
