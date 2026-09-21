@@ -4,8 +4,8 @@
 #   ① install 层 manifest 增补 apps/kissen-admin
 #   ② 构建目录 apps/kissen-admin
 #   ③ runner 拷贝路径 apps/kissen-admin/*
-# 架构不变：后端 API (/v1/*) 由前置 nginx 容器代理并注入
-# NEXT_SERVICE_SERVER_URL，本镜像「环境无关」，可跨环境复用。
+# 后端 API base URL 在 build 时写入前端产物；跨环境构建可通过
+# NEXT_PUBLIC_KISSEN_API_BASE_URL build arg 覆盖。
 # ─────────────────────────────────────────────────────────────
 
 # ── builder：装依赖 + 构建 standalone 产物 ──
@@ -43,8 +43,8 @@ COPY . .
 # 否则 fallback 到 stablecoin（admin 平台菜单）。builder 阶段覆盖预渲染，runner 覆盖 SSR。
 ARG NX_PROJECT_ID=kissen-admin
 ENV NX_PROJECT_ID=$NX_PROJECT_ID
-# rewrites 兜底地址（生产 /v1 由 nginx 拦截，此值不生效，仅给默认）。
-ARG NEXT_PUBLIC_KISSEN_API_BASE_URL=/v1
+# 生产前端 API base URL（Next.js 会在 build 时写入客户端 bundle）。
+ARG NEXT_PUBLIC_KISSEN_API_BASE_URL=https://kissen.showmarket.org/v1
 ENV NEXT_PUBLIC_KISSEN_API_BASE_URL=$NEXT_PUBLIC_KISSEN_API_BASE_URL
 ARG NEXT_SERVICE_SERVER_URL_KISSEN=http://10.0.7.103:9000
 ENV NEXT_SERVICE_SERVER_URL_KISSEN=$NEXT_SERVICE_SERVER_URL_KISSEN
