@@ -68,23 +68,9 @@ export interface DataTableProps<TData extends { id: string }> {
 
 const DEFAULT_CELL_MAX_WIDTH = 240;
 const WRAP_CELL_MAX_WIDTH = 360;
-
-/**
- * Row surface tints derived from the active brand palette against the current
- * light/dark surface, so hover/selected states read as the same hue in both
- * themes. Kept as Tailwind arbitrary values (underscore-escaped) so the sticky
- * actions column can reuse the exact same background as its row.
- */
-// NOTE: these must stay full literal class strings (no runtime prefixing) so
-// the Tailwind JIT scanner can see and generate every variant.
-const HOVER_ROW_CLASS =
-  'hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_5%,hsl(var(--background)))]';
-const HOVER_ROW_GROUP_CLASS =
-  'group-hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_5%,hsl(var(--background)))]';
-const SELECTED_ROW_CLASS =
-  'bg-[color:color-mix(in_srgb,hsl(var(--primary))_10%,hsl(var(--background)))]';
-const SELECTED_ROW_HOVER_CLASS =
-  'hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_10%,hsl(var(--background)))]';
+/** A subtle tint derived from the active brand palette and current light/dark surface. */
+const TABLE_HEADER_BACKGROUND =
+  'color-mix(in srgb, hsl(var(--primary)) 6%, hsl(var(--background)))';
 
 /**
  * Truncates content past `maxWidth` and reveals the full content in a Radix
@@ -247,7 +233,7 @@ export function DataTable<TData extends { id: string }>({
 
   return (
     <div className={cn('flex flex-col gap-4', className)}>
-      <div className="overflow-x-auto rounded-xl border border-border/60 bg-card shadow-sm">
+      <div className="overflow-x-auto rounded-md border border-border/50 bg-card">
         <table className="w-full min-w-max caption-bottom bg-card text-card-foreground text-sm">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -256,11 +242,12 @@ export function DataTable<TData extends { id: string }>({
                   <th
                     key={header.id}
                     scope="col"
+                    style={{ backgroundColor: TABLE_HEADER_BACKGROUND }}
                     className={cn(
-                      'h-12 whitespace-nowrap border-b border-border/60 bg-muted/40 px-4 py-0 text-left align-middle text-xs font-semibold uppercase tracking-wider text-muted-foreground',
+                      'h-[60px] whitespace-nowrap border-b border-border/50 px-4 py-0 text-left align-middle font-medium text-muted-foreground',
                       (header.column.columnDef.meta?.stickyRight ??
                         header.column.id === 'actions') &&
-                        'sticky right-0 z-20 border-l border-border/60 shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]'
+                        'sticky right-0 z-20 border-l border-border/50 shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]'
                     )}
                   >
                     {header.isPlaceholder
@@ -271,7 +258,7 @@ export function DataTable<TData extends { id: string }>({
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y divide-border/40">
+          <tbody className="divide-y divide-border/50">
             {isLoading ? (
               Array.from({ length: pagination?.pageSize ?? 5 }).map((_, i) => (
                 <tr key={`skeleton-${i}`}>
@@ -280,7 +267,7 @@ export function DataTable<TData extends { id: string }>({
                       {/* First bar wider to echo the emphasized primary column. */}
                       <div
                         className={cn(
-                          'h-3.5 motion-safe:animate-pulse rounded-full bg-muted',
+                          'h-4 motion-safe:animate-pulse rounded bg-muted',
                           ci === 0 ? 'w-32' : 'w-24'
                         )}
                       />
@@ -312,28 +299,28 @@ export function DataTable<TData extends { id: string }>({
                     // selected surface deterministically wins over hover —
                     // Tailwind stylesheet order, not class order, would decide.
                     row.getIsSelected()
-                      ? cn(SELECTED_ROW_CLASS, SELECTED_ROW_HOVER_CLASS)
-                      : HOVER_ROW_CLASS
+                      ? 'bg-accent hover:bg-accent'
+                      : 'hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_4%,hsl(var(--background)))]'
                   )}
                 >
                   {row.getVisibleCells().map((cell, cellIndex) => (
                     <td
                       key={cell.id}
                       className={cn(
-                        'h-[60px] px-4 py-0 align-middle text-[13px] text-card-foreground',
+                        'h-[60px] px-4 py-0 align-middle text-[13px]',
                         // First data column carries the primary object
                         // (scheme §6.2) → medium weight; the actions column
                         // is never treated as the primary column.
                         cellIndex === 0 &&
                           cell.column.id !== 'actions' &&
-                          'font-medium text-foreground',
+                          'font-medium',
                         (cell.column.columnDef.meta?.stickyRight ??
                           cell.column.id === 'actions') &&
                           cn(
-                            'sticky right-0 z-10 border-l border-border/60 shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]',
+                            'sticky right-0 z-10 border-l border-border/50 shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.15)]',
                             row.getIsSelected()
-                              ? SELECTED_ROW_CLASS
-                              : cn('bg-card', HOVER_ROW_GROUP_CLASS)
+                              ? 'bg-accent group-hover:bg-accent'
+                              : 'bg-card group-hover:bg-[color:color-mix(in_srgb,hsl(var(--primary))_4%,hsl(var(--background)))]'
                           )
                       )}
                     >
@@ -355,10 +342,11 @@ export function DataTable<TData extends { id: string }>({
       {/* Pagination */}
       {pagination && (
         <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-4">
-          <div className="mr-auto text-xs font-medium tabular-nums text-muted-foreground">
-            Page <span className="text-foreground">{currentPage}</span> of{' '}
-            <span className="text-foreground">{totalPages}</span>
-          </div>
+          {!pagination.onPageSizeChange && (
+            <div className="mr-auto text-xs tabular-nums text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </div>
+          )}
           <div className="flex shrink-0 items-center gap-1.5">
             {pagination.onPageSizeChange && (
               <Select
@@ -424,10 +412,10 @@ function PaginationButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background text-sm font-medium text-muted-foreground',
-        'motion-safe:transition-colors hover:border-border hover:bg-accent hover:text-accent-foreground',
+        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-background text-sm font-medium',
+        'hover:bg-accent hover:text-accent-foreground',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-        disabled && 'pointer-events-none opacity-40'
+        disabled && 'pointer-events-none opacity-50'
       )}
       {...rest}
     >
