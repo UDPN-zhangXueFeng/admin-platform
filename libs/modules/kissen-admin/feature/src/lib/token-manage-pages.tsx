@@ -1580,29 +1580,21 @@ function InstanceDetailPanel({ row }: { row: InstanceRow }) {
     .join(' · ') || '--';
 
   return (
-    <div className="border-t border-border/60 bg-muted/20 px-4 py-4 sm:px-6 sm:py-5">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Network className="size-5" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Gateway instance
-              </p>
-              <h3 className="truncate text-base font-semibold text-foreground">
-                {instanceLabel}
-              </h3>
-            </div>
+    <div className="border-t border-border/60 bg-muted/10 px-4 py-5 sm:px-7 sm:py-6">
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-2 border-b border-border/70 pb-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+              Gateway instance
+            </p>
+            <h3 className="truncate text-lg font-semibold tracking-tight text-foreground">
+              {instanceLabel}
+            </h3>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="size-2 rounded-full bg-emerald-500" aria-hidden="true" />
-            <span>Configuration details</span>
-          </div>
+          <p className="text-xs text-muted-foreground">Configuration details</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="divide-y divide-border/70 overflow-hidden border-y border-border/70">
           <InstanceDetailGroup title="Connection" icon={Globe}>
             <InstanceDetailField label="Bank">
               {row.bankName || '--'}
@@ -1619,13 +1611,9 @@ function InstanceDetailPanel({ row }: { row: InstanceRow }) {
           </InstanceDetailGroup>
 
           <InstanceDetailGroup title="Currency system" icon={Coins}>
-            <InstanceDetailField label="System">
-              {instanceCsText(row)}
-            </InstanceDetailField>
+            <InstanceDetailField label="System">{instanceCsText(row)}</InstanceDetailField>
             {row.currencySystemDesc ? (
-              <InstanceDetailField label="Integration notes">
-                {row.currencySystemDesc}
-              </InstanceDetailField>
+              <InstanceDetailField label="Integration notes">{row.currencySystemDesc}</InstanceDetailField>
             ) : null}
           </InstanceDetailGroup>
 
@@ -1666,12 +1654,16 @@ function InstanceDetailGroup({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-      <div className="mb-4 flex items-center gap-2 border-b border-border/60 pb-3">
-        <Icon className="size-4 text-primary" aria-hidden="true" />
-        <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+    <section className="flex flex-col gap-3 px-0 py-4 first:pt-0 last:pb-0 sm:flex-row sm:gap-8">
+      <div className="flex shrink-0 items-center gap-2 sm:w-36 sm:items-start">
+        <Icon className="mt-0.5 size-4 text-primary" aria-hidden="true" />
+        <h4 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          {title}
+        </h4>
       </div>
-      <dl className="grid gap-4 sm:grid-cols-2">{children}</dl>
+      <dl className="grid min-w-0 flex-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+        {children}
+      </dl>
     </section>
   );
 }
@@ -1706,8 +1698,8 @@ function InstanceDetailValue({
 }) {
   return (
     <span
-      className={`inline-block max-w-full break-all rounded-md border border-border/60 bg-muted/40 px-2 py-1 ${
-        mono ? 'font-mono text-[12px]' : ''
+      className={`inline-block max-w-full break-all ${
+        mono ? 'font-mono text-[12px] text-foreground/90' : ''
       } ${tabular ? 'tabular-nums' : ''} ${muted ? 'text-muted-foreground' : ''}`}
     >
       {children}
@@ -1784,7 +1776,7 @@ export function GatewayInstanceListPage() {
   );
   const [registerOpen, setRegisterOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
-  // currencySystemType 用 string 态便于 Select 绑定（提交时转 number；默认 0 未填）。
+  // currencySystemType 用 string 态便于 Select ���定（提交时转 number；默认 0 未填）。
   const [registerForm, setRegisterForm] = React.useState({
     bankId: STATUS_ALL,
     instanceCode: '',
