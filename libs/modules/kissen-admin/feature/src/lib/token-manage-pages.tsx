@@ -1574,120 +1574,144 @@ function InstancePaginationButton({
   );
 }
 
-function InstanceDetailPanel({ row }: { row: InstanceRow }) {
-  const instanceLabel = [row.instanceCode, row.instanceName]
-    .filter(Boolean)
-    .join(' · ') || '--';
+/** 连通性状态 → 拓补线 / 圆点的语义色（成功/失败/未知三态）。 */
+function connectivityTone(status: number | null | undefined): {
+  dot: string;
+  line: string;
+  text: string;
+} {
+  if (status === 1) return { dot: 'bg-success', line: 'bg-success/40', text: 'text-success' };
+  if (status === 0)
+    return { dot: 'bg-destructive', line: 'bg-destructive/30', text: 'text-destructive' };
+  return { dot: 'bg-muted-foreground/50', line: 'bg-border', text: 'text-muted-foreground' };
+}
 
+/** 拓补节点：Bank → Instance → Currency System，标签在上、值在下，占位保持三栏等宽。 */
+function InstanceTopologyNode({
+  label,
+  value,
+  sub,
+  align = 'center',
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  align?: 'start' | 'center' | 'end';
+}) {
+  const alignClass =
+    align === 'start' ? 'items-start text-left' : align === 'end' ? 'items-end text-right' : 'items-center text-center';
   return (
-    <div className="border-t border-border/60 bg-muted/20 px-4 py-4 sm:px-7 sm:py-5">
-      <div className="overflow-hidden rounded-md border border-border/70 bg-background">
-        <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-muted/40 px-4 py-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="h-3 w-0.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-            <span className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Instance
-            </span>
-            <span className="truncate font-mono text-xs text-foreground">{instanceLabel}</span>
-          </div>
-          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-            {formatTime(row.lastHeartbeatTime)}
-          </span>
-        </div>
+    <div className={`flex min-w-0 flex-1 flex-col gap-1 ${alignClass}`}>
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <span className="max-w-full truncate text-sm font-semibold text-foreground">{value}</span>
+      {sub ? (
+        <span className="max-w-full truncate font-mono text-[11px] text-muted-foreground">
+          {sub}
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
-        <div className="grid divide-y divide-border/60 md:grid-cols-2 md:divide-x md:divide-y-0">
-          <div className="divide-y divide-border/60">
-            <InstanceDetailGroup title="Connection">
-              <InstanceDetailRow label="Bank">
-                {row.bankName || '--'}
-                {row.bankBic ? ` (${row.bankBic})` : ''}
-              </InstanceDetailRow>
-              <InstanceDetailRow label="Endpoint" mono>
-                {row.endpointUrl || '--'}
-              </InstanceDetailRow>
-              {row.currencySystemUrl ? (
-                <InstanceDetailRow label="Service URL" mono>
-                  {row.currencySystemUrl}
-                </InstanceDetailRow>
-              ) : null}
-            </InstanceDetailGroup>
-
-            <InstanceDetailGroup title="Currency system">
-              <InstanceDetailRow label="System">{instanceCsText(row)}</InstanceDetailRow>
-              {row.currencySystemDesc ? (
-                <InstanceDetailRow label="Integration notes">
-                  {row.currencySystemDesc}
-                </InstanceDetailRow>
-              ) : null}
-            </InstanceDetailGroup>
-          </div>
-
-          <div className="divide-y divide-border/60">
-            <InstanceDetailGroup title="Key fingerprints">
-              <InstanceDetailRow label="Upstream public key" mono muted={!row.upKeyFingerprint}>
-                {row.upKeyFingerprint || 'Not pushed'}
-              </InstanceDetailRow>
-              <InstanceDetailRow label="Downstream key" mono muted={!row.downKeyFingerprint}>
-                {row.downKeyFingerprint || 'Not generated'}
-              </InstanceDetailRow>
-            </InstanceDetailGroup>
-
-            <InstanceDetailGroup title="Activity">
-              <InstanceDetailRow label="Last heartbeat" tabular>
-                {formatTime(row.lastHeartbeatTime)}
-              </InstanceDetailRow>
-              <InstanceDetailRow label="Registered at" tabular>
-                {formatTime(row.createTime)}
-              </InstanceDetailRow>
-            </InstanceDetailGroup>
-          </div>
-        </div>
+/** 拓补连线：中点圆点承载连通性语义色，线段两端渐隐。 */
+function InstanceTopologyLink({ tone }: { tone: ReturnType<typeof connectivityTone> }) {
+  return (
+    <div className="flex w-10 flex-none items-center justify-center self-center sm:w-16">
+      <div className="relative h-px w-full">
+        <div className={`absolute inset-0 rounded-full ${tone.line}`} aria-hidden="true" />
+        <span
+          className={`absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${tone.dot}`}
+          aria-hidden="true"
+        />
       </div>
     </div>
   );
 }
 
-function InstanceDetailGroup({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section>
-      <h4 className="border-b border-border/50 bg-muted/20 px-4 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-        {title}
-      </h4>
-      <div className="divide-y divide-border/40 px-4">{children}</div>
-    </section>
-  );
-}
-
-function InstanceDetailRow({
+/** 只读账本行：等宽字体 + 前导虚线，营造终端 readout 感，而非表单标签样式。 */
+function InstanceLedgerRow({
   label,
   children,
-  mono = false,
   muted = false,
-  tabular = false,
 }: {
   label: string;
   children: React.ReactNode;
-  mono?: boolean;
   muted?: boolean;
-  tabular?: boolean;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 py-2">
+    <div className="flex items-baseline gap-2 py-1">
       <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className="min-w-[12px] flex-1 border-b border-dotted border-border/70" aria-hidden="true" />
       <span
-        className={`min-w-0 max-w-[70%] truncate text-right text-sm leading-5 ${
-          mono ? 'font-mono text-[12px]' : ''
-        } ${tabular ? 'tabular-nums' : ''} ${muted ? 'text-muted-foreground' : 'text-foreground'}`}
-        title={typeof children === 'string' ? children : undefined}
+        className={`shrink-0 truncate font-mono text-xs ${
+          muted ? 'text-muted-foreground italic' : 'text-foreground'
+        }`}
       >
         {children}
       </span>
+    </div>
+  );
+}
+
+function InstanceDetailPanel({ row }: { row: InstanceRow }) {
+  const tone = connectivityTone(row.connectivityStatus);
+
+  return (
+    <div className="border-t border-border/60 bg-muted/10 px-4 py-5 sm:px-8 sm:py-6">
+      {/* 拓补条：一眼看清 Bank ↔ Instance ↔ Currency System 的连接路径与实时连通性。 */}
+      <div className="flex items-stretch gap-1 sm:gap-2">
+        <InstanceTopologyNode
+          label="Bank"
+          value={row.bankName || '--'}
+          sub={row.bankBic}
+          align="start"
+        />
+        <InstanceTopologyLink tone={tone} />
+        <InstanceTopologyNode
+          label="Instance"
+          value={row.instanceName || row.instanceCode || '--'}
+          sub={row.endpointUrl}
+        />
+        <InstanceTopologyLink tone={tone} />
+        <InstanceTopologyNode
+          label="Currency System"
+          value={instanceCsText(row)}
+          sub={row.currencySystemUrl}
+          align="end"
+        />
+      </div>
+
+      {/* 账本区：密钥指纹（安全）与时间线（活动）分列，等宽字体强化「只读记录」质感。 */}
+      <div className="mt-5 grid gap-x-8 gap-y-4 border-t border-border/50 pt-4 sm:grid-cols-2">
+        <div>
+          <h4 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Security
+          </h4>
+          <InstanceLedgerRow label="Upstream key" muted={!row.upKeyFingerprint}>
+            {row.upKeyFingerprint || 'not pushed'}
+          </InstanceLedgerRow>
+          <InstanceLedgerRow label="Downstream key" muted={!row.downKeyFingerprint}>
+            {row.downKeyFingerprint || 'not generated'}
+          </InstanceLedgerRow>
+        </div>
+        <div>
+          <h4 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Timeline
+          </h4>
+          <InstanceLedgerRow label="Last heartbeat">
+            {formatTime(row.lastHeartbeatTime)}
+          </InstanceLedgerRow>
+          <InstanceLedgerRow label="Registered at">{formatTime(row.createTime)}</InstanceLedgerRow>
+        </div>
+      </div>
+
+      {row.currencySystemDesc ? (
+        <p className="mt-4 border-t border-border/50 pt-3 text-xs leading-5 text-muted-foreground">
+          {row.currencySystemDesc}
+        </p>
+      ) : null}
     </div>
   );
 }
