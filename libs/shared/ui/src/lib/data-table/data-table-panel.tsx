@@ -30,16 +30,19 @@ export function DataTablePanel<TData extends { id: string }>({
 
   return (
     <section
-      className={cn('rounded-lg border border-border/60 bg-card', className)}
+      className={cn(
+        'rounded-xl border border-border/60 bg-card shadow-sm',
+        className
+      )}
       aria-busy={isLoading || undefined}
       aria-describedby={error ? errorId : undefined}
     >
       {hasHeader && (
-        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-b border-border/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           {title && (
             <div
               className={cn(
-                'min-w-0 text-base font-semibold leading-6 text-foreground',
+                'min-w-0 text-base font-semibold leading-6 tracking-tight text-foreground',
                 titleWrap ? 'whitespace-normal break-words' : 'truncate'
               )}
               title={!titleWrap && typeof title === 'string' ? title : undefined}
@@ -51,7 +54,7 @@ export function DataTablePanel<TData extends { id: string }>({
         </div>
       )}
 
-      {filter && <div className="border-b border-border/50 px-4 py-3">{filter}</div>}
+      {filter && <div className="border-b border-border/60 px-5 py-3.5">{filter}</div>}
 
       {error && (
         <div
