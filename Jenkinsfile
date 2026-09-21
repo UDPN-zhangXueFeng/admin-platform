@@ -29,13 +29,13 @@ pipeline {
                 'kissen-gateway-portal',
                 'lp-portal'
             ],
-            description: '选择 apps 下要构建和部署的应用；后端和端口自动绑定：admin→10.0.48.123:30001/6241；kissen-admin→10.0.7.87:9000/6242；lp-portal→10.0.7.87:8090/6243；gateway→10.0.7.87:8080/6244（admin-e2e 不参与部署）'
+            description: '选择 apps 下要构建和部署的应用；后端和端口自动绑定：admin→10.0.48.123:30001/6241；kissen-admin→10.0.7.87:9000/6242；lp-portal→10.0.7.87:8090/6243；gateway main→10.0.7.85:8080/6244、gateway-8082→10.0.7.85:8082/6245（admin-e2e 不参与部署）'
         )
 
         choice(
             name: 'ENV_NAME',
-            choices: ['main'],
-            description: '部署环境名称；新增环境时需同步维护 getAppConfig 中对应的后端和端口映射'
+            choices: ['main', 'gateway-8082'],
+            description: '部署环境名称；gateway-8082 仅用于 kissen-gateway-portal，绑定后端 10.0.7.85:8082 和访问端口 6245'
         )
 
         string(
@@ -67,7 +67,7 @@ pipeline {
         stage('收集所有环境信息') {
             steps {
                 script {
-                    def appConfig = getAppConfig(params.APP_PROJECT)
+                    def appConfig = getAppConfig(params.APP_PROJECT, params.ENV_NAME)
                     env.APP_PROJECT = params.APP_PROJECT
                     env.APP_DISPLAY_NAME = appConfig.displayName
                     // 沿用各应用原有容器名前缀，保证迁移到统一流水线时能复用并重建旧容器。
@@ -310,7 +310,7 @@ pipeline {
  * `apps/admin-e2e` 是 Playwright 工程，没有生产 Dockerfile，因此不纳入选择项。
  * 端口和后端使用当前服务器已登记的固定映射，避免构建时手动组合出错误配置。
  */
-def getAppConfig(String projectName) {
+def getAppConfig(String projectName, String environmentName = 'main') {
     def configs = [
         'admin': [
             displayName: 'Admin',
@@ -344,7 +344,7 @@ def getAppConfig(String projectName) {
             nginxContext: 'nginx-gateway',
             imagePrefix: 'kissen-gateway-portal-app',
             port: '6244',
-            backendUrl: 'http://10.0.7.87:8080',
+            backendUrl: 'http://10.0.7.85:8080',
             apiBaseUrl: '/kissen-api/bankgw/portal',
             kissenApiBaseUrl: '/v1'
         ],
@@ -365,6 +365,21 @@ def getAppConfig(String projectName) {
     if (!configs.containsKey(projectName)) {
         error("不支持的部署项目: ${projectName}")
     }
+
+    if (environmentName == 'gateway-8082') {
+        if (projectName != 'kissen-gateway-portal') {
+            error("部署环境 ${environmentName} 仅支持 kissen-gateway-portal")
+        }
+        return configs[projectName] + [
+            port: '6245',
+            backendUrl: 'http://10.0.7.85:8082'
+        ]
+    }
+
+    if (environmentName != 'main') {
+        error("不支持的部署环境: ${environmentName}")
+    }
+
     return configs[projectName]
 }
 

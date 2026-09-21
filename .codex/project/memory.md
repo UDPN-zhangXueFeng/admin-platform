@@ -1,5 +1,10 @@
 # Codex 对话沉淀
 
+## 2026-09-21 Gateway Jenkins 新增 8082 环境
+
+- Jenkins 部署环境新增 `gateway-8082`，仅适用于 `kissen-gateway-portal`；后端为 `http://10.0.7.85:8082`，门户对外端口为 `6245`，与 `main` 的 `6244` 并存。
+- 配置通过 `getAppConfig(projectName, environmentName)` 选择；该环境使用独立 Compose 项目名，避免容器名冲突。此次只更新流水线配置，未触发 Jenkins 部署。
+
 ## 2026-09-17 td-manage-sync skill 建档
 
 - 背景：apps/admin 需要跟踪上游 td-manage（GitLab `td_project/source-code/stack/td-manage`，`feature/zxf` 分支）的后续更新。新建 `.claude/skills/td-manage-sync/`（SKILL.md + constraints/conventions/pitfalls + diff-upstream.sh），结构与 admin-sync 同构。
