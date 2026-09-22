@@ -14,8 +14,8 @@ FROM node:22-alpine AS builder
 # 国内镜像源（对齐根 Dockerfile，加速内网构建）
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
-# 锁定 pnpm 版本与本地一致
-RUN corepack enable && corepack prepare pnpm@8.14.1 --activate
+# 锁定与 pnpm-lock.yaml v9 格式兼容的 pnpm 版本。
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 WORKDIR /workspace
 
