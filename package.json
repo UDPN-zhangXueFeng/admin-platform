@@ -2,7 +2,9 @@
   "name": "@admin-platform/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "dev": "nx dev kissen-admin"
+  },
   "private": true,
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
