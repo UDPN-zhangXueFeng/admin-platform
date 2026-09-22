@@ -2,6 +2,9 @@
   "name": "@admin-platform/kissen-admin",
   "version": "0.0.1",
   "private": true,
+  "scripts": {
+    "dev": "nx dev kissen-admin"
+  },
   "dependencies": {
     "next": "~16.1.6",
     "react": "^19.0.0",
