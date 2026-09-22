@@ -15,6 +15,7 @@ import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 import {
+  ArrowLeft,
   Calendar,
   Coins,
   Copy,
@@ -1277,37 +1278,60 @@ export function BankInfoFormPage() {
   const submitting = saveMutation.isPending;
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-6 pb-28">
+      {/* 页面头：返回 + 标题 + 说明（全宽，不限制内容宽度）。 */}
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="mt-0.5 size-9 shrink-0"
+            onClick={() => router.push(LIST_PATH)}
+            disabled={submitting}
+            aria-label="Back to bank list"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </Button>
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              {isEdit ? 'Edit Bank' : 'Register Bank'}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isEdit
+                ? 'Update the bank identity and contact details.'
+                : 'Register a bank as Registered (pending onboarding).'}
+            </p>
+          </div>
+        </div>
+      </header>
+
       {isEdit && detailLoading && (
-        <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <div className="rounded-xl border border-border/60 bg-card p-6 shadow-float">
           <Skeleton className="h-4 w-40" />
         </div>
       )}
 
-      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
-        <div className="mb-6 text-base font-semibold">
-          {isEdit ? 'Edit Bank' : 'Register Bank'}
-        </div>
-        <Alert className="mb-6">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" />
-          <AlertTitle>Registration needs no approval</AlertTitle>
-          <AlertDescription>
-            Saving registers the bank as Registered (pending onboarding); formal
-            onboarding is initiated by the bank via the bank portal plus KBO
-            approval. Currency-system information is registered with the gateway
-            instance in Instance Management; tokens and limits are not
-            configured here.
-          </AlertDescription>
-        </Alert>
+      <Alert>
+        <Info className="mt-0.5 h-4 w-4 shrink-0" />
+        <AlertTitle>Registration needs no approval</AlertTitle>
+        <AlertDescription>
+          Saving registers the bank as Registered (pending onboarding); formal
+          onboarding is initiated by the bank via the bank portal plus KBO
+          approval. Currency-system information is registered with the gateway
+          instance in Instance Management; tokens and limits are not configured
+          here.
+        </AlertDescription>
+      </Alert>
 
-        {/* §6.4 Section：标题 + 说明 + 分隔组织字段。 */}
-        <div className="mb-4">
-          <div className="text-sm font-medium">Basic Information</div>
-          <p className="text-sm text-muted-foreground">
-            Bank identity, website, and contact details.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {/* 身份信息（全宽卡片 + 图标分区头）。 */}
+      <section className="overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground shadow-float">
+        <BankDetailSectionHeader
+          icon={Landmark}
+          title="Bank Identity"
+          description="Name, code, website, and logo used across the network."
+        />
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 p-6 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             name="bankName"
             label="Bank Name"
@@ -1337,10 +1361,10 @@ export function BankInfoFormPage() {
             placeholder="Optional, e.g. https://bank.example.com"
             register={register('website', { maxLength: 300 })}
           />
-          <div className="space-y-2">
+          <div className="space-y-2 md:col-span-2 xl:col-span-3">
             <span className="text-sm font-medium leading-none">Bank Logo</span>
             <div className="flex items-center gap-3">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/60 bg-muted/40">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-muted/40">
                 {logoValue ? (
                   <img
                     src={logoValue}
@@ -1380,6 +1404,17 @@ export function BankInfoFormPage() {
               Optional; auto-compressed to 64×64
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* 联系信息（全宽卡片 + 图标分区头）。 */}
+      <section className="overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground shadow-float">
+        <BankDetailSectionHeader
+          icon={User}
+          title="Contact Details"
+          description="Optional; editable via the bank portal after onboarding."
+        />
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 p-6 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             name="contactName"
             label="Contact Name"
@@ -1401,7 +1436,8 @@ export function BankInfoFormPage() {
         </div>
       </section>
 
-      <div className="flex items-center justify-between rounded-lg border-border/60 bg-card p-4 text-card-foreground shadow-float">
+      {/* 底部操作条：贴底固定，右侧主操作。 */}
+      <div className="sticky bottom-0 z-10 -mx-px flex items-center justify-end gap-3 rounded-xl border border-border/60 bg-card/95 p-4 text-card-foreground shadow-float backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <Button
           type="button"
           variant="outline"
@@ -1411,7 +1447,7 @@ export function BankInfoFormPage() {
           Cancel
         </Button>
         <Button type="submit" disabled={submitting}>
-          Save
+          {submitting ? 'Saving…' : 'Save'}
         </Button>
       </div>
     </form>
