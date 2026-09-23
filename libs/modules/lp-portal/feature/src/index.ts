@@ -21,6 +21,37 @@ export {
 // B8 格式化工具（金额不归一/时间戳/地址掩码，口径同源）
 export { formatTime, formatMoney, maskAddress } from './lib/format';
 
+// ── 原型口径公共件（方案 12 §3 P0：format / 枚举映射 / Dash / CopyableId /
+// ActionConfirmDialog / ProtoStatusBadge，供逐页改造消费）──────────────────
+export {
+  formatUtc8,
+  formatRate,
+  formatTokenAmount,
+  formatPercent,
+  formatDuration,
+} from './lib/proto-format';
+export {
+  Dash,
+  CopyableId,
+  ActionConfirmDialog,
+  ProtoStatusBadge,
+  type ActionConfirmDialogProps,
+  type ProtoTone,
+} from './lib/proto-ui';
+export {
+  LP_TX_STATUS_MAP,
+  LP_POOL_STATUS_MAP,
+  LP_PAIR_STATUS_MAP,
+  LP_PAIR_READINESS_MAP,
+  lpPairReadinessKey,
+  LP_STATEMENT_STATUS_MAP,
+  LP_USER_STATUS_MAP,
+  LP_ROLE_STATUS_MAP,
+  LP_LOG_RESULT_MAP,
+  type ProtoEnumEntry,
+  type LpPairReadinessKey,
+} from './lib/proto-enums';
+
 // ── 会话页（A4 首登强制改密 / A8 个人中心）────────────────────────────
 export { ChangePwdPage } from './lib/change-pwd-page';
 export { ProfilePage } from './lib/profile-page';
