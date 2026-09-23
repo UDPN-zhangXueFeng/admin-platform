@@ -1,7 +1,11 @@
 export { OverviewListPage } from './lib/overview-pages';
 
 export { FxListPage, FxDetailPage } from './lib/fx-pages';
-export { TokenListPage, TokenDetailPage } from './lib/token-pages';
+export {
+  RegisterTokenPage,
+  TokenListPage,
+  TokenDetailPage,
+} from './lib/token-pages';
 
 export {
   OnboardListPage,
@@ -25,7 +29,7 @@ export {
 
 export { MenuListPage } from './lib/menu-pages';
 
-export { LogListPage } from './lib/log-pages';
+export { LogListPage, LogDetailPage } from './lib/log-pages';
 export { SystemUiPage } from './lib/system-ui-pages';
 
 export { BankQueryListPage, BankQueryDetailPage } from './lib/bank-query-pages';

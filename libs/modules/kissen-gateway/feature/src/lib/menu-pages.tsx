@@ -24,11 +24,17 @@
  *    重拉列表即时刷新（invalidate 由 delete hook 承担）。错误 toast 为
  *    client 抛出的英文 message（KissenApiError 内嵌 traceId）。
  *    源同区块的「添加」输入行不在 T12 范围（任务仅覆盖移除操作）。
+ *
+ * 原型对齐（BP MenuManagementPage，2026-09-23）：
+ *  - 树表上方搜索框（'Filter menus…'）：按 menuName/menuNameEn/menuKey 命中
+ *    过滤；搜索期间忽略折叠状态强制展开；空态文案 'No menus found.'。
+ *  - 编辑态顶部只读行 Menu Level / Parent Menu（创建后不可改，原型 helper
+ *    三条文案逐字替换旧短句；create 态保留 Parent Menu Select）。
  */
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ChevronRight, Loader2, X } from 'lucide-react';
+import { ChevronRight, Loader2, Search, X } from 'lucide-react';
 
 import {
   AlertDialog,
@@ -46,6 +52,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Input,
   Label,
   RadioGroup,
   RadioGroupItem,
@@ -151,6 +158,51 @@ function flattenMenuTree(
   return out;
 }
 
+/** 搜索时空折叠集合（原型：搜索期间忽略折叠状态强制展开）。 */
+const EMPTY_COLLAPSED: ReadonlySet<number> = new Set<number>();
+
+/** 菜单层级文案（原型 Menu Level：2 一级 / 3 二级；其余类型无层级概念回退类型文案）。 */
+const MENU_LEVEL_TEXT: Record<number, string> = {
+  2: 'First-Level Menu',
+  3: 'Second-Level Menu',
+};
+
+/** Menu Level 文案（原型）：2/3 固定层级文案，其余/未知类型回退类型文案。 */
+function menuLevelText(t: number | undefined): string {
+  return t === undefined ? menuTypeText(t) : (MENU_LEVEL_TEXT[t] ?? menuTypeText(t));
+}
+
+/** 树内搜索（原型 visibleTree）：节点自身命中（menuName/menuNameEn/menuKey 不区分
+ * 大小写）或子孙命中则保留；未命中的子孙剔除，命中的祖先链保留整条路径。 */
+function filterMenuTree(nodes: MenuTree[], keyword: string): MenuTree[] {
+  const out: MenuTree[] = [];
+  for (const node of nodes) {
+    const self =
+      (node.menuName ?? '').toLowerCase().includes(keyword) ||
+      (node.menuNameEn ?? '').toLowerCase().includes(keyword) ||
+      (node.menuKey ?? '').toLowerCase().includes(keyword);
+    const children = node.children?.length
+      ? filterMenuTree(node.children, keyword)
+      : [];
+    if (self || children.length > 0) {
+      out.push({ ...node, children });
+    }
+  }
+  return out;
+}
+
+/** 树内按 menuId 查节点（编辑态只读 Parent Menu 行取父名）。 */
+function findMenuNode(nodes: MenuTree[], menuId: number): MenuTree | undefined {
+  for (const node of nodes) {
+    if (node.menuId === menuId) return node;
+    const hit = node.children?.length
+      ? findMenuNode(node.children, menuId)
+      : undefined;
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
 /** 父级菜单下拉选项（源 el-tree-select check-strictly：任意节点可选；全角空格缩进示层级）。 */
 function parentMenuOptions(
   nodes: MenuTree[],
@@ -167,6 +219,26 @@ function parentMenuOptions(
     }
   }
   return out;
+}
+
+/** 详情只读字段（label 上 / 值下；编辑态 Menu Level / Parent Menu 行，LP 详情同款）。 */
+function DetailField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="mt-1 min-w-0 break-all text-sm font-semibold">
+        {children}
+      </dd>
+    </div>
+  );
 }
 
 /* ================================================================== */
@@ -314,7 +386,30 @@ function MenuFormDialog({
         </DialogHeader>
 
         <form onSubmit={onOk} className="space-y-4">
-          {/* 父级菜单（源 el-tree-select：check-strictly + clearable，编辑禁用）。 */}
+          {/* 编辑态只读行（原型 Menu Form：Menu Level / Parent Menu 创建后不可改，
+              readonly 展示替代 Select；helper 文案逐字取原型）。 */}
+          {editing && (
+            <div className="space-y-3">
+              <dl className="grid gap-x-6 gap-y-4 border-b border-border/60 pb-4 sm:grid-cols-2">
+                <DetailField label="Menu Level">
+                  {menuLevelText(state.row.menuType)}
+                </DetailField>
+                <DetailField label="Parent Menu">
+                  {state.row.parentId
+                    ? (findMenuNode(tree, state.row.parentId)?.menuName ??
+                      '-')
+                    : 'None (root level)'}
+                </DetailField>
+              </dl>
+              <p className="text-xs text-muted-foreground">
+                The parent menu is set when the menu is created and cannot be
+                changed afterwards.
+              </p>
+            </div>
+          )}
+          {/* 父级菜单（源 el-tree-select：check-strictly + clearable；仅创建态出现——
+              编辑态由上方只读行替代，原型编辑表单即无该下拉）。 */}
+          {!editing && (
           <Controller
             control={control}
             name="parentId"
@@ -325,7 +420,6 @@ function MenuFormDialog({
                   <Select
                     value={field.value}
                     onValueChange={field.onChange}
-                    disabled={editing}
                   >
                     <SelectTrigger id="menu-parent-select" className="w-full">
                       <SelectValue placeholder="Select parent (empty = top level)" />
@@ -338,7 +432,7 @@ function MenuFormDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                  {field.value !== '' && !editing && (
+                  {field.value !== '' && (
                     <Button
                       type="button"
                       variant="outline"
@@ -351,14 +445,10 @@ function MenuFormDialog({
                     </Button>
                   )}
                 </div>
-                {editing && (
-                  <p className="text-xs text-muted-foreground">
-                    Parent menu cannot be changed after creation
-                  </p>
-                )}
               </div>
             )}
           />
+          )}
           <FormField
             name="menuName"
             label="Menu Name"
@@ -386,7 +476,8 @@ function MenuFormDialog({
             />
             {editing && (
               <p className="text-xs text-muted-foreground">
-                Menu key cannot be changed after creation
+                The menu key is the stable identifier used by roles and
+                permissions and cannot be changed after creation.
               </p>
             )}
           </div>
@@ -400,7 +491,8 @@ function MenuFormDialog({
             />
             {editing && (
               <p className="text-xs text-muted-foreground">
-                Type cannot be changed after creation
+                The menu type is set when the menu is created and cannot be
+                changed afterwards.
               </p>
             )}
           </div>
@@ -656,6 +748,8 @@ export function MenuListPage() {
   const [collapsed, setCollapsed] = React.useState<ReadonlySet<number>>(
     () => new Set<number>(),
   );
+  /** 树搜索关键字（原型 filter 输入，即时过滤，无防抖）。 */
+  const [keyword, setKeyword] = React.useState('');
   const [dialogState, setDialogState] = React.useState<MenuDialogState | null>(
     null,
   );
@@ -664,9 +758,19 @@ export function MenuListPage() {
     null,
   );
 
+  /** 搜索态：按命中过滤树 + 强制展开；非搜索态用用户折叠集合。 */
+  const effectiveKeyword = keyword.trim().toLowerCase();
+  const effectiveCollapsed = effectiveKeyword ? EMPTY_COLLAPSED : collapsed;
   const rows = React.useMemo(
-    () => flattenMenuTree(tree ?? [], collapsed),
-    [tree, collapsed],
+    () =>
+      flattenMenuTree(
+        effectiveKeyword
+          ? filterMenuTree(tree ?? [], effectiveKeyword)
+          : (tree ?? []),
+        effectiveCollapsed,
+      ),
+    // effectiveCollapsed 由 effectiveKeyword/collapsed 派生，语义等价于直接列依赖。
+    [tree, effectiveKeyword, effectiveCollapsed],
   );
 
   const onToggleCollapse = React.useCallback((menuId: number) => {
@@ -702,10 +806,30 @@ export function MenuListPage() {
         )}
       </PageHead>
 
-      <section className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float">
+      <section className="rounded-lg border-border/60 bg-card text-card-foreground shadow-float">
+        {/* 树搜索（原型 filter：命中 menuName/menuNameEn/menuKey，即时过滤；
+            placeholder/aria-label 文案逐字）。 */}
+        <div className="border-b border-border/50 px-4 py-3">
+          <div className="relative max-w-sm">
+            <Search
+              className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              className="pl-8"
+              aria-label="Filter menus"
+              placeholder="Filter menus…"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+          </div>
+        </div>
         {isError ? (
-          <QueryErrorRetry error={error} onRetry={() => refetch()} withIcon />
+          <div className="p-6">
+            <QueryErrorRetry error={error} onRetry={() => refetch()} withIcon />
+          </div>
         ) : (
+          <div className="p-6">
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full caption-bottom text-sm">
               <thead className="bg-muted/50">
@@ -738,13 +862,13 @@ export function MenuListPage() {
                       colSpan={MENU_TABLE_HEADERS.length}
                       className="px-4 py-8 text-center text-muted-foreground"
                     >
-                      No data
+                      No menus found.
                     </td>
                   </tr>
                 ) : (
                   rows.map(({ node, depth }) => {
                     const hasChildren = !!node.children?.length;
-                    const expanded = !collapsed.has(node.menuId);
+                    const expanded = !effectiveCollapsed.has(node.menuId);
                     return (
                       <tr
                         key={node.menuId}
@@ -833,6 +957,7 @@ export function MenuListPage() {
                 )}
               </tbody>
             </table>
+          </div>
           </div>
         )}
       </section>

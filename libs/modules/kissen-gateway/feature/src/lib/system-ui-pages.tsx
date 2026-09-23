@@ -6,8 +6,10 @@
  *
  * - 品牌定制卡：名称/副标题/Logo/主题色表单 + 8 预设色 + 实时预览面板
  *   （所见即所得，未保存仅预览区生效）；保存 PUT /brand 后 invalidate brand
- *   query → BrandProvider 重应用（document.title 等即时生效）；「恢复默认」
- *   AlertDialog 确认后 PUT DEFAULT_BRAND（源 ElMessageBox.confirm 语义）。
+ *   query → BrandProvider 重应用（document.title 等即时生效）。
+ * - 恢复默认（原型对齐，GAP-GW-06）：AlertDialog 文案逐字取原型；确认后
+ *   仅本地把表单回填出厂默认（不落库、不调 reset 接口），持久化仍走 Save。
+ *   原型 restoreDefaults 即本地 setForm 语义——「恢复后需保存才生效」。
  * - 外观卡：浅色/暗色二值切换，写 `html.dark` + localStorage `gw-appearance`
  *   （与调色板轴 `gw-theme` 正交：.dark 管表面色、data-theme 管品牌色）。
  *
@@ -40,11 +42,9 @@ import {
   DEFAULT_BRAND,
   KISSEN_GATEWAY_PROJECT_ID,
   useBrandQuery,
-  useResetBrandMutation,
   useUpdateBrandMutation,
   type Brand,
 } from '@myorg/modules/kissen-gateway/data-access';
-
 import { PageHead } from './page-head';
 
 /** 源 PRESET_COLORS（ui.vue:71）逐字。 */
@@ -180,18 +180,17 @@ function BrandCustomizationCard({ brand }: { brand: Brand }) {
   }, [queryClient]);
 
   const updateMutation = useUpdateBrandMutation();
-  const resetMutation = useResetBrandMutation();
   const [resetConfirmOpen, setResetConfirmOpen] = React.useState(false);
-  const saving = updateMutation.isPending || resetMutation.isPending;
+  const saving = updateMutation.isPending;
 
+  // STATIC-FILLER(GAP-GW-06): 后端无「恢复默认品牌」接口；原型 Restore Defaults
+  // 即本地把表单回填出厂默认（未落库），持久化由后续 Save 承担——toast 文案
+  // 同口径（"Save to apply..."），不得宣称已持久化。
   function onResetDefault() {
-    resetMutation.mutate(undefined, {
-      onSuccess: () => {
-        setForm({ ...DEFAULT_BRAND });
-        invalidateBrand();
-        toast.success('Brand restored to default');
-      },
-      onError: (e) => toast.error((e as Error).message),
+    setForm({ ...DEFAULT_BRAND });
+    setResetConfirmOpen(false);
+    toast.success('Default branding restored', {
+      description: 'Save to apply the restored defaults to the portal.',
     });
   }
 
@@ -329,30 +328,25 @@ function BrandCustomizationCard({ brand }: { brand: Brand }) {
         After saving, the browser title and login page branding take effect
         immediately — no refresh needed.
       </p>
-
-      {/* 恢复默认确认（源 ElMessageBox.confirm type=warning） */}
+      {/* 恢复默认确认（原型文案逐字；confirmVariant secondary → 普通
+          AlertDialogAction，无 pending 态——本地回填即完成）。 */}
       <AlertDialog
         open={resetConfirmOpen}
         onOpenChange={setResetConfirmOpen}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Restore Default</AlertDialogTitle>
+            <AlertDialogTitle>Restore default branding?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will restore the default portal brand (name, subtitle, logo,
-              and primary color). Continue?
+              Portal name, subtitle, logo and primary colour go back to the
+              values this instance shipped with. Your current branding is
+              replaced.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction asChild>
-              <Button
-                variant="destructive"
-                disabled={resetMutation.isPending}
-                onClick={onResetDefault}
-              >
-                {resetMutation.isPending ? 'Restoring…' : 'Restore Default'}
-              </Button>
+            <AlertDialogAction onClick={onResetDefault}>
+              Restore Default
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

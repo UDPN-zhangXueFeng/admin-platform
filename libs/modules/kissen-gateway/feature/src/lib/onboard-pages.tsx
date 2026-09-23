@@ -21,7 +21,20 @@
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { AlertCircle, CheckCircle2, Inbox, Info, Loader2 } from 'lucide-react';
+import {
+  AlertCircle,
+  Building2,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Globe,
+  Inbox,
+  Info,
+  Loader2,
+  Pencil,
+  Server,
+  User,
+} from 'lucide-react';
 
 import {
   AlertDialog,
@@ -49,27 +62,25 @@ import { FormField, createFormResolver } from '@myorg/shared/ui-forms';
 import { cn } from '@myorg/shared/util-classnames';
 import {
   instanceConnectivityText,
-  instanceConnectivityVariant,
   instanceCredentialModeText,
   instanceStatusText,
-  onboardStatusText,
-  instanceStatusVariant,
-  onboardStatusVariant,
   clearGatewaySession,
   useBankContactUpdateMutation,
   useBankDetailQuery,
-  useBankInfoQuery,
   useBankInfoSubmitMutation,
   useBankOnboardStatusQuery,
   useBootstrapStateQuery,
   usePushPublicKeyMutation,
   useAuthLogoutMutation,
+  type BankDetail,
   type InstanceItem,
   type OnboardStatus,
 } from '@myorg/modules/kissen-gateway/data-access';
 
-import { DescField, DescGrid } from './desc-grid';
-import { formatTime, orDash } from './kit';
+import { formatTime } from './kit';
+import { formatUtc8 } from './proto-format';
+import { protoStatusText, PROTO_BANK_ONBOARD_STATUS } from './proto-enums';
+import { CopyableId, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
 import { PageHead } from './page-head';
 import { useGatewayPerm } from './use-gateway-perm';
 import { LoadingBlock } from './state-blocks';
@@ -92,6 +103,26 @@ const ONBOARD_STATUS_PENDING = 5;
 const ONBOARD_STATUS_REJECTED = 15;
 /** 已通过（源 isApproved）。 */
 const ONBOARD_STATUS_APPROVED = 20;
+
+/* ── 原型对齐常量（OnboardingInformationPage.jsx 2026-09-21 改版） ── */
+
+/** 入网状态 → 徽章语义色（proto 徽章分层）。 */
+const ONBOARD_TONE: Record<number, ProtoStatusTone> = {
+  0: 'muted',
+  5: 'warning',
+  15: 'danger',
+  20: 'success',
+};
+
+/** 实例状态文案 → 徽章语义色。 */
+const INSTANCE_STATUS_TONE: Record<string, ProtoStatusTone> = {
+  Active: 'success',
+  Pending: 'warning',
+  Inactive: 'muted',
+};
+
+/** 实例表前端分页每页条数（原型 INSTANCE_PAGE_SIZE）。 */
+const INSTANCE_PAGE_SIZE = 5;
 
 /**
  * 状态谓词收窄（源 isPending/isApproved/isRejected computed）。
@@ -406,25 +437,40 @@ function OnboardApplyForm({ onSubmitted }: { onSubmitted: () => void }) {
 }
 
 /* ================================================================== */
-/* 联系人编辑弹窗（源 el-dialog 编辑联系人 + contactRules）              */
+/* 联系人编辑弹窗（原型 EditContactDialog.jsx：2026-09-22 拍板三字段，   */
+/* 仅 Email 必填；phone 从联系信息整体移除）                             */
 /* ================================================================== */
 
-/** 弹窗校验（源 contactRules：contactName/contactPhone 必填）。 */
+/** 原型 EMAIL_PATTERN 逐字。 */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * 弹窗校验（原型 validate 逐字）：Name 可选 max 64、Email 必填 +
+ * pattern + max 128、Address 可选 max 200；contactPhone 不再可编辑。
+ */
 const contactEditSchema = z.object({
-  contactName: z.string().min(1, { message: 'Please enter a contact name' }),
-  contactPhone: z.string().min(1, { message: 'Please enter a contact phone' }),
-  contactEmail: z.string(),
-  contactAddress: z.string(),
+  contactName: z.string().max(64, { message: 'Max 64 characters.' }),
+  contactEmail: z
+    .string()
+    .min(1, { message: 'Required field' })
+    .max(128, {
+      message: 'Enter a valid email address (max 128).',
+    })
+    .regex(EMAIL_PATTERN, {
+      message: 'Enter a valid email address (max 128).',
+    }),
+  contactAddress: z
+    .string()
+    .max(200, { message: 'Address must be 200 characters or fewer.' }),
 });
 
 type ContactEditFormValues = z.infer<typeof contactEditSchema>;
 
 /**
- * 联系人就地编辑（源 openContactEdit → dialog → onContactSave：
- * POST /bank/contact-update 四字段；INFO_UPDATED → 「联系人已更新」，
- * 其余分支为未入网状态误走合一通道的兜底文案）。
- * 由父级条件渲染——每次打开重新挂载，defaultValues 即回填结果
- * （等价源 Object.assign + nextTick clearValidate）。
+ * 联系人就地编辑（原型 EditContactDialog：三字段仅 Email 必填）。
+ * POST /bank/contact-update：INFO_UPDATED → 「联系人已更新」，其余分支为
+ * 未入网状态误走合一通道的兜底文案。由父级条件渲染——每次打开重新挂载，
+ * defaultValues 即回填结果（等价原型 open 时 useEffect 回填）。
  */
 function ContactEditDialog({
   initial,
@@ -444,16 +490,22 @@ function ContactEditDialog({
   const { register, handleSubmit, formState } = useForm<ContactEditFormValues>({
     resolver: createFormResolver(contactEditSchema),
     mode: 'onTouched',
-    defaultValues: initial,
+    defaultValues: {
+      contactName: initial.contactName,
+      contactEmail: initial.contactEmail,
+      contactAddress: initial.contactAddress,
+    },
   });
 
   const onSave = handleSubmit((v) => {
     updateMutation.mutate(
       {
-        contactName: v.contactName,
-        contactPhone: v.contactPhone,
-        contactEmail: v.contactEmail,
-        contactAddress: v.contactAddress,
+        contactName: v.contactName.trim(),
+        // 原型 2026-09-22 拍板 phone 移出联系信息编辑；后端契约
+        // contactPhone 仍必填 → 原值透传（'' 兜底），不由弹窗改动。
+        contactPhone: initial.contactPhone.trim(),
+        contactEmail: v.contactEmail.trim(),
+        contactAddress: v.contactAddress.trim(),
       },
       {
         onSuccess: (resp) => {
@@ -477,45 +529,63 @@ function ContactEditDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      {/* 源 el-dialog width="480px"。 */}
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>Edit Contact</DialogTitle>
           <DialogDescription>
-            Update the contact information of this bank
+            Contact details Kissen uses to reach your bank operations team.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSave} className="space-y-4">
           <FormField
             name="contactName"
             label="Contact Name"
-            required
-            maxLength={30}
+            maxLength={64}
             error={formState.errors.contactName?.message}
             register={register('contactName')}
           />
           <FormField
-            name="contactPhone"
-            label="Contact Phone"
-            required
-            maxLength={30}
-            error={formState.errors.contactPhone?.message}
-            register={register('contactPhone')}
-          />
-          <FormField
             name="contactEmail"
             label="Email"
-            maxLength={64}
+            type="email"
+            required
+            maxLength={128}
             error={formState.errors.contactEmail?.message}
             register={register('contactEmail')}
           />
-          <FormField
-            name="contactAddress"
-            label="Address"
-            maxLength={128}
-            error={formState.errors.contactAddress?.message}
-            register={register('contactAddress')}
-          />
+          <div>
+            <label
+              htmlFor="field-contactAddress"
+              className="mb-1.5 block text-sm font-medium text-foreground"
+            >
+              Address
+            </label>
+            <textarea
+              id="field-contactAddress"
+              rows={3}
+              maxLength={200}
+              aria-invalid={!!formState.errors.contactAddress}
+              aria-describedby={
+                formState.errors.contactAddress ? 'error-contactAddress' : undefined
+              }
+              className={
+                'flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50' +
+                (formState.errors.contactAddress
+                  ? ' border-destructive focus:ring-destructive'
+                  : '')
+              }
+              {...register('contactAddress')}
+            />
+            {formState.errors.contactAddress ? (
+              <p
+                id="error-contactAddress"
+                className="mt-1 text-sm text-destructive"
+                role="alert"
+              >
+                {formState.errors.contactAddress.message}
+              </p>
+            ) : null}
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
@@ -531,160 +601,255 @@ function ContactEditDialog({
   );
 }
 
+
 /* ================================================================== */
-/* 本行详情三卡（源 v-if="detail" 分支）                                */
+/* 本行详情（原型 2026-09-21 改版：概要条 + Basic/Contact 双列卡）       */
 /* ================================================================== */
 
 /**
- * 详情形状（BankDetail + 协议扩展 P1 可选字段——源 index.vue 的
- * `BankDetail & { website?; description?; registrationTime? }`，后端
- * 下发前为空，前端按源占位 '-'）。
+ * 详情形状（BankDetail + 协议扩展 P1 可选字段——原型 bank-profile 的
+ * website/description/registrationTime，后端下发前为空，前端占位 '-'）。
+ * 原型概要条不展示 Bank ID（2026-09-22 拍板），gw_bank_info 兜底随之移除。
  */
-type BankDetailLike = NonNullable<
-  Awaited<ReturnType<typeof useBankDetailQuery>>['data']
-> & {
-  bankId?: number;
+type BankDetailLike = BankDetail & {
   website?: string;
   description?: string;
   registrationTime?: number;
 };
 
-
 /**
- * Hero Summary（§6.3）：对象名称 + 入网状态徽标 + Bank Code/Bank ID 标识行
- * （t-identifier mono）。页面级主动作 Refresh 保持在 PageHead。
+ * 概要条（原型 BankSummaryCard）：品牌块 + 银行名 + 入网状态徽标 +
+ * BIC（可复制）/ Registered meta 行。Registered 为协议扩展 P1 占位，
+ * 缺失时以入网通过时间兜底。
  */
-function BankDetailHero({
+function BankSummaryStrip({
   detail,
-  bankId,
-}: {
-  detail: BankDetailLike;
-  bankId: string;
-}) {
-  return (
-    <section className="rounded-lg border border-border/60 bg-card panel-pad">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <h2 className="text-xl font-semibold leading-7 text-foreground">
-            {detail.bankName || '-'}
-          </h2>
-          <Badge variant={onboardStatusVariant(detail.onboardStatus)}>
-            {onboardStatusText(detail.onboardStatus)}
-          </Badge>
-        </div>
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {/* 62d1c33：Bank Code + BIC 合并为 bankBic（Bank Code (BIC)）。 */}
-          <span>
-            Bank Code (BIC){' '}
-            <span className="t-identifier text-foreground">
-              {detail.bankBic || '-'}
-            </span>
-          </span>
-          <span>
-            Bank ID{' '}
-            <span className="t-identifier text-foreground">{bankId}</span>
-          </span>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/**
- * 卡 A 基本信息（源 el-descriptions column=2 border 八字段；名称/编码/ID/
- * 入网状态上移 Hero 后余四字段）。Bank ID 以本地推送缓存 gw_bank_info.bankId
- * 兜底（源 bankIdOf，协议扩展 P1 前详情报文无此字段）；Registered on
- * 同为 P1 占位，已通过时以入网通过时间兜底；入网状态非 20 显示原始数字口径
- * 由 onboardStatusText 承接（未知码 `Unknown (n)`，null '-'）。
- */
-function BankDetailCards({
-  detail,
-  bankInfoBankId,
   agreeTimeFallback,
 }: {
   detail: BankDetailLike;
-  bankInfoBankId?: number;
   /** 已通过且 registrationTime 缺失时的兜底（源 current?.agreeTime）。 */
   agreeTimeFallback?: number;
 }) {
-  const bankId = String(detail.bankId ?? bankInfoBankId ?? '-');
-
+  const registered = detail.registrationTime ?? agreeTimeFallback;
   return (
-    <>
-      <BankDetailHero detail={detail} bankId={bankId} />
-
-      <section className="rounded-lg border border-border/60 bg-card">
-        <div className="border-b border-border/50 px-4 py-3">
-          <h2 className="text-base font-semibold leading-6 text-foreground">
-            Basic Information
-          </h2>
-        </div>
-        <div className="panel-pad">
-          <DescGrid cols={2}>
-            {/* 62d1c33：原 BIC 项并入上方 Bank Code (BIC)。 */}
-            {/* 协议扩展 P1 占位：Kissen 下发 registrationTime 后自动亮起。 */}
-            <DescField label="Registered on" variant="boxed">
-              <span className="font-mono">
-                {detail.registrationTime
-                  ? formatTime(detail.registrationTime)
-                  : agreeTimeFallback
-                    ? formatTime(agreeTimeFallback)
-                    : '-'}
+    <section className="rounded-lg border border-border/60 bg-card panel-pad">
+      <div className="flex min-w-0 items-center gap-4">
+        {/* 品牌块（原型 avatar：浅渐变底 + udpn lowercase 品牌占位）。 */}
+        <span
+          aria-hidden="true"
+          className="grid size-14 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary/15 to-muted text-base font-bold lowercase tracking-wide text-primary"
+        >
+          udpn
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <h2 className="text-lg font-bold tracking-tight text-foreground">
+              {detail.bankName || '-'}
+            </h2>
+            <ProtoStatusBadge
+              label={protoStatusText(
+                PROTO_BANK_ONBOARD_STATUS,
+                detail.onboardStatus,
+              )}
+              tone={ONBOARD_TONE[detail.onboardStatus] ?? 'muted'}
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+            {detail.bankBic ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span>BIC</span>
+                <CopyableId value={detail.bankBic} />
               </span>
-            </DescField>
-            {/* 协议扩展 P1 占位。 */}
-            <DescField label="Official Website" variant="boxed" span>
-              {detail.website || '-'}
-            </DescField>
-            <DescField label="Description" variant="boxed" span>
-              {detail.description || '-'}
-            </DescField>
-          </DescGrid>
+            ) : null}
+            {detail.bankBic && registered != null ? (
+              <span aria-hidden="true" className="text-muted-foreground/70">
+                •
+              </span>
+            ) : null}
+            {registered != null ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span>Registered</span>
+                <span className="font-medium text-foreground">
+                  {formatUtc8(registered)}
+                </span>
+              </span>
+            ) : null}
+          </div>
         </div>
-      </section>
-    </>
-  );
-}
-
-/** 卡 B 联系人（可就地编辑，v-perm 'bank:info:contact-edit'）。 */
-function ContactCard({
-  detail,
-  onEdit,
-}: {
-  detail: BankDetailLike;
-  onEdit: () => void;
-}) {
-  const hasPerm = useGatewayPerm();
-  return (
-    <section className="rounded-lg border border-border/60 bg-card">
-      <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-base font-semibold leading-6 text-foreground">
-          Contact Information
-        </h2>
-        {hasPerm('bank:info:contact-edit') && (
-          <Button type="button" size="sm" variant="outline" onClick={onEdit}>
-            Edit
-          </Button>
-        )}
-      </div>
-      <div className="panel-pad">
-        <DescGrid cols={2}>
-          <DescField label="Contact Name" variant="boxed">
-            {detail.contactName || '-'}
-          </DescField>
-          <DescField label="Email" variant="boxed">
-            {detail.contactEmail || '-'}
-          </DescField>
-          <DescField label="Address" variant="boxed">
-            {detail.contactAddress || '-'}
-          </DescField>
-        </DescGrid>
       </div>
     </section>
   );
 }
 
-/** 卡 C 本行实例列表（四列；header 右侧 needActivate 时「激活实例」按钮）。 */
+/** 双列卡行（原型 dl 行：label 上、值下，堆叠）。 */
+function InfoRow({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={'min-w-0 ' + (className ?? '')}>
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="mt-1 min-w-0 text-sm font-semibold text-foreground">
+        {children}
+      </dd>
+    </div>
+  );
+}
+
+/**
+ * 双列卡（原型 ③：desktop 2 列 divide-x）：左 Basic Information
+ * （Bank Code + System 小灰标 / Official Website / Description，行有值才渲染）；
+ * 右 Contact Information（Edit 弹窗入口，v-perm 'bank:info:contact-edit'；
+ * 原型 2026-09-22 拍板不展示 phone；Email 主色）。
+ */
+function BankInfoCards({
+  detail,
+  onEditContact,
+}: {
+  detail: BankDetailLike;
+  onEditContact: () => void;
+}) {
+  const hasPerm = useGatewayPerm();
+  return (
+    <section className="grid gap-6 rounded-lg border border-border/60 bg-card panel-pad lg:grid-cols-2 lg:divide-x lg:divide-border/50">
+      {/* 左：Basic Information（lg:pr-6 避开 divide-x 贴边）。 */}
+      <div className="min-w-0 lg:pr-6">
+        <div className="mb-5 flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary"
+          >
+            <Building2 className="h-3.5 w-3.5" />
+          </span>
+          <h3 className="text-sm font-semibold text-foreground">
+            Basic Information
+          </h3>
+        </div>
+        <dl className="flex flex-col gap-5">
+          {/* 62d1c33：Bank Code + BIC 合并为 bankBic。 */}
+          <InfoRow label="Bank Code">
+            <span className="flex flex-wrap items-center gap-2">
+              <CopyableId value={detail.bankBic} />
+              <Badge variant="mute">System</Badge>
+            </span>
+          </InfoRow>
+          {detail.website ? (
+            <InfoRow label="Official Website">
+              <a
+                href={detail.website}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 break-all font-semibold text-primary hover:underline"
+              >
+                <Globe className="h-3 w-3 shrink-0" aria-hidden="true" />
+                {detail.website}
+              </a>
+            </InfoRow>
+          ) : null}
+          {detail.description ? (
+            <InfoRow label="Description">
+              <span className="font-normal leading-relaxed text-muted-foreground">
+                {detail.description}
+              </span>
+            </InfoRow>
+          ) : null}
+        </dl>
+      </div>
+
+      {/* 右：Contact Information（原型 tablet 起 Name/Email 两列、Address 整行）。 */}
+      <div className="min-w-0 lg:pl-6">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary"
+            >
+              <User className="h-3.5 w-3.5" />
+            </span>
+            <h3 className="text-sm font-semibold text-foreground">
+              Contact Information
+            </h3>
+          </div>
+          {hasPerm('bank:info:contact-edit') && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={onEditContact}
+            >
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+              Edit
+            </Button>
+          )}
+        </div>
+        <dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+          <InfoRow label="Contact Name">{detail.contactName || '-'}</InfoRow>
+          <InfoRow label="Email">
+            <span className="break-all text-primary">
+              {detail.contactEmail || '-'}
+            </span>
+          </InfoRow>
+          <InfoRow label="Address" className="sm:col-span-2">
+            {detail.contactAddress || '-'}
+          </InfoRow>
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+
+/** 实例表列头（原型列序：实例编码/连通/凭证模式/状态）。 */
+const INSTANCE_TABLE_HEADERS = [
+  'Instance ID',
+  'Connectivity',
+  'Credential Mode',
+  'Status',
+] as const;
+
+/**
+ * 连通脉冲徽章（原型 pulse badge）：Online → success 底 + animate-ping 点；
+ * 其余静默灰点。文案沿用 instanceConnectivityText（Online/Offline/Degraded）。
+ */
+function ConnectivityBadge({ row }: { row: InstanceItem }) {
+  const online = instanceConnectivityText(row.connectivity) === 'Online';
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+        online
+          ? 'border-success/30 bg-success/10 text-success'
+          : 'border-border bg-muted/50 text-muted-foreground'
+      }`}
+    >
+      <span aria-hidden="true" className="relative flex size-1.5">
+        {online ? (
+          <>
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75 motion-reduce:animate-none" />
+            <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+          </>
+        ) : (
+          <span className="relative inline-flex size-1.5 rounded-full bg-muted-foreground/60" />
+        )}
+      </span>
+      {instanceConnectivityText(row.connectivity)}
+    </span>
+  );
+}
+
+/**
+ * 卡 C 本行实例列表（原型 Gateway Instances 表）：Instance ID（可复制）/
+ * Connectivity（脉冲徽章）/Credential Mode/Status；前端分页 5/页 +
+ * `Showing n of m instances`。header 右侧保留 needActivate 时「激活实例」
+ * 按钮（入网流程，非原型表内 Actions）。
+ * 有意偏差：原型每行 Actions（View keys）不落地——本仓实例密钥是 app-shell
+ * 全局抽屉（InstanceKeyDrawer）而非页面内跳转，行内动作无目标页。
+ */
 function InstanceListCard({
   detail,
   needActivate,
@@ -696,18 +861,36 @@ function InstanceListCard({
   activating: boolean;
   onActivate: () => void;
 }) {
+  const [page, setPage] = React.useState(0);
+  const total = detail.instances.length;
+  const pageCount = Math.max(1, Math.ceil(total / INSTANCE_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const rows = detail.instances.slice(
+    safePage * INSTANCE_PAGE_SIZE,
+    (safePage + 1) * INSTANCE_PAGE_SIZE,
+  );
+
   return (
     <section className="rounded-lg border border-border/60 bg-card">
       <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* §6.2 头条元信息：实体名 + 结果数（激活按钮保持右置）。 */}
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="text-base font-semibold leading-6 text-foreground">
-            Gateway Instances
-          </h2>
-          <span className="text-sm text-muted-foreground tabular-nums">
-            {detail.instances.length} instance
-            {detail.instances.length === 1 ? '' : 's'}
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            aria-hidden="true"
+            className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"
+          >
+            <Server className="h-4 w-4" />
           </span>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold leading-6 text-foreground">
+              Gateway Instances
+            </h2>
+            {/* 原型单复数副标题逐字。 */}
+            <p className="text-xs text-muted-foreground">
+              {total === 1
+                ? '1 instance connected and operational'
+                : `${total} instances connected and operational`}
+            </p>
+          </div>
         </div>
         {needActivate && (
           <Button
@@ -738,7 +921,7 @@ function InstanceListCard({
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {detail.instances.length === 0 ? (
+              {rows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={INSTANCE_TABLE_HEADERS.length}
@@ -751,39 +934,31 @@ function InstanceListCard({
                         aria-hidden="true"
                       />
                       <p className="text-sm text-muted-foreground">
-                        No gateway instances yet
+                        No gateway instance is connected to this bank yet.
                       </p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                detail.instances.map((row) => (
+                rows.map((row) => (
                   <tr
                     key={row.instanceId}
                     className="motion-safe:transition-colors hover:bg-muted/50"
                   >
-                    <td className="max-w-[16rem] px-4 py-3 align-middle font-mono font-medium">
-                      <span className="block truncate" title={orDash(row.instanceId)}>
-                        {orDash(row.instanceId)}
-                      </span>
+                    <td className="max-w-[16rem] px-4 py-3 align-middle">
+                      <CopyableId value={row.instanceId} className="font-mono" />
                     </td>
                     <td className="px-4 py-3 align-middle">
-                      <Badge variant={instanceConnectivityVariant(row.connectivity)}>
-                        {instanceConnectivityText(row.connectivity)}
-                      </Badge>
+                      <ConnectivityBadge row={row} />
+                    </td>
+                    <td className="px-4 py-3 align-middle text-muted-foreground">
+                      {instanceCredentialModeText(row.credentialMode)}
                     </td>
                     <td className="px-4 py-3 align-middle">
-                      <Badge variant={instanceStatusVariant(row)}>
-                        {instanceStatusText(row)}
-                      </Badge>
-                    </td>
-                    <td className="max-w-[10rem] px-4 py-3 align-middle">
-                      <span
-                        className="block truncate"
-                        title={instanceCredentialModeText(row.credentialMode)}
-                      >
-                        {instanceCredentialModeText(row.credentialMode)}
-                      </span>
+                      <ProtoStatusBadge
+                        label={instanceStatusText(row)}
+                        tone={INSTANCE_STATUS_TONE[instanceStatusText(row)] ?? 'muted'}
+                      />
                     </td>
                   </tr>
                 ))
@@ -791,18 +966,44 @@ function InstanceListCard({
             </tbody>
           </table>
         </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          {/* 原型 showingLabel：单数 'Showing 1 of 1 instance'，复数同构。 */}
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Showing {total} of {total} instance{total === 1 ? '' : 's'}
+          </span>
+          {pageCount > 1 ? (
+            <span className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="iconSm"
+                aria-label="Previous page"
+                disabled={safePage === 0}
+                onClick={() => setPage(safePage - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              </Button>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Page {safePage + 1} / {pageCount}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="iconSm"
+                aria-label="Next page"
+                disabled={safePage >= pageCount - 1}
+                onClick={() => setPage(safePage + 1)}
+              >
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </span>
+          ) : null}
+        </div>
       </div>
     </section>
   );
 }
 
-/** 实例表列头（实例编码/连通状态/状态/凭证模式）。 */
-const INSTANCE_TABLE_HEADERS = [
-  'Instance ID',
-  'Connectivity',
-  'Status',
-  'Credential Mode',
-] as const;
 
 /* ================================================================== */
 /* 页面主体                                                             */
@@ -824,7 +1025,6 @@ export function OnboardListPage() {
   const detailQuery = useBankDetailQuery();
   const statusQuery = useBankOnboardStatusQuery();
   const [contactEditing, setContactEditing] = React.useState(false);
-  const bankInfoQuery = useBankInfoQuery();
   const [manualRefreshing, setManualRefreshing] = React.useState(false);
   const bootstrapQuery = useBootstrapStateQuery(false);
 
@@ -975,10 +1175,9 @@ export function OnboardListPage() {
     void Promise.all([
       refetchDetail(),
       refetchStatus(),
-      bankInfoQuery.refetch(),
       refetchBootstrap(),
     ]).finally(() => setManualRefreshing(false));
-  }, [refetchDetail, refetchStatus, bankInfoQuery, refetchBootstrap]);
+  }, [refetchDetail, refetchStatus, refetchBootstrap]);
   const isLoading = detailQuery.isLoading || statusQuery.isLoading;
 
   return (
@@ -1006,17 +1205,19 @@ export function OnboardListPage() {
         </Alert>
       ) : null}
 
-      {/* 本行详情三卡（v-if detail：未入网/detail 缺失时整组不渲染）。 */}
+      {/* 本行详情（原型 2026-09-21：概要条 + 双列卡 + 实例表）。 */}
       {detail ? (
         <>
-          <BankDetailCards
+          <BankSummaryStrip
             detail={detail}
-            bankInfoBankId={bankInfoQuery.data?.bankId}
             agreeTimeFallback={
               isApprovedStatus(current) ? current.agreeTime : undefined
             }
           />
-          <ContactCard detail={detail} onEdit={() => setContactEditing(true)} />
+          <BankInfoCards
+            detail={detail}
+            onEditContact={() => setContactEditing(true)}
+          />
           <InstanceListCard
             detail={detail}
             needActivate={needActivate}

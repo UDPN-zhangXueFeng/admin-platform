@@ -16,8 +16,27 @@ import { useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { type ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft, Loader2 } from 'lucide-react';
-
+import {
+  Badge,
+  Button,
+  Checkbox,
+  DataTable,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Skeleton,
+  Textarea,
+  useToast,
+} from '@myorg/shared/ui';
+import { FormField, FormSelect, createFormResolver } from '@myorg/shared/ui-forms';
+import { useRouter } from '@myorg/shared/util-i18n';
+import { cn } from '@myorg/shared/util-classnames';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,31 +46,20 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Badge,
-  Button,
-  Checkbox,
-  createActionColumn,
-  DataTable,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Skeleton,
-  Textarea,
-  useToast,
 } from '@myorg/shared/ui';
-import { FormField, createFormResolver } from '@myorg/shared/ui-forms';
-import { useRouter } from '@myorg/shared/util-i18n';
-import { cn } from '@myorg/shared/util-classnames';
+import { PageHead } from './page-head';
+import {
+  ChevronLeft,
+  Loader2,
+  MoreHorizontal,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 import {
   KISSEN_GATEWAY_PROJECT_ID,
   ROLE_TYPE_BUILTIN,
-  roleStatusText,
-  roleStatusVariant,
   roleTypeText,
   roleTypeVariant,
-  useAssignRoleMenuMutation,
   useMenuTreeQuery,
   useRemoveRoleMutation,
   useRoleDetailQuery,
@@ -68,17 +76,29 @@ import {
 import { useGatewayPerm } from './use-gateway-perm';
 
 import { DescField, DescGrid } from './desc-grid';
-import { formatTime, orDash } from './kit';
-import { PageHead } from './page-head';
+import { OPT_ALL, orDash } from './kit';
 import {
   ErrorBlock,
   LoadingBlock,
   MissingIdBlock,
 } from './state-blocks';
-
-/* ================================================================== */
-/* 常量与格式化                                                        */
-/* ================================================================== */
+import {
+  ActionConfirmDialog,
+  ProtoStatusBadge,
+  type ActionConfirmTone,
+} from './proto-ui';
+import { formatUtc8 } from './proto-format';
+import { PROTO_ROLE_STATUS, protoStatusText } from './proto-enums';
+import {
+  ColumnPicker,
+  SortHeader,
+  compareProtoValues,
+  filterVisibleColumns,
+  useColumnPreferences,
+  useTableSort,
+  type ProtoColumnDef,
+} from './proto-table';
+import { StatCard } from './user-pages';
 
 /** 系统管理域路由基座（registry：/system/role）。 */
 const ROLE_BASE = '/system/role';
@@ -86,7 +106,36 @@ const ROLE_BASE = '/system/role';
 /** 源 pageSize 默认值。 */
 const ROLE_PAGE_SIZE_DEFAULT = 10;
 
+/** 列偏好定义（原型 COLUMNS；Users/Menus 计数列无端点（GAP-GW-07），暂不提供）。 */
+const ROLE_COLUMNS: ProtoColumnDef[] = [
+  { id: 'roleName', label: 'Role Name', required: true },
+  { id: 'type', label: 'Type' },
+  { id: 'description', label: 'Description' },
+  /* STATIC-FILLER(GAP-GW-07): Users / Menus 计数列（原型 userCount / menuCount）
+   * 无聚合端点，先整列省略，端点就绪后补列。 */
+  { id: 'createdAt', label: 'Created on (UTC+8)' },
+  { id: 'status', label: 'Status', required: true },
+  { id: 'actions', label: 'Actions', required: true },
+];
+const ROLE_COLUMN_PREF_KEY = 'gw.role-list.columns';
+
+/** 角色状态徽章色调（PROTO_ROLE_STATUS：0 Active=success / 1 Inactive=warning）。 */
+const ROLE_STATUS_TONES: Record<number, 'success' | 'warning'> = {
+  0: 'success',
+  1: 'warning',
+};
+
+/** 删除确认（原型 ROLE_ACTION_CONFIG.delete 文案逐字；启停无端点未提供）。 */
+const ROLE_DELETE_CONFIG = {
+  title: 'Delete Role',
+  body1: (name: string, code: string) => `Delete role "${name}" (${code})?`,
+  body2:
+    'Once deleted, the role is removed from every user it is assigned to; those users keep only their remaining roles. This action cannot be undone.',
+  confirmLabel: 'Delete',
+} as const;
+
 /** 路由 query 中的角色 ID → 正整数；非法 → undefined。 */
+
 function parseRoleId(raw: string | null): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
@@ -374,16 +423,21 @@ function AssignMenuDialog({
 /* 列表页（源筛选：角色编码/角色名称；操作：编辑/分配菜单/删除）      */
 /* ================================================================== */
 
-/** 筛选表单校验（源无格式校验；空值=不过滤）。 */
+/** 筛选表单校验（源无格式校验；空值=不过滤）。
+ *  roleType 不上送：RoleListReq 无该参数（GAP-GW-07 族）——列表页本地过滤当前页。 */
 const roleFilterSchema = z.object({
   roleCode: z.string(),
   roleName: z.string(),
+  roleType: z.string(),
+  status: z.string(),
 });
 type RoleFilterForm = z.infer<typeof roleFilterSchema>;
 
 const ROLE_FILTER_DEFAULT: RoleFilterForm = {
   roleCode: '',
   roleName: '',
+  roleType: OPT_ALL,
+  status: OPT_ALL,
 };
 
 /** RHF 筛选表单 → 后端 RoleListReq（空串 → 不传该字段=不过滤）。 */
@@ -391,6 +445,8 @@ function formToFilter(form: RoleFilterForm): RoleListReq {
   return {
     roleCode: form.roleCode || undefined,
     roleName: form.roleName || undefined,
+    status:
+      form.status === OPT_ALL ? undefined : Number(form.status) || undefined,
   };
 }
 
@@ -399,7 +455,7 @@ export function RoleListPage() {
   const toast = useToast();
   const hasPerm = useGatewayPerm();
 
-  const { register, handleSubmit, reset } = useForm<RoleFilterForm>({
+  const { register, reset, control, watch } = useForm<RoleFilterForm>({
     resolver: createFormResolver(roleFilterSchema),
     defaultValues: ROLE_FILTER_DEFAULT,
   });
@@ -410,9 +466,27 @@ export function RoleListPage() {
   const [pageNum, setPageNum] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(ROLE_PAGE_SIZE_DEFAULT);
 
-  const { data, isLoading, isError, error, refetch } = useRolePageQuery(
-    KISSEN_GATEWAY_PROJECT_ID,
-    { pageNum, pageSize, filter },
+  const { data, isLoading, isError, error, refetch, dataUpdatedAt } =
+    useRolePageQuery(KISSEN_GATEWAY_PROJECT_ID, {
+      pageNum,
+      pageSize,
+      filter,
+    });
+
+  /* STATIC-FILLER(GAP-GW-07): 角色计数无聚合端点——pageSize 200 全量拉取本地计数
+   * （>200 角色时 Active/Inactive 低估，Total 取 pagination.total）。 */
+  const { data: statsPage } = useRolePageQuery(KISSEN_GATEWAY_PROJECT_ID, {
+    pageNum: 1,
+    pageSize: 200,
+    filter: {},
+  });
+
+  const rows = data?.data ?? [];
+  const paginationMeta = data?.pagination;
+  const { sort, toggle } = useTableSort('roleName', 'asc');
+  const columnPreferences = useColumnPreferences(
+    ROLE_COLUMN_PREF_KEY,
+    ROLE_COLUMNS,
   );
 
   const rows = data?.data ?? [];
@@ -429,15 +503,30 @@ export function RoleListPage() {
   }, [isError, error, refetch, toast]);
 
   const [assignTarget, setAssignTarget] = React.useState<RoleRow | null>(null);
-  const [assignOpen, setAssignOpen] = React.useState(false);
-  const [deleteTarget, setDeleteTarget] = React.useState<RoleRow | null>(null);
+  /* 原型 Filters embedded：Role Code/Role Name/Status 服务端即时检索（300ms 防抖
+   * 回页 1）；Type 本地过滤当前页（RoleListReq 无该参数）。 */
+  const filterTimer = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    const subscription = watch((values) => {
+      if (filterTimer.current != null) window.clearTimeout(filterTimer.current);
+      filterTimer.current = window.setTimeout(() => {
+        setFilter(formToFilter(values as RoleFilterForm));
+        setPageNum(1);
+      }, 300);
+    });
+    return () => {
+      subscription.unsubscribe();
+      if (filterTimer.current != null)
+        window.clearTimeout(filterTimer.current);
+    };
+  }, [watch]);
 
-  const removeMutation = useRemoveRoleMutation(KISSEN_GATEWAY_PROJECT_ID);
-
-  const onSubmit = React.useCallback((form: RoleFilterForm) => {
-    setFilter(formToFilter(form));
-    setPageNum(1);
-  }, []);
+  const watched = watch();
+  const hasFilter =
+    watched.roleCode.trim() !== '' ||
+    watched.roleName.trim() !== '' ||
+    watched.roleType !== OPT_ALL ||
+    watched.status !== OPT_ALL;
 
   /** 源 resetQuery：清空筛选回第一页重查。 */
   const onReset = React.useCallback(() => {
@@ -446,16 +535,16 @@ export function RoleListPage() {
     setPageNum(1);
   }, [reset]);
 
-  /** 源 openEdit：编辑弹窗 → /system/role/edit?id=（表单页由 detail 回填）。 */
-  const onEdit = React.useCallback(
-    (roleId: number) => router.push(`${ROLE_BASE}/edit?id=${roleId}`),
-    [router],
-  );
+  /** 统计卡数据（原型 Total Roles / Active / Inactive）。 */
+  const stats = React.useMemo(() => {
+    const list = statsPage?.data ?? [];
+    return {
+      total: statsPage?.pagination?.total ?? list.length,
+      active: list.filter((r) => r.status === 0).length,
+      inactive: list.filter((r) => r.status === 1).length,
+    };
+  }, [statsPage]);
 
-  const onDetail = React.useCallback(
-    (roleId: number) => router.push(`${ROLE_BASE}/detail?id=${roleId}`),
-    [router],
-  );
 
   /** 源 openAssign：打开分配菜单弹窗（回显走 /role/menuIds/:roleId）。 */
   const onAssignRow = React.useCallback((row: RoleRow) => {
@@ -485,37 +574,96 @@ export function RoleListPage() {
     setDeleteTarget(null);
   }, [deleteTarget, removeMutation, toast]);
 
-  /** R-4：行内操作（Detail=O-5 超集）收纳进 ⋯ 菜单，保证 1280×800 不横向溢出。 */
-  const actionsColumn = React.useMemo(
-    () =>
-      createActionColumn<RoleRow & { id: string }>(() => [
-        { label: 'Detail', onClick: (r) => onDetail(r.roleId) },
-        { label: 'Edit', onClick: (r) => onEdit(r.roleId) },
-        { label: 'Assign Menu', onClick: (r) => onAssignRow(r) },
-        {
-          label: 'Delete',
-          destructive: true,
-          onClick: (r) => onDeleteClick(r),
-        },
-      ]),
-    [onDetail, onEdit, onAssignRow, onDeleteClick],
+  /* 排序 + Type 过滤：服务端 /role/page 无排序与 roleType 参数——当前页内处理。 */
+  const sortAccessors = React.useMemo<
+    Record<string, (r: RoleRow) => string | number | null | undefined>
+  >(
+    () => ({
+      roleName: (r) => r.roleName,
+      type: (r) => r.roleType,
+      status: (r) => r.status,
+    }),
+    [],
+  );
+  const sortedRows = React.useMemo(() => {
+    const accessor = sort.key ? sortAccessors[sort.key] : undefined;
+    const base =
+      watched.roleType === OPT_ALL
+        ? rows
+        : rows.filter((r) => String(r.roleType) === watched.roleType);
+    if (!accessor) return base;
+    const dir = sort.direction === 'desc' ? -1 : 1;
+    return [...base].sort(
+      (a, b) => compareProtoValues(accessor(a), accessor(b)) * dir,
+    );
+  }, [rows, sort, sortAccessors, watched.roleType]);
+
+  const tableData = React.useMemo(
+    () => sortedRows.map((r) => ({ ...r, id: String(r.roleId) })),
+    [sortedRows],
   );
 
-  const columns = React.useMemo<ColumnDef<RoleRow & { id: string }>[]>(
+  /** Type / Status 筛选 options。 */
+  const typeSelectOptions = React.useMemo(
     () => [
-      {
-        id: 'roleCode',
-        header: 'Role Code',
-        cell: ({ row }) => <span>{row.original.roleCode}</span>,
-      },
+      { value: OPT_ALL, label: 'All' },
+      { value: String(ROLE_TYPE_BUILTIN), label: roleTypeText(ROLE_TYPE_BUILTIN) },
+      { value: '1', label: roleTypeText(1) },
+    ],
+    [],
+  );
+  const statusSelectOptions = React.useMemo(
+    () => [
+      { value: OPT_ALL, label: 'All' },
+      ...Object.entries(PROTO_ROLE_STATUS)
+        .sort(([, a], [, b]) => a.rank - b.rank)
+        .map(([code, meta]) => ({ value: code, label: meta.text })),
+    ],
+    [],
+  );
+
+  /** 列集对齐 BP 原型 COLUMNS（首列两行：Role Name + Built-in 徽章 / Role Code）。 */
+  const columns = React.useMemo<ColumnDef<RoleRow & { id: string }>[]>(() => {
+    return [
       {
         id: 'roleName',
-        header: 'Role Name',
-        cell: ({ row }) => <span>{row.original.roleName}</span>,
+        header: (
+          <SortHeader
+            label="Role Name"
+            direction={sort.key === 'roleName' ? sort.direction : null}
+            onToggle={() => toggle('roleName')}
+          />
+        ),
+        cell: ({ row }) => {
+          const r = row.original;
+          const builtIn = r.roleType === ROLE_TYPE_BUILTIN;
+          return (
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate font-semibold">{r.roleName}</span>
+                {builtIn && (
+                  <Badge variant="outline" className="shrink-0 gap-1">
+                    <ShieldCheck className="size-3" aria-hidden="true" />
+                    Built-in
+                  </Badge>
+                )}
+              </div>
+              <span className="block truncate text-xs text-muted-foreground">
+                {r.roleCode || '-'}
+              </span>
+            </div>
+          );
+        },
       },
       {
-        id: 'roleType',
-        header: 'Type',
+        id: 'type',
+        header: (
+          <SortHeader
+            label="Type"
+            direction={sort.key === 'type' ? sort.direction : null}
+            onToggle={() => toggle('type')}
+          />
+        ),
         cell: ({ row }) => (
           <Badge variant={roleTypeVariant(row.original.roleType)}>
             {roleTypeText(row.original.roleType)}
@@ -523,90 +671,232 @@ export function RoleListPage() {
         ),
       },
       {
-        id: 'status',
-        header: 'Status',
+        id: 'description',
+        header: 'Description',
         cell: ({ row }) => (
-          <Badge variant={roleStatusVariant(row.original.status)}>
-            {roleStatusText(row.original.status)}
-          </Badge>
+          <span className="line-clamp-2 max-w-[280px]">
+            {orDash(row.original.remarks)}
+          </span>
         ),
       },
       {
-        id: 'remarks',
-        header: 'Remarks',
-        cell: ({ row }) => <span>{orDash(row.original.remarks)}</span>,
+        id: 'createdAt',
+        header: 'Created on (UTC+8)',
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap tabular-nums">
+            {formatUtc8(row.original.createTime)}
+          </span>
+        ),
       },
-      actionsColumn,
-    ],
-    [actionsColumn],
-  );
+      {
+        id: 'status',
+        header: (
+          <SortHeader
+            label="Status"
+            direction={sort.key === 'status' ? sort.direction : null}
+            onToggle={() => toggle('status')}
+          />
+        ),
+        cell: ({ row }) => (
+          <ProtoStatusBadge
+            label={protoStatusText(PROTO_ROLE_STATUS, row.original.status)}
+            tone={ROLE_STATUS_TONES[row.original.status] ?? 'muted'}
+          />
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const r = row.original;
+          const builtIn = r.roleType === ROLE_TYPE_BUILTIN;
+          return (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() =>
+                  router.push(`${ROLE_BASE}/detail?id=${r.roleId}`)
+                }
+              >
+                Details
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    aria-label="More actions"
+                  >
+                    <MoreHorizontal className="size-4" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {/* 原型 menuActionsFor：内置角色仅 Assign Menus；自定义角色
+                      Edit/Assign Menus/Delete。原型 Activate/Deactivate 因
+                      RoleUpdateReq 无 status 字段（无端点）不提供。 */}
+                  {!builtIn && (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        router.push(`${ROLE_BASE}/edit?id=${r.roleId}`)
+                      }
+                    >
+                      Edit
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => onAssignRow(r)}>
+                    Assign Menus
+                  </DropdownMenuItem>
+                  {!builtIn && (
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => onDeleteClick(r)}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        },
+      },
+    ];
+  }, [onDeleteClick, onAssignRow, router, sort, toggle]);
 
-  const tableData = React.useMemo(
-    () => rows.map((r) => ({ ...r, id: String(r.roleId) })),
-    [rows],
+  /* 列偏好：required 列恒显，其余按用户选择过滤。 */
+  const visibleColumns = React.useMemo(
+    () =>
+      filterVisibleColumns(
+        columns,
+        ROLE_COLUMNS,
+        columnPreferences.isColumnVisible,
+      ),
+    [columns, columnPreferences],
   );
 
   return (
     <div className="space-y-4">
-      <PageHead variant="toolbar" title="Role Management">
-        {/* 源 v-perm="'bank:role:manage'"：未命中 menuKeys 即不渲染。 */}
-        {hasPerm('bank:role:manage') && (
-          <Button type="button" onClick={() => router.push(`${ROLE_BASE}/create`)}>
-            Create Role
-          </Button>
-        )}
-      </PageHead>
-
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Filters</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField
-            name="roleCode"
-            label="Role Code"
-            placeholder="Fuzzy match"
-            register={register('roleCode')}
-          />
-          <FormField
-            name="roleName"
-            label="Role Name"
-            placeholder="Fuzzy match"
-            register={register('roleName')}
-          />
+      {/* 页头（原型 PageHeader：标题 + 描述）。 */}
+      <div>
+        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          System
         </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            Reset
-          </Button>
-        </div>
-      </form>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          emptyMessage="No data"
-          pagination={
-            paginationMeta
-              ? {
-                  page: paginationMeta.page,
-                  pageSize: paginationMeta.pageSize,
-                  total: paginationMeta.total,
-                  onPageChange: setPageNum,
-                  onPageSizeChange: (n) => {
-                    setPageSize(n);
-                    setPageNum(1);
-                  },
-                }
-              : undefined
-          }
-        />
+        <h1 className="text-xl font-semibold">Role Management</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage roles, their status, and the menus they grant to users.
+        </p>
       </div>
+
+      {/* 统计卡（原型 StatGrid：Total Roles / Active / Inactive）。 */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Total Roles" value={stats.total} tone="success" />
+        <StatCard label="Active" value={stats.active} tone="success" />
+        <StatCard label="Inactive" value={stats.inactive} tone="warning" />
+      </div>
+
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6 text-foreground">
+              Roles
+            </div>
+            {data && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {paginationMeta?.total ?? 0} results
+              </span>
+            )}
+            {dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatUtc8(dataUpdatedAt)}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <ColumnPicker
+              columns={ROLE_COLUMNS}
+              isColumnVisible={columnPreferences.isColumnVisible}
+              onColumnVisibilityChange={columnPreferences.setColumnVisible}
+              onReset={columnPreferences.resetColumns}
+            />
+            {/* 源 v-perm="'bank:role:manage'"：未命中 menuKeys 即不渲染。 */}
+            {hasPerm('bank:role:manage') && (
+              <Button onClick={() => router.push(`${ROLE_BASE}/create`)}>
+                Create Role
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* 原型 Filters embedded：Role Code/Role Name/Status 服务端即时检索；
+            Type 本地过滤当前页（RoleListReq 无该参数）。 */}
+        <form
+          onSubmit={(e) => e.preventDefault()}
+          className="border-b border-border/50 px-4 py-3"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField
+              name="roleCode"
+              label="Role Code"
+              register={register('roleCode')}
+            />
+            <FormField
+              name="roleName"
+              label="Role Name"
+              register={register('roleName')}
+            />
+            <FormSelect
+              name="roleType"
+              control={control}
+              label="Type"
+              options={typeSelectOptions}
+              placeholder="All"
+            />
+            <FormSelect
+              name="status"
+              control={control}
+              label="Status"
+              options={statusSelectOptions}
+              placeholder="All"
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!hasFilter}
+              onClick={onReset}
+            >
+              Reset
+            </Button>
+          </div>
+        </form>
+
+        <div className="p-4">
+          <DataTable
+            columns={visibleColumns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No roles found. Try adjusting the filters, or create the first custom role."
+            pagination={
+              paginationMeta
+                ? {
+                    page: paginationMeta.page,
+                    pageSize: paginationMeta.pageSize,
+                    total: paginationMeta.total,
+                    onPageChange: setPageNum,
+                    onPageSizeChange: (n) => {
+                      setPageSize(n);
+                      setPageNum(1);
+                    },
+                  }
+                : undefined
+            }
+          />
+        </div>
+      </section>
 
       <AssignMenuDialog
         role={assignTarget}
@@ -614,29 +904,27 @@ export function RoleListPage() {
         onOpenChange={setAssignOpen}
       />
 
-      <AlertDialog
+      {/* 删除确认（原型 ROLE_ACTION_CONFIG.delete 文案逐字；ActionConfirmDialog）。 */}
+      <ActionConfirmDialog
         open={deleteTarget != null}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Role</AlertDialogTitle>
-            <AlertDialogDescription>
-              Delete role &quot;{deleteTarget?.roleName}&quot;? Roles referenced by users
-              cannot be deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={onConfirmDelete}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        icon={Trash2}
+        tone="danger"
+        title={ROLE_DELETE_CONFIG.title}
+        body1={
+          deleteTarget
+            ? ROLE_DELETE_CONFIG.body1(
+                deleteTarget.roleName,
+                deleteTarget.roleCode,
+              )
+            : null
+        }
+        body2={ROLE_DELETE_CONFIG.body2}
+        confirmLabel={ROLE_DELETE_CONFIG.confirmLabel}
+        variant="destructive"
+        loading={removeMutation.isPending}
+        onConfirm={onConfirmDelete}
+      />
     </div>
   );
 }
@@ -826,6 +1114,8 @@ export function RoleDetailPage() {
   const detailQuery = useRoleDetailQuery(KISSEN_GATEWAY_PROJECT_ID, roleId);
   const menuTreeQuery = useMenuTreeQuery(KISSEN_GATEWAY_PROJECT_ID);
 
+  const [assignOpen, setAssignOpen] = React.useState(false);
+
   const detail = detailQuery.data;
   const tree = menuTreeQuery.data ?? [];
   const leafIdSet = React.useMemo(() => new Set(menuLeafIds(tree)), [tree]);
@@ -837,27 +1127,65 @@ export function RoleDetailPage() {
   );
 
   return (
-    <div className="space-y-4">
-      <PageHead variant="toolbar" title="Role Detail">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => router.push(ROLE_BASE)}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to List
-        </Button>
-      </PageHead>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex items-start gap-3">
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Back to list"
+            onClick={() => router.push(ROLE_BASE)}
+          >
+            <ChevronLeft className="size-4" aria-hidden="true" />
+          </Button>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold leading-7 text-foreground">
+                Role Details
+              </h1>
+              {detail ? (
+                <ProtoStatusBadge
+                  label={protoStatusText(PROTO_ROLE_STATUS, detail.status)}
+                  tone={ROLE_STATUS_TONES[detail.status] ?? 'muted'}
+                />
+              ) : null}
+            </div>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-muted-foreground">
+              <span>
+                Role Code:{' '}
+                <span className="font-medium text-foreground">
+                  {detail?.roleCode ?? '-'}
+                </span>
+              </span>
+              <span aria-hidden="true">|</span>
+              <span>
+                Created on{' '}
+                <span className="font-medium tabular-nums text-foreground">
+                  {formatUtc8(detail?.createTime)}
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+        {detail && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {/* 原型还有 Deactivate/Activate/Edit Role/Delete；本仓角色启停无端点
+                （RoleUpdateReq 无 status），编辑走列表 ⋮，删除回列表操作。 */}
+            <Button variant="outline" onClick={() => setAssignOpen(true)}>
+              Assign Menus
+            </Button>
+          </div>
+        )}
+      </div>
 
       {roleId == null ? (
         <MissingIdBlock message="Missing a valid role ID" backTo={ROLE_BASE} />
       ) : detailQuery.isLoading ? (
-        <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <div className="rounded-lg border border-border/60 bg-card p-6">
           <LoadingBlock />
         </div>
       ) : detailQuery.isError ? (
-        <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <div className="rounded-lg border border-border/60 bg-card p-6">
           <ErrorBlock
             message={(detailQuery.error as Error).message}
             onRetry={() => detailQuery.refetch()}
@@ -865,46 +1193,63 @@ export function RoleDetailPage() {
         </div>
       ) : detail ? (
         <>
-          <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-            <DescGrid>
-              <DescField label="Role Code">{detail.roleCode}</DescField>
-              <DescField label="Role Name">{detail.roleName}</DescField>
-              <DescField label="Type">
-                <Badge variant={roleTypeVariant(detail.roleType)}>
-                  {roleTypeText(detail.roleType)}
-                </Badge>
-              </DescField>
-              <DescField label="Status">
-                <Badge variant={roleStatusVariant(detail.status)}>
-                  {roleStatusText(detail.status)}
-                </Badge>
-              </DescField>
-              <DescField label="Remarks">{orDash(detail.remarks)}</DescField>
-              <DescField label="Created At">{formatTime(detail.createTime)}</DescField>
-            </DescGrid>
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            <section className="rounded-lg border border-border/60 bg-card p-5">
+              <h2 className="mb-4 text-sm font-semibold text-foreground">
+                Basic Information
+              </h2>
+              <DescGrid>
+                <DescField label="Role Name">{detail.roleName}</DescField>
+                <DescField label="Type">
+                  <Badge variant={roleTypeVariant(detail.roleType)}>
+                    {roleTypeText(detail.roleType)}
+                  </Badge>
+                </DescField>
+                <DescField label="Description">
+                  {orDash(detail.remarks)}
+                </DescField>
+              </DescGrid>
+            </section>
+
+            {/* STATIC-FILLER(GAP-GW-07): 原型 Role Activity（Assigned Users 头像
+                chip 列）依赖「角色→用户」反查接口，本仓无该端点，卡片整体省略。 */}
+
+            <section className="rounded-lg border border-border/60 bg-card p-5 lg:col-span-2">
+              <div className="mb-4 flex items-baseline gap-3">
+                <h2 className="text-sm font-semibold text-foreground">
+                  Assigned Menus
+                </h2>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {checkedIds.size} menus
+                </span>
+              </div>
+              {menuTreeQuery.isLoading ? (
+                <LoadingBlock />
+              ) : checkedIds.size === 0 ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  No assigned menus
+                </div>
+              ) : (
+                <div className="max-h-72 overflow-y-auto">
+                  {tree.map((node) => (
+                    <MenuCheckNode
+                      key={node.menuId}
+                      node={node}
+                      checked={checkedIds}
+                      readOnly
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
 
-          <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-            <div className="mb-3 text-sm font-semibold">Assigned Menus</div>
-            {menuTreeQuery.isLoading ? (
-              <LoadingBlock />
-            ) : checkedIds.size === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                No assigned menus
-              </div>
-            ) : (
-              <div className="max-h-72 overflow-y-auto">
-                {tree.map((node) => (
-                  <MenuCheckNode
-                    key={node.menuId}
-                    node={node}
-                    checked={checkedIds}
-                    readOnly
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          {/* 分配菜单（保留源弹窗形态：回显 /role/menuIds，保存 assign-menu）。 */}
+          <AssignMenuDialog
+            role={detail}
+            open={assignOpen}
+            onOpenChange={setAssignOpen}
+          />
         </>
       ) : null}
     </div>

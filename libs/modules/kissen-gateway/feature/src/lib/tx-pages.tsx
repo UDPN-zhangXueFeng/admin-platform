@@ -6,7 +6,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { ColumnDef } from '@tanstack/react-table';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+} from 'lucide-react';
 
 import {
   Badge,
@@ -24,7 +29,6 @@ import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
-  TX_STATUS_OPTIONS,
   exportTx,
   txBankRoleText,
   txBankRoleVariant,
@@ -34,8 +38,6 @@ import {
   txMsgTypeVariant,
   txProcessStatusText,
   txProcessStatusVariant,
-  txStatusText,
-  txStatusVariant,
   useFxViewQuery,
   useTxChain,
   useTxDetail,
@@ -49,6 +51,22 @@ import {
 
 import { DescField, DescGrid } from './desc-grid';
 import { OPT_ALL, fmtAmount, formatTime, orDash, toEpochMs } from './kit';
+import { CopyableId, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
+import { formatRate, formatTokenAmount, formatUtc8 } from './proto-format';
+import {
+  PROTO_TX_STATUS,
+  protoStatusRank,
+  protoStatusText,
+} from './proto-enums';
+import {
+  ColumnPicker,
+  SortHeader,
+  compareProtoValues,
+  filterVisibleColumns,
+  useColumnPreferences,
+  useTableSort,
+  type ProtoColumnDef,
+} from './proto-table';
 import { useGatewayPerm } from './use-gateway-perm';
 
 /**
@@ -156,7 +174,6 @@ function nz(v: string): string | undefined {
   return t ? t : undefined;
 }
 
-/** RHF 筛选表单 → 后端 TxListReq（源 buildReq：a9dc10e 加 txNo/pairId/From/To/LP 五项；时间→毫秒）。 */
 function formToFilter(form: TxFilterForm): TxListReq {
   return {
     txNo: nz(form.txNo),
@@ -165,13 +182,52 @@ function formToFilter(form: TxFilterForm): TxListReq {
     receiverAccount: nz(form.receiverAccount),
     lpName: nz(form.lpName),
     status: form.status === OPT_ALL ? undefined : Number(form.status),
-    startTime: toEpochMs(form.startTime),
-    endTime: toEpochMs(form.endTime),
+    /* 原型 DateRangeField 日粒度：from 当日 00:00 / to 当日 23:59（含全天）。 */
+    startTime: form.startTime ? toEpochMs(`${form.startTime}T00:00`) : undefined,
+    endTime: form.endTime ? toEpochMs(`${form.endTime}T23:59`) : undefined,
   };
 }
 
 /** 源分页 pageSize 固定 10（el-pagination layout 无 sizes/jumper）。 */
 const TX_PAGE_SIZE = 10;
+
+/* ─────────────── 列表：列契约 / 状态色 / 列偏好（原型 TransactionRecordsPage） ─────────────── */
+
+/** 列契约（原型 COLUMNS 逐字；LP Name 默认隐藏，GAP 登记外的原型默认）。 */
+const TX_COLUMNS: ProtoColumnDef[] = [
+  { id: 'transactionNo', label: 'Transaction No.', required: true },
+  { id: 'tokens', label: 'Tokens' },
+  { id: 'from', label: 'From' },
+  { id: 'to', label: 'To' },
+  { id: 'fxRate', label: 'FX Rate' },
+  { id: 'lp', label: 'LP Name', defaultVisible: false },
+  { id: 'createdAt', label: 'Created on (UTC+8)', required: true },
+  { id: 'status', label: 'Status', required: true },
+  { id: 'actions', label: 'Actions', required: true },
+];
+
+/** 列偏好 localStorage 键（原型 useTableColumnPreferences 同语义）。 */
+const TX_COLUMN_PREF_KEY = 'gw.tx-list.columns';
+
+/**
+ * 状态码 → 徽章语义色（13 态生命周期分层；35/40 成功、50/60 冲正警示、
+ * 70/90 异常失败、80 取消灰、其余流转中 info）。原型徽章带点，走 ProtoStatusBadge。
+ */
+const TX_STATUS_TONES: Record<number, ProtoStatusTone> = {
+  1: 'info',
+  5: 'info',
+  10: 'info',
+  20: 'info',
+  25: 'info',
+  30: 'info',
+  35: 'success',
+  40: 'success',
+  50: 'warning',
+  60: 'warning',
+  70: 'danger',
+  80: 'muted',
+  90: 'danger',
+};
 
 /** 列表 → 详情行数据暂存前缀（源 openDetail 先用行数据立即渲染，接口返回后覆盖）。 */
 const TX_STASH_PREFIX = 'kissen-gateway.tx.seed.';
@@ -278,7 +334,7 @@ export function TxListPage() {
   const router = useRouter();
   const toast = useToast();
   const hasPerm = useGatewayPerm();
-  const { register, handleSubmit, reset, control } = useForm<TxFilterForm>({
+  const { register, reset, control, watch } = useForm<TxFilterForm>({
     resolver: zodResolver(txFilterSchema),
     defaultValues: TX_FILTER_DEFAULT,
   });
@@ -288,6 +344,11 @@ export function TxListPage() {
   );
   const [pageNum, setPageNum] = React.useState(1);
   const [exporting, setExporting] = React.useState(false);
+  const { sort, toggle } = useTableSort('createdAt', 'desc');
+  const columnPreferences = useColumnPreferences(
+    TX_COLUMN_PREF_KEY,
+    TX_COLUMNS,
+  );
 
   const { data, isLoading, isError, error, refetch, dataUpdatedAt } = useTxPage({
     pageNum,
@@ -319,10 +380,34 @@ export function TxListPage() {
     }
   }, [isError, error, refetch, toast]);
 
-  const onSubmit = React.useCallback((form: TxFilterForm) => {
-    setFilter(formToFilter(form));
-    setPageNum(1);
-  }, []);
+  /* 原型 Filters embedded：输入即时生效（300ms 防抖回写服务端检索 + 回页 1），
+   * 无 Query/搜索按钮；Reset 一键清空（token/fx 页同款口径）。 */
+  const filterTimer = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    const subscription = watch((values) => {
+      if (filterTimer.current != null) window.clearTimeout(filterTimer.current);
+      filterTimer.current = window.setTimeout(() => {
+        setFilter(formToFilter(values as TxFilterForm));
+        setPageNum(1);
+      }, 300);
+    });
+    return () => {
+      subscription.unsubscribe();
+      if (filterTimer.current != null) window.clearTimeout(filterTimer.current);
+    };
+  }, [watch]);
+
+  /** 渲染期订阅：筛选表单任一值变化即重算 hasFilter（Reset 置灰态即时跟随）。 */
+  const watched = watch();
+  const hasFilter =
+    (watched.txNo ?? '').trim() !== '' ||
+    (watched.senderAccount ?? '').trim() !== '' ||
+    (watched.receiverAccount ?? '').trim() !== '' ||
+    (watched.lpName ?? '').trim() !== '' ||
+    (watched.pairId ?? OPT_ALL) !== OPT_ALL ||
+    (watched.status ?? OPT_ALL) !== OPT_ALL ||
+    (watched.startTime ?? '') !== '' ||
+    (watched.endTime ?? '') !== '';
 
   const onReset = React.useCallback(() => {
     reset(TX_FILTER_DEFAULT);
@@ -333,7 +418,7 @@ export function TxListPage() {
   /**
    * 导出 Excel（源 onExport，eafcab0 起 CSV→xlsx）：POST /tx/export blob 直通，
    * 按当前筛选条件全量导出（列表与导出共用同一 filter 口径，即源 buildReq），
-   * 文件名 `tx-export-{Date.now()}.xlsx`。
+   * 文件名 `tx-export-{Date.now()}.xlsx`。有意偏差：原型为 Export CSV，本仓保留 xlsx。
    */
   const onExport = React.useCallback(async () => {
     setExporting(true);
@@ -365,8 +450,14 @@ export function TxListPage() {
     [router],
   );
 
+  /** Status 筛选 options：13 态全表按生命周期 rank 排序（AGENTS.md §3.3.4，不按字母）。 */
   const statusSelectOptions = React.useMemo(
-    () => [{ value: OPT_ALL, label: 'All Statuses' }, ...TX_STATUS_OPTIONS],
+    () => [
+      { value: OPT_ALL, label: 'All' },
+      ...Object.entries(PROTO_TX_STATUS)
+        .sort(([, a], [, b]) => a.rank - b.rank)
+        .map(([code, meta]) => ({ value: code, label: meta.text })),
+    ],
     [],
   );
   /** Tokens 筛选下拉（源 pairLabel：symbol 缺省回退 code，双侧 + 银行后缀）。 */
@@ -386,36 +477,64 @@ export function TxListPage() {
     [pairMap],
   );
 
+  /* 排序：服务端 /tx/page 无排序参数——当前页内排序（可排键白名单与原型一致：
+   * transactionNo / fxRate / lp / createdAt；默认 createdAt desc）。 */
+  const sortAccessors = React.useMemo<
+    Record<string, (r: TxRecord) => string | number | null | undefined>
+  >(
+    () => ({
+      transactionNo: (r) => r.txNo || r.txUuid || String(r.transactionId),
+      fxRate: (r) => pairViewOf(r.pairId, pairMap)?.rate?.userRate,
+      lp: (r) => (r.lpNames?.length ? r.lpNames.join(', ') : undefined),
+      createdAt: (r) => r.createTime,
+    }),
+    [pairMap],
+  );
+  const sortedRows = React.useMemo(() => {
+    const accessor = sort.key ? sortAccessors[sort.key] : undefined;
+    if (!accessor) return rows;
+    const dir = sort.direction === 'desc' ? -1 : 1;
+    return [...rows].sort(
+      (a, b) => compareProtoValues(accessor(a), accessor(b)) * dir,
+    );
+  }, [rows, sort, sortAccessors]);
+
+  const tableData = React.useMemo(
+    () => sortedRows.map((r) => ({ ...r, id: String(r.recordId) })),
+    [sortedRows],
+  );
 
   /**
-   * 列序对齐 UDPN 评审建议（39c8a2b）：Transaction No. / tokens / From / To /
-   * FX Rate / LP / Status / Creation On / Action；源端·目标端交易ID 与本行角色/
-   * 银行/本金/待处理单列移入详情页（详情 Descriptions 已覆盖）。
+   * 列序对齐 BP 原型 COLUMNS 逐字：Transaction No. / Tokens / From / To /
+   * FX Rate / LP Name（默认隐藏）/ Created on (UTC+8) / Status / Actions；
+   * 源端·目标端交易 ID 与本行角色/银行/本金/待处理单列移入详情页。
    */
   const columns = React.useMemo<ColumnDef<TxRecord & { id: string }>[]>(() => {
     return [
       {
-        id: 'txNo',
-        header: 'Transaction No.',
+        id: 'transactionNo',
+        header: (
+          <SortHeader
+            label="Transaction No."
+            direction={sort.key === 'transactionNo' ? sort.direction : null}
+            onToggle={() => toggle('transactionNo')}
+          />
+        ),
         cell: ({ row }) => (
-          <div className="inline-flex min-w-0 items-center font-mono">
-            <CopyableEllipsisText
-              value={
+          <div className="inline-flex min-w-0 items-center gap-1 font-mono">
+            <CopyableId
+              value={String(
                 row.original.txNo ||
-                row.original.txUuid ||
-                row.original.transactionId
-              }
-              maxWidth={180}
-              truncate="middle"
-              emptyText="-"
-              className="font-mono"
+                  row.original.txUuid ||
+                  row.original.transactionId,
+              )}
             />
             {/* 源 f5009b3：selfTrade 追加「自转」warning plain 小 tag + tooltip（Badge 不转发 ref，asChild 需原生 span）。 */}
             {row.original.selfTrade && (
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="ml-1 inline-flex cursor-default align-middle">
+                    <span className="inline-flex cursor-default align-middle">
                       <Badge
                         variant="outline"
                         className="border-amber-300 px-1.5 text-[10px] text-amber-700 dark:border-amber-700 dark:text-amber-400"
@@ -448,7 +567,6 @@ export function TxListPage() {
           const pair = view.tokenPair;
           return (
             <div>
-              {/* 57f6ca0：pairCode 等宽小字随全站 pairCode 展示移除。 */}
               {/* 源 pair-cell：双侧「tag + 下方 11px 灰字 bankCode」纵排（token + Bank）。 */}
               <div className="flex items-center gap-2">
                 <div className="flex flex-col items-center gap-0.5">
@@ -478,116 +596,137 @@ export function TxListPage() {
       },
       {
         id: 'from',
-        header: 'From (Wallet / Amount)',
+        header: 'From',
         meta: { overflow: 'none' },
         cell: ({ row }) => {
           const pair = pairViewOf(row.original.pairId, pairMap)?.tokenPair;
+          const sym = pair?.sourceTokenSymbol || pair?.sourceTokenCode || '-';
           return (
-            <div>
-              {/* 钱包地址为主（中间省略+可复制，§7-43②），存量/缺地址回退银行名。 */}
-              {row.original.senderAccount ? (
-                <CopyableEllipsisText
-                  value={row.original.senderAccount}
-                  maxWidth={240}
-                  truncate="middle"
-                  emptyText="-"
-                  className="font-mono"
-                />
-              ) : (
-                <span>{row.original.senderBankName || '-'}</span>
-              )}
-              {/* ddd9fe2：下行金额改扣款口径 userDeduction（用户实际扣减，源币种，
-                  含汇率加价承担；缺失 muted '-'；principal 仅为换算基准值不展示）。 */}
-              <div className="mt-0.5 text-xs tabular-nums">
+            <div className="min-w-0">
+              {/* 原型 WalletAmountCell：金额行在上（ddd9fe2 扣款口径 userDeduction，源币种）。 */}
+              <div className="text-sm font-medium tabular-nums">
                 {row.original.userDeduction != null ? (
                   <>
-                    {fmtAmount(row.original.userDeduction)}{' '}
-                    {pair?.sourceTokenSymbol || pair?.sourceTokenCode || '-'}
+                    {formatTokenAmount(row.original.userDeduction)} {sym}
                   </>
                 ) : (
                   <span className="text-muted-foreground/60">-</span>
                 )}
               </div>
+              {/* 地址行在下（中间省略+可复制，§7-43②），缺地址回退银行名。 */}
+              {row.original.senderAccount ? (
+                <CopyableId value={row.original.senderAccount} />
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  {row.original.senderBankName || '-'}
+                </div>
+              )}
             </div>
           );
         },
       },
       {
         id: 'to',
-        header: 'To (Wallet / Amount)',
+        header: 'To',
         meta: { overflow: 'none' },
         cell: ({ row }) => {
           const pair = pairViewOf(row.original.pairId, pairMap)?.tokenPair;
+          const sym = pair?.targetTokenSymbol || pair?.targetTokenCode || '-';
           return (
-            <div>
-              {row.original.receiverAccount ? (
-                <CopyableEllipsisText
-                  value={row.original.receiverAccount}
-                  maxWidth={240}
-                  truncate="middle"
-                  emptyText="-"
-                  className="font-mono"
-                />
-              ) : (
-                <span>{row.original.receivingBankName || '-'}</span>
-              )}
-              {/* a9dc10e：到账金额不再恒 '-'——receiverAmount!=null（目标端 G-5 落账）
-                  显 `金额 + 目标币种`，未同步保持 muted '-'。 */}
-              <div className="mt-0.5 text-xs tabular-nums">
+            <div className="min-w-0">
+              {/* a9dc10e：到账金额 receiverAmount（目标端 G-5 落账，未同步 '-'）。 */}
+              <div className="text-sm font-medium tabular-nums">
                 {row.original.receiverAmount != null ? (
                   <>
-                    {fmtAmount(row.original.receiverAmount)}{' '}
-                    {pair?.targetTokenSymbol || pair?.targetTokenCode || '-'}
+                    {formatTokenAmount(row.original.receiverAmount)} {sym}
                   </>
                 ) : (
                   <span className="text-muted-foreground/60">-</span>
                 )}
               </div>
+              {row.original.receiverAccount ? (
+                <CopyableId value={row.original.receiverAccount} />
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  {row.original.receivingBankName || '-'}
+                </div>
+              )}
             </div>
           );
         },
       },
       {
         id: 'fxRate',
-        header: 'FX Rate',
+        header: (
+          <SortHeader
+            label="FX Rate"
+            direction={sort.key === 'fxRate' ? sort.direction : null}
+            onToggle={() => toggle('fxRate', 'desc')}
+            numeric
+          />
+        ),
         cell: ({ row }) => {
           /* 快照口径非成交时点（源 pairRateOf）：未推送/未知 '-'。 */
           const rate = pairViewOf(row.original.pairId, pairMap)?.rate;
           return (
             <span className="block text-right tabular-nums">
-              {rate?.userRate == null
-                ? '-'
-                : Number(rate.userRate).toFixed(4)}
+              {rate?.userRate == null ? '-' : formatRate(rate.userRate)}
             </span>
           );
         },
       },
       {
         id: 'lp',
-        header: 'LP',
-        cell: ({ row }) =>
-          row.original.lpNames?.length ? (
-            <span className="flex flex-wrap gap-1.5">
-              {row.original.lpNames.map((name) => (
-                <Badge key={name} variant="secondary">
-                  {name}
-                </Badge>
-              ))}
+        header: (
+          <SortHeader
+            label="LP Name"
+            direction={sort.key === 'lp' ? sort.direction : null}
+            onToggle={() => toggle('lp')}
+          />
+        ),
+        cell: ({ row }) => {
+          /* 原型 TruncateCell：单行截断文本（title 悬浮全量），非徽章。 */
+          const lp = row.original.lpNames?.length
+            ? row.original.lpNames.join(', ')
+            : null;
+          return lp ? (
+            <span className="block max-w-[180px] truncate" title={lp}>
+              {lp}
             </span>
           ) : (
             <span>-</span>
-          ),
+          );
+        },
+      },
+      {
+        id: 'createdAt',
+        header: (
+          <SortHeader
+            label="Created on (UTC+8)"
+            direction={sort.key === 'createdAt' ? sort.direction : null}
+            onToggle={() => toggle('createdAt', 'desc')}
+          />
+        ),
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatUtc8(row.original.createTime)}
+          </span>
+        ),
       },
       {
         id: 'status',
         header: 'Status',
-        cell: ({ row }) => (
-          <span className="inline-flex items-center gap-1">
-            <Badge variant={txStatusVariant(row.original.status)}>
-              {txStatusText(row.original.status)}
-            </Badge>
-            {/* 待处理不再单列，收进状态旁小号 warning 角标（Badge 不转发 ref，asChild 需原生 span）。 */}
-            {row.original.pendingFlag === 1 && (
+        cell: ({ row }) => {
+          const badge = (
+            <ProtoStatusBadge
+              label={protoStatusText(PROTO_TX_STATUS, row.original.status)}
+              tone={TX_STATUS_TONES[row.original.status] ?? 'muted'}
+            />
+          );
+          /* 待处理不单列，收进状态旁小号 warning 角标（源有、原型无——保留）。 */
+          return row.original.pendingFlag === 1 ? (
+            <span className="inline-flex items-center gap-1">
+              {badge}
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -605,18 +744,11 @@ export function TxListPage() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-            )}
-          </span>
-        ),
-      },
-      {
-        id: 'createTime',
-        header: 'Creation On',
-        cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatTime(row.original.createTime)}
-          </span>
-        ),
+            </span>
+          ) : (
+            badge
+          );
+        },
       },
       {
         id: 'actions',
@@ -628,20 +760,37 @@ export function TxListPage() {
             className="h-auto p-0"
             onClick={() => onView(row.original)}
           >
-            View
+            Details
           </Button>
         ),
       },
     ];
-  }, [onView, pairMap]);
+  }, [onView, pairMap, sort, toggle]);
 
-  const tableData = React.useMemo(
-    () => rows.map((r) => ({ ...r, id: String(r.recordId) })),
-    [rows],
+  /* 列偏好：required 列恒显，其余按用户选择过滤（LP Name 默认隐藏）。 */
+  const visibleColumns = React.useMemo(
+    () =>
+      filterVisibleColumns(
+        columns,
+        TX_COLUMNS,
+        columnPreferences.isColumnVisible,
+      ),
+    [columns, columnPreferences],
   );
 
   return (
     <div className="space-y-4">
+      {/* 页头（原型 PageHeader：标题 + 一句话口径）。 */}
+      <div>
+        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          Transaction
+        </div>
+        <h1 className="text-xl font-semibold">Transaction Records</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Transactions this bank instance has recorded locally, with the
+          status returned by Kissen.
+        </p>
+      </div>
 
       <section className="rounded-lg border border-border/60 bg-card">
         {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + 页面级操作右置。 */}
@@ -657,26 +806,39 @@ export function TxListPage() {
             )}
             {dataUpdatedAt ? (
               <span className="text-xs text-muted-foreground tabular-nums">
-                Updated {formatTime(dataUpdatedAt)}
+                Updated {formatUtc8(dataUpdatedAt)}
               </span>
             ) : null}
           </div>
-          {/* 源 page-head-actions 的导出按钮：v-perm 'bank:tx:export' 未命中不渲染。 */}
-          {hasPerm(TX_EXPORT_PERM) && (
-            <Button variant="outline" disabled={exporting} onClick={onExport}>
-              {exporting && <Loader2 className="motion-safe:animate-spin" />}
-              Export Excel
-            </Button>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            <ColumnPicker
+              columns={TX_COLUMNS}
+              isColumnVisible={columnPreferences.isColumnVisible}
+              onColumnVisibilityChange={columnPreferences.setColumnVisible}
+              onReset={columnPreferences.resetColumns}
+            />
+            {/* 源 page-head-actions 的导出按钮：v-perm 'bank:tx:export' 未命中不渲染。 */}
+            {hasPerm(TX_EXPORT_PERM) && (
+              <Button
+                variant="outline"
+                disabled={exporting}
+                onClick={onExport}
+              >
+                {exporting && <Loader2 className="motion-safe:animate-spin" />}
+                Export Excel
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* §6.2 Filter Bar：3–4 列栅格；Search 主动作、Reset 次动作。 */}
+        {/* §6.2 Filter Bar（原型 Filters embedded：即时生效，无 Query 按钮）。
+            GAP-GW-04：/tx/page filter 的 txNo/from/to/lp 匹配语义（精确或模糊）待与
+            后端核对——占位文案不承诺「模糊」；completedOn 字段待核对（原型列集无该列）。 */}
         <form
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={(e) => e.preventDefault()}
           className="border-b border-border/50 px-4 py-3"
         >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {/* a9dc10e：筛选扩容（源 7 控件；文本输入回车即提交 form）。 */}
             <FormField
               name="txNo"
               label="Transaction No."
@@ -701,7 +863,7 @@ export function TxListPage() {
             />
             <FormField
               name="lpName"
-              label="LP"
+              label="LP Name"
               register={register('lpName')}
             />
             <FormSelect
@@ -709,25 +871,30 @@ export function TxListPage() {
               control={control}
               label="Status"
               options={statusSelectOptions}
-              placeholder="All Statuses"
+              placeholder="All"
             />
+            {/* 原型 DateRangeField：日粒度 Creation Date（from→T00:00 / to→T23:59，见 formToFilter）。 */}
             <FormField
               name="startTime"
-              label="Start Time"
-              type="datetime-local"
+              label="Created From"
+              type="date"
               register={register('startTime')}
             />
             <FormField
               name="endTime"
-              label="End Time"
-              type="datetime-local"
+              label="Created To"
+              type="date"
               register={register('endTime')}
             />
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="submit">Search</Button>
-            <Button type="button" variant="outline" onClick={onReset}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!hasFilter}
+              onClick={onReset}
+            >
               Reset
             </Button>
           </div>
@@ -735,10 +902,10 @@ export function TxListPage() {
 
         <div className="p-4">
           <DataTable
-            columns={columns}
+            columns={visibleColumns}
             data={tableData}
             isLoading={isLoading}
-            emptyMessage="No transactions found"
+            emptyMessage="No transactions found. Try adjusting the filters."
           />
           <TxPager total={total} pageNum={pageNum} onPageChange={setPageNum} />
         </div>
@@ -972,6 +1139,12 @@ export function TxDetailPage() {
   );
   const record = detailData ?? seed;
   const recordPair = pairViewOf(record?.pairId, pairMap)?.tokenPair;
+  /* Settlement Overview 派生：源/目标 symbol、最新汇率快照（列表同源 pairMap）。 */
+  const srcSymbol =
+    recordPair?.sourceTokenSymbol || recordPair?.sourceTokenCode || null;
+  const tgtSymbol =
+    recordPair?.targetTokenSymbol || recordPair?.targetTokenCode || null;
+  const rateValue = pairViewOf(record?.pairId, pairMap)?.rate?.userRate ?? null;
 
   const toast = useToast();
   React.useEffect(() => {
@@ -1016,28 +1189,27 @@ export function TxDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* §6.3 Hero Summary：a9dc10e 标识 txNo 优先（回退 txUuid/#id，中间省略可复制）
-          + 状态 + 待处理角标；「返回列表」显式回 /tx（源 router.push('/tx/list')）。 */}
-      <section className="rounded-lg border border-border/60 bg-card panel-pad">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+      {/* §6.3 Hero Summary（原型 PageHeader）：返回 + 标题 + 状态徽章（带点）+
+          待处理角标 + 元信息行（Transaction No. | Created on）。 */}
+      <div className="flex items-start gap-3">
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Back to list"
+          onClick={() => router.push('/tx')}
+        >
+          <ChevronLeft className="size-4" aria-hidden="true" />
+        </Button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold leading-7 text-foreground">
-              Transaction Detail
+              Transaction Details
             </h1>
-            <CopyableEllipsisText
-              value={
-                record?.txNo ||
-                record?.txUuid ||
-                (transactionId != null ? `#${transactionId}` : null)
-              }
-              emptyText="-"
-              truncate="middle"
-              className="t-identifier text-foreground"
-            />
             {record ? (
-              <Badge variant={txStatusVariant(record.status)}>
-                {txStatusText(record.status)}
-              </Badge>
+              <ProtoStatusBadge
+                label={protoStatusText(PROTO_TX_STATUS, record.status)}
+                tone={TX_STATUS_TONES[record.status] ?? 'muted'}
+              />
             ) : null}
             {record?.pendingFlag === 1 ? (
               <Badge
@@ -1048,209 +1220,192 @@ export function TxDetailPage() {
               </Badge>
             ) : null}
           </div>
-          <Button variant="outline" size="sm" onClick={() => router.push('/tx')}>
-            Back to List
-          </Button>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <span className="inline-flex items-baseline gap-1.5">
+              Transaction No.:
+              <span className="font-medium text-foreground">
+                <CopyableId
+                  value={String(
+                    record?.txNo ||
+                      record?.txUuid ||
+                      (transactionId != null ? transactionId : ''),
+                  )}
+                />
+              </span>
+            </span>
+            <span aria-hidden="true">|</span>
+            <span>
+              Created on{' '}
+              <span className="font-medium tabular-nums text-foreground">
+                {formatUtc8(record?.createTime)}
+              </span>
+            </span>
+          </div>
         </div>
-      </section>
+      </div>
 
-      {/* a9dc10e 布局：左主栏 = 基本信息 + 报文留痕；右侧栏 = 交易链路（源 detail-layout 交换）。 */}
-      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      {/* 原型 3/5-2/5 双栏：左 = Settlement Overview + Transaction Information；
+          右 = Transaction Log + Transaction Chain（源报文留痕/链路两卡，真实信息量
+          大于原型，保留为超集——见 GAP-GW-08 说明）。 */}
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="min-w-0 space-y-6">
           {record ? (
-            <section className="rounded-lg border border-border/60 bg-card panel-pad">
-              {/* §6.3 分层：核心信息 — 账户与路由 — 审计信息；长文本（账户/UUID/原因）占行。
-                  a9dc10e 字段对齐：Tokens 双 tag / 到账金额 / 付款·收款银行 / LP tags / 交易 UUID
-                  （Record ID/Pair ID 上游详情无，随批移除）。 */}
-              <div className="flex flex-col gap-5">
-                <div>
-                  <h2 className="mb-2.5 text-sm font-semibold text-foreground">
-                    Overview
-                  </h2>
+            <>
+              {/* ① Settlement Overview（原型 Card：Sent | rate/swap/LP | Received）。 */}
+              <section className="rounded-lg border border-border/60 bg-card panel-pad">
+                <h2 className="mb-4 text-sm font-semibold text-foreground">
+                  Settlement Overview
+                </h2>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+                  {/* Sent（原型 subtle 块；ddd9fe2 扣款口径 userDeduction + 源币种）。 */}
+                  <div className="min-w-0 flex-1 rounded-lg bg-muted/40 p-4">
+                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Sent Amount
+                    </div>
+                    <div className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                      {record.userDeduction != null ? (
+                        <>
+                          {formatTokenAmount(record.userDeduction)}{' '}
+                          {srcSymbol || '-'}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground/60">-</span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {record.senderBankName || '-'}
+                    </div>
+                  </div>
+                  {/* 中列：汇率盒（快照口径，未推送 '-'）+ ⇄ + LP 名。 */}
+                  <div className="flex shrink-0 flex-col items-center justify-center gap-2 lg:w-48">
+                    <div className="rounded-md border border-border/70 px-3 py-2 text-center font-mono text-xs text-foreground">
+                      1 {srcSymbol || '-'} ={' '}
+                      {rateValue != null ? formatRate(rateValue) : '-'}{' '}
+                      {tgtSymbol || '-'}
+                    </div>
+                    <span
+                      className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary"
+                      aria-hidden="true"
+                    >
+                      <ArrowLeftRight className="size-4" />
+                    </span>
+                    <div className="flex max-w-full items-center gap-1.5 text-xs text-foreground">
+                      <span
+                        className="size-1.5 shrink-0 rounded-full bg-primary"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">
+                        {record.lpNames?.length
+                          ? record.lpNames.join(', ')
+                          : record.lpCode || '-'}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Received（原型 emerald 块；a9dc10e receiverAmount 目标币种）。 */}
+                  <div className="min-w-0 flex-1 rounded-lg bg-emerald-500/10 p-4">
+                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Received Amount
+                    </div>
+                    <div className="mt-1 text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                      {record.receiverAmount != null ? (
+                        <>
+                          + {formatTokenAmount(record.receiverAmount)}{' '}
+                          {tgtSymbol || '-'}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground/60">-</span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {record.receivingBankName || '-'}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 border-t border-border/50 pt-4">
                   <DescGrid>
-                    <DescField label="Bank Role">
-                      {record.selfTrade ? (
-                        /* 源 f5009b3：selfTrade 优先于 bankRole（单条模型 G-4 补账覆盖 bankRole）。 */
-                        <Badge
-                          variant="outline"
-                          className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400"
-                        >
-                          Self-Trade (Source + Target)
-                        </Badge>
-                      ) : record.bankRole != null && record.bankRole !== 0 ? (
-                        <Badge variant={txBankRoleVariant(record.bankRole)}>
-                          {txBankRoleText(record.bankRole)}
-                        </Badge>
-                      ) : (
-                        <span>-</span>
-                      )}
-                    </DescField>
-                    {/* token 对双 tag（源 span=2 双 tag；缺缓存回退 #pairId）。 */}
-                    <DescField label="Tokens">
-                      {recordPair ? (
-                        <span className="inline-flex items-center gap-2">
-                          <span className="flex flex-col items-center gap-0.5">
-                            <Badge variant="outline">
-                              {recordPair.sourceTokenSymbol ||
-                                recordPair.sourceTokenCode ||
-                                '-'}
-                            </Badge>
-                            <span className="text-[11px] text-muted-foreground">
-                              {recordPair.sourceBankCode || '-'}
-                            </span>
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            →
-                          </span>
-                          <span className="flex flex-col items-center gap-0.5">
-                            <Badge
-                              variant="outline"
-                              className="border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400"
-                            >
-                              {recordPair.targetTokenSymbol ||
-                                recordPair.targetTokenCode ||
-                                '-'}
-                            </Badge>
-                            <span className="text-[11px] text-muted-foreground">
-                              {recordPair.targetBankCode || '-'}
-                            </span>
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="font-mono">
-                          #{record.pairId ?? '-'}
-                        </span>
-                      )}
-                    </DescField>
-                    <DescField label="Deduction Amount">
-                      <div>
-                        <span className="t-data">
-                          {fmtAmount(record.userDeduction)}{' '}
-                          {recordPair?.sourceTokenSymbol ||
-                            recordPair?.sourceTokenCode ||
-                            '-'}
-                        </span>
-                        {/* ddd9fe2：扣款金额副行（上游 .sub-line 口径）。 */}
-                        <div className="text-[11px] text-muted-foreground">
-                          User's actual deduction (source currency, incl. FX
-                          markup)
-                        </div>
-                      </div>
-                    </DescField>
-                    {/* a9dc10e：到账金额（目标端 G-5 落账，未同步 '-'）。 */}
-                    <DescField label="Receiver Amount">
-                      <span className="t-data">
-                        {fmtAmount(record.receiverAmount)}{' '}
-                        {recordPair?.targetTokenSymbol ||
-                          recordPair?.targetTokenCode ||
-                          '-'}
+                    <DescField label="LP Name">
+                      <span>
+                        {record.lpNames?.length
+                          ? record.lpNames.join(', ')
+                          : record.lpCode || '-'}
                       </span>
                     </DescField>
-                    <DescField label="LP" span>
-                      {record.lpNames?.length ? (
-                        <span className="flex flex-wrap gap-1.5">
-                          {record.lpNames.map((name) => (
-                            <Badge key={name} variant="secondary">
-                              {name}
-                            </Badge>
-                          ))}
-                        </span>
-                      ) : (
-                        <span>-</span>
-                      )}
+                    {/* STATIC-FILLER(GAP-GW-08): lpPool 双池地址对象缺失（待核对）——暂渲染 '-'。 */}
+                    <DescField label="LP Source Pool Address">
+                      <span>-</span>
+                    </DescField>
+                    <DescField label="LP Target Pool Address">
+                      <span>-</span>
                     </DescField>
                   </DescGrid>
                 </div>
-                <div>
-                  <h2 className="mb-2.5 text-sm font-semibold text-foreground">
-                    Accounts &amp; Routing
-                  </h2>
-                  <DescGrid>
-                    <DescField label="Sender Bank">
-                      <span>{orDash(record.senderBankName)}</span>
-                    </DescField>
-                    <DescField label="Receiving Bank">
-                      <span>{orDash(record.receivingBankName)}</span>
-                    </DescField>
-                    <DescField label="Source Tx ID">
-                      <CopyableEllipsisText
-                        value={record.sourceCsTxId}
-                        emptyText="-"
-                        maxWidth={240}
-                        truncate="middle"
-                        className="t-identifier"
-                      />
-                    </DescField>
-                    <DescField label="Target Tx ID">
-                      <CopyableEllipsisText
-                        value={record.targetCsTxId}
-                        emptyText="-"
-                        maxWidth={240}
-                        truncate="middle"
-                        className="t-identifier"
-                      />
-                    </DescField>
-                    {/* 39c8a2b 付款/收款账户 + a9dc10e 交易 UUID（长文本占行，中间省略可复制）。 */}
-                    <DescField label="Sender Account" span>
-                      <CopyableEllipsisText
-                        value={record.senderAccount}
-                        emptyText="-"
-                        maxWidth={480}
-                        truncate="middle"
-                        className="t-identifier"
-                      />
-                    </DescField>
-                    <DescField label="Receiver Account" span>
-                      <CopyableEllipsisText
-                        value={record.receiverAccount}
-                        emptyText="-"
-                        maxWidth={480}
-                        truncate="middle"
-                        className="t-identifier"
-                      />
-                    </DescField>
-                    <DescField label="Tx UUID" span>
-                      <CopyableEllipsisText
-                        value={record.txUuid}
-                        emptyText="-"
-                        maxWidth={480}
-                        truncate="middle"
-                        className="t-identifier"
-                      />
-                    </DescField>
-                    <DescField label="Pending">
-                      {record.pendingFlag === 1 ? (
+              </section>
+
+              {/* ② Transaction Information（原型 Card 字段逐字 + 真实字段超集 Bank Role）。 */}
+              <section className="rounded-lg border border-border/60 bg-card panel-pad">
+                <h2 className="mb-4 text-sm font-semibold text-foreground">
+                  Transaction Information
+                </h2>
+                <DescGrid>
+                  <DescField label="Source Tx ID">
+                    <CopyableId value={record.sourceCsTxId} />
+                  </DescField>
+                  <DescField label="Target Tx ID">
+                    <CopyableId value={record.targetCsTxId} />
+                  </DescField>
+                  <DescField label="Sender Bank">
+                    <span>{orDash(record.senderBankName)}</span>
+                  </DescField>
+                  <DescField label="Receiver Bank">
+                    <span>{orDash(record.receivingBankName)}</span>
+                  </DescField>
+                  <DescField label="Sender Wallet">
+                    <CopyableId value={record.senderAccount} />
+                  </DescField>
+                  <DescField label="Receiver Wallet">
+                    <CopyableId value={record.receiverAccount} />
+                  </DescField>
+                  <DescField label="Tx UUID">
+                    <CopyableId value={record.txUuid} />
+                  </DescField>
+                  <DescField label="Last Sync">
+                    <span className="tabular-nums">
+                      {formatUtc8(record.lastSyncTime)}
+                    </span>
+                  </DescField>
+                  {/* 真实字段超集（原型无、源有——保留）：本行角色；
+                      GAP-GW-08：bankRole 语义归一待核对。 */}
+                  <DescField label="Bank Role">
+                    {record.selfTrade ? (
+                      <Badge
+                        variant="outline"
+                        className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400"
+                      >
+                        Self-Trade (Source + Target)
+                      </Badge>
+                    ) : record.bankRole != null && record.bankRole !== 0 ? (
+                      <Badge variant={txBankRoleVariant(record.bankRole)}>
+                        {txBankRoleText(record.bankRole)}
+                      </Badge>
+                    ) : (
+                      <span>-</span>
+                    )}
+                  </DescField>
+                  {record.pendingFlag === 1 ? (
+                    <>
+                      <DescField label="Pending">
                         <Badge variant="secondary">Pending</Badge>
-                      ) : (
-                        <span>No</span>
-                      )}
-                    </DescField>
-                    <DescField label="Pending Reason" span>
-                      <span className="break-words">
-                        {orDash(record.pendingReason)}
-                      </span>
-                    </DescField>
-                  </DescGrid>
-                </div>
-                <div>
-                  <h2 className="mb-2.5 text-sm font-semibold text-foreground">
-                    Audit
-                  </h2>
-                  <DescGrid cols={2}>
-                    <DescField label="Created At">
-                      <span className="font-mono">
-                        {formatTime(record.createTime)}
-                      </span>
-                    </DescField>
-                    <DescField label="Last Sync">
-                      <span className="font-mono">
-                        {formatTime(record.lastSyncTime)}
-                      </span>
-                    </DescField>
-                  </DescGrid>
-                </div>
-              </div>
-            </section>
+                      </DescField>
+                      <DescField label="Pending Reason" span>
+                        <span className="break-words">
+                          {orDash(record.pendingReason)}
+                        </span>
+                      </DescField>
+                    </>
+                  ) : null}
+                </DescGrid>
+              </section>
+            </>
           ) : detailLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-24 w-full rounded-lg" />
@@ -1261,8 +1416,10 @@ export function TxDetailPage() {
               No transaction detail available.
             </div>
           )}
+        </div>
 
-          {/* a9dc10e：报文留痕移主栏（原右侧 Transaction Log）。 */}
+        <div className="min-w-0 space-y-6 xl:sticky xl:top-4">
+          {/* ③ Transaction Log（报文留痕；源有/原型无——保留超集）。 */}
           <section className="rounded-lg border border-border/60 bg-card panel-pad">
             <div className="mb-3 flex items-baseline justify-between gap-3">
               <h2 className="text-sm font-semibold text-foreground">
@@ -1290,44 +1447,44 @@ export function TxDetailPage() {
               </p>
             )}
           </section>
-        </div>
 
-        {/* a9dc10e：交易链路移右侧栏（源 detail-side；单页签 Tabs 包装随交换移除）。 */}
-        <aside className="rounded-lg border border-border/60 bg-card panel-pad xl:sticky xl:top-4 xl:max-h-[calc(100vh-120px)] xl:overflow-y-auto">
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <h2 className="text-sm font-semibold text-foreground">
-              Transaction Chain
-            </h2>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {flowNodes.length} records
-            </span>
-          </div>
-          {chainLoading && !chainData ? (
-            <div className="space-y-2">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full rounded-md" />
-              ))}
+          {/* ④ Transaction Chain（链路六段口径；源有/原型无——保留超集）。 */}
+          <section className="rounded-lg border border-border/60 bg-card panel-pad">
+            <div className="mb-3 flex items-baseline justify-between gap-3">
+              <h2 className="text-sm font-semibold text-foreground">
+                Transaction Chain
+              </h2>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {flowNodes.length} records
+              </span>
             </div>
-          ) : flowNodes.length > 0 ? (
-            <ol className="relative space-y-6 border-l">
-              {flowNodes.map((n) => (
-                <TxFlowItem
-                  key={n.flowId}
-                  node={n}
-                  record={record}
-                  pairMap={pairMap}
-                />
-              ))}
-            </ol>
-          ) : (
-            /* 源 el-empty：链路空 = Kissen 暂不可用或无节点，指向左侧报文留痕兜底。 */
-            <p className="py-10 text-center text-sm text-muted-foreground">
-              {chainDegraded
-                ? 'Kissen chain is unavailable right now. Check the Transaction Log on the left.'
-                : 'No chain records'}
-            </p>
-          )}
-        </aside>
+            {chainLoading && !chainData ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-md" />
+                ))}
+              </div>
+            ) : flowNodes.length > 0 ? (
+              <ol className="relative space-y-6 border-l">
+                {flowNodes.map((n) => (
+                  <TxFlowItem
+                    key={n.flowId}
+                    node={n}
+                    record={record}
+                    pairMap={pairMap}
+                  />
+                ))}
+              </ol>
+            ) : (
+              /* 源 el-empty：链路空 = Kissen 暂不可用或无节点，指向上方报文留痕兜底。 */
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                {chainDegraded
+                  ? 'Kissen chain is unavailable right now. Check the Transaction Log above.'
+                  : 'No chain records'}
+              </p>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );
