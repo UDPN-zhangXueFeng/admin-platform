@@ -1685,12 +1685,12 @@ function TransactionListCore() {
     () => [
       {
         id: 'transactionNo',
-        header: (
+        header: () => (
           <ProtoSortHeader
             label="Transaction No."
             columnKey="transactionNo"
             toggle={toggle}
-            sortState={sortState}
+            sortState={sortState("transactionNo")}
           />
         ),
         meta: { maxWidth: 230 },
@@ -1770,13 +1770,13 @@ function TransactionListCore() {
       },
       {
         id: 'fxRate',
-        header: (
+        header: () => (
           <div className="flex justify-end">
             <ProtoSortHeader
               label="FX Rate"
               columnKey="fxRate"
               toggle={toggle}
-              sortState={sortState}
+              sortState={sortState("fxRate")}
             />
           </div>
         ),
@@ -1791,12 +1791,12 @@ function TransactionListCore() {
       },
       {
         id: 'lpName',
-        header: (
+        header: () => (
           <ProtoSortHeader
             label="LP Name"
             columnKey="lpName"
             toggle={toggle}
-            sortState={sortState}
+            sortState={sortState("lpName")}
           />
         ),
         meta: { maxWidth: 150 },
@@ -1811,12 +1811,12 @@ function TransactionListCore() {
       },
       {
         id: 'status',
-        header: (
+        header: () => (
           <ProtoSortHeader
             label="Status"
             columnKey="status"
             toggle={toggle}
-            sortState={sortState}
+            sortState={sortState("status")}
           />
         ),
         cell: ({ row }) => (
@@ -1829,12 +1829,12 @@ function TransactionListCore() {
       },
       {
         id: 'createdOn',
-        header: (
+        header: () => (
           <ProtoSortHeader
             label="Created on (UTC+8)"
             columnKey="createdOn"
             toggle={toggle}
-            sortState={sortState}
+            sortState={sortState("createdOn")}
           />
         ),
         meta: { maxWidth: 220 },
@@ -1846,12 +1846,12 @@ function TransactionListCore() {
       },
       {
         id: 'completedOn',
-        header: (
+        header: () => (
           <ProtoSortHeader
             label="Completed on (UTC+8)"
             columnKey="completedOn"
             toggle={toggle}
-            sortState={sortState}
+            sortState={sortState("completedOn")}
           />
         ),
         meta: { maxWidth: 220 },

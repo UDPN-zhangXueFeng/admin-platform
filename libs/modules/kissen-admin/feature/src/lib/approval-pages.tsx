@@ -648,8 +648,8 @@ export function ApprovalCenterListPage() {
           <ProtoSortHeader label="Status" columnKey="status" toggle={toggle} sortState={sortState('status')} />
         ),
         cell: ({ row }) => (
-          <ProtoStatusBadge tone={statusTone(taskStatusLabel(row))}>
-            {taskStatusLabel(row)}
+          <ProtoStatusBadge tone={statusTone(taskStatusLabel(row.original))}>
+            {taskStatusLabel(row.original)}
           </ProtoStatusBadge>
         ),
       },

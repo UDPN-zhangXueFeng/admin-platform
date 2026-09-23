@@ -475,7 +475,7 @@ function OneTimePasswordDialog({
               onClick={() => {
                 if (!otp?.oneTimePassword) return;
                 void navigator.clipboard?.writeText(otp.oneTimePassword);
-                toast({ description: 'Initial password copied.' });
+                toast.success('Initial password copied.');
               }}
             >
               Copy
@@ -669,10 +669,10 @@ export function SysUserListPage() {
         { userId: user.userId, status: kind === 'deactivate' ? 1 : 0 },
         {
           onSuccess: () => {
-            toast({ description: copy.success(user) });
+            toast.success(copy.success(user));
             close();
           },
-          onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+          onError: (e) => toast.error((e as Error).message),
         },
       );
     } else if (kind === 'resetPassword') {
@@ -682,15 +682,15 @@ export function SysUserListPage() {
           setOtp(issued);
           close();
         },
-        onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+        onError: (e) => toast.error((e as Error).message),
       });
     } else {
       forceLogoutMutation.mutate(user.userId, {
         onSuccess: () => {
-          toast({ description: copy.success(user) });
+          toast.success(copy.success(user));
           close();
         },
-        onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+        onError: (e) => toast.error((e as Error).message),
       });
     }
     // 三个 mutation 引用来自模块级 hook 工厂，按 projectId 稳定。
@@ -1069,10 +1069,10 @@ export function SysUserFormPage() {
         },
         {
           onSuccess: () => {
-            toast({ description: `User "${source?.loginName ?? values.loginName}" is updated.` });
+            toast.success(`User "${source?.loginName ?? values.loginName}" is updated.`);
             router.push(USER_LIST_PATH);
           },
-          onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+          onError: (e) => toast.error((e as Error).message),
         },
       );
     } else {
@@ -1090,7 +1090,7 @@ export function SysUserFormPage() {
           onSuccess: (issued) => {
             setOtp(issued);
           },
-          onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+          onError: (e) => toast.error((e as Error).message),
         },
       );
     }
@@ -1169,7 +1169,6 @@ export function SysUserFormPage() {
                 </div>
               ) : (
                 <FormField
-                  name="loginName"
                   label="Username"
                   error={errors.loginName?.message}
                   {...register('loginName', {
@@ -1180,7 +1179,6 @@ export function SysUserFormPage() {
                 />
               )}
               <FormField
-                name="userName"
                 label="Full Name"
                 error={errors.userName?.message}
                 {...register('userName', {
@@ -1201,7 +1199,6 @@ export function SysUserFormPage() {
                 disabled={isEdit}
               />
               <FormField
-                name="email"
                 label="Email"
                 error={errors.email?.message}
                 {...register('email', {
@@ -1211,7 +1208,6 @@ export function SysUserFormPage() {
                 placeholder="name@example.com"
               />
               <FormField
-                name="phoneNumber"
                 label="Phone Number"
                 {...register('phoneNumber')}
                 placeholder="Optional"
@@ -1349,10 +1345,10 @@ export function SysUserDetailPage() {
           onSuccess: () => {
             setStatusOverride(next);
             if (kind === 'activate') setFirstLoginOverride(0);
-            toast({ description: copy.success(source) });
+            toast.success(copy.success(source));
             close();
           },
-          onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+          onError: (e) => toast.error((e as Error).message),
         },
       );
     } else if (kind === 'resetPassword') {
@@ -1362,15 +1358,15 @@ export function SysUserDetailPage() {
           setOtp(issued);
           close();
         },
-        onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+        onError: (e) => toast.error((e as Error).message),
       });
     } else {
       forceLogoutMutation.mutate(source.userId, {
         onSuccess: () => {
-          toast({ description: copy.success(source) });
+          toast.success(copy.success(source));
           close();
         },
-        onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+        onError: (e) => toast.error((e as Error).message),
       });
     }
   };
@@ -1667,20 +1663,20 @@ export function SysRoleListPage() {
     if (kind === 'delete') {
       deleteMutation.mutate(role.roleId, {
         onSuccess: () => {
-          toast({ description: copy.success(role) });
+          toast.success(copy.success(role));
           close();
         },
-        onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+        onError: (e) => toast.error((e as Error).message),
       });
     } else {
       updateMutation.mutate(
         { roleId: role.roleId, status: kind === 'deactivate' ? 1 : 0 },
         {
           onSuccess: () => {
-            toast({ description: copy.success(role) });
+            toast.success(copy.success(role));
             close();
           },
-          onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+          onError: (e) => toast.error((e as Error).message),
         },
       );
     }
@@ -1964,12 +1960,10 @@ function AssignMenusDialog({
       { roleId: role.roleId, menuIds },
       {
         onSuccess: () => {
-          toast({
-            description: `Menu access updated for "${role.roleName}" (${checkedLeaves.size} of ${leaves.length} menus).`,
-          });
+          toast.success(`Menu access updated for "${role.roleName}" (${checkedLeaves.size} of ${leaves.length} menus).`);
           onClose();
         },
-        onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+        onError: (e) => toast.error((e as Error).message),
       },
     );
   };
@@ -1981,12 +1975,10 @@ function AssignMenusDialog({
       { roleId: role.roleId, menuIds: [] },
       {
         onSuccess: () => {
-          toast({
-            description: `Menu access updated for "${role.roleName}" (0 of ${leaves.length} menus).`,
-          });
+          toast.success(`Menu access updated for "${role.roleName}" (0 of ${leaves.length} menus).`);
           onClose();
         },
-        onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+        onError: (e) => toast.error((e as Error).message),
       },
     );
   };
@@ -2067,7 +2059,7 @@ export function SysRoleFormPage() {
     isEdit,
   );
   const { data: menuTree } = useMenuTreeQuery(KISSEN_PROJECT_ID);
-  const { data: grantedIds } = useRoleMenuIdsQuery(KISSEN_PROJECT_ID, id, isEdit);
+  const { data: grantedIds } = useRoleMenuIdsQuery(KISSEN_PROJECT_ID, id ?? undefined, isEdit);
 
   const saveMutation = useRoleSaveMutation(KISSEN_PROJECT_ID);
   const updateMutation = useRoleUpdateMutation(KISSEN_PROJECT_ID);
@@ -2129,10 +2121,10 @@ export function SysRoleFormPage() {
         },
         {
           onSuccess: () => {
-            toast({ description: `Role "${values.roleName}" is updated.` });
+            toast.success(`Role "${values.roleName}" is updated.`);
             router.push(ROLE_LIST_PATH);
           },
-          onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+          onError: (e) => toast.error((e as Error).message),
         },
       );
     } else {
@@ -2145,12 +2137,10 @@ export function SysRoleFormPage() {
         },
         {
           onSuccess: () => {
-            toast({
-              description: `Role "${values.roleName}" is created (Role Code ${values.roleCode}).`,
-            });
+            toast.success(`Role "${values.roleName}" is created (Role Code ${values.roleCode}).`);
             router.push(ROLE_LIST_PATH);
           },
-          onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+          onError: (e) => toast.error((e as Error).message),
         },
       );
     }
@@ -2236,7 +2226,6 @@ export function SysRoleFormPage() {
                 </div>
               ) : (
                 <FormField
-                  name="roleCode"
                   label="Role Code"
                   error={errors.roleCode?.message}
                   {...register('roleCode', {
@@ -2253,7 +2242,6 @@ export function SysRoleFormPage() {
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <FormField
-                  name="roleName"
                   label="Role Name"
                   error={errors.roleName?.message}
                   {...register('roleName', {
@@ -2268,7 +2256,7 @@ export function SysRoleFormPage() {
                 </p>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <span className="block text-sm font-medium leading-snug" htmlFor="role-form-remarks">
+                <span className="block text-sm font-medium leading-snug">
                   Description
                 </span>
                 <Textarea
@@ -2433,7 +2421,7 @@ export function SysRoleDetailPage() {
   const { data: menuTree } = useMenuTreeQuery(KISSEN_PROJECT_ID, id != null);
   const { data: grantedIds, isLoading: menuIdsLoading } = useRoleMenuIdsQuery(
     KISSEN_PROJECT_ID,
-    id,
+    id ?? undefined,
     id != null,
   );
   // STATIC-FILLER(GAP-ADM-08): 无按角色查用户的端点；Assigned Users 来自 200 条用户探针扫描。
@@ -2459,7 +2447,7 @@ export function SysRoleDetailPage() {
       const next = new URLSearchParams(searchParams);
       next.delete('assignMenus');
       navigate(
-        { pathname: ROLE_DETAIL_PATH, search: next.toString() ? `?${next.toString()}` : '' },
+        { search: next.toString() ? `?${next.toString()}` : '' },
         { replace: true },
       );
     }
@@ -2479,10 +2467,10 @@ export function SysRoleDetailPage() {
       {
         onSuccess: () => {
           setStatusOverride(kind === 'deactivate' ? 1 : 0);
-          toast({ description: copy.success(role) });
+          toast.success(copy.success(role));
           setConfirm(null);
         },
-        onError: (e) => toast({ description: (e as Error).message, variant: 'destructive' }),
+        onError: (e) => toast.error((e as Error).message),
       },
     );
   };
@@ -3011,9 +2999,9 @@ function MenuPermEditor({ menuKey }: { menuKey: string }) {
             saveMutation.mutate(
               { menuKey, items },
               {
-                onSuccess: () => toast({ description: 'API permissions saved' }),
+                onSuccess: () => toast.success('API permissions saved'),
                 onError: (e) =>
-                  toast({ description: (e as Error).message, variant: 'destructive' }),
+                  toast.error((e as Error).message),
               },
             )
           }
@@ -3060,7 +3048,7 @@ export function SysMenuListPage() {
 
   const onSave = () => {
     if (!form.menuKey.trim()) {
-      toast({ description: 'Menu Key is required', variant: 'destructive' });
+      toast.error('Menu Key is required');
       return;
     }
     const payload = {
@@ -3079,24 +3067,21 @@ export function SysMenuListPage() {
         { ...payload, menuId: form.menuId },
         {
           onSuccess: () =>
-            toast({ description: `Menu node "${form.menuName}" updated.` }),
+            toast.success(`Menu node "${form.menuName}" updated.`),
           onError: (e) =>
-            toast({ description: (e as Error).message, variant: 'destructive' }),
+            toast.error((e as Error).message),
         },
       );
     } else {
       saveMutation.mutate(payload, {
         onSuccess: () => {
-          toast({
-            description:
-              mode === 'new-root'
-                ? `Root menu "${form.menuName}" added.`
-                : `Menu "${form.menuName}" added.`,
-          });
+          toast.success(mode === 'new-root'
+            ? `Root menu "${form.menuName}" added.`
+            : `Menu "${form.menuName}" added.`);
           setMode('view');
         },
         onError: (e) =>
-          toast({ description: (e as Error).message, variant: 'destructive' }),
+          toast.error((e as Error).message),
       });
     }
   };
@@ -3105,7 +3090,7 @@ export function SysMenuListPage() {
     if (form.menuId == null) return;
     deleteMutation.mutate(form.menuId, {
       onSuccess: () => {
-        toast({ description: 'Menu deleted' });
+        toast.success('Menu deleted');
         setDeleteOpen(false);
         setMode('view');
         setForm(EMPTY_MENU_FORM);
@@ -3113,7 +3098,7 @@ export function SysMenuListPage() {
       },
       onError: (e) => {
         setDeleteOpen(false);
-        toast({ description: (e as Error).message, variant: 'destructive' });
+        toast.error((e as Error).message);
       },
     });
   };
@@ -3449,11 +3434,11 @@ export function WorkflowConfigListPage() {
       { workflowId: w.workflowId, status: 2 },
       {
         onSuccess: () => {
-          toast({ description: `Workflow "${w.workflowName}" disabled.` });
+          toast.success(`Workflow "${w.workflowName}" disabled.`);
           setDisableTarget(null);
         },
         onError: (e) =>
-          toast({ description: (e as Error).message, variant: 'destructive' }),
+          toast.error((e as Error).message),
       },
     );
   };
@@ -3766,7 +3751,7 @@ export function WorkflowConfigFormPage() {
 
   const { data: users } = useRbacUserOptionsQuery(KISSEN_PROJECT_ID);
   const { data: businesses } = useWorkflowBusinessesQuery(KISSEN_PROJECT_ID);
-  const { data: detail } = useWorkflowDetailQuery(KISSEN_PROJECT_ID, id, isEdit);
+  const { data: detail } = useWorkflowDetailQuery(KISSEN_PROJECT_ID, id ?? undefined, isEdit);
 
   const saveMutation = useWorkflowSaveMutation(KISSEN_PROJECT_ID);
   const updateMutation = useWorkflowUpdateMutation(KISSEN_PROJECT_ID);
@@ -3804,23 +3789,23 @@ export function WorkflowConfigFormPage() {
 
   const onSave = () => {
     if (!workflowName.trim()) {
-      toast({ description: 'Workflow name is required', variant: 'destructive' });
+      toast.error('Workflow name is required');
       return;
     }
     if (!businessId) {
-      toast({ description: 'Please select a business type', variant: 'destructive' });
+      toast.error('Please select a business type');
       return;
     }
     if (steps.length === 0) {
-      toast({ description: 'At least one approval step is required', variant: 'destructive' });
+      toast.error('At least one approval step is required');
       return;
     }
     if (steps.some((s) => !s.stepName.trim())) {
-      toast({ description: 'Each step needs a name', variant: 'destructive' });
+      toast.error('Each step needs a name');
       return;
     }
     if (steps.some((s) => s.userIds.length === 0)) {
-      toast({ description: 'Each step needs at least one approver', variant: 'destructive' });
+      toast.error('Each step needs at least one approver');
       return;
     }
     const stepsReq = steps.map((s, i) => ({
@@ -3837,11 +3822,11 @@ export function WorkflowConfigFormPage() {
         { workflowId: id, businessId, workflowName, steps: stepsReq },
         {
           onSuccess: () => {
-            toast({ description: 'Workflow updated' });
+            toast.success('Workflow updated');
             router.push(WORKFLOW_LIST_PATH);
           },
           onError: (e) =>
-            toast({ description: (e as Error).message, variant: 'destructive' }),
+            toast.error((e as Error).message),
         },
       );
     } else {
@@ -3849,13 +3834,11 @@ export function WorkflowConfigFormPage() {
         { businessId, workflowName, steps: stepsReq },
         {
           onSuccess: () => {
-            toast({
-              description: isEdit ? 'Workflow created as a new version' : 'Workflow created',
-            });
+            toast.success(isEdit ? 'Workflow created as a new version' : 'Workflow created');
             router.push(WORKFLOW_LIST_PATH);
           },
           onError: (e) =>
-            toast({ description: (e as Error).message, variant: 'destructive' }),
+            toast.error((e as Error).message),
         },
       );
     }

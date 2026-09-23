@@ -866,7 +866,7 @@ function PoolOverview({
       ) : isLoading ? (
         <BlockSkeleton rows={4} />
       ) : sorted.length === 0 ? (
-        <BlockEmpty text="No pools yet" />
+        <BlockEmpty icon={<Info className="h-4 w-4 text-muted-foreground" aria-hidden="true" />} text="No pools yet" />
       ) : (
         <div className="max-md:overflow-x-auto md:overflow-hidden">
           <table className="w-full min-w-0 max-md:min-w-[860px] table-fixed border-collapse">

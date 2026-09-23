@@ -1209,7 +1209,7 @@ export function TokenPairCreatePage() {
 }
 
 /** 操作记录列（原型 OperationRecordsTable 5 列；数据源见 GAP-ADM-02）。 */
-const operationsColumns: ColumnDef<Record<string, string>>[] = [
+const operationsColumns: ColumnDef<{ id: string } & Record<string, string>>[] = [
   {
     id: 'timestamp',
     header: 'Timestamp (UTC+8)',
@@ -1242,7 +1242,7 @@ type PairTab = (typeof PAIR_TABS)[number]['key'];
  * LP 参与列表列（原型 participation 同名列；Client Rate = base/(1+markup)，
  * LP Rev. Share 优先覆盖值 splitRatio，未覆盖回退 defaultSplitRatio）。
  */
-const participationColumns: ColumnDef<LpPairRow & { id: string }>[] = [
+const participationColumns: ColumnDef<Omit<LpPairRow, 'id'> & { id: string }>[] = [
   {
     id: 'lpName',
     header: 'LP Name',
@@ -1515,7 +1515,7 @@ export function TokenPairDetailPage() {
           <section className="rounded-lg border border-border/60 bg-card p-4">
             <DataTable
               columns={operationsColumns}
-              data={[] as Record<string, string>[]}
+              data={[] as ({ id: string } & Record<string, string>)[]}
               isLoading={false}
               emptyMessage="No operations recorded yet."
             />
