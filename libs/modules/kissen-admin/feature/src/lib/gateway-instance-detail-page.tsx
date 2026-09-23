@@ -10,6 +10,10 @@ import {
   AlertTitle,
   Badge,
   Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
   DataTable,
   Skeleton,
   Tabs,
@@ -98,18 +102,6 @@ function StatusPill({
       </span>
       {label}
     </span>
-  );
-}
-
-/** Section heading with a trailing hairline rule — no boxes, editorial feel. */
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <div className="mb-5 flex items-center gap-4">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        {title}
-      </h2>
-      <span aria-hidden="true" className="h-px flex-1 bg-border" />
-    </div>
   );
 }
 
@@ -313,7 +305,7 @@ export function GatewayInstanceDetailPage() {
   const isOnline = instance?.connectivityStatus === ONLINE_CONNECTIVITY_CODE;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="space-y-6">
       <Button
         variant="link"
         className="h-auto p-0 text-muted-foreground hover:text-foreground"
@@ -323,45 +315,75 @@ export function GatewayInstanceDetailPage() {
         Back to list
       </Button>
 
-      {/* Header: title, subtitle, live status */}
-      <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0 space-y-1.5">
-          <h1 className="truncate text-2xl font-semibold leading-8 tracking-tight text-foreground">
-            {instance?.instanceName ||
-              instance?.instanceCode ||
-              `Gateway Instance ${instanceId}`}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {instance?.bankName || '--'}
-            {instance?.bankBic ? ` (${instance.bankBic})` : ''}
-            {instance?.instanceCode ? ` · ${instance.instanceCode}` : ''}
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2">
+      {/* Header: identity, live status, at-a-glance overview */}
+      <Card>
+        <CardHeader className="flex-col items-stretch gap-6 border-b border-border/50 pb-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 space-y-1.5">
+            <h1 className="truncate text-2xl font-semibold leading-8 tracking-tight text-foreground">
+              {instance?.instanceName ||
+                instance?.instanceCode ||
+                `Gateway Instance ${instanceId}`}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {instance?.bankName || '--'}
+              {instance?.bankBic ? ` (${instance.bankBic})` : ''}
+              {instance?.instanceCode ? ` · ${instance.instanceCode}` : ''}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2">
+            {instance ? (
+              <>
+                <StatusPill
+                  label={
+                    INSTANCE_STATUS_LABEL[instance.status] ?? instance.status
+                  }
+                  variant={INSTANCE_STATUS_VARIANT[instance.status] ?? 'outline'}
+                  live={isActive}
+                />
+                <StatusPill
+                  label={
+                    CONNECTIVITY_STATUS_LABEL[instance.connectivityStatus] ??
+                    'Unknown'
+                  }
+                  variant={
+                    CONNECTIVITY_STATUS_VARIANT[
+                      instance.connectivityStatus
+                    ] ?? 'secondary'
+                  }
+                  live={isOnline}
+                />
+              </>
+            ) : fallbackQuery.isLoading ? (
+              <Skeleton className="h-5 w-44" />
+            ) : null}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-5">
           {instance ? (
-            <>
-              <StatusPill
-                label={INSTANCE_STATUS_LABEL[instance.status] ?? instance.status}
-                variant={INSTANCE_STATUS_VARIANT[instance.status] ?? 'outline'}
-                live={isActive}
-              />
-              <StatusPill
-                label={
-                  CONNECTIVITY_STATUS_LABEL[instance.connectivityStatus] ??
-                  'Unknown'
-                }
-                variant={
-                  CONNECTIVITY_STATUS_VARIANT[instance.connectivityStatus] ??
-                  'secondary'
-                }
-                live={isOnline}
-              />
-            </>
+            <dl className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
+              <Field label="Instance ID" mono>
+                {instance.instanceId}
+              </Field>
+              <Field label="Last Heartbeat">
+                {formatTime(instance.lastHeartbeatTime)}
+              </Field>
+              <Field label="Last Verify">
+                {formatTime(instance.lastVerifyTime)}
+              </Field>
+              <Field label="Registered At">
+                {formatTime(instance.createTime)}
+              </Field>
+            </dl>
           ) : fallbackQuery.isLoading ? (
-            <Skeleton className="h-5 w-44" />
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
           ) : null}
-        </div>
-      </header>
+        </CardContent>
+      </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
@@ -369,11 +391,11 @@ export function GatewayInstanceDetailPage() {
           <TabsTrigger value="heartbeat">Heartbeat History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="details" className="mt-0 space-y-10">
+        <TabsContent value="details" className="mt-0 space-y-6">
           {fallbackQuery.isLoading && !instance ? (
-            <div className="space-y-4">
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Skeleton className="h-56 w-full" />
+              <Skeleton className="h-56 w-full" />
             </div>
           ) : null}
           {fallbackQuery.isError && !instance ? (
@@ -388,113 +410,113 @@ export function GatewayInstanceDetailPage() {
           ) : null}
 
           {instance ? (
-            <>
-              <section>
-                <SectionHeader title="Overview" />
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-6 lg:grid-cols-4">
-                  <Field label="Instance ID" mono>
-                    {instance.instanceId}
-                  </Field>
-                  <Field label="Last Heartbeat">
-                    {formatTime(instance.lastHeartbeatTime)}
-                  </Field>
-                  <Field label="Last Verify">
-                    {formatTime(instance.lastVerifyTime)}
-                  </Field>
-                  <Field label="Registered At">
-                    {formatTime(instance.createTime)}
-                  </Field>
-                </dl>
-              </section>
-
-              <section>
-                <SectionHeader title="Identity & Connectivity" />
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-6 lg:grid-cols-4">
-                  <Field label="Bank Name">{instance.bankName || '--'}</Field>
-                  <Field label="Bank BIC" mono>
-                    {instance.bankBic || '--'}
-                  </Field>
-                  <Field label="Instance Code">
-                    {instance.instanceCode || '--'}
-                  </Field>
-                  <Field label="Instance Name">
-                    {instance.instanceName || '--'}
-                  </Field>
-                  <Field label="Status">
-                    <Badge
-                      variant={
-                        INSTANCE_STATUS_VARIANT[instance.status] ?? 'outline'
-                      }
-                    >
-                      {INSTANCE_STATUS_LABEL[instance.status] ?? instance.status}
-                    </Badge>
-                  </Field>
-                  <Field label="Connectivity">
-                    <Badge
-                      variant={
-                        CONNECTIVITY_STATUS_VARIANT[
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader className="border-b border-border/50 py-4">
+                  <CardTitle>Identity & Connectivity</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5">
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-5">
+                    <Field label="Bank Name">{instance.bankName || '--'}</Field>
+                    <Field label="Bank BIC" mono>
+                      {instance.bankBic || '--'}
+                    </Field>
+                    <Field label="Instance Code">
+                      {instance.instanceCode || '--'}
+                    </Field>
+                    <Field label="Instance Name">
+                      {instance.instanceName || '--'}
+                    </Field>
+                    <Field label="Status">
+                      <Badge
+                        variant={
+                          INSTANCE_STATUS_VARIANT[instance.status] ?? 'outline'
+                        }
+                      >
+                        {INSTANCE_STATUS_LABEL[instance.status] ??
+                          instance.status}
+                      </Badge>
+                    </Field>
+                    <Field label="Connectivity">
+                      <Badge
+                        variant={
+                          CONNECTIVITY_STATUS_VARIANT[
+                            instance.connectivityStatus
+                          ] ?? 'secondary'
+                        }
+                      >
+                        {CONNECTIVITY_STATUS_LABEL[
                           instance.connectivityStatus
-                        ] ?? 'secondary'
-                      }
-                    >
-                      {CONNECTIVITY_STATUS_LABEL[instance.connectivityStatus] ??
-                        'Unknown'}
-                    </Badge>
-                  </Field>
-                  <Field label="Endpoint URL" mono span={2}>
-                    {instance.endpointUrl || '--'}
-                  </Field>
-                </dl>
-              </section>
+                        ] ?? 'Unknown'}
+                      </Badge>
+                    </Field>
+                    <Field label="Endpoint URL" mono span={2}>
+                      {instance.endpointUrl || '--'}
+                    </Field>
+                  </dl>
+                </CardContent>
+              </Card>
 
-              <section>
-                <SectionHeader title="Currency System" />
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-6 lg:grid-cols-4">
-                  <Field label="Type">
-                    {CS_TYPE_LABEL[instance.currencySystemType ?? 0] ??
-                      'Not specified'}
-                  </Field>
-                  <Field label="Blockchain">
-                    {instance.blockchain || '--'}
-                  </Field>
-                  <Field label="Name">
-                    {instance.currencySystemName || '--'}
-                  </Field>
-                  <Field label="URL" mono>
-                    {instance.currencySystemUrl || '--'}
-                  </Field>
-                  <Field label="Description" span={4}>
-                    {instance.currencySystemDesc || '--'}
-                  </Field>
-                </dl>
-              </section>
+              <Card>
+                <CardHeader className="border-b border-border/50 py-4">
+                  <CardTitle>Currency System</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5">
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-5">
+                    <Field label="Type">
+                      {CS_TYPE_LABEL[instance.currencySystemType ?? 0] ??
+                        'Not specified'}
+                    </Field>
+                    <Field label="Blockchain">
+                      {instance.blockchain || '--'}
+                    </Field>
+                    <Field label="Name">
+                      {instance.currencySystemName || '--'}
+                    </Field>
+                    <Field label="URL" mono>
+                      {instance.currencySystemUrl || '--'}
+                    </Field>
+                    <Field label="Description" span={2}>
+                      {instance.currencySystemDesc || '--'}
+                    </Field>
+                  </dl>
+                </CardContent>
+              </Card>
 
-              <section>
-                <SectionHeader title="Security" />
-                <dl className="grid grid-cols-1 gap-x-6 gap-y-6 lg:grid-cols-2">
-                  <Field label="Upstream Key Fingerprint">
-                    <Fingerprint
-                      value={instance.upKeyFingerprint}
-                      fallback="Not pushed"
-                    />
-                  </Field>
-                  <Field label="Downstream Key Fingerprint">
-                    <Fingerprint
-                      value={instance.downKeyFingerprint}
-                      fallback="Not generated"
-                    />
-                  </Field>
-                </dl>
-              </section>
-            </>
+              <Card className="lg:col-span-2">
+                <CardHeader className="border-b border-border/50 py-4">
+                  <CardTitle>Security</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5">
+                  <dl className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+                    <Field label="Upstream Key Fingerprint">
+                      <Fingerprint
+                        value={instance.upKeyFingerprint}
+                        fallback="Not pushed"
+                      />
+                    </Field>
+                    <Field label="Downstream Key Fingerprint">
+                      <Fingerprint
+                        value={instance.downKeyFingerprint}
+                        fallback="Not generated"
+                      />
+                    </Field>
+                  </dl>
+                </CardContent>
+              </Card>
+            </div>
           ) : null}
         </TabsContent>
 
         <TabsContent value="heartbeat" className="mt-0">
-          <HeartbeatHistoryTab
-            instanceId={instanceId}
-            enabled={activeTab === 'heartbeat'}
-          />
+          <Card>
+            <CardContent className="pt-6">
+              <HeartbeatHistoryTab
+                instanceId={instanceId}
+                enabled={activeTab === 'heartbeat'}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
