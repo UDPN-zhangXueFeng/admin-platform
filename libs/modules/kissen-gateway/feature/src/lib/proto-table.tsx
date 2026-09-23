@@ -261,6 +261,6 @@ export function filterVisibleColumns<TData>(
 ): ColumnDef<TData>[] {
   return columns.filter((c) => {
     const def = defs.find((t) => t.id === c.id);
-    return !def || def.required || isColumnVisible(c.id);
+    return !def || def.required || (c.id != null && isColumnVisible(c.id));
   });
 }

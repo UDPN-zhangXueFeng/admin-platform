@@ -168,7 +168,7 @@ export function BankQueryListPage() {
     () => [
       {
         id: 'bankName',
-        header: (
+        header: () => (
           <SortHeader
             label="Bank Name"
             direction={sort.key === 'name' ? sort.direction : null}
@@ -194,7 +194,7 @@ export function BankQueryListPage() {
       {
         // 原型术语 SWIFT BIC（62d1c33 合并列 bankBic）。
         id: 'bankBic',
-        header: (
+        header: () => (
           <SortHeader
             label="SWIFT BIC"
             direction={sort.key === 'bic' ? sort.direction : null}
@@ -237,7 +237,7 @@ export function BankQueryListPage() {
       },
       {
         id: 'pushTime',
-        header: (
+        header: () => (
           <SortHeader
             label="Synced on (UTC+8)"
             direction={sort.key === 'syncedAt' ? sort.direction : null}

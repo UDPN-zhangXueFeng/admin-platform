@@ -640,7 +640,7 @@ export function UserListPage() {
     return [
       {
         id: 'username',
-        header: (
+        header: () => (
           <SortHeader
             label="Username"
             direction={sort.key === 'username' ? sort.direction : null}
@@ -653,7 +653,7 @@ export function UserListPage() {
       },
       {
         id: 'fullName',
-        header: (
+        header: () => (
           <SortHeader
             label="Full Name"
             direction={sort.key === 'fullName' ? sort.direction : null}
@@ -664,7 +664,7 @@ export function UserListPage() {
       },
       {
         id: 'type',
-        header: (
+        header: () => (
           <SortHeader
             label="Type"
             direction={sort.key === 'type' ? sort.direction : null}
@@ -691,7 +691,7 @@ export function UserListPage() {
       },
       {
         id: 'createdAt',
-        header: (
+        header: () => (
           <SortHeader
             label="Created on (UTC+8)"
             direction={sort.key === 'createdAt' ? sort.direction : null}
@@ -717,7 +717,7 @@ export function UserListPage() {
       },
       {
         id: 'status',
-        header: (
+        header: () => (
           <SortHeader
             label="Status"
             direction={sort.key === 'status' ? sort.direction : null}
@@ -1548,7 +1548,7 @@ export function UserDetailPage() {
                         {r.roleName}
                       </span>
                       <span className="font-mono text-xs text-muted-foreground">
-                        {r.roleCode}
+                        {`#${r.roleId}`}
                       </span>
                     </span>
                   ))}

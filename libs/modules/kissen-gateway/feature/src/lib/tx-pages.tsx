@@ -53,11 +53,7 @@ import { DescField, DescGrid } from './desc-grid';
 import { OPT_ALL, fmtAmount, formatTime, orDash, toEpochMs } from './kit';
 import { CopyableId, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
 import { formatRate, formatTokenAmount, formatUtc8 } from './proto-format';
-import {
-  PROTO_TX_STATUS,
-  protoStatusRank,
-  protoStatusText,
-} from './proto-enums';
+import { PROTO_TX_STATUS, protoStatusText } from './proto-enums';
 import {
   ColumnPicker,
   SortHeader,
@@ -513,7 +509,7 @@ export function TxListPage() {
     return [
       {
         id: 'transactionNo',
-        header: (
+        header: () => (
           <SortHeader
             label="Transaction No."
             direction={sort.key === 'transactionNo' ? sort.direction : null}
@@ -657,7 +653,7 @@ export function TxListPage() {
       },
       {
         id: 'fxRate',
-        header: (
+        header: () => (
           <SortHeader
             label="FX Rate"
             direction={sort.key === 'fxRate' ? sort.direction : null}
@@ -677,7 +673,7 @@ export function TxListPage() {
       },
       {
         id: 'lp',
-        header: (
+        header: () => (
           <SortHeader
             label="LP Name"
             direction={sort.key === 'lp' ? sort.direction : null}
@@ -700,7 +696,7 @@ export function TxListPage() {
       },
       {
         id: 'createdAt',
-        header: (
+        header: () => (
           <SortHeader
             label="Created on (UTC+8)"
             direction={sort.key === 'createdAt' ? sort.direction : null}
@@ -720,7 +716,7 @@ export function TxListPage() {
           const badge = (
             <ProtoStatusBadge
               label={protoStatusText(PROTO_TX_STATUS, row.original.status)}
-              tone={TX_STATUS_TONES[row.original.status] ?? 'muted'}
+              tone={TX_STATUS_TONES[row.original.status ?? -1] ?? 'muted'}
             />
           );
           /* 待处理不单列，收进状态旁小号 warning 角标（源有、原型无——保留）。 */
@@ -1208,7 +1204,7 @@ export function TxDetailPage() {
             {record ? (
               <ProtoStatusBadge
                 label={protoStatusText(PROTO_TX_STATUS, record.status)}
-                tone={TX_STATUS_TONES[record.status] ?? 'muted'}
+                tone={TX_STATUS_TONES[record.status ?? -1] ?? 'muted'}
               />
             ) : null}
             {record?.pendingFlag === 1 ? (

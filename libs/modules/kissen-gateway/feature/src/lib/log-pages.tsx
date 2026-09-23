@@ -319,7 +319,7 @@ export function LogListPage() {
     return [
       {
         id: 'createdAt',
-        header: (
+        header: () => (
           <SortHeader
             label="Time (UTC+8)"
             direction={sort.key === 'createdAt' ? sort.direction : null}
@@ -334,7 +334,7 @@ export function LogListPage() {
       },
       {
         id: 'operator',
-        header: (
+        header: () => (
           <SortHeader
             label="Operator"
             direction={sort.key === 'operator' ? sort.direction : null}
@@ -349,7 +349,7 @@ export function LogListPage() {
       },
       {
         id: 'module',
-        header: (
+        header: () => (
           <SortHeader
             label="Module"
             direction={sort.key === 'module' ? sort.direction : null}
@@ -360,7 +360,7 @@ export function LogListPage() {
       },
       {
         id: 'businessType',
-        header: (
+        header: () => (
           <SortHeader
             label="Business Type"
             direction={sort.key === 'businessType' ? sort.direction : null}
@@ -397,7 +397,7 @@ export function LogListPage() {
       },
       {
         id: 'duration',
-        header: (
+        header: () => (
           <SortHeader
             label="Duration"
             direction={sort.key === 'duration' ? sort.direction : null}
@@ -413,7 +413,7 @@ export function LogListPage() {
       },
       {
         id: 'traceId',
-        header: (
+        header: () => (
           <SortHeader
             label="Trace ID"
             direction={sort.key === 'traceId' ? sort.direction : null}

@@ -157,7 +157,7 @@ export function FxListPage() {
       },
       {
         id: 'rate',
-        header: (
+        header: () => (
           <SortHeader
             label="Rate"
             direction={sort.key === 'rate' ? sort.direction : null}
@@ -204,7 +204,7 @@ export function FxListPage() {
       },
       {
         id: 'syncedAt',
-        header: (
+        header: () => (
           <SortHeader
             label="Synced on (UTC+8)"
             direction={sort.key === 'syncedAt' ? sort.direction : null}

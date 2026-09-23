@@ -584,7 +584,7 @@ export function TokenListPage() {
     const cols: ColumnDef<TokenInfo & { id: string }>[] = [
       {
         id: 'name',
-        header: (
+        header: () => (
           <SortHeader
             label="Token Name"
             direction={sort.key === 'name' ? sort.direction : null}
@@ -607,7 +607,7 @@ export function TokenListPage() {
       },
       {
         id: 'symbol',
-        header: (
+        header: () => (
           <SortHeader
             label="Symbol"
             direction={sort.key === 'symbol' ? sort.direction : null}
@@ -620,7 +620,7 @@ export function TokenListPage() {
       },
       {
         id: 'decimals',
-        header: (
+        header: () => (
           <SortHeader
             label="Decimals"
             direction={sort.key === 'decimals' ? sort.direction : null}
@@ -636,7 +636,7 @@ export function TokenListPage() {
       },
       {
         id: 'peggedCurrency',
-        header: (
+        header: () => (
           <SortHeader
             label="Pegged Currency"
             direction={sort.key === 'peggedCurrency' ? sort.direction : null}
@@ -647,7 +647,7 @@ export function TokenListPage() {
       },
       {
         id: 'chain',
-        header: (
+        header: () => (
           <SortHeader
             label="BlockChain"
             direction={sort.key === 'chain' ? sort.direction : null}
@@ -664,7 +664,7 @@ export function TokenListPage() {
       },
       {
         id: 'minLiquidity',
-        header: (
+        header: () => (
           <SortHeader
             label="Min. Liquidity"
             direction={sort.key === 'minLiquidity' ? sort.direction : null}
@@ -680,7 +680,7 @@ export function TokenListPage() {
       },
       {
         id: 'syncedAt',
-        header: (
+        header: () => (
           <SortHeader
             label="Synced on (UTC+8)"
             direction={sort.key === 'syncedAt' ? sort.direction : null}

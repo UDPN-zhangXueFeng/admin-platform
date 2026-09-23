@@ -16,7 +16,7 @@ type PageLoader = () => Promise<{ default: ComponentType<unknown> }>;
 function lp(moduleExport: string): PageLoader {
   return () =>
     import('@myorg/modules/lp-portal/feature').then((m) => ({
-      default: (m as Record<string, ComponentType<unknown>>)[moduleExport],
+      default: (m as unknown as Record<string, ComponentType<unknown>>)[moduleExport],
     }));
 }
 

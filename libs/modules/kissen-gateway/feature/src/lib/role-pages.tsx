@@ -83,11 +83,7 @@ import {
   LoadingBlock,
   MissingIdBlock,
 } from './state-blocks';
-import {
-  ActionConfirmDialog,
-  ProtoStatusBadge,
-  type ActionConfirmTone,
-} from './proto-ui';
+import { ActionConfirmDialog, ProtoStatusBadge } from './proto-ui';
 import { formatUtc8 } from './proto-format';
 import { PROTO_ROLE_STATUS, protoStatusText } from './proto-enums';
 import {
@@ -629,7 +625,7 @@ export function RoleListPage() {
     return [
       {
         id: 'roleName',
-        header: (
+        header: () => (
           <SortHeader
             label="Role Name"
             direction={sort.key === 'roleName' ? sort.direction : null}
@@ -659,7 +655,7 @@ export function RoleListPage() {
       },
       {
         id: 'type',
-        header: (
+        header: () => (
           <SortHeader
             label="Type"
             direction={sort.key === 'type' ? sort.direction : null}
@@ -692,7 +688,7 @@ export function RoleListPage() {
       },
       {
         id: 'status',
-        header: (
+        header: () => (
           <SortHeader
             label="Status"
             direction={sort.key === 'status' ? sort.direction : null}

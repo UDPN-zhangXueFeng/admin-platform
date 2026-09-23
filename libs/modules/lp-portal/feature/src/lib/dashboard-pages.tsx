@@ -46,6 +46,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { cn } from '@myorg/shared/util-classnames';
 import type { ColumnDef } from '@tanstack/react-table';
 
 import {
@@ -410,9 +411,9 @@ function NumHeader({ children }: { children: React.ReactNode }) {
 }
 
 /** 右对齐数值单元格。 */
-function NumCell({ children }: { children: React.ReactNode }) {
+function NumCell({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="flex justify-end">
+    <div className={cn('flex justify-end', className)}>
       <Num>{children}</Num>
     </div>
   );
