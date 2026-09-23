@@ -56,6 +56,8 @@ const pages: Record<string, Record<string, PageLoader>> = {
 
   approval: {
     list: loader((m) => m.ApprovalCenterListPage),
+    // 原型对齐：审批详情（/approval/detail?taskId=N&tab=content|flow）
+    detail: loader((m) => m.ApprovalDetailPage),
   },
 
   // ---- onboard ----
@@ -84,11 +86,19 @@ const pages: Record<string, Record<string, PageLoader>> = {
 
   'lp-pair': {
     list: loader((m) => m.LpTokenPairListPage),
+    // 原型对齐：LP 参与度详情（/lp-liquidity/lp-pair/detail?id=N&
+    // tab=basic|operations）
+    detail: loader((m) => m.LpParticipationDetailPage),
   },
 
   // ---- fx-rate / liquidity ----
   pair: {
     list: loader((m) => m.TokenPairListPage),
+    // 原型对齐：货币对新建/详情/编辑页面化（/fx-rate/pair/create、
+    // /fx-rate/pair/detail?id=N、/fx-rate/pair/edit?id=N）。
+    create: loader((m) => m.TokenPairCreatePage),
+    detail: loader((m) => m.TokenPairDetailPage),
+    edit: loader((m) => m.TokenPairEditPage),
   },
 
   pool: {
@@ -98,6 +108,9 @@ const pages: Record<string, Record<string, PageLoader>> = {
   // ---- settle ----
   order: {
     list: loader((m) => m.SettleOrderListPage),
+    // 原型对齐：结算单详情（/settle/order/detail?id=N&
+    // tab=statement|transactions|operations）
+    detail: loader((m) => m.SettleOrderDetailPage),
   },
 
   cycle: {
@@ -138,6 +151,9 @@ const pages: Record<string, Record<string, PageLoader>> = {
 
   log: {
     list: loader((m) => m.OperateLogListPage),
+    // 原型对齐：操作日志详情（/system/log/detail?logId=N，行暂存缺失时
+    // 渲染 not-found 卡）
+    detail: loader((m) => m.OperateLogDetailPage),
   },
 
   _placeholder: {

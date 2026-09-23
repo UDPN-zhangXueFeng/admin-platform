@@ -1,31 +1,22 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  History,
+  XCircle,
+} from 'lucide-react';
 
 import {
   Alert,
   AlertTitle,
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  Badge,
   Button,
-  CopyableEllipsisText,
   createActionColumn,
   DataTable,
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
   Input,
-  Skeleton,
   Select,
   SelectContent,
   SelectItem,
@@ -38,7 +29,7 @@ import {
   Textarea,
   useToast,
 } from '@myorg/shared/ui';
-import { formatAdminDateTime } from '@myorg/shared/util-dates';
+import { useRouter } from '@myorg/shared/util-i18n';
 import { cn } from '@myorg/shared/util-classnames';
 
 import {
@@ -46,34 +37,112 @@ import {
   BUSINESS_NAME_MAP,
   BUSINESS_STATUS_MAP,
   COMMON_STATUS_MAP,
-  DETAIL_STATUS_MAP,
   NO_STRATEGY_BUSINESSES,
-  approvalDetailStatusVariant,
-  approvalStatusVariant,
   businessName,
   useApprovalDetailQuery,
   useApprovalDoneQuery,
-  useApprovalPreviousStepMutation,
   useApprovalProcessMutation,
   useApprovalTodoQuery,
-  useApprovalWithdrawMutation,
   type ApprovalDoneRow,
   type ApprovalTodoRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
+import { formatDuration, formatUtc8 } from './proto-format';
+import {
+  ActionConfirmDialog,
+  CopyableId,
+  Dash,
+  ProtoStatusBadge,
+  type ProtoStatusTone,
+} from './proto-ui';
+import {
+  PROTO_APPROVAL_ACTION_TEXT,
+  PROTO_WORKFLOW_TASK_STATUS,
+  protoStatusLabel,
+} from './proto-enums';
+import { ProtoSortHeader, useProtoSort } from './proto-sort';
+import { peekRow, stashRow } from './row-stash';
+
 /* ============================================================ */
-/* 共享格式化 / 展示辅助（源 views/approval/{format,field-maps}.ts） */
+/* 原型对齐口径（WorkflowTasksPage.jsx / WorkflowTaskDetailsPage.jsx） */
 /* ============================================================ */
 
 const PAGE_SIZE_DEFAULT = 10;
-const STATUS_ALL = 'all';
+const FILTER_ALL = 'all';
+const FILTER_DEBOUNCE_MS = 250;
 
-/** 毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`；0/空/非法 → '--'。 */
-function formatTime(ms: number | null | undefined): string {
-  if (!ms || Number.isNaN(Number(ms))) return '--';
-  const d = new Date(Number(ms));
-  return Number.isNaN(d.getTime()) ? '--' : formatAdminDateTime(d);
+const APPROVAL_LIST_PATH = '/approval';
+const APPROVAL_DETAIL_PATH = '/approval/detail';
+const APPROVAL_STASH_SCOPE = 'admApproval';
+
+/** 页签（原型 Pending / Actioned）。 */
+type ApprovalTab = 'pending' | 'actioned';
+
+/** Status 下拉（原型四态逐字；''=All）。 */
+const STATUS_FILTER_OPTIONS = [
+  '',
+  'Pending Approval',
+  'Under Approval',
+  'Approved',
+  'Rejected',
+];
+
+/** Status 列排序口径（原型 §15：Pending → Under → Approved → Rejected，非字母序）。 */
+const STATUS_ORDER = [
+  'Pending Approval',
+  'Under Approval',
+  'Approved',
+  'Rejected',
+];
+
+/** 待办主表状态 → 原型文案（5 待审 / 10 审批中）。 */
+const TODO_STATUS_LABEL: Record<number, string> = {
+  5: 'Pending Approval',
+  10: 'Under Approval',
+};
+
+/** 已办节点结果（detailReviewerStatus）→ 原型文案。 */
+const DONE_STATUS_LABEL: Record<number, string> = {
+  3: 'Approved',
+  2: 'Rejected',
+};
+
+/** 任务状态文案 → 徽章 tone（带点徽章口径）。 */
+function statusTone(label: string): ProtoStatusTone {
+  switch (label) {
+    case 'Approved':
+      return 'success';
+    case 'Pending Approval':
+      return 'warning';
+    case 'Under Approval':
+      return 'info';
+    case 'Rejected':
+      return 'danger';
+    default:
+      return 'muted';
+  }
 }
+
+/** 流转节点结果（2 拒 / 3 过 / 9 退）→ 文案 + tone。 */
+const NODE_RESULT: Record<number, { label: string; tone: ProtoStatusTone }> = {
+  2: { label: 'Rejected', tone: 'danger' },
+  3: { label: 'Approved', tone: 'success' },
+  9: { label: 'Returned', tone: 'muted' },
+};
+
+/** 文本筛选 250ms 防抖（原型 useDebouncedValue 同款）。 */
+function useDebouncedValue<T>(value: T, delayMs = FILTER_DEBOUNCE_MS): T {
+  const [debounced, setDebounced] = React.useState(value);
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+/* ============================================================ */
+/* 业务内容字段渲染（源 views/approval/{format,field-maps}.ts，沿用） */
+/* ============================================================ */
 
 /** 数字千分位（保留原小数位）；源 approval/format.ts formatMoney。 */
 function formatMoney(v: number | string): string {
@@ -92,7 +161,7 @@ function formatPercent(v: unknown): string {
   return `${(n * 100).toFixed(2)}%`;
 }
 
-/** 字段渲染声明（源 field-maps.ts FieldDef.render + enumMap；启发式 formatFieldValue 废弃）。 */
+/** 字段渲染声明（源 field-maps.ts FieldDef.render + enumMap）。 */
 type FieldRender = 'money' | 'percent' | 'rate' | 'status' | 'time';
 
 interface FieldDef {
@@ -119,7 +188,7 @@ const DIRECTION_ENUM: Record<number, string> = {
 /**
  * 字段白名单（2026-09-04 6579522 全量重写；源 field-maps.ts）：
  * 仅展示配置字段 → 主键/外键（orderId/transferId 等）与已退役字段不再渲染；
- * kissen_limit_change 业务已退役未配置。字段顺序即展示顺序。
+ * 字段顺序即展示顺序。
  */
 const FIELD_MAPS: Record<string, FieldDef[]> = {
   kissen_bank_onboard: [
@@ -239,16 +308,6 @@ const CHANGE_MAPS: Record<string, ChangeDef[]> = {
   ],
 };
 
-/** 流转时间线节点结论（源 APPROVAL_RESULT_MAP；9 = 退回约定码，765eb51）。 */
-const APPROVAL_RESULT_MAP: Record<
-  number,
-  { label: string; variant: 'default' | 'destructive' | 'secondary' }
-> = {
-  2: { label: 'Rejected', variant: 'destructive' },
-  3: { label: 'Approved', variant: 'default' },
-  9: { label: 'Returned', variant: 'secondary' },
-};
-
 function getFieldMap(busCode: string): FieldDef[] | null {
   return FIELD_MAPS[busCode] ?? null;
 }
@@ -261,12 +320,12 @@ function fallbackFieldDefs(content: Record<string, unknown>): FieldDef[] {
 }
 
 /**
- * 按显式声明渲染字段值（源 renderFieldValue；替代旧 formatFieldValue 启发式）：
- * enumMap 命中优先 → render 分支（money 仅纯数字 / percent / rate 原值 /
- * status 业务特有映射优先 / time 10-13 位时间戳）→ 默认原样；空值 '--'。
+ * 按显式声明渲染字段值（源 renderFieldValue）：enumMap 命中优先 →
+ * render 分支（money 仅纯数字 / percent / rate 原值 / status 业务特有映射优先 /
+ * time 10-13 位时间戳）→ 默认原样；空值 '-'。
  */
 function renderFieldValue(def: FieldDef, value: unknown, busCode: string): string {
-  if (value === null || value === undefined || value === '') return '--';
+  if (value === null || value === undefined || value === '') return '-';
   const s = String(value);
   if (def.enumMap && /^\d+$/.test(s) && def.enumMap[Number(s)] !== undefined) {
     return def.enumMap[Number(s)];
@@ -287,10 +346,15 @@ function renderFieldValue(def: FieldDef, value: unknown, busCode: string): strin
       return s;
     }
     case 'time':
-      return /^\d{10,13}$/.test(s) ? formatTime(Number(s)) : s;
+      return /^\d{10,13}$/.test(s) ? formatTimeCell(Number(s)) : s;
     default:
       return s;
   }
+}
+
+/** 业务内容 time 字段渲染（列表/详情统一 UTC+8）。 */
+function formatTimeCell(ms: number): string {
+  return formatUtc8(ms);
 }
 
 /** 数字/千分位串 → 等宽显示（源 isNumericValue）。 */
@@ -303,7 +367,7 @@ function isNumericValue(v: unknown): boolean {
 /** 业务描述若为 JSON，格式化为可读的多行文本，避免长字符串撑破详情布局。 */
 function formatBusinessDescription(value: string): string {
   const trimmed = value.trim();
-  if (!trimmed) return '--';
+  if (!trimmed) return '-';
 
   try {
     return JSON.stringify(JSON.parse(trimmed), null, 2);
@@ -319,14 +383,14 @@ function formatBusinessDescription(value: string): string {
 function LoadingBlock() {
   return (
     <div className="space-y-3">
-      <Skeleton className="h-4 w-1/3" />
-      <Skeleton className="h-4 w-2/3" />
-      <Skeleton className="h-4 w-1/2" />
+      <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+      <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+      <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
     </div>
   );
 }
 
-/** 详情字段（§6.3 DetailGrid：label 上置；span=长文本单独占行）。 */
+/** 详情字段（label 上置；span=长文本单独占行）。 */
 function DetailField({
   label,
   span = false,
@@ -347,11 +411,9 @@ function DetailField({
   );
 }
 
-/** 详情网格（640px 抽屉内 1→2 列响应，§6.3）。 */
+/** 详情网格（1→2 列响应）。 */
 function DetailGrid({ children }: { children: React.ReactNode }) {
-  return (
-    <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">{children}</dl>
-  );
+  return <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">{children}</dl>;
 }
 
 /* ============================================================ */
@@ -374,9 +436,7 @@ interface ApprovalListRow {
   reviewerRemarks?: string;
 }
 
-function toApprovalListRow(
-  row: ApprovalTodoRow | ApprovalDoneRow,
-): ApprovalListRow {
+function toApprovalListRow(row: ApprovalTodoRow | ApprovalDoneRow): ApprovalListRow {
   return {
     id: String(row.taskId),
     taskId: row.taskId,
@@ -394,732 +454,330 @@ function toApprovalListRow(
   };
 }
 
-/**
- * 二次确认动作（唯一确认流：shared AlertDialog 取代源 ElMessageBox /
- * 下游 v1.x 的 window.confirm）。process=通过/驳回共用，文案随 approve 切换。
- */
-type ConfirmAction =
-  | { kind: 'process'; approve: number }
-  | { kind: 'previousStep' }
-  | { kind: 'withdraw' };
-
-/** 确认弹窗文案（语义保真自源确认流，英文定稿）。 */
-function confirmCopy(action: ConfirmAction): { title: string; body: string } {
-  switch (action.kind) {
-    case 'process':
-      return action.approve === 3
-        ? { title: 'Confirm Approval', body: 'Confirm approval of this request?' }
-        : { title: 'Confirm Rejection', body: 'Confirm rejection of this request?' };
-    case 'previousStep':
-      return {
-        title: 'Confirm Send Back',
-        body: 'Send back to the previous step? Review comments for this node will be discarded.',
-      };
-    case 'withdraw':
-      return {
-        title: 'Confirm Withdrawal',
-        body: 'After withdrawal, this request returns to the re-initiated state. Confirm withdrawal?',
-      };
+/** 行状态文案：已办看节点结果（2 拒 / 3 过），待办看主表状态（5/10）。 */
+function taskStatusLabel(row: ApprovalListRow): string {
+  if (row.detailReviewerStatus !== undefined) {
+    return DONE_STATUS_LABEL[row.detailReviewerStatus] ?? String(row.detailReviewerStatus);
   }
-}
-
-/* ============================================================ */
-/* 审批详情正文（列表抽屉内联渲染；源 detail-drawer.vue。上游无路由详情页，此处仅 drawer）。 */
-/* ============================================================ */
-
-function ApprovalDetailBody({
-  row,
-  readonly,
-  onDone,
-}: {
-  row: ApprovalListRow;
-  readonly: boolean;
-  onDone: () => void;
-}) {
-  const toast = useToast();
-  const { data: detail, isLoading } = useApprovalDetailQuery(
-    KISSEN_PROJECT_ID,
-    row.businessCode,
-    row.taskId,
-  );
-
-  const processMutation = useApprovalProcessMutation(KISSEN_PROJECT_ID);
-  const prevMutation = useApprovalPreviousStepMutation(KISSEN_PROJECT_ID);
-  const withdrawMutation = useApprovalWithdrawMutation(KISSEN_PROJECT_ID);
-  const [remarks, setRemarks] = React.useState('');
-  // §6.4：guard 判定不变，错误同步下沉到 Textarea 旁（输入即清）。
-  const [remarksError, setRemarksError] = React.useState<string | null>(null);
-  // 待确认动作（非空即弹确认框；文案见 confirmCopy）。
-  const [confirmAction, setConfirmAction] = React.useState<ConfirmAction | null>(
-    null,
-  );
-
-  const submitting =
-    processMutation.isPending ||
-    prevMutation.isPending ||
-    withdrawMutation.isPending;
-
-  const buttons = detail?.approveButtonDTO ?? {};
-  const canApprove = (buttons.approveType ?? 0) !== 0;
-  const canBack = (buttons.previousStepType ?? 0) !== 0;
-  const canWithdraw = (buttons.withdrawType ?? 0) !== 0;
-  const canOperate = !readonly && (canApprove || canBack || canWithdraw);
-
-  // 业务字段白名单：FIELD_MAPS 命中按配置渲染；未配置 busCode 兜底全字段过滤主键/审计键。
-  const fieldDefs = React.useMemo(() => {
-    const content = detail?.businessContent ?? null;
-    if (!content) return [];
-    const map = getFieldMap(row.businessCode);
-    return (map ?? fallbackFieldDefs(content)).filter((f) => f.key in content);
-  }, [detail, row.businessCode]);
-
-  // 变更对比表（KRC/KLS）：变更前快照 → 申请值。
-  const changeDefs = CHANGE_MAPS[row.businessCode] ?? [];
-
-  // 流转时间线（stepOrder 升序）。
-  const history = React.useMemo(() => {
-    if (!detail?.history) return [];
-    return [...detail.history].sort((a, b) => a.stepOrder - b.stepOrder);
-  }, [detail]);
-  const onApprove = (approve: number) => {
-    if (approve === 2 && !remarks.trim()) {
-      setRemarksError('Please provide a rejection reason');
-      toast.warning('Please provide a rejection reason');
-      return;
-    }
-    setConfirmAction({ kind: 'process', approve });
-  };
-
-  const onPreviousStep = () => {
-    if (!remarks.trim()) {
-      setRemarksError('A reason is required to send back to the previous step');
-      toast.warning('A reason is required to send back to the previous step');
-      return;
-    }
-    setConfirmAction({ kind: 'previousStep' });
-  };
-
-  const onWithdraw = () => {
-    setConfirmAction({ kind: 'withdraw' });
-  };
-
-  /** 确认后分发；成功 toast + 关抽屉语义与源一致。 */
-  const runConfirmed = (action: ConfirmAction) => {
-    setConfirmAction(null);
-    if (action.kind === 'process') {
-      processMutation.mutate(
-        {
-          busCode: row.businessCode,
-          taskId: row.taskId,
-          approve: action.approve,
-          remarks: remarks.trim() || undefined,
-        },
-        {
-          onSuccess: () => {
-            toast.success(action.approve === 3 ? 'Approved' : 'Rejected');
-            onDone();
-          },
-          onError: (err) => toast.error((err as Error).message),
-        },
-      );
-    } else if (action.kind === 'previousStep') {
-      prevMutation.mutate(
-        { busCode: row.businessCode, taskId: row.taskId, remarks: remarks.trim() },
-        {
-          onSuccess: () => {
-            toast.success('Sent back to previous step');
-            onDone();
-          },
-          onError: (err) => toast.error((err as Error).message),
-        },
-      );
-    } else {
-      withdrawMutation.mutate(
-        {
-          busCode: row.businessCode,
-          taskId: row.taskId,
-          remarks: remarks.trim() || undefined,
-        },
-        {
-          onSuccess: () => {
-            toast.success('Withdrawn');
-            onDone();
-          },
-          onError: (err) => toast.error((err as Error).message),
-        },
-      );
-    }
-  };
-
-  if (isLoading || !detail) {
-    return <LoadingBlock />;
-  }
-
-  const isDoneRow = row.detailReviewerStatus !== undefined;
-
   return (
-    <div className="space-y-4 pt-4">
-      {/* 摘要头卡（源 head-card）：业务类型 + 状态 + 单号；当前节点/申请时间/业务描述；已办加处理时间/我的意见 */}
-      <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
-        <div className="flex flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-base font-semibold leading-6 text-foreground">
-              {businessName(row.businessCode)}
-            </span>
-            <Badge variant={approvalStatusVariant(row.reviewerStatus)}>
-              {COMMON_STATUS_MAP[row.reviewerStatus] ?? row.reviewerStatus}
-            </Badge>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            <CopyableEllipsisText
-              value={row.applyCode}
-              emptyText="--"
-              maxWidth={280}
-              className="font-mono"
-            />
-            <span>{row.stepName || '--'}</span>
-            <span className="tabular-nums">Applied {formatTime(row.createTime)}</span>
-          </div>
-          {row.busDesc ? (
-            <p className="m-0 break-words text-sm text-muted-foreground">
-              {formatBusinessDescription(row.busDesc)}
-            </p>
-          ) : null}
-          {isDoneRow ? (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              <span className="tabular-nums">
-                Processed {formatTime(row.reviewerTime)}
-              </span>
-              <span className="min-w-0 break-words">
-                My comments: {row.reviewerRemarks || '--'}
-              </span>
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      {/* 流转记录时间线（源 history timeline；3bfe319） */}
-      {history.length > 0 && (
-        <div>
-          <div className="mb-2 text-sm font-semibold">Flow History</div>
-          <ol className="m-0 list-none space-y-0 p-0">
-            {history.map((node) => {
-              const result = APPROVAL_RESULT_MAP[node.reviewerStatus];
-              return (
-                <li
-                  key={node.detailId}
-                  className="relative border-l border-border pl-4 pb-4 last:pb-0"
-                >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full border-2 border-card',
-                      result?.variant === 'destructive' && 'bg-destructive',
-                      result?.variant === 'default' && 'bg-primary',
-                      (!result || result.variant === 'secondary') && 'bg-muted-foreground/60',
-                    )}
-                  />
-                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className="text-sm font-medium">{node.stepName}</span>
-                      {result ? (
-                        <Badge variant={result.variant}>{result.label}</Badge>
-                      ) : (
-                        <Badge variant="outline">{node.reviewerStatus}</Badge>
-                      )}
-                    </div>
-                    <span className="text-xs tabular-nums text-muted-foreground">
-                      {formatTime(node.reviewerTime)}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {node.reviewerName || '--'}
-                  </div>
-                  {node.reviewerRemarks ? (
-                    <blockquote className="mt-1 border-l-2 border-border pl-2 text-sm italic text-muted-foreground">
-                      {node.reviewerRemarks}
-                    </blockquote>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-      )}
-
-      {/* 业务内容：变更对比表（KRC/KLS）+ 字段白名单卡 */}
-      <div>
-        <div className="mb-2 text-sm font-semibold">Business Content</div>
-        {changeDefs.length > 0 && (
-          <div className="mb-3 overflow-x-auto rounded-lg border border-border/60 bg-card p-4">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="py-1.5 pr-3 font-medium">Item</th>
-                  <th className="py-1.5 pr-3 font-medium">Current</th>
-                  <th className="py-1.5 pr-3 font-medium" aria-label="Change direction" />
-                  <th className="py-1.5 font-medium">Requested</th>
-                </tr>
-              </thead>
-              <tbody>
-                {changeDefs.map((def) => {
-                  const content = detail.businessContent ?? {};
-                  const rawFrom = content[def.fromKey];
-                  const rawTo = content[def.toKey];
-                  const fromText =
-                    rawFrom === null || rawFrom === undefined || rawFrom === ''
-                      ? '--'
-                      : def.render === 'percent'
-                        ? formatPercent(rawFrom)
-                        : String(rawFrom);
-                  const toText =
-                    rawTo === null || rawTo === undefined || rawTo === ''
-                      ? '--'
-                      : def.render === 'percent'
-                        ? formatPercent(rawTo)
-                        : String(rawTo);
-                  const nFrom = Number(rawFrom);
-                  const nTo = Number(rawTo);
-                  const comparable =
-                    rawFrom !== null &&
-                    rawFrom !== undefined &&
-                    rawFrom !== '' &&
-                    rawTo !== null &&
-                    rawTo !== undefined &&
-                    rawTo !== '' &&
-                    !Number.isNaN(nFrom) &&
-                    !Number.isNaN(nTo) &&
-                    nFrom !== nTo;
-                  return (
-                    <tr key={def.fromKey} className="border-b border-border/60 last:border-b-0">
-                      <td className="py-2 pr-3">{def.label}</td>
-                      <td className="py-2 pr-3 tabular-nums">{fromText}</td>
-                      <td
-                        className={cn(
-                          'py-2 pr-3',
-                          comparable
-                            ? nTo > nFrom
-                              ? 'text-primary'
-                              : 'text-destructive'
-                            : 'text-muted-foreground',
-                        )}
-                      >
-                        {comparable ? (nTo > nFrom ? '↑' : '↓') : '→'}
-                      </td>
-                      <td className="py-2 font-medium tabular-nums">{toText}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {fieldDefs.length > 0 ? (
-          <div className="rounded-lg border border-border/60 bg-card p-4">
-            <DetailGrid>
-              {fieldDefs.map((def) => {
-                const text = renderFieldValue(
-                  def,
-                  detail.businessContent?.[def.key],
-                  row.businessCode,
-                );
-                return (
-                  <DetailField key={def.key} label={def.label}>
-                    <span className={isNumericValue(text) ? 'tabular-nums' : undefined}>
-                      {text}
-                    </span>
-                  </DetailField>
-                );
-              })}
-            </DetailGrid>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No business fields</p>
-        )}
-      </div>
-
-      {/* 审批操作（仅待办且有可用能力位） */}
-      {canOperate && (
-        <div className="space-y-3">
-          <div className="text-sm font-semibold">Approval Actions</div>
-          <div className="space-y-1.5">
-            <label htmlFor="approval-remarks" className="text-sm font-medium">
-              Review Comments
-              <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                (required for Reject / Send Back)
-              </span>
-            </label>
-            <Textarea
-              id="approval-remarks"
-              value={remarks}
-              onChange={(e) => {
-                setRemarks(e.target.value);
-                setRemarksError(null);
-              }}
-              rows={3}
-              maxLength={200}
-              placeholder="Enter review comments"
-              aria-invalid={remarksError ? true : undefined}
-              aria-describedby={remarksError ? 'approval-remarks-error' : undefined}
-            />
-            {remarksError && (
-              <p id="approval-remarks-error" role="alert" className="text-sm text-destructive">
-                {remarksError}
-              </p>
-            )}
-          </div>
-          <div className="text-right text-xs text-muted-foreground">
-            {remarks.length}/200
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button disabled={submitting} onClick={() => onApprove(3)}>
-              Approve
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={submitting}
-              onClick={() => onApprove(2)}
-            >
-              Reject
-            </Button>
-            {canBack && (
-              <Button variant="outline" disabled={submitting} onClick={onPreviousStep}>
-                Send Back
-              </Button>
-            )}
-            {canWithdraw && (
-              <Button variant="outline" disabled={submitting} onClick={onWithdraw}>
-                Withdraw
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 二次确认弹窗（唯一确认流；取代源 ElMessageBox / v1.x window.confirm） */}
-      <AlertDialog
-        open={confirmAction !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirmAction(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmAction ? confirmCopy(confirmAction).title : ''}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmAction ? confirmCopy(confirmAction).body : ''}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault(); // 保持受控：分发后统一关闭
-                if (confirmAction) runConfirmed(confirmAction);
-              }}
-            >
-              Confirm
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+    TODO_STATUS_LABEL[row.reviewerStatus] ??
+    protoStatusLabel(PROTO_WORKFLOW_TASK_STATUS, row.reviewerStatus) ??
+    String(row.reviewerStatus)
   );
 }
 
+/** 行状态排序键（原型 STATUS_ORDER 口径；未知值 null → 恒排最后）。 */
+function taskStatusRank(row: ApprovalListRow): number | null {
+  const index = STATUS_ORDER.indexOf(taskStatusLabel(row));
+  return index < 0 ? null : index;
+}
+
 /* ============================================================ */
-/* 审批中心列表（源 views/approval/index.vue：Tabs 待办/已办）     */
+/* 审批中心列表（原型 WorkflowTasksPage.jsx）                      */
 /* ============================================================ */
 
 export function ApprovalCenterListPage() {
-  const [tab, setTab] = React.useState<'todo' | 'done'>('todo');
+  const router = useRouter();
+
+  const [tab, setTab] = React.useState<ApprovalTab>('pending');
   const [pageNum, setPageNum] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
-  const [businessCode, setBusinessCode] = React.useState('');
+  // 原型查询区：Approval No. 文本（250ms 防抖即时生效）+ Business Type / Status 下拉即时生效
   const [keyword, setKeyword] = React.useState('');
-  const [doneStatus, setDoneStatus] = React.useState<number | undefined>();
-  const [applied, setApplied] = React.useState({
-    businessCode: '',
-    keyword: '',
-    doneStatus: undefined as number | undefined,
-  });
+  const [businessCode, setBusinessCode] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState('');
+  const keywordDebounced = useDebouncedValue(keyword);
 
-  const todoFilter = {
-    businessCode: applied.businessCode || undefined,
-    keyword: applied.keyword || undefined,
-  };
-  const doneFilter = {
-    businessCode: applied.businessCode || undefined,
-    keyword: applied.keyword || undefined,
-    status: applied.doneStatus,
+  // 筛选变化回到第一页（原型同款）
+  React.useEffect(() => {
+    setPageNum(1);
+  }, [keywordDebounced, businessCode, statusFilter, tab]);
+
+  // 服务端筛选：businessCode / keyword；已办 + Approved|Rejected → filter.status
+  // （后端 filter.status 仅支持已办 2/3；其余状态选项无服务端参数 → 列表内客户端过滤，见下）
+  const doneStatusParam =
+    tab === 'actioned' && (statusFilter === 'Approved' || statusFilter === 'Rejected')
+      ? statusFilter === 'Approved'
+        ? 3
+        : 2
+      : undefined;
+
+  const listFilter = {
+    businessCode: businessCode || undefined,
+    keyword: keywordDebounced.trim() || undefined,
+    status: doneStatusParam,
   };
 
   const todoQ = useApprovalTodoQuery(
     KISSEN_PROJECT_ID,
-    { pageNum, pageSize, filter: todoFilter },
-    tab === 'todo',
+    { pageNum, pageSize, filter: listFilter },
+    tab === 'pending',
   );
   const doneQ = useApprovalDoneQuery(
     KISSEN_PROJECT_ID,
-    { pageNum, pageSize, filter: doneFilter },
-    tab === 'done',
+    { pageNum, pageSize, filter: listFilter },
+    tab === 'actioned',
   );
-  const activeQ = tab === 'todo' ? todoQ : doneQ;
+  const activeQ = tab === 'pending' ? todoQ : doneQ;
 
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [activeRow, setActiveRow] = React.useState<ApprovalListRow | null>(null);
+  // 页签计数与查询区条件无关（原型口径）→ 无过滤探针查询（pageSize 1，键稳定只取一次）
+  const todoCountQ = useApprovalTodoQuery(KISSEN_PROJECT_ID, {
+    pageNum: 1,
+    pageSize: 1,
+    filter: {},
+  });
+  const doneCountQ = useApprovalDoneQuery(KISSEN_PROJECT_ID, {
+    pageNum: 1,
+    pageSize: 1,
+    filter: {},
+  });
 
   const rows = activeQ.data?.data ?? [];
   const paginationMeta = activeQ.data?.pagination;
   const isLoading = activeQ.isLoading;
   const isError = activeQ.isError;
 
+  const tableDataRaw = React.useMemo(() => rows.map(toApprovalListRow), [rows]);
+
+  // Status 下拉中无服务端参数的选项（待办页签全部 / 已办的 Pending/Under）→ 当前页客户端过滤。
+  // 选择与页签分组互斥的状态（如待办页签选 Approved）结果自然为空，与原型行为一致。
   const tableData = React.useMemo(
-    () => rows.map(toApprovalListRow),
-    [rows],
+    () =>
+      doneStatusParam === undefined && statusFilter
+        ? tableDataRaw.filter((row) => taskStatusLabel(row) === statusFilter)
+        : tableDataRaw,
+    [tableDataRaw, statusFilter, doneStatusParam],
   );
 
-  const onSearch = () => {
-    setApplied({ businessCode, keyword, doneStatus });
-    setPageNum(1);
-  };
+  // 排序：后端分页端点无 sortBy 参数 → 仅当前数据集内本地排序（过渡口径，见 proto-sort.tsx 头注）。
+  const sortGetters = React.useMemo(
+    () => ({
+      approvalNo: { value: (r: ApprovalListRow) => r.applyCode || null },
+      businessType: { value: (r: ApprovalListRow) => businessName(r.businessCode) },
+      createdBy: { value: (r: ApprovalListRow) => r.createUserName || null },
+      createdOn: { value: (r: ApprovalListRow) => r.createTime, defaultDir: 'desc' as const },
+      processingTime: { value: (r: ApprovalListRow) => r.reviewerTime ?? null, defaultDir: 'desc' as const },
+      status: { value: (r: ApprovalListRow) => taskStatusRank(r), defaultDir: 'asc' as const },
+    }),
+    [],
+  );
+  const { sorted, toggle, sortState } = useProtoSort(
+    tableData,
+    sortGetters,
+    'createdOn',
+    'desc',
+    true,
+  );
 
   const onReset = () => {
-    setBusinessCode('');
     setKeyword('');
-    setDoneStatus(undefined);
-    setApplied({ businessCode: '', keyword: '', doneStatus: undefined });
-    setPageNum(1);
+    setBusinessCode('');
+    setStatusFilter('');
   };
 
+  // 原型 D9：切页签即换状态分组；清空 Status 下拉避免跨页签残留
   const onTabChange = (value: string) => {
-    setTab(value === 'done' ? 'done' : 'todo');
-    setPageNum(1);
+    setTab(value === 'actioned' ? 'actioned' : 'pending');
+    setStatusFilter('');
   };
 
   const openDetail = (row: ApprovalListRow) => {
-    setActiveRow(row);
-    setDrawerOpen(true);
-  };
-
-  const closeDetail = () => {
-    setDrawerOpen(false);
-    setActiveRow(null);
+    stashRow(APPROVAL_STASH_SCOPE, row.taskId, row);
+    router.push(`${APPROVAL_DETAIL_PATH}?taskId=${row.taskId}`);
   };
 
   const columns = React.useMemo<ColumnDef<ApprovalListRow>[]>(
     () => [
       {
-        accessorKey: 'applyCode',
-        header: 'Approval No.',
+        id: 'approvalNo',
+        header: () => (
+          <ProtoSortHeader label="Approval No." columnKey="approvalNo" toggle={toggle} sortState={sortState('approvalNo')} />
+        ),
         cell: ({ row }) => (
-          <span className="font-mono">{row.original.applyCode || '--'}</span>
+          <span className="whitespace-nowrap">
+            {row.original.applyCode ? (
+              <CopyableId value={row.original.applyCode} className="text-xs" />
+            ) : (
+              <Dash />
+            )}
+          </span>
         ),
       },
       {
-        id: 'businessName',
-        header: 'Business Type',
+        id: 'businessType',
+        header: () => (
+          <ProtoSortHeader label="Business Type" columnKey="businessType" toggle={toggle} sortState={sortState('businessType')} />
+        ),
         cell: ({ row }) => (
-          <span>{businessName(row.original.businessCode)}</span>
+          <span className="whitespace-nowrap">{businessName(row.original.businessCode)}</span>
         ),
       },
       {
         accessorKey: 'busDesc',
         header: 'Business Description',
-        cell: ({ row }) => <span>{row.original.busDesc || '--'}</span>,
-      },
-      {
-        accessorKey: 'stepName',
-        header: 'Current Node',
-        cell: ({ row }) => <span>{row.original.stepName || '--'}</span>,
-      },
-      {
-        accessorKey: 'createUserName',
-        header: 'Applicant',
-        cell: ({ row }) => <span>{row.original.createUserName || '--'}</span>,
-      },
-      {
-        accessorKey: 'createTime',
-        header: 'Application Time',
+        meta: { maxWidth: 320, overflow: 'wrap' },
         cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatTime(row.original.createTime)}
+          <span className="line-clamp-2 whitespace-pre-line">{row.original.busDesc || <Dash />}</span>
+        ),
+      },
+      {
+        id: 'createdBy',
+        header: () => (
+          <ProtoSortHeader label="Created by" columnKey="createdBy" toggle={toggle} sortState={sortState('createdBy')} />
+        ),
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap">{row.original.createUserName || <Dash />}</span>
+        ),
+      },
+      {
+        id: 'createdOn',
+        header: () => (
+          <ProtoSortHeader label="Created on (UTC+8)" columnKey="createdOn" toggle={toggle} sortState={sortState('createdOn')} />
+        ),
+        meta: { maxWidth: 200 },
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap tabular-nums">
+            {formatUtc8(row.original.createTime)}
           </span>
         ),
       },
       {
         id: 'status',
-        header: 'Status',
-        cell: ({ row }) => {
-          const isDone = row.original.detailReviewerStatus !== undefined;
-          if (isDone) {
-            const st = row.original.detailReviewerStatus as number;
-            return (
-              <Badge variant={approvalDetailStatusVariant(st)}>
-                {DETAIL_STATUS_MAP[st] ?? st}
-              </Badge>
-            );
-          }
-          return (
-            <Badge variant={approvalStatusVariant(row.original.reviewerStatus)}>
-              {COMMON_STATUS_MAP[row.original.reviewerStatus] ??
-                row.original.reviewerStatus}
-            </Badge>
-          );
-        },
-      },
-      {
-        id: 'reviewerTime',
-        header: 'Processing Time',
+        header: () => (
+          <ProtoSortHeader label="Status" columnKey="status" toggle={toggle} sortState={sortState('status')} />
+        ),
         cell: ({ row }) => (
-          <span className="tabular-nums">
-            {row.original.detailReviewerStatus !== undefined
-              ? formatTime(row.original.reviewerTime)
-              : '--'}
-          </span>
+          <ProtoStatusBadge tone={statusTone(taskStatusLabel(row))}>
+            {taskStatusLabel(row)}
+          </ProtoStatusBadge>
         ),
       },
       {
-        id: 'reviewerRemarks',
-        header: 'My Comments',
+        id: 'processingTime',
+        // 2026-09-20 口径：本列展示 processedAt 时间戳（非时长）；未处理 → '-'
+        header: () => (
+          <ProtoSortHeader label="Processing Time (UTC+8)" columnKey="processingTime" toggle={toggle} sortState={sortState('processingTime')} />
+        ),
+        meta: { maxWidth: 200 },
         cell: ({ row }) => (
-          <span>
-            {row.original.detailReviewerStatus !== undefined
-              ? row.original.reviewerRemarks || '--'
-              : '--'}
+          <span className="whitespace-nowrap tabular-nums">
+            {row.original.reviewerTime ? formatUtc8(row.original.reviewerTime) : <Dash />}
           </span>
         ),
       },
       createActionColumn<ApprovalListRow>((item) => {
-        // 无审批策略的业务暂无详情页：保留禁用入口占位（源渲染 disabled 链接按钮）。
+        // 无审批策略的业务详情接口会报错：保留禁用占位（源渲染 disabled 链接按钮）。
         if (NO_STRATEGY_BUSINESSES[item.businessCode]) {
-          return [
-            {
-              label: 'Detail pending integration',
-              disabled: true,
-              onClick: () => undefined,
-            },
-          ];
+          return [{ label: 'Details', disabled: true, onClick: () => undefined }];
         }
-        return [
-          {
-            label: tab === 'todo' ? 'Process' : 'View',
-            onClick: () => openDetail(item),
-          },
-        ];
+        return [{ label: 'Details', onClick: () => openDetail(item) }];
       }),
     ],
-    [tab],
+    [toggle, sortState],
   );
 
   const businessOptions = React.useMemo(
-    () => Object.entries(BUSINESS_NAME_MAP).map(([value, label]) => ({ value, label })),
+    () =>
+      Object.entries(BUSINESS_NAME_MAP).map(([value, label]) => ({ value, label })),
     [],
   );
 
+  const pendingCount = todoCountQ.data?.pagination.total;
+  const actionedCount = doneCountQ.data?.pagination.total;
+
   return (
-    <div className="space-y-4">
-      {/* 页头（源 approval/index.vue page-head：eyebrow + 标题） */}
-      <div>
-        <div className="text-xs text-muted-foreground">APPROVAL</div>
-        <h1 className="text-xl font-semibold">Approval Center</h1>
-      </div>
+    <div className="min-w-0 space-y-4">
+      {/* 页头（原型 PageHeader：仅标题） */}
+      <h1 className="text-xl font-semibold">Workflow Tasks</h1>
+
+      {/* 页签在卡片外（原型门禁：Tabs 独立）；计数与查询区条件无关 */}
       <Tabs value={tab} onValueChange={onTabChange}>
         <TabsList>
-          <TabsTrigger value="todo">To Do</TabsTrigger>
-          <TabsTrigger value="done">Done</TabsTrigger>
+          <TabsTrigger value="pending">
+            Pending
+            {typeof pendingCount === 'number' && (
+              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+                {pendingCount}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="actioned">
+            Actioned
+            {typeof actionedCount === 'number' && (
+              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+                {actionedCount}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value={tab} className="mt-4">
           <section className="rounded-lg border border-border/60 bg-card">
-            <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-                <div className="text-base font-semibold leading-6 text-foreground">
-                  Approvals
-                </div>
-                {!isLoading && paginationMeta ? (
-                  <span className="text-sm text-muted-foreground tabular-nums">
-                    {paginationMeta.total} results
-                  </span>
-                ) : null}
-                {activeQ.dataUpdatedAt ? (
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    Updated {formatAdminDateTime(activeQ.dataUpdatedAt)}
-                  </span>
-                ) : null}
+            {/* 卡片头：左上列表标题（原型 D2：不再带 N results · Updated） */}
+            <div className="border-b border-border/50 px-4 py-3">
+              <div className="text-base font-semibold leading-6 text-foreground">
+                Approvals
               </div>
             </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                onSearch();
-              }}
-              className="border-b border-border/50 px-4 py-3"
-            >
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium leading-snug text-foreground">
-                    Business Type
-                  </label>
-                  <Select
-                    value={businessCode || STATUS_ALL}
-                    onValueChange={(v) => setBusinessCode(v === STATUS_ALL ? '' : v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={STATUS_ALL}>All</SelectItem>
-                      {businessOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium leading-snug text-foreground">
-                    Keyword
-                  </label>
-                  <Input
-                    value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
-                    placeholder="Approval No. / Business Description"
-                  />
-                </div>
-                {tab === 'done' && (
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium leading-snug text-foreground">
-                      Result
-                    </label>
-                    <Select
-                      value={doneStatus === undefined ? STATUS_ALL : String(doneStatus)}
-                      onValueChange={(v) =>
-                        setDoneStatus(v === STATUS_ALL ? undefined : Number(v))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={STATUS_ALL}>All</SelectItem>
-                        <SelectItem value="3">Approved</SelectItem>
-                        <SelectItem value="2">Rejected</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <div className="flex items-end gap-2">
-                  <Button type="submit">Search</Button>
-                  <Button type="button" variant="outline" onClick={onReset}>
-                    Reset
-                  </Button>
-                </div>
+
+            {/* 查询区：即时生效 + 单 Reset（原型 D3；文本 250ms 防抖、无 placeholder） */}
+            <div className="grid grid-cols-1 gap-3 border-b border-border/50 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium leading-snug text-foreground">
+                  Approval No.
+                </label>
+                <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} />
               </div>
-            </form>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium leading-snug text-foreground">
+                  Business Type
+                </label>
+                <Select
+                  value={businessCode || FILTER_ALL}
+                  onValueChange={(v) => setBusinessCode(v === FILTER_ALL ? '' : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={FILTER_ALL}>All</SelectItem>
+                    {businessOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium leading-snug text-foreground">
+                  Status
+                </label>
+                <Select
+                  value={statusFilter || FILTER_ALL}
+                  onValueChange={(v) =>
+                    setStatusFilter(v === FILTER_ALL ? '' : v)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_FILTER_OPTIONS.map((opt) => (
+                      <SelectItem key={opt || FILTER_ALL} value={opt || FILTER_ALL}>
+                        {opt || 'All'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end">
+                <Button type="button" variant="outline" onClick={onReset}>
+                  Reset
+                </Button>
+              </div>
+            </div>
+
             <div className="p-4">
               {isError ? (
                 <Alert variant="destructive" role="alert">
@@ -1128,12 +786,12 @@ export function ApprovalCenterListPage() {
               ) : (
                 <DataTable
                   columns={columns}
-                  data={tableData}
+                  data={sorted}
                   isLoading={isLoading}
                   emptyMessage={
-                    tab === 'todo'
+                    tab === 'pending'
                       ? 'No pending approvals'
-                      : 'No completed approvals'
+                      : 'No actioned approvals'
                   }
                   pagination={
                     paginationMeta
@@ -1155,26 +813,578 @@ export function ApprovalCenterListPage() {
           </section>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
 
-      <Drawer open={drawerOpen} onOpenChange={(v) => !v && closeDetail()}>
-        <DrawerContent className="h-screen max-h-screen w-full max-w-full sm:w-[800px] sm:max-w-[calc(100vw-1rem)]">
-          <DrawerHeader>
-            <DrawerTitle>
-              {activeRow ? `${businessName(activeRow.businessCode)} - Details` : 'Details'}
-            </DrawerTitle>
-            <DrawerDescription>Approval Details</DrawerDescription>
-          </DrawerHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
-            {activeRow && (
-              <ApprovalDetailBody
-                row={activeRow}
-                readonly={tab === 'done'}
-                onDone={closeDetail}
-              />
+/* ============================================================ */
+/* 审批详情页（原型 WorkflowTaskDetailsPage.jsx：?taskId=&tab=content|flow） */
+/* ============================================================ */
+
+/** 审批决定后的本地状态覆盖（原型 fixture 阶段同款本页内状态语义）。 */
+interface DecisionOverride {
+  label: 'Approved' | 'Rejected';
+  at: number;
+  comment: string;
+}
+
+export function ApprovalDetailPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const toast = useToast();
+
+  const taskIdParam = Number(searchParams.get('taskId'));
+  const taskId =
+    Number.isFinite(taskIdParam) && taskIdParam > 0 ? taskIdParam : null;
+
+  // 行来源：列表跳转暂存行优先；直链进入回退列表扫描（详情接口需要 busCode，
+  // 后端无按 taskId 直接取单的端点 → 扫描为必要路径而非兜底装饰）。
+  const stashed = React.useMemo(
+    () => (taskId ? peekRow<ApprovalListRow>(APPROVAL_STASH_SCOPE, taskId) : null),
+    [taskId],
+  );
+  const todoScanQ = useApprovalTodoQuery(
+    KISSEN_PROJECT_ID,
+    { pageNum: 1, pageSize: 200, filter: {} },
+    !stashed,
+  );
+  const doneScanQ = useApprovalDoneQuery(
+    KISSEN_PROJECT_ID,
+    { pageNum: 1, pageSize: 200, filter: {} },
+    !stashed,
+  );
+  const scanning = !stashed && (todoScanQ.isLoading || doneScanQ.isLoading);
+  const scannedRow = React.useMemo(() => {
+    if (stashed) return null;
+    const pool = [...(todoScanQ.data?.data ?? []), ...(doneScanQ.data?.data ?? [])];
+    return taskId
+      ? (pool.map(toApprovalListRow).find((row) => row.taskId === taskId) ?? null)
+      : null;
+  }, [stashed, todoScanQ.data, doneScanQ.data, taskId]);
+
+  const row = stashed ?? scannedRow;
+
+  const detailQ = useApprovalDetailQuery(
+    KISSEN_PROJECT_ID,
+    row?.businessCode,
+    row?.taskId ?? undefined,
+  );
+
+  // 页签状态写 URL（?tab=；content 缺省不写），replace 不留历史
+  const tabParam = searchParams.get('tab');
+  const activeTab =
+    tabParam === 'flow' || tabParam === 'content' ? tabParam : 'content';
+  const handleTabChange = (next: string) => {
+    if (!taskId) return;
+    const params = new URLSearchParams();
+    params.set('taskId', String(taskId));
+    if (next !== 'content') params.set('tab', next);
+    router.replace(`${APPROVAL_DETAIL_PATH}?${params.toString()}`, { scroll: false });
+  };
+
+  const processMutation = useApprovalProcessMutation(KISSEN_PROJECT_ID);
+  const [comment, setComment] = React.useState('');
+  const [commentError, setCommentError] = React.useState('');
+  const [decision, setDecision] = React.useState<'approve' | 'reject' | null>(null);
+  const [override, setOverride] = React.useState<DecisionOverride | null>(null);
+
+  /* ---- 未找到 / 加载态 ---- */
+
+  if (!row) {
+    if (scanning) {
+      return (
+        <div className="space-y-4">
+          <h1 className="text-xl font-semibold">Approval Details</h1>
+          <section className="rounded-lg border border-border/60 bg-card p-4">
+            <LoadingBlock />
+          </section>
+        </div>
+      );
+    }
+    // 原型 not-found 逐字
+    return (
+      <div className="min-w-0 space-y-4">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="iconSm"
+            aria-label="Back to Workflow Tasks"
+            onClick={() => router.push(APPROVAL_LIST_PATH)}
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </Button>
+          <h1 className="text-xl font-semibold">Approval Details</h1>
+        </div>
+        <section className="rounded-lg border border-border/60 bg-card px-6 py-12 text-center">
+          <p className="text-lg font-medium text-foreground">Approval not found</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The record may have been removed. Go back to the list.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => router.push(APPROVAL_LIST_PATH)}
+          >
+            Back to Workflow Tasks
+          </Button>
+        </section>
+      </div>
+    );
+  }
+
+  /* ---- 派生数据 ---- */
+
+  const detail = detailQ.data;
+  const isDoneRow = row.detailReviewerStatus !== undefined;
+
+  // 生效状态：审批决定后本页内覆盖（详情缓存不失效，与原型本页状态语义一致）
+  const effectiveLabel = override?.label ?? taskStatusLabel(row);
+  const effectiveProcessedAt = override?.at ?? (isDoneRow ? row.reviewerTime : undefined);
+  const effectiveRemarks = override
+    ? override.comment
+    : isDoneRow
+      ? row.reviewerRemarks
+      : undefined;
+
+  const buttons = detail?.approveButtonDTO ?? {};
+  const canApprove = (buttons.approveType ?? 0) !== 0;
+  // 审批动作区仅待办任务（5/10）且详情能力位允许；决定完成后隐藏
+  const decidable =
+    !isDoneRow && !override && canApprove && [5, 10].includes(row.reviewerStatus);
+
+  const decisionCopy = decision
+    ? PROTO_APPROVAL_ACTION_TEXT[decision](row.applyCode, businessName(row.businessCode))
+    : null;
+
+  const openDecision = (kind: 'approve' | 'reject') => {
+    // 驳回必须有意见（原型逐字）
+    if (kind === 'reject' && !comment.trim()) {
+      setCommentError('A comment is required when rejecting.');
+      return;
+    }
+    setCommentError('');
+    setDecision(kind);
+  };
+
+  const runDecision = () => {
+    if (!decision) return;
+    processMutation.mutate(
+      {
+        busCode: row.businessCode,
+        taskId: row.taskId,
+        approve: decision === 'approve' ? 3 : 2,
+        remarks: comment.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            decision === 'approve'
+              ? `Approval ${row.applyCode} has been approved.`
+              : `Approval ${row.applyCode} has been rejected.`,
+          );
+          setOverride({
+            label: decision === 'approve' ? 'Approved' : 'Rejected',
+            at: Date.now(),
+            comment: comment.trim(),
+          });
+          setDecision(null);
+          setComment('');
+        },
+        onError: (err) => toast.error((err as Error).message),
+      },
+    );
+  };
+
+  /* ---- 业务内容字段（沿用 FIELD_MAPS / CHANGE_MAPS） ---- */
+
+  const fieldDefs = React.useMemo(() => {
+    const content = detail?.businessContent ?? null;
+    if (!content) return [];
+    const map = getFieldMap(row.businessCode);
+    return (map ?? fallbackFieldDefs(content)).filter((f) => f.key in content);
+  }, [detail, row.businessCode]);
+
+  const changeDefs = CHANGE_MAPS[row.businessCode] ?? [];
+
+  // 流转时间线（stepOrder 升序）；待办任务追加当前节点（无时间，原型 current 口径）
+  const flowNodes = React.useMemo(() => {
+    const history = detail?.history
+      ? [...detail.history].sort((a, b) => a.stepOrder - b.stepOrder)
+      : [];
+    if (isDoneRow || override) return history;
+    return history;
+  }, [detail, isDoneRow, override]);
+  const showCurrentNode = !isDoneRow && !override;
+
+  /* ---- 渲染 ---- */
+
+  const header = (
+    <div className="flex flex-wrap items-start gap-3">
+      <Button
+        variant="outline"
+        size="iconSm"
+        aria-label="Back to Workflow Tasks"
+        onClick={() => router.push(APPROVAL_LIST_PATH)}
+      >
+        <ArrowLeft className="size-4" aria-hidden="true" />
+      </Button>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* 原型 D2："{Business Type} Approval - Details"（业务名多数自带 Approval 后缀） */}
+          <h1 className="min-w-0 break-words text-xl font-semibold">
+            {businessName(row.businessCode)} - Details
+          </h1>
+          <ProtoStatusBadge tone={statusTone(effectiveLabel)}>
+            {effectiveLabel}
+          </ProtoStatusBadge>
+        </div>
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            {'Approval No: '}
+            {row.applyCode ? (
+              <CopyableId value={row.applyCode} className="text-xs" />
+            ) : (
+              <Dash />
             )}
-          </div>
-        </DrawerContent>
-      </Drawer>
+          </span>
+          <span aria-hidden="true">|</span>
+          <span>
+            {'Created on '}
+            <span className="font-semibold text-foreground tabular-nums">
+              {formatUtc8(row.createTime)}
+            </span>
+          </span>
+        </p>
+      </div>
+    </div>
+  );
+
+  if (detailQ.isLoading || (detailQ.isPending && !detail)) {
+    return (
+      <div className="min-w-0 space-y-4">
+        {header}
+        <section className="rounded-lg border border-border/60 bg-card p-4">
+          <LoadingBlock />
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-0 space-y-4">
+      {header}
+
+      {/* 页签条独立于 Card（原型门禁）；Flow 带节点计数 */}
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList>
+          <TabsTrigger value="content">Approval Content</TabsTrigger>
+          <TabsTrigger value="flow">
+            Flow History
+            <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+              {flowNodes.length + (showCurrentNode ? 1 : 0)}
+            </span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Tab 1：Approval Content */}
+        <TabsContent value="content" className="mt-4 space-y-4">
+          {/* 摘要卡（原型 DetailField 栅格 + Business Description 分隔区） */}
+          <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-4 px-4 py-5 sm:grid-cols-2 lg:grid-cols-3">
+              <DetailField label="Approval No.">
+                <span className="break-all font-mono">{row.applyCode || <Dash />}</span>
+              </DetailField>
+              <DetailField label="Business Type">
+                {businessName(row.businessCode)}
+              </DetailField>
+              <DetailField label="Created by">
+                {row.createUserName || <Dash />}
+              </DetailField>
+              <DetailField label="Created on (UTC+8)">
+                <span className="tabular-nums">{formatUtc8(row.createTime)}</span>
+              </DetailField>
+              <DetailField label="Processing Time">
+                {effectiveProcessedAt
+                  ? formatDuration(effectiveProcessedAt - row.createTime)
+                  : <Dash />}
+              </DetailField>
+              <DetailField label="Processed (UTC+8)">
+                <span className="tabular-nums">
+                  {effectiveProcessedAt ? formatUtc8(effectiveProcessedAt) : <Dash />}
+                </span>
+              </DetailField>
+              <DetailField label="My comments">
+                {effectiveRemarks || <Dash />}
+              </DetailField>
+            </dl>
+            <div className="border-t border-border px-4 py-5">
+              <dt className="text-xs font-medium text-muted-foreground">
+                Business Description
+              </dt>
+              <dd className="mt-1 break-words whitespace-pre-line text-sm text-foreground">
+                {row.busDesc ? formatBusinessDescription(row.busDesc) : <Dash />}
+              </dd>
+            </div>
+          </section>
+
+          {/* Business Content：变更对比表（KRC/KLS）+ 字段白名单栅格 */}
+          <section className="rounded-lg border border-border/60 bg-card p-4">
+            <div className="mb-3 text-base font-semibold leading-6 text-foreground">
+              Business Content
+            </div>
+            {changeDefs.length > 0 && (
+              <div className="mb-3 overflow-x-auto rounded-lg border border-border/60 p-4">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                      <th className="py-1.5 pr-3 font-medium">Item</th>
+                      <th className="py-1.5 pr-3 font-medium">Current</th>
+                      <th className="py-1.5 pr-3 font-medium" aria-label="Change direction" />
+                      <th className="py-1.5 font-medium">Requested</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {changeDefs.map((def) => {
+                      const content = detail?.businessContent ?? {};
+                      const rawFrom = content[def.fromKey];
+                      const rawTo = content[def.toKey];
+                      const fromText =
+                        rawFrom === null || rawFrom === undefined || rawFrom === ''
+                          ? '-'
+                          : def.render === 'percent'
+                            ? formatPercent(rawFrom)
+                            : String(rawFrom);
+                      const toText =
+                        rawTo === null || rawTo === undefined || rawTo === ''
+                          ? '-'
+                          : def.render === 'percent'
+                            ? formatPercent(rawTo)
+                            : String(rawTo);
+                      const nFrom = Number(rawFrom);
+                      const nTo = Number(rawTo);
+                      const comparable =
+                        rawFrom !== null &&
+                        rawFrom !== undefined &&
+                        rawFrom !== '' &&
+                        rawTo !== null &&
+                        rawTo !== undefined &&
+                        rawTo !== '' &&
+                        !Number.isNaN(nFrom) &&
+                        !Number.isNaN(nTo) &&
+                        nFrom !== nTo;
+                      return (
+                        <tr key={def.fromKey} className="border-b border-border/60 last:border-b-0">
+                          <td className="py-2 pr-3">{def.label}</td>
+                          <td className="py-2 pr-3 tabular-nums">{fromText}</td>
+                          <td
+                            className={cn(
+                              'py-2 pr-3',
+                              comparable
+                                ? nTo > nFrom
+                                  ? 'text-primary'
+                                  : 'text-destructive'
+                                : 'text-muted-foreground',
+                            )}
+                          >
+                            {comparable ? (nTo > nFrom ? '↑' : '↓') : '→'}
+                          </td>
+                          <td className="py-2 font-medium tabular-nums">{toText}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {fieldDefs.length > 0 ? (
+              <DetailGrid>
+                {fieldDefs.map((def) => {
+                  const text = renderFieldValue(
+                    def,
+                    detail?.businessContent?.[def.key],
+                    row.businessCode,
+                  );
+                  return (
+                    <DetailField key={def.key} label={def.label}>
+                      <span className={isNumericValue(text) ? 'tabular-nums' : undefined}>
+                        {text}
+                      </span>
+                    </DetailField>
+                  );
+                })}
+              </DetailGrid>
+            ) : (
+              <p className="text-sm text-muted-foreground">No business fields</p>
+            )}
+          </section>
+
+          {/* Review Decision（仅待办任务且能力位允许；原型逐字文案） */}
+          {decidable && (
+            <section className="rounded-lg border border-border/60 bg-card p-4">
+              <div className="mb-3 text-base font-semibold leading-6 text-foreground">
+                Review Decision
+              </div>
+              <label
+                htmlFor="approval-comment"
+                className="mb-1 block text-sm font-medium text-foreground"
+              >
+                Approval comment
+              </label>
+              <Textarea
+                id="approval-comment"
+                rows={3}
+                value={comment}
+                onChange={(e) => {
+                  setComment(e.target.value);
+                  setCommentError('');
+                }}
+                placeholder="Add the evidence or the reason for your decision."
+                aria-invalid={commentError ? true : undefined}
+                aria-describedby={commentError ? 'approval-comment-error' : 'approval-comment-help'}
+                className={cn(commentError && 'border-destructive focus-visible:ring-destructive')}
+              />
+              <div className="mt-1 flex min-h-5 items-start justify-between gap-3">
+                <span
+                  id="approval-comment-help"
+                  className={commentError ? 'sr-only' : 'text-xs text-muted-foreground'}
+                >
+                  A comment is required when rejecting.
+                </span>
+                {commentError && (
+                  <span id="approval-comment-error" role="alert" className="text-sm text-destructive">
+                    {commentError}
+                  </span>
+                )}
+              </div>
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-destructive text-destructive hover:bg-destructive/10"
+                  disabled={processMutation.isPending}
+                  onClick={() => openDecision('reject')}
+                >
+                  <XCircle className="size-4" aria-hidden="true" />
+                  Reject
+                </Button>
+                <Button
+                  type="button"
+                  disabled={processMutation.isPending}
+                  onClick={() => openDecision('approve')}
+                >
+                  <CheckCircle2 className="size-4" aria-hidden="true" />
+                  Approve
+                </Button>
+              </div>
+            </section>
+          )}
+
+          {detailQ.isError && (
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>Failed to load business content.</AlertTitle>
+            </Alert>
+          )}
+        </TabsContent>
+
+        {/* Tab 2：Flow History（节点 + 徽章 + 时间右对齐 + 人员 + 意见框） */}
+        <TabsContent value="flow" className="mt-4">
+          <section className="rounded-lg border border-border/60 bg-card p-4">
+            <div className="mb-4 flex items-center gap-2 text-base font-semibold leading-6 text-foreground">
+              <History className="size-4 text-muted-foreground" aria-hidden="true" />
+              Flow History
+            </div>
+            {detailQ.isError ? (
+              <Alert variant="destructive" role="alert">
+                <AlertTitle>Failed to load flow history.</AlertTitle>
+              </Alert>
+            ) : flowNodes.length === 0 && !showCurrentNode ? (
+              <p className="text-sm text-muted-foreground">No flow history yet.</p>
+            ) : (
+              <ol className="m-0 list-none space-y-5 p-0">
+                {flowNodes.map((node) => {
+                  const result = NODE_RESULT[node.reviewerStatus];
+                  return (
+                    <li
+                      key={node.detailId}
+                      className="relative flex gap-4 [&:not(:last-child)]:after:absolute [&:not(:last-child)]:after:left-[7px] [&:not(:last-child)]:after:top-5 [&:not(:last-child)]:after:h-full [&:not(:last-child)]:after:w-px [&:not(:last-child)]:after:bg-border"
+                    >
+                      <span
+                        aria-hidden
+                        className="relative mt-1 inline-block size-4 shrink-0 rounded-full border-4 border-primary/15 bg-primary"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-foreground">
+                              {node.stepName}
+                            </span>
+                            {result ? (
+                              <ProtoStatusBadge tone={result.tone}>
+                                {result.label}
+                              </ProtoStatusBadge>
+                            ) : null}
+                          </div>
+                          {node.reviewerTime ? (
+                            <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                              {formatUtc8(node.reviewerTime)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          {node.reviewerName || '-'}
+                        </div>
+                        {node.reviewerRemarks ? (
+                          <p className="mt-2 rounded-md bg-muted p-3 text-sm text-foreground">
+                            {node.reviewerRemarks}
+                          </p>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+                {/* 待办任务的当前节点（原型 current：警示色点 + 无时间） */}
+                {showCurrentNode && (
+                  <li className="relative flex gap-4">
+                    <span
+                      aria-hidden
+                      className="relative mt-1 inline-block size-4 shrink-0 rounded-full border-4 border-warning/20 bg-warning"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-foreground">
+                          {row.stepName || 'Current Step'}
+                        </span>
+                        <ProtoStatusBadge tone={statusTone(effectiveLabel)}>
+                          {effectiveLabel}
+                        </ProtoStatusBadge>
+                      </div>
+                    </div>
+                  </li>
+                )}
+              </ol>
+            )}
+          </section>
+        </TabsContent>
+      </Tabs>
+
+      {/* 确认弹窗（双段正文 + 语义图标；文案 PROTO_APPROVAL_ACTION_TEXT） */}
+      {decisionCopy && decision && (
+        <ActionConfirmDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setDecision(null);
+          }}
+          icon={decision === 'approve' ? CheckCircle2 : XCircle}
+          variant={decision === 'approve' ? 'confirm' : 'destructive'}
+          title={decisionCopy.title}
+          body1={decisionCopy.body1}
+          body2={decisionCopy.body2}
+          confirmLabel={decisionCopy.confirmLabel}
+          loading={processMutation.isPending}
+          onConfirm={runDecision}
+        />
+      )}
     </div>
   );
 }

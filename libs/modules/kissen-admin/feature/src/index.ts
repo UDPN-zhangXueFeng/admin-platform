@@ -16,3 +16,4 @@ export * from './lib/theme-switcher';
 export * from './lib/proto-format';
 export * from './lib/proto-ui';
 export * from './lib/proto-enums';
+export * from './lib/proto-sort';

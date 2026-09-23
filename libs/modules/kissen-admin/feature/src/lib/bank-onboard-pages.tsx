@@ -1,14 +1,16 @@
 'use client';
 
 /**
- * Bank onboarding pages — tokenized v2.0 rewrite (source
- * `views/onboard/bank/`: index.vue + bank-dialog.vue + access-key-drawer.vue
- * + interact-drawer.vue).
+ * Bank onboarding pages（registry module `bank`）：
+ *   BankInfoListPage   → 列表（+ 内联 Access-Key / Interact 抽屉）
+ *   BankInfoFormPage   → 登记/编辑页（源 bank-dialog create/edit）
+ *   BankInfoDetailPage → 详情页（四 Tab：basic/instances/tokens/operations）
  *
- * Exports (module-page-registry contract for module `bank`):
- *   BankInfoListPage   → list (+ inline Access-Key / Interact drawers)
- *   BankInfoFormPage   → create/edit route page (source bank-dialog)
- *   BankInfoDetailPage → view route page (source bank-dialog view mode)
+ * 行为规格：KNMS 原型页（2026-09-23 P3 对齐）BankOnboardingPage / BankDetailsPage
+ * ——列/筛选/动作菜单/确认弹窗/详情字段逐字对齐，UI 用本仓库组件体系重实现；
+ * 文案真源 /tmp/kissen_prototype/udpn-kissen-network-mgt/client/src/pages/。
+ * 历史口径：tokenized v2.0 rewrite（源 views/onboard/bank/：index.vue +
+ * bank-dialog.vue + access-key-drawer.vue + interact-drawer.vue）。
  */
 
 import * as React from 'react';
@@ -17,6 +19,8 @@ import { useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   Calendar,
+  CircleCheck,
+  CirclePause,
   Coins,
   Copy,
   ExternalLink,
@@ -27,12 +31,12 @@ import {
   Landmark,
   Mail,
   MapPin,
+  MoreHorizontal,
   Network,
   Phone,
+  SlidersHorizontal,
   TriangleAlert,
   User,
-  Wifi,
-  WifiOff,
   type LucideIcon,
 } from 'lucide-react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -60,6 +64,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -78,7 +86,6 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-  type TableRowAction,
   useToast,
 } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
@@ -86,17 +93,9 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
 
 import {
-  BANK_STATUS_LABEL,
-  BANK_STATUS_OPTIONS,
-  CONNECTIVITY_STATUS_LABEL,
-  CONNECTIVITY_STATUS_VARIANT,
-  CS_TYPE_LABEL,
-  INSTANCE_STATUS_LABEL,
-  INSTANCE_STATUS_VARIANT,
   KEY_STATUS_LABEL,
   KISSEN_PROJECT_ID,
   REVOKE_REASON_LABEL,
-  bankStatusVariant,
   useAccessKeyGenerateMutation,
   useAccessKeyListQuery,
   useAccessKeyRevokeMutation,
@@ -114,13 +113,26 @@ import {
   type BankListFilter,
   type BankRow,
   type BankSaveReq,
+  type InstanceRow,
   type InteractPeerRow,
   type InteractTokenRow,
-  type InstanceRow,
   type TokenRow,
-  TOKEN_STATUS_LABEL,
-  TOKEN_STATUS_VARIANT,
 } from '@myorg/modules/kissen-admin/data-access';
+
+import {
+  ActionConfirmDialog,
+  CopyableId,
+  Dash,
+  ProtoStatusBadge,
+  type ProtoStatusTone,
+} from './proto-ui';
+import { formatTokenAmount, formatUtc8 } from './proto-format';
+import { PROTO_BANK_STATUS, protoStatusLabel } from './proto-enums';
+import {
+  ConnectivityBadge,
+  InstanceStatusBadge,
+  TokenStatusBadge,
+} from './token-manage-pages';
 
 const PAGE_SIZE_DEFAULT = 10;
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -195,13 +207,35 @@ function safeExternalUrl(value: string | null | undefined): string | undefined {
   }
 }
 
+/** KNMS BankOnboardingPage D3：1 草稿/10 待入网/5 待审核/15 驳回/20 激活/50 停用。 */
+const BANK_STATUS_TONES: Record<number, ProtoStatusTone> = {
+  1: 'muted',
+  5: 'warning',
+  10: 'warning',
+  15: 'danger',
+  20: 'success',
+  50: 'muted',
+};
+
 function BankStatusBadge({ status }: { status: number }) {
   return (
-    <Badge variant={bankStatusVariant(status)}>
-      {BANK_STATUS_LABEL[status] ?? status}
-    </Badge>
+    <ProtoStatusBadge tone={BANK_STATUS_TONES[status] ?? 'muted'}>
+      {protoStatusLabel(PROTO_BANK_STATUS, status)}
+    </ProtoStatusBadge>
   );
 }
+
+/**
+ * Operation History 静态列契约（STATIC-FILLER GAP-ADM-02：operate-log
+ * 无按对象过滤 API，先落列契约 + 空表，后端补齐后接真数据）。
+ */
+const BANK_OPERATION_COLUMNS: ColumnDef<{ id: string }>[] = [
+  { id: 'timestamp', header: 'Timestamp (UTC+8)' },
+  { id: 'operator', header: 'Operator' },
+  { id: 'module', header: 'Module' },
+  { id: 'status', header: 'Status' },
+  { id: 'traceId', header: 'Trace ID' },
+];
 
 function DetailField({
   icon: Icon,
@@ -231,7 +265,7 @@ function BankDetailSectionHeader({
 }: {
   icon: LucideIcon;
   title: string;
-  description: string;
+  description?: string;
   aside?: React.ReactNode;
 }) {
   return (
@@ -242,7 +276,9 @@ function BankDetailSectionHeader({
         </span>
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-          <p className="text-xs text-muted-foreground">{description}</p>
+          {description ? (
+            <p className="text-xs text-muted-foreground">{description}</p>
+          ) : null}
         </div>
       </div>
       {aside}
@@ -897,7 +933,11 @@ export function BankInfoListPage() {
     null,
   );
   const [interactBank, setInteractBank] = React.useState<BankRow | null>(null);
-  const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
+  /** Deactivate/Activate 确认弹窗态（原型 D11 ActionConfirmDialog 双段文案）。 */
+  const [statusAction, setStatusAction] = React.useState<{
+    row: BankRow;
+    kind: 'deactivate' | 'activate';
+  } | null>(null);
 
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
@@ -914,42 +954,20 @@ export function BankInfoListPage() {
     setParams(bankFormToParams(EMPTY_BANK_FILTER, 1, pageSize));
   }, [reset, pageSize]);
 
-  /** 禁用（10/20 → 50；实例停用、报价失败、代币不再参与新报价）。 */
-  const onDisable = React.useCallback(
-    (row: BankRow) => {
-      setConfirm({
-        title: 'Disable Bank',
-        description: `Disable bank "${row.bankName}"? Its gateway instances are deactivated, their quotes fail, and its tokens no longer take part in new quotes.`,
-        actionLabel: 'Disable',
-        destructive: true,
-        onConfirm: () => {
-          disableMutation.mutate(row.bankId, {
-            onSuccess: () => toast.success('Disabled'),
-            onError: (e) => toast.error((e as Error).message),
-          });
-        },
-      });
-    },
-    [disableMutation, toast],
-  );
+  /** Deactivate/Activate 共用确认提交（原型 D11：destructive / confirm 两档弹窗）。 */
+  const onStatusConfirm = () => {
+    if (!statusAction) return;
+    const { row, kind } = statusAction;
+    const mutation = kind === 'deactivate' ? disableMutation : enableMutation;
+    mutation.mutate(row.bankId, {
+      onSuccess: () => {
+        toast.success(kind === 'deactivate' ? 'Deactivated' : 'Activated');
+        setStatusAction(null);
+      },
+      onError: (e) => toast.error((e as Error).message),
+    });
+  };
 
-  /** 启用（50 → 20；恢复禁用前的入网状态）。 */
-  const onEnable = React.useCallback(
-    (row: BankRow) => {
-      setConfirm({
-        title: 'Enable Bank',
-        description: `Enable bank "${row.bankName}"? The bank returns to the Onboarded state it held before being disabled.`,
-        actionLabel: 'Enable',
-        onConfirm: () => {
-          enableMutation.mutate(row.bankId, {
-            onSuccess: () => toast.success('Enabled'),
-            onError: (e) => toast.error((e as Error).message),
-          });
-        },
-      });
-    },
-    [enableMutation, toast],
-  );
 
   const columns = React.useMemo<ColumnDef<BankRow & { id: string }>[]>(
     () => [
@@ -968,17 +986,26 @@ export function BankInfoListPage() {
                 }}
               />
             ) : null}
-            <span className="truncate">{row.original.bankName}</span>
+            <span className="truncate font-medium">
+              {row.original.bankName}
+            </span>
           </div>
         ),
       },
-      { accessorKey: 'bankBic', header: 'Bank Code/BIC' },
+      {
+        accessorKey: 'bankBic',
+        header: 'SWIFT BIC',
+        cell: ({ row }) => <CopyableId value={row.original.bankBic} />,
+      },
       {
         accessorKey: 'website',
         header: 'Official Website',
-        cell: ({ row }) => (
-          <span className="truncate">{row.original.website || '-'}</span>
-        ),
+        cell: ({ row }) =>
+          row.original.website ? (
+            <span className="truncate">{row.original.website}</span>
+          ) : (
+            <Dash />
+          ),
       },
       {
         accessorKey: 'status',
@@ -987,46 +1014,99 @@ export function BankInfoListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Created On',
+        header: 'Created on (UTC+8)',
         cell: ({ row }) => (
           <span className="tabular-nums">
-            {formatTime(row.original.createTime)}
+            {formatUtc8(row.original.createTime)}
           </span>
         ),
       },
-      createActionColumn<BankRow & { id: string }>((item) => {
-        const s = item.status;
-        const actions: TableRowAction<BankRow & { id: string }>[] = [
-          {
-            label: 'Details',
-            onClick: () => router.push(`${LIST_PATH}/detail?id=${item.bankId}`),
-          },
-        ];
-        if (s !== 20) {
-          actions.push({
-            label: 'Edit',
-            onClick: () => router.push(`${LIST_PATH}/edit?id=${item.bankId}`),
-          });
-        }
-        if (s === 10 || s === 20) {
-          actions.push({
-            label: 'Disable',
-            destructive: true,
-            onClick: () => onDisable(item),
-          });
-        }
-        if (s === 50) {
-          actions.push({ label: 'Enable', onClick: () => onEnable(item) });
-        }
-        actions.push(
-          { label: 'Access Keys', onClick: () => setAccessKeyBank(item) },
-          { label: 'Token Permissions', onClick: () => setInteractBank(item) },
-        );
-        return actions;
-      }),
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const item = row.original;
+          // 原型 D6/D7：Details 文本按钮 + ⋮ 菜单。菜单按状态：
+          // Inactive→Activate；Draft→Edit；Active→Deactivate；
+          // Pending Onboarding→Edit+Deactivate；其余只读状态无菜单（不渲染 ⋮）。
+          const menuItems: {
+            label: string;
+            danger?: boolean;
+            onSelect: () => void;
+          }[] = [];
+          if (item.status === 50) {
+            menuItems.push({
+              label: 'Activate',
+              onSelect: () => setStatusAction({ row: item, kind: 'activate' }),
+            });
+          }
+          if (item.status === 1 || item.status === 10) {
+            menuItems.push({
+              label: 'Edit',
+              onSelect: () =>
+                router.push(`${LIST_PATH}/edit?id=${item.bankId}`),
+            });
+          }
+          if (item.status === 10 || item.status === 20) {
+            menuItems.push({
+              label: 'Deactivate',
+              danger: true,
+              onSelect: () =>
+                setStatusAction({ row: item, kind: 'deactivate' }),
+            });
+          }
+          return (
+            <div className="flex items-center">
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() =>
+                  router.push(`${LIST_PATH}/detail?id=${item.bankId}`)
+                }
+              >
+                Details
+              </Button>
+              {menuItems.length > 0 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label={`Actions for ${item.bankName}`}
+                    >
+                      <MoreHorizontal
+                        className="h-4 w-4"
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {menuItems.map((menuItem) => (
+                      <DropdownMenuItem
+                        key={menuItem.label}
+                        className={
+                          menuItem.danger
+                            ? 'text-destructive focus:text-destructive'
+                            : undefined
+                        }
+                        onClick={menuItem.onSelect}
+                      >
+                        {menuItem.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
+          );
+        },
+      },
     ],
-    [onDisable, onEnable, router],
+    [router],
   );
+
 
   const tableData = React.useMemo(
     () => rows.map((r: BankRow) => ({ ...r, id: String(r.bankId) })),
@@ -1039,7 +1119,7 @@ export function BankInfoListPage() {
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
             <div className="text-base font-semibold leading-6 text-foreground">
-              Banks
+              Bank List
             </div>
             {!isLoading && paginationMeta ? (
               <span className="text-sm text-muted-foreground tabular-nums">
@@ -1057,7 +1137,7 @@ export function BankInfoListPage() {
             size="sm"
             onClick={() => router.push(`${LIST_PATH}/create`)}
           >
-            Register Bank
+            Onboard Bank
           </Button>
         </div>
         <form
@@ -1073,7 +1153,7 @@ export function BankInfoListPage() {
             />
             <FormField
               name="bankBic"
-              label="Bank Code (BIC)"
+              label="Bank Code"
               placeholder="Fuzzy match"
               register={register('bankBic')}
             />
@@ -1094,9 +1174,9 @@ export function BankInfoListPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={STATUS_ALL}>All</SelectItem>
-                      {BANK_STATUS_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={String(o.value)}>
-                          {o.label}
+                      {[1, 10, 5, 15, 20, 50].map((code) => (
+                        <SelectItem key={code} value={String(code)}>
+                          {protoStatusLabel(PROTO_BANK_STATUS, code)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1122,7 +1202,7 @@ export function BankInfoListPage() {
               columns={columns}
               data={tableData}
               isLoading={isLoading}
-              emptyMessage="No banks yet"
+              emptyMessage="No banks found."
               pagination={
                 paginationMeta
                   ? {
@@ -1160,9 +1240,42 @@ export function BankInfoListPage() {
           onClose={() => setInteractBank(null)}
         />
       )}
-      <ConfirmAlertDialog
-        request={confirm}
-        onDismiss={() => setConfirm(null)}
+      {/* Deactivate/Activate 确认弹窗（原型 BANK_ACTION_CONFIG 文案逐字）。 */}
+      <ActionConfirmDialog
+        open={statusAction !== null}
+        onOpenChange={(open) => {
+          if (
+            !open &&
+            !disableMutation.isPending &&
+            !enableMutation.isPending
+          ) {
+            setStatusAction(null);
+          }
+        }}
+        icon={statusAction?.kind === 'activate' ? CircleCheck : CirclePause}
+        variant={statusAction?.kind === 'activate' ? 'confirm' : 'destructive'}
+        title={
+          statusAction?.kind === 'activate'
+            ? 'Activate Bank'
+            : 'Deactivate Bank'
+        }
+        body1={
+          statusAction
+            ? `${
+                statusAction.kind === 'activate' ? 'Activate' : 'Deactivate'
+              } bank "${statusAction.row.bankName}"?`
+            : ''
+        }
+        body2={
+          statusAction?.kind === 'activate'
+            ? 'Once activated, the bank can take part in quotes and settlements, subject to its gateway instance being connected.'
+            : 'Once deactivated, its gateway instances are deactivated, their quotes fail, and its tokens no longer take part in new quotes.'
+        }
+        confirmLabel={
+          statusAction?.kind === 'activate' ? 'Activate' : 'Deactivate'
+        }
+        loading={disableMutation.isPending || enableMutation.isPending}
+        onConfirm={onStatusConfirm}
       />
     </div>
   );
@@ -1454,35 +1567,53 @@ export function BankInfoFormPage() {
   );
 }
 
-/* BankInfoDetailPage — 查看态（源 bank-dialog view） */
+/* BankInfoDetailPage — 详情（原型 BankDetailsPage：单层页头 + 四 Tab + 两信息抽屉） */
 /* ================================================================== */
+
+/** 详情 Tab 值（?tab= 写 URL；basic 缺省不占 query）。 */
+type BankDetailTab = 'basic' | 'instances' | 'tokens' | 'operations';
 
 export function BankInfoDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const bankId = parseBankId(searchParams.get('id'));
-  const [activeTab, setActiveTab] = React.useState('basic');
-  const [expandedInstanceId, setExpandedInstanceId] = React.useState<
-    number | null
-  >(null);
-  const [instancePage, setInstancePage] = React.useState(1);
+
+  // Tab 状态写 URL（原型同款：basic 缺省不占 query，刷新/分享/后退保持）。
+  const tabParam = searchParams.get('tab');
+  const activeTab: BankDetailTab =
+    tabParam === 'instances' ||
+    tabParam === 'tokens' ||
+    tabParam === 'operations'
+      ? tabParam
+      : 'basic';
+  const handleTabChange = (next: string) => {
+    const params = new URLSearchParams();
+    if (bankId != null) params.set('id', String(bankId));
+    if (next !== 'basic') params.set('tab', next);
+    router.replace(`${LIST_PATH}/detail?${params.toString()}`, {
+      scroll: false,
+    });
+  };
+
+  /** 信息/动作型抽屉（原型 D4/D5：Access Keys / Token Permissions）。 */
+  const [accessKeyBank, setAccessKeyBank] = React.useState<BankRow | null>(
+    null,
+  );
+  const [interactBank, setInteractBank] = React.useState<BankRow | null>(null);
 
   const detailQuery = useBankDetailQuery(KISSEN_PROJECT_ID, bankId);
-  const instancesQuery = useInstanceListQuery(
-    KISSEN_PROJECT_ID,
-    { pageNum: instancePage, pageSize: 100, filter: { bankId: bankId ?? 0 } },
-    bankId != null && activeTab === 'gateways',
-  );
+  // 实例/代币常驻加载：页签计数需要 total，单银行数据量小。
+  const instancesQuery = useInstanceListQuery(KISSEN_PROJECT_ID, {
+    pageNum: 1,
+    pageSize: 100,
+    filter: { bankId: bankId ?? 0 },
+  });
   const tokensQuery = useTokenListQuery(
     KISSEN_PROJECT_ID,
     { bankId: bankId ?? 0 },
-    bankId != null &&
-      (activeTab === 'tokens' ||
-        (activeTab === 'gateways' && expandedInstanceId != null)),
+    bankId != null,
   );
-  React.useEffect(() => {
-    if (activeTab !== 'gateways') setExpandedInstanceId(null);
-  }, [activeTab]);
+
   if (!bankId) {
     return (
       <div className="rounded-lg border border-border/60 bg-card p-6">
@@ -1501,120 +1632,293 @@ export function BankInfoDetailPage() {
   const detail = detailQuery.data;
   const websiteUrl = safeExternalUrl(detail?.website);
   const instances = instancesQuery.data?.data ?? [];
+  const instanceTotal =
+    instancesQuery.data?.pagination?.total ?? instances.length;
   const tokens = tokensQuery.data ?? [];
-  const renderQueryState = (
-    query: { isLoading: boolean; isError: boolean },
-    empty: boolean,
-    label: string,
-  ) => {
-    if (query.isLoading) return <Skeleton className="h-20 w-full" />;
-    if (query.isError) {
-      return (
-        <Alert variant="destructive">
-          <AlertTitle>Failed to load {label}.</AlertTitle>
-        </Alert>
-      );
-    }
-    if (empty)
-      return (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No {label} yet
-        </p>
-      );
-    return null;
+  // DataTable 泛型约束 { id: string }：行数据补前端 id。
+  const instanceRows = React.useMemo(
+    () =>
+      instances.map((r: InstanceRow) => ({ ...r, id: String(r.instanceId) })),
+    [instances],
+  );
+  const tokenRows = React.useMemo(
+    () => tokens.map((r: TokenRow) => ({ ...r, id: String(r.tokenId) })),
+    [tokens],
+  );
+
+  /** instances Tab 列（原型 D14：口径同 Gateway 列表，Actions=Details 进实例详情）。 */
+  const instanceColumns = React.useMemo<
+    ColumnDef<InstanceRow & { id: string }>[]
+  >(
+    () => [
+      {
+        id: 'instanceId',
+        header: 'Instance ID',
+        cell: ({ row }) => (
+          <CopyableId
+            value={row.original.instanceCode || String(row.original.instanceId)}
+          />
+        ),
+      },
+      {
+        accessorKey: 'endpointUrl',
+        header: 'Endpoint URL',
+        cell: ({ row }) =>
+          row.original.endpointUrl ? (
+            <span className="block max-w-[220px] truncate">
+              {row.original.endpointUrl}
+            </span>
+          ) : (
+            <Dash />
+          ),
+      },
+      {
+        accessorKey: 'upKeyFingerprint',
+        header: 'Upstream Public Key Fingerprint',
+        cell: ({ row }) =>
+          row.original.upKeyFingerprint ? (
+            <CopyableId value={row.original.upKeyFingerprint} />
+          ) : (
+            <Dash />
+          ),
+      },
+      {
+        accessorKey: 'downKeyFingerprint',
+        header: 'Downstream Public Key Fingerprint',
+        cell: ({ row }) =>
+          row.original.downKeyFingerprint ? (
+            <CopyableId value={row.original.downKeyFingerprint} />
+          ) : (
+            <Dash />
+          ),
+      },
+      {
+        accessorKey: 'connectivityStatus',
+        header: 'Connectivity',
+        cell: ({ row }) => (
+          <ConnectivityBadge status={row.original.connectivityStatus} />
+        ),
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => <InstanceStatusBadge status={row.original.status} />,
+      },
+      {
+        accessorKey: 'lastHeartbeatTime',
+        header: 'Last Heartbeat (UTC+8)',
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatUtc8(row.original.lastHeartbeatTime)}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => (
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0"
+            onClick={() =>
+              router.push(
+                `/onboard/instance/detail?id=${row.original.instanceId}`,
+              )
+            }
+          >
+            Details
+          </Button>
+        ),
+      },
+    ],
+    [router],
+  );
+
+  /** tokens Tab 列（原型 D14：口径同 Token 列表，省略 Bank 列——本页已限定银行）。 */
+  const tokenColumns = React.useMemo<
+    ColumnDef<TokenRow & { id: string }>[]
+  >(
+    () => [
+      {
+        accessorKey: 'tokenName',
+        header: 'Token Name',
+        cell: ({ row }) => row.original.tokenName || <Dash />,
+      },
+      {
+        accessorKey: 'symbol',
+        header: 'Symbol',
+        cell: ({ row }) => (
+          <span className="font-mono">{row.original.symbol || <Dash />}</span>
+        ),
+      },
+      {
+        accessorKey: 'anchorFiat',
+        header: 'Pegged Currency',
+        cell: ({ row }) => row.original.anchorFiat || <Dash />,
+      },
+      {
+        accessorKey: 'chainType',
+        header: 'Blockchain',
+        cell: ({ row }) => row.original.chainType || <Dash />,
+      },
+      {
+        accessorKey: 'tokenCode',
+        header: 'Token Code',
+        cell: ({ row }) => <CopyableId value={row.original.tokenCode} />,
+      },
+      {
+        accessorKey: 'minLiquidity',
+        header: 'Min. Liquidity',
+        cell: ({ row }) => {
+          const raw = row.original.minLiquidity;
+          if (raw === null || raw === undefined || raw === '') return <Dash />;
+          return (
+            <span className="block text-right tabular-nums">
+              {formatTokenAmount(raw)}
+              {row.original.symbol ? (
+                <span className="ml-1 text-xs text-muted-foreground">
+                  {row.original.symbol}
+                </span>
+              ) : null}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <TokenStatusBadge
+            status={row.original.status}
+            rejectReason={row.original.rejectReason}
+          />
+        ),
+      },
+      {
+        accessorKey: 'createTime',
+        header: 'Registered on (UTC+8)',
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatUtc8(row.original.createTime)}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const tabCount = (tab: BankDetailTab) => {
+    if (tab === 'instances') return instanceTotal;
+    if (tab === 'tokens') return tokens.length;
+    return 0; // operations：GAP-ADM-02 静态空表，恒 0。
   };
-  const gatewaysState = renderQueryState(
-    instancesQuery,
-    instances.length === 0,
-    'gateways',
-  );
-  const tokensState = renderQueryState(
-    tokensQuery,
-    tokens.length === 0,
-    'tokens',
-  );
 
   return (
     <div className="space-y-4">
-      {/* Hero Summary：银行名 + 状态；详细字段统一放在 Basic Information。 */}
-      <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              {detailQuery.isLoading ? (
-                <Skeleton className="h-6 w-40" />
-              ) : (
-                <span className="text-base font-semibold leading-6 text-foreground">
-                  {detail?.bankName || '--'}
-                </span>
-              )}
-              {detailQuery.isLoading ? (
-                <Skeleton className="h-5 w-16" />
-              ) : detail ? (
-                <BankStatusBadge status={detail.status} />
-              ) : null}
-            </div>
+      {/* 单层页头（原型 §3.15）：Back + 标题 + 状态徽章 + 元信息行 + 两信息抽屉入口。 */}
+      <div className="flex flex-wrap items-start gap-3">
+        <Button
+          variant="outline"
+          size="iconSm"
+          aria-label="Back to bank list"
+          onClick={() => router.push(LIST_PATH)}
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+        </Button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-xl font-semibold">
+              {detail?.bankName || 'Bank Details'}
+            </h1>
+            {detail ? <BankStatusBadge status={detail.status} /> : null}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="shrink-0"
-            onClick={() => router.push(LIST_PATH)}
-          >
-            Back
-          </Button>
+          {detail ? (
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                Bank Code:{' '}
+                <span className="font-semibold text-foreground">
+                  {detail.bankBic || <Dash />}
+                </span>
+              </span>
+              <span aria-hidden="true">|</span>
+              <span className="tabular-nums">
+                Created on {formatUtc8(detail.createTime)}
+              </span>
+            </p>
+          ) : null}
         </div>
-      </section>
+        {detail ? (
+          <div className="flex shrink-0 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAccessKeyBank(detail)}
+            >
+              <KeyRound className="size-4" aria-hidden="true" />
+              Access Keys
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setInteractBank(detail)}
+            >
+              <SlidersHorizontal className="size-4" aria-hidden="true" />
+              Token Permissions
+            </Button>
+          </div>
+        ) : null}
+      </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="space-y-6"
-      >
-        <TabsList>
-          <TabsTrigger value="basic">
-            Basic Information
-          </TabsTrigger>
-          <TabsTrigger value="gateways">
-            Gateways
-          </TabsTrigger>
-          <TabsTrigger value="tokens">
-            Tokens
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="basic" className="mt-0">
-          <section className="rounded-xl border border-border bg-card shadow-sm">
-            <BankDetailSectionHeader
-              icon={Landmark}
-              title="Basic Information"
-              description="Institution profile and contact details"
-            />
-            {detailQuery.isLoading ? (
-              <div className="p-6">
-                <Skeleton className="h-20 w-full" />
-              </div>
-            ) : null}
-            {detailQuery.isError ? (
-              <div className="p-6">
-                <Alert variant="destructive">
-                  <AlertTitle>Failed to load bank details.</AlertTitle>
-                </Alert>
-              </div>
-            ) : null}
-            {!detailQuery.isLoading && !detailQuery.isError && !detail ? (
-              <p className="p-6 text-sm text-muted-foreground">
-                Bank not found.
-              </p>
-            ) : null}
-            {detail ? (
+      {detailQuery.isError ? (
+        <Alert variant="destructive" role="alert">
+          <AlertTitle>Failed to load bank details.</AlertTitle>
+        </Alert>
+      ) : null}
+      {!detailQuery.isLoading && !detailQuery.isError && !detail ? (
+        <p className="text-sm text-muted-foreground">Bank not found.</p>
+      ) : null}
+
+      {detail ? (
+        <Tabs
+          value={activeTab}
+          onValueChange={handleTabChange}
+          className="space-y-4"
+        >
+          {/* 页签条独立于 Card（原型门禁），带计数（basic 非集合无计数）。 */}
+          <TabsList>
+            <TabsTrigger value="basic">Basic Information</TabsTrigger>
+            {(
+              [
+                ['instances', 'Gateway Instances'],
+                ['tokens', 'Tokens'],
+                ['operations', 'Operation History'],
+              ] as const
+            ).map(([value, label]) => (
+              <TabsTrigger key={value} value={value}>
+                {label}
+                <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+                  {tabCount(value)}
+                </span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {/* Tab 1：basic —— 原型字段序 + 本仓超集（Logo/Phone/Address）。 */}
+          <TabsContent value="basic" className="mt-0">
+            <section className="rounded-xl border border-border bg-card shadow-sm">
+              <BankDetailSectionHeader
+                icon={Landmark}
+                title="Basic Information"
+              />
               <div className="grid grid-cols-1 gap-x-8 gap-y-6 p-6 sm:grid-cols-2 lg:grid-cols-3">
                 <DetailField icon={Landmark} label="Bank Name">
-                  {detail.bankName || '--'}
+                  {detail.bankName || <Dash />}
                 </DetailField>
-                <DetailField icon={Hash} label="Bank Code / BIC">
+                <DetailField icon={Hash} label="SWIFT BIC">
                   <CopyableEllipsisText
                     value={detail.bankBic}
-                    emptyText="--"
+                    emptyText="-"
                     maxWidth={200}
                     className="font-mono"
                   />
@@ -1634,9 +1938,49 @@ export function BankInfoDetailPage() {
                       />
                     </a>
                   ) : (
-                    '--'
+                    <Dash />
                   )}
                 </DetailField>
+                {/* STATIC-FILLER(GAP-ADM-08): 后端 BankRow 无 jurisdiction 字段，空值渲染 Dash 不编造。 */}
+                <DetailField icon={MapPin} label="Jurisdiction">
+                  <Dash />
+                </DetailField>
+                <DetailField icon={User} label="Contact Name">
+                  {detail.contactName || <Dash />}
+                </DetailField>
+                <DetailField icon={Mail} label="Contact Email">
+                  {detail.contactEmail ? (
+                    <a
+                      href={`mailto:${detail.contactEmail}`}
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      {detail.contactEmail}
+                    </a>
+                  ) : (
+                    <Dash />
+                  )}
+                </DetailField>
+                {/* STATIC-FILLER(GAP-ADM-08): 货币系统字段随实例登记（BankRow 无此字段），渲染 Dash。 */}
+                <DetailField icon={Landmark} label="Currency System Type">
+                  <Dash />
+                </DetailField>
+                {/* STATIC-FILLER(GAP-ADM-08): 同上，Blockchain Network 随实例域，渲染 Dash。 */}
+                <DetailField icon={Network} label="Blockchain Network">
+                  <Dash />
+                </DetailField>
+                {/* STATIC-FILLER(GAP-ADM-08): 同上，Currency System Name 随实例域，渲染 Dash。 */}
+                <DetailField icon={Coins} label="Currency System Name">
+                  <Dash />
+                </DetailField>
+                {/* STATIC-FILLER(GAP-ADM-08): 同上，Currency System URL 随实例域，渲染 Dash。 */}
+                <DetailField icon={Globe} label="Currency System URL">
+                  <Dash />
+                </DetailField>
+                {/* STATIC-FILLER(GAP-ADM-08): 后端无 integrationNotes 字段，渲染 Dash。 */}
+                <DetailField icon={Info} label="Integration Notes">
+                  <Dash />
+                </DetailField>
+                {/* 本仓超集字段（原型无）：Logo / Contact Phone / Address。 */}
                 <DetailField icon={Landmark} label="Bank Logo">
                   {detail.logo ? (
                     <img
@@ -1648,339 +1992,102 @@ export function BankInfoDetailPage() {
                       }}
                     />
                   ) : (
-                    '--'
+                    <Dash />
                   )}
-                </DetailField>
-                <DetailField icon={User} label="Contact Name">
-                  {detail.contactName || '--'}
                 </DetailField>
                 <DetailField icon={Phone} label="Contact Phone">
                   <span className="font-mono">
-                    {detail.contactPhone || '--'}
+                    {detail.contactPhone || <Dash />}
                   </span>
-                </DetailField>
-                <DetailField icon={Mail} label="Contact Email">
-                  {detail.contactEmail ? (
-                    <a
-                      href={`mailto:${detail.contactEmail}`}
-                      className="text-primary underline-offset-4 hover:underline"
-                    >
-                      {detail.contactEmail}
-                    </a>
-                  ) : (
-                    '--'
-                  )}
                 </DetailField>
                 <DetailField icon={MapPin} label="Address">
                   <span className="whitespace-pre-wrap break-all">
-                    {detail.address || '--'}
+                    {detail.address || <Dash />}
                   </span>
                 </DetailField>
-                <div className="hidden lg:block" aria-hidden="true" />
                 <DetailField icon={Landmark} label="Status">
-                  <Badge variant={bankStatusVariant(detail.status)}>
-                    <span className="size-1.5 rounded-full bg-current" />
-                    {BANK_STATUS_LABEL[detail.status] ?? detail.status}
-                  </Badge>
+                  <BankStatusBadge status={detail.status} />
                 </DetailField>
-                <DetailField icon={Calendar} label="Created On">
-                  <span className="font-mono text-[0.8125rem] tabular-nums">
-                    {formatTime(detail.createTime)}
+                <DetailField icon={Calendar} label="Created on">
+                  <span className="tabular-nums">
+                    {formatUtc8(detail.createTime)}
                   </span>
                 </DetailField>
               </div>
-            ) : null}
-          </section>
-        </TabsContent>
-        <TabsContent value="gateways" className="mt-0">
-          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <BankDetailSectionHeader
-              icon={Network}
-              title="Gateways"
-              description="Connected gateway instances and their health"
-              aside={
-                <Badge variant="secondary">
-                  {instances.length} instance{instances.length === 1 ? '' : 's'}
-                </Badge>
-              }
-            />
-            {gatewaysState ? (
-              <div className="p-6">{gatewaysState}</div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1000px] text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        <th className="px-6 py-3 font-medium">Instance</th>
-                        <th className="px-6 py-3 font-medium">Endpoint</th>
-                        <th className="px-6 py-3 font-medium">
-                          Currency System
-                        </th>
-                        <th className="px-6 py-3 font-medium">Connectivity</th>
-                        <th className="px-6 py-3 font-medium">Status</th>
-                        <th className="px-6 py-3 font-medium">
-                          Last Heartbeat
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {instances.map((row: InstanceRow) => (
-                        <React.Fragment key={row.instanceId}>
-                          <tr className="border-b border-border/60 transition-colors hover:bg-muted/40">
-                            <td className="px-6 py-4">
-                              <button
-                                type="button"
-                                className="text-left font-medium text-primary underline-offset-4 hover:underline"
-                                onClick={() =>
-                                  setExpandedInstanceId((current) =>
-                                    current === row.instanceId
-                                      ? null
-                                      : row.instanceId,
-                                  )
-                                }
-                              >
-                                {row.instanceCode || '--'} /{' '}
-                                {row.instanceName || '--'}
-                              </button>
-                            </td>
-                            <td className="max-w-[240px] break-all px-6 py-4">
-                              <code className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-foreground">
-                                {row.endpointUrl || '--'}
-                              </code>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                {[
-                                  row.currencySystemName,
-                                  CS_TYPE_LABEL[row.currencySystemType] ??
-                                    'Not specified',
-                                  row.blockchain,
-                                ]
-                                  .filter(Boolean)
-                                  .map((label, index) => (
-                                    <Badge
-                                      key={`${row.instanceId}-${index}`}
-                                      variant="outline"
-                                      className="font-normal"
-                                    >
-                                      {label}
-                                    </Badge>
-                                  ))}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <Badge
-                                variant={
-                                  CONNECTIVITY_STATUS_VARIANT[
-                                    row.connectivityStatus
-                                  ] ?? 'secondary'
-                                }
-                              >
-                                {row.connectivityStatus === 2 ? (
-                                  <WifiOff
-                                    className="size-3.5"
-                                    aria-hidden="true"
-                                  />
-                                ) : (
-                                  <Wifi
-                                    className="size-3.5"
-                                    aria-hidden="true"
-                                  />
-                                )}
-                                {CONNECTIVITY_STATUS_LABEL[
-                                  row.connectivityStatus
-                                ] ?? 'Unknown'}
-                              </Badge>
-                            </td>
-                            <td className="px-6 py-4">
-                              <Badge
-                                variant={
-                                  INSTANCE_STATUS_VARIANT[row.status] ??
-                                  'outline'
-                                }
-                              >
-                                {INSTANCE_STATUS_LABEL[row.status] ??
-                                  row.status}
-                              </Badge>
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-muted-foreground">
-                              {formatTime(row.lastHeartbeatTime)}
-                            </td>
-                          </tr>
-                          {expandedInstanceId === row.instanceId ? (
-                            <tr className="border-b bg-muted/20">
-                              <td colSpan={6} className="p-3">
-                                <TokenRows
-                                  // Tokens are bank-scoped in the real API, not
-                                  // attached to a gateway instance.
-                                  tokens={tokens}
-                                  query={tokensQuery}
-                                />
-                              </td>
-                            </tr>
-                          ) : null}
-                        </React.Fragment>
-                      ))}
-                    </tbody>
-                  </table>
+            </section>
+          </TabsContent>
+
+          {/* Tab 2：instances —— 口径同 Gateway 列表（原型 D14）。 */}
+          <TabsContent value="instances" className="mt-0">
+            <section className="rounded-xl border border-border bg-card shadow-sm">
+              {instancesQuery.isError ? (
+                <div className="p-6">
+                  <Alert variant="destructive">
+                    <AlertTitle>
+                      Failed to load gateway instances.
+                    </AlertTitle>
+                  </Alert>
                 </div>
-                {(instancesQuery.data?.pagination.totalPages ?? 1) > 1 ? (
-                  <div className="flex items-center justify-end gap-2 border-t border-border/60 px-6 py-3">
-                    <span className="text-sm text-muted-foreground">
-                      Page {instancePage} of{' '}
-                      {instancesQuery.data?.pagination.totalPages}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={instancePage <= 1}
-                      onClick={() => {
-                        setInstancePage((page) => page - 1);
-                        setExpandedInstanceId(null);
-                      }}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={
-                        instancePage >=
-                        (instancesQuery.data?.pagination.totalPages ?? 1)
-                      }
-                      onClick={() => {
-                        setInstancePage((page) => page + 1);
-                        setExpandedInstanceId(null);
-                      }}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </section>
-        </TabsContent>
-        <TabsContent value="tokens" className="mt-0">
-          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <BankDetailSectionHeader
-              icon={Coins}
-              title="Tokens"
-              description="Issued tokens and their on-chain configuration"
-              aside={
-                <Badge variant="secondary">
-                  {tokens.length} token{tokens.length === 1 ? '' : 's'}
-                </Badge>
-              }
-            />
-            {tokensState ? (
-              <div className="p-6">{tokensState}</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      <th className="px-6 py-3 font-medium">Code</th>
-                      <th className="px-6 py-3 font-medium">Symbol</th>
-                      <th className="px-6 py-3 font-medium">Chain</th>
-                      <th className="px-6 py-3 font-medium">Pegged Currency</th>
-                      <th className="px-6 py-3 text-right font-medium">
-                        Min Liquidity
-                      </th>
-                      <th className="px-6 py-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tokens.map((token) => (
-                      <TokenRowView key={token.tokenId} token={token} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        </TabsContent>
-      </Tabs>
+              ) : (
+                <DataTable
+                  columns={instanceColumns}
+                  data={instanceRows}
+                  isLoading={instancesQuery.isLoading}
+                  emptyMessage="No gateway instances registered for this bank."
+                />
+              )}
+            </section>
+          </TabsContent>
+
+          {/* Tab 3：tokens —— 口径同 Token 列表，省略 Bank 列（原型 D14）。 */}
+          <TabsContent value="tokens" className="mt-0">
+            <section className="rounded-xl border border-border bg-card shadow-sm">
+              {tokensQuery.isError ? (
+                <div className="p-6">
+                  <Alert variant="destructive">
+                    <AlertTitle>Failed to load tokens.</AlertTitle>
+                  </Alert>
+                </div>
+              ) : (
+                <DataTable
+                  columns={tokenColumns}
+                  data={tokenRows}
+                  isLoading={tokensQuery.isLoading}
+                  emptyMessage="No tokens registered for this bank."
+                />
+              )}
+            </section>
+          </TabsContent>
+
+          {/* Tab 4：operations —— 静态空表（GAP-ADM-02）。 */}
+          <TabsContent value="operations" className="mt-0">
+            <section className="rounded-xl border border-border bg-card shadow-sm">
+              {/* STATIC-FILLER(GAP-ADM-02): operate-log 无按对象（bankId）过滤 API，
+                  静态空表 + 列契约（Timestamp/Operator/Module/Status/Trace ID）。 */}
+              <DataTable
+                columns={BANK_OPERATION_COLUMNS}
+                data={[] as { id: string }[]}
+                emptyMessage="No operations recorded for this bank."
+              />
+            </section>
+          </TabsContent>
+        </Tabs>
+      ) : detailQuery.isLoading ? (
+        <Skeleton className="h-40 w-full" />
+      ) : null}
+
+      {accessKeyBank && (
+        <AccessKeyDrawer
+          bank={accessKeyBank}
+          onClose={() => setAccessKeyBank(null)}
+        />
+      )}
+      {interactBank && (
+        <InteractDrawer
+          bank={interactBank}
+          onClose={() => setInteractBank(null)}
+        />
+      )}
     </div>
-  );
-}
-
-function TokenRowView({ token }: { token: TokenRow }) {
-  return (
-    <tr className="border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40">
-      <td className="px-6 py-4 font-mono text-xs">{token.tokenCode || '--'}</td>
-      <td className="px-6 py-4 font-medium">{token.symbol || '--'}</td>
-      <td className="px-6 py-4">
-        <Badge variant="outline" className="font-normal">
-          <span className="size-1.5 rounded-full bg-primary" />
-          {token.chainType || '--'}
-        </Badge>
-      </td>
-      <td className="px-6 py-4 text-muted-foreground">
-        {token.anchorFiat || '--'}
-      </td>
-      <td className="px-6 py-4 text-right font-mono tabular-nums">
-        {token.minLiquidity ?? '--'}
-      </td>
-      <td className="px-6 py-4">
-        <Badge variant={TOKEN_STATUS_VARIANT[token.status] ?? 'outline'}>
-          {TOKEN_STATUS_LABEL[token.status] ?? token.status}
-        </Badge>
-      </td>
-    </tr>
-  );
-}
-
-function TokenRows({
-  tokens,
-  query,
-}: {
-  tokens: TokenRow[];
-  query: { isLoading: boolean; isError: boolean };
-}) {
-  if (query.isLoading) return <Skeleton className="h-12 w-full" />;
-  if (query.isError)
-    return (
-      <Alert variant="destructive">
-        <AlertTitle>Failed to load gateway tokens.</AlertTitle>
-      </Alert>
-    );
-  if (tokens.length === 0)
-    return (
-      <p className="text-sm text-muted-foreground">
-        No tokens for this gateway.
-      </p>
-    );
-  return (
-    <table className="w-full text-left text-sm">
-      <thead>
-        <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-          <th className="px-4 py-2 font-medium">Code</th>
-          <th className="px-4 py-2 font-medium">Symbol</th>
-          <th className="px-4 py-2 font-medium">Chain</th>
-          <th className="px-4 py-2 font-medium">Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {tokens.map((token) => (
-          <tr
-            key={token.tokenId}
-            className="border-b border-border/60 last:border-0"
-          >
-            <td className="px-4 py-2 font-mono text-xs">
-              {token.tokenCode || '--'}
-            </td>
-            <td className="px-4 py-2">{token.symbol || '--'}</td>
-            <td className="px-4 py-2">{token.chainType || '--'}</td>
-            <td className="px-4 py-2">
-              {TOKEN_STATUS_LABEL[token.status] ?? token.status}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 }

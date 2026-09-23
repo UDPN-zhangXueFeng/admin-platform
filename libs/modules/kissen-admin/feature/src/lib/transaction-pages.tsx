@@ -1,5 +1,21 @@
 'use client';
 
+/**
+ * 交易域页面（原型 FxTransactionsPage / FxTransactionDetailsPage；上游
+ * `views/transfer/tx/**` v2.0-tokenization）。
+ *
+ * - TxListListPage：/transfer/tx 全状态单页。7 平铺筛选（单号/Token 对/LP/
+ *   状态/创建日期区间/源/目标银行）+ 全列可排序（Tokens/From/To 除外）+
+ *   Completed on (UTC+8) 真实列（completedTime，0=未完成 → Dash）。
+ * - TxDetailPage：/transfer/tx/detail?id=。左 8/12（Settlement Overview /
+ *   Transaction Information / Timing）+ 右 4/12（Clearance Pipeline 七节点
+ *   时间线 + Transaction Chain 事件时间轴）。
+ * - ResolveDialog（EXCEPTION 70 行处置）与 TransactionStatusAlert（真实
+ *   failReason 载体）保留。
+ *
+ * 导出（registry 依赖，名字不可改）：TxListListPage / TxDetailPage。
+ */
+
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -10,7 +26,20 @@ import {
   type Path,
 } from 'react-hook-form';
 import { ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft, Check, ChevronsUpDown, Copy } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  Check,
+  ChevronsUpDown,
+  Clock3,
+  Copy,
+  FileText,
+  Link2,
+  MoreHorizontal,
+  Repeat,
+  Workflow,
+  X,
+} from 'lucide-react';
 
 import {
   Alert,
@@ -19,15 +48,17 @@ import {
   Badge,
   Button,
   CopyableEllipsisText,
-  createActionColumn,
   DataTable,
-  type TableRowAction,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Popover,
   PopoverContent,
@@ -36,8 +67,6 @@ import {
   RadioGroupItem,
   ScrollArea,
   Skeleton,
-  Stepper,
-  type StepperStep,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -52,8 +81,6 @@ import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
   KISSEN_PROJECT_ID,
-  TRANSACTION_STATUS_LABEL,
-  TRANSACTION_STATUS_VARIANT,
   TX_STATUS_OPTIONS,
   useResolveTransactionMutation,
   useTransactionBankOptionsQuery,
@@ -70,32 +97,31 @@ import {
 } from '@myorg/modules/kissen-admin/data-access';
 
 import { formatAmount } from './format';
-/**
- * 交易域页面（源 `views/transfer/tx/**`：index / resolve-dialog / detail）。
- *
- * v2.0 增量同步（bb9c607d..3c4cfbb）：
- *  - 列表页头移除（直入表格卡片）；「货币对」筛选 label → Tokens；
- *    创建时间改单开始时间（filterStart → createTimeStart 毫秒）；「完成时间」列删除；
- *    单号/From/To 钱包旁复制图标；View 改路由跳转详情独立页。
- *  - 详情由 720px 抽屉改独立路由页 TxDetailPage（源 detail.vue：
- *    返回按钮 + 页头，左主栏 + 右 400px sticky 链路时间轴两栏布局）。
- *  - tx-exception / tx-reversal 拆页退役，合并为单页 TxListListPage；
- *    处置入口按行 status(70) 显隐；「更多筛选」仅源/目标银行（裁决 6）。
- *
- * 导出（registry 依赖，名字不可改）：TxListListPage / TxDetailPage。
- */
+import {
+  formatDuration,
+  formatPercent,
+  formatRate,
+  formatTokenAmount,
+  formatUtc8,
+} from './proto-format';
+import { CopyableId, Dash, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
+import {
+  ProtoSortHeader,
+  useProtoSort,
+  type ProtoSortGetter,
+} from './proto-sort';
 
-/** 列表路由（config.modules `/transfer/tx`；列表 View 跳转与详情 Back 共用）。 */
+/** 列表路由（registry `/transfer/tx`；列表 View 跳转与详情 Back 共用）。 */
 const TX_LIST_PATH = '/transfer/tx';
 
 /* ================================================================== */
-/* 展示工具（源 views/approval/format.ts formatAmount + index.vue fmtAmount） */
+/* 展示工具                                                            */
 /* ================================================================== */
 
 /**
- * 金额展示（4609208 2026-09-18）：千分位 + 按该行 token decimalDigits 固定位
- * 小数 HALF_UP（纯字符串 BigInt，不经 Number）；dec 缺省回退 2（token DDL 默认）。
- * sym 仅在金额有效（≠'-'）时追加——无效金额不拼符号。
+ * 金额展示：千分位 + 按该行 token decimalDigits 固定位小数 HALF_UP（纯字符串
+ * BigInt，不经 Number）；dec 缺省回退 2（token DDL 默认）。sym 仅在金额有效
+ * （≠'-'）时追加——无效金额不拼符号。
  */
 function fmtAmount(
   v: number | string | null | undefined,
@@ -106,9 +132,7 @@ function fmtAmount(
   return sym && text !== '-' ? `${text} ${sym}` : text;
 }
 
-/**
- * 汇率展示（4609208 决议）：汇率不是 token 金额、不跟 token 精度走，固定 8 位。
- */
+/** 链路金额的率展示（汇率不是 token 金额，固定 8 位）。 */
 function fmtRate(v: number | string | null | undefined): string {
   return formatAmount(v, 8);
 }
@@ -124,13 +148,6 @@ function pairText(source?: string, target?: string): string {
   return source && target ? `${source}→${target}` : '-';
 }
 
-/** datetime-local 字符串（YYYY-MM-DDTHH:mm）→ 毫秒时间戳。 */
-function toEpochMs(value: string): number | undefined {
-  if (!value) return undefined;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? undefined : d.getTime();
-}
-
 /** 空值兜底展示（源 `|| '-'` 口径）。 */
 function orDash(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === '') return '-';
@@ -138,10 +155,10 @@ function orDash(v: string | number | null | undefined): string {
 }
 
 /* ================================================================== */
-/* StatusRail —— 移植源 components/StatusRail.vue（交易生命周期轨道）   */
+/* 结算干线（列表 Completed 列 + 详情 Clearance Pipeline 共用口径）      */
 /* ================================================================== */
 
-/** 主线 7 节点：35 即成功终态「Completed」（7e20c04 由 8 段合并，40 仅历史数据）。 */
+/** 主线 7 节点：35 即成功终态「Completed」（40 仅历史数据，按终点渲染）。 */
 const RAIL_MAIN_LINE: ReadonlyArray<{ code: number; name: string }> = [
   { code: 1, name: 'Created' },
   { code: 5, name: 'Quoted' },
@@ -152,94 +169,138 @@ const RAIL_MAIN_LINE: ReadonlyArray<{ code: number; name: string }> = [
   { code: 35, name: 'Completed' },
 ];
 
-/** 结算腿（钱真正移动的段）：结算金只允许出现在此语义。 */
-const RAIL_SETTLE_CODES: Record<number, true> = { 25: true, 30: true, 35: true };
+/** 原型干线 7 步展示名（R5；第 6 步原型口径叫 Processing）。 */
+const PIPELINE_STEP_NAMES = [
+  'Created',
+  'Quoted',
+  'Confirmed',
+  'Source Transferring',
+  'Source Verified',
+  'Processing',
+  'Completed',
+] as const;
 
-type RailTone = 'danger' | 'info';
-
-/** 分支终态：forkCode 是离开主线前最后经过的主线节点（纯展示近似分叉位置）。 */
-const RAIL_BRANCH: Record<number, { name: string; tone: RailTone; forkCode: number }> = {
-  50: { name: 'Reversing', tone: 'info', forkCode: 25 },
-  60: { name: 'Reversed', tone: 'info', forkCode: 25 },
-  70: { name: 'Exception', tone: 'danger', forkCode: 30 },
-  80: { name: 'Cancelled', tone: 'info', forkCode: 10 },
-  90: { name: 'Failed', tone: 'danger', forkCode: 20 },
+/** 分支终态：forkCode 是离开主线前最后经过的主线节点（近似分叉位置）。 */
+const RAIL_BRANCH: Record<number, { name: string; forkCode: number }> = {
+  50: { name: 'Reversing', forkCode: 25 },
+  60: { name: 'Reversed', forkCode: 25 },
+  70: { name: 'Exception', forkCode: 30 },
+  80: { name: 'Cancelled', forkCode: 10 },
+  90: { name: 'Failed', forkCode: 20 },
 };
 
-interface RailStep {
-  key: string;
-  name: string;
-  /** done 已走过 / current 当前位置 / todo 未到达。 */
-  state: 'done' | 'current' | 'todo';
-  /** 结算腿节点（25/30/35）。 */
-  settle: boolean;
-  /** 分支终态色调；undefined 表示主线节点。 */
-  tone?: RailTone;
-}
+/**
+ * 逐阶段说明（原型 RAIL_STEP_INFO 逐字迁移；R4/D11/D16）。
+ * STATIC-FILLER(GAP-ADM-08): 原型 demo 展示文案（描述/操作者/相对秒），后端
+ * 无逐节点时刻与操作者 API，仅 Created/Completed 两步用真实时间戳。
+ */
+const RAIL_STEP_INFO: Record<
+  (typeof PIPELINE_STEP_NAMES)[number],
+  { description: string; operator: string; deltaSec: number }
+> = {
+  Created: {
+    description: 'Intent initiated by TD3 commercial router',
+    operator: 'kissen-engine',
+    deltaSec: 0,
+  },
+  Quoted: {
+    description: 'Demo LP locked rate 0.9901 USD12 (+5s)',
+    operator: 'kissen-engine',
+    deltaSec: 5,
+  },
+  Confirmed: {
+    description: 'Both financial entities co-signed deal ticket',
+    operator: 'kissen-engine',
+    deltaSec: 8,
+  },
+  'Source Transferring': {
+    description: '10.10 CF7 locked in escrow contract',
+    operator: 'kissen-bridge',
+    deltaSec: 20,
+  },
+  'Source Verified': {
+    description: 'Cryptographic proof validated on validator node',
+    operator: 'bank-gateway',
+    deltaSec: 32,
+  },
+  Processing: {
+    description: 'Cross-ledger swap executed synchronously',
+    operator: 'kissen-settler',
+    deltaSec: 45,
+  },
+  Completed: {
+    description: '10.00 USD12 released to 0x95a8…1050',
+    operator: 'kissen-settler',
+    deltaSec: 52,
+  },
+};
 
-/** 由状态码推导渲染序列（源 `steps` computed 逻辑 1:1 移植）。 */
-function computeRailSteps(status: number): RailStep[] {
+/** 状态码 → 主线推进位（分支态取 forkCode 位；未知态按 0）。 */
+function pipelineIndexOf(status: number): number {
   const branch = RAIL_BRANCH[status];
   if (branch) {
-    const forkIdx = RAIL_MAIN_LINE.findIndex((n) => n.code === branch.forkCode);
-    const head = RAIL_MAIN_LINE.slice(0, forkIdx + 1).map((n) => ({
-      key: `m${n.code}`,
-      name: n.name,
-      settle: !!RAIL_SETTLE_CODES[n.code],
-      state: 'done' as const,
-    }));
-    return [
-      ...head,
-      {
-        key: `b${status}`,
-        name: branch.name,
-        state: 'current' as const,
-        settle: false,
-        tone: branch.tone,
-      },
-    ];
+    return RAIL_MAIN_LINE.findIndex((n) => n.code === branch.forkCode);
   }
-  // 40 已不入主线：按主线终点渲染（避免 findIndex -1 全 todo）。
   const curIdx =
     status === 40
       ? RAIL_MAIN_LINE.length - 1
       : RAIL_MAIN_LINE.findIndex((n) => n.code === status);
-  return RAIL_MAIN_LINE.map((n, i) => ({
-    key: `m${n.code}`,
-    name: n.name,
-    settle: !!RAIL_SETTLE_CODES[n.code],
-    state:
-      i < curIdx ? ('done' as const) : i === curIdx ? ('current' as const) : ('todo' as const),
-  }));
+  return curIdx < 0 ? 0 : curIdx;
 }
 
-/** StatusRail：业务状态映射与 shared Stepper 视觉组件之间的适配层。 */
-function StatusRail({ status }: { status: number }) {
-  const steps = React.useMemo(() => computeRailSteps(status), [status]);
-  const current = steps.find((s) => s.state === 'current');
-  const ariaLabel = current ? `Transaction status: ${current.name}` : 'Unknown transaction status';
-  const stepperSteps = React.useMemo<StepperStep[]>(
-    () =>
-      steps.map((step) => ({
-        id: step.key,
-        label: step.name,
-        status:
-          step.state === 'done'
-            ? ('complete' as const)
-            : step.state === 'current'
-              ? ('current' as const)
-              : ('upcoming' as const),
-        tone: step.tone ?? (step.settle ? 'warning' : 'default'),
-        terminal: step.key === 'm35',
-      })),
-    [steps],
-  );
+type PipelineState = 'done' | 'future' | 'danger' | 'muted' | 'warning';
 
-  return <Stepper steps={stepperSteps} ariaLabel={ariaLabel} />;
+/** 节点状态口径（R5 railState：已走过 done / 当前按状态 / 未到达 future）。 */
+function pipelineStateOf(
+  status: number,
+  index: number,
+  currentIndex: number,
+): PipelineState {
+  if (index < currentIndex) return 'done';
+  if (index > currentIndex) return 'future';
+  if (status === 35 || status === 40) return 'done';
+  if (status === 70 || status === 90) return 'danger';
+  if (status === 50 || status === 60 || status === 80) return 'muted';
+  return 'warning';
 }
+
+/** 时间线节点圆（done=success 实心 / danger+X / warning 实心 / muted / 未到=空心）。 */
+const NODE_STYLES: Record<PipelineState, string> = {
+  done: 'bg-success',
+  danger: 'bg-destructive',
+  warning: 'bg-warning',
+  muted: 'bg-muted',
+  future: 'border-2 border-border bg-background',
+};
+
+/** 节点状态文字（done → Completed / 推进中 → In Progress / 未到 → Pending；末步完成改显 Finalized 徽章）。 */
+const STEP_STATE_TEXT: Partial<
+  Record<PipelineState, { text: string; className: string }>
+> = {
+  done: { text: 'Completed', className: 'text-success' },
+  warning: { text: 'In Progress', className: 'text-warning' },
+  future: { text: 'Pending', className: 'text-muted-foreground' },
+};
+
+/** 交易状态 → 原型语义色（FxTransactionsPage STATUS_TONES 同款，13 态）。 */
+const TX_STATUS_TONE: Record<number, ProtoStatusTone> = {
+  1: 'muted', // Created
+  5: 'info', // Quoted
+  10: 'info', // Confirmed
+  20: 'warning', // Source Transferring
+  25: 'info', // Source Verified
+  30: 'warning', // Processing
+  35: 'success', // Settled
+  40: 'success', // Completed
+  50: 'warning', // Reversing
+  60: 'muted', // Reversed
+  70: 'danger', // Exception
+  80: 'muted', // Cancelled
+  90: 'danger', // Failed
+};
 
 /* ================================================================== */
-/* 链路：单时间轴业务化视图（源 6579522 chainTimeline；8 阶段卡退役）    */
+/* 链路：单时间轴业务化视图（真实 API 事件流驱动，详情右栏保留）          */
 /* ================================================================== */
 
 /** 落点状态 → 节点标题（业务口径命名，替代技术性的「X → Y」）。 */
@@ -303,7 +364,7 @@ function groupTitle(to: number, firstRemark: string): string {
 
 /**
  * 金额汇总行（源 money 行口径）：报价=LP+双边金额+率；20/25=源端；30/35/40=目标端。
- * decOf：tokenCode → decimalDigits（4609208 金额按 token 精度）；率固定 8 位（fmtRate）。
+ * decOf：tokenCode → decimalDigits（金额按 token 精度）；率固定 8 位（fmtRate）。
  */
 function groupMoney(
   to: number,
@@ -517,40 +578,6 @@ function TransactionChainView({
 /* 通用展示组件                                                        */
 /* ================================================================== */
 
-/** 交易状态 Badge（列表/详情/事件流共用；模型层 13 值映射）。 */
-function TransactionStatusBadge({ status }: { status: number }) {
-  return (
-    <Badge variant={TRANSACTION_STATUS_VARIANT[status] ?? 'secondary'}>
-      {TRANSACTION_STATUS_LABEL[status] ?? String(status)}
-    </Badge>
-  );
-}
-
-/**
- * 单元格内复制图标（源 index.vue cell-copy + copyText）：
- * clipboard 写入 → sonner toast「Copied」，失败 toast 报错。
- */
-function CopyCellIcon({ value }: { value: string }) {
-  const toast = useToast();
-  const onCopy = React.useCallback(() => {
-    navigator.clipboard
-      .writeText(value)
-      .then(() => toast.success('Copied'))
-      .catch(() => toast.error('Copy failed'));
-  }, [toast, value]);
-  return (
-    <button
-      type="button"
-      aria-label="Copy"
-      title="Copy"
-      onClick={onCopy}
-      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-accent hover:text-primary"
-    >
-      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-    </button>
-  );
-}
-
 /** 详情描述字段（el-descriptions-item 的 React 等价；span=长文本单独占行，§6.3）。 */
 function DescField({
   label,
@@ -567,28 +594,6 @@ function DescField({
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-sm">{children}</dd>
     </div>
-  );
-}
-
-function DescGrid({
-  cols = 2,
-  className,
-  children,
-}: {
-  cols?: 1 | 2;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <dl
-      className={cn(
-        'grid gap-x-4 gap-y-3',
-        cols === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1',
-        className,
-      )}
-    >
-      {children}
-    </dl>
   );
 }
 
@@ -858,7 +863,7 @@ function ResolveDialog({
   );
 }
 
-/** 详情异常提示（保持在状态轨道之前，并让下方两栏内容保持顶部对齐）。 */
+/** 详情异常提示（真实 failReason 载体；置于两栏网格之前）。 */
 function TransactionStatusAlert({ detail }: { detail: TransactionDetailRow }) {
   if (detail.status !== 90 && detail.status !== 70 && detail.status !== 50) {
     return null;
@@ -883,215 +888,87 @@ function TransactionStatusAlert({ detail }: { detail: TransactionDetailRow }) {
   );
 }
 
-/** 详情左栏（交易信息 / 转账双卡 / 其他信息）。 */
-function DetailBody({ detail }: { detail: TransactionDetailRow }) {
-  // 金额按源/目标 token 精度；汇率固定 8 位（4609208）。
-  const { decimalsOf: decOf } = useTokenMeta(KISSEN_PROJECT_ID);
-  const markupPercent = (() => {
-    const n = Number(detail.markupRate);
-    return Number.isNaN(n) ? null : `+${(n * 100).toFixed(4)}%`;
-  })();
+/* ================================================================== */
+/* 详情独立页（原型 FxTransactionDetailsPage：左 8 / 右 4 两栏）         */
+/* ================================================================== */
 
+/** 详情字段（label 小字灰 + 值一行；空值统一 Dash）。 */
+function TxDetailField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="space-y-6">
-      {/* 块一：交易信息（单号/状态/交易对/LP 已上移 Hero；汇率为兑换方向语义 + tooltip） */}
-      <section>
-        <h4 className="mb-3 text-sm font-semibold">Transaction Information</h4>
-        <DescGrid cols={2}>
-          <DescField label="Principal">
-            <span className="font-mono tabular-nums">
-              {fmtAmount(
-                detail.principal,
-                detail.sourceCurrency || undefined,
-                decOf(detail.sourceCurrency),
-              )}
-            </span>
-          </DescField>
-          <DescField label="Quote Version">
-            <span className="font-mono tabular-nums">v{detail.quoteVersion}</span>
-          </DescField>
-          <DescField label="Source Amount">
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="cursor-help border-b border-dotted border-muted-foreground/60 font-mono tabular-nums">
-                    {fmtAmount(
-                      detail.userDeduction,
-                      detail.sourceCurrency || undefined,
-                      decOf(detail.sourceCurrency),
-                    )}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  User pays principal × (1 + markup rate), in source token
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </DescField>
-          <DescField label="Target Amount">
-            <span className="font-mono tabular-nums">
-              {fmtAmount(
-                detail.receiverAmount,
-                detail.targetCurrency || undefined,
-                decOf(detail.targetCurrency),
-              )}
-            </span>
-          </DescField>
-          <DescField label="Rate" span>
-            {detail.sourceCurrency && detail.targetCurrency ? (
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-help border-b border-dotted border-muted-foreground/60 font-mono tabular-nums">
-                      1 {detail.sourceCurrency} ≈ {fmtRate(detail.userRate)}{' '}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Base rate 1 {detail.sourceCurrency} = {fmtRate(detail.baseRate)}{' '}
-                    {markupPercent ? ` · Markup rate ${markupPercent}` : ''}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : (
-              <span className="font-mono tabular-nums">{fmtRate(detail.userRate)}</span>
-            )}
-          </DescField>
-        </DescGrid>
-      </section>
-
-      {/* 块二：转账信息双卡（金额为主角：大字金额 + 账户/池地址/凭证可复制） */}
-      <section>
-        <h4 className="mb-3 text-sm font-semibold">
-          Transfer Information (Source → Target)
-        </h4>
-        <div className="flex items-stretch gap-2.5">
-          <div className="min-w-0 flex-1 rounded-lg border border-border/60 bg-card p-3">
-            <div className="mb-2 text-sm font-semibold">
-              Source · {detail.sourceBankName || 'Source Bank'}
-            </div>
-            <div className="mb-2.5 font-mono text-lg font-semibold tabular-nums">
-              {fmtAmount(
-                detail.userDeduction,
-                detail.sourceCurrency || undefined,
-                decOf(detail.sourceCurrency),
-              )}
-            </div>
-            <DescGrid cols={1}>
-              <DescField label="Sender Account">
-                <CopyableEllipsisText
-                  value={detail.senderAccount || undefined}
-                  emptyText="-"
-                  maxWidth={280}
-                  className="font-mono"
-                />
-              </DescField>
-              <DescField label="Via LP Source Pool">
-                <CopyableEllipsisText
-                  value={detail.lpSourcePoolAddress || undefined}
-                  emptyText="-"
-                  maxWidth={280}
-                  className="font-mono"
-                />
-              </DescField>
-              <DescField label="Transfer Credential">
-                <CopyableEllipsisText
-                  value={detail.sourceCsTxId || undefined}
-                  emptyText="-"
-                  maxWidth={280}
-                  className="font-mono"
-                />
-              </DescField>
-              <DescField label="Source Verified Time">
-                {formatTime(detail.sourceVerifiedTime)}
-              </DescField>
-            </DescGrid>
-          </div>
-          <div className="flex-shrink-0 self-center text-lg text-muted-foreground">→</div>
-          <div className="min-w-0 flex-1 rounded-lg border border-border/60 bg-card p-3">
-            <div className="mb-2 text-sm font-semibold text-[var(--ks-clearing,#0b6b53)]">
-              Target · {detail.targetBankName || 'Target Bank'}
-            </div>
-            <div className="mb-2.5 font-mono text-lg font-semibold tabular-nums text-[var(--ks-clearing,#0b6b53)]">
-              {fmtAmount(
-                detail.receiverAmount,
-                detail.targetCurrency || undefined,
-                decOf(detail.targetCurrency),
-              )}
-            </div>
-            <DescGrid cols={1}>
-              <DescField label="Receiver Account">
-                <CopyableEllipsisText
-                  value={detail.receiverAccount || undefined}
-                  emptyText="-"
-                  maxWidth={280}
-                  className="font-mono"
-                />
-              </DescField>
-              <DescField label="Via LP Target Pool">
-                <CopyableEllipsisText
-                  value={detail.lpTargetPoolAddress || undefined}
-                  emptyText="-"
-                  maxWidth={280}
-                  className="font-mono"
-                />
-              </DescField>
-              <DescField label="Settlement Credential">
-                <CopyableEllipsisText
-                  value={detail.targetCsTxId || undefined}
-                  emptyText="-"
-                  maxWidth={280}
-                  className="font-mono"
-                />
-              </DescField>
-              <DescField label="Settled / Credited Time">
-                {detail.settledTime !== 0
-                  ? formatTime(detail.settledTime)
-                  : detail.advancingTime !== 0
-                    ? formatTime(detail.advancingTime)
-                    : '-'}
-              </DescField>
-            </DescGrid>
-          </div>
-        </div>
-      </section>
-
-      {/* 其他信息（源 :column="2"；长文本单独占行，§6.3） */}
-      <section>
-        <h4 className="mb-3 text-sm font-semibold">Other Information</h4>
-        <DescGrid cols={2}>
-          <DescField label="Created On">{formatTime(detail.createTime)}</DescField>
-          <DescField label="Completion Time">{formatTime(detail.completedTime)}</DescField>
-          <DescField label="Failure Reason" span>
-            {orDash(detail.failReason)}
-          </DescField>
-          <DescField label="Remarks" span>
-            {orDash(detail.remark)}
-          </DescField>
-        </DescGrid>
-      </section>
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </label>
+      <div className="text-sm text-foreground">{children}</div>
     </div>
   );
 }
 
-/* ================================================================== */
-/* 详情独立页（源 detail.vue：抽屉改路由页，左主右栏 sticky 链路）        */
-/* ================================================================== */
+/** 详情卡分区头（图标方帖 + 标题；右可挂 aside，如耗时徽章）。 */
+function TxSectionHeader({
+  icon: Icon,
+  title,
+  aside,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  aside?: React.ReactNode;
+}) {
+  return (
+    <header className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+          <Icon className="size-4" aria-hidden="true" />
+        </span>
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      </div>
+      {aside}
+    </header>
+  );
+}
+
+/** 交易详情 not-found 卡（原型 EmptyState 同文案）。 */
+function TxNotFoundCard() {
+  const router = useRouter();
+  return (
+    <div className="rounded-lg border border-border/60 bg-card p-8 text-center">
+      <p className="text-sm font-medium text-foreground">Transaction not found.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        The record may have been removed.
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        className="mt-4"
+        onClick={() => router.push(TX_LIST_PATH)}
+      >
+        Back to FX Transactions
+      </Button>
+    </div>
+  );
+}
 
 /**
- * 交易详情独立页：detail 与 chain 并行拉取（源 loadAll Promise.all）。
- * id 取自 query（Number()；缺失/非法 → Missing transaction ID + Back）。
- * 布局照源 detail.vue：顶部 Back to list + 页头（单号+状态），
- * 宽屏（≥1280px）左主栏 + 右 400px sticky 链路时间轴，窄屏单列。
+ * 交易详情独立页（/transfer/tx/detail?id=）：detail 与 chain 并行拉取。
+ * 左 8/12 = Settlement Overview / Transaction Information / Timing；
+ * 右 4/12 = Clearance Pipeline（7 节点干线）+ Transaction Chain（事件流）。
  */
 export function TxDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawId = searchParams.get('id');
   const txId = Number(rawId);
-  const hasId = rawId !== null && rawId !== '' && Number.isInteger(txId) && txId > 0;
+  const hasId =
+    rawId !== null && rawId !== '' && Number.isInteger(txId) && txId > 0;
 
   // hasId 为假时传 undefined：query 层 enabled 门禁不发起请求。
-  const { data: detail, isLoading: detailLoading } = useTransactionDetailQuery(
+  const detailQuery = useTransactionDetailQuery(
     KISSEN_PROJECT_ID,
     hasId ? txId : undefined,
   );
@@ -1099,110 +976,520 @@ export function TxDetailPage() {
     KISSEN_PROJECT_ID,
     hasId ? txId : undefined,
   );
+  // 金额按源/目标 token 精度（4609208）。
+  const { decimalsOf: decOf } = useTokenMeta(KISSEN_PROJECT_ID);
 
-  const backToList = React.useCallback(() => router.push(TX_LIST_PATH), [router]);
+  // R1：Copy Summary 反馈（copied 绿 ✓ / error 红，1.6s 复位）。
+  const [copyState, setCopyState] = React.useState<'idle' | 'copied' | 'error'>(
+    'idle',
+  );
+  const copyResetTimer = React.useRef<number | undefined>(undefined);
+  React.useEffect(
+    () => () => {
+      clearTimeout(copyResetTimer.current);
+    },
+    [],
+  );
 
-  if (!hasId) {
-    return (
-      <div className="rounded-lg border border-border/60 bg-card p-6">
-        <p className="text-sm text-muted-foreground">Missing transaction ID</p>
-        <Button variant="outline" className="mt-4" onClick={backToList}>
-          Back
-        </Button>
-      </div>
+  const detail = detailQuery.data;
+  const loading = detailQuery.isLoading && !detail;
+  const notFound = !hasId || (!loading && !detailQuery.isError && !detail);
+
+  const handleCopySummary = React.useCallback(() => {
+    if (!detail) return;
+    const source = detail.sourceCurrency || '-';
+    const target = detail.targetCurrency || '-';
+    const summary = [
+      `Transaction ID: ${detail.txNo || detail.txUuid}`,
+      `Status: ${protoStatusLabel(PROTO_TX_STATUS, detail.status)}`,
+      `Token Pair: ${source}/${target}`,
+      `Sold Amount: ${fmtAmount(detail.userDeduction, source, decOf(source))}`,
+      `Credited Amount: ${fmtAmount(detail.receiverAmount, target, decOf(target))}`,
+      `FX Rate: 1 ${source} ≈ ${formatRate(detail.userRate)} ${target}`,
+      `LP: ${detail.lpName || '-'}`,
+      `Created: ${formatUtc8(detail.createTime)}`,
+      detail.completedTime > 0
+        ? `Settled: ${formatUtc8(detail.completedTime)}`
+        : 'Completed: -',
+    ].join('\n');
+    navigator.clipboard
+      .writeText(summary)
+      .then(() => setCopyState('copied'))
+      .catch(() => setCopyState('error'));
+    clearTimeout(copyResetTimer.current);
+    copyResetTimer.current = window.setTimeout(
+      () => setCopyState('idle'),
+      1600,
     );
-  }
+  }, [decOf, detail]);
 
-  const loading = detailLoading && !detail;
+  // R4：管线推进位（分支态取 fork 位）。
+  const currentIndex = detail ? pipelineIndexOf(detail.status) : -1;
+  const pipelineStates = React.useMemo<PipelineState[] | null>(() => {
+    if (!detail) return null;
+    return PIPELINE_STEP_NAMES.map((_, index) =>
+      pipelineStateOf(detail.status, index, currentIndex),
+    );
+  }, [currentIndex, detail]);
+  const finalizedCount =
+    pipelineStates?.filter((s) => s === 'done').length ?? 0;
+  const progressPct = (finalizedCount / PIPELINE_STEP_NAMES.length) * 100;
+  const latencyMs =
+    detail && detail.completedTime > 0
+      ? detail.completedTime - detail.createTime
+      : null;
 
   return (
     <div className="space-y-4">
-      {/* 顶部返回列表（源 back-btn：文字小按钮 + 左箭头） */}
-      <Button
-        variant="link"
-        className="h-auto self-start p-0 text-muted-foreground"
-        onClick={backToList}
-      >
-        <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-        Back to list
-      </Button>
-
-      {/* 页头：单号（等宽可复制）+ 状态 + 交易对/LP 元信息（原 Hero 上移） */}
-      {loading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-7 w-56" />
-          <Skeleton className="h-4 w-40" />
-        </div>
-      ) : detail ? (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <CopyableEllipsisText
-              value={detail.txNo || undefined}
-              emptyText={`#${txId}`}
-              maxWidth={320}
-              className="font-mono text-base font-semibold text-foreground"
-            />
-            <TransactionStatusBadge status={detail.status} />
-          </div>
-          {((detail.sourceCurrency && detail.targetCurrency) || detail.lpName) && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              {detail.sourceCurrency && detail.targetCurrency ? (
-                <span className="inline-flex items-center gap-1">
-                  <Badge variant="outline" className="rounded-full">
-                    {detail.sourceCurrency}
-                  </Badge>
-                  <span className="text-xs">→</span>
-                  <Badge className="rounded-full">{detail.targetCurrency}</Badge>
-                </span>
+      {/* 页头（原型 V1）：Back + 标题 + 状态徽章 + 元信息行 + Copy Summary。 */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start gap-3">
+          <Button
+            variant="outline"
+            size="iconSm"
+            aria-label="Back to FX transactions"
+            onClick={() => router.push(TX_LIST_PATH)}
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </Button>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-xl font-semibold">Transaction Details</h1>
+              {detail ? (
+                <ProtoStatusBadge tone={TX_STATUS_TONE[detail.status] ?? 'muted'}>
+                  {protoStatusLabel(PROTO_TX_STATUS, detail.status)}
+                </ProtoStatusBadge>
               ) : null}
-              {detail.lpName ? <span>LP · {detail.lpName}</span> : null}
             </div>
-          )}
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">No transaction detail data.</p>
-      )}
-
-      {/* 两栏（源 detail-grid）：左主 detail-left，右 400px sticky detail-right */}
-      {loading ? (
-        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
-          <div className="space-y-2">
-            <Skeleton className="h-16 w-full rounded-lg" />
-            <Skeleton className="h-40 w-full rounded-lg" />
-            <Skeleton className="h-40 w-full rounded-lg" />
+            {detail ? (
+              <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  Transaction No:{' '}
+                  <span className="font-semibold text-foreground">
+                    <CopyableId value={detail.txNo || detail.txUuid} />
+                  </span>
+                </span>
+                <span aria-hidden="true">|</span>
+                <span className="tabular-nums">
+                  Created on {formatUtc8(detail.createTime)}
+                </span>
+              </p>
+            ) : null}
           </div>
-          <Skeleton className="h-96 w-full rounded-lg" />
         </div>
-      ) : detail ? (
+        {detail ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={handleCopySummary}
+          >
+            {copyState === 'copied' ? (
+              <Check className="size-3.5 text-success" aria-hidden="true" />
+            ) : (
+              <Copy className="size-3.5" aria-hidden="true" />
+            )}
+            {copyState === 'copied'
+              ? 'Copied'
+              : copyState === 'error'
+                ? 'Copy unavailable'
+                : 'Copy Summary'}
+          </Button>
+        ) : null}
+      </div>
+
+      {detailQuery.isError ? (
+        <Alert variant="destructive" role="alert">
+          <AlertTitle>Failed to load transaction.</AlertTitle>
+        </Alert>
+      ) : null}
+
+      {notFound ? <TxNotFoundCard /> : null}
+
+      {loading ? (
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
+          <div className="space-y-4 xl:col-span-8">
+            <Skeleton className="h-48 w-full rounded-xl" />
+            <Skeleton className="h-40 w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-96 w-full rounded-xl xl:col-span-4" />
+        </div>
+      ) : null}
+
+      {detail && pipelineStates ? (
         <>
+          {/* 异常/冲正提示（真实 failReason 载体，置于两栏网格之前）。 */}
           <TransactionStatusAlert detail={detail} />
 
-          {/* 状态轨道移出左栏，横向铺满详情内容区域。 */}
-          <section className="space-y-3 border-b pb-5">
-            <div className="text-xs font-medium tracking-wide text-muted-foreground">
-              SETTLEMENT RAIL
-            </div>
-            <StatusRail status={detail.status} />
-          </section>
-
-          {/* 两栏：右侧 Transaction Chain 与左侧 Transaction Information 对齐。 */}
-          <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
-            <div className="min-w-0">
-              <DetailBody detail={detail} />
-            </div>
-            <aside className="rounded-lg border border-border/60 bg-card px-4 py-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-120px)] xl:overflow-y-auto">
-              {/* 交易链路（单时间轴；events 驱动，stages 不再渲染） */}
-              <h4 className="mb-3 text-sm font-semibold">Transaction Chain</h4>
-              {chainLoading && !chain ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
-                  ))}
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
+            {/* 左 8/12 */}
+            <div className="flex min-w-0 flex-col gap-4 xl:col-span-8">
+              {/* R1'：Settlement Overview（Sent/Received 左右 + 中间汇率与 LP）。 */}
+              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <TxSectionHeader
+                  icon={ArrowLeftRight}
+                  title="Settlement Overview"
+                  aside={
+                    latencyMs != null ? (
+                      <Badge variant="success" dot>
+                        Settled in {formatDuration(latencyMs)}
+                      </Badge>
+                    ) : undefined
+                  }
+                />
+                <div className="p-6">
+                  <div className="grid items-center gap-4 md:grid-cols-[1fr_auto_1fr]">
+                    <div className="min-w-0 rounded-lg border border-border p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Sent Amount
+                        </span>
+                        <Badge variant="mute">
+                          {detail.sourceBankName || 'Source Bank'}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5">
+                        <span className="text-2xl font-bold tabular-nums">
+                          {formatTokenAmount(
+                            detail.userDeduction,
+                            decOf(detail.sourceCurrency),
+                          )}
+                        </span>
+                        {detail.sourceCurrency ? (
+                          <span className="text-sm font-semibold tracking-wide">
+                            {detail.sourceCurrency}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="flex min-w-0 shrink-0 flex-col items-center gap-2 md:px-6">
+                      <Badge variant="outline" className="whitespace-nowrap tabular-nums">
+                        1 {detail.sourceCurrency || '-'} ≈{' '}
+                        {formatRate(detail.userRate)}{' '}
+                        {detail.targetCurrency || '-'}
+                      </Badge>
+                      <Repeat
+                        aria-hidden="true"
+                        className="size-4 text-primary"
+                      />
+                      <Badge className="max-w-full truncate whitespace-nowrap">
+                        {detail.lpName || '-'}
+                      </Badge>
+                    </div>
+                    <div className="min-w-0 rounded-lg border border-success bg-success/10 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Received Amount
+                        </span>
+                        <Badge variant="mute">
+                          {detail.targetBankName || 'Target Bank'}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 text-success">
+                        <span className="text-2xl font-bold tabular-nums">
+                          +
+                          {formatTokenAmount(
+                            detail.receiverAmount,
+                            decOf(detail.targetCurrency),
+                          )}
+                        </span>
+                        {detail.targetCurrency ? (
+                          <span className="text-sm font-semibold tracking-wide">
+                            {detail.targetCurrency}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                  <dl className="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-3">
+                    <TxDetailField label="LP Name">
+                      {orDash(detail.lpName)}
+                    </TxDetailField>
+                    <TxDetailField label="Token Pair">
+                      {detail.sourceCurrency && detail.targetCurrency
+                        ? `${detail.sourceCurrency}/${detail.targetCurrency}`
+                        : '-'}
+                    </TxDetailField>
+                    <TxDetailField label="Quote Version & SLA">
+                      <span className="inline-flex flex-wrap items-center gap-2">
+                        <span className="font-mono tabular-nums">
+                          v{detail.quoteVersion}
+                        </span>
+                        {/* STATIC-FILLER(GAP-ADM-08): SLA 徽章为原型演示口径，后端无 SLA 字段。 */}
+                        <Badge variant="success">60s Guaranteed Lock</Badge>
+                      </span>
+                    </TxDetailField>
+                  </dl>
                 </div>
-              ) : (
-                <TransactionChainView detail={detail} events={chain?.events ?? []} />
-              )}
-            </aside>
+              </section>
+
+              {/* R2'：Transaction Information（两列成对字段）。 */}
+              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <TxSectionHeader icon={FileText} title="Transaction Information" />
+                <div className="grid grid-cols-1 gap-x-6 gap-y-5 p-6 md:grid-cols-2">
+                  <TxDetailField label="Transaction ID">
+                    <span className="font-mono tabular-nums">
+                      {detail.transactionId}
+                    </span>
+                  </TxDetailField>
+                  <TxDetailField label="Sender Bank">
+                    {orDash(detail.sourceBankName)}
+                  </TxDetailField>
+                  <TxDetailField label="Receiver Bank">
+                    {orDash(detail.targetBankName)}
+                  </TxDetailField>
+                  <TxDetailField label="Sender Wallet">
+                    <CopyableId value={detail.senderAccount} />
+                  </TxDetailField>
+                  <TxDetailField label="Receiver Wallet">
+                    <CopyableId value={detail.receiverAccount} />
+                  </TxDetailField>
+                  <TxDetailField label="Principal">
+                    <span className="font-mono tabular-nums">
+                      {fmtAmount(
+                        detail.principal,
+                        detail.sourceCurrency || undefined,
+                        decOf(detail.sourceCurrency),
+                      )}
+                    </span>
+                  </TxDetailField>
+                  <TxDetailField label="User Deduction">
+                    <span className="font-mono tabular-nums">
+                      {fmtAmount(
+                        detail.userDeduction,
+                        detail.sourceCurrency || undefined,
+                        decOf(detail.sourceCurrency),
+                      )}
+                    </span>
+                  </TxDetailField>
+                  {/* 本仓补位：备注为真实字段（原型未展示，长文本跨列）。 */}
+                  <TxDetailField label="Remarks">
+                    {orDash(detail.remark)}
+                  </TxDetailField>
+                </div>
+              </section>
+
+              {/* V3：Timing。 */}
+              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <TxSectionHeader icon={Clock3} title="Timing" />
+                <div className="grid grid-cols-1 gap-x-6 gap-y-5 p-6 md:grid-cols-3">
+                  <TxDetailField label="Created on (UTC+8)">
+                    <span className="tabular-nums">
+                      {formatUtc8(detail.createTime)}
+                    </span>
+                  </TxDetailField>
+                  <TxDetailField label="Completed on (UTC+8)">
+                    <span className="tabular-nums">
+                      {detail.completedTime > 0 ? (
+                        formatUtc8(detail.completedTime)
+                      ) : (
+                        <Dash />
+                      )}
+                    </span>
+                  </TxDetailField>
+                  <TxDetailField label="Duration">
+                    <span className="tabular-nums">
+                      {latencyMs != null ? formatDuration(latencyMs) : <Dash />}
+                    </span>
+                  </TxDetailField>
+                </div>
+              </section>
+            </div>
+
+            {/* 右 4/12：Clearance Pipeline + Transaction Chain。 */}
+            <div className="flex min-w-0 flex-col gap-4 xl:col-span-4">
+              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <header className="border-b border-border px-6 py-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                          <Workflow className="size-4" aria-hidden="true" />
+                        </span>
+                        <h2 className="text-sm font-semibold text-foreground">
+                          Clearance Pipeline
+                        </h2>
+                        <Badge variant="success" className="tabular-nums">
+                          {finalizedCount}/{PIPELINE_STEP_NAMES.length} Finalized
+                        </Badge>
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Real-time multi-agent state clearance
+                      </p>
+                    </div>
+                    <span className="text-lg font-bold tabular-nums text-success">
+                      {formatPercent(Math.round(progressPct))}
+                    </span>
+                  </div>
+                </header>
+                <div className="p-6">
+                  <div
+                    role="progressbar"
+                    aria-label="Clearance progress"
+                    aria-valuemin={0}
+                    aria-valuemax={PIPELINE_STEP_NAMES.length}
+                    aria-valuenow={finalizedCount}
+                  >
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={cn(
+                          'h-full rounded-full',
+                          finalizedCount === PIPELINE_STEP_NAMES.length
+                            ? 'bg-success'
+                            : 'bg-primary',
+                        )}
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                  </div>
+                  {/* 垂直时间线：size-8 节点圆（完成=实心绿+白勾 / 异常=红+X /
+                      推进中=黄实心 / 终态=灰 / 未到=空心）+ 每步 Tooltip。 */}
+                  <ol className="mt-6">
+                    {PIPELINE_STEP_NAMES.map((step, index) => {
+                      const state = pipelineStates[index];
+                      const info = RAIL_STEP_INFO[step];
+                      const stateText =
+                        STEP_STATE_TEXT[state] ?? {
+                          text: protoStatusLabel(PROTO_TX_STATUS, detail.status),
+                          className:
+                            state === 'danger'
+                              ? 'text-destructive'
+                              : 'text-muted-foreground',
+                        };
+                      const finalizedStep =
+                        step === 'Completed' && state === 'done';
+                      // D18：Created/Completed 两步显示完整时刻（真实时间戳）；
+                      // 其余非 future 步显示相对耗时 +{deltaSec}s（见 GAP-ADM-08）。
+                      const absoluteTime =
+                        step === 'Created'
+                          ? formatUtc8(detail.createTime)
+                          : step === 'Completed' && detail.completedTime > 0
+                            ? formatUtc8(detail.completedTime)
+                            : '';
+                      const rightTime =
+                        absoluteTime ||
+                        (state !== 'future' ? `+${info.deltaSec}s` : '');
+                      return (
+                        <li
+                          key={step}
+                          aria-current={
+                            index === currentIndex ? 'step' : undefined
+                          }
+                          className="relative min-w-0 pb-6 pl-12 last:pb-0"
+                        >
+                          {index < PIPELINE_STEP_NAMES.length - 1 ? (
+                            <span
+                              aria-hidden="true"
+                              className="absolute bottom-0 left-[15px] top-8 w-px bg-border"
+                            />
+                          ) : null}
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              'absolute left-0 top-0 grid size-8 place-items-center rounded-full',
+                              NODE_STYLES[state],
+                            )}
+                          >
+                            {state === 'done' ? (
+                              <Check className="size-4 text-white" />
+                            ) : null}
+                            {state === 'danger' ? (
+                              <X className="size-4 text-white" />
+                            ) : null}
+                            {state === 'warning' ? (
+                              <span className="size-2 rounded-full bg-white" />
+                            ) : null}
+                          </span>
+                          <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="cursor-help">
+                                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                                    <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                                      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                                        {String(index + 1).padStart(2, '0')}
+                                      </span>
+                                      <span
+                                        className={cn(
+                                          'text-sm font-semibold',
+                                          state === 'future'
+                                            ? 'text-muted-foreground'
+                                            : 'text-foreground',
+                                        )}
+                                      >
+                                        {step}
+                                      </span>
+                                      {finalizedStep ? (
+                                        <Badge variant="success">Finalized</Badge>
+                                      ) : (
+                                        <span
+                                          className={cn(
+                                            'text-xs',
+                                            stateText.className,
+                                          )}
+                                        >
+                                          {stateText.text}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {rightTime ? (
+                                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                                        {rightTime}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <p
+                                    className={cn(
+                                      'mt-1 text-xs',
+                                      state === 'future'
+                                        ? 'text-muted-foreground'
+                                        : 'text-muted-foreground',
+                                    )}
+                                  >
+                                    {info.description}
+                                  </p>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <div>
+                                  <div>{info.description}</div>
+                                  <div className="mt-1 text-muted-foreground">
+                                    Operator:{' '}
+                                    <span className="font-medium text-foreground">
+                                      {info.operator}
+                                    </span>
+                                  </div>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              </section>
+
+              {/* Transaction Chain：真实 API 事件流（链路凭证/留痕的超集展示）。 */}
+              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <TxSectionHeader icon={Link2} title="Transaction Chain" />
+                <div className="p-6">
+                  {chainLoading && !chain ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                      ))}
+                    </div>
+                  ) : (
+                    <TransactionChainView
+                      detail={detail}
+                      events={chain?.events ?? []}
+                    />
+                  )}
+                </div>
+              </section>
+            </div>
           </div>
         </>
       ) : null}
@@ -1211,7 +1498,7 @@ export function TxDetailPage() {
 }
 
 /* ================================================================== */
-/* 列表页核心（源 index.vue，单页全状态）                               */
+/* 列表页核心（原型 FxTransactionsPage：7 平铺筛选 + 全列可排序）        */
 /* ================================================================== */
 
 interface TxFilterForm {
@@ -1221,7 +1508,8 @@ interface TxFilterForm {
   pairId: string;
   sourceBankId: string;
   targetBankId: string;
-  createTimeStart: string;
+  createdFrom: string;
+  createdTo: string;
 }
 
 function defaultFilterForm(): TxFilterForm {
@@ -1232,34 +1520,52 @@ function defaultFilterForm(): TxFilterForm {
     pairId: OPT_ALL,
     sourceBankId: OPT_ALL,
     targetBankId: OPT_ALL,
-    createTimeStart: '',
+    createdFrom: '',
+    createdTo: '',
   };
 }
 
-/** 将详情页跳转携带的毫秒时间戳转换为 datetime-local 输入值。 */
-function toDateTimeLocalInput(value: string | null): string {
+/** 毫秒时间戳 → 本地 YYYY-MM-DD（date input 值）。 */
+function toDateInput(value: string | null): string {
   const ms = Number(value);
   if (!value || !Number.isFinite(ms)) return '';
   const date = new Date(ms);
   if (Number.isNaN(date.getTime())) return '';
   const pad = (part: number) => String(part).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-/** 交易列表深链筛选：结算单详情跳转时按 LP 和结算周期回填条件。 */
+/**
+ * 深链筛选回填：dashboard Pending Exceptions「?transactionNo=」「?status=Exception」
+ * （label 或数字码）；结算单详情跳转带「?lpId=&createTimeStart=」（毫秒）。
+ */
 function filterFormFromSearchParams(searchParams: {
   get: (name: string) => string | null;
 }): TxFilterForm {
   const form = defaultFilterForm();
+  const transactionNo = searchParams.get('transactionNo');
+  if (transactionNo) form.txNo = transactionNo;
   const lpId = searchParams.get('lpId');
   if (lpId && Number.isInteger(Number(lpId)) && Number(lpId) > 0) {
     form.lpId = lpId;
   }
-  form.createTimeStart = toDateTimeLocalInput(searchParams.get('createTimeStart'));
+  const statusParam = searchParams.get('status');
+  if (statusParam) {
+    if (/^\d+$/.test(statusParam) && PROTO_TX_STATUS[Number(statusParam)]) {
+      form.status = statusParam;
+    } else {
+      const hit = Object.entries(PROTO_TX_STATUS).find(
+        ([, meta]) => meta.label.toLowerCase() === statusParam.toLowerCase(),
+      );
+      if (hit) form.status = hit[0];
+    }
+  }
+  form.createdFrom = toDateInput(searchParams.get('createTimeStart'));
   return form;
 }
 
-/** RHF 筛选表单 → 后端 TransactionPageFilter；空/哨兵字段剔除。 */
+/** RHF 筛选表单 → 后端 TransactionPageFilter；空/哨兵字段剔除。
+ *  日期半开区间：From 当日 0 点起、To 次日 0 点止（含 To 全天）。 */
 function formToFilter(form: TxFilterForm): TransactionPageFilter {
   const f: TransactionPageFilter = {};
   const txNo = form.txNo.trim();
@@ -1269,9 +1575,16 @@ function formToFilter(form: TxFilterForm): TransactionPageFilter {
   if (form.pairId !== OPT_ALL) f.pairId = Number(form.pairId);
   if (form.sourceBankId !== OPT_ALL) f.sourceBankId = Number(form.sourceBankId);
   if (form.targetBankId !== OPT_ALL) f.targetBankId = Number(form.targetBankId);
-  if (form.createTimeStart) {
-    const ms = toEpochMs(form.createTimeStart);
-    if (ms) f.createTimeStart = ms;
+  if (form.createdFrom) {
+    const start = new Date(`${form.createdFrom}T00:00:00`).getTime();
+    if (Number.isFinite(start)) f.createTimeStart = start;
+  }
+  if (form.createdTo) {
+    const end = new Date(`${form.createdTo}T00:00:00`);
+    if (!Number.isNaN(end.getTime())) {
+      end.setDate(end.getDate() + 1);
+      f.createTimeEnd = end.getTime();
+    }
   }
   return f;
 }
@@ -1296,7 +1609,6 @@ function TransactionListCore() {
   );
   const [pageNum, setPageNum] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
-  const [showMore, setShowMore] = React.useState(false);
   const [resolveRow, setResolveRow] = React.useState<TransactionRow | null>(null);
   const [resolveOpen, setResolveOpen] = React.useState(false);
 
@@ -1305,7 +1617,7 @@ function TransactionListCore() {
     pageSize,
     filter,
   });
-  // 下拉三组并行拉取（源 loadOptions Promise.all → 三个独立 query 挂载即并行）。
+  // 下拉四组并行拉取（LP/交易对/银行；pairOptionById 另做 Tokens 列回显）。
   const { data: lpOptions } = useTransactionLpOptionsQuery(KISSEN_PROJECT_ID);
   const { data: pairOptions } = useTransactionPairOptionsQuery(KISSEN_PROJECT_ID);
   const { data: bankOptions } = useTransactionBankOptionsQuery(KISSEN_PROJECT_ID);
@@ -1330,35 +1642,60 @@ function TransactionListCore() {
     setPageNum(1);
   }, [reset]);
 
-  const onView = React.useCallback(
-    (row: TransactionRow) => {
-      // 源 openDetail：View 改路由跳转详情独立页（不再开抽屉）。
-      router.push(`${TX_LIST_PATH}/detail?id=${row.transactionId}`);
-    },
-    [router],
-  );
-
   const openResolve = React.useCallback((row: TransactionRow) => {
     setResolveRow(row);
     setResolveOpen(true);
   }, []);
 
+  // 排序取值器（当前数据集内本地排序；Tokens/From/To 不可排序，同原型）。
+  const sortGetters = React.useMemo<
+    Record<string, ProtoSortGetter<TransactionRow>>
+  >(
+    () => ({
+      transactionNo: {
+        value: (r) => r.txNo || r.txUuid,
+      },
+      fxRate: {
+        value: (r) => {
+          const n = Number(r.userRate);
+          return Number.isFinite(n) ? n : null;
+        },
+      },
+      lpName: { value: (r) => r.lpName },
+      status: { value: (r) => protoStatusRank(PROTO_TX_STATUS, r.status) },
+      createdOn: { value: (r) => r.createTime, defaultDir: 'desc' },
+      completedOn: {
+        value: (r) => (r.completedTime > 0 ? r.completedTime : null),
+        defaultDir: 'desc',
+      },
+    }),
+    [],
+  );
+  const { sorted, toggle, sortState } = useProtoSort(
+    rows,
+    sortGetters,
+    'createdOn',
+    'desc',
+  );
+
   const columns = React.useMemo<
     ColumnDef<TransactionRow & { id: string }>[]
-  >(() => {
-    return [
+  >(
+    () => [
       {
-        id: 'txNo',
-        header: 'Transaction No.',
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <div className="flex items-center gap-1">
-              <span className="font-mono">{r.txNo || '-'}</span>
-              {r.txNo ? <CopyCellIcon value={r.txNo} /> : null}
-            </div>
-          );
-        },
+        id: 'transactionNo',
+        header: (
+          <ProtoSortHeader
+            label="Transaction No."
+            columnKey="transactionNo"
+            toggle={toggle}
+            sortState={sortState}
+          />
+        ),
+        meta: { maxWidth: 230 },
+        cell: ({ row }) => (
+          <CopyableId value={row.original.txNo || row.original.txUuid} />
+        ),
       },
       {
         id: 'tokens',
@@ -1386,115 +1723,199 @@ function TransactionListCore() {
       },
       {
         id: 'from',
-        header: 'From (Wallet / Amount)',
+        header: 'From',
         meta: { overflow: 'wrap', maxWidth: 220 },
         cell: ({ row }) => {
           const r = row.original;
           return (
-            <div className="flex min-w-0 flex-col leading-snug">
-              <div className="flex min-w-0 items-center gap-1">
-                <span
-                  className="max-w-[190px] truncate font-mono"
-                  title={r.senderAccount}
-                >
-                  {r.senderAccount || '-'}
-                </span>
-                {r.senderAccount ? <CopyCellIcon value={r.senderAccount} /> : null}
-              </div>
-              <span className="text-xs text-muted-foreground">
+            <div className="flex min-w-0 flex-col gap-0.5 leading-snug">
+              <span className="font-bold tabular-nums">
                 {fmtAmount(
                   r.userDeduction,
                   r.sourceCurrency || undefined,
                   decOf(r.sourceCurrency),
                 )}
               </span>
+              <CopyableId
+                value={r.senderAccount}
+                className="max-w-[190px]"
+              />
             </div>
           );
         },
       },
       {
         id: 'to',
-        header: 'To (Wallet / Amount)',
+        header: 'To',
         meta: { overflow: 'wrap', maxWidth: 220 },
         cell: ({ row }) => {
           const r = row.original;
           return (
-            <div className="flex min-w-0 flex-col leading-snug">
-              <div className="flex min-w-0 items-center gap-1">
-                <span
-                  className="max-w-[190px] truncate font-mono"
-                  title={r.receiverAccount}
-                >
-                  {r.receiverAccount || '-'}
-                </span>
-                {r.receiverAccount ? <CopyCellIcon value={r.receiverAccount} /> : null}
-              </div>
-              <span className="text-xs font-semibold text-[var(--ks-clearing,#0b6b53)]">
+            <div className="flex min-w-0 flex-col gap-0.5 leading-snug">
+              <span className="font-bold tabular-nums">
                 {fmtAmount(
                   r.receiverAmount,
                   r.targetCurrency || undefined,
                   decOf(r.targetCurrency),
                 )}
               </span>
+              <CopyableId
+                value={r.receiverAccount}
+                className="max-w-[190px]"
+              />
             </div>
           );
         },
       },
       {
-        id: 'userRate',
-        header: 'FX Rate',
+        id: 'fxRate',
+        header: (
+          <div className="flex justify-end">
+            <ProtoSortHeader
+              label="FX Rate"
+              columnKey="fxRate"
+              toggle={toggle}
+              sortState={sortState}
+            />
+          </div>
+        ),
         meta: { overflow: 'none' },
         cell: ({ row }) => (
-          <span className="block text-right font-mono tabular-nums">
-            {row.original.userRate == null
-              ? '-'
-              : Number(row.original.userRate).toFixed(4)}
-          </span>
+          <div className="flex justify-end">
+            <span className="font-mono tabular-nums">
+              {formatRate(row.original.userRate)}
+            </span>
+          </div>
         ),
       },
       {
         id: 'lpName',
-        header: 'LP',
+        header: (
+          <ProtoSortHeader
+            label="LP Name"
+            columnKey="lpName"
+            toggle={toggle}
+            sortState={sortState}
+          />
+        ),
         meta: { maxWidth: 150 },
         cell: ({ row }) => (
-          <span className="block max-w-[140px] truncate" title={row.original.lpName}>
+          <span
+            className="block max-w-[140px] truncate"
+            title={row.original.lpName}
+          >
             {row.original.lpName || '-'}
           </span>
         ),
       },
       {
         id: 'status',
-        header: 'Status',
-        cell: ({ row }) => <TransactionStatusBadge status={row.original.status} />,
-      },
-      {
-        id: 'createTime',
-        header: 'Created On',
-        meta: { maxWidth: 220 },
+        header: (
+          <ProtoSortHeader
+            label="Status"
+            columnKey="status"
+            toggle={toggle}
+            sortState={sortState}
+          />
+        ),
         cell: ({ row }) => (
-          <span className="tabular-nums">{formatTime(row.original.createTime)}</span>
+          <ProtoStatusBadge
+            tone={TX_STATUS_TONE[row.original.status] ?? 'muted'}
+          >
+            {protoStatusLabel(PROTO_TX_STATUS, row.original.status)}
+          </ProtoStatusBadge>
         ),
       },
-      createActionColumn<TransactionRow & { id: string }>((item) => {
-        // 处置入口仅 EXCEPTION(70) 行可见（后端「仅 70 可裁定」的 UI 投影）。
-        const actions: TableRowAction<TransactionRow & { id: string }>[] = [
-          { label: 'View', onClick: () => onView(item) },
-        ];
-        if (item.status === 70) {
-          actions.push({
-            label: 'Resolve',
-            destructive: true,
-            onClick: () => openResolve(item),
-          });
-        }
-        return actions;
-      }),
-    ];
-  }, [onView, openResolve, pairOptionById]);
+      {
+        id: 'createdOn',
+        header: (
+          <ProtoSortHeader
+            label="Created on (UTC+8)"
+            columnKey="createdOn"
+            toggle={toggle}
+            sortState={sortState}
+          />
+        ),
+        meta: { maxWidth: 220 },
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatUtc8(row.original.createTime)}
+          </span>
+        ),
+      },
+      {
+        id: 'completedOn',
+        header: (
+          <ProtoSortHeader
+            label="Completed on (UTC+8)"
+            columnKey="completedOn"
+            toggle={toggle}
+            sortState={sortState}
+          />
+        ),
+        meta: { maxWidth: 220 },
+        cell: ({ row }) => {
+          // GAP-ADM-03 已闭环：completedTime 为真实字段（0=未完成 → Dash）。
+          return row.original.completedTime > 0 ? (
+            <span className="tabular-nums">
+              {formatUtc8(row.original.completedTime)}
+            </span>
+          ) : (
+            <Dash />
+          );
+        },
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <div className="flex items-center">
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() =>
+                  router.push(`${TX_LIST_PATH}/detail?id=${r.transactionId}`)
+                }
+              >
+                Details
+              </Button>
+              {/* D7：Resolve 仅 EXCEPTION(70) 行（后端「仅 70 可裁定」UI 投影）。 */}
+              {r.status === 70 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="iconSm"
+                      className="ml-1"
+                      aria-label="More actions"
+                    >
+                      <MoreHorizontal className="size-4" aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onSelect={() => openResolve(r)}
+                    >
+                      Resolve
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
+          );
+        },
+      },
+    ],
+    [decOf, openResolve, pairOptionById, router, sortState, toggle],
+  );
 
   const tableData = React.useMemo(
-    () => rows.map((r) => ({ ...r, id: String(r.transactionId) })),
-    [rows],
+    () => sorted.map((r) => ({ ...r, id: String(r.transactionId) })),
+    [sorted],
   );
 
   // 下拉选项（首项「全部」哨兵；LP/银行 pageSize=200 截断口径在 data-access）。
@@ -1539,7 +1960,7 @@ function TransactionListCore() {
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
             <div className="text-base font-semibold leading-6 text-foreground">
-              Transactions
+              FX Transactions
             </div>
             {!isLoading && paginationMeta ? (
               <span className="text-sm text-muted-foreground tabular-nums">
@@ -1565,6 +1986,20 @@ function TransactionListCore() {
               maxLength={32}
               register={register('txNo')}
             />
+            <FilterableFormSelect
+              name="pairId"
+              control={control}
+              label="Token Pair"
+              options={pairSelectOptions}
+              placeholder="All"
+            />
+            <FilterableFormSelect
+              name="lpId"
+              control={control}
+              label="LP Name"
+              options={lpSelectOptions}
+              placeholder="All"
+            />
             <FormSelect
               name="status"
               control={control}
@@ -1572,63 +2007,45 @@ function TransactionListCore() {
               options={statusSelectOptions}
               placeholder="All"
             />
+            {/* 时间区间（原型单 DateRangeField）：双 date 输入 From/To。 */}
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium leading-snug text-foreground">
+                Creation Date
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="date"
+                  aria-label="Creation date from"
+                  {...register('createdFrom')}
+                />
+                <Input
+                  type="date"
+                  aria-label="Creation date to"
+                  {...register('createdTo')}
+                />
+              </div>
+            </div>
             <FilterableFormSelect
-              name="lpId"
+              name="sourceBankId"
               control={control}
-              label="LP"
-              options={lpSelectOptions}
+              label="Source Bank"
+              options={bankSelectOptions}
               placeholder="All"
             />
             <FilterableFormSelect
-              name="pairId"
+              name="targetBankId"
               control={control}
-              label="Tokens"
-              options={pairSelectOptions}
+              label="Target Bank"
+              options={bankSelectOptions}
               placeholder="All"
-            />
-            <FormField
-              name="createTimeStart"
-              label="Created On"
-              type="datetime-local"
-              register={register('createTimeStart')}
             />
             <div className="flex flex-wrap items-end gap-2">
               <Button type="submit">Search</Button>
               <Button type="button" variant="outline" onClick={onReset}>
                 Reset
               </Button>
-              <div className="flex h-10 items-center">
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => setShowMore((v) => !v)}
-                >
-                  {showMore ? 'Collapse Filters' : 'More Filters'}
-                </Button>
-              </div>
             </div>
           </div>
-
-          {/* 更多筛选（会话态不持久化）：仅源/目标银行（裁决 6，不暴露 transactionId/txUuid） */}
-          {showMore && (
-            <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border/50 pt-3 sm:grid-cols-2 lg:grid-cols-4">
-              <FilterableFormSelect
-                name="sourceBankId"
-                control={control}
-                label="Source Bank"
-                options={bankSelectOptions}
-                placeholder="All"
-              />
-              <FilterableFormSelect
-                name="targetBankId"
-                control={control}
-                label="Target Bank"
-                options={bankSelectOptions}
-                placeholder="All"
-              />
-            </div>
-          )}
         </form>
         <div className="p-4">
           {isError ? (
@@ -1640,7 +2057,7 @@ function TransactionListCore() {
               columns={columns}
               data={tableData}
               isLoading={isLoading}
-              emptyMessage="No transactions found"
+              emptyMessage="No transactions found."
               pagination={
                 paginationMeta
                   ? {

@@ -2,7 +2,14 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Copy, Info } from 'lucide-react';
+import {
+  AlertTriangle,
+  BarChart3,
+  Check,
+  Clock,
+  Info,
+  RefreshCw,
+} from 'lucide-react';
 
 import {
   Badge,
@@ -13,10 +20,8 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-  useToast,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
@@ -29,21 +34,25 @@ import {
   useTokenPairListQuery,
 } from '@myorg/modules/kissen-admin/data-access';
 
+import { formatTokenAmount, formatUtc8 } from './proto-format';
+import { PROTO_TX_STATUS, protoStatusLabel } from './proto-enums';
+import { CopyableId, ProtoStatusBadge } from './proto-ui';
+import { ProtoSortHeader, useProtoSort } from './proto-sort';
+
 /**
- * DashboardPage —— 工作台「今日清算」总览（登录落点）。
+ * DashboardPage —— KNMS 工作台（登录落点），对齐原型 DashboardPage.jsx（方案 12 P3）。
  *
- * 迁移自 Vue 源 `views/workbench/index.vue`，并参考 `udpn-kissen` 重组为：
- * 页头、四张 KPI 卡片、异常队列/结算摘要、资金池概览/网络概览。数据全部来自现有
- * 列表接口，客户端只做展示所需的聚合/过滤：
- * - KPI：今日交易笔数 / 今日流水（按源币种分组） / 在途笔数 / 异常待处置
- * - 异常队列（status 70 前 5 笔）与结算状态（pending/confirmed/settled）
+ * 结构：页头（Updated + Refresh）→ 4 张 KPI 卡 → Pending Exceptions 表 +
+ * Settlement Statements → Pool Overview + Network Overview。文案/列头/提示逐字
+ * 对齐原型；数据全部来自现有列表接口，客户端只做展示所需的聚合/过滤：
+ * - KPI：异常待处置 / 在途 / 今日笔数 / 今日代币对成交量（status Confirmed）
+ * - 异常队列（status 70 前 5 笔，表头可排序）
+ * - 结算状态（pending/confirmed/settled-7d）+ 对账横幅
  * - 资金池水位（token 维度，低于 remindThreshold 即告急）
- * - 网络概览（银行、网关实例、流动性提供方、Token Pairs）
+ * - 网络概览（银行、网关实例、LP、Token Pairs，均带真实 Latest 提示）
  *
- * 各区块各自独立 react-query 查询，任一接口失败只降级对应区块，不整页报错
- * （与源 Promise.all + 各 try/catch 同语义）。无独立 data-access 域：统计端点
- * 经 kissenPage 直接在本 feature 内薄调用（端点路径读自源 api/transaction.ts、
- * api/bank.ts、api/lp-pool.ts、api/reconcile.ts）。
+ * 各区块各自独立 react-query 查询，任一接口失败只降级对应区块，不整页报错。
+ * 无独立 data-access 域：统计端点经 kissenPage 直接在本 feature 内薄调用。
  */
 
 // ---- 行类型（最小子集，字段名与源 VO 对齐；只取工作台用到的） ----
@@ -58,6 +67,10 @@ interface WorkbenchTxRow {
   /** TransactionStatusEnum：1/5/10/20/25/30/35/40/50/60/70/80/90 */
   status: number;
   principal: string | number;
+  /** 到账金额（原型 Amount 列「源数量 → 目标数量」复合展示） */
+  receiverAmount: string | number | null;
+  sourceBankName: string;
+  targetBankName: string;
   /** 用户扣款金额（今日流水客户端聚合口径） */
   userDeduction: string | number;
   createTime: number;
@@ -74,6 +87,7 @@ interface WorkbenchBankRow {
   status: number;
   /** 网关连通性：0 未知 / 1 正常 / 2 断开（未登记实例为 0） */
   connectivityStatus: number;
+  createTime: number;
 }
 
 interface WorkbenchPoolRow {
@@ -94,6 +108,32 @@ interface WorkbenchPoolRow {
   status: number;
 }
 
+/** 结算单行（工作台只取状态与创建时间）。 */
+interface WorkbenchSettleRow {
+  status: number;
+  createTime: number;
+}
+
+/** 工作台薄查询的分页响应形状（kissenPage 返回）。 */
+interface WorkbenchPageResp<T> {
+  data: T[];
+  pagination: { total: number };
+}
+
+/** SettlementOverview 依赖的结算列表查询（结构子集，实参为完整 react-query 结果）。 */
+interface SettleQueryLike {
+  data: WorkbenchPageResp<WorkbenchSettleRow> | undefined;
+  isLoading: boolean;
+  isError: boolean;
+  refetch: () => unknown;
+}
+
+/** SettlementOverview 依赖的对账查询（只读未处理差异 total 与错误态）。 */
+interface ReconcileQueryLike {
+  data: WorkbenchPageResp<unknown> | undefined;
+  isError: boolean;
+}
+
 // ---- 常量 ----
 
 /** 在途状态：完成前的主线节点（35 已是成功终态，2026-09-04 与上游对齐剔除）。 */
@@ -106,51 +146,21 @@ const IN_FLIGHT: Record<number, true> = {
   30: true,
 };
 
-/** 交易状态映射（TransactionStatusEnum 13 值，与交易查询页一致）。 */
-const TX_STATUS_MAP: Record<number, string> = {
-  1: 'Created',
-  5: 'Quoted',
-  10: 'Confirmed',
-  20: 'Source Transfer in Progress',
-  25: 'Source Verified',
-  30: 'Disbursing',
-  35: 'Completed',
-  40: 'Completed',
-  50: 'Reversing',
-  60: 'Reversed',
-  70: 'Abnormal',
-  80: 'Cancelled',
-  90: 'Failed',
+/** 原型 CoverageCell 水位条比例：coverage 219% 才满条，45.6% 位置为 100% 刻度线。 */
+const COVERAGE_BAR_SCALE = 0.456;
+const MIN_LIQUIDITY_MARK = COVERAGE_BAR_SCALE * 100;
+
+/** 交易状态 → 徽章 tone（终态成功 / 逆转与失败 / 逆转中；未列出的主线节点一律 info）。 */
+const TX_TONE: Record<number, 'success' | 'warning' | 'danger'> = {
+  35: 'success',
+  40: 'success',
+  50: 'warning',
+  60: 'danger',
+  70: 'danger',
+  90: 'danger',
 };
 
-// ---- 格式化（移植自 views/approval/format.ts） ----
-
-/** 数字千分位（保留原小数位）。 */
-function formatMoney(v: number | string): string {
-  const s = String(v);
-  const [int, dec] = s.split('.');
-  const sign = int.startsWith('-') ? '-' : '';
-  const digits = sign ? int.slice(1) : int;
-  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return dec === undefined ? `${sign}${grouped}` : `${sign}${grouped}.${dec}`;
-}
-
-/** 金额存在 token 上下文时追加 symbol；缺失元数据时保留原有金额兜底。 */
-function formatTokenAmount(
-  value: number | string | null | undefined,
-  symbol?: string,
-): string {
-  if (value == null) return '-';
-  const amount = formatMoney(value);
-  return symbol ? `${amount} ${symbol}` : amount;
-}
-
-/** 毫秒时间戳 → shared 管理台日期时间格式，并附查看者本地时区。 */
-function formatTime(ms: number | null | undefined): string {
-  if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '-';
-  const d = new Date(Number(ms));
-  return Number.isNaN(d.getTime()) ? '-' : formatAdminDateTime(d);
-}
+// ---- 小工具 ----
 
 /** 异常持续时长：now - createTime → "8m" / "5h 12m" / "2d 3h"（无创建时间占位 -）。 */
 function formatAge(createTime: number): string {
@@ -162,25 +172,24 @@ function formatAge(createTime: number): string {
   return `${Math.floor(hours / 24)}d ${hours % 24}h`;
 }
 
-/** 地址保留首尾片段，避免破坏参考布局的表格密度。 */
-function formatAddress(address: string | undefined): string {
-  if (!address) return '-';
-  return address.length > 14
-    ? `${address.slice(0, 6)}…${address.slice(-4)}`
-    : address;
-}
-
 /** 今日 0 点毫秒（与对账页 dayStart 口径一致，按运行环境本地日历计算）。 */
 function dayStartMs(): number {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-/** 货币对展示：源币→目标币，缺失占位。 */
-function pairText(row: WorkbenchTxRow): string {
-  return row.sourceCurrency && row.targetCurrency
-    ? `${row.sourceCurrency}→${row.targetCurrency}`
-    : '-';
+/** 日期短展示（UTC+8 字面量日期部分，用于 Network Overview 的 Latest 提示）。 */
+function formatDateUtc8(ms: number | null | undefined): string {
+  return formatUtc8(ms).slice(0, 10);
+}
+
+
+/** 取 createTime 最新的行（Network Overview 的 Latest 提示）。 */
+function latestByTime<T>(rows: T[], getTime: (row: T) => number): T | undefined {
+  return rows.reduce<T | undefined>(
+    (acc, row) => (getTime(row) > (acc ? getTime(acc) : 0) ? row : acc),
+    undefined,
+  );
 }
 
 // ---- 资金池水位（移植自 workbench index.vue） ----
@@ -198,19 +207,11 @@ function poolNumerator(pool: WorkbenchPoolRow): number {
     : balance;
 }
 
-/** 水位 = min(可用授权, 可用余额) / Σ min liquidity（requiredMinSum，16a3b8f 口径）；低于补资提醒阈值即告急。 */
+/** 水位 = min(可用授权, 可用余额) / Σ min liquidity（requiredMinSum）；低于补资提醒阈值即告急。 */
 function isPoolCritical(pool: WorkbenchPoolRow): boolean {
   const min = pool.requiredMinSum == null ? Number.NaN : Number(pool.requiredMinSum);
   if (!(min > 0)) return false; // 分母无效（含未挂参与对）无法判断水位，按正常展示
   return poolNumerator(pool) / min < Number(pool.remindThreshold);
-}
-
-/** 水位条宽度百分比（与告急同口径；封顶 100，不低于 0 以免出现非法宽度）。 */
-function poolBarWidth(pool: WorkbenchPoolRow): number {
-  const min = pool.requiredMinSum == null ? Number.NaN : Number(pool.requiredMinSum);
-  if (!(min > 0)) return 0;
-  const ratio = poolNumerator(pool) / min;
-  return Math.max(0, Math.floor(Math.min(100, ratio * 100)));
 }
 
 // ---- 查询 key ----
@@ -231,7 +232,7 @@ const workbenchKeys = {
 
 // ---- 查询（薄调用，直接经 kissenPage 打真实端点） ----
 
-/** 今日交易（客户端聚合笔数/流水/在途；pageSize 200 为今日切片上限）。 */
+/** 今日交易（客户端聚合笔数/在途/代币对成交量；pageSize 200 为今日切片上限）。 */
 function useWorkbenchTodayQuery(projectId: string) {
   return useQuery({
     queryKey: workbenchKeys.today(projectId),
@@ -302,139 +303,33 @@ function useWorkbenchReconcileQuery(projectId: string) {
 
 // ---- 通用展示小块 ----
 
-function MetricLabel({ label, tooltip }: { label: string; tooltip?: string }) {
-  return (
-    <div className="flex items-center gap-1 text-xs font-semibold tracking-wide text-muted-foreground">
-      <span>{label}</span>
-      {tooltip ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span
-              aria-label={`More information about ${label}`}
-              className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground"
-              tabIndex={0}
-            >
-              <Info className="h-3 w-3" aria-hidden="true" />
-            </span>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-64 text-xs leading-relaxed">
-            {tooltip}
-          </TooltipContent>
-        </Tooltip>
-      ) : null}
-    </div>
-  );
-}
-
-/** Compact copy action used by dense dashboard tables. */
-function CopyButton({ value, label }: { value: string; label: string }) {
-  const toast = useToast();
-
-  const handleCopy = React.useCallback(() => {
-    const copyWithTextarea = (): boolean => {
-      const textarea = document.createElement('textarea');
-      textarea.value = value;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.top = '0';
-      textarea.style.left = '-9999px';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      try {
-        textarea.focus();
-        textarea.select();
-        textarea.setSelectionRange(0, value.length);
-        return document.execCommand('copy');
-      } catch {
-        return false;
-      } finally {
-        textarea.remove();
-      }
-    };
-
-    const notifyResult = (copied: boolean) => {
-      if (copied) {
-        toast.success('Copied');
-      } else {
-        toast.error('Copy failed');
-      }
-    };
-
-    if (!window.isSecureContext || !navigator.clipboard) {
-      notifyResult(copyWithTextarea());
-      return;
-    }
-
-    void navigator.clipboard.writeText(value).then(
-      () => notifyResult(true),
-      () => notifyResult(copyWithTextarea()),
-    );
-  }, [toast, value]);
-
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="iconSm"
-      className="h-6 w-6 text-muted-foreground"
-      aria-label={`Copy ${label}`}
-      title={`Copy ${label}`}
-      onClick={() => void handleCopy()}
-    >
-      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-    </Button>
-  );
-}
-
-function MetricCard({
+/** ⓘ 提示触发器（原型 InfoTip：round ⓘ 按钮，键盘可达）。 */
+function InfoTip({
   label,
-  tooltip,
-  value,
-  footer,
-  badge,
-  className,
-  valueClassName,
+  children,
 }: {
   label: string;
-  tooltip?: string;
-  value: React.ReactNode;
-  footer?: React.ReactNode;
-  badge?: { label: string; variant: 'destructive' | 'mute' | 'success' };
-  className?: string;
-  valueClassName?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <Card
-      className={cn(
-        'rounded-[10px] p-4 transition-colors hover:border-primary',
-        className,
-      )}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <MetricLabel label={label} tooltip={tooltip} />
-        {badge ? (
-          <Badge variant={badge.variant} size="sm">
-            {badge.label}
-          </Badge>
-        ) : null}
-      </div>
-      <div
-        className={cn(
-          'mt-1.5 text-3xl font-bold tracking-tight tabular-nums',
-          valueClassName,
-        )}
-      >
-        {value}
-      </div>
-      {footer ? (
-        <div className="mt-1 text-xs font-medium text-muted-foreground">
-          {footer}
-        </div>
-      ) : null}
-    </Card>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          aria-label={label}
+          className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground"
+          tabIndex={0}
+        >
+          <Info className="h-3 w-3" aria-hidden="true" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64 text-xs leading-relaxed">
+        {children}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
+/** 区块标题 + 右侧链接动作（原型 SectionCard 头）。 */
 function PanelHeading({
   title,
   action,
@@ -461,357 +356,114 @@ function PanelHeading({
   );
 }
 
+/** KPI 卡（原型 KpiCard：label+ⓘ+pill / 大数字 / foot；alert 版红顶线渐变，可整卡点击跳转）。 */
+function KpiCard({
+  label,
+  icon: LabelIcon,
+  tip,
+  pill,
+  value,
+  foot,
+  alert = false,
+  onClick,
+  children,
+}: {
+  label: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  tip: string;
+  pill?: { label: string; variant: 'destructive' | 'mute' };
+  value?: React.ReactNode;
+  foot?: React.ReactNode;
+  alert?: boolean;
+  onClick?: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Card
+      role={onClick ? 'link' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (event) => {
+              if (event.key === 'Enter') onClick();
+            }
+          : undefined
+      }
+      className={cn(
+        'rounded-[10px] p-4 transition-all',
+        alert
+          ? 'border-t-2 border-t-destructive bg-gradient-to-b from-card to-destructive/5'
+          : 'border-t-2 border-t-primary',
+        onClick && 'cursor-pointer hover:shadow-md',
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+          {LabelIcon ? (
+            <LabelIcon className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+          ) : null}
+          <span className="min-w-0">{label}</span>
+          <InfoTip label={`${label} definition`}>{tip}</InfoTip>
+        </span>
+        {pill ? (
+          <Badge variant={pill.variant} size="sm" className="shrink-0">
+            {pill.label}
+          </Badge>
+        ) : null}
+      </div>
+      {value !== undefined ? (
+        <div
+          className={cn(
+            'mt-1.5 text-3xl font-bold leading-none tracking-tight tabular-nums',
+            alert && 'text-destructive',
+          )}
+        >
+          {value}
+        </div>
+      ) : null}
+      {children}
+      {foot ? (
+        <div
+          className={cn(
+            'mt-1 text-xs font-medium text-muted-foreground',
+            alert && 'font-semibold text-destructive',
+          )}
+        >
+          {foot}
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+/** 结算状态行（原型 statements 行：徽章 + note + 计数 statement/statements）。 */
 function StatLine({
   label,
+  tone,
   count,
-  variant,
   hint,
 }: {
   label: string;
+  tone: 'warning' | 'muted' | 'success';
   count: number | null;
-  variant: 'warning' | 'mute' | 'success';
   hint?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-border py-2.5 last:border-b-0">
       <span className="flex min-w-0 items-center gap-2 font-medium">
-        <Badge variant={variant} size="sm">
-          {label}
-        </Badge>
+        <ProtoStatusBadge tone={tone}>{label}</ProtoStatusBadge>
         {hint ? (
           <span className="truncate text-xs text-muted-foreground">{hint}</span>
         ) : null}
       </span>
       <span className="shrink-0 font-bold tabular-nums">
-        {count == null ? '—' : count}{' '}
+        {count == null ? '-' : count}{' '}
         <span className="text-xs font-medium text-muted-foreground">
           {count === 1 ? 'statement' : 'statements'}
         </span>
       </span>
     </div>
-  );
-}
-
-function NetworkStat({
-  name,
-  count,
-  hint,
-  onClick,
-}: {
-  name: string;
-  count: number | null;
-  hint: string;
-  onClick?: () => void;
-}) {
-  const content = (
-    <>
-      <div className="min-w-0 flex-1 font-semibold">
-        {name}
-        <span className="mt-px block truncate text-xs font-medium text-muted-foreground">
-          {hint}
-        </span>
-      </div>
-      <div className="shrink-0 text-right text-xl font-bold whitespace-nowrap">
-        {count == null ? '—' : count}{' '}
-        <span className="text-xs font-medium text-muted-foreground">
-          active
-        </span>
-      </div>
-    </>
-  );
-
-  const className = cn(
-    'flex w-full items-center justify-between gap-3 border-b border-border py-3 text-left last:border-b-0',
-    onClick &&
-      'cursor-pointer transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-  );
-
-  return onClick ? (
-    <button type="button" className={className} onClick={onClick}>
-      {content}
-    </button>
-  ) : (
-    <div className={className}>{content}</div>
-  );
-}
-
-function PoolLevel({ pool }: { pool: WorkbenchPoolRow }) {
-  const critical = isPoolCritical(pool);
-  const requiredMinSum =
-    pool.requiredMinSum == null ? Number.NaN : Number(pool.requiredMinSum);
-  const numerator = poolNumerator(pool);
-  const hasCalculation =
-    Number.isFinite(numerator) &&
-    Number.isFinite(requiredMinSum) &&
-    requiredMinSum > 0;
-  const percentage = hasCalculation
-    ? Math.round((numerator / requiredMinSum) * 100)
-    : null;
-  const alertThreshold = Number(pool.remindThreshold);
-  const alertThresholdText = Number.isFinite(alertThreshold)
-    ? `${Math.round(alertThreshold * 100)}%`
-    : '—';
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="flex min-w-0 flex-wrap cursor-help items-center gap-x-2.5 gap-y-1 min-[1920px]:min-w-[220px] min-[1920px]:flex-nowrap">
-          <div className="relative h-1.5 min-w-[64px] flex-1 rounded bg-muted min-[1920px]:w-[110px] min-[1920px]:min-w-0 min-[1920px]:flex-none">
-            {percentage != null ? (
-              <div
-                className={cn(
-                  'absolute inset-y-0 left-0 rounded',
-                  critical ? 'bg-warning' : 'bg-success',
-                )}
-                style={{ width: `${poolBarWidth(pool)}%` }}
-              />
-            ) : null}
-            {percentage != null ? (
-              <div className="absolute inset-y-[-3px] left-[45%] w-0.5 bg-muted-foreground/50" />
-            ) : null}
-          </div>
-          <span className="w-12 text-xs tabular-nums text-muted-foreground">
-            {percentage == null ? '—' : `${percentage}%`}
-          </span>
-          <Badge variant={critical ? 'destructive' : 'success'} size="sm">
-            {critical ? 'Low' : 'Sufficient'}
-          </Badge>
-        </div>
-      </TooltipTrigger>
-      <TooltipContent className="text-xs">
-        {hasCalculation ? (
-          <div>
-            {formatTokenAmount(numerator.toFixed(2), pool.tokenSymbol)} ÷ Σ min liquidity
-            (referencing pairs) {formatTokenAmount(requiredMinSum.toFixed(2), pool.tokenSymbol)} = {percentage}%
-          </div>
-        ) : (
-          <div>Pool level unavailable</div>
-        )}
-        <div>Alert threshold: {alertThresholdText}</div>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-function PoolOverview({
-  pools,
-  tokenNames,
-  isLoading,
-  isError,
-  onRetry,
-  onViewAll,
-}: {
-  pools: WorkbenchPoolRow[];
-  tokenNames: ReadonlyMap<number, string>;
-  isLoading: boolean;
-  isError: boolean;
-  onRetry: () => void;
-  onViewAll: () => void;
-}) {
-  return (
-    <Card className="h-full rounded-[10px] p-5">
-      <PanelHeading
-        title="Liquidity Pool Overview"
-        action={`All pools ${pools.length} →`}
-        onAction={onViewAll}
-      />
-      {isError ? (
-        <BlockFail onRetry={onRetry} />
-      ) : isLoading ? (
-        <BlockSkeleton rows={4} />
-      ) : pools.length === 0 ? (
-        <BlockEmpty
-          icon={<InboxIcon className="h-4 w-4" />}
-          text="No pools yet"
-        />
-      ) : (
-        <div className="max-md:overflow-x-auto md:overflow-hidden">
-          <table className="w-full min-w-0 max-md:min-w-[760px] table-fixed border-collapse">
-            <thead>
-              <tr>
-                {[
-                  'LP',
-                  'Pool Address',
-                  'Available Pre-Authorized',
-                  'Token',
-                  'Available Balance',
-                  'Pool Level',
-                ].map((heading, index) => (
-                  <th
-                    key={heading}
-                    className={cn(
-                      'whitespace-normal border-b border-border px-3 py-2 text-left text-xs font-semibold leading-tight tracking-wide text-muted-foreground min-[1920px]:whitespace-nowrap',
-                      index === 0 && 'w-[14%] min-[1920px]:w-[150px]',
-                      index === 1 && 'w-[18%] min-[1920px]:w-[180px]',
-                      index === 2 && 'w-[20%] text-right min-[1920px]:w-[155px]',
-                      index === 3 && 'w-[12%] min-[1920px]:w-[100px]',
-                      index === 4 && 'w-[18%] text-right min-[1920px]:w-[160px]',
-                      index === 5 && 'w-[18%] min-[1920px]:w-[130px]',
-                    )}
-                  >
-                    {heading === 'Pool Level' ? (
-                      <span className="inline-flex max-w-full flex-wrap items-center gap-1">
-                        {heading}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span
-                              aria-label="Pool level calculation"
-                              className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground"
-                              tabIndex={0}
-                            >
-                              <Info className="h-3 w-3" aria-hidden="true" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent className="text-xs">
-                            <div>
-                              Pool Level = min(Available Pre-Authorized,
-                              Available Balance) ÷ Min. Liquidity
-                            </div>
-                            <div>Alert threshold: 20%</div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </span>
-                    ) : (
-                      heading
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {pools.map((pool) => {
-                const poolAddress = formatAddress(pool.accountAddress);
-                const preauthAmount =
-                  pool.preauthAvailable == null
-                    ? '-'
-                    : formatTokenAmount(pool.preauthAvailable, pool.tokenSymbol);
-                const tokenName =
-                  tokenNames.get(pool.tokenId) || pool.tokenCode || '-';
-                const availableBalance = formatTokenAmount(
-                  pool.availableBalanceCache,
-                  pool.tokenSymbol,
-                );
-                return (
-                  <tr key={pool.poolId} className="hover:bg-muted/40">
-                    <td className="border-b border-border px-3 py-2.5 text-sm">
-                      <span className="block truncate" title={pool.lpName || '-'}>
-                        {pool.lpName || '-'}
-                      </span>
-                    </td>
-                    <td className="border-b border-border px-3 py-2.5 font-mono text-xs text-muted-foreground">
-                      <span className="inline-flex min-w-0 max-w-full items-center gap-1">
-                        <span className="truncate" title={poolAddress}>
-                          {poolAddress}
-                        </span>
-                        {pool.accountAddress ? (
-                          <CopyButton
-                            value={pool.accountAddress}
-                            label="pool address"
-                          />
-                        ) : null}
-                      </span>
-                    </td>
-                    <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
-                      <span className="block truncate" title={preauthAmount}>
-                        {preauthAmount}
-                      </span>
-                    </td>
-                    <td className="border-b border-border px-3 py-2.5 text-sm font-semibold">
-                      <span className="block truncate" title={tokenName}>
-                        {tokenName}
-                      </span>
-                    </td>
-                    <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
-                      <span
-                        className="block truncate"
-                        title={availableBalance}
-                      >
-                        {availableBalance}
-                      </span>
-                    </td>
-                    <td className="border-b border-border px-3 py-2.5">
-                      <PoolLevel pool={pool} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function SettlementOverview({
-  settleQuery,
-  reconcileQuery,
-  onViewAll,
-}: {
-  settleQuery: ReturnType<typeof useSettleOrderListQuery>;
-  reconcileQuery: ReturnType<typeof useWorkbenchReconcileQuery>;
-  onViewAll: () => void;
-}) {
-  const rows = settleQuery.data?.data ?? [];
-  const settledSince = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const countByStatus = (status: number, since?: number) =>
-    rows.filter(
-      (row) =>
-        row.status === status && (since == null || row.createTime >= since),
-    ).length;
-  const diffPending = reconcileQuery.data?.pagination.total ?? 0;
-
-  return (
-    <Card className="h-full rounded-[10px] p-5">
-      <PanelHeading
-        title="Settlement Statements"
-        action="View all →"
-        onAction={onViewAll}
-      />
-      {settleQuery.isError ? (
-        <BlockFail onRetry={() => settleQuery.refetch()} />
-      ) : settleQuery.isLoading ? (
-        <BlockSkeleton rows={3} />
-      ) : (
-        <>
-          <StatLine
-            label="Pending Approval"
-            count={countByStatus(10)}
-            variant="warning"
-          />
-          <StatLine
-            label="Confirmed"
-            count={countByStatus(20)}
-            variant="mute"
-          />
-          <StatLine
-            label="Settled"
-            count={countByStatus(35, settledSince)}
-            variant="success"
-            hint="last 7 days"
-          />
-        </>
-      )}
-      <div
-        className={cn(
-          'mt-3.5 flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-xs font-semibold',
-          reconcileQuery.isError || diffPending > 0
-            ? 'border-warning/30 bg-warning/10 text-warning'
-            : 'border-success/30 bg-success/10 text-success',
-        )}
-      >
-        <span aria-hidden="true">
-          {reconcileQuery.isError || diffPending > 0 ? '!' : '✓'}
-        </span>
-        <span>
-          {reconcileQuery.isError
-            ? 'Reconciliation status unavailable'
-            : diffPending > 0
-              ? `${diffPending} unresolved reconciliation difference(s)`
-              : 'Reconciliation — no unresolved differences'}
-        </span>
-      </div>
-    </Card>
   );
 }
 
@@ -843,7 +495,7 @@ function BlockSkeleton({ rows = 3 }: { rows?: number }) {
   );
 }
 
-/** 区块空态：图标 + muted 文案（通用规则 2 的统一形态）。 */
+/** 区块空态：图标 + muted 文案。 */
 function BlockEmpty({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <div className="flex items-center gap-1.5 py-1 text-sm text-muted-foreground">
@@ -853,67 +505,509 @@ function BlockEmpty({ icon, text }: { icon: React.ReactNode; text: string }) {
   );
 }
 
-// ---- 图标（内联 SVG，不引新依赖） ----
+// ---- Pending Exceptions 表（原型：Transaction No./Tokens/Amount/Status/Created on (UTC+8)/Actions） ----
 
-function RefreshIcon({ className }: { className?: string }) {
+function ExceptionTable({
+  rows,
+  isLoading,
+  isError,
+  onRetry,
+  onDetails,
+}: {
+  rows: WorkbenchTxRow[];
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
+  onDetails: (row: WorkbenchTxRow) => void;
+}) {
+  // 排序取值器（页面字面量，语义稳定）。
+  const getters = {
+    id: { value: (row: WorkbenchTxRow) => row.txNo || row.txUuid },
+    status: {
+      value: (row: WorkbenchTxRow) => protoStatusLabel(PROTO_TX_STATUS, row.status),
+    },
+    createdAt: {
+      value: (row: WorkbenchTxRow) => row.createTime,
+      defaultDir: 'desc' as const,
+    },
+  };
+  const { sorted, toggle, sortState } = useProtoSort(
+    rows,
+    getters,
+    'createdAt',
+    'desc',
+  );
+
+  const TH =
+    'whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground';
+
+  if (isError) return <BlockFail onRetry={onRetry} />;
+  if (isLoading) return <BlockSkeleton rows={4} />;
+  if (sorted.length === 0)
+    return (
+      <BlockEmpty
+        icon={<Check className="h-4 w-4 text-success" aria-hidden="true" />}
+        text="No exceptions to handle"
+      />
+    );
+
   return (
-    <svg
-      className={className}
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-      <path d="M21 3v5h-5" />
-      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-      <path d="M3 21v-5h5" />
-    </svg>
+    <div className="max-md:overflow-x-auto md:overflow-hidden">
+      <table className="w-full min-w-0 max-md:min-w-[820px] table-fixed border-collapse">
+        <thead>
+          <tr>
+            <th className={cn(TH, 'w-[18%]')}>
+              <ProtoSortHeader
+                label="Transaction No."
+                columnKey="id"
+                toggle={toggle}
+                sortState={sortState('id')}
+              />
+            </th>
+            <th className={cn(TH, 'w-[16%]')}>Tokens</th>
+            <th className={cn(TH, 'w-[15%]')}>Amount</th>
+            <th className={cn(TH, 'w-[15%]')}>
+              <ProtoSortHeader
+                label="Status"
+                columnKey="status"
+                toggle={toggle}
+                sortState={sortState('status')}
+              />
+            </th>
+            <th className={cn(TH, 'w-[20%]')}>
+              <ProtoSortHeader
+                label="Created on (UTC+8)"
+                columnKey="createdAt"
+                toggle={toggle}
+                sortState={sortState('createdAt')}
+              />
+            </th>
+            <th className={cn(TH, 'w-[9%] text-right')}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((row) => {
+            const pair =
+              row.sourceCurrency && row.targetCurrency
+                ? `${row.sourceCurrency} → ${row.targetCurrency}`
+                : '-';
+            const banks =
+              row.sourceBankName || row.targetBankName
+                ? `${row.sourceBankName || '-'} - ${row.targetBankName || '-'}`
+                : null;
+            const statusLabel = protoStatusLabel(PROTO_TX_STATUS, row.status);
+            return (
+              <tr key={row.transactionId} className="hover:bg-muted/40">
+                <td className="border-b border-border px-3 py-2.5 font-mono text-xs">
+                  <CopyableId value={row.txNo || row.txUuid} />
+                </td>
+                <td className="border-b border-border px-3 py-2.5 text-sm">
+                  <span className="block truncate font-semibold" title={pair}>
+                    {pair}
+                  </span>
+                  {banks ? (
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground" title={banks}>
+                      {banks}
+                    </span>
+                  ) : null}
+                </td>
+                {/* 复合单元格（双向金额）左对齐（原型 2026-09-22 口径）。 */}
+                <td className="border-b border-border px-3 py-2.5 text-sm tabular-nums">
+                  {formatTokenAmount(row.principal)}
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    {row.sourceCurrency || '-'}
+                  </span>
+                  <span aria-hidden="true" className="mx-1 text-muted-foreground">
+                    →
+                  </span>
+                  {formatTokenAmount(row.receiverAmount)}
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    {row.targetCurrency || '-'}
+                  </span>
+                </td>
+                <td className="border-b border-border px-3 py-2.5">
+                  <div className="flex flex-col items-start gap-1">
+                    <ProtoStatusBadge tone={TX_TONE[row.status] ?? 'info'}>
+                      {statusLabel}
+                    </ProtoStatusBadge>
+                    {/* 后端无独立 stage 字段：以状态文案近似原型的 at {stage} · {elapsed}。 */}
+                    <span className="text-xs text-muted-foreground">
+                      at {statusLabel} · {formatAge(row.createTime)}
+                    </span>
+                  </div>
+                </td>
+                <td className="border-b border-border px-3 py-2.5 text-sm text-muted-foreground">
+                  <span className="block truncate" title={formatUtc8(row.createTime)}>
+                    {formatUtc8(row.createTime)}
+                  </span>
+                </td>
+                <td className="border-b border-border px-3 py-2.5 text-right last:pr-0">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    onClick={() => onDetails(row)}
+                  >
+                    Details
+                  </Button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
-function CheckCircleIcon({ className }: { className?: string }) {
+// ---- Settlement Statements（原型 statements 三行 + 对账横幅） ----
+
+function SettlementOverview({
+  settleQuery,
+  reconcileQuery,
+  onViewAll,
+}: {
+  settleQuery: SettleQueryLike;
+  reconcileQuery: ReconcileQueryLike;
+  onViewAll: () => void;
+}) {
+  const rows = settleQuery.data?.data ?? [];
+  const settledSince = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const countByStatus = (status: number, since?: number) =>
+    rows.filter(
+      (row) =>
+        row.status === status && (since == null || row.createTime >= since),
+    ).length;
+  const diffPending = reconcileQuery.data?.pagination.total ?? 0;
+
   return (
-    <svg
-      className={className}
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
+    <Card className="h-full rounded-[10px] p-5">
+      <PanelHeading
+        title="Settlement Statements"
+        action="View all →"
+        onAction={onViewAll}
+      />
+      {settleQuery.isError ? (
+        <BlockFail onRetry={() => settleQuery.refetch()} />
+      ) : settleQuery.isLoading ? (
+        <BlockSkeleton rows={3} />
+      ) : (
+        <>
+          <StatLine
+            label="Pending Approval"
+            tone="warning"
+            count={countByStatus(10)}
+          />
+          <StatLine label="Confirmed" tone="muted" count={countByStatus(20)} />
+          <StatLine
+            label="Settled"
+            tone="success"
+            count={countByStatus(35, settledSince)}
+            hint="last 7 days"
+          />
+        </>
+      )}
+      <div
+        className={cn(
+          'mt-3.5 flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-xs font-semibold',
+          reconcileQuery.isError || diffPending > 0
+            ? 'border-warning/30 bg-warning/10 text-warning'
+            : 'border-success/30 bg-success/10 text-success',
+        )}
+      >
+        {reconcileQuery.isError || diffPending > 0 ? (
+          <span aria-hidden="true">!</span>
+        ) : (
+          <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+        )}
+        <span>
+          {reconcileQuery.isError
+            ? 'Reconciliation status unavailable'
+            : diffPending > 0
+              ? `${diffPending} unresolved reconciliation difference(s)`
+              : 'Reconciliation — no unresolved differences'}
+        </span>
+      </div>
+    </Card>
   );
 }
 
-function InboxIcon({ className }: { className?: string }) {
+// ---- Pool Overview（原型列：LP Name/Pool Address/Token Name/Wallet Balance/Authorized Amount/Liq. Coverage） ----
+
+/** 水位单元格：比例条（45.6% 刻度线）+ 百分比（悬停回显计算式）+ Sufficient/Low 徽章。 */
+function CoverageCell({ pool }: { pool: WorkbenchPoolRow }) {
+  const critical = isPoolCritical(pool);
+  const requiredMinSum =
+    pool.requiredMinSum == null ? Number.NaN : Number(pool.requiredMinSum);
+  const numerator = poolNumerator(pool);
+  const hasCalculation =
+    Number.isFinite(numerator) &&
+    Number.isFinite(requiredMinSum) &&
+    requiredMinSum > 0;
+  const percentage = hasCalculation
+    ? Math.round((numerator / requiredMinSum) * 100)
+    : null;
+  // 三档水位色（原型 2026-09-20 口径）：0 → 红，低于阈值 → 琥珀，充足 → 绿。
+  const barTone =
+    percentage != null && percentage <= 0
+      ? 'bg-destructive'
+      : critical
+        ? 'bg-warning'
+        : 'bg-success';
+  const fillWidth =
+    percentage == null ? 0 : Math.min(100, Math.round(percentage * COVERAGE_BAR_SCALE));
+  const alertThreshold = Number(pool.remindThreshold);
+  const alertThresholdText = Number.isFinite(alertThreshold)
+    ? `${Math.round(alertThreshold * 100)}%`
+    : '-';
+
   return (
-    <svg
-      className={className}
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-    </svg>
+    <div className="flex flex-wrap items-center gap-3">
+      <span
+        aria-hidden="true"
+        className="relative h-1.5 w-[90px] shrink-0 rounded bg-muted"
+      >
+        {percentage != null ? (
+          <span
+            className={cn('absolute inset-y-0 left-0 rounded', barTone)}
+            style={{ width: `${fillWidth}%` }}
+          />
+        ) : null}
+        <span
+          className="absolute -inset-y-[3px] w-0.5 bg-muted-foreground/50"
+          style={{ left: `${MIN_LIQUIDITY_MARK}%` }}
+        />
+      </span>
+      <span className="inline-flex items-center gap-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              tabIndex={0}
+              className="cursor-help text-xs tabular-nums text-muted-foreground"
+            >
+              {percentage == null ? '-' : `${percentage}%`}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-64 text-xs">
+            {hasCalculation ? (
+              <div className="tabular-nums">
+                <div>
+                  min ({formatTokenAmount(pool.availableBalanceCache)},{' '}
+                  {formatTokenAmount(pool.preauthAvailable)}) ÷{' '}
+                  {formatTokenAmount(requiredMinSum)} ={' '}
+                  <strong>{percentage}%</strong>
+                </div>
+                {/* 行级阈值用后端逐池 remindThreshold（原型为全局常量 20%，表头 ⓘ 保留原型文案）。 */}
+                <div>Low Liquidity Threshold: {alertThresholdText}</div>
+              </div>
+            ) : (
+              <div>Pool level unavailable</div>
+            )}
+          </TooltipContent>
+        </Tooltip>
+        <ProtoStatusBadge tone={critical ? 'danger' : 'success'}>
+          {critical ? 'Low' : 'Sufficient'}
+        </ProtoStatusBadge>
+      </span>
+    </div>
+  );
+}
+
+function PoolOverview({
+  pools,
+  tokenNames,
+  isLoading,
+  isError,
+  onRetry,
+  onViewAll,
+}: {
+  pools: WorkbenchPoolRow[];
+  tokenNames: ReadonlyMap<number, string>;
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
+  onViewAll: () => void;
+}) {
+  const getters = {
+    lpName: { value: (pool: WorkbenchPoolRow) => pool.lpName || '-' },
+    token: {
+      value: (pool: WorkbenchPoolRow) =>
+        tokenNames.get(pool.tokenId) || pool.tokenCode || '-',
+    },
+    walletBalance: {
+      value: (pool: WorkbenchPoolRow) => Number(pool.availableBalanceCache),
+      defaultDir: 'desc' as const,
+    },
+    authorizedAmount: {
+      value: (pool: WorkbenchPoolRow) =>
+        pool.preauthAvailable == null ? null : Number(pool.preauthAvailable),
+      defaultDir: 'desc' as const,
+    },
+  };
+  const { sorted, toggle, sortState } = useProtoSort(
+    pools,
+    getters,
+    'lpName',
+    'asc',
+  );
+
+  const TH =
+    'whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground';
+
+  return (
+    <Card className="h-full rounded-[10px] p-5">
+      <PanelHeading
+        title="Pool Overview"
+        action={`All pools ${pools.length} →`}
+        onAction={onViewAll}
+      />
+      {isError ? (
+        <BlockFail onRetry={onRetry} />
+      ) : isLoading ? (
+        <BlockSkeleton rows={4} />
+      ) : sorted.length === 0 ? (
+        <BlockEmpty text="No pools yet" />
+      ) : (
+        <div className="max-md:overflow-x-auto md:overflow-hidden">
+          <table className="w-full min-w-0 max-md:min-w-[860px] table-fixed border-collapse">
+            <thead>
+              <tr>
+                <th className={cn(TH, 'w-[15%]')}>
+                  <ProtoSortHeader
+                    label="LP Name"
+                    columnKey="lpName"
+                    toggle={toggle}
+                    sortState={sortState('lpName')}
+                  />
+                </th>
+                <th className={cn(TH, 'w-[20%]')}>Pool Address</th>
+                <th className={cn(TH, 'w-[12%]')}>
+                  <ProtoSortHeader
+                    label="Token Name"
+                    columnKey="token"
+                    toggle={toggle}
+                    sortState={sortState('token')}
+                  />
+                </th>
+                <th className={cn(TH, 'w-[16%] text-right')}>
+                  <div className="flex justify-end">
+                    <ProtoSortHeader
+                      label="Wallet Balance"
+                      columnKey="walletBalance"
+                      toggle={toggle}
+                      sortState={sortState('walletBalance')}
+                    />
+                  </div>
+                </th>
+                <th className={cn(TH, 'w-[19%] text-right')}>
+                  <div className="flex justify-end">
+                    <ProtoSortHeader
+                      label="Authorized Amount"
+                      columnKey="authorizedAmount"
+                      toggle={toggle}
+                      sortState={sortState('authorizedAmount')}
+                    />
+                  </div>
+                </th>
+                <th className={cn(TH, 'w-[18%]')}>
+                  <span className="inline-flex items-center gap-1">
+                    Liq. Coverage
+                    <InfoTip label="Coverage formula">
+                      <div>
+                        Liquidity Coverage = min (Available Balance, Available
+                        Pre-Authorized) ÷ Min. Liquidity
+                      </div>
+                      <div>Low Liquidity Threshold: 20%</div>
+                    </InfoTip>
+                  </span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((pool) => {
+                const tokenName =
+                  tokenNames.get(pool.tokenId) || pool.tokenCode || '-';
+                return (
+                  <tr key={pool.poolId} className="hover:bg-muted/40">
+                    <td className="border-b border-border px-3 py-2.5 text-sm font-medium">
+                      <span className="block truncate" title={pool.lpName || '-'}>
+                        {pool.lpName || '-'}
+                      </span>
+                    </td>
+                    <td className="border-b border-border px-3 py-2.5 font-mono text-xs">
+                      <CopyableId value={pool.accountAddress} />
+                    </td>
+                    <td className="border-b border-border px-3 py-2.5 text-sm font-semibold">
+                      <span className="block truncate" title={tokenName}>
+                        {tokenName}
+                      </span>
+                    </td>
+                    {/* 后端仅缓存可用口径单值，无总额/可用额拆分 → 不渲染原型 Avail 副行。 */}
+                    <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
+                      <span
+                        className="block truncate font-semibold"
+                        title={formatTokenAmount(pool.availableBalanceCache)}
+                      >
+                        {formatTokenAmount(pool.availableBalanceCache)}
+                        <span className="ml-1 text-xs font-medium text-muted-foreground">
+                          {pool.tokenSymbol}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
+                      <span
+                        className="block truncate font-semibold"
+                        title={formatTokenAmount(pool.preauthAvailable)}
+                      >
+                        {formatTokenAmount(pool.preauthAvailable)}
+                        <span className="ml-1 text-xs font-medium text-muted-foreground">
+                          {pool.tokenSymbol}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="border-b border-border px-3 py-2.5">
+                      <CoverageCell pool={pool} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ---- Network Overview（Banks / Gateway Instances / LPs / Token Pairs，带真实 Latest 提示） ----
+
+function NetworkStat({
+  name,
+  hint,
+  tip,
+  value,
+}: {
+  name: string;
+  hint: string;
+  tip?: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-b-0">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1 text-sm font-semibold">
+          {name}
+          {tip ? <InfoTip label={`${name} connectivity`}>{tip}</InfoTip> : null}
+        </div>
+        <div className="mt-px truncate text-xs font-medium text-muted-foreground">
+          {hint}
+        </div>
+      </div>
+      <div className="shrink-0 text-right text-xl font-bold tabular-nums">
+        {value}{' '}
+        <span className="text-xs font-medium text-muted-foreground">active</span>
+      </div>
+    </div>
   );
 }
 
@@ -983,24 +1077,36 @@ export function DashboardPage() {
     tokenPairsQ,
   ]);
 
-  // 今日概览（客户端聚合）
+  // ---- 客户端聚合 ----
+
   const todayRows = todayQ.data?.data ?? [];
   const todayCount = todayRows.length;
-  // 今日流水按源币种分组逐币种加总（userDeduction 属源币种金额，跨币种不可混计，
-  // 2026-08-27 用户反馈口径同上游）；按金额降序；无交易按零流水显示 0（0 ≠ 无数据）。
-  const todayVolumes = React.useMemo(() => {
-    const byCcy = new Map<string, number>();
-    for (const r of todayRows) {
-      const ccy = r.sourceCurrency || '-';
-      byCcy.set(ccy, (byCcy.get(ccy) ?? 0) + (Number(r.userDeduction) || 0));
-    }
-    return [...byCcy.entries()]
-      .map(([ccy, total]) => ({ ccy, total }))
-      .sort((a, b) => b.total - a.total);
-  }, [todayRows]);
   const inflightCount = todayRows.filter((r) =>
     Boolean(IN_FLIGHT[r.status]),
   ).length;
+
+  // 今日代币对成交量（原型 KPI4 口径：仅 status Confirmed(10)；金额 = 该对源 token
+  // 本日 principal 累计；银行副行取该对最新一笔）。
+  const todayPairs = React.useMemo(() => {
+    const byPair = new Map<
+      string,
+      { pair: string; banks: string; amount: number }
+    >();
+    for (const row of todayRows) {
+      if (row.status !== 10) continue;
+      const src = row.sourceCurrency || '-';
+      const tgt = row.targetCurrency || '-';
+      const key = `${src}→${tgt}`;
+      const prev = byPair.get(key);
+      byPair.set(key, {
+        pair: `${src} → ${tgt}`,
+        banks: `${row.sourceBankName || '-'} - ${row.targetBankName || '-'}`,
+        amount: (prev?.amount ?? 0) + (Number(row.principal) || 0),
+      });
+    }
+    return [...byPair.entries()].map(([key, item]) => ({ key, ...item }));
+  }, [todayRows]);
+
   // 入网银行（客户端过滤 status 20）
   const banks = (banksQ.data?.data ?? []).filter((b) => b.status === 20);
 
@@ -1020,14 +1126,22 @@ export function DashboardPage() {
     [tokensQ.data],
   );
 
-  const networkCounts = {
-    banks: banksQ.isError ? null : banks.length,
-    instances: instancesQ.isError
-      ? null
-      : (instancesQ.data?.data.length ?? null),
-    lps: lpsQ.isError ? null : (lpsQ.data?.data.length ?? null),
-    tokenPairs: tokenPairsQ.isError ? null : (tokenPairsQ.data?.length ?? null),
-  };
+  // Network Overview：真实 Latest 提示 + 网关连通性口径
+  const latestBank = latestByTime(banks, (b) => b.createTime);
+  const lpRows = lpsQ.data?.data ?? [];
+  const latestLp = latestByTime(lpRows, (r) => r.createTime);
+  const pairRows = tokenPairsQ.data ?? [];
+  const latestPair = latestByTime(pairRows, (r) => r.createTime);
+  const instanceRows = instancesQ.data?.data ?? [];
+  const gatewayConnected = instanceRows.filter(
+    (row) => row.connectivityStatus === 1,
+  ).length;
+  const gatewayDown = instanceRows.some((row) => row.connectivityStatus === 2);
+  const lastHeartbeat = instanceRows.reduce<number>(
+    (max, row) => Math.max(max, row.lastHeartbeatTime || 0),
+    0,
+  );
+
   const latestUpdatedAt = Math.max(
     todayQ.dataUpdatedAt,
     banksQ.dataUpdatedAt,
@@ -1041,23 +1155,16 @@ export function DashboardPage() {
     tokenPairsQ.dataUpdatedAt,
   );
 
+
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex flex-col gap-4">
-        {/* 页头 */}
+        {/* 页头（原型 PageHeader：title + Updated + Refresh） */}
         <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="t-supporting text-muted-foreground">
-              NETWORK OPERATIONS
-            </div>
-            <h1 className="t-page-title">Dashboard</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Network operations at a glance
-            </p>
-          </div>
+          <h1 className="t-page-title">Dashboard</h1>
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">
-              Updated {latestUpdatedAt ? formatTime(latestUpdatedAt) : '-'}
+              Updated {latestUpdatedAt ? formatUtc8(latestUpdatedAt) : '-'}
             </span>
             <Button
               variant="outline"
@@ -1065,243 +1172,124 @@ export function DashboardPage() {
               onClick={handleRefresh}
               disabled={refreshing}
             >
-              <RefreshIcon className={cn(refreshing && 'animate-spin')} />
+              <RefreshCw
+                className={cn('size-4', refreshing && 'animate-spin')}
+                aria-hidden="true"
+              />
               Refresh
             </Button>
           </div>
         </header>
 
-        {/* KPI 卡片：与 udpn-kissen 参考布局保持四列独立卡片结构。 */}
+        {/* Row 1 — KPI */}
         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 min-[1600px]:grid-cols-4">
-          <MetricCard
+          <KpiCard
+            alert
+            icon={AlertTriangle}
             label="Pending Exceptions"
-            tooltip="Transactions currently in Exception status and waiting for manual handling."
+            tip="Count of transactions currently in Exception status, regardless of when they were created. Cleared once resolved."
+            pill={{ label: 'Action needed', variant: 'destructive' }}
             value={
               exceptionsQ.isError ? (
-                '—'
+                '-'
               ) : exceptionsQ.isLoading ? (
                 <Skeleton className="h-9 w-16" />
               ) : (
-                formatMoney(exceptionTotal)
+                exceptionTotal
               )
             }
-            footer={
-              exceptionTotal > 0
-                ? (
-                    <Button
-                      type="button"
-                      variant="link"
-                      size="xs"
-                      className="h-auto p-0 text-xs font-medium text-muted-foreground"
-                      onClick={() => router.push('/fx-rate/pair')}
-                    >
-                      Requires manual handling →
-                    </Button>
-                  )
-                : 'No exceptions pending'
+            foot={
+              exceptionTotal > 0 ? 'Requires manual handling →' : undefined
             }
-            badge={{
-              label: exceptionTotal > 0 ? 'Action needed' : 'Clear',
-              variant: exceptionTotal > 0 ? 'destructive' : 'success',
-            }}
-            className="border-destructive/30 bg-gradient-to-b from-card to-destructive/5"
-            valueClassName={exceptionTotal > 0 ? 'text-destructive' : undefined}
+            onClick={() => router.push('/transfer/tx?status=Exception')}
           />
-          <MetricCard
+          <KpiCard
+            icon={Clock}
             label="Transactions in Progress"
-            tooltip="Created transactions that have not reached a final state."
+            tip="Created but not yet in a final state (Settled, Completed, Failed, Reversed, or Cancelled)."
+            pill={{ label: 'Live', variant: 'mute' }}
             value={
               todayQ.isError ? (
-                '—'
+                '-'
               ) : todayQ.isLoading ? (
                 <Skeleton className="h-9 w-16" />
               ) : (
-                formatMoney(inflightCount)
+                inflightCount
               )
             }
-            footer={
-              inflightCount > 0
-                ? 'Live processing activity'
-                : 'No transactions in progress'
-            }
-            badge={{ label: 'Live', variant: 'mute' }}
+            foot={inflightCount === 0 ? 'No transactions in progress' : undefined}
           />
-          <MetricCard
+          <KpiCard
+            icon={Check}
             label="Today's Transactions"
-            tooltip="Transactions created today, from local midnight through now."
+            tip="Transactions created today, 00:00–24:00 (UTC+8), in any status."
             value={
               todayQ.isError ? (
-                '—'
+                '-'
               ) : todayQ.isLoading ? (
                 <Skeleton className="h-9 w-16" />
               ) : (
-                formatMoney(todayCount)
+                todayCount
               )
             }
           />
-          <MetricCard
-            label="Today's Volume by Token"
-            tooltip="Today's transaction volume grouped by source token."
-            value={
-              todayQ.isError ? (
-                '—'
-              ) : todayQ.isLoading ? (
-                <Skeleton className="h-9 w-28" />
-              ) : todayVolumes.length === 0 ? (
-                '0'
-              ) : (
-                <div className="flex flex-col gap-0.5 text-sm">
-                  {todayVolumes.slice(0, 3).map((volume) => (
+          <KpiCard
+            icon={BarChart3}
+            label="Today's Volume by Token Pair"
+            tip="Today's traded token pairs (status: Confirmed). Amount is the accumulated principal of the pair's source token; the second line shows the source and target banks."
+            foot={`${todayPairs.length} token pairs traded today`}
+          >
+            <div className="mt-2 flex flex-col gap-2">
+              {todayPairs.map((item) => (
+                <div
+                  key={item.key}
+                  className="flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0">
                     <div
-                      key={volume.ccy}
-                      className="flex justify-between gap-3"
+                      className="truncate text-sm font-bold"
+                      title={item.pair}
                     >
-                      <span className="font-bold text-foreground">
-                        {volume.ccy}
-                      </span>
-                      <span>
-                        {formatTokenAmount(Number(volume.total.toFixed(2)), volume.ccy)}
-                      </span>
+                      {item.pair}
                     </div>
-                  ))}
+                    <div
+                      className="mt-0.5 truncate text-xs text-muted-foreground"
+                      title={item.banks}
+                    >
+                      {item.banks}
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-sm font-bold tabular-nums">
+                    {formatTokenAmount(item.amount.toFixed(2))}
+                  </span>
                 </div>
-              )
-            }
-            footer={`${todayVolumes.length} token${todayVolumes.length === 1 ? '' : 's'} traded today`}
-            valueClassName="mt-2 min-h-[54px] text-base font-normal"
-          />
+              ))}
+            </div>
+          </KpiCard>
         </section>
 
+        {/* Row 2 — Pending Exceptions + Settlement Statements */}
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
           <Card className="min-w-0 rounded-[10px] p-5 lg:col-span-12 min-[1600px]:col-span-8">
             <PanelHeading
               title="Pending Exceptions"
-              action={
-                exceptionTotal > exceptionRows.length
-                  ? `View all ${exceptionTotal} →`
-                  : 'View all →'
-              }
+              action={`View all ${exceptionTotal} →`}
               onAction={() => router.push('/transfer/tx')}
             />
-            {exceptionsQ.isError ? (
-              <BlockFail onRetry={() => exceptionsQ.refetch()} />
-            ) : exceptionsQ.isLoading ? (
-              <BlockSkeleton rows={4} />
-            ) : exceptionRows.length === 0 ? (
-              <BlockEmpty
-                icon={<CheckCircleIcon className="h-4 w-4 text-success" />}
-                text="No exceptions to handle"
-              />
-            ) : (
-              <div className="overflow-hidden">
-                <table className="w-full min-w-0 table-fixed border-collapse">
-                  <thead>
-                    <tr>
-                    {[
-                      'Transaction No.',
-                      'Token Pair',
-                      'Amount',
-                      'Status',
-                      'Created on',
-                      'Age',
-                      'Actions',
-                    ].map((heading, index) => (
-                      <th
-                        key={heading}
-                        className={cn(
-                          'whitespace-nowrap border-b border-border px-3 py-2 text-left text-xs font-semibold tracking-wide text-muted-foreground first:pl-0 last:pr-0',
-                          index === 0 && 'w-[18%]',
-                          index === 1 && 'w-[14%]',
-                          index === 2 && 'w-[10%] text-right',
-                          index === 3 && 'w-[14%]',
-                          index === 4 && 'w-[24%]',
-                          index === 5 && 'w-[11%] text-right',
-                          index === 6 && 'w-[9%] text-right',
-                        )}
-                      >
-                        {heading}
-                      </th>
-                    ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {exceptionRows.map((row) => {
-                      const transactionNumber = row.txNo || row.txUuid;
-                      const createdOn = formatTime(row.createTime);
-                      const age = formatAge(row.createTime);
-                      return (
-                        <tr
-                          key={row.transactionId}
-                          className="hover:bg-muted/40"
-                        >
-                          <td className="max-w-[150px] truncate border-b border-border px-3 py-3 font-mono text-xs first:pl-0">
-                            <span className="inline-flex max-w-full items-center gap-1">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="block truncate">
-                                    {transactionNumber}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-sm break-all font-mono text-xs">
-                                  {transactionNumber}
-                                </TooltipContent>
-                              </Tooltip>
-                              {transactionNumber ? (
-                                <CopyButton
-                                  value={transactionNumber}
-                                  label="transaction number"
-                                />
-                              ) : null}
-                            </span>
-                          </td>
-                          <td className="border-b border-border px-3 py-3 text-sm">
-                            <span
-                              className="block truncate"
-                              title={pairText(row)}
-                            >
-                              {pairText(row)}
-                            </span>
-                          </td>
-                          <td className="border-b border-border px-3 py-3 text-right text-sm tabular-nums">
-                            {formatTokenAmount(row.principal, row.sourceCurrency)}
-                          </td>
-                          <td className="border-b border-border px-3 py-3">
-                            <div className="flex flex-col items-start gap-1">
-                              <Badge variant="destructive" size="sm">
-                                Exception
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {TX_STATUS_MAP[row.status] ?? 'Exception'}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="border-b border-border px-3 py-3 text-sm text-muted-foreground">
-                            <span className="block truncate" title={createdOn}>
-                              {createdOn}
-                            </span>
-                          </td>
-                          <td className="whitespace-nowrap border-b border-border px-3 py-3 text-right text-sm tabular-nums text-muted-foreground">
-                            {age}
-                          </td>
-                          <td className="border-b border-border px-3 py-3 text-right last:pr-0">
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0"
-                              onClick={() => router.push('/transfer/tx')}
-                            >
-                              View
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ExceptionTable
+              rows={exceptionRows}
+              isLoading={exceptionsQ.isLoading}
+              isError={exceptionsQ.isError}
+              onRetry={() => exceptionsQ.refetch()}
+              onDetails={(row) =>
+                router.push(
+                  `/transfer/tx?transactionNo=${encodeURIComponent(
+                    row.txNo || row.txUuid,
+                  )}`,
+                )
+              }
+            />
           </Card>
-
           <div className="min-w-0 lg:col-span-12 min-[1600px]:col-span-4">
             <SettlementOverview
               settleQuery={settleQ}
@@ -1311,6 +1299,7 @@ export function DashboardPage() {
           </div>
         </section>
 
+        {/* Row 3 — Pool Overview + Network Overview */}
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
           <div className="min-w-0 lg:col-span-12 min-[1600px]:col-span-8">
             <PoolOverview
@@ -1326,24 +1315,52 @@ export function DashboardPage() {
             <PanelHeading title="Network Overview" />
             <NetworkStat
               name="Banks"
-              count={networkCounts.banks}
-              hint="Onboarded and active"
+              hint={
+                latestBank
+                  ? `Latest: ${latestBank.bankName} · onboarded ${formatDateUtc8(latestBank.createTime)}`
+                  : '-'
+              }
+              value={banksQ.isError ? '-' : banks.length}
             />
             <NetworkStat
               name="Gateway Instances"
-              count={networkCounts.instances}
-              hint="Connected gateways"
+              tip="Gateways reporting a heartbeat within the expected interval. An Active gateway that is Disconnected blocks all transactions for its bank."
+              hint={
+                lastHeartbeat
+                  ? `Last heartbeat ${formatAge(lastHeartbeat)} ago`
+                  : '-'
+              }
+              value={
+                instancesQ.isError ? (
+                  '-'
+                ) : (
+                  <span className={gatewayDown ? 'text-destructive' : undefined}>
+                    {gatewayConnected}
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {' '}
+                      / {instanceRows.length} connected
+                    </span>
+                  </span>
+                )
+              }
             />
             <NetworkStat
               name="Liquidity Providers"
-              count={networkCounts.lps}
-              hint="Active providers"
+              hint={
+                latestLp
+                  ? `Latest: ${latestLp.lpName} · onboarded ${formatDateUtc8(latestLp.createTime)}`
+                  : '-'
+              }
+              value={lpsQ.isError ? '-' : lpRows.length}
             />
             <NetworkStat
               name="Token Pairs"
-              count={networkCounts.tokenPairs}
-              hint="Supported pairs"
-              onClick={() => router.push('/fx-rate/pair')}
+              hint={
+                latestPair
+                  ? `Latest: ${latestPair.sourceSymbol || latestPair.sourceTokenCode || '-'} → ${latestPair.targetSymbol || latestPair.targetTokenCode || '-'} · activated ${formatDateUtc8(latestPair.createTime)}`
+                  : '-'
+              }
+              value={tokenPairsQ.isError ? '-' : pairRows.length}
             />
           </Card>
         </section>

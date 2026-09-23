@@ -1,22 +1,30 @@
 'use client';
 
 /**
- * Token 管理页 + 网关实例管理页（源 views/onboard/token/index.vue 与
- * views/onboard/instance/index.vue + heartbeat history，v2.0 新域）。
+ * Token 管理页 + 网关实例管理页（registry token → TokenManageListPage、
+ * instance → GatewayInstanceListPage）。
  *
- * 行为规格：
- * - token 页 6026e51（移除 csTokenCode 列）/ c3840b3（列序 + fmt2）/ 84676f8（精度口径）
- *   / 3499a7e（bank 下拉 bankBic）
- * - instance 页 7d338aa（verify 对 status=1 已登记可见）/ e13cd37 + c3840b3（心跳列 + 历史）
- *   / bfef639（货币系统 5 字段 + 系统名称/类型列 + 详情收编密钥指纹）
- * - ElMessageBox prompt/confirm → Dialog+Input prompt / AlertDialog confirm；
- *   el-message → sonner toast（唯一出口）；时间 en-US 24h。
+ * 行为规格：KNMS 原型页（2026-09-23 P3 对齐）TokenManagementPage / GatewayManagementPage
+ * ——列序/筛选/动作菜单/确认弹窗文案逐字对齐，UI 用本仓库组件体系重实现；
+ * 文案真源 /tmp/kissen_prototype/udpn-kissen-network-mgt/client/src/pages/。
+ *
+ * 历史行为规格（保留口径）：
+ * - token 页 6026e51（移除 csTokenCode 列）/ c3840b3（列序）/ 84676f8（精度口径）/ 3499a7e（bank 下拉）
+ * - instance 页 7d338aa（verify 对 status=1 已登记可见）/ e13cd37（心跳历史）
+ * - ElMessageBox prompt/confirm → PromptDialog / ActionConfirmDialog；el-message → toast。
  */
 
 import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useQueryClient } from '@tanstack/react-query';
-import { Copy, Info, MoreHorizontal } from 'lucide-react';
+import {
+  CircleCheck,
+  CirclePause,
+  Copy,
+  Info,
+  KeyRound,
+  MoreHorizontal,
+} from 'lucide-react';
 import type { TableRowAction } from '@myorg/shared/ui';
 
 import {
@@ -69,22 +77,17 @@ import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
-  CS_TYPE_LABEL,
-  CS_TYPE_OPTIONS,
   CONNECTIVITY_STATUS_LABEL,
-  CONNECTIVITY_STATUS_VARIANT,
-  INSTANCE_STATUS_LABEL,
-  INSTANCE_STATUS_VARIANT,
+  CS_TYPE_OPTIONS,
   KISSEN_PROJECT_ID,
   SPENDER_STATUS_LABEL,
   SPENDER_STATUS_VARIANT,
-  TOKEN_STATUS_LABEL,
-  TOKEN_STATUS_VARIANT,
   gatewayInstanceKeys,
   tokenKeys,
   useBankListQuery,
   useInstanceDisableMutation,
   useInstanceEnableMutation,
+  useInstanceHeartbeatQuery,
   useInstanceListQuery,
   useInstanceRegisterMutation,
   useInstanceResetKeyMutation,
@@ -98,12 +101,26 @@ import {
   useTokenEnableMutation,
   useTokenListQuery,
   useTokenRejectMutation,
+  type HeartbeatRow,
   type InstanceRow,
   type TokenListFilter,
   type TokenRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
 import { stashRow } from './row-stash';
+import {
+  ActionConfirmDialog,
+  CopyableId,
+  Dash,
+  ProtoStatusBadge,
+  type ProtoStatusTone,
+} from './proto-ui';
+import { formatTokenAmount, formatUtc8 } from './proto-format';
+import {
+  PROTO_INSTANCE_STATUS,
+  PROTO_TOKEN_STATUS,
+  protoStatusLabel,
+} from './proto-enums';
 
 const STATUS_ALL = 'all';
 const PAGE_SIZE_DEFAULT = 10;
@@ -113,22 +130,14 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50];
 /* 共用展示 helper                                                     */
 /* ================================================================== */
 
-/** 毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`。 */
+/**
+ * 毫秒时间戳 → 本仓 en-US 长格式（Spender 抽屉「Updated At」沿用；
+ * 表格时间列已统一换原型口径 formatUtc8，见 proto-format）。
+ */
 function formatTime(ms: number | null | undefined): string {
   if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '--';
   const d = new Date(Number(ms));
   return Number.isNaN(d.getTime()) ? '--' : formatAdminDateTime(d);
-}
-
-/** 金额展示：千分位 + 强制两位小数（源 fmt2，2026-08-27 用户反馈）；非数字原样。 */
-function fmt2(v: string | number | null | undefined): string {
-  if (v === null || v === undefined || v === '') return '--';
-  const n = Number(v);
-  if (Number.isNaN(n)) return String(v);
-  return n.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 }
 
 /** 输入框中的最低流动性按管理端约定固定显示两位小数。 */
@@ -151,16 +160,54 @@ function liquidityRule(decimalDigits: number): { pattern: RegExp; tip: string } 
 }
 
 /* ================================================================== */
-/* 状态徽标 + 确认/输入弹窗（约定 §5：纯展示/流程组件 co-locate，不导出） */
+/* 状态徽标（原型口径：文案 proto-enums + 语义 tone + 带点徽章）          */
 /* ================================================================== */
 
-function TokenStatusBadge({ status, rejectReason }: { status: number; rejectReason?: string }) {
+/** KNMS TokenManagementPage D3：5 待审/15 驳回/20 激活/50 停用。 */
+const TOKEN_STATUS_TONES: Record<number, ProtoStatusTone> = {
+  5: 'warning',
+  15: 'danger',
+  20: 'success',
+  50: 'muted',
+};
+
+/** KNMS GatewayManagementPage D3：1 已登记未验证/10 待激活/20 激活/50 停用。 */
+const INSTANCE_STATUS_TONES: Record<number, ProtoStatusTone> = {
+  1: 'warning',
+  10: 'info',
+  20: 'success',
+  50: 'muted',
+};
+
+/**
+ * 原型连通性三态 Connected/Disconnected/Not verified 映射后端码表
+ * （1 Online→Connected、2 Offline→Disconnected）；后端 0 Degraded 为原型外
+ * 真实态，保留 data-access 文案并以 muted 呈现（GAP-ADM-08 同族：不编造）。
+ */
+const CONNECTIVITY_TONES: Record<number, ProtoStatusTone> = {
+  1: 'success',
+  2: 'danger',
+};
+
+function connectivityText(status: number | undefined): string {
+  if (status === 1) return 'Connected';
+  if (status === 2) return 'Disconnected';
+  return CONNECTIVITY_STATUS_LABEL[status ?? -1] ?? 'Not verified';
+}
+
+export function TokenStatusBadge({
+  status,
+  rejectReason,
+}: {
+  status: number;
+  rejectReason?: string;
+}) {
   const badge = (
-    <Badge variant={TOKEN_STATUS_VARIANT[status] ?? 'outline'}>
-      {TOKEN_STATUS_LABEL[status] ?? status}
-    </Badge>
+    <ProtoStatusBadge tone={TOKEN_STATUS_TONES[status] ?? 'muted'}>
+      {protoStatusLabel(PROTO_TOKEN_STATUS, status)}
+    </ProtoStatusBadge>
   );
-  // 源：status=15 且有 rejectReason 时 tag 外包 tooltip「驳回原因：xxx」。
+  // 源：status=15 且有 rejectReason 时徽章外包 tooltip「驳回原因：xxx」。
   if (status === 15 && rejectReason) {
     return (
       <TooltipProvider delayDuration={200}>
@@ -176,20 +223,19 @@ function TokenStatusBadge({ status, rejectReason }: { status: number; rejectReas
   return badge;
 }
 
-function ConnectivityBadge({ status }: { status: number }) {
-  const s = status ?? 0;
+export function ConnectivityBadge({ status }: { status: number }) {
   return (
-    <Badge variant={CONNECTIVITY_STATUS_VARIANT[s] ?? 'secondary'}>
-      {CONNECTIVITY_STATUS_LABEL[s] ?? 'Unknown'}
-    </Badge>
+    <ProtoStatusBadge tone={CONNECTIVITY_TONES[status] ?? 'muted'}>
+      {connectivityText(status)}
+    </ProtoStatusBadge>
   );
 }
 
-function InstanceStatusBadge({ status }: { status: number }) {
+export function InstanceStatusBadge({ status }: { status: number }) {
   return (
-    <Badge variant={INSTANCE_STATUS_VARIANT[status] ?? 'outline'}>
-      {INSTANCE_STATUS_LABEL[status] ?? status}
-    </Badge>
+    <ProtoStatusBadge tone={INSTANCE_STATUS_TONES[status] ?? 'muted'}>
+      {protoStatusLabel(PROTO_INSTANCE_STATUS, status)}
+    </ProtoStatusBadge>
   );
 }
 
@@ -344,25 +390,22 @@ function PromptDialog({
 /* Token 管理（/onboard/token；registry key: token → TokenManageListPage） */
 /* ================================================================== */
 
-/** 过滤表单值（string 态便于 Select 绑定；提交时转 TokenListFilter）。 */
+/** 过滤表单值（string 态便于绑定；提交时转 TokenListFilter）。 */
 interface TokenFilterForm {
-  tokenName: string;
-  blockchain: string;
   bankId: string;
+  tokenCode: string;
   status: string;
 }
 const EMPTY_TOKEN_FILTER: TokenFilterForm = {
-  tokenName: STATUS_ALL,
-  blockchain: STATUS_ALL,
   bankId: STATUS_ALL,
+  tokenCode: '',
   status: STATUS_ALL,
 };
 
 function tokenFormToFilter(form: TokenFilterForm): TokenListFilter {
   const filter: TokenListFilter = {};
-  if (form.tokenName !== STATUS_ALL) filter.tokenName = form.tokenName;
-  if (form.blockchain !== STATUS_ALL) filter.chainType = form.blockchain;
   if (form.bankId !== STATUS_ALL) filter.bankId = Number(form.bankId);
+  if (form.tokenCode.trim()) filter.tokenCode = form.tokenCode.trim();
   if (form.status !== STATUS_ALL) filter.status = Number(form.status);
   return filter;
 }
@@ -373,37 +416,16 @@ export function TokenManageListPage() {
   const [form, setForm] = React.useState<TokenFilterForm>(EMPTY_TOKEN_FILTER);
   const [filter, setFilter] = React.useState<TokenListFilter>({});
 
-  const { data, isLoading, isError, dataUpdatedAt } = useTokenListQuery(KISSEN_PROJECT_ID, filter);
-  // 下拉选项固定来自未筛选的真实列表，避免应用筛选后选项集合被缩小。
-  const { data: tokenOptionData } = useTokenListQuery(KISSEN_PROJECT_ID, {});
+  const { data, isLoading, isError, dataUpdatedAt } = useTokenListQuery(
+    KISSEN_PROJECT_ID,
+    filter,
+  );
   const { data: bankData } = useBankListQuery(KISSEN_PROJECT_ID, {
     pageNum: 1,
     pageSize: 100,
     filter: {},
   });
   const bankOptions = bankData?.data ?? [];
-  const tokenOptions = React.useMemo(
-    () =>
-      Array.from(
-        new Set(
-          (tokenOptionData ?? [])
-            .map((token) => token.tokenName?.trim())
-            .filter((name): name is string => Boolean(name)),
-        ),
-      ),
-    [tokenOptionData],
-  );
-  const blockchainOptions = React.useMemo(
-    () =>
-      Array.from(
-        new Set(
-          (tokenOptionData ?? [])
-            .map((token) => token.chainType?.trim())
-            .filter((chain): chain is string => Boolean(chain)),
-        ),
-      ),
-    [tokenOptionData],
-  );
 
   const approveMutation = useTokenApproveMutation(KISSEN_PROJECT_ID);
   const rejectMutation = useTokenRejectMutation(KISSEN_PROJECT_ID);
@@ -426,11 +448,15 @@ export function TokenManageListPage() {
     setFilter({});
   }, []);
 
-  // 弹窗状态：prompt（审核/驳回/调整）+ confirm（停用/启用）。
+  // 弹窗状态：prompt（审核/驳回/调整）+ 停启用 ActionConfirmDialog。
   // 解付 Spender 抽屉（源 spenderToken ref；v-if 卸载式，关闭不刷新主列表）。
   const [spenderToken, setSpenderToken] = React.useState<TokenRow | null>(null);
   const [promptRequest, setPromptRequest] = React.useState<PromptRequest | null>(null);
-  const [confirmRequest, setConfirmRequest] = React.useState<ConfirmRequest | null>(null);
+  /** Deactivate/Activate 确认弹窗态（原型 D11 双段文案）。 */
+  const [statusAction, setStatusAction] = React.useState<{
+    row: TokenRow;
+    kind: 'deactivate' | 'activate';
+  } | null>(null);
 
   /** 审核通过：输入最低流动性（默认 1000，决策 D2），成功回显服务端分配 tokenNo。 */
   const onApprove = React.useCallback(
@@ -518,99 +544,83 @@ export function TokenManageListPage() {
     [adjustMutation, refresh, toast],
   );
 
-  const onDisable = React.useCallback(
-    (row: TokenRow) => {
-      setConfirmRequest({
-        title: 'Disable Token',
-        message: `Confirm disabling token "${row.tokenCode}"? After disabling, it is excluded from new token pairs and quotes, and no new pools can be created (existing pools are kept but removed from matching candidates). In-flight transactions are unaffected.`,
-        confirmText: 'Disable',
-        destructive: true,
-        onConfirm: () => {
-          disableMutation.mutate(row.tokenId, {
-            onSuccess: () => {
-              toast.success('Disabled');
-              refresh();
-            },
-            onError: (e) => toast.error((e as Error).message),
-          });
-        },
-      });
-    },
-    [disableMutation, refresh, toast],
-  );
+  /** Deactivate/Activate 共用确认提交（原型 D11：destructive / confirm 两档弹窗）。 */
+  const onStatusConfirm = () => {
+    if (!statusAction) return;
+    const { row, kind } = statusAction;
+    const mutation = kind === 'deactivate' ? disableMutation : enableMutation;
+    mutation.mutate(row.tokenId, {
+      onSuccess: () => {
+        toast.success(kind === 'deactivate' ? 'Deactivated' : 'Activated');
+        setStatusAction(null);
+        refresh();
+      },
+      onError: (e) => toast.error((e as Error).message),
+    });
+  };
 
-  const onEnable = React.useCallback(
-    (row: TokenRow) => {
-      setConfirmRequest({
-        title: 'Enable Token',
-        message: `Confirm enabling token "${row.tokenCode}"?`,
-        confirmText: 'Enable',
-        onConfirm: () => {
-          enableMutation.mutate(row.tokenId, {
-            onSuccess: () => {
-              toast.success('Enabled');
-              refresh();
-            },
-            onError: (e) => toast.error((e as Error).message),
-          });
-        },
-      });
-    },
-    [enableMutation, refresh, toast],
-  );
 
-  // 列序：名称/symbol/tokenNo/锚定法币/银行/链/最低流动性/状态/注册时间。
+  // 列序（原型 D2）：名称+代码 / Symbol / 锚定法币 / 链 / 银行(BIC) /
+  // 最低流动性(带小单位) / 状态 / 注册时间 / Actions。
   const columns = React.useMemo<ColumnDef<TokenRow & { id: string }>[]>(() => {
     return [
       {
-        accessorKey: 'tokenName',
-        header: 'Token Name',
-        cell: ({ row }) => <span>{row.original.tokenName || '--'}</span>,
+        id: 'token',
+        header: 'Token Name (Code)',
+        cell: ({ row }) => (
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-foreground">
+              {row.original.tokenName || <Dash />}
+            </div>
+            <CopyableId value={row.original.tokenCode} />
+          </div>
+        ),
       },
       {
         accessorKey: 'symbol',
         header: 'Symbol',
         cell: ({ row }) => (
-          <span className="font-mono">{row.original.symbol || '--'}</span>
-        ),
-      },
-      {
-        accessorKey: 'tokenNo',
-        header: 'Token No (Network-wide Unique)',
-        cell: ({ row }) => (
-          <span className="font-mono tabular-nums">
-            {row.original.tokenNo || '(Assigned after approval)'}
-          </span>
+          <span className="font-mono">{row.original.symbol || <Dash />}</span>
         ),
       },
       {
         accessorKey: 'anchorFiat',
         header: 'Pegged Currency',
-        cell: ({ row }) => <span>{row.original.anchorFiat || '--'}</span>,
+        cell: ({ row }) => <span>{row.original.anchorFiat || <Dash />}</span>,
+      },
+      {
+        accessorKey: 'chainType',
+        header: 'Blockchain',
+        cell: ({ row }) => <span>{row.original.chainType || <Dash />}</span>,
       },
       {
         id: 'bank',
-        header: 'Bank',
+        header: 'Bank Name (BIC)',
         cell: ({ row }) => (
           <span>
-            {row.original.bankName || '--'}
+            {row.original.bankName || <Dash />}
             {row.original.bankCode ? ` (${row.original.bankCode})` : ''}
           </span>
         ),
       },
       {
-        accessorKey: 'chainType',
-        header: 'Chain',
-        cell: ({ row }) => <span>{row.original.chainType || '--'}</span>,
-      },
-      {
         accessorKey: 'minLiquidity',
         header: 'Min. Liquidity',
-        cell: ({ row }) => (
-          <span className="block text-right font-mono tabular-nums">
-            {fmt2(row.original.minLiquidity)}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const raw = row.original.minLiquidity;
+          if (raw === null || raw === undefined || raw === '') return <Dash />;
+          // 原型 formatAmount + symbol 小单位（右对齐）。
+          return (
+            <span className="block text-right tabular-nums">
+              {formatTokenAmount(raw)}
+              {row.original.symbol ? (
+                <span className="ml-1 text-xs text-muted-foreground">
+                  {row.original.symbol}
+                </span>
+              ) : null}
+            </span>
+          );
+        },
       },
       {
         id: 'status',
@@ -624,9 +634,11 @@ export function TokenManageListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Registered On',
+        header: 'Registered on (UTC+8)',
         cell: ({ row }) => (
-          <span className="tabular-nums">{formatTime(row.original.createTime)}</span>
+          <span className="tabular-nums">
+            {formatUtc8(row.original.createTime)}
+          </span>
         ),
       },
       createActionColumn<TokenRow & { id: string }>((item) => {
@@ -639,18 +651,25 @@ export function TokenManageListPage() {
         }
         if (item.status === 20) {
           actions.push(
-            { label: 'Adjust Min. Liquidity', onClick: () => onAdjustMinLiquidity(item) },
+            { label: 'Adjust Liquidity', onClick: () => onAdjustMinLiquidity(item) },
             { label: 'Spender Wallet', onClick: () => setSpenderToken(item) },
-            { label: 'Disable', destructive: true, onClick: () => onDisable(item) },
+            {
+              label: 'Deactivate',
+              destructive: true,
+              onClick: () => setStatusAction({ row: item, kind: 'deactivate' }),
+            },
           );
         }
         if (item.status === 50) {
-          actions.push({ label: 'Enable', onClick: () => onEnable(item) });
+          actions.push({
+            label: 'Activate',
+            onClick: () => setStatusAction({ row: item, kind: 'activate' }),
+          });
         }
         return actions;
       }),
     ];
-  }, [onApprove, onReject, onAdjustMinLiquidity, onDisable, onEnable]);
+  }, [onApprove, onReject, onAdjustMinLiquidity, setSpenderToken, setStatusAction]);
 
   const tableData = React.useMemo(
     () => (data ?? []).map((r) => ({ ...r, id: String(r.tokenId) })),
@@ -659,14 +678,14 @@ export function TokenManageListPage() {
 
   return (
     <div className="space-y-4">
-      {/* 页头（源 page-head：eyebrow + 标题） */}
+      {/* 卡头标题对齐原型列表页 'Token List'（页面标题由 shell 导航给出）。 */}
 
 
       <section className="rounded-lg border border-border/60 bg-card">
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
             <div className="text-base font-semibold leading-6 text-foreground">
-              Tokens
+              Token List
             </div>
             {!isLoading ? (
               <span className="text-sm text-muted-foreground tabular-nums">
@@ -687,49 +706,8 @@ export function TokenManageListPage() {
           }}
           className="border-b border-border/50 px-4 py-3"
         >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium leading-snug text-foreground">
-                Token Name
-              </label>
-              <Select
-                value={form.tokenName}
-                onValueChange={(v) => setForm((prev) => ({ ...prev, tokenName: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={STATUS_ALL}>All</SelectItem>
-                  {tokenOptions.map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium leading-snug text-foreground">
-                Blockchain
-              </label>
-              <Select
-                value={form.blockchain}
-                onValueChange={(v) => setForm((prev) => ({ ...prev, blockchain: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={STATUS_ALL}>All</SelectItem>
-                  {blockchainOptions.map((chain) => (
-                    <SelectItem key={chain} value={chain}>
-                      {chain}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* 筛选（原型 D13-③）：Bank → Token Code（输入）→ Status。 */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium leading-snug text-foreground">
                 Bank
@@ -753,6 +731,18 @@ export function TokenManageListPage() {
             </div>
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium leading-snug text-foreground">
+                Token Code
+              </label>
+              <Input
+                value={form.tokenCode}
+                maxLength={100}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, tokenCode: e.target.value }))
+                }
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium leading-snug text-foreground">
                 Status
               </label>
               <Select
@@ -764,10 +754,18 @@ export function TokenManageListPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={STATUS_ALL}>All</SelectItem>
-                  <SelectItem value="5">{TOKEN_STATUS_LABEL[5]}</SelectItem>
-                  <SelectItem value="15">{TOKEN_STATUS_LABEL[15]}</SelectItem>
-                  <SelectItem value="20">{TOKEN_STATUS_LABEL[20]}</SelectItem>
-                  <SelectItem value="50">{TOKEN_STATUS_LABEL[50]}</SelectItem>
+                  <SelectItem value="5">
+                    {protoStatusLabel(PROTO_TOKEN_STATUS, 5)}
+                  </SelectItem>
+                  <SelectItem value="15">
+                    {protoStatusLabel(PROTO_TOKEN_STATUS, 15)}
+                  </SelectItem>
+                  <SelectItem value="20">
+                    {protoStatusLabel(PROTO_TOKEN_STATUS, 20)}
+                  </SelectItem>
+                  <SelectItem value="50">
+                    {protoStatusLabel(PROTO_TOKEN_STATUS, 50)}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -778,6 +776,7 @@ export function TokenManageListPage() {
               </Button>
             </div>
           </div>
+
         </form>
         <div className="p-4">
           {/* 源无分页/多选/导出 → 不传 pagination。 */}
@@ -790,14 +789,46 @@ export function TokenManageListPage() {
               columns={columns}
               data={tableData}
               isLoading={isLoading}
-              emptyMessage="No tokens registered yet"
+              emptyMessage="No tokens found."
             />
           )}
         </div>
       </section>
 
       <PromptDialog request={promptRequest} onClose={() => setPromptRequest(null)} />
-      <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
+      {/* 停启用确认（原型 D11 双段文案 + 语义图标）。 */}
+      <ActionConfirmDialog
+        open={statusAction != null}
+        onOpenChange={(open) => !open && setStatusAction(null)}
+        icon={statusAction?.kind === 'activate' ? CircleCheck : CirclePause}
+        variant={statusAction?.kind === 'activate' ? 'confirm' : 'destructive'}
+        title={
+          statusAction?.kind === 'activate'
+            ? 'Activate Token'
+            : 'Deactivate Token'
+        }
+        body1={
+          statusAction
+            ? statusAction.kind === 'activate'
+              ? `Confirm activating token "${statusAction.row.tokenCode}"?`
+              : `Confirm deactivating token "${statusAction.row.tokenCode}"?`
+            : null
+        }
+        body2={
+          statusAction?.kind === 'activate'
+            ? 'After activation, the token is again eligible for new token pairs, quotes and pool creation. In-flight transactions are unaffected.'
+            : 'After deactivation, it is excluded from new token pairs and quotes, and no new pools can be created (existing pools are kept but removed from matching candidates). In-flight transactions are unaffected.'
+        }
+        confirmLabel={
+          statusAction?.kind === 'activate' ? 'Activate' : 'Deactivate'
+        }
+        loading={
+          statusAction?.kind === 'activate'
+            ? enableMutation.isPending
+            : disableMutation.isPending
+        }
+        onConfirm={onStatusConfirm}
+      />
       {spenderToken ? (
         <SpenderDrawer token={spenderToken} onClose={() => setSpenderToken(null)} />
       ) : null}
@@ -1112,14 +1143,190 @@ function instanceFormToFilter(form: InstanceFilterForm) {
   return filter;
 }
 
-/** 列表「系统类型」（源 csTypeText）：类型=区块链时带链名 `类型·链`。 */
-function instanceCsTypeText(row: InstanceRow): string {
-  const type = CS_TYPE_LABEL[row.currencySystemType ?? 0] ?? 'Not specified';
-  if (row.currencySystemType === 1 && row.blockchain) {
-    return `${type}·${row.blockchain}`;
+/** 心跳结果语义（后端 ok 码）：1=Success / 2=Timeout / 其他=Failed。 */
+export function HeartbeatResultBadge({ ok }: { ok: number }) {
+  if (ok === 1) {
+    return <ProtoStatusBadge tone="success">Success</ProtoStatusBadge>;
   }
-  return type;
+  if (ok === 2) {
+    // 原型 Result 仅 success/danger 两档；Timeout 为后端真实码，warning 呈现（超集口径）。
+    return <ProtoStatusBadge tone="warning">Timeout</ProtoStatusBadge>;
+  }
+  return <ProtoStatusBadge tone="danger">Failed</ProtoStatusBadge>;
 }
+
+/**
+ * Heartbeat History 抽屉（原型列表 Actions·Heartbeat；列口径逐字：
+ * Time (UTC+8) / Result / Mode / Latency / Detail）。
+ */
+export function HeartbeatHistoryDrawer({
+  instance,
+  onClose,
+}: {
+  instance: InstanceRow;
+  onClose: () => void;
+}) {
+  const [page, setPage] = React.useState(1);
+  const { data, isLoading } = useInstanceHeartbeatQuery(
+    KISSEN_PROJECT_ID,
+    instance.instanceId,
+    page,
+    PAGE_SIZE_DEFAULT,
+  );
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+
+  const columns = React.useMemo<ColumnDef<HeartbeatRow & { id: string }>[]>(
+    () => [
+      {
+        accessorKey: 'probeTime',
+        header: 'Time (UTC+8)',
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatUtc8(row.original.probeTime)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'ok',
+        header: 'Result',
+        cell: ({ row }) => <HeartbeatResultBadge ok={row.original.ok} />,
+      },
+      {
+        accessorKey: 'mode',
+        header: 'Mode',
+        cell: ({ row }) => (
+          <span className="font-mono">{row.original.mode || <Dash />}</span>
+        ),
+      },
+      {
+        accessorKey: 'latencyMs',
+        header: 'Latency',
+        cell: ({ row }) => (
+          <span className="block text-right tabular-nums">
+            {row.original.latencyMs}ms
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'detail',
+        header: 'Detail',
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {row.original.detail || <Dash />}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const tableData = React.useMemo(
+    () => rows.map((r) => ({ ...r, id: String(r.logId) })),
+    [rows],
+  );
+
+  return (
+    <Drawer open onOpenChange={(open) => !open && onClose()}>
+      <DrawerContent className="w-[720px] max-w-none sm:max-w-[720px]">
+        <DrawerHeader>
+          <DrawerTitle>Heartbeat History</DrawerTitle>
+          <DrawerDescription>
+            Instance {instance.instanceCode || instance.instanceId}
+          </DrawerDescription>
+        </DrawerHeader>
+        <div className="px-4 pb-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No heartbeat records found."
+            pagination={
+              total > 0
+                ? {
+                    page,
+                    pageSize: PAGE_SIZE_DEFAULT,
+                    total,
+                    onPageChange: setPage,
+                    // 后端心跳接口 pageSize 固定 10，无切页大小入口（仅保占位）。
+                    onPageSizeChange: () => setPage(1),
+                    pageSizeOptions: PAGE_SIZE_OPTIONS,
+                  }
+                : undefined
+            }
+          />
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+export type InstanceActionKind =
+  | 'verify'
+  | 'resetKey'
+  | 'disable'
+  | 'enable';
+
+/**
+ * 实例动作弹窗文案（verify/resetKey 逐字对齐原型动作表；disable/enable 为
+ * 本仓超集动作，沿用源 onToggle 文案）。实例详情页复用。
+ */
+export const INSTANCE_DIALOG_COPY: Record<
+  InstanceActionKind,
+  {
+    title: string;
+    confirmLabel: string;
+    variant: 'confirm' | 'destructive';
+    icon: React.ComponentType<{ className?: string }>;
+    body1: (row: InstanceRow) => string;
+    body2?: (row: InstanceRow) => string;
+  }
+> = {
+  verify: {
+    title: 'Connectivity Verification & Activation',
+    confirmLabel: 'Verify & Activate',
+    variant: 'confirm',
+    icon: CircleCheck,
+    body1: (row) =>
+      `Confirm connectivity verification and activation for instance ${
+        row.instanceCode || row.instanceId
+      }?`,
+    body2: () =>
+      'On success, a downstream key pair will be generated, the instance activated, and all access keys of the bank revoked automatically.',
+  },
+  resetKey: {
+    title: 'Reset Downstream Key',
+    confirmLabel: 'Reset Key',
+    // 原型为 warning 圆 + 主按钮；ActionConfirmDialog 仅 confirm/destructive 两档，
+    // 按收窄口径映射 confirm（success 圆）——登记偏差。
+    variant: 'confirm',
+    icon: KeyRound,
+    body1: (row) =>
+      `Reset the downstream key for instance ${
+        row.instanceCode || row.instanceId
+      }?`,
+    body2: () =>
+      'A new key pair will be generated, and the new public key will be pushed to the gateway. The old key will be revoked immediately.',
+  },
+  disable: {
+    title: 'Disable Instance',
+    confirmLabel: 'Disable',
+    variant: 'destructive',
+    icon: CirclePause,
+    body1: (row) =>
+      `Confirm disabling instance ${row.instanceCode || row.instanceId}?`,
+    body2: () =>
+      'After disabling, it no longer receives pushes or upstream requests, and its tokens are excluded from new quotes (in-flight transactions continue per the state machine).',
+  },
+  enable: {
+    title: 'Enable Instance',
+    confirmLabel: 'Enable',
+    variant: 'confirm',
+    icon: CircleCheck,
+    body1: (row) =>
+      `Confirm enabling instance ${row.instanceCode || row.instanceId}?`,
+  },
+};
 
 type GatewayInstanceListRow = InstanceRow & { id: string };
 
@@ -1180,9 +1387,13 @@ export function GatewayInstanceListPage() {
     }));
   }, []);
 
-  // 弹窗状态。
-  const [confirmRequest, setConfirmRequest] =
-    React.useState<ConfirmRequest | null>(null);
+  // 弹窗状态：verify/resetKey/disable/enable 共用 ActionConfirmDialog；心跳抽屉按实例开。
+  const [instanceAction, setInstanceAction] = React.useState<{
+    row: InstanceRow;
+    kind: InstanceActionKind;
+  } | null>(null);
+  const [heartbeatInstance, setHeartbeatInstance] =
+    React.useState<InstanceRow | null>(null);
   const [registerOpen, setRegisterOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   // currencySystemType 用 string 态便于 Select ���定（提交时转 number；默认 0 未填）。
@@ -1259,106 +1470,79 @@ export function GatewayInstanceListPage() {
     );
   }, [refresh, registerForm, registerMutation, toast]);
 
-  /** 联通验证并激活：status=1 已登记或 10 公钥已推送均可见（7d338aa 修正）。 */
-  const onVerify = React.useCallback(
-    (row: InstanceRow) => {
-      setConfirmRequest({
-        title: 'Connectivity Verification & Activation',
-        message: `Confirm connectivity verification and activation for instance ${
-          row.instanceCode || row.instanceId
-        }? On success, a downstream key pair will be generated, the instance activated, and all access keys of the bank revoked automatically.`,
-        confirmText: 'Verify & Activate',
-        onConfirm: () => {
-          verifyMutation.mutate(row.instanceId, {
-            onSuccess: (res) => {
-              toast.success(
-                `Instance activated (downstream key fingerprint ${res.downKeyFingerprint || '-'})`,
-              );
-              refresh();
-            },
-            onError: (e) => toast.error((e as Error).message),
-          });
+  /**
+   * 四动作共用确认提交；verify/resetKey 成功回显下游公钥指纹（源口径），
+   * disable/enable 沿用源 toast。
+   */
+  const onInstanceConfirm = () => {
+    if (!instanceAction) return;
+    const { row, kind } = instanceAction;
+    const onError = (e: unknown) => toast.error((e as Error).message);
+    if (kind === 'verify') {
+      verifyMutation.mutate(row.instanceId, {
+        onSuccess: (res) => {
+          toast.success(
+            `Instance activated (downstream key fingerprint ${
+              res.downKeyFingerprint || '-'
+            })`,
+          );
+          setInstanceAction(null);
+          refresh();
         },
+        onError,
       });
-    },
-    [refresh, toast, verifyMutation],
-  );
-
-  const onResetKey = React.useCallback(
-    (row: InstanceRow) => {
-      setConfirmRequest({
-        title: 'Reset Downstream Key',
-        message: `Reset the downstream key for instance ${
-          row.instanceCode || row.instanceId
-        }? A new key pair will be generated, and the new public key will be pushed to the gateway. The old key will be revoked immediately.`,
-        confirmText: 'Reset Key',
-        onConfirm: () => {
-          resetKeyMutation.mutate(row.instanceId, {
-            onSuccess: (res) => {
-              toast.success(
-                `Reset (new fingerprint ${res.downKeyFingerprint || '-'})`,
-              );
-              refresh();
-            },
-            onError: (e) => toast.error((e as Error).message),
-          });
+      return;
+    }
+    if (kind === 'resetKey') {
+      resetKeyMutation.mutate(row.instanceId, {
+        onSuccess: (res) => {
+          toast.success(`Reset (new fingerprint ${res.downKeyFingerprint || '-'})`);
+          setInstanceAction(null);
+          refresh();
         },
+        onError,
       });
-    },
-    [refresh, toast, resetKeyMutation],
-  );
+      return;
+    }
+    const mutation = kind === 'disable' ? disableMutation : enableMutation;
+    mutation.mutate(row.instanceId, {
+      onSuccess: () => {
+        toast.success(kind === 'disable' ? 'Deactivated' : 'Activated');
+        setInstanceAction(null);
+        refresh();
+      },
+      onError,
+    });
+  };
 
-  /** 停用/启用共用 onToggle（源同构）；toast 文案共用。 */
-  const onToggle = React.useCallback(
-    (row: InstanceRow, disable: boolean) => {
-      setConfirmRequest({
-        title: disable ? 'Disable Instance' : 'Enable Instance',
-        message: disable
-          ? `Confirm disabling instance ${
-              row.instanceCode || row.instanceId
-            }? After disabling, it no longer receives pushes or upstream requests, and its tokens are excluded from new quotes (in-flight transactions continue per the state machine).`
-          : `Confirm enabling instance ${row.instanceCode || row.instanceId}?`,
-        confirmText: disable ? 'Disable' : 'Enable',
-        destructive: disable,
-        onConfirm: () => {
-          const mutation = disable ? disableMutation : enableMutation;
-          mutation.mutate(row.instanceId, {
-            onSuccess: () => {
-              toast.success('Operation successful');
-              refresh();
-            },
-            onError: (e) => toast.error((e as Error).message),
-          });
-        },
-      });
-    },
-    [disableMutation, enableMutation, refresh, toast],
-  );
-
-  // 列表保留概要字段；实例标识及完整配置从独立详情页查看。
+  // 列序（原型 D2）：银行 / 实例 ID / Endpoint / 连通性 / 状态 / 最近心跳 / Actions。
   const columns = React.useMemo<ColumnDef<GatewayInstanceListRow>[]>(() => {
     return [
       {
         id: 'bank',
-        header: 'Bank',
+        header: 'Bank Name',
         cell: ({ row }) => (
           <span>
-            {row.original.bankName || '--'}
+            {row.original.bankName || <Dash />}
             {row.original.bankBic ? ` (${row.original.bankBic})` : ''}
           </span>
         ),
       },
       {
-        accessorKey: 'currencySystemName',
-        header: 'Token System Name',
+        accessorKey: 'instanceCode',
+        header: 'Instance ID',
         cell: ({ row }) => (
-          <span>{row.original.currencySystemName || '--'}</span>
+          <CopyableId value={row.original.instanceCode} head={6} tail={4} />
         ),
       },
       {
-        id: 'csType',
-        header: 'Token System Type',
-        cell: ({ row }) => <span>{instanceCsTypeText(row.original)}</span>,
+        accessorKey: 'endpointUrl',
+        header: 'Endpoint URL',
+        cell: ({ row }) => (
+          <span className="truncate font-mono text-xs">
+            {row.original.endpointUrl || <Dash />}
+          </span>
+        ),
       },
       {
         id: 'connectivity',
@@ -1374,11 +1558,11 @@ export function GatewayInstanceListPage() {
       },
       {
         accessorKey: 'lastHeartbeatTime',
-        header: 'Last Heartbeat',
+        header: 'Last Heartbeat (UTC+8)',
         meta: { overflow: 'none' },
         cell: ({ row }) => (
           <span className="tabular-nums">
-            {formatTime(row.original.lastHeartbeatTime)}
+            {formatUtc8(row.original.lastHeartbeatTime)}
           </span>
         ),
       },
@@ -1389,31 +1573,10 @@ export function GatewayInstanceListPage() {
         meta: { overflow: 'none', stickyRight: true },
         cell: ({ row }) => {
           const item = row.original;
-          const actions: TableRowAction<GatewayInstanceListRow>[] = [];
-          // 7d338aa：verify 对 status=1（已登记未验证）同样可见，仅 10 会漏已登记态。
-          if (item.status === 1 || item.status === 10) {
-            actions.push({
-              label: 'Verify & Activate',
-              onClick: () => onVerify(item),
-            });
-          }
-          if (item.status === 20) {
-            actions.push(
-              { label: 'Reset Downstream Key', onClick: () => onResetKey(item) },
-              {
-                label: 'Disable',
-                destructive: true,
-                onClick: () => onToggle(item, true),
-              },
-            );
-          }
-          if (item.status === 50) {
-            actions.push({
-              label: 'Enable',
-              onClick: () => onToggle(item, false),
-            });
-          }
-
+          // 原型：菜单常显三项 + disabled 语义（Verify 仅未验证/待激活可用、
+          // Reset Key 停用不可用）；Disable/Enable 为本仓超集动作。
+          const canVerify = item.status === 1 || item.status === 10;
+          const canResetKey = item.status !== 50;
           return (
             <div className="flex items-center justify-end gap-2">
               <Button
@@ -1429,42 +1592,64 @@ export function GatewayInstanceListPage() {
               >
                 Details
               </Button>
-              {actions.length > 0 ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      aria-label={`Actions for ${item.instanceCode || item.instanceId}`}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label={`Actions for ${item.instanceCode || item.instanceId}`}
+                  >
+                    <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    disabled={!canVerify}
+                    onClick={() =>
+                      setInstanceAction({ row: item, kind: 'verify' })
+                    }
+                  >
+                    Verify Connectivity
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={!canResetKey}
+                    onClick={() =>
+                      setInstanceAction({ row: item, kind: 'resetKey' })
+                    }
+                  >
+                    Reset Key
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setHeartbeatInstance(item)}>
+                    Heartbeat
+                  </DropdownMenuItem>
+                  {item.status === 20 ? (
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() =>
+                        setInstanceAction({ row: item, kind: 'disable' })
+                      }
                     >
-                      <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {actions.map((action) => (
-                      <DropdownMenuItem
-                        key={action.label}
-                        disabled={action.disabled}
-                        className={
-                          action.destructive
-                            ? 'text-destructive focus:text-destructive'
-                            : undefined
-                        }
-                        onClick={() => action.onClick(item)}
-                      >
-                        {action.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
+                      Disable
+                    </DropdownMenuItem>
+                  ) : null}
+                  {item.status === 50 ? (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        setInstanceAction({ row: item, kind: 'enable' })
+                      }
+                    >
+                      Enable
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           );
         },
       },
     ];
-  }, [onResetKey, onToggle, onVerify, router]);
+  }, [router, setInstanceAction, setHeartbeatInstance]);
 
   const tableData = React.useMemo(
     () => rows.map((r) => ({ ...r, id: String(r.instanceId) })),
@@ -1542,15 +1727,17 @@ export function GatewayInstanceListPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={STATUS_ALL}>All</SelectItem>
-                  <SelectItem value="1">{INSTANCE_STATUS_LABEL[1]}</SelectItem>
+                  <SelectItem value="1">
+                    {protoStatusLabel(PROTO_INSTANCE_STATUS, 1)}
+                  </SelectItem>
                   <SelectItem value="10">
-                    {INSTANCE_STATUS_LABEL[10]}
+                    {protoStatusLabel(PROTO_INSTANCE_STATUS, 10)}
                   </SelectItem>
                   <SelectItem value="20">
-                    {INSTANCE_STATUS_LABEL[20]}
+                    {protoStatusLabel(PROTO_INSTANCE_STATUS, 20)}
                   </SelectItem>
                   <SelectItem value="50">
-                    {INSTANCE_STATUS_LABEL[50]}
+                    {protoStatusLabel(PROTO_INSTANCE_STATUS, 50)}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -1568,7 +1755,7 @@ export function GatewayInstanceListPage() {
             columns={columns}
             data={tableData}
             isLoading={isLoading}
-            emptyMessage="No gateway instances registered"
+            emptyMessage="No gateway instances found."
             pagination={
               paginationMeta
                 ? {
@@ -1746,10 +1933,61 @@ export function GatewayInstanceListPage() {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
-        request={confirmRequest}
-        onClose={() => setConfirmRequest(null)}
+      {/* 动作确认弹窗（文案表 INSTANCE_DIALOG_COPY）。 */}
+      <ActionConfirmDialog
+        open={instanceAction != null}
+        onOpenChange={(open) => !open && setInstanceAction(null)}
+        icon={
+          instanceAction
+            ? INSTANCE_DIALOG_COPY[instanceAction.kind].icon
+            : undefined
+        }
+        variant={
+          instanceAction
+            ? INSTANCE_DIALOG_COPY[instanceAction.kind].variant
+            : 'confirm'
+        }
+        title={
+          instanceAction ? INSTANCE_DIALOG_COPY[instanceAction.kind].title : ''
+        }
+        body1={
+          instanceAction
+            ? INSTANCE_DIALOG_COPY[instanceAction.kind].body1(
+                instanceAction.row,
+              )
+            : null
+        }
+        body2={
+          instanceAction
+            ? INSTANCE_DIALOG_COPY[instanceAction.kind].body2?.(
+                instanceAction.row,
+              )
+            : undefined
+        }
+        confirmLabel={
+          instanceAction
+            ? INSTANCE_DIALOG_COPY[instanceAction.kind].confirmLabel
+            : 'Confirm'
+        }
+        loading={
+          instanceAction
+            ? instanceAction.kind === 'verify'
+              ? verifyMutation.isPending
+              : instanceAction.kind === 'resetKey'
+                ? resetKeyMutation.isPending
+                : instanceAction.kind === 'disable'
+                  ? disableMutation.isPending
+                  : enableMutation.isPending
+            : false
+        }
+        onConfirm={onInstanceConfirm}
       />
+      {heartbeatInstance ? (
+        <HeartbeatHistoryDrawer
+          instance={heartbeatInstance}
+          onClose={() => setHeartbeatInstance(null)}
+        />
+      ) : null}
     </div>
   );
 }
