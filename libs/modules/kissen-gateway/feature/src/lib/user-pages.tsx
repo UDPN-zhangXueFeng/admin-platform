@@ -58,6 +58,7 @@ import {
 } from './proto-ui';
 import { formatUtc8 } from './proto-format';
 import { PROTO_USER_STATUS, protoStatusText } from './proto-enums';
+import { useGatewayPerm } from './use-gateway-perm';
 import {
   ColumnPicker,
   SortHeader,

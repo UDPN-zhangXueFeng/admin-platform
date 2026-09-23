@@ -104,6 +104,7 @@ import {
   formatTokenAmount,
   formatUtc8,
 } from './proto-format';
+import { PROTO_TX_STATUS, protoStatusLabel, protoStatusRank } from './proto-enums';
 import { CopyableId, Dash, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
 import {
   ProtoSortHeader,

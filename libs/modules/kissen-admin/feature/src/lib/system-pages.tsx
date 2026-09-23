@@ -120,6 +120,8 @@ import {
   type RoleRow,
   type UserRow,
   type WorkflowRow,
+  type WorkflowStep,
+  type OperateLogListReq,
 } from '@myorg/modules/kissen-admin/data-access';
 
 /* ============================================================ */
@@ -452,7 +454,7 @@ function OneTimePasswordDialog({
   otp: OneTimePassword | null;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
+  const toast = useToast();
   return (
     <Dialog open={!!otp} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
@@ -579,7 +581,7 @@ type UserTableRow = UserRow & { id: string };
 
 export function SysUserListPage() {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const hasPerm = useKissenPerm();
 
   const [username, setUsername] = React.useState('');
@@ -993,7 +995,7 @@ interface UserFormValues {
 
 export function SysUserFormPage() {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const searchParams = useSearchParams();
   const id = parseNum(searchParams.get('id'));
   const isEdit = !!id;
@@ -1298,7 +1300,7 @@ export function SysUserFormPage() {
 
 export function SysUserDetailPage() {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const hasPerm = useKissenPerm();
   const searchParams = useSearchParams();
   const id = parseNum(searchParams.get('id'));
@@ -1586,7 +1588,7 @@ function RoleBuiltInBadge() {
 
 export function SysRoleListPage() {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const hasPerm = useKissenPerm();
 
   const [roleName, setRoleName] = React.useState('');
@@ -1917,7 +1919,7 @@ function AssignMenusDialog({
   role: RoleRow | null;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
+  const toast = useToast();
   const { data: menuTree, isLoading: treeLoading } = useMenuTreeQuery(
     KISSEN_PROJECT_ID,
     role != null,
@@ -2054,7 +2056,7 @@ const ROLE_NAME_MAX = 64;
 
 export function SysRoleFormPage() {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const searchParams = useSearchParams();
   const id = parseNum(searchParams.get('id'));
   const isEdit = !!id;
@@ -2409,10 +2411,18 @@ function MenuGrantedTreeNode({
 
 export function SysRoleDetailPage() {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const hasPerm = useKissenPerm();
   const searchParams = useSearchParams();
-  const navigate = useNavigate();
+  const navigate = React.useCallback(
+    // 本仓无 react-router；深链 strip 复用 next/router replace 语义。
+    (to: { search: string }, opts?: { replace?: boolean }) => {
+      const qs = to.search || '';
+      if (opts?.replace) router.replace(`${ROLE_DETAIL_PATH}${qs}`);
+      else router.push(`${ROLE_DETAIL_PATH}${qs}`);
+    },
+    [router],
+  );
   const id = parseNum(searchParams.get('id'));
 
   const { data: rolePage, isLoading } = useRbacRoleListQuery(
@@ -2905,7 +2915,7 @@ function MenuTreeNode({
 
 /** 接口权限编辑器（源 menu-permission/list + save，全量替换）。 */
 function MenuPermEditor({ menuKey }: { menuKey: string }) {
-  const { toast } = useToast();
+  const toast = useToast();
   const { data: perms, isLoading } = useMenuPermListQuery(KISSEN_PROJECT_ID, menuKey);
   const saveMutation = useMenuPermSaveMutation(KISSEN_PROJECT_ID);
 
@@ -3016,7 +3026,7 @@ function MenuPermEditor({ menuKey }: { menuKey: string }) {
 }
 
 export function SysMenuListPage() {
-  const { toast } = useToast();
+  const toast = useToast();
   const { data: tree, isLoading } = useMenuTreeQuery(KISSEN_PROJECT_ID);
   const saveMutation = useMenuSaveMutation(KISSEN_PROJECT_ID);
   const updateMutation = useMenuUpdateMutation(KISSEN_PROJECT_ID);
@@ -3386,7 +3396,7 @@ type WorkflowTableRow = WorkflowRow & { id: string };
 
 export function WorkflowConfigListPage() {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const hasPerm = useKissenPerm();
 
   const [busCode, setBusCode] = React.useState<string>(ALL);
@@ -3749,7 +3759,7 @@ function WfStepEditor({
 
 export function WorkflowConfigFormPage() {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const searchParams = useSearchParams();
   const id = parseNum(searchParams.get('id'));
   const isEdit = !!id;

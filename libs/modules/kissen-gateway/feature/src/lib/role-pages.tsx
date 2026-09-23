@@ -60,6 +60,7 @@ import {
   ROLE_TYPE_BUILTIN,
   roleTypeText,
   roleTypeVariant,
+  useAssignRoleMenuMutation,
   useMenuTreeQuery,
   useRemoveRoleMutation,
   useRoleDetailQuery,
@@ -489,8 +490,6 @@ export function RoleListPage() {
     ROLE_COLUMNS,
   );
 
-  const rows = data?.data ?? [];
-  const paginationMeta = data?.pagination;
 
   // Load failure feedback is surfaced as a toast (retry via action) instead of a banner.
   React.useEffect(() => {
@@ -503,6 +502,9 @@ export function RoleListPage() {
   }, [isError, error, refetch, toast]);
 
   const [assignTarget, setAssignTarget] = React.useState<RoleRow | null>(null);
+  const [assignOpen, setAssignOpen] = React.useState(false);
+  const [deleteTarget, setDeleteTarget] = React.useState<RoleRow | null>(null);
+  const removeMutation = useRemoveRoleMutation(KISSEN_GATEWAY_PROJECT_ID);
   /* 原型 Filters embedded：Role Code/Role Name/Status 服务端即时检索（300ms 防抖
    * 回页 1）；Type 本地过滤当前页（RoleListReq 无该参数）。 */
   const filterTimer = React.useRef<number | null>(null);
