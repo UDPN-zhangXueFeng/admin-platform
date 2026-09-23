@@ -1041,3 +1041,20 @@
 - 2026-09-18：部署 10.0.7.20 后白屏 "Application error: a client-side exception"（仅生产构建复现，dev 正常）。根因还是域 barrel 循环依赖 TDZ：26 个域内文件在**模块顶层**（`EMPTY_FORM`/`EMPTY` 等筛选默认值对象）引用 `from '.'` 导入的 `ALL_VALUE` 等常量；webpack 把 barrel 与 constants 合并成单模块且 imports 全部提升到顶部，barrel 先于页面求值时顶层读 `let` → `Cannot access 'c' before initialization`。修复：只把**顶层引用**的符号拆成直连 `./{dom}.constants` 导入（函数体内走 barrel 是运行时求值，安全不动）；TypeScript AST 精确扫描（跳过嵌套函数体）修复后归零。生产冒烟 21 个修复域页面 + 登录全过、console 0 error。教训：**域内文件永远不要从 `'.'`（自家 barrel）导入值符号**，新页面一律直连定义文件；排查此类问题用 `next start` + 产物 offset 逆向定位模块号。
 - 2026-09-18：kissen-admin 同步上游 4609208（金额按 token 精度）落点与口径：`formatAmount(v, decimals)` 纯字符串 BigInt HALF_UP 放 `modules-kissen-admin-feature/lib/format.ts`（不进 shared——shared formatNumber 走 Number+Intl 会丢 decimal(20,8) 末位）；`useTokenMeta(projectId)` 复用 `useTokenListQuery(projectId, {})` 做双键（tokenNo/tokenCode）元数据，未命中回退 2（与上游 DDL 默认一致）；汇率一律固定 8 位（fmtRate），不跟 token 精度。冒烟注意：kissen 后端鉴权头是 `token` 而非 Bearer；tx 行 sourceCurrency 为 symbol 形态时双键 miss 回退 2，与上游 decOf 同行为。
 - 2026-09-18：lp-sync 3a57bbd..6a55188 批（userDeduction 语义 + token 精度金额）要点：①LP formatAmount 自带副本于 `modules-lp-portal-feature/lib/format.ts`，与管理侧 4609208 同款同日决议（HALF_UP 纯字符串 BigInt），勿上收 shared；②tx-chain 保纯函数——amountText 回调作 `buildChainTimeline` 第三参注入，fmtAmount 退役删除；③split-settle 行内只有 pairCode（currency 列是 symbol 展示名不能当精度键），经 pairInfo 反查 sourceTokenCode 取精度；④冒烟凭据 reddate/reddate_admin/red@123456（LP code/username/password，`.env.local` 有预填键）；⑤tx-flow 测试环境 0 条数据（code=0 total=0 后端缺口），金额管线实证改在 split-settle 真实数据上做（228.012→228.01、7600.4→7,600.40）；⑥edit 工具多 hunk 部分应用坑本批两次（见 lp-sync pitfalls），多 hunk 后必须逐 hunk grep 复核。
+
+## 2026-09-23 Kissen Admin LP Management 设计稿复核
+
+- `.doc/kissen/plan/11-LP Management模块改造开发方案.md` 已按静态 HTML 画板①–⑪与当前 feature/data-access 实现交叉复核；HTML 只定义静态视觉，不足以作为请求时机、空态或接口契约证据。
+- LP Pool DTO 已含 `balanceUpdateTime`、`authAmount`、`preauthAvailable`、`preauthSnapshotTime`、`requiredMinSum` 和 `remindThreshold`；缺口是总余额 `walletBalance` 及 LP 名称/地址/日期筛选。不要在计划中重复新增已有快照时间字段。
+- 设计稿 Pair 汇率样例 `7.1890 / 0.25% → 7.2070` 与当前 `base/(1+markup)` helper 冲突；现有 `splitRatio=0` 表示清除 override，和“明确 0%”语义冲突。两者均须先定契约。
+- LP freeze 当前仅 `20↔50`，Pair 的 `50→1` 是恢复 Draft 再提交审批，不能描述成直接 Activate。`LP_STATUS_LABEL` 也被 Settlement Cycle Setup 使用，设计稿状态文案需要页面级映射，不应全局改写。
+
+## 2026-09-23 三门户原型合并内容页改造（plan/12，分支 feat/prototype-content-pages）
+
+- 系统映射按代码证据修正：kissen-admin↔network-mgt（KNMS）、kissen-gateway-portal↔bank-portal（BP）、lp-portal↔lp-portal（LPP）；提交序列 d926473(P0)→c840ea4(P1 LP)→deb36f4(P2 GW)→6ccdf1a(P3 ADM)。
+- 原型仓库 `/tmp/kissen_prototype` 是行为规格（页面/列/文案），UI 一律本仓体系重实现；API 缺口按《缺口记录》（.doc/kissen/kissen-bug/2026-09-23-原型对齐-API缺口与静态补齐记录.md）`STATIC-FILLER(GAP-xx-NN)` 打标，本次共 82 处（ADM 42/GW 16/LP 24），GAP-ADM-03/04 已真数据闭环，新增 GAP-ADM-09（手动生成结算单）/GAP-GW-09（securityPosture）。
+- 三 app 详情页通用模式：registry pageKey 扩展（detail/create/edit）+ sessionStorage 行暂存（`gw_log_stash:{logId}`、`lp_tx_stash:{txNo}` 等）+ 列表页 pageSize 200 探针扫描兜底 + not-found 卡；深链无暂存走 not-found 是已登记口径，不要"修复"它。
+- 本仓 eslint 未注册 react-hooks/exhaustive-deps：写 `// eslint-disable react-hooks/exhaustive-deps` 会报 "Definition for rule not found" error——依赖说明只能写普通注释。
+- kissen-admin feature 无 jest config（无 test target，非缺失事故）；三 app `tsc -p apps/<app>` 均因预存 libs/modules/auth/feature 引用缺失（TS6053）失败，编译级校验用 `npx nx lint <feature>` + scoped 临时 tsconfig 替代。
+- 子 agent 并发上限 3（用户硬性要求）；task agent 报 budget-wrapped 时剩余文件为零改动，派新 agent 携带前任报告规格续作即可，勿重做已完成文件。`hub wait` 可能重复交付旧快照，用 `hub jobs` 交叉确认；DM 可唤醒 idle agent 续命。
+- edit 工具锚点陷阱：并发子 agent 改动导致行号漂移会产生残留/语法错（registry 小文件两次踩坑）；修复=立即重读区域→整段 PUT；registry 类小文件优先一次整段替换。

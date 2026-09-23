@@ -29,7 +29,7 @@ pipeline {
                 'kissen-gateway-portal',
                 'lp-portal'
             ],
-            description: '选择 apps 下要构建和部署的应用；后端和端口自动绑定：admin→10.0.48.123:30001/6241；kissen-admin→https://kissen.showmarket.org/6242；lp-portal→10.0.7.87:8090/6243；gateway main→10.0.7.85:8080/6244、gateway-8082→10.0.7.85:8082/6245（admin-e2e 不参与部署）'
+            description: '选择 apps 下要构建和部署的应用；后端和端口自动绑定：admin→10.0.48.123:30001/6241；kissen-admin→10.0.7.103:9000/6242；lp-portal→10.0.7.87:8090/6243；gateway main→10.0.7.85:8080/6244、gateway-8082→10.0.7.85:8082/6245（admin-e2e 不参与部署）'
         )
 
         choice(
@@ -332,7 +332,7 @@ def getAppConfig(String projectName, String environmentName = 'main') {
             nginxContext: 'nginx-kissen',
             imagePrefix: 'kissen-admin-app',
             port: '6242',
-            backendUrl: 'https://kissen.showmarket.org',
+            backendUrl: 'http://10.0.7.103:9000',
             apiBaseUrl: '/v1',
             kissenApiBaseUrl: '/v1'
         ],
