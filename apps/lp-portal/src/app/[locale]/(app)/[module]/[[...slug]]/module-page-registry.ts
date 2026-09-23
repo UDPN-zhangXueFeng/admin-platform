@@ -41,9 +41,11 @@ const pages: Record<string, Record<string, PageLoader>> = {
   token: {
     list: lp('TokenListPage'),
   },
-  // 资金池（B1 真实页）：源为单页只读视图，无 create/edit/detail 路由。
+  // 资金池（B1 真实页）：列表 + 详情页（原型对齐：/pool/detail?poolId=N，
+  // 3 Tab basic/balance/transactions，?tab= 写 URL）。
   pool: {
     list: lp('PoolListPage'),
+    detail: lp('PoolDetailPage'),
   },
   // 货币对与资金池（B4 真实页）：源为单页主表+展开行聚合，无 detail 路由。
   pair: {
@@ -62,16 +64,23 @@ const pages: Record<string, Record<string, PageLoader>> = {
   },
   syslog: {
     list: lp('SyslogListPage'),
+    // 原型对齐：操作日志详情页（/syslog/detail?logId=N，行暂存缺失时
+    // 渲染 not-found 卡）。
+    detail: lp('SyslogDetailPage'),
   },
-  // 用户管理（C1 真实页）：源为单页——新增/编辑/分配角色/重置密码均为
-  // 页内弹窗，无 create/edit/detail 路由。
+  // 用户管理（原型对齐页面化）：新建/编辑共用 UserFormPage（/sys/user/create、
+  // /sys/user/edit?userId=N），详情 UserDetailPage（/sys/user/detail?userId=N）。
   user: {
     list: lp('UserListPage'),
+    create: lp('UserFormPage'),
+    edit: lp('UserFormPage'),
+    detail: lp('UserDetailPage'),
   },
-  // 角色管理（C2/R3 真实页）：源为单页——新增/编辑/菜单分配均为页内
-  // 弹窗，无 create/edit/detail 路由。
+  // 角色管理（原型对齐）：列表 + 详情页（/sys/role/detail?roleCode=X，
+  // assignMenus=1 直达分配抽屉）。
   role: {
     list: lp('RoleListPage'),
+    detail: lp('RoleDetailPage'),
   },
   // 菜单管理（C3 真实页）：源为左树右表单单页，无子路由。
   menu: {

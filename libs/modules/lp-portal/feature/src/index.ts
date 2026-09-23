@@ -58,8 +58,10 @@ export { ProfilePage } from './lib/profile-page';
 // 邀请落地页（v2.1 a522963：免登录 (auth) 路由，?token= 一次性邀请）
 export { InviteAcceptPage } from './lib/invite-accept-page';
 
-// ── 资金池（B1 真实页 v2：单页列表 + 开池申请页内弹窗，无 create/edit/detail 子路由）───
+// ── 资金池（P1 原型对齐：列表 + Details 详情页 ?poolId=，详情经
+// /pool/detail 注册渲染，无 create/edit 子路由）───
 export { PoolListPage } from './lib/pool-pages';
+export { PoolDetailPage } from './lib/pool-pages';
 
 // ── 补资（B2 真实页：只读分页列表，无 create/detail 路由）──────────────
 
@@ -68,27 +70,35 @@ export { PairListPage } from './lib/pair-pages';
 
 // Token 对管理（v2.3：汇率三列并入双 tab，rate 页退役）
 
-// 交易流水（B5/B6 真实页：单页列表，链路 ChainDrawer 为页内构件经相对
-// 路径消费，不入公共出口；源无 detail 路由）
-export { TxFlowListPage } from './lib/tx-flow-pages';
+// 交易流水（B5/B6 + P1 原型对齐：列表 + ?txNo= 交易详情页（清分管线
+// 7 段可视化）；ChainDrawer/tx-chain 为页内构件经相对路径消费，不入公共出口）
+export { TxFlowListPage, FxTransactionDetailPage } from './lib/tx-flow-pages';
 
-// 分成与结算（v2.4 6c49396 合并页：当前生效比例 + 分成明细 + 结算单 +
-// 详情抽屉（分项 + 本单流水）；取代原 split/settle/preauth 三页）
-export { SplitSettlePage } from './lib/split-settle-pages';
+// 分成与结算（v2.4 6c49396 合并页：当前生效比例 + 分成明细 + 结算单三页签
+// + ?statementNo= 结算单详情页（分项 + 本单流水）；取代原 split/settle/
+// preauth 三页）
+export {
+  SplitSettlePage,
+  SettlementStatementDetailPage,
+} from './lib/split-settle-pages';
 
-// Dashboard（v2.3 登录落地页，lp:dashboard：统计卡四宫格 + 我的资金池 +
-// Transaction Volume Statistics 自绘 SVG 折线（v2.4 双维度），只读无子路由）。
+// Dashboard（P1 原型对齐落地页：页头 As of/Refresh + 告警横幅 + KPI 四宫格 +
+// 我的资金池水位卡 + 交易量柱状图 + 营收结算静态补齐 + 币对/交易双 Tab，只读
+// 无子路由；补齐口径见 GAP-LP-01）。
 export { DashboardPage } from './lib/dashboard-pages';
 
-// 操作日志（C4 真实页：只读分页，POST /lp/log/page，lp_id 后端注入）
-export { SyslogListPage } from './lib/syslog-pages';
+// 操作日志（P1 原型对齐：列表 + /syslog/detail?logId= 详情页；详情数据经
+// sessionStorage 行暂存（GAP-LP-10 无 /log/:id 端点），深链无暂存落 not-found）
+export { SyslogListPage, SyslogDetailPage } from './lib/syslog-pages';
 
-// 用户管理（C1 真实页：单页+弹窗交互，无 create/edit/detail 子路由）
-export { UserListPage } from './lib/system-pages';
-// 角色管理（C2 真实页，R3）：源为单页——新增/编辑/分配菜单均为页内弹窗，
-// 无 create/edit/detail 路由；菜单分配树回显仅勾叶子 + 保存合并半选父。
-export { RoleListPage } from './lib/role-pages';
-// 菜单管理（C3 真实页：左树右表单单页，无子路由）
+// 用户管理（P1 原型对齐：列表 + create/edit 共用表单页 + detail 详情页；
+// 创建成功弹 Initial Password OTP，启停/重置密码/强制下线/Assign Roles 弹窗保留）
+export { UserListPage, UserFormPage, UserDetailPage } from './lib/system-pages';
+// 角色管理（P1 原型对齐：列表 + /sys/role/detail?roleCode= 详情页；编辑走
+// RoleFormDialog 弹窗，Assign Menus 为详情页抽屉（?assignMenus=1 直达），
+// 授权载体 menuIds（GAP-LP-13），树回显仅勾叶子 + 保存合并半选父）
+export { RoleListPage, RoleDetailPage } from './lib/role-pages';
+// 菜单管理（P1 原型对齐：左树右表单单页 + 树过滤；无子路由）
 export { MenuListPage } from './lib/system-pages';
 // 市场组（G2）：Token 总览（双 tab：平铺列表 + 按银行分组）。
 export { TokenListPage } from './lib/token-pages';
