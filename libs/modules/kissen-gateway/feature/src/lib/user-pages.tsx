@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   KeyRound,
   LogOut,
-  MoreHorizontal,
+  MoreVertical,
   UserCheck,
   UserX,
 } from 'lucide-react';
@@ -107,7 +107,7 @@ const USER_COLUMNS: ProtoColumnDef[] = [
   { id: 'type', label: 'Type' },
   { id: 'phone', label: 'Phone' },
   { id: 'email', label: 'Email' },
-  { id: 'createdAt', label: 'Created on (UTC+8)' },
+  { id: 'createdAt', label: 'Created on' },
   { id: 'firstLogin', label: 'First Login' },
   { id: 'status', label: 'Status', required: true },
   { id: 'actions', label: 'Actions', required: true },
@@ -693,7 +693,7 @@ export function UserListPage() {
         id: 'createdAt',
         header: () => (
           <SortHeader
-            label="Created on (UTC+8)"
+            label="Created on"
             direction={sort.key === 'createdAt' ? sort.direction : null}
             onToggle={() => toggle('createdAt', 'desc')}
           />
@@ -738,7 +738,7 @@ export function UserListPage() {
           const u = row.original;
           const active = u.status === 0;
           return (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Button
                 variant="link"
                 size="sm"
@@ -758,7 +758,7 @@ export function UserListPage() {
                     className="size-8"
                     aria-label="More actions"
                   >
-                    <MoreHorizontal className="size-4" aria-hidden="true" />
+                    <MoreVertical className="size-4" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

@@ -31,7 +31,7 @@ import {
   Landmark,
   Mail,
   MapPin,
-  MoreHorizontal,
+  MoreVertical,
   Network,
   Phone,
   SlidersHorizontal,
@@ -125,6 +125,7 @@ import {
   Dash,
   ProtoStatusBadge,
   type ProtoStatusTone,
+  writeClipboard,
 } from './proto-ui';
 import { formatTokenAmount, formatUtc8 } from './proto-format';
 import { PROTO_BANK_STATUS, protoStatusLabel } from './proto-enums';
@@ -230,7 +231,7 @@ function BankStatusBadge({ status }: { status: number }) {
  * 无按对象过滤 API，先落列契约 + 空表，后端补齐后接真数据）。
  */
 const BANK_OPERATION_COLUMNS: ColumnDef<{ id: string }>[] = [
-  { id: 'timestamp', header: 'Timestamp (UTC+8)' },
+  { id: 'timestamp', header: 'Timestamp' },
   { id: 'operator', header: 'Operator' },
   { id: 'module', header: 'Module' },
   { id: 'status', header: 'Status' },
@@ -248,7 +249,7 @@ function DetailField({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-xs font-medium capitalize text-muted-foreground">
         <Icon className="size-3.5" aria-hidden="true" />
         {label}
       </div>
@@ -382,10 +383,13 @@ function AccessKeyDrawer({
 
   const onCopyKey = React.useCallback(() => {
     if (!generated) return;
-    navigator.clipboard
-      .writeText(generated.accessKey)
-      .then(() => toast.success('Copied'))
-      .catch(() => toast.error('Copy failed. Please copy manually.'));
+    void writeClipboard(generated.accessKey).then((ok) => {
+      if (ok) {
+        toast.success('Copied');
+      } else {
+        toast.error('Copy failed. Please copy manually.');
+      }
+    });
   }, [generated, toast]);
 
   const openRevoke = React.useCallback((row: LedgerRow) => {
@@ -1014,7 +1018,7 @@ export function BankInfoListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Created on (UTC+8)',
+        header: 'Created on',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatUtc8(row.original.createTime)}
@@ -1056,7 +1060,7 @@ export function BankInfoListPage() {
             });
           }
           return (
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
               <Button
                 variant="link"
                 size="sm"
@@ -1076,7 +1080,7 @@ export function BankInfoListPage() {
                       className="h-8 w-8 p-0"
                       aria-label={`Actions for ${item.bankName}`}
                     >
-                      <MoreHorizontal
+                      <MoreVertical
                         className="h-4 w-4"
                         aria-hidden="true"
                       />
@@ -1706,7 +1710,7 @@ export function BankInfoDetailPage() {
       },
       {
         accessorKey: 'lastHeartbeatTime',
-        header: 'Last Heartbeat (UTC+8)',
+        header: 'Last Heartbeat',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatUtc8(row.original.lastHeartbeatTime)}
@@ -1797,7 +1801,7 @@ export function BankInfoDetailPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Registered on (UTC+8)',
+        header: 'Registered on',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatUtc8(row.original.createTime)}

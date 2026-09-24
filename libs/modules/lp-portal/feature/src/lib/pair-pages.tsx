@@ -362,7 +362,7 @@ export function PairListPage() {
       // 原型列序 10：As of（时间列头标 (UTC+8)，值 formatUtc8）
       {
         accessorKey: 'syncTime',
-        header: 'As of (UTC+8)',
+        header: 'As of',
         meta: { maxWidth: 200 },
         cell: ({ row }) => (
           <span className="whitespace-nowrap tabular-nums">

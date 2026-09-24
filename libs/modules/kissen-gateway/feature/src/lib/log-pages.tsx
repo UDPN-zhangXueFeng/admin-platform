@@ -15,8 +15,7 @@
  * 详情（/log/detail?logId=）：
  * - STATIC-FILLER(GAP-GW-02): 无 /log/{id} 详情端点——列表行暂存 sessionStorage
  *   （gw_log_stash:{logId}）渲染；深链无暂存 → not-found 卡。
- * - 版式：单层页头（Back + Log Details + 结果徽章 + Trace ID|Timestamp 元信息行）→
- *   双卡 Request / Error Info；请求参数脱敏（password/token 类键 → ••••••••）。
+ * - 版式：单层页头 → 全宽 Request 卡（请求参数脱敏）；仅有 errorMsg 时显示 Error Info。
  */
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -64,7 +63,7 @@ const LOG_PAGE_SIZE = 10;
 /** 列契约（原型 COLUMNS 逐字，列名按任务口径：Time (UTC+8)/Business Type/Status）；
  * Trace ID 默认隐藏（原型 defaultVisible:false）。 */
 const LOG_COLUMNS: ProtoColumnDef[] = [
-  { id: 'createdAt', label: 'Time (UTC+8)', required: true },
+  { id: 'createdAt', label: 'Time', required: true },
   { id: 'operator', label: 'Operator' },
   { id: 'module', label: 'Module' },
   { id: 'businessType', label: 'Business Type' },
@@ -172,6 +171,10 @@ function redactParams(raw: string | null | undefined): string {
   } catch {
     return raw;
   }
+}
+
+function logModuleLabel(module?: string): string {
+  return module?.toUpperCase() === 'LOGIN' ? '登录管理' : (module ?? '-');
 }
 
 /* ================================================================== */
@@ -321,7 +324,7 @@ export function LogListPage() {
         id: 'createdAt',
         header: () => (
           <SortHeader
-            label="Time (UTC+8)"
+            label="Time"
             direction={sort.key === 'createdAt' ? sort.direction : null}
             onToggle={() => toggle('createdAt')}
           />
@@ -629,7 +632,7 @@ function DetailField({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <dt className="text-xs font-medium capitalize text-muted-foreground">
         {label}
       </dt>
       <dd className="mt-1 min-w-0 break-all text-sm font-semibold">
@@ -717,14 +720,20 @@ export function LogDetailPage() {
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-        {/* Request 卡（原型 DefinitionList 六字段；字段名与列表列口径一致）。 */}
+      <div className="space-y-4">
         <section className="rounded-lg border border-border/60 bg-card p-6 shadow-float">
-          <div className="mb-4 text-sm font-semibold">Request</div>
+          <h2 className="mb-4 text-sm font-semibold">Request</h2>
           <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-            <DetailField label="Module">{orDash(row.module)}</DetailField>
+            <DetailField label="Module">{logModuleLabel(row.module)}</DetailField>
             <DetailField label="Business Type">
-              <Badge variant={logBusinessTypeVariant(row.businessType)}>
+              <Badge
+                variant={logBusinessTypeVariant(row.businessType)}
+                className={
+                  row.businessType === 4
+                    ? 'rounded-full border-transparent bg-teal-700 text-white dark:bg-teal-700 dark:text-white'
+                    : undefined
+                }
+              >
                 {logBusinessTypeText(row.businessType)}
               </Badge>
             </DetailField>
@@ -740,41 +749,27 @@ export function LogDetailPage() {
             <DetailField label="Trace ID">
               {row.traceId ? <CopyableId value={row.traceId} /> : orDash(null)}
             </DetailField>
-            <DetailField label="Duration">
-              {formatDuration(row.costTime)}
-            </DetailField>
-            <DetailField label="Operator">
-              {orDash(row.operateName)}
-            </DetailField>
+            <DetailField label="Duration">{formatDuration(row.costTime)}</DetailField>
+            <DetailField label="Operator">{orDash(row.operateName)}</DetailField>
           </dl>
-          {/* 请求参数脱敏展示（GAP-GW-02 处置列：password/token 类键 →
-              ••••••••，前端实现；源列表页展开行的 Request Params 迁入）。 */}
           <div className="mt-4 border-t border-border/60 pt-4">
-            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="mb-2 text-xs font-medium capitalize text-muted-foreground">
               Request Parameters
             </div>
-            <pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md border bg-muted/40 px-2.5 py-2 text-xs leading-relaxed text-foreground">
+            <pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md border bg-muted/40 px-3 py-2.5 font-mono text-xs leading-relaxed text-foreground">
               {redactParams(row.operateParam)}
             </pre>
           </div>
         </section>
 
-        {/* Error Info 卡（errorMsg 有 → 红 pre；无 → 空态，文案逐字）。 */}
-        <section className="rounded-lg border border-border/60 bg-card p-6 shadow-float">
-          <div className="mb-4 text-sm font-semibold">Error Info</div>
-          {row.errorMsg ? (
+        {row.errorMsg ? (
+          <section className="rounded-lg border border-border/60 bg-card p-6 shadow-float">
+            <h2 className="mb-4 text-sm font-semibold">Error Info</h2>
             <pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md bg-red-500/10 p-3 font-mono text-xs leading-5 text-red-600 dark:text-red-400">
               {row.errorMsg}
             </pre>
-          ) : (
-            <div className="py-6 text-center">
-              <div className="text-sm font-semibold">No error recorded</div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                This operation finished without an error entry.
-              </p>
-            </div>
-          )}
-        </section>
+          </section>
+        ) : null}
       </div>
     </div>
   );

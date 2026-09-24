@@ -6,16 +6,9 @@
  * 原型真源：/tmp/kissen_prototype/udpn-kissen-network-mgt/client/src/pages/
  * GatewayInstanceDetailsPage.jsx（行为规格：文案 / 列 / Tab 逐字对齐，UI 用本仓体系重实现）。
  *
- * 结构（原型 D10 页签骨架 + §3.15 单层页头）：
- *  - 页头：Back + 'Instance Details' + 实例状态徽章 + meta
- *    `Bank: X (BIC) | Instance ID: X | Registered on: X` + 右上三动作
- *    Verify Connectivity（Active 禁）/ Reset Key（Disabled 禁）/ Heartbeat（开抽屉）。
- *  - Tabs：basic / connectivity('Connectivity & Keys') / heartbeat('Heartbeat History',
- *    count) / operations('Operation History')，?tab= 写 URL（basic 缺省不占 query）。
- *  - basic = 'Instance Information' + 'Currency System'（合并值）+ 'Associated Tokens'
- *    （本实例所属银行的 token 列表）；connectivity = 'Keys & Connectivity' 字段集；
- *    heartbeat = 心跳记录表（与 Heartbeat 抽屉同数据源）；operations = 静态空表
- *    （GAP-ADM-02，operate-log 无按对象过滤 API）。
+ * 结构：页头提供 Heartbeat 抽屉；Tabs 展示 basic / connectivity / operations。
+ * basic = 实例信息、货币系统与关联 Token；connectivity = Keys & Connectivity；
+ * operations = 静态空表（GAP-ADM-02，operate-log 无按对象过滤 API）。
  *
  * 已登记偏差：
  *  - Service URL：InstanceRow 无该字段 → Dash（STATIC-FILLER GAP-ADM-08）。
@@ -54,12 +47,10 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import {
   gatewayInstanceKeys,
   KISSEN_PROJECT_ID,
-  useInstanceHeartbeatQuery,
   useInstanceListQuery,
   useInstanceResetKeyMutation,
   useInstanceVerifyMutation,
   useTokenListQuery,
-  type HeartbeatRow,
   type InstanceRow,
   type TokenRow,
 } from '@myorg/modules/kissen-admin/data-access';
@@ -70,27 +61,25 @@ import { formatUtc8 } from './proto-format';
 import {
   ConnectivityBadge,
   HeartbeatHistoryDrawer,
-  HeartbeatResultBadge,
   INSTANCE_DIALOG_COPY,
   InstanceStatusBadge,
   TokenStatusBadge,
   type InstanceActionKind,
 } from './token-manage-pages';
-
 const INSTANCE_LIST_PATH = '/onboard/instance';
 const INSTANCE_DETAIL_PATH = '/onboard/instance/detail';
 const INSTANCE_ROW_STASH_SCOPE = 'gateway-instance';
 const DETAIL_FALLBACK_PAGE_SIZE = 200;
-const HEARTBEAT_PAGE_SIZE = 10;
 const ACTIVE_STATUS_CODE = 20;
 const DISABLED_STATUS_CODE = 50;
+
 
 /**
  * Operation History 静态列契约（STATIC-FILLER GAP-ADM-02：operate-log 无按对象
  * （instanceId）过滤 API，先落列契约 + 空表，后端补齐后接真数据）。
  */
 const OPERATION_COLUMNS: ColumnDef<{ id: string }>[] = [
-  { id: 'timestamp', header: 'Timestamp (UTC+8)' },
+  { id: 'timestamp', header: 'Timestamp' },
   { id: 'operator', header: 'Operator' },
   { id: 'module', header: 'Module' },
   { id: 'status', header: 'Status' },
@@ -122,7 +111,7 @@ function Field({
 }) {
   return (
     <div className={`min-w-0 ${span ? 'sm:col-span-2' : ''}`}>
-      <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+      <dt className="text-[11px] font-medium capitalize text-muted-foreground">
         {label}
       </dt>
       <dd
@@ -158,104 +147,7 @@ function SectionHeader({
 }
 
 /** 详情 Tab 值（?tab= 写 URL；basic 缺省不占 query）。 */
-type InstanceDetailTab =
-  | 'basic'
-  | 'connectivity'
-  | 'heartbeat'
-  | 'operations';
-
-/** 心跳记录表（原型 heartbeat Tab：Time (UTC+8) / Result / Mode / Latency / Detail）。 */
-function HeartbeatHistoryTab({
-  instanceId,
-  enabled,
-}: {
-  instanceId: number;
-  enabled: boolean;
-}) {
-  const [page, setPage] = React.useState(1);
-  const query = useInstanceHeartbeatQuery(
-    KISSEN_PROJECT_ID,
-    instanceId,
-    page,
-    HEARTBEAT_PAGE_SIZE,
-    enabled,
-  );
-  const rows = query.data?.rows ?? [];
-  const total = query.data?.total ?? 0;
-
-  const columns = React.useMemo<ColumnDef<HeartbeatRow & { id: string }>[]>(
-    () => [
-      {
-        accessorKey: 'probeTime',
-        header: 'Time (UTC+8)',
-        cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatUtc8(row.original.probeTime)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'ok',
-        header: 'Result',
-        cell: ({ row }) => <HeartbeatResultBadge ok={row.original.ok} />,
-      },
-      {
-        accessorKey: 'mode',
-        header: 'Mode',
-        cell: ({ row }) => (
-          <span className="font-mono">{row.original.mode || <Dash />}</span>
-        ),
-      },
-      {
-        accessorKey: 'latencyMs',
-        header: 'Latency',
-        cell: ({ row }) => (
-          <span className="block text-right tabular-nums">
-            {row.original.latencyMs}ms
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'detail',
-        header: 'Detail',
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">
-            {row.original.detail || <Dash />}
-          </span>
-        ),
-      },
-    ],
-    [],
-  );
-
-  const tableData = React.useMemo(
-    () => rows.map((row) => ({ ...row, id: String(row.logId) })),
-    [rows],
-  );
-
-  if (query.isError) {
-    return (
-      <Alert variant="destructive" role="alert">
-        <AlertTitle>Failed to load heartbeat history.</AlertTitle>
-      </Alert>
-    );
-  }
-
-  return (
-    <DataTable
-      columns={columns}
-      data={tableData}
-      isLoading={query.isLoading}
-      emptyMessage="No heartbeat records found."
-      pagination={{
-        page,
-        pageSize: HEARTBEAT_PAGE_SIZE,
-        total,
-        onPageChange: setPage,
-      }}
-    />
-  );
-}
+type InstanceDetailTab = 'basic' | 'connectivity' | 'operations';
 
 export function GatewayInstanceDetailPage() {
   const router = useRouter();
@@ -265,9 +157,7 @@ export function GatewayInstanceDetailPage() {
   // Tab 状态写 URL（原型同款：basic 缺省不占 query，刷新/分享/后退保持）。
   const tabParam = searchParams.get('tab');
   const activeTab: InstanceDetailTab =
-    tabParam === 'connectivity' ||
-    tabParam === 'heartbeat' ||
-    tabParam === 'operations'
+    tabParam === 'connectivity' || tabParam === 'operations'
       ? tabParam
       : 'basic';
   const handleTabChange = (next: string) => {
@@ -319,14 +209,6 @@ export function GatewayInstanceDetailPage() {
     instance != null,
   );
 
-  // 心跳计数（页签 count；与 HeartbeatHistoryTab 的 page=1 查询同 key，自动去重）。
-  const heartbeatCountQuery = useInstanceHeartbeatQuery(
-    KISSEN_PROJECT_ID,
-    instanceId ?? 0,
-    1,
-    HEARTBEAT_PAGE_SIZE,
-    instance != null,
-  );
 
   if (instanceId === undefined) {
     return (
@@ -369,7 +251,6 @@ export function GatewayInstanceDetailPage() {
     ...row,
     id: String(row.tokenId),
   }));
-  const heartbeatTotal = heartbeatCountQuery.data?.total ?? 0;
 
   /** Associated Tokens 列（原型 D10：本银行 token 列表列集）。 */
   const tokenColumns = React.useMemo<ColumnDef<TokenRow & { id: string }>[]>(
@@ -407,7 +288,7 @@ export function GatewayInstanceDetailPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Registered on (UTC+8)',
+        header: 'Registered on',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatUtc8(row.original.createTime)}
@@ -558,12 +439,6 @@ export function GatewayInstanceDetailPage() {
             <TabsTrigger value="connectivity">
               Connectivity &amp; Keys
             </TabsTrigger>
-            <TabsTrigger value="heartbeat">
-              Heartbeat History
-              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
-                {heartbeatTotal}
-              </span>
-            </TabsTrigger>
             <TabsTrigger value="operations">Operation History</TabsTrigger>
           </TabsList>
 
@@ -668,15 +543,6 @@ export function GatewayInstanceDetailPage() {
             </section>
           </TabsContent>
 
-          {/* Tab 3：Heartbeat History（与抽屉同数据源）。 */}
-          <TabsContent value="heartbeat" className="mt-0">
-            <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-              <HeartbeatHistoryTab
-                instanceId={instanceId}
-                enabled={activeTab === 'heartbeat'}
-              />
-            </section>
-          </TabsContent>
 
           {/* Tab 4：Operation History —— 静态空表（GAP-ADM-02）。 */}
           <TabsContent value="operations" className="mt-0">

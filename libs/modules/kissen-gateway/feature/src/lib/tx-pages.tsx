@@ -197,7 +197,7 @@ const TX_COLUMNS: ProtoColumnDef[] = [
   { id: 'to', label: 'To' },
   { id: 'fxRate', label: 'FX Rate' },
   { id: 'lp', label: 'LP Name', defaultVisible: false },
-  { id: 'createdAt', label: 'Created on (UTC+8)', required: true },
+  { id: 'createdAt', label: 'Created on', required: true },
   { id: 'status', label: 'Status', required: true },
   { id: 'actions', label: 'Actions', required: true },
 ];
@@ -698,7 +698,7 @@ export function TxListPage() {
         id: 'createdAt',
         header: () => (
           <SortHeader
-            label="Created on (UTC+8)"
+            label="Created on"
             direction={sort.key === 'createdAt' ? sort.direction : null}
             onToggle={() => toggle('createdAt', 'desc')}
           />
@@ -1255,7 +1255,7 @@ export function TxDetailPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
                   {/* Sent（原型 subtle 块；ddd9fe2 扣款口径 userDeduction + 源币种）。 */}
                   <div className="min-w-0 flex-1 rounded-lg bg-muted/40 p-4">
-                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <div className="text-xs font-medium capitalize text-muted-foreground">
                       Sent Amount
                     </div>
                     <div className="mt-1 text-lg font-semibold tabular-nums text-foreground">
@@ -1299,7 +1299,7 @@ export function TxDetailPage() {
                   </div>
                   {/* Received（原型 emerald 块；a9dc10e receiverAmount 目标币种）。 */}
                   <div className="min-w-0 flex-1 rounded-lg bg-emerald-500/10 p-4">
-                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <div className="text-xs font-medium capitalize text-muted-foreground">
                       Received Amount
                     </div>
                     <div className="mt-1 text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">

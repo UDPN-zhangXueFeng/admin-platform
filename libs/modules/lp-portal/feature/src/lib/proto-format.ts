@@ -4,8 +4,8 @@
  * 与 ./format 的分工：format 承载旧口径（formatTime/formatMoney/formatAmount/
  * maskAddress，签名不动）；本文件承载原型合并后的新口径，文案源为 LPP 原型
  * client/src/lib/formatters.js 与 demo AGENTS §3.14.3：
- * - formatUtc8：毫秒时间戳 → UTC+8 字面量 `YYYY-MM-DD HH:mm:ss`（不随浏览器
- *   时区；方案 §8「时间 (UTC+8) 口径」逐页验收项）；
+ * - formatUtc8：毫秒时间戳 → 当前查看者本地时间 `Sep 2, 2026, 09:09:10 (UTC+8)`，
+ *   并附加该时间对应的 UTC offset；
  * - formatRate：固定 4 位小数、不加千分位（`1.0000` / `0.9901` / `1380.5000`）；
  * - formatTokenAmount：千分位 + 按精度 HALF_UP 后去掉无意义尾零
  *   （`4,825,000.000000` → `4,825,000`、`10.10` → `10.1`）；
@@ -17,25 +17,22 @@
  */
 
 import { formatAmount } from './format';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 
 const EMPTY = '-';
 
 /**
- * 毫秒时间戳 → UTC+8 字面量 `YYYY-MM-DD HH:mm:ss`。
- * 实现为 UTC 时间 +8h 后取 UTC 分量拼装，输出不随浏览器时区；空/非法 → `'-'`。
+ * 毫秒时间戳 → 当前查看者本地时区的 `Sep 2, 2026, 09:09:10 (UTC+8)`；
+ * offset 随查看者时区动态显示；空/非法 → `'-'`。
  */
 export function formatUtc8(
   ms: number | string | null | undefined,
 ): string {
   if (ms === null || ms === undefined || ms === '') return EMPTY;
-  const n = Number(ms);
-  if (!Number.isFinite(n)) return String(ms);
-  const d = new Date(n + 8 * 60 * 60 * 1000);
-  const p = (x: number) => String(x).padStart(2, '0');
-  return (
-    `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}` +
-    ` ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`
-  );
+  const timestamp = Number(ms);
+  if (!Number.isFinite(timestamp)) return EMPTY;
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? EMPTY : formatAdminDateTime(date);
 }
 
 /**

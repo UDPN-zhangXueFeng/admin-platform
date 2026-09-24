@@ -633,7 +633,7 @@ export function ApprovalCenterListPage() {
       {
         id: 'createdOn',
         header: () => (
-          <ProtoSortHeader label="Created on (UTC+8)" columnKey="createdOn" toggle={toggle} sortState={sortState('createdOn')} />
+          <ProtoSortHeader label="Created on" columnKey="createdOn" toggle={toggle} sortState={sortState('createdOn')} />
         ),
         meta: { maxWidth: 200 },
         cell: ({ row }) => (
@@ -657,7 +657,7 @@ export function ApprovalCenterListPage() {
         id: 'processingTime',
         // 2026-09-20 口径：本列展示 processedAt 时间戳（非时长）；未处理 → '-'
         header: () => (
-          <ProtoSortHeader label="Processing Time (UTC+8)" columnKey="processingTime" toggle={toggle} sortState={sortState('processingTime')} />
+          <ProtoSortHeader label="Processing Time" columnKey="processingTime" toggle={toggle} sortState={sortState('processingTime')} />
         ),
         meta: { maxWidth: 200 },
         cell: ({ row }) => (
@@ -1101,7 +1101,7 @@ export function ApprovalDetailPage() {
               <DetailField label="Created by">
                 {row.createUserName || <Dash />}
               </DetailField>
-              <DetailField label="Created on (UTC+8)">
+              <DetailField label="Created on">
                 <span className="tabular-nums">{formatUtc8(row.createTime)}</span>
               </DetailField>
               <DetailField label="Processing Time">
@@ -1109,7 +1109,7 @@ export function ApprovalDetailPage() {
                   ? formatDuration(effectiveProcessedAt - row.createTime)
                   : <Dash />}
               </DetailField>
-              <DetailField label="Processed (UTC+8)">
+              <DetailField label="Processed">
                 <span className="tabular-nums">
                   {effectiveProcessedAt ? formatUtc8(effectiveProcessedAt) : <Dash />}
                 </span>

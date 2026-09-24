@@ -17,7 +17,6 @@ import { ColumnDef } from '@tanstack/react-table';
 import { useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 import {
-  AlertTriangle,
   ArrowLeft,
   CircleCheck,
   CirclePause,
@@ -25,10 +24,9 @@ import {
   ListTree,
   Lock,
   LogOut,
-  MoreHorizontal,
+  MoreVertical,
   Plus,
   Search,
-  Server,
   ShieldCheck,
   Trash2,
 } from 'lucide-react';
@@ -435,12 +433,86 @@ function OperateLogResultBadge({ status }: { status: number }) {
   );
 }
 
+function OperateLogDetailField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="text-xs font-medium capitalize text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 min-w-0 break-all text-sm font-medium leading-6">
+        {children ?? <Dash />}
+      </div>
+    </div>
+  );
+}
+
+const OPERATE_LOG_BUSINESS_TYPES: Record<
+  number,
+  {
+    label: string;
+    variant: 'default' | 'secondary' | 'destructive' | 'outline';
+    className?: string;
+  }
+> = {
+  1: { label: 'Create', variant: 'default' },
+  2: {
+    label: 'Update',
+    variant: 'secondary',
+    className: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  },
+  3: { label: 'Delete', variant: 'destructive' },
+  4: {
+    label: 'Sign-in',
+    variant: 'default',
+    className:
+      'rounded-full border-transparent bg-teal-700 text-white dark:bg-teal-700 dark:text-white',
+  },
+  5: { label: 'Other', variant: 'outline' },
+};
+
+function OperateLogBusinessTypeBadge({ businessType }: { businessType: number }) {
+  const entry = OPERATE_LOG_BUSINESS_TYPES[businessType] ?? {
+    label: 'Other',
+    variant: 'outline' as const,
+  };
+  return <Badge variant={entry.variant} className={entry.className}>{entry.label}</Badge>;
+}
+
+function operateLogModuleLabel(module?: string) {
+  return module?.toUpperCase() === 'LOGIN' ? '登录管理' : module;
+}
+
+const OPERATE_LOG_REDACT_KEY = /pass(word)?|token|secret|credential/i;
+const OPERATE_LOG_REDACTED_VALUE = '••••••••';
+
+function redactOperateLogParams(raw?: string): string {
+  if (!raw) return '-';
+  try {
+    return JSON.stringify(
+      JSON.parse(raw),
+      (key, value) =>
+        key && OPERATE_LOG_REDACT_KEY.test(key)
+          ? OPERATE_LOG_REDACTED_VALUE
+          : value,
+      2,
+    );
+  } catch {
+    return raw;
+  }
+}
+
 /** ⋮ 溢出菜单触发按钮（token-manage 同款）。 */
 function RowMenuTrigger({ ariaLabel }: { ariaLabel: string }) {
   return (
     <DropdownMenuTrigger asChild>
       <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label={ariaLabel}>
-        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+        <MoreVertical className="h-4 w-4" aria-hidden="true" />
       </Button>
     </DropdownMenuTrigger>
   );
@@ -740,7 +812,7 @@ export function SysUserListPage() {
       {
         accessorKey: 'createTime',
         header: () => (
-          <ProtoSortHeader label="Created on (UTC+8)" columnKey="createdOn" toggle={toggle} sortState={sortState('createdOn')} />
+          <ProtoSortHeader label="Created on" columnKey="createdOn" toggle={toggle} sortState={sortState('createdOn')} />
         ),
         cell: ({ row }) => (
           <span className="tabular-nums">{formatUtc8(row.original.createTime)}</span>
@@ -767,7 +839,7 @@ export function SysUserListPage() {
           const u = row.original;
           const isActive = u.status === 0;
           return (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Button
                 variant="link"
                 size="sm"
@@ -1722,7 +1794,7 @@ export function SysRoleListPage() {
       {
         accessorKey: 'createTime',
         header: () => (
-          <ProtoSortHeader label="Created on (UTC+8)" columnKey="createdOn" toggle={toggle} sortState={sortState('createdOn')} />
+          <ProtoSortHeader label="Created on" columnKey="createdOn" toggle={toggle} sortState={sortState('createdOn')} />
         ),
         cell: ({ row }) => (
           <span className="tabular-nums">{formatUtc8(row.original.createTime)}</span>
@@ -1742,7 +1814,7 @@ export function SysRoleListPage() {
           const r = row.original;
           const isBuiltIn = r.roleType === 0;
           return (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Button
                 variant="link"
                 size="sm"
@@ -3405,7 +3477,7 @@ export function WorkflowConfigListPage() {
     }
     return [...map.entries()]
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([code, name]) => ({ value: code, label: `${code} ${name}` }));
+      .map(([code, name]) => ({ value: code, label: name }));
   }, [businesses, rows]);
 
   const tableData = React.useMemo<WorkflowTableRow[]>(
@@ -3451,12 +3523,7 @@ export function WorkflowConfigListPage() {
           <ProtoSortHeader label="Business" columnKey="business" toggle={toggle} sortState={sortState('business')} />
         ),
         cell: ({ row }) => (
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate">{row.original.businessName}</span>
-            <span className="block truncate font-mono text-xs text-muted-foreground">
-              {row.original.businessCode}
-            </span>
-          </div>
+          <span className="truncate">{row.original.businessName}</span>
         ),
       },
       {
@@ -3480,7 +3547,7 @@ export function WorkflowConfigListPage() {
       {
         accessorKey: 'createTime',
         header: () => (
-          <ProtoSortHeader label="Created on (UTC+8)" columnKey="createdOn" toggle={toggle} sortState={sortState('createdOn')} />
+          <ProtoSortHeader label="Created on" columnKey="createdOn" toggle={toggle} sortState={sortState('createdOn')} />
         ),
         cell: ({ row }) => (
           <span className="tabular-nums">
@@ -3501,7 +3568,7 @@ export function WorkflowConfigListPage() {
         cell: ({ row }) => {
           const w = row.original;
           return (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Button
                 variant="link"
                 size="sm"
@@ -3784,7 +3851,7 @@ export function WorkflowConfigFormPage() {
 
   const businessOptions = (businesses ?? []).map((b) => ({
     value: String(b.businessId),
-    label: `${b.businessCode} ${b.businessName}`,
+    label: b.businessName,
   }));
 
   const onSave = () => {
@@ -3862,7 +3929,7 @@ export function WorkflowConfigFormPage() {
               </Label>
               {isEdit ? (
                 <Input
-                  value={`${detail?.businessCode ?? ''} ${detail?.businessName ?? ''}`}
+                  value={detail?.businessName ?? ''}
                   disabled
                 />
               ) : (
@@ -4063,13 +4130,6 @@ export function WorkflowConfigDetailPage() {
               </span>
               <span aria-hidden="true">|</span>
               <span>
-                Business Code:{' '}
-                <b className="font-mono text-sm font-semibold text-foreground">
-                  {source?.businessCode}
-                </b>
-              </span>
-              <span aria-hidden="true">|</span>
-              <span>
                 Created on{' '}
                 <b className="font-semibold tabular-nums text-foreground">
                   {source?.createTime ? formatUtc8(source.createTime) : <Dash />}
@@ -4107,9 +4167,6 @@ export function WorkflowConfigDetailPage() {
               <DetailField label="Business Type">
                 <div className="min-w-0">
                   <div className="break-words font-medium">{source?.businessName ?? <Dash />}</div>
-                  <div className="mt-0.5 font-mono text-xs text-muted-foreground">
-                    {source?.businessCode}
-                  </div>
                 </div>
               </DetailField>
               <DetailField label="Workflow Name">
@@ -4193,7 +4250,7 @@ export function WorkflowConfigDetailPage() {
               <thead>
                 <tr className="border-b border-border/60 text-left">
                   <th className="px-4 py-2 font-medium" style={{ width: 230 }}>
-                    Timestamp (UTC+8)
+                    Timestamp
                   </th>
                   <th className="px-4 py-2 font-medium">Operator</th>
                   <th className="px-4 py-2 font-medium">Module</th>
@@ -4319,7 +4376,7 @@ export function OperateLogListPage() {
         accessorKey: 'operateTime',
         header: () => (
           <ProtoSortHeader
-            label="Timestamp (UTC+8)"
+            label="Timestamp"
             columnKey="timestamp"
             toggle={toggle}
             sortState={sortState('timestamp')}
@@ -4640,35 +4697,51 @@ export function OperateLogDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <DetailCard title="Request" icon={Server}>
+      <div className="space-y-4">
+        <section className="rounded-lg border border-border/60 bg-card p-4 text-card-foreground shadow-float">
+          <h2 className="mb-4 text-sm font-semibold leading-5">Request</h2>
           <div className="space-y-5">
-            <DetailField label="Module">{log?.module || <Dash />}</DetailField>
-            <DetailField label="Request URL">
-              <code className="break-all font-mono text-xs">{log?.operateUrl || <Dash />}</code>
-            </DetailField>
-            <DetailField label="Trace ID">
-              <CopyableId value={log?.traceId} />
-            </DetailField>
-            <DetailField label="Duration">
-              <span className="tabular-nums">{log?.costTime} ms</span>
-            </DetailField>
-            <DetailField label="Operator">{log?.operateName || <Dash />}</DetailField>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+              <OperateLogDetailField label="Module">
+                {operateLogModuleLabel(log?.module) || <Dash />}
+              </OperateLogDetailField>
+              <OperateLogDetailField label="Business Type">
+                <OperateLogBusinessTypeBadge businessType={log?.businessType ?? 5} />
+              </OperateLogDetailField>
+              <OperateLogDetailField label="Request URL">
+                <code className="break-all font-mono text-[13px] font-normal">
+                  {log?.operateUrl || <Dash />}
+                </code>
+              </OperateLogDetailField>
+              <OperateLogDetailField label="Trace ID">
+                <CopyableId value={log?.traceId} />
+              </OperateLogDetailField>
+              <OperateLogDetailField label="Duration">
+                {log?.costTime != null ? `${log.costTime} ms` : <Dash />}
+              </OperateLogDetailField>
+              <OperateLogDetailField label="Operator">
+                {log?.operateName || <Dash />}
+              </OperateLogDetailField>
+            </div>
+            <div className="border-t border-border/60 pt-4">
+              <div className="mb-2 text-xs font-medium capitalize text-muted-foreground">
+                Request Parameters
+              </div>
+              <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md border bg-muted/40 px-3 py-2.5 font-mono text-xs leading-relaxed text-foreground">
+                {redactOperateLogParams(log?.operateParam)}
+              </pre>
+            </div>
           </div>
-        </DetailCard>
+        </section>
 
-        <DetailCard title="Error Info" icon={AlertTriangle}>
-          {log?.errorMsg ? (
+        {log?.errorMsg ? (
+          <section className="rounded-lg border border-border/60 bg-card p-4 text-card-foreground shadow-float">
+            <h2 className="mb-4 text-sm font-semibold leading-5">Error Info</h2>
             <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap break-all rounded bg-destructive/10 p-3 font-mono text-xs leading-5 text-destructive">
               {log.errorMsg}
             </pre>
-          ) : (
-            <EmptyStateBlock
-              title="No error recorded"
-              description="This operation finished without an error entry."
-            />
-          )}
-        </DetailCard>
+          </section>
+        ) : null}
       </div>
     </div>
   );

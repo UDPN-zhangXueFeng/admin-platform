@@ -20,7 +20,7 @@ import {
   CircleCheck,
   CirclePause,
   Info,
-  MoreHorizontal,
+  MoreVertical,
   Plus,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -225,7 +225,7 @@ function DetailField({
 }) {
   return (
     <div className="space-y-1">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="text-xs font-medium capitalize text-muted-foreground">
         {label}
       </p>
       <div className="text-sm text-foreground">{children}</div>
@@ -504,7 +504,7 @@ export function TokenPairListPage() {
         id: 'createdOn',
         header: () => (
           <ProtoSortHeader
-            label="Created on (UTC+8)"
+            label="Created on"
             columnKey="createdOn"
             toggle={toggle}
             sortState={sortState('createdOn')}
@@ -556,7 +556,7 @@ export function TokenPairListPage() {
             );
           }
           return (
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
               <Button
                 variant="link"
                 size="sm"
@@ -574,7 +574,7 @@ export function TokenPairListPage() {
                       className="h-8 w-8 p-0"
                       aria-label={`Actions for token pair ${item.pairCode}`}
                     >
-                      <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                      <MoreVertical className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">{menuItems}</DropdownMenuContent>
@@ -1212,7 +1212,7 @@ export function TokenPairCreatePage() {
 const operationsColumns: ColumnDef<{ id: string } & Record<string, string>>[] = [
   {
     id: 'timestamp',
-    header: 'Timestamp (UTC+8)',
+    header: 'Timestamp',
     cell: ({ row }) => (
       <span className="tabular-nums">{row.original.timestamp}</span>
     ),
@@ -1252,7 +1252,7 @@ const participationColumns: ColumnDef<Omit<LpPairRow, 'id'> & { id: string }>[] 
   },
   {
     id: 'baseRate',
-    header: 'Base Rate',
+    header: () => <div className="text-right">Base Rate</div>,
     cell: ({ row }) => (
       <span className="block text-right tabular-nums">
         {row.original.baseRate == null ? <Dash /> : formatRate(row.original.baseRate)}
@@ -1261,7 +1261,7 @@ const participationColumns: ColumnDef<Omit<LpPairRow, 'id'> & { id: string }>[] 
   },
   {
     id: 'markupRate',
-    header: 'Markup Rate',
+    header: () => <div className="text-right">Markup Rate</div>,
     cell: ({ row }) => (
       <span className="block text-right tabular-nums">
         {row.original.markupRate == null ? (
@@ -1274,7 +1274,7 @@ const participationColumns: ColumnDef<Omit<LpPairRow, 'id'> & { id: string }>[] 
   },
   {
     id: 'clientRate',
-    header: 'Client Rate',
+    header: () => <div className="text-right">Client Rate</div>,
     cell: ({ row }) => {
       const v = clientRateOf(row.original.baseRate, row.original.markupRate);
       return (
@@ -1286,7 +1286,7 @@ const participationColumns: ColumnDef<Omit<LpPairRow, 'id'> & { id: string }>[] 
   },
   {
     id: 'lpRevShare',
-    header: 'LP Rev. Share',
+    header: () => <div className="text-right">LP Rev. Share</div>,
     cell: ({ row }) => {
       const override = Number(row.original.splitRatio);
       const ratio =
@@ -1315,7 +1315,7 @@ const participationColumns: ColumnDef<Omit<LpPairRow, 'id'> & { id: string }>[] 
   },
   {
     id: 'createdOn',
-    header: 'Created on (UTC+8)',
+    header: 'Created on',
     cell: ({ row }) => (
       <span className="tabular-nums">
         {formatUtc8(row.original.createTime)}
@@ -1487,7 +1487,7 @@ export function TokenPairDetailPage() {
                   )}
                 </span>
               </DetailField>
-              <DetailField label="Created on (UTC+8)">
+              <DetailField label="Created on">
                 <span className="tabular-nums">
                   {formatUtc8(record.createTime)}
                 </span>

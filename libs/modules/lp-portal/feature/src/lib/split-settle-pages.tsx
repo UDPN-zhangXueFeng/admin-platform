@@ -349,7 +349,7 @@ function SummaryCell({
 }) {
   return (
     <div className="rounded-lg border border-border/60 bg-card p-4">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="text-xs font-medium capitalize text-muted-foreground">
         {label}
       </div>
       <div className="mt-2 text-xl font-bold tabular-nums">{children}</div>
@@ -891,7 +891,7 @@ function EffectiveTabSection({ ctx }: { ctx: PairContext }) {
         accessorKey: 'syncTime',
         header: () => (
           <ProtoSortHeader
-            label="Synced on (UTC+8)"
+            label="Synced on"
             columnKey="syncTime"
             toggle={toggle}
             sortState={sortState('syncTime')}
@@ -1131,7 +1131,7 @@ function DetailsTabSection({
         accessorKey: 'completedTime',
         header: () => (
           <ProtoSortHeader
-            label="Completed on (UTC+8)"
+            label="Completed on"
             columnKey="completedTime"
             toggle={toggle}
             sortState={sortState('completedTime')}
@@ -1308,7 +1308,7 @@ function StatementsTabSection({
       {
         // GAP-LP-12：periodStart/End → Period Range（UTC+8，X to Y）
         accessorKey: 'periodStart',
-        header: 'Period Range (UTC+8)',
+        header: 'Period Range',
         cell: ({ row }) => (
           <span className="block min-w-[320px] whitespace-nowrap font-mono text-xs tabular-nums">
             {formatUtc8(row.original.periodStart)} to{' '}
@@ -1340,7 +1340,7 @@ function StatementsTabSection({
         // GAP-LP-12：后端无 generatedAt（syncTime 为数据同步时间，非出单
         // 时间）→ 显 '-'；后端补字段后切换。
         id: 'generatedOn',
-        header: 'Generated on (UTC+8)',
+        header: 'Generated on',
         cell: () => <span className="text-muted-foreground">-</span>,
       },
       {
@@ -1508,7 +1508,7 @@ function StatementDetailView({ orderKey }: { orderKey: string }) {
             <Item label="Settlement Cycle">
               {SETTLE_PERIOD_TYPE_LABEL[order.periodType] ?? order.periodType}
             </Item>
-            <Item label="Period Range (UTC+8)">
+            <Item label="Period Range">
               <span className="font-mono text-xs tabular-nums">
                 {formatUtc8(order.periodStart)} to {formatUtc8(order.periodEnd)}
               </span>
@@ -1790,7 +1790,7 @@ function RecordsTable({
       },
       {
         accessorKey: 'completedTime',
-        header: 'Completed on (UTC+8)',
+        header: 'Completed on',
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums">
             {formatUtc8(row.original.completedTime)}

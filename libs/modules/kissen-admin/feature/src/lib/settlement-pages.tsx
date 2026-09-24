@@ -10,7 +10,7 @@ import {
   Building2,
   Calendar,
   Coins,
-  MoreHorizontal,
+  MoreVertical,
   Plus,
   Send,
 } from 'lucide-react';
@@ -112,7 +112,7 @@ function DetailField({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <label className="text-xs font-medium capitalize text-muted-foreground">
         {label}
       </label>
       <div className="text-sm text-foreground">{children}</div>
@@ -305,7 +305,7 @@ export function SettleOrderListPage() {
         id: 'periodRange',
         header: () => (
           <ProtoSortHeader
-            label="Period Range (UTC+8)"
+            label="Period Range"
             columnKey="periodRange"
             toggle={toggle}
             sortState={sortState('periodRange')}
@@ -353,7 +353,7 @@ export function SettleOrderListPage() {
         id: 'createdOn',
         header: () => (
           <ProtoSortHeader
-            label="Created on (UTC+8)"
+            label="Created on"
             columnKey="createdOn"
             toggle={toggle}
             sortState={sortState('createdOn')}
@@ -371,7 +371,7 @@ export function SettleOrderListPage() {
           // 原型：Details 常显 + ⋮ 菜单（仅 Pending Confirmation：
           // Submit for Approval / Void danger）。
           return (
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
               <Button
                 variant="link"
                 size="sm"
@@ -391,7 +391,7 @@ export function SettleOrderListPage() {
                       className="h-8 w-8 p-0"
                       aria-label={`Actions for statement ${item.orderId}`}
                     >
-                      <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                      <MoreVertical className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -636,7 +636,7 @@ const TX_STATUS_TONE: Record<number, ProtoStatusTone> = {
 
 /** 操作留痕列契约（原型 operations Tab 五列）。 */
 const SETTLE_OPERATION_COLUMNS: ColumnDef<{ id: string }>[] = [
-  { accessorKey: 'timestamp', header: 'Timestamp (UTC+8)' },
+  { accessorKey: 'timestamp', header: 'Timestamp' },
   { accessorKey: 'operator', header: 'Operator' },
   { accessorKey: 'module', header: 'Module' },
   { accessorKey: 'status', header: 'Status' },
@@ -887,7 +887,7 @@ export function SettleOrderDetailPage() {
       },
       {
         id: 'createdOn',
-        header: 'Created on (UTC+8)',
+        header: 'Created on',
         cell: ({ row }) => (
           <span className="tabular-nums">{formatUtc8(row.original.createTime)}</span>
         ),

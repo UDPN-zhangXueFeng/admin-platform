@@ -8,8 +8,7 @@
  *   状态/创建日期区间/源/目标银行）+ 全列可排序（Tokens/From/To 除外）+
  *   Completed on (UTC+8) 真实列（completedTime，0=未完成 → Dash）。
  * - TxDetailPage：/transfer/tx/detail?id=。左 8/12（Settlement Overview /
- *   Transaction Information / Timing）+ 右 4/12（Clearance Pipeline 七节点
- *   时间线 + Transaction Chain 事件时间轴）。
+ *   Transaction Information / Timing）+ 右 4/12（Clearance Pipeline 七节点）。
  * - ResolveDialog（EXCEPTION 70 行处置）与 TransactionStatusAlert（真实
  *   failReason 载体）保留。
  *
@@ -34,8 +33,7 @@ import {
   Clock3,
   Copy,
   FileText,
-  Link2,
-  MoreHorizontal,
+  MoreVertical,
   Repeat,
   Workflow,
   X,
@@ -47,7 +45,6 @@ import {
   AlertTitle,
   Badge,
   Button,
-  CopyableEllipsisText,
   DataTable,
   Dialog,
   DialogContent,
@@ -84,14 +81,12 @@ import {
   TX_STATUS_OPTIONS,
   useResolveTransactionMutation,
   useTransactionBankOptionsQuery,
-  useTransactionChainQuery,
   useTransactionDetailQuery,
   useTransactionListQuery,
   useTransactionLpOptionsQuery,
   useTransactionPairOptionsQuery,
   useTokenMeta,
   type TransactionDetailRow,
-  type TransactionFlowEvent,
   type TransactionPageFilter,
   type TransactionRow,
 } from '@myorg/modules/kissen-admin/data-access';
@@ -133,17 +128,7 @@ function fmtAmount(
   return sym && text !== '-' ? `${text} ${sym}` : text;
 }
 
-/** 链路金额的率展示（汇率不是 token 金额，固定 8 位）。 */
-function fmtRate(v: number | string | null | undefined): string {
-  return formatAmount(v, 8);
-}
 
-/** 毫秒时间戳 → 统一管理台时间格式；0/null/undefined/非法 → '-'。 */
-function formatTime(ms: number | null | undefined): string {
-  if (!ms || !Number.isFinite(Number(ms))) return '-';
-  const d = new Date(Number(ms));
-  return Number.isNaN(d.getTime()) ? '-' : formatAdminDateTime(d);
-}
 
 function pairText(source?: string, target?: string): string {
   return source && target ? `${source}→${target}` : '-';
@@ -300,280 +285,6 @@ const TX_STATUS_TONE: Record<number, ProtoStatusTone> = {
   90: 'danger', // Failed
 };
 
-/* ================================================================== */
-/* 链路：单时间轴业务化视图（真实 API 事件流驱动，详情右栏保留）          */
-/* ================================================================== */
-
-/** 落点状态 → 节点标题（业务口径命名，替代技术性的「X → Y」）。 */
-const NODE_TITLES: Record<number, string> = {
-  5: 'Quote Accepted',
-  10: 'User Confirmed',
-  20: 'Source Transfer Initiated',
-  25: 'Source Arrival Verified',
-  30: 'Disbursement Initiated',
-  35: 'Payout Completed',
-  40: 'Payout Completed',
-  50: 'Reversal Initiated',
-  60: 'Reversal Completed',
-  70: 'Escalated to Manual Handling',
-  80: 'Transaction Cancelled',
-  90: 'Transaction Failed',
-};
-
-/** 在途状态：最新节点带「进行中」角标 + 呼吸动画（源 IN_FLIGHT_STATUSES）。 */
-const CHAIN_IN_FLIGHT: Record<number, true> = {
-  1: true,
-  5: true,
-  10: true,
-  20: true,
-  25: true,
-  30: true,
-  50: true,
-};
-
-/**
- * 根节点技术串过滤：上游以「含非 ASCII」判别中文业务文案（"quote v1" 类技术串不上）。
- * 英文环境下改为按已知技术串模式过滤（quote vN / vN），其余 root remark 全保留。
- */
-const TECHNICAL_ROOT_REMARK_RE = /^(quote\s*)?v?\d+$/i;
-
-interface ChainGroup {
-  key: string;
-  /** 落点状态（根节点 statusTo；0 = 无状态迁移的孤立组）。 */
-  to: number;
-  time: number;
-  operator: string;
-  title: string;
-  /** 金额汇总行（按落点状态三端口径；空串不渲染）。 */
-  money: string;
-  csTxIds: string[];
-  remarks: string[];
-}
-
-/** 动作类节点标题：remark 首段（按常见中英文标点切分）截 24 字。 */
-function actionTitle(remark: string): string {
-  const firstSeg = remark.split(/[::,,。。;;\n]/)[0] ?? '';
-  const text = firstSeg.trim();
-  return text.length > 24 ? `${text.slice(0, 24)}…` : text;
-}
-
-/** 组标题：状态迁移取 NODE_TITLES，否则取首事件 remark 首段。 */
-function groupTitle(to: number, firstRemark: string): string {
-  if (to > 0) return NODE_TITLES[to] ?? `Status ${to}`;
-  return actionTitle(firstRemark) || 'Event';
-}
-
-/**
- * 金额汇总行（源 money 行口径）：报价=LP+双边金额+率；20/25=源端；30/35/40=目标端。
- * decOf：tokenCode → decimalDigits（金额按 token 精度）；率固定 8 位（fmtRate）。
- */
-function groupMoney(
-  to: number,
-  detail: TransactionDetailRow,
-  decOf: (key?: string | null) => number,
-): string {
-  if (to === 5) {
-    const parts = [
-      detail.lpName,
-      fmtAmount(
-        detail.principal,
-        detail.sourceCurrency || undefined,
-        decOf(detail.sourceCurrency),
-      ),
-      fmtAmount(
-        detail.receiverAmount,
-        detail.targetCurrency || undefined,
-        decOf(detail.targetCurrency),
-      ),
-    ];
-    const userRate = fmtRate(detail.userRate);
-    if (detail.sourceCurrency && detail.targetCurrency && userRate !== '-') {
-      parts.push(`1 ${detail.sourceCurrency} ≈ ${userRate} ${detail.targetCurrency}`);
-    }
-    return parts.filter(Boolean).join(' · ');
-  }
-  if (to === 20 || to === 25) {
-    return fmtAmount(
-      detail.userDeduction,
-      detail.sourceCurrency || undefined,
-      decOf(detail.sourceCurrency),
-    );
-  }
-  if (to === 30 || to === 35 || to === 40) {
-    return fmtAmount(
-      detail.receiverAmount,
-      detail.targetCurrency || undefined,
-      decOf(detail.targetCurrency),
-    );
-  }
-  return '';
-}
-
-/**
- * 事件流 → 单时间轴分组（源 chainTimeline 算法 1:1 移植）：
- * - 按 eventTime 升序（次序 flowId）；
- * - 状态迁移根节点（nodeType=1 且 statusTo>0 且 statusFrom≠statusTo）开新组；
- *   自环标记（statusFrom===statusTo）跳过，其后续动作并入前一节点；
- * - 其余事件（动作/报文/重试）并入当前组：csTxId 去重收集、remark 去重收集；
- * - 首事件无组时开 to=0 组。
- */
-function buildChainGroups(
-  events: TransactionFlowEvent[],
-  detail: TransactionDetailRow,
-  decOf: (key?: string | null) => number,
-): ChainGroup[] {
-  const sorted = [...events].sort((a, b) => a.eventTime - b.eventTime || a.flowId - b.flowId);
-  const groups: ChainGroup[] = [];
-  for (const ev of sorted) {
-    const isRoot =
-      ev.nodeType === 1 && ev.statusTo > 0 && ev.statusFrom !== ev.statusTo;
-    if (ev.nodeType === 1 && ev.statusTo > 0 && ev.statusFrom === ev.statusTo) {
-      continue; // 自环标记节点跳过（如存量 25→25）
-    }
-    if (isRoot || groups.length === 0) {
-      const to = isRoot ? ev.statusTo : 0;
-      groups.push({
-        key: `g${ev.flowId}`,
-        to,
-        time: ev.eventTime,
-        operator: ev.operator,
-        title: groupTitle(to, ev.remark),
-        money: '',
-        csTxIds: ev.csTxId ? [ev.csTxId] : [],
-        remarks: isRoot && ev.remark && !TECHNICAL_ROOT_REMARK_RE.test(ev.remark.trim())
-          ? [ev.remark]
-          : [],
-      });
-      continue;
-    }
-    const last = groups[groups.length - 1];
-    if (ev.csTxId && !last.csTxIds.includes(ev.csTxId)) last.csTxIds.push(ev.csTxId);
-    if (ev.remark && !last.remarks.includes(ev.remark)) last.remarks.push(ev.remark);
-    if (!last.title || last.title === 'Event') last.title = actionTitle(ev.remark);
-  }
-  for (const g of groups) {
-    g.money = groupMoney(g.to, detail, decOf);
-    // 凭证补齐：25 补源端凭证、35/40 补目标端凭证（源 chainTimeline csTxIds 合并）。
-    const extra =
-      g.to === 25 ? detail.sourceCsTxId : g.to === 35 || g.to === 40 ? detail.targetCsTxId : '';
-    if (extra && !g.csTxIds.includes(extra)) g.csTxIds.unshift(extra);
-  }
-  return groups;
-}
-
-/** 节点色调（源 nodeTone）：成功绿 / 失败红 / 冲正黄 / 中性灰 / 其余主色。 */
-function chainDotClass(to: number): string {
-  if (to === 35 || to === 40) return 'bg-[var(--ks-clearing,#0b6b53)]';
-  if (to === 90 || to === 70) return 'bg-destructive';
-  if (to === 50) return 'bg-amber-600';
-  if (to === 60 || to === 80) return 'bg-muted-foreground';
-  return 'bg-primary';
-}
-
-/** remark 内 `lpId=N` 回退显示：N 等于交易 LP 时替换为 LP 名（源 pretty 规则）。 */
-function prettyRemark(remark: string, detail: TransactionDetailRow): string {
-  return remark.replace(/\blpId=(\d+)\b/g, (m, id: string) =>
-    Number(id) === detail.lpId && detail.lpName ? `LP ${detail.lpName}` : m,
-  );
-}
-
-/** 交易链路单时间轴（源 el-timeline 等价）：标题/金额/凭证 chip/描述/时间。 */
-function TransactionChainView({
-  detail,
-  events,
-}: {
-  detail: TransactionDetailRow;
-  events: TransactionFlowEvent[];
-}) {
-  // tokenCode → decimalDigits：链路金额按 token 精度（4609208）。
-  const { decimalsOf: decOf } = useTokenMeta(KISSEN_PROJECT_ID);
-  const groups = React.useMemo(
-    () => buildChainGroups(events, detail, decOf),
-    [events, detail, decOf],
-  );
-
-  if (groups.length === 0) {
-    return <p className="text-sm text-muted-foreground">No chain data</p>;
-  }
-
-  const live = CHAIN_IN_FLIGHT[detail.status] === true;
-
-  return (
-    <ol className="m-0 list-none space-y-0 p-0">
-      {groups.map((g, i) => {
-        const isLast = i === groups.length - 1;
-        const showLive = live && isLast;
-        return (
-          <li
-            key={g.key}
-            className="relative border-l border-border pl-4 pb-4 last:pb-0"
-          >
-            <span
-              aria-hidden
-              className={cn(
-                'absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full',
-                chainDotClass(g.to),
-                showLive && 'animate-pulse',
-              )}
-            />
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                <span className="text-sm font-semibold">{g.title}</span>
-                {showLive && (
-                  <Badge variant="secondary" className="animate-pulse">
-                    In Progress
-                  </Badge>
-                )}
-              </div>
-              <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                {formatTime(g.time)}
-              </span>
-            </div>
-            {g.money && (
-              <div className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
-                {g.money}
-              </div>
-            )}
-            {g.operator && (
-              <div className="mt-0.5 text-xs text-muted-foreground">
-                Operator: {g.operator}
-              </div>
-            )}
-            {g.csTxIds.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {g.csTxIds.map((id) => (
-                  <span
-                    key={id}
-                    className="inline-flex max-w-full items-center rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5"
-                  >
-                    <CopyableEllipsisText
-                      value={id}
-                      maxWidth={140}
-                      copyLabel="Copy credential"
-                      className="font-mono text-xs"
-                    />
-                  </span>
-                ))}
-              </div>
-            )}
-            {g.remarks.length > 0 && (
-              <div className="mt-1.5 space-y-0.5">
-                {g.remarks.map((r) => (
-                  <p
-                    key={r}
-                    className="m-0 break-all text-xs text-muted-foreground/80"
-                  >
-                    {prettyRemark(r, detail)}
-                  </p>
-                ))}
-              </div>
-            )}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
 
 /* ================================================================== */
 /* 通用展示组件                                                        */
@@ -903,7 +614,7 @@ function TxDetailField({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <label className="text-xs font-medium capitalize text-muted-foreground">
         {label}
       </label>
       <div className="text-sm text-foreground">{children}</div>
@@ -956,9 +667,9 @@ function TxNotFoundCard() {
 }
 
 /**
- * 交易详情独立页（/transfer/tx/detail?id=）：detail 与 chain 并行拉取。
+ * 交易详情独立页（/transfer/tx/detail?id=）：加载交易详情。
  * 左 8/12 = Settlement Overview / Transaction Information / Timing；
- * 右 4/12 = Clearance Pipeline（7 节点干线）+ Transaction Chain（事件流）。
+ * 右 4/12 = Clearance Pipeline（7 节点干线）。
  */
 export function TxDetailPage() {
   const router = useRouter();
@@ -970,10 +681,6 @@ export function TxDetailPage() {
 
   // hasId 为假时传 undefined：query 层 enabled 门禁不发起请求。
   const detailQuery = useTransactionDetailQuery(
-    KISSEN_PROJECT_ID,
-    hasId ? txId : undefined,
-  );
-  const { data: chain, isLoading: chainLoading } = useTransactionChainQuery(
     KISSEN_PROJECT_ID,
     hasId ? txId : undefined,
   );
@@ -1275,12 +982,12 @@ export function TxDetailPage() {
               <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                 <TxSectionHeader icon={Clock3} title="Timing" />
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 p-6 md:grid-cols-3">
-                  <TxDetailField label="Created on (UTC+8)">
+                  <TxDetailField label="Created on">
                     <span className="tabular-nums">
                       {formatUtc8(detail.createTime)}
                     </span>
                   </TxDetailField>
-                  <TxDetailField label="Completed on (UTC+8)">
+                  <TxDetailField label="Completed on">
                     <span className="tabular-nums">
                       {detail.completedTime > 0 ? (
                         formatUtc8(detail.completedTime)
@@ -1298,7 +1005,7 @@ export function TxDetailPage() {
               </section>
             </div>
 
-            {/* 右 4/12：Clearance Pipeline + Transaction Chain。 */}
+            {/* 右 4/12：Clearance Pipeline。 */}
             <div className="flex min-w-0 flex-col gap-4 xl:col-span-4">
               <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                 <header className="border-b border-border px-6 py-4">
@@ -1472,24 +1179,6 @@ export function TxDetailPage() {
                 </div>
               </section>
 
-              {/* Transaction Chain：真实 API 事件流（链路凭证/留痕的超集展示）。 */}
-              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                <TxSectionHeader icon={Link2} title="Transaction Chain" />
-                <div className="p-6">
-                  {chainLoading && !chain ? (
-                    <div className="space-y-2">
-                      {Array.from({ length: 3 }).map((_, i) => (
-                        <Skeleton key={i} className="h-16 w-full rounded-lg" />
-                      ))}
-                    </div>
-                  ) : (
-                    <TransactionChainView
-                      detail={detail}
-                      events={chain?.events ?? []}
-                    />
-                  )}
-                </div>
-              </section>
             </div>
           </div>
         </>
@@ -1831,7 +1520,7 @@ function TransactionListCore() {
         id: 'createdOn',
         header: () => (
           <ProtoSortHeader
-            label="Created on (UTC+8)"
+            label="Created on"
             columnKey="createdOn"
             toggle={toggle}
             sortState={sortState("createdOn")}
@@ -1848,7 +1537,7 @@ function TransactionListCore() {
         id: 'completedOn',
         header: () => (
           <ProtoSortHeader
-            label="Completed on (UTC+8)"
+            label="Completed on"
             columnKey="completedOn"
             toggle={toggle}
             sortState={sortState("completedOn")}
@@ -1890,10 +1579,10 @@ function TransactionListCore() {
                     <Button
                       variant="ghost"
                       size="iconSm"
-                      className="ml-1"
+                      className="ml-2"
                       aria-label="More actions"
                     >
-                      <MoreHorizontal className="size-4" aria-hidden="true" />
+                      <MoreVertical className="size-4" aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">

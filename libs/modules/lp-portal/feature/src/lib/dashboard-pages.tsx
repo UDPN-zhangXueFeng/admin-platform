@@ -176,7 +176,7 @@ const LBL = {
   colTxNo: 'Transaction No.',
   colAmount: 'Amount',
   colFxRate: 'FX Rate',
-  colCreated: 'Created on (UTC+8)',
+  colCreated: 'Created on',
   badgePoolNotReady: 'Pool not ready',
   badgePreauthSet: 'Pre-authorization set',
   pairsShowing: 'Showing {count} of {total} pairs',
@@ -1481,7 +1481,7 @@ export function DashboardPage() {
           <div className="flex shrink-0 items-center gap-3">
             {asOf > 0 ? (
               <span className="t-supporting whitespace-nowrap tabular-nums text-muted-foreground">
-                {`${LBL.asOf} ${formatUtc8(asOf)} (UTC+8)`}
+                {`${LBL.asOf} ${formatUtc8(asOf)}`}
               </span>
             ) : null}
             <Button

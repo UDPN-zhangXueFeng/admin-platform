@@ -23,7 +23,7 @@ import {
   Copy,
   Info,
   KeyRound,
-  MoreHorizontal,
+  MoreVertical,
 } from 'lucide-react';
 import type { TableRowAction } from '@myorg/shared/ui';
 
@@ -634,7 +634,7 @@ export function TokenManageListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Registered on (UTC+8)',
+        header: 'Registered on',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatUtc8(row.original.createTime)}
@@ -1180,7 +1180,7 @@ export function HeartbeatHistoryDrawer({
     () => [
       {
         accessorKey: 'probeTime',
-        header: 'Time (UTC+8)',
+        header: 'Time',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatUtc8(row.original.probeTime)}
@@ -1558,7 +1558,7 @@ export function GatewayInstanceListPage() {
       },
       {
         accessorKey: 'lastHeartbeatTime',
-        header: 'Last Heartbeat (UTC+8)',
+        header: 'Last Heartbeat',
         meta: { overflow: 'none' },
         cell: ({ row }) => (
           <span className="tabular-nums">
@@ -1600,7 +1600,7 @@ export function GatewayInstanceListPage() {
                     className="h-8 w-8 p-0"
                     aria-label={`Actions for ${item.instanceCode || item.instanceId}`}
                   >
-                    <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                    <MoreVertical className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

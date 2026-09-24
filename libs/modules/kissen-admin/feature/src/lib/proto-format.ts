@@ -2,39 +2,42 @@
  * 原型口径展示格式化（源 kissen_prototype KNMS `client/src/lib/formatters.js` 与
  * FxTransactionDetailsPage 的 formatDuration；方案 12 §3 横切规范）。
  *
- * 与 ./format.ts 的分工：formatAmount 负责千分位 + 固定位小数 HALF_UP（法币金额口径）；
- * 本文件补原型口径的其余展示原语 —— UTC+8 字面量时间、汇率、token 数量（按精度去尾零）、
+ * 本文件补原型口径的其余展示原语 —— 本地时区时间、汇率、token 数量（按精度去尾零）、
  * 百分比（去尾零）、自适应时长。空值统一 '-'（U+002D，方案 §3：禁止 '—' / 'N/A' / 留白）。
  */
 
 import { formatAmount } from './format';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 
-/** UTC+8 展示偏移毫秒数（方案 §3：时间口径为 UTC+8 字面量，不随浏览器时区）。 */
-const UTC8_OFFSET_MS = 8 * 60 * 60 * 1000;
+/** 旧导出名保留；时间按当前查看者本地时区格式化并附带 UTC offset。 */
 
 /**
- * 毫秒时间戳 → UTC+8 字面量 'YYYY-MM-DD HH:mm:ss'。
- *
- * 原型口径（KNMS AGENTS §2.5 + 方案 12 §3）：列表列头声明 `(UTC+8)`、单元格只渲染
- * 去时区字面量，展示层统一为 UTC+8 字面量保证对账可比，不随浏览器时区漂移。
+ * 毫秒时间戳 → `Sep 2, 2026, 09:09:10 (UTC+8)`；offset 按当前查看者时区动态显示。
  *
  * - 0 / null / undefined / 非法 → '-'（与既有 formatTime 空值口径一致）
  * - 字符串数字容忍（后端个别端点返回字符串毫秒）
- *
- * @param value - Millisecond epoch (number, or numeric string)
- * @returns UTC+8 literal datetime, e.g. formatUtc8(1758350400000) => '2026-09-20 16:00:00'
  */
 export function formatUtc8(value: number | string | null | undefined): string {
   if (value === null || value === undefined || value === '') return '-';
   const ms = Number(value);
   if (!ms || !Number.isFinite(ms)) return '-';
-  // 先整体 +8h 再取 UTC 分量：输出恒为 UTC+8 字面量，与运行环境时区无关。
-  const shifted = new Date(ms + UTC8_OFFSET_MS);
-  if (Number.isNaN(shifted.getTime())) return '-';
-  const p = (n: number) => String(n).padStart(2, '0');
-  const date = `${shifted.getUTCFullYear()}-${p(shifted.getUTCMonth() + 1)}-${p(shifted.getUTCDate())}`;
-  const time = `${p(shifted.getUTCHours())}:${p(shifted.getUTCMinutes())}:${p(shifted.getUTCSeconds())}`;
-  return `${date} ${time}`;
+  const date = new Date(ms);
+  return Number.isNaN(date.getTime()) ? '-' : formatAdminDateTime(date);
+}
+
+/** UTC+8 日期键仅用于保留现有日期筛选边界，不用于页面时间展示。 */
+export function formatUtc8DateKey(
+  value: number | string | null | undefined,
+): string {
+  if (value === null || value === undefined || value === '') return '-';
+  const ms = Number(value);
+  if (!ms || !Number.isFinite(ms)) return '-';
+  const date = new Date(ms + 8 * 60 * 60 * 1000);
+  if (Number.isNaN(date.getTime())) return '-';
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(
+    date.getUTCDate(),
+  )}`;
 }
 
 /**

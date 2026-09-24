@@ -231,7 +231,7 @@ function DetailField({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <dt className="text-xs font-medium capitalize text-muted-foreground">
         {label}
       </dt>
       <dd className="mt-1 min-w-0 break-all text-sm font-semibold">

@@ -51,7 +51,7 @@ import { PageHead } from './page-head';
 import {
   ChevronLeft,
   Loader2,
-  MoreHorizontal,
+  MoreVertical,
   ShieldCheck,
   Trash2,
 } from 'lucide-react';
@@ -110,7 +110,7 @@ const ROLE_COLUMNS: ProtoColumnDef[] = [
   { id: 'description', label: 'Description' },
   /* STATIC-FILLER(GAP-GW-07): Users / Menus 计数列（原型 userCount / menuCount）
    * 无聚合端点，先整列省略，端点就绪后补列。 */
-  { id: 'createdAt', label: 'Created on (UTC+8)' },
+  { id: 'createdAt', label: 'Created on' },
   { id: 'status', label: 'Status', required: true },
   { id: 'actions', label: 'Actions', required: true },
 ];
@@ -679,7 +679,7 @@ export function RoleListPage() {
       },
       {
         id: 'createdAt',
-        header: 'Created on (UTC+8)',
+        header: 'Created on',
         cell: ({ row }) => (
           <span className="whitespace-nowrap tabular-nums">
             {formatUtc8(row.original.createTime)}
@@ -709,7 +709,7 @@ export function RoleListPage() {
           const r = row.original;
           const builtIn = r.roleType === ROLE_TYPE_BUILTIN;
           return (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Button
                 variant="link"
                 size="sm"
@@ -728,7 +728,7 @@ export function RoleListPage() {
                     className="size-8"
                     aria-label="More actions"
                   >
-                    <MoreHorizontal className="size-4" aria-hidden="true" />
+                    <MoreVertical className="size-4" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

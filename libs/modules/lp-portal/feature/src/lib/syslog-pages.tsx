@@ -11,9 +11,8 @@
  *   Module 全集 = User Management / Liquidity Pool / Token Pair / Authentication；
  * - Status（Success/Failed，展示名 Status，接口字段仍 status 0/1）；
  * - 详情为独立页面（不再用行展开）：列表 Details 先暂存行再跳转；
- * - 详情版式照 KNMS：单层页头（← Back + 标题 + 结果徽章 +
- *   `Trace ID | Timestamp` 元信息行）→ 双卡 Request + Error Info；
- *   Log ID / Request Parameters 不展示（LP requestParams 恒 null）。
+ * - 详情：单层页头 → 单卡 Request；参数区保留，`operateParam` 有值时脱敏展示、缺省为 `-`；
+ *   仅在 `errorMsg` 非空时显示 Error Info。
  *
  * 仓库体系映射：shared DataTable + useProtoSort + ProtoStatusBadge +
  * CopyableId + formatUtc8/formatDuration；时间列头 (UTC+8)。
@@ -142,6 +141,27 @@ function peekLogRow(logKey: string): LogRow | null {
   }
 }
 
+const LOG_REDACT_KEY_PATTERN = /pass(word)?|token|secret|credential/i;
+const LOG_REDACTED_VALUE = '••••••••';
+
+function redactLogParams(raw: string | null | undefined): string {
+  if (!raw) return '-';
+  try {
+    return JSON.stringify(
+      JSON.parse(raw),
+      (key, value) =>
+        key && LOG_REDACT_KEY_PATTERN.test(key) ? LOG_REDACTED_VALUE : value,
+      2,
+    );
+  } catch {
+    return raw;
+  }
+}
+
+function logModuleLabel(module?: string): string | undefined {
+  return module?.toUpperCase() === 'LOGIN' ? '登录管理' : module;
+}
+
 /* ================================================================== */
 /* 单元渲染                                                             */
 /* ================================================================== */
@@ -166,12 +186,24 @@ const BIZ_BADGE: Record<
  * 业务类型 tag（源 bizText/bizTagType 组合语义：
  * businessType 缺省 → '-' 纯文本；已知码走五色码表；未知码兜底 'Other'+info）。
  */
-function BizTag({ code }: { code?: number }) {
+function BizTag({
+  code,
+  label,
+  className,
+}: {
+  code?: number;
+  label?: string;
+  className?: string;
+}) {
   if (code == null) {
     return <span>-</span>;
   }
   const style = BIZ_BADGE[LOG_BIZ_TAG[code] ?? 'info'] ?? BIZ_BADGE.info;
-  return <Badge {...style}>{LOG_BIZ_TEXT[code] ?? 'Other'}</Badge>;
+  return (
+    <Badge {...style} className={className ?? style.className}>
+      {label ?? LOG_BIZ_TEXT[code] ?? 'Other'}
+    </Badge>
+  );
 }
 
 /** 结果徽章（status 0 → Success/success；1 → Failed/danger；未知码兜底原值）。 */
@@ -265,7 +297,7 @@ export function SyslogListPage() {
         accessorKey: 'operateTime',
         header: () => (
           <ProtoSortHeader
-            label="Time (UTC+8)"
+            label="Time"
             columnKey="time"
             toggle={toggle}
             sortState={sortState('time')}
@@ -497,7 +529,7 @@ function DetailField({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <dt className="text-xs font-medium capitalize text-muted-foreground">
         {label}
       </dt>
       <dd className="mt-1 min-w-0 break-all text-sm font-semibold">
@@ -608,15 +640,23 @@ export function SyslogDetailPage() {
         }
       />
 
-      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+      <div className="space-y-4">
         <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
-          <div className="mb-4 text-sm font-semibold">Request</div>
+          <h2 className="mb-4 text-sm font-semibold">Request</h2>
           <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
             <DetailField label="Module">
-              <Dash value={row.module} />
+              <Dash value={logModuleLabel(row.module)} />
             </DetailField>
             <DetailField label="Business Type">
-              <BizTag code={row.businessType} />
+              <BizTag
+                code={row.businessType}
+                label={row.businessType === 4 ? 'Sign-in' : undefined}
+                className={
+                  row.businessType === 4
+                    ? 'rounded-full border-transparent bg-teal-700 text-white dark:bg-teal-700 dark:text-white'
+                    : undefined
+                }
+              />
             </DetailField>
             <DetailField label="Request URL">
               {row.operateUrl ? (
@@ -637,23 +677,24 @@ export function SyslogDetailPage() {
               <Dash value={row.operateName} />
             </DetailField>
           </dl>
+          <div className="mt-4 border-t border-border/60 pt-4">
+            <div className="mb-2 text-xs font-medium capitalize text-muted-foreground">
+              Request Parameters
+            </div>
+            <pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md border bg-muted/40 px-3 py-2.5 font-mono text-xs leading-relaxed text-foreground">
+              {redactLogParams(row.operateParam)}
+            </pre>
+          </div>
         </section>
 
-        <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
-          <div className="mb-4 text-sm font-semibold">Error Info</div>
-          {row.errorMsg ? (
+        {row.errorMsg ? (
+          <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
+            <h2 className="mb-4 text-sm font-semibold">Error Info</h2>
             <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-red-500/10 p-3 font-mono text-xs leading-5 text-red-600 dark:text-red-400">
               {row.errorMsg}
             </pre>
-          ) : (
-            <div className="py-6 text-center">
-              <div className="text-sm font-semibold">No error recorded</div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                This operation finished without an error entry.
-              </p>
-            </div>
-          )}
-        </section>
+          </section>
+        ) : null}
       </div>
     </div>
   );

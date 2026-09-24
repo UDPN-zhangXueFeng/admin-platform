@@ -419,7 +419,7 @@ function SidebarBrandFooter() {
   if (!sidebar) return null;
 
   return createPortal(
-    <div className="flex h-14 shrink-0 items-center justify-end pr-2">
+    <div className="flex h-14 w-full shrink-0 items-center justify-center border-t border-border/50 bg-card">
       <LogoMark />
     </div>,
     sidebar,

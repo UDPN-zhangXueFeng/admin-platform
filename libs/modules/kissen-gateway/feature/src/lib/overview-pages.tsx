@@ -111,7 +111,7 @@ const LBL = {
   thTxNo: 'Transaction No.',
   thTokens: 'Tokens',
   thAmount: 'Amount',
-  thCreated: 'Created on (UTC+8)',
+  thCreated: 'Created on',
   thStatus: 'Status',
   thActions: 'Actions',
   details: 'Details',
@@ -445,7 +445,7 @@ export function OverviewListPage() {
             ) : null}
             {asOf > 0 ? (
               <span className="t-supporting whitespace-nowrap tabular-nums text-muted-foreground">
-                {`${LBL.asOf} ${formatUtc8(asOf)} (UTC+8)`}
+                {`${LBL.asOf} ${formatUtc8(asOf)}`}
               </span>
             ) : null}
             <Button size="sm" variant="outline" onClick={refetchAll} disabled={anyFetching}>

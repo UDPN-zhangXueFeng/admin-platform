@@ -1,46 +1,25 @@
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
+
 /**
  * 原型口径数值/时间格式化工具（BP demo AGENTS.md §3.14.3；plan/12 §3 落地表）。
  *
  * 与 kit.ts 既有能力零重复：formatTime（查看者本地时区）/ fmtAmount / orDash
- * 保持原职责不变，本文件是「原型口径」的平行层——时间统一 UTC+8 字面量
- * （跨系统对账可比，不随浏览器时区）、汇率 4 位小数不加千分位、token 数量
- * 按精度去尾零、百分比去零、时长单位跟数值走。逐页改造时按需切换到本层。
+ * 保持原职责不变，本文件为原型数值格式化层；时间输出查看者本地时间和对应 UTC
+ * offset，汇率 4 位小数不加千分位、token 数量按精度去尾零、百分比去零、时长
+ * 单位跟数值走。逐页改造时按需切换到本层。
  */
 
-/** 项目固定展示时区（原型 formatters.js DEFAULT_TIMEZONE_LABEL 同源）。 */
-const UTC8_TZ = 'Asia/Shanghai';
-
-/** UTC+8 各分量（en-CA 数字位 + h23，2-digit 补零；避免带逗号的 locale 输出）。 */
-const utc8Formatter = new Intl.DateTimeFormat('en-CA', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hourCycle: 'h23',
-  timeZone: UTC8_TZ,
-});
 
 /**
- * 毫秒时间戳 → UTC+8 字面量 `YYYY-MM-DD HH:mm:ss`（列头声明 `(UTC+8)`，
- * 单元格不带时区；原型 formatters.formatDateTimeForTable 同口径）。
- * 空值口径与 kit.formatTime 一致：null/undefined/0/非有限数 → '-'。
+ * 毫秒时间戳 → 当前查看者本地时区的 `Sep 2, 2026, 09:09:10 (UTC+8)`；
+ * offset 动态显示。空值及非有限值 → '-'。
  */
 export function formatUtc8(ms: number | null | undefined): string {
   if (ms === null || ms === undefined || ms === 0 || !Number.isFinite(ms)) {
     return '-';
   }
   const date = new Date(ms);
-  if (Number.isNaN(date.getTime())) return '-';
-  const parts = utc8Formatter.formatToParts(date).reduce<Record<string, string>>(
-    (acc, part) => {
-      if (part.type !== 'literal') acc[part.type] = part.value;
-      return acc;
-    },
-    {},
-  );
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+  return Number.isNaN(date.getTime()) ? '-' : formatAdminDateTime(date);
 }
 
 /**

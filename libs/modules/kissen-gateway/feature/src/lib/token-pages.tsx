@@ -112,7 +112,7 @@ const TOKEN_COLUMNS: ProtoColumnDef[] = [
   { id: 'chain', label: 'BlockChain' },
   { id: 'tokenCode', label: 'Token Code (Currency System)' },
   { id: 'minLiquidity', label: 'Min. Liquidity' },
-  { id: 'syncedAt', label: 'Synced on (UTC+8)' },
+  { id: 'syncedAt', label: 'Synced on' },
   { id: 'status', label: 'Status', required: true },
   { id: 'actions', label: 'Actions', required: true },
 ];
@@ -682,7 +682,7 @@ export function TokenListPage() {
         id: 'syncedAt',
         header: () => (
           <SortHeader
-            label="Synced on (UTC+8)"
+            label="Synced on"
             direction={sort.key === 'syncedAt' ? sort.direction : null}
             onToggle={() => toggle('syncedAt', 'desc')}
           />
@@ -920,7 +920,7 @@ const TX_TAB_COLUMNS: ColumnDef<{ id: string }>[] = [
   { id: 'tokens', header: 'Tokens' },
   { id: 'from', header: 'From' },
   { id: 'to', header: 'To' },
-  { id: 'createdAt', header: 'Created on (UTC+8)' },
+  { id: 'createdAt', header: 'Created on' },
   { id: 'status', header: 'Status' },
   { id: 'actions', header: 'Actions' },
 ];
@@ -929,7 +929,7 @@ const TX_TAB_COLUMNS: ColumnDef<{ id: string }>[] = [
  * entityType/entityKey 按业务对象关联参数，操作记录 Tab 无法按 token 过滤；
  * 列契约按原型 operations 表落地，数据恒 []（缺口与 GAP-GW-01 同族）。 */
 const OPS_TAB_COLUMNS: ColumnDef<{ id: string }>[] = [
-  { id: 'createdAt', header: 'Timestamp (UTC+8)' },
+  { id: 'createdAt', header: 'Timestamp' },
   { id: 'operation', header: 'Operation' },
   { id: 'result', header: 'Result' },
   { id: 'operator', header: 'Operator' },

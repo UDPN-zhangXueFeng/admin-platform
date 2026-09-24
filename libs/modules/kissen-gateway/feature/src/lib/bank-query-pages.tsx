@@ -239,7 +239,7 @@ export function BankQueryListPage() {
         id: 'pushTime',
         header: () => (
           <SortHeader
-            label="Synced on (UTC+8)"
+            label="Synced on"
             direction={sort.key === 'syncedAt' ? sort.direction : null}
             onToggle={() => toggle('syncedAt', 'desc')}
           />

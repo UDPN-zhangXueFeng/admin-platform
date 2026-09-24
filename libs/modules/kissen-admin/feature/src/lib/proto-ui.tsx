@@ -37,7 +37,7 @@ const COPY_FEEDBACK_MS = 2000;
  * 剪贴板写入：优先 async Clipboard API；LAN http 下 `navigator.clipboard` 为 undefined，
  * 降级 `execCommand('copy')`（原型 copyable-id.jsx 同款降级策略）。
  */
-async function writeClipboard(text: string): Promise<boolean> {
+export async function writeClipboard(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
@@ -194,11 +194,11 @@ export function ActionConfirmDialog({
         // 原型 ActionConfirmDialog：点遮罩不关
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-3">
           {Icon && (
             <span
               className={cn(
-                'mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full',
+                'flex size-10 shrink-0 items-center justify-center rounded-full',
                 tone.circle,
               )}
               aria-hidden="true"
@@ -206,21 +206,23 @@ export function ActionConfirmDialog({
               <Icon className={cn('size-[18px]', tone.icon)} />
             </span>
           )}
-          <div className="min-w-0 flex-1">
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription asChild>
-              <div className="mt-2">
-                {body1 && (
-                  <p className="text-sm font-semibold leading-6 text-foreground">{body1}</p>
-                )}
-                {body2 && (
-                  <p className="mt-3 text-sm leading-5 text-muted-foreground">{body2}</p>
-                )}
-              </div>
-            </DialogDescription>
-          </div>
+          <DialogTitle className="min-w-0">{title}</DialogTitle>
         </div>
-        <DialogFooter className="mt-6 gap-2">
+        <DialogDescription asChild>
+          <div>
+            {body1 && (
+              <p className="text-sm font-semibold leading-6 text-foreground">
+                {body1}
+              </p>
+            )}
+            {body2 && (
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {body2}
+              </p>
+            )}
+          </div>
+        </DialogDescription>
+        <DialogFooter className="gap-2">
           <Button
             variant="outline"
             disabled={loading}

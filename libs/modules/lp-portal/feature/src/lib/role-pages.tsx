@@ -25,7 +25,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft, ListTree, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, ListTree, MoreVertical } from 'lucide-react';
 
 import {
   AlertDialog,
@@ -579,7 +579,7 @@ export function RoleListPage() {
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => (
-          <div className="flex items-center">
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="link"
@@ -604,7 +604,7 @@ export function RoleListPage() {
                   className="h-8 w-8 p-0"
                   aria-label="Row actions"
                 >
-                  <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                  <MoreVertical className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -790,7 +790,7 @@ function DetailField({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <dt className="text-xs font-medium capitalize text-muted-foreground">
         {label}
       </dt>
       <dd className="mt-1 min-w-0 break-all text-sm font-semibold">

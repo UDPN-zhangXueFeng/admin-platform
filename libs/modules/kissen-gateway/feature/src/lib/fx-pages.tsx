@@ -206,7 +206,7 @@ export function FxListPage() {
         id: 'syncedAt',
         header: () => (
           <SortHeader
-            label="Synced on (UTC+8)"
+            label="Synced on"
             direction={sort.key === 'syncedAt' ? sort.direction : null}
             onToggle={() => toggle('syncedAt', 'desc')}
           />
@@ -513,7 +513,7 @@ export function FxDetailPage() {
       },
       {
         id: 'pushTime',
-        header: 'Synced on (UTC+8)',
+        header: 'Synced on',
         cell: ({ row }) => (
           <span className="tabular-nums">{formatUtc8(row.original.pushTime)}</span>
         ),
@@ -561,7 +561,7 @@ export function FxDetailPage() {
         },
         {
           id: 'pushTime',
-          header: 'Synced on (UTC+8)',
+          header: 'Synced on',
           cell: ({ row }) => (
             <span className="tabular-nums">{formatUtc8(row.original.pushTime)}</span>
           ),

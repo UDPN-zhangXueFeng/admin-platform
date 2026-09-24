@@ -56,7 +56,7 @@ import {
   Copy,
   Info,
   LockKeyhole,
-  MoreHorizontal,
+  MoreVertical,
   Percent,
   Plus,
   Send,
@@ -89,6 +89,7 @@ import {
   DropdownMenuTrigger,
   Input,
   Select,
+  SearchableSelect,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -151,6 +152,7 @@ import {
   type ProtoStatusTone,
 } from './proto-ui';
 import {
+  formatUtc8DateKey,
   formatPercent,
   formatRate,
   formatTokenAmount as formatProtoTokenAmount,
@@ -326,7 +328,7 @@ function LpPairStatusBadge({ status }: { status: number }) {
  * 先落列契约 + 空表，后端补端点后接真数据。
  */
 const LP_OPERATION_COLUMNS: ColumnDef<{ id: string }>[] = [
-  { id: 'timestamp', header: 'Timestamp (UTC+8)' },
+  { id: 'timestamp', header: 'Timestamp' },
   { id: 'operator', header: 'Operator' },
   { id: 'module', header: 'Module' },
   { id: 'status', header: 'Status' },
@@ -693,7 +695,7 @@ export function LpInfoListPage() {
     const { createdFrom, createdTo } = params;
     if (!createdFrom && !createdTo) return rows;
     return rows.filter((r) => {
-      const day = formatUtc8(r.createTime).slice(0, 10);
+      const day = formatUtc8DateKey(r.createTime);
       if (createdFrom && day < createdFrom) return false;
       if (createdTo && day > createdTo) return false;
       return true;
@@ -751,24 +753,13 @@ export function LpInfoListPage() {
         ),
       },
       {
-        accessorKey: 'riskAssessment',
-        header: 'Risk Assessment',
-        meta: { maxWidth: 200 },
-        cell: ({ row }) =>
-          row.original.riskAssessment ? (
-            <span>{row.original.riskAssessment}</span>
-          ) : (
-            <Dash />
-          ),
-      },
-      {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => <LpStatusBadge status={row.original.status} />,
       },
       {
         accessorKey: 'createTime',
-        header: 'Created on (UTC+8)',
+        header: 'Created on',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatUtc8(row.original.createTime)}
@@ -828,7 +819,7 @@ export function LpInfoListPage() {
             });
           }
           return (
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
               <Button
                 variant="link"
                 size="sm"
@@ -848,7 +839,7 @@ export function LpInfoListPage() {
                       className="h-8 w-8 p-0"
                       aria-label={`Actions for ${item.lpName}`}
                     >
-                      <MoreHorizontal
+                      <MoreVertical
                         className="h-4 w-4"
                         aria-hidden="true"
                       />
@@ -1146,6 +1137,7 @@ function PairPoolEditor({
   pairLocked?: boolean;
 }) {
   const selected = options.find((o) => String(o.pairId) === entry.pairId);
+  const pairSelectId = React.useId();
   const pairOptions: SelectOption[] = options.map((o) => ({
     value: String(o.pairId),
     label: `${o.sourceSymbol || o.sourceTokenCode}/${o.targetSymbol || o.targetTokenCode} (${o.sourceBankName || '--'} → ${o.targetBankName || '--'})`,
@@ -1208,10 +1200,15 @@ function PairPoolEditor({
   );
 
   return (
-    <div className="space-y-3 rounded-lg border border-border/60 p-3">
+    <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
-          <label className="mb-1 block text-xs text-muted-foreground">Token Pair</label>
+          <label
+            htmlFor={pairSelectId}
+            className="mb-1 block text-xs text-muted-foreground"
+          >
+            Token Pair
+          </label>
           {pairLocked && selected ? (
             <div className="text-sm font-medium">
               {selected.sourceSymbol || selected.sourceTokenCode}/
@@ -1219,18 +1216,15 @@ function PairPoolEditor({
               {selected.sourceBankName || '--'} → {selected.targetBankName || '--'})
             </div>
           ) : (
-            <Select value={entry.pairId || undefined} onValueChange={onPairChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a token pair" />
-              </SelectTrigger>
-              <SelectContent>
-                {pairOptions.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              id={pairSelectId}
+              options={pairOptions}
+              value={entry.pairId || undefined}
+              onValueChange={onPairChange}
+              placeholder="Select a token pair"
+              searchPlaceholder="Search token pairs"
+              emptyMessage="No matching token pairs."
+            />
           )}
         </div>
         {onRemove ? (
@@ -2225,7 +2219,7 @@ export function LpInfoDetailPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Created on (UTC+8)',
+        header: 'Created on',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatUtc8(row.original.createTime)}
@@ -2729,29 +2723,20 @@ function lpPairUserRateText(row: Pick<LpPairRow, 'baseRate' | 'markupRate'>): st
 }
 
 
-/** 地址中段省略（原型 truncateMiddle(6,4)）：首6…尾4，过短直显。 */
-function truncateMiddleId(v: string, head = 6, tail = 4): string {
-  return v.length <= head + tail ? v : `${v.slice(0, head)}…${v.slice(-tail)}`;
-}
-
 /**
  * Token Pair 单元格（原型 SupportedTokenPairsPage 口径）：主行 `SRC → TGT`，
- * 副行 `Pools: <recv> (Recv) | <pay> (Pay).`（收付两侧池地址，中段省略、不可复制）。
+ * 副行 `Pools: <recv> (Recv) | <pay> (Pay).`（收付两侧池地址 CopyableId
+ * 中段省略，点击复制完整地址）。
  */
 function LpPairSummaryCell({ row }: { row: LpPairTableRow }) {
-  const recv = row.sourcePoolAddress
-    ? truncateMiddleId(row.sourcePoolAddress)
-    : '-';
-  const pay = row.targetPoolAddress
-    ? truncateMiddleId(row.targetPoolAddress)
-    : '-';
   return (
     <div className="space-y-0.5">
       <div className="font-mono text-sm font-semibold">
         {row.sourceCurrency} → {row.targetCurrency}
       </div>
       <div className="font-mono text-xs text-muted-foreground">
-        Pools: {recv} (Recv) | {pay} (Pay).
+        Pools: <CopyableId value={row.sourcePoolAddress} head={6} tail={4} /> (Recv) |{' '}
+        <CopyableId value={row.targetPoolAddress} head={6} tail={4} /> (Pay).
       </div>
     </div>
   );
@@ -3052,7 +3037,7 @@ export function LpTokenPairListPage() {
       },
       {
         accessorKey: 'createTime',
-        header: 'Created on (UTC+8)',
+        header: 'Created on',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatUtc8(row.original.createTime)}
@@ -3098,7 +3083,7 @@ export function LpTokenPairListPage() {
             });
           }
           return (
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
               <Button
                 variant="link"
                 size="sm"
@@ -3118,7 +3103,7 @@ export function LpTokenPairListPage() {
                       className="h-8 w-8 p-0"
                       aria-label={`Actions for ${item.lpName} ${lpPairLabel(item)}`}
                     >
-                      <MoreHorizontal
+                      <MoreVertical
                         className="h-4 w-4"
                         aria-hidden="true"
                       />
@@ -3302,8 +3287,8 @@ export function LpTokenPairListPage() {
 /* ================================================================== */
 
 /**
- * 金额单元格（原型 AmountWithToken）：主行数值（等宽半粗、右对齐），
- * 副行 token 缩写；空值由 formatProtoTokenAmount 归一为 '-'。
+ * 金额与 token 单位同行展示（单位小号弱化），等宽半粗、右对齐；
+ * 空值展示 '-' 且不追加单位。
  */
 function AmountWithToken({
   value,
@@ -3312,13 +3297,18 @@ function AmountWithToken({
   value: string | number | null | undefined;
   token?: string | null;
 }) {
+  const hasAmount = value != null && value !== '';
   return (
-    <div className="text-right">
-      <div className="font-mono text-sm font-semibold tabular-nums">
-        {formatProtoTokenAmount(value)}
-      </div>
-      {token ? (
-        <div className="text-xs text-muted-foreground">{token}</div>
+    <div className="flex items-baseline justify-end gap-1 whitespace-nowrap font-mono text-sm font-semibold tabular-nums">
+      {value == null ? (
+        <Dash />
+      ) : (
+        <span>{formatProtoTokenAmount(value)}</span>
+      )}
+      {hasAmount && token ? (
+        <span className="text-xs font-normal text-muted-foreground">
+          {token}
+        </span>
       ) : null}
     </div>
   );
@@ -3332,13 +3322,7 @@ function AuthorizedAmountCell({ row }: { row: LpPoolRow }) {
   const token = row.tokenSymbol || row.tokenCode || '';
   return (
     <div className="text-right">
-      <div className="font-mono text-sm font-semibold tabular-nums">
-        {row.authAmount == null ? (
-          <Dash />
-        ) : (
-          formatProtoTokenAmount(row.authAmount)
-        )}
-      </div>
+      <AmountWithToken value={row.authAmount} token={token} />
       {row.preauthAvailable == null ? (
         <div className="text-xs text-muted-foreground">
           <span
@@ -3401,9 +3385,6 @@ function PoolCoverageCell({ row }: { row: LpPoolRow }) {
     percentage == null
       ? 0
       : Math.min(100, Math.round(percentage * POOL_COVERAGE_BAR_SCALE));
-  const thresholdText = Number.isFinite(remindThreshold)
-    ? `${Math.round(remindThreshold * 100)}%`
-    : '20%';
 
   if (!hasCalculation) {
     return <span className="block text-center text-muted-foreground">-</span>;
@@ -3423,27 +3404,9 @@ function PoolCoverageCell({ row }: { row: LpPoolRow }) {
           style={{ left: `${POOL_COVERAGE_BAR_SCALE * 100}%` }}
         />
       </span>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="w-[52px] cursor-help text-xs tabular-nums text-muted-foreground">
-              {percentage}%
-            </span>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-64 text-xs">
-            <div className="tabular-nums">
-              <div>
-                min ({formatProtoTokenAmount(row.availableBalanceCache)},{' '}
-                {formatProtoTokenAmount(row.preauthAvailable)}) ÷{' '}
-                {formatProtoTokenAmount(row.requiredMinSum)} ={' '}
-                <strong>{percentage}%</strong>
-              </div>
-              {/* 行级阈值用后端逐池 remindThreshold（原型列表页为全局常量 20%）。 */}
-              <div>Low Liquidity Threshold: {thresholdText}</div>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <span className="w-[52px] text-xs tabular-nums text-muted-foreground">
+        {percentage}%
+      </span>
       <ProtoStatusBadge tone={isLow ? 'danger' : 'success'}>
         {isLow ? 'Low' : 'Sufficient'}
       </ProtoStatusBadge>
@@ -3528,7 +3491,7 @@ const LP_POOL_TABLE_COLUMNS: ColumnDef<LpPoolRow & { id: string }>[] = [
   {
     id: 'createdOn',
     accessorKey: 'createTime',
-    header: 'Created on (UTC+8)',
+    header: 'Created on',
     cell: ({ row }) => (
       <span className="tabular-nums">
         {formatUtc8(row.original.createTime)}
@@ -3538,7 +3501,7 @@ const LP_POOL_TABLE_COLUMNS: ColumnDef<LpPoolRow & { id: string }>[] = [
   {
     id: 'snapshotAt',
     accessorKey: 'balanceUpdateTime',
-    header: 'Updated on (UTC+8)',
+    header: 'Updated on',
     cell: ({ row }) =>
       row.original.balanceUpdateTime == null ? (
         <Dash />
@@ -3595,7 +3558,7 @@ export function LpPoolListPage() {
       if (address && !r.accountAddress.toLowerCase().includes(address)) {
         return false;
       }
-      const day = formatUtc8(r.createTime).slice(0, 10);
+      const day = formatUtc8DateKey(r.createTime);
       if (filter.createdFrom && day < filter.createdFrom) return false;
       if (filter.createdTo && day > filter.createdTo) return false;
       return true;

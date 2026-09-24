@@ -114,7 +114,7 @@ function PemBlock({ label, pem }: { label: string; pem?: string }) {
   return (
     <div className="rounded-lg border border-border/50 bg-muted/20 p-3.5">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+        <div className="text-xs font-medium capitalize text-muted-foreground">
           {label}
         </div>
         {pem ? (
@@ -151,7 +151,7 @@ function SummaryMetric({
 }) {
   return (
     <div className="rounded-xl border border-border/60 bg-card px-3.5 py-3 shadow-float">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">
+      <div className="flex items-center gap-2 text-xs font-medium capitalize text-muted-foreground">
         <Icon className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
         {label}
       </div>
@@ -348,7 +348,7 @@ function TrustNode({
 }) {
   return (
     <div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2.5">
-      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-[10px] font-medium capitalize text-muted-foreground">
         <span
           className={
             ready

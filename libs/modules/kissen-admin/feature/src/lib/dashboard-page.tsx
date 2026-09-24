@@ -178,10 +178,6 @@ function dayStartMs(): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-/** 日期短展示（UTC+8 字面量日期部分，用于 Network Overview 的 Latest 提示）。 */
-function formatDateUtc8(ms: number | null | undefined): string {
-  return formatUtc8(ms).slice(0, 10);
-}
 
 
 /** 取 createTime 最新的行（Network Overview 的 Latest 提示）。 */
@@ -576,7 +572,7 @@ function ExceptionTable({
             </th>
             <th className={cn(TH, 'w-[20%]')}>
               <ProtoSortHeader
-                label="Created on (UTC+8)"
+                label="Created on"
                 columnKey="createdAt"
                 toggle={toggle}
                 sortState={sortState('createdAt')}
@@ -1317,7 +1313,7 @@ export function DashboardPage() {
               name="Banks"
               hint={
                 latestBank
-                  ? `Latest: ${latestBank.bankName} · onboarded ${formatDateUtc8(latestBank.createTime)}`
+                  ? `Latest: ${latestBank.bankName} · onboarded ${formatUtc8(latestBank.createTime)}`
                   : '-'
               }
               value={banksQ.isError ? '-' : banks.length}
@@ -1348,7 +1344,7 @@ export function DashboardPage() {
               name="Liquidity Providers"
               hint={
                 latestLp
-                  ? `Latest: ${latestLp.lpName} · onboarded ${formatDateUtc8(latestLp.createTime)}`
+                  ? `Latest: ${latestLp.lpName} · onboarded ${formatUtc8(latestLp.createTime)}`
                   : '-'
               }
               value={lpsQ.isError ? '-' : lpRows.length}
@@ -1357,7 +1353,7 @@ export function DashboardPage() {
               name="Token Pairs"
               hint={
                 latestPair
-                  ? `Latest: ${latestPair.sourceSymbol || latestPair.sourceTokenCode || '-'} → ${latestPair.targetSymbol || latestPair.targetTokenCode || '-'} · activated ${formatDateUtc8(latestPair.createTime)}`
+                  ? `Latest: ${latestPair.sourceSymbol || latestPair.sourceTokenCode || '-'} → ${latestPair.targetSymbol || latestPair.targetTokenCode || '-'} · activated ${formatUtc8(latestPair.createTime)}`
                   : '-'
               }
               value={tokenPairsQ.isError ? '-' : pairRows.length}

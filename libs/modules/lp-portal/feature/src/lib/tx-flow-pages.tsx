@@ -340,7 +340,7 @@ function Field({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <dt className="text-xs font-medium capitalize text-muted-foreground">
         {label}
       </dt>
       <dd className="mt-1 min-w-0 break-all text-sm font-semibold">
@@ -657,7 +657,7 @@ function TxFlowListView() {
         accessorKey: 'createTime',
         header: () => (
           <ProtoSortHeader
-            label="Created on (UTC+8)"
+            label="Created on"
             columnKey="createTime"
             toggle={toggle}
             sortState={sortState('createTime')}
@@ -674,7 +674,7 @@ function TxFlowListView() {
         accessorKey: 'completedTime',
         header: () => (
           <ProtoSortHeader
-            label="Completed on (UTC+8)"
+            label="Completed on"
             columnKey="completedTime"
             toggle={toggle}
             sortState={sortState('completedTime')}
@@ -987,7 +987,7 @@ function TxDetailView({ txKey }: { txKey: string }) {
               {/* Sent Amount（源行金额卡） */}
               <div className="rounded-lg border border-border/60 bg-background p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <span className="text-xs font-medium capitalize text-muted-foreground">
                     Sent Amount
                   </span>
                   <Badge variant="outline" className="font-mono text-xs">
@@ -1021,7 +1021,7 @@ function TxDetailView({ txKey }: { txKey: string }) {
               {/* Received Amount（目标行金额卡，语义色描边） */}
               <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium uppercase tracking-wide text-emerald-700">
+                  <span className="text-xs font-medium capitalize text-emerald-700">
                     Received Amount
                   </span>
                   <Badge

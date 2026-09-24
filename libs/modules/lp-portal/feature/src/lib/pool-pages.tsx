@@ -460,7 +460,7 @@ export function PoolListPage() {
       // 原型列序 8：Updated on（时间列头标 (UTC+8)，值 formatUtc8）
       {
         accessorKey: 'syncTime',
-        header: 'Updated on (UTC+8)',
+        header: 'Updated on',
         meta: { maxWidth: 200 },
         cell: ({ row }) => (
           <span className="whitespace-nowrap tabular-nums">
@@ -805,7 +805,7 @@ export function PoolDetailPage() {
       },
       {
         accessorKey: 'completedOn',
-        header: 'Completed on (UTC+8)',
+        header: 'Completed on',
         meta: { maxWidth: 200 },
         cell: ({ row }) => (
           <span className="whitespace-nowrap tabular-nums">
