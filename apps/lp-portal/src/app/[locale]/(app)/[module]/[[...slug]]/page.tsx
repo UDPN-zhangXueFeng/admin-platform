@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useEffect, useMemo } from 'react';
-import { useConfig } from '@myorg/shared/util-config';
+import { useConfig, type ModuleMenuItem } from '@myorg/shared/util-config';
 import { useRouter } from '@myorg/shared/util-i18n';
 import type { ComponentType } from 'react';
 import {
@@ -10,7 +10,7 @@ import {
   useLpSessionQuery,
 } from '@myorg/modules/lp-portal/data-access';
 
-import { PATH_MENU_KEY } from '@/lib/lp-routes';
+import { buildLpSidebarOrder, PATH_MENU_KEY } from '@/lib/lp-routes';
 import { loadLpPortalModulePage } from './module-page-registry';
 
 /**
@@ -23,6 +23,23 @@ import { loadLpPortalModulePage } from './module-page-registry';
 const GROUP_ENABLED_KEY: Record<string, string> = {
   sys: 'sys',
 };
+
+function findFirstSubmenuPath(
+  items: ModuleMenuItem[],
+  module: string,
+): string | undefined {
+  const prefix = `/${module}/`;
+  for (const item of items) {
+    if (item.children?.length) {
+      const nestedPath = findFirstSubmenuPath(item.children, module);
+      if (nestedPath) return nestedPath;
+      continue;
+    }
+    const path = item.path ?? `/${item.id}`;
+    if (path.startsWith(prefix)) return path;
+  }
+  return undefined;
+}
 
 /**
  * Dynamic module route — every lp-portal module page is served from this
@@ -55,6 +72,13 @@ export default function ModulePage({
   const router = useRouter();
   const { data: session, isLoading: sessionLoading } =
     useLpSessionQuery(LP_PROJECT_ID);
+  const sidebarOrder = useMemo(
+    () =>
+      session?.menuTree?.length
+        ? buildLpSidebarOrder(session.menuTree)
+        : config.modules.order,
+    [session, config.modules.order],
+  );
 
   const groupKey = GROUP_ENABLED_KEY[module];
   const isGroup = Boolean(groupKey);
@@ -77,6 +101,17 @@ export default function ModulePage({
   const isEnabled = isGroup
     ? config.modules.enabled.includes(groupKey as string)
     : config.modules.enabled.includes(module);
+  const isGroupLanding = isGroup && !slug?.length;
+  const firstChildPath =
+    isGroupLanding && session?.menuTree?.length
+      ? findFirstSubmenuPath(sidebarOrder, module)
+      : undefined;
+
+  useEffect(() => {
+    if (!sessionLoading && session && isEnabled && firstChildPath) {
+      router.replace(firstChildPath);
+    }
+  }, [firstChildPath, isEnabled, router, session, sessionLoading]);
 
   const pageKey = useMemo(() => {
     if (!realSlug || realSlug.length === 0) return 'list';
@@ -94,6 +129,7 @@ export default function ModulePage({
     // 会话未决/缺失：LpAppShell 组级门禁接管跳转，此处不渲染业务页。
     return null;
   }
+  if (isEnabled && firstChildPath) return null;
   if (denied) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 text-muted-foreground">

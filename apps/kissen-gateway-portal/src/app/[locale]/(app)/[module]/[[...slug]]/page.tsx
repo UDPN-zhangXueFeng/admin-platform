@@ -1,8 +1,18 @@
 'use client';
 
-import { use, useMemo } from 'react';
+import { use, useEffect, useMemo, useState } from 'react';
 import type { ComponentType } from 'react';
-import { useConfig } from '@myorg/shared/util-config';
+import { useConfig, type ModuleMenuItem } from '@myorg/shared/util-config';
+import { useRouter } from '@myorg/shared/util-i18n';
+import {
+  KISSEN_GATEWAY_PROJECT_ID,
+  filterMenuTree,
+  getGatewayToken,
+  getGatewayUser,
+  useGatewayLockState,
+  useMenuTreeQuery,
+} from '@myorg/modules/kissen-gateway/data-access';
+import { findFirstMenuPath } from '@/lib/gateway-routes';
 import { loadKissenGatewayModulePage } from './module-page-registry';
 
 /**
@@ -24,6 +34,29 @@ const GROUP_ENABLED_KEY: Record<string, string> = {
  * Such segments map to the module's 'list' page key in the registry.
  */
 const FLAT_PAGE_SEGMENTS: ReadonlySet<string> = new Set(['manage', 'query']);
+
+function findFirstConfiguredPath(
+  items: ModuleMenuItem[],
+): string | undefined {
+  for (const item of items) {
+    if (item.children?.length) {
+      const nestedPath = findFirstConfiguredPath(item.children);
+      if (nestedPath) return nestedPath;
+      continue;
+    }
+    return item.path ?? `/${item.id}`;
+  }
+  return undefined;
+}
+
+function findFirstConfiguredGroupPath(
+  items: ModuleMenuItem[],
+  module: string,
+): string | undefined {
+  const group = items.find((item) => item.id === module);
+  if (!group?.children?.length) return undefined;
+  return findFirstConfiguredPath(group.children);
+}
 
 /**
  * Dynamic module route — all module pages are served from this single entry.
@@ -47,6 +80,20 @@ export default function ModulePage({
 }) {
   const { module, slug } = use(params);
   const { config } = useConfig();
+  const router = useRouter();
+  const [hasSession] = useState(() => getGatewayToken() !== null);
+  const [sessionMenuKeys] = useState(
+    () => new Set(getGatewayUser()?.menuKeys ?? []),
+  );
+  const menuTreeQuery = useMenuTreeQuery(KISSEN_GATEWAY_PROJECT_ID, hasSession);
+  const { locked } = useGatewayLockState(hasSession);
+  const filteredMenuTree = useMemo(
+    () =>
+      menuTreeQuery.data
+        ? filterMenuTree(menuTreeQuery.data, sessionMenuKeys)
+        : undefined,
+    [menuTreeQuery.data, sessionMenuKeys],
+  );
 
   const groupKey = GROUP_ENABLED_KEY[module];
   const isGroup = Boolean(groupKey);
@@ -56,6 +103,19 @@ export default function ModulePage({
   const isEnabled = isGroup
     ? config.modules.enabled.includes(groupKey as string)
     : config.modules.enabled.includes(module);
+  const isGroupLanding = isGroup && !slug?.length;
+  const isResolvingGroupLanding =
+    isGroupLanding && hasSession && menuTreeQuery.isLoading;
+  const firstChildPath =
+    isGroupLanding && !locked && !isResolvingGroupLanding
+      ? menuTreeQuery.data
+        ? findFirstMenuPath(filteredMenuTree, module)
+        : findFirstConfiguredGroupPath(config.modules.order, module)
+      : undefined;
+
+  useEffect(() => {
+    if (isEnabled && firstChildPath) router.replace(firstChildPath);
+  }, [firstChildPath, isEnabled, router]);
 
   const pageKey = useMemo(() => {
     if (!realSlug || realSlug.length === 0) return 'list';
@@ -78,6 +138,7 @@ export default function ModulePage({
       pageKey,
     ) as ComponentType<unknown> | null;
   }, [realModule, pageKey, isEnabled]);
+  if (isEnabled && (isResolvingGroupLanding || firstChildPath)) return null;
 
   if (!isEnabled) {
     return (

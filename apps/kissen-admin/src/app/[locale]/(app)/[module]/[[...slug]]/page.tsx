@@ -1,8 +1,11 @@
 'use client';
 
-import { use, useMemo } from 'react';
-import { useConfig } from '@myorg/shared/util-config';
+import { use, useEffect, useMemo } from 'react';
 import type { ComponentType } from 'react';
+import { useConfig, type ModuleMenuItem } from '@myorg/shared/util-config';
+import { useRouter } from '@myorg/shared/util-i18n';
+import { useAuth } from '@myorg/shared/util-auth';
+import type { MenuTreeRespVO } from '@myorg/modules/kissen-admin/data-access';
 import { loadKissenAdminModulePage } from './module-page-registry';
 
 /**
@@ -25,6 +28,104 @@ const GROUP_ENABLED_KEY: Record<string, string> = {
   transfer: 'transfer',
   system: 'system',
 };
+
+const MENU_ROUTE_ALIASES: Record<string, string> = {
+  '/onboard/lp': '/lp-liquidity/lp-info',
+};
+
+function findMenuNode(
+  nodes: MenuTreeRespVO[],
+  menuKeys: Set<string>,
+  module: string,
+): MenuTreeRespVO | undefined {
+  const routePrefix = `/${module}/`;
+  for (const node of nodes) {
+    if (node.visible !== 0 || node.menuType === 4) continue;
+    if (
+      node.children?.length &&
+      (menuKeys.has(node.menuKey) ||
+        findFirstMenuPath(node.children, routePrefix))
+    ) {
+      return node;
+    }
+    const nestedNode = node.children?.length
+      ? findMenuNode(node.children, menuKeys, module)
+      : undefined;
+    if (nestedNode) return nestedNode;
+  }
+  return undefined;
+}
+
+function findFirstMenuPath(
+  nodes: MenuTreeRespVO[],
+  routePrefix?: string,
+): string | undefined {
+  const orderedNodes = nodes
+    .map((node, index) => ({ node, index }))
+    .sort((a, b) => a.node.orderNum - b.node.orderNum || a.index - b.index);
+
+  for (const { node } of orderedNodes) {
+    if (node.visible !== 0 || node.menuType === 4) continue;
+
+    const childNodes = node.children?.filter(
+      (child) => child.visible === 0 && child.menuType !== 4,
+    );
+    const nestedPath = childNodes?.length
+      ? findFirstMenuPath(childNodes, routePrefix)
+      : undefined;
+    if (nestedPath) return nestedPath;
+
+    const rawPath = node.menuUrl || `/${node.menuKey}`;
+    const path = MENU_ROUTE_ALIASES[rawPath] ?? rawPath;
+    if (!routePrefix || path.startsWith(routePrefix)) return path;
+  }
+  return undefined;
+}
+
+function findFirstConfiguredPath(
+  items: ModuleMenuItem[],
+): string | undefined {
+  for (const item of items) {
+    if (item.children?.length) {
+      const nestedPath = findFirstConfiguredPath(item.children);
+      if (nestedPath) return nestedPath;
+      continue;
+    }
+    const path = item.path ?? `/${item.id}`;
+    return MENU_ROUTE_ALIASES[path] ?? path;
+  }
+  return undefined;
+}
+
+function findGroupLandingPath(
+  module: string,
+  groupKey: string,
+  items: ModuleMenuItem[],
+  menuTree: MenuTreeRespVO[] | undefined,
+): string | undefined {
+  if (menuTree?.length) {
+    const group = findMenuNode(
+      menuTree,
+      new Set([module, groupKey]),
+      module,
+    );
+    if (!group || group.visible !== 0 || group.menuType === 4) {
+      return undefined;
+    }
+    const children = group.children?.filter(
+      (child) => child.visible === 0 && child.menuType !== 4,
+    );
+    return children?.length ? findFirstMenuPath(children) : undefined;
+  }
+
+  const group = items.find(
+    (item) => item.id === module || item.id === groupKey,
+  );
+  return group?.children?.length
+    ? findFirstConfiguredPath(group.children)
+    : undefined;
+}
+
 
 /** Legacy LP child ids → current module registry ids. */
 const MODULE_ALIAS: Record<string, string> = {
@@ -53,6 +154,9 @@ export default function ModulePage({
   params: Promise<{ locale: string; module: string; slug?: string[] }>;
 }) {
   const { module, slug } = use(params);
+  const router = useRouter();
+  const { user } = useAuth();
+  const menuTree = (user as { menuTree?: MenuTreeRespVO[] } | null)?.menuTree;
   const { config } = useConfig();
 
   const groupKey = GROUP_ENABLED_KEY[module];
@@ -67,6 +171,20 @@ export default function ModulePage({
   const isEnabled = isGroup
     ? config.modules.enabled.includes(groupKey as string)
     : config.modules.enabled.includes(module);
+  const isGroupLanding = isGroup && !slug?.length;
+  const firstChildPath =
+    isGroupLanding && groupKey
+      ? findGroupLandingPath(
+          module,
+          groupKey,
+          config.modules.order,
+          menuTree,
+        )
+      : undefined;
+
+  useEffect(() => {
+    if (isEnabled && firstChildPath) router.replace(firstChildPath);
+  }, [firstChildPath, isEnabled, router]);
 
   const pageKey = useMemo(() => {
     if (!realSlug || realSlug.length === 0) return 'list';
@@ -82,6 +200,7 @@ export default function ModulePage({
       pageKey,
     ) as ComponentType<unknown> | null;
   }, [realModule, pageKey, isEnabled]);
+  if (isEnabled && firstChildPath) return null;
 
   if (!isEnabled) {
     return (
