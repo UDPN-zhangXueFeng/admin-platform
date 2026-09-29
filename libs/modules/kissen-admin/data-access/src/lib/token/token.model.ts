@@ -31,7 +31,7 @@ export interface TokenRow {
   createTime: number;
 }
 
-/** 列表过滤（POST /manage/token/list body 直传，返回裸数组无分页）。 */
+/** Token 列表过滤条件（POST /manage/token/list 的 data 字段）。 */
 export interface TokenListFilter {
   bankId?: number;
   instanceId?: number;
@@ -40,6 +40,13 @@ export interface TokenListFilter {
   /** 页面展示为 Blockchain；Kissen token 接口的实际字段名为 chainType。 */
   chainType?: string;
   status?: number;
+}
+
+/** Token 列表分页参数。 */
+export interface TokenListPageReq {
+  pageNum: number;
+  pageSize: number;
+  filter: TokenListFilter;
 }
 
 /** 审核通过请求；成功返回服务端分配的 tokenNo（全网唯一，终身不变）。 */

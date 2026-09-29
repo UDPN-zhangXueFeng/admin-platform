@@ -99,7 +99,7 @@ import {
   useTokenApproveMutation,
   useTokenDisableMutation,
   useTokenEnableMutation,
-  useTokenListQuery,
+  useTokenListPageQuery,
   useTokenRejectMutation,
   type HeartbeatRow,
   type InstanceRow,
@@ -418,9 +418,9 @@ export function TokenManageListPage() {
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
-  const { data, isLoading, isError, dataUpdatedAt } = useTokenListQuery(
+  const { data, isLoading, isError, dataUpdatedAt } = useTokenListPageQuery(
     KISSEN_PROJECT_ID,
-    filter,
+    { pageNum: page, pageSize, filter },
   );
   const { data: bankData } = useBankListQuery(KISSEN_PROJECT_ID, {
     pageNum: 1,
@@ -428,6 +428,14 @@ export function TokenManageListPage() {
     filter: {},
   });
   const bankOptions = bankData?.data ?? [];
+  const total = data?.pagination.total ?? 0;
+  const currentPage = Math.min(
+    page,
+    Math.max(1, Math.ceil(total / pageSize)),
+  );
+  React.useEffect(() => {
+    if (page !== currentPage) setPage(currentPage);
+  }, [currentPage, page]);
 
   const approveMutation = useTokenApproveMutation(KISSEN_PROJECT_ID);
   const rejectMutation = useTokenRejectMutation(KISSEN_PROJECT_ID);
@@ -435,7 +443,7 @@ export function TokenManageListPage() {
   const disableMutation = useTokenDisableMutation(KISSEN_PROJECT_ID);
   const enableMutation = useTokenEnableMutation(KISSEN_PROJECT_ID);
 
-  // 源为裸数组无分页，操作成功后 load() 全量刷新（此处走缓存失效）。
+  // 操作成功后失效列表缓存，当前页由服务端重新查询。
   const refresh = React.useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: tokenKeys.lists(KISSEN_PROJECT_ID) });
   }, [queryClient]);
@@ -676,22 +684,8 @@ export function TokenManageListPage() {
   }, [onApprove, onReject, onAdjustMinLiquidity, setSpenderToken, setStatusAction]);
 
   const tableData = React.useMemo(
-    () => (data ?? []).map((r) => ({ ...r, id: String(r.tokenId) })),
+    () => (data?.data ?? []).map((r) => ({ ...r, id: String(r.tokenId) })),
     [data],
-  );
-  const pageCount = Math.max(1, Math.ceil(tableData.length / pageSize));
-  const currentPage = Math.min(page, pageCount);
-  React.useEffect(() => {
-    if (page !== currentPage) setPage(currentPage);
-  }, [currentPage, page]);
-
-  const pageData = React.useMemo(
-    () =>
-      tableData.slice(
-        (currentPage - 1) * pageSize,
-        currentPage * pageSize,
-      ),
-    [currentPage, pageSize, tableData],
   );
 
   return (
@@ -707,7 +701,7 @@ export function TokenManageListPage() {
             </div>
             {!isLoading ? (
               <span className="text-sm text-muted-foreground tabular-nums">
-                {tableData.length} results
+                {total} results
               </span>
             ) : null}
             {dataUpdatedAt ? (
@@ -797,7 +791,7 @@ export function TokenManageListPage() {
 
         </form>
         <div className="p-4">
-          {/* 列表接口返回全量数组，分页在前端完成。 */}
+          {/* API 返回当前页数据，DataTable 使用服务端分页元数据。 */}
           {isError ? (
             <Alert variant="destructive" role="alert">
               <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
@@ -805,13 +799,13 @@ export function TokenManageListPage() {
           ) : (
             <DataTable
               columns={columns}
-              data={pageData}
+              data={tableData}
               pagination={
-                tableData.length > 0
+                total > 0
                   ? {
                       page: currentPage,
                       pageSize,
-                      total: tableData.length,
+                      total,
                       onPageChange: setPage,
                       onPageSizeChange: (nextPageSize) => {
                         setPageSize(nextPageSize);

@@ -1,15 +1,20 @@
 'use client';
 
-/** Token 管理域 read-query hooks。 */
+/**
+ * Token 管理域 read-query hooks。
+ */
 import * as React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { tokenList } from './token.api';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { tokenList, tokenListAll } from './token.api';
 import { tokenKeys } from './token.keys';
-import type { TokenListFilter, TokenRow } from './token.model';
+import type {
+  TokenListFilter,
+  TokenListPageReq,
+  TokenRow,
+} from './token.model';
 
 /**
- * Token 列表（裸数组，无分页；过滤条件即缓存键，过滤变化取新 key）。
- * 跨组契约：FxAgent 的建对弹窗以 `tokenList({ status: 20 })` 取组合来源。
+ * 全量 Token 列表（逐页拉取，供元数据索引与选项使用）。
  */
 export function useTokenListQuery(
   projectId: string,
@@ -18,14 +23,28 @@ export function useTokenListQuery(
 ) {
   return useQuery({
     queryKey: tokenKeys.list(projectId, filter),
-    queryFn: ({ signal }) => tokenList(filter, { signal }),
+    queryFn: ({ signal }) => tokenListAll(filter, { signal }),
+    enabled,
+  });
+}
+
+/** Token 管理列表的服务端分页查询。 */
+export function useTokenListPageQuery(
+  projectId: string,
+  req: TokenListPageReq,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: tokenKeys.page(projectId, req),
+    queryFn: ({ signal }) => tokenList(req, { signal }),
+    placeholderData: keepPreviousData,
     enabled,
   });
 }
 
 /**
  * Token 元数据查找（源 utils/token-meta.ts，4609208 2026-09-18）：
- * `tokenList({})` 无过滤全量 + tokenNo/tokenCode 双键索引。
+ * `useTokenListQuery(projectId, {})` 逐页读取全量 + tokenNo/tokenCode 双键索引。
  *
  * - `decimalsOf`：decimalDigits 查得 null/负数按 2（token_info DDL 默认）；
  *   未加载完成或键未命中同样回退 2——回退与后端缺省同尺，加载完成后自动重渲染。

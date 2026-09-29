@@ -1,22 +1,57 @@
 import type { AxiosRequestConfig } from 'axios';
+import type { PaginatedResponse } from '@myorg/shared/model';
 
-import { kissenRequest } from '../kissen-client';
+import { kissenPage, kissenRequest } from '../kissen-client';
 import type {
   TokenApproveReq,
   TokenListFilter,
+  TokenListPageReq,
   TokenRejectReq,
   TokenRow,
 } from './token.model';
 
-/**
- * Token 列表（POST /manage/token/list）。
- * body 为过滤对象直传（无 page 包装），返回裸数组，无分页。
- */
+/** Token 管理分页列表（POST /manage/token/list）。 */
 export function tokenList(
-  data: TokenListFilter,
+  req: TokenListPageReq,
+  config?: AxiosRequestConfig,
+): Promise<PaginatedResponse<TokenRow>> {
+  return kissenPage<TokenRow, TokenListFilter>(
+    '/manage/token/list',
+    {
+      pageNum: req.pageNum,
+      pageSize: req.pageSize,
+      filter: req.filter,
+    },
+    config,
+  );
+}
+
+const TOKEN_LIST_ALL_PAGE_SIZE = 100;
+
+/** 全量列表消费者逐页拉取，避免分页后只拿到首屏 Token。 */
+export async function tokenListAll(
+  filter: TokenListFilter,
   config?: AxiosRequestConfig,
 ): Promise<TokenRow[]> {
-  return kissenRequest.post<TokenRow[]>('/manage/token/list', data, config);
+  const firstPage = await tokenList(
+    { pageNum: 1, pageSize: TOKEN_LIST_ALL_PAGE_SIZE, filter },
+    config,
+  );
+  const rows = [...firstPage.data];
+
+  for (
+    let pageNum = 2;
+    pageNum <= firstPage.pagination.totalPages;
+    pageNum += 1
+  ) {
+    const page = await tokenList(
+      { pageNum, pageSize: TOKEN_LIST_ALL_PAGE_SIZE, filter },
+      config,
+    );
+    rows.push(...page.data);
+  }
+
+  return rows;
 }
 
 /** 审核通过并分配 tokenNo（POST /manage/token/approve）。 */

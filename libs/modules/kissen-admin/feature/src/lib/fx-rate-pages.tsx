@@ -56,15 +56,16 @@ import { FormField } from '@myorg/shared/ui-forms';
 
 import {
   KISSEN_PROJECT_ID,
-  tokenList,
+  tokenListAll,
   useChangeTokenPairMutation,
   useDisableTokenPairMutation,
   useEnableTokenPairMutation,
   useLpPairListQuery,
   useSaveTokenPairMutation,
+  useTokenPairListAllQuery,
   useTokenPairListQuery,
   type LpPairRow,
-  type TokenPairListFilter,
+  type TokenPairListReq,
   type TokenPairRow,
   type TokenRow,
 } from '@myorg/modules/kissen-admin/data-access';
@@ -308,12 +309,14 @@ export function TokenPairListPage() {
     pairCode: '',
     status: STATUS_ALL,
   });
-  const [filter, setFilter] = React.useState<TokenPairListFilter>({});
-  const [page, setPage] = React.useState(1);
-  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
+  const [request, setRequest] = React.useState<TokenPairListReq>({
+    pageNum: 1,
+    pageSize: PAGE_SIZE_DEFAULT,
+    filter: {},
+  });
 
-  const { data: rows, isLoading, isError, dataUpdatedAt } =
-    useTokenPairListQuery(PROJECT_ID, filter);
+  const { data: pageResult, isLoading, isError, dataUpdatedAt } =
+    useTokenPairListQuery(PROJECT_ID, request);
   const enableMutation = useEnableTokenPairMutation(PROJECT_ID);
   const disableMutation = useDisableTokenPairMutation(PROJECT_ID);
 
@@ -326,23 +329,39 @@ export function TokenPairListPage() {
   const onSearch = React.useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      setFilter({
-        pairCode: input.pairCode.trim() || undefined,
-        status:
-          input.status === STATUS_ALL ? undefined : Number(input.status),
-      });
-      setPage(1);
+      setRequest((previous) => ({
+        ...previous,
+        pageNum: 1,
+        filter: {
+          pairCode: input.pairCode.trim() || undefined,
+          status:
+            input.status === STATUS_ALL ? undefined : Number(input.status),
+        },
+      }));
     },
     [input],
   );
 
   const onReset = React.useCallback(() => {
     setInput({ pairCode: '', status: STATUS_ALL });
-    setFilter({});
-    setPage(1);
+    setRequest((previous) => ({
+      ...previous,
+      pageNum: 1,
+      filter: {},
+    }));
   }, []);
 
-  const queryRows = rows ?? [];
+  const paginationMeta = pageResult?.pagination;
+  const currentPage = Math.min(
+    request.pageNum,
+    paginationMeta?.totalPages ?? request.pageNum,
+  );
+  React.useEffect(() => {
+    if (request.pageNum !== currentPage) {
+      setRequest((previous) => ({ ...previous, pageNum: currentPage }));
+    }
+  }, [currentPage, request.pageNum]);
+  const queryRows = pageResult?.data ?? [];
   const { sorted, toggle, sortState } = useProtoSort(
     queryRows,
     {
@@ -373,21 +392,6 @@ export function TokenPairListPage() {
   const tableData = React.useMemo(
     () => sorted.map((r) => ({ ...r, id: String(r.pairId) })),
     [sorted],
-  );
-
-  const pageCount = Math.max(1, Math.ceil(tableData.length / pageSize));
-  const currentPage = Math.min(page, pageCount);
-  React.useEffect(() => {
-    if (page !== currentPage) setPage(currentPage);
-  }, [currentPage, page]);
-
-  const pageData = React.useMemo(
-    () =>
-      tableData.slice(
-        (currentPage - 1) * pageSize,
-        currentPage * pageSize,
-      ),
-    [currentPage, pageSize, tableData],
   );
 
   const columns = React.useMemo<
@@ -625,7 +629,7 @@ export function TokenPairListPage() {
             </div>
             {!isLoading ? (
               <span className="text-sm text-muted-foreground tabular-nums">
-                {tableData.length} results
+                {paginationMeta?.total ?? 0} results
               </span>
             ) : null}
             {dataUpdatedAt ? (
@@ -705,18 +709,24 @@ export function TokenPairListPage() {
           ) : (
             <DataTable
               columns={columns}
-              data={pageData}
+              data={tableData}
               pagination={
-                tableData.length > 0
+                paginationMeta && paginationMeta.total > 0
                   ? {
                       page: currentPage,
-                      pageSize,
-                      total: tableData.length,
-                      onPageChange: setPage,
-                      onPageSizeChange: (nextPageSize) => {
-                        setPageSize(nextPageSize);
-                        setPage(1);
-                      },
+                      pageSize: request.pageSize,
+                      total: paginationMeta.total,
+                      onPageChange: (pageNum) =>
+                        setRequest((previous) => ({
+                          ...previous,
+                          pageNum,
+                        })),
+                      onPageSizeChange: (pageSize) =>
+                        setRequest((previous) => ({
+                          ...previous,
+                          pageNum: 1,
+                          pageSize,
+                        })),
                       pageSizeOptions: PAGE_SIZE_OPTIONS,
                     }
                   : undefined
@@ -876,9 +886,9 @@ export function TokenPairCreatePage() {
   // ---- 数据源：已生效 token（建对组合来源）+ 已有对（判重）----
   const tokensQuery = useQuery({
     queryKey: ['project', PROJECT_ID, 'token', 'options', { status: 20 }],
-    queryFn: () => tokenList({ status: 20 }),
+    queryFn: ({ signal }) => tokenListAll({ status: 20 }, { signal }),
   });
-  const pairsQuery = useTokenPairListQuery(PROJECT_ID, {});
+  const pairsQuery = useTokenPairListAllQuery(PROJECT_ID);
 
   // ---- 组合状态（含勾选/行内参数，全挂行数据）----
   const [combos, setCombos] = React.useState<ComboRow[]>([]);
@@ -1373,17 +1383,18 @@ export function TokenPairDetailPage() {
   const pairId = Number(searchParams.get('id'));
   const validId = Number.isInteger(pairId) && pairId > 0 ? pairId : null;
 
-  const { data: pairRows, isLoading, isError } =
-    useTokenPairListQuery(PROJECT_ID, {});
-
-  // STATIC-FILLER(GAP-ADM-05): 无单条详情端点，从列表行定位（见文件头注释）。
-  const record = React.useMemo(
-    () =>
-      validId == null
-        ? undefined
-        : (pairRows ?? []).find((p) => p.pairId === validId),
-    [pairRows, validId],
+  const { data: pairPage, isLoading, isError } = useTokenPairListQuery(
+    PROJECT_ID,
+    {
+      pageNum: 1,
+      pageSize: PAGE_SIZE_DEFAULT,
+      filter: { pairId: validId ?? 0 },
+    },
+    validId != null,
   );
+
+  // STATIC-FILLER(GAP-ADM-05): the list endpoint has no detail route; filter by pairId.
+  const record = pairPage?.data[0];
 
   const tabParam = searchParams.get('tab');
   const activeTab: PairTab = PAIR_TABS.some((t) => t.key === tabParam)
@@ -1805,17 +1816,18 @@ export function TokenPairEditPage() {
   const pairId = Number(searchParams.get('id'));
   const validId = Number.isInteger(pairId) && pairId > 0 ? pairId : null;
 
-  const { data: pairRows, isLoading, isError } =
-    useTokenPairListQuery(PROJECT_ID, {});
-
-  // STATIC-FILLER(GAP-ADM-05): 无单条详情端点，从列表行定位（见文件头注释）。
-  const record = React.useMemo(
-    () =>
-      validId == null
-        ? undefined
-        : (pairRows ?? []).find((p) => p.pairId === validId),
-    [pairRows, validId],
+  const { data: pairPage, isLoading, isError } = useTokenPairListQuery(
+    PROJECT_ID,
+    {
+      pageNum: 1,
+      pageSize: PAGE_SIZE_DEFAULT,
+      filter: { pairId: validId ?? 0 },
+    },
+    validId != null,
   );
+
+  // STATIC-FILLER(GAP-ADM-05): the list endpoint has no detail route; filter by pairId.
+  const record = pairPage?.data[0];
 
   if (isLoading) {
     return (

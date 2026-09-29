@@ -30,7 +30,7 @@ import {
   useInstanceListQuery,
   useLpListQuery,
   useTokenListQuery,
-  useTokenPairListQuery,
+  useTokenPairListAllQuery,
 } from '@myorg/modules/kissen-admin/data-access';
 
 import { formatTokenAmount, formatUtc8 } from './proto-format';
@@ -1167,7 +1167,9 @@ export function DashboardPage() {
     filter: { status: 20 },
   });
   const tokensQ = useTokenListQuery(KISSEN_PROJECT_ID, { status: 20 });
-  const tokenPairsQ = useTokenPairListQuery(KISSEN_PROJECT_ID, { status: 20 });
+  const tokenPairsQ = useTokenPairListAllQuery(KISSEN_PROJECT_ID, {
+    status: 20,
+  });
   const todayQ = useWorkbenchTodayQuery(KISSEN_PROJECT_ID);
   const exceptionsQ = useWorkbenchExceptionCountQuery(KISSEN_PROJECT_ID);
   const poolsQ = useWorkbenchPoolsQuery(KISSEN_PROJECT_ID);

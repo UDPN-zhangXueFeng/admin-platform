@@ -1064,7 +1064,8 @@
 - kissen-admin、lp-portal、kissen-gateway 的顶层列表查询区统一显示 `Search`（primary）→ `Reset`（outline）；Search 应用当前条件，分页查询回第一页；Reset 清空筛选条件并回第一页。树/下拉内部搜索、列配置 Reset、详情与行操作不属于列表查询区。
 - 已补齐的页面：LP Pair/Pool；Gateway Bank Query、FX Query、Token Management、Transactions、Operation Logs、Roles、Users；Kissen Admin Approval Center、System Users/Roles、Workflow Definitions、Operation Logs。其他已有 Search/Reset 的列表保持原实现。
 
-## 2026-09-29 Kissen Admin Token 列表分页与编号口径
+## 2026-09-29 Kissen Admin Token 列表服务端分页与编号口径
 
-- `/onboard/token` 的 `useTokenListQuery` 返回未分页 `TokenRow[]`；列表分页需在传给 shared `DataTable` 前按当前页切片，因为 `DataTable.pagination` 走 `manualPagination`，只负责分页控件。结果数应继续取完整过滤结果。
+- `POST /manage/token/list` 为分页接口：`tokenList(req)` 返回 `PaginatedResponse<TokenRow>`；`/onboard/token` 用 `useTokenListPageQuery` 传 `pageNum`、`pageSize`、筛选条件，并把服务端当前页 rows/total 交给 `DataTable` 的 manual pagination。需要全量 Token 的调用方保留 `useTokenListQuery`，经 `tokenListAll(filter)` 以 100 条为批次顺序拉取，避免只取首屏。
 - `TokenRow.tokenNo` 是审核后由服务端分配的全网唯一编号，不是 `tokenCode`；列表 `Token Name (No.)` 的副行显示 `tokenNo`，空值由 `CopyableId` 显示为 `-`。分页条数沿用 10/20/50。
+- 冒烟验证：`/onboard/token` 加载后端 6 条数据，切换 `20 / page` 触发第二次 `POST /manage/token/list` 并返回 200；Kissen Admin production build 与 6 个改动文件 ESLint 均通过。

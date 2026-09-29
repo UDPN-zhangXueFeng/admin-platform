@@ -65,13 +65,19 @@ export interface TokenPairChangeReq {
 }
 
 
-/** 列表筛选（上游 pairList 入参；端点直返数组非分页）。 */
+/** 列表筛选条件；分页参数单独由 TokenPairListReq 承载。 */
 export interface TokenPairListFilter {
   pairId?: number;
   pairCode?: string;
   sourceTokenId?: number;
   targetTokenId?: number;
   status?: number;
+}
+
+export interface TokenPairListReq {
+  pageNum: number;
+  pageSize: number;
+  filter: TokenPairListFilter;
 }
 
 export const PAIR_STATUS_LABEL: Record<number, string> = {
