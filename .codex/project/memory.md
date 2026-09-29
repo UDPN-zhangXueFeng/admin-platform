@@ -1058,3 +1058,13 @@
 - kissen-admin feature 无 jest config（无 test target，非缺失事故）；三 app `tsc -p apps/<app>` 均因预存 libs/modules/auth/feature 引用缺失（TS6053）失败，编译级校验用 `npx nx lint <feature>` + scoped 临时 tsconfig 替代。
 - 子 agent 并发上限 3（用户硬性要求）；task agent 报 budget-wrapped 时剩余文件为零改动，派新 agent 携带前任报告规格续作即可，勿重做已完成文件。`hub wait` 可能重复交付旧快照，用 `hub jobs` 交叉确认；DM 可唤醒 idle agent 续命。
 - edit 工具锚点陷阱：并发子 agent 改动导致行号漂移会产生残留/语法错（registry 小文件两次踩坑）；修复=立即重读区域→整段 PUT；registry 类小文件优先一次整段替换。
+
+## 2026-09-29 三门户列表查询区 Search/Reset 统一
+
+- kissen-admin、lp-portal、kissen-gateway 的顶层列表查询区统一显示 `Search`（primary）→ `Reset`（outline）；Search 应用当前条件，分页查询回第一页；Reset 清空筛选条件并回第一页。树/下拉内部搜索、列配置 Reset、详情与行操作不属于列表查询区。
+- 已补齐的页面：LP Pair/Pool；Gateway Bank Query、FX Query、Token Management、Transactions、Operation Logs、Roles、Users；Kissen Admin Approval Center、System Users/Roles、Workflow Definitions、Operation Logs。其他已有 Search/Reset 的列表保持原实现。
+
+## 2026-09-29 Kissen Admin Token 列表分页与编号口径
+
+- `/onboard/token` 的 `useTokenListQuery` 返回未分页 `TokenRow[]`；列表分页需在传给 shared `DataTable` 前按当前页切片，因为 `DataTable.pagination` 走 `manualPagination`，只负责分页控件。结果数应继续取完整过滤结果。
+- `TokenRow.tokenNo` 是审核后由服务端分配的全网唯一编号，不是 `tokenCode`；列表 `Token Name (No.)` 的副行显示 `tokenNo`，空值由 `CopyableId` 显示为 `-`。分页条数沿用 10/20/50。

@@ -7,7 +7,7 @@
  * GatewayInstanceDetailsPage.jsx（行为规格：文案 / 列 / Tab 逐字对齐，UI 用本仓体系重实现）。
  *
  * 结构：页头提供 Heartbeat 抽屉；Tabs 展示 basic / connectivity / operations。
- * basic = 实例信息、货币系统与关联 Token；connectivity = Keys & Connectivity；
+ * basic = 实例信息（含 Token System Type/Name）与关联 Token；connectivity = Keys & Connectivity；
  * operations = 静态空表（GAP-ADM-02，operate-log 无按对象过滤 API）。
  *
  * 已登记偏差：
@@ -25,7 +25,6 @@ import {
   Coins,
   Hash,
   KeyRound,
-  Layers,
   ShieldCheck,
 } from 'lucide-react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -45,6 +44,7 @@ import {
 } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 import {
+  CS_TYPE_OPTIONS,
   gatewayInstanceKeys,
   KISSEN_PROJECT_ID,
   useInstanceListQuery,
@@ -442,7 +442,7 @@ export function GatewayInstanceDetailPage() {
             <TabsTrigger value="operations">Operation History</TabsTrigger>
           </TabsList>
 
-          {/* Tab 1：basic = Instance Information + Currency System + Associated Tokens。 */}
+          {/* Tab 1：basic = Instance Information + Associated Tokens。 */}
           <TabsContent value="basic" className="mt-0">
             <section className="space-y-6">
               <div className="rounded-xl border border-border bg-card shadow-sm">
@@ -464,26 +464,18 @@ export function GatewayInstanceDetailPage() {
                   <Field label="Service URL" mono>
                     <Dash />
                   </Field>
-                </dl>
-              </div>
-
-              {/* 分区二：Currency System（原型合并值 `Name · Blockchain · URL` 逐字照抄）。 */}
-              <div className="rounded-xl border border-border bg-card shadow-sm">
-                <SectionHeader icon={Layers} title="Currency System" />
-                <dl className="grid grid-cols-1 gap-x-8 gap-y-5 p-6 sm:grid-cols-2">
-                  <Field label="Currency System" mono span>
-                    {[
-                      instance.currencySystemName,
-                      instance.blockchain,
-                      instance.currencySystemUrl,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ') || <Dash />}
+                  <Field label="Token System Type">
+                    {CS_TYPE_OPTIONS.find(
+                      (option) => option.value === instance.currencySystemType,
+                    )?.label || <Dash />}
+                  </Field>
+                  <Field label="Token System Name">
+                    {instance.currencySystemName || <Dash />}
                   </Field>
                 </dl>
               </div>
 
-              {/* 分区三：Associated Tokens（本银行 token 列表，带计数）。 */}
+              {/* 分区二：Associated Tokens（本银行 token 列表，带计数）。 */}
               <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                 <SectionHeader
                   icon={Coins}

@@ -452,7 +452,7 @@ export function RoleListPage() {
   const toast = useToast();
   const hasPerm = useGatewayPerm();
 
-  const { register, reset, control, watch } = useForm<RoleFilterForm>({
+  const { register, reset, control, watch, getValues } = useForm<RoleFilterForm>({
     resolver: createFormResolver(roleFilterSchema),
     defaultValues: ROLE_FILTER_DEFAULT,
   });
@@ -461,6 +461,7 @@ export function RoleListPage() {
     formToFilter(ROLE_FILTER_DEFAULT),
   );
   const [pageNum, setPageNum] = React.useState(1);
+  const [appliedRoleType, setAppliedRoleType] = React.useState(OPT_ALL);
   const [pageSize, setPageSize] = React.useState(ROLE_PAGE_SIZE_DEFAULT);
 
   const { data, isLoading, isError, error, refetch, dataUpdatedAt } =
@@ -501,38 +502,28 @@ export function RoleListPage() {
   const [assignOpen, setAssignOpen] = React.useState(false);
   const [deleteTarget, setDeleteTarget] = React.useState<RoleRow | null>(null);
   const removeMutation = useRemoveRoleMutation(KISSEN_GATEWAY_PROJECT_ID);
-  /* 原型 Filters embedded：Role Code/Role Name/Status 服务端即时检索（300ms 防抖
-   * 回页 1）；Type 本地过滤当前页（RoleListReq 无该参数）。 */
-  const filterTimer = React.useRef<number | null>(null);
-  React.useEffect(() => {
-    const subscription = watch((values) => {
-      if (filterTimer.current != null) window.clearTimeout(filterTimer.current);
-      filterTimer.current = window.setTimeout(() => {
-        setFilter(formToFilter(values as RoleFilterForm));
-        setPageNum(1);
-      }, 300);
-    });
-    return () => {
-      subscription.unsubscribe();
-      if (filterTimer.current != null)
-        window.clearTimeout(filterTimer.current);
-    };
-  }, [watch]);
-
   const watched = watch();
   const hasFilter =
+    Boolean(filter.roleCode || filter.roleName || filter.status != null) ||
+    appliedRoleType !== OPT_ALL ||
     watched.roleCode.trim() !== '' ||
     watched.roleName.trim() !== '' ||
     watched.roleType !== OPT_ALL ||
     watched.status !== OPT_ALL;
 
-  /** 源 resetQuery：清空筛选回第一页重查。 */
+  const onSearch = React.useCallback(() => {
+    const values = getValues();
+    setFilter(formToFilter(values));
+    setAppliedRoleType(values.roleType);
+    setPageNum(1);
+  }, [getValues]);
+
   const onReset = React.useCallback(() => {
     reset(ROLE_FILTER_DEFAULT);
     setFilter(formToFilter(ROLE_FILTER_DEFAULT));
+    setAppliedRoleType(OPT_ALL);
     setPageNum(1);
   }, [reset]);
-
   /** 统计卡数据（原型 Total Roles / Active / Inactive）。 */
   const stats = React.useMemo(() => {
     const list = statsPage?.data ?? [];
@@ -586,15 +577,15 @@ export function RoleListPage() {
   const sortedRows = React.useMemo(() => {
     const accessor = sort.key ? sortAccessors[sort.key] : undefined;
     const base =
-      watched.roleType === OPT_ALL
+      appliedRoleType === OPT_ALL
         ? rows
-        : rows.filter((r) => String(r.roleType) === watched.roleType);
+        : rows.filter((r) => String(r.roleType) === appliedRoleType);
     if (!accessor) return base;
     const dir = sort.direction === 'desc' ? -1 : 1;
     return [...base].sort(
       (a, b) => compareProtoValues(accessor(a), accessor(b)) * dir,
     );
-  }, [rows, sort, sortAccessors, watched.roleType]);
+  }, [rows, sort, sortAccessors, appliedRoleType]);
 
   const tableData = React.useMemo(
     () => sortedRows.map((r) => ({ ...r, id: String(r.roleId) })),
@@ -825,10 +816,12 @@ export function RoleListPage() {
           </div>
         </div>
 
-        {/* 原型 Filters embedded：Role Code/Role Name/Status 服务端即时检索；
-            Type 本地过滤当前页（RoleListReq 无该参数）。 */}
+        {/* Search 提交服务端条件与本地 Type 过滤；Reset 清空并返回第一页。 */}
         <form
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSearch();
+          }}
           className="border-b border-border/50 px-4 py-3"
         >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -858,6 +851,7 @@ export function RoleListPage() {
             />
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="submit">Search</Button>
             <Button
               type="button"
               variant="outline"

@@ -437,7 +437,7 @@ export function UserListPage() {
   const router = useRouter();
   const toast = useToast();
   const hasPerm = useGatewayPerm();
-  const { register, reset, control, watch } = useForm<UserFilterForm>({
+  const { register, reset, control, watch, getValues } = useForm<UserFilterForm>({
     resolver: createFormResolver(userFilterSchema),
     defaultValues: USER_FILTER_DEFAULT,
   });
@@ -445,6 +445,7 @@ export function UserListPage() {
   const [params, setParams] = React.useState(() =>
     userFilterToParams(USER_FILTER_DEFAULT, 1, USER_PAGE_SIZE_DEFAULT),
   );
+  const [appliedUserType, setAppliedUserType] = React.useState(OPT_ALL);
   const { data, isLoading, isError, error, refetch, dataUpdatedAt } =
     useUserPageQuery(KISSEN_GATEWAY_PROJECT_ID, params);
 
@@ -489,37 +490,33 @@ export function UserListPage() {
     }
   }, [isError, error, refetch, toast]);
 
-  /* 原型 Filters embedded：输入即时生效（300ms 防抖回写服务端检索 + 回页 1），无 Search 按钮。 */
-  const filterTimer = React.useRef<number | null>(null);
-  React.useEffect(() => {
-    const subscription = watch((values) => {
-      if (filterTimer.current != null) window.clearTimeout(filterTimer.current);
-      filterTimer.current = window.setTimeout(() => {
-        setParams((prev) =>
-          userFilterToParams(values as UserFilterForm, 1, prev.pageSize),
-        );
-      }, 300);
-    });
-    return () => {
-      subscription.unsubscribe();
-      if (filterTimer.current != null)
-        window.clearTimeout(filterTimer.current);
-    };
-  }, [watch]);
-
-  /** 渲染期订阅：Reset 置灰态即时跟随（含本地 Type 下拉）。 */
   const watched = watch();
   const hasFilter =
+    Boolean(
+      params.filter.loginName ||
+        params.filter.userName ||
+        params.filter.status != null,
+    ) ||
+    appliedUserType !== OPT_ALL ||
     (watched.loginName ?? '').trim() !== '' ||
     (watched.userName ?? '').trim() !== '' ||
     (watched.userType ?? OPT_ALL) !== OPT_ALL ||
     (watched.status ?? OPT_ALL) !== OPT_ALL;
+
+  const onSearch = React.useCallback(() => {
+    const values = getValues();
+    setParams((prev) =>
+      userFilterToParams(values, 1, prev.pageSize),
+    );
+    setAppliedUserType(values.userType);
+  }, [getValues]);
 
   const onResetSearch = React.useCallback(() => {
     reset(USER_FILTER_DEFAULT);
     setParams((prev) =>
       userFilterToParams(USER_FILTER_DEFAULT, 1, prev.pageSize),
     );
+    setAppliedUserType(OPT_ALL);
   }, [reset]);
 
   /** 统计卡数据（原型 Total / Active / Inactive）。 */
@@ -597,15 +594,15 @@ export function UserListPage() {
   const sortedRows = React.useMemo(() => {
     const accessor = sort.key ? sortAccessors[sort.key] : undefined;
     const base =
-      watched.userType === OPT_ALL
+      appliedUserType === OPT_ALL
         ? rows
-        : rows.filter((u) => String(u.userType) === watched.userType);
+        : rows.filter((u) => String(u.userType) === appliedUserType);
     if (!accessor) return base;
     const dir = sort.direction === 'desc' ? -1 : 1;
     return [...base].sort(
       (a, b) => compareProtoValues(accessor(a), accessor(b)) * dir,
     );
-  }, [rows, sort, sortAccessors, watched.userType]);
+  }, [rows, sort, sortAccessors, appliedUserType]);
 
   const tableData = React.useMemo(
     () => sortedRows.map((u) => ({ ...u, id: String(u.userId) })),
@@ -879,10 +876,12 @@ export function UserListPage() {
           </div>
         </div>
 
-        {/* 原型 Filters embedded：Username/Full Name/Status 服务端即时检索；
-            Type 本地过滤当前页（UserListReq 无 userType 参数）。 */}
+        {/* Search 提交服务端条件与本地 Type 过滤；Reset 清空并返回第一页。 */}
         <form
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSearch();
+          }}
           className="border-b border-border/50 px-4 py-3"
         >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -912,6 +911,7 @@ export function UserListPage() {
             />
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="submit">Search</Button>
             <Button
               type="button"
               variant="outline"

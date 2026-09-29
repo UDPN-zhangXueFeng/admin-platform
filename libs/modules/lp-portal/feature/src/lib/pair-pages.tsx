@@ -209,28 +209,41 @@ export function PairListPage() {
   const query = usePairListQuery(LP_PROJECT_ID);
   const { symOf, bankOf } = useTokenMeta(LP_PROJECT_ID);
 
-  // GAP-LP-06(b)：本地筛选状态（原型 filters 受控输入同构；本地即时过滤）
+  // Local criteria are applied only on Search, matching the other list panels.
   const [filters, setFilters] = React.useState({
     pairCode: '',
     status: '',
   });
+  const [appliedFilters, setAppliedFilters] = React.useState({
+    pairCode: '',
+    status: '',
+  });
   const hasFilter = filters.pairCode !== '' || filters.status !== '';
-  const handleReset = () => setFilters({ pairCode: '', status: '' });
+  const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAppliedFilters(filters);
+  };
+  const handleReset = () => {
+    const empty = { pairCode: '', status: '' };
+    setFilters(empty);
+    setAppliedFilters(empty);
+  };
 
   // GAP-LP-06(b)：本地过滤（Pair Code 子串不区分大小写 / Status 精确）+
   // 缺省排序 As of（syncTime）倒序
   const tableData = React.useMemo<PairTableRow[]>(() => {
-    const pairCode = filters.pairCode.trim().toLowerCase();
+    const pairCode = appliedFilters.pairCode.trim().toLowerCase();
     return (query.data ?? [])
       .filter(
         (r) =>
           (!pairCode || r.pairCode.toLowerCase().includes(pairCode)) &&
-          (!filters.status || String(r.status) === filters.status),
+          (!appliedFilters.status ||
+            String(r.status) === appliedFilters.status),
       )
       .slice()
       .sort((a, b) => b.syncTime - a.syncTime)
       .map((r) => ({ ...r, id: String(r.id) }));
-  }, [query.data, filters]);
+  }, [query.data, appliedFilters]);
 
   const columns = React.useMemo<ColumnDef<PairTableRow>[]>(
     () => [
@@ -395,7 +408,10 @@ export function PairListPage() {
         </div>
 
         {/* 原型筛选独立卡（§6.2 分区）：Pair Code / Status */}
-        <section className="rounded-lg border border-border/60 bg-card p-4">
+        <form
+          onSubmit={handleSearch}
+          className="rounded-lg border border-border/60 bg-card p-4"
+        >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="min-w-0">
               <Label className="mb-1.5 block">Pair Code</Label>
@@ -427,18 +443,26 @@ export function PairListPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
+              <Button type="submit" size="sm">
+                Search
+              </Button>
               <Button
-                variant="secondary"
+                type="button"
+                variant="outline"
                 size="sm"
-                disabled={!hasFilter}
+                disabled={
+                  !hasFilter &&
+                  !appliedFilters.pairCode &&
+                  !appliedFilters.status
+                }
                 onClick={handleReset}
               >
                 Reset
               </Button>
             </div>
           </div>
-        </section>
+        </form>
 
         {/* §6.2 Table Panel：实体名 + 结果数 + 数据时间 + 页面级操作右置 */}
         <section className="rounded-lg border border-border/60 bg-card">

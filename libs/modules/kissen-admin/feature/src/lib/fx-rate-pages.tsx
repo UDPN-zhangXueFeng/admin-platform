@@ -96,6 +96,9 @@ const pairEditPath = (pairId: number) => `${PAIR_LIST_PATH}/edit?id=${pairId}`;
 /** 状态筛选 Select 的「全部」哨兵值（shadcn Select 无原生 clearable）。 */
 const STATUS_ALL = 'ALL';
 
+const PAGE_SIZE_DEFAULT = 10;
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
+
 /** Token 对状态色（原型 §10：Enabled success / Frozen info / Pending warning / Rejected danger / Disabled muted）。 */
 const PAIR_STATUS_TONE: Record<number, ProtoStatusTone> = {
   5: 'warning',
@@ -290,7 +293,7 @@ interface ListFilterForm {
 /**
  * Token 对列表（registry key `pair` → /fx-rate/pair）。
  *
- * - 筛选：Pair Code（Input，后端 pairCode 匹配语义由服务端定）/ Status。
+ * - 筛选：Token pair（Input，后端 pairCode 匹配语义由服务端定）/ Status。
  * - 列：Token Pair / Base Rate / Markup Rate / Client Rate（=base/(1+markup)）/
  *   Standard Rev. Share / Status / Created on (UTC+8) / Actions；数值列右对齐
  *   tabular-nums，全列可排序（useProtoSort triState）。
@@ -306,6 +309,8 @@ export function TokenPairListPage() {
     status: STATUS_ALL,
   });
   const [filter, setFilter] = React.useState<TokenPairListFilter>({});
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
   const { data: rows, isLoading, isError, dataUpdatedAt } =
     useTokenPairListQuery(PROJECT_ID, filter);
@@ -326,6 +331,7 @@ export function TokenPairListPage() {
         status:
           input.status === STATUS_ALL ? undefined : Number(input.status),
       });
+      setPage(1);
     },
     [input],
   );
@@ -333,6 +339,7 @@ export function TokenPairListPage() {
   const onReset = React.useCallback(() => {
     setInput({ pairCode: '', status: STATUS_ALL });
     setFilter({});
+    setPage(1);
   }, []);
 
   const queryRows = rows ?? [];
@@ -366,6 +373,21 @@ export function TokenPairListPage() {
   const tableData = React.useMemo(
     () => sorted.map((r) => ({ ...r, id: String(r.pairId) })),
     [sorted],
+  );
+
+  const pageCount = Math.max(1, Math.ceil(tableData.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  React.useEffect(() => {
+    if (page !== currentPage) setPage(currentPage);
+  }, [currentPage, page]);
+
+  const pageData = React.useMemo(
+    () =>
+      tableData.slice(
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize,
+      ),
+    [currentPage, pageSize, tableData],
   );
 
   const columns = React.useMemo<
@@ -631,7 +653,7 @@ export function TokenPairListPage() {
                 htmlFor="pair-code-filter"
                 className="text-sm font-medium leading-snug text-foreground"
               >
-                Pair Code
+                Token pair
               </label>
               <Input
                 id="pair-code-filter"
@@ -683,8 +705,22 @@ export function TokenPairListPage() {
           ) : (
             <DataTable
               columns={columns}
-              data={tableData}
-              isLoading={isLoading}
+              data={pageData}
+              pagination={
+                tableData.length > 0
+                  ? {
+                      page: currentPage,
+                      pageSize,
+                      total: tableData.length,
+                      onPageChange: setPage,
+                      onPageSizeChange: (nextPageSize) => {
+                        setPageSize(nextPageSize);
+                        setPage(1);
+                      },
+                      pageSizeOptions: PAGE_SIZE_OPTIONS,
+                    }
+                  : undefined
+              }
               emptyMessage="No token pairs found."
             />
           )}

@@ -86,6 +86,7 @@ export function FxListPage() {
   const rows = data?.pairs ?? [];
 
   const [filters, setFilters] = React.useState<FxFilters>(FX_FILTER_DEFAULT);
+  const [appliedFilters, setAppliedFilters] = React.useState<FxFilters>(FX_FILTER_DEFAULT);
   const { sort, toggle } = useTableSort('syncedAt', 'desc');
 
   // LP 筛选 options 从当前数据派生（全表 lpNames 并集去重排序）。
@@ -96,7 +97,7 @@ export function FxListPage() {
 
   // 本地过滤过渡（/fx/view 无查询入参；后端参数就绪后回写为服务端检索）。
   const filtered = React.useMemo(() => {
-    const q = filters.pair.trim().toLowerCase();
+    const q = appliedFilters.pair.trim().toLowerCase();
     return rows.filter((r) => {
       const pair = r.tokenPair;
       const pairHit =
@@ -107,11 +108,11 @@ export function FxListPage() {
         (pair.targetTokenCode ?? '').toLowerCase().includes(q);
       return (
         pairHit &&
-        (!filters.lp || r.lpNames.includes(filters.lp)) &&
-        (!filters.status || String(pair.status) === filters.status)
+        (!appliedFilters.lp || r.lpNames.includes(appliedFilters.lp)) &&
+        (!appliedFilters.status || String(pair.status) === appliedFilters.status)
       );
     });
-  }, [rows, filters]);
+  }, [rows, appliedFilters]);
 
   const sorted = React.useMemo(() => {
     const dir = sort.direction === 'desc' ? -1 : 1;
@@ -135,8 +136,12 @@ export function FxListPage() {
   );
 
   const hasFilter =
-    filters.pair !== '' || filters.lp !== '' || filters.status !== '';
-
+    filters.pair !== '' ||
+    filters.lp !== '' ||
+    filters.status !== '' ||
+    appliedFilters.pair !== '' ||
+    appliedFilters.lp !== '' ||
+    appliedFilters.status !== '';
   const columns = React.useMemo<ColumnDef<FxPairItem & { id: string }>[]>(
     () => [
       {
@@ -253,8 +258,13 @@ export function FxListPage() {
         </p>
       </div>
 
-      {/* 筛选卡（原型 Filters embedded：即时生效，无 Query 按钮）。 */}
-      <section className="rounded-lg border border-border/60 bg-card p-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setAppliedFilters(filters);
+        }}
+        className="rounded-lg border border-border/60 bg-card p-4"
+      >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="min-w-0">
             <Label className="mb-1.5 block">Token Pair</Label>
@@ -308,18 +318,23 @@ export function FxListPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
+            <Button type="submit" size="sm">Search</Button>
             <Button
-              variant="secondary"
+              type="button"
+              variant="outline"
               size="sm"
               disabled={!hasFilter}
-              onClick={() => setFilters(FX_FILTER_DEFAULT)}
+              onClick={() => {
+                setFilters(FX_FILTER_DEFAULT);
+                setAppliedFilters(FX_FILTER_DEFAULT);
+              }}
             >
               Reset
             </Button>
           </div>
         </div>
-      </section>
+      </form>
 
       <section className="rounded-lg border border-border/60 bg-card">
         {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + Refresh。 */}

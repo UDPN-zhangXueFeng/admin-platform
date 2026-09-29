@@ -7,8 +7,7 @@
  * - DataTable 九列（Time (UTC+8) / Operator / Module / Business Type / Request URL /
  *   Status / Duration / Trace ID / Actions）；列偏好 localStorage 持久化（Trace ID
  *   默认隐藏，1440 宽放不下全列）；行内展开已废除——Details 入独立详情页。
- * - 筛选（原型 Filters embedded 即时生效，无 Query 按钮）：Date Range → Operator →
- *   Module(Select) → Status(Select)；Operator/Status 无服务端参数——当前页本地过滤
+ * - 筛选：Search 提交当前条件，Reset 清空并回到第一页；Operator/Status 无服务端参数——当前页本地过滤
  *   过渡（见组件内注释）；Date Range/Module 走 /log/page 服务端参数。
  * - 排序：服务端 /log/page 无排序参数——当前页内排序（tx 列表同口径）。
  *
@@ -90,7 +89,7 @@ const LOG_SORT_ACCESSORS: Record<
   traceId: (r) => r.traceId,
 };
 
-/* ─────────────── 筛选表单（原型 Filters embedded：即时生效） ─────────────── */
+/* ─────────────── 筛选表单（原型字段 + 显式 Search/Reset 提交） ─────────────── */
 
 const logFilterSchema = z.object({
   startTime: z.string(),
@@ -185,7 +184,7 @@ export function LogListPage() {
   const router = useRouter();
   const toast = useToast();
 
-  const { register, reset, control, watch } = useForm<LogFilterForm>({
+  const { register, reset, control, watch, getValues } = useForm<LogFilterForm>({
     resolver: createFormResolver(logFilterSchema),
     defaultValues: LOG_FILTER_DEFAULT,
   });
@@ -218,31 +217,19 @@ export function LogListPage() {
     }
   }, [isError, error, refetch, toast]);
 
-  /* 原型 Filters embedded：输入即时生效（300ms 防抖回写 + 回页 1），无 Query
-   * 按钮；Reset 一键清空（tx/token 页同款口径）。 */
-  const filterTimer = React.useRef<number | null>(null);
-  React.useEffect(() => {
-    const subscription = watch((values) => {
-      if (filterTimer.current != null) window.clearTimeout(filterTimer.current);
-      filterTimer.current = window.setTimeout(() => {
-        setQuery(formToQuery(values as LogFilterForm));
-        setPageNum(1);
-      }, 300);
-    });
-    return () => {
-      subscription.unsubscribe();
-      if (filterTimer.current != null) window.clearTimeout(filterTimer.current);
-    };
-  }, [watch]);
-
-  /** 渲染期订阅：筛选表单任一值变化即重算 hasFilter（Reset 置灰态即时跟随）。 */
   const watched = watch();
   const hasFilter =
+    Boolean(query.req.module || query.req.startTime || query.req.endTime || query.operator || query.status) ||
     (watched.startTime ?? '') !== '' ||
     (watched.endTime ?? '') !== '' ||
     (watched.operator ?? '').trim() !== '' ||
     (watched.module ?? OPT_ALL) !== OPT_ALL ||
     (watched.status ?? OPT_ALL) !== OPT_ALL;
+
+  const onSearch = React.useCallback(() => {
+    setQuery(formToQuery(getValues()));
+    setPageNum(1);
+  }, [getValues]);
 
   const onReset = React.useCallback(() => {
     reset(LOG_FILTER_DEFAULT);
@@ -493,10 +480,12 @@ export function LogListPage() {
           </div>
         </div>
 
-        {/* §6.2 Filter Bar（原型 Filters embedded：即时生效，无 Query 按钮；
-            顺序照原型 Date Range → Operator → Module → Status）。 */}
+        {/* Filter Bar：Search 提交当前条件，Reset 清空；字段顺序照原型 Date Range → Operator → Module → Status。 */}
         <form
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSearch();
+          }}
           className="border-b border-border/50 px-4 py-3"
         >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -536,6 +525,7 @@ export function LogListPage() {
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="submit">Search</Button>
             <Button
               type="button"
               variant="outline"

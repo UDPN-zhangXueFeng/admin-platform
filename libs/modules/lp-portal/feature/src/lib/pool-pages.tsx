@@ -320,17 +320,28 @@ export function PoolListPage() {
   const listQuery = usePoolListQuery(LP_PROJECT_ID);
   const rows = listQuery.data ?? [];
 
-  // GAP-LP-02：本地筛选状态（原型 filters 受控输入同构；无 debounce——
-  // 本地即时过滤无需请求级防抖）
+  // GAP-LP-02：草稿筛选状态；点击 Search 后应用到本地全量快照
   const [filters, setFilters] = React.useState({
+    poolId: '',
+    token: '',
+    status: '',
+  });
+  const [appliedFilters, setAppliedFilters] = React.useState({
     poolId: '',
     token: '',
     status: '',
   });
   const hasFilter =
     filters.poolId !== '' || filters.token !== '' || filters.status !== '';
-
-  const handleReset = () => setFilters({ poolId: '', token: '', status: '' });
+  const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAppliedFilters(filters);
+  };
+  const handleReset = () => {
+    const empty = { poolId: '', token: '', status: '' };
+    setFilters(empty);
+    setAppliedFilters(empty);
+  };
 
   // Token 筛选 options：当前快照内 token 全集（原型为 seed 全集常量，
   // 本仓不硬编码 token 清单，随数据派生）
@@ -349,18 +360,20 @@ export function PoolListPage() {
   // GAP-LP-02：本地过滤（Pool ID 子串 / Token 精确 / Status 精确）+
   // 缺省排序 Updated on（syncTime）倒序
   const tableData = React.useMemo<PoolTableRow[]>(() => {
-    const poolId = filters.poolId.trim();
+    const poolId = appliedFilters.poolId.trim();
     return rows
       .filter(
         (r) =>
           (!poolId || String(r.poolId).includes(poolId)) &&
-          (!filters.token || (r.tokenSymbol || r.tokenNo) === filters.token) &&
-          (!filters.status || String(r.status) === filters.status),
+          (!appliedFilters.token ||
+            (r.tokenSymbol || r.tokenNo) === appliedFilters.token) &&
+          (!appliedFilters.status ||
+            String(r.status) === appliedFilters.status),
       )
       .slice()
       .sort((a, b) => b.syncTime - a.syncTime)
       .map((r) => ({ ...r, id: String(r.poolId) }));
-  }, [rows, filters]);
+  }, [rows, appliedFilters]);
 
   const columns = React.useMemo<ColumnDef<PoolTableRow>[]>(
     () => [
@@ -506,7 +519,10 @@ export function PoolListPage() {
         </div>
 
         {/* 原型筛选独立卡（§6.2 分区）：Pool ID / Token / Status */}
-        <section className="rounded-lg border border-border/60 bg-card p-4">
+        <form
+          onSubmit={handleSearch}
+          className="rounded-lg border border-border/60 bg-card p-4"
+        >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="min-w-0">
               <Label className="mb-1.5 block">Pool ID</Label>
@@ -559,18 +575,27 @@ export function PoolListPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
+              <Button type="submit" size="sm">
+                Search
+              </Button>
               <Button
-                variant="secondary"
+                type="button"
+                variant="outline"
                 size="sm"
-                disabled={!hasFilter}
+                disabled={
+                  !hasFilter &&
+                  !appliedFilters.poolId &&
+                  !appliedFilters.token &&
+                  !appliedFilters.status
+                }
                 onClick={handleReset}
               >
                 Reset
               </Button>
             </div>
           </div>
-        </section>
+        </form>
 
         {/* §6.2 Table Panel：实体名 + 结果数 + 数据时间 + 页面级操作右置 */}
         <section className="rounded-lg border border-border/60 bg-card">

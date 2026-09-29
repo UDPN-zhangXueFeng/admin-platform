@@ -728,6 +728,17 @@ export function SysUserListPage() {
   );
 
   const activeCount = statRows.filter((u) => u.status === 0).length;
+  const onSearch = () => {
+    setParams((prev) => ({
+      pageNum: 1,
+      pageSize: prev.pageSize,
+      filter: {
+        loginName: username || undefined,
+        userName: fullName || undefined,
+        status: toNum(statusSel),
+      },
+    }));
+  };
   const isFiltered =
     !!debouncedUsername || !!debouncedFullName || statusSel !== ALL;
 
@@ -965,13 +976,22 @@ export function SysUserListPage() {
               </SelectContent>
             </Select>
           </FilterField>
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
+            <Button type="button" onClick={onSearch}>
+              Search
+            </Button>
             <Button
+              type="button"
               variant="outline"
               onClick={() => {
                 setUsername('');
                 setFullName('');
                 setStatusSel(ALL);
+                setParams((prev) => ({
+                  pageNum: 1,
+                  pageSize: prev.pageSize,
+                  filter: {},
+                }));
               }}
             >
               Reset
@@ -1698,6 +1718,13 @@ export function SysRoleListPage() {
   const statRows = statData?.data ?? [];
   const activeCount = statRows.filter((r) => r.status === 0).length;
   const isFiltered = !!debouncedRoleName;
+  const onSearch = () => {
+    setParams((prev) => ({
+      pageNum: 1,
+      pageSize: prev.pageSize,
+      filter: { roleName: roleName || undefined },
+    }));
+  };
 
   const tableData = React.useMemo<RoleTableRow[]>(
     () =>
@@ -1920,10 +1947,21 @@ export function SysRoleListPage() {
               onChange={(e) => setRoleName(e.target.value)}
             />
           </FilterField>
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
+            <Button type="button" onClick={onSearch}>
+              Search
+            </Button>
             <Button
+              type="button"
               variant="outline"
-              onClick={() => setRoleName('')}
+              onClick={() => {
+                setRoleName('');
+                setParams((prev) => ({
+                  pageNum: 1,
+                  pageSize: prev.pageSize,
+                  filter: {},
+                }));
+              }}
             >
               Reset
             </Button>
@@ -3457,9 +3495,10 @@ export function WorkflowConfigListPage() {
   const hasPerm = useKissenPerm();
 
   const [busCode, setBusCode] = React.useState<string>(ALL);
+  const [appliedBusCode, setAppliedBusCode] = React.useState<string>(ALL);
   const { data, isLoading, isError } = useWorkflowListQuery(
     KISSEN_PROJECT_ID,
-    busCode === ALL ? undefined : busCode,
+    appliedBusCode === ALL ? undefined : appliedBusCode,
   );
   const statusMutation = useWorkflowStatusMutation(KISSEN_PROJECT_ID);
   const { data: businesses } = useWorkflowBusinessesQuery(KISSEN_PROJECT_ID);
@@ -3647,8 +3686,18 @@ export function WorkflowConfigListPage() {
               </SelectContent>
             </Select>
           </FilterField>
-          <div className="flex items-end">
-            <Button variant="outline" onClick={() => setBusCode(ALL)}>
+          <div className="flex items-end gap-2">
+            <Button type="button" onClick={() => setAppliedBusCode(busCode)}>
+              Search
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setBusCode(ALL);
+                setAppliedBusCode(ALL);
+              }}
+            >
               Reset
             </Button>
           </div>
@@ -4492,6 +4541,25 @@ export function OperateLogListPage() {
     setOperator('');
     setModuleText('');
     setStatusSel(ALL);
+    setParams((prev) => ({
+      pageNum: 1,
+      pageSize: prev.pageSize,
+      filter: {},
+    }));
+  };
+  const onSearch = () => {
+    setParams((prev) => ({
+      pageNum: 1,
+      pageSize: prev.pageSize,
+      filter: {
+        userId: isNumericText(operator) ? Number(operator) : undefined,
+        operateName: isNumericText(operator) || !operator ? undefined : operator,
+        module: moduleText || undefined,
+        status: statusSel === ALL ? undefined : Number(statusSel),
+        startTime: dayStartMs(dateFrom),
+        endTime: dayEndMs(dateTo),
+      },
+    }));
   };
 
   return (
@@ -4570,7 +4638,10 @@ export function OperateLogListPage() {
               </SelectContent>
             </Select>
           </FilterField>
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
+            <Button type="button" onClick={onSearch}>
+              Search
+            </Button>
             <Button variant="outline" onClick={onReset}>
               Reset
             </Button>

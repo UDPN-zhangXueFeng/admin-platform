@@ -109,9 +109,8 @@ export function BankQueryListPage() {
   const { data, isLoading, isFetching, isError, error, refetch, dataUpdatedAt } =
     useBankQueryListQuery();
 
-  const [filters, setFilters] = React.useState<BankQueryFilters>(
-    BANK_QUERY_FILTER_DEFAULT,
-  );
+  const [filters, setFilters] = React.useState<BankQueryFilters>(BANK_QUERY_FILTER_DEFAULT);
+  const [appliedFilters, setAppliedFilters] = React.useState<BankQueryFilters>(BANK_QUERY_FILTER_DEFAULT);
   const { sort, toggle } = useTableSort('syncedAt', 'desc');
 
   // 列表失败 toast + Retry（tx/log 页口径；表格区保持空态，页面整体不阻断）。
@@ -136,18 +135,18 @@ export function BankQueryListPage() {
 
   // 本地过滤过渡（/bank/query/list 无查询入参；后端参数就绪后回写为服务端检索）。
   const filtered = React.useMemo(() => {
-    const q = filters.keyword.trim().toLowerCase();
+    const q = appliedFilters.keyword.trim().toLowerCase();
     return rows.filter((r) => {
       const keywordHit =
         !q ||
         (r.bankName ?? '').toLowerCase().includes(q) ||
         (r.bankBic ?? '').toLowerCase().includes(q);
       const typeHit =
-        !filters.bankType ||
-        (filters.bankType === 'own' ? r.self === true : r.self !== true);
+        !appliedFilters.bankType ||
+        (appliedFilters.bankType === 'own' ? r.self === true : r.self !== true);
       return keywordHit && typeHit;
     });
-  }, [rows, filters]);
+  }, [rows, appliedFilters]);
 
   const sorted = React.useMemo(() => {
     const dir = sort.direction === 'desc' ? -1 : 1;
@@ -162,7 +161,11 @@ export function BankQueryListPage() {
     });
   }, [filtered, sort]);
 
-  const hasFilter = filters.keyword !== '' || filters.bankType !== '';
+  const hasFilter =
+    filters.keyword !== '' ||
+    filters.bankType !== '' ||
+    appliedFilters.keyword !== '' ||
+    appliedFilters.bankType !== '';
 
   const columns = React.useMemo<ColumnDef<BankQueryRow>[]>(
     () => [
@@ -286,8 +289,13 @@ export function BankQueryListPage() {
         </p>
       </div>
 
-      {/* 筛选卡（原型 Filters embedded：即时生效，无 Query 按钮）。 */}
-      <section className="rounded-lg border border-border/60 bg-card p-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setAppliedFilters(filters);
+        }}
+        className="rounded-lg border border-border/60 bg-card p-4"
+      >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="min-w-0">
             <Label className="mb-1.5 block">Bank Name / BIC</Label>
@@ -317,18 +325,23 @@ export function BankQueryListPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
+            <Button type="submit" size="sm">Search</Button>
             <Button
-              variant="secondary"
+              type="button"
+              variant="outline"
               size="sm"
               disabled={!hasFilter}
-              onClick={() => setFilters(BANK_QUERY_FILTER_DEFAULT)}
+              onClick={() => {
+                setFilters(BANK_QUERY_FILTER_DEFAULT);
+                setAppliedFilters(BANK_QUERY_FILTER_DEFAULT);
+              }}
             >
               Reset
             </Button>
           </div>
         </div>
-      </section>
+      </form>
 
       <section className="rounded-lg border border-border/60 bg-card">
         {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + Refresh。 */}

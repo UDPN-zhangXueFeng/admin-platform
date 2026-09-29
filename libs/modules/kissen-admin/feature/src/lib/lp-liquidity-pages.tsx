@@ -29,9 +29,8 @@
  *    门槛）；出款池概念退役提示。
  * P3 原型对齐（2026-09-23，行为规格 /tmp/kissen_prototype/udpn-kissen-network-mgt）：
  *  - lp-info 列表/详情（LpOnboardingPage / LpDetailsPage）：Onboard LP 按钮、
- *    Creation Date 筛选（GAP-ADM-08 本地）、Details+⋮ 动作列、Submit/Deactivate/
- *    Activate 三确认弹窗走 proto-ui ActionConfirmDialog；详情改四 Tab（basic/pools/
- *    pairs/operations，?tab= 写 URL 带计数）。
+ *    Details+⋮ 动作列、Submit/Deactivate/Activate 三确认弹窗走 proto-ui
+ *    ActionConfirmDialog；详情改四 Tab（basic/pools/pairs/operations，?tab= 写 URL 带计数）。
  *  - pool 列表（LiquidityPoolManagementPage 画板⑨）：LP Name/Pool Address/Token
  *    Name/Wallet Balance/Authorized Amount（Avail: 副行）/Liq. Coverage 水位条/
  *    Created on (UTC+8)/Updated on (UTC+8)，无动作列。
@@ -447,24 +446,16 @@ interface LpInfoFilter {
   lpName: string;
   lpCode: string;
   status: string;
-  /** 创建日期（YYYY-MM-DD，<input type="date"> 值）；仅本地过滤，不下发服务端。 */
-  createdFrom: string;
-  createdTo: string;
 }
 const LP_INFO_EMPTY: LpInfoFilter = {
   lpName: '',
   lpCode: '',
   status: '',
-  createdFrom: '',
-  createdTo: '',
 };
 interface LpInfoParams {
   lpName?: string;
   lpCode?: string;
   status?: number;
-  /** 创建日期区间：不下发服务端（GAP-ADM-08），仅驱动当前页本地过滤。 */
-  createdFrom?: string;
-  createdTo?: string;
 }
 
 function lpInfoFormToParams(f: LpInfoFilter): LpInfoParams {
@@ -472,8 +463,6 @@ function lpInfoFormToParams(f: LpInfoFilter): LpInfoParams {
   if (f.lpName.trim()) p.lpName = f.lpName.trim();
   if (f.lpCode.trim()) p.lpCode = f.lpCode.trim();
   if (f.status) p.status = Number(f.status);
-  if (f.createdFrom) p.createdFrom = f.createdFrom;
-  if (f.createdTo) p.createdTo = f.createdTo;
   return p;
 }
 
@@ -689,18 +678,6 @@ export function LpInfoListPage() {
   const rows = data?.data ?? [];
   const pagination = data?.pagination;
 
-  // STATIC-FILLER(GAP-ADM-08): 后端 LpListFilter 无 createTime 参数——创建日期
-  // 筛选仅对当前页行本地过滤（分页 total 不受影响），后端补参后回写服务端。
-  const visibleRows = React.useMemo(() => {
-    const { createdFrom, createdTo } = params;
-    if (!createdFrom && !createdTo) return rows;
-    return rows.filter((r) => {
-      const day = formatUtc8DateKey(r.createTime);
-      if (createdFrom && day < createdFrom) return false;
-      if (createdTo && day > createdTo) return false;
-      return true;
-    });
-  }, [rows, params.createdFrom, params.createdTo]);
 
   const onSearch = React.useCallback((f: LpInfoFilter) => {
     setParams(lpInfoFormToParams(f));
@@ -872,8 +849,8 @@ export function LpInfoListPage() {
   );
 
   const tableData = React.useMemo(
-    () => visibleRows.map((r) => ({ ...r, id: String(r.lpId) })),
-    [visibleRows],
+    () => rows.map((r) => ({ ...r, id: String(r.lpId) })),
+    [rows],
   );
 
   return (
@@ -930,27 +907,7 @@ export function LpInfoListPage() {
                 label: protoStatusLabel(PROTO_LP_STATUS, code),
               }))}
             />
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor="lp-created-from"
-                className="text-sm font-medium leading-snug"
-              >
-                Creation Date
-              </label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="lp-created-from"
-                  type="date"
-                  {...register('createdFrom')}
-                />
-                <span aria-hidden="true" className="text-muted-foreground">
-                  –
-                </span>
-                <Input type="date" {...register('createdTo')} />
-              </div>
-              {/* STATIC-FILLER(GAP-ADM-08): 创建日期为当前页本地过滤（见上方 visibleRows）。 */}
-            </div>
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-2 lg:col-span-3 lg:justify-end">
               <Button type="submit">{LBL.query}</Button>
               <Button type="button" variant="outline" onClick={onReset}>
                 {LBL.reset}

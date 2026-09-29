@@ -330,7 +330,7 @@ export function TxListPage() {
   const router = useRouter();
   const toast = useToast();
   const hasPerm = useGatewayPerm();
-  const { register, reset, control, watch } = useForm<TxFilterForm>({
+  const { register, reset, control, watch, getValues } = useForm<TxFilterForm>({
     resolver: zodResolver(txFilterSchema),
     defaultValues: TX_FILTER_DEFAULT,
   });
@@ -376,26 +376,9 @@ export function TxListPage() {
     }
   }, [isError, error, refetch, toast]);
 
-  /* 原型 Filters embedded：输入即时生效（300ms 防抖回写服务端检索 + 回页 1），
-   * 无 Query/搜索按钮；Reset 一键清空（token/fx 页同款口径）。 */
-  const filterTimer = React.useRef<number | null>(null);
-  React.useEffect(() => {
-    const subscription = watch((values) => {
-      if (filterTimer.current != null) window.clearTimeout(filterTimer.current);
-      filterTimer.current = window.setTimeout(() => {
-        setFilter(formToFilter(values as TxFilterForm));
-        setPageNum(1);
-      }, 300);
-    });
-    return () => {
-      subscription.unsubscribe();
-      if (filterTimer.current != null) window.clearTimeout(filterTimer.current);
-    };
-  }, [watch]);
-
-  /** 渲染期订阅：筛选表单任一值变化即重算 hasFilter（Reset 置灰态即时跟随）。 */
   const watched = watch();
   const hasFilter =
+    Object.values(filter).some((value) => value != null && value !== '') ||
     (watched.txNo ?? '').trim() !== '' ||
     (watched.senderAccount ?? '').trim() !== '' ||
     (watched.receiverAccount ?? '').trim() !== '' ||
@@ -404,6 +387,11 @@ export function TxListPage() {
     (watched.status ?? OPT_ALL) !== OPT_ALL ||
     (watched.startTime ?? '') !== '' ||
     (watched.endTime ?? '') !== '';
+
+  const onSearch = React.useCallback(() => {
+    setFilter(formToFilter(getValues()));
+    setPageNum(1);
+  }, [getValues]);
 
   const onReset = React.useCallback(() => {
     reset(TX_FILTER_DEFAULT);
@@ -824,11 +812,14 @@ export function TxListPage() {
           </div>
         </div>
 
-        {/* §6.2 Filter Bar（原型 Filters embedded：即时生效，无 Query 按钮）。
+        {/* Filter Bar：Search 提交当前条件，Reset 清空并回到第一页。
             GAP-GW-04：/tx/page filter 的 txNo/from/to/lp 匹配语义（精确或模糊）待与
             后端核对——占位文案不承诺「模糊」；completedOn 字段待核对（原型列集无该列）。 */}
         <form
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSearch();
+          }}
           className="border-b border-border/50 px-4 py-3"
         >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -882,6 +873,7 @@ export function TxListPage() {
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="submit">Search</Button>
             <Button
               type="button"
               variant="outline"

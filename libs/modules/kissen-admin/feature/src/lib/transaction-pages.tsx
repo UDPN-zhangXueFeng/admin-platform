@@ -4,10 +4,10 @@
  * 交易域页面（原型 FxTransactionsPage / FxTransactionDetailsPage；上游
  * `views/transfer/tx/**` v2.0-tokenization）。
  *
- * - TxListListPage：/transfer/tx 全状态单页。7 平铺筛选（单号/Token 对/LP/
- *   状态/创建日期区间/源/目标银行）+ 全列可排序（Tokens/From/To 除外）+
- *   Completed on (UTC+8) 真实列（completedTime，0=未完成 → Dash）。
- * - TxDetailPage：/transfer/tx/detail?id=。左 8/12（Settlement Overview /
+ * - TxListListPage：/transfer/tx 全状态单页。Transaction No./Token Pair/LP/Status 默认显示，
+ *   Creation Date/Source Bank/Target Bank 点击 More 展开；全列可排序（Tokens/From/To 除外）
+ *   + Completed on (UTC+8) 真实列（completedTime，0=未完成 → Dash）。
+ * - TxDetailPage：/transfer/tx/detail?id=。左 8/12（Transaction Overview /
  *   Transaction Information / Timing）+ 右 4/12（Clearance Pipeline 七节点）。
  * - ResolveDialog（EXCEPTION 70 行处置）与 TransactionStatusAlert（真实
  *   failReason 载体）保留。
@@ -668,7 +668,7 @@ function TxNotFoundCard() {
 
 /**
  * 交易详情独立页（/transfer/tx/detail?id=）：加载交易详情。
- * 左 8/12 = Settlement Overview / Transaction Information / Timing；
+ * 左 8/12 = Transaction Overview / Transaction Information / Timing；
  * 右 4/12 = Clearance Pipeline（7 节点干线）。
  */
 export function TxDetailPage() {
@@ -833,11 +833,11 @@ export function TxDetailPage() {
           <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
             {/* 左 8/12 */}
             <div className="flex min-w-0 flex-col gap-4 xl:col-span-8">
-              {/* R1'：Settlement Overview（Sent/Received 左右 + 中间汇率与 LP）。 */}
+              {/* R1'：Transaction Overview（Sent/Received 左右 + 中间汇率与 LP）。 */}
               <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                 <TxSectionHeader
                   icon={ArrowLeftRight}
-                  title="Settlement Overview"
+                  title="Transaction Overview"
                   aside={
                     latencyMs != null ? (
                       <Badge variant="success" dot>
@@ -1188,7 +1188,7 @@ export function TxDetailPage() {
 }
 
 /* ================================================================== */
-/* 列表页核心（原型 FxTransactionsPage：7 平铺筛选 + 全列可排序）        */
+/* 列表页核心（原型 FxTransactionsPage：常用筛选默认显示，扩展筛选按需展开） */
 /* ================================================================== */
 
 interface TxFilterForm {
@@ -1301,6 +1301,9 @@ function TransactionListCore() {
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const [resolveRow, setResolveRow] = React.useState<TransactionRow | null>(null);
   const [resolveOpen, setResolveOpen] = React.useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(() =>
+    Boolean(initialFilterForm.createdFrom || initialFilterForm.createdTo),
+  );
 
   const { data, isLoading, isError, dataUpdatedAt } = useTransactionListQuery(KISSEN_PROJECT_ID, {
     pageNum,
@@ -1697,42 +1700,57 @@ function TransactionListCore() {
               options={statusSelectOptions}
               placeholder="All"
             />
-            {/* 时间区间（原型单 DateRangeField）：双 date 输入 From/To。 */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium leading-snug text-foreground">
-                Creation Date
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  type="date"
-                  aria-label="Creation date from"
-                  {...register('createdFrom')}
-                />
-                <Input
-                  type="date"
-                  aria-label="Creation date to"
-                  {...register('createdTo')}
-                />
+            <div
+              id="transaction-advanced-filters"
+              className={showAdvancedFilters ? 'contents' : 'hidden'}
+            >
+              {/* 时间区间（原型单 DateRangeField）：双 date 输入 From/To。 */}
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium leading-snug text-foreground">
+                  Creation Date
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="date"
+                    aria-label="Creation date from"
+                    {...register('createdFrom')}
+                  />
+                  <Input
+                    type="date"
+                    aria-label="Creation date to"
+                    {...register('createdTo')}
+                  />
+                </div>
               </div>
+              <FilterableFormSelect
+                name="sourceBankId"
+                control={control}
+                label="Source Bank"
+                options={bankSelectOptions}
+                placeholder="All"
+              />
+              <FilterableFormSelect
+                name="targetBankId"
+                control={control}
+                label="Target Bank"
+                options={bankSelectOptions}
+                placeholder="All"
+              />
             </div>
-            <FilterableFormSelect
-              name="sourceBankId"
-              control={control}
-              label="Source Bank"
-              options={bankSelectOptions}
-              placeholder="All"
-            />
-            <FilterableFormSelect
-              name="targetBankId"
-              control={control}
-              label="Target Bank"
-              options={bankSelectOptions}
-              placeholder="All"
-            />
             <div className="flex flex-wrap items-end gap-2">
               <Button type="submit">Search</Button>
               <Button type="button" variant="outline" onClick={onReset}>
                 Reset
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-expanded={showAdvancedFilters}
+                aria-controls="transaction-advanced-filters"
+                onClick={() => setShowAdvancedFilters((expanded) => !expanded)}
+              >
+                {showAdvancedFilters ? 'Less' : 'More'}
               </Button>
             </div>
           </div>

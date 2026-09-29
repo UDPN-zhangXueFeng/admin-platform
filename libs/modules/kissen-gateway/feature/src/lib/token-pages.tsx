@@ -509,6 +509,7 @@ export function TokenListPage() {
 
   const rows = data ?? [];
   const [filters, setFilters] = React.useState<TokenFilters>(TOKEN_FILTER_DEFAULT);
+  const [appliedFilters, setAppliedFilters] = React.useState<TokenFilters>(TOKEN_FILTER_DEFAULT);
   const { sort, toggle } = useTableSort('syncedAt', 'desc');
   const columnPreferences = useColumnPreferences(
     TOKEN_COLUMN_PREF_KEY,
@@ -544,15 +545,15 @@ export function TokenListPage() {
 
   // 本地过滤过渡（/token/list 无查询入参；后端参数就绪后回写为服务端检索）。
   const filtered = React.useMemo(() => {
-    const q = filters.code.trim().toLowerCase();
+    const q = appliedFilters.code.trim().toLowerCase();
     return rows.filter(
       (r) =>
         (!q || r.tokenCode.toLowerCase().includes(q)) &&
-        (!filters.peggedCurrency || r.anchorFiat === filters.peggedCurrency) &&
-        (!filters.chain || r.chainType === filters.chain) &&
-        (!filters.status || String(r.status) === filters.status),
+        (!appliedFilters.peggedCurrency || r.anchorFiat === appliedFilters.peggedCurrency) &&
+        (!appliedFilters.chain || r.chainType === appliedFilters.chain) &&
+        (!appliedFilters.status || String(r.status) === appliedFilters.status),
     );
-  }, [rows, filters]);
+  }, [rows, appliedFilters]);
 
   const sorted = React.useMemo(() => {
     const accessor = sort.key ? TOKEN_SORT_ACCESSORS[sort.key] : undefined;
@@ -572,8 +573,15 @@ export function TokenListPage() {
     filters.code !== '' ||
     filters.peggedCurrency !== '' ||
     filters.chain !== '' ||
-    filters.status !== '';
-  const handleFilterReset = () => setFilters(TOKEN_FILTER_DEFAULT);
+    filters.status !== '' ||
+    appliedFilters.code !== '' ||
+    appliedFilters.peggedCurrency !== '' ||
+    appliedFilters.chain !== '' ||
+    appliedFilters.status !== '';
+  const handleFilterReset = () => {
+    setFilters(TOKEN_FILTER_DEFAULT);
+    setAppliedFilters(TOKEN_FILTER_DEFAULT);
+  };
 
   const columns = React.useMemo<
     ColumnDef<TokenInfo & { id: string }>[]
@@ -757,8 +765,13 @@ export function TokenListPage() {
         </p>
       </div>
 
-      {/* 筛选卡（原型 Filters embedded：即时生效，无 Query 按钮）。 */}
-      <section className="rounded-lg border border-border/60 bg-card p-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setAppliedFilters(filters);
+        }}
+        className="rounded-lg border border-border/60 bg-card p-4"
+      >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="min-w-0">
             <Label className="mb-1.5 block">Token Code</Label>
@@ -836,9 +849,11 @@ export function TokenListPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
+            <Button type="submit" size="sm">Search</Button>
             <Button
-              variant="secondary"
+              type="button"
+              variant="outline"
               size="sm"
               disabled={!hasFilter}
               onClick={handleFilterReset}
@@ -847,7 +862,7 @@ export function TokenListPage() {
             </Button>
           </div>
         </div>
-      </section>
+      </form>
 
       <section className="rounded-lg border border-border/60 bg-card">
         {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + 页面级操作右置。 */}

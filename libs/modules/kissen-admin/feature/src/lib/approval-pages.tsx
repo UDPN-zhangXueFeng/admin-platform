@@ -69,7 +69,6 @@ import { peekRow, stashRow } from './row-stash';
 
 const PAGE_SIZE_DEFAULT = 10;
 const FILTER_ALL = 'all';
-const FILTER_DEBOUNCE_MS = 250;
 
 const APPROVAL_LIST_PATH = '/approval';
 const APPROVAL_DETAIL_PATH = '/approval/detail';
@@ -130,15 +129,6 @@ const NODE_RESULT: Record<number, { label: string; tone: ProtoStatusTone }> = {
   9: { label: 'Returned', tone: 'muted' },
 };
 
-/** 文本筛选 250ms 防抖（原型 useDebouncedValue 同款）。 */
-function useDebouncedValue<T>(value: T, delayMs = FILTER_DEBOUNCE_MS): T {
-  const [debounced, setDebounced] = React.useState(value);
-  React.useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 /* ============================================================ */
 /* 业务内容字段渲染（源 views/approval/{format,field-maps}.ts，沿用） */
@@ -483,29 +473,35 @@ export function ApprovalCenterListPage() {
   const [pageNum, setPageNum] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
-  // 原型查询区：Approval No. 文本（250ms 防抖即时生效）+ Business Type / Status 下拉即时生效
+  // 原型查询条件：Approval No.、Business Type 与 Status，由 Search 一次提交。
   const [keyword, setKeyword] = React.useState('');
   const [businessCode, setBusinessCode] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('');
-  const keywordDebounced = useDebouncedValue(keyword);
+  const [appliedFilter, setAppliedFilter] = React.useState({
+    keyword: '',
+    businessCode: '',
+    statusFilter: '',
+  });
 
-  // 筛选变化回到第一页（原型同款）
+  // 应用条件变化或切换页签后回到第一页。
   React.useEffect(() => {
     setPageNum(1);
-  }, [keywordDebounced, businessCode, statusFilter, tab]);
+  }, [appliedFilter, tab]);
 
   // 服务端筛选：businessCode / keyword；已办 + Approved|Rejected → filter.status
   // （后端 filter.status 仅支持已办 2/3；其余状态选项无服务端参数 → 列表内客户端过滤，见下）
   const doneStatusParam =
-    tab === 'actioned' && (statusFilter === 'Approved' || statusFilter === 'Rejected')
-      ? statusFilter === 'Approved'
+    tab === 'actioned' &&
+    (appliedFilter.statusFilter === 'Approved' ||
+      appliedFilter.statusFilter === 'Rejected')
+      ? appliedFilter.statusFilter === 'Approved'
         ? 3
         : 2
       : undefined;
 
   const listFilter = {
-    businessCode: businessCode || undefined,
-    keyword: keywordDebounced.trim() || undefined,
+    businessCode: appliedFilter.businessCode || undefined,
+    keyword: appliedFilter.keyword.trim() || undefined,
     status: doneStatusParam,
   };
 
@@ -544,10 +540,10 @@ export function ApprovalCenterListPage() {
   // 选择与页签分组互斥的状态（如待办页签选 Approved）结果自然为空，与原型行为一致。
   const tableData = React.useMemo(
     () =>
-      doneStatusParam === undefined && statusFilter
-        ? tableDataRaw.filter((row) => taskStatusLabel(row) === statusFilter)
+      doneStatusParam === undefined && appliedFilter.statusFilter
+        ? tableDataRaw.filter((row) => taskStatusLabel(row) === appliedFilter.statusFilter)
         : tableDataRaw,
-    [tableDataRaw, statusFilter, doneStatusParam],
+    [tableDataRaw, appliedFilter.statusFilter, doneStatusParam],
   );
 
   // 排序：后端分页端点无 sortBy 参数 → 仅当前数据集内本地排序（过渡口径，见 proto-sort.tsx 头注）。
@@ -570,16 +566,25 @@ export function ApprovalCenterListPage() {
     true,
   );
 
+  const onSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAppliedFilter({ keyword, businessCode, statusFilter });
+    setPageNum(1);
+  };
+
   const onReset = () => {
     setKeyword('');
     setBusinessCode('');
     setStatusFilter('');
+    setAppliedFilter({ keyword: '', businessCode: '', statusFilter: '' });
+    setPageNum(1);
   };
 
-  // 原型 D9：切页签即换状态分组；清空 Status 下拉避免跨页签残留
+  // 原型 D9：切页签即换状态分组；清空 Status 下拉避免跨页签残留。
   const onTabChange = (value: string) => {
     setTab(value === 'actioned' ? 'actioned' : 'pending');
     setStatusFilter('');
+    setAppliedFilter((prev) => ({ ...prev, statusFilter: '' }));
   };
 
   const openDetail = (row: ApprovalListRow) => {
@@ -720,63 +725,66 @@ export function ApprovalCenterListPage() {
               </div>
             </div>
 
-            {/* 查询区：即时生效 + 单 Reset（原型 D3；文本 250ms 防抖、无 placeholder） */}
-            <div className="grid grid-cols-1 gap-3 border-b border-border/50 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium leading-snug text-foreground">
-                  Approval No.
-                </label>
-                <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} />
+            {/* 查询区：Search 提交条件，Reset 清空已应用条件。 */}
+            <form onSubmit={onSearch} className="border-b border-border/50 px-4 py-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium leading-snug text-foreground">
+                    Approval No.
+                  </label>
+                  <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium leading-snug text-foreground">
+                    Business Type
+                  </label>
+                  <Select
+                    value={businessCode || FILTER_ALL}
+                    onValueChange={(v) => setBusinessCode(v === FILTER_ALL ? '' : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={FILTER_ALL}>All</SelectItem>
+                      {businessOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium leading-snug text-foreground">
+                    Status
+                  </label>
+                  <Select
+                    value={statusFilter || FILTER_ALL}
+                    onValueChange={(v) =>
+                      setStatusFilter(v === FILTER_ALL ? '' : v)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_FILTER_OPTIONS.map((opt) => (
+                        <SelectItem key={opt || FILTER_ALL} value={opt || FILTER_ALL}>
+                          {opt || 'All'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end gap-2">
+                  <Button type="submit">Search</Button>
+                  <Button type="button" variant="outline" onClick={onReset}>
+                    Reset
+                  </Button>
+                </div>
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium leading-snug text-foreground">
-                  Business Type
-                </label>
-                <Select
-                  value={businessCode || FILTER_ALL}
-                  onValueChange={(v) => setBusinessCode(v === FILTER_ALL ? '' : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={FILTER_ALL}>All</SelectItem>
-                    {businessOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium leading-snug text-foreground">
-                  Status
-                </label>
-                <Select
-                  value={statusFilter || FILTER_ALL}
-                  onValueChange={(v) =>
-                    setStatusFilter(v === FILTER_ALL ? '' : v)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_FILTER_OPTIONS.map((opt) => (
-                      <SelectItem key={opt || FILTER_ALL} value={opt || FILTER_ALL}>
-                        {opt || 'All'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <Button type="button" variant="outline" onClick={onReset}>
-                  Reset
-                </Button>
-              </div>
-            </div>
+            </form>
 
             <div className="p-4">
               {isError ? (

@@ -415,6 +415,8 @@ export function TokenManageListPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = React.useState<TokenFilterForm>(EMPTY_TOKEN_FILTER);
   const [filter, setFilter] = React.useState<TokenListFilter>({});
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
   const { data, isLoading, isError, dataUpdatedAt } = useTokenListQuery(
     KISSEN_PROJECT_ID,
@@ -440,12 +442,14 @@ export function TokenManageListPage() {
 
   const onSearch = React.useCallback(() => {
     setFilter(tokenFormToFilter(form));
+    setPage(1);
   }, [form]);
 
-  // 源语义：重置=清空 filters 后 load（本页无分页，无页码可重置）。
+  // 重置筛选时同时回到第一页。
   const onReset = React.useCallback(() => {
     setForm(EMPTY_TOKEN_FILTER);
     setFilter({});
+    setPage(1);
   }, []);
 
   // 弹窗状态：prompt（审核/驳回/调整）+ 停启用 ActionConfirmDialog。
@@ -560,19 +564,19 @@ export function TokenManageListPage() {
   };
 
 
-  // 列序（原型 D2）：名称+代码 / Symbol / 锚定法币 / 链 / 银行(BIC) /
+  // 列序（原型 D2）：名称+全网 No. / Symbol / 锚定法币 / 链 / 银行(BIC) /
   // 最低流动性(带小单位) / 状态 / 注册时间 / Actions。
   const columns = React.useMemo<ColumnDef<TokenRow & { id: string }>[]>(() => {
     return [
       {
         id: 'token',
-        header: 'Token Name (Code)',
+        header: 'Token Name (No.)',
         cell: ({ row }) => (
           <div className="min-w-0">
             <div className="truncate text-sm font-medium text-foreground">
               {row.original.tokenName || <Dash />}
             </div>
-            <CopyableId value={row.original.tokenCode} />
+            <CopyableId value={row.original.tokenNo} />
           </div>
         ),
       },
@@ -674,6 +678,20 @@ export function TokenManageListPage() {
   const tableData = React.useMemo(
     () => (data ?? []).map((r) => ({ ...r, id: String(r.tokenId) })),
     [data],
+  );
+  const pageCount = Math.max(1, Math.ceil(tableData.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  React.useEffect(() => {
+    if (page !== currentPage) setPage(currentPage);
+  }, [currentPage, page]);
+
+  const pageData = React.useMemo(
+    () =>
+      tableData.slice(
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize,
+      ),
+    [currentPage, pageSize, tableData],
   );
 
   return (
@@ -779,7 +797,7 @@ export function TokenManageListPage() {
 
         </form>
         <div className="p-4">
-          {/* 源无分页/多选/导出 → 不传 pagination。 */}
+          {/* 列表接口返回全量数组，分页在前端完成。 */}
           {isError ? (
             <Alert variant="destructive" role="alert">
               <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
@@ -787,7 +805,22 @@ export function TokenManageListPage() {
           ) : (
             <DataTable
               columns={columns}
-              data={tableData}
+              data={pageData}
+              pagination={
+                tableData.length > 0
+                  ? {
+                      page: currentPage,
+                      pageSize,
+                      total: tableData.length,
+                      onPageChange: setPage,
+                      onPageSizeChange: (nextPageSize) => {
+                        setPageSize(nextPageSize);
+                        setPage(1);
+                      },
+                      pageSizeOptions: PAGE_SIZE_OPTIONS,
+                    }
+                  : undefined
+              }
               isLoading={isLoading}
               emptyMessage="No tokens found."
             />
@@ -1524,7 +1557,6 @@ export function GatewayInstanceListPage() {
         cell: ({ row }) => (
           <span>
             {row.original.bankName || <Dash />}
-            {row.original.bankBic ? ` (${row.original.bankBic})` : ''}
           </span>
         ),
       },

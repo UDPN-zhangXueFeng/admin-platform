@@ -213,7 +213,6 @@ export function SettleOrderListPage() {
   const { sorted, toggle, sortState } = useProtoSort(
     rows,
     {
-      statementId: { value: (r) => r.orderId },
       lpName: { value: (r) => r.lpName },
       settlementCycle: { value: (r) => r.periodType },
       periodRange: { value: (r) => r.periodStart },
@@ -261,18 +260,6 @@ export function SettleOrderListPage() {
 
   const columns = React.useMemo<ColumnDef<SettleOrderRow & { id: string }>[]>(
     () => [
-      {
-        id: 'statementId',
-        header: () => (
-          <ProtoSortHeader
-            label="Statement ID"
-            columnKey="statementId"
-            toggle={toggle}
-            sortState={sortState('statementId')}
-          />
-        ),
-        cell: ({ row }) => <CopyableId value={String(row.original.orderId)} />,
-      },
       {
         id: 'lpName',
         header: () => (
