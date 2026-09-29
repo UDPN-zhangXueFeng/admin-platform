@@ -779,9 +779,6 @@ export function RoleListPage() {
     <div className="space-y-4">
       {/* 页头（原型 PageHeader：标题 + 描述）。 */}
       <div>
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          System
-        </div>
         <h1 className="text-xl font-semibold">Role Management</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Manage roles, their status, and the menus they grant to users.

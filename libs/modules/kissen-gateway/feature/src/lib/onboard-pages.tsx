@@ -1182,7 +1182,7 @@ export function OnboardListPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead variant="banner" eyebrow="ONBOARDING" title="Onboarding Information">
+      <PageHead variant="banner" title="Onboarding Information">
         <Button
           type="button"
           variant="outline"

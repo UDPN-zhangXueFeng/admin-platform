@@ -778,9 +778,6 @@ export function TxListPage() {
     <div className="space-y-4">
       {/* 页头（原型 PageHeader：标题 + 一句话口径）。 */}
       <div>
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Transaction
-        </div>
         <h1 className="text-xl font-semibold">Transaction Records</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Transactions this bank instance has recorded locally, with the

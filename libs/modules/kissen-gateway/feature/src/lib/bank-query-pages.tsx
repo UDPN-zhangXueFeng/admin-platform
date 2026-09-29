@@ -279,9 +279,6 @@ export function BankQueryListPage() {
     <div className="space-y-4">
       {/* 页头（原型 PageHeader：标题 + 一句话口径）。 */}
       <div>
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Bank
-        </div>
         <h1 className="text-xl font-semibold">Bank Query</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Network banks this instance may transact with, and the tokens each

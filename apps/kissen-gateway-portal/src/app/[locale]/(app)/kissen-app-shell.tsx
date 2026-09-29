@@ -403,7 +403,7 @@ export function KissenAppShell({
   );
 }
 
-/** Place the UDPN wordmark after the sidebar navigation so it stays at the bottom. */
+/** Show the themed UDPN wordmark in a "Supported by" footer below navigation. */
 function SidebarBrandFooter() {
   const [sidebar, setSidebar] = React.useState<HTMLElement | null>(null);
 
@@ -419,7 +419,8 @@ function SidebarBrandFooter() {
   if (!sidebar) return null;
 
   return createPortal(
-    <div className="flex h-14 w-full shrink-0 items-center justify-center border-t border-border/50 bg-card">
+    <div className="flex h-14 w-full shrink-0 items-center justify-center gap-2 border-t border-border/50 bg-card">
+      <span className="text-xs text-muted-foreground">Supported by</span>
       <LogoMark />
     </div>,
     sidebar,

@@ -278,9 +278,6 @@ export function RegisterTokenPage() {
     <div className="space-y-4">
       {/* 页头（原型 PageHeader：无 Back，靠 Cancel 返回列表）。 */}
       <div>
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Token
-        </div>
         <h1 className="text-xl font-semibold">Register Token</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Submit a new token for Kissen review. The review result is written
@@ -753,9 +750,6 @@ export function TokenListPage() {
     <div className="space-y-4">
       {/* 页头（原型 PageHeader：标题 + 一句话口径）。 */}
       <div>
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Token
-        </div>
         <h1 className="text-xl font-semibold">Token Management</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Tokens this bank instance has registered, with the review status

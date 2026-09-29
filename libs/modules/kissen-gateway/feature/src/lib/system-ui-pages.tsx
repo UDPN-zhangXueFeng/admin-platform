@@ -412,7 +412,7 @@ export function SystemUiPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead eyebrow="SYSTEM" title="UI Setting" />
+      <PageHead title="UI Setting" />
       <BrandCustomizationCard brand={brand} />
       <AppearanceCard />
     </div>
