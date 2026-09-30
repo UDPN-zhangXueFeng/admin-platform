@@ -22,6 +22,12 @@ import {
   Badge,
   Button,
   DataTable,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -1129,8 +1135,8 @@ export function SettleCycleListPage() {
     pageNum: 1,
     pageSize: PAGE_SIZE_DEFAULT,
   });
-  /** 行内草稿（lpId → settleCycle）；未变更行 Save 禁用，Save 成功/失败均清草稿。 */
-  const [cycleDrafts, setCycleDrafts] = React.useState<Record<number, number>>({});
+  const [editingLp, setEditingLp] = React.useState<LpRow | null>(null);
+  const [cycleValue, setCycleValue] = React.useState('3');
 
   const queryParams = React.useMemo<LpListReq>(
     () => ({
@@ -1193,38 +1199,34 @@ export function SettleCycleListPage() {
     setParams((prev) => ({ ...prev, pageNum: 1 }));
   }, []);
 
-  /**
-   * 保存单行草稿（原型 Save 按钮）：成功 toast 逐字文案并清草稿；
-   * 失败清草稿回显库内值 + toast error。
-   */
+  /** 打开周期编辑弹窗，并以该 LP 当前周期作为初始值。 */
+  const onEditCycle = React.useCallback((row: LpRow) => {
+    setEditingLp(row);
+    setCycleValue(String(row.settleCycle ?? 3));
+  }, []);
+
+  /** 保存弹窗中的周期选择；失败时保留弹窗值供用户重试。 */
   const onSaveCycle = React.useCallback(
-    (row: LpRow, cycle: number) => {
+    () => {
+      if (!editingLp) return;
+      const cycle = Number(cycleValue);
       // STATIC-FILLER(GAP-ADM-06): 后端无批量保存端点，原型逐行 Save 语义按逐条提交实现。
       saveMutation.mutate(
-        { lpId: row.lpId, settleCycle: cycle },
+        { lpId: editingLp.lpId, settleCycle: cycle },
         {
           onSuccess: () => {
             toast.success(
-              `Settlement cycle for "${row.lpName}" saved as ${SETTLE_CYCLE_MAP[cycle] ?? 'Monthly'}.`,
+              `Settlement cycle for "${editingLp.lpName}" saved as ${SETTLE_CYCLE_MAP[cycle] ?? 'Monthly'}.`,
             );
-            setCycleDrafts((prev) => {
-              const next = { ...prev };
-              delete next[row.lpId];
-              return next;
-            });
+            setEditingLp(null);
           },
           onError: (err) => {
             toast.error((err as Error).message);
-            setCycleDrafts((prev) => {
-              const next = { ...prev };
-              delete next[row.lpId];
-              return next;
-            });
           },
         },
       );
     },
-    [saveMutation, toast],
+    [cycleValue, editingLp, saveMutation, toast],
   );
 
   const columns = React.useMemo<ColumnDef<LpRow & { id: string }>[]>(
@@ -1251,30 +1253,8 @@ export function SettleCycleListPage() {
         id: 'settleCycle',
         header: 'Settlement Cycle',
         cell: ({ row }) => {
-          const lp = row.original;
-          const draft = cycleDrafts[lp.lpId];
-          return (
-            <Select
-              value={String(draft ?? lp.settleCycle ?? 3)}
-              onValueChange={(v) =>
-                setCycleDrafts((prev) => ({ ...prev, [lp.lpId]: Number(v) }))
-              }
-            >
-              <SelectTrigger
-                className="h-8 w-[190px]"
-                aria-label={`Settlement cycle of ${lp.lpName}`}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(SETTLE_CYCLE_MAP).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          );
+          const cycle = row.original.settleCycle ?? 3;
+          return <span>{SETTLE_CYCLE_MAP[cycle] ?? String(cycle)}</span>;
         },
       },
       {
@@ -1303,22 +1283,19 @@ export function SettleCycleListPage() {
         header: 'Actions',
         cell: ({ row }) => {
           const lp = row.original;
-          const draft = cycleDrafts[lp.lpId];
-          const unchanged = draft === undefined || draft === (lp.settleCycle ?? 3);
           return (
             <Button
               variant="outline"
               size="sm"
-              disabled={unchanged || saveMutation.isPending}
-              onClick={() => draft !== undefined && onSaveCycle(lp, draft)}
+              onClick={() => onEditCycle(lp)}
             >
-              Save
+              Edit
             </Button>
           );
         },
       },
     ],
-    [cycleDrafts, saveMutation.isPending, onSaveCycle],
+    [onEditCycle],
   );
 
   const tableData = React.useMemo(
@@ -1461,6 +1438,73 @@ export function SettleCycleListPage() {
           )}
         </div>
       </section>
+
+      <Dialog
+        open={editingLp !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingLp(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Settlement Cycle</DialogTitle>
+            <DialogDescription>
+              Changes take effect from the next settlement statement.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="text-sm font-medium">LP Name</div>
+              <div className="text-sm text-muted-foreground">
+                {editingLp?.lpName ?? '-'}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="edit-settlement-cycle"
+                className="text-sm font-medium"
+              >
+                Settlement Cycle
+              </label>
+              <Select
+                value={cycleValue}
+                onValueChange={setCycleValue}
+                disabled={saveMutation.isPending}
+              >
+                <SelectTrigger id="edit-settlement-cycle" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SETTLE_CYCLE_MAP).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditingLp(null)}
+              disabled={saveMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={onSaveCycle}
+              disabled={
+                !editingLp ||
+                Number(cycleValue) === (editingLp.settleCycle ?? 3) ||
+                saveMutation.isPending
+              }
+            >
+              {saveMutation.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
