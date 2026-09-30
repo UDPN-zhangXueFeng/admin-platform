@@ -108,9 +108,6 @@ const pages: Record<string, Record<string, PageLoader>> = {
   // ---- settle ----
   order: {
     list: loader((m) => m.SettleOrderListPage),
-    // 原型对齐：结算单详情（/settle/order/detail?id=N&
-    // tab=statement|transactions|operations）
-    detail: loader((m) => m.SettleOrderDetailPage),
   },
 
   cycle: {
