@@ -703,7 +703,7 @@ function InfoRow({
 
 /**
  * 双列卡（原型 ③：desktop 2 列 divide-x）：左 Basic Information
- * （Bank Code + System 小灰标 / Official Website / Description，行有值才渲染）；
+ * （Bank Name / BIC / Official Website / Description）；
  * 右 Contact Information（Edit 弹窗入口，v-perm 'bank:info:contact-edit'；
  * 原型 2026-09-22 拍板不展示 phone；Email 主色）。
  */
@@ -731,15 +731,15 @@ function BankInfoCards({
           </h3>
         </div>
         <dl className="flex flex-col gap-5">
-          {/* 62d1c33：Bank Code + BIC 合并为 bankBic。 */}
-          <InfoRow label="Bank Code">
+          <InfoRow label="Bank Name">{detail.bankName || '-'}</InfoRow>
+          <InfoRow label="BIC">
             <span className="flex flex-wrap items-center gap-2">
               <CopyableId value={detail.bankBic} />
               <Badge variant="mute">System</Badge>
             </span>
           </InfoRow>
-          {detail.website ? (
-            <InfoRow label="Official Website">
+          <InfoRow label="Official Website">
+            {detail.website ? (
               <a
                 href={detail.website}
                 target="_blank"
@@ -749,8 +749,10 @@ function BankInfoCards({
                 <Globe className="h-3 w-3 shrink-0" aria-hidden="true" />
                 {detail.website}
               </a>
-            </InfoRow>
-          ) : null}
+            ) : (
+              <span>-</span>
+            )}
+          </InfoRow>
           {detail.description ? (
             <InfoRow label="Description">
               <span className="font-normal leading-relaxed text-muted-foreground">

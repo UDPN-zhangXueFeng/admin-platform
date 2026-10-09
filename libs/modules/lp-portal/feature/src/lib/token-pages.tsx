@@ -7,14 +7,13 @@
  *
  * f0d5b6f（8198348）口径统一：tokenCode 不再展示，身份 = Token Name +
  * Symbol + tokenNo（全网唯一）。
- * 视图一「Token List」8 列：Token Name（170px 截断 + title 原文）、
- * Symbol（110px 等宽）、tokenNo (globally unique)、所属银行
- * bankName(bankBic)（a481ca1 起 wire 字段 bankBic，原 bankCode）、
- * 区块链/锚定「chainType / anchorFiat」、最低流动性
+ * 视图一「Token List」9 列：Token Name（170px 截断 + title 原文）、
+ * Symbol（110px 等宽）、tokenNo (globally unique)、Bank Name（同格显示 BIC）、
+ * Official Website、区块链/锚定「chainType / anchorFiat」、最低流动性
  * formatMoney 右对齐、我的状态（pooled → Pool Opened / Not Enabled）、
  * 数据时间 formatTime。视图二「By Bank」Accordion 按 bankId 分组，标题
- * bankName(bankBic) + 「N tokens」，默认展开第一个银行；子表 4 列
- * （Symbol / tokenNo / 区块链 / 锚定法币）。
+ * Bank Name / BIC / Official Website + 「N tokens」，默认展开第一个银行；
+ * 子表 4 列（Symbol / tokenNo / 区块链 / 锚定法币）。
  *
  * 源 load() 为 Promise.allSettled 两接口——映射为两条独立 useQuery：
  * 任一侧失败保留另一侧数据；0024 降级条优先取列表侧（源数组序）。
@@ -121,18 +120,27 @@ const LIST_COLUMNS: ColumnDef<TokenRow & { id: string }>[] = [
   },
   {
     accessorKey: 'bankName',
-    header: 'Bank',
-    cell: ({ row }) => {
-      const bic = row.original.bankBic || row.original.bankCode;
-      return (
-        <span>
-          {row.original.bankName || '-'}
-          {bic ? (
-            <span className="text-muted-foreground"> ({bic})</span>
-          ) : null}
+    header: 'Bank Name',
+    cell: ({ row }) => (
+      <div className="min-w-0">
+        <span className="block">{row.original.bankName || '-'}</span>
+        <span className="block text-xs text-muted-foreground">
+          BIC: {row.original.bankBic || row.original.bankCode || '-'}
         </span>
-      );
-    },
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'website',
+    header: 'Official Website',
+    cell: ({ row }) => (
+      <span
+        className="block max-w-[220px] truncate"
+        title={row.original.website || undefined}
+      >
+        {row.original.website || '-'}
+      </span>
+    ),
   },
   {
     id: 'chain-anchor',
@@ -328,9 +336,15 @@ export function TokenListPage() {
                 {groups.map((g) => (
                   <AccordionItem key={g.bankId} value={String(g.bankId)}>
                     <AccordionTrigger className="px-1 py-3 hover:no-underline">
-                      <span className="flex flex-wrap items-center gap-2 pr-4 text-left">
+                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 pr-4 text-left">
                         <span className="font-semibold">
-                          {g.bankName} ({g.bankBic})
+                          {g.bankName || '-'}
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            BIC: {g.bankBic || g.bankCode || '-'}
+                          </span>
+                        </span>
+                        <span className="break-all text-xs text-muted-foreground">
+                          Official Website: {g.website || '-'}
                         </span>
                         <Badge variant="secondary">
                           {g.tokens.length} {LBL.tokensCount}

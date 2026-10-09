@@ -1157,7 +1157,7 @@ export function BankInfoListPage() {
             />
             <FormField
               name="bankBic"
-              label="Bank Code"
+              label="BIC"
               placeholder="Fuzzy match"
               register={register('bankBic')}
             />
@@ -1446,7 +1446,7 @@ export function BankInfoFormPage() {
         <BankDetailSectionHeader
           icon={Landmark}
           title="Bank Identity"
-          description="Name, code, website, and logo used across the network."
+          description="Name, BIC, website, and logo used across the network."
         />
         <div className="grid grid-cols-1 gap-x-6 gap-y-5 p-6 md:grid-cols-2 xl:grid-cols-3">
           <FormField
@@ -1462,12 +1462,12 @@ export function BankInfoFormPage() {
           />
           <FormField
             name="bankBic"
-            label="Bank Code/BIC"
+            label="BIC"
             required
             placeholder="Used for bootstrap auth (BIC + access key)"
             error={
               formState.errors.bankBic
-                ? 'Please enter the bank code (BIC)'
+                ? 'Please enter the BIC'
                 : undefined
             }
             register={register('bankBic', { required: true, maxLength: 64 })}
@@ -1840,7 +1840,7 @@ export function BankInfoDetailPage() {
           {detail ? (
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
-                Bank Code:{' '}
+                BIC:{' '}
                 <span className="font-semibold text-foreground">
                   {detail.bankBic || <Dash />}
                 </span>
@@ -1919,7 +1919,7 @@ export function BankInfoDetailPage() {
                 <DetailField icon={Landmark} label="Bank Name">
                   {detail.bankName || <Dash />}
                 </DetailField>
-                <DetailField icon={Hash} label="SWIFT BIC">
+                <DetailField icon={Hash} label="BIC">
                   <CopyableEllipsisText
                     value={detail.bankBic}
                     emptyText="-"
