@@ -3135,6 +3135,7 @@ export function SysMenuListPage() {
   const [form, setForm] = React.useState<MenuFormState>(EMPTY_MENU_FORM);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [menuFilter, setMenuFilter] = React.useState('');
+  const [appliedMenuFilter, setAppliedMenuFilter] = React.useState('');
 
   const patch = (p: Partial<MenuFormState>) => setForm((prev) => ({ ...prev, ...p }));
 
@@ -3244,8 +3245,8 @@ export function SysMenuListPage() {
   }, [mode, selectedKey, form, tree]);
 
   const visibleTree = React.useMemo(
-    () => filterMenuTree(tree ?? [], menuFilter),
-    [tree, menuFilter],
+    () => filterMenuTree(tree ?? [], appliedMenuFilter),
+    [tree, appliedMenuFilter],
   );
   const totalNodes = React.useMemo(() => countMenuNodes(tree ?? []), [tree]);
   const hasDraft = mode !== 'view' || selectedKey != null;
@@ -3270,20 +3271,41 @@ export function SysMenuListPage() {
                 Add Root Menu
               </Button>
             </div>
-            <div className="relative mt-3">
-              <Search
-                size={14}
-                aria-hidden="true"
-                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                aria-label="Filter menus"
-                placeholder="Filter menus…"
-                value={menuFilter}
-                onChange={(e) => setMenuFilter(e.target.value)}
-                className="pl-8"
-              />
-            </div>
+            <form
+              className="mt-3 space-y-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setAppliedMenuFilter(menuFilter);
+              }}
+            >
+              <div className="relative">
+                <Search
+                  size={14}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  aria-label="Filter menus"
+                  placeholder="Filter menus…"
+                  value={menuFilter}
+                  onChange={(e) => setMenuFilter(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button type="submit">Search</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setMenuFilter('');
+                    setAppliedMenuFilter('');
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
+            </form>
           </div>
           <div className="max-h-[70vh] overflow-y-auto p-2">
             {isLoading ? (

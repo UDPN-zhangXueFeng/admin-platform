@@ -2850,6 +2850,8 @@ export function LpTokenPairListPage() {
   const router = useRouter();
   const toast = useToast();
   const [filter, setFilter] = React.useState<LpPairFilter>(LP_PAIR_FILTER_EMPTY);
+  const [appliedFilter, setAppliedFilter] =
+    React.useState<LpPairFilter>(LP_PAIR_FILTER_EMPTY);
   const [pageNum, setPageNum] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
   const [shareRow, setShareRow] = React.useState<LpPairTableRow | null>(null);
@@ -2872,9 +2874,9 @@ export function LpTokenPairListPage() {
       pageNum,
       pageSize,
       filter: {
-        lpId: filter.lpId ? Number(filter.lpId) : undefined,
-        pairId: filter.pairId ? Number(filter.pairId) : undefined,
-        status: filter.status ? Number(filter.status) : undefined,
+        lpId: appliedFilter.lpId ? Number(appliedFilter.lpId) : undefined,
+        pairId: appliedFilter.pairId ? Number(appliedFilter.pairId) : undefined,
+        status: appliedFilter.status ? Number(appliedFilter.status) : undefined,
       },
     },
   );
@@ -2884,13 +2886,9 @@ export function LpTokenPairListPage() {
   const rows = data?.data ?? [];
   const pagination = data?.pagination;
 
-  const patchFilter = React.useCallback(
-    (patch: Partial<LpPairFilter>) => {
-      setFilter((prev) => ({ ...prev, ...patch }));
-      setPageNum(1);
-    },
-    [],
-  );
+  const patchFilter = React.useCallback((patch: Partial<LpPairFilter>) => {
+    setFilter((prev) => ({ ...prev, ...patch }));
+  }, []);
 
   /** Deactivate/Activate Participation 确认提交（原型：Deactivate=50 立即退出匹配；
    *  Activate=restore(1)+自动重提 KLP，后端无直接激活路径）。 */
@@ -3153,12 +3151,22 @@ export function LpTokenPairListPage() {
               }))}
               onChange={(v) => patchFilter({ status: v })}
             />
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  setAppliedFilter({ ...filter });
+                  setPageNum(1);
+                }}
+              >
+                Search
+              </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
                   setFilter(LP_PAIR_FILTER_EMPTY);
+                  setAppliedFilter(LP_PAIR_FILTER_EMPTY);
                   setPageNum(1);
                 }}
               >
@@ -3470,19 +3478,22 @@ const LP_POOL_TABLE_COLUMNS: ColumnDef<LpPoolRow & { id: string }>[] = [
   },
 ];
 
+const LP_POOL_FILTER_EMPTY = {
+  lpId: '',
+  poolAddress: '',
+  status: '',
+  createdFrom: '',
+  createdTo: '',
+};
+
 /**
  * Liquidity Pools 列表（原型 LiquidityPoolManagementPage）：纯监控视图，
  * 余额/预授权/水位均为网关周期刷新快照；本页零操作。
  */
+
 export function LpPoolListPage() {
-  const [filter, setFilter] = React.useState<{
-    lpId: string;
-    poolAddress: string;
-    status: string;
-    /** 创建日期（YYYY-MM-DD）：仅本地过滤（GAP-ADM-08），不下发服务端。 */
-    createdFrom: string;
-    createdTo: string;
-  }>({ lpId: '', poolAddress: '', status: '', createdFrom: '', createdTo: '' });
+  const [filter, setFilter] = React.useState(LP_POOL_FILTER_EMPTY);
+  const [appliedFilter, setAppliedFilter] = React.useState(LP_POOL_FILTER_EMPTY);
   const [pageNum, setPageNum] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
@@ -3498,8 +3509,8 @@ export function LpPoolListPage() {
       pageNum,
       pageSize,
       filter: {
-        lpId: filter.lpId ? Number(filter.lpId) : undefined,
-        status: filter.status ? Number(filter.status) : undefined,
+        lpId: appliedFilter.lpId ? Number(appliedFilter.lpId) : undefined,
+        status: appliedFilter.status ? Number(appliedFilter.status) : undefined,
       },
     },
   );
@@ -3510,21 +3521,21 @@ export function LpPoolListPage() {
   // STATIC-FILLER(GAP-ADM-08): 池地址/创建日期无服务端筛选参数，仅对当前页行
   // 本地过滤（分页 total 不受影响），后端补参后回写服务端。
   const visibleRows = React.useMemo(() => {
-    const address = filter.poolAddress.trim().toLowerCase();
+    const address = appliedFilter.poolAddress.trim().toLowerCase();
     return rows.filter((r) => {
       if (address && !r.accountAddress.toLowerCase().includes(address)) {
         return false;
       }
       const day = formatUtc8DateKey(r.createTime);
-      if (filter.createdFrom && day < filter.createdFrom) return false;
-      if (filter.createdTo && day > filter.createdTo) return false;
+      if (appliedFilter.createdFrom && day < appliedFilter.createdFrom) return false;
+      if (appliedFilter.createdTo && day > appliedFilter.createdTo) return false;
       return true;
     });
   }, [
     rows,
-    filter.poolAddress,
-    filter.createdFrom,
-    filter.createdTo,
+    appliedFilter.poolAddress,
+    appliedFilter.createdFrom,
+    appliedFilter.createdTo,
   ]);
 
   const tableData = React.useMemo(
@@ -3565,10 +3576,9 @@ export function LpPoolListPage() {
               value={filter.lpId}
               placeholder={LBL.all}
               options={lpToOptions(lpList?.data)}
-              onChange={(v) => {
-                setFilter((prev) => ({ ...prev, lpId: v }));
-                setPageNum(1);
-              }}
+              onChange={(v) =>
+                setFilter((prev) => ({ ...prev, lpId: v }))
+              }
             />
             <div className="space-y-1.5">
               <label
@@ -3581,13 +3591,12 @@ export function LpPoolListPage() {
                 id="pool-address-filter"
                 placeholder="Search pool address"
                 value={filter.poolAddress}
-                onChange={(e) => {
+                onChange={(e) =>
                   setFilter((prev) => ({
                     ...prev,
                     poolAddress: e.target.value,
-                  }));
-                  setPageNum(1);
-                }}
+                  }))
+                }
               />
             </div>
             <FilterSelect
@@ -3598,10 +3607,9 @@ export function LpPoolListPage() {
                 value: String(code),
                 label: protoStatusLabel(PROTO_POOL_STATUS, code),
               }))}
-              onChange={(v) => {
-                setFilter((prev) => ({ ...prev, status: v }));
-                setPageNum(1);
-              }}
+              onChange={(v) =>
+                setFilter((prev) => ({ ...prev, status: v }))
+              }
             />
             <div className="space-y-1.5">
               <span className="text-xs font-medium text-muted-foreground">
@@ -3611,13 +3619,12 @@ export function LpPoolListPage() {
                 <Input
                   type="date"
                   value={filter.createdFrom}
-                  onChange={(e) => {
+                  onChange={(e) =>
                     setFilter((prev) => ({
                       ...prev,
                       createdFrom: e.target.value,
-                    }));
-                    setPageNum(1);
-                  }}
+                    }))
+                  }
                 />
                 <span aria-hidden="true" className="text-muted-foreground">
                   –
@@ -3625,17 +3632,38 @@ export function LpPoolListPage() {
                 <Input
                   type="date"
                   value={filter.createdTo}
-                  onChange={(e) => {
+                  onChange={(e) =>
                     setFilter((prev) => ({
                       ...prev,
                       createdTo: e.target.value,
-                    }));
-                    setPageNum(1);
-                  }}
+                    }))
+                  }
                 />
               </div>
               {/* STATIC-FILLER(GAP-ADM-08): 地址/创建日期为当前页本地过滤。 */}
             </div>
+          </div>
+          <div className="mt-3 flex justify-end gap-2">
+            <Button
+              type="button"
+              onClick={() => {
+                setAppliedFilter({ ...filter });
+                setPageNum(1);
+              }}
+            >
+              Search
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setFilter(LP_POOL_FILTER_EMPTY);
+                setAppliedFilter(LP_POOL_FILTER_EMPTY);
+                setPageNum(1);
+              }}
+            >
+              {LBL.reset}
+            </Button>
           </div>
         </div>
         <div className="p-4">

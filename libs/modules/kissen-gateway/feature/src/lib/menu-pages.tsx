@@ -748,8 +748,9 @@ export function MenuListPage() {
   const [collapsed, setCollapsed] = React.useState<ReadonlySet<number>>(
     () => new Set<number>(),
   );
-  /** 树搜索关键字（原型 filter 输入，即时过滤，无防抖）。 */
+  /** Search field draft value; clicking Search applies it to the menu tree. */
   const [keyword, setKeyword] = React.useState('');
+  const [appliedKeyword, setAppliedKeyword] = React.useState('');
   const [dialogState, setDialogState] = React.useState<MenuDialogState | null>(
     null,
   );
@@ -759,7 +760,7 @@ export function MenuListPage() {
   );
 
   /** 搜索态：按命中过滤树 + 强制展开；非搜索态用用户折叠集合。 */
-  const effectiveKeyword = keyword.trim().toLowerCase();
+  const effectiveKeyword = appliedKeyword.trim().toLowerCase();
   const effectiveCollapsed = effectiveKeyword ? EMPTY_COLLAPSED : collapsed;
   const rows = React.useMemo(
     () =>
@@ -807,22 +808,42 @@ export function MenuListPage() {
       </PageHead>
 
       <section className="rounded-lg border-border/60 bg-card text-card-foreground shadow-float">
-        {/* 树搜索（原型 filter：命中 menuName/menuNameEn/menuKey，即时过滤；
-            placeholder/aria-label 文案逐字）。 */}
+        {/* Menu tree filter: Search applies the entered keyword. */}
         <div className="border-b border-border/50 px-4 py-3">
-          <div className="relative max-w-sm">
-            <Search
-              className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              className="pl-8"
-              aria-label="Filter menus"
-              placeholder="Filter menus…"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-            />
-          </div>
+          <form
+            className="flex flex-col gap-2 sm:flex-row sm:items-end"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setAppliedKeyword(keyword);
+            }}
+          >
+            <div className="relative max-w-sm flex-1">
+              <Search
+                className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                className="pl-8"
+                aria-label="Filter menus"
+                placeholder="Filter menus…"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit">Search</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setKeyword('');
+                  setAppliedKeyword('');
+                }}
+              >
+                Reset
+              </Button>
+            </div>
+          </form>
         </div>
         {isError ? (
           <div className="p-6">

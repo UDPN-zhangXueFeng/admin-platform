@@ -1626,8 +1626,9 @@ export function MenuListPage() {
 
   // 树客户端过滤（原型 Filter menus）：key/中文名/英文名/路由 URL 包含匹配，保留祖先链
   const [treeFilter, setTreeFilter] = React.useState('');
+  const [appliedTreeFilter, setAppliedTreeFilter] = React.useState('');
   const filteredTree = React.useMemo(() => {
-    const q = treeFilter.trim().toLowerCase();
+    const q = appliedTreeFilter.trim().toLowerCase();
     if (!q) return tree;
     const walk = (nodes: MenuTree[]): MenuTree[] =>
       nodes.flatMap((n) => {
@@ -1638,7 +1639,7 @@ export function MenuListPage() {
         return hit || children.length > 0 ? [{ ...n, children }] : [];
       });
     return walk(tree);
-  }, [tree, treeFilter]);
+  }, [tree, appliedTreeFilter]);
 
   // menuId=0 为本地新建未保存节点；保存后后端才分配 ID
   const isEditing = current != null && current.menuId !== 0;
@@ -1843,12 +1844,33 @@ export function MenuListPage() {
         <div className="rounded-lg border-border/60 bg-card shadow-float">
           <div className="border-b px-4 py-3 text-sm font-semibold">Menu Tree</div>
           <div className="space-y-2 p-2">
-            <Input
-              aria-label="Filter menus"
-              placeholder="Filter menus"
-              value={treeFilter}
-              onChange={(e) => setTreeFilter(e.target.value)}
-            />
+            <form
+              className="space-y-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setAppliedTreeFilter(treeFilter);
+              }}
+            >
+              <Input
+                aria-label="Filter menus"
+                placeholder="Filter menus"
+                value={treeFilter}
+                onChange={(e) => setTreeFilter(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Button type="submit">Search</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setTreeFilter('');
+                    setAppliedTreeFilter('');
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
+            </form>
             {treeQuery.isLoading ? (
               <div className="space-y-2 p-2">
                 {[0, 1, 2, 3].map((i) => (
@@ -1861,7 +1883,7 @@ export function MenuListPage() {
               </p>
             ) : filteredTree.length === 0 ? (
               <p className="p-4 text-center text-sm text-muted-foreground">
-                No menus match &quot;{treeFilter.trim()}&quot;
+                No menus match &quot;{appliedTreeFilter.trim()}&quot;
               </p>
             ) : (
               <MenuTreeNodes
