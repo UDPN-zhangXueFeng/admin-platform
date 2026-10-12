@@ -9,14 +9,17 @@ import type {
   SettleOrderVoidReq,
 } from './settle-order.model';
 
-/** 提交结算单确认审批（KSC，仅 status 10）。成功后失效列表（状态流转 10→20）。 */
+/** 提交结算单确认审批（KSC，仅 status 10）。成功后失效列表与该单详情。 */
 export function useSettleOrderConfirmMutation(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: SettleOrderConfirmReq) => settleOrderConfirm(data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: settleOrderKeys.lists(projectId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: settleOrderKeys.detail(projectId, variables.orderId),
       });
     },
   });
@@ -24,15 +27,18 @@ export function useSettleOrderConfirmMutation(projectId: string) {
 
 /**
  * 作废结算单（AD-25：仅 status 10 → 45；同周期可重新生成）。
- * 成功后失效列表（状态流转 10→45）。
+ * 成功后失效列表与该单详情。
  */
 export function useSettleOrderVoidMutation(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: SettleOrderVoidReq) => settleOrderVoid(data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: settleOrderKeys.lists(projectId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: settleOrderKeys.detail(projectId, variables.orderId),
       });
     },
   });

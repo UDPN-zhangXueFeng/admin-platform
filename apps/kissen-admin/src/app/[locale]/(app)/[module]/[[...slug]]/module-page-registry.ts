@@ -108,6 +108,7 @@ const pages: Record<string, Record<string, PageLoader>> = {
   // ---- settle ----
   order: {
     list: loader((m) => m.SettleOrderListPage),
+    detail: loader((m) => m.SettleOrderDetailPage),
   },
 
   cycle: {
