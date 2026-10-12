@@ -12,8 +12,8 @@
  *   Additional Information），校验文案逐字对齐原型 validate()；幂等重复提交
  *   → 页内 warning 横幅（原型 409 分支；后端以 resp.idempotent 表达）。
  * - 详情 /token/manage/detail?code=：3 Tab（basic/transactions/operations），
- *   ?tab= 写 URL、basic 缺省不写；transactions/operations 为 GAP-GW-01
- *   静态空表（列契约先落地）。
+ *   ?tab= 写 URL、basic 缺省不写；transactions 通过 /tx/page 按 tokenCode 查询，
+ *   operations 通过 /token/operate-logs/{tokenCode} 查询并显示操作留痕。
  * - 筛选/排序为前端本地处理（/token/list 无查询入参；本地过滤过渡，
  *   后端分页/筛选参数就绪后回写为服务端检索）。
  * - 保留项（plan §7 有意偏差）：Register Token 的 'bank:token:submit'
@@ -26,6 +26,8 @@ import { z } from 'zod';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   Plus,
   TriangleAlert,
@@ -62,22 +64,29 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import {
   tokenScopeText,
   tokenTypeText,
+  TX_STATUS,
+  useFxViewQuery,
   useSubmitTokenMutation,
   useTokenDetailQuery,
   useTokenListQuery,
+  useTokenOperationLogsQuery,
+  useTxPage,
   type TokenInfo,
+  type TokenOperationRecord,
+  type TxRecord,
 } from '@myorg/modules/kissen-gateway/data-access';
 
 import { CopyableId, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
 import { formatTokenAmount, formatUtc8 } from './proto-format';
 import {
   PROTO_TOKEN_STATUS,
+  PROTO_TX_STATUS,
   protoStatusRank,
   protoStatusText,
 } from './proto-enums';
 import { DescField, DescGrid } from './desc-grid';
 import { orDash } from './kit';
-import { EmptyHint, MissingIdBlock } from './state-blocks';
+import { EmptyHint, ErrorBlock, MissingIdBlock } from './state-blocks';
 import { useGatewayPerm } from './use-gateway-perm';
 import {
   ColumnPicker,
@@ -922,29 +931,73 @@ export function TokenListPage() {
 
 /* ─────────────────────────── 详情页 ─────────────────────────── */
 
-/** STATIC-FILLER(GAP-GW-01): /tx/page 无 tokenCode 过滤参数，按 token 关联的
- * 交易列表待后端；列契约按原型 transactions 表落地，数据恒 []。 */
-const TX_TAB_COLUMNS: ColumnDef<{ id: string }>[] = [
-  { id: 'transactionNo', header: 'Transaction No.' },
-  { id: 'tokens', header: 'Tokens' },
-  { id: 'from', header: 'From' },
-  { id: 'to', header: 'To' },
-  { id: 'createdAt', header: 'Created on' },
-  { id: 'status', header: 'Status' },
-  { id: 'actions', header: 'Actions' },
-];
+const TOKEN_TX_PAGE_SIZE = 10;
+const EMPTY_TX_ROWS: TxRecord[] = [];
+const EMPTY_TOKEN_OPERATION_RECORDS: TokenOperationRecord[] = [];
 
-/** STATIC-FILLER(GAP-GW-01): /log/page 仅 userId/module/时间区间过滤，无
- * entityType/entityKey 按业务对象关联参数，操作记录 Tab 无法按 token 过滤；
- * 列契约按原型 operations 表落地，数据恒 []（缺口与 GAP-GW-01 同族）。 */
-const OPS_TAB_COLUMNS: ColumnDef<{ id: string }>[] = [
-  { id: 'createdAt', header: 'Timestamp' },
-  { id: 'operation', header: 'Operation' },
-  { id: 'result', header: 'Result' },
-  { id: 'operator', header: 'Operator' },
-];
+const TOKEN_OPERATION_ACTION_LABELS: Record<number, string> = {
+  1: 'Submitted for registration',
+  2: 'Resubmitted after rejection',
+  3: 'Approved',
+  4: 'Rejected',
+  5: 'Synchronization pushed',
+};
 
-const STATIC_EMPTY_ROWS: { id: string }[] = [];
+function tokenOperationActionText(action: number): string {
+  return TOKEN_OPERATION_ACTION_LABELS[action] ?? `Unknown operation (${action})`;
+}
+
+function tokenTxAmountText(
+  displayText: string | undefined,
+  amount: number | undefined,
+  symbol: string | undefined,
+): string {
+  const value =
+    displayText ?? (amount != null ? formatTokenAmount(amount) : null);
+  if (value == null) return '-';
+  return symbol ? `${value} ${symbol}` : value;
+}
+
+const OPERATION_RECORD_COLUMNS: ColumnDef<
+  TokenOperationRecord & { id: string }
+>[] = [
+  {
+    id: 'operateTime',
+    header: 'Timestamp',
+    cell: ({ row }) => (
+      <span className="tabular-nums">
+        {formatUtc8(row.original.operateTime)}
+      </span>
+    ),
+  },
+  {
+    id: 'operation',
+    header: 'Operation',
+    cell: ({ row }) => {
+      const record = row.original;
+      const statusChange = `${record.statusFrom == null ? '-' : protoStatusText(PROTO_TOKEN_STATUS, record.statusFrom)} → ${protoStatusText(PROTO_TOKEN_STATUS, record.statusTo)}`;
+
+      return (
+        <div className="space-y-1">
+          <div className="font-medium">
+            {tokenOperationActionText(record.action)}
+          </div>
+          <div className="text-xs text-muted-foreground">{statusChange}</div>
+          {record.operator ? (
+            <div className="text-xs text-muted-foreground">
+              By {record.operator}
+            </div>
+          ) : null}
+          {record.remark ? (
+            <div className="break-words text-xs text-muted-foreground">
+              {record.remark}
+            </div>
+          ) : null}
+        </div>
+      );
+    },
+  },
+];
 
 /**
  * token 详情页（registry token.detail；/token/manage/detail?code={tokenCode}）。
@@ -965,6 +1018,212 @@ export function TokenDetailPage() {
     refetch,
   } = useTokenDetailQuery(tokenCode || undefined);
 
+  const [transactionPageNum, setTransactionPageNum] = React.useState(1);
+  React.useEffect(() => setTransactionPageNum(1), [tokenCode]);
+
+  const transactionsQuery = useTxPage(
+    {
+      pageNum: transactionPageNum,
+      pageSize: TOKEN_TX_PAGE_SIZE,
+      filter: { tokenCode },
+    },
+    token != null,
+  );
+  const operationLogsQuery = useTokenOperationLogsQuery(
+    tokenCode || undefined,
+    token != null,
+  );
+  const { data: fxViewData } = useFxViewQuery(token != null);
+  const pairMap = React.useMemo(
+    () =>
+      new Map(
+        (fxViewData?.pairs ?? []).map((pair) => [
+          pair.tokenPair.pairId,
+          pair,
+        ]),
+      ),
+    [fxViewData],
+  );
+  const transactionRows = transactionsQuery.data?.data ?? EMPTY_TX_ROWS;
+  const transactionTableData = React.useMemo(
+    () => transactionRows.map((row) => ({ ...row, id: String(row.recordId) })),
+    [transactionRows],
+  );
+  const transactionTotal = transactionsQuery.data?.pagination.total ?? 0;
+  const transactionPageCount = Math.max(
+    1,
+    Math.ceil(transactionTotal / TOKEN_TX_PAGE_SIZE),
+  );
+  const operationRows =
+    operationLogsQuery.data ?? EMPTY_TOKEN_OPERATION_RECORDS;
+  const operationTableData = React.useMemo(
+    () =>
+      operationRows.map((record) => ({
+        ...record,
+        id: String(record.recordId),
+      })),
+    [operationRows],
+  );
+  const transactionColumns = React.useMemo<
+    ColumnDef<TxRecord & { id: string }>[]
+  >(
+    () => [
+      {
+        id: 'transactionNo',
+        header: 'Transaction No.',
+        cell: ({ row }) => (
+          <CopyableId
+            value={String(
+              row.original.txNo ||
+                row.original.txUuid ||
+                row.original.transactionId,
+            )}
+          />
+        ),
+      },
+      {
+        id: 'tokens',
+        header: 'Tokens',
+        cell: ({ row }) => {
+          const pair =
+            row.original.pairId != null
+              ? pairMap.get(row.original.pairId)?.tokenPair
+              : undefined;
+          if (!pair) {
+            return (
+              <span className="font-mono">
+                {row.original.pairCode ||
+                  (row.original.pairId != null
+                    ? `#${row.original.pairId}`
+                    : '-')}
+              </span>
+            );
+          }
+          return (
+            <div className="flex items-center gap-2">
+              <div className="flex flex-col items-center gap-0.5">
+                <Badge variant="outline">
+                  {pair.sourceTokenSymbol || pair.sourceTokenCode || '-'}
+                </Badge>
+                <span className="text-[11px] text-muted-foreground">
+                  {pair.sourceBankCode || '-'}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">→</span>
+              <div className="flex flex-col items-center gap-0.5">
+                <Badge variant="outline">
+                  {pair.targetTokenSymbol || pair.targetTokenCode || '-'}
+                </Badge>
+                <span className="text-[11px] text-muted-foreground">
+                  {pair.targetBankCode || '-'}
+                </span>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        id: 'from',
+        header: 'From',
+        cell: ({ row }) => {
+          const pair =
+            row.original.pairId != null
+              ? pairMap.get(row.original.pairId)?.tokenPair
+              : undefined;
+          return (
+            <div className="min-w-0">
+              <div className="font-medium tabular-nums">
+                {tokenTxAmountText(
+                  row.original.userDeductionText,
+                  row.original.userDeduction,
+                  pair?.sourceTokenSymbol || pair?.sourceTokenCode,
+                )}
+              </div>
+              {row.original.senderAccount ? (
+                <CopyableId value={row.original.senderAccount} />
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  {row.original.senderBankName || '-'}
+                </div>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        id: 'to',
+        header: 'To',
+        cell: ({ row }) => {
+          const pair =
+            row.original.pairId != null
+              ? pairMap.get(row.original.pairId)?.tokenPair
+              : undefined;
+          return (
+            <div className="min-w-0">
+              <div className="font-medium tabular-nums">
+                {tokenTxAmountText(
+                  row.original.receiverAmountText,
+                  row.original.receiverAmount,
+                  pair?.targetTokenSymbol || pair?.targetTokenCode,
+                )}
+              </div>
+              {row.original.receiverAccount ? (
+                <CopyableId value={row.original.receiverAccount} />
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  {row.original.receivingBankName || '-'}
+                </div>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        id: 'createdAt',
+        header: 'Created on',
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatUtc8(row.original.createTime)}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <Badge
+            variant={TX_STATUS[row.original.status ?? -1]?.variant ?? 'outline'}
+          >
+            {protoStatusText(PROTO_TX_STATUS, row.original.status)}
+          </Badge>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => (
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0"
+            onClick={() =>
+              router.push(`/tx/detail?id=${row.original.transactionId}`)
+            }
+          >
+            Details
+          </Button>
+        ),
+      },
+    ],
+    [pairMap, router],
+  );
+
+  const transactionCount =
+    transactionsQuery.data?.pagination.total ??
+    (transactionsQuery.isError ? '—' : '…');
+  const operationCount =
+    operationLogsQuery.data?.length ??
+    (operationLogsQuery.isError ? '—' : '…');
   const toast = useToast();
   React.useEffect(() => {
     if (isError) {
@@ -1041,19 +1300,19 @@ export function TokenDetailPage() {
 
       {token ? (
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          {/* Tabs 条独立于 Card（原型 §3.3）；计数为列表 total（静态 Tab 恒 0）。 */}
+          {/* Tabs 计数：交易取分页 total，操作记录取返回列表长度。 */}
           <TabsList>
             <TabsTrigger value="basic">Basic Information</TabsTrigger>
             <TabsTrigger value="transactions">
               Transactions
               <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
-                0
+                {transactionCount}
               </span>
             </TabsTrigger>
             <TabsTrigger value="operations">
               Operation Records
               <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
-                0
+                {operationCount}
               </span>
             </TabsTrigger>
           </TabsList>
@@ -1136,7 +1395,7 @@ export function TokenDetailPage() {
             </div>
           </TabsContent>
 
-          {/* Tab 2：transactions（GAP-GW-01 静态空表）。 */}
+          {/* Tab 2：tokenCode 命中的源端或目标端交易。 */}
           <TabsContent value="transactions" className="mt-4">
             <section className="rounded-lg border border-border/60 bg-card">
               <div className="border-b border-border/50 px-4 py-3">
@@ -1145,16 +1404,81 @@ export function TokenDetailPage() {
                 </h2>
               </div>
               <div className="p-4">
-                <DataTable
-                  columns={TX_TAB_COLUMNS}
-                  data={STATIC_EMPTY_ROWS}
-                  emptyMessage="No transactions found. Transactions involving this token will appear here."
-                />
+                {transactionsQuery.isError && !transactionsQuery.data ? (
+                  <ErrorBlock
+                    message={
+                      transactionsQuery.error instanceof Error
+                        ? transactionsQuery.error.message
+                        : 'Please try again later'
+                    }
+                    onRetry={() => void transactionsQuery.refetch()}
+                  />
+                ) : (
+                  <>
+                    <DataTable
+                      columns={transactionColumns}
+                      data={transactionTableData}
+                      isLoading={transactionsQuery.isLoading}
+                      emptyMessage="No transactions found. Transactions involving this token will appear here."
+                    />
+                    {transactionTotal > TOKEN_TX_PAGE_SIZE ? (
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                        <span className="text-xs text-muted-foreground">
+                          Page {transactionPageNum} of {transactionPageCount}
+                          {' · '}
+                          {transactionTotal} transactions
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={
+                              transactionPageNum <= 1 ||
+                              transactionsQuery.isFetching
+                            }
+                            onClick={() =>
+                              setTransactionPageNum((page) =>
+                                Math.max(1, page - 1),
+                              )
+                            }
+                          >
+                            <ChevronLeft
+                              className="size-4"
+                              aria-hidden="true"
+                            />
+                            Previous
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={
+                              transactionPageNum >= transactionPageCount ||
+                              transactionsQuery.isFetching
+                            }
+                            onClick={() =>
+                              setTransactionPageNum((page) =>
+                                Math.min(transactionPageCount, page + 1),
+                              )
+                            }
+                          >
+                            Next
+                            <ChevronRight
+                              className="size-4"
+                              aria-hidden="true"
+                            />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                )}
               </div>
             </section>
           </TabsContent>
 
-          {/* Tab 3：operations（GAP-GW-01 同族静态空表）。 */}
+          {/* Tab 3：操作记录按后端返回的时间倒序展示。 */}
           <TabsContent value="operations" className="mt-4">
             <section className="rounded-lg border border-border/60 bg-card">
               <div className="border-b border-border/50 px-4 py-3">
@@ -1163,14 +1487,27 @@ export function TokenDetailPage() {
                 </h2>
               </div>
               <div className="p-4">
-                <DataTable
-                  columns={OPS_TAB_COLUMNS}
-                  data={STATIC_EMPTY_ROWS}
-                  emptyMessage="No operation records yet. Operations on this record will appear here."
-                />
+                {operationLogsQuery.isError && !operationLogsQuery.data ? (
+                  <ErrorBlock
+                    message={
+                      operationLogsQuery.error instanceof Error
+                        ? operationLogsQuery.error.message
+                        : 'Please try again later'
+                    }
+                    onRetry={() => void operationLogsQuery.refetch()}
+                  />
+                ) : (
+                  <DataTable
+                    columns={OPERATION_RECORD_COLUMNS}
+                    data={operationTableData}
+                    isLoading={operationLogsQuery.isLoading}
+                    emptyMessage="No operation records yet. Operations on this record will appear here."
+                  />
+                )}
               </div>
             </section>
           </TabsContent>
+
         </Tabs>
       ) : isLoading ? (
         <div className="space-y-2">

@@ -1,10 +1,15 @@
 /**
- * Token 域 raw API 层（源 `api/token.ts`，四端点）。
+ * Token 域 raw API 层（源 `api/token.ts`，五端点）。
  */
 import type { AxiosRequestConfig } from 'axios';
 
 import { kissenRequest } from '../kissen-gateway-client';
-import type { TokenInfo, TokenSubmitReq, TokenSubmitResp } from './token.model';
+import type {
+  TokenInfo,
+  TokenOperationRecord,
+  TokenSubmitReq,
+  TokenSubmitResp,
+} from './token.model';
 
 /** 本实例已注册 token 列表（GET /token/list，纯本地表倒序）。 */
 export function getTokenList(
@@ -33,6 +38,17 @@ export function getTokenDetail(
 ): Promise<TokenInfo | null> {
   return kissenRequest.get<TokenInfo | null>(
     `/token/detail/${encodeURIComponent(tokenCode)}`,
+    config,
+  );
+}
+
+/** Token 操作留痕（GET /token/operate-logs/{tokenCode}）。 */
+export function getTokenOperationLogs(
+  tokenCode: string,
+  config?: AxiosRequestConfig,
+): Promise<TokenOperationRecord[]> {
+  return kissenRequest.get<TokenOperationRecord[]>(
+    `/token/operate-logs/${encodeURIComponent(tokenCode)}`,
     config,
   );
 }

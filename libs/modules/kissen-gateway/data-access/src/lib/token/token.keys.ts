@@ -3,4 +3,6 @@ export const tokenKeys = {
   all: ['kissen-gateway', 'token'] as const,
   list: () => [...tokenKeys.all, 'list'] as const,
   detail: (tokenCode: string) => [...tokenKeys.all, 'detail', tokenCode] as const,
+  operationLogs: (tokenCode: string) =>
+    [...tokenKeys.all, 'operation-logs', tokenCode] as const,
 } as const;

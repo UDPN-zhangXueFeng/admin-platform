@@ -36,6 +36,22 @@ export interface TokenInfo {
   pushTime?: number;
 }
 
+/** Token 操作留痕（GET /token/operate-logs/{tokenCode}）。 */
+export interface TokenOperationRecord {
+  recordId: number;
+  tokenCode: string;
+  /** 1 提交注册 / 2 驳回后重提 / 3 审批通过 / 4 审批驳回 / 5 推送同步。 */
+  action: number;
+  /** 动作前状态；null 表示首见推送或首次提交。 */
+  statusFrom: number | null;
+  statusTo: number;
+  operator: string;
+  remark: string | null;
+  traceId: string | null;
+  /** 毫秒时间戳。 */
+  operateTime: number;
+}
+
 /** token 注册/重提请求（POST /token/submit，G-12 上行）；tokenCode 即货币系统 token code。 */
 export interface TokenSubmitReq {
   tokenCode: string;

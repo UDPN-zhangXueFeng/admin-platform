@@ -8,6 +8,8 @@ export type TxVariant = 'default' | 'secondary' | 'destructive' | 'outline';
 
 /** 交易记录筛选条件（POST /tx/page，全部可选；startTime/endTime 为毫秒时间戳）。 */
 export interface TxListReq {
+  /** Token 编码筛选；返回该 token 作为源端或目标端的交易。 */
+  tokenCode?: string;
   pairId?: number;
   status?: number;
   /** 1=仅看待处理；不传=全部。 */
@@ -48,21 +50,32 @@ export interface TxRecord {
   /** token 对编码（tx-event/链路同步带回，未同步时为空）。 */
   pairCode?: string;
   principal?: number;
+  /** 千分位与源 token 精度格式化后的金额展示串，前端直显。 */
+  principalText?: string;
   /** 用户实际扣减金额（源端，G-1 报价快照；fe61223 新增）。 */
   userDeduction?: number;
+  /** 用户扣款金额展示串，前端直显。 */
+  userDeductionText?: string;
   /** 目标端到账金额（源行 G-1 快照 / 目标行 G-5 execute 落账；fe61223 新增）。 */
   receiverAmount?: number;
+  /** 目标到账金额展示串，前端直显。 */
+  receiverAmountText?: string;
   /** 用户汇率（报价快照，源行视角；目标行未同步时为空；fe61223 新增）。 */
   userRate?: number;
+  /** 报价版本。 */
+  quoteVersion?: number;
   /** LP 编码（G-4 补账回填；fe61223 新增）。 */
   lpCode?: string;
   status?: number;
+  failReason?: string;
   /** 付款账户（用户）：源行 G-1 报价建账写入。 */
   senderAccount?: string;
   /** 收款账户：源行 G-1 / 目标行 G-4 toAccount。 */
   receiverAccount?: string;
   sourceCsTxId?: string;
   targetCsTxId?: string;
+  sourcePoolAddress?: string;
+  targetPoolAddress?: string;
   pendingFlag?: number;
   pendingReason?: string;
   lastSyncTime?: number;
