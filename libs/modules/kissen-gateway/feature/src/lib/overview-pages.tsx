@@ -11,7 +11,7 @@
  * KPI/图表数据源：
  * - Active Tokens = /token/list 真算（status=20 计 active）
  * - Transactions (24h) = /overview CUSTOM 滚动 24h 窗口真算
- * - Connected Banks = 静态补齐（无银行连接统计端点，不虚构）
+ * - Connected Banks = /overview fields connectedBanks and connectedBanksTotal.
  * - Token Pairs = /fx/view 真算（tokenPair.status=20 计 enabled）
  * - 趋势笔数与 Token Pair = /overview volumeSeries
  * - 金额只展示 API 返回的所选区间源端/目标端合计；接口无逐日金额序列
@@ -119,9 +119,6 @@ function trendRequest(range: TrendRange) {
   return { period: 'CUSTOM', from: from.getTime(), to: now.getTime() };
 }
 
-// STATIC-FILLER(GAP-GW-03): Connected Banks 无银行连接统计端点
-// （connected/total 口径需后端确认）；以 0 占位，不虚构。
-const CONNECTED_BANKS_FALLBACK = { active: 0, total: 0 };
 
 
 
@@ -294,6 +291,8 @@ export function OverviewListPage() {
   const tokenTotal = tokenList?.length;
 
   const tx24h = tx24hQuery.data;
+  const connectedBanks = trendStatsQuery.data?.connectedBanks;
+  const connectedBanksTotal = trendStatsQuery.data?.connectedBanksTotal;
   const pairs = fxViewQuery.data?.pairs;
   const enabledPairs = pairs
     ? pairs.filter((p) => p.tokenPair.status === STATUS_ENABLED).length
@@ -442,9 +441,15 @@ export function OverviewListPage() {
             tone="success"
             label={LBL.kpiConnectedBanks}
             tip={LBL.kpiConnectedBanksTip}
-            // STATIC-FILLER(GAP-GW-03): 无银行连接统计端点，静态 0 占位。
-            value={num(CONNECTED_BANKS_FALLBACK.active)}
-            footer={tpl(LBL.kpiConnectedBanksHelp, CONNECTED_BANKS_FALLBACK)}
+            value={kpiValue(connectedBanks != null, () => connectedBanks)}
+            footer={
+              connectedBanks != null && connectedBanksTotal != null
+                ? tpl(LBL.kpiConnectedBanksHelp, {
+                    active: num(connectedBanks),
+                    total: num(connectedBanksTotal),
+                  })
+                : undefined
+            }
           />
           <KpiCard
             tone="primary"
