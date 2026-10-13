@@ -63,7 +63,6 @@ import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
   tokenScopeText,
-  tokenTypeText,
   TX_STATUS,
   useFxAllPairsQuery,
   useSubmitTokenMutation,
@@ -1329,9 +1328,6 @@ export function TokenDetailPage() {
                     <span className="tabular-nums">
                       {formatTokenAmount(token.minLiquidity)}
                     </span>
-                  </DescField>
-                  <DescField label="Token Type">
-                    {tokenTypeText(token.tokenType)}
                   </DescField>
                 </DescGrid>
               </section>
