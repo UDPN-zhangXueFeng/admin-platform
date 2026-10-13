@@ -79,7 +79,16 @@ export interface FxPairDetail {
   recentRates: FxRateSnapshot[];
 }
 
-/** 汇率查询聚合响应（GET /fx/view，GW-14 UDPN 对齐）。 */
-export interface FxViewResp {
-  pairs: FxPairItem[];
+/** 汇率查询筛选（POST /fx/view data；source/targetTokenSymbol 均为模糊）。
+ *  后端实测约束：data 键存在时两字段必须非 null（空串=不过滤），API 层固化。 */
+export interface FxViewReq {
+  sourceTokenSymbol?: string;
+  targetTokenSymbol?: string;
+}
+
+/** 汇率查询分页请求（POST /fx/view）。 */
+export interface FxViewPageReq {
+  pageNum: number;
+  pageSize: number;
+  filter?: FxViewReq;
 }

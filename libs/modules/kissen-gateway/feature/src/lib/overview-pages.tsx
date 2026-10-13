@@ -42,7 +42,7 @@ import {
 } from '@myorg/shared/ui';
 
 import {
-  useFxViewQuery,
+  useFxAllPairsQuery,
   useOverviewStatsQuery,
   useTokenListQuery,
 } from '@myorg/modules/kissen-gateway/data-access';
@@ -263,10 +263,27 @@ export function OverviewListPage() {
     return { period: 'CUSTOM' as const, from: to - TX24H_WINDOW_MS, to };
   }, []);
   const tx24hQuery = useOverviewStatsQuery(tx24hReq);
-  const tokenListQuery = useTokenListQuery();
-  const fxViewQuery = useFxViewQuery();
+  // Tokens KPI：分页协议下不能从单页行数统计（2026-10-13 清单）→ total/active
+  // 各取一次 pageSize=1 的 total（active 复用 status 筛选）。
+  const tokenTotalQuery = useTokenListQuery(
+    React.useMemo(() => ({ pageNum: 1, pageSize: 1, filter: {} }), []),
+  );
+  const activeTokenQuery = useTokenListQuery(
+    React.useMemo(
+      () => ({ pageNum: 1, pageSize: 1, filter: { status: STATUS_ENABLED } }),
+      [],
+    ),
+  );
+  const fxAllPairsQuery = useFxAllPairsQuery();
 
-  const queries = [trendStatsQuery, tx24hQuery, tokenListQuery, fxViewQuery];
+  const queries = [
+    trendStatsQuery,
+    tx24hQuery,
+    tokenTotalQuery,
+    activeTokenQuery,
+    fxAllPairsQuery,
+  ];
+
 
   /** 健康点：任一查询失败且无数据 → 异常；全部成功 → 正常；初载未知不显。 */
   const anyFailed = queries.some((q) => q.isError && q.data == null);
@@ -284,16 +301,13 @@ export function OverviewListPage() {
 
   /* —— KPI 真算（各查询独立降级 '-'） —— */
 
-  const tokenList = tokenListQuery.data;
-  const activeTokenCount = tokenList
-    ? tokenList.filter((t) => t.status === STATUS_ENABLED).length
-    : undefined;
-  const tokenTotal = tokenList?.length;
+  const activeTokenCount = activeTokenQuery.data?.pagination.total;
+  const tokenTotal = tokenTotalQuery.data?.pagination.total;
 
   const tx24h = tx24hQuery.data;
   const connectedBanks = trendStatsQuery.data?.connectedBanks;
   const connectedBanksTotal = trendStatsQuery.data?.connectedBanksTotal;
-  const pairs = fxViewQuery.data?.pairs;
+  const pairs = fxAllPairsQuery.data;
   const enabledPairs = pairs
     ? pairs.filter((p) => p.tokenPair.status === STATUS_ENABLED).length
     : undefined;

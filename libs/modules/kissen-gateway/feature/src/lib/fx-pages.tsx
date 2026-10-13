@@ -5,14 +5,12 @@
  * 行为规格落地；源 `views/fx/index.vue` + `views/fx/detail.vue`）。
  *
  * 列表 /fx：
- * - 页头 + 筛选卡（Token Pair 模糊：匹配双侧 symbol/code；Liquidity
- *   Provider 精确；Status Enabled/Disabled）+ 表头排序（Rate / Synced on，
- *   默认 Synced on desc）。
+ * - 页头 + 筛选卡（Source Symbol / Target Symbol 双字段服务端模糊，
+ *   POST /fx/view）+ 服务端分页（2026-10-13 分页清单）。协议无 LP/Status/
+ *   排序参数 → LP、Status 筛选移除（列保留），表头静态。
  * - 2026-09-20 原型批注：pair 列简化 `src → tgt`（symbol 优先，去 BIC 双行）；
- *   'FX Rate'→'Rate'；LP 列纵排纯文本行（去 Badge chips）；新增 Status 列
+ *   'FX Rate'→'Rate'；LP 列纵排纯文本行（去 Badge chips）；Status 列
  *   （ProtoStatusBadge）；'Synced On'→'Synced on (UTC+8)'；Actions 'Details'。
- * - /fx/view 无查询入参 → 筛选/排序为前端本地处理（本地过滤过渡，后端参数
- *   就绪后回写为服务端检索）。
  *
  * 详情 /fx/detail?id={pairId}：
  * - 页头（Back + `src → tgt` + 状态徽章 + meta Pair ID | Synced on）→ 页面级
@@ -35,11 +33,6 @@ import {
   DataTable,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Skeleton,
   Tabs,
   TabsContent,
@@ -59,7 +52,6 @@ import {
 import { CopyableId, Dash, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
 import { formatRate, formatUtc8 } from './proto-format';
 import { PROTO_PAIR_STATUS, protoStatusText } from './proto-enums';
-import { SortHeader, compareProtoValues, useTableSort } from './proto-table';
 import { DescField, DescGrid } from './desc-grid';
 import { orDash } from './kit';
 import { EmptyHint, ErrorBlock, MissingIdBlock } from './state-blocks';
@@ -75,73 +67,58 @@ const PAIR_STATUS_TONES: Record<number, ProtoStatusTone> = {
 
 /* ─────────────────────────── 列表页 ─────────────────────────── */
 
-type FxFilters = { pair: string; lp: string; status: string };
+type FxFilters = { sourceSymbol: string; targetSymbol: string };
 
-const FX_FILTER_DEFAULT: FxFilters = { pair: '', lp: '', status: '' };
+const FX_FILTER_DEFAULT: FxFilters = { sourceSymbol: '', targetSymbol: '' };
 
 export function FxListPage() {
   const router = useRouter();
-  const { data, isLoading, isError, error, isFetching, refetch, dataUpdatedAt } =
-    useFxViewQuery();
-  const rows = data?.pairs ?? [];
-
   const [filters, setFilters] = React.useState<FxFilters>(FX_FILTER_DEFAULT);
   const [appliedFilters, setAppliedFilters] = React.useState<FxFilters>(FX_FILTER_DEFAULT);
-  const { sort, toggle } = useTableSort('syncedAt', 'desc');
+  const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(10);
 
-  // LP 筛选 options 从当前数据派生（全表 lpNames 并集去重排序）。
-  const lpOptions = React.useMemo(
-    () => [...new Set(rows.flatMap((r) => r.lpNames))].sort((a, b) => a.localeCompare(b)),
+  const { data, isLoading, isError, error, isFetching, refetch, dataUpdatedAt } =
+    useFxViewQuery(
+      React.useMemo(
+        () => ({
+          pageNum,
+          pageSize,
+          filter: {
+            ...(appliedFilters.sourceSymbol.trim()
+              ? { sourceTokenSymbol: appliedFilters.sourceSymbol.trim() }
+              : {}),
+            ...(appliedFilters.targetSymbol.trim()
+              ? { targetTokenSymbol: appliedFilters.targetSymbol.trim() }
+              : {}),
+          },
+        }),
+        [pageNum, pageSize, appliedFilters],
+      ),
+    );
+  const rows = data?.data ?? [];
+
+  const tableData = React.useMemo(
+    () => rows.map((r) => ({ ...r, id: String(r.tokenPair.pairId) })),
     [rows],
   );
 
-  // 本地过滤过渡（/fx/view 无查询入参；后端参数就绪后回写为服务端检索）。
-  const filtered = React.useMemo(() => {
-    const q = appliedFilters.pair.trim().toLowerCase();
-    return rows.filter((r) => {
-      const pair = r.tokenPair;
-      const pairHit =
-        !q ||
-        (pair.sourceTokenSymbol ?? '').toLowerCase().includes(q) ||
-        (pair.sourceTokenCode ?? '').toLowerCase().includes(q) ||
-        (pair.targetTokenSymbol ?? '').toLowerCase().includes(q) ||
-        (pair.targetTokenCode ?? '').toLowerCase().includes(q);
-      return (
-        pairHit &&
-        (!appliedFilters.lp || r.lpNames.includes(appliedFilters.lp)) &&
-        (!appliedFilters.status || String(pair.status) === appliedFilters.status)
-      );
-    });
-  }, [rows, appliedFilters]);
-
-  const sorted = React.useMemo(() => {
-    const dir = sort.direction === 'desc' ? -1 : 1;
-    return [...filtered].sort((a, b) => {
-      if (sort.key === 'rate') {
-        return compareProtoValues(a.rate?.userRate, b.rate?.userRate) * dir;
-      }
-      // syncedAt：快照时间兜底链 rate?.pushTime ?? tokenPair.pushTime。
-      return (
-        compareProtoValues(
-          a.rate?.pushTime ?? a.tokenPair.pushTime,
-          b.rate?.pushTime ?? b.tokenPair.pushTime,
-        ) * dir
-      );
-    });
-  }, [filtered, sort]);
-
-  const tableData = React.useMemo(
-    () => sorted.map((r) => ({ ...r, id: String(r.tokenPair.pairId) })),
-    [sorted],
-  );
-
   const hasFilter =
-    filters.pair !== '' ||
-    filters.lp !== '' ||
-    filters.status !== '' ||
-    appliedFilters.pair !== '' ||
-    appliedFilters.lp !== '' ||
-    appliedFilters.status !== '';
+    filters.sourceSymbol !== '' ||
+    filters.targetSymbol !== '' ||
+    appliedFilters.sourceSymbol !== '' ||
+    appliedFilters.targetSymbol !== '';
+
+  // Search/Reset 均回到第 1 页（服务端分页）。
+  const handleFilterSubmit = () => {
+    setAppliedFilters(filters);
+    setPageNum(1);
+  };
+  const handleFilterReset = () => {
+    setFilters(FX_FILTER_DEFAULT);
+    setAppliedFilters(FX_FILTER_DEFAULT);
+    setPageNum(1);
+  };
   const columns = React.useMemo<ColumnDef<FxPairItem & { id: string }>[]>(
     () => [
       {
@@ -162,14 +139,7 @@ export function FxListPage() {
       },
       {
         id: 'rate',
-        header: () => (
-          <SortHeader
-            label="Rate"
-            direction={sort.key === 'rate' ? sort.direction : null}
-            onToggle={() => toggle('rate', 'desc')}
-            numeric
-          />
-        ),
+        header: () => <div className="text-right">Rate</div>,
         cell: ({ row }) => (
           <span className="block text-right tabular-nums">
             {formatRate(row.original.rate?.userRate)}
@@ -209,13 +179,7 @@ export function FxListPage() {
       },
       {
         id: 'syncedAt',
-        header: () => (
-          <SortHeader
-            label="Synced on"
-            direction={sort.key === 'syncedAt' ? sort.direction : null}
-            onToggle={() => toggle('syncedAt', 'desc')}
-          />
-        ),
+        header: 'Synced on',
         cell: ({ row }) => (
           <span className="tabular-nums">
             {formatUtc8(
@@ -244,7 +208,7 @@ export function FxListPage() {
         ),
       },
     ],
-    [router, sort, toggle],
+    [router],
   );
 
   return (
@@ -261,62 +225,32 @@ export function FxListPage() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          setAppliedFilters(filters);
+          handleFilterSubmit();
         }}
         className="rounded-lg border border-border/60 bg-card p-4"
       >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {/* 协议仅支持双侧 symbol 模糊（2026-10-13 清单）→ LP/Status 筛选移除
+            （列保留）。 */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="min-w-0">
-            <Label className="mb-1.5 block">Token Pair</Label>
+            <Label className="mb-1.5 block">Source Symbol</Label>
             <Input
-              value={filters.pair}
+              value={filters.sourceSymbol}
               onChange={(e) =>
-                setFilters((f) => ({ ...f, pair: e.target.value }))
+                setFilters((f) => ({ ...f, sourceSymbol: e.target.value }))
               }
-              placeholder="Fuzzy match on either side"
+              placeholder="Fuzzy match"
             />
           </div>
           <div className="min-w-0">
-            <Label className="mb-1.5 block">Liquidity Provider</Label>
-            <Select
-              value={filters.lp || 'all'}
-              onValueChange={(v) =>
-                setFilters((f) => ({ ...f, lp: v === 'all' ? '' : v }))
+            <Label className="mb-1.5 block">Target Symbol</Label>
+            <Input
+              value={filters.targetSymbol}
+              onChange={(e) =>
+                setFilters((f) => ({ ...f, targetSymbol: e.target.value }))
               }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {lpOptions.map((v) => (
-                  <SelectItem key={v} value={v}>
-                    {v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-0">
-            <Label className="mb-1.5 block">Status</Label>
-            <Select
-              value={filters.status || 'all'}
-              onValueChange={(v) =>
-                setFilters((f) => ({ ...f, status: v === 'all' ? '' : v }))
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {[20, 50].map((code) => (
-                  <SelectItem key={code} value={String(code)}>
-                    {protoStatusText(PROTO_PAIR_STATUS, code)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Fuzzy match"
+            />
           </div>
           <div className="flex items-end gap-2">
             <Button type="submit" size="sm">Search</Button>
@@ -325,10 +259,7 @@ export function FxListPage() {
               variant="outline"
               size="sm"
               disabled={!hasFilter}
-              onClick={() => {
-                setFilters(FX_FILTER_DEFAULT);
-                setAppliedFilters(FX_FILTER_DEFAULT);
-              }}
+              onClick={handleFilterReset}
             >
               Reset
             </Button>
@@ -343,9 +274,9 @@ export function FxListPage() {
             <div className="text-base font-semibold leading-6 text-foreground">
               Token Pairs
             </div>
-            {data && (
+            {data?.pagination && (
               <span className="text-sm text-muted-foreground tabular-nums">
-                {tableData.length} results
+                {data.pagination.total} results
               </span>
             )}
             {dataUpdatedAt ? (
@@ -382,6 +313,20 @@ export function FxListPage() {
                 data={tableData}
                 isLoading={isLoading}
                 emptyMessage="No token pairs found. Try adjusting the filters."
+                pagination={
+                  data?.pagination
+                    ? {
+                        page: data.pagination.page,
+                        pageSize: data.pagination.pageSize,
+                        total: data.pagination.total,
+                        onPageChange: setPageNum,
+                        onPageSizeChange: (n) => {
+                          setPageSize(n);
+                          setPageNum(1);
+                        },
+                      }
+                    : undefined
+                }
               />
               <p className="mt-4 text-xs text-muted-foreground">
                 Data comes from locally cached Kissen pushes (token pairs / LP

@@ -3,7 +3,7 @@
 /**
  * bank 域 read-query hooks（源 `views/onboard/index.vue` / `views/bank/query.vue` 请求生命周期）。
  */
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import {
   bankQueryDetail,
@@ -13,6 +13,7 @@ import {
   getBankOnboardStatus,
 } from './bank.api';
 import { bankKeys } from './bank.keys';
+import type { BankQueryPageReq } from './bank.model';
 
 /** 银行信息推送缓存（Kissen 推送；onboard 页 bankId 兜底展示）。 */
 export function useBankInfoQuery(enabled = true) {
@@ -41,11 +42,12 @@ export function useBankOnboardStatusQuery(enabled = true) {
   });
 }
 
-/** 网络银行列表（GW-14 UDPN 对齐：gw_bank_info 权限可见集合）。 */
-export function useBankQueryListQuery(enabled = true) {
+/** 网络银行分页列表（POST /bank/query/list，keyword 模糊；翻页/换筛选保留旧页）。 */
+export function useBankQueryListQuery(req: BankQueryPageReq, enabled = true) {
   return useQuery({
-    queryKey: bankKeys.queryList(),
-    queryFn: ({ signal }) => bankQueryList({ signal }),
+    queryKey: bankKeys.queryList(req),
+    queryFn: ({ signal }) => bankQueryList(req, { signal }),
+    placeholderData: keepPreviousData,
     enabled,
   });
 }

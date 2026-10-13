@@ -1,26 +1,52 @@
 /**
- * Token 域 raw API 层（源 `api/token.ts`，五端点）。
+ * Token 域 raw API 层（源 `api/token.ts`）。
+ * 2026-10-13 分页清单：/token/list 与 /token/operate-logs/{tokenCode} 改
+ * POST 服务端分页（kissenPage）；/token/refresh 响应变更为回写条数 int；
+ * 新增 GET /token/filter-options 下拉主数据。
  */
 import type { AxiosRequestConfig } from 'axios';
 
-import { kissenRequest } from '../kissen-gateway-client';
+import type { PaginatedResponse } from '@myorg/shared/model';
+
+import { kissenPage, kissenRequest } from '../kissen-gateway-client';
 import type {
+  TokenFilterOptions,
   TokenInfo,
+  TokenOperationLogsPageReq,
   TokenOperationRecord,
+  TokenPageReq,
   TokenSubmitReq,
   TokenSubmitResp,
 } from './token.model';
 
-/** 本实例已注册 token 列表（GET /token/list，纯本地表倒序）。 */
-export function getTokenList(
-  config?: AxiosRequestConfig,
-): Promise<TokenInfo[]> {
-  return kissenRequest.get<TokenInfo[]>('/token/list', config);
+/** /token/filter-options 原始响应（实测 data 形状：两个字符串数组）。 */
+interface TokenFilterOptionsWire {
+  chainTypes?: unknown;
+  anchorFiats?: unknown;
 }
 
-/** 同步申请状态（POST /token/refresh，上行 Kissen apply/list 拉取权威状态并回写本地后返回）。 */
-export function refreshTokens(config?: AxiosRequestConfig): Promise<TokenInfo[]> {
-  return kissenRequest.post<TokenInfo[]>('/token/refresh', undefined, config);
+/** 字符串数组安全提取（非数组/非字符串元素丢弃 → 空集合）。 */
+function stringArrayOf(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((v): v is string => typeof v === 'string')
+    : [];
+}
+
+/** token 分页列表（POST /token/list，tokenCode 模糊 / 其余精确）。 */
+export function getTokenList(
+  req: TokenPageReq,
+  config?: AxiosRequestConfig,
+): Promise<PaginatedResponse<TokenInfo>> {
+  return kissenPage<TokenInfo, NonNullable<TokenPageReq['filter']>>(
+    '/token/list',
+    req,
+    config,
+  );
+}
+
+/** 同步申请状态（POST /token/refresh；data=本次回写条数，0 也是成功）。 */
+export function refreshTokens(config?: AxiosRequestConfig): Promise<number> {
+  return kissenRequest.post<number>('/token/refresh', undefined, config);
 }
 
 /** token 注册/驳回后重提（POST /token/submit，本地落待审核 + 上行 Kissen）。 */
@@ -42,13 +68,29 @@ export function getTokenDetail(
   );
 }
 
-/** Token 操作留痕（GET /token/operate-logs/{tokenCode}）。 */
+/** Token 操作留痕分页（POST /token/operate-logs/{tokenCode}）。 */
 export function getTokenOperationLogs(
   tokenCode: string,
+  req: TokenOperationLogsPageReq,
   config?: AxiosRequestConfig,
-): Promise<TokenOperationRecord[]> {
-  return kissenRequest.get<TokenOperationRecord[]>(
+): Promise<PaginatedResponse<TokenOperationRecord>> {
+  return kissenPage<TokenOperationRecord>(
     `/token/operate-logs/${encodeURIComponent(tokenCode)}`,
+    req,
     config,
   );
+}
+
+/** Token 筛选下拉主数据（GET /token/filter-options）。集合元素即提交值。 */
+export async function getTokenFilterOptions(
+  config?: AxiosRequestConfig,
+): Promise<TokenFilterOptions> {
+  const raw = await kissenRequest.get<TokenFilterOptionsWire>(
+    '/token/filter-options',
+    config,
+  );
+  return {
+    chainTypes: stringArrayOf(raw?.chainTypes),
+    anchorFiats: stringArrayOf(raw?.anchorFiats),
+  };
 }

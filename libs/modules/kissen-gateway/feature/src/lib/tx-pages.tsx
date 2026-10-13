@@ -38,7 +38,7 @@ import {
   txMsgTypeVariant,
   txProcessStatusText,
   txProcessStatusVariant,
-  useFxViewQuery,
+  useFxAllPairsQuery,
   useTxChain,
   useTxDetail,
   useTxPage,
@@ -353,14 +353,14 @@ export function TxListPage() {
   });
 
   /**
-   * fx 聚合视图缓存（源 onMounted fxView → pairViews）：tokens/From/FX Rate 列
-   * 的 token 对与最新汇率数据源。与 /fx 页共用同一 query key，缓存命中不新增请求。
+   * fx 全量 pair 元数据（分页后 /fx/view 500/页顺序聚合）：tokens/From/FX Rate
+   * 列的 token 对与最新汇率数据源。与 Overview 共用同一 query key。
    */
-  const { data: fxViewData } = useFxViewQuery();
+  const { data: fxAllPairs } = useFxAllPairsQuery();
   /** pairId → 聚合项索引（整项保留：tokenPair 与 rate 快照均可取）。 */
   const pairMap = React.useMemo(
-    () => buildPairMap(fxViewData?.pairs),
-    [fxViewData],
+    () => buildPairMap(fxAllPairs),
+    [fxAllPairs],
   );
 
   const rows = data?.data ?? [];
@@ -1106,12 +1106,13 @@ export function TxDetailPage() {
 
   /**
    * fe61223 stageFields 的 token symbol 派生（源 pairOf 依赖的 pairViews 缓存）：
-   * 详情为独立路由页，须自取 fxView（与 /fx、列表页同 query key，缓存命中免请求）。
+   * 详情为独立路由页，须自取 fx 全量 pairs（与 Overview、列表页同 query key，
+   * 缓存命中免请求）。
    */
-  const { data: fxViewData } = useFxViewQuery();
+  const { data: fxAllPairs } = useFxAllPairsQuery();
   const pairMap = React.useMemo(
-    () => buildPairMap(fxViewData?.pairs),
-    [fxViewData],
+    () => buildPairMap(fxAllPairs),
+    [fxAllPairs],
   );
 
   /**

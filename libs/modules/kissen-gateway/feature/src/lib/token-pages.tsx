@@ -4,18 +4,18 @@
  * Token 管理域三页（plan/12 §5 P2：BP 原型 TokenManagementPage.jsx /
  * RegisterTokenPage.jsx / TokenDetailPage.jsx 行为规格落地）。
  *
- * - 列表 /token/manage：筛选卡（Token Code 模糊 / Pegged Currency /
- *   BlockChain / Status 精确）+ 10 列（39c8a2b 列序去 tokenNo 列，tokenNo
- *   仅详情 Status & Sync 卡展示）+ 列偏好 localStorage 持久化 + 表头排序 +
- *   Register Token 跳页面化注册（原型 2026-09-20「弹窗→页」）。
+ * - 列表 /token/manage：POST 服务端分页/筛选（2026-10-13 清单：Token Code
+ *   模糊 / Pegged Currency / BlockChain / Status 精确；选项主数据来自
+ *   GET /token/filter-options）+ 10 列（39c8a2b 列序）+ 列偏好 localStorage
+ *   持久化 + Register Token 跳页面化注册。协议无排序参数 → 表头静态，
+ *   行序保持服务端 tokenId 倒序。
  * - 注册 /token/create：单卡三分区表单（Token Identity / Value & Anchor /
  *   Additional Information），校验文案逐字对齐原型 validate()；幂等重复提交
  *   → 页内 warning 横幅（原型 409 分支；后端以 resp.idempotent 表达）。
  * - 详情 /token/manage/detail?code=：3 Tab（basic/transactions/operations），
  *   ?tab= 写 URL、basic 缺省不写；transactions 通过 /tx/page 按 tokenCode 查询，
- *   operations 通过 /token/operate-logs/{tokenCode} 查询并显示操作留痕。
- * - 筛选/排序为前端本地处理（/token/list 无查询入参；本地过滤过渡，
- *   后端分页/筛选参数就绪后回写为服务端检索）。
+ *   operations 走 POST /token/operate-logs/{tokenCode} 分页（tokenCode 维度
+ *   独立分页状态，切换 code 归 1 不暂显旧 token 行）。
  * - 保留项（plan §7 有意偏差）：Register Token 的 'bank:token:submit'
  *   权限码门控；状态列驳回原因 Tooltip；footnote 三段口径。
  */
@@ -65,9 +65,10 @@ import {
   tokenScopeText,
   tokenTypeText,
   TX_STATUS,
-  useFxViewQuery,
+  useFxAllPairsQuery,
   useSubmitTokenMutation,
   useTokenDetailQuery,
+  useTokenFilterOptionsQuery,
   useTokenListQuery,
   useTokenOperationLogsQuery,
   useTxPage,
@@ -81,7 +82,6 @@ import { formatTokenAmount, formatUtc8 } from './proto-format';
 import {
   PROTO_TOKEN_STATUS,
   PROTO_TX_STATUS,
-  protoStatusRank,
   protoStatusText,
 } from './proto-enums';
 import { DescField, DescGrid } from './desc-grid';
@@ -90,11 +90,8 @@ import { EmptyHint, ErrorBlock, MissingIdBlock } from './state-blocks';
 import { useGatewayPerm } from './use-gateway-perm';
 import {
   ColumnPicker,
-  SortHeader,
-  compareProtoValues,
   filterVisibleColumns,
   useColumnPreferences,
-  useTableSort,
   type ProtoColumnDef,
 } from './proto-table';
 
@@ -128,20 +125,6 @@ const TOKEN_COLUMNS: ProtoColumnDef[] = [
 
 /** 列偏好 localStorage 键（原型 useTableColumnPreferences 同语义）。 */
 const TOKEN_COLUMN_PREF_KEY = 'gw.token-list.columns';
-
-/** 排序键 → 行取值（原型 sortBy 语义；status/tokenCode/actions 不可排序）。 */
-const TOKEN_SORT_ACCESSORS: Record<
-  string,
-  (row: TokenInfo) => string | number | null | undefined
-> = {
-  name: (r) => r.tokenName,
-  symbol: (r) => r.symbol,
-  decimals: (r) => r.decimalDigits,
-  peggedCurrency: (r) => r.anchorFiat,
-  chain: (r) => r.chainType,
-  minLiquidity: (r) => r.minLiquidity,
-  syncedAt: (r) => r.pushTime,
-};
 
 /** 状态码 → 徽章语义色（Pending Review 警示 / Active 成功 / Rejected 拒绝 / Disabled 灰）。 */
 const TOKEN_STATUS_TONES: Record<number, ProtoStatusTone> = {
@@ -513,13 +496,30 @@ export function TokenListPage() {
   const router = useRouter();
   const toast = useToast();
   const hasPerm = useGatewayPerm();
-  const { data, isLoading, isError, error, refetch, dataUpdatedAt } =
-    useTokenListQuery();
-
-  const rows = data ?? [];
   const [filters, setFilters] = React.useState<TokenFilters>(TOKEN_FILTER_DEFAULT);
   const [appliedFilters, setAppliedFilters] = React.useState<TokenFilters>(TOKEN_FILTER_DEFAULT);
-  const { sort, toggle } = useTableSort('syncedAt', 'desc');
+  const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(10);
+
+  const { data, isLoading, isError, error, refetch, dataUpdatedAt } =
+    useTokenListQuery(React.useMemo(
+      () => ({
+        pageNum,
+        pageSize,
+        filter: {
+          ...(appliedFilters.code.trim() ? { tokenCode: appliedFilters.code.trim() } : {}),
+          ...(appliedFilters.peggedCurrency ? { anchorFiat: appliedFilters.peggedCurrency } : {}),
+          ...(appliedFilters.chain ? { chainType: appliedFilters.chain } : {}),
+          ...(appliedFilters.status
+            ? { status: Number(appliedFilters.status) }
+            : {}),
+        },
+      }),
+      [pageNum, pageSize, appliedFilters],
+    ));
+  const filterOptionsQuery = useTokenFilterOptionsQuery();
+
+  const rows = data?.data ?? [];
   const columnPreferences = useColumnPreferences(
     TOKEN_COLUMN_PREF_KEY,
     TOKEN_COLUMNS,
@@ -536,46 +536,21 @@ export function TokenListPage() {
     }
   }, [isError, error, refetch, toast]);
 
-  // 筛选下拉 options 从当前数据派生（Status 按生命周期 rank 排序）。
+  // 下拉选项主数据（GET /token/filter-options；元素即提交值）。
+  // Status 为前端固定码表（按生命周期 rank 排序），不从接口/行数据派生。
   const peggedOptions = React.useMemo(
-    () => uniqueSorted(rows.map((r) => r.anchorFiat)),
-    [rows],
+    () => uniqueSorted(filterOptionsQuery.data?.anchorFiats ?? []),
+    [filterOptionsQuery.data],
   );
   const chainOptions = React.useMemo(
-    () => uniqueSorted(rows.map((r) => r.chainType)),
-    [rows],
+    () => uniqueSorted(filterOptionsQuery.data?.chainTypes ?? []),
+    [filterOptionsQuery.data],
   );
-  const statusOptions = React.useMemo(
-    () =>
-      [...new Set(rows.map((r) => r.status))]
-        .sort((a, b) => protoStatusRank(PROTO_TOKEN_STATUS, a) - protoStatusRank(PROTO_TOKEN_STATUS, b)),
-    [rows],
-  );
-
-  // 本地过滤过渡（/token/list 无查询入参；后端参数就绪后回写为服务端检索）。
-  const filtered = React.useMemo(() => {
-    const q = appliedFilters.code.trim().toLowerCase();
-    return rows.filter(
-      (r) =>
-        (!q || r.tokenCode.toLowerCase().includes(q)) &&
-        (!appliedFilters.peggedCurrency || r.anchorFiat === appliedFilters.peggedCurrency) &&
-        (!appliedFilters.chain || r.chainType === appliedFilters.chain) &&
-        (!appliedFilters.status || String(r.status) === appliedFilters.status),
-    );
-  }, [rows, appliedFilters]);
-
-  const sorted = React.useMemo(() => {
-    const accessor = sort.key ? TOKEN_SORT_ACCESSORS[sort.key] : undefined;
-    if (!accessor) return filtered;
-    const dir = sort.direction === 'desc' ? -1 : 1;
-    return [...filtered].sort(
-      (a, b) => compareProtoValues(accessor(a), accessor(b)) * dir,
-    );
-  }, [filtered, sort]);
+  const statusOptions = [5, 20, 15, 50];
 
   const tableData = React.useMemo(
-    () => sorted.map((r) => ({ ...r, id: String(r.tokenId) })),
-    [sorted],
+    () => rows.map((r) => ({ ...r, id: String(r.tokenId) })),
+    [rows],
   );
 
   const hasFilter =
@@ -587,9 +562,15 @@ export function TokenListPage() {
     appliedFilters.peggedCurrency !== '' ||
     appliedFilters.chain !== '' ||
     appliedFilters.status !== '';
+  // Search/Reset 均回到第 1 页（服务端分页：换筛选条件后旧页码无意义）。
+  const handleFilterSubmit = () => {
+    setAppliedFilters(filters);
+    setPageNum(1);
+  };
   const handleFilterReset = () => {
     setFilters(TOKEN_FILTER_DEFAULT);
     setAppliedFilters(TOKEN_FILTER_DEFAULT);
+    setPageNum(1);
   };
 
   const columns = React.useMemo<
@@ -598,13 +579,7 @@ export function TokenListPage() {
     const cols: ColumnDef<TokenInfo & { id: string }>[] = [
       {
         id: 'name',
-        header: () => (
-          <SortHeader
-            label="Token Name"
-            direction={sort.key === 'name' ? sort.direction : null}
-            onToggle={() => toggle('name')}
-          />
-        ),
+        header: 'Token Name',
         meta: { overflow: 'wrap', maxWidth: 220 },
         cell: ({ row }) => (
           <div className="flex min-w-0 flex-col gap-0.5">
@@ -621,27 +596,14 @@ export function TokenListPage() {
       },
       {
         id: 'symbol',
-        header: () => (
-          <SortHeader
-            label="Symbol"
-            direction={sort.key === 'symbol' ? sort.direction : null}
-            onToggle={() => toggle('symbol')}
-          />
-        ),
+        header: 'Symbol',
         cell: ({ row }) => (
           <span className="font-mono">{orDash(row.original.symbol)}</span>
         ),
       },
       {
         id: 'decimals',
-        header: () => (
-          <SortHeader
-            label="Decimals"
-            direction={sort.key === 'decimals' ? sort.direction : null}
-            onToggle={() => toggle('decimals')}
-            numeric
-          />
-        ),
+        header: () => <div className="text-right">Decimals</div>,
         cell: ({ row }) => (
           <span className="block text-right tabular-nums">
             {orDash(row.original.decimalDigits)}
@@ -650,24 +612,12 @@ export function TokenListPage() {
       },
       {
         id: 'peggedCurrency',
-        header: () => (
-          <SortHeader
-            label="Pegged Currency"
-            direction={sort.key === 'peggedCurrency' ? sort.direction : null}
-            onToggle={() => toggle('peggedCurrency')}
-          />
-        ),
+        header: 'Pegged Currency',
         cell: ({ row }) => orDash(row.original.anchorFiat),
       },
       {
         id: 'chain',
-        header: () => (
-          <SortHeader
-            label="BlockChain"
-            direction={sort.key === 'chain' ? sort.direction : null}
-            onToggle={() => toggle('chain')}
-          />
-        ),
+        header: 'BlockChain',
         cell: ({ row }) => orDash(row.original.chainType),
       },
       {
@@ -678,14 +628,7 @@ export function TokenListPage() {
       },
       {
         id: 'minLiquidity',
-        header: () => (
-          <SortHeader
-            label="Min. Liquidity"
-            direction={sort.key === 'minLiquidity' ? sort.direction : null}
-            onToggle={() => toggle('minLiquidity', 'desc')}
-            numeric
-          />
-        ),
+        header: () => <div className="text-right">Min. Liquidity</div>,
         cell: ({ row }) => (
           <span className="block text-right tabular-nums">
             {formatTokenAmount(row.original.minLiquidity)}
@@ -694,13 +637,7 @@ export function TokenListPage() {
       },
       {
         id: 'syncedAt',
-        header: () => (
-          <SortHeader
-            label="Synced on"
-            direction={sort.key === 'syncedAt' ? sort.direction : null}
-            onToggle={() => toggle('syncedAt', 'desc')}
-          />
-        ),
+        header: 'Synced on',
         cell: ({ row }) => (
           <span className="tabular-nums">{formatUtc8(row.original.pushTime)}</span>
         ),
@@ -755,7 +692,7 @@ export function TokenListPage() {
       },
     ];
     return cols;
-  }, [router, sort, toggle]);
+  }, [router]);
 
   // 列偏好：required 列恒显，其余按用户选择过滤。
   const visibleColumns = React.useMemo(
@@ -777,7 +714,7 @@ export function TokenListPage() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          setAppliedFilters(filters);
+          handleFilterSubmit();
         }}
         className="rounded-lg border border-border/60 bg-card p-4"
       >
@@ -802,6 +739,7 @@ export function TokenListPage() {
                   peggedCurrency: v === 'all' ? '' : v,
                 }))
               }
+              disabled={filterOptionsQuery.isLoading}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -823,6 +761,7 @@ export function TokenListPage() {
               onValueChange={(v) =>
                 setFilters((f) => ({ ...f, chain: v === 'all' ? '' : v }))
               }
+              disabled={filterOptionsQuery.isLoading}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -871,6 +810,19 @@ export function TokenListPage() {
             </Button>
           </div>
         </div>
+
+        {filterOptionsQuery.isError && (
+          <div className="mt-3">
+            <ErrorBlock
+              message={
+                filterOptionsQuery.error instanceof Error
+                  ? filterOptionsQuery.error.message
+                  : 'Failed to load filter options'
+              }
+              onRetry={() => filterOptionsQuery.refetch()}
+            />
+          </div>
+        )}
       </form>
 
       <section className="rounded-lg border border-border/60 bg-card">
@@ -880,9 +832,9 @@ export function TokenListPage() {
             <div className="text-base font-semibold leading-6 text-foreground">
               Tokens
             </div>
-            {data && (
+            {data?.pagination && (
               <span className="text-sm text-muted-foreground tabular-nums">
-                {tableData.length} results
+                {data.pagination.total} results
               </span>
             )}
             {dataUpdatedAt ? (
@@ -915,6 +867,20 @@ export function TokenListPage() {
             data={tableData}
             isLoading={isLoading}
             emptyMessage="No tokens found. Try adjusting the filters, or register the first token."
+            pagination={
+              data?.pagination
+                ? {
+                    page: data.pagination.page,
+                    pageSize: data.pagination.pageSize,
+                    total: data.pagination.total,
+                    onPageChange: setPageNum,
+                    onPageSizeChange: (n) => {
+                      setPageSize(n);
+                      setPageNum(1);
+                    },
+                  }
+                : undefined
+            }
           />
           {/* 源 .footnote（d764217 三段口径：注册前置/幂等/审核结果同步）。 */}
           <p className="mt-4 text-xs text-muted-foreground">
@@ -1029,20 +995,32 @@ export function TokenDetailPage() {
     },
     token != null,
   );
+  // 操作记录分页状态携带 tokenCode：切换 code 时请求参数整体变化（pageNum 归 1），
+  // 无需 effect 重置；key 含 code + 分页，不暂显旧 token 的行。
+  const [operationLogPage, setOperationLogPage] = React.useState<{
+    tokenCode: string;
+    pageNum: number;
+    pageSize: number;
+  }>({ tokenCode, pageNum: 1, pageSize: 10 });
+  const operationLogReq =
+    operationLogPage.tokenCode === tokenCode
+      ? operationLogPage
+      : { tokenCode, pageNum: 1, pageSize: 10 };
   const operationLogsQuery = useTokenOperationLogsQuery(
     tokenCode || undefined,
+    operationLogReq,
     token != null,
   );
-  const { data: fxViewData } = useFxViewQuery(token != null);
+  const { data: fxAllPairs } = useFxAllPairsQuery(token != null);
   const pairMap = React.useMemo(
     () =>
       new Map(
-        (fxViewData?.pairs ?? []).map((pair) => [
+        (fxAllPairs ?? []).map((pair) => [
           pair.tokenPair.pairId,
           pair,
         ]),
       ),
-    [fxViewData],
+    [fxAllPairs],
   );
   const transactionRows = transactionsQuery.data?.data ?? EMPTY_TX_ROWS;
   const transactionTableData = React.useMemo(
@@ -1055,7 +1033,7 @@ export function TokenDetailPage() {
     Math.ceil(transactionTotal / TOKEN_TX_PAGE_SIZE),
   );
   const operationRows =
-    operationLogsQuery.data ?? EMPTY_TOKEN_OPERATION_RECORDS;
+    operationLogsQuery.data?.data ?? EMPTY_TOKEN_OPERATION_RECORDS;
   const operationTableData = React.useMemo(
     () =>
       operationRows.map((record) => ({
@@ -1222,7 +1200,7 @@ export function TokenDetailPage() {
     transactionsQuery.data?.pagination.total ??
     (transactionsQuery.isError ? '—' : '…');
   const operationCount =
-    operationLogsQuery.data?.length ??
+    operationLogsQuery.data?.pagination.total ??
     (operationLogsQuery.isError ? '—' : '…');
   const toast = useToast();
   React.useEffect(() => {
@@ -1502,6 +1480,27 @@ export function TokenDetailPage() {
                     data={operationTableData}
                     isLoading={operationLogsQuery.isLoading}
                     emptyMessage="No operation records yet. Operations on this record will appear here."
+                    pagination={
+                      operationLogsQuery.data?.pagination
+                        ? {
+                            page: operationLogReq.pageNum,
+                            pageSize: operationLogReq.pageSize,
+                            total: operationLogsQuery.data.pagination.total,
+                            onPageChange: (page) =>
+                              setOperationLogPage({
+                                tokenCode,
+                                pageNum: page,
+                                pageSize: operationLogReq.pageSize,
+                              }),
+                            onPageSizeChange: (size) =>
+                              setOperationLogPage({
+                                tokenCode,
+                                pageNum: 1,
+                                pageSize: size,
+                              }),
+                          }
+                        : undefined
+                    }
                   />
                 )}
               </div>

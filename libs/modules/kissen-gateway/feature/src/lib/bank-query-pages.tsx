@@ -5,13 +5,12 @@
  * BankDetailPage.jsx 行为规格落地；源 `views/bank/query.vue` + `query-detail.vue`）。
  *
  * 列表 /bank/query：
- * - 页头 + 筛选卡（Bank Name / BIC 模糊 + Bank Type Own/External）+ 表头排序
- *   （Bank Name、SWIFT BIC、Synced on，默认 Synced on desc）。
+ * - 页头 + 筛选卡（Bank Name / BIC 服务端模糊，POST /bank/query/list）+
+ *   服务端分页（2026-10-13 分页清单）。协议无排序/类型参数 → Bank Type
+ *   筛选移除（列保留），表头静态，行序保持服务端下发序。
  * - 列序对齐原型：Bank Name（首列）/ Bank Type / SWIFT BIC（原 'Bank Code/BIC'）
  *   / Official Website（恒 '-'，协议扩展 P1 占位）/ Tradable Tokens（chips）/
  *   Synced on (UTC+8) / Actions 'Details'。
- * - /bank/query/list 无查询入参 → 筛选/排序为前端本地处理（本地过滤过渡，
- *   后端参数就绪后回写为服务端检索）。
  *
  * 详情 /bank/query/detail?id={bankId}：
  * - 页头（Back + bankName + 状态徽章 + meta SWIFT BIC | Synced on）→ 页面级
@@ -33,11 +32,6 @@ import {
   DataTable,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Skeleton,
   Tabs,
   TabsContent,
@@ -54,7 +48,6 @@ import {
 
 import { CopyableId, ProtoStatusBadge } from './proto-ui';
 import { formatUtc8 } from './proto-format';
-import { SortHeader, compareProtoValues, useTableSort } from './proto-table';
 import { DescField, DescGrid } from './desc-grid';
 import { orDash } from './kit';
 import { EmptyHint, MissingIdBlock } from './state-blocks';
@@ -96,22 +89,35 @@ type BankQueryRow = {
   pushTime?: number;
 };
 
-type BankQueryFilters = { keyword: string; bankType: string };
+type BankQueryFilters = { keyword: string };
 
 const BANK_QUERY_FILTER_DEFAULT: BankQueryFilters = {
   keyword: '',
-  bankType: '',
 };
 
 export function BankQueryListPage() {
   const router = useRouter();
   const toast = useToast();
-  const { data, isLoading, isFetching, isError, error, refetch, dataUpdatedAt } =
-    useBankQueryListQuery();
-
   const [filters, setFilters] = React.useState<BankQueryFilters>(BANK_QUERY_FILTER_DEFAULT);
   const [appliedFilters, setAppliedFilters] = React.useState<BankQueryFilters>(BANK_QUERY_FILTER_DEFAULT);
-  const { sort, toggle } = useTableSort('syncedAt', 'desc');
+  const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(10);
+
+  const { data, isLoading, isFetching, isError, error, refetch, dataUpdatedAt } =
+    useBankQueryListQuery(
+      React.useMemo(
+        () => ({
+          pageNum,
+          pageSize,
+          filter: {
+            ...(appliedFilters.keyword.trim()
+              ? { keyword: appliedFilters.keyword.trim() }
+              : {}),
+          },
+        }),
+        [pageNum, pageSize, appliedFilters],
+      ),
+    );
 
   // 列表失败 toast + Retry（tx/log 页口径；表格区保持空态，页面整体不阻断）。
   React.useEffect(() => {
@@ -126,58 +132,30 @@ export function BankQueryListPage() {
 
   const rows = React.useMemo<BankQueryRow[]>(
     () =>
-      (data ?? []).map((row, index) => ({
+      (data?.data ?? []).map((row, index) => ({
         ...row,
         id: row.bankBic || row.bankName || String(row.bankId ?? index),
       })),
     [data],
   );
 
-  // 本地过滤过渡（/bank/query/list 无查询入参；后端参数就绪后回写为服务端检索）。
-  const filtered = React.useMemo(() => {
-    const q = appliedFilters.keyword.trim().toLowerCase();
-    return rows.filter((r) => {
-      const keywordHit =
-        !q ||
-        (r.bankName ?? '').toLowerCase().includes(q) ||
-        (r.bankBic ?? '').toLowerCase().includes(q);
-      const typeHit =
-        !appliedFilters.bankType ||
-        (appliedFilters.bankType === 'own' ? r.self === true : r.self !== true);
-      return keywordHit && typeHit;
-    });
-  }, [rows, appliedFilters]);
+  const hasFilter = filters.keyword !== '' || appliedFilters.keyword !== '';
 
-  const sorted = React.useMemo(() => {
-    const dir = sort.direction === 'desc' ? -1 : 1;
-    return [...filtered].sort((a, b) => {
-      if (sort.key === 'name') {
-        return compareProtoValues(a.bankName, b.bankName) * dir;
-      }
-      if (sort.key === 'bic') {
-        return compareProtoValues(a.bankBic, b.bankBic) * dir;
-      }
-      return compareProtoValues(a.pushTime, b.pushTime) * dir;
-    });
-  }, [filtered, sort]);
-
-  const hasFilter =
-    filters.keyword !== '' ||
-    filters.bankType !== '' ||
-    appliedFilters.keyword !== '' ||
-    appliedFilters.bankType !== '';
-
+  // Search/Reset 均回到第 1 页（服务端分页）。
+  const handleFilterSubmit = () => {
+    setAppliedFilters(filters);
+    setPageNum(1);
+  };
+  const handleFilterReset = () => {
+    setFilters(BANK_QUERY_FILTER_DEFAULT);
+    setAppliedFilters(BANK_QUERY_FILTER_DEFAULT);
+    setPageNum(1);
+  };
   const columns = React.useMemo<ColumnDef<BankQueryRow>[]>(
     () => [
       {
         id: 'bankName',
-        header: () => (
-          <SortHeader
-            label="Bank Name"
-            direction={sort.key === 'name' ? sort.direction : null}
-            onToggle={() => toggle('name')}
-          />
-        ),
+        header: 'Bank Name',
         meta: { overflow: 'wrap', maxWidth: 220 },
         cell: ({ row }) => (
           <span className="font-medium">{orDash(row.original.bankName)}</span>
@@ -197,13 +175,7 @@ export function BankQueryListPage() {
       {
         // 原型术语 SWIFT BIC（62d1c33 合并列 bankBic）。
         id: 'bankBic',
-        header: () => (
-          <SortHeader
-            label="SWIFT BIC"
-            direction={sort.key === 'bic' ? sort.direction : null}
-            onToggle={() => toggle('bic')}
-          />
-        ),
+        header: 'SWIFT BIC',
         cell: ({ row }) => (
           <span className="font-mono">{orDash(row.original.bankBic)}</span>
         ),
@@ -240,13 +212,7 @@ export function BankQueryListPage() {
       },
       {
         id: 'pushTime',
-        header: () => (
-          <SortHeader
-            label="Synced on"
-            direction={sort.key === 'syncedAt' ? sort.direction : null}
-            onToggle={() => toggle('syncedAt', 'desc')}
-          />
-        ),
+        header: 'Synced on',
         cell: ({ row }) => (
           <span className="tabular-nums">{formatUtc8(row.original.pushTime)}</span>
         ),
@@ -275,7 +241,7 @@ export function BankQueryListPage() {
           ),
       },
     ],
-    [router, sort, toggle],
+    [router],
   );
 
   return (
@@ -292,11 +258,12 @@ export function BankQueryListPage() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          setAppliedFilters(filters);
+          handleFilterSubmit();
         }}
         className="rounded-lg border border-border/60 bg-card p-4"
       >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {/* 协议无 bankType 筛选参数 → 该筛选移除（列保留，plan 2026-10-13）。 */}
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="min-w-0">
             <Label className="mb-1.5 block">Bank Name / BIC</Label>
             <Input
@@ -307,24 +274,6 @@ export function BankQueryListPage() {
               placeholder="Fuzzy match"
             />
           </div>
-          <div className="min-w-0">
-            <Label className="mb-1.5 block">Bank Type</Label>
-            <Select
-              value={filters.bankType || 'all'}
-              onValueChange={(v) =>
-                setFilters((f) => ({ ...f, bankType: v === 'all' ? '' : v }))
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="own">Own Bank</SelectItem>
-                <SelectItem value="external">External Bank</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
           <div className="flex items-end gap-2">
             <Button type="submit" size="sm">Search</Button>
             <Button
@@ -332,10 +281,7 @@ export function BankQueryListPage() {
               variant="outline"
               size="sm"
               disabled={!hasFilter}
-              onClick={() => {
-                setFilters(BANK_QUERY_FILTER_DEFAULT);
-                setAppliedFilters(BANK_QUERY_FILTER_DEFAULT);
-              }}
+              onClick={handleFilterReset}
             >
               Reset
             </Button>
@@ -350,9 +296,9 @@ export function BankQueryListPage() {
             <div className="text-base font-semibold leading-6 text-foreground">
               Banks
             </div>
-            {data && (
+            {data?.pagination && (
               <span className="text-sm text-muted-foreground tabular-nums">
-                {sorted.length} results
+                {data.pagination.total} results
               </span>
             )}
             {dataUpdatedAt ? (
@@ -376,9 +322,23 @@ export function BankQueryListPage() {
         <div className="p-4">
           <DataTable
             columns={columns}
-            data={sorted}
+            data={rows}
             isLoading={isLoading}
             emptyMessage="No banks found. Try adjusting the filters."
+            pagination={
+              data?.pagination
+                ? {
+                    page: data.pagination.page,
+                    pageSize: data.pagination.pageSize,
+                    total: data.pagination.total,
+                    onPageChange: setPageNum,
+                    onPageSizeChange: (n) => {
+                      setPageSize(n);
+                      setPageNum(1);
+                    },
+                  }
+                : undefined
+            }
           />
           {/* 源 footnote：可见集合与 DEC-05 过滤口径说明。 */}
           <p className="mt-4 text-xs text-muted-foreground">
