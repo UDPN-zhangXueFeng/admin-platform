@@ -9,7 +9,6 @@ import { ColumnDef } from '@tanstack/react-table';
 import {
   ArrowLeftRight,
   ChevronLeft,
-  ChevronRight,
   Loader2,
 } from 'lucide-react';
 
@@ -184,8 +183,8 @@ function formToFilter(form: TxFilterForm): TxListReq {
   };
 }
 
-/** 源分页 pageSize 固定 10（el-pagination layout 无 sizes/jumper）。 */
-const TX_PAGE_SIZE = 10;
+/** 列表分页默认 10 条，交互统一复用其他列表使用的 shared DataTable。 */
+const TX_PAGE_SIZE_DEFAULT = 10;
 
 /* ─────────────── 列表：列契约 / 状态色 / 列偏好（原型 TransactionRecordsPage） ─────────────── */
 
@@ -339,6 +338,7 @@ export function TxListPage() {
     formToFilter(TX_FILTER_DEFAULT),
   );
   const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(TX_PAGE_SIZE_DEFAULT);
   const [exporting, setExporting] = React.useState(false);
   const { sort, toggle } = useTableSort('createdAt', 'desc');
   const columnPreferences = useColumnPreferences(
@@ -348,7 +348,7 @@ export function TxListPage() {
 
   const { data, isLoading, isError, error, refetch, dataUpdatedAt } = useTxPage({
     pageNum,
-    pageSize: TX_PAGE_SIZE,
+    pageSize,
     filter,
   });
 
@@ -889,61 +889,29 @@ export function TxListPage() {
           <DataTable
             columns={visibleColumns}
             data={tableData}
+            pagination={
+              data?.pagination
+                ? {
+                    page: pageNum,
+                    pageSize,
+                    total,
+                    onPageChange: setPageNum,
+                    onPageSizeChange: (nextPageSize) => {
+                      setPageSize(nextPageSize);
+                      setPageNum(1);
+                    },
+                  }
+                : undefined
+            }
             isLoading={isLoading}
             emptyMessage="No transactions found. Try adjusting the filters."
           />
-          <TxPager total={total} pageNum={pageNum} onPageChange={setPageNum} />
         </div>
       </section>
     </div>
   );
 }
 
-/**
- * 分页（源 el-pagination layout `total, prev, pager, next`，pageSize 固定 10 无
- * sizes/jumper。有意差异与 log-pages 同口径：省略页码 pager，仅 total + prev/next）。
- */
-function TxPager({
-  total,
-  pageNum,
-  onPageChange,
-}: {
-  total: number;
-  pageNum: number;
-  onPageChange: (page: number) => void;
-}) {
-  const totalPages = Math.max(1, Math.ceil(total / TX_PAGE_SIZE));
-
-  return (
-    <div className="mt-4 flex items-center justify-between">
-      <span className="text-xs tabular-nums text-muted-foreground">
-        {total} records · Page {pageNum} of {totalPages}
-      </span>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Previous page"
-          disabled={pageNum <= 1}
-          className="h-8 w-8"
-          onClick={() => onPageChange(pageNum - 1)}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Next page"
-          disabled={pageNum >= totalPages}
-          className="h-8 w-8"
-          onClick={() => onPageChange(pageNum + 1)}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 /* ================================================================== */
 /* 详情页（源详情 Dialog 字段 + tabs：交易链路/报文留痕，同源 chain 接口）*/
@@ -980,24 +948,26 @@ function TxMessageItem({ message }: { message: TxMessage }) {
           </Badge>
         </div>
         <div className="mt-2 space-y-1 text-xs">
-          <div className="flex gap-2">
-            <span className="w-14 shrink-0 text-muted-foreground">TraceId</span>
+          <div className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-2">
+            <span className="whitespace-nowrap text-muted-foreground">
+              TraceId
+            </span>
             <CopyableEllipsisText
               value={message.traceId}
               emptyText="-"
               maxWidth={320}
-              className="t-identifier"
+              className="t-identifier w-full min-w-0"
             />
           </div>
-          <div className="flex gap-2">
-            <span className="w-14 shrink-0 text-muted-foreground">
+          <div className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-2">
+            <span className="whitespace-nowrap text-muted-foreground">
               Idempotency Key
             </span>
             <CopyableEllipsisText
               value={message.idempotentKey}
               emptyText="-"
               maxWidth={320}
-              className="t-identifier"
+              className="t-identifier w-full min-w-0"
             />
           </div>
         </div>
