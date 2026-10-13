@@ -1069,3 +1069,12 @@
 - `POST /manage/token/list` 为分页接口：`tokenList(req)` 返回 `PaginatedResponse<TokenRow>`；`/onboard/token` 用 `useTokenListPageQuery` 传 `pageNum`、`pageSize`、筛选条件，并把服务端当前页 rows/total 交给 `DataTable` 的 manual pagination。需要全量 Token 的调用方保留 `useTokenListQuery`，经 `tokenListAll(filter)` 以 100 条为批次顺序拉取，避免只取首屏。
 - `TokenRow.tokenNo` 是审核后由服务端分配的全网唯一编号，不是 `tokenCode`；列表 `Token Name (No.)` 的副行显示 `tokenNo`，空值由 `CopyableId` 显示为 `-`。分页条数沿用 10/20/50。
 - 冒烟验证：`/onboard/token` 加载后端 6 条数据，切换 `20 / page` 触发第二次 `POST /manage/token/list` 并返回 200；Kissen Admin production build 与 6 个改动文件 ESLint 均通过。
+
+## 2026-10-13 kissen-gateway POST 服务端分页迁移验收（bf4d8aa 协议）
+
+- kissen-gateway 三域（token/bank/fx）列表切 POST 服务端分页后的浏览器验收全过。wire 口径：分页 data=`{rows,page:{total}}`，请求 `{page:{pageNum,pageSize},data:{…}}`；Token 列表筛选 status 是 Number 型；`/fx/view` 的 data 键存在时 `sourceTokenSymbol/targetTokenSymbol` 必须非 null——API 层固化空串（`''`=不过滤），fixture 也要带这两个键。
+- Overview KPI 分页后取数模式：active/total 各发一次 `pageSize:1` 的 `POST /token/list`（active 复用 `filter:{status:20}`），从 `page.total` 读数；`useFxAllPairsQuery` 以 500/页两请求聚合并供 pairNames 图例与 tx 行 pair 元数据（pairId 跨 500 页也能解析）。
+- `FxPairDetail` 契约字段为 `latestRate`/`recentRates`（必填数组，无快照时 latestRate=null 但 recentRates 仍为数组）；fixture 缺 `recentRates` 会在 FxDetailPage 渲染期 `reading 'length'` 白屏——契约依赖字段，勿按直觉命名 `rateHistory`。
+- 浏览器验收工具链踩坑（tab gw-verify headless）：①`tab.route(pattern, options)` 只支持静态 `{status,contentType,body}`，动态读请求体分页/过滤必须 `page.setRequestInterception(true)`+`page.on('request')`，并在 finally `page.off`+关拦截（跨 run 自动清理）；②拦截 pattern 必须限定 `/kissen-api/bankgw/portal/` 前缀，裸 `u.includes('/overview')` 会把页面导航 URL 一起拦掉导致整页渲染成 JSON 文档；③`page.waitForFunction` 在该 headless 环境偶发不触发，稳定做法是 `while(Date.now()-t0<15s)` 轮询 evaluate；④sonner toast 的 Retry 按钮在 `[data-sonner-toast] button`，不在 main 区域按钮里；⑤`page.type` 丢尾字符，用原生 value setter + `input` 事件。
+- 错误态口径：列表失败（HTTP200+code=1 信封或网络 abort）统一 toast `Failed to load tokens` + description（信封 message/`Network error`）+ Retry 触发 refetch，浏览器实证 Retry 后请求计数增加；Reset 无新请求是同 key 缓存命中（语义正确），断言以 DOM 为准。
+- `POST /token/refresh` 真实 wire：200 `{code:'0',data:<number>}`（data=回写条数，0 也是成功）；无 UI 入口，mutation 失效靠 `token.mutations.ts` onSuccess invalidateQueries，属代码级确认项。
