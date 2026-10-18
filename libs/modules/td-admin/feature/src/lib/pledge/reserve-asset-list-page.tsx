@@ -111,6 +111,7 @@ function formatBalance(value: number | undefined): string {
  */
 export function ReserveAssetListPage(): React.JSX.Element {
   const t = useTranslations('modules.pledge');
+  const tc = useTranslations('common');
   const router = useRouter();
 
   const { control, handleSubmit, reset } = useForm<ReserveAssetFilterForm>({
@@ -275,11 +276,11 @@ export function ReserveAssetListPage(): React.JSX.Element {
         { reserveAccountId: row.reserveAccountId ?? 0, status: targetStatus },
         {
           onSuccess: () => toast.success(t('operateSuccess')),
-          onError: () => toast.error(t('operateSuccess')),
+          onError: () => toast.error(tc('common_task_status_40')),
         },
       );
     },
-    [changeStatusMutation, t],
+    [changeStatusMutation, t, tc],
   );
 
   // Drawer 处理器（pl-5 接入完整表单提交：addReserveAsset 默认 Cash / editReserveAsset name→id 映射）。

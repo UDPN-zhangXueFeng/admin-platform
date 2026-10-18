@@ -28,25 +28,21 @@ import {
   type CoaToggleFormValues,
 } from '@myorg/modules/td-admin/data-access';
 
-import { COA_ROWS, SECOND_BOOK_COA_ROWS } from './chart-of-accounts-detail.constants';
-import { getFinancialBookMetaById } from './financial-book-meta';
 import { buildCoaColumns } from './coa-columns';
 
 export interface UseCoaTreeOptions {
   financeBookId: number | undefined;
-  /** 账本 meta id（'1' / '2'），决定 mock fallback 与 token type 展示。 */
-  detailId: string;
   enabled?: boolean;
 }
 
 /**
  * useCoaTree — Chart of Accounts tab 的全部状态与操作。
  *
- * 迁移自源 `useChartOfAccounts` 的 COA 部分：树数据（接口失败回退 mock）、
- * 草稿编辑（本地累积，提交时批量保存）、启用/停用（直接调接口）、modal 状态与文案。
- * antd message → useToast；antd Form instance → 由 Dialog 内部 RHF 自管理。
+ * 迁移自源 `useChartOfAccounts` 的 COA 部分：树数据（仅真实接口结果，请求失败 /
+ * 空响应不出演示数据，refetch 失败保留缓存真实行）、草稿编辑（本地累积，提交时
+ * 批量保存）、启用/停用（直接调接口）、modal 状态与文案。
  */
-export function useCoaTree({ financeBookId, detailId, enabled = true }: UseCoaTreeOptions) {
+export function useCoaTree({ financeBookId, enabled = true }: UseCoaTreeOptions) {
   const t = useTranslations('modules.chart-of-accounts');
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -55,19 +51,16 @@ export function useCoaTree({ financeBookId, detailId, enabled = true }: UseCoaTr
   const [coaDraftAccounts, setCoaDraftAccounts] = useState<CoaDraftAccount[]>([]);
   const [coaActionSubmitting, setCoaActionSubmitting] = useState(false);
 
-  const bookMeta = useMemo(() => getFinancialBookMetaById(detailId), [detailId]);
-  const isFirstBook = bookMeta.id === '1';
-
   const treeQuery = useCoaTreeQuery(financeBookId, enabled);
 
-  // 接口有数据则用树；否则回退本地 mock（与源项目 fallback 一致）。
-  const baseCoaRows = useMemo<CoaRow[]>(() => {
-    if (treeQuery.data) {
-      const nodes = extractCoaTreeNodes(treeQuery.data);
-      if (nodes.length) return buildCoaRowsFromTree(nodes);
-    }
-    return isFirstBook ? COA_ROWS : SECOND_BOOK_COA_ROWS;
-  }, [treeQuery.data, isFirstBook]);
+  // 接口成功过（含空响应、refetch 失败时的缓存）→ 只用真实树；失败 / 空响应 / 未启用 → 无演示数据。
+  const baseCoaRows = useMemo<CoaRow[]>(
+    () =>
+      treeQuery.data !== undefined
+        ? buildCoaRowsFromTree(extractCoaTreeNodes(treeQuery.data))
+        : [],
+    [treeQuery.data]
+  );
 
   const coaRows = useMemo(
     () => applyCoaDraftAccounts(baseCoaRows, coaDraftAccounts),
@@ -413,11 +406,10 @@ export function useCoaTree({ financeBookId, detailId, enabled = true }: UseCoaTr
     [t, openCoaModal]
   );
 
-  // detail-page 需要的基础信息（tokenType 等）来自 bookMeta，由调用方注入；
-  // 这里仅暴露 COA 相关派生。
   return {
     coaRows,
     columns,
+    coaTreeError: treeQuery.error,
     coaTreeLoading: treeQuery.isLoading,
     coaModalState,
     coaDraftAccounts,

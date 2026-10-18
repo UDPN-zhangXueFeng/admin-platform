@@ -123,6 +123,7 @@ const EMPTY_RULE: NewRuleForm = {
  */
 export function StatementsListPage() {
   const t = useTranslations('modules.statements');
+  const tc = useTranslations('common');
   const router = useRouter();
 
   const { control, handleSubmit, reset } = useForm<RuleFilterForm>({
@@ -214,11 +215,11 @@ export function StatementsListPage() {
         { exportRuleId: rule.exportRuleId ?? 0, state },
         {
           onSuccess: () => toast.success(t('operateSuccess')),
-          onError: () => toast.error(t('operateSuccess')),
+          onError: () => toast.error(tc('common_task_status_40')),
         },
       );
     },
-    [operateMutation, t],
+    [operateMutation, t, tc],
   );
 
   const columns = React.useMemo<ColumnDef<ExportRule>[]>(
@@ -407,7 +408,7 @@ export function StatementsListPage() {
           toast.success(t('createSuccess'));
           setDrawerOpen(false);
         },
-        onError: () => toast.error(t('createSuccess')),
+        onError: () => toast.error(tc('common_task_status_40')),
       },
     );
   };

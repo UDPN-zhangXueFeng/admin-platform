@@ -86,6 +86,7 @@ const DEFAULT_VALUES: AssetTransactionFormValues = {
 
 export function AssetTransactionEditPage(): React.JSX.Element {
   const t = useTranslations('modules.pledge');
+  const tc = useTranslations('common');
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -202,7 +203,7 @@ export function AssetTransactionEditPage(): React.JSX.Element {
           toast.success(t('createSuccess'));
           router.push({ pathname: '/pledge/asset-transaction' });
         },
-        onError: () => toast.error(t('operateSuccess')),
+        onError: () => toast.error(tc('common_task_status_40')),
       },
     );
   });

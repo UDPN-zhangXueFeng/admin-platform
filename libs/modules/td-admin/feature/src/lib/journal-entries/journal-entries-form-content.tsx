@@ -72,6 +72,7 @@ export function JournalEntriesForm({
   ruleIdRaw?: string | null;
 }) {
   const t = useTranslations('modules.journal-entries');
+  const tc = useTranslations('common');
   const router = useRouter();
   const ruleId = parseId(ruleIdRaw);
   const isEdit = Boolean(ruleId);
@@ -161,7 +162,7 @@ export function JournalEntriesForm({
         toast.success(t('operateSuccess'));
         router.back();
       },
-      onError: () => toast.error(t('operateSuccess')),
+      onError: () => toast.error(tc('common_task_status_40')),
     });
   };
 

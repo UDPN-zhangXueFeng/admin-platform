@@ -1,5 +1,13 @@
 # Codex 对话沉淀
 
+## 2026-10-16 TD Admin 业务契约核验
+
+- `sp/access/listPage` 的状态筛选字段是 `data.state`，响应行使用 `state`；发送 `data.status` 不会过滤。
+- Workflow business selector 使用 GET `/api/base/v1/common/business/list`；列表使用 POST `/api/base/v1/workflow/list`，body 为 `{ page: { pageNum, pageSize }, data: filters }`。日期范围结束值须包含所选本地日期末尾。
+- Journal Entries 规则详情的交易列表 endpoint 是 POST `/api/manage/v1/financial/bill/tx/listPage`。
+- COA Basic Information 应按 `financeBookId` 查询 live detail；名称/币种取 `bookName`/`currencyCode`。科目树错误或空响应不得回退演示科目。
+- COA EOD 第一账本/通用列族与后端 `bookTemplateId`/`tokenType` 的映射尚未验证；不要用 fixture 数值相同推断业务规则。
+
 ## 2026-09-21 Gateway Management 实例详情页
 
 - Gateway 实例详情路由可沿用 `/onboard/instance/detail?id={instanceId}`：kissen-admin 动态路由按 `instance.detail` 解析，详情组件通过 `useSearchParams()` 读取 ID，与现有 bank/transaction detail 页面一致。

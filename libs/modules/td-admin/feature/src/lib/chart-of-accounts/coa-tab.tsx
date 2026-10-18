@@ -7,7 +7,7 @@ import type { CoaRow } from '@myorg/modules/td-admin/data-access';
 /**
  * Chart of Accounts tab 容器（迁移自源 ChartOfAccountsTab.tsx）。
  *
- * 仅负责呈现：描述 / 提示 / DataTable（COA 树行）/ 返回 + 保存草稿按钮。
+ * 仅负责呈现：描述 / 提示 / 错误提示 / DataTable（COA 树行）/ 返回 + 保存草稿按钮。
  * columns、rows、handlers 由上层 useCoaTree hook 提供（保持容器 dumb）。
  * antd Table + Alert → shared/ui DataTable + Tailwind 提示条。
  */
@@ -16,6 +16,7 @@ export interface CoaTabProps {
   alertMessage: string;
   rows: CoaRow[];
   columns: ColumnDef<CoaRow>[];
+  errorMessage?: string;
   loading: boolean;
   emptyMessage?: string;
   onBack: () => void;
@@ -30,6 +31,7 @@ export function CoaTab({
   description,
   alertMessage,
   rows,
+  errorMessage,
   columns,
   loading,
   emptyMessage,
@@ -47,19 +49,26 @@ export function CoaTab({
       ) : null}
 
       <div className="rounded-lg border bg-card shadow-sm">
+        {errorMessage ? (
+          <p className="m-4 text-sm text-destructive" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
         {alertMessage ? (
           <div className="m-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
             {alertMessage}
           </div>
         ) : null}
-        <div className={alertMessage ? 'px-4 pb-4' : 'p-4'}>
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={loading}
-            emptyMessage={emptyMessage ?? '--'}
-          />
-        </div>
+        {!errorMessage || rows.length > 0 ? (
+          <div className={alertMessage ? 'px-4 pb-4' : 'p-4'}>
+            <DataTable
+              columns={columns}
+              data={rows}
+              isLoading={loading}
+              emptyMessage={emptyMessage ?? '--'}
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="flex justify-end gap-3">

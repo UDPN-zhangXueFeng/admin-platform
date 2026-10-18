@@ -83,6 +83,7 @@ export function ReserveAssetDrawer({
   onSuccess,
 }: ReserveAssetDrawerProps): React.JSX.Element {
   const t = useTranslations('modules.pledge');
+  const tc = useTranslations('common');
   const isEdit = drawerState?.type === 'edit';
 
   // ── 下拉数据源 ──
@@ -177,7 +178,7 @@ export function ReserveAssetDrawer({
             onSuccess?.();
             onClose();
           },
-          onError: () => toast.error(t('operateSuccess')),
+          onError: () => toast.error(tc('common_task_status_40')),
         },
       );
     } else {
@@ -201,7 +202,7 @@ export function ReserveAssetDrawer({
             onSuccess?.();
             onClose();
           },
-          onError: () => toast.error(t('operateSuccess')),
+          onError: () => toast.error(tc('common_task_status_40')),
         },
       );
     }

@@ -193,6 +193,7 @@ export function StatementsViewPage({
   exportRuleIdRaw?: string | null;
 }) {
   const t = useTranslations('modules.statements');
+  const tc = useTranslations('common');
   const router = useRouter();
   const exportRuleId = parseId(exportRuleIdRaw);
   const { data: detail, isLoading } = useExportRuleDetailQuery(exportRuleId);
@@ -216,7 +217,7 @@ export function StatementsViewPage({
 
   const handleDownload = (task: ExportTask) => {
     downloadExportFile(task.busId ?? '', task.busType ?? '').catch(() =>
-      toast.error(t('downloadSuccess')),
+      toast.error(tc('common_task_status_40')),
     );
   };
   const handleDelete = (task: ExportTask) => {
@@ -226,7 +227,7 @@ export function StatementsViewPage({
       { exportTaskId: task.exportTaskId ?? 0 },
       {
         onSuccess: () => toast.success(t('operateSuccess')),
-        onError: () => toast.error(t('operateSuccess')),
+        onError: () => toast.error(tc('common_task_status_40')),
       },
     );
   };
@@ -370,6 +371,7 @@ const EMPTY_EXPORT_FORM: ExportFormValues = {
 /** 我的导出 + 导出表单（export.tsx）。 */
 export function StatementsExportPage() {
   const t = useTranslations('modules.statements');
+  const tc = useTranslations('common');
   const router = useRouter();
   const stablecoinSearches = useStablecoinSearchesQuery();
   const createMutation = useCreateExportTaskMutation();
@@ -405,7 +407,7 @@ export function StatementsExportPage() {
 
   const handleDownload = (task: ExportTask) => {
     downloadExportFile(task.busId ?? '', task.busType ?? '').catch(() =>
-      toast.error(t('downloadSuccess')),
+      toast.error(tc('common_task_status_40')),
     );
   };
   const handleDelete = (task: ExportTask) => {
@@ -415,7 +417,7 @@ export function StatementsExportPage() {
       { exportTaskId: task.exportTaskId ?? 0 },
       {
         onSuccess: () => toast.success(t('operateSuccess')),
-        onError: () => toast.error(t('operateSuccess')),
+        onError: () => toast.error(tc('common_task_status_40')),
       },
     );
   };
@@ -447,7 +449,7 @@ export function StatementsExportPage() {
     };
     createMutation.mutate(dto, {
       onSuccess: () => toast.success(t('createSuccess')),
-      onError: () => toast.error(t('createSuccess')),
+      onError: () => toast.error(tc('common_task_status_40')),
     });
   };
   const onSelectAllUsers = (checked: boolean) => {

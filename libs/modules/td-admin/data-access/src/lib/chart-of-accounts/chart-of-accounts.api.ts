@@ -104,7 +104,7 @@ export function getCoaBasicInfo(
   );
 }
 
-/** 读取 COA 树。失败时调用方回退到本地 mock（COA_ROWS / SECOND_BOOK_COA_ROWS）。 */
+/** 读取 COA 树。空树与请求失败由调用方按 query 状态显式处理（不回退本地 mock）。 */
 export function getCoaTree(
   financeBookId: number,
   config?: ApiRequestConfig
