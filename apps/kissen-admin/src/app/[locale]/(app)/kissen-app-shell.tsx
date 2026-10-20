@@ -150,6 +150,10 @@ export function KissenAppShell({
       tree && tree.length > 0 ? toModuleItems(tree) : config.modules.order;
     return {
       ...config,
+      project: {
+        ...config.project,
+        name: '',
+      },
       modules: {
         ...config.modules,
         order: normalizeMenuRouteAliases(menuOrder),

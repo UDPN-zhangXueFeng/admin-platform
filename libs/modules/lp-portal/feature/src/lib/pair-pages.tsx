@@ -11,12 +11,10 @@
  * SyncRefreshButton domain=['pair','rate']）。旧单页签「My Token Pairs」
  * 包装删除（原型无页签）。
  *
- * 10 列（原型列序）：Pair Code（CopyableId）/ Token Pair（上行 `SRC → TGT`
+ * 9 列（原型列序）：Pair Code（CopyableId）/ Token Pair（上行 `SRC → TGT`
  * 币对（§3.14.3 一律 → 不用 /），下行发行行）/ Base Rate / Markup /
- * Client Rate（配置侧固定词，'User Rate' 废弃）/ Standard Share / My Share
- * （status===5 保留 `?` 覆盖提示 tooltip）/ Readiness（Pool ready /
- * Pre-authorization not set 徽章 + Recv/Pay 地址，替代旧 Activation 列，
- * 全状态渲染——就绪为 null → '-'）/ Status（15 驳回保留原因 tooltip）/
+ * Client Rate / My Share（status===5 保留 `?` 覆盖提示 tooltip）/
+ * Readiness（仅 Recv/Pay 池地址）/ Status（15 驳回保留原因 tooltip）/
  * As of (UTC+8)。
  *
  * 汇率/比率右对齐 tabular-nums（单元格不用等宽字体，§3.2.4）；时间列头标
@@ -53,11 +51,7 @@ import {
 } from '@myorg/modules/lp-portal/data-access';
 
 import { SyncRefreshButton } from './sync-refresh-button';
-import {
-  LP_PAIR_READINESS_MAP,
-  LP_PAIR_STATUS_MAP,
-  lpPairReadinessKey,
-} from './proto-enums';
+import { LP_PAIR_STATUS_MAP } from './proto-enums';
 import { formatRate, formatUtc8 } from './proto-format';
 import { CopyableId, ProtoStatusBadge, type ProtoTone } from './proto-ui';
 
@@ -147,27 +141,11 @@ function Pairx({ tokens, banks }: { tokens: string; banks: string }) {
   );
 }
 
-/**
- * Readiness 单元格（原型 ReadinessCell，替代旧 Activation 列）：行 booleans
- * → 语义键（lpPairReadinessKey：双侧池未就绪 → null 显 '-'）；徽章
- * 'Pool ready'（success）/ 'Pre-authorization not set'（warning）为类型
- * 徽章不带状态点；下方 Recv（源侧收款）/ Pay（目标侧出款）地址行，
- * 全状态渲染（旧版仅 status===20 渲染）。
- */
+/** Readiness 单元格：只显示源侧 Recv 与目标侧 Pay 池地址。 */
 function ReadinessCell({ row }: { row: Omit<PairRow, 'id'> }) {
-  const readinessKey = lpPairReadinessKey(row.poolReady, row.preauthOk);
+  const hasPoolAddress = Boolean(row.sourcePoolAddress || row.targetPoolAddress);
   return (
     <div className="flex min-w-0 flex-col items-start gap-1.5">
-      {readinessKey == null ? (
-        <span className="text-muted-foreground">-</span>
-      ) : (
-        <Badge
-          variant={readinessKey === 'poolReady' ? 'success' : 'warning'}
-          className="font-normal"
-        >
-          {LP_PAIR_READINESS_MAP[readinessKey].label}
-        </Badge>
-      )}
       {row.sourcePoolAddress ? (
         <span className="flex min-w-0 items-center gap-1.5">
           <Badge variant="mute" size="sm" className="font-normal">
@@ -189,6 +167,9 @@ function ReadinessCell({ row }: { row: Omit<PairRow, 'id'> }) {
             className="text-xs text-muted-foreground"
           />
         </span>
+      ) : null}
+      {!hasPoolAddress ? (
+        <span className="text-muted-foreground">-</span>
       ) : null}
     </div>
   );
@@ -303,16 +284,7 @@ export function PairListPage() {
           <NumCell>{formatRate(row.original.userRate)}</NumCell>
         ),
       },
-      // 原型列序 6：Standard Share（对默认分成比例；列序在 My Share 前）
-      {
-        accessorKey: 'defaultSplitRatio',
-        header: () => <NumHeader>Standard Share</NumHeader>,
-        meta: { overflow: 'none' },
-        cell: ({ row }) => (
-          <NumCell>{percentText(row.original.defaultSplitRatio)}</NumCell>
-        ),
-      },
-      // 原型列序 7：My Share（status===5 保留 `?` 覆盖提示 tooltip）
+      // 原型列序 6：My Share（status===5 保留 `?` 覆盖提示 tooltip）
       {
         accessorKey: 'mySplitRatio',
         header: () => <NumHeader>My Share</NumHeader>,
@@ -337,14 +309,14 @@ export function PairListPage() {
           </div>
         ),
       },
-      // 原型列序 8：Readiness（替代旧 Activation；全状态渲染）
+      // 原型列序 7：Readiness（仅展示 Recv/Pay 池地址）
       {
         id: 'readiness',
         header: 'Readiness',
         meta: { overflow: 'none' },
         cell: ({ row }) => <ReadinessCell row={row.original} />,
       },
-      // 原型列序 9：状态（15 驳回 → tooltip 原因）
+      // 原型列序 8：状态（15 驳回 → tooltip 原因）
       {
         accessorKey: 'status',
         header: 'Status',
@@ -372,7 +344,7 @@ export function PairListPage() {
           return badge;
         },
       },
-      // 原型列序 10：As of（时间列头标 (UTC+8)，值 formatUtc8）
+      // 原型列序 9：As of（时间列头标 (UTC+8)，值 formatUtc8）
       {
         accessorKey: 'syncTime',
         header: 'As of',

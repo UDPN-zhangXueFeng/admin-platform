@@ -533,7 +533,7 @@ export function OverviewListPage() {
                     role="tab"
                     aria-selected={trendMetric === metric.value}
                     onClick={() => setTrendMetric(metric.value)}
-                    className={`flex-1 rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                    className={`flex-1 whitespace-nowrap rounded-lg px-2 py-2.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                       trendMetric === metric.value
                         ? 'bg-primary/10 text-primary shadow-sm'
                         : 'text-muted-foreground hover:bg-background/70 hover:text-foreground'

@@ -26,8 +26,6 @@ import { z } from 'zod';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
   Plus,
   TriangleAlert,
@@ -984,12 +982,14 @@ export function TokenDetailPage() {
   } = useTokenDetailQuery(tokenCode || undefined);
 
   const [transactionPageNum, setTransactionPageNum] = React.useState(1);
+  const [transactionPageSize, setTransactionPageSize] =
+    React.useState(TOKEN_TX_PAGE_SIZE);
   React.useEffect(() => setTransactionPageNum(1), [tokenCode]);
 
   const transactionsQuery = useTxPage(
     {
       pageNum: transactionPageNum,
-      pageSize: TOKEN_TX_PAGE_SIZE,
+      pageSize: transactionPageSize,
       filter: { tokenCode },
     },
     token != null,
@@ -1027,10 +1027,6 @@ export function TokenDetailPage() {
     [transactionRows],
   );
   const transactionTotal = transactionsQuery.data?.pagination.total ?? 0;
-  const transactionPageCount = Math.max(
-    1,
-    Math.ceil(transactionTotal / TOKEN_TX_PAGE_SIZE),
-  );
   const operationRows =
     operationLogsQuery.data?.data ?? EMPTY_TOKEN_OPERATION_RECORDS;
   const operationTableData = React.useMemo(
@@ -1372,10 +1368,15 @@ export function TokenDetailPage() {
           {/* Tab 2：tokenCode 命中的源端或目标端交易。 */}
           <TabsContent value="transactions" className="mt-4">
             <section className="rounded-lg border border-border/60 bg-card">
-              <div className="border-b border-border/50 px-4 py-3">
+              <div className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-3">
                 <h2 className="text-sm font-semibold text-foreground">
                   Transactions
                 </h2>
+                {transactionsQuery.data ? (
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {transactionTotal} transactions
+                  </span>
+                ) : null}
               </div>
               <div className="p-4">
                 {transactionsQuery.isError && !transactionsQuery.data ? (
@@ -1388,65 +1389,26 @@ export function TokenDetailPage() {
                     onRetry={() => void transactionsQuery.refetch()}
                   />
                 ) : (
-                  <>
                     <DataTable
                       columns={transactionColumns}
                       data={transactionTableData}
                       isLoading={transactionsQuery.isLoading}
                       emptyMessage="No transactions found. Transactions involving this token will appear here."
+                      pagination={
+                        transactionsQuery.data?.pagination
+                          ? {
+                              page: transactionPageNum,
+                              pageSize: transactionPageSize,
+                              total: transactionTotal,
+                              onPageChange: setTransactionPageNum,
+                              onPageSizeChange: (nextPageSize) => {
+                                setTransactionPageSize(nextPageSize);
+                                setTransactionPageNum(1);
+                              },
+                            }
+                          : undefined
+                      }
                     />
-                    {transactionTotal > TOKEN_TX_PAGE_SIZE ? (
-                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                        <span className="text-xs text-muted-foreground">
-                          Page {transactionPageNum} of {transactionPageCount}
-                          {' · '}
-                          {transactionTotal} transactions
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={
-                              transactionPageNum <= 1 ||
-                              transactionsQuery.isFetching
-                            }
-                            onClick={() =>
-                              setTransactionPageNum((page) =>
-                                Math.max(1, page - 1),
-                              )
-                            }
-                          >
-                            <ChevronLeft
-                              className="size-4"
-                              aria-hidden="true"
-                            />
-                            Previous
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={
-                              transactionPageNum >= transactionPageCount ||
-                              transactionsQuery.isFetching
-                            }
-                            onClick={() =>
-                              setTransactionPageNum((page) =>
-                                Math.min(transactionPageCount, page + 1),
-                              )
-                            }
-                          >
-                            Next
-                            <ChevronRight
-                              className="size-4"
-                              aria-hidden="true"
-                            />
-                          </Button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </>
                 )}
               </div>
             </section>

@@ -62,11 +62,11 @@ const nextConfig: NextConfig = {
    * therefore preserves the /v1 prefix on the destination.
    *
    * Override the backend origin with NEXT_SERVICE_SERVER_URL_KISSEN
-   * (defaults to the source dev backend at 127.0.0.1:9000).
+   * (defaults to http://10.0.7.87:9000).
    */
   async rewrites() {
     const kissenBackend =
-      process.env.NEXT_SERVICE_SERVER_URL_KISSEN || 'http://127.0.0.1:9000';
+      process.env.NEXT_SERVICE_SERVER_URL_KISSEN || 'http://10.0.7.87:9000';
 
     return [
       {

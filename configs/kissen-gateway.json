@@ -350,7 +350,7 @@
         "children": [
           { "id": "user", "icon": "UsersRound",   "label": "User Management", "path": "/system/user" },
           { "id": "role", "icon": "ShieldCheck", "label": "Role Management", "path": "/system/role" },
-          { "id": "menu", "icon": "ListTree",    "label": "Menu Permission", "path": "/system/menu" },
+          { "id": "menu", "icon": "ListTree",    "label": "Menu Management", "path": "/system/menu" },
           { "id": "log",  "icon": "ScrollText",  "label": "Operation Log", "path": "/system/log", "group": "more" },
           { "id": "ui",   "icon": "Settings",    "label": "UI Setting",     "path": "/system/ui" }
         ]

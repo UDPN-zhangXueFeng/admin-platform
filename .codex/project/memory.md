@@ -1086,3 +1086,52 @@
 - 浏览器验收工具链踩坑（tab gw-verify headless）：①`tab.route(pattern, options)` 只支持静态 `{status,contentType,body}`，动态读请求体分页/过滤必须 `page.setRequestInterception(true)`+`page.on('request')`，并在 finally `page.off`+关拦截（跨 run 自动清理）；②拦截 pattern 必须限定 `/kissen-api/bankgw/portal/` 前缀，裸 `u.includes('/overview')` 会把页面导航 URL 一起拦掉导致整页渲染成 JSON 文档；③`page.waitForFunction` 在该 headless 环境偶发不触发，稳定做法是 `while(Date.now()-t0<15s)` 轮询 evaluate；④sonner toast 的 Retry 按钮在 `[data-sonner-toast] button`，不在 main 区域按钮里；⑤`page.type` 丢尾字符，用原生 value setter + `input` 事件。
 - 错误态口径：列表失败（HTTP200+code=1 信封或网络 abort）统一 toast `Failed to load tokens` + description（信封 message/`Network error`）+ Retry 触发 refetch，浏览器实证 Retry 后请求计数增加；Reset 无新请求是同 key 缓存命中（语义正确），断言以 DOM 为准。
 - `POST /token/refresh` 真实 wire：200 `{code:'0',data:<number>}`（data=回写条数，0 也是成功）；无 UI 入口，mutation 失效靠 `token.mutations.ts` onSuccess invalidateQueries，属代码级确认项。
+
+## 2026-10-20 三门户 S 档 smoke 与 Admin 后端阻塞
+
+- **LP**：当前 `apps/lp-portal/.env.local` 的 `NEXT_LP_BACKEND_URL` 指向 `10.0.7.87:8090`；本次从该配置登录后 Dashboard 与 Split & Settlement 返回真实数据，FX Transactions 为 0 条。与 2026-08-31 的 `.87:8090` 不可用记录相反；只确认当前配置可用，未验证 `.103:8090`。
+- **Gateway**：`.env.local.example` 指向的 `10.0.7.85:8080` 本次可用；交易列表返回 81 条，真实详情 `id=125` 显示 source/target 币种金额和 6 条 Transaction Chain 记录。
+- **Admin**：已记录的 `10.0.7.103:9000` 从当前 workstation 访问时 curl 8 秒超时；`127.0.0.1:9000` 本地 tunnel 未监听。此为 2026-10-20 的环境观察，不代表后端地址错误；Admin 真实数据 UI smoke 需先恢复网络或 tunnel。
+
+## 2026-10-20 Kissen Admin FX Transaction Detail 双币种信息
+
+- `Transaction Information` 采用左右 Source/Target 面板。`TransactionDetailRow` 已继承列表字段 `sourceCurrency`、`targetCurrency`、银行、账户及金额；详情扩展字段也已有 `lpSourcePoolAddress`、`lpTargetPoolAddress`、`sourceCsTxId`、`targetCsTxId`，无需新增 API 或额外列表查询。
+
+- 2026-10-20 起本地 kissen-admin 测试后端为 `10.0.7.87:9000`，取代旧的 `10.0.7.103:9000` 可达性记录；Jenkinsfile 与 nginx-kissen 的 `103:9000` 部署默认属于独立配置，按用户要求保留。
+
+## 2026-10-20 Gateway 本地配置与 Dashboard 标签
+
+- 本地运行 `kissen-gateway-portal` 时，`.env.local` 必须包含 `NX_PROJECT_ID=kissen-gateway`：`loadProjectConfig()` 无参调用会回退到 `stablecoin`，造成 Gateway 路由配置不匹配、菜单为空；本次 Nx dev 命令未自动注入该变量，不能依赖 Dockerfile 注释中的开发态注入说明。
+- Dashboard 的 Transaction Trends 标签在 292px 容器下需使用 `whitespace-nowrap` 与 `px-2`，避免 `Token Pair` 被挤换行；本地 `/en-US/overview` 已实测完整显示。
+
+## 2026-10-20 Gateway Menu Management 双栏布局
+
+- `/en-US/system/menu` 的 breadcrumb 标题由 `configs/kissen-gateway.json` 定义为 `Menu Management`；页面采用与 kissen-admin `SysMenuListPage` 一致的左侧递归菜单树、右侧内联详情表单布局。Gateway 的 parent/menuKey/menuType 编辑限制、API permission 查询/删除和菜单 CRUD API 边界保持不变；后续样式修改应继续以 kissen-admin 的 system/menu 为视觉基准。
+
+
+## 2026-10-20 Gateway User Detail 响应式信息网格
+
+- `UserDetailPage` 的 Basic/Contact/Activity 卡片按字段数限制 `DescGrid` 列数；Account Activity 在 `2xl` 以下用两列、`2xl` 起三列，避免 First Login 徽章挤压 Created on 时间。详情卡片仅在 `xl` 及以上并排；已在 1024、1280、1568 宽度实测无重叠。
+
+
+## 2026-10-20 Gateway UI Settings 区块精简
+
+- `/en-US/system/ui` 仅保留 Brand Customization 表单与 Save/Restore Default；Preview 和 Appearance 卡片已移除。Primary Color 区域保留主题下拉与 hex 输入，原生取色器已移除。`gw-appearance` 仅作为旧浏览器偏好读取；Gateway 调色板选择后即时预览，未保存离开时恢复最近已保存主题；Save 通过现有 `PUT /brand` 保存所选调色板主色，并在 API 成功后写入 `gw-theme`。
+
+
+## 2026-10-20 LP Portal Header Subtitle
+
+- Shared `Header` renders `config.project.name` and optional `config.project.subtitle` under the same `hideProjectName` conditional. In `LpAppShell`, omit that flag and clear only `config.project.subtitle` in the derived config to preserve “LP Portal” while hiding the subtitle.
+
+
+## 2026-10-20 Kissen Admin Header 标题
+
+- Kissen Admin 只需隐藏页眉项目标题、保留副标题时，在 `KissenAppShell` 派生配置中将 `project.name` 置空，不改 `project.subtitle`；已在本地菜单页确认 logo 和副标题仍显示。
+
+## 2026-10-20 LP Pool Detail 内容合并
+
+- `PoolDetailPage` 将 Basic Information 与 Balance & Authorization 同屏展示，移除无用途的单项 tab 导航及旧 `?tab=` 切换逻辑；因按池地址过滤的交易端点未就绪，删除固定空的 Transactions 占位表与 GAP-LP-04 静态列契约。后端交易数据接入后再按实际查询结果实现交易区。隔离浏览器用模拟池行验证了双卡渲染与无 tab 控件；测试登录下 poolId 3 当前显示 Pool not found，不能作为真实池数据的视觉验证。
+
+## 2026-10-20 LP Token Pair 表格精简
+
+- `PairListPage` 移除 Standard Share 列及 Readiness 中的 Pool ready / Pre-authorization 状态徽章，保留 My Share、主 Status 与 Recv/Pay 池地址；两侧地址都缺失时显示 `-`。隔离浏览器以模拟 PairRow 验证列与状态已隐藏、地址保留。

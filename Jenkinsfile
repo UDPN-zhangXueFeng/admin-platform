@@ -332,7 +332,7 @@ def getAppConfig(String projectName, String environmentName = 'main') {
             nginxContext: 'nginx-kissen',
             imagePrefix: 'kissen-admin-app',
             port: '6242',
-            backendUrl: 'http://10.0.7.103:9000',
+            backendUrl: 'http://10.0.7.87:9000',
             apiBaseUrl: '/v1',
             kissenApiBaseUrl: '/v1'
         ],

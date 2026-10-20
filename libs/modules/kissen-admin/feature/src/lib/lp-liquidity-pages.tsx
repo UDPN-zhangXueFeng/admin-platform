@@ -2157,10 +2157,19 @@ export function LpInfoDetailPage() {
         id: 'lpRevShare',
         header: 'LP Rev. Share',
         cell: ({ row }) => {
+          // LP Rev. Share：覆盖 splitRatio>0 优先；未覆盖（0 = 未设置哨兵）回落
+          // token 对 defaultSplitRatio（契约必填，显式 0 亦按 0% 渲染）；默认值
+          // null/空串/非数显 '-'（空串需显式排除——Number('') 会静默转 0）。
           const own = Number(row.original.splitRatio);
-          return own > 0 ? (
+          const fallback = row.original.defaultSplitRatio;
+          const defaultMissing =
+            fallback == null ||
+            (typeof fallback === 'string' && fallback.trim() === '');
+          const pct =
+            own > 0 ? own * 100 : defaultMissing ? NaN : Number(fallback) * 100;
+          return Number.isFinite(pct) ? (
             <span className="block text-right font-mono tabular-nums">
-              {formatPercent(own * 100)}
+              {formatPercent(pct)}
             </span>
           ) : (
             <span className="block text-right">
@@ -2978,10 +2987,19 @@ export function LpTokenPairListPage() {
         enableSorting: false,
         meta: { overflow: 'none' },
         cell: ({ row }) => {
+          // LP Rev. Share：覆盖 splitRatio>0 优先；未覆盖（0 = 未设置哨兵）回落
+          // token 对 defaultSplitRatio（契约必填，显式 0 亦按 0% 渲染）；默认值
+          // null/空串/非数显 '-'（空串需显式排除——Number('') 会静默转 0）。
           const own = Number(row.original.splitRatio);
-          return own > 0 ? (
+          const fallback = row.original.defaultSplitRatio;
+          const defaultMissing =
+            fallback == null ||
+            (typeof fallback === 'string' && fallback.trim() === '');
+          const pct =
+            own > 0 ? own * 100 : defaultMissing ? NaN : Number(fallback) * 100;
+          return Number.isFinite(pct) ? (
             <span className="block text-right font-mono tabular-nums">
-              {formatPercent(own * 100)}
+              {formatPercent(pct)}
             </span>
           ) : (
             <span className="block text-right">

@@ -21,7 +21,7 @@ import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { type ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 import { Badge, Button, DataTable, useToast } from '@myorg/shared/ui';
 import { FormField, FormSelect, createFormResolver } from '@myorg/shared/ui-forms';
@@ -54,7 +54,9 @@ import {
 const LOG_LIST_PATH = '/system/log';
 const LOG_DETAIL_PATH = '/log/detail';
 
-/** 源 el-pagination 固定 10/页（layout 无 sizes 选择器）。 */
+/**
+ * Shared list pagination default; the selector uses the common 10/20/50 options.
+ */
 const LOG_PAGE_SIZE = 10;
 
 /* ─────────────── 列契约 / 排序 / 列偏好（原型 OperationLogsPage COLUMNS） ─────────────── */
@@ -193,6 +195,7 @@ export function LogListPage() {
     formToQuery(LOG_FILTER_DEFAULT),
   );
   const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(LOG_PAGE_SIZE);
   const { sort, toggle } = useTableSort('createdAt', 'desc');
   const columnPreferences = useColumnPreferences(
     LOG_COLUMN_PREF_KEY,
@@ -202,7 +205,7 @@ export function LogListPage() {
   const { data, isLoading, isError, error, refetch, dataUpdatedAt } =
     useLogPageQuery(KISSEN_GATEWAY_PROJECT_ID, {
       pageNum,
-      pageSize: LOG_PAGE_SIZE,
+      pageSize,
       filter: query.req,
     });
 
@@ -538,17 +541,30 @@ export function LogListPage() {
         </form>
 
         <div className="p-4">
+          <div className="mb-3 flex justify-end">
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {total} records
+            </span>
+          </div>
           <DataTable
             columns={visibleColumns}
             data={tableData}
             isLoading={isLoading}
             emptyMessage="No operation logs found. Try adjusting the filters or widening the date range."
-          />
-          <LogPager
-            total={total}
-            pageNum={pageNum}
-            pageSize={LOG_PAGE_SIZE}
-            onPageChange={setPageNum}
+            pagination={
+              data?.pagination
+                ? {
+                    page: pageNum,
+                    pageSize,
+                    total,
+                    onPageChange: setPageNum,
+                    onPageSizeChange: (nextPageSize) => {
+                      setPageSize(nextPageSize);
+                      setPageNum(1);
+                    },
+                  }
+                : undefined
+            }
           />
         </div>
       </section>
@@ -556,54 +572,6 @@ export function LogListPage() {
   );
 }
 
-/**
- * 分页（源 el-pagination total + prev/next；pageSize 固定 10，无 sizes/jumper。
- * 有意差异：省略源 layout 中的页码 pager，对齐 shared DataTable 无 sizes
- * 选择器时的 prev/next 语义）。
- */
-function LogPager({
-  total,
-  pageNum,
-  pageSize,
-  onPageChange,
-}: {
-  total: number;
-  pageNum: number;
-  pageSize: number;
-  onPageChange: (page: number) => void;
-}) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
-  return (
-    <div className="mt-4 flex items-center justify-between">
-      <span className="text-xs tabular-nums text-muted-foreground">
-        {total} records · Page {pageNum} of {totalPages}
-      </span>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Previous page"
-          disabled={pageNum <= 1}
-          className="h-8 w-8"
-          onClick={() => onPageChange(pageNum - 1)}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Next page"
-          disabled={pageNum >= totalPages}
-          className="h-8 w-8"
-          onClick={() => onPageChange(pageNum + 1)}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 /* ================================================================== */
 /* 详情页（registry：/log/detail → detail；原型 OperationLogDetailPage） */

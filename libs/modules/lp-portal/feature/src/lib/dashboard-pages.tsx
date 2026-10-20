@@ -15,12 +15,11 @@
  *      token 禁相加显 '-'，GAP-LP-01）/ Active Token Pairs（stats.pairsActive）/
  *      FX Transactions Today（stats.txToday）/ Revenue Share (MTD)（静态补齐
  *      GAP-LP-01，不虚构金额）。
- *   ④ My Liquidity Pools：All/Healthy/Below Minimum 筛选 + 每页 4 卡分页，
- *      真数据 /pool/list（activeFlag=1 为 Payout 池打标；水位条以 45.6% 刻度线
+ *   ④ My Liquidity Pools：All/Healthy/Below Minimum 筛选（默认 Below Minimum），
+ *      每页 4 卡分页，真数据 /pool/list（activeFlag=1 为 Payout 池打标；水位条以 45.6% 刻度线
  *      标 Min. Liquidity，<100% 红显）。
  *   ⑤ Transaction Volume & Flow（近 30 天按日全状态笔数，7D/14D/30D 客户端
- *      切片；volume 端点 txCount 按日求和真算）+ Revenue & Settlement 右栏
- *      （GAP-LP-01 静态补齐，入口跳 /split-settle）8/4 分栏。
+ *      切片；volume 端点 txCount 按日求和真算），全宽铺满内容区。
  *   ⑥ 底部双 Tab：Configured Pairs & Spread（默认）/ Recent FX Transactions
  *      （首页 5 笔），真数据 pair/tx-flow queries；Details/View all 跳对应
  *      列表页。
@@ -152,15 +151,6 @@ const LBL = {
     'Peak day is the day with the highest transaction count in the selected window, shown as date · count.',
   volumeLegend: 'Daily transactions',
   volumeEmpty: 'No transaction volume data in the selected window.',
-  revenueTitle: 'Revenue & Settlement',
-  revenueBadge: 'Cycle MTD',
-  revenueMyShare: 'My Share (MTD)',
-  revenueNext: 'Next payout cycle: {date} (in {count} days)',
-  revenuePending: 'Pending Confirmation',
-  revenuePendingSub: 'Awaiting block finalization',
-  revenueByToken: 'Pending settlement by token',
-  revenueViewShare: 'View Revenue Share Details',
-  revenueViewStatements: 'View Settlement Statements',
   tabPairs: 'Configured Pairs & Spread',
   tabTx: 'Recent FX Transactions',
   tabSub: 'FX activity and configured pair terms.',
@@ -197,15 +187,6 @@ const REVENUE_SHARE_MTD_FALLBACK = {
   amount: '0.00' as string | null,
   token: null as string | null,
 };
-
-// STATIC-FILLER(GAP-LP-01): Pending Confirmation 结算单计数无端点；静态 0
-// （>0 才转警示色，0 不虚报待确认）。
-const PENDING_CONFIRMATION_FALLBACK = 0;
-
-// STATIC-FILLER(GAP-LP-01): settlementByToken（未决算 my_share 按 token 合计）
-// 无端点；空数组 → 网格显 '-' 占位，不虚构 token 明细。
-const SETTLEMENT_BY_TOKEN_FALLBACK: Array<{ token: string; myShare: string }> =
-  [];
 
 // STATIC-FILLER(GAP-LP-01): Total Pool Balance 跨 token 合计无后端口径；
 // 多 token 时跨币种禁相加（方案 §9.5）→ null → '-'，仅单 token 场景真算合计。
@@ -312,19 +293,6 @@ function nextCycleEndIso(): string {
   const nextMonthIndex = (now.getUTCMonth() + 1) % 12;
   const year = now.getUTCFullYear() + (nextMonthIndex === 0 ? 1 : 0);
   return `${year}-${String(nextMonthIndex + 1).padStart(2, '0')}-01`;
-}
-
-/** 距下个周期日的整数天数（UTC 日切；非法日期 → null）。 */
-function daysUntil(isoDay: string): number | null {
-  const target = new Date(`${isoDay}T00:00:00Z`).getTime();
-  if (!Number.isFinite(target)) return null;
-  const today = new Date();
-  const todayStart = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-  );
-  return Math.round((target - todayStart) / 86_400_000);
 }
 
 /** 枚举映射条目缺码兜底：显原值。 */
@@ -670,7 +638,7 @@ function PoolCard({ pool }: { pool: PoolRow }) {
 
 type PoolTabKey = 'all' | 'healthy' | 'below';
 
-/** 池分区：All/Healthy/Below Minimum 筛选（Healthy = 水位 ≥100%）+ 每页 4 卡。 */
+/** 池分区：All/Healthy/Below Minimum 筛选（Healthy = 水位 ≥100%；默认 Below Minimum）+ 每页 4 卡。 */
 function PoolsSection({
   pools,
   isPending,
@@ -682,7 +650,7 @@ function PoolsSection({
   failed: boolean;
   onRetry: () => void;
 }) {
-  const [tab, setTab] = React.useState<PoolTabKey>('all');
+  const [tab, setTab] = React.useState<PoolTabKey>('below');
   const [page, setPage] = React.useState(1);
 
   const { healthy, below } = React.useMemo(() => {
@@ -916,89 +884,6 @@ function VolumeCard({ refreshSeq }: { refreshSeq: number }) {
             </div>
           </>
         )}
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ================================================================== */
-/* Revenue & Settlement（GAP-LP-01 静态补齐区，入口跳 /split-settle）      */
-/* ================================================================== */
-
-function RevenueSettlementPanel() {
-  const cycle = nextCycleEndIso();
-  const daysToCycle = daysUntil(cycle);
-  return (
-    <Card className="h-full">
-      <CardContent className="panel-pad flex h-full flex-col gap-4">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="t-section-title">{LBL.revenueTitle}</h2>
-          <Badge variant="success">{LBL.revenueBadge}</Badge>
-        </div>
-
-        <div>
-          <p className="t-supporting text-muted-foreground">
-            {LBL.revenueMyShare}
-          </p>
-          <p className="mt-1 text-3xl font-bold leading-none tracking-tight tabular-nums">
-            <AmountWithToken
-              value={REVENUE_SHARE_MTD_FALLBACK.amount}
-              token={REVENUE_SHARE_MTD_FALLBACK.token}
-            />
-          </p>
-          <p className="t-supporting mt-2 text-muted-foreground">
-            {tpl(LBL.revenueNext, {
-              date: shortDayLabel(cycle),
-              count: daysToCycle ?? '-',
-            })}
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2.5">
-          <div className="min-w-0">
-            <p className="t-body font-semibold">{LBL.revenuePending}</p>
-            <p className="t-supporting mt-0.5 text-muted-foreground">
-              {LBL.revenuePendingSub}
-            </p>
-          </div>
-          <span
-            className={`t-data shrink-0 font-bold ${PENDING_CONFIRMATION_FALLBACK > 0 ? 'text-warning' : ''}`}
-          >
-            {PENDING_CONFIRMATION_FALLBACK}
-          </span>
-        </div>
-
-        <div className="min-w-0">
-          <p className="t-supporting font-semibold text-muted-foreground">
-            {LBL.revenueByToken}
-          </p>
-          {SETTLEMENT_BY_TOKEN_FALLBACK.length === 0 ? (
-            <p className="t-data mt-2 text-muted-foreground">-</p>
-          ) : (
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {SETTLEMENT_BY_TOKEN_FALLBACK.map((item) => (
-                <div
-                  key={item.token}
-                  className="min-w-0 rounded-lg border bg-muted/30 px-2 py-2.5 text-center"
-                >
-                  <p className="truncate text-xs font-bold">{item.token}</p>
-                  <p className="t-data mt-1 truncate font-bold">
-                    {formatTokenAmount(item.myShare)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="mt-auto flex flex-col gap-2 border-t pt-4">
-          <Button asChild variant="outline" className="w-full">
-            <Link href="/split-settle">{LBL.revenueViewShare}</Link>
-          </Button>
-          <Button asChild className="w-full">
-            <Link href="/split-settle">{LBL.revenueViewStatements}</Link>
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );
@@ -1626,15 +1511,8 @@ export function DashboardPage() {
           onRetry={() => void poolQuery.refetch()}
         />
 
-        {/* ⑤ 图表 + 营收结算（8/4 分栏） */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <div className="lg:col-span-8">
-            <VolumeCard refreshSeq={refreshSeq} />
-          </div>
-          <div className="lg:col-span-4">
-            <RevenueSettlementPanel />
-          </div>
-        </div>
+        {/* ⑤ Transaction Volume & Flow（全宽） */}
+        <VolumeCard refreshSeq={refreshSeq} />
 
         {/* ⑥ 底部双 Tab */}
         <BottomTabsCard

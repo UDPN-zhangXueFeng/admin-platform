@@ -20,15 +20,13 @@
  */
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { type ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 import {
   AlertCircle,
   Building2,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Globe,
-  Inbox,
   Info,
   Loader2,
   Pencil,
@@ -48,6 +46,7 @@ import {
   AlertTitle,
   Badge,
   Button,
+  DataTable,
   Checkbox,
   Dialog,
   DialogContent,
@@ -121,8 +120,8 @@ const INSTANCE_STATUS_TONE: Record<string, ProtoStatusTone> = {
   Inactive: 'muted',
 };
 
-/** 实例表前端分页每页条数（原型 INSTANCE_PAGE_SIZE）。 */
-const INSTANCE_PAGE_SIZE = 5;
+/** Shared instance table page-size default, matching Gateway lists. */
+const INSTANCE_PAGE_SIZE = 10;
 
 /**
  * 状态谓词收窄（源 isPending/isApproved/isRejected computed）。
@@ -807,13 +806,6 @@ function BankInfoCards({
 }
 
 
-/** 实例表列头（原型列序：实例编码/连通/凭证模式/状态）。 */
-const INSTANCE_TABLE_HEADERS = [
-  'Instance ID',
-  'Connectivity',
-  'Credential Mode',
-  'Status',
-] as const;
 
 /**
  * 连通脉冲徽章（原型 pulse badge）：Online → success 底 + animate-ping 点；
@@ -844,11 +836,50 @@ function ConnectivityBadge({ row }: { row: InstanceItem }) {
   );
 }
 
+type InstanceTableRow = InstanceItem & { id: string };
+
+const INSTANCE_TABLE_COLUMNS: ColumnDef<InstanceTableRow>[] = [
+  {
+    id: 'instanceId',
+    header: 'Instance ID',
+    cell: ({ row }) => (
+      <CopyableId value={row.original.instanceId} className="font-mono" />
+    ),
+  },
+  {
+    id: 'connectivity',
+    header: 'Connectivity',
+    cell: ({ row }) => <ConnectivityBadge row={row.original} />,
+  },
+  {
+    id: 'credentialMode',
+    header: 'Credential Mode',
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">
+        {instanceCredentialModeText(row.original.credentialMode)}
+      </span>
+    ),
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    cell: ({ row }) => {
+      const status = instanceStatusText(row.original);
+      return (
+        <ProtoStatusBadge
+          label={status}
+          tone={INSTANCE_STATUS_TONE[status] ?? 'muted'}
+        />
+      );
+    },
+  },
+];
+
 /**
  * 卡 C 本行实例列表（原型 Gateway Instances 表）：Instance ID（可复制）/
- * Connectivity（脉冲徽章）/Credential Mode/Status；前端分页 5/页 +
- * `Showing n of m instances`。header 右侧保留 needActivate 时「激活实例」
- * 按钮（入网流程，非原型表内 Actions）。
+ * Connectivity（脉冲徽章）/Credential Mode/Status；使用共享 DataTable 分页，
+ * 默认 10/页并沿用 Gateway 列表的 10/20/50 选择器。header 右侧保留 needActivate
+ * 时「激活实例」按钮（入网流程，非原型表内 Actions）。
  * 有意偏差：原型每行 Actions（View keys）不落地——本仓实例密钥是 app-shell
  * 全局抽屉（InstanceKeyDrawer）而非页面内跳转，行内动作无目标页。
  */
@@ -863,13 +894,17 @@ function InstanceListCard({
   activating: boolean;
   onActivate: () => void;
 }) {
-  const [page, setPage] = React.useState(0);
+  const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(INSTANCE_PAGE_SIZE);
   const total = detail.instances.length;
-  const pageCount = Math.max(1, Math.ceil(total / INSTANCE_PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const rows = detail.instances.slice(
-    safePage * INSTANCE_PAGE_SIZE,
-    (safePage + 1) * INSTANCE_PAGE_SIZE,
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(pageNum, pageCount);
+  const tableData = React.useMemo(
+    () =>
+      detail.instances
+        .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+        .map((row) => ({ ...row, id: String(row.instanceId) })),
+    [detail.instances, currentPage, pageSize],
   );
 
   return (
@@ -907,100 +942,21 @@ function InstanceListCard({
         )}
       </div>
       <div className="panel-pad">
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full caption-bottom text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                {INSTANCE_TABLE_HEADERS.map((header) => (
-                  <th
-                    key={header}
-                    scope="col"
-                    className="h-10 whitespace-nowrap border-b border-border/50 px-4 text-left align-middle font-medium text-muted-foreground"
-                  >
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50">
-              {rows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={INSTANCE_TABLE_HEADERS.length}
-                    className="px-4 py-10"
-                  >
-                    <div className="flex flex-col items-center justify-center gap-2 text-center">
-                      <Inbox
-                        className="h-9 w-9 text-muted-foreground/40"
-                        strokeWidth={1.5}
-                        aria-hidden="true"
-                      />
-                      <p className="text-sm text-muted-foreground">
-                        No gateway instance is connected to this bank yet.
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row) => (
-                  <tr
-                    key={row.instanceId}
-                    className="motion-safe:transition-colors hover:bg-muted/50"
-                  >
-                    <td className="max-w-[16rem] px-4 py-3 align-middle">
-                      <CopyableId value={row.instanceId} className="font-mono" />
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      <ConnectivityBadge row={row} />
-                    </td>
-                    <td className="px-4 py-3 align-middle text-muted-foreground">
-                      {instanceCredentialModeText(row.credentialMode)}
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      <ProtoStatusBadge
-                        label={instanceStatusText(row)}
-                        tone={INSTANCE_STATUS_TONE[instanceStatusText(row)] ?? 'muted'}
-                      />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          {/* 原型 showingLabel：单数 'Showing 1 of 1 instance'，复数同构。 */}
-          <span className="text-xs text-muted-foreground tabular-nums">
-            Showing {total} of {total} instance{total === 1 ? '' : 's'}
-          </span>
-          {pageCount > 1 ? (
-            <span className="flex items-center gap-1.5">
-              <Button
-                type="button"
-                variant="outline"
-                size="iconSm"
-                aria-label="Previous page"
-                disabled={safePage === 0}
-                onClick={() => setPage(safePage - 1)}
-              >
-                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-              </Button>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                Page {safePage + 1} / {pageCount}
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="iconSm"
-                aria-label="Next page"
-                disabled={safePage >= pageCount - 1}
-                onClick={() => setPage(safePage + 1)}
-              >
-                <ChevronRight className="h-4 w-4" aria-hidden="true" />
-              </Button>
-            </span>
-          ) : null}
-        </div>
+        <DataTable
+          columns={INSTANCE_TABLE_COLUMNS}
+          data={tableData}
+          emptyMessage="No gateway instance is connected to this bank yet."
+          pagination={{
+            page: currentPage,
+            pageSize,
+            total,
+            onPageChange: setPageNum,
+            onPageSizeChange: (nextPageSize) => {
+              setPageSize(nextPageSize);
+              setPageNum(1);
+            },
+          }}
+        />
       </div>
     </section>
   );

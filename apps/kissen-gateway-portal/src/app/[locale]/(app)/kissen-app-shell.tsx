@@ -42,16 +42,6 @@ const InstanceKeyDrawer = dynamic(
   { ssr: false },
 );
 
-// 主题切换器与实例密钥同槽：feature 库静态 import 违反懒加载边界，同款
-// next/dynamic(ssr:false) 拆包（组件本身 client-only）。
-const ThemeSwitcher = dynamic(
-  () =>
-    import('@myorg/modules/kissen-gateway/feature').then(
-      (m) => m.ThemeSwitcher,
-    ),
-  { ssr: false },
-);
-
 import { LogoMark } from '@/components/brand/logo-mark';
 import { MENU_ROUTE_MAP } from '@/lib/gateway-routes';
 
@@ -360,7 +350,6 @@ export function KissenAppShell({
         }
         trailing={
           <>
-            <ThemeSwitcher themes={config.theme.themes} />
             {showKeyEntry ? (
               <button
                 type="button"

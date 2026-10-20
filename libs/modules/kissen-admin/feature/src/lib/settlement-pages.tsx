@@ -234,13 +234,6 @@ export function SettleOrderDetailPage() {
           </h1>
           {detail ? (
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <span>
-                Statement ID:{' '}
-                <span className="font-semibold text-foreground">
-                  {detail.orderId}
-                </span>
-              </span>
-              <span aria-hidden="true">|</span>
               <span className="tabular-nums">
                 Created on {formatTimestamp(detail.createTime)}
               </span>
@@ -300,7 +293,6 @@ function SettleOrderDetailContent({ order }: { order: SettleOrderRow }) {
           <h2 className="text-base font-semibold">Statement Information</h2>
         </div>
         <div className="grid grid-cols-1 gap-x-6 gap-y-5 px-6 py-5 sm:grid-cols-2 lg:grid-cols-3">
-          <DetailField label="Statement ID">{order.orderId}</DetailField>
           <DetailField label="LP Name">{order.lpName || '--'}</DetailField>
           <DetailField label="Period Type">
             {periodTypeLabel(order.periodType)}
@@ -655,13 +647,6 @@ export function SettleOrderListPage() {
 
   const columns = React.useMemo<ColumnDef<SettleOrderRow & { id: string }>[]>(
     () => [
-      {
-        id: 'orderId',
-        header: 'Statement ID',
-        cell: ({ row }) => (
-          <span className="tabular-nums">{row.original.orderId}</span>
-        ),
-      },
       {
         id: 'lpName',
         header: 'LP',

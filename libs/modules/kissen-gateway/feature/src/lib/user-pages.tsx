@@ -1449,14 +1449,14 @@ export function UserDetailPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
         {isError ? (
-          <div className="rounded-lg border border-border/60 bg-card p-6 lg:col-span-2">
+          <div className="rounded-lg border border-border/60 bg-card p-6 xl:col-span-2">
             <QueryErrorRetry error={error} onRetry={() => refetch()} />
           </div>
         ) : isLoading || !user ? (
           user == null && !isLoading && data ? (
-            <div className="flex flex-col items-center gap-3 rounded-lg border border-border/60 bg-card py-10 text-center lg:col-span-2">
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-border/60 bg-card py-10 text-center xl:col-span-2">
               <p className="text-sm text-muted-foreground">User not found.</p>
               <Button
                 variant="outline"
@@ -1467,7 +1467,7 @@ export function UserDetailPage() {
               </Button>
             </div>
           ) : (
-            <div className="lg:col-span-2">
+            <div className="xl:col-span-2">
               <LoadingBlock variant="skeleton" />
             </div>
           )
@@ -1477,7 +1477,7 @@ export function UserDetailPage() {
               <h2 className="mb-4 text-sm font-semibold text-foreground">
                 Basic Information
               </h2>
-              <DescGrid>
+              <DescGrid cols={3}>
                 <DescField label="Username" variant="plain">
                   {user.loginName}
                 </DescField>
@@ -1497,7 +1497,7 @@ export function UserDetailPage() {
               <h2 className="mb-4 text-sm font-semibold text-foreground">
                 Contact Information
               </h2>
-              <DescGrid>
+              <DescGrid cols={2}>
                 <DescField label="Email" variant="plain">
                   {orDash(user.email)}
                 </DescField>
@@ -1510,7 +1510,8 @@ export function UserDetailPage() {
               <h2 className="mb-4 text-sm font-semibold text-foreground">
                 Account Activity
               </h2>
-              <DescGrid>
+              {/* Keep the long status badge and timestamp apart until 2xl. */}
+              <DescGrid cols={2} className="2xl:grid-cols-3">
                 <DescField label="Status" variant="plain">
                   <ProtoStatusBadge
                     label={protoStatusText(PROTO_USER_STATUS, user.status)}

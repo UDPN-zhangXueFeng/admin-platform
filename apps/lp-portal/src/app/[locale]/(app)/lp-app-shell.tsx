@@ -103,14 +103,21 @@ export function LpAppShell({
     }
   }, [isLoading, noSession, lockedFirstLogin, router]);
 
-  // menuTree 驱动的派生 config：仅替换 modules.order，其余（layout、i18n 等）
-  // 保持 configs/lp-portal.json 供给。
+  // Keep the portal name in the header but omit its optional subtitle.
+  // menuTree still supplies the authenticated sidebar order.
   const derivedConfig = useMemo<ProjectConfig>(() => {
-    if (!session?.menuTree?.length) return config;
-    return {
+    const headerConfig: ProjectConfig = {
       ...config,
+      project: {
+        ...config.project,
+        subtitle: '',
+      },
+    };
+    if (!session?.menuTree?.length) return headerConfig;
+    return {
+      ...headerConfig,
       modules: {
-        ...config.modules,
+        ...headerConfig.modules,
         order: buildLpSidebarOrder(session.menuTree),
       },
     };

@@ -606,16 +606,16 @@ function SplitSettleMain() {
                 {ctx.ratioRows.length}
               </span>
             </TabsTrigger>
-            <TabsTrigger value="details">
-              {LBL.tabDetails}
-              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
-                {detailTotal}
-              </span>
-            </TabsTrigger>
             <TabsTrigger value="statements">
               {LBL.tabStatements}
               <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
                 {ordersTotal}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="details">
+              {LBL.tabDetails}
+              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+                {detailTotal}
               </span>
             </TabsTrigger>
           </TabsList>
@@ -919,7 +919,7 @@ function EffectiveTabSection({ ctx }: { ctx: PairContext }) {
   );
 }
 
-/* ── 页签 2：Revenue Share Details（分页 + 服务端筛选） ────────────── */
+/* ── 页签 2：Settlement Statements（分页 + 服务端筛选） ────────────── */
 
 function DetailsTabSection({
   rows,
@@ -1218,7 +1218,7 @@ function DetailsTabSection({
   );
 }
 
-/* ── 页签 3：Settlement Statements（分页 + 服务端筛选） ────────────── */
+/* ── 页签 3：Revenue Share Details（分页 + 服务端筛选） ────────────── */
 
 function StatementsTabSection({
   rows,

@@ -15,7 +15,6 @@ import {
 import {
   Badge,
   Button,
-  CopyableEllipsisText,
   DataTable,
   Skeleton,
   Tooltip,
@@ -31,12 +30,7 @@ import {
   exportTx,
   txBankRoleText,
   txBankRoleVariant,
-  txDirectionText,
   txFlowEventTitle,
-  txMsgTypeText,
-  txMsgTypeVariant,
-  txProcessStatusText,
-  txProcessStatusVariant,
   useFxAllPairsQuery,
   useTxChain,
   useTxDetail,
@@ -44,7 +38,6 @@ import {
   type FxPairItem,
   type TxFlowNode,
   type TxListReq,
-  type TxMessage,
   type TxRecord,
 } from '@myorg/modules/kissen-gateway/data-access';
 
@@ -66,8 +59,8 @@ import { useGatewayPerm } from './use-gateway-perm';
 
 /**
  * 交易记录域页面（源 `views/tx/list.vue` + a9dc10e 新增独立详情 `views/tx/detail.vue`：
- * 列表 7 控件筛选/分页/CSV 导出；详情双栏——主栏基本信息 + 报文留痕 timeline，
- * 右侧 400px 交易链路六段口径，两栏同源 chain 接口）。
+ * 列表 7 控件筛选/分页/CSV 导出；详情双栏——主栏基本信息，
+ * 右侧交易链路六段口径，同源 chain 接口）。
  * 详情从源 Dialog 改为独立路由页（registry：/tx + detail key）。
  */
 /** 路由 query 中的交易 ID → 正整数；非法 → undefined。 */
@@ -75,6 +68,17 @@ function parseTxId(raw: string | null): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+function txAmountLabel(
+  displayText: string | undefined,
+  amount: number | undefined,
+  symbol: string | null,
+): string {
+  const value =
+    displayText ?? (amount != null ? formatTokenAmount(amount) : null);
+  if (value == null) return '-';
+  return symbol ? `${value} ${symbol}` : value;
 }
 
 /** 源 v-perm="'bank:tx:export'"：导出按钮权限码。 */
@@ -126,13 +130,6 @@ function flattenChain(nodes: TxFlowNode[] | null | undefined): TxFlowNode[] {
   };
   walk(nodes);
   return flat;
-}
-
-/** 本地报文按 createTime 升序（源 openDetail 的 messages sort）。 */
-function sortMessages(messages: TxMessage[] | null | undefined): TxMessage[] {
-  return [...(messages ?? [])].sort(
-    (a, b) => (a.createTime ?? 0) - (b.createTime ?? 0),
-  );
 }
 
 /* ================================================================== */
@@ -914,67 +911,8 @@ export function TxListPage() {
 
 
 /* ================================================================== */
-/* 详情页（源详情 Dialog 字段 + tabs：交易链路/报文留痕，同源 chain 接口）*/
+/* 详情页（源详情 Dialog 字段 + tabs：交易链路，同源 chain 接口）*/
 /* ================================================================== */
-
-/** 单条报文卡（源 el-timeline-item：时间戳 + 三标签 + TraceId/幂等键）。 */
-function TxMessageItem({ message }: { message: TxMessage }) {
-  return (
-    <li className="relative pl-6">
-      <span
-        className="absolute left-0 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full border-2 border-background"
-        style={{
-          backgroundColor:
-            message.direction === 2
-              ? '#3B82F6'
-              : '#0B6B53' /* 源：出向 primary / 入向 success */,
-        }}
-        aria-hidden="true"
-      />
-      <div className="text-xs text-muted-foreground">
-        {formatTime(message.createTime)}
-      </div>
-      <div className="mt-2 rounded-md border bg-muted/30 p-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant={txMsgTypeVariant(message.msgType)}>
-            {txMsgTypeText(message.msgType)}
-          </Badge>
-          {/* 源 tag type：出向 warning / 入向 primary，语义分层后同为 secondary，以文案区分 */}
-          <Badge variant="secondary">
-            {txDirectionText(message.direction)}
-          </Badge>
-          <Badge variant={txProcessStatusVariant(message.processStatus)}>
-            {txProcessStatusText(message.processStatus)}
-          </Badge>
-        </div>
-        <div className="mt-2 space-y-1 text-xs">
-          <div className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-2">
-            <span className="whitespace-nowrap text-muted-foreground">
-              TraceId
-            </span>
-            <CopyableEllipsisText
-              value={message.traceId}
-              emptyText="-"
-              maxWidth={320}
-              className="t-identifier w-full min-w-0"
-            />
-          </div>
-          <div className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-2">
-            <span className="whitespace-nowrap text-muted-foreground">
-              Idempotency Key
-            </span>
-            <CopyableEllipsisText
-              value={message.idempotentKey}
-              emptyText="-"
-              maxWidth={320}
-              className="t-identifier w-full min-w-0"
-            />
-          </div>
-        </div>
-      </div>
-    </li>
-  );
-}
 
 /**
  * 单条链路节点（fe61223 对齐 admin 六段最终口径，纯时间轴）：标题 =
@@ -1049,9 +987,8 @@ export function TxDetailPage() {
   } = useTxDetail(transactionId);
 
   /**
-   * 源 HEAD：报文留痕与交易链路同源 GET /tx/chain（localMessages + kissenChain
-   * 合并返回），原 GET /tx/messages 端点不再被页面消费。Kissen 不可达时
-   * kissenChain 为 null（降级提示），localMessages 仍可用。
+   * 源 HEAD：交易链路走 GET /tx/chain（localMessages + kissenChain 合并返回，
+   * 本页仅消费 kissenChain）。Kissen 不可达时 kissenChain 为 null（降级提示）。
    */
   const {
     data: chainData,
@@ -1061,11 +998,6 @@ export function TxDetailPage() {
     refetch: refetchChain,
   } = useTxChain(transactionId);
 
-  /** 源 openDetail：localMessages 按 createTime 升序。 */
-  const messages = React.useMemo(
-    () => sortMessages(chainData?.localMessages),
-    [chainData],
-  );
   /** 源 openDetail：kissenChain 树展平（d764217 起不重排，落库序直出）。 */
   const flowNodes = React.useMemo(
     () => flattenChain(chainData?.kissenChain),
@@ -1201,8 +1133,7 @@ export function TxDetailPage() {
       </div>
 
       {/* 原型 3/5-2/5 双栏：左 = Settlement Overview + Transaction Information；
-          右 = Transaction Log + Transaction Chain（源报文留痕/链路两卡，真实信息量
-          大于原型，保留为超集——见 GAP-GW-08 说明）。 */}
+          右 = Transaction Chain（源链路卡，真实信息量大于原型，保留为超集）。 */}
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="min-w-0 space-y-6">
           {record ? (
@@ -1277,89 +1208,141 @@ export function TxDetailPage() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-4 border-t border-border/50 pt-4">
-                  <DescGrid>
-                    <DescField label="LP Name">
-                      <span>
-                        {record.lpNames?.length
-                          ? record.lpNames.join(', ')
-                          : record.lpCode || '-'}
-                      </span>
-                    </DescField>
-                    {/* STATIC-FILLER(GAP-GW-08): lpPool 双池地址对象缺失（待核对）——暂渲染 '-'。 */}
-                    <DescField label="LP Source Pool Address">
-                      <span>-</span>
-                    </DescField>
-                    <DescField label="LP Target Pool Address">
-                      <span>-</span>
-                    </DescField>
-                  </DescGrid>
-                </div>
               </section>
 
-              {/* ② Transaction Information（原型 Card 字段逐字 + 真实字段超集 Bank Role）。 */}
-              <section className="rounded-lg border border-border/60 bg-card panel-pad">
-                <h2 className="mb-4 text-sm font-semibold text-foreground">
-                  Transaction Information
-                </h2>
-                <DescGrid>
-                  <DescField label="Source Tx ID">
-                    <CopyableId value={record.sourceCsTxId} />
+              {/* ② Transaction Information（参考 kissen-admin 的源/目标币种双栏）。 */}
+              <section className="rounded-lg border border-border/60 bg-card">
+                <div className="border-b border-border/50 px-4 py-3">
+                  <h2 className="text-sm font-semibold text-foreground">
+                    Transaction Information
+                  </h2>
+                </div>
+                <div className="space-y-5 p-4">
+                  <DescField label="Transaction ID">
+                    <CopyableId value={String(record.transactionId)} />
                   </DescField>
-                  <DescField label="Target Tx ID">
-                    <CopyableId value={record.targetCsTxId} />
-                  </DescField>
-                  <DescField label="Sender Bank">
-                    <span>{orDash(record.senderBankName)}</span>
-                  </DescField>
-                  <DescField label="Receiver Bank">
-                    <span>{orDash(record.receivingBankName)}</span>
-                  </DescField>
-                  <DescField label="Sender Wallet">
-                    <CopyableId value={record.senderAccount} />
-                  </DescField>
-                  <DescField label="Receiver Wallet">
-                    <CopyableId value={record.receiverAccount} />
-                  </DescField>
-                  <DescField label="Tx UUID">
-                    <CopyableId value={record.txUuid} />
-                  </DescField>
-                  <DescField label="Last Sync">
-                    <span className="tabular-nums">
-                      {formatUtc8(record.lastSyncTime)}
-                    </span>
-                  </DescField>
-                  {/* 真实字段超集（原型无、源有——保留）：本行角色；
-                      GAP-GW-08：bankRole 语义归一待核对。 */}
-                  <DescField label="Bank Role">
-                    {record.selfTrade ? (
-                      <Badge
-                        variant="outline"
-                        className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400"
-                      >
-                        Self-Trade (Source + Target)
-                      </Badge>
-                    ) : record.bankRole != null && record.bankRole !== 0 ? (
-                      <Badge variant={txBankRoleVariant(record.bankRole)}>
-                        {txBankRoleText(record.bankRole)}
-                      </Badge>
-                    ) : (
-                      <span>-</span>
-                    )}
-                  </DescField>
-                  {record.pendingFlag === 1 ? (
-                    <>
-                      <DescField label="Pending">
-                        <Badge variant="secondary">Pending</Badge>
-                      </DescField>
-                      <DescField label="Pending Reason" span>
-                        <span className="break-words">
-                          {orDash(record.pendingReason)}
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <section
+                      aria-label="Source currency details"
+                      className="min-w-0 rounded-lg border border-border p-4"
+                    >
+                      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Source Currency
+                        </h3>
+                        <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
+                          {orDash(srcSymbol)}
                         </span>
-                      </DescField>
-                    </>
-                  ) : null}
-                </DescGrid>
+                      </div>
+                      <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+                        <DescField label="Source Bank">
+                          {orDash(record.senderBankName)}
+                        </DescField>
+                        <DescField label="Source Wallet">
+                          <CopyableId value={record.senderAccount} />
+                        </DescField>
+                        <DescField label="Principal">
+                          <span className="font-mono tabular-nums">
+                            {txAmountLabel(
+                              record.principalText,
+                              record.principal,
+                              srcSymbol,
+                            )}
+                          </span>
+                        </DescField>
+                        <DescField label="User Deduction">
+                          <span className="font-mono tabular-nums">
+                            {txAmountLabel(
+                              record.userDeductionText,
+                              record.userDeduction,
+                              srcSymbol,
+                            )}
+                          </span>
+                        </DescField>
+                        <DescField label="LP Source Pool Address">
+                          <CopyableId value={record.sourcePoolAddress} />
+                        </DescField>
+                        <DescField label="Source Chain Tx ID">
+                          <CopyableId value={record.sourceCsTxId} />
+                        </DescField>
+                      </div>
+                    </section>
+                    <section
+                      aria-label="Target currency details"
+                      className="min-w-0 rounded-lg border border-border p-4"
+                    >
+                      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Target Currency
+                        </h3>
+                        <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
+                          {orDash(tgtSymbol)}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+                        <DescField label="Target Bank">
+                          {orDash(record.receivingBankName)}
+                        </DescField>
+                        <DescField label="Target Wallet">
+                          <CopyableId value={record.receiverAccount} />
+                        </DescField>
+                        <DescField label="Received Amount">
+                          <span className="font-mono tabular-nums">
+                            {txAmountLabel(
+                              record.receiverAmountText,
+                              record.receiverAmount,
+                              tgtSymbol,
+                            )}
+                          </span>
+                        </DescField>
+                        <DescField label="LP Target Pool Address">
+                          <CopyableId value={record.targetPoolAddress} />
+                        </DescField>
+                        <DescField label="Target Chain Tx ID">
+                          <CopyableId value={record.targetCsTxId} />
+                        </DescField>
+                      </div>
+                    </section>
+                  </div>
+                  <DescGrid className="mt-5 border-t border-border/50 pt-4">
+                    <DescField label="Tx UUID">
+                      <CopyableId value={record.txUuid} />
+                    </DescField>
+                    <DescField label="Last Sync">
+                      <span className="tabular-nums">
+                        {formatUtc8(record.lastSyncTime)}
+                      </span>
+                    </DescField>
+                    <DescField label="Bank Role">
+                      {record.selfTrade ? (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400"
+                        >
+                          Self-Trade (Source + Target)
+                        </Badge>
+                      ) : record.bankRole != null && record.bankRole !== 0 ? (
+                        <Badge variant={txBankRoleVariant(record.bankRole)}>
+                          {txBankRoleText(record.bankRole)}
+                        </Badge>
+                      ) : (
+                        <span>-</span>
+                      )}
+                    </DescField>
+                    {record.pendingFlag === 1 ? (
+                      <>
+                        <DescField label="Pending">
+                          <Badge variant="secondary">Pending</Badge>
+                        </DescField>
+                        <DescField label="Pending Reason" span>
+                          <span className="break-words">
+                            {orDash(record.pendingReason)}
+                          </span>
+                        </DescField>
+                      </>
+                    ) : null}
+                  </DescGrid>
+                </div>
               </section>
             </>
           ) : detailLoading ? (
@@ -1375,36 +1358,7 @@ export function TxDetailPage() {
         </div>
 
         <div className="min-w-0 space-y-6 xl:sticky xl:top-4">
-          {/* ③ Transaction Log（报文留痕；源有/原型无——保留超集）。 */}
-          <section className="rounded-lg border border-border/60 bg-card panel-pad">
-            <div className="mb-3 flex items-baseline justify-between gap-3">
-              <h2 className="text-sm font-semibold text-foreground">
-                Transaction Log
-              </h2>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {messages.length} records
-              </span>
-            </div>
-            {chainLoading && !chainData ? (
-              <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full rounded-md" />
-                ))}
-              </div>
-            ) : messages.length > 0 ? (
-              <ol className="relative space-y-6 border-l">
-                {messages.map((m) => (
-                  <TxMessageItem key={m.msgId} message={m} />
-                ))}
-              </ol>
-            ) : (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                No message records
-              </p>
-            )}
-          </section>
-
-          {/* ④ Transaction Chain（链路六段口径；源有/原型无——保留超集）。 */}
+          {/* ③ Transaction Chain（链路六段口径；源有/原型无——保留超集）。 */}
           <section className="rounded-lg border border-border/60 bg-card panel-pad">
             <div className="mb-3 flex items-baseline justify-between gap-3">
               <h2 className="text-sm font-semibold text-foreground">
@@ -1432,10 +1386,10 @@ export function TxDetailPage() {
                 ))}
               </ol>
             ) : (
-              /* 源 el-empty：链路空 = Kissen 暂不可用或无节点，指向上方报文留痕兜底。 */
+              /* 源 el-empty：链路空 = Kissen 暂不可用或无节点。 */
               <p className="py-10 text-center text-sm text-muted-foreground">
                 {chainDegraded
-                  ? 'Kissen chain is unavailable right now. Check the Transaction Log above.'
+                  ? 'Kissen chain is unavailable right now.'
                   : 'No chain records'}
               </p>
             )}

@@ -43,9 +43,7 @@ export default async function RootLayout({
           defaultTheme={config.theme.defaultTheme}
           radius={config.theme.radius}
         />
-        {/* 外观（明暗）防闪脚本（源 index.html 渲染前挂 html.dark）：key
-            'gw-appearance' 与 feature 库 system-ui-pages 一致；与调色板轴
-            'gw-theme' 正交——.dark 管表面色、data-theme 管品牌色。 */}
+        {/* Read-only legacy preference: no UI writes `gw-appearance`. */}
         <script
           dangerouslySetInnerHTML={{
             __html:

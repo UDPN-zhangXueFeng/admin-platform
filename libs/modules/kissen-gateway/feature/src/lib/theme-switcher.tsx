@@ -1,17 +1,12 @@
 'use client';
 
 /**
- * ThemeSwitcher —— gateway 品牌主题切换（configs/kissen-gateway.json theme.themes）。
+ * Gateway palette selector used in UI Setting.
  *
- * 只做两件事：写 documentElement.dataset.theme（驱动 layout ThemeInjector 注入的
- * `[data-theme='id']` CSS 变量块）+ 持久化 localStorage['gw-theme']（防闪
- * inline script 的读取键，与 LP 的 'lp-theme' 隔离）。主题定义完全来自配置
- * 传入，组件零内置色；themes < 2 渲染 null。
- *
- * 注意：存储键常量不进 feature barrel（barrel 被断言为组件表，导出非组件
- * 值会炸生产 TS 检查——见 LP 06 §7 踩坑 1）。
+ * Palette data comes from config.theme.themes. Selecting an entry updates
+ * documentElement.dataset.theme for an in-place preview; the owning form
+ * persists gw-theme only after its API save succeeds.
  */
-import * as React from 'react';
 
 import {
   Button,
@@ -24,60 +19,73 @@ import {
 
 import { Check, Palette } from 'lucide-react';
 
-/** localStorage 键，须与 layout ThemeInjector 防闪脚本一致。 */
-const GW_THEME_STORAGE_KEY = 'gw-theme';
-
 export interface ThemeSwitcherProps {
-  /** 配置驱动的可选主题列表（config.theme.themes 原样传入）。 */
+  /** Config-driven palette list (config.theme.themes). */
   themes: { id: string; label: string; colors: Record<string, string> }[];
-  /** 初始选中主题 id（默认取 documentElement.dataset.theme）。 */
-  activeThemeId?: string;
+  /** Currently previewed palette id. */
+  activeThemeId: string;
+  /** Called after the palette is applied for preview. */
+  onThemeSelect: (themeId: string) => void;
 }
 
-export function ThemeSwitcher({ themes, activeThemeId }: ThemeSwitcherProps) {
-  const [active, setActive] = React.useState<string>(
-    () =>
-      activeThemeId ??
-      (typeof document === 'undefined'
-        ? ''
-        : (document.documentElement.dataset.theme ?? '')),
-  );
-
+export function ThemeSwitcher({
+  themes,
+  activeThemeId,
+  onThemeSelect,
+}: ThemeSwitcherProps) {
   if (themes.length < 2) return null;
 
-  function applyTheme(id: string) {
+  const activeTheme = themes.find((theme) => theme.id === activeThemeId);
+
+  function previewTheme(id: string) {
     document.documentElement.dataset.theme = id;
-    window.localStorage.setItem(GW_THEME_STORAGE_KEY, id);
-    setActive(id);
+    onThemeSelect(id);
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Switch theme"
-          className="relative text-white/80 hover:bg-white/10 hover:text-white"
+          variant="outline"
+          size="sm"
+          aria-label="Preview color theme"
+          className="min-w-[180px] justify-start gap-2"
         >
-          <Palette aria-hidden="true" className="h-5 w-5" />
+          <span
+            aria-hidden="true"
+            className="h-3.5 w-3.5 shrink-0 rounded-full border border-black/10"
+            style={{
+              background: `linear-gradient(135deg, ${
+                activeTheme?.colors['brand-deep'] ?? '#334155'
+              } 50%, ${activeTheme?.colors['brand-accent'] ?? '#94a3b8'} 50%)`,
+            }}
+          />
+          <span className="truncate">{activeTheme?.label ?? 'Select theme'}</span>
+          <Palette
+            aria-hidden="true"
+            className="ml-auto h-4 w-4 text-muted-foreground"
+          />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuPortal>
-        <DropdownMenuContent align="end" className="w-48">
-          {themes.map((t) => (
-            <DropdownMenuItem key={t.id} onSelect={() => applyTheme(t.id)}>
+        <DropdownMenuContent align="start" className="w-56">
+          {themes.map((theme) => (
+            <DropdownMenuItem
+              key={theme.id}
+              onSelect={() => previewTheme(theme.id)}
+              className="gap-2"
+            >
               <span
                 aria-hidden="true"
                 className="h-3.5 w-3.5 shrink-0 rounded-full border border-black/10"
                 style={{
                   background: `linear-gradient(135deg, ${
-                    t.colors['brand-deep'] ?? '#334155'
-                  } 50%, ${t.colors['brand-accent'] ?? '#94a3b8'} 50%)`,
+                    theme.colors['brand-deep'] ?? '#334155'
+                  } 50%, ${theme.colors['brand-accent'] ?? '#94a3b8'} 50%)`,
                 }}
               />
-              {t.label}
-              {active === t.id && (
+              {theme.label}
+              {activeThemeId === theme.id && (
                 <Check aria-hidden="true" className="ml-auto h-4 w-4" />
               )}
             </DropdownMenuItem>

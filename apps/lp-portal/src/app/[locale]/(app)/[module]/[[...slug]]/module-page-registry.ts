@@ -41,8 +41,8 @@ const pages: Record<string, Record<string, PageLoader>> = {
   token: {
     list: lp('TokenListPage'),
   },
-  // 资金池（B1 真实页）：列表 + 详情页（原型对齐：/pool/detail?poolId=N，
-  // 3 Tab basic/balance/transactions，?tab= 写 URL）。
+  // 资金池详情页：Basic Information 与 Balance & Authorization 同屏展示，
+  // 当前无交易数据，不渲染空的 Transactions 区域。
   pool: {
     list: lp('PoolListPage'),
     detail: lp('PoolDetailPage'),

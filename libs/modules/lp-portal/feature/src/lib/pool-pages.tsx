@@ -20,12 +20,11 @@
  *   PreAuthorizedCell 同款）；余额数据时间列（balanceUpdateTime）删除，
  *   统一 Updated on = syncTime。
  *
- * 详情页（新增，路由 /pool/detail?poolId=N&tab=…；registry 需注册 pool
- * detail pageKey）：
+ * 详情页（路由 /pool/detail?poolId=N）：
  * - 标题 = Pool Address（地址才是唯一标识，原型 2026-09-24 拍板）+ 状态徽章
  *   + meta 行 `Pool ID: N | Updated on …`；返回按钮回列表。
- * - 3 Tab（?tab= 写 URL，basic 缺省不写）：Basic Information / Balance &
- *   Authorization / Transactions（GAP-LP-03/04，见下）。
+ * - Basic Information 与 Balance & Authorization 同屏展示；目前无交易数据，
+ *   不显示空的 Transactions 区域。
  * - 时间列头标 (UTC+8)，值 formatUtc8（UTC+8 字面量，不随浏览器时区）。
  */
 
@@ -45,10 +44,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -62,8 +57,8 @@ import {
 } from '@myorg/modules/lp-portal/data-access';
 
 import { SyncRefreshButton } from './sync-refresh-button';
-import { LP_POOL_STATUS_MAP, LP_TX_STATUS_MAP } from './proto-enums';
-import { formatRate, formatTokenAmount, formatUtc8 } from './proto-format';
+import { LP_POOL_STATUS_MAP } from './proto-enums';
+import { formatTokenAmount, formatUtc8 } from './proto-format';
 import {
   CopyableId,
   ProtoStatusBadge,
@@ -91,10 +86,8 @@ const LBL = {
   notFoundDesc: 'This pool does not exist or has been removed.',
   backToList: 'Back to pools',
   loading: 'Loading pool…',
-  tabBasic: 'Basic Information',
-  tabBalance: 'Balance & Authorization',
-  tabTransactions: 'Transactions',
-  txEmpty: 'No transactions for this pool yet.',
+  sectionBasic: 'Basic Information',
+  sectionBalance: 'Balance & Authorization',
 } as const;
 
 /**
@@ -134,11 +127,6 @@ const POOL_STATUS_OPTIONS = [
  * STATIC-FILLER(GAP-LP-03): 详情字段全部取自 /lp/pool/list 行快照
  * （无 GET /lp/pool/{poolId} 端点；?poolId= 在列表数据内检索，未命中
  * → 原型 404 同款空态）。独立详情端点就绪后回写。
- */
-/**
- * STATIC-FILLER(GAP-LP-04): Transactions Tab 无「按池地址过滤交易」端点
- * （原型走 GET /fx-transactions?wallet=）；本页先落列契约 + 静态空表
- * （计数 0）。端点就绪后接 tx 域查询并回写。
  */
 
 /* ================================================================== */
@@ -639,27 +627,8 @@ export function PoolListPage() {
 }
 
 /* ================================================================== */
-/* 详情页（/pool/detail?poolId=N[&tab=basic|balance|transactions]）      */
+/* 详情页（/pool/detail?poolId=N）                                    */
 /* ================================================================== */
-
-/** STATIC-FILLER(GAP-LP-04): 交易行契约（原型 /fx-transactions?wallet= 行形；
- * 端点未就绪，恒为空表——列定义先落地，后端接入后填数据源）。 */
-interface PoolTxRow {
-  id: string;
-  transactionNo: string;
-  /** 币对符号（源 → 目标） */
-  baseSymbol: string;
-  quoteSymbol: string;
-  /** 本池为起始链（from 钱包 = 池地址）时 'source'，否则 'target' */
-  chainRole: 'source' | 'target';
-  fromAmount: string | number | null;
-  fromWallet: string | null;
-  toAmount: string | number | null;
-  toWallet: string | null;
-  fxRate: string | number | null;
-  status: number;
-  completedOn: number | null;
-}
 
 /** 只读字段（label 上 / 值下，原型 Field 同形）。 */
 function Field({
@@ -697,23 +666,6 @@ function FieldRow({
   );
 }
 
-/** 交易对手方（原型 TxParty）：金额主行 + 钱包 CopyableId 次行。 */
-function TxParty({
-  amount,
-  wallet,
-}: {
-  amount: string | number | null;
-  wallet: string | null;
-}) {
-  return (
-    <span className="flex min-w-0 flex-col items-start gap-0.5">
-      <span className="whitespace-nowrap font-semibold tabular-nums">
-        {formatTokenAmount(amount)}
-      </span>
-      <CopyableId value={wallet} className="text-xs text-muted-foreground" />
-    </span>
-  );
-}
 
 export function PoolDetailPage() {
   const router = useRouter();
@@ -732,114 +684,6 @@ export function PoolDetailPage() {
         ? undefined
         : (listQuery.data ?? []).find((r) => r.poolId === poolId),
     [listQuery.data, poolId],
-  );
-
-  // Tab 状态写 URL（§3.4.2：basic 缺省不写 ?tab=）
-  const tabParam = searchParams.get('tab');
-  const activeTab =
-    tabParam === 'balance' || tabParam === 'transactions'
-      ? tabParam
-      : 'basic';
-
-  const handleTabChange = (next: string) => {
-    const params = new URLSearchParams();
-    if (poolIdParam != null && poolIdParam !== '') {
-      params.set('poolId', poolIdParam);
-    }
-    if (next !== 'basic') params.set('tab', next);
-    router.replace(`${DETAIL_PATH}?${params.toString()}`, { scroll: false });
-  };
-
-  // STATIC-FILLER(GAP-LP-04): 交易列契约（数据恒空）
-  const txColumns = React.useMemo<ColumnDef<PoolTxRow>[]>(
-    () => [
-      {
-        accessorKey: 'transactionNo',
-        header: 'Transaction No.',
-        meta: { maxWidth: 180 },
-        cell: ({ row }) => (
-          <CopyableId value={row.original.transactionNo} maxWidth={160} />
-        ),
-      },
-      {
-        id: 'tokens',
-        header: 'Tokens',
-        meta: { overflow: 'none' },
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap font-semibold tabular-nums">
-            {row.original.baseSymbol} → {row.original.quoteSymbol}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'chainRole',
-        header: 'Chain Role',
-        cell: ({ row }) =>
-          row.original.chainRole === 'source' ? (
-            <Badge variant="default" className="font-normal">
-              Source Chain
-            </Badge>
-          ) : (
-            <Badge variant="success" className="font-normal">
-              Target Chain
-            </Badge>
-          ),
-      },
-      {
-        id: 'from',
-        header: 'From',
-        meta: { overflow: 'wrap' },
-        cell: ({ row }) => (
-          <TxParty
-            amount={row.original.fromAmount}
-            wallet={row.original.fromWallet}
-          />
-        ),
-      },
-      {
-        id: 'to',
-        header: 'To',
-        meta: { overflow: 'wrap' },
-        cell: ({ row }) => (
-          <TxParty
-            amount={row.original.toAmount}
-            wallet={row.original.toWallet}
-          />
-        ),
-      },
-      {
-        accessorKey: 'fxRate',
-        header: () => <div className="text-right">FX Rate</div>,
-        meta: { overflow: 'none' },
-        cell: ({ row }) => (
-          <div className="flex justify-end tabular-nums">
-            {formatRate(row.original.fxRate)}
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'status',
-        header: 'Status',
-        // 交易态色由 tx 域（tx-flow 页）统一定义；空表阶段先落文案映射
-        cell: ({ row }) => (
-          <span className="tabular-nums">
-            {LP_TX_STATUS_MAP[row.original.status]?.label ??
-              String(row.original.status)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'completedOn',
-        header: 'Completed on',
-        meta: { maxWidth: 200 },
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap tabular-nums">
-            {formatUtc8(row.original.completedOn)}
-          </span>
-        ),
-      },
-    ],
-    [],
   );
 
   if (listQuery.isPending) {
@@ -903,101 +747,64 @@ export function PoolDetailPage() {
           </div>
         </div>
 
-        {/* §3.4/§3.15.5：Tab 条独立于 Card；状态写 URL */}
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList>
-            <TabsTrigger value="basic">{LBL.tabBasic}</TabsTrigger>
-            <TabsTrigger value="balance">{LBL.tabBalance}</TabsTrigger>
-            {/* STATIC-FILLER(GAP-LP-04): 计数静态 0 */}
-            <TabsTrigger value="transactions">
-              {LBL.tabTransactions}
-              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
-                0
-              </span>
-            </TabsTrigger>
-          </TabsList>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <section className="rounded-lg border border-border/60 bg-card p-4">
+            <div className="mb-4 text-base font-semibold leading-6 text-foreground">
+              {LBL.sectionBasic}
+            </div>
+            <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+              <Field label="Pool ID">
+                <span className="tabular-nums">{pool.poolId}</span>
+              </Field>
+              <Field label="Pool Name">
+                {pool.tokenName || <span className="text-muted-foreground">-</span>}
+              </Field>
+              <Field label="Token">
+                <TokenBadges row={pool} />
+              </Field>
+            </dl>
+          </section>
 
-          {/* Tab 1：Basic Information */}
-          <TabsContent value="basic" className="mt-4">
-            <section className="rounded-lg border border-border/60 bg-card p-4">
-              <div className="mb-4 text-base font-semibold leading-6 text-foreground">
-                {LBL.tabBasic}
-              </div>
-              <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                <Field label="Pool ID">
-                  <span className="tabular-nums">{pool.poolId}</span>
-                </Field>
-                <Field label="Pool Name">
-                  {pool.tokenName || <span className="text-muted-foreground">-</span>}
-                </Field>
-                <Field label="Token">
-                  <TokenBadges row={pool} />
-                </Field>
-              </dl>
-            </section>
-          </TabsContent>
-
-          {/* Tab 2：Balance & Authorization（GAP-LP-03：字段取列表行快照） */}
-          <TabsContent value="balance" className="mt-4">
-            <section className="rounded-lg border border-border/60 bg-card p-4">
-              <div className="mb-1 text-base font-semibold leading-6 text-foreground">
-                {LBL.tabBalance}
-              </div>
-              <dl className="divide-y divide-border">
-                <FieldRow label="Wallet Balance">
-                  <AmountWithToken
-                    value={pool.availableBalanceCache}
-                    token={symbol}
-                  />
-                </FieldRow>
-                <FieldRow label="Authorized Amount">
-                  <AmountWithToken
-                    value={pool.preauthAuthAmount ?? null}
-                    token={symbol}
-                  />
-                </FieldRow>
-                <FieldRow label="Available Pre-Authorized">
-                  <AmountWithToken
-                    value={pool.preauthAvailableAmount ?? null}
-                    token={symbol}
-                  />
-                </FieldRow>
-                <FieldRow label="Liq. Coverage">
-                  <CoverageCell level={pool.level} />
-                </FieldRow>
-                <FieldRow label="Payout Spender">
-                  <CopyableId value={pool.spenderAddress ?? null} />
-                </FieldRow>
-                <FieldRow label="Pool Address">
-                  <CopyableId value={pool.poolAddress} />
-                </FieldRow>
-                <FieldRow label="Updated on">
-                  <span className="tabular-nums">
-                    {formatUtc8(pool.syncTime)}
-                  </span>
-                </FieldRow>
-              </dl>
-            </section>
-          </TabsContent>
-
-          {/* Tab 3：Transactions（GAP-LP-04：静态空表 + 列契约） */}
-          <TabsContent value="transactions" className="mt-4">
-            <section className="rounded-lg border border-border/60 bg-card">
-              <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border/50 px-4 py-3">
-                <div className="text-base font-semibold leading-6 text-foreground">
-                  {LBL.tabTransactions}
-                </div>
-              </div>
-              <div className="p-4">
-                <DataTable
-                  columns={txColumns}
-                  data={[]}
-                  emptyMessage={LBL.txEmpty}
+          <section className="rounded-lg border border-border/60 bg-card p-4">
+            <div className="mb-1 text-base font-semibold leading-6 text-foreground">
+              {LBL.sectionBalance}
+            </div>
+            <dl className="divide-y divide-border">
+              <FieldRow label="Wallet Balance">
+                <AmountWithToken
+                  value={pool.availableBalanceCache}
+                  token={symbol}
                 />
-              </div>
-            </section>
-          </TabsContent>
-        </Tabs>
+              </FieldRow>
+              <FieldRow label="Authorized Amount">
+                <AmountWithToken
+                  value={pool.preauthAuthAmount ?? null}
+                  token={symbol}
+                />
+              </FieldRow>
+              <FieldRow label="Available Pre-Authorized">
+                <AmountWithToken
+                  value={pool.preauthAvailableAmount ?? null}
+                  token={symbol}
+                />
+              </FieldRow>
+              <FieldRow label="Liq. Coverage">
+                <CoverageCell level={pool.level} />
+              </FieldRow>
+              <FieldRow label="Payout Spender">
+                <CopyableId value={pool.spenderAddress ?? null} />
+              </FieldRow>
+              <FieldRow label="Pool Address">
+                <CopyableId value={pool.poolAddress} />
+              </FieldRow>
+              <FieldRow label="Updated on">
+                <span className="tabular-nums">
+                  {formatUtc8(pool.syncTime)}
+                </span>
+              </FieldRow>
+            </dl>
+          </section>
+        </div>
       </div>
     </TooltipProvider>
   );

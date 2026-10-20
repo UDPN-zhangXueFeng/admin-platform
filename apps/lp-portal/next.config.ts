@@ -63,12 +63,12 @@ const nextConfig: NextConfig = {
    * lp-client（libs/modules/lp-portal/data-access）以 `/lp` 为 baseURL
    * （源 vite proxy '/lp' → 127.0.0.1:8090 的 Next 等价物；生产由 Nginx
    * 反代同前缀）。目标后端用 NEXT_LP_BACKEND_URL 覆盖（默认 LP 后端
-   * 10.0.7.103:8090），destination 保留 /lp 前缀（与源口径一致：全部
+   * 10.0.7.87:8090），destination 保留 /lp 前缀（与源口径一致：全部
    * 接口走 /lp BFF 前缀）。
    */
   async rewrites() {
     const lpBackendUrl =
-      process.env.NEXT_LP_BACKEND_URL || 'http://10.0.7.103:8090';
+      process.env.NEXT_LP_BACKEND_URL || 'http://10.0.7.87:8090';
 
     return [
       {

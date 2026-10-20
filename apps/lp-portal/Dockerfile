@@ -46,7 +46,7 @@ ARG NX_PROJECT_ID=lp-portal
 ENV NX_PROJECT_ID=$NX_PROJECT_ID
 # rewrites 兜底地址（生产 /lp 由 nginx 拦截，此值不生效，仅给默认；
 # 与 next.config.ts 代码默认一致）。
-ARG NEXT_LP_BACKEND_URL=http://10.0.7.103:8090
+ARG NEXT_LP_BACKEND_URL=http://10.0.7.87:8090
 ENV NEXT_LP_BACKEND_URL=$NEXT_LP_BACKEND_URL
 
 # 目标服务器内存受限（<8G），限制 node 堆 + 关闭遥测

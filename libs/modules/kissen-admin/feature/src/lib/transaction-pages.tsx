@@ -932,46 +932,98 @@ export function TxDetailPage() {
                 </div>
               </section>
 
-              {/* R2'：Transaction Information（两列成对字段）。 */}
+              {/* R2'：Transaction Information（源币种/目标币种左右分栏）。 */}
               <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                 <TxSectionHeader icon={FileText} title="Transaction Information" />
-                <div className="grid grid-cols-1 gap-x-6 gap-y-5 p-6 md:grid-cols-2">
+                <div className="space-y-5 p-6">
                   <TxDetailField label="Transaction ID">
                     <span className="font-mono tabular-nums">
                       {detail.transactionId}
                     </span>
                   </TxDetailField>
-                  <TxDetailField label="Sender Bank">
-                    {orDash(detail.sourceBankName)}
-                  </TxDetailField>
-                  <TxDetailField label="Receiver Bank">
-                    {orDash(detail.targetBankName)}
-                  </TxDetailField>
-                  <TxDetailField label="Sender Wallet">
-                    <CopyableId value={detail.senderAccount} />
-                  </TxDetailField>
-                  <TxDetailField label="Receiver Wallet">
-                    <CopyableId value={detail.receiverAccount} />
-                  </TxDetailField>
-                  <TxDetailField label="Principal">
-                    <span className="font-mono tabular-nums">
-                      {fmtAmount(
-                        detail.principal,
-                        detail.sourceCurrency || undefined,
-                        decOf(detail.sourceCurrency),
-                      )}
-                    </span>
-                  </TxDetailField>
-                  <TxDetailField label="User Deduction">
-                    <span className="font-mono tabular-nums">
-                      {fmtAmount(
-                        detail.userDeduction,
-                        detail.sourceCurrency || undefined,
-                        decOf(detail.sourceCurrency),
-                      )}
-                    </span>
-                  </TxDetailField>
-                  {/* 本仓补位：备注为真实字段（原型未展示，长文本跨列）。 */}
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <section
+                      aria-label="Source currency details"
+                      className="min-w-0 rounded-lg border border-border p-4"
+                    >
+                      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Source Currency
+                        </h3>
+                        <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
+                          {orDash(detail.sourceCurrency)}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+                        <TxDetailField label="Source Bank">
+                          {orDash(detail.sourceBankName)}
+                        </TxDetailField>
+                        <TxDetailField label="Source Wallet">
+                          <CopyableId value={detail.senderAccount} />
+                        </TxDetailField>
+                        <TxDetailField label="Principal">
+                          <span className="font-mono tabular-nums">
+                            {fmtAmount(
+                              detail.principal,
+                              detail.sourceCurrency || undefined,
+                              decOf(detail.sourceCurrency),
+                            )}
+                          </span>
+                        </TxDetailField>
+                        <TxDetailField label="User Deduction">
+                          <span className="font-mono tabular-nums">
+                            {fmtAmount(
+                              detail.userDeduction,
+                              detail.sourceCurrency || undefined,
+                              decOf(detail.sourceCurrency),
+                            )}
+                          </span>
+                        </TxDetailField>
+                        <TxDetailField label="LP Source Pool Address">
+                          <CopyableId value={detail.lpSourcePoolAddress} />
+                        </TxDetailField>
+                        <TxDetailField label="Source Chain Tx ID">
+                          <CopyableId value={detail.sourceCsTxId} />
+                        </TxDetailField>
+                      </div>
+                    </section>
+                    <section
+                      aria-label="Target currency details"
+                      className="min-w-0 rounded-lg border border-border p-4"
+                    >
+                      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Target Currency
+                        </h3>
+                        <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
+                          {orDash(detail.targetCurrency)}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+                        <TxDetailField label="Target Bank">
+                          {orDash(detail.targetBankName)}
+                        </TxDetailField>
+                        <TxDetailField label="Target Wallet">
+                          <CopyableId value={detail.receiverAccount} />
+                        </TxDetailField>
+                        <TxDetailField label="Received Amount">
+                          <span className="font-mono tabular-nums">
+                            {fmtAmount(
+                              detail.receiverAmount,
+                              detail.targetCurrency || undefined,
+                              decOf(detail.targetCurrency),
+                            )}
+                          </span>
+                        </TxDetailField>
+                        <TxDetailField label="LP Target Pool Address">
+                          <CopyableId value={detail.lpTargetPoolAddress} />
+                        </TxDetailField>
+                        <TxDetailField label="Target Chain Tx ID">
+                          <CopyableId value={detail.targetCsTxId} />
+                        </TxDetailField>
+                      </div>
+                    </section>
+                  </div>
                   <TxDetailField label="Remarks">
                     {orDash(detail.remark)}
                   </TxDetailField>
