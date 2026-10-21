@@ -208,9 +208,12 @@ function safeExternalUrl(value: string | null | undefined): string | undefined {
   }
 }
 
-/** KNMS BankOnboardingPage D3：1 草稿/10 待入网/5 待审核/15 驳回/20 激活/50 停用。 */
+/** 银行状态 tone（2023418 值域，与 PROTO_BANK_STATUS 对齐）：
+ * 1 Draft/2 Registered/5 Pending Approval/10 Under Approval/15 Rejected/
+ * 20 Onboarded/50 Disabled；新增 2=info，10 在途沿用 warning。 */
 const BANK_STATUS_TONES: Record<number, ProtoStatusTone> = {
   1: 'muted',
+  2: 'info',
   5: 'warning',
   10: 'warning',
   15: 'danger',
@@ -1030,9 +1033,9 @@ export function BankInfoListPage() {
         header: 'Actions',
         cell: ({ row }) => {
           const item = row.original;
-          // 原型 D6/D7：Details 文本按钮 + ⋮ 菜单。菜单按状态：
-          // Inactive→Activate；Draft→Edit；Active→Deactivate；
-          // Pending Onboarding→Edit+Deactivate；其余只读状态无菜单（不渲染 ⋮）。
+          // 原型 D6/D7：Details 文本按钮 + ⋮ 菜单。菜单按状态（2023418 值域）：
+          // Disabled(50)→Activate；Draft(1)→Edit；Registered(2)/Enabled(20)
+          // →Deactivate（Registered 另可 Edit）；审批在途/结果态无菜单。
           const menuItems: {
             label: string;
             danger?: boolean;
@@ -1044,14 +1047,14 @@ export function BankInfoListPage() {
               onSelect: () => setStatusAction({ row: item, kind: 'activate' }),
             });
           }
-          if (item.status === 1 || item.status === 10) {
+          if (item.status === 1 || item.status === 2) {
             menuItems.push({
               label: 'Edit',
               onSelect: () =>
                 router.push(`${LIST_PATH}/edit?id=${item.bankId}`),
             });
           }
-          if (item.status === 10 || item.status === 20) {
+          if (item.status === 2 || item.status === 20) {
             menuItems.push({
               label: 'Deactivate',
               danger: true,
@@ -1178,7 +1181,7 @@ export function BankInfoListPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={STATUS_ALL}>All</SelectItem>
-                      {[1, 10, 5, 15, 20, 50].map((code) => (
+                      {[1, 2, 5, 10, 15, 20, 50].map((code) => (
                         <SelectItem key={code} value={String(code)}>
                           {protoStatusLabel(PROTO_BANK_STATUS, code)}
                         </SelectItem>

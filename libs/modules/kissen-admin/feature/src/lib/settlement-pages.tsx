@@ -65,6 +65,7 @@ import {
   type SettleOrderRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
+import { ApprovalBusinessLink } from './approval-business-link';
 import { formatAmount } from './format';
 import { Dash, ProtoStatusBadge } from './proto-ui';
 
@@ -169,9 +170,11 @@ function settleFilterToParams(
 
 const ORDER_STATUS_TONE: Record<
   number,
-  'warning' | 'info' | 'success' | 'muted'
+  'warning' | 'info' | 'success' | 'muted' | 'danger'
 > = {
+  5: 'warning',
   10: 'warning',
+  15: 'danger',
   20: 'info',
   35: 'success',
   45: 'muted',
@@ -317,6 +320,14 @@ function SettleOrderDetailContent({ order }: { order: SettleOrderRow }) {
             >
               View {order.txCount} transactions →
             </Button>
+          </DetailField>
+          <DetailField label="Approval">
+            <ApprovalBusinessLink
+              busCode="kissen_settle_confirm"
+              busId={order.orderId}
+              label="Confirmation Approval"
+              pending={order.approvalPending}
+            />
           </DetailField>
           <DetailField label="Created on">
             {formatTimestamp(order.createTime)}
@@ -685,12 +696,20 @@ export function SettleOrderListPage() {
         id: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <ProtoStatusBadge
-            tone={ORDER_STATUS_TONE[row.original.status] ?? 'muted'}
-          >
-            {SETTLE_ORDER_STATUS_LABEL[row.original.status] ??
-              row.original.status}
-          </ProtoStatusBadge>
+          <div className="flex flex-col items-start gap-1">
+            <ProtoStatusBadge
+              tone={ORDER_STATUS_TONE[row.original.status] ?? 'muted'}
+            >
+              {SETTLE_ORDER_STATUS_LABEL[row.original.status] ??
+                row.original.status}
+            </ProtoStatusBadge>
+            <ApprovalBusinessLink
+              busCode="kissen_settle_confirm"
+              busId={row.original.orderId}
+              label="Confirmation Approval"
+              pending={row.original.approvalPending}
+            />
+          </div>
         ),
       },
       {
@@ -725,7 +744,7 @@ export function SettleOrderListPage() {
                     variant="link"
                     size="sm"
                     className="h-auto p-0"
-                    disabled={mutationPending}
+                    disabled={mutationPending || order.approvalPending}
                     onClick={() => setConfirmTarget(order)}
                   >
                     Submit for Approval

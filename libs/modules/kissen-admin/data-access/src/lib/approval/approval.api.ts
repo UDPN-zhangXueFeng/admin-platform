@@ -3,6 +3,11 @@ import type { PaginatedResponse } from '@myorg/shared/model';
 
 import { kissenPage, kissenRequest } from '../kissen-client';
 import type {
+  ApprovalApplyListReq,
+  ApprovalApplyPageReq,
+  ApprovalApplyRow,
+  ApprovalBusinessDetailReq,
+  ApprovalBusinessDetailResp,
   ApprovalDetailResp,
   ApprovalDoneRow,
   ApprovalListReq,
@@ -69,4 +74,24 @@ export function approvalWithdraw(
   config?: AxiosRequestConfig,
 ): Promise<void> {
   return kissenRequest.post('/mult/approval/withdraw', req, config);
+}
+
+/** 业务键审批详情（POST /mult/approval/detailByBusiness；优先在途任务，否则最新历史）。 */
+export function getApprovalDetailByBusiness(
+  req: ApprovalBusinessDetailReq,
+  config?: AxiosRequestConfig,
+): Promise<ApprovalBusinessDetailResp> {
+  return kissenRequest.post('/mult/approval/detailByBusiness', req, config);
+}
+
+/** 我发起的分页（POST /mult/approval/applyPage；按当前身份过滤 create_user_id）。 */
+export function getApprovalApplyPage(
+  req: ApprovalApplyListReq,
+  config?: AxiosRequestConfig,
+): Promise<PaginatedResponse<ApprovalApplyRow>> {
+  return kissenPage<ApprovalApplyRow, ApprovalApplyPageReq>(
+    '/mult/approval/applyPage',
+    { pageNum: req.pageNum, pageSize: req.pageSize, filter: req.filter },
+    config,
+  );
 }

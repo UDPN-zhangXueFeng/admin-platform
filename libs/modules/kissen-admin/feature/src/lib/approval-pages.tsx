@@ -6,8 +6,11 @@ import { type ColumnDef } from '@tanstack/react-table';
 import {
   ArrowLeft,
   CheckCircle2,
+  CircleSlash,
   History,
+  Undo2,
   XCircle,
+  type LucideIcon,
 } from 'lucide-react';
 
 import {
@@ -39,10 +42,16 @@ import {
   COMMON_STATUS_MAP,
   NO_STRATEGY_BUSINESSES,
   businessName,
+  commonStatusLabel,
+  useApprovalApplyQuery,
+  useApprovalDetailByBusinessQuery,
   useApprovalDetailQuery,
   useApprovalDoneQuery,
   useApprovalProcessMutation,
+  useApprovalPreviousStepMutation,
   useApprovalTodoQuery,
+  useApprovalWithdrawMutation,
+  type ApprovalApplyRow,
   type ApprovalDoneRow,
   type ApprovalTodoRow,
 } from '@myorg/modules/kissen-admin/data-access';
@@ -55,13 +64,10 @@ import {
   ProtoStatusBadge,
   type ProtoStatusTone,
 } from './proto-ui';
-import {
-  PROTO_APPROVAL_ACTION_TEXT,
-  PROTO_WORKFLOW_TASK_STATUS,
-  protoStatusLabel,
-} from './proto-enums';
+import { PROTO_APPROVAL_ACTION_TEXT } from './proto-enums';
 import { ProtoSortHeader, useProtoSort } from './proto-sort';
 import { peekRow, stashRow } from './row-stash';
+import { APPROVAL_DETAIL_PATH } from './approval-business-link';
 
 /* ============================================================ */
 /* 原型对齐口径（WorkflowTasksPage.jsx / WorkflowTaskDetailsPage.jsx） */
@@ -71,20 +77,37 @@ const PAGE_SIZE_DEFAULT = 10;
 const FILTER_ALL = 'all';
 
 const APPROVAL_LIST_PATH = '/approval';
-const APPROVAL_DETAIL_PATH = '/approval/detail';
 const APPROVAL_STASH_SCOPE = 'admApproval';
 
-/** 页签（原型 Pending / Actioned）。 */
-type ApprovalTab = 'pending' | 'actioned';
+/** 页签（Pending / Actioned + 2023418 我发起的）。 */
+type ApprovalTab = 'pending' | 'actioned' | 'applied';
 
-/** Status 下拉（原型四态逐字；''=All）。 */
-const STATUS_FILTER_OPTIONS = [
-  '',
-  'Pending Approval',
-  'Under Approval',
-  'Approved',
-  'Rejected',
-];
+/**
+ * Status 下拉按页签隔离（''=All；文案取通用字典 approval 语境）：
+ * 待办只有 5/10 在途两态；已办看节点结果（通过/拒绝）；我发起的值域
+ * 3/5/10/15/20（均支持服务端 filter.reviewerStatus）。
+ */
+const STATUS_OPTIONS: Record<ApprovalTab, ReadonlyArray<string>> = {
+  pending: ['', 'Pending Approval', 'Under Approval'],
+  actioned: ['', 'Approved', 'Rejected'],
+  applied: [
+    '',
+    'Withdrawn',
+    'Pending Approval',
+    'Under Approval',
+    'Rejected',
+    'Approved',
+  ],
+};
+
+/** 我发起页签 Status 文案 → 服务端 filter.reviewerStatus。 */
+const APPLY_STATUS_PARAM: Record<string, number> = {
+  Withdrawn: 3,
+  'Pending Approval': 5,
+  'Under Approval': 10,
+  Rejected: 15,
+  Approved: 20,
+};
 
 /** Status 列排序口径（原型 §15：Pending → Under → Approved → Rejected，非字母序）。 */
 const STATUS_ORDER = [
@@ -94,11 +117,8 @@ const STATUS_ORDER = [
   'Rejected',
 ];
 
-/** 待办主表状态 → 原型文案（5 待审 / 10 审批中）。 */
-const TODO_STATUS_LABEL: Record<number, string> = {
-  5: 'Pending Approval',
-  10: 'Under Approval',
-};
+/** 主单状态数值排序（我发起页签；撤回最前，按码值升序）。 */
+const MAIN_STATUS_RANK: Record<number, number> = { 3: 0, 5: 1, 10: 2, 15: 3, 20: 4 };
 
 /** 已办节点结果（detailReviewerStatus）→ 原型文案。 */
 const DONE_STATUS_LABEL: Record<number, string> = {
@@ -129,6 +149,16 @@ const NODE_RESULT: Record<number, { label: string; tone: ProtoStatusTone }> = {
   9: { label: 'Returned', tone: 'muted' },
 };
 
+/** 审批动作 → 确认弹窗图标（approve/reject 沿用；return/withdraw 2023418 新增）。 */
+const ACTION_ICONS: Record<
+  'approve' | 'reject' | 'return' | 'withdraw',
+  LucideIcon
+> = {
+  approve: CheckCircle2,
+  reject: XCircle,
+  return: Undo2,
+  withdraw: CircleSlash,
+};
 
 /* ============================================================ */
 /* 业务内容字段渲染（源 views/approval/{format,field-maps}.ts，沿用） */
@@ -407,7 +437,7 @@ function DetailGrid({ children }: { children: React.ReactNode }) {
 }
 
 /* ============================================================ */
-/* 列表行归一（待办/已办统一行类型，已办专属字段可选）              */
+/* 列表行归一（待办/已办/我发起统一行类型，专属字段可选）            */
 /* ============================================================ */
 
 interface ApprovalListRow {
@@ -417,13 +447,16 @@ interface ApprovalListRow {
   businessCode: string;
   busDesc: string;
   stepName: string;
-  reviewerStatus: number;
+  /** 主表状态；业务键详情入口后端暂不返回 → undefined(渲染 Dash、禁用在途操作)。 */
+  reviewerStatus: number | undefined;
   createUserName: string;
   createTime: number;
   /** 已办专属：节点结果 / 处理时间 / 我的意见。 */
   detailReviewerStatus?: number;
   reviewerTime?: number;
   reviewerRemarks?: string;
+  /** 我发起专属：后端按主单状态 + 发起人判定的可撤回位。 */
+  canWithdraw?: boolean;
 }
 
 function toApprovalListRow(row: ApprovalTodoRow | ApprovalDoneRow): ApprovalListRow {
@@ -444,26 +477,53 @@ function toApprovalListRow(row: ApprovalTodoRow | ApprovalDoneRow): ApprovalList
   };
 }
 
-/** 行状态文案：已办看节点结果（2 拒 / 3 过），待办看主表状态（5/10）。 */
+function toApprovalApplyRow(row: ApprovalApplyRow): ApprovalListRow {
+  return {
+    id: String(row.taskId),
+    taskId: row.taskId,
+    applyCode: row.applyCode,
+    businessCode: row.businessCode,
+    busDesc: row.busDesc,
+    stepName: row.currentStepName ?? '',
+    reviewerStatus: row.reviewerStatus,
+    createUserName: '',
+    createTime: row.createTime,
+    canWithdraw: row.canWithdraw,
+  };
+}
+
+/** 行状态文案：已办看节点结果（2 拒 / 3 过），待办/我发起看主表状态（通用字典 approval 语境）。 */
 function taskStatusLabel(row: ApprovalListRow): string {
   if (row.detailReviewerStatus !== undefined) {
     return DONE_STATUS_LABEL[row.detailReviewerStatus] ?? String(row.detailReviewerStatus);
   }
-  return (
-    TODO_STATUS_LABEL[row.reviewerStatus] ??
-    protoStatusLabel(PROTO_WORKFLOW_TASK_STATUS, row.reviewerStatus) ??
-    String(row.reviewerStatus)
-  );
+  return row.reviewerStatus === undefined
+    ? ''
+    : commonStatusLabel(row.reviewerStatus, 'approval');
 }
 
-/** 行状态排序键（原型 STATUS_ORDER 口径；未知值 null → 恒排最后）。 */
+/**
+ * 行状态排序键：原型 STATUS_ORDER 命中 → 序号；我发起的主单状态走数值 rank
+ * （撤回最前）；未知值 null → 恒排最后。
+ */
 function taskStatusRank(row: ApprovalListRow): number | null {
   const index = STATUS_ORDER.indexOf(taskStatusLabel(row));
-  return index < 0 ? null : index;
+  if (index >= 0) return index;
+  if (row.detailReviewerStatus === undefined) {
+    return row.reviewerStatus === undefined
+      ? null
+      : MAIN_STATUS_RANK[row.reviewerStatus] ?? null;
+  }
+  return null;
+}
+
+/** 主单在途（5 待审 / 10 审批中）；业务键入口无主表状态时恒 false。 */
+function isInFlightStatus(status: number | undefined): boolean {
+  return status === 5 || status === 10;
 }
 
 /* ============================================================ */
-/* 审批中心列表（原型 WorkflowTasksPage.jsx）                      */
+/* 审批中心列表（原型 WorkflowTasksPage.jsx + 我发起页签）           */
 /* ============================================================ */
 
 export function ApprovalCenterListPage() {
@@ -483,6 +543,7 @@ export function ApprovalCenterListPage() {
     statusFilter: '',
   });
 
+
   // 应用条件变化或切换页签后回到第一页。
   React.useEffect(() => {
     setPageNum(1);
@@ -498,6 +559,10 @@ export function ApprovalCenterListPage() {
         ? 3
         : 2
       : undefined;
+
+  // 我发起页签：五个状态选项均映射服务端 filter.reviewerStatus（3/5/10/15/20）。
+  const applyStatusParam =
+    tab === 'applied' ? APPLY_STATUS_PARAM[appliedFilter.statusFilter] : undefined;
 
   const listFilter = {
     businessCode: appliedFilter.businessCode || undefined,
@@ -515,7 +580,20 @@ export function ApprovalCenterListPage() {
     { pageNum, pageSize, filter: listFilter },
     tab === 'actioned',
   );
-  const activeQ = tab === 'pending' ? todoQ : doneQ;
+  const applyQ = useApprovalApplyQuery(
+    KISSEN_PROJECT_ID,
+    {
+      pageNum,
+      pageSize,
+      filter: {
+        businessCode: appliedFilter.businessCode || undefined,
+        keyword: appliedFilter.keyword.trim() || undefined,
+        reviewerStatus: applyStatusParam,
+      },
+    },
+    tab === 'applied',
+  );
+  const activeQ = tab === 'pending' ? todoQ : tab === 'actioned' ? doneQ : applyQ;
 
   // 页签计数与查询区条件无关（原型口径）→ 无过滤探针查询（pageSize 1，键稳定只取一次）
   const todoCountQ = useApprovalTodoQuery(KISSEN_PROJECT_ID, {
@@ -528,22 +606,35 @@ export function ApprovalCenterListPage() {
     pageSize: 1,
     filter: {},
   });
+  const applyCountQ = useApprovalApplyQuery(KISSEN_PROJECT_ID, {
+    pageNum: 1,
+    pageSize: 1,
+    filter: {},
+  });
 
   const rows = activeQ.data?.data ?? [];
   const paginationMeta = activeQ.data?.pagination;
   const isLoading = activeQ.isLoading;
   const isError = activeQ.isError;
 
-  const tableDataRaw = React.useMemo(() => rows.map(toApprovalListRow), [rows]);
+  const tableDataRaw = React.useMemo(
+    () =>
+      tab === 'applied'
+        ? (rows as ApprovalApplyRow[]).map(toApprovalApplyRow)
+        : (rows as (ApprovalTodoRow | ApprovalDoneRow)[]).map(toApprovalListRow),
+    [rows, tab],
+  );
 
   // Status 下拉中无服务端参数的选项（待办页签全部 / 已办的 Pending/Under）→ 当前页客户端过滤。
   // 选择与页签分组互斥的状态（如待办页签选 Approved）结果自然为空，与原型行为一致。
   const tableData = React.useMemo(
     () =>
-      doneStatusParam === undefined && appliedFilter.statusFilter
+      applyStatusParam === undefined &&
+      doneStatusParam === undefined &&
+      appliedFilter.statusFilter
         ? tableDataRaw.filter((row) => taskStatusLabel(row) === appliedFilter.statusFilter)
         : tableDataRaw,
-    [tableDataRaw, appliedFilter.statusFilter, doneStatusParam],
+    [tableDataRaw, appliedFilter.statusFilter, doneStatusParam, applyStatusParam],
   );
 
   // 排序：后端分页端点无 sortBy 参数 → 仅当前数据集内本地排序（过渡口径，见 proto-sort.tsx 头注）。
@@ -582,7 +673,9 @@ export function ApprovalCenterListPage() {
 
   // 原型 D9：切页签即换状态分组；清空 Status 下拉避免跨页签残留。
   const onTabChange = (value: string) => {
-    setTab(value === 'actioned' ? 'actioned' : 'pending');
+    setTab(
+      value === 'actioned' ? 'actioned' : value === 'applied' ? 'applied' : 'pending',
+    );
     setStatusFilter('');
     setAppliedFilter((prev) => ({ ...prev, statusFilter: '' }));
   };
@@ -591,6 +684,7 @@ export function ApprovalCenterListPage() {
     stashRow(APPROVAL_STASH_SCOPE, row.taskId, row);
     router.push(`${APPROVAL_DETAIL_PATH}?taskId=${row.taskId}`);
   };
+
 
   const columns = React.useMemo<ColumnDef<ApprovalListRow>[]>(
     () => [
@@ -626,27 +720,31 @@ export function ApprovalCenterListPage() {
           <span className="line-clamp-2 whitespace-pre-line">{row.original.busDesc || <Dash />}</span>
         ),
       },
-      {
-        id: 'createdBy',
-        header: () => (
-          <ProtoSortHeader label="Created by" columnKey="createdBy" toggle={toggle} sortState={sortState('createdBy')} />
-        ),
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap">{row.original.createUserName || <Dash />}</span>
-        ),
-      },
-      {
-        id: 'createdOn',
-        header: () => (
-          <ProtoSortHeader label="Created on" columnKey="createdOn" toggle={toggle} sortState={sortState('createdOn')} />
-        ),
-        meta: { maxWidth: 200 },
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap tabular-nums">
-            {formatUtc8(row.original.createTime)}
-          </span>
-        ),
-      },
+      ...(tab === 'pending' || tab === 'actioned'
+        ? [
+            {
+              id: 'createdBy',
+              header: () => (
+                <ProtoSortHeader label="Created by" columnKey="createdBy" toggle={toggle} sortState={sortState('createdBy')} />
+              ),
+              cell: ({ row }) => (
+                <span className="whitespace-nowrap">{row.original.createUserName || <Dash />}</span>
+              ),
+            } as ColumnDef<ApprovalListRow>,
+            {
+              id: 'createdOn',
+              header: () => (
+                <ProtoSortHeader label="Created on" columnKey="createdOn" toggle={toggle} sortState={sortState('createdOn')} />
+              ),
+              meta: { maxWidth: 200 },
+              cell: ({ row }) => (
+                <span className="whitespace-nowrap tabular-nums">
+                  {formatUtc8(row.original.createTime)}
+                </span>
+              ),
+            } as ColumnDef<ApprovalListRow>,
+          ]
+        : []),
       {
         id: 'status',
         header: () => (
@@ -658,28 +756,95 @@ export function ApprovalCenterListPage() {
           </ProtoStatusBadge>
         ),
       },
-      {
-        id: 'processingTime',
-        // 2026-09-20 口径：本列展示 processedAt 时间戳（非时长）；未处理 → '-'
-        header: () => (
-          <ProtoSortHeader label="Processing Time" columnKey="processingTime" toggle={toggle} sortState={sortState('processingTime')} />
-        ),
-        meta: { maxWidth: 200 },
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap tabular-nums">
-            {row.original.reviewerTime ? formatUtc8(row.original.reviewerTime) : <Dash />}
-          </span>
-        ),
-      },
-      createActionColumn<ApprovalListRow>((item) => {
-        // 无审批策略的业务详情接口会报错：保留禁用占位（源渲染 disabled 链接按钮）。
-        if (NO_STRATEGY_BUSINESSES[item.businessCode]) {
-          return [{ label: 'Details', disabled: true, onClick: () => undefined }];
-        }
-        return [{ label: 'Details', onClick: () => openDetail(item) }];
-      }),
+      ...(tab === 'applied'
+        ? [
+            {
+              id: 'currentStep',
+              // 我发起页签列契约（设计附录A：申请单号/业务类型/描述/状态/当前节点/申请时间/操作）。
+              header: 'Current Step',
+              cell: ({ row }) => (
+                <span className="whitespace-nowrap">{row.original.stepName || <Dash />}</span>
+              ),
+            } as ColumnDef<ApprovalListRow>,
+            {
+              id: 'createdOn',
+              header: () => (
+                <ProtoSortHeader label="Created on" columnKey="createdOn" toggle={toggle} sortState={sortState('createdOn')} />
+              ),
+              meta: { maxWidth: 200 },
+              cell: ({ row }) => (
+                <span className="whitespace-nowrap tabular-nums">
+                  {formatUtc8(row.original.createTime)}
+                </span>
+              ),
+            } as ColumnDef<ApprovalListRow>,
+          ]
+        : []),
+      ...(tab === 'actioned'
+        ? [
+            {
+              id: 'processingTime',
+              // 2026-09-20 口径：本列展示 processedAt 时间戳（非时长）；未处理 → '-'
+              header: () => (
+                <ProtoSortHeader label="Processing Time" columnKey="processingTime" toggle={toggle} sortState={sortState('processingTime')} />
+              ),
+              meta: { maxWidth: 200 },
+              cell: ({ row }) => (
+                <span className="whitespace-nowrap tabular-nums">
+                  {row.original.reviewerTime ? formatUtc8(row.original.reviewerTime) : <Dash />}
+                </span>
+              ),
+            } as ColumnDef<ApprovalListRow>,
+          ]
+        : []),
+      ...(tab === 'applied'
+        ? [
+            {
+              // 我发起页签列表只读（设计附录A）：仅 Details 入口 + canWithdraw 权限提示，撤回在共享详情执行。
+              id: 'actions',
+              header: 'Actions',
+              enableSorting: false,
+              meta: { overflow: 'none', stickyRight: true },
+              cell: ({ row }) => {
+                const item = row.original;
+                if (NO_STRATEGY_BUSINESSES[item.businessCode]) {
+                  return (
+                    <Button variant="link" size="sm" className="h-auto p-0" disabled>
+                      Details
+                    </Button>
+                  );
+                }
+                return (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() => openDetail(item)}
+                    >
+                      Details
+                    </Button>
+                    {item.canWithdraw && (
+                      <span className="whitespace-nowrap text-xs text-muted-foreground">
+                        Withdrawal available in details
+                      </span>
+                    )}
+                  </div>
+                );
+              },
+            } as ColumnDef<ApprovalListRow>,
+          ]
+        : [
+            createActionColumn<ApprovalListRow>((item) => {
+              // 无审批策略的业务详情接口会报错：保留禁用占位（源渲染 disabled 链接按钮）。
+              if (NO_STRATEGY_BUSINESSES[item.businessCode]) {
+                return [{ label: 'Details', disabled: true, onClick: () => undefined }];
+              }
+              return [{ label: 'Details', onClick: () => openDetail(item) }];
+            }),
+          ]),
     ],
-    [toggle, sortState],
+    [toggle, sortState, tab],
   );
 
   const businessOptions = React.useMemo(
@@ -690,6 +855,7 @@ export function ApprovalCenterListPage() {
 
   const pendingCount = todoCountQ.data?.pagination.total;
   const actionedCount = doneCountQ.data?.pagination.total;
+  const appliedCount = applyCountQ.data?.pagination.total;
 
   return (
     <div className="min-w-0 space-y-4">
@@ -712,6 +878,14 @@ export function ApprovalCenterListPage() {
             {typeof actionedCount === 'number' && (
               <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
                 {actionedCount}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="applied">
+            My Applications
+            {typeof appliedCount === 'number' && (
+              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+                {appliedCount}
               </span>
             )}
           </TabsTrigger>
@@ -769,7 +943,7 @@ export function ApprovalCenterListPage() {
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
-                      {STATUS_FILTER_OPTIONS.map((opt) => (
+                      {STATUS_OPTIONS[tab].map((opt) => (
                         <SelectItem key={opt || FILTER_ALL} value={opt || FILTER_ALL}>
                           {opt || 'All'}
                         </SelectItem>
@@ -799,7 +973,9 @@ export function ApprovalCenterListPage() {
                   emptyMessage={
                     tab === 'pending'
                       ? 'No pending approvals'
-                      : 'No actioned approvals'
+                      : tab === 'actioned'
+                        ? 'No actioned approvals'
+                        : 'No applications'
                   }
                   pagination={
                     paginationMeta
@@ -821,19 +997,30 @@ export function ApprovalCenterListPage() {
           </section>
         </TabsContent>
       </Tabs>
+
     </div>
   );
 }
 
 /* ============================================================ */
-/* 审批详情页（原型 WorkflowTaskDetailsPage.jsx：?taskId=&tab=content|flow） */
+/* 审批详情页（任务键 ?taskId= 与业务键 ?busCode=&busId= 双入口；tab=content|flow） */
 /* ============================================================ */
 
 /** 审批决定后的本地状态覆盖（原型 fixture 阶段同款本页内状态语义）。 */
 interface DecisionOverride {
-  label: 'Approved' | 'Rejected';
+  label: 'Approved' | 'Rejected' | 'Returned' | 'Withdrawn';
   at: number;
   comment: string;
+}
+
+/** 解析 URL 复合键：busCode 非空 + busId 正整数才构成有效业务键入口。 */
+function parseBusinessEntry(searchParams: URLSearchParams) {
+  const busCodeRaw = searchParams.get('busCode');
+  const busCode = busCodeRaw !== null && busCodeRaw.trim() !== '' ? busCodeRaw.trim() : null;
+  const busIdRaw = Number(searchParams.get('busId'));
+  const busId =
+    Number.isSafeInteger(busIdRaw) && busIdRaw > 0 ? busIdRaw : null;
+  return { busCode, busId };
 }
 
 export function ApprovalDetailPage() {
@@ -843,10 +1030,12 @@ export function ApprovalDetailPage() {
 
   const taskIdParam = Number(searchParams.get('taskId'));
   const taskId =
-    Number.isFinite(taskIdParam) && taskIdParam > 0 ? taskIdParam : null;
+    Number.isSafeInteger(taskIdParam) && taskIdParam > 0 ? taskIdParam : null;
+  const { busCode, busId } = parseBusinessEntry(searchParams);
+  // 业务键入口：无 taskId 且复合键完整；busId=0 禁止兜底查询（后端契约）。
+  const businessEntry = !taskId && busCode !== null && busId !== null;
 
-  // 行来源：列表跳转暂存行优先；直链进入回退列表扫描（详情接口需要 busCode，
-  // 后端无按 taskId 直接取单的端点 → 扫描为必要路径而非兜底装饰）。
+  // 行来源：列表跳转暂存行优先；直链任务键回退列表扫描；业务键走 detailByBusiness。
   const stashed = React.useMemo(
     () => (taskId ? peekRow<ApprovalListRow>(APPROVAL_STASH_SCOPE, taskId) : null),
     [taskId],
@@ -854,52 +1043,110 @@ export function ApprovalDetailPage() {
   const todoScanQ = useApprovalTodoQuery(
     KISSEN_PROJECT_ID,
     { pageNum: 1, pageSize: 200, filter: {} },
-    !stashed,
+    !!taskId && !stashed,
   );
   const doneScanQ = useApprovalDoneQuery(
     KISSEN_PROJECT_ID,
     { pageNum: 1, pageSize: 200, filter: {} },
-    !stashed,
+    !!taskId && !stashed,
   );
-  const scanning = !stashed && (todoScanQ.isLoading || doneScanQ.isLoading);
+  const applyScanQ = useApprovalApplyQuery(
+    KISSEN_PROJECT_ID,
+    { pageNum: 1, pageSize: 200, filter: {} },
+    !!taskId && !stashed,
+  );
+  const businessQ = useApprovalDetailByBusinessQuery(
+    KISSEN_PROJECT_ID,
+    businessEntry ? busCode ?? undefined : undefined,
+    businessEntry ? busId ?? undefined : undefined,
+    businessEntry,
+  );
+
+  const scanning =
+    !!taskId && !stashed && (todoScanQ.isLoading || doneScanQ.isLoading || applyScanQ.isLoading);
   const scannedRow = React.useMemo(() => {
-    if (stashed) return null;
-    const pool = [...(todoScanQ.data?.data ?? []), ...(doneScanQ.data?.data ?? [])];
-    return taskId
-      ? (pool.map(toApprovalListRow).find((row) => row.taskId === taskId) ?? null)
-      : null;
-  }, [stashed, todoScanQ.data, doneScanQ.data, taskId]);
+    if (stashed || !taskId) return null;
+    const pool = [
+      ...(todoScanQ.data?.data ?? []),
+      ...(doneScanQ.data?.data ?? []),
+      ...(applyScanQ.data?.data ?? []),
+    ];
+    return (
+      pool
+        .map((row) =>
+          'detailReviewerStatus' in row
+            ? toApprovalListRow(row as ApprovalDoneRow)
+            : 'canWithdraw' in row
+              ? toApprovalApplyRow(row as ApprovalApplyRow)
+              : toApprovalListRow(row as ApprovalTodoRow),
+        )
+        .find((row) => row.taskId === taskId) ?? null
+    );
+  }, [stashed, todoScanQ.data, doneScanQ.data, applyScanQ.data, taskId]);
 
-  const row = stashed ?? scannedRow;
+  // 业务键入口合成行：任务键 taskId + 详情响应主单状态；审批未发起 → recordExists=false。
+  const businessRow = React.useMemo<ApprovalListRow | null>(() => {
+    if (taskId || !businessQ.data || businessQ.data.recordExists === false) return null;
+    const d = businessQ.data;
+    const content = d.businessContent ?? {};
+    return {
+      id: String(d.taskId),
+      taskId: d.taskId,
+      applyCode: '',
+      businessCode: busCode ?? '',
+      busDesc: '',
+      stepName: d.currentStepName ?? '',
+      reviewerStatus: d.reviewerStatus,
+      createUserName:
+        typeof content.createUserName === 'string' ? content.createUserName : '',
+      createTime:
+        typeof content.createTime === 'number' ? content.createTime : 0,
+    };
+  }, [taskId, businessQ.data, busCode]);
 
+  const row = stashed ?? scannedRow ?? businessRow;
+
+  // 业务键入口已持全量详情 → 不再按任务键重复请求。
   const detailQ = useApprovalDetailQuery(
     KISSEN_PROJECT_ID,
     row?.businessCode,
     row?.taskId ?? undefined,
+    !businessEntry,
   );
 
-  // 页签状态写 URL（?tab=；content 缺省不写），replace 不留历史
+  // 页签状态写 URL（?tab=；content 缺省不写），replace 不留历史；双入口各自保参。
   const tabParam = searchParams.get('tab');
   const activeTab =
     tabParam === 'flow' || tabParam === 'content' ? tabParam : 'content';
   const handleTabChange = (next: string) => {
-    if (!taskId) return;
     const params = new URLSearchParams();
-    params.set('taskId', String(taskId));
+    if (taskId) {
+      params.set('taskId', String(taskId));
+    } else {
+      if (busCode === null || busId === null) return;
+      params.set('busCode', busCode);
+      params.set('busId', String(busId));
+    }
     if (next !== 'content') params.set('tab', next);
     router.replace(`${APPROVAL_DETAIL_PATH}?${params.toString()}`, { scroll: false });
   };
 
   const processMutation = useApprovalProcessMutation(KISSEN_PROJECT_ID);
+  const previousStepMutation = useApprovalPreviousStepMutation(KISSEN_PROJECT_ID);
+  const withdrawMutation = useApprovalWithdrawMutation(KISSEN_PROJECT_ID);
   const [comment, setComment] = React.useState('');
   const [commentError, setCommentError] = React.useState('');
-  const [decision, setDecision] = React.useState<'approve' | 'reject' | null>(null);
+  const [action, setAction] = React.useState<
+    'approve' | 'reject' | 'return' | 'withdraw' | null
+  >(null);
   const [override, setOverride] = React.useState<DecisionOverride | null>(null);
 
   /* ---- 未找到 / 加载态 ---- */
 
   if (!row) {
-    if (scanning) {
+    const businessMissing =
+      businessEntry && businessQ.isSuccess && businessQ.data?.recordExists === false;
+    if ((scanning || (businessEntry && businessQ.isLoading)) && !businessMissing) {
       return (
         <div className="space-y-4">
           <h1 className="text-xl font-semibold">Approval Details</h1>
@@ -909,7 +1156,7 @@ export function ApprovalDetailPage() {
         </div>
       );
     }
-    // 原型 not-found 逐字
+    // 原型 not-found 逐字（审批未发起 / 记录不存在共用）
     return (
       <div className="min-w-0 space-y-4">
         <div className="flex items-center gap-3">
@@ -943,7 +1190,12 @@ export function ApprovalDetailPage() {
 
   /* ---- 派生数据 ---- */
 
-  const detail = detailQ.data;
+  // 业务键入口直接复用 detailByBusiness 全量详情（含 businessContent/history）。
+  const detail =
+    businessQ.data && businessQ.data.recordExists === true ? businessQ.data : detailQ.data;
+  const detailLoading = businessEntry
+    ? businessQ.isLoading
+    : detailQ.isLoading || (detailQ.isPending && !detail);
   const isDoneRow = row.detailReviewerStatus !== undefined;
 
   // 生效状态：审批决定后本页内覆盖（详情缓存不失效，与原型本页状态语义一致）
@@ -956,47 +1208,113 @@ export function ApprovalDetailPage() {
       : undefined;
 
   const buttons = detail?.approveButtonDTO ?? {};
-  const canApprove = (buttons.approveType ?? 0) !== 0;
-  // 审批动作区仅待办任务（5/10）且详情能力位允许；决定完成后隐藏
-  const decidable =
-    !isDoneRow && !override && canApprove && [5, 10].includes(row.reviewerStatus);
+  // 能力位口径(2026-10-21 实测):1=可用,2=不可用(0 兜底不可用);非 0 即可用为误读
+  const canApprove = buttons.approveType === 1;
+  // 在途判定:已办/本页已决定 → 否;业务键入口无主表状态 → 信任能力位;
+  // 任务键入口有列表行状态 → 5/10
+  const inFlight =
+    isDoneRow || override
+      ? false
+      : row.reviewerStatus === undefined || isInFlightStatus(row.reviewerStatus);
+  // 审批动作区:在途且 approveType 能力位允许;决定完成后隐藏
+  const decidable = inFlight && canApprove;
+  // 退回上一步：待审首页节点能力位（previousStepType=1）才可见，意见必填
+  const canReturn = decidable && buttons.previousStepType === 1;
+  // 撤回：单据在途且发起人本人（withdrawType=1 能力位），意见可选
+  const canWithdraw = inFlight && buttons.withdrawType === 1;
 
-  const decisionCopy = decision
-    ? PROTO_APPROVAL_ACTION_TEXT[decision](row.applyCode, businessName(row.businessCode))
+  const actionCopy = action
+    ? PROTO_APPROVAL_ACTION_TEXT[action](row.applyCode, businessName(row.businessCode))
     : null;
 
-  const openDecision = (kind: 'approve' | 'reject') => {
-    // 驳回必须有意见（原型逐字）
+  const openAction = (kind: 'approve' | 'reject' | 'return' | 'withdraw') => {
+    // 驳回/退回必须有意见（原型逐字 + 退回同口径）
     if (kind === 'reject' && !comment.trim()) {
       setCommentError('A comment is required when rejecting.');
       return;
     }
+    if (kind === 'return' && !comment.trim()) {
+      setCommentError('A comment is required when returning.');
+      return;
+    }
     setCommentError('');
-    setDecision(kind);
+    setAction(kind);
   };
 
-  const runDecision = () => {
-    if (!decision) return;
-    processMutation.mutate(
+  const runAction = () => {
+    if (!action) return;
+    if (action === 'approve' || action === 'reject') {
+      processMutation.mutate(
+        {
+          busCode: row.businessCode,
+          taskId: row.taskId,
+          approve: action === 'approve' ? 3 : 2,
+          remarks: comment.trim() || undefined,
+        },
+        {
+          onSuccess: () => {
+            toast.success(
+              action === 'approve'
+                ? `Approval ${row.applyCode} has been approved.`
+                : `Approval ${row.applyCode} has been rejected.`,
+            );
+            setOverride({
+              label: action === 'approve' ? 'Approved' : 'Rejected',
+              at: Date.now(),
+              comment: comment.trim(),
+            });
+            setAction(null);
+            setComment('');
+          },
+          onError: (err) => toast.error((err as Error).message),
+        },
+      );
+      return;
+    }
+    if (action === 'return') {
+      previousStepMutation.mutate(
+        {
+          busCode: row.businessCode,
+          taskId: row.taskId,
+          remarks: comment.trim(),
+        },
+        {
+          onSuccess: () => {
+            toast.success(
+              `Approval ${row.applyCode} has been returned to the previous step.`,
+            );
+            setOverride({
+              label: 'Returned',
+              at: Date.now(),
+              comment: comment.trim(),
+            });
+            setAction(null);
+            setComment('');
+          },
+          onError: (err) => toast.error((err as Error).message),
+        },
+      );
+      return;
+    }
+    withdrawMutation.mutate(
       {
         busCode: row.businessCode,
         taskId: row.taskId,
-        approve: decision === 'approve' ? 3 : 2,
         remarks: comment.trim() || undefined,
       },
       {
         onSuccess: () => {
           toast.success(
-            decision === 'approve'
-              ? `Approval ${row.applyCode} has been approved.`
-              : `Approval ${row.applyCode} has been rejected.`,
+            row.applyCode
+              ? `Application ${row.applyCode} has been withdrawn.`
+              : 'Application withdrawn.',
           );
           setOverride({
-            label: decision === 'approve' ? 'Approved' : 'Rejected',
+            label: 'Withdrawn',
             at: Date.now(),
             comment: comment.trim(),
           });
-          setDecision(null);
+          setAction(null);
           setComment('');
         },
         onError: (err) => toast.error((err as Error).message),
@@ -1006,24 +1324,21 @@ export function ApprovalDetailPage() {
 
   /* ---- 业务内容字段（沿用 FIELD_MAPS / CHANGE_MAPS） ---- */
 
-  const fieldDefs = React.useMemo(() => {
+  const fieldDefs = (() => {
     const content = detail?.businessContent ?? null;
     if (!content) return [];
     const map = getFieldMap(row.businessCode);
     return (map ?? fallbackFieldDefs(content)).filter((f) => f.key in content);
-  }, [detail, row.businessCode]);
+  })();
 
   const changeDefs = CHANGE_MAPS[row.businessCode] ?? [];
 
-  // 流转时间线（stepOrder 升序）；待办任务追加当前节点（无时间，原型 current 口径）
-  const flowNodes = React.useMemo(() => {
-    const history = detail?.history
-      ? [...detail.history].sort((a, b) => a.stepOrder - b.stepOrder)
-      : [];
-    if (isDoneRow || override) return history;
-    return history;
-  }, [detail, isDoneRow, override]);
-  const showCurrentNode = !isDoneRow && !override;
+  // 流转时间线（stepOrder 升序；无历史时 detail.history 为 null → 空数组）
+  const flowNodes = detail?.history
+    ? [...detail.history].sort((a, b) => a.stepOrder - b.stepOrder)
+    : [];
+  const showCurrentNode =
+    !isDoneRow && !override && isInFlightStatus(row.reviewerStatus);
 
   /* ---- 渲染 ---- */
 
@@ -1043,9 +1358,13 @@ export function ApprovalDetailPage() {
           <h1 className="min-w-0 break-words text-xl font-semibold">
             {businessName(row.businessCode)} - Details
           </h1>
-          <ProtoStatusBadge tone={statusTone(effectiveLabel)}>
-            {effectiveLabel}
-          </ProtoStatusBadge>
+          {effectiveLabel ? (
+            <ProtoStatusBadge tone={statusTone(effectiveLabel)}>
+              {effectiveLabel}
+            </ProtoStatusBadge>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
         </div>
         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
@@ -1060,7 +1379,7 @@ export function ApprovalDetailPage() {
           <span>
             {'Created on '}
             <span className="font-semibold text-foreground tabular-nums">
-              {formatUtc8(row.createTime)}
+              {row.createTime > 0 ? formatUtc8(row.createTime) : <Dash />}
             </span>
           </span>
         </p>
@@ -1068,7 +1387,7 @@ export function ApprovalDetailPage() {
     </div>
   );
 
-  if (detailQ.isLoading || (detailQ.isPending && !detail)) {
+  if (detailLoading) {
     return (
       <div className="min-w-0 space-y-4">
         {header}
@@ -1110,7 +1429,9 @@ export function ApprovalDetailPage() {
                 {row.createUserName || <Dash />}
               </DetailField>
               <DetailField label="Created on">
-                <span className="tabular-nums">{formatUtc8(row.createTime)}</span>
+                <span className="tabular-nums">
+                  {row.createTime > 0 ? formatUtc8(row.createTime) : <Dash />}
+                </span>
               </DetailField>
               <DetailField label="Processing Time">
                 {effectiveProcessedAt
@@ -1227,8 +1548,8 @@ export function ApprovalDetailPage() {
             )}
           </section>
 
-          {/* Review Decision（仅待办任务且能力位允许；原型逐字文案） */}
-          {decidable && (
+          {/* Review Decision（仅待办任务且能力位允许；原型逐字文案 + 退回/撤回 2023418） */}
+          {(decidable || canWithdraw) && (
             <section className="rounded-lg border border-border/60 bg-card p-4">
               <div className="mb-3 text-base font-semibold leading-6 text-foreground">
                 Review Decision
@@ -1257,7 +1578,7 @@ export function ApprovalDetailPage() {
                   id="approval-comment-help"
                   className={commentError ? 'sr-only' : 'text-xs text-muted-foreground'}
                 >
-                  A comment is required when rejecting.
+                  A comment is required when rejecting or returning.
                 </span>
                 {commentError && (
                   <span id="approval-comment-error" role="alert" className="text-sm text-destructive">
@@ -1266,24 +1587,50 @@ export function ApprovalDetailPage() {
                 )}
               </div>
               <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-destructive text-destructive hover:bg-destructive/10"
-                  disabled={processMutation.isPending}
-                  onClick={() => openDecision('reject')}
-                >
-                  <XCircle className="size-4" aria-hidden="true" />
-                  Reject
-                </Button>
-                <Button
-                  type="button"
-                  disabled={processMutation.isPending}
-                  onClick={() => openDecision('approve')}
-                >
-                  <CheckCircle2 className="size-4" aria-hidden="true" />
-                  Approve
-                </Button>
+                {canWithdraw && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={processMutation.isPending || previousStepMutation.isPending || withdrawMutation.isPending}
+                    onClick={() => openAction('withdraw')}
+                  >
+                    <CircleSlash className="size-4" aria-hidden="true" />
+                    Withdraw
+                  </Button>
+                )}
+                {decidable && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-destructive text-destructive hover:bg-destructive/10"
+                    disabled={processMutation.isPending || previousStepMutation.isPending || withdrawMutation.isPending}
+                    onClick={() => openAction('reject')}
+                  >
+                    <XCircle className="size-4" aria-hidden="true" />
+                    Reject
+                  </Button>
+                )}
+                {canReturn && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={processMutation.isPending || previousStepMutation.isPending || withdrawMutation.isPending}
+                    onClick={() => openAction('return')}
+                  >
+                    <Undo2 className="size-4" aria-hidden="true" />
+                    Return
+                  </Button>
+                )}
+                {decidable && (
+                  <Button
+                    type="button"
+                    disabled={processMutation.isPending || previousStepMutation.isPending || withdrawMutation.isPending}
+                    onClick={() => openAction('approve')}
+                  >
+                    <CheckCircle2 className="size-4" aria-hidden="true" />
+                    Approve
+                  </Button>
+                )}
               </div>
             </section>
           )}
@@ -1302,7 +1649,7 @@ export function ApprovalDetailPage() {
               <History className="size-4 text-muted-foreground" aria-hidden="true" />
               Flow History
             </div>
-            {detailQ.isError ? (
+            {detailQ.isError || businessQ.isError ? (
               <Alert variant="destructive" role="alert">
                 <AlertTitle>Failed to load flow history.</AlertTitle>
               </Alert>
@@ -1376,21 +1723,31 @@ export function ApprovalDetailPage() {
         </TabsContent>
       </Tabs>
 
-      {/* 确认弹窗（双段正文 + 语义图标；文案 PROTO_APPROVAL_ACTION_TEXT） */}
-      {decisionCopy && decision && (
+      {/* 确认弹窗（双段正文 + 语义图标；文案 PROTO_APPROVAL_ACTION_TEXT 四动作） */}
+      {actionCopy && action && (
         <ActionConfirmDialog
           open
           onOpenChange={(open) => {
-            if (!open) setDecision(null);
+            if (!open) setAction(null);
           }}
-          icon={decision === 'approve' ? CheckCircle2 : XCircle}
-          variant={decision === 'approve' ? 'confirm' : 'destructive'}
-          title={decisionCopy.title}
-          body1={decisionCopy.body1}
-          body2={decisionCopy.body2}
-          confirmLabel={decisionCopy.confirmLabel}
-          loading={processMutation.isPending}
-          onConfirm={runDecision}
+          icon={ACTION_ICONS[action]}
+          variant={
+            action === 'approve'
+              ? 'confirm'
+              : action === 'return'
+                ? 'confirm'
+                : 'destructive'
+          }
+          title={actionCopy.title}
+          body1={actionCopy.body1}
+          body2={actionCopy.body2}
+          confirmLabel={actionCopy.confirmLabel}
+          loading={
+            processMutation.isPending ||
+            previousStepMutation.isPending ||
+            withdrawMutation.isPending
+          }
+          onConfirm={runAction}
         />
       )}
     </div>

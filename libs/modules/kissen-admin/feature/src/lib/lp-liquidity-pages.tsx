@@ -143,6 +143,7 @@ import {
   useUpdateLpPairStatusMutation,
 } from '@myorg/modules/kissen-admin/data-access';
 
+import { ApprovalBusinessLink } from './approval-business-link';
 import {
   ActionConfirmDialog,
   CopyableId,
@@ -315,7 +316,7 @@ const LP_PAIR_STATUS_TONES: Record<number, ProtoStatusTone> = {
 function LpPairStatusBadge({ status }: { status: number }) {
   return (
     <ProtoStatusBadge tone={LP_PAIR_STATUS_TONES[status] ?? 'muted'}>
-      {status === 1 ? 'Draft' : protoStatusLabel(PROTO_LP_PAIR_STATUS, status)}
+      {protoStatusLabel(PROTO_LP_PAIR_STATUS, status)}
     </ProtoStatusBadge>
   );
 }
@@ -902,7 +903,7 @@ export function LpInfoListPage() {
               control={control}
               label="Status"
               placeholder={LBL.all}
-              options={[1, 5, 10, 15, 20, 50].map((code) => ({
+              options={[1, 5, 10, 15, 20].map((code) => ({
                 value: String(code),
                 label: protoStatusLabel(PROTO_LP_STATUS, code),
               }))}
@@ -2193,6 +2194,38 @@ export function LpInfoDetailPage() {
         ),
       },
       {
+        id: 'approval',
+        header: 'Approval',
+        enableSorting: false,
+        cell: ({ row }) => {
+          // 审批入口（2023418）：KLP 改参 / KLS 分成两个业务键各自查看；
+          // 任一在途显示 Under Approval 徽章。
+          const item = row.original;
+          return (
+            <div className="flex flex-col items-start gap-1">
+              <ApprovalBusinessLink
+                busCode="kissen_lp_pair"
+                busId={Number(item.id)}
+                label="Participation Approval"
+                pending={
+                  item.pairApprovalPending ||
+                  item.splitApprovalPending ||
+                  item.approvalPending
+                }
+              />
+              {item.splitApprovalPending || Number(item.splitRatio) > 0 ? (
+                <ApprovalBusinessLink
+                  busCode="kissen_lp_split"
+                  busId={Number(item.id)}
+                  label="Share Change Approval"
+                  pending={item.splitApprovalPending}
+                />
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => {
@@ -2206,7 +2239,7 @@ export function LpInfoDetailPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={item.pendingChange || pairDialog != null}
+                  disabled={item.pairApprovalPending || pairDialog != null}
                   onClick={() =>
                     setPairDialog({ mode: 'change', row: item })
                   }
@@ -3023,6 +3056,38 @@ export function LpTokenPairListPage() {
         cell: ({ row }) => <LpPairStatusBadge status={row.original.status} />,
       },
       {
+        id: 'approval',
+        header: 'Approval',
+        enableSorting: false,
+        cell: ({ row }) => {
+          // 审批入口（2023418）：KLP 改参 / KLS 分成两个业务键各自查看；
+          // 任一在途显示 Under Approval 徽章。
+          const item = row.original;
+          return (
+            <div className="flex flex-col items-start gap-1">
+              <ApprovalBusinessLink
+                busCode="kissen_lp_pair"
+                busId={Number(item.id)}
+                label="Participation Approval"
+                pending={
+                  item.pairApprovalPending ||
+                  item.splitApprovalPending ||
+                  item.approvalPending
+                }
+              />
+              {item.splitApprovalPending || Number(item.splitRatio) > 0 ? (
+                <ApprovalBusinessLink
+                  busCode="kissen_lp_split"
+                  busId={Number(item.id)}
+                  label="Share Change Approval"
+                  pending={item.splitApprovalPending}
+                />
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => {
@@ -3038,7 +3103,7 @@ export function LpTokenPairListPage() {
           if (item.status === 20) {
             menuItems.push({
               label: 'Change LP Share',
-              disabled: Number(item.pendingSplit) > 0,
+              disabled: item.splitApprovalPending,
               onSelect: () => setShareRow(item),
             });
             menuItems.push({
@@ -3163,7 +3228,7 @@ export function LpTokenPairListPage() {
               label="Status"
               value={filter.status}
               placeholder={LBL.all}
-              options={[5, 15, 20, 50].map((code) => ({
+              options={[1, 5, 10, 15, 20, 50].map((code) => ({
                 value: String(code),
                 label: protoStatusLabel(PROTO_LP_PAIR_STATUS, code),
               }))}
@@ -3399,7 +3464,8 @@ function PoolCoverageCell({ row }: { row: LpPoolRow }) {
 
 /**
  * 资金池表列（原型 LiquidityPoolManagement 列集，列表页与 LP 详情 pools Tab
- * 共用；详情页按需剔除 lpName/snapshotAt）。纯监控零操作，无 Actions 列。
+ * 共用；详情页按需剔除 lpName/snapshotAt）。纯监控零操作，无 Actions 列；
+ * Approval 列为 kissen_lp_pool 审批详情入口（2023418）。
  */
 const LP_POOL_TABLE_COLUMNS: ColumnDef<LpPoolRow & { id: string }>[] = [
   {
@@ -3470,6 +3536,21 @@ const LP_POOL_TABLE_COLUMNS: ColumnDef<LpPoolRow & { id: string }>[] = [
     accessorKey: 'status',
     header: 'Status',
     cell: ({ row }) => <PoolStatusBadge status={row.original.status} />,
+  },
+  {
+    id: 'approval',
+    header: 'Approval',
+    enableSorting: false,
+    cell: ({ row }) => {
+      // 池模型无在途布尔：5 Pending Approval / 15 Rejected 按状态派生在途标记。
+      return (
+        <ApprovalBusinessLink
+          busCode="kissen_lp_pool"
+          busId={row.original.poolId}
+          pending={[5, 10].includes(row.original.status)}
+        />
+      );
+    },
   },
   {
     id: 'createdOn',
@@ -3621,7 +3702,7 @@ export function LpPoolListPage() {
               label="Status"
               value={filter.status}
               placeholder={LBL.all}
-              options={[5, 15, 20, 50].map((code) => ({
+              options={[5, 15, 20].map((code) => ({
                 value: String(code),
                 label: protoStatusLabel(PROTO_POOL_STATUS, code),
               }))}
@@ -3866,6 +3947,31 @@ export function LpParticipationDetailPage() {
                 <ReadonlyField
                   label="Pay Pool"
                   value={<CopyableId value={row.targetPoolAddress} />}
+                />
+                <ReadonlyField
+                  label="Approval"
+                  value={
+                    <div className="flex flex-col items-start gap-1">
+                      <ApprovalBusinessLink
+                        busCode="kissen_lp_pair"
+                        busId={row.id}
+                        label="Participation Approval"
+                        pending={
+                          row.pairApprovalPending ||
+                          row.splitApprovalPending ||
+                          row.approvalPending
+                        }
+                      />
+                      {row.splitApprovalPending || Number(row.splitRatio) > 0 ? (
+                        <ApprovalBusinessLink
+                          busCode="kissen_lp_split"
+                          busId={row.id}
+                          label="Share Change Approval"
+                          pending={row.splitApprovalPending}
+                        />
+                      ) : null}
+                    </div>
+                  }
                 />
                 <div className="sm:col-span-2 lg:col-span-3">
                   <ReadonlyField

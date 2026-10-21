@@ -1,4 +1,5 @@
 /** LP 主数据模型（源 `api/lp.ts` LpRespVO；BigDecimal 序列化为 string|number）。 */
+import { commonStatusLabel } from '../approval/approval.model';
 
 /**
  * LP 列表行 / 详情（rowKey=lpId）。
@@ -66,7 +67,7 @@ export interface LpDetailRow extends LpRow {
 
 /**
  * LP 详情聚合 —— 参与 token 对行（GET /manage/lp/full）。
- * min/auth 双侧为对侧池参数（null = 未设置）；pendingChange = 改参审批中（改参按钮禁用）。
+ * min/auth 双侧为对侧池参数（null = 未设置）；pairApprovalPending = 改参审批在途（改参按钮禁用）。
  */
 export interface LpFullPairRow {
   id: number;
@@ -81,7 +82,7 @@ export interface LpFullPairRow {
   sourceAuthRequired: string | number | null;
   targetAuthRequired: string | number | null;
   splitRatio: string | number;
-  pendingChange: boolean;
+  pairApprovalPending: boolean;
   status: number;
   remark: string;
   createTime: number;
@@ -142,21 +143,13 @@ export const SETTLE_CYCLE_MAP: Record<number, string> = {
   3: 'Monthly',
 };
 
-/** LP 入网/状态沿用 CommonStatusEnum（源 views/approval/status.ts COMMON_STATUS_MAP 定稿英文）。 */
-export const LP_STATUS_LABEL: Record<number, string> = {
-  1: 'Draft',
-  3: 'Withdrawn',
-  5: 'Pending Review',
-  10: 'Under Review',
-  15: 'Rejected',
-  20: 'Approved',
-  25: 'Signed',
-  30: 'Submitting',
-  35: 'Final Confirmation',
-  40: 'Submission Failed',
-  45: 'Deleted',
-  50: 'Disabled',
-};
+/** LP 入网/状态沿用 CommonStatusEnum（通用字典派生；业务语境 20=Enabled，未知码不收录）。 */
+export const LP_STATUS_LABEL: Record<number, string> = Object.fromEntries(
+  [1, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((status) => [
+    status,
+    commonStatusLabel(status),
+  ]),
+) as Record<number, string>;
 
 /** LP 状态 → Badge variant（success=default、danger=destructive、warning=secondary、info/中性=outline）。 */
 export const LP_STATUS_VARIANT: Record<

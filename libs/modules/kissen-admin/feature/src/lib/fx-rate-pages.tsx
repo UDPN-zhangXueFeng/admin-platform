@@ -5,7 +5,7 @@
  * FxPairDetailsPage / FxPairEditPage；上游 v2.0-tokenization）。
  *
  * - TokenPairListPage：registry key `pair`（/fx-rate/pair）。列表 + New Pair +
- *   Details/Edit/Disable/Activate 行操作（审批口径：15 重提、20 改参/停用、30/50 启用）。
+ *   Details/Edit/Disable/Activate 行操作（审批口径：15 重提、20 改参/停用、30/50 启用；5/10 在途无操作）。
  * - TokenPairCreatePage：/fx-rate/pair/create，组合表单 + 串行开通申请（KPT）。
  * - TokenPairDetailPage：/fx-rate/pair/detail?id=，basic/participation/operations 三 Tab。
  * - TokenPairEditPage：/fx-rate/pair/edit?id=，参数变更申请（KRC）/ 驳回重提（KPT）。
@@ -70,6 +70,7 @@ import {
   type TokenRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
+import { ApprovalBusinessLink } from './approval-business-link';
 import { formatPercent, formatRate, formatUtc8 } from './proto-format';
 import {
   ActionConfirmDialog,
@@ -100,9 +101,10 @@ const STATUS_ALL = 'ALL';
 const PAGE_SIZE_DEFAULT = 10;
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-/** Token 对状态色（原型 §10：Enabled success / Frozen info / Pending warning / Rejected danger / Disabled muted）。 */
+/** Token 对状态色（原型 §10：Enabled success / Frozen info / Pending warning / Rejected danger / Disabled muted；10 Under Approval 与 5 同为在途 warning）。 */
 const PAIR_STATUS_TONE: Record<number, ProtoStatusTone> = {
   5: 'warning',
+  10: 'warning',
   15: 'danger',
   20: 'success',
   30: 'info',
@@ -118,10 +120,12 @@ const LP_PAIR_STATUS_TONE: Record<number, ProtoStatusTone> = {
   50: 'muted',
 };
 
-/** 状态筛选项（按 PROTO_PAIR_STATUS key 顺序 5/15/20/30/50）。 */
-const PAIR_STATUS_OPTIONS = Object.entries(PROTO_PAIR_STATUS).map(
-  ([value, meta]) => ({ value, label: meta.label }),
-);
+/** 状态筛选项（2023418 契约固定子集 [5,15,20,30,50]；30 Frozen 为 token 对域例外，
+ *  不得随 PROTO_PAIR_STATUS 键集扩大自动进入筛选）。 */
+const PAIR_STATUS_OPTIONS = [5, 15, 20, 30, 50].map((code) => ({
+  value: String(code),
+  label: PROTO_PAIR_STATUS[code].label,
+}));
 
 // ---------------------------------------------------------------------------
 // 共享展示工具
@@ -299,7 +303,7 @@ interface ListFilterForm {
  *   Standard Rev. Share / Status / Created on (UTC+8) / Actions；数值列右对齐
  *   tabular-nums，全列可排序（useProtoSort triState）。
  * - 行操作：Details 常显；⋮ 菜单按状态（20 → Edit + Disable；15 → Edit；
- *   30/50 → Activate；5 待审无操作）。
+ *   30/50 → Activate；5/10 审批在途无操作）。
  */
 export function TokenPairListPage() {
   const toast = useToast();
@@ -519,11 +523,19 @@ export function TokenPairListPage() {
           />
         ),
         cell: ({ row }) => (
-          <ProtoStatusBadge
-            tone={PAIR_STATUS_TONE[row.original.status] ?? 'muted'}
-          >
-            {protoStatusLabel(PROTO_PAIR_STATUS, row.original.status)}
-          </ProtoStatusBadge>
+          <div className="flex flex-col items-start gap-1.5">
+            <ProtoStatusBadge
+              tone={PAIR_STATUS_TONE[row.original.status] ?? 'muted'}
+            >
+              {protoStatusLabel(PROTO_PAIR_STATUS, row.original.status)}
+            </ProtoStatusBadge>
+            <ApprovalBusinessLink
+              busCode="kissen_rate_change"
+              busId={row.original.pairId}
+              pending={row.original.pairApprovalPending}
+              label="Parameter Change Approval"
+            />
+          </div>
         ),
       },
       {
@@ -548,7 +560,7 @@ export function TokenPairListPage() {
         cell: ({ row }) => {
           const item = row.original;
           // 原型行操作矩阵：15 → Edit（重提）；20 → Edit + Disable；
-          // 30/50 → Activate；5 待审无可操作项。
+          // 30/50 → Activate；5/10 审批在途无可操作项。
           const menuItems: React.ReactNode[] = [];
           if (item.status === 15 || item.status === 20) {
             menuItems.push(
@@ -914,6 +926,24 @@ export function TokenPairCreatePage() {
     [combos],
   );
 
+  // 2023418：勾选组合的同向已有对处于审批在途（pairApprovalPending）或 5/10/15
+  // 状态时禁止提交开通（组合判重快照初始化后不随列表刷新，用实时 pairs 数据复核）。
+  const selectedBlocked = React.useMemo(
+    () =>
+      selected.some((c) => {
+        const existing = (pairsQuery.data ?? []).find(
+          (p) =>
+            p.sourceTokenId === c.sourceTokenId &&
+            p.targetTokenId === c.targetTokenId,
+        );
+        return (
+          existing != null &&
+          (existing.pairApprovalPending || [5, 10, 15].includes(existing.status))
+        );
+      }),
+    [pairsQuery.data, selected],
+  );
+
   const keyword = comboFilter.trim().toLowerCase();
   const isVisible = React.useCallback(
     (c: ComboRow) => {
@@ -1240,7 +1270,7 @@ export function TokenPairCreatePage() {
             </Button>
             <Button
               type="button"
-              disabled={!selected.length || submitting}
+              disabled={!selected.length || submitting || selectedBlocked}
               onClick={onSubmit}
             >
               {submitting
@@ -1253,7 +1283,6 @@ export function TokenPairCreatePage() {
     </div>
   );
 }
-
 /** 操作记录列（原型 OperationRecordsTable 5 列；数据源见 GAP-ADM-02）。 */
 const operationsColumns: ColumnDef<{ id: string } & Record<string, string>>[] = [
   {
@@ -1539,6 +1568,14 @@ export function TokenPairDetailPage() {
                   {formatUtc8(record.createTime)}
                 </span>
               </DetailField>
+              <DetailField label="Approval">
+                <ApprovalBusinessLink
+                  busCode="kissen_rate_change"
+                  busId={record.pairId}
+                  pending={record.pairApprovalPending}
+                  label="Parameter Change Approval"
+                />
+              </DetailField>
             </div>
           </section>
         </TabsContent>
@@ -1608,7 +1645,7 @@ function PairEditForm({ row }: { row: TokenPairRow }) {
   // 已驳回（15）= KPT 重提：SaveReq 无 pairId，按 source+target 组合识别；
   // 其余可编辑状态 = KRC 参数变更（现值生效至审批通过）。
   const isResubmit = row.status === 15;
-  const pending = row.pendingChange || row.status === 5;
+  const pending = row.pairApprovalPending || row.status === 5;
 
   const onSubmit = React.useCallback(() => {
     const nextErrors = {

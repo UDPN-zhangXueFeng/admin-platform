@@ -1146,3 +1146,17 @@
 ## 2026-10-20 LP Token Pair 表格精简
 
 - `PairListPage` 移除 Standard Share 列及 Readiness 中的 Pool ready / Pre-authorization 状态徽章，保留 My Share、主 Status 与 Recv/Pay 池地址；两侧地址都缺失时显示 `-`。隔离浏览器以模拟 PairRow 验证列与状态已隐藏、地址保留。
+
+## 2026-10-21 审批业务侧接入(kissen-admin)
+
+- 三入口详情统一:任务键 `?taskId=`、业务键 `?busCode=&busId=`(busId=1 恒有效,禁止 0 兜底)、我发起行内入口;行归一 `ApprovalListRow` 兼容三种来源,业务键入口合成行 `createUserName=''`、`applyCode` 后端缺发显示 Dash。
+- `detail`/`detailByBusiness` 均未返回 `reviewerStatus`/`currentStepName`(响应键仅 approveButtonDTO/taskId/recordExists/businessContent/history):任务键入口由列表行兜底,业务键入口无兜底 → 模型字段已改可选,头部状态渲染 Dash、`showCurrentNode` 仅在已知 5/10 时渲染,动作判定回退信任能力位。
+- **approveButtonDTO 能力位口径:1=可用,2=不可用**(0 兜底不可用);"非 0 即可用"是误读——已完成单据 approveType=2,若按非 0 判定会错误放行审批按钮。在途判定:已办/本页已决定 → 否;业务键无状态 → 信任能力位;任务键 → 列表行 5/10。
+- `recordExists=false` → 无效页("Approval not found"):kissen_rate_change(pairId) 对有历史审批的 pair 返回 false、kissen_settle_confirm(orderId) 抽样 1/4-10 全部 false——业务键到审批记录的映射语义待后端澄清,前端已优雅降级。
+- 已验证不改变的既有行为:Withdraw 弹窗取消、⋯ 菜单折叠(2 动作)、我发起页签独立状态域(3/5/10/15/20 服务端 filter)。未实测:approve/reject/return 提交(测试账号无在途待办)、真实 withdraw 提交(破坏性)。
+
+## 2026-10-21 审批接入对照设计文档校验(修正 9 处偏差)
+- 按 `~/Downloads/approval-business-embed-design.md` 复核发现并修正:银行 20 是域例外 `Onboarded`(非通用 Enabled);银行下拉七值全集 [1,2,5,10,15,20,50];ACTION_TEXT approve/return/withdraw 三段 body2 按 §7 定案文案替换(return 标题为 Return to Previous Step)。
+- 我发起页签按设计附录A 改列序(状态→Current Step→申请时间)+ 行动作为只读 Details;`canWithdraw` 行旁提示 "Withdrawal available in details",撤回只在共享详情执行(删除列表级 Withdraw 菜单+弹窗)。
+- 各页 Status 下拉固定子集(防 PROTO 键集扩大自动进筛选):token 对 [5,15,20,30,50] 固定数组;LP 对 [1,5,10,15,20,50];LP 入网 [1,5,10,15,20];资金池 [5,15,20]。
+- 清理死代码:bank.model.ts 的 BANK_STATUS_LABEL/BANK_STATUS_OPTIONS/bankStatusVariant 零消费,已删除(BankBadgeVariant 保留,bank-gateway 在用);LpPairStatusBadge 独立 Draft 特判删除(PROTO_LP_PAIR_STATUS[1] 已有)。

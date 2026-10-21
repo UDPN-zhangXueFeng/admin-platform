@@ -6,6 +6,7 @@
  * 即时启停（20 启用 / 30 冻结 / 50 停用）；2023418 起建对/改参均走审批
  * （KPT 开通申请 / KRC 参数变更），状态含 5 待审 / 10 审核中 / 15 已驳回。
  */
+import { commonStatusLabel } from '../approval/approval.model';
 
 export interface TokenPairRow {
   pairId: number;
@@ -36,8 +37,8 @@ export interface TokenPairRow {
   sourceMinLiquidity: string | number;
   /** 目标端默认最低流动性。 */
   targetMinLiquidity: string | number;
-  /** A pending KRC parameter-change request exists (source 2023418). */
-  pendingChange: boolean;
+  /** A KRC parameter-change approval is in flight (source 2023418). */
+  pairApprovalPending: boolean;
   status: number;
   createTime: number;
 }
@@ -80,14 +81,13 @@ export interface TokenPairListReq {
   filter: TokenPairListFilter;
 }
 
+/** Token 对状态（通用字典派生；30 Frozen 为业务例外）。 */
 export const PAIR_STATUS_LABEL: Record<number, string> = {
-  5: 'Pending Approval',
-  10: 'Under Review',
-  15: 'Rejected',
-  20: 'Enabled',
+  ...Object.fromEntries(
+    [5, 10, 15, 20, 50].map((status) => [status, commonStatusLabel(status)]),
+  ),
   30: 'Frozen',
-  50: 'Disabled',
-};
+} as Record<number, string>;
 
 /**
  * Badge variant（conventions §5；2023418 色彩口径：20 default / 5+10+30

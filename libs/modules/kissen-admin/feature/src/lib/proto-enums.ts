@@ -41,12 +41,14 @@ export const PROTO_TX_STATUS: Record<number, ProtoStatusMeta> = {
   90: { label: 'Failed', rank: 12 },
 };
 
-/** 结算单 4 态（KNMS SettlementStatementsPage；与 SETTLE_ORDER_STATUS_LABEL 文案一致）。 */
+/** 结算单 6 态（KNMS SettlementStatementsPage 4 态 + 2023418 审批在途 5/15；5/15 取通用字典文案，10/20/35/45 保持 DEC-08 业务语义）。 */
 export const PROTO_SETTLE_ORDER_STATUS: Record<number, ProtoStatusMeta> = {
-  10: { label: 'Pending Confirmation', rank: 0 },
-  20: { label: 'Confirmed', rank: 1 },
-  35: { label: 'Settled', rank: 2 },
-  45: { label: 'Voided', rank: 3 },
+  5: { label: 'Pending Approval', rank: 0 },
+  10: { label: 'Pending Confirmation', rank: 1 },
+  15: { label: 'Rejected', rank: 2 },
+  20: { label: 'Confirmed', rank: 3 },
+  35: { label: 'Settled', rank: 4 },
+  45: { label: 'Voided', rank: 5 },
 };
 
 /** Token 状态（KNMS TokenManagementPage；后端 5 'Pending Review'、50 'Disabled' 换原型文案）。 */
@@ -58,34 +60,32 @@ export const PROTO_TOKEN_STATUS: Record<number, ProtoStatusMeta> = {
 };
 
 /**
- * Token Pair（FX Rate Management）状态（KNMS FxRateManagementPage §10 五态）。后端
- * 10 'Under Review' 在原型下拉无对应态，本表不设键（页面改造时按未知码排最后/原样展示，
- * 归并口径待 P3 页面改造核对）。后端 50 'Disabled' 换原型文案（pair 表 'Disabled' 与
- * token 表 'Inactive' 文案不同，各自保留）。
+ * Token Pair（FX Rate Management）状态。2023418 起建对/改参走审批，补 10
+ * 'Under Approval'（通用字典文案）；30 Frozen 为业务例外；50 'Disabled' 保留
+ * pair 表文案（与 token 表 'Inactive' 各自独立）。rank 按码值升序。
  */
 export const PROTO_PAIR_STATUS: Record<number, ProtoStatusMeta> = {
   5: { label: 'Pending Approval', rank: 0 },
-  15: { label: 'Rejected', rank: 1 },
-  20: { label: 'Enabled', rank: 2 },
-  30: { label: 'Frozen', rank: 3 },
-  50: { label: 'Disabled', rank: 4 },
+  10: { label: 'Under Approval', rank: 1 },
+  15: { label: 'Rejected', rank: 2 },
+  20: { label: 'Enabled', rank: 3 },
+  30: { label: 'Frozen', rank: 4 },
+  50: { label: 'Disabled', rank: 5 },
 };
 
 /**
- * 银行状态（KNMS BankOnboardingPage 7 态：Draft → Pending Onboarding → Pending
- * Approval → Under Approval → Rejected → Active → Inactive）。后端文案差异：5 'Pending
- * Review' → 'Pending Approval'、10 'Registered (Pending Onboarding)' → 'Pending
- * Onboarding'、20 'Onboarded' → 'Active'、50 'Disabled' → 'Inactive'。原型 'Under
- * Approval'（rank 3）为审批中瞬态、后端 bank.status 无独立码（由 approval 域承载），
- * 故不设键；键序保持 rank 序，rank 3 空缺即该瞬态位。
+ * 银行状态。2023418 契约：10 'Pending Onboarding' 改为通用字典 'Under Approval'
+ * （审批在途语义），新增 2 'Registered'（新建直存态）；50 'Disabled' 取通用字典（弃原型
+ * 'Inactive'），20 为银行域例外 'Onboarded'（已入网，2023418）。rank 按码值升序。
  */
 export const PROTO_BANK_STATUS: Record<number, ProtoStatusMeta> = {
   1: { label: 'Draft', rank: 0 },
-  10: { label: 'Pending Onboarding', rank: 1 },
+  2: { label: 'Registered', rank: 1 },
   5: { label: 'Pending Approval', rank: 2 },
+  10: { label: 'Under Approval', rank: 3 },
   15: { label: 'Rejected', rank: 4 },
-  20: { label: 'Active', rank: 5 },
-  50: { label: 'Inactive', rank: 6 },
+  20: { label: 'Onboarded', rank: 5 },
+  50: { label: 'Disabled', rank: 6 },
 };
 
 /**
@@ -99,44 +99,47 @@ export const PROTO_INSTANCE_STATUS: Record<number, ProtoStatusMeta> = {
   50: { label: 'Inactive', rank: 3 },
 };
 
-/** LP 入网状态（KNMS LpOnboardingPage；码位 = CommonStatusEnum，后端文案换原型同义文案）。 */
+/** LP 入网状态（码位 = CommonStatusEnum；label 取通用字典，业务语境 20=Enabled）。 */
 export const PROTO_LP_STATUS: Record<number, ProtoStatusMeta> = {
   1: { label: 'Draft', rank: 0 },
   5: { label: 'Pending Approval', rank: 1 },
   10: { label: 'Under Approval', rank: 2 },
   15: { label: 'Rejected', rank: 3 },
-  20: { label: 'Active', rank: 4 },
-  50: { label: 'Inactive', rank: 5 },
+  20: { label: 'Enabled', rank: 4 },
+  50: { label: 'Disabled', rank: 5 },
 };
 
-/** 流动性池状态（KNMS LiquidityPoolManagementPage：Active → Processing → Rejected → Inactive；后端 5 'Applying' → 原型 'Processing'）。 */
+/** 流动性池状态（值域 5/15/20/50；label 取通用字典，rank 按码值升序）。 */
 export const PROTO_POOL_STATUS: Record<number, ProtoStatusMeta> = {
-  20: { label: 'Active', rank: 0 },
-  5: { label: 'Processing', rank: 1 },
-  15: { label: 'Rejected', rank: 2 },
-  50: { label: 'Inactive', rank: 3 },
+  5: { label: 'Pending Approval', rank: 0 },
+  15: { label: 'Rejected', rank: 1 },
+  20: { label: 'Enabled', rank: 2 },
+  50: { label: 'Disabled', rank: 3 },
 };
 
 /**
- * LP 参与的 Token Pair 状态（KNMS SupportedTokenPairsPage：Active → Processing →
- * Rejected → Inactive）。后端 LP_PAIR 为 CommonStatusEnum 全集，5/10 两个在审码并入
- * 原型 'Processing'（rank 相同、列表内稳定排序保键序），20 'Approved' → 'Active'、
- * 50 'Disabled' → 'Inactive'——归并口径待 P3 页面改造核对。
+ * LP 参与的 Token Pair 状态（CommonStatusEnum 子集；label 取通用字典，
+ * 1 Draft 为后端恢复态，rank 按码值升序）。
  */
 export const PROTO_LP_PAIR_STATUS: Record<number, ProtoStatusMeta> = {
-  20: { label: 'Active', rank: 0 },
-  5: { label: 'Processing', rank: 1 },
-  10: { label: 'Processing', rank: 1 },
-  15: { label: 'Rejected', rank: 2 },
-  50: { label: 'Inactive', rank: 3 },
+  1: { label: 'Draft', rank: 0 },
+  5: { label: 'Pending Approval', rank: 1 },
+  10: { label: 'Under Approval', rank: 2 },
+  15: { label: 'Rejected', rank: 3 },
+  20: { label: 'Enabled', rank: 4 },
+  50: { label: 'Disabled', rank: 5 },
 };
 
-/** 工作流任务（审批）状态（KNMS WorkflowTasksPage 4 态；码位 = CommonStatusEnum，'Pending Review'/'Under Review' 换原型文案）。 */
+/**
+ * 审批主单状态（我发起的值域 3/5/10/15/20 + 待办 5/10；label 取通用字典
+ * approval 语境，3 撤回显式入表，rank 按码值升序）。
+ */
 export const PROTO_WORKFLOW_TASK_STATUS: Record<number, ProtoStatusMeta> = {
-  5: { label: 'Pending Approval', rank: 0 },
-  10: { label: 'Under Approval', rank: 1 },
-  20: { label: 'Approved', rank: 2 },
+  3: { label: 'Withdrawn', rank: 0 },
+  5: { label: 'Pending Approval', rank: 1 },
+  10: { label: 'Under Approval', rank: 2 },
   15: { label: 'Rejected', rank: 3 },
+  20: { label: 'Approved', rank: 4 },
 };
 
 /** 工作流配置状态（KNMS WorkflowSettingsPage：Enabled → Disabled；与 WORKFLOW_STATUS_LABEL 一致）。 */
@@ -170,13 +173,13 @@ export interface ProtoApprovalActionText {
 
 /** @param approvalNo 审批单号 @param businessType 业务类型文案（如 'Token Creation'） */
 export const PROTO_APPROVAL_ACTION_TEXT: Record<
-  'approve' | 'reject',
+  'approve' | 'reject' | 'return' | 'withdraw',
   (approvalNo: string, businessType: string) => ProtoApprovalActionText
 > = {
   approve: (approvalNo, businessType) => ({
     title: 'Approve Workflow Task',
     body1: `Approve "${approvalNo}" (${businessType})?`,
-    body2: 'Once approved, the request is applied and moves to the Actioned tab; the requester is notified with your comment.',
+    body2: 'This approves the current step. The request takes effect only after all required steps are approved.',
     confirmLabel: 'Approve',
   }),
   reject: (approvalNo, businessType) => ({
@@ -184,6 +187,18 @@ export const PROTO_APPROVAL_ACTION_TEXT: Record<
     body1: `Reject "${approvalNo}" (${businessType})?`,
     body2: 'Once rejected, the request is returned to the requester and cannot be approved unless it is submitted again.',
     confirmLabel: 'Reject',
+  }),
+  return: () => ({
+    title: 'Return to Previous Step',
+    body1: 'Return this application to the previous step?',
+    body2: 'A comment is required.',
+    confirmLabel: 'Return to Previous Step',
+  }),
+  withdraw: () => ({
+    title: 'Withdraw Application',
+    body1: 'Withdraw this application?',
+    body2: 'This application will leave the approval process.',
+    confirmLabel: 'Withdraw',
   }),
 };
 
