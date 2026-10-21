@@ -1,15 +1,23 @@
 'use client';
 
 /**
- * 角色管理域页面（源 `views/system/role.vue`）。
+ * Role management domain pages (source `views/system/role.vue`).
  *
- * 源是单页 + 弹窗交互；registry 四键映射（主控契约）：
- * - list   = 列表（/system/role；筛选 + 分页 + 行操作）
- * - create = 新建角色（/system/role/create；源「新增角色」弹窗表单）
- * - edit   = 编辑角色（/system/role/edit?id=；源「编辑角色」弹窗，roleCode 只读）
- * - detail = 角色详情（/system/role/detail?id=；GET /role/detail/:roleId 只读视图）
- * 分配菜单保持源形态（列表行弹窗）：回显 GET /role/menuIds 只勾叶子节点，
- * 保存「全勾 + 半选」并集 POST /role/assign-menu，空集先走「清空菜单」确认。
+ * The source is a single page + dialog interactions; the registry maps four
+ * keys (master contract):
+ * - list   = list (/system/role; filters + pagination + row actions)
+ * - create = create role (/system/role/create; source "Add Role" dialog form)
+ * - edit   = edit role (/system/role/edit?id=; source "Edit Role" dialog,
+ *            roleCode read-only)
+ * - detail = role details (/system/role/detail?id=; GET /role/detail/:roleId
+ *            read-only view)
+ * Assign Menus keeps the source shape (row dialog): echo GET /role/menuIds
+ * checks leaf nodes only, save posts the "fully checked + half-checked" union
+ * to POST /role/assign-menu, and an empty set goes through a "clear menus"
+ * confirmation first.
+ *
+ * Visual language is aligned with kissen-admin system-pages role pages
+ * (list header/stat grid/table card, form sections, detail header/cards).
  */
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -17,6 +25,14 @@ import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
   Checkbox,
@@ -37,29 +53,11 @@ import {
 import { FormField, FormSelect, createFormResolver } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { cn } from '@myorg/shared/util-classnames';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@myorg/shared/ui';
-import { PageHead } from './page-head';
-import {
-  ChevronLeft,
-  Loader2,
-  MoreVertical,
-  ShieldCheck,
-  Trash2,
-} from 'lucide-react';
+import { ArrowLeft, MoreVertical, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import {
   KISSEN_GATEWAY_PROJECT_ID,
   ROLE_TYPE_BUILTIN,
   roleTypeText,
-  roleTypeVariant,
   useAssignRoleMenuMutation,
   useMenuTreeQuery,
   useRemoveRoleMutation,
@@ -83,7 +81,7 @@ import {
   LoadingBlock,
   MissingIdBlock,
 } from './state-blocks';
-import { ActionConfirmDialog, ProtoStatusBadge } from './proto-ui';
+import { ActionConfirmDialog, ProtoStatusBadge, StatCard } from './proto-ui';
 import { formatUtc8 } from './proto-format';
 import { PROTO_ROLE_STATUS, protoStatusText } from './proto-enums';
 import {
@@ -95,34 +93,36 @@ import {
   useTableSort,
   type ProtoColumnDef,
 } from './proto-table';
-import { StatCard } from './user-pages';
 
-/** 系统管理域路由基座（registry：/system/role）。 */
+/** System management route base (registry: /system/role). */
 const ROLE_BASE = '/system/role';
 
-/** 源 pageSize 默认值。 */
+/** Source pageSize default. */
 const ROLE_PAGE_SIZE_DEFAULT = 10;
 
-/** 列偏好定义（原型 COLUMNS；Users/Menus 计数列无端点（GAP-GW-07），暂不提供）。 */
+/** Column preference definitions (prototype COLUMNS; the Users/Menus count
+ * columns have no endpoint (GAP-GW-07) and are omitted for now). */
 const ROLE_COLUMNS: ProtoColumnDef[] = [
   { id: 'roleName', label: 'Role Name', required: true },
   { id: 'type', label: 'Type' },
   { id: 'description', label: 'Description' },
-  /* STATIC-FILLER(GAP-GW-07): Users / Menus 计数列（原型 userCount / menuCount）
-   * 无聚合端点，先整列省略，端点就绪后补列。 */
+  /* STATIC-FILLER(GAP-GW-07): the Users / Menus count columns (prototype
+   * userCount / menuCount) have no aggregate endpoint; the columns are left
+   * out until the endpoint exists. */
   { id: 'createdAt', label: 'Created on' },
   { id: 'status', label: 'Status', required: true },
   { id: 'actions', label: 'Actions', required: true },
 ];
 const ROLE_COLUMN_PREF_KEY = 'gw.role-list.columns';
 
-/** 角色状态徽章色调（PROTO_ROLE_STATUS：0 Active=success / 1 Inactive=warning）。 */
-const ROLE_STATUS_TONES: Record<number, 'success' | 'warning'> = {
+/** Role status badge tones (PROTO_ROLE_STATUS: 0 Active=success / 1 Inactive=muted). */
+const ROLE_STATUS_TONES: Record<number, 'success' | 'muted'> = {
   0: 'success',
-  1: 'warning',
+  1: 'muted',
 };
 
-/** 删除确认（原型 ROLE_ACTION_CONFIG.delete 文案逐字；启停无端点未提供）。 */
+/** Delete confirmation (prototype ROLE_ACTION_CONFIG.delete copy verbatim;
+ * activate/deactivate have no endpoint and are not provided). */
 const ROLE_DELETE_CONFIG = {
   title: 'Delete Role',
   body1: (name: string, code: string) => `Delete role "${name}" (${code})?`,
@@ -131,8 +131,55 @@ const ROLE_DELETE_CONFIG = {
   confirmLabel: 'Delete',
 } as const;
 
-/** 路由 query 中的角色 ID → 正整数；非法 → undefined。 */
+/** Built-in marker badge (admin system-pages RoleBuiltInBadge parity). */
+function RoleBuiltInBadge() {
+  return (
+    <Badge variant="mute" size="sm" className="shrink-0 gap-1">
+      <ShieldCheck className="size-3" aria-hidden="true" />
+      Built-in
+    </Badge>
+  );
+}
 
+/** Detail card shell (admin system-pages DetailCard / menu-pages parity):
+ * bordered card with a titled header row and a padded body. */
+function DetailCard({
+  title,
+  description,
+  action,
+  className,
+  children,
+}: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      className={cn(
+        'overflow-hidden rounded-lg border border-border/60 bg-card',
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border/50 px-4 py-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold leading-5">{title}</h2>
+          {description ? (
+            <p className="mt-0.5 text-xs leading-4 text-muted-foreground">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        {action}
+      </div>
+      <div className="p-4">{children}</div>
+    </section>
+  );
+}
+
+/** Role ID in the route query → positive integer; invalid → undefined. */
 function parseRoleId(raw: string | null): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
@@ -140,10 +187,11 @@ function parseRoleId(raw: string | null): number | undefined {
 }
 
 /* ================================================================== */
-/* 菜单勾选树（源 el-tree show-checkbox / check-strictly=false 等价）   */
+/* Menu check tree (source el-tree show-checkbox / check-strictly=false) */
 /* ================================================================== */
 
-/** 收集树中叶子节点（无 children 或为空）的 menuId（源 filterLeafIds 的 walk）。 */
+/** Collect leaf menuIds (nodes without children) from the tree (source
+ * filterLeafIds walk). */
 function menuLeafIds(nodes: MenuTree[]): number[] {
   const out: number[] = [];
   const walk = (list: MenuTree[]) => {
@@ -156,14 +204,15 @@ function menuLeafIds(nodes: MenuTree[]): number[] {
   return out;
 }
 
-/** 子树全部叶子 id（父节点级联勾选/取消的目标集合）。 */
+/** All leaf ids of a subtree (targets of a parent's cascading check/uncheck). */
 function subtreeLeafIds(node: MenuTree): number[] {
   return menuLeafIds([node]);
 }
 
 /**
- * 节点勾选态派生（el-tree check-strictly=false）：
- * 叶子 = 自身是否勾选；父节点 = 全部后代勾选(full) / 部分勾选(indeterminate) / 无。
+ * Node check state derivation (el-tree check-strictly=false):
+ * leaf = itself checked; parent = all descendants checked (full) /
+ * some checked (indeterminate) / none.
  */
 function menuNodeState(
   node: MenuTree,
@@ -184,8 +233,10 @@ function menuNodeState(
 }
 
 /**
- * 保存收集：等价源 `getCheckedKeys(false) + getHalfCheckedKeys()` 去重并集，
- * 即「叶子自身勾选，或子树含勾选后代」的全部节点 id（父级随子级权限一并上送）。
+ * Save collection: equivalent to the source
+ * `getCheckedKeys(false) + getHalfCheckedKeys()` deduplicated union, i.e.
+ * every node id that is "a checked leaf, or has checked descendants"
+ * (parents are submitted along with their children's permissions).
  */
 function collectAssignedMenuIds(
   nodes: MenuTree[],
@@ -204,7 +255,7 @@ function collectAssignedMenuIds(
   return out;
 }
 
-/** 勾选树节点（源 default-expand-all：整树平铺渲染）。 */
+/** Checkable tree node (source default-expand-all: whole tree flat-rendered). */
 function MenuCheckNode({
   node,
   checked,
@@ -232,14 +283,16 @@ function MenuCheckNode({
           onCheckedChange={() => onToggle?.(node)}
         />
         <span className="text-sm">{node.menuName}</span>
-        {/* 半选父节点轻量标记（勾选态纯派生，只做视觉差异）。 */}
+        {/* Lightweight marker for half-checked parents (state is purely
+         * derived; this is a visual differentiator only). */}
         {!full && indeterminate && (
           <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
             Partial
           </span>
         )}
       </label>
-      {/* 子层级连接引导线：层级缩进由嵌套容器承载（每级约 20px，单色）。 */}
+      {/* Child-level connector line: hierarchy indentation is carried by the
+       * nested container (~20px per level, single color). */}
       {children.length > 0 && (
         <div className="ml-[10px] border-l border-border/60 pl-[10px]">
           {children.map((child) => (
@@ -258,13 +311,15 @@ function MenuCheckNode({
 }
 
 /* ================================================================== */
-/* 分配菜单弹窗（源 openAssign / onAssign 1:1）                        */
+/* Assign menu dialog (source openAssign / onAssign 1:1)               */
 /* ================================================================== */
 
 /**
- * 分配菜单（源 el-dialog「分配菜单:<角色名>」）。
- * 回显：后端 menuIds 仅取叶子集合勾选（父键会级联误勾全部子节点，
- * 父节点勾选/半选态由树自身派生）；保存：全勾 + 半选并集上送。
+ * Assign menus (source el-dialog "Assign Menu:<roleName>").
+ * Echo: the backend menuIds only checks the leaf set (parent keys would
+ * cascade-check every child; parent check/indeterminate states are derived
+ * by the tree itself); save: the union of fully checked + half-checked is
+ * submitted.
  */
 function AssignMenuDialog({
   role,
@@ -292,9 +347,11 @@ function AssignMenuDialog({
   );
   const [confirmClearOpen, setConfirmClearOpen] = React.useState(false);
 
-  // 回显：源 filterLeafIds —— 仅叶子节点进 setCheckedKeys；父节点勾选/半选态
-  // 由树派生。data 随 query key（roleId）切换重置为 undefined，先走 loading 骨架，
-  // 不会串显上一角色勾选态（与源 el-tree 保留旧态直至 setCheckedKeys 一致）。
+  // Echo: source filterLeafIds — only leaf nodes enter setCheckedKeys; parent
+  // check/indeterminate states are derived by the tree. data resets to
+  // undefined when the query key (roleId) switches, so the loading skeleton
+  // shows first and the previous role's check state never leaks (same as the
+  // source el-tree keeping the old state until setCheckedKeys).
   React.useEffect(() => {
     if (menuIdsQuery.data) {
       setCheckedIds(
@@ -303,7 +360,8 @@ function AssignMenuDialog({
     }
   }, [menuIdsQuery.data, leafIdSet]);
 
-  /** 勾选/取消节点：叶子切换自身；父节点级联整棵子树（源 check-strictly=false）。 */
+  /** Check/uncheck a node: leaves toggle themselves; parents cascade the whole
+   * subtree (source check-strictly=false). */
   const onToggleNode = React.useCallback((node: MenuTree) => {
     const leaves = subtreeLeafIds(node);
     setCheckedIds((prev) => {
@@ -331,7 +389,8 @@ function AssignMenuDialog({
     );
   };
 
-  /** 源 onAssign：勾选并集为空时先走「清空菜单」二次确认。 */
+  /** Source onAssign: an empty selection union goes through the "clear menus"
+   * second confirmation first. */
   const onAssign = () => {
     const menuIds = collectAssignedMenuIds(tree, checkedIds);
     if (menuIds.length === 0) {
@@ -417,11 +476,13 @@ function AssignMenuDialog({
 }
 
 /* ================================================================== */
-/* 列表页（源筛选：角色编码/角色名称；操作：编辑/分配菜单/删除）      */
+/* List page (source filters: role code / role name; actions: edit /    */
+/* assign menus / delete)                                               */
 /* ================================================================== */
 
-/** 筛选表单校验（源无格式校验；空值=不过滤）。
- *  roleType 不上送：RoleListReq 无该参数（GAP-GW-07 族）——列表页本地过滤当前页。 */
+/** Filter form validation (source has none; empty = no filtering).
+ *  roleType is not submitted: RoleListReq has no such parameter (GAP-GW-07
+ *  family) — the list page filters the current page locally. */
 const roleFilterSchema = z.object({
   roleCode: z.string(),
   roleName: z.string(),
@@ -437,7 +498,8 @@ const ROLE_FILTER_DEFAULT: RoleFilterForm = {
   status: OPT_ALL,
 };
 
-/** RHF 筛选表单 → 后端 RoleListReq（空串 → 不传该字段=不过滤）。 */
+/** RHF filter form → backend RoleListReq (empty string → field omitted = no
+ * filtering). */
 function formToFilter(form: RoleFilterForm): RoleListReq {
   return {
     roleCode: form.roleCode || undefined,
@@ -471,8 +533,9 @@ export function RoleListPage() {
       filter,
     });
 
-  /* STATIC-FILLER(GAP-GW-07): 角色计数无聚合端点——pageSize 200 全量拉取本地计数
-   * （>200 角色时 Active/Inactive 低估，Total 取 pagination.total）。 */
+  /* STATIC-FILLER(GAP-GW-07): no role count aggregate endpoint — a pageSize
+   * 200 full pull counts locally (Active/Inactive under-estimate beyond 200
+   * roles; Total comes from pagination.total). */
   const { data: statsPage } = useRolePageQuery(KISSEN_GATEWAY_PROJECT_ID, {
     pageNum: 1,
     pageSize: 200,
@@ -524,7 +587,7 @@ export function RoleListPage() {
     setAppliedRoleType(OPT_ALL);
     setPageNum(1);
   }, [reset]);
-  /** 统计卡数据（原型 Total Roles / Active / Inactive）。 */
+  /** Stat card data (prototype Total Roles / Active / Inactive). */
   const stats = React.useMemo(() => {
     const list = statsPage?.data ?? [];
     return {
@@ -535,13 +598,14 @@ export function RoleListPage() {
   }, [statsPage]);
 
 
-  /** 源 openAssign：打开分配菜单弹窗（回显走 /role/menuIds/:roleId）。 */
+  /** Source openAssign: opens the assign menu dialog (echo via /role/menuIds/:roleId). */
   const onAssignRow = React.useCallback((row: RoleRow) => {
     setAssignTarget(row);
     setAssignOpen(true);
   }, []);
 
-  /** 源 onDelete：内置角色（roleType=0）直接拦截，不发请求、不弹确认。 */
+  /** Source onDelete: built-in roles (roleType=0) are blocked outright — no
+   * request, no confirmation. */
   const onDeleteClick = React.useCallback(
     (row: RoleRow) => {
       if (row.roleType === ROLE_TYPE_BUILTIN) {
@@ -553,7 +617,7 @@ export function RoleListPage() {
     [toast],
   );
 
-  /** 源 ElMessageBox.confirm 确认后 roleApi.remove → 「删除成功」→ 重载列表。 */
+  /** After the source ElMessageBox.confirm: roleApi.remove → "deleted" → reload list. */
   const onConfirmDelete = React.useCallback(() => {
     if (!deleteTarget) return;
     removeMutation.mutate(deleteTarget.roleId, {
@@ -563,7 +627,8 @@ export function RoleListPage() {
     setDeleteTarget(null);
   }, [deleteTarget, removeMutation, toast]);
 
-  /* 排序 + Type 过滤：服务端 /role/page 无排序与 roleType 参数——当前页内处理。 */
+  /* Sorting + Type filter: the server /role/page has neither sorting nor a
+   * roleType parameter — handled within the current page. */
   const sortAccessors = React.useMemo<
     Record<string, (r: RoleRow) => string | number | null | undefined>
   >(
@@ -592,7 +657,7 @@ export function RoleListPage() {
     [sortedRows],
   );
 
-  /** Type / Status 筛选 options。 */
+  /** Type / Status filter options. */
   const typeSelectOptions = React.useMemo(
     () => [
       { value: OPT_ALL, label: 'All' },
@@ -611,7 +676,8 @@ export function RoleListPage() {
     [],
   );
 
-  /** 列集对齐 BP 原型 COLUMNS（首列两行：Role Name + Built-in 徽章 / Role Code）。 */
+  /** Column set aligned with the prototype COLUMNS (first cell is two lines:
+   * Role Name + Built-in badge / Role Code). */
   const columns = React.useMemo<ColumnDef<RoleRow & { id: string }>[]>(() => {
     return [
       {
@@ -630,14 +696,9 @@ export function RoleListPage() {
             <div className="flex min-w-0 flex-col gap-0.5">
               <div className="flex min-w-0 items-center gap-1.5">
                 <span className="truncate font-semibold">{r.roleName}</span>
-                {builtIn && (
-                  <Badge variant="outline" className="shrink-0 gap-1">
-                    <ShieldCheck className="size-3" aria-hidden="true" />
-                    Built-in
-                  </Badge>
-                )}
+                {builtIn ? <RoleBuiltInBadge /> : null}
               </div>
-              <span className="block truncate text-xs text-muted-foreground">
+              <span className="block truncate font-mono text-xs text-muted-foreground">
                 {r.roleCode || '-'}
               </span>
             </div>
@@ -654,16 +715,17 @@ export function RoleListPage() {
           />
         ),
         cell: ({ row }) => (
-          <Badge variant={roleTypeVariant(row.original.roleType)}>
-            {roleTypeText(row.original.roleType)}
-          </Badge>
+          <span>{roleTypeText(row.original.roleType)}</span>
         ),
       },
       {
         id: 'description',
         header: 'Description',
         cell: ({ row }) => (
-          <span className="line-clamp-2 max-w-[280px]">
+          <span
+            className="block max-w-[320px] truncate"
+            title={row.original.remarks ?? undefined}
+          >
             {orDash(row.original.remarks)}
           </span>
         ),
@@ -672,7 +734,7 @@ export function RoleListPage() {
         id: 'createdAt',
         header: 'Created on',
         cell: ({ row }) => (
-          <span className="whitespace-nowrap tabular-nums">
+          <span className="tabular-nums">
             {formatUtc8(row.original.createTime)}
           </span>
         ),
@@ -717,15 +779,16 @@ export function RoleListPage() {
                     variant="ghost"
                     size="icon"
                     className="size-8"
-                    aria-label="More actions"
+                    aria-label={`More actions for ${r.roleName}`}
                   >
                     <MoreVertical className="size-4" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {/* 原型 menuActionsFor：内置角色仅 Assign Menus；自定义角色
-                      Edit/Assign Menus/Delete。原型 Activate/Deactivate 因
-                      RoleUpdateReq 无 status 字段（无端点）不提供。 */}
+                  {/* Prototype menuActionsFor: built-in roles only get Assign
+                   * Menus; custom roles get Edit/Assign Menus/Delete. The
+                   * prototype Activate/Deactivate is not provided because
+                   * RoleUpdateReq has no status field (no endpoint). */}
                   {!builtIn && (
                     <DropdownMenuItem
                       onClick={() =>
@@ -740,7 +803,7 @@ export function RoleListPage() {
                   </DropdownMenuItem>
                   {!builtIn && (
                     <DropdownMenuItem
-                      className="text-destructive"
+                      className="text-destructive focus:text-destructive"
                       onClick={() => onDeleteClick(r)}
                     >
                       Delete
@@ -755,7 +818,8 @@ export function RoleListPage() {
     ];
   }, [onDeleteClick, onAssignRow, router, sort, toggle]);
 
-  /* 列偏好：required 列恒显，其余按用户选择过滤。 */
+  /* Column preferences: required columns are always visible, the rest follow
+   * the user's selection. */
   const visibleColumns = React.useMemo(
     () =>
       filterVisibleColumns(
@@ -768,32 +832,58 @@ export function RoleListPage() {
 
   return (
     <div className="space-y-4">
-      {/* 页头（原型 PageHeader：标题 + 描述）。 */}
-      <div>
-        <h1 className="text-xl font-semibold">Role Management</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage roles, their status, and the menus they grant to users.
-        </p>
+      {/* Page header (admin ListPageHeader parity: title + description +
+       * primary action). */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold leading-7">Role Management</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Roles group menus into reusable authorization profiles.
+          </p>
+        </div>
+        {/* Source v-perm 'bank:role:manage': not rendered unless menuKeys match. */}
+        {hasPerm('bank:role:manage') ? (
+          <div className="flex items-center gap-2">
+            <Button onClick={() => router.push(`${ROLE_BASE}/create`)}>
+              <Plus className="size-4" aria-hidden="true" />
+              Add Role
+            </Button>
+          </div>
+        ) : null}
       </div>
 
-      {/* 统计卡（原型 StatGrid：Total Roles / Active / Inactive）。 */}
+      {/* Stat cards (admin StatGrid parity: Total Roles / Active / Inactive
+       * with help footnotes). */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total Roles" value={stats.total} tone="success" />
-        <StatCard label="Active" value={stats.active} tone="success" />
-        <StatCard label="Inactive" value={stats.inactive} tone="warning" />
+        <StatCard
+          label="Total Roles"
+          value={stats.total}
+          tone="primary"
+          help="All roles defined in the system."
+        />
+        <StatCard
+          label="Active"
+          value={stats.active}
+          tone="success"
+          help="Effective authorization sources."
+        />
+        <StatCard
+          label="Inactive"
+          value={stats.inactive}
+          tone="warning"
+          help="Suspended from authorization."
+        />
       </div>
 
       <section className="rounded-lg border border-border/60 bg-card">
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-            <div className="text-base font-semibold leading-6 text-foreground">
-              Roles
-            </div>
-            {data && (
+            <h2 className="text-base font-semibold leading-6">Roles</h2>
+            {!isLoading && paginationMeta ? (
               <span className="text-sm text-muted-foreground tabular-nums">
-                {paginationMeta?.total ?? 0} results
+                {paginationMeta.total} results
               </span>
-            )}
+            ) : null}
             {dataUpdatedAt ? (
               <span className="text-xs text-muted-foreground tabular-nums">
                 Updated {formatUtc8(dataUpdatedAt)}
@@ -807,16 +897,11 @@ export function RoleListPage() {
               onColumnVisibilityChange={columnPreferences.setColumnVisible}
               onReset={columnPreferences.resetColumns}
             />
-            {/* 源 v-perm="'bank:role:manage'"：未命中 menuKeys 即不渲染。 */}
-            {hasPerm('bank:role:manage') && (
-              <Button onClick={() => router.push(`${ROLE_BASE}/create`)}>
-                Create Role
-              </Button>
-            )}
           </div>
         </div>
 
-        {/* Search 提交服务端条件与本地 Type 过滤；Reset 清空并返回第一页。 */}
+        {/* Search submits the server conditions and the local Type filter;
+         * Reset clears everything and returns to the first page. */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -893,7 +978,8 @@ export function RoleListPage() {
         onOpenChange={setAssignOpen}
       />
 
-      {/* 删除确认（原型 ROLE_ACTION_CONFIG.delete 文案逐字；ActionConfirmDialog）。 */}
+      {/* Delete confirmation (prototype ROLE_ACTION_CONFIG.delete copy
+       * verbatim; ActionConfirmDialog). */}
       <ActionConfirmDialog
         open={deleteTarget != null}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
@@ -919,10 +1005,10 @@ export function RoleListPage() {
 }
 
 /* ================================================================== */
-/* 新建/编辑页（源新增/编辑弹窗表单）                                   */
+/* Create/edit page (source add/edit dialog form)                       */
 /* ================================================================== */
 
-/** 表单校验（源 FormRules：编码/名称必填，trigger=blur）。 */
+/** Form validation (source FormRules: code/name required, trigger=blur). */
 const roleFormSchema = z.object({
   roleCode: z.string().min(1, { message: 'Please enter a role code' }),
   roleName: z.string().min(1, { message: 'Please enter a role name' }),
@@ -936,7 +1022,8 @@ const ROLE_FORM_DEFAULT: RoleFormValues = {
   remarks: '',
 };
 
-/** 角色表单（源 el-dialog 表单；编辑时 roleCode 禁用，roleName/remarks 可改）。 */
+/** Role form (source el-dialog form; roleCode disabled while editing,
+ * roleName/remarks editable). */
 function RoleForm({
   roleId,
   initial,
@@ -951,10 +1038,10 @@ function RoleForm({
   const updateMutation = useUpdateRoleMutation(KISSEN_GATEWAY_PROJECT_ID);
   const pending = saveMutation.isPending || updateMutation.isPending;
 
-  const { register, handleSubmit, formState } = useForm<RoleFormValues>({
+  const { register, handleSubmit, formState, watch } = useForm<RoleFormValues>({
     resolver: createFormResolver(roleFormSchema),
     mode: 'onTouched',
-    // 源 openEdit 预填：roleCode/roleName/remarks（remarks 空值归一为 ''）。
+    // Source openEdit prefill: roleCode/roleName/remarks (remarks empty → '').
     defaultValues: initial
       ? {
           roleCode: initial.roleCode,
@@ -963,10 +1050,13 @@ function RoleForm({
         }
       : ROLE_FORM_DEFAULT,
   });
+  const roleCodeValue = watch('roleCode');
+  const roleNameValue = watch('roleName');
+  const remarksValue = watch('remarks');
 
   const onSubmit = handleSubmit((v) => {
     if (isEdit) {
-      // 源编辑：仅上送 {roleId, roleName, remarks}（roleCode 不可改）。
+      // Source edit: only {roleId, roleName, remarks} is submitted (roleCode immutable).
       updateMutation.mutate(
         { roleId: roleId as number, roleName: v.roleName, remarks: v.remarks },
         {
@@ -978,7 +1068,7 @@ function RoleForm({
         },
       );
     } else {
-      // 源新建：{...form} 三字段全量（空 remarks 原样上送）。
+      // Source create: all three fields from {...form} (empty remarks as-is).
       saveMutation.mutate(
         { roleCode: v.roleCode, roleName: v.roleName, remarks: v.remarks },
         {
@@ -995,64 +1085,105 @@ function RoleForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="space-y-5 rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
+      className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]"
     >
-      <div className="max-w-[420px] space-y-1">
-        <FormField
-          name="roleCode"
-          label="Role Code"
-          required
-          disabled={isEdit}
-          placeholder="e.g. ROLE_OPS, unique"
-          error={formState.errors.roleCode?.message}
-          register={register('roleCode')}
-        />
-        {isEdit && (
-          <p className="text-xs text-muted-foreground">
-            Role code cannot be changed after creation
+      <div className="min-w-0">
+        <DetailCard title="Basic Information">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <FormField
+                name="roleCode"
+                label="Role Code"
+                required
+                disabled={isEdit}
+                placeholder="Unique code (immutable after creation)"
+                error={formState.errors.roleCode?.message}
+                register={register('roleCode')}
+              />
+              {isEdit && (
+                <p className="text-xs text-muted-foreground">
+                  Role Code is immutable after creation.
+                </p>
+              )}
+            </div>
+            <FormField
+              name="roleName"
+              label="Role Name"
+              required
+              className="sm:col-span-2"
+              placeholder="Shown in role lists and user assignment"
+              error={formState.errors.roleName?.message}
+              register={register('roleName')}
+            />
+            <div className="space-y-1.5 sm:col-span-2">
+              <label
+                htmlFor="field-remarks"
+                className="block text-sm font-medium leading-snug text-foreground"
+              >
+                Description
+              </label>
+              <Textarea
+                id="field-remarks"
+                rows={3}
+                placeholder="What this role is for (optional)"
+                {...register('remarks')}
+              />
+            </div>
+          </div>
+        </DetailCard>
+      </div>
+      <aside className="space-y-4">
+        <section className="rounded-lg border border-border/60 bg-card p-4">
+          <h2 className="text-sm font-medium">Preview</h2>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Role profile.
+          </div>
+          <div className="mt-3 min-w-0">
+            <div className="truncate text-sm font-semibold">
+              {roleNameValue.trim() || 'Role Name'}
+            </div>
+            <div className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+              {roleCodeValue.trim() || 'Role Code'}
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/50 pt-3 text-sm">
+            <span className="font-medium">Type</span>
+            <Badge variant="secondary">
+              {initial?.roleType === ROLE_TYPE_BUILTIN ? 'Built-in' : 'Custom'}
+            </Badge>
+          </div>
+          <p className="mt-3 border-t border-border/50 pt-3 text-xs leading-5 text-muted-foreground">
+            {remarksValue.trim() || 'No description provided.'}
           </p>
-        )}
-      </div>
-      <FormField
-        name="roleName"
-        label="Role Name"
-        required
-        className="max-w-[420px]"
-        error={formState.errors.roleName?.message}
-        register={register('roleName')}
-      />
-      <div className="max-w-[420px] space-y-1.5">
-        <label
-          htmlFor="field-remarks"
-          className="mb-1.5 block text-sm font-medium text-foreground"
-        >
-          Remarks
-        </label>
-        <Textarea id="field-remarks" rows={2} {...register('remarks')} />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={pending}>
-          {pending && <Loader2 className="animate-spin" />}
-          Save
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.push(ROLE_BASE)}
-        >
-          Cancel
-        </Button>
-      </div>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
+            Menu access can be assigned from the role details page.
+          </p>
+        </section>
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push(ROLE_BASE)}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" loading={pending}>
+            Save
+          </Button>
+        </div>
+      </aside>
     </form>
   );
 }
 
-/** 角色管理 — 新建/编辑（源弹窗 → 独立路由页；编辑按 ?id= 拉详情回填）。 */
+/** Role management — create/edit (source dialogs → standalone route pages;
+ * edit pulls the detail by ?id= to prefill). */
 export function RoleFormPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const rawId = searchParams.get('id');
   const roleId = parseRoleId(rawId);
-  // edit 路由但 id 缺失/非法时必须显式兜底（不能回落成新建）。
+  // An edit route with a missing/invalid id must fall back explicitly (never into create).
   const isEditRoute = rawId != null;
 
   const detailQuery = useRoleDetailQuery(
@@ -1063,21 +1194,46 @@ export function RoleFormPage() {
 
   return (
     <div className="space-y-4">
-      <PageHead variant="toolbar" title={isEditRoute ? 'Edit Role' : 'Create Role'} />
+      {/* Form page header (admin FormPageHeader parity: back + title + description). */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Button
+            variant="outline"
+            size="iconSm"
+            aria-label="Back to Role List"
+            onClick={() => router.push(ROLE_BASE)}
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </Button>
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold leading-7">
+              {isEditRoute ? 'Edit Role' : 'Add Role'}
+            </h1>
+            {isEditRoute ? (
+              detailQuery.data ? (
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Update the profile of role {detailQuery.data.roleCode}.
+                </p>
+              ) : null
+            ) : (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                A new role is created as a custom role and starts without any
+                menu access.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
       {!isEditRoute ? (
         <RoleForm />
       ) : roleId == null ? (
         <MissingIdBlock message="Missing a valid role ID" backTo={ROLE_BASE} />
       ) : detailQuery.isLoading ? (
-        <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full max-w-[420px]" />
-            <Skeleton className="h-10 w-full max-w-[420px]" />
-            <Skeleton className="h-16 w-full max-w-[420px]" />
-          </div>
+        <div className="rounded-lg border border-border/60 bg-card p-4">
+          <LoadingBlock variant="skeleton" />
         </div>
       ) : detailQuery.isError ? (
-        <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+        <div className="rounded-lg border border-border/60 bg-card p-4">
           <ErrorBlock
             message={(detailQuery.error as Error).message}
             onRetry={() => detailQuery.refetch()}
@@ -1091,10 +1247,11 @@ export function RoleFormPage() {
 }
 
 /* ================================================================== */
-/* 详情页（GET /role/detail/:roleId 只读视图）                          */
+/* Detail page (GET /role/detail/:roleId read-only view)                */
 /* ================================================================== */
 
-/** 角色管理 — 详情（字段 + 已分配菜单只读勾选树，回显口径与分配弹窗一致）。 */
+/** Role management — details (fields + read-only assigned menu check tree;
+ * echo semantics match the assign dialog). */
 export function RoleDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1108,29 +1265,33 @@ export function RoleDetailPage() {
   const detail = detailQuery.data;
   const tree = menuTreeQuery.data ?? [];
   const leafIdSet = React.useMemo(() => new Set(menuLeafIds(tree)), [tree]);
-  // 回显口径同源 filterLeafIds：父级勾选态由树派生，不直接勾父键。
+  // Echo semantics match source filterLeafIds: parent check states are derived
+  // by the tree, parent keys are never checked directly.
   const checkedIds = React.useMemo(
     () =>
       new Set((detail?.menuIds ?? []).filter((id) => leafIdSet.has(id))),
     [detail?.menuIds, leafIdSet],
   );
+  const isBuiltIn = detail?.roleType === ROLE_TYPE_BUILTIN;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <div className="space-y-4">
+      {/* Detail header (admin role detail parity: back + name/status title +
+       * code/created metadata + actions). */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <Button
             variant="outline"
-            size="icon"
-            aria-label="Back to list"
+            size="iconSm"
+            aria-label="Back to Role List"
             onClick={() => router.push(ROLE_BASE)}
           >
-            <ChevronLeft className="size-4" aria-hidden="true" />
+            <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
-          <div className="min-w-0">
+          <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold leading-7 text-foreground">
-                Role Details
+              <h1 className="text-xl font-semibold leading-7">
+                {detail?.roleName ?? 'Role Details'}
               </h1>
               {detail ? (
                 <ProtoStatusBadge
@@ -1139,27 +1300,33 @@ export function RoleDetailPage() {
                 />
               ) : null}
             </div>
-            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              <span>
-                Role Code:{' '}
-                <span className="font-medium text-foreground">
-                  {detail?.roleCode ?? '-'}
-                </span>
+            <p className="text-sm text-muted-foreground">
+              Role Code:{' '}
+              <b className="font-mono font-semibold text-foreground">
+                {detail?.roleCode ?? '-'}
+              </b>
+              {' | '}Created on{' '}
+              <span className="tabular-nums">
+                {formatUtc8(detail?.createTime)}
               </span>
-              <span aria-hidden="true">|</span>
-              <span>
-                Created on{' '}
-                <span className="font-medium tabular-nums text-foreground">
-                  {formatUtc8(detail?.createTime)}
-                </span>
-              </span>
-            </div>
+            </p>
           </div>
         </div>
         {detail && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {/* 原型还有 Deactivate/Activate/Edit Role/Delete；本仓角色启停无端点
-                （RoleUpdateReq 无 status），编辑走列表 ⋮，删除回列表操作。 */}
+          <div className="flex items-center gap-2">
+            {/* The prototype also has Deactivate/Activate/Edit Role/Delete;
+             * this repo has no role enable/disable endpoint (RoleUpdateReq has
+             * no status), and delete runs from the list row actions. */}
+            {!isBuiltIn && (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  router.push(`${ROLE_BASE}/edit?id=${detail.roleId}`)
+                }
+              >
+                Edit
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setAssignOpen(true)}>
               Assign Menus
             </Button>
@@ -1170,48 +1337,60 @@ export function RoleDetailPage() {
       {roleId == null ? (
         <MissingIdBlock message="Missing a valid role ID" backTo={ROLE_BASE} />
       ) : detailQuery.isLoading ? (
-        <div className="rounded-lg border border-border/60 bg-card p-6">
+        <section className="rounded-lg border border-border/60 bg-card p-4">
           <LoadingBlock />
-        </div>
+        </section>
       ) : detailQuery.isError ? (
-        <div className="rounded-lg border border-border/60 bg-card p-6">
+        <section className="rounded-lg border border-border/60 bg-card p-4">
           <ErrorBlock
             message={(detailQuery.error as Error).message}
             onRetry={() => detailQuery.refetch()}
           />
-        </div>
+        </section>
       ) : detail ? (
         <>
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-            <section className="rounded-lg border border-border/60 bg-card p-5">
-              <h2 className="mb-4 text-sm font-semibold text-foreground">
-                Basic Information
-              </h2>
-              <DescGrid>
-                <DescField label="Role Name">{detail.roleName}</DescField>
+          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+            <DetailCard title="Basic Information">
+              <DescGrid cols={1} className="gap-y-4">
+                <DescField label="Role Code">
+                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                    {detail.roleCode}
+                  </code>
+                </DescField>
+                <DescField label="Role Name">
+                  <span className="flex items-center gap-2">
+                    <span className="font-medium">{detail.roleName}</span>
+                    {isBuiltIn ? <RoleBuiltInBadge /> : null}
+                  </span>
+                </DescField>
                 <DescField label="Type">
-                  <Badge variant={roleTypeVariant(detail.roleType)}>
-                    {roleTypeText(detail.roleType)}
-                  </Badge>
+                  {roleTypeText(detail.roleType)}
                 </DescField>
                 <DescField label="Description">
                   {orDash(detail.remarks)}
                 </DescField>
               </DescGrid>
-            </section>
+            </DetailCard>
 
-            {/* STATIC-FILLER(GAP-GW-07): 原型 Role Activity（Assigned Users 头像
-                chip 列）依赖「角色→用户」反查接口，本仓无该端点，卡片整体省略。 */}
-
-            <section className="rounded-lg border border-border/60 bg-card p-5 lg:col-span-2">
-              <div className="mb-4 flex items-baseline gap-3">
-                <h2 className="text-sm font-semibold text-foreground">
-                  Assigned Menus
-                </h2>
-                <span className="text-xs text-muted-foreground tabular-nums">
+            <DetailCard title="Role Activity">
+              <DescGrid cols={1}>
+                <DescField label="Created on">
+                  <span className="tabular-nums">
+                    {formatUtc8(detail.createTime)}
+                  </span>
+                </DescField>
+              </DescGrid>
+            </DetailCard>
+            <DetailCard
+              title="Assigned Menus"
+              description="Menu access granted to users with this role."
+              className="md:col-span-2"
+              action={
+                <Badge variant="mute" size="sm">
                   {checkedIds.size} menus
-                </span>
-              </div>
+                </Badge>
+              }
+            >
               {menuTreeQuery.isLoading ? (
                 <LoadingBlock />
               ) : checkedIds.size === 0 ? (
@@ -1219,7 +1398,7 @@ export function RoleDetailPage() {
                   No assigned menus
                 </div>
               ) : (
-                <div className="max-h-72 overflow-y-auto">
+                <div className="max-h-96 overflow-y-auto rounded-md border p-2">
                   {tree.map((node) => (
                     <MenuCheckNode
                       key={node.menuId}
@@ -1230,10 +1409,11 @@ export function RoleDetailPage() {
                   ))}
                 </div>
               )}
-            </section>
+            </DetailCard>
           </div>
 
-          {/* 分配菜单（保留源弹窗形态：回显 /role/menuIds，保存 assign-menu）。 */}
+          {/* Assign menus (keeps the source dialog shape: echo /role/menuIds,
+           * save assign-menu). */}
           <AssignMenuDialog
             role={detail}
             open={assignOpen}

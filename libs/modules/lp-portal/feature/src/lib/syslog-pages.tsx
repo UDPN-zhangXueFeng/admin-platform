@@ -14,17 +14,16 @@
  * - 详情：单层页头 → 单卡 Request；参数区保留，`operateParam` 有值时脱敏展示、缺省为 `-`；
  *   仅在 `errorMsg` 非空时显示 Error Info。
  *
- * 仓库体系映射：shared DataTable + useProtoSort + ProtoStatusBadge +
- * CopyableId + formatUtc8/formatDuration；时间列头 (UTC+8)。
+ * CopyableId + formatUtc8; 时间列头 (UTC+8)。
  */
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { type ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Search } from 'lucide-react';
 
-import { Badge, Button, DataTable } from '@myorg/shared/ui';
-import { FormField, FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
+import { Badge, Button, DataTable, Input } from '@myorg/shared/ui';
+import { FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
@@ -35,7 +34,7 @@ import {
   type LogRow,
 } from '@myorg/modules/lp-portal/data-access';
 
-import { formatDuration, formatUtc8 } from './proto-format';
+import { formatUtc8 } from './proto-format';
 import { CopyableId, Dash, ProtoStatusBadge } from './proto-ui';
 import { LP_LOG_RESULT_MAP } from './proto-enums';
 import { ProtoSortHeader, useProtoSort } from './proto-sort';
@@ -74,7 +73,6 @@ const LOG_RESULT_OPTIONS: SelectOption[] = [
 ];
 
 const LBL = {
-  eyebrow: 'SYSTEM',
   title: 'Operation Logs',
   query: 'Search',
   reset: 'Reset',
@@ -158,9 +156,6 @@ function redactLogParams(raw: string | null | undefined): string {
   }
 }
 
-function logModuleLabel(module?: string): string | undefined {
-  return module?.toUpperCase() === 'LOGIN' ? '登录管理' : module;
-}
 
 /* ================================================================== */
 /* 单元渲染                                                             */
@@ -217,12 +212,6 @@ function ResultBadge({ status }: { status: number }) {
   );
 }
 
-/** 数值文本（源 .num 类：等宽字体 + 表格数字对齐）。 */
-function Num({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="font-mono text-xs tabular-nums">{children}</span>
-  );
-}
 
 /* ================================================================== */
 /* 列表页                                                               */
@@ -330,7 +319,15 @@ export function SyslogListPage() {
       {
         accessorKey: 'module',
         header: 'Module',
-        cell: ({ row }) => <Dash value={row.original.module} />,
+        cell: ({ row }) => (
+          <Dash
+            value={
+              row.original.module?.toUpperCase() === 'LOGIN'
+                ? 'Login Management'
+                : row.original.module
+            }
+          />
+        ),
       },
       {
         accessorKey: 'businessType',
@@ -364,13 +361,11 @@ export function SyslogListPage() {
           </div>
         ),
         cell: ({ row }) => (
-          <div className="text-right">
-            <Num>
-              {row.original.costTime != null
-                ? formatDuration(row.original.costTime)
-                : '-'}
-            </Num>
-          </div>
+          <span className="block whitespace-nowrap text-right tabular-nums">
+            {row.original.costTime != null
+              ? `${row.original.costTime} ms`
+              : '-'}
+          </span>
         ),
       },
       {
@@ -410,107 +405,121 @@ export function SyslogListPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          {LBL.eyebrow}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold leading-7">{LBL.title}</h1>
         </div>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-          {LBL.title}
-        </h1>
       </div>
 
-      <form
-        onSubmit={handleSubmit((f) => {
-          setParams(formToParams(f, 1));
-          setStatusFilter(f.status === ALL ? '' : f.status);
-        })}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
-        {/* 筛选顺序照原型 §18：Date Range → Operator → Module → Status */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <FormField
-            name="startTime"
-            label="Start Time"
-            type="datetime-local"
-            register={register('startTime')}
-          />
-          <FormField
-            name="endTime"
-            label="End Time"
-            type="datetime-local"
-            register={register('endTime')}
-          />
-          <FormField
-            name="operateName"
-            label="Operator"
-            placeholder="Fuzzy match"
-            register={register('operateName')}
-          />
-          <FormSelect
-            name="module"
-            control={control}
-            label="Module"
-            options={LOG_MODULE_OPTIONS}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label="Status"
-            options={LOG_RESULT_OPTIONS}
-          />
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit">{LBL.query}</Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              reset(EMPTY_FILTER);
-              setStatusFilter('');
-              setParams(formToParams(EMPTY_FILTER, 1));
-            }}
-          >
-            {LBL.reset}
-          </Button>
-        </div>
-      </form>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="flex flex-wrap items-center gap-2 border-b border-border/50 px-6 py-3">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            Operation Logs
-            <Badge variant="secondary" className="tabular-nums">
-              {total}
-            </Badge>
-            <span className="text-xs font-normal text-muted-foreground">
-              Updated {formatUtc8(listQuery.dataUpdatedAt)}
-            </span>
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="text-base font-semibold leading-6">{LBL.title}</div>
+            {!listQuery.isLoading ? (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {total} results
+              </span>
+            ) : null}
+            {listQuery.dataUpdatedAt ? (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Updated {formatUtc8(listQuery.dataUpdatedAt)}
+              </span>
+            ) : null}
           </div>
         </div>
-        <DataTable
-          columns={columns}
-          data={sorted}
-          isLoading={listQuery.isLoading}
-          emptyMessage={
-            hasFilter
-              ? 'No records found. Try changing the filters.'
-              : 'No operation logs yet.'
-          }
-          pagination={{
-            page: params.pageNum,
-            pageSize,
-            total,
-            onPageChange: (page) =>
-              setParams((prev) => ({ ...prev, pageNum: page })),
-            onPageSizeChange: (n) => {
-              setPageSize(n);
-              setParams((prev) => ({ ...prev, pageNum: 1 }));
-            },
-            pageSizeOptions: [PAGE_SIZE],
-          }}
-        />
-      </div>
+
+        <form
+          onSubmit={handleSubmit((f) => {
+            setParams(formToParams(f, 1));
+            setStatusFilter(f.status === ALL ? '' : f.status);
+          })}
+        >
+          {/* 筛选顺序照原型 §18：Date Range → Operator → Module → Status */}
+          <div className="grid grid-cols-1 gap-3 border-b border-border/50 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium leading-snug text-foreground">
+                Date Range
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="datetime-local"
+                  aria-label="Date Range from"
+                  {...register('startTime')}
+                />
+                <Input
+                  type="datetime-local"
+                  aria-label="Date Range to"
+                  {...register('endTime')}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium leading-snug text-foreground">
+                Operator
+              </label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-8"
+                  placeholder="Search operator"
+                  {...register('operateName')}
+                />
+              </div>
+            </div>
+            <FormSelect
+              name="module"
+              control={control}
+              label="Module"
+              options={LOG_MODULE_OPTIONS}
+            />
+            <FormSelect
+              name="status"
+              control={control}
+              label="Status"
+              options={LOG_RESULT_OPTIONS}
+            />
+            <div className="flex items-end gap-2">
+              <Button type="submit">{LBL.query}</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  reset(EMPTY_FILTER);
+                  setStatusFilter('');
+                  setParams(formToParams(EMPTY_FILTER, 1));
+                }}
+              >
+                {LBL.reset}
+              </Button>
+            </div>
+          </div>
+        </form>
+
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={sorted}
+            isLoading={listQuery.isLoading}
+            emptyMessage={
+              hasFilter
+                ? 'No records found. Try changing the filters.'
+                : 'No operation logs yet.'
+            }
+            pagination={{
+              page: params.pageNum,
+              pageSize,
+              total,
+              onPageChange: (page) =>
+                setParams((prev) => ({ ...prev, pageNum: page })),
+              onPageSizeChange: (n) => {
+                setPageSize(n);
+                setParams((prev) => ({ ...prev, pageNum: 1 }));
+              },
+              pageSizeOptions: [PAGE_SIZE],
+            }}
+          />
+        </div>
+      </section>
     </div>
   );
 }
@@ -532,14 +541,14 @@ function DetailField({
       <dt className="text-xs font-medium capitalize text-muted-foreground">
         {label}
       </dt>
-      <dd className="mt-1 min-w-0 break-all text-sm font-semibold">
+      <dd className="mt-1 min-w-0 break-all text-sm font-medium leading-6">
         {children}
       </dd>
     </div>
   );
 }
 
-/** 详情页头（← 返回 + 标题 + 徽章 + 元信息行）。 */
+/** 详情页头（左返回列表 + 标题 + 徽章 + 元信息行；pool/tx-flow 详情同款）。 */
 function DetailHeader({
   title,
   badge,
@@ -551,29 +560,26 @@ function DetailHeader({
 }) {
   const router = useRouter();
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex flex-wrap items-start gap-3">
       <Button
         type="button"
         variant="outline"
-        size="icon"
-        className="mt-0.5 shrink-0"
-        aria-label="Back"
-        onClick={() => router.back()}
+        size="iconSm"
+        aria-label="Back to Operation Logs"
+        onClick={() => router.push(SYSLOG_LIST_PATH)}
       >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        <ArrowLeft className="size-4" aria-hidden="true" />
       </Button>
-      <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-            {badge}
-          </div>
-          {description ? (
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              {description}
-            </div>
-          ) : null}
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold leading-7">{title}</h1>
+          {badge}
         </div>
+        {description ? (
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -595,20 +601,23 @@ export function SyslogDetailPage() {
     return (
       <div className="space-y-4">
         <DetailHeader title="Operation Details" />
-        <div className="rounded-lg border-border/60 bg-card p-10 text-center shadow-float">
-          <div className="text-sm font-semibold">Operation log not found</div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            The record may have been removed. Go back to the list.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-4"
-            onClick={() => router.push(SYSLOG_LIST_PATH)}
-          >
-            Back to Operation Logs
-          </Button>
-        </div>
+        <section className="rounded-lg border border-border/60 bg-card">
+          <div className="flex flex-col items-center justify-center gap-1.5 px-6 py-16 text-center">
+            <p className="text-sm font-medium">Operation log not found</p>
+            <p className="text-sm text-muted-foreground">
+              The record may have been removed. Go back to the list.
+            </p>
+            <div className="mt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push(SYSLOG_LIST_PATH)}
+              >
+                Back to Operation Logs
+              </Button>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
@@ -630,9 +639,9 @@ export function SyslogDetailPage() {
                 <span aria-hidden="true">|</span>
                 <span>
                   Timestamp{' '}
-                  <span className="text-foreground">
+                  <b className="font-semibold tabular-nums text-foreground">
                     {formatUtc8(row.operateTime)}
-                  </span>
+                  </b>
                 </span>
               </>
             )}
@@ -641,11 +650,17 @@ export function SyslogDetailPage() {
       />
 
       <div className="space-y-4">
-        <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
-          <h2 className="mb-4 text-sm font-semibold">Request</h2>
-          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+        <section className="rounded-lg border border-border/60 bg-card p-4 text-card-foreground shadow-float">
+          <h2 className="mb-4 text-sm font-semibold leading-5">Request</h2>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
             <DetailField label="Module">
-              <Dash value={logModuleLabel(row.module)} />
+              <Dash
+                value={
+                  row.module?.toUpperCase() === 'LOGIN'
+                    ? 'Login Management'
+                    : row.module
+                }
+              />
             </DetailField>
             <DetailField label="Business Type">
               <BizTag
@@ -671,7 +686,7 @@ export function SyslogDetailPage() {
               {row.traceId ? <CopyableId value={row.traceId} /> : '-'}
             </DetailField>
             <DetailField label="Duration">
-              {row.costTime != null ? formatDuration(row.costTime) : '-'}
+              {row.costTime != null ? `${row.costTime} ms` : '-'}
             </DetailField>
             <DetailField label="Operator">
               <Dash value={row.operateName} />
@@ -688,9 +703,9 @@ export function SyslogDetailPage() {
         </section>
 
         {row.errorMsg ? (
-          <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
-            <h2 className="mb-4 text-sm font-semibold">Error Info</h2>
-            <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-red-500/10 p-3 font-mono text-xs leading-5 text-red-600 dark:text-red-400">
+          <section className="rounded-lg border border-border/60 bg-card p-4 text-card-foreground shadow-float">
+            <h2 className="mb-4 text-sm font-semibold leading-5">Error Info</h2>
+            <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap break-all rounded bg-destructive/10 p-3 font-mono text-xs leading-5 text-destructive">
               {row.errorMsg}
             </pre>
           </section>

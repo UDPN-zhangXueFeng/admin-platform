@@ -42,7 +42,7 @@ import { PageHead } from './page-head';
 import { ThemeSwitcher } from './theme-switcher';
 
 
-/** #RRGGBB 校验（源 utils/color.ts isValidHex，与后端 @Pattern 同口径）。 */
+/** #RRGGBB validation (source utils/color.ts isValidHex; same rules as the backend @Pattern). */
 function isValidHex(value: string): boolean {
   return /^#[0-9A-Fa-f]{6}$/.test(value);
 }
@@ -113,7 +113,7 @@ function themeIdForPrimaryColor(
 }
 
 /* ================================================================== */
-/* 品牌定制卡                                                          */
+/* Brand customization card                                           */
 /* ================================================================== */
 
 /** Brand customization form with save and restore-default controls. */
@@ -180,9 +180,11 @@ function BrandCustomizationCard({ brand }: { brand: Brand }) {
   const [resetConfirmOpen, setResetConfirmOpen] = React.useState(false);
   const saving = updateMutation.isPending;
 
-  // STATIC-FILLER(GAP-GW-06): 后端无「恢复默认品牌」接口；原型 Restore Defaults
-  // 即本地把表单回填出厂默认（未落库），持久化由后续 Save 承担——toast 文案
-  // 同口径（"Save to apply..."），不得宣称已持久化。
+  // STATIC-FILLER(GAP-GW-06): the backend has no "restore default brand"
+  // endpoint; the prototype's Restore Defaults only refills the form with
+  // factory defaults locally (not persisted) — the follow-up Save persists,
+  // and the toast copy stays aligned ("Save to apply...") and must not claim
+  // persistence.
   function onResetDefault() {
     setForm({ ...DEFAULT_BRAND });
     const resetThemeId =
@@ -230,90 +232,97 @@ function BrandCustomizationCard({ brand }: { brand: Brand }) {
   }
 
   return (
-    <section className="rounded-lg border border-border/60 bg-card panel-pad space-y-3">
-      <h2 className="text-sm font-semibold">Brand Customization</h2>
-      <div className="w-full max-w-[380px] space-y-4">
-        <Field>
-          <FieldLabel htmlFor="brand-name">
-            Portal Name <span className="text-destructive">*</span>
-          </FieldLabel>
-          <Input
-            id="brand-name"
-            value={form.name}
-            maxLength={50}
-            placeholder="Browser title and sidebar brand name"
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="brand-subtitle">Subtitle</FieldLabel>
-          <Input
-            id="brand-subtitle"
-            value={form.subtitle}
-            maxLength={100}
-            placeholder="Description text on the login page and sidebar"
-            onChange={(e) =>
-              setForm((f) => ({ ...f, subtitle: e.target.value }))
-            }
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="brand-logo">
-            Logo <span className="text-destructive">*</span>
-          </FieldLabel>
-          <Input
-            id="brand-logo"
-            value={form.logo}
-            maxLength={4}
-            className="w-[140px]"
-            placeholder="emoji or short text, e.g. 🏦"
-            onChange={(e) => setForm((f) => ({ ...f, logo: e.target.value }))}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="brand-color">
-            Primary Color <span className="text-destructive">*</span>
-          </FieldLabel>
-          <div className="flex flex-wrap items-center gap-2.5">
-            {themes.length > 1 ? (
-              <ThemeSwitcher
-                themes={themes}
-                activeThemeId={selectedThemeId}
-                onThemeSelect={onThemeSelect}
-              />
-            ) : null}
+    <section className="rounded-lg border border-border/60 bg-card">
+      <div className="border-b border-border/50 px-4 py-3">
+        <h2 className="text-sm font-semibold leading-5">
+          Brand Customization
+        </h2>
+        <p className="mt-0.5 text-xs leading-4 text-muted-foreground">
+          Brand configuration is stored on this instance (per-bank
+          customization). After saving, the browser title and login page
+          branding take effect immediately — no refresh needed.
+        </p>
+      </div>
+      <div className="p-4">
+        <div className="w-full max-w-[380px] space-y-4">
+          <Field>
+            <FieldLabel htmlFor="brand-name">
+              Portal Name <span className="text-destructive">*</span>
+            </FieldLabel>
             <Input
-              id="brand-color"
-              value={form.primaryColor}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, primaryColor: e.target.value }))
-              }
-              className="w-[110px] font-mono text-[13px]"
-              placeholder="#0B6B53"
+              id="brand-name"
+              value={form.name}
+              maxLength={50}
+              placeholder="Browser title and sidebar brand name"
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="brand-subtitle">Subtitle</FieldLabel>
+            <Input
+              id="brand-subtitle"
+              value={form.subtitle}
+              maxLength={100}
+              placeholder="Description text on the login page and sidebar"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, subtitle: e.target.value }))
+              }
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="brand-logo">
+              Logo <span className="text-destructive">*</span>
+            </FieldLabel>
+            <Input
+              id="brand-logo"
+              value={form.logo}
+              maxLength={4}
+              className="w-[140px]"
+              placeholder="emoji or short text, e.g. 🏦"
+              onChange={(e) => setForm((f) => ({ ...f, logo: e.target.value }))}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="brand-color">
+              Primary Color <span className="text-destructive">*</span>
+            </FieldLabel>
+            <div className="flex flex-wrap items-center gap-2.5">
+              {themes.length > 1 ? (
+                <ThemeSwitcher
+                  themes={themes}
+                  activeThemeId={selectedThemeId}
+                  onThemeSelect={onThemeSelect}
+                />
+              ) : null}
+              <Input
+                id="brand-color"
+                value={form.primaryColor}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, primaryColor: e.target.value }))
+                }
+                className="w-[110px] font-mono text-[13px]"
+                placeholder="#0B6B53"
+              />
+            </div>
+          </Field>
+          <div className="flex gap-2 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => setResetConfirmOpen(true)}
+            >
+              Restore Default
+            </Button>
+            <Button type="button" disabled={saving} onClick={onSave}>
+              Save
+            </Button>
           </div>
-        </Field>
-        <div className="flex gap-2 pt-1">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={saving}
-            onClick={() => setResetConfirmOpen(true)}
-          >
-            Restore Default
-          </Button>
-          <Button type="button" disabled={saving} onClick={onSave}>
-            Save
-          </Button>
         </div>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Brand configuration is stored on this instance (per-bank customization).
-        After saving, the browser title and login page branding take effect
-        immediately — no refresh needed.
-      </p>
-      {/* 恢复默认确认（原型文案逐字；confirmVariant secondary → 普通
-          AlertDialogAction，无 pending 态——本地回填即完成）。 */}
+      {/* Restore-default confirmation (prototype copy verbatim; the confirm
+          action maps to a plain AlertDialogAction with no pending state —
+          the local refill completes immediately). */}
       <AlertDialog
         open={resetConfirmOpen}
         onOpenChange={setResetConfirmOpen}
@@ -340,7 +349,7 @@ function BrandCustomizationCard({ brand }: { brand: Brand }) {
 }
 
 /* ================================================================== */
-/* 页面（registry：/system/ui → SystemUiPage，名字不可改）              */
+/* Page (registry: /system/ui -> SystemUiPage; export name is fixed)  */
 /* ================================================================== */
 
 export function SystemUiPage() {

@@ -76,10 +76,13 @@ const pages: Record<string, Record<string, PageLoader>> = {
     edit: lp('UserFormPage'),
     detail: lp('UserDetailPage'),
   },
-  // 角色管理（原型对齐）：列表 + 详情页（/sys/role/detail?roleCode=X，
-  // assignMenus=1 直达分配抽屉）。
+  // 角色管理（原型对齐页面化）：列表 + create/edit 共用 RoleFormPage
+  // （/sys/role/create、/sys/role/edit?roleCode=X）+ 详情页
+  // （/sys/role/detail?roleCode=X，assignMenus=1 直达分配抽屉）。
   role: {
     list: lp('RoleListPage'),
+    create: lp('RoleFormPage'),
+    edit: lp('RoleFormPage'),
     detail: lp('RoleDetailPage'),
   },
   // 菜单管理（C3 真实页）：源为左树右表单单页，无子路由。

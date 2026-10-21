@@ -1,5 +1,16 @@
 # Codex 对话沉淀
 
+## 2026-10-21 LP FX Transactions 详情布局
+
+- LP `/tx-flow?txNo=...` 由 `TxFlowListPage` 内联的 `TxDetailView` 展示，依赖 `sessionStorage` 的 `lp_tx_stash:` 行暂存和链路查询。当前视觉依据是 Kissen Admin 实际生效的 `TxDetailPage`：实现位于 `libs/modules/kissen-admin/feature/src/lib/transaction-pages.tsx`，并在 `apps/kissen-admin/src/app/[locale]/(app)/[module]/[[...slug]]/module-page-registry.ts` 注册；其 `xl` 8/4 布局为左侧概览、Source/Target 交易信息与 Timing，右侧为 Clearance Pipeline。LP 在自身模块内适配，不跨引入 Kissen feature，并保留 Pair Code 和 LP 交易字段。
+- 状态 35 `Credited` 和 40 `Completed` 都应将最后的 `Completed` 节点视为已完成；只检查 `Completed` 标签会把状态 35 错误显示为进行中。
+- 验证：`npx nx lint modules-lp-portal-feature`、`npx nx build lp-portal` 通过。浏览器用仅存在于 `sessionStorage` 的临时行检查 1568×755 和 390×844，无水平溢出、无后端写入。
+
+## 2026-10-21 LP Revenue Share Details 金额单位
+
+- `SplitDetailRow.currency` 是源端 token symbol（缺失时回退 code）；`DetailsTabSection` 的 Principal、Markup、My Share 应在保留现有精度格式的基础上追加同一行 `currency`。币种为空时不追加单位，不需要改接口或金额口径。
+- 验证：`npx nx lint modules-lp-portal-feature`、`npx nx build lp-portal` 通过；浏览器打开 `/en-US/split-settle?tab=details`，现有 CF8、CF7 行的三列金额均显示对应 token 单位。
+
 ## 2026-10-16 TD Admin 业务契约核验
 
 - `sp/access/listPage` 的状态筛选字段是 `data.state`，响应行使用 `state`；发送 `data.status` 不会过滤。

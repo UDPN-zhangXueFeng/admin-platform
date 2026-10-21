@@ -5,8 +5,7 @@
  *
  * 源语义要点（user）：
  * - 查询：登录名（模糊）/ 状态（0 正常 1 停用，可清空）；POST /lp/user/page 固定 pageSize 10；
- * - 启停走 el-switch before-change：确认弹窗 + 接口成功才翻转（本地行翻转 + load()），
- *   失败不动（受控 Switch 失败天然回弹）；停自己/最后管理员由后端 23_0008 拒绝；
+ * - 启停走确认弹窗 + 接口成功才翻转（本地行翻转 + load()）；停自己/最后管理员由后端 23_0008 拒绝；
  * - 重置密码 → 一次性密码弹窗（首登强制改密，需抄送）；强制下线 → toast；
  * - 新增/编辑弹窗：loginName 必填（≤30，编辑禁用）/userName 必填/邮箱/手机号/roleIds 多选；
  *   新增 save 返回 OTP 先弹「初始密码」再关闭重载；编辑 update 不携带 loginName；
@@ -35,8 +34,9 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  Mail,
   MoreVertical,
+  Plus,
+  Search,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -49,8 +49,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Alert,
-  AlertTitle,
   Badge,
   Button,
   Checkbox,
@@ -66,14 +64,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  RadioGroup,
-  RadioGroupItem,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Switch,
   DataTable,
   useToast,
 } from '@myorg/shared/ui';
@@ -352,7 +347,7 @@ function AssignRoleDialog({
   );
 }
 
-/** 列表统计卡（原型 StatGrid 项：顶部语义色条 + label + 大数值 + 脚注）。 */
+/** Compact statistics card matching the Kissen admin list density. */
 function StatCard({
   label,
   value,
@@ -365,30 +360,23 @@ function StatCard({
   tone: ProtoTone;
 }) {
   return (
-    <section className="relative min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card p-4 text-card-foreground shadow-float">
-      <span
-        aria-hidden="true"
-        className={`absolute inset-x-0 top-0 h-0.5 ${STAT_BAR_TONE[tone]}`}
-      />
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-2 text-2xl font-bold leading-none tabular-nums">
+    <section className="min-w-0 rounded-lg border border-border/60 bg-card p-4">
+      <div className="text-sm font-medium text-muted-foreground">{label}</div>
+      <div className={`mt-1.5 text-2xl font-semibold leading-none tabular-nums ${STAT_TEXT_TONE[tone]}`}>
         {value}
       </div>
-      <div className="mt-2 text-xs text-muted-foreground">{help}</div>
+      <div className="mt-2 text-xs leading-4 text-muted-foreground">{help}</div>
     </section>
   );
 }
 
-/** 统计卡顶部色条（StatCard 内部用）。 */
-const STAT_BAR_TONE: Record<ProtoTone, string> = {
-  success: 'bg-emerald-500',
-  warning: 'bg-amber-500',
-  danger: 'bg-red-500',
-  info: 'bg-sky-500',
-  primary: 'bg-primary',
-  muted: 'bg-muted-foreground/40',
+const STAT_TEXT_TONE: Record<ProtoTone, string> = {
+  success: 'text-emerald-600 dark:text-emerald-400',
+  warning: 'text-amber-600 dark:text-amber-400',
+  danger: 'text-destructive',
+  info: 'text-sky-600 dark:text-sky-400',
+  primary: 'text-primary',
+  muted: 'text-muted-foreground',
 };
 
 export function UserListPage() {
@@ -499,19 +487,17 @@ export function UserListPage() {
   const columns = React.useMemo<ColumnDef<UserRow & { id: string }>[]>(
     () => [
       {
-        accessorKey: 'userId',
-        header: 'User ID',
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap tabular-nums text-muted-foreground">
-            {row.original.userId}
-          </span>
-        ),
-      },
-      {
         accessorKey: 'loginName',
         header: 'Username',
         cell: ({ row }) => (
-          <span className="font-semibold">{row.original.loginName}</span>
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate font-medium">
+              {row.original.loginName}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              #{row.original.userId}
+            </span>
+          </div>
         ),
       },
       { accessorKey: 'userName', header: 'Full Name' },
@@ -519,11 +505,6 @@ export function UserListPage() {
         accessorKey: 'email',
         header: 'Email',
         cell: ({ row }) => <Dash value={row.original.email} />,
-      },
-      {
-        accessorKey: 'phone',
-        header: 'Phone',
-        cell: ({ row }) => <Dash value={row.original.phone} />,
       },
       {
         accessorKey: 'createTime',
@@ -538,24 +519,29 @@ export function UserListPage() {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <Switch
-              aria-label={`Toggle status for ${row.original.userName}`}
-              checked={row.original.status === 0}
-              onCheckedChange={() => toggleStatus(row.original)}
-              disabled={
-                statusMutation.isPending &&
-                statusMutation.variables?.userId === row.original.userId
-              }
-            />
-            <ProtoStatusBadge
-              label={
-                LP_USER_STATUS_MAP[row.original.status]?.label ??
-                String(row.original.status)
-              }
-              tone={USER_STATUS_TONE[row.original.status] ?? 'muted'}
-            />
-          </div>
+          <ProtoStatusBadge
+            label={
+              LP_USER_STATUS_MAP[row.original.status]?.label ??
+              String(row.original.status)
+            }
+            tone={USER_STATUS_TONE[row.original.status] ?? 'muted'}
+          />
+        ),
+      },
+      {
+        accessorKey: 'firstLogin',
+        header: 'First Login',
+        cell: ({ row }) => (
+          <ProtoStatusBadge
+            label={
+              row.original.firstLogin === 0
+                ? 'Password Not Changed'
+                : row.original.firstLogin === 1
+                  ? 'Password Changed'
+                  : String(row.original.firstLogin)
+            }
+            tone={row.original.firstLogin === 0 ? 'warning' : 'muted'}
+          />
         ),
       },
       {
@@ -585,7 +571,7 @@ export function UserListPage() {
                   variant="ghost"
                   size="sm"
                   className="h-8 w-8 p-0"
-                  aria-label="Row actions"
+                  aria-label={`More actions for ${row.original.userName}`}
                 >
                   <MoreVertical className="h-4 w-4" aria-hidden="true" />
                 </Button>
@@ -600,6 +586,20 @@ export function UserListPage() {
                   }
                 >
                   Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={
+                    statusMutation.isPending &&
+                    statusMutation.variables?.userId === row.original.userId
+                  }
+                  className={
+                    row.original.status === 0
+                      ? 'text-destructive focus:text-destructive'
+                      : undefined
+                  }
+                  onClick={() => toggleStatus(row.original)}
+                >
+                  {row.original.status === 0 ? 'Deactivate' : 'Activate'}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setRolesRow(row.original)}>
                   Assign Roles
@@ -622,7 +622,7 @@ export function UserListPage() {
         ),
       },
     ],
-    [statusMutation.isPending, statusMutation.variables, params, pageSize],
+    [toggleStatus, onResetPwd, onForceLogout, router, params, pageSize],
   );
 
   const tableData = React.useMemo(
@@ -638,44 +638,45 @@ export function UserListPage() {
   }[] = [
     {
       label: 'Total Users',
-      value: statsReady ? statsRows.length : '-',
-      help: 'All registered accounts',
+      value: statsReady
+        ? (statsQuery.data?.pagination.total ?? statsRows.length)
+        : '-',
+      help: 'All registered accounts.',
       tone: 'primary',
     },
     {
-      label: 'Active users',
+      label: 'Active',
       value: statsReady
         ? statsRows.filter((r) => r.status === 0).length
         : '-',
-      help: 'Can sign in now',
+      help: 'Allowed to sign in to the system.',
       tone: 'success',
     },
     {
-      label: 'Inactive users',
+      label: 'Inactive',
       value: statsReady
         ? statsRows.filter((r) => r.status !== 0).length
         : '-',
-      help: 'Access suspended',
+      help: 'Sign-in is disabled.',
       tone: 'warning',
     },
   ];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            SYSTEM
-          </div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-            User Management
-          </h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold leading-7">User Management</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Accounts that can sign in to this LP portal.
+          </p>
         </div>
         <PermButton
           menuKey="lp:user"
           onClick={() => router.push(`${USER_LIST_PATH}/create`)}
         >
-          New User
+          <Plus className="size-4" aria-hidden="true" />
+          Add User
         </PermButton>
       </div>
 
@@ -685,12 +686,24 @@ export function UserListPage() {
         ))}
       </div>
 
-      <form
-        onSubmit={handleSubmit((f) => setParams(userFormToParams(f, 1)))}
-        className="rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
-      >
-        <div className="mb-4 text-sm font-semibold">Search Criteria</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="rounded-lg border border-border/60 bg-card">
+        <div className="flex flex-col gap-1 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-baseline sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="text-base font-semibold leading-6">Users</h2>
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {total} results
+            </span>
+          </div>
+          {listQuery.dataUpdatedAt > 0 ? (
+            <span className="text-xs tabular-nums text-muted-foreground">
+              Updated {formatUtc8(listQuery.dataUpdatedAt)}
+            </span>
+          ) : null}
+        </div>
+        <form
+          onSubmit={handleSubmit((f) => setParams(userFormToParams(f, 1)))}
+          className="grid grid-cols-1 gap-3 border-b border-border/50 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4"
+        >
           <FormField
             name="loginName"
             label="Username"
@@ -703,57 +716,45 @@ export function UserListPage() {
             label="Status"
             options={USER_STATUS_OPTIONS}
           />
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit">Search</Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              reset(EMPTY_USER_FILTER);
-              setParams(userFormToParams(EMPTY_USER_FILTER, 1));
+          <div className="flex items-end gap-2">
+            <Button type="submit">Search</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                reset(EMPTY_USER_FILTER);
+                setParams(userFormToParams(EMPTY_USER_FILTER, 1));
+              }}
+            >
+              Reset
+            </Button>
+          </div>
+        </form>
+        <div className="p-4">
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={listQuery.isLoading}
+            emptyMessage={
+              hasFilter
+                ? 'No records found. Try changing the filters.'
+                : 'No users yet. Create your first user.'
+            }
+            pagination={{
+              page: params.pageNum,
+              pageSize,
+              total,
+              onPageChange: (page) =>
+                setParams((prev) => ({ ...prev, pageNum: page })),
+              onPageSizeChange: (n) => {
+                setPageSize(n);
+                setParams((prev) => ({ ...prev, pageNum: 1 }));
+              },
+              pageSizeOptions: [PAGE_SIZE],
             }}
-          >
-            Reset
-          </Button>
+          />
         </div>
-      </form>
-
-      <div className="rounded-lg border-border/60 bg-card shadow-float">
-        <div className="flex items-center justify-between border-b border-border/50 px-6 py-3">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            Users
-            <Badge variant="secondary" className="tabular-nums">
-              {total}
-            </Badge>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            Updated {formatUtc8(listQuery.dataUpdatedAt)}
-          </div>
-        </div>
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={listQuery.isLoading}
-          emptyMessage={
-            hasFilter
-              ? 'No records found. Try changing the filters.'
-              : 'No users yet. Create your first user.'
-          }
-          pagination={{
-            page: params.pageNum,
-            pageSize,
-            total,
-            onPageChange: (page) =>
-              setParams((prev) => ({ ...prev, pageNum: page })),
-            onPageSizeChange: (n) => {
-              setPageSize(n);
-              setParams((prev) => ({ ...prev, pageNum: 1 }));
-            },
-            pageSizeOptions: [PAGE_SIZE],
-          }}
-        />
-      </div>
+      </section>
 
       {rolesRow && (
         <AssignRoleDialog
@@ -795,18 +796,6 @@ const USERNAME_PATTERN = /^[A-Za-z0-9_.]{1,30}$/;
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^[+0-9 ()-]{3,32}$/;
 
-/** 预览卡首字母（fullName 优先回落 username，前两词首字母；空 → NU）。 */
-function previewInitials(fullName: string, username: string): string {
-  const source = String(fullName || username || '').trim();
-  if (!source) return 'NU';
-  return source
-    .split(/[\s_.]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase();
-}
 
 /** 角色选项卡（原型 RoleOptionCard：名称 + 代码次级灰字 + 选中右上角 ✓）。 */
 function RoleOptionCard({
@@ -885,39 +874,42 @@ function DetailHeader({
   badge,
   description,
   actions,
+  backTo = USER_LIST_PATH,
+  backLabel = 'User List',
 }: {
   title: string;
   badge?: React.ReactNode;
   description?: React.ReactNode;
   actions?: React.ReactNode;
+  backTo?: string;
+  backLabel?: string;
 }) {
   const router = useRouter();
   return (
-    <div className="flex items-start gap-3">
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="mt-0.5 shrink-0"
-        aria-label="Back"
-        onClick={() => router.back()}
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-      </Button>
-      <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex min-w-0 items-start gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="iconSm"
+          aria-label={`Back to ${backLabel}`}
+          onClick={() => router.push(backTo)}
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+        </Button>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+            <h1 className="text-xl font-semibold leading-7">{title}</h1>
             {badge}
           </div>
           {description ? (
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
               {description}
             </div>
           ) : null}
         </div>
-        {actions}
       </div>
+      {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
     </div>
   );
 }
@@ -991,9 +983,6 @@ export function UserFormPage() {
   const [otp, setOtp] = React.useState<OtpRequest | null>(null);
 
   const roleIds = watch('roleIds');
-  const loginName = watch('loginName');
-  const userName = watch('userName');
-  const email = watch('email');
 
   const toggleRole = (roleId: number) => {
     setRolesError(null);
@@ -1006,11 +995,10 @@ export function UserFormPage() {
     );
   };
 
-  const pageTitle = isEdit ? 'Edit User' : 'New User Information';
+  const pageTitle = isEdit ? 'Edit User' : 'Create User';
   const pageDescription = isEdit
-    ? 'Update account details and roles.'
-    : 'Create an account and assign roles.';
-
+    ? 'Update the contact details and role assignment of this account.'
+    : 'Create an account, set its profile, and assign its roles.';
   const onSubmit = handleSubmit((v) => {
     if (v.roleIds.length === 0) {
       setRolesError('At least one role must be selected.');
@@ -1065,8 +1053,15 @@ export function UserFormPage() {
   if (isEdit && lookupQuery.isPending) {
     return (
       <div className="space-y-4">
-        <DetailHeader title={pageTitle} description={pageDescription} />
-        <DetailSkeleton />
+        <DetailHeader
+          backTo={USER_LIST_PATH}
+          backLabel="User List"
+          title={pageTitle}
+          description={pageDescription}
+        />
+        <section className="rounded-lg border border-border/60 bg-card p-4">
+          <DetailSkeleton />
+        </section>
       </div>
     );
   }
@@ -1074,112 +1069,56 @@ export function UserFormPage() {
   if (isEdit && lookupQuery.data && !seed) {
     return (
       <div className="space-y-4">
-        <DetailHeader title={pageTitle} description={pageDescription} />
-        <div className="rounded-lg border-border/60 bg-card p-10 text-center shadow-float">
-          <div className="text-sm font-semibold">User not found</div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            This user does not exist or has been removed.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-4"
-            onClick={() => router.push(USER_LIST_PATH)}
-          >
-            Back to Users
-          </Button>
-        </div>
+        <DetailHeader
+          backTo={USER_LIST_PATH}
+          backLabel="User List"
+          title={pageTitle}
+          description={pageDescription}
+        />
+        <section className="rounded-lg border border-border/60 bg-card">
+          <div className="flex flex-col items-center justify-center gap-1.5 px-6 py-16 text-center">
+            <p className="text-sm font-medium">User not found</p>
+            <p className="text-sm text-muted-foreground">
+              This user does not exist or has been removed.
+            </p>
+            <div className="mt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push(USER_LIST_PATH)}
+              >
+                Back to User List
+              </Button>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <DetailHeader title={pageTitle} description={pageDescription} />
+      <DetailHeader
+        backTo={USER_LIST_PATH}
+        backLabel="User List"
+        title={pageTitle}
+        description={pageDescription}
+      />
 
-      {/* 原型 §3.6.4 例外形态：左 320px 实时预览卡（sticky）+ 右侧分区卡表单 */}
-      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <div className="min-w-0 lg:sticky lg:top-6 lg:self-start">
-          <div className="overflow-hidden rounded-lg border border-border/60 bg-card shadow-float">
-            <div
-              aria-hidden="true"
-              className="h-0.5 bg-gradient-to-r from-primary via-sky-500 to-primary"
-            />
-            <div className="space-y-4 p-5">
-              <div className="flex min-w-0 items-center gap-3">
-                <span
-                  aria-hidden="true"
-                  className="grid size-12 shrink-0 place-items-center rounded-lg bg-muted text-base font-semibold text-muted-foreground"
-                >
-                  {previewInitials(userName, loginName)}
-                </span>
-                <div className="min-w-0">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="truncate text-sm font-bold">
-                      {userName || loginName || 'New User'}
-                    </span>
-                    {isEdit && seed && (
-                      <ProtoStatusBadge
-                        label={
-                          LP_USER_STATUS_MAP[seed.status]?.label ??
-                          String(seed.status)
-                        }
-                        tone={USER_STATUS_TONE[seed.status] ?? 'muted'}
-                      />
-                    )}
-                  </div>
-                  <div className="mt-0.5 truncate text-sm text-muted-foreground">
-                    {email || '-'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-border/60 pt-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  Roles
-                  <Badge variant="secondary" className="tabular-nums">
-                    {roleIds.length}
-                  </Badge>
-                </div>
-                {selectedRoles.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {selectedRoles.map((role) => (
-                      <Badge key={role.roleId} variant="secondary">
-                        {role.roleName}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    No role assigned yet.
-                  </p>
-                )}
-              </div>
-
-              {!isEdit && (
-                <Alert variant="info">
-                  <Mail className="h-4 w-4" aria-hidden="true" />
-                  <AlertTitle>Setup email</AlertTitle>
-                  <p className="text-sm">
-                    After saving, the system sends a setup email with sign-in
-                    instructions to the user.
-                  </p>
-                </Alert>
-              )}
+      <form
+        className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]"
+        onSubmit={(e) => void onSubmit(e)}
+        noValidate
+      >
+        <div className="min-w-0 space-y-4">
+          <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+            <div className="border-b border-border/50 px-4 py-3">
+              <h2 className="text-sm font-semibold leading-5">Basic Information</h2>
+              <p className="mt-0.5 text-xs leading-4 text-muted-foreground">
+                Sign-in identity and contact details.
+              </p>
             </div>
-          </div>
-        </div>
-
-        <form
-          className="min-w-0 space-y-4"
-          onSubmit={(e) => void onSubmit(e)}
-          noValidate
-        >
-          <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
-            <div className="mb-4 text-sm font-semibold">
-              Basic Information
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 p-4 md:grid-cols-2">
               <FormField
                 name="loginName"
                 label="Username"
@@ -1244,35 +1183,64 @@ export function UserFormPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
-            <div className="mb-1 text-sm font-semibold">Role</div>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Assign at least one role. Roles control which modules this user
-              can access.
-            </p>
-            <div className="grid gap-2 md:grid-cols-2">
-              {roleOptions.map((role) => (
-                <RoleOptionCard
-                  key={role.roleId}
-                  role={role}
-                  selected={roleIds.includes(role.roleId)}
-                  onToggle={() => toggleRole(role.roleId)}
-                />
-              ))}
-              {roleOptions.length === 0 && (
-                <span className="text-sm text-muted-foreground">
-                  No options available
-                </span>
+          <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+            <div className="border-b border-border/50 px-4 py-3">
+              <h2 className="text-sm font-semibold leading-5">Roles</h2>
+              <p className="mt-0.5 text-xs leading-4 text-muted-foreground">
+                Assign at least one role. Roles control which modules this user can access.
+              </p>
+            </div>
+            <div className="p-4">
+              <div className="grid gap-2 md:grid-cols-2">
+                {roleOptions.map((role) => (
+                  <RoleOptionCard
+                    key={role.roleId}
+                    role={role}
+                    selected={roleIds.includes(role.roleId)}
+                    onToggle={() => toggleRole(role.roleId)}
+                  />
+                ))}
+                {roleOptions.length === 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    No options available
+                  </span>
+                )}
+              </div>
+              {rolesError && (
+                <p className="mt-2 text-xs font-medium text-destructive">
+                  {rolesError}
+                </p>
               )}
             </div>
-            {rolesError && (
-              <p className="mt-2 text-xs font-medium text-destructive">
-                {rolesError}
+          </section>
+        </div>
+
+        <aside className="space-y-4">
+          <section className="rounded-lg border border-border/60 bg-card p-4">
+            <h2 className="text-sm font-medium">Preview</h2>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Roles {selectedRoles.length}
+            </div>
+            {selectedRoles.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {selectedRoles.map((role) => (
+                  <Badge key={role.roleId} variant="secondary">
+                    {role.roleName}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">
+                No role assigned yet.
               </p>
             )}
+            <p className="mt-3 border-t border-border/50 pt-3 text-xs leading-5 text-muted-foreground">
+              {isEdit
+                ? 'Profile and role changes are saved together.'
+                : 'The account is created as active. The initial one-time password is issued by the system.'}
+            </p>
           </section>
-
-          <div className="flex flex-wrap gap-2">
+          <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
@@ -1285,11 +1253,11 @@ export function UserFormPage() {
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              Save
+              {saving ? 'Saving…' : 'Save'}
             </Button>
           </div>
-        </form>
-      </div>
+        </aside>
+      </form>
 
       <ActionConfirmDialog
         open={discardOpen}
@@ -1341,21 +1309,28 @@ export function UserDetailPage() {
   if (userId == null || Number.isNaN(userId) || (listQuery.data && !user)) {
     return (
       <div className="space-y-4">
-        <DetailHeader title="User Details" />
-        <div className="rounded-lg border-border/60 bg-card p-10 text-center shadow-float">
-          <div className="text-sm font-semibold">User not found</div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            This user does not exist or has been removed.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-4"
-            onClick={() => router.push(USER_LIST_PATH)}
-          >
-            Back to Users
-          </Button>
-        </div>
+        <DetailHeader
+          backTo={USER_LIST_PATH}
+          backLabel="User List"
+          title="User Details"
+        />
+        <section className="rounded-lg border border-border/60 bg-card">
+          <div className="flex flex-col items-center justify-center gap-1.5 px-6 py-16 text-center">
+            <p className="text-sm font-medium">User not found</p>
+            <p className="text-sm text-muted-foreground">
+              This user does not exist or has been removed.
+            </p>
+            <div className="mt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push(USER_LIST_PATH)}
+              >
+                Back to User List
+              </Button>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
@@ -1363,8 +1338,14 @@ export function UserDetailPage() {
   if (listQuery.isPending || !user) {
     return (
       <div className="space-y-4">
-        <DetailHeader title="User Details" />
-        <DetailSkeleton />
+        <DetailHeader
+          backTo={USER_LIST_PATH}
+          backLabel="User List"
+          title="User Details"
+        />
+        <section className="rounded-lg border border-border/60 bg-card p-4">
+          <DetailSkeleton />
+        </section>
       </div>
     );
   }
@@ -1376,7 +1357,9 @@ export function UserDetailPage() {
   return (
     <div className="space-y-4">
       <DetailHeader
-        title="User Details"
+        backTo={USER_LIST_PATH}
+        backLabel="User List"
+        title={user.userName || 'User Details'}
         badge={
           <ProtoStatusBadge
             label={
@@ -1386,80 +1369,99 @@ export function UserDetailPage() {
           />
         }
         description={
-          <>
-            <span>
-              Username:{' '}
-              <span className="text-foreground">{user.loginName || '-'}</span>
-            </span>
-            <span aria-hidden="true">|</span>
-            <span>
-              Created on{' '}
-              <span className="text-foreground">
-                {formatUtc8(user.createTime)}
-              </span>
-            </span>
-          </>
+          <span>
+            User ID: <b className="font-semibold text-foreground">#{user.userId}</b>
+          </span>
+        }
+        actions={
+          <PermButton
+            menuKey="lp:user"
+            variant="outline"
+            onClick={() =>
+              router.push(`${USER_LIST_PATH}/edit?userId=${user.userId}`)
+            }
+          >
+            Edit
+          </PermButton>
         }
       />
 
-      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-        <section className="rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
-          <div className="mb-4 text-sm font-semibold">Basic Information</div>
-          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-            <DetailField label="User ID">
-              <span className="tabular-nums">{user.userId}</span>
-            </DetailField>
-            <DetailField label="Username">{user.loginName || '-'}</DetailField>
+      <div className="grid min-w-0 gap-4 md:grid-cols-2">
+        <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+          <div className="border-b border-border/50 px-4 py-3">
+            <h2 className="text-sm font-semibold leading-5">Basic Information</h2>
+          </div>
+          <dl className="grid gap-x-6 gap-y-4 p-4 sm:grid-cols-2">
             <DetailField label="Full Name">{user.userName || '-'}</DetailField>
+            <DetailField label="Username">{user.loginName || '-'}</DetailField>
+          </dl>
+        </section>
+
+        <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+          <div className="border-b border-border/50 px-4 py-3">
+            <h2 className="text-sm font-semibold leading-5">Contact Information</h2>
+          </div>
+          <dl className="grid gap-x-6 gap-y-4 p-4 sm:grid-cols-2">
             <DetailField label="Email">
               <Dash value={user.email} />
             </DetailField>
-            <DetailField label="Phone">
+            <DetailField label="Phone Number">
               <Dash value={user.phone} />
             </DetailField>
           </dl>
         </section>
 
-        <section className="min-w-0 rounded-lg border border-border/60 bg-card p-6 text-card-foreground shadow-float">
-          <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
-            Roles
-            <Badge variant="secondary" className="tabular-nums">
-              {roles.length}
-            </Badge>
+        <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+          <div className="border-b border-border/50 px-4 py-3">
+            <h2 className="text-sm font-semibold leading-5">Account Activity</h2>
           </div>
-          {roles.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No roles assigned.</p>
-          ) : (
-            <ul className="min-w-0">
-              {roles.map((role) => (
-                <li
-                  key={role.roleId}
-                  className="flex min-w-0 flex-col gap-1 border-b border-border/60 py-3 first:pt-0 last:border-b-0 last:pb-0"
-                >
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold">
-                      {role.roleName}
-                    </span>
-                    <Badge variant="secondary">
-                      {role.roleType === 0 ? 'Built-in' : 'Custom'}
-                    </Badge>
-                    <ProtoStatusBadge
-                      label={
-                        LP_USER_STATUS_MAP[role.status]?.label ??
-                        String(role.status)
-                      }
-                      tone={USER_STATUS_TONE[role.status] ?? 'muted'}
+          <dl className="grid gap-x-6 gap-y-4 p-4 sm:grid-cols-2">
+            <DetailField label="First Login">
+              <ProtoStatusBadge
+                label={
+                  user.firstLogin === 0
+                    ? 'Password Not Changed'
+                    : user.firstLogin === 1
+                      ? 'Password Changed'
+                      : String(user.firstLogin)
+                }
+                tone={user.firstLogin === 0 ? 'warning' : 'muted'}
+              />
+            </DetailField>
+          </dl>
+        </section>
+
+        <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+          <div className="border-b border-border/50 px-4 py-3">
+            <h2 className="text-sm font-semibold leading-5">Roles</h2>
+          </div>
+          <div className="p-4">
+            {roles.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No role assigned.</p>
+            ) : (
+              <div className="space-y-2">
+                {roles.map((role) => (
+                  <div
+                    key={role.roleId}
+                    className="flex items-center gap-3 rounded-lg border border-border/60 p-3"
+                  >
+                    <ShieldCheck
+                      className="size-4 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
                     />
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">
+                        {role.roleName}
+                      </div>
+                      <div className="truncate font-mono text-xs text-muted-foreground">
+                        {role.roleCode}
+                      </div>
+                    </div>
                   </div>
-                  {role.remarks ? (
-                    <p className="break-all text-xs text-muted-foreground">
-                      {role.remarks}
-                    </p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </section>
       </div>
     </div>
@@ -1480,6 +1482,14 @@ function findMenuNode(
     if (hit) return hit;
   }
   return undefined;
+}
+function countMenuNodes(nodes: MenuTree[]): number {
+  let count = 0;
+  for (const node of nodes) {
+    count += 1;
+    if (node.children) count += countMenuNodes(node.children);
+  }
+  return count;
 }
 
 /** menuId=0 新建未保存节点的本地 seed（顶级=一级菜单 2，子级=二级菜单 3；openCreate 与脏状态 baseline 共用）。 */
@@ -1614,6 +1624,7 @@ export function MenuListPage() {
   const toast = useToast();
   const treeQuery = useMenuTreeQuery(PROJECT_ID);
   const tree = treeQuery.data ?? [];
+  const totalNodes = React.useMemo(() => countMenuNodes(tree), [tree]);
 
   const [current, setCurrent] = React.useState<MenuTree | null>(null);
   const [collapsed, setCollapsed] = React.useState<Set<number>>(new Set());
@@ -1825,42 +1836,56 @@ export function MenuListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            SYSTEM
-          </div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-            Menu Management
-          </h1>
-        </div>
-        <PermButton menuKey="lp:menu" onClick={() => openCreate(0)}>
-          Add Root Menu
-        </PermButton>
+      <div>
+        <h1 className="text-xl font-semibold leading-7">Menu Management</h1>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        {/* 左：菜单树（源 span 8/16 → lg 1/3） */}
-        <div className="rounded-lg border-border/60 bg-card shadow-float">
-          <div className="border-b px-4 py-3 text-sm font-semibold">Menu Tree</div>
-          <div className="space-y-2 p-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
+        <section className="h-fit overflow-hidden rounded-lg border border-border/60 bg-card">
+          <div className="border-b border-border/50 px-4 pb-3 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold leading-6">Menu Structure</h2>
+                <Badge variant="mute" size="sm" className="tabular-nums">
+                  {totalNodes} nodes
+                </Badge>
+              </div>
+              <PermButton
+                menuKey="lp:menu"
+                size="sm"
+                variant="outline"
+                onClick={() => openCreate(0)}
+              >
+                <Plus className="size-4" aria-hidden="true" />
+                Add Root Menu
+              </PermButton>
+            </div>
             <form
-              className="space-y-2"
+              className="mt-3 space-y-2"
               onSubmit={(e) => {
                 e.preventDefault();
                 setAppliedTreeFilter(treeFilter);
               }}
             >
-              <Input
-                aria-label="Filter menus"
-                placeholder="Filter menus"
-                value={treeFilter}
-                onChange={(e) => setTreeFilter(e.target.value)}
-              />
+              <div className="relative">
+                <Search
+                  size={14}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  aria-label="Filter menus"
+                  placeholder="Filter menus…"
+                  value={treeFilter}
+                  onChange={(e) => setTreeFilter(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
               <div className="flex gap-2">
-                <Button type="submit">Search</Button>
+                <Button type="submit" size="sm">Search</Button>
                 <Button
                   type="button"
+                  size="sm"
                   variant="outline"
                   onClick={() => {
                     setTreeFilter('');
@@ -1871,6 +1896,8 @@ export function MenuListPage() {
                 </Button>
               </div>
             </form>
+          </div>
+          <div className="max-h-[70vh] overflow-y-auto p-2">
             {treeQuery.isLoading ? (
               <div className="space-y-2 p-2">
                 {[0, 1, 2, 3].map((i) => (
@@ -1878,11 +1905,11 @@ export function MenuListPage() {
                 ))}
               </div>
             ) : tree.length === 0 ? (
-              <p className="p-4 text-center text-sm text-muted-foreground">
-                No data
+              <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                No menus
               </p>
             ) : filteredTree.length === 0 ? (
-              <p className="p-4 text-center text-sm text-muted-foreground">
+              <p className="px-2 py-6 text-center text-sm text-muted-foreground">
                 No menus match &quot;{appliedTreeFilter.trim()}&quot;
               </p>
             ) : (
@@ -1903,254 +1930,280 @@ export function MenuListPage() {
               />
             )}
           </div>
-        </div>
+        </section>
 
-        {/* 右：节点详情 + 接口权限（源 span 16/16 → lg 2/3） */}
-        <div>
+        <div className="space-y-4">
           {current == null ? (
-            <div className="flex h-full min-h-64 items-center justify-center rounded-lg border-border/60 bg-card px-8 text-center text-sm text-muted-foreground shadow-float">
-              Select a menu node on the left to view or edit it, or click Add
-              Root Menu.
-            </div>
+            <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+              <div className="border-b border-border/50 px-4 py-3">
+                <h2 className="text-sm font-semibold leading-6">Menu Details</h2>
+              </div>
+              <div className="p-4">
+                <p className="text-sm text-muted-foreground">
+                  Select a menu node on the left to view or edit it, or click Add
+                  Root Menu.
+                </p>
+              </div>
+            </section>
           ) : (
-            <div className="space-y-6 rounded-lg border-border/60 bg-card p-6 shadow-float">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex min-w-0 items-baseline gap-2">
-                  <span className="truncate text-sm font-semibold">
-                    {current.menuId === 0
-                      ? (current.parentId ?? 0) === 0
-                        ? 'New root menu'
-                        : `New sub-menu of ${
-                            findMenuNode(tree, current.parentId ?? 0)
-                              ?.menuName ?? '-'
-                          }`
-                      : 'Menu Details'}
-                  </span>
-                  {current.menuId !== 0 && current.menuKey ? (
-                    <span className="truncate font-mono text-xs text-muted-foreground">
-                      {current.menuKey}
-                    </span>
-                  ) : null}
+            <>
+              <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 px-4 py-3">
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-semibold leading-6">Menu Details</h2>
+                    {current.menuId !== 0 && current.menuKey ? (
+                      <div className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                        <span className="shrink-0">Node Key:</span>
+                        <code className="truncate rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-primary">
+                          {current.menuKey}
+                        </code>
+                      </div>
+                    ) : null}
+                  </div>
                   {current.menuId === 0 && (
-                    <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                      draft
+                    <Badge variant="secondary">Draft</Badge>
+                  )}
+                  {dirty && (
+                    <span className="shrink-0 text-xs font-medium text-warning">
+                      ● Unsaved changes
                     </span>
                   )}
                 </div>
-                {dirty && (
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    ● Unsaved changes
-                  </span>
-                )}
-              </div>
-              <dl className="grid gap-x-6 gap-y-4 border-b border-border/60 pb-4 sm:grid-cols-2">
-                <DetailField label="Menu Level">
-                  {menuLevelLabel(current.menuType)}
-                </DetailField>
-                <DetailField label="Parent Menu">
-                  {(current.parentId ?? 0) === 0
-                    ? 'None (root level)'
-                    : (findMenuNode(tree, current.parentId ?? 0)?.menuName ??
-                      '-')}
-                </DetailField>
-              </dl>
-              <div className="max-w-xl space-y-4">
-                <FormField
-                  name="menuName"
-                  label="Menu Name (ZH)"
-                  required
-                  error={formErrors.menuName}
-                  value={current.menuName ?? ''}
-                  onChange={(e) => patchCurrent({ menuName: e.target.value })}
-                />
-                <FormField
-                  name="menuNameEn"
-                  label="Menu Name (EN)"
-                  required
-                  error={formErrors.menuNameEn}
-                  value={current.menuNameEn ?? ''}
-                  onChange={(e) =>
-                    patchCurrent({ menuNameEn: e.target.value })
-                  }
-                />
-                <FormField
-                  name="menuKey"
-                  label="Menu Key"
-                  required
-                  disabled={isEditing}
-                  placeholder="e.g. lp:user, unique"
-                  error={formErrors.menuKey}
-                  value={current.menuKey ?? ''}
-                  onChange={(e) => patchCurrent({ menuKey: e.target.value })}
-                />
-                <div>
-                  <Label className="mb-1.5 block">Type</Label>
-                  <Select
-                    disabled={isEditing}
-                    value={String(current.menuType ?? 0)}
-                    onValueChange={(v) => patchCurrent({ menuType: Number(v) })}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MENU_TYPE_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="p-4">
+                  <dl className="grid gap-x-6 gap-y-4 border-b border-border/60 pb-4 sm:grid-cols-2">
+                    <DetailField label="Menu Level">
+                      {menuLevelLabel(current.menuType)}
+                    </DetailField>
+                    <DetailField label="Parent Menu">
+                      {(current.parentId ?? 0) === 0
+                        ? 'None (root level)'
+                        : (findMenuNode(tree, current.parentId ?? 0)
+                            ?.menuName ?? '-')}
+                    </DetailField>
+                  </dl>
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FormField
+                      name="menuName"
+                      label="Menu Name"
+                      required
+                      error={formErrors.menuName}
+                      value={current.menuName ?? ''}
+                      onChange={(e) =>
+                        patchCurrent({ menuName: e.target.value })
+                      }
+                    />
+                    <FormField
+                      name="menuNameEn"
+                      label="Menu Name (EN)"
+                      required
+                      error={formErrors.menuNameEn}
+                      value={current.menuNameEn ?? ''}
+                      onChange={(e) =>
+                        patchCurrent({ menuNameEn: e.target.value })
+                      }
+                    />
+                    <FormField
+                      name="menuKey"
+                      label="Menu Key"
+                      required
+                      disabled={isEditing}
+                      placeholder="e.g. lp:user, unique"
+                      error={formErrors.menuKey}
+                      value={current.menuKey ?? ''}
+                      onChange={(e) =>
+                        patchCurrent({ menuKey: e.target.value })
+                      }
+                    />
+                    <div>
+                      <Label className="mb-1.5 block">Menu Type</Label>
+                      <Select
+                        disabled={isEditing}
+                        value={String(current.menuType ?? 0)}
+                        onValueChange={(v) =>
+                          patchCurrent({ menuType: Number(v) })
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MENU_TYPE_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <FormField
+                      name="orderNum"
+                      label="Sort Order"
+                      type="number"
+                      min={0}
+                      value={String(current.orderNum ?? 0)}
+                      onChange={(e) =>
+                        patchCurrent({
+                          orderNum: Math.max(0, Number(e.target.value) || 0),
+                        })
+                      }
+                    />
+                    <div>
+                      <Label className="mb-1.5 block">Visible</Label>
+                      <Select
+                        value={String(current.visible ?? 0)}
+                        onValueChange={(v) =>
+                          patchCurrent({ visible: Number(v) })
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">Visible</SelectItem>
+                          <SelectItem value="1">Hidden</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <FormField
+                      name="menuUrl"
+                      label="Route Path"
+                      placeholder="Frontend route, e.g. /system/user"
+                      value={current.menuUrl ?? ''}
+                      onChange={(e) =>
+                        patchCurrent({ menuUrl: e.target.value })
+                      }
+                    />
+                    <FormField
+                      name="icon"
+                      label="Icon"
+                      placeholder="Optional"
+                      value={current.icon ?? ''}
+                      onChange={(e) => patchCurrent({ icon: e.target.value })}
+                    />
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      disabled={saving}
+                      onClick={onSaveMenu}
+                    >
+                      {saving ? 'Saving…' : 'Save'}
+                    </Button>
+                    {current.menuId !== 0 && (
+                      <>
+                        <PermButton
+                          menuKey="lp:menu"
+                          variant="outline"
+                          onClick={() => openCreate(current.menuId)}
+                        >
+                          Add Submenu
+                        </PermButton>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="text-destructive"
+                          onClick={onDeleteMenu}
+                        >
+                          Delete
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <FormField
-                  name="orderNum"
-                  label="Sort Order"
-                  type="number"
-                  min={0}
-                  value={String(current.orderNum ?? 0)}
-                  onChange={(e) =>
-                    patchCurrent({
-                      orderNum: Math.max(0, Number(e.target.value) || 0),
-                    })
-                  }
-                />
-                <div>
-                  <Label className="mb-1.5 block">Visibility</Label>
-                  <RadioGroup
-                    value={String(current.visible ?? 0)}
-                    onValueChange={(v) => patchCurrent({ visible: Number(v) })}
-                    className="flex gap-6"
-                  >
-                    <label className="flex items-center gap-2 text-sm">
-                      <RadioGroupItem value="0" /> Visible
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                      <RadioGroupItem value="1" /> Hidden
-                    </label>
-                  </RadioGroup>
-                </div>
-                <FormField
-                  name="menuUrl"
-                  label="Route Path"
-                  placeholder="Frontend route, e.g. /system/user"
-                  value={current.menuUrl ?? ''}
-                  onChange={(e) => patchCurrent({ menuUrl: e.target.value })}
-                />
-                <FormField
-                  name="icon"
-                  label="Icon"
-                  placeholder="Optional"
-                  value={current.icon ?? ''}
-                  onChange={(e) => patchCurrent({ icon: e.target.value })}
-                />
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    type="button"
-                    disabled={saving}
-                    onClick={onSaveMenu}
-                  >
-                    Save
-                  </Button>
-                  <PermButton
-                    menuKey="lp:menu"
-                    variant="outline"
-                    onClick={() => openCreate(current.menuId)}
-                  >
-                    Add Sub-Menu
-                  </PermButton>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={onDeleteMenu}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
+              </section>
 
-              <div className="border-t pt-4">
-                <div className="mb-2 text-sm font-semibold">
-                  API Permissions (method + URL pattern; wildcards supported)
-                </div>
-                <div className="overflow-hidden rounded-md border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50 text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium">
-                          Method
-                        </th>
-                        <th className="px-3 py-2 text-left font-medium">URL</th>
-                        <th className="w-20 px-3 py-2 text-left font-medium">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {perms.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={3}
-                            className="px-3 py-6 text-center text-muted-foreground"
-                          >
-                            {permsQuery.isLoading ? 'Loading…' : 'No data'}
-                          </td>
-                        </tr>
-                      )}
-                      {perms.map((p, i) => (
-                        <tr key={p.id ?? `local-${i}`} className="border-t">
-                          <td className="px-3 py-2">
-                            <code className="text-xs">{p.httpMethod || '*'}</code>
-                          </td>
-                          <td className="break-all px-3 py-2">{p.url}</td>
-                          <td className="px-3 py-2">
-                            <Button
-                              type="button"
-                              variant="link"
-                              className="h-auto p-0 text-destructive hover:underline"
-                              onClick={() => removePerm(p, i)}
-                            >
-                              Remove
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Input
-                    aria-label="Permission URL"
-                    placeholder="e.g. /lp/user/**"
-                    className="w-64"
-                    value={newPerm.url}
-                    onChange={(e) =>
-                      setNewPerm((p) => ({ ...p, url: e.target.value }))
-                    }
-                  />
-                  <Input
-                    aria-label="Permission Method"
-                    placeholder="POST/GET, empty = any"
-                    className="w-40"
-                    value={newPerm.method}
-                    onChange={(e) =>
-                      setNewPerm((p) => ({ ...p, method: e.target.value }))
-                    }
-                  />
-                  <Button type="button" onClick={addPerm}>
-                    Add
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="text-emerald-600 hover:text-emerald-700"
-                    disabled={permSaving}
-                    onClick={() => void savePerms()}
-                  >
-                    Save API Permissions
-                  </Button>
-                </div>
-              </div>
-            </div>
+              {current.menuId !== 0 && (
+                <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+                  <div className="border-b border-border/50 px-4 py-3">
+                    <h2 className="text-sm font-semibold">API Permissions</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Configure HTTP methods and URL patterns. Wildcards are supported.
+                    </p>
+                  </div>
+                  <div className="p-4">
+                    <div className="overflow-hidden rounded-md border">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50 text-muted-foreground">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">
+                              Method
+                            </th>
+                            <th className="px-3 py-2 text-left font-medium">
+                              URL
+                            </th>
+                            <th className="w-20 px-3 py-2 text-left font-medium">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {perms.length === 0 && (
+                            <tr>
+                              <td
+                                colSpan={3}
+                                className="px-3 py-6 text-center text-muted-foreground"
+                              >
+                                {permsQuery.isLoading ? 'Loading…' : 'No data'}
+                              </td>
+                            </tr>
+                          )}
+                          {perms.map((p, i) => (
+                            <tr key={p.id ?? `local-${i}`} className="border-t">
+                              <td className="px-3 py-2">
+                                <code className="text-xs">
+                                  {p.httpMethod || '*'}
+                                </code>
+                              </td>
+                              <td className="break-all px-3 py-2">{p.url}</td>
+                              <td className="px-3 py-2">
+                                <Button
+                                  type="button"
+                                  variant="link"
+                                  className="h-auto p-0 text-destructive hover:underline"
+                                  onClick={() => removePerm(p, i)}
+                                >
+                                  Remove
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        aria-label="Permission URL"
+                        placeholder="e.g. /lp/user/**"
+                        className="flex-1"
+                        value={newPerm.url}
+                        onChange={(e) =>
+                          setNewPerm((p) => ({ ...p, url: e.target.value }))
+                        }
+                      />
+                      <Input
+                        aria-label="Permission Method"
+                        placeholder="POST/GET, empty = any"
+                        className="sm:w-48"
+                        value={newPerm.method}
+                        onChange={(e) =>
+                          setNewPerm((p) => ({ ...p, method: e.target.value }))
+                        }
+                      />
+                      <Button type="button" variant="outline" onClick={addPerm}>
+                        Add
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={permSaving}
+                        onClick={() => void savePerms()}
+                      >
+                        Save API Permissions
+                      </Button>
+                    </div>
+                  </div>
+                </section>
+              )}
+            </>
           )}
         </div>
       </div>

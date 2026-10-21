@@ -16,10 +16,12 @@ import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { ColumnDef } from '@tanstack/react-table';
 import {
-  ChevronLeft,
+  ArrowLeft,
   KeyRound,
   LogOut,
   MoreVertical,
+  Plus,
+  ShieldCheck,
   UserCheck,
   UserX,
 } from 'lucide-react';
@@ -44,15 +46,16 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect, createFormResolver } from '@myorg/shared/ui-forms';
+import { cn } from '@myorg/shared/util-classnames';
 import { useRouter } from '@myorg/shared/util-i18n';
 
-import { DescField, DescGrid } from './desc-grid';
+import { DescField } from './desc-grid';
 import { OPT_ALL, orDash } from './kit';
-import { PageHead } from './page-head';
 import { LoadingBlock, QueryErrorRetry } from './state-blocks';
 import {
   ActionConfirmDialog,
   ProtoStatusBadge,
+  StatCard,
   type ActionConfirmTone,
   type ProtoStatusTone,
 } from './proto-ui';
@@ -171,31 +174,64 @@ const USER_ACTION_CONFIG: Record<
   },
 };
 
-/** 统计卡（原型 StatCard：顶部语义色条 + 大数字；role-pages 复用）。 */
-export function StatCard({
-  label,
-  value,
-  tone,
+
+/** Card shell with a titled header bar (admin system-pages DetailCard). */
+function DetailCard({
+  title,
+  description,
+  children,
 }: {
-  label: string;
-  value: number | string;
-  tone: 'success' | 'warning' | 'danger';
+  title: string;
+  description?: string;
+  children: React.ReactNode;
 }) {
-  const bar =
-    tone === 'success'
-      ? 'bg-emerald-500'
-      : tone === 'warning'
-        ? 'bg-amber-500'
-        : 'bg-red-500';
   return (
-    <div className="overflow-hidden rounded-lg border border-border/60 bg-card">
-      <div className={`h-1 ${bar}`} aria-hidden="true" />
-      <div className="p-4">
-        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
+    <section className="rounded-lg border border-border/60 bg-card">
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border/50 px-4 py-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold leading-5">{title}</h2>
+          {description ? (
+            <p className="mt-0.5 text-xs leading-4 text-muted-foreground">
+              {description}
+            </p>
+          ) : null}
         </div>
-        <div className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
-          {value}
+      </div>
+      <div className="p-4">{children}</div>
+    </section>
+  );
+}
+
+/** Form/detail page header: back icon + title + description (admin FormPageHeader layout). */
+function FormPageHead({
+  backLabel,
+  title,
+  description,
+  onBack,
+}: {
+  backLabel: string;
+  title: string;
+  description?: string;
+  onBack: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        <Button
+          variant="outline"
+          size="iconSm"
+          aria-label={`Back to ${backLabel}`}
+          onClick={onBack}
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+        </Button>
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold leading-7">{title}</h1>
+          {description ? (
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {description}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>
@@ -239,7 +275,7 @@ function peekUserRow(userId: number): UserRow | null {
   }
 }
 
-/** 角色多选（源 el-select multiple → Checkbox 列表，角色数量有限）。 */
+/** Role multi-select (source el-select multiple; card-style options with checked outline). */
 function RoleCheckboxGroup({
   options,
   selected,
@@ -253,20 +289,39 @@ function RoleCheckboxGroup({
     return <p className="text-sm text-muted-foreground">No roles available to assign (adjustable after saving)</p>;
   }
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      {options.map((r) => (
-        <label key={r.roleId} className="flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={selected.includes(r.roleId)}
-            onCheckedChange={(c) =>
-              c === true
-                ? onChange([...selected, r.roleId])
-                : onChange(selected.filter((i) => i !== r.roleId))
-            }
-          />
-          <span>{r.roleName}</span>
-        </label>
-      ))}
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {options.map((r) => {
+        const checked = selected.includes(r.roleId);
+        return (
+          <label
+            key={r.roleId}
+            className={cn(
+              'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+              checked
+                ? 'border-primary bg-primary/5'
+                : 'border-border/60 hover:bg-accent/50',
+            )}
+          >
+            <Checkbox
+              checked={checked}
+              onCheckedChange={(c) =>
+                c === true
+                  ? onChange([...selected, r.roleId])
+                  : onChange(selected.filter((i) => i !== r.roleId))
+              }
+              className="mt-0.5"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium leading-5">
+                {r.roleName}
+              </span>
+              <span className="mt-0.5 block font-mono text-xs text-muted-foreground">
+                {`#${r.roleId}`}
+              </span>
+            </span>
+          </label>
+        );
+      })}
     </div>
   );
 }
@@ -826,40 +881,56 @@ export function UserListPage() {
 
   return (
     <div className="space-y-4">
-      {/* 页头（原型 PageHeader：标题 + 描述 + Create User）。 */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">User Management</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage system users, assign roles, and control system access.
+      {/* List header: title + description + Add User (admin ListPageHeader layout). */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold leading-7">User Management</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Accounts that can sign in to this portal.
           </p>
         </div>
-        {/* 源 v-perm="'bank:user:manage'"：未命中 menuKeys 不渲染。 */}
+        {/* Source v-perm="'bank:user:manage'": hidden when the menu key is absent. */}
         {hasPerm('bank:user:manage') && (
-          <Button onClick={() => router.push('/system/user/create')}>
-            Create User
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => router.push('/system/user/create')}>
+              <Plus className="size-4" aria-hidden="true" />
+              Add User
+            </Button>
+          </div>
         )}
       </div>
 
-      {/* 统计卡（原型 StatCard 行：Total / Active / Inactive）。 */}
+      {/* Stat cards (admin StatGrid): Total / Active / Inactive. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total" value={stats.total} tone="success" />
-        <StatCard label="Active" value={stats.active} tone="success" />
-        <StatCard label="Inactive" value={stats.inactive} tone="warning" />
+        <StatCard
+          label="Total Users"
+          value={stats.total}
+          tone="primary"
+          help="All registered accounts."
+        />
+        <StatCard
+          label="Active"
+          value={stats.active}
+          tone="success"
+          help="Allowed to sign in to the system."
+        />
+        <StatCard
+          label="Inactive"
+          value={stats.inactive}
+          tone="warning"
+          help="Sign-in is disabled."
+        />
       </div>
 
       <section className="rounded-lg border border-border/60 bg-card">
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-            <div className="text-base font-semibold leading-6 text-foreground">
-              Users
-            </div>
-            {data && (
+            <h2 className="text-base font-semibold leading-6">Users</h2>
+            {!isLoading && paginationMeta ? (
               <span className="text-sm text-muted-foreground tabular-nums">
-                {paginationMeta?.total ?? 0} results
+                {paginationMeta.total} results
               </span>
-            )}
+            ) : null}
             {dataUpdatedAt ? (
               <span className="text-xs text-muted-foreground tabular-nums">
                 Updated {formatUtc8(dataUpdatedAt)}
@@ -910,7 +981,7 @@ export function UserListPage() {
               placeholder="All"
             />
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex gap-2">
             <Button type="submit">Search</Button>
             <Button
               type="button"
@@ -1035,12 +1106,18 @@ export function UserFormPage() {
   const saveMutation = useUserSaveMutation(KISSEN_GATEWAY_PROJECT_ID);
   const updateMutation = useUserUpdateMutation(KISSEN_GATEWAY_PROJECT_ID);
 
-  const { register, handleSubmit, reset, control, formState } =
+  const { register, handleSubmit, reset, control, formState, watch } =
     useForm<UserFormValues>({
       resolver: createFormResolver(userFormSchema),
       mode: 'onTouched',
       defaultValues: USER_FORM_DEFAULT,
     });
+
+  /* Summary card data: live role selection for the right-hand preview column. */
+  const watchedRoleIds = watch('roleIds') ?? [];
+  const selectedRoles = (rolePage?.data ?? []).filter((r) =>
+    watchedRoleIds.includes(r.roleId),
+  );
 
   /** 编辑回显：无 GET /user/{id}，优先读列表页暂存行，缺失时回查列表（pageSize 200）。 */
   const loadedRef = React.useRef(false);
@@ -1115,141 +1192,201 @@ export function UserFormPage() {
     if (scanning || !userPage) {
       return (
         <div className="space-y-4">
-          <PageHead variant="toolbar" title="Edit User" />
-          <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
+          <FormPageHead
+            backLabel="User List"
+            title="Edit User"
+            onBack={() => router.push('/system/user')}
+          />
+          <section className="rounded-lg border border-border/60 bg-card p-4">
             <LoadingBlock variant="skeleton" />
-          </div>
+          </section>
         </div>
       );
     }
     return (
       <div className="space-y-4">
-        <PageHead variant="toolbar" title="Edit User" />
-        <div className="rounded-lg border-border/60 bg-card p-6 shadow-float">
-          <p className="text-sm text-muted-foreground">User not found.</p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => router.push('/system/user')}
-          >
-            Back
-          </Button>
-        </div>
+        <FormPageHead
+          backLabel="User List"
+          title="Edit User"
+          onBack={() => router.push('/system/user')}
+        />
+        <section className="rounded-lg border border-border/60 bg-card">
+          <div className="flex flex-col items-center justify-center gap-1.5 px-6 py-16 text-center">
+            <p className="text-sm font-medium">User not found.</p>
+            <p className="text-sm text-muted-foreground">
+              The record may have been removed. Go back to the list.
+            </p>
+            <Button
+              variant="outline"
+              className="mt-3"
+              onClick={() => router.push('/system/user')}
+            >
+              Back to User List
+            </Button>
+          </div>
+        </section>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <PageHead variant="toolbar" title={isEdit ? 'Edit User' : 'Create User'} />
+      <FormPageHead
+        backLabel="User List"
+        title={isEdit ? 'Edit User' : 'Create User'}
+        description={
+          isEdit
+            ? 'Update the contact details and role assignment of this account.'
+            : 'Create an account, set its profile, and assign its roles.'
+        }
+        onBack={() => router.push('/system/user')}
+      />
       <form
         onSubmit={onSubmit}
-        className="space-y-5 rounded-lg border-border/60 bg-card p-6 text-card-foreground shadow-float"
+        className="grid grid-cols-1 gap-4 lg:grid-cols-3"
       >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-1">
-            <FormField
-              name="loginName"
-              label="Username"
-              required
-              disabled={isEdit}
-              placeholder="Letters, digits, _.-, up to 30 characters"
-              error={formState.errors.loginName?.message}
-              register={register('loginName')}
+        <div className="space-y-4 lg:col-span-2">
+          <DetailCard
+            title="Basic Information"
+            description="Sign-in identity and the contact details used for notifications."
+          >
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1">
+                <FormField
+                  name="loginName"
+                  label="Username"
+                  required
+                  disabled={isEdit}
+                  placeholder="Letters, digits, _.-, up to 30 characters"
+                  error={formState.errors.loginName?.message}
+                  register={register('loginName')}
+                />
+                {isEdit && (
+                  <p className="text-xs text-muted-foreground">
+                    Username cannot be changed after creation
+                  </p>
+                )}
+              </div>
+              <FormField
+                name="userName"
+                label="Full Name"
+                required
+                error={formState.errors.userName?.message}
+                register={register('userName')}
+              />
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-foreground">
+                  Type
+                </label>
+                <Controller
+                  control={control}
+                  name="userType"
+                  render={({ field }) => (
+                    <RadioGroup
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={isEdit}
+                      className="flex gap-6 pt-2"
+                    >
+                      {USER_TYPE_RADIO_OPTIONS.map((o) => (
+                        <label
+                          key={o.value}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <RadioGroupItem value={o.value} />
+                          <span>{o.label}</span>
+                        </label>
+                      ))}
+                    </RadioGroup>
+                  )}
+                />
+                {isEdit && (
+                  <p className="text-xs text-muted-foreground">
+                    Type cannot be changed after creation
+                  </p>
+                )}
+              </div>
+              <FormField
+                name="email"
+                label="Email"
+                register={register('email')}
+              />
+              <FormField
+                name="phone"
+                label="Phone Number"
+                register={register('phone')}
+              />
+            </div>
+          </DetailCard>
+
+          <DetailCard
+            title="Roles"
+            description="Assign roles now or adjust them after saving."
+          >
+            <Controller
+              control={control}
+              name="roleIds"
+              render={({ field }) => (
+                <RoleCheckboxGroup
+                  options={rolePage?.data ?? []}
+                  selected={field.value}
+                  onChange={field.onChange}
+                />
+              )}
             />
-            {isEdit && (
-              <p className="text-xs text-muted-foreground">
-                Username cannot be changed after creation
+          </DetailCard>
+        </div>
+
+        <div className="space-y-4">
+          <section className="rounded-lg border border-border/60 bg-card p-4">
+            <div className="text-sm font-medium">Preview</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Roles {selectedRoles.length}
+            </div>
+            {selectedRoles.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {selectedRoles.map((role) => (
+                  <Badge key={role.roleId} variant="secondary">
+                    {role.roleName}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">
+                No role assigned yet.
               </p>
             )}
-          </div>
-          <FormField
-            name="userName"
-            label="Full Name"
-            required
-            error={formState.errors.userName?.message}
-            register={register('userName')}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Type</label>
-          <Controller
-            control={control}
-            name="userType"
-            render={({ field }) => (
-              <RadioGroup
-                value={field.value}
-                onValueChange={field.onChange}
-                disabled={isEdit}
-                className="flex gap-6"
+            <p className="mt-3 border-t border-border/50 pt-3 text-xs leading-5 text-muted-foreground">
+              {isEdit
+                ? 'Username and Type cannot be changed after creation.'
+                : 'The initial password is issued by the system and must be changed at first sign-in.'}
+            </p>
+          </section>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {formState.isDirty && (
+              <span
+                className="mr-auto text-xs text-muted-foreground"
+                role="status"
               >
-                {USER_TYPE_RADIO_OPTIONS.map((o) => (
-                  <label
-                    key={o.value}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <RadioGroupItem value={o.value} />
-                    <span>{o.label}</span>
-                  </label>
-                ))}
-              </RadioGroup>
+                ● Unsaved changes
+              </span>
             )}
-          />
-          {/* 源编辑态禁用类型，超管/运营创建后不可改。 */}
-          {isEdit && (
-            <p className="text-xs text-muted-foreground">Type cannot be changed after creation</p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField
-            name="email"
-            label="Email"
-            register={register('email')}
-          />
-          <FormField name="phone" label="Phone" register={register('phone')} />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Roles</label>
-          <Controller
-            control={control}
-            name="roleIds"
-            render={({ field }) => (
-              <RoleCheckboxGroup
-                options={rolePage?.data ?? []}
-                selected={field.value}
-                onChange={field.onChange}
-              />
-            )}
-          />
-          <p className="text-xs text-muted-foreground">
-            Assign roles (adjustable after saving)
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            type="submit"
-            disabled={saveMutation.isPending || updateMutation.isPending}
-          >
-            {saveMutation.isPending || updateMutation.isPending
-              ? 'Saving…'
-              : 'Save'}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push('/system/user')}
-          >
-            Back
-          </Button>
-          {formState.isDirty && (
-            <span className="text-xs text-muted-foreground" role="status">
-              ● Unsaved changes
-            </span>
-          )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push('/system/user')}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={saveMutation.isPending || updateMutation.isPending}
+            >
+              {saveMutation.isPending || updateMutation.isPending
+                ? 'Saving…'
+                : 'Save'}
+            </Button>
+          </div>
         </div>
       </form>
 
@@ -1348,37 +1485,44 @@ export function UserDetailPage() {
   if (userId == null) {
     return (
       <div className="space-y-4">
-        <PageHead variant="toolbar" title="User Details" />
-        <div className="rounded-lg border border-border/60 bg-card p-6 shadow-float">
-          <p className="text-sm text-muted-foreground">Missing user ID.</p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => router.push('/system/user')}
-          >
-            Back
-          </Button>
-        </div>
+        <FormPageHead
+          backLabel="User List"
+          title="User Details"
+          onBack={() => router.push('/system/user')}
+        />
+        <section className="rounded-lg border border-border/60 bg-card">
+          <div className="flex flex-col items-center justify-center gap-1.5 px-6 py-16 text-center">
+            <p className="text-sm font-medium">Missing user ID.</p>
+            <Button
+              variant="outline"
+              className="mt-3"
+              onClick={() => router.push('/system/user')}
+            >
+              Back to User List
+            </Button>
+          </div>
+        </section>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <div className="space-y-4">
+      {/* Detail header: back + name/status + meta line + actions (admin layout). */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <Button
             variant="outline"
-            size="icon"
-            aria-label="Back to list"
+            size="iconSm"
+            aria-label="Back to User List"
             onClick={() => router.push('/system/user')}
           >
-            <ChevronLeft className="size-4" aria-hidden="true" />
+            <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold leading-7 text-foreground">
-                User Details
+              <h1 className="text-xl font-semibold leading-7">
+                {user?.userName ?? 'User Details'}
               </h1>
               {user ? (
                 <ProtoStatusBadge
@@ -1387,38 +1531,43 @@ export function UserDetailPage() {
                 />
               ) : null}
             </div>
-            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              <span>
-                Username:{' '}
-                <span className="font-medium text-foreground">
-                  {user?.loginName ?? '-'}
-                </span>
-              </span>
-              <span aria-hidden="true">|</span>
-              <span>
-                Created on{' '}
-                <span className="font-medium tabular-nums text-foreground">
-                  {formatUtc8(user?.createTime)}
-                </span>
-              </span>
-            </div>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Username:{' '}
+              <b className="font-semibold text-foreground">
+                {user?.loginName ?? '-'}
+              </b>
+              <span aria-hidden="true"> · </span>
+              Created on{' '}
+              <b className="font-semibold tabular-nums text-foreground">
+                {formatUtc8(user?.createTime)}
+              </b>
+            </p>
           </div>
         </div>
         {user && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                stashUserRow(user);
+                router.push(`/system/user/edit?id=${user.userId}`);
+              }}
+            >
+              Edit
+            </Button>
             {active ? (
               <>
                 <Button
                   variant="outline"
+                  onClick={() => setConfirmAction('forceSignOut')}
+                >
+                  Force Sign Out
+                </Button>
+                <Button
+                  variant="destructive"
                   onClick={() => setConfirmAction('deactivate')}
                 >
                   Deactivate
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setConfirmAction('forceSignOut')}
-                >
- Force Sign Out
                 </Button>
               </>
             ) : (
@@ -1428,14 +1577,6 @@ export function UserDetailPage() {
                   onClick={() => setConfirmAction('activate')}
                 >
                   Activate
-                </Button>
-                <Button
-                  onClick={() => {
-                    stashUserRow(user);
-                    router.push(`/system/user/edit?id=${user.userId}`);
-                  }}
-                >
-                  Edit User
                 </Button>
                 <Button
                   variant="outline"
@@ -1449,117 +1590,114 @@ export function UserDetailPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
-        {isError ? (
-          <div className="rounded-lg border border-border/60 bg-card p-6 xl:col-span-2">
-            <QueryErrorRetry error={error} onRetry={() => refetch()} />
-          </div>
-        ) : isLoading || !user ? (
-          user == null && !isLoading && data ? (
-            <div className="flex flex-col items-center gap-3 rounded-lg border border-border/60 bg-card py-10 text-center xl:col-span-2">
-              <p className="text-sm text-muted-foreground">User not found.</p>
+      {isError ? (
+        <section className="rounded-lg border border-border/60 bg-card p-4">
+          <QueryErrorRetry error={error} onRetry={() => refetch()} />
+        </section>
+      ) : isLoading || !user ? (
+        user == null && !isLoading && data ? (
+          <section className="rounded-lg border border-border/60 bg-card">
+            <div className="flex flex-col items-center justify-center gap-1.5 px-6 py-16 text-center">
+              <p className="text-sm font-medium">User not found.</p>
+              <p className="text-sm text-muted-foreground">
+                The record may have been removed. Go back to the list.
+              </p>
               <Button
                 variant="outline"
                 size="sm"
+                className="mt-3"
                 onClick={() => router.push('/system/user')}
               >
-                Back to List
+                Back to User List
               </Button>
             </div>
-          ) : (
-            <div className="xl:col-span-2">
-              <LoadingBlock variant="skeleton" />
-            </div>
-          )
+          </section>
         ) : (
-          <>
-            <section className="rounded-lg border border-border/60 bg-card p-5">
-              <h2 className="mb-4 text-sm font-semibold text-foreground">
-                Basic Information
-              </h2>
-              <DescGrid cols={3}>
-                <DescField label="Username" variant="plain">
-                  {user.loginName}
-                </DescField>
-                <DescField label="Full Name" variant="plain">
-                  {user.userName}
-                </DescField>
-                <DescField label="Type" variant="plain">
-                  <Badge
-                    variant={USER_TYPE_VARIANT[user.userType] ?? 'outline'}
+          <section className="rounded-lg border border-border/60 bg-card p-4">
+            <LoadingBlock variant="skeleton" />
+          </section>
+        )
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <DetailCard title="Basic Information">
+            <div className="space-y-4">
+              <DescField label="Full Name" variant="plain">
+                {user.userName}
+              </DescField>
+              <DescField label="Username" variant="plain">
+                {user.loginName}
+              </DescField>
+              <DescField label="Type" variant="plain">
+                <Badge
+                  variant={USER_TYPE_VARIANT[user.userType] ?? 'outline'}
+                >
+                  {USER_TYPE_LABEL[user.userType] ?? user.userType}
+                </Badge>
+              </DescField>
+            </div>
+          </DetailCard>
+          <DetailCard title="Contact Information">
+            <div className="space-y-4">
+              <DescField label="Email" variant="plain">
+                {orDash(user.email)}
+              </DescField>
+              <DescField label="Phone Number" variant="plain">
+                {orDash(user.phone)}
+              </DescField>
+            </div>
+          </DetailCard>
+          <DetailCard title="Account Activity">
+            <div className="space-y-4">
+              <DescField label="Status" variant="plain">
+                <ProtoStatusBadge
+                  label={protoStatusText(PROTO_USER_STATUS, user.status)}
+                  tone={USER_STATUS_TONES[user.status] ?? 'muted'}
+                />
+              </DescField>
+              <DescField label="First Login" variant="plain">
+                <ProtoStatusBadge
+                  label={USER_FIRST_LOGIN_LABEL[user.firstLogin] ?? '-'}
+                  tone={user.firstLogin === 0 ? 'warning' : 'muted'}
+                />
+              </DescField>
+              <DescField label="Created on" variant="plain">
+                <span className="tabular-nums">
+                  {formatUtc8(user.createTime)}
+                </span>
+              </DescField>
+            </div>
+          </DetailCard>
+          <DetailCard title="Roles">
+            {roles.length > 0 ? (
+              <div className="space-y-2">
+                {roles.map((r) => (
+                  <div
+                    key={r.roleId}
+                    className="flex items-center gap-3 rounded-lg border border-border/60 p-3"
                   >
-                    {USER_TYPE_LABEL[user.userType] ?? user.userType}
-                  </Badge>
-                </DescField>
-              </DescGrid>
-            </section>
-            <section className="rounded-lg border border-border/60 bg-card p-5">
-              <h2 className="mb-4 text-sm font-semibold text-foreground">
-                Contact Information
-              </h2>
-              <DescGrid cols={2}>
-                <DescField label="Email" variant="plain">
-                  {orDash(user.email)}
-                </DescField>
-                <DescField label="Phone Number" variant="plain">
-                  {orDash(user.phone)}
-                </DescField>
-              </DescGrid>
-            </section>
-            <section className="rounded-lg border border-border/60 bg-card p-5">
-              <h2 className="mb-4 text-sm font-semibold text-foreground">
-                Account Activity
-              </h2>
-              {/* Keep the long status badge and timestamp apart until 2xl. */}
-              <DescGrid cols={2} className="2xl:grid-cols-3">
-                <DescField label="Status" variant="plain">
-                  <ProtoStatusBadge
-                    label={protoStatusText(PROTO_USER_STATUS, user.status)}
-                    tone={USER_STATUS_TONES[user.status] ?? 'muted'}
-                  />
-                </DescField>
-                <DescField label="First Login" variant="plain">
-                  <ProtoStatusBadge
-                    label={USER_FIRST_LOGIN_LABEL[user.firstLogin] ?? '-'}
-                    tone={user.firstLogin === 0 ? 'warning' : 'muted'}
-                  />
-                </DescField>
-                <DescField label="Created on" variant="plain">
-                  <span className="tabular-nums">
-                    {formatUtc8(user.createTime)}
-                  </span>
-                </DescField>
-              </DescGrid>
-            </section>
-            <section className="rounded-lg border border-border/60 bg-card p-5">
-              <h2 className="mb-4 text-sm font-semibold text-foreground">
-                Roles
-              </h2>
-              {roles.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {roles.map((r) => (
-                    <span
-                      key={r.roleId}
-                      className="inline-flex flex-col rounded-md border border-border/70 px-2.5 py-1"
-                    >
-                      <span className="text-sm font-medium text-foreground">
+                    <ShieldCheck
+                      className="size-4 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">
                         {r.roleName}
-                      </span>
-                      <span className="font-mono text-xs text-muted-foreground">
+                      </div>
+                      <div className="truncate font-mono text-xs text-muted-foreground">
                         {`#${r.roleId}`}
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No role assigned.
-                </p>
-              )}
-            </section>
-          </>
-        )}
-      </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No role assigned.
+              </p>
+            )}
+          </DetailCard>
+        </div>
+      )}
 
       <OneTimePasswordDialog
         open={!!resetOtp}
@@ -1570,7 +1708,7 @@ export function UserDetailPage() {
         tone="success"
       />
 
-      {/* 头部动作确认（文案与列表页共用 USER_ACTION_CONFIG）。 */}
+      {/* Header action confirmations (copy shared with the list page via USER_ACTION_CONFIG). */}
       <ActionConfirmDialog
         open={confirmAction != null && user != null}
         onOpenChange={(o) => !o && closeConfirm()}

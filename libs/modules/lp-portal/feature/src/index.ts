@@ -94,10 +94,16 @@ export { SyslogListPage, SyslogDetailPage } from './lib/syslog-pages';
 // 用户管理（P1 原型对齐：列表 + create/edit 共用表单页 + detail 详情页；
 // 创建成功弹 Initial Password OTP，启停/重置密码/强制下线/Assign Roles 弹窗保留）
 export { UserListPage, UserFormPage, UserDetailPage } from './lib/system-pages';
-// 角色管理（P1 原型对齐：列表 + /sys/role/detail?roleCode= 详情页；编辑走
-// RoleFormDialog 弹窗，Assign Menus 为详情页抽屉（?assignMenus=1 直达），
-// 授权载体 menuIds（GAP-LP-13），树回显仅勾叶子 + 保存合并半选父）
-export { RoleListPage, RoleDetailPage } from './lib/role-pages';
+// 角色管理（P1 原型对齐 + Kissen 视觉基线：列表 + create/edit 共用全页表单页
+// （/sys/role/create、/sys/role/edit?roleCode=，roleCode 编辑禁改；Assigned
+// Menus 分区经 assign-menu 提交 menuIds）+ /sys/role/detail?roleCode= 详情页；
+// Assign Menus 抽屉（?assignMenus=1 直达），授权载体 menuIds（GAP-LP-13），
+// 树回显仅勾叶子 + 保存合并半选父）
+export {
+  RoleListPage,
+  RoleFormPage,
+  RoleDetailPage,
+} from './lib/role-pages';
 // 菜单管理（P1 原型对齐：左树右表单单页 + 树过滤；无子路由）
 export { MenuListPage } from './lib/system-pages';
 // 市场组（G2）：Token 总览（双 tab：平铺列表 + 按银行分组）。

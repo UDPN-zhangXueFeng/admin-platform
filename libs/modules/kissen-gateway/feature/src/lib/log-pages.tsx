@@ -1,30 +1,39 @@
 'use client';
 
 /**
- * 操作日志域页面（列表 + 详情；对齐原型 BP OperationLogsPage / OperationLogDetailPage）。
+ * Operation log domain pages (list + detail; mirrors prototype BP
+ * OperationLogsPage / OperationLogDetailPage, unified with the admin
+ * OperateLog pages).
  *
- * 列表（原型 OperationLogsPage 语义要点）：
- * - DataTable 九列（Time (UTC+8) / Operator / Module / Business Type / Request URL /
- *   Status / Duration / Trace ID / Actions）；列偏好 localStorage 持久化（Trace ID
- *   默认隐藏，1440 宽放不下全列）；行内展开已废除——Details 入独立详情页。
- * - 筛选：Search 提交当前条件，Reset 清空并回到第一页；Operator/Status 无服务端参数——当前页本地过滤
- *   过渡（见组件内注释）；Date Range/Module 走 /log/page 服务端参数。
- * - 排序：服务端 /log/page 无排序参数——当前页内排序（tx 列表同口径）。
+ * List (prototype OperationLogsPage semantics):
+ * - DataTable with nine columns (Time (UTC+8) / Operator / Module / Business
+ *   Type / Request URL / Status / Duration / Trace ID / Actions); column
+ *   preferences persist in localStorage (Trace ID hidden by default — 1440px
+ *   cannot fit every column); inline row expansion was removed — Details
+ *   opens the dedicated detail page.
+ * - Filters: Search submits the current conditions, Reset clears and returns
+ *   to page 1; Operator/Status have no server-side parameters — local
+ *   filtering over the current page as a transition (see the in-component
+ *   comment); Date Range/Module go through /log/page server parameters.
+ * - Sorting: /log/page has no server-side sort parameter — sort within the
+ *   current page (same convention as the tx list).
  *
- * 详情（/log/detail?logId=）：
- * - STATIC-FILLER(GAP-GW-02): 无 /log/{id} 详情端点——列表行暂存 sessionStorage
- *   （gw_log_stash:{logId}）渲染；深链无暂存 → not-found 卡。
- * - 版式：单层页头 → 全宽 Request 卡（请求参数脱敏）；仅有 errorMsg 时显示 Error Info。
+ * Detail (/log/detail?logId=):
+ * - STATIC-FILLER(GAP-GW-02): no /log/{id} detail endpoint — the list stashes
+ *   the clicked row in sessionStorage (gw_log_stash:{logId}) and the detail
+ *   page renders from it; deep links without a stash fall back to not-found.
+ * - Layout: single-level page header → full-width Request card (request
+ *   params redacted); Error Info only when errorMsg exists.
  */
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { type ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Search } from 'lucide-react';
 
-import { Badge, Button, DataTable, useToast } from '@myorg/shared/ui';
-import { FormField, FormSelect, createFormResolver } from '@myorg/shared/ui-forms';
+import { Badge, Button, DataTable, Input, useToast } from '@myorg/shared/ui';
+import { FormSelect, createFormResolver } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
@@ -37,9 +46,10 @@ import {
 } from '@myorg/modules/kissen-gateway/data-access';
 
 import { OPT_ALL, orDash, toEpochMs } from './kit';
-import { formatDuration, formatUtc8 } from './proto-format';
+import { formatUtc8 } from './proto-format';
 import { CopyableId, ProtoStatusBadge } from './proto-ui';
 import { PROTO_LOG_RESULT, protoStatusText } from './proto-enums';
+import { PageHead } from './page-head';
 import {
   ColumnPicker,
   SortHeader,
@@ -50,7 +60,7 @@ import {
   type ProtoColumnDef,
 } from './proto-table';
 
-/** 列表路由（registry 接线口径）；详情为子路由 /log/detail?logId=。 */
+/** List route (registry wiring); detail is the child route /log/detail?logId=. */
 const LOG_LIST_PATH = '/system/log';
 const LOG_DETAIL_PATH = '/log/detail';
 
@@ -59,10 +69,11 @@ const LOG_DETAIL_PATH = '/log/detail';
  */
 const LOG_PAGE_SIZE = 10;
 
-/* ─────────────── 列契约 / 排序 / 列偏好（原型 OperationLogsPage COLUMNS） ─────────────── */
+/* ─────────────── Column contract / sort / preferences (prototype OperationLogsPage COLUMNS) ─────────────── */
 
-/** 列契约（原型 COLUMNS 逐字，列名按任务口径：Time (UTC+8)/Business Type/Status）；
- * Trace ID 默认隐藏（原型 defaultVisible:false）。 */
+/** Column contract (verbatim from the prototype COLUMNS; labels per the task
+ * wording: Time (UTC+8)/Business Type/Status); Trace ID hidden by default
+ * (prototype defaultVisible:false). */
 const LOG_COLUMNS: ProtoColumnDef[] = [
   { id: 'createdAt', label: 'Time', required: true },
   { id: 'operator', label: 'Operator' },
@@ -75,10 +86,10 @@ const LOG_COLUMNS: ProtoColumnDef[] = [
   { id: 'actions', label: 'Actions', required: true },
 ];
 
-/** 列偏好 localStorage 键（tx/token 列表同语义）。 */
+/** Column preference localStorage key (same semantics as tx/token lists). */
 const LOG_COLUMN_PREF_KEY = 'gw.log-list.columns';
 
-/** 排序键 → 行取值（原型 sortBy 白名单；Request URL/Status/Actions 不可排序）。 */
+/** Sort key → row accessor (prototype sortBy whitelist; Request URL/Status/Actions are not sortable). */
 const LOG_SORT_ACCESSORS: Record<
   string,
   (r: LogRow) => string | number | null | undefined
@@ -91,7 +102,7 @@ const LOG_SORT_ACCESSORS: Record<
   traceId: (r) => r.traceId,
 };
 
-/* ─────────────── 筛选表单（原型字段 + 显式 Search/Reset 提交） ─────────────── */
+/* ─────────────── Filter form (prototype fields + explicit Search/Reset submit) ─────────────── */
 
 const logFilterSchema = z.object({
   startTime: z.string(),
@@ -110,15 +121,17 @@ const LOG_FILTER_DEFAULT: LogFilterForm = {
   status: OPT_ALL,
 };
 
-/** 已提交筛选：req 为服务端参数（module + 毫秒时间区间）；operator/status 无服务端
- * 参数（本地过滤过渡），不进请求体。 */
+/** Submitted filter: req carries the server-side parameters (module +
+ * millisecond time range); operator/status have no server-side parameters
+ * (local filtering transition) and stay out of the request body. */
 interface LogQueryState {
   req: LogListReq;
   operator: string;
   status: string;
 }
 
-/** RHF 筛选表单 → 提交态。原型 DateRangeField 日粒度：from 当日 00:00 / to 当日 23:59。 */
+/** RHF filter form → submitted state. Prototype DateRangeField day granularity:
+ * from = 00:00 of the day / to = 23:59 of the day. */
 function formToQuery(form: LogFilterForm): LogQueryState {
   return {
     req: {
@@ -131,20 +144,21 @@ function formToQuery(form: LogFilterForm): LogQueryState {
   };
 }
 
-/* ─────────────── 行暂存 + 请求参数脱敏（GAP-GW-02） ─────────────── */
+/* ─────────────── Row stash + request-param redaction (GAP-GW-02) ─────────────── */
 
 const LOG_STASH_PREFIX = 'gw_log_stash:';
 
-/** 暂存被点击的行（sessionStorage；写失败静默——详情页落 not-found 态）。 */
+/** Stash the clicked row (sessionStorage; write failures fail silently — the
+ * detail page then lands on its not-found state). */
 function stashLogRow(logId: string, row: LogRow): void {
   try {
     sessionStorage.setItem(`${LOG_STASH_PREFIX}${logId}`, JSON.stringify(row));
   } catch {
-    /* 隐私模式/配额超限时放弃暂存 */
+    /* private mode / quota exceeded — give up on the stash */
   }
 }
 
-/** 读取暂存行；缺失/损坏/ID 不符 → null。 */
+/** Read the stashed row; missing/corrupt/ID mismatch → null. */
 function peekLogRow(logId: string): LogRow | null {
   try {
     const raw = sessionStorage.getItem(`${LOG_STASH_PREFIX}${logId}`);
@@ -155,12 +169,14 @@ function peekLogRow(logId: string): LogRow | null {
   }
 }
 
-/** 脱敏键名规则（GAP-GW-02 处置列：password/token 类键 → ••••••••，前端实现）。 */
+/** Redaction key rule (GAP-GW-02 disposition column: password/token-like keys
+ * → ••••••••, implemented on the frontend). */
 const REDACT_KEY_PATTERN = /pass(word)?|token|secret|credential/i;
 const REDACTED_TEXT = '••••••••';
 
-/** 请求参数脱敏展示：JSON 可解析 → 命中敏感键的值替换掩码后 pretty-print；解析失败
- * 按原文透出（后端格式未知，不做破坏性改写）；空值 → '-'。 */
+/** Redacted request-param display: parseable JSON → values under sensitive keys
+ * are masked before pretty-printing; unparseable input passes through verbatim
+ * (backend format unknown, no destructive rewrite); empty → '-'. */
 function redactParams(raw: string | null | undefined): string {
   if (!raw) return '-';
   try {
@@ -174,19 +190,15 @@ function redactParams(raw: string | null | undefined): string {
   }
 }
 
-function logModuleLabel(module?: string): string {
-  return module?.toUpperCase() === 'LOGIN' ? '登录管理' : (module ?? '-');
-}
-
 /* ================================================================== */
-/* 列表页（registry：/system/log → list） */
+/* List page (registry: /system/log → list)                            */
 /* ================================================================== */
 
 export function LogListPage() {
   const router = useRouter();
   const toast = useToast();
 
-  const { register, reset, control, watch, getValues } = useForm<LogFilterForm>({
+  const { register, reset, control, getValues } = useForm<LogFilterForm>({
     resolver: createFormResolver(logFilterSchema),
     defaultValues: LOG_FILTER_DEFAULT,
   });
@@ -209,7 +221,8 @@ export function LogListPage() {
       filter: query.req,
     });
 
-  /* 源 catch 静默靠拦截器；本门户约定 toast 显性提示 + Retry。 */
+  /* The source swallows errors via the interceptor; this portal surfaces them
+   * with an explicit toast + Retry. */
   React.useEffect(() => {
     if (isError) {
       toast.error('Failed to load operation logs', {
@@ -219,15 +232,6 @@ export function LogListPage() {
       });
     }
   }, [isError, error, refetch, toast]);
-
-  const watched = watch();
-  const hasFilter =
-    Boolean(query.req.module || query.req.startTime || query.req.endTime || query.operator || query.status) ||
-    (watched.startTime ?? '') !== '' ||
-    (watched.endTime ?? '') !== '' ||
-    (watched.operator ?? '').trim() !== '' ||
-    (watched.module ?? OPT_ALL) !== OPT_ALL ||
-    (watched.status ?? OPT_ALL) !== OPT_ALL;
 
   const onSearch = React.useCallback(() => {
     setQuery(formToQuery(getValues()));
@@ -243,9 +247,10 @@ export function LogListPage() {
   const allRows = data?.data ?? [];
   const total = data?.pagination?.total ?? 0;
 
-  /* 本地过滤过渡（/log/page filter 无 operateName/status 参数；Operator 模糊 /
-   * Status 精确仅对当前页生效，分页 total 仍为未筛口径；后端参数就绪后回写为
-   * 服务端检索）。 */
+  /* Local filtering transition (/log/page filter has no operateName/status
+   * parameters; Operator fuzzy / Status exact only affect the current page,
+   * and the pagination total keeps the unfiltered count; switch back to
+   * server-side search once the backend parameters exist). */
   const rows = React.useMemo(() => {
     const q = query.operator.toLowerCase();
     return allRows.filter(
@@ -255,18 +260,24 @@ export function LogListPage() {
     );
   }, [allRows, query]);
 
-  /** Module 下拉 options 从当前页数据派生（原型 options 来自接口；token 页同口径）。 */
-  const moduleSelectOptions = React.useMemo(
-    () => [
+  /** Module dropdown options derive from the current page data (the prototype
+   * options come from the API; token page same convention). */
+  const moduleSelectOptions = React.useMemo(() => {
+    const seen = new Set<string>();
+    const modules: string[] = [];
+    for (const r of allRows) {
+      if (!r.module || seen.has(r.module)) continue;
+      seen.add(r.module);
+      modules.push(r.module);
+    }
+    modules.sort((a, b) => a.localeCompare(b));
+    return [
       { value: OPT_ALL, label: 'All' },
-      ...[...new Set(allRows.map((r) => r.module).filter((v): v is string => !!v))].sort(
-        (a, b) => a.localeCompare(b),
-      ).map((m) => ({ value: m, label: m })),
-    ],
-    [allRows],
-  );
+      ...modules.map((m) => ({ value: m, label: m })),
+    ];
+  }, [allRows]);
 
-  /** Status 筛选 options：按 rank 排序（0 Success → 1 Failed，不按字母）。 */
+  /** Status filter options: ordered by rank (0 Success → 1 Failed, not alphabetical). */
   const statusSelectOptions = React.useMemo(
     () => [
       { value: OPT_ALL, label: 'All' },
@@ -277,9 +288,10 @@ export function LogListPage() {
     [],
   );
 
-  /* 排序：服务端 /log/page 无排序参数——当前页内排序（可排键白名单与原型一致：
-   * createdAt / operator / module / businessType / duration / traceId；
-   * 默认 createdAt desc；tx 列表同口径）。 */
+  /* Sorting: /log/page has no server-side sort parameter — sort within the
+   * current page (sortable-key whitelist matches the prototype: createdAt /
+   * operator / module / businessType / duration / traceId; default createdAt
+   * desc; same convention as the tx list). */
   const sortedRows = React.useMemo(() => {
     const accessor = sort.key ? LOG_SORT_ACCESSORS[sort.key] : undefined;
     if (!accessor) return rows;
@@ -294,8 +306,9 @@ export function LogListPage() {
     [sortedRows],
   );
 
-  /** 详情跳转（registry：/log/detail?logId=）：先暂存行数据——GAP-GW-02 无
-   * /log/{id} 端点，详情页直接以行数据渲染。 */
+  /** Detail navigation (registry: /log/detail?logId=): stash the row first —
+   * GAP-GW-02 has no /log/{id} endpoint, so the detail page renders straight
+   * from the row data. */
   const onView = React.useCallback(
     (row: LogRow) => {
       stashLogRow(String(row.operateLogId), row);
@@ -305,8 +318,9 @@ export function LogListPage() {
   );
 
   /**
-   * 列序对齐 BP 原型 COLUMNS（列名按任务口径：Time (UTC+8) / Business Type /
-   * Status / Duration / Trace ID）：Trace ID 默认隐藏，Actions 为 Details 入口。
+   * Column order mirrors the BP prototype COLUMNS (labels per the task
+   * wording: Time (UTC+8) / Business Type / Status / Duration / Trace ID):
+   * Trace ID hidden by default, Actions is the Details entry.
    */
   const columns = React.useMemo<ColumnDef<LogRow & { id: string }>[]>(() => {
     return [
@@ -334,11 +348,7 @@ export function LogListPage() {
             onToggle={() => toggle('operator')}
           />
         ),
-        cell: ({ row }) => (
-          <span className="block max-w-[180px] truncate" title={orDash(row.original.operateName)}>
-            {orDash(row.original.operateName)}
-          </span>
-        ),
+        cell: ({ row }) => orDash(row.original.operateName),
       },
       {
         id: 'module',
@@ -371,7 +381,7 @@ export function LogListPage() {
         header: 'Request URL',
         cell: ({ row }) => (
           <span
-            className="block max-w-[280px] truncate font-mono text-xs"
+            className="block max-w-[260px] truncate font-mono text-xs"
             title={orDash(row.original.operateUrl)}
           >
             {orDash(row.original.operateUrl)}
@@ -399,8 +409,10 @@ export function LogListPage() {
           />
         ),
         cell: ({ row }) => (
-          <span className="block text-right tabular-nums">
-            {formatDuration(row.original.costTime)}
+          <span className="block whitespace-nowrap text-right tabular-nums">
+            {row.original.costTime != null
+              ? `${row.original.costTime} ms`
+              : orDash(row.original.costTime)}
           </span>
         ),
       },
@@ -433,7 +445,8 @@ export function LogListPage() {
     ];
   }, [onView, sort, toggle]);
 
-  /* 列偏好：required 列恒显，其余按用户选择过滤（Trace ID 默认隐藏）。 */
+  /* Column preferences: required columns always render, the rest follow the
+   * user's selection (Trace ID hidden by default). */
   const visibleColumns = React.useMemo(
     () =>
       filterVisibleColumns(
@@ -446,27 +459,22 @@ export function LogListPage() {
 
   return (
     <div className="space-y-4">
-      {/* 页头（原型 PageHeader：标题 + 一句话口径，文案逐字）。 */}
-      <div>
-        <h1 className="text-xl font-semibold">Operation Logs</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every write and sign-in this portal performed, with the request
-          result and the trace id for follow-up.
-        </p>
-      </div>
+      {/* Page head (title only, matching the admin ListPageHeader). */}
+      <PageHead title="Operation Logs" />
 
       <section className="rounded-lg border border-border/60 bg-card">
-        {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + 页面级操作右置。 */}
+        {/* Table panel header: entity name + result count + refresh time +
+            page-level actions on the right. */}
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-            <div className="text-base font-semibold leading-6 text-foreground">
+            <div className="text-base font-semibold leading-6">
               Operation Logs
             </div>
-            {data && (
+            {!isLoading && data?.pagination ? (
               <span className="text-sm text-muted-foreground tabular-nums">
                 {total} results
               </span>
-            )}
+            ) : null}
             {dataUpdatedAt ? (
               <span className="text-xs text-muted-foreground tabular-nums">
                 Updated {formatUtc8(dataUpdatedAt)}
@@ -483,7 +491,9 @@ export function LogListPage() {
           </div>
         </div>
 
-        {/* Filter Bar：Search 提交当前条件，Reset 清空；字段顺序照原型 Date Range → Operator → Module → Status。 */}
+        {/* Filter bar: Search submits the current conditions, Reset clears;
+            field order follows the prototype Date Range → Operator → Module →
+            Status. */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -492,25 +502,38 @@ export function LogListPage() {
           className="border-b border-border/50 px-4 py-3"
         >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <FormField
-              name="startTime"
-              label="Date From"
-              type="date"
-              register={register('startTime')}
-            />
-            <FormField
-              name="endTime"
-              label="Date To"
-              type="date"
-              register={register('endTime')}
-            />
-            {/* Operator 无服务端参数——当前页本地模糊过滤（见 rows 过渡注释）。 */}
-            <FormField
-              name="operator"
-              label="Operator"
-              placeholder="Fuzzy match"
-              register={register('operator')}
-            />
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium leading-snug text-foreground">
+                Date Range
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="date"
+                  aria-label="Date Range from"
+                  {...register('startTime')}
+                />
+                <Input
+                  type="date"
+                  aria-label="Date Range to"
+                  {...register('endTime')}
+                />
+              </div>
+            </div>
+            {/* Operator has no server-side parameter — local fuzzy filter over
+             * the current page (see the rows transition comment). */}
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium leading-snug text-foreground">
+                Operator
+              </label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-8"
+                  placeholder="Search operator"
+                  {...register('operator')}
+                />
+              </div>
+            </div>
             <FormSelect
               name="module"
               control={control}
@@ -525,32 +548,21 @@ export function LogListPage() {
               options={statusSelectOptions}
               placeholder="All"
             />
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="submit">Search</Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!hasFilter}
-              onClick={onReset}
-            >
-              Reset
-            </Button>
+            <div className="flex items-end gap-2">
+              <Button type="submit">Search</Button>
+              <Button type="button" variant="outline" onClick={onReset}>
+                Reset
+              </Button>
+            </div>
           </div>
         </form>
 
         <div className="p-4">
-          <div className="mb-3 flex justify-end">
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {total} records
-            </span>
-          </div>
           <DataTable
             columns={visibleColumns}
             data={tableData}
             isLoading={isLoading}
-            emptyMessage="No operation logs found. Try adjusting the filters or widening the date range."
+            emptyMessage="No operation logs found."
             pagination={
               data?.pagination
                 ? {
@@ -572,12 +584,12 @@ export function LogListPage() {
   );
 }
 
-
 /* ================================================================== */
-/* 详情页（registry：/log/detail → detail；原型 OperationLogDetailPage） */
+/* Detail page (registry: /log/detail → detail; prototype OperationLogDetailPage) */
 /* ================================================================== */
 
-/** 详情只读字段（label 上 / 值下加粗；LP/ADM 详情卡同款 dl 行）。 */
+/** Detail read-only field (label above / bold value below; admin
+ * OperateLogDetailField parity). */
 function DetailField({
   label,
   children,
@@ -587,12 +599,12 @@ function DetailField({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs font-medium capitalize text-muted-foreground">
+      <div className="text-xs font-medium capitalize text-muted-foreground">
         {label}
-      </dt>
-      <dd className="mt-1 min-w-0 break-all text-sm font-semibold">
+      </div>
+      <div className="mt-1 min-w-0 break-all text-sm font-medium leading-6">
         {children}
-      </dd>
+      </div>
     </div>
   );
 }
@@ -602,8 +614,9 @@ export function LogDetailPage() {
   const searchParams = useSearchParams();
   const logId = searchParams.get('logId')?.trim() ?? '';
 
-  /* STATIC-FILLER(GAP-GW-02): 无 /log/{id} 详情端点——详情以列表暂存行渲染
-   *（sessionStorage gw_log_stash:{logId}）；深链/换标签页无暂存 → not-found 态。 */
+  /* STATIC-FILLER(GAP-GW-02): no /log/{id} detail endpoint — the detail renders
+   * from the stashed list row (sessionStorage gw_log_stash:{logId}); deep
+   * links / new tabs without a stash → not-found state. */
   const row = React.useMemo(() => (logId ? peekLogRow(logId) : null), [logId]);
 
   const backToList = React.useCallback(
@@ -614,113 +627,137 @@ export function LogDetailPage() {
   if (row == null) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Back to list"
-            onClick={backToList}
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <h1 className="text-xl font-semibold tracking-tight">Log Details</h1>
+        {/* Form-style page head: back + title (admin FormPageHeader parity). */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <Button
+              variant="outline"
+              size="iconSm"
+              aria-label="Back to Operation Logs"
+              onClick={backToList}
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold leading-7">
+                Operation Details
+              </h1>
+            </div>
+          </div>
         </div>
-        <div className="rounded-lg border border-border/60 bg-card p-10 text-center shadow-float">
-          <div className="text-sm font-semibold">Operation log not found</div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            The record may have been removed. Go back to the list.
-          </p>
-          <Button variant="outline" className="mt-4" onClick={backToList}>
-            Back to Operation Logs
-          </Button>
-        </div>
+        <section className="rounded-lg border border-border/60 bg-card">
+          <div className="flex flex-col items-center justify-center gap-1.5 px-6 py-16 text-center">
+            <p className="text-sm font-medium">Operation log not found</p>
+            <p className="text-sm text-muted-foreground">
+              The record may have been removed. Go back to the list.
+            </p>
+            <div className="mt-3">
+              <Button variant="outline" onClick={backToList}>
+                Back to Operation Logs
+              </Button>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* 身份头（原型 PageHeader）：← Back + 标题 + 结果徽章 + 元信息行
-          （Trace ID | Timestamp，文案逐字）。 */}
-      <div className="flex items-start gap-3">
-        <Button
-          variant="outline"
-          size="icon"
-          className="mt-0.5 shrink-0"
-          aria-label="Back to list"
-          onClick={backToList}
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        </Button>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">
-              Log Details
-            </h1>
-            <ProtoStatusBadge
-              label={protoStatusText(PROTO_LOG_RESULT, row.status)}
-              tone={row.status === 0 ? 'success' : 'danger'}
-            />
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              Trace ID:{' '}
-              {row.traceId ? <CopyableId value={row.traceId} /> : orDash(null)}
-            </span>
-            <span aria-hidden="true">|</span>
-            <span>
-              Timestamp <span className="text-foreground">{formatUtc8(row.operateTime)}</span>
-            </span>
+      {/* Identity head (admin detail header): ← back + title + result badge +
+          meta row (Trace ID | Timestamp). */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Button
+            variant="outline"
+            size="iconSm"
+            aria-label="Back to Operation Logs"
+            onClick={backToList}
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </Button>
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold leading-7">
+                Operation Details
+              </h1>
+              <ProtoStatusBadge
+                label={protoStatusText(PROTO_LOG_RESULT, row.status)}
+                tone={row.status === 0 ? 'success' : 'danger'}
+              />
+            </div>
+            <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                Trace ID:{' '}
+                {row.traceId ? <CopyableId value={row.traceId} /> : orDash(null)}
+              </span>
+              <span aria-hidden="true">|</span>
+              <span>
+                Timestamp:{' '}
+                <b className="font-semibold tabular-nums text-foreground">
+                  {formatUtc8(row.operateTime)}
+                </b>
+              </span>
+            </p>
           </div>
         </div>
       </div>
 
       <div className="space-y-4">
-        <section className="rounded-lg border border-border/60 bg-card p-6 shadow-float">
-          <h2 className="mb-4 text-sm font-semibold">Request</h2>
-          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-            <DetailField label="Module">{logModuleLabel(row.module)}</DetailField>
-            <DetailField label="Business Type">
-              <Badge
-                variant={logBusinessTypeVariant(row.businessType)}
-                className={
-                  row.businessType === 4
-                    ? 'rounded-full border-transparent bg-teal-700 text-white dark:bg-teal-700 dark:text-white'
-                    : undefined
-                }
-              >
-                {logBusinessTypeText(row.businessType)}
-              </Badge>
-            </DetailField>
-            <DetailField label="Request URL">
-              {row.operateUrl ? (
-                <code className="break-all font-mono text-[13px] font-normal">
-                  {row.operateUrl}
-                </code>
-              ) : (
-                orDash(row.operateUrl)
-              )}
-            </DetailField>
-            <DetailField label="Trace ID">
-              {row.traceId ? <CopyableId value={row.traceId} /> : orDash(null)}
-            </DetailField>
-            <DetailField label="Duration">{formatDuration(row.costTime)}</DetailField>
-            <DetailField label="Operator">{orDash(row.operateName)}</DetailField>
-          </dl>
-          <div className="mt-4 border-t border-border/60 pt-4">
-            <div className="mb-2 text-xs font-medium capitalize text-muted-foreground">
-              Request Parameters
+        <section className="rounded-lg border border-border/60 bg-card p-4 text-card-foreground shadow-float">
+          <h2 className="mb-4 text-sm font-semibold leading-5">Request</h2>
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+              <DetailField label="Module">
+                {row.module?.toUpperCase() === 'LOGIN'
+                  ? 'Login Management'
+                  : orDash(row.module)}
+              </DetailField>
+              <DetailField label="Business Type">
+                {/* Type 4 (Sign-in) keeps the rounded teal pill styling. */}
+                <Badge
+                  variant={logBusinessTypeVariant(row.businessType)}
+                  className={
+                    row.businessType === 4
+                      ? 'rounded-full border-transparent bg-teal-700 text-white dark:bg-teal-700 dark:text-white'
+                      : undefined
+                  }
+                >
+                  {logBusinessTypeText(row.businessType)}
+                </Badge>
+              </DetailField>
+              <DetailField label="Request URL">
+                {row.operateUrl ? (
+                  <code className="break-all font-mono text-[13px] font-normal">
+                    {row.operateUrl}
+                  </code>
+                ) : (
+                  orDash(row.operateUrl)
+                )}
+              </DetailField>
+              <DetailField label="Trace ID">
+                {row.traceId ? <CopyableId value={row.traceId} /> : orDash(null)}
+              </DetailField>
+              <DetailField label="Duration">
+                {row.costTime != null ? `${row.costTime} ms` : orDash(row.costTime)}
+              </DetailField>
+              <DetailField label="Operator">{orDash(row.operateName)}</DetailField>
             </div>
-            <pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md border bg-muted/40 px-3 py-2.5 font-mono text-xs leading-relaxed text-foreground">
-              {redactParams(row.operateParam)}
-            </pre>
+            <div className="border-t border-border/60 pt-4">
+              <div className="mb-2 text-xs font-medium capitalize text-muted-foreground">
+                Request Parameters
+              </div>
+              <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md border bg-muted/40 px-3 py-2.5 font-mono text-xs leading-relaxed text-foreground">
+                {redactParams(row.operateParam)}
+              </pre>
+            </div>
           </div>
         </section>
 
         {row.errorMsg ? (
-          <section className="rounded-lg border border-border/60 bg-card p-6 shadow-float">
-            <h2 className="mb-4 text-sm font-semibold">Error Info</h2>
-            <pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md bg-red-500/10 p-3 font-mono text-xs leading-5 text-red-600 dark:text-red-400">
+          <section className="rounded-lg border border-border/60 bg-card p-4 text-card-foreground shadow-float">
+            <h2 className="mb-4 text-sm font-semibold leading-5">Error Info</h2>
+            <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap break-all rounded bg-destructive/10 p-3 font-mono text-xs leading-5 text-destructive">
               {row.errorMsg}
             </pre>
           </section>

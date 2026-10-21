@@ -38,6 +38,45 @@ export function Dash({ className }: { className?: string }) {
   return <span className={cn('text-muted-foreground', className)}>-</span>;
 }
 
+/** Admin-style metric card shared by the System Management list pages. */
+const STAT_TONE_TEXT: Record<
+  'primary' | 'success' | 'warning' | 'danger',
+  string
+> = {
+  primary: 'text-foreground',
+  success: 'text-success',
+  warning: 'text-warning',
+  danger: 'text-destructive',
+};
+
+export function StatCard({
+  label,
+  value,
+  tone,
+  help,
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone: 'primary' | 'success' | 'warning' | 'danger';
+  help?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-card p-4">
+      <div className="text-sm font-medium text-muted-foreground">{label}</div>
+      <div
+        className={`mt-1.5 text-2xl font-semibold leading-none tabular-nums ${STAT_TONE_TEXT[tone]}`}
+      >
+        {value}
+      </div>
+      {help ? (
+        <div className="mt-2 text-xs leading-4 text-muted-foreground">
+          {help}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /* ─────────────────────── 状态徽章 ─────────────────────── */
 
 /** 语义色集合（与 ActionConfirmDialog 图标色共用词汇；调用方按状态语义给）。 */

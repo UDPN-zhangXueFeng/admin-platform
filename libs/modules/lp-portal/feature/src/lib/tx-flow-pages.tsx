@@ -26,7 +26,17 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { type ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft, ArrowLeftRight, Check, Copy } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  Check,
+  Clock3,
+  Copy,
+  FileText,
+  Repeat,
+  Workflow,
+  X,
+} from 'lucide-react';
 
 import {
   Badge,
@@ -266,15 +276,16 @@ const RAIL_FALLBACK_DELTA_SEC = [0, 5, 8, 20, 32, 45, 52] as const;
 
 type RailState = 'done' | 'danger' | 'muted' | 'warning' | 'future';
 
-/** 原型 railState 逐字：index<stage done；> future；==stage 按当前态标签分流。 */
+/** Completed/credited statuses finalize the current node; later stages stay future. */
 function railState(
+  status: number,
   statusLabel: string | undefined,
   index: number,
   stageIndex: number,
 ): RailState {
   if (index < stageIndex) return 'done';
   if (index > stageIndex) return 'future';
-  if (statusLabel === 'Completed') return 'done';
+  if (status === 35 || status === 40 || statusLabel === 'Completed') return 'done';
   if (statusLabel === 'Abnormal' || statusLabel === 'Failed') return 'danger';
   if (
     statusLabel === 'Cancelled' ||
@@ -285,19 +296,18 @@ function railState(
   }
   return 'warning';
 }
-
 const RAIL_NODE_STYLES: Record<RailState, string> = {
-  done: 'bg-emerald-600 text-white',
-  danger: 'bg-red-600 text-white',
-  warning: 'bg-amber-500 text-white',
-  muted: 'bg-slate-400 text-white',
-  future: 'border-2 border-border bg-card text-muted-foreground',
+  done: 'bg-success text-white',
+  danger: 'bg-destructive text-white',
+  warning: 'bg-warning text-white',
+  muted: 'bg-muted text-muted-foreground',
+  future: 'border-2 border-border bg-background text-muted-foreground',
 };
 
 const RAIL_WORD_STYLES: Record<RailState, string> = {
-  done: 'text-emerald-600',
-  danger: 'text-red-600',
-  warning: 'text-amber-600',
+  done: 'text-success',
+  danger: 'text-destructive',
+  warning: 'text-warning',
   muted: 'text-muted-foreground',
   future: 'text-muted-foreground/70',
 };
@@ -330,7 +340,7 @@ function PartyCell({
   );
 }
 
-/** 详情字段 widget：dt 小号灰标签，dd semibold；空值由 Dash 灰 '-'。 */
+/** 详情字段：标签小字灰、值一行；保留 dt/dd 语义。 */
 function Field({
   label,
   children,
@@ -339,13 +349,11 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 space-y-1.5">
       <dt className="text-xs font-medium capitalize text-muted-foreground">
         {label}
       </dt>
-      <dd className="mt-1 min-w-0 break-all text-sm font-semibold">
-        {children}
-      </dd>
+      <dd className="min-w-0 break-all text-sm text-foreground">{children}</dd>
     </div>
   );
 }
@@ -895,10 +903,15 @@ function TxDetailView({ txKey }: { txKey: string }) {
     chainMax >= 0 ? chainMax : (STATUS_RAIL_INDEX[seed.status] ?? 0);
 
   const railStates = RAIL_STEPS.map((_label, i) =>
-    railState(statusEntry ? statusLabel : undefined, i, stageIndex),
+    railState(
+      seed.status,
+      statusEntry ? statusLabel : undefined,
+      i,
+      stageIndex,
+    ),
   );
   const doneCount = railStates.filter((s) => s === 'done').length;
-
+  const progressPct = Math.round((doneCount / RAIL_STEPS.length) * 100);
   /** 环节时间：链路真实 eventTime 优先；两端用行内 createTime/completedTime；
    *  中段无链路数据按原型 deltaSec 展示（UI 展示口径非业务数据，GAP-LP-11）。 */
   function railTimeText(i: number): string {
@@ -927,289 +940,378 @@ function TxDetailView({ txKey }: { txKey: string }) {
     <TooltipProvider>
       <div className="space-y-4">
         {/* 页头：返回 + 标题/状态 + 单号/创建时间 + Copy Summary */}
-        <section className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-start gap-3">
             <Button
               type="button"
               variant="outline"
-              size="icon"
-              className="mt-0.5 h-8 w-8 shrink-0"
+              size="iconSm"
               aria-label="Back to FX Transactions"
               onClick={() => router.push(LIST_ROUTE)}
             >
               <ArrowLeft className="size-4" aria-hidden="true" />
             </Button>
             <div className="min-w-0">
-              <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                {LBL.eyebrow}
-              </div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-xl font-semibold">Transaction Details</h1>
                 <TxStatusBadge status={seed.status} />
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                <span>Transaction No.:</span>
-                {txNoText(seed) === '-' ? (
-                  <span>-</span>
-                ) : (
-                  <CopyableId value={txNoText(seed)} className="font-mono" />
-                )}
+              <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  Transaction No:{' '}
+                  <span className="font-semibold text-foreground">
+                    {txNoText(seed) === '-' ? (
+                      '-'
+                    ) : (
+                      <CopyableId value={txNoText(seed)} />
+                    )}
+                  </span>
+                </span>
                 <span aria-hidden="true">|</span>
                 <span className="tabular-nums">
                   Created on {formatUtc8(seed.createTime)}
                 </span>
-              </div>
+              </p>
             </div>
           </div>
           <div className="shrink-0">
             <CopySummaryButton text={summaryText} />
           </div>
-        </section>
+        </div>
 
-        {/* §1 Settlement Overview */}
-        <section className="rounded-lg border border-border/60 bg-card">
-          <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-base font-semibold leading-6 text-foreground">
-              Settlement Overview
-            </div>
-            {completed && durationMs != null && (
-              // 完成件：结算耗时语义色徽章
-              <Badge
-                variant="outline"
-                className="border-emerald-300 bg-emerald-50 font-normal text-emerald-700"
-              >
-                Settled in {formatDuration(durationMs)}
-              </Badge>
-            )}
-          </div>
-          <div className="space-y-5 p-4">
-            <div className="grid items-center gap-4 lg:grid-cols-[1fr_auto_1fr]">
-              {/* Sent Amount（源行金额卡） */}
-              <div className="rounded-lg border border-border/60 bg-background p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium capitalize text-muted-foreground">
-                    Sent Amount
+        {/* Kissen-style detail layout: transaction information beside the stage rail. */}
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
+          <div className="flex min-w-0 flex-col gap-4 xl:col-span-8">
+            <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              <header className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                    <ArrowLeftRight className="size-4" aria-hidden="true" />
                   </span>
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {bankOf(seed.sourceTokenCode)}
+                  <h2 className="text-sm font-semibold text-foreground">
+                    Transaction Overview
+                  </h2>
+                </div>
+                {completed && durationMs != null ? (
+                  <Badge variant="success" dot>
+                    Settled in {formatDuration(durationMs)}
                   </Badge>
-                </div>
-                <div className="mt-2 text-xl font-bold tabular-nums">
-                  {formatTokenAmount(
-                    seed.userDeduction,
-                    decimalsOf(seed.sourceTokenCode),
-                  )}
-                  <span className="ml-1.5 text-sm font-semibold">
-                    {src}
-                  </span>
-                </div>
-              </div>
-
-              {/* 中心汇率徽章 + 换向图标 */}
-              <div className="flex flex-col items-center gap-2 lg:px-4">
-                <Badge
-                  variant="outline"
-                  className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground"
-                >
-                  1 {src} = {formatRate(seed.userRate)} {tgt}
-                </Badge>
-                <span className="grid size-8 place-items-center rounded-full border border-border/60 bg-background text-muted-foreground">
-                  <ArrowLeftRight className="size-3.5" aria-hidden="true" />
-                </span>
-              </div>
-
-              {/* Received Amount（目标行金额卡，语义色描边） */}
-              <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium capitalize text-emerald-700">
-                    Received Amount
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className="border-emerald-300 bg-background font-mono text-xs"
-                  >
-                    {bankOf(seed.targetTokenCode)}
-                  </Badge>
-                </div>
-                <div className="mt-2 text-xl font-bold tabular-nums text-emerald-700">
-                  {formatTokenAmount(
-                    seed.receiverAmount,
-                    decimalsOf(seed.targetTokenCode),
-                  )}
-                  <span className="ml-1.5 text-sm font-semibold">
-                    {tgt}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <Field label="LP Name">
-                <Dash value={lpName} />
-              </Field>
-              <Field label="Token Pair">
-                <span className="font-mono">
-                  {src} → {tgt}
-                </span>
-              </Field>
-              <Field label="Pair Code">
-                <CopyableId
-                  value={seed.pairCode}
-                  maxWidth={220}
-                  className="font-mono"
-                />
-              </Field>
-            </dl>
-          </div>
-        </section>
-
-        {/* §2 Transaction Information */}
-        <section className="rounded-lg border border-border/60 bg-card">
-          <div className="border-b border-border/50 px-4 py-3">
-            <div className="text-base font-semibold leading-6 text-foreground">
-              Transaction Information
-            </div>
-          </div>
-          <div className="p-4">
-            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              <Field label="Sender Bank">
-                <Dash value={bankOf(seed.sourceTokenCode)} />
-              </Field>
-              <Field label="Receiver Bank">
-                <Dash value={bankOf(seed.targetTokenCode)} />
-              </Field>
-              <Field label="Principal">
-                <span className="tabular-nums">
-                  {amountText(seed.principal, seed.sourceTokenCode)}
-                </span>
-              </Field>
-              <Field label="Sender Wallet">
-                <CopyableId
-                  value={seed.senderAccount}
-                  maxWidth={200}
-                  className="font-mono text-sm"
-                />
-              </Field>
-              <Field label="Receiver Wallet">
-                <CopyableId
-                  value={seed.receiverAccount}
-                  maxWidth={200}
-                  className="font-mono text-sm"
-                />
-              </Field>
-            </dl>
-          </div>
-        </section>
-
-        {/* §3 Timing */}
-        <section className="rounded-lg border border-border/60 bg-card">
-          <div className="border-b border-border/50 px-4 py-3">
-            <div className="text-base font-semibold leading-6 text-foreground">
-              Timing
-            </div>
-          </div>
-          <div className="p-4">
-            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <Field label="Created on">
-                <span className="tabular-nums">
-                  {formatUtc8(seed.createTime)}
-                </span>
-              </Field>
-              <Field label="Completed on">
-                <span className="tabular-nums">
-                  {completed ? formatUtc8(seed.completedTime) : '-'}
-                </span>
-              </Field>
-              <Field label="Duration">
-                <span className="tabular-nums">
-                  {durationMs != null ? formatDuration(durationMs) : '-'}
-                </span>
-              </Field>
-            </dl>
-          </div>
-        </section>
-
-        {/* §4 Clearance Pipeline（7 环节；链路真实 eventTime 优先） */}
-        <section className="rounded-lg border border-border/60 bg-card">
-          <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-base font-semibold leading-6 text-foreground">
-              Clearance Pipeline
-            </div>
-            <Badge
-              variant="outline"
-              className={
-                doneCount === RAIL_STEPS.length
-                  ? 'border-emerald-300 bg-emerald-50 font-normal text-emerald-700'
-                  : 'font-normal text-muted-foreground'
-              }
-            >
-              <span
-                className={
-                  doneCount === RAIL_STEPS.length
-                    ? 'mr-1.5 size-1.5 rounded-full bg-emerald-500'
-                    : 'mr-1.5 size-1.5 rounded-full bg-muted-foreground/60'
-                }
-                aria-hidden="true"
-              />
-              {doneCount} of {RAIL_STEPS.length} Finalized
-            </Badge>
-          </div>
-          <div className="p-4">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {RAIL_STEPS.map((step, i) => {
-                const state = railStates[i];
-                const isLast = i === RAIL_STEPS.length - 1;
-                const word =
-                  state === 'done'
-                    ? 'Completed'
-                    : state === 'danger' || state === 'muted'
-                      ? statusLabel
-                      : state === 'warning'
-                        ? 'In Progress'
-                        : 'Pending';
-                return (
-                  <div
-                    key={step}
-                    className="flex items-start gap-3 rounded-lg border border-border/60 bg-background p-3"
-                  >
-                    <span
-                      className={`grid size-8 shrink-0 place-items-center rounded-full font-mono text-xs font-semibold ${RAIL_NODE_STYLES[state]}`}
-                      aria-hidden="true"
-                    >
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold leading-5">
-                        {step}
-                      </div>
-                      <div
-                        className={`mt-0.5 text-xs font-medium ${RAIL_WORD_STYLES[state]}`}
-                      >
-                        {isLast && state === 'done' ? (
-                          // 末环节完成：Finalized 语义色徽章（原型 SuccessBadge）
-                          <Badge
-                            variant="outline"
-                            className="border-emerald-300 bg-emerald-50 font-normal text-emerald-700"
-                          >
-                            Finalized
-                          </Badge>
-                        ) : (
-                          word
+                ) : null}
+              </header>
+              <div className="p-6">
+                <div className="grid items-center gap-4 md:grid-cols-[1fr_auto_1fr]">
+                  <div className="min-w-0 rounded-lg border border-border p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Sent Amount
+                      </span>
+                      <Badge variant="mute">{bankOf(seed.sourceTokenCode)}</Badge>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5">
+                      <span className="text-2xl font-bold tabular-nums">
+                        {formatTokenAmount(
+                          seed.userDeduction,
+                          decimalsOf(seed.sourceTokenCode),
                         )}
-                      </div>
-                      <div className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
-                        {railTimeText(i)}
-                      </div>
-                      <div className="mt-1.5 text-xs leading-5 text-muted-foreground">
-                        {RAIL_STEP_INFO[i]}
-                      </div>
+                      </span>
+                      <span className="text-sm font-semibold tracking-wide">
+                        {src}
+                      </span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="flex min-w-0 shrink-0 flex-col items-center gap-2 md:px-6">
+                    <Badge
+                      variant="outline"
+                      className="whitespace-nowrap tabular-nums"
+                    >
+                      1 {src} ≈ {formatRate(seed.userRate)} {tgt}
+                    </Badge>
+                    <Repeat
+                      className="size-4 text-primary"
+                      aria-hidden="true"
+                    />
+                    <Badge className="max-w-full truncate whitespace-nowrap">
+                      {lpName || '-'}
+                    </Badge>
+                  </div>
+                  <div className="min-w-0 rounded-lg border border-success bg-success/10 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Received Amount
+                      </span>
+                      <Badge variant="mute">{bankOf(seed.targetTokenCode)}</Badge>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 text-success">
+                      <span className="text-2xl font-bold tabular-nums">
+                        +{formatTokenAmount(
+                          seed.receiverAmount,
+                          decimalsOf(seed.targetTokenCode),
+                        )}
+                      </span>
+                      <span className="text-sm font-semibold tracking-wide">
+                        {tgt}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <dl className="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-3">
+                  <Field label="LP Name">
+                    <Dash value={lpName} />
+                  </Field>
+                  <Field label="Token Pair">
+                    <span className="font-mono">
+                      {src}/{tgt}
+                    </span>
+                  </Field>
+                  <Field label="Pair Code">
+                    <CopyableId
+                      value={seed.pairCode}
+                      maxWidth={220}
+                      className="font-mono"
+                    />
+                  </Field>
+                </dl>
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              <header className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                    <FileText className="size-4" aria-hidden="true" />
+                  </span>
+                  <h2 className="text-sm font-semibold text-foreground">
+                    Transaction Information
+                  </h2>
+                </div>
+              </header>
+              <div className="space-y-5 p-6">
+                <dl>
+                  <Field label="Transaction ID">
+                    <span className="font-mono tabular-nums">
+                      {seed.transactionId}
+                    </span>
+                  </Field>
+                </dl>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <section
+                    aria-label="Source currency details"
+                    className="min-w-0 rounded-lg border border-border p-4"
+                  >
+                    <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Source Currency
+                      </h3>
+                      <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
+                        {src}
+                      </span>
+                    </div>
+                    <dl className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+                      <Field label="Sender Bank">
+                        <Dash value={bankOf(seed.sourceTokenCode)} />
+                      </Field>
+                      <Field label="Sender Wallet">
+                        <CopyableId value={seed.senderAccount} />
+                      </Field>
+                      <Field label="Principal">
+                        <span className="font-mono tabular-nums">
+                          {amountText(seed.principal, seed.sourceTokenCode)}
+                        </span>
+                      </Field>
+                      <Field label="User Deduction">
+                        <span className="font-mono tabular-nums">
+                          {amountText(seed.userDeduction, seed.sourceTokenCode)}
+                        </span>
+                      </Field>
+                      <Field label="Source Chain Tx ID">
+                        <CopyableId value={seed.sourceCsTxId} />
+                      </Field>
+                    </dl>
+                  </section>
+                  <section
+                    aria-label="Target currency details"
+                    className="min-w-0 rounded-lg border border-border p-4"
+                  >
+                    <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Target Currency
+                      </h3>
+                      <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
+                        {tgt}
+                      </span>
+                    </div>
+                    <dl className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+                      <Field label="Receiver Bank">
+                        <Dash value={bankOf(seed.targetTokenCode)} />
+                      </Field>
+                      <Field label="Receiver Wallet">
+                        <CopyableId value={seed.receiverAccount} />
+                      </Field>
+                      <Field label="Received Amount">
+                        <span className="font-mono tabular-nums">
+                          {amountText(seed.receiverAmount, seed.targetTokenCode)}
+                        </span>
+                      </Field>
+                    </dl>
+                  </section>
+                </div>
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              <header className="flex items-center gap-3 border-b border-border px-6 py-4">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                  <Clock3 className="size-4" aria-hidden="true" />
+                </span>
+                <h2 className="text-sm font-semibold text-foreground">Timing</h2>
+              </header>
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-5 p-6 md:grid-cols-3">
+                <Field label="Created on">
+                  <span className="tabular-nums">
+                    {formatUtc8(seed.createTime)}
+                  </span>
+                </Field>
+                <Field label="Completed on">
+                  <span className="tabular-nums">
+                    {completed ? formatUtc8(seed.completedTime) : '-'}
+                  </span>
+                </Field>
+                <Field label="Duration">
+                  <span className="tabular-nums">
+                    {durationMs != null ? formatDuration(durationMs) : '-'}
+                  </span>
+                </Field>
+              </dl>
+            </section>
           </div>
-        </section>
+
+          <aside className="min-w-0 xl:col-span-4">
+            <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              <header className="border-b border-border px-6 py-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                        <Workflow className="size-4" aria-hidden="true" />
+                      </span>
+                      <h2 className="text-sm font-semibold text-foreground">
+                        Clearance Pipeline
+                      </h2>
+                      <Badge variant="success" className="tabular-nums">
+                        {doneCount}/{RAIL_STEPS.length} Finalized
+                      </Badge>
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Transaction lifecycle
+                    </p>
+                  </div>
+                  <span className="text-lg font-bold tabular-nums text-success">
+                    {progressPct}%
+                  </span>
+                </div>
+              </header>
+              <div className="p-6">
+                <div
+                  role="progressbar"
+                  aria-label="Transaction settlement progress"
+                  aria-valuemin={0}
+                  aria-valuemax={RAIL_STEPS.length}
+                  aria-valuenow={doneCount}
+                >
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`h-full rounded-full ${
+                        doneCount === RAIL_STEPS.length
+                          ? 'bg-success'
+                          : 'bg-primary'
+                      }`}
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
+                </div>
+                <ol className="mt-6">
+                  {RAIL_STEPS.map((step, i) => {
+                    const state = railStates[i];
+                    const isLast = i === RAIL_STEPS.length - 1;
+                    const word =
+                      state === 'done'
+                        ? 'Completed'
+                        : state === 'danger' || state === 'muted'
+                          ? statusLabel
+                          : state === 'warning'
+                            ? 'In Progress'
+                            : 'Pending';
+                    const timeText =
+                      state === 'future' ? '' : railTimeText(i);
+                    return (
+                      <li
+                        key={step}
+                        aria-current={i === stageIndex ? 'step' : undefined}
+                        className="relative min-w-0 pb-6 pl-12 last:pb-0"
+                      >
+                        {i < RAIL_STEPS.length - 1 ? (
+                          <span
+                            aria-hidden="true"
+                            className="absolute bottom-0 left-[15px] top-8 w-px bg-border"
+                          />
+                        ) : null}
+                        <span
+                          aria-hidden="true"
+                          className={`absolute left-0 top-0 grid size-8 place-items-center rounded-full ${RAIL_NODE_STYLES[state]}`}
+                        >
+                          {state === 'done' ? (
+                            <Check className="size-4" aria-hidden="true" />
+                          ) : null}
+                          {state === 'danger' ? (
+                            <X className="size-4" aria-hidden="true" />
+                          ) : null}
+                          {state === 'warning' ? (
+                            <span className="size-2 rounded-full bg-white" />
+                          ) : null}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                              <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                                {String(i + 1).padStart(2, '0')}
+                              </span>
+                              <span
+                                className={`text-sm font-semibold ${
+                                  state === 'future'
+                                    ? 'text-muted-foreground'
+                                    : 'text-foreground'
+                                }`}
+                              >
+                                {step}
+                              </span>
+                              {isLast && state === 'done' ? (
+                                <Badge variant="success">Finalized</Badge>
+                              ) : (
+                                <span
+                                  className={`text-xs ${RAIL_WORD_STYLES[state]}`}
+                                >
+                                  {word}
+                                </span>
+                              )}
+                            </div>
+                            {timeText && timeText !== '-' ? (
+                              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                                {timeText}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {RAIL_STEP_INFO[i]}
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            </section>
+          </aside>
+        </div>
       </div>
     </TooltipProvider>
   );

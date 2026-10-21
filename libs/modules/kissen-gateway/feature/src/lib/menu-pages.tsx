@@ -9,17 +9,9 @@
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Loader2, Plus, Search, X } from 'lucide-react';
+import { Plus, Search, Trash2, X } from 'lucide-react';
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   Badge,
   Button,
   Input,
@@ -47,7 +39,8 @@ import {
 import { useGatewayPerm } from './use-gateway-perm';
 
 import { PageHead } from './page-head';
-import { QueryErrorRetry } from './state-blocks';
+import { LoadingBlock, QueryErrorRetry } from './state-blocks';
+import { ActionConfirmDialog } from './proto-ui';
 
 /* ================================================================== */
 /* 菜单类型文案与表单展示辅助。                                      */
@@ -221,6 +214,32 @@ function DetailField({
   );
 }
 
+/** Detail card shell (admin system-pages Menu parity): bordered card with a
+ * title header row and a padded body. */
+function DetailCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+      <div className="border-b border-border/50 px-4 py-3">
+        <h2 className="text-sm font-semibold leading-5">{title}</h2>
+        {description ? (
+          <p className="mt-0.5 text-xs leading-4 text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      <div className="p-4">{children}</div>
+    </section>
+  );
+}
+
 /* ================================================================== */
 /* 内联菜单详情（新增、编辑与删除状态）。                              */
 /* ================================================================== */
@@ -340,71 +359,64 @@ function MenuPermissionPanel({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium">
-        API Permissions (method + URL, aligned with the AuthFilter permission table, Ant wildcards supported)
-      </p>
-      <div className="overflow-hidden rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              {PERM_TABLE_HEADERS.map((header) => (
-                <th
-                  key={header}
-                  scope="col"
-                  className={
-                    header === 'Actions'
-                      ? 'h-9 w-20 px-3 text-left align-middle font-medium text-muted-foreground'
-                      : 'h-9 px-3 text-left align-middle font-medium text-muted-foreground'
-                  }
-                >
-                  {header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {loading && rows.length === 0 ? (
+      {loading && rows.length === 0 ? (
+        <LoadingBlock variant="skeleton" />
+      ) : (
+        <div className="overflow-hidden rounded-md border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
               <tr>
                 {PERM_TABLE_HEADERS.map((header) => (
-                  <td key={header} className="px-3 py-2.5">
-                    <div className="h-4 w-16 animate-pulse rounded bg-muted" />
-                  </td>
+                  <th
+                    key={header}
+                    scope="col"
+                    className={
+                      header === 'Actions'
+                        ? 'h-9 w-20 px-3 text-left align-middle font-medium text-muted-foreground'
+                        : 'h-9 px-3 text-left align-middle font-medium text-muted-foreground'
+                    }
+                  >
+                    {header}
+                  </th>
                 ))}
               </tr>
-            ) : rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={PERM_TABLE_HEADERS.length}
-                  className="px-3 py-5 text-center text-muted-foreground"
-                >
-                  No data
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => (
-                <tr key={row.menuPermissionId} className="hover:bg-muted/50">
-                  <td className="px-3 py-2 align-middle">
-                    <code className="text-xs">{row.httpMethod || '*'}</code>
-                  </td>
-                  <td className="break-all px-3 py-2 align-middle">
-                    {row.resourceUrl}
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-destructive"
-                      onClick={() => setPermDeleteTarget(row)}
-                    >
-                      Remove
-                    </Button>
+            </thead>
+            <tbody className="divide-y">
+              {rows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={PERM_TABLE_HEADERS.length}
+                    className="px-3 py-5 text-center text-sm text-muted-foreground"
+                  >
+                    No API permissions.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.menuPermissionId} className="hover:bg-muted/50">
+                    <td className="px-3 py-2 align-middle">
+                      <code className="text-xs">{row.httpMethod || '*'}</code>
+                    </td>
+                    <td className="break-all px-3 py-2 align-middle">
+                      {row.resourceUrl}
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-destructive"
+                        onClick={() => setPermDeleteTarget(row)}
+                      >
+                        Remove
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
       {listMutation.isError && (
         <p className="text-sm text-destructive">
           {(listMutation.error as Error)?.message}
@@ -412,31 +424,19 @@ function MenuPermissionPanel({
       )}
 
       {/* 权限行移除确认（T12 要求 confirm 提示；破坏性动作用 destructive）。 */}
-      <AlertDialog
+      <ActionConfirmDialog
         open={permDeleteTarget != null}
         onOpenChange={(o) => !o && setPermDeleteTarget(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove API Permission</AlertDialogTitle>
-            <AlertDialogDescription>
-              Remove permission "{permDeleteTarget?.httpMethod || '*'}{' '}
-              {permDeleteTarget?.resourceUrl}" from menu "{menuName}"? The
-              gateway will stop matching this method + URL for menu key "
-              {menuKey}".
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={onConfirmPermDelete}
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        icon={Trash2}
+        tone="danger"
+        title="Remove API Permission"
+        body1={`Remove permission "${permDeleteTarget?.httpMethod || '*'} ${
+          permDeleteTarget?.resourceUrl
+        }" from menu "${menuName}"?`}
+        body2={`The gateway will stop matching this method + URL for menu key "${menuKey}".`}
+        confirmLabel="Remove"
+        onConfirm={onConfirmPermDelete}
+      />
     </div>
   );
 }
@@ -657,10 +657,7 @@ export function MenuListPage() {
           </div>
           <div className="max-h-[70vh] overflow-y-auto p-2">
             {isLoading ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                Loading menus…
-              </div>
+              <LoadingBlock variant="skeleton" />
             ) : isError ? (
               <div className="p-4">
                 <QueryErrorRetry error={error} onRetry={() => refetch()} withIcon />
@@ -856,9 +853,6 @@ export function MenuListPage() {
 
                     <div className="flex flex-wrap gap-2">
                       <Button type="submit" disabled={isSaving}>
-                        {isSaving ? (
-                          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                        ) : null}
                         {isSaving ? 'Saving…' : 'Save'}
                       </Button>
                       {mode === 'view' && selectedNode ? (
@@ -899,41 +893,30 @@ export function MenuListPage() {
           </section>
 
           {mode === 'view' && selectedNode?.menuKey ? (
-            <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
-              <div className="p-4">
-                <MenuPermissionPanel
-                  menuKey={selectedNode.menuKey}
-                  menuName={selectedNode.menuName}
-                />
-              </div>
-            </section>
+            <DetailCard
+              title="API Permissions"
+              description="Method + URL, aligned with the AuthFilter permission table; Ant wildcards supported."
+            >
+              <MenuPermissionPanel
+                menuKey={selectedNode.menuKey}
+                menuName={selectedNode.menuName}
+              />
+            </DetailCard>
           ) : null}
         </div>
       </div>
 
-      <AlertDialog
+      <ActionConfirmDialog
         open={deleteTarget != null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Menu</AlertDialogTitle>
-            <AlertDialogDescription>
-              Delete menu "{deleteTarget?.menuName}"? Rejected if it has children or is
-              referenced by roles.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={onConfirmDelete}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        icon={Trash2}
+        tone="danger"
+        title="Delete Menu"
+        body1={`Delete menu "${deleteTarget?.menuName}"?`}
+        body2="Rejected if it has children or is referenced by roles."
+        confirmLabel="Delete"
+        onConfirm={onConfirmDelete}
+      />
     </div>
   );
 }

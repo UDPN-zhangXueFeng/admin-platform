@@ -297,28 +297,34 @@ function PairX({
 function MoneyRight({
   v,
   dec,
+  currency,
 }: {
   v: number | string | null | undefined;
   dec: number;
+  currency?: string;
 }) {
   return (
     <span className="block text-right font-mono text-xs tabular-nums">
       {formatTokenAmount(v, dec)}
+      {currency ? ` ${currency}` : ''}
     </span>
   );
 }
 
-/** Key-figure 强调（My Share 列）；dec 同 MoneyRight 口径。 */
+/** Key-figure 强调（My Share 列）；currency 与金额精度和同一行 Token 一致。 */
 function KeyFigureRight({
   v,
   dec,
+  currency,
 }: {
   v: number | string | null | undefined;
   dec: number;
+  currency?: string;
 }) {
   return (
     <span className="block text-right font-mono text-sm font-semibold tabular-nums">
       {formatTokenAmount(v, dec)}
+      {currency ? ` ${currency}` : ''}
     </span>
   );
 }
@@ -960,7 +966,6 @@ function DetailsTabSection({
     () => ({
       txNo: { value: (r) => txNoText(r) },
       tokenPair: { value: (r) => r.pairCode || null },
-      token: { value: (r) => r.currency || null },
       principal: { value: (r) => numOf(r.principal) },
       markup: { value: (r) => numOf(r.markupAmount) },
       revenueShare: { value: (r) => numOf(r.splitRatio) },
@@ -1035,22 +1040,6 @@ function DetailsTabSection({
         cell: ({ row }) => ctx.renderPairX(row.original.pairCode),
       },
       {
-        accessorKey: 'currency',
-        header: () => (
-          <ProtoSortHeader
-            label="Token"
-            columnKey="token"
-            toggle={toggle}
-            sortState={sortState('token')}
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="font-mono text-xs">
-            {row.original.currency || '-'}
-          </span>
-        ),
-      },
-      {
         accessorKey: 'principal',
         header: () => (
           <div className="flex justify-end">
@@ -1066,6 +1055,7 @@ function DetailsTabSection({
           <MoneyRight
             v={row.original.principal}
             dec={ctx.decOf(row.original.pairCode)}
+            currency={row.original.currency}
           />
         ),
       },
@@ -1086,6 +1076,7 @@ function DetailsTabSection({
           <MoneyRight
             v={row.original.markupAmount}
             dec={ctx.decOf(row.original.pairCode)}
+            currency={row.original.currency}
           />
         ),
       },
@@ -1124,6 +1115,7 @@ function DetailsTabSection({
           <KeyFigureRight
             v={row.original.lpSplitAmount}
             dec={ctx.decOf(row.original.pairCode)}
+            currency={row.original.currency}
           />
         ),
       },
