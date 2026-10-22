@@ -72,7 +72,7 @@ export function useCoaBasicInfoQuery(financeBookId: number | undefined, enabled 
 
 /**
  * COA 树（Chart of Accounts tab）。
- * `retry: false`——失败由调用方回退到本地 mock（源项目 `shouldRetryOnError: false`）。
+ * `retry: false`；失败由调用方显式显示错误态，不以本地 mock 替代真实账目。
  */
 export function useCoaTreeQuery(financeBookId: number | undefined, enabled = true) {
   return useQuery<CoaTreeNodeResp[]>({

@@ -4,11 +4,16 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { approvalKeys } from './approval.keys';
 import {
+  getApprovalApplyPage,
+  getApprovalDetailByBusiness,
   getApprovalDetail,
   getApprovalDonePage,
   getApprovalTodoPage,
 } from './approval.api';
-import type { ApprovalListReq } from './approval.model';
+import type {
+  ApprovalApplyListReq,
+  ApprovalListReq,
+} from './approval.model';
 
 /** 审批待办分页列表（翻页/筛选时保留旧数据）。 */
 export function useApprovalTodoQuery(
@@ -57,5 +62,44 @@ export function useApprovalDetailQuery(
         { signal },
       ),
     enabled: enabled && !!busCode && !!taskId,
+  });
+}
+
+/** 我发起的分页列表（翻页/筛选时保留旧数据；按当前身份过滤）。 */
+export function useApprovalApplyQuery(
+  projectId: string,
+  params: ApprovalApplyListReq,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: approvalKeys.applyList(projectId, params),
+    queryFn: ({ signal }) => getApprovalApplyPage(params, { signal }),
+    placeholderData: keepPreviousData,
+    enabled,
+  });
+}
+
+/**
+ * 业务键审批详情（busCode+busId；审批未发起时响应 recordExists=false 而非报错）。
+ * busCode/busId 无效时不发起查询。
+ */
+export function useApprovalDetailByBusinessQuery(
+  projectId: string,
+  busCode: string | undefined,
+  busId: number | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: approvalKeys.businessDetail(
+      projectId,
+      busCode ?? '',
+      busId ?? 0,
+    ),
+    queryFn: ({ signal }) =>
+      getApprovalDetailByBusiness(
+        { busCode: busCode as string, busId: busId as number },
+        { signal },
+      ),
+    enabled: enabled && !!busCode && !!busId,
   });
 }

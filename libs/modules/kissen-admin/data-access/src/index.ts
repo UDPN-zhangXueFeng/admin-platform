@@ -53,3 +53,4 @@ export * from './lib/reconcile';
 export * from './lib/risk-monitor';
 export * from './lib/freeze';
 export * from './lib/approval';
+export * from './lib/dashboard';

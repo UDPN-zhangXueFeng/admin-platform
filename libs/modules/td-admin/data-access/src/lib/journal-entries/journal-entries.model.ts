@@ -99,7 +99,7 @@ export interface InterestTxType {
   transactionName?: string;
 }
 
-// ── 账本交易列表（bill/otx/list，view 页）──
+// ── 账本交易列表（bill/tx/listPage，view 页）──
 export interface BillTxItem {
   id: string;
   traceId?: string;

@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
+import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
 import { Button, DataTable, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@myorg/shared/ui';
 import { FormDatePicker } from '@myorg/shared/ui-forms';
@@ -38,11 +39,17 @@ const EMPTY_FORM: WorkflowFilterForm = {
   endDate: '',
 };
 
-/** 把日期字符串转为毫秒时间戳（旧页 RangePicker 传时间戳给后端）。 */
-function dateToTs(d?: string): number | undefined {
+/**
+ * 把日期字符串转为本地日历日边界的时间戳（旧页 RangePicker 传时间戳给后端）。
+ *
+ * boundary='start' → 当天 00:00:00.000；'end' → 当天 23:59:59.999，
+ * 确保结束日期覆盖完整本地自然日；空串/非法日期返回 undefined（字段剔除）。
+ */
+function dateToTs(d: string | undefined, boundary: 'start' | 'end'): number | undefined {
   if (!d) return undefined;
-  const ts = new Date(d).getTime();
-  return Number.isFinite(ts) ? ts : undefined;
+  const parsed = parseISO(d);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return (boundary === 'end' ? endOfDay(parsed) : startOfDay(parsed)).getTime();
 }
 
 /**
@@ -57,8 +64,8 @@ function formToParams(form: WorkflowFilterForm): WorkflowListParams {
   if (form.status) {
     params.status = Number(form.status) as typeof WorkflowStatus.Active | typeof WorkflowStatus.Inactive;
   }
-  const beginTs = dateToTs(form.beginDate);
-  const endTs = dateToTs(form.endDate);
+  const beginTs = dateToTs(form.beginDate, 'start');
+  const endTs = dateToTs(form.endDate, 'end');
   if (beginTs != null) params.beginDate = beginTs;
   if (endTs != null) params.endDate = endTs;
   return params;

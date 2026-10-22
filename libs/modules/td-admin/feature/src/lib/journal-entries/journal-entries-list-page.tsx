@@ -82,6 +82,7 @@ function formToFilters(f: RuleFilterForm): BillRuleListFilters {
  */
 export function JournalEntriesListPage() {
   const t = useTranslations('modules.journal-entries');
+  const tc = useTranslations('common');
   const router = useRouter();
 
   const { control, register, handleSubmit, reset } = useForm<RuleFilterForm>({
@@ -169,11 +170,11 @@ export function JournalEntriesListPage() {
         { ruleId: rule.ruleId ?? 0, state },
         {
           onSuccess: () => toast.success(t('operateSuccess')),
-          onError: () => toast.error(t('operateSuccess')),
+          onError: () => toast.error(tc('common_task_status_40')),
         },
       );
     },
-    [operateMutation, t],
+    [operateMutation, t, tc],
   );
 
   const columns = React.useMemo<ColumnDef<BillRule>[]>(

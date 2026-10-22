@@ -1,39 +1,43 @@
 'use client';
 
 /**
- * FX 汇率查询页（源 `views/fx/index.vue`：GET /fx/view 只读聚合表，
- * GW-14 UDPN 对齐一页融合 token 对 + LP 名称 + 最新汇率）。
- * 路由 /fx（registry：fx → list，FxListPage 按名解析）。
+ * FX Query 域两页（plan/12 §5 P2：BP 原型 FxQueryPage.jsx / TokenPairDetailPage.jsx
+ * 行为规格落地；源 `views/fx/index.vue` + `views/fx/detail.vue`）。
  *
- * - 39c8a2b 列序对齐 UDPN 评审：token pair / FX Rate / Liquidity
- *   Provider / Updated On——原「归属」单列取消，bankCode 并入 token
- *   pair 列（每侧 tag 下方 11px 灰字，源 pair-side 纵排）。
- * - eafcab0：源行点击 openDetail → 操作列 Detail 按钮（下游列表约定，
- *   shared DataTable 无行点击支持；详情路由 /fx/detail?id={pairId}）。
- * - G-02：列表标题与第一列统一使用 Token Pair；汇率一律 4 位小数（源 fmtRate）；
- *   详情去 Version 项/列、token 对卡字段集重构（code (symbol)、Chain '-'/Bank、
- *   合约地址 tokenNo 中间省略可复制）、LP 池地址可复制、卡头 Liquidity
- *   Providers / Recent Rates。
- * - 服务端状态 TanStack Query（useFxViewQuery，无筛选维度 → 源页无搜索条件）。
- * - 源 catch 静默（拦截器已提示），目标约束升级为 fail-loud：
- *   ErrorBlock + Retry 页面内可感知可恢复。
- * - 快照时间兜底链 rate.pushTime ?? tokenPair.pushTime（源 `??` 语义逐字一致）。
- * - P3 List 批次（§6.2 对齐）：表改 shared DataTable columnDef（pair 簇 cell
- *   与 tx 列表 tokens 列同构）；panel 头条承载实体名/结果数/刷新时间/
- *   Refresh（shadow-float 去除，P2 panel 无阴影口径）。
+ * 列表 /fx：
+ * - 页头 + 筛选卡（Source Symbol / Target Symbol 双字段服务端模糊，
+ *   POST /fx/view）+ 服务端分页（2026-10-13 分页清单）。协议无 LP/Status/
+ *   排序参数 → LP、Status 筛选移除（列保留），表头静态。
+ * - 2026-09-20 原型批注：pair 列简化 `src → tgt`（symbol 优先，去 BIC 双行）；
+ *   'FX Rate'→'Rate'；LP 列纵排纯文本行（去 Badge chips）；Status 列
+ *   （ProtoStatusBadge）；'Synced On'→'Synced on (UTC+8)'；Actions 'Details'。
+ *
+ * 详情 /fx/detail?id={pairId}：
+ * - 页头（Back + `src → tgt` + 状态徽章 + meta Pair ID | Synced on）→ 页面级
+ *   Tabs（basic/lps/history，?tab= 写 URL、basic 缺省不写）。
+ * - basic = Token Pair Information（Pair ID + Source/Target 对照表）+ Latest
+ *   Rate Snapshot（Base/Markup/Client Rate）；'User Rate' 术语改 'Client Rate'。
+ * - lps = Liquidity Providers 表（池地址 CopyableId）；history = Rate History。
+ * - 快照时间兜底链 rate?.pushTime ?? tokenPair.pushTime（源 `??` 语义逐字一致）。
+ * - 保留：列表 Refresh（原型无、本仓 SyncRefresh 家族有意偏差）、列表
+ *   ErrorBlock + Retry、详情 toast + Retry、footnote 推送口径。
  */
 
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
-import { Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 
 import {
-  Badge,
   Button,
-  CopyableEllipsisText,
   DataTable,
+  Input,
+  Label,
   Skeleton,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   useToast,
 } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
@@ -45,103 +49,147 @@ import {
   type FxRateSnapshot,
 } from '@myorg/modules/kissen-gateway/data-access';
 
+import { CopyableId, Dash, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
+import { formatRate, formatUtc8 } from './proto-format';
+import { PROTO_PAIR_STATUS, protoStatusText } from './proto-enums';
 import { DescField, DescGrid } from './desc-grid';
-import { formatTime, orDash } from './kit';
+import { orDash } from './kit';
 import { EmptyHint, ErrorBlock, MissingIdBlock } from './state-blocks';
+
+const FX_LIST_PATH = '/fx';
+const FX_DETAIL_PATH = '/fx/detail';
+
+/** token 对状态徽章（Enabled 成功色 / Disabled 灰；码位 20/50）。 */
+const PAIR_STATUS_TONES: Record<number, ProtoStatusTone> = {
+  20: 'success',
+  50: 'muted',
+};
+
+/* ─────────────────────────── 列表页 ─────────────────────────── */
+
+type FxFilters = { sourceSymbol: string; targetSymbol: string };
+
+const FX_FILTER_DEFAULT: FxFilters = { sourceSymbol: '', targetSymbol: '' };
 
 export function FxListPage() {
   const router = useRouter();
-  const { data, isLoading, isError, error, isFetching, refetch, dataUpdatedAt } =
-    useFxViewQuery();
-  const rows = data?.pairs ?? [];
+  const [filters, setFilters] = React.useState<FxFilters>(FX_FILTER_DEFAULT);
+  const [appliedFilters, setAppliedFilters] = React.useState<FxFilters>(FX_FILTER_DEFAULT);
+  const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(10);
 
-  /**
-   * 列序对齐 UDPN 评审（39c8a2b）：token pair / FX Rate / Liquidity
-   * Provider / Updated On。pair 簇 cell 与 tx 列表 tokens 列同构
-   * （双侧「tag + 下方 11px 灰字 bankCode」纵排；pairCode 小字 57f6ca0 移除）。
-   */
+  const { data, isLoading, isError, error, isFetching, refetch, dataUpdatedAt } =
+    useFxViewQuery(
+      React.useMemo(
+        () => ({
+          pageNum,
+          pageSize,
+          filter: {
+            ...(appliedFilters.sourceSymbol.trim()
+              ? { sourceTokenSymbol: appliedFilters.sourceSymbol.trim() }
+              : {}),
+            ...(appliedFilters.targetSymbol.trim()
+              ? { targetTokenSymbol: appliedFilters.targetSymbol.trim() }
+              : {}),
+          },
+        }),
+        [pageNum, pageSize, appliedFilters],
+      ),
+    );
+  const rows = data?.data ?? [];
+
+  const tableData = React.useMemo(
+    () => rows.map((r) => ({ ...r, id: String(r.tokenPair.pairId) })),
+    [rows],
+  );
+
+  const hasFilter =
+    filters.sourceSymbol !== '' ||
+    filters.targetSymbol !== '' ||
+    appliedFilters.sourceSymbol !== '' ||
+    appliedFilters.targetSymbol !== '';
+
+  // Search/Reset 均回到第 1 页（服务端分页）。
+  const handleFilterSubmit = () => {
+    setAppliedFilters(filters);
+    setPageNum(1);
+  };
+  const handleFilterReset = () => {
+    setFilters(FX_FILTER_DEFAULT);
+    setAppliedFilters(FX_FILTER_DEFAULT);
+    setPageNum(1);
+  };
   const columns = React.useMemo<ColumnDef<FxPairItem & { id: string }>[]>(
     () => [
       {
+        // 2026-09-20 原型批注：`src → tgt` 单行（symbol 优先，code 兜底）。
         id: 'tokenPair',
         header: 'Token Pair',
-        meta: { overflow: 'wrap', maxWidth: 220 },
+        meta: { overflow: 'wrap', maxWidth: 200 },
         cell: ({ row }) => {
           const pair = row.original.tokenPair;
           return (
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="flex flex-col items-center gap-0.5">
-                  <Badge variant="outline">
-                    {pair.sourceTokenSymbol || pair.sourceTokenCode || '-'}
-                  </Badge>
-                  <span className="text-[11px] text-muted-foreground">
-                    {pair.sourceBankCode || '-'}
-                  </span>
-                </div>
-                <span className="text-xs text-muted-foreground">→</span>
-                <div className="flex flex-col items-center gap-0.5">
-                  <Badge
-                    variant="outline"
-                    className="border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400"
-                  >
-                    {pair.targetTokenSymbol || pair.targetTokenCode || '-'}
-                  </Badge>
-                  <span className="text-[11px] text-muted-foreground">
-                    {pair.targetBankCode || '-'}
-                  </span>
-                </div>
-              </div>
-            </div>
+            <span className="font-medium">
+              {pair.sourceTokenSymbol || pair.sourceTokenCode || '-'}
+              <span className="mx-1.5 text-muted-foreground">→</span>
+              {pair.targetTokenSymbol || pair.targetTokenCode || '-'}
+            </span>
           );
         },
       },
       {
-        // 源 align="right" + num 类：rate 为 null 显 '-'。
-        id: 'fxRate',
-        header: 'FX Rate',
-        meta: { overflow: 'none' },
+        id: 'rate',
+        header: () => <div className="text-right">Rate</div>,
         cell: ({ row }) => (
           <span className="block text-right tabular-nums">
-            {row.original.rate?.userRate == null
-              ? '-'
-              : Number(row.original.rate.userRate).toFixed(4)}
+            {formatRate(row.original.rate?.userRate)}
           </span>
         ),
       },
       {
-        // 源 LP 列：lpNames 逐个 el-tag type=info，空列表显 '-'。
+        // 原型 LiquidityProviderCell：纵排纯文本行（去 Badge chips），空 → '-'。
         id: 'lpNames',
         header: 'Liquidity Provider',
         meta: { overflow: 'wrap', maxWidth: 220 },
         cell: ({ row }) =>
           row.original.lpNames.length > 0 ? (
-            <span className="flex flex-wrap gap-1.5">
+            <div className="flex min-w-0 flex-col gap-0.5">
               {row.original.lpNames.map((name) => (
-                <Badge key={name} variant="secondary">
+                <span key={name} className="truncate">
                   {name}
-                </Badge>
+                </span>
               ))}
-            </span>
+            </div>
           ) : (
-            <span>-</span>
+            <Dash />
           ),
       },
       {
-        // 源兜底口径：rate?.pushTime ?? tokenPair.pushTime（a9dc10e 列头 Synced On）。
-        id: 'updatedOn',
-        header: 'Synced On',
-        meta: { maxWidth: 220 },
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <ProtoStatusBadge
+            label={protoStatusText(
+              PROTO_PAIR_STATUS,
+              row.original.tokenPair.status,
+            )}
+            tone={PAIR_STATUS_TONES[row.original.tokenPair.status] ?? 'muted'}
+          />
+        ),
+      },
+      {
+        id: 'syncedAt',
+        header: 'Synced on',
         cell: ({ row }) => (
           <span className="tabular-nums">
-            {formatTime(
+            {formatUtc8(
               row.original.rate?.pushTime ?? row.original.tokenPair.pushTime,
             )}
           </span>
         ),
       },
       {
-        // eafcab0：源行点击 openDetail → 操作列 Detail 按钮（下游列表约定）。
+        // eafcab0：源行点击 openDetail → 操作列按钮（术语对齐原型 'Details'）。
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => (
@@ -150,10 +198,12 @@ export function FxListPage() {
             size="sm"
             className="h-auto p-0"
             onClick={() =>
-              router.push(`/fx/detail?id=${row.original.tokenPair.pairId}`)
+              router.push(
+                `${FX_DETAIL_PATH}?id=${row.original.tokenPair.pairId}`,
+              )
             }
           >
-            View
+            Details
           </Button>
         ),
       },
@@ -161,32 +211,81 @@ export function FxListPage() {
     [router],
   );
 
-  const tableData = React.useMemo(
-    () => rows.map((r) => ({ ...r, id: String(r.tokenPair.pairId) })),
-    [rows],
-  );
-
   return (
     <div className="space-y-4">
+      {/* 页头（原型 PageHeader：标题 + 一句话口径）。 */}
+      <div>
+        <h1 className="text-xl font-semibold">FX Query</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Token pairs available to this bank instance, with the latest rate
+          cached from Kissen.
+        </p>
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleFilterSubmit();
+        }}
+        className="rounded-lg border border-border/60 bg-card p-4"
+      >
+        {/* 协议仅支持双侧 symbol 模糊（2026-10-13 清单）→ LP/Status 筛选移除
+            （列保留）。 */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="min-w-0">
+            <Label className="mb-1.5 block">Source Symbol</Label>
+            <Input
+              value={filters.sourceSymbol}
+              onChange={(e) =>
+                setFilters((f) => ({ ...f, sourceSymbol: e.target.value }))
+              }
+              placeholder="Fuzzy match"
+            />
+          </div>
+          <div className="min-w-0">
+            <Label className="mb-1.5 block">Target Symbol</Label>
+            <Input
+              value={filters.targetSymbol}
+              onChange={(e) =>
+                setFilters((f) => ({ ...f, targetSymbol: e.target.value }))
+              }
+              placeholder="Fuzzy match"
+            />
+          </div>
+          <div className="flex items-end gap-2">
+            <Button type="submit" size="sm">Search</Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!hasFilter}
+              onClick={handleFilterReset}
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+      </form>
+
       <section className="rounded-lg border border-border/60 bg-card">
-        {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + 页面级操作右置。 */}
+        {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + Refresh。 */}
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
             <div className="text-base font-semibold leading-6 text-foreground">
-              Token Pair
+              Token Pairs
             </div>
-            {data && (
+            {data?.pagination && (
               <span className="text-sm text-muted-foreground tabular-nums">
-                {rows.length} results
+                {data.pagination.total} results
               </span>
             )}
             {dataUpdatedAt ? (
               <span className="text-xs text-muted-foreground tabular-nums">
-                Updated {formatTime(dataUpdatedAt)}
+                Updated {formatUtc8(dataUpdatedAt)}
               </span>
             ) : null}
           </div>
-          {/* 源 el-button :loading="loading" @click="load" → refetch，isFetching 态转圈。 */}
+          {/* 有意偏差：原型无 Refresh，本仓保留手动刷新（SyncRefresh 家族）。 */}
           <Button
             type="button"
             variant="outline"
@@ -213,7 +312,21 @@ export function FxListPage() {
                 columns={columns}
                 data={tableData}
                 isLoading={isLoading}
-                emptyMessage="No token pairs pushed yet"
+                emptyMessage="No token pairs found. Try adjusting the filters."
+                pagination={
+                  data?.pagination
+                    ? {
+                        page: data.pagination.page,
+                        pageSize: data.pagination.pageSize,
+                        total: data.pagination.total,
+                        onPageChange: setPageNum,
+                        onPageSizeChange: (n) => {
+                          setPageSize(n);
+                          setPageNum(1);
+                        },
+                      }
+                    : undefined
+                }
               />
               <p className="mt-4 text-xs text-muted-foreground">
                 Data comes from locally cached Kissen pushes (token pairs / LP
@@ -229,25 +342,46 @@ export function FxListPage() {
   );
 }
 
-/* ================================================================== */
-/* 详情页（eafcab0 源 `views/fx/detail.vue`）                          */
-/* ================================================================== */
+/* ─────────────────────────── 详情页 ─────────────────────────── */
 
-/** LP/token 对状态口径（源模板：status === 20 ? Enabled : Disabled）。 */
-function lpStatusVariant(status: number): 'default' | 'outline' {
-  return status === 20 ? 'default' : 'outline';
+/** Source/Target 对照表行（原型 CompareRow：行头 + 双侧值）。 */
+function PairCompareRow({
+  label,
+  source,
+  target,
+}: {
+  label: string;
+  source: React.ReactNode;
+  target: React.ReactNode;
+}) {
+  return (
+    <tr className="border-t border-border/50">
+      <th
+        scope="row"
+        className="w-32 py-2.5 pr-3 text-left align-top text-sm font-medium text-muted-foreground"
+      >
+        {label}
+      </th>
+      <td className="py-2.5 pr-6 align-top text-sm">{source}</td>
+      <td className="py-2.5 align-top text-sm">{target}</td>
+    </tr>
+  );
 }
 
-/** 源 fmtRate：汇率 4 位小数（null → '-'；kit.fmtAmount 千分位口径不适用于汇率）。 */
-function fmtRate(v: number | null | undefined): string {
-  if (v == null) return '-';
-  return Number(v).toFixed(4);
+/** 对照单元格：symbol 主行 + code 可复制（原型 Token 行双行结构）。 */
+function PairTokenCell(symbol: string | null | undefined, code: string | null | undefined) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <span>{symbol || <Dash />}</span>
+      <CopyableId value={code} />
+    </div>
+  );
 }
 
 /**
  * token 对详情页（registry fx.detail；/fx/detail?id={pairId}）。
- * 源布局：头部 pair 双侧（目标侧 success 色）+ 右侧 FX Rate 块；
- * 四卡：最新汇率快照（3 列）/ token 对信息（2 列）/ LP 明细表 / 最近快照表。
+ * 原型 2026-09-22 版式：页头（Back + `src → tgt` + 状态徽章 + meta 行 Pair ID |
+ * Synced on）→ Tabs basic/lps/history（?tab= 写 URL）→ 各 Tab 面板卡。
  */
 export function FxDetailPage() {
   const router = useRouter();
@@ -270,6 +404,17 @@ export function FxDetailPage() {
       });
     }
   }, [isError, error, refetch, toast]);
+
+  // Tab 状态写 URL（原型同款：basic 缺省不占 query，id 参数保留）。
+  const tabParam = searchParams.get('tab');
+  const activeTab =
+    tabParam === 'lps' || tabParam === 'history' ? tabParam : 'basic';
+  const handleTabChange = (next: string) => {
+    const params = new URLSearchParams();
+    if (rawId != null && rawId !== '') params.set('id', rawId);
+    if (next !== 'basic') params.set('tab', next);
+    router.replace(`${FX_DETAIL_PATH}?${params.toString()}`, { scroll: false });
+  };
 
   const detail = data ?? null;
   const pair = detail?.tokenPair;
@@ -303,44 +448,31 @@ export function FxDetailPage() {
         id: 'sourcePoolAddress',
         header: 'Source Pool Address',
         cell: ({ row }) => (
-          <CopyableEllipsisText
-            value={row.original.sourcePoolAddress}
-            emptyText="-"
-            maxWidth={240}
-            truncate="middle"
-            className="t-identifier"
-          />
+          <CopyableId value={row.original.sourcePoolAddress} />
         ),
       },
       {
         id: 'targetPoolAddress',
         header: 'Target Pool Address',
         cell: ({ row }) => (
-          <CopyableEllipsisText
-            value={row.original.targetPoolAddress}
-            emptyText="-"
-            maxWidth={240}
-            truncate="middle"
-            className="t-identifier"
-          />
+          <CopyableId value={row.original.targetPoolAddress} />
         ),
       },
       {
         id: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <Badge variant={lpStatusVariant(row.original.status)}>
-            {row.original.status === 20 ? 'Enabled' : 'Disabled'}
-          </Badge>
+          <ProtoStatusBadge
+            label={protoStatusText(PROTO_PAIR_STATUS, row.original.status)}
+            tone={PAIR_STATUS_TONES[row.original.status] ?? 'muted'}
+          />
         ),
       },
       {
         id: 'pushTime',
-        header: 'Synced On',
+        header: 'Synced on',
         cell: ({ row }) => (
-          <span className="tabular-nums">
-            {formatTime(row.original.pushTime)}
-          </span>
+          <span className="tabular-nums">{formatUtc8(row.original.pushTime)}</span>
         ),
       },
     ],
@@ -361,7 +493,7 @@ export function FxDetailPage() {
           header: 'Base Rate',
           cell: ({ row }) => (
             <span className="block text-right tabular-nums">
-              {fmtRate(row.original.baseRate)}
+              {formatRate(row.original.baseRate)}
             </span>
           ),
         },
@@ -370,26 +502,25 @@ export function FxDetailPage() {
           header: 'Markup Rate',
           cell: ({ row }) => (
             <span className="block text-right tabular-nums">
-              {fmtRate(row.original.markupRate)}
+              {formatRate(row.original.markupRate)}
             </span>
           ),
         },
         {
-          id: 'userRate',
-          header: 'User Rate',
+          // 术语对齐原型：'User Rate' → 'Client Rate'。
+          id: 'clientRate',
+          header: 'Client Rate',
           cell: ({ row }) => (
             <span className="block text-right font-medium tabular-nums">
-              {fmtRate(row.original.userRate)}
+              {formatRate(row.original.userRate)}
             </span>
           ),
         },
         {
           id: 'pushTime',
-        header: 'Synced On',
+          header: 'Synced on',
           cell: ({ row }) => (
-            <span className="tabular-nums">
-              {formatTime(row.original.pushTime)}
-            </span>
+            <span className="tabular-nums">{formatUtc8(row.original.pushTime)}</span>
           ),
         },
       ],
@@ -409,207 +540,203 @@ export function FxDetailPage() {
     return (
       <MissingIdBlock
         message="Missing a token pair ID. Unable to view details."
-        backTo="/fx"
+        backTo={FX_LIST_PATH}
       />
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* §6.3 Hero：源页面头部——pair 双侧（目标侧 success 色）+ FX Rate 块 + Back。 */}
-      <section className="rounded-lg border border-border/60 bg-card panel-pad">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-            {/* a9dc10e：eyebrow「FX Pair」kicker 移除，仅留 pair 主标题。 */}
-            <h1 className="text-xl font-semibold leading-7 text-foreground">
+    <div className="space-y-4">
+      {/* 页头：Back + `src → tgt` + 状态徽章 + meta 行（Pair ID | Synced on）。 */}
+      <div className="flex flex-wrap items-start gap-3">
+        <Button
+          variant="outline"
+          size="iconSm"
+          aria-label="Back to FX query"
+          onClick={() => router.push(FX_LIST_PATH)}
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+        </Button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="min-w-0 break-all text-xl font-semibold">
               {srcLabel} → {tgtLabel}
             </h1>
             {pair ? (
-              <Badge variant={lpStatusVariant(pair.status)}>
-                {pair.status === 20 ? 'Enabled' : 'Disabled'}
-              </Badge>
+              <ProtoStatusBadge
+                label={protoStatusText(PROTO_PAIR_STATUS, pair.status)}
+                tone={PAIR_STATUS_TONES[pair.status] ?? 'muted'}
+              />
             ) : null}
           </div>
-          <Button variant="outline" size="sm" onClick={() => router.push('/fx')}>
-            Back
-          </Button>
+          {pair ? (
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+              <span className="tabular-nums">Pair ID: {pair.pairId}</span>
+              <span aria-hidden="true">|</span>
+              <span className="tabular-nums">
+                Synced on {formatUtc8(pair.pushTime)}
+              </span>
+            </p>
+          ) : null}
         </div>
-        {pair ? (
-          <div className="mt-4 flex flex-col gap-4 border-t border-border/50 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            {/* 双侧簇与列表 pair 列同构（目标侧 emerald 成功色，源 pair-side 纵排）。 */}
-            <div className="flex items-center gap-2">
-              <div className="flex flex-col items-center gap-0.5">
-                <Badge variant="outline">{srcLabel}</Badge>
-                <span className="text-[11px] text-muted-foreground">
-                  {pair.sourceBankCode || '-'}
-                </span>
-              </div>
-              <span className="text-xs text-muted-foreground">→</span>
-              <div className="flex flex-col items-center gap-0.5">
-                <Badge
-                  variant="outline"
-                  className="border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400"
-                >
-                  {tgtLabel}
-                </Badge>
-                <span className="text-[11px] text-muted-foreground">
-                  {pair.targetBankCode || '-'}
-                </span>
-              </div>
-            </div>
-            {/* 源头部右侧 FX Rate 块：userRate 4 位小数 + Synced On（兜底 tokenPair.pushTime）。 */}
-            <div className="text-right">
-              <div className="text-xs text-muted-foreground">FX Rate</div>
-              <div className="text-lg font-semibold tabular-nums text-foreground">
-                {fmtRate(detail?.latestRate?.userRate)}
-              </div>
-              <div className="text-xs text-muted-foreground tabular-nums">
-                {`Synced On ${formatTime(
-                  detail?.latestRate?.pushTime ?? pair.pushTime,
-                )}`}
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </section>
+      </div>
 
       {detail && pair ? (
-        <>
-          {/* 卡 1：最新汇率快照（源 column3；无快照 → el-empty 空态）。 */}
-          <section className="rounded-lg border border-border/60 bg-card panel-pad">
-            <h2 className="mb-2.5 text-sm font-semibold text-foreground">
-              Latest Rate Snapshot
-            </h2>
-            {detail.latestRate ? (
-              <DescGrid cols={3}>
-                <DescField label="User Rate">
-                  <span className="t-data tabular-nums">
-                    {fmtRate(detail.latestRate.userRate)}
-                  </span>
-                </DescField>
-                <DescField label="Base Rate">
-                  <span className="tabular-nums">
-                    {fmtRate(detail.latestRate.baseRate)}
-                  </span>
-                </DescField>
-                <DescField label="Markup Rate">
-                  <span className="tabular-nums">
-                    {fmtRate(detail.latestRate.markupRate)}
-                  </span>
-                </DescField>
-                <DescField label="Synced On">
-                  <span className="font-mono">
-                    {formatTime(detail.latestRate.pushTime)}
-                  </span>
-                </DescField>
-              </DescGrid>
-            ) : (
-              <EmptyHint text="No rate snapshot pushed for this token pair yet." />
-            )}
-          </section>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          {/* Tabs 条独立于 Card（原型 §3.3）；计数为各表实时条数。 */}
+          <TabsList>
+            <TabsTrigger value="basic">Basic Information</TabsTrigger>
+            <TabsTrigger value="lps">
+              Liquidity Providers
+              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+                {detail.lps.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              Rate History
+              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+                {detail.recentRates.length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
 
-          {/* 卡 2：token 对信息（a9dc10e 字段集重构：code (symbol)、Chain '-'/Bank、合约地址）。 */}
-          <section className="rounded-lg border border-border/60 bg-card panel-pad">
-            <h2 className="mb-2.5 text-sm font-semibold text-foreground">
-              Token Pair Information
-            </h2>
-            <DescGrid cols={2}>
-              <DescField label="Pair ID">
-                <span className="tabular-nums">{pair.pairId}</span>
-              </DescField>
-              <DescField label="Status">
-                <Badge variant={lpStatusVariant(pair.status)}>
-                  {pair.status === 20 ? 'Enabled' : 'Disabled'}
-                </Badge>
-              </DescField>
-              <DescField label="Source Token">
-                <span>
-                  {pair.sourceTokenSymbol &&
-                  pair.sourceTokenSymbol !== pair.sourceTokenCode
-                    ? `${pair.sourceTokenCode} (${pair.sourceTokenSymbol})`
-                    : pair.sourceTokenCode}
-                </span>
-              </DescField>
-              <DescField label="Target Token">
-                <span>
-                  {pair.targetTokenSymbol &&
-                  pair.targetTokenSymbol !== pair.targetTokenCode
-                    ? `${pair.targetTokenCode} (${pair.targetTokenSymbol})`
-                    : pair.targetTokenCode}
-                </span>
-              </DescField>
-              <DescField label="Source Chain">
-                <span>-</span>
-              </DescField>
-              <DescField label="Source Bank">
-                <span className="font-mono">
-                  {orDash(pair.sourceBankCode)}
-                </span>
-              </DescField>
-              <DescField label="Target Chain">
-                <span>-</span>
-              </DescField>
-              <DescField label="Target Bank">
-                <span className="font-mono">
-                  {orDash(pair.targetBankCode)}
-                </span>
-              </DescField>
-              <DescField label="Source Contract Address" span>
-                <CopyableEllipsisText
-                  value={pair.sourceTokenNo}
-                  emptyText="-"
-                  maxWidth={480}
-                  truncate="middle"
-                  className="t-identifier"
+          {/* Tab 1：basic = Token Pair Information（对照表）+ Latest Rate Snapshot。 */}
+          <TabsContent value="basic" className="mt-4">
+            <div className="grid gap-4 lg:grid-cols-5">
+              <section className="rounded-lg border border-border/60 bg-card p-4 lg:col-span-3">
+                <h2 className="mb-2.5 text-sm font-semibold text-foreground">
+                  Token Pair Information
+                </h2>
+                <div className="mb-2">
+                  <DescField label="Pair ID">
+                    <span className="tabular-nums">{pair.pairId}</span>
+                  </DescField>
+                </div>
+                {/* Source/Target 对照表（原型 compare-table：行头 + 双侧列）。 */}
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                      <th className="w-32 py-2 pr-3 font-medium" />
+                      <th className="py-2 pr-6 font-medium">Source</th>
+                      <th className="py-2 font-medium">Target</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <PairCompareRow
+                      label="Token"
+                      source={PairTokenCell(
+                        pair.sourceTokenSymbol,
+                        pair.sourceTokenCode,
+                      )}
+                      target={PairTokenCell(
+                        pair.targetTokenSymbol,
+                        pair.targetTokenCode,
+                      )}
+                    />
+                    {/* /fx/detail 响应无 chain 维度 → '-'（G-02 口径）。 */}
+                    <PairCompareRow
+                      label="BlockChain"
+                      source={<Dash />}
+                      target={<Dash />}
+                    />
+                    <PairCompareRow
+                      label="Bank"
+                      source={
+                        <span className="font-mono">
+                          {orDash(pair.sourceBankCode)}
+                        </span>
+                      }
+                      target={
+                        <span className="font-mono">
+                          {orDash(pair.targetBankCode)}
+                        </span>
+                      }
+                    />
+                    <PairCompareRow
+                      label="Contract Address"
+                      source={<CopyableId value={pair.sourceTokenNo} />}
+                      target={<CopyableId value={pair.targetTokenNo} />}
+                    />
+                  </tbody>
+                </table>
+              </section>
+
+              <section className="rounded-lg border border-border/60 bg-card p-4 lg:col-span-2">
+                <h2 className="mb-2.5 text-sm font-semibold text-foreground">
+                  Latest Rate Snapshot
+                </h2>
+                {detail.latestRate ? (
+                  <DescGrid cols={2}>
+                    <DescField label="Base Rate">
+                      <span className="tabular-nums">
+                        {formatRate(detail.latestRate.baseRate)}
+                      </span>
+                    </DescField>
+                    <DescField label="Markup Rate">
+                      <span className="tabular-nums">
+                        {formatRate(detail.latestRate.markupRate)}
+                      </span>
+                    </DescField>
+                    <DescField label="Client Rate">
+                      <span className="tabular-nums">
+                        {formatRate(detail.latestRate.userRate)}
+                      </span>
+                    </DescField>
+                    <DescField label="Synced on">
+                      <span className="tabular-nums">
+                        {formatUtc8(detail.latestRate.pushTime)}
+                      </span>
+                    </DescField>
+                  </DescGrid>
+                ) : (
+                  <EmptyHint text="No rate snapshot pushed for this token pair yet." />
+                )}
+              </section>
+            </div>
+          </TabsContent>
+
+          {/* Tab 2：LP 明细表（含停用 LP；池地址可复制）。 */}
+          <TabsContent value="lps" className="mt-4">
+            <section className="rounded-lg border border-border/60 bg-card">
+              <div className="border-b border-border/50 px-4 py-3">
+                <h2 className="text-sm font-semibold text-foreground">
+                  Liquidity Providers
+                  <span className="ml-1.5 text-xs font-normal tabular-nums text-muted-foreground">
+                    {detail.lps.length}
+                  </span>
+                </h2>
+              </div>
+              <div className="p-4">
+                <DataTable
+                  columns={lpColumns}
+                  data={lpRows}
+                  emptyMessage="No liquidity providers. No liquidity provider is linked to this token pair yet."
                 />
-              </DescField>
-              <DescField label="Target Contract Address" span>
-                <CopyableEllipsisText
-                  value={pair.targetTokenNo}
-                  emptyText="-"
-                  maxWidth={480}
-                  truncate="middle"
-                  className="t-identifier"
+              </div>
+            </section>
+          </TabsContent>
+
+          {/* Tab 3：最近快照表（version 倒序 ≤10 条）。 */}
+          <TabsContent value="history" className="mt-4">
+            <section className="rounded-lg border border-border/60 bg-card">
+              <div className="border-b border-border/50 px-4 py-3">
+                <h2 className="text-sm font-semibold text-foreground">
+                  Rate History
+                  <span className="ml-1.5 text-xs font-normal tabular-nums text-muted-foreground">
+                    {detail.recentRates.length}
+                  </span>
+                </h2>
+              </div>
+              <div className="p-4">
+                <DataTable
+                  columns={snapshotColumns}
+                  data={snapshotRows}
+                  emptyMessage="No rate history. No rate snapshots are available for this token pair yet."
                 />
-              </DescField>
-              <DescField label="Synced On">
-                <span className="font-mono">{formatTime(pair.pushTime)}</span>
-              </DescField>
-            </DescGrid>
-          </section>
-
-          {/* 卡 3：LP 明细表（源 el-table 5 列，含停用 LP）。 */}
-          <section className="rounded-lg border border-border/60 bg-card">
-            <div className="border-b border-border/50 px-4 py-3">
-              <h2 className="text-sm font-semibold text-foreground">
-                {`Liquidity Providers (${detail.lps.length})`}
-              </h2>
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={lpColumns}
-                data={lpRows}
-                emptyMessage="No LPs pushed for this token pair"
-              />
-            </div>
-          </section>
-
-          {/* 卡 4：最近快照表（version 倒序 ≤10 条；a9dc10e 去 Version 列，卡头去计数）。 */}
-          <section className="rounded-lg border border-border/60 bg-card">
-            <div className="border-b border-border/50 px-4 py-3">
-              <h2 className="text-sm font-semibold text-foreground">
-                Recent Rates
-              </h2>
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={snapshotColumns}
-                data={snapshotRows}
-                emptyMessage="No rate snapshots pushed yet"
-              />
-            </div>
-          </section>
-        </>
+              </div>
+            </section>
+          </TabsContent>
+        </Tabs>
       ) : isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-24 w-full rounded-lg" />
@@ -617,7 +744,7 @@ export function FxDetailPage() {
           <Skeleton className="h-40 w-full rounded-lg" />
         </div>
       ) : isError ? null : (
-        <section className="rounded-lg border border-border/60 bg-card panel-pad">
+        <section className="rounded-lg border border-border/60 bg-card p-4">
           <EmptyHint text="Token pair not found (possibly not pushed, or no permission to view)." />
         </section>
       )}

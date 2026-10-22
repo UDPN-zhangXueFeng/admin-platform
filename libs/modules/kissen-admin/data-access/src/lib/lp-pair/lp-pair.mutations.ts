@@ -79,7 +79,7 @@ export function useRemoveLpPairMutation(projectId: string) {
 
 /**
  * 生效对参数变更申请（仅 20；KLP 审批，通过前现值继续服务）。
- * 成功后失效参与对列表与 LP 详情聚合缓存（pendingChange/池快照会变化）。
+ * 成功后失效参与对列表与 LP 详情聚合缓存（pairApprovalPending/池快照会变化）。
  */
 export function useChangeLpPairMutation(projectId: string) {
   const queryClient = useQueryClient();

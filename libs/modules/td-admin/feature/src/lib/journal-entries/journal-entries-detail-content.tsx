@@ -75,6 +75,7 @@ export function JournalEntriesView({
   tokenTypeRaw?: string | null;
 }) {
   const t = useTranslations('modules.journal-entries');
+  const tc = useTranslations('common');
   const router = useRouter();
   const ruleId = parseId(ruleIdRaw);
   const tokenType = tokenTypeRaw ? Number(tokenTypeRaw) : undefined;
@@ -123,7 +124,7 @@ export function JournalEntriesView({
       },
       {
         onSuccess: () => toast.success(t('action.export')),
-        onError: () => toast.error(t('action.export')),
+        onError: () => toast.error(tc('common_task_status_40')),
       },
     );
   };

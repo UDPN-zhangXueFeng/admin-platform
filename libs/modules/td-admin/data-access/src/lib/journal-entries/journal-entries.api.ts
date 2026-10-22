@@ -35,7 +35,7 @@ const RULE_SUBJECT_SAVE_URL =
   '/api/manage/v1/financial/bill/rule/add/subject/save';
 const RULE_TOKEN_LIST_URL = '/api/manage/v1/financial/bill/rule/add/tokenList';
 const INTEREST_TX_TYPE_URL = '/api/manage/v1/financial/bill/query/interest/tx/type';
-const BILL_OTX_LIST_URL = '/api/manage/v1/financial/bill/otx/list';
+const BILL_TX_LIST_URL = '/api/manage/v1/financial/bill/tx/listPage';
 const BILL_TX_TYPE_URL = '/api/manage/v1/financial/bill/tx/type';
 const EXPORT_TASK_URL = '/api/manage/v1/export/task/create';
 const STABLECOIN_SEARCHES_URL =
@@ -148,13 +148,13 @@ export function getInterestTxType(
   );
 }
 
-/** 账本交易列表（bill/otx/list，view 页）。 */
+/** 账本交易列表（bill/tx/listPage，view 页）。 */
 export async function getBillTxList(
   params: BillTxListParams,
   config?: ApiRequestConfig,
 ): Promise<BillTxListResponse> {
   const res = await apiClient.post<ListResponseApi<BillTxApi>>(
-    BILL_OTX_LIST_URL,
+    BILL_TX_LIST_URL,
     {
       data: params.filters,
       page: { pageNum: params.pageNum, pageSize: params.pageSize },

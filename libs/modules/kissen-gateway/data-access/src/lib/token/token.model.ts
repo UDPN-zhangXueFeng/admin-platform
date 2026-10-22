@@ -36,6 +36,53 @@ export interface TokenInfo {
   pushTime?: number;
 }
 
+/** Token 操作留痕（GET /token/operate-logs/{tokenCode}）。 */
+export interface TokenOperationRecord {
+  recordId: number;
+  tokenCode: string;
+  /** 1 提交注册 / 2 驳回后重提 / 3 审批通过 / 4 审批驳回 / 5 推送同步。 */
+  action: number;
+  /** 动作前状态；null 表示首见推送或首次提交。 */
+  statusFrom: number | null;
+  statusTo: number;
+  operator: string;
+  remark: string | null;
+  traceId: string | null;
+  /** 毫秒时间戳。 */
+  operateTime: number;
+}
+
+/** token 列表筛选（POST /token/list data；tokenCode 模糊，其余精确；空字段省略不传）。 */
+export interface TokenListReq {
+  tokenCode?: string;
+  chainType?: string;
+  anchorFiat?: string;
+  status?: number;
+}
+
+/** token 分页列表请求（POST /token/list）。 */
+export interface TokenPageReq {
+  pageNum: number;
+  pageSize: number;
+  filter?: TokenListReq;
+}
+
+/** token 操作记录分页请求（POST /token/operate-logs/{tokenCode}，无筛选字段）。 */
+export interface TokenOperationLogsPageReq {
+  pageNum: number;
+  pageSize: number;
+}
+
+/**
+ * Token 筛选下拉选项（GET /token/filter-options，2026-10-13 分页清单）。
+ * 前端固定模型：集合元素即实际提交的 chainType / anchorFiat 值，
+ * 标签直接显示该字符串（后端展示名不代替筛选值）。
+ */
+export interface TokenFilterOptions {
+  chainTypes: string[];
+  anchorFiats: string[];
+}
+
 /** token 注册/重提请求（POST /token/submit，G-12 上行）；tokenCode 即货币系统 token code。 */
 export interface TokenSubmitReq {
   tokenCode: string;

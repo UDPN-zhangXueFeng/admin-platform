@@ -87,6 +87,9 @@ export function RoleFormPage() {
       updateMutation.mutate(
         {
           roleId,
+          // 编辑态 roleName 不可改（disabled），以详情返回值为准；
+          // detail 未就绪时退回表单值，避免后端收到空 roleName。
+          roleName: detail?.roleName ?? values.roleName,
           status: values.status,
           menuIdList: values.menuIdList,
         },

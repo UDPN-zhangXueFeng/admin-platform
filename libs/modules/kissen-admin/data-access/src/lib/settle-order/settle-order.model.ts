@@ -16,8 +16,8 @@ export interface SettleOrderRow {
   lpSplitTotal: string | number;
   /** v2.0 状态机（DEC-08）：10 待确认 / 20 已确认(KSC) / 35 已结算(KST) / 45 作废 */
   status: number;
-  /** 关联 KSC 审批记录 ID；0 = 未发起审批，判空用 !id */
-  approvalRecordId: number;
+  /** KSC 审批在途（提交入口禁用；替代旧 approvalRecordId 判空）。 */
+  approvalPending: boolean;
   createTime: number;
 }
 
@@ -47,18 +47,20 @@ export const SETTLE_PERIOD_TYPE_LABEL: Record<number, string> = {
 };
 
 /**
- * 结算单状态标签。v2.0 换 DEC-08 状态机 {10,20,35,45}（§G 裁决15）：
- * 源 index.vue SETTLE_STATUS_MAP / SETTLE_STATUS_OPTIONS 逐条照迁（英文定稿见任务报告）。
+ * 结算单状态标签。DEC-08 状态机 {10,20,35,45} 专用语义 + 2023418 审批在途
+ * 5/15（通用字典文案）；45 作废仅渲染可见，筛选下拉不含。
  */
 export const SETTLE_ORDER_STATUS_LABEL: Record<number, string> = {
+  5: 'Pending Approval',
   10: 'Pending Confirmation',
+  15: 'Rejected',
   20: 'Confirmed',
   35: 'Settled',
   45: 'Voided',
 };
 
-/** 结算单状态下拉选项值域（源 SETTLE_STATUS_OPTIONS = [10,20,35,45]）。 */
-export const SETTLE_ORDER_STATUS_VALUES = [10, 20, 35, 45] as const;
+/** 结算单状态下拉选项值域（审批在途 5/15 纳入；45 作废不可筛选）。 */
+export const SETTLE_ORDER_STATUS_VALUES = [5, 10, 15, 20, 35] as const;
 
 /**
  * 结算单状态 → Badge variant。源 statusTagType：20/35 success→default、

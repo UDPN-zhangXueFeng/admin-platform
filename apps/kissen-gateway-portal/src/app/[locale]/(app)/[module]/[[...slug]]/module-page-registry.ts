@@ -98,6 +98,9 @@ const pages: Record<string, Record<string, PageLoader>> = {
     list: featurePage('TokenListPage'),
     // eafcab0 TokenDetailPage（源 views/token/detail.vue；/token/manage/detail → 'detail'）
     detail: featurePage('TokenDetailPage'),
+    // 原型对齐：RegisterTokenPage（BP RegisterTokenPage 三分区表单页；
+    // /token/create → 'create'）
+    create: featurePage('RegisterTokenPage'),
   },
   fx: {
     // T7 FxListPage（源 views/fx/index.vue）
@@ -152,6 +155,9 @@ const pages: Record<string, Record<string, PageLoader>> = {
       import('@myorg/modules/kissen-gateway/feature').then((m) => ({
         default: m.LogListPage as unknown as ComponentType<unknown>,
       })),
+    // 原型对齐：操作日志详情（/log/detail?logId=N，行暂存缺失时渲染
+    // not-found 卡）。
+    detail: featurePage('LogDetailPage'),
   },
   ui: {
     // T4 SystemUiPage（源 views/system/ui.vue 的 el-empty 占位页；上游权限键

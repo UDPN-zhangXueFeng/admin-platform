@@ -1,161 +1,249 @@
 'use client';
 
-import * as React from 'react';
+/**
+ * Dashboard（BP 原型 DashboardPage 对齐改造，GAP-GW-03 + plan/12 §5）。
+ *
+ * 原型 2026-09-21 改版后的三段结构：
+ *   ① 页头：健康点（All systems normal / System issues detected）+ As of + Refresh
+ *   ② Business Snapshot：4 KPI 卡（顶部色条 + label/ⓘ 口径提示 + 大数值 + help 脚注）
+ *   ③ Transaction Trends：笔数 / 金额 / Token Pair，支持 7 / 14 / 30 天
+ *
+ * KPI/图表数据源：
+ * - Active Tokens = /token/list 真算（status=20 计 active）
+ * - Transactions (24h) = /overview CUSTOM 滚动 24h 窗口真算
+ * - Connected Banks = /overview fields connectedBanks and connectedBanksTotal.
+ * - Token Pairs = /fx/view 真算（tokenPair.status=20 计 enabled）
+ * - 趋势笔数与 Token Pair = /overview volumeSeries
+ * - 金额只展示 API 返回的所选区间源端/目标端合计；接口无逐日金额序列
+ * 图表使用 recharts（既有依赖）。
+ */
 
+import * as React from 'react';
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
-  Tooltip,
+  Tooltip as ChartTooltip,
   XAxis,
   YAxis,
 } from 'recharts';
-
-import { Badge, Skeleton } from '@myorg/shared/ui';
+import { Info, RefreshCw } from 'lucide-react';
 
 import {
-  OVERVIEW_PERIOD_DEFAULT,
-  OVERVIEW_PERIOD_OPTIONS,
-  TOKEN_STATUS,
-  useFxViewQuery,
+  Button,
+  Card,
+  CardContent,
+  Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@myorg/shared/ui';
+
+import {
+  useFxAllPairsQuery,
   useOverviewStatsQuery,
-  type OverviewPeriod,
-  type VolumeDayPoint,
+  useTokenListQuery,
 } from '@myorg/modules/kissen-gateway/data-access';
 
-import { formatTime } from './kit';
+import { formatUtc8 } from './proto-format';
+import { fmtAmount } from './kit';
+import type { ProtoStatusTone } from './proto-ui';
 import { PageHead } from './page-head';
-import { ErrorBlock, EmptyHint } from './state-blocks';
-
-/**
- * 统计概览页（源 `views/overview/index.vue`：metrics 卡 + 业务概览（整宽）+
- * 交易量统计折线图，period 四档切换默认 7D；39c8a2b UDPN 改版删除了
- * 交易口径/状态分布/最近交易三卡，API 字段仍在仅 UI 移除）。
- * 路由 /overview（registry：overview → list）。
- *
- * - 服务端状态 TanStack Query（period/from/to 即 query key 维度）。
- * - 接口失败 fail-loud：ErrorBlock + Retry（源 catch 仅靠拦截器，目标
- *   约束升级为页面内可感知可恢复）。
- * - TOKEN 状态映射复用 data-access 既有 TOKEN_STATUS（码值 5/20/15/50），
- *   Badge variant 分层与 token 页一致，页面不硬编码码值。
- * - 折线图 echarts → recharts（工作区既有依赖；约束禁 echarts）：
- *   逐日 date 轴、y 轴整数刻度（源 minInterval=1）、序列按窗口总量降序、
- *   UNKNOWN 键 legend 显示 Unsynced；轴/网格/tooltip 用主题 CSS 变量。
- */
+import { EmptyHint, ErrorBlock } from './state-blocks';
 
 /* ================================================================== */
-/* period 切换（源 el-radio-group + el-date-picker daterange）          */
+/* 文案（原型 DashboardPage.jsx 英文 copy 逐字；插值 {var}）              */
 /* ================================================================== */
 
-/** 源切换 period 非 CUSTOM 时清空 range 再拉取（onPeriodChange）。 */
-function onPeriodSelect(
-  next: string,
-  period: OverviewPeriod,
-  setPeriod: (p: OverviewPeriod) => void,
-  setRange: (r: [string, string] | null) => void,
-): void {
-  const value = next as OverviewPeriod;
-  setPeriod(value);
-  if (value !== 'CUSTOM') setRange(null);
-}
+const LBL = {
+  title: 'Dashboard',
+  systemOk: 'All systems normal',
+  systemIssue: 'System issues detected',
+  asOf: 'As of',
+  refresh: 'Refresh',
+  snapshot: 'Business Snapshot',
+  kpiActiveTokens: 'Active Tokens',
+  kpiActiveTokensTip:
+    'All network-registered tokens this bank can distribute; the number shows active ones.',
+  kpiActiveTokensHelp: '{active} of {total} registered tokens',
+  kpiTx24h: 'Transactions (24h)',
+  kpiTx24hTip:
+    'Transactions initiated by your bank in the last 24 hours; completed vs failed below.',
+  kpiTx24hHelp: '{completed} completed · {failed} failed in the last 24 hours',
+  kpiConnectedBanks: 'Connected Banks',
+  kpiConnectedBanksTip: 'Number of banks connected to the UDPN network.',
+  kpiConnectedBanksHelp: '{active} of {total} banks connected',
+  kpiTokenPairs: 'Token Pairs',
+  kpiTokenPairsTip: 'Trading pairs configured for your bank: enabled vs total.',
+  kpiTokenPairsHelp: '{enabled} of {total} pairs enabled',
+  trend: 'Transaction Trends',
+  chartNoData: 'No transaction data for this period.',
+  captionTrend: 'Daily transaction statistics',
+  thDate: 'Date',
+  metricCount: 'Transactions',
+  metricAmount: 'Amount',
+  metricPair: 'Token Pair',
+  sourceAmount: 'Source principal total',
+  targetAmount: 'Target principal total',
+  amountAggregateNote: 'Period totals · not a daily trend',
+  range7d: '7 days',
+  range14d: '14 days',
+  range30d: '30 days',
+  seriesTransactions: 'Transactions',
+  unknownPair: 'Unknown pair',
+} as const;
 
-/**
- * CUSTOM 日界字符串（YYYY-MM-DD）→ 本地零点毫秒。源 daterange
- * value-format="x" 按浏览器本地零点取整；kit.toEpochMs 走 new Date(value)
- * 会把纯日期串按 UTC 零点解析，差一个时区偏移——拼 'T00:00:00' 后按本地解析对齐。
- */
-function dayRangeToEpochMs(value: string): number | undefined {
-  if (!value) return undefined;
-  const d = new Date(`${value}T00:00:00`);
-  return Number.isNaN(d.getTime()) ? undefined : d.getTime();
-}
+type TrendRange = '7D' | '14D' | '30D';
+type TrendMetric = 'count' | 'amount' | 'pair';
 
-/* ================================================================== */
-/* 业务概览 token 分状态 tags                                           */
-/* ================================================================== */
-
-/** token 分状态 tags：count>0 才显示（源 tokenStatusList computed）。 */
-function buildTokenStatusList(dist: Record<string, number> | undefined) {
-  return Object.entries(dist ?? {})
-    .map(([code, count]) => {
-      const c = Number(count);
-      const meta = TOKEN_STATUS[Number(code)] ?? { text: `Status (${code})`, variant: 'outline' as const };
-      return { code: Number(code), count: c, text: meta.text, variant: meta.variant };
-    })
-    .filter((t) => t.count > 0);
-}
-
-/* ================================================================== */
-/* 交易量折线（源 dimEntries + chartOption：echarts → recharts）        */
-/* ================================================================== */
-
-/** 折线维度切换项（源 el-radio-button 按汇率对/按币种，默认 pair）。 */
-const VOLUME_DIM_OPTIONS = [
-  { value: 'pair', label: 'By Pair' },
-  { value: 'symbol', label: 'By Symbol' },
-] as const;
-
-type VolumeDim = 'pair' | 'symbol';
-
-/** 源 UNKNOWN 序列键：legend/名称显示「Unsynced」（未同步）。 */
-const UNKNOWN_SERIES_KEY = 'UNKNOWN';
-
-/**
- * 折线系列色板：主题未定义图表序列 token，取 tailwind 调色板 600 档循环
- * （本项目自选，非上游 hex 直写）；轴/网格/tooltip 走主题 CSS 变量。
- */
-const SERIES_COLORS = [
-  '#2563eb', // blue-600
-  '#0d9488', // teal-600
-  '#9333ea', // purple-600
-  '#ea580c', // orange-600
-  '#0e7490', // cyan-700
-  '#65a30d', // lime-600
-  '#db2777', // pink-600
-  '#475569', // slate-600
+const TREND_RANGES: ReadonlyArray<{ value: TrendRange; label: string }> = [
+  { value: '7D', label: LBL.range7d },
+  { value: '14D', label: LBL.range14d },
+  { value: '30D', label: LBL.range30d },
 ];
+const TREND_METRICS: ReadonlyArray<{ value: TrendMetric; label: string }> = [
+  { value: 'count', label: LBL.metricCount },
+  { value: 'amount', label: LBL.metricAmount },
+  { value: 'pair', label: LBL.metricPair },
+];
+const PAIR_COLORS = ['#4f46e5', '#0f766e', '#d97706', '#db2777', '#0284c7'];
 
-/**
- * 折线数据装配（源 dimEntries + chartOption computed）：
- * - 序列 = 当前维度各 key，按窗口总量降序（legend 顺序即此顺序）；
- * - 行 = 逐日 date + 各序列当日量（缺省 0；后端已连续补 0，这里双保险）；
- * - 列名用 s0/s1… 安全 id（key 可能含 '/' 等字符，直接作 dataKey 会被
- *   recharts 按对象路径解析而取不到值），展示名由 Line name 承担；
- * - pair 维度的展示名优先使用 fx/view 返回的 source/target token symbol，
- *   查询未命中时回退 pairCode；所有序列总量为 0/无数据 → empty（整卡
- *   EmptyHint，不渲染图表）。
- */
-function buildVolumeChart(
-  points: VolumeDayPoint[] | undefined,
-  dim: VolumeDim,
-  pairLabels?: Map<string, string>,
-) {
-  const totals: Record<string, number> = {};
-  for (const p of points ?? []) {
-    const map = dim === 'pair' ? p.byPair : p.bySymbol;
-    for (const [k, v] of Object.entries(map)) totals[k] = (totals[k] ?? 0) + Number(v);
-  }
-  const entries = Object.entries(totals).sort((a, b) => b[1] - a[1]);
-  const rows = (points ?? []).map((p) => {
-    const map = dim === 'pair' ? p.byPair : p.bySymbol;
-    const row: Record<string, number | string> = { date: p.date };
-    entries.forEach(([key], i) => {
-      row[`s${i}`] = Number(map[key] ?? 0);
-    });
-    return row;
-  });
-  return {
-    series: entries.map(([key], i) => ({
-      key,
-      id: `s${i}`,
-      label: dim === 'pair' ? pairLabels?.get(key) ?? key : key,
-    })),
-    rows,
-    // 源 volumeEmpty = dimEntries(...).length === 0：有序列键即画图（全零平线），仅无键才空态。
-    empty: entries.length === 0,
-  };
+function trendRequest(range: TrendRange) {
+  if (range !== '14D') return { period: range };
+
+  const now = new Date();
+  const from = new Date(now);
+  from.setHours(0, 0, 0, 0);
+  from.setDate(from.getDate() - 13);
+  return { period: 'CUSTOM', from: from.getTime(), to: now.getTime() };
+}
+
+
+
+
+/* ================================================================== */
+/* 常量与渲染辅助                                                        */
+/* ================================================================== */
+
+/** Transactions (24h) KPI 的滚动窗口（挂载时锚定一次，Refresh 走 refetch）。 */
+const TX24H_WINDOW_MS = 24 * 3_600_000;
+/** 启用态码（/token/list、/fx/view 语义：20 启用 / 50 停用）。 */
+const STATUS_ENABLED = 20;
+
+
+/** KPI 顶部色条语义色。 */
+const BAR_TONE: Record<ProtoStatusTone, string> = {
+  success: 'bg-success',
+  warning: 'bg-warning',
+  danger: 'bg-destructive',
+  info: 'bg-info',
+  primary: 'bg-primary',
+  muted: 'bg-muted-foreground/40',
+};
+
+
+/** LBL 模板插值：'{active} of {total}' + {active: 3} → '3 of 5'（原型 t() 同构）。 */
+function tpl(text: string, vars: Record<string, string | number>): string {
+  return text.replace(/\{(\w+)\}/g, (_, key: string) =>
+    key in vars ? String(vars[key]) : `{${key}}`,
+  );
+}
+
+/** 计数千分位（原型 num()；非法/空 → 0）。 */
+const countFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+function num(v: number | null | undefined): string {
+  return countFmt.format(Number.isFinite(Number(v)) ? Number(v) : 0);
+}
+const shortDayFmt = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+function shortDayLabel(isoDay: string): string {
+  const d = new Date(`${isoDay}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? isoDay : shortDayFmt.format(d);
+}
+
+/** recharts Tooltip 面板主题化（沿用本仓图表写法：变量边框 + 卡片底）。 */
+const CHART_TOOLTIP_STYLE: React.CSSProperties = {
+  backgroundColor: 'hsl(var(--card))',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: '8px',
+  fontSize: '12px',
+  color: 'hsl(var(--card-foreground))',
+} as const;
+
+/* ================================================================== */
+/* KPI 卡（原型 StatCard：顶部色条 + label/ⓘ + 大数值 + 底部 help 脚注） */
+/* ================================================================== */
+
+/** ⓘ 口径提示（label 尾随小图标 + Tooltip）。 */
+function InfoHint({ text }: { text: string }) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={`${LBL.title} info`}
+            className="rounded p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground"
+          >
+            <Info className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+          {text}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function KpiCard({
+  tone,
+  label,
+  tip,
+  value,
+  footer,
+}: {
+  tone: ProtoStatusTone;
+  label: string;
+  tip: string;
+  value: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  return (
+    <Card className="relative flex min-w-0 flex-col overflow-hidden">
+      <span
+        aria-hidden="true"
+        className={`absolute inset-x-0 top-0 h-0.5 ${BAR_TONE[tone]}`}
+      />
+      <CardContent className="panel-pad flex flex-1 flex-col gap-2.5">
+        <span className="t-supporting flex min-w-0 items-center gap-1 font-semibold tracking-wide text-muted-foreground">
+          {label}
+          <InfoHint text={tip} />
+        </span>
+        <div className="min-w-0 text-2xl font-bold leading-none tracking-tight tabular-nums">
+          {value}
+        </div>
+        {footer ? (
+          <div className="mt-auto border-t pt-2.5 text-xs text-muted-foreground">
+            {footer}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** KPI 数值：未就绪/失败降级 '-'（页级骨架期不渲染整卡）。 */
+function kpiValue(
+  ready: boolean,
+  compute: () => number | undefined,
+): React.ReactNode {
+  return ready ? num(compute()) : <span className="text-muted-foreground/60">-</span>;
 }
 
 /* ================================================================== */
@@ -163,325 +251,444 @@ function buildVolumeChart(
 /* ================================================================== */
 
 export function OverviewListPage() {
-  const [period, setPeriod] = React.useState<OverviewPeriod>(OVERVIEW_PERIOD_DEFAULT);
-  const [range, setRange] = React.useState<[string, string] | null>(null);
-  const [volumeDim, setVolumeDim] = React.useState<VolumeDim>('pair');
 
-  const params = React.useMemo(
-    () => ({
-      period,
-      from: period === 'CUSTOM' && range ? dayRangeToEpochMs(range[0]) : undefined,
-      to: period === 'CUSTOM' && range ? dayRangeToEpochMs(range[1]) : undefined,
-    }),
-    [period, range],
+  const [trendRange, setTrendRange] = React.useState<TrendRange>('7D');
+  const [trendMetric, setTrendMetric] = React.useState<TrendMetric>('count');
+  const trendStatsReq = React.useMemo(() => trendRequest(trendRange), [trendRange]);
+  const trendStatsQuery = useOverviewStatsQuery(trendStatsReq);
+  // Transactions (24h)：CUSTOM 滚动窗口。useMemo 空依赖锚定一次（queryKey 含
+  // params 对象，每次渲染新引用会重新拉取；Refresh 走 refetch 不换 key）。
+  const tx24hReq = React.useMemo(() => {
+    const to = Date.now();
+    return { period: 'CUSTOM' as const, from: to - TX24H_WINDOW_MS, to };
+  }, []);
+  const tx24hQuery = useOverviewStatsQuery(tx24hReq);
+  // Tokens KPI：分页协议下不能从单页行数统计（2026-10-13 清单）→ total/active
+  // 各取一次 pageSize=1 的 total（active 复用 status 筛选）。
+  const tokenTotalQuery = useTokenListQuery(
+    React.useMemo(() => ({ pageNum: 1, pageSize: 1, filter: {} }), []),
   );
+  const activeTokenQuery = useTokenListQuery(
+    React.useMemo(
+      () => ({ pageNum: 1, pageSize: 1, filter: { status: STATUS_ENABLED } }),
+      [],
+    ),
+  );
+  const fxAllPairsQuery = useFxAllPairsQuery();
 
-  const { data: stats, isLoading, isError, error, refetch } = useOverviewStatsQuery(params);
-  // pair 维度需要 token symbol；复用 FX 聚合查询，切到 By Symbol 时不发请求。
-  const { data: fxView } = useFxViewQuery(volumeDim === 'pair');
+  const queries = [
+    trendStatsQuery,
+    tx24hQuery,
+    tokenTotalQuery,
+    activeTokenQuery,
+    fxAllPairsQuery,
+  ];
 
-  // 源 pairSeriesName（d764217）：pairCode → 「source symbol → target symbol」；
-  // 映射结果重名的 pair 回退 pairCode（used.has 语义），避免图例撞名串线。
-  const pairLabels = React.useMemo(() => {
-    const labels = new Map<string, string>();
-    const used = new Set<string>();
-    for (const pair of fxView?.pairs ?? []) {
-      const { tokenPair } = pair;
-      if (!tokenPair.pairCode) continue;
-      const source = tokenPair.sourceTokenSymbol || tokenPair.sourceTokenCode || '-';
-      const target = tokenPair.targetTokenSymbol || tokenPair.targetTokenCode || '-';
-      const name = `${source} → ${target}`;
-      if (used.has(name)) continue;
-      used.add(name);
-      labels.set(tokenPair.pairCode, name);
+
+  /** 健康点：任一查询失败且无数据 → 异常；全部成功 → 正常；初载未知不显。 */
+  const anyFailed = queries.some((q) => q.isError && q.data == null);
+  const allReady = queries.every((q) => q.isSuccess);
+  const systemOk = anyFailed ? false : allReady ? true : null;
+
+  const anyFetching = queries.some((q) => q.isFetching);
+
+  /** As of = 页级查询最新 dataUpdatedAt（无数据 → 0 不显）。 */
+  const asOf = Math.max(...queries.map((q) => q.dataUpdatedAt));
+
+  function refetchAll() {
+    for (const q of queries) void q.refetch();
+  }
+
+  /* —— KPI 真算（各查询独立降级 '-'） —— */
+
+  const activeTokenCount = activeTokenQuery.data?.pagination.total;
+  const tokenTotal = tokenTotalQuery.data?.pagination.total;
+
+  const tx24h = tx24hQuery.data;
+  const connectedBanks = trendStatsQuery.data?.connectedBanks;
+  const connectedBanksTotal = trendStatsQuery.data?.connectedBanksTotal;
+  const pairs = fxAllPairsQuery.data;
+  const enabledPairs = pairs
+    ? pairs.filter((p) => p.tokenPair.status === STATUS_ENABLED).length
+    : undefined;
+
+  const volumeSeries = trendStatsQuery.data?.volumeSeries ?? [];
+  const pairNames = new Map(
+    (pairs ?? []).map((item) => [
+      item.tokenPair.pairCode ?? '',
+      `${item.tokenPair.sourceTokenSymbol ?? item.tokenPair.sourceTokenCode} → ${item.tokenPair.targetTokenSymbol ?? item.tokenPair.targetTokenCode}`,
+    ]),
+  );
+  const pairSeries = React.useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const day of volumeSeries) {
+      for (const [code, value] of Object.entries(day.byPair ?? {})) {
+        totals.set(code, (totals.get(code) ?? 0) + (Number(value) || 0));
+      }
     }
-    return labels;
-  }, [fxView]);
-
-  const tokenStatusList = React.useMemo(
-    () => buildTokenStatusList(stats?.tokenByStatus),
-    [stats],
+    return [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, PAIR_COLORS.length)
+      .map(([code], index) => ({
+        code,
+        dataKey: `pair${index}`,
+        label: pairNames.get(code) || (code === 'UNKNOWN' ? LBL.unknownPair : code),
+        color: PAIR_COLORS[index],
+      }));
+  }, [volumeSeries, pairs]);
+  const trendRows = React.useMemo(
+    () =>
+      volumeSeries.map((day) => {
+        const row: Record<string, string | number> = {
+          label: shortDayLabel(day.date),
+          transactions: Object.values(day.bySymbol ?? {}).reduce(
+            (sum, value) => sum + (Number(value) || 0),
+            0,
+          ),
+        };
+        for (const pair of pairSeries) {
+          row[pair.dataKey] = Number(day.byPair?.[pair.code]) || 0;
+        }
+        return row;
+      }),
+    [volumeSeries, pairSeries],
   );
-  const volume = React.useMemo(
-    () => buildVolumeChart(stats?.volumeSeries, volumeDim, pairLabels),
-    [stats, volumeDim, pairLabels],
-  );
 
-  return (
-    <div className="flex flex-col section-gap">
-      <PageHead variant="banner" title="Dashboard">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 源 el-radio-group size=small：四档互斥切换，选中即拉取。 */}
-          <SegmentedRadioGroup
-            ariaLabel="Statistics period"
-            options={OVERVIEW_PERIOD_OPTIONS}
-            value={period}
-            onSelect={(next) => onPeriodSelect(next, period, setPeriod, setRange)}
-          />
-          {/* 源 el-date-picker daterange value-format="x"：起止日期 → 毫秒。 */}
-          {period === 'CUSTOM' && (
-            <span className="flex items-center gap-2 text-sm">
-              <input
-                type="date"
-                aria-label="Start date"
-                value={range?.[0] ?? ''}
-                onChange={(e) =>
-                  setRange((prev) => [e.target.value, prev?.[1] ?? ''])
-                }
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-              />
-              <span className="text-muted-foreground">to</span>
-              <input
-                type="date"
-                aria-label="End date"
-                value={range?.[1] ?? ''}
-                onChange={(e) =>
-                  setRange((prev) => [prev?.[0] ?? '', e.target.value])
-                }
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-              />
-            </span>
-          )}
-        </div>
-      </PageHead>
 
-      {isError ? (
-        <section className="rounded-lg border border-border/60 bg-card panel-pad text-card-foreground shadow-float">
-          <ErrorBlock
-            message={error instanceof Error ? error.message : String(error)}
-            onRetry={() => refetch()}
-          />
-        </section>
-      ) : isLoading || !stats ? (
-        /* 源 v-loading 覆盖指标卡区：首帧骨架。 */
-        <section className="rounded-lg border border-border/60 bg-card panel-pad text-card-foreground shadow-float">
-          <div className="space-y-3">
-            <Skeleton className="h-8 w-1/3" />
-            <Skeleton className="h-8 w-2/3" />
-            <Skeleton className="h-8 w-1/2" />
-          </div>
-        </section>
-      ) : (
-        <>
-          {/* 交易指标卡（源 metric-grid：auto-fit 七卡） */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-            <MetricCard value={String(stats.totalCount)} label="Total Transactions" tone="" />
-            <MetricCard value={String(stats.completedCount)} label="Completed" tone="ok" />
-            <MetricCard value={String(stats.failedCount)} label="Failed" tone="bad" />
-            <MetricCard value={String(stats.reversedCount)} label="Reversed" tone="" />
-            <MetricCard value={String(stats.exceptionCount)} label="Requires Manual Review" tone="bad" />
-            <MetricCard value={String(stats.pendingCount)} label="Pending" tone="warn" />
-            {/* d764217：成功率色分档 ≥90 ok / 60~90 warn / <60 bad，null 无色。 */}
-            <MetricCard
-              value={formatSuccessRate(stats.successRate)}
-              label="Success Rate"
-              tone={successRateTone(stats.successRate)}
-            />
-          </div>
 
-          {/* 业务概览（源「业务概览」descriptions；39c8a2b UDPN 改版整宽单卡） */}
-          <section className="rounded-lg border border-border/60 bg-card panel-pad text-card-foreground shadow-float">
-            <div className="mb-4 t-section-title">Business Overview</div>
-            <div className="divide-y rounded-md border">
-              <DescRow label="Registered Tokens">
-                <span>{stats.tokenTotal}</span>
-                <span className="ml-2.5 inline-flex flex-wrap gap-1.5">
-                  {tokenStatusList.map((t) => (
-                    <Badge key={t.code} variant={t.variant}>
-                      {t.text} {t.count}
-                    </Badge>
-                  ))}
-                </span>
-              </DescRow>
-              <DescRow label="Token Pairs">
-                <span>{stats.tokenPairCount}</span>
-              </DescRow>
-              <DescRow label="Reporting Period">
-                <span>
-                  {formatTime(stats.from)} ~ {formatTime(stats.to)}
-                </span>
-              </DescRow>
-            </div>
-          </section>
 
-          {/* 交易量统计（源 volume-head + echarts 折线；空窗口整卡 el-empty） */}
-          <section className="rounded-lg border border-border/60 bg-card panel-pad text-card-foreground shadow-float">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <div className="t-section-title">Transaction Volume Statistics</div>
-              {/* 源 el-radio-group size=small：pair/symbol 两维度切换（默认 pair）。 */}
-              <SegmentedRadioGroup
-                ariaLabel="Volume dimension"
-                options={VOLUME_DIM_OPTIONS}
-                value={volumeDim}
-                onSelect={setVolumeDim}
-              />
-            </div>
-            {volume.empty ? (
-              <EmptyHint text="No transactions in this window" />
-            ) : (
-              /* ResponsiveContainer 需父容器固定高：源 .volume-chart 320px → h-80。 */
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={volume.rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid
-                      vertical={false}
-                      strokeDasharray="3 3"
-                      stroke="hsl(var(--border))"
-                    />
-                    <XAxis
-                      dataKey="date"
-                      minTickGap={24}
-                      tickLine={false}
-                      axisLine={{ stroke: 'hsl(var(--border))' }}
-                      tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                    />
-                    {/* 源 yAxis minInterval=1：整数刻度。 */}
-                    <YAxis
-                      allowDecimals={false}
-                      width={44}
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                    />
-                    <Tooltip
-                      cursor={{ stroke: 'hsl(var(--border))' }}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: 6,
-                        color: 'hsl(var(--card-foreground))',
-                        fontSize: 12,
-                      }}
-                    />
-                    {/* 源 legend bottom + 滚动；recharts 底部换行承载。 */}
-                    <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
-                    {volume.series.map((s, i) => (
-                      <Line
-                        key={s.key}
-                        dataKey={s.id}
-                        name={s.key === UNKNOWN_SERIES_KEY ? 'Unsynced' : s.label}
-                        type="monotone"
-                        strokeWidth={2}
-                        stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
-                        /* 源 showSymbol：仅窗口点数 ≤31 才画点符号。 */
-                        dot={volume.rows.length <= 31}
-                        isAnimationActive={false}
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </section>
+  /* —— 页级降级：7D 统计不可用即整页 ErrorBlock（其余查询 KPI 内降级） —— */
 
-          <p className="text-center t-supporting text-muted-foreground">
-            Statistics are based on local instance data only (transaction records / token
-            registrations / token pair pushes), not network-wide figures.
-          </p>
-        </>
-      )}
-    </div>
-  );
-}
 
-/* ================================================================== */
-/* 子组件                                                               */
-/* ================================================================== */
-
-/** 源 successRate：null → '—'；eafcab0 起后端直发百分数值，不再 ×100。 */
-function formatSuccessRate(rate: number | null | undefined): string {
-  return rate == null ? '—' : `${Number(rate).toFixed(2)}%`;
-}
-
-/** d764217 源指标色分档：≥90 ok / 60~90 warn / <60 bad；null → 无色。 */
-function successRateTone(
-  rate: number | null | undefined,
-): 'ok' | 'warn' | 'bad' | '' {
-  if (rate == null) return '';
-  if (rate >= 90) return 'ok';
-  if (rate >= 60) return 'warn';
-  return 'bad';
-}
-
-const METRIC_TONES: Record<string, string> = {
-  ok: 'text-success',
-  bad: 'text-destructive',
-  warn: 'text-warning',
-};
-
-/** 指标卡（源 metric-card：26px mono 数值 + 12px 灰标；tone 为源 ok/bad/warn 色系）。 */
-function MetricCard({
-  value,
-  label,
-  tone,
-}: {
-  value: string;
-  label: string;
-  tone: 'ok' | 'bad' | 'warn' | '';
-}) {
-  return (
-    <div className="rounded-lg border border-border/60 bg-card panel-pad text-card-foreground shadow-float">
-      <div className={`text-2xl font-semibold tabular-nums ${METRIC_TONES[tone] ?? ''}`}>
-        {value}
+  if (trendStatsQuery.isError && trendStatsQuery.data == null) {
+    return (
+      <div className="section-gap flex flex-col">
+        <PageHead variant="banner" title={LBL.title} />
+        <ErrorBlock
+          message="Failed to load overview stats"
+          onRetry={refetchAll}
+        />
       </div>
-      <div className="mt-1 t-supporting text-muted-foreground">{label}</div>
-    </div>
-  );
-}
+    );
+  }
 
-/** descriptions 单列描边行（源 el-descriptions :column="1" border）。 */
-function DescRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-1 px-4 py-2.5 sm:grid-cols-[minmax(0,11rem)_1fr] sm:gap-3">
-      <div className="t-supporting text-muted-foreground">{label}</div>
-      <div className="min-w-0 t-data">{children}</div>
-    </div>
-  );
-}
+  if (trendStatsQuery.isLoading) {
+    return (
+      <div className="section-gap flex flex-col">
+        <PageHead variant="banner" title={LBL.title} />
+        <Skeleton className="h-24 w-full" />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+        <Skeleton className="h-80" />
+      </div>
+    );
+  }
 
-/**
- * 分段单选按钮组（源 el-radio-group size=small + el-radio-button 的连体
- * 描边样式）：period 四档与 volume pair/symbol 维度切换共用同一视觉。
- */
-function SegmentedRadioGroup<T extends string>({
-  options,
-  value,
-  onSelect,
-  ariaLabel,
-}: {
-  options: ReadonlyArray<{ value: T; label: string }>;
-  value: T;
-  onSelect: (next: T) => void;
-  ariaLabel: string;
-}) {
   return (
-    <div
-      role="radiogroup"
-      aria-label={ariaLabel}
-      className="flex overflow-hidden rounded-md border"
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="radio"
-          aria-checked={value === option.value}
-          onClick={() => onSelect(option.value)}
-          className={
-            value === option.value
-              ? 'h-8 border-border px-3 text-sm font-medium border-y border-l last:border-r bg-primary text-primary-foreground'
-              : 'h-8 border-border px-3 text-sm font-medium border-y border-l last:border-r hover:bg-muted'
-          }
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
+    <TooltipProvider delayDuration={200}>
+      <div className="section-gap flex flex-col">
+        {/* ① 页头：健康点 + As of + Refresh */}
+        <PageHead variant="banner" title={LBL.title}>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {systemOk !== null ? (
+              <span
+                className={`inline-flex shrink-0 items-center gap-1.5 text-xs font-medium ${
+                  systemOk ? 'text-success' : 'text-warning'
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`size-1.5 rounded-full ${systemOk ? 'bg-success' : 'bg-warning'}`}
+                />
+                {systemOk ? LBL.systemOk : LBL.systemIssue}
+              </span>
+            ) : null}
+            {asOf > 0 ? (
+              <span className="t-supporting whitespace-nowrap tabular-nums text-muted-foreground">
+                {`${LBL.asOf} ${formatUtc8(asOf)}`}
+              </span>
+            ) : null}
+            <Button size="sm" variant="outline" onClick={refetchAll} disabled={anyFetching}>
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${anyFetching ? 'animate-spin' : ''}`}
+                aria-hidden="true"
+              />
+              {LBL.refresh}
+            </Button>
+          </div>
+        </PageHead>
+
+        {/* ② Business Snapshot：4 KPI */}
+        <section aria-label={LBL.snapshot} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiCard
+            tone="primary"
+            label={LBL.kpiActiveTokens}
+            tip={LBL.kpiActiveTokensTip}
+            value={kpiValue(activeTokenCount != null, () => activeTokenCount)}
+            footer={
+              tokenTotal != null
+                ? tpl(LBL.kpiActiveTokensHelp, {
+                    active: num(activeTokenCount),
+                    total: num(tokenTotal),
+                  })
+                : undefined
+            }
+          />
+          <KpiCard
+            tone="info"
+            label={LBL.kpiTx24h}
+            tip={LBL.kpiTx24hTip}
+            value={kpiValue(tx24h != null, () => tx24h?.totalCount)}
+            footer={
+              tx24h != null
+                ? tpl(LBL.kpiTx24hHelp, {
+                    completed: num(tx24h.completedCount),
+                    failed: num(tx24h.failedCount),
+                  })
+                : undefined
+            }
+          />
+          <KpiCard
+            tone="success"
+            label={LBL.kpiConnectedBanks}
+            tip={LBL.kpiConnectedBanksTip}
+            value={kpiValue(connectedBanks != null, () => connectedBanks)}
+            footer={
+              connectedBanks != null && connectedBanksTotal != null
+                ? tpl(LBL.kpiConnectedBanksHelp, {
+                    active: num(connectedBanks),
+                    total: num(connectedBanksTotal),
+                  })
+                : undefined
+            }
+          />
+          <KpiCard
+            tone="primary"
+            label={LBL.kpiTokenPairs}
+            tip={LBL.kpiTokenPairsTip}
+            value={kpiValue(enabledPairs != null, () => enabledPairs)}
+            footer={
+              pairs != null
+                ? tpl(LBL.kpiTokenPairsHelp, {
+                    enabled: num(enabledPairs),
+                    total: num(pairs.length),
+                  })
+                : undefined
+            }
+          />
+        </section>
+
+        {/* Transaction trends */}
+        <section className="min-w-0">
+          <Card className="min-w-0 overflow-hidden">
+            <CardContent className="panel-pad">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-semibold leading-6 text-foreground">
+                    {LBL.trend}
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {trendMetric === 'amount'
+                      ? LBL.amountAggregateNote
+                      : trendMetric === 'pair'
+                        ? 'Daily transaction count by token pair'
+                        : 'Daily transaction count'}
+                  </p>
+                </div>
+                <div
+                  role="group"
+                  aria-label="Trend period"
+                  className="inline-flex rounded-lg border p-1"
+                >
+                  {TREND_RANGES.map((range) => (
+                    <button
+                      key={range.value}
+                      type="button"
+                      aria-pressed={trendRange === range.value}
+                      onClick={() => setTrendRange(range.value)}
+                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                        trendRange === range.value
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }`}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                role="tablist"
+                aria-label="Transaction metric"
+                className="mt-5 flex w-full max-w-[37rem] items-center gap-1.5 rounded-xl border border-border bg-muted/50 p-1.5"
+              >
+                {TREND_METRICS.map((metric) => (
+                  <button
+                    key={metric.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={trendMetric === metric.value}
+                    onClick={() => setTrendMetric(metric.value)}
+                    className={`flex-1 whitespace-nowrap rounded-lg px-2 py-2.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                      trendMetric === metric.value
+                        ? 'bg-primary/10 text-primary shadow-sm'
+                        : 'text-muted-foreground hover:bg-background/70 hover:text-foreground'
+                    }`}
+                  >
+                    {metric.label}
+                  </button>
+                ))}
+              </div>
+
+              {trendMetric === 'amount' ? (
+                <div className="grid gap-3 py-6 sm:grid-cols-2">
+                  <div className="rounded-lg border bg-muted/30 p-4">
+                    <p className="text-sm text-muted-foreground">{LBL.sourceAmount}</p>
+                    <p className="mt-2 text-2xl font-semibold tabular-nums">
+                      {fmtAmount(Number(trendStatsQuery.data?.sourcePrincipalSum) || 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-4">
+                    <p className="text-sm text-muted-foreground">{LBL.targetAmount}</p>
+                    <p className="mt-2 text-2xl font-semibold tabular-nums">
+                      {fmtAmount(Number(trendStatsQuery.data?.targetPrincipalSum) || 0)}
+                    </p>
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted-foreground sm:col-span-2">
+                    The API returns source/target totals only, without token-denomination
+                    breakdown or daily amount series; these figures are not a daily
+                    trend.
+                  </p>
+                </div>
+              ) : trendRows.length === 0 ? (
+                <div className="py-12">
+                  <EmptyHint text={LBL.chartNoData} />
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-x-5 gap-y-2 py-4">
+                    {trendMetric === 'count' ? (
+                      <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                        <span
+                          aria-hidden="true"
+                          className="size-2 rounded-full"
+                          style={{ background: 'hsl(var(--primary))' }}
+                        />
+                        {LBL.seriesTransactions}
+                      </span>
+                    ) : (
+                      pairSeries.map((pair) => (
+                        <span
+                          key={pair.code}
+                          className="inline-flex items-center gap-2 text-xs text-muted-foreground"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="size-2 rounded-full"
+                            style={{ background: pair.color }}
+                          />
+                          {pair.label}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                  <div aria-hidden="true" className="h-72 min-w-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={trendRows}
+                        margin={{ top: 8, right: 16, bottom: 0, left: 0 }}
+                      >
+                        <CartesianGrid
+                          vertical={false}
+                          strokeDasharray="3 3"
+                          stroke="hsl(var(--border))"
+                        />
+                        <XAxis
+                          dataKey="label"
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis
+                          allowDecimals={false}
+                          width={44}
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                        />
+                        <ChartTooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                        {trendMetric === 'count' ? (
+                          <Line
+                            type="monotone"
+                            dataKey="transactions"
+                            name={LBL.seriesTransactions}
+                            stroke="hsl(var(--primary))"
+                            strokeWidth={2.5}
+                            dot={false}
+                            activeDot={{ r: 4 }}
+                            isAnimationActive={false}
+                          />
+                        ) : (
+                          pairSeries.map((pair) => (
+                            <Line
+                              key={pair.code}
+                              type="monotone"
+                              dataKey={pair.dataKey}
+                              name={pair.label}
+                              stroke={pair.color}
+                              strokeWidth={2}
+                              dot={false}
+                              activeDot={{ r: 3 }}
+                              isAnimationActive={false}
+                            />
+                          ))
+                        )}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="sr-only">
+                    <table>
+                      <caption>{LBL.captionTrend}</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">{LBL.thDate}</th>
+                          {trendMetric === 'count' ? (
+                            <th scope="col">{LBL.seriesTransactions}</th>
+                          ) : (
+                            pairSeries.map((pair) => (
+                              <th key={pair.code} scope="col">{pair.label}</th>
+                            ))
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {trendRows.map((row, index) => (
+                          <tr key={volumeSeries[index].date}>
+                            <th scope="row">{volumeSeries[index].date}</th>
+                            {trendMetric === 'count' ? (
+                              <td>{num(Number(row.transactions))}</td>
+                            ) : (
+                              pairSeries.map((pair) => (
+                                <td key={pair.code}>{num(Number(row[pair.dataKey]))}</td>
+                              ))
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+      </div>
+    </TooltipProvider>
   );
 }

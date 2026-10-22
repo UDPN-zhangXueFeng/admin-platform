@@ -40,6 +40,10 @@ export interface OverviewStats {
   tokenByStatus: Record<string, number>;
   /** 本行相关 token 对数。 */
   tokenPairCount: number;
+  /** 已连接的银行数量。 */
+  connectedBanks: number;
+  /** 银行总数。 */
+  connectedBanksTotal: number;
   /** 最近交易动态（最新 10 条）。 */
   recentTxs: TxRecord[];
   /** 交易量逐日时序（UDPN Dashboard 折线图数据源；日期轴按本地日连续生成，无交易日补 0）。 */

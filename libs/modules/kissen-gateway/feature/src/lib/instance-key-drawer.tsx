@@ -35,6 +35,8 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 import {
+  Alert,
+  AlertTitle,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -112,7 +114,7 @@ function PemBlock({ label, pem }: { label: string; pem?: string }) {
   return (
     <div className="rounded-lg border border-border/50 bg-muted/20 p-3.5">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+        <div className="text-xs font-medium capitalize text-muted-foreground">
           {label}
         </div>
         {pem ? (
@@ -149,7 +151,7 @@ function SummaryMetric({
 }) {
   return (
     <div className="rounded-xl border border-border/60 bg-card px-3.5 py-3 shadow-float">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">
+      <div className="flex items-center gap-2 text-xs font-medium capitalize text-muted-foreground">
         <Icon className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
         {label}
       </div>
@@ -263,6 +265,78 @@ function SecurityPosture({ view }: { view: InstanceKeyView }) {
   );
 }
 
+/**
+ * 接口下发的安全态势（原型 InstanceKeysPage「Security posture」卡：
+ * AlertBanner(conclusion/message) + checks 行）。语义色由接口 conclusion
+ * 值推导（action/required/risk→warning、verified/compliant/healthy→
+ * success、否则 info），页面不自造结论。
+ * STATIC-FILLER(GAP-GW-09): /instance/key/view 报文暂无 securityPosture
+ * 字段，后端下发前该区不渲染（字段缺失即无 STATIC 常量可补——结论必须
+ * 由接口承载）；缺口记录 §「已确认无缺口」把 instance keys 列为无缺口，
+ * 与实缺矛盾，待 Main 补登记 GAP-GW-09。
+ */
+function ApiSecurityPosture({
+  posture,
+}: {
+  posture: NonNullable<InstanceKeyView['securityPosture']>;
+}) {
+  const conclusion = posture.conclusion ?? '';
+  const value = conclusion.toLowerCase();
+  const tone: 'warning' | 'success' | 'info' =
+    value.includes('action') || value.includes('required') || value.includes('risk')
+      ? 'warning'
+      : value.includes('verified') || value.includes('compliant') || value.includes('healthy')
+        ? 'success'
+        : 'info';
+  const checks = posture.checks ?? [];
+
+  return (
+    <section
+      className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-float"
+      aria-label="Security posture details"
+    >
+      <div className="flex items-start gap-3 border-b border-border/50 px-5 py-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
+            Security
+          </p>
+          <h3 className="mt-0.5 text-base font-semibold leading-6 text-foreground">
+            Security posture
+          </h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Instance security conclusion and checks reported by the management
+            platform.
+          </p>
+        </div>
+      </div>
+      <div className="p-5">
+        <Alert variant={tone}>
+          <AlertTitle className="font-semibold">{conclusion || '-'}</AlertTitle>
+          <p className="mt-0.5 text-foreground">{posture.message || '-'}</p>
+        </Alert>
+        {checks.length > 0 ? (
+          <dl className="mt-4 divide-y divide-border/50 border-t border-border/50">
+            {checks.map((check) => (
+              <div
+                key={check.label}
+                className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+              >
+                <dt className="text-xs text-muted-foreground">{check.label}</dt>
+                <dd className="text-sm font-semibold text-foreground">
+                  {check.value || '-'}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function TrustNode({
   label,
   value,
@@ -274,7 +348,7 @@ function TrustNode({
 }) {
   return (
     <div className="rounded-lg border border-border/50 bg-background/70 px-3 py-2.5">
-      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-[10px] font-medium capitalize text-muted-foreground">
         <span
           className={
             ready
@@ -619,6 +693,9 @@ export function InstanceKeyDrawer({
                 </div>
 
                 <SecurityPosture view={view} />
+                {view.securityPosture ? (
+                  <ApiSecurityPosture posture={view.securityPosture} />
+                ) : null}
 
                 <section className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-float">
                   <KeyCardHeader

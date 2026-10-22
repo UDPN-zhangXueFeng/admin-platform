@@ -3,6 +3,7 @@ export * from './lib/alert-dialog';
 export * from './lib/button';
 export * from './lib/dropdown-menu';
 export * from './lib/select';
+export * from './lib/searchable-select';
 export * from './lib/tabs';
 export * from './lib/toast';
 export * from './lib/tooltip';

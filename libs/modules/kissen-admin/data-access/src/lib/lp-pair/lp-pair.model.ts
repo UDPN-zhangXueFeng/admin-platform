@@ -1,4 +1,5 @@
 import type { LpPoolSide } from '../lp/lp.model';
+import { commonStatusLabel } from '../approval/approval.model';
 
 /**
  * LP×Token 对参与关系（源 `api/lp-pair.ts` LpPairRespVO；rowKey=id）。
@@ -30,8 +31,8 @@ export interface LpPairRow {
   splitRatio: string | number;
   /** Token-pair default split (list display when no override; source 2026-09-08). */
   defaultSplitRatio: string | number;
-  /** Count of pending KLS override-split change requests (>0 blocks editing; source 2023418). */
-  pendingSplit: number;
+  /** KLS 分成审批在途（分成编辑禁用；替代旧 pendingSplit 计数，源 2023418）。 */
+  splitApprovalPending: boolean;
   /** 源端池参数（联查对侧池；null = 未设置，Min 沿用 token 对默认）。 */
   sourceMinLiquidity: string | number | null;
   /** 目标端池参数（null = 未设置）。 */
@@ -40,11 +41,12 @@ export interface LpPairRow {
   sourceAuthRequired: string | number | null;
   /** 目标端授权门槛（null = 不校验）。 */
   targetAuthRequired: string | number | null;
-  /** 生效对改参审批在途（改参按钮禁用；源 16a3b8f）。 */
-  pendingChange: boolean;
+  /** KLP 改参审批在途（改参入口禁用；替代旧 pendingChange，源 2023418）。 */
+  pairApprovalPending: boolean;
   status: number;
   remark: string;
-  approvalRecordId: number;
+  /** 任一审批在途（兜底禁用；替代旧 approvalRecordId 判空）。 */
+  approvalPending: boolean;
   createTime: number;
 }
 
@@ -86,21 +88,13 @@ export const LP_PAIR_TARGET_STATUS = {
   disable: 50,
 } as const;
 
-/** LP×Token 对状态沿用 CommonStatusEnum（源 views/approval/status.ts 定稿英文）。 */
-export const LP_PAIR_STATUS_LABEL: Record<number, string> = {
-  1: 'Draft',
-  3: 'Withdrawn',
-  5: 'Pending Review',
-  10: 'Under Review',
-  15: 'Rejected',
-  20: 'Approved',
-  25: 'Signed',
-  30: 'Submitting',
-  35: 'Final Confirmation',
-  40: 'Submission Failed',
-  45: 'Deleted',
-  50: 'Disabled',
-};
+/** LP×Token 对状态沿用 CommonStatusEnum（通用字典派生；业务语境 20=Enabled）。 */
+export const LP_PAIR_STATUS_LABEL: Record<number, string> = Object.fromEntries(
+  [1, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((status) => [
+    status,
+    commonStatusLabel(status),
+  ]),
+) as Record<number, string>;
 
 export const LP_PAIR_STATUS_VARIANT: Record<
   number,

@@ -104,6 +104,18 @@ export interface BankQueryItem {
   pushTime?: number;
 }
 
+/** 网络银行列表筛选（POST /bank/query/list data；keyword 对 bankName/bankBic 模糊）。 */
+export interface BankQueryListReq {
+  keyword?: string;
+}
+
+/** 网络银行分页列表请求（POST /bank/query/list）。 */
+export interface BankQueryPageReq {
+  pageNum: number;
+  pageSize: number;
+  filter?: BankQueryListReq;
+}
+
 /** 银行可交易 token（货币系统口径；源 types/business.ts CsToken，eafcab0 结构化下发替代 tokenList JSON 串）。 */
 export interface CsToken {
   tokenNo?: string;

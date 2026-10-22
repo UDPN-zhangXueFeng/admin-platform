@@ -1,5 +1,30 @@
 # Codex 对话沉淀
 
+## 2026-10-21 三门户普通金额两位精度
+
+- 三门户没有能覆盖自定义 JSX 数字格式器的 app-level 全局精度设置；展示逻辑分别在 `libs/modules/{kissen-admin,lp-portal,kissen-gateway}/feature`。普通金额使用固定两位；FX 汇率维持 4 位，token 金额维持 token 精度/现有去尾零口径。
+- Kissen Admin 的 `formatAmount` 和 LP 的 `formatAmount` 默认已固定两位；LP `formatMoney` 当前只用于 Token List 的 `minLiquidity`，按 token 值保留后端精度。Gateway Overview 普通金额应复用 `kit.ts` 的 `fmtAmount` 固定两位，交易链路带 token symbol 的金额应使用 `formatTokenAmount`，不可走普通金额 formatter。
+- 验证：`modules-kissen-gateway-feature` test/lint 通过；三门户 build 通过；浏览器在隔离会话并拦截为只读 fixture 的 Gateway Overview 实测 `1234.5 → 1,234.50`、`9876.543 → 9,876.54`；Gateway formatter 测试同时确认汇率 4 位、token 金额精度保留。
+
+## 2026-10-21 LP FX Transactions 详情布局
+
+- LP `/tx-flow?txNo=...` 由 `TxFlowListPage` 内联的 `TxDetailView` 展示，依赖 `sessionStorage` 的 `lp_tx_stash:` 行暂存和链路查询。当前视觉依据是 Kissen Admin 实际生效的 `TxDetailPage`：实现位于 `libs/modules/kissen-admin/feature/src/lib/transaction-pages.tsx`，并在 `apps/kissen-admin/src/app/[locale]/(app)/[module]/[[...slug]]/module-page-registry.ts` 注册；其 `xl` 8/4 布局为左侧概览、Source/Target 交易信息与 Timing，右侧为 Clearance Pipeline。LP 在自身模块内适配，不跨引入 Kissen feature，并保留 Pair Code 和 LP 交易字段。
+- 状态 35 `Credited` 和 40 `Completed` 都应将最后的 `Completed` 节点视为已完成；只检查 `Completed` 标签会把状态 35 错误显示为进行中。
+- 验证：`npx nx lint modules-lp-portal-feature`、`npx nx build lp-portal` 通过。浏览器用仅存在于 `sessionStorage` 的临时行检查 1568×755 和 390×844，无水平溢出、无后端写入。
+
+## 2026-10-21 LP Revenue Share Details 金额单位
+
+- `SplitDetailRow.currency` 是源端 token symbol（缺失时回退 code）；`DetailsTabSection` 的 Principal、Markup、My Share 应在保留现有精度格式的基础上追加同一行 `currency`。币种为空时不追加单位，不需要改接口或金额口径。
+- 验证：`npx nx lint modules-lp-portal-feature`、`npx nx build lp-portal` 通过；浏览器打开 `/en-US/split-settle?tab=details`，现有 CF8、CF7 行的三列金额均显示对应 token 单位。
+
+## 2026-10-16 TD Admin 业务契约核验
+
+- `sp/access/listPage` 的状态筛选字段是 `data.state`，响应行使用 `state`；发送 `data.status` 不会过滤。
+- Workflow business selector 使用 GET `/api/base/v1/common/business/list`；列表使用 POST `/api/base/v1/workflow/list`，body 为 `{ page: { pageNum, pageSize }, data: filters }`。日期范围结束值须包含所选本地日期末尾。
+- Journal Entries 规则详情的交易列表 endpoint 是 POST `/api/manage/v1/financial/bill/tx/listPage`。
+- COA Basic Information 应按 `financeBookId` 查询 live detail；名称/币种取 `bookName`/`currencyCode`。科目树错误或空响应不得回退演示科目。
+- COA EOD 第一账本/通用列族与后端 `bookTemplateId`/`tokenType` 的映射尚未验证；不要用 fixture 数值相同推断业务规则。
+
 ## 2026-09-21 Gateway Management 实例详情页
 
 - Gateway 实例详情路由可沿用 `/onboard/instance/detail?id={instanceId}`：kissen-admin 动态路由按 `instance.detail` 解析，详情组件通过 `useSearchParams()` 读取 ID，与现有 bank/transaction detail 页面一致。
@@ -11,6 +36,11 @@
 
 - Kissen Admin 登录页在 development 环境读取 `NEXT_PUBLIC_DEV_LOGIN_NAME` / `NEXT_PUBLIC_DEV_LOGIN_PASSWORD` 作为表单默认值；`NEXT_PUBLIC_DISABLE_DEV_LOGIN_PREFILL` 只有精确为 `true` 时才禁用预填，未设置或 `false` 时保持启用。
 - 本地值放在 Git 忽略的 `apps/kissen-admin/.env.development.local`，模板放在 `apps/kissen-admin/.env.local.example`；生产环境不预填。
+
+## 2026-09-21 Gateway Jenkins 新增 8082 环境
+
+- Jenkins 部署环境新增 `gateway-8082`，仅适用于 `kissen-gateway-portal`；后端为 `http://10.0.7.85:8082`，门户对外端口为 `6245`，与 `main` 的 `6244` 并存。
+- 配置通过 `getAppConfig(projectName, environmentName)` 选择；该环境使用独立 Compose 项目名，避免容器名冲突。此次只更新流水线配置，未触发 Jenkins 部署。
 
 ## 2026-09-21 DataTable 页大小选项换行
 
@@ -1036,3 +1066,103 @@
 - 2026-09-18：部署 10.0.7.20 后白屏 "Application error: a client-side exception"（仅生产构建复现，dev 正常）。根因还是域 barrel 循环依赖 TDZ：26 个域内文件在**模块顶层**（`EMPTY_FORM`/`EMPTY` 等筛选默认值对象）引用 `from '.'` 导入的 `ALL_VALUE` 等常量；webpack 把 barrel 与 constants 合并成单模块且 imports 全部提升到顶部，barrel 先于页面求值时顶层读 `let` → `Cannot access 'c' before initialization`。修复：只把**顶层引用**的符号拆成直连 `./{dom}.constants` 导入（函数体内走 barrel 是运行时求值，安全不动）；TypeScript AST 精确扫描（跳过嵌套函数体）修复后归零。生产冒烟 21 个修复域页面 + 登录全过、console 0 error。教训：**域内文件永远不要从 `'.'`（自家 barrel）导入值符号**，新页面一律直连定义文件；排查此类问题用 `next start` + 产物 offset 逆向定位模块号。
 - 2026-09-18：kissen-admin 同步上游 4609208（金额按 token 精度）落点与口径：`formatAmount(v, decimals)` 纯字符串 BigInt HALF_UP 放 `modules-kissen-admin-feature/lib/format.ts`（不进 shared——shared formatNumber 走 Number+Intl 会丢 decimal(20,8) 末位）；`useTokenMeta(projectId)` 复用 `useTokenListQuery(projectId, {})` 做双键（tokenNo/tokenCode）元数据，未命中回退 2（与上游 DDL 默认一致）；汇率一律固定 8 位（fmtRate），不跟 token 精度。冒烟注意：kissen 后端鉴权头是 `token` 而非 Bearer；tx 行 sourceCurrency 为 symbol 形态时双键 miss 回退 2，与上游 decOf 同行为。
 - 2026-09-18：lp-sync 3a57bbd..6a55188 批（userDeduction 语义 + token 精度金额）要点：①LP formatAmount 自带副本于 `modules-lp-portal-feature/lib/format.ts`，与管理侧 4609208 同款同日决议（HALF_UP 纯字符串 BigInt），勿上收 shared；②tx-chain 保纯函数——amountText 回调作 `buildChainTimeline` 第三参注入，fmtAmount 退役删除；③split-settle 行内只有 pairCode（currency 列是 symbol 展示名不能当精度键），经 pairInfo 反查 sourceTokenCode 取精度；④冒烟凭据 reddate/reddate_admin/red@123456（LP code/username/password，`.env.local` 有预填键）；⑤tx-flow 测试环境 0 条数据（code=0 total=0 后端缺口），金额管线实证改在 split-settle 真实数据上做（228.012→228.01、7600.4→7,600.40）；⑥edit 工具多 hunk 部分应用坑本批两次（见 lp-sync pitfalls），多 hunk 后必须逐 hunk grep 复核。
+
+## 2026-09-23 Kissen Admin LP Management 设计稿复核
+
+- `.doc/kissen/plan/11-LP Management模块改造开发方案.md` 已按静态 HTML 画板①–⑪与当前 feature/data-access 实现交叉复核；HTML 只定义静态视觉，不足以作为请求时机、空态或接口契约证据。
+- LP Pool DTO 已含 `balanceUpdateTime`、`authAmount`、`preauthAvailable`、`preauthSnapshotTime`、`requiredMinSum` 和 `remindThreshold`；缺口是总余额 `walletBalance` 及 LP 名称/地址/日期筛选。不要在计划中重复新增已有快照时间字段。
+- 设计稿 Pair 汇率样例 `7.1890 / 0.25% → 7.2070` 与当前 `base/(1+markup)` helper 冲突；现有 `splitRatio=0` 表示清除 override，和“明确 0%”语义冲突。两者均须先定契约。
+- LP freeze 当前仅 `20↔50`，Pair 的 `50→1` 是恢复 Draft 再提交审批，不能描述成直接 Activate。`LP_STATUS_LABEL` 也被 Settlement Cycle Setup 使用，设计稿状态文案需要页面级映射，不应全局改写。
+
+## 2026-09-23 三门户原型合并内容页改造（plan/12，分支 feat/prototype-content-pages）
+
+- 系统映射按代码证据修正：kissen-admin↔network-mgt（KNMS）、kissen-gateway-portal↔bank-portal（BP）、lp-portal↔lp-portal（LPP）；提交序列 d926473(P0)→c840ea4(P1 LP)→deb36f4(P2 GW)→6ccdf1a(P3 ADM)。
+- 原型仓库 `/tmp/kissen_prototype` 是行为规格（页面/列/文案），UI 一律本仓体系重实现；API 缺口按《缺口记录》（.doc/kissen/kissen-bug/2026-09-23-原型对齐-API缺口与静态补齐记录.md）`STATIC-FILLER(GAP-xx-NN)` 打标，本次共 82 处（ADM 42/GW 16/LP 24），GAP-ADM-03/04 已真数据闭环，新增 GAP-ADM-09（手动生成结算单）/GAP-GW-09（securityPosture）。
+- 三 app 详情页通用模式：registry pageKey 扩展（detail/create/edit）+ sessionStorage 行暂存（`gw_log_stash:{logId}`、`lp_tx_stash:{txNo}` 等）+ 列表页 pageSize 200 探针扫描兜底 + not-found 卡；深链无暂存走 not-found 是已登记口径，不要"修复"它。
+- 本仓 eslint 未注册 react-hooks/exhaustive-deps：写 `// eslint-disable react-hooks/exhaustive-deps` 会报 "Definition for rule not found" error——依赖说明只能写普通注释。
+- kissen-admin feature 无 jest config（无 test target，非缺失事故）；三 app `tsc -p apps/<app>` 均因预存 libs/modules/auth/feature 引用缺失（TS6053）失败，编译级校验用 `npx nx lint <feature>` + scoped 临时 tsconfig 替代。
+- 子 agent 并发上限 3（用户硬性要求）；task agent 报 budget-wrapped 时剩余文件为零改动，派新 agent 携带前任报告规格续作即可，勿重做已完成文件。`hub wait` 可能重复交付旧快照，用 `hub jobs` 交叉确认；DM 可唤醒 idle agent 续命。
+- edit 工具锚点陷阱：并发子 agent 改动导致行号漂移会产生残留/语法错（registry 小文件两次踩坑）；修复=立即重读区域→整段 PUT；registry 类小文件优先一次整段替换。
+
+## 2026-09-29 三门户列表查询区 Search/Reset 统一
+
+- kissen-admin、lp-portal、kissen-gateway 的顶层列表查询区统一显示 `Search`（primary）→ `Reset`（outline）；Search 应用当前条件，分页查询回第一页；Reset 清空筛选条件并回第一页。树/下拉内部搜索、列配置 Reset、详情与行操作不属于列表查询区。
+- 已补齐的页面：LP Pair/Pool；Gateway Bank Query、FX Query、Token Management、Transactions、Operation Logs、Roles、Users；Kissen Admin Approval Center、System Users/Roles、Workflow Definitions、Operation Logs。其他已有 Search/Reset 的列表保持原实现。
+
+## 2026-09-29 Kissen Admin Token 列表服务端分页与编号口径
+
+- `POST /manage/token/list` 为分页接口：`tokenList(req)` 返回 `PaginatedResponse<TokenRow>`；`/onboard/token` 用 `useTokenListPageQuery` 传 `pageNum`、`pageSize`、筛选条件，并把服务端当前页 rows/total 交给 `DataTable` 的 manual pagination。需要全量 Token 的调用方保留 `useTokenListQuery`，经 `tokenListAll(filter)` 以 100 条为批次顺序拉取，避免只取首屏。
+- `TokenRow.tokenNo` 是审核后由服务端分配的全网唯一编号，不是 `tokenCode`；列表 `Token Name (No.)` 的副行显示 `tokenNo`，空值由 `CopyableId` 显示为 `-`。分页条数沿用 10/20/50。
+- 冒烟验证：`/onboard/token` 加载后端 6 条数据，切换 `20 / page` 触发第二次 `POST /manage/token/list` 并返回 200；Kissen Admin production build 与 6 个改动文件 ESLint 均通过。
+
+## 2026-10-13 kissen-gateway POST 服务端分页迁移验收（bf4d8aa 协议）
+
+- kissen-gateway 三域（token/bank/fx）列表切 POST 服务端分页后的浏览器验收全过。wire 口径：分页 data=`{rows,page:{total}}`，请求 `{page:{pageNum,pageSize},data:{…}}`；Token 列表筛选 status 是 Number 型；`/fx/view` 的 data 键存在时 `sourceTokenSymbol/targetTokenSymbol` 必须非 null——API 层固化空串（`''`=不过滤），fixture 也要带这两个键。
+- Overview KPI 分页后取数模式：active/total 各发一次 `pageSize:1` 的 `POST /token/list`（active 复用 `filter:{status:20}`），从 `page.total` 读数；`useFxAllPairsQuery` 以 500/页两请求聚合并供 pairNames 图例与 tx 行 pair 元数据（pairId 跨 500 页也能解析）。
+- `FxPairDetail` 契约字段为 `latestRate`/`recentRates`（必填数组，无快照时 latestRate=null 但 recentRates 仍为数组）；fixture 缺 `recentRates` 会在 FxDetailPage 渲染期 `reading 'length'` 白屏——契约依赖字段，勿按直觉命名 `rateHistory`。
+- 浏览器验收工具链踩坑（tab gw-verify headless）：①`tab.route(pattern, options)` 只支持静态 `{status,contentType,body}`，动态读请求体分页/过滤必须 `page.setRequestInterception(true)`+`page.on('request')`，并在 finally `page.off`+关拦截（跨 run 自动清理）；②拦截 pattern 必须限定 `/kissen-api/bankgw/portal/` 前缀，裸 `u.includes('/overview')` 会把页面导航 URL 一起拦掉导致整页渲染成 JSON 文档；③`page.waitForFunction` 在该 headless 环境偶发不触发，稳定做法是 `while(Date.now()-t0<15s)` 轮询 evaluate；④sonner toast 的 Retry 按钮在 `[data-sonner-toast] button`，不在 main 区域按钮里；⑤`page.type` 丢尾字符，用原生 value setter + `input` 事件。
+- 错误态口径：列表失败（HTTP200+code=1 信封或网络 abort）统一 toast `Failed to load tokens` + description（信封 message/`Network error`）+ Retry 触发 refetch，浏览器实证 Retry 后请求计数增加；Reset 无新请求是同 key 缓存命中（语义正确），断言以 DOM 为准。
+- `POST /token/refresh` 真实 wire：200 `{code:'0',data:<number>}`（data=回写条数，0 也是成功）；无 UI 入口，mutation 失效靠 `token.mutations.ts` onSuccess invalidateQueries，属代码级确认项。
+
+## 2026-10-20 三门户 S 档 smoke 与 Admin 后端阻塞
+
+- **LP**：当前 `apps/lp-portal/.env.local` 的 `NEXT_LP_BACKEND_URL` 指向 `10.0.7.87:8090`；本次从该配置登录后 Dashboard 与 Split & Settlement 返回真实数据，FX Transactions 为 0 条。与 2026-08-31 的 `.87:8090` 不可用记录相反；只确认当前配置可用，未验证 `.103:8090`。
+- **Gateway**：`.env.local.example` 指向的 `10.0.7.85:8080` 本次可用；交易列表返回 81 条，真实详情 `id=125` 显示 source/target 币种金额和 6 条 Transaction Chain 记录。
+- **Admin**：已记录的 `10.0.7.103:9000` 从当前 workstation 访问时 curl 8 秒超时；`127.0.0.1:9000` 本地 tunnel 未监听。此为 2026-10-20 的环境观察，不代表后端地址错误；Admin 真实数据 UI smoke 需先恢复网络或 tunnel。
+
+## 2026-10-20 Kissen Admin FX Transaction Detail 双币种信息
+
+- `Transaction Information` 采用左右 Source/Target 面板。`TransactionDetailRow` 已继承列表字段 `sourceCurrency`、`targetCurrency`、银行、账户及金额；详情扩展字段也已有 `lpSourcePoolAddress`、`lpTargetPoolAddress`、`sourceCsTxId`、`targetCsTxId`，无需新增 API 或额外列表查询。
+
+- 2026-10-20 起本地 kissen-admin 测试后端为 `10.0.7.87:9000`，取代旧的 `10.0.7.103:9000` 可达性记录；Jenkinsfile 与 nginx-kissen 的 `103:9000` 部署默认属于独立配置，按用户要求保留。
+
+## 2026-10-20 Gateway 本地配置与 Dashboard 标签
+
+- 本地运行 `kissen-gateway-portal` 时，`.env.local` 必须包含 `NX_PROJECT_ID=kissen-gateway`：`loadProjectConfig()` 无参调用会回退到 `stablecoin`，造成 Gateway 路由配置不匹配、菜单为空；本次 Nx dev 命令未自动注入该变量，不能依赖 Dockerfile 注释中的开发态注入说明。
+- Dashboard 的 Transaction Trends 标签在 292px 容器下需使用 `whitespace-nowrap` 与 `px-2`，避免 `Token Pair` 被挤换行；本地 `/en-US/overview` 已实测完整显示。
+
+## 2026-10-20 Gateway Menu Management 双栏布局
+
+- `/en-US/system/menu` 的 breadcrumb 标题由 `configs/kissen-gateway.json` 定义为 `Menu Management`；页面采用与 kissen-admin `SysMenuListPage` 一致的左侧递归菜单树、右侧内联详情表单布局。Gateway 的 parent/menuKey/menuType 编辑限制、API permission 查询/删除和菜单 CRUD API 边界保持不变；后续样式修改应继续以 kissen-admin 的 system/menu 为视觉基准。
+
+
+## 2026-10-20 Gateway User Detail 响应式信息网格
+
+- `UserDetailPage` 的 Basic/Contact/Activity 卡片按字段数限制 `DescGrid` 列数；Account Activity 在 `2xl` 以下用两列、`2xl` 起三列，避免 First Login 徽章挤压 Created on 时间。详情卡片仅在 `xl` 及以上并排；已在 1024、1280、1568 宽度实测无重叠。
+
+
+## 2026-10-20 Gateway UI Settings 区块精简
+
+- `/en-US/system/ui` 仅保留 Brand Customization 表单与 Save/Restore Default；Preview 和 Appearance 卡片已移除。Primary Color 区域保留主题下拉与 hex 输入，原生取色器已移除。`gw-appearance` 仅作为旧浏览器偏好读取；Gateway 调色板选择后即时预览，未保存离开时恢复最近已保存主题；Save 通过现有 `PUT /brand` 保存所选调色板主色，并在 API 成功后写入 `gw-theme`。
+
+
+## 2026-10-20 LP Portal Header Subtitle
+
+- Shared `Header` renders `config.project.name` and optional `config.project.subtitle` under the same `hideProjectName` conditional. In `LpAppShell`, omit that flag and clear only `config.project.subtitle` in the derived config to preserve “LP Portal” while hiding the subtitle.
+
+
+## 2026-10-20 Kissen Admin Header 标题
+
+- Kissen Admin 只需隐藏页眉项目标题、保留副标题时，在 `KissenAppShell` 派生配置中将 `project.name` 置空，不改 `project.subtitle`；已在本地菜单页确认 logo 和副标题仍显示。
+
+## 2026-10-20 LP Pool Detail 内容合并
+
+- `PoolDetailPage` 将 Basic Information 与 Balance & Authorization 同屏展示，移除无用途的单项 tab 导航及旧 `?tab=` 切换逻辑；因按池地址过滤的交易端点未就绪，删除固定空的 Transactions 占位表与 GAP-LP-04 静态列契约。后端交易数据接入后再按实际查询结果实现交易区。隔离浏览器用模拟池行验证了双卡渲染与无 tab 控件；测试登录下 poolId 3 当前显示 Pool not found，不能作为真实池数据的视觉验证。
+
+## 2026-10-20 LP Token Pair 表格精简
+
+- `PairListPage` 移除 Standard Share 列及 Readiness 中的 Pool ready / Pre-authorization 状态徽章，保留 My Share、主 Status 与 Recv/Pay 池地址；两侧地址都缺失时显示 `-`。隔离浏览器以模拟 PairRow 验证列与状态已隐藏、地址保留。
+
+## 2026-10-21 审批业务侧接入(kissen-admin)
+
+- 三入口详情统一:任务键 `?taskId=`、业务键 `?busCode=&busId=`(busId=1 恒有效,禁止 0 兜底)、我发起行内入口;行归一 `ApprovalListRow` 兼容三种来源,业务键入口合成行 `createUserName=''`、`applyCode` 后端缺发显示 Dash。
+- `detail`/`detailByBusiness` 均未返回 `reviewerStatus`/`currentStepName`(响应键仅 approveButtonDTO/taskId/recordExists/businessContent/history):任务键入口由列表行兜底,业务键入口无兜底 → 模型字段已改可选,头部状态渲染 Dash、`showCurrentNode` 仅在已知 5/10 时渲染,动作判定回退信任能力位。
+- **approveButtonDTO 能力位口径:1=可用,2=不可用**(0 兜底不可用);"非 0 即可用"是误读——已完成单据 approveType=2,若按非 0 判定会错误放行审批按钮。在途判定:已办/本页已决定 → 否;业务键无状态 → 信任能力位;任务键 → 列表行 5/10。
+- `recordExists=false` → 无效页("Approval not found"):kissen_rate_change(pairId) 对有历史审批的 pair 返回 false、kissen_settle_confirm(orderId) 抽样 1/4-10 全部 false——业务键到审批记录的映射语义待后端澄清,前端已优雅降级。
+- 已验证不改变的既有行为:Withdraw 弹窗取消、⋯ 菜单折叠(2 动作)、我发起页签独立状态域(3/5/10/15/20 服务端 filter)。未实测:approve/reject/return 提交(测试账号无在途待办)、真实 withdraw 提交(破坏性)。
+
+## 2026-10-21 审批接入对照设计文档校验(修正 9 处偏差)
+- 按 `~/Downloads/approval-business-embed-design.md` 复核发现并修正:银行 20 是域例外 `Onboarded`(非通用 Enabled);银行下拉七值全集 [1,2,5,10,15,20,50];ACTION_TEXT approve/return/withdraw 三段 body2 按 §7 定案文案替换(return 标题为 Return to Previous Step)。
+- 我发起页签按设计附录A 改列序(状态→Current Step→申请时间)+ 行动作为只读 Details;`canWithdraw` 行旁提示 "Withdrawal available in details",撤回只在共享详情执行(删除列表级 Withdraw 菜单+弹窗)。
+- 各页 Status 下拉固定子集(防 PROTO 键集扩大自动进筛选):token 对 [5,15,20,30,50] 固定数组;LP 对 [1,5,10,15,20,50];LP 入网 [1,5,10,15,20];资金池 [5,15,20]。
+- 清理死代码:bank.model.ts 的 BANK_STATUS_LABEL/BANK_STATUS_OPTIONS/bankStatusVariant 零消费,已删除(BankBadgeVariant 保留,bank-gateway 在用);LpPairStatusBadge 独立 Draft 特判删除(PROTO_LP_PAIR_STATUS[1] 已有)。

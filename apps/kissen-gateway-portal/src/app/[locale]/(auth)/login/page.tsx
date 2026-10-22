@@ -21,6 +21,7 @@ import {
   useBrandQuery,
 } from '@myorg/modules/kissen-gateway/data-access';
 import { LoginIllustration } from '@/components/brand/login-illustration';
+import { LogoMark } from '@/components/brand/logo-mark';
 
 // feature 库在本 app 内为 lazy-loaded（module-page-registry 动态导入），
 // 边界规则禁止静态导入 —— 首登改密弹窗仅在登录成功后渲染，走动态分片。
@@ -195,7 +196,12 @@ export default function LoginRoute() {
 
             <div className="flex items-center justify-between border-t border-white/10 pt-5 text-[11px] text-white/45">
               <span>Bank-grade access control</span>
-              <span>v2.0 · Portal</span>
+              <span className="inline-flex items-center gap-2">
+                Supported by
+                <span className="[&_*]:!text-white/90 [&_.text-primary]:!text-primary">
+                  <LogoMark />
+                </span>
+              </span>
             </div>
           </div>
         </section>
@@ -304,10 +310,9 @@ export default function LoginRoute() {
               </Button>
             </form>
 
-            <p className="mt-8 border-t border-slate-100 pt-5 text-center text-[11px] leading-5 text-slate-400">
-              UDPN <span className="px-1.5 text-slate-300">·</span> Kissen
-              Gateway <span className="px-1.5 text-slate-300">·</span> Bank
-              Portal
+            <p className="mt-8 flex items-center justify-center gap-2 border-t border-slate-100 pt-5 text-[11px] leading-5 text-slate-400">
+              <span>Supported by</span>
+              <LogoMark />
             </p>
           </div>
         </section>

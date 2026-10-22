@@ -34,7 +34,12 @@ export function orDash(v: string | number | null | undefined): string {
   return v === null || v === undefined || v === '' ? '-' : String(v);
 }
 
-/** 数值展示规整：String(Number(v)) 去无效尾零；null/undefined → '-'（源 fmtAmount / fmtRate 同实现）。 */
+const AMOUNT_FORMATTER = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** Ordinary amounts use grouped, fixed two-decimal output; token values use proto-format. */
 export function fmtAmount(v: number | null | undefined): string {
-  return v == null ? '-' : String(Number(v));
+  return v == null ? '-' : AMOUNT_FORMATTER.format(v);
 }

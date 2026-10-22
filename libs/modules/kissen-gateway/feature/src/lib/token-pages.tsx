@@ -1,118 +1,200 @@
 'use client';
 
 /**
- * Token 管理页（源 `views/token/manage.vue`：10 列表格 + 注册 dialog）。
- * 路由 /token/manage（registry：token → list）。
+ * Token 管理域三页（plan/12 §5 P2：BP 原型 TokenManagementPage.jsx /
+ * RegisterTokenPage.jsx / TokenDetailPage.jsx 行为规格落地）。
  *
- * - 10 列（39c8a2b UDPN 列序）：tokenName/symbol/decimalDigits/anchorFiat/
- *   chainType/tokenCode/tokenNo/minLiquidity/status/pushTime。
- * - 状态列驳回原因：源 el-tooltip(:disabled="!row.rejectReason") → Badge 外
- *   包 span 的 Radix Tooltip（Badge 不转发 ref，asChild 需原生 span）。
- * - 39c8a2b：「同步状态」按钮与 status 驳回态行内「Resubmit」入口一并移除
- *   （审核结果由平台 biz-event 推送回写）；仅头部「Register Token」保留
- *   'bank:token:submit' 权限门控（源 v-perm 未命中即不渲染）。
- * - 源 el-select filterable allow-create（链类型/锚定法币可输入自定义值）→
- *   原生 input[datalist] 组合框（禁新依赖下最贴近的等价物：可选可输）。
- * - 服务端状态 TanStack Query；列表失败 toast + Retry（tx/user 页约定）。
+ * - 列表 /token/manage：POST 服务端分页/筛选（2026-10-13 清单：Token Code
+ *   模糊 / Pegged Currency / BlockChain / Status 精确；选项主数据来自
+ *   GET /token/filter-options）+ 10 列（39c8a2b 列序）+ 列偏好 localStorage
+ *   持久化 + Register Token 跳页面化注册。协议无排序参数 → 表头静态，
+ *   行序保持服务端 tokenId 倒序。
+ * - 注册 /token/create：单卡三分区表单（Token Identity / Value & Anchor /
+ *   Additional Information），校验文案逐字对齐原型 validate()；幂等重复提交
+ *   → 页内 warning 横幅（原型 409 分支；后端以 resp.idempotent 表达）。
+ * - 详情 /token/manage/detail?code=：3 Tab（basic/transactions/operations），
+ *   ?tab= 写 URL、basic 缺省不写；transactions 通过 /tx/page 按 tokenCode 查询，
+ *   operations 走 POST /token/operate-logs/{tokenCode} 分页（tokenCode 维度
+ *   独立分页状态，切换 code 归 1 不暂显旧 token 行）。
+ * - 保留项（plan §7 有意偏差）：Register Token 的 'bank:token:submit'
+ *   权限码门控；状态列驳回原因 Tooltip；footnote 三段口径。
  */
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { ColumnDef } from '@tanstack/react-table';
-import { Loader2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Loader2,
+  Plus,
+  TriangleAlert,
+} from 'lucide-react';
 
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
   Badge,
   Button,
   DataTable,
-  Dialog,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Textarea,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
   useToast,
 } from '@myorg/shared/ui';
-import { FormField, createFormResolver } from '@myorg/shared/ui-forms';
+import { FormField, FormSelect, createFormResolver } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
   tokenScopeText,
-  tokenStatusText,
-  tokenStatusVariant,
-  tokenTypeText,
+  TX_STATUS,
+  useFxAllPairsQuery,
   useSubmitTokenMutation,
   useTokenDetailQuery,
+  useTokenFilterOptionsQuery,
   useTokenListQuery,
+  useTokenOperationLogsQuery,
+  useTxPage,
   type TokenInfo,
+  type TokenOperationRecord,
+  type TxRecord,
 } from '@myorg/modules/kissen-gateway/data-access';
 
+import { CopyableId, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
+import { formatTokenAmount, formatUtc8 } from './proto-format';
+import {
+  PROTO_TOKEN_STATUS,
+  PROTO_TX_STATUS,
+  protoStatusText,
+} from './proto-enums';
 import { DescField, DescGrid } from './desc-grid';
-import { formatTime, orDash } from './kit';
-import { EmptyHint, MissingIdBlock } from './state-blocks';
+import { orDash } from './kit';
+import { EmptyHint, ErrorBlock, MissingIdBlock } from './state-blocks';
 import { useGatewayPerm } from './use-gateway-perm';
+import {
+  ColumnPicker,
+  filterVisibleColumns,
+  useColumnPreferences,
+  type ProtoColumnDef,
+} from './proto-table';
 
 /** token 提交权限码（源 v-perm="'bank:token:submit'"，头部注册入口）。 */
 const TOKEN_SUBMIT_PERM = 'bank:token:submit';
 
+const TOKEN_LIST_PATH = '/token/manage';
+const TOKEN_CREATE_PATH = '/token/create';
+const TOKEN_DETAIL_PATH = '/token/manage/detail';
 
-/** 源 chainOptions（el-select allow-create 枚举，输入自定义值亦合法）。 */
-const CHAIN_OPTIONS = ['Ethereum', 'BSC', 'TRON', 'Aptos', 'Polygon', 'Arbitrum'];
+/** 锚定法币合法取值（原型 RegisterTokenPage PEGGED_CURRENCIES：ISO 4217
+ * 主数据固定集，与筛选区「选项来自接口」不同源）。 */
+const PEGGED_CURRENCIES = ['USD', 'EUR', 'CNY', 'SGD', 'GBP', 'JPY'];
 
-/** 源 fiatOptions（ISO 4217 锚定法币枚举，同样 allow-create）。 */
-const FIAT_OPTIONS = ['USD', 'CNY', 'EUR', 'HKD', 'JPY', 'KRW', 'SGD', 'GBP'];
+/* ─────────────────── 列表：列定义 / 排序 / 列偏好 ─────────────────── */
 
-/** Token 列表最低流动性：始终保留两位小数，空值/非法值显示 '-'. */
-function formatMinLiquidity(value: number | null | undefined): string {
-  if (value == null) return '-';
-  const amount = Number(value);
-  return Number.isFinite(amount) ? amount.toFixed(2) : '-';
-}
+/** 列契约（原型 COLUMNS 逐字）；排序/列偏好公共件见 proto-table。 */
+
+const TOKEN_COLUMNS: ProtoColumnDef[] = [
+  { id: 'name', label: 'Token Name', required: true },
+  { id: 'symbol', label: 'Symbol' },
+  { id: 'decimals', label: 'Decimals' },
+  { id: 'peggedCurrency', label: 'Pegged Currency' },
+  { id: 'chain', label: 'BlockChain' },
+  { id: 'tokenCode', label: 'Token Code (Currency System)' },
+  { id: 'minLiquidity', label: 'Min. Liquidity' },
+  { id: 'syncedAt', label: 'Synced on' },
+  { id: 'status', label: 'Status', required: true },
+  { id: 'actions', label: 'Actions', required: true },
+];
+
+/** 列偏好 localStorage 键（原型 useTableColumnPreferences 同语义）。 */
+const TOKEN_COLUMN_PREF_KEY = 'gw.token-list.columns';
+
+/** 状态码 → 徽章语义色（Pending Review 警示 / Active 成功 / Rejected 拒绝 / Disabled 灰）。 */
+const TOKEN_STATUS_TONES: Record<number, ProtoStatusTone> = {
+  5: 'warning',
+  20: 'success',
+  15: 'danger',
+  50: 'muted',
+};
+
+/* 排序 / 列偏好公共实现见 proto-table.tsx。 */
 
 
-/* ================================================================== */
-/* 注册对话框（源 el-dialog 9 字段 + formRules 六项必填）           */
-/* ================================================================== */
+/* ─────────────────────────── 注册表单页 ─────────────────────────── */
 
 /**
- * 表单校验（源 formRules 逐字等义）：必填五项文案 + decimalDigits 的
- * el-input-number :min="0" :max="18" 机械约束。
+ * 表单校验（原型 RegisterTokenPage validate() 逐字文案 + 正则）：
+ * 必填 'Required field'；tokenCode 16–64 位（首字符字母数字，其余字母数字/_/-）；
+ * symbol 2–12 位大写；chain ≤32；decimals 0–18 整数；可选三项仅限长。
  */
 const tokenFormSchema = z.object({
-  tokenCode: z.string().min(1, { message: 'Please enter the token code' }),
-  tokenName: z.string().min(1, { message: 'Please enter the token name' }),
-  symbol: z.string().min(1, { message: 'Please enter the symbol' }),
+  tokenCode: z
+    .string()
+    .trim()
+    .min(1, { message: 'Required field' })
+    .regex(/^[0-9a-zA-Z][0-9a-zA-Z_-]{15,63}$/, {
+      message: 'Use 16–64 letters, digits, hyphen or underscore.',
+    }),
+  tokenName: z
+    .string()
+    .trim()
+    .min(1, { message: 'Required field' })
+    .refine((v) => v.length <= 64 && /^[A-Za-z0-9][A-Za-z0-9 ._-]*$/.test(v), {
+      message:
+        'Use letters, digits, space, dot, hyphen or underscore (max 64).',
+    }),
+  symbol: z
+    .string()
+    .trim()
+    .min(1, { message: 'Required field' })
+    .regex(/^[A-Z][A-Z0-9]{1,11}$/, {
+      message:
+        'Use 2–12 uppercase letters or digits, starting with a letter.',
+    }),
+  chainType: z
+    .string()
+    .trim()
+    .min(1, { message: 'Required field' })
+    .max(32, { message: 'Max 32 characters.' }),
   decimalDigits: z
     .string()
-    .min(1, { message: 'Please enter the decimal places' })
-    .refine((v) => Number(v) >= 0 && Number(v) <= 18, {
-      message: 'Decimal places must be a number between 0 and 18',
+    .trim()
+    .min(1, { message: 'Required field' })
+    .refine((v) => /^\d+$/.test(v) && Number(v) >= 0 && Number(v) <= 18, {
+      message: 'Enter a whole number between 0 and 18.',
     }),
-  chainType: z.string().min(1, { message: 'Please select a chain type' }),
-  anchorFiat: z
+  anchorFiat: z.string().min(1, { message: 'Required field' }),
+  contractAddress: z
     .string()
-    .min(1, { message: 'Please select the anchor fiat currency' }),
-  contractAddress: z.string(),
-  issuerDesc: z.string(),
-  remark: z.string(),
+    .trim()
+    .max(128, { message: 'Max 128 characters.' }),
+  issuerDesc: z.string().trim().max(500, { message: 'Max 500 characters.' }),
+  remark: z.string().trim().max(500, { message: 'Max 500 characters.' }),
 });
 
 type TokenFormValues = z.infer<typeof tokenFormSchema>;
 
-/** 源 emptyForm() 默认值（decimalDigits 8，其余空串）。 */
+/** 原型 EMPTY_FORM 默认值（decimals '2'，其余空串）。 */
 const TOKEN_FORM_DEFAULT: TokenFormValues = {
   tokenCode: '',
   tokenName: '',
   symbol: '',
-  decimalDigits: '8',
   chainType: '',
+  decimalDigits: '2',
   anchorFiat: '',
   contractAddress: '',
   issuerDesc: '',
@@ -120,13 +202,16 @@ const TOKEN_FORM_DEFAULT: TokenFormValues = {
 };
 
 /**
- * 注册对话框。由父级条件渲染——每次打开重新挂载（等价源 openCreate 的
- * Object.assign(form, emptyForm()) + nextTick clearValidate）；39c8a2b 后
- * 仅注册态（驳回重提流程已随「同步状态」一并移除）。
+ * Token 注册页（页面化，替换原弹窗；registry token.create 键映射）。
+ * 路由 /token/create。单张 Card 内三分区（发丝线分隔）+ 底部操作条；
+ * 提交仍走 POST /token/submit（九字段全量，可选字段空串原样上送）。
  */
-function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
+export function RegisterTokenPage() {
+  const router = useRouter();
   const toast = useToast();
   const submitMutation = useSubmitTokenMutation();
+  /** 幂等重复提交的 tokenCode（原型 409 分支 → 页内 warning 横幅）。 */
+  const [duplicateCode, setDuplicateCode] = React.useState<string | null>(null);
 
   const { register, handleSubmit, control, formState } =
     useForm<TokenFormValues>({
@@ -136,7 +221,8 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
     });
 
   const onSubmit = handleSubmit((v) => {
-    // 源提交 {...form}：九字段全量（可选字段空串原样上送）。
+    setDuplicateCode(null);
+    // schema 已 trim；九字段全量上送（与原弹窗一致，可选字段空串原样）。
     submitMutation.mutate(
       {
         tokenCode: v.tokenCode,
@@ -152,22 +238,25 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
       {
         onSuccess: (resp) => {
           if (resp.idempotent) {
-            // 源 warning：已存在同编码申请（当前状态:xx）,未重复上行。
-            toast.warning(
-              `An application with this token code already exists (current status: ${tokenStatusText(
-                resp.status,
-              )}); the request was not sent again`,
-            );
-          } else if (resp.status === 5) {
-            // 源 success：已提交注册,等待平台审核。
-            toast.success('Registration submitted, waiting for platform review');
-          } else {
-            // 源 success：提交成功（状态:xx）。
+            // 幂等：同编码已登记，返回其当前状态；表单保留以便修改或查看。
+            setDuplicateCode(v.tokenCode);
+            return;
+          }
+          if (resp.status === 5) {
             toast.success(
-              `Submitted successfully (status: ${tokenStatusText(resp.status)})`,
+              'Registration submitted, waiting for platform review',
+            );
+          } else {
+            toast.success(
+              `Submitted successfully (status: ${protoStatusText(
+                PROTO_TOKEN_STATUS,
+                resp.status,
+              )})`,
             );
           }
-          onClose();
+          router.replace(
+            `${TOKEN_DETAIL_PATH}?code=${encodeURIComponent(v.tokenCode)}`,
+          );
         },
         onError: (e) => toast.error((e as Error).message),
       },
@@ -175,207 +264,263 @@ function TokenSubmitDialog({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      {/* 源 el-dialog width="560px"。 */}
-      <DialogContent className="sm:max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>Register Token</DialogTitle>
-          <DialogDescription>
-            Submit a new token for platform review
-          </DialogDescription>
-        </DialogHeader>
+    <div className="space-y-4">
+      {/* 页头（原型 PageHeader：无 Back，靠 Cancel 返回列表）。 */}
+      <div>
+        <h1 className="text-xl font-semibold">Register Token</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Submit a new token for Kissen review. The review result is written
+          back automatically.
+        </p>
+      </div>
 
-        <form onSubmit={onSubmit} className="space-y-6">
-          {/* 轻分节（§6.4）：身份 / 价值锚定 / 补充说明三组，字段语义就近。 */}
-          <section className="space-y-4">
+      {/* 幂等重复提交横幅（原型 AlertBanner tone=warning + View existing token）。 */}
+      {duplicateCode && (
+        <Alert variant="warning">
+          <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <AlertTitle>This token code is already registered.</AlertTitle>
+            <AlertDescription>
+              Re-submitting an existing token code returns its current status.
+            </AlertDescription>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="shrink-0"
+            onClick={() =>
+              router.push(
+                `${TOKEN_DETAIL_PATH}?code=${encodeURIComponent(duplicateCode)}`,
+              )
+            }
+          >
+            View existing token
+          </Button>
+        </Alert>
+      )}
+
+      <form onSubmit={onSubmit} noValidate>
+        <div className="rounded-lg border border-border/60 bg-card">
+          {/* 分区 1：Token Identity */}
+          <section className="p-4 sm:p-5">
             <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-foreground">
+              <h2 className="text-sm font-semibold text-foreground">
                 Token Identity
-              </h3>
+              </h2>
               <p className="text-sm text-muted-foreground">
                 What this token is and the chain it lives on
               </p>
             </div>
-            <FormField
-              name="tokenCode"
-              label="Token Code"
-              required
-              maxLength={32}
-              placeholder="e.g. CNB-001"
-              error={formState.errors.tokenCode?.message}
-              register={register('tokenCode')}
-            />
-            <p className="-mt-2 text-xs text-muted-foreground">
-              Must be unique within this instance. This code is used as the
-              currency system code.
-            </p>
-            <FormField
-              name="tokenName"
-              label="Token Name"
-              required
-              maxLength={64}
-              placeholder="e.g. Kissen CNY Bond"
-              error={formState.errors.tokenName?.message}
-              register={register('tokenName')}
-            />
-            <FormField
-              name="symbol"
-              label="Symbol"
-              required
-              maxLength={16}
-              placeholder="e.g. kCNY"
-              error={formState.errors.symbol?.message}
-              register={register('symbol')}
-            />
-            {/* 源 el-select filterable allow-create → input + datalist 组合框。 */}
-            <Controller
-              control={control}
-              name="chainType"
-              render={({ field }) => (
-                <>
-                  <datalist id="gw-token-chain-options">
-                    {CHAIN_OPTIONS.map((c) => (
-                      <option key={c} value={c} />
-                    ))}
-                  </datalist>
+            <div className="mt-4 grid gap-5 sm:grid-cols-2">
+              <div>
+                <FormField
+                  name="tokenCode"
+                  label="Token Code"
+                  required
+                  maxLength={64}
+                  error={formState.errors.tokenCode?.message}
+                  register={register('tokenCode')}
+                />
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Unique within this instance; also used as the currency system
+                  code.
+                </p>
+              </div>
+              <FormField
+                name="tokenName"
+                label="Token Name"
+                required
+                maxLength={64}
+                error={formState.errors.tokenName?.message}
+                register={register('tokenName')}
+              />
+              {/* 原型输入即 toUpperCase（用户键入小写自动转大写）。 */}
+              <Controller
+                control={control}
+                name="symbol"
+                render={({ field }) => (
                   <FormField
-                    name="chainType"
-                    label="Chain"
+                    name="symbol"
+                    label="Symbol"
                     required
-                    placeholder="e.g. Ethereum"
-                    className="max-w-[180px]"
-                    error={formState.errors.chainType?.message}
-                    list="gw-token-chain-options"
+                    maxLength={12}
+                    error={formState.errors.symbol?.message}
                     value={field.value}
-                    onChange={field.onChange}
+                    onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                     onBlur={field.onBlur}
                   />
-                </>
-              )}
-            />
+                )}
+              />
+              <div>
+                <FormField
+                  name="chainType"
+                  label="BlockChain"
+                  required
+                  maxLength={32}
+                  error={formState.errors.chainType?.message}
+                  register={register('chainType')}
+                />
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  The chain this token is issued on.
+                </p>
+              </div>
+            </div>
           </section>
 
-          <section className="space-y-4">
+          {/* 分区 2：Value & Anchor */}
+          <section className="border-t border-border/60 p-4 sm:p-5">
             <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-foreground">
+              <h2 className="text-sm font-semibold text-foreground">
                 Value &amp; Anchor
-              </h3>
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Monetary precision and how the token value is anchored
               </p>
             </div>
-            <FormField
-              name="decimalDigits"
-              label="Decimals"
-              required
-              type="number"
-              min={0}
-              max={18}
-              step={1}
-              placeholder="0-18"
-              className="max-w-[180px]"
-              error={formState.errors.decimalDigits?.message}
-              register={register('decimalDigits')}
-            />
-            <Controller
-              control={control}
-              name="anchorFiat"
-              render={({ field }) => (
-                <>
-                  <datalist id="gw-token-fiat-options">
-                    {FIAT_OPTIONS.map((f) => (
-                      <option key={f} value={f} />
-                    ))}
-                  </datalist>
-                  <FormField
-                    name="anchorFiat"
-                    label="Pegged Currency"
-                    required
-                    placeholder="ISO 4217 fiat code"
-                    className="max-w-[180px]"
-                    error={formState.errors.anchorFiat?.message}
-                    list="gw-token-fiat-options"
-                    value={field.value}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                  />
-                </>
-              )}
-            />
-            <FormField
-              name="contractAddress"
-              label="Contract Address"
-              maxLength={128}
-              placeholder="Required if the token is already deployed on-chain."
-              error={formState.errors.contractAddress?.message}
-              register={register('contractAddress')}
-            />
+            <div className="mt-4 grid gap-5 sm:grid-cols-2">
+              <FormField
+                name="decimalDigits"
+                label="Decimals"
+                required
+                type="number"
+                min={0}
+                max={18}
+                step={1}
+                error={formState.errors.decimalDigits?.message}
+                register={register('decimalDigits')}
+              />
+              {/* 固定主数据 Select（非 datalist 可输；原型表单主数据集）。 */}
+              <FormSelect
+                name="anchorFiat"
+                control={control}
+                label="Pegged Currency"
+                required
+                placeholder="Select Pegged Currency"
+                error={formState.errors.anchorFiat?.message}
+                options={PEGGED_CURRENCIES.map((c) => ({ value: c, label: c }))}
+              />
+              <div className="sm:col-span-2">
+                <FormField
+                  name="contractAddress"
+                  label="Contract Address"
+                  maxLength={128}
+                  error={formState.errors.contractAddress?.message}
+                  register={register('contractAddress')}
+                />
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Optional, for Kissen-side registration.
+                </p>
+              </div>
+            </div>
           </section>
 
-          <section className="space-y-4">
+          {/* 分区 3：Additional Information */}
+          <section className="border-t border-border/60 p-4 sm:p-5">
             <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-foreground">
+              <h2 className="text-sm font-semibold text-foreground">
                 Additional Information
-              </h3>
+              </h2>
               <p className="text-sm text-muted-foreground">
-                Optional context for the platform review
+                Optional context for Kissen&apos;s review
               </p>
             </div>
-            <FormField
-              name="issuerDesc"
-              label="Issuer Description"
-              maxLength={128}
-              placeholder="e.g. Issued by Kissen Bank, 1:1 USD-backed"
-              error={formState.errors.issuerDesc?.message}
-              register={register('issuerDesc')}
-            />
-            <div>
-              <label
-                htmlFor="gw-token-remark"
-                className="mb-1.5 block text-sm font-medium text-foreground"
-              >
-                Remarks
-              </label>
-              <Textarea
-                id="gw-token-remark"
-                rows={2}
-                maxLength={200}
-                placeholder="Optional"
-                {...register('remark')}
+            <div className="mt-4 grid gap-5 sm:grid-cols-2">
+              <FormField
+                name="issuerDesc"
+                label="Issuer Description"
+                maxLength={500}
+                error={formState.errors.issuerDesc?.message}
+                register={register('issuerDesc')}
+              />
+              <FormField
+                name="remark"
+                label="Remarks"
+                maxLength={500}
+                error={formState.errors.remark?.message}
+                register={register('remark')}
               />
             </div>
           </section>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+          {/* 操作条落卡底（原型 FormActions：Cancel + Submit Registration）。 */}
+          <div className="flex items-center justify-end gap-2 border-t border-border/60 p-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => router.push(TOKEN_LIST_PATH)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={submitMutation.isPending}>
-              {submitMutation.isPending && <Loader2 className="animate-spin" />}
-              Submit
+              {submitMutation.isPending && (
+                <Loader2 className="motion-safe:animate-spin" aria-hidden="true" />
+              )}
+              Submit Registration
             </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </div>
+        </div>
+      </form>
+    </div>
   );
 }
 
-/* ================================================================== */
-/* 列表页                                                               */
-/* ================================================================== */
+/* ─────────────────────────── 列表页 ─────────────────────────── */
 
-/** Token 管理页（registry token.list 键映射；导出名不可改）。 */
+type TokenFilters = {
+  code: string;
+  peggedCurrency: string;
+  chain: string;
+  status: string;
+};
+
+const TOKEN_FILTER_DEFAULT: TokenFilters = {
+  code: '',
+  peggedCurrency: '',
+  chain: '',
+  status: '',
+};
+
+/** 字符串数组去重排序（筛选项从当前数据派生：原型 options 来自接口）。 */
+function uniqueSorted(values: (string | null | undefined)[]): string[] {
+  return [...new Set(values.filter((v): v is string => !!v))].sort((a, b) =>
+    a.localeCompare(b),
+  );
+}
+
+/** Token 管理页（registry token.list；/token/manage）。 */
 export function TokenListPage() {
   const router = useRouter();
   const toast = useToast();
   const hasPerm = useGatewayPerm();
+  const [filters, setFilters] = React.useState<TokenFilters>(TOKEN_FILTER_DEFAULT);
+  const [appliedFilters, setAppliedFilters] = React.useState<TokenFilters>(TOKEN_FILTER_DEFAULT);
+  const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(10);
+
   const { data, isLoading, isError, error, refetch, dataUpdatedAt } =
-    useTokenListQuery();
+    useTokenListQuery(React.useMemo(
+      () => ({
+        pageNum,
+        pageSize,
+        filter: {
+          ...(appliedFilters.code.trim() ? { tokenCode: appliedFilters.code.trim() } : {}),
+          ...(appliedFilters.peggedCurrency ? { anchorFiat: appliedFilters.peggedCurrency } : {}),
+          ...(appliedFilters.chain ? { chainType: appliedFilters.chain } : {}),
+          ...(appliedFilters.status
+            ? { status: Number(appliedFilters.status) }
+            : {}),
+        },
+      }),
+      [pageNum, pageSize, appliedFilters],
+    ));
+  const filterOptionsQuery = useTokenFilterOptionsQuery();
 
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-
-  const rows = data ?? [];
+  const rows = data?.data ?? [];
+  const columnPreferences = useColumnPreferences(
+    TOKEN_COLUMN_PREF_KEY,
+    TOKEN_COLUMNS,
+  );
 
   // 列表失败 toast + Retry（tx/user 页约定；源 catch 静默靠拦截器）。
   React.useEffect(() => {
@@ -388,49 +533,110 @@ export function TokenListPage() {
     }
   }, [isError, error, refetch, toast]);
 
-  const columns = React.useMemo<ColumnDef<TokenInfo & { id: string }>[]>(
-    () => [
-      { accessorKey: 'tokenName', header: 'Token Name' },
+  // 下拉选项主数据（GET /token/filter-options；元素即提交值）。
+  // Status 为前端固定码表（按生命周期 rank 排序），不从接口/行数据派生。
+  const peggedOptions = React.useMemo(
+    () => uniqueSorted(filterOptionsQuery.data?.anchorFiats ?? []),
+    [filterOptionsQuery.data],
+  );
+  const chainOptions = React.useMemo(
+    () => uniqueSorted(filterOptionsQuery.data?.chainTypes ?? []),
+    [filterOptionsQuery.data],
+  );
+  const statusOptions = [5, 20, 15, 50];
+
+  const tableData = React.useMemo(
+    () => rows.map((r) => ({ ...r, id: String(r.tokenId) })),
+    [rows],
+  );
+
+  const hasFilter =
+    filters.code !== '' ||
+    filters.peggedCurrency !== '' ||
+    filters.chain !== '' ||
+    filters.status !== '' ||
+    appliedFilters.code !== '' ||
+    appliedFilters.peggedCurrency !== '' ||
+    appliedFilters.chain !== '' ||
+    appliedFilters.status !== '';
+  // Search/Reset 均回到第 1 页（服务端分页：换筛选条件后旧页码无意义）。
+  const handleFilterSubmit = () => {
+    setAppliedFilters(filters);
+    setPageNum(1);
+  };
+  const handleFilterReset = () => {
+    setFilters(TOKEN_FILTER_DEFAULT);
+    setAppliedFilters(TOKEN_FILTER_DEFAULT);
+    setPageNum(1);
+  };
+
+  const columns = React.useMemo<
+    ColumnDef<TokenInfo & { id: string }>[]
+  >(() => {
+    const cols: ColumnDef<TokenInfo & { id: string }>[] = [
       {
-        id: 'symbol',
-        header: 'Token Symbol',
+        id: 'name',
+        header: 'Token Name',
+        meta: { overflow: 'wrap', maxWidth: 220 },
         cell: ({ row }) => (
-          <span className="font-mono">{row.original.symbol}</span>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="truncate font-semibold text-foreground">
+              {row.original.tokenName || '-'}
+            </span>
+            {row.original.symbol ? (
+              <span className="text-xs text-muted-foreground">
+                {row.original.symbol}
+              </span>
+            ) : null}
+          </div>
         ),
       },
       {
-        id: 'decimalDigits',
-        header: 'Decimals',
+        id: 'symbol',
+        header: 'Symbol',
+        cell: ({ row }) => (
+          <span className="font-mono">{orDash(row.original.symbol)}</span>
+        ),
+      },
+      {
+        id: 'decimals',
+        header: () => <div className="text-right">Decimals</div>,
         cell: ({ row }) => (
           <span className="block text-right tabular-nums">
-            {row.original.decimalDigits}
+            {orDash(row.original.decimalDigits)}
           </span>
         ),
       },
-      { accessorKey: 'anchorFiat', header: 'Pegged Currency' },
-      { accessorKey: 'chainType', header: 'Chain' },
       {
-        // GW-16 合一：tokenCode 同时是货币系统标识（源列头「tokenCode（货币系统 code）」）。
-        id: 'tokenCode',
-        header: 'Token Code (Currency System)',
-        cell: ({ row }) => (
-          <span className="font-mono">{row.original.tokenCode}</span>
-        ),
+        id: 'peggedCurrency',
+        header: 'Pegged Currency',
+        cell: ({ row }) => orDash(row.original.anchorFiat),
       },
       {
-        id: 'tokenNo',
-        header: 'Token No (Network-wide Unique)',
-        cell: ({ row }) => (
-          <span className="font-mono">{row.original.tokenNo || '-'}</span>
-        ),
+        id: 'chain',
+        header: 'BlockChain',
+        cell: ({ row }) => orDash(row.original.chainType),
+      },
+      {
+        // GW-16 合一：tokenCode 同时是货币系统标识。
+        id: 'tokenCode',
+        header: 'Token Code (Currency System)',
+        cell: ({ row }) => <CopyableId value={row.original.tokenCode} />,
       },
       {
         id: 'minLiquidity',
-        header: 'Min. Liquidity',
+        header: () => <div className="text-right">Min. Liquidity</div>,
         cell: ({ row }) => (
           <span className="block text-right tabular-nums">
-            {formatMinLiquidity(row.original.minLiquidity)}
+            {formatTokenAmount(row.original.minLiquidity)}
           </span>
+        ),
+      },
+      {
+        id: 'syncedAt',
+        header: 'Synced on',
+        cell: ({ row }) => (
+          <span className="tabular-nums">{formatUtc8(row.original.pushTime)}</span>
         ),
       },
       {
@@ -438,9 +644,10 @@ export function TokenListPage() {
         header: 'Status',
         cell: ({ row }) => {
           const badge = (
-            <Badge variant={tokenStatusVariant(row.original.status)}>
-              {tokenStatusText(row.original.status)}
-            </Badge>
+            <ProtoStatusBadge
+              label={protoStatusText(PROTO_TOKEN_STATUS, row.original.status)}
+              tone={TOKEN_STATUS_TONES[row.original.status] ?? 'muted'}
+            />
           );
           // 源 el-tooltip :disabled="!row.rejectReason"：仅驳回原因存在时悬浮展示。
           return row.original.rejectReason ? (
@@ -460,14 +667,7 @@ export function TokenListPage() {
         },
       },
       {
-        id: 'pushTime',
-        header: 'Synced on',
-        cell: ({ row }) => (
-          <span className="tabular-nums">{formatTime(row.original.pushTime)}</span>
-        ),
-      },
-      {
-        // eafcab0：源行点击 openDetail → 操作列 View 按钮（下游列表约定）。
+        // eafcab0：源行点击 openDetail → 操作列按钮（术语对齐原型 'Details'）。
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => (
@@ -477,25 +677,151 @@ export function TokenListPage() {
             className="h-auto p-0"
             onClick={() =>
               router.push(
-                `/token/manage/detail?code=${encodeURIComponent(row.original.tokenCode)}`,
+                `${TOKEN_DETAIL_PATH}?code=${encodeURIComponent(
+                  row.original.tokenCode,
+                )}`,
               )
             }
           >
-            View
+            Details
           </Button>
         ),
       },
-    ],
-    [],
-  );
+    ];
+    return cols;
+  }, [router]);
 
-  const tableData = React.useMemo(
-    () => rows.map((r) => ({ ...r, id: String(r.tokenId) })),
-    [rows],
+  // 列偏好：required 列恒显，其余按用户选择过滤。
+  const visibleColumns = React.useMemo(
+    () => filterVisibleColumns(columns, TOKEN_COLUMNS, columnPreferences.isColumnVisible),
+    [columns, columnPreferences],
   );
 
   return (
     <div className="space-y-4">
+      {/* 页头（原型 PageHeader：标题 + 一句话口径）。 */}
+      <div>
+        <h1 className="text-xl font-semibold">Token Management</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Tokens this bank instance has registered, with the review status
+          returned by Kissen.
+        </p>
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleFilterSubmit();
+        }}
+        className="rounded-lg border border-border/60 bg-card p-4"
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="min-w-0">
+            <Label className="mb-1.5 block">Token Code</Label>
+            <Input
+              value={filters.code}
+              onChange={(e) =>
+                setFilters((f) => ({ ...f, code: e.target.value }))
+              }
+              placeholder="Fuzzy match"
+            />
+          </div>
+          <div className="min-w-0">
+            <Label className="mb-1.5 block">Pegged Currency</Label>
+            <Select
+              value={filters.peggedCurrency || 'all'}
+              onValueChange={(v) =>
+                setFilters((f) => ({
+                  ...f,
+                  peggedCurrency: v === 'all' ? '' : v,
+                }))
+              }
+              disabled={filterOptionsQuery.isLoading}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {peggedOptions.map((v) => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="min-w-0">
+            <Label className="mb-1.5 block">BlockChain</Label>
+            <Select
+              value={filters.chain || 'all'}
+              onValueChange={(v) =>
+                setFilters((f) => ({ ...f, chain: v === 'all' ? '' : v }))
+              }
+              disabled={filterOptionsQuery.isLoading}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {chainOptions.map((v) => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="min-w-0">
+            <Label className="mb-1.5 block">Status</Label>
+            <Select
+              value={filters.status || 'all'}
+              onValueChange={(v) =>
+                setFilters((f) => ({ ...f, status: v === 'all' ? '' : v }))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {statusOptions.map((code) => (
+                  <SelectItem key={code} value={String(code)}>
+                    {protoStatusText(PROTO_TOKEN_STATUS, code)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end gap-2">
+            <Button type="submit" size="sm">Search</Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!hasFilter}
+              onClick={handleFilterReset}
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+
+        {filterOptionsQuery.isError && (
+          <div className="mt-3">
+            <ErrorBlock
+              message={
+                filterOptionsQuery.error instanceof Error
+                  ? filterOptionsQuery.error.message
+                  : 'Failed to load filter options'
+              }
+              onRetry={() => filterOptionsQuery.refetch()}
+            />
+          </div>
+        )}
+      </form>
+
       <section className="rounded-lg border border-border/60 bg-card">
         {/* §6.2 Table Panel 头条：实体名 + 结果数 + 刷新时间 + 页面级操作右置。 */}
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -503,32 +829,57 @@ export function TokenListPage() {
             <div className="text-base font-semibold leading-6 text-foreground">
               Tokens
             </div>
-            {data && (
+            {data?.pagination && (
               <span className="text-sm text-muted-foreground tabular-nums">
-                {rows.length} results
+                {data.pagination.total} results
               </span>
             )}
             {dataUpdatedAt ? (
               <span className="text-xs text-muted-foreground tabular-nums">
-                Updated {formatTime(dataUpdatedAt)}
+                Updated {formatUtc8(dataUpdatedAt)}
               </span>
             ) : null}
           </div>
-          {/* 源 v-perm="'bank:token:submit'"：未命中 menuKeys 不渲染。 */}
-          {hasPerm(TOKEN_SUBMIT_PERM) && (
-            <Button onClick={() => setDialogOpen(true)}>Register Token</Button>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            <ColumnPicker
+              columns={TOKEN_COLUMNS}
+              isColumnVisible={columnPreferences.isColumnVisible}
+              onColumnVisibilityChange={columnPreferences.setColumnVisible}
+              onReset={columnPreferences.resetColumns}
+            />
+            {/* 源 v-perm="'bank:token:submit'"：未命中 menuKeys 不渲染；
+                注册入口由弹窗改为页面（/token/create）。 */}
+            {hasPerm(TOKEN_SUBMIT_PERM) && (
+              <Button onClick={() => router.push(TOKEN_CREATE_PATH)}>
+                <Plus className="size-4" aria-hidden="true" />
+                Register Token
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="p-4">
           <DataTable
-            columns={columns}
+            columns={visibleColumns}
             data={tableData}
             isLoading={isLoading}
-            emptyMessage="No tokens registered yet"
+            emptyMessage="No tokens found. Try adjusting the filters, or register the first token."
+            pagination={
+              data?.pagination
+                ? {
+                    page: data.pagination.page,
+                    pageSize: data.pagination.pageSize,
+                    total: data.pagination.total,
+                    onPageChange: setPageNum,
+                    onPageSizeChange: (n) => {
+                      setPageSize(n);
+                      setPageNum(1);
+                    },
+                  }
+                : undefined
+            }
           />
-          {/* 源 .footnote（12px 灰；d764217 全文重写：注册前置/幂等/审核结果
-              同步三段口径收敛）。 */}
+          {/* 源 .footnote（d764217 三段口径：注册前置/幂等/审核结果同步）。 */}
           <p className="mt-4 text-xs text-muted-foreground">
             Tokens are registered on the platform after your gateway instance
             is activated. Registering a token that already exists simply
@@ -537,22 +888,85 @@ export function TokenListPage() {
           </p>
         </div>
       </section>
-
-      {dialogOpen && (
-        <TokenSubmitDialog onClose={() => setDialogOpen(false)} />
-      )}
     </div>
   );
 }
 
-/* ================================================================== */
-/* 详情页（eafcab0 源 `views/token/detail.vue`）                      */
-/* ================================================================== */
+/* ─────────────────────────── 详情页 ─────────────────────────── */
+
+const TOKEN_TX_PAGE_SIZE = 10;
+const EMPTY_TX_ROWS: TxRecord[] = [];
+const EMPTY_TOKEN_OPERATION_RECORDS: TokenOperationRecord[] = [];
+
+const TOKEN_OPERATION_ACTION_LABELS: Record<number, string> = {
+  1: 'Submitted for registration',
+  2: 'Resubmitted after rejection',
+  3: 'Approved',
+  4: 'Rejected',
+  5: 'Synchronization pushed',
+};
+
+function tokenOperationActionText(action: number): string {
+  return TOKEN_OPERATION_ACTION_LABELS[action] ?? `Unknown operation (${action})`;
+}
+
+function tokenTxAmountText(
+  displayText: string | undefined,
+  amount: number | undefined,
+  symbol: string | undefined,
+): string {
+  const value =
+    displayText ?? (amount != null ? formatTokenAmount(amount) : null);
+  if (value == null) return '-';
+  return symbol ? `${value} ${symbol}` : value;
+}
+
+const OPERATION_RECORD_COLUMNS: ColumnDef<
+  TokenOperationRecord & { id: string }
+>[] = [
+  {
+    id: 'operateTime',
+    header: 'Timestamp',
+    cell: ({ row }) => (
+      <span className="tabular-nums">
+        {formatUtc8(row.original.operateTime)}
+      </span>
+    ),
+  },
+  {
+    id: 'operation',
+    header: 'Operation',
+    cell: ({ row }) => {
+      const record = row.original;
+      const statusChange = `${record.statusFrom == null ? '-' : protoStatusText(PROTO_TOKEN_STATUS, record.statusFrom)} → ${protoStatusText(PROTO_TOKEN_STATUS, record.statusTo)}`;
+
+      return (
+        <div className="space-y-1">
+          <div className="font-medium">
+            {tokenOperationActionText(record.action)}
+          </div>
+          <div className="text-xs text-muted-foreground">{statusChange}</div>
+          {record.operator ? (
+            <div className="text-xs text-muted-foreground">
+              By {record.operator}
+            </div>
+          ) : null}
+          {record.remark ? (
+            <div className="break-words text-xs text-muted-foreground">
+              {record.remark}
+            </div>
+          ) : null}
+        </div>
+      );
+    },
+  },
+];
 
 /**
  * token 详情页（registry token.detail；/token/manage/detail?code={tokenCode}）。
- * 源布局：eyebrow TOKEN + tokenName + 状态 tag，Basic Information /
- * Status & Sync 两卡；未命中（null）→ 空态（详情仅本行本实例可见）。
+ * 原型 2026-09-22 版式：页头（Back + tokenName + 状态徽章 + meta 行 Token Code |
+ * Synced on）→ 页面级 Tabs（basic/transactions/operations，?tab= 写 URL）→ 各
+ * Tab 面板卡；未命中（null）→ 空态（详情仅本行本实例可见）。
  */
 export function TokenDetailPage() {
   const router = useRouter();
@@ -567,6 +981,222 @@ export function TokenDetailPage() {
     refetch,
   } = useTokenDetailQuery(tokenCode || undefined);
 
+  const [transactionPageNum, setTransactionPageNum] = React.useState(1);
+  const [transactionPageSize, setTransactionPageSize] =
+    React.useState(TOKEN_TX_PAGE_SIZE);
+  React.useEffect(() => setTransactionPageNum(1), [tokenCode]);
+
+  const transactionsQuery = useTxPage(
+    {
+      pageNum: transactionPageNum,
+      pageSize: transactionPageSize,
+      filter: { tokenCode },
+    },
+    token != null,
+  );
+  // 操作记录分页状态携带 tokenCode：切换 code 时请求参数整体变化（pageNum 归 1），
+  // 无需 effect 重置；key 含 code + 分页，不暂显旧 token 的行。
+  const [operationLogPage, setOperationLogPage] = React.useState<{
+    tokenCode: string;
+    pageNum: number;
+    pageSize: number;
+  }>({ tokenCode, pageNum: 1, pageSize: 10 });
+  const operationLogReq =
+    operationLogPage.tokenCode === tokenCode
+      ? operationLogPage
+      : { tokenCode, pageNum: 1, pageSize: 10 };
+  const operationLogsQuery = useTokenOperationLogsQuery(
+    tokenCode || undefined,
+    operationLogReq,
+    token != null,
+  );
+  const { data: fxAllPairs } = useFxAllPairsQuery(token != null);
+  const pairMap = React.useMemo(
+    () =>
+      new Map(
+        (fxAllPairs ?? []).map((pair) => [
+          pair.tokenPair.pairId,
+          pair,
+        ]),
+      ),
+    [fxAllPairs],
+  );
+  const transactionRows = transactionsQuery.data?.data ?? EMPTY_TX_ROWS;
+  const transactionTableData = React.useMemo(
+    () => transactionRows.map((row) => ({ ...row, id: String(row.recordId) })),
+    [transactionRows],
+  );
+  const transactionTotal = transactionsQuery.data?.pagination.total ?? 0;
+  const operationRows =
+    operationLogsQuery.data?.data ?? EMPTY_TOKEN_OPERATION_RECORDS;
+  const operationTableData = React.useMemo(
+    () =>
+      operationRows.map((record) => ({
+        ...record,
+        id: String(record.recordId),
+      })),
+    [operationRows],
+  );
+  const transactionColumns = React.useMemo<
+    ColumnDef<TxRecord & { id: string }>[]
+  >(
+    () => [
+      {
+        id: 'transactionNo',
+        header: 'Transaction No.',
+        cell: ({ row }) => (
+          <CopyableId
+            value={String(
+              row.original.txNo ||
+                row.original.txUuid ||
+                row.original.transactionId,
+            )}
+          />
+        ),
+      },
+      {
+        id: 'tokens',
+        header: 'Tokens',
+        cell: ({ row }) => {
+          const pair =
+            row.original.pairId != null
+              ? pairMap.get(row.original.pairId)?.tokenPair
+              : undefined;
+          if (!pair) {
+            return (
+              <span className="font-mono">
+                {row.original.pairCode ||
+                  (row.original.pairId != null
+                    ? `#${row.original.pairId}`
+                    : '-')}
+              </span>
+            );
+          }
+          return (
+            <div className="flex items-center gap-2">
+              <div className="flex flex-col items-center gap-0.5">
+                <Badge variant="outline">
+                  {pair.sourceTokenSymbol || pair.sourceTokenCode || '-'}
+                </Badge>
+                <span className="text-[11px] text-muted-foreground">
+                  {pair.sourceBankCode || '-'}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">→</span>
+              <div className="flex flex-col items-center gap-0.5">
+                <Badge variant="outline">
+                  {pair.targetTokenSymbol || pair.targetTokenCode || '-'}
+                </Badge>
+                <span className="text-[11px] text-muted-foreground">
+                  {pair.targetBankCode || '-'}
+                </span>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        id: 'from',
+        header: 'From',
+        cell: ({ row }) => {
+          const pair =
+            row.original.pairId != null
+              ? pairMap.get(row.original.pairId)?.tokenPair
+              : undefined;
+          return (
+            <div className="min-w-0">
+              <div className="font-medium tabular-nums">
+                {tokenTxAmountText(
+                  row.original.userDeductionText,
+                  row.original.userDeduction,
+                  pair?.sourceTokenSymbol || pair?.sourceTokenCode,
+                )}
+              </div>
+              {row.original.senderAccount ? (
+                <CopyableId value={row.original.senderAccount} />
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  {row.original.senderBankName || '-'}
+                </div>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        id: 'to',
+        header: 'To',
+        cell: ({ row }) => {
+          const pair =
+            row.original.pairId != null
+              ? pairMap.get(row.original.pairId)?.tokenPair
+              : undefined;
+          return (
+            <div className="min-w-0">
+              <div className="font-medium tabular-nums">
+                {tokenTxAmountText(
+                  row.original.receiverAmountText,
+                  row.original.receiverAmount,
+                  pair?.targetTokenSymbol || pair?.targetTokenCode,
+                )}
+              </div>
+              {row.original.receiverAccount ? (
+                <CopyableId value={row.original.receiverAccount} />
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  {row.original.receivingBankName || '-'}
+                </div>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        id: 'createdAt',
+        header: 'Created on',
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {formatUtc8(row.original.createTime)}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <Badge
+            variant={TX_STATUS[row.original.status ?? -1]?.variant ?? 'outline'}
+          >
+            {protoStatusText(PROTO_TX_STATUS, row.original.status)}
+          </Badge>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => (
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0"
+            onClick={() =>
+              router.push(`/tx/detail?id=${row.original.transactionId}`)
+            }
+          >
+            Details
+          </Button>
+        ),
+      },
+    ],
+    [pairMap, router],
+  );
+
+  const transactionCount =
+    transactionsQuery.data?.pagination.total ??
+    (transactionsQuery.isError ? '—' : '…');
+  const operationCount =
+    operationLogsQuery.data?.pagination.total ??
+    (operationLogsQuery.isError ? '—' : '…');
   const toast = useToast();
   React.useEffect(() => {
     if (isError) {
@@ -578,118 +1208,271 @@ export function TokenDetailPage() {
     }
   }, [isError, error, refetch, toast]);
 
+  // Tab 状态写 URL（原型同款：basic 缺省不占 query，刷新/分享/后退保持）。
+  const tabParam = searchParams.get('tab');
+  const activeTab =
+    tabParam === 'transactions' || tabParam === 'operations'
+      ? tabParam
+      : 'basic';
+  const handleTabChange = (next: string) => {
+    const params = new URLSearchParams();
+    params.set('code', tokenCode);
+    if (next !== 'basic') params.set('tab', next);
+    router.replace(
+      `${TOKEN_DETAIL_PATH}?${params.toString()}`,
+      { scroll: false },
+    );
+  };
+
   if (!tokenCode) {
     return (
       <MissingIdBlock
         message="Missing a token code. Unable to view details."
-        backTo="/token/manage"
+        backTo={TOKEN_LIST_PATH}
       />
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* §6.3 Hero：eyebrow TOKEN（源页面 eyebrow）+ tokenName + 状态 Badge + Back。 */}
-      <section className="rounded-lg border border-border/60 bg-card panel-pad">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-            <div>
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Token
-              </div>
-              <h1 className="text-xl font-semibold leading-7 text-foreground">
-                {token ? token.tokenName : 'Token Detail'}
-              </h1>
-            </div>
+    <div className="space-y-4">
+      {/* 页头：Back + tokenName + 状态徽章 + meta 行（Token Code | Synced on）。 */}
+      <div className="flex flex-wrap items-start gap-3">
+        <Button
+          variant="outline"
+          size="iconSm"
+          aria-label="Back to token list"
+          onClick={() => router.push(TOKEN_LIST_PATH)}
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+        </Button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="min-w-0 break-all text-xl font-semibold">
+              {token ? token.tokenName || 'Token Details' : 'Token Details'}
+            </h1>
             {token ? (
-              <Badge variant={tokenStatusVariant(token.status)}>
-                {tokenStatusText(token.status)}
-              </Badge>
+              <ProtoStatusBadge
+                label={protoStatusText(PROTO_TOKEN_STATUS, token.status)}
+                tone={TOKEN_STATUS_TONES[token.status] ?? 'muted'}
+              />
             ) : null}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push('/token/manage')}
-          >
-            Back
-          </Button>
+          {token ? (
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                Token Code: <CopyableId value={token.tokenCode} />
+              </span>
+              <span aria-hidden="true">|</span>
+              <span className="tabular-nums">
+                Synced on {formatUtc8(token.pushTime)}
+              </span>
+            </p>
+          ) : null}
         </div>
-      </section>
-      {token ? (
-        <>
-          <section className="rounded-lg border border-border/60 bg-card panel-pad">
-            <h2 className="mb-2.5 text-sm font-semibold text-foreground">
-              Basic Information
-            </h2>
-            <DescGrid cols={2}>
-              {/* d764217：列头整理，与列表页统一。 */}
-              <DescField label="Token Code (Currency System)">
-                <span className="font-mono">{token.tokenCode}</span>
-              </DescField>
-              <DescField label="Token Name">{token.tokenName}</DescField>
-              <DescField label="Symbol">
-                <span className="font-mono">{token.symbol}</span>
-              </DescField>
-              <DescField label="Decimals">
-                <span className="tabular-nums">{token.decimalDigits}</span>
-              </DescField>
-              <DescField label="Chain">{orDash(token.chainType)}</DescField>
-              <DescField label="Pegged Currency">
-                {orDash(token.anchorFiat)}
-              </DescField>
-              {/* d764217：最低流动性两位小数，与列表页 formatMinLiquidity 一致。 */}
-              <DescField label="Min. Liquidity">
-                <span className="t-data tabular-nums">
-                  {formatMinLiquidity(token.minLiquidity)}
-                </span>
-              </DescField>
-              <DescField label="Token Type">
-                {tokenTypeText(token.tokenType)}
-              </DescField>
-            </DescGrid>
-          </section>
+      </div>
 
-          <section className="rounded-lg border border-border/60 bg-card panel-pad">
-            <h2 className="mb-2.5 text-sm font-semibold text-foreground">
-              Status &amp; Sync
-            </h2>
-            <DescGrid cols={2}>
-              <DescField label="Status">
-                <Badge variant={tokenStatusVariant(token.status)}>
-                  {tokenStatusText(token.status)}
-                </Badge>
-              </DescField>
-              <DescField label="Reject Reason">
-                <span className="break-words">{orDash(token.rejectReason)}</span>
-              </DescField>
-              <DescField label="Token No (Network-wide Unique)">
-                {/* 源 tokenNo 空 → 「Pending」占位。 */}
-                {token.tokenNo ? (
-                  <span className="font-mono">{token.tokenNo}</span>
+      {token ? (
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          {/* Tabs 计数：交易取分页 total，操作记录取返回列表长度。 */}
+          <TabsList>
+            <TabsTrigger value="basic">Basic Information</TabsTrigger>
+            <TabsTrigger value="transactions">
+              Transactions
+              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+                {transactionCount}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="operations">
+              Operation Records
+              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+                {operationCount}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab 1：basic = Basic Information 卡 + Status & Sync 卡。 */}
+          <TabsContent value="basic" className="mt-4">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <section className="rounded-lg border border-border/60 bg-card p-4">
+                <h2 className="mb-2.5 text-sm font-semibold text-foreground">
+                  Basic Information
+                </h2>
+                <DescGrid cols={2}>
+                  <DescField label="Token Code (Currency System)">
+                    <CopyableId value={token.tokenCode} />
+                  </DescField>
+                  <DescField label="Token Name">
+                    {token.tokenName || '-'}
+                  </DescField>
+                  <DescField label="Symbol">
+                    <span className="font-mono">{orDash(token.symbol)}</span>
+                  </DescField>
+                  <DescField label="Decimals">
+                    <span className="tabular-nums">
+                      {orDash(token.decimalDigits)}
+                    </span>
+                  </DescField>
+                  <DescField label="BlockChain">
+                    {orDash(token.chainType)}
+                  </DescField>
+                  <DescField label="Pegged Currency">
+                    {orDash(token.anchorFiat)}
+                  </DescField>
+                  {/* 原型 formatAmount：千分位、小数位原样保留（proto-format
+                      formatTokenAmount 同口径，替换旧 toFixed(2)）。 */}
+                  <DescField label="Min. Liquidity">
+                    <span className="tabular-nums">
+                      {formatTokenAmount(token.minLiquidity)}
+                    </span>
+                  </DescField>
+                </DescGrid>
+              </section>
+
+              <section className="rounded-lg border border-border/60 bg-card p-4">
+                <h2 className="mb-2.5 text-sm font-semibold text-foreground">
+                  Status &amp; Sync
+                </h2>
+                <DescGrid cols={2}>
+                  {/* 状态徽章已在页头常驻，正文不重复（原型 §3.15）。 */}
+                  <DescField label="Reject Reason">
+                    <span className="break-words">
+                      {orDash(token.rejectReason)}
+                    </span>
+                  </DescField>
+                  <DescField label="Token No (Network-wide Unique)">
+                    {token.tokenNo ? (
+                      <CopyableId value={token.tokenNo} />
+                    ) : (
+                      /* 源 tokenNo 空 → 「Pending」占位（平台登记后下发）。 */
+                      <Badge variant="secondary">Pending</Badge>
+                    )}
+                  </DescField>
+                  <DescField label="Scope">
+                    {tokenScopeText(token.tokenScope)}
+                  </DescField>
+                  <DescField label="Version">
+                    <span className="tabular-nums">
+                      {orDash(token.version)}
+                    </span>
+                  </DescField>
+                  <DescField label="Synced on">
+                    <span className="tabular-nums">
+                      {formatUtc8(token.pushTime)}
+                    </span>
+                  </DescField>
+                </DescGrid>
+              </section>
+            </div>
+          </TabsContent>
+
+          {/* Tab 2：tokenCode 命中的源端或目标端交易。 */}
+          <TabsContent value="transactions" className="mt-4">
+            <section className="rounded-lg border border-border/60 bg-card">
+              <div className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-3">
+                <h2 className="text-sm font-semibold text-foreground">
+                  Transactions
+                </h2>
+                {transactionsQuery.data ? (
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {transactionTotal} transactions
+                  </span>
+                ) : null}
+              </div>
+              <div className="p-4">
+                {transactionsQuery.isError && !transactionsQuery.data ? (
+                  <ErrorBlock
+                    message={
+                      transactionsQuery.error instanceof Error
+                        ? transactionsQuery.error.message
+                        : 'Please try again later'
+                    }
+                    onRetry={() => void transactionsQuery.refetch()}
+                  />
                 ) : (
-                  <Badge variant="secondary">Pending</Badge>
+                    <DataTable
+                      columns={transactionColumns}
+                      data={transactionTableData}
+                      isLoading={transactionsQuery.isLoading}
+                      emptyMessage="No transactions found. Transactions involving this token will appear here."
+                      pagination={
+                        transactionsQuery.data?.pagination
+                          ? {
+                              page: transactionPageNum,
+                              pageSize: transactionPageSize,
+                              total: transactionTotal,
+                              onPageChange: setTransactionPageNum,
+                              onPageSizeChange: (nextPageSize) => {
+                                setTransactionPageSize(nextPageSize);
+                                setTransactionPageNum(1);
+                              },
+                            }
+                          : undefined
+                      }
+                    />
                 )}
-              </DescField>
-              <DescField label="Scope">
-                {tokenScopeText(token.tokenScope)}
-              </DescField>
-              <DescField label="Version">
-                <span className="tabular-nums">{orDash(token.version)}</span>
-              </DescField>
-              <DescField label="Synced on">
-                <span className="font-mono">{formatTime(token.pushTime)}</span>
-              </DescField>
-            </DescGrid>
-          </section>
-        </>
+              </div>
+            </section>
+          </TabsContent>
+
+          {/* Tab 3：操作记录按后端返回的时间倒序展示。 */}
+          <TabsContent value="operations" className="mt-4">
+            <section className="rounded-lg border border-border/60 bg-card">
+              <div className="border-b border-border/50 px-4 py-3">
+                <h2 className="text-sm font-semibold text-foreground">
+                  Operation Records
+                </h2>
+              </div>
+              <div className="p-4">
+                {operationLogsQuery.isError && !operationLogsQuery.data ? (
+                  <ErrorBlock
+                    message={
+                      operationLogsQuery.error instanceof Error
+                        ? operationLogsQuery.error.message
+                        : 'Please try again later'
+                    }
+                    onRetry={() => void operationLogsQuery.refetch()}
+                  />
+                ) : (
+                  <DataTable
+                    columns={OPERATION_RECORD_COLUMNS}
+                    data={operationTableData}
+                    isLoading={operationLogsQuery.isLoading}
+                    emptyMessage="No operation records yet. Operations on this record will appear here."
+                    pagination={
+                      operationLogsQuery.data?.pagination
+                        ? {
+                            page: operationLogReq.pageNum,
+                            pageSize: operationLogReq.pageSize,
+                            total: operationLogsQuery.data.pagination.total,
+                            onPageChange: (page) =>
+                              setOperationLogPage({
+                                tokenCode,
+                                pageNum: page,
+                                pageSize: operationLogReq.pageSize,
+                              }),
+                            onPageSizeChange: (size) =>
+                              setOperationLogPage({
+                                tokenCode,
+                                pageNum: 1,
+                                pageSize: size,
+                              }),
+                          }
+                        : undefined
+                    }
+                  />
+                )}
+              </div>
+            </section>
+          </TabsContent>
+
+        </Tabs>
       ) : isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-24 w-full rounded-lg" />
           <Skeleton className="h-40 w-full rounded-lg" />
         </div>
       ) : isError ? null : (
-        <section className="rounded-lg border border-border/60 bg-card panel-pad">
+        <section className="rounded-lg border border-border/60 bg-card p-4">
           <EmptyHint text="Token not found (possibly not synced, or not visible to this bank)." />
         </section>
       )}

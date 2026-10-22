@@ -1,4 +1,4 @@
-import type { TokenListFilter } from './token.model';
+import type { TokenListFilter, TokenListPageReq } from './token.model';
 
 /** Token 域 query key factory（携带 projectId 隔离缓存）。 */
 export const tokenKeys = {
@@ -7,4 +7,6 @@ export const tokenKeys = {
     [...tokenKeys.all(projectId), 'list'] as const,
   list: (projectId: string, filter: TokenListFilter) =>
     [...tokenKeys.lists(projectId), filter] as const,
+  page: (projectId: string, req: TokenListPageReq) =>
+    [...tokenKeys.lists(projectId), 'page', req] as const,
 } as const;

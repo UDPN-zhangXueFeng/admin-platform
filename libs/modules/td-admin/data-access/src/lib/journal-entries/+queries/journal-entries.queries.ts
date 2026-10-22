@@ -98,7 +98,7 @@ export function useInterestTxTypeQuery(
   });
 }
 
-/** 账本交易列表查询（bill/otx/list，view 页）。 */
+/** 账本交易列表查询（bill/tx/listPage，view 页）。 */
 export function useBillTxListQuery(params: BillTxListParams) {
   return useQuery<BillTxListResponse>({
     queryKey: journalEntriesKeys.txList(params),

@@ -471,7 +471,7 @@ export async function getSpAccessList(params: SpAccessListParams): Promise<SpAcc
         spType: params.filters?.serviceProviderType,
         contactName: params.filters?.contactName || undefined,
         email: params.filters?.email || undefined,
-        status: params.filters?.status,
+        state: params.filters?.status,
         tdName: params.filters?.stablecoinName || undefined,
       },
     },

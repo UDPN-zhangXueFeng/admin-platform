@@ -4,7 +4,8 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
-import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { Button, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { FIXED_TOKEN_TYPES, useCoaBasicInfoQuery } from '@myorg/modules/td-admin/data-access';
 
 import { getFinancialBookMetaByBookId } from './financial-book-meta';
 import { useCoaTree } from './use-coa-tree';
@@ -39,15 +40,22 @@ function DetailField({
   );
 }
 
+/** ms 时间戳 → 本地时间字符串（与 sp-access 详情页约定一致）。 */
+function formatTimestamp(value?: number): string {
+  if (!value) return '--';
+  return new Date(value).toLocaleString();
+}
+
 /**
  * ChartOfAccountsDetailPage — 详情视图（tabs 分发）。
  *
- * Basic Information（本地映射）+ Chart of Accounts（useCoaTree：树编辑/草稿/启停）+
+ * Basic Information（useCoaBasicInfoQuery：详情接口）+ Chart of Accounts（useCoaTree：树编辑/草稿/启停）+
  * EOD Statements（useEodBalances：余额列表/明细 drawer/post-to-suspense/review）。
  * 读取 bookNo/financeBookId/tab query params，按 tab 激活对应数据查询。
  */
 export function ChartOfAccountsDetailPage() {
   const t = useTranslations('modules.chart-of-accounts');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -62,20 +70,28 @@ export function ChartOfAccountsDetailPage() {
 
   const meta = getFinancialBookMetaByBookId(bookNo);
   const detailId = meta.id;
-  const tokenTypeLabel =
-    meta.tokenType === undefined || meta.tokenType === null
-      ? '--'
-      : t(`tokenType.${meta.tokenType}`);
+  const basicInfoQuery = useCoaBasicInfoQuery(financeBookId);
+  const basicInfo = basicInfoQuery.data;
+  /** 展示名：live basicInfo.bookName → query param bookNo → '--'（不使用本地 sample meta）。 */
+  const displayBookName = basicInfo?.bookName || bookNo || '--';
+  /** EOD 货币：live basicInfo.currencyCode → 空串（不伪造 meta.currency）。 */
+  const eodCurrency = basicInfo?.currencyCode || '';
+  const tokenTypeLabels = React.useMemo(
+    () =>
+      Object.fromEntries(
+        FIXED_TOKEN_TYPES.map((tokenType) => [tokenType, t(`tokenType.${tokenType}`)])
+      ) as Record<number, string>,
+    [t]
+  );
 
   const coa = useCoaTree({
     financeBookId,
-    detailId,
     enabled: activeTab === 'chart-of-accounts',
   });
   const eod = useEodBalances({
     financeBookId,
     detailId,
-    currency: meta.currency,
+    currency: eodCurrency,
     enabled: activeTab === 'eod-statements',
   });
 
@@ -117,30 +133,51 @@ export function ChartOfAccountsDetailPage() {
               <h2 className="text-base font-semibold">{t('detail.basicInformationTitle')}</h2>
               <Button variant="outline" onClick={onBack}>{t('action.back')}</Button>
             </div>
-            <dl className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <DetailField label={t('field.bookName')}>{meta.financialBookName || '--'}</DetailField>
-              <DetailField label={t('field.bookId')}>{meta.bookId || '--'}</DetailField>
-              <DetailField label={t('field.reserveAssetName')}>{meta.reserveAssetName || '--'}</DetailField>
-              <DetailField label={t('field.currency')}>{meta.currency || '--'}</DetailField>
-              <DetailField label={t('field.tokenType')}>{tokenTypeLabel}</DetailField>
-              <DetailField label={t('field.tokens')}>{meta.tokens.join(', ') || '--'}</DetailField>
-              <DetailField label={t('field.eodCutoffTime')}>{meta.eodCutoffTime || '--'}</DetailField>
-              <DetailField label={t('field.lastEodPostingRun')}>{meta.lastEodPostingRun || '--'}</DetailField>
-              <DetailField label={t('field.createdBy')}>{meta.createdBy || '--'}</DetailField>
-              <DetailField label={t('field.createdOn')}>{meta.createdOn || '--'}</DetailField>
-              <DetailField label={t('detail.financeBookId')}>{financeBookIdStr || '--'}</DetailField>
-            </dl>
+            {basicInfoQuery.isError ? (
+              <p className="py-4 text-sm text-destructive" role="alert">
+                {t('coa.toggleFailed')}
+              </p>
+            ) : basicInfo ? (
+              <dl className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <DetailField label={t('field.bookName')}>{basicInfo.bookName || '--'}</DetailField>
+                <DetailField label={t('field.bookNo')}>{basicInfo.bookNo || '--'}</DetailField>
+                <DetailField label={t('detail.financeBookId')}>{financeBookIdStr || '--'}</DetailField>
+                <DetailField label={t('field.reserveAssetName')}>{basicInfo.reserveAssetName || '--'}</DetailField>
+                <DetailField label={t('field.currency')}>{basicInfo.currencyCode || '--'}</DetailField>
+                <DetailField label={t('field.tokenType')}>
+                  {basicInfo.tokenType != null
+                    ? tokenTypeLabels[basicInfo.tokenType] ?? String(basicInfo.tokenType)
+                    : '--'}
+                </DetailField>
+                <DetailField label={t('field.tokens')}>
+                  {(basicInfo.tokens ?? [])
+                    .map((token) => token.tokenName)
+                    .filter(Boolean)
+                    .join(', ') || '--'}
+                </DetailField>
+                <DetailField label={t('field.eodCutoffTime')}>{basicInfo.eodCutoffTime || '--'}</DetailField>
+                <DetailField label={t('field.lastEodPostingRun')}>{basicInfo.lastEodPostingRun || '--'}</DetailField>
+                <DetailField label={t('field.createdBy')}>{basicInfo.createdBy || '--'}</DetailField>
+                <DetailField label={t('field.createdOn')}>{formatTimestamp(basicInfo.createdOn)}</DetailField>
+              </dl>
+            ) : basicInfoQuery.isLoading ? (
+              <Skeleton className="h-48" />
+            ) : (
+              <p className="py-4 text-sm text-muted-foreground">{tCommon('noData')}</p>
+            )}
           </div>
         </TabsContent>
 
         {/* Chart of Accounts */}
         <TabsContent value="chart-of-accounts">
           <CoaTab
-            description={t('coa.tabDescription', { bookName: meta.financialBookName })}
+            description={t('coa.tabDescription', { bookName: displayBookName })}
             alertMessage={t('coa.tabAlert')}
             rows={coa.coaRows}
             columns={coa.columns}
+            errorMessage={coa.coaTreeError ? tCommon('common_task_status_40') : undefined}
             loading={coa.coaTreeLoading}
+            emptyMessage={tCommon('noData')}
             onBack={onBack}
             backLabel={t('action.back')}
             onSave={coa.handleCoaDraftSubmit}
@@ -211,7 +248,7 @@ export function ChartOfAccountsDetailPage() {
         open={eod.drawerOpen}
         statement={eod.selectedStatement}
         detail={eod.selectedDetail}
-        basicInfo={{ financialBookName: meta.financialBookName }}
+        basicInfo={{ financialBookName: displayBookName }}
         onClose={eod.closeDetail}
         t={(key: string) => t(key)}
       />
@@ -228,7 +265,7 @@ export function ChartOfAccountsDetailPage() {
       <PostToSuspenseDialog
         open={eod.postToSuspenseOpen}
         config={null}
-        currency={meta.currency}
+        currency={eodCurrency}
         title={t('eod.postToSuspenseTitle')}
         t={(key: string) => t(key)}
         onSubmit={() => {

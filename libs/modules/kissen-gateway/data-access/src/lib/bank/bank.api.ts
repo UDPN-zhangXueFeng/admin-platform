@@ -2,10 +2,13 @@
  * bank 域 raw API 层（源 `api/bank.ts`，对齐 HEAD 端点清单）。
  * 旧 onboard 域（/onboard/status、/onboard/submit）已被上游删除，语义
  * 并入本域（GET /bank/detail、POST /bank/info-submit 等）。
+ * 2026-10-13 分页清单：/bank/query/list 改 POST 服务端分页（kissenPage）。
  */
 import type { AxiosRequestConfig } from 'axios';
 
-import { kissenRequest } from '../kissen-gateway-client';
+import type { PaginatedResponse } from '@myorg/shared/model';
+
+import { kissenPage, kissenRequest } from '../kissen-gateway-client';
 import type {
   BankDetail,
   BankInfo,
@@ -13,6 +16,7 @@ import type {
   BankInfoSubmitResp,
   BankQueryDetail,
   BankQueryItem,
+  BankQueryPageReq,
   OnboardStatus,
 } from './bank.model';
 
@@ -49,11 +53,16 @@ export function getBankOnboardStatus(
   return kissenRequest.get<OnboardStatus>('/bank/onboard/status', config);
 }
 
-/** 网络银行列表（GET /bank/query/list，GW-14 UDPN 对齐：gw_bank_info 权限可见集合）。 */
+/** 网络银行分页列表（POST /bank/query/list，GW-14 UDPN 对齐：gw_bank_info 权限可见集合；keyword 模糊）。 */
 export function bankQueryList(
+  req: BankQueryPageReq,
   config?: AxiosRequestConfig,
-): Promise<BankQueryItem[]> {
-  return kissenRequest.get<BankQueryItem[]>('/bank/query/list', config);
+): Promise<PaginatedResponse<BankQueryItem>> {
+  return kissenPage<BankQueryItem, NonNullable<BankQueryPageReq['filter']>>(
+    '/bank/query/list',
+    req,
+    config,
+  );
 }
 
 /** 网络银行详情（GET /bank/query/detail/{bankId}，eafcab0；tokens 结构化列表；无匹配返回 null）。 */

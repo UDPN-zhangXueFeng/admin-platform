@@ -210,7 +210,7 @@ function BatchApplyModal({
         toast.success(t('batchApplySuccess'));
         onOpenChange(false);
       },
-      onError: () => toast.error(t('batchApplySuccess')),
+      onError: () => toast.error(t('common_task_status_40')),
     });
   };
 
@@ -477,7 +477,7 @@ function SingleApplyModal({
         toast.success(t('applySuccess'));
         onOpenChange(false);
       },
-      onError: () => toast.error(t('applySuccess')),
+      onError: () => toast.error(t('common_task_status_40')),
     });
   };
 

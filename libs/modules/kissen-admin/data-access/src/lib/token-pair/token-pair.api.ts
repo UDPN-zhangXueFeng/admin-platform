@@ -1,25 +1,30 @@
 /**
- * Token 对域 raw API 层（源 `api/token-pair.ts` 逐字对照）。
- * 上游 list 端点直返 `TokenPairRow[]`（非 PageResult 分页包体），故不走
- * kissenPage，直接 kissenRequest.post 解包数组。启停即时生效；建对/改参走
- * KPT/KRC 审批（2023418，default-split 直改退役）。
+ * Token 对域 API（源 `api/token-pair.ts`）。
+ * 列表使用 Kissen `{page, data}` 请求体与 PageResult 响应；启停即时生效，
+ * 建对/改参走 KPT/KRC 审批（2023418，default-split 直改退役）。
  */
 import type { AxiosRequestConfig } from 'axios';
+import type { PaginatedResponse } from '@myorg/shared/model';
 
-import { kissenRequest } from '../kissen-client';
+import { kissenPage, kissenRequest } from '../kissen-client';
 import type {
   TokenPairChangeReq,
   TokenPairListFilter,
+  TokenPairListReq,
   TokenPairRow,
   TokenPairSaveReq,
 } from './token-pair.model';
 
-/** Token 对列表（POST /manage/token-pair/list，直返数组）。 */
+/** Token 对分页列表（POST /manage/token-pair/list）。 */
 export function getTokenPairList(
-  filter: TokenPairListFilter = {},
+  req: TokenPairListReq,
   config?: AxiosRequestConfig,
-): Promise<TokenPairRow[]> {
-  return kissenRequest.post<TokenPairRow[]>('/manage/token-pair/list', filter, config);
+): Promise<PaginatedResponse<TokenPairRow>> {
+  return kissenPage<TokenPairRow, TokenPairListFilter>(
+    '/manage/token-pair/list',
+    { pageNum: req.pageNum, pageSize: req.pageSize, filter: req.filter },
+    config,
+  );
 }
 
 /**

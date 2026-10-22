@@ -15,11 +15,14 @@ import type {
  * Workflow 模块 API client（sys-workflow）。
  *
  * 来源：td-manage `src/pages/sys/workflow/*` 内联 useSWR + `src/lib/api/workflow.ts`。
- * base `/api/rbac/v1`（sys 域统一前缀）。全部 7 个 endpoint 均为 POST
- * （business/list 旧页用 useSWR 默认 GET，迁移统一为 POST 以对齐 sys 域约定）。
+ * URL 走动态前缀 `${CONFIG_ID}v1/*`（同 approval-manage 的 CONFIG_ID 模式）。
+ * workflow/* 与 common/user/list 为 POST；common/business/list 保持旧页
+ * useSWR 默认 GET（单 key 调用、无请求体）。
  */
 
-const BASE = '/api/rbac/v1';
+// ── 动态前缀（CONFIG_ID，环境依赖；未配置时降级为相对 `/`，运行时由 baseURL 兜底） ──
+
+const CONFIG_ID = process.env.NEXT_PUBLIC_CONFIG_ID ?? '';
 
 /**
  * 单实体操作返回体（add/edit/modifyStatus 成功无业务 data）。
@@ -34,6 +37,15 @@ export interface WorkflowResultInfo {
 }
 
 /**
+ * workflow/list 请求体：`{ page, data }` 信封——分页嵌套（pageNum/pageSize），
+ * 筛选字段收进 data（同 common/user/list 的 sys 域服务端分页惯例）。
+ */
+interface WorkflowListApiBody {
+  page: { pageNum: number; pageSize: number };
+  data: Omit<WorkflowListParams, 'page' | 'pageSize'>;
+}
+
+/**
  * 工作流分页列表（workflow/list）。服务端分页 + 4 筛选字段。
  * 对应旧页 useCustomTable 的 `url: workflow/list`。
  */
@@ -41,27 +53,24 @@ export function getWorkflowList(
   params: WorkflowListParams,
   config?: ApiRequestConfig
 ): Promise<WorkflowListResult> {
-  // 后端 workflow/list 约定分页字段为 pageNum（同 td-manage CustomTable）。
-  // 前端 WorkflowListParams 用 page，此处适配，避免字段名不匹配导致空数据。
-  const { page, ...rest } = params;
-  const apiParams = (page !== undefined ? { ...rest, pageNum: page } : rest) as WorkflowListParams;
-  return apiClient.post<WorkflowListResult, WorkflowListParams>(
-    `${BASE}/workflow/list`,
-    apiParams,
+  // 前端平铺的 page/pageSize 适配为嵌套 pageNum/pageSize，筛选字段收进 data。
+  const { page, pageSize, ...filters } = params;
+  return apiClient.post<WorkflowListResult, WorkflowListApiBody>(
+    `${CONFIG_ID}v1/workflow/list`,
+    { page: { pageNum: page, pageSize }, data: filters },
     config
   );
 }
 
 /**
  * 业务功能列表（common/business/list）。供列表筛选下拉 + 列展示 + edit 业务 Select。
- * 旧页 useSWR 默认 GET，迁移统一 POST（base 仍 /api/rbac/v1）。
+ * 旧页 useSWR 默认 GET（单 key 调用，无请求体），此处保持 GET。
  */
 export function getBusinessList(
   config?: ApiRequestConfig
 ): Promise<BusinessItem[]> {
-  return apiClient.post<BusinessItem[], unknown>(
-    `${BASE}/common/business/list`,
-    {},
+  return apiClient.get<BusinessItem[]>(
+    `${CONFIG_ID}v1/common/business/list`,
     config
   );
 }
@@ -77,7 +86,7 @@ export function getWorkflowDetail(
   config?: ApiRequestConfig
 ): Promise<WorkflowDetail> {
   return apiClient.post<WorkflowDetail, { workflowId: number }>(
-    `${BASE}/workflow/detial`,
+    `${CONFIG_ID}v1/workflow/detial`,
     { workflowId },
     config
   );
@@ -89,7 +98,7 @@ export function createWorkflow(
   config?: ApiRequestConfig
 ): Promise<WorkflowResultInfo> {
   return apiClient.post<WorkflowResultInfo, WorkflowCreateReq>(
-    `${BASE}/workflow/add`,
+    `${CONFIG_ID}v1/workflow/add`,
     data,
     config
   );
@@ -101,7 +110,7 @@ export function updateWorkflow(
   config?: ApiRequestConfig
 ): Promise<WorkflowResultInfo> {
   return apiClient.post<WorkflowResultInfo, WorkflowUpdateReq>(
-    `${BASE}/workflow/edit`,
+    `${CONFIG_ID}v1/workflow/edit`,
     data,
     config
   );
@@ -116,7 +125,7 @@ export function modifyWorkflowStatus(
   config?: ApiRequestConfig
 ): Promise<WorkflowResultInfo> {
   return apiClient.post<WorkflowResultInfo, WorkflowModifyStatusReq>(
-    `${BASE}/workflow/modifyStatus`,
+    `${CONFIG_ID}v1/workflow/modifyStatus`,
     data,
     config
   );
@@ -131,7 +140,7 @@ export function getCandidateUsers(
   config?: ApiRequestConfig
 ): Promise<CandidateUserListResult> {
   return apiClient.post<CandidateUserListResult, CandidateUserListParams>(
-    `${BASE}/common/user/list`,
+    `${CONFIG_ID}v1/common/user/list`,
     params,
     config
   );

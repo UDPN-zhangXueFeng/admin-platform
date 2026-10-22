@@ -70,7 +70,7 @@ export default function ModulePage({
     pledge: 'pledge',
     reconciliation: 'reconciliation',
     interest: 'interest',
-    'screening-monitoring': 'screening-monitoring',
+    'screening-monitoring': 'screening',
   };
   const groupKey = GROUP_ENABLED_KEY[module];
   const isGroup = Boolean(groupKey);

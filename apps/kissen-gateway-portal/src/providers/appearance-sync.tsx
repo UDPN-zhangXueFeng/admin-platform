@@ -4,18 +4,12 @@ import * as React from 'react';
 import { useTheme } from '@myorg/shared/util-config';
 
 /**
- * 外观/调色板 mount 重放（hydration 补偿）。
+ * Appearance/palette mount replay.
  *
- * root layout 的两段防闪 inline script 在首帧前写 `html.dark`（键
- * 'gw-appearance'，system-ui-pages 外观轴）与 `html[data-theme]`（键
- * 'gw-theme'，ThemeInjector 调色板轴），但 React 19 hydration 会把 SSR
- * HTML 里不存在的 `<html>` 属性/class 整体剥掉——本组件挂载时按防闪
- * 脚本同款语义重放：外观取存储值；调色板取存储 id，非法/缺失回落
- * config.theme.defaultTheme（与 layout restoreScript 完全一致）。
- * 行为对齐 next-themes Provider 的 mount 同步。
- *
- * 存储键与 layout.tsx 防闪脚本、feature 库（system-ui-pages /
- * theme-switcher）的字面量保持一致（沿用既有 'gw-theme' 双处字面量约定）。
+ * Existing `gw-appearance` light/dark values remain read-only. UI Setting
+ * previews `gw-theme` in memory and persists it only after the brand API save
+ * succeeds. React 19 hydration can strip root attributes/classes absent from
+ * SSR markup, so this component replays both stored values after mount.
  */
 export function AppearanceSync() {
   const theme = useTheme();

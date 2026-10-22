@@ -42,41 +42,12 @@ const InstanceKeyDrawer = dynamic(
   { ssr: false },
 );
 
-// 主题切换器与实例密钥同槽：feature 库静态 import 违反懒加载边界，同款
-// next/dynamic(ssr:false) 拆包（组件本身 client-only）。
-const ThemeSwitcher = dynamic(
-  () =>
-    import('@myorg/modules/kissen-gateway/feature').then(
-      (m) => m.ThemeSwitcher,
-    ),
-  { ssr: false },
-);
-
 import { LogoMark } from '@/components/brand/logo-mark';
+import { MENU_ROUTE_MAP } from '@/lib/gateway-routes';
 
 /** v-perm 'bank:key:manage'（源 MainLayout key-entry；gateway 无超管，按会话 menuKeys 判定）。 */
 const KEY_MANAGE_PERM = 'bank:key:manage';
 
-/**
- * 菜单键 → 页面路径映射（源 `router/index.ts` MENU_ROUTE_MAP v2.1.0 · GW-14
- * 七一级扁平结构，11 项原样照搬；映射值随目标 App Router 路由形状调整：
- * 源 /tx/list → /tx，其余路径两侧一致。`bank:key:manage` 无路由——右上角
- * 常驻入口，不进侧栏折算）。侧栏过滤用它把「过滤后菜单树的 menuKey」
- * 折算成允许路径集合。
- */
-const MENU_ROUTE_MAP: Record<string, string> = {
-  'bank:overview:view': '/overview',
-  'bank:onboard:submit': '/onboard',
-  'bank:token:manage': '/token/manage',
-  'bank:fx:view': '/fx',
-  'bank:bankquery:view': '/bank/query',
-  'bank:tx:view': '/tx',
-  'bank:user:manage': '/system/user',
-  'bank:role:manage': '/system/role',
-  'bank:menu:manage': '/system/menu',
-  'bank:log:view': '/system/log',
-  'bank:ui:setting': '/system/ui',
-};
 
 /**
  * 收集过滤后菜单树中可导航节点的允许路径与排序号（源 MainLayout navNodes
@@ -379,7 +350,6 @@ export function KissenAppShell({
         }
         trailing={
           <>
-            <ThemeSwitcher themes={config.theme.themes} />
             {showKeyEntry ? (
               <button
                 type="button"
@@ -403,7 +373,7 @@ export function KissenAppShell({
   );
 }
 
-/** Place the UDPN wordmark after the sidebar navigation so it stays at the bottom. */
+/** Show the themed UDPN wordmark in a "Supported by" footer below navigation. */
 function SidebarBrandFooter() {
   const [sidebar, setSidebar] = React.useState<HTMLElement | null>(null);
 
@@ -419,7 +389,8 @@ function SidebarBrandFooter() {
   if (!sidebar) return null;
 
   return createPortal(
-    <div className="flex h-14 shrink-0 items-center justify-end pr-2">
+    <div className="flex h-14 w-full shrink-0 items-center justify-center gap-2 border-t border-border/50 bg-card">
+      <span className="text-xs text-muted-foreground">Supported by</span>
       <LogoMark />
     </div>,
     sidebar,

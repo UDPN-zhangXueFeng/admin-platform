@@ -47,6 +47,7 @@ const ASSET_CATEGORY_MAX = 50;
 
 export function ReserveAssetCategoryAddPage(): React.JSX.Element {
   const t = useTranslations('modules.pledge');
+  const tc = useTranslations('common');
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -87,7 +88,7 @@ export function ReserveAssetCategoryAddPage(): React.JSX.Element {
           toast.success(t('createSuccess'));
           router.push({ pathname: '/pledge/reserve-asset-list' });
         },
-        onError: () => toast.error(t('operateSuccess')),
+        onError: () => toast.error(tc('common_task_status_40')),
       },
     );
   });

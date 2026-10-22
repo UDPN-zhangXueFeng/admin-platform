@@ -5,6 +5,7 @@
  * （水位分母=token 级 minLiquidity，决策 D2）；预授权快照联查字段
  * （authAmount/preauthAvailable/preauthSnapshotTime，availableAmount 口径，无凭证字段）。
  */
+import { commonStatusLabel } from '../approval/approval.model';
 
 export interface LpPoolRow {
   poolId: number;
@@ -58,7 +59,6 @@ export interface LpPoolSaveReq {
   tokenId: number;
   accountAddress: string;
   currencySystemType?: number;
-  approvalRecordId?: number;
   remindThreshold: string | number;
 }
 
@@ -75,14 +75,11 @@ export interface LpPoolListReq {
 }
 
 /**
- * 资金池状态（监控视图值域 5/15/20/50；源 index.vue POOL_STATUS_MAP 定稿英文）。
+ * 资金池状态（监控视图值域 5/15/20/50；通用字典派生，业务语境 20=Enabled）。
  */
-export const LP_POOL_STATUS_LABEL: Record<number, string> = {
-  5: 'Applying',
-  15: 'Rejected',
-  20: 'Active',
-  50: 'Disabled',
-};
+export const LP_POOL_STATUS_LABEL: Record<number, string> = Object.fromEntries(
+  [5, 15, 20, 50].map((status) => [status, commonStatusLabel(status)]),
+) as Record<number, string>;
 
 export const LP_POOL_STATUS_VARIANT: Record<
   number,

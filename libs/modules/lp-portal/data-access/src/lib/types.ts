@@ -52,6 +52,8 @@ export interface TokenRow {
   /** 旧环境过渡字段（a481ca1 前），展示层兼容读 bankBic||bankCode。 */
   bankCode?: string;
   bankName: string;
+  /** Official website URL when provided by the token directory API. */
+  website?: string;
   /** 本 LP 已开池(status=20)标注 */
   pooled: boolean;
   syncTime: number;
@@ -59,8 +61,12 @@ export interface TokenRow {
 
 export interface BankGroupRow {
   bankId: number;
-  bankBic: string;
+  /** New bank identifier; older bank-group responses use bankCode. */
+  bankBic?: string;
+  bankCode?: string;
   bankName: string;
+  /** Official website URL when provided by the bank-group API. */
+  website?: string;
   bankStatus: number;
   tokens: Array<
     Pick<

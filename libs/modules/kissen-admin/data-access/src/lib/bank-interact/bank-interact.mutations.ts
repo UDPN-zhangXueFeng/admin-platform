@@ -15,10 +15,9 @@ export function useInteractSaveMutation(projectId: string, bankId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: InteractSaveReq) => interactSave(data),
-    onSuccess: () => {
+    onSuccess: () =>
       queryClient.invalidateQueries({
         queryKey: bankInteractKeys.view(projectId, bankId),
-      });
-    },
+      }),
   });
 }

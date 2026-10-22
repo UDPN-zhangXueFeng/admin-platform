@@ -24,6 +24,15 @@ export interface InstanceKeyView {
   downlinkPushTime?: number;
   /** 一次性接入 key 状态：ABSENT / VALID / INVALID（激活即失效，仅展示）。 */
   accessKeyStatus: string;
+  /**
+   * 安全态势（原型 InstanceKeysPage 安全态势区）。协议扩展 GAP-GW-09：
+   * 后端下发前为空，抽屉据此不渲染该区。
+   */
+  securityPosture?: {
+    conclusion?: string;
+    message?: string;
+    checks?: Array<{ label: string; value: string }>;
+  };
 }
 
 /** 私钥下载请求（POST /instance/key/private/download；口令二次确认，禁止入日志）。 */

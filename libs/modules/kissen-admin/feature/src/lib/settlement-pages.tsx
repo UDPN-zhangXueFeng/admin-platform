@@ -3,13 +3,9 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { ColumnDef } from '@tanstack/react-table';
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-} from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+
+import { useSearchParams } from 'next/navigation';
 
 import {
   Alert,
@@ -28,6 +24,7 @@ import {
   DataTable,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -37,12 +34,9 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
   useToast,
 } from '@myorg/shared/ui';
+
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { FormSelect } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
@@ -50,11 +44,9 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import {
   KISSEN_PROJECT_ID,
   LP_STATUS_LABEL,
-  LP_STATUS_VARIANT,
   type LpListReq,
   SETTLE_CYCLE_MAP,
   SETTLE_ORDER_STATUS_LABEL,
-  SETTLE_ORDER_STATUS_VARIANT,
   SETTLE_ORDER_STATUS_VALUES,
   SETTLE_PERIOD_TYPE_LABEL,
   useLpSettleCycleListQuery,
@@ -73,7 +65,9 @@ import {
   type SettleOrderRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
+import { ApprovalBusinessLink } from './approval-business-link';
 import { formatAmount } from './format';
+import { Dash, ProtoStatusBadge } from './proto-ui';
 
 /* ============================================================ */
 /* 共享格式化 / 展示辅助                                          */
@@ -86,17 +80,6 @@ function formatTimestamp(ms: number | undefined | null): string {
   if (!ms) return '--';
   const d = new Date(Number(ms));
   return Number.isNaN(d.getTime()) ? '--' : formatAdminDateTime(d);
-}
-
-/** 毫秒时间戳 → 结算单详情中的分钟级时间。 */
-function formatTimestampMinute(ms: number | undefined | null): string {
-  return formatTimestamp(ms);
-}
-
-/** 毫秒时间戳 → 结算周期详情中的日期。 */
-function formatDateOnly(ms: number | undefined | null): string {
-  const value = formatTimestamp(ms);
-  return value === '--' ? value : value.replace(/, \d{2}:\d{2}:\d{2} \(UTC[^)]+\)$/, '');
 }
 
 /** 「全部」哨兵值：FormSelect 中代表不限定的选项（Radix Select 禁空串 value）。 */
@@ -149,7 +132,8 @@ function LoadingBlock() {
 }
 
 /** 组表单元格基线（样式对齐 shared DataTable：表头 bg-muted/50、行 divide-y）。 */
-const GROUP_TH = 'h-10 px-4 text-left align-middle font-medium text-muted-foreground';
+const GROUP_TH =
+  'h-10 px-4 text-left align-middle font-medium text-muted-foreground';
 const GROUP_TD = 'px-4 py-3 align-middle';
 
 /* ============================================================ */
@@ -184,204 +168,332 @@ function settleFilterToParams(
   };
 }
 
-/** 结算单详情弹窗（源 view-dialog.vue；§G 裁决5：640px 只读弹窗，单据层无金额字段）。 */
-function SettleOrderViewDialog({
-  orderId,
-  open,
-  onClose,
-}: {
-  orderId: number;
-  open: boolean;
-  onClose: () => void;
-}) {
+const ORDER_STATUS_TONE: Record<
+  number,
+  'warning' | 'info' | 'success' | 'muted' | 'danger'
+> = {
+  5: 'warning',
+  10: 'warning',
+  15: 'danger',
+  20: 'info',
+  35: 'success',
+  45: 'muted',
+};
+
+function SettleOrderNotFound() {
   const router = useRouter();
-  const { data: detail, isLoading } = useSettleOrderDetailQuery(
-    KISSEN_PROJECT_ID,
-    orderId,
-    open,
-  );
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-[640px]">
-        <DialogHeader>
-          <DialogTitle>Settlement Order Details</DialogTitle>
-        </DialogHeader>
-        {isLoading ? (
-          <LoadingBlock />
-        ) : detail ? (
-          <div className="space-y-4">
-            {/* Hero Summary：结算单号 + 状态 + LP + 创建时间（§6.3） */}
-            <section className="rounded-lg border border-border/60 bg-card px-4 py-3">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className="text-base font-semibold leading-6 text-foreground">
-                    Order #{detail.orderId}
-                  </span>
-                  <Badge variant={SETTLE_ORDER_STATUS_VARIANT[detail.status] ?? 'outline'}>
-                    {SETTLE_ORDER_STATUS_LABEL[detail.status] ?? detail.status}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                  <span>LP · {detail.lpName || '--'}</span>
-                  <span className="tabular-nums">
-                    Created on {formatTimestampMinute(detail.createTime)}
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            {/* 结算周期与关联交易 */}
-            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-              <DetailField label="Period">
-                <div>{periodTypeLabel(detail.periodType)}</div>
-                <div className="mt-1 text-muted-foreground">
-                  {formatDateOnly(detail.periodStart)} – {formatDateOnly(detail.periodEnd)}
-                </div>
-              </DetailField>
-              <DetailField label="Transactions">
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-left"
-                  disabled={detail.txCount === 0}
-                  onClick={() => {
-                    onClose();
-                    // TODO: Use an exact settlementOrderId filter when the backend exposes it.
-                    router.push(
-                      `/transfer/tx?lpId=${detail.lpId}&createTimeStart=${detail.periodStart}&createTimeEnd=${detail.periodEnd}`,
-                    );
-                  }}
-                >
-                  View {detail.txCount} transactions →
-                </Button>
-              </DetailField>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No data</p>
-        )}
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="rounded-xl border border-border bg-card p-8 text-center shadow-sm">
+      <p className="text-sm text-muted-foreground">
+        Settlement statement not found
+      </p>
+      <Button
+        className="mt-4"
+        variant="outline"
+        onClick={() => router.push('/settle/order')}
+      >
+        Back to settlement statements
+      </Button>
+    </div>
   );
 }
 
-/* 结算单分项面板（源 index.vue 展开行：meta 行 + token 对分项表，懒加载）。 */
+/** Independent, refreshable settlement statement route: /settle/order/detail?id=. */
+export function SettleOrderDetailPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawId = searchParams.get('id');
+  const parsedId = Number(rawId);
+  const hasValidId =
+    rawId !== null &&
+    rawId !== '' &&
+    Number.isSafeInteger(parsedId) &&
+    parsedId > 0;
+  const detailQuery = useSettleOrderDetailQuery(
+    KISSEN_PROJECT_ID,
+    hasValidId ? parsedId : undefined,
+  );
+  const detail = detailQuery.data;
+  const isLoading = hasValidId && detailQuery.isLoading && !detail;
+  const isNotFound =
+    !hasValidId ||
+    (!isLoading && !detailQuery.isError && !detail);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-3">
+        <Button
+          variant="outline"
+          size="iconSm"
+          aria-label="Back to settlement statements"
+          onClick={() => router.push('/settle/order')}
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+        </Button>
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold">
+            Settlement Statement Details
+          </h1>
+          {detail ? (
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+              <span className="tabular-nums">
+                Created on {formatTimestamp(detail.createTime)}
+              </span>
+              <ProtoStatusBadge
+                tone={ORDER_STATUS_TONE[detail.status] ?? 'muted'}
+              >
+                {SETTLE_ORDER_STATUS_LABEL[detail.status] ?? detail.status}
+              </ProtoStatusBadge>
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      {detailQuery.isError ? (
+        <Alert variant="destructive" role="alert">
+          <AlertTitle>Failed to load settlement statement.</AlertTitle>
+        </Alert>
+      ) : null}
+
+      {isLoading ? (
+        <div className="space-y-4">
+          <Skeleton className="h-48 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      ) : null}
+
+      {isNotFound ? <SettleOrderNotFound /> : null}
+
+      {detail && !detailQuery.isError ? (
+        <SettleOrderDetailContent key={detail.orderId} order={detail} />
+      ) : null}
+    </div>
+  );
+}
+
+function SettleOrderDetailContent({ order }: { order: SettleOrderRow }) {
+  const router = useRouter();
+  const [itemRecordsTarget, setItemRecordsTarget] =
+    React.useState<SettleItemRecordsTarget | null>(null);
+
+  const onItemRecords = React.useCallback(
+    (item: SettleOrderItemRow) => {
+      setItemRecordsTarget({
+        orderId: order.orderId,
+        pairId: item.pairId,
+        pairText: `${item.sourceSymbol || item.sourceTokenCode || '-'}/${item.targetSymbol || item.targetTokenCode || '-'}`,
+        sourceTokenCode: item.sourceTokenCode || '',
+      });
+    },
+    [order.orderId],
+  );
+
+  return (
+    <div className="space-y-4">
+      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="border-b border-border/50 px-6 py-4">
+          <h2 className="text-base font-semibold">Statement Information</h2>
+        </div>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 px-6 py-5 sm:grid-cols-2 lg:grid-cols-3">
+          <DetailField label="LP Name">{order.lpName || '--'}</DetailField>
+          <DetailField label="Period Type">
+            {periodTypeLabel(order.periodType)}
+          </DetailField>
+          <DetailField label="Period Range">
+            <span className="block tabular-nums">
+              {formatTimestamp(order.periodStart)} –{' '}
+              {formatTimestamp(order.periodEnd)}
+            </span>
+          </DetailField>
+          <DetailField label="Transactions">
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-left"
+              disabled={order.txCount === 0}
+              onClick={() =>
+                router.push(
+                  `/transfer/tx?lpId=${order.lpId}&createTimeStart=${order.periodStart}&createTimeEnd=${order.periodEnd}`,
+                )
+              }
+            >
+              View {order.txCount} transactions →
+            </Button>
+          </DetailField>
+          <DetailField label="Approval">
+            <ApprovalBusinessLink
+              busCode="kissen_settle_confirm"
+              busId={order.orderId}
+              label="Confirmation Approval"
+              pending={order.approvalPending}
+            />
+          </DetailField>
+          <DetailField label="Created on">
+            {formatTimestamp(order.createTime)}
+          </DetailField>
+        </div>
+      </section>
+
+      <SettleOrderItemsPanel order={order} onItemRecords={onItemRecords} />
+      <SettleItemRecordsDialog
+        target={itemRecordsTarget}
+        onClose={() => setItemRecordsTarget(null)}
+      />
+    </div>
+  );
+}
+
+/* 结算单分项只在独立详情页加载，金额按各自源 Token 精度展示。 */
 function SettleOrderItemsPanel({
   order,
   onItemRecords,
 }: {
   order: SettleOrderRow;
-  /** 分项「Settlement details」：携 orderId + pairId 打开逐笔结算明细弹窗。 */
   onItemRecords: (item: SettleOrderItemRow) => void;
 }) {
-  const { data: items, isLoading } = useSettleOrderItemsQuery(
+  const { data, isLoading, isError } = useSettleOrderItemsQuery(
     KISSEN_PROJECT_ID,
     order.orderId,
   );
-  const list = items ?? [];
-  // 合计金额按该行源 token 精度（4609208）。
-  const { decimalsOf: decOf } = useTokenMeta(KISSEN_PROJECT_ID);
+  const items = data ?? [];
+  const { decimalsOf } = useTokenMeta(KISSEN_PROJECT_ID);
+  const tableData = items.map((item) => ({ ...item, id: String(item.itemId) }));
+  const columns = React.useMemo<ColumnDef<(typeof tableData)[number]>[]>(
+    () => [
+      {
+        id: 'tokenPair',
+        header: 'Token Pair',
+        cell: ({ row }) => {
+          const item = row.original;
+          return `${item.sourceSymbol || item.sourceTokenCode || '-'}/${item.targetSymbol || item.targetTokenCode || '-'}`;
+        },
+      },
+      {
+        accessorKey: 'txCount',
+        header: () => <span className="block text-right">Txn Count</span>,
+        cell: ({ row }) => (
+          <span className="block text-right tabular-nums">
+            {row.original.txCount}
+          </span>
+        ),
+      },
+      {
+        id: 'principalTotal',
+        header: () => <span className="block text-right">Principal Total</span>,
+        cell: ({ row }) => (
+          <span className="block text-right tabular-nums">
+            {formatAmount(
+              row.original.principalTotal,
+              decimalsOf(row.original.sourceTokenCode),
+            )}
+          </span>
+        ),
+      },
+      {
+        id: 'markupTotal',
+        header: () => <span className="block text-right">Markup Total</span>,
+        cell: ({ row }) => (
+          <span className="block text-right tabular-nums">
+            {formatAmount(
+              row.original.markupTotal,
+              decimalsOf(row.original.sourceTokenCode),
+            )}
+          </span>
+        ),
+      },
+      {
+        id: 'lpSplitTotal',
+        header: () => <span className="block text-right">LP Share</span>,
+        cell: ({ row }) => (
+          <span className="block text-right font-semibold text-success tabular-nums">
+            {formatAmount(
+              row.original.lpSplitTotal,
+              decimalsOf(row.original.sourceTokenCode),
+            )}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const item = row.original;
+          const hasValidPairId =
+            Number.isSafeInteger(item.pairId) && item.pairId > 0;
+          return (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0"
+              disabled={!hasValidPairId}
+              onClick={() => onItemRecords(item)}
+            >
+              Settlement details
+            </Button>
+          );
+        },
+      },
+    ],
+    [decimalsOf, onItemRecords],
+  );
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <Badge variant="outline">{periodTypeLabel(order.periodType)}</Badge>
-        <span className="tabular-nums">
-          {formatTimestamp(order.periodStart)} ~ {formatTimestamp(order.periodEnd)}
-        </span>
-        <span aria-hidden>·</span>
-        <span>
-          {list.length || '--'} token pairs · {order.txCount} txns
-        </span>
-        <span className="ml-auto">
-          Amounts are in each token pair&apos;s own currency unit and are not summed across pairs
-        </span>
+    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="border-b border-border/50 px-6 py-4">
+        <h2 className="text-base font-semibold">Amounts</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Amounts are in each token pair&apos;s own currency unit and are not
+          summed across pairs.
+        </p>
       </div>
-      {isLoading ? (
-        <Skeleton className="h-10 w-full" />
-      ) : list.length === 0 ? (
-        <div className="py-4 text-center text-sm text-muted-foreground">
-          No token pair items
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-border/60 bg-card">
-          <table className="w-full min-w-max caption-bottom text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className={GROUP_TH}>Token Pair</th>
-                <th className={`${GROUP_TH} text-right`}>Txn Count</th>
-                <th className={`${GROUP_TH} text-right`}>Principal Total</th>
-                <th className={`${GROUP_TH} text-right`}>Markup Total</th>
-                <th className={`${GROUP_TH} text-right`}>LP Share</th>
-                <th className={`${GROUP_TH} text-right`}>Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50">
-              {list.map((item: SettleOrderItemRow) => (
-                <tr key={item.itemId} className="motion-safe:transition-colors hover:bg-muted/50">
-                  <td className={`${GROUP_TD} tabular-nums`}>{item.sourceSymbol || item.sourceTokenCode || '-'}/{item.targetSymbol || item.targetTokenCode || '-'}</td>
-                  <td className={`${GROUP_TD} text-right tabular-nums`}>{item.txCount}</td>
-                  <td className={`${GROUP_TD} text-right tabular-nums`}>
-                    {formatAmount(item.principalTotal, decOf(item.sourceTokenCode))}
-                  </td>
-                  <td className={`${GROUP_TD} text-right tabular-nums`}>
-                    {formatAmount(item.markupTotal, decOf(item.sourceTokenCode))}
-                  </td>
-                  {/* 源 .highlight：LP 分成高亮绿 → 主题 green 语义色（禁止上游 hex 直写）。 */}
-                  <td className={`${GROUP_TD} text-right font-semibold text-emerald-600 tabular-nums dark:text-emerald-400`}>
-                    {formatAmount(item.lpSplitTotal, decOf(item.sourceTokenCode))}
-                  </td>
-                  {/* 源 el-button link「结算明细」→ Settlement details（2026-08-28 cede878）。 */}
-                  <td className={`${GROUP_TD} text-right`}>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0"
-                      onClick={() => onItemRecords(item)}
-                    >
-                      Settlement details
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+      <div className="p-4">
+        {isError ? (
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>Failed to load settlement items.</AlertTitle>
+          </Alert>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={tableData}
+            isLoading={isLoading}
+            emptyMessage="No token pair items"
+          />
+        )}
+      </div>
+    </section>
   );
 }
 
-/** 结算明细弹窗目标（源 detailCtx：orderId × pairId + 标题用 symbol 对文本 + 源 token 精度键）。 */
+/** 逐币对结算流水目标；明细金额精度沿用对应分项的源 Token。 */
 interface SettleItemRecordsTarget {
   orderId: number;
   pairId: number;
   pairText: string;
-  /** 明细行无 token 字段，金额精度取打开时分项行的源 token（4609208）。 */
   sourceTokenCode: string;
 }
 
-/**
- * 结算明细内容（源 index.vue detailRows 表：交易单号/本金/加价/管理分成/LP 分成/结算时间）。
- * 按 orderId×pairId 作 key 重挂载——换目标即清空旧数据重新查询（源 openItemRecords 语义）；
- * 失败静默（拦截层已 toast），无数据走空态文案；recordTime 毫秒转日期。
- */
-function SettleItemRecordsDialogContent({ target }: { target: SettleItemRecordsTarget }) {
-  const { data, isLoading } = useSettleItemRecordsQuery(
+function SettleItemRecordsDialogContent({
+  target,
+}: {
+  target: SettleItemRecordsTarget;
+}) {
+  const { data, isLoading, isError } = useSettleItemRecordsQuery(
     KISSEN_PROJECT_ID,
     target.orderId,
     target.pairId,
   );
   const list = data ?? [];
-  // 金额均为源 token 计价：精度随分项行 sourceTokenCode（4609208）。
-  const { decimalsOf: decOf } = useTokenMeta(KISSEN_PROJECT_ID);
-  const dec = decOf(target.sourceTokenCode);
+  const { decimalsOf } = useTokenMeta(KISSEN_PROJECT_ID);
+  const decimals = decimalsOf(target.sourceTokenCode);
+
+  if (isError) {
+    return (
+      <Alert variant="destructive" role="alert">
+        <AlertTitle>Failed to load settlement records.</AlertTitle>
+      </Alert>
+    );
+  }
 
   return isLoading ? (
     <LoadingBlock />
@@ -403,18 +515,25 @@ function SettleItemRecordsDialogContent({ target }: { target: SettleItemRecordsT
           </tr>
         </thead>
         <tbody className="divide-y divide-border/50">
-          {list.map((row: SettleItemRecordRow, idx: number) => (
+          {list.map((row: SettleItemRecordRow, index: number) => (
             <tr
-              key={row.txNo || `record-${idx}`}
+              key={row.txNo || `record-${index}`}
               className="motion-safe:transition-colors hover:bg-muted/50"
             >
               <td className={`${GROUP_TD} tabular-nums`}>{row.txNo || '-'}</td>
-              <td className={`${GROUP_TD} text-right tabular-nums`}>{formatAmount(row.principal, dec)}</td>
-              <td className={`${GROUP_TD} text-right tabular-nums`}>{formatAmount(row.markupAmount, dec)}</td>
-              <td className={`${GROUP_TD} text-right tabular-nums`}>{formatAmount(row.adminSplitAmount, dec)}</td>
-              {/* 源 .highlight：LP 分成高亮绿 → 主题 green 语义色（禁止上游 hex 直写）。 */}
-              <td className={`${GROUP_TD} text-right font-semibold text-emerald-600 tabular-nums dark:text-emerald-400`}>
-                {formatAmount(row.lpSplitAmount, dec)}
+              <td className={`${GROUP_TD} text-right tabular-nums`}>
+                {formatAmount(row.principal, decimals)}
+              </td>
+              <td className={`${GROUP_TD} text-right tabular-nums`}>
+                {formatAmount(row.markupAmount, decimals)}
+              </td>
+              <td className={`${GROUP_TD} text-right tabular-nums`}>
+                {formatAmount(row.adminSplitAmount, decimals)}
+              </td>
+              <td
+                className={`${GROUP_TD} text-right font-semibold text-success tabular-nums`}
+              >
+                {formatAmount(row.lpSplitAmount, decimals)}
               </td>
               <td className={`${GROUP_TD} whitespace-nowrap tabular-nums`}>
                 {formatTimestamp(row.recordTime)}
@@ -427,7 +546,6 @@ function SettleItemRecordsDialogContent({ target }: { target: SettleItemRecordsT
   );
 }
 
-/** 结算明细弹窗（源 el-dialog width 780px，标题「结算明细 — {pairText}」，无分页）。 */
 function SettleItemRecordsDialog({
   target,
   onClose,
@@ -436,12 +554,11 @@ function SettleItemRecordsDialog({
   onClose: () => void;
 }) {
   return (
-    <Dialog open={!!target} onOpenChange={(v) => !v && onClose()}>
+    <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[780px]">
         <DialogHeader>
           <DialogTitle>
-            Settlement Details —{' '}
-            {target ? target.pairText : ''}
+            Settlement Details — {target ? target.pairText : ''}
           </DialogTitle>
         </DialogHeader>
         {target ? (
@@ -455,331 +572,211 @@ function SettleItemRecordsDialog({
   );
 }
 
-/**
- * 扁平结算单表（源 v2.3.2 index.vue，2026-08-28 71c6077 撤 LP 分组折叠）：
- * expand / Statement ID / LP / 周期 / 周期起止 / Transactions / 状态 / Created on / 操作。
- * LP 降为普通列，服务端分页扛量；token 对分项保留单层展开懒加载。
- */
-function SettleOrdersTable({
-  orders,
-  expandedOrders,
-  onToggleOrder,
-  onView,
-  onConfirm,
-  onVoid,
-  onItemRecords,
-}: {
-  orders: SettleOrderRow[];
-  expandedOrders: ReadonlySet<number>;
-  onToggleOrder: (orderId: number) => void;
-  onView: (row: SettleOrderRow) => void;
-  onConfirm: (row: SettleOrderRow) => void;
-  onVoid: (row: SettleOrderRow) => void;
-  onItemRecords: (order: SettleOrderRow, item: SettleOrderItemRow) => void;
-}) {
-  return (
-    <div className="overflow-x-auto rounded-md border border-border/50 bg-card">
-      <table className="w-full min-w-max caption-bottom text-sm">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className={`${GROUP_TH} w-10`} />
-            <th className={`${GROUP_TH} text-right`}>Statement ID</th>
-            <th className={GROUP_TH}>LP</th>
-            <th className={GROUP_TH}>Period</th>
-            <th className={GROUP_TH}>Period Range</th>
-            <th className={`${GROUP_TH} text-right`}>Transactions</th>
-            <th className={GROUP_TH}>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>Status</span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Domain semantics: 10 Pending Confirmation / 20 Confirmed / 35 Settled / 45 Voided
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </th>
-            <th className={GROUP_TH}>Created on</th>
-            <th className={`${GROUP_TH} text-right`}>Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border/50">
-          {orders.map((order) => {
-            const expanded = expandedOrders.has(order.orderId);
-            return (
-              <React.Fragment key={order.orderId}>
-                <tr className="motion-safe:transition-colors hover:bg-muted/50">
-                  <td className={GROUP_TD}>
-                    <button
-                      type="button"
-                      aria-label={expanded ? 'Collapse items' : 'Expand items'}
-                      onClick={() => onToggleOrder(order.orderId)}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground motion-safe:transition-colors hover:bg-muted hover:text-foreground"
-                    >
-                      <ChevronDown
-                        className={`h-4 w-4 motion-safe:transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
-                      />
-                    </button>
-                  </td>
-                  <td className={`${GROUP_TD} text-right tabular-nums`}>{order.orderId}</td>
-                  <td className={GROUP_TD}>
-                    {/* 源 show-overflow-tooltip：截断 + tooltip 兜底显全名。 */}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="block max-w-[220px] truncate">
-                            {order.lpName || `LP #${order.lpId}`}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {order.lpName || `LP #${order.lpId}`}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </td>
-                  <td className={GROUP_TD}>
-                    <Badge variant="outline">{periodTypeLabel(order.periodType)}</Badge>
-                  </td>
-                  <td className={`${GROUP_TD} whitespace-nowrap tabular-nums`}>
-                    {formatTimestamp(order.periodStart)} ~ {formatTimestamp(order.periodEnd)}
-                  </td>
-                  <td className={`${GROUP_TD} text-right tabular-nums`}>{order.txCount}</td>
-                  <td className={GROUP_TD}>
-                    <Badge variant={SETTLE_ORDER_STATUS_VARIANT[order.status] ?? 'outline'}>
-                      {SETTLE_ORDER_STATUS_LABEL[order.status] ?? order.status}
-                    </Badge>
-                  </td>
-                  <td className={`${GROUP_TD} whitespace-nowrap tabular-nums`}>{formatTimestamp(order.createTime)}</td>
-                  <td className={`${GROUP_TD} text-right whitespace-nowrap`}>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0"
-                        onClick={() => onView(order)}
-                      >
-                        View
-                      </Button>
-                      {order.status === 10 && (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0"
-                          onClick={() => onConfirm(order)}
-                        >
-                          Submit for Approval
-                        </Button>
-                      )}
-                      {order.status === 10 && (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-destructive hover:text-destructive"
-                          onClick={() => onVoid(order)}
-                        >
-                          Void
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-                {expanded && (
-                  <tr>
-                    <td colSpan={9} className="border-t border-border/50 bg-muted/30 px-4 py-3">
-                      <SettleOrderItemsPanel
-                        order={order}
-                        onItemRecords={(item) => onItemRecords(order, item)}
-                      />
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/** 结算单扁平表专用分页条（样式对齐 shared DataTable 分页；展开行表无法内嵌 DataTable 分页）。 */
-function SettleOrderPager({
-  page,
-  pageSize,
-  total,
-  onPageChange,
-  onPageSizeChange,
-}: {
-  page: number;
-  pageSize: number;
-  total: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (n: number) => void;
-}) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <div className="flex items-center justify-between px-4 pb-4">
-      <div className="text-sm text-muted-foreground">Total {total} items</div>
-      <div className="flex items-center gap-2">
-        <Select
-          value={String(pageSize)}
-          onValueChange={(v) => onPageSizeChange(Number(v))}
-        >
-          <SelectTrigger className="h-8 w-[110px]" aria-label="Rows per page">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {[10, 20, 50].map((size) => (
-              <SelectItem key={size} value={String(size)}>
-                {size} / page
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <PagerButton aria-label="First page" disabled={page <= 1} onClick={() => onPageChange(1)}>
-          <ChevronsLeft className="h-4 w-4" />
-        </PagerButton>
-        <PagerButton aria-label="Previous page" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
-          <ChevronLeft className="h-4 w-4" />
-        </PagerButton>
-        <PagerButton aria-label="Next page" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
-          <ChevronRight className="h-4 w-4" />
-        </PagerButton>
-        <PagerButton aria-label="Last page" disabled={page >= totalPages} onClick={() => onPageChange(totalPages)}>
-          <ChevronsRight className="h-4 w-4" />
-        </PagerButton>
-      </div>
-    </div>
-  );
-}
-
-function PagerButton({
-  children,
-  disabled,
-  onClick,
-  ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={
-        'inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-sm font-medium ' +
-        'hover:bg-accent hover:text-accent-foreground ' +
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ' +
-        'disabled:pointer-events-none disabled:opacity-50'
-      }
-      {...rest}
-    >
-      {children}
-    </button>
-  );
-}
-
 export function SettleOrderListPage() {
+  const router = useRouter();
   const toast = useToast();
-  const { handleSubmit, reset, control } =
-    useForm<SettleOrderFilterForm>({ defaultValues: EMPTY_SETTLE_FILTER });
-
+  const { handleSubmit, reset, control } = useForm<SettleOrderFilterForm>({
+    defaultValues: EMPTY_SETTLE_FILTER,
+  });
   const [params, setParams] = React.useState(() =>
     settleFilterToParams(EMPTY_SETTLE_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
-  // 源 el-pagination page-sizes [10,20,50]：每页条数可切，切换即回第 1 页。
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
-
-  const { data, isLoading, isError, dataUpdatedAt } = useSettleOrderListQuery(KISSEN_PROJECT_ID, params);
+  const { data, isLoading, isError, dataUpdatedAt } = useSettleOrderListQuery(
+    KISSEN_PROJECT_ID,
+    params,
+  );
   const { data: lpOptions } = useSettleLpOptionsQuery(KISSEN_PROJECT_ID);
   const confirmMutation = useSettleOrderConfirmMutation(KISSEN_PROJECT_ID);
   const voidMutation = useSettleOrderVoidMutation(KISSEN_PROJECT_ID);
-
-  const [viewTarget, setViewTarget] = React.useState<SettleOrderRow | null>(null);
-  const [confirmTarget, setConfirmTarget] = React.useState<SettleOrderRow | null>(null);
-  const [voidTarget, setVoidTarget] = React.useState<SettleOrderRow | null>(null);
-  const [itemRecordsTarget, setItemRecordsTarget] =
-    React.useState<SettleItemRecordsTarget | null>(null);
-
+  const mutationPending =
+    confirmMutation.isPending || voidMutation.isPending;
+  const [confirmTarget, setConfirmTarget] =
+    React.useState<SettleOrderRow | null>(null);
+  const [voidTarget, setVoidTarget] = React.useState<SettleOrderRow | null>(
+    null,
+  );
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
 
   const lpFilterOptions = React.useMemo(
-    () => [optAll(), ...(lpOptions ?? []).map((lp) => ({
-      value: String(lp.lpId),
-      label: `${lp.lpName}(${lp.lpCode})`,
-    }))],
+    () => [
+      optAll(),
+      ...(lpOptions ?? []).map((lp) => ({
+        value: String(lp.lpId),
+        label: `${lp.lpName}(${lp.lpCode})`,
+      })),
+    ],
     [lpOptions],
   );
 
-  /** 单据层展开（token 对分项懒加载），orderId 维度记忆。 */
-  const [expandedOrders, setExpandedOrders] = React.useState<ReadonlySet<number>>(
-    () => new Set(),
-  );
-  const onToggleOrder = React.useCallback((orderId: number) => {
-    setExpandedOrders((prev) => {
-      const next = new Set(prev);
-      if (next.has(orderId)) {
-        next.delete(orderId);
-      } else {
-        next.add(orderId);
-      }
-      return next;
-    });
-  }, []);
-
-  const onSearch = React.useCallback((form: SettleOrderFilterForm) => {
+  const onSearch = (form: SettleOrderFilterForm) => {
     setParams(settleFilterToParams(form, 1, pageSize));
-  }, [pageSize]);
+  };
 
-  const onResetSearch = React.useCallback(() => {
+  const onResetSearch = () => {
     reset(EMPTY_SETTLE_FILTER);
     setParams(settleFilterToParams(EMPTY_SETTLE_FILTER, 1, pageSize));
-  }, [reset, pageSize]);
+  };
 
-  const onPageSizeChange = React.useCallback((n: number) => {
-    setPageSize(n);
-    setParams((prev) => ({ ...prev, pageNum: 1, pageSize: n }));
-  }, []);
+  const onPageSizeChange = (nextPageSize: number) => {
+    setPageSize(nextPageSize);
+    setParams((prev) => ({
+      ...prev,
+      pageNum: 1,
+      pageSize: nextPageSize,
+    }));
+  };
 
-  /** 提交确认（源 ElMessageBox warning → AlertDialog；仅 status 10，进入 KSC 审批）。 */
-  const onConfirmSubmit = React.useCallback(
-    (row: SettleOrderRow) => {
-      setConfirmTarget(null);
-      confirmMutation.mutate(
-        { orderId: row.orderId },
-        {
-          onSuccess: () => toast.success('Settlement order confirmation approval submitted'),
-          onError: (err) => toast.error((err as Error).message),
+  const onConfirmSubmit = () => {
+    if (!confirmTarget || mutationPending) return;
+    confirmMutation.mutate(
+      { orderId: confirmTarget.orderId },
+      {
+        onSuccess: () => {
+          setConfirmTarget(null);
+          toast.success('Settlement order confirmation approval submitted');
         },
-      );
-    },
-    [confirmMutation, toast],
-  );
+        onError: (error) => toast.error((error as Error).message),
+      },
+    );
+  };
 
-  /** 作废重开（源 ElMessageBox warning → AlertDialog；仅 status 10 → 45，同周期可重新生成）。 */
-  const onVoidSubmit = React.useCallback(
-    (row: SettleOrderRow) => {
-      setVoidTarget(null);
-      voidMutation.mutate(
-        { orderId: row.orderId },
-        {
-          onSuccess: () => toast.success('Voided'),
-          onError: (err) => toast.error((err as Error).message),
+  const onVoidSubmit = () => {
+    if (!voidTarget || mutationPending) return;
+    voidMutation.mutate(
+      { orderId: voidTarget.orderId },
+      {
+        onSuccess: () => {
+          setVoidTarget(null);
+          toast.success('Voided');
         },
-      );
-    },
-    [voidMutation, toast],
+        onError: (error) => toast.error((error as Error).message),
+      },
+    );
+  };
+
+  const columns = React.useMemo<ColumnDef<SettleOrderRow & { id: string }>[]>(
+    () => [
+      {
+        id: 'lpName',
+        header: 'LP',
+        cell: ({ row }) =>
+          row.original.lpName || `LP #${row.original.lpId}`,
+      },
+      {
+        id: 'periodType',
+        header: 'Period',
+        cell: ({ row }) => (
+          <Badge variant="outline">
+            {periodTypeLabel(row.original.periodType)}
+          </Badge>
+        ),
+      },
+      {
+        id: 'periodRange',
+        header: 'Period Range',
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap tabular-nums">
+            {formatTimestamp(row.original.periodStart)} ~{' '}
+            {formatTimestamp(row.original.periodEnd)}
+          </span>
+        ),
+      },
+      {
+        id: 'transactions',
+        header: () => <span className="block text-right">Transactions</span>,
+        cell: ({ row }) => (
+          <span className="block text-right tabular-nums">
+            {row.original.txCount}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <div className="flex flex-col items-start gap-1">
+            <ProtoStatusBadge
+              tone={ORDER_STATUS_TONE[row.original.status] ?? 'muted'}
+            >
+              {SETTLE_ORDER_STATUS_LABEL[row.original.status] ??
+                row.original.status}
+            </ProtoStatusBadge>
+            <ApprovalBusinessLink
+              busCode="kissen_settle_confirm"
+              busId={row.original.orderId}
+              label="Confirmation Approval"
+              pending={row.original.approvalPending}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'createTime',
+        header: 'Created on',
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap tabular-nums">
+            {formatTimestamp(row.original.createTime)}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const order = row.original;
+          return (
+            <div className="flex items-center gap-3 whitespace-nowrap">
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() =>
+                  router.push(`/settle/order/detail?id=${order.orderId}`)
+                }
+              >
+                Details
+              </Button>
+              {order.status === 10 ? (
+                <>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    disabled={mutationPending || order.approvalPending}
+                    onClick={() => setConfirmTarget(order)}
+                  >
+                    Submit for Approval
+                  </Button>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-destructive hover:text-destructive"
+                    disabled={mutationPending}
+                    onClick={() => setVoidTarget(order)}
+                  >
+                    Void
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          );
+        },
+      },
+    ],
+    [mutationPending, router],
   );
+  const tableData = rows.map((row) => ({ ...row, id: String(row.orderId) }));
 
   return (
     <div className="space-y-4">
       <section className="rounded-lg border border-border/60 bg-card">
-        {/* 生成入口已撤（源 36298ec）：KISSEN_SETTLEMENT_ORDER_GEN 按结算周期自动生成，页面不触发。 */}
         <div className="border-b border-border/50 px-4 py-3">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-            <div className="text-base font-semibold leading-6 text-foreground">
-              Settlement Orders
-            </div>
+            <h1 className="text-base font-semibold leading-6 text-foreground">
+              Settlement Statements
+            </h1>
             {!isLoading && paginationMeta ? (
               <span className="text-sm text-muted-foreground tabular-nums">
                 {paginationMeta.total} results
@@ -823,9 +820,9 @@ export function SettleOrderListPage() {
               placeholder="All"
               options={[
                 optAll(),
-                ...SETTLE_ORDER_STATUS_VALUES.map((v) => ({
-                  value: String(v),
-                  label: SETTLE_ORDER_STATUS_LABEL[v] ?? String(v),
+                ...SETTLE_ORDER_STATUS_VALUES.map((value) => ({
+                  value: String(value),
+                  label: SETTLE_ORDER_STATUS_LABEL[value] ?? String(value),
                 })),
               ]}
             />
@@ -844,100 +841,89 @@ export function SettleOrderListPage() {
               <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
             </Alert>
           </div>
-        ) : isLoading && !rows.length ? (
-          <div className="p-6">
-            <LoadingBlock />
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No settle orders
-          </div>
         ) : (
           <div className="px-4 pb-4">
-            <SettleOrdersTable
-              orders={rows}
-              expandedOrders={expandedOrders}
-              onToggleOrder={onToggleOrder}
-              onView={(row) => setViewTarget(row)}
-              onConfirm={(row) => setConfirmTarget(row)}
-              onVoid={(row) => setVoidTarget(row)}
-              onItemRecords={(order, item) =>
-                setItemRecordsTarget({
-                  orderId: order.orderId,
-                  pairId: item.pairId,
-                  pairText: `${item.sourceSymbol || item.sourceTokenCode || '-'}/${item.targetSymbol || item.targetTokenCode || '-'}`,
-                  sourceTokenCode: item.sourceTokenCode || '',
-                })
+            <DataTable
+              columns={columns}
+              data={tableData}
+              isLoading={isLoading}
+              emptyMessage="No settle orders"
+              pagination={
+                paginationMeta
+                  ? {
+                      page: paginationMeta.page,
+                      pageSize: paginationMeta.pageSize,
+                      total: paginationMeta.total,
+                      onPageChange: (page) =>
+                        setParams((prev) => ({ ...prev, pageNum: page })),
+                      onPageSizeChange,
+                      pageSizeOptions: [10, 20, 50],
+                    }
+                  : undefined
               }
             />
           </div>
         )}
-
-        {paginationMeta ? (
-          <SettleOrderPager
-            page={paginationMeta.page}
-            pageSize={paginationMeta.pageSize}
-            total={paginationMeta.total}
-            onPageChange={(page) => setParams((prev) => ({ ...prev, pageNum: page }))}
-            onPageSizeChange={onPageSizeChange}
-          />
-        ) : null}
       </section>
 
-      <SettleItemRecordsDialog
-        target={itemRecordsTarget}
-        onClose={() => setItemRecordsTarget(null)}
-      />
-      {viewTarget ? (
-        <SettleOrderViewDialog
-          orderId={viewTarget.orderId}
-          open
-          onClose={() => setViewTarget(null)}
-        />
-      ) : null}
-
-      {/* 提交确认（源 ElMessageBox warning：提交后进入审批中心待办）。 */}
       <AlertDialog
         open={!!confirmTarget}
-        onOpenChange={(v) => {
-          if (!v) setConfirmTarget(null);
+        onOpenChange={(open) => {
+          if (!open && !mutationPending) setConfirmTarget(null);
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Submit for Approval</AlertDialogTitle>
             <AlertDialogDescription>
-              Submit settlement &quot;{confirmTarget?.orderId}&quot; for approval? The statement will be routed to the approval queue and cannot be edited while pending review.       
+              Submit settlement &quot;{confirmTarget?.orderId}&quot; for
+              approval? The statement will be routed to the approval queue and
+              cannot be edited while pending review.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirmTarget && onConfirmSubmit(confirmTarget)}>
+            <AlertDialogCancel disabled={mutationPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={mutationPending}
+              onClick={(event) => {
+                event.preventDefault();
+                onConfirmSubmit();
+              }}
+            >
               Submit
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 作废（源 ElMessageBox warning：作废后同周期可重新生成，追溯流水归下期调整项）。 */}
       <AlertDialog
         open={!!voidTarget}
-        onOpenChange={(v) => {
-          if (!v) setVoidTarget(null);
+        onOpenChange={(open) => {
+          if (!open && !mutationPending) setVoidTarget(null);
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Void Settlement Order</AlertDialogTitle>
             <AlertDialogDescription>
-              Void settlement order #{voidTarget?.orderId}? The same period can be regenerated once voided. Late-arriving transactions will be carried forward to the next period as adjustments.    
+              Void settlement order #{voidTarget?.orderId}? The same period can
+              be regenerated once voided. Late-arriving transactions will be
+              carried forward to the next period as adjustments.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={mutationPending}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => voidTarget && onVoidSubmit(voidTarget)}
+              disabled={mutationPending}
+              onClick={(event) => {
+                event.preventDefault();
+                onVoidSubmit();
+              }}
             >
               Void
             </AlertDialogAction>
@@ -949,7 +935,7 @@ export function SettleOrderListPage() {
 }
 
 /* ============================================================ */
-/* settle-cycle — 结算周期配置                                     */
+/* settle-cycle — 结算周期配置（原型 SettlementCycleSetupPage）    */
 /* ============================================================ */
 
 interface CycleParams {
@@ -957,20 +943,26 @@ interface CycleParams {
   pageSize: number;
   lpName?: string;
   settleCycle?: number;
+  /** 原型 'Inactive / Rejected' 桶：后端仅 approved(20)/非 20 二值，在审态亦落入此桶。 */
+  notApproved?: boolean;
   status?: number;
 }
+
+/** Status 筛选值（ALL / '20' Approved / 'not20' Inactive / Rejected）。 */
+const CYCLE_STATUS_APPROVED = '20';
+const CYCLE_STATUS_NOT_APPROVED = 'not20';
 
 export function SettleCycleListPage() {
   const toast = useToast();
   const [lpNameInput, setLpNameInput] = React.useState(ALL);
   const [settleCycleInput, setSettleCycleInput] = React.useState(ALL);
-  const [statusInput, setStatusInput] = React.useState('20');
+  const [statusInput, setStatusInput] = React.useState(ALL);
   const [params, setParams] = React.useState<CycleParams>({
     pageNum: 1,
     pageSize: PAGE_SIZE_DEFAULT,
-    lpName: undefined,
-    status: 20,
   });
+  const [editingLp, setEditingLp] = React.useState<LpRow | null>(null);
+  const [cycleValue, setCycleValue] = React.useState('3');
 
   const queryParams = React.useMemo<LpListReq>(
     () => ({
@@ -980,6 +972,7 @@ export function SettleCycleListPage() {
         lpName: params.lpName,
         settleCycle: params.settleCycle,
         status: params.status,
+        notApproved: params.notApproved,
       },
     }),
     [params],
@@ -1012,18 +1005,6 @@ export function SettleCycleListPage() {
     return [...names].sort((nameA, nameB) => nameA.localeCompare(nameB));
   }, [optionRows]);
 
-  // TODO: Replace this list-derived status source with a backend status-options API.
-  const statusOptions = React.useMemo(() => {
-    const statuses = new Map<number, string>();
-    for (const row of optionRows) {
-      if (!Number.isFinite(row.status)) continue;
-      statuses.set(row.status, LP_STATUS_LABEL[row.status] ?? String(row.status));
-    }
-    return [...statuses.entries()]
-      .sort(([statusA], [statusB]) => statusA - statusB)
-      .map(([value, label]) => ({ value: String(value), label }));
-  }, [optionRows]);
-
   /** 搜索提交：回第 1 页，并提交当前下拉筛选值。 */
   const onSearch = React.useCallback(() => {
     setParams((prev) => ({
@@ -1031,44 +1012,47 @@ export function SettleCycleListPage() {
       pageNum: 1,
       lpName: lpNameInput === ALL ? undefined : lpNameInput,
       settleCycle: toNumberOrUndef(settleCycleInput),
-      status: toNumberOrUndef(statusInput),
+      status: statusInput === CYCLE_STATUS_APPROVED ? 20 : undefined,
+      notApproved: statusInput === CYCLE_STATUS_NOT_APPROVED ? true : undefined,
     }));
   }, [lpNameInput, settleCycleInput, statusInput]);
 
-  /** 重置搜索条件，并恢复默认的 Approved 状态范围。 */
+  /** 重置搜索条件（原型默认 All）。 */
   const onReset = React.useCallback(() => {
     setLpNameInput(ALL);
     setSettleCycleInput(ALL);
-    setStatusInput('20');
-    setParams((prev) => ({
-      ...prev,
-      pageNum: 1,
-      lpName: undefined,
-      settleCycle: undefined,
-      status: 20,
-    }));
+    setStatusInput(ALL);
+    setParams((prev) => ({ ...prev, pageNum: 1 }));
   }, []);
 
-  /**
-   * 行内下拉直接改周期（源 saveCycle）：成功 toast「{lpName} 已设为{周期}，自下一张结算单生效」；
-   * 显示值不做乐观更新——mutation onSuccess 失效 lp 列表带回库内新值，失败仅 toast
-   * （源失败 load() 回显库内值，此处显示值从未变更，语义等价）。
-   */
+  /** 打开周期编辑弹窗，并以该 LP 当前周期作为初始值。 */
+  const onEditCycle = React.useCallback((row: LpRow) => {
+    setEditingLp(row);
+    setCycleValue(String(row.settleCycle ?? 3));
+  }, []);
+
+  /** 保存弹窗中的周期选择；失败时保留弹窗值供用户重试。 */
   const onSaveCycle = React.useCallback(
-    (row: LpRow, cycle: number) => {
+    () => {
+      if (!editingLp) return;
+      const cycle = Number(cycleValue);
+      // STATIC-FILLER(GAP-ADM-06): 后端无批量保存端点，原型逐行 Save 语义按逐条提交实现。
       saveMutation.mutate(
-        { lpId: row.lpId, settleCycle: cycle },
+        { lpId: editingLp.lpId, settleCycle: cycle },
         {
           onSuccess: () => {
             toast.success(
-              `${row.lpName} set to ${SETTLE_CYCLE_MAP[cycle] ?? 'Monthly'}, effective from the next settlement order`,
+              `Settlement cycle for "${editingLp.lpName}" saved as ${SETTLE_CYCLE_MAP[cycle] ?? 'Monthly'}.`,
             );
+            setEditingLp(null);
           },
-          onError: (err) => toast.error((err as Error).message),
+          onError: (err) => {
+            toast.error((err as Error).message);
+          },
         },
       );
     },
-    [saveMutation, toast],
+    [cycleValue, editingLp, saveMutation, toast],
   );
 
   const columns = React.useMemo<ColumnDef<LpRow & { id: string }>[]>(
@@ -1084,57 +1068,60 @@ export function SettleCycleListPage() {
       {
         id: 'contactName',
         header: 'Contact',
-        cell: ({ row }) => <span>{row.original.contactName || '--'}</span>,
+        cell: ({ row }) =>
+          row.original.contactName ? (
+            <span>{row.original.contactName}</span>
+          ) : (
+            <Dash />
+          ),
       },
       {
         id: 'settleCycle',
-        header: () => (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  Settlement Cycle
-                  <span className="ml-0.5 text-destructive">*</span>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                Saves on selection; takes effect from the next settlement order (monthly by default)
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ),
+        header: 'Settlement Cycle',
         cell: ({ row }) => {
-          const lp = row.original;
-          return (
-            <Select
-              value={String(lp.settleCycle ?? 3)}
-              onValueChange={(v) => onSaveCycle(lp, Number(v))}
-            >
-              <SelectTrigger className="h-8 w-[110px]" aria-label={`Settlement cycle of ${lp.lpName}`}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(SETTLE_CYCLE_MAP).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          );
+          const cycle = row.original.settleCycle ?? 3;
+          return <span>{SETTLE_CYCLE_MAP[cycle] ?? String(cycle)}</span>;
         },
       },
       {
         id: 'status',
         header: 'Status',
-        cell: ({ row }) => (
-          <Badge variant={LP_STATUS_VARIANT[row.original.status] ?? 'outline'}>
-            {LP_STATUS_LABEL[row.original.status] ?? row.original.status}
-          </Badge>
-        ),
+        cell: ({ row }) => {
+          const status = row.original.status;
+          if (status === 20) {
+            return <ProtoStatusBadge tone="success">Approved</ProtoStatusBadge>;
+          }
+          if (status === 15 || status === 50) {
+            return (
+              <ProtoStatusBadge tone="muted">Inactive / Rejected</ProtoStatusBadge>
+            );
+          }
+          // 后端筛选仅 approved/非 20 二值：在审态（1/5/10）回退域文案展示。
+          return (
+            <ProtoStatusBadge tone="info">
+              {LP_STATUS_LABEL[status] ?? status}
+            </ProtoStatusBadge>
+          );
+        },
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const lp = row.original;
+          return (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onEditCycle(lp)}
+            >
+              Edit
+            </Button>
+          );
+        },
       },
     ],
-    [onSaveCycle],
+    [onEditCycle],
   );
 
   const tableData = React.useMemo(
@@ -1144,10 +1131,12 @@ export function SettleCycleListPage() {
 
   return (
     <div className="space-y-4">
-      {/* 页头 info alert（源 el-alert info：按 LP 配置周期，默认月结，下一张结算单生效）。 */}
+      {/* 页头 hint（原型 el-alert info 逐字）。 */}
       <Alert>
         <AlertDescription>
-        Configure the settlement cycle for each LP: daily, weekly, or monthly (default: monthly). Changes apply from the next settlement order.
+          Configure the settlement statement generation cycle per LP
+          (daily/weekly/monthly, monthly by default); changes take effect from
+          the next settlement statement.
         </AlertDescription>
       </Alert>
 
@@ -1155,7 +1144,7 @@ export function SettleCycleListPage() {
         <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
             <div className="text-base font-semibold leading-6 text-foreground">
-              LP Settlement Cycles
+              Cycle Settings
             </div>
             {!isLoading && paginationMeta ? (
               <span className="text-sm text-muted-foreground tabular-nums">
@@ -1232,11 +1221,10 @@ export function SettleCycleListPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL}>All</SelectItem>
-                  {statusOptions.map(({ value, label }) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value={CYCLE_STATUS_APPROVED}>Approved</SelectItem>
+                  <SelectItem value={CYCLE_STATUS_NOT_APPROVED}>
+                    Inactive / Rejected
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1258,7 +1246,7 @@ export function SettleCycleListPage() {
               columns={columns}
               data={tableData}
               isLoading={isLoading}
-              emptyMessage="No LPs found"
+              emptyMessage="No settlement cycle settings found."
               pagination={
                 paginationMeta
                   ? {
@@ -1276,6 +1264,73 @@ export function SettleCycleListPage() {
           )}
         </div>
       </section>
+
+      <Dialog
+        open={editingLp !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingLp(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Settlement Cycle</DialogTitle>
+            <DialogDescription>
+              Changes take effect from the next settlement statement.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="text-sm font-medium">LP Name</div>
+              <div className="text-sm text-muted-foreground">
+                {editingLp?.lpName ?? '-'}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="edit-settlement-cycle"
+                className="text-sm font-medium"
+              >
+                Settlement Cycle
+              </label>
+              <Select
+                value={cycleValue}
+                onValueChange={setCycleValue}
+                disabled={saveMutation.isPending}
+              >
+                <SelectTrigger id="edit-settlement-cycle" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SETTLE_CYCLE_MAP).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditingLp(null)}
+              disabled={saveMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={onSaveCycle}
+              disabled={
+                !editingLp ||
+                Number(cycleValue) === (editingLp.settleCycle ?? 3) ||
+                saveMutation.isPending
+              }
+            >
+              {saveMutation.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
