@@ -2186,7 +2186,7 @@ export function LpInfoDetailPage() {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <div className='flex flex-col items-start gap-1'>
+          <div className='flex flex-row flex-wrap items-center gap-1.5'>
             <LpPairStatusBadge status={row.original.status} />
             {row.original.statusApprovalPending ? (
               <ApprovalPendingTagWithDialog
@@ -3036,7 +3036,7 @@ export function LpTokenPairListPage() {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <div className='flex flex-col items-start gap-1'>
+          <div className='flex flex-row flex-wrap items-center gap-1.5'>
             <LpPairStatusBadge status={row.original.status} />
             {row.original.statusApprovalPending ? (
               <ApprovalPendingTagWithDialog

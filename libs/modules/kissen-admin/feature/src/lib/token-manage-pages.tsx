@@ -645,7 +645,7 @@ export function TokenManageListPage() {
         id: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <div className='flex flex-col items-start gap-1'>
+          <div className='flex flex-row flex-wrap items-center gap-1.5'>
             <TokenStatusBadge
               status={row.original.status}
               rejectReason={row.original.rejectReason}
@@ -1604,7 +1604,7 @@ export function GatewayInstanceListPage() {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <div className='flex flex-col items-start gap-1'>
+          <div className='flex flex-row flex-wrap items-center gap-1.5'>
             <InstanceStatusBadge status={row.original.status} />
             {row.original.toggleApprovalPending ? (
               <ApprovalPendingTagWithDialog

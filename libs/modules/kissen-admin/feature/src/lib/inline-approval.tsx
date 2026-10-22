@@ -172,7 +172,7 @@ function ContentValue({
   }
   if ((fieldKey in TIME_KEYS)) {
     return (
-      <span className="tabular-nums">{formatUtc8(Number(value))}</span>
+      <span className="text-xs tabular-nums">{formatUtc8(Number(value))}</span>
     );
   }
   if ((fieldKey in FINGERPRINT_KEYS)) {
@@ -443,7 +443,11 @@ export function ApprovalPendingTag({
   return (
     <button
       type="button"
-      title={stepName ? `Approval pending at "${stepName}" — click to review` : 'Approval pending — click to review'}
+      title={
+        stepName
+          ? `Pending approval at "${stepName}" — click to view the change and approve / reject`
+          : 'Pending approval — click to view the change and approve / reject'
+      }
       onClick={onClick}
       className="group inline-flex max-w-full items-center gap-1.5 rounded-md border border-amber-300/80 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 shadow-sm transition-all hover:border-amber-400 hover:bg-amber-100 hover:shadow active:translate-y-px dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
     >

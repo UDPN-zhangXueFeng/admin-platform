@@ -1029,7 +1029,7 @@ export function BankInfoListPage() {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <div className='flex flex-col items-start gap-1'>
+          <div className='flex flex-row flex-wrap items-center gap-1.5'>
             <BankStatusBadge status={row.original.status} />
             {row.original.approvalPending ? (
               <ApprovalPendingTagWithDialog
