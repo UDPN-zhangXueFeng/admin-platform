@@ -23,11 +23,11 @@ import {
 import {
   Badge,
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
   Textarea,
 } from '@myorg/shared/ui';
 
@@ -45,9 +45,9 @@ import {
 import { formatUtc8 } from './proto-format';
 
 /**
- * 行内审批（2026-10-22 P1，设计 §4.8）：审批动作在业务页就地完成，不跳审批中心。
- * 面板数据 detailByBusiness 三态；动作复用 process / previousStep / withdraw。
- * 2026-10-22 视觉改版：状态码→文案徽章、时间戳格式化、字段降噪、幽灵 tag 软胶囊。
+ * 行内审批（P1，设计 §4.8）：审批动作在业务页就地完成，不跳审批中心。
+ * 2026-10-22 v3：审批承载改右侧 Drawer（表格上下文保持可见）；
+ * 页级 ApprovalQueue 队列条聚合本页待审单逐条处理；行内入口收敛为小图标按钮。
  */
 
 /** busCode → 实体状态字典（status/currentStatus/targetStatus 翻译）。 */
@@ -74,8 +74,7 @@ const CONTENT_FIELDS: Array<{ key: string; label: string }> = [
   { key: 'instanceCode', label: 'Instance' },
   { key: 'sourceCurrency', label: 'Source Token' },
   { key: 'targetCurrency', label: 'Target Token' },
-  { key: 'currentStatus', label: 'Current Status' },
-  { key: 'targetStatus', label: 'Target Status' },
+  { key: 'targetStatus', label: 'Status Change' },
   { key: 'oldMinLiquidity', label: 'Current Min Liquidity' },
   { key: 'newMinLiquidity', label: 'New Min Liquidity' },
   { key: 'baseRate', label: 'Base Rate' },
@@ -120,7 +119,7 @@ const TIME_KEYS: Record<string, true> = { createTime: true, periodStart: true, p
 /** 指纹类字段（等宽 + 截断）。 */
 const FINGERPRINT_KEYS: Record<string, true> = { downKeyFingerprint: true, keyFingerprint: true };
 
-/** 状态徽章（currentStatus 用中性、targetStatus 用强调绿）。 */
+/** 状态徽章（旧值中性 / 新值强调绿）。 */
 function StatusChip({
   label,
   tone,
@@ -154,7 +153,11 @@ function ContentValue({
 }) {
   if (value === null || value === undefined || value === '') return <Dash />;
   if (fieldKey === 'action') {
-    return <span className='text-xs font-medium'>{ACTION_LABELS[String(value)] ?? String(value)}</span>;
+    return (
+      <span className="text-xs font-medium">
+        {ACTION_LABELS[String(value)] ?? String(value)}
+      </span>
+    );
   }
   const isStatus =
     fieldKey === 'currentStatus' ||
@@ -170,17 +173,17 @@ function ContentValue({
       />
     );
   }
-  if ((fieldKey in TIME_KEYS)) {
+  if (fieldKey in TIME_KEYS) {
     return (
       <span className="text-xs tabular-nums">{formatUtc8(Number(value))}</span>
     );
   }
-  if ((fieldKey in FINGERPRINT_KEYS)) {
+  if (fieldKey in FINGERPRINT_KEYS) {
     return (
       <span className="font-mono text-xs break-all">{String(value)}</span>
     );
   }
-  return <span className='text-xs'>{String(value)}</span>;
+  return <span className="text-xs">{String(value)}</span>;
 }
 
 export interface InlineApprovalPanelProps {
@@ -192,7 +195,7 @@ export interface InlineApprovalPanelProps {
 
 /**
  * 行内审批面板：元信息 → 变更内容（状态对渲染为 旧徽章→新徽章）→ 意见 + 动作 → 结果态。
- * recordExists=false 渲染空态；动作成功后原地变结果态不自动关闭。
+ * recordExists=false 渲染空态；动作成功后原地变结果态不自动关闭（队列模式由外层推进）。
  */
 export function InlineApprovalPanel({
   busCode,
@@ -213,6 +216,12 @@ export function InlineApprovalPanel({
     label: string;
     ok: boolean;
   } | null>(null);
+
+  // 切换单据时重置本地态（队列模式复用同一面板实例）
+  React.useEffect(() => {
+    setRemarks('');
+    setDone(null);
+  }, [busCode, busId]);
 
   if (isLoading) {
     return (
@@ -312,7 +321,12 @@ export function InlineApprovalPanel({
         !(hasTargetPair && f.key === 'currentStatus'),
     ),
     ...Object.keys(raw)
-      .filter((k) => !(k in HIDDEN_KEYS) && !CONTENT_FIELDS.some((f) => f.key === k))
+      .filter(
+        (k) =>
+          !(k in HIDDEN_KEYS) &&
+          !(hasTargetPair && k === 'currentStatus') &&
+          !CONTENT_FIELDS.some((f) => f.key === k),
+      )
       .map((k) => ({ key: k, label: k })),
   ];
 
@@ -430,7 +444,7 @@ export function InlineApprovalPanel({
   );
 }
 
-/** 在途审批入口按钮：明确的操作 CTA（区别于状态徽章），点击打开行内审批弹窗。 */
+/** 在途审批行内入口：小图标按钮（悬浮提示明示用途），点击打开右侧审批抽屉。 */
 export function ApprovalPendingTag({
   applyCode,
   stepName,
@@ -449,59 +463,17 @@ export function ApprovalPendingTag({
           : 'Pending approval — click to view the change and approve / reject'
       }
       onClick={onClick}
-      className="group inline-flex max-w-full items-center gap-1.5 rounded-md border border-amber-300/80 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 shadow-sm transition-all hover:border-amber-400 hover:bg-amber-100 hover:shadow active:translate-y-px dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-amber-300/80 bg-amber-50 text-amber-700 transition-all hover:scale-110 hover:border-amber-400 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
     >
-      <FileClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span className="shrink-0">Review Approval</span>
-      {applyCode ? (
-        <span className="truncate font-mono text-[10px] opacity-60">{applyCode}</span>
-      ) : null}
-      <ChevronRight
-        className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5"
-        aria-hidden="true"
-      />
+      <FileClock className="h-3 w-3" aria-hidden="true" />
+      <span className="sr-only">
+        Review approval{applyCode ? ` ${applyCode}` : ''}
+      </span>
     </button>
   );
 }
 
-/** 行内审批入口按钮 + 弹窗（业务页动作列用；不跳路由）。 */
-export function InlineApprovalButton({
-  busCode,
-  busId,
-  onHandled,
-  label = 'Review',
-}: InlineApprovalPanelProps & { label?: string }) {
-  const [open, setOpen] = React.useState(false);
-  return (
-    <>
-      <Button
-        variant="link"
-        size="sm"
-        className="h-auto p-0"
-        onClick={() => setOpen(true)}
-      >
-        {label}
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md sm:max-w-xl w-[92vw]">
-          <DialogHeader>
-            <DialogTitle>Inline Approval</DialogTitle>
-            <DialogDescription>
-              Approve in place — business executes immediately on approval.
-            </DialogDescription>
-          </DialogHeader>
-          <InlineApprovalPanel
-            busCode={busCode}
-            busId={busId}
-            onHandled={() => onHandled?.()}
-          />
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-/** 幽灵 tag + 弹窗组合（状态列用：点击 tag 查看进度/撤回/审批）。 */
+/** 行内入口 + 右侧审批抽屉（状态列用；表格上下文保持可见）。 */
 export function ApprovalPendingTagWithDialog({
   busCode,
   busId,
@@ -523,21 +495,157 @@ export function ApprovalPendingTagWithDialog({
         stepName={stepName}
         onClick={() => setOpen(true)}
       />
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md sm:max-w-xl w-[92vw]">
-          <DialogHeader>
-            <DialogTitle>Approval In Progress</DialogTitle>
-            <DialogDescription>
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerContent className="w-[480px] max-w-none sm:max-w-[480px]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <FileClock className="h-4 w-4 text-amber-600" aria-hidden="true" />
+              Approval In Progress
+            </DrawerTitle>
+            <DrawerDescription>
               Review the pending change and take action in place.
-            </DialogDescription>
-          </DialogHeader>
-          <InlineApprovalPanel
-            busCode={busCode}
-            busId={busId}
-            onHandled={() => onHandled?.()}
-          />
-        </DialogContent>
-      </Dialog>
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 pb-6">
+            <InlineApprovalPanel
+              busCode={busCode}
+              busId={busId}
+              onHandled={() => onHandled?.()}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </>
+  );
+}
+
+/** 行内审批入口按钮 + 抽屉（业务页动作列用；不跳路由）。 */
+export function InlineApprovalButton({
+  busCode,
+  busId,
+  onHandled,
+  label = 'Review',
+}: InlineApprovalPanelProps & { label?: string }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <Button
+        variant="link"
+        size="sm"
+        className="h-auto p-0"
+        onClick={() => setOpen(true)}
+      >
+        {label}
+      </Button>
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerContent className="w-[480px] max-w-none sm:max-w-[480px]">
+          <DrawerHeader>
+            <DrawerTitle>Inline Approval</DrawerTitle>
+            <DrawerDescription>
+              Approve in place — business executes immediately on approval.
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 pb-6">
+            <InlineApprovalPanel
+              busCode={busCode}
+              busId={busId}
+              onHandled={() => onHandled?.()}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </>
+  );
+}
+
+/* ============================================================ */
+/* 页级审批队列（B 方案）：本页待我审的单聚合为横条，逐条处理清空 */
+/* ============================================================ */
+
+export interface ApprovalQueueItem {
+  busCode: string;
+  busId: number;
+  /** 队列条与抽屉标题里显示的实体名（如银行名/交易对）。 */
+  label: string;
+}
+
+/**
+ * 页级审批队列条 + 逐条抽屉（2026-10-22 C+B）：
+ * - 本页存在待我审的单时，表格上方渲染琥珀横条 `N awaiting your review → Review`；
+ * - 点 Review 打开右侧抽屉逐条审批，处理完自动跳下一条，清零后横条消失；
+ * - 行内小图标入口保留为兜底。
+ */
+export function ApprovalQueue({
+  items,
+  onHandled,
+}: {
+  items: ApprovalQueueItem[];
+  onHandled?: () => void;
+}) {
+  const visible = items.length > 0;
+  const [open, setOpen] = React.useState(false);
+  const [index, setIndex] = React.useState(0);
+
+  // 队列缩短（审批生效、列表刷新）时收敛游标
+  React.useEffect(() => {
+    if (index >= items.length) setIndex(0);
+  }, [items.length, index]);
+
+  if (!visible) return null;
+  const current = items[Math.min(index, items.length - 1)];
+  const advance = () => {
+    onHandled?.();
+    if (index + 1 < items.length) {
+      setIndex(index + 1);
+    } else {
+      setOpen(false);
+      setIndex(0);
+    }
+  };
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+        <span className="inline-flex items-center gap-2">
+          <FileClock className="h-4 w-4" aria-hidden="true" />
+          <span>
+            <b className="tabular-nums">{items.length}</b> item
+            {items.length > 1 ? 's' : ''} awaiting your review on this page
+          </span>
+        </span>
+        <Button
+          size="sm"
+          className="h-7 gap-1 bg-amber-600 text-white hover:bg-amber-700"
+          onClick={() => {
+            setIndex(0);
+            setOpen(true);
+          }}
+        >
+          Review
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+      </div>
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerContent className="w-[480px] max-w-none sm:max-w-[480px]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <FileClock className="h-4 w-4 text-amber-600" aria-hidden="true" />
+              Review {index + 1} / {items.length}
+            </DrawerTitle>
+            <DrawerDescription className="truncate">
+              {current.label}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 pb-6">
+            <InlineApprovalPanel
+              key={`${current.busCode}:${current.busId}`}
+              busCode={current.busCode}
+              busId={current.busId}
+              onHandled={advance}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

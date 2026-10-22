@@ -116,7 +116,7 @@ import {
   type ProtoStatusTone,
 } from './proto-ui';
 import { formatTokenAmount, formatUtc8 } from './proto-format';
-import { ApprovalPendingTagWithDialog } from './inline-approval';
+import { ApprovalQueue, ApprovalPendingTagWithDialog } from './inline-approval';
 
 /** P1 审批 busCode（与后端 WorkflowBusinessTypeEnum 一致，2026-10-22）。 */
 const BUS_CODE_TOKEN_TOGGLE = 'kissen_token_toggle';
@@ -425,7 +425,7 @@ export function TokenManageListPage() {
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(PAGE_SIZE_DEFAULT);
 
-  const { data, isLoading, isError, dataUpdatedAt } = useTokenListPageQuery(
+  const { data, isLoading, isError, dataUpdatedAt, refetch } = useTokenListPageQuery(
     KISSEN_PROJECT_ID,
     { pageNum: page, pageSize, filter },
   );
@@ -814,6 +814,18 @@ export function TokenManageListPage() {
 
         </form>
         <div className="p-4">
+          <ApprovalQueue
+            items={tableData
+              .flatMap((r) => [
+                ...(r.toggleApprovalPending && r.toggleCanApprove
+                  ? [{ busCode: BUS_CODE_TOKEN_TOGGLE, busId: r.tokenId, label: r.tokenName ?? r.tokenCode }]
+                  : []),
+                ...(r.paramApprovalPending && r.paramCanApprove
+                  ? [{ busCode: BUS_CODE_TOKEN_PARAM, busId: r.tokenId, label: `${r.tokenName ?? r.tokenCode} · Min Liquidity` }]
+                  : []),
+              ])}
+            onHandled={() => void refetch()}
+          />
           {/* API 返回当前页数据，DataTable 使用服务端分页元数据。 */}
           {isError ? (
             <Alert variant="destructive" role="alert">
@@ -1393,7 +1405,7 @@ export function GatewayInstanceListPage() {
     filter: instanceFormToFilter(EMPTY_INSTANCE_FILTER),
   }));
 
-  const { data, isLoading, dataUpdatedAt } = useInstanceListQuery(
+  const { data, isLoading, dataUpdatedAt, refetch: refetchInstances } = useInstanceListQuery(
     KISSEN_PROJECT_ID,
     req,
   );
@@ -1818,6 +1830,20 @@ export function GatewayInstanceListPage() {
           </div>
         </form>
         <div className="p-4">
+          <ApprovalQueue
+            items={tableData
+              .flatMap((r) => [
+                ...(r.toggleApprovalPending && r.toggleCanApprove
+                  ? [{ busCode: BUS_CODE_GATEWAY_TOGGLE, busId: r.instanceId, label: r.instanceCode }]
+                  : []),
+                ...(r.keyResetApprovalPending && r.keyResetCanApprove
+                  ? [{ busCode: BUS_CODE_GATEWAY_KEY_RESET, busId: r.instanceId, label: `${r.instanceCode} · Key Reset` }]
+                  : []),
+              ])}
+            onHandled={() => void refetchInstances()}
+          />
+          
+          
           <DataTable
             columns={columns}
             data={tableData}

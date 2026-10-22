@@ -78,7 +78,7 @@ import {
   ProtoStatusBadge,
   type ProtoStatusTone,
 } from './proto-ui';
-import { ApprovalPendingTagWithDialog } from './inline-approval';
+import { ApprovalQueue, ApprovalPendingTagWithDialog } from './inline-approval';
 
 /** KPS Token 对启停审批 busCode（2026-10-22 P1）。 */
 const BUS_CODE_PAIR_STATUS = 'kissen_pair_status';
@@ -322,7 +322,7 @@ export function TokenPairListPage() {
     filter: {},
   });
 
-  const { data: pageResult, isLoading, isError, dataUpdatedAt } =
+  const { data: pageResult, isLoading, isError, dataUpdatedAt, refetch } =
     useTokenPairListQuery(PROJECT_ID, request);
   const enableMutation = useEnableTokenPairMutation(PROJECT_ID);
   const disableMutation = useDisableTokenPairMutation(PROJECT_ID);
@@ -724,6 +724,16 @@ export function TokenPairListPage() {
           </div>
         </form>
         <div className="p-4">
+          <ApprovalQueue
+            items={tableData
+              .filter((r) => r.statusApprovalPending && r.statusCanApprove)
+              .map((r) => ({
+                busCode: BUS_CODE_PAIR_STATUS,
+                busId: r.pairId,
+                label: r.pairCode,
+              }))}
+            onHandled={() => void refetch()}
+          />
           {isError ? (
             <Alert variant="destructive" role="alert">
               <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>

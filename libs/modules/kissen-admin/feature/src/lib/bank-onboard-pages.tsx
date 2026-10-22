@@ -130,6 +130,7 @@ import {
 import { formatTokenAmount, formatUtc8 } from './proto-format';
 import { PROTO_BANK_STATUS, protoStatusLabel } from './proto-enums';
 import {
+  ApprovalQueue,
   ApprovalPendingTagWithDialog,
   InlineApprovalPanel,
 } from './inline-approval';
@@ -935,7 +936,7 @@ export function BankInfoListPage() {
     bankFormToParams(EMPTY_BANK_FILTER, 1, PAGE_SIZE_DEFAULT),
   );
 
-  const { data, isLoading, isError, dataUpdatedAt } = useBankListQuery(
+  const { data, isLoading, isError, dataUpdatedAt, refetch } = useBankListQuery(
     KISSEN_PROJECT_ID,
     params,
   );
@@ -1229,6 +1230,16 @@ export function BankInfoListPage() {
           </div>
         </form>
         <div className="p-4">
+          <ApprovalQueue
+            items={tableData
+              .filter((r) => r.approvalPending && r.approvalCanApprove)
+              .map((r) => ({
+                busCode: BUS_CODE_BANK_TOGGLE,
+                busId: r.bankId,
+                label: r.bankName,
+              }))}
+            onHandled={() => void refetch()}
+          />
           {isError ? (
             <Alert variant="destructive" role="alert">
               <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>

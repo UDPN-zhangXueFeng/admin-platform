@@ -150,7 +150,7 @@ import {
   ProtoStatusBadge,
   type ProtoStatusTone,
 } from './proto-ui';
-import { ApprovalPendingTagWithDialog } from './inline-approval';
+import { ApprovalQueue, ApprovalPendingTagWithDialog } from './inline-approval';
 
 /** KLPS LP 参与对启停审批 busCode（2026-10-22 P1）。 */
 const BUS_CODE_LP_PAIR_STATUS = 'kissen_lp_pair_status';
@@ -920,7 +920,7 @@ export function LpInfoListPage() {
           </div>
         </form>
         <div className="p-4">
-          {isError ? (
+{isError ? (
             <Alert variant="destructive" role="alert">
               <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
             </Alert>
@@ -2892,7 +2892,7 @@ export function LpTokenPairListPage() {
   });
   const { data: tokenPairOptions } = useLpPairTokenPairOptionsQuery(PROJECT_ID);
 
-  const { data, isLoading, isError, dataUpdatedAt } = useLpPairListQuery(
+  const { data, isLoading, isError, dataUpdatedAt, refetch } = useLpPairListQuery(
     PROJECT_ID,
     {
       pageNum,
@@ -3220,6 +3220,17 @@ export function LpTokenPairListPage() {
           </div>
         </div>
         <div className="p-4">
+          <ApprovalQueue
+            items={tableData
+              .filter((r) => r.statusApprovalPending && r.statusCanApprove)
+              .map((r) => ({
+                busCode: BUS_CODE_LP_PAIR_STATUS,
+                busId: r.id,
+                label: `${r.lpName} · ${r.pairCode}`,
+              }))}
+            onHandled={() => void refetch()}
+          />
+          
           {isError ? (
             <Alert variant="destructive" role="alert">
               <AlertTitle>Failed to load. Refresh to retry.</AlertTitle>
