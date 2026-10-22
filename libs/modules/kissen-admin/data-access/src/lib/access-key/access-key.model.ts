@@ -19,6 +19,10 @@ export interface AccessKeyRow {
   /** Gateway instance this key was bound to (0/absent = unbound). */
   instanceId?: number;
   createTime: number;
+  /** AKR 吊销审批在途概要（listBrief 合并，2026-10-22 P1）。 */
+  revokeApprovalPending?: boolean;
+  revokeCanApprove?: boolean;
+  revokeApplyCode?: string;
 }
 
 /** Body of POST /manage/bank/{bankId}/access-key (generation response). */

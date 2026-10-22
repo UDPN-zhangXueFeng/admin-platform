@@ -137,6 +137,7 @@ import {
 
 /** KBT 银行启停审批 busCode（与后端 WorkflowBusinessTypeEnum 一致）。 */
 const BUS_CODE_BANK_TOGGLE = 'kissen_bank_toggle';
+const BUS_CODE_ACCESS_KEY_REVOKE = 'kissen_access_key_revoke';
 import {
   ConnectivityBadge,
   InstanceStatusBadge,
@@ -360,7 +361,7 @@ function AccessKeyDrawer({
   onClose: () => void;
 }) {
   const toast = useToast();
-  const { data, isLoading } = useAccessKeyListQuery(
+  const { data, isLoading, refetch: refetchKeys } = useAccessKeyListQuery(
     KISSEN_PROJECT_ID,
     bank.bankId,
   );
@@ -420,7 +421,7 @@ function AccessKeyDrawer({
       { keyId: revokeTarget.keyId, reason },
       {
         onSuccess: () => {
-          toast.success('Revoked');
+          toast.success('Revoke approval submitted');
           setRevokeTarget(null);
         },
         onError: (e) => toast.error((e as Error).message),
@@ -444,9 +445,18 @@ function AccessKeyDrawer({
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <Badge variant={row.original.status === 20 ? 'default' : 'secondary'}>
-            {KEY_STATUS_LABEL[row.original.status] ?? row.original.status}
-          </Badge>
+          <div className='flex flex-row flex-wrap items-center gap-1.5'>
+            <Badge variant={row.original.status === 20 ? 'default' : 'secondary'}>
+              {KEY_STATUS_LABEL[row.original.status] ?? row.original.status}
+            </Badge>
+            {row.original.revokeApprovalPending ? (
+              <ApprovalPendingTagWithDialog
+                busCode={BUS_CODE_ACCESS_KEY_REVOKE}
+                busId={row.original.keyId}
+                applyCode={row.original.revokeApplyCode}
+              />
+            ) : null}
+          </div>
         ),
       },
       {
@@ -513,6 +523,17 @@ function AccessKeyDrawer({
               </AlertDescription>
             </Alert>
 
+            <ApprovalQueue
+              items={rows
+                .filter((r) => r.revokeApprovalPending && r.revokeCanApprove)
+                .map((r) => ({
+                  busCode: BUS_CODE_ACCESS_KEY_REVOKE,
+                  busId: r.keyId,
+                  label: `${bank.bankName} · Key #${r.keyId}`,
+                  applyCode: r.revokeApplyCode,
+                }))}
+              onHandled={() => void refetchKeys()}
+            />
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
                 {rows.length} keys

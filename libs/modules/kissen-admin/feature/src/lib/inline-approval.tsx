@@ -60,6 +60,11 @@ const STATUS_MAP_BY_BUS: Record<string, Record<number, ProtoStatusMeta>> = {
   kissen_gateway_key_reset: PROTO_INSTANCE_STATUS,
   kissen_lp_pair_status: PROTO_LP_PAIR_STATUS,
   kissen_settle_void: PROTO_SETTLE_ORDER_STATUS,
+  kissen_access_key_revoke: {
+    20: { label: 'Active', rank: 0 },
+    50: { label: 'Revoked', rank: 1 },
+    60: { label: 'Expired', rank: 2 },
+  },
 };
 
 /** action 语义值 → 文案（Hero 意图行）。 */
@@ -88,6 +93,7 @@ const HERO_KEYS: Record<string, true> = {
 /** Details 字段：label + 顺序（Hero 消耗后的剩余字段；未列出排最后）。 */
 const DETAIL_FIELDS: Array<{ key: string; label: string }> = [
   { key: 'bankBic', label: 'BIC' },
+  { key: 'keyFingerprint', label: 'Key Fingerprint' },
   { key: 'sourceCurrency', label: 'Source Token' },
   { key: 'targetCurrency', label: 'Target Token' },
   { key: 'baseRate', label: 'Base Rate' },
