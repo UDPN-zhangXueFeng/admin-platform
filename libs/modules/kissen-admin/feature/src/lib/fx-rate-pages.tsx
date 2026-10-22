@@ -536,7 +536,7 @@ export function TokenPairListPage() {
             <ApprovalBusinessLink
               busCode="kissen_rate_change"
               busId={row.original.pairId}
-              pending={row.original.pairApprovalPending}
+              pending={row.original.pendingChange}
               label="Parameter Change Approval"
             />
             {row.original.statusApprovalPending ? (
@@ -544,6 +544,12 @@ export function TokenPairListPage() {
                 busCode={BUS_CODE_PAIR_STATUS}
                 busId={row.original.pairId}
                 applyCode={row.original.statusApplyCode}
+              />
+            ) : null}
+            {[5, 10].includes(row.original.status) ? (
+              <ApprovalPendingTagWithDialog
+                busCode="kissen_pair_toggle"
+                busId={row.original.pairId}
               />
             ) : null}
           </div>
@@ -949,7 +955,7 @@ export function TokenPairCreatePage() {
         );
         return (
           existing != null &&
-          (existing.pairApprovalPending || [5, 10, 15].includes(existing.status))
+          (existing.pendingChange || [5, 10, 15].includes(existing.status))
         );
       }),
     [pairsQuery.data, selected],
@@ -1583,7 +1589,7 @@ export function TokenPairDetailPage() {
                 <ApprovalBusinessLink
                   busCode="kissen_rate_change"
                   busId={record.pairId}
-                  pending={record.pairApprovalPending}
+                  pending={record.pendingChange}
                   label="Parameter Change Approval"
                 />
               </DetailField>
@@ -1656,7 +1662,7 @@ function PairEditForm({ row }: { row: TokenPairRow }) {
   // 已驳回（15）= KPT 重提：SaveReq 无 pairId，按 source+target 组合识别；
   // 其余可编辑状态 = KRC 参数变更（现值生效至审批通过）。
   const isResubmit = row.status === 15;
-  const pending = row.pairApprovalPending || row.status === 5;
+  const pending = row.pendingChange || row.status === 5;
 
   const onSubmit = React.useCallback(() => {
     const nextErrors = {

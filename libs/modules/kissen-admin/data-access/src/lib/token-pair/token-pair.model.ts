@@ -37,8 +37,9 @@ export interface TokenPairRow {
   sourceMinLiquidity: string | number;
   /** 目标端默认最低流动性。 */
   targetMinLiquidity: string | number;
-  /** A KRC parameter-change approval is in flight (source 2023418). */
-  pairApprovalPending: boolean;
+  /** KRC 参数变更审批在途（后端 listPairs 行键 pendingChange；2026-10-22 修正字段名错位）。
+   * 迁移时误写 pairApprovalPending，后端从未返回该键 → KRC 待审标记一直不显示。 */
+  pendingChange: boolean;
   status: number;
   createTime: number;
 
