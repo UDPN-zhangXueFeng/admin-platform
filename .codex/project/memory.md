@@ -1,5 +1,11 @@
 # Codex 对话沉淀
 
+## 2026-10-21 三门户普通金额两位精度
+
+- 三门户没有能覆盖自定义 JSX 数字格式器的 app-level 全局精度设置；展示逻辑分别在 `libs/modules/{kissen-admin,lp-portal,kissen-gateway}/feature`。普通金额使用固定两位；FX 汇率维持 4 位，token 金额维持 token 精度/现有去尾零口径。
+- Kissen Admin 的 `formatAmount` 和 LP 的 `formatAmount` 默认已固定两位；LP `formatMoney` 当前只用于 Token List 的 `minLiquidity`，按 token 值保留后端精度。Gateway Overview 普通金额应复用 `kit.ts` 的 `fmtAmount` 固定两位，交易链路带 token symbol 的金额应使用 `formatTokenAmount`，不可走普通金额 formatter。
+- 验证：`modules-kissen-gateway-feature` test/lint 通过；三门户 build 通过；浏览器在隔离会话并拦截为只读 fixture 的 Gateway Overview 实测 `1234.5 → 1,234.50`、`9876.543 → 9,876.54`；Gateway formatter 测试同时确认汇率 4 位、token 金额精度保留。
+
 ## 2026-10-21 LP FX Transactions 详情布局
 
 - LP `/tx-flow?txNo=...` 由 `TxFlowListPage` 内联的 `TxDetailView` 展示，依赖 `sessionStorage` 的 `lp_tx_stash:` 行暂存和链路查询。当前视觉依据是 Kissen Admin 实际生效的 `TxDetailPage`：实现位于 `libs/modules/kissen-admin/feature/src/lib/transaction-pages.tsx`，并在 `apps/kissen-admin/src/app/[locale]/(app)/[module]/[[...slug]]/module-page-registry.ts` 注册；其 `xl` 8/4 布局为左侧概览、Source/Target 交易信息与 Timing，右侧为 Clearance Pipeline。LP 在自身模块内适配，不跨引入 Kissen feature，并保留 Pair Code 和 LP 交易字段。

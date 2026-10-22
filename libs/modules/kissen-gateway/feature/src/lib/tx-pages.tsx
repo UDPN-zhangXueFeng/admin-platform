@@ -42,7 +42,7 @@ import {
 } from '@myorg/modules/kissen-gateway/data-access';
 
 import { DescField, DescGrid } from './desc-grid';
-import { OPT_ALL, fmtAmount, formatTime, orDash, toEpochMs } from './kit';
+import { OPT_ALL, formatTime, orDash, toEpochMs } from './kit';
 import { CopyableId, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
 import { formatRate, formatTokenAmount, formatUtc8 } from './proto-format';
 import { PROTO_TX_STATUS, protoStatusText } from './proto-enums';
@@ -295,7 +295,7 @@ function stageFieldsOf(
     v: number | null | undefined,
     sym: string | undefined,
   ): string | undefined =>
-    v == null ? undefined : sym ? `${fmtAmount(v)} ${sym}` : fmtAmount(v);
+    v == null ? undefined : sym ? `${formatTokenAmount(v)} ${sym}` : formatTokenAmount(v);
   const lp = record?.lpNames?.length
     ? record.lpNames.join(', ')
     : (record?.lpCode || undefined);

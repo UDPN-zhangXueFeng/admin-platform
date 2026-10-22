@@ -48,6 +48,7 @@ import {
 } from '@myorg/modules/kissen-gateway/data-access';
 
 import { formatUtc8 } from './proto-format';
+import { fmtAmount } from './kit';
 import type { ProtoStatusTone } from './proto-ui';
 import { PageHead } from './page-head';
 import { EmptyHint, ErrorBlock } from './state-blocks';
@@ -155,7 +156,6 @@ const countFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 function num(v: number | null | undefined): string {
   return countFmt.format(Number.isFinite(Number(v)) ? Number(v) : 0);
 }
-const amountFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
 const shortDayFmt = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
@@ -549,13 +549,13 @@ export function OverviewListPage() {
                   <div className="rounded-lg border bg-muted/30 p-4">
                     <p className="text-sm text-muted-foreground">{LBL.sourceAmount}</p>
                     <p className="mt-2 text-2xl font-semibold tabular-nums">
-                      {amountFmt.format(Number(trendStatsQuery.data?.sourcePrincipalSum) || 0)}
+                      {fmtAmount(Number(trendStatsQuery.data?.sourcePrincipalSum) || 0)}
                     </p>
                   </div>
                   <div className="rounded-lg border bg-muted/30 p-4">
                     <p className="text-sm text-muted-foreground">{LBL.targetAmount}</p>
                     <p className="mt-2 text-2xl font-semibold tabular-nums">
-                      {amountFmt.format(Number(trendStatsQuery.data?.targetPrincipalSum) || 0)}
+                      {fmtAmount(Number(trendStatsQuery.data?.targetPrincipalSum) || 0)}
                     </p>
                   </div>
                   <p className="text-xs leading-relaxed text-muted-foreground sm:col-span-2">
