@@ -2,6 +2,14 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
+import {
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  Undo2,
+  UserRound,
+  XCircle,
+} from 'lucide-react';
 
 import {
   KISSEN_PROJECT_ID,
@@ -21,78 +29,156 @@ import {
   Textarea,
 } from '@myorg/shared/ui';
 
-import { Dash, ProtoStatusBadge } from './proto-ui';
+import { Dash } from './proto-ui';
+import {
+  PROTO_BANK_STATUS,
+  PROTO_INSTANCE_STATUS,
+  PROTO_LP_PAIR_STATUS,
+  PROTO_PAIR_STATUS,
+  PROTO_SETTLE_ORDER_STATUS,
+  PROTO_TOKEN_STATUS,
+  protoStatusLabel,
+  type ProtoStatusMeta,
+} from './proto-enums';
+import { formatUtc8 } from './proto-format';
 
 /**
  * 行内审批（2026-10-22 P1，设计 §4.8）：审批动作在业务页就地完成，不跳审批中心。
  * 面板数据 detailByBusiness 三态；动作复用 process / previousStep / withdraw。
+ * 2026-10-22 视觉改版：状态码→文案徽章、时间戳格式化、字段降噪、幽灵 tag 软胶囊。
  */
 
-/** busCode → businessContent 字段中文名（detail 动态字段渲染，field-maps 同款职责）。 */
-const CONTENT_LABELS: Record<string, string> = {
-  bankName: 'Bank Name',
-  bankBic: 'BIC',
-  currentStatus: 'Current Status',
-  targetStatus: 'Target Status',
-  action: 'Action',
-  sourceCurrency: 'Source Token',
-  targetCurrency: 'Target Token',
-  baseRate: 'Base Rate',
-  markupRate: 'Markup Rate',
-  defaultSplitRatio: 'Standard Rev. Share',
-  slippageThreshold: 'Slippage Threshold',
-  pendingAction: 'Pending Action',
-  status: 'Status',
-  tokenName: 'Token Name',
-  oldMinLiquidity: 'Current Min Liquidity',
-  newMinLiquidity: 'New Min Liquidity',
-  pairCode: 'Pair',
-  instanceCode: 'Instance',
-  downKeyFingerprint: 'Down Key Fingerprint',
-  keyFingerprint: 'Key Fingerprint',
-  reason: 'Reason',
-  lpName: 'LP',
-  periodType: 'Period',
-  periodStart: 'Period Start',
-  periodEnd: 'Period End',
-  txCount: 'Tx Count',
-  principalTotal: 'Principal Total',
-  markupTotal: 'Markup Total',
-  orderId: 'Order ID',
-  tokenId: 'Token ID',
-  bankId: 'Bank ID',
-  pairId: 'Pair ID',
-  id: 'ID',
-  instanceId: 'Instance ID',
-  keyId: 'Key ID',
+/** busCode → 实体状态字典（status/currentStatus/targetStatus 翻译）。 */
+const STATUS_MAP_BY_BUS: Record<string, Record<number, ProtoStatusMeta>> = {
+  kissen_bank_toggle: PROTO_BANK_STATUS,
+  kissen_token_toggle: PROTO_TOKEN_STATUS,
+  kissen_token_param: PROTO_TOKEN_STATUS,
+  kissen_pair_status: PROTO_PAIR_STATUS,
+  kissen_pair_toggle: PROTO_PAIR_STATUS,
+  kissen_gateway_toggle: PROTO_INSTANCE_STATUS,
+  kissen_gateway_key_reset: PROTO_INSTANCE_STATUS,
+  kissen_lp_pair_status: PROTO_LP_PAIR_STATUS,
+  kissen_settle_void: PROTO_SETTLE_ORDER_STATUS,
 };
 
-/** action 字段值 → 展示文案。 */
+/** businessContent 字段：中文名 + 展示顺序（未列出的排最后，内部 id 不展示）。 */
+const CONTENT_FIELDS: Array<{ key: string; label: string }> = [
+  { key: 'bankName', label: 'Bank' },
+  { key: 'bankBic', label: 'BIC' },
+  { key: 'lpName', label: 'LP' },
+  { key: 'tokenName', label: 'Token Name' },
+  { key: 'tokenCode', label: 'Token' },
+  { key: 'pairCode', label: 'Pair' },
+  { key: 'instanceCode', label: 'Instance' },
+  { key: 'sourceCurrency', label: 'Source Token' },
+  { key: 'targetCurrency', label: 'Target Token' },
+  { key: 'currentStatus', label: 'Current Status' },
+  { key: 'targetStatus', label: 'Target Status' },
+  { key: 'oldMinLiquidity', label: 'Current Min Liquidity' },
+  { key: 'newMinLiquidity', label: 'New Min Liquidity' },
+  { key: 'baseRate', label: 'Base Rate' },
+  { key: 'markupRate', label: 'Markup Rate' },
+  { key: 'defaultSplitRatio', label: 'Standard Rev. Share' },
+  { key: 'slippageThreshold', label: 'Slippage Threshold' },
+  { key: 'action', label: 'Action' },
+  { key: 'pendingAction', label: 'Pending Action' },
+  { key: 'status', label: 'Status' },
+  { key: 'instanceCount', label: 'Instances' },
+  { key: 'txCount', label: 'Transactions' },
+  { key: 'principalTotal', label: 'Principal Total' },
+  { key: 'markupTotal', label: 'Markup Total' },
+  { key: 'periodStart', label: 'Period Start' },
+  { key: 'periodEnd', label: 'Period End' },
+  { key: 'reason', label: 'Reason' },
+  { key: 'downKeyFingerprint', label: 'Down Key Fingerprint' },
+  { key: 'keyFingerprint', label: 'Key Fingerprint' },
+  { key: 'createTime', label: 'Created on' },
+];
+
+/** 内部主键与冗余字段不展示（审批人不需要）。 */
+const HIDDEN_KEYS: Record<string, true> = {
+  bankId: true, tokenId: true, pairId: true, instanceId: true,
+  keyId: true, orderId: true, lpId: true, id: true,
+};
+
+/** action 语义值 → 文案。 */
 const ACTION_LABELS: Record<string, string> = {
   disable: 'Disable',
   enable: 'Enable',
   reset_key: 'Reset Down Key',
   revoke: 'Revoke',
-  void: 'Void',
+  void: 'Void Order',
   stop: 'Deactivate',
   restore: 'Restore Draft',
 };
 
-/** 渲染 businessContent 单个字段值（数字状态码/action 转文案，其余 String）。 */
-function contentValue(key: string, value: unknown): string {
-  if (value === null || value === undefined || value === '') return '—';
-  if (key === 'action') return ACTION_LABELS[String(value)] ?? String(value);
-  return String(value);
+/** 时间戳字段（epoch ms → UTC+8）。 */
+const TIME_KEYS: Record<string, true> = { createTime: true, periodStart: true, periodEnd: true };
+
+/** 指纹类字段（等宽 + 截断）。 */
+const FINGERPRINT_KEYS: Record<string, true> = { downKeyFingerprint: true, keyFingerprint: true };
+
+/** 状态徽章（currentStatus 用中性、targetStatus 用强调绿）。 */
+function StatusChip({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: 'current' | 'target';
+}) {
+  return (
+    <Badge
+      variant={tone === 'target' ? 'default' : 'secondary'}
+      className={
+        tone === 'current'
+          ? 'bg-muted/60 text-muted-foreground line-through'
+          : 'bg-emerald-600 hover:bg-emerald-600'
+      }
+    >
+      {label}
+    </Badge>
+  );
 }
 
-/** 面板内单个字段行（diff 视觉：target/new 值绿色强调）。 */
-function ContentRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-4 border-b py-1.5 last:border-b-0">
-      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
-      <span className="text-right text-sm font-medium break-all">{value}</span>
-    </div>
-  );
+/** 单字段值渲染：状态→徽章、时间→格式化、指纹→等宽、其余文本。 */
+function ContentValue({
+  busCode,
+  fieldKey,
+  value,
+}: {
+  busCode: string;
+  fieldKey: string;
+  value: unknown;
+}) {
+  if (value === null || value === undefined || value === '') return <Dash />;
+  if (fieldKey === 'action') {
+    return <span>{ACTION_LABELS[String(value)] ?? String(value)}</span>;
+  }
+  const isStatus =
+    fieldKey === 'currentStatus' ||
+    fieldKey === 'targetStatus' ||
+    fieldKey === 'status';
+  if (isStatus) {
+    const map = STATUS_MAP_BY_BUS[busCode];
+    const label = map ? protoStatusLabel(map, Number(value)) : String(value);
+    return (
+      <StatusChip
+        label={label}
+        tone={fieldKey === 'targetStatus' ? 'target' : 'current'}
+      />
+    );
+  }
+  if ((fieldKey in TIME_KEYS)) {
+    return (
+      <span className="tabular-nums">{formatUtc8(Number(value))}</span>
+    );
+  }
+  if ((fieldKey in FINGERPRINT_KEYS)) {
+    return (
+      <span className="font-mono text-xs break-all">{String(value)}</span>
+    );
+  }
+  return <span>{String(value)}</span>;
 }
 
 export interface InlineApprovalPanelProps {
@@ -103,7 +189,7 @@ export interface InlineApprovalPanelProps {
 }
 
 /**
- * 行内审批面板：元信息 → 变更内容 diff → 意见 + 动作（approveButtonDTO 显隐）→ 结果态。
+ * 行内审批面板：元信息 → 变更内容（状态对渲染为 旧徽章→新徽章）→ 意见 + 动作 → 结果态。
  * recordExists=false 渲染空态；动作成功后原地变结果态不自动关闭。
  */
 export function InlineApprovalPanel({
@@ -123,27 +209,30 @@ export function InlineApprovalPanel({
   const [remarks, setRemarks] = React.useState('');
   const [done, setDone] = React.useState<{
     label: string;
-    tone: 'default' | 'destructive';
+    ok: boolean;
   } | null>(null);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-        Loading approval…
+      <div className="space-y-3 py-2">
+        <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+        <div className="h-16 animate-pulse rounded bg-muted" />
+        <div className="h-16 animate-pulse rounded bg-muted" />
       </div>
     );
   }
   if (isError) {
     return (
-      <div className="py-8 text-center text-sm text-destructive">
+      <div className="flex items-center gap-2 py-6 text-sm text-destructive">
+        <XCircle className="h-4 w-4" aria-hidden="true" />
         Failed to load approval detail.
       </div>
     );
   }
   if (!data || data.recordExists === false) {
     return (
-      <div className="py-8 text-center text-sm text-muted-foreground">
-        No approval record.
+      <div className="py-6 text-center text-sm text-muted-foreground">
+        No approval record for this item.
       </div>
     );
   }
@@ -157,7 +246,7 @@ export function InlineApprovalPanel({
 
   const act = (
     kind: 'approve' | 'reject' | 'back' | 'withdraw',
-    mutation: { mutate: (vars: never, opts?: unknown) => void },
+    mutation: { isPending: boolean; mutate: (vars: never, opts?: unknown) => void },
   ) => {
     if ((kind === 'reject' || kind === 'back') && !remarks.trim()) {
       toast.error('Remarks are required for rejection / return.');
@@ -175,13 +264,13 @@ export function InlineApprovalPanel({
           setDone({
             label:
               kind === 'approve'
-                ? 'Approved · business executed'
+                ? 'Approved — business executed'
                 : kind === 'reject'
                   ? 'Rejected'
                   : kind === 'back'
                     ? 'Returned to previous step'
                     : 'Withdrawn',
-            tone: kind === 'approve' ? 'default' : 'destructive',
+            ok: kind === 'approve',
           });
           onHandled?.();
         },
@@ -192,64 +281,83 @@ export function InlineApprovalPanel({
 
   if (done) {
     return (
-      <div className="flex flex-col items-center gap-2 py-6">
-        <ProtoStatusBadge tone={done.tone}>{done.label}</ProtoStatusBadge>
-        <span className="text-xs text-muted-foreground">
-          List will refresh shortly.
-        </span>
+      <div className="flex flex-col items-center gap-2 py-8">
+        {done.ok ? (
+          <CheckCircle2
+            className="h-10 w-10 text-emerald-600 dark:text-emerald-400"
+            aria-hidden="true"
+          />
+        ) : (
+          <XCircle
+            className="h-10 w-10 text-muted-foreground"
+            aria-hidden="true"
+          />
+        )}
+        <div className="text-sm font-semibold">{done.label}</div>
+        <div className="text-xs text-muted-foreground">
+          The list will refresh shortly.
+        </div>
       </div>
     );
   }
 
-  const content = Object.entries(data.businessContent ?? {}).filter(
-    ([key]) => CONTENT_LABELS[key] !== undefined,
-  );
+  const raw = data.businessContent ?? {};
+  const hasTargetPair = raw['targetStatus'] !== undefined;
+  const ordered = [
+    ...CONTENT_FIELDS.filter(
+      (f) =>
+        raw[f.key] !== undefined &&
+        !(hasTargetPair && f.key === 'currentStatus'),
+    ),
+    ...Object.keys(raw)
+      .filter((k) => !(k in HIDDEN_KEYS) && !CONTENT_FIELDS.some((f) => f.key === k))
+      .map((k) => ({ key: k, label: k })),
+  ];
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 元信息行：提交人/时间 + 流转节点数 */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      {/* 元信息：提交人 / 时间 / 步骤数 */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
         {submitNode ? (
-          <span>
-            Submitted by <b>{submitNode.reviewerName}</b>
+          <span className="inline-flex items-center gap-1">
+            <UserRound className="h-3.5 w-3.5" aria-hidden="true" />
+            {submitNode.reviewerName}
           </span>
         ) : null}
         {submitNode?.reviewerTime ? (
-          <span>
-            {new Date(submitNode.reviewerTime).toLocaleString()}
+          <span className="inline-flex items-center gap-1 tabular-nums">
+            <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
+            {formatUtc8(submitNode.reviewerTime)}
           </span>
         ) : null}
         <Badge variant="outline">{history.length} step(s)</Badge>
       </div>
 
-      {/* 变更内容 */}
-      <div>
-        <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase">
-          Business Content
-        </div>
-        {content.length === 0 ? (
-          <div className="py-2 text-sm text-muted-foreground">
-            <Dash /> No business fields
+      {/* 变更内容：状态对（current→target）渲染为徽章迁移，其余字段值格式化 */}
+      <div className="rounded-lg border border-border/60">
+        {ordered.length === 0 ? (
+          <div className="px-4 py-3 text-sm text-muted-foreground">
+            No business fields.
           </div>
         ) : (
-          content.map(([key, value]) => (
-            <ContentRow
+          ordered.map(({ key, label }) => (
+            <div
               key={key}
-              label={CONTENT_LABELS[key]}
-              value={
-                key === 'targetStatus' || key === 'newMinLiquidity' ? (
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    {contentValue(key, value)}
-                  </span>
-                ) : key === 'oldMinLiquidity' || key === 'currentStatus' ? (
-                  <span className="text-muted-foreground line-through">
-                    {contentValue(key, value)}
-                  </span>
-                ) : (
-                  contentValue(key, value)
-                )
-              }
-            />
+              className="flex items-center justify-between gap-4 border-b border-border/40 px-4 py-2 last:border-b-0"
+            >
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {label}
+              </span>
+              <div className="flex items-center gap-1.5">
+                {key === 'targetStatus' && raw['currentStatus'] !== undefined ? (
+                  <>
+                    <ContentValue busCode={busCode} fieldKey="currentStatus" value={raw['currentStatus']} />
+                    <ArrowRight className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                  </>
+                ) : null}
+                <ContentValue busCode={busCode} fieldKey={key} value={raw[key]} />
+              </div>
+            </div>
           ))
         )}
       </div>
@@ -272,6 +380,7 @@ export function InlineApprovalPanel({
                 disabled={withdrawMutation.isPending}
                 onClick={() => act('withdraw', withdrawMutation)}
               >
+                <Undo2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                 Withdraw
               </Button>
             ) : null}
@@ -293,13 +402,16 @@ export function InlineApprovalPanel({
                   disabled={processMutation.isPending}
                   onClick={() => act('reject', processMutation)}
                 >
+                  <XCircle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                   Reject
                 </Button>
                 <Button
                   size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700"
                   disabled={processMutation.isPending}
                   onClick={() => act('approve', processMutation)}
                 >
+                  <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                   Approve &amp; Execute
                 </Button>
               </>
@@ -307,15 +419,16 @@ export function InlineApprovalPanel({
           </div>
         </div>
       ) : (
-        <div className="text-xs text-muted-foreground">
-          Awaiting review — you are not the current step reviewer.
+        <div className="rounded-lg border border-dashed px-4 py-3 text-xs text-muted-foreground">
+          Awaiting review — you are not the current step reviewer. You can track
+          progress above.
         </div>
       )}
     </div>
   );
 }
 
-/** 在途意图幽灵 tag：虚线边框 + 单号 tooltip，点击打开行内审批弹窗。 */
+/** 在途意图幽灵 tag：琥珀软胶囊 + 呼吸点，点击打开行内审批弹窗。 */
 export function ApprovalPendingTag({
   applyCode,
   stepName,
@@ -326,15 +439,23 @@ export function ApprovalPendingTag({
   onClick: () => void;
 }) {
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      className="h-auto border-dashed px-1.5 py-0 text-[11px] font-normal text-amber-600 dark:text-amber-400"
+    <button
+      type="button"
       title={stepName ? `Under approval · ${stepName}` : 'Under approval'}
       onClick={onClick}
+      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-amber-300/70 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20"
     >
-      ┄ Under Approval{applyCode ? ` · ${applyCode}` : ''}
-    </Button>
+      <span className="relative flex h-1.5 w-1.5 shrink-0">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500" />
+      </span>
+      <span className="truncate">
+        Under Approval
+        {applyCode ? (
+          <span className="ml-1 font-mono opacity-70">{applyCode}</span>
+        ) : null}
+      </span>
+    </button>
   );
 }
 
@@ -348,7 +469,12 @@ export function InlineApprovalButton({
   const [open, setOpen] = React.useState(false);
   return (
     <>
-      <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setOpen(true)}>
+      <Button
+        variant="link"
+        size="sm"
+        className="h-auto p-0"
+        onClick={() => setOpen(true)}
+      >
         {label}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -370,7 +496,7 @@ export function InlineApprovalButton({
   );
 }
 
-/** 幽灵 tag + 弹窗组合（状态列用：点击 tag 查看进度/撤回）。 */
+/** 幽灵 tag + 弹窗组合（状态列用：点击 tag 查看进度/撤回/审批）。 */
 export function ApprovalPendingTagWithDialog({
   busCode,
   busId,
@@ -397,7 +523,7 @@ export function ApprovalPendingTagWithDialog({
           <DialogHeader>
             <DialogTitle>Approval In Progress</DialogTitle>
             <DialogDescription>
-              Progress and actions of the pending change.
+              Review the pending change and take action in place.
             </DialogDescription>
           </DialogHeader>
           <InlineApprovalPanel
