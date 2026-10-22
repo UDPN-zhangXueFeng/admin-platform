@@ -725,13 +725,24 @@ export function TokenPairListPage() {
         </form>
         <div className="p-4">
           <ApprovalQueue
-            items={tableData
-              .filter((r) => r.statusApprovalPending && r.statusCanApprove)
-              .map((r) => ({
-                busCode: BUS_CODE_PAIR_STATUS,
-                busId: r.pairId,
-                label: r.pairCode,
-              }))}
+            items={tableData.flatMap((r) => [
+              ...(r.statusApprovalPending && r.statusCanApprove
+                ? [{
+                    busCode: BUS_CODE_PAIR_STATUS,
+                    busId: r.pairId,
+                    label: r.pairCode,
+                    applyCode: r.statusApplyCode,
+                  }]
+                : []),
+              ...(r.toggleApprovalPending && r.toggleCanApprove
+                ? [{
+                    busCode: 'kissen_pair_toggle',
+                    busId: r.pairId,
+                    label: `${r.pairCode} · Activation`,
+                    applyCode: r.toggleApplyCode,
+                  }]
+                : []),
+            ])}
             onHandled={() => void refetch()}
           />
           {isError ? (

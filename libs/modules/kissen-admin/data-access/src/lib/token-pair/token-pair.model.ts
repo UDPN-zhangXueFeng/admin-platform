@@ -46,6 +46,10 @@ export interface TokenPairRow {
   /** KPS 启停审批在途（2026-10-22 P1）。 */
   statusApprovalPending?: boolean;
   statusCanApprove?: boolean;
+  /** KPT 开通在途概要（listBrief 合并，2026-10-22 P1）。 */
+  toggleApprovalPending?: boolean;
+  toggleCanApprove?: boolean;
+  toggleApplyCode?: string;
   statusApplyCode?: string;
 }
 
