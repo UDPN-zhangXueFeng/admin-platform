@@ -67,7 +67,9 @@ import {
 import { PROTO_APPROVAL_ACTION_TEXT } from './proto-enums';
 import { ProtoSortHeader, useProtoSort } from './proto-sort';
 import { peekRow, stashRow } from './row-stash';
-import { APPROVAL_DETAIL_PATH } from './approval-business-link';
+
+/** 审批详情路由（业务键 busCode+busId 入口与任务键 taskId 入口共用）。 */
+const APPROVAL_DETAIL_PATH = '/approval/detail';
 
 /* ============================================================ */
 /* 原型对齐口径（WorkflowTasksPage.jsx / WorkflowTaskDetailsPage.jsx） */
@@ -385,12 +387,41 @@ function isNumericValue(v: unknown): boolean {
 }
 
 /** 业务描述若为 JSON，格式化为可读的多行文本，避免长字符串撑破详情布局。 */
+const BUS_DESC_LABELS: Record<string, string> = {
+  bank_name: 'Bank',
+  lp_name: 'LP',
+  token_code: 'Token',
+  pair_code: 'Pair',
+  instance_code: 'Instance',
+  action: 'Action',
+  reason: 'Reason',
+  order_id: 'Order',
+  tx_count: 'Tx',
+  admin_split_total: 'Admin Split',
+  new_min_liquidity: 'New Min Liquidity',
+  new_ratio: 'New Ratio',
+  source_token: 'Source',
+  target_token: 'Target',
+  base_rate: 'Base',
+  markup_rate: 'Markup',
+  default_split_ratio: 'Rev. Share',
+  key_fingerprint: 'Key',
+};
+
+/**
+ * busDesc（replaceContentMap JSON）→ 人话摘要：`Bank HSBC · Action Disable`。
+ * 无法解析时原样返回；2026-10-22 起详情页不再展示该字段（与 Business Content 冗余），
+ * 仅待办列表保留作快速识别 + keyword 搜索命中提示。
+ */
 function formatBusinessDescription(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) return '-';
-
   try {
-    return JSON.stringify(JSON.parse(trimmed), null, 2);
+    const obj = JSON.parse(trimmed) as Record<string, unknown>;
+    const parts = Object.entries(obj)
+      .filter(([k]) => BUS_DESC_LABELS[k] !== undefined)
+      .map(([k, v]) => `${BUS_DESC_LABELS[k]} ${String(v)}`);
+    return parts.length > 0 ? parts.join(' · ') : trimmed;
   } catch {
     return value;
   }
@@ -717,7 +748,7 @@ export function ApprovalCenterListPage() {
         header: 'Business Description',
         meta: { maxWidth: 320, overflow: 'wrap' },
         cell: ({ row }) => (
-          <span className="line-clamp-2 whitespace-pre-line">{row.original.busDesc || <Dash />}</span>
+          <span className="line-clamp-2">{row.original.busDesc ? formatBusinessDescription(row.original.busDesc) : <Dash />}</span>
         ),
       },
       ...(tab === 'pending' || tab === 'actioned'
@@ -1447,14 +1478,6 @@ export function ApprovalDetailPage() {
                 {effectiveRemarks || <Dash />}
               </DetailField>
             </dl>
-            <div className="border-t border-border px-4 py-5">
-              <dt className="text-xs font-medium text-muted-foreground">
-                Business Description
-              </dt>
-              <dd className="mt-1 break-words whitespace-pre-line text-sm text-foreground">
-                {row.busDesc ? formatBusinessDescription(row.busDesc) : <Dash />}
-              </dd>
-            </div>
           </section>
 
           {/* Business Content：变更对比表（KRC/KLS）+ 字段白名单栅格 */}
