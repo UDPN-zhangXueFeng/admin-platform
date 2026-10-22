@@ -5,7 +5,9 @@ import { toast } from 'sonner';
 import {
   ArrowRight,
   CheckCircle2,
+  ChevronRight,
   Clock3,
+  FileClock,
   Undo2,
   UserRound,
   XCircle,
@@ -130,9 +132,9 @@ function StatusChip({
     <Badge
       variant={tone === 'target' ? 'default' : 'secondary'}
       className={
-        tone === 'current'
-          ? 'bg-muted/60 text-muted-foreground line-through'
-          : 'bg-emerald-600 hover:bg-emerald-600'
+        tone === 'target'
+          ? 'bg-emerald-600 text-[11px] font-normal hover:bg-emerald-600'
+          : 'bg-muted/70 text-[11px] font-normal text-muted-foreground'
       }
     >
       {label}
@@ -152,7 +154,7 @@ function ContentValue({
 }) {
   if (value === null || value === undefined || value === '') return <Dash />;
   if (fieldKey === 'action') {
-    return <span>{ACTION_LABELS[String(value)] ?? String(value)}</span>;
+    return <span className='text-xs font-medium'>{ACTION_LABELS[String(value)] ?? String(value)}</span>;
   }
   const isStatus =
     fieldKey === 'currentStatus' ||
@@ -178,7 +180,7 @@ function ContentValue({
       <span className="font-mono text-xs break-all">{String(value)}</span>
     );
   }
-  return <span>{String(value)}</span>;
+  return <span className='text-xs'>{String(value)}</span>;
 }
 
 export interface InlineApprovalPanelProps {
@@ -343,7 +345,7 @@ export function InlineApprovalPanel({
           ordered.map(({ key, label }) => (
             <div
               key={key}
-              className="flex items-center justify-between gap-4 border-b border-border/40 px-4 py-2 last:border-b-0"
+              className="flex items-center justify-between gap-4 border-b border-border/40 px-3 py-1.5 last:border-b-0"
             >
               <span className="shrink-0 text-xs text-muted-foreground">
                 {label}
@@ -428,7 +430,7 @@ export function InlineApprovalPanel({
   );
 }
 
-/** 在途意图幽灵 tag：琥珀软胶囊 + 呼吸点，点击打开行内审批弹窗。 */
+/** 在途审批入口按钮：明确的操作 CTA（区别于状态徽章），点击打开行内审批弹窗。 */
 export function ApprovalPendingTag({
   applyCode,
   stepName,
@@ -441,20 +443,19 @@ export function ApprovalPendingTag({
   return (
     <button
       type="button"
-      title={stepName ? `Under approval · ${stepName}` : 'Under approval'}
+      title={stepName ? `Approval pending at "${stepName}" — click to review` : 'Approval pending — click to review'}
       onClick={onClick}
-      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-amber-300/70 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20"
+      className="group inline-flex max-w-full items-center gap-1.5 rounded-md border border-amber-300/80 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 shadow-sm transition-all hover:border-amber-400 hover:bg-amber-100 hover:shadow active:translate-y-px dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
     >
-      <span className="relative flex h-1.5 w-1.5 shrink-0">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500" />
-      </span>
-      <span className="truncate">
-        Under Approval
-        {applyCode ? (
-          <span className="ml-1 font-mono opacity-70">{applyCode}</span>
-        ) : null}
-      </span>
+      <FileClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span className="shrink-0">Review Approval</span>
+      {applyCode ? (
+        <span className="truncate font-mono text-[10px] opacity-60">{applyCode}</span>
+      ) : null}
+      <ChevronRight
+        className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5"
+        aria-hidden="true"
+      />
     </button>
   );
 }
@@ -478,7 +479,7 @@ export function InlineApprovalButton({
         {label}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md sm:max-w-xl w-[92vw]">
           <DialogHeader>
             <DialogTitle>Inline Approval</DialogTitle>
             <DialogDescription>
@@ -519,7 +520,7 @@ export function ApprovalPendingTagWithDialog({
         onClick={() => setOpen(true)}
       />
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md sm:max-w-xl w-[92vw]">
           <DialogHeader>
             <DialogTitle>Approval In Progress</DialogTitle>
             <DialogDescription>
