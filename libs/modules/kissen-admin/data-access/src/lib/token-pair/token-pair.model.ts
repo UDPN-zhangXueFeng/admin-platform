@@ -41,6 +41,11 @@ export interface TokenPairRow {
   pairApprovalPending: boolean;
   status: number;
   createTime: number;
+
+  /** KPS 启停审批在途（2026-10-22 P1）。 */
+  statusApprovalPending?: boolean;
+  statusCanApprove?: boolean;
+  statusApplyCode?: string;
 }
 
 /**

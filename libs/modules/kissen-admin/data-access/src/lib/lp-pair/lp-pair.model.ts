@@ -47,6 +47,10 @@ export interface LpPairRow {
   remark: string;
   /** 任一审批在途（兜底禁用；替代旧 approvalRecordId 判空）。 */
   approvalPending: boolean;
+  /** KLPS 启停审批在途（2026-10-22 P1）。 */
+  statusApprovalPending?: boolean;
+  statusCanApprove?: boolean;
+  statusApplyCode?: string;
   createTime: number;
 }
 

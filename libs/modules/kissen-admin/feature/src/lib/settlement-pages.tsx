@@ -68,6 +68,10 @@ import {
 import { ApprovalBusinessLink } from './approval-business-link';
 import { formatAmount } from './format';
 import { Dash, ProtoStatusBadge } from './proto-ui';
+import { ApprovalPendingTagWithDialog } from './inline-approval';
+
+/** KSV 结算单作废审批 busCode（2026-10-22 P1）。 */
+const BUS_CODE_SETTLE_VOID = 'kissen_settle_void';
 
 /* ============================================================ */
 /* 共享格式化 / 展示辅助                                          */
@@ -328,6 +332,13 @@ function SettleOrderDetailContent({ order }: { order: SettleOrderRow }) {
               label="Confirmation Approval"
               pending={order.approvalPending}
             />
+            {order.voidApprovalPending ? (
+              <ApprovalPendingTagWithDialog
+                busCode={BUS_CODE_SETTLE_VOID}
+                busId={order.orderId}
+                applyCode={order.voidApplyCode}
+              />
+            ) : null}
           </DetailField>
           <DetailField label="Created on">
             {formatTimestamp(order.createTime)}
@@ -649,7 +660,7 @@ export function SettleOrderListPage() {
       {
         onSuccess: () => {
           setVoidTarget(null);
-          toast.success('Voided');
+          toast.success('Void approval submitted — takes effect after review');
         },
         onError: (error) => toast.error((error as Error).message),
       },

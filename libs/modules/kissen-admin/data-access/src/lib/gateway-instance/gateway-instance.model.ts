@@ -27,6 +27,15 @@ export interface InstanceRow {
   lastVerifyTime: number;
   status: number;
   createTime: number;
+
+  /** KGT 启停审批在途（2026-10-22 P1）。 */
+  toggleApprovalPending?: boolean;
+  toggleCanApprove?: boolean;
+  toggleApplyCode?: string;
+  /** GKR 下行密钥重置审批在途。 */
+  keyResetApprovalPending?: boolean;
+  keyResetCanApprove?: boolean;
+  keyResetApplyCode?: string;
 }
 
 /** 列表过滤（body 扁平直传 {pageNum,pageSize,bankId?,status?}，非 DataTable 包装）。 */

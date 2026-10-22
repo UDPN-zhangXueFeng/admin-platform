@@ -116,6 +116,13 @@ import {
   type ProtoStatusTone,
 } from './proto-ui';
 import { formatTokenAmount, formatUtc8 } from './proto-format';
+import { ApprovalPendingTagWithDialog } from './inline-approval';
+
+/** P1 审批 busCode（与后端 WorkflowBusinessTypeEnum 一致，2026-10-22）。 */
+const BUS_CODE_TOKEN_TOGGLE = 'kissen_token_toggle';
+const BUS_CODE_TOKEN_PARAM = 'kissen_token_param';
+const BUS_CODE_GATEWAY_TOGGLE = 'kissen_gateway_toggle';
+const BUS_CODE_GATEWAY_KEY_RESET = 'kissen_gateway_key_reset';
 import {
   PROTO_INSTANCE_STATUS,
   PROTO_TOKEN_STATUS,
@@ -563,7 +570,7 @@ export function TokenManageListPage() {
     const mutation = kind === 'deactivate' ? disableMutation : enableMutation;
     mutation.mutate(row.tokenId, {
       onSuccess: () => {
-        toast.success(kind === 'deactivate' ? 'Deactivated' : 'Activated');
+        toast.success('Approval submitted — takes effect after review');
         setStatusAction(null);
         refresh();
       },
@@ -638,10 +645,26 @@ export function TokenManageListPage() {
         id: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <TokenStatusBadge
-            status={row.original.status}
-            rejectReason={row.original.rejectReason}
-          />
+          <div className='flex flex-col items-start gap-1'>
+            <TokenStatusBadge
+              status={row.original.status}
+              rejectReason={row.original.rejectReason}
+            />
+            {row.original.toggleApprovalPending ? (
+              <ApprovalPendingTagWithDialog
+                busCode={BUS_CODE_TOKEN_TOGGLE}
+                busId={row.original.tokenId}
+                applyCode={row.original.toggleApplyCode}
+              />
+            ) : null}
+            {row.original.paramApprovalPending ? (
+              <ApprovalPendingTagWithDialog
+                busCode={BUS_CODE_TOKEN_PARAM}
+                busId={row.original.tokenId}
+                applyCode={row.original.paramApplyCode}
+              />
+            ) : null}
+          </div>
         ),
       },
       {
@@ -1580,7 +1603,25 @@ export function GatewayInstanceListPage() {
       {
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ row }) => <InstanceStatusBadge status={row.original.status} />,
+        cell: ({ row }) => (
+          <div className='flex flex-col items-start gap-1'>
+            <InstanceStatusBadge status={row.original.status} />
+            {row.original.toggleApprovalPending ? (
+              <ApprovalPendingTagWithDialog
+                busCode={BUS_CODE_GATEWAY_TOGGLE}
+                busId={row.original.instanceId}
+                applyCode={row.original.toggleApplyCode}
+              />
+            ) : null}
+            {row.original.keyResetApprovalPending ? (
+              <ApprovalPendingTagWithDialog
+                busCode={BUS_CODE_GATEWAY_KEY_RESET}
+                busId={row.original.instanceId}
+                applyCode={row.original.keyResetApplyCode}
+              />
+            ) : null}
+          </div>
+        ),
       },
       {
         accessorKey: 'lastHeartbeatTime',

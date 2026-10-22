@@ -79,6 +79,10 @@ import {
   ProtoStatusBadge,
   type ProtoStatusTone,
 } from './proto-ui';
+import { ApprovalPendingTagWithDialog } from './inline-approval';
+
+/** KPS Token 对启停审批 busCode（2026-10-22 P1）。 */
+const BUS_CODE_PAIR_STATUS = 'kissen_pair_status';
 import {
   PROTO_LP_PAIR_STATUS,
   PROTO_PAIR_STATUS,
@@ -535,6 +539,13 @@ export function TokenPairListPage() {
               pending={row.original.pairApprovalPending}
               label="Parameter Change Approval"
             />
+            {row.original.statusApprovalPending ? (
+              <ApprovalPendingTagWithDialog
+                busCode={BUS_CODE_PAIR_STATUS}
+                busId={row.original.pairId}
+                applyCode={row.original.statusApplyCode}
+              />
+            ) : null}
           </div>
         ),
       },
@@ -767,7 +778,7 @@ export function TokenPairListPage() {
           if (!target) return;
           disableMutation.mutate(target.pairId, {
             onSuccess: () => {
-              toast.success('Disabled');
+              toast.success('Approval submitted — takes effect after review');
               setConfirmRow(null);
             },
             onError: (e) => toast.error((e as Error).message),
@@ -793,7 +804,7 @@ export function TokenPairListPage() {
           if (!target) return;
           enableMutation.mutate(target.pairId, {
             onSuccess: () => {
-              toast.success('Enabled');
+              toast.success('Approval submitted — takes effect after review');
               setConfirmRow(null);
             },
             onError: (e) => toast.error((e as Error).message),

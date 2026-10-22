@@ -29,6 +29,15 @@ export interface TokenRow {
   rejectReason: string;
   auditTime: number;
   createTime: number;
+
+  /** KTT 启停审批在途（2026-10-22 P1，listBrief 合并）。 */
+  toggleApprovalPending?: boolean;
+  toggleCanApprove?: boolean;
+  toggleApplyCode?: string;
+  /** KTPM 最低流动性调整审批在途。 */
+  paramApprovalPending?: boolean;
+  paramCanApprove?: boolean;
+  paramApplyCode?: string;
 }
 
 /** Token 列表过滤条件（POST /manage/token/list 的 data 字段）。 */

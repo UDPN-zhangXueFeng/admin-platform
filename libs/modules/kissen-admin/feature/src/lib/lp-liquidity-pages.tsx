@@ -151,6 +151,10 @@ import {
   ProtoStatusBadge,
   type ProtoStatusTone,
 } from './proto-ui';
+import { ApprovalPendingTagWithDialog } from './inline-approval';
+
+/** KLPS LP 参与对启停审批 busCode（2026-10-22 P1）。 */
+const BUS_CODE_LP_PAIR_STATUS = 'kissen_lp_pair_status';
 import {
   formatUtc8DateKey,
   formatPercent,
@@ -2047,7 +2051,7 @@ export function LpInfoDetailPage() {
         { id: Number(row.id), targetStatus: LP_PAIR_TARGET_STATUS.disable },
         {
           onSuccess: () => {
-            toast.success('Deactivated');
+            toast.success('Approval submitted — takes effect after review');
             finish();
           },
           onError: (e) => toast.error((e as Error).message),
@@ -2182,7 +2186,18 @@ export function LpInfoDetailPage() {
       {
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ row }) => <LpPairStatusBadge status={row.original.status} />,
+        cell: ({ row }) => (
+          <div className='flex flex-col items-start gap-1'>
+            <LpPairStatusBadge status={row.original.status} />
+            {row.original.statusApprovalPending ? (
+              <ApprovalPendingTagWithDialog
+                busCode={BUS_CODE_LP_PAIR_STATUS}
+                busId={row.original.id}
+                applyCode={row.original.statusApplyCode}
+              />
+            ) : null}
+          </div>
+        ),
       },
       {
         accessorKey: 'createTime',
@@ -3053,7 +3068,18 @@ export function LpTokenPairListPage() {
       {
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ row }) => <LpPairStatusBadge status={row.original.status} />,
+        cell: ({ row }) => (
+          <div className='flex flex-col items-start gap-1'>
+            <LpPairStatusBadge status={row.original.status} />
+            {row.original.statusApprovalPending ? (
+              <ApprovalPendingTagWithDialog
+                busCode={BUS_CODE_LP_PAIR_STATUS}
+                busId={row.original.id}
+                applyCode={row.original.statusApplyCode}
+              />
+            ) : null}
+          </div>
+        ),
       },
       {
         id: 'approval',

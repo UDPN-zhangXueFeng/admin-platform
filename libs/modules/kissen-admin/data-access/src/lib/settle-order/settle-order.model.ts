@@ -18,6 +18,10 @@ export interface SettleOrderRow {
   status: number;
   /** KSC 审批在途（提交入口禁用；替代旧 approvalRecordId 判空）。 */
   approvalPending: boolean;
+  /** KSV 作废审批在途（2026-10-22 P1）。 */
+  voidApprovalPending?: boolean;
+  voidCanApprove?: boolean;
+  voidApplyCode?: string;
   createTime: number;
 }
 

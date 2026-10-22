@@ -4,6 +4,7 @@ import * as React from 'react';
 import { toast } from 'sonner';
 
 import {
+  KISSEN_PROJECT_ID,
   useApprovalDetailByBusinessQuery,
   useApprovalPreviousStepMutation,
   useApprovalProcessMutation,
@@ -20,7 +21,6 @@ import {
   Textarea,
 } from '@myorg/shared/ui';
 
-import { KISSEN_PROJECT_ID } from './use-kissen-perm';
 import { Dash, ProtoStatusBadge } from './proto-ui';
 
 /**
