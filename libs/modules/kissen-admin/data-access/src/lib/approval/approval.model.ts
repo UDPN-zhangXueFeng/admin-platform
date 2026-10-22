@@ -167,10 +167,8 @@ export const BUSINESS_NAME_MAP: Record<string, string> = {
   kissen_lp_pool: 'LP Pool Approval',
   kissen_rate_change: 'Exchange Rate Markup Change',
   kissen_pair_toggle: 'Currency Pair Enable/Disable',
-  kissen_freeze: 'Emergency Freeze/Unfreeze',
   kissen_settle_confirm: 'Settlement Order Confirmation',
   kissen_split_transfer: 'Split Transfer',
-  kissen_limit_change: 'Bank Limit Change',
   // P1 存量实体审批（2026-10-22）
   kissen_bank_toggle: 'Bank Enable/Disable',
   kissen_access_key_revoke: 'Access Key Revocation',
