@@ -159,24 +159,24 @@ export const DETAIL_STATUS_MAP: Record<number, string> = {
 };
 
 /** 业务中文名（WorkflowBusinessTypeEnum.description，源 BUSINESS_NAME_MAP 定稿英文）。 */
-export const BUSINESS_NAME_MAP: Record<string, string> = {
-  kissen_bank_onboard: 'Bank Onboarding Approval',
-  kissen_lp_onboard: 'LP Onboarding Approval',
-  kissen_lp_pair: 'LP Currency Pair Participation Change',
-  kissen_lp_split: 'LP Share Change',
-  kissen_lp_pool: 'LP Pool Approval',
-  kissen_rate_change: 'Exchange Rate Markup Change',
-  kissen_pair_toggle: 'Currency Pair Enable/Disable',
-  kissen_settle_confirm: 'Settlement Order Confirmation',
-  kissen_split_transfer: 'Split Transfer',
-  // P1 存量实体审批（2026-10-22）
+export const BUSINESS_NAME_MAP: Record<string, string> = {  /** 与 sys_business.business_name 逐一对齐（2026-10-22）——同物同名，
+   * KPT=Activation（开通）/ KPS=Enable/Disable（启停）语义拆分。 */
+  kissen_bank_onboard: 'Bank Onboarding',
+  kissen_lp_onboard: 'LP Onboarding',
+  kissen_lp_pair: 'LP Token Pair Enrollment',
+  kissen_lp_split: 'LP Share Override Change',
+  kissen_lp_pool: 'Liquidity Pool Activation',
+  kissen_rate_change: 'Token Pair Parameter Change',
+  kissen_pair_toggle: 'Token Pair Activation',
+  kissen_settle_confirm: 'Settlement Confirmation',
+  kissen_split_transfer: 'Revenue Share Transfer',
   kissen_bank_toggle: 'Bank Enable/Disable',
   kissen_access_key_revoke: 'Access Key Revocation',
   kissen_gateway_toggle: 'Gateway Instance Enable/Disable',
   kissen_gateway_key_reset: 'Gateway Down Key Reset',
   kissen_token_toggle: 'Token Enable/Disable',
   kissen_token_param: 'Token Min Liquidity Change',
-  kissen_pair_status: 'Currency Pair Enable/Disable (P1)',
+  kissen_pair_status: 'Token Pair Enable/Disable',
   kissen_settle_void: 'Settlement Order Void',
   kissen_lp_pair_status: 'LP Pair Participation Enable/Disable',
 };
