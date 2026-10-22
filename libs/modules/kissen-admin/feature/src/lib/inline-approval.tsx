@@ -6,10 +6,8 @@ import {
   ArrowRight,
   CheckCircle2,
   ChevronRight,
-  Clock3,
   FileClock,
   Undo2,
-  UserRound,
   XCircle,
 } from 'lucide-react';
 
@@ -119,6 +117,97 @@ const TIME_KEYS: Record<string, true> = { createTime: true, periodStart: true, p
 /** 指纹类字段（等宽 + 截断）。 */
 const FINGERPRINT_KEYS: Record<string, true> = { downKeyFingerprint: true, keyFingerprint: true };
 
+/** 抽屉分节标签（11px 大写字距标题，统一字体层级）。 */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      {children}
+    </div>
+  );
+}
+
+/** 节点结果码 → 图标/文案（后端约定：2 拒绝 / 3 通过 / 9 退回）。 */
+const STEP_RESULT: Record<
+  number,
+  { label: string; cls: string }
+> = {
+  3: { label: 'Passed', cls: 'text-emerald-600 dark:text-emerald-400' },
+  2: { label: 'Rejected', cls: 'text-destructive' },
+  9: { label: 'Returned', cls: 'text-amber-600 dark:text-amber-400' },
+};
+
+/**
+ * 审批流时间线：已完成节点（history）+ 当前待审节点（琥珀呼吸点）。
+ * 未走到的后续节点不展示（detail 接口不含 workflow 前瞻）。
+ */
+function FlowTimeline({
+  history,
+  currentStepName,
+  awaitingYou,
+}: {
+  history: Array<{
+    stepName: string;
+    reviewerName: string;
+    reviewerTime: number;
+    reviewerRemarks: string;
+    reviewerStatus: number;
+  }>;
+  currentStepName?: string;
+  awaitingYou: boolean;
+}) {
+  return (
+    <ol className="flex flex-col">
+      {history.map((h) => {
+        const r = STEP_RESULT[h.reviewerStatus];
+        return (
+          <li key={h.stepName + h.reviewerTime} className="relative flex gap-3 pb-4 last:pb-0">
+            <span className="absolute left-[9px] top-5 h-[calc(100%-14px)] w-px bg-border" aria-hidden="true" />
+            <CheckCircle2
+              className={`relative z-10 h-5 w-5 shrink-0 bg-background ${r?.cls ?? ''}`}
+              aria-hidden="true"
+            />
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-medium leading-none">{h.stepName}</span>
+                <span className={`text-[11px] font-medium ${r?.cls ?? ''}`}>{r?.label}</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {h.reviewerName} · {formatUtc8(h.reviewerTime)}
+              </div>
+              {h.reviewerRemarks ? (
+                <div className="rounded-md bg-muted/60 px-2 py-1 text-[11px] text-muted-foreground">
+                  “{h.reviewerRemarks}”
+                </div>
+              ) : null}
+            </div>
+          </li>
+        );
+      })}
+      <li className="relative flex gap-3">
+        {history.length > 0 ? (
+          <span className="absolute left-[9px] top-[-14px] h-[14px] w-px bg-border" aria-hidden="true" />
+        ) : null}
+        <span className="relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-400/70 bg-background">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
+        </span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-medium leading-none">
+              {currentStepName || 'Current step'}
+            </span>
+            <Badge variant="outline" className="h-4 border-amber-400/70 px-1.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+              Current
+            </Badge>
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            {awaitingYou ? 'Awaiting your review' : 'Awaiting reviewer'}
+          </div>
+        </div>
+      </li>
+    </ol>
+  );
+}
+
 /** 状态徽章（旧值中性 / 新值强调绿）。 */
 function StatusChip({
   label,
@@ -175,12 +264,12 @@ function ContentValue({
   }
   if (fieldKey in TIME_KEYS) {
     return (
-      <span className="text-xs tabular-nums">{formatUtc8(Number(value))}</span>
+      <span className="text-[13px] font-medium tabular-nums">{formatUtc8(Number(value))}</span>
     );
   }
   if (fieldKey in FINGERPRINT_KEYS) {
     return (
-      <span className="font-mono text-xs break-all">{String(value)}</span>
+      <span className="font-mono text-[13px] font-medium break-all">{String(value)}</span>
     );
   }
   return <span className="text-xs">{String(value)}</span>;
@@ -189,6 +278,8 @@ function ContentValue({
 export interface InlineApprovalPanelProps {
   busCode: string;
   busId: number;
+  /** 当前待审节点名（行数据 listBrief 提供；队列/兜底流可缺省）。 */
+  currentStepName?: string;
   /** 处理完成（通过/驳回/退回/撤回）后回调，业务页刷新行数据。 */
   onHandled?: () => void;
 }
@@ -200,6 +291,7 @@ export interface InlineApprovalPanelProps {
 export function InlineApprovalPanel({
   busCode,
   busId,
+  currentStepName,
   onHandled,
 }: InlineApprovalPanelProps) {
   const { data, isLoading, isError } = useApprovalDetailByBusinessQuery(
@@ -253,7 +345,6 @@ export function InlineApprovalPanel({
   const canPrevious = buttons.previousStepType === 1;
   const canWithdraw = buttons.withdrawType === 1;
   const history = data.history ?? [];
-  const submitNode = history[0];
 
   const act = (
     kind: 'approve' | 'reject' | 'back' | 'withdraw',
@@ -331,26 +422,21 @@ export function InlineApprovalPanel({
   ];
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* 元信息：提交人 / 时间 / 步骤数 */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-        {submitNode ? (
-          <span className="inline-flex items-center gap-1">
-            <UserRound className="h-3.5 w-3.5" aria-hidden="true" />
-            {submitNode.reviewerName}
-          </span>
-        ) : null}
-        {submitNode?.reviewerTime ? (
-          <span className="inline-flex items-center gap-1 tabular-nums">
-            <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
-            {formatUtc8(submitNode.reviewerTime)}
-          </span>
-        ) : null}
-        <Badge variant="outline">{history.length} step(s)</Badge>
-      </div>
+    <div className="flex flex-col gap-5">
+      {/* 审批流时间线：已完成节点 + 当前待审节点 */}
+      <section className="flex flex-col gap-2">
+        <SectionLabel>Flow</SectionLabel>
+        <FlowTimeline
+          history={history}
+          currentStepName={currentStepName ?? undefined}
+          awaitingYou={canApprove}
+        />
+      </section>
 
       {/* 变更内容：状态对（current→target）渲染为徽章迁移，其余字段值格式化 */}
-      <div className="rounded-lg border border-border/60">
+      <section className="flex flex-col gap-2">
+        <SectionLabel>Change Details</SectionLabel>
+      <div className="rounded-lg border border-border/60 bg-muted/20">
         {ordered.length === 0 ? (
           <div className="px-4 py-3 text-sm text-muted-foreground">
             No business fields.
@@ -378,9 +464,12 @@ export function InlineApprovalPanel({
         )}
       </div>
 
+      </section>
+
       {/* 意见 + 动作（当前用户为待审节点审批人时展示） */}
       {canApprove || canPrevious || canWithdraw ? (
         <div className="flex flex-col gap-2">
+          <SectionLabel>Remarks</SectionLabel>
           <Textarea
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
@@ -435,9 +524,12 @@ export function InlineApprovalPanel({
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed px-4 py-3 text-xs text-muted-foreground">
-          Awaiting review — you are not the current step reviewer. You can track
-          progress above.
+        <div className="flex flex-col gap-2">
+          <SectionLabel>Remarks</SectionLabel>
+          <div className="rounded-lg border border-dashed px-4 py-3 text-xs text-muted-foreground">
+            Awaiting review — you are not the current step reviewer. You can
+            track progress above.
+          </div>
         </div>
       )}
     </div>
@@ -510,6 +602,7 @@ export function ApprovalPendingTagWithDialog({
             <InlineApprovalPanel
               busCode={busCode}
               busId={busId}
+              currentStepName={stepName}
               onHandled={() => onHandled?.()}
             />
           </div>
@@ -567,6 +660,8 @@ export interface ApprovalQueueItem {
   busId: number;
   /** 队列条与抽屉标题里显示的实体名（如银行名/交易对）。 */
   label: string;
+  /** 当前待审节点名（行数据 listBrief 提供，可缺省）。 */
+  stepName?: string;
 }
 
 /**
@@ -641,6 +736,7 @@ export function ApprovalQueue({
               key={`${current.busCode}:${current.busId}`}
               busCode={current.busCode}
               busId={current.busId}
+              currentStepName={current.stepName}
               onHandled={advance}
             />
           </div>
