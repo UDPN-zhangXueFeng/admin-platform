@@ -171,7 +171,7 @@ function ApprovalHero({
   }
 
   return (
-    <div className="rounded-xl border border-amber-200/80 bg-amber-50/70 px-4 py-3.5 dark:border-amber-500/25 dark:bg-amber-500/10">
+    <div className="mt-3 rounded-xl border border-amber-200/80 bg-amber-50/70 px-4 py-3.5 dark:border-amber-500/25 dark:bg-amber-500/10">
       {actionText ? (
         <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
           {actionText}
