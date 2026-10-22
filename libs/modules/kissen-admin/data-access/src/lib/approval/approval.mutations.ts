@@ -11,6 +11,9 @@ import { lpPairKeys } from '../lp-pair/lp-pair.keys';
 import { lpPoolKeys } from '../lp-pool/lp-pool.keys';
 import { settleOrderKeys } from '../settle-order/settle-order.keys';
 import { tokenPairKeys } from '../token-pair/token-pair.keys';
+import { tokenKeys } from '../token/token.keys';
+import { bankKeys } from '../bank/bank.keys';
+import { bankGatewayKeys } from '../bank-gateway/bank-gateway.keys';
 import { approvalKeys } from './approval.keys';
 import {
   approvalPreviousStep,
@@ -46,9 +49,29 @@ async function invalidateApprovalCaches(
     case 'kissen_pair_toggle':
       domainKeys.push(tokenPairKeys.all(projectId));
       break;
+    // P1 存量实体审批（2026-10-22）：通过 → 对应业务列表缓存刷新
+    case 'kissen_pair_status':
+      domainKeys.push(tokenPairKeys.all(projectId), lpPairKeys.all(projectId));
+      break;
+    case 'kissen_bank_toggle':
+    case 'kissen_access_key_revoke':
+      domainKeys.push(bankKeys.all(projectId), bankGatewayKeys.all(projectId));
+      break;
+    case 'kissen_gateway_toggle':
+    case 'kissen_gateway_key_reset':
+      domainKeys.push(bankGatewayKeys.all(projectId));
+      break;
+    case 'kissen_token_toggle':
+    case 'kissen_token_param':
+      domainKeys.push(tokenKeys.all(projectId), tokenPairKeys.all(projectId));
+      break;
     case 'kissen_settle_confirm':
     case 'kissen_split_transfer':
+    case 'kissen_settle_void':
       domainKeys.push(settleOrderKeys.all(projectId));
+      break;
+    case 'kissen_lp_pair_status':
+      domainKeys.push(lpPairKeys.all(projectId));
       break;
     case 'kissen_lp_pool':
       domainKeys.push(lpPoolKeys.all(projectId), lpKeys.all(projectId));

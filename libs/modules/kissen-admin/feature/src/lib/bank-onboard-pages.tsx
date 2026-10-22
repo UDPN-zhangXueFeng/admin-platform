@@ -130,6 +130,13 @@ import {
 import { formatTokenAmount, formatUtc8 } from './proto-format';
 import { PROTO_BANK_STATUS, protoStatusLabel } from './proto-enums';
 import {
+  ApprovalPendingTagWithDialog,
+  InlineApprovalPanel,
+} from './inline-approval';
+
+/** KBT 银行启停审批 busCode（与后端 WorkflowBusinessTypeEnum 一致）。 */
+const BUS_CODE_BANK_TOGGLE = 'kissen_bank_toggle';
+import {
   ConnectivityBadge,
   InstanceStatusBadge,
   TokenStatusBadge,
@@ -945,6 +952,10 @@ export function BankInfoListPage() {
     row: BankRow;
     kind: 'deactivate' | 'activate';
   } | null>(null);
+  /** 行内审批弹窗态（Review 菜单入口，P1 §4.8）。 */
+  const [approvalRow, setApprovalRow] = React.useState<BankRow | null>(
+    null,
+  );
 
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
@@ -968,7 +979,7 @@ export function BankInfoListPage() {
     const mutation = kind === 'deactivate' ? disableMutation : enableMutation;
     mutation.mutate(row.bankId, {
       onSuccess: () => {
-        toast.success(kind === 'deactivate' ? 'Deactivated' : 'Activated');
+        toast.success('Approval submitted — takes effect after review');
         setStatusAction(null);
       },
       onError: (e) => toast.error((e as Error).message),
@@ -1017,7 +1028,19 @@ export function BankInfoListPage() {
       {
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ row }) => <BankStatusBadge status={row.original.status} />,
+        cell: ({ row }) => (
+          <div className='flex flex-col items-start gap-1'>
+            <BankStatusBadge status={row.original.status} />
+            {row.original.approvalPending ? (
+              <ApprovalPendingTagWithDialog
+                busCode={BUS_CODE_BANK_TOGGLE}
+                busId={row.original.bankId}
+                applyCode={row.original.approvalApplyCode}
+                stepName={row.original.approvalStepName}
+              />
+            ) : null}
+          </div>
+        ),
       },
       {
         accessorKey: 'createTime',
@@ -1060,6 +1083,12 @@ export function BankInfoListPage() {
               danger: true,
               onSelect: () =>
                 setStatusAction({ row: item, kind: 'deactivate' }),
+            });
+          }
+          if (item.approvalCanApprove) {
+            menuItems.push({
+              label: 'Review (Approval)',
+              onSelect: () => setApprovalRow(item),
             });
           }
           return (
@@ -1248,6 +1277,23 @@ export function BankInfoListPage() {
         />
       )}
       {/* Deactivate/Activate 确认弹窗（原型 BANK_ACTION_CONFIG 文案逐字）。 */}
+      {approvalRow ? (
+        <Dialog open onOpenChange={(open) => !open && setApprovalRow(null)}>
+          <DialogContent className='max-w-md'>
+            <DialogHeader>
+              <DialogTitle>Inline Approval — Bank Enable/Disable</DialogTitle>
+              <DialogDescription>
+                Approve in place — the toggle executes immediately on approval.
+              </DialogDescription>
+            </DialogHeader>
+            <InlineApprovalPanel
+              busCode={BUS_CODE_BANK_TOGGLE}
+              busId={approvalRow.bankId}
+              onHandled={() => setApprovalRow(null)}
+            />
+          </DialogContent>
+        </Dialog>
+      ) : null}
       <ActionConfirmDialog
         open={statusAction !== null}
         onOpenChange={(open) => {
@@ -1276,10 +1322,12 @@ export function BankInfoListPage() {
         body2={
           statusAction?.kind === 'activate'
             ? 'Once activated, the bank can take part in quotes and settlements, subject to its gateway instance being connected.'
-            : 'Once deactivated, its gateway instances are deactivated, their quotes fail, and its tokens no longer take part in new quotes.'
+            : 'Once approved, its gateway instances are deactivated, their quotes fail, and its tokens no longer take part in new quotes. This action requires approval before it takes effect.'
         }
         confirmLabel={
-          statusAction?.kind === 'activate' ? 'Activate' : 'Deactivate'
+          statusAction?.kind === 'activate'
+            ? 'Submit Activation'
+            : 'Submit Deactivation'
         }
         loading={disableMutation.isPending || enableMutation.isPending}
         onConfirm={onStatusConfirm}

@@ -32,6 +32,15 @@ export interface BankRow {
   /** Reserved upstream; connectivity moved to the instance domain. */
   connectivityStatus?: number;
   createTime: number;
+
+  /** KBT 银行启停审批在途（行内幽灵 tag；2026-10-22 P1，listBrief 合并）。 */
+  approvalPending?: boolean;
+  /** 当前用户可审批（行内审批入口显隐）。 */
+  approvalCanApprove?: boolean;
+  /** 在途单号（幽灵 tag tooltip）。 */
+  approvalApplyCode?: string;
+  /** 当前待审节点名（在途时有值）。 */
+  approvalStepName?: string;
 }
 
 /** Filter of POST /manage/bank/list (source data segment). */

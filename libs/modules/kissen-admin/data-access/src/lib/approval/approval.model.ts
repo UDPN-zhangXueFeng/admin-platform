@@ -171,6 +171,16 @@ export const BUSINESS_NAME_MAP: Record<string, string> = {
   kissen_settle_confirm: 'Settlement Order Confirmation',
   kissen_split_transfer: 'Split Transfer',
   kissen_limit_change: 'Bank Limit Change',
+  // P1 存量实体审批（2026-10-22）
+  kissen_bank_toggle: 'Bank Enable/Disable',
+  kissen_access_key_revoke: 'Access Key Revocation',
+  kissen_gateway_toggle: 'Gateway Instance Enable/Disable',
+  kissen_gateway_key_reset: 'Gateway Down Key Reset',
+  kissen_token_toggle: 'Token Enable/Disable',
+  kissen_token_param: 'Token Min Liquidity Change',
+  kissen_pair_status: 'Currency Pair Enable/Disable (P1)',
+  kissen_settle_void: 'Settlement Order Void',
+  kissen_lp_pair_status: 'LP Pair Participation Enable/Disable',
 };
 
 /**
