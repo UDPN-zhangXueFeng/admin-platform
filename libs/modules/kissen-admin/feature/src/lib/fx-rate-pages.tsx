@@ -70,7 +70,6 @@ import {
   type TokenRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
-import { ApprovalBusinessLink } from './approval-business-link';
 import { formatPercent, formatRate, formatUtc8 } from './proto-format';
 import {
   ActionConfirmDialog,
@@ -533,12 +532,6 @@ export function TokenPairListPage() {
             >
               {protoStatusLabel(PROTO_PAIR_STATUS, row.original.status)}
             </ProtoStatusBadge>
-            <ApprovalBusinessLink
-              busCode="kissen_rate_change"
-              busId={row.original.pairId}
-              pending={row.original.pendingChange}
-              label="Parameter Change Approval"
-            />
             {row.original.statusApprovalPending ? (
               <ApprovalPendingTagWithDialog
                 busCode={BUS_CODE_PAIR_STATUS}
@@ -1584,14 +1577,6 @@ export function TokenPairDetailPage() {
                 <span className="tabular-nums">
                   {formatUtc8(record.createTime)}
                 </span>
-              </DetailField>
-              <DetailField label="Approval">
-                <ApprovalBusinessLink
-                  busCode="kissen_rate_change"
-                  busId={record.pairId}
-                  pending={record.pendingChange}
-                  label="Parameter Change Approval"
-                />
               </DetailField>
             </div>
           </section>

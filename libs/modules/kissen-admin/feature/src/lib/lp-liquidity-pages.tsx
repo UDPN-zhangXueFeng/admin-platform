@@ -143,7 +143,6 @@ import {
   useUpdateLpPairStatusMutation,
 } from '@myorg/modules/kissen-admin/data-access';
 
-import { ApprovalBusinessLink } from './approval-business-link';
 import {
   ActionConfirmDialog,
   CopyableId,
@@ -2209,38 +2208,6 @@ export function LpInfoDetailPage() {
         ),
       },
       {
-        id: 'approval',
-        header: 'Approval',
-        enableSorting: false,
-        cell: ({ row }) => {
-          // 审批入口（2023418）：KLP 改参 / KLS 分成两个业务键各自查看；
-          // 任一在途显示 Under Approval 徽章。
-          const item = row.original;
-          return (
-            <div className="flex flex-col items-start gap-1">
-              <ApprovalBusinessLink
-                busCode="kissen_lp_pair"
-                busId={Number(item.id)}
-                label="Participation Approval"
-                pending={
-                  item.pairApprovalPending ||
-                  item.splitApprovalPending ||
-                  item.approvalPending
-                }
-              />
-              {item.splitApprovalPending || Number(item.splitRatio) > 0 ? (
-                <ApprovalBusinessLink
-                  busCode="kissen_lp_split"
-                  busId={Number(item.id)}
-                  label="Share Change Approval"
-                  pending={item.splitApprovalPending}
-                />
-              ) : null}
-            </div>
-          );
-        },
-      },
-      {
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => {
@@ -3082,38 +3049,6 @@ export function LpTokenPairListPage() {
         ),
       },
       {
-        id: 'approval',
-        header: 'Approval',
-        enableSorting: false,
-        cell: ({ row }) => {
-          // 审批入口（2023418）：KLP 改参 / KLS 分成两个业务键各自查看；
-          // 任一在途显示 Under Approval 徽章。
-          const item = row.original;
-          return (
-            <div className="flex flex-col items-start gap-1">
-              <ApprovalBusinessLink
-                busCode="kissen_lp_pair"
-                busId={Number(item.id)}
-                label="Participation Approval"
-                pending={
-                  item.pairApprovalPending ||
-                  item.splitApprovalPending ||
-                  item.approvalPending
-                }
-              />
-              {item.splitApprovalPending || Number(item.splitRatio) > 0 ? (
-                <ApprovalBusinessLink
-                  busCode="kissen_lp_split"
-                  busId={Number(item.id)}
-                  label="Share Change Approval"
-                  pending={item.splitApprovalPending}
-                />
-              ) : null}
-            </div>
-          );
-        },
-      },
-      {
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => {
@@ -3564,21 +3499,6 @@ const LP_POOL_TABLE_COLUMNS: ColumnDef<LpPoolRow & { id: string }>[] = [
     cell: ({ row }) => <PoolStatusBadge status={row.original.status} />,
   },
   {
-    id: 'approval',
-    header: 'Approval',
-    enableSorting: false,
-    cell: ({ row }) => {
-      // 池模型无在途布尔：5 Pending Approval / 15 Rejected 按状态派生在途标记。
-      return (
-        <ApprovalBusinessLink
-          busCode="kissen_lp_pool"
-          busId={row.original.poolId}
-          pending={[5, 10].includes(row.original.status)}
-        />
-      );
-    },
-  },
-  {
     id: 'createdOn',
     accessorKey: 'createTime',
     header: 'Created on',
@@ -3973,31 +3893,6 @@ export function LpParticipationDetailPage() {
                 <ReadonlyField
                   label="Pay Pool"
                   value={<CopyableId value={row.targetPoolAddress} />}
-                />
-                <ReadonlyField
-                  label="Approval"
-                  value={
-                    <div className="flex flex-col items-start gap-1">
-                      <ApprovalBusinessLink
-                        busCode="kissen_lp_pair"
-                        busId={row.id}
-                        label="Participation Approval"
-                        pending={
-                          row.pairApprovalPending ||
-                          row.splitApprovalPending ||
-                          row.approvalPending
-                        }
-                      />
-                      {row.splitApprovalPending || Number(row.splitRatio) > 0 ? (
-                        <ApprovalBusinessLink
-                          busCode="kissen_lp_split"
-                          busId={row.id}
-                          label="Share Change Approval"
-                          pending={row.splitApprovalPending}
-                        />
-                      ) : null}
-                    </div>
-                  }
                 />
                 <div className="sm:col-span-2 lg:col-span-3">
                   <ReadonlyField

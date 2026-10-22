@@ -65,7 +65,6 @@ import {
   type SettleOrderRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
-import { ApprovalBusinessLink } from './approval-business-link';
 import { formatAmount } from './format';
 import { Dash, ProtoStatusBadge } from './proto-ui';
 import { ApprovalPendingTagWithDialog } from './inline-approval';
@@ -325,21 +324,15 @@ function SettleOrderDetailContent({ order }: { order: SettleOrderRow }) {
               View {order.txCount} transactions →
             </Button>
           </DetailField>
-          <DetailField label="Approval">
-            <ApprovalBusinessLink
-              busCode="kissen_settle_confirm"
-              busId={order.orderId}
-              label="Confirmation Approval"
-              pending={order.approvalPending}
-            />
-            {order.voidApprovalPending ? (
+          {order.voidApprovalPending ? (
+            <DetailField label="Approval">
               <ApprovalPendingTagWithDialog
                 busCode={BUS_CODE_SETTLE_VOID}
                 busId={order.orderId}
                 applyCode={order.voidApplyCode}
               />
-            ) : null}
-          </DetailField>
+            </DetailField>
+          ) : null}
           <DetailField label="Created on">
             {formatTimestamp(order.createTime)}
           </DetailField>
@@ -714,12 +707,6 @@ export function SettleOrderListPage() {
               {SETTLE_ORDER_STATUS_LABEL[row.original.status] ??
                 row.original.status}
             </ProtoStatusBadge>
-            <ApprovalBusinessLink
-              busCode="kissen_settle_confirm"
-              busId={row.original.orderId}
-              label="Confirmation Approval"
-              pending={row.original.approvalPending}
-            />
           </div>
         ),
       },
