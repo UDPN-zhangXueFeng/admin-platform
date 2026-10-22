@@ -1238,6 +1238,7 @@ export function BankInfoListPage() {
                 busId: r.bankId,
                 label: r.bankName,
                 stepName: r.approvalStepName,
+                applyCode: r.approvalApplyCode,
               }))}
             onHandled={() => void refetch()}
           />

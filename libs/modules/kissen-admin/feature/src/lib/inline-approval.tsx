@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 import {
+  BUSINESS_NAME_MAP,
   KISSEN_PROJECT_ID,
   useApprovalDetailByBusinessQuery,
   useApprovalPreviousStepMutation,
@@ -44,8 +45,8 @@ import { formatUtc8 } from './proto-format';
 
 /**
  * 行内审批（P1，设计 §4.8）：审批动作在业务页就地完成，不跳审批中心。
- * 2026-10-22 v3：审批承载改右侧 Drawer（表格上下文保持可见）；
- * 页级 ApprovalQueue 队列条聚合本页待审单逐条处理；行内入口收敛为小图标按钮。
+ * 2026-10-22 v4 抽屉重构：意图 Hero 卡（动作+实体+状态迁移，视觉主角）
+ * + 审批流时间线 + 剩余字段紧凑两列 grid + 页级队列条逐条处理。
  */
 
 /** busCode → 实体状态字典（status/currentStatus/targetStatus 翻译）。 */
@@ -61,46 +62,7 @@ const STATUS_MAP_BY_BUS: Record<string, Record<number, ProtoStatusMeta>> = {
   kissen_settle_void: PROTO_SETTLE_ORDER_STATUS,
 };
 
-/** businessContent 字段：中文名 + 展示顺序（未列出的排最后，内部 id 不展示）。 */
-const CONTENT_FIELDS: Array<{ key: string; label: string }> = [
-  { key: 'bankName', label: 'Bank' },
-  { key: 'bankBic', label: 'BIC' },
-  { key: 'lpName', label: 'LP' },
-  { key: 'tokenName', label: 'Token Name' },
-  { key: 'tokenCode', label: 'Token' },
-  { key: 'pairCode', label: 'Pair' },
-  { key: 'instanceCode', label: 'Instance' },
-  { key: 'sourceCurrency', label: 'Source Token' },
-  { key: 'targetCurrency', label: 'Target Token' },
-  { key: 'targetStatus', label: 'Status Change' },
-  { key: 'oldMinLiquidity', label: 'Current Min Liquidity' },
-  { key: 'newMinLiquidity', label: 'New Min Liquidity' },
-  { key: 'baseRate', label: 'Base Rate' },
-  { key: 'markupRate', label: 'Markup Rate' },
-  { key: 'defaultSplitRatio', label: 'Standard Rev. Share' },
-  { key: 'slippageThreshold', label: 'Slippage Threshold' },
-  { key: 'action', label: 'Action' },
-  { key: 'pendingAction', label: 'Pending Action' },
-  { key: 'status', label: 'Status' },
-  { key: 'instanceCount', label: 'Instances' },
-  { key: 'txCount', label: 'Transactions' },
-  { key: 'principalTotal', label: 'Principal Total' },
-  { key: 'markupTotal', label: 'Markup Total' },
-  { key: 'periodStart', label: 'Period Start' },
-  { key: 'periodEnd', label: 'Period End' },
-  { key: 'reason', label: 'Reason' },
-  { key: 'downKeyFingerprint', label: 'Down Key Fingerprint' },
-  { key: 'keyFingerprint', label: 'Key Fingerprint' },
-  { key: 'createTime', label: 'Created on' },
-];
-
-/** 内部主键与冗余字段不展示（审批人不需要）。 */
-const HIDDEN_KEYS: Record<string, true> = {
-  bankId: true, tokenId: true, pairId: true, instanceId: true,
-  keyId: true, orderId: true, lpId: true, id: true,
-};
-
-/** action 语义值 → 文案。 */
+/** action 语义值 → 文案（Hero 意图行）。 */
 const ACTION_LABELS: Record<string, string> = {
   disable: 'Disable',
   enable: 'Enable',
@@ -111,13 +73,53 @@ const ACTION_LABELS: Record<string, string> = {
   restore: 'Restore Draft',
 };
 
+/** 实体名字段（按优先级取第一个，Hero 用）。 */
+const NAME_KEYS = [
+  'bankName', 'lpName', 'tokenName', 'tokenCode', 'pairCode',
+  'instanceCode', 'orderNo', 'orderCode',
+];
+
+/** Hero 已消费的字段（不再进 Details）。 */
+const HERO_KEYS: Record<string, true> = {
+  currentStatus: true, targetStatus: true, action: true, pendingAction: true,
+  oldMinLiquidity: true, newMinLiquidity: true,
+};
+
+/** Details 字段：label + 顺序（Hero 消耗后的剩余字段；未列出排最后）。 */
+const DETAIL_FIELDS: Array<{ key: string; label: string }> = [
+  { key: 'bankBic', label: 'BIC' },
+  { key: 'sourceCurrency', label: 'Source Token' },
+  { key: 'targetCurrency', label: 'Target Token' },
+  { key: 'baseRate', label: 'Base Rate' },
+  { key: 'markupRate', label: 'Markup Rate' },
+  { key: 'defaultSplitRatio', label: 'Rev. Share' },
+  { key: 'slippageThreshold', label: 'Slippage' },
+  { key: 'status', label: 'Status' },
+  { key: 'instanceCount', label: 'Instances' },
+  { key: 'txCount', label: 'Transactions' },
+  { key: 'principalTotal', label: 'Principal Total' },
+  { key: 'markupTotal', label: 'Markup Total' },
+  { key: 'periodStart', label: 'Period Start' },
+  { key: 'periodEnd', label: 'Period End' },
+  { key: 'reason', label: 'Reason' },
+  { key: 'downKeyFingerprint', label: 'Down Key Fingerprint' },
+  { key: 'keyFingerprint', label: 'Key Fingerprint' },
+  { key: 'createTime', label: 'Submitted on' },
+];
+
+/** 内部主键不展示。 */
+const HIDDEN_KEYS: Record<string, true> = {
+  bankId: true, tokenId: true, pairId: true, instanceId: true,
+  keyId: true, orderId: true, lpId: true, id: true,
+};
+
 /** 时间戳字段（epoch ms → UTC+8）。 */
 const TIME_KEYS: Record<string, true> = { createTime: true, periodStart: true, periodEnd: true };
 
 /** 指纹类字段（等宽 + 截断）。 */
 const FINGERPRINT_KEYS: Record<string, true> = { downKeyFingerprint: true, keyFingerprint: true };
 
-/** 抽屉分节标签（11px 大写字距标题，统一字体层级）。 */
+/** 分节标签（11px 大写字距）。 */
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -126,20 +128,93 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** 节点结果码 → 图标/文案（后端约定：2 拒绝 / 3 通过 / 9 退回）。 */
-const STEP_RESULT: Record<
-  number,
-  { label: string; cls: string }
-> = {
+/** 状态翻译（无字典兜底原值）。 */
+function statusLabel(busCode: string, v: unknown): string {
+  const map = STATUS_MAP_BY_BUS[busCode];
+  return map ? protoStatusLabel(map, Number(v)) : String(v);
+}
+
+/* -------------------------------------------------------------- */
+/* 意图 Hero 卡：动作 + 实体 + 变更迁移（审批人第一眼要看的）      */
+/* -------------------------------------------------------------- */
+
+function ApprovalHero({
+  busCode,
+  raw,
+}: {
+  busCode: string;
+  raw: Record<string, unknown>;
+}) {
+  const entity = NAME_KEYS.map((k) => raw[k]).find(
+    (v) => v !== undefined && v !== null && v !== '',
+  );
+  const actionRaw = raw['action'] ?? raw['pendingAction'];
+  const actionText =
+    typeof actionRaw === 'string'
+      ? (ACTION_LABELS[actionRaw] ?? actionRaw)
+      : undefined;
+
+  // 迁移对：状态（current→target）或参数（old→new minLiquidity）
+  let transition: { from: string; to: string; caption: string } | null = null;
+  if (raw['targetStatus'] !== undefined && raw['currentStatus'] !== undefined) {
+    transition = {
+      from: statusLabel(busCode, raw['currentStatus']),
+      to: statusLabel(busCode, raw['targetStatus']),
+      caption: 'Status',
+    };
+  } else if (raw['newMinLiquidity'] !== undefined && raw['oldMinLiquidity'] !== undefined) {
+    transition = {
+      from: String(raw['oldMinLiquidity']),
+      to: String(raw['newMinLiquidity']),
+      caption: 'Min Liquidity',
+    };
+  }
+
+  return (
+    <div className="rounded-xl border border-amber-200/80 bg-amber-50/70 px-4 py-3.5 dark:border-amber-500/25 dark:bg-amber-500/10">
+      {actionText ? (
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+          {actionText}
+        </div>
+      ) : null}
+      {entity !== undefined ? (
+        <div className="mt-0.5 truncate text-[15px] font-semibold leading-tight">
+          {String(entity)}
+        </div>
+      ) : null}
+      {transition ? (
+        <div className="mt-3 flex items-center justify-center gap-3 rounded-lg bg-background/70 py-2.5">
+          <Badge
+            variant="secondary"
+            className="bg-muted/70 text-[12px] font-normal text-muted-foreground"
+          >
+            {transition.from}
+          </Badge>
+          <ArrowRight
+            className="h-3.5 w-3.5 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Badge className="bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-600">
+            {transition.to}
+          </Badge>
+          <span className="sr-only">{transition.caption} change</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- */
+/* 审批流时间线：已完成节点 + 当前待审节点                        */
+/* -------------------------------------------------------------- */
+
+/** 节点结果码 → 文案/配色（后端约定：2 拒绝 / 3 通过 / 9 退回）。 */
+const STEP_RESULT: Record<number, { label: string; cls: string }> = {
   3: { label: 'Passed', cls: 'text-emerald-600 dark:text-emerald-400' },
   2: { label: 'Rejected', cls: 'text-destructive' },
   9: { label: 'Returned', cls: 'text-amber-600 dark:text-amber-400' },
 };
 
-/**
- * 审批流时间线：已完成节点（history）+ 当前待审节点（琥珀呼吸点）。
- * 未走到的后续节点不展示（detail 接口不含 workflow 前瞻）。
- */
 function FlowTimeline({
   history,
   currentStepName,
@@ -160,16 +235,26 @@ function FlowTimeline({
       {history.map((h) => {
         const r = STEP_RESULT[h.reviewerStatus];
         return (
-          <li key={h.stepName + h.reviewerTime} className="relative flex gap-3 pb-4 last:pb-0">
-            <span className="absolute left-[9px] top-5 h-[calc(100%-14px)] w-px bg-border" aria-hidden="true" />
+          <li
+            key={h.stepName + h.reviewerTime}
+            className="relative flex gap-3 pb-4 last:pb-0"
+          >
+            <span
+              className="absolute left-[9px] top-5 h-[calc(100%-14px)] w-px bg-border"
+              aria-hidden="true"
+            />
             <CheckCircle2
               className={`relative z-10 h-5 w-5 shrink-0 bg-background ${r?.cls ?? ''}`}
               aria-hidden="true"
             />
             <div className="flex min-w-0 flex-col gap-0.5">
               <div className="flex items-center gap-2">
-                <span className="text-[13px] font-medium leading-none">{h.stepName}</span>
-                <span className={`text-[11px] font-medium ${r?.cls ?? ''}`}>{r?.label}</span>
+                <span className="text-[13px] font-medium leading-none">
+                  {h.stepName}
+                </span>
+                <span className={`text-[11px] font-medium ${r?.cls ?? ''}`}>
+                  {r?.label}
+                </span>
               </div>
               <div className="text-[11px] text-muted-foreground">
                 {h.reviewerName} · {formatUtc8(h.reviewerTime)}
@@ -185,7 +270,10 @@ function FlowTimeline({
       })}
       <li className="relative flex gap-3">
         {history.length > 0 ? (
-          <span className="absolute left-[9px] top-[-14px] h-[14px] w-px bg-border" aria-hidden="true" />
+          <span
+            className="absolute left-[9px] top-[-14px] h-[14px] w-px bg-border"
+            aria-hidden="true"
+          />
         ) : null}
         <span className="relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-400/70 bg-background">
           <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
@@ -195,7 +283,10 @@ function FlowTimeline({
             <span className="text-[13px] font-medium leading-none">
               {currentStepName || 'Current step'}
             </span>
-            <Badge variant="outline" className="h-4 border-amber-400/70 px-1.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+            <Badge
+              variant="outline"
+              className="h-4 border-amber-400/70 px-1.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
+            >
               Current
             </Badge>
           </div>
@@ -208,30 +299,11 @@ function FlowTimeline({
   );
 }
 
-/** 状态徽章（旧值中性 / 新值强调绿）。 */
-function StatusChip({
-  label,
-  tone,
-}: {
-  label: string;
-  tone: 'current' | 'target';
-}) {
-  return (
-    <Badge
-      variant={tone === 'target' ? 'default' : 'secondary'}
-      className={
-        tone === 'target'
-          ? 'bg-emerald-600 text-[11px] font-normal hover:bg-emerald-600'
-          : 'bg-muted/70 text-[11px] font-normal text-muted-foreground'
-      }
-    >
-      {label}
-    </Badge>
-  );
-}
+/* -------------------------------------------------------------- */
+/* Details 两列 grid：label 12 muted / value 13 medium            */
+/* -------------------------------------------------------------- */
 
-/** 单字段值渲染：状态→徽章、时间→格式化、指纹→等宽、其余文本。 */
-function ContentValue({
+function DetailValue({
   busCode,
   fieldKey,
   value,
@@ -241,38 +313,33 @@ function ContentValue({
   value: unknown;
 }) {
   if (value === null || value === undefined || value === '') return <Dash />;
-  if (fieldKey === 'action') {
+  if (fieldKey === 'status') {
     return (
-      <span className="text-xs font-medium">
-        {ACTION_LABELS[String(value)] ?? String(value)}
-      </span>
-    );
-  }
-  const isStatus =
-    fieldKey === 'currentStatus' ||
-    fieldKey === 'targetStatus' ||
-    fieldKey === 'status';
-  if (isStatus) {
-    const map = STATUS_MAP_BY_BUS[busCode];
-    const label = map ? protoStatusLabel(map, Number(value)) : String(value);
-    return (
-      <StatusChip
-        label={label}
-        tone={fieldKey === 'targetStatus' ? 'target' : 'current'}
-      />
+      <Badge
+        variant="secondary"
+        className="bg-muted/70 text-[11px] font-normal text-muted-foreground"
+      >
+        {statusLabel(busCode, value)}
+      </Badge>
     );
   }
   if (fieldKey in TIME_KEYS) {
     return (
-      <span className="text-[13px] font-medium tabular-nums">{formatUtc8(Number(value))}</span>
+      <span className="text-[13px] font-medium tabular-nums">
+        {formatUtc8(Number(value))}
+      </span>
     );
   }
   if (fieldKey in FINGERPRINT_KEYS) {
     return (
-      <span className="font-mono text-[13px] font-medium break-all">{String(value)}</span>
+      <span className="break-all font-mono text-[12px] font-medium">
+        {String(value)}
+      </span>
     );
   }
-  return <span className="text-xs">{String(value)}</span>;
+  return (
+    <span className="text-[13px] font-medium">{String(value)}</span>
+  );
 }
 
 export interface InlineApprovalPanelProps {
@@ -285,8 +352,8 @@ export interface InlineApprovalPanelProps {
 }
 
 /**
- * 行内审批面板：元信息 → 变更内容（状态对渲染为 旧徽章→新徽章）→ 意见 + 动作 → 结果态。
- * recordExists=false 渲染空态；动作成功后原地变结果态不自动关闭（队列模式由外层推进）。
+ * 行内审批面板 v4：Hero（意图）→ Flow（时间线）→ Details（两列 grid）
+ * → Remarks + 动作。动作成功后原地变结果态不自动关闭（队列模式由外层推进）。
  */
 export function InlineApprovalPanel({
   busCode,
@@ -404,69 +471,53 @@ export function InlineApprovalPanel({
   }
 
   const raw = data.businessContent ?? {};
-  const hasTargetPair = raw['targetStatus'] !== undefined;
-  const ordered = [
-    ...CONTENT_FIELDS.filter(
-      (f) =>
-        raw[f.key] !== undefined &&
-        !(hasTargetPair && f.key === 'currentStatus'),
-    ),
+  const heroKeys: Record<string, true> = {
+    ...HERO_KEYS,
+    ...Object.fromEntries(NAME_KEYS.map((k) => [k, true])),
+  };
+  const detailRows = [
+    ...DETAIL_FIELDS.filter((f) => raw[f.key] !== undefined),
     ...Object.keys(raw)
       .filter(
         (k) =>
           !(k in HIDDEN_KEYS) &&
-          !(hasTargetPair && k === 'currentStatus') &&
-          !CONTENT_FIELDS.some((f) => f.key === k),
+          !(k in heroKeys) &&
+          !DETAIL_FIELDS.some((f) => f.key === k),
       )
       .map((k) => ({ key: k, label: k })),
   ];
 
   return (
     <div className="flex flex-col gap-5">
-      {/* 审批流时间线：已完成节点 + 当前待审节点 */}
+      <ApprovalHero busCode={busCode} raw={raw} />
+
       <section className="flex flex-col gap-2">
         <SectionLabel>Flow</SectionLabel>
         <FlowTimeline
           history={history}
-          currentStepName={currentStepName ?? undefined}
+          currentStepName={currentStepName}
           awaitingYou={canApprove}
         />
       </section>
 
-      {/* 变更内容：状态对（current→target）渲染为徽章迁移，其余字段值格式化 */}
-      <section className="flex flex-col gap-2">
-        <SectionLabel>Change Details</SectionLabel>
-      <div className="rounded-lg border border-border/60 bg-muted/20">
-        {ordered.length === 0 ? (
-          <div className="px-4 py-3 text-sm text-muted-foreground">
-            No business fields.
-          </div>
-        ) : (
-          ordered.map(({ key, label }) => (
-            <div
-              key={key}
-              className="flex items-center justify-between gap-4 border-b border-border/40 px-3 py-1.5 last:border-b-0"
-            >
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {label}
-              </span>
-              <div className="flex items-center gap-1.5">
-                {key === 'targetStatus' && raw['currentStatus'] !== undefined ? (
-                  <>
-                    <ContentValue busCode={busCode} fieldKey="currentStatus" value={raw['currentStatus']} />
-                    <ArrowRight className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
-                  </>
-                ) : null}
-                <ContentValue busCode={busCode} fieldKey={key} value={raw[key]} />
+      {detailRows.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <SectionLabel>Details</SectionLabel>
+          <dl className="grid grid-cols-[110px_1fr] gap-x-4 gap-y-2 rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+            {detailRows.map(({ key, label }) => (
+              <div key={key} className="col-span-2 grid grid-cols-subgrid">
+                <dt className="self-center text-xs text-muted-foreground">
+                  {label}
+                </dt>
+                <dd className="flex min-w-0 items-center justify-self-end text-right">
+                  <DetailValue busCode={busCode} fieldKey={key} value={raw[key]} />
+                </dd>
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
 
-      </section>
-
-      {/* 意见 + 动作（当前用户为待审节点审批人时展示） */}
       {canApprove || canPrevious || canWithdraw ? (
         <div className="flex flex-col gap-2">
           <SectionLabel>Remarks</SectionLabel>
@@ -526,7 +577,7 @@ export function InlineApprovalPanel({
       ) : (
         <div className="flex flex-col gap-2">
           <SectionLabel>Remarks</SectionLabel>
-          <div className="rounded-lg border border-dashed px-4 py-3 text-xs text-muted-foreground">
+          <div className="rounded-xl border border-dashed px-4 py-3 text-xs text-muted-foreground">
             Awaiting review — you are not the current step reviewer. You can
             track progress above.
           </div>
@@ -565,7 +616,68 @@ export function ApprovalPendingTag({
   );
 }
 
-/** 行内入口 + 右侧审批抽屉（状态列用；表格上下文保持可见）。 */
+/* -------------------------------------------------------------- */
+/* 审批抽屉（统一头部：业务类型 + 单号 mono + 实体名）             */
+/* -------------------------------------------------------------- */
+
+export function ApprovalReviewDrawer({
+  open,
+  onOpenChange,
+  busCode,
+  busId,
+  applyCode,
+  entityLabel,
+  stepName,
+  queueIndex,
+  queueTotal,
+  onHandled,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  busCode: string;
+  busId: number;
+  applyCode?: string;
+  entityLabel?: string;
+  stepName?: string;
+  queueIndex?: number;
+  queueTotal?: number;
+  onHandled?: () => void;
+}) {
+  const typeName = BUSINESS_NAME_MAP[busCode] ?? busCode;
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="w-[520px] max-w-none sm:max-w-[520px]">
+        <DrawerHeader className="pb-2">
+          <DrawerTitle className="flex items-center gap-2 text-[15px]">
+            <FileClock className="h-4 w-4 text-amber-600" aria-hidden="true" />
+            {queueTotal !== undefined && queueIndex !== undefined
+              ? `Review ${queueIndex + 1} / ${queueTotal}`
+              : typeName}
+          </DrawerTitle>
+          <DrawerDescription className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            {queueTotal !== undefined && queueIndex !== undefined ? (
+              <span>{typeName}</span>
+            ) : null}
+            {applyCode ? (
+              <span className="font-mono text-[11px]">{applyCode}</span>
+            ) : null}
+            {entityLabel ? <span>· {entityLabel}</span> : null}
+          </DrawerDescription>
+        </DrawerHeader>
+        <div className="px-4 pb-6">
+          <InlineApprovalPanel
+            busCode={busCode}
+            busId={busId}
+            currentStepName={stepName}
+            onHandled={() => onHandled?.()}
+          />
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+/** 行内入口 + 审批抽屉（状态列用；表格上下文保持可见）。 */
 export function ApprovalPendingTagWithDialog({
   busCode,
   busId,
@@ -587,27 +699,15 @@ export function ApprovalPendingTagWithDialog({
         stepName={stepName}
         onClick={() => setOpen(true)}
       />
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent className="w-[480px] max-w-none sm:max-w-[480px]">
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
-              <FileClock className="h-4 w-4 text-amber-600" aria-hidden="true" />
-              Approval In Progress
-            </DrawerTitle>
-            <DrawerDescription>
-              Review the pending change and take action in place.
-            </DrawerDescription>
-          </DrawerHeader>
-          <div className="px-4 pb-6">
-            <InlineApprovalPanel
-              busCode={busCode}
-              busId={busId}
-              currentStepName={stepName}
-              onHandled={() => onHandled?.()}
-            />
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <ApprovalReviewDrawer
+        open={open}
+        onOpenChange={setOpen}
+        busCode={busCode}
+        busId={busId}
+        applyCode={applyCode}
+        stepName={stepName}
+        onHandled={onHandled}
+      />
     </>
   );
 }
@@ -630,30 +730,20 @@ export function InlineApprovalButton({
       >
         {label}
       </Button>
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent className="w-[480px] max-w-none sm:max-w-[480px]">
-          <DrawerHeader>
-            <DrawerTitle>Inline Approval</DrawerTitle>
-            <DrawerDescription>
-              Approve in place — business executes immediately on approval.
-            </DrawerDescription>
-          </DrawerHeader>
-          <div className="px-4 pb-6">
-            <InlineApprovalPanel
-              busCode={busCode}
-              busId={busId}
-              onHandled={() => onHandled?.()}
-            />
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <ApprovalReviewDrawer
+        open={open}
+        onOpenChange={setOpen}
+        busCode={busCode}
+        busId={busId}
+        onHandled={onHandled}
+      />
     </>
   );
 }
 
-/* ============================================================ */
-/* 页级审批队列（B 方案）：本页待我审的单聚合为横条，逐条处理清空 */
-/* ============================================================ */
+/* -------------------------------------------------------------- */
+/* 页级审批队列：本页待我审的单聚合为横条，逐条处理清空            */
+/* -------------------------------------------------------------- */
 
 export interface ApprovalQueueItem {
   busCode: string;
@@ -662,10 +752,12 @@ export interface ApprovalQueueItem {
   label: string;
   /** 当前待审节点名（行数据 listBrief 提供，可缺省）。 */
   stepName?: string;
+  /** 单号（抽屉头部 mono 显示）。 */
+  applyCode?: string;
 }
 
 /**
- * 页级审批队列条 + 逐条抽屉（2026-10-22 C+B）：
+ * 页级审批队列条 + 逐条抽屉：
  * - 本页存在待我审的单时，表格上方渲染琥珀横条 `N awaiting your review → Review`；
  * - 点 Review 打开右侧抽屉逐条审批，处理完自动跳下一条，清零后横条消失；
  * - 行内小图标入口保留为兜底。
@@ -700,7 +792,7 @@ export function ApprovalQueue({
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
         <span className="inline-flex items-center gap-2">
           <FileClock className="h-4 w-4" aria-hidden="true" />
           <span>
@@ -720,28 +812,18 @@ export function ApprovalQueue({
           <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
       </div>
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent className="w-[480px] max-w-none sm:max-w-[480px]">
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
-              <FileClock className="h-4 w-4 text-amber-600" aria-hidden="true" />
-              Review {index + 1} / {items.length}
-            </DrawerTitle>
-            <DrawerDescription className="truncate">
-              {current.label}
-            </DrawerDescription>
-          </DrawerHeader>
-          <div className="px-4 pb-6">
-            <InlineApprovalPanel
-              key={`${current.busCode}:${current.busId}`}
-              busCode={current.busCode}
-              busId={current.busId}
-              currentStepName={current.stepName}
-              onHandled={advance}
-            />
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <ApprovalReviewDrawer
+        open={open}
+        onOpenChange={setOpen}
+        busCode={current.busCode}
+        busId={current.busId}
+        applyCode={current.applyCode}
+        entityLabel={current.label}
+        stepName={current.stepName}
+        queueIndex={index}
+        queueTotal={items.length}
+        onHandled={advance}
+      />
     </>
   );
 }
