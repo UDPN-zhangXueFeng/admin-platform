@@ -46,7 +46,6 @@ import {
   AlertDescription,
   AlertTitle,
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -311,14 +310,20 @@ interface ConfirmRequest {
 function ConfirmAlertDialog({
   request,
   onDismiss,
+  pending = false,
 }: {
   request: ConfirmRequest | null;
   onDismiss: () => void;
+  /** 请求进行中：确认按钮进入加载态，弹窗不接受关闭（Esc/遮罩/Cancel 均忽略）。 */
+  pending?: boolean;
 }) {
   return (
     <AlertDialog
       open={request != null}
-      onOpenChange={(open) => !open && onDismiss()}
+      onOpenChange={(open) => {
+        // 请求未返回前保持弹窗打开：调用方在接口返回后清空 request 才关闭。
+        if (!open && !pending) onDismiss();
+      }}
     >
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -328,17 +333,22 @@ function ConfirmAlertDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          {/*
+            不用 Radix 的 AlertDialogAction：它在点击后会立即关闭弹窗，
+            无法做到「接口返回后再关闭」。改用普通 Button，由调用方控制开关时机。
+          */}
+          <Button
             className={
               request?.destructive
                 ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
                 : undefined
             }
+            loading={pending}
             onClick={() => request?.onConfirm()}
           >
-            {request?.actionLabel}
-          </AlertDialogAction>
+            {pending ? 'Working…' : request?.actionLabel}
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -573,6 +583,7 @@ function AccessKeyDrawer({
             : null
         }
         onDismiss={() => setGenerateConfirm(false)}
+        pending={generateMutation.isPending}
       />
 
       {/* 生成结果：一次性明文（源 access-key-result dialog）。 */}
@@ -733,7 +744,6 @@ function InteractDrawer({
       { bankId: bank.bankId, peerBankId: peer.bankId, banned: !allow },
       {
         onSuccess: () => {
-          setRowConfirm(null);
           toast.success(
             allow
               ? `Resumed interaction with ${peer.bankBic} (effective immediately)`
@@ -741,6 +751,8 @@ function InteractDrawer({
           );
         },
         onError: (e) => toast.error((e as Error).message),
+        // 接口返回后才关弹窗（成功或失败）：请求期间弹窗保持打开并显示加载态。
+        onSettled: () => setRowConfirm(null),
       },
     );
   }, [bank.bankId, rowConfirm, saveMutation, toast]);
@@ -911,6 +923,7 @@ function InteractDrawer({
             : null
         }
         onDismiss={() => setRowConfirm(null)}
+        pending={saveMutation.isPending}
       />
     </>
   );

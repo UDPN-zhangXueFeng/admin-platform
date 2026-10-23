@@ -1,5 +1,12 @@
 # Codex 对话沉淀
 
+## 2026-10-23 确认弹窗等待接口返回再关闭
+
+- `ConfirmAlertDialog`（`libs/modules/kissen-admin/feature/src/lib/bank-onboard-pages.tsx`）改为**完全受控**：确认按钮不再用 Radix `AlertDialogAction`（它点击即关，无法等待接口），改用共享 `Button`（`loading` 自带 Loader2 + `aria-busy` + disabled）。新增 `pending` prop：请求中按钮显示 “Working…”、Cancel 禁用、`onOpenChange` 忽略关闭请求；调用方在 mutation `onSettled` 里清空 request 才关窗。
+- 注意 Radix 的 `AlertDialogAction`/`Dialog.Close` **不理会 `preventDefault()`**，要阻止其自动关闭只能换掉该组件。
+- 已接入：银行交互规则行级开关（`rowConfirm`，pending=saveMutation.isPending，onSettled 关窗）、AccessKey 生成确认（pending=generateMutation.isPending；失败时弹窗保留并 toast 报错，可再次点击）。
+- 验证：`npx nx lint modules-kissen-admin-feature`、`npx nx build kissen-admin` 通过；浏览器实测点击后弹窗保持打开、按钮为 “Working…”（aria-busy=true）、Cancel 禁用，接口返回（~15.3s）后弹窗关闭且列表刷新；截图 `/tmp/kissen-admin-interact-pending.png`；测试造成的 TD3 禁用状态已还原为 Allowed。
+
 ## 2026-10-23 Kissen Admin 银行交互开关失效（前端超时）
 
 - 症状：`/en-US/onboard/bank/detail?id=7` 的 “Bank Interact Rules” 行级开关点击无效。**根因在前端**：`libs/modules/kissen-admin/data-access/src/lib/kissen-client.ts` 的 `kissenAxios` 默认 `timeout: 15000`，而后端 `POST /manage/bank-interact/save` 需把规则推送到各网关，实测耗时 **15.3s**（curl 直连后端两次：15.334s / 15.311s）。客户端在 15.000s 精确 abort（`net::ERR_ABORTED`），toast 显示 `Network timeout: timeout of 15000ms exceeded`；后端其实已落库，但前端 `onSuccess` 不执行 → view 缓存不失效 → 界面停留在旧的 “Allowed”。
