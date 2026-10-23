@@ -1,5 +1,11 @@
 # Codex 对话沉淀
 
+## 2026-10-23 Kissen Admin 审批构建修复
+
+- `InlineApprovalPanel` 的 process、previousStep、withdraw mutations 变量分别要求 `approve`、必填 `remarks`、可选 `remarks`；不要用宽泛的 `mutate(vars: never, opts?: unknown)` / `as never` 统一传递。用闭包提交各自类型化的变量与成功/失败回调，保留 endpoint 契约。
+- `LpPairTableRow.id` 为 DataTable 被转成字符串；审批 `busId` 仍是数值。表格状态列和 ApprovalQueue 传参时需恢复数值业务 ID，不能把字符串化的行键当作 API ID。
+- 验证：`npx nx build kissen-admin`、`npx nx lint modules-kissen-admin-feature` 通过。
+
 ## 2026-10-21 三门户普通金额两位精度
 
 - 三门户没有能覆盖自定义 JSX 数字格式器的 app-level 全局精度设置；展示逻辑分别在 `libs/modules/{kissen-admin,lp-portal,kissen-gateway}/feature`。普通金额使用固定两位；FX 汇率维持 4 位，token 金额维持 token 精度/现有去尾零口径。

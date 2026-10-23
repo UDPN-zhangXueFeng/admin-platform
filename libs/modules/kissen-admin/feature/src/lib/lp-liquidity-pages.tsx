@@ -2191,7 +2191,7 @@ export function LpInfoDetailPage() {
             {row.original.statusApprovalPending ? (
               <ApprovalPendingTagWithDialog
                 busCode={BUS_CODE_LP_PAIR_STATUS}
-                busId={row.original.id}
+                busId={Number(row.original.id)}
                 applyCode={row.original.statusApplyCode}
               />
             ) : null}
@@ -3041,7 +3041,7 @@ export function LpTokenPairListPage() {
             {row.original.statusApprovalPending ? (
               <ApprovalPendingTagWithDialog
                 busCode={BUS_CODE_LP_PAIR_STATUS}
-                busId={row.original.id}
+                busId={Number(row.original.id)}
                 applyCode={row.original.statusApplyCode}
               />
             ) : null}
@@ -3225,7 +3225,7 @@ export function LpTokenPairListPage() {
               .filter((r) => r.statusApprovalPending && r.statusCanApprove)
               .map((r) => ({
                 busCode: BUS_CODE_LP_PAIR_STATUS,
-                busId: r.id,
+                busId: Number(r.id),
                 label: `${r.lpName} · ${r.pairCode}`,
               }))}
             onHandled={() => void refetch()}

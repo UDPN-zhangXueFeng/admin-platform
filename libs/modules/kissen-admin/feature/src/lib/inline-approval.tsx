@@ -421,37 +421,32 @@ export function InlineApprovalPanel({
 
   const act = (
     kind: 'approve' | 'reject' | 'back' | 'withdraw',
-    mutation: { isPending: boolean; mutate: (vars: never, opts?: unknown) => void },
+    submit: (callbacks: {
+      onSuccess: () => void;
+      onError: (e: unknown) => void;
+    }) => void,
   ) => {
     if ((kind === 'reject' || kind === 'back') && !remarks.trim()) {
       toast.error('Remarks are required for rejection / return.');
       return;
     }
-    mutation.mutate(
-      {
-        busCode,
-        taskId: data.taskId,
-        approve: kind === 'approve' ? 3 : 2,
-        remarks: remarks.trim() || undefined,
-      } as never,
-      {
-        onSuccess: () => {
-          setDone({
-            label:
-              kind === 'approve'
-                ? 'Approved — business executed'
-                : kind === 'reject'
-                  ? 'Rejected'
-                  : kind === 'back'
-                    ? 'Returned to previous step'
-                    : 'Withdrawn',
-            ok: kind === 'approve',
-          });
-          onHandled?.();
-        },
-        onError: (e: unknown) => toast.error((e as Error).message),
-      } as never,
-    );
+    submit({
+      onSuccess: () => {
+        setDone({
+          label:
+            kind === 'approve'
+              ? 'Approved — business executed'
+              : kind === 'reject'
+                ? 'Rejected'
+                : kind === 'back'
+                  ? 'Returned to previous step'
+                  : 'Withdrawn',
+          ok: kind === 'approve',
+        });
+        onHandled?.();
+      },
+      onError: (e: unknown) => toast.error((e as Error).message),
+    });
   };
 
   if (done) {
@@ -540,7 +535,18 @@ export function InlineApprovalPanel({
                 size="sm"
                 variant="outline"
                 disabled={withdrawMutation.isPending}
-                onClick={() => act('withdraw', withdrawMutation)}
+                onClick={() =>
+                  act('withdraw', (callbacks) =>
+                    withdrawMutation.mutate(
+                      {
+                        busCode,
+                        taskId: data.taskId,
+                        remarks: remarks.trim() || undefined,
+                      },
+                      callbacks,
+                    ),
+                  )
+                }
               >
                 <Undo2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                 Withdraw
@@ -551,7 +557,18 @@ export function InlineApprovalPanel({
                 size="sm"
                 variant="outline"
                 disabled={previousStepMutation.isPending}
-                onClick={() => act('back', previousStepMutation)}
+                onClick={() =>
+                  act('back', (callbacks) =>
+                    previousStepMutation.mutate(
+                      {
+                        busCode,
+                        taskId: data.taskId,
+                        remarks: remarks.trim(),
+                      },
+                      callbacks,
+                    ),
+                  )
+                }
               >
                 Return
               </Button>
@@ -562,7 +579,19 @@ export function InlineApprovalPanel({
                   size="sm"
                   variant="destructive"
                   disabled={processMutation.isPending}
-                  onClick={() => act('reject', processMutation)}
+                  onClick={() =>
+                    act('reject', (callbacks) =>
+                      processMutation.mutate(
+                        {
+                          busCode,
+                          taskId: data.taskId,
+                          approve: 2,
+                          remarks: remarks.trim() || undefined,
+                        },
+                        callbacks,
+                      ),
+                    )
+                  }
                 >
                   <XCircle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                   Reject
@@ -571,7 +600,19 @@ export function InlineApprovalPanel({
                   size="sm"
                   className="bg-emerald-600 hover:bg-emerald-700"
                   disabled={processMutation.isPending}
-                  onClick={() => act('approve', processMutation)}
+                  onClick={() =>
+                    act('approve', (callbacks) =>
+                      processMutation.mutate(
+                        {
+                          busCode,
+                          taskId: data.taskId,
+                          approve: 3,
+                          remarks: remarks.trim() || undefined,
+                        },
+                        callbacks,
+                      ),
+                    )
+                  }
                 >
                   <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                   Approve &amp; Execute
