@@ -1195,3 +1195,9 @@
 - 我发起页签按设计附录A 改列序(状态→Current Step→申请时间)+ 行动作为只读 Details;`canWithdraw` 行旁提示 "Withdrawal available in details",撤回只在共享详情执行(删除列表级 Withdraw 菜单+弹窗)。
 - 各页 Status 下拉固定子集(防 PROTO 键集扩大自动进筛选):token 对 [5,15,20,30,50] 固定数组;LP 对 [1,5,10,15,20,50];LP 入网 [1,5,10,15,20];资金池 [5,15,20]。
 - 清理死代码:bank.model.ts 的 BANK_STATUS_LABEL/BANK_STATUS_OPTIONS/bankStatusVariant 零消费,已删除(BankBadgeVariant 保留,bank-gateway 在用);LpPairStatusBadge 独立 Draft 特判删除(PROTO_LP_PAIR_STATUS[1] 已有)。
+
+## 2026-10-23 Gateway Bank Query「Tradable Tokens」列改展示 symbol
+
+- 后端 `POST /bankgw/portal/bank/query/list`（.85）行内 `tokenList` 是 JSON 串，元素含 `tokenNo`/`tokenCode`（合约地址）/`tokenName`/`symbol`/`chainType`/`anchorFiat`（实测 TD3 → tokenCode `1f6d073d…`+symbol `CXC`、tokenName `CXCoin`）。列表列此前渲染 `tokenCode`（地址），现按 symbol → tokenName → tokenCode(地址,仍可复制) 回退展示。
+- 网关登录端点 `POST /bankgw/portal/login`，字段 `loginName`/`password`，成功返回 token，后续请求走 `token` 请求头（不是 Authorization）；测试账号 `bank_admin/Kissen@123`，`firstLogin=1` 不触发强制改密，可直接进 `/en-US/bank/query`。
+- 仓库各 app `tsconfig.json` 的 `references` 仍指向已删除的 `libs/modules/auth/feature`，`npx tsc --noEmit` 在配置层即 TS6053 失败（与业务改动无关）；类型检查需临时用 `{"extends":"./tsconfig.json","references":[]}` 的覆盖配置再 `tsc --noEmit -p`。

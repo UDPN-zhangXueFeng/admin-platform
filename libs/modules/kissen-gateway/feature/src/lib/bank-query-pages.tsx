@@ -191,21 +191,33 @@ export function BankQueryListPage() {
         header: 'Tradable Tokens',
         meta: { overflow: 'wrap', maxWidth: 360 },
         cell: ({ row }) => {
-          /* a9dc10e：标签 tokenCode + 中间省略可复制（源 CopyText）。 */
+          /* 2026-10-23：列内展示 token symbol（后端 tokenList 已下发
+             symbol/tokenName/tokenCode）；symbol 与名称皆缺时退回地址，
+             地址保持中间省略可复制（沿用 a9dc10e 源 CopyText 口径）。 */
           const tokens = tokensOf(row.original);
           if (tokens.length === 0) return <span>-</span>;
           return (
             <span className="inline-flex flex-wrap gap-1.5">
-              {tokens.map((t, i) => (
-                <CopyableEllipsisText
-                  key={`${t.tokenCode}-${i}`}
-                  value={t.tokenCode}
-                  emptyText="-"
-                  maxWidth={160}
-                  truncate="middle"
-                  className="font-mono"
-                />
-              ))}
+              {tokens.map((t, i) => {
+                const label = (t.symbol || t.tokenName || '').trim();
+                if (!label) {
+                  return (
+                    <CopyableEllipsisText
+                      key={`${t.tokenCode}-${i}`}
+                      value={t.tokenCode}
+                      emptyText="-"
+                      maxWidth={160}
+                      truncate="middle"
+                      className="font-mono"
+                    />
+                  );
+                }
+                return (
+                  <span key={`${t.tokenCode}-${i}`} className="font-mono">
+                    {label}
+                  </span>
+                );
+              })}
             </span>
           );
         },
