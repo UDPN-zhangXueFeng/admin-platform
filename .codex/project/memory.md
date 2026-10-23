@@ -1,5 +1,13 @@
 # Codex 对话沉淀
 
+## 2026-10-23 WATCHDOG.md 深度定制
+
+- `WATCHDOG.md` 是仓库根的**评审守门清单**，会被逐字注入评审 agent 的 attention block，因此按「一条 = 一次真实事故」组织，并单列「已知非问题」防误报；不重复 `rule.md`/`AGENTS.md` 已覆盖的通用规范。
+- 评审面按 AGENTS.md 收敛为三门户（kissen-admin / lp-portal / kissen-gateway-portal）+ 对应 `libs/modules/*`；`apps/admin` 不在本轮范围。
+- 清单锚定的事故：`t_edit` slug→pageKey 盲区、`transpilePackages`/tsconfig paths 缺配即构建失败、`data.state` vs `data.status`、上游 `useSWR([url])`=GET、提交 `.next/dev/types` 的 `next-env.d.ts` 断他人 checkout 的 tsc、DataTable 字符串行键污染数值 `busId`、`as never` 统一 mutation 签名。
+- 已知非问题：util-config 约 47 个边界 lint 债、LP `lp_tx_stash:` 行暂存语义、被跟踪的历史 `.env.local`、Next `middleware`→`proxy` 弃用警告、npm/pnpm 警告噪音、jest `No tests found` exit 0。
+- 复核方式：文中每条都能在仓库现状验证（三门户 middleware 308、`kissen-client` 信封注释、`eslint.config.mjs` 无 react-hooks 规则、`git ls-files` 显示 3 个 `.env.local` 仍被跟踪）。
+
 ## 2026-10-23 Kissen Admin 审批构建修复
 
 - `InlineApprovalPanel` 的 process、previousStep、withdraw mutations 变量分别要求 `approve`、必填 `remarks`、可选 `remarks`；不要用宽泛的 `mutate(vars: never, opts?: unknown)` / `as never` 统一传递。用闭包提交各自类型化的变量与成功/失败回调，保留 endpoint 契约。
