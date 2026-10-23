@@ -15,7 +15,9 @@ export function useInteractSaveMutation(projectId: string, bankId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: InteractSaveReq) => interactSave(data),
-    onSuccess: () =>
+    // 成功或失败都重新拉取对端列表：保存失败时后端可能已落库（响应超时/连接中断），
+    // 只在 onSuccess 失效缓存会让界面停留在旧状态，看起来像「开关没生效」。
+    onSettled: () =>
       queryClient.invalidateQueries({
         queryKey: bankInteractKeys.view(projectId, bankId),
       }),

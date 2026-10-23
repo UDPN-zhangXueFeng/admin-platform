@@ -1,5 +1,13 @@
 # Codex 对话沉淀
 
+## 2026-10-23 Kissen Admin 银行交互开关失效（前端超时）
+
+- 症状：`/en-US/onboard/bank/detail?id=7` 的 “Bank Interact Rules” 行级开关点击无效。**根因在前端**：`libs/modules/kissen-admin/data-access/src/lib/kissen-client.ts` 的 `kissenAxios` 默认 `timeout: 15000`，而后端 `POST /manage/bank-interact/save` 需把规则推送到各网关，实测耗时 **15.3s**（curl 直连后端两次：15.334s / 15.311s）。客户端在 15.000s 精确 abort（`net::ERR_ABORTED`），toast 显示 `Network timeout: timeout of 15000ms exceeded`；后端其实已落库，但前端 `onSuccess` 不执行 → view 缓存不失效 → 界面停留在旧的 “Allowed”。
+- 修复：`bank-interact.api.ts` 给该端点单独 `timeout: 60_000`；`bank-interact.mutations.ts` 把失效缓存从 `onSuccess` 改为 `onSettled`（失败时也要重新拉取，让界面与后端真实状态对齐）。
+- 经验：kissen 后端凡「保存后立即推送网关」的写操作耗时可能超过 15s，前端需按端点放宽超时；判断「接口问题还是前端问题」的方法：curl 直连后端测耗时 + 浏览器抓 `requestfailed` 时间戳，与客户端 timeout 对齐。
+- 同类风险（未验证）：kissen-admin 其他推送网关的写接口（银行启停、token/实例启停、AccessKey 重置、审批处理）仍走 15s 默认超时，耗时未知，需按端点实测后再决定是否放宽。
+- 验证：`npx nx lint modules-kissen-admin-data-access`、`npx nx build kissen-admin` 通过；浏览器实测开关恢复（save 200/code 0，15.3s 后 view 刷新显示 Banned/Allowed 正确切换），测试期间产生的 TD3 禁用状态已恢复为 Allowed。
+
 ## 2026-10-23 WATCHDOG.md 深度定制
 
 - `WATCHDOG.md` 是仓库根的**评审守门清单**，会被逐字注入评审 agent 的 attention block，因此按「一条 = 一次真实事故」组织，并单列「已知非问题」防误报；不重复 `rule.md`/`AGENTS.md` 已覆盖的通用规范。
