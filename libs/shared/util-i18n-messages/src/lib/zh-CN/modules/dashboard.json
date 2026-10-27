@@ -42,5 +42,7 @@
   "refresh": "刷新",
   "chartEmpty": "当前时间范围暂无图表数据。",
   "sourceLabel": "数据来源",
-  "sourceDescription": "基于 td-manage 的 dashboard 需求重构，当前使用本地模拟数据。"
+  "sourceDescription": "基于 td-manage 的 dashboard 需求重构，当前使用本地模拟数据。",
+  "retailCbdc": "零售型央行数字货币",
+  "wholesaleCbdc": "批发型央行数字货币"
 }

@@ -94,7 +94,17 @@ export function TdSwitcher({
         name: item.name ?? item.symbol ?? '--',
         symbol: item.symbol,
         network: item.blockchainNameAbbreviation,
-        type: item.mintMethod === 20 ? 'M' : item.mintMethod === 5 ? 'TD' : 'S',
+        // Number-safe：mintMethod 线上可为 numeric string（10=RetailCBDC/15=WholesaleCBDC）。
+        type:
+          Number(item.mintMethod) === 20
+            ? 'M'
+            : Number(item.mintMethod) === 5
+              ? 'TD'
+              : Number(item.mintMethod) === 10
+                ? 'R-CBDC'
+                : Number(item.mintMethod) === 15
+                  ? 'W-CBDC'
+                  : 'S',
         status:
           item.state === 1
             ? 'active'
@@ -114,6 +124,8 @@ export function TdSwitcher({
       stablecoin: t('selector_stablecoin'),
       tokenizedDeposit: t('selector_tokenized_deposit'),
       tokenizedMmf: t('selector_tokenized_mmf'),
+      retailCbdc: t('selector_retail_cbdc'),
+      wholesaleCbdc: t('selector_wholesale_cbdc'),
       allNetworks: t('selector_all_networks'),
       tabView: t('selector_tab_view'),
       dropdownView: t('selector_dropdown_view'),

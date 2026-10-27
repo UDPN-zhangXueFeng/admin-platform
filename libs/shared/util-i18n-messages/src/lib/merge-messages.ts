@@ -43,6 +43,7 @@ import enUSModulesInterest from './en-US/modules/interest.json';
 import enUSModulesScreeningMonitoring from './en-US/modules/screening-monitoring.json';
 import enUSModulesStatisticsReports from './en-US/modules/statistics-reports.json';
 import enUSModulesAccountManage from './en-US/modules/account-manage.json';
+import enUSModulesDataExport from './en-US/modules/data-export.json';
 import enUSModulesStatisticAnalysis from './en-US/modules/statistic-analysis.json';
 import enUSModulesTransactionFlow from './en-US/modules/transaction-flow.json';
 import enUSModulesNetworks from './en-US/modules/networks.json';
@@ -84,6 +85,7 @@ import zhCNModulesInterest from './zh-CN/modules/interest.json';
 import zhCNModulesScreeningMonitoring from './zh-CN/modules/screening-monitoring.json';
 import zhCNModulesStatisticsReports from './zh-CN/modules/statistics-reports.json';
 import zhCNModulesAccountManage from './zh-CN/modules/account-manage.json';
+import zhCNModulesDataExport from './zh-CN/modules/data-export.json';
 import zhCNModulesStatisticAnalysis from './zh-CN/modules/statistic-analysis.json';
 import zhCNModulesTransactionFlow from './zh-CN/modules/transaction-flow.json';
 import zhCNModulesNetworks from './zh-CN/modules/networks.json';
@@ -126,6 +128,7 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     'modules/screening-monitoring': enUSModulesScreeningMonitoring as unknown as Record<string, unknown>,
     'modules/statistics-reports': enUSModulesStatisticsReports as unknown as Record<string, unknown>,
     'modules/account-manage': enUSModulesAccountManage as unknown as Record<string, unknown>,
+    'modules/data-export': enUSModulesDataExport as unknown as Record<string, unknown>,
     'modules/statistic-analysis': enUSModulesStatisticAnalysis as unknown as Record<string, unknown>,
     'modules/transaction-flow': enUSModulesTransactionFlow as unknown as Record<string, unknown>,
     'modules/networks': enUSModulesNetworks as unknown as Record<string, unknown>,
@@ -166,6 +169,7 @@ const messageMap: Record<string, Record<string, Record<string, unknown>>> = {
     'modules/screening-monitoring': zhCNModulesScreeningMonitoring as unknown as Record<string, unknown>,
     'modules/statistics-reports': zhCNModulesStatisticsReports as unknown as Record<string, unknown>,
     'modules/account-manage': zhCNModulesAccountManage as unknown as Record<string, unknown>,
+    'modules/data-export': zhCNModulesDataExport as unknown as Record<string, unknown>,
     'modules/statistic-analysis': zhCNModulesStatisticAnalysis as unknown as Record<string, unknown>,
     'modules/transaction-flow': zhCNModulesTransactionFlow as unknown as Record<string, unknown>,
     'modules/networks': zhCNModulesNetworks as unknown as Record<string, unknown>,

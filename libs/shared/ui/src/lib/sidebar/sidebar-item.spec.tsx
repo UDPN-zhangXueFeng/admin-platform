@@ -9,17 +9,14 @@ import { SidebarItem } from './sidebar-item';
 
 jest.mock('@myorg/shared/util-i18n', () => ({
   usePathname: jest.fn(() => '/lp/onboard'),
-}));
-
-jest.mock('next/link', () =>
-  React.forwardRef<HTMLAnchorElement, React.AnchorHTMLAttributes<HTMLAnchorElement>>(
+  Link: React.forwardRef<HTMLAnchorElement, React.AnchorHTMLAttributes<HTMLAnchorElement>>(
     ({ children, ...props }, ref) => (
       <a ref={ref} {...props}>
         {children}
       </a>
     ),
   ),
-);
+}));
 
 describe('SidebarItem nested active state', () => {
   it('shows a light theme-primary background so the selected child is obvious', () => {

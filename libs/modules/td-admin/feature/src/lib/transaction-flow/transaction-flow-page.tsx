@@ -2,11 +2,12 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import { DataTable, type DataTablePagination } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import type { TxFlowItem } from '@myorg/modules/td-admin/data-access';
-import { useTxFlowList } from '@myorg/modules/td-admin/data-access';
+import { useStablecoinsQuery, useTxFlowList } from '@myorg/modules/td-admin/data-access';
 
 const ALL = 'all';
 type TxRow = TxFlowItem & { id: string };
@@ -15,8 +16,22 @@ const EMPTY: Filters = { stablecoinId: ALL, tokenType: ALL, txFrom: '', txTo: ''
 
 export function TransactionFlowPage() {
   const t = useTranslations('modules.transaction-flow'); const tc = useTranslations('common');
+  const searchParams = useSearchParams();
+  const initialStablecoinId = searchParams.get('stablecoinId') || ALL;
+  const { data: stablecoins } = useStablecoinsQuery();
   const [pg, setPg] = React.useState<{ pageNum: number; pageSize: number }>({ pageNum: 1, pageSize: 10 });
-  const form = useForm<Filters>({ defaultValues: EMPTY }); const fv = form.watch();
+  const form = useForm<Filters>({ defaultValues: { ...EMPTY, stablecoinId: initialStablecoinId } }); const fv = form.watch();
+  const { setValue } = form;
+  React.useEffect(() => {
+    setValue('stablecoinId', initialStablecoinId);
+    setPg((previous) => previous.pageNum === 1 ? previous : { ...previous, pageNum: 1 });
+  }, [initialStablecoinId, setValue]);
+  const stablecoinOptions = [
+    { label: tc('PUB_All'), value: ALL },
+    ...(stablecoins ?? [])
+      .filter((coin) => coin.stablecoinId != null)
+      .map((coin) => ({ label: coin.name ?? String(coin.stablecoinId), value: String(coin.stablecoinId) })),
+  ];
   const qf = React.useMemo(() => { const r: Record<string, unknown> = {}; if (fv.stablecoinId !== ALL) r.stablecoinId = fv.stablecoinId; if (fv.tokenType !== ALL) r.tokenType = fv.tokenType; if (fv.txFrom) r.txFrom = fv.txFrom; if (fv.txTo) r.txTo = fv.txTo; if (fv.txType !== ALL) r.txType = fv.txType; if (fv.blockchainId !== ALL) r.blockchainId = fv.blockchainId; if (fv.txStartTime) r.txStartTime = fv.txStartTime; if (fv.txEndTime) r.txEndTime = fv.txEndTime; if (fv.txHash) r.txHash = fv.txHash; return r; }, [fv]);
   const { data, isLoading } = useTxFlowList(qf as never, pg.pageNum, pg.pageSize);
 
@@ -46,7 +61,7 @@ export function TransactionFlowPage() {
     <div>
       <div className="grid grid-cols-4 gap-4 mb-4">
         <FormField name="txHash" label={t('transaction_flow_007')} register={form.register('txHash')} placeholder={t('transaction_flow_007')} />
-        <FormSelect name="stablecoinId" label={t('transaction_flow_0018')} control={form.control} options={[{ label: tc('PUB_All'), value: ALL }]} placeholder={tc('PUB_All')} />
+        <FormSelect name="stablecoinId" label={t('transaction_flow_0018')} control={form.control} options={stablecoinOptions} placeholder={tc('PUB_All')} />
         <FormSelect name="tokenType" label={t('transaction_flow_0020')} control={form.control} options={[{ label: tc('PUB_All'), value: ALL }]} placeholder={tc('PUB_All')} />
         <FormField name="txFrom" label={t('transaction_flow_002')} register={form.register('txFrom')} placeholder={t('transaction_flow_002')} />
         <FormField name="txTo" label={t('transaction_flow_006')} register={form.register('txTo')} placeholder={t('transaction_flow_006')} />

@@ -1,16 +1,22 @@
 /**
- * KeyPolicyConfigurationNewPage — create form (pure mock).
+ * KeyPolicyConfigurationNewPage — create form (pure mock, demo-only submit).
  *
  * Architecture:
  * - Client-state (form)  → react-hook-form + zod (required validation)
  * - Reference data       → roleNameOptions / rotationMethodOptions (util constants)
- * - Submit               → console.log only, no navigation (faithful to source mock)
+ * - Submit               → no backend endpoint exists (upstream new.tsx
+ *                          console.log only; live backend documents no key
+ *                          rotation policy create API). A validated submit
+ *                          logs the payload and shows an explicit demo
+ *                          notice — it never claims the policy was created
+ *                          and never navigates away.
  *
  * Source: td-manage/src/pages/key-management/key-policy-configuration/new.tsx
  * Downgrades (per plan §6 / §8.D / §8.E):
  * - antd TimePicker  → Input[type=time] (no TimePicker on target)
  * - dayjs            → dropped (HH:mm:ss string passes through directly)
- * - Rotation Method  → kebab-case value (rotationMethodOptions)
+ * - Rotation Method  → kebab-case value (rotationMethodOptions); labels
+ *                      localized, values stay the canonical kebab data value.
  */
 
 'use client';
@@ -18,17 +24,21 @@
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslations } from 'next-intl';
 import { Info } from 'lucide-react';
 import { z } from 'zod';
 
-import { Button, Input, RadioGroup, RadioGroupItem, Textarea } from '@myorg/shared/ui';
+import {
+  Button,
+  Input,
+  RadioGroup,
+  RadioGroupItem,
+  Textarea,
+} from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 
-import {
-  rotationMethodOptions,
-} from '.';
-import { roleNameOptions } from './constants';
+import { roleNameOptions, rotationMethodOptions } from '.';
 
 // Frequency number options: 1–12 (source new.tsx:155-158).
 const frequencyNumberOptions = Array.from({ length: 12 }, (_, i) => ({
@@ -36,10 +46,11 @@ const frequencyNumberOptions = Array.from({ length: 12 }, (_, i) => ({
   value: String(i + 1),
 }));
 
-// Frequency unit options: Day(s) / Month(s) (source new.tsx:161-164).
-const frequencyUnitOptions = [
-  { label: 'Day(s)', value: 'days' },
-  { label: 'Month(s)', value: 'months' },
+// Frequency unit options (source new.tsx:161-164). Values are the canonical
+// mock values ('days'/'months') — labels localized at render time.
+const frequencyUnitOptions: { labelKey: string; value: string }[] = [
+  { labelKey: 'KP_Days', value: 'days' },
+  { labelKey: 'KP_Months', value: 'months' },
 ];
 
 // Business Name options for the FormSelect (no "All" — create page only).
@@ -48,18 +59,22 @@ const businessNameSelectOptions = roleNameOptions.map((o) => ({
   value: o.value,
 }));
 
-const formSchema = z.object({
-  businessName: z.string().min(1, 'Please select business name'),
-  frequencyNumber: z.string().min(1, 'Please select frequency'),
-  frequencyUnit: z.string().min(1, 'Please select unit'),
-  rotationTime: z.string().min(1, 'Please select rotation time'),
-  rotationMethod: z.string().min(1, 'Please select rotation method'),
-});
-
-type FormValues = z.infer<typeof formSchema>;
-
 export function KeyPolicyConfigurationNewPage() {
+  const t = useTranslations('modules.key-management');
   const router = useRouter();
+
+  const formSchema = React.useMemo(
+    () =>
+      z.object({
+        businessName: z.string().min(1, t('KP_PleaseSelectBusinessName')),
+        frequencyNumber: z.string().min(1, t('KP_PleaseSelectFrequency')),
+        frequencyUnit: z.string().min(1, t('KP_PleaseSelectFrequency')),
+        rotationTime: z.string().min(1, t('KP_PleaseSelectRotationTime')),
+        rotationMethod: z.string().min(1, t('KP_PleaseSelectRotationMethod')),
+      }),
+    [t],
+  );
+  type FormValues = z.infer<typeof formSchema>;
 
   const {
     control,
@@ -80,28 +95,55 @@ export function KeyPolicyConfigurationNewPage() {
     },
   });
 
+  /** Set once a validated submit happened — surfaces the demo notice. */
+  const [demoSubmitted, setDemoSubmitted] = React.useState(false);
+
   // Business Name → read-only Description (source new.tsx:172-176 linkage).
   const selectedBusinessName = watch('businessName');
   const description = React.useMemo(
     () =>
-      roleNameOptions.find((o) => o.value === selectedBusinessName)?.description ??
-      '',
+      roleNameOptions.find((o) => o.value === selectedBusinessName)
+        ?.description ?? '',
     [selectedBusinessName],
   );
 
   const rotationMethod = watch('rotationMethod');
 
   const onSubmit = (values: FormValues) => {
-    // Pure mock — no navigation, faithful to source.
-    console.log('Submit:', values);
+    // Demo-only: surface the explicit demo notice. No persistence, no
+    // navigation, and the form payload is deliberately NOT logged (user
+    // input, nothing to persist).
+    void values;
+    setDemoSubmitted(true);
   };
+
+  const localizedFrequencyUnitOptions = React.useMemo(
+    () =>
+      frequencyUnitOptions.map((o) => ({ label: t(o.labelKey), value: o.value })),
+    [t],
+  );
+
+  const localizedMethodOptions = React.useMemo(
+    () =>
+      rotationMethodOptions.map((opt) => ({
+        value: opt.value,
+        label:
+          opt.value === 'system-initiated'
+            ? t('KP_SystemInitiated')
+            : t('KP_ManualApproval'),
+      })),
+    [t],
+  );
 
   return (
     <div className="space-y-6">
+      {/* Demo banner — no create API exists; submission never persists. */}
+      <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        {t('KP_DemoBanner')}
+      </div>
+
       <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <div className="mb-6 text-base font-semibold">
-          New Key Rotation Policy Configuration
-        </div>
+        <div className="mb-6 text-base font-semibold">{t('KP_NewTitle')}</div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Business Name + linked Description */}
@@ -109,16 +151,18 @@ export function KeyPolicyConfigurationNewPage() {
             <FormSelect
               name="businessName"
               control={control}
-              label="Business Name"
+              label={t('KP_BusinessName')}
               options={businessNameSelectOptions}
-              placeholder="Please select"
+              placeholder={t('KP_PleaseSelect')}
               required
               error={errors.businessName?.message}
             />
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Description</label>
+              <label className="text-sm font-medium">
+                {t('key_management_0053')}
+              </label>
               <Textarea rows={3} value={description} disabled placeholder="" />
             </div>
           </div>
@@ -126,14 +170,14 @@ export function KeyPolicyConfigurationNewPage() {
           {/* Rotation Period Configuration */}
           <div className="rounded-lg border bg-card p-6">
             <div className="mb-4 text-base font-semibold">
-              Rotation Period Configuration
+              {t('KP_RotationPeriodTitle')}
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               {/* Rotation Frequency: number × unit side by side */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">
-                  Rotation Frequency
+                  {t('KP_RotationFrequency')}
                   <span className="ml-0.5 text-destructive">*</span>
                 </label>
                 <div className="flex gap-2">
@@ -150,13 +194,13 @@ export function KeyPolicyConfigurationNewPage() {
                       name="frequencyUnit"
                       control={control}
                       label=""
-                      options={frequencyUnitOptions}
+                      options={localizedFrequencyUnitOptions}
                     />
                   </div>
                 </div>
                 {(errors.frequencyNumber || errors.frequencyUnit) && (
                   <p className="text-xs text-destructive">
-                    Please select frequency
+                    {t('KP_PleaseSelectFrequency')}
                   </p>
                 )}
               </div>
@@ -164,7 +208,7 @@ export function KeyPolicyConfigurationNewPage() {
               {/* Rotation Time — Input[type=time] (downgraded TimePicker) */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">
-                  Rotation Time
+                  {t('KP_RotationTime')}
                   <span className="ml-0.5 text-destructive">*</span>
                 </label>
                 <Input
@@ -184,7 +228,7 @@ export function KeyPolicyConfigurationNewPage() {
             {/* Rotation Method — RadioGroup (kebab value) + Info hint */}
             <div className="mt-4 space-y-1.5">
               <label className="text-sm font-medium">
-                Rotation Methods
+                {t('KP_RotationMethods')}
                 <span className="ml-0.5 text-destructive">*</span>
               </label>
               <Controller
@@ -196,7 +240,7 @@ export function KeyPolicyConfigurationNewPage() {
                     onValueChange={field.onChange}
                     className="flex gap-6"
                   >
-                    {rotationMethodOptions.map((opt) => {
+                    {localizedMethodOptions.map((opt) => {
                       const id = `rotation-method-${opt.value}`;
                       return (
                         <div key={opt.value} className="flex items-center gap-2">
@@ -213,10 +257,7 @@ export function KeyPolicyConfigurationNewPage() {
               {rotationMethod === 'system-initiated' && (
                 <div className="mt-1 flex items-start gap-1 text-sm text-blue-500">
                   <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                  <span>
-                    The system will automatically initiate rotation upon
-                    maturity. No manual intervention is required.
-                  </span>
+                  <span>{t('KP_SystemInitiatedHint')}</span>
                 </div>
               )}
               {errors.rotationMethod && (
@@ -227,12 +268,23 @@ export function KeyPolicyConfigurationNewPage() {
             </div>
           </div>
 
+          {/* Demo notice — explicit non-persistence feedback. */}
+          {demoSubmitted && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {t('KP_DemoSubmitNotice')}
+            </div>
+          )}
+
           {/* Buttons */}
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => router.back()}>
-              Back
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+            >
+              {t('key_management_0056')}
             </Button>
-            <Button type="submit">Submit</Button>
+            <Button type="submit">{t('KP_SubmitDemo')}</Button>
           </div>
         </form>
       </div>

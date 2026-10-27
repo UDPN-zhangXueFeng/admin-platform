@@ -144,5 +144,4 @@ export {
   useGenerateWalletKeystoreMutation,
   useCreateTDApplyMutation,
   useEditTDOperationMutation,
-  useConfigureRoleWalletMutation,
 } from './+queries/tokenized-deposit.mutations';

@@ -28,7 +28,7 @@ export interface TokenSelectorOption {
   name: string;
   symbol?: string;
   network?: string;
-  type: 'S' | 'M' | 'TD';
+  type: 'S' | 'M' | 'TD' | 'R-CBDC' | 'W-CBDC';
   status: TokenSelectorStatus;
 }
 
@@ -41,6 +41,8 @@ export interface TokenSelectorLabels {
   stablecoin: string;
   tokenizedDeposit: string;
   tokenizedMmf: string;
+  retailCbdc: string;
+  wholesaleCbdc: string;
   allNetworks: string;
   tabView: string;
   dropdownView: string;
@@ -76,6 +78,8 @@ const TOKEN_TYPES: readonly TokenSelectorType[] = [
   'S',
   'TD',
   'M',
+  'R-CBDC',
+  'W-CBDC',
 ];
 const NETWORK_COLOURS: Record<
   string,
@@ -115,7 +119,7 @@ function TokenMark({
       className={`inline-flex shrink-0 items-center justify-center rounded-full font-bold text-white ring-2 ring-white ${large ? 'h-10 w-10 text-sm' : 'h-5 w-5 text-[9px]'}`}
       style={{ backgroundColor: colour }}
     >
-      {option.type}
+      {option.type === 'R-CBDC' ? 'R' : option.type === 'W-CBDC' ? 'W' : option.type}
     </span>
   );
 }
@@ -235,7 +239,9 @@ export function TokenSelector({
       </div>
 
       <div className="mb-2 flex flex-wrap items-center gap-1.5 px-1">
-        {TOKEN_TYPES.map((type) => {
+        {TOKEN_TYPES.filter((type) =>
+          (type !== 'R-CBDC' && type !== 'W-CBDC') || options.some((option) => option.type === type),
+        ).map((type) => {
           const selected = activeType === type;
           const label =
             type === ALL_TOKEN_TYPES
@@ -244,7 +250,11 @@ export function TokenSelector({
                 ? labels.stablecoin
                 : type === 'TD'
                   ? labels.tokenizedDeposit
-                  : labels.tokenizedMmf;
+                  : type === 'M'
+                    ? labels.tokenizedMmf
+                    : type === 'R-CBDC'
+                      ? labels.retailCbdc
+                      : labels.wholesaleCbdc;
           return (
             <button
               key={type}

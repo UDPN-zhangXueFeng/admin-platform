@@ -64,7 +64,10 @@
       "reconciliation",
       "interest",
       "screening",
+      "screening-monitoring",
+      "screening-providers",
       "statistics",
+      "statistics-reports",
       "approval-manage",
       "tokenized-deposit",
       "transaction-flow",
@@ -73,10 +76,12 @@
       "cross-chain",
       "networks",
       "documentation",
+      "data-export",
       "syslog",
       "role",
       "user",
       "system",
+      "workflow",
       "suspense-adjustment",
       "audit-trail",
       "statements",
@@ -218,12 +223,6 @@
             "icon": "BarChart3",
             "label": "Chart of Accounts",
             "path": "/chart-of-accounts"
-          },
-          {
-            "id": "normalization-engine",
-            "icon": "BarChart3",
-            "label": "Normalization Engine",
-            "path": "/financial/normalization-engine"
           },
           {
             "id": "posting-engine",

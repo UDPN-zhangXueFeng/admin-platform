@@ -1,11 +1,13 @@
 {
-  "modulePath": "/Users/zhangxuefeng/reddate/poc/td-manage/src/pages/screening-monitoring",
+  "modulePath": "/Users/rnail/orca/td-manage/src/pages/screening-monitoring",
   "moduleName": "screening-monitoring",
   "slug": "screening-monitoring",
-  "docPath": "/Users/zhangxuefeng/pi-cwd-20260601/admin-platform/.codex/plan/modules/screening-monitoring.md",
-  "phase": "developing",
+  "docPath": "/Users/rnail/orca/admin-platform/.codex/plan/modules/screening-monitoring.md",
+  "baselineCommit": "be1c337",
+  "sourceTip": "d6eba908",
   "migrationRate": 1.0,
-  "acceptanceRate": 0.95,
+  "acceptanceRate": 0.0,
+  "acceptanceEvidence": "static-only; runtime smoke not executed",
   "scope": {
     "subModules": "rule(筛查规则) + transaction-monitoring(可疑交易) + screening-providers(服务商), group机制三子模块",
     "totalFiles": 7,
@@ -36,7 +38,6 @@
   ],
   "currentIndex": 14,
   "startedAt": "2026-07-28",
-  "completedAt": "2026-07-28",
   "staticVerification": {
     "lint": "4/4 modules PASS (1 error fixed: empty catch block in rule-edit-content)",
     "runtimeGrep": { "ALL_VALUE_empty": "PASS", "i18n_double_prefix": "PASS", "ICU_double_braces": "PASS" }

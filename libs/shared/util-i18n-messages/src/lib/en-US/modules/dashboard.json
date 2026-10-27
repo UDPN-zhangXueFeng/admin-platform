@@ -42,5 +42,7 @@
   "refresh": "Refresh",
   "chartEmpty": "No chart data available for the selected range.",
   "sourceLabel": "Data source",
-  "sourceDescription": "Reconstructed from td-manage dashboard requirements using local mock data."
+  "sourceDescription": "Reconstructed from td-manage dashboard requirements using local mock data.",
+  "retailCbdc": "Retail CBDC",
+  "wholesaleCbdc": "Wholesale CBDC"
 }

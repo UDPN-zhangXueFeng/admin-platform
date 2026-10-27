@@ -45,11 +45,16 @@ export function getKeySignedTransactionDetail(
   );
 }
 
-/** GET /signed/transaction/keyServices — key service platforms. */
+/**
+ * POST /api/manage/v1/key/config/listKeyService — key service platforms.
+ * Upstream contract: keyConfigListKeyServiceApi (POST, empty body) — the
+ * previously-used GET /signed/transaction/keyServices endpoint was
+ * fabricated and not part of the upstream API.
+ */
 export function getKeyServicePlatforms(
   config?: ApiRequestConfig,
 ): Promise<KeyServicePlatform[]> {
-  return apiClient.get('/api/manage/v1/signed/transaction/keyServices', config);
+  return apiClient.post('/api/manage/v1/key/config/listKeyService', {}, config);
 }
 
 /** GET /common/stablecoin/enabled/searches — enabled stablecoins. */

@@ -1,4 +1,14 @@
 # Codex 对话沉淀
+## 2026-10-26 TD Admin 迁移深度评估基线与验收口径
+
+- `apps/admin` 对应 TD Admin；可比对的旧项目是 `/Users/rnail/orca/td-manage`。迁移/同步基线是 `feature/zxf@be1c337`（admin commit `df8dc852` 消费到此），当前源 tip 是 `d6eba908`；`be1c337..d6eba908` 仅包含 Kissen transfer 等文件变化，未改变本次 TD 模块源文件。旧文档里的 `/Users/zhangxuefeng/...` 路径已过期。
+- 当前迁移状态文件 `.claude/module-migration-state.json` 只描述 `screening-monitoring`，不是全仓迁移状态；没有真实后端/浏览器冒烟时，`acceptanceRate` 必须保持未验收，不能把静态检查率当运行时通过率。
+- `libs/shared/util-i18n-messages` 的 `mergeMessages` 按 `configs/stablecoin.json.modules.enabled` 做 namespace 精确过滤；菜单分组 ID（如 `screening`、`statistics`、`system`）不能替代实际 namespace ID（如 `screening-monitoring`、`statistics-reports`、`workflow`），两类 ID 需要同时保留。
+- 深度审计确认 COA 详情迁移仍缺旧项目的 Trial Balance、Trial Balance Activity、Operation Records（接口：`trial-balance`、`trial-balance/activity`、`book/records`）；因此 COA 不能按完整迁移验收。
+- 迁移验收必须区分：源文件/接口静态覆盖、路由与消息装配、页面交互行为、真实后端冒烟；任何一项没有证据都只能标记为未验证或条件通过。
+- Travel Rule 源列表页确实是 mock 且未调用后端，但旧项目 `src/lib/api/financial.ts` 另有 `GET /api/finance/v1/finance/journal/travel-rule/{tdTxId}` 详情契约；不能把它当作列表接口，也不能再写成“源码完全没有真实 API”。
+- Admin 的 `localePrefix: 'always'` 要求共享导航使用 `@myorg/shared/util-i18n` 导出的 `Link`；`next/link` 直连 `/dashboard`、`/sys/user` 等路径会丢 locale，表现为登录后点击侧边栏不跳转/进入错误路径。已修正 `shared/ui` sidebar、`shared/ui-layout` breadcrumb 与 top-nav。
+
 
 ## 2026-10-23 确认弹窗等待接口返回再关闭
 
@@ -1201,3 +1211,31 @@
 - 后端 `POST /bankgw/portal/bank/query/list`（.85）行内 `tokenList` 是 JSON 串，元素含 `tokenNo`/`tokenCode`（合约地址）/`tokenName`/`symbol`/`chainType`/`anchorFiat`（实测 TD3 → tokenCode `1f6d073d…`+symbol `CXC`、tokenName `CXCoin`）。列表列此前渲染 `tokenCode`（地址），现按 symbol → tokenName → tokenCode(地址,仍可复制) 回退展示。
 - 网关登录端点 `POST /bankgw/portal/login`，字段 `loginName`/`password`，成功返回 token，后续请求走 `token` 请求头（不是 Authorization）；测试账号 `bank_admin/Kissen@123`，`firstLogin=1` 不触发强制改密，可直接进 `/en-US/bank/query`。
 - 仓库各 app `tsconfig.json` 的 `references` 仍指向已删除的 `libs/modules/auth/feature`，`npx tsc --noEmit` 在配置层即 TS6053 失败（与业务改动无关）；类型检查需临时用 `{"extends":"./tsconfig.json","references":[]}` 的覆盖配置再 `tsc --noEmit -p`。
+
+## 2026-10-26 Statistics Reports 功能对齐
+
+- `statistics-reports` 以本地 td-manage `d6eba908` 的 `src/pages/statistics-reports` 和对应 API 为行为基准；对齐功能，不复刻旧页面设计。切换类型回第一页、选择该类型首个币种并恢复近 7 天；仅切换币种保留用户日期范围。自定义日期不完整时不发四类统计请求，结束时间包含当天末毫秒，区间最长一个自然月。
+- 类型重置日期的依据是完整依赖链，而非只读 `onChange`：上游 `index.tsx:62-70` 在 tokenTypeId 变化后调用 `setCoinOptionsData`，该函数 `:223` 明确调用 `handleTimeRangeChange(t('statistics_reports_0000'))` 恢复近 7 天；`:318-333` 的单独币种切换没有该调用，保留日期。
+- `/common/stablecoin/searches` 在此模块的上游显式使用 **POST**，不能套用公共下拉统一 GET。类型/币种 ID 在 API 边界转为字符串；分页缓存键包含 pageSize；空概览保持 null，不伪造零指标。
+- 真实 `abcTransactionVolumeStatistics` 当前用 `topUpCount/transferCount/withdrawalCount` 承载金额字符串；兼容优先读取 `*Volume ?? *Count`，显式 `0` 不得被回退覆盖。SP 的 transactionVolume 同样可能是数字字符串。表格金额沿用旧 reSet：两位小数和千分位，负数显示 `--`。
+- 用户选择不新增 PDF 依赖：入口为“打印 / 另存为 PDF”，同步打开弹窗，读取当前类型全部币种、所选区间的四类统计和未分页 `/statisticsReports/td/list`，不只导出当前币种/当前页。真实网关响应声明 20 requests/s；完整报表曾触发 429，现每币种四请求、最小 250ms 批次间隔（至多 16 requests/s），不做失败重试或不完整报告降级。
+- 实测完整稳定币报表覆盖 78 个币种；`td/list` 返回的完整表格为 77 行，与概览/下拉数量不一致是当前接口结果，不能自行补行。浏览器已验证日期边界、币种切换、跨类型分页重置、中英双语、显式交易量零值优先和旧字段兼容、弹窗被拦截后的提示及按钮恢复；打印页已通过 Chromium 生成实际 PDF。
+- macOS Chromium 打印必须验证实际 PDF，而不只看页面截图：默认 `sans-serif` 的 PingFang 中文可在页面显示，却可能未嵌入 PDF。打印专用字体链明确加入可嵌入的 `Heiti SC`，并保留 Windows/Linux 的 `Microsoft YaHei`、`Noto Sans CJK SC` 回退；修复后实际 PDF 包含 STHeitiSC 字体，中文文本提取及原生 PDF 栅格化均恢复。
+
+## 2026-10-27 Tokenized Deposit 功能对齐
+
+- `tokenized-deposit` 按本地 td-manage `d6eba908` 的运营功能与真实后端契约对齐，不复刻旧版 UI。类型枚举为 Stablecoin 1、Tokenized Deposit 5、Retail CBDC 10、Wholesale CBDC 15、MMF 20；旧 `t_edit` 原型中的 1/2/3 不是后端枚举。CBDC 选择器徽标及筛选已用隔离数据验证。
+- 合约 `/td/contract/latestInfo` 和 `/td/contract/detail` 接收平铺 `{stablecoinCode}`，返回数组；错误地发送 `data/page` 会得到 `MSG_03_4001`。真实 SARCoin 实测修正后分别返回 1 个合约包及 4 个合约。MMF 的 fundType/riskLevel 按上游映射；余额和份额可能为数字字符串，零值需保留。
+- 概览 Transactions 跳转 `/transaction-flow?stablecoinId=<stablecoinId>`，User Wallets 跳转同名参数；目标页初次查询消费该参数。旧 `/transaction-flow/stablecoin` 在本仓库路由中不存在。
+- Mint/Melt 点击时固定资产身份，余额接口仅发送 `stablecoinCode`；真实 DDCoin 储备及可用铸币余额以字符串返回。隔离拦截验证 0、超过六位小数、超余额均不提交，合法 Mint/Melt 分别发送 type 1/2；pending melt 为 true 禁用、null 按上游语义视为无待处理。未向真实后端提交资金、状态、部署或钱包写操作。
+- 旧 `/tokenized-deposit/view` 使用的 `/stablecoin/record/query` 与 `/stablecoin/list` 在当前后端实测 404；页面显示错误与重试，缺币种时禁止 Mint/Melt。旧合约示例和 role-wallet 原型为演示数据，已标注并移除虚假的配置成功操作；真实运营操作位于概览。无接口契约的阈值展示控件已移除，避免暗示可以持久化。
+- 上线表单实际校验精度 0–8 整数、价格最多两位小数，Stablecoin/CBDC 显示储备配置。储备及托管提交覆盖由隔离回归测试验证；部署、钱包修改及完整新增提交未对真实后端执行，不能将隔离验证当作真实写入验收。
+
+## 2026-10-27 Key Management 功能核对
+
+- 五个子模块按本地 td-manage 源码及真实 `/aps/api/manage/v3/api-docs` 核对，不复刻 UI。签名交易、管理钱包、密钥服务的列表/详情及钱包轮换历史有真实查询接口；错误态保留重试，不把请求失败包装为空表。
+- User Wallets 的真实 `GET /wallets/user/list` 实测返回 `{list,total}` 且一次返回全部 723 行，字段为 `spName`、`tdName`、`state`、`createTime` 等；旧迁移使用错误字段且筛选未接线。现按实际字段做客户端筛选、分页与重置；该响应无 key service 字段，因此不伪造该列或筛选项。
+- 签名交易补签名日期/提交日期筛选，结束日含最后一毫秒；管理钱包与签名交易筛选变化返回第一页，但切换页码本身不重置筛选。`react-hook-form` 的 `watch()` 对象每次渲染可能改变引用，不能直接用于依赖数组重置分页；必须依赖具体字段。浏览器验证两张表均可到第二页、筛选后回第一页。
+- Key Service 的真实列表/详情/操作记录接口可读；上游新增/编辑和停用为前端原型，当前 OpenAPI 未列出对应写接口。新增/编辑禁用提交并提示，编辑预览使用所选真实记录，不再用固定假凭据；敏感参数按名称默认遮蔽并可单项显式揭示。遮蔽只影响界面展示，后端响应仍可能包含敏感值，不能视作访问控制。
+- Key Policy 上游是静态示例、提交/启停仅 console.log；当前 OpenAPI 未列出策略 CRUD/启停接口。页面显式标注演示和无持久化，不宣称成功；详情根据样例 id 展示正确条目，未知 id 不回退为别的策略。日期筛选结束日包含当天。实际策略配置仍需后端接口契约。
+- 实际浏览器验证了真实服务详情与参数遮蔽/揭示、用户钱包筛选与重置、签名交易日期请求、两张表分页、策略演示确认无写请求，以及管理钱包请求失败/重试。没有对真实密钥、钱包或策略提交写操作。

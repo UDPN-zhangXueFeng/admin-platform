@@ -2,13 +2,19 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import {
-  TokenSelector,
-  type TokenSelectorLabels,
-  type TokenSelectorMode,
-  type TokenSelectorOption,
-} from '@myorg/modules/td-admin/feature';
+import dynamic from 'next/dynamic';
 import type { StablecoinOption } from '@myorg/modules/td-admin/data-access';
+import type {
+  TokenSelectorLabels,
+  TokenSelectorMode,
+  TokenSelectorOption,
+} from '@myorg/modules/td-admin/feature';
+
+const TokenSelector = dynamic(
+  () => import('@myorg/modules/td-admin/feature').then((module) => module.TokenSelector),
+  { ssr: false },
+);
+
 
 export type StablecoinTabsDisplayMode = TokenSelectorMode;
 
@@ -26,13 +32,13 @@ function getOptionId(option: StablecoinOption): string {
   return String(option.stablecoinId ?? option.code ?? option.symbol);
 }
 
-/**
- * issueType（number）→ 图标类型：20=MMF(M)，5=TD(TD)，其余=Stablecoin(S)。
- * 语义与 wallet 模块 ISSUE_TYPE 常量、老项目 token_type_*.svg（1/5/20）一致。
- */
+/** Backend mint-method classifications shared with Token Management. */
 function getTokenType(option: StablecoinOption): TokenSelectorOption['type'] {
-  if (option.issueType === 20) return 'M';
-  if (option.issueType === 5) return 'TD';
+  const type = Number(option.issueType);
+  if (type === 20) return 'M';
+  if (type === 5) return 'TD';
+  if (type === 10) return 'R-CBDC';
+  if (type === 15) return 'W-CBDC';
   return 'S';
 }
 
@@ -60,6 +66,8 @@ export function StablecoinTabs(props: StablecoinTabsProps) {
       stablecoin: t('stablecoin'),
       tokenizedDeposit: t('tokenizedDeposit'),
       tokenizedMmf: t('tokenizedMmf'),
+      retailCbdc: t('retailCbdc'),
+      wholesaleCbdc: t('wholesaleCbdc'),
       allNetworks: t('allNetworks'),
       tabView: t('tabView'),
       dropdownView: t('dropdownView'),

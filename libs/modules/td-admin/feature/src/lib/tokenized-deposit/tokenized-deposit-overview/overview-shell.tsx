@@ -61,12 +61,9 @@ import {
 } from '@myorg/shared/ui';
 import {
   TD_STATE,
-} from '@myorg/modules/td-admin/data-access';
-import {
   useApplyListQuery,
   useContractDeployHistoryQuery,
   useDeleteTDMutation,
-  useDeployStepDetailQuery,
   useHasPendingMeltQuery,
   useReserveBalanceQuery,
   useUpdateTDStatusMutation,
@@ -109,10 +106,6 @@ import {
   type OverviewTabKey,
 } from './overview-shell-helpers';
 
-export interface OverviewShellProps {
-  /** 可选初始 activeKey（默认 0）。 */
-  initialActiveKey?: number;
-}
 
 /**
  * 运营总览页主壳。
@@ -124,15 +117,15 @@ export interface OverviewShellProps {
  *
  * 路由挂载由 module-registry（td-24）的 `list` pageKey → TokenizedDepositOverviewPage 完成。
  */
-export function OverviewShell({
-  initialActiveKey = 0,
-}: OverviewShellProps): React.JSX.Element {
+export function OverviewShell(): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
   const router = useRouter();
 
   // ── state（源 index.tsx 50+ state 的活集，死 state 不迁移）──
-  // activeKey：TD 切换条选中索引（源 useState(0)）。
-  const [activeKey, setActiveKey] = React.useState<number>(initialActiveKey);
+  // activeCode：选中 TD 的稳定标识（code/id 快照）。源用数组索引 activeKey，
+  // 但 applyList refetch（mutation 后 invalidate）可能重排/收缩列表，索引会指向
+  // 另一资产行 → 以 code 保身份，索引仅用于切换条高亮回推。
+  const [activeCode, setActiveCode] = React.useState<string | null>(null);
   // active：4 Tab 选中 key（源 useState('1')）。
   const [active, setActive] = React.useState<OverviewTabKey>('1');
 
@@ -144,11 +137,20 @@ export function OverviewShell({
     React.useState<MintMeltModalInfo | null>(null);
   // Mint=1 / Melt=2（源 modalInfo.key）。
   const [mintMeltType, setMintMeltType] = React.useState<MintMeltType>(1);
+  // Mint/Melt 点击时的资产快照（code/symbol/tokenTypeLabel）：余额请求与 Modal
+  // 展示一律用快照，切换 TD/refetch 不会污染打开中的 Modal（防错资产提交）。
+  const [mintMeltAsset, setMintMeltAsset] = React.useState<{
+    code: string;
+    symbol: string;
+    tokenTypeLabel: string;
+  } | null>(null);
 
-  // ── DeployContractModal（源 isModalOpenDelopy + deployInfo）──
-  // taskCode 来自 tab-contracts 的 onOpenDeployModal（部署/升级分支透传首行 taskCode）。
-  const [isModalOpenDelopy, setIsModalOpenDelopy] = React.useState(false);
-  const [deployTaskCode, setDeployTaskCode] = React.useState<string>('');
+  // ── DeployContractModal（源 isModalOpenDelopy）──
+  // {taskCode, state} 点击时快照（源 1252-1256：首行三元 taskCode + data.state）。
+  const [deployModal, setDeployModal] = React.useState<{
+    taskCode: string;
+    state?: number;
+  } | null>(null);
 
   // ── DeployHistoryModal（源 isModalOpenHistory）──
   const [isModalOpenHistory, setIsModalOpenHistory] = React.useState(false);
@@ -161,6 +163,13 @@ export function OverviewShell({
   // tokenName/walletType 等从 row 衍生，AdminWalletCtx 类型不含这些字段）。
   const [adminWalletRow, setAdminWalletRow] =
     React.useState<AdminWalletModalActionContext['row'] | null>(null);
+  // 生成钱包结果快照（keystore/walletAddress/password），回填 AdminWalletModal 表单
+  // （源 generateForm onSuccess → formAdminWallet.setFieldsValue，td-18 回填增强）。
+  const [generatedWallet, setGeneratedWallet] = React.useState<{
+    keystore?: string;
+    walletAddress?: string;
+    password?: string;
+  } | null>(null);
 
   // ── GenerateWalletModal / RigsecWalletModal（源 generateIsModalOpen + isRigsecModalOpen）──
   // 由 admin-wallet-modal 的「生成钱包」入口触发，按当前 adminWalletCtx.storageType 决定开哪个。
@@ -168,8 +177,12 @@ export function OverviewShell({
   const [isRigsecModalOpen, setIsRigsecModalOpen] = React.useState(false);
 
   // ── Disable/Enable/Delete 二次确认（收口 td-14 gap，替代源 antd modal.confirm）──
+  // code 在打开确认框时快照：对话框打开期间 applyList 可能 refetch，提交必须
+  // 作用于确认时的目标，而非 refetch 后的 currentTd。
   const [statusConfirm, setStatusConfirm] = React.useState<{
     open: boolean;
+    /** 目标 TD code 快照（提交 body.code）。 */
+    code: string;
     /** 启用 1 / 禁用 0（源 enable: state===1 ? 0 : 1）。 */
     enable: number;
     /** title（Router_036 禁用 / Router_0003_6 启用）。 */
@@ -181,6 +194,8 @@ export function OverviewShell({
   } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = React.useState<{
     open: boolean;
+    /** 目标 TD code 快照。 */
+    code: string;
     content: string;
   } | null>(null);
 
@@ -195,45 +210,72 @@ export function OverviewShell({
   const {
     data: applyList,
     isLoading: applyListLoading,
+    isError: applyListError,
+    refetch: refetchApplyList,
   } = useApplyListQuery();
 
   const hasData = !!applyList && applyList.length > 0;
 
-  // 当前选中 TD（getUsablePrice 等价，源 setGetUsablePrice(res.data.data[activeKey])）。
-  const currentTd: ApplyListItem | undefined = applyList?.[activeKey];
+  // 当前选中 TD（getUsablePrice 等价）：按 activeCode 匹配；未选/失配时回落首项。
+  const currentTd: ApplyListItem | undefined = React.useMemo(() => {
+    if (!applyList || applyList.length === 0) return undefined;
+    if (activeCode != null) {
+      const found = applyList.find(
+        (item) => (item.code ?? item.id ?? '') === activeCode,
+      );
+      if (found) return found;
+    }
+    return applyList[0];
+  }, [applyList, activeCode]);
 
-  // isShowMelt：Melt 按钮可用性（源 showMelt，仅 stablecoin type===1 有意义）。
+  // 切换条高亮索引（由 currentTd 身份回推，refetch 重排后仍指向同一资产）。
+  const activeIndex = applyList
+    ? Math.max(
+        0,
+        applyList.findIndex((item) => item === currentTd),
+      )
+    : 0;
+
+  // isShowMelt：Melt 按钮可用性（仅 stablecoin type===1 有意义）。
   // useHasPendingMeltQuery 内部 enabled 守卫 stablecoinCode 非空。
   const stablecoinCodeForMelt =
     currentTd?.type === 1 ? currentTd?.code : undefined;
   const { data: hasPendingMeltData } = useHasPendingMeltQuery(
     stablecoinCodeForMelt,
   );
-  // 源 isShowMeltApi 返回 data（true 表示可销毁）。无数据时默认 true（不影响首次）。
-  const showMelt = hasPendingMeltData == null ? true : hasPendingMeltData;
+  // 定版语义（parent）：pending=true → Melt 禁用；无数据 null → 启用。
+  const showMelt = !hasPendingMeltData;
 
   // ── Mint/Melt 储备余额（点 Mint/Melt 按钮时按需拉，组装 modalInfo）──
-  // pendingMintMeltKey 形如 `${code}|${type}`，非空时启用 useReserveBalanceQuery。
+  // mintMeltAsset 非空时启用 useReserveBalanceQuery（code-only body）。
   // 源 getReservBalance(code, el)：拉余额 → setModalInfo → setIsModalOpen(true)。
-  const [pendingMintMeltKey, setPendingMintMeltKey] = React.useState<
-    string | null
-  >(null);
   const reserveParams = React.useMemo(() => {
-    if (!pendingMintMeltKey) return undefined;
-    return { stablecoinCode: currentTd?.code ?? '', symbol: '' };
-  }, [pendingMintMeltKey, currentTd?.code]);
+    if (!mintMeltAsset?.code) return undefined;
+    return { stablecoinCode: mintMeltAsset.code };
+  }, [mintMeltAsset?.code]);
   const { data: reserveBalance } = useReserveBalanceQuery(reserveParams);
 
-  // ── active Tab 决策（数据回来/activeKey 变化时）──
+  // ── active Tab 决策（源 getTilteList 单 token 分支）──
+  // 源仅在列表长度===1 且命中 state/applyStatus 组合时重定向 Tab（'4'/'2'），
+  // 多 token 保持当前 Tab（含切换 TD / refetch 后）。首次数据到达决策一次。
+  const didInitialTabDecide = React.useRef(false);
   React.useEffect(() => {
-    if (!hasData) return;
-    setActive(decideActiveTab(currentTd));
-  }, [hasData, currentTd]);
+    if (!hasData || didInitialTabDecide.current) return;
+    didInitialTabDecide.current = true;
+    if (applyList.length === 1) {
+      setActive(decideActiveTab(applyList[0]));
+    }
+  }, [hasData, applyList]);
 
-  // ── 切换 TD（CustomTab onSelect 等价）──
-  const handleSelectTd = React.useCallback((index: number) => {
-    setActiveKey(index);
-  }, []);
+  // ── 切换 TD（CustomTab onSelect 等价）：仅换资产身份，Tab 保持（源一致）──
+  const handleSelectTd = React.useCallback(
+    (index: number) => {
+      const item = applyList?.[index];
+      if (!item) return;
+      setActiveCode(item.code ?? item.id ?? String(index));
+    },
+    [applyList],
+  );
 
   // ── Onboard（CustomTab / Empty 按钮）──
   const handleOnboard = React.useCallback(() => {
@@ -247,9 +289,19 @@ export function OverviewShell({
         case 'Mint':
         case 'Melt': {
           // 触发 useReserveBalanceQuery（按需拉余额，effect 内组装 modalInfo 开 Modal）。
+          // 资产三元组在点击时快照：余额请求与 Modal 展示均用快照，防切换 TD/refetch
+          // 后错资产提交（源在点击闭包内捕获 getUsablePrice，等价）。
           const type: MintMeltType = key === 'Mint' ? 1 : 2;
+          const code = currentTd?.code ?? '';
           setMintMeltType(type);
-          setPendingMintMeltKey(`${currentTd?.code ?? ''}|${type}`);
+          setMintMeltAsset({
+            code,
+            symbol: currentTd?.symbol ?? '',
+            tokenTypeLabel:
+              currentTd?.mintMethod == null
+                ? ''
+                : t(`token_type_${currentTd.mintMethod}`),
+          });
           break;
         }
         case 'Contracts':
@@ -260,9 +312,7 @@ export function OverviewShell({
           break;
         case 'Transactions':
           router.push(
-            `/transaction-flow/stablecoin?stablecoinId=${
-              currentTd?.stablecoinId ?? ''
-            }`,
+            `/transaction-flow?stablecoinId=${currentTd?.stablecoinId ?? ''}`,
           );
           break;
         case 'Wallets':
@@ -276,10 +326,12 @@ export function OverviewShell({
         case 'Enable': {
           // 源 confirm：title=state===1?Router_036:Router_0003_6，
           // content=state===1?0044:0045（replace name），enable=state===1?0:1。
+          // code 快照：提交作用于确认时的目标 TD。
           const isEnabled = currentTd?.state === TD_STATE.ENABLED;
           const name = currentTd?.name ?? '';
           setStatusConfirm({
             open: true,
+            code: currentTd?.code ?? '',
             enable: isEnabled ? 0 : 1,
             title: isEnabled ? t('Router_036') : t('Router_0003_6'),
             content: (isEnabled
@@ -295,6 +347,7 @@ export function OverviewShell({
           const name = currentTd?.name ?? '';
           setDeleteConfirm({
             open: true,
+            code: currentTd?.code ?? '',
             content: t('tokenized_deposit_0046').replace('****', name),
           });
           break;
@@ -307,8 +360,9 @@ export function OverviewShell({
   );
 
   // ── Mint/Melt modalInfo 组装（reserveBalance 回来后，源 getReservBalance 1713-1734）──
+  // 余额响应对应 mintMeltAsset.code 快照；symbol 优先取快照（点击行），响应兜底。
   React.useEffect(() => {
-    if (!pendingMintMeltKey || !reserveBalance) return;
+    if (!mintMeltAsset?.code || !reserveBalance) return;
     const {
       reserveBalance: rb,
       currencySymbol,
@@ -333,30 +387,15 @@ export function OverviewShell({
       ).replace('****', balanceStr),
     });
     setIsModalOpen(true);
-    setPendingMintMeltKey(null);
-  }, [pendingMintMeltKey, reserveBalance, mintMeltType, t]);
+  }, [mintMeltAsset, reserveBalance, mintMeltType, t]);
 
-  // ── DeployContractModal 数据（源 getDeployInfo 取 data[0]）──
-  // 打开部署 Modal 时按 taskCode 拉步骤详情，响应含 tdName/blockchainName/packageName/
-  // contractVersion/deployState/deployType/stepDetailList（model.ts DeployStepDetail 字段不全，
-  // 这里按实际响应断言读取，避免改 model——surgical scope）。
-  const { data: deployStepDetail } = useDeployStepDetailQuery(
-    isModalOpenDelopy && deployTaskCode
-      ? { taskCode: deployTaskCode }
-      : undefined,
-  );
-  // 实际响应含 tdName 等，断言为带额外字段的形状。
-  const deployInfoPayload = deployStepDetail
-    ? (deployStepDetail as unknown as {
-        tdName?: string;
-        blockchainName?: string;
-        packageName?: string;
-        contractVersion?: string;
-        deployState?: number;
-        deployType?: number;
-        upgradeTaskCode?: string;
-      })
-    : undefined;
+  // Mint/Melt Modal 关闭：清快照 + 上下文（下次点击重新组装）。
+  const handleMintMeltClose = React.useCallback(() => {
+    setIsModalOpen(false);
+    setMintMeltInfo(null);
+    setMintMeltAsset(null);
+  }, []);
+
 
   // ── DeployHistoryModal 数据（源 smartHistory = getContractHistoryApi data[0]）──
   const { data: deployHistory } = useContractDeployHistoryQuery(
@@ -365,11 +404,18 @@ export function OverviewShell({
   );
 
   // ── Tab 回调：tab-contracts 打开部署/升级 Modal ──
-  // 源 1252/1279：onOpenDeployModal(首行 upgradeTaskCode 或 taskCode)。
-  const handleOpenDeployModal = React.useCallback((taskCode: string) => {
-    if (!taskCode) return;
-    setDeployTaskCode(taskCode);
-    setIsModalOpenDelopy(true);
+  // 源 1252/1279：taskCode=首行三元(upgraded===1?upgradeTaskCode:taskCode)，
+  // state=触发行合约包 state（Modal 标题用）。均在此快照，Modal 内部自行拉步骤详情。
+  const handleOpenDeployModal = React.useCallback(
+    (payload: { taskCode: string; state?: number }) => {
+      if (!payload.taskCode) return;
+      setDeployModal(payload);
+    },
+    [],
+  );
+
+  const handleDeployModalClose = React.useCallback(() => {
+    setDeployModal(null);
   }, []);
 
   // ── Tab 回调：tab-contracts 打开部署历史 Modal ──
@@ -432,42 +478,75 @@ export function OverviewShell({
     }
   }, [adminWalletCtx?.storageType]);
 
+  // 子生成 Modal 结果消费完成（AdminWalletModal 回填后清快照）。
+  const consumeGeneratedWallet = React.useCallback(() => {
+    setGeneratedWallet(null);
+  }, []);
+
 
   // ── Disable/Enable 提交（源 statusUpdateApi onOk 1937-1957）──
+  // code 用确认框打开时的快照，不取 currentTd（refetch 后可能已换资产）。
   const handleStatusConfirm = React.useCallback(() => {
     const ctx = statusConfirm;
-    if (!ctx || !currentTd?.code) return;
+    if (!ctx?.code) return;
     setStatusConfirm((prev) => (prev ? { ...prev, open: false } : prev));
-    void updateStatusAsync({ code: currentTd.code, enable: ctx.enable }).then(
-      () => {
+    void updateStatusAsync({ code: ctx.code, enable: ctx.enable })
+      .then(() => {
         toast.success(t('PUB_Success').replace('****', ctx.toastWord));
-      },
-    );
-  }, [statusConfirm, currentTd?.code, updateStatusAsync, t]);
+      })
+      .catch(() => {
+        toast.error(t('td_toast_submit_failed'));
+      });
+  }, [statusConfirm, updateStatusAsync, t]);
   const handleStatusCancel = React.useCallback(() => {
     setStatusConfirm(null);
   }, []);
 
   // ── Delete 提交（源 deleteApi onOk 1969-1985）──
   const handleDeleteConfirm = React.useCallback(() => {
-    if (!currentTd?.code) return;
+    const ctx = deleteConfirm;
+    if (!ctx?.code) return;
     setDeleteConfirm(null);
-    void deleteAsync({ code: currentTd.code }).then(() => {
-      toast.success(t('PUB_Success').replace('****', t('PUB_Delete')));
-      // 源 setActiveKey(0) + getTilteList(0)：切回首项（applyList invalidate 后刷新）。
-      setActiveKey(0);
-    });
-  }, [currentTd?.code, deleteAsync, t]);
+    void deleteAsync({ code: ctx.code })
+      .then(() => {
+        toast.success(t('PUB_Success').replace('****', t('PUB_Delete')));
+        // 源 setActiveKey(0) + getTilteList(0)：切回首项。
+        setActiveCode(null);
+      })
+      .catch(() => {
+        toast.error(t('td_toast_submit_failed'));
+      });
+  }, [deleteConfirm, deleteAsync, t]);
   const handleDeleteCancel = React.useCallback(() => {
     setDeleteConfirm(null);
   }, []);
 
   // ── 渲染 ──
-  // loading 态：applyList 拉取中（避免空数据误判为 Empty）。
+  // loading 态：applyList 拉取中（避免空数据误判为 Empty）；骨架块，不写死文案。
   if (applyListLoading && !hasData) {
     return (
-      <div className="flex h-64 animate-pulse items-center justify-center text-sm text-muted-foreground">
-        Loading...
+      <div className="w-full space-y-4">
+        <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
+        <div className="h-32 w-full animate-pulse rounded-lg bg-muted" />
+        <div className="h-12 w-2/3 animate-pulse rounded-md bg-muted" />
+      </div>
+    );
+  }
+
+  // 错误态：拉取失败且无数据（react-query 有旧数据时保留旧数据继续展示）。
+  if (applyListError && !hasData) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3">
+        <p className="text-sm text-muted-foreground">
+          {t('td_query_load_failed')}
+        </p>
+        <button
+          type="button"
+          className="rounded-md border px-4 py-1.5 text-sm hover:bg-accent"
+          onClick={() => void refetchApplyList()}
+        >
+          {t('td_retry')}
+        </button>
       </div>
     );
   }
@@ -482,7 +561,7 @@ export function OverviewShell({
       {/* TD 切换条（自建 CustomTab 等价） */}
       <TdSwitcher
         tdList={applyList ?? []}
-        activeKey={activeKey}
+        activeKey={activeIndex}
         onSelect={handleSelectTd}
         onOnboard={handleOnboard}
       />
@@ -509,13 +588,16 @@ export function OverviewShell({
 
         {/* Tab1：铸销记录 / SP / MMF Summary（td-15） */}
         <TabsContent value="1">
-          {currentTd ? <OverviewRecordsTab td={currentTd} /> : null}
+          {currentTd ? (
+            <OverviewRecordsTab key={currentTd.code} td={currentTd} />
+          ) : null}
         </TabsContent>
 
         {/* Tab2：合约部署（td-16） */}
         <TabsContent value="2">
           {currentTd ? (
             <OverviewContractsTab
+              key={currentTd.code}
               td={currentTd}
               onOpenDeployModal={handleOpenDeployModal}
               onOpenDeployHistoryModal={handleOpenDeployHistoryModal}
@@ -527,6 +609,7 @@ export function OverviewShell({
         <TabsContent value="3">
           {currentTd ? (
             <OverviewWalletsTab
+              key={currentTd.code}
               td={currentTd}
               onOpenAdminWalletModal={handleOpenAdminWalletModal}
             />
@@ -536,7 +619,10 @@ export function OverviewShell({
         {/* Tab4：操作记录（td-17） */}
         <TabsContent value="4">
           {currentTd ? (
-            <OverviewOperationRecordsTab td={currentTd} />
+            <OverviewOperationRecordsTab
+              key={currentTd.code}
+              td={currentTd}
+            />
           ) : null}
         </TabsContent>
       </Tabs>
@@ -553,32 +639,23 @@ export function OverviewShell({
           }
         }
         type={mintMeltType}
-        stablecoinCode={currentTd?.code ?? ''}
-        stablecoinCodeLabel={currentTd?.symbol ?? ''}
-        tokenTypeLabel={
-          currentTd?.mintMethod == null
-            ? ''
-            : t(`token_type_${currentTd.mintMethod}`)
-        }
-        onCancel={() => setIsModalOpen(false)}
+        // 点击时快照（mintMeltAsset），非实时 currentTd：Modal 打开期间切换 TD/refetch
+        // 不影响展示与提交 body（防错资产铸销）。
+        stablecoinCode={mintMeltAsset?.code ?? ''}
+        stablecoinCodeLabel={mintMeltAsset?.symbol ?? ''}
+        tokenTypeLabel={mintMeltAsset?.tokenTypeLabel ?? ''}
+        onCancel={handleMintMeltClose}
       />
 
-      {/* DeployContractModal（部署/升级，步骤进度）—— deployInfo 从 useDeployStepDetailQuery
-          取 data[0]（含 tdName/blockchainName/packageName/contractVersion/deployState/deployType/
-          upgradeTaskCode），modal 内部另调同 key query 取 stepDetailList（命中缓存无额外请求）。 */}
+      {/* DeployContractModal（部署/升级，步骤进度）—— taskCode/state 为点击时快照，
+          tdType 取当前资产（Modal 仅在 Tab2 内打开，切换 TD 时 Modal 阻塞 UI 无风险）；
+          步骤详情由 Modal 内部 useDeployStepDetailQuery(taskCode) 拉取（源 getDeployInfo）。 */}
       <DeployContractModal
-        open={isModalOpenDelopy}
-        taskCode={deployTaskCode}
-        deployType={deployInfoPayload?.deployType ?? 0}
-        deployInfo={{
-          tdName: deployInfoPayload?.tdName,
-          blockchainName: deployInfoPayload?.blockchainName,
-          packageName: deployInfoPayload?.packageName,
-          contractVersion: deployInfoPayload?.contractVersion,
-        }}
-        deployState={deployInfoPayload?.deployState}
-        upgradeTaskCode={deployInfoPayload?.upgradeTaskCode}
-        onCancel={() => setIsModalOpenDelopy(false)}
+        open={deployModal != null}
+        taskCode={deployModal?.taskCode ?? ''}
+        tdType={currentTd?.type}
+        contractState={deployModal?.state}
+        onCancel={handleDeployModalClose}
       />
 
       {/* DeployHistoryModal（部署历史，useContractDeployHistoryQuery 取 data[0]） */}
@@ -599,20 +676,25 @@ export function OverviewShell({
             walletType: '',
           }
         }
-        onCancel={() => setAdminWalletModalOpen(false)}
+        onCancel={() => {
+          setAdminWalletModalOpen(false);
+          setGeneratedWallet(null);
+        }}
         onGenerateWallet={handleGenerateWallet}
+        generatedWallet={generatedWallet}
+        onGeneratedConsumed={consumeGeneratedWallet}
       />
 
       {/* GenerateWalletModal（keystore 路径）—— chainType 来自触发行 virtualMachineCode（源 chainType: data.virtualMachineCode） */}
       <OverviewGenerateWalletModal
         open={generateIsModalOpen}
         chainType={adminWalletRow?.virtualMachineCode ?? ''}
+        walletType={adminWalletRow?.type}
+        roleName={adminWalletRow?.type}
+        blockchainCode={adminWalletRow?.blockchainCode ?? ''}
+        tokenName={adminWalletRow?.tdName}
         onCancel={() => setGenerateIsModalOpen(false)}
-        onGenerated={() => {
-          /* 源 setFieldsValue 回填 adminWallet 表单；admin-wallet-modal 内部 form 受控，
-             跨组件回填需 form ref 透传——本任务接线先关闭子 Modal，回填属增强项。 */
-          setGenerateIsModalOpen(false);
-        }}
+        onGenerated={setGeneratedWallet}
       />
 
       {/* RigsecWalletModal（rigsec/fireblocks 路径）—— 入参从触发行衍生 */}
@@ -625,9 +707,7 @@ export function OverviewShell({
         blockchainCode={adminWalletRow?.blockchainCode ?? ''}
         tokenName={adminWalletRow?.tdName ?? ''}
         onCancel={() => setIsRigsecModalOpen(false)}
-        onGenerated={() => {
-          setIsRigsecModalOpen(false);
-        }}
+        onGenerated={({ walletAddress }) => setGeneratedWallet({ walletAddress })}
       />
 
       {/* Disable/Enable 二次确认（收口 td-14 gap，替代源 antd modal.confirm） */}

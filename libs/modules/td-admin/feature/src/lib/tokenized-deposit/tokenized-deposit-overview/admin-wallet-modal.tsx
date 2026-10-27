@@ -110,6 +110,17 @@ export interface AdminWalletModalProps {
   onCancel: () => void;
   /** 生成钱包入口回调（Update 态，Shell 打开 GenerateWallet/RigsecWallet Modal）。 */
   onGenerateWallet?: () => void;
+  /**
+   * 子生成 Modal 结果快照（源 generate/rigsec onSuccess → formAdminWallet
+   * .setFieldsValue）。Update 表单打开且有值时回填并回调 onGeneratedConsumed。
+   */
+  generatedWallet?: {
+    keystore?: string;
+    walletAddress?: string;
+    password?: string;
+  } | null;
+  /** 回填消费完成回调（Shell 清快照，避免重复应用）。 */
+  onGeneratedConsumed?: () => void;
   /** 当前表单中的 chainAccountAddress/privateKey（用于判断是否已有钱包，决定是否确认覆盖）。 */
   currentWallet?: { chainAccountAddress?: string; privateKey?: string };
 }
@@ -221,6 +232,8 @@ export function AdminWalletModal({
   ctx,
   onCancel,
   onGenerateWallet,
+  generatedWallet,
+  onGeneratedConsumed,
 }: AdminWalletModalProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
   const { mutateAsync: updateAsync, isPending: updatePending } =
@@ -248,6 +261,21 @@ export function AdminWalletModal({
       updateForm.reset({});
     }
   }, [open, ctx.type]);
+
+  // 生成结果回填（源 setFieldsValue：keystore/walletAddress/password → Update 表单；
+  // rigsec 路径仅 walletAddress → chainAccountAddress）。快照消费后立即上抛清除。
+  React.useEffect(() => {
+    if (!open || ctx.type !== 'Update' || !generatedWallet) return;
+    const patch: UpdateFormValues = {};
+    if (generatedWallet.keystore != null) patch.privateKey = generatedWallet.keystore;
+    if (generatedWallet.walletAddress != null)
+      patch.chainAccountAddress = generatedWallet.walletAddress;
+    if (generatedWallet.password != null) patch.password = generatedWallet.password;
+    if (Object.keys(patch).length > 0) {
+      updateForm.reset({ ...updateForm.getValues(), ...patch });
+      onGeneratedConsumed?.();
+    }
+  }, [open, ctx.type, generatedWallet, onGeneratedConsumed]);
 
   // Update 提交（源 1096-1102）：password AES 加密后提交。
   const onUpdateSubmit = async (values: UpdateFormValues) => {

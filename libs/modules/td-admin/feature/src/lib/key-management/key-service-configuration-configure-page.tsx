@@ -1,7 +1,8 @@
 /**
- * KeyServiceConfigurationConfigurePage — create (configure) view.
- * Renders the shared KeyServiceConfigurationForm in `configure` mode
- * (name editable + required, hot wallet selected by default).
+ * KeyServiceConfigurationConfigurePage — new (configure) service view.
+ * Renders KeyServiceConfigurationForm (name editable + required, hot wallet
+ * pre-selected). Submission is disabled — the backend exposes no Key-service
+ * write API (see form header + in-page banner).
  *
  * Source: td-manage/src/pages/key-management/key-service-configuration/configure.tsx
  */
@@ -11,5 +12,5 @@
 import { KeyServiceConfigurationForm } from './key-service-configuration-form';
 
 export function KeyServiceConfigurationConfigurePage() {
-  return <KeyServiceConfigurationForm mode="configure" />;
+  return <KeyServiceConfigurationForm />;
 }

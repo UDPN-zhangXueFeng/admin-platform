@@ -3,8 +3,7 @@
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronRight, LucideIcon } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from '@myorg/shared/util-i18n';
+import { Link, usePathname } from '@myorg/shared/util-i18n';
 import { cn } from '@myorg/shared/util-classnames';
 import { SidebarGroup } from './sidebar-group';
 import { SidebarItem } from './sidebar-item';

@@ -26,6 +26,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
 import {
+  Alert,
   Button,
   DataTable,
   Input,
@@ -34,6 +35,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@myorg/shared/ui';
+import { formatDate } from '@myorg/shared/util-dates';
+
 import { FormSelect } from '@myorg/shared/ui-forms';
 
 import {
@@ -62,16 +65,38 @@ const filterSchema = z.object({
 
 type FilterFormValues = z.infer<typeof filterSchema>;
 
-/** Format a Unix timestamp (ms) to a locale string. */
-function formatTimestamp(ts?: number): string {
-  if (!ts) return '--';
-  return new Date(ts).toLocaleString();
+/** Minimal structural type of a next-intl messages accessor (t + t.has). */
+interface KeyManagementMessages {
+  (key: string): string;
+  has(key: string): boolean;
 }
 
-/** Convert an ISO date string (yyyy-mm-dd) to a UTC ms timestamp. */
-function dateToTimestamp(value?: string): number | undefined {
+/** Timestamp column format, matching sibling list pages. */
+const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
+
+/** Table row handed to DataTable — wire item plus its client-side row id. */
+type ManagedWalletRow = ManagedWallet & { id: string };
+
+/** Semantic tone → tailwind badge classes (walletStatusMap tone values). */
+const TONE_CLASS: Record<string, string> = {
+  success: 'border-green-600/40 bg-green-500/10 text-green-700 dark:text-green-400',
+  processing: 'border-blue-600/40 bg-blue-500/10 text-blue-700 dark:text-blue-400',
+  warning: 'border-amber-600/40 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+  error: 'border-red-600/40 bg-red-500/10 text-red-700 dark:text-red-400',
+  default: 'border-border bg-muted text-muted-foreground',
+};
+
+/** Local day start (00:00:00) for a yyyy-mm-dd input, mirroring upstream range semantics. */
+function toDayStart(value?: string): number | undefined {
   if (!value) return undefined;
-  const ms = new Date(value).getTime();
+  const ms = new Date(`${value}T00:00:00`).getTime();
+  return Number.isNaN(ms) ? undefined : ms;
+}
+
+/** Local day end, including the final millisecond. */
+function toDayEnd(value?: string): number | undefined {
+  if (!value) return undefined;
+  const ms = new Date(`${value}T23:59:59.999`).getTime();
   return Number.isNaN(ms) ? undefined : ms;
 }
 
@@ -80,6 +105,19 @@ function toFilterNumber(value?: string): number | undefined {
   if (!value || value === ALL_VALUE) return undefined;
   const n = Number(value);
   return Number.isFinite(n) ? n : undefined;
+}
+
+/** Token Type label — falls back to the raw number for unknown codes. */
+function formatTokenType(
+  t: KeyManagementMessages,
+  value: number | string | undefined | null,
+): string {
+  if (value === undefined || value === null || value === '') return '--';
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && t.has(`token_type_${numeric}`)) {
+    return t(`token_type_${numeric}`);
+  }
+  return String(value);
 }
 
 export function ManagedWalletsListPage() {
@@ -114,9 +152,9 @@ export function ManagedWalletsListPage() {
     if (filters.walletAddress) data.walletAddress = filters.walletAddress;
     const blockchainId = toFilterNumber(filters.blockchainId);
     if (blockchainId !== undefined) data.blockchainId = blockchainId;
-    const startCreationDate = dateToTimestamp(filters.startCreationDate);
+    const startCreationDate = toDayStart(filters.startCreationDate);
     if (startCreationDate !== undefined) data.startCreationDate = startCreationDate;
-    const endCreationDate = dateToTimestamp(filters.endCreationDate);
+    const endCreationDate = toDayEnd(filters.endCreationDate);
     if (endCreationDate !== undefined) data.endCreationDate = endCreationDate;
     const status = toFilterNumber(filters.status);
     if (status !== undefined) data.status = status;
@@ -128,10 +166,29 @@ export function ManagedWalletsListPage() {
     };
   }, [filters, page, pageSize]);
 
-  const { data: listData, isLoading } = useManagedWalletsQuery(params);
+  // Upstream re-queries page 1 on search; live filters reset the pager too.
+  React.useEffect(() => {
+    setPage(1);
+  }, [
+    filters.roleName,
+    filters.keyId,
+    filters.tokenId,
+    filters.walletAddress,
+    filters.blockchainId,
+    filters.startCreationDate,
+    filters.endCreationDate,
+    filters.status,
+  ]);
+
+  const {
+    data: listData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useManagedWalletsQuery(params);
   const { data: stablecoins } = useStablecoinOptionsQuery();
   const { data: blockchains } = useBlockchainOptionsQuery();
-
   const rows = listData?.rows ?? [];
   const total = listData?.page?.total ?? 0;
 
@@ -147,15 +204,17 @@ export function ManagedWalletsListPage() {
     );
   };
 
-  const columns = React.useMemo<ColumnDef<ManagedWallet>[]>(
+  const columns = React.useMemo<ColumnDef<ManagedWalletRow>[]>(
     () => [
       {
         accessorKey: 'roleName',
         header: 'Role Name',
         cell: ({ getValue }) => {
-          const value = getValue() as number | undefined;
-          if (value === undefined || value === null) return '--';
-          return roleNameMap[value] || '--';
+          const raw = getValue() as number | string | undefined;
+          if (raw === undefined || raw === null || raw === '') return '--';
+          const key = Number(raw);
+          const label = Number.isFinite(key) ? roleNameMap[key] : undefined;
+          return label ?? String(raw);
         },
       },
       {
@@ -171,9 +230,9 @@ export function ManagedWalletsListPage() {
           return (
             <div>
               <div>{record.tokenName || '--'}</div>
-              {record.tokenType !== undefined && (
+              {record.tokenType !== undefined && record.tokenType !== null && (
                 <div className="text-muted-foreground text-xs">
-                  {t(`token_type_${Number(record.tokenType)}`)}
+                  {formatTokenType(t, record.tokenType)}
                 </div>
               )}
             </div>
@@ -211,36 +270,48 @@ export function ManagedWalletsListPage() {
         accessorKey: 'rotationFrequency',
         header: 'Rotation Frequency',
         cell: ({ getValue }) => {
-          const value = getValue() as number | undefined;
-          if (value === undefined || value === null) return '--';
-          return String(value);
+          // Upstream renders `value || '3 months'` (default fallback).
+          const value = getValue() as number | string | undefined;
+          return value ? String(value) : '3 months';
         },
       },
       {
         accessorKey: 'lastRotationTime',
         header: 'Last Rotation Time',
-        cell: ({ getValue }) => formatTimestamp(getValue() as number),
+        cell: ({ getValue }) => {
+          const ts = getValue() as number | undefined;
+          return ts ? formatDate(Number(ts), DATETIME_FMT) : '--';
+        },
       },
       {
         accessorKey: 'nextRotationTime',
         header: 'Next Rotation Time',
-        cell: ({ getValue }) => formatTimestamp(getValue() as number),
+        cell: ({ getValue }) => {
+          const ts = getValue() as number | undefined;
+          return ts ? formatDate(Number(ts), DATETIME_FMT) : '--';
+        },
       },
       {
         accessorKey: 'createdOn',
         header: 'Created on',
-        cell: ({ getValue }) => formatTimestamp(getValue() as number),
+        cell: ({ getValue }) => {
+          const ts = getValue() as number | undefined;
+          return ts ? formatDate(Number(ts), DATETIME_FMT) : '--';
+        },
       },
       {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ getValue }) => {
-          const status = getValue() as number | undefined;
-          if (!status) return '--';
-          const entry = walletStatusMap[status];
-          if (!entry) return '--';
+          const raw = getValue() as number | string | undefined;
+          if (raw === undefined || raw === null || raw === '') return '--';
+          const status = Number(raw);
+          const entry = Number.isFinite(status) ? walletStatusMap[status] : undefined;
+          if (!entry) return String(raw);
           return (
-            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">
+            <span
+              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TONE_CLASS[entry.tone] ?? TONE_CLASS.default}`}
+            >
               {entry.label}
             </span>
           );
@@ -253,6 +324,7 @@ export function ManagedWalletsListPage() {
           <Button
             variant="link"
             className="h-auto p-0"
+            disabled={row.original.chainAccountId == null}
             onClick={() => handleViewDetail(row.original.chainAccountId)}
           >
             Details
@@ -366,9 +438,22 @@ export function ManagedWalletsListPage() {
           <h3 className="text-lg font-semibold">Managed Wallets</h3>
         </div>
 
-        <DataTable
-          columns={columns as any}
-          data={rows.map((r) => ({ ...r, id: String(r.chainAccountId ?? '') })) as any}
+        {isError && (
+          <Alert variant="destructive" className="mb-4">
+            <div className="flex items-center justify-between gap-4">
+              <span>{error instanceof Error ? error.message : t('key_management_load_failed')}</span>
+              <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+                {t('key_management_retry')}
+              </Button>
+            </div>
+          </Alert>
+        )}
+
+        <DataTable<ManagedWalletRow>
+          columns={columns}
+          data={rows.map(
+            (r): ManagedWalletRow => ({ ...r, id: String(r.chainAccountId ?? r.walletAddress ?? '') }),
+          )}
           isLoading={isLoading}
           emptyMessage={t('PUB_NoData')}
           pagination={{

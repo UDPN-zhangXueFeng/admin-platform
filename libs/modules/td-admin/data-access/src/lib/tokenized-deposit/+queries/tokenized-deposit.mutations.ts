@@ -3,7 +3,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   approvalAdminWallet,
-  configureRoleWallet,
   createTDApply,
   deleteTD,
   deployContract,
@@ -48,7 +47,10 @@ export function useSubmitMintMeltMutation() {
     mutationFn: (data) => submitMintMelt(data),
     onSuccess: () => {
       // 刷新储备余额（Mint 后可销毁额变化）+ TD 记录 + apply 标题状态
+      // + index Tab4 操作记录（operationRecordList 挂在 wallet() 组下，源 index.tsx
+      // mint/melt 成功后 customTable.mutate() 重建记录表）
       void qc.invalidateQueries({ queryKey: tdKeys.overview() });
+      void qc.invalidateQueries({ queryKey: tdKeys.wallet() });
     },
   });
 }
@@ -111,8 +113,10 @@ export function useUpdateTDStatusMutation() {
   >({
     mutationFn: ({ code, enable }) => updateTDStatus(code, enable),
     onSuccess: () => {
-      // 刷新 apply 标题列表（state 字段变化）
+      // 刷新 apply 标题列表（state 字段变化）+ index 钱包表/操作记录
+      // （源 statusUpdate 成功后 customTable3.refetch()）
       void qc.invalidateQueries({ queryKey: tdKeys.overviewApplyList() });
+      void qc.invalidateQueries({ queryKey: tdKeys.wallet() });
     },
   });
 }
@@ -127,6 +131,7 @@ export function useDeleteTDMutation() {
     mutationFn: ({ code }) => deleteTD(code),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: tdKeys.overviewApplyList() });
+      void qc.invalidateQueries({ queryKey: tdKeys.wallet() });
     },
   });
 }
@@ -222,24 +227,6 @@ export function useEditTDOperationMutation() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: tdKeys.overview() });
       void qc.invalidateQueries({ queryKey: tdKeys.edit() });
-    },
-  });
-}
-
-/**
- * 配置角色钱包（configureRoleWallet）mutation。
- * MOCK - 后端未实装，保留 mock。成功后刷新角色钱包列表。
- */
-export function useConfigureRoleWalletMutation() {
-  const qc = useQueryClient();
-  return useMutation<
-    unknown,
-    Error,
-    Parameters<typeof configureRoleWallet>[0]
-  >({
-    mutationFn: (params) => configureRoleWallet(params),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: tdKeys.roleWallet() });
     },
   });
 }

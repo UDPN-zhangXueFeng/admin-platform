@@ -1,0 +1,15 @@
+{
+  "financial_0040": "文件哈希",
+  "financial_0055": "导出时间",
+  "financial_0056": "数据来源",
+  "financial_0076": "文件 ID",
+  "module_type_1": "记账流水",
+  "module_type_5": "报表与报告",
+  "module_type_10": "审计追踪",
+  "module_type_15": "利息结算",
+  "module_type_20": "代币统计报表",
+  "export_status_0": "待处理",
+  "export_status_1": "处理中",
+  "export_status_2": "已完成",
+  "export_status_3": "失败"
+}

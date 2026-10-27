@@ -42,7 +42,8 @@ import {
  *    - TD(5) → validateCoaSetup(tokenizedDepositCoaData)，有错则 setLoading(false) return。
  *    - Stablecoin(1) 且非 readonly → validateCoaSetup(stablecoinCoaData)。
  * 5. 组装 coaPayload（mapCoaSetupToPayload + mintMethod 选套）。
- * 6. 组装 payload（字段命名转换：decimals→decimalPrecision、enableXxx 归一 0/1）。
+ * 6. 组装 payload（字段命名转换：decimals→decimalPrecision、enableXxx 归一 0/1；
+ *    源 TdApplyAddReqVo/TdEditReqVo 没有阈值配置，表单不提供不可持久化的阈值控件。
  * 7. code 存在 → useEditTDOperationMutation；否则 → useCreateTDApplyMutation。
  * 8. 成功 → toast.success + routerBack。
  *
@@ -68,6 +69,12 @@ import {
  * - message.success → sonner toast.success（hook 顶层）。
  * - mapCoaSetupToApplyAddPayload 已合并为 mapCoaSetupToPayload（util 层去重）。
  * - apiClient 已解包信封，去掉 res.data.code 检查。
+ * - accountTypeList 提交层兜底：MMF 固定 [3]、TD 过滤 {1,2}（源为纯透传；
+ *   跨类型切换残留由表单层 onTokenTypeChange 重置规则清理，语义不变）。
+ * - reserveAccountId / enableReserveAssetReconciliation 与源一致透传
+ *   （Stablecoin + CBDC(10/15) 均提交；不再按 mintMethod 强制清零）。
+ * - keyService 失效不硬拦截（源同）：storageType 按 选中项 → 详情回填 →
+ *   'key_keystore' 兜底链解析，keyServiceCode 缺失时省略键。
  *
  * @param params 见 {@link UseTokenizedDepositSubmitParams}
  */
@@ -148,9 +155,6 @@ export function useTokenizedDepositSubmit({
           accountTypeList,
           metaType,
           decimals,
-          thresholdType,
-          thresholdFrequency,
-          thresholdValue,
           walletAddressContractOwner,
           walletAddressPaymentOfGasFee,
           walletAddressManagementWallet,
@@ -183,51 +187,31 @@ export function useTokenizedDepositSubmit({
           }
         ).passWordManagementWallet;
 
-        // ── P0-1-submit-guard：按 mintMethod 规范化提交字段（提交层兜底）──
-        // 在 payload 组装前覆盖局部变量（不改 values 本身），确保后端只收到与 mintMethod
-        // 匹配的字段，即便上游表单/草稿带入脏数据也不会越界。
-        const mm = Number(mintMethod) || 0;
-        // reserveId 仅稳定币保留（覆盖下面计算出的 reserveId 由 mm 判定）
-        const normalizedReserveId =
-          mm === MINT_METHOD.STABLECOIN
-            ? reserveAccountId !== undefined &&
-              reserveAccountId !== null &&
-              reserveAccountId !== ''
-              ? Number(reserveAccountId)
-              : undefined
+        // ── reserveId / reserve 对账开关：透传归一（与源一致）──
+        // 源不按 mintMethod 在提交层拦截这两个字段；跨类型残留由表单层
+        // onTokenTypeChange 的重置规则兜底（TD/MMF 切换清 reserve/recon）。
+        // CBDC(10/15) 与 Stablecoin 同样可见并提交储备账户（VO 契约一致）。
+        const reserveId =
+          reserveAccountId !== undefined &&
+          reserveAccountId !== null &&
+          reserveAccountId !== ''
+            ? Number(reserveAccountId)
             : undefined;
-        // enableReserveAssetReconciliation 归一：非稳定币强制关闭
-        const normalizedEnableReserveAssetReconciliation =
-          mm === MINT_METHOD.STABLECOIN
-            ? Number(enableReserveAssetReconciliation ?? RECON_DISABLED) ===
-              RECON_ENABLED
-              ? RECON_ENABLED
-              : RECON_DISABLED
-            : RECON_DISABLED;
-        const thresholdPayload =
-          mm === MINT_METHOD.STABLECOIN
-            ? {
-                thresholdType,
-                thresholdFrequency,
-                thresholdValue:
-                  thresholdValue === undefined || thresholdValue === ''
-                    ? undefined
-                    : Number(thresholdValue),
-              }
-            : {};
-        // accountTypeList 按 mm 过滤
-        let normalizedAccountTypeList: number[];
-        if (mm === MINT_METHOD.MMF) {
-          normalizedAccountTypeList = [3];
-        } else if (mm === MINT_METHOD.TOKENIZED_DEPOSIT) {
-          const filtered = (accountTypeList ?? [])
-            .map((type) => Number(type))
-            .filter((type) => type === 1 || type === 2);
-          normalizedAccountTypeList = filtered.length > 0 ? filtered : [1];
-        } else {
-          // STABLECOIN 或其它：用空数组
-          normalizedAccountTypeList = [];
-        }
+        // accountTypeList：MMF 固定 [3]、TD 过滤 {1,2}（提交层兜底，与源差异已记录）；
+        // Stablecoin/CBDC 透传（源 accountTypeList?.map(Number)，未选时 undefined → 键省略）。
+        const normalizedAccountTypeList: number[] | undefined =
+          Number(mintMethod) === MINT_METHOD.MMF
+            ? [3]
+            : Number(mintMethod) === MINT_METHOD.TOKENIZED_DEPOSIT
+              ? (() => {
+                  const filtered = (accountTypeList ?? [])
+                    .map((type) => Number(type))
+                    .filter((type) => type === 1 || type === 2);
+                  return filtered.length > 0 ? filtered : [1];
+                })()
+              : Array.isArray(accountTypeList)
+                ? accountTypeList.map((type) => Number(type))
+                : undefined;
 
         // ── adminWalletDTOList（含 AES password + keyStore）──
         const adminWalletDTOList = [
@@ -258,25 +242,16 @@ export function useTokenizedDepositSubmit({
           { accountType: 3, walletAddress: walletAddressManagementWallet },
         ];
 
-        // ── P0-3c：keyService 存在性校验 ──
-        // 选中的 keyService 必须能在 keyServiceList 中命中；命中为空说明该密钥服务
-        // 已失效/被删，直接拦截并提示重新选择，避免后续以脏 storageType 提交。
+        // storageType 解析链与源一致：选中项 → 详情回填 → 'key_keystore'。
+        // 源不在提交时硬拦截 keyService 失效（编辑态列表加载失败时仍允许保存
+        // 其余字段，storageType 走兜底链）；这里同样放行。
         const selectedKeyService = keyServiceList?.find(
           (item) => item.keyServiceCode === keyServiceCode,
         );
-        if (!selectedKeyService) {
-          toast.error(t('td_toast_keyservice_invalid'));
-          setLoading(false);
-          return;
-        }
         const fallbackKeyServiceCode =
           keyServiceCode || detailInfo?.keyServiceCode;
-        // storageType 直接取选中 keyService 的值（不再回退 'key_keystore'，
-        // selectedKeyService 为空时上方已 return）。
         const storageType =
-          (
-            selectedKeyService as KeyServiceOption & { storageType?: string }
-          ).storageType ||
+          selectedKeyService?.storageType ||
           detailInfo?.storageType ||
           'key_keystore';
         // 按 storageType 分支选 walletPayload
@@ -338,15 +313,15 @@ export function useTokenizedDepositSubmit({
             RECON_ENABLED
               ? RECON_ENABLED
               : RECON_DISABLED,
-          // P0-1-submit-guard：使用按 mintMethod 归一后的值
+          // 储备对账开关透传归一（0/1），源同
           enableReserveAssetReconciliation:
-            normalizedEnableReserveAssetReconciliation,
-          ...thresholdPayload,
+            Number(enableReserveAssetReconciliation ?? RECON_DISABLED) ===
+            RECON_ENABLED
+              ? RECON_ENABLED
+              : RECON_DISABLED,
           ...walletPayload,
           ...coaPayload,
-          ...(normalizedReserveId !== undefined
-            ? { reserveAccountId: normalizedReserveId }
-            : {}),
+          ...(reserveId !== undefined ? { reserveAccountId: reserveId } : {}),
         };
 
         try {

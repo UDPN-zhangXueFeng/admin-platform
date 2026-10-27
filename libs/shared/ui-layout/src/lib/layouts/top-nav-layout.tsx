@@ -3,8 +3,7 @@
 import * as React from 'react';
 import * as LucideIcons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from '@myorg/shared/util-i18n';
+import { Link, usePathname } from '@myorg/shared/util-i18n';
 import type { ProjectConfig } from '@myorg/shared/util-config';
 import { cn } from '@myorg/shared/util-classnames';
 import { Header } from '../header/header';

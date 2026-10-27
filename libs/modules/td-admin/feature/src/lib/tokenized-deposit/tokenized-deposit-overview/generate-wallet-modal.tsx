@@ -47,6 +47,18 @@ export interface OverviewGenerateWalletModalProps {
   open: boolean;
   /** chainType（generateWalletKeystore body，源 adminWalletModalInfo.chainType）。 */
   chainType: string;
+  /** walletType（wire number，源行 type）。 */
+  walletType?: number | string;
+  /** roleName（wire number，源行 confirmType/type）。 */
+  roleName?: number | string;
+  /** blockchainCode（generateWalletKeystore body）。 */
+  blockchainCode?: string;
+  /** tokenName（generateWalletKeystore body，源行 tdName）。 */
+  tokenName?: string;
+  /** keyServiceCode（generateWalletKeystore body，可选）。 */
+  keyServiceCode?: string;
+  /** 新增 true / 编辑 false（generateWalletKeystore body，可选）。 */
+  ifAdd?: boolean;
   /** 取消回调。 */
   onCancel: () => void;
   /**
@@ -81,6 +93,12 @@ interface GenerateWalletFormValues {
 export function OverviewGenerateWalletModal({
   open,
   chainType,
+  walletType,
+  roleName,
+  blockchainCode,
+  tokenName,
+  keyServiceCode,
+  ifAdd,
   onCancel,
   onGenerated,
 }: OverviewGenerateWalletModalProps): React.JSX.Element {
@@ -107,7 +125,13 @@ export function OverviewGenerateWalletModal({
     try {
       const res = await mutateAsync({
         chainType,
+        walletType: walletType ?? '',
         storageType: 'key_keystore',
+        roleName: roleName ?? '',
+        blockchainCode: blockchainCode ?? '',
+        tokenName,
+        keyServiceCode,
+        ifAdd,
         password: values.password,
       });
       onGenerated({

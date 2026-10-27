@@ -5,7 +5,6 @@ import { type Control, Controller } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { HelpCircle, Network } from 'lucide-react';
 import {
-  Badge,
   Field,
   FieldGroup,
   FieldLabel,
@@ -32,6 +31,7 @@ import type {
   TDEditFormValues,
   TokenTypeOption,
 } from '@myorg/modules/td-admin/data-access';
+import { MINT_METHOD } from '@myorg/modules/td-admin/data-access/lib/tokenized-deposit/tokenized-deposit.constants';
 import { Required, SectionHeading } from './ui/section-card';
 
 /** Whitelist Mode 选项（partial/noWhitelist disabled，源同）。 */
@@ -41,25 +41,12 @@ const WHITELIST_MODE_OPTIONS = [
   { value: 'noWhitelist', label: 'No Whitelist', disabled: true },
 ];
 
-/** 阈值类型选项。 */
-const THRESHOLD_TYPE_OPTIONS = [
-  { value: 'volume', label: 'Volume' },
-  { value: 'txnCount', label: 'TXN Count' },
-];
-
-/** 阈值频率选项。 */
-const THRESHOLD_FREQUENCY_OPTIONS = [
-  { value: 'daily', label: 'Daily' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'yearly', label: 'Yearly' },
-];
-
 /**
  * TokenBasicInfoSection — 代币基本信息区（edit 最大组件）。
  *
  * 迁移自 td-manage `edit/TokenBasicInfoSection.tsx`（406 行）。重设计后拆为两张卡：
  * 「Token details」（mintMethod/name/symbol/decimals/currency/usPrice/reserve）+
- * 「Network & contract」（blockchain/contract/meta/whitelist/threshold）。字段与逻辑不变。
+ * 「Network & contract」（blockchain/contract/meta/whitelist）。字段与逻辑不变。
  *
  * ## 只读
  *
@@ -80,7 +67,6 @@ export interface TokenBasicInfoSectionProps {
   mintMethod?: number;
   symbol?: string;
   currency?: string;
-  thresholdType?: string;
   reserveList?: ReserveAccountOption[];
   blockchainList?: BlockchainOption[];
   currencyList?: CurrencyOption[];
@@ -104,7 +90,6 @@ export function TokenBasicInfoSection({
   mintMethod,
   symbol,
   currency,
-  thresholdType,
   reserveList,
   blockchainList,
   currencyList,
@@ -117,7 +102,9 @@ export function TokenBasicInfoSection({
   const t = useTranslations('modules.tokenized-deposit');
 
   const isReadonly = hasCode && detailInfo.applyStatus === 35;
-  const showReserveAccount = !flag && mintMethod === 1;
+  // 与源一致：TD(flag) 与 MMF(20) 之外均显示储备账户（Stablecoin + CBDC 10/15）。
+  const showReserveAccount =
+    !flag && mintMethod !== MINT_METHOD.MMF && mintMethod !== undefined;
 
   return (
     <div className="flex flex-col gap-9">
@@ -263,7 +250,18 @@ export function TokenBasicInfoSection({
           <Controller
             control={control}
             name="decimals"
-            rules={{ required: true }}
+            rules={{
+              required: true,
+              validate: (value) => {
+                if (value === undefined || value === null || String(value) === '') {
+                  return true; // required 兜底
+                }
+                const parsed = Number(value);
+                return Number.isInteger(parsed) && parsed >= 0 && parsed <= 8
+                  ? true
+                  : t('td_form_decimals_invalid');
+              },
+            }}
             render={({ field }) => (
               <Field>
                 <FieldLabel htmlFor="field-decimals">
@@ -339,7 +337,18 @@ export function TokenBasicInfoSection({
           <Controller
             control={control}
             name="usPrice"
-            rules={{ required: true }}
+            rules={{
+              required: true,
+              validate: (value) => {
+                if (value === undefined || value === null || value === '') {
+                  return true; // required 兜底
+                }
+                // 源 antd InputNumber precision={2}：最多 2 位小数
+                return /^-?\d+(\.\d{1,2})?$/.test(String(value))
+                  ? true
+                  : t('td_form_usprice_invalid');
+              },
+            }}
             render={({ field }) => (
               <Field>
                 <FieldLabel htmlFor="field-usPrice">
@@ -596,121 +605,6 @@ export function TokenBasicInfoSection({
             )}
           />
 
-          {/* threshold 区（仅 mintMethod===1 显） */}
-          {mintMethod === 1 ? (
-            <Field className="border-t pt-7 md:col-span-2">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex flex-col gap-1">
-                  <FieldLabel>
-                    {t('tokenized_deposit_threshold_title')}
-                  </FieldLabel>
-                  <p className="text-sm text-muted-foreground">
-                    {t('td_form_threshold_desc')}
-                  </p>
-                </div>
-                <Badge variant="secondary">{t('td_form_optional')}</Badge>
-              </div>
-              <div className="grid gap-5 md:grid-cols-3">
-                {/* thresholdType Select */}
-                <Controller
-                  control={control}
-                  name="thresholdType"
-                  render={({ field }) => (
-                    <Field>
-                      <FieldLabel>{t('td_form_threshold_metric')}</FieldLabel>
-                      <Select
-                        value={(field.value as string) ?? ''}
-                        onValueChange={field.onChange}
-                        disabled={isReadonly}
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue
-                            placeholder={t(
-                              'tokenized_deposit_threshold_type_placeholder',
-                            )}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {THRESHOLD_TYPE_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  )}
-                />
-                {/* thresholdFrequency Select */}
-                <Controller
-                  control={control}
-                  name="thresholdFrequency"
-                  render={({ field }) => (
-                    <Field>
-                      <FieldLabel>{t('td_form_threshold_period')}</FieldLabel>
-                      <Select
-                        value={(field.value as string) ?? ''}
-                        onValueChange={field.onChange}
-                        disabled={isReadonly}
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue
-                            placeholder={t(
-                              'tokenized_deposit_threshold_frequency_placeholder',
-                            )}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {THRESHOLD_FREQUENCY_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  )}
-                />
-                {/* thresholdValue number input */}
-                <Controller
-                  control={control}
-                  name="thresholdValue"
-                  render={({ field }) => (
-                    <Field>
-                      <FieldLabel>{t('td_form_threshold_value')}</FieldLabel>
-                      <div className="flex h-10 overflow-hidden rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-                        <Input
-                          type="number"
-                          value={
-                            field.value !== undefined && field.value !== null
-                              ? String(field.value)
-                              : ''
-                          }
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.value === ''
-                                ? undefined
-                                : e.target.value,
-                            )
-                          }
-                          onBlur={field.onBlur}
-                          name={field.name}
-                          min={0}
-                          step={0.01}
-                          placeholder="0"
-                          disabled={isReadonly}
-                          className="min-w-0 flex-1 rounded-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                        />
-                        <span className="flex min-w-16 items-center justify-center border-l border-input bg-muted px-3 text-sm text-muted-foreground">
-                          {thresholdType === 'volume' ? symbol || '--' : '--'}
-                        </span>
-                      </div>
-                    </Field>
-                  )}
-                />
-              </div>
-            </Field>
-          ) : null}
         </FieldGroup>
       </section>
     </div>

@@ -33,10 +33,10 @@
  * 的 keystore 分支内部加密 password（贴合源 `getWalletKeystoreApi` 直传 + 调用方加密，
  * rigsec 分支不传 password）。
  *
- * ## Mock（3 个，保留）
+ * ## Mock（2 个，保留）
  *
- * `getRoleWalletsList` / `getRoleWalletDetail` / `configureRoleWallet` 后端未实装，
- * 保留 mock（setTimeout + 本地 generateMockRoleWallets）。
+ * `getRoleWalletsList` / `getRoleWalletDetail` 后端未实装，保留 mock
+ * （setTimeout + 本地 generateMockRoleWallets）。
  */
 
 import {
@@ -47,7 +47,6 @@ import { getEncryptionData } from '.';
 import type {
   AdminWalletListItem,
   AdminWalletListParams,
-  ApiResponse,
   ApplyListItem,
   BlockchainOption,
   CommonBlockchainListParams,
@@ -87,6 +86,8 @@ import type {
   SPRecordListResponse,
   StablecoinInfo,
   StablecoinRecordListParams,
+  StablecoinRecordItem,
+  StablecoinRecordListResponse,
   TDRecordItem,
   TDRecordListParams,
   TDRecordListResponse,
@@ -158,6 +159,7 @@ const FINANCE_TEMPLATE_LIST_URL = '/api/finance/v1/finance/template/list';
 
 // ── 中间类型：后端列表行（无 id）──
 
+type StablecoinRecordItemApi = Omit<StablecoinRecordItem, 'id'>;
 type TDRecordItemApi = Omit<TDRecordItem, 'id'>;
 type SPRecordItemApi = Omit<SPRecordItem, 'id'>;
 type WalletItemApi = Omit<WalletItem, 'id'>;
@@ -317,7 +319,7 @@ export async function getWalletDetailList(
   const { pageNum, pageSize, stablecoinId, accountType } = params;
   const res = await apiClient.post<
     ListResponseApi<WalletDetailItemApi>,
-    ListRequestBody<{ stablecoinId?: number; accountType?: number }>
+    ListRequestBody<{ stablecoinId?: number | string; accountType?: number }>
   >(
     WALLET_DETAIL_URL,
     {
@@ -343,7 +345,7 @@ export async function getWalletHistoryList(
   const { pageNum, pageSize, stablecoinId, accountType } = params;
   const res = await apiClient.post<
     ListResponseApi<WalletDetailItemApi>,
-    ListRequestBody<{ stablecoinId?: number; accountType?: number }>
+    ListRequestBody<{ stablecoinId?: number | string; accountType?: number }>
   >(
     WALLET_HISTORY_URL,
     {
@@ -412,25 +414,57 @@ export async function getMMFSummaryList(
 
 /**
  * 稳定币铸销记录分页列表（view 页 Tab1）。
- * initialValues: txHash。
+ * 源 view.tsx useCustomTable（自定义 fetch）：
+ * body.data = { txHash, type, state, startCreateTime, endCreateTime,
+ * startReviewerTime, endReviewerTime }（type/state 为表单字符串；时间字段毫秒
+ * number，未选发送 ''，键保留）；page = { pageNum, pageSize }。rowKey: recordId。
  */
 export async function getStablecoinRecordList(
   params: StablecoinRecordListParams,
   config?: ApiRequestConfig,
-): Promise<PaginatedResponse<TDRecordItem>> {
-  const { pageNum, pageSize, txHash } = params;
+): Promise<StablecoinRecordListResponse> {
+  const {
+    pageNum,
+    pageSize,
+    txHash,
+    type,
+    state,
+    startCreateTime,
+    endCreateTime,
+    startReviewerTime,
+    endReviewerTime,
+  } = params;
   const res = await apiClient.post<
-    ListResponseApi<TDRecordItemApi>,
-    ListRequestBody<{ txHash?: string }>
+    ListResponseApi<StablecoinRecordItemApi>,
+    ListRequestBody<{
+      txHash?: string;
+      type?: string;
+      state?: string;
+      startCreateTime?: number | '';
+      endCreateTime?: number | '';
+      startReviewerTime?: number | '';
+      endReviewerTime?: number | '';
+    }>
   >(
     STABLECOIN_RECORD_LIST_URL,
     {
-      data: { txHash },
+      data: {
+        txHash,
+        type,
+        state,
+        startCreateTime,
+        endCreateTime,
+        startReviewerTime,
+        endReviewerTime,
+      },
       page: { pageNum, pageSize },
     },
     config,
   );
-  return mapPaginated<TDRecordItemApi, TDRecordItem>(res, (r) => r.recordId);
+  return mapPaginated<StablecoinRecordItemApi, StablecoinRecordItem>(
+    res,
+    (r) => r.recordId,
+  );
 }
 
 /**
@@ -475,9 +509,9 @@ export function getTokenTypeOptions(
 export async function getApplyList(
   config?: ApiRequestConfig,
 ): Promise<ApplyListItem[]> {
-  const data = await apiClient.post<ApplyListItemApi[] | null, Record<string, never>>(
+  const data = await apiClient.post<ApplyListItemApi[] | null, undefined>(
     TD_APPLY_LIST_URL,
-    {},
+    undefined,
     config,
   );
   return (data ?? []).map((item) => ({
@@ -488,13 +522,14 @@ export async function getApplyList(
 
 /**
  * 稳定币列表（view 页 mount 拉，取 [0]）。
+ * 源 getStablecoinListApi() 以无 body 调用 ⇒ data 为 undefined 时不发送 body。
  * 返回数组（无分页包裹），字段形态由调用方按业务断言（model.ts 未定义稳定币列表项）。
  */
 export function getStablecoinList(
   data?: Record<string, unknown>,
   config?: ApiRequestConfig,
 ): Promise<unknown[]> {
-  return apiClient.post<unknown[]>(STABLECOIN_LIST_URL, data ?? {}, config);
+  return apiClient.post<unknown[]>(STABLECOIN_LIST_URL, data, config);
 }
 
 /**
@@ -511,54 +546,39 @@ export function getStablecoinInfo(
 
 /**
  * 合约包列表（index Tab2 上表，已部署合约概览）。
- * body: stablecoinCode。rowKey: packageName（回退 index）。
+ * 源 tdContractLatestInfoApi：body 为扁平 {stablecoinCode}（无 DataTable page 包装），
+ * 响应 data 直接为数组。注入 id = packageName（回退 index）。
  */
 export async function getContractPackageList(
   params: ContractPackageListParams,
   config?: ApiRequestConfig,
 ): Promise<ContractPackageListResponse> {
-  const { pageNum, pageSize, stablecoinCode } = params;
-  const res = await apiClient.post<
-    ListResponseApi<ContractPackageItemApi>,
-    ListRequestBody<{ stablecoinCode?: string }>
-  >(
-    CONTRACT_LATEST_INFO_URL,
-    {
-      data: { stablecoinCode },
-      page: { pageNum, pageSize },
-    },
-    config,
-  );
-  return mapPaginated<ContractPackageItemApi, ContractPackageItem>(
-    res,
-    (r) => r.packageName,
-  );
+  const data = await apiClient.post<
+    ContractPackageItemApi[] | null,
+    { stablecoinCode?: string }
+  >(CONTRACT_LATEST_INFO_URL, { stablecoinCode: params.stablecoinCode }, config);
+  return (data ?? []).map((item, index) => ({
+    ...item,
+    id: String(item.packageName ?? index),
+  }));
 }
 
 /**
  * 合约明细列表（index Tab2 下表）。
- * body: stablecoinCode。rowKey: contractName（回退 index）。
+ * 同 latestInfo：扁平 body / 数组响应。注入 id = contractName（回退 index）。
  */
 export async function getContractDetailList(
   params: ContractDetailListParams,
   config?: ApiRequestConfig,
 ): Promise<ContractDetailListResponse> {
-  const { pageNum, pageSize, stablecoinCode } = params;
-  const res = await apiClient.post<
-    ListResponseApi<ContractDetailItemApi>,
-    ListRequestBody<{ stablecoinCode?: string }>
-  >(
-    CONTRACT_DETAIL_URL,
-    {
-      data: { stablecoinCode },
-      page: { pageNum, pageSize },
-    },
-    config,
-  );
-  return mapPaginated<ContractDetailItemApi, ContractDetailItem>(
-    res,
-    (r) => r.contractName,
-  );
+  const data = await apiClient.post<
+    ContractDetailItemApi[] | null,
+    { stablecoinCode?: string }
+  >(CONTRACT_DETAIL_URL, { stablecoinCode: params.stablecoinCode }, config);
+  return (data ?? []).map((item, index) => ({
+    ...item,
+    id: String(item.contractName ?? index),
+  }));
 }
 
 /**
@@ -598,7 +618,7 @@ export async function getDeployStepDetail(
 
 /**
  * 储备 / 可销毁余额（Mint/Melt 前拉，组装 modalInfo）。
- * body: stablecoinCode / symbol。
+ * 源 getReservBalanceApi 仅发送 { stablecoinCode }。
  */
 export function getReserveBalance(
   data: ReserveBalanceParams,
@@ -609,18 +629,18 @@ export function getReserveBalance(
 
 /**
  * 是否有待处理销毁（控制 Melt 按钮禁用）。
+ * 源 isShowMeltApi 响应 data 即 boolean（null 安全：视为 false）。
  */
 export async function hasPendingMelt(
   data: { stablecoinCode?: string },
   config?: ApiRequestConfig,
 ): Promise<boolean> {
-  const result = await apiClient.post<boolean | { data?: boolean } | null>(
+  const result = await apiClient.post<boolean | null>(
     SEARCH_PENDING_MELT_URL,
     data,
     config,
   );
-  if (typeof result === 'boolean') return result;
-  return Boolean((result as { data?: boolean })?.data);
+  return result === true;
 }
 
 /**
@@ -679,14 +699,15 @@ export function submitMintMelt(
 }
 
 /**
- * view 铸造（body: stablecoinCount / stablecoinId / stablecoinName / unit）。
+ * view 铸造（body: stablecoinCount / stablecoinId / stablecoinName /
+ * stablecoinUnit——源 issueStablecoinApi 字段名，非 `unit`）。
  */
 export function issueStablecoin(
   data: {
     stablecoinCount: number | string;
     stablecoinId?: number | string;
     stablecoinName?: string;
-    unit?: string;
+    stablecoinUnit?: string;
     [key: string]: unknown;
   },
   config?: ApiRequestConfig,
@@ -803,23 +824,28 @@ export function getSmartContractOptions(
  * 合并去重：common.ts `getWalletKeystoreApi` 与 typings `utilWalletKeystoreApi`
  * 同 endpoint，合并为一个函数。body 按 storageType 分支：
  * - keystore 分支：{ chainType, password(调用方传入明文，内部 AES 加密) }
- * - rigsec 分支：{ chainType, walletType, storageType, roleName,
  *   blockchainCode, tokenName, ifAdd }（不传 password）
  *
  * keystore 分支的 password 经 AES-CBC 加密后提交（与后端解密一致）。
+ * 两分支统一发送全量字段（源 typings WalletUtilGetKeystoreReqVo 必填：
+ * chainType / walletType / storageType / roleName / blockchainCode）；
+ * rigsec 分支不传 password，keystore 分支不传 keyServiceCode（若提供则发送）。
  *
  * @param data.ifAdd 新增 true / 编辑 false（utilWalletKeystoreApi 约定）
  */
 export async function generateWalletKeystore(
   data: {
     chainType: string;
+    /** wire number（源 modalInfo.type）；允许 numeric string 传入并转换 */
+    walletType: number | string;
     storageType: string;
-    /** 仅 keystore 分支：明文密码（内部加密） */
+    /** 仅 keystore 分支：明文密码（内部 AES-CBC 加密） */
     password?: string;
-    /** 仅 rigsec 分支 */
-    walletType?: number;
-    roleName?: string;
-    blockchainCode?: string;
+    /** 仅 rigsec 分支：密钥服务编码 */
+    keyServiceCode?: string;
+    /** wire number（源 modalInfo.type）；允许 numeric string 传入并转换 */
+    roleName: number | string;
+    blockchainCode: string;
     tokenName?: string;
     /** 新增 true / 编辑 false */
     ifAdd?: boolean;
@@ -827,20 +853,22 @@ export async function generateWalletKeystore(
   config?: ApiRequestConfig,
 ): Promise<GenerateWalletResult | undefined> {
   const isKeystore = data.storageType === 'key_keystore';
-  const body = isKeystore
-    ? {
-        chainType: data.chainType,
-        password: data.password ? getEncryptionData(data.password) : '',
-      }
-    : {
-        chainType: data.chainType,
-        walletType: data.walletType,
-        storageType: data.storageType,
-        roleName: data.roleName,
-        blockchainCode: data.blockchainCode,
-        tokenName: data.tokenName,
-        ifAdd: data.ifAdd,
-      };
+  const body: Record<string, unknown> = {
+    chainType: data.chainType,
+    walletType: Number(data.walletType),
+    storageType: data.storageType,
+    roleName: Number(data.roleName),
+    blockchainCode: data.blockchainCode,
+    tokenName: data.tokenName,
+    ifAdd: data.ifAdd,
+  };
+  if (isKeystore) {
+    if (data.password !== undefined) {
+      body.password = getEncryptionData(data.password);
+    }
+  } else if (data.keyServiceCode !== undefined) {
+    body.keyServiceCode = data.keyServiceCode;
+  }
   const result = await apiClient.post<GenerateWalletResult | null>(
     WALLET_KEYSTORE_URL,
     body,
@@ -870,26 +898,34 @@ export function getTDOperationEditDetail(
 }
 
 /**
- * 密钥服务下拉（edit 页，body blockchainId，默认选首项 keyServiceCode）。
+ * 密钥服务下拉（edit 页，默认选首项 keyServiceCode）。
+ * wire 要求 blockchainId 为 number（源 Number(blockchainId) 转换）。
  */
 export function getKeyServiceList(
   data: KeyServiceListParams,
   config?: ApiRequestConfig,
 ): Promise<KeyServiceOption[]> {
-  return apiClient.post<KeyServiceOption[]>(KEY_SERVICE_LIST_URL, data, config);
+  return apiClient.post<KeyServiceOption[]>(
+    KEY_SERVICE_LIST_URL,
+    { blockchainId: Number(data.blockchainId) },
+    config,
+  );
 }
 
 /**
  * 管理员钱包列表（edit 页自动拉取，仅 Ethereum Sepolia + Huawei KMS 场景）。
- * body: blockchainId。注入 id。
+ * wire 要求 blockchainId 为 number（源 Number(blockchainId) 转换）。注入 id。
  */
 export async function getAdminWalletList(
   data: AdminWalletListParams,
   config?: ApiRequestConfig,
 ): Promise<AdminWalletListItem[]> {
-  const result = await apiClient.post<AdminWalletListItemApi[] | null, AdminWalletListParams>(
+  const result = await apiClient.post<
+    AdminWalletListItemApi[] | null,
+    { blockchainId: number }
+  >(
     ADMIN_WALLET_LIST_URL,
-    data,
+    { blockchainId: Number(data.blockchainId) },
     config,
   );
   return (result ?? []).map((item, index) => ({
@@ -1152,24 +1188,5 @@ export function getRoleWalletDetail(
         ],
       });
     }, 300);
-  });
-}
-
-/**
- * MOCK - 后端未实装，保留 mock。配置角色钱包提交。
- * 返回标准 ApiResponse 信封（code/message/data）。
- */
-export function configureRoleWallet(
-  _params: Record<string, unknown>,
-): Promise<ApiResponse<null>> {
-  void _params;
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        code: 0,
-        message: 'Wallet configuration submitted successfully',
-        data: null,
-      });
-    }, 500);
   });
 }

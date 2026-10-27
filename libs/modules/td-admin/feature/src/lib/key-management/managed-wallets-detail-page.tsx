@@ -21,6 +21,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
+  Alert,
   Button,
   CopyableEllipsisText,
   DataTable,
@@ -30,6 +31,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
+import { formatDate } from '@myorg/shared/util-dates';
 import { FormSelect } from '@myorg/shared/ui-forms';
 
 import {
@@ -44,11 +46,28 @@ import {
 } from '.';
 import { rotationStatusMap } from './constants';
 
-/** Format a Unix timestamp (ms) to a locale string. */
+/** Timestamp display format, matching sibling pages. */
+const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
+
+/** Table row handed to DataTable — wire item plus its client-side row id. */
+type HistoryRow = WalletRotationHistory & { id: string };
+
+/** Semantic tone → tailwind badge classes (status map tone values). */
+const TONE_CLASS: Record<string, string> = {
+  success: 'border-green-600/40 bg-green-500/10 text-green-700 dark:text-green-400',
+  processing: 'border-blue-600/40 bg-blue-500/10 text-blue-700 dark:text-blue-400',
+  warning: 'border-amber-600/40 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+  error: 'border-red-600/40 bg-red-500/10 text-red-700 dark:text-red-400',
+  default: 'border-border bg-muted text-muted-foreground',
+};
+
+/** Format a Unix timestamp (ms) in the shared portal column format. */
 function formatTimestamp(ts?: number): string {
   if (!ts) return '--';
-  return new Date(ts).toLocaleString();
+  return formatDate(Number(ts), DATETIME_FMT);
 }
+
+
 
 /**
  * Resolve a role display name from a `string | number` value.
@@ -68,17 +87,7 @@ function getDisplayRoleName(roleValue?: string | number): string {
   return String(roleValue);
 }
 
-/** Map a wallet status code to its display label (3-state). */
-function getWalletStatusLabel(status?: number): string {
-  if (typeof status !== 'number') return '--';
-  return walletStatusMap[status]?.label ?? String(status);
-}
 
-/** Map a rotation status code to its display label (8-state machine). */
-function getRotationStatusLabel(status?: number): string {
-  if (typeof status !== 'number') return '--';
-  return rotationStatusMap[status]?.label ?? String(status);
-}
 
 interface DetailItemProps {
   label: string;
@@ -137,8 +146,13 @@ export function ManagedWalletsDetailPage() {
     return Number.isFinite(value) ? value : undefined;
   }, [searchParams]);
 
-  const { data: detail, isLoading } =
-    useManagedWalletDetailQuery(chainAccountId);
+  const {
+    data: detail,
+    isLoading,
+    isError: detailIsError,
+    error: detailError,
+    refetch: refetchDetail,
+  } = useManagedWalletDetailQuery(chainAccountId);
 
   // ----- Rotation History: form + paginated query -----
   const [historyPage, setHistoryPage] = React.useState(1);
@@ -157,7 +171,7 @@ export function ManagedWalletsDetailPage() {
     if (filters.keyId) data.keyId = filters.keyId;
     if (filters.creationStartDate) {
       data.creationStartDate = new Date(
-        filters.creationStartDate,
+        `${filters.creationStartDate}T00:00:00`,
       ).getTime();
     }
     if (filters.creationEndDate) {
@@ -181,7 +195,13 @@ export function ManagedWalletsDetailPage() {
   const {
     data: historyData,
     isLoading: historyLoading,
-  } = useManagedWalletRotationHistoryQuery(historyParams);
+    isError: historyIsError,
+    error: historyError,
+    refetch: refetchHistory,
+  } = useManagedWalletRotationHistoryQuery(
+    historyParams,
+    chainAccountId !== undefined,
+  );
 
   const historyRows = historyData?.rows ?? [];
   const historyTotal = historyData?.page?.total ?? 0;
@@ -191,7 +211,7 @@ export function ManagedWalletsDetailPage() {
     setHistoryPage(1);
   };
 
-  const historyColumns = React.useMemo<ColumnDef<WalletRotationHistory>[]>(
+  const historyColumns = React.useMemo<ColumnDef<HistoryRow>[]>(
     () => [
       {
         accessorKey: 'originalWallet',
@@ -252,11 +272,16 @@ export function ManagedWalletsDetailPage() {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ getValue }) => {
-          const status = getValue() as number;
-          if (typeof status !== 'number') return '--';
+          const raw = getValue() as number | string | undefined;
+          if (raw === undefined || raw === null || raw === '') return '--';
+          const status = Number(raw);
+          const entry = Number.isFinite(status) ? rotationStatusMap[status] : undefined;
+          const tone = entry?.tone ?? 'default';
           return (
-            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">
-              {getRotationStatusLabel(status)}
+            <span
+              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TONE_CLASS[tone] ?? TONE_CLASS.default}`}
+            >
+              {entry?.label ?? String(raw)}
             </span>
           );
         },
@@ -280,6 +305,19 @@ export function ManagedWalletsDetailPage() {
               <div className="h-64 w-full animate-pulse rounded-md bg-muted" />
               <div className="h-32 w-full animate-pulse rounded-md bg-muted" />
             </div>
+          ) : detailIsError ? (
+            <Alert variant="destructive">
+              <div className="flex items-center justify-between gap-4">
+                <span>
+                  {detailError instanceof Error
+                    ? detailError.message
+                    : t('key_management_load_failed')}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => refetchDetail()}>
+                  {t('key_management_retry')}
+                </Button>
+              </div>
+            </Alert>
           ) : (
             <>
               {/* Card A — Current Wallet Details (10 fields) */}
@@ -294,13 +332,22 @@ export function ManagedWalletsDetailPage() {
                     {getDisplayRoleName(detail?.roleName)}
                   </DetailItem>
                   <DetailItem label="Status">
-                    {typeof detail?.status === 'number' ? (
-                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">
-                        {getWalletStatusLabel(detail.status)}
-                      </span>
-                    ) : (
-                      '--'
-                    )}
+                    {(() => {
+                      const raw = detail?.status;
+                      if (raw === undefined || raw === null || String(raw) === '') return '--';
+                      const status = Number(raw);
+                      const entry = Number.isFinite(status)
+                        ? walletStatusMap[status]
+                        : undefined;
+                      const tone = entry?.tone ?? 'default';
+                      return (
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TONE_CLASS[tone] ?? TONE_CLASS.default}`}
+                        >
+                          {entry?.label ?? String(raw)}
+                        </span>
+                      );
+                    })()}
                   </DetailItem>
                   <DetailItem label="Key ID">
                     <CopyableEllipsisText value={detail?.keyId} />
@@ -361,6 +408,12 @@ export function ManagedWalletsDetailPage() {
 
         {/* ---------- Tab 2: Rotation History ---------- */}
         <TabsContent value="history" className="mt-4 space-y-6">
+          {/* Upstream shows an intro line naming the wallet's role. */}
+          <p className="text-sm text-muted-foreground">
+            {t('key_management_rotation_history_intro', {
+              role: getDisplayRoleName(detail?.roleName),
+            })}
+          </p>
           {/* Query Form */}
           <div className="rounded-lg border bg-card p-4">
             <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
@@ -415,12 +468,25 @@ export function ManagedWalletsDetailPage() {
 
           {/* History Table */}
           <div className="rounded-lg border bg-card p-4">
-            <DataTable
-              columns={historyColumns as any}
-              data={historyRows.map((r, idx) => ({
-                ...r,
-                id: String(r.recordId ?? idx),
-              })) as any}
+            {historyIsError && (
+              <Alert variant="destructive" className="mb-4">
+                <div className="flex items-center justify-between gap-4">
+                  <span>
+                    {historyError instanceof Error
+                      ? historyError.message
+                      : t('key_management_load_failed')}
+                  </span>
+                  <Button variant="outline" size="sm" onClick={() => refetchHistory()}>
+                    {t('key_management_retry')}
+                  </Button>
+                </div>
+              </Alert>
+            )}
+            <DataTable<HistoryRow>
+              columns={historyColumns}
+              data={historyRows.map(
+                (r, idx): HistoryRow => ({ ...r, id: String(r.recordId ?? idx) }),
+              )}
               isLoading={historyLoading}
               emptyMessage={t('PUB_NoData')}
               pagination={{

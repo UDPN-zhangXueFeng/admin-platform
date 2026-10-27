@@ -115,6 +115,12 @@ libs/modules/chart-of-accounts/
 - `getFinancialBookMetaByBookId` 当前是本地映射，需确认目标项目是否有等价后端接口，否则需要把整个映射数据迁移过去。
 - 货币下拉回退逻辑（接口失败时用列表数据去重）需要完整保留。
 
+### 8.1 2026-10-26 深度评估结论
+
+- 目标当前只接入 Basic Information、Chart of Accounts、EOD Statements 三个 Tab。
+- 旧项目还包含 Trial Balance、Trial Balance Activity 和 Operation Records；对应 `trial-balance`、`trial-balance/activity`、`book/records` 接口及两个抽屉交互尚未迁移。
+- 因此本模块不能按完整迁移验收；缺失项必须补齐后再运行真实后端冒烟。
+
 ## 9. 验收标准
 
 - 列表页服务端分页正确，总条数与页码联动。

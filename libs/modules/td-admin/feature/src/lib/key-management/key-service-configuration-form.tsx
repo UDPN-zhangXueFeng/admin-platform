@@ -1,8 +1,8 @@
 /**
- * KeyServiceConfigurationForm — shared create/edit form (pure mock).
+ * KeyServiceConfigurationForm — new-service (configure) prototype form.
  *
- * Three blocks, faithful to td-manage edit.tsx / configure.tsx:
- *   1. {Edit|New} Key Service Configuration — name (read-only on edit) +
+ * Three blocks, faithful to td-manage configure.tsx:
+ *   1. New Key Service Configuration — name (required, ≤50) +
  *      Wallet Attribute (hot/cold) + conditional Wallet Group IDs + description.
  *   2. Access Configuration — url (required) + dynamic Parameters rows.
  *   3. Supported Chains — 3 chain checkboxes + Name/ID inputs each.
@@ -10,13 +10,18 @@
  * Architecture:
  * - Scalar fields  → react-hook-form + zod (required/length/conditional validation)
  * - Dynamic rows   → useState (parameters / chain selection) — matches source
- * - Submit         → console.log only, no API/navigation (faithful to source mock)
+ * - Submit         → DISABLED: the backend exposes no Key-service write API
+ *   (verified against live /v3/api-docs: only the four read-only
+ *   /key/config/* POSTs exist). The form is a read-only prototype; it never
+ *   fakes a successful save and never echoes entered values to the console.
+ *   Real per-service data lives on the read-only edit page instead.
  */
 
 'use client';
 
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { useTranslations } from 'next-intl';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Info } from 'lucide-react';
 import { z } from 'zod';
@@ -38,7 +43,7 @@ import {
 } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 
-export type KeyServiceFormMode = 'edit' | 'configure';
+/** (Configure-only — the edit view is a separate read-only page.) */
 
 /** Dynamic access-parameter row. */
 interface ParameterItem {
@@ -75,8 +80,8 @@ interface KeyServiceFormValues {
   url: string;
 }
 
-/** Build a zod resolver honouring mode-specific rules. */
-function buildResolver(mode: KeyServiceFormMode) {
+/** Zod resolver with the upstream configure-mode rules. */
+function buildResolver() {
   return zodResolver(
     z
       .object({
@@ -89,20 +94,18 @@ function buildResolver(mode: KeyServiceFormMode) {
         url: z.string().min(1, 'Please enter URL'),
       })
       .superRefine((val, ctx) => {
-        if (mode === 'configure') {
-          if (!val.keyServiceName.trim()) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              path: ['keyServiceName'],
-              message: 'Please enter Key Service Name',
-            });
-          } else if (val.keyServiceName.length > 50) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              path: ['keyServiceName'],
-              message: 'Maximum 50 characters',
-            });
-          }
+        if (!val.keyServiceName.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['keyServiceName'],
+            message: 'Please enter Key Service Name',
+          });
+        } else if (val.keyServiceName.length > 50) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['keyServiceName'],
+            message: 'Maximum 50 characters',
+          });
         }
         if (val.hotWallet && !val.hotWalletGroupId.trim()) {
           ctx.addIssue({
@@ -122,100 +125,41 @@ function buildResolver(mode: KeyServiceFormMode) {
   );
 }
 
-/**
- * Mock backfill for edit mode (source edit.tsx:46-80).
- * Configure mode starts blank with hot wallet selected.
- */
-const mockEditData = {
-  keyServiceName: 'RigSec',
-  hotWallet: true,
-  coldWallet: true,
-  hotWalletGroupId: 'RGS-9A3F-2B7C-4D1E',
-  coldWalletGroupId: 'RGS-5C8D-1E6B-7F2A',
-  description:
-    'Adding Regsic Key Service enables secure key management, safe transaction signing, and controlled access to cryptographic keys, enhancing system security and protecting digital assets.',
-  url: 'https://api.regsic.com/v1/sign',
-  parameters: [
-    {
-      id: 1,
-      type: 'headers',
-      key: 'Authorization',
-      value: 'bearer qplgyDnETbqE8ZRkJqYfK-HqO5ItYNrGbGJzL1y-WREpVAZA',
-    },
-    {
-      id: 2,
-      type: 'body',
-      key: 'fromAddress',
-      value: '0x93Abd3ac49ab16d15605F425a43dc072Dc9bF378XXXXXXX',
-    },
-  ] satisfies ParameterItem[],
-  supportedChains: {
-    hyperledgerBesu: true,
-    ethereumSepolia: true,
-    polygon: true,
-  } satisfies Record<string, boolean>,
-  chainData: {
-    hyperledgerBesu: { name: 'Besu', id: '50101' },
-    ethereumSepolia: { name: 'Sepolia', id: '11155111' },
-    polygon: { name: 'Polygon Testnet', id: '80001' },
-  } satisfies ChainData,
-};
-
-export function KeyServiceConfigurationForm({
-  mode,
-}: {
-  mode: KeyServiceFormMode;
-}) {
+export function KeyServiceConfigurationForm() {
+  const t = useTranslations('modules.key-management');
   const router = useRouter();
-  const isEdit = mode === 'edit';
 
   const {
     control,
     register,
     watch,
     reset,
-    handleSubmit,
     formState: { errors },
   } = useForm<KeyServiceFormValues>({
-    resolver: buildResolver(mode),
-    defaultValues: isEdit
-      ? {
-          keyServiceName: mockEditData.keyServiceName,
-          hotWallet: mockEditData.hotWallet,
-          coldWallet: mockEditData.coldWallet,
-          hotWalletGroupId: mockEditData.hotWalletGroupId,
-          coldWalletGroupId: mockEditData.coldWalletGroupId,
-          description: mockEditData.description,
-          url: mockEditData.url,
-        }
-      : {
-          keyServiceName: '',
-          hotWallet: true,
-          coldWallet: false,
-          hotWalletGroupId: '',
-          coldWalletGroupId: '',
-          description: '',
-          url: '',
-        },
+    resolver: buildResolver(),
+    // Upstream configure.tsx: blank start, hot wallet pre-selected.
+    defaultValues: {
+      keyServiceName: '',
+      hotWallet: true,
+      coldWallet: false,
+      hotWalletGroupId: '',
+      coldWalletGroupId: '',
+      description: '',
+      url: '',
+    },
   });
 
   // Dynamic access-parameter rows (outside RHF — source used useState too).
-  const [parameters, setParameters] = React.useState<ParameterItem[]>(
-    isEdit
-      ? mockEditData.parameters
-      : [
-          { id: 1, type: 'headers', key: '', value: '' },
-          { id: 2, type: 'headers', key: '', value: '' },
-          { id: 3, type: 'body', key: '', value: '' },
-        ],
-  );
+  const [parameters, setParameters] = React.useState<ParameterItem[]>([
+    { id: 1, type: 'headers', key: '', value: '' },
+    { id: 2, type: 'headers', key: '', value: '' },
+    { id: 3, type: 'body', key: '', value: '' },
+  ]);
 
   // Supported-chain selection + per-chain name/id.
   const [selectedChains, setSelectedChains] =
-    React.useState<Record<string, boolean>>(isEdit ? mockEditData.supportedChains : {});
-  const [chainData, setChainData] = React.useState<ChainData>(
-    isEdit ? mockEditData.chainData : {},
-  );
+    React.useState<Record<string, boolean>>({});
+  const [chainData, setChainData] = React.useState<ChainData>({});
 
   const hotWallet = watch('hotWallet');
   const coldWallet = watch('coldWallet');
@@ -259,17 +203,9 @@ export function KeyServiceConfigurationForm({
     }));
   };
 
-  const onSubmit = (values: KeyServiceFormValues) => {
-    // Mock-only submit — faithful to source: console.log, no API/navigation.
-    console.log('Submit data:', {
-      ...values,
-      parameters: parameters.filter((p) => p.key || p.value),
-      supportedChains: Object.entries(selectedChains)
-        .filter(([, checked]) => checked)
-        .map(([key]) => ({ chain: key, ...chainData[key] })),
-    });
-  };
-
+  // No submit path: the backend has no Key-service write API. The Submit
+  // button stays disabled (see footer) so nothing here can fake a save or
+  // echo typed values (potentially credentials) to the console.
   const handleBack = () => {
     reset();
     router.back();
@@ -277,13 +213,15 @@ export function KeyServiceConfigurationForm({
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* ---------- Block 1: {Edit|New} Key Service Configuration ---------- */}
+      {/* Write APIs not available — honest prototype banner. */}
+      <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-400">
+        {t('key_management_0068')}
+      </div>
+      <form className="space-y-6">
+        {/* ---------- Block 1: New Key Service Configuration ---------- */}
         <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
           <h2 className="mb-2 text-base font-bold">
-            {isEdit
-              ? 'Edit Key Service Configuration'
-              : 'New Key Service Configuration'}
+            New Key Service Configuration
           </h2>
           <p className="mb-6 text-sm text-muted-foreground">
             Configure a descriptive name for your Key service.
@@ -293,18 +231,11 @@ export function KeyServiceConfigurationForm({
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="key-service-name">
                 Key Service Name
-                {!isEdit && (
-                  <span className="ml-0.5 text-destructive">*</span>
-                )}
+                <span className="ml-0.5 text-destructive">*</span>
               </label>
               <Input
                 id="key-service-name"
-                disabled={isEdit}
-                placeholder={
-                  isEdit
-                    ? undefined
-                    : 'Enter letters, numbers, or special chars (up to 50 chars)'
-                }
+                placeholder="Enter letters, numbers, or special chars (up to 50 chars)"
                 {...register('keyServiceName')}
               />
               {errors.keyServiceName && (
@@ -586,7 +517,10 @@ export function KeyServiceConfigurationForm({
             <Button type="button" variant="outline" onClick={handleBack}>
               Back
             </Button>
-            <Button type="submit">Submit</Button>
+            {/* Write API unavailable — submission intentionally disabled. */}
+            <Button type="button" disabled>
+              Submit
+            </Button>
           </div>
         </div>
       </form>

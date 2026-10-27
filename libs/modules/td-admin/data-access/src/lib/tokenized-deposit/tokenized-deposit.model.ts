@@ -80,6 +80,39 @@ export interface TDRecordItem {
 }
 
 /**
+ * StablecoinRecordItem — 稳定币铸销记录列表项（view 页 Tab1）。
+ * endpoint: POST /api/manage/v1/stablecoin/record/query
+ * rowKey: recordId。源 view.tsx useCustomTable（自定义 fetch）消费行：
+ * recordId / txHash / type / name / stablecoinCount / symbol /
+ * createUserName / createTime / reviewerUserName / reviewerTime / state。
+ */
+export interface StablecoinRecordItem {
+  /** DataTable 契约 id（= String(recordId)）。 */
+  id: string;
+  recordId?: number | string;
+  /** 交易 hash。 */
+  txHash?: string;
+  /** 记录类型（stablecoin_record_type_${type}，源表单值为 string）。 */
+  type?: number | string;
+  /** 稳定币名称。 */
+  name?: string;
+  /** 币量（源 reSet 渲染；金额类字段 number|string 边界）。 */
+  stablecoinCount?: string | number;
+  /** 代币符号。 */
+  symbol?: string;
+  /** 创建人。 */
+  createUserName?: string;
+  /** 创建时间（毫秒时间戳）。 */
+  createTime?: number | string;
+  /** 审核人。 */
+  reviewerUserName?: string;
+  /** 审核时间（毫秒时间戳）。 */
+  reviewerTime?: number | string;
+  /** 状态（review_submit_state_${state}，源表单值为 string）。 */
+  state?: number | string;
+}
+
+/**
  * SPRecordItem — SP 直铸记录列表项。
  * endpoint: POST /api/manage/v1/transaction/getDirectMintingTxList
  * rowKey: orderNumber
@@ -138,8 +171,8 @@ export interface WalletItem {
   virtualMachineCode?: string;
   /** TD 名称。 */
   tdName?: string;
-  /** 稳定币 ID。 */
-  stablecoinId?: number;
+  /** 稳定币 ID（int64，允许 numeric string 边界）。 */
+  stablecoinId?: number | string;
 }
 
 /**
@@ -182,10 +215,13 @@ export interface MMFSummaryItem {
   fundType?: number;
   /** riskLevel（1-4，硬编码英文映射）。 */
   riskLevel?: number;
-  fundAssetValue?: number;
+  /** 基金资产值（金额字段，number|string 边界）。 */
+  fundAssetValue?: number | string;
   fundInceptionTime?: number;
-  totalTokenCount?: number;
-  totalFundAmount?: number;
+  /** 发行总量（线上实测为字符串 '232300'/'0'，保留 number 兼容）。 */
+  totalTokenCount?: string | number;
+  /** 基金总额（线上实测为字符串，保留 number 兼容）。 */
+  totalFundAmount?: string | number;
   walletCount?: number;
   fundLastPayoutTime?: number;
   totalTokenCountSymbol?: string;
@@ -206,8 +242,10 @@ export interface ContractPackageItem {
   contractLanguage?: string;
   releaseTime?: number;
   deployTime?: number;
-  /** 状态（smart_contract_status_${state}）。 */
+  /** 状态（smart_contract_status_${state}，源值 1=部署中 5=部署成功）。 */
   state?: number;
+  /** 部署类型：1=新部署 / 5=升级（wire 字段，非注入）。 */
+  type?: number;
   /** 升级标记：1=已升级 / 0=未升级。 */
   upgraded?: number;
   /** 渲染标记（type===1 升级型 TD，由调用方按需注入；未注入视为普通行）。 */
@@ -428,12 +466,6 @@ export interface TDEditDetail {
   metaType?: number;
   /** 储备账户 ID。 */
   reserveAccountId?: number;
-  /** 重大稳定币发行方阈值指标。 */
-  thresholdType?: string;
-  /** 重大稳定币发行方阈值周期。 */
-  thresholdFrequency?: string;
-  /** 重大稳定币发行方阈值数值。 */
-  thresholdValue?: string | number;
   /** 管理员钱包 DTO 列表（storageType===key_keystore 时使用）。 */
   adminWalletDTOList?: Array<{
     accountType?: number;
@@ -471,12 +503,16 @@ export interface TDEditDetail {
 export interface ReserveBalance {
   reserveBalance?: string;
   currencySymbol?: string;
-  /** 可用余额（Mint 校验用）。 */
-  availableBalance?: number;
+  /** 可用余额（Mint 校验用；源 Number(availableBalance) 包装 ⇒ wire 可为 numeric string）。 */
+  availableBalance?: number | string;
   /** 代币符号。 */
   symbol?: string;
-  /** 可销毁数量（surplusCount，Melt 校验用）。 */
-  surplusCount?: number;
+  /** 可销毁数量（surplusCount，Melt 校验用；源 Number() 包装 ⇒ wire 可为 numeric string）。 */
+  surplusCount?: number | string;
+  /** 铸币方法（线上实测响应携带；1=稳定币 5=TD 10/15=CBDC 20=MMF）。 */
+  mintMethod?: number;
+  /** 小数精度（线上实测响应携带）。 */
+  decimalPrecision?: number;
 }
 
 /**
@@ -527,7 +563,7 @@ export interface GenerateWalletResult {
 /**
  * TDEditFormValues — TD 编辑/新增表单值（react-hook-form）。
  *
- * 26 字段覆盖：代币基本信息 + 密钥托管 + 管理员钱包(3 角色) + 阈值/白名单 + 对账配置。
+ * 字段覆盖：代币基本信息、密钥托管、管理员钱包、白名单和对账配置。
  *
  * ## 提交时的字段命名转换
  *
@@ -558,15 +594,9 @@ export interface TDEditFormValues {
   /** metaType：1=Tron / 其他。 */
   metaType?: number;
 
-  // ── 白名单 / 阈值 ──
+  // ── 白名单 ──
   /** 白名单模式（目前仅 'full'）。 */
   whitelistMode?: string;
-  /** 阈值类型。 */
-  thresholdType?: string;
-  /** 阈值频率。 */
-  thresholdFrequency?: string;
-  /** 阈值金额。 */
-  thresholdValue?: string;
 
   // ── 账户类型 ──
   /** 账户类型列表（[1=永久, 2=可选]）。 */
@@ -749,8 +779,8 @@ export interface WalletListParams extends BaseListParams {
  * endpoint: POST /api/manage/v1/td/wallet/detail 或 /api/manage/v1/td/wallet/history
  */
 export interface WalletDetailParams extends BaseListParams {
-  /** 稳定币 ID。 */
-  stablecoinId?: number;
+  /** 稳定币 ID（源 typings AdminWalletDetailReqVo.stablecoinId: string；int64 边界）。 */
+  stablecoinId?: number | string;
   /** 账户类型。 */
   accountType?: number;
 }
@@ -782,17 +812,19 @@ export interface MMFSummaryListParams extends BaseListParams {
 /**
  * ContractPackageListParams — 合约包列表查询参数。
  * endpoint: POST /api/manage/v1/td/contract/latestInfo
+ * 源 typings `tdContractLatestInfoApi(req: TdManageSearchesRecordReqVo)`：
+ * body 为扁平 {stablecoinCode}，无 DataTable page 包装；响应 data 直接为数组。
  */
-export interface ContractPackageListParams extends BaseListParams {
+export interface ContractPackageListParams {
   /** 稳定币编码。 */
   stablecoinCode?: string;
 }
 
 /**
  * ContractDetailListParams — 合约明细查询参数。
- * endpoint: POST /api/manage/v1/td/contract/detail
+ * endpoint: POST /api/manage/v1/td/contract/detail（同上：扁平 body / 数组响应）。
  */
-export interface ContractDetailListParams extends BaseListParams {
+export interface ContractDetailListParams {
   /** 稳定币编码。 */
   stablecoinCode?: string;
 }
@@ -802,10 +834,24 @@ export interface ContractDetailListParams extends BaseListParams {
 /**
  * StablecoinRecordListParams — view 页铸销记录查询参数。
  * endpoint: POST /api/manage/v1/stablecoin/record/query
+ * 源 view.tsx CustomForms：type/state 为表单字符串（'1'/'2'/''）；
+ * 时间字段经 getTimestamp 转毫秒 number，未选时发送 ''（与源一致保留空串键）。
  */
 export interface StablecoinRecordListParams extends BaseListParams {
   /** 交易 hash。 */
   txHash?: string;
+  /** 记录类型（'1' 铸造 / '2' 销毁；未选 ''）。 */
+  type?: string;
+  /** 状态（review_submit_state 值字符串；未选 ''）。 */
+  state?: string;
+  /** 创建时间起（毫秒；未选 ''）。 */
+  startCreateTime?: number | '';
+  /** 创建时间止（毫秒；未选 ''）。 */
+  endCreateTime?: number | '';
+  /** 审核时间起（毫秒；未选 ''）。 */
+  startReviewerTime?: number | '';
+  /** 审核时间止（毫秒；未选 ''）。 */
+  endReviewerTime?: number | '';
 }
 
 // ── 4.8 角色钱包（mock） ──
@@ -897,10 +943,8 @@ export type ApplyListParams = Record<string, never>;
  * endpoint: POST /api/manage/v1/td/manage/reserve/balance
  */
 export interface ReserveBalanceParams {
-  /** 稳定币编码。 */
+  /** 稳定币编码（源仅发送 stablecoinCode：getReservBalanceApi({stablecoinCode})）。 */
   stablecoinCode?: string;
-  /** 代币符号。 */
-  symbol?: string;
 }
 
 // ── 4.12 部署步骤详情 ──
@@ -921,8 +965,8 @@ export interface DeployStepDetailParams {
  * endpoint: POST /api/manage/v1/td/apply/key/service/list
  */
 export interface KeyServiceListParams {
-  /** 区块链 ID。 */
-  blockchainId: string;
+  /** 区块链 ID（wire 为 number，源 Number(blockchainId) 转换；允许 numeric string 传入）。 */
+  blockchainId: string | number;
 }
 
 // ── 4.14 管理员钱包列表（edit 页） ──
@@ -932,8 +976,8 @@ export interface KeyServiceListParams {
  * endpoint: POST /api/manage/v1/td/apply/admin/wallet/list
  */
 export interface AdminWalletListParams {
-  /** 区块链 ID。 */
-  blockchainId: string;
+  /** 区块链 ID（wire 为 number，源 Number(blockchainId) 转换；允许 numeric string 传入）。 */
+  blockchainId: string | number;
 }
 
 // ── 4.15 储备账户下拉 ──
@@ -967,12 +1011,15 @@ export type OperationRecordListResponse =
 /** MMF 汇总列表响应。 */
 export type MMFSummaryListResponse = PaginatedResponse<MMFSummaryItem>;
 
-/** 合约包列表响应。 */
-export type ContractPackageListResponse =
-  PaginatedResponse<ContractPackageItem>;
+/** 合约包列表响应（data 直接为数组，无 page/rows 包装）。 */
+export type ContractPackageListResponse = ContractPackageItem[];
 
-/** 合约明细列表响应。 */
-export type ContractDetailListResponse = PaginatedResponse<ContractDetailItem>;
+/** 合约明细列表响应（data 直接为数组，无 page/rows 包装）。 */
+export type ContractDetailListResponse = ContractDetailItem[];
+
+/** 稳定币铸销记录列表响应（view 页）。 */
+export type StablecoinRecordListResponse =
+  PaginatedResponse<StablecoinRecordItem>;
 
 /** 钱包详情列表响应。 */
 export type WalletDetailListResponse = PaginatedResponse<WalletDetailItem>;
@@ -1040,6 +1087,10 @@ export interface KeyServiceOption {
   keyServiceCode?: string;
   /** 密钥服务名称。 */
   keyServiceName?: string;
+  /** 托管存储类型（key_keystore / key_rigsec 等；edit 页分支用，页面上游消费）。 */
+  storageType?: string;
+  /** 支持的钱包类型列表（edit 页 walletAttribute 选项用，页面上游消费）。 */
+  walletTypes?: { walletType?: number }[];
   [key: string]: unknown;
 }
 

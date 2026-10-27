@@ -1,4 +1,8 @@
-import { LoginPage } from '@myorg/modules/td-admin/feature';
+import dynamic from 'next/dynamic';
+
+const LoginPage = dynamic(
+  () => import('@myorg/modules/td-admin/feature').then((module) => module.LoginPage),
+);
 
 /**
  * Login route — /[locale]/login

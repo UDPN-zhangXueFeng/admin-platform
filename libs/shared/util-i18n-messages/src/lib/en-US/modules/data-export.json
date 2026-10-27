@@ -1,0 +1,15 @@
+{
+  "financial_0040": "File Hash",
+  "financial_0055": "Export Time",
+  "financial_0056": "Data Source",
+  "financial_0076": "File ID",
+  "module_type_1": "Journal Entries",
+  "module_type_5": "Statements and Reports",
+  "module_type_10": "Audit Trail",
+  "module_type_15": "Interest Settlement",
+  "module_type_20": "Token Statistics Report",
+  "export_status_0": "Pending",
+  "export_status_1": "Processing",
+  "export_status_2": "Completed",
+  "export_status_3": "Failed"
+}

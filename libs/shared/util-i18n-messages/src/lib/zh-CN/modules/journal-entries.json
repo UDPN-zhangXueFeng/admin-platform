@@ -46,6 +46,7 @@
   "lendingType": { "1": "借", "2": "贷" },
   "empty": "暂无记录",
   "operateSuccess": "操作成功。",
+  "subjectSaveInvalid": "请输入数字科目编码和科目名称后再保存。",
   "confirmDisable": "确定禁用「{tokenName}」的规则？",
   "confirmEnable": "确定启用「{tokenName}」的规则？"
 }

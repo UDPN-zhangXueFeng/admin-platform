@@ -19,7 +19,8 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Eye, EyeOff } from 'lucide-react';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
@@ -31,6 +32,10 @@ import {
   TabsTrigger,
 } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
+import {
+  MASKED_VALUE,
+  isSensitiveParameterKey,
+} from './key-service-configuration-sensitive';
 
 import {
   useKeyServiceConfigurationDetailQuery,
@@ -99,8 +104,12 @@ export function KeyServiceConfigurationDetailPage() {
     [searchParams],
   );
 
-  const { data: detail, isLoading } =
-    useKeyServiceConfigurationDetailQuery(keyServiceCode);
+  const {
+    data: detail,
+    isLoading,
+    isError,
+    error,
+  } = useKeyServiceConfigurationDetailQuery(keyServiceCode);
 
   // ----- Display maps (i18n-driven, mirror source detail.tsx) -----
   const statusMap = React.useMemo<Record<number, string>>(
@@ -150,8 +159,10 @@ export function KeyServiceConfigurationDetailPage() {
     [t],
   );
 
+  // Upstream detail.tsx renders '--' for any falsy value (0/undefined) in
+  // status/type columns; truthy unknown codes fall back to the raw number.
   const getStatusLabel = (status?: number) =>
-    typeof status === 'number' ? (statusMap[status] ?? String(status)) : '--';
+    status ? (statusMap[status] ?? String(status)) : '--';
 
   const getParameterTypeLabel = (type?: number) => {
     if (type === undefined || type === null) return '--';
@@ -159,17 +170,28 @@ export function KeyServiceConfigurationDetailPage() {
   };
 
   const getOperationTypeLabel = (type?: number) =>
-    typeof type === 'number'
-      ? (operationTypeMap[type] ?? String(type))
-      : '--';
+    type ? (operationTypeMap[type] ?? String(type)) : '--';
 
   const getOperationStatusLabel = (status?: number) =>
-    typeof status === 'number'
-      ? (operationStatusMap[status] ?? String(status))
-      : '--';
+    status ? (operationStatusMap[status] ?? String(status)) : '--';
 
   // ----- Operation Records: form + paginated query -----
   const [recordsPage, setRecordsPage] = React.useState(1);
+  // Sensitive parameter values (credentials) render masked until the
+  // operator explicitly reveals one; values are never logged anywhere.
+  const [revealedParamIds, setRevealedParamIds] = React.useState<Set<string>>(
+    () => new Set(),
+  );
+  const toggleParamReveal = (id: string) =>
+    setRevealedParamIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   const { watch, reset, control } = useForm<RecordsFilterFormValues>({
     defaultValues: RECORDS_FILTER_DEFAULTS,
   });
@@ -190,8 +212,17 @@ export function KeyServiceConfigurationDetailPage() {
     [filters.operationType, recordsPage, keyServiceCode],
   );
 
-  const { data: recordsData, isLoading: recordsLoading } =
-    useKeyServiceOperationRecordsQuery(recordsParams);
+  const {
+    data: recordsData,
+    isLoading: recordsLoading,
+    isError: recordsError,
+    error: recordsErrorValue,
+  } = useKeyServiceOperationRecordsQuery(recordsParams);
+
+  // Upstream handleOperationTypeChange resets to page 1 on filter change.
+  React.useEffect(() => {
+    setRecordsPage(1);
+  }, [filters.operationType]);
 
   const recordsRows: OperationRecordRow[] = (recordsData?.rows ?? []).map(
     (r, idx) => ({
@@ -203,7 +234,8 @@ export function KeyServiceConfigurationDetailPage() {
       ),
     }),
   );
-  const recordsTotal = recordsData?.page?.total ?? 0;
+  // Backend total may arrive as a string — upstream coerces Number(...) || 0.
+  const recordsTotal = Number(recordsData?.page?.total) || 0;
 
   const handleRecordsReset = () => {
     reset(RECORDS_FILTER_DEFAULTS);
@@ -287,10 +319,44 @@ export function KeyServiceConfigurationDetailPage() {
       {
         accessorKey: 'parameterValue',
         header: t('key_management_0043'),
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        cell: ({ row }) => {
+          const param = row.original;
+          const value = param.parameterValue;
+          if (!value) return '--';
+          // Security directive: credentials (private key / password / token
+          // / secret / API key) are masked by default with explicit reveal.
+          if (!isSensitiveParameterKey(param.parameterKey)) {
+            return value;
+          }
+          const revealed = revealedParamIds.has(param.id);
+          return (
+            <span className="inline-flex items-center gap-2">
+              <span className="font-mono text-xs">
+                {revealed ? value : MASKED_VALUE}
+              </span>
+              <button
+                type="button"
+                aria-label={
+                  revealed
+                    ? t('key_management_0072')
+                    : t('key_management_0071')
+                }
+                aria-pressed={revealed}
+                onClick={() => toggleParamReveal(param.id)}
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {revealed ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </span>
+          );
+        },
       },
     ],
-    [t],
+    [t, revealedParamIds],
   );
 
   const parameterRows: ParameterRow[] = (detail?.accessParameters ?? []).map(
@@ -351,6 +417,11 @@ export function KeyServiceConfigurationDetailPage() {
               <div className="h-64 w-full animate-pulse rounded-md bg-muted" />
               <div className="h-32 w-full animate-pulse rounded-md bg-muted" />
             </div>
+          ) : isError ? (
+            // Backend/business failures must not masquerade as empty data.
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-6 text-sm text-destructive">
+              {error?.message || t('key_management_0070')}
+            </div>
           ) : (
             <>
               {/* Card A — Key Service Details (9 fields) */}
@@ -365,7 +436,8 @@ export function KeyServiceConfigurationDetailPage() {
                     {detail?.keyServiceName || '--'}
                   </DetailItem>
                   <DetailItem label={t('key_management_0003')}>
-                    {typeof detail?.status === 'number' ? (
+                    {/* Upstream: `detail?.status ? Tag : '--'` — 0 is unknown */}
+                    {detail?.status ? (
                       <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">
                         {getStatusLabel(detail.status)}
                       </span>
@@ -475,6 +547,11 @@ export function KeyServiceConfigurationDetailPage() {
                   : '--',
               })}
             </p>
+            {recordsError ? (
+              <p className="mb-3 text-sm text-destructive">
+                {recordsErrorValue?.message || t('key_management_0061')}
+              </p>
+            ) : null}
             <DataTable
               columns={recordsColumns}
               data={recordsRows}

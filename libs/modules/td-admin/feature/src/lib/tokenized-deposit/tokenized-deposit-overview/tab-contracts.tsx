@@ -53,7 +53,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@myorg/shared/ui';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { formatDate } from '@myorg/shared/util-dates';
 import {
   APPLY_STATUS,
@@ -96,10 +96,11 @@ export interface OverviewContractsTabProps {
   td: ApplyListItem;
   /**
    * 打开部署/升级 Modal 回调（td-18 实现）。
-   * 传入 taskCode（部署用 taskCode，或升级型 TD 的 upgradeTaskCode）。
+   * taskCode：源 newSmart[0] 首行三元（upgraded===1 ? upgradeTaskCode : taskCode）；
+   * state：触发行的合约包 state（源 data.state，Modal 标题 contractState 用）。
    */
-  onOpenDeployModal: (taskCode: string) => void;
-  /** 打开部署历史 Modal 回调（td-18 实现）。 */
+  onOpenDeployModal: (payload: { taskCode: string; state?: number }) => void;
+  /** 打开部署历史 Modal 回调。 */
   onOpenDeployHistoryModal: () => void;
 }
 
@@ -127,11 +128,11 @@ export function OverviewContractsTab({
     <div className="flex flex-col gap-6 py-4">
       {showSteps ? <DeploymentSteps current={stepCurrent} /> : null}
 
-      <ContractPackageSection
-        td={td}
-        onOpenDeployModal={onOpenDeployModal}
-        onOpenDeployHistoryModal={onOpenDeployHistoryModal}
-      />
+       <ContractPackageSection
+         td={td}
+         onOpenDeployModal={onOpenDeployModal}
+         onOpenDeployHistoryModal={onOpenDeployHistoryModal}
+       />
 
       <ContractDetailSection td={td} />
     </div>
@@ -199,7 +200,10 @@ function DeploymentSteps({ current }: { current: number }): React.JSX.Element {
 
 interface ContractPackageSectionProps {
   td: ApplyListItem;
-  onOpenDeployModal: (taskCode: string) => void;
+  onOpenDeployModal: (payload: {
+    taskCode: string;
+    state?: number;
+  }) => void;
   onOpenDeployHistoryModal: () => void;
 }
 
@@ -217,12 +221,12 @@ function ContractPackageSection({
   const t = useTranslations('modules.tokenized-deposit');
 
   const params = React.useMemo(
-    () => ({ pageNum: 1, pageSize: 100, stablecoinCode: td?.code ?? '' }),
+    () => ({ stablecoinCode: td?.code ?? '' }),
     [td?.code],
   );
 
   const query = useContractPackageQuery(params);
-  const rows = query.data?.rows ?? [];
+  const rows = query.data ?? [];
   const isLoading = query.isLoading || query.isFetching;
 
   // taskCode 源（首行 = newSmart[0]，合约包表通常仅 1 行）。
@@ -230,7 +234,7 @@ function ContractPackageSection({
 
   const handleDeploy = React.useCallback(
     // 部署 taskCode 统一取首行 firstRow（合约包表通常仅 1 行，源 newSmart[0] 三元
-    // 逻辑）。onDeploy 不需要 per-row 参数，故契约为 () => void，避免 unused 参数。
+    // 逻辑）；state 透传触发行（源 data.state），供 Modal 标题 contractState 分支。
     () => {
       if (!firstRow) return;
       // type===1 且首行已升级 → upgradeTaskCode；否则 taskCode（源 newSmart[0]?.upgraded===1 三元）。
@@ -238,7 +242,7 @@ function ContractPackageSection({
         td?.type === 1 && firstRow.upgraded === 1
           ? firstRow.upgradeTaskCode
           : firstRow.taskCode;
-      if (taskCode) onOpenDeployModal(taskCode);
+      if (taskCode) onOpenDeployModal({ taskCode, state: firstRow.state });
     },
     [firstRow, td?.type, onOpenDeployModal],
   );
@@ -315,7 +319,11 @@ function ContractPackageSection({
         id: 'actions',
         header: t('PUB_Action'),
         cell: ({ row }) => (
-          <ContractDeployAction row={row.original} onDeploy={handleDeploy} />
+          <ContractDeployAction
+            row={row.original}
+            tdType={td?.type}
+            onDeploy={handleDeploy}
+          />
         ),
       },
     ],
@@ -340,7 +348,22 @@ function ContractPackageSection({
           </Button>
         </PermissionGuard>
       </div>
-
+      {query.isError && (
+        <div
+          role="alert"
+          className="mb-3 flex items-center gap-3 text-sm text-destructive"
+        >
+          <span>{t('td_query_load_failed')}</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => query.refetch()}
+          >
+            {t('td_retry')}
+          </Button>
+        </div>
+      )}
       <DataTable
         columns={columns}
         data={rows}
@@ -355,63 +378,54 @@ function ContractPackageSection({
  * 合约包表 action 单元格内联按钮（源 1243-1289 行逐分支）。
  *
  * 见文件头注释「内联部署按钮分支」。label 读当前行 state，
- * taskCode 取首行（newSmart[0]）。
+ * taskCode 取首行（newSmart[0]）。tdType 来自 TD 标题行（源 getUsablePrice?.type），
+ * 不读 row.__tdType（该注入标记从未被赋值，升级型 TD 分支曾恒走普通部署分支）。
+ * type===1 无权限时源渲染 disabled+Tooltip 按钮（非隐藏），故用 usePermission 判定。
  */
 function ContractDeployAction({
   row,
+  tdType,
   onDeploy,
 }: {
   row: ContractPackageItem;
+  tdType?: number;
   onDeploy: () => void;
-}): React.JSX.Element {
+}): React.JSX.Element | null {
   const t = useTranslations('modules.tokenized-deposit');
+  const hasUpgradeDeployPerm = usePermission(TD_PERMISSIONS.UPGRADE_DEPLOY);
+  const hasDeployPerm = usePermission(TD_PERMISSIONS.DEPLOY);
 
-  // type===1：升级型 TD
-  if (row.__tdType === 1) {
-    // 标记由外层注入（见下）；此处仅按 upgraded + 权限分支。
+  if (tdType === 1) {
+    // 源：data.upgraded===1 && getLimt(b010a...) → 主按钮；否则 disabled + Tooltip。
+    return row.upgraded === 1 && hasUpgradeDeployPerm ? (
+      <Button size="sm" onClick={onDeploy}>
+        {/* state===1 → Details(Router_021)；否则 Upgrade(Router_0003_13) */}
+        {row.state === 1 ? t('Router_021') : t('Router_0003_13')}
+      </Button>
+    ) : (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {/* TooltipTrigger 需能 ref 转发；span 包裹避免 Button asChild 冲突 */}
+            <span className="inline-flex">
+              <Button size="sm" disabled>
+                {t('Router_0003_13')}
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{t('tokenized_deposit_0104')}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   }
 
-  return (
-    <>
-      {/* type===1 分支 */}
-      {row.__tdType === 1 ? (
-        row.upgraded === 1 ? (
-          <PermissionGuard permission={TD_PERMISSIONS.UPGRADE_DEPLOY}>
-            <Button
-              size="sm"
-              onClick={() => onDeploy()}
-            >
-              {/* state===1 → Details(Router_021)；否则 Upgrade(Router_0003_13) */}
-              {row.state === 1 ? t('Router_021') : t('Router_0003_13')}
-            </Button>
-          </PermissionGuard>
-        ) : (
-          // upgraded!==1 或无 UPGRADE_DEPLOY 权限 → disabled + Tooltip
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                {/* TooltipTrigger 需能 ref 转发；span 包裹避免 Button asChild 冲突 */}
-                <span className="inline-flex">
-                  <Button size="sm" disabled>
-                    {t('Router_0003_13')}
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{t('tokenized_deposit_0104')}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )
-      ) : (
-        /* type!==1 分支：有 DEPLOY 权限才渲染按钮，否则 null（源码为 null） */
-        <PermissionGuard permission={TD_PERMISSIONS.DEPLOY}>
-          <Button size="sm" onClick={() => onDeploy()}>
-            {/* state===0 → Deploy(Router_0003_12)；否则 Details(Router_021) */}
-            {row.state === 0 ? t('Router_0003_12') : t('Router_021')}
-          </Button>
-        </PermissionGuard>
-      )}
-    </>
-  );
+  // type!==1 分支：有 DEPLOY 权限才渲染按钮，否则 null（源码为 null）。
+  return hasDeployPerm ? (
+    <Button size="sm" onClick={onDeploy}>
+      {/* state===0 → Deploy(Router_0003_12)；否则 Details(Router_021) */}
+      {row.state === 0 ? t('Router_0003_12') : t('Router_021')}
+    </Button>
+  ) : null;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -432,12 +446,12 @@ function ContractDetailSection({
   const t = useTranslations('modules.tokenized-deposit');
 
   const params = React.useMemo(
-    () => ({ pageNum: 1, pageSize: 100, stablecoinCode: td?.code ?? '' }),
+    () => ({ stablecoinCode: td?.code ?? '' }),
     [td?.code],
   );
 
   const query = useContractDetailQuery(params);
-  const rows = query.data?.rows ?? [];
+  const rows = query.data ?? [];
   const isLoading = query.isLoading || query.isFetching;
 
   const columns = React.useMemo<ColumnDef<ContractDetailItem>[]>(
@@ -510,6 +524,22 @@ function ContractDetailSection({
       <h3 className="mb-3 ml-1 text-base font-semibold">
         {t('tokenized_deposit_0127')}
       </h3>
+      {query.isError && (
+        <div
+          role="alert"
+          className="mb-3 flex items-center gap-3 text-sm text-destructive"
+        >
+          <span>{t('td_query_load_failed')}</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => query.refetch()}
+          >
+            {t('td_retry')}
+          </Button>
+        </div>
+      )}
       <DataTable
         columns={columns}
         data={rows}

@@ -16,7 +16,7 @@ const STATUS_TONE: Record<number, string> = {
 type ExportRow = ExportTask & { id: string };
 
 export function DataExportPage() {
-  const t = useTranslations('modules.financial');
+  const t = useTranslations('modules.data-export');
   const tc = useTranslations('common');
   const [pg, setPg] = React.useState({ page: 1, pageSize: 10 });
   const { data, isLoading } = useExportTaskList(pg.page, pg.pageSize);

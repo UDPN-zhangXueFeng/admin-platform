@@ -319,7 +319,7 @@ export function useDeployStepDetailQuery(
 
 /**
  * 储备 / 可销毁余额查询（Mint/Melt 前拉，组装 modalInfo）。
- * stablecoinCode/symbol 均缺失时不发起。
+ * 源仅发送 stablecoinCode；缺失时不发起。
  */
 export function useReserveBalanceQuery(
   params: ReserveBalanceParams | undefined,
@@ -327,15 +327,15 @@ export function useReserveBalanceQuery(
 ) {
   return useQuery<ReserveBalance>({
     queryKey: tdKeys.overviewReserveBalance(
-      params ?? { stablecoinCode: '', symbol: '' },
+      params ?? { stablecoinCode: '' },
     ),
     queryFn: ({ signal }) =>
       getReserveBalance(params as ReserveBalanceParams, { signal }),
     enabled:
       enabled &&
       params != null &&
-      ((params.stablecoinCode != null && params.stablecoinCode !== '') ||
-        (params.symbol != null && params.symbol !== '')),
+      params.stablecoinCode != null &&
+      params.stablecoinCode !== '',
   });
 }
 

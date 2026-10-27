@@ -12,7 +12,14 @@
  * Fallback behavior when the id is not in policyEditList (e.g. id=4 missing,
  * or a list row with id=5 that resolves but id=99 does not): `find` returns
  * undefined and the form stays at its defaults (blank) — faithful to source
- * (§8.C.2). Submit is mock-only: `console.log`, no navigation.
+ * (§8.C.2).
+ *
+ * Backend status (confirmed 2026-10-27): no key rotation policy update API
+ * exists (upstream edit.tsx submits via console.log only; live backend
+ * documents none). A validated submit logs the payload and shows an explicit
+ * demo notice — it never claims the policy was updated and never navigates.
+ * Client validation (required businessName / frequency / rotationTime /
+ * rotationMethod) matches the source `form.validateFields()` contract.
  */
 
 'use client';
@@ -20,7 +27,10 @@
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
-import { useRouter } from '@myorg/shared/util-i18n';
+import { useTranslations } from 'next-intl';
+import { Info } from 'lucide-react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 
 import {
   Button,
@@ -30,6 +40,7 @@ import {
   Textarea,
 } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
+import { useRouter } from '@myorg/shared/util-i18n';
 
 import { policyEditList } from '@myorg/modules/td-admin/data-access';
 import { roleNameOptions, rotationMethodOptions } from '.';
@@ -83,17 +94,41 @@ const frequencyNumberOptions = Array.from({ length: 12 }, (_, i) => ({
   value: String(i + 1),
 }));
 
-/** Rotation frequency unit options (Day/Month). */
-const frequencyUnitOptions = [
-  { label: 'Day(s)', value: 'days' },
-  { label: 'Month(s)', value: 'months' },
+/** Rotation frequency unit options. Values are canonical ('days'/'months'). */
+const frequencyUnitOptions: { labelKey: string; value: string }[] = [
+  { labelKey: 'KP_Days', value: 'days' },
+  { labelKey: 'KP_Months', value: 'months' },
 ];
 
 export function KeyPolicyConfigurationEditPage() {
+  const t = useTranslations('modules.key-management');
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const { control, register, watch, reset } = useForm<EditFormValues>({
+  /** Set once a validated submit happened — surfaces the demo notice. */
+  const [demoSubmitted, setDemoSubmitted] = React.useState(false);
+
+  const formSchema = React.useMemo(
+    () =>
+      z.object({
+        businessName: z.string().min(1, t('KP_PleaseSelectBusinessName')),
+        frequencyNumber: z.string().min(1, t('KP_PleaseSelectFrequency')),
+        frequencyUnit: z.string().min(1, t('KP_PleaseSelectFrequency')),
+        rotationTime: z.string().min(1, t('KP_PleaseSelectRotationTime')),
+        rotationMethod: z.string().min(1, t('KP_PleaseSelectRotationMethod')),
+      }),
+    [t],
+  );
+
+  const {
+    control,
+    register,
+    watch,
+    reset,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<EditFormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: DEFAULT_VALUES,
   });
 
@@ -136,33 +171,56 @@ export function KeyPolicyConfigurationEditPage() {
 
   const rotationMethod = watch('rotationMethod');
 
-  const handleBack = () => {
-    router.back();
+  const onSubmit = (values: EditFormValues) => {
+    // Demo-only: surface the explicit demo notice. No persistence, no
+    // navigation, and the form payload is deliberately NOT logged (user
+    // input, nothing to persist).
+    void values;
+    setDemoSubmitted(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Mock-only submit — faithful to source: console.log, no navigation.
-    console.log('Submit:', watch());
-  };
+  const localizedFrequencyUnitOptions = React.useMemo(
+    () =>
+      frequencyUnitOptions.map((o) => ({
+        label: t(o.labelKey),
+        value: o.value,
+      })),
+    [t],
+  );
+
+  const localizedMethodOptions = React.useMemo(
+    () =>
+      rotationMethodOptions.map((opt) => ({
+        value: opt.value,
+        label:
+          opt.value === 'system-initiated'
+            ? t('KP_SystemInitiated')
+            : t('KP_ManualApproval'),
+      })),
+    [t],
+  );
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <h2 className="mb-6 text-xl font-bold">
-          Edit Key Rotation Policy Configuration
-        </h2>
+      {/* Demo banner — no update API exists; submission never persists. */}
+      <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        {t('KP_DemoBanner')}
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <h2 className="mb-6 text-xl font-bold">{t('KP_EditTitle')}</h2>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Business Name + Description */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <FormSelect
               name="businessName"
               control={control}
-              label="Business Name"
+              label={t('KP_BusinessName')}
               options={roleNameOptions}
-              placeholder="Please select"
+              placeholder={t('KP_PleaseSelect')}
               required
+              error={errors.businessName?.message}
               // Disabled: the role cannot be changed when editing.
               disabled
             />
@@ -170,7 +228,7 @@ export function KeyPolicyConfigurationEditPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="md:col-span-2">
               <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Description
+                {t('key_management_0053')}
               </label>
               <Textarea rows={3} value={description} disabled placeholder="" />
             </div>
@@ -178,12 +236,12 @@ export function KeyPolicyConfigurationEditPage() {
 
           {/* Rotation Period Configuration */}
           <div className="rounded-lg border bg-card p-6 shadow-sm">
-            <h3 className="mb-6 font-bold">Rotation Period Configuration</h3>
+            <h3 className="mb-6 font-bold">{t('KP_RotationPeriodTitle')}</h3>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
               <div className="md:col-span-1">
                 <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Rotation Frequency
+                  {t('KP_RotationFrequency')}
                   <span className="ml-0.5 text-destructive" aria-hidden="true">
                     *
                   </span>
@@ -195,6 +253,7 @@ export function KeyPolicyConfigurationEditPage() {
                   options={frequencyNumberOptions}
                   placeholder="1"
                   required
+                  error={errors.frequencyNumber?.message}
                 />
               </div>
               <div className="md:col-span-1">
@@ -202,14 +261,15 @@ export function KeyPolicyConfigurationEditPage() {
                   name="frequencyUnit"
                   control={control}
                   label=""
-                  options={frequencyUnitOptions}
-                  placeholder="Month(s)"
+                  options={localizedFrequencyUnitOptions}
+                  placeholder={t('KP_Months')}
                   required
+                  error={errors.frequencyUnit?.message}
                 />
               </div>
               <div className="md:col-span-1">
                 <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Rotation Time
+                  {t('KP_RotationTime')}
                   <span className="ml-0.5 text-destructive" aria-hidden="true">
                     *
                   </span>
@@ -221,12 +281,17 @@ export function KeyPolicyConfigurationEditPage() {
                   placeholder="02:00:00"
                   {...register('rotationTime')}
                 />
+                {errors.rotationTime && (
+                  <p className="text-xs text-destructive">
+                    {errors.rotationTime.message}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="mt-6">
               <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Rotation Methods
+                {t('KP_RotationMethods')}
                 <span className="ml-0.5 text-destructive" aria-hidden="true">
                   *
                 </span>
@@ -240,7 +305,7 @@ export function KeyPolicyConfigurationEditPage() {
                     onValueChange={field.onChange}
                     className="flex gap-6"
                   >
-                    {rotationMethodOptions.map((opt) => (
+                    {localizedMethodOptions.map((opt) => (
                       <div key={opt.value} className="flex items-center gap-2">
                         <RadioGroupItem
                           value={opt.value}
@@ -257,26 +322,37 @@ export function KeyPolicyConfigurationEditPage() {
                   </RadioGroup>
                 )}
               />
+              {errors.rotationMethod && (
+                <p className="text-xs text-destructive">
+                  {errors.rotationMethod.message}
+                </p>
+              )}
               {rotationMethod === 'system-initiated' && (
                 <div className="mt-2 flex items-start gap-1 text-sm text-blue-500">
-                  <span aria-hidden="true" className="mt-0.5">
-                    ⓘ
-                  </span>
-                  <span>
-                    The system will automatically initiate rotation upon
-                    maturity. No manual intervention is required.
-                  </span>
+                  <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span>{t('KP_SystemInitiatedHint')}</span>
                 </div>
               )}
             </div>
           </div>
 
+          {/* Demo notice — explicit non-persistence feedback. */}
+          {demoSubmitted && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {t('KP_DemoSubmitNotice')}
+            </div>
+          )}
+
           {/* Buttons */}
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={handleBack}>
-              Back
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+            >
+              {t('key_management_0056')}
             </Button>
-            <Button type="submit">Submit</Button>
+            <Button type="submit">{t('KP_SubmitDemo')}</Button>
           </div>
         </form>
       </div>

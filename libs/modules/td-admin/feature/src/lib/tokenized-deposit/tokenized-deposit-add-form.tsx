@@ -76,9 +76,7 @@ function AddWizard({ s }: { s: TokenizedDepositFormState }): React.JSX.Element {
     flag,
     chainType,
     mintMethod,
-    symbol,
     currency,
-    thresholdType,
     reserveList,
     smartContractNameList,
     tokenTypeOptions,
@@ -191,9 +189,7 @@ function AddWizard({ s }: { s: TokenizedDepositFormState }): React.JSX.Element {
                   flag={flag}
                   chainType={chainType}
                   mintMethod={mintMethod}
-                  symbol={symbol}
                   currency={currency}
-                  thresholdType={thresholdType}
                   reserveList={reserveList}
                   blockchainList={
                     blockchainList as BlockchainOption[] | undefined
@@ -242,7 +238,10 @@ function AddWizard({ s }: { s: TokenizedDepositFormState }): React.JSX.Element {
                       <div className="mt-5 rounded-md border bg-muted/50 p-4 text-sm text-muted-foreground">
                         {mintMethod === MINT_METHOD.MMF
                           ? t('td_form_mmf_no_coa')
-                          : t('td_form_select_token_first')}
+                          : mintMethod === undefined ||
+                              mintMethod === MINT_METHOD.STABLECOIN
+                            ? t('td_form_select_token_first')
+                            : t('td_form_cbdc_no_coa')}
                       </div>
                     </section>
                   )}

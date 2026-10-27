@@ -2,8 +2,7 @@
 
 import * as React from 'react';
 import { ChevronRight, Home } from 'lucide-react';
-import { usePathname } from '@myorg/shared/util-i18n';
-import Link from 'next/link';
+import { Link, usePathname } from '@myorg/shared/util-i18n';
 import { cn } from '@myorg/shared/util-classnames';
 import { useModules } from '@myorg/shared/util-config';
 

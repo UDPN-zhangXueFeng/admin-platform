@@ -1,11 +1,13 @@
 /**
- * KeyServiceConfigurationListPage — landing list with filters, status-driven
- * row actions, a Deprecate dialog, and Configure entry point.
+ * KeyServiceConfigurationListPage — landing list with filters, static
+ * row actions (Edit/Deprecate disabled, no write APIs), a non-persistent
+ * Deprecate demo dialog, and a Configure entry point.
  *
  * Data: `useKeyServiceConfigurationsQuery` (POST /key/config/keyServiceList,
  * defined in the key-signed-transactions data-access module).
- * All labels are localized via `t()`; the Deprecate submit is mock-only
- * (console.log — faithful to source).
+ * All labels are localized via `t()`. The Deprecate dialog is an explicitly
+ * marked demo: nothing is sent to the backend and user-entered comments are
+ * never logged or echoed anywhere.
  *
  * Source: td-manage/src/pages/key-management/key-service-configuration/index.tsx
  */
@@ -83,7 +85,13 @@ export function KeyServiceConfigurationListPage() {
   const [startCreateDate, setStartCreateDate] = React.useState('');
   const [endCreateDate, setEndCreateDate] = React.useState('');
 
-  const { data, isLoading, isFetching } = useKeyServiceConfigurationsQuery({
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+  } = useKeyServiceConfigurationsQuery({
     pageNum: page,
     pageSize: PAGE_SIZE,
     filters: {
@@ -109,8 +117,10 @@ export function KeyServiceConfigurationListPage() {
     [t],
   );
 
+  // Upstream index.tsx: `if (!status) return '--'` — 0/undefined render as
+  // '--'; a truthy unknown status renders its raw number.
   const getStatusLabel = (value?: number) =>
-    typeof value === 'number' ? (statusMap[value] ?? String(value)) : '--';
+    value ? (statusMap[value] ?? String(value)) : '--';
 
   // ----- supportedChains ">2 show +N" folding -----
   const renderSupportedChains = (chains?: string) => {
@@ -160,45 +170,57 @@ export function KeyServiceConfigurationListPage() {
     dialogForm.reset({ comments: '' });
   };
 
-  const onDeprecateSubmit = (values: DialogFormValues) => {
-    // Mock submit — faithful to source (console.log only, no navigation).
-    console.log('Deprecate:', {
-      record: currentRecord,
-      comments: values.comments,
-    });
+  const onDeprecateSubmit = (_values: DialogFormValues) => {
+    // Non-persistent demo action: the backend exposes no Key-service write
+    // API, so nothing is sent and NOTHING is logged (user-entered comments
+    // must not be echoed anywhere). Closing the dialog makes no change.
     closeDeprecate();
   };
 
-  // ----- Status-driven row actions (mirrors source index.tsx) -----
+  // ----- Row actions (mirrors source index.tsx:206-230) -----
+  // Upstream always renders the same three actions; Edit and Deprecate ship
+  // hard-disabled (no backend write APIs yet), Details is gated only on
+  // keyServiceCode. No status-driven branching exists upstream.
   const renderActions = (record: KeyServiceConfiguration) => {
-    const actions: React.ReactNode[] = [];
-    const push = (label: string, onClick: () => void, key: string) => {
-      actions.push(
-        <Button
-          key={key}
-          variant="link"
-          className="h-auto p-0"
-          onClick={onClick}
-        >
-          {label}
-        </Button>,
-      );
-    };
+    const action = (
+      label: string,
+      onClick: () => void,
+      key: string,
+      disabled: boolean,
+    ) => (
+      <Button
+        key={key}
+        variant="link"
+        className="h-auto p-0"
+        disabled={disabled}
+        onClick={onClick}
+      >
+        {label}
+      </Button>
+    );
 
-    // 1=Enabled → Edit + Deprecate + Details
-    // 4=Rejected → Resubmit + Details
-    // 2=Deprecated / 3=Processing → Details only
-    if (record.status === 1) {
-      push(t('key_management_0010'), () => goEdit(record.keyServiceCode), 'edit');
-      push(t('key_management_0011'), () => openDeprecate(record), 'deprecate');
-      push(t('key_management_0012'), () => goDetail(record.keyServiceCode), 'details');
-    } else if (record.status === 4) {
-      push(t('key_management_0028'), () => goEdit(record.keyServiceCode), 'resubmit');
-      push(t('key_management_0012'), () => goDetail(record.keyServiceCode), 'details');
-    } else {
-      push(t('key_management_0012'), () => goDetail(record.keyServiceCode), 'details');
-    }
-    return <div className="flex items-center gap-3">{actions}</div>;
+    return (
+      <div className="flex items-center gap-3">
+        {action(
+          t('key_management_0010'),
+          () => goEdit(record.keyServiceCode),
+          'edit',
+          true,
+        )}
+        {action(
+          t('key_management_0011'),
+          () => openDeprecate(record),
+          'deprecate',
+          true,
+        )}
+        {action(
+          t('key_management_0012'),
+          () => goDetail(record.keyServiceCode),
+          'details',
+          !record.keyServiceCode,
+        )}
+      </div>
+    );
   };
 
   // ----- Columns -----
@@ -359,6 +381,11 @@ export function KeyServiceConfigurationListPage() {
           <Button onClick={goConfigure}>{t('key_management_0009')}</Button>
         </div>
 
+        {isError ? (
+          <p className="mb-3 text-sm text-destructive">
+            {error?.message || t('key_management_0069')}
+          </p>
+        ) : null}
         <DataTable
           columns={columns}
           data={data?.rows ?? []}
@@ -366,8 +393,10 @@ export function KeyServiceConfigurationListPage() {
           emptyMessage={t('PUB_NoData')}
           pagination={{
             page,
-            pageSize: data?.page?.pageSize ?? PAGE_SIZE,
-            total: data?.page?.total ?? 0,
+            // Backend numbers may arrive as strings — upstream coerces
+            // Number(...) before use (pitfall defense).
+            pageSize: Number(data?.page?.pageSize) || PAGE_SIZE,
+            total: Number(data?.page?.total) || 0,
             onPageChange: setPage,
           }}
         />
@@ -423,6 +452,10 @@ export function KeyServiceConfigurationListPage() {
                 </span>
               </div>
             </form>
+            {/* Non-persistent demo action — explicit disclosure. */}
+            <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+              {t('key_management_0073')}
+            </p>
           </div>
 
           <DialogFooter>

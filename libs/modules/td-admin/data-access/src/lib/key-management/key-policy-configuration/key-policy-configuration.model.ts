@@ -1,7 +1,17 @@
 /**
  * Key Policy Configuration domain types.
  *
- * Pure mock module — no API endpoints, no TanStack Query.
+ * Pure mock module — intentionally NO API endpoints, NO TanStack Query.
+ * Evidence (2026-10-27):
+ * - Upstream td-manage key-policy-configuration pages are fully static
+ *   (index/edit/detail/new render inline constant data; all submit/enable/
+ *   disable handlers are console.log only — no fetcher/useSWR/request call).
+ * - The live backend OpenAPI doc (aps /api/manage/v3/api-docs) documents no
+ *   key rotation policy CRUD/enable/disable endpoint (only unrelated
+ *   /v1/wallets/manage/rotation/* and /v1/key/config/* paths exist).
+ * Downstream consumers must keep this module read-only/demo-labeled and
+ * must not invent endpoints here.
+ *
  * Covers list, edit, detail, and new form values.
  *
  * Note on createdOn (§8.C.1):

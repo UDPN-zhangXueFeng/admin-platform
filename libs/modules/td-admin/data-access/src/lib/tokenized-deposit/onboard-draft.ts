@@ -54,9 +54,6 @@ export interface OnboardDraftFormValues {
   smartContractPackageId?: string;
   metaType?: number;
   whitelistMode?: string;
-  thresholdType?: string;
-  thresholdFrequency?: string;
-  thresholdValue?: string;
   accountTypeList?: number[];
   enableTokenReconciliation?: number;
   enableReserveAssetReconciliation?: number;
@@ -102,9 +99,6 @@ const WHITELIST: (keyof OnboardDraftFormValues)[] = [
   'smartContractPackageId',
   'metaType',
   'whitelistMode',
-  'thresholdType',
-  'thresholdFrequency',
-  'thresholdValue',
   'accountTypeList',
   'enableTokenReconciliation',
   'enableReserveAssetReconciliation',

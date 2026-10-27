@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
@@ -70,6 +71,12 @@ type UserWalletListFilters = UserWalletFilters & {
 export function UserWalletListPage() {
   const t = useTranslations('modules.wallet');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialStablecoinId = searchParams.get('stablecoinId') || ALL_VALUE;
+  const initialFilters = React.useMemo<UserWalletFilterForm>(
+    () => ({ ...EMPTY_FORM, stablecoinId: initialStablecoinId }),
+    [initialStablecoinId],
+  );
   const authPermissions = useAuth().permissions ?? new Set<string>();
   /** 权限未配置（空集）时全放开，兼容权限未接入场景（posting-engine 模式）。 */
   const canViewDetail =
@@ -84,15 +91,20 @@ export function UserWalletListPage() {
 
   const { register, control, handleSubmit, reset } =
     useForm<UserWalletFilterForm>({
-      defaultValues: EMPTY_FORM,
+      defaultValues: initialFilters,
     });
 
   const [queryValues, setQueryValues] =
-    React.useState<UserWalletFilterForm>(EMPTY_FORM);
+    React.useState<UserWalletFilterForm>(initialFilters);
   const [pagination, setPagination] = React.useState({
     pageNum: 1,
     pageSize: DEFAULT_PAGE_SIZE,
   });
+  React.useEffect(() => {
+    reset(initialFilters);
+    setQueryValues(initialFilters);
+    setPagination((previous) => previous.pageNum === 1 ? previous : { ...previous, pageNum: 1 });
+  }, [initialFilters, reset]);
 
   const params = React.useMemo<WalletListParams<UserWalletListFilters>>(
     () => ({
@@ -461,10 +473,10 @@ export function UserWalletListPage() {
   }, []);
 
   const onReset = React.useCallback(() => {
-    reset(EMPTY_FORM);
-    setQueryValues(EMPTY_FORM);
+    reset(initialFilters);
+    setQueryValues(initialFilters);
     setPagination({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
-  }, [reset]);
+  }, [initialFilters, reset]);
 
   return (
     <div className="space-y-4">

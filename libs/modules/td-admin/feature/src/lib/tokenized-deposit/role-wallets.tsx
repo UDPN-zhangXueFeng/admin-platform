@@ -4,25 +4,20 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
-import { toast } from 'sonner';
 import {
   Button,
   CopyableEllipsisText,
   DataTable,
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   Input,
   Label,
 } from '@myorg/shared/ui';
 import { formatDate } from '@myorg/shared/util-dates';
+import { TokenizedDepositStatusBadge } from './tokenized-deposit-status-badge';
 import {
-  TokenizedDepositStatusBadge,
-} from '.';
-import {
-  useConfigureRoleWalletMutation,
   useRoleWalletDetailQuery,
   useRoleWalletsListQuery,
   type RoleWalletItem,
@@ -35,8 +30,6 @@ import {
 
 const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
-/** 0x 开头 + 40 位十六进制（源码 /0x[a-fA-F0-9]{40}/ 校验）。 */
-const ETHEREUM_ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
 
 /**
  * 筛选表单（react-hook-form）。源码 useCustomTable form.items：
@@ -52,30 +45,8 @@ const EMPTY_FILTER: RoleWalletFilterForm = {
   walletAddress: '',
 };
 
-/** 配置 Modal 表单值。roleName 只读回填，walletAddress 必填 + 地址校验。 */
-interface ConfigureWalletFormValues {
-  roleName: string;
-  walletAddress: string;
-}
 
-/**
- * RoleWallets — 角色钱包组件（100% mock，后端未实装）。
- *
- * 迁移自 td-manage src/pages/tokenized-deposit/role-wallets.tsx（405 行）。
- * useCustomTable + CustomForms/CustomModal → react-hook-form + DataTable + Dialog。
- *
- * 三个数据通道全 mock（td-6 api.ts 已迁入并标注 // MOCK，本组件正常消费 query hooks）：
- *  - useRoleWalletsListQuery（getRoleWalletsList：setTimeout 300ms + generateMockRoleWallets）
- *  - useRoleWalletDetailQuery（getRoleWalletDetail：含 operations 操作历史）
- *  - useConfigureRoleWalletMutation（configureRoleWallet：setTimeout 500ms）
- *
- * 列表 8 列：roleName / walletAddress(ellipsis) / blockchain / walletAttribute /
- * description / status(roleWallet badge) / createdTime / updatedTime。
- *
- * 行操作：Details（始终）+ Configure（仅 status==='Unconfigured'）。
- *
- * 被 view.tsx Tab3 引用（td-20）。
- */
+/** Read-only upstream role-wallet demonstration; no backend configuration contract exists. */
 export function RoleWallets({
   tokenId: propTokenId,
 }: {
@@ -126,7 +97,6 @@ export function RoleWallets({
   // ── 选中行 + Modal 状态 ──
   const [selectedWallet, setSelectedWallet] =
     React.useState<RoleWalletItem | null>(null);
-  const [isConfigModalOpen, setIsConfigModalOpen] = React.useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = React.useState(false);
 
   // 详情查询（含 operations）：仅打开详情 Modal 时按 roleWalletId 发起。
@@ -135,62 +105,10 @@ export function RoleWallets({
   );
   const walletOperations = detailQuery.data?.operations ?? [];
 
-  // ── 配置 Modal 表单 ──
-  const {
-    register: registerConfig,
-    handleSubmit: handleSubmitConfig,
-    reset: resetConfig,
-    setValue: setConfigValue,
-    formState: { errors: configErrors },
-  } = useForm<ConfigureWalletFormValues>({
-    defaultValues: { roleName: '', walletAddress: '' },
-  });
-
-  // 选中行变化时回填配置表单（源码 CustomForms initialValue）。
-  React.useEffect(() => {
-    if (isConfigModalOpen && selectedWallet) {
-      setConfigValue('roleName', selectedWallet.roleName ?? '');
-      setConfigValue('walletAddress', '');
-    }
-  }, [isConfigModalOpen, selectedWallet, setConfigValue]);
-
-  const configureMutation = useConfigureRoleWalletMutation();
-
-  // 行操作 → 打开 Modal。
-  const onActionClick = React.useCallback(
-    (row: RoleWalletItem, key: 'Details' | 'Configure') => {
-      setSelectedWallet(row);
-      if (key === 'Configure') {
-        resetConfig({ roleName: row.roleName ?? '', walletAddress: '' });
-        setIsConfigModalOpen(true);
-      } else {
-        setIsDetailModalOpen(true);
-      }
-    },
-    [resetConfig],
-  );
-
-  // 提交配置钱包（源码 handleConfigureWallet）。
-  const onConfigureSubmit = React.useCallback(
-    (values: ConfigureWalletFormValues) => {
-      if (!selectedWallet?.roleWalletId) return;
-      configureMutation.mutate(
-        {
-          roleWalletId: selectedWallet.roleWalletId,
-          walletAddress: values.walletAddress,
-          additionalParams: values,
-        },
-        {
-          onSuccess: () => {
-            toast.success(t('configure_wallet_title'));
-            setIsConfigModalOpen(false);
-            resetConfig({ roleName: '', walletAddress: '' });
-          },
-        },
-      );
-    },
-    [selectedWallet, configureMutation, t, resetConfig],
-  );
+  const openDetails = React.useCallback((row: RoleWalletItem) => {
+    setSelectedWallet(row);
+    setIsDetailModalOpen(true);
+  }, []);
 
   // ── 列表列 ──
   const columns = React.useMemo<ColumnDef<RoleWalletItem>[]>(
@@ -275,31 +193,21 @@ export function RoleWallets({
         header: t('PUB_Action'),
         cell: ({ row }) => {
           const r = row.original;
-          const isUnconfigured = r.status === 'Unconfigured';
           return (
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="link"
                 className="h-auto p-0"
-                onClick={() => onActionClick(r, 'Details')}
+                onClick={() => openDetails(r)}
               >
                 {t('wallet_details')}
               </Button>
-              {isUnconfigured ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => onActionClick(r, 'Configure')}
-                >
-                  {t('configure_wallet')}
-                </Button>
-              ) : null}
             </div>
           );
         },
       },
     ],
-    [t, translateWalletAttribute, onActionClick],
+    [t, translateWalletAttribute, openDetails],
   );
 
   const onSubmit = React.useCallback((f: RoleWalletFilterForm) => {
@@ -314,6 +222,9 @@ export function RoleWallets({
 
   return (
     <div className="space-y-4">
+      <p role="note" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        {t('td_legacy_demo_notice')}
+      </p>
       {/* 筛选区 */}
       <form
         onSubmit={handleSubmit(onSubmit)}
@@ -377,81 +288,6 @@ export function RoleWallets({
         </div>
       </div>
 
-      {/* 配置钱包 Modal */}
-      <Dialog
-        open={isConfigModalOpen}
-        onOpenChange={(open) => {
-          setIsConfigModalOpen(open);
-          if (!open) {
-            resetConfig({ roleName: '', walletAddress: '' });
-          }
-        }}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t('configure_wallet_title')}</DialogTitle>
-          </DialogHeader>
-          <form
-            onSubmit={handleSubmitConfig(onConfigureSubmit)}
-            className="space-y-4"
-          >
-            <div>
-              <Label
-                htmlFor="role-wallets-config-roleName"
-                className="mb-1.5 block text-sm font-medium"
-              >
-                {t('role_name')}
-              </Label>
-              <Input
-                id="role-wallets-config-roleName"
-                disabled
-                {...registerConfig('roleName')}
-              />
-            </div>
-            <div>
-              <Label
-                htmlFor="role-wallets-config-walletAddress"
-                className="mb-1.5 block text-sm font-medium"
-              >
-                {t('wallet_address')}
-                <span className="ml-0.5 text-destructive" aria-hidden="true">
-                  *
-                </span>
-              </Label>
-              <Input
-                id="role-wallets-config-walletAddress"
-                placeholder={t('enter_wallet_address')}
-                {...registerConfig('walletAddress', {
-                  required: true,
-                  pattern: ETHEREUM_ADDRESS_PATTERN,
-                })}
-              />
-              {configErrors.walletAddress ? (
-                <p className="mt-1 text-sm text-destructive" role="alert">
-                  {configErrors.walletAddress.type === 'required'
-                    ? t('PUB_Pleased', { field: t('wallet_address') })
-                    : t('wallet_address_invalid')}
-                </p>
-              ) : null}
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setIsConfigModalOpen(false);
-                  resetConfig({ roleName: '', walletAddress: '' });
-                }}
-              >
-                {t('PUB_Cancel')}
-              </Button>
-              <Button type="submit" disabled={configureMutation.isPending}>
-                {t('PUB_Submit')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* 钱包详情 Modal */}
       <Dialog

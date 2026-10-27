@@ -1,11 +1,21 @@
 /**
- * KeyPolicyConfigurationListPage — pure-mock list page.
+ * KeyPolicyConfigurationListPage — pure-mock list page (demo data).
  *
  * Architecture (pure mock, no API / no TanStack Query — see
  * .codex/plan/modules/key-policy-configuration.md §3 & §8.B):
  * - Source data   → static `policyList` from data-access (22 inline rows)
- * - Client filters→ react-hook-form + zod, applied via useMemo on the client
+ * - Filters       → react-hook-form + zod, committed on Query (source
+ *                   index.tsx handleQuery applies filters on button click;
+ *                   Reset restores the full list — same two-step semantics)
  * - Table         → shared DataTable with client-side pagination
+ *
+ * Backend status (confirmed 2026-10-27, Main via aps /api/manage/v3/api-docs):
+ * - Upstream td-manage index.tsx is fully static (`staticData`, handlers
+ *   console.log only) and the live backend documents NO key rotation policy
+ *   CRUD/enable/disable endpoint. Do NOT wire this page to any API.
+ * - Disable/Enable therefore cannot persist anything: confirming the dialog
+ *   logs the payload and shows an explicit demo notice instead of implying
+ *   success. The row state never changes.
  *
  * Runtime gotchas (plan §8.F):
  * - "All" option value is the non-empty sentinel 'all' (source uses '', must
@@ -16,9 +26,11 @@
  *   ("System-initiated" / "Manual approval"), so the filter Select MUST use
  *   Title Case values too — NOT util.rotationMethodOptions (kebab values,
  *   used by new/edit Radio). Using kebab here would break filtering.
- *   See plan §8.D.
- * - Disable/Enable submits are mock: console.log only, no navigation
- *   (faithful to source index.tsx handleDisableSubmit/handleEnableSubmit).
+ *   See plan §8.D. Option LABELS are localized; matching stays on the raw
+ *   data value (data values are displayed as-is per repo convention).
+ * - Date range compares LOCAL midnight timestamps (source: dayjs
+ *   RangePicker values compared with valueOf(); `new Date('YYYY-MM-DD')`
+ *   would parse as UTC and shift the window).
  */
 
 'use client';
@@ -56,34 +68,36 @@ import { keyPolicyStatusMap, roleNameOptions } from '.';
 const ALL_VALUE = 'all';
 
 const BASE_PATH = '/key-management/key-policy-configuration';
+/**
+ * DataTable row shape: `TData extends { id: string }` — mock `id` is a
+ * number, so rows are presented with a string id.
+ */
+type PolicyListRow = Omit<PolicyListItem, 'id'> & { id: string };
 
 /**
- * Rotation Methods filter options (Title Case values).
- * Must match the mock `rotationMethods` field — see file header note.
+ * Rotation Methods filter options (Title Case raw data values for matching;
+ * labels resolved through i18n at render time).
  */
-const rotationMethodFilterOptions: { label: string; value: string }[] = [
-  { label: 'System-initiated', value: 'System-initiated' },
-  { label: 'Manual approval', value: 'Manual approval' },
+const rotationMethodFilterValues: { labelKey: string; value: string }[] = [
+  { labelKey: 'KP_SystemInitiated', value: 'System-initiated' },
+  { labelKey: 'KP_ManualApproval', value: 'Manual approval' },
 ];
 
-const filterSchema = z.object({
-  roleName: z.string().optional(),
-  rotationMethods: z.string().optional(),
-  status: z.string().optional(),
-  startCreationDate: z.string().optional(),
-  endCreationDate: z.string().optional(),
-});
+/** Status value → i18n key (reuses existing keys; KP_Disabled is new). */
+const statusLabelKeyMap: Record<string, string> = {
+  Processing: 'key_management_0020',
+  Rejected: 'key_management_0021',
+  Enabled: 'key_management_0018',
+  Disabled: 'KP_Disabled',
+};
 
-type FilterFormValues = z.infer<typeof filterSchema>;
-
-/** Dialog form (Disable / Enable) — Comments required, max 200 chars. */
-const dialogSchema = z.object({
-  comments: z
-    .string()
-    .min(1, 'Please enter comments')
-    .max(200, 'Comments must be at most 200 characters'),
-});
-type DialogFormValues = z.infer<typeof dialogSchema>;
+type FilterFormValues = {
+  roleName: string;
+  rotationMethods: string;
+  status: string;
+  startCreationDate: string;
+  endCreationDate: string;
+};
 
 /** Tone class lookup for the status badge. */
 const toneClassMap: Record<string, string> = {
@@ -100,11 +114,15 @@ function formatTimestamp(ts?: number): string {
   return new Date(ts).toLocaleString();
 }
 
-/** Convert an ISO date string (yyyy-mm-dd) to a UTC ms timestamp. */
+/**
+ * Convert an ISO date string (yyyy-mm-dd) to a LOCAL-midnight ms timestamp
+ * (source compares dayjs day objects with valueOf() — local zone).
+ */
 function dateToTimestamp(value?: string): number | undefined {
   if (!value) return undefined;
-  const ms = new Date(value).getTime();
-  return Number.isNaN(ms) ? undefined : ms;
+  const [y, m, d] = value.split('-').map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d).getTime();
 }
 
 export function KeyPolicyConfigurationListPage() {
@@ -114,63 +132,66 @@ export function KeyPolicyConfigurationListPage() {
   const pageSize = 10;
 
   // ----- Filter form -----
-  const { register, watch, reset, control } = useForm<FilterFormValues>({
-    resolver: zodResolver(filterSchema),
-    defaultValues: {
-      roleName: ALL_VALUE,
-      rotationMethods: ALL_VALUE,
-      status: ALL_VALUE,
-      startCreationDate: '',
-      endCreationDate: '',
-    },
-  });
+  const { register, reset, getValues, control } =
+    useForm<FilterFormValues>({
+      defaultValues: {
+        roleName: ALL_VALUE,
+        rotationMethods: ALL_VALUE,
+        status: ALL_VALUE,
+        startCreationDate: '',
+        endCreationDate: '',
+      },
+    });
 
-  const filters = watch();
+  // ----- Client-side filtering, committed on Query (source handleQuery) -----
+  const [committed, setCommitted] = React.useState<FilterFormValues | null>(
+    null,
+  );
 
-  // ----- Client-side filtering (no server request) -----
   const filteredRows = React.useMemo<PolicyListItem[]>(() => {
+    const f = committed;
+    if (!f) return policyList;
+    const start = dateToTimestamp(f.startCreationDate);
+    const endStart = dateToTimestamp(f.endCreationDate);
+    const endExclusive = endStart === undefined ? undefined : (() => {
+      const nextDay = new Date(endStart);
+      nextDay.setDate(nextDay.getDate() + 1);
+      return nextDay.getTime();
+    })();
     return policyList.filter((item) => {
-      if (
-        filters.roleName &&
-        filters.roleName !== ALL_VALUE &&
-        item.businessName !== filters.roleName
-      ) {
-        return false;
+      if (f.roleName && f.roleName !== ALL_VALUE) {
+        if (item.businessName !== f.roleName) return false;
       }
-      if (
-        filters.rotationMethods &&
-        filters.rotationMethods !== ALL_VALUE &&
-        item.rotationMethods !== filters.rotationMethods
-      ) {
-        return false;
+      if (f.rotationMethods && f.rotationMethods !== ALL_VALUE) {
+        if (item.rotationMethods !== f.rotationMethods) return false;
       }
-      if (
-        filters.status &&
-        filters.status !== ALL_VALUE &&
-        item.status !== filters.status
-      ) {
-        return false;
+      if (f.status && f.status !== ALL_VALUE) {
+        if (item.status !== f.status) return false;
       }
-      const start = dateToTimestamp(filters.startCreationDate);
-      const end = dateToTimestamp(filters.endCreationDate);
       if (start !== undefined && (item.createdOn ?? 0) < start) return false;
-      if (end !== undefined && (item.createdOn ?? 0) > end) return false;
+      if (endExclusive !== undefined && (item.createdOn ?? 0) >= endExclusive) return false;
       return true;
     });
-  }, [filters]);
+  }, [committed]);
 
   const total = filteredRows.length;
 
+  const handleQuery = () => {
+    setCommitted(getValues());
+    setPage(1);
+  };
+
   const handleReset = () => {
     reset();
+    setCommitted(null);
     setPage(1);
   };
 
   // ----- Row action handlers -----
-  const goEdit = (id: number) => {
+  const goEdit = (id: string) => {
     router.push(`${BASE_PATH}/edit?id=${id}`);
   };
-  const goDetail = (id: number) => {
+  const goDetail = (id: string) => {
     router.push(`${BASE_PATH}/detail?id=${id}`);
   };
   const goNew = () => {
@@ -181,41 +202,60 @@ export function KeyPolicyConfigurationListPage() {
   type DialogMode = 'disable' | 'enable';
   const [dialogMode, setDialogMode] = React.useState<DialogMode | null>(null);
   const [currentRecord, setCurrentRecord] =
-    React.useState<PolicyListItem | null>(null);
+    React.useState<PolicyListRow | null>(null);
+  /** Set after confirm — swaps the dialog body to the explicit demo notice. */
+  const [demoNotice, setDemoNotice] = React.useState(false);
+
+  const dialogSchema = React.useMemo(
+    () =>
+      z.object({
+        comments: z
+          .string()
+          .min(1, t('key_management_0016'))
+          .max(200, t('KP_CommentsMaxLength')),
+      }),
+    [t],
+  );
+  type DialogFormValues = z.infer<typeof dialogSchema>;
 
   const dialogForm = useForm<DialogFormValues>({
     resolver: zodResolver(dialogSchema),
     defaultValues: { comments: '' },
   });
 
-  const openDialog = (record: PolicyListItem, mode: DialogMode) => {
+  const openDialog = (record: PolicyListRow, mode: DialogMode) => {
     setCurrentRecord(record);
     setDialogMode(mode);
+    setDemoNotice(false);
     dialogForm.reset({ comments: '' });
   };
 
   const closeDialog = () => {
     setDialogMode(null);
     setCurrentRecord(null);
+    setDemoNotice(false);
     dialogForm.reset({ comments: '' });
   };
 
   const onDialogSubmit = (values: DialogFormValues) => {
-    // Mock submit — faithful to source (console.log only, no navigation).
-    const action = dialogMode === 'disable' ? 'Disable' : 'Enable';
-    console.log(`${action}:`, {
-      record: currentRecord,
-      comments: values.comments,
-    });
-    closeDialog();
+    // No backend endpoint exists (upstream handlers are no-ops and the live
+    // schema documents none). Never imply persistence: keep the record state
+    // and swap the dialog body to the demo notice. The form payload is
+    // deliberately NOT logged (user input, nothing to persist).
+    void values;
+    setDemoNotice(true);
   };
 
   const isDisable = dialogMode === 'disable';
 
   // ----- Status-driven row actions (faithful to source index.tsx getActions) -----
-  const renderActions = (record: PolicyListItem) => {
+  const renderActions = (record: PolicyListRow) => {
     const actions: React.ReactNode[] = [];
-    const push = (label: string, onClick: () => void, key: string) => {
+    const push = (
+      label: string,
+      onClick: () => void,
+      key: string,
+    ) => {
       actions.push(
         <Button
           key={key}
@@ -229,99 +269,124 @@ export function KeyPolicyConfigurationListPage() {
     };
 
     if (record.status === 'Processing') {
-      push('Details', () => goDetail(record.id), 'details');
+      push(t('key_management_0012'), () => goDetail(record.id), 'details');
     } else if (record.status === 'Rejected') {
-      push('Resubmit', () => goEdit(record.id), 'resubmit');
-      push('Details', () => goDetail(record.id), 'details');
+      push(t('key_management_0028'), () => goEdit(record.id), 'resubmit');
+      push(t('key_management_0012'), () => goDetail(record.id), 'details');
     } else if (record.status === 'Enabled') {
-      push('Edit', () => goEdit(record.id), 'edit');
-      push('Disable', () => openDialog(record, 'disable'), 'disable');
-      push('Details', () => goDetail(record.id), 'details');
+      push(t('key_management_0010'), () => goEdit(record.id), 'edit');
+      push(t('KP_Disable'), () => openDialog(record, 'disable'), 'disable');
+      push(t('key_management_0012'), () => goDetail(record.id), 'details');
     } else if (record.status === 'Disabled') {
-      push('Edit', () => goEdit(record.id), 'edit');
-      push('Enable', () => openDialog(record, 'enable'), 'enable');
-      push('Details', () => goDetail(record.id), 'details');
+      push(t('key_management_0010'), () => goEdit(record.id), 'edit');
+      push(t('key_management_0026'), () => openDialog(record, 'enable'), 'enable');
+      push(t('key_management_0012'), () => goDetail(record.id), 'details');
     }
     return <div className="flex items-center gap-3">{actions}</div>;
   };
 
   // ----- Columns -----
-  const columns = React.useMemo<ColumnDef<PolicyListItem>[]>(
+  const columns = React.useMemo<ColumnDef<PolicyListRow>[]>(
     () => [
       {
         accessorKey: 'businessName',
-        header: 'Role Name',
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        header: t('KP_RoleName'),
+        cell: ({ row }) => row.original.businessName || '--',
       },
       {
         accessorKey: 'description',
-        header: 'Description',
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        header: t('key_management_0053'),
+        cell: ({ row }) => row.original.description || '--',
       },
       {
         accessorKey: 'rotationFrequency',
-        header: 'Rotation Frequency',
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        header: t('KP_RotationFrequency'),
+        cell: ({ row }) => row.original.rotationFrequency || '--',
       },
       {
         accessorKey: 'rotationTime',
-        header: 'Rotation Time',
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        header: t('KP_RotationTime'),
+        cell: ({ row }) => row.original.rotationTime || '--',
       },
       {
         accessorKey: 'rotationMethods',
-        header: 'Rotation Methods',
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        header: t('KP_RotationMethods'),
+        cell: ({ row }) => row.original.rotationMethods || '--',
       },
       {
         accessorKey: 'createdOn',
-        header: 'Created on',
-        cell: ({ getValue }) => formatTimestamp(getValue() as number),
+        header: t('key_management_0005'),
+        cell: ({ row }) => formatTimestamp(row.original.createdOn),
       },
       {
         accessorKey: 'status',
-        header: 'Status',
-        cell: ({ getValue }) => {
-          const status = (getValue() as string) || '';
+        header: t('key_management_0003'),
+        cell: ({ row }) => {
+          const status = row.original.status || '';
           const entry = keyPolicyStatusMap[status];
           if (!entry) return '--';
+          const labelKey = statusLabelKeyMap[status];
           return (
             <span
               className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                 toneClassMap[entry.tone] ?? toneClassMap.default
               }`}
             >
-              {entry.label}
+              {labelKey ? t(labelKey) : entry.label}
             </span>
           );
         },
       },
       {
         id: 'actions',
-        header: 'Actions',
+        header: t('key_management_0062'),
         cell: ({ row }) => renderActions(row.original),
       },
+      // renderActions reads only props/closures stable for the page lifetime
     ],
-    [], // renderActions reads only props/closures stable for the page lifetime
+    [t],
   );
 
   // ----- Filter option sets -----
   const roleNameFilterOptions = React.useMemo(
-    () => roleNameOptions.map((o) => ({ label: o.label, value: o.value })),
-    [],
+    () => [
+      { label: t('PUB_All'), value: ALL_VALUE },
+      ...roleNameOptions.map((o) => ({ label: o.label, value: o.value })),
+    ],
+    [t],
   );
 
   const statusFilterOptions = React.useMemo(
-    () =>
-      Object.entries(keyPolicyStatusMap).map(([value, entry]) => ({
-        label: entry.label,
+    () => [
+      { label: t('PUB_All'), value: ALL_VALUE },
+      ...Object.keys(keyPolicyStatusMap).map((value) => ({
+        label: statusLabelKeyMap[value]
+          ? t(statusLabelKeyMap[value])
+          : keyPolicyStatusMap[value].label,
         value,
       })),
-    [],
+    ],
+    [t],
+  );
+
+  const rotationMethodOptions = React.useMemo(
+    () => [
+      { label: t('PUB_All'), value: ALL_VALUE },
+      ...rotationMethodFilterValues.map((o) => ({
+        label: t(o.labelKey),
+        value: o.value,
+      })),
+    ],
+    [t],
   );
 
   return (
     <div className="space-y-6">
+      {/* Demo / read-only banner — no policy API exists; data is sample-only. */}
+      <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        {t('KP_DemoBanner')}
+      </div>
+
       {/* Query Form */}
       <div className="rounded-lg border bg-card p-4">
         <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
@@ -329,26 +394,28 @@ export function KeyPolicyConfigurationListPage() {
           <FormSelect
             name="roleName"
             control={control}
-            label="Role Name"
+            label={t('KP_RoleName')}
             options={roleNameFilterOptions}
             placeholder={t('PUB_All')}
           />
           <FormSelect
             name="rotationMethods"
             control={control}
-            label="Rotation Methods"
-            options={rotationMethodFilterOptions}
+            label={t('KP_RotationMethods')}
+            options={rotationMethodOptions}
             placeholder={t('PUB_All')}
           />
           <FormSelect
             name="status"
             control={control}
-            label="Status"
+            label={t('key_management_0003')}
             options={statusFilterOptions}
             placeholder={t('PUB_All')}
           />
           <div>
-            <label className="text-sm font-medium">Creation Date</label>
+            <label className="text-sm font-medium">
+              {t('key_management_0002')}
+            </label>
             <div className="flex items-center gap-2">
               <Input type="date" {...register('startCreationDate')} />
               <span className="text-muted-foreground">-</span>
@@ -360,19 +427,22 @@ export function KeyPolicyConfigurationListPage() {
           <Button variant="outline" onClick={handleReset}>
             {t('PUB_Reset')}
           </Button>
+          <Button onClick={handleQuery}>{t('PUB_Query')}</Button>
         </div>
       </div>
 
       {/* Table */}
       <div className="rounded-lg border bg-card p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Key Rotation Policy List</h3>
-          <Button onClick={goNew}>+ New</Button>
+          <h3 className="text-lg font-semibold">{t('KP_PolicyListTitle')}</h3>
+          <Button onClick={goNew}>{t('KP_NewButton')}</Button>
         </div>
 
         <DataTable
-          columns={columns as any}
-          data={filteredRows.map((r) => ({ ...r, id: String(r.id) })) as any}
+          columns={columns}
+          data={filteredRows.map(
+            (r): PolicyListRow => ({ ...r, id: String(r.id) }),
+          )}
           emptyMessage={t('PUB_NoData')}
           pagination={{
             page,
@@ -384,69 +454,87 @@ export function KeyPolicyConfigurationListPage() {
       </div>
 
       {/* Disable / Enable Dialog (mode-driven, single instance) */}
-      <Dialog open={dialogMode !== null} onOpenChange={(open) => !open && closeDialog()}>
+      <Dialog
+        open={dialogMode !== null}
+        onOpenChange={(open) => !open && closeDialog()}
+      >
         <DialogContent className="max-w-[480px]">
           <DialogHeader>
             <DialogTitle>
               {isDisable
-                ? 'Disable Key Rotation Policy'
-                : 'Enable Key Rotation Policy'}
+                ? t('KP_DisableDialogTitle')
+                : t('KP_EnableDialogTitle')}
             </DialogTitle>
             <DialogDescription>
-              {isDisable
-                ? 'Once disabled, the service will become unavailable for any operations.'
-                : 'Once enabled, the rotation policy will be applied to all wallets under this business role.'}
+              {isDisable ? t('KP_DisableDialogDesc') : t('KP_EnableDialogDesc')}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Business Name</Label>
-              <Input value={currentRecord?.businessName ?? ''} disabled />
-            </div>
-
-            <form
-              id="policy-dialog-form"
-              onSubmit={dialogForm.handleSubmit(onDialogSubmit)}
-              className="space-y-1.5"
-            >
-              <Label htmlFor="policy-comments">
-                <span className="text-red-500">*</span> Comments
-              </Label>
-              <Textarea
-                id="policy-comments"
-                rows={4}
-                maxLength={200}
-                placeholder=""
-                {...dialogForm.register('comments')}
-              />
-              <div className="flex items-center justify-between">
-                {dialogForm.formState.errors.comments ? (
-                  <span className="text-xs text-red-500">
-                    {dialogForm.formState.errors.comments.message}
-                  </span>
-                ) : (
-                  <span />
-                )}
-                <span className="text-muted-foreground text-xs">
-                  {(dialogForm.watch('comments') ?? '').length}/200
-                </span>
+          {demoNotice ? (
+            /* Post-confirm state — explicit, cannot be mistaken for a save. */
+            <div className="space-y-4">
+              <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                {t('KP_DemoSubmitNotice')}
               </div>
-            </form>
-          </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={closeDialog}>
+                  {t('key_management_0017')}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>{t('KP_BusinessName')}</Label>
+                <Input value={currentRecord?.businessName ?? ''} disabled />
+                <p className="text-xs text-amber-700">
+                  {t('KP_DemoActionHint')}
+                </p>
+              </div>
+              <form
+                id="policy-dialog-form"
+                onSubmit={dialogForm.handleSubmit(onDialogSubmit)}
+                className="space-y-1.5"
+              >
+                <Label htmlFor="policy-comments">
+                  <span className="text-red-500">*</span>{' '}
+                  {t('key_management_0015')}
+                </Label>
+                <Textarea
+                  id="policy-comments"
+                  rows={4}
+                  maxLength={200}
+                  placeholder=""
+                  {...dialogForm.register('comments')}
+                />
+                <div className="flex items-center justify-between">
+                  {dialogForm.formState.errors.comments ? (
+                    <span className="text-xs text-red-500">
+                      {dialogForm.formState.errors.comments.message}
+                    </span>
+                  ) : (
+                    <span />
+                  )}
+                  <span className="text-muted-foreground text-xs">
+                    {(dialogForm.watch('comments') ?? '').length}/200
+                  </span>
+                </div>
+              </form>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
-              Cancel
-            </Button>
-            <Button
-              variant={isDisable ? 'destructive' : 'default'}
-              type="submit"
-              form="policy-dialog-form"
-            >
-              {isDisable ? 'Disable' : 'Enable'}
-            </Button>
-          </DialogFooter>
+              <DialogFooter>
+                <Button variant="outline" onClick={closeDialog}>
+                  {t('key_management_0017')}
+                </Button>
+                <Button
+                  variant={isDisable ? 'destructive' : 'default'}
+                  type="submit"
+                  form="policy-dialog-form"
+                >
+                  {isDisable ? t('KP_DisableDemo') : t('KP_EnableDemo')}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

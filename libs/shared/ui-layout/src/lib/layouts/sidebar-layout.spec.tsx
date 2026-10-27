@@ -12,6 +12,13 @@ jest.mock('@myorg/shared/util-auth', () => ({
 
 jest.mock('@myorg/shared/util-i18n', () => ({
   usePathname: () => null,
+  Link: React.forwardRef<HTMLAnchorElement, React.AnchorHTMLAttributes<HTMLAnchorElement>>(
+    ({ children, ...props }, ref) => (
+      <a ref={ref} {...props}>
+        {children}
+      </a>
+    ),
+  ),
 }));
 
 jest.mock('@myorg/shared/util-config', () => ({

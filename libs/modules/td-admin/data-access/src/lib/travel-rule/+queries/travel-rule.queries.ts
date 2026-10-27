@@ -5,11 +5,11 @@ import type { PaginatedResponse } from '@myorg/shared/model';
 import type { TravelRuleItem, TravelRuleQueryParams } from '../travel-rule.model';
 import { travelRuleKeys } from './travel-rule.keys';
 
-// ── Mock data (PRD §3/§8: no real API yet) ───────────────────────────
-// Two sample records, 1:1 from the source page (td-manage financial/travel-rule).
-// To switch to the real backend, replace the `queryFn` body below with:
-//   ({ signal }) => getTravelRules(params, { signal })
-// — the return shape is identical, so no page changes are needed.
+// ── Mock data ─────────────────────────────────────────────────────────
+// The source list page is intentionally local-only: its query form filters
+// component data and never calls a backend endpoint. A legacy detail contract
+// exists in `src/lib/api/financial.ts`, but it cannot replace this list query.
+// Keep the queryFn local until the backend provides a verified list contract.
 const TRAVEL_RULE_MOCK_DATA: TravelRuleItem[] = [
   {
     id: '1',

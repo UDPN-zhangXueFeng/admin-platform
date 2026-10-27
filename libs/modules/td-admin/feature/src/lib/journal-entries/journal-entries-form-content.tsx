@@ -12,6 +12,7 @@ import {
   useBillTokenListQuery,
   useInterestTxTypeQuery,
   useSaveBillRuleMutation,
+  useSaveBillSubjectMutation,
   type LoanRule,
   type SaveBillRuleDTO,
   type TxTypeRule,
@@ -64,7 +65,7 @@ function makeEmptyLoanRule(txType: number, loanType: number): LoanRule {
  * （txTypeItems 外层 + loanRuleList 内层 Dr/Cr）。token 选择联动 txTypeItems 初始化；
  * 科目 Select 联动 subjectTitle/subjectCategory；edit 回显；add/edit 保存。
  *
- * 简化：科目 AutoComplete → Select（功能等价）；保存新科目（subjectSave）暂未接（TODO）。
+ * 科目编码可直接输入并通过 subjectSave 保存；保存成功后刷新科目下拉。
  */
 export function JournalEntriesForm({
   ruleIdRaw,
@@ -80,6 +81,7 @@ export function JournalEntriesForm({
   const detailQuery = useBillRuleDetailQuery(ruleId, isEdit);
   const tokenListQuery = useBillTokenListQuery();
   const saveMutation = useSaveBillRuleMutation();
+  const saveSubjectMutation = useSaveBillSubjectMutation();
 
   const { control, register, handleSubmit, reset, watch, setValue } =
     useForm<FormValues>({
@@ -148,6 +150,36 @@ export function JournalEntriesForm({
       `txTypeItems.${index}.loanRuleList.${j}.subjectCategory`,
       subject?.subjectCategory ?? '',
     );
+  };
+
+  const onSubjectSave = async (index: number, j: number) => {
+    const rule = watch(`txTypeItems.${index}.loanRuleList.${j}`);
+    const stablecoinId =
+      currentStablecoinId || String(detailQuery.data?.stablecoinId ?? '');
+    const subjectCode = (rule?.subjectCode ?? '').trim();
+    const subjectTitle = (rule?.subjectTitle ?? '').trim();
+
+    if (
+      !stablecoinId ||
+      !/^[0-9]+(\.[0-9]{1,100})?$/.test(subjectCode) ||
+      !subjectTitle
+    ) {
+      toast.error(t('subjectSaveInvalid'));
+      return;
+    }
+
+    try {
+      await saveSubjectMutation.mutateAsync({
+        stablecoinId,
+        subjectCode,
+        subjectTitle,
+        subjectCategory: (rule?.subjectCategory ?? '').trim(),
+      });
+      await subjectListQuery.refetch();
+      toast.success(t('operateSuccess'));
+    } catch {
+      toast.error(tc('common_task_status_40'));
+    }
   };
 
   const onSubmit = (v: FormValues) => {
@@ -273,6 +305,8 @@ export function JournalEntriesForm({
               register={register}
               watch={watch}
               onSubjectChange={onSubjectChange}
+              onSubjectSave={onSubjectSave}
+              subjectSavePending={saveSubjectMutation.isPending}
               subjectOptions={subjectOptions}
               removeSection={() => remove(i)}
             />
@@ -319,6 +353,8 @@ interface TxTypeSectionProps {
   register: ReturnType<typeof useForm<FormValues>>['register'];
   watch: ReturnType<typeof useForm<FormValues>>['watch'];
   onSubjectChange: (index: number, j: number, code: string) => void;
+  onSubjectSave: (index: number, j: number) => void;
+  subjectSavePending: boolean;
   subjectOptions: { value: string; label: string }[];
   removeSection: () => void;
 }
@@ -330,6 +366,8 @@ function TxTypeSection({
   register,
   watch,
   onSubjectChange,
+  onSubjectSave,
+  subjectSavePending,
   subjectOptions,
   removeSection,
 }: TxTypeSectionProps) {
@@ -389,18 +427,31 @@ function TxTypeSection({
               <label className="text-xs text-muted-foreground">
                 {t('field.subjectCode')}
               </label>
-              <select
-                className="w-full rounded-md border px-2 py-1.5 text-xs"
-                value={watch(`txTypeItems.${index}.loanRuleList.${j}.subjectCode`)}
-                onChange={(e) => onSubjectChange(index, j, e.target.value)}
-              >
-                <option value="">--</option>
-                {subjectOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <div className="flex gap-1">
+                <input
+                  list={`journal-subject-options-${index}-${j}`}
+                  className="min-w-0 flex-1 rounded-md border px-2 py-1.5 text-xs"
+                  value={watch(
+                    `txTypeItems.${index}.loanRuleList.${j}.subjectCode`,
+                  )}
+                  onChange={(e) => onSubjectChange(index, j, e.target.value)}
+                />
+                <datalist id={`journal-subject-options-${index}-${j}`}>
+                  {subjectOptions.map((o) => (
+                    <option key={o.value} value={o.value} label={o.label} />
+                  ))}
+                </datalist>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 px-2"
+                  disabled={subjectSavePending}
+                  onClick={() => onSubjectSave(index, j)}
+                >
+                  {t('action.save')}
+                </Button>
+              </div>
             </div>
             <div className="col-span-2">
               <label className="text-xs text-muted-foreground">

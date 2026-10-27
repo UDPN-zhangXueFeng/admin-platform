@@ -123,9 +123,10 @@ export const setupRequiredCoaSetupMock: CoaSetupInfo = {
  *
  * - 1（Stablecoin） → 1
  * - 5（Tokenized Deposit） → 5
+ * - 10/15（零售/批发 CBDC） → undefined（无 Financial Book，与 MMF 同）
  * - 20（MMF Token） → undefined（MMF 无 Financial Book）
  *
- * @param mintMethod 铸币方法（1 | 5 | 20 | undefined）
+ * @param mintMethod 铸币方法（1 | 5 | 10 | 15 | 20 | undefined）
  * @returns tokenType 值或 undefined
  */
 export const getCoaTemplateTokenType = (

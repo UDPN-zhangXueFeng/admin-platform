@@ -1,8 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { usePathname } from '@myorg/shared/util-i18n';
-import Link from 'next/link';
+import { Link, usePathname } from '@myorg/shared/util-i18n';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@myorg/shared/util-classnames';
 import { SidebarActiveBackdrop } from './sidebar-active-backdrop';

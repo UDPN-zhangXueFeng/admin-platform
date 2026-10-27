@@ -2,7 +2,7 @@
 
 ## 1. 业务概述
 
-Travel Rule 页面用于展示涉及旅行规则（Travel Rule）的交易流水。当前源页面是一个**纯静态 mock 页面**，表格数据写死在组件内，顶部有一个查询表单但仅改变本地 state，不调用任何后端 API。页面上方 TODO 注释明确说明“需要后续对接数据及翻译提取”。
+Travel Rule 页面用于展示涉及旅行规则（Travel Rule）的交易流水。当前源页面是一个**纯静态 mock 页面**，表格数据写死在组件内，顶部有一个查询表单但仅改变本地 state，不调用后端。与此同时，旧项目 API 模块声明了一个交易详情契约；它不等价于当前列表页面的列表接口，不能据此把列表 mock 直接改成真实查询。
 
 ## 2. 源文件清单
 
@@ -10,9 +10,15 @@ Travel Rule 页面用于展示涉及旅行规则（Travel Rule）的交易流水
 |------|------|------|
 | `src/pages/financial/travel-rule/index.tsx` | 346 | 静态列表页：查询表单 + antd Table + Tag 状态渲染 |
 
-## 3. 依赖的 API
+## 3. 已知 API 契约（当前页面未接线）
 
-**无真实 API**。源文件仅使用本地 `mockData` 数组。
+旧项目 `src/lib/api/financial.ts` 声明：
+
+| Method | Endpoint | 用途 | 当前状态 |
+|---|---|---|---|
+| GET | `/api/finance/v1/finance/journal/travel-rule/{tdTxId}` | 单笔交易的 Travel Rule 详情 | 源列表页未调用；目标暂无详情路由 |
+
+当前源页面没有声明或调用 Travel Rule 列表 API。目标 `getTravelRules` 的 `/travel-rules` 仅为预留适配器，不能视为已验证的后端 endpoint。
 
 依赖的公共组件/工具：
 - `CopyableEllipsisText`（`src/lib/components/financial/CopyableEllipsisText.tsx`）
@@ -80,7 +86,7 @@ libs/modules/travel-rule/
 
 ## 8. 风险与注意事项
 
-- 当前无真实 API，迁移后仍保留 mock。若后续需要接 API，只需替换 `travel-rule.queries.ts` 中的 `queryFn`。
+- 当前页面仍保留 mock，因为源列表页没有真实列表请求；旧 API 模块的详情契约已单独记录。若后续接入，先确认列表/详情路由及返回结构，再替换 `travel-rule.queries.ts` 的 queryFn。
 - 表格列名在源文件中部分硬编码为英文（如 `Transaction Hash`），需全部提取到 i18n。
 - 状态颜色（Pending/Verified）需与目标项目主题色对齐。
 

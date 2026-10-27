@@ -21,12 +21,19 @@ export const RECON_ENABLED = 1;
 
 // ── 1) 状态机枚举 ──
 
-/** 铸币方法（mintMethod） */
+/**
+ * 铸币方法（mintMethod）。
+ * 源 OpenAPI TdApplyAddReqVo.mintMethod 枚举：1/5/10/15/20。
+ */
 export const MINT_METHOD = {
   /** 稳定币 */
   STABLECOIN: 1,
   /** 代币化存款 */
   TOKENIZED_DEPOSIT: 5,
+  /** 零售 CBDC */
+  RETAIL_CBDC: 10,
+  /** 批发 CBDC */
+  WHOLESALE_CBDC: 15,
   /** MMF Token */
   MMF: 20,
 } as const;
@@ -171,23 +178,27 @@ export const TD_STATE_ICON_COLOR: Record<number, string> = {
 
 // ── 5) fundType / riskLevel 映射（summary 组件用）──
 
-/** fundType 英文文案映射（1-7） */
+/**
+ * fundType 英文文案映射（1-7）。
+ * 对齐上游 /src/pages/tokenized-deposit/summary.tsx fundTypes（含 Fund 后缀）。
+ * 3/4 已线上验证（MMF2Coin fundType=3/4 显示）。
+ */
 export const FUND_TYPE_MAP: Record<number, string> = {
-  1: 'Retail Advantage',
-  2: 'Institutional Prime',
-  3: 'Wholesale Select',
-  4: 'Treasury Reserve',
-  5: 'Government Liquidity',
-  6: 'Sovereign Wealth',
-  7: 'Stablecoin Liquidity',
+  1: 'Retail Advantage Fund',
+  2: 'Institutional Prime Fund',
+  3: 'Government Secure Fund',
+  4: 'Prime Strategy Fund',
+  5: 'Tax-Free Growth Fund',
+  6: 'Global Horizon Fund',
+  7: 'Other Diversified Fund',
 } as const;
 
-/** riskLevel 英文文案映射（1-4） */
+/** riskLevel 英文文案映射（1-4），对齐上游 summary.tsx riskLevels。 */
 export const RISK_LEVEL_MAP: Record<number, string> = {
-  1: 'Low R1',
-  2: 'Moderately Low R2',
-  3: 'Moderate R3',
-  4: 'High R4',
+  1: 'Low Risk (R1)',
+  2: 'Moderately Low Risk (R2)',
+  3: 'Moderate Risk (R3)',
+  4: 'Moderately High Risk (R4)',
 } as const;
 
 // ── 6) COA 状态色（Financial Book 初始化卡片）──

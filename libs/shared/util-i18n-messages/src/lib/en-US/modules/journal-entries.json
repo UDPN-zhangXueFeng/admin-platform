@@ -46,6 +46,7 @@
   "lendingType": { "1": "Debit", "2": "Credit" },
   "empty": "No records",
   "operateSuccess": "Operation succeeded.",
+  "subjectSaveInvalid": "Enter a numeric subject code and subject title before saving.",
   "confirmDisable": "Disable rule of \"{tokenName}\"?",
   "confirmEnable": "Enable rule of \"{tokenName}\"?"
 }

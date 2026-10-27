@@ -3,12 +3,12 @@ import type { PaginatedResponse } from '@myorg/shared/model';
 import type { TravelRuleItem, TravelRuleQueryParams } from './travel-rule.model';
 
 /**
- * RESERVED real API for the travel-rule list.
+ * Reserved list adapter for a future backend contract.
  *
- * NOT wired yet — `useTravelRulesQuery` returns local mock data (PRD §3/§8:
- * there is no real API at this stage). When the backend is ready, switch the
- * `queryFn` in `travel-rule.queries.ts` to call this function; no page changes
- * are required because the return shape already matches the mock.
+ * The source list page uses local mock data and does not call a list API. The
+ * legacy source does declare a separate detail endpoint at
+ * `/api/finance/v1/finance/journal/travel-rule/{tdTxId}`; it is not equivalent
+ * to this list shape and is therefore not wired here.
  *
  * @param params - Filtering, sorting, and pagination parameters
  * @param config - Optional Axios request config (signal, headers)

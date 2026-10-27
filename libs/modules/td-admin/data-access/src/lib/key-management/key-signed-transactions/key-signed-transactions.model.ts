@@ -87,10 +87,14 @@ export interface KeySignedTransactionListFilters {
   signatureType?: string;
   tokenId?: number | string;
   blockchainId?: number | string;
-  startSignatureDate?: string;
-  endSignatureDate?: string;
-  startSubmissionDate?: string;
-  endSubmissionDate?: string;
+  /** Signature date range start (timestamp ms, day start). */
+  startSignatureDate?: number;
+  /** Signature date range end (timestamp ms, day end). */
+  endSignatureDate?: number;
+  /** Submission date range start (timestamp ms, day start). */
+  startSubmissionDate?: number;
+  /** Submission date range end (timestamp ms, day end). */
+  endSubmissionDate?: number;
   transactionHash?: string;
 }
 

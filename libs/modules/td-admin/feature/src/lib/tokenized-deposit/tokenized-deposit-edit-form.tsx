@@ -68,7 +68,6 @@ function EditStacked({
     mintMethod,
     symbol,
     currency,
-    thresholdType,
     reserveList,
     blockchainList,
     currencyList,
@@ -139,7 +138,6 @@ function EditStacked({
             mintMethod={mintMethod}
             symbol={symbol}
             currency={currency}
-            thresholdType={thresholdType}
             reserveList={reserveList}
             blockchainList={blockchainList as BlockchainOption[] | undefined}
             currencyList={currencyList}

@@ -1,22 +1,21 @@
 /**
  * KeyPolicyConfigurationDetailPage — read-only detail view with two tabs.
  *
- * Tab 1 (Basic Information): a single card rendering the 10 fields of
- * `policyDetail` (Business Name / Status / Description / Rotation Frequency /
- * Rotation Time / Rotation Methods / Created by / Created on / Updated by /
- * Updated on) with a Back button.
+ * Tab 1 (Basic Information): a card rendering the 10 policy fields
+ * (Business Name / Status / Description / Rotation Frequency / Rotation Time /
+ * Rotation Methods / Created by / Created on / Updated by / Updated on) with
+ * a Back button.
  * Tab 2 (Operation Records): an Operation Type filter (5 options + All) +
  * Reset + Query buttons, front-end `useMemo` filtering of `operationRecords`
  * (5 items), a paginated DataTable (6 columns), and a Back button.
  *
  * Pure mock (plan §8.B):
  * - No API / no TanStack Query. Data is imported from data-access mock-data.
- * - Detail does NOT query by id (plan §8.C.3): the source `detail.tsx`
- *   ignores `?id=` and always shows the hardcoded `keyPolicyData`. We keep
- *   that mock behavior — read `id` for semantic parity but always render
- *   `policyDetail`.
- * - Operation Records Actions column renders a `Details` placeholder with
- *   no onClick (plan §8.C.4 dead link), mirroring the source.
+ *   Confirmed 2026-10-27: upstream detail.tsx is fully static and the live
+ *   backend documents no key rotation policy detail/records endpoint.
+ * - Resolve the selected sample by id; unknown ids are not substituted with
+ *   another policy. The standalone detail/operation examples belong only to
+ *   Contract Owner and must not be presented as another sample's history.
  *
  * Architecture mirrors `managed-wallets-detail-page.tsx` (Tabs + DetailItem)
  * and `key-signed-transactions-list-page.tsx` (react-hook-form + DataTable).
@@ -42,18 +41,33 @@ import {
 import { FormSelect } from '@myorg/shared/ui-forms';
 
 import {
-  policyDetail,
   operationRecords,
+  policyDetail,
+  policyList,
   type OperationRecord,
+  type PolicyDetail,
 } from '@myorg/modules/td-admin/data-access';
-import {
-  operationRecordStatusMap,
-} from '.';
+import { keyPolicyStatusMap, operationRecordStatusMap } from '.';
 import { operationTypeOptions } from './constants';
 
 /** Sentinel value for the "All" filter option — must not be '' (plan §8.F). */
 const ALL_VALUE = 'all';
 const RECORDS_PAGE_SIZE = 10;
+
+/** Status value → i18n key (reuses existing keys; KP_Disabled is new). */
+const statusLabelKeyMap: Record<string, string> = {
+  Processing: 'key_management_0020',
+  Rejected: 'key_management_0021',
+  Enabled: 'key_management_0018',
+  Disabled: 'KP_Disabled',
+};
+
+/** Operation-record status value → i18n key (existing keys). */
+const recordStatusLabelKeyMap: Record<string, string> = {
+  'Pending Approval': 'key_management_0031',
+  Approved: 'key_management_0033',
+  Rejected: 'key_management_0021',
+};
 
 /**
  * Map an operation-record status tone (from operationRecordStatusMap) to a
@@ -63,6 +77,8 @@ const RECORDS_PAGE_SIZE = 10;
  */
 function toneToBadgeClass(tone: string): string {
   switch (tone) {
+    case 'processing':
+      return 'border-blue-300 text-blue-700 bg-blue-50';
     case 'success':
       return 'border-green-500 text-green-700 bg-green-50';
     case 'warning':
@@ -73,6 +89,9 @@ function toneToBadgeClass(tone: string): string {
       return 'border-gray-300 text-gray-700 bg-gray-50';
   }
 }
+
+/** DataTable row shape: mock `key` is a number → string id for the table. */
+type OperationRecordRow = OperationRecord & { id: string };
 
 interface DetailItemProps {
   label: string;
@@ -97,21 +116,32 @@ const RECORDS_FILTER_DEFAULTS: RecordsFilterFormValues = {
   operationType: ALL_VALUE,
 };
 
-/** Operation Type options: explicit "All" + the 5 source operation types. */
-const operationTypeFilterOptions = [
-  { label: 'All', value: ALL_VALUE },
-  ...operationTypeOptions,
-];
-
 export function KeyPolicyConfigurationDetailPage() {
   const t = useTranslations('modules.key-management');
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Read `id` for semantic parity, but do NOT query by it (plan §8.C.3).
-  // The source always renders the hardcoded keyPolicyData; we mirror that
-  // by always rendering policyDetail.
-  void searchParams.get('id');
+  const record: PolicyDetail | null = React.useMemo(() => {
+    const raw = searchParams.get('id');
+    const id = raw !== null && raw !== '' ? Number(raw) : NaN;
+    const match = Number.isFinite(id)
+      ? policyList.find((item) => item.id === id)
+      : undefined;
+    if (!match) return null;
+    const detailExample = match.businessName === policyDetail.businessName;
+    return {
+      businessName: match.businessName,
+      status: match.status,
+      description: match.description,
+      rotationFrequency: match.rotationFrequency,
+      rotationTime: match.rotationTime,
+      rotationMethods: match.rotationMethods,
+      createdBy: detailExample ? policyDetail.createdBy : undefined,
+      createdOn: match.createdOn ? new Date(match.createdOn).toLocaleString() : undefined,
+      updatedBy: detailExample ? policyDetail.updatedBy : undefined,
+      updatedOn: detailExample ? policyDetail.updatedOn : undefined,
+    };
+  }, [searchParams]);
 
   // ----- Operation Records: form + front-end filter + pagination -----
   const [recordsPage, setRecordsPage] = React.useState(1);
@@ -127,71 +157,96 @@ export function KeyPolicyConfigurationDetailPage() {
     React.useState<string>(ALL_VALUE);
 
   const filteredRecords = React.useMemo<OperationRecord[]>(() => {
+    if (record?.businessName !== policyDetail.businessName) return [];
     if (committedOperationType === ALL_VALUE) return operationRecords;
     return operationRecords.filter(
-      (record) => record.operationType === committedOperationType,
+      (recordItem) => recordItem.operationType === committedOperationType,
     );
-  }, [committedOperationType]);
+  }, [committedOperationType, record?.businessName]);
 
-  const recordsColumns = React.useMemo<ColumnDef<OperationRecord>[]>(
+  const recordsColumns = React.useMemo<ColumnDef<OperationRecordRow>[]>(
     () => [
       {
         accessorKey: 'operationType',
-        header: 'Operation Type',
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        header: t('key_management_0048'),
+        cell: ({ row }) => row.original.operationType || '--',
       },
       {
         accessorKey: 'createdBy',
-        header: 'Created by',
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        header: t('key_management_0049'),
+        cell: ({ row }) => row.original.createdBy || '--',
       },
       {
         accessorKey: 'createdOn',
-        header: 'Created on',
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        header: t('key_management_0005'),
+        cell: ({ row }) => row.original.createdOn || '--',
       },
       {
         accessorKey: 'comments',
-        header: 'Comments',
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        header: t('key_management_0015'),
+        cell: ({ row }) => row.original.comments || '--',
       },
       {
         accessorKey: 'status',
-        header: 'Status',
-        cell: ({ getValue }) => {
-          const status = getValue() as string;
+        header: t('key_management_0003'),
+        cell: ({ row }) => {
+          const status = row.original.status;
           const config = operationRecordStatusMap[status];
           if (!config) return status || '--';
+          const labelKey = recordStatusLabelKeyMap[status];
           return (
             <span
               className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${toneToBadgeClass(
                 config.tone,
               )}`}
             >
-              {config.label}
+              {labelKey ? t(labelKey) : config.label}
             </span>
           );
         },
       },
       {
         id: 'actions',
-        header: 'Actions',
+        header: t('key_management_0062'),
         // Plan §8.C.4: source renders a `Details` span with no onClick
         // (dead link). Kept as a non-interactive placeholder to mirror it.
-        cell: () => (
-          <span className="text-blue-600">Details</span>
-        ),
+        cell: () => <span className="text-blue-600">Details</span>,
       },
     ],
-    [],
+    [t],
   );
+  if (!record) {
+    return (
+      <div className="space-y-4">
+        <p>{t('KP_PolicyNotFound')}</p>
+        <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
+      </div>
+    );
+  }
+
+
+  // Policy status badge — tone from the same map the list page uses (the
+  // source detail hardcodes green; wrong for Rejected/Disabled records).
+  const statusEntry = record.status
+    ? keyPolicyStatusMap[record.status]
+    : undefined;
+  const statusLabelKey = record.status
+    ? statusLabelKeyMap[record.status]
+    : undefined;
 
   return (
     <div className="space-y-6">
+      {/* Demo / read-only banner — no detail API exists; data is sample-only. */}
+      <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        {t('KP_DemoBanner')}
+      </div>
+
       <Tabs defaultValue="basic" className="w-full">
         <TabsList>
-          <TabsTrigger value="basic">Basic Information</TabsTrigger>
-          <TabsTrigger value="records">Operation Records</TabsTrigger>
+          <TabsTrigger value="basic">{t('key_management_0057')}</TabsTrigger>
+          <TabsTrigger value="records">
+            {t('key_management_0058')}
+          </TabsTrigger>
         </TabsList>
 
         {/* ---------- Tab 1: Basic Information ---------- */}
@@ -199,51 +254,56 @@ export function KeyPolicyConfigurationDetailPage() {
           <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
             <div className="flex flex-col space-y-1.5 p-6">
               <h3 className="text-2xl font-semibold leading-none tracking-tight">
-                Key Rotation Policy Details
+                {t('KP_PolicyDetailsTitle')}
               </h3>
             </div>
             <div className="grid grid-cols-1 gap-6 p-6 pt-0 md:grid-cols-2 lg:grid-cols-3">
-              <DetailItem label="Business Name">
-                {policyDetail.businessName || '--'}
+              <DetailItem label={t('KP_BusinessName')}>
+                {record.businessName || '--'}
               </DetailItem>
-              <DetailItem label="Status">
-                <span
-                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${toneToBadgeClass(
-                    'success',
-                  )}`}
-                >
-                  {/* Plan §7 step 5: source Tab1 hardcodes green for status. */}
-                  {policyDetail.status || '--'}
-                </span>
+              <DetailItem label={t('key_management_0003')}>
+                {statusEntry ? (
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${toneToBadgeClass(
+                      statusEntry.tone,
+                    )}`}
+                  >
+                    {statusLabelKey ? t(statusLabelKey) : statusEntry.label}
+                  </span>
+                ) : (
+                  '--'
+                )}
               </DetailItem>
-              <DetailItem label="Description">
-                {policyDetail.description || '--'}
+              <DetailItem label={t('key_management_0053')}>
+                {record.description || '--'}
               </DetailItem>
-              <DetailItem label="Rotation Frequency">
-                {policyDetail.rotationFrequency || '--'}
+              <DetailItem label={t('KP_RotationFrequency')}>
+                {record.rotationFrequency || '--'}
               </DetailItem>
-              <DetailItem label="Rotation Time">
-                {policyDetail.rotationTime || '--'}
+              <DetailItem label={t('KP_RotationTime')}>
+                {record.rotationTime || '--'}
               </DetailItem>
-              <DetailItem label="Rotation Methods">
-                {policyDetail.rotationMethods || '--'}
+              <DetailItem label={t('KP_RotationMethods')}>
+                {record.rotationMethods || '--'}
               </DetailItem>
-              <DetailItem label="Created by">
-                {policyDetail.createdBy || '--'}
+              <DetailItem label={t('key_management_0049')}>
+                {record.createdBy || '--'}
               </DetailItem>
-              <DetailItem label="Created on">
+              <DetailItem label={t('key_management_0005')}>
                 {/* Pre-formatted string (plan §8.C.1) — no formatTimestamp. */}
-                {policyDetail.createdOn || '--'}
+                {record.createdOn || '--'}
               </DetailItem>
-              <DetailItem label="Updated by">
-                {policyDetail.updatedBy || '--'}
+              <DetailItem label={t('key_management_0051')}>
+                {record.updatedBy || '--'}
               </DetailItem>
-              <DetailItem label="Updated on">
-                {policyDetail.updatedOn || '--'}
+              <DetailItem label={t('key_management_0052')}>
+                {record.updatedOn || '--'}
               </DetailItem>
             </div>
             <div className="flex justify-end p-6 pt-0">
-              <Button onClick={() => router.back()}>Back</Button>
+              <Button onClick={() => router.back()}>
+                {t('key_management_0056')}
+              </Button>
             </div>
           </div>
         </TabsContent>
@@ -252,18 +312,19 @@ export function KeyPolicyConfigurationDetailPage() {
         <TabsContent value="records" className="mt-4 space-y-6">
           <div className="rounded-lg border bg-card p-4">
             <div className="mb-4 text-sm text-muted-foreground">
-              Displays all activity logs related to the{' '}
-              <span className="font-bold">
-                {'(Contract Owner Key Rotation Policy)'}
-              </span>
-              .
+              {t('key_management_0047', {
+                name: `${record.businessName || '--'} Key Rotation Policy`,
+              })}
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <FormSelect
                 name="operationType"
                 control={control}
-                label="Operation Type"
-                options={operationTypeFilterOptions}
+                label={t('key_management_0048')}
+                options={[
+                  { label: t('PUB_All'), value: ALL_VALUE },
+                  ...operationTypeOptions,
+                ]}
               />
             </div>
             <div className="mt-4 flex justify-end gap-2">
@@ -295,11 +356,10 @@ export function KeyPolicyConfigurationDetailPage() {
 
           <div className="rounded-lg border bg-card p-4">
             <DataTable
-              columns={recordsColumns as any}
-              data={filteredRecords.map((r) => ({
-                ...r,
-                id: String(r.key),
-              })) as any}
+              columns={recordsColumns}
+              data={filteredRecords.map(
+                (r): OperationRecordRow => ({ ...r, id: String(r.key) }),
+              )}
               emptyMessage={t('PUB_NoData')}
               pagination={{
                 page: recordsPage,
@@ -309,7 +369,9 @@ export function KeyPolicyConfigurationDetailPage() {
               }}
             />
             <div className="mt-6 flex justify-end">
-              <Button onClick={() => router.back()}>Back</Button>
+              <Button onClick={() => router.back()}>
+                {t('key_management_0056')}
+              </Button>
             </div>
           </div>
         </TabsContent>

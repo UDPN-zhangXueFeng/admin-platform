@@ -62,8 +62,8 @@ import { useTokenizedDepositSubmit } from './tokenized-deposit-edit/hooks/use-to
  *
  * ## 默认值（对齐源 initialValues）
  *
- * usPrice:'1' / accountTypeList:[1] / whitelistMode:'full' / thresholdType:'volume' /
- * thresholdFrequency:'daily' / enableTokenReconciliation:RECON_DISABLED /
+ * usPrice:'1' / accountTypeList:[1] / whitelistMode:'full' /
+ * enableTokenReconciliation:RECON_DISABLED /
  * enableReserveAssetReconciliation:RECON_DISABLED
  *
  * ## 命令式 ↔ 声明式桥接（源 useSWR/命令式 API → TanStack Query）
@@ -88,8 +88,6 @@ const DEFAULT_FORM_VALUES = {
   accountTypeList: [1],
   metaType: 5,
   whitelistMode: 'full',
-  thresholdType: 'volume',
-  thresholdFrequency: 'daily',
   enableTokenReconciliation: RECON_DISABLED,
   enableReserveAssetReconciliation: RECON_DISABLED,
 } as TDEditFormValues;
@@ -157,7 +155,6 @@ export function useTokenizedDepositForm({
     | number
     | undefined;
   const keyServiceName = form.watch('keyServiceName') as string | undefined;
-  const thresholdType = form.watch('thresholdType') as string | undefined;
   const reserveReconValue = form.watch('enableReserveAssetReconciliation') as
     | number
     | undefined;
@@ -802,7 +799,9 @@ export function useTokenizedDepositForm({
           'metaType',
           'whitelistMode',
         ];
-        if (mintMethod === MINT_METHOD.STABLECOIN) {
+        // 与源 showReserveAccount(!flag && mm!==20) 一致：Stablecoin + CBDC
+        // 均显示储备账户，步骤校验同口径（TD=flag / MMF 除外）。
+        if (!flag && mintMethod !== undefined && mintMethod !== MINT_METHOD.MMF) {
           fields.push('reserveAccountId');
         }
         return form.trigger(fields, { shouldFocus: true });
@@ -852,6 +851,7 @@ export function useTokenizedDepositForm({
     },
     [
       form,
+      flag,
       mintMethod,
       setStablecoinCoaErrors,
       setTokenizedDepositCoaErrors,
@@ -1048,7 +1048,6 @@ export function useTokenizedDepositForm({
     mintMethod,
     reserveAccountId,
     keyServiceName,
-    thresholdType,
     reserveReconValue,
     smartContractPackageId,
     ownerWalletAddr,

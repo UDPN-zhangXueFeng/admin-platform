@@ -40,6 +40,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import {
   CheckCircle2,
   Clock,
@@ -56,7 +57,7 @@ import {
   DialogTitle,
   Progress,
 } from '@myorg/shared/ui';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { usePermission } from '@myorg/shared/util-auth';
 import { TD_PERMISSIONS } from '@myorg/modules/td-admin/data-access';
 import {
   useDeployContractMutation,
@@ -81,31 +82,16 @@ const STEP_TITLE_KEYS = [
 export interface DeployContractModalProps {
   /** Modal 开关。 */
   open: boolean;
-  /** taskCode（拉步骤详情 + 部署/升级 body）。 */
+  /**
+   * 打开时捕获的原始任务编码（源 newSmart[0] 首行三元：upgraded===1
+   * ? upgradeTaskCode : taskCode）。升级点击后仅内部切换 activeTaskCode，
+   * 本 prop 恒为原始值（源 2148: taskCode={taskCode} 不变）。
+   */
   taskCode: string;
-  /**
-   * 部署类型（源 deployInfo.deployType）：1=升级 / 其它=部署。
-   * 决定标题文案 + 部署/升级分支。
-   */
-  deployType: number;
-  /**
-   * deployInfo 展示字段（源 getDeployInfo 拉取的 data[0]）。
-   * tdName / blockchainName / packageName / contractVersion。
-   */
-  deployInfo: {
-    tdName?: string;
-    blockchainName?: string;
-    packageName?: string;
-    contractVersion?: string;
-  };
-  /**
-   * 部署状态（源 deployInfo.deployState）：0=未部署（显示部署/升级按钮）。
-   */
-  deployState?: number;
-  /** 升级时拉升级 taskCode 步骤（源 getDeployInfo(upgradeTaskCode)）。 */
-  upgradeTaskCode?: string;
-  /** 升级时拉 upgradeTaskCode 步骤的回调（Shell 调 getDeployInfo）。 */
-  onUpgrade?: (upgradeTaskCode: string) => void;
+  /** TD 类型（源 getUsablePrice?.type）：1=升级型 / 其它=普通部署。驱动标题 + 按钮分支。 */
+  tdType?: number;
+  /** 触发行的合约包 state（源 data.state）：驱动标题 Router_021/0131 与 0031 分支。 */
+  contractState?: number;
   /** 取消回调。 */
   onCancel: () => void;
 }
@@ -165,63 +151,96 @@ function StepItemView({
 /**
  * 合约部署/升级 Modal。
  *
- * 用法：
+ * 用法（Shell）：
  * ```tsx
  * <DeployContractModal
- *   open={isModalOpenDelopy}
- *   taskCode={taskCode}
- *   deployType={deployInfo?.deployType ?? 0}
- *   deployInfo={deployInfo ?? {}}
- *   deployState={deployInfo?.deployState}
- *   upgradeTaskCode={deployInfo?.upgradeTaskCode}
- *   onUpgrade={(code) => refetchStep(code)}
- *   onCancel={() => setIsModalOpenDelopy(false)}
+ *   open={deployModal != null}
+ *   taskCode={deployModal?.taskCode ?? ''}
+ *   tdType={currentTd?.type}
+ *   contractState={deployModal?.state}
+ *   onCancel={() => setDeployModal(null)}
  * />
  * ```
+ *
+ * 源差异：旧实现由 shell 级 deployInfo 驱动（deployType/deployState/
+ * upgradeTaskCode props + onUpgrade 回调），升级点击后 upgradeTaskCode 从未
+ * 回灌查询 key → 步骤区一直显示部署任务。现改为 Modal 内部 activeTaskCode
+ * state（taskCode prop 仍为原始值，与源一致），升级点击仅切换内部查询 key，
+ * 自包含无 shell 依赖；步骤详情真身（tdName/deployState/deployType/
+ * upgradeTaskCode）也全部来自本 Modal 查询（源 getDeployInfo data[0]）。
  */
 export function DeployContractModal({
   open,
   taskCode,
-  deployType,
-  deployInfo,
-  deployState,
-  upgradeTaskCode,
-  onUpgrade,
+  tdType,
+  contractState,
   onCancel,
 }: DeployContractModalProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
   const { mutateAsync: deployAsync, isPending } = useDeployContractMutation();
+  const hasUpgradeDeployPerm = usePermission(TD_PERMISSIONS.UPGRADE_DEPLOY);
+  const hasDeployPerm = usePermission(TD_PERMISSIONS.DEPLOY);
 
-  // 拉步骤详情（源 getDeployInfo(taskCode)）。
-  const { data: stepDetail } = useDeployStepDetailQuery(
-    open && taskCode ? { taskCode } : undefined,
+  // 内部激活任务编码（源：taskCode prop 恒原始值，升级点击 → getDeployInfo(upgradeTaskCode)）。
+  const [activeTaskCode, setActiveTaskCode] = React.useState(taskCode);
+  React.useEffect(() => {
+    if (open) setActiveTaskCode(taskCode);
+  }, [open, taskCode]);
+
+  // 拉步骤详情（源 getDeployInfo(activeTaskCode)）。
+  const stepQuery = useDeployStepDetailQuery(
+    open && activeTaskCode ? { taskCode: activeTaskCode } : undefined,
   );
+  const rawDetail = stepQuery.data;
 
-  // stepDetailList（源 stepDetailList，真实字段 state/deployProcess）。
-  const stepList = (stepDetail?.stepDetailList ?? []) as unknown as StepRow[];
+  // stepDetailList 真实字段 state/deployProcess；顶层真实字段 deployState/
+  // deployType/upgradeTaskCode（model 未全，局部断言，surgical scope）。
+  type StepDetailExtra = {
+    deployState?: number | string;
+    deployType?: number | string;
+    upgradeTaskCode?: string;
+    tdName?: string;
+    blockchainName?: string;
+    packageName?: string;
+    contractVersion?: string;
+  };
+  const detail = (rawDetail ?? undefined) as
+    | (NonNullable<typeof rawDetail> & StepDetailExtra)
+    | undefined;
+  const stepList = (detail?.stepDetailList ?? []) as unknown as StepRow[];
+
+  const isUpgrade = Number(detail?.deployType) === 1;
+  const showActionButtons = Number(detail?.deployState) === 0;
 
   // 部署/升级文案（源 delopySatus===1 ? Upgrade : Deploy）。
-  const actionWord = deployType === 1 ? t('PUB_Upgrade') : t('PUB_Deploy');
+  const actionWord = isUpgrade ? t('PUB_Upgrade') : t('PUB_Deploy');
 
-  // 标题（源 2136-2146）：type===1 升级分支 / 其它部署分支。
+  // 标题（源 2136-2146）：tdType===1 升级分支 / 其它部署分支。
   const title =
-    deployType === 1 ? t('tokenized_deposit_0131') : t('tokenized_deposit_0031');
+    tdType === 1
+      ? contractState === 1
+        ? t('Router_021')
+        : t('tokenized_deposit_0131')
+      : contractState === 0
+        ? t('tokenized_deposit_0031')
+        : t('Router_021');
 
-  // 部署按钮回调（源 2187-2195）：getDeploy(taskCode, 'showSuccess')。
+  // 部署回调（源 2187-2195 getDeploy(taskCode, 'showSuccess')）：body 用原始
+  // taskCode；成功后 Modal 保持打开（源仅 toast + 步骤刷新，无关闭）。
   const handleDeploy = async () => {
     try {
       await deployAsync({ taskCode });
-      onCancel();
+      // 源 message.success（PUB_Success 模板 **** → PUB_Submitted）。
+      toast.success(t('PUB_Success').replace('****', t('PUB_Submitted')));
     } catch {
       // mutation 错误由 apiClient 拦截器统一 toast。
     }
   };
 
-  // 升级按钮回调（源 2200-2208）：getDeployInfo(upgradeTaskCode)。
+  // 升级回调（源 2200-2208）：切换内部查询 key 到 upgradeTaskCode。
   const handleUpgrade = () => {
-    if (upgradeTaskCode && onUpgrade) {
-      onUpgrade(upgradeTaskCode);
-    }
+    const upgradeTaskCode = detail?.upgradeTaskCode;
+    if (upgradeTaskCode) setActiveTaskCode(upgradeTaskCode);
   };
 
   return (
@@ -232,61 +251,59 @@ export function DeployContractModal({
           <DialogDescription className="sr-only">{title}</DialogDescription>
         </DialogHeader>
 
-        {/* deployInfo 展示（源 2153-2178） */}
+        {/* deployInfo 展示（源 2153-2178，来自步骤详情接口 data[0]） */}
         <div className="mb-4 ml-2 flex flex-col">
           <div className="mb-3 flex">
             <span className="w-2/5 text-left font-bold">
               {t('tokenized_deposit_0005')}:
             </span>
-            <span>{deployInfo?.tdName ?? '--'}</span>
+            <span>{detail?.tdName ?? '--'}</span>
           </div>
           <div className="mb-3 flex">
             <span className="w-2/5 text-left font-bold">
               {t('tokenized_deposit_0007')}:
             </span>
-            <span>{deployInfo?.blockchainName ?? '--'}</span>
+            <span>{detail?.blockchainName ?? '--'}</span>
           </div>
           <div className="mb-3 flex">
             <span className="w-2/5 text-left font-bold">
               {t('tokenized_deposit_0033')}:
             </span>
-            <span>{deployInfo?.packageName ?? '--'}</span>
+            <span>{detail?.packageName ?? '--'}</span>
           </div>
           <div className="mb-3 flex">
             <span className="w-2/5 text-left font-bold">
               {t('tokenized_deposit_0034')}:
             </span>
-            <span>{deployInfo?.contractVersion ?? '--'}</span>
+            <span>{detail?.contractVersion ?? '--'}</span>
           </div>
         </div>
 
-        {/* 部署/升级按钮（源 2179-2211，deployState===0 时显示） */}
-        {deployState === 0 ? (
-          deployType === 1 ? (
-            <PermissionGuard permission={TD_PERMISSIONS.UPGRADE_DEPLOY}>
+        {/* 部署/升级按钮（源 2179-2211，deployState===0 时显示；无权限 → null） */}
+        {showActionButtons ? (
+          tdType === 1 ? (
+            hasUpgradeDeployPerm ? (
               <div className="mb-2 flex justify-center">
                 <Button onClick={handleUpgrade}>{t('Router_0003_13')}</Button>
               </div>
-            </PermissionGuard>
-          ) : (
-            <PermissionGuard permission={TD_PERMISSIONS.DEPLOY}>
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex w-4/5 items-center">
-                  <Info className="mr-2 h-5 w-5 shrink-0 text-primary" />
-                  <span>{t('tokenized_deposit_0035')}</span>
-                </div>
-                <Button disabled={isPending} onClick={handleDeploy}>
-                  {t('Router_0003_12')}
-                </Button>
+            ) : null
+          ) : hasDeployPerm ? (
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex w-4/5 items-center">
+                <Info className="mr-2 h-5 w-5 shrink-0 text-primary" />
+                <span>{t('tokenized_deposit_0035')}</span>
               </div>
-            </PermissionGuard>
-          )
+              <Button disabled={isPending} onClick={handleDeploy}>
+                {t('Router_0003_12')}
+              </Button>
+            </div>
+          ) : null
         ) : null}
 
         {/* 步骤进度（源 2212-2253） */}
         <div className="p-2">
           <div className="mb-3 text-base font-bold">
-            {deployType === 1
+            {isUpgrade
               ? t('tokenized_deposit_0041')
               : t('tokenized_deposit_0036')}
             :

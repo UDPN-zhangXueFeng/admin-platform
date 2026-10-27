@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
-import { DataTable } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
+import { Button, DataTable } from '@myorg/shared/ui';
+import { formatAdminDateTime, formatDate } from '@myorg/shared/util-dates';
 import {
   useMMFSummaryQuery,
   type MMFSummaryItem,
@@ -66,14 +66,7 @@ export function Summary({ tokenCode }: SummaryProps): React.JSX.Element {
   const total = query.data?.page?.total ?? 0;
   const isLoading = query.isLoading || query.isFetching;
 
-  // 副标题：当前 UTC+08:00 时间
-  const subtitleDate = React.useMemo(() => {
-    const now = new Date();
-    const iso = now.toISOString(); // "2026-07-13T08:30:00.000Z"
-    const datePart = iso.split('T')[0];
-    const timePart = now.toTimeString().split(' ')[0]; // HH:MM:SS (local)
-    return `${datePart} ${timePart} UTC+08:00`;
-  }, []);
+  const subtitleDate = React.useMemo(() => formatAdminDateTime(new Date()), []);
 
   const columns = React.useMemo<ColumnDef<MMFSummaryItem>[]>(
     () => [
@@ -201,6 +194,14 @@ export function Summary({ tokenCode }: SummaryProps): React.JSX.Element {
       </div>
 
       <div className="p-4">
+        {query.isError && (
+          <div role="alert" className="mb-3 flex items-center gap-3 text-sm text-destructive">
+            <span>{t('td_query_load_failed')}</span>
+            <Button type="button" variant="outline" size="sm" onClick={() => query.refetch()}>
+              {t('td_retry')}
+            </Button>
+          </div>
+        )}
         <DataTable
           columns={columns}
           data={rows}

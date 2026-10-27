@@ -38,11 +38,13 @@ export function useManagedWalletDetailQuery(chainAccountId?: number) {
 /** Paginated rotation history for a wallet. */
 export function useManagedWalletRotationHistoryQuery(
   params: WalletRotationHistoryParams,
+  enabled = true,
 ) {
   return useQuery({
     queryKey: managedWalletKeys.rotationHistory(params),
     queryFn: ({ signal }) =>
       getManagedWalletRotationHistory(params, { signal }),
     placeholderData: keepPreviousData,
+    enabled,
   });
 }
