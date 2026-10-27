@@ -8,7 +8,7 @@
 import type { AxiosRequestConfig } from 'axios';
 import type { PaginatedResponse } from '@myorg/shared/model';
 
-import { kissenPage, kissenRequest } from '../kissen-client';
+import { kissenPage, kissenRequest, type KissenPageResult } from '../kissen-client';
 import type {
   LpPairRow,
   LpPairSaveReq,
@@ -96,16 +96,18 @@ export function removeLpPair(
 }
 
 /**
- * Token 对选项（薄调用 POST /manage/token-pair/list，扁平 body——源 api/token-pair.ts
- * pairList；filter.status=20 供配池编辑器只列启用对）。
+ * Token 对选项（POST /manage/token-pair/list，DataTable 分页口径——2026-09-29 后端
+ * 分页化后扁平 body 报“分页参数不能为空”，2026-10-27 修正；status=20 供配池
+ * 编辑器只列启用对，pageSize 取 200 覆盖全量选项）。
  */
 export async function getLpPairTokenPairOptions(
   filter: { status?: number } = {},
   config?: AxiosRequestConfig,
 ): Promise<LpPairTokenPairOption[]> {
-  return kissenRequest.post<LpPairTokenPairOption[]>(
+  const raw = await kissenRequest.post<KissenPageResult<LpPairTokenPairOption>>(
     '/manage/token-pair/list',
-    filter,
+    { page: { pageNum: 1, pageSize: 200 }, data: filter },
     config,
   );
+  return raw?.rows ?? [];
 }

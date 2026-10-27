@@ -113,7 +113,9 @@ export function SearchableSelect({
                 className={cn(
                   'flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none',
                   'aria-selected:bg-accent aria-selected:text-accent-foreground',
-                  'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+                  // cmdk 恒渲染 data-disabled="false|true"（属性总在），presence 变体会
+                  // 误伤全部选项——必须按值匹配（2026-10-27 修复"下拉有数据点不动"）
+                  'data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50',
                 )}
               >
                 <Check
