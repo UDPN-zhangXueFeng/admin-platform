@@ -8,12 +8,12 @@
  * - 页头 + 筛选卡（Bank Name / BIC 服务端模糊，POST /bank/query/list）+
  *   服务端分页（2026-10-13 分页清单）。协议无排序/类型参数 → Bank Type
  *   筛选移除（列保留），表头静态，行序保持服务端下发序。
- * - 列序对齐原型：Bank Name（首列）/ Bank Type / SWIFT BIC（原 'Bank Code/BIC'）
+ * - 列序对齐原型：Bank Name（首列）/ Bank Type / BIC（原 'Bank Code/BIC'）
  *   / Official Website（恒 '-'，协议扩展 P1 占位）/ Tradable Tokens（chips）/
  *   Synced on (UTC+8) / Actions 'Details'。
  *
  * 详情 /bank/query/detail?id={bankId}：
- * - 页头（Back + bankName + 状态徽章 + meta SWIFT BIC | Synced on）→ 页面级
+ * - 页头（Back + bankName + 状态徽章 + meta BIC | Synced on）→ 页面级
  *   Tabs（basic/tokens，?tab= 写 URL、basic 缺省不写）；self 标识从页头移入
  *   basic 网格作 Bank Type 字段。
  * - tokens Tab：'Chain' 列头改 'BlockChain'；tokenCode/tokenNo 改 CopyableId。
@@ -28,7 +28,6 @@ import { ArrowLeft } from 'lucide-react';
 import {
   Badge,
   Button,
-  CopyableEllipsisText,
   DataTable,
   Input,
   Label,
@@ -83,7 +82,7 @@ type BankQueryRow = {
   /** 是否本行（03716c8：后端按 kissen.bank-code 比对下发；未下发按外部银行）。 */
   self?: boolean;
   bankName?: string;
-  /** 银行编码(SWIFT BIC)（62d1c33 合并列；原型术语 SWIFT BIC）。 */
+  /** 银行编码(BIC)（62d1c33 合并列；原型术语 BIC）。 */
   bankBic?: string;
   tokenList?: string;
   pushTime?: number;
@@ -173,9 +172,9 @@ export function BankQueryListPage() {
         ),
       },
       {
-        // 原型术语 SWIFT BIC（62d1c33 合并列 bankBic）。
+        // 原型术语 BIC（62d1c33 合并列 bankBic）。
         id: 'bankBic',
-        header: 'SWIFT BIC',
+        header: 'BIC',
         cell: ({ row }) => (
           <span className="font-mono">{orDash(row.original.bankBic)}</span>
         ),
@@ -191,30 +190,16 @@ export function BankQueryListPage() {
         header: 'Tradable Tokens',
         meta: { overflow: 'wrap', maxWidth: 360 },
         cell: ({ row }) => {
-          /* 2026-10-23：列内展示 token symbol（后端 tokenList 已下发
-             symbol/tokenName/tokenCode）；symbol 与名称皆缺时退回地址，
-             地址保持中间省略可复制（沿用 a9dc10e 源 CopyText 口径）。 */
+          /* Tradable Tokens 只展示后端下发的 token symbol。 */
           const tokens = tokensOf(row.original);
           if (tokens.length === 0) return <span>-</span>;
           return (
             <span className="inline-flex flex-wrap gap-1.5">
               {tokens.map((t, i) => {
-                const label = (t.symbol || t.tokenName || '').trim();
-                if (!label) {
-                  return (
-                    <CopyableEllipsisText
-                      key={`${t.tokenCode}-${i}`}
-                      value={t.tokenCode}
-                      emptyText="-"
-                      maxWidth={160}
-                      truncate="middle"
-                      className="font-mono"
-                    />
-                  );
-                }
+                const label = t.symbol?.trim();
                 return (
                   <span key={`${t.tokenCode}-${i}`} className="font-mono">
-                    {label}
+                    {label || '-'}
                   </span>
                 );
               })}
@@ -367,7 +352,7 @@ export function BankQueryListPage() {
 
 /**
  * 网络银行详情页（registry bank.detail；/bank/query/detail?id={bankId}）。
- * 原型 2026-09-22 版式：页头（Back + bankName + 状态徽章 + meta 行 SWIFT BIC |
+ * 原型 2026-09-22 版式：页头（Back + bankName + 状态徽章 + meta 行 BIC |
  * Synced on）→ Tabs basic/tokens（?tab= 写 URL）→ 各 Tab 面板卡；self 标识
  * 移入 basic 网格作 Bank Type 字段。
  */
@@ -465,7 +450,7 @@ export function BankQueryDetailPage() {
 
   return (
     <div className="space-y-4">
-      {/* 页头：Back + bankName + 状态徽章 + meta 行（SWIFT BIC | Synced on）。 */}
+      {/* 页头：Back + bankName + 状态徽章 + meta 行（BIC | Synced on）。 */}
       <div className="flex flex-wrap items-start gap-3">
         <Button
           variant="outline"
@@ -490,7 +475,7 @@ export function BankQueryDetailPage() {
           </div>
           {data ? (
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <span className="font-mono">SWIFT BIC: {orDash(data.bankBic)}</span>
+              <span className="font-mono">BIC: {orDash(data.bankBic)}</span>
               <span aria-hidden="true">|</span>
               <span className="tabular-nums">
                 Synced on {formatUtc8(data.pushTime)}
@@ -525,8 +510,8 @@ export function BankQueryDetailPage() {
                     {orDash(data.bankId)}
                   </span>
                 </DescField>
-                {/* 62d1c33：原 Bank Code + BIC 两项合并为 bankBic；原型术语 SWIFT BIC。 */}
-                <DescField label="SWIFT BIC">
+                {/* 62d1c33：原 Bank Code + BIC 两项合并为 bankBic；原型术语 BIC。 */}
+                <DescField label="BIC">
                   <span className="font-mono">{orDash(data.bankBic)}</span>
                 </DescField>
                 <DescField label="Status">

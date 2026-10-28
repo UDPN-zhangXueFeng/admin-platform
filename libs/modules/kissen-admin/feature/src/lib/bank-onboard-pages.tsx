@@ -1047,7 +1047,7 @@ export function BankInfoListPage() {
       },
       {
         accessorKey: 'bankBic',
-        header: 'SWIFT BIC',
+        header: 'BIC',
         cell: ({ row }) => <CopyableId value={row.original.bankBic} />,
       },
       {

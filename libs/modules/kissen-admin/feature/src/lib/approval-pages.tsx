@@ -216,7 +216,7 @@ const FIELD_MAPS: Record<string, FieldDef[]> = {
   kissen_bank_onboard: [
     { key: 'bankName', label: 'Bank Name' },
     { key: 'bankBic', label: 'Bank Code (BIC)' },
-    { key: 'bic', label: 'SWIFT BIC' },
+    { key: 'bic', label: 'BIC' },
     { key: 'accountConfig', label: 'Account Configuration' },
     { key: 'status', label: 'Status', render: 'status' },
     { key: 'createTime', label: 'Requested At', render: 'time' },
