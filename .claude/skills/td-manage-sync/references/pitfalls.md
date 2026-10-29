@@ -30,3 +30,11 @@
 - 排查顺序教训：先看 dev server 日志的 `compile:` 字段（GET /en-US 200 in 42s compile: 42s 一行就定案），再浏览器抓 Resource Timing `requestStart`。同页裸 fetch/XHR/CDN axios 探针全部正常也照样浪费了大量时间——探针不打断编译态，无法复现。
 - Next 16 `--webpack` 是 first commit 带入、无文档理由；dev 切 Turbopack（去 `--webpack`）即可，build 保持 webpack 不动。
 - Turbopack 两个坑：(1) 显式 `turbopack.root` 反而使 `[module]/[[...slug]]` 编译卡死，保持默认推断；(2) 任何 next.config 变更都会失效 filesystem cache，需 `rm -rf apps/admin/.next/dev` 冷启。
+
+## 2026-10-29 SP Access Management round-02
+
+- CustomTable 行动作的 disabled 语义要按上游区分：非可编辑状态的 Edit 动作应隐藏，不是只置灰；Register 入口需合并 register/registerAlt 两个后端 UUID 权限。
+- TanStack Table accessor 返回 ReactNode 时必须提供显式 `cell`，否则默认渲染可能出现 `[object Object]`。
+- SP Access token 列展示不能只取 token 名称，还要按有无值追加 `blockchainNameAbbreviation`；空 abbreviation 不应渲染空括号。
+- create 与 edit 校验不同：create 必须校验服务商名称；license preview 的 `busId` 使用 detail.spId，typeAndPermissionList 才是 edit 权限回填的主要来源。
+- 审批接口按上游契约发送 spRecordId 时，真实后端可能返回 MSG_03_3010/3011；前端应展示业务错误并记录为外部契约阻塞，不能伪报审批闭环成功。

@@ -1304,3 +1304,12 @@
 - eval 浏览器 tab API 实际方法：读整页文本用 `tab.text()`（无 selector 即 body；`tab.textContent` 不存在）；`ariaSnapshot('role=tablist')` 在 tokenized-deposit 总览会先命中币列表（49 个 tab 的巨型输出），抓内容区状态优先用 `tab.text()` + indexOf 定位。`tab.click('role/tab[name="X"]')` 精确匹配 tab 名可行。
 - 新增 mock API 的 Promise 包装遵循内置样式规则 `Promise.withResolvers()`（不用 `new Promise((resolve)=>{setTimeout...})` executor 形式）；调用方传"任意对象形状"参数（如 additionalParams）时接口类型用 `Record<string, unknown>`，传 react-hook-form 的 interface 值需 `{ ...values }` spread 才能过索引签名检查。
 - 上游 role-wallets Configure 契约：configureRoleWalletApi 为 mock（500ms、恒 code 0、文案 'Wallet configuration submitted successfully'）；rigsec 生成钱包 body 的 walletType 恒 1（源 `Number(标签字符串)||1`，Cold/Hot 单选是死状态不透传）——遇到"源码把 UI 态字符串直接 Number()"的写法，等价迁移是硬编码落值+注释，不是保留透传。
+
+## 2026-10-29 SP Access Management round-02
+
+- `sp-access` 的表单拆分后仍需保持 create/edit 两套校验差异：create 必须校验 `spName`，空值用 `sp_access_0185` 提示；edit 回填不能依赖 `reset` 后的隐式状态。
+- `typeAndPermissionList[].walletTypeList` 是 edit 回填权限的有效来源；兼容旧 `permissionsList` 时要按 wallet rule 的 `state` 过滤禁用项，不能把字段缺失直接当禁用。
+- `detail.spId` 与 `spRecordId` 不能混用：license preview 的 `busId` 使用 `detail.spId`，edit submit 与 approval basicInfo 才使用 `spRecordId`。
+- TanStack Table 的 accessor 如果返回 ReactNode，必须提供显式 `cell`，否则默认 cell 可能把权限内容渲染成 `[object Object]`；token 列还要保留 `blockchainNameAbbreviation`。
+- 本轮 A/B reviewer 对 61 项矩阵最终均为 61/61；审批 basicInfo/audit 使用上游规定的 `spRecordId` 仍被后端返回 `MSG_03_3010/3011`，这是外部契约阻塞，不伪报端到端通过。
+- 本轮是模块级同步，未推进 td-manage 全局 `lastSyncedSha`；仓库当前没有 `.doc/td-manage/sync-state.json`，后续全量同步仍需单独锚定。
