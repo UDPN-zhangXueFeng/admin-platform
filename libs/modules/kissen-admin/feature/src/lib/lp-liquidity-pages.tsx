@@ -2309,11 +2309,15 @@ export function LpInfoDetailPage() {
             </p>
           ) : null}
         </div>
-        {/* pairs 入口（本仓超集：走 KLP 审批的参与对登记）。 */}
-        <Button type="button" size="sm" onClick={() => setPairDialog({ mode: 'add' })}>
-          <Plus className="size-4" aria-hidden="true" />
-          Add Token Pair
-        </Button>
+        {/* pairs 入口（本仓超集：走 KLP 审批的参与对登记）。仅已入网生效（20）的 LP 可加：
+            草稿 LP 的对/池配置在入网表单（KLO 通过后物化）——否则 save 落草稿而 submit 必败
+            （前置 lp_pool 仅 KLO 物化产生），残留行再堵死再添加（2026-10-29 BXWLP 事故）。 */}
+        {base?.status === 20 ? (
+          <Button type="button" size="sm" onClick={() => setPairDialog({ mode: 'add' })}>
+            <Plus className="size-4" aria-hidden="true" />
+            Add Token Pair
+          </Button>
+        ) : null}
       </div>
 
       {detailQuery.isError ? (
