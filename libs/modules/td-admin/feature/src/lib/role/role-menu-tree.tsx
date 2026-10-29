@@ -19,9 +19,9 @@ export interface RoleMenuTreeProps {
   /** true=只读（详情页），false=可勾选（编辑页）。 */
   disabled?: boolean;
   /**
-   * i18n 翻译函数。菜单节点的 menuName 为后端返回的 i18n key（如 'Router_0010_2'），
-   * 传入 t() 后渲染时调用 translate(menuName) 得到译文。
-   * 未传时退化为直接渲染 menuName 原文。
+   * 菜单名称直接渲染后端返回的可读 menuName。后端返回值不保证是本地化 key，
+   * 因此不能无条件传入 next-intl 的 t()，否则会触发 MISSING_MESSAGE。
+   * translate 保留为兼容调用方接口，但不会参与渲染。
    */
   translate?: (key: string) => string;
   /**
@@ -194,7 +194,7 @@ function RoleMenuTreeNode({
           disabled={disabled}
           onCheckedChange={(value) => onToggle(node, value === true)}
         />
-        <span className="text-sm">{node.menuName && translate ? translate(node.menuName) : node.menuName}</span>
+        <span className="text-sm">{node.menuName}</span>
       </div>
       {node.children?.length
         ? node.children.map((child) => (

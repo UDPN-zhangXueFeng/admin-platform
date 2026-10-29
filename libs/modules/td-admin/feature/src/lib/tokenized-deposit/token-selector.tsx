@@ -1,23 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import {
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  LayoutGrid,
-  List,
-  Search,
-  X,
-  XCircle,
-} from 'lucide-react';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  ScrollArea,
-} from '@myorg/shared/ui';
+import { LayoutGrid, List, Search, X } from 'lucide-react';
+import { getNetworkColours } from './token-selector-badges';
+import { TokenDropdownView } from './token-selector-dropdown-view';
+import { CHIP_LIMIT, TokenTabsView } from './token-selector-tabs-view';
 
 export type TokenSelectorMode = 'tabs' | 'dropdown';
 export type TokenSelectorStatus = 'active' | 'pending' | 'inactive';
@@ -70,7 +57,6 @@ export interface TokenSelectorProps {
   onModeChange: (mode: TokenSelectorMode) => void;
 }
 
-const CHIP_LIMIT = 48;
 const ALL_NETWORKS = 'ALL';
 const ALL_TOKEN_TYPES = 'ALL';
 const TOKEN_TYPES: readonly TokenSelectorType[] = [
@@ -81,68 +67,6 @@ const TOKEN_TYPES: readonly TokenSelectorType[] = [
   'R-CBDC',
   'W-CBDC',
 ];
-const NETWORK_COLOURS: Record<
-  string,
-  { background: string; foreground: string }
-> = {
-  Besu: { background: '#d1fae5', foreground: '#047857' },
-  CFLR: { background: '#cffafe', foreground: '#0e7490' },
-  SEPOLIA: { background: '#ede9fe', foreground: '#7c3aed' },
-  Polygon: { background: '#f3e8ff', foreground: '#9333ea' },
-  BNB: { background: '#fef3c7', foreground: '#b45309' },
-  TRON: { background: '#fee2e2', foreground: '#dc2626' },
-  AVAX: { background: '#fce7f3', foreground: '#db2777' },
-};
-
-function getNetworkColours(network: string) {
-  return (
-    NETWORK_COLOURS[network] ?? { background: '#e2e8f0', foreground: '#475569' }
-  );
-}
-
-function TokenMark({
-  option,
-  large = false,
-}: {
-  option: TokenSelectorOption;
-  large?: boolean;
-}) {
-  const colour =
-    option.type === 'M'
-      ? '#14b8a6'
-      : option.type === 'TD'
-        ? '#8b5cf6'
-        : '#f59e0b';
-  return (
-    <span
-      aria-hidden="true"
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-bold text-white ring-2 ring-white ${large ? 'h-10 w-10 text-sm' : 'h-5 w-5 text-[9px]'}`}
-      style={{ backgroundColor: colour }}
-    >
-      {option.type === 'R-CBDC' ? 'R' : option.type === 'W-CBDC' ? 'W' : option.type}
-    </span>
-  );
-}
-
-function NetworkBadge({ network }: { network: string }) {
-  const colours = getNetworkColours(network);
-  return (
-    <span
-      className="inline-flex max-w-24 shrink-0 truncate rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none"
-      style={{ backgroundColor: colours.background, color: colours.foreground }}
-    >
-      {network}
-    </span>
-  );
-}
-
-function StatusIcon({ status }: { status: TokenSelectorStatus }) {
-  if (status === 'pending')
-    return <Clock className="h-3 w-3 shrink-0 text-amber-500" />;
-  if (status === 'inactive')
-    return <XCircle className="h-3 w-3 shrink-0 text-red-500" />;
-  return <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />;
-}
 
 export function TokenSelector({
   options,
@@ -321,130 +245,29 @@ export function TokenSelector({
       </div>
 
       {mode === 'tabs' ? (
-        <div className="rounded-xl border bg-muted/30 p-3">
-          <div
-            className="flex flex-wrap gap-1.5"
-            role="tablist"
-            aria-label={labels.contexts}
-          >
-            {displayedOptions.length ? (
-              displayedOptions.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={option.id === value}
-                  disabled={disabled}
-                  onClick={() => handleSelect(option)}
-                  className={`inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all ${option.id === value ? 'border-indigo-300 bg-indigo-50 text-indigo-700 shadow-sm ring-2 ring-indigo-100' : 'border-transparent bg-background text-slate-700 hover:border-slate-200 hover:bg-slate-50'}`}
-                >
-                  <TokenMark option={option} />
-                  <span className="max-w-36 truncate">{option.name}</span>
-                  {option.network ? (
-                    <NetworkBadge network={option.network} />
-                  ) : null}
-                  <StatusIcon status={option.status} />
-                </button>
-              ))
-            ) : (
-              <div className="w-full py-8 text-center text-sm text-muted-foreground">
-                {options.length ? labels.noMatch : labels.empty}
-              </div>
-            )}
-          </div>
-          {filteredOptions.length > CHIP_LIMIT && !search ? (
-            <div className="mt-3 flex justify-center border-t pt-2.5">
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary"
-                onClick={() => setShowAll((current) => !current)}
-              >
-                {showAll ? (
-                  <ChevronUp className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronDown className="h-3.5 w-3.5" />
-                )}
-                {showAll
-                  ? labels.collapse
-                  : labels.expand(filteredOptions.length - CHIP_LIMIT)}
-              </button>
-            </div>
-          ) : null}
-        </div>
+        <TokenTabsView
+          options={options}
+          displayedOptions={displayedOptions}
+          filteredOptions={filteredOptions}
+          search={search}
+          showAll={showAll}
+          value={value}
+          disabled={disabled}
+          labels={labels}
+          handleSelect={handleSelect}
+          setShowAll={setShowAll}
+        />
       ) : (
-        <div className="grid gap-3 md:grid-cols-[14rem_minmax(0,1fr)]">
-          <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                disabled={isUnavailable}
-                className="flex h-11 w-full items-center gap-2 rounded-xl border bg-background px-3 text-sm font-medium shadow-sm"
-                aria-label={labels.select}
-              >
-                {activeOption ? (
-                  <>
-                    <TokenMark option={activeOption} />
-                    <span className="min-w-0 flex-1 truncate text-left">
-                      {activeOption.name}
-                    </span>
-                    {activeOption.network ? (
-                      <NetworkBadge network={activeOption.network} />
-                    ) : null}
-                  </>
-                ) : (
-                  <span className="flex-1 text-left text-muted-foreground">
-                    {labels.empty}
-                  </span>
-                )}
-                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-80 p-0">
-              <ScrollArea className="h-72">
-                <div className="p-1">
-                  {filteredOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => handleSelect(option)}
-                      className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm ${option.id === value ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
-                    >
-                      <TokenMark option={option} />
-                      <span className="min-w-0 flex-1 truncate text-left font-medium">
-                        {option.name}
-                      </span>
-                      {option.network ? (
-                        <NetworkBadge network={option.network} />
-                      ) : null}
-                      <StatusIcon status={option.status} />
-                    </button>
-                  ))}
-                </div>
-              </ScrollArea>
-            </PopoverContent>
-          </Popover>
-          {activeOption ? (
-            <div className="rounded-xl border bg-background p-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <TokenMark option={activeOption} large />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">
-                    {activeOption.name}
-                  </p>
-                  <div className="mt-1 flex items-center gap-2">
-                    {activeOption.network ? (
-                      <NetworkBadge network={activeOption.network} />
-                    ) : null}
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-                      <StatusIcon status={activeOption.status} />
-                      {labels[activeOption.status]}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
+        <TokenDropdownView
+          dropdownOpen={dropdownOpen}
+          setDropdownOpen={setDropdownOpen}
+          isUnavailable={isUnavailable}
+          activeOption={activeOption}
+          filteredOptions={filteredOptions}
+          value={value}
+          labels={labels}
+          handleSelect={handleSelect}
+        />
       )}
     </div>
   );

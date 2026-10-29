@@ -6,10 +6,12 @@ import { Button, Input, Label } from '@myorg/shared/ui';
 import { encrypt } from '@myorg/modules/td-admin/data-access';
 import {
   checkMetaMaskStatus,
+  isAuthSuccessCode,
   metaMaskLogin,
   useAuthUIStore,
 } from '@myorg/modules/td-admin/data-access';
 import { useAuth } from '@myorg/shared/util-auth';
+import { useCaptcha } from './use-captcha';
 
 function MetaMaskIcon() {
   return (
@@ -55,33 +57,34 @@ function MetaMaskIcon() {
 export function MetaMaskButton() {
   const t = useTranslations('auth');
   const { login } = useAuth();
-  const { randomstr } = useAuthUIStore();
+  const { randomstr, refreshCaptcha } = useCaptcha();
+  const { setTwoFactorToken, setLoginStep } = useAuthUIStore();
 
   const [loginName, setLoginName] = useState('');
   const [metaMaskAllowed, setMetaMaskAllowed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRef = useRef<number | null>(null);
 
   /** Debounced check: is MetaMask login enabled for this username? */
   const handleUsernameChange = useCallback((value: string) => {
     setLoginName(value);
     setError(null);
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
 
     if (!value) {
       setMetaMaskAllowed(false);
       return;
     }
 
-    debounceRef.current = setTimeout(async () => {
+    debounceRef.current = window.setTimeout(async () => {
       try {
         const res = await checkMetaMaskStatus({
           loginName: encrypt(value),
         });
         setMetaMaskAllowed(
-          res.data.code === 0 && res.data.data?.result === true,
+          isAuthSuccessCode(res.data.code) && res.data.data?.result === true,
         );
       } catch {
         setMetaMaskAllowed(false);
@@ -132,7 +135,7 @@ export function MetaMaskButton() {
     if (!loginName) return;
     setLoading(true);
     setError(null);
-
+    let loginSubmitted = false;
     try {
       // 1. Detect MetaMask
       const detectProvider = (await import('@metamask/detect-provider'))
@@ -165,7 +168,14 @@ export function MetaMaskButton() {
         return;
       }
 
+      // A malformed signature must not be sent to the backend (old project aborted here).
+      if (rsv.r === '0') {
+        setError(t('metaMaskSignFailed'));
+        return;
+      }
+
       // 4. Login with RSV — all fields must be encrypted to match backend expectations
+      loginSubmitted = true;
       const response = await metaMaskLogin(
         {
           loginName: encrypt(loginName),
@@ -177,14 +187,27 @@ export function MetaMaskButton() {
       );
 
       const { code, data } = response.data;
-      if (code !== 0) {
+      if (!isAuthSuccessCode(code)) {
         setError(response.data.message || t('loginFailed'));
+        // The captcha nonce is bound to the session, refresh it like the old project did.
+        void refreshCaptcha().catch(() => undefined);
         return;
       }
 
       // 5. Store session
       const { menuKeyList } = data;
       const permissions = menuKeyList.map((m) => m.menuKey);
+
+      // The backend may still require a second factor for wallet sign-in.
+      // The old project ignored this branch; honouring it avoids storing a
+      // session that the backend never activated.
+      if (data.twoFactorAuth && data.twoFactorToken) {
+        setTwoFactorToken(data.twoFactorToken);
+        setLoginStep('twoFactor');
+        return;
+      }
+
+      setTwoFactorToken(null);
       login(
         {
           id: String(data.userId),
@@ -201,6 +224,9 @@ export function MetaMaskButton() {
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : t('metaMaskError'));
+      if (loginSubmitted) {
+        void refreshCaptcha().catch(() => undefined);
+      }
     } finally {
       setLoading(false);
     }
@@ -222,6 +248,7 @@ export function MetaMaskButton() {
           id="metaMaskUsername"
           autoComplete="username"
           placeholder={t('usernamePlaceholder')}
+          aria-invalid={Boolean(error)}
           className="h-11 rounded-md border-slate-300 bg-white shadow-sm focus-visible:ring-[#554eea]"
           value={loginName}
           onChange={(e) => handleUsernameChange(e.target.value)}
@@ -241,7 +268,11 @@ export function MetaMaskButton() {
 
       <p className="text-center text-sm text-[#554eea]">{t('metaMaskHint')}</p>
 
-      {error && <p className="text-center text-sm text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="text-center text-sm text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

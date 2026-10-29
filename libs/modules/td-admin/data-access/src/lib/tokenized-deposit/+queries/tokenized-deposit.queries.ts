@@ -244,17 +244,13 @@ export function useStablecoinListQuery() {
 
 /**
  * 稳定币信息查询（view 页，surplusCount 可销毁余额）。
- * stablecoinId 缺失时不发起。
+ * 源 getStablecoinInfoApi() 以无 body 调用（全局查询，mount 即拉），
+ * 响应取 surplusCount 作可销毁余额。
  */
-export function useStablecoinInfoQuery(
-  stablecoinId: number | string | undefined,
-  enabled = true,
-) {
+export function useStablecoinInfoQuery() {
   return useQuery<StablecoinInfo>({
-    queryKey: tdKeys.viewStablecoinInfo(stablecoinId),
-    queryFn: ({ signal }) =>
-      getStablecoinInfo({ stablecoinId }, { signal }),
-    enabled: stablecoinId != null && stablecoinId !== '' && enabled,
+    queryKey: tdKeys.viewStablecoinInfo(),
+    queryFn: ({ signal }) => getStablecoinInfo(undefined, { signal }),
   });
 }
 

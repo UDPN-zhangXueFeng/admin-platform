@@ -8,10 +8,12 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable, useToast } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { PermissionGuard } from '@myorg/shared/util-auth';
 
 import { RoleStatusTag } from '.';
 import {
   ROLE_PAGE_SIZE,
+  ROLE_PERMISSIONS,
   RoleStatus,
 } from '.';
 import {
@@ -68,7 +70,7 @@ export function RoleListPage() {
     formToParams(EMPTY_FORM)
   );
 
-  const { data, isLoading } = useRoleListQuery(PROJECT_ID, params);
+  const { data, isLoading, isError } = useRoleListQuery(PROJECT_ID, params);
   const statusMutation = useUpdateRoleStatusMutation(PROJECT_ID);
   const deleteMutation = useDeleteRoleMutation(PROJECT_ID);
 
@@ -121,6 +123,7 @@ export function RoleListPage() {
                 ? t('toast.disableSuccess')
                 : t('toast.enableSuccess')
             ),
+          onError: () => toast.error(t('action.operationFailed')),
         }
       );
     },
@@ -133,6 +136,7 @@ export function RoleListPage() {
       if (!window.confirm(t('confirm.delete'))) return;
       deleteMutation.mutate(row.roleId, {
         onSuccess: () => toast.success(t('toast.deleteSuccess')),
+        onError: () => toast.error(t('action.operationFailed')),
       });
     },
     [deleteMutation, t, toast]
@@ -141,10 +145,14 @@ export function RoleListPage() {
   const columns = React.useMemo<ColumnDef<RoleItem & { id: string }>[]>(
     () => [
       {
-        // 序号列：行号（非真实 roleId），对齐旧页 `${index+1}` 渲染。
+        // 序号跨页连续，后端可能不回 pageNum/pageSize 时由请求参数回退。
         id: 'index',
         header: t('field.index'),
-        cell: ({ row }) => <span>{row.index + 1}</span>,
+        cell: ({ row }) => {
+          const page = paginationMeta?.page ?? 1;
+          const pageSize = paginationMeta?.pageSize ?? ROLE_PAGE_SIZE;
+          return <span>{(page - 1) * pageSize + row.index + 1}</span>;
+        },
       },
       { accessorKey: 'roleName', header: t('field.roleName') },
       {
@@ -177,56 +185,66 @@ export function RoleListPage() {
 
           return (
             <div className="flex items-center gap-2">
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => onView(item.roleId)}
-              >
-                {t('action.view')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={editDisabled}
-                onClick={() => onEdit(item.roleId)}
-              >
-                {t('action.edit')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={disableDisabled}
-                onClick={() => onToggleStatus(item)}
-              >
-                {t('action.disable')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={enableDisabled}
-                onClick={() => onToggleStatus(item)}
-              >
-                {t('action.enable')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-destructive"
-                disabled={deleteDisabled}
-                onClick={() => onDelete(item)}
-              >
-                {t('action.delete')}
-              </Button>
+              <PermissionGuard permission={ROLE_PERMISSIONS.view}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  onClick={() => onView(item.roleId)}
+                >
+                  {t('action.view')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={ROLE_PERMISSIONS.edit}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  disabled={editDisabled}
+                  onClick={() => onEdit(item.roleId)}
+                >
+                  {t('action.edit')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={ROLE_PERMISSIONS.disable}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  disabled={disableDisabled}
+                  onClick={() => onToggleStatus(item)}
+                >
+                  {t('action.disable')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={ROLE_PERMISSIONS.enable}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  disabled={enableDisabled}
+                  onClick={() => onToggleStatus(item)}
+                >
+                  {t('action.enable')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={ROLE_PERMISSIONS.delete}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-destructive"
+                  disabled={deleteDisabled}
+                  onClick={() => onDelete(item)}
+                >
+                  {t('action.delete')}
+                </Button>
+              </PermissionGuard>
             </div>
           );
         },
       },
     ],
-    [t, onView, onEdit, onToggleStatus, onDelete]
+    [t, paginationMeta, onView, onEdit, onToggleStatus, onDelete]
   );
 
   // DataTable 约束 { id: string }；role rowKey 为 roleId:number，map 出 id（既有约定）。
@@ -260,14 +278,21 @@ export function RoleListPage() {
       <div className="rounded-lg border bg-card shadow-sm">
         <div className="flex items-center justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">{t('records')}</div>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => router.push('/sys/role/create')}
-          >
-            {t('action.add')}
-          </Button>
+          <PermissionGuard permission={ROLE_PERMISSIONS.add}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => router.push('/sys/role/create')}
+            >
+              {t('action.add')}
+            </Button>
+          </PermissionGuard>
         </div>
+        {isError ? (
+          <div role="alert" className="border-b px-6 py-3 text-sm text-destructive">
+            {t('loadFailed')}
+          </div>
+        ) : null}
         <DataTable
           columns={columns}
           data={tableData}
@@ -279,7 +304,10 @@ export function RoleListPage() {
                   page: paginationMeta.page,
                   pageSize: paginationMeta.pageSize,
                   total: paginationMeta.total,
-                  onPageChange: (page) => setParams((prev) => ({ ...prev, page })),
+                  onPageChange: (page) =>
+                    setParams((prev) => ({ ...prev, page })),
+                  onPageSizeChange: (pageSize) =>
+                    setParams((prev) => ({ ...prev, page: 1, pageSize })),
                 }
               : undefined
           }

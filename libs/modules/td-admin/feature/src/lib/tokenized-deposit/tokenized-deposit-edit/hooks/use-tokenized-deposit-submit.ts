@@ -132,12 +132,13 @@ export function useTokenizedDepositSubmit({
   const createMutation = useCreateTDApplyMutation();
   const editMutation = useEditTDOperationMutation();
   const t = useTranslations('modules.tokenized-deposit');
+  const globalT = useTranslations();
 
   const successCallBack = useCallback(() => {
     onSubmitSuccess?.();
-    toast.success(successMessageKey.replace('****', ''));
+    toast.success(globalT(successMessageKey).replace('****', ''));
     routerBack();
-  }, [routerBack, successMessageKey, onSubmitSuccess]);
+  }, [globalT, routerBack, successMessageKey, onSubmitSuccess]);
 
   const onSubmit = useCallback(
     (values: TDEditFormValues) => {

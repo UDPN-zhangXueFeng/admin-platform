@@ -21,7 +21,6 @@ import {
   Calendar,
   CircleCheck,
   CirclePause,
-  Coins,
   Copy,
   ExternalLink,
   Globe,
@@ -32,8 +31,6 @@ import {
   Mail,
   MapPin,
   MoreVertical,
-  Network,
-  Phone,
   SlidersHorizontal,
   TriangleAlert,
   User,
@@ -2006,7 +2003,7 @@ export function BankInfoDetailPage() {
             ))}
           </TabsList>
 
-          {/* Tab 1：basic —— 原型字段序 + 本仓超集（Logo/Phone/Address）。 */}
+          {/* Tab 1：basic —— 银行身份、联系人、状态与创建时间。 */}
           <TabsContent value="basic" className="mt-0">
             <section className="rounded-xl border border-border bg-card shadow-sm">
               <BankDetailSectionHeader
@@ -2062,27 +2059,7 @@ export function BankInfoDetailPage() {
                     <Dash />
                   )}
                 </DetailField>
-                {/* STATIC-FILLER(GAP-ADM-08): 货币系统字段随实例登记（BankRow 无此字段），渲染 Dash。 */}
-                <DetailField icon={Landmark} label="Currency System Type">
-                  <Dash />
-                </DetailField>
-                {/* STATIC-FILLER(GAP-ADM-08): 同上，Blockchain Network 随实例域，渲染 Dash。 */}
-                <DetailField icon={Network} label="Blockchain Network">
-                  <Dash />
-                </DetailField>
-                {/* STATIC-FILLER(GAP-ADM-08): 同上，Currency System Name 随实例域，渲染 Dash。 */}
-                <DetailField icon={Coins} label="Currency System Name">
-                  <Dash />
-                </DetailField>
-                {/* STATIC-FILLER(GAP-ADM-08): 同上，Currency System URL 随实例域，渲染 Dash。 */}
-                <DetailField icon={Globe} label="Currency System URL">
-                  <Dash />
-                </DetailField>
-                {/* STATIC-FILLER(GAP-ADM-08): 后端无 integrationNotes 字段，渲染 Dash。 */}
-                <DetailField icon={Info} label="Integration Notes">
-                  <Dash />
-                </DetailField>
-                {/* 本仓超集字段（原型无）：Logo / Contact Phone / Address。 */}
+                {/* 本仓超集字段（原型无）：Logo。 */}
                 <DetailField icon={Landmark} label="Bank Logo">
                   {detail.logo ? (
                     <img
@@ -2096,16 +2073,6 @@ export function BankInfoDetailPage() {
                   ) : (
                     <Dash />
                   )}
-                </DetailField>
-                <DetailField icon={Phone} label="Contact Phone">
-                  <span className="font-mono">
-                    {detail.contactPhone || <Dash />}
-                  </span>
-                </DetailField>
-                <DetailField icon={MapPin} label="Address">
-                  <span className="whitespace-pre-wrap break-all">
-                    {detail.address || <Dash />}
-                  </span>
                 </DetailField>
                 <DetailField icon={Landmark} label="Status">
                   <BankStatusBadge status={detail.status} />

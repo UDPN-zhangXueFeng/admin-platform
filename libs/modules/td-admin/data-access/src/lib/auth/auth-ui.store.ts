@@ -55,7 +55,14 @@ export const useAuthUIStore = createUIStore<AuthUIState & AuthUIActions>(
       }
       set({ twoFactorToken: token });
     },
-    reset: () => set(initialState),
+    reset: () =>
+      set((state) => {
+        // Release the captcha image before the state is dropped.
+        if (state.captchaUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(state.captchaUrl);
+        }
+        return initialState;
+      }),
   }),
   'auth-ui'
 );

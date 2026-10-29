@@ -49,17 +49,28 @@ interface WorkflowListApiBody {
  * 工作流分页列表（workflow/list）。服务端分页 + 4 筛选字段。
  * 对应旧页 useCustomTable 的 `url: workflow/list`。
  */
-export function getWorkflowList(
+export async function getWorkflowList(
   params: WorkflowListParams,
   config?: ApiRequestConfig
 ): Promise<WorkflowListResult> {
   // 前端平铺的 page/pageSize 适配为嵌套 pageNum/pageSize，筛选字段收进 data。
   const { page, pageSize, ...filters } = params;
-  return apiClient.post<WorkflowListResult, WorkflowListApiBody>(
+  const raw = await apiClient.post<WorkflowListResult, WorkflowListApiBody>(
     `${CONFIG_ID}v1/workflow/list`,
     { page: { pageNum: page, pageSize }, data: filters },
     config
   );
+
+  // 该服务实际可能只返回 page.total；请求页码/容量仍是当前结果的权威来源。
+  return {
+    rows: raw.rows ?? [],
+    page: {
+      ...raw.page,
+      pageNum: raw.page?.pageNum ?? page,
+      pageSize: raw.page?.pageSize ?? pageSize,
+      total: raw.page?.total ?? 0,
+    },
+  };
 }
 
 /**

@@ -44,159 +44,22 @@
  *
  * i18n namespace: `modules.tokenized-deposit`，label key 为相对 key（不带前缀）。
  */
-import { Loader2, RefreshCw } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import React, { type ChangeEvent, type ReactNode } from 'react';
-import { format, parse } from 'date-fns';
+import { Loader2 } from 'lucide-react';
+import * as React from 'react';
+import { Card } from '@myorg/shared/ui';
 
-import {
-  Badge,
-  Card,
-  CardDescription,
-  CardTitle,
-  Field,
-  FieldError,
-  FieldLabel,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@myorg/shared/ui';
+import { CoaCardHeader, CoaLinkedMessage } from './coa-card-header';
+import { CoaSetupCardFields } from './coa-setup-card-fields';
+import type { CoaSetupCardProps, CoaSetupInfo } from './coa-setup-types';
+import { buildFallbackOption } from './coa-time-utils';
 
-import {
-  COA_STATUS_STYLE,
-  FINANCIAL_BOOK_NAME_MAX_LENGTH,
-} from '@myorg/modules/td-admin/data-access/lib/tokenized-deposit';
-
-// ── Props 契约（本地定义，与 data-access/model.ts 同名类型结构一致）──
-//
-// nx 边界规则：`type:ui` 仅可依赖 `type:ui`/`type:util`/`type:model`，
-// 不可依赖 `type:data-access`（model.ts 所在层）。故 ui 层本地定义 Props 契约，
-// 与 cross-chain-status-badge 等同模块兄弟组件惯例一致。
-// 字段集严格对齐 data-access/model.ts 的 CoaSetupCardProps / CoaSetupInfo /
-// CoaSetupErrors / CoaSetupOption，避免类型漂移；feature 层从 data-access
-// import 同名类型并传 props，结构兼容。
-
-/** COA 设置状态：configured（只读）/ setup_required（可编辑）。 */
-export type CoaSetupStatus = 'configured' | 'setup_required';
-
-/** COA Financial Book 初始化数据（完全受控，由父组件持有）。 */
-export interface CoaSetupInfo {
-  reserveAccountId?: number | string;
-  status: CoaSetupStatus;
-  financialBookName?: string;
-  accountTemplateCode?: string;
-  accountTemplateName?: string;
-  eodCutOffTime?: string;
-  timeZone?: string;
-  timeZoneLabel?: string;
-  linkedMessage?: string;
-  headerNote?: string;
-}
-
-/** COA 字段校验错误映射。 */
-export type CoaSetupErrors = Partial<
-  Record<
-    'financialBookName' | 'accountTemplateCode' | 'eodCutOffTime' | 'timeZone',
-    string
-  >
->;
-
-/** COA 下拉选项（科目模板 / 时区）。 */
-export interface CoaSetupOption {
-  value: string;
-  label: string;
-}
-
-/** CoaSetupCard Props（完全受控组件）。 */
-export interface CoaSetupCardProps {
-  data: CoaSetupInfo;
-  loading?: boolean;
-  /** 只读模式（stablecoin configured 态）。 */
-  readonly?: boolean;
-  /** 科目模板下拉选项。 */
-  accountTemplateOptions?: CoaSetupOption[];
-  /** 时区下拉选项。 */
-  timezoneOptions?: CoaSetupOption[];
-  /** 校验错误。 */
-  errors?: CoaSetupErrors;
-  /** 字段变更回调，参数为合并后的完整 data（patch 语义）。 */
-  onChange?: (data: CoaSetupInfo) => void;
-  className?: string;
-  embedded?: boolean;
-}
-
-// ── 时间格式（HH:mm:ss）常量与转换 ──
-
-/** EOD 截止时间格式（与源 antd TimePicker format 一致）。 */
-const EOD_TIME_FORMAT = 'HH:mm:ss';
-
-/**
- * Radix Select 坑（arch 文档第 12 节坑 2）：SelectItem value 禁止空串。
- * fallback option 的 value 无可用 code 时，用此占位符，避免触发 Radix 警告。
- */
-const FALLBACK_SELECT_VALUE = '__coa_fallback__';
-
-/** date-fns parse 的参考基准日期（任意合法 Date 均可，只取时分秒）。 */
-const TIME_REFERENCE_DATE = new Date(1970, 0, 1);
-
-/**
- * `HH:mm:ss`（数据层）→ 控件值（`HH:mm:ss`，原生 time input 秒级精度）。
- *
- * 用 date-fns `parse` 解析 `HH:mm:ss`（项目未装 dayjs，见 arch 文档第 6 节），
- * 再按 `HH:mm:ss` 输出。非法值回落空串，使控件显示 placeholder 而非脏值。
- *
- * `step={1}` 使原生控件显示和编辑秒位，与旧 TimePicker 的 `HH:mm:ss` 格式一致。
- */
-function parseTimeValue(value?: string): string {
-  if (!value) return '';
-
-  const parsed = parse(value, EOD_TIME_FORMAT, TIME_REFERENCE_DATE);
-  if (Number.isNaN(parsed.getTime())) return '';
-
-  return format(parsed, EOD_TIME_FORMAT);
-}
-
-/**
- * 控件值（`HH:mm:ss`）→ `data.eodCutOffTime`（`HH:mm:ss`）。
- *
- * 兼容浏览器仅返回 `HH:mm` 的情况，缺失秒位时补 `00`。
- */
-function formatTimeValue(controlValue: string): string {
-  if (!controlValue) return '';
-
-  const parsed = parse(
-    controlValue,
-    controlValue.length === 5 ? 'HH:mm' : EOD_TIME_FORMAT,
-    TIME_REFERENCE_DATE,
-  );
-  if (Number.isNaN(parsed.getTime())) return '';
-
-  return format(parsed, EOD_TIME_FORMAT);
-}
-
-// ── fallback option 构造 ──
-
-/**
- * 当传入 options 为空但 data 有值时，构造单元素 fallback option，
- * 保证 Select 在只读/回填态仍能展示当前选中项。
- *
- * value 禁止空串（Radix 坑）：code 为空时用 {@link FALLBACK_SELECT_VALUE} 占位。
- */
-function buildFallbackOption(
-  value: string | undefined,
-  label: string | undefined,
-): CoaSetupOption[] {
-  if (!value && !label) return [];
-  return [
-    {
-      value: value || FALLBACK_SELECT_VALUE,
-      label: label || value || '',
-    },
-  ];
-}
+export type {
+  CoaSetupStatus,
+  CoaSetupInfo,
+  CoaSetupErrors,
+  CoaSetupOption,
+  CoaSetupCardProps,
+} from './coa-setup-types';
 
 // ── 主组件 ──
 
@@ -216,6 +79,7 @@ function buildFallbackOption(
  * />
  * ```
  */
+
 export function CoaSetupCard({
   data,
   loading = false,
@@ -227,8 +91,6 @@ export function CoaSetupCard({
   className = '',
   embedded = false,
 }: CoaSetupCardProps) {
-  const t = useTranslations('modules.tokenized-deposit');
-
   // ── 派生状态 ──
   const isSetupRequired = data.status === 'setup_required';
   const isFieldDisabled = readonly || !isSetupRequired;
@@ -255,140 +117,6 @@ export function CoaSetupCard({
     onChange?.({ ...data, ...patch });
   };
 
-  // ── 状态徽标配色（COA_STATUS_STYLE：configured/setup_required）──
-  const statusStyle = COA_STATUS_STYLE[data.status];
-
-  // ── Select 选中回调：同时写 code + name/label ──
-  const handleAccountTemplateChange = (value: string) => {
-    // fallback 占位符被选中时不更新（理论上 fallback 态 disabled，不会触发）
-    if (value === FALLBACK_SELECT_VALUE) return;
-    const selected = resolvedAccountTemplateOptions.find(
-      (o) => o.value === value,
-    );
-    updateData({
-      accountTemplateCode: value,
-      accountTemplateName: selected?.label ?? value,
-    });
-  };
-
-  const handleTimezoneChange = (value: string) => {
-    if (value === FALLBACK_SELECT_VALUE) return;
-    const selected = resolvedTimezoneOptions.find((o) => o.value === value);
-    updateData({
-      timeZone: value,
-      timeZoneLabel: selected?.label ?? value,
-    });
-  };
-
-  // ── EOD time input onChange ──
-  const handleEodCutOffTimeChange = (event: ChangeEvent<HTMLInputElement>) => {
-    updateData({ eodCutOffTime: formatTimeValue(event.target.value) });
-  };
-
-  // ── 渲染标题行 + 状态徽标（重设计：图标 tile + 标题 + 状态徽标 + 描述）──
-  const renderHeader = (): ReactNode => (
-    <div
-      className={
-        embedded
-          ? 'mb-5 flex items-start justify-between gap-4'
-          : 'border-b bg-muted/35 px-6 py-5'
-      }
-    >
-      {embedded ? (
-        <>
-          <div className="flex flex-wrap items-center gap-2">
-            <CardTitle className="text-base">
-              {t('tokenized_deposit_coa_title')}
-            </CardTitle>
-            <Badge variant="secondary">
-              {t(`tokenized_deposit_coa_status_${data.status}`)}
-            </Badge>
-          </div>
-        </>
-      ) : (
-        <div className="flex items-start gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <RefreshCw className="size-4" aria-hidden="true" />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <CardTitle className="text-base">
-                {t('tokenized_deposit_coa_title')}
-              </CardTitle>
-              <Badge
-                variant="secondary"
-                style={{
-                  backgroundColor: statusStyle?.bg,
-                  color: statusStyle?.text,
-                }}
-              >
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: 'currentColor' }}
-                />
-                {t(`tokenized_deposit_coa_status_${data.status}`)}
-              </Badge>
-            </div>
-            <CardDescription className="leading-relaxed">
-              {t('td_section_coa_desc')}
-            </CardDescription>
-            {data.headerNote ? (
-              <div className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {data.headerNote}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  // ── 渲染关联提示行 ──
-  const renderLinkedMessage = (): ReactNode => {
-    const message =
-      data.linkedMessage ||
-      (isSetupRequired
-        ? t('tokenized_deposit_coa_no_coa_found')
-        : t('tokenized_deposit_coa_linked_readonly'));
-    return (
-      <div
-        className={`flex items-start gap-3 ${
-          isSetupRequired
-            ? 'text-primary'
-            : 'text-emerald-600 dark:text-emerald-400'
-        }`}
-      >
-        <span
-          className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-          style={{ backgroundColor: 'currentColor' }}
-        />
-        <div className="text-sm">{message}</div>
-      </div>
-    );
-  };
-
-  // ── 渲染单字段容器（shared/ui Field 系统）──
-  const renderField = (
-    labelKey: string,
-    error: string | undefined,
-    children: ReactNode,
-    footer?: ReactNode,
-  ) => (
-    <Field>
-      <FieldLabel>
-        {isSetupRequired ? (
-          <span className="text-destructive" aria-hidden="true">
-            *
-          </span>
-        ) : null}
-        {t(labelKey)}
-      </FieldLabel>
-      {children}
-      {error ? <FieldError>{error}</FieldError> : null}
-      {footer}
-    </Field>
-  );
-
   return (
     <Card
       className={`relative ${
@@ -402,115 +130,29 @@ export function CoaSetupCard({
         </div>
       ) : null}
 
-      {renderHeader()}
+      <CoaCardHeader
+        embedded={embedded}
+        status={data.status}
+        headerNote={data.headerNote}
+      />
 
       <div
         className={`flex flex-col gap-5 ${embedded ? 'px-2 py-2' : 'px-6 py-6'}`}
       >
-        {renderLinkedMessage()}
+        <CoaLinkedMessage
+          linkedMessage={data.linkedMessage}
+          isSetupRequired={isSetupRequired}
+        />
 
-        <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">
-          {/* 1) Financial Book Name */}
-          {renderField(
-            'tokenized_deposit_coa_financial_book_name',
-            errors?.financialBookName,
-            <Input
-              value={data.financialBookName ?? ''}
-              disabled={isFieldDisabled}
-              maxLength={FINANCIAL_BOOK_NAME_MAX_LENGTH}
-              placeholder={
-                isSetupRequired
-                  ? t('tokenized_deposit_coa_financial_book_placeholder')
-                  : undefined
-              }
-              onChange={(event) =>
-                updateData({ financialBookName: event.target.value })
-              }
-              className={
-                errors?.financialBookName
-                  ? 'border-destructive focus-visible:ring-destructive'
-                  : undefined
-              }
-            />,
-          )}
-
-          {/* 2) Account Template */}
-          {renderField(
-            'tokenized_deposit_coa_account_template',
-            errors?.accountTemplateCode,
-            <Select
-              value={data.accountTemplateCode ?? ''}
-              disabled={isFieldDisabled}
-              onValueChange={handleAccountTemplateChange}
-            >
-              <SelectTrigger
-                className={
-                  errors?.accountTemplateCode ? 'border-destructive' : ''
-                }
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {resolvedAccountTemplateOptions.map((option) => (
-                  <SelectItem
-                    key={option.value}
-                    value={option.value}
-                    disabled={option.value === FALLBACK_SELECT_VALUE}
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>,
-          )}
-
-          {/* 3) EOD Cut-off Time */}
-          {renderField(
-            'tokenized_deposit_coa_eod_cutoff',
-            errors?.eodCutOffTime,
-            <input
-              type="time"
-              step={1}
-              value={parseTimeValue(data.eodCutOffTime)}
-              disabled={isFieldDisabled}
-              onChange={handleEodCutOffTimeChange}
-              className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-                errors?.eodCutOffTime ? 'border-destructive' : ''
-              }`}
-            />,
-            <div className="mt-2 text-sm text-muted-foreground">
-              {t('tokenized_deposit_coa_rollover_notice')}
-            </div>,
-          )}
-
-          {/* 4) Time Zone */}
-          {renderField(
-            'tokenized_deposit_coa_time_zone',
-            errors?.timeZone,
-            <Select
-              value={data.timeZone ?? ''}
-              disabled={isFieldDisabled}
-              onValueChange={handleTimezoneChange}
-            >
-              <SelectTrigger
-                className={errors?.timeZone ? 'border-destructive' : ''}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {resolvedTimezoneOptions.map((option) => (
-                  <SelectItem
-                    key={option.value}
-                    value={option.value}
-                    disabled={option.value === FALLBACK_SELECT_VALUE}
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>,
-          )}
-        </div>
+        <CoaSetupCardFields
+          data={data}
+          errors={errors}
+          isFieldDisabled={isFieldDisabled}
+          isSetupRequired={isSetupRequired}
+          resolvedAccountTemplateOptions={resolvedAccountTemplateOptions}
+          resolvedTimezoneOptions={resolvedTimezoneOptions}
+          updateData={updateData}
+        />
       </div>
     </Card>
   );

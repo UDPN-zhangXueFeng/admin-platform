@@ -1,9 +1,8 @@
 /**
  * User 模块权限点常量（user.md §6）。
  *
- * 6 个后端操作各对应一个权限点 UUID（源自 td-manage 旧页 `limit` 字段）。sys 域尚未
- * 接通新权限守卫（与 role/syslog 一致），UUID 集中于此避免散落，待 PermissionGuard
- * 接入后由行操作按钮以 `usePermission(uuid)` 引用。
+ * 7 个后端操作各对应一个权限点 UUID（源自 td-manage 旧页 `limit` 字段），
+ * 由 User 列表与表单的 PermissionGuard 直接引用。
  *
  * 旧 UUID → 操作映射（user.md §5.1 / §6）：
  *  - add     f19251c8…  新增

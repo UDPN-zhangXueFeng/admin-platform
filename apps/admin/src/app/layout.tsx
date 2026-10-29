@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import { getLocale } from 'next-intl/server';
 import { loadProjectConfig } from '@myorg/shared/util-config';
 
 export const metadata: Metadata = {
@@ -25,9 +26,11 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const config = await loadProjectConfig();
+  const requestLocale = await getLocale();
+  const lang = requestLocale || config.i18n.defaultLocale;
 
   return (
-    <html lang={config.i18n.defaultLocale} suppressHydrationWarning>
+    <html lang={lang} suppressHydrationWarning>
       <head>
         <ThemeInjector colors={config.theme.colors} radius={config.theme.radius} />
       </head>

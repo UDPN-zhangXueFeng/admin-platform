@@ -19,13 +19,10 @@ export interface SysLogItem {
 }
 
 /**
- * 模块下拉选项。列渲染按 `code` 匹配日志的 `module` 字段并取 `name` 展示，
- * 因此下拉数据采用 `{ code, name }` 结构（与列渲染路径一致，统一 schema）。
+ * 模块下拉数据。后端实际返回模块 code 字符串数组，例如
+ * `["TOKEN_MANAGEMENT", "USER"]`，不是 `{ code, name }` 对象数组。
  */
-export interface SysLogModuleOption {
-  code: string;
-  name: string;
-}
+export type SysLogModuleOption = string;
 
 /** 操作类型下拉选项；文案由前端按 `code` 查 i18n。 */
 export interface SysLogOperationTypeOption {
@@ -42,13 +39,13 @@ export interface SysLogUserOption {
 /**
  * 日志列表查询参数。
  *
- * 字段对齐旧页筛选表单。时间范围为秒级 epoch（旧页 RangePicker 取值后除以 1000）。
+ * 字段对齐旧页筛选表单。时间范围为毫秒级 epoch，后端实测按毫秒筛选。
  */
 export interface SysLogQueryParams extends PaginationParams {
   logId?: string;
-  /** 起始时间（秒级 epoch） */
+  /** 起始时间（毫秒级 epoch） */
   startLogTime?: number;
-  /** 结束时间（秒级 epoch） */
+  /** 结束时间（毫秒级 epoch） */
   endLogTime?: number;
   userName?: string;
   module?: string;

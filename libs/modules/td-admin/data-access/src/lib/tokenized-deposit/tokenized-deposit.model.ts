@@ -306,6 +306,12 @@ export interface WalletDetailItem {
   /** 状态。 */
   status?: number;
   recordId?: number;
+  /** 审批任务 ID（Details/History 行 View 跳转）。 */
+  taskId?: number | string;
+  /** Details 行审批业务编码。 */
+  businessCode?: string;
+  /** History 行审批业务编码。 */
+  busCode?: string;
 }
 
 /**
@@ -483,8 +489,8 @@ export interface TDEditDetail {
     accountType?: number;
     walletAddress?: string;
   }>;
-  /** Financial Book 名称。 */
-  bookName?: string;
+  /** Financial Book 名称（后端 TdEditDetailRespVo.financeBookName；提交 payload 字段是 bookName）。 */
+  financeBookName?: string;
   /** 科目模板 ID（number，回填时映射到 COA accountTemplateCode）。 */
   bookTemplateId?: number;
   /** 科目模板名称。 */
@@ -585,7 +591,13 @@ export interface TDEditFormValues {
   currencySymbol?: string;
   /** USD 单价。 */
   usPrice?: string;
-  /** 储备账户 ID。 */
+  /** 发行阈值类型（仅 UI 展示，不进入提交 payload）。 */
+  thresholdType?: 'volume' | 'txnCount';
+  /** 发行阈值周期（仅 UI 展示，不进入提交 payload）。 */
+  thresholdFrequency?: 'daily' | 'monthly' | 'yearly';
+  /** 发行阈值数值（仅 UI 展示，不进入提交 payload）。 */
+  thresholdValue?: number;
+  /** 储备账户 ID（编辑详情回填，提交层按源契约映射）。 */
   reserveAccountId?: number;
   /** 区块链 ID（string 化用）。 */
   blockchainId?: string;

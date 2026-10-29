@@ -51,8 +51,10 @@ export async function getRbacPaginated<T, P = unknown>(
 
   const rows = raw?.rows ?? [];
   const total = raw?.page?.total ?? 0;
-  const responsePageSize = raw?.page?.pageSize ?? DEFAULT_PAGE_SIZE;
-  const page = raw?.page?.pageNum ?? 1;
+  // Some RBAC endpoints return only `page.total`; the request is authoritative
+  // for the current page and page size in that response shape.
+  const responsePageSize = raw?.page?.pageSize ?? pageSize;
+  const page = raw?.page?.pageNum ?? pageNum;
 
   return {
     code: 0,

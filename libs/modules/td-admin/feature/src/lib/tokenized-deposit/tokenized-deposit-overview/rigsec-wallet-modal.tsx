@@ -12,7 +12,8 @@
  * ## 提交（源 2569-2599）
  *
  * 点 Confirm → useGenerateWalletKeystoreMutation（rigsec 分支：不传 password，
- * 传 chainType/walletType/storageType/roleName/blockchainCode/tokenName/ifAdd）。
+ * 传 chainType/walletType/storageType/roleName/blockchainCode/tokenName/ifAdd；
+ * walletType 源为 `Number(标签串) || 1` 恒 1，Cold/Hot 单选不透传）。
  * 成功回填 walletAddress 到 AdminWalletModal 表单（onSuccess 透传 { walletAddress }）。
  *
  * ## Wallet Attribute（源 2634-2642）
@@ -22,16 +23,14 @@
  *
  * ## 描述文案（源 2607-2628）
  *
- * 全英文硬编码（A new {role} wallet address for {token} will be generated via
- * {service}...）。迁移 i18n 化：复用 edit 版 tokenized_deposit_0138（{token}/
- * {service}/{role} ICU 插值），保持两版文案一致。
- *
- * i18n namespace: `modules.tokenized-deposit`。
+ * 保持源的英文硬编码语义：A new {role} wallet address for {token} will be
+ * generated via {service}...；不将该弹窗改为 tokenized-deposit i18n 键，
+ * 以免改变上游展示契约。
+ * 提交接口仍位于 td-admin data-access；本文件不新增依赖。
  */
 'use client';
 
 import * as React from 'react';
-import { useTranslations } from 'next-intl';
 import {
   Button,
   Dialog,
@@ -47,8 +46,8 @@ import { useGenerateWalletKeystoreMutation } from '@myorg/modules/td-admin/data-
 
 /** Wallet Attribute 候选（源 2638-2641：Cold=1 / Hot=2）。 */
 const WALLET_ATTRIBUTE_OPTIONS = [
-  { value: '1', labelKey: 'wallet_attr_cold' },
-  { value: '2', labelKey: 'wallet_attr_hot' },
+  { value: '1', label: 'Cold Wallet' },
+  { value: '2', label: 'Hot Wallet' },
 ] as const;
 
 export interface OverviewRigsecWalletModalProps {
@@ -60,8 +59,6 @@ export interface OverviewRigsecWalletModalProps {
   storageType: string;
   /** roleName（generateWalletKeystore body，源 Number(confirmType)）。 */
   roleName?: string;
-  /** walletType（generateWalletKeystore body，源 Number(walletType)）。 */
-  walletType?: number;
   /** blockchainCode（generateWalletKeystore body）。 */
   blockchainCode?: string;
   /** tokenName（generateWalletKeystore body + 描述文案插值）。 */
@@ -85,7 +82,6 @@ export interface OverviewRigsecWalletModalProps {
  *   chainType={adminCtx.chainType ?? ''}
  *   storageType={adminCtx.storageType ?? 'key_rigsec'}
  *   roleName={String(adminCtx.confirmType)}
- *   walletType={adminCtx.walletType}
  *   blockchainCode={adminCtx.blockchainCode}
  *   tokenName={adminCtx.tokenName}
  *   onCancel={() => setIsRigsecModalOpen(false)}
@@ -98,14 +94,20 @@ export function OverviewRigsecWalletModal({
   chainType,
   storageType,
   roleName,
-  walletType,
   blockchainCode,
   tokenName,
   onCancel,
   onGenerated,
 }: OverviewRigsecWalletModalProps): React.JSX.Element {
-  const t = useTranslations('modules.tokenized-deposit');
   const { mutateAsync, isPending } = useGenerateWalletKeystoreMutation();
+  const roleLabel =
+    Number(roleName) === 1
+      ? 'Contract Owner'
+      : Number(roleName) === 2
+        ? 'Gas Payment'
+        : 'Management';
+  const serviceName = storageType === 'key_rigsec' ? 'RigSec' : 'Fireblocks';
+  const displayTokenName = tokenName || 'Token Name';
 
   // walletAttribute（源 useState(1)，Cold 默认）。
   const [walletAttribute, setWalletAttribute] = React.useState<string>('1');
@@ -122,7 +124,9 @@ export function OverviewRigsecWalletModal({
       const res = await mutateAsync({
         chainType: chainType || '',
         storageType: storageType || 'key_rigsec',
-        walletType: walletType ?? Number(walletAttribute),
+        // 源 index.tsx:2577-2580 walletType 为 `Number(标签字符串) || 1` → 恒 1
+        //（Cold/Hot 单选在上游是死状态，不透传；review NF-4 源差异保真，2026-10-28）。
+        walletType: 1,
         roleName: roleName ?? '',
         blockchainCode: blockchainCode ?? '',
         tokenName: tokenName ?? '',
@@ -135,9 +139,6 @@ export function OverviewRigsecWalletModal({
     }
   };
 
-  // 描述文案 service 名（源 storageType==='key_rigsec' ? 'RigSec' : 'Fireblocks'）。
-  const serviceName = storageType === 'key_rigsec' ? 'RigSec' : 'Fireblocks';
-  const displayTokenName = tokenName || t('tokenized_deposit_0005');
 
   return (
     <Dialog
@@ -146,25 +147,24 @@ export function OverviewRigsecWalletModal({
     >
       <DialogContent className="max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>{t('PUB_Generate_Wallet')}</DialogTitle>
+          <DialogTitle>Generate Wallet</DialogTitle>
           <DialogDescription className="sr-only">
-            {t('PUB_Generate_Wallet')}
+            Generate Wallet
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-4">
           <p className="mb-6 text-sm text-muted-foreground">
-            {t('tokenized_deposit_0138', {
-              role: '',
-              token: displayTokenName,
-              service: serviceName,
-            })}
+            A new <span className="font-bold">{roleLabel}</span> wallet address
+            for <span className="font-bold">{displayTokenName}</span> will be
+            generated via <span className="font-bold">{serviceName}</span>.
+            Upon confirmation, the role information will be updated accordingly.
           </p>
 
           <div>
             <div className="mb-2 flex items-center">
               <span className="text-destructive" aria-hidden="true">*</span>
-              <span className="font-medium">{t('wallet_attribute')}</span>
+              <span className="font-medium">Wallet Attribute</span>
             </div>
             <RadioGroup
               value={walletAttribute}
@@ -179,7 +179,7 @@ export function OverviewRigsecWalletModal({
                   }`}
                 >
                   <RadioGroupItem value={option.value} />
-                  {t(option.labelKey)}
+                  {option.label}
                 </label>
               ))}
             </RadioGroup>
@@ -188,10 +188,10 @@ export function OverviewRigsecWalletModal({
 
         <DialogFooter className="flex-row justify-center gap-4 sm:justify-center">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>
-            {t('PUB_Cancel')}
+            Cancel
           </Button>
           <Button type="button" onClick={handleConfirm} disabled={isPending}>
-            {t('PUB_Confirm')}
+            Confirm
           </Button>
         </DialogFooter>
       </DialogContent>

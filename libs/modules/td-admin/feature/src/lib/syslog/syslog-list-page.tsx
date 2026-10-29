@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Button, DataTable, useToast } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatDate } from '@myorg/shared/util-dates';
 
@@ -60,12 +60,23 @@ const PROJECT_ID = 'stablecoin';
 function toTimeRange(
   from?: string,
   to?: string
-): [number, number] | undefined {
-  if (!from || !to) return undefined;
-  return [
-    startOfDay(parseISO(from)).getTime(),
-    endOfDay(parseISO(to)).getTime(),
-  ];
+): Pick<SysLogQueryParams, 'startLogTime' | 'endLogTime'> {
+  const range: Pick<SysLogQueryParams, 'startLogTime' | 'endLogTime'> = {};
+
+  if (from) {
+    const parsed = parseISO(from);
+    if (!Number.isNaN(parsed.getTime())) {
+      range.startLogTime = startOfDay(parsed).getTime();
+    }
+  }
+  if (to) {
+    const parsed = parseISO(to);
+    if (!Number.isNaN(parsed.getTime())) {
+      range.endLogTime = endOfDay(parsed).getTime();
+    }
+  }
+
+  return range;
 }
 
 /** 把 RHF 筛选表单翻译为查询参数；'all'/空串字段被剔除。 */
@@ -79,11 +90,7 @@ function formToParams(form: SysLogFilterForm): SysLogQueryParams {
     params.operationType = form.operationType;
   if (form.sourceIp) params.sourceIp = form.sourceIp;
 
-  const range = toTimeRange(form.logTimeFrom, form.logTimeTo);
-  if (range) {
-    params.startLogTime = range[0];
-    params.endLogTime = range[1];
-  }
+  Object.assign(params, toTimeRange(form.logTimeFrom, form.logTimeTo));
 
   return params;
 }
@@ -95,10 +102,11 @@ function formToParams(form: SysLogFilterForm): SysLogQueryParams {
  * - 下拉数据源：modules / operationTypes / users 三个独立查询并行加载。
  * - 表格：logTime 经 formatDate；module 走 code→name 映射 + formatModuleName；
  *   operationType 优先取下拉 name，否则查 i18n；desc 超长走 LogDescriptionText 截断。
- * - Export：保留入口，未接真实导出（与旧页一致，旧页也是 console.log 占位）。
+ * - Export：保留入口；后端当前没有导出接口，点击后明确提示不可用。
  */
 export function SysLogListPage() {
   const t = useTranslations('modules.syslog');
+  const toast = useToast();
   const { register, control, handleSubmit, reset } =
     useForm<SysLogFilterForm>({ defaultValues: EMPTY_FORM });
 
@@ -106,11 +114,10 @@ export function SysLogListPage() {
     formToParams(EMPTY_FORM)
   );
 
-  const { data, isLoading } = useSysLogsQuery(PROJECT_ID, params);
+  const { data, isLoading, isError } = useSysLogsQuery(PROJECT_ID, params);
   const { data: moduleOptions } = useSysLogModulesQuery(PROJECT_ID);
   const { data: operationTypeOptions } = useSysLogOperationTypesQuery(PROJECT_ID);
   const { data: userOptions } = useSysLogUsersQuery(PROJECT_ID);
-
   const rows: SysLogRow[] = (data?.data ?? []).map((d) => ({ ...d, id: d.logId }));
   const paginationMeta = data?.pagination;
 
@@ -124,9 +131,8 @@ export function SysLogListPage() {
   }, [reset]);
 
   const onExport = React.useCallback(() => {
-    // 导出能力暂未对接后端（与旧页一致，旧页为 console.log 占位）。
-    // 后端就绪后在此处调用导出接口。
-  }, []);
+    toast.info(t('exportUnavailable'));
+  }, [t, toast]);
 
   const userSelectOptions = React.useMemo(() => {
     const base = [{ value: ALL, label: t('all') }];
@@ -139,39 +145,45 @@ export function SysLogListPage() {
 
   const moduleSelectOptions = React.useMemo(() => {
     const base = [{ value: ALL, label: t('all') }];
-    const items = (moduleOptions ?? []).map((m) => ({
-      value: m.code,
-      label: formatModuleName(m.name) || m.code,
+    const items = (moduleOptions ?? []).map((code) => ({
+      value: code,
+      label: formatModuleName(code),
     }));
     return [...base, ...items];
   }, [moduleOptions, t]);
 
   const operationTypeSelectOptions = React.useMemo(() => {
     const base = [{ value: ALL, label: t('all') }];
-    const items = (operationTypeOptions ?? []).map((o) => ({
-      value: String(o.code),
-      label: o.name ?? t(`operationType.${o.code}`),
-    }));
+    const items = (operationTypeOptions ?? []).map((o) => {
+      const code = String(o.code);
+      const key = `operationType.${code}`;
+      const translated = t.has(key) ? t(key) : undefined;
+      return {
+        value: code,
+        label: translated ?? o.name ?? code,
+      };
+    });
     return [...base, ...items];
   }, [operationTypeOptions, t]);
 
   /** 列渲染：module code → 可读标题。 */
   const moduleLabel = React.useCallback(
-    (code: string) => {
-      const opt = moduleOptions?.find((m) => m.code === code);
-      return formatModuleName(opt?.name ?? code);
-    },
-    [moduleOptions]
+    (code: string) => formatModuleName(code),
+    []
   );
 
-  /** 列渲染：operationType 优先取下拉 name，否则查 i18n。 */
+  /** 列渲染：优先使用本地化操作类型文案，后端 name 仅作未知 code 的兜底。 */
   const operationTypeLabel = React.useCallback(
     (code: string) => {
-      const opt = operationTypeOptions?.find(
-        (o) => String(o.code) === String(code)
+      const key = `operationType.${code}`;
+      const translated = t.has(key) ? t(key) : undefined;
+      return (
+        translated ??
+        operationTypeOptions?.find(
+          (o) => String(o.code) === String(code)
+        )?.name ??
+        code
       );
-      if (opt?.name) return opt.name;
-      return t(`operationType.${code}`);
     },
     [operationTypeOptions, t]
   );
@@ -279,6 +291,11 @@ export function SysLogListPage() {
             {t('export')}
           </Button>
         </div>
+        {isError ? (
+          <div role="alert" className="border-b px-6 py-3 text-sm text-destructive">
+            {t('loadFailed')}
+          </div>
+        ) : null}
         <DataTable
           columns={columns}
           data={rows}
@@ -290,7 +307,10 @@ export function SysLogListPage() {
                   page: paginationMeta.page,
                   pageSize: paginationMeta.pageSize,
                   total: paginationMeta.total,
-                  onPageChange: (page) => setParams((prev) => ({ ...prev, page })),
+                  onPageChange: (page) =>
+                    setParams((prev) => ({ ...prev, page })),
+                  onPageSizeChange: (pageSize) =>
+                    setParams((prev) => ({ ...prev, page: 1, pageSize })),
                 }
               : undefined
           }

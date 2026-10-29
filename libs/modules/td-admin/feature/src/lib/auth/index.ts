@@ -10,3 +10,11 @@ export {
 export {
   MetaMaskButton,
 } from './metamask-button';
+export {
+  ChangePasswordDialog,
+  type ChangePasswordDialogProps,
+} from './change-password-dialog';
+export {
+  useCaptcha,
+  type CaptchaRefreshResult,
+} from './use-captcha';

@@ -4,6 +4,7 @@
   "reset": "Reset",
   "records": "User List",
   "empty": "No users",
+  "loadFailed": "Failed to load users. Please try again.",
   "invalidId": "Invalid user ID",
   "action": {
     "view": "View",
@@ -18,6 +19,7 @@
     "save": "Save",
     "saveSuccess": "Saved successfully",
     "saveFailed": "Save failed. Please try again.",
+    "operationFailed": "Operation failed. Please try again.",
     "deleteSuccess": "Deleted successfully",
     "statusUpdated": "Status updated successfully",
     "passwordReset": "Password has been reset"

@@ -37,7 +37,7 @@ export function RoleViewPage() {
   const searchParams = useSearchParams();
   const roleId = parseRoleId(searchParams.get('roleId'));
 
-  const { data: detail, isLoading } = useRoleDetailQuery(PROJECT_ID, roleId);
+  const { data: detail, isLoading, isError } = useRoleDetailQuery(PROJECT_ID, roleId);
   const { data: menuList } = useMenuTreeQuery(PROJECT_ID, Boolean(roleId));
 
   if (!roleId) {
@@ -57,6 +57,11 @@ export function RoleViewPage() {
 
   return (
     <div className="space-y-4">
+      {isError ? (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+          {t('loadFailed')}
+        </div>
+      ) : null}
       <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
         <div className="mb-6 text-base font-semibold">{t('view.title')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

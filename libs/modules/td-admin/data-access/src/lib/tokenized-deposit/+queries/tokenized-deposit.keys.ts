@@ -78,9 +78,8 @@ export const tdKeys = {
     [...tdKeys.view(), 'stablecoin-record-list', params] as const,
   /** 稳定币列表（view 页 mount 拉，取 [0]）。 */
   viewStablecoinList: () => [...tdKeys.view(), 'stablecoin-list'] as const,
-  /** 稳定币信息（view 页，surplusCount 可销毁余额）。 */
-  viewStablecoinInfo: (stablecoinId: number | string | undefined) =>
-    [...tdKeys.view(), 'stablecoin-info', stablecoinId ?? ''] as const,
+  /** 稳定币信息（view 页，surplusCount 可销毁余额；源无 body 全局查询）。 */
+  viewStablecoinInfo: () => [...tdKeys.view(), 'stablecoin-info'] as const,
 
   // ── 3. edit（编辑页）──
   edit: () => [...tdKeys.all, 'edit'] as const,

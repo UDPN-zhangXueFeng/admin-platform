@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
+import type { Control } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
@@ -19,12 +20,15 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  useToast,
 } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { PermissionGuard } from '@myorg/shared/util-auth';
 
 import { ApproverSelector } from '.';
 import {
   WORKFLOW_PAGE_SIZE,
+  WORKFLOW_PERMISSIONS,
   WorkflowSwitch,
   displayToTransferStepName,
   isThresholdBusiness,
@@ -75,9 +79,9 @@ interface WorkflowNodeFormValue {
 interface WorkflowFormValues {
   workflowName: string;
   businessCode: string;
-  withdrawType: number;
-  previousStepType: number;
-  escalationType: number;
+  withdrawType?: number;
+  previousStepType?: number;
+  escalationType?: number;
   nodes: WorkflowNodeFormValue[];
 }
 
@@ -142,6 +146,7 @@ function buildInitialNodes(
 export function WorkflowFormPage() {
   const t = useTranslations('modules.workflow');
   const router = useRouter();
+  const toast = useToast();
   const searchParams = useSearchParams();
   const id = parseId(searchParams.get('id'));
   const isEdit = id != null;
@@ -170,9 +175,9 @@ export function WorkflowFormPage() {
       defaultValues: {
         workflowName: '',
         businessCode: '',
-        withdrawType: WorkflowSwitch.Yes,
-        previousStepType: WorkflowSwitch.Yes,
-        escalationType: WorkflowSwitch.Yes,
+        withdrawType: undefined,
+        previousStepType: undefined,
+        escalationType: undefined,
         nodes: buildInitialNodes(
           initiatorLabel,
           authorizedUserLabel,
@@ -209,11 +214,18 @@ export function WorkflowFormPage() {
     const detailNodes = detail.nodes ?? [];
     const threshold = isThresholdBusiness(detail.businessCode);
     detailNodes.forEach((el) => {
-      const userNames = transferToUserNames(el.stepName);
+      const stepUserNames = el.stepUsers
+        .map((user) => user.userName)
+        .filter(Boolean);
+      const userNames = stepUserNames.length
+        ? stepUserNames
+        : transferToUserNames(el.stepName);
       nodesArr.push({
         stepOrder: el.stepOrder + 1,
         stepType: (el.stepType || 5) as WorkflowStepType,
-        stepName: transferToDisplayStepName(el.stepName),
+        stepName: userNames.length
+          ? userNames.join(' / ')
+          : transferToDisplayStepName(el.stepName),
         executionMode: executionModeLabel,
         userId: el.stepUsers.map((u) => u.userId),
         selectUser: userNames,
@@ -346,11 +358,18 @@ export function WorkflowFormPage() {
       workflowName: values.workflowName,
       nodes: payloadNodes,
     };
-    const onSuccess = () => router.push('/sys/workflow');
+    const onSuccess = () => {
+      toast.success(t('action.saveSuccess'));
+      router.push('/sys/workflow');
+    };
+    const onError = () => toast.error(t('action.operationFailed'));
     if (isEdit && id) {
-      updateMutation.mutate({ workflowId: id, ...base }, { onSuccess });
+      updateMutation.mutate(
+        { workflowId: id, ...base },
+        { onSuccess, onError }
+      );
     } else {
-      createMutation.mutate(base, { onSuccess });
+      createMutation.mutate(base, { onSuccess, onError });
     }
   });
 
@@ -638,18 +657,21 @@ export function WorkflowFormPage() {
           <SwitchRow
             label={t('field.withdraw')}
             hint={t('config.withdrawHint')}
+            requiredLabel={t('validate.required')}
             control={control}
             name="withdrawType"
           />
           <SwitchRow
             label={t('field.revert')}
             hint={t('config.revertHint')}
+            requiredLabel={t('validate.required')}
             control={control}
             name="previousStepType"
           />
           <SwitchRow
             label={t('field.escalate')}
             hint={t('config.escalateHint')}
+            requiredLabel={t('validate.required')}
             control={control}
             name="escalationType"
           />
@@ -665,9 +687,15 @@ export function WorkflowFormPage() {
         >
           {t('action.cancel')}
         </Button>
-        <Button type="submit" disabled={submitting}>
-          {t('action.save')}
-        </Button>
+        <PermissionGuard
+          permission={
+            isEdit ? WORKFLOW_PERMISSIONS.edit : WORKFLOW_PERMISSIONS.add
+          }
+        >
+          <Button type="submit" disabled={submitting}>
+            {t('action.save')}
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* 选人抽屉 */}
@@ -703,38 +731,54 @@ export function WorkflowFormPage() {
 interface SwitchRowProps {
   label: string;
   hint: string;
-  control: import('react-hook-form').Control<WorkflowFormValues>;
+  requiredLabel: string;
+  control: Control<WorkflowFormValues>;
   name: 'withdrawType' | 'previousStepType' | 'escalationType';
 }
 
-function SwitchRow({ label, hint, control, name }: SwitchRowProps) {
+function SwitchRow({
+  label,
+  hint,
+  requiredLabel,
+  control,
+  name,
+}: SwitchRowProps) {
   return (
     <div>
       <Controller
         control={control}
         name={name}
         rules={{ required: true }}
-        render={({ field }) => (
+        render={({ field, fieldState }) => (
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium">{label}</label>
             <RadioGroup
-              value={String(field.value)}
+              value={field.value == null ? '' : String(field.value)}
               onValueChange={(v) => field.onChange(Number(v))}
               className="flex gap-6"
             >
               <div className="flex items-center gap-2">
-                <RadioGroupItem value={String(WorkflowSwitch.Yes)} id={`${name}-yes`} />
+                <RadioGroupItem
+                  value={String(WorkflowSwitch.Yes)}
+                  id={`${name}-yes`}
+                />
                 <label htmlFor={`${name}-yes`} className="text-sm">
                   <YesNo yes />
                 </label>
               </div>
               <div className="flex items-center gap-2">
-                <RadioGroupItem value={String(WorkflowSwitch.No)} id={`${name}-no`} />
+                <RadioGroupItem
+                  value={String(WorkflowSwitch.No)}
+                  id={`${name}-no`}
+                />
                 <label htmlFor={`${name}-no`} className="text-sm">
                   <YesNo />
                 </label>
               </div>
             </RadioGroup>
+            {fieldState.error ? (
+              <p className="text-xs text-red-500">{requiredLabel}</p>
+            ) : null}
           </div>
         )}
       />

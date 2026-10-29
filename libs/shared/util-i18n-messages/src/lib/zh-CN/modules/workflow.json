@@ -5,6 +5,7 @@
   "all": "全部",
   "records": "工作流列表",
   "empty": "暂无工作流",
+  "loadFailed": "工作流加载失败，请重试",
   "invalidId": "工作流 ID 无效",
   "yes": "是",
   "no": "否",
@@ -19,7 +20,10 @@
     "cancel": "取消",
     "save": "保存",
     "submit": "确定",
-    "selected": "选择"
+    "saveSuccess": "保存成功",
+    "selected": "选择",
+    "statusUpdated": "状态更新成功",
+    "operationFailed": "操作失败，请重试"
   },
   "field": {
     "index": "序号",
@@ -81,6 +85,7 @@
     "10": "审批"
   },
   "validate": {
+    "required": "必填",
     "thresholdLt": "必须大于上一步的阈值金额（{amount}）。"
   },
   "view": {

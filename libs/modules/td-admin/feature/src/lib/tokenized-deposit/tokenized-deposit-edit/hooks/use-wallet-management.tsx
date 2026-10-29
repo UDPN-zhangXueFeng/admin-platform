@@ -1,14 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { toast } from 'sonner';
 
 import { useAdminWalletListQuery } from '@myorg/modules/td-admin/data-access/lib/tokenized-deposit/+queries/tokenized-deposit.queries';
 import type { AdminWalletListItem, KeyServiceOption, TDEditDetail, TDEditFormValues } from '@myorg/modules/td-admin/data-access/lib/tokenized-deposit/tokenized-deposit.model';
-import { useGenerateWalletKeystoreMutation } from '@myorg/modules/td-admin/data-access/lib/tokenized-deposit/+queries/tokenized-deposit.mutations';
 import type { BlockchainOption } from '@myorg/modules/td-admin/data-access/lib/tokenized-deposit';
+
+import { useWalletGeneration } from './use-wallet-generation';
+import { useWalletFieldSync } from './use-wallet-field-sync';
 
 /**
  * useWalletManagement — 管理员/角色钱包生成与回填 hook（edit 最复杂）。
@@ -124,10 +124,12 @@ export function useWalletManagement({
   const [walletAttribute, setWalletAttribute] = useState<number>(1);
   const [modalInfo, setModalInfo] = useState<ModalInfo>({ type: 1 });
   const previousTokenNameRef = useRef<string | undefined>(undefined);
-  const [rigsecConfirmLoading, setRigsecConfirmLoading] = useState(false);
 
-  const generateWalletMutation = useGenerateWalletKeystoreMutation();
-  const t = useTranslations('modules.tokenized-deposit');
+  const {
+    setWalletFields,
+    setWalletAddressFields,
+    resetAdminWalletFields,
+  } = useWalletFieldSync(form);
 
   // ── 当前 keyService（按 keyServiceName 匹配）──
   const currentKeyService = useMemo(
@@ -192,77 +194,6 @@ export function useWalletManagement({
   const shouldResetWalletOnTokenNameChange =
     shouldHideKeystoreAndPassword && !shouldHideGenerateWalletAction;
 
-  // ── setWalletFields：回填 3 角色钱包（含可选 keyStore）──
-  const setWalletFields = useCallback(
-    (
-      walletList: Array<{
-        accountType?: number;
-        walletAddress?: string;
-        keyStore?: string;
-      }> = [],
-      includeKeyStore = true,
-    ) => {
-      if (!walletList.length) return;
-      const walletMap = walletList.reduce<
-        Record<number, (typeof walletList)[number]>
-      >((acc, current) => {
-        if (current?.accountType) {
-          acc[current.accountType] = current;
-        }
-        return acc;
-      }, {});
-
-      form.setValue('walletAddressContractOwner', walletMap[1]?.walletAddress);
-      form.setValue(
-        'walletAddressPaymentOfGasFee',
-        walletMap[2]?.walletAddress,
-      );
-      form.setValue(
-        'walletAddressManagementWallet',
-        walletMap[3]?.walletAddress,
-      );
-
-      if (includeKeyStore) {
-        form.setValue('keyStoreContractOwner', walletMap[1]?.keyStore);
-        form.setValue('keyStorePaymentOfGasFee', walletMap[2]?.keyStore);
-        form.setValue('keyStoreManagementWallet', walletMap[3]?.keyStore);
-      } else {
-        form.setValue('keyStoreContractOwner', undefined);
-        form.setValue('keyStorePaymentOfGasFee', undefined);
-        form.setValue('keyStoreManagementWallet', undefined);
-      }
-    },
-    [form],
-  );
-
-  // ── setWalletAddressFields：仅地址（admin wallet 自动拉取回填）──
-  const setWalletAddressFields = useCallback(
-    (
-      walletList: Array<{ accountType?: number; walletAddress?: string }> = [],
-    ) => {
-      if (!walletList.length) return;
-      const walletMap = walletList.reduce<
-        Record<number, (typeof walletList)[number]>
-      >((acc, current) => {
-        if (current?.accountType) {
-          acc[current.accountType] = current;
-        }
-        return acc;
-      }, {});
-
-      form.setValue('walletAddressContractOwner', walletMap[1]?.walletAddress);
-      form.setValue(
-        'walletAddressPaymentOfGasFee',
-        walletMap[2]?.walletAddress,
-      );
-      form.setValue(
-        'walletAddressManagementWallet',
-        walletMap[3]?.walletAddress,
-      );
-    },
-    [form],
-  );
-
   // ── 自动拉 admin wallet（Ethereum Sepolia + Huawei KMS 场景，声明式）──
   const { data: adminWalletListData } = useAdminWalletListQuery(
     shouldHideGenerateWalletAction ? blockchain : undefined,
@@ -280,232 +211,28 @@ export function useWalletManagement({
     shouldHideGenerateWalletAction,
   ]);
 
-  // ── resetAdminWalletFields：清空 9 字段 ──
-  const resetAdminWalletFields = useCallback(() => {
-    form.setValue('walletAddressContractOwner', undefined);
-    form.setValue('walletAddressPaymentOfGasFee', undefined);
-    form.setValue('walletAddressManagementWallet', undefined);
-    form.setValue('keyStoreContractOwner', undefined);
-    form.setValue('keyStorePaymentOfGasFee', undefined);
-    form.setValue('keyStoreManagementWallet', undefined);
-    (form.setValue as (name: string, value: unknown) => void)(
-      'passWordContractOwner',
-      undefined,
-    );
-    (form.setValue as (name: string, value: unknown) => void)(
-      'passWordPaymentOfGasFee',
-      undefined,
-    );
-    (form.setValue as (name: string, value: unknown) => void)(
-      'passWordManagementWallet',
-      undefined,
-    );
-  }, [form]);
-
-  // ── checkWalletAddress：分流 keystore / rigsec 生成入口 ──
-  const checkWalletAddress = useCallback(
-    (type: WalletRoleType) => {
-      const walletAddressContractOwner = form.getValues(
-        'walletAddressContractOwner',
-      );
-      const walletAddressPaymentOfGasFee = form.getValues(
-        'walletAddressPaymentOfGasFee',
-      );
-      const walletAddressManagementWallet = form.getValues(
-        'walletAddressManagementWallet',
-      );
-      const keyStoreContractOwner = form.getValues('keyStoreContractOwner');
-      const keyStorePaymentOfGasFee = form.getValues('keyStorePaymentOfGasFee');
-      const keyStoreManagementWallet = form.getValues(
-        'keyStoreManagementWallet',
-      );
-
-      const selectedKeyService = keyServiceList?.find(
-        (item) => item.keyServiceCode === keyServiceName,
-      );
-      const isNotKeystore =
-        (selectedKeyService as (KeyServiceOption & { storageType?: string }) | undefined)
-          ?.storageType !== 'key_keystore';
-
-      if (isNotKeystore) {
-        setModalInfo({ type });
-        setWalletAttribute(defaultWalletAttribute);
-        setIsRigsecModalOpen(true);
-        return;
-      }
-
-      const hasExisting =
-        (type === 1 &&
-          (walletAddressContractOwner || keyStoreContractOwner)) ||
-        (type === 2 &&
-          (walletAddressPaymentOfGasFee || keyStorePaymentOfGasFee)) ||
-        (type === 3 &&
-          (walletAddressManagementWallet || keyStoreManagementWallet));
-
-      if (hasExisting) {
-        confirmOverwrite(() => {
-          setIsModalOpen(true);
-          setModalInfo({ type });
-        });
-      } else {
-        setIsModalOpen(true);
-        setModalInfo({ type });
-      }
-    },
-    [
-      confirmOverwrite,
-      defaultWalletAttribute,
-      form,
-      keyServiceList,
-      keyServiceName,
-    ],
-  );
-
-  // ── setWalletInfo：keystore 路径生成（密码 Modal 提交）──
-  const setWalletInfo = useCallback(
-    async (values: { password?: string }) => {
-      const { password } = values;
-      const currentBlockchainId = form.getValues('blockchainId');
-      const selectedBlockchainInner = blockchainList?.find(
-        (item) => item.key === currentBlockchainId,
-      );
-      const selectedKeyService = keyServiceList?.find(
-        (item) => item.keyServiceCode === keyServiceName,
-      );
-      const tokenName = form.getValues('name');
-
-      const storageType =
-        (selectedKeyService as (KeyServiceOption & { storageType?: string }) | undefined)
-          ?.storageType || 'key_keystore';
-      const blockchainCode =
-        (selectedBlockchainInner as (BlockchainOption & { blockchainCode?: string }) | undefined)
-          ?.blockchainCode || '';
-
-      try {
-        const res = await generateWalletMutation.mutateAsync({
-          chainType,
-          // 注意：明文 password，generateWalletKeystore 内部 AES 加密。
-          password: password ?? '',
-          walletType: 1,
-          storageType,
-          roleName: String(modalInfo.type),
-          blockchainCode,
-          tokenName: tokenName ?? '',
-          ifAdd: true,
-        });
-
-        if (res) {
-          const { keystore, walletAddress } = res;
-          if (modalInfo.type === 1) {
-            form.setValue('walletAddressContractOwner', walletAddress);
-            form.setValue('keyStoreContractOwner', keystore);
-            (form.setValue as (name: string, value: unknown) => void)(
-              'passWordContractOwner',
-              password,
-            );
-          } else if (modalInfo.type === 2) {
-            form.setValue('walletAddressPaymentOfGasFee', walletAddress);
-            form.setValue('keyStorePaymentOfGasFee', keystore);
-            (form.setValue as (name: string, value: unknown) => void)(
-              'passWordPaymentOfGasFee',
-              password,
-            );
-          } else {
-            form.setValue('walletAddressManagementWallet', walletAddress);
-            form.setValue('keyStoreManagementWallet', keystore);
-            (form.setValue as (name: string, value: unknown) => void)(
-              'passWordManagementWallet',
-              password,
-            );
-          }
-        }
-        if (res) {
-          form1.reset();
-          setIsModalOpen(false);
-        }
-      } catch {
-        toast.error(t('td_toast_wallet_generate_failed'));
-      }
-    },
-    [
-      blockchainList,
-      chainType,
-      form,
-      form1,
-      generateWalletMutation,
-      keyServiceList,
-      keyServiceName,
-      modalInfo.type,
-      t,
-    ],
-  );
-
-  // ── handleRigsecSubmit：rigsec/fireblocks 路径生成（Hot/Cold，无 password）──
-  const handleRigsecSubmit = useCallback(async () => {
-    try {
-      setRigsecConfirmLoading(true);
-      const currentBlockchainId = form.getValues('blockchainId');
-      const selectedBlockchainInner = blockchainList?.find(
-        (item) => item.key === currentBlockchainId,
-      );
-      const selectedKeyService = keyServiceList?.find(
-        (item) => item.keyServiceCode === keyServiceName,
-      );
-      const tokenName = form.getValues('name');
-
-      const storageType =
-        (selectedKeyService as (KeyServiceOption & { storageType?: string }) | undefined)
-          ?.storageType || 'key_rigsec';
-      const blockchainCode =
-        (selectedBlockchainInner as (BlockchainOption & { blockchainCode?: string }) | undefined)
-          ?.blockchainCode || '';
-
-      const res = await generateWalletMutation.mutateAsync({
-        chainType,
-        walletType: walletAttribute,
-        storageType,
-        roleName: String(modalInfo.type),
-        blockchainCode,
-        tokenName: tokenName ?? '',
-        ifAdd: !code,
-      });
-
-      if (res) {
-        const { keystore, walletAddress } = res;
-        if (modalInfo.type === 1) {
-          form.setValue('walletAddressContractOwner', walletAddress);
-          form.setValue('keyStoreContractOwner', keystore);
-        } else if (modalInfo.type === 2) {
-          form.setValue('walletAddressPaymentOfGasFee', walletAddress);
-          form.setValue('keyStorePaymentOfGasFee', keystore);
-        } else {
-          form.setValue('walletAddressManagementWallet', walletAddress);
-          form.setValue('keyStoreManagementWallet', keystore);
-        }
-        setWalletAttribute(defaultWalletAttribute);
-      }
-    } catch {
-      toast.error(t('td_toast_wallet_generate_failed'));
-    } finally {
-      // 无论成功/失败，均关闭 Modal、重置表单、关闭 loading，避免卡在 loading 态。
-      setRigsecConfirmLoading(false);
-      setIsRigsecModalOpen(false);
-      form1.reset();
-    }
-  }, [
-    blockchainList,
-    chainType,
-    code,
-    defaultWalletAttribute,
+  const {
+    rigsecConfirmLoading,
+    checkWalletAddress,
+    setWalletInfo,
+    handleRigsecSubmit,
+  } = useWalletGeneration({
     form,
     form1,
-    generateWalletMutation,
+    code,
+    blockchainList,
     keyServiceList,
     keyServiceName,
-    modalInfo.type,
-    t,
+    chainType,
+    modalInfo,
     walletAttribute,
-  ]);
+    defaultWalletAttribute,
+    confirmOverwrite,
+    setModalInfo,
+    setIsModalOpen,
+    setIsRigsecModalOpen,
+    setWalletAttribute,
+  });
 
   // ── 竞态保护：tokenName 变化重置钱包 ──
   useEffect(() => {

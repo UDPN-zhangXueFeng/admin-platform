@@ -85,13 +85,20 @@ axiosClient.interceptors.response.use(
         logoutAndRedirect();
         return Promise.reject(new Error('Session expired'));
       }
-      if (typeof code === 'number' && code !== 0) {
+      // Success codes may arrive as `0` or `"0"`; everything else is an error.
+      if (code !== 0 && code !== '0' && code !== undefined && code !== null) {
+        // The backend uses `message` for regular business codes and `msg` for
+        // the 500 family (old td-manage `src/lib/axios.ts:82-88`).
         const rawMessage =
-          typeof data.message === 'string' ? data.message : undefined;
+          typeof data.message === 'string'
+            ? data.message
+            : typeof data.msg === 'string'
+              ? data.msg
+              : undefined;
         return Promise.reject(
           new ApiError({
             status: response.status,
-            code,
+            code: Number(code),
             message: getMessage(rawMessage),
           }),
         );

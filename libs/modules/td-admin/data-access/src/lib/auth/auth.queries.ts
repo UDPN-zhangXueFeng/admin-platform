@@ -8,6 +8,7 @@ import type {
   TwoFactorFormValues,
 } from '.';
 import { encrypt } from '.';
+import { isAuthSuccessCode } from './auth.api';
 import { useAuthUIStore } from './auth-ui.store';
 import * as authApi from './auth.api';
 
@@ -49,7 +50,7 @@ export function useLoginMutation() {
       const response = await authApi.loginApi(encrypted, values.randomstr);
       const { code, data } = response.data;
 
-      if (code !== 0) {
+      if (!isAuthSuccessCode(code)) {
         throw new Error(response.data.message || 'Login failed');
       }
 
@@ -78,7 +79,7 @@ export function useTwoFactorMutation() {
       });
       const { code, data } = response.data;
 
-      if (code !== 0) {
+      if (!isAuthSuccessCode(code)) {
         throw new Error(response.data.message || '2FA verification failed');
       }
 
@@ -88,6 +89,32 @@ export function useTwoFactorMutation() {
       setTwoFactorToken(null);
       setLoginStep('password');
       storeSession(data, login);
+    },
+  });
+}
+
+/**
+ * Change password mutation.
+ *
+ * The backend acts on the currently authenticated user (no user id in the
+ * body) and expects both passwords AES encrypted. On success the caller is
+ * responsible for terminating the session — the old project forced a
+ * re-login after a successful password change.
+ */
+export function useChangePasswordMutation() {
+  return useMutation({
+    mutationFn: async (params: {
+      oldPassword: string;
+      newPassword: string;
+    }) => {
+      const response = await authApi.modifyPassword(params);
+      const { code, data, message } = response.data;
+
+      if (!isAuthSuccessCode(code)) {
+        throw new Error(message || 'Failed to change password');
+      }
+
+      return data;
     },
   });
 }

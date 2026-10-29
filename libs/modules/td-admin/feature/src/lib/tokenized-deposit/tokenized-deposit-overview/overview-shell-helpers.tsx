@@ -12,7 +12,7 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@myorg/shared/ui';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatNumber } from '@myorg/shared/util-formatting';
+import { reSet } from '../re-set';
 import {
   TokenSelector,
   type TokenSelectorLabels,
@@ -29,13 +29,29 @@ import type { ApplyListItem } from '@myorg/modules/td-admin/data-access';
 /** Tab key（对齐源码 active 字符串 '1'/'2'/'3'/'4'）。 */
 export type OverviewTabKey = '1' | '2' | '3' | '4';
 
-/** Tab 列表（顺序固定，对齐源码 getItem 顺序）。 */
+/** Tab 列表（顺序固定，对齐源码 getItem 顺序）。Tab1 标签由 tab1LabelKey 按币种分支。 */
 export const TAB_DEFS: { key: OverviewTabKey; labelKey: string }[] = [
   { key: '1', labelKey: 'tokenized_deposit_0021' },
   { key: '2', labelKey: 'Router_0003_4' },
   { key: '3', labelKey: 'Router_0003_9' },
   { key: '4', labelKey: 'tokenized_deposit_0055' },
 ];
+
+/**
+ * Tab1 标签按币种形态分支（源 index.tsx:1122-1135 getItem 第一项，review NF-2）：
+ * 质铸稳定币（mintMethod===1 && pledgeType===1）→ 0020；
+ * MMF（mintMethod===20 && pledgeType===0）→ 0146（Summary）；
+ * 其余（SP 记录）→ 0063；未选币同源走 0063。
+ */
+export function tab1LabelKey(td: ApplyListItem | undefined): string {
+  if (td?.mintMethod === 1 && td?.pledgeType === 1) {
+    return 'tokenized_deposit_0020';
+  }
+  if (td?.mintMethod === 20 && td?.pledgeType === 0) {
+    return 'tokenized_deposit_0146';
+  }
+  return 'tokenized_deposit_0063';
+}
 
 /** Onboard 路由（对齐 arch §3 manifest create → /tokenized-deposit/onboard）。 */
 export const ONBOARD_ROUTE = '/tokenized-deposit/onboard';
@@ -249,18 +265,14 @@ export function OverviewEmpty({
 }
 
 /**
- * 数值格式化（千分位 + 2 位小数，对齐源 reSet）。
+ * 金额千分位格式化——代理模块级 `reSet`（源 libs/utils 变体逐分支等价：
+ * undefined/负数→'--'，四舍五入 2 位小数 + 千分位）。
  *
- * 与 overview-info-card formatStat 等价实现（Intl.NumberFormat en-US）。
+ * 上游 Mint/Melt 弹窗余额/可销毁串即用 reSet（index.tsx 1720/1731/1735），
+ * 不得以 Intl 等价实现替代（ISSUE-3 同类残留，2026-10-28 修正）。
  */
 export function formatBalance(
   value: number | string | undefined | null,
 ): string {
-  if (value == null || value === '') return '--';
-  const num = Number(value);
-  if (Number.isNaN(num)) return '--';
-  return formatNumber(num, 'en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return reSet(value);
 }

@@ -13,12 +13,18 @@ export {
 } from './encryption';
 
 export {
-  loginSchema,
-  twoFactorSchema,
-  metaMaskSchema,
+  createLoginSchema,
+  createTwoFactorSchema,
+  createMetaMaskSchema,
+  createChangePasswordSchema,
+  evaluatePasswordPolicy,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_SPECIAL_CHARACTERS,
+  type AuthValidationMessages,
   type LoginFormValues,
   type TwoFactorFormValues,
   type MetaMaskFormValues,
+  type ChangePasswordFormValues,
 } from './validation';
 export * from './auth.api';
 export * from './auth.queries';

@@ -22,8 +22,16 @@ const intlMiddleware = createMiddleware(routing);
 /** Paths that don't require authentication */
 const PUBLIC_PATHS = ['/login', '/api', '/aps', '/_next'];
 
+/**
+ * Exact-segment match: a public path is either the path itself or a child of
+ * it. Substring matching would let an unrelated route (e.g. `/sp/login-list`)
+ * bypass the session guard.
+ */
 function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname.includes(p));
+  return PUBLIC_PATHS.some(
+    (publicPath) =>
+      pathname === publicPath || pathname.startsWith(`${publicPath}/`),
+  );
 }
 
 export default function middleware(request: NextRequest) {

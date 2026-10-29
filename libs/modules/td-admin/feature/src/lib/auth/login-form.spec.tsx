@@ -56,10 +56,15 @@ describe('LoginForm captcha refresh', () => {
       configurable: true,
       value: jest.fn(() => 'blob:captcha'),
     });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: jest.fn(),
+    });
   });
 
   afterEach(() => {
     Reflect.deleteProperty(URL, 'createObjectURL');
+    Reflect.deleteProperty(URL, 'revokeObjectURL');
     jest.useRealTimers();
     jest.restoreAllMocks();
   });

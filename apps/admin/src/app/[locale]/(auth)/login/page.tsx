@@ -1,7 +1,7 @@
 import dynamic from 'next/dynamic';
 
 const LoginPage = dynamic(
-  () => import('@myorg/modules/td-admin/feature').then((module) => module.LoginPage),
+  () => import('@myorg/modules/td-admin/feature/lib/auth').then((module) => module.LoginPage),
 );
 
 /**

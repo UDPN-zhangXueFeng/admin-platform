@@ -5,14 +5,16 @@ import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Button, DataTable, useToast } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { PermissionGuard } from '@myorg/shared/util-auth';
 
-import { UserStatusBadge } from '.';
 import {
   USER_PAGE_SIZE,
+  USER_PERMISSIONS,
   UserStatus,
+  UserStatusBadge,
 } from '.';
 import {
   useDeleteUserMutation,
@@ -61,6 +63,7 @@ function formToParams(form: UserFilterForm): UserQueryParams {
 export function UserListPage() {
   const t = useTranslations('modules.user');
   const router = useRouter();
+  const toast = useToast();
   const { register, handleSubmit, reset } = useForm<UserFilterForm>({
     defaultValues: EMPTY_FORM,
   });
@@ -69,7 +72,7 @@ export function UserListPage() {
     formToParams(EMPTY_FORM)
   );
 
-  const { data, isLoading } = useUserListQuery(PROJECT_ID, params);
+  const { data, isLoading, isError } = useUserListQuery(PROJECT_ID, params);
   const statusMutation = useUpdateUserStatusMutation(PROJECT_ID);
   const resetMutation = useResetUserPasswordMutation(PROJECT_ID);
   const deleteMutation = useDeleteUserMutation(PROJECT_ID);
@@ -114,36 +117,52 @@ export function UserListPage() {
           ? t('confirm.disable')
           : t('confirm.enable');
       if (!window.confirm(confirmKey)) return;
-      statusMutation.mutate({ userId: row.userId, status: nextStatus });
+      statusMutation.mutate(
+        { userId: row.userId, status: nextStatus },
+        {
+          onSuccess: () => toast.success(t('action.statusUpdated')),
+          onError: () => toast.error(t('action.operationFailed')),
+        }
+      );
     },
-    [statusMutation, t]
+    [statusMutation, t, toast]
   );
 
   /** 行操作：Reset password，含 confirm（user.md §5.1）。 */
   const onResetPassword = React.useCallback(
     (row: UserRespVo) => {
       if (!window.confirm(t('confirm.reset'))) return;
-      resetMutation.mutate(row.userId);
+      resetMutation.mutate(row.userId, {
+        onSuccess: () => toast.success(t('action.passwordReset')),
+        onError: () => toast.error(t('action.operationFailed')),
+      });
     },
-    [resetMutation, t]
+    [resetMutation, t, toast]
   );
 
   /** 行操作：Delete，含 confirm（user.md §5.1）。 */
   const onDelete = React.useCallback(
     (row: UserRespVo) => {
       if (!window.confirm(t('confirm.delete'))) return;
-      deleteMutation.mutate(row.userId);
+      deleteMutation.mutate(row.userId, {
+        onSuccess: () => toast.success(t('action.deleteSuccess')),
+        onError: () => toast.error(t('action.operationFailed')),
+      });
     },
-    [deleteMutation, t]
+    [deleteMutation, t, toast]
   );
 
   const columns = React.useMemo<ColumnDef<UserRespVo & { id: string }>[]>(
     () => [
       {
-        // 序号列：行号（非真实 userId），对齐旧页 `${index+1}` 渲染。
+        // 序号跨页连续，后端可能不回 pageNum/pageSize 时由请求参数回退。
         id: 'index',
         header: t('field.index'),
-        cell: ({ row }) => <span>{row.index + 1}</span>,
+        cell: ({ row }) => {
+          const page = paginationMeta?.page ?? 1;
+          const pageSize = paginationMeta?.pageSize ?? USER_PAGE_SIZE;
+          return <span>{(page - 1) * pageSize + row.index + 1}</span>;
+        },
       },
       { accessorKey: 'userName', header: t('field.userName') },
       { accessorKey: 'email', header: t('field.email') },
@@ -199,65 +218,77 @@ export function UserListPage() {
 
           return (
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => onView(item.userId)}
-              >
-                {t('action.view')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={editDisabled}
-                onClick={() => onEdit(item.userId)}
-              >
-                {t('action.edit')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={disableDisabled}
-                onClick={() => onToggleStatus(item)}
-              >
-                {t('action.disable')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={enableDisabled}
-                onClick={() => onToggleStatus(item)}
-              >
-                {t('action.enable')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={resetDisabled}
-                onClick={() => onResetPassword(item)}
-              >
-                {t('action.reset')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-destructive"
-                disabled={deleteDisabled}
-                onClick={() => onDelete(item)}
-              >
-                {t('action.delete')}
-              </Button>
+              <PermissionGuard permission={USER_PERMISSIONS.view}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  onClick={() => onView(item.userId)}
+                >
+                  {t('action.view')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={USER_PERMISSIONS.edit}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  disabled={editDisabled}
+                  onClick={() => onEdit(item.userId)}
+                >
+                  {t('action.edit')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={USER_PERMISSIONS.disable}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  disabled={disableDisabled}
+                  onClick={() => onToggleStatus(item)}
+                >
+                  {t('action.disable')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={USER_PERMISSIONS.enable}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  disabled={enableDisabled}
+                  onClick={() => onToggleStatus(item)}
+                >
+                  {t('action.enable')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={USER_PERMISSIONS.reset}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  disabled={resetDisabled}
+                  onClick={() => onResetPassword(item)}
+                >
+                  {t('action.reset')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={USER_PERMISSIONS.delete}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-destructive"
+                  disabled={deleteDisabled}
+                  onClick={() => onDelete(item)}
+                >
+                  {t('action.delete')}
+                </Button>
+              </PermissionGuard>
             </div>
           );
         },
       },
     ],
-    [t, onView, onEdit, onToggleStatus, onResetPassword, onDelete]
+    [t, paginationMeta, onView, onEdit, onToggleStatus, onResetPassword, onDelete]
   );
 
   // DataTable 约束 { id: string }；user rowKey 为 userId:number，map 出 id（既有约定）。
@@ -296,14 +327,21 @@ export function UserListPage() {
       <div className="rounded-lg border bg-card shadow-sm">
         <div className="flex items-center justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">{t('records')}</div>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => router.push('/sys/user/create')}
-          >
-            {t('action.add')}
-          </Button>
+          <PermissionGuard permission={USER_PERMISSIONS.add}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => router.push('/sys/user/create')}
+            >
+              {t('action.add')}
+            </Button>
+          </PermissionGuard>
         </div>
+        {isError ? (
+          <div role="alert" className="border-b px-6 py-3 text-sm text-destructive">
+            {t('loadFailed')}
+          </div>
+        ) : null}
         <DataTable
           columns={columns}
           data={tableData}
@@ -315,7 +353,10 @@ export function UserListPage() {
                   page: paginationMeta.page,
                   pageSize: paginationMeta.pageSize,
                   total: paginationMeta.total,
-                  onPageChange: (page) => setParams((prev) => ({ ...prev, page })),
+                  onPageChange: (page) =>
+                    setParams((prev) => ({ ...prev, page })),
+                  onPageSizeChange: (pageSize) =>
+                    setParams((prev) => ({ ...prev, page: 1, pageSize })),
                 }
               : undefined
           }

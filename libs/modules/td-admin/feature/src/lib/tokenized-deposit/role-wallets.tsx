@@ -3,20 +3,12 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
-import { ColumnDef } from '@tanstack/react-table';
 import {
   Button,
-  CopyableEllipsisText,
   DataTable,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   Input,
   Label,
 } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
-import { TokenizedDepositStatusBadge } from './tokenized-deposit-status-badge';
 import {
   useRoleWalletDetailQuery,
   useRoleWalletsListQuery,
@@ -27,8 +19,10 @@ import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
 } from '@myorg/modules/td-admin/data-access';
+import { roleWalletColumns } from './role-wallets-columns';
+import { RoleWalletConfigureModal } from './role-wallets-configure-modal';
+import { RoleWalletDetailModal } from './role-wallets-detail-modal';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 
 /**
@@ -83,12 +77,16 @@ export function RoleWallets({
   const total = listQuery.data?.page?.total ?? 0;
   const isLoading = listQuery.isLoading || listQuery.isFetching;
 
-  // 钱包属性翻译：attribute.replace(/\s+/g,'_').toLowerCase() → t('wallet_attr_'+key)。
-  // 与源码一致（mock walletAttribute 'Hot Wallet'/'Cold Wallet'，key 拼接原样保留）。
+  // 钱包属性翻译：mock walletAttribute 'Cold Wallet'/'Hot Wallet' →
+  // 'cold_wallet'/'hot_wallet' → 现有文案键 wallet_attr_cold / wallet_attr_hot
+  // （键无 _wallet 尾缀；缺失键会被 next-intl 回显为完整路径，见 round-02 ISSUE-4）。
   const translateWalletAttribute = React.useCallback(
     (attribute?: string): string => {
       if (!attribute) return EMPTY_DISPLAY;
-      const attrKey = attribute.replace(/\s+/g, '_').toLowerCase();
+      const attrKey = attribute
+        .replace(/\s+/g, '_')
+        .toLowerCase()
+        .replace(/_wallet$/, '');
       return t(`wallet_attr_${attrKey}`);
     },
     [t],
@@ -98,6 +96,8 @@ export function RoleWallets({
   const [selectedWallet, setSelectedWallet] =
     React.useState<RoleWalletItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = React.useState(false);
+  // Configure Wallet Modal（源 Configure 按钮，仅 Unconfigured 行可达）。
+  const [isConfigModalOpen, setIsConfigModalOpen] = React.useState(false);
 
   // 详情查询（含 operations）：仅打开详情 Modal 时按 roleWalletId 发起。
   const detailQuery = useRoleWalletDetailQuery(
@@ -110,105 +110,18 @@ export function RoleWallets({
     setIsDetailModalOpen(true);
   }, []);
 
+  const openConfigure = React.useCallback((row: RoleWalletItem) => {
+    setSelectedWallet(row);
+    setIsConfigModalOpen(true);
+  }, []);
+
   // ── 列表列 ──
-  const columns = React.useMemo<ColumnDef<RoleWalletItem>[]>(
-    () => [
-      {
-        accessorKey: 'roleName',
-        header: t('role_name'),
-        cell: ({ row }) => (
-          <span>{row.original.roleName || EMPTY_DISPLAY}</span>
-        ),
-      },
-      {
-        accessorKey: 'walletAddress',
-        header: t('wallet_address'),
-        cell: ({ row }) => (
-          <CopyableEllipsisText
-            value={row.original.walletAddress}
-            maxWidth={180}
-          />
-        ),
-      },
-      {
-        accessorKey: 'blockchain',
-        header: t('tokenized_deposit_0007'),
-        cell: ({ row }) => (
-          <span>{row.original.blockchain || EMPTY_DISPLAY}</span>
-        ),
-      },
-      {
-        accessorKey: 'walletAttribute',
-        header: t('wallet_attribute'),
-        cell: ({ row }) => (
-          <span>{translateWalletAttribute(row.original.walletAttribute)}</span>
-        ),
-      },
-      {
-        accessorKey: 'description',
-        header: t('tokenized_deposit_0050'),
-        cell: ({ row }) => (
-          <span
-            className="block max-w-[300px] truncate"
-            title={row.original.description ?? ''}
-          >
-            {row.original.description || EMPTY_DISPLAY}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'status',
-        header: t('PUB_Status'),
-        cell: ({ row }) => (
-          <TokenizedDepositStatusBadge
-            dimension="roleWallet"
-            status={row.original.status}
-          />
-        ),
-      },
-      {
-        accessorKey: 'createdTime',
-        header: t('PUB_CreatedTime'),
-        cell: ({ row }) => (
-          <span>
-            {row.original.createdTime
-              ? formatDate(Number(row.original.createdTime), DATETIME_FMT)
-              : EMPTY_DISPLAY}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'updatedTime',
-        header: t('tokenized_deposit_0052'),
-        cell: ({ row }) => (
-          <span>
-            {row.original.updatedTime
-              ? formatDate(Number(row.original.updatedTime), DATETIME_FMT)
-              : EMPTY_DISPLAY}
-          </span>
-        ),
-      },
-      {
-        id: 'actions',
-        header: t('PUB_Action'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() => openDetails(r)}
-              >
-                {t('wallet_details')}
-              </Button>
-            </div>
-          );
-        },
-      },
-    ],
-    [t, translateWalletAttribute, openDetails],
+  const columns = React.useMemo(
+    () =>
+      roleWalletColumns(t, translateWalletAttribute, openDetails, openConfigure),
+    [t, translateWalletAttribute, openDetails, openConfigure],
   );
+
 
   const onSubmit = React.useCallback((f: RoleWalletFilterForm) => {
     setPagination((p) => ({ ...p, pageNum: 1 }));
@@ -289,169 +202,38 @@ export function RoleWallets({
       </div>
 
 
+      {/* Configure Wallet Modal（源 222-290，仅 Unconfigured 行可达；NF-3） */}
+      <RoleWalletConfigureModal
+        open={isConfigModalOpen}
+        selectedWallet={selectedWallet}
+        onOpenChange={(open) => {
+          setIsConfigModalOpen(open);
+          if (!open) {
+            setSelectedWallet(null);
+          }
+        }}
+        onConfigured={() => {
+          // 源 mutate() 重建表：关窗 + 刷新列表。
+          setIsConfigModalOpen(false);
+          setSelectedWallet(null);
+          void listQuery.refetch();
+        }}
+      />
+
       {/* 钱包详情 Modal */}
-      <Dialog
+      <RoleWalletDetailModal
         open={isDetailModalOpen}
+        selectedWallet={selectedWallet}
+        walletOperations={walletOperations}
+        translateWalletAttribute={translateWalletAttribute}
         onOpenChange={(open) => {
           setIsDetailModalOpen(open);
           if (!open) {
             setSelectedWallet(null);
           }
         }}
-      >
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>{t('wallet_details_title')}</DialogTitle>
-          </DialogHeader>
-          {selectedWallet ? (
-            <div className="space-y-6 py-2">
-              {/* 钱包信息 */}
-              <div>
-                <h3 className="mb-3 text-base font-semibold">
-                  {t('tokenized_deposit_0115')}
-                </h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">{t('role_name')}:</span>{' '}
-                    {selectedWallet.roleName || EMPTY_DISPLAY}
-                  </div>
-                  <div>
-                    <span className="font-medium">{t('PUB_Status')}:</span>{' '}
-                    <TokenizedDepositStatusBadge
-                      dimension="roleWallet"
-                      status={selectedWallet.status}
-                    />
-                  </div>
-                  <div className="col-span-2 break-all">
-                    <span className="font-medium">
-                      {t('wallet_address')}:
-                    </span>{' '}
-                    {selectedWallet.walletAddress || EMPTY_DISPLAY}
-                  </div>
-                  <div>
-                    <span className="font-medium">
-                      {t('tokenized_deposit_0007')}:
-                    </span>{' '}
-                    {selectedWallet.blockchain || EMPTY_DISPLAY}
-                  </div>
-                  <div>
-                    <span className="font-medium">
-                      {t('wallet_attribute')}:
-                    </span>{' '}
-                    {translateWalletAttribute(selectedWallet.walletAttribute)}
-                  </div>
-                  <div className="col-span-2">
-                    <span className="font-medium">
-                      {t('tokenized_deposit_0050')}:
-                    </span>{' '}
-                    {selectedWallet.description || EMPTY_DISPLAY}
-                  </div>
-                  <div>
-                    <span className="font-medium">
-                      {t('PUB_CreatedTime')}:
-                    </span>{' '}
-                    {selectedWallet.createdTime
-                      ? formatDate(
-                          Number(selectedWallet.createdTime),
-                          DATETIME_FMT,
-                        )
-                      : EMPTY_DISPLAY}
-                  </div>
-                  <div>
-                    <span className="font-medium">
-                      {t('tokenized_deposit_0052')}:
-                    </span>{' '}
-                    {selectedWallet.updatedTime
-                      ? formatDate(
-                          Number(selectedWallet.updatedTime),
-                          DATETIME_FMT,
-                        )
-                      : EMPTY_DISPLAY}
-                  </div>
-                </div>
-              </div>
+      />
 
-              {/* 操作历史 */}
-              <div>
-                <h3 className="mb-3 text-base font-semibold">
-                  {t('operation_history')}
-                </h3>
-                <DataTable
-                  columns={operationHistoryColumns(t)}
-                  data={walletOperations}
-                  emptyMessage={t('empty')}
-                />
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
     </div>
   );
-}
-
-// ── 操作历史 Table 列 ──
-
-/**
- * 操作历史列定义（详情 Modal 内嵌 Table）。
- * 源码 6 列：operationType(operation_文案) / description / txHash / operator / timestamp / status。
- */
-function operationHistoryColumns(
-  t: ReturnType<typeof useTranslations>,
-): ColumnDef<NonNullable<RoleWalletItem['operations']>[number]>[] {
-  return [
-    {
-      accessorKey: 'operationType',
-      header: t('operation_type'),
-      cell: ({ row }) => {
-        const type = row.original.operationType;
-        if (!type) return <span>{EMPTY_DISPLAY}</span>;
-        return <span>{t(`operation_${type.toLowerCase()}`)}</span>;
-      },
-    },
-    {
-      accessorKey: 'description',
-      header: t('tokenized_deposit_0050'),
-      cell: ({ row }) => (
-        <span>{row.original.description || EMPTY_DISPLAY}</span>
-      ),
-    },
-    {
-      accessorKey: 'txHash',
-      header: t('operation_tx_hash'),
-      cell: ({ row }) => (
-        <span
-          className="block max-w-[220px] truncate"
-          title={row.original.txHash ?? ''}
-        >
-          {row.original.txHash || EMPTY_DISPLAY}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'operator',
-      header: t('operation_operator'),
-      cell: ({ row }) => (
-        <span>{row.original.operator || EMPTY_DISPLAY}</span>
-      ),
-    },
-    {
-      accessorKey: 'timestamp',
-      header: t('operation_time'),
-      cell: ({ row }) => (
-        <span>
-          {row.original.timestamp
-            ? formatDate(Number(row.original.timestamp), DATETIME_FMT)
-            : EMPTY_DISPLAY}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'status',
-      header: t('PUB_Status'),
-      cell: ({ row }) => (
-        <span>{row.original.status || EMPTY_DISPLAY}</span>
-      ),
-    },
-  ];
 }

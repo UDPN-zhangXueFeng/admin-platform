@@ -56,32 +56,17 @@ export function useSubmitMintMeltMutation() {
 }
 
 export function useIssueStablecoinMutation() {
-  const qc = useQueryClient();
-  return useMutation<
-    unknown,
-    Error,
-    Parameters<typeof issueStablecoin>[0]
-  >({
+  return useMutation<unknown, Error, Parameters<typeof issueStablecoin>[0]>({
+    // 源 view.tsx:372-384 成功回调注释掉了 customTable1.mutate()——成功仅关弹窗，
+    // 不自动刷新稳定币信息/记录表（review NF-5 对齐裁决，2026-10-28）。
     mutationFn: (data) => issueStablecoin(data),
-    onSuccess: () => {
-      // 刷新稳定币信息（surplusCount 变化）+ 稳定币记录
-      void qc.invalidateQueries({ queryKey: tdKeys.view() });
-    },
   });
 }
 
 export function useRemoveStablecoinMutation() {
-  const qc = useQueryClient();
-  return useMutation<
-    unknown,
-    Error,
-    Parameters<typeof removeStablecoin>[0]
-  >({
+  return useMutation<unknown, Error, Parameters<typeof removeStablecoin>[0]>({
+    // 源 view.tsx:386-398 同上：成功仅关弹窗，不刷新（review NF-5 对齐裁决）。
     mutationFn: (data) => removeStablecoin(data),
-    onSuccess: () => {
-      // 刷新稳定币信息（surplusCount 变化）+ 稳定币记录
-      void qc.invalidateQueries({ queryKey: tdKeys.view() });
-    },
   });
 }
 

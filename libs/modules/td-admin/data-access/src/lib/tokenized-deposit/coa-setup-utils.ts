@@ -66,10 +66,12 @@ interface CoaSetupOption {
   label: string;
 }
 
-/** 编辑详情回填的口子类型（mapDetailToCoaSetup 的输入）。 */
+/** 编辑详情回填的口子类型（mapDetailToCoaSetup 的输入）。
+ * 书名字段为 `financeBookName`（后端 TdEditDetailRespVo 契约，swagger 行 15159；
+ * 提交 payload 才是 `bookName`，见 buildCoaSetupApplyPayload）。 */
 interface DetailForCoaSetup {
   reserveAccountId?: number;
-  bookName?: string;
+  financeBookName?: string;
   bookTemplateId?: number;
   bookTemplateName?: string;
   timeZone?: string;
@@ -209,7 +211,7 @@ export const mapDetailToCoaSetup = (
   return {
     reserveAccountId: detail.reserveAccountId,
     status,
-    financialBookName: detail.bookName || '',
+    financialBookName: detail.financeBookName || '',
     accountTemplateCode:
       detail.bookTemplateId !== undefined
         ? String(detail.bookTemplateId)

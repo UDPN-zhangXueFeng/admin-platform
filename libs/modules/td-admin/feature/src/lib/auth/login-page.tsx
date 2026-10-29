@@ -31,7 +31,7 @@ export function LoginPage() {
   // Redirect authenticated users away from login
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace('/');
+      router.replace('/dashboard');
     }
   }, [isAuthenticated, router]);
 

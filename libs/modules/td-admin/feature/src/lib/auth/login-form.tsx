@@ -4,18 +4,24 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
-import { ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { Button, Input, Label, useToast } from '@myorg/shared/ui';
-import { useRouter } from '@myorg/shared/util-i18n';
-import { loginSchema, type LoginFormValues } from '@myorg/modules/td-admin/data-access/lib/auth/validation';
-import { getCaptcha, useLoginMutation } from '@myorg/modules/td-admin/data-access/lib/auth';
+import { ArrowRight } from 'lucide-react';
+import { Button, Input, Label, PasswordField } from '@myorg/shared/ui';
+import {
+  createLoginSchema,
+  type LoginFormValues,
+} from '@myorg/modules/td-admin/data-access/lib/auth/validation';
+import { useLoginMutation } from '@myorg/modules/td-admin/data-access/lib/auth';
 import { useAuthUIStore } from '@myorg/modules/td-admin/data-access/lib/auth';
+import { useCaptcha } from './use-captcha';
+import { useAuthValidationMessages } from './use-auth-validation-messages';
 
 const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
 const CAPTCHA_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
-const DEFAULT_LOGIN_VALUES: LoginFormValues = IS_DEVELOPMENT
-  ? { loginName: 'cuining', password: 'td#0415', code: '' }
-  : { loginName: '', password: '', code: '' };
+const DEFAULT_LOGIN_VALUES: LoginFormValues = {
+  loginName: '',
+  password: '',
+  code: '',
+};
 
 /**
  * Password login form — username + password + captcha.
@@ -26,64 +32,59 @@ const DEFAULT_LOGIN_VALUES: LoginFormValues = IS_DEVELOPMENT
  */
 export function LoginForm() {
   const t = useTranslations('auth');
-  const router = useRouter();
-  const { captchaUrl, randomstr, setCaptcha, setTwoFactorToken, setLoginStep } =
-    useAuthUIStore();
-  const toast = useToast();
+  const { setTwoFactorToken, setLoginStep } = useAuthUIStore();
+  const { captchaUrl, randomstr, refreshCaptcha } = useCaptcha();
   const loginMutation = useLoginMutation();
-  const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
+
+  const validationMessages = useAuthValidationMessages();
 
   const {
     register,
     handleSubmit,
     setValue,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(createLoginSchema(validationMessages)),
     defaultValues: DEFAULT_LOGIN_VALUES,
   });
 
-  /** Fetch captcha image + randomstr, and prefill the dev-only captcha code. */
-  const refreshCaptcha = React.useCallback(async (shouldClearCode = false) => {
-    try {
-      const response = await getCaptcha();
-      const blob = response.data;
-      const url = URL.createObjectURL(blob);
-      const rs = response.headers['randomstr'] ?? '';
-      setCaptcha(url, rs);
-
-      if (IS_DEVELOPMENT) {
-        const captchaCode = response.headers['captchacode'];
-        setValue('code', typeof captchaCode === 'string' ? captchaCode : '');
-      } else if (shouldClearCode) {
-        setValue('code', '');
+  /**
+   * Pull a new captcha. The dev backend also returns the expected code in a
+   * response header, which is prefilled to keep local sign-in usable.
+   */
+  const loadCaptcha = React.useCallback(
+    async (clearCode: boolean) => {
+      try {
+        const { captchaCode } = await refreshCaptcha();
+        if (IS_DEVELOPMENT && captchaCode) {
+          setValue('code', captchaCode);
+        } else if (clearCode) {
+          setValue('code', '');
+        }
+      } catch {
+        // Captcha fetch failure — the form stays usable and the image can be retried.
       }
-    } catch {
-      // Captcha fetch failure — form still usable without it
-    }
-  }, [setCaptcha, setValue]);
+    },
+    [refreshCaptcha, setValue]
+  );
 
   React.useEffect(() => {
-    refreshCaptcha();
-  }, [refreshCaptcha]);
+    void loadCaptcha(false);
+  }, [loadCaptcha]);
 
   React.useEffect(() => {
     const intervalId = window.setInterval(() => {
-      refreshCaptcha(true);
+      void loadCaptcha(true);
     }, CAPTCHA_REFRESH_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [refreshCaptcha]);
-
-  React.useEffect(() => {
-    return () => {
-      if (captchaUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(captchaUrl);
-      }
-    };
-  }, [captchaUrl]);
+  }, [loadCaptcha]);
 
   const onSubmit = async (values: LoginFormValues) => {
+    clearErrors('root');
+
     try {
       const result = await loginMutation.mutateAsync({
         ...values,
@@ -97,17 +98,18 @@ export function LoginForm() {
         return;
       }
 
-      router.replace('/dashboard', { locale: 'en-US' });
+      // The login page owns the post-login navigation so the active locale is kept.
     } catch (e) {
-      // Login failed — surface via shared toast, refresh captcha and clear code field
-      toast.error((e as Error).message || t('loginFailed'));
-      refreshCaptcha();
-      setValue('code', '');
+      // Login failed — surface the backend message and refresh the captcha.
+      setError('root', {
+        message: (e as Error).message || t('loginFailed'),
+      });
+      void loadCaptcha(true);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
       <div className="space-y-2.5">
         <Label
           htmlFor="loginName"
@@ -122,11 +124,14 @@ export function LoginForm() {
           id="loginName"
           autoComplete="username"
           placeholder={t('usernamePlaceholder')}
+          aria-invalid={Boolean(errors.loginName)}
           className="h-11 rounded-md border-slate-300 bg-white shadow-sm focus-visible:ring-[#554eea]"
           {...register('loginName')}
         />
         {errors.loginName && (
-          <p className="text-sm text-destructive">{errors.loginName.message}</p>
+          <p className="text-sm text-destructive" role="alert">
+            {errors.loginName.message}
+          </p>
         )}
       </div>
 
@@ -141,27 +146,21 @@ export function LoginForm() {
           {t('password')}
         </Label>
         <div className="relative">
-          <Input
+          <PasswordField
             id="password"
-            type={isPasswordVisible ? 'text' : 'password'}
             autoComplete="current-password"
             placeholder={t('passwordPlaceholder')}
-            className="h-11 rounded-md border-slate-300 bg-white pr-11 shadow-sm focus-visible:ring-[#554eea]"
+            aria-invalid={Boolean(errors.password)}
+            showLabel={t('showPassword')}
+            hideLabel={t('hidePassword')}
+            className="h-11 rounded-md border-slate-300 bg-white shadow-sm focus-visible:ring-[#554eea]"
             {...register('password')}
           />
-          <button
-            type="button"
-            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#554eea]"
-            onClick={() => setIsPasswordVisible((visible) => !visible)}
-            aria-label={
-              isPasswordVisible ? t('hidePassword') : t('showPassword')
-            }
-          >
-            {isPasswordVisible ? <EyeOff size={17} /> : <Eye size={17} />}
-          </button>
         </div>
         {errors.password && (
-          <p className="text-sm text-destructive">{errors.password.message}</p>
+          <p className="text-sm text-destructive" role="alert">
+            {errors.password.message}
+          </p>
         )}
       </div>
 
@@ -180,44 +179,56 @@ export function LoginForm() {
             id="code"
             autoComplete="off"
             placeholder={t('captchaPlaceholder')}
+            aria-invalid={Boolean(errors.code)}
             className="h-11 flex-1 rounded-none border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             {...register('code')}
           />
           {captchaUrl && (
-            <img
-              src={captchaUrl}
-              alt={t('captcha')}
-              className="h-11 w-40 cursor-pointer border-l border-slate-300 object-fill"
-              onClick={() => {
-                void refreshCaptcha();
-              }}
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 w-40 shrink-0 rounded-none border-l border-slate-300 bg-transparent p-0 hover:bg-transparent focus-visible:ring-2 focus-visible:ring-[#554eea]"
+              aria-label={t('captchaRefresh')}
               title={t('captchaRefresh')}
-            />
+              onClick={() => {
+                void loadCaptcha(true);
+              }}
+            >
+              <img
+                src={captchaUrl}
+                alt=""
+                className="h-full w-full cursor-pointer object-fill"
+              />
+            </Button>
           )}
         </div>
         {errors.code && (
-          <p className="text-sm text-destructive">{errors.code.message}</p>
+          <p className="text-sm text-destructive" role="alert">
+            {errors.code.message}
+          </p>
         )}
       </div>
+
+      {errors.root?.message && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+        >
+          {errors.root.message}
+        </p>
+      )}
 
       <Button
         type="submit"
         className="mt-8 h-11 w-full rounded-md bg-[#554eea] text-white shadow-sm hover:bg-[#4841dc]"
         disabled={loginMutation.isPending}
+        aria-busy={loginMutation.isPending}
       >
         {loginMutation.isPending ? t('loggingIn') : t('login')}
         {!loginMutation.isPending && (
           <ArrowRight size={16} aria-hidden="true" />
         )}
       </Button>
-
-      {loginMutation.isError && (
-        <p className="text-center text-sm text-destructive">
-          {loginMutation.error instanceof Error
-            ? loginMutation.error.message
-            : t('loginFailed')}
-        </p>
-      )}
     </form>
   );
 }

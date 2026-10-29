@@ -45,6 +45,7 @@
 
 - 业务模块之间不得互相 import：`libs/modules/{kissen-admin,lp-portal,kissen-gateway}` 相互隔离，`libs/shared/*` 不得依赖 `libs/modules/*`。绕过手段同样要报：跨库相对路径深导入、把业务模块从 shared barrel 重新导出、用 `eslint-disable` 消边界错误。
 - `feature` 不得被 `data-access` 依赖（`type:*` 约束见 `eslint.config.mjs`）。
+- 单个 `.tsx` 文件原则上不得超过 300 行；超过时必须进行拆分和优化。
 - 不提交 `.env.local`（`.gitignore` 已忽略 `.env*.local`）、`.omp/`、`.playwright-mcp/`、`build-*.log`、`.next/`。
 - `NEXT_PUBLIC_*` 会进客户端 bundle：不得放真实密钥、内网地址、Jenkins 凭据 id。dev 预填凭据只在 development 生效，不得带进 production。
 - 不夹带无关重构、大面积格式化，或顺手改 `libs/shared/*`（任务未明确要求时）。

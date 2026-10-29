@@ -1,4 +1,41 @@
 # Codex 对话沉淀
+
+## 2026-10-28 apps/admin 侧栏菜单行为
+
+- Admin 侧栏是否允许多个父级同时展开由 `config.layout.sidebar.singleExpand` 控制；`configs/stablecoin.json` 默认未覆盖 schema 的 `false`，要启用手风琴行为需显式设为 `true`。
+- `configs/stablecoin.json` 中尾部菜单的 `group: "more"` 仅用于渲染分组标题；删除这 7 个 group 字段后，条目并入既有空组且保持原 `order` 顺序，因此可移除 `MORE` 标题而不移动菜单项或改变路由。
+## 2026-10-28 Admin 专用模块优化 Agent
+
+- 项目级 OMP agent 定义在 `.omp/agents/admin-optimizer.md`，名称 `admin-optimizer`，使用说明在 `.doc/admin/README.md`；仅服务 `apps/admin` 及指定模块直接相关的 td-admin 领域代码、配置、公共组件和验证文档，不涉及 Kissen/LP/Gateway。项目级提示词约束不是文件隔离沙箱。
+- 用户指定模块后，先冻结旧 `/Users/rnail/orca/td-manage` 的版本和逐项功能基线，先功能后 UI；旧项目仅作业务规格，当前 admin UI 是视觉基线。
+- 验收要求至少两个独立子 agent 对相同完整矩阵分别核验；A、B 各自和逐项共识交集均须达到 98%，关键功能全部通过。未验证项留在分母、不计通过，缺真实后端/浏览器证据不能宣称端到端验收通过。
+- 评分分母须由 A/B 在不先看实施方清单或彼此结果的情况下各自从旧源码盘点，再与候选清单取去重并集，共同裁决并冻结；每项保留来源证据和固定 ID 映射，两份独立清单落盘。后续遗漏需升级基线并按新分母重评，不能只让两个 reviewer 认可实施方原定清单。
+- 每轮材料保存至 `.doc/admin/YYYY-MM-DD/<module-kebab>/round-NN/`，含矩阵、两份独立报告、验证、问题与 evidence。问题用大白话说明复现、前端/后端/契约/环境/待确认归因、证据、具体修复和复验结果。
+- 浏览器需真实操作并核对网络、Next.js overlay、console 与服务端日志；UI 优先现有 Radix 公共封装。新增公共组件须先读现有规则与 generator、放对应公共库并补用法说明。
+- 当前 `tools/generators/src/ui-component/index.ts` 会写 `<name>/<name>.tsx`，barrel 却导出 `./lib/<name>`，未生成目录 index；Radix 类型也仅是 div 模板。生成器只能作参考，实际新增要补可解析导出并按真实 primitive 类型实现，不能直接当成可交付组件。
+- OMP 没有名为 `browser` 的独立工具：浏览器能力是 eval 内核的 `browser` 全局（`browser.open`/`tab.observe`/`tab.requests`/`tab.console`/`tab.screenshot`）。子 agent 默认内置工具集含 `eval`，`admin-optimizer` 不显式声明 `tools` 以免裁掉能力。
+- 旧 td-manage 的 `SSOLogin`（POST `/api/rbac/v1/sso/login`）只在 `src/lib/api/login.ts:42-49` 有定义、全仓无调用方，属上游死代码；旧登录页入口是 `src/pages/index.tsx`（463 行，账号密码+图形验证码+2FA+MetaMask），不是 `src/pages/login`，对后者 glob 无结果不构成“旧登录页不存在”。
+
+## 2026-10-28 apps/admin 登录模块对齐（round-01）
+
+- 旧 td-manage 登录页入口是 `src/pages/index.tsx`（根路由 `/`），不是 `src/pages/login`；旧改密页是独立路由 `/change-password`（`src/pages/change-password/index.tsx`），入口在 Header 用户下拉、与「Log Out」并列 —— 本轮据此把**改密判为登录模块范围内**并在新项目以弹窗实现（`apps/admin` 的 `admin-app-shell.tsx` 此前未传 `onChangePassword`，共享 Header 里 “Change Password” 永久 disabled）。SSO 仍判为死代码不纳入。
+- **RBAC 后端实测事实**（`http://10.0.48.123:30001`，客户端走 `/aps` 代理）：
+  - `GET /api/rbac/v1/code/getCode` 响应头同时给 `randomstr` 与 `captchacode`（dev 环境可用 `captchacode` 直接填表）。
+  - `POST /api/rbac/v1/login` 三要素需 AES-CBC 加密（大写 hex，key `reddatespartan25` / iv `hongzao25spartan`）；`POST /api/rbac/v1/twoFactor/auth` 的 **code 必须明文**（加密后端直接 500，明文才回 `MSG_01_2014`）；`POST /api/rbac/v1/user/password/modify` 的新旧口令**必须加密**（明文回 `MSG_01_1024`）。
+  - 后端**不依赖** `language` 请求头（旧项目硬编码 `zh-CN` 属缺陷）；错误文案一律回 `MSG_xx_xxxx` 码，由前端 `api-msg` 静态映射。
+  - `POST /api/rbac/v1/user/account/allow/login` 对已启用账号返回 `result=true`（cuining 实测），MetaMask 按钮据此启用。
+  - 连续 ~9 次错误口令后账号返回 `MSG_01_1002`（已锁定），`user/status/update` 置 0/1 都解不开；不要在共享账号上连续试错。
+  - `user/save` 创建的用户密码由后端随机生成、无法得知（`user/update` 传 `password` 字段无效、`user/password/reset` 不回显）→ 想用一次性账号做改密/2FA 端到端验证并不可行。
+  - 2FA 可临时开关做真实端到端：`user/two/factor/generate/qr` → `secretKey`（base32，本地算 TOTP）→ `user/two/factor/add {code, password(加密)}` → 登录后走 `twoFactor/auth` → `user/two/factor/edit/status {status:1, password(加密)}` 关闭。开启 2FA 后登录响应**不含** `token`，只有 `twoFactorToken`，必须先完成 2FA 才有管理员 token。
+  - `POST /api/rbac/v1/user/password/modify` 后端**不校验口令长度**（7 位的 `td#0415` 可写入），但旧前端策略要求 ≥8 位 + 大小写 + 数字 + 特殊字符 —— 要还原旧口令需绕过前端策略直接调接口。
+- 旧项目硬编码在登录成功后追加权限 UUID `eae60d5a05984a3b8f13c4f5f902e472`（客户端放权）；实测后端 `menuKeyList` 首项本就是该 Dashboard UUID，共 215 项，新项目严格按 `menuKeyList` 映射即可，**不要**再追加。
+- 新项目登录成功落地页用 `/dashboard`（旧项目是 `/statistic-analysis`，但该模块不在 `configs/stablecoin.json` 的 `modules.enabled` 里，照抄会 404）。
+- `next-intl` 的 `useRouter().replace(path, {locale})` **不要硬编码 locale**：旧代码硬写 `en-US` 会把 zh-CN 用户踢到英文界面；跳转统一收敛到 `login-page.tsx` 的「已登录即跳首页」effect。
+- 共享 `libs/shared/ui` 的 `PasswordField` 原本把 `Show/Hide password` 写死英文；本轮加了**可选** `showLabel`/`hideLabel`（默认英文不变，kissen/lp/gateway 消费方不受影响），td-admin 登录页与改密弹窗改用它，替代自绘显隐按钮。
+- 本机 Chromium 的 `page.screenshot` 在该环境下**全部超时**（headless/headed、四种参数组合均失败，而 `page.evaluate` 正常）—— 需要截图证据时先探测可用性，失败就用 DOM/ARIA 快照 + XHR 抓包正文 + console/pageerror 替代，并在归档里写明「无 PNG」。
+- **`POST /api/rbac/v1/logout` 后端要 10 秒**：同一有效 token 直连后端实测 `time=10.18s`（返回 `code:0`），token 失效后再调 `time=0.009s`（返回 `code:3`）。慢的是服务端销毁会话那一步。任何 `await` 该接口的前端代码都会把用户卡 10 秒 —— admin 侧改用 `logoutApiInBackground()`（`fetch` + `keepalive`，`libs/modules/td-admin/data-access/src/lib/auth/auth.api.ts`）fire-and-forget，然后立即 `logoutAndRedirect()`，与旧 td-manage `src/lib/components/CustomMenus/Header.tsx:76-80` 的语义一致（实测 UI 登出 9731ms → 101ms）。后端侧仍需把该接口改成毫秒级返回。
+- `apps/admin/src/providers/session-guard.tsx` 只 import 了具名 hook（`useCallback/useEffect/useRef`），**没有** `import * as React` —— 在该文件里写 `React.useCallback` 会导致运行时 `ReferenceError: React is not defined` 并让整站 500。同类文件改动后先看顶部 import。
+
 ## 2026-10-26 TD Admin 迁移深度评估基线与验收口径
 
 - `apps/admin` 对应 TD Admin；可比对的旧项目是 `/Users/rnail/orca/td-manage`。迁移/同步基线是 `feature/zxf@be1c337`（admin commit `df8dc852` 消费到此），当前源 tip 是 `d6eba908`；`be1c337..d6eba908` 仅包含 Kissen transfer 等文件变化，未改变本次 TD 模块源文件。旧文档里的 `/Users/zhangxuefeng/...` 路径已过期。
@@ -192,8 +229,8 @@
 
 ## 2026-09-03 kissen-admin Bank 详情字段
 
-- **结论**：Bank detail 页面新增 `Basic Information`（银行基础字段、时区化 Created On、Official Website、Description）；`Currency System Information` 在查看页改为 `Token System Information`，仅保留 Token System Type、Blockchain、Token System Name；Contact Information 删除 Phone，Contact Email 改为 Email。
-- **边界**：`Currency System URL`、`Integration Notes`、`Account Config` 只从详情页展示移除，编辑页仍保留原保存字段，避免未经需求授权改变后端配置能力。`officialWebsite`/`description` 在 BankRow 中建模为可选详情字段，后端未返回时展示 `--`。
+- **结论**：Bank detail 页 `Basic Information` 当前仅展示 `Bank Name`、`BIC`、`Official Website`、`Jurisdiction`、`Contact Name`、`Contact Email`、`Bank Logo`、`Status`、`Created on`。已移除 `Currency System Type`、`Blockchain Network`、`Currency System Name`、`Currency System URL`、`Integration Notes`、`Contact Phone`、`Address`。
+- **边界**：本次只调整详情页展示；编辑页仍保留 `Contact Phone`、`Address` 等原有保存字段，不改变后端数据能力。
 
 ## 2026-09-03 kissen-admin Gateway Connectivity 文案
 
@@ -1239,3 +1276,31 @@
 - Key Service 的真实列表/详情/操作记录接口可读；上游新增/编辑和停用为前端原型，当前 OpenAPI 未列出对应写接口。新增/编辑禁用提交并提示，编辑预览使用所选真实记录，不再用固定假凭据；敏感参数按名称默认遮蔽并可单项显式揭示。遮蔽只影响界面展示，后端响应仍可能包含敏感值，不能视作访问控制。
 - Key Policy 上游是静态示例、提交/启停仅 console.log；当前 OpenAPI 未列出策略 CRUD/启停接口。页面显式标注演示和无持久化，不宣称成功；详情根据样例 id 展示正确条目，未知 id 不回退为别的策略。日期筛选结束日包含当天。实际策略配置仍需后端接口契约。
 - 实际浏览器验证了真实服务详情与参数遮蔽/揭示、用户钱包筛选与重置、签名交易日期请求、两张表分页、策略演示确认无写请求，以及管理钱包请求失败/重试。没有对真实密钥、钱包或策略提交写操作。
+## 2026-10-28 Admin 登录验收与 Next.js 运行经验
+
+- `apps/admin` 登录页不要从 `@myorg/modules/td-admin/feature` 总 barrel 动态取 `LoginPage`：feature barrel 会把无关业务页面一起带入生产客户端包。登录路由应使用 `@myorg/modules/td-admin/feature/lib/auth` 直接导入 auth 子模块；本轮完整 standalone 运行后登录页 pageerror=0。
+- Next.js 16 的 root layout 可以用 `getLocale()`（`next-intl/server`）设置 `<html lang>`；只读项目默认配置会让 `/zh-CN/*` 的 SSR 与浏览器 `document.documentElement.lang` 错成 `en-US`。
+- `output: 'standalone'` 的本地生产 smoke 不能直接用 `next start`；应运行 `.next/standalone/apps/admin/server.js`，并把构建产物 `.next/static` 与 `public` 放进 standalone 运行目录，否则会得到大量静态 chunk 404，不能误判成页面代码错误。
+- `axiosClient` 对非零业务码会先 reject；钱包登录失败后的验证码刷新必须放在 `metamask-button.tsx` 的 catch（而不是只写在成功响应的非零分支），否则 `LOGIN-44` 的刷新代码不可达。
+- `admin-optimizer` 的 98% 门禁按“有充分证据的通过数 / 完整分母”计算；源码/单测 67/67 不能替代端到端证据。MetaMask 真实扩展成功、真实 HTTP 401、自然闲置 30 分钟生产观察缺失时，登录模块必须标记未通过/被阻塞。
+- 本轮进一步验证：`key-policy-configuration-new-page.tsx:41` 从自身 `.` barrel 导入常量，存在 feature barrel 循环风险；登录路由深导入已隔离该风险，但 `module-registry.ts` / `module-page-registry.ts` 的总 barrel 仍未全量替换。完整 standalone 下 key-management 列表/新建页可渲染、无 JS pageerror；其他 `[module]` 路由需独立抽样。`shared-data-access-api` 新增 401 用例后，test 12/12 与 lint 均通过。
+
+## 2026-10-28 Admin System 模块对齐
+
+- `apps/admin` 的 System 组实际冻结矩阵为 99 个 SYS ID / 57 个关键项；旧 v1.0 文档的 109/51 是统计错误，后续以 `.doc/admin/2026-10-28/system/round-01/alignment.md` v1.1 §4/§5 为准。五个 N/A（WFL-025/026/027、COM-011/020）必须由 A/B 双报告共同留痕后才可从调整分母剔除。
+- SysLog 操作类型来自真实后端动态 code；调用 next-intl `t(key)` 前用 `t.has(key)` 判断，未知 code 回退后端 `name`，否则会产生 `MISSING_MESSAGE` console error。
+- Workflow 详情节点审批人数应使用 `node.stepUsers.length`，不能使用工作流节点总数 `nodes.length`；编辑回填 visible `stepName` 与 `selectUser` 都必须优先使用 `stepUsers[].userName`，否则后端截断的 `stepName` 会被重新提交。
+
+## 2026-10-28 Tokenized Deposit round-02（reSet 统一与 i18n 事实）
+
+- 上游金额格式化的**活性**事实源要按 import 判定：tokenized-deposit 页面 import 的是 `libs/utils/index.ts:44-62` 的 reSet（len=2）：`value>=0` 宽松判断（undefined/NaN/负数→'--'；null/''/0 经 Number 归 0→"0.00"），其余 `Number(value).toFixed(2)` **四舍五入**（'1.999'→"2.00"）+ 千分位。同名 `src/utils/index.ts:24-41`（falsy→"0.00"、小数截断 1.999→"1.99"）是 sp-access 等其他模块的变体，td-manage 的 libs/utils 里被注释掉的旧代码正是它——**迁移前必须 grep 页面 import 源，不能凭 utils 文件名或历史文档定规格**。下游等价实现收敛在 `libs/modules/td-admin/feature/src/lib/tokenized-deposit/re-set.ts`，formatStat/formatAmount 均为代理；td-admin 模块内再写 Intl/`toFixed` 以外的金额格式化应先核对所属上游变体。
+- 上游页面大量列头使用 `t('English text')`——以英文原句为 i18n 键且语言包无这些键，antd 缺键回显键名，即上游**任何语言**下都显示英文（例：tokenized-deposit index.tsx:628 `t('Serial No.')`）。对齐时「上游英文列头」不等于「存在可翻译键」，下游保留硬编码英文才是行为等价；反过来 next-intl 缺键会回显完整 `modules.<ns>.<key>` 路径，页面出现该形态字符串即优先排查键拼写/尾缀（案例：wallet_attr_cold_wallet vs 现有键 wallet_attr_cold）。
+- 当前开发后端未部署旧版 `/api/manage/v1/stablecoin/get|list|record/query`（404 无响应体），而 `/td/manage/*`、`/td/dashboard/*`、`/common/*` 正常；view 页数据类端到端验证持续受此阻塞，不要因此擅改前端请求路径——契约对齐以源码为准，接口面迁移需后端确认。
+- eval 浏览器 `tab.run(fn, { args })` 的 fn 会先以 `({tab,page,browser,wait,assign}, ...args)` 被调用：传 `(arg) => async ({ page }) => {...}` 这种"返回 async 函数"的写法内层永不执行且不报错（console 打印后续步骤会制造"已保存"假象）。写文件的正确形式是 `async ({ page }, dir) => { await Bun.write(dir + '/x.png', await page.screenshot()); }`；另注：本环境 headless 共享 Chromium 的 page.screenshot 会无限挂起，DOM textContent/ariaSnapshot/tab.requests 文本证据是可靠替代。
+
+## 2026-10-28 Tokenized Deposit round-02 收尾（NF 批次）
+
+- 静态 tab/列定义数组若上游 label 按数据分支，静态化会**掩盖缺陷**：上游 index.tsx:1122-1135 内容区 Tab1 按 `mintMethod/pledgeType` 三分支（质押→0020 Repository Transactions、MMF→0146 Summary、普通→0063 Top-up/Withdrawal Records），下游 TAB_DEFS 曾写死 0021——恰好与 0020 同文案，肉眼与多数浏览器路径都发现不了。迁移"同文案不同键"的字段时必须查上游键的动态性，不能只对文案。
+- eval 浏览器 tab API 实际方法：读整页文本用 `tab.text()`（无 selector 即 body；`tab.textContent` 不存在）；`ariaSnapshot('role=tablist')` 在 tokenized-deposit 总览会先命中币列表（49 个 tab 的巨型输出），抓内容区状态优先用 `tab.text()` + indexOf 定位。`tab.click('role/tab[name="X"]')` 精确匹配 tab 名可行。
+- 新增 mock API 的 Promise 包装遵循内置样式规则 `Promise.withResolvers()`（不用 `new Promise((resolve)=>{setTimeout...})` executor 形式）；调用方传"任意对象形状"参数（如 additionalParams）时接口类型用 `Record<string, unknown>`，传 react-hook-form 的 interface 值需 `{ ...values }` spread 才能过索引签名检查。
+- 上游 role-wallets Configure 契约：configureRoleWalletApi 为 mock（500ms、恒 code 0、文案 'Wallet configuration submitted successfully'）；rigsec 生成钱包 body 的 walletType 恒 1（源 `Number(标签字符串)||1`，Cold/Hot 单选是死状态不透传）——遇到"源码把 UI 态字符串直接 Number()"的写法，等价迁移是硬编码落值+注释，不是保留透传。

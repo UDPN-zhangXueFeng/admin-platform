@@ -535,10 +535,10 @@ export function getStablecoinList(
 /**
  * 稳定币信息（view 页，surplusCount 可销毁余额）。
  * 注意：尽管语义像 GET，**该 endpoint 实为 POST**（源 `getStablecoinInfoApi` POST，
- * 已与 typings 核对）。
+ * 已与 typings 核对）；源以无 body 调用 ⇒ data 为 undefined 时不发送 body。
  */
 export function getStablecoinInfo(
-  data: { stablecoinId?: string | number },
+  data?: Record<string, unknown>,
   config?: ApiRequestConfig,
 ): Promise<StablecoinInfo> {
   return apiClient.post<StablecoinInfo>(STABLECOIN_GET_URL, data, config);
@@ -821,15 +821,17 @@ export function getSmartContractOptions(
 /**
  * 生成钱包 keystore（util/wallet/keystore）。
  *
- * 合并去重：common.ts `getWalletKeystoreApi` 与 typings `utilWalletKeystoreApi`
- * 同 endpoint，合并为一个函数。body 按 storageType 分支：
- * - keystore 分支：{ chainType, password(调用方传入明文，内部 AES 加密) }
- *   blockchainCode, tokenName, ifAdd }（不传 password）
+ * 合并去重：下游 `common.ts` 的 `getWalletKeystoreApi` 与上游 typings
+ * `utilWalletKeystoreApi` 均由本函数实现，避免两个调用入口产生不同请求体。
+ * - keystore 分支：{ chainType, password(调用方传入明文，内部 AES 加密), walletType,
+ *   storageType, keyServiceCode, roleName, blockchainCode, tokenName, ifAdd }
+ * - rigsec 分支：同上但不传 password
  *
  * keystore 分支的 password 经 AES-CBC 加密后提交（与后端解密一致）。
  * 两分支统一发送全量字段（源 typings WalletUtilGetKeystoreReqVo 必填：
  * chainType / walletType / storageType / roleName / blockchainCode）；
- * rigsec 分支不传 password，keystore 分支不传 keyServiceCode（若提供则发送）。
+ * keyServiceCode 两分支恒传（源 useWalletManagement 255/314：选中项优先，
+ * 回退 keyServiceName；rigsec 分支不传 password）。
  *
  * @param data.ifAdd 新增 true / 编辑 false（utilWalletKeystoreApi 约定）
  */
@@ -866,7 +868,8 @@ export async function generateWalletKeystore(
     if (data.password !== undefined) {
       body.password = getEncryptionData(data.password);
     }
-  } else if (data.keyServiceCode !== undefined) {
+  }
+  if (data.keyServiceCode !== undefined) {
     body.keyServiceCode = data.keyServiceCode;
   }
   const result = await apiClient.post<GenerateWalletResult | null>(
@@ -1189,4 +1192,26 @@ export function getRoleWalletDetail(
       });
     }, 300);
   });
+}
+
+/**
+ * MOCK - 后端未实装，保留 mock。配置角色钱包地址（仅 Unconfigured 行可达）。
+ * 源: role-wallets.tsx:200-218 handleConfigureWallet → lib/api/stablecoin-manage.ts:371
+ * configureRoleWalletApi（500ms 延迟、恒 code 0；review NF-3 迁移，2026-10-28）。
+ */
+export function configureRoleWallet(params: {
+  roleWalletId: string;
+  walletAddress: string;
+  additionalParams?: Record<string, unknown>;
+}): Promise<{ code: number; message: string }> {
+  void params;
+  const { promise, resolve } =
+    Promise.withResolvers<{ code: number; message: string }>();
+  setTimeout(() => {
+    resolve({
+      code: 0,
+      message: 'Wallet configuration submitted successfully',
+    });
+  }, 500);
+  return promise;
 }

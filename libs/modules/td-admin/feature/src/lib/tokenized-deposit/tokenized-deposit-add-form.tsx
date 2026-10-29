@@ -13,24 +13,20 @@ import {
   Card,
   CardContent,
 } from '@myorg/shared/ui';
-import type { SmartContractOption } from '@myorg/modules/td-admin/data-access';
-import { BlockchainOption } from '@myorg/modules/td-admin/data-access/lib/tokenized-deposit';
-import { MINT_METHOD, formatDraftTime } from '@myorg/modules/td-admin/data-access';
+import { formatDraftTime } from '@myorg/modules/td-admin/data-access';
 
-import { TokenBasicInfoSection } from './tokenized-deposit-edit/token-basic-info-section';
-import { ReconciliationConfigSection } from './tokenized-deposit-edit/reconciliation-config-section';
-import { KeyCustodySection } from './tokenized-deposit-edit/key-custody-section';
-import { AdminWalletSection } from './tokenized-deposit-edit/admin-wallet-section';
-import { AccountTypeSection } from './tokenized-deposit-edit/account-type-section';
-import { AccountConfigurationMMF } from './tokenized-deposit-edit/account-configuration-mmf';
-import { CoaSetupCard } from '.';
-import { OnboardReviewSection } from './tokenized-deposit-edit/onboard-review-section';
 import {
   WizardHeader,
   DraftBanner,
   WizardStepper,
   WizardFooter,
 } from './tokenized-deposit-edit/ui/onboard-wizard';
+import {
+  AddStepBasicInfo,
+  AddStepFinance,
+  AddStepCustody,
+  AddStepReview,
+} from './tokenized-deposit-edit/ui/add-wizard-steps';
 import {
   useTokenizedDepositForm,
   type TokenizedDepositFormState,
@@ -45,6 +41,8 @@ import {
  *
  * 本组件只负责 add 向导布局：页头 → 草稿横幅 → 单卡片[Stepper + 分步内容 + Footer]
  * → 自动保存脚注，以及 add 专属的草稿/步骤/Reset/二次确认弹窗。
+ *
+ * 4 步分步内容拆至 `tokenized-deposit-edit/ui/add-wizard-steps.tsx`（≤300 行重构）。
  */
 export function TokenizedDepositAddForm(): React.JSX.Element {
   const s = useTokenizedDepositForm({ mode: 'add' });
@@ -70,46 +68,6 @@ function AddWizard({ s }: { s: TokenizedDepositFormState }): React.JSX.Element {
     discardDraft,
     blockchainList,
     currencyList,
-    formValues,
-    hasCode,
-    detailInfo,
-    flag,
-    chainType,
-    mintMethod,
-    currency,
-    reserveList,
-    smartContractNameList,
-    tokenTypeOptions,
-    onBlockchainChange,
-    onCurrencyChange,
-    onTokenTypeChange,
-    shouldShowSetupRequiredCoaSetup,
-    shouldShowStablecoinCoaSetup,
-    tokenizedDepositCoaData,
-    tokenizedDepositCoaErrors,
-    stablecoinCoaData,
-    stablecoinCoaErrors,
-    stablecoinCoaLoading,
-    stablecoinCoaReadonly,
-    coaTemplateOptions,
-    coaTimezoneOptions,
-    handleTdCoaChangeTracked,
-    handleScCoaChangeTracked,
-    applyStatus,
-    reserveAccountId,
-    reserveReconValue,
-    keyServiceList,
-    keyServiceError,
-    resetAdminWalletFields,
-    shouldHideKeystoreAndPassword,
-    shouldHideGenerateWalletAction,
-    isAdminWalletDisabled,
-    checkWalletAddress,
-    currentTypeLabel,
-    currentBlockchainLabel,
-    currentContractLabel,
-    currentReserveLabel,
-    currentKeyServiceLabel,
     resetConfirmOpen,
     setResetConfirmOpen,
     handleReset,
@@ -181,148 +139,13 @@ function AddWizard({ s }: { s: TokenizedDepositFormState }): React.JSX.Element {
                 </p>
               </div>
 
-              {currentStep === 0 ? (
-                <TokenBasicInfoSection
-                  control={form.control}
-                  hasCode={hasCode}
-                  detailInfo={detailInfo}
-                  flag={flag}
-                  chainType={chainType}
-                  mintMethod={mintMethod}
-                  currency={currency}
-                  reserveList={reserveList}
-                  blockchainList={
-                    blockchainList as BlockchainOption[] | undefined
-                  }
-                  currencyList={currencyList}
-                  smartContractNameList={
-                    smartContractNameList as SmartContractOption[] | undefined
-                  }
-                  tokenTypeOptions={tokenTypeOptions ?? []}
-                  onBlockchainChange={onBlockchainChange}
-                  onCurrencyChange={onCurrencyChange}
-                  onTokenTypeChange={onTokenTypeChange}
-                />
-              ) : null}
+              {currentStep === 0 ? <AddStepBasicInfo s={s} /> : null}
 
-              {currentStep === 1 ? (
-                <div className="flex flex-col gap-9">
-                  {shouldShowSetupRequiredCoaSetup ? (
-                    <CoaSetupCard
-                      embedded
-                      data={tokenizedDepositCoaData}
-                      accountTemplateOptions={coaTemplateOptions}
-                      timezoneOptions={coaTimezoneOptions}
-                      errors={tokenizedDepositCoaErrors}
-                      onChange={handleTdCoaChangeTracked}
-                    />
-                  ) : shouldShowStablecoinCoaSetup ? (
-                    <CoaSetupCard
-                      embedded
-                      data={stablecoinCoaData}
-                      loading={stablecoinCoaLoading}
-                      readonly={stablecoinCoaReadonly}
-                      accountTemplateOptions={coaTemplateOptions}
-                      timezoneOptions={coaTimezoneOptions}
-                      errors={stablecoinCoaErrors}
-                      onChange={handleScCoaChangeTracked}
-                    />
-                  ) : (
-                    <section>
-                      <h3 className="text-sm font-semibold">
-                        {t('tokenized_deposit_coa_title')}
-                      </h3>
-                      <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                        {t('td_section_coa_desc')}
-                      </p>
-                      <div className="mt-5 rounded-md border bg-muted/50 p-4 text-sm text-muted-foreground">
-                        {mintMethod === MINT_METHOD.MMF
-                          ? t('td_form_mmf_no_coa')
-                          : mintMethod === undefined ||
-                              mintMethod === MINT_METHOD.STABLECOIN
-                            ? t('td_form_select_token_first')
-                            : t('td_form_cbdc_no_coa')}
-                      </div>
-                    </section>
-                  )}
+              {currentStep === 1 ? <AddStepFinance s={s} /> : null}
 
-                  {flag && mintMethod === MINT_METHOD.TOKENIZED_DEPOSIT ? (
-                    <AccountTypeSection
-                      embedded
-                      control={form.control}
-                      setValue={form.setValue}
-                      getValues={form.getValues}
-                      hasCode={hasCode}
-                      applyStatus={applyStatus}
-                    />
-                  ) : null}
-                  {mintMethod === MINT_METHOD.MMF ? (
-                    <AccountConfigurationMMF
-                      embedded
-                      control={form.control}
-                      setValue={form.setValue}
-                      hasCode={hasCode}
-                      applyStatus={applyStatus}
-                    />
-                  ) : null}
-                  <ReconciliationConfigSection
-                    embedded
-                    control={form.control}
-                    setValue={form.setValue}
-                    hasCode={hasCode}
-                    detailInfo={detailInfo}
-                    reserveList={reserveList}
-                    reserveAccountId={reserveAccountId}
-                    reserveReconValue={reserveReconValue}
-                    mintMethod={mintMethod}
-                  />
-                </div>
-              ) : null}
+              {currentStep === 2 ? <AddStepCustody s={s} /> : null}
 
-              {currentStep === 2 ? (
-                <div className="flex flex-col gap-9">
-                  <KeyCustodySection
-                    embedded
-                    control={form.control}
-                    hasCode={hasCode}
-                    applyStatus={applyStatus}
-                    keyServiceList={keyServiceList}
-                    keyServiceError={keyServiceError}
-                    onKeyServiceChange={(value) => {
-                      form.setValue('keyServiceName', value);
-                      resetAdminWalletFields();
-                    }}
-                  />
-                  <AdminWalletSection
-                    embedded
-                    control={form.control}
-                    hasCode={hasCode}
-                    applyStatus={applyStatus}
-                    shouldHideKeystoreAndPassword={shouldHideKeystoreAndPassword}
-                    shouldHideGenerateWalletAction={
-                      shouldHideGenerateWalletAction
-                    }
-                    isAdminWalletDisabled={isAdminWalletDisabled}
-                    onGenerateWallet={checkWalletAddress}
-                  />
-                </div>
-              ) : null}
-
-              {currentStep === 3 ? (
-                <OnboardReviewSection
-                  values={formValues}
-                  tokenTypeLabel={currentTypeLabel}
-                  blockchainLabel={currentBlockchainLabel}
-                  contractLabel={currentContractLabel}
-                  reserveLabel={currentReserveLabel}
-                  keyServiceLabel={currentKeyServiceLabel}
-                  financialBookName={
-                    mintMethod === MINT_METHOD.TOKENIZED_DEPOSIT
-                      ? tokenizedDepositCoaData.financialBookName
-                      : stablecoinCoaData.financialBookName
-                  }
-                />
-              ) : null}
+              {currentStep === 3 ? <AddStepReview s={s} /> : null}
             </CardContent>
           </Card>
           <WizardFooter

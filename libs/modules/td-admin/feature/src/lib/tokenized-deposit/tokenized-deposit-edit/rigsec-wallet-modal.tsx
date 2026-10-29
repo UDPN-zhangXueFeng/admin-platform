@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useTranslations } from 'next-intl';
 import {
   Button,
   Dialog,
@@ -28,21 +27,20 @@ import type { KeyServiceOption } from '@myorg/modules/td-admin/data-access';
  *
  * ## 提交
  *
- * 「Confirm」→ props.onConfirm（即 useWalletManagement.handleRigsecSubmit）：
- * 调 generateWalletKeystore（walletType=walletAttribute, 无 password）回填
- * walletAddress + keyStore，关闭 Modal。loading 由 rigsecConfirmLoading 控制。
+ * 「Confirm」→ props.onConfirm（即 useWalletManagement.handleRigsecSubmit），
+ * 由现有 hook 负责提交固定 keyServiceCode 与钱包属性；本组件只负责展示与回调。
  *
  * ## Wallet Attribute
  *
  * RadioGroup 单选，options 来自 useWalletManagement.walletAttributeOptions
- * （Hot=1 / Cold=5，由 currentKeyService.walletTypes 派生）。onChange →
+ * （Hot/Cold 由 currentKeyService.walletTypes 派生）。onChange →
  * props.onWalletAttributeChange（setWalletAttribute）。
  *
  * ## 与源差异
  *
  * - antd Modal + Radio.Group → shared/ui Dialog + RadioGroup。
- * - 源全英文硬编码（"Generate Wallet"/"Cancel"/"Confirm"/角色名/"Wallet Attribute"/
- *   描述文案）→ i18n 化（PUB_/tokenized_deposit_0xxx/wallet_attribute）。
+ * - 源硬编码英文语义（"Generate Wallet"/"Cancel"/"Confirm"/角色名/
+ *   "Wallet Attribute"/描述文案）保持硬编码，不改为 i18n 键。
  * - antd Radio.Group value/onChange → Radix RadioGroup value/onValueChange（值转 number）。
  *
  * @param open Modal 开关（useWalletManagement.isRigsecModalOpen）
@@ -69,12 +67,7 @@ export interface RigsecWalletModalProps {
   onConfirm: () => Promise<void> | void;
 }
 
-/** 角色类型 → 角色 label key 映射（与 AdminWalletSection walletFieldGroups 一致）。 */
-const ROLE_LABEL_KEY: Record<1 | 2 | 3, string> = {
-  1: 'tokenized_deposit_0112',
-  2: 'tokenized_deposit_0113',
-  3: 'tokenized_deposit_0114',
-};
+/** 根据源 modalInfo type 显示硬编码英文角色名。 */
 
 export function RigsecWalletModal({
   open,
@@ -88,33 +81,35 @@ export function RigsecWalletModal({
   onCancel,
   onConfirm,
 }: RigsecWalletModalProps): React.JSX.Element {
-  const t = useTranslations('modules.tokenized-deposit');
-
-  const roleLabel = t(ROLE_LABEL_KEY[modalInfo.type]);
-  const displayTokenName = tokenName || t('tokenized_deposit_0005');
+  const roleLabel =
+    modalInfo.type === 1
+      ? 'Contract Owner'
+      : modalInfo.type === 2
+        ? 'Gas Payment'
+        : 'Management';
+  const displayTokenName = tokenName || 'Token Name';
   const displayKeyServiceName =
-    currentKeyService?.keyServiceName || 'RigSec';
+    currentKeyService?.storageType === 'key_rigsec' ? 'RigSec' : 'Fireblocks';
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && !loading && onCancel()}>
       <DialogContent className="max-w-[30rem]">
         <DialogHeader>
-          <DialogTitle>{t('PUB_Generate_Wallet')}</DialogTitle>
+          <DialogTitle>Generate Wallet</DialogTitle>
         </DialogHeader>
 
         <div className="py-4">
           <p className="mb-6 text-sm text-muted-foreground">
-            {t('tokenized_deposit_0138', {
-              role: roleLabel,
-              token: displayTokenName,
-              service: displayKeyServiceName,
-            })}
+            A new <span className="font-bold">{roleLabel}</span> wallet address
+            for <span className="font-bold">{displayTokenName}</span> will be
+            generated via <span className="font-bold">{displayKeyServiceName}</span>.
+            Upon confirmation, the role information will be updated accordingly.
           </p>
 
           <div>
             <div className="mb-2 flex items-center">
               <span className="text-destructive" aria-hidden="true">*</span>
-              <span className="font-medium">{t('wallet_attribute')}</span>
+              <span className="font-medium">Wallet Attribute</span>
             </div>
             <RadioGroup
               value={walletAttribute !== undefined ? String(walletAttribute) : ''}
@@ -136,10 +131,10 @@ export function RigsecWalletModal({
 
         <DialogFooter className="flex-row justify-center gap-4 sm:justify-center">
           <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
-            {t('PUB_Cancel')}
+            Cancel
           </Button>
           <Button type="button" onClick={onConfirm} disabled={loading}>
-            {t('PUB_Confirm')}
+            Confirm
           </Button>
         </DialogFooter>
       </DialogContent>

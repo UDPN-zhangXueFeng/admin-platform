@@ -5,6 +5,7 @@
   "all": "All",
   "records": "Workflows",
   "empty": "No workflows",
+  "loadFailed": "Failed to load workflows. Please try again.",
   "invalidId": "Invalid workflow ID",
   "yes": "Yes",
   "no": "No",
@@ -19,7 +20,10 @@
     "cancel": "Cancel",
     "save": "Save",
     "submit": "Submit",
-    "selected": "Selected"
+    "saveSuccess": "Saved successfully",
+    "selected": "Selected",
+    "statusUpdated": "Status updated successfully",
+    "operationFailed": "Operation failed. Please try again."
   },
   "field": {
     "index": "No.",
@@ -81,6 +85,7 @@
     "10": "Approve"
   },
   "validate": {
+    "required": "Required",
     "thresholdLt": "Must be greater than the previous step's threshold ({amount})."
   },
   "view": {

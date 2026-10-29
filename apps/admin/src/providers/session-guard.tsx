@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { getStablecoinOptions } from '@myorg/modules/td-admin/data-access';
-import { logoutApi } from '@myorg/modules/td-admin/data-access';
+import { logoutApiInBackground } from '@myorg/modules/td-admin/data-access';
 import { useFeatures } from '@myorg/shared/util-config';
 import {
   getAccessToken,
@@ -39,17 +39,14 @@ export function SessionGuard() {
   const isInactivityLogoutActive = isInactivityLogoutEnabled(inactivityLogout);
   const isLogoutInProgressRef = useRef(false);
 
-  const handleInactivityLogout = useCallback(async () => {
+  const handleInactivityLogout = useCallback(() => {
     if (isLogoutInProgressRef.current) return;
 
     isLogoutInProgressRef.current = true;
-    try {
-      await logoutApi();
-    } catch {
-      // Local cleanup must still happen when the server session has already expired.
-    } finally {
-      logoutAndRedirect();
-    }
+    // The server logout is slow on the live backend (~10s); fire it in the
+    // background so the redirect is not delayed.
+    logoutApiInBackground();
+    logoutAndRedirect();
   }, []);
 
   useEffect(() => {

@@ -4,6 +4,7 @@
   "reset": "Reset",
   "records": "Roles",
   "empty": "No roles",
+  "loadFailed": "Failed to load roles. Please try again.",
   "invalidId": "Invalid role ID",
   "action": {
     "view": "View",
@@ -17,6 +18,7 @@
     "save": "Save",
     "saveSuccess": "Saved successfully",
     "saveFailed": "Save failed. Please try again.",
+    "operationFailed": "Operation failed. Please try again.",
     "statusUpdated": "Status updated successfully"
   },
   "field": {

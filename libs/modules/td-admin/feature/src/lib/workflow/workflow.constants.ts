@@ -106,10 +106,10 @@ export function validateThresholdAmount(
   return null;
 }
 
-/** 5 个后端权限点 UUID（index 行操作：View/Edit/Disable/Enable/Delete）+ Add。
+/** 6 个后端权限点 UUID（列表行操作 View/Edit/Disable/Enable/Delete + Add）。
  *
- * 来自 td-manage index.tsx 的 limit（workflow.md §6.1）。sys 域尚未接通权限守卫
- * （与 role/syslog 一致），UUID 先集中于此避免散落。 */
+ * 来自 td-manage index.tsx 的 limit（workflow.md §6.1），由工作流列表与表单的
+ * PermissionGuard 直接引用。 */
 export const WORKFLOW_PERMISSIONS = {
   add: 'f1c12e747d454782ac1e869539f9ad17',
   view: '512805e710be4adfb5b31b3e4a5ae50a',

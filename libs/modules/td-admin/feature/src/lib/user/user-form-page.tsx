@@ -7,11 +7,13 @@ import { useTranslations } from 'next-intl';
 
 import { Button, Checkbox, Input, useToast } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { PermissionGuard } from '@myorg/shared/util-auth';
 
 import {
   isValidEmail,
   isValidUserName,
   USER_NAME_MAX_LENGTH,
+  USER_PERMISSIONS,
 } from '.';
 import {
   useRoleOptionsQuery,
@@ -325,9 +327,13 @@ export function UserFormPage() {
         >
           {t('action.cancel')}
         </Button>
-        <Button type="submit" disabled={submitting}>
-          {t('action.save')}
-        </Button>
+        <PermissionGuard
+          permission={isEdit ? USER_PERMISSIONS.edit : USER_PERMISSIONS.add}
+        >
+          <Button type="submit" disabled={submitting}>
+            {t('action.save')}
+          </Button>
+        </PermissionGuard>
       </div>
     </form>
   );

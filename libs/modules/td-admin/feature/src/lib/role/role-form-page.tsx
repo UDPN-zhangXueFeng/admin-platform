@@ -13,9 +13,10 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { PermissionGuard } from '@myorg/shared/util-auth';
 
 import { RoleMenuTree } from '.';
-import { RoleStatus } from '.';
+import { ROLE_PERMISSIONS, RoleStatus } from '.';
 import {
   useRoleDetailQuery,
   useMenuTreeQuery,
@@ -219,9 +220,13 @@ export function RoleFormPage() {
         >
           {t('action.cancel')}
         </Button>
-        <Button type="submit" disabled={submitting}>
-          {t('action.save')}
-        </Button>
+        <PermissionGuard
+          permission={isEdit ? ROLE_PERMISSIONS.edit : ROLE_PERMISSIONS.add}
+        >
+          <Button type="submit" disabled={submitting}>
+            {t('action.save')}
+          </Button>
+        </PermissionGuard>
       </div>
     </form>
   );

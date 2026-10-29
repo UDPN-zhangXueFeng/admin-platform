@@ -10,15 +10,15 @@
  *
  * stepDetailList 逐项渲染：Step N + smartContractArr[index] 标题 + Progress 百分比 +
  * 状态图标（3=待处理 FieldTimeOutlined、4=进行中 LoadingOutlined、其它=完成 CheckCircle）。
- * 标题的 '****' 占位按 delopySatus(=deployType) 替换为 Upgrade/Deploy。
+ * 标题的 '****' 占位按外层 tdType（币种 type）替换为 Upgrade/Deploy。
  *
  * ## 部署/升级分支（源 2179-2211）
  *
  * deployState===0（未部署）时：
- * - deployType===1 → 升级分支（权限 UPGRADE_DEPLOY b010a498...）：调 getDeployInfo
- *   拉 upgradeTaskCode 步骤。
- * - 其它 → 部署分支（权限 DEPLOY 14f35a31...）：调 useDeployContractMutation(taskCode)
- *   发起部署。
+ * - deployType===1 → 部署分支（权限 DEPLOY 14f35a31...）：调 useDeployContractMutation(taskCode)
+ * - 其它 → 升级分支（权限 UPGRADE_DEPLOY b010a498...）：调 getDeployInfo(upgradeTaskCode)
+ *
+ * 标题仍按外层 TD 类型（tdType）决定，与源 2136-2146 一致。
  *
  * ## 与源差异
  *
@@ -33,7 +33,6 @@
  * 源 stepDetailList 元素字段为 `state`（状态 3/4/其它）+ `deployProcess`（0-1 进度）。
  * model.ts StepItem 定义为 status/name（与源不符，属 model 不全），故本组件用
  * 局部 StepRow 类型断言访问真实字段，避免改 model（surgical scope）。
- *
  * i18n namespace: `modules.tokenized-deposit`。
  */
 'use client';
@@ -41,12 +40,7 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import {
-  CheckCircle2,
-  Clock,
-  Info,
-  Loader2,
-} from 'lucide-react';
+import { Info } from 'lucide-react';
 import {
   Button,
   Dialog,
@@ -55,7 +49,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Progress,
 } from '@myorg/shared/ui';
 import { usePermission } from '@myorg/shared/util-auth';
 import { TD_PERMISSIONS } from '@myorg/modules/td-admin/data-access';
@@ -63,21 +56,11 @@ import {
   useDeployContractMutation,
   useDeployStepDetailQuery,
 } from '@myorg/modules/td-admin/data-access';
-
-/** stepDetailList 真实行（源 el.state / el.deployProcess）。 */
-interface StepRow {
-  state?: number;
-  deployProcess?: number;
-}
-
-/** 步骤标题数组（源 smartContractArr，tokenized_deposit_0040/0038/0039/0040_2/0040_1）。 */
-const STEP_TITLE_KEYS = [
-  'tokenized_deposit_0040',
-  'tokenized_deposit_0038',
-  'tokenized_deposit_0039',
-  'tokenized_deposit_0040_2',
-  'tokenized_deposit_0040_1',
-];
+import {
+  STEP_TITLE_KEYS,
+  StepItemView,
+  type StepRow,
+} from './deploy-step-item';
 
 export interface DeployContractModalProps {
   /** Modal 开关。 */
@@ -94,58 +77,6 @@ export interface DeployContractModalProps {
   contractState?: number;
   /** 取消回调。 */
   onCancel: () => void;
-}
-
-/**
- * 单步渲染（标题 + Progress + 状态图标）。
- *
- * 状态硬色（源 2232-2248）：
- * - 3 → FieldTime（Clock），text-theme。
- * - 4 → Loading（Loader2），text-[#F4AA00]。
- * - 其它 → CheckCircle（CheckCircle2），text-[#87ca87]。
- */
-function StepItemView({
-  index,
-  title,
-  progress,
-  state,
-}: {
-  index: number;
-  title: string;
-  progress: number;
-  state?: number;
-}): React.JSX.Element {
-  const t = useTranslations('modules.tokenized-deposit');
-  return (
-    <div className="flex items-start justify-between py-3">
-      <div className="flex-1">
-        <div>
-          <span className="font-semibold">Step {index + 1}:</span> {title}
-        </div>
-        <div className="mt-2 pl-6">
-          <Progress value={progress} />
-        </div>
-      </div>
-      <div className="flex items-center text-primary">
-        {state === 3 ? (
-          <span className="flex items-center">
-            <Clock className="mr-1 h-4 w-4" />
-            {t(`step_status_${state}`)}
-          </span>
-        ) : state === 4 ? (
-          <span className="flex items-center text-[#F4AA00]">
-            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-            {t(`step_status_${state}`)}
-          </span>
-        ) : (
-          <span className="flex items-center text-[#87ca87]">
-            <CheckCircle2 className="mr-1 h-4 w-4" />
-            {t(`step_status_${state ?? 0}`)}
-          </span>
-        )}
-      </div>
-    </div>
-  );
 }
 
 /**
@@ -209,11 +140,11 @@ export function DeployContractModal({
     | undefined;
   const stepList = (detail?.stepDetailList ?? []) as unknown as StepRow[];
 
-  const isUpgrade = Number(detail?.deployType) === 1;
+  const isDeployAction = Number(detail?.deployType) === 1;
   const showActionButtons = Number(detail?.deployState) === 0;
 
-  // 部署/升级文案（源 delopySatus===1 ? Upgrade : Deploy）。
-  const actionWord = isUpgrade ? t('PUB_Upgrade') : t('PUB_Deploy');
+  // 步骤标题的部署/升级措辞按币种 type（源 delopySatus），按钮分支则按 deployType。
+  const actionWord = tdType === 1 ? t('PUB_Upgrade') : t('PUB_Deploy');
 
   // 标题（源 2136-2146）：tdType===1 升级分支 / 其它部署分支。
   const title =
@@ -281,21 +212,21 @@ export function DeployContractModal({
 
         {/* 部署/升级按钮（源 2179-2211，deployState===0 时显示；无权限 → null） */}
         {showActionButtons ? (
-          tdType === 1 ? (
-            hasUpgradeDeployPerm ? (
-              <div className="mb-2 flex justify-center">
-                <Button onClick={handleUpgrade}>{t('Router_0003_13')}</Button>
+          isDeployAction ? (
+            hasDeployPerm ? (
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex w-4/5 items-center">
+                  <Info className="mr-2 h-5 w-5 shrink-0 text-primary" />
+                  <span>{t('tokenized_deposit_0035')}</span>
+                </div>
+                <Button disabled={isPending} onClick={handleDeploy}>
+                  {t('Router_0003_12')}
+                </Button>
               </div>
             ) : null
-          ) : hasDeployPerm ? (
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex w-4/5 items-center">
-                <Info className="mr-2 h-5 w-5 shrink-0 text-primary" />
-                <span>{t('tokenized_deposit_0035')}</span>
-              </div>
-              <Button disabled={isPending} onClick={handleDeploy}>
-                {t('Router_0003_12')}
-              </Button>
+          ) : hasUpgradeDeployPerm ? (
+            <div className="mb-2 flex justify-center">
+              <Button onClick={handleUpgrade}>{t('Router_0003_13')}</Button>
             </div>
           ) : null
         ) : null}
@@ -303,9 +234,9 @@ export function DeployContractModal({
         {/* 步骤进度（源 2212-2253） */}
         <div className="p-2">
           <div className="mb-3 text-base font-bold">
-            {isUpgrade
-              ? t('tokenized_deposit_0041')
-              : t('tokenized_deposit_0036')}
+            {tdType !== 1
+              ? t('tokenized_deposit_0036')
+              : t('tokenized_deposit_0041')}
             :
           </div>
           <div className="rounded-xl bg-muted p-2">

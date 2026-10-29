@@ -40,7 +40,7 @@ export function WorkflowViewPage() {
   const searchParams = useSearchParams();
   const id = parseId(searchParams.get('id'));
 
-  const { data: detail, isLoading } = useWorkflowDetailQuery(PROJECT_ID, id);
+  const { data: detail, isLoading, isError } = useWorkflowDetailQuery(PROJECT_ID, id);
 
   if (!id) {
     return (
@@ -69,6 +69,11 @@ export function WorkflowViewPage() {
 
   return (
     <div className="space-y-4">
+      {isError ? (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+          {t('loadFailed')}
+        </div>
+      ) : null}
       {/* 基础信息描述列表 */}
       <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
         <div className="mb-6 text-base font-semibold">{t('view.title')}</div>
@@ -108,16 +113,18 @@ export function WorkflowViewPage() {
           {/* 发起人占位（旧页固定首项） */}
           <StepItem
             title={t('process.initiator')}
-            description={`${t('field.escalate')}: ${t('process.authorizedUser')}`}
+            description={`${t('field.assignees')}: ${t('process.authorizedUser')}`}
           />
           {/* 审批节点 */}
           {nodes.map((node, idx) => (
             <StepItem
               key={`${node.stepOrder}-${idx}`}
-              title={`${t('process.approver')} ${idx + 1}`}
+              title={`${t('process.approver')} ${idx + 1}/${node.stepUsers.length}`}
               description={`${t('field.assignees')}: ${node.stepUsers
                 .map((u) => u.userName)
-                .join(' / ')}`}
+                .join(' / ')}\n${t('field.executionMode')}: ${t(
+                'field.executionModeValue'
+              )}`}
             />
           ))}
           {/* End */}
@@ -164,7 +171,9 @@ function StepItem({
       <span className="absolute -left-6 top-1 h-3 w-3 rounded-full bg-theme ring-4 ring-theme/20" />
       <div className="text-sm font-medium">{title}</div>
       {description ? (
-        <div className="text-sm text-muted-foreground">{description}</div>
+        <div className="whitespace-pre-line text-sm text-muted-foreground">
+          {description}
+        </div>
       ) : null}
     </li>
   );

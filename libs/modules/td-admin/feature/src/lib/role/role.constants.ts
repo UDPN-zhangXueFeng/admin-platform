@@ -1,9 +1,8 @@
 /**
  * Role 模块常量。
  *
- * - `ROLE_PERMISSIONS`：6 个后端权限点 UUID（role.md 6.5），原样保留，供行操作按钮
- *   后续接入新权限系统（PermissionGuard）时引用。当前 sys 域尚未接通权限守卫
- *   （与 syslog 一致），UUID 先集中于此避免散落。
+ * - `ROLE_PERMISSIONS`：6 个后端权限点 UUID（role.md §6.5），由角色列表与表单的
+ *   PermissionGuard 直接引用，UUID 集中于此避免散落。
  * - `RoleStatus`：状态枚举（0 enabled / 1 disabled）。三个 DTO 注释措辞不一但语义
  *   一致（role.md 7.4），此处统一为 number 语义。
  * - `ROLE_PAGE_SIZE`：列表分页默认，对齐旧页 useCustomTable。

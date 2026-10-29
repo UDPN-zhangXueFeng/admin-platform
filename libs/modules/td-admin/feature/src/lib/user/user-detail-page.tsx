@@ -48,7 +48,7 @@ export function UserDetailPage() {
   const searchParams = useSearchParams();
   const userId = parseUserId(searchParams.get('userId'));
 
-  const { data: detail, isLoading } = useUserDetailQuery(PROJECT_ID, userId);
+  const { data: detail, isLoading, isError } = useUserDetailQuery(PROJECT_ID, userId);
   const { data: roleList } = useRoleOptionsQuery(PROJECT_ID, Boolean(userId));
   const { data: tdList } = useTdOptionsQuery(PROJECT_ID, Boolean(userId));
 
@@ -69,6 +69,11 @@ export function UserDetailPage() {
 
   return (
     <div className="space-y-4">
+      {isError ? (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+          {t('loadFailed')}
+        </div>
+      ) : null}
       <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
         <div className="mb-6 text-base font-semibold">{t('view.title')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

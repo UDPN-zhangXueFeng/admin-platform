@@ -6,12 +6,17 @@ import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
-import { Button, DataTable, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@myorg/shared/ui';
+import { Button, DataTable, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@myorg/shared/ui';
 import { FormDatePicker } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { PermissionGuard } from '@myorg/shared/util-auth';
 
 import { WorkflowStatusTag } from '.';
-import { WORKFLOW_PAGE_SIZE, WorkflowStatus } from '.';
+import {
+  WORKFLOW_PAGE_SIZE,
+  WORKFLOW_PERMISSIONS,
+  WorkflowStatus,
+} from '.';
 import {
   useBusinessListQuery,
   useWorkflowListQuery,
@@ -88,6 +93,7 @@ function formToParams(form: WorkflowFilterForm): WorkflowListParams {
 export function WorkflowListPage() {
   const t = useTranslations('modules.workflow');
   const router = useRouter();
+  const toast = useToast();
   const { control, register, handleSubmit, reset, watch, setValue } =
     useForm<WorkflowFilterForm>({ defaultValues: EMPTY_FORM });
 
@@ -96,7 +102,7 @@ export function WorkflowListPage() {
   );
 
   const { data: businessList } = useBusinessListQuery(PROJECT_ID);
-  const { data, isLoading } = useWorkflowListQuery(PROJECT_ID, params);
+  const { data, isLoading, isError } = useWorkflowListQuery(PROJECT_ID, params);
   const statusMutation = useModifyWorkflowStatusMutation(PROJECT_ID);
 
   const rows = data?.rows ?? [];
@@ -116,16 +122,24 @@ export function WorkflowListPage() {
     (row: WorkflowItem, nextStatus: 1 | 2 | 3) => {
       const name = row.workflowName;
       let confirmKey: string;
-      if (nextStatus === WorkflowStatus.Deleted) confirmKey = t('confirm.delete', { name });
-      else if (nextStatus === WorkflowStatus.Active) confirmKey = t('confirm.enable', { name });
+      if (nextStatus === WorkflowStatus.Deleted)
+        confirmKey = t('confirm.delete', { name });
+      else if (nextStatus === WorkflowStatus.Active)
+        confirmKey = t('confirm.enable', { name });
       else confirmKey = t('confirm.disable', { name });
       if (!window.confirm(confirmKey)) return;
-      statusMutation.mutate({
-        workflowId: row.workflowId,
-        status: nextStatus,
-      });
+      statusMutation.mutate(
+        {
+          workflowId: row.workflowId,
+          status: nextStatus,
+        },
+        {
+          onSuccess: () => toast.success(t('action.statusUpdated')),
+          onError: () => toast.error(t('action.operationFailed')),
+        }
+      );
     },
-    [statusMutation, t]
+    [statusMutation, t, toast]
   );
 
   const columns = React.useMemo<ColumnDef<WorkflowItem & { id: string }>[]>(
@@ -133,7 +147,16 @@ export function WorkflowListPage() {
       {
         id: 'index',
         header: t('field.index'),
-        cell: ({ row }) => <span>{row.index + 1}</span>,
+        cell: ({ row }) => {
+          const currentPage = page?.pageNum ?? params.page ?? 1;
+          const currentPageSize =
+            page?.pageSize ?? params.pageSize ?? WORKFLOW_PAGE_SIZE;
+          return (
+            <span>
+              {(currentPage - 1) * currentPageSize + row.index + 1}
+            </span>
+          );
+        },
       },
       { accessorKey: 'workflowName', header: t('field.workflowName') },
       { accessorKey: 'businessName', header: t('field.businessName') },
@@ -179,60 +202,70 @@ export function WorkflowListPage() {
           const deleteDisabled = !(item.status === WorkflowStatus.Inactive);
           return (
             <div className="flex items-center gap-2">
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(`/sys/workflow/view?id=${item.workflowId}`)
-                }
-              >
-                {t('action.view')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={editDisabled}
-                onClick={() =>
-                  router.push(`/sys/workflow/edit?id=${item.workflowId}`)
-                }
-              >
-                {t('action.edit')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={disableDisabled}
-                onClick={() => onModifyStatus(item, WorkflowStatus.Inactive)}
-              >
-                {t('action.disable')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                disabled={enableDisabled}
-                onClick={() => onModifyStatus(item, WorkflowStatus.Active)}
-              >
-                {t('action.enable')}
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-destructive"
-                disabled={deleteDisabled}
-                onClick={() => onModifyStatus(item, WorkflowStatus.Deleted)}
-              >
-                {t('action.delete')}
-              </Button>
+              <PermissionGuard permission={WORKFLOW_PERMISSIONS.view}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  onClick={() =>
+                    router.push(`/sys/workflow/view?id=${item.workflowId}`)
+                  }
+                >
+                  {t('action.view')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={WORKFLOW_PERMISSIONS.edit}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  disabled={editDisabled}
+                  onClick={() =>
+                    router.push(`/sys/workflow/edit?id=${item.workflowId}`)
+                  }
+                >
+                  {t('action.edit')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={WORKFLOW_PERMISSIONS.disable}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  disabled={disableDisabled}
+                  onClick={() => onModifyStatus(item, WorkflowStatus.Inactive)}
+                >
+                  {t('action.disable')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={WORKFLOW_PERMISSIONS.enable}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  disabled={enableDisabled}
+                  onClick={() => onModifyStatus(item, WorkflowStatus.Active)}
+                >
+                  {t('action.enable')}
+                </Button>
+              </PermissionGuard>
+              <PermissionGuard permission={WORKFLOW_PERMISSIONS.delete}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-destructive"
+                  disabled={deleteDisabled}
+                  onClick={() => onModifyStatus(item, WorkflowStatus.Deleted)}
+                >
+                  {t('action.delete')}
+                </Button>
+              </PermissionGuard>
             </div>
           );
         },
       },
     ],
-    [t, router, onModifyStatus]
+    [t, page, params, router, onModifyStatus]
   );
 
   // DataTable 约束 { id: string }；workflow rowKey 为 workflowId:number，map 出 id（既有约定）。
@@ -324,14 +357,21 @@ export function WorkflowListPage() {
       <div className="rounded-lg border bg-card shadow-sm">
         <div className="flex items-center justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">{t('records')}</div>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => router.push('/sys/workflow/create')}
-          >
-            {t('action.add')}
-          </Button>
+          <PermissionGuard permission={WORKFLOW_PERMISSIONS.add}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => router.push('/sys/workflow/create')}
+            >
+              {t('action.add')}
+            </Button>
+          </PermissionGuard>
         </div>
+        {isError ? (
+          <div role="alert" className="border-b px-6 py-3 text-sm text-destructive">
+            {t('loadFailed')}
+          </div>
+        ) : null}
         <DataTable
           columns={columns}
           data={tableData}
@@ -343,7 +383,10 @@ export function WorkflowListPage() {
                   page: page.pageNum,
                   pageSize: page.pageSize,
                   total: page.total,
-                  onPageChange: (p) => setParams((prev) => ({ ...prev, page: p })),
+                  onPageChange: (p) =>
+                    setParams((prev) => ({ ...prev, page: p })),
+                  onPageSizeChange: (pageSize) =>
+                    setParams((prev) => ({ ...prev, page: 1, pageSize })),
                 }
               : undefined
           }

@@ -4,7 +4,9 @@
   "reset": "Reset",
   "records": "System Logs",
   "empty": "No system logs",
+  "loadFailed": "Failed to load system logs. Please try again.",
   "export": "Export",
+  "exportUnavailable": "Export is not available because the backend has no export endpoint",
   "more": "More",
   "all": "All",
   "field": {
