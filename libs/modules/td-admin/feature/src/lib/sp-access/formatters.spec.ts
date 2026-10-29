@@ -28,9 +28,12 @@ describe('sp-access formatters', () => {
     expect(parsePrivateKeyCustodyModel(undefined)).toEqual([]);
   });
 
-  it('formats token KYC values with t_edit semantics because token permission detail uses 1 as No and 2 as Yes', () => {
-    expect(formatTokenKycRequiredLabel(1)).toBe('No');
-    expect(formatTokenKycRequiredLabel(2)).toBe('Yes');
-    expect(formatTokenKycRequiredLabel(0)).toBe('No');
+  it('normalizes token KYC values with t_edit semantics because token permission detail uses 1 as No and 2 as Yes', () => {
+    expect(formatTokenKycRequiredLabel(1)).toBe('no');
+    expect(formatTokenKycRequiredLabel(2)).toBe('yes');
+    expect(formatTokenKycRequiredLabel(0)).toBe('no');
+    expect(formatTokenKycRequiredLabel(true)).toBe('yes');
+    expect(formatTokenKycRequiredLabel('no')).toBe('no');
+    expect(formatTokenKycRequiredLabel('unknown')).toBe('');
   });
 });

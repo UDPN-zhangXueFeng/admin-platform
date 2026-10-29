@@ -15,6 +15,10 @@ const spAccessPages: Record<
     import('@myorg/modules/td-admin/feature').then((m) => ({
       default: m.SpAccessFormPage as unknown as ComponentType<unknown>,
     })),
+  approval: () =>
+    import('@myorg/modules/td-admin/feature').then((m) => ({
+      default: m.SpAccessApprovalPage as unknown as ComponentType<unknown>,
+    })),
   edit: () =>
     import('@myorg/modules/td-admin/feature').then((m) => ({
       default: m.SpAccessFormPage as unknown as ComponentType<unknown>,

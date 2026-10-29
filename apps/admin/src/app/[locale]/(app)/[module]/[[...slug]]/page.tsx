@@ -99,6 +99,9 @@ export default function ModulePage({
     // 'detail'。按 realSlug[1] 区分：mff-add→edit（FormPage 渲染 MMF 表单），
     // view→detail（DetailPage 渲染 mff-view 变体，见 wallet-type-detail-page）。
     if (realSlug[0] === 'mff') return realSlug[1] === 'view' ? 'detail' : 'edit';
+    // sp-access 审批页路由名 'approval'(对齐 td-manage /sp-access/approval 深链),
+    // 否则会落到 detail 误渲染 DetailPage。
+    if (realSlug[0] === 'approval') return 'approval';
     // tokenized-deposit 新建页路由名 'onboard'（对齐 overview-shell ONBOARD_ROUTE），
     // 识别为独立 pageKey，否则会落到 detail 误渲染 ViewPage。
     if (realSlug[0] === 'onboard') return 'onboard';

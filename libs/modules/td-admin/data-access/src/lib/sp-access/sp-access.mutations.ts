@@ -1,5 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createSpAccess, updateSpAccess } from './sp-access.api';
+import {
+  auditSpAccess,
+  createSpAccess,
+  preflightUserWalletTxList,
+  updateSpAccess,
+} from './sp-access.api';
 import { spAccessKeys } from './sp-access.keys';
 
 export function useCreateSpAccessMutation() {
@@ -18,7 +23,7 @@ export function useUpdateSpAccessMutation() {
 
   return useMutation({
     mutationFn: updateSpAccess,
-    onSuccess: async (_data, variables) => {
+    onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: spAccessKeys.lists() }),
         queryClient.invalidateQueries({
@@ -28,5 +33,25 @@ export function useUpdateSpAccessMutation() {
         }),
       ]);
     },
+  });
+}
+
+export function useAuditSpAccessMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: auditSpAccess,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: spAccessKeys.lists() });
+    },
+  });
+}
+/**
+ * Txn Details 跳转前预检（上游 UserWalletsSection.handleViewTxnDetails）：
+ * 先 POST user/wallet/txList，code!==0 视为失败、不路由；成功后由调用方跳转。
+ */
+export function useUserWalletTxListPreflightMutation() {
+  return useMutation({
+    mutationFn: preflightUserWalletTxList,
   });
 }
