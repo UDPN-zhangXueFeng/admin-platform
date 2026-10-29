@@ -14,7 +14,7 @@ import type { AxiosRequestConfig } from 'axios';
 import type { PaginatedResponse } from '@myorg/shared/model';
 
 import { lpPage, lpRequest } from '../lp-client';
-import type { TxChainNode, TxListReq, TxRow } from '../types';
+import type { LpChainResp, TxListReq, TxRow } from '../types';
 import type { TxFlowListReq } from './tx-flow.model';
 
 /** 交易流水分页列表（POST /lp/tx-flow/list）。 */
@@ -33,8 +33,8 @@ export function getTxFlowList(
 export function getTxFlowChain(
   transactionId: number,
   config?: AxiosRequestConfig,
-): Promise<TxChainNode[]> {
-  return lpRequest.get<TxChainNode[]>(
+): Promise<LpChainResp> {
+  return lpRequest.get<LpChainResp>(
     `/tx-flow/chain/${transactionId}`,
     config,
   );

@@ -75,7 +75,6 @@ import {
 } from './proto-sort';
 import { SyncRefreshButton } from './sync-refresh-button';
 import { ServiceDownAlert } from './service-down-alert';
-import { flattenChain } from './tx-chain';
 
 /* ================================================================== */
 /* 常量、筛选表单与暂存                                                 */
@@ -851,17 +850,12 @@ function TxDetailView({ txKey }: { txKey: string }) {
 
   /** rail 码 → 首个链路事件时间（nodeType 环节/动作均计，取最早）。 */
   const chainTimes = React.useMemo(() => {
+    // 2026-10-29 统一链路：服务端扁平事件（自环已过滤），直接取最早 eventTime
     const times = new Map<number, number>();
-    if (!chainQuery.data) return times;
-    for (const node of flattenChain(chainQuery.data)) {
-      const to = node.statusTo ?? 0;
-      if (
-        to !== 0 &&
-        RAIL_CODE_LIST.includes(to) &&
-        !times.has(to) &&
-        node.eventTime
-      ) {
-        times.set(to, node.eventTime);
+    for (const e of chainQuery.data?.events ?? []) {
+      const to = e.statusTo ?? 0;
+      if (to !== 0 && RAIL_CODE_LIST.includes(to) && !times.has(to) && e.eventTime) {
+        times.set(to, e.eventTime);
       }
     }
     return times;
