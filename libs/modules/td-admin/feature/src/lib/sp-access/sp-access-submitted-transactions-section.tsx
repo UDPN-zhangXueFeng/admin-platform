@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import type { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
@@ -115,7 +116,7 @@ export function SpAccessSubmittedTransactionsSection({
     return options;
   }, [detail.tdList]);
 
-  const { data, isLoading } = useSpAccessSubmittedTransactionsQuery({
+  const { data, isLoading, error } = useSpAccessSubmittedTransactionsQuery({
     spCode: effectiveSpCode,
     pageNum: page,
     pageSize,
@@ -127,6 +128,10 @@ export function SpAccessSubmittedTransactionsSection({
     txHash: applied.txHash,
     ...dateToRangeMs(applied.txStartDate, applied.txEndDate),
   });
+
+  React.useEffect(() => {
+    if (error) toast.error(error instanceof Error ? error.message : t('sp_access_0125'));
+  }, [error, t]);
 
   const rows = data?.rows ?? [];
 
@@ -341,7 +346,10 @@ export function SpAccessSubmittedTransactionsSection({
 
       <DataTable
         columns={columns}
-        data={rows.map((row, index) => ({ ...row, id: String(row.txHash ?? index) }))}
+        data={rows.map((row) => ({
+          ...row,
+          id: `${row.txHash || 'no-hash'}-${row.createTime || 0}-${row.txTime || 0}-${row.tokenName || 'unknown'}`,
+        }))}
         isLoading={isLoading}
         emptyMessage={tCommon('noData')}
         pagination={{
@@ -349,6 +357,10 @@ export function SpAccessSubmittedTransactionsSection({
           pageSize: data?.pageSize ?? pageSize,
           total: data?.total ?? 0,
           onPageChange: setPage,
+          onPageSizeChange: (nextPageSize) => {
+            setPageSize(nextPageSize);
+            setPage(1);
+          },
         }}
       />
     </div>

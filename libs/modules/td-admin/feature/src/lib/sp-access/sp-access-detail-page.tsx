@@ -1,5 +1,6 @@
 'use client';
-
+import * as React from 'react';
+import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
@@ -11,8 +12,9 @@ import { SpAccessOperationRecordsSection } from './sp-access-operation-records-s
 
 /**
  * SP 服务商详情页（上游 t_view.tsx）。
- * URL 形态 `/sp-access/detail?id={spRecordId}&spCode={spCode}`，
- * id 即 spRecordId；基本信息均通过 POST detail/basicInfo 拉取。
+ * URL 形态 `/sp-access/detail?id={spId}&spCode={spCode}`；列表行的 `id` 传入
+ * detail/basicInfo 的 `{ spId }`。审批页是独立链路，才使用 `{ spRecordId }`。
+ * 基本信息通过 POST detail/basicInfo 拉取。
  */
 export function SpAccessDetailPage() {
   const params = useParams();
@@ -25,9 +27,13 @@ export function SpAccessDetailPage() {
   const rawParamId = slug.length > 1 ? slug[1] : (slug[0] ?? '');
   const spId = Number(rawId ?? rawParamId);
 
-  const { data: detail, isLoading } = useSpAccessDetailQuery(
+  const { data: detail, isLoading, error } = useSpAccessDetailQuery(
     Number.isFinite(spId) && spId > 0 ? spId : undefined,
   );
+
+  React.useEffect(() => {
+    if (error) toast.error(error instanceof Error ? error.message : t('sp_access_0125'));
+  }, [error, t]);
 
   if (isLoading) {
     return (
@@ -59,7 +65,7 @@ export function SpAccessDetailPage() {
             {t('sp_access_0073')}
           </TabsTrigger>
           <TabsTrigger value="operation-records">
-            {t('sp_access_0012')}
+            {t('sp_access_0137')}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="base-info">

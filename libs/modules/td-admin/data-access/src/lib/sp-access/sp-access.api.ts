@@ -129,8 +129,8 @@ export async function getSpAccessApprovalDetail(spRecordId: number): Promise<SpA
     '/api/manage/v1/sp/access/detail/basicInfo',
     { spRecordId },
   );
-  const { spInfoState, state, ...rest } = response;
-  return { ...rest, state: spInfoState ?? state };
+  const { state, ...rest } = response;
+  return { ...rest, state };
 }
 
 // ---------- 详情子列表 ----------

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -37,12 +38,16 @@ export function SpAccessOperationRecordsSection({ spCode }: { spCode: string }) 
   const [draftType, setDraftType] = React.useState(ALL_VALUE);
   const [appliedType, setAppliedType] = React.useState(ALL_VALUE);
 
-  const { data, isLoading } = useSpAccessOperationRecordsQuery({
+  const { data, isLoading, error } = useSpAccessOperationRecordsQuery({
     spCode,
     pageNum: page,
     pageSize,
     operationType: appliedType === ALL_VALUE ? '' : appliedType,
   });
+
+  React.useEffect(() => {
+    if (error) toast.error(error instanceof Error ? error.message : t('sp_access_0125'));
+  }, [error, t]);
 
   const rows = data?.rows ?? [];
 
@@ -108,6 +113,7 @@ export function SpAccessOperationRecordsSection({ spCode }: { spCode: string }) 
   return (
     <div className="space-y-4">
       <div className="rounded-lg border bg-card p-6">
+        <div className="mb-4 text-base font-semibold">{t('sp_access_0012')}</div>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 xl:grid-cols-4">
           <label className="flex flex-col gap-1 text-sm">
             <span>{t('sp_access_0013')}</span>
@@ -156,7 +162,7 @@ export function SpAccessOperationRecordsSection({ spCode }: { spCode: string }) 
 
       <DataTable
         columns={columns}
-        data={rows.map((row, index) => ({ ...row, id: String(row.taskId ?? row.spRecordId ?? index) }))}
+        data={rows.map((row, index) => ({ ...row, id: String(row.spRecordId ?? row.taskId ?? index) }))}
         isLoading={isLoading}
         emptyMessage={tCommon('noData')}
         pagination={{
@@ -164,6 +170,10 @@ export function SpAccessOperationRecordsSection({ spCode }: { spCode: string }) 
           pageSize: data?.pageSize ?? pageSize,
           total: data?.total ?? 0,
           onPageChange: setPage,
+          onPageSizeChange: (nextPageSize) => {
+            setPageSize(nextPageSize);
+            setPage(1);
+          },
         }}
       />
     </div>

@@ -8,6 +8,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import {
   Button,
   Checkbox,
+  CopyableEllipsisText,
   DataTable,
   Tooltip,
   TooltipContent,
@@ -218,14 +219,32 @@ export function SpAccessBaseInfoSection({ detail }: { detail: SpAccessDetail }) 
       { accessorKey: 'tokenName', header: t('sp_access_0044') },
       { accessorKey: 'tokenType', header: t('sp_access_0136') },
       { accessorKey: 'blockchain', header: t('sp_access_0059') },
-      { accessorKey: 'walletAddress', header: t('sp_access_0045') },
-      { accessorKey: 'openApiPermission', header: t('sp_access_0064'), enableSorting: false },
-      { accessorKey: 'webhookUrl', header: t('sp_access_0122') },
-      { accessorKey: 'contractAddress', header: t('sp_access_0048') },
+      {
+        accessorKey: 'walletAddress',
+        header: t('sp_access_0045'),
+        cell: ({ getValue }) => <CopyableEllipsisText value={String(getValue() ?? EMPTY_FIELD_VALUE)} truncate="middle" />,
+      },
+      {
+        accessorKey: 'openApiPermission',
+        header: t('sp_access_0064'),
+        enableSorting: false,
+        cell: ({ getValue }) => <>{getValue() as React.ReactNode}</>,
+      },
+      {
+        accessorKey: 'webhookUrl',
+        header: t('sp_access_0122'),
+        cell: ({ getValue }) => <CopyableEllipsisText value={String(getValue() ?? EMPTY_FIELD_VALUE)} truncate="middle" />,
+      },
+      {
+        accessorKey: 'contractAddress',
+        header: t('sp_access_0048'),
+        cell: ({ getValue }) => <CopyableEllipsisText value={String(getValue() ?? EMPTY_FIELD_VALUE)} truncate="middle" />,
+      },
       {
         accessorKey: 'tokenContractPermission',
         header: t('sp_access_0047'),
         enableSorting: false,
+        cell: ({ getValue }) => <>{getValue() as React.ReactNode}</>,
       },
       { accessorKey: 'kycRequired', header: t('sp_access_0110') },
       {

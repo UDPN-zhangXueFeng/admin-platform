@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
-import { PermissionGuard, useAuth } from '@myorg/shared/util-auth';
+import { useAuth } from '@myorg/shared/util-auth';
 import {
   useSpAccessListQuery,
   useSpAccessStablecoinOptionsQuery,
@@ -97,6 +97,7 @@ export function SpAccessListPage() {
   const rows = data?.rows ?? [];
   const canEdit = permissions.has(SP_ACCESS_PERMISSIONS.edit);
   const canView = permissions.has(SP_ACCESS_PERMISSIONS.view);
+  const canRegister = permissions.has(SP_ACCESS_PERMISSIONS.register) || permissions.has(SP_ACCESS_PERMISSIONS.registerAlt);
 
   const columns = React.useMemo<ColumnDef<SpAccessListItem & { id: string }>[]>(
     () => [
@@ -135,8 +136,12 @@ export function SpAccessListPage() {
         header: t('sp_access_0044'),
         cell: ({ row }) => {
           const tdNames = (row.original.tdInfo ?? [])
-            .map((info) => info.tdName)
-            .filter((name): name is string => Boolean(name?.trim()));
+            .map((info) => {
+              const name = info.tdName?.trim();
+              const abbreviation = info.blockchainNameAbbreviation?.trim();
+              return name ? `${name}${abbreviation ? ` (${abbreviation})` : ''}` : '';
+            })
+            .filter(Boolean);
           const display = tdNames.join(', ') || row.original.td || EMPTY_FIELD_VALUE;
           if (display === EMPTY_FIELD_VALUE) return display;
           return (
@@ -164,12 +169,10 @@ export function SpAccessListPage() {
           const editEnabled = record.state === 1 || record.state === 2;
           return (
             <div className="flex items-center gap-2">
-              {/* 行内按钮权限 = 后端 UUID；授权但 state∉{1,2} 时置灰（上游 disabled 语义） */}
-              {canEdit && (
+              {canEdit && editEnabled && (
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={!editEnabled}
                   onClick={() => router.push(`/sp-access/edit?${detailParams}`)}
                 >
                   {t('Router_0004_3')}
@@ -184,7 +187,7 @@ export function SpAccessListPage() {
                   {t('Router_0004_4')}
                 </Button>
               )}
-              {!canEdit && !canView && <span className="text-muted-foreground">--</span>}
+              {!canView && !(canEdit && editEnabled) && <span className="text-muted-foreground">--</span>}
             </div>
           );
         },
@@ -214,11 +217,11 @@ export function SpAccessListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{t('sp_access_0002')}</h1>
-        <PermissionGuard permission={SP_ACCESS_PERMISSIONS.register}>
+        {canRegister ? (
           <Button onClick={() => router.push('/sp-access/create')}>
-            {t('sp_access_0050')}
+            {t('Router_0004_1')}
           </Button>
-        </PermissionGuard>
+        ) : null}
         {/* 上游 registerAlt 权限命中渲染第二枚同功能按钮，下游合并为一枚（alignment.md L-04 披露） */}
       </div>
 
@@ -333,7 +336,7 @@ export function SpAccessListPage() {
         columns={columns}
         data={rows.map((row, index) => ({
           ...row,
-          id: String(row.spRecordId ?? row.spId ?? row.spCode ?? index),
+          id: String(row.spId ?? row.spRecordId ?? row.spCode ?? index),
         }))}
         isLoading={isLoading}
         emptyMessage={t('sp_access_0002')}

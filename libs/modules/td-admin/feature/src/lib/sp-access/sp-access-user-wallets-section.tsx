@@ -126,6 +126,9 @@ export function SpAccessUserWalletsSection({ detail }: { detail: SpAccessDetail 
         onSuccess: () => {
           router.push(`/wallet/user-wallet/view?walletId=${walletId}&tab=transactions`);
         },
+        onError: (error) => {
+          toast.error(error instanceof Error ? error.message : t('sp_access_0145'));
+        },
         onSettled: () => setViewingWalletId(null),
       },
     );
@@ -374,6 +377,10 @@ export function SpAccessUserWalletsSection({ detail }: { detail: SpAccessDetail 
             pageSize: data?.pageSize ?? pageSize,
             total: data?.total ?? 0,
             onPageChange: setPage,
+            onPageSizeChange: (nextPageSize) => {
+              setPageSize(nextPageSize);
+              setPage(1);
+            },
           }}
         />
       </div>

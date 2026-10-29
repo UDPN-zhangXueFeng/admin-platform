@@ -33,60 +33,54 @@ function firstNonEmpty(...values: Array<string | undefined>): string | undefined
 }
 
 function TokenPermissionCard({ token }: { token: SpAccessDetailTd }) {
+  const t = useTranslations('modules.sp-access');
   const displayName = firstNonEmpty(token.tdName, token.tokenName) ?? EMPTY_FIELD_VALUE;
   const blockchain = firstNonEmpty(token.blockchainName);
   const accessList = token.accessList ?? [];
   const openApiAccess = accessList.find((item) => Number(item.accessType) === OPEN_API_ACCESS_TYPE);
   const contractAccess = accessList.find((item) => Number(item.accessType) === CONTRACT_ACCESS_TYPE);
-
+  const renderPermission = (access: SpAccessDetailAccessItem | undefined) => {
+    if (!access) return null;
+    const entry = access.typeAndPermissionList?.[0];
+    const entries = entry?.walletTypeList?.map((wallet) => wallet.name).filter(Boolean) ?? [];
+    const shown = entries.slice(0, 6);
+    const rest = entries.slice(6);
+    return (
+      <div className="mt-2 text-sm">
+        <span className="font-medium">{entry?.accessConfName ?? EMPTY_FIELD_VALUE}:</span>{' '}
+        <span className="text-muted-foreground">{shown.join('、') || EMPTY_FIELD_VALUE}</span>
+        {rest.length > 0 ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild><Button type="button" variant="link" size="sm" className="h-auto p-0">+{rest.length}...</Button></TooltipTrigger>
+              <TooltipContent>{rest.join('、')}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
+      </div>
+    );
+  };
   return (
     <div className="rounded-lg border bg-card p-4">
       <div className="flex items-center gap-2">
-        <span
-          aria-hidden
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-[10px] font-semibold"
-        >
+        <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-[10px] font-semibold">
           {Number.isFinite(Number(token.tokenType)) ? `T${Number(token.tokenType)}` : 'T'}
         </span>
         <span className="text-sm font-medium">
           {displayName}
-          {blockchain ? (
-            <span className="text-muted-foreground"> (Based on {blockchain})</span>
-          ) : null}
+          {blockchain ? <span className="text-muted-foreground"> ({t('sp_access_0068')}{blockchain})</span> : null}
         </span>
       </div>
-      {[openApiAccess, contractAccess]
-        .filter((access): access is SpAccessDetailAccessItem => Boolean(access))
-        .map((access, index) => {
-          const entries = (access.typeAndPermissionList ?? []).flatMap(
-            (entry) => entry.walletTypeList?.map((wallet) => wallet.name) ?? [],
-          );
-          const shown = entries.slice(0, 6);
-          const rest = entries.slice(6);
-          return (
-            <div key={index} className="mt-2 text-sm">
-              <span className="font-medium">
-                {(access.typeAndPermissionList ?? [])[0]?.accessConfName ?? EMPTY_FIELD_VALUE}
-              </span>
-              {': '}
-              <span className="text-muted-foreground">
-                {shown.join('、') || EMPTY_FIELD_VALUE}
-              </span>
-              {rest.length > 0 ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button type="button" variant="link" size="sm" className="h-auto p-0">
-                        +{rest.length}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{rest.join('、')}</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : null}
-            </div>
-          );
-        })}
+      <div className="mt-3 grid gap-2 text-sm">
+        <div><span className="font-medium">{t('sp_access_0045')}:</span> {token.walletAddress || EMPTY_FIELD_VALUE}</div>
+        {renderPermission(openApiAccess)}
+      </div>
+      {contractAccess && accessList.length > 1 ? (
+        <div className="mt-3 border-t pt-2 text-sm">
+          <div><span className="font-medium">{t('sp_access_0048')}:</span> {token.contractAddress || EMPTY_FIELD_VALUE}</div>
+          {renderPermission(contractAccess)}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -105,7 +99,10 @@ export function SpAccessApprovalPage() {
     return Number.isFinite(value) && value > 0 ? value : undefined;
   }, [searchParams]);
 
-  const { data: detail, isLoading } = useSpAccessApprovalDetailQuery(spRecordId);
+  const { data: detail, isLoading, error } = useSpAccessApprovalDetailQuery(spRecordId);
+  React.useEffect(() => {
+    if (error) toast.error(error instanceof Error ? error.message : t('sp_access_0125'));
+  }, [error, t]);
   const auditMutation = useAuditSpAccessMutation();
   const { mutate: submitAudit, isPending: auditPending } = auditMutation;
 
@@ -141,6 +138,9 @@ export function SpAccessApprovalPage() {
         onSuccess: () => {
           toast.success(tc('PUB_Success'));
           router.back();
+        },
+        onError: (error) => {
+          toast.error(error instanceof Error ? error.message : t('sp_access_0175'));
         },
       },
     );
