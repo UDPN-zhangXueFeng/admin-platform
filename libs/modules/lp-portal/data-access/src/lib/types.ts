@@ -196,6 +196,39 @@ export interface TxChainNode {
   traceId?: string;
 }
 
+// ===== 统一链路（2026-10-29：服务端 TxChainAssembler 组装 + LP 投影脱敏，
+// 与 admin 同源同构；前端不再自建分组推导） =====
+
+/** 链路阶段轴行（step 1~6 固定；缺失行补「未开始」）。 */
+export interface LpChainStage {
+  step: number;
+  stepName: string;
+  /** 1 未开始 / 2 进行中 / 3 成功 / 4 失败 / 5 跳过 */
+  status: number;
+  startTime: number;
+  endTime: number;
+  csTxId: string;
+}
+
+/** 链路事件行（自环事件已在服务端过滤；title 为统一对外文案）。 */
+export interface LpChainEvent {
+  flowId: number;
+  /** 阶段归属（0=通用事件） */
+  step: number;
+  nodeType: number;
+  statusFrom: number;
+  statusTo: number;
+  eventTime: number;
+  title: string;
+  csTxId: string;
+}
+
+/** GET /lp/tx-flow/chain/{id} 响应（阶段轴 + 扁平事件）。 */
+export interface LpChainResp {
+  stages: LpChainStage[];
+  events: LpChainEvent[];
+}
+
 // ===== 结算(POST /lp/settle/orders 分页 + POST /lp/settle/order-records;
 // v2.4 6c49396：records 独立分页端点退役，流水按结算单周期过滤随抽屉拉取) =====
 

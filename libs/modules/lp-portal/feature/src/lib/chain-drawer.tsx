@@ -5,36 +5,16 @@
  * list page; opens on a row entry action and renders one transaction's
  * transfer chain).
  *
- * Behavior contract (doc 01 section D9 v3 + E traps, upstream 2026-09-04
- * 35ca014):
- * - Radix dialog drawer anchored right, width min(720px, 90vw); closes on
- *   ESC and on overlay click (built into the shared Drawer primitive;
- *   parent unmounts us through onClosed).
- * - Title "Transaction Details" (v2.3 rename); §6.3 layout: hero summary
- *   (copyable KSN txNo + token-pair identity + status badge) above the
- *   fixed 11-item set re-layered as core amounts and copyable business
- *   identifiers first, audit timestamps behind a hairline, conditional
- *   failure reason on its own full row; the old transaction ID item stays
- *   retired. Money items (principal / user deduction / receiver amount and
- *   the timeline extras) render at their token's decimalDigits precision
- *   with the symbol suffix (ed1a340/6a55188) via amountText - the old
- *   min2/max8 fmtAmount caliber is retired.
- * - Token Pair renders the v2.3 slash compact form via useTokenMeta
- *   (symOf falls back to the raw token code).
- * - Status badge caliber: 35 renders success/"Completed" in the drawer
- *   AND on the list since 2026-09-04 (the old dual-caliber trap E14 is
- *   retired).
- * - Chain section v3 (single business timeline, admin-parity): milestones
- *   titled by landing status (NODE_TITLES), child nodes contribute voucher
- *   chips only; tone per landing status (35/40 green, 90/70 red, 50 amber,
- *   60/80 gray, rest brand via theme token); quote-lock and payout/
- *   completion milestones carry amount/rate chips. Empty state renders
- *   "No chain data" (no second empty tier - the per-stage event list is
- *   retired with the stage axis).
- * - Service-down downgrade banner branch kept inside the drawer; failed
- *   refetches keep previously loaded nodes.
+ * v4 unified chain (2026-10-29): the BFF/api now returns the SAME assembled
+ * shape as admin (TxChainAssembler: 6-stage axis + flat events, LP projection
+ * sanitized server-side — titles from the unified copy table, operator/
+ * remark/traceId stripped, self-loop requote events filtered). The drawer
+ * renders a stage rail + event timeline and does NO client-side inference
+ * (the v3 flatten/group/NODE_TITLES inference module is retired - it was the
+ * drift source: dispose nodes swallowed, vouchers lost).
  *
- * Inference tables live in ./tx-chain (pure module per LP/03 B2).
+ * Basic info / hero summary layout stays v2.3 (§6.3 layered grid, KSN txNo
+ * hero, amounts at token precision via amountText).
  */
 import * as React from 'react';
 
@@ -52,24 +32,22 @@ import {
   isServiceDown,
   useTokenMeta,
   useTxFlowChainQuery,
+  type LpChainStage,
   type TxRow,
 } from '@myorg/modules/lp-portal/data-access';
 import {
-  buildChainTimeline,
-  completedTimeText,
-  flattenChain,
   type AmountText,
   txDrawerVariant,
   txStatusLabel,
   txWarnClass,
-  type TimelineItem,
+  completedTimeText,
   type TimelineTone,
 } from './tx-chain';
 import { formatAmount, formatTime } from './format';
 import { ServiceDownAlert } from './service-down-alert';
 
 /* ================================================================== */
-/* Single business timeline (v3, doc 01 D9)                            */
+/* Unified chain rendering (v4)                                        */
 /* ================================================================== */
 
 /** Timeline dot tint per milestone tone; primary stays on the theme token. */
@@ -81,12 +59,107 @@ const TONE_DOT: Record<TimelineTone, string> = {
   primary: 'bg-primary',
 };
 
+/** Event tone by landing status (UI concern; titles come from the server). */
+function toneByStatusTo(to: number): TimelineTone {
+  if (to === 35 || to === 40) return 'success';
+  if (to === 70 || to === 90) return 'danger';
+  if (to === 50) return 'warning';
+  if (to === 60 || to === 80) return 'info';
+  return 'primary';
+}
+
+/** Stage rail row state → visual class + label suffix. */
+function stageState(status: number): { dot: string; label: string } {
+  switch (status) {
+    case 3:
+      return { dot: 'bg-emerald-500', label: 'Done' };
+    case 2:
+      return { dot: 'bg-primary', label: 'In progress' };
+    case 4:
+      return { dot: 'bg-red-500', label: 'Failed' };
+    default:
+      // 1 未开始 / 5 跳过：LP 视角统一「未到达」，不区分内部跳过语义
+      return { dot: 'bg-muted-foreground/30', label: '—' };
+  }
+}
+
+/** Horizontal 6-stage rail (server stages; stepName/endTime straight through). */
+function StageRail({ stages }: { stages: LpChainStage[] }) {
+  return (
+    <ol className="flex flex-wrap items-start gap-x-1 gap-y-3">
+      {stages.map((s, i) => {
+        const state = stageState(s.status);
+        const time = s.endTime || s.startTime;
+        return (
+          <React.Fragment key={s.step}>
+            {i > 0 && (
+              <span
+                aria-hidden="true"
+                className="mt-[7px] h-px w-4 shrink-0 bg-border"
+              />
+            )}
+            <li className="flex w-[104px] shrink-0 flex-col items-center text-center">
+              <span
+                aria-hidden="true"
+                className={`h-3.5 w-3.5 rounded-full border-2 border-background ${state.dot}`}
+              />
+              <span className="mt-1.5 text-xs font-medium leading-4 text-foreground">
+                {s.stepName}
+              </span>
+              <span className="mt-0.5 font-mono text-[10px] leading-4 text-muted-foreground tabular-nums">
+                {time ? completedTimeText(time) : state.label}
+              </span>
+            </li>
+          </React.Fragment>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** One timeline milestone (server event; extras = amount/voucher chips). */
+interface ChainItem {
+  flowId: number;
+  eventTime: number;
+  title: string;
+  tone: TimelineTone;
+  extras: string[];
+}
+
 /**
- * Vertical single timeline: timestamp first (source el-timeline
- * placement=top), bold milestone title with the operator beside it,
- * amount / rate / voucher chips underneath.
+ * Vertical single timeline from server events. Amount chips stay a local UI
+ * concern (taken from the row payload, no second request): quote-lock carries
+ * principal/target/rate, payout & completion carry the target amount.
  */
-function ChainTimeline({ items }: { items: TimelineItem[] }) {
+function buildItems(
+  events: { flowId: number; eventTime: number; statusTo: number; title: string; csTxId: string }[],
+  row: TxRow,
+  amountText: AmountText,
+): ChainItem[] {
+  return events.map((e) => {
+    const extras: string[] = [];
+    if (e.statusTo === 5) {
+      if (row.principal != null)
+        extras.push(`Principal ${amountText(row.principal, row.sourceTokenCode)}`);
+      if (row.receiverAmount != null)
+        extras.push(`Target ${amountText(row.receiverAmount, row.targetTokenCode)}`);
+      if (row.userRate != null) extras.push(`Rate ${row.userRate}`);
+    }
+    if ((e.statusTo === 30 || e.statusTo === 35 || e.statusTo === 40) && row.receiverAmount != null) {
+      extras.push(`Target ${amountText(row.receiverAmount, row.targetTokenCode)}`);
+    }
+    if (e.csTxId) extras.push(`Ref ${e.csTxId}`);
+    return {
+      flowId: e.flowId,
+      eventTime: e.eventTime,
+      title: e.title,
+      tone: toneByStatusTo(e.statusTo),
+      extras,
+    };
+  });
+}
+
+function ChainTimeline({ items }: { items: ChainItem[] }) {
   return (
     <ol className="relative ml-1 border-l border-border">
       {items.map((e) => (
@@ -98,13 +171,8 @@ function ChainTimeline({ items }: { items: TimelineItem[] }) {
           <div className="font-mono text-xs text-muted-foreground tabular-nums">
             {completedTimeText(e.eventTime)}
           </div>
-          <div className="mt-1 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-            <span className="text-[13px] font-semibold leading-5 text-foreground">
-              {e.title}
-            </span>
-            {e.who && (
-              <span className="text-xs text-muted-foreground">{e.who}</span>
-            )}
+          <div className="mt-1 text-[13px] font-semibold leading-5 text-foreground">
+            {e.title}
           </div>
           {e.extras.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -256,22 +324,16 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
     [decimalsOf, symOf],
   );
 
-  // Flattened nodes (flat array or tree both accepted; failed refetch keeps
-  // last good data via the query cache).
-  const nodes = React.useMemo(
-    () => flattenChain(chainQuery.data),
-    [chainQuery.data],
-  );
-
-  // Single business timeline (v3): milestones from status-migration roots,
-  // amount extras taken from the row payload (no second list request).
+  // v4: server-assembled stages + flat events; failed refetch keeps last
+  // good data via the query cache.
+  const stages = chainQuery.data?.stages ?? [];
   const timeline = React.useMemo(
-    () => buildChainTimeline(nodes, row, amountText),
-    [nodes, row, amountText],
+    () => buildItems(chainQuery.data?.events ?? [], row, amountText),
+    [chainQuery.data, row, amountText],
   );
 
   // 0024 -> banner inside the drawer; other failures clear the banner while
-  // keeping previous nodes (global toast handled by lp-client).
+  // keeping previous data (global toast handled by lp-client).
   const err = chainQuery.error;
   const drawerDown = err != null && isServiceDown(err) ? err : null;
 
@@ -330,23 +392,26 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
                 </div>
               </section>
 
-              {/* 运行信息：单时间轴业务里程碑（v3，阶段轴退役） */}
+              {/* 统一链路（v4）：阶段轴（服务端 6 段）+ 事件时间线（服务端文案/凭证） */}
               <section className="rounded-lg border border-border/60 bg-card">
                 <h4 className="border-b border-border/50 px-4 py-3 text-sm font-semibold text-foreground">
                   Transaction Chain
                 </h4>
-                <div className="px-4 py-4">
+                <div className="space-y-5 px-4 py-4">
                   {chainQuery.isPending ? (
                     <div className="space-y-2" aria-label="Loading">
                       <div className="h-8 w-full motion-safe:animate-pulse rounded bg-muted" />
                       <div className="h-24 w-full motion-safe:animate-pulse rounded bg-muted" />
                     </div>
-                  ) : timeline.length === 0 ? (
+                  ) : stages.length === 0 && timeline.length === 0 ? (
                     <div className="py-6 text-center text-sm text-muted-foreground">
                       No chain data
                     </div>
                   ) : (
-                    <ChainTimeline items={timeline} />
+                    <>
+                      {stages.length > 0 && <StageRail stages={stages} />}
+                      {timeline.length > 0 && <ChainTimeline items={timeline} />}
+                    </>
                   )}
                 </div>
               </section>
