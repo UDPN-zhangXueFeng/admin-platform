@@ -1,7 +1,7 @@
 import type { AxiosRequestConfig } from 'axios';
 import type { PaginatedResponse } from '@myorg/shared/model';
 
-import { kissenPage, kissenRequest } from '../kissen-client';
+import { kissenPage, kissenRequest, type KissenPageResult } from '../kissen-client';
 import type {
   TransactionChainResp,
   TransactionDetailRow,
@@ -79,13 +79,20 @@ export function getTransactionLpOptions(
 }
 
 /**
- * Token 对下拉选项（源 `pairList({})`，v2.0 token-pair 域，响应为行数组无分页包装）。
- * 端点 `POST /manage/token-pair/list`，请求体 `{}`。
+ * Token 对下拉选项（源 `pairList`，v2.0 token-pair 域）。
+ * 端点 `POST /manage/token-pair/list`，DataTable 分页口径（后端 page @NotNull，
+ * 裸 `{}` 会报"分页参数不能为空"——同 lp-pair.api 2026-10-27 修正）；pageSize
+ * 取 200 覆盖全量选项。
  */
-export function getTransactionPairOptions(
+export async function getTransactionPairOptions(
   config?: AxiosRequestConfig,
 ): Promise<TxPairOption[]> {
-  return kissenRequest.post<TxPairOption[]>('/manage/token-pair/list', {}, config);
+  const raw = await kissenRequest.post<KissenPageResult<TxPairOption>>(
+    '/manage/token-pair/list',
+    { page: { pageNum: 1, pageSize: 200 }, data: {} },
+    config,
+  );
+  return raw?.rows ?? [];
 }
 
 /**
