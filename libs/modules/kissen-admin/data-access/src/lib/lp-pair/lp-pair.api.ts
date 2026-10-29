@@ -11,7 +11,7 @@ import type { PaginatedResponse } from '@myorg/shared/model';
 import { kissenPage, kissenRequest, type KissenPageResult } from '../kissen-client';
 import type {
   LpPairRow,
-  LpPairSaveReq,
+  LpPairSubmitReq,
   LpPairTokenPairOption,
 } from './lp-pair.model';
 import type { LpPoolSide } from '../lp/lp.model';
@@ -39,20 +39,15 @@ export function getLpPairList(
   );
 }
 
-/** 新增/编辑草稿（POST /manage/lp-token-pair/save；页面无入口，API 层保留）。 */
-export function saveLpPair(
-  req: LpPairSaveReq,
-  config?: AxiosRequestConfig,
-): Promise<{ id: number }> {
-  return kissenRequest.post('/manage/lp-token-pair/save', req, config);
-}
-
-/** 提交 KLP 审批（POST /manage/lp-token-pair/submit；页面无入口，API 层保留）。 */
+/**
+ * 提交参与对 KLP 审批（POST /manage/lp-token-pair/submit，2026-10-29 起全量 payload 原子
+ * 提交）：后端余额预检+池/预授权前置全过才落库；仅已入网生效（20）LP 可用。
+ */
 export function submitLpPair(
-  id: number,
+  req: LpPairSubmitReq,
   config?: AxiosRequestConfig,
 ): Promise<void> {
-  return kissenRequest.post('/manage/lp-token-pair/submit', { id }, config);
+  return kissenRequest.post('/manage/lp-token-pair/submit', req, config);
 }
 
 /** 变更状态（POST /manage/lp-token-pair/status）：50 停用（仅 20）/ 1 恢复为草稿（仅 50）。 */

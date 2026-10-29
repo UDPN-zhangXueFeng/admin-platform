@@ -136,7 +136,6 @@ import {
   usePortalAccountResendInviteMutation,
   usePortalAccountResetMutation,
   useSaveLpMutation,
-  useSaveLpPairMutation,
   useSetLpPairSplitMutation,
   useSubmitLpOnboardMutation,
   useSubmitLpPairMutation,
@@ -2062,7 +2061,7 @@ export function LpInfoDetailPage() {
       { id: Number(row.id), targetStatus: LP_PAIR_TARGET_STATUS.restore },
       {
         onSuccess: () => {
-          submitMutation.mutate(Number(row.id), {
+          submitMutation.mutate(lpPairRowToSubmitReq(row), {
             onSuccess: () => {
               toast.success('Activated and resubmitted for KLP approval');
               finish();
@@ -2551,7 +2550,6 @@ function LpPairConfigDialog({
   });
   const pairOptions = pairOptionsRaw ?? [];
   const precheckMutation = useLpPoolPrecheckMutation();
-  const saveMutation = useSaveLpPairMutation(PROJECT_ID);
   const submitMutation = useSubmitLpPairMutation(PROJECT_ID);
   const changeMutation = useChangeLpPairMutation(PROJECT_ID);
   const [precheckResult, setPrecheckResult] =
@@ -2587,7 +2585,6 @@ function LpPairConfigDialog({
 
   const pending =
     precheckMutation.isPending ||
-    saveMutation.isPending ||
     submitMutation.isPending ||
     changeMutation.isPending;
 
@@ -2617,17 +2614,18 @@ function LpPairConfigDialog({
               },
             );
           } else {
-            saveMutation.mutate(
-              { lpId, pairId: req.pairId, source: req.source, target: req.target },
+            // 2026-10-29 全量 payload 一次提交：后端预检+前置全过才落库，不再先 save 草稿
+            submitMutation.mutate(
               {
-                onSuccess: (saved) => {
-                  submitMutation.mutate(saved.id, {
-                    onSuccess: () => {
-                      toast.success('Submitted for KLP approval');
-                      onDone();
-                    },
-                    onError: (e) => toast.error((e as Error).message),
-                  });
+                lpId,
+                pairId: Number(req.pairId),
+                source: req.source,
+                target: req.target,
+              },
+              {
+                onSuccess: () => {
+                  toast.success('Submitted for KLP approval');
+                  onDone();
                 },
                 onError: (e) => toast.error((e as Error).message),
               },
@@ -2725,6 +2723,43 @@ function LpPairSummaryCell({ row }: { row: LpPairTableRow }) {
       </div>
     </div>
   );
+}
+
+/**
+ * 停用行恢复后自动重提：行现值转全量提交 payload（2026-10-29 起后端 submit 走全量
+ * payload + 后端预检，不再接收 id）。
+ */
+function lpPairRowToSubmitReq(
+  row: Pick<
+    LpPairRow,
+    | 'lpId'
+    | 'pairId'
+    | 'sourcePoolAddress'
+    | 'targetPoolAddress'
+    | 'sourceMinLiquidity'
+    | 'targetMinLiquidity'
+    | 'sourceAuthRequired'
+    | 'targetAuthRequired'
+    | 'splitRatio'
+    | 'remark'
+  >,
+) {
+  return {
+    lpId: Number(row.lpId),
+    pairId: Number(row.pairId),
+    splitRatio: row.splitRatio ?? undefined,
+    remark: row.remark,
+    source: {
+      address: row.sourcePoolAddress ?? '',
+      minLiquidity: row.sourceMinLiquidity ?? undefined,
+      authRequired: row.sourceAuthRequired ?? undefined,
+    },
+    target: {
+      address: row.targetPoolAddress ?? '',
+      minLiquidity: row.targetMinLiquidity ?? undefined,
+      authRequired: row.targetAuthRequired ?? undefined,
+    },
+  };
 }
 
 /** 参与对标签（弹窗文案用）：`SRC → TGT`（箭头两侧空格，原型口径）。 */
@@ -2940,7 +2975,7 @@ export function LpTokenPairListPage() {
       { id: Number(row.id), targetStatus: LP_PAIR_TARGET_STATUS.restore },
       {
         onSuccess: () => {
-          submitMutation.mutate(Number(row.id), {
+          submitMutation.mutate(lpPairRowToSubmitReq(row), {
             onSuccess: () => {
               toast.success('Activated and resubmitted for KLP approval');
               setStatusAction(null);

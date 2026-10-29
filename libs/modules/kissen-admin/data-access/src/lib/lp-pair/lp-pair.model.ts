@@ -54,15 +54,17 @@ export interface LpPairRow {
   createTime: number;
 }
 
-/** 与后端 LpPairSaveReqVO 对齐；id 空=新建草稿，非空=编辑（仅 1/15 可编辑，lpId/pairId 不可改）。 */
-export interface LpPairSaveReq {
-  id?: number;
+/**
+ * 与后端 LpPairSubmitReqVO 对齐（2026-10-29 全量 payload 原子提交，取代 save 草稿+submit(id)
+ * 两步）：后端余额预检+池/预授权前置全过才落库（直接待审），任一不过不落任何行。
+ */
+export interface LpPairSubmitReq {
   lpId: number;
   pairId: number;
   /** 覆盖分成比例。 */
   splitRatio?: string | number;
   remark?: string;
-  /** 对侧池参数（LP 详情页新增参与对入口；源 16a3b8f）。 */
+  /** 对侧池参数（LP 详情页新增参与对入口）。 */
   source?: LpPoolSide;
   target?: LpPoolSide;
 }
