@@ -75,5 +75,9 @@
   "Router_0012_2_4": "Retry",
   "Router_0015_3_1": "Details",
   "Router_0015_3_2": "Retry",
-  "Router_0015_3_4": "Post"
+  "Router_0015_3_4": "Post",
+  "PUB_Examine": "Approval",
+  "PUB_Approve": "Approve",
+  "PUB_Reject": "Reject",
+  "PUB_Comment": "Comments"
 }

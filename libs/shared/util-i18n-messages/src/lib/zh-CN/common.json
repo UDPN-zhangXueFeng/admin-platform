@@ -75,5 +75,9 @@
   "Router_0012_2_4": "Retry",
   "Router_0015_3_1": "Details",
   "Router_0015_3_2": "Retry",
-  "Router_0015_3_4": "Post"
+  "Router_0015_3_4": "Post",
+  "PUB_Examine": "审批",
+  "PUB_Approve": "通过",
+  "PUB_Reject": "驳回",
+  "PUB_Comment": "审批意见"
 }
