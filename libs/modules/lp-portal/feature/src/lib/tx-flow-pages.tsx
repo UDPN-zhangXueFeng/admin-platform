@@ -771,7 +771,7 @@ function TxDetailView({ txKey }: { txKey: string }) {
   const statusEntry = LP_TX_STATUS_MAP[seed.status];
   const statusLabel = statusEntry?.label ?? String(seed.status);
   const completed = seed.completedTime !== 0 && seed.completedTime != null;
-  /** 目标端凭证：链路解付/入账事件的 csTxId（副本无 target_cs_tx_id 列，2026-10-30 统一详情） */
+  /** 目标端凭证兜底：副本 target_cs_tx_id 缺失时从链路解付/入账事件推导（2026-10-30 起列随行存储） */
   const targetProof =
     [...(chainQuery.data?.events ?? [])]
       .reverse()
@@ -1013,7 +1013,7 @@ function TxDetailView({ txKey }: { txKey: string }) {
                         </span>
                       </Field>
                       <Field label="Target Chain Tx ID">
-                        <CopyableId value={targetProof || '-'} />
+                        <CopyableId value={seed.targetCsTxId || targetProof || '-'} />
                       </Field>
                     </dl>
                   </section>

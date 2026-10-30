@@ -172,6 +172,8 @@ export interface TxRow {
   failReason?: string;
   /** 源端凭证号（v2.3 抽屉项；空显 '-'） */
   sourceCsTxId?: string;
+  /** 目标端凭证号（2026-10-30 副本随行存储；链路事件推导仅兜底） */
+  targetCsTxId?: string;
   /** 源端验证时间（毫秒时间戳；v2.3） */
   sourceVerifiedTime?: number;
   /** 报价时间（毫秒时间戳；v2.3 抽屉项；!quoteTime → '-'） */
