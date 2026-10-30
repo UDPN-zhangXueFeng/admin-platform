@@ -82,6 +82,7 @@ import {
 import { formatTime, orDash } from './kit';
 import { EmptyHint, LoadingBlock } from './state-blocks';
 import { DescField, DescGrid } from './desc-grid';
+import { writeClipboard } from './proto-ui';
 
 /** 详情抽屉宽度：桌面展示长指纹/PEM，移动端保持全宽。 */
 const DRAWER_WIDTH_CLASS =
@@ -105,10 +106,10 @@ function PemBlock({ label, pem }: { label: string; pem?: string }) {
   // 与 CopyableEllipsisText 同路径：Clipboard API + toast 轻反馈（§6.3）。
   const onCopy = () => {
     if (!pem) return;
-    navigator.clipboard.writeText(pem).then(
-      () => toast.success(`${label} copied`),
-      () => toast.error('Copy failed'),
-    );
+    void writeClipboard(pem).then((ok) => {
+      if (ok) toast.success(`${label} copied`);
+      else toast.error('Copy failed');
+    });
   };
 
   return (

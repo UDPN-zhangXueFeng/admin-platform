@@ -33,6 +33,8 @@ import {
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
 
+import { useFullValueCopySelection } from './copy-selection';
+
 /** 空值占位：'-'（U+002D）+ 灰色；所有原型口径空单元格用它。 */
 export function Dash({ className }: { className?: string }) {
   return <span className={cn('text-muted-foreground', className)}>-</span>;
@@ -139,26 +141,38 @@ export function truncateMiddle(value: string, head = 8, tail = 8): string {
 }
 
 /** 复制到剪贴板：navigator.clipboard 优先，非安全上下文降级 execCommand
- * （原型 lib/clipboard.js 同口径），返回是否成功。 */
-async function copyText(text: string): Promise<boolean> {
+ * （原型 lib/clipboard.js 同口径），返回是否成功。
+ *
+ * 降级分支必须 focus + setSelectionRange：部分浏览器（WebKit / 非安全上下文）对
+ * 未聚焦的 textarea 直接 select() 只复制到可见片段，粘贴后就会「少几个字符」。
+ * textarea 固定在视口左上且不可见，避免 focus 引发页面滚动。 */
+export async function writeClipboard(text: string): Promise<boolean> {
   try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    try {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      const ok = document.execCommand('copy');
-      textarea.remove();
-      return ok;
-    } catch {
-      return false;
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
     }
+  } catch {
+    // 落到 execCommand 降级分支
+  }
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.setSelectionRange(0, text.length);
+    textarea.select();
+    const ok = document.execCommand('copy');
+    textarea.remove();
+    return ok;
+  } catch {
+    return false;
   }
 }
 
@@ -183,16 +197,21 @@ export function CopyableId({
     'idle',
   );
   const resetTimer = React.useRef<number | undefined>(undefined);
+  const textRef = React.useRef<HTMLSpanElement | null>(null);
   React.useEffect(() => clearTimeout(resetTimer.current), []);
+
+  const text = value === null || value === undefined ? '' : String(value);
+
+  // 选区复制：页面展示的是中段截断文本，框选复制必须给全量标识符。
+  useFullValueCopySelection(textRef, text);
 
   if (value === null || value === undefined || value === '') {
     return <Dash className={className} />;
   }
-  const text = String(value);
   const shown = truncateMiddle(text, head, tail);
 
   async function handleCopy() {
-    const ok = await copyText(text);
+    const ok = await writeClipboard(text);
     setFeedback(ok ? 'copied' : 'error');
     clearTimeout(resetTimer.current);
     resetTimer.current = window.setTimeout(
@@ -206,7 +225,10 @@ export function CopyableId({
       <TooltipProvider delayDuration={200}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="min-w-0 cursor-default whitespace-nowrap tabular-nums">
+            <span
+              ref={textRef}
+              className="min-w-0 cursor-default whitespace-nowrap tabular-nums"
+            >
               {shown}
               {shown !== text && <span className="sr-only"> ({text})</span>}
             </span>

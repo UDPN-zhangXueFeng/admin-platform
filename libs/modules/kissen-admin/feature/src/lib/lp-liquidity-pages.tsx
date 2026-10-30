@@ -147,6 +147,7 @@ import {
   CopyableId,
   Dash,
   ProtoStatusBadge,
+  writeClipboard,
   type ProtoStatusTone,
 } from './proto-ui';
 import { ApprovalQueue, ApprovalPendingTagWithDialog } from './inline-approval';
@@ -521,10 +522,10 @@ function PortalAccountDialog({
 
   const onCopy = React.useCallback(() => {
     if (!resetResult) return;
-    navigator.clipboard
-      .writeText(resetResult.oneTimePassword)
-      .then(() => toast.success('Copied'))
-      .catch(() => toast.warning('Copy failed; select and copy manually'));
+    void writeClipboard(resetResult.oneTimePassword).then((ok) => {
+      if (ok) toast.success('Copied');
+      else toast.warning('Copy failed; select and copy manually');
+    });
   }, [resetResult, toast]);
 
   return (

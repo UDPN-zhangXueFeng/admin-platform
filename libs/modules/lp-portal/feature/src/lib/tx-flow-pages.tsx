@@ -66,7 +66,13 @@ import {
 } from '@myorg/modules/lp-portal/data-access';
 
 import { formatDuration, formatRate, formatTokenAmount, formatUtc8 } from './proto-format';
-import { CopyableId, Dash, ProtoStatusBadge, type ProtoTone } from './proto-ui';
+import {
+  CopyableId,
+  Dash,
+  ProtoStatusBadge,
+  writeClipboard,
+  type ProtoTone,
+} from './proto-ui';
 import { LP_TX_STATUS_MAP } from './proto-enums';
 import {
   ProtoSortHeader,
@@ -172,30 +178,8 @@ function peekTxRow(txKey: string): TxRow | null {
 }
 
 /* ── 复制全文（异步 Clipboard API 优先，非 HTTPS 降级 execCommand） ── */
-
-async function writeClipboard(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-    // 落到 execCommand 兜底
-  }
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand('copy');
-    document.body.removeChild(ta);
-    return ok;
-  } catch {
-    return false;
-  }
-}
+// 统一走 proto-ui 的 writeClipboard：三处复制入口共用同一份降级实现，
+// 避免某个入口漏掉 focus + setSelectionRange 而只复制到可见片段。
 
 /* ── 状态语义色（LP_TX_STATUS_MAP 码 → ProtoStatusBadge tone） ─────── */
 

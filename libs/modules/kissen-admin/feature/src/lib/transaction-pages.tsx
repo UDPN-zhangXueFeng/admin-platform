@@ -100,7 +100,13 @@ import {
   formatUtc8,
 } from './proto-format';
 import { PROTO_TX_STATUS, protoStatusLabel, protoStatusRank } from './proto-enums';
-import { CopyableId, Dash, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
+import {
+  CopyableId,
+  Dash,
+  ProtoStatusBadge,
+  writeClipboard,
+  type ProtoStatusTone,
+} from './proto-ui';
 import {
   ProtoSortHeader,
   useProtoSort,
@@ -720,10 +726,9 @@ export function TxDetailPage() {
         ? `Settled: ${formatUtc8(detail.completedTime)}`
         : 'Completed: -',
     ].join('\n');
-    navigator.clipboard
-      .writeText(summary)
-      .then(() => setCopyState('copied'))
-      .catch(() => setCopyState('error'));
+    void writeClipboard(summary).then((ok) =>
+      setCopyState(ok ? 'copied' : 'error'),
+    );
     clearTimeout(copyResetTimer.current);
     copyResetTimer.current = window.setTimeout(
       () => setCopyState('idle'),
@@ -982,9 +987,6 @@ export function TxDetailPage() {
                         <TxDetailField label="LP Source Pool Address">
                           <CopyableId value={detail.lpSourcePoolAddress} />
                         </TxDetailField>
-                        <TxDetailField label="Source Chain Tx ID">
-                          <CopyableId value={detail.sourceCsTxId} />
-                        </TxDetailField>
                       </div>
                     </section>
                     <section
@@ -1017,9 +1019,6 @@ export function TxDetailPage() {
                         </TxDetailField>
                         <TxDetailField label="LP Target Pool Address">
                           <CopyableId value={detail.lpTargetPoolAddress} />
-                        </TxDetailField>
-                        <TxDetailField label="Target Chain Tx ID">
-                          <CopyableId value={detail.targetCsTxId} />
                         </TxDetailField>
                       </div>
                     </section>

@@ -113,6 +113,7 @@ import {
   CopyableId,
   Dash,
   ProtoStatusBadge,
+  writeClipboard,
   type ProtoStatusTone,
 } from './proto-ui';
 import { formatTokenAmount, formatUtc8 } from './proto-format';
@@ -1005,10 +1006,10 @@ function SpenderDrawer({
   /** 地址复制（源 copyAddress；失败提示手动选择）。 */
   const copyAddress = () => {
     if (!current) return;
-    navigator.clipboard
-      .writeText(current.spenderAddress)
-      .then(() => toast.success('Copied'))
-      .catch(() => toast.warning('Copy failed; select and copy manually'));
+    void writeClipboard(current.spenderAddress).then((ok) => {
+      if (ok) toast.success('Copied');
+      else toast.warning('Copy failed; select and copy manually');
+    });
   };
 
   const showForm = !current || formOpen;

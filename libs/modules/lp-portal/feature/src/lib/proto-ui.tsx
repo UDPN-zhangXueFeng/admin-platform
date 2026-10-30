@@ -22,6 +22,8 @@ import {
   type BadgeProps,
 } from '@myorg/shared/ui';
 
+import { useFullValueCopySelection } from './copy-selection';
+
 /** 语义色集合（原型 StatusBadge tone 同集）：success/warning/danger/info/primary/muted。 */
 export type ProtoTone =
   | 'success'
@@ -65,8 +67,12 @@ function truncateMiddle(value: string, head: number, tail: number): string {
     : `${value.slice(0, head)}…${value.slice(-tail)}`;
 }
 
-/** 复制全文：优先异步 Clipboard API；非 HTTPS（局域网 IP）下降级 execCommand（原型同款兜底）。 */
-async function copyText(text: string): Promise<boolean> {
+/** 复制全文：优先异步 Clipboard API；非 HTTPS（局域网 IP）下降级 execCommand（原型同款兜底）。
+ *
+ * 降级分支必须 focus + setSelectionRange：部分浏览器（WebKit / 非安全上下文）对
+ * 未聚焦的 textarea 直接 select() 只复制到可见片段，粘贴后就会「少几个字符」。
+ * textarea 固定在视口左上且不可见，避免 focus 引发页面滚动。 */
+export async function writeClipboard(text: string): Promise<boolean> {
   if (typeof navigator !== 'undefined' && navigator.clipboard) {
     try {
       await navigator.clipboard.writeText(text);
@@ -80,8 +86,13 @@ async function copyText(text: string): Promise<boolean> {
     ta.value = text;
     ta.setAttribute('readonly', '');
     ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
     ta.style.opacity = '0';
+    ta.style.pointerEvents = 'none';
     document.body.appendChild(ta);
+    ta.focus();
+    ta.setSelectionRange(0, text.length);
     ta.select();
     const ok = document.execCommand('copy');
     document.body.removeChild(ta);
@@ -115,19 +126,23 @@ export function CopyableId({
 }) {
   const [copied, setCopied] = React.useState(false);
   const timerRef = React.useRef<number | null>(null);
+  const textRef = React.useRef<HTMLSpanElement | null>(null);
 
   React.useEffect(() => {
     if (timerRef.current !== null) window.clearTimeout(timerRef.current);
   }, []);
 
+  const id = value === null || value === undefined ? '' : value;
+
+  // 选区复制：页面展示的是中段截断文本，框选复制必须给全量标识符。
+  useFullValueCopySelection(textRef, id);
+
   if (value === null || value === undefined || value === '') {
     return <span className={cn('text-muted-foreground', className)}>-</span>;
   }
 
-  const id = value;
-
   async function handleCopy() {
-    if (await copyText(id)) {
+    if (await writeClipboard(id)) {
       setCopied(true);
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
       timerRef.current = window.setTimeout(
@@ -142,7 +157,11 @@ export function CopyableId({
       className={cn('inline-flex min-w-0 max-w-full items-center gap-1', className)}
       style={maxWidth === undefined ? undefined : { maxWidth }}
     >
-      <span className="min-w-0 truncate tabular-nums" title={value}>
+      <span
+        ref={textRef}
+        className="min-w-0 truncate tabular-nums"
+        title={value}
+      >
         {truncateMiddle(value, headChars, tailChars)}
       </span>
       <button

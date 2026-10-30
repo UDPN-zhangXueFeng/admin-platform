@@ -19,6 +19,8 @@ import {
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
 
+import { useFullValueCopySelection } from './copy-selection';
+
 /**
  * 原型口径 UI 公共件（源 kissen_prototype KNMS `components/ui/copyable-id.jsx`、
  * `components/ui/action-confirm-dialog.jsx`、PageKit `StatusBadge` / `Dash`；方案 12 §3：
@@ -36,6 +38,10 @@ const COPY_FEEDBACK_MS = 2000;
 /**
  * 剪贴板写入：优先 async Clipboard API；LAN http 下 `navigator.clipboard` 为 undefined，
  * 降级 `execCommand('copy')`（原型 copyable-id.jsx 同款降级策略）。
+ *
+ * 降级分支必须 focus + setSelectionRange：部分浏览器（WebKit / 非安全上下文）对
+ * 未聚焦的 textarea 直接 select() 只复制到可见片段，粘贴后就会「少几个字符」。
+ * textarea 固定在视口左上且不可见，避免 focus 引发页面滚动。
  */
 export async function writeClipboard(text: string): Promise<boolean> {
   try {
@@ -51,8 +57,13 @@ export async function writeClipboard(text: string): Promise<boolean> {
     helper.value = text;
     helper.setAttribute('readonly', '');
     helper.style.position = 'fixed';
+    helper.style.top = '0';
+    helper.style.left = '0';
     helper.style.opacity = '0';
+    helper.style.pointerEvents = 'none';
     document.body.appendChild(helper);
+    helper.focus();
+    helper.setSelectionRange(0, text.length);
     helper.select();
     const ok = document.execCommand('copy');
     helper.remove();
@@ -90,6 +101,7 @@ export function CopyableId({
 }: CopyableIdProps) {
   const [copied, setCopied] = React.useState(false);
   const resetTimer = React.useRef<number | undefined>(undefined);
+  const textRef = React.useRef<HTMLSpanElement | null>(null);
 
   React.useEffect(
     () => () => {
@@ -98,11 +110,15 @@ export function CopyableId({
     [],
   );
 
+  const text = value === null || value === undefined ? '' : String(value);
+
+  // 选区复制：页面展示的是中段截断文本，框选复制必须给全量标识符。
+  useFullValueCopySelection(textRef, text);
+
   if (value === null || value === undefined || value === '') {
     return <Dash className={className} />;
   }
 
-  const text = String(value);
   const display =
     text.length <= head + tail ? text : `${text.slice(0, head)}…${text.slice(-tail)}`;
 
@@ -115,7 +131,9 @@ export function CopyableId({
 
   return (
     <span className={cn('inline-flex min-w-0 max-w-full items-center gap-1', className)}>
-      <span className="min-w-0 break-all">{display}</span>
+      <span ref={textRef} className="min-w-0 break-all">
+        {display}
+      </span>
       <TooltipProvider delayDuration={100}>
         <Tooltip>
           <TooltipTrigger asChild>

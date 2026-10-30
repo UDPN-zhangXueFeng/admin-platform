@@ -56,6 +56,7 @@ import {
   ActionConfirmDialog,
   ProtoStatusBadge,
   StatCard,
+  writeClipboard,
   type ActionConfirmTone,
   type ProtoStatusTone,
 } from './proto-ui';
@@ -353,12 +354,9 @@ function OneTimePasswordDialog({
 
   const onCopy = React.useCallback(async () => {
     if (!otp) return;
-    try {
-      await navigator.clipboard.writeText(otp);
-      toast.success('One-time password copied');
-    } catch {
-      toast.error('Copy failed, please note it down manually');
-    }
+    const ok = await writeClipboard(otp);
+    if (ok) toast.success('One-time password copied');
+    else toast.error('Copy failed, please note it down manually');
   }, [otp, toast]);
 
   return (

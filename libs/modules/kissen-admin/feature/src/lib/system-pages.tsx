@@ -69,7 +69,13 @@ import { cn } from '@myorg/shared/util-classnames';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { peekRow, stashRow } from './row-stash';
 import { useKissenPerm } from './use-kissen-perm';
-import { ActionConfirmDialog, CopyableId, Dash, ProtoStatusBadge } from './proto-ui';
+import {
+  ActionConfirmDialog,
+  CopyableId,
+  Dash,
+  ProtoStatusBadge,
+  writeClipboard,
+} from './proto-ui';
 import { formatUtc8 } from './proto-format';
 import { ProtoSortHeader, useProtoSort } from './proto-sort';
 import {
@@ -546,8 +552,10 @@ function OneTimePasswordDialog({
               variant="outline"
               onClick={() => {
                 if (!otp?.oneTimePassword) return;
-                void navigator.clipboard?.writeText(otp.oneTimePassword);
-                toast.success('Initial password copied.');
+                void writeClipboard(otp.oneTimePassword).then((ok) => {
+                  if (ok) toast.success('Initial password copied.');
+                  else toast.error('Copy failed, please note it down manually.');
+                });
               }}
             >
               Copy
