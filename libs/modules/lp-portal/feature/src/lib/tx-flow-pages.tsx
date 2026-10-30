@@ -66,6 +66,17 @@ import {
 } from '@myorg/modules/lp-portal/data-access';
 
 import { formatDuration, formatRate, formatTokenAmount, formatUtc8 } from './proto-format';
+import {
+  RAIL_CODES,
+  RAIL_CODE_LIST,
+  RAIL_FALLBACK_DELTA_SEC,
+  RAIL_STEPS,
+  RAIL_STEP_INFO,
+  STATUS_RAIL_INDEX,
+  chainEventRailCode,
+  railState,
+  type RailState,
+} from './tx-flow-rail';
 import { CopyableId, Dash, ProtoStatusBadge, type ProtoTone } from './proto-ui';
 import { LP_TX_STATUS_MAP } from './proto-enums';
 import {
@@ -221,80 +232,8 @@ function TxStatusBadge({ status }: { status: number }) {
 }
 
 /* ── Clearance Pipeline（原型 7 环节；GAP-LP-11 链路拼装） ────────── */
+/* rail 纯推导（环节码/钳制表/railState/事件码归一）抽至 tx-flow-rail，此处仅留样式映射。 */
 
-/** 流水线 7 环节码（原型 steps 对应态）。 */
-const RAIL_CODES = [1, 5, 10, 20, 25, 30, 40] as const;
-const RAIL_CODE_LIST: readonly number[] = RAIL_CODES;
-const RAIL_STEPS = [
-  'Created',
-  'Quoted',
-  'Confirmed',
-  'Source Transferring',
-  'Source Verified',
-  'Processing',
-  'Completed',
-] as const;
-
-/** 环节描述（原型 stepInfo 逐字）。 */
-const RAIL_STEP_INFO: readonly string[] = [
-  'Transaction created and tracked by the system',
-  'FX rate locked from the market rate + markup',
-  'Payment confirmed by the client bank',
-  'Funds moved from the sender bank to the escrow account',
-  'Escrow balance verified on-chain',
-  'Funds disbursed to the receiver bank',
-  'Receiver confirmed the incoming funds',
-];
-
-/**
- * 状态 → 流水线索引：rail 内码直映；非 rail 态按业务位置钳制
- * （35 Credited 视同已过 Processing；50/60 冲正系完成/入账后回退；
- * 70/80/90 异常类通常在解付段暴露）。链路真实事件（chainMax）优先于此表。
- */
-const STATUS_RAIL_INDEX: Record<number, number> = {
-  1: 0,
-  5: 1,
-  10: 2,
-  20: 3,
-  25: 4,
-  30: 5,
-  35: 6,
-  40: 6,
-  50: 6,
-  60: 6,
-  70: 5,
-  80: 5,
-  90: 5,
-};
-
-/**
- * GAP-LP-11：中段环节无链路事件时间时的展示口径（原型 deltaSec），
- * UI 展示口径非业务数据；链路端点补全后自然被真实 eventTime 取代。
- */
-const RAIL_FALLBACK_DELTA_SEC = [0, 5, 8, 20, 32, 45, 52] as const;
-
-type RailState = 'done' | 'danger' | 'muted' | 'warning' | 'future';
-
-/** Completed/credited statuses finalize the current node; later stages stay future. */
-function railState(
-  status: number,
-  statusLabel: string | undefined,
-  index: number,
-  stageIndex: number,
-): RailState {
-  if (index < stageIndex) return 'done';
-  if (index > stageIndex) return 'future';
-  if (status === 35 || status === 40 || statusLabel === 'Completed') return 'done';
-  if (statusLabel === 'Abnormal' || statusLabel === 'Failed') return 'danger';
-  if (
-    statusLabel === 'Cancelled' ||
-    statusLabel === 'Reversed' ||
-    statusLabel === 'Reversing'
-  ) {
-    return 'muted';
-  }
-  return 'warning';
-}
 const RAIL_NODE_STYLES: Record<RailState, string> = {
   done: 'bg-success text-white',
   danger: 'bg-destructive text-white',
@@ -850,12 +789,19 @@ function TxDetailView({ txKey }: { txKey: string }) {
 
   /** rail 码 → 首个链路事件时间（nodeType 环节/动作均计，取最早）。 */
   const chainTimes = React.useMemo(() => {
-    // 2026-10-29 统一链路：服务端扁平事件（自环已过滤），直接取最早 eventTime
+    // 2026-10-29 统一链路：服务端扁平事件（自环已过滤），取最早 eventTime；
+    // 事件码经 chainEventRailCode 归一（35 Credited→40）——tx125 事故前 35 不在
+    // RAIL_CODES 被直接丢弃，Credited 终态交易 chainMax 卡在 Processing、第 7 环永远 Pending
     const times = new Map<number, number>();
     for (const e of chainQuery.data?.events ?? []) {
-      const to = e.statusTo ?? 0;
-      if (to !== 0 && RAIL_CODE_LIST.includes(to) && !times.has(to) && e.eventTime) {
-        times.set(to, e.eventTime);
+      const railCode = chainEventRailCode(e.statusTo ?? 0);
+      if (
+        railCode !== 0 &&
+        RAIL_CODE_LIST.includes(railCode) &&
+        !times.has(railCode) &&
+        e.eventTime
+      ) {
+        times.set(railCode, e.eventTime);
       }
     }
     return times;
