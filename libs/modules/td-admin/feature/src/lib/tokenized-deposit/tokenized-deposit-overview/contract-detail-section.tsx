@@ -2,7 +2,6 @@
  * ContractDetailSection — 合约部署 Tab 合约明细表区块。
  *
  * 源: tab-contracts.tsx 431-551（useContractDetailQuery 明细表）。
- * DATETIME_FMT 复用 contract-package-section 的定义（同源 tab-contracts.tsx 75-76）。
  */
 'use client';
 
@@ -10,7 +9,6 @@ import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
 import { Button, DataTable } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
 import { EMPTY_DISPLAY } from '@myorg/modules/td-admin/data-access';
 import {
   useContractDetailQuery,
@@ -21,7 +19,7 @@ import {
   TokenizedDepositCopy,
   TokenizedDepositStatusBadge,
 } from '..';
-import { DATETIME_FMT } from './contract-package-section';
+import { formatAdminTimestamp } from '../../format-admin-time';
 
 // ═══════════════════════════════════════════════════════════════════
 // 合约明细表（useContractDetailQuery）
@@ -94,7 +92,7 @@ export function ContractDetailSection({
         cell: ({ getValue }) => {
           const val = getValue<number>();
           return (
-            <span>{val ? formatDate(val, DATETIME_FMT) : EMPTY_DISPLAY}</span>
+            <span>{val ? formatAdminTimestamp(val) : EMPTY_DISPLAY}</span>
           );
         },
       },

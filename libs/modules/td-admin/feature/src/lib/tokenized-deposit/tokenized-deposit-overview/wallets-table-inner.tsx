@@ -1,6 +1,6 @@
 /**
  * 钱包表内部组件 WalletsTableInner（listPage / balance 双 URL 共用列定义，
- * 仅 query hook 不同）+ DATETIME_FMT 时间戳格式常量。
+ * 仅 query hook 不同）。
  * 源: tab-wallets.tsx 89-90、203-443
  */
 'use client';
@@ -10,7 +10,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../../format-admin-time';
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
@@ -24,8 +24,6 @@ import {
 import { TokenizedDepositCopy } from '..';
 import type { OverviewWalletsTabProps } from './tab-wallets';
 
-/** 时间戳格式（对齐源 formatTimestamp → 'YYYY-MM-DD HH:mm:ss'）。 */
-export const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 // ═══════════════════════════════════════════════════════════════════
 // 钱包表（双 URL 共用列定义，仅 query hook 不同）
@@ -156,13 +154,13 @@ export function WalletsTableInner({
         },
       },
       {
-        // tokenized_deposit_0052：updateTime → formatDate
+        // tokenized_deposit_0052：updateTime → formatAdminTimestamp
         accessorKey: 'updateTime',
         header: t('tokenized_deposit_0052'),
         cell: ({ getValue }) => {
           const val = getValue<number>();
           return (
-            <span>{val ? formatDate(val, DATETIME_FMT) : EMPTY_DISPLAY}</span>
+            <span>{val ? formatAdminTimestamp(val) : EMPTY_DISPLAY}</span>
           );
         },
       },

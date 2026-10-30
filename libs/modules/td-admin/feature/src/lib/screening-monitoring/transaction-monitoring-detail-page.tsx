@@ -7,6 +7,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable, type DataTablePagination } from '@myorg/shared/ui';
 import type { ProcessRecord, SuspiciousRuleDetail, SuspiciousTransactionItem } from '@myorg/modules/td-admin/data-access';
 import { useSuspiciousDetail, useSuspiciousTransactions } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { ScreeningRiskLevelTag, ScreeningStatusBadge } from '.';
 
 const PAGE_SIZE = 10;
@@ -27,19 +28,19 @@ export function TransactionMonitoringDetailPage() {
     { l: t('screening_monitoring_0019'), v: (bt === 50 || bt === 40) ? detail.description + '%' : (bt === 20 || bt === 30) ? detail.description + t('screening_monitoring_0081') : detail.description, s: 2 },
     { l: t('screening_monitoring_0058'), v: (detail.currentValue ?? '-') + ' ' + (detail.symbol ?? '') },
     { l: t('screening_monitoring_0059').replace('${day}', String(detail.compareToTime ?? '')), v: (detail.compareValue ?? '-') + ' ' + (detail.symbol ?? ''), s: 2 },
-    { l: t('screening_monitoring_0016'), v: detail.monitorDate ? new Date(Number(detail.monitorDate)).toLocaleString() : '-' },
+    { l: t('screening_monitoring_0016'), v: formatAdminTimestamp(Number(detail.monitorDate)) },
     { l: t('screening_monitoring_0011'), v: <ScreeningRiskLevelTag priority={detail.resultPriority} />, s: 2 },
     { l: tc('PUB_Status'), v: <ScreeningStatusBadge status={detail.state} variant="suspicious" />, s: 3 },
   ] : [
     { l: t('screening_monitoring_0015'), v: detail.walletAddress }, { l: t('screening_monitoring_0001'), v: detail.stablecoinName, s: 2 }, { l: t('screening_monitoring_0002'), v: detail.businessName },
     { l: t('screening_monitoring_0019'), v: detail.description, s: 2 },
-    { l: t('screening_monitoring_0016'), v: detail.monitorDate ? new Date(Number(detail.monitorDate)).toLocaleString() : '-' },
+    { l: t('screening_monitoring_0016'), v: formatAdminTimestamp(Number(detail.monitorDate)) },
     { l: t('screening_monitoring_0011'), v: <ScreeningRiskLevelTag priority={detail.resultPriority} />, s: 2 },
     { l: tc('PUB_Status'), v: <ScreeningStatusBadge status={detail.state} variant="suspicious" />, s: 3 },
   ];
 
   const timeSeriesCols: ColumnDef<SuspiciousTransactionItem>[] = [
-    { id: 'txDate', header: t('screening_monitoring_0063'), accessorKey: 'transactionDate', cell: ({ getValue }) => { const v = getValue<string>(); return v ? new Date(Number(v)).toLocaleString() : '-'; } },
+    { id: 'txDate', header: t('screening_monitoring_0063'), accessorKey: 'transactionDate', cell: ({ getValue }) => formatAdminTimestamp(Number(getValue<string>())) },
     { id: 'txType', header: t('screening_monitoring_0002'), accessorKey: 'transactionType', cell: () => t('transaction_monitoring_type_4') + (bt === 40 ? t('screening_monitoring_0084') : t('screening_monitoring_0085')) },
     { id: 'txAmount', header: t('screening_monitoring_0068'), accessorKey: 'transactionAmount', cell: ({ getValue, row }) => (getValue<number>() ?? '-') + ' ' + (row.original.transactionUnit ?? '') },
   ];
@@ -48,7 +49,7 @@ export function TransactionMonitoringDetailPage() {
     { id: 'to', header: t('screening_monitoring_0067'), accessorKey: 'to' },
     { id: 'txType2', header: t('screening_monitoring_0002'), accessorKey: 'transactionType', cell: ({ getValue }) => t(`transaction_monitoring_type_${getValue<number>()}`) },
     { id: 'txAmount2', header: t('screening_monitoring_0068'), accessorKey: 'transactionAmount', cell: ({ getValue, row }) => (getValue<number>() ?? '-') + ' ' + (row.original.transactionUnit ?? '') },
-    { id: 'txDate2', header: t('screening_monitoring_0063'), accessorKey: 'transactionDate', cell: ({ getValue }) => { const v = getValue<string>(); return v ? new Date(Number(v)).toLocaleString() : '-'; } },
+    { id: 'txDate2', header: t('screening_monitoring_0063'), accessorKey: 'transactionDate', cell: ({ getValue }) => formatAdminTimestamp(Number(getValue<string>())) },
     { id: 'txHash', header: t('screening_monitoring_0062'), accessorKey: 'transactionHash', cell: ({ getValue }) => { const v = getValue<string>(); return detail.browserUrl ? <a href={detail.browserUrl + 'tx/' + v} target="_blank" rel="noreferrer" className="text-blue-600">{v}</a> : v; } },
   ];
 
@@ -103,9 +104,9 @@ export function TransactionMonitoringDetailPage() {
               <td className="py-2 pr-4">{row.processResult === 1 ? t('transaction_monitoring_type_1') : t('transaction_monitoring_type_2')}</td>
               <td className="py-2 pr-4">{t(`suggested_action_type_${row.processingType}`)}</td>
               <td className="py-2 pr-4">{row.createdBy}</td>
-              <td className="py-2 pr-4">{row.createdOn ? new Date(Number(row.createdOn)).toLocaleString() : '-'}</td>
+              <td className="py-2 pr-4">{formatAdminTimestamp(Number(row.createdOn))}</td>
               <td className="py-2 pr-4">{row.transactionHash || '--'}</td>
-              <td className="py-2 pr-4">{row.transactionTime ? new Date(Number(row.transactionTime)).toLocaleString() : '--'}</td>
+              <td className="py-2 pr-4">{formatAdminTimestamp(Number(row.transactionTime))}</td>
               <td className="py-2 pr-4"><span className={`text-xs ${tc(`approval_task_status_color_${row.status}`)}`}>{tc(`common_task_status_${row.status}`)}</span></td>
               <td className="py-2 pr-4"><button className="text-blue-600 cursor-pointer" onClick={() => router.push(`/approval-manage/view?id=${row.taskId}&busCode=${row.businessCode}`)}>{tc('PUB_Detail')}</button></td>
             </tr>

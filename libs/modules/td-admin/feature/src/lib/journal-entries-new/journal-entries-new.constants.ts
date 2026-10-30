@@ -35,9 +35,6 @@ export const TRANSACTION_TYPE_VALUES = [
   1, 2, 3, 4, 5, 6, 9, 10, 12, 13, 16, 17, 18,
 ] as const;
 
-/** 列表 / 详情时间戳格式（date-fns Unicode token，对齐源项目 `MMM D, YYYY, HH:mm:ss`）。 */
-export const JOURNAL_DATETIME_FORMAT = 'MMM d, yyyy, HH:mm:ss';
-
 /** “全部”占位值（Radix Select 不允许空字符串 value，故用 `'all'`）。 */
 export const ALL_VALUE = 'all';
 

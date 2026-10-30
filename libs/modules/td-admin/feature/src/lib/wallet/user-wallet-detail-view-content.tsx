@@ -15,6 +15,7 @@ import {
 import { formatDate } from '@myorg/shared/util-dates';
 import { useUserAccrualQuery, useUserDistributeQuery, useUserOpRecordQuery, useUserTxQuery, useUserWalletDetailQuery, type DistributeRecord, type UserOpRecord, type UserTx, type UserWalletDetail } from '@myorg/modules/td-admin/data-access';
 import type { AccrualRecord } from '@myorg/modules/td-admin/data-access/lib/wallet';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { WalletStatusBadge } from '.';
 import {
   custodyModelMessageKey,
@@ -27,12 +28,13 @@ import {
   USER_WALLET_VIEW_TAB,
 } from '.';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 const DATE_FMT = 'YYYY-MM-DD';
 
-function formatTs(ts?: number | string | null, fmt = DATETIME_FMT): string {
+function formatTs(ts?: number | string | null, fmt?: string): string {
   const ms = toMillis(typeof ts === 'string' ? Number(ts) : ts);
-  return ms ? formatDate(ms, fmt) : EMPTY_DISPLAY;
+  if (!ms) return EMPTY_DISPLAY;
+  // fmt 传入时保留源 date-only 格式（feePeriod/earningsDate）；完整时间戳走 kissen-admin 约定 helper。
+  return fmt ? formatDate(ms, fmt) : formatAdminTimestamp(ms);
 }
 
 /** 限额展示：附 symbol（迁移自源 view basicInfoItems.formatLimit）。 */

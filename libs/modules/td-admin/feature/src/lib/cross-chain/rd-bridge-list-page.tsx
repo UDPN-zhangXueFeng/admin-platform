@@ -27,7 +27,6 @@ import {
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
 import { CrossChainStatusBadge } from '.';
 import {
   useRdBridgeBlockchainListQuery,
@@ -42,8 +41,8 @@ import {
   EMPTY_DISPLAY,
   RD_BRIDGE_STATE,
 } from '.';
+import { formatAdminTimestamp } from '../format-admin-time';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 /** 「全部」占位 value（对齐 fx-rate / cct 列表筛选约定）。 */
 const ALL_VALUE = 'all';
 
@@ -317,7 +316,7 @@ export function RdBridgeListPage(): React.JSX.Element {
         cell: ({ row }) => (
           <span>
             {row.original.createTime
-              ? formatDate(Number(row.original.createTime), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(row.original.createTime))
               : EMPTY_DISPLAY}
           </span>
         ),

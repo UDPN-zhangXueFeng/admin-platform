@@ -24,6 +24,7 @@ import {
   type UserQueryParams,
   type UserRespVo,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /** `stablecoin` 是默认活动项目（见 configs/stablecoin.json）。 */
 const PROJECT_ID = 'stablecoin';
@@ -188,7 +189,7 @@ export function UserListPage() {
         cell: ({ row }) => (
           <span>
             {row.original.createTime
-              ? new Date(Number(row.original.createTime)).toLocaleString()
+              ? formatAdminTimestamp(Number(row.original.createTime))
               : '--'}
           </span>
         ),

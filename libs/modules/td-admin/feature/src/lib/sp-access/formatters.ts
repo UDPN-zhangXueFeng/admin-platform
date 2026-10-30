@@ -1,4 +1,4 @@
-import { formatAdminDateTime } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   FALLBACK_PRIVATE_KEY_CUSTODY_MODEL,
   TRANSACTION_POLICY_FIXED,
@@ -7,10 +7,9 @@ import {
 /** 空值占位（与 approval-manage 等模块一致） */
 export const EMPTY_FIELD_VALUE = '--';
 
-/** 时间统一走 util-dates（不自造格式，constraints §1） */
+/** 时间统一走 admin 门户共享 helper（kissen-admin 约定，含空值占位 '--'）。 */
 export function formatTimestamp(value?: number | null): string {
-  if (!value) return EMPTY_FIELD_VALUE;
-  return formatAdminDateTime(new Date(value));
+  return formatAdminTimestamp(value);
 }
 
 /**

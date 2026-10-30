@@ -6,14 +6,14 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
 
 import {
   useJournalDetailQuery,
   type JournalNormalizationRow,
   type JournalRawData,
 } from '@myorg/modules/td-admin/data-access';
-import { JOURNAL_DATETIME_FORMAT, FIXED_TOKEN_TYPES } from '.';
+import { FIXED_TOKEN_TYPES } from '.';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 const EMPTY_DISPLAY = '--';
 
@@ -147,7 +147,7 @@ function formatNormalizationValue(
 
   const timestamp = Number(value);
   if (!Number.isFinite(timestamp)) return value;
-  return formatDate(timestamp, JOURNAL_DATETIME_FORMAT);
+  return formatAdminTimestamp(timestamp);
 }
 
 /**
@@ -182,9 +182,6 @@ export function JournalEntriesNewDetailPage() {
     const rawData: JournalRawData | undefined = detailData?.rawData;
     if (!rawData) return [];
 
-    const formatTs = (ts?: number) =>
-      ts ? formatDate(ts, JOURNAL_DATETIME_FORMAT) : EMPTY_DISPLAY;
-
     const resolveTxTypeLabel = (txType?: number) => {
       if (txType && txType >= 1 && txType <= 7) {
         return t(`transactionType.${txType}`);
@@ -199,11 +196,11 @@ export function JournalEntriesNewDetailPage() {
       { key: 'txHash', label: t('field.transactionHash'), value: toTextValue(rawData.txHash) },
       { key: 'tdCount', label: t('field.transactionAmount'), value: toTextValue(rawData.tdCount) },
       { key: 'txType', label: t('field.transactionType'), value: resolveTxTypeLabel(rawData.txType) },
-      { key: 'txTime', label: t('field.transactionTime'), value: formatTs(rawData.txTime) },
+      { key: 'txTime', label: t('field.transactionTime'), value: formatAdminTimestamp(rawData.txTime) },
       { key: 'blockHeight', label: t('detail.blockHeight'), value: toTextValue(rawData.blockHeight) },
       { key: 'blockHash', label: t('detail.blockHash'), value: toTextValue(rawData.blockHash) },
       { key: 'contractAddress', label: t('field.contractAddress'), value: toTextValue(rawData.contractAddress) },
-      { key: 'blockDate', label: t('detail.blockTime'), value: formatTs(rawData.blockDate) },
+      { key: 'blockDate', label: t('detail.blockTime'), value: formatAdminTimestamp(rawData.blockDate) },
     ];
   }, [detailData?.rawData, t]);
 

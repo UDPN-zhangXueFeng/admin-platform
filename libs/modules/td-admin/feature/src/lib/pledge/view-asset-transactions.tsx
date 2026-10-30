@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   useAssetCategoryListQuery,
   useReserveAssetTxListQuery,
@@ -15,7 +15,6 @@ import {
 import { ALL_VALUE } from './pledge.constants';
 import { ASSET_TXN_STATUS_COLOR } from '.';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 const EMPTY_DISPLAY = '--';
 const TAB_PAGE_SIZE = 6;
 
@@ -162,9 +161,7 @@ export function ViewAssetTransactions({
           const { createdTime } = row.original;
           return (
             <span>
-              {createdTime
-                ? formatDate(Number(createdTime), DATETIME_FMT)
-                : EMPTY_DISPLAY}
+              {formatAdminTimestamp(Number(createdTime))}
             </span>
           );
         },

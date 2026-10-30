@@ -11,6 +11,7 @@ import { WorkflowStatusTag } from '.';
 import {
   useWorkflowDetailQuery,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /** `stablecoin` 是默认活动项目（见 configs/stablecoin.json）。 */
 const PROJECT_ID = 'stablecoin';
@@ -62,7 +63,7 @@ export function WorkflowViewPage() {
   const fmtDate = (ts?: number) => {
     const n = Number(ts);
     if (!Number.isFinite(n) || !n) return '—';
-    return new Date(n).toLocaleString();
+    return formatAdminTimestamp(n);
   };
 
   const nodes = detail?.nodes ?? [];

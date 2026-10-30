@@ -1,5 +1,12 @@
 # Codex 对话沉淀
 
+## 2026-10-30 admin 门户时间统一
+
+- 决策：`apps/admin` 及其渲染的 `libs/modules/td-admin/*` 所有时间戳展示统一为 kissen-admin 口径 `formatAdminDateTime` → `MMM d, yyyy, HH:mm:ss (UTC±offset)`；offset 取查看者时区，不再硬编码 `(UTC+8)`，也不再使用 `toLocaleString` / `YYYY-MM-DD HH:mm:ss`。这取代 2026-10-29 key-management D2 的 `YYYY-MM-DD HH:mm:ss` 本地口径。
+- 实现：`libs/modules/td-admin/feature/src/lib/format-admin-time.ts` 提供 `formatAdminTimestamp`（时间戳；空/0/非法 → `--`）和 `formatAdminDate`（仅日期 → `YYYY-MM-DD`），各 feature 页相对导入；data-access 的 EOD/createdOn/draft 展示直接调用 `formatAdminDateTime`。
+- 边界：只改展示；日期筛选、表单默认值、API payload、排序键、`toISOString().slice(0,10)`、金额/数量 `toLocaleString` 不动。日历日字段（effectiveDate、feePeriod、statisticsDay、fundInceptionTime 等）仍按日期展示；epoch ms 时间戳（travel-rule confirmationTime/transactionTime、order/product createdAt、order timeline）一律走 `formatAdminTimestamp`。日期型 helper 不再硬编码 `(UTC+8)`。
+- 验证：`nx build admin`、`nx lint admin/modules-td-admin-feature/modules-td-admin-data-access` 通过；feature 172 tests、data-access 90 tests 通过；真实浏览器（mock 接口）确认 key-service 列表显示 `Oct 30, 2025, 12:53:20 (UTC+8)`、Dashboard 轴标签 `Oct 30/Oct 31`、travel-rule 行显示 `Mar 5, 2024, 10:43:12 (UTC+8)`、key-policy 列表显示 `Mar 20, 2024, 12:04:41 (UTC+8)`。`nx test admin` 仍有 7 个既有 `StablecoinTabs` 失败，与本次改动无关。
+
 ## 2026-10-28 apps/admin 侧栏菜单行为
 
 - Admin 侧栏是否允许多个父级同时展开由 `config.layout.sidebar.singleExpand` 控制；`configs/stablecoin.json` 默认未覆盖 schema 的 `false`，要启用手风琴行为需显式设为 `true`。

@@ -16,7 +16,6 @@ import {
   TooltipTrigger,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormField } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
 import { PermissionGuard } from '@myorg/shared/util-auth';
 import {
   useDownloadSmartContractMutation,
@@ -30,8 +29,7 @@ import {
   DEPLOYMENT_TYPE_LABEL_KEY_PREFIX,
   EMPTY_DISPLAY,
 } from '.';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /**
  * SmartContractListPage — 智能合约包列表页（含 blob 下载）。
@@ -171,7 +169,7 @@ export function SmartContractListPage(): React.JSX.Element {
         cell: ({ row }) => (
           <span>
             {row.original.createTime
-              ? formatDate(row.original.createTime, DATETIME_FMT)
+              ? formatAdminTimestamp(row.original.createTime)
               : EMPTY_DISPLAY}
           </span>
         ),

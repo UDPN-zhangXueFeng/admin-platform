@@ -1,5 +1,5 @@
 /**
- * RoleWallets 列表列定义 + 时间格式常量。
+ * RoleWallets 列表列定义。
  * 源: role-wallets.tsx 31, 113-211
  */
 'use client';
@@ -7,14 +7,12 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
 import { Button, CopyableEllipsisText } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { TokenizedDepositStatusBadge } from './tokenized-deposit-status-badge';
 import {
   EMPTY_DISPLAY,
   type RoleWalletItem,
 } from '@myorg/modules/td-admin/data-access';
-
-export const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /**
  * 列表列定义（源 RoleWallets 内 columns useMemo 原样搬移，
@@ -87,7 +85,7 @@ export function roleWalletColumns(
       cell: ({ row }) => (
         <span>
           {row.original.createdTime
-            ? formatDate(Number(row.original.createdTime), DATETIME_FMT)
+            ? formatAdminTimestamp(Number(row.original.createdTime))
             : EMPTY_DISPLAY}
         </span>
       ),
@@ -98,7 +96,7 @@ export function roleWalletColumns(
       cell: ({ row }) => (
         <span>
           {row.original.updatedTime
-            ? formatDate(Number(row.original.updatedTime), DATETIME_FMT)
+            ? formatAdminTimestamp(Number(row.original.updatedTime))
             : EMPTY_DISPLAY}
         </span>
       ),

@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 
 import { Button, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 import { useAuditTrailListQuery, type AuditTrailItem, type AuditTrailListFilters, type ExportAuditTaskReq } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainListQuery, useCreateExportTaskMutation, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/audit-trail';
@@ -23,8 +23,6 @@ import {
   resolveTxTypeMessageKey,
 } from '.';
 import { ALL_VALUE } from './audit-trail.constants';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /** react-hook-form 筛选表单（文本空串 / 下拉 ALL_VALUE = 无筛选；日期 YYYY-MM-DD）。 */
 interface AuditTrailFilterForm {
@@ -238,7 +236,7 @@ export function AuditTrailListPage() {
         cell: ({ row }) => (
           <span>
             {row.original.txTime
-              ? formatDate(row.original.txTime, DATETIME_FMT)
+              ? formatAdminTimestamp(row.original.txTime)
               : EMPTY_DISPLAY}
           </span>
         ),

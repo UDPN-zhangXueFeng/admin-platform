@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
+import { formatDate } from '@myorg/shared/util-dates';
 import {
   BarChart,
   Bar,
@@ -142,10 +143,7 @@ function formatStatisticsDay(value: number | undefined): string {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return '—';
 
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-  }).format(date);
+  return formatDate(date, 'MMM d');
 }
 
 // ---------------------------------------------------------------------------

@@ -35,6 +35,7 @@ import {
 } from '.';
 import { ALL_VALUE } from './interest.constants';
 import { InterestStatusBadge } from '.';
+import { formatAdminTimestamp, formatAdminDate } from '../format-admin-time';
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
 
@@ -95,7 +96,7 @@ function usePolicyColumns(
       cell: ({ getValue }) => {
         const val = getValue<string>();
         if (!val) return '-';
-        return new Date(Number(val)).toLocaleDateString();
+        return formatAdminDate(val);
       },
     },
     {
@@ -105,7 +106,7 @@ function usePolicyColumns(
       cell: ({ getValue }) => {
         const val = getValue<string>();
         if (!val) return '-';
-        return new Date(Number(val)).toLocaleString();
+        return formatAdminTimestamp(val);
       },
     },
     {

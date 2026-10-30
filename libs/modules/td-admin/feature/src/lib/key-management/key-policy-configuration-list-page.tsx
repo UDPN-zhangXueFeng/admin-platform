@@ -39,7 +39,6 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
-import { formatDate } from '@myorg/shared/util-dates';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
@@ -63,6 +62,7 @@ import {
   policyList,
   type PolicyListItem,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { keyPolicyStatusMap, roleNameOptions } from '.';
 
 /** Non-empty sentinel for the "All" option — see plan §8.F. */
@@ -109,13 +109,6 @@ const toneClassMap: Record<string, string> = {
   warning: 'border-amber-300 bg-amber-50 text-amber-700',
 };
 
-/**
- * Format a Unix timestamp (ms) with the portal-wide deterministic format (matrix D2).
- */
-function formatTimestamp(ts?: number): string {
-  if (!ts) return '--';
-  return formatDate(Number(ts), 'YYYY-MM-DD HH:mm:ss');
-}
 
 /**
  * Convert an ISO date string (yyyy-mm-dd) to a LOCAL-midnight ms timestamp
@@ -319,7 +312,10 @@ export function KeyPolicyConfigurationListPage() {
       {
         accessorKey: 'createdOn',
         header: t('key_management_0005'),
-        cell: ({ row }) => formatTimestamp(row.original.createdOn),
+        cell: ({ row }) =>
+          // kissen-admin convention via shared admin time helper
+          // (replaces the former matrix-D2 local format).
+          formatAdminTimestamp(row.original.createdOn),
       },
       {
         accessorKey: 'status',

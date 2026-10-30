@@ -35,7 +35,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
 
 import { FormSelect } from '@myorg/shared/ui-forms';
 
@@ -47,6 +46,7 @@ import {
   type ManagedWalletListFilters,
 } from '@myorg/modules/td-admin/data-access';
 
+import { formatAdminTimestamp } from '../format-admin-time';
 import { walletStatusMap, roleNameMap } from '.';
 
 /** Non-empty sentinel for the "All" option — see managed-wallets.md §8.G. */
@@ -82,8 +82,6 @@ interface KeyManagementMessages {
   has(key: string): boolean;
 }
 
-/** Timestamp column format, matching sibling list pages. */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /** Table row handed to DataTable — wire item plus its client-side row id. */
 type ManagedWalletRow = ManagedWallet & { id: string };
@@ -276,26 +274,17 @@ export function ManagedWalletsListPage() {
       {
         accessorKey: 'lastRotationTime',
         header: t('key_management_0087'),
-        cell: ({ getValue }) => {
-          const ts = getValue() as number | undefined;
-          return ts ? formatDate(Number(ts), DATETIME_FMT) : '--';
-        },
+        cell: ({ getValue }) => formatAdminTimestamp(getValue() as number | undefined),
       },
       {
         accessorKey: 'nextRotationTime',
         header: t('key_management_0088'),
-        cell: ({ getValue }) => {
-          const ts = getValue() as number | undefined;
-          return ts ? formatDate(Number(ts), DATETIME_FMT) : '--';
-        },
+        cell: ({ getValue }) => formatAdminTimestamp(getValue() as number | undefined),
       },
       {
         accessorKey: 'createdOn',
         header: t('key_management_0005'),
-        cell: ({ getValue }) => {
-          const ts = getValue() as number | undefined;
-          return ts ? formatDate(Number(ts), DATETIME_FMT) : '--';
-        },
+        cell: ({ getValue }) => formatAdminTimestamp(getValue() as number | undefined),
       },
       {
         accessorKey: 'status',

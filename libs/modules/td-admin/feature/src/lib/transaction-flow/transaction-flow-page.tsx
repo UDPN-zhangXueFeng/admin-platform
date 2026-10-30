@@ -8,6 +8,7 @@ import { DataTable, type DataTablePagination } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import type { TxFlowItem } from '@myorg/modules/td-admin/data-access';
 import { useStablecoinsQuery, useTxFlowList } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 const ALL = 'all';
 type TxRow = TxFlowItem & { id: string };
@@ -43,7 +44,7 @@ export function TransactionFlowPage() {
     { id: 'blockchainName', header: tc('PUB_Blockchain'), accessorKey: 'blockchainName' },
     { id: 'txType', header: t('transaction_flow_004'), accessorKey: 'txType', cell: ({ row }) => t(`td_transaction_type_${row.original.txType}`) },
     { id: 'txAmount', header: t('transaction_flow_005'), accessorKey: 'txAmount', cell: ({ row }) => `${row.original.txAmount || '-'} ${row.original.symbol}` },
-    { id: 'txTime', header: t('transaction_flow_003'), accessorKey: 'txTime', cell: ({ row }) => new Date(Number(row.original.txTime)).toLocaleString() },
+    { id: 'txTime', header: t('transaction_flow_003'), accessorKey: 'txTime', cell: ({ row }) => formatAdminTimestamp(Number(row.original.txTime)) },
     { id: 'txHash', header: t('transaction_flow_007'), accessorKey: 'txHash', cell: ({ row }) => { const h = row.original.txHash; const url = row.original.browserUrl ? row.original.browserUrl + (row.original.blockchainCode?.toLowerCase() === 'tron' ? '#/transaction/' : 'tx/') + h : ''; return url ? <a href={url} target="_blank" rel="noreferrer" className="text-blue-600">{h}</a> : <span>{h}</span>; } },
   ];
 

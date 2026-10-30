@@ -43,12 +43,12 @@ import {
   Textarea,
 } from '@myorg/shared/ui';
 import { DatePicker } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
 
 import {
   type KeyServiceConfiguration,
   useKeyServiceConfigurationsQuery,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { keyServiceStatusToneMap } from './constants';
 
 /** Non-empty sentinel — SelectItem forbids an empty-string value. */
@@ -64,8 +64,6 @@ const dialogSchema = z.object({
 });
 type DialogFormValues = z.infer<typeof dialogSchema>;
 
-/** Timestamp column format, matching sibling list pages. */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /** Semantic tone → tailwind badge classes (keyServiceStatusToneMap values). */
 const TONE_CLASS: Record<string, string> = {
@@ -76,11 +74,6 @@ const TONE_CLASS: Record<string, string> = {
   default: 'border-border bg-muted text-muted-foreground',
 };
 
-/** Format a Unix timestamp (ms) in the shared portal column format. */
-function formatTimestamp(ts?: number): string {
-  if (!ts) return '--';
-  return formatDate(Number(ts), DATETIME_FMT);
-}
 
 /** Split the comma-separated supported-chains string into a trimmed array. */
 function parseSupportedChains(value?: string): string[] {
@@ -274,12 +267,12 @@ export function KeyServiceConfigurationListPage() {
       {
         accessorKey: 'createdOn',
         header: t('key_management_0005'),
-        cell: ({ getValue }) => formatTimestamp(getValue() as number),
+        cell: ({ getValue }) => formatAdminTimestamp(getValue() as number),
       },
       {
         accessorKey: 'lastUpdated',
         header: t('key_management_0006'),
-        cell: ({ getValue }) => formatTimestamp(getValue() as number),
+        cell: ({ getValue }) => formatAdminTimestamp(getValue() as number),
       },
       {
         accessorKey: 'status',

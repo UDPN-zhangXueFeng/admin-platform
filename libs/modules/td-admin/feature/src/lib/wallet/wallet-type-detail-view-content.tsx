@@ -3,11 +3,11 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { CopyableEllipsisText } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
 import type {
   InterestRateTier,
   WalletTypeDetail,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { WalletStatusBadge } from '.';
 import {
   accountTypeMessageKey,
@@ -16,16 +16,10 @@ import {
   toMillis,
 } from '.';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
-const DATE_UTC_FMT = 'YYYY-MM-DD HH:mm:ss [UTC]';
 
-/** 时间戳格式化（秒/毫秒自适应），无值返回占位。 */
-function formatTs(
-  ts?: number | string | null,
-  fmt = DATETIME_FMT
-): string {
-  const ms = toMillis(typeof ts === 'string' ? Number(ts) : ts);
-  return ms ? formatDate(ms, fmt) : EMPTY_DISPLAY;
+/** 时间戳格式化（秒/毫秒自适应），无值返回占位（kissen-admin 约定）。 */
+function formatTs(ts?: number | string | null): string {
+  return formatAdminTimestamp(toMillis(typeof ts === 'string' ? Number(ts) : ts));
 }
 
 /**
@@ -278,7 +272,7 @@ export function WalletTypeDetailViewContent({
       {
         key: 'arrangedEffectiveDate',
         label: t('walletType.detail.effectiveDate'),
-        value: formatTs(detail.arrangedInterestEffectiveDate, DATE_UTC_FMT),
+        value: formatTs(detail.arrangedInterestEffectiveDate),
       },
     ];
   }, [detail, tdSymbol, arrangedFirstRate, t]);
@@ -325,7 +319,7 @@ export function WalletTypeDetailViewContent({
       {
         key: 'unarrangedEffectiveDate',
         label: t('walletType.detail.effectiveDate'),
-        value: formatTs(detail.unarrangedInterestEffectiveDate, DATE_UTC_FMT),
+        value: formatTs(detail.unarrangedInterestEffectiveDate),
       },
     ];
   }, [detail, tdSymbol, unarrangedFirstRate, t]);
@@ -366,7 +360,7 @@ export function WalletTypeDetailViewContent({
       {
         key: 'effectiveDate',
         label: t('walletType.detail.effectiveDate'),
-        value: formatTs(detail.arrangedInterestEffectiveDate, DATE_UTC_FMT),
+        value: formatTs(detail.arrangedInterestEffectiveDate),
       },
       {
         key: 'interestAccrualApplicationTime',

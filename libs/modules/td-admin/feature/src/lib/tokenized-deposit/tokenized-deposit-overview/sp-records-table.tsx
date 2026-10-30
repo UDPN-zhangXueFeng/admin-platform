@@ -13,7 +13,7 @@ import { DataTable } from '@myorg/shared/ui';
 import { Button } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../../format-admin-time';
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
@@ -30,7 +30,6 @@ import {
 } from '..';
 import {
   APPROVAL_VIEW_ROUTE,
-  DATETIME_FMT,
   buildTxBrowserHref,
   formatAmount,
 } from './records-table-helpers';
@@ -129,7 +128,7 @@ export function SPRecordsTable({ td }: OverviewRecordsTabProps): React.JSX.Eleme
         cell: ({ getValue }) => {
           const val = getValue<number>();
           return (
-            <span>{val ? formatDate(val, DATETIME_FMT) : EMPTY_DISPLAY}</span>
+            <span>{val ? formatAdminTimestamp(val) : EMPTY_DISPLAY}</span>
           );
         },
       },
@@ -140,7 +139,7 @@ export function SPRecordsTable({ td }: OverviewRecordsTabProps): React.JSX.Eleme
         cell: ({ getValue }) => {
           const val = getValue<number>();
           return (
-            <span>{val ? formatDate(val, DATETIME_FMT) : EMPTY_DISPLAY}</span>
+            <span>{val ? formatAdminTimestamp(val) : EMPTY_DISPLAY}</span>
           );
         },
       },

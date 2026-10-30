@@ -31,6 +31,7 @@ import {
 import { ProductAvatar, ProductStatusBadge } from '.';
 
 import { PRODUCT_PERMISSIONS } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 const defaultParams: ProductListParams = {
   page: 1,
@@ -99,7 +100,7 @@ export function ProductListPage() {
         header: t('createdAt'),
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {new Date(row.original.createdAt).toLocaleDateString()}
+            {formatAdminTimestamp(row.original.createdAt)}
           </span>
         ),
       },

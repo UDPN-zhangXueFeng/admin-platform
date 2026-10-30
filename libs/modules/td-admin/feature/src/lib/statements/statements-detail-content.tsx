@@ -9,7 +9,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { Controller, useForm } from 'react-hook-form';
 import { getPermissionEmails, useAllExportTaskListQuery, useDeleteExportTaskMutation, useExportRuleDetailQuery, useMyExportTaskListQuery, type CreateExportTaskDTO, type ExportTaskListFilters } from '@myorg/modules/td-admin/data-access';
 import { downloadExportFile } from '@myorg/modules/td-admin/data-access/lib/statements';
@@ -31,16 +31,10 @@ import {
   validateNotifyEmail,
 } from '.';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
-
 function parseId(raw: string | null | undefined): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
-function formatTime(ts?: number): string {
-  return ts ? formatDate(ts, DATETIME_FMT) : EMPTY_DISPLAY;
 }
 
 function StatusBadge({ meta }: { meta?: { tone: string; labelKey: string } }) {
@@ -133,14 +127,14 @@ function taskColumns(
       header: t('field.startTime'),
       cell: ({ row }) => (
         <span>
-          {formatTime(row.original.startTime)} - {formatTime(row.original.endTime)}
+          {formatAdminTimestamp(row.original.startTime)} - {formatAdminTimestamp(row.original.endTime)}
         </span>
       ),
     },
     {
       accessorKey: 'exportTime',
       header: t('field.exportTime'),
-      cell: ({ row }) => <span>{formatTime(row.original.exportTime)}</span>,
+      cell: ({ row }) => <span>{formatAdminTimestamp(row.original.exportTime)}</span>,
     },
     {
       accessorKey: 'exportState',
@@ -292,7 +286,7 @@ export function StatementsViewPage({
         },
         { key: 'notifyEmail', label: t('field.notifyEmail'), value: <span>{detail.notifyEmail || EMPTY_DISPLAY}</span> },
         { key: 'createUserName', label: t('field.index'), value: <span>{detail.createUserName || EMPTY_DISPLAY}</span> },
-        { key: 'createTime', label: t('field.createTime'), value: <span>{formatTime(detail.createTime)}</span> },
+        { key: 'createTime', label: t('field.createTime'), value: <span>{formatAdminTimestamp(detail.createTime)}</span> },
         { key: 'status', label: t('field.status'), value: <StatusBadge meta={RULE_STATUS_META[detail.status ?? 0]} /> },
       ]
     : [];

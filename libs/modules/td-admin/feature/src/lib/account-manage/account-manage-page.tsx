@@ -16,6 +16,7 @@ import {
 import { toast } from '@myorg/shared/ui';
 import { useAccessKey, useUserInfo, useMetaMaskHistory, useTwoFactorStatus } from '@myorg/modules/td-admin/data-access';
 import { disableMetaMask } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 export function AccountManagePage() {
   const t = useTranslations('modules.account-manage'); const tc = useTranslations('common');
@@ -45,7 +46,7 @@ export function AccountManagePage() {
           <div className="border rounded">
             <KV label={t('account_manage_0046')} value={accessKey?.gateway} />
             <KV label={t('account_manage_0002')} value={accessKey?.accessKey} copyable />
-            <KV label={t('account_manage_0003')} value={accessKey?.expiryDate ? new Date(Number(accessKey.expiryDate)).toLocaleString() : '-'} />
+            <KV label={t('account_manage_0003')} value={accessKey?.expiryDate ? formatAdminTimestamp(Number(accessKey.expiryDate)) : '-'} />
           </div>
         </CardContent>
       </Card>
@@ -59,7 +60,7 @@ export function AccountManagePage() {
           <div className="border rounded mb-3">
             <KV label={tc('PUB_Status')} value={userInfo?.status === 0 ? tc('PUB_Enabled') : tc('PUB_Disabled')} />
             {userInfo?.accountKey && <KV label={t('account_manage_0014')} value={userInfo.accountKey} copyable />}
-            {userInfo?.updateOn && <KV label={tc('PUB_UpdateOn')} value={new Date(Number(userInfo.updateOn)).toLocaleString()} />}
+            {userInfo?.updateOn && <KV label={tc('PUB_UpdateOn')} value={formatAdminTimestamp(Number(userInfo.updateOn))} />}
           </div>
           <div className="flex gap-3">
             <Button disabled={loading}>{userInfo?.accountKey ? t('account_manage_0013') : t('account_manage_0006')}</Button>
@@ -89,7 +90,7 @@ export function AccountManagePage() {
             {(mmHistory || []).map((item, i) => (
               <Card key={i} className="mb-4">
                 <CardHeader>
-                  <CardTitle className="text-sm">{item.operateType === 2 ? `${t('account_manage_0040')} ${new Date(Number(item.operateTime)).toLocaleString()} ${t('account_manage_0041')} ${item.operateUser}` : item.operateType === 3 ? `${t('account_manage_0042')} ${new Date(Number(item.operateTime)).toLocaleString()} ${t('account_manage_0041')} ${item.operateUser}` : `${t('account_manage_0043')} ${new Date(Number(item.operateTime)).toLocaleString()} ${t('account_manage_0041')} ${item.operateUser}`}</CardTitle>
+                  <CardTitle className="text-sm">{item.operateType === 2 ? `${t('account_manage_0040')} ${formatAdminTimestamp(Number(item.operateTime))} ${t('account_manage_0041')} ${item.operateUser}` : item.operateType === 3 ? `${t('account_manage_0042')} ${formatAdminTimestamp(Number(item.operateTime))} ${t('account_manage_0041')} ${item.operateUser}` : `${t('account_manage_0043')} ${formatAdminTimestamp(Number(item.operateTime))} ${t('account_manage_0041')} ${item.operateUser}`}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <KV label={tc('PUB_Status')} value={item.status !== 1 ? t('account_manage_0044') : t('account_manage_0045')} />

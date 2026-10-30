@@ -17,7 +17,6 @@ import {
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
 import { CrossChainStatusBadge } from '.';
 import { useCrossChainTxListQuery, type CrossChainTxItem, type CrossChainTxListFilters } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainListQuery, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/cross-chain';
@@ -26,8 +25,7 @@ import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
 } from '.';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /** 「全部」占位 value（对齐 fx-rate / blockchain 列表筛选约定）。 */
 const ALL_VALUE = 'all';
@@ -281,7 +279,7 @@ export function CrossChainTransactionsListPage(): React.JSX.Element {
         cell: ({ row }) => (
           <span>
             {row.original.createdOn
-              ? formatDate(Number(row.original.createdOn), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(row.original.createdOn))
               : EMPTY_DISPLAY}
           </span>
         ),

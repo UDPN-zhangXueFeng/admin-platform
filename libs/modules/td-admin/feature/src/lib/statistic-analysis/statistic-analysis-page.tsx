@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useCoinList, useStatistics, useTrendData, useTrendTzData } from '@myorg/modules/td-admin/data-access';
 import type { CoinData } from '@myorg/modules/td-admin/data-access';
+import { formatAdminDate } from '../format-admin-time';
 
 const RANGES = [{ key: '1', label: 'Last 7 Days', ms: 7 * 86400000 }, { key: '3', label: 'Last 14 Days', ms: 14 * 86400000 }, { key: '2', label: 'Last 30 Days', ms: 30 * 86400000 }];
 
@@ -14,7 +15,7 @@ export function StatisticAnalysisPage() {
   const [activeIdx, setActiveIdx] = React.useState(0);
   const [range1, setRange1] = React.useState(RANGES[0]);
   const [range2, setRange2] = React.useState(RANGES[0]);
-  const now = React.useMemo(() => new Date(new Date().toLocaleDateString('en-US')).getTime(), []);
+  const now = React.useMemo(() => new Date().setHours(0, 0, 0, 0), []);
   const activeCoin = coins?.[activeIdx];
   const { data: stats } = useStatistics(activeCoin?.code || '');
   const { data: trend } = useTrendData(activeCoin?.code || '', String(now - range1.ms), String(now));
@@ -31,8 +32,8 @@ export function StatisticAnalysisPage() {
     { label: t('statistic_analysis_0013'), value: stats.walletNumber, unit: '' },
   ].filter(Boolean) : [];
 
-  const trendChart = (trend || []).map(d => ({ date: new Date(Number(d.statisticsDay)).toLocaleDateString(), wallets: d.walletNumber, newWallets: d.walletNewNumber }));
-  const trendTzChart = (trendTz || []).map(d => ({ date: new Date(Number(d.statisticsDay)).toLocaleDateString(), topUp: d.topUpTotal, transfer: d.transferTotal, withdrawal: d.withdrawalTotal }));
+  const trendChart = (trend || []).map(d => ({ date: formatAdminDate(Number(d.statisticsDay)), wallets: d.walletNumber, newWallets: d.walletNewNumber }));
+  const trendTzChart = (trendTz || []).map(d => ({ date: formatAdminDate(Number(d.statisticsDay)), topUp: d.topUpTotal, transfer: d.transferTotal, withdrawal: d.withdrawalTotal }));
 
   return (
     <div>

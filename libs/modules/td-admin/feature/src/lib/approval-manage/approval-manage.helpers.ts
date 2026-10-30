@@ -15,6 +15,8 @@
  */
 import { format } from 'date-fns';
 
+import { formatAdminTimestamp } from '../format-admin-time';
+
 import { EMPTY_FIELD_VALUE } from './approval-manage.constants';
 
 // ── 时间戳格式化（迁移自 libs/utils formatTimestamp）────────────────────────────
@@ -22,10 +24,11 @@ import { EMPTY_FIELD_VALUE } from './approval-manage.constants';
 /**
  * 时间戳 → 展示字符串（迁移自 libs/utils/get/getDateFormat.ts formatTimestamp）。
  *
- * 三种模式（照源语义，勿改）：
+ * 三种模式（'date'/'dateutc' 照源语义保留；默认走 kissen-admin 统一格式）：
  * - `'date'`    → 'MMM d, yyyy'（仅日期）
- * - `'dateutc'` → 'MMM d, yyyy UTC Z'（日期 + UTC 时区）
- * - 默认         → 'MMM d, yyyy, HH:mm:ss UTC Z'（完整日期时间 + UTC 时区）
+ * - `'dateutc'` → 'MMM d, yyyy xxx'（仅日期 + UTC 偏移）
+ * - 默认         → "Oct 30, 2026, 14:23:45 (UTC+8)"（观察者本地时区偏移，
+ *   委托 ../format-admin-time 的 formatAdminTimestamp）
  *
  * 无值（0/undefined/null）→ '--'。
  *
@@ -43,7 +46,7 @@ export function formatTimestamp(
   if (type === 'dateutc') {
     return format(new Date(timestamp), 'MMM d, yyyy xxx');
   }
-  return format(new Date(timestamp), 'MMM d, yyyy, HH:mm:ss xxx');
+  return formatAdminTimestamp(timestamp);
 }
 
 /**
@@ -168,18 +171,17 @@ export function formatCodeName(
 // ── financial 时间格式化（迁移自 financial-normalization/posting formatDateTime/formatDate）──
 
 /**
- * 完整日期时间（含 UTC+8 标注）。迁移自 financial-normalization.tsx:98 formatDateTime。
- * 用于 financial 审核组件（与列表/详情的 formatTimestamp 时区风格不同，照源保留）。
+ * 完整日期时间（kissen-admin 统一格式 "Oct 30, 2026, 14:23:45 (UTC+8)"，
+ * 偏移跟随观察者时区）。委托 formatAdminTimestamp，保留秒→毫秒归一。
  */
 export function formatFinancialDateTime(value?: number | null): string {
   const ts = normalizeTimestamp(value);
-  if (!ts) return EMPTY_FIELD_VALUE;
-  return format(new Date(ts), "MMM d, yyyy, HH:mm:ss '(UTC+8)'");
+  return formatAdminTimestamp(ts);
 }
 
-/** 仅日期（含 UTC+8 标注）。迁移自 financial-normalization.tsx:104 formatDate。 */
+/** 仅日期（不附加固定时区标签，日期展示与时区无关）。迁移自 financial-normalization.tsx:104 formatDate。 */
 export function formatFinancialDate(value?: number | null): string {
   const ts = normalizeTimestamp(value);
   if (!ts) return EMPTY_FIELD_VALUE;
-  return format(new Date(ts), "MMM d, yyyy '(UTC+8)'");
+  return format(new Date(ts), 'MMM d, yyyy');
 }

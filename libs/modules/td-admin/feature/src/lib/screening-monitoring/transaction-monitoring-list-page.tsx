@@ -9,6 +9,7 @@ import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { toast } from '@myorg/shared/ui';
 import type { SuspiciousTransaction } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainOptions, useBusinessTypeList, useProcessSuspicious, useRetrySuspicious, useStablecoinOptions, useSuspiciousList } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { ALL_VALUE } from './screening-monitoring.constants';
 import { PROCESS_REVERSE_OPTIONS, RISK_LEVEL_OPTIONS, SUSPICIOUS_STATUS_OPTIONS } from '.';
 import { ScreeningRiskLevelTag, ScreeningStatusBadge } from '.';
@@ -39,7 +40,7 @@ export function TransactionMonitoringListPage() {
     { id: 'blockchainName', header: tc('PUB_Blockchain'), accessorKey: 'blockchainName' },
     { id: 'businessName', header: t('screening_monitoring_0002'), accessorKey: 'businessName' },
     { id: 'description', header: t('screening_monitoring_0019'), accessorKey: 'description', cell: ({ getValue, row }) => { const bt = row.original.businessType; const v = getValue<string>(); if (bt === 40 || bt === 50) return v + '%'; if (bt === 20 || bt === 30) return v + t('screening_monitoring_0081'); return v; } },
-    { id: 'monitorDate', header: t('screening_monitoring_0016'), accessorKey: 'monitorDate', cell: ({ getValue }) => { const v = getValue<string>(); return v ? new Date(Number(v)).toLocaleString() : '-'; } },
+    { id: 'monitorDate', header: t('screening_monitoring_0016'), accessorKey: 'monitorDate', cell: ({ getValue }) => formatAdminTimestamp(Number(getValue<string>())) },
     { id: 'priority', header: t('screening_monitoring_0011'), accessorKey: 'priority', cell: ({ getValue }) => <ScreeningRiskLevelTag priority={getValue<number>()} /> },
     { id: 'handleType', header: t('screening_monitoring_0074'), accessorKey: 'handleType', cell: ({ getValue }) => t(`suggested_action_type_${getValue<number>()}`) },
     { id: 'state', header: tc('PUB_Status'), accessorKey: 'state', cell: ({ getValue }) => <ScreeningStatusBadge status={getValue<number>()} variant="suspicious" /> },

@@ -21,7 +21,6 @@ import {
   TabsTrigger,
 } from '@myorg/shared/ui';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
 import { CrossChainStatusBadge } from '.';
 import { DatePicker } from '@myorg/shared/ui-forms';
 import { useLiquidityPoolAuthorizationQuery, useLiquidityPoolBasicInfoQuery, useLiquidityPoolOpRecordsQuery, useLiquidityPoolTransactionsQuery, type AuthorizationRecordItem, type LiquidityPoolBasicInfo, type TransactionRecordItem } from '@myorg/modules/td-admin/data-access';
@@ -31,8 +30,8 @@ import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
 } from '.';
+import { formatAdminTimestamp } from '../format-admin-time';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 /** 「全部」占位 value。 */
 const ALL_VALUE = 'all';
 
@@ -190,7 +189,7 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
         label: t('field.updateOn'),
         value:
           detail.updatedOn != null
-            ? formatDate(Number(detail.updatedOn), DATETIME_FMT)
+            ? formatAdminTimestamp(Number(detail.updatedOn))
             : EMPTY_DISPLAY,
       },
     ];
@@ -351,7 +350,7 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
         cell: ({ row }) => (
           <span>
             {row.original.transactionTime
-              ? formatDate(Number(row.original.transactionTime), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(row.original.transactionTime))
               : EMPTY_DISPLAY}
           </span>
         ),
@@ -534,7 +533,7 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
         cell: ({ row }) => (
           <span>
             {row.original.operationTime
-              ? formatDate(Number(row.original.operationTime), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(row.original.operationTime))
               : EMPTY_DISPLAY}
           </span>
         ),
@@ -545,7 +544,7 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
         cell: ({ row }) => (
           <span>
             {row.original.transactionTime
-              ? formatDate(Number(row.original.transactionTime), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(row.original.transactionTime))
               : EMPTY_DISPLAY}
           </span>
         ),
@@ -636,7 +635,7 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
         cell: ({ row }) => (
           <span>
             {row.original.createdOn
-              ? formatDate(Number(row.original.createdOn), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(row.original.createdOn))
               : EMPTY_DISPLAY}
           </span>
         ),
@@ -647,7 +646,7 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
         cell: ({ row }) => (
           <span>
             {row.original.transactionTime
-              ? formatDate(Number(row.original.transactionTime), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(row.original.transactionTime))
               : EMPTY_DISPLAY}
           </span>
         ),

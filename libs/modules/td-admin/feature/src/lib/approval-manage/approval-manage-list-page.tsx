@@ -22,7 +22,7 @@ import {
   Textarea,
 } from '@myorg/shared/ui';
 import { useAuth } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 import {
   useCompletedListQuery,
@@ -39,8 +39,6 @@ import {
   DEFAULT_PAGE_SIZE,
   EMPTY_FIELD_VALUE,
 } from '.';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /**
  * antd 色名 → Tailwind badge class（唯一取色真源）。
@@ -233,7 +231,7 @@ export function ApprovalManageListPage() {
         cell: ({ row }) => (
           <span>
             {row.original.createTime
-              ? formatDate(row.original.createTime, DATETIME_FMT)
+              ? formatAdminTimestamp(row.original.createTime)
               : EMPTY_FIELD_VALUE}
           </span>
         ),
@@ -244,7 +242,7 @@ export function ApprovalManageListPage() {
         cell: ({ row }) => (
           <span>
             {row.original.approvalTime
-              ? formatDate(row.original.approvalTime, DATETIME_FMT)
+              ? formatAdminTimestamp(row.original.approvalTime)
               : EMPTY_FIELD_VALUE}
           </span>
         ),
@@ -372,7 +370,7 @@ export function ApprovalManageListPage() {
         cell: ({ row }) => (
           <span>
             {row.original.createTime
-              ? formatDate(row.original.createTime, DATETIME_FMT)
+              ? formatAdminTimestamp(row.original.createTime)
               : EMPTY_FIELD_VALUE}
           </span>
         ),

@@ -6,7 +6,7 @@ import { ArrowLeft, Printer, Edit, Trash2 } from 'lucide-react';
 
 import { Button, Separator, Tabs, TabsList, TabsTrigger, TabsContent } from '@myorg/shared/ui';
 import { useToast } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { formatCurrency } from '@myorg/shared/util-formatting';
 
 import {
@@ -86,7 +86,7 @@ export function OrderDetailPage() {
               订单 {order.orderNo}
             </h1>
             <p className="text-sm text-muted-foreground">
-              创建于 {formatDate(order.createdAt)}
+              创建于 {formatAdminTimestamp(order.createdAt)}
             </p>
           </div>
         </div>

@@ -7,7 +7,7 @@ import { Search, Plus, Trash2, Eye } from 'lucide-react';
 
 import { DataTable, Button, Input, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@myorg/shared/ui';
 import { useToast } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { formatCurrency } from '@myorg/shared/util-formatting';
 
 import {
@@ -131,7 +131,7 @@ export function OrderListPage() {
         header: '创建时间',
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {formatDate(row.original.createdAt)}
+            {formatAdminTimestamp(row.original.createdAt)}
           </span>
         ),
       },

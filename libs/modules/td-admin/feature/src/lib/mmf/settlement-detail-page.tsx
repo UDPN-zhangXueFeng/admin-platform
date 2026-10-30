@@ -41,8 +41,8 @@ import {
   SETTLEMENT_WALLET_RECORD_STATUS_OPTIONS,
   statusToneClass,
 } from '.';
+import { formatAdminTimestamp } from '../format-admin-time';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 const DATE_FMT = 'YYYY-MM-DD';
 
 /** 审批记录状态色值走 mmf.json 根级扁平 i18n key（与源 router.json 命名一致）。 */
@@ -66,7 +66,7 @@ function reSet(
 }
 
 function formatTime(ts: number | undefined): string {
-  return ts ? formatDate(ts, DATETIME_FMT) : EMPTY_DISPLAY;
+  return formatAdminTimestamp(ts);
 }
 
 function formatDateOnly(ts: number | undefined): string {

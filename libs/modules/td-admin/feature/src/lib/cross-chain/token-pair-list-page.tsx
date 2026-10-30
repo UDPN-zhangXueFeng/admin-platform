@@ -20,7 +20,6 @@ import {
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
 import {
   CrossChainStatusBadge,
 } from '.';
@@ -32,8 +31,8 @@ import {
   EMPTY_DISPLAY,
   TOKEN_PAIR_UPDATE_STATE,
 } from '.';
+import { formatAdminTimestamp } from '../format-admin-time';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 /** 「全部」占位 value（对齐 rd-bridge / fx-rate 列表筛选约定）。 */
 const ALL_VALUE = 'all';
 
@@ -330,7 +329,7 @@ export function TokenPairListPage(): React.JSX.Element {
         cell: ({ row }) => (
           <span>
             {row.original.updateTime
-              ? formatDate(Number(row.original.updateTime), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(row.original.updateTime))
               : EMPTY_DISPLAY}
           </span>
         ),

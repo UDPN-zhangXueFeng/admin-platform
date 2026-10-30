@@ -6,6 +6,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
 import { Button, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
 import { FIXED_TOKEN_TYPES, useCoaBasicInfoQuery } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 import { getFinancialBookMetaByBookId } from './financial-book-meta';
 import { useCoaTree } from './use-coa-tree';
@@ -38,12 +39,6 @@ function DetailField({
       <dd className="text-sm font-medium break-words">{children}</dd>
     </div>
   );
-}
-
-/** ms 时间戳 → 本地时间字符串（与 sp-access 详情页约定一致）。 */
-function formatTimestamp(value?: number): string {
-  if (!value) return '--';
-  return new Date(value).toLocaleString();
 }
 
 /**
@@ -158,7 +153,7 @@ export function ChartOfAccountsDetailPage() {
                 <DetailField label={t('field.eodCutoffTime')}>{basicInfo.eodCutoffTime || '--'}</DetailField>
                 <DetailField label={t('field.lastEodPostingRun')}>{basicInfo.lastEodPostingRun || '--'}</DetailField>
                 <DetailField label={t('field.createdBy')}>{basicInfo.createdBy || '--'}</DetailField>
-                <DetailField label={t('field.createdOn')}>{formatTimestamp(basicInfo.createdOn)}</DetailField>
+                <DetailField label={t('field.createdOn')}>{formatAdminTimestamp(basicInfo.createdOn)}</DetailField>
               </dl>
             ) : basicInfoQuery.isLoading ? (
               <Skeleton className="h-48" />

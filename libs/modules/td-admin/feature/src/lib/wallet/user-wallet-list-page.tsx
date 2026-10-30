@@ -15,7 +15,6 @@ import {
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
 
 import {
   useBlockchainsQuery,
@@ -26,6 +25,7 @@ import {
   type UserWalletFilters,
   type WalletListParams,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { WalletStatusBadge } from '.';
 import {
   custodyModelMessageKey,
@@ -39,8 +39,6 @@ import { ALL_VALUE } from './wallet.constants';
 
 import { UserWalletActionDialog } from './user-wallet-action-dialog';
 
-/** 时间格式（与 operational-wallet 列表一致：年-月-日 时:分:秒）。 */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /**
  * 页面侧扩展的筛选条件（含创建时间范围）。
@@ -348,9 +346,7 @@ export function UserWalletListPage() {
           // 先归一为 number 再经 toMillis（秒/毫秒自适应）。
           const ts = Number(row.original.createTime);
           const ms = Number.isFinite(ts) ? toMillis(ts) : undefined;
-          return (
-            <span>{ms ? formatDate(ms, DATETIME_FMT) : EMPTY_DISPLAY}</span>
-          );
+          return <span>{formatAdminTimestamp(ms)}</span>;
         },
       },
       {

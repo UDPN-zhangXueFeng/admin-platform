@@ -9,7 +9,7 @@ import {
   DataTable,
 } from '@myorg/shared/ui';
 import { useAuth } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { WalletStatusBadge } from '.';
 import {
   useWalletTypeTableQuery,
@@ -26,8 +26,6 @@ import {
   WALLET_PERMISSIONS,
 } from '.';
 
-/** 限额/时间展示格式（与 operational-wallet 一致）。 */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /**
  * `NEXT_PUBLIC_FILE_ID` PDF 下载基址（源 sftp/download blob）。
@@ -153,12 +151,11 @@ export function WalletTypeTableSection({
         {
           id: 'createTime',
           header: t('common.createTime'),
-          cell: ({ row }) => {
-            const ms = toMillis(Number(row.original.createTime));
-            return (
-              <span>{ms ? formatDate(ms, DATETIME_FMT) : EMPTY_DISPLAY}</span>
-            );
-          },
+          cell: ({ row }) => (
+            <span>
+              {formatAdminTimestamp(toMillis(Number(row.original.createTime)))}
+            </span>
+          ),
         },
         {
           id: 'state',
@@ -258,12 +255,11 @@ export function WalletTypeTableSection({
       {
         id: 'createTime',
         header: t('common.createTime'),
-        cell: ({ row }) => {
-          const ms = toMillis(Number(row.original.createTime));
-          return (
-            <span>{ms ? formatDate(ms, DATETIME_FMT) : EMPTY_DISPLAY}</span>
-          );
-        },
+        cell: ({ row }) => (
+          <span>
+            {formatAdminTimestamp(toMillis(Number(row.original.createTime)))}
+          </span>
+        ),
       },
       {
         id: 'state',

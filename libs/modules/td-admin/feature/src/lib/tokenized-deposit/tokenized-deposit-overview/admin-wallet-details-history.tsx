@@ -13,7 +13,6 @@ import { useTranslations } from 'next-intl';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
@@ -24,10 +23,9 @@ import {
   useWalletHistoryListQuery,
   type WalletDetailItem,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../../format-admin-time';
 import type { AdminWalletCtx } from './admin-wallet-modal';
 
-/** 详情/历史表时间戳格式。 */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /** 详情/历史表列定义（源 959-1091，逐列）。 */
 function useWalletDetailColumns(
@@ -63,13 +61,13 @@ function useWalletDetailColumns(
         },
       },
       {
-        // tokenized_deposit_0057：createTime → formatDate
+        // tokenized_deposit_0057：createTime → formatAdminTimestamp
         accessorKey: 'createTime',
         header: t('tokenized_deposit_0057'),
         cell: ({ row }) => (
           <span>
             {row.original.createTime
-              ? formatDate(row.original.createTime, DATETIME_FMT)
+              ? formatAdminTimestamp(row.original.createTime)
               : EMPTY_DISPLAY}
           </span>
         ),

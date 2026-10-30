@@ -9,7 +9,6 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
 import {
   useCurrencyPairListQuery,
   useFxRateListQuery,
@@ -21,8 +20,7 @@ import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
 } from '.';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /**
  * FxRateListPage — 汇率列表页。
@@ -140,7 +138,7 @@ export function FxRateListPage(): React.JSX.Element {
           return (
             <span>
               {updateTime
-                ? formatDate(Number(updateTime), DATETIME_FMT)
+                ? formatAdminTimestamp(Number(updateTime))
                 : EMPTY_DISPLAY}
             </span>
           );

@@ -24,8 +24,8 @@ import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
 } from '.';
+import { formatAdminTimestamp } from '../format-admin-time';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 const DATE_FMT = 'YYYY-MM-DD';
 
 /**
@@ -46,7 +46,7 @@ function reSet(
 }
 
 function formatTime(ts: number | undefined): string {
-  return ts ? formatDate(ts, DATETIME_FMT) : EMPTY_DISPLAY;
+  return formatAdminTimestamp(ts);
 }
 
 function formatDateOnly(ts: number | undefined): string {

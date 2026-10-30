@@ -15,9 +15,9 @@ import {
   FUND_TYPE_MAP,
   RISK_LEVEL_MAP,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 const DATE_FMT = 'YYYY-MM-DD';
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /**
  * Summary — MMF 基金汇总表组件。
@@ -35,7 +35,7 @@ const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
  *  7. totalTokenCount    (tokenized_deposit_0153) → `${value} ${record.totalTokenCountSymbol}` || EMPTY_DISPLAY
  *  8. totalFundAmount    (tokenized_deposit_0154) → `${value} ${record.totalFundAmountSymbol}` || EMPTY_DISPLAY
  *  9. walletCount        (tokenized_deposit_0155)
- * 10. fundLastPayoutTime (tokenized_deposit_0157) → formatDate(time, DATETIME_FMT) || EMPTY_DISPLAY
+ * 10. fundLastPayoutTime (tokenized_deposit_0157) → formatAdminTimestamp(time) || EMPTY_DISPLAY
  *
  * 被 td-15 overview Tab1 MMF 分支引用。
  */
@@ -170,7 +170,7 @@ export function Summary({ tokenCode }: SummaryProps): React.JSX.Element {
           const val = getValue<number>();
           return (
             <span>
-              {val ? formatDate(val, DATETIME_FMT) : EMPTY_DISPLAY}
+              {val ? formatAdminTimestamp(val) : EMPTY_DISPLAY}
             </span>
           );
         },

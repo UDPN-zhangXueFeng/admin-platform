@@ -17,9 +17,9 @@
  *
  * - tokenized_deposit_0042：recordType → record_type_${recordType}（纯文案）
  * - tokenized_deposit_0056：createUser
- * - tokenized_deposit_0057：createTime → formatDate
+ * - tokenized_deposit_0057：createTime → formatAdminTimestamp
  * - tokenized_deposit_0060：txHash → Copy + 浏览器 href，空 → '--'
- * - tokenized_deposit_0061：txTime → formatDate
+ * - tokenized_deposit_0061：txTime → formatAdminTimestamp
  * - PUB_Status：state → Badge task（源 dataIndex 'state'，注意非 'status'）
  *
  * 注意：操作记录表的状态字段名是 `state`（区别于铸销记录表的 `status`），
@@ -41,7 +41,7 @@ import { useTranslations } from 'next-intl';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../../format-admin-time';
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
@@ -58,8 +58,6 @@ import {
   TokenizedDepositStatusBadge,
 } from '..';
 
-/** 时间戳格式（对齐源 formatTimestamp → 'YYYY-MM-DD HH:mm:ss'）。 */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /** 审批详情路由（跨模块跳转，源 pathname '/approval-manage/view'）。 */
 const APPROVAL_VIEW_ROUTE = '/approval-manage/view';
@@ -155,13 +153,13 @@ export function OverviewOperationRecordsTab({
         ),
       },
       {
-        // tokenized_deposit_0057：createTime → formatDate
+        // tokenized_deposit_0057：createTime → formatAdminTimestamp
         accessorKey: 'createTime',
         header: t('tokenized_deposit_0057'),
         cell: ({ getValue }) => {
           const val = getValue<number>();
           return (
-            <span>{val ? formatDate(val, DATETIME_FMT) : EMPTY_DISPLAY}</span>
+            <span>{val ? formatAdminTimestamp(val) : EMPTY_DISPLAY}</span>
           );
         },
       },
@@ -188,7 +186,7 @@ export function OverviewOperationRecordsTab({
         cell: ({ getValue }) => {
           const val = getValue<number>();
           return (
-            <span>{val ? formatDate(val, DATETIME_FMT) : EMPTY_DISPLAY}</span>
+            <span>{val ? formatAdminTimestamp(val) : EMPTY_DISPLAY}</span>
           );
         },
       },

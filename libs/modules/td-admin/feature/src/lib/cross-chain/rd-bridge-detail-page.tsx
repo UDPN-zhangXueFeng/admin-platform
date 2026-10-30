@@ -25,7 +25,6 @@ import {
   TabsTrigger,
 } from '@myorg/shared/ui';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
 import {
   CustomInformation,
   type CustomInformationItem,
@@ -43,8 +42,8 @@ import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
 } from '.';
+import { formatAdminTimestamp } from '../format-admin-time';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 /** 「全部」占位 value。 */
 const ALL_VALUE = 'all';
 
@@ -279,7 +278,7 @@ export function RdBridgeDetailPage(): React.JSX.Element {
         value: (
           <span>
             {detail.updateTime
-              ? formatDate(Number(detail.updateTime), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(detail.updateTime))
               : EMPTY_DISPLAY}
           </span>
         ),
@@ -408,7 +407,7 @@ export function RdBridgeDetailPage(): React.JSX.Element {
             label: t('field.createdTime'),
             value:
               d.createTime != null
-                ? formatDate(Number(d.createTime), DATETIME_FMT)
+                ? formatAdminTimestamp(Number(d.createTime))
                 : EMPTY_DISPLAY,
           },
         ],
@@ -518,7 +517,7 @@ export function RdBridgeDetailPage(): React.JSX.Element {
         cell: ({ row }) => (
           <span>
             {row.original.createTime
-              ? formatDate(Number(row.original.createTime), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(row.original.createTime))
               : EMPTY_DISPLAY}
           </span>
         ),

@@ -21,14 +21,12 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 
-import { formatDate } from '@myorg/shared/util-dates';
 import { Alert, Button, CopyableEllipsisText } from '@myorg/shared/ui';
 
 import { useKeySignedTransactionDetailQuery } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { transactionTypeLabelMap, signatureTypeMap } from '.';
 
-/** Timestamp display format, matching sibling pages. */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 interface MessagesAccessor {
   (key: string): string;
@@ -45,11 +43,6 @@ const TONE_CLASS: Record<string, string> = {
   default: 'border-border bg-muted text-muted-foreground',
 };
 
-/** Format a Unix timestamp (ms) in the shared portal column format. */
-function formatTimestamp(ts?: number): string {
-  if (!ts) return '--';
-  return formatDate(Number(ts), DATETIME_FMT);
-}
 
 /** Token Type label — falls back to the raw number for unknown codes. */
 function formatTokenType(
@@ -212,10 +205,10 @@ export function KeySignedTransactionsDetailPage() {
             )}
           </DetailItem>
           <DetailItem label={t('key_management_0102')}>
-            {formatTimestamp(detail.signatureTime)}
+            {formatAdminTimestamp(detail.signatureTime)}
           </DetailItem>
           <DetailItem label={t('key_management_0103')}>
-            {formatTimestamp(detail.submissionTime)}
+            {formatAdminTimestamp(detail.submissionTime)}
           </DetailItem>
           <DetailItem label={t('key_management_0078')}>
             {detail.transactionHash ? (

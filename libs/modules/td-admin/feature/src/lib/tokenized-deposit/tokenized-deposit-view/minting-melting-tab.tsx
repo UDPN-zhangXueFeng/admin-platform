@@ -10,7 +10,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../../format-admin-time';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { reSet } from '../re-set';
 import {
@@ -32,8 +32,6 @@ import {
 } from './record-filter-form';
 
 
-/** 时间戳格式（对齐源 formatTimestamp → 'YYYY-MM-DD HH:mm:ss'）。 */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 // ═════════════════════════════════════════════════════════════════════
 // Tab1：铸销记录 + Mint / Melt 按钮
@@ -141,13 +139,13 @@ export function MintingMeltingTab({
         ),
       },
       {
-        // PUB_CreateTime：createTime（源为时间戳，formatDate）
+        // PUB_CreateTime：createTime（源为时间戳，formatAdminTimestamp）
         accessorKey: 'createTime',
         header: t('PUB_CreateTime'),
         cell: ({ row }) => {
           const val = row.original.createTime;
           return (
-            <span>{val ? formatDate(Number(val), DATETIME_FMT) : EMPTY_DISPLAY}</span>
+            <span>{val ? formatAdminTimestamp(Number(val)) : EMPTY_DISPLAY}</span>
           );
         },
       },
@@ -168,7 +166,7 @@ export function MintingMeltingTab({
         cell: ({ row }) => {
           const val = row.original.reviewerTime;
           return (
-            <span>{val ? formatDate(Number(val), DATETIME_FMT) : EMPTY_DISPLAY}</span>
+            <span>{val ? formatAdminTimestamp(Number(val)) : EMPTY_DISPLAY}</span>
           );
         },
       },

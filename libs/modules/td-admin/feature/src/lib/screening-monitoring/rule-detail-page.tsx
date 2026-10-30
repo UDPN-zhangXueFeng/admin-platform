@@ -9,6 +9,7 @@ import { Button, DataTable, type DataTablePagination, Tabs, TabsList, TabsTrigge
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import type { RuleDetailItem, RuleOperationLog, RuleOperationRecord } from '@myorg/modules/td-admin/data-access';
 import { useRuleDetail, useRuleOperationLog, useRuleOperationRecords } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { ALL_VALUE, RULE_OPERATION_OPTIONS } from '.';
 import { ScreeningRiskLevelTag, ScreeningStatusBadge } from '.';
 
@@ -38,7 +39,7 @@ export function RuleDetailPage() {
             <KV label={t('screening_monitoring_0002')} value={detail.businessName} span={2} />
             <KV label={t('screening_monitoring_0003')} value={detail.monitorFrequencyName} />
             <KV label={t('screening_monitoring_0042')} value={detail.updateUser} span={2} />
-            <KV label={t('screening_monitoring_0043')} value={detail.updateDate ? new Date(Number(detail.updateDate)).toLocaleString() : '-'} />
+            <KV label={t('screening_monitoring_0043')} value={formatAdminTimestamp(Number(detail.updateDate))} />
             <KV label={tc('PUB_Status')} value={<ScreeningStatusBadge status={detail.status} variant="rule" />} span={2} />
           </div>
           <div className="bg-white p-4 mt-8 font-bold">{t('screening_monitoring_0040')}</div>
@@ -82,7 +83,7 @@ function OperationRecordsTab({ ruleId, t, tc, router }: { ruleId: number; t: (k:
   const cols: ColumnDef<RuleOperationRecord>[] = [
     { id: 'recordType', header: t('screening_monitoring_0047'), accessorKey: 'recordType', cell: ({ getValue }) => t(`rule_operation_type_${getValue<number>()}`) },
     { id: 'createUserName', header: tc('PUB_Creater'), accessorKey: 'createUserName' },
-    { id: 'createTime', header: tc('PUB_CreateTime'), accessorKey: 'createTime', cell: ({ getValue }) => { const v = getValue<string>(); return v ? new Date(Number(v)).toLocaleString() : '-'; } },
+    { id: 'createTime', header: tc('PUB_CreateTime'), accessorKey: 'createTime', cell: ({ getValue }) => formatAdminTimestamp(Number(getValue<string>())) },
     { id: 'state', header: tc('PUB_Status'), accessorKey: 'state', cell: ({ getValue }) => tc(`common_task_status_${getValue<number>()}`) },
     { id: 'actions', header: tc('PUB_Action'), cell: ({ row }) => <Button variant="link" className="h-auto p-0" onClick={() => router.push(`/approval-manage/view?id=${row.original.taskId}&busCode=${row.original.busCode}`)}>{tc('Router_0010_4_3')}</Button> },
   ];
@@ -103,7 +104,7 @@ function ExecutionLogTab({ ruleId, t, tc }: { ruleId: number; t: (k: string) => 
   const { data, isLoading } = useRuleOperationLog({ pageNum: pg.pageNum, pageSize: pg.pageSize, filters: qf as never });
   const cols: ColumnDef<RuleOperationLog>[] = [
     { id: 'taskId', header: t('screening_monitoring_0049'), accessorKey: 'taskId' },
-    { id: 'executionTime', header: t('screening_monitoring_0048'), accessorKey: 'executionTime', cell: ({ getValue }) => { const v = getValue<string>(); return v ? new Date(Number(v)).toLocaleString() : '-'; } },
+    { id: 'executionTime', header: t('screening_monitoring_0048'), accessorKey: 'executionTime', cell: ({ getValue }) => formatAdminTimestamp(Number(getValue<string>())) },
     { id: 'blockchainName', header: tc('PUB_Blockchain'), accessorKey: 'blockchainName' },
     { id: 'totalWalletsScanned', header: t('screening_monitoring_0050'), accessorKey: 'totalWalletsScanned' },
     { id: 'anomalousWallets', header: t('screening_monitoring_0051'), accessorKey: 'anomalousWallets' },

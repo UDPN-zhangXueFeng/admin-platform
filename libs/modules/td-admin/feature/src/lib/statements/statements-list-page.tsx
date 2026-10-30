@@ -17,7 +17,7 @@ import {
   DrawerTitle,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   useBlockchainListQuery,
   useCreateExportRuleMutation,
@@ -46,8 +46,6 @@ import {
   validateNotifyEmail,
 } from '.';
 import { ALL_VALUE } from './statements.constants';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 interface RuleFilterForm {
   tokenId: string;
@@ -275,9 +273,7 @@ export function StatementsListPage() {
         header: t('field.createTime'),
         cell: ({ row }) => (
           <span>
-            {row.original.createTime
-              ? formatDate(row.original.createTime, DATETIME_FMT)
-              : EMPTY_DISPLAY}
+            {formatAdminTimestamp(row.original.createTime)}
           </span>
         ),
       },
@@ -286,9 +282,7 @@ export function StatementsListPage() {
         header: t('field.lastExecutedTime'),
         cell: ({ row }) => (
           <span>
-            {row.original.lastExecutedTime
-              ? formatDate(row.original.lastExecutedTime, DATETIME_FMT)
-              : EMPTY_DISPLAY}
+            {formatAdminTimestamp(row.original.lastExecutedTime)}
           </span>
         ),
       },

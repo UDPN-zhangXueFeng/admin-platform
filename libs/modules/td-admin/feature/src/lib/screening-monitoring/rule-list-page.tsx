@@ -8,6 +8,7 @@ import { Button, DataTable, type DataTablePagination } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import type { RuleListItem } from '@myorg/modules/td-admin/data-access';
 import { useBusinessTypeList, useBlockchainOptions, useRuleList, useStablecoinOptions, useOperateRule } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { ALL_VALUE } from './screening-monitoring.constants';
 import { RULE_STATUS_OPTIONS } from '.';
 import { ScreeningStatusBadge } from '.';
@@ -40,7 +41,7 @@ export function RuleListPage() {
     { id: 'businessName', header: t('screening_monitoring_0002'), accessorKey: 'businessName' },
     { id: 'monitorFrequencyName', header: t('screening_monitoring_0003'), accessorKey: 'monitorFrequencyName' },
     { id: 'createUser', header: tc('PUB_Creater'), accessorKey: 'createUser' },
-    { id: 'createDate', header: tc('PUB_CreateTime'), accessorKey: 'createDate', cell: ({ getValue }) => { const v = getValue<string>(); return v ? new Date(Number(v)).toLocaleString() : '-'; } },
+    { id: 'createDate', header: tc('PUB_CreateTime'), accessorKey: 'createDate', cell: ({ getValue }) => formatAdminTimestamp(Number(getValue<string>())) },
     { id: 'status', header: tc('PUB_Status'), accessorKey: 'status', cell: ({ getValue }) => <ScreeningStatusBadge status={getValue<number>()} variant="rule" /> },
     {
       id: 'actions', header: tc('PUB_Action'), cell: ({ row }) => {

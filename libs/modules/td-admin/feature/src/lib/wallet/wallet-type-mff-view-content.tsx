@@ -18,6 +18,7 @@ import {
   type DailyYieldRow,
   type WalletTypeDetail,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { WalletStatusBadge } from '.';
 import {
   DEFAULT_PAGE_SIZE,
@@ -26,19 +27,16 @@ import {
 } from '.';
 import { WalletTypeDividendDrawer } from './wallet-type-dividend-drawer';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 const DATE_FMT = 'YYYY-MM-DD';
 
 const BASIC_TAB = 'basic';
 const DAILY_TAB = 'daily';
 
-/** 时间戳格式化（秒/毫秒自适应），无值返回占位。 */
-function formatTs(
-  ts?: number | string | null,
-  fmt = DATETIME_FMT
-): string {
+/** 时间戳格式化（秒/毫秒自适应），无值返回占位；fmt 传入时保留源 date-only 格式。 */
+function formatTs(ts?: number | string | null, fmt?: string): string {
   const ms = toMillis(typeof ts === 'string' ? Number(ts) : ts);
-  return ms ? formatDate(ms, fmt) : EMPTY_DISPLAY;
+  if (!ms) return EMPTY_DISPLAY;
+  return fmt ? formatDate(ms, fmt) : formatAdminTimestamp(ms);
 }
 
 /** 千分位 + 2 位小数（迁移自源 reSet）。 */

@@ -9,6 +9,7 @@
  * `startOfDay/endOfDay` 简化（mock 数据场景可接受；接后端后若需严格 UTC+8 再换 date-fns-tz）。
  */
 import { endOfDay, format, startOfDay } from 'date-fns';
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import { normalizeTextValue } from '.';
 import { toSafeNumber } from './chart-of-accounts-detail.utils';
 import type {
@@ -71,14 +72,11 @@ export function formatOptionalMoneyWithCurrency(
     : '--';
 }
 
-/** epoch ms → 'MMM d, yyyy HH:mm:ss'，无效返回 '--'。 */
+/** epoch ms → kissen-admin timestamp format (`Oct 30, 2026, 14:23:45 (UTC+8)`)，无效返回 '--'。 */
 export function formatTimestamp(value?: number): string {
   if (!value || value <= 0) return '--';
-  try {
-    return format(new Date(value), 'MMM d, yyyy HH:mm:ss');
-  } catch {
-    return '--';
-  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '--' : formatAdminDateTime(date);
 }
 
 /** epoch ms → 'MMM d, yyyy'（EOD 日期展示）。 */

@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ArrowRightCircle } from 'lucide-react';
 import { Button, CopyableEllipsisText } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
 import {
   useCrossChainTxDetailQuery,
   useCrossChainTxTreeQuery,
@@ -14,8 +13,7 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 import { EMPTY_DISPLAY } from '.';
 import { CrossChainStatusBadge } from '.';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /**
  * 区块链色块（迁移自源码 view.tsx 的 `<span style={{background: t('blockchain_code_color_${name}')}}>`）。
@@ -209,7 +207,7 @@ export function CrossChainTransactionsDetailPage(): React.JSX.Element {
         node: (
           <span>
             {createdOn != null
-              ? formatDate(Number(createdOn), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(createdOn))
               : EMPTY_DISPLAY}
           </span>
         ),
@@ -385,7 +383,7 @@ function renderDescription(args: {
           <BulletRow>
             <span>
               {node.txTime != null
-                ? formatDate(Number(node.txTime), DATETIME_FMT)
+                ? formatAdminTimestamp(Number(node.txTime))
                 : EMPTY_DISPLAY}
             </span>
           </BulletRow>
@@ -399,7 +397,7 @@ function renderDescription(args: {
           <BulletRow>
             <span>
               {node.txTime != null
-                ? formatDate(Number(node.txTime), DATETIME_FMT)
+                ? formatAdminTimestamp(Number(node.txTime))
                 : EMPTY_DISPLAY}
             </span>
           </BulletRow>
@@ -416,7 +414,7 @@ function renderDescription(args: {
           <BulletRow>
             <span>
               {node.txTime != null
-                ? formatDate(Number(node.txTime), DATETIME_FMT)
+                ? formatAdminTimestamp(Number(node.txTime))
                 : EMPTY_DISPLAY}
             </span>
           </BulletRow>
@@ -434,7 +432,7 @@ function renderDescription(args: {
           <BulletRow>
             <span>
               {node.txTime != null
-                ? formatDate(Number(node.txTime), DATETIME_FMT)
+                ? formatAdminTimestamp(Number(node.txTime))
                 : EMPTY_DISPLAY}
             </span>
           </BulletRow>
@@ -457,7 +455,7 @@ function renderDescription(args: {
         <BulletRow>
           <span>
             {node.txTime != null
-              ? formatDate(Number(node.txTime), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(node.txTime))
               : EMPTY_DISPLAY}
           </span>
         </BulletRow>

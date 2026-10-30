@@ -36,6 +36,7 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 import { ALL_VALUE, TRANSACTION_STATUS_OPTIONS } from '.';
 import { TransactionStatusBadge } from '.';
+import { formatAdminTimestamp, formatAdminDate } from '../format-admin-time';
 
 const PAGE_SIZE = 10;
 
@@ -57,7 +58,7 @@ function BasicInfo({ detail, t, tc }: { detail: TokenBillDetail; t: (k: string) 
         </div>
         <div>
           <dt className="text-sm text-muted-foreground">{t('interest_0067')}</dt>
-          <dd className="text-sm font-medium">{new Date(Number(detail.postTime)).toLocaleString()}</dd>
+          <dd className="text-sm font-medium">{formatAdminTimestamp(detail.postTime)}</dd>
         </div>
         <div>
           <dt className="text-sm text-muted-foreground">{t('interest_0084')}</dt>
@@ -113,7 +114,7 @@ function DetailRecordsTab({ tokenBillId, t, tc }: { tokenBillId: number; t: (k: 
       header: t('interest_00117'),
       accessorKey: 'feeStartDate',
       cell: ({ getValue, row }) =>
-        `${new Date(Number(getValue<string>())).toLocaleDateString()}-${new Date(Number(row.original.feeEndDate)).toLocaleDateString()}`,
+        `${formatAdminDate(getValue<string>())}-${formatAdminDate(row.original.feeEndDate)}`,
     },
     {
       id: 'postAccruedCount',
@@ -133,7 +134,7 @@ function DetailRecordsTab({ tokenBillId, t, tc }: { tokenBillId: number; t: (k: 
       accessorKey: 'txTime',
       cell: ({ getValue }) => {
         const v = getValue<string>();
-        return v ? new Date(Number(v)).toLocaleString() : '-';
+        return v ? formatAdminTimestamp(v) : '-';
       },
     },
     { id: 'txHash', header: t('interest_0077'), accessorKey: 'txHash' },
@@ -201,7 +202,7 @@ function OperationRecordsTab({ tokenBillId, tc }: { tokenBillId: number; tc: (k:
       accessorKey: 'createTime',
       cell: ({ getValue }) => {
         const v = getValue<string>();
-        return v ? new Date(Number(v)).toLocaleString() : '-';
+        return v ? formatAdminTimestamp(v) : '-';
       },
     },
     {

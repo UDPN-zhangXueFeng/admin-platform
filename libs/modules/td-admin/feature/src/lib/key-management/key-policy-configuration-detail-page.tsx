@@ -39,7 +39,6 @@ import {
   TabsTrigger,
 } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
 
 import {
   operationRecords,
@@ -48,6 +47,7 @@ import {
   type OperationRecord,
   type PolicyDetail,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { keyPolicyStatusMap, operationRecordStatusMap } from '.';
 import { operationTypeOptions } from './constants';
 
@@ -138,7 +138,7 @@ export function KeyPolicyConfigurationDetailPage() {
       rotationTime: match.rotationTime,
       rotationMethods: match.rotationMethods,
       createdBy: detailExample ? policyDetail.createdBy : undefined,
-      createdOn: match.createdOn ? formatDate(Number(match.createdOn), 'YYYY-MM-DD HH:mm:ss') : undefined,
+      createdOn: match.createdOn ? formatAdminTimestamp(Number(match.createdOn)) : undefined,
       updatedBy: detailExample ? policyDetail.updatedBy : undefined,
       updatedOn: detailExample ? policyDetail.updatedOn : undefined,
     };

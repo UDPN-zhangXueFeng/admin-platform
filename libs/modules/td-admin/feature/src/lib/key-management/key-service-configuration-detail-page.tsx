@@ -33,7 +33,6 @@ import {
   TabsTrigger,
 } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
 import {
   MASKED_VALUE,
   isSensitiveParameterKey,
@@ -44,13 +43,12 @@ import {
   useKeyServiceOperationRecordsQuery,
   type KeyServiceOperationRecord,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   keyServiceOperationStatusToneMap,
   keyServiceStatusToneMap,
 } from './constants';
 
-/** Timestamp column format, matching sibling pages. */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /** Semantic tone → tailwind badge classes (status tone map values). */
 const TONE_CLASS: Record<string, string> = {
@@ -61,10 +59,9 @@ const TONE_CLASS: Record<string, string> = {
   default: 'border-border bg-muted text-muted-foreground',
 };
 
-/** Format a Unix timestamp (ms) in the shared portal column format. */
+/** Timestamp renders follow the kissen-admin convention via the shared helper. */
 function formatTimestamp(ts?: number): string {
-  if (!ts) return '--';
-  return formatDate(Number(ts), DATETIME_FMT);
+  return formatAdminTimestamp(ts);
 }
 
 interface DetailItemProps {

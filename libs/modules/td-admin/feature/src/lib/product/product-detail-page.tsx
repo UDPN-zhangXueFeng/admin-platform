@@ -33,6 +33,7 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 import { ProductAvatar, ProductStatusBadge } from '.';
 import { PRODUCT_PERMISSIONS } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 interface ProductDetailPageProps {
   projectId: string;
@@ -157,7 +158,7 @@ export function ProductDetailPage({
                 {t('createdAt')}
               </dt>
               <dd className="text-sm">
-                {new Date(item.createdAt).toLocaleDateString()}
+                {formatAdminTimestamp(item.createdAt)}
               </dd>
             </div>
           </dl>

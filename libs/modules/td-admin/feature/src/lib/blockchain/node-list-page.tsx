@@ -20,7 +20,6 @@ import {
   SelectValue,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
 import { PermissionGuard } from '@myorg/shared/util-auth';
 import {
   useBlockchainListQuery,
@@ -40,8 +39,7 @@ import {
 } from '.';
 import { ALL_VALUE } from './blockchain.constants';
 import { NodeDeleteModal } from './node-delete-modal';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /**
  * 删除确认 Modal 所需上下文（由 bc-10 的 NodeDeleteModal 消费）。
@@ -285,7 +283,7 @@ export function NodeListPage(): React.JSX.Element {
         cell: ({ row }) => (
           <span>
             {row.original.createTime
-              ? formatDate(row.original.createTime, DATETIME_FMT)
+              ? formatAdminTimestamp(row.original.createTime)
               : EMPTY_DISPLAY}
           </span>
         ),

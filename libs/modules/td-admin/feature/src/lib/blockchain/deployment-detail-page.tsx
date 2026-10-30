@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
 import {
   useDeploymentDetailQuery,
   type DeploymentContractRow,
@@ -15,8 +14,7 @@ import {
   CONTRACT_NAME_LABEL_KEY_PREFIX,
   EMPTY_DISPLAY,
 } from '.';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /**
  * 状态列写死 success（源码 deployment/view.tsx:83-88 遗留：
@@ -160,7 +158,7 @@ export function DeploymentDetailPage() {
 
   const deployTime = detail?.deployTime;
   const deployTimeText = deployTime
-    ? formatDate(deployTime, DATETIME_FMT)
+    ? formatAdminTimestamp(deployTime)
     : EMPTY_DISPLAY;
 
   return (

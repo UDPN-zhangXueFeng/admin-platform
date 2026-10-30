@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable, toast } from '@myorg/shared/ui';
 import { downloadExportFile, useExportTaskList, type ExportTask } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /** exportState → 静态 Tailwind 类名（动态拼接会被 JIT 清理，故预声明完整类串）。 */
 const STATUS_TONE: Record<number, string> = {
@@ -52,7 +53,7 @@ export function DataExportPage() {
       { accessorKey: 'moduleType', header: t('financial_0056'), cell: ({ row }) => t(`module_type_${row.original.moduleType}`) },
       { accessorKey: 'fileId', header: t('financial_0076') },
       { accessorKey: 'fileHash', header: t('financial_0040'), cell: ({ row }) => row.original.fileHash || '--' },
-      { accessorKey: 'exportTime', header: t('financial_0055'), cell: ({ row }) => new Date(Number(row.original.exportTime)).toLocaleString() },
+      { accessorKey: 'exportTime', header: t('financial_0055'), cell: ({ row }) => formatAdminTimestamp(row.original.exportTime) },
       { accessorKey: 'exportUserName', header: tc('PUB_Creater'), cell: ({ row }) => row.original.exportUserName || '--' },
       {
         accessorKey: 'exportState',

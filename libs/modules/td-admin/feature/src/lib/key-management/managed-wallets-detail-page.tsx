@@ -31,7 +31,6 @@ import {
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
 import { FormSelect } from '@myorg/shared/ui-forms';
 
 import {
@@ -40,14 +39,13 @@ import {
   type WalletRotationHistory,
   type WalletRotationHistoryFilters,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   roleNameMap,
   walletStatusMap,
 } from '.';
 import { rotationStatusMap } from './constants';
 
-/** Timestamp display format, matching sibling pages. */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /** Table row handed to DataTable — wire item plus its client-side row id. */
 type HistoryRow = WalletRotationHistory & { id: string };
@@ -61,10 +59,9 @@ const TONE_CLASS: Record<string, string> = {
   default: 'border-border bg-muted text-muted-foreground',
 };
 
-/** Format a Unix timestamp (ms) in the shared portal column format. */
+/** Timestamp renders follow the kissen-admin convention via the shared helper. */
 function formatTimestamp(ts?: number): string {
-  if (!ts) return '--';
-  return formatDate(Number(ts), DATETIME_FMT);
+  return formatAdminTimestamp(ts);
 }
 
 

@@ -17,7 +17,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   usePostingEventDetailQuery,
   usePostingHistoryListQuery,
@@ -36,7 +36,6 @@ import {
   toMillis,
 } from '.';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 const BASIC_TAB = 'basic-information';
 const HISTORY_TAB = 'version-history';
 
@@ -47,8 +46,7 @@ function parseId(raw?: string | null): number | undefined {
 }
 
 function formatTs(ts?: number): string {
-  const ms = toMillis(ts);
-  return ms ? formatDate(ms, DATETIME_FMT) : EMPTY_DISPLAY;
+  return formatAdminTimestamp(toMillis(ts));
 }
 
 interface KvRow {

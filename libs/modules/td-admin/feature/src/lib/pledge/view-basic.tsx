@@ -31,7 +31,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   PledgeAssetCategoryPieChart,
   PledgeStatusBadge,
@@ -40,7 +40,6 @@ import {
 import type { ReserveAssetDetail } from '@myorg/modules/td-admin/data-access';
 import type { ViewBasicProps } from './reserve-asset-detail-page';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 const EMPTY_DISPLAY = '--';
 const SUMMARY_PAGE_SIZE = 5;
 
@@ -107,7 +106,7 @@ export function ViewBasic({
   // 创建时间格式化（源 createdOnText useMemo）
   const createdOnText = React.useMemo(() => {
     if (!basicInfo.createdOn) return EMPTY_DISPLAY;
-    return formatDate(basicInfo.createdOn, DATETIME_FMT);
+    return formatAdminTimestamp(basicInfo.createdOn);
   }, [basicInfo.createdOn]);
 
   // Summary 表列定义（源 reserveSummaryColumns）
@@ -142,9 +141,7 @@ export function ViewBasic({
         header: t('viewBasic.summaryUpdatedOn'),
         cell: ({ row }) => (
           <span>
-            {row.original.updatedOn
-              ? formatDate(row.original.updatedOn, DATETIME_FMT)
-              : EMPTY_DISPLAY}
+            {formatAdminTimestamp(row.original.updatedOn)}
           </span>
         ),
       },

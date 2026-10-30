@@ -6,6 +6,7 @@ export * from './lib/blockchain';
 export * from './lib/chart-of-accounts';
 export * from './lib/cross-chain';
 export * from './lib/data-export';
+export * from './lib/format-admin-time';
 export * from './lib/interest';
 export * from './lib/inventory';
 export * from './lib/journal-entries';

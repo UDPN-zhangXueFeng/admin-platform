@@ -39,7 +39,6 @@ import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
-import { formatDate } from '@myorg/shared/util-dates';
 import { Alert, Button, DataTable, Input } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
 
@@ -47,10 +46,9 @@ import {
   useUserWalletsQuery,
   type UserWalletItem,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { walletStatusMap, kycConfig } from '.';
 
-/** Timestamp column format, matching sibling list pages. */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /** Non-empty sentinel for the "All" option. */
 const ALL_VALUE = 'all';
@@ -248,10 +246,7 @@ export function UserWalletsListPage() {
       {
         accessorKey: 'createTime',
         header: t('key_management_0005'),
-        cell: ({ getValue }) => {
-          const ts = getValue() as number | undefined;
-          return ts ? formatDate(Number(ts), DATETIME_FMT) : '--';
-        },
+        cell: ({ getValue }) => formatAdminTimestamp(getValue() as number | undefined),
       },
       {
         accessorKey: 'state',

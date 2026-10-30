@@ -19,7 +19,7 @@ import {
   type DataTablePagination,
 } from '@myorg/shared/ui';
 import { DatePicker } from '@myorg/shared/ui-forms';
-import { formatAdminDateTime } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   useAbcCount,
@@ -373,7 +373,7 @@ export function StatisticsReportsPage() {
     }
   };
 
-  const asOfTime = React.useMemo(() => formatAdminDateTime(new Date()), []);
+  const asOfTime = React.useMemo(() => formatAdminTimestamp(new Date()), []);
 
   const overviewTitle = isStablecoin
     ? t('statistics_reports_0006')

@@ -7,8 +7,6 @@
  */
 import { reSet } from '../re-set';
 
-/** 时间戳格式（对齐源 formatTimestamp → 'YYYY-MM-DD HH:mm:ss'）。 */
-export const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /** 审批详情路由（跨模块跳转，源 pathname '/approval-manage/view'）。 */
 export const APPROVAL_VIEW_ROUTE = '/approval-manage/view';

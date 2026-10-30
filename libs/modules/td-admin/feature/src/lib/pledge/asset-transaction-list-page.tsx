@@ -9,7 +9,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Button, DataTable, Input } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   useAssetCategoryListQuery,
   useCurrencyListQuery,
@@ -25,7 +25,6 @@ import {
 } from '.';
 import { ALL_VALUE } from './pledge.constants';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 const EMPTY_DISPLAY = '--';
 
 /**
@@ -312,9 +311,7 @@ export function AssetTransactionListPage(): React.JSX.Element {
           const { createdTime } = row.original;
           return (
             <span>
-              {createdTime
-                ? formatDate(Number(createdTime), DATETIME_FMT)
-                : EMPTY_DISPLAY}
+              {formatAdminTimestamp(Number(createdTime))}
             </span>
           );
         },

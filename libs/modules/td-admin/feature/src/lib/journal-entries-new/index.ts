@@ -16,7 +16,6 @@ export {
   DEFAULT_PAGE_SIZE,
   FIXED_TOKEN_TYPES,
   TRANSACTION_TYPE_VALUES,
-  JOURNAL_DATETIME_FORMAT,
   ALL_VALUE,
   normalizeTextValue,
   resolveTokenTypeMessageKey,

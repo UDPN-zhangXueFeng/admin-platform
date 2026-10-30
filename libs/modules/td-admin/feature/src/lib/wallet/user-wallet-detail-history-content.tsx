@@ -4,12 +4,12 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
 import {
   useUserAuthorizationQuery,
   useUserAuthorizedQuery,
   type AuthRecord,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { WalletStatusBadge } from '.';
 import {
   DEFAULT_PAGE_SIZE,
@@ -17,14 +17,9 @@ import {
   toMillis,
 } from '.';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 const AUTH_TAB = 'authorization';
 const AUTHORIZED_TAB = 'authorized';
 
-function formatTs(ts?: number | string | null): string {
-  const ms = toMillis(typeof ts === 'string' ? Number(ts) : ts);
-  return ms ? formatDate(ms, DATETIME_FMT) : EMPTY_DISPLAY;
-}
 
 /**
  * UserWalletDetailHistoryContent — 用户钱包授权历史 history 变体（2 tab）。
@@ -167,7 +162,17 @@ function buildAuthColumns(
     {
       id: 'operationTime',
       header: t('userWallet.column.operationTime'),
-      cell: ({ row }) => <span>{formatTs(row.original.operationTime)}</span>,
+      cell: ({ row }) => (
+        <span>
+          {formatAdminTimestamp(
+            toMillis(
+              typeof row.original.operationTime === 'string'
+                ? Number(row.original.operationTime)
+                : row.original.operationTime,
+            ),
+          )}
+        </span>
+      ),
     },
     {
       id: 'status',

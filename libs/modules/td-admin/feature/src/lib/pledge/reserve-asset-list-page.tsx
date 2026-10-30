@@ -24,7 +24,7 @@ import {
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { useChangeReserveAssetStatusMutation, type AssetCategory, type ReserveAssetListItem, type ReserveAssetListQuery } from '@myorg/modules/td-admin/data-access';
 import { useCurrencyListQuery, useReserveAssetListQuery } from '@myorg/modules/td-admin/data-access/lib/pledge';
 import {
@@ -39,8 +39,6 @@ import {
 } from '.';
 import { ALL_VALUE } from './pledge.constants';
 import { ReserveAssetDrawer, type DrawerState } from './reserve-asset-drawer';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /**
  * DataTable 契约要求行带 `id: string`。源列表行以 reserveAccountId 为 key，
@@ -435,9 +433,7 @@ export function ReserveAssetListPage(): React.JSX.Element {
         header: t('field.createTime'),
         cell: ({ row }) => (
           <span>
-            {row.original.createTime
-              ? formatDate(Number(row.original.createTime), DATETIME_FMT)
-              : PREVIEW_EMPTY}
+            {formatAdminTimestamp(Number(row.original.createTime))}
           </span>
         ),
       },

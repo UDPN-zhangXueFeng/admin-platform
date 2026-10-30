@@ -14,13 +14,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
 import { TokenizedDepositStatusBadge } from './tokenized-deposit-status-badge';
 import {
   EMPTY_DISPLAY,
   type RoleWalletItem,
 } from '@myorg/modules/td-admin/data-access';
-import { DATETIME_FMT } from './role-wallets-columns';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 interface RoleWalletDetailModalProps {
   open: boolean;
@@ -93,10 +92,7 @@ export function RoleWalletDetailModal({
                   {t('PUB_CreatedTime')}:
                 </span>{' '}
                 {selectedWallet.createdTime
-                  ? formatDate(
-                      Number(selectedWallet.createdTime),
-                      DATETIME_FMT,
-                    )
+                  ? formatAdminTimestamp(Number(selectedWallet.createdTime))
                   : EMPTY_DISPLAY}
               </div>
               <div>
@@ -104,10 +100,7 @@ export function RoleWalletDetailModal({
                   {t('tokenized_deposit_0052')}:
                 </span>{' '}
                 {selectedWallet.updatedTime
-                  ? formatDate(
-                      Number(selectedWallet.updatedTime),
-                      DATETIME_FMT,
-                    )
+                  ? formatAdminTimestamp(Number(selectedWallet.updatedTime))
                   : EMPTY_DISPLAY}
               </div>
             </div>
@@ -182,7 +175,7 @@ function operationHistoryColumns(
       cell: ({ row }) => (
         <span>
           {row.original.timestamp
-            ? formatDate(Number(row.original.timestamp), DATETIME_FMT)
+            ? formatAdminTimestamp(Number(row.original.timestamp))
             : EMPTY_DISPLAY}
         </span>
       ),

@@ -23,6 +23,7 @@ import {
   useAccrualHistoryList,
   useAccrualRecordDetail,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp, formatAdminDate } from '../format-admin-time';
 
 const PAGE_SIZE = 10;
 
@@ -52,11 +53,11 @@ function AccrualBasicInfo({
         </div>
         <div>
           <dt className="text-sm text-muted-foreground">{t('interest_0065')}</dt>
-          <dd className="text-sm font-medium">{new Date(Number(detail.accrualTime)).toLocaleString()}</dd>
+          <dd className="text-sm font-medium">{formatAdminTimestamp(detail.accrualTime)}</dd>
         </div>
         <div>
           <dt className="text-sm text-muted-foreground">{t('interest_0081')}</dt>
-          <dd className="text-sm font-medium">{new Date(Number(detail.feePeriod)).toLocaleDateString()}</dd>
+          <dd className="text-sm font-medium">{formatAdminDate(detail.feePeriod)}</dd>
         </div>
         <div>
           <dt className="text-sm text-muted-foreground">{t('interest_0084')}</dt>

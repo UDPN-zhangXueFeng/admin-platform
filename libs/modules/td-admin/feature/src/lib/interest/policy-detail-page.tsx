@@ -41,6 +41,7 @@ import {
   InterestStatusBadge,
   InterestTierTable,
 } from '.';
+import { formatAdminTimestamp, formatAdminDate } from '../format-admin-time';
 
 const PAGE_SIZE = 10;
 
@@ -90,7 +91,7 @@ function PolicyBasicInfo({ detail, t }: { detail: InterestRuleDetail; t: (k: str
 
         <InfoItem
           label={t('interest_0003')}
-          value={detail.effectiveTime ? new Date(Number(detail.effectiveTime)).toLocaleDateString() : '-'}
+          value={detail.effectiveTime ? formatAdminDate(detail.effectiveTime) : '-'}
           span={isDeposit ? 3 : 2}
         />
 
@@ -116,7 +117,7 @@ function PolicyBasicInfo({ detail, t }: { detail: InterestRuleDetail; t: (k: str
         <InfoItem label={t('interest_0016')} value={detail.updateUserName ?? '-'} />
         <InfoItem
           label={t('interest_0017')}
-          value={detail.updateTime ? new Date(Number(detail.updateTime)).toLocaleString() : '-'}
+          value={detail.updateTime ? formatAdminTimestamp(detail.updateTime) : '-'}
           span={2}
         />
 
@@ -202,7 +203,7 @@ function OperationRecordsTab({ interestRuleId, t, tc }: { interestRuleId: number
       accessorKey: 'createTime',
       cell: ({ getValue }) => {
         const val = getValue<string>();
-        return val ? new Date(Number(val)).toLocaleString() : '-';
+        return val ? formatAdminTimestamp(val) : '-';
       },
     },
     {

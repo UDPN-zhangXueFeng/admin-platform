@@ -3,7 +3,8 @@
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, Pie, PieChart, Cell, XAxis, YAxis } from 'recharts';
-import { formatDate, formatAdminDateTime } from '@myorg/shared/util-dates';
+import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   fetchStablecoinsOverview,
   fetchStablecoinList,
@@ -118,7 +119,7 @@ export async function downloadStatisticsReport({ tokenTypeId, dateRange, locale,
     popup.document.head.append(style);
     flushSync(() => root.render(<>
       <button className="print-action" onClick={() => popup.print()}>{m('printReport')}</button>
-      <header><h1>{m(overviewKey)}</h1><p>{formatDate(dateRange[0], 'yyyy-MM-dd')} {m('statistics_reports_0044')} {formatDate(dateRange[1], 'yyyy-MM-dd')}</p><p>{m('statistics_reports_0034')} {formatAdminDateTime(new Date())}</p></header>
+      <header><h1>{m(overviewKey)}</h1><p>{formatDate(dateRange[0], 'yyyy-MM-dd')} {m('statistics_reports_0044')} {formatDate(dateRange[1], 'yyyy-MM-dd')}</p><p>{m('statistics_reports_0034')} {formatAdminTimestamp(new Date())}</p></header>
       {!overview && <p>{m('statistics_reports_0043')}</p>}
       <div className="overview">{overviewCards.map(card => <section key={card.title}><h2>{card.title}</h2><strong>{card.count}</strong>{!!card.data?.length && <><PieChart width={200} height={160}><Pie data={card.data.map(row => ({ name: row.tokenName, value: Number(row.count) }))} dataKey="value" nameKey="name" innerRadius={35} outerRadius={65} isAnimationActive={false}>{card.data.map((row, index) => <Cell key={row.tokenName} fill={COLORS[index % COLORS.length]} />)}</Pie></PieChart><ul>{card.data.map(row => <li key={row.tokenName}>{row.tokenName}: {row.count}</li>)}</ul></>}</section>)}</div>
       {reports.map(report => <article className="coin" key={report.coin.stablecoinId}><h2>{report.coin.name} ({report.coin.blockchainNameAbbreviation})</h2><CoinCharts report={report} messages={messages} /></article>)}

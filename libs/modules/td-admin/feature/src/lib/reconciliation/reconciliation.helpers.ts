@@ -8,12 +8,6 @@
 
 import { EMPTY_FIELD_VALUE } from './reconciliation.constants';
 
-/** 日期时间格式（与 approval-manage DATETIME_FMT 一致）。 */
-export const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
-
-/** 纯日期格式。 */
-export const DATE_FMT = 'YYYY-MM-DD';
-
 /**
  * 格式化时间戳字符串。空值返回占位。
  * 非空值原样返回（后端已格式化为字符串）；如需重排格式由调用方用 `formatDate`。

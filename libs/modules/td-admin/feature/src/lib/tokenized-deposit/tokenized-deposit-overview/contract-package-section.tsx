@@ -18,7 +18,7 @@ import {
   TooltipTrigger,
 } from '@myorg/shared/ui';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../../format-admin-time';
 import {
   EMPTY_DISPLAY,
   TD_PERMISSIONS,
@@ -33,8 +33,6 @@ import {
   TokenizedDepositStatusBadge,
 } from '..';
 
-/** 时间戳格式（对齐源 formatTimestamp → 'YYYY-MM-DD HH:mm:ss'）。 */
-export const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 // ═══════════════════════════════════════════════════════════════════
 // 合约包表（useContractPackageQuery）+ DeploymentHistory 按钮
@@ -130,7 +128,7 @@ export function ContractPackageSection({
         cell: ({ getValue }) => {
           const val = getValue<number>();
           return (
-            <span>{val ? formatDate(val, DATETIME_FMT) : EMPTY_DISPLAY}</span>
+            <span>{val ? formatAdminTimestamp(val) : EMPTY_DISPLAY}</span>
           );
         },
       },
@@ -141,7 +139,7 @@ export function ContractPackageSection({
         cell: ({ getValue }) => {
           const val = getValue<number>();
           return (
-            <span>{val ? formatDate(val, DATETIME_FMT) : EMPTY_DISPLAY}</span>
+            <span>{val ? formatAdminTimestamp(val) : EMPTY_DISPLAY}</span>
           );
         },
       },

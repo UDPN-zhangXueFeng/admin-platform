@@ -9,17 +9,16 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
 import { Button, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import { JournalTxHashCell } from '.';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { useJournalListQuery, type JournalListFilters, type JournalListParams } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainListQuery, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/journal-entries-new';
 import type { JournalEntry } from '@myorg/modules/td-admin/data-access/lib/journal-entries-new';
 import {
   DEFAULT_PAGE_SIZE,
   FIXED_TOKEN_TYPES,
-  JOURNAL_DATETIME_FORMAT,
   JOURNAL_ENTRIES_PERMISSIONS,
   TRANSACTION_TYPE_VALUES,
   normalizeTextValue,
@@ -259,7 +258,7 @@ export function JournalEntriesNewListPage() {
         cell: ({ row }) => {
           const ts = row.original.transactionTime;
           if (!ts) return <span>{EMPTY_DISPLAY}</span>;
-          return <span>{formatDate(ts, JOURNAL_DATETIME_FORMAT)}</span>;
+          return <span>{formatAdminTimestamp(ts)}</span>;
         },
       },
       {

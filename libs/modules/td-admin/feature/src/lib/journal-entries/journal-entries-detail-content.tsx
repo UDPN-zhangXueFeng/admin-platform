@@ -9,7 +9,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   useBillTxListQuery,
   useCreateBillExportTaskMutation,
@@ -25,8 +25,6 @@ import {
 } from '.';
 import { ALL_VALUE } from './journal-entries.constants';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
-
 function parseId(raw: string | null | undefined): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
@@ -34,7 +32,7 @@ function parseId(raw: string | null | undefined): number | undefined {
 }
 
 function formatTime(ts?: number): string {
-  return ts ? formatDate(ts, DATETIME_FMT) : EMPTY_DISPLAY;
+  return formatAdminTimestamp(ts);
 }
 
 interface TxFilterForm {

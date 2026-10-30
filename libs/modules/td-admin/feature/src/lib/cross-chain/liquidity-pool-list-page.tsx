@@ -18,7 +18,6 @@ import {
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
 import { CrossChainStatusBadge } from '.';
 import { useLiquidityPoolListQuery, type LiquidityPoolItem, type LiquidityPoolListFilters } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainListQuery, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/cross-chain';
@@ -32,8 +31,8 @@ import {
   type LiquidityPoolAction,
   type LiquidityPoolModalInfo,
 } from './liquidity-pool-action-modal';
+import { formatAdminTimestamp } from '../format-admin-time';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 /** 「全部」占位 value（对齐 cct / fx-rate / rd-bridge 列表筛选约定）。 */
 const ALL_VALUE = 'all';
 
@@ -273,7 +272,7 @@ export function LiquidityPoolListPage(): React.JSX.Element {
         cell: ({ row }) => (
           <span>
             {row.original.updatedOn
-              ? formatDate(Number(row.original.updatedOn), DATETIME_FMT)
+              ? formatAdminTimestamp(Number(row.original.updatedOn))
               : EMPTY_DISPLAY}
           </span>
         ),

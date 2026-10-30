@@ -31,6 +31,7 @@ import {
 } from '.';
 import { ALL_VALUE } from './interest.constants';
 import { TransactionStatusBadge } from '.';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 const PAGE_SIZE = 10;
 
@@ -99,7 +100,7 @@ export function TransactionsListPage() {
       accessorKey: 'postTime',
       cell: ({ getValue }) => {
         const v = getValue<string>();
-        return v ? new Date(Number(v)).toLocaleString() : '-';
+        return v ? formatAdminTimestamp(v) : '-';
       },
     },
     { id: 'tokenName', header: t('interest_0062'), accessorKey: 'tokenName' },

@@ -27,7 +27,7 @@
  * - tokenized_deposit_0049：blockchainName
  * - tokenized_deposit_0053：walletAddress（源无 Copy，但地址长，加 Copy + ellipsis 提升可读性）
  * - tokenized_deposit_0051：balance → '∞' 或 balance + ' ' + unit
- * - tokenized_deposit_0052：updateTime → formatDate
+ * - tokenized_deposit_0052：updateTime → formatAdminTimestamp
  *
  * 源 walletAddress 列无 render（纯文本），但钱包地址普遍超长，迁移时统一用
  * TokenizedDepositCopy ellipsis（与 SP 记录表 walletAddress 列保持一致）。

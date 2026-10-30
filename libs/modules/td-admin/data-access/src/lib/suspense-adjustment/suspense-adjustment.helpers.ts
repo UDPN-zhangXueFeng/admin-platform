@@ -8,6 +8,7 @@
  * 依赖业务 Domain Model 的转换（getSuspenseAccountLine / getOffsettingEntryFor
  * / buildAdjustPayload）在 data-access 层——util 不可依赖 data-access（层级约束）。
  */
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
 import {
   ADJUSTMENT_STATUS_CODE_MAP,
   AGE_DANGER_THRESHOLD,
@@ -167,19 +168,7 @@ export const formatCreatedOnDateTime = (
     return typeof value === 'string' ? value : undefined;
   }
 
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Shanghai',
-    month: 'short',
-    day: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
-    .format(date)
-    .replace(/\s(\d{2}):/, ' $1:')
-    .concat(' (UTC+8)');
+  return formatAdminDateTime(date);
 };
 
 /** YYYY-MM-DD → 当日 epoch millis（UTC 00:00:00.000）。用于构造列表查询与 /adjust 的日期入参。 */

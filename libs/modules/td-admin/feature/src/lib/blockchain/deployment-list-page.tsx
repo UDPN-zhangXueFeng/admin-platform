@@ -15,7 +15,6 @@ import {
   SelectValue,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
 import { PermissionGuard } from '@myorg/shared/util-auth';
 import {
   useBlockchainListQuery,
@@ -34,8 +33,7 @@ import {
   TOKEN_TYPE_LABEL_KEY_PREFIX,
 } from '.';
 import { ALL_VALUE } from './blockchain.constants';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /**
  * 状态列写死 success（源码 deployment/index.tsx:147-152 遗留：
@@ -249,7 +247,7 @@ export function DeploymentListPage() {
         cell: ({ row }) => (
           <span>
             {row.original.deployTime
-              ? formatDate(row.original.deployTime, DATETIME_FMT)
+              ? formatAdminTimestamp(row.original.deployTime)
               : EMPTY_DISPLAY}
           </span>
         ),

@@ -7,14 +7,13 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   useOperateRecordListQuery,
   type OperateRecord,
 } from '@myorg/modules/td-admin/data-access';
 import { OPERATE_TYPE_OPTIONS, OP_RECORD_STATUS } from '.';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 const EMPTY_DISPLAY = '--';
 const TAB_PAGE_SIZE = 6;
 
@@ -136,9 +135,7 @@ export function ViewOperationRecords({
           const { createTime } = row.original;
           return (
             <span>
-              {createTime
-                ? formatDate(Number(createTime), DATETIME_FMT)
-                : EMPTY_DISPLAY}
+              {formatAdminTimestamp(Number(createTime))}
             </span>
           );
         },

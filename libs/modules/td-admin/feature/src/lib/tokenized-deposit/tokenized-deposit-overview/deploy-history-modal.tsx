@@ -37,7 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../../format-admin-time';
 import { EMPTY_DISPLAY } from '@myorg/modules/td-admin/data-access';
 import type {
   ContractDetailItem,
@@ -45,8 +45,6 @@ import type {
 } from '@myorg/modules/td-admin/data-access';
 import { TokenizedDepositCopy } from '..';
 
-/** 时间戳格式（源 formatTimestamp → 'YYYY-MM-DD HH:mm:ss'）。 */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /**
  * 部署历史明细行（源 detailList 元素）。
@@ -216,7 +214,7 @@ export function DeployHistoryModal({
         </div>
         <div className="mb-4 ml-2">
           {history?.deployTime
-            ? formatDate(history.deployTime, DATETIME_FMT)
+            ? formatAdminTimestamp(history.deployTime)
             : EMPTY_DISPLAY}
         </div>
 

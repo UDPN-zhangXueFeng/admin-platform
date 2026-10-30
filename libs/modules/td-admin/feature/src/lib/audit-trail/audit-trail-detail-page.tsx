@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import { Button, CopyableEllipsisText } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 import {
   useAuditTrailDetailQuery,
@@ -18,8 +18,6 @@ import {
   resolveTokenTypeMessageKey,
   resolveTxTypeMessageKey,
 } from '.';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 interface KvRow {
   key: string;
@@ -38,7 +36,7 @@ function formatJson(value?: string): string {
 }
 
 function formatTime(ts?: number): string {
-  return ts ? formatDate(ts, DATETIME_FMT) : EMPTY_DISPLAY;
+  return ts ? formatAdminTimestamp(ts) : EMPTY_DISPLAY;
 }
 
 /**
@@ -276,7 +274,7 @@ function AuditLogCard({
     <div className="rounded-md border p-4">
       <div className="mb-3 text-sm font-medium text-muted-foreground">
         {log.serviceName || EMPTY_DISPLAY}{' '}
-        {log.requestTime ? formatDate(log.requestTime, DATETIME_FMT) : ''}
+        {log.requestTime ? formatAdminTimestamp(log.requestTime) : ''}
       </div>
       <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
         {items.map((item) => (

@@ -13,7 +13,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   usePostingBookDetailQuery,
   usePostingEventListQuery,
@@ -31,7 +31,6 @@ import {
   toMillis,
 } from '.';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 const BASIC_TAB = 'basic-information';
 const MATRIX_TAB = 'posting-engine-matrix';
 
@@ -44,8 +43,7 @@ function parseId(raw?: string | null): number | undefined {
 
 /** 时间戳格式化（秒/毫秒自适应），无值返回占位。 */
 function formatTs(ts?: number): string {
-  const ms = toMillis(ts);
-  return ms ? formatDate(ms, DATETIME_FMT) : EMPTY_DISPLAY;
+  return formatAdminTimestamp(toMillis(ts));
 }
 
 /** 解析事件的借贷方向展示行（entryDirection 优先，否则从 mappings 重建）。 */

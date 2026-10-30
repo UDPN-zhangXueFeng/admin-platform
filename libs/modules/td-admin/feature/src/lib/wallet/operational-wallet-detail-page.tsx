@@ -14,7 +14,6 @@ import {
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
 import {
   useOperationalOpRecordQuery,
   useOperationalTxQuery,
@@ -22,6 +21,7 @@ import {
   type OperationalOpRecord,
   type OperationalTx,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 import { WalletStatusBadge } from '.';
 import {
   accountTypeMessageKey,
@@ -32,7 +32,6 @@ import {
   toMillis,
 } from '.';
 
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 const BASIC_TAB = 'basic-information';
 const TX_TAB = 'transactions';
 const OP_RECORD_TAB = 'operation-records';
@@ -44,10 +43,9 @@ function parseId(raw?: string | null): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
-/** 时间戳格式化（秒/毫秒自适应），无值返回占位。 */
+/** 时间戳格式化（秒/毫秒自适应），无值返回占位（kissen-admin 约定）。 */
 function formatTs(ts?: number | string | null): string {
-  const ms = toMillis(typeof ts === 'string' ? Number(ts) : ts);
-  return ms ? formatDate(ms, DATETIME_FMT) : EMPTY_DISPLAY;
+  return formatAdminTimestamp(toMillis(typeof ts === 'string' ? Number(ts) : ts));
 }
 
 interface KvRow {

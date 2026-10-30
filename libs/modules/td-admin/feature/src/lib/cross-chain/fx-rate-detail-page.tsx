@@ -9,7 +9,6 @@ import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
 import {
   useFxRateDetailListQuery,
   type FxRateDetailItem,
@@ -18,8 +17,7 @@ import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
 } from '.';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /**
  * FxRateDetailPage — 汇率详情页（历史汇率分页列表）。
@@ -128,7 +126,7 @@ export function FxRateDetailPage(): React.JSX.Element {
           return (
             <span>
               {createTime
-                ? formatDate(Number(createTime), DATETIME_FMT)
+                ? formatAdminTimestamp(Number(createTime))
                 : EMPTY_DISPLAY}
             </span>
           );

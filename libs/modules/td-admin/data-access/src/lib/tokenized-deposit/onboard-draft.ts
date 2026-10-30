@@ -18,6 +18,8 @@
  * 调用方（feature）传入时 TypeScript 结构类型系统自动兼容。
  */
 
+import { formatAdminDateTime } from '@myorg/shared/util-dates';
+
 const DRAFT_TTL_MS = 12 * 60 * 60 * 1000; // 12 小时
 
 /**
@@ -168,9 +170,8 @@ export function clearDraft(scope: DraftScope): void {
   }
 }
 
-/** 草稿时间展示格式：`YYYY-MM-DD HH:mm`（本地时区）。 */
+/** 草稿时间展示：kissen-admin 统一时间格式（含查看者 UTC offset）。 */
 export function formatDraftTime(savedAt: number): string {
-  const d = new Date(savedAt);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const date = new Date(savedAt);
+  return Number.isNaN(date.getTime()) ? '--' : formatAdminDateTime(date);
 }

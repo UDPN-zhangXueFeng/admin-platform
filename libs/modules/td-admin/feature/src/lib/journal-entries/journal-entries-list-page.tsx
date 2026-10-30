@@ -9,7 +9,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   useBillRuleListQuery,
   useBlockchainListQuery,
@@ -32,8 +32,6 @@ import {
   statusToneClass,
 } from '.';
 import { ALL_VALUE } from './journal-entries.constants';
-
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 interface RuleFilterForm {
   ledgerName: string;
@@ -241,7 +239,7 @@ export function JournalEntriesListPage() {
         cell: ({ row }) => (
           <span>
             {row.original.createTime
-              ? formatDate(row.original.createTime, DATETIME_FMT)
+              ? formatAdminTimestamp(row.original.createTime)
               : EMPTY_DISPLAY}
           </span>
         ),

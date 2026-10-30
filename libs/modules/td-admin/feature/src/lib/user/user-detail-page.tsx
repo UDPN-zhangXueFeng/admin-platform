@@ -13,6 +13,7 @@ import {
   useTdOptionsQuery,
   useUserDetailQuery,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /** `stablecoin` 是默认活动项目（见 configs/stablecoin.json）。 */
 const PROJECT_ID = 'stablecoin';
@@ -26,7 +27,7 @@ function parseUserId(raw: string | null): number | undefined {
 /** 格式化毫秒时间戳（详情页基本字段区，user.md §5.2）。 */
 function formatTimestamp(ms: number | undefined): string {
   if (!ms) return '--';
-  return new Date(Number(ms)).toLocaleString();
+  return formatAdminTimestamp(Number(ms));
 }
 
 /**

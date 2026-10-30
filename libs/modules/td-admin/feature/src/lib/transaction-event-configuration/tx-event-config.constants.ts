@@ -11,6 +11,7 @@
  */
 
 import { format } from 'date-fns';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 // ── 基础常量 ──────────────────────────────────────────────────────────────────
 
@@ -282,18 +283,18 @@ export function normalizeTimestamp(
   return value >= 1e12 ? value : value * 1000;
 }
 
-/** 完整日期时间格式化（迁移自 formatDateTime）。 */
+/** 完整日期时间格式化（委托 ../format-admin-time 的 formatAdminTimestamp）。 */
 export function formatDateTime(value?: number | null): string {
   const ts = normalizeTimestamp(value);
   if (!ts) return EMPTY_DISPLAY;
-  return format(new Date(ts), "MMM d, yyyy, HH:mm:ss '(UTC+8)'");
+  return formatAdminTimestamp(ts);
 }
 
-/** 仅日期格式化（迁移自 formatDate）。 */
+/** 仅日期格式化（迁移自 formatDate；日期展示不附加固定时区标签）。 */
 export function formatDate(value?: number | null): string {
   const ts = normalizeTimestamp(value);
   if (!ts) return EMPTY_DISPLAY;
-  return format(new Date(ts), "MMM d, yyyy '(UTC+8)'");
+  return format(new Date(ts), 'MMM d, yyyy');
 }
 
 /** 资产价值格式化（迁移自 formatAssetValue，支持纯数字与「数值 单位」字符串）。 */

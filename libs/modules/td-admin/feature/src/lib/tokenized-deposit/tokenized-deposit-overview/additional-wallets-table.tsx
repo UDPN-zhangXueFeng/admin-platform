@@ -8,14 +8,13 @@ import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
 import { DataTable } from '@myorg/shared/ui';
-import { formatDate } from '@myorg/shared/util-dates';
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
 } from '@myorg/modules/td-admin/data-access';
 import type { ApplyListItem } from '@myorg/modules/td-admin/data-access';
 import { TokenizedDepositStatusBadge } from '..';
-import { DATETIME_FMT } from './wallets-table-inner';
+import { formatAdminTimestamp } from '../../format-admin-time';
 
 // ═══════════════════════════════════════════════════════════════════
 // Additional Wallets 静态 mock 表（9 行角色钱包）
@@ -92,14 +91,14 @@ export function AdditionalWalletsTable({
         ),
       },
       {
-        // tokenized_deposit_0052：updatedTime → formatDate，null → '--'
+        // tokenized_deposit_0052：updatedTime → formatAdminTimestamp，null → '--'
         accessorKey: 'updatedTime',
         header: t('tokenized_deposit_0052'),
         cell: ({ getValue }) => {
           const val = getValue<number | null>();
           return (
             <span>
-              {val ? formatDate(val, DATETIME_FMT) : EMPTY_DISPLAY}
+              {val ? formatAdminTimestamp(val) : EMPTY_DISPLAY}
             </span>
           );
         },

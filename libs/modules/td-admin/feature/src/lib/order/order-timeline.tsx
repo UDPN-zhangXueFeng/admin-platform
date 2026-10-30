@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { cn } from '@myorg/shared/util-classnames';
 import { Check, Circle, X, Package, Truck, RotateCcw } from 'lucide-react';
+import { formatAdminTimestamp } from '../format-admin-time';
 type OrderStatus =
   | 'pending'
   | 'paid'
@@ -108,7 +109,7 @@ export function OrderTimeline({
                     {event.label}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {event.timestamp}
+                    {formatAdminTimestamp(event.timestamp)}
                   </span>
                   {event.description ? (
                     <span className="text-xs text-muted-foreground">

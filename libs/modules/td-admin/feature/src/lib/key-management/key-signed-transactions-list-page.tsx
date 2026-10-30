@@ -33,7 +33,6 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
-import { formatDate } from '@myorg/shared/util-dates';
 import { Alert, Button, DataTable, Input } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
 
@@ -46,13 +45,12 @@ import {
   type KeySignedTransactionListFilters,
 } from '@myorg/modules/td-admin/data-access';
 
+import { formatAdminTimestamp } from '../format-admin-time';
 import {
   transactionTypeLabelMap,
   signatureTypeMap,
 } from '.';
 
-/** Timestamp column format, matching sibling list pages. */
-const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
 
 /** Table row handed to DataTable — wire item plus its client-side row id. */
 type KeySignedTransactionRow = KeySignedTransaction & { id: string };
@@ -88,11 +86,6 @@ function toDayEnd(value?: string): number | undefined {
   return Number.isNaN(ms) ? undefined : ms;
 }
 
-/** Format a Unix timestamp (ms) in the shared portal column format. */
-function formatTimestamp(ts?: number): string {
-  if (!ts) return '--';
-  return formatDate(Number(ts), DATETIME_FMT);
-}
 
 /** Token Type label — falls back to the raw number for unknown codes. */
 function formatTokenType(
@@ -294,12 +287,12 @@ export function KeySignedTransactionsListPage() {
       {
         accessorKey: 'signatureTime',
         header: t('key_management_0102'),
-        cell: ({ getValue }) => formatTimestamp(getValue() as number),
+        cell: ({ getValue }) => formatAdminTimestamp(getValue() as number),
       },
       {
         accessorKey: 'submissionTime',
         header: t('key_management_0103'),
-        cell: ({ getValue }) => formatTimestamp(getValue() as number),
+        cell: ({ getValue }) => formatAdminTimestamp(getValue() as number),
       },
       {
         accessorKey: 'transactionHash',

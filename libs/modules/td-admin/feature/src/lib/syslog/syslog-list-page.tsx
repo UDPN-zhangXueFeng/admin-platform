@@ -8,7 +8,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
 import { Button, DataTable, useToast } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 import { LogDescriptionText } from '.';
 import { formatModuleName, SYSLOG_PAGE_SIZE } from '.';
@@ -100,7 +100,7 @@ function formToParams(form: SysLogFilterForm): SysLogQueryParams {
  *
  * - 筛选表单：react-hook-form，提交查询 / 重置（对齐旧页 UX）。
  * - 下拉数据源：modules / operationTypes / users 三个独立查询并行加载。
- * - 表格：logTime 经 formatDate；module 走 code→name 映射 + formatModuleName；
+ * - 表格：logTime 经 formatAdminTimestamp（kissen-admin 统一格式）；module 走 code→name 映射 + formatModuleName；
  *   operationType 优先取下拉 name，否则查 i18n；desc 超长走 LogDescriptionText 截断。
  * - Export：保留入口；后端当前没有导出接口，点击后明确提示不可用。
  */
@@ -195,7 +195,7 @@ export function SysLogListPage() {
         accessorKey: 'logTime',
         header: t('field.logTime'),
         cell: ({ row }) => (
-          <span>{formatDate(new Date(row.original.logTime), 'MMM dd, yyyy, HH:mm:ss')}</span>
+          <span>{formatAdminTimestamp(row.original.logTime)}</span>
         ),
       },
       { accessorKey: 'userName', header: t('field.userName') },

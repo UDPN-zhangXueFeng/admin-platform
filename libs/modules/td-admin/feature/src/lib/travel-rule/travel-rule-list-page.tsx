@@ -16,7 +16,7 @@ import {
   FormField,
   FormSelect,
 } from '@myorg/shared/ui-forms';
-import { formatDate } from '@myorg/shared/util-dates';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 import { TravelRuleStatusBadge } from '.';
 import {
@@ -108,7 +108,7 @@ function formToParams(form: TravelRuleFilterForm): TravelRuleQueryParams {
  * - Data: `useTravelRulesQuery` returns the local mock with client-side
  *   filtering already applied (PRD §8 — swap the queryFn later, page unchanged).
  * - Columns: hash/wallet fields use CopyableEllipsisText; the status column uses
- *   TravelRuleStatusBadge; timestamps render via formatDate (null → '--').
+ *   TravelRuleStatusBadge; timestamps render via formatAdminTimestamp (null → '--').
  */
 export function TravelRuleListPage() {
   const t = useTranslations('modules.travel-rule');
@@ -210,7 +210,7 @@ export function TravelRuleListPage() {
           row.original.confirmationTime == null ? (
             <span className="text-muted-foreground">--</span>
           ) : (
-            <span>{formatDate(new Date(row.original.confirmationTime))}</span>
+            <span>{formatAdminTimestamp(row.original.confirmationTime)}</span>
           ),
       },
       { accessorKey: 'transactionType', header: t('field.transactionType') },
@@ -219,7 +219,7 @@ export function TravelRuleListPage() {
         accessorKey: 'transactionTime',
         header: t('field.transactionTime'),
         cell: ({ row }) => (
-          <span>{formatDate(new Date(row.original.transactionTime))}</span>
+          <span>{formatAdminTimestamp(row.original.transactionTime)}</span>
         ),
       },
     ],

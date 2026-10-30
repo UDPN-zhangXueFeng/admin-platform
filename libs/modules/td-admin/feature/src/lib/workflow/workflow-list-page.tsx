@@ -24,6 +24,7 @@ import {
   type WorkflowItem,
   type WorkflowListParams,
 } from '@myorg/modules/td-admin/data-access';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /** `stablecoin` 是默认活动项目（见 configs/stablecoin.json）。 */
 const PROJECT_ID = 'stablecoin';
@@ -176,7 +177,7 @@ export function WorkflowListPage() {
         cell: ({ row }) => {
           const ts = Number(row.original.createdDate);
           if (!Number.isFinite(ts) || !ts) return '—';
-          return new Date(ts).toLocaleString();
+          return formatAdminTimestamp(ts);
         },
       },
       {
