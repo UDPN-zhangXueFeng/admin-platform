@@ -59,6 +59,21 @@ const TONE_DOT: Record<TimelineTone, string> = {
 };
 
 /** Event tone by landing status (UI concern; titles come from the server). */
+/** token 身份键归一：tokenNo 优先（全网唯一），缺失回退 tokenCode（旧数据/BFF 未升级兼容）。 */
+function srcKey(r: {
+  sourceTokenNo?: string;
+  sourceTokenCode?: string;
+}): string | undefined {
+  return r.sourceTokenNo || r.sourceTokenCode;
+}
+
+function tgtKey(r: {
+  targetTokenNo?: string;
+  targetTokenCode?: string;
+}): string | undefined {
+  return r.targetTokenNo || r.targetTokenCode;
+}
+
 function toneByStatusTo(to: number): TimelineTone {
   if (to === 35 || to === 40) return 'success';
   if (to === 70 || to === 90) return 'danger';
@@ -67,7 +82,18 @@ function toneByStatusTo(to: number): TimelineTone {
   return 'primary';
 }
 
-/** Stage rail row state → visual class + label suffix. */
+/** 时间线节点（服务端事件；fields = 金额/汇率/凭证字段行）。 */
+interface ChainItem {
+  flowId: number;
+  eventTime: number;
+  title: string;
+  tone: TimelineTone;
+  /** 字段行（label + value，2026-10-30 三系统统一） */
+  fields: { label: string; value: string }[];
+  /** 过程描述（2026-10-30 放开；空=不渲染） */
+  remark?: string;
+}
+
 /**
  * Vertical single timeline from server events. Amount chips stay a local UI
  * concern (taken from the row payload, no second request): quote-lock carries
@@ -86,24 +112,37 @@ function buildItems(
   amountText: AmountText,
 ): ChainItem[] {
   return events.map((e) => {
-    const extras: string[] = [];
+    // 2026-10-30 三系统统一：字段行 label+value（本金无意义，展示用户实付）
+    const fields: { label: string; value: string }[] = [];
     if (e.statusTo === 5) {
-      if (row.principal != null)
-        extras.push(`Principal ${amountText(row.principal, row.sourceTokenNo)}`);
+      fields.push({
+        label: 'Payment',
+        value: amountText(row.userDeduction, srcKey(row)),
+      });
       if (row.receiverAmount != null)
-        extras.push(`Target ${amountText(row.receiverAmount, row.targetTokenNo)}`);
-      if (row.userRate != null) extras.push(`Rate ${row.userRate}`);
+        fields.push({
+          label: 'Target',
+          value: amountText(row.receiverAmount, tgtKey(row)),
+        });
+      if (row.userRate != null)
+        fields.push({ label: 'Rate', value: String(row.userRate) });
     }
-    if ((e.statusTo === 30 || e.statusTo === 35 || e.statusTo === 40) && row.receiverAmount != null) {
-      extras.push(`Target ${amountText(row.receiverAmount, row.targetTokenNo)}`);
+    if (
+      (e.statusTo === 30 || e.statusTo === 35 || e.statusTo === 40) &&
+      row.receiverAmount != null
+    ) {
+      fields.push({
+        label: 'Target',
+        value: amountText(row.receiverAmount, tgtKey(row)),
+      });
     }
-    if (e.csTxId) extras.push(`Ref ${e.csTxId}`);
+    if (e.csTxId) fields.push({ label: 'Ref', value: e.csTxId });
     return {
       flowId: e.flowId,
       eventTime: e.eventTime,
       title: e.title,
       tone: toneByStatusTo(e.statusTo),
-      extras,
+      fields,
       remark: e.remark,
     };
   });
@@ -113,34 +152,41 @@ function ChainTimeline({ items }: { items: ChainItem[] }) {
   return (
     <ol className="relative ml-1 border-l border-border">
       {items.map((e) => (
-        <li key={e.flowId} className="relative mb-5 ml-5 last:mb-0">
+        <li key={e.flowId} className="relative pb-4 pl-6 last:pb-0">
           <span
             aria-hidden="true"
-            className={`absolute top-1 -left-[27px] h-2.5 w-2.5 rounded-full border-2 border-background ${TONE_DOT[e.tone]}`}
+            className={`absolute left-0 top-1.5 size-2.5 -translate-x-1/2 rounded-full border-2 border-background ${TONE_DOT[e.tone]}`}
           />
-          <div className="font-mono text-xs text-muted-foreground tabular-nums">
-            {completedTimeText(e.eventTime)}
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span className="text-sm font-semibold text-foreground">
+              {e.title}
+            </span>
+            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+              {completedTimeText(e.eventTime)}
+            </span>
           </div>
-          <div className="mt-1 text-[13px] font-semibold leading-5 text-foreground">
-            {e.title}
-          </div>
+          {e.fields.length > 0 ? (
+            <dl className="mt-1.5 space-y-1">
+              {e.fields.map((f) => (
+                <div
+                  key={f.label}
+                  className="flex items-baseline gap-2 text-xs"
+                >
+                  <dt className="w-16 shrink-0 text-muted-foreground">
+                    {f.label}
+                  </dt>
+                  <dd className="min-w-0 flex-1 break-all font-mono tabular-nums text-foreground">
+                    {f.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
           {e.remark ? (
-            <p className="mt-0.5 text-xs leading-4 text-muted-foreground">
+            <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
               {e.remark}
             </p>
           ) : null}
-          {e.extras.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {e.extras.map((x, i) => (
-                <span
-                  key={`${e.flowId}-${i}`}
-                  className="rounded-full bg-muted px-2 py-px font-mono text-xs leading-5 text-muted-foreground"
-                >
-                  {x}
-                </span>
-              ))}
-            </div>
-          )}
         </li>
       ))}
     </ol>
@@ -189,14 +235,14 @@ function BasicInfo({
       {/* 核心信息层：金额（Data 角色）+ 业务标识（Identifier，复制贴字段） */}
       <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
         <DescItem label="Principal">
-          <Amount text={amountText(row.principal, row.sourceTokenNo)} />
+          <Amount text={amountText(row.principal, srcKey(row))} />
         </DescItem>
         <DescItem label="User Deduction">
           {/* ed1a340: principal × (1 + markup) actually debited at the source */}
-          <Amount text={amountText(row.userDeduction, row.sourceTokenNo)} />
+          <Amount text={amountText(row.userDeduction, srcKey(row))} />
         </DescItem>
         <DescItem label="Receiver Amount">
-          <Amount text={amountText(row.receiverAmount, row.targetTokenNo)} />
+          <Amount text={amountText(row.receiverAmount, tgtKey(row))} />
         </DescItem>
         <DescItem label="Bank Idempotency No.">
           <CopyableEllipsisText
@@ -320,12 +366,12 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
                     />
                   </div>
                   <div className="mt-2 font-mono text-[13px] font-semibold leading-5">
-                    {symOf(row.sourceTokenNo)}/
-                    {symOf(row.targetTokenNo)}
+                    {symOf(srcKey(row))}/
+                    {symOf(tgtKey(row))}
                   </div>
                   <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                    {bankOf(row.sourceTokenNo)} →{' '}
-                    {bankOf(row.targetTokenNo)}
+                    {bankOf(srcKey(row))} →{' '}
+                    {bankOf(tgtKey(row))}
                   </div>
                 </div>
                 <Badge

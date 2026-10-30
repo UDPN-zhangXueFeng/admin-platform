@@ -64,21 +64,30 @@ import { useGatewayPerm } from './use-gateway-perm';
  * 详情从源 Dialog 改为独立路由页（registry：/tx + detail key）。
  */
 /** 路由 query 中的交易 ID → 正整数；非法 → undefined。 */
+/** Information 字段行：左 label 固定宽 + 右值，单列纵向排列（2026-10-30 三系统统一布局）。 */
+function InfoRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className="w-16 shrink-0 text-xs text-muted-foreground">
+        {label}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+        {children}
+      </span>
+    </div>
+  );
+}
+
 function parseTxId(raw: string | null): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
-function txAmountLabel(
-  displayText: string | undefined,
-  amount: number | undefined,
-  symbol: string | null,
-): string {
-  const value =
-    displayText ?? (amount != null ? formatTokenAmount(amount) : null);
-  if (value == null) return '-';
-  return symbol ? `${value} ${symbol}` : value;
 }
 
 /** 源 v-perm="'bank:tx:export'"：导出按钮权限码。 */
@@ -933,7 +942,7 @@ function TxFlowItem({
   const terminal = isFlowTerminal(node.statusTo);
   const fields = stageFieldsOf(node, record, pairMap);
   return (
-    <li className="relative pl-6">
+    <li className="relative pb-4 pl-6 last:pb-0">
       <span
         className={`absolute left-0 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full border-2 border-background ${
           terminal ? '' : 'bg-background'
@@ -941,34 +950,33 @@ function TxFlowItem({
         style={terminal ? { backgroundColor: color } : { borderColor: color }}
         aria-hidden="true"
       />
-      <div className="text-xs text-muted-foreground">
-        {formatTime(node.eventTime)}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <span className="text-sm font-semibold text-foreground">
+          {txFlowEventTitle(node)}
+        </span>
+        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+          {formatTime(node.eventTime)}
+        </span>
       </div>
-      <div className="mt-2 rounded-md border bg-muted/30 p-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-sm font-semibold">
-            {txFlowEventTitle(node)}
-          </span>
-          {node.operator ? (
-            <Badge variant="outline">Operator: {node.operator}</Badge>
-          ) : null}
-        </div>
-        {fields.length > 0 && (
-          <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-            {fields.map((f) => (
-              <div key={f.label}>
-                {f.label}{' '}
-                <span className="font-mono break-all">{f.value}</span>
-              </div>
-            ))}
-          </div>
-        )}
-        {node.remark ? (
-          <div className="mt-1 text-xs text-muted-foreground">
-            {node.remark}
-          </div>
-        ) : null}
-      </div>
+      {fields.length > 0 && (
+        <dl className="mt-1.5 space-y-1">
+          {fields.map((f) => (
+            <div key={f.label} className="flex items-baseline gap-2 text-xs">
+              <dt className="w-16 shrink-0 text-muted-foreground">
+                {f.label}
+              </dt>
+              <dd className="min-w-0 flex-1 break-all font-mono tabular-nums text-foreground">
+                {f.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {node.remark ? (
+        <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+          {node.remark}
+        </p>
+      ) : null}
     </li>
   );
 }
@@ -1145,68 +1153,72 @@ export function TxDetailPage() {
                 <h2 className="mb-4 text-sm font-semibold text-foreground">
                   Transaction Overview
                 </h2>
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
-                  {/* Sent（原型 subtle 块；ddd9fe2 扣款口径 userDeduction + 源币种）。 */}
-                  <div className="min-w-0 flex-1 rounded-lg bg-muted/40 p-4">
-                    <div className="text-xs font-medium capitalize text-muted-foreground">
-                      Sent Amount
+                <div className="grid items-center gap-4 md:grid-cols-[1fr_auto_1fr]">
+                  {/* Sent（admin 蓝本：边框块 + 银行徽章右上 + 大字金额）。 */}
+                  <div className="min-w-0 rounded-lg border border-border p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Sent Amount
+                      </span>
+                      <Badge variant="mute">
+                        {record.senderBankName || 'Source Bank'}
+                      </Badge>
                     </div>
-                    <div className="mt-1 text-lg font-semibold tabular-nums text-foreground">
-                      {record.userDeduction != null ? (
-                        <>
-                          {formatTokenAmount(record.userDeduction)}{' '}
-                          {srcSymbol || '-'}
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground/60">-</span>
-                      )}
-                    </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      {record.senderBankName || '-'}
+                    <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5">
+                      <span className="text-2xl font-bold tabular-nums text-foreground">
+                        {record.userDeduction != null
+                          ? formatTokenAmount(record.userDeduction)
+                          : '-'}
+                      </span>
+                      {srcSymbol ? (
+                        <span className="text-sm font-semibold tracking-wide">
+                          {srcSymbol}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
-                  {/* 中列：汇率盒（快照口径，未推送 '-'）+ ⇄ + LP 名。 */}
-                  <div className="flex shrink-0 flex-col items-center justify-center gap-2 lg:w-48">
-                    <div className="rounded-md border border-border/70 px-3 py-2 text-center font-mono text-xs text-foreground">
-                      1 {srcSymbol || '-'} ={' '}
+                  {/* 中列：用户汇率徽章（gateway 不展示基础汇率）+ 图标 + LP 名。 */}
+                  <div className="flex min-w-0 shrink-0 flex-col items-center gap-2 md:px-6">
+                    <Badge
+                      variant="outline"
+                      className="whitespace-nowrap tabular-nums"
+                    >
+                      1 {srcSymbol || '-'} ≈{' '}
                       {rateValue != null ? formatRate(rateValue) : '-'}{' '}
                       {tgtSymbol || '-'}
-                    </div>
-                    <span
-                      className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary"
+                    </Badge>
+                    <ArrowLeftRight
+                      className="size-4 text-primary"
                       aria-hidden="true"
-                    >
-                      <ArrowLeftRight className="size-4" />
-                    </span>
-                    <div className="flex max-w-full items-center gap-1.5 text-xs text-foreground">
-                      <span
-                        className="size-1.5 shrink-0 rounded-full bg-primary"
-                        aria-hidden="true"
-                      />
-                      <span className="truncate">
-                        {record.lpNames?.length
-                          ? record.lpNames.join(', ')
-                          : record.lpCode || '-'}
-                      </span>
-                    </div>
+                    />
+                    <Badge className="max-w-full truncate whitespace-nowrap">
+                      {record.lpNames?.length
+                        ? record.lpNames.join(', ')
+                        : record.lpCode || '-'}
+                    </Badge>
                   </div>
-                  {/* Received（原型 emerald 块；a9dc10e receiverAmount 目标币种）。 */}
-                  <div className="min-w-0 flex-1 rounded-lg bg-emerald-500/10 p-4">
-                    <div className="text-xs font-medium capitalize text-muted-foreground">
-                      Received Amount
+                  {/* Received（admin 蓝本：success 边框 + 浅底）。 */}
+                  <div className="min-w-0 rounded-lg border border-success bg-success/10 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Received Amount
+                      </span>
+                      <Badge variant="mute">
+                        {record.receivingBankName || 'Target Bank'}
+                      </Badge>
                     </div>
-                    <div className="mt-1 text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-                      {record.receiverAmount != null ? (
-                        <>
-                          + {formatTokenAmount(record.receiverAmount)}{' '}
-                          {tgtSymbol || '-'}
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground/60">-</span>
-                      )}
-                    </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      {record.receivingBankName || '-'}
+                    <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 text-success">
+                      <span className="text-2xl font-bold tabular-nums">
+                        +
+                        {record.receiverAmount != null
+                          ? formatTokenAmount(record.receiverAmount)
+                          : '-'}
+                      </span>
+                      {tgtSymbol ? (
+                        <span className="text-sm font-semibold tracking-wide">
+                          {tgtSymbol}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -1219,94 +1231,57 @@ export function TxDetailPage() {
                     Transaction Information
                   </h2>
                 </div>
-                <div className="space-y-5 p-4">
-                  <DescField label="Transaction ID">
-                    <CopyableId value={String(record.transactionId)} />
-                  </DescField>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <section
-                      aria-label="Source currency details"
-                      className="min-w-0 rounded-lg border border-border p-4"
-                    >
-                      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
-                        <h3 className="text-sm font-semibold text-foreground">
-                          Source Currency
-                        </h3>
-                        <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
-                          {orDash(srcSymbol)}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
-                        <DescField label="Source Bank">
-                          {orDash(record.senderBankName)}
-                        </DescField>
-                        <DescField label="Source Wallet">
-                          <CopyableId value={record.senderAccount} />
-                        </DescField>
-                        <DescField label="Principal">
-                          <span className="font-mono tabular-nums">
-                            {txAmountLabel(
-                              record.principalText,
-                              record.principal,
-                              srcSymbol,
-                            )}
-                          </span>
-                        </DescField>
-                        <DescField label="User Deduction">
-                          <span className="font-mono tabular-nums">
-                            {txAmountLabel(
-                              record.userDeductionText,
-                              record.userDeduction,
-                              srcSymbol,
-                            )}
-                          </span>
-                        </DescField>
-                        <DescField label="LP Source Pool Address">
-                          <CopyableId value={record.sourcePoolAddress} />
-                        </DescField>
-                        <DescField label="Source Chain Tx ID">
-                          <CopyableId value={record.sourceCsTxId} />
-                        </DescField>
-                      </div>
-                    </section>
-                    <section
-                      aria-label="Target currency details"
-                      className="min-w-0 rounded-lg border border-border p-4"
-                    >
-                      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
-                        <h3 className="text-sm font-semibold text-foreground">
-                          Target Currency
-                        </h3>
-                        <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
-                          {orDash(tgtSymbol)}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
-                        <DescField label="Target Bank">
-                          {orDash(record.receivingBankName)}
-                        </DescField>
-                        <DescField label="Target Wallet">
-                          <CopyableId value={record.receiverAccount} />
-                        </DescField>
-                        <DescField label="Received Amount">
-                          <span className="font-mono tabular-nums">
-                            {txAmountLabel(
-                              record.receiverAmountText,
-                              record.receiverAmount,
-                              tgtSymbol,
-                            )}
-                          </span>
-                        </DescField>
-                        <DescField label="LP Target Pool Address">
-                          <CopyableId value={record.targetPoolAddress} />
-                        </DescField>
-                        <DescField label="Target Chain Tx ID">
-                          <CopyableId value={record.targetCsTxId} />
-                        </DescField>
-                      </div>
-                    </section>
-                  </div>
-                  <DescGrid className="mt-5 border-t border-border/50 pt-4">
+                <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
+                  <section
+                    aria-label="Source details"
+                    className="min-w-0 rounded-lg border border-border p-4"
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-3">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Source
+                      </h3>
+                      <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
+                        {orDash(srcSymbol)}
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      <InfoRow label="Bank">
+                        {orDash(record.senderBankName)}
+                      </InfoRow>
+                      <InfoRow label="Wallet">
+                        <CopyableId value={record.senderAccount} />
+                      </InfoRow>
+                      <InfoRow label="Tx ID">
+                        <CopyableId value={record.sourceCsTxId} />
+                      </InfoRow>
+                    </div>
+                  </section>
+                  <section
+                    aria-label="Target details"
+                    className="min-w-0 rounded-lg border border-border p-4"
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-3">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Target
+                      </h3>
+                      <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
+                        {orDash(tgtSymbol)}
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      <InfoRow label="Bank">
+                        {orDash(record.receivingBankName)}
+                      </InfoRow>
+                      <InfoRow label="Wallet">
+                        <CopyableId value={record.receiverAccount} />
+                      </InfoRow>
+                      <InfoRow label="Tx ID">
+                        <CopyableId value={record.targetCsTxId} />
+                      </InfoRow>
+                    </div>
+                  </section>
+                </div>
+                  <DescGrid className="mt-5 border-t border-border/50 pt-4 md:col-span-2">
                     <DescField label="Tx UUID">
                       <CopyableId value={record.txUuid} />
                     </DescField>
@@ -1344,7 +1319,6 @@ export function TxDetailPage() {
                       </>
                     ) : null}
                   </DescGrid>
-                </div>
               </section>
             </>
           ) : detailLoading ? (

@@ -106,12 +106,10 @@ const LBL = {
 const ALL = 'all';
 
 /** 状态筛选项：LP_TX_STATUS_MAP 13 态逐字（码序 = 业务 rank 序）。 */
-const STATUS_OPTIONS: SelectOption[] = Object.keys(LP_TX_STATUS_MAP).map(
-  (k) => ({
-    value: k,
-    label: LP_TX_STATUS_MAP[Number(k)].label,
-  }),
-);
+const STATUS_OPTIONS: SelectOption[] = Object.entries(LP_TX_STATUS_MAP)
+  // 2026-10-30：按业务路径 rank 排序（主路径 → 冲正 → 失败/取消/异常），不按码值
+  .sort(([, a], [, b]) => a.rank - b.rank)
+  .map(([k, v]) => ({ value: k, label: v.label }));
 
 interface TxFlowFilterForm {
   pairCode: string;
@@ -406,7 +404,7 @@ function TxFlowListView() {
       txNo: { value: (r) => txNoText(r) },
       tokens: {
         value: (r) =>
-          `${symOf(r.sourceTokenNo)} → ${symOf(r.targetTokenNo)}`,
+          `${symOf(srcKey(r))} → ${symOf(tgtKey(r))}`,
       },
       fxRate: {
         value: (r) =>
@@ -468,12 +466,12 @@ function TxFlowListView() {
         cell: ({ row }) => (
           <div className="min-w-0">
             <div className="font-mono text-xs font-semibold tabular-nums">
-              {symOf(row.original.sourceTokenNo)} →{' '}
-              {symOf(row.original.targetTokenNo)}
+              {symOf(srcKey(row.original))} →{' '}
+              {symOf(tgtKey(row.original))}
             </div>
             <div className="truncate text-xs text-muted-foreground">
-              {bankOf(row.original.sourceTokenNo)} →{' '}
-              {bankOf(row.original.targetTokenNo)}
+              {bankOf(srcKey(row.original))} →{' '}
+              {bankOf(tgtKey(row.original))}
             </div>
           </div>
         ),
@@ -487,7 +485,7 @@ function TxFlowListView() {
           <PartyCell
             amount={amountText(
               row.original.userDeduction,
-              row.original.sourceTokenNo,
+              srcKey(row.original),
             )}
             wallet={row.original.senderAccount}
           />
@@ -501,7 +499,7 @@ function TxFlowListView() {
           <PartyCell
             amount={amountText(
               row.original.receiverAmount,
-              row.original.targetTokenNo,
+              tgtKey(row.original),
             )}
             wallet={row.original.receiverAccount}
           />
@@ -721,6 +719,44 @@ function TxFlowListView() {
 
 /* ── 详情视图（GAP-LP-11：暂存行 + chain 端点拼装） ────────────────── */
 
+/** Information 字段行：左 label 固定宽 + 右值，单列纵向排列（2026-10-30 三系统统一布局）。 */
+function InfoRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className="w-16 shrink-0 text-xs text-muted-foreground">
+        {label}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+        {children}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * token 身份键归一：tokenNo 优先（Kissen 全网唯一、终身不变），
+ * 缺失回退 tokenCode（BFF 未升级 / 旧副本行兼容；code 可漂移，仅作兜底）。
+ */
+function srcKey(r: {
+  sourceTokenNo?: string;
+  sourceTokenCode?: string;
+}): string | undefined {
+  return r.sourceTokenNo || r.sourceTokenCode;
+}
+
+function tgtKey(r: {
+  targetTokenNo?: string;
+  targetTokenCode?: string;
+}): string | undefined {
+  return r.targetTokenNo || r.targetTokenCode;
+}
+
 /** 链路节点圆点色（gateway 口径）：成功=绿 / 失败异常=红 / 冲正取消=灰 / 推进=蓝。 */
 function chainToneOf(statusTo: number): string {
   if (statusTo === 35 || statusTo === 40) return 'bg-success';
@@ -765,8 +801,8 @@ function TxDetailView({ txKey }: { txKey: string }) {
   if (!seedReady) return <DetailSkeleton />;
   if (!seed) return <TxNotFound />;
 
-  const src = symOf(seed.sourceTokenNo);
-  const tgt = symOf(seed.targetTokenNo);
+  const src = symOf(srcKey(seed));
+  const tgt = symOf(tgtKey(seed));
   const lpName = sessionQuery.data?.lpName ?? '';
   const statusEntry = LP_TX_STATUS_MAP[seed.status];
   const statusLabel = statusEntry?.label ?? String(seed.status);
@@ -784,8 +820,8 @@ function TxDetailView({ txKey }: { txKey: string }) {
     `Transaction No.: ${txNoText(seed)}`,
     `Status: ${statusLabel}`,
     `Token Pair: ${src} → ${tgt}`,
-    `Sent Amount: ${amountText(seed.userDeduction, seed.sourceTokenNo)}`,
-    `Received Amount: ${amountText(seed.receiverAmount, seed.targetTokenNo)}`,
+    `Sent Amount: ${amountText(seed.userDeduction, srcKey(seed))}`,
+    `Received Amount: ${amountText(seed.receiverAmount, tgtKey(seed))}`,
     `FX Rate: 1 ${src} = ${formatRate(seed.userRate)} ${tgt}`,
     `LP: ${lpName || '-'}`,
     `Created: ${formatUtc8(seed.createTime)}`,
@@ -836,8 +872,8 @@ function TxDetailView({ txKey }: { txKey: string }) {
         </div>
 
         {/* Kissen-style detail layout: transaction information beside the stage rail. */}
-        <div className="flex flex-col gap-4">
-          <div className="flex min-w-0 flex-col gap-4">
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
+          <div className="flex min-w-0 flex-col gap-4 xl:col-span-8">
             <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
               <header className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
                 <div className="flex min-w-0 items-center gap-3">
@@ -861,13 +897,13 @@ function TxDetailView({ txKey }: { txKey: string }) {
                       <span className="text-xs font-medium text-muted-foreground">
                         Sent Amount
                       </span>
-                      <Badge variant="mute">{bankOf(seed.sourceTokenNo)}</Badge>
+                      <Badge variant="mute">{bankOf(srcKey(seed))}</Badge>
                     </div>
                     <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5">
                       <span className="text-2xl font-bold tabular-nums">
                         {formatTokenAmount(
                           seed.userDeduction,
-                          decimalsOf(seed.sourceTokenNo),
+                          decimalsOf(srcKey(seed)),
                         )}
                       </span>
                       <span className="text-sm font-semibold tracking-wide">
@@ -899,13 +935,13 @@ function TxDetailView({ txKey }: { txKey: string }) {
                       <span className="text-xs font-medium text-muted-foreground">
                         Received Amount
                       </span>
-                      <Badge variant="mute">{bankOf(seed.targetTokenNo)}</Badge>
+                      <Badge variant="mute">{bankOf(tgtKey(seed))}</Badge>
                     </div>
                     <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 text-success">
                       <span className="text-2xl font-bold tabular-nums">
                         +{formatTokenAmount(
                           seed.receiverAmount,
-                          decimalsOf(seed.targetTokenNo),
+                          decimalsOf(tgtKey(seed)),
                         )}
                       </span>
                       <span className="text-sm font-semibold tracking-wide">
@@ -945,79 +981,53 @@ function TxDetailView({ txKey }: { txKey: string }) {
                   </h2>
                 </div>
               </header>
-              <div className="space-y-5 p-6">
-                <dl>
-                  <Field label="Transaction ID">
-                    <span className="font-mono tabular-nums">
-                      {seed.transactionId}
+              <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2">
+                <section
+                  aria-label="Source details"
+                  className="min-w-0 rounded-lg border border-border p-4"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-3">
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Source
+                    </h3>
+                    <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
+                      {src}
                     </span>
-                  </Field>
-                </dl>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <section
-                    aria-label="Source currency details"
-                    className="min-w-0 rounded-lg border border-border p-4"
-                  >
-                    <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
-                      <h3 className="text-sm font-semibold text-foreground">
-                        Source Currency
-                      </h3>
-                      <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
-                        {src}
-                      </span>
-                    </div>
-                    <dl className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
-                      <Field label="Sender Bank">
-                        <Dash value={bankOf(seed.sourceTokenNo)} />
-                      </Field>
-                      <Field label="Sender Wallet">
-                        <CopyableId value={seed.senderAccount} />
-                      </Field>
-                      <Field label="Principal">
-                        <span className="font-mono tabular-nums">
-                          {amountText(seed.principal, seed.sourceTokenNo)}
-                        </span>
-                      </Field>
-                      <Field label="User Deduction">
-                        <span className="font-mono tabular-nums">
-                          {amountText(seed.userDeduction, seed.sourceTokenNo)}
-                        </span>
-                      </Field>
-                      <Field label="Source Chain Tx ID">
-                        <CopyableId value={seed.sourceCsTxId} />
-                      </Field>
-                    </dl>
-                  </section>
-                  <section
-                    aria-label="Target currency details"
-                    className="min-w-0 rounded-lg border border-border p-4"
-                  >
-                    <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
-                      <h3 className="text-sm font-semibold text-foreground">
-                        Target Currency
-                      </h3>
-                      <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
-                        {tgt}
-                      </span>
-                    </div>
-                    <dl className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
-                      <Field label="Receiver Bank">
-                        <Dash value={bankOf(seed.targetTokenNo)} />
-                      </Field>
-                      <Field label="Receiver Wallet">
-                        <CopyableId value={seed.receiverAccount} />
-                      </Field>
-                      <Field label="Received Amount">
-                        <span className="font-mono tabular-nums">
-                          {amountText(seed.receiverAmount, seed.targetTokenNo)}
-                        </span>
-                      </Field>
-                      <Field label="Target Chain Tx ID">
-                        <CopyableId value={seed.targetCsTxId || targetProof || '-'} />
-                      </Field>
-                    </dl>
-                  </section>
-                </div>
+                  </div>
+                  <div className="space-y-3">
+                    <InfoRow label="Bank">{bankOf(srcKey(seed))}</InfoRow>
+                    <InfoRow label="Wallet">
+                      <CopyableId value={seed.senderAccount} />
+                    </InfoRow>
+                    <InfoRow label="Tx ID">
+                      <CopyableId value={seed.sourceCsTxId} />
+                    </InfoRow>
+                  </div>
+                </section>
+                <section
+                  aria-label="Target details"
+                  className="min-w-0 rounded-lg border border-border p-4"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-3">
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Target
+                    </h3>
+                    <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
+                      {tgt}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    <InfoRow label="Bank">{bankOf(tgtKey(seed))}</InfoRow>
+                    <InfoRow label="Wallet">
+                      <CopyableId value={seed.receiverAccount} />
+                    </InfoRow>
+                    <InfoRow label="Tx ID">
+                      <CopyableId
+                        value={seed.targetCsTxId || targetProof || '-'}
+                      />
+                    </InfoRow>
+                  </div>
+                </section>
               </div>
             </section>
 
@@ -1046,7 +1056,10 @@ function TxDetailView({ txKey }: { txKey: string }) {
                 </Field>
               </dl>
             </section>
-            {/* Transaction Chain（2026-10-30 三系统统一：gateway 形式事件时间轴；Clearance Pipeline rail 退役） */}
+          </div>
+
+          {/* 右 4/12：Transaction Chain（2026-10-30 三系统统一：gateway 形式事件时间轴；Clearance Pipeline rail 退役） */}
+          <aside className="min-w-0 xl:col-span-4">
             <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
               <header className="flex items-center gap-3 border-b border-border px-6 py-4">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
@@ -1069,20 +1082,23 @@ function TxDetailView({ txKey }: { txKey: string }) {
                 ) : (
                   <ol className="relative ml-1 border-l border-border">
                     {(chainQuery.data?.events ?? []).map((e) => {
-                      const extras: string[] = [];
+                      const fields: { label: string; value: string }[] = [];
                       if (e.statusTo === 5) {
-                        if (seed.principal != null)
-                          extras.push(
-                            `Principal ${amountText(seed.principal, seed.sourceTokenNo)}`,
-                          );
+                        // 2026-10-30：本金无意义，展示用户实付
+                        fields.push({
+                          label: 'Payment',
+                          value: amountText(seed.userDeduction, srcKey(seed)),
+                        });
                         if (seed.receiverAmount != null)
-                          extras.push(
-                            `Target ${amountText(seed.receiverAmount, seed.targetTokenNo)}`,
-                          );
+                          fields.push({
+                            label: 'Target',
+                            value: amountText(seed.receiverAmount, tgtKey(seed)),
+                          });
                         if (seed.userRate != null)
-                          extras.push(
-                            `Rate 1 ${src} ≈ ${formatRate(seed.userRate)} ${tgt}`,
-                          );
+                          fields.push({
+                            label: 'Rate',
+                            value: `1 ${src} ≈ ${formatRate(seed.userRate)} ${tgt}`,
+                          });
                       }
                       if (
                         (e.statusTo === 30 ||
@@ -1090,32 +1106,49 @@ function TxDetailView({ txKey }: { txKey: string }) {
                           e.statusTo === 40) &&
                         seed.receiverAmount != null
                       ) {
-                        extras.push(
-                          `Target ${amountText(seed.receiverAmount, seed.targetTokenNo)}`,
-                        );
+                        fields.push({
+                          label: 'Target',
+                          value: amountText(seed.receiverAmount, tgtKey(seed)),
+                        });
                       }
-                      if (e.csTxId) extras.push(`Ref ${e.csTxId}`);
+                      if (e.csTxId)
+                        fields.push({ label: 'Ref', value: e.csTxId });
                       return (
-                        <li key={e.flowId} className="relative mb-5 ml-5 last:mb-0">
+                        <li
+                          key={e.flowId}
+                          className="relative pb-4 pl-6 last:pb-0"
+                        >
                           <span
                             aria-hidden="true"
-                            className={`absolute -left-[26px] top-1 size-2.5 rounded-full ${chainToneOf(e.statusTo)}`}
+                            className={`absolute left-0 top-1.5 size-2.5 -translate-x-1/2 rounded-full ${chainToneOf(e.statusTo)}`}
                           />
                           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                            <span className="text-sm font-semibold">
+                            <span className="text-sm font-semibold text-foreground">
                               {e.title}
                             </span>
-                            <span className="text-xs tabular-nums text-muted-foreground">
+                            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
                               {formatUtc8(e.eventTime)}
                             </span>
                           </div>
-                          {extras.length > 0 ? (
-                            <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
-                              {extras.join(' · ')}
-                            </p>
+                          {fields.length > 0 ? (
+                            <dl className="mt-1.5 space-y-1">
+                              {fields.map((f) => (
+                                <div
+                                  key={f.label}
+                                  className="flex items-baseline gap-2 text-xs"
+                                >
+                                  <dt className="w-16 shrink-0 text-muted-foreground">
+                                    {f.label}
+                                  </dt>
+                                  <dd className="min-w-0 flex-1 break-all font-mono tabular-nums text-foreground">
+                                    {f.value}
+                                  </dd>
+                                </div>
+                              ))}
+                            </dl>
                           ) : null}
                           {e.remark ? (
-                            <p className="mt-1 text-xs text-muted-foreground">
+                            <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
                               {e.remark}
                             </p>
                           ) : null}
@@ -1126,8 +1159,7 @@ function TxDetailView({ txKey }: { txKey: string }) {
                 )}
               </div>
             </section>
-          </div>
-
+          </aside>
         </div>
       </div>
     </TooltipProvider>

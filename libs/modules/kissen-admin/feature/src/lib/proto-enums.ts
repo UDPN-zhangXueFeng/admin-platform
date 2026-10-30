@@ -29,16 +29,16 @@ export const PROTO_TX_STATUS: Record<number, ProtoStatusMeta> = {
   1: { label: 'Created', rank: 0 },
   5: { label: 'Quoted', rank: 1 },
   10: { label: 'Confirmed', rank: 2 },
-  20: { label: 'Source Transferring', rank: 3 },
-  25: { label: 'Source Verified', rank: 4 },
-  30: { label: 'Processing', rank: 5 },
-  35: { label: 'Credited', rank: 6 },
+  20: { label: 'Source transfer in progress', rank: 3 },
+  25: { label: 'Source verified', rank: 4 },
+  30: { label: 'Disbursing', rank: 5 },
+  35: { label: 'Settled', rank: 6 },
   40: { label: 'Completed', rank: 7 },
   50: { label: 'Reversing', rank: 8 },
   60: { label: 'Reversed', rank: 9 },
-  70: { label: 'Abnormal', rank: 10 },
+  90: { label: 'Failed', rank: 10 },
   80: { label: 'Cancelled', rank: 11 },
-  90: { label: 'Failed', rank: 12 },
+  70: { label: 'Exception', rank: 12 },
 };
 
 /** 结算单 6 态（KNMS SettlementStatementsPage 4 态 + 2023418 审批在途 5/15；5/15 取通用字典文案，10/20/35/45 保持 DEC-08 业务语义）。 */

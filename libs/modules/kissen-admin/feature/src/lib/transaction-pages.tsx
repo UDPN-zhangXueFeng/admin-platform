@@ -541,6 +541,26 @@ function TxNotFoundCard() {
   );
 }
 
+/** Information 字段行：左 label 固定宽 + 右值，单列纵向排列（2026-10-30 三系统统一布局）。 */
+function InfoRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className="w-16 shrink-0 text-xs text-muted-foreground">
+        {label}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+        {children}
+      </span>
+    </div>
+  );
+}
+
 /* ── Transaction Chain（2026-10-30 三系统统一：gateway 形式事件时间轴） ── */
 
 /** 链路节点圆点色：成功类=绿 / 失败异常=红 / 冲正取消=灰 / 推进中=蓝。 */
@@ -559,13 +579,22 @@ function chainFieldRows(
 ): { label: string; value: string }[] {
   const rows: { label: string; value: string }[] = [];
   if (e.statusTo === 5) {
+    // 2026-10-30：本金（Principal）对用户无意义，展示用户实付（含加价）
     rows.push({
-      label: 'Principal',
-      value: fmtAmount(detail.principal, detail.sourceCurrency, decOf(detail.sourceCurrency)),
+      label: 'Payment',
+      value: fmtAmount(
+        detail.userDeduction,
+        detail.sourceCurrency,
+        decOf(detail.sourceCurrency),
+      ),
     });
     rows.push({
       label: 'Target',
-      value: fmtAmount(detail.receiverAmount, detail.targetCurrency, decOf(detail.targetCurrency)),
+      value: fmtAmount(
+        detail.receiverAmount,
+        detail.targetCurrency,
+        decOf(detail.targetCurrency),
+      ),
     });
     rows.push({
       label: 'Rate',
@@ -619,10 +648,10 @@ function TransactionChainSection({ detail }: { detail: TransactionDetailRow }) {
             {events.map((e) => {
               const rows = chainFieldRows(e, detail, decOf);
               return (
-                <li key={e.flowId} className="relative mb-5 ml-5 last:mb-0">
+                <li key={e.flowId} className="relative pb-4 pl-6 last:pb-0">
                   <span
                     aria-hidden="true"
-                    className={`absolute -left-[26px] top-1 size-2.5 rounded-full ${chainToneOf(e.statusTo)}`}
+                    className={`absolute left-0 top-1.5 size-2.5 -translate-x-1/2 rounded-full ${chainToneOf(e.statusTo)}`}
                   />
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                     <span className="text-sm font-semibold">
@@ -633,20 +662,24 @@ function TransactionChainSection({ detail }: { detail: TransactionDetailRow }) {
                     </span>
                   </div>
                   {rows.length > 0 ? (
-                    <dl className="mt-1 space-y-0.5">
+                    <dl className="mt-1.5 space-y-1">
                       {rows.map((r) => (
                         <div
                           key={r.label}
-                          className="flex flex-wrap items-baseline gap-x-2 text-xs"
+                          className="flex items-baseline gap-2 text-xs"
                         >
-                          <dt className="text-muted-foreground">{r.label}</dt>
-                          <dd className="font-mono tabular-nums">{r.value}</dd>
+                          <dt className="w-16 shrink-0 text-muted-foreground">
+                            {r.label}
+                          </dt>
+                          <dd className="min-w-0 flex-1 break-all font-mono tabular-nums text-foreground">
+                            {r.value}
+                          </dd>
                         </div>
                       ))}
                     </dl>
                   ) : null}
                   {e.remark ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
                       {e.remark}
                     </p>
                   ) : null}
@@ -812,9 +845,9 @@ export function TxDetailPage() {
           {/* 异常/冲正提示（真实 failReason 载体，置于两栏网格之前）。 */}
           <TransactionStatusAlert detail={detail} />
 
-          <div className="grid grid-cols-1 items-start gap-4">
-            {/* 左 8/12 */}
-            <div className="flex min-w-0 flex-col gap-4">
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
+            {/* 左 8/12（gateway 形式：左=Overview/Information/Timing，右=Transaction Chain） */}
+            <div className="flex min-w-0 flex-col gap-4 xl:col-span-8">
               {/* R1'：Transaction Overview（Sent/Received 左右 + 中间汇率与 LP）。 */}
               <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                 <TxSectionHeader
@@ -923,96 +956,61 @@ export function TxDetailPage() {
               {/* R2'：Transaction Information（源币种/目标币种左右分栏）。 */}
               <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                 <TxSectionHeader icon={FileText} title="Transaction Information" />
-                <div className="space-y-5 p-6">
-                  <TxDetailField label="Transaction ID">
-                    <span className="font-mono tabular-nums">
-                      {detail.transactionId}
-                    </span>
-                  </TxDetailField>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <section
-                      aria-label="Source currency details"
-                      className="min-w-0 rounded-lg border border-border p-4"
-                    >
-                      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
-                        <h3 className="text-sm font-semibold text-foreground">
-                          Source Currency
-                        </h3>
-                        <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
-                          {orDash(detail.sourceCurrency)}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
-                        <TxDetailField label="Source Bank">
-                          {orDash(detail.sourceBankName)}
-                        </TxDetailField>
-                        <TxDetailField label="Source Wallet">
-                          <CopyableId value={detail.senderAccount} />
-                        </TxDetailField>
-                        <TxDetailField label="Principal">
-                          <span className="font-mono tabular-nums">
-                            {fmtAmount(
-                              detail.principal,
-                              detail.sourceCurrency || undefined,
-                              decOf(detail.sourceCurrency),
-                            )}
-                          </span>
-                        </TxDetailField>
-                        <TxDetailField label="User Deduction">
-                          <span className="font-mono tabular-nums">
-                            {fmtAmount(
-                              detail.userDeduction,
-                              detail.sourceCurrency || undefined,
-                              decOf(detail.sourceCurrency),
-                            )}
-                          </span>
-                        </TxDetailField>
-                        <TxDetailField label="LP Source Pool Address">
-                          <CopyableId value={detail.lpSourcePoolAddress} />
-                        </TxDetailField>
-                        <TxDetailField label="Source Chain Tx ID">
-                          <CopyableId value={detail.sourceCsTxId} />
-                        </TxDetailField>
-                      </div>
-                    </section>
-                    <section
-                      aria-label="Target currency details"
-                      className="min-w-0 rounded-lg border border-border p-4"
-                    >
-                      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
-                        <h3 className="text-sm font-semibold text-foreground">
-                          Target Currency
-                        </h3>
-                        <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
-                          {orDash(detail.targetCurrency)}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
-                        <TxDetailField label="Target Bank">
-                          {orDash(detail.targetBankName)}
-                        </TxDetailField>
-                        <TxDetailField label="Target Wallet">
-                          <CopyableId value={detail.receiverAccount} />
-                        </TxDetailField>
-                        <TxDetailField label="Received Amount">
-                          <span className="font-mono tabular-nums">
-                            {fmtAmount(
-                              detail.receiverAmount,
-                              detail.targetCurrency || undefined,
-                              decOf(detail.targetCurrency),
-                            )}
-                          </span>
-                        </TxDetailField>
-                        <TxDetailField label="LP Target Pool Address">
-                          <CopyableId value={detail.lpTargetPoolAddress} />
-                        </TxDetailField>
-                        <TxDetailField label="Target Chain Tx ID">
-                          <CopyableId value={detail.targetCsTxId} />
-                        </TxDetailField>
-                      </div>
-                    </section>
-                  </div>
-                  {/* 2026-10-30 三系统统一：Remarks 移出信息区——过程描述随链路事件节点展示 */}
+                <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2">
+                  <section
+                    aria-label="Source details"
+                    className="min-w-0 rounded-lg border border-border p-4"
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-3">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Source
+                      </h3>
+                      <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
+                        {orDash(detail.sourceCurrency)}
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      <InfoRow label="Bank">
+                        {orDash(detail.sourceBankName)}
+                      </InfoRow>
+                      <InfoRow label="Wallet">
+                        <CopyableId value={detail.senderAccount} />
+                      </InfoRow>
+                      <InfoRow label="LP Pool">
+                        <CopyableId value={detail.lpSourcePoolAddress} />
+                      </InfoRow>
+                      <InfoRow label="Tx ID">
+                        <CopyableId value={detail.sourceCsTxId} />
+                      </InfoRow>
+                    </div>
+                  </section>
+                  <section
+                    aria-label="Target details"
+                    className="min-w-0 rounded-lg border border-border p-4"
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-3">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Target
+                      </h3>
+                      <span className="rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground">
+                        {orDash(detail.targetCurrency)}
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      <InfoRow label="Bank">
+                        {orDash(detail.targetBankName)}
+                      </InfoRow>
+                      <InfoRow label="Wallet">
+                        <CopyableId value={detail.receiverAccount} />
+                      </InfoRow>
+                      <InfoRow label="LP Pool">
+                        <CopyableId value={detail.lpTargetPoolAddress} />
+                      </InfoRow>
+                      <InfoRow label="Tx ID">
+                        <CopyableId value={detail.targetCsTxId} />
+                      </InfoRow>
+                    </div>
+                  </section>
                 </div>
               </section>
 
@@ -1043,9 +1041,10 @@ export function TxDetailPage() {
               </section>
             </div>
 
-            {/* Transaction Chain（2026-10-30 三系统统一：gateway 形式事件时间轴；
-                Clearance Pipeline rail 退役——链路形式以 gateway 为准） */}
-            <TransactionChainSection detail={detail} />
+            {/* 右 4/12：Transaction Chain（gateway 形式事件时间轴；Clearance Pipeline rail 退役） */}
+            <aside className="min-w-0 xl:col-span-4">
+              <TransactionChainSection detail={detail} />
+            </aside>
           </div>
         </>
       ) : null}

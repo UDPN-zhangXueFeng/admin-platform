@@ -210,6 +210,21 @@ const RECENT_TX_PAGE_SIZE = 5;
 const STATUS_ACTIVE = 20;
 
 /** LBL 模板插值：'{count} configured' + {count: 3} → '3 configured'（原型 t() 同构）。 */
+/** token 身份键归一：tokenNo 优先（全网唯一），缺失回退 tokenCode（旧数据/BFF 未升级兼容）。 */
+function srcKey(r: {
+  sourceTokenNo?: string;
+  sourceTokenCode?: string;
+}): string | undefined {
+  return r.sourceTokenNo || r.sourceTokenCode;
+}
+
+function tgtKey(r: {
+  targetTokenNo?: string;
+  targetTokenCode?: string;
+}): string | undefined {
+  return r.targetTokenNo || r.targetTokenCode;
+}
+
 function tpl(text: string, vars: Record<string, string | number>): string {
   return text.replace(/\{(\w+)\}/g, (_, key: string) =>
     key in vars ? String(vars[key]) : `{${key}}`,
@@ -946,8 +961,8 @@ function BottomTabsCard({
           const r = row.original;
           return (
             <TokenPairCell
-              tokens={`${symOf(r.sourceTokenNo)}/${symOf(r.targetTokenNo)}`}
-              banks={`${bankOf(r.sourceTokenNo)} → ${bankOf(r.targetTokenNo)}`}
+              tokens={`${symOf(srcKey(r))}/${symOf(tgtKey(r))}`}
+              banks={`${bankOf(srcKey(r))} → ${bankOf(tgtKey(r))}`}
             />
           );
         },
@@ -1072,8 +1087,8 @@ function BottomTabsCard({
           const r = row.original;
           return (
             <TokenPairCell
-              tokens={`${symOf(r.sourceTokenNo)}/${symOf(r.targetTokenNo)}`}
-              banks={`${bankOf(r.sourceTokenNo)} → ${bankOf(r.targetTokenNo)}`}
+              tokens={`${symOf(srcKey(r))}/${symOf(tgtKey(r))}`}
+              banks={`${bankOf(srcKey(r))} → ${bankOf(tgtKey(r))}`}
             />
           );
         },
@@ -1087,10 +1102,10 @@ function BottomTabsCard({
           return (
             <span className="whitespace-nowrap font-mono text-xs tabular-nums">
               <span className="font-semibold">
-                {amountText(r.userDeduction, symOf(r.sourceTokenNo))}
+                {amountText(r.userDeduction, symOf(srcKey(r)))}
               </span>
               <span className="text-muted-foreground">
-                {` → ${amountText(r.receiverAmount, symOf(r.targetTokenNo))}`}
+                {` → ${amountText(r.receiverAmount, symOf(tgtKey(r)))}`}
               </span>
             </span>
           );

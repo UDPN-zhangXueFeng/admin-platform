@@ -28,14 +28,14 @@ export const TRANSACTION_STATUS_LABEL: Record<number, string> = {
   1: 'Created',
   5: 'Quoted',
   10: 'Confirmed',
-  20: 'Source Transferring',
-  25: 'Source Verified',
-  30: 'Processing',
-  35: 'Credited',
+  20: 'Source transfer in progress',
+  25: 'Source verified',
+  30: 'Disbursing',
+  35: 'Settled',
   40: 'Completed',
   50: 'Reversing',
   60: 'Reversed',
-  70: 'Abnormal',
+  70: 'Exception',
   80: 'Cancelled',
   90: 'Failed',
 };
@@ -60,7 +60,8 @@ export const TRANSACTION_STATUS_VARIANT: Record<
 
 /** 状态筛选下拉选项（全 13 值；value 为字符串供 Select 使用）。 */
 export const TX_STATUS_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  1, 5, 10, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90,
+  // 2026-10-30 三系统统一：按业务路径序（主路径 → 冲正 → 失败/取消/异常）
+  1, 5, 10, 20, 25, 30, 35, 40, 50, 60, 90, 80, 70,
 ].map((v) => ({ value: String(v), label: TRANSACTION_STATUS_LABEL[v] ?? String(v) }));
 
 /** 与后端 TransactionRespVO 对齐（tx_transaction 联查 pair/lp/bank）。 */

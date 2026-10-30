@@ -190,13 +190,13 @@ export function BankQueryListPage() {
         header: 'Tradable Tokens',
         meta: { overflow: 'wrap', maxWidth: 360 },
         cell: ({ row }) => {
-          /* Tradable Tokens 只展示后端下发的 token symbol。 */
+          /* Tradable Tokens 优先展示 token symbol（2026-10-30），缺失回退 tokenCode。 */
           const tokens = tokensOf(row.original);
           if (tokens.length === 0) return <span>-</span>;
           return (
             <span className="inline-flex flex-wrap gap-1.5">
               {tokens.map((t, i) => {
-                const label = t.symbol?.trim();
+                const label = t.symbol?.trim() || t.tokenCode;
                 return (
                   <span key={`${t.tokenCode}-${i}`} className="font-mono">
                     {label || '-'}

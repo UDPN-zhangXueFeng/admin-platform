@@ -19,16 +19,16 @@ export const PROTO_TX_STATUS: Record<number, ProtoStatusMeta> = {
   1: { text: 'Created', rank: 0 },
   5: { text: 'Quoted', rank: 1 },
   10: { text: 'Confirmed', rank: 2 },
-  20: { text: 'Source Transferring', rank: 3 },
-  25: { text: 'Source Verified', rank: 4 },
-  30: { text: 'Processing', rank: 5 },
-  35: { text: 'Credited', rank: 6 },
+  20: { text: 'Source transfer in progress', rank: 3 },
+  25: { text: 'Source verified', rank: 4 },
+  30: { text: 'Disbursing', rank: 5 },
+  35: { text: 'Settled', rank: 6 },
   40: { text: 'Completed', rank: 7 },
   50: { text: 'Reversing', rank: 8 },
   60: { text: 'Reversed', rank: 9 },
-  70: { text: 'Abnormal', rank: 10 },
+  90: { text: 'Failed', rank: 10 },
   80: { text: 'Cancelled', rank: 11 },
-  90: { text: 'Failed', rank: 12 },
+  70: { text: 'Exception', rank: 12 },
 };
 
 /** 与现行文案的三处差异：20/25/70 逐字改为原型词，35/40 拆回原型双终态：
