@@ -27,6 +27,7 @@ import {
 } from './key-service-configuration-sensitive';
 
 import {
+  Alert,
   Button,
   Checkbox,
   Input,
@@ -89,7 +90,7 @@ export function KeyServiceConfigurationEditPage() {
   const parameterTypeLabel = useParameterTypeLabel();
 
   const keyServiceCode = searchParams.get('id') ?? undefined;
-  const { data: detail, isLoading, isError, error } =
+  const { data: detail, isLoading, isError, error, refetch } =
     useKeyServiceConfigurationDetailQuery(keyServiceCode);
 
   // Wallet attributes derive from the real record — the wire has no boolean
@@ -99,6 +100,10 @@ export function KeyServiceConfigurationEditPage() {
   const descriptionLength = detail?.description?.length ?? 0;
   // Sensitive parameter values (credentials) render masked until the
   // operator explicitly reveals one; values are never logged anywhere.
+
+  // Demo-only submit (matrix D4 / KM-023): surfaces the demo notice. No
+  // persistence, no navigation, payload deliberately NOT logged.
+  const [demoSubmitted, setDemoSubmitted] = React.useState(false);
   const [revealedParamIds, setRevealedParamIds] = React.useState<Set<string>>(
     () => new Set(),
   );
@@ -118,16 +123,16 @@ export function KeyServiceConfigurationEditPage() {
       {/* ---------- Block 1: Edit Key Service Configuration ---------- */}
       <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
         <h2 className="mb-2 text-base font-bold">
-          Edit Key Service Configuration
+          {t('key_management_0156')}
         </h2>
         <p className="mb-6 text-sm text-muted-foreground">
-          Configure a descriptive name for your Key service.
+          {t('key_management_0121')}
         </p>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <ReadOnlyField
             id="key-service-name"
-            label="Key Service Name"
+            label={t('key_management_0001')}
             value={d.keyServiceName}
           />
         </div>
@@ -136,32 +141,32 @@ export function KeyServiceConfigurationEditPage() {
           {/* Wallet Attribute */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              Wallet Attribute
+              {t('key_management_0122')}
               <span className="ml-0.5 text-destructive">*</span>
             </label>
             <div className="flex flex-col gap-2">
               <label className="flex items-center gap-2">
                 <Checkbox checked={hotWallet} disabled />
-                <span className="text-sm">Hot Wallet</span>
+                <span className="text-sm">{t('key_management_0123')}</span>
               </label>
               <div className="flex items-center gap-1">
                 <label className="flex items-center gap-2">
                   <Checkbox checked={coldWallet} disabled />
-                  <span className="text-sm">Cold Wallet</span>
+                  <span className="text-sm">{t('key_management_0124')}</span>
                 </label>
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        aria-label="Cold wallet info"
+                        aria-label={t('key_management_0124')}
                         className="text-muted-foreground"
                       >
                         <Info className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      Cold wallet requires additional security measures
+                      {t('key_management_0125')}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -172,7 +177,7 @@ export function KeyServiceConfigurationEditPage() {
           {/* Wallet Group ID */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              Wallet Group ID
+              {t('key_management_0126')}
               <span className="ml-0.5 text-destructive">*</span>
             </label>
             <div className="flex flex-col gap-2">
@@ -198,7 +203,7 @@ export function KeyServiceConfigurationEditPage() {
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-sm font-medium" htmlFor="description">
-              Description
+              {t('key_management_0053')}
             </label>
             <Textarea
               id="description"
@@ -218,27 +223,28 @@ export function KeyServiceConfigurationEditPage() {
 
       {/* ---------- Block 2: Access Configuration ---------- */}
       <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <h2 className="mb-2 text-base font-bold">Access Configuration</h2>
+        <h2 className="mb-2 text-base font-bold">{t('key_management_0129')}</h2>
         <p className="mb-6 text-sm text-muted-foreground">
-          Configure the Key service parameters required for access. Empty
-          fields will be ignored.
+          {t('key_management_0130')}
         </p>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <ReadOnlyField
             id="url"
-            label="URL"
+            label={t('key_management_0154')}
             required
             value={d.url}
           />
         </div>
 
-        <div className="mb-4 mt-6 text-sm font-medium">Parameters</div>
+        <div className="mb-4 mt-6 text-sm font-medium">
+          {t('key_management_0131')}
+        </div>
 
         <div className="mb-2 grid grid-cols-12 gap-4 text-sm text-muted-foreground">
-          <div className="col-span-3">Parameter Type</div>
-          <div className="col-span-3">Parameter Key</div>
-          <div className="col-span-5">Parameter Value</div>
+          <div className="col-span-3">{t('key_management_0132')}</div>
+          <div className="col-span-3">{t('key_management_0133')}</div>
+          <div className="col-span-5">{t('key_management_0134')}</div>
           <div className="col-span-1" />
         </div>
 
@@ -252,7 +258,7 @@ export function KeyServiceConfigurationEditPage() {
             >
               <div className="col-span-3">
                 <Input
-                  aria-label="Parameter type"
+                  aria-label={t('key_management_0132')}
                   value={parameterTypeLabel(param.parameterType)}
                   disabled
                 />
@@ -304,15 +310,15 @@ export function KeyServiceConfigurationEditPage() {
 
       {/* ---------- Block 3: Supported Chains ---------- */}
       <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <h2 className="mb-2 text-base font-bold">Supported Chains</h2>
+        <h2 className="mb-2 text-base font-bold">{t('key_management_0135')}</h2>
         <p className="mb-6 text-sm text-muted-foreground">
-          Configure the blockchain networks supported by this Key service.
+          {t('key_management_0136')}
         </p>
 
         <div className="mb-4 grid grid-cols-12 gap-4 text-sm text-muted-foreground">
           <div className="col-span-3" />
-          <div className="col-span-4">Service Provider Blockchain Name</div>
-          <div className="col-span-4">Service Provider Blockchain ID</div>
+          <div className="col-span-4">{t('key_management_0137')}</div>
+          <div className="col-span-4">{t('key_management_0138')}</div>
           <div className="col-span-1" />
         </div>
 
@@ -332,14 +338,14 @@ export function KeyServiceConfigurationEditPage() {
               </div>
               <div className="col-span-4">
                 <Input
-                  aria-label="Service Provider Blockchain Name"
+                  aria-label={t('key_management_0137')}
                   value={chain.serviceProviderBlockchainName ?? ''}
                   disabled
                 />
               </div>
               <div className="col-span-4">
                 <Input
-                  aria-label="Service Provider Blockchain ID"
+                  aria-label={t('key_management_0138')}
                   value={chain.serviceProviderBlockchainId ?? ''}
                   disabled
                 />
@@ -349,13 +355,22 @@ export function KeyServiceConfigurationEditPage() {
           ))
         )}
 
+        {/* Demo notice — explicit non-persistence feedback (KM-023). */}
+        {demoSubmitted && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {t('key_management_0073')}
+          </div>
+        )}
+
         {/* Action buttons */}
         <div className="mt-6 flex justify-end gap-4">
           <Button variant="outline" onClick={() => router.back()}>
-            Back
+            {t('key_management_0056')}
           </Button>
-          {/* Write API unavailable — submission intentionally disabled. */}
-          <Button disabled>Submit</Button>
+          {/* Demo submit: never persisted (matrix D4). */}
+          <Button type="button" onClick={() => setDemoSubmitted(true)}>
+            {t('key_management_0142')}
+          </Button>
         </div>
       </div>
     </>
@@ -374,9 +389,17 @@ export function KeyServiceConfigurationEditPage() {
           <div className="h-48 w-full animate-pulse rounded-md bg-muted" />
         </div>
       ) : isError || !detail ? (
-        // Missing id / backend failure must not masquerade as empty data.
-        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-6 text-sm text-destructive">
-          {error?.message || t('key_management_0070')}
+        // Missing id / backend failure must not masquerade as empty data;
+        // offer an explicit retry (matrix D8, KM-007).
+        <div className="mb-4">
+          <Alert variant="destructive">
+            <div className="flex items-center justify-between gap-4">
+              <span>{error?.message || t('key_management_0070')}</span>
+              <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+                {t('key_management_retry')}
+              </Button>
+            </div>
+          </Alert>
         </div>
       ) : (
         renderBody(detail)

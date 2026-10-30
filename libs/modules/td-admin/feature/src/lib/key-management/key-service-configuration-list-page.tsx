@@ -1,7 +1,7 @@
 /**
- * KeyServiceConfigurationListPage — landing list with filters, static
- * row actions (Edit/Deprecate disabled, no write APIs), a non-persistent
- * Deprecate demo dialog, and a Configure entry point.
+ * KeyServiceConfigurationListPage — landing list with server-side queries
+ * committed on the Query button (upstream CustomTable semantics), a demo
+ * Deprecate dialog, and Configure/Edit/Details entries.
  *
  * Data: `useKeyServiceConfigurationsQuery` (POST /key/config/keyServiceList,
  * defined in the key-signed-transactions data-access module).
@@ -24,6 +24,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
+  Alert,
   Button,
   DataTable,
   Dialog,
@@ -42,11 +43,13 @@ import {
   Textarea,
 } from '@myorg/shared/ui';
 import { DatePicker } from '@myorg/shared/ui-forms';
+import { formatDate } from '@myorg/shared/util-dates';
 
 import {
   type KeyServiceConfiguration,
   useKeyServiceConfigurationsQuery,
 } from '@myorg/modules/td-admin/data-access';
+import { keyServiceStatusToneMap } from './constants';
 
 /** Non-empty sentinel — SelectItem forbids an empty-string value. */
 const ALL_STATUS_VALUE = 'all-statuses';
@@ -61,8 +64,22 @@ const dialogSchema = z.object({
 });
 type DialogFormValues = z.infer<typeof dialogSchema>;
 
-function formatTimestamp(value?: number): string {
-  return value ? new Date(value).toLocaleString() : '--';
+/** Timestamp column format, matching sibling list pages. */
+const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
+
+/** Semantic tone → tailwind badge classes (keyServiceStatusToneMap values). */
+const TONE_CLASS: Record<string, string> = {
+  success: 'border-green-600/40 bg-green-500/10 text-green-700 dark:text-green-400',
+  processing: 'border-blue-600/40 bg-blue-500/10 text-blue-700 dark:text-blue-400',
+  warning: 'border-amber-600/40 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+  error: 'border-red-600/40 bg-red-500/10 text-red-700 dark:text-red-400',
+  default: 'border-border bg-muted text-muted-foreground',
+};
+
+/** Format a Unix timestamp (ms) in the shared portal column format. */
+function formatTimestamp(ts?: number): string {
+  if (!ts) return '--';
+  return formatDate(Number(ts), DATETIME_FMT);
 }
 
 /** Split the comma-separated supported-chains string into a trimmed array. */
@@ -85,23 +102,34 @@ export function KeyServiceConfigurationListPage() {
   const [startCreateDate, setStartCreateDate] = React.useState('');
   const [endCreateDate, setEndCreateDate] = React.useState('');
 
+  /** Committed filter values — only a Query click sends them to the server. */
+  const [committedFilters, setCommittedFilters] = React.useState({
+    keyServiceName: '',
+    status: '',
+    startCreateDate: '',
+    endCreateDate: '',
+  });
+
   const {
     data,
     isLoading,
     isFetching,
     isError,
     error,
+    refetch,
   } = useKeyServiceConfigurationsQuery({
     pageNum: page,
     pageSize: PAGE_SIZE,
     filters: {
-      keyServiceName: keyServiceName || undefined,
-      status: status ? Number(status) : undefined,
-      startCreateDate: startCreateDate
-        ? startOfDay(parseISO(startCreateDate)).getTime()
+      keyServiceName: committedFilters.keyServiceName || undefined,
+      status: committedFilters.status
+        ? Number(committedFilters.status)
         : undefined,
-      endCreateDate: endCreateDate
-        ? endOfDay(parseISO(endCreateDate)).getTime()
+      startCreateDate: committedFilters.startCreateDate
+        ? startOfDay(parseISO(committedFilters.startCreateDate)).getTime()
+        : undefined,
+      endCreateDate: committedFilters.endCreateDate
+        ? endOfDay(parseISO(committedFilters.endCreateDate)).getTime()
         : undefined,
     },
   });
@@ -177,10 +205,11 @@ export function KeyServiceConfigurationListPage() {
     closeDeprecate();
   };
 
-  // ----- Row actions (mirrors source index.tsx:206-230) -----
-  // Upstream always renders the same three actions; Edit and Deprecate ship
-  // hard-disabled (no backend write APIs yet), Details is gated only on
-  // keyServiceCode. No status-driven branching exists upstream.
+  // ----- Row actions -----
+  // Upstream ships Edit/Deprecate hard-disabled (no backend write APIs).
+  // Per the frozen baseline (alignment.md D3) navigation entries are enabled:
+  // Edit opens the real-data edit preview; Deprecate stays disabled (its
+  // dialog is a non-persistent demo). Details stays gated on keyServiceCode.
   const renderActions = (record: KeyServiceConfiguration) => {
     const action = (
       label: string,
@@ -205,7 +234,7 @@ export function KeyServiceConfigurationListPage() {
           t('key_management_0010'),
           () => goEdit(record.keyServiceCode),
           'edit',
-          true,
+          false,
         )}
         {action(
           t('key_management_0011'),
@@ -258,8 +287,11 @@ export function KeyServiceConfigurationListPage() {
         cell: ({ getValue }) => {
           const value = getValue() as number;
           if (typeof value !== 'number') return '--';
+          const tone = keyServiceStatusToneMap[value] ?? 'default';
           return (
-            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">
+            <span
+              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TONE_CLASS[tone]}`}
+            >
               {getStatusLabel(value)}
             </span>
           );
@@ -275,11 +307,27 @@ export function KeyServiceConfigurationListPage() {
     [t],
   );
 
+  const handleQuery = () => {
+    setCommittedFilters({
+      keyServiceName,
+      status,
+      startCreateDate,
+      endCreateDate,
+    });
+    setPage(1);
+  };
+
   const handleReset = () => {
     setKeyServiceName('');
     setStatus('');
     setStartCreateDate('');
     setEndCreateDate('');
+    setCommittedFilters({
+      keyServiceName: '',
+      status: '',
+      startCreateDate: '',
+      endCreateDate: '',
+    });
     setPage(1);
   };
 
@@ -299,10 +347,7 @@ export function KeyServiceConfigurationListPage() {
             <Input
               id="ksc-filter-name"
               value={keyServiceName}
-              onChange={(event) => {
-                setKeyServiceName(event.target.value);
-                setPage(1);
-              }}
+              onChange={(event) => setKeyServiceName(event.target.value)}
               placeholder=""
             />
           </div>
@@ -312,10 +357,9 @@ export function KeyServiceConfigurationListPage() {
             </label>
             <Select
               value={status || ALL_STATUS_VALUE}
-              onValueChange={(value) => {
-                setStatus(value === ALL_STATUS_VALUE ? '' : value);
-                setPage(1);
-              }}
+              onValueChange={(value) =>
+                setStatus(value === ALL_STATUS_VALUE ? '' : value)
+              }
             >
               <SelectTrigger aria-label={t('key_management_0003')}>
                 <SelectValue placeholder={t('PUB_All')} />
@@ -335,16 +379,13 @@ export function KeyServiceConfigurationListPage() {
               className="text-sm font-medium"
               htmlFor="ksc-filter-start"
             >
-              {t('key_management_0002')}
+              {t('key_management_creation_date_start')}
             </label>
             <DatePicker
               id="ksc-filter-start"
               value={startCreateDate}
-              onChange={(value) => {
-                setStartCreateDate(value);
-                setPage(1);
-              }}
-              ariaLabel={t('key_management_0002')}
+              onChange={setStartCreateDate}
+              ariaLabel={t('key_management_creation_date_start')}
             />
           </div>
           <div className="space-y-1.5">
@@ -352,20 +393,18 @@ export function KeyServiceConfigurationListPage() {
               className="text-sm font-medium"
               htmlFor="ksc-filter-end"
             >
-              {t('key_management_0002')}
+              {t('key_management_creation_date_end')}
             </label>
             <DatePicker
               id="ksc-filter-end"
               value={endCreateDate}
-              onChange={(value) => {
-                setEndCreateDate(value);
-                setPage(1);
-              }}
-              ariaLabel={t('key_management_0002')}
+              onChange={setEndCreateDate}
+              ariaLabel={t('key_management_creation_date_end')}
             />
           </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
+          <Button onClick={handleQuery}>{t('PUB_Query')}</Button>
           <Button variant="outline" onClick={handleReset}>
             {t('PUB_Reset')}
           </Button>
@@ -382,9 +421,14 @@ export function KeyServiceConfigurationListPage() {
         </div>
 
         {isError ? (
-          <p className="mb-3 text-sm text-destructive">
-            {error?.message || t('key_management_0069')}
-          </p>
+          <Alert variant="destructive" className="mb-4">
+            <div className="flex items-center justify-between gap-4">
+              <span>{error?.message || t('key_management_0069')}</span>
+              <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+                {t('key_management_retry')}
+              </Button>
+            </div>
+          </Alert>
         ) : null}
         <DataTable
           columns={columns}

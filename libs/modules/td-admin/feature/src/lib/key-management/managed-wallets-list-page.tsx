@@ -65,6 +65,17 @@ const filterSchema = z.object({
 
 type FilterFormValues = z.infer<typeof filterSchema>;
 
+const DEFAULT_FILTER_VALUES: FilterFormValues = {
+  roleName: ALL_VALUE,
+  keyId: '',
+  tokenId: ALL_VALUE,
+  walletAddress: '',
+  blockchainId: ALL_VALUE,
+  startCreationDate: '',
+  endCreationDate: '',
+  status: ALL_VALUE,
+};
+
 /** Minimal structural type of a next-intl messages accessor (t + t.has). */
 interface KeyManagementMessages {
   (key: string): string;
@@ -126,37 +137,32 @@ export function ManagedWalletsListPage() {
   const [page, setPage] = React.useState(1);
   const pageSize = 10;
 
-  const { register, watch, reset, control } = useForm<FilterFormValues>({
+  const { register, reset, control, getValues } = useForm<FilterFormValues>({
     resolver: zodResolver(filterSchema),
-    defaultValues: {
-      roleName: ALL_VALUE,
-      keyId: '',
-      tokenId: ALL_VALUE,
-      walletAddress: '',
-      blockchainId: ALL_VALUE,
-      startCreationDate: '',
-      endCreationDate: '',
-      status: ALL_VALUE,
-    },
+    defaultValues: DEFAULT_FILTER_VALUES,
   });
 
-  const filters = watch();
+  // Committed filter values — only a Query click sends them to the server.
+  const [committed, setCommitted] = React.useState<FilterFormValues>(
+    DEFAULT_FILTER_VALUES,
+  );
 
   const params = React.useMemo(() => {
     const data: ManagedWalletListFilters = {};
-    const roleName = toFilterNumber(filters.roleName);
+    const roleName = toFilterNumber(committed.roleName);
     if (roleName !== undefined) data.roleName = roleName;
-    if (filters.keyId) data.keyId = filters.keyId;
-    const tokenId = toFilterNumber(filters.tokenId);
+    if (committed.keyId) data.keyId = committed.keyId;
+    const tokenId = toFilterNumber(committed.tokenId);
     if (tokenId !== undefined) data.tokenId = tokenId;
-    if (filters.walletAddress) data.walletAddress = filters.walletAddress;
-    const blockchainId = toFilterNumber(filters.blockchainId);
+    if (committed.walletAddress) data.walletAddress = committed.walletAddress;
+    const blockchainId = toFilterNumber(committed.blockchainId);
     if (blockchainId !== undefined) data.blockchainId = blockchainId;
-    const startCreationDate = toDayStart(filters.startCreationDate);
-    if (startCreationDate !== undefined) data.startCreationDate = startCreationDate;
-    const endCreationDate = toDayEnd(filters.endCreationDate);
+    const startCreationDate = toDayStart(committed.startCreationDate);
+    if (startCreationDate !== undefined)
+      data.startCreationDate = startCreationDate;
+    const endCreationDate = toDayEnd(committed.endCreationDate);
     if (endCreationDate !== undefined) data.endCreationDate = endCreationDate;
-    const status = toFilterNumber(filters.status);
+    const status = toFilterNumber(committed.status);
     if (status !== undefined) data.status = status;
 
     return {
@@ -164,21 +170,7 @@ export function ManagedWalletsListPage() {
       pageSize,
       filters: data,
     };
-  }, [filters, page, pageSize]);
-
-  // Upstream re-queries page 1 on search; live filters reset the pager too.
-  React.useEffect(() => {
-    setPage(1);
-  }, [
-    filters.roleName,
-    filters.keyId,
-    filters.tokenId,
-    filters.walletAddress,
-    filters.blockchainId,
-    filters.startCreationDate,
-    filters.endCreationDate,
-    filters.status,
-  ]);
+  }, [committed, page, pageSize]);
 
   const {
     data: listData,
@@ -192,8 +184,14 @@ export function ManagedWalletsListPage() {
   const rows = listData?.rows ?? [];
   const total = listData?.page?.total ?? 0;
 
+  const handleQuery = () => {
+    setCommitted(getValues());
+    setPage(1);
+  };
+
   const handleReset = () => {
-    reset();
+    reset(DEFAULT_FILTER_VALUES);
+    setCommitted(DEFAULT_FILTER_VALUES);
     setPage(1);
   };
 
@@ -208,7 +206,7 @@ export function ManagedWalletsListPage() {
     () => [
       {
         accessorKey: 'roleName',
-        header: 'Role Name',
+        header: t('KP_RoleName'),
         cell: ({ getValue }) => {
           const raw = getValue() as number | string | undefined;
           if (raw === undefined || raw === null || raw === '') return '--';
@@ -219,12 +217,12 @@ export function ManagedWalletsListPage() {
       },
       {
         accessorKey: 'keyId',
-        header: 'Key ID',
+        header: t('key_management_0074'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'tokenName',
-        header: 'Token',
+        header: t('key_management_0075'),
         cell: ({ row }) => {
           const record = row.original;
           return (
@@ -243,7 +241,7 @@ export function ManagedWalletsListPage() {
         accessorKey: 'walletAddress',
         header: () => (
           <div className="flex items-center gap-1">
-            <span>Wallet Address</span>
+            <span>{t('key_management_0076')}</span>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -258,17 +256,17 @@ export function ManagedWalletsListPage() {
       },
       {
         accessorKey: 'blockchainName',
-        header: 'Blockchain',
+        header: t('key_management_0063'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'keyServiceName',
-        header: 'Key Service Name',
+        header: t('key_management_0001'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'rotationFrequency',
-        header: 'Rotation Frequency',
+        header: t('key_management_0108'),
         cell: ({ getValue }) => {
           // Upstream renders `value || '3 months'` (default fallback).
           const value = getValue() as number | string | undefined;
@@ -277,7 +275,7 @@ export function ManagedWalletsListPage() {
       },
       {
         accessorKey: 'lastRotationTime',
-        header: 'Last Rotation Time',
+        header: t('key_management_0087'),
         cell: ({ getValue }) => {
           const ts = getValue() as number | undefined;
           return ts ? formatDate(Number(ts), DATETIME_FMT) : '--';
@@ -285,7 +283,7 @@ export function ManagedWalletsListPage() {
       },
       {
         accessorKey: 'nextRotationTime',
-        header: 'Next Rotation Time',
+        header: t('key_management_0088'),
         cell: ({ getValue }) => {
           const ts = getValue() as number | undefined;
           return ts ? formatDate(Number(ts), DATETIME_FMT) : '--';
@@ -293,7 +291,7 @@ export function ManagedWalletsListPage() {
       },
       {
         accessorKey: 'createdOn',
-        header: 'Created on',
+        header: t('key_management_0005'),
         cell: ({ getValue }) => {
           const ts = getValue() as number | undefined;
           return ts ? formatDate(Number(ts), DATETIME_FMT) : '--';
@@ -301,7 +299,7 @@ export function ManagedWalletsListPage() {
       },
       {
         accessorKey: 'status',
-        header: 'Status',
+        header: t('key_management_0003'),
         cell: ({ getValue }) => {
           const raw = getValue() as number | string | undefined;
           if (raw === undefined || raw === null || raw === '') return '--';
@@ -312,14 +310,14 @@ export function ManagedWalletsListPage() {
             <span
               className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TONE_CLASS[entry.tone] ?? TONE_CLASS.default}`}
             >
-              {entry.label}
+              {t(entry.i18nKey)}
             </span>
           );
         },
       },
       {
         id: 'actions',
-        header: 'Details',
+        header: t('key_management_0012'),
         cell: ({ row }) => (
           <Button
             variant="link"
@@ -327,7 +325,7 @@ export function ManagedWalletsListPage() {
             disabled={row.original.chainAccountId == null}
             onClick={() => handleViewDetail(row.original.chainAccountId)}
           >
-            Details
+            {t('key_management_0012')}
           </Button>
         ),
       },
@@ -368,10 +366,10 @@ export function ManagedWalletsListPage() {
   const statusOptions = React.useMemo(
     () =>
       Object.entries(walletStatusMap).map(([value, entry]) => ({
-        label: entry.label,
+        label: t(entry.i18nKey),
         value,
       })),
-    [],
+    [t],
   );
 
   return (
@@ -383,34 +381,34 @@ export function ManagedWalletsListPage() {
           <FormSelect
             name="roleName"
             control={control}
-            label="Role Name"
+            label={t('KP_RoleName')}
             options={roleNameOptions}
             placeholder={t('PUB_All')}
           />
           <div>
-            <label className="text-sm font-medium">Key ID</label>
-            <Input placeholder="Key ID" {...register('keyId')} />
+            <label className="text-sm font-medium">{t('key_management_0074')}</label>
+            <Input placeholder={t('key_management_0074')} {...register('keyId')} />
           </div>
           <FormSelect
             name="tokenId"
             control={control}
-            label="Token"
+            label={t('key_management_0075')}
             options={tokenOptions}
             placeholder={t('PUB_All')}
           />
           <div>
-            <label className="text-sm font-medium">Wallet Address</label>
-            <Input placeholder="Wallet Address" {...register('walletAddress')} />
+            <label className="text-sm font-medium">{t('key_management_0076')}</label>
+            <Input placeholder={t('key_management_0076')} {...register('walletAddress')} />
           </div>
           <FormSelect
             name="blockchainId"
             control={control}
-            label="Blockchain"
+            label={t('key_management_0063')}
             options={blockchainOptions}
             placeholder={t('PUB_All')}
           />
           <div>
-            <label className="text-sm font-medium">Creation Date</label>
+            <label className="text-sm font-medium">{t('key_management_0107')}</label>
             <div className="flex items-center gap-2">
               <Input type="date" {...register('startCreationDate')} />
               <span className="text-muted-foreground">-</span>
@@ -420,12 +418,13 @@ export function ManagedWalletsListPage() {
           <FormSelect
             name="status"
             control={control}
-            label="Status"
+            label={t('key_management_0003')}
             options={statusOptions}
             placeholder={t('PUB_All')}
           />
         </div>
         <div className="mt-4 flex justify-end gap-2">
+          <Button onClick={handleQuery}>{t('PUB_Query')}</Button>
           <Button variant="outline" onClick={handleReset}>
             {t('PUB_Reset')}
           </Button>
@@ -435,7 +434,7 @@ export function ManagedWalletsListPage() {
       {/* Table */}
       <div className="rounded-lg border bg-card p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Managed Wallets</h3>
+          <h3 className="text-lg font-semibold">{t('key_management_0092')}</h3>
         </div>
 
         {isError && (

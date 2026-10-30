@@ -4,8 +4,8 @@
  * Tab 1 (Basic Information): three cards — Key Service Details (9 fields),
  * Access Parameter Details (url + Parameters table), and Supported Chains
  * Details (table) — with a Back button.
- * Tab 2 (Operation Records): an operationType filter + Reset + a paginated
- * DataTable backed by `useKeyServiceOperationRecordsQuery`.
+ * Tab 2 (Operation Records): an operationType filter + Query/Reset + a
+ * paginated DataTable backed by `useKeyServiceOperationRecordsQuery`.
  *
  * Architecture mirrors `managed-wallets-detail-page.tsx`
  * (card + DetailItem, react-hook-form + DataTable).
@@ -24,6 +24,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
+  Alert,
   Button,
   DataTable,
   Tabs,
@@ -32,6 +33,7 @@ import {
   TabsTrigger,
 } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
+import { formatDate } from '@myorg/shared/util-dates';
 import {
   MASKED_VALUE,
   isSensitiveParameterKey,
@@ -42,11 +44,27 @@ import {
   useKeyServiceOperationRecordsQuery,
   type KeyServiceOperationRecord,
 } from '@myorg/modules/td-admin/data-access';
+import {
+  keyServiceOperationStatusToneMap,
+  keyServiceStatusToneMap,
+} from './constants';
 
-/** Format a Unix timestamp (ms) to a locale string. */
+/** Timestamp column format, matching sibling pages. */
+const DATETIME_FMT = 'YYYY-MM-DD HH:mm:ss';
+
+/** Semantic tone → tailwind badge classes (status tone map values). */
+const TONE_CLASS: Record<string, string> = {
+  success: 'border-green-600/40 bg-green-500/10 text-green-700 dark:text-green-400',
+  processing: 'border-blue-600/40 bg-blue-500/10 text-blue-700 dark:text-blue-400',
+  warning: 'border-amber-600/40 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+  error: 'border-red-600/40 bg-red-500/10 text-red-700 dark:text-red-400',
+  default: 'border-border bg-muted text-muted-foreground',
+};
+
+/** Format a Unix timestamp (ms) in the shared portal column format. */
 function formatTimestamp(ts?: number): string {
   if (!ts) return '--';
-  return new Date(ts).toLocaleString();
+  return formatDate(Number(ts), DATETIME_FMT);
 }
 
 interface DetailItemProps {
@@ -60,6 +78,17 @@ function DetailItem({ label, children }: DetailItemProps) {
       <p className="text-sm text-muted-foreground">{label}</p>
       <div className="text-sm font-medium">{children}</div>
     </div>
+  );
+}
+
+/** Status tag with semantic tone classes (shared by both tabs). */
+function StatusBadge({ tone, label }: { tone: string; label: string }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TONE_CLASS[tone]}`}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -109,6 +138,7 @@ export function KeyServiceConfigurationDetailPage() {
     isLoading,
     isError,
     error,
+    refetch,
   } = useKeyServiceConfigurationDetailQuery(keyServiceCode);
 
   // ----- Display maps (i18n-driven, mirror source detail.tsx) -----
@@ -217,6 +247,7 @@ export function KeyServiceConfigurationDetailPage() {
     isLoading: recordsLoading,
     isError: recordsError,
     error: recordsErrorValue,
+    refetch: refetchRecords,
   } = useKeyServiceOperationRecordsQuery(recordsParams);
 
   // Upstream handleOperationTypeChange resets to page 1 on filter change.
@@ -283,9 +314,10 @@ export function KeyServiceConfigurationDetailPage() {
           const status = getValue() as number;
           if (typeof status !== 'number') return '--';
           return (
-            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">
-              {getOperationStatusLabel(status)}
-            </span>
+            <StatusBadge
+              tone={keyServiceOperationStatusToneMap[status] ?? 'default'}
+              label={getOperationStatusLabel(status)}
+            />
           );
         },
       },
@@ -418,9 +450,17 @@ export function KeyServiceConfigurationDetailPage() {
               <div className="h-32 w-full animate-pulse rounded-md bg-muted" />
             </div>
           ) : isError ? (
-            // Backend/business failures must not masquerade as empty data.
-            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-6 text-sm text-destructive">
-              {error?.message || t('key_management_0070')}
+            // Backend/business failures must not masquerade as empty data;
+            // offer an explicit retry (matrix D8, KM-007).
+            <div className="mb-4">
+              <Alert variant="destructive">
+                <div className="flex items-center justify-between gap-4">
+                  <span>{error?.message || t('key_management_0070')}</span>
+                  <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+                    {t('key_management_retry')}
+                  </Button>
+                </div>
+              </Alert>
             </div>
           ) : (
             <>
@@ -438,9 +478,12 @@ export function KeyServiceConfigurationDetailPage() {
                   <DetailItem label={t('key_management_0003')}>
                     {/* Upstream: `detail?.status ? Tag : '--'` — 0 is unknown */}
                     {detail?.status ? (
-                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">
-                        {getStatusLabel(detail.status)}
-                      </span>
+                      <StatusBadge
+                        tone={
+                          keyServiceStatusToneMap[detail.status] ?? 'default'
+                        }
+                        label={getStatusLabel(detail.status)}
+                      />
                     ) : (
                       '--'
                     )}
@@ -530,7 +573,10 @@ export function KeyServiceConfigurationDetailPage() {
                 options={operationTypeOptions}
                 placeholder={t('PUB_All')}
               />
-              <div className="flex items-end">
+              <div className="flex items-end gap-2">
+                <Button onClick={() => refetchRecords()}>
+                  {t('PUB_Query')}
+                </Button>
                 <Button variant="outline" onClick={handleRecordsReset}>
                   {t('PUB_Reset')}
                 </Button>
@@ -548,9 +594,14 @@ export function KeyServiceConfigurationDetailPage() {
               })}
             </p>
             {recordsError ? (
-              <p className="mb-3 text-sm text-destructive">
-                {recordsErrorValue?.message || t('key_management_0061')}
-              </p>
+              <Alert variant="destructive" className="mb-3">
+                <div className="flex items-center justify-between gap-4">
+                  <span>{recordsErrorValue?.message || t('key_management_0061')}</span>
+                  <Button type="button" variant="outline" size="sm" onClick={() => refetchRecords()}>
+                    {t('key_management_retry')}
+                  </Button>
+                </div>
+              </Alert>
             ) : null}
             <DataTable
               columns={recordsColumns}

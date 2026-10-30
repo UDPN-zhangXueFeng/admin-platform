@@ -70,10 +70,6 @@ const nextConfig: NextConfig = {
         destination: '/api/admin-proxy/user-wallets',
       },
       {
-        source: `${agentPrefix}/api/manage/v1/signed/transaction/keyServices`,
-        destination: '/api/admin-proxy/key-service-platforms',
-      },
-      {
         source: `${agentPrefix}/:path*`,
         destination: `${backendUrl}/:path*`,
       },

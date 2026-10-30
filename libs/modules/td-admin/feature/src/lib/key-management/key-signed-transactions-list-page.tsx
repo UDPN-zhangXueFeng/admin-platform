@@ -137,6 +137,21 @@ const filterSchema = z.object({
 
 type FilterFormValues = z.infer<typeof filterSchema>;
 
+const DEFAULT_FILTER_VALUES: FilterFormValues = {
+  signatureId: '',
+  thirdPartyPlatformId: '',
+  walletAddress: '',
+  transactionType: '',
+  signatureType: '',
+  tokenId: '',
+  blockchainId: '',
+  startSignatureDate: '',
+  endSignatureDate: '',
+  startSubmissionDate: '',
+  endSubmissionDate: '',
+  transactionHash: '',
+};
+
 export function KeySignedTransactionsListPage() {
   const t = useTranslations('modules.key-management');
   const tCommon = useTranslations('common');
@@ -144,68 +159,50 @@ export function KeySignedTransactionsListPage() {
   const [page, setPage] = React.useState(1);
   const pageSize = 10;
 
-  const { register, watch, reset, control } = useForm<FilterFormValues>({
+  const { register, reset, control, getValues } = useForm<FilterFormValues>({
     resolver: zodResolver(filterSchema),
-    defaultValues: {
-      signatureId: '',
-      thirdPartyPlatformId: '',
-      walletAddress: '',
-      transactionType: '',
-      signatureType: '',
-      tokenId: '',
-      blockchainId: '',
-      startSignatureDate: '',
-      endSignatureDate: '',
-      startSubmissionDate: '',
-      endSubmissionDate: '',
-      transactionHash: '',
-    },
+    defaultValues: DEFAULT_FILTER_VALUES,
   });
 
-  const filters = watch();
+  // Committed filter values — only a Query click sends them to the server.
+  const [committed, setCommitted] = React.useState<FilterFormValues>(
+    DEFAULT_FILTER_VALUES,
+  );
 
   const params = React.useMemo(() => {
     const data: KeySignedTransactionListFilters = {};
-    if (filters.signatureId) data.signatureId = filters.signatureId;
-    if (filters.thirdPartyPlatformId) data.thirdPartyPlatformId = Number(filters.thirdPartyPlatformId) || undefined;
-    if (filters.walletAddress) data.walletAddress = filters.walletAddress;
-    if (filters.transactionType) data.transactionType = filters.transactionType;
-    if (filters.signatureType) data.signatureType = filters.signatureType;
-    if (filters.tokenId) data.tokenId = Number(filters.tokenId) || undefined;
-    if (filters.blockchainId) data.blockchainId = Number(filters.blockchainId) || undefined;
-    const startSignatureDate = toDayStart(filters.startSignatureDate);
-    if (startSignatureDate !== undefined) data.startSignatureDate = startSignatureDate;
-    const endSignatureDate = toDayEnd(filters.endSignatureDate);
-    if (endSignatureDate !== undefined) data.endSignatureDate = endSignatureDate;
-    const startSubmissionDate = toDayStart(filters.startSubmissionDate);
-    if (startSubmissionDate !== undefined) data.startSubmissionDate = startSubmissionDate;
-    const endSubmissionDate = toDayEnd(filters.endSubmissionDate);
-    if (endSubmissionDate !== undefined) data.endSubmissionDate = endSubmissionDate;
-    if (filters.transactionHash) data.transactionHash = filters.transactionHash;
+    if (committed.signatureId) data.signatureId = committed.signatureId;
+    if (committed.thirdPartyPlatformId)
+      data.thirdPartyPlatformId =
+        Number(committed.thirdPartyPlatformId) || undefined;
+    if (committed.walletAddress) data.walletAddress = committed.walletAddress;
+    if (committed.transactionType)
+      data.transactionType = committed.transactionType;
+    if (committed.signatureType)
+      data.signatureType = committed.signatureType;
+    if (committed.tokenId) data.tokenId = Number(committed.tokenId) || undefined;
+    if (committed.blockchainId)
+      data.blockchainId = Number(committed.blockchainId) || undefined;
+    const startSignatureDate = toDayStart(committed.startSignatureDate);
+    if (startSignatureDate !== undefined)
+      data.startSignatureDate = startSignatureDate;
+    const endSignatureDate = toDayEnd(committed.endSignatureDate);
+    if (endSignatureDate !== undefined)
+      data.endSignatureDate = endSignatureDate;
+    const startSubmissionDate = toDayStart(committed.startSubmissionDate);
+    if (startSubmissionDate !== undefined)
+      data.startSubmissionDate = startSubmissionDate;
+    const endSubmissionDate = toDayEnd(committed.endSubmissionDate);
+    if (endSubmissionDate !== undefined)
+      data.endSubmissionDate = endSubmissionDate;
+    if (committed.transactionHash)
+      data.transactionHash = committed.transactionHash;
 
     return {
       page: { pageSize, pageNum: page },
       data,
     };
-  }, [filters, page, pageSize]);
-
-  // Upstream re-queries page 1 on search; live filters reset the pager too.
-  React.useEffect(() => {
-    setPage(1);
-  }, [
-    filters.signatureId,
-    filters.thirdPartyPlatformId,
-    filters.walletAddress,
-    filters.transactionType,
-    filters.signatureType,
-    filters.tokenId,
-    filters.blockchainId,
-    filters.startSignatureDate,
-    filters.endSignatureDate,
-    filters.startSubmissionDate,
-    filters.endSubmissionDate,
-    filters.transactionHash,
-  ]);
+  }, [committed, page, pageSize]);
 
   const {
     data: listData,
@@ -221,8 +218,14 @@ export function KeySignedTransactionsListPage() {
   const rows = listData?.rows ?? [];
   const total = listData?.page?.total ?? 0;
 
+  const handleQuery = () => {
+    setCommitted(getValues());
+    setPage(1);
+  };
+
   const handleReset = () => {
-    reset();
+    reset(DEFAULT_FILTER_VALUES);
+    setCommitted(DEFAULT_FILTER_VALUES);
     setPage(1);
   };
 
@@ -237,22 +240,22 @@ export function KeySignedTransactionsListPage() {
     () => [
       {
         accessorKey: 'signatureId',
-        header: 'Signature ID',
+        header: t('key_management_0099'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'keyServiceName',
-        header: 'Key Service Name',
+        header: t('key_management_0001'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'walletAddress',
-        header: 'Wallet Address',
+        header: t('key_management_0076'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'transactionType',
-        header: 'Transaction Type',
+        header: t('key_management_0100'),
         cell: ({ getValue }) => {
           const value = getValue() as string;
           return value ? transactionTypeLabelMap[value] || value : '--';
@@ -260,7 +263,7 @@ export function KeySignedTransactionsListPage() {
       },
       {
         accessorKey: 'signatureType',
-        header: 'Signature Type',
+        header: t('key_management_0101'),
         cell: ({ getValue }) => {
           const value = String(getValue() ?? '');
           return signatureTypeMap[value] || value || '--';
@@ -268,7 +271,7 @@ export function KeySignedTransactionsListPage() {
       },
       {
         accessorKey: 'tokenName',
-        header: 'Token',
+        header: t('key_management_0075'),
         cell: ({ row }) => {
           const record = row.original;
           return (
@@ -285,27 +288,27 @@ export function KeySignedTransactionsListPage() {
       },
       {
         accessorKey: 'blockchainName',
-        header: 'Blockchain',
+        header: t('key_management_0063'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'signatureTime',
-        header: 'Signature Time',
+        header: t('key_management_0102'),
         cell: ({ getValue }) => formatTimestamp(getValue() as number),
       },
       {
         accessorKey: 'submissionTime',
-        header: 'Submission Time',
+        header: t('key_management_0103'),
         cell: ({ getValue }) => formatTimestamp(getValue() as number),
       },
       {
         accessorKey: 'transactionHash',
-        header: 'Transaction Hash',
+        header: t('key_management_0078'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'status',
-        header: 'Status',
+        header: t('key_management_0003'),
         cell: ({ getValue }) => {
           const raw = getValue() as number | string | undefined;
           if (raw === undefined || raw === null || raw === '') return '--';
@@ -326,7 +329,7 @@ export function KeySignedTransactionsListPage() {
       },
       {
         id: 'actions',
-        header: 'Details',
+        header: t('key_management_0012'),
         cell: ({ row }) => (
           <Button
             variant="link"
@@ -334,7 +337,7 @@ export function KeySignedTransactionsListPage() {
             disabled={row.original.txRecordId == null}
             onClick={() => handleViewDetail(row.original.txRecordId)}
           >
-            Details
+            {t('key_management_0012')}
           </Button>
         ),
       },
@@ -400,50 +403,50 @@ export function KeySignedTransactionsListPage() {
         <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="text-sm font-medium">Signature ID</label>
-            <Input placeholder="Signature ID" {...register('signatureId')} />
+            <label className="text-sm font-medium">{t('key_management_0099')}</label>
+            <Input placeholder={t('key_management_0150')} {...register('signatureId')} />
           </div>
           <FormSelect
             name="thirdPartyPlatformId"
             control={control}
-            label="Key Service Name"
+            label={t('key_management_0001')}
             options={keyServiceOptions}
             placeholder={t('PUB_All')}
           />
           <div>
-            <label className="text-sm font-medium">Wallet Address</label>
-            <Input placeholder="Wallet Address" {...register('walletAddress')} />
+            <label className="text-sm font-medium">{t('key_management_0076')}</label>
+            <Input placeholder={t('key_management_0076')} {...register('walletAddress')} />
           </div>
           <FormSelect
             name="transactionType"
             control={control}
-            label="Transaction Type"
+            label={t('key_management_0100')}
             options={transactionTypeOptions}
             placeholder={t('PUB_All')}
           />
           <FormSelect
             name="signatureType"
             control={control}
-            label="Signature Type"
+            label={t('key_management_0101')}
             options={signatureTypeSelectOptions}
             placeholder={t('PUB_All')}
           />
           <FormSelect
             name="tokenId"
             control={control}
-            label="Token"
+            label={t('key_management_0075')}
             options={tokenOptions}
             placeholder={t('PUB_All')}
           />
           <FormSelect
             name="blockchainId"
             control={control}
-            label="Blockchain"
+            label={t('key_management_0063')}
             options={blockchainOptions}
             placeholder={t('PUB_All')}
           />
           <div>
-            <label className="text-sm font-medium">Signature Date</label>
+            <label className="text-sm font-medium">{t('key_management_0102')}</label>
             <div className="flex items-center gap-2">
               <Input type="date" {...register('startSignatureDate')} />
               <span className="text-muted-foreground">-</span>
@@ -451,7 +454,7 @@ export function KeySignedTransactionsListPage() {
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium">Submission Date</label>
+            <label className="text-sm font-medium">{t('key_management_0103')}</label>
             <div className="flex items-center gap-2">
               <Input type="date" {...register('startSubmissionDate')} />
               <span className="text-muted-foreground">-</span>
@@ -459,11 +462,12 @@ export function KeySignedTransactionsListPage() {
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium">Transaction Hash</label>
-            <Input placeholder="Transaction Hash" {...register('transactionHash')} />
+            <label className="text-sm font-medium">{t('key_management_0078')}</label>
+            <Input placeholder={t('key_management_0078')} {...register('transactionHash')} />
           </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
+          <Button onClick={handleQuery}>{t('PUB_Query')}</Button>
           <Button variant="outline" onClick={handleReset}>
             {t('PUB_Reset')}
           </Button>
@@ -473,7 +477,7 @@ export function KeySignedTransactionsListPage() {
       {/* Table */}
       <div className="rounded-lg border bg-card p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Key-Signed Transactions</h3>
+          <h3 className="text-lg font-semibold">{t('key_management_0155')}</h3>
         </div>
 
         {isError && (

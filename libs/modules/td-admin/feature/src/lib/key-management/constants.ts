@@ -140,26 +140,89 @@ export const signatureTypeOptions = Object.keys(signatureTypeMap).map((key) => (
 }));
 
 // ---------------------------------------------------------------------------
+// Key Service Configuration
+// ---------------------------------------------------------------------------
+
+/** Key-service status tones — 4 states (upstream index.tsx:37-44 tag colors). */
+export const keyServiceStatusToneMap: Record<number, string> = {
+  1: 'success',
+  2: 'default',
+  3: 'processing',
+  4: 'error',
+};
+
+/**
+ * Operation-records status tones — 10 states
+ * (upstream detail.tsx:58-78 tag colors; cyan→processing, green→success).
+ */
+export const keyServiceOperationStatusToneMap: Record<number, string> = {
+  1: 'default',
+  3: 'default',
+  5: 'warning',
+  10: 'processing',
+  15: 'error',
+  20: 'success',
+  30: 'processing',
+  35: 'success',
+  40: 'error',
+  45: 'default',
+};
+
+// ---------------------------------------------------------------------------
 // Managed Wallets
 // ---------------------------------------------------------------------------
 
 /** Wallet status map — 3 states shared by list & detail. */
-export const walletStatusMap: Record<number, { label: string; tone: string }> = {
-  1: { label: 'Active', tone: 'success' },
-  2: { label: 'Inactive', tone: 'default' },
-  3: { label: 'Pending', tone: 'processing' },
+export const walletStatusMap: Record<
+  number,
+  { label: string; tone: string; i18nKey: string }
+> = {
+  1: { label: 'Active', tone: 'success', i18nKey: 'key_management_0109' },
+  2: { label: 'Inactive', tone: 'default', i18nKey: 'key_management_0110' },
+  3: { label: 'Pending', tone: 'processing', i18nKey: 'key_management_0111' },
 };
 
 /** Rotation status map — 8-state state machine used by the rotation history table. */
-export const rotationStatusMap: Record<number, { label: string; tone: string }> = {
-  1: { label: 'Pending Generation', tone: 'default' },
-  5: { label: 'Pending Review', tone: 'warning' },
-  10: { label: 'Reviewing', tone: 'processing' },
-  15: { label: 'Review Rejected', tone: 'error' },
-  20: { label: 'Pending Execution', tone: 'warning' },
-  30: { label: 'Executing', tone: 'processing' },
-  35: { label: 'Completed', tone: 'success' },
-  40: { label: 'Failed', tone: 'error' },
+export const rotationStatusMap: Record<
+  number,
+  { label: string; tone: string; i18nKey: string }
+> = {
+  1: {
+    label: 'Pending Generation',
+    tone: 'default',
+    i18nKey: 'key_management_0112',
+  },
+  5: {
+    label: 'Pending Review',
+    tone: 'warning',
+    i18nKey: 'key_management_0113',
+  },
+  10: {
+    label: 'Reviewing',
+    tone: 'processing',
+    i18nKey: 'key_management_0114',
+  },
+  15: {
+    label: 'Review Rejected',
+    tone: 'error',
+    i18nKey: 'key_management_0115',
+  },
+  20: {
+    label: 'Pending Execution',
+    tone: 'warning',
+    i18nKey: 'key_management_0116',
+  },
+  30: {
+    label: 'Executing',
+    tone: 'processing',
+    i18nKey: 'key_management_0117',
+  },
+  35: {
+    label: 'Completed',
+    tone: 'success',
+    i18nKey: 'key_management_0118',
+  },
+  40: { label: 'Failed', tone: 'error', i18nKey: 'key_management_0119' },
 };
 
 /**
@@ -177,9 +240,9 @@ export const roleNameMap: Record<number, string> = {
 // ---------------------------------------------------------------------------
 
 /** KYC required map — 0 = No, 1 = Yes. */
-export const kycConfig: Record<number, string> = {
-  0: 'No',
-  1: 'Yes',
+export const kycConfig: Record<number, { label: string; i18nKey: string }> = {
+  0: { label: 'No', i18nKey: 'key_management_0152' },
+  1: { label: 'Yes', i18nKey: 'key_management_0151' },
 };
 
 // ---------------------------------------------------------------------------

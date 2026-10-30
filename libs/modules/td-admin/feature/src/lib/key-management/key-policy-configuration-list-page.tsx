@@ -39,6 +39,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
+import { formatDate } from '@myorg/shared/util-dates';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
@@ -108,10 +109,12 @@ const toneClassMap: Record<string, string> = {
   warning: 'border-amber-300 bg-amber-50 text-amber-700',
 };
 
-/** Format a Unix timestamp (ms) to a locale string. */
+/**
+ * Format a Unix timestamp (ms) with the portal-wide deterministic format (matrix D2).
+ */
 function formatTimestamp(ts?: number): string {
   if (!ts) return '--';
-  return new Date(ts).toLocaleString();
+  return formatDate(Number(ts), 'YYYY-MM-DD HH:mm:ss');
 }
 
 /**

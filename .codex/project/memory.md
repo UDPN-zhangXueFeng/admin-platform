@@ -1305,6 +1305,26 @@
 - 新增 mock API 的 Promise 包装遵循内置样式规则 `Promise.withResolvers()`（不用 `new Promise((resolve)=>{setTimeout...})` executor 形式）；调用方传"任意对象形状"参数（如 additionalParams）时接口类型用 `Record<string, unknown>`，传 react-hook-form 的 interface 值需 `{ ...values }` spread 才能过索引签名检查。
 - 上游 role-wallets Configure 契约：configureRoleWalletApi 为 mock（500ms、恒 code 0、文案 'Wallet configuration submitted successfully'）；rigsec 生成钱包 body 的 walletType 恒 1（源 `Number(标签字符串)||1`，Cold/Hot 单选是死状态不透传）——遇到"源码把 UI 态字符串直接 Number()"的写法，等价迁移是硬编码落值+注释，不是保留透传。
 
+## 2026-10-29 Key Management round-02（双语修复与补证）
+
+- 双语修复必须按**文件清单**逐页过而非按组件复用关系推：ksvc 的 configure（`key-service-configuration-form.tsx`）与 edit（`key-service-configuration-edit-page.tsx`，ReadOnlyField 只读页）是两个文件，只改共享 form 会把 edit 页整页英文漏掉；本轮靠「zh 文本抓取逐页比对」才在验收前发现。
+- 新增 i18n 键后**编号记忆不可靠**：0096(Token Name)被误当 Description、0135(Supported Chains)被误当编辑页标题，都是「顺手用了邻近编号」造成。纠错做法：写引用前 grep 键值双向核对（`key_management_00xx` 在 en/zh json 中的字面值），修复后浏览器抓文本确认字段语义（描述/0/200、编辑密钥服务配置）。
+- 状态/类型字典接 i18n 的既有模式是 `{label, i18nKey}` 结构 + 渲染处 `t(entry.i18nKey)`（walletStatusMap/kycConfig/参数类型选项已改）；大字典（57 交易类型/22 角色名/签名类型）未接，登记为 round-02 ISS-15 债务，zh 页面因此仍会显示英文枚举值，属预期而非回归。
+- 面包屑子页 slug（Detail/Edit/New/Configure）由 `libs/shared/ui-layout/breadcrumb.tsx` humanize 直显，平台级单语行为，登记 ISS-16；模块轮内不修 shared。
+- ISS-11 补证的可靠抓包写法：`tab.run(async ({page}) => {...})` 内 `page.on('request')` 收集 `req.postData()`，finally 里 `page.off`；committed-on-Query 的请求体证据（带日期筛选 `startCreationDate/endCreationDate` 毫秒时间戳）由此取得，`tab.requests()` 拿不到 body。
+- 非数字深链 id（`detail?id=abc`）预期行为是「Transaction record not found」+Back 不崩溃；narrow 取证先 `tab.emulate({viewport:{width:414,...}})` 再截图，侧栏自动收起为汉堡，无抽屉遮挡（round-01 的遮挡问题源于未收起侧栏直接 390 宽截图）。
+
+## 2026-10-29 Key Management round-02(admin-optimizer)新沉淀
+
+1. **RHF reset × Controller × Radix Select 回填失效(KM-042/ISS-B-01 根因,全局可复用)**:react-hook-form 7.x 在挂载后 `useEffect` 里 `reset(数据)` 回填时,经 `Controller` 受控的 Radix Select(`FormSelect`)不接收新值(占位符常驻),原生 `input`+`register` 路径不受影响——同页部分字段回填、部分空白即此征。修法:**列表→编辑回填一律首渲染 `defaultValues`**(id 先 `useSearchParams` useMemo 算好→`initialValues` useMemo→`useForm({ defaultValues })`),删除挂载后 reset 路径;异步数据未就绪时按「未命中回退默认值」处理而非二次 reset。
+2. **browser 截图通道**:eval 里 `tab.screenshot({path})` 不落盘(仅回显附件)、`page.screenshot({fullPage:true})` 长页中途截止且下拉闭合态入镜。可靠做法:`tab.run(async ({ page }, args) => Bun.write(path, await page.screenshot(...)), { args })` + 截前对目标区 `scrollIntoView`/`role/…` 点击展开并等待;宽视口 1920×1080。
+3. **复审判例**:「源码逻辑正确」≠「运行正确」(reset 写法本身没错,仍致编辑页不可用);单侧评审 98% 门禁下,运行不可达/不可视条目以 A/B 双留痕「跨域采信」处理(冻结分母不动),与 N/A 剔除先例(KM-067)同构但更稳。
+
+## 2026-10-29 admin-optimizer 验收归档收敛
+
+- `admin-optimizer` 的用户交付以每轮唯一 `.doc/admin/YYYY-MM-DD/<module>/round-XX/verification.md` 为准，不要求用户阅读 alignment、review、issues 或 evidence 等过程文件来拼接结论；但冻结矩阵、分母来源、A/B 原始结论、截图/JSON/网络/服务端日志和命令输出必须保留在 `evidence/` 或 verification 附录中，作为可审计支撑。
+- `verification.md` 必须先给最终状态，再列矩阵版本与分母来源、代码级与真实浏览器/接口运行级校验率、通过/失败/未验证项、失败原因、当前阻塞、需要用户提供的外部条件和等待事项。代码级全量通过不能替代端到端通过；后续补证未对全量分母重算时必须明确说明。
+
 ## 2026-10-29 SP Access Management round-02
 
 - `sp-access` 的表单拆分后仍需保持 create/edit 两套校验差异：create 必须校验 `spName`，空值用 `sp_access_0185` 提示；edit 回填不能依赖 `reset` 后的隐式状态。

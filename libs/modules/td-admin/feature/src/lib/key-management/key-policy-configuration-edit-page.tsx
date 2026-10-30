@@ -120,18 +120,6 @@ export function KeyPolicyConfigurationEditPage() {
     [t],
   );
 
-  const {
-    control,
-    register,
-    watch,
-    reset,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<EditFormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: DEFAULT_VALUES,
-  });
-
   // Resolve the numeric id from ?id= (matches source `Number(id)` semantics).
   const policyId = React.useMemo(() => {
     const raw = searchParams.get('id');
@@ -140,26 +128,39 @@ export function KeyPolicyConfigurationEditPage() {
     return Number.isFinite(value) ? value : undefined;
   }, [searchParams]);
 
-  // Backfill the form when the id resolves to a record in policyEditList.
-  // If find returns undefined (id missing — e.g. 4, or out-of-range), the
+  // Backfill via initial defaultValues, NOT a post-mount reset(): RHF 7.x
+  // reset() does not propagate into Controller-bound Radix selects (FormSelect),
+  // which left businessName/frequency selects blank (ISS-B-01 / KM-042).
+  // If the id resolves to no record (missing — e.g. 4, or out-of-range), the
   // form stays at DEFAULT_VALUES (blank) — faithful to source §8.C.2.
-  React.useEffect(() => {
-    if (policyId === undefined) return;
+  const initialValues = React.useMemo<EditFormValues>(() => {
+    if (policyId === undefined) return DEFAULT_VALUES;
     const record = policyEditList.find((item) => item.id === policyId);
-    if (!record) return;
+    if (!record) return DEFAULT_VALUES;
 
     const freq = parseRotationFrequency(record.rotationFrequency ?? '');
     const method = toMethodValue(record.rotationMethods ?? '');
 
-    reset({
+    return {
       businessName: record.businessName,
       frequencyNumber: String(freq.number),
       frequencyUnit: freq.unit,
       // rotationTime is 'HH:mm:ss' already — pass through directly (§8.E, no dayjs).
       rotationTime: record.rotationTime ?? '',
       rotationMethod: method,
-    });
-  }, [policyId, reset]);
+    };
+  }, [policyId]);
+
+  const {
+    control,
+    register,
+    watch,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<EditFormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: initialValues,
+  });
 
   // Description is read-only and derived from the selected business name
   // (source uses an independent state; we derive from watch for parity).

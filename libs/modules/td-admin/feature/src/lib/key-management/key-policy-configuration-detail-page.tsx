@@ -39,6 +39,7 @@ import {
   TabsTrigger,
 } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
+import { formatDate } from '@myorg/shared/util-dates';
 
 import {
   operationRecords,
@@ -137,7 +138,7 @@ export function KeyPolicyConfigurationDetailPage() {
       rotationTime: match.rotationTime,
       rotationMethods: match.rotationMethods,
       createdBy: detailExample ? policyDetail.createdBy : undefined,
-      createdOn: match.createdOn ? new Date(match.createdOn).toLocaleString() : undefined,
+      createdOn: match.createdOn ? formatDate(Number(match.createdOn), 'YYYY-MM-DD HH:mm:ss') : undefined,
       updatedBy: detailExample ? policyDetail.updatedBy : undefined,
       updatedOn: detailExample ? policyDetail.updatedOn : undefined,
     };

@@ -161,10 +161,10 @@ export function UserWalletsListPage() {
   const statusOptions = React.useMemo(
     () =>
       Object.entries(walletStatusMap).map(([value, entry]) => ({
-        label: entry.label,
+        label: t(entry.i18nKey),
         value,
       })),
-    [],
+    [t],
   );
 
   // Client-side filtering over the full dataset.
@@ -211,41 +211,43 @@ export function UserWalletsListPage() {
     () => [
       {
         accessorKey: 'walletAddress',
-        header: 'Wallet Address',
+        header: t('key_management_0076'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'spName',
-        header: 'Service Provider Name',
+        header: t('key_management_0095'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'tdName',
-        header: 'Token Name',
+        header: t('key_management_0096'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'tokenType',
-        header: 'Token Type',
+        header: t('key_management_0097'),
         cell: ({ getValue }) => formatTokenType(t, getValue() as number),
       },
       {
         accessorKey: 'blockchainName',
-        header: 'Blockchain',
+        header: t('key_management_0063'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'kycRequired',
-        header: 'KYC Required',
+        header: t('key_management_0098'),
         cell: ({ getValue }) => {
           const value = getValue() as number | string | undefined;
           if (value === undefined || value === null || value === '') return '--';
-          return kycConfig[Number(value)] ?? String(value);
+          return kycConfig[Number(value)]
+            ? t(kycConfig[Number(value)].i18nKey)
+            : String(value);
         },
       },
       {
         accessorKey: 'createTime',
-        header: 'Created on',
+        header: t('key_management_0005'),
         cell: ({ getValue }) => {
           const ts = getValue() as number | undefined;
           return ts ? formatDate(Number(ts), DATETIME_FMT) : '--';
@@ -253,7 +255,7 @@ export function UserWalletsListPage() {
       },
       {
         accessorKey: 'state',
-        header: 'Status',
+        header: t('key_management_0003'),
         cell: ({ getValue }) => {
           const raw = getValue() as number | string | undefined;
           if (raw === undefined || raw === null || raw === '') return '--';
@@ -264,7 +266,7 @@ export function UserWalletsListPage() {
             <span
               className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TONE_CLASS[entry.tone] ?? TONE_CLASS.default}`}
             >
-              {entry.label}
+              {t(entry.i18nKey)}
             </span>
           );
         },
@@ -283,36 +285,36 @@ export function UserWalletsListPage() {
         <form onSubmit={handleSubmit(onApply)} noValidate>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div>
-              <label className="text-sm font-medium">Wallet Address</label>
-              <Input placeholder="Wallet Address" {...register('walletAddress')} />
+              <label className="text-sm font-medium">{t('key_management_0076')}</label>
+              <Input placeholder={t('key_management_0076')} {...register('walletAddress')} />
             </div>
             <div>
-              <label className="text-sm font-medium">Service Provider Name</label>
-              <Input placeholder="Service Provider Name" {...register('spName')} />
+              <label className="text-sm font-medium">{t('key_management_0095')}</label>
+              <Input placeholder={t('key_management_0149')} {...register('spName')} />
             </div>
             <FormSelect
               name="tdName"
               control={control}
-              label="Token Name"
+              label={t('key_management_0096')}
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...tokenNameOptions]}
               placeholder={t('PUB_All')}
             />
             <FormSelect
               name="tokenType"
               control={control}
-              label="Token Type"
+              label={t('key_management_0097')}
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...tokenTypeOptions]}
               placeholder={t('PUB_All')}
             />
             <FormSelect
               name="blockchainId"
               control={control}
-              label="Blockchain"
+              label={t('key_management_0063')}
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...blockchainOptions]}
               placeholder={t('PUB_All')}
             />
             <div>
-              <label className="text-sm font-medium">Creation Date</label>
+              <label className="text-sm font-medium">{t('key_management_0107')}</label>
               <div className="flex items-center gap-2">
                 <Input type="date" {...register('startCreationDate')} />
                 <span className="text-muted-foreground">-</span>
@@ -322,7 +324,7 @@ export function UserWalletsListPage() {
             <FormSelect
               name="status"
               control={control}
-              label="Status"
+              label={t('key_management_0003')}
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...statusOptions]}
               placeholder={t('PUB_All')}
             />
@@ -339,7 +341,7 @@ export function UserWalletsListPage() {
       {/* Table */}
       <div className="rounded-lg border bg-card p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">User Wallets</h3>
+          <h3 className="text-lg font-semibold">{t('key_management_0093')}</h3>
         </div>
 
         {isError && (

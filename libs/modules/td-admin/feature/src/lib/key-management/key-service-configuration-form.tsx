@@ -62,8 +62,8 @@ const supportedChains = [
 
 /** Parameter-type dropdown options (source edit.tsx:33-36). */
 const parameterTypeOptions = [
-  { value: 'headers', label: 'Request Headers' },
-  { value: 'body', label: 'Request Body' },
+  { value: 'headers', i18nKey: 'key_management_0139' },
+  { value: 'body', i18nKey: 'key_management_0140' },
 ];
 
 /** Per-chain name/id inputs. */
@@ -81,7 +81,7 @@ interface KeyServiceFormValues {
 }
 
 /** Zod resolver with the upstream configure-mode rules. */
-function buildResolver() {
+function buildResolver(t: (key: string) => string) {
   return zodResolver(
     z
       .object({
@@ -90,35 +90,35 @@ function buildResolver() {
         coldWallet: z.boolean(),
         hotWalletGroupId: z.string(),
         coldWalletGroupId: z.string(),
-        description: z.string().max(200, 'Maximum 200 characters'),
-        url: z.string().min(1, 'Please enter URL'),
+        description: z.string().max(200, t('key_management_0143')),
+        url: z.string().min(1, t('key_management_0144')),
       })
       .superRefine((val, ctx) => {
         if (!val.keyServiceName.trim()) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['keyServiceName'],
-            message: 'Please enter Key Service Name',
+            message: t('key_management_0145'),
           });
         } else if (val.keyServiceName.length > 50) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['keyServiceName'],
-            message: 'Maximum 50 characters',
+            message: t('key_management_0146'),
           });
         }
         if (val.hotWallet && !val.hotWalletGroupId.trim()) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['hotWalletGroupId'],
-            message: 'Please enter Hot Wallet Group ID',
+            message: t('key_management_0147'),
           });
         }
         if (val.coldWallet && !val.coldWalletGroupId.trim()) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['coldWalletGroupId'],
-            message: 'Please enter Cold Wallet Group ID',
+            message: t('key_management_0148'),
           });
         }
       }),
@@ -128,15 +128,15 @@ function buildResolver() {
 export function KeyServiceConfigurationForm() {
   const t = useTranslations('modules.key-management');
   const router = useRouter();
-
   const {
     control,
     register,
     watch,
     reset,
+    handleSubmit,
     formState: { errors },
   } = useForm<KeyServiceFormValues>({
-    resolver: buildResolver(),
+    resolver: buildResolver(t),
     // Upstream configure.tsx: blank start, hot wallet pre-selected.
     defaultValues: {
       keyServiceName: '',
@@ -203,9 +203,14 @@ export function KeyServiceConfigurationForm() {
     }));
   };
 
-  // No submit path: the backend has no Key-service write API. The Submit
-  // button stays disabled (see footer) so nothing here can fake a save or
-  // echo typed values (potentially credentials) to the console.
+  // Demo-only submit (matrix D4 / KM-022): validate, then surface the demo
+  // notice. No persistence, no navigation, and the payload is deliberately
+  // NOT logged (typed values may include credentials).
+  const [demoSubmitted, setDemoSubmitted] = React.useState(false);
+  const onSubmit = () => {
+    setDemoSubmitted(true);
+  };
+
   const handleBack = () => {
     reset();
     router.back();
@@ -217,25 +222,24 @@ export function KeyServiceConfigurationForm() {
       <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-400">
         {t('key_management_0068')}
       </div>
-      <form className="space-y-6">
-        {/* ---------- Block 1: New Key Service Configuration ---------- */}
+      <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
         <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
           <h2 className="mb-2 text-base font-bold">
-            New Key Service Configuration
+            {t('key_management_0120')}
           </h2>
           <p className="mb-6 text-sm text-muted-foreground">
-            Configure a descriptive name for your Key service.
+            {t('key_management_0121')}
           </p>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="key-service-name">
-                Key Service Name
+                {t('key_management_0001')}
                 <span className="ml-0.5 text-destructive">*</span>
               </label>
               <Input
                 id="key-service-name"
-                placeholder="Enter letters, numbers, or special chars (up to 50 chars)"
+                placeholder={t('key_management_0127')}
                 {...register('keyServiceName')}
               />
               {errors.keyServiceName && (
@@ -250,7 +254,7 @@ export function KeyServiceConfigurationForm() {
             {/* Wallet Attribute */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium">
-                Wallet Attribute
+                {t('key_management_0122')}
                 <span className="ml-0.5 text-destructive">*</span>
               </label>
               <div className="flex flex-col gap-2">
@@ -265,7 +269,7 @@ export function KeyServiceConfigurationForm() {
                           field.onChange(checked === true)
                         }
                       />
-                      <span className="text-sm">Hot Wallet</span>
+                      <span className="text-sm">{t('key_management_0123')}</span>
                     </label>
                   )}
                 />
@@ -281,7 +285,7 @@ export function KeyServiceConfigurationForm() {
                             field.onChange(checked === true)
                           }
                         />
-                        <span className="text-sm">Cold Wallet</span>
+                        <span className="text-sm">{t('key_management_0124')}</span>
                       </label>
                     )}
                   />
@@ -290,14 +294,14 @@ export function KeyServiceConfigurationForm() {
                       <TooltipTrigger asChild>
                         <button
                           type="button"
-                          aria-label="Cold wallet info"
+                          aria-label={t('key_management_0124')}
                           className="text-muted-foreground"
                         >
                           <Info className="h-4 w-4" />
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        Cold wallet requires additional security measures
+                        {t('key_management_0125')}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -308,14 +312,14 @@ export function KeyServiceConfigurationForm() {
             {/* Wallet Group ID — conditional inputs driven by checkboxes */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium">
-                Wallet Group ID
+                {t('key_management_0126')}
                 <span className="ml-0.5 text-destructive">*</span>
               </label>
               <div className="flex flex-col gap-2">
                 {hotWallet && (
                   <div className="space-y-1">
                     <Input
-                      placeholder="Hot Wallet Group ID"
+                      placeholder={t('key_management_0123')}
                       {...register('hotWalletGroupId')}
                     />
                     {errors.hotWalletGroupId && (
@@ -328,7 +332,7 @@ export function KeyServiceConfigurationForm() {
                 {coldWallet && (
                   <div className="space-y-1">
                     <Input
-                      placeholder="Cold Wallet Group ID"
+                      placeholder={t('key_management_0124')}
                       {...register('coldWalletGroupId')}
                     />
                     {errors.coldWalletGroupId && (
@@ -345,13 +349,13 @@ export function KeyServiceConfigurationForm() {
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="description">
-                Description
+                {t('key_management_0053')}
               </label>
               <Textarea
                 id="description"
                 rows={3}
                 maxLength={200}
-                placeholder="Enter description"
+                placeholder={t('key_management_0128')}
                 {...register('description')}
               />
               <div className="flex justify-end">
@@ -370,16 +374,15 @@ export function KeyServiceConfigurationForm() {
 
         {/* ---------- Block 2: Access Configuration ---------- */}
         <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <h2 className="mb-2 text-base font-bold">Access Configuration</h2>
+          <h2 className="mb-2 text-base font-bold">{t('key_management_0129')}</h2>
           <p className="mb-6 text-sm text-muted-foreground">
-            Configure the Key service parameters required for access. Empty
-            fields will be ignored.
+            {t('key_management_0130')}
           </p>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="url">
-                URL
+                {t('key_management_0154')}
                 <span className="ml-0.5 text-destructive">*</span>
               </label>
               <Input id="url" placeholder="" {...register('url')} />
@@ -389,13 +392,15 @@ export function KeyServiceConfigurationForm() {
             </div>
           </div>
 
-          <div className="mb-4 mt-6 text-sm font-medium">Parameters</div>
+          <div className="mb-4 mt-6 text-sm font-medium">
+            {t('key_management_0131')}
+          </div>
 
           {/* Parameter header row */}
           <div className="mb-2 grid grid-cols-12 gap-4 text-sm text-muted-foreground">
-            <div className="col-span-3">Parameter Type</div>
-            <div className="col-span-3">Parameter Key</div>
-            <div className="col-span-5">Parameter Value</div>
+            <div className="col-span-3">{t('key_management_0132')}</div>
+            <div className="col-span-3">{t('key_management_0133')}</div>
+            <div className="col-span-5">{t('key_management_0134')}</div>
             <div className="col-span-1" />
           </div>
 
@@ -409,13 +414,13 @@ export function KeyServiceConfigurationForm() {
                     updateParameter(param.id, 'type', value)
                   }
                 >
-                  <SelectTrigger aria-label="Parameter type">
+                  <SelectTrigger aria-label={t('key_management_0132')}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {parameterTypeOptions.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
+                        {t(opt.i18nKey)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -427,7 +432,7 @@ export function KeyServiceConfigurationForm() {
                   onChange={(e) =>
                     updateParameter(param.id, 'key', e.target.value)
                   }
-                  placeholder="Parameter Key"
+                  placeholder={t('key_management_0133')}
                 />
               </div>
               <div className="col-span-5">
@@ -436,7 +441,7 @@ export function KeyServiceConfigurationForm() {
                   onChange={(e) =>
                     updateParameter(param.id, 'value', e.target.value)
                   }
-                  placeholder="Parameter Value"
+                  placeholder={t('key_management_0134')}
                 />
               </div>
               <div className="col-span-1 flex items-center">
@@ -447,7 +452,7 @@ export function KeyServiceConfigurationForm() {
                     className="text-destructive"
                     onClick={() => removeParameter(param.id)}
                   >
-                    Delete
+                    {t('key_management_0027')}
                   </Button>
                 )}
               </div>
@@ -455,22 +460,22 @@ export function KeyServiceConfigurationForm() {
           ))}
 
           <Button type="button" variant="outline" onClick={addParameter}>
-            + Add
+            {t('key_management_0141')}
           </Button>
         </div>
 
         {/* ---------- Block 3: Supported Chains ---------- */}
         <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <h2 className="mb-2 text-base font-bold">Supported Chains</h2>
+          <h2 className="mb-2 text-base font-bold">{t('key_management_0135')}</h2>
           <p className="mb-6 text-sm text-muted-foreground">
-            Configure the blockchain networks supported by this Key service.
+            {t('key_management_0136')}
           </p>
 
           {/* Chain header row */}
           <div className="mb-4 grid grid-cols-12 gap-4 text-sm text-muted-foreground">
             <div className="col-span-3" />
-            <div className="col-span-4">Service Provider Blockchain Name</div>
-            <div className="col-span-4">Service Provider Blockchain ID</div>
+            <div className="col-span-4">{t('key_management_0137')}</div>
+            <div className="col-span-4">{t('key_management_0138')}</div>
             <div className="col-span-1" />
           </div>
 
@@ -512,15 +517,20 @@ export function KeyServiceConfigurationForm() {
             </div>
           ))}
 
+          {/* Demo notice — explicit non-persistence feedback (KM-022). */}
+          {demoSubmitted && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {t('key_management_0073')}
+            </div>
+          )}
+
           {/* Action buttons */}
           <div className="mt-6 flex justify-end gap-4">
             <Button type="button" variant="outline" onClick={handleBack}>
-              Back
+              {t('key_management_0056')}
             </Button>
-            {/* Write API unavailable — submission intentionally disabled. */}
-            <Button type="button" disabled>
-              Submit
-            </Button>
+            {/* Demo submit: gated by zod, never persisted (matrix D4). */}
+            <Button type="submit">{t('key_management_0142')}</Button>
           </div>
         </div>
       </form>

@@ -125,12 +125,12 @@ const HISTORY_FILTER_DEFAULTS: HistoryFilterFormValues = {
 const ALL_VALUE = 'all';
 const HISTORY_PAGE_SIZE = 10;
 
-/** Select options for the rotation status filter, with an explicit "All". */
-const rotationStatusOptions = [
-  { label: 'All', value: ALL_VALUE },
+/** Select option values for the rotation status filter, with an explicit "All". */
+const rotationStatusOptionValues: { value: string; i18nKey?: string }[] = [
+  { value: ALL_VALUE },
   ...Object.entries(rotationStatusMap).map(([value, config]) => ({
-    label: config.label,
     value,
+    i18nKey: config.i18nKey,
   })),
 ];
 
@@ -156,33 +156,41 @@ export function ManagedWalletsDetailPage() {
 
   // ----- Rotation History: form + paginated query -----
   const [historyPage, setHistoryPage] = React.useState(1);
-  const { register, watch, reset, control } =
+  const { register, reset, control, getValues } =
     useForm<HistoryFilterFormValues>({
       defaultValues: HISTORY_FILTER_DEFAULTS,
     });
 
-  const filters = watch();
+  // Committed filter values — only a Query click sends them to the server.
+  const [committedHistoryFilters, setCommittedHistoryFilters] =
+    React.useState<HistoryFilterFormValues>(HISTORY_FILTER_DEFAULTS);
 
   const historyParams = React.useMemo(() => {
     const data: WalletRotationHistoryFilters = {
       chainAccountId: chainAccountId ?? 0,
     };
-    if (filters.walletAddress) data.walletAddress = filters.walletAddress;
-    if (filters.keyId) data.keyId = filters.keyId;
-    if (filters.creationStartDate) {
+    if (committedHistoryFilters.walletAddress)
+      data.walletAddress = committedHistoryFilters.walletAddress;
+    if (committedHistoryFilters.keyId)
+      data.keyId = committedHistoryFilters.keyId;
+    if (committedHistoryFilters.creationStartDate) {
       data.creationStartDate = new Date(
-        `${filters.creationStartDate}T00:00:00`,
+        `${committedHistoryFilters.creationStartDate}T00:00:00`,
       ).getTime();
     }
-    if (filters.creationEndDate) {
+    if (committedHistoryFilters.creationEndDate) {
       // End date is inclusive of the whole day.
       data.creationEndDate = new Date(
-        `${filters.creationEndDate}T23:59:59`,
+        `${committedHistoryFilters.creationEndDate}T23:59:59`,
       ).getTime();
     }
-    if (filters.transactionHash) data.transactionHash = filters.transactionHash;
-    if (filters.status && filters.status !== ALL_VALUE) {
-      data.status = Number(filters.status);
+    if (committedHistoryFilters.transactionHash)
+      data.transactionHash = committedHistoryFilters.transactionHash;
+    if (
+      committedHistoryFilters.status &&
+      committedHistoryFilters.status !== ALL_VALUE
+    ) {
+      data.status = Number(committedHistoryFilters.status);
     }
 
     return {
@@ -190,7 +198,7 @@ export function ManagedWalletsDetailPage() {
       pageSize: HISTORY_PAGE_SIZE,
       filters: data,
     };
-  }, [filters, historyPage, chainAccountId]);
+  }, [committedHistoryFilters, historyPage, chainAccountId]);
 
   const {
     data: historyData,
@@ -203,11 +211,26 @@ export function ManagedWalletsDetailPage() {
     chainAccountId !== undefined,
   );
 
+
+  const rotationStatusOptions = React.useMemo(
+    () =>
+      rotationStatusOptionValues.map((option) => ({
+        label: option.i18nKey ? t(option.i18nKey) : t('PUB_All'),
+        value: option.value,
+      })),
+    [t],
+  );
   const historyRows = historyData?.rows ?? [];
   const historyTotal = historyData?.page?.total ?? 0;
 
+  const handleHistoryQuery = () => {
+    setCommittedHistoryFilters(getValues());
+    setHistoryPage(1);
+  };
+
   const handleHistoryReset = () => {
     reset(HISTORY_FILTER_DEFAULTS);
+    setCommittedHistoryFilters(HISTORY_FILTER_DEFAULTS);
     setHistoryPage(1);
   };
 
@@ -215,62 +238,62 @@ export function ManagedWalletsDetailPage() {
     () => [
       {
         accessorKey: 'originalWallet',
-        header: 'Original Wallet',
+        header: t('key_management_0080'),
         cell: ({ getValue }) => (
           <CopyableEllipsisText value={getValue() as string} />
         ),
       },
       {
         accessorKey: 'originalKeyId',
-        header: 'Original Key ID',
+        header: t('key_management_0081'),
         cell: ({ getValue }) => (
           <CopyableEllipsisText value={getValue() as string} />
         ),
       },
       {
         accessorKey: 'newWallet',
-        header: 'New Wallet',
+        header: t('key_management_0082'),
         cell: ({ getValue }) => (
           <CopyableEllipsisText value={getValue() as string} />
         ),
       },
       {
         accessorKey: 'newKeyId',
-        header: 'New Key ID',
+        header: t('key_management_0083'),
         cell: ({ getValue }) => (
           <CopyableEllipsisText value={getValue() as string} />
         ),
       },
       {
         accessorKey: 'blockchainName',
-        header: 'Blockchain',
+        header: t('key_management_0063'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'createdBy',
-        header: 'Created by',
+        header: t('key_management_0049'),
         cell: ({ getValue }) => (getValue() as string) || '--',
       },
       {
         accessorKey: 'createdOn',
-        header: 'Created on',
+        header: t('key_management_0050'),
         cell: ({ getValue }) => formatTimestamp(getValue() as number),
       },
       {
         accessorKey: 'transactionTime',
-        header: 'Transaction Time',
+        header: t('key_management_0079'),
         cell: ({ getValue }) => formatTimestamp(getValue() as number),
       },
       {
         accessorKey: 'transactionHash',
-        header: 'Transaction Hash',
+        header: t('key_management_0078'),
         cell: ({ getValue }) => (
           <CopyableEllipsisText value={getValue() as string} />
         ),
       },
       {
         accessorKey: 'status',
-        header: 'Status',
+        header: t('key_management_0003'),
         cell: ({ getValue }) => {
           const raw = getValue() as number | string | undefined;
           if (raw === undefined || raw === null || raw === '') return '--';
@@ -281,21 +304,21 @@ export function ManagedWalletsDetailPage() {
             <span
               className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TONE_CLASS[tone] ?? TONE_CLASS.default}`}
             >
-              {entry?.label ?? String(raw)}
+              {entry ? t(entry.i18nKey) : String(raw)}
             </span>
           );
         },
       },
     ],
-    [],
+    [t],
   );
 
   return (
     <div className="space-y-6">
       <Tabs defaultValue="basic" className="w-full">
         <TabsList>
-          <TabsTrigger value="basic">Basic Information</TabsTrigger>
-          <TabsTrigger value="history">Rotation History</TabsTrigger>
+        <TabsTrigger value="basic">{t('key_management_0057')}</TabsTrigger>
+        <TabsTrigger value="history">{t('key_management_0086')}</TabsTrigger>
         </TabsList>
 
         {/* ---------- Tab 1: Basic Information ---------- */}
@@ -324,14 +347,14 @@ export function ManagedWalletsDetailPage() {
               <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
                 <div className="flex flex-col space-y-1.5 p-6">
                   <h3 className="text-2xl font-semibold leading-none tracking-tight">
-                    Current Wallet Details
+                    {t('key_management_0084')}
                   </h3>
                 </div>
                 <div className="grid grid-cols-1 gap-6 p-6 pt-0 md:grid-cols-2 lg:grid-cols-3">
-                  <DetailItem label="Role Name">
+                  <DetailItem label={t('KP_RoleName')}>
                     {getDisplayRoleName(detail?.roleName)}
                   </DetailItem>
-                  <DetailItem label="Status">
+                  <DetailItem label={t('key_management_0003')}>
                     {(() => {
                       const raw = detail?.status;
                       if (raw === undefined || raw === null || String(raw) === '') return '--';
@@ -344,31 +367,33 @@ export function ManagedWalletsDetailPage() {
                         <span
                           className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TONE_CLASS[tone] ?? TONE_CLASS.default}`}
                         >
-                          {entry?.label ?? String(raw)}
+                          {entry ? t(entry.i18nKey) : String(raw)}
                         </span>
                       );
                     })()}
                   </DetailItem>
-                  <DetailItem label="Key ID">
+                  <DetailItem label={t('key_management_0074')}>
                     <CopyableEllipsisText value={detail?.keyId} />
                   </DetailItem>
-                  <DetailItem label="Token">{detail?.token || '--'}</DetailItem>
-                  <DetailItem label="Wallet Address">
+                  <DetailItem label={t('key_management_0075')}>
+                    {detail?.token || '--'}
+                  </DetailItem>
+                  <DetailItem label={t('key_management_0076')}>
                     <CopyableEllipsisText value={detail?.walletAddress} />
                   </DetailItem>
-                  <DetailItem label="Public Key">
+                  <DetailItem label={t('key_management_0077')}>
                     <CopyableEllipsisText value={detail?.publicKey} />
                   </DetailItem>
-                  <DetailItem label="Blockchain">
+                  <DetailItem label={t('key_management_0063')}>
                     {detail?.blockchainName || '--'}
                   </DetailItem>
-                  <DetailItem label="Key Service Name">
+                  <DetailItem label={t('key_management_0001')}>
                     {detail?.keyServiceName || '--'}
                   </DetailItem>
-                  <DetailItem label="Created by">
+                  <DetailItem label={t('key_management_0049')}>
                     {detail?.createdBy || '--'}
                   </DetailItem>
-                  <DetailItem label="Created on">
+                  <DetailItem label={t('key_management_0050')}>
                     {formatTimestamp(detail?.createdOn)}
                   </DetailItem>
                 </div>
@@ -378,28 +403,28 @@ export function ManagedWalletsDetailPage() {
               <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
                 <div className="flex flex-col space-y-1.5 p-6">
                   <h3 className="text-2xl font-semibold leading-none tracking-tight">
-                    Key Rotation Details
+                    {t('key_management_0085')}
                   </h3>
                 </div>
                 <div className="grid grid-cols-1 gap-6 p-6 pt-0 md:grid-cols-2">
-                  <DetailItem label="Rotation Frequency">
+                  <DetailItem label={t('key_management_0108')}>
                     {detail?.rotationFrequency || '--'}
                   </DetailItem>
-                  <DetailItem label="Rotation Time">
+                  <DetailItem label={t('KP_RotationTime')}>
                     {detail?.rotationTime || '--'}
                   </DetailItem>
-                  <DetailItem label="Rotation Methods">
+                  <DetailItem label={t('KP_RotationMethods')}>
                     {detail?.rotationMethods || '--'}
                   </DetailItem>
-                  <DetailItem label="Last Rotation Time">
+                  <DetailItem label={t('key_management_0087')}>
                     {formatTimestamp(detail?.lastRotationTime)}
                   </DetailItem>
-                  <DetailItem label="Next Rotation Time">
+                  <DetailItem label={t('key_management_0088')}>
                     {formatTimestamp(detail?.nextRotationTime)}
                   </DetailItem>
                 </div>
                 <div className="flex justify-end p-6 pt-0">
-                  <Button onClick={() => router.back()}>Back</Button>
+                  <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
                 </div>
               </div>
             </>
@@ -419,47 +444,48 @@ export function ManagedWalletsDetailPage() {
             <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <div>
-                <label className="text-sm font-medium">Wallet Address</label>
+                <label className="text-sm font-medium">{t('key_management_0076')}</label>
                 <Input
-                  placeholder="Enter wallet address"
+                  placeholder={t('key_management_0089')}
                   {...register('walletAddress')}
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Key ID</label>
+                <label className="text-sm font-medium">{t('key_management_0074')}</label>
                 <Input
-                  placeholder="Enter key ID"
+                  placeholder={t('key_management_0090')}
                   {...register('keyId')}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium">
-                  Creation Start Date
+                  {t('key_management_creation_date_start')}
                 </label>
                 <Input type="date" {...register('creationStartDate')} />
               </div>
               <div>
                 <label className="text-sm font-medium">
-                  Creation End Date
+                  {t('key_management_creation_date_end')}
                 </label>
                 <Input type="date" {...register('creationEndDate')} />
               </div>
               <div>
-                <label className="text-sm font-medium">Transaction Hash</label>
+                <label className="text-sm font-medium">{t('key_management_0078')}</label>
                 <Input
-                  placeholder="Enter transaction hash"
+                  placeholder={t('key_management_0091')}
                   {...register('transactionHash')}
                 />
               </div>
               <FormSelect
                 name="status"
                 control={control}
-                label="Status"
+                label={t('key_management_0003')}
                 options={rotationStatusOptions}
                 placeholder={t('PUB_All')}
               />
             </div>
             <div className="mt-4 flex justify-end gap-2">
+              <Button onClick={handleHistoryQuery}>{t('PUB_Query')}</Button>
               <Button variant="outline" onClick={handleHistoryReset}>
                 {t('PUB_Reset')}
               </Button>
@@ -497,7 +523,7 @@ export function ManagedWalletsDetailPage() {
               }}
             />
             <div className="mt-6 flex justify-end">
-              <Button onClick={() => router.back()}>Back</Button>
+              <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
             </div>
           </div>
         </TabsContent>

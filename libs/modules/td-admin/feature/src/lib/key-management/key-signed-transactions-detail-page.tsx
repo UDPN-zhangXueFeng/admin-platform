@@ -134,7 +134,7 @@ export function KeySignedTransactionsDetailPage() {
           </div>
         </Alert>
         <div className="flex justify-end">
-          <Button onClick={() => router.back()}>Back</Button>
+          <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
         </div>
       </div>
     );
@@ -144,7 +144,7 @@ export function KeySignedTransactionsDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
         <h2 className="text-2xl font-bold">{t('key_management_0060')}</h2>
-        <Button onClick={() => router.back()}>Back</Button>
+        <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
       </div>
     );
   }
@@ -154,13 +154,17 @@ export function KeySignedTransactionsDetailPage() {
       {/* Signature Details */}
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
         <div className="flex flex-col space-y-1.5 p-6">
-          <h3 className="text-2xl font-semibold leading-none tracking-tight">Signature Details</h3>
+          <h3 className="text-2xl font-semibold leading-none tracking-tight">{t('key_management_0104')}</h3>
         </div>
         <div className="p-6 pt-0 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <DetailItem label="Signature ID">
-            {detail.signatureId || '--'}
+          <DetailItem label={t('key_management_0099')}>
+            {detail.signatureId ? (
+              <CopyableEllipsisText value={detail.signatureId} />
+            ) : (
+              '--'
+            )}
           </DetailItem>
-          <DetailItem label="Status">
+          <DetailItem label={t('key_management_0003')}>
             {detail.status !== undefined && detail.status !== null && String(detail.status) !== '' ? (
               (() => {
                 const status = Number(detail.status);
@@ -181,31 +185,39 @@ export function KeySignedTransactionsDetailPage() {
               '--'
             )}
           </DetailItem>
-          <DetailItem label="Key Service Name">
+          <DetailItem label={t('key_management_0001')}>
             {detail.signatureProvider || '--'}
           </DetailItem>
-          <DetailItem label="Signature Type">
+          <DetailItem label={t('key_management_0101')}>
             {detail.signatureType !== undefined && detail.signatureType !== null
               ? signatureTypeMap[String(detail.signatureType)] ||
                 String(detail.signatureType)
               : '--'}
           </DetailItem>
-          <DetailItem label="Blockchain">
+          <DetailItem label={t('key_management_0063')}>
             {detail.blockchainName || '--'}
           </DetailItem>
-          <DetailItem label="Key ID">
-            {detail.keyId || '--'}
+          <DetailItem label={t('key_management_0074')}>
+            {detail.keyId ? (
+              <CopyableEllipsisText value={detail.keyId} />
+            ) : (
+              '--'
+            )}
           </DetailItem>
-          <DetailItem label="Wallet Address">
-            {detail.walletAddress || '--'}
+          <DetailItem label={t('key_management_0076')}>
+            {detail.walletAddress ? (
+              <CopyableEllipsisText value={detail.walletAddress} />
+            ) : (
+              '--'
+            )}
           </DetailItem>
-          <DetailItem label="Signature Time">
+          <DetailItem label={t('key_management_0102')}>
             {formatTimestamp(detail.signatureTime)}
           </DetailItem>
-          <DetailItem label="Submission Time">
+          <DetailItem label={t('key_management_0103')}>
             {formatTimestamp(detail.submissionTime)}
           </DetailItem>
-          <DetailItem label="Transaction Hash">
+          <DetailItem label={t('key_management_0078')}>
             {detail.transactionHash ? (
               <CopyableEllipsisText value={detail.transactionHash} />
             ) : (
@@ -218,16 +230,16 @@ export function KeySignedTransactionsDetailPage() {
       {/* Transaction Info */}
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
         <div className="flex flex-col space-y-1.5 p-6">
-          <h3 className="text-2xl font-semibold leading-none tracking-tight">Transaction Info</h3>
+          <h3 className="text-2xl font-semibold leading-none tracking-tight">{t('key_management_0105')}</h3>
         </div>
         <div className="p-6 pt-0 grid grid-cols-1 gap-6 md:grid-cols-2">
-          <DetailItem label="Transaction Type">
+          <DetailItem label={t('key_management_0100')}>
             {detail.transactionType
               ? transactionTypeLabelMap[detail.transactionType] ||
                 detail.transactionType
               : '--'}
           </DetailItem>
-          <DetailItem label="Token">
+          <DetailItem label={t('key_management_0075')}>
             {detail.tokenName
               ? `${detail.tokenName} (${
                   detail.tokenType !== undefined && detail.tokenType !== null
@@ -242,18 +254,18 @@ export function KeySignedTransactionsDetailPage() {
       {/* Raw Message */}
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
         <div className="flex flex-col space-y-1.5 p-6">
-          <h3 className="text-2xl font-semibold leading-none tracking-tight">Raw Message</h3>
+          <h3 className="text-2xl font-semibold leading-none tracking-tight">{t('key_management_0106')}</h3>
         </div>
         <div className="p-6 pt-0">
-          <DetailItem label="Raw Message / Unsigned Data">
+          <DetailItem label={t('key_management_0153')}>
             {detail.rawMessage ? (
-              <CopyableEllipsisText value={detail.rawMessage} />
+              <CopyableEllipsisText value={detail.rawMessage} maxWidth={1000} />
             ) : (
               '--'
             )}
           </DetailItem>
           <div className="mt-6 flex justify-end">
-            <Button onClick={() => router.back()}>Back</Button>
+            <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
           </div>
         </div>
       </div>
