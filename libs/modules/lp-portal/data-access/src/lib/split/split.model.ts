@@ -21,6 +21,9 @@ export interface SplitRow {
   pairCode?: string;
   sourceTokenCode: string;
   targetTokenCode: string;
+  /** tokenNo（全网唯一身份，2026-10-30 起为解析键；code 仅展示文本） */
+  sourceTokenNo?: string;
+  targetTokenNo?: string;
   /** f0d5b6f（a6889f5）并入的汇率字段：基础汇率（比值原值展示，不加 %；null/'' → '-'）。 */
   baseRate?: string | number | null;
   /** f0d5b6f：加价率（0〜1，页面 ×100 显 2 位小数 %）。 */

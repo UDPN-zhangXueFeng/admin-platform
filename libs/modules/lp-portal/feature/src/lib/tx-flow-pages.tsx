@@ -424,9 +424,9 @@ function TxFlowListView() {
    * 空值 '-' 不追加缩写。
    */
   const amountText = React.useCallback(
-    (v: string | number | null | undefined, tokenCode?: string | null) => {
-      const text = formatTokenAmount(v, decimalsOf(tokenCode));
-      return text === '-' ? text : `${text} ${symOf(tokenCode)}`;
+    (v: string | number | null | undefined, tokenKey?: string | null) => {
+      const text = formatTokenAmount(v, decimalsOf(tokenKey));
+      return text === '-' ? text : `${text} ${symOf(tokenKey)}`;
     },
     [decimalsOf, symOf],
   );
@@ -452,7 +452,7 @@ function TxFlowListView() {
       txNo: { value: (r) => txNoText(r) },
       tokens: {
         value: (r) =>
-          `${symOf(r.sourceTokenCode)} → ${symOf(r.targetTokenCode)}`,
+          `${symOf(r.sourceTokenNo)} → ${symOf(r.targetTokenNo)}`,
       },
       fxRate: {
         value: (r) =>
@@ -514,12 +514,12 @@ function TxFlowListView() {
         cell: ({ row }) => (
           <div className="min-w-0">
             <div className="font-mono text-xs font-semibold tabular-nums">
-              {symOf(row.original.sourceTokenCode)} →{' '}
-              {symOf(row.original.targetTokenCode)}
+              {symOf(row.original.sourceTokenNo)} →{' '}
+              {symOf(row.original.targetTokenNo)}
             </div>
             <div className="truncate text-xs text-muted-foreground">
-              {bankOf(row.original.sourceTokenCode)} →{' '}
-              {bankOf(row.original.targetTokenCode)}
+              {bankOf(row.original.sourceTokenNo)} →{' '}
+              {bankOf(row.original.targetTokenNo)}
             </div>
           </div>
         ),
@@ -533,7 +533,7 @@ function TxFlowListView() {
           <PartyCell
             amount={amountText(
               row.original.userDeduction,
-              row.original.sourceTokenCode,
+              row.original.sourceTokenNo,
             )}
             wallet={row.original.senderAccount}
           />
@@ -547,7 +547,7 @@ function TxFlowListView() {
           <PartyCell
             amount={amountText(
               row.original.receiverAmount,
-              row.original.targetTokenCode,
+              row.original.targetTokenNo,
             )}
             wallet={row.original.receiverAccount}
           />
@@ -818,9 +818,9 @@ function TxDetailView({ txKey }: { txKey: string }) {
   }, [chainTimes]);
 
   const amountText = React.useCallback(
-    (v: string | number | null | undefined, tokenCode?: string | null) => {
-      const text = formatTokenAmount(v, decimalsOf(tokenCode));
-      return text === '-' ? text : `${text} ${symOf(tokenCode)}`;
+    (v: string | number | null | undefined, tokenKey?: string | null) => {
+      const text = formatTokenAmount(v, decimalsOf(tokenKey));
+      return text === '-' ? text : `${text} ${symOf(tokenKey)}`;
     },
     [decimalsOf, symOf],
   );
@@ -829,8 +829,8 @@ function TxDetailView({ txKey }: { txKey: string }) {
   if (!seedReady) return <DetailSkeleton />;
   if (!seed) return <TxNotFound />;
 
-  const src = symOf(seed.sourceTokenCode);
-  const tgt = symOf(seed.targetTokenCode);
+  const src = symOf(seed.sourceTokenNo);
+  const tgt = symOf(seed.targetTokenNo);
   const lpName = sessionQuery.data?.lpName ?? '';
   const statusEntry = LP_TX_STATUS_MAP[seed.status];
   const statusLabel = statusEntry?.label ?? String(seed.status);
@@ -868,8 +868,8 @@ function TxDetailView({ txKey }: { txKey: string }) {
     `Transaction No.: ${txNoText(seed)}`,
     `Status: ${statusLabel}`,
     `Token Pair: ${src} → ${tgt}`,
-    `Sent Amount: ${amountText(seed.userDeduction, seed.sourceTokenCode)}`,
-    `Received Amount: ${amountText(seed.receiverAmount, seed.targetTokenCode)}`,
+    `Sent Amount: ${amountText(seed.userDeduction, seed.sourceTokenNo)}`,
+    `Received Amount: ${amountText(seed.receiverAmount, seed.targetTokenNo)}`,
     `FX Rate: 1 ${src} = ${formatRate(seed.userRate)} ${tgt}`,
     `LP: ${lpName || '-'}`,
     `Created: ${formatUtc8(seed.createTime)}`,
@@ -945,13 +945,13 @@ function TxDetailView({ txKey }: { txKey: string }) {
                       <span className="text-xs font-medium text-muted-foreground">
                         Sent Amount
                       </span>
-                      <Badge variant="mute">{bankOf(seed.sourceTokenCode)}</Badge>
+                      <Badge variant="mute">{bankOf(seed.sourceTokenNo)}</Badge>
                     </div>
                     <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5">
                       <span className="text-2xl font-bold tabular-nums">
                         {formatTokenAmount(
                           seed.userDeduction,
-                          decimalsOf(seed.sourceTokenCode),
+                          decimalsOf(seed.sourceTokenNo),
                         )}
                       </span>
                       <span className="text-sm font-semibold tracking-wide">
@@ -979,13 +979,13 @@ function TxDetailView({ txKey }: { txKey: string }) {
                       <span className="text-xs font-medium text-muted-foreground">
                         Received Amount
                       </span>
-                      <Badge variant="mute">{bankOf(seed.targetTokenCode)}</Badge>
+                      <Badge variant="mute">{bankOf(seed.targetTokenNo)}</Badge>
                     </div>
                     <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 text-success">
                       <span className="text-2xl font-bold tabular-nums">
                         +{formatTokenAmount(
                           seed.receiverAmount,
-                          decimalsOf(seed.targetTokenCode),
+                          decimalsOf(seed.targetTokenNo),
                         )}
                       </span>
                       <span className="text-sm font-semibold tracking-wide">
@@ -1048,19 +1048,19 @@ function TxDetailView({ txKey }: { txKey: string }) {
                     </div>
                     <dl className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
                       <Field label="Sender Bank">
-                        <Dash value={bankOf(seed.sourceTokenCode)} />
+                        <Dash value={bankOf(seed.sourceTokenNo)} />
                       </Field>
                       <Field label="Sender Wallet">
                         <CopyableId value={seed.senderAccount} />
                       </Field>
                       <Field label="Principal">
                         <span className="font-mono tabular-nums">
-                          {amountText(seed.principal, seed.sourceTokenCode)}
+                          {amountText(seed.principal, seed.sourceTokenNo)}
                         </span>
                       </Field>
                       <Field label="User Deduction">
                         <span className="font-mono tabular-nums">
-                          {amountText(seed.userDeduction, seed.sourceTokenCode)}
+                          {amountText(seed.userDeduction, seed.sourceTokenNo)}
                         </span>
                       </Field>
                       <Field label="Source Chain Tx ID">
@@ -1082,14 +1082,14 @@ function TxDetailView({ txKey }: { txKey: string }) {
                     </div>
                     <dl className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
                       <Field label="Receiver Bank">
-                        <Dash value={bankOf(seed.targetTokenCode)} />
+                        <Dash value={bankOf(seed.targetTokenNo)} />
                       </Field>
                       <Field label="Receiver Wallet">
                         <CopyableId value={seed.receiverAccount} />
                       </Field>
                       <Field label="Received Amount">
                         <span className="font-mono tabular-nums">
-                          {amountText(seed.receiverAmount, seed.targetTokenCode)}
+                          {amountText(seed.receiverAmount, seed.targetTokenNo)}
                         </span>
                       </Field>
                     </dl>

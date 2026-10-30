@@ -140,13 +140,13 @@ function buildItems(
     const extras: string[] = [];
     if (e.statusTo === 5) {
       if (row.principal != null)
-        extras.push(`Principal ${amountText(row.principal, row.sourceTokenCode)}`);
+        extras.push(`Principal ${amountText(row.principal, row.sourceTokenNo)}`);
       if (row.receiverAmount != null)
-        extras.push(`Target ${amountText(row.receiverAmount, row.targetTokenCode)}`);
+        extras.push(`Target ${amountText(row.receiverAmount, row.targetTokenNo)}`);
       if (row.userRate != null) extras.push(`Rate ${row.userRate}`);
     }
     if ((e.statusTo === 30 || e.statusTo === 35 || e.statusTo === 40) && row.receiverAmount != null) {
-      extras.push(`Target ${amountText(row.receiverAmount, row.targetTokenCode)}`);
+      extras.push(`Target ${amountText(row.receiverAmount, row.targetTokenNo)}`);
     }
     if (e.csTxId) extras.push(`Ref ${e.csTxId}`);
     return {
@@ -234,14 +234,14 @@ function BasicInfo({
       {/* 核心信息层：金额（Data 角色）+ 业务标识（Identifier，复制贴字段） */}
       <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
         <DescItem label="Principal">
-          <Amount text={amountText(row.principal, row.sourceTokenCode)} />
+          <Amount text={amountText(row.principal, row.sourceTokenNo)} />
         </DescItem>
         <DescItem label="User Deduction">
           {/* ed1a340: principal × (1 + markup) actually debited at the source */}
-          <Amount text={amountText(row.userDeduction, row.sourceTokenCode)} />
+          <Amount text={amountText(row.userDeduction, row.sourceTokenNo)} />
         </DescItem>
         <DescItem label="Receiver Amount">
-          <Amount text={amountText(row.receiverAmount, row.targetTokenCode)} />
+          <Amount text={amountText(row.receiverAmount, row.targetTokenNo)} />
         </DescItem>
         <DescItem label="Bank Idempotency No.">
           <CopyableEllipsisText
@@ -317,9 +317,9 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
    * 定小数位（HALF_UP 千分位），后缀币种缩写；text 为 '-' 时不追加缩写。
    */
   const amountText = React.useCallback<AmountText>(
-    (v, tokenCode) => {
-      const text = formatAmount(v, decimalsOf(tokenCode));
-      return text === '-' ? text : `${text} ${symOf(tokenCode)}`;
+    (v, tokenKey) => {
+      const text = formatAmount(v, decimalsOf(tokenKey));
+      return text === '-' ? text : `${text} ${symOf(tokenKey)}`;
     },
     [decimalsOf, symOf],
   );
@@ -366,12 +366,12 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
                     />
                   </div>
                   <div className="mt-2 font-mono text-[13px] font-semibold leading-5">
-                    {symOf(row.sourceTokenCode)}/
-                    {symOf(row.targetTokenCode)}
+                    {symOf(row.sourceTokenNo)}/
+                    {symOf(row.targetTokenNo)}
                   </div>
                   <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                    {bankOf(row.sourceTokenCode)} →{' '}
-                    {bankOf(row.targetTokenCode)}
+                    {bankOf(row.sourceTokenNo)} →{' '}
+                    {bankOf(row.targetTokenNo)}
                   </div>
                 </div>
                 <Badge
