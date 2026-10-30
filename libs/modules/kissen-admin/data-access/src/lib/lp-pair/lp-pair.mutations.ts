@@ -11,33 +11,25 @@ import { lpPairKeys } from './lp-pair.keys';
 import {
   changeLpPair,
   removeLpPair,
-  saveLpPair,
   setLpPairSplit,
   submitLpPair,
   updateLpPairStatus,
 } from './lp-pair.api';
-import type { LpPairSaveReq } from './lp-pair.model';
+import type { LpPairSubmitReq } from './lp-pair.model';
 import type { LpPoolSide } from '../lp/lp.model';
 import { lpKeys } from '../lp/lp.keys';
 
-/** 新增/编辑草稿（页面无入口，API 层保留）。 */
-export function useSaveLpPairMutation(projectId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: LpPairSaveReq) => saveLpPair(data),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: lpPairKeys.lists(projectId) });
-    },
-  });
-}
-
-/** 提交 KLP 审批（页面无入口，API 层保留）。 */
+/**
+ * 提交参与对 KLP 审批（2026-10-29 起全量 payload 原子提交：后端余额预检+前置校验全过才
+ * 落库，取代先 save 草稿再 submit(id) 两步——预检不过不残留任何行）。
+ */
 export function useSubmitLpPairMutation(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => submitLpPair(id),
+    mutationFn: (data: LpPairSubmitReq) => submitLpPair(data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: lpPairKeys.lists(projectId) });
+      void queryClient.invalidateQueries({ queryKey: lpKeys.all(projectId) });
     },
   });
 }

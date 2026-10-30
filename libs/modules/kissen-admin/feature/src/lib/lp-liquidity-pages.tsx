@@ -136,7 +136,6 @@ import {
   usePortalAccountResendInviteMutation,
   usePortalAccountResetMutation,
   useSaveLpMutation,
-  useSaveLpPairMutation,
   useSetLpPairSplitMutation,
   useSubmitLpOnboardMutation,
   useSubmitLpPairMutation,
@@ -2028,7 +2027,6 @@ export function LpInfoDetailPage() {
     filter: { lpId: lpId ?? 0 },
   });
   const statusMutation = useUpdateLpPairStatusMutation(PROJECT_ID);
-  const submitMutation = useSubmitLpPairMutation(PROJECT_ID);
 
   const refresh = React.useCallback(() => {
     void detailQuery.refetch();
@@ -2062,13 +2060,12 @@ export function LpInfoDetailPage() {
       { id: Number(row.id), targetStatus: LP_PAIR_TARGET_STATUS.restore },
       {
         onSuccess: () => {
-          submitMutation.mutate(Number(row.id), {
-            onSuccess: () => {
-              toast.success('Activated and resubmitted for KLP approval');
-              finish();
-            },
-            onError: (e) => toast.error((e as Error).message),
-          });
+          // KLPS（2026-10-22 P1）起 /status 走审批非立即生效：恢复草稿审批通过后，
+          // 行回到草稿态，需经 Add Token Pair（全量 payload 会收养草稿行）重新提交
+          toast.success(
+            'Restore submitted for approval. After approval, use Add Token Pair to resubmit.',
+          );
+          finish();
         },
         onError: (e) => toast.error((e as Error).message),
       },
@@ -2309,11 +2306,15 @@ export function LpInfoDetailPage() {
             </p>
           ) : null}
         </div>
-        {/* pairs 入口（本仓超集：走 KLP 审批的参与对登记）。 */}
-        <Button type="button" size="sm" onClick={() => setPairDialog({ mode: 'add' })}>
-          <Plus className="size-4" aria-hidden="true" />
-          Add Token Pair
-        </Button>
+        {/* pairs 入口（本仓超集：走 KLP 审批的参与对登记）。仅已入网生效（20）的 LP 可加：
+            草稿 LP 的对/池配置在入网表单（KLO 通过后物化）——否则 save 落草稿而 submit 必败
+            （前置 lp_pool 仅 KLO 物化产生），残留行再堵死再添加（2026-10-29 BXWLP 事故）。 */}
+        {base?.status === 20 ? (
+          <Button type="button" size="sm" onClick={() => setPairDialog({ mode: 'add' })}>
+            <Plus className="size-4" aria-hidden="true" />
+            Add Token Pair
+          </Button>
+        ) : null}
       </div>
 
       {detailQuery.isError ? (
@@ -2478,7 +2479,7 @@ export function LpInfoDetailPage() {
       <ActionConfirmDialog
         open={statusAction !== null}
         onOpenChange={(open) => {
-          if (!open && !statusMutation.isPending && !submitMutation.isPending) {
+          if (!open && !statusMutation.isPending) {
             setStatusAction(null);
           }
         }}
@@ -2504,7 +2505,7 @@ export function LpInfoDetailPage() {
         confirmLabel={
           statusAction?.kind === 'activate' ? 'Activate' : 'Deactivate'
         }
-        loading={statusMutation.isPending || submitMutation.isPending}
+        loading={statusMutation.isPending}
         onConfirm={onStatusConfirm}
       />
     </div>
@@ -2547,7 +2548,6 @@ function LpPairConfigDialog({
   });
   const pairOptions = pairOptionsRaw ?? [];
   const precheckMutation = useLpPoolPrecheckMutation();
-  const saveMutation = useSaveLpPairMutation(PROJECT_ID);
   const submitMutation = useSubmitLpPairMutation(PROJECT_ID);
   const changeMutation = useChangeLpPairMutation(PROJECT_ID);
   const [precheckResult, setPrecheckResult] =
@@ -2583,7 +2583,6 @@ function LpPairConfigDialog({
 
   const pending =
     precheckMutation.isPending ||
-    saveMutation.isPending ||
     submitMutation.isPending ||
     changeMutation.isPending;
 
@@ -2613,17 +2612,18 @@ function LpPairConfigDialog({
               },
             );
           } else {
-            saveMutation.mutate(
-              { lpId, pairId: req.pairId, source: req.source, target: req.target },
+            // 2026-10-29 全量 payload 一次提交：后端预检+前置全过才落库，不再先 save 草稿
+            submitMutation.mutate(
               {
-                onSuccess: (saved) => {
-                  submitMutation.mutate(saved.id, {
-                    onSuccess: () => {
-                      toast.success('Submitted for KLP approval');
-                      onDone();
-                    },
-                    onError: (e) => toast.error((e as Error).message),
-                  });
+                lpId,
+                pairId: Number(req.pairId),
+                source: req.source,
+                target: req.target,
+              },
+              {
+                onSuccess: () => {
+                  toast.success('Submitted for KLP approval');
+                  onDone();
                 },
                 onError: (e) => toast.error((e as Error).message),
               },
@@ -2905,7 +2905,6 @@ export function LpTokenPairListPage() {
     },
   );
   const statusMutation = useUpdateLpPairStatusMutation(PROJECT_ID);
-  const submitMutation = useSubmitLpPairMutation(PROJECT_ID);
 
   const rows = data?.data ?? [];
   const pagination = data?.pagination;
@@ -2914,8 +2913,8 @@ export function LpTokenPairListPage() {
     setFilter((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  /** Deactivate/Activate Participation 确认提交（原型：Deactivate=50 立即退出匹配；
-   *  Activate=restore(1)+自动重提 KLP，后端无直接激活路径）。 */
+  /** Deactivate/Activate Participation 确认提交（KLPS 起两者都走审批：
+   *  Deactivate=提交停用审批；Activate=提交恢复草稿审批，通过后经 Add Token Pair 重提）。 */
   const onStatusConfirm = () => {
     if (!statusAction) return;
     const { row, kind } = statusAction;
@@ -2924,7 +2923,7 @@ export function LpTokenPairListPage() {
         { id: Number(row.id), targetStatus: LP_PAIR_TARGET_STATUS.disable },
         {
           onSuccess: () => {
-            toast.success('Deactivated');
+            toast.success('Deactivation submitted — takes effect after review');
             setStatusAction(null);
           },
           onError: (e) => toast.error((e as Error).message),
@@ -2936,13 +2935,10 @@ export function LpTokenPairListPage() {
       { id: Number(row.id), targetStatus: LP_PAIR_TARGET_STATUS.restore },
       {
         onSuccess: () => {
-          submitMutation.mutate(Number(row.id), {
-            onSuccess: () => {
-              toast.success('Activated and resubmitted for KLP approval');
-              setStatusAction(null);
-            },
-            onError: (e) => toast.error((e as Error).message),
-          });
+          toast.success(
+            'Restore submitted for approval. After approval, use Add Token Pair to resubmit.',
+          );
+          setStatusAction(null);
         },
         onError: (e) => toast.error((e as Error).message),
       },
@@ -3271,7 +3267,7 @@ export function LpTokenPairListPage() {
       <ActionConfirmDialog
         open={statusAction !== null}
         onOpenChange={(open) => {
-          if (!open && !statusMutation.isPending && !submitMutation.isPending) {
+          if (!open && !statusMutation.isPending) {
             setStatusAction(null);
           }
         }}
@@ -3295,7 +3291,7 @@ export function LpTokenPairListPage() {
         confirmLabel={
           statusAction?.kind === 'activate' ? 'Activate' : 'Deactivate'
         }
-        loading={statusMutation.isPending || submitMutation.isPending}
+        loading={statusMutation.isPending}
         onConfirm={onStatusConfirm}
       />
     </div>
