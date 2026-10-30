@@ -415,7 +415,7 @@ function usePairContext(): PairContext {
 
   const decOf = React.useCallback(
     (pairCode: string | null | undefined): number =>
-      decimalsOf(pairInfo(pairCode)?.sourceTokenCode),
+      decimalsOf(pairInfo(pairCode)?.sourceTokenNo),
     [decimalsOf, pairInfo],
   );
 
@@ -425,8 +425,8 @@ function usePairContext(): PairContext {
       if (info) {
         return (
           <PairX
-            source={info.sourceTokenCode}
-            target={info.targetTokenCode}
+            source={info.sourceTokenNo}
+            target={info.targetTokenNo}
             bankOf={bankOf}
             symOf={symOf}
           />
@@ -558,7 +558,7 @@ function SplitSettleMain() {
         .filter((r) => r.pairCode)
         .map((r) => ({
           value: r.pairCode as string,
-          label: `${ctx.symOf(r.sourceTokenCode)} → ${ctx.symOf(r.targetTokenCode)}`,
+          label: `${ctx.symOf(r.sourceTokenNo)} → ${ctx.symOf(r.targetTokenNo)}`,
         })),
     [ctx.ratioRows, ctx.symOf],
   );
@@ -710,9 +710,9 @@ function EffectiveTabSection({ ctx }: { ctx: PairContext }) {
     () => ({
       pair: {
         value: (r) =>
-          `${symOf(r.sourceTokenCode)} → ${symOf(r.targetTokenCode)}`,
+          `${symOf(r.sourceTokenNo)} → ${symOf(r.targetTokenNo)}`,
       },
-      settlementToken: { value: (r) => symOf(r.sourceTokenCode) },
+      settlementToken: { value: (r) => symOf(r.sourceTokenNo) },
       baseRate: { value: (r) => numOf(r.baseRate) },
       markupRate: { value: (r) => numOf(r.markupRate) },
       clientRate: { value: (r) => numOf(r.userRate) },
@@ -744,8 +744,8 @@ function EffectiveTabSection({ ctx }: { ctx: PairContext }) {
         ),
         cell: ({ row }) => (
           <PairX
-            source={row.original.sourceTokenCode}
-            target={row.original.targetTokenCode}
+            source={row.original.sourceTokenNo}
+            target={row.original.targetTokenNo}
             bankOf={bankOf}
             symOf={symOf}
           />
@@ -764,7 +764,7 @@ function EffectiveTabSection({ ctx }: { ctx: PairContext }) {
         ),
         cell: ({ row }) => (
           <Badge variant="outline" className="font-mono">
-            {symOf(row.original.sourceTokenCode)}
+            {symOf(row.original.sourceTokenNo)}
           </Badge>
         ),
       },

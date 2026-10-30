@@ -144,6 +144,12 @@ export interface TxRow {
   pairCode?: string;
   sourceTokenCode: string;
   targetTokenCode: string;
+  /**
+   * tokenNo（Kissen 全网 token 身份标准，2026-10-30 起为 LP 侧唯一解析键；
+   * tokenCode 是注册行自用命名、可变且跨行可能重名，仅作展示文本）
+   */
+  sourceTokenNo?: string;
+  targetTokenNo?: string;
   principal: string | number;
   /**
    * 用户实付（=本金×(1+加价率)，源 token 计价）：源端实际划出、即流入

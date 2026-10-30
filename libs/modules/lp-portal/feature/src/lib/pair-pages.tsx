@@ -250,8 +250,8 @@ export function PairListPage() {
           const r = row.original;
           return (
             <Pairx
-              tokens={`${symOf(r.sourceTokenCode)} → ${symOf(r.targetTokenCode)}`}
-              banks={`${bankOf(r.sourceTokenCode)} → ${bankOf(r.targetTokenCode)}`}
+              tokens={`${symOf(r.sourceTokenNo)} → ${symOf(r.targetTokenNo)}`}
+              banks={`${bankOf(r.sourceTokenNo)} → ${bankOf(r.targetTokenNo)}`}
             />
           );
         },

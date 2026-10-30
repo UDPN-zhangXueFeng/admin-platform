@@ -946,8 +946,8 @@ function BottomTabsCard({
           const r = row.original;
           return (
             <TokenPairCell
-              tokens={`${symOf(r.sourceTokenCode)}/${symOf(r.targetTokenCode)}`}
-              banks={`${bankOf(r.sourceTokenCode)} → ${bankOf(r.targetTokenCode)}`}
+              tokens={`${symOf(r.sourceTokenNo)}/${symOf(r.targetTokenNo)}`}
+              banks={`${bankOf(r.sourceTokenNo)} → ${bankOf(r.targetTokenNo)}`}
             />
           );
         },
@@ -1072,8 +1072,8 @@ function BottomTabsCard({
           const r = row.original;
           return (
             <TokenPairCell
-              tokens={`${symOf(r.sourceTokenCode)}/${symOf(r.targetTokenCode)}`}
-              banks={`${bankOf(r.sourceTokenCode)} → ${bankOf(r.targetTokenCode)}`}
+              tokens={`${symOf(r.sourceTokenNo)}/${symOf(r.targetTokenNo)}`}
+              banks={`${bankOf(r.sourceTokenNo)} → ${bankOf(r.targetTokenNo)}`}
             />
           );
         },
@@ -1087,10 +1087,10 @@ function BottomTabsCard({
           return (
             <span className="whitespace-nowrap font-mono text-xs tabular-nums">
               <span className="font-semibold">
-                {amountText(r.userDeduction, symOf(r.sourceTokenCode))}
+                {amountText(r.userDeduction, symOf(r.sourceTokenNo))}
               </span>
               <span className="text-muted-foreground">
-                {` → ${amountText(r.receiverAmount, symOf(r.targetTokenCode))}`}
+                {` → ${amountText(r.receiverAmount, symOf(r.targetTokenNo))}`}
               </span>
             </span>
           );
