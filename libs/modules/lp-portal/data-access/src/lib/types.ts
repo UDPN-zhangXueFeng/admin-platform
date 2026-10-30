@@ -160,6 +160,8 @@ export interface TxRow {
   receiverAmount?: string | number;
   /** v2.4 用户汇率（成交快照；0/null = 无快照显 '-'，非零 en-US 千分位 max 8 位小数） */
   userRate?: string | number | null;
+  /** 成交时基础汇率快照（2026-10-30 admin/LP Overview 双汇率；投影随行） */
+  baseRate?: string | number | null;
   /** v2.4 From 钱包（源端账户；存量行为空串显 '-'，等宽截断+tooltip 原文） */
   senderAccount?: string;
   /** v2.4 To 钱包（收款方账户；同上） */
@@ -226,6 +228,8 @@ export interface LpChainEvent {
   statusTo: number;
   eventTime: number;
   title: string;
+  /** 过程描述（2026-10-30 三系统链路统一放开；空=无） */
+  remark?: string;
   csTxId: string;
 }
 

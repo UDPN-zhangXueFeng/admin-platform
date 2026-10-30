@@ -425,8 +425,8 @@ function usePairContext(): PairContext {
       if (info) {
         return (
           <PairX
-            source={info.sourceTokenNo}
-            target={info.targetTokenNo}
+            source={info.sourceTokenNo ?? info.sourceTokenCode}
+            target={info.targetTokenNo ?? info.targetTokenCode}
             bankOf={bankOf}
             symOf={symOf}
           />
@@ -558,7 +558,9 @@ function SplitSettleMain() {
         .filter((r) => r.pairCode)
         .map((r) => ({
           value: r.pairCode as string,
-          label: `${ctx.symOf(r.sourceTokenNo)} → ${ctx.symOf(r.targetTokenNo)}`,
+          label: `${ctx.symOf(r.sourceTokenNo ?? r.sourceTokenCode)} → ${ctx.symOf(
+            r.targetTokenNo ?? r.targetTokenCode,
+          )}`,
         })),
     [ctx.ratioRows, ctx.symOf],
   );
@@ -710,9 +712,13 @@ function EffectiveTabSection({ ctx }: { ctx: PairContext }) {
     () => ({
       pair: {
         value: (r) =>
-          `${symOf(r.sourceTokenNo)} → ${symOf(r.targetTokenNo)}`,
+          `${symOf(r.sourceTokenNo ?? r.sourceTokenCode)} → ${symOf(
+            r.targetTokenNo ?? r.targetTokenCode,
+          )}`,
       },
-      settlementToken: { value: (r) => symOf(r.sourceTokenNo) },
+      settlementToken: {
+        value: (r) => symOf(r.sourceTokenNo ?? r.sourceTokenCode),
+      },
       baseRate: { value: (r) => numOf(r.baseRate) },
       markupRate: { value: (r) => numOf(r.markupRate) },
       clientRate: { value: (r) => numOf(r.userRate) },
@@ -744,8 +750,8 @@ function EffectiveTabSection({ ctx }: { ctx: PairContext }) {
         ),
         cell: ({ row }) => (
           <PairX
-            source={row.original.sourceTokenNo}
-            target={row.original.targetTokenNo}
+            source={row.original.sourceTokenNo ?? row.original.sourceTokenCode}
+            target={row.original.targetTokenNo ?? row.original.targetTokenCode}
             bankOf={bankOf}
             symOf={symOf}
           />
@@ -764,7 +770,7 @@ function EffectiveTabSection({ ctx }: { ctx: PairContext }) {
         ),
         cell: ({ row }) => (
           <Badge variant="outline" className="font-mono">
-            {symOf(row.original.sourceTokenNo)}
+            {symOf(row.original.sourceTokenNo ?? row.original.sourceTokenCode)}
           </Badge>
         ),
       },

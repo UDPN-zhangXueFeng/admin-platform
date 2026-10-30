@@ -36,7 +36,6 @@ import {
   MoreVertical,
   Repeat,
   Workflow,
-  X,
 } from 'lucide-react';
 
 import {
@@ -65,10 +64,6 @@ import {
   ScrollArea,
   Skeleton,
   Textarea,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
   useToast,
 } from '@myorg/shared/ui';
 import { FormField, FormSelect, type SelectOption } from '@myorg/shared/ui-forms';
@@ -81,12 +76,15 @@ import {
   TX_STATUS_OPTIONS,
   useResolveTransactionMutation,
   useTransactionBankOptionsQuery,
+  useTransactionChainQuery,
   useTransactionDetailQuery,
   useTransactionListQuery,
   useTransactionLpOptionsQuery,
   useTransactionPairOptionsQuery,
   useTokenMeta,
+  TRANSACTION_STATUS_LABEL,
   type TransactionDetailRow,
+  type TransactionFlowEvent,
   type TransactionPageFilter,
   type TransactionRow,
 } from '@myorg/modules/kissen-admin/data-access';
@@ -94,7 +92,6 @@ import {
 import { formatAmount } from './format';
 import {
   formatDuration,
-  formatPercent,
   formatRate,
   formatTokenAmount,
   formatUtc8,
@@ -145,134 +142,6 @@ function orDash(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === '') return '-';
   return String(v);
 }
-
-/* ================================================================== */
-/* 结算干线（列表 Completed 列 + 详情 Clearance Pipeline 共用口径）      */
-/* ================================================================== */
-
-/** 主线 7 节点：35 即成功终态「Completed」（40 仅历史数据，按终点渲染）。 */
-const RAIL_MAIN_LINE: ReadonlyArray<{ code: number; name: string }> = [
-  { code: 1, name: 'Created' },
-  { code: 5, name: 'Quoted' },
-  { code: 10, name: 'Confirmed' },
-  { code: 20, name: 'Source Transferring' },
-  { code: 25, name: 'Source Verified' },
-  { code: 30, name: 'Advancing' },
-  { code: 35, name: 'Completed' },
-];
-
-/** 原型干线 7 步展示名（R5；第 6 步原型口径叫 Processing）。 */
-const PIPELINE_STEP_NAMES = [
-  'Created',
-  'Quoted',
-  'Confirmed',
-  'Source Transferring',
-  'Source Verified',
-  'Processing',
-  'Completed',
-] as const;
-
-/** 分支终态：forkCode 是离开主线前最后经过的主线节点（近似分叉位置）。 */
-const RAIL_BRANCH: Record<number, { name: string; forkCode: number }> = {
-  50: { name: 'Reversing', forkCode: 25 },
-  60: { name: 'Reversed', forkCode: 25 },
-  70: { name: 'Exception', forkCode: 30 },
-  80: { name: 'Cancelled', forkCode: 10 },
-  90: { name: 'Failed', forkCode: 20 },
-};
-
-/**
- * 逐阶段说明（原型 RAIL_STEP_INFO 逐字迁移；R4/D11/D16）。
- * STATIC-FILLER(GAP-ADM-08): 原型 demo 展示文案（描述/操作者/相对秒），后端
- * 无逐节点时刻与操作者 API，仅 Created/Completed 两步用真实时间戳。
- */
-const RAIL_STEP_INFO: Record<
-  (typeof PIPELINE_STEP_NAMES)[number],
-  { description: string; operator: string; deltaSec: number }
-> = {
-  Created: {
-    description: 'Intent initiated by TD3 commercial router',
-    operator: 'kissen-engine',
-    deltaSec: 0,
-  },
-  Quoted: {
-    description: 'Demo LP locked rate 0.9901 USD12 (+5s)',
-    operator: 'kissen-engine',
-    deltaSec: 5,
-  },
-  Confirmed: {
-    description: 'Both financial entities co-signed deal ticket',
-    operator: 'kissen-engine',
-    deltaSec: 8,
-  },
-  'Source Transferring': {
-    description: '10.10 CF7 locked in escrow contract',
-    operator: 'kissen-bridge',
-    deltaSec: 20,
-  },
-  'Source Verified': {
-    description: 'Cryptographic proof validated on validator node',
-    operator: 'bank-gateway',
-    deltaSec: 32,
-  },
-  Processing: {
-    description: 'Cross-ledger swap executed synchronously',
-    operator: 'kissen-settler',
-    deltaSec: 45,
-  },
-  Completed: {
-    description: '10.00 USD12 released to 0x95a8…1050',
-    operator: 'kissen-settler',
-    deltaSec: 52,
-  },
-};
-
-/** 状态码 → 主线推进位（分支态取 forkCode 位；未知态按 0）。 */
-function pipelineIndexOf(status: number): number {
-  const branch = RAIL_BRANCH[status];
-  if (branch) {
-    return RAIL_MAIN_LINE.findIndex((n) => n.code === branch.forkCode);
-  }
-  const curIdx =
-    status === 40
-      ? RAIL_MAIN_LINE.length - 1
-      : RAIL_MAIN_LINE.findIndex((n) => n.code === status);
-  return curIdx < 0 ? 0 : curIdx;
-}
-
-type PipelineState = 'done' | 'future' | 'danger' | 'muted' | 'warning';
-
-/** 节点状态口径（R5 railState：已走过 done / 当前按状态 / 未到达 future）。 */
-function pipelineStateOf(
-  status: number,
-  index: number,
-  currentIndex: number,
-): PipelineState {
-  if (index < currentIndex) return 'done';
-  if (index > currentIndex) return 'future';
-  if (status === 35 || status === 40) return 'done';
-  if (status === 70 || status === 90) return 'danger';
-  if (status === 50 || status === 60 || status === 80) return 'muted';
-  return 'warning';
-}
-
-/** 时间线节点圆（done=success 实心 / danger+X / warning 实心 / muted / 未到=空心）。 */
-const NODE_STYLES: Record<PipelineState, string> = {
-  done: 'bg-success',
-  danger: 'bg-destructive',
-  warning: 'bg-warning',
-  muted: 'bg-muted',
-  future: 'border-2 border-border bg-background',
-};
-
-/** 节点状态文字（done → Completed / 推进中 → In Progress / 未到 → Pending；末步完成改显 Finalized 徽章）。 */
-const STEP_STATE_TEXT: Partial<
-  Record<PipelineState, { text: string; className: string }>
-> = {
-  done: { text: 'Completed', className: 'text-success' },
-  warning: { text: 'In Progress', className: 'text-warning' },
-  future: { text: 'Pending', className: 'text-muted-foreground' },
-};
 
 /** 交易状态 → 原型语义色（FxTransactionsPage STATUS_TONES 同款，13 态）。 */
 const TX_STATUS_TONE: Record<number, ProtoStatusTone> = {
@@ -672,10 +541,129 @@ function TxNotFoundCard() {
   );
 }
 
+/* ── Transaction Chain（2026-10-30 三系统统一：gateway 形式事件时间轴） ── */
+
+/** 链路节点圆点色：成功类=绿 / 失败异常=红 / 冲正取消=灰 / 推进中=蓝。 */
+function chainToneOf(statusTo: number): string {
+  if (statusTo === 35 || statusTo === 40) return 'bg-success';
+  if (statusTo === 90 || statusTo === 70) return 'bg-destructive';
+  if (statusTo === 50 || statusTo === 60 || statusTo === 80) return 'bg-muted';
+  return 'bg-primary';
+}
+
+/** 事件字段行（金额/汇率/凭证快照，与 LP 抽屉同口径）：报价带本金/到账/汇率，解付/入账带到账与凭证。 */
+function chainFieldRows(
+  e: TransactionFlowEvent,
+  detail: TransactionDetailRow,
+  decOf: (c: string) => number,
+): { label: string; value: string }[] {
+  const rows: { label: string; value: string }[] = [];
+  if (e.statusTo === 5) {
+    rows.push({
+      label: 'Principal',
+      value: fmtAmount(detail.principal, detail.sourceCurrency, decOf(detail.sourceCurrency)),
+    });
+    rows.push({
+      label: 'Target',
+      value: fmtAmount(detail.receiverAmount, detail.targetCurrency, decOf(detail.targetCurrency)),
+    });
+    rows.push({
+      label: 'Rate',
+      value: `1 ${detail.sourceCurrency} ≈ ${formatRate(detail.userRate)} ${detail.targetCurrency}`,
+    });
+  }
+  if (e.statusTo === 30 || e.statusTo === 35 || e.statusTo === 40) {
+    rows.push({
+      label: 'Target',
+      value: fmtAmount(detail.receiverAmount, detail.targetCurrency, decOf(detail.targetCurrency)),
+    });
+  }
+  const proof = e.csTxId || (e.statusTo >= 20 && e.statusTo <= 25 ? detail.sourceCsTxId : detail.targetCsTxId);
+  if (proof) rows.push({ label: 'Ref', value: proof });
+  return rows;
+}
+
+/** gateway 形式链路卡：垂直节点时间轴（标题+时间+字段行+remark 行）。 */
+function TransactionChainSection({ detail }: { detail: TransactionDetailRow }) {
+  const { decimalsOf } = useTokenMeta(KISSEN_PROJECT_ID);
+  const decOf = decimalsOf;
+  const chainQuery = useTransactionChainQuery(
+    KISSEN_PROJECT_ID,
+    detail.transactionId,
+  );
+  const events = chainQuery.data?.events ?? [];
+
+  return (
+    <section
+      aria-label="Transaction chain"
+      className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+    >
+      <TxSectionHeader
+        icon={Workflow}
+        title="Transaction Chain"
+        aside={
+          <span className="text-xs text-muted-foreground">
+            {events.length} events
+          </span>
+        }
+      />
+      <div className="p-6">
+        {chainQuery.isPending ? (
+          <Skeleton className="h-40 w-full" />
+        ) : events.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No chain events available.
+          </p>
+        ) : (
+          <ol className="relative ml-1 border-l border-border">
+            {events.map((e) => {
+              const rows = chainFieldRows(e, detail, decOf);
+              return (
+                <li key={e.flowId} className="relative mb-5 ml-5 last:mb-0">
+                  <span
+                    aria-hidden="true"
+                    className={`absolute -left-[26px] top-1 size-2.5 rounded-full ${chainToneOf(e.statusTo)}`}
+                  />
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                    <span className="text-sm font-semibold">
+                      {TRANSACTION_STATUS_LABEL[e.statusTo] ?? `#${e.statusTo}`}
+                    </span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {formatUtc8(e.eventTime)}
+                    </span>
+                  </div>
+                  {rows.length > 0 ? (
+                    <dl className="mt-1 space-y-0.5">
+                      {rows.map((r) => (
+                        <div
+                          key={r.label}
+                          className="flex flex-wrap items-baseline gap-x-2 text-xs"
+                        >
+                          <dt className="text-muted-foreground">{r.label}</dt>
+                          <dd className="font-mono tabular-nums">{r.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+                  {e.remark ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {e.remark}
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
+    </section>
+  );
+}
+
 /**
  * 交易详情独立页（/transfer/tx/detail?id=）：加载交易详情。
- * 左 8/12 = Transaction Overview / Transaction Information / Timing；
- * 右 4/12 = Clearance Pipeline（7 节点干线）。
+ * 单列 = Transaction Overview / Transaction Information / Timing / Transaction Chain
+ * （2026-10-30 三系统统一：Clearance Pipeline rail 退役，链路=gateway 形式事件时间轴）。
  */
 export function TxDetailPage() {
   const router = useRouter();
@@ -737,16 +725,6 @@ export function TxDetailPage() {
   }, [decOf, detail]);
 
   // R4：管线推进位（分支态取 fork 位）。
-  const currentIndex = detail ? pipelineIndexOf(detail.status) : -1;
-  const pipelineStates = React.useMemo<PipelineState[] | null>(() => {
-    if (!detail) return null;
-    return PIPELINE_STEP_NAMES.map((_, index) =>
-      pipelineStateOf(detail.status, index, currentIndex),
-    );
-  }, [currentIndex, detail]);
-  const finalizedCount =
-    pipelineStates?.filter((s) => s === 'done').length ?? 0;
-  const progressPct = (finalizedCount / PIPELINE_STEP_NAMES.length) * 100;
   const latencyMs =
     detail && detail.completedTime > 0
       ? detail.completedTime - detail.createTime
@@ -821,23 +799,22 @@ export function TxDetailPage() {
       {notFound ? <TxNotFoundCard /> : null}
 
       {loading ? (
-        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
-          <div className="space-y-4 xl:col-span-8">
+        <div className="grid grid-cols-1 items-start gap-4">
+          <div className="space-y-4">
             <Skeleton className="h-48 w-full rounded-xl" />
             <Skeleton className="h-40 w-full rounded-xl" />
           </div>
-          <Skeleton className="h-96 w-full rounded-xl xl:col-span-4" />
         </div>
       ) : null}
 
-      {detail && pipelineStates ? (
+      {detail ? (
         <>
           {/* 异常/冲正提示（真实 failReason 载体，置于两栏网格之前）。 */}
           <TransactionStatusAlert detail={detail} />
 
-          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
+          <div className="grid grid-cols-1 items-start gap-4">
             {/* 左 8/12 */}
-            <div className="flex min-w-0 flex-col gap-4 xl:col-span-8">
+            <div className="flex min-w-0 flex-col gap-4">
               {/* R1'：Transaction Overview（Sent/Received 左右 + 中间汇率与 LP）。 */}
               <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                 <TxSectionHeader
@@ -882,6 +859,12 @@ export function TxDetailPage() {
                         {formatRate(detail.userRate)}{' '}
                         {detail.targetCurrency || '-'}
                       </Badge>
+                      {/* 2026-10-30 三系统详情统一：admin/LP 展示双汇率（成交时基础汇率快照），gateway 仅用户汇率 */}
+                      <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                        Base 1 {detail.sourceCurrency || '-'} ≈{' '}
+                        {formatRate(detail.baseRate)}{' '}
+                        {detail.targetCurrency || '-'}
+                      </span>
                       <Repeat
                         aria-hidden="true"
                         className="size-4 text-primary"
@@ -987,6 +970,9 @@ export function TxDetailPage() {
                         <TxDetailField label="LP Source Pool Address">
                           <CopyableId value={detail.lpSourcePoolAddress} />
                         </TxDetailField>
+                        <TxDetailField label="Source Chain Tx ID">
+                          <CopyableId value={detail.sourceCsTxId} />
+                        </TxDetailField>
                       </div>
                     </section>
                     <section
@@ -1020,12 +1006,13 @@ export function TxDetailPage() {
                         <TxDetailField label="LP Target Pool Address">
                           <CopyableId value={detail.lpTargetPoolAddress} />
                         </TxDetailField>
+                        <TxDetailField label="Target Chain Tx ID">
+                          <CopyableId value={detail.targetCsTxId} />
+                        </TxDetailField>
                       </div>
                     </section>
                   </div>
-                  <TxDetailField label="Remarks">
-                    {orDash(detail.remark)}
-                  </TxDetailField>
+                  {/* 2026-10-30 三系统统一：Remarks 移出信息区——过程描述随链路事件节点展示 */}
                 </div>
               </section>
 
@@ -1056,181 +1043,9 @@ export function TxDetailPage() {
               </section>
             </div>
 
-            {/* 右 4/12：Clearance Pipeline。 */}
-            <div className="flex min-w-0 flex-col gap-4 xl:col-span-4">
-              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                <header className="border-b border-border px-6 py-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                          <Workflow className="size-4" aria-hidden="true" />
-                        </span>
-                        <h2 className="text-sm font-semibold text-foreground">
-                          Clearance Pipeline
-                        </h2>
-                        <Badge variant="success" className="tabular-nums">
-                          {finalizedCount}/{PIPELINE_STEP_NAMES.length} Finalized
-                        </Badge>
-                      </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Real-time multi-agent state clearance
-                      </p>
-                    </div>
-                    <span className="text-lg font-bold tabular-nums text-success">
-                      {formatPercent(Math.round(progressPct))}
-                    </span>
-                  </div>
-                </header>
-                <div className="p-6">
-                  <div
-                    role="progressbar"
-                    aria-label="Clearance progress"
-                    aria-valuemin={0}
-                    aria-valuemax={PIPELINE_STEP_NAMES.length}
-                    aria-valuenow={finalizedCount}
-                  >
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={cn(
-                          'h-full rounded-full',
-                          finalizedCount === PIPELINE_STEP_NAMES.length
-                            ? 'bg-success'
-                            : 'bg-primary',
-                        )}
-                        style={{ width: `${progressPct}%` }}
-                      />
-                    </div>
-                  </div>
-                  {/* 垂直时间线：size-8 节点圆（完成=实心绿+白勾 / 异常=红+X /
-                      推进中=黄实心 / 终态=灰 / 未到=空心）+ 每步 Tooltip。 */}
-                  <ol className="mt-6">
-                    {PIPELINE_STEP_NAMES.map((step, index) => {
-                      const state = pipelineStates[index];
-                      const info = RAIL_STEP_INFO[step];
-                      const stateText =
-                        STEP_STATE_TEXT[state] ?? {
-                          text: protoStatusLabel(PROTO_TX_STATUS, detail.status),
-                          className:
-                            state === 'danger'
-                              ? 'text-destructive'
-                              : 'text-muted-foreground',
-                        };
-                      const finalizedStep =
-                        step === 'Completed' && state === 'done';
-                      // D18：Created/Completed 两步显示完整时刻（真实时间戳）；
-                      // 其余非 future 步显示相对耗时 +{deltaSec}s（见 GAP-ADM-08）。
-                      const absoluteTime =
-                        step === 'Created'
-                          ? formatUtc8(detail.createTime)
-                          : step === 'Completed' && detail.completedTime > 0
-                            ? formatUtc8(detail.completedTime)
-                            : '';
-                      const rightTime =
-                        absoluteTime ||
-                        (state !== 'future' ? `+${info.deltaSec}s` : '');
-                      return (
-                        <li
-                          key={step}
-                          aria-current={
-                            index === currentIndex ? 'step' : undefined
-                          }
-                          className="relative min-w-0 pb-6 pl-12 last:pb-0"
-                        >
-                          {index < PIPELINE_STEP_NAMES.length - 1 ? (
-                            <span
-                              aria-hidden="true"
-                              className="absolute bottom-0 left-[15px] top-8 w-px bg-border"
-                            />
-                          ) : null}
-                          <span
-                            aria-hidden="true"
-                            className={cn(
-                              'absolute left-0 top-0 grid size-8 place-items-center rounded-full',
-                              NODE_STYLES[state],
-                            )}
-                          >
-                            {state === 'done' ? (
-                              <Check className="size-4 text-white" />
-                            ) : null}
-                            {state === 'danger' ? (
-                              <X className="size-4 text-white" />
-                            ) : null}
-                            {state === 'warning' ? (
-                              <span className="size-2 rounded-full bg-white" />
-                            ) : null}
-                          </span>
-                          <TooltipProvider delayDuration={200}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="cursor-help">
-                                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                                    <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                                      <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                                        {String(index + 1).padStart(2, '0')}
-                                      </span>
-                                      <span
-                                        className={cn(
-                                          'text-sm font-semibold',
-                                          state === 'future'
-                                            ? 'text-muted-foreground'
-                                            : 'text-foreground',
-                                        )}
-                                      >
-                                        {step}
-                                      </span>
-                                      {finalizedStep ? (
-                                        <Badge variant="success">Finalized</Badge>
-                                      ) : (
-                                        <span
-                                          className={cn(
-                                            'text-xs',
-                                            stateText.className,
-                                          )}
-                                        >
-                                          {stateText.text}
-                                        </span>
-                                      )}
-                                    </div>
-                                    {rightTime ? (
-                                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                                        {rightTime}
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                  <p
-                                    className={cn(
-                                      'mt-1 text-xs',
-                                      state === 'future'
-                                        ? 'text-muted-foreground'
-                                        : 'text-muted-foreground',
-                                    )}
-                                  >
-                                    {info.description}
-                                  </p>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <div>
-                                  <div>{info.description}</div>
-                                  <div className="mt-1 text-muted-foreground">
-                                    Operator:{' '}
-                                    <span className="font-medium text-foreground">
-                                      {info.operator}
-                                    </span>
-                                  </div>
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </div>
-              </section>
-
-            </div>
+            {/* Transaction Chain（2026-10-30 三系统统一：gateway 形式事件时间轴；
+                Clearance Pipeline rail 退役——链路形式以 gateway 为准） */}
+            <TransactionChainSection detail={detail} />
           </div>
         </>
       ) : null}

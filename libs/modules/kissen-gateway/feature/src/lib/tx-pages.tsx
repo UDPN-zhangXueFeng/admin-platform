@@ -1032,7 +1032,9 @@ export function TxDetailPage() {
     recordPair?.sourceTokenSymbol || recordPair?.sourceTokenCode || null;
   const tgtSymbol =
     recordPair?.targetTokenSymbol || recordPair?.targetTokenCode || null;
-  const rateValue = pairViewOf(record?.pairId, pairMap)?.rate?.userRate ?? null;
+  // 2026-10-30 三系统统一：gateway 展示本单用户汇率（pair 快照仅兜底；基础汇率不对银行侧展示）
+  const rateValue =
+    record?.userRate ?? pairViewOf(record?.pairId, pairMap)?.rate?.userRate ?? null;
 
   const toast = useToast();
   React.useEffect(() => {
@@ -1138,10 +1140,10 @@ export function TxDetailPage() {
         <div className="min-w-0 space-y-6">
           {record ? (
             <>
-              {/* ① Settlement Overview（原型 Card：Sent | rate/swap/LP | Received）。 */}
+              {/* ① Transaction Overview（2026-10-30 三系统统一：admin 蓝本三段式；gateway 仅用户汇率）。 */}
               <section className="rounded-lg border border-border/60 bg-card panel-pad">
                 <h2 className="mb-4 text-sm font-semibold text-foreground">
-                  Settlement Overview
+                  Transaction Overview
                 </h2>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
                   {/* Sent（原型 subtle 块；ddd9fe2 扣款口径 userDeduction + 源币种）。 */}

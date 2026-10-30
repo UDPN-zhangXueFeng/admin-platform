@@ -22,19 +22,20 @@ export const TxStatus = {
   Failed: 90,
 } as const;
 
-/** 状态码 → 英文标签（源 `TRANSACTION_STATUS_MAP`，列表/详情/事件流共用；2026-09-04：35 即成功终态与 40 同文案）。 */
+/** 状态码 → 英文标签（列表/详情/事件流共用）。2026-10-30 三系统状态下拉统一词表：
+ * 30=Processing、70=Abnormal（对齐 LP 原型词）；35/40 恢复双终态 Credited/Completed（原 09-04 合并口径废弃）。 */
 export const TRANSACTION_STATUS_LABEL: Record<number, string> = {
   1: 'Created',
   5: 'Quoted',
   10: 'Confirmed',
   20: 'Source Transferring',
   25: 'Source Verified',
-  30: 'Advancing',
-  35: 'Completed',
+  30: 'Processing',
+  35: 'Credited',
   40: 'Completed',
   50: 'Reversing',
   60: 'Reversed',
-  70: 'Exception',
+  70: 'Abnormal',
   80: 'Cancelled',
   90: 'Failed',
 };

@@ -32,7 +32,6 @@ import {
   isServiceDown,
   useTokenMeta,
   useTxFlowChainQuery,
-  type LpChainStage,
   type TxRow,
 } from '@myorg/modules/lp-portal/data-access';
 import {
@@ -69,70 +68,20 @@ function toneByStatusTo(to: number): TimelineTone {
 }
 
 /** Stage rail row state → visual class + label suffix. */
-function stageState(status: number): { dot: string; label: string } {
-  switch (status) {
-    case 3:
-      return { dot: 'bg-emerald-500', label: 'Done' };
-    case 2:
-      return { dot: 'bg-primary', label: 'In progress' };
-    case 4:
-      return { dot: 'bg-red-500', label: 'Failed' };
-    default:
-      // 1 未开始 / 5 跳过：LP 视角统一「未到达」，不区分内部跳过语义
-      return { dot: 'bg-muted-foreground/30', label: '—' };
-  }
-}
-
-/** Horizontal 6-stage rail (server stages; stepName/endTime straight through). */
-function StageRail({ stages }: { stages: LpChainStage[] }) {
-  return (
-    <ol className="flex flex-wrap items-start gap-x-1 gap-y-3">
-      {stages.map((s, i) => {
-        const state = stageState(s.status);
-        const time = s.endTime || s.startTime;
-        return (
-          <React.Fragment key={s.step}>
-            {i > 0 && (
-              <span
-                aria-hidden="true"
-                className="mt-[7px] h-px w-4 shrink-0 bg-border"
-              />
-            )}
-            <li className="flex w-[104px] shrink-0 flex-col items-center text-center">
-              <span
-                aria-hidden="true"
-                className={`h-3.5 w-3.5 rounded-full border-2 border-background ${state.dot}`}
-              />
-              <span className="mt-1.5 text-xs font-medium leading-4 text-foreground">
-                {s.stepName}
-              </span>
-              <span className="mt-0.5 font-mono text-[10px] leading-4 text-muted-foreground tabular-nums">
-                {time ? completedTimeText(time) : state.label}
-              </span>
-            </li>
-          </React.Fragment>
-        );
-      })}
-    </ol>
-  );
-}
-
-/** One timeline milestone (server event; extras = amount/voucher chips). */
-interface ChainItem {
-  flowId: number;
-  eventTime: number;
-  title: string;
-  tone: TimelineTone;
-  extras: string[];
-}
-
 /**
  * Vertical single timeline from server events. Amount chips stay a local UI
  * concern (taken from the row payload, no second request): quote-lock carries
  * principal/target/rate, payout & completion carry the target amount.
  */
 function buildItems(
-  events: { flowId: number; eventTime: number; statusTo: number; title: string; csTxId: string }[],
+  events: {
+    flowId: number;
+    eventTime: number;
+    statusTo: number;
+    title: string;
+    csTxId: string;
+    remark?: string;
+}[],
   row: TxRow,
   amountText: AmountText,
 ): ChainItem[] {
@@ -155,6 +104,7 @@ function buildItems(
       title: e.title,
       tone: toneByStatusTo(e.statusTo),
       extras,
+      remark: e.remark,
     };
   });
 }
@@ -174,6 +124,11 @@ function ChainTimeline({ items }: { items: ChainItem[] }) {
           <div className="mt-1 text-[13px] font-semibold leading-5 text-foreground">
             {e.title}
           </div>
+          {e.remark ? (
+            <p className="mt-0.5 text-xs leading-4 text-muted-foreground">
+              {e.remark}
+            </p>
+          ) : null}
           {e.extras.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {e.extras.map((x, i) => (
@@ -326,7 +281,6 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
 
   // v4: server-assembled stages + flat events; failed refetch keeps last
   // good data via the query cache.
-  const stages = chainQuery.data?.stages ?? [];
   const timeline = React.useMemo(
     () => buildItems(chainQuery.data?.events ?? [], row, amountText),
     [chainQuery.data, row, amountText],
@@ -403,15 +357,12 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
                       <div className="h-8 w-full motion-safe:animate-pulse rounded bg-muted" />
                       <div className="h-24 w-full motion-safe:animate-pulse rounded bg-muted" />
                     </div>
-                  ) : stages.length === 0 && timeline.length === 0 ? (
+                  ) : timeline.length === 0 ? (
                     <div className="py-6 text-center text-sm text-muted-foreground">
                       No chain data
                     </div>
                   ) : (
-                    <>
-                      {stages.length > 0 && <StageRail stages={stages} />}
-                      {timeline.length > 0 && <ChainTimeline items={timeline} />}
-                    </>
+                    <ChainTimeline items={timeline} />
                   )}
                 </div>
               </section>

@@ -35,7 +35,6 @@ import {
   FileText,
   Repeat,
   Workflow,
-  X,
 } from 'lucide-react';
 
 import {
@@ -66,17 +65,6 @@ import {
 } from '@myorg/modules/lp-portal/data-access';
 
 import { formatDuration, formatRate, formatTokenAmount, formatUtc8 } from './proto-format';
-import {
-  RAIL_CODES,
-  RAIL_CODE_LIST,
-  RAIL_FALLBACK_DELTA_SEC,
-  RAIL_STEPS,
-  RAIL_STEP_INFO,
-  STATUS_RAIL_INDEX,
-  chainEventRailCode,
-  railState,
-  type RailState,
-} from './tx-flow-rail';
 import {
   CopyableId,
   Dash,
@@ -215,24 +203,6 @@ function TxStatusBadge({ status }: { status: number }) {
   );
 }
 
-/* ── Clearance Pipeline（原型 7 环节；GAP-LP-11 链路拼装） ────────── */
-/* rail 纯推导（环节码/钳制表/railState/事件码归一）抽至 tx-flow-rail，此处仅留样式映射。 */
-
-const RAIL_NODE_STYLES: Record<RailState, string> = {
-  done: 'bg-success text-white',
-  danger: 'bg-destructive text-white',
-  warning: 'bg-warning text-white',
-  muted: 'bg-muted text-muted-foreground',
-  future: 'border-2 border-border bg-background text-muted-foreground',
-};
-
-const RAIL_WORD_STYLES: Record<RailState, string> = {
-  done: 'text-success',
-  danger: 'text-destructive',
-  warning: 'text-warning',
-  muted: 'text-muted-foreground',
-  future: 'text-muted-foreground/70',
-};
 
 /* ================================================================== */
 /* 渲染辅助                                                             */
@@ -751,6 +721,14 @@ function TxFlowListView() {
 
 /* ── 详情视图（GAP-LP-11：暂存行 + chain 端点拼装） ────────────────── */
 
+/** 链路节点圆点色（gateway 口径）：成功=绿 / 失败异常=红 / 冲正取消=灰 / 推进=蓝。 */
+function chainToneOf(statusTo: number): string {
+  if (statusTo === 35 || statusTo === 40) return 'bg-success';
+  if (statusTo === 90 || statusTo === 70) return 'bg-destructive';
+  if (statusTo === 50 || statusTo === 60 || statusTo === 80) return 'bg-muted';
+  return 'bg-primary';
+}
+
 function TxDetailView({ txKey }: { txKey: string }) {
   const router = useRouter();
 
@@ -771,35 +749,9 @@ function TxDetailView({ txKey }: { txKey: string }) {
   const sessionQuery = useLpSessionQuery(PROJECT_ID);
   const { symOf, bankOf, decimalsOf } = useTokenMeta(PROJECT_ID);
 
-  /** rail 码 → 首个链路事件时间（nodeType 环节/动作均计，取最早）。 */
-  const chainTimes = React.useMemo(() => {
-    // 2026-10-29 统一链路：服务端扁平事件（自环已过滤），取最早 eventTime；
-    // 事件码经 chainEventRailCode 归一（35 Credited→40）——tx125 事故前 35 不在
-    // RAIL_CODES 被直接丢弃，Credited 终态交易 chainMax 卡在 Processing、第 7 环永远 Pending
-    const times = new Map<number, number>();
-    for (const e of chainQuery.data?.events ?? []) {
-      const railCode = chainEventRailCode(e.statusTo ?? 0);
-      if (
-        railCode !== 0 &&
-        RAIL_CODE_LIST.includes(railCode) &&
-        !times.has(railCode) &&
-        e.eventTime
-      ) {
-        times.set(railCode, e.eventTime);
-      }
-    }
-    return times;
-  }, [chainQuery.data]);
 
-  /** 链路已抵达的最深环节（优先于 STATUS_RAIL_INDEX 静态钳制）。 */
-  const chainMax = React.useMemo(() => {
-    let max = -1;
-    chainTimes.forEach((_t, code) => {
-      const idx = RAIL_CODE_LIST.indexOf(code);
-      if (idx > max) max = idx;
-    });
-    return max;
-  }, [chainTimes]);
+
+
 
   const amountText = React.useCallback(
     (v: string | number | null | undefined, tokenKey?: string | null) => {
@@ -819,35 +771,15 @@ function TxDetailView({ txKey }: { txKey: string }) {
   const statusEntry = LP_TX_STATUS_MAP[seed.status];
   const statusLabel = statusEntry?.label ?? String(seed.status);
   const completed = seed.completedTime !== 0 && seed.completedTime != null;
+  /** 目标端凭证：链路解付/入账事件的 csTxId（副本无 target_cs_tx_id 列，2026-10-30 统一详情） */
+  const targetProof =
+    [...(chainQuery.data?.events ?? [])]
+      .reverse()
+      .find((e) => e.statusTo >= 30 && e.csTxId)?.csTxId ?? '';
   const durationMs =
     completed && seed.createTime
       ? seed.completedTime - seed.createTime
       : null;
-  const stageIndex =
-    chainMax >= 0 ? chainMax : (STATUS_RAIL_INDEX[seed.status] ?? 0);
-
-  const railStates = RAIL_STEPS.map((_label, i) =>
-    railState(
-      seed.status,
-      statusEntry ? statusLabel : undefined,
-      i,
-      stageIndex,
-    ),
-  );
-  const doneCount = railStates.filter((s) => s === 'done').length;
-  const progressPct = Math.round((doneCount / RAIL_STEPS.length) * 100);
-  /** 环节时间：链路真实 eventTime 优先；两端用行内 createTime/completedTime；
-   *  中段无链路数据按原型 deltaSec 展示（UI 展示口径非业务数据，GAP-LP-11）。 */
-  function railTimeText(i: number): string {
-    const chainTs = chainTimes.get(RAIL_CODES[i]);
-    if (chainTs) return formatUtc8(chainTs);
-    if (i === 0) return formatUtc8(seed?.createTime);
-    if (i === RAIL_CODES.length - 1) {
-      return completed ? formatUtc8(seed?.completedTime) : '-';
-    }
-    return `+${RAIL_FALLBACK_DELTA_SEC[i]}s`;
-  }
-
   const summaryText = [
     `Transaction No.: ${txNoText(seed)}`,
     `Status: ${statusLabel}`,
@@ -904,8 +836,8 @@ function TxDetailView({ txKey }: { txKey: string }) {
         </div>
 
         {/* Kissen-style detail layout: transaction information beside the stage rail. */}
-        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
-          <div className="flex min-w-0 flex-col gap-4 xl:col-span-8">
+        <div className="flex flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-4">
             <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
               <header className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
                 <div className="flex min-w-0 items-center gap-3">
@@ -950,6 +882,10 @@ function TxDetailView({ txKey }: { txKey: string }) {
                     >
                       1 {src} ≈ {formatRate(seed.userRate)} {tgt}
                     </Badge>
+                    {/* 2026-10-30 三系统详情统一：admin/LP 双汇率（成交时基础汇率快照），gateway 仅用户汇率 */}
+                    <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                      Base 1 {src} ≈ {formatRate(seed.baseRate)} {tgt}
+                    </span>
                     <Repeat
                       className="size-4 text-primary"
                       aria-hidden="true"
@@ -1076,6 +1012,9 @@ function TxDetailView({ txKey }: { txKey: string }) {
                           {amountText(seed.receiverAmount, seed.targetTokenNo)}
                         </span>
                       </Field>
+                      <Field label="Target Chain Tx ID">
+                        <CopyableId value={targetProof || '-'} />
+                      </Field>
                     </dl>
                   </section>
                 </div>
@@ -1107,134 +1046,88 @@ function TxDetailView({ txKey }: { txKey: string }) {
                 </Field>
               </dl>
             </section>
-          </div>
-
-          <aside className="min-w-0 xl:col-span-4">
+            {/* Transaction Chain（2026-10-30 三系统统一：gateway 形式事件时间轴；Clearance Pipeline rail 退役） */}
             <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-              <header className="border-b border-border px-6 py-4">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                        <Workflow className="size-4" aria-hidden="true" />
-                      </span>
-                      <h2 className="text-sm font-semibold text-foreground">
-                        Clearance Pipeline
-                      </h2>
-                      <Badge variant="success" className="tabular-nums">
-                        {doneCount}/{RAIL_STEPS.length} Finalized
-                      </Badge>
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Transaction lifecycle
-                    </p>
-                  </div>
-                  <span className="text-lg font-bold tabular-nums text-success">
-                    {progressPct}%
-                  </span>
-                </div>
+              <header className="flex items-center gap-3 border-b border-border px-6 py-4">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                  <Workflow className="size-4" aria-hidden="true" />
+                </span>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Transaction Chain
+                </h2>
+                <span className="text-xs text-muted-foreground">
+                  {(chainQuery.data?.events ?? []).length} events
+                </span>
               </header>
               <div className="p-6">
-                <div
-                  role="progressbar"
-                  aria-label="Transaction settlement progress"
-                  aria-valuemin={0}
-                  aria-valuemax={RAIL_STEPS.length}
-                  aria-valuenow={doneCount}
-                >
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full rounded-full ${
-                        doneCount === RAIL_STEPS.length
-                          ? 'bg-success'
-                          : 'bg-primary'
-                      }`}
-                      style={{ width: `${progressPct}%` }}
-                    />
-                  </div>
-                </div>
-                <ol className="mt-6">
-                  {RAIL_STEPS.map((step, i) => {
-                    const state = railStates[i];
-                    const isLast = i === RAIL_STEPS.length - 1;
-                    const word =
-                      state === 'done'
-                        ? 'Completed'
-                        : state === 'danger' || state === 'muted'
-                          ? statusLabel
-                          : state === 'warning'
-                            ? 'In Progress'
-                            : 'Pending';
-                    const timeText =
-                      state === 'future' ? '' : railTimeText(i);
-                    return (
-                      <li
-                        key={step}
-                        aria-current={i === stageIndex ? 'step' : undefined}
-                        className="relative min-w-0 pb-6 pl-12 last:pb-0"
-                      >
-                        {i < RAIL_STEPS.length - 1 ? (
+                {chainQuery.isPending ? (
+                  <div className="h-40 animate-pulse rounded-lg bg-muted" />
+                ) : (chainQuery.data?.events ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No chain events available.
+                  </p>
+                ) : (
+                  <ol className="relative ml-1 border-l border-border">
+                    {(chainQuery.data?.events ?? []).map((e) => {
+                      const extras: string[] = [];
+                      if (e.statusTo === 5) {
+                        if (seed.principal != null)
+                          extras.push(
+                            `Principal ${amountText(seed.principal, seed.sourceTokenNo)}`,
+                          );
+                        if (seed.receiverAmount != null)
+                          extras.push(
+                            `Target ${amountText(seed.receiverAmount, seed.targetTokenNo)}`,
+                          );
+                        if (seed.userRate != null)
+                          extras.push(
+                            `Rate 1 ${src} ≈ ${formatRate(seed.userRate)} ${tgt}`,
+                          );
+                      }
+                      if (
+                        (e.statusTo === 30 ||
+                          e.statusTo === 35 ||
+                          e.statusTo === 40) &&
+                        seed.receiverAmount != null
+                      ) {
+                        extras.push(
+                          `Target ${amountText(seed.receiverAmount, seed.targetTokenNo)}`,
+                        );
+                      }
+                      if (e.csTxId) extras.push(`Ref ${e.csTxId}`);
+                      return (
+                        <li key={e.flowId} className="relative mb-5 ml-5 last:mb-0">
                           <span
                             aria-hidden="true"
-                            className="absolute bottom-0 left-[15px] top-8 w-px bg-border"
+                            className={`absolute -left-[26px] top-1 size-2.5 rounded-full ${chainToneOf(e.statusTo)}`}
                           />
-                        ) : null}
-                        <span
-                          aria-hidden="true"
-                          className={`absolute left-0 top-0 grid size-8 place-items-center rounded-full ${RAIL_NODE_STYLES[state]}`}
-                        >
-                          {state === 'done' ? (
-                            <Check className="size-4" aria-hidden="true" />
-                          ) : null}
-                          {state === 'danger' ? (
-                            <X className="size-4" aria-hidden="true" />
-                          ) : null}
-                          {state === 'warning' ? (
-                            <span className="size-2 rounded-full bg-white" />
-                          ) : null}
-                        </span>
-                        <div className="min-w-0">
                           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                              <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                                {String(i + 1).padStart(2, '0')}
-                              </span>
-                              <span
-                                className={`text-sm font-semibold ${
-                                  state === 'future'
-                                    ? 'text-muted-foreground'
-                                    : 'text-foreground'
-                                }`}
-                              >
-                                {step}
-                              </span>
-                              {isLast && state === 'done' ? (
-                                <Badge variant="success">Finalized</Badge>
-                              ) : (
-                                <span
-                                  className={`text-xs ${RAIL_WORD_STYLES[state]}`}
-                                >
-                                  {word}
-                                </span>
-                              )}
-                            </div>
-                            {timeText && timeText !== '-' ? (
-                              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                                {timeText}
-                              </span>
-                            ) : null}
+                            <span className="text-sm font-semibold">
+                              {e.title}
+                            </span>
+                            <span className="text-xs tabular-nums text-muted-foreground">
+                              {formatUtc8(e.eventTime)}
+                            </span>
                           </div>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {RAIL_STEP_INFO[i]}
-                          </p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
+                          {extras.length > 0 ? (
+                            <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
+                              {extras.join(' · ')}
+                            </p>
+                          ) : null}
+                          {e.remark ? (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {e.remark}
+                            </p>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
               </div>
             </section>
-          </aside>
+          </div>
+
         </div>
       </div>
     </TooltipProvider>
