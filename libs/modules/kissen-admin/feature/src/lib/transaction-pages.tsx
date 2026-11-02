@@ -151,8 +151,8 @@ const TX_STATUS_TONE: Record<number, ProtoStatusTone> = {
   20: 'warning', // Source Transferring
   25: 'info', // Source Verified
   30: 'warning', // Processing
-  35: 'success', // Settled
-  40: 'success', // Completed
+  35: 'success', // Completed（成功终态）
+  40: 'success', // Completed (legacy)
   50: 'warning', // Reversing
   60: 'muted', // Reversed
   70: 'danger', // Exception
@@ -554,7 +554,7 @@ function InfoRow({
       <span className="w-16 shrink-0 text-xs text-muted-foreground">
         {label}
       </span>
-      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+      <span className="min-w-0 flex-1 break-all text-sm font-medium text-foreground">
         {children}
       </span>
     </div>
@@ -633,7 +633,7 @@ function TransactionChainSection({
   return (
     <section
       aria-label="Transaction chain"
-      className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm"
     >
       <TxSectionHeader
         icon={Workflow}
@@ -644,7 +644,7 @@ function TransactionChainSection({
           </span>
         }
       />
-      <div className="p-6">
+      <div className="min-h-0 flex-1 p-6">
         {chainQuery.isPending ? (
           <Skeleton className="h-40 w-full" />
         ) : events.length === 0 ? (
@@ -755,7 +755,7 @@ export function TxDetailPage() {
       `LP: ${detail.lpName || '-'}`,
       `Created: ${formatUtc8(detail.createTime)}`,
       detail.completedTime > 0
-        ? `Settled: ${formatUtc8(detail.completedTime)}`
+        ? `Completed: ${formatUtc8(detail.completedTime)}`
         : 'Completed: -',
     ].join('\n');
     void writeClipboard(summary).then((ok) =>
@@ -801,7 +801,7 @@ export function TxDetailPage() {
                 <span className="inline-flex items-center gap-1.5">
                   Transaction No:{' '}
                   <span className="font-semibold text-foreground">
-                    <CopyableId value={detail.txNo || detail.txUuid} />
+                    <CopyableId full value={detail.txNo || detail.txUuid} />
                   </span>
                 </span>
                 <span aria-hidden="true">|</span>
@@ -856,7 +856,7 @@ export function TxDetailPage() {
           {/* 异常/冲正提示（真实 failReason 载体，置于两栏网格之前）。 */}
           <TransactionStatusAlert detail={detail} />
 
-          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
+          <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-12">
             {/* 左 8/12（gateway 形式：左=Overview/Information/Timing，右=Transaction Chain） */}
             <div className="flex min-w-0 flex-col gap-4 xl:col-span-8">
               {/* R1'：Transaction Overview（Sent/Received 左右 + 中间汇率与 LP）。 */}
@@ -867,7 +867,7 @@ export function TxDetailPage() {
                   aside={
                     latencyMs != null ? (
                       <Badge variant="success" dot>
-                        Settled in {formatDuration(latencyMs)}
+                        Completed in {formatDuration(latencyMs)}
                       </Badge>
                     ) : undefined
                   }
@@ -985,13 +985,13 @@ export function TxDetailPage() {
                         {orDash(detail.sourceBankName)}
                       </InfoRow>
                       <InfoRow label="Wallet">
-                        <CopyableId value={detail.senderAccount} />
+                        <CopyableId full value={detail.senderAccount} />
                       </InfoRow>
                       <InfoRow label="LP Pool">
-                        <CopyableId value={detail.lpSourcePoolAddress} />
+                        <CopyableId full value={detail.lpSourcePoolAddress} />
                       </InfoRow>
                       <InfoRow label="Tx ID">
-                        <CopyableId value={detail.sourceCsTxId} />
+                        <CopyableId full value={detail.sourceCsTxId} />
                       </InfoRow>
                     </div>
                   </section>
@@ -1012,21 +1012,21 @@ export function TxDetailPage() {
                         {orDash(detail.targetBankName)}
                       </InfoRow>
                       <InfoRow label="Wallet">
-                        <CopyableId value={detail.receiverAccount} />
+                        <CopyableId full value={detail.receiverAccount} />
                       </InfoRow>
                       <InfoRow label="LP Pool">
-                        <CopyableId value={detail.lpTargetPoolAddress} />
+                        <CopyableId full value={detail.lpTargetPoolAddress} />
                       </InfoRow>
                       <InfoRow label="Tx ID">
-                        <CopyableId value={detail.targetCsTxId} />
+                        <CopyableId full value={detail.targetCsTxId} />
                       </InfoRow>
                     </div>
                   </section>
                 </div>
               </section>
 
-              {/* V3：Timing。 */}
-              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              {/* V3：Timing（flex-1：吸收左栏多余高度，与右栏链路卡底部齐平）。 */}
+              <section className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                 <TxSectionHeader icon={Clock3} title="Timing" />
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 p-6 md:grid-cols-3">
                   <TxDetailField label="Created on">
@@ -1053,7 +1053,7 @@ export function TxDetailPage() {
             </div>
 
             {/* 右 4/12：Transaction Chain（gateway 形式事件时间轴；Clearance Pipeline rail 退役） */}
-            <aside className="min-w-0 xl:col-span-4">
+            <aside className="flex min-w-0 flex-col xl:col-span-4">
               <TransactionChainSection detail={detail} txId={txId} />
             </aside>
           </div>

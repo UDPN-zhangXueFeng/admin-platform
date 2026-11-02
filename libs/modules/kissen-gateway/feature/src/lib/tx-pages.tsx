@@ -28,8 +28,6 @@ import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
   exportTx,
-  txBankRoleText,
-  txBankRoleVariant,
   txFlowEventTitle,
   useFxAllPairsQuery,
   useTxChain,
@@ -44,7 +42,12 @@ import {
 import { DescField, DescGrid } from './desc-grid';
 import { OPT_ALL, formatTime, orDash, toEpochMs } from './kit';
 import { CopyableId, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
-import { formatRate, formatTokenAmount, formatUtc8 } from './proto-format';
+import {
+  formatDuration,
+  formatRate,
+  formatTokenAmount,
+  formatUtc8,
+} from './proto-format';
 import { PROTO_TX_STATUS, protoStatusText } from './proto-enums';
 import {
   ColumnPicker,
@@ -77,7 +80,7 @@ function InfoRow({
       <span className="w-16 shrink-0 text-xs text-muted-foreground">
         {label}
       </span>
-      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+      <span className="min-w-0 flex-1 break-all text-sm font-medium text-foreground">
         {children}
       </span>
     </div>
@@ -109,20 +112,12 @@ const FLOW_NODE_COLOR: Record<number, string> = {
 };
 const FLOW_NODE_COLOR_DEFAULT = '#3B82F6'; // primary（源 flowNodeType 兜底）
 
+/** 终态码（35 完成 / 40 历史码 / 60 冲正 / 80 取消 / 90 失败）——Timing 的完成时刻取链路最后一个终态事件。 */
+const TERMINAL_STATUS_TO: readonly number[] = [35, 40, 60, 80, 90];
+
 /** 链路节点圆点色（源 flowNodeType：按迁移后状态取色）。 */
 function flowNodeColor(statusTo?: number): string {
   return FLOW_NODE_COLOR[statusTo ?? -1] ?? FLOW_NODE_COLOR_DEFAULT;
-}
-
-/** 终态判定（源 isTerminal）：35 入账 / 40 完成 / 60 冲正 / 80 取消 / 90 失败 → 实心（cdc9fa0 补 35）。 */
-function isFlowTerminal(statusTo?: number): boolean {
-  return (
-    statusTo === 35 ||
-    statusTo === 40 ||
-    statusTo === 60 ||
-    statusTo === 80 ||
-    statusTo === 90
-  );
 }
 
 /**
@@ -440,11 +435,13 @@ export function TxListPage() {
     [router],
   );
 
-  /** Status 筛选 options：13 态全表按生命周期 rank 排序（AGENTS.md §3.3.4，不按字母）。 */
+  /** Status 筛选 options：状态表按生命周期 rank 排序（AGENTS.md §3.3.4，不按字母）。
+   * 40 为历史码（主链路不再产生），只在标签表里做存量翻译，不入筛选项。 */
   const statusSelectOptions = React.useMemo(
     () => [
       { value: OPT_ALL, label: 'All' },
       ...Object.entries(PROTO_TX_STATUS)
+        .filter(([code]) => code !== '40')
         .sort(([, a], [, b]) => a.rank - b.rank)
         .map(([code, meta]) => ({ value: code, label: meta.text })),
     ],
@@ -939,18 +936,16 @@ function TxFlowItem({
   pairMap: ReadonlyMap<number, FxPairItem>;
 }) {
   const color = flowNodeColor(node.statusTo);
-  const terminal = isFlowTerminal(node.statusTo);
   const fields = stageFieldsOf(node, record, pairMap);
   // 动作类事件（statusTo=0，如「解付指令已生成」）无状态名，用其描述作标题
   const isAction = (node.statusTo ?? 0) <= 0;
   const title = isAction ? node.remark || 'Action' : txFlowEventTitle(node);
   return (
     <li className="relative pb-4 pl-6 last:pb-0">
+      {/* 2026-11-02：圆点一律实心（原中间态空心 → 时间轴发灰、节点稀疏），与 admin 链路同观感 */}
       <span
-        className={`absolute left-0 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full border-2 border-background ${
-          terminal ? '' : 'bg-background'
-        }`}
-        style={terminal ? { backgroundColor: color } : { borderColor: color }}
+        className="absolute left-0 top-1.5 size-2.5 -translate-x-1/2 rounded-full border-2 border-background"
+        style={{ backgroundColor: color }}
         aria-hidden="true"
       />
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -1044,6 +1039,27 @@ export function TxDetailPage() {
   // 2026-10-30 三系统统一：gateway 展示本单用户汇率（pair 快照仅兜底；基础汇率不对银行侧展示）
   const rateValue =
     record?.userRate ?? pairViewOf(record?.pairId, pairMap)?.rate?.userRate ?? null;
+  /* Timing（2026-11-02 对齐 admin）：完成时刻取链路最后一个终态事件；链路降级时留空。 */
+  const timing = React.useMemo(() => {
+    const created = record?.createTime;
+    const completed = flowNodes
+      .filter((n) => TERMINAL_STATUS_TO.includes(n.statusTo ?? -1))
+      .reduce<number | null>(
+        (latest, n) =>
+          n.eventTime != null && (latest == null || n.eventTime > latest)
+            ? n.eventTime
+            : latest,
+        null,
+      );
+    const duration =
+      created != null &&
+      completed != null &&
+      Number.isFinite(created) &&
+      completed >= created
+        ? completed - created
+        : null;
+    return { created, completed, duration };
+  }, [record?.createTime, flowNodes]);
 
   const toast = useToast();
   React.useEffect(() => {
@@ -1124,6 +1140,7 @@ export function TxDetailPage() {
               Transaction No.:
               <span className="font-medium text-foreground">
                 <CopyableId
+                  full
                   value={String(
                     record?.txNo ||
                       record?.txUuid ||
@@ -1143,10 +1160,11 @@ export function TxDetailPage() {
         </div>
       </div>
 
-      {/* 原型 3/5-2/5 双栏：左 = Settlement Overview + Transaction Information；
-          右 = Transaction Chain（源链路卡，真实信息量大于原型，保留为超集）。 */}
-      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className="min-w-0 space-y-6">
+      {/* 原型 3/5-2/5 双栏（2026-11-02 对齐 admin）：左 = Overview + Information + Timing；
+          右 = Transaction Chain。两栏都随行高拉伸，左侧由 Timing 卡吸收余量、右侧由链路卡
+          吸收余量（flex-1），因此谁更高都能底部齐平。 */}
+      <div className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="flex min-w-0 flex-col gap-6">
           {record ? (
             <>
               {/* ① Transaction Overview（2026-10-30 三系统统一：admin 蓝本三段式；gateway 仅用户汇率）。 */}
@@ -1250,10 +1268,10 @@ export function TxDetailPage() {
                         {orDash(record.senderBankName)}
                       </InfoRow>
                       <InfoRow label="Wallet">
-                        <CopyableId value={record.senderAccount} />
+                        <CopyableId full value={record.senderAccount} />
                       </InfoRow>
                       <InfoRow label="Tx ID">
-                        <CopyableId value={record.sourceCsTxId} />
+                        <CopyableId full value={record.sourceCsTxId} />
                       </InfoRow>
                     </div>
                   </section>
@@ -1274,52 +1292,61 @@ export function TxDetailPage() {
                         {orDash(record.receivingBankName)}
                       </InfoRow>
                       <InfoRow label="Wallet">
-                        <CopyableId value={record.receiverAccount} />
+                        <CopyableId full value={record.receiverAccount} />
                       </InfoRow>
                       <InfoRow label="Tx ID">
-                        <CopyableId value={record.targetCsTxId} />
+                        <CopyableId full value={record.targetCsTxId} />
                       </InfoRow>
                     </div>
                   </section>
                 </div>
-                  <DescGrid className="mt-5 border-t border-border/50 pt-4 md:col-span-2">
-                    <DescField label="Tx UUID">
-                      <CopyableId value={record.txUuid} />
+                {/* 2026-11-02：Tx UUID / Bank Role 对银行用户无信息量，删除；
+                    Last Sync 上移到页头元信息行（与 Created on 同排）。 */}
+                {record.pendingFlag === 1 ? (
+                  <DescGrid className="mt-5 border-t border-border/50 pt-4">
+                    <DescField label="Pending">
+                      <Badge variant="secondary">Pending</Badge>
                     </DescField>
-                    <DescField label="Last Sync">
-                      <span className="tabular-nums">
-                        {formatUtc8(record.lastSyncTime)}
+                    <DescField label="Pending Reason" span>
+                      <span className="break-words">
+                        {orDash(record.pendingReason)}
                       </span>
                     </DescField>
-                    <DescField label="Bank Role">
-                      {record.selfTrade ? (
-                        <Badge
-                          variant="outline"
-                          className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400"
-                        >
-                          Self-Trade (Source + Target)
-                        </Badge>
-                      ) : record.bankRole != null && record.bankRole !== 0 ? (
-                        <Badge variant={txBankRoleVariant(record.bankRole)}>
-                          {txBankRoleText(record.bankRole)}
-                        </Badge>
-                      ) : (
-                        <span>-</span>
-                      )}
-                    </DescField>
-                    {record.pendingFlag === 1 ? (
-                      <>
-                        <DescField label="Pending">
-                          <Badge variant="secondary">Pending</Badge>
-                        </DescField>
-                        <DescField label="Pending Reason" span>
-                          <span className="break-words">
-                            {orDash(record.pendingReason)}
-                          </span>
-                        </DescField>
-                      </>
-                    ) : null}
                   </DescGrid>
+                ) : null}
+              </section>
+
+              {/* ③ Timing（2026-11-02 对齐 admin：Created on / Completed on / Duration）。
+                  完成时刻取链路最后一个终态事件（35/40/60/80/90）；链路未取回时显 '-'。 */}
+              <section className="flex flex-1 flex-col rounded-lg border border-border/60 bg-card panel-pad">
+                <h2 className="mb-4 text-sm font-semibold text-foreground">
+                  Timing
+                </h2>
+                <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
+                  {[
+                    { label: 'Created on', value: formatUtc8(timing.created) },
+                    {
+                      label: 'Completed on',
+                      value: formatUtc8(timing.completed),
+                    },
+                    {
+                      label: 'Duration',
+                      value:
+                        timing.duration != null
+                          ? formatDuration(timing.duration)
+                          : '-',
+                    },
+                  ].map((f) => (
+                    <div key={f.label} className="min-w-0">
+                      <div className="text-xs text-muted-foreground">
+                        {f.label}
+                      </div>
+                      <div className="mt-1 text-sm font-medium tabular-nums text-foreground">
+                        {f.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </section>
             </>
           ) : detailLoading ? (
@@ -1334,9 +1361,10 @@ export function TxDetailPage() {
           )}
         </div>
 
-        <div className="min-w-0 space-y-6 xl:sticky xl:top-4">
-          {/* ③ Transaction Chain（链路六段口径；源有/原型无——保留超集）。 */}
-          <section className="rounded-lg border border-border/60 bg-card panel-pad">
+        <div className="flex min-w-0 flex-col">
+          {/* ④ Transaction Chain（链路六段口径；源有/原型无——保留超集）。
+              h-full 跟随网格行高，与左侧三卡底部齐平。 */}
+          <section className="flex min-h-0 flex-1 flex-col rounded-lg border border-border/60 bg-card panel-pad">
             <div className="mb-3 flex items-baseline justify-between gap-3">
               <h2 className="text-sm font-semibold text-foreground">
                 Transaction Chain
@@ -1352,7 +1380,7 @@ export function TxDetailPage() {
                 ))}
               </div>
             ) : flowNodes.length > 0 ? (
-              <ol className="relative space-y-6 border-l">
+              <ol className="relative ml-1 border-l border-border">
                 {flowNodes.map((n) => (
                   <TxFlowItem
                     key={n.flowId}

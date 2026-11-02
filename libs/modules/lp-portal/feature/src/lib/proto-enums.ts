@@ -21,13 +21,11 @@ export interface ProtoEnumEntry {
 }
 
 /**
- * 交易 13 态全表（原型 FxTransactionsPage `FX_STATUSES` 逐字，rank = 数组序；
+ * 交易状态表（原型 FxTransactionsPage `FX_STATUSES` 逐字，rank = 数组序；
  * server 端 FX_STATUS_RANK 同款 CASE 排序）。
  * 码语义（types.ts TxRow）：1 已创建 / 5 已报价 / 10 已确认 / 20 源端划转中 /
- * 25 源端已验证 / 30 解付中 / 35 已入账 / 40 已完成 / 50 冲正中 / 60 已冲正 /
- * 70 异常 / 80 已取消 / 90 失败。原型把 35/40 区分为 Credited / Completed 两个
- * 独立态、30 为 Processing——本仓 tx-flow.model 现文案（30 'Disbursing'、
- * 35/40 均 'Completed'）在原型合并后按本表恢复原型口径。
+ * 25 源端已验证 / 30 解付中 / 35 已完成（成功终态，目标端入账） / 40 已完成（历史码）/
+ * 50 冲正中 / 60 已冲正 / 70 异常 / 80 已取消 / 90 失败。
  */
 export const LP_TX_STATUS_MAP: Record<number, ProtoEnumEntry> = {
   1: { label: 'Created', rank: 0 },
@@ -36,8 +34,8 @@ export const LP_TX_STATUS_MAP: Record<number, ProtoEnumEntry> = {
   20: { label: 'Source transfer in progress', rank: 3 },
   25: { label: 'Source verified', rank: 4 },
   30: { label: 'Disbursing', rank: 5 },
-  35: { label: 'Settled', rank: 6 },
-  40: { label: 'Completed', rank: 7 },
+  35: { label: 'Completed', rank: 6 },
+  40: { label: 'Completed (legacy)', rank: 7 },
   50: { label: 'Reversing', rank: 8 },
   60: { label: 'Reversed', rank: 9 },
   90: { label: 'Failed', rank: 10 },

@@ -14,7 +14,8 @@ export interface ProtoStatusMeta {
   rank: number;
 }
 
-/** 交易 13 态全表（BP 原型 transactions options 逐字；对应 tx.model TX_STATUS 码位）。 */
+/** 交易状态表（BP 原型 transactions options 逐字；对应 tx.model TX_STATUS 码位）。
+ * 2026-11-02 终态定名：35（目标端入账）即成功终态，文案 'Completed'；40 为历史码，仅存量数据。 */
 export const PROTO_TX_STATUS: Record<number, ProtoStatusMeta> = {
   1: { text: 'Created', rank: 0 },
   5: { text: 'Quoted', rank: 1 },
@@ -22,18 +23,14 @@ export const PROTO_TX_STATUS: Record<number, ProtoStatusMeta> = {
   20: { text: 'Source transfer in progress', rank: 3 },
   25: { text: 'Source verified', rank: 4 },
   30: { text: 'Disbursing', rank: 5 },
-  35: { text: 'Settled', rank: 6 },
-  40: { text: 'Completed', rank: 7 },
+  35: { text: 'Completed', rank: 6 },
+  40: { text: 'Completed (legacy)', rank: 7 },
   50: { text: 'Reversing', rank: 8 },
   60: { text: 'Reversed', rank: 9 },
   90: { text: 'Failed', rank: 10 },
   80: { text: 'Cancelled', rank: 11 },
   70: { text: 'Exception', rank: 12 },
 };
-
-/** 与现行文案的三处差异：20/25/70 逐字改为原型词，35/40 拆回原型双终态：
- * 35 → Credited（tx-pages FLOW_NODE_COLOR 注释「35: success Credited」、
- * isFlowTerminal「35 入账 / 40 完成」佐证），40 → Completed。 */
 
 /** Token 状态（BP 原型 tokens options 逐字；码位 = token.model TOKEN_STATUS）。 */
 export const PROTO_TOKEN_STATUS: Record<number, ProtoStatusMeta> = {

@@ -20,10 +20,8 @@ export interface ProtoStatusMeta {
 }
 
 /**
- * 交易 13 态全表（KNMS FxTransactionsPage STATUS_ORDER；方案 §4 交易行「13 态状态文案
- * 统一」）。与 TRANSACTION_STATUS_LABEL 的差异（以原型为准）：
- *  - 30 后端 'Advancing' → 原型 'Processing'；
- *  - 35 后端与 40 同文案 'Completed' → 原型拆两态：35 'Settled' / 40 'Completed'。
+ * 交易状态表（KNMS FxTransactionsPage STATUS_ORDER；方案 §4 交易行「状态文案统一」）。
+ * 2026-11-02 终态定名：35（目标端入账）即成功终态，文案 'Completed'；40 为历史码，仅存量数据。
  */
 export const PROTO_TX_STATUS: Record<number, ProtoStatusMeta> = {
   1: { label: 'Created', rank: 0 },
@@ -32,8 +30,8 @@ export const PROTO_TX_STATUS: Record<number, ProtoStatusMeta> = {
   20: { label: 'Source transfer in progress', rank: 3 },
   25: { label: 'Source verified', rank: 4 },
   30: { label: 'Disbursing', rank: 5 },
-  35: { label: 'Settled', rank: 6 },
-  40: { label: 'Completed', rank: 7 },
+  35: { label: 'Completed', rank: 6 },
+  40: { label: 'Completed (legacy)', rank: 7 },
   50: { label: 'Reversing', rank: 8 },
   60: { label: 'Reversed', rank: 9 },
   90: { label: 'Failed', rank: 10 },

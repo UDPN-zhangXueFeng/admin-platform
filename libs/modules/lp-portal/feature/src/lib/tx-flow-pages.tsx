@@ -105,8 +105,10 @@ const LBL = {
 /** 下拉「全部」哨兵（FormSelect 禁空 value；非 ALL 即转实参查询）。 */
 const ALL = 'all';
 
-/** 状态筛选项：LP_TX_STATUS_MAP 13 态逐字（码序 = 业务 rank 序）。 */
+/** 状态筛选项：LP_TX_STATUS_MAP 逐字（码序 = 业务 rank 序）。
+ * 40 为历史码（主链路不再产生），只在标签表里做存量翻译，不入筛选项。 */
 const STATUS_OPTIONS: SelectOption[] = Object.entries(LP_TX_STATUS_MAP)
+  .filter(([k]) => k !== '40')
   // 2026-10-30：按业务路径 rank 排序（主路径 → 冲正 → 失败/取消/异常），不按码值
   .sort(([, a], [, b]) => a.rank - b.rank)
   .map(([k, v]) => ({ value: k, label: v.label }));
@@ -732,7 +734,7 @@ function InfoRow({
       <span className="w-16 shrink-0 text-xs text-muted-foreground">
         {label}
       </span>
-      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+      <span className="min-w-0 flex-1 break-all text-sm font-medium text-foreground">
         {children}
       </span>
     </div>
@@ -855,7 +857,7 @@ function TxDetailView({ txKey }: { txKey: string }) {
                     {txNoText(seed) === '-' ? (
                       '-'
                     ) : (
-                      <CopyableId value={txNoText(seed)} />
+                      <CopyableId full value={txNoText(seed)} />
                     )}
                   </span>
                 </span>
@@ -872,7 +874,7 @@ function TxDetailView({ txKey }: { txKey: string }) {
         </div>
 
         {/* Kissen-style detail layout: transaction information beside the stage rail. */}
-        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
+        <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-12">
           <div className="flex min-w-0 flex-col gap-4 xl:col-span-8">
             <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
               <header className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
@@ -886,7 +888,7 @@ function TxDetailView({ txKey }: { txKey: string }) {
                 </div>
                 {completed && durationMs != null ? (
                   <Badge variant="success" dot>
-                    Settled in {formatDuration(durationMs)}
+                    Completed in {formatDuration(durationMs)}
                   </Badge>
                 ) : null}
               </header>
@@ -997,10 +999,10 @@ function TxDetailView({ txKey }: { txKey: string }) {
                   <div className="space-y-3">
                     <InfoRow label="Bank">{bankOf(srcKey(seed))}</InfoRow>
                     <InfoRow label="Wallet">
-                      <CopyableId value={seed.senderAccount} />
+                      <CopyableId full value={seed.senderAccount} />
                     </InfoRow>
                     <InfoRow label="Tx ID">
-                      <CopyableId value={seed.sourceCsTxId} />
+                      <CopyableId full value={seed.sourceCsTxId} />
                     </InfoRow>
                   </div>
                 </section>
@@ -1019,10 +1021,11 @@ function TxDetailView({ txKey }: { txKey: string }) {
                   <div className="space-y-3">
                     <InfoRow label="Bank">{bankOf(tgtKey(seed))}</InfoRow>
                     <InfoRow label="Wallet">
-                      <CopyableId value={seed.receiverAccount} />
+                      <CopyableId full value={seed.receiverAccount} />
                     </InfoRow>
                     <InfoRow label="Tx ID">
                       <CopyableId
+                        full
                         value={seed.targetCsTxId || targetProof || '-'}
                       />
                     </InfoRow>
@@ -1031,7 +1034,7 @@ function TxDetailView({ txKey }: { txKey: string }) {
               </div>
             </section>
 
-            <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <section className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
               <header className="flex items-center gap-3 border-b border-border px-6 py-4">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                   <Clock3 className="size-4" aria-hidden="true" />
@@ -1059,8 +1062,8 @@ function TxDetailView({ txKey }: { txKey: string }) {
           </div>
 
           {/* 右 4/12：Transaction Chain（2026-10-30 三系统统一：gateway 形式事件时间轴；Clearance Pipeline rail 退役） */}
-          <aside className="min-w-0 xl:col-span-4">
-            <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+          <aside className="flex min-w-0 flex-col xl:col-span-4">
+            <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
               <header className="flex items-center gap-3 border-b border-border px-6 py-4">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                   <Workflow className="size-4" aria-hidden="true" />

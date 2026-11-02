@@ -113,6 +113,7 @@ export function CopyableId({
   tailChars = 8,
   maxWidth,
   className,
+  full = false,
 }: {
   /** 完整标识符（复制即复制它）；null/undefined/'' → '-' */
   value?: string | null;
@@ -123,6 +124,8 @@ export function CopyableId({
   /** 显示宽度上限 px（缺省不限，靠容器 min-w-0 收缩） */
   maxWidth?: number;
   className?: string;
+  /** 详情页整值展示：不截断，长地址自动换行（列表页保持截断）。 */
+  full?: boolean;
 }) {
   const [copied, setCopied] = React.useState(false);
   const timerRef = React.useRef<number | null>(null);
@@ -159,10 +162,10 @@ export function CopyableId({
     >
       <span
         ref={textRef}
-        className="min-w-0 truncate tabular-nums"
+        className={cn('min-w-0 tabular-nums', full ? 'break-all' : 'truncate')}
         title={value}
       >
-        {truncateMiddle(value, headChars, tailChars)}
+        {full ? value : truncateMiddle(value, headChars, tailChars)}
       </span>
       <button
         type="button"

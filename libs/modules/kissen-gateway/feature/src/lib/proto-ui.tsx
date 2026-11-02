@@ -183,6 +183,8 @@ export interface CopyableIdProps {
   head?: number;
   tail?: number;
   className?: string;
+  /** 详情页整值展示：不截断，长地址自动换行（列表页保持截断）。 */
+  full?: boolean;
 }
 
 /** 可复制标识符：中段截断展示 + Tooltip 回显全值（§3.13.4）+ 独立复制钮，
@@ -192,6 +194,7 @@ export function CopyableId({
   head = 8,
   tail = 8,
   className,
+  full = false,
 }: CopyableIdProps) {
   const [feedback, setFeedback] = React.useState<'idle' | 'copied' | 'error'>(
     'idle',
@@ -208,7 +211,7 @@ export function CopyableId({
   if (value === null || value === undefined || value === '') {
     return <Dash className={className} />;
   }
-  const shown = truncateMiddle(text, head, tail);
+  const shown = full ? text : truncateMiddle(text, head, tail);
 
   async function handleCopy() {
     const ok = await writeClipboard(text);
@@ -227,7 +230,10 @@ export function CopyableId({
           <TooltipTrigger asChild>
             <span
               ref={textRef}
-              className="min-w-0 cursor-default whitespace-nowrap tabular-nums"
+              className={cn(
+                'min-w-0 cursor-default tabular-nums',
+                full ? 'break-all' : 'whitespace-nowrap',
+              )}
             >
               {shown}
               {shown !== text && <span className="sr-only"> ({text})</span>}

@@ -13,8 +13,10 @@ export const TxStatus = {
   SourceTransferring: 20,
   SourceVerified: 25,
   Advancing: 30,
-  Settled: 35,
-  Completed: 40,
+  /** 成功终态：目标端入账即完成（2026-11-02 起状态名为 Completed，码值仍是 35） */
+  Completed: 35,
+  /** 历史码（2026-09-02 前 35→40 两段式），仅存量数据 */
+  LegacyCompleted: 40,
   Reversing: 50,
   Reversed: 60,
   Exception: 70,
@@ -22,8 +24,8 @@ export const TxStatus = {
   Failed: 90,
 } as const;
 
-/** 状态码 → 英文标签（列表/详情/事件流共用）。2026-10-30 三系统状态下拉统一词表：
- * 30=Processing、70=Abnormal（对齐 LP 原型词）；35/40 恢复双终态 Credited/Completed（原 09-04 合并口径废弃）。 */
+/** 状态码 → 英文标签（列表/详情/事件流共用）。2026-11-02 终态定名：
+ * 35（目标端入账）即成功终态，标签 'Completed'；40 为 2026-09-02 前的历史码，仅存量数据可见。 */
 export const TRANSACTION_STATUS_LABEL: Record<number, string> = {
   1: 'Created',
   5: 'Quoted',
@@ -31,8 +33,8 @@ export const TRANSACTION_STATUS_LABEL: Record<number, string> = {
   20: 'Source transfer in progress',
   25: 'Source verified',
   30: 'Disbursing',
-  35: 'Settled',
-  40: 'Completed',
+  35: 'Completed',
+  40: 'Completed (legacy)',
   50: 'Reversing',
   60: 'Reversed',
   70: 'Exception',
@@ -58,10 +60,10 @@ export const TRANSACTION_STATUS_VARIANT: Record<
   90: 'destructive',
 };
 
-/** 状态筛选下拉选项（全 13 值；value 为字符串供 Select 使用）。 */
+/** 状态筛选下拉选项（12 值；40 为历史码，主链路不再产生，不入筛选项）。
+ * 2026-10-30 三系统统一：按业务路径序（主路径 → 冲正 → 失败/取消/异常）。 */
 export const TX_STATUS_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  // 2026-10-30 三系统统一：按业务路径序（主路径 → 冲正 → 失败/取消/异常）
-  1, 5, 10, 20, 25, 30, 35, 40, 50, 60, 90, 80, 70,
+  1, 5, 10, 20, 25, 30, 35, 50, 60, 90, 80, 70,
 ].map((v) => ({ value: String(v), label: TRANSACTION_STATUS_LABEL[v] ?? String(v) }));
 
 /** 与后端 TransactionRespVO 对齐（tx_transaction 联查 pair/lp/bank）。 */

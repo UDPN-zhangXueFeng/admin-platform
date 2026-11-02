@@ -85,11 +85,14 @@ export interface CopyableIdProps {
   head?: number;
   tail?: number;
   className?: string;
+  /** 详情页整值展示：不做截断（长地址自动换行），列表页保持截断。 */
+  full?: boolean;
 }
 
 /**
- * 可复制标识符：中段截断 `head…tail`（禁止尾部省略号——标识符一律中间截断，
- * 列表与详情同口径）+ 复制按钮，点击复制后图标变绿 ✓ 停留 2s。
+ * 可复制标识符：中段截断 `head…tail`（禁止尾部省略号——标识符一律中间截断）
+ * + 复制按钮，点击复制后图标变绿 ✓ 停留 2s。
+ * 详情页传 `full` 展示完整值（长地址换行），列表页保持截断。
  *
  * 字体口径：组件内不设等宽（原型 AGENTS §3.2.4：标识符不加 `font-mono`）。
  */
@@ -98,6 +101,7 @@ export function CopyableId({
   head = 8,
   tail = 8,
   className,
+  full = false,
 }: CopyableIdProps) {
   const [copied, setCopied] = React.useState(false);
   const resetTimer = React.useRef<number | undefined>(undefined);
@@ -120,7 +124,9 @@ export function CopyableId({
   }
 
   const display =
-    text.length <= head + tail ? text : `${text.slice(0, head)}…${text.slice(-tail)}`;
+    full || text.length <= head + tail
+      ? text
+      : `${text.slice(0, head)}…${text.slice(-tail)}`;
 
   const handleCopy = async () => {
     if (!(await writeClipboard(text))) return;
