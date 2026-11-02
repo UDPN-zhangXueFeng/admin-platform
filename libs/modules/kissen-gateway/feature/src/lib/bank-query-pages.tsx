@@ -90,6 +90,14 @@ type BankQueryRow = {
 
 type BankQueryFilters = { keyword: string };
 
+/** Tradable Tokens 单元格最多直显的徽章数，其余折叠为 +N。 */
+const TOKEN_CHIP_LIMIT = 3;
+
+/** token 展示名：symbol 优先（2026-10-30 口径），缺失回退货币系统 tokenCode。 */
+function tokenLabel(t: BankTokenSummary): string {
+  return t.symbol?.trim() || t.tokenCode || '-';
+}
+
 const BANK_QUERY_FILTER_DEFAULT: BankQueryFilters = {
   keyword: '',
 };
@@ -188,21 +196,35 @@ export function BankQueryListPage() {
       {
         id: 'tokenList',
         header: 'Tradable Tokens',
-        meta: { overflow: 'wrap', maxWidth: 360 },
+        meta: { overflow: 'wrap', maxWidth: 320 },
+        /* 2026-11-02 视觉重做：一行 symbol 徽章（原纯文本可读性差、多币连成一串），
+           超过 3 个折叠成 +N（悬停看全部）——稳定行高，扫读时先看到币种再看数量。 */
         cell: ({ row }) => {
-          /* Tradable Tokens 优先展示 token symbol（2026-10-30），缺失回退 tokenCode。 */
           const tokens = tokensOf(row.original);
           if (tokens.length === 0) return <span>-</span>;
+          const shown = tokens.slice(0, TOKEN_CHIP_LIMIT);
+          const rest = tokens.slice(TOKEN_CHIP_LIMIT);
           return (
-            <span className="inline-flex flex-wrap gap-1.5">
-              {tokens.map((t, i) => {
-                const label = t.symbol?.trim() || t.tokenCode;
-                return (
-                  <span key={`${t.tokenCode}-${i}`} className="font-mono">
-                    {label || '-'}
-                  </span>
-                );
-              })}
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+              {shown.map((t, i) => (
+                <Badge
+                  key={`${t.tokenCode}-${i}`}
+                  variant="outline"
+                  className="font-normal"
+                  title={[t.tokenName, t.tokenCode].filter(Boolean).join(' · ')}
+                >
+                  {tokenLabel(t)}
+                </Badge>
+              ))}
+              {rest.length > 0 ? (
+                <Badge
+                  variant="mute"
+                  className="font-normal"
+                  title={rest.map(tokenLabel).join(', ')}
+                >
+                  +{rest.length}
+                </Badge>
+              ) : null}
             </span>
           );
         },
