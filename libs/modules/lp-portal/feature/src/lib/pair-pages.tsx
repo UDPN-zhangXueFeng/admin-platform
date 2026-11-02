@@ -275,7 +275,7 @@ export function PairListPage() {
         ),
       },
       // 原型列序 5：Client Rate（配置侧固定词，'User Rate' 废弃；
-      // = 行 VO userRate = base + markup）
+      // = 行 VO userRate = base ÷ (1 + markup)）
       {
         accessorKey: 'userRate',
         header: () => <NumHeader>Client Rate</NumHeader>,
