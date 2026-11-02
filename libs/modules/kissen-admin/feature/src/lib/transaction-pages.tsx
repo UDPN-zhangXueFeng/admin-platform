@@ -613,12 +613,19 @@ function chainFieldRows(
 }
 
 /** gateway 形式链路卡：垂直节点时间轴（标题+时间+字段行+remark 行）。 */
-function TransactionChainSection({ detail }: { detail: TransactionDetailRow }) {
+function TransactionChainSection({
+  detail,
+  txId,
+}: {
+  detail: TransactionDetailRow;
+  /** 路由参数中的交易 ID（2026-11-02：详情响应的 transactionId 可能为空，不能作为唯一来源） */
+  txId: number;
+}) {
   const { decimalsOf } = useTokenMeta(KISSEN_PROJECT_ID);
   const decOf = decimalsOf;
   const chainQuery = useTransactionChainQuery(
     KISSEN_PROJECT_ID,
-    detail.transactionId,
+    txId || detail.transactionId,
   );
   const events = chainQuery.data?.events ?? [];
 
@@ -1043,7 +1050,7 @@ export function TxDetailPage() {
 
             {/* 右 4/12：Transaction Chain（gateway 形式事件时间轴；Clearance Pipeline rail 退役） */}
             <aside className="min-w-0 xl:col-span-4">
-              <TransactionChainSection detail={detail} />
+              <TransactionChainSection detail={detail} txId={txId} />
             </aside>
           </div>
         </>
