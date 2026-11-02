@@ -596,6 +596,7 @@ function chainFieldRows(
         decOf(detail.targetCurrency),
       ),
     });
+    // 用户汇率（成交口径：到账 ÷ 实付；非 baseRate 基础汇率）
     rows.push({
       label: 'Rate',
       value: `1 ${detail.sourceCurrency} ≈ ${formatRate(detail.userRate)} ${detail.targetCurrency}`,
@@ -607,8 +608,8 @@ function chainFieldRows(
       value: fmtAmount(detail.receiverAmount, detail.targetCurrency, decOf(detail.targetCurrency)),
     });
   }
-  const proof = e.csTxId || (e.statusTo >= 20 && e.statusTo <= 25 ? detail.sourceCsTxId : detail.targetCsTxId);
-  if (proof) rows.push({ label: 'Ref', value: proof });
+  // Ref 只取本事件自带的凭证——不可回退交易级最终凭证（报价/确认时刻该凭证尚不存在）
+  if (e.csTxId) rows.push({ label: 'Ref', value: e.csTxId });
   return rows;
 }
 
@@ -654,6 +655,11 @@ function TransactionChainSection({
           <ol className="relative ml-1 border-l border-border">
             {events.map((e) => {
               const rows = chainFieldRows(e, detail, decOf);
+              // 动作类事件（statusTo=0，如「解付指令已生成」）无状态名，用其描述作标题
+              const isAction = (e.statusTo ?? 0) <= 0;
+              const title = isAction
+                ? e.remark || 'Action'
+                : (TRANSACTION_STATUS_LABEL[e.statusTo] ?? `Status ${e.statusTo}`);
               return (
                 <li key={e.flowId} className="relative pb-4 pl-6 last:pb-0">
                   <span
@@ -661,9 +667,7 @@ function TransactionChainSection({
                     className={`absolute left-0 top-1.5 size-2.5 -translate-x-1/2 rounded-full ${chainToneOf(e.statusTo)}`}
                   />
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <span className="text-sm font-semibold">
-                      {TRANSACTION_STATUS_LABEL[e.statusTo] ?? `#${e.statusTo}`}
-                    </span>
+                    <span className="text-sm font-semibold">{title}</span>
                     <span className="text-xs tabular-nums text-muted-foreground">
                       {formatUtc8(e.eventTime)}
                     </span>
@@ -685,7 +689,7 @@ function TransactionChainSection({
                       ))}
                     </dl>
                   ) : null}
-                  {e.remark ? (
+                  {!isAction && e.remark ? (
                     <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
                       {e.remark}
                     </p>

@@ -1083,6 +1083,11 @@ function TxDetailView({ txKey }: { txKey: string }) {
                   <ol className="relative ml-1 border-l border-border">
                     {(chainQuery.data?.events ?? []).map((e) => {
                       const fields: { label: string; value: string }[] = [];
+                      // 动作类事件（statusTo=0）无状态名，用其描述作标题
+                      const isAction = (e.statusTo ?? 0) <= 0;
+                      const title = isAction
+                        ? e.remark || 'Action'
+                        : e.title;
                       if (e.statusTo === 5) {
                         // 2026-10-30：本金无意义，展示用户实付
                         fields.push({
@@ -1094,6 +1099,7 @@ function TxDetailView({ txKey }: { txKey: string }) {
                             label: 'Target',
                             value: amountText(seed.receiverAmount, tgtKey(seed)),
                           });
+                        // 用户汇率（到账 ÷ 实付；非 baseRate 基础汇率）
                         if (seed.userRate != null)
                           fields.push({
                             label: 'Rate',
@@ -1124,7 +1130,7 @@ function TxDetailView({ txKey }: { txKey: string }) {
                           />
                           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                             <span className="text-sm font-semibold text-foreground">
-                              {e.title}
+                              {title}
                             </span>
                             <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
                               {formatUtc8(e.eventTime)}
@@ -1147,7 +1153,7 @@ function TxDetailView({ txKey }: { txKey: string }) {
                               ))}
                             </dl>
                           ) : null}
-                          {e.remark ? (
+                          {!isAction && e.remark ? (
                             <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
                               {e.remark}
                             </p>

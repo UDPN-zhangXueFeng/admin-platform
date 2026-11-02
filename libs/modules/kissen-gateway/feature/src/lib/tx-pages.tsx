@@ -310,23 +310,23 @@ function stageFieldsOf(
     : (record?.lpCode || undefined);
   const deduction = withSym(record?.userDeduction, src);
   const receiver = withSym(record?.receiverAmount, tgt);
+  // 用户汇率（成交口径：到账 ÷ 实付），格式与 admin/LP 一致
   const rate =
     record?.userRate != null
-      ? Number(record.userRate).toFixed(4)
+      ? `1 ${src || '-'} ≈ ${Number(record.userRate).toFixed(4)} ${tgt || '-'}`
       : undefined;
   if (step === 1) {
     if (lp) fields.push({ label: 'LP', value: lp });
-    if (deduction) fields.push({ label: 'Source Amount', value: deduction });
-    if (receiver) fields.push({ label: 'Target Amount', value: receiver });
+    if (deduction) fields.push({ label: 'Payment', value: deduction });
+    if (receiver) fields.push({ label: 'Target', value: receiver });
     if (rate) fields.push({ label: 'Rate', value: rate });
   } else if (step === 3 || step === 4) {
-    if (deduction) fields.push({ label: 'Source Amount', value: deduction });
-    const proof = node.csTxId || record?.sourceCsTxId;
-    if (proof) fields.push({ label: 'Proof', value: proof });
+    if (deduction) fields.push({ label: 'Payment', value: deduction });
+    // Ref 只取本事件自带凭证——不可回退交易级最终凭证（早期事件该凭证尚不存在）
+    if (node.csTxId) fields.push({ label: 'Ref', value: node.csTxId });
   } else if (step === 5 || step === 6) {
-    if (receiver) fields.push({ label: 'Target Amount', value: receiver });
-    const proof = node.csTxId || record?.targetCsTxId;
-    if (proof) fields.push({ label: 'Proof', value: proof });
+    if (receiver) fields.push({ label: 'Target', value: receiver });
+    if (node.csTxId) fields.push({ label: 'Ref', value: node.csTxId });
   }
   return fields;
 }
@@ -941,6 +941,9 @@ function TxFlowItem({
   const color = flowNodeColor(node.statusTo);
   const terminal = isFlowTerminal(node.statusTo);
   const fields = stageFieldsOf(node, record, pairMap);
+  // 动作类事件（statusTo=0，如「解付指令已生成」）无状态名，用其描述作标题
+  const isAction = (node.statusTo ?? 0) <= 0;
+  const title = isAction ? node.remark || 'Action' : txFlowEventTitle(node);
   return (
     <li className="relative pb-4 pl-6 last:pb-0">
       <span
@@ -951,9 +954,7 @@ function TxFlowItem({
         aria-hidden="true"
       />
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span className="text-sm font-semibold text-foreground">
-          {txFlowEventTitle(node)}
-        </span>
+        <span className="text-sm font-semibold text-foreground">{title}</span>
         <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
           {formatTime(node.eventTime)}
         </span>
@@ -972,7 +973,7 @@ function TxFlowItem({
           ))}
         </dl>
       )}
-      {node.remark ? (
+      {!isAction && node.remark ? (
         <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
           {node.remark}
         </p>
