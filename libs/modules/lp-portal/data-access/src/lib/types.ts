@@ -99,8 +99,10 @@ export interface PoolRow {
   rejectReason: string;
   availableBalanceCache: string | number;
   balanceUpdateTime: number | null;
-  /** 水位小数比率字符串(如 "0.2");分母(最低流动性)缺失时 null */
+  /** 水位小数比率字符串(如 "0.2");分母(Σ生效参与对门槛)缺失时 null */
   level: string | null;
+  /** 逐池补资提醒阈值(0~1，水位 Sufficient/Low 判定；缺失回退 20%) */
+  remindThreshold?: string | number | null;
   /** v2.4：授权额度（该池最新预授权快照；null=无快照，显 '-' 带 tooltip） */
   preauthAuthAmount?: string | number | null;
   /** v2.4：可用授权额度（同 null 语义） */

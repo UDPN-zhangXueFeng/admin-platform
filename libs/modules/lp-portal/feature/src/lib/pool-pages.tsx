@@ -9,11 +9,15 @@
  * - 页头（标题 = 菜单名 Pool Management）→ 筛选独立卡（Pool ID / Token /
  *   Status，GAP-LP-02 本地过滤）→ 列表卡（Pools + count + Updated +
  *   SyncRefreshButton domain=['pool','preauth','topup']）。
- * - 10 列：Pool Address（首列，CopyableId）/ Pool ID / Token（symbol +
- *   bankCode + Payout 徽章）/ Payout Spender（ⓘ 表头 tooltip）/ Wallet
- *   Balance（右对齐）/ Authorized Amount（次行 Avail:）/ Liq. Coverage
- *   （水位条 + % + Sufficient/Low，阈值 20%）/ Updated on (UTC+8) / Status /
+ * - 9 列（2026-11-02 调整）：Pool Address（首列，CopyableId；当前出款池在
+ *   地址后挂 Payout 徽章）/ Token（symbol）/ Bank（bankName 回退 bankCode）/
+ *   Payout Spender（ⓘ 表头 tooltip）/ Wallet Balance（右对齐）/
+ *   Authorized Amount（次行 Avail:）/ Liq. Coverage（水位条 + % +
+ *   Sufficient/Low，阈值取池 remindThreshold）/ Updated on (UTC+8) / Status /
  *   Actions（Details → 详情页）。
+ *   - Pool ID 列删除：地址已是唯一标识且在首列，ID 对 LP 无意义；
+ *   - Token 列原「symbol + bankCode + Payout」三徽章拆开：symbol 归 Token 列、
+ *     银行归 Bank 列、Payout 标识改挂池地址单元格（它标识的是哪个池，不是币）。
  * - 旧 3a57bbd 只读 info alert 删除：原型列表页无此分区，且其「无操作」
  *   口径与新 Actions-Details 行为矛盾；空态文案承接同语义。
  * - 旧 Available Authorization 独立列并入 Authorized Amount 次行（原型
@@ -80,6 +84,9 @@ const LBL = {
   empty:
     'No pools yet — pools open automatically once your token pair participation is approved',
   payoutSpenderHint: 'Address authorized to draw down this pool',
+  coverageHint:
+    'Liquidity Coverage = min (Available Balance, Available Pre-Authorized) ÷ Min. Liquidity',
+  coverageLowHint: 'Low Liquidity Threshold: 20%',
   noPreauthSnapshot: 'No pre-authorization snapshot',
   rejectReasonPrefix: 'Rejection reason: ',
   notFoundTitle: 'Pool not found',
@@ -103,13 +110,13 @@ const POOL_STATUS_TONE: Record<number, ProtoTone> = {
 };
 
 /**
- * 水位条视觉（原型 PoolManagementListPage 同款）：条宽 120px，100% 即
- * 最低流动性线（0.456 处刻度）；充足阈值 20%（参考页 17% 红 Low /
- * 64% 绿 Sufficient）。
+ * 水位条视觉（与 admin 资金池页同口径）：条宽 120px，0.456 位置为 100%
+ * 刻度线（coverage 219% 才满条）。低水位阈值取池行 remindThreshold
+ * （后端逐池配置，0~1），缺失回退 20%。
  */
 const COVERAGE_BAR_SCALE = 0.456;
 const MIN_LEVEL_MARK = COVERAGE_BAR_SCALE * 100;
-const COVERAGE_SUFFICIENT_PERCENT = 20;
+const DEFAULT_REMIND_THRESHOLD = 0.2;
 
 /**
  * STATIC-FILLER(GAP-LP-02): 原型筛选为服务端参数（poolId LIKE 模糊 /
@@ -201,16 +208,30 @@ function AuthorizedAmountCell({
 }
 
 /**
- * Liq. Coverage 单元格（原型 PoolLevel）：水位条 + 45.6% 最低流动性刻度 +
- * % 文本 + Sufficient/Low 徽章。level 为后端预计算比率（分母 = 最低流动性，
- * 行内不下发），原型悬停回显公式 tooltip 无数据支撑——省略并在此登记；
- * level null（分母缺失）→ '-'。
+ * Liq. Coverage 单元格：水位条 + 最低流动性刻度 + % 文本 + Sufficient/Low 徽章。
+ * level = 后端预计算比率（分子 min(可用余额, 可用授权) ÷ 分母 Σ 生效参与对门槛，
+ * 与 admin 资金池页同式）；null（分母缺失）→ '-'。
+ * 三档水位色（admin 同口径）：0 → 红，低于 remindThreshold → 琥珀，充足 → 绿。
  */
-function CoverageCell({ level }: { level: string | null }) {
+function CoverageCell({
+  level,
+  remindThreshold,
+}: {
+  level: string | null;
+  remindThreshold?: string | number | null;
+}) {
   if (level == null) return <span className="text-muted-foreground">-</span>;
   const numeric = Number(level);
   const percent = Number.isFinite(numeric) ? Math.round(numeric * 100) : 0;
-  const sufficient = percent >= COVERAGE_SUFFICIENT_PERCENT;
+  const thresholdRatio =
+    remindThreshold == null || remindThreshold === ''
+      ? DEFAULT_REMIND_THRESHOLD
+      : Number(remindThreshold);
+  const thresholdPercent = Number.isFinite(thresholdRatio)
+    ? thresholdRatio * 100
+    : DEFAULT_REMIND_THRESHOLD * 100;
+  const low = percent < thresholdPercent;
+  const tone = percent <= 0 ? 'bg-destructive' : low ? 'bg-warning' : 'bg-success';
   const fillWidth = Math.min(100, Math.round(percent * COVERAGE_BAR_SCALE));
   return (
     <span className="inline-flex items-center gap-3">
@@ -219,9 +240,7 @@ function CoverageCell({ level }: { level: string | null }) {
         className="relative h-1.5 w-[120px] shrink-0 rounded-full bg-border"
       >
         <span
-          className={`absolute inset-y-0 left-0 rounded-full ${
-            sufficient ? 'bg-success' : 'bg-destructive'
-          }`}
+          className={`absolute inset-y-0 left-0 rounded-full ${tone}`}
           style={{ width: `${fillWidth}%` }}
         />
         <span
@@ -231,39 +250,53 @@ function CoverageCell({ level }: { level: string | null }) {
       </span>
       <span
         className={`font-semibold tabular-nums ${
-          sufficient ? 'text-foreground' : 'text-destructive'
+          low ? 'text-destructive' : 'text-foreground'
         }`}
       >
         {percent}%
       </span>
       <ProtoStatusBadge
-        label={sufficient ? 'Sufficient' : 'Low'}
-        tone={sufficient ? 'success' : 'danger'}
+        label={low ? 'Low' : 'Sufficient'}
+        tone={low ? 'danger' : 'success'}
       />
     </span>
   );
 }
 
-/**
- * Token 单元格（列表/详情同款）：symbol 徽章 + bankCode 徽章 + 当前出款池
- * Payout 徽章（activeFlag===1；多池模型同 token 至多一池置位）。
- * 类型标签不带状态点（§3.14.1）。
- */
-function TokenBadges({ row }: { row: PoolRow }) {
+/** Token 单元格：symbol 徽章（缺失回退 tokenNo）。类型标签不带状态点（§3.14.1）。 */
+function TokenCell({ row }: { row: PoolRow }) {
   const symbol = row.tokenSymbol || row.tokenNo;
   if (!symbol) return <span className="text-muted-foreground">-</span>;
   return (
-    <span className="flex flex-wrap items-center gap-1.5 whitespace-nowrap">
-      <Badge variant="default" className="font-normal">
-        {symbol}
-      </Badge>
-      {row.bankCode ? (
-        <Badge variant="mute" className="font-normal">
-          {row.bankCode}
-        </Badge>
-      ) : null}
+    <Badge variant="default" className="font-normal">
+      {symbol}
+    </Badge>
+  );
+}
+
+/** Bank 单元格：bankName 优先，回退 bankCode（与 Token 列拆开，单列表达发行行）。 */
+function BankCell({ row }: { row: PoolRow }) {
+  const bank = row.bankName || row.bankCode;
+  return bank ? (
+    <Badge variant="mute" className="font-normal">
+      {bank}
+    </Badge>
+  ) : (
+    <span className="text-muted-foreground">-</span>
+  );
+}
+
+/**
+ * 池地址单元格：地址 + 当前出款池标记（activeFlag===1；多池模型同 token
+ * 至多一池置位）。Payout 标识的是「哪个池在出款」，挂在地址上比单开一列
+ * 更直接——非出款池不占位。
+ */
+function PoolAddressCell({ row }: { row: PoolRow }) {
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+      <CopyableId value={row.poolAddress} maxWidth={200} />
       {row.activeFlag === 1 ? (
-        <Badge variant="success" className="font-normal">
+        <Badge variant="success" className="shrink-0 font-normal">
           Payout
         </Badge>
       ) : null}
@@ -309,24 +342,25 @@ export function PoolListPage() {
   const rows = listQuery.data ?? [];
 
   // GAP-LP-02：草稿筛选状态；点击 Search 后应用到本地全量快照
+  // 2026-11-02：Pool ID 列删除后，筛选改按 Pool Address 子串（可见标识才可筛）
   const [filters, setFilters] = React.useState({
-    poolId: '',
+    poolAddress: '',
     token: '',
     status: '',
   });
   const [appliedFilters, setAppliedFilters] = React.useState({
-    poolId: '',
+    poolAddress: '',
     token: '',
     status: '',
   });
   const hasFilter =
-    filters.poolId !== '' || filters.token !== '' || filters.status !== '';
+    filters.poolAddress !== '' || filters.token !== '' || filters.status !== '';
   const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setAppliedFilters(filters);
   };
   const handleReset = () => {
-    const empty = { poolId: '', token: '', status: '' };
+    const empty = { poolAddress: '', token: '', status: '' };
     setFilters(empty);
     setAppliedFilters(empty);
   };
@@ -345,14 +379,15 @@ export function PoolListPage() {
     [rows],
   );
 
-  // GAP-LP-02：本地过滤（Pool ID 子串 / Token 精确 / Status 精确）+
+  // GAP-LP-02：本地过滤（Pool Address 子串 / Token 精确 / Status 精确）+
   // 缺省排序 Updated on（syncTime）倒序
   const tableData = React.useMemo<PoolTableRow[]>(() => {
-    const poolId = appliedFilters.poolId.trim();
+    const poolAddress = appliedFilters.poolAddress.trim().toLowerCase();
     return rows
       .filter(
         (r) =>
-          (!poolId || String(r.poolId).includes(poolId)) &&
+          (!poolAddress ||
+            (r.poolAddress ?? '').toLowerCase().includes(poolAddress)) &&
           (!appliedFilters.token ||
             (r.tokenSymbol || r.tokenNo) === appliedFilters.token) &&
           (!appliedFilters.status ||
@@ -365,32 +400,26 @@ export function PoolListPage() {
 
   const columns = React.useMemo<ColumnDef<PoolTableRow>[]>(
     () => [
-      // 原型列序 1：Pool Address（首列，CopyableId 中段截断 + 复制）
+      // 列序 1：Pool Address（首列，CopyableId 中段截断 + 复制；出款池挂 Payout 徽章）
       {
         accessorKey: 'poolAddress',
         header: 'Pool Address',
-        meta: { maxWidth: 220 },
-        cell: ({ row }) => (
-          <CopyableId value={row.original.poolAddress} maxWidth={200} />
-        ),
+        meta: { maxWidth: 260 },
+        cell: ({ row }) => <PoolAddressCell row={row.original} />,
       },
-      // 原型列序 2：Pool ID
-      {
-        accessorKey: 'poolId',
-        header: 'Pool ID',
-        meta: { maxWidth: 90 },
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap tabular-nums">
-            {row.original.poolId}
-          </span>
-        ),
-      },
-      // 原型列序 3：Token（symbol + bankCode + Payout 徽章行）
+      // 列序 2：Token（symbol 徽章）
       {
         accessorKey: 'tokenSymbol',
         header: 'Token',
-        meta: { overflow: 'wrap', maxWidth: 180 },
-        cell: ({ row }) => <TokenBadges row={row.original} />,
+        meta: { maxWidth: 120 },
+        cell: ({ row }) => <TokenCell row={row.original} />,
+      },
+      // 列序 3：Bank（发行行；bankName 回退 bankCode）
+      {
+        accessorKey: 'bankName',
+        header: 'Bank',
+        meta: { maxWidth: 160 },
+        cell: ({ row }) => <BankCell row={row.original} />,
       },
       // 原型列序 4：Payout Spender（表头 ⓘ 挂授权语义 tooltip）
       {
@@ -451,12 +480,37 @@ export function PoolListPage() {
           </div>
         ),
       },
-      // 原型列序 7：Liq. Coverage（水位条 + Sufficient/Low）
+      // 列序 6：Liq. Coverage（ⓘ 表头口径说明与 admin 一致：分子取可用余额/可用授权较小者，
+      // 分母 = 该池地址被生效参与对引用的门槛合计）
       {
         accessorKey: 'level',
-        header: 'Liq. Coverage',
+        header: () => (
+          <span className="inline-flex items-center gap-1">
+            Liq. Coverage
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  tabIndex={0}
+                  aria-label={LBL.coverageHint}
+                  className="cursor-help rounded-sm text-muted-foreground"
+                >
+                  <InfoIcon className="size-3.5" aria-hidden="true" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="w-72">
+                <div>{LBL.coverageHint}</div>
+                <div className="mt-1">{LBL.coverageLowHint}</div>
+              </TooltipContent>
+            </Tooltip>
+          </span>
+        ),
         meta: { overflow: 'none' },
-        cell: ({ row }) => <CoverageCell level={row.original.level} />,
+        cell: ({ row }) => (
+          <CoverageCell
+            level={row.original.level}
+            remindThreshold={row.original.remindThreshold}
+          />
+        ),
       },
       // 原型列序 8：Updated on（时间列头标 (UTC+8)，值 formatUtc8）
       {
@@ -513,11 +567,12 @@ export function PoolListPage() {
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="min-w-0">
-              <Label className="mb-1.5 block">Pool ID</Label>
+              <Label className="mb-1.5 block">Pool Address</Label>
               <Input
-                value={filters.poolId}
+                value={filters.poolAddress}
+                placeholder="0x…"
                 onChange={(e) =>
-                  setFilters((f) => ({ ...f, poolId: e.target.value }))
+                  setFilters((f) => ({ ...f, poolAddress: e.target.value }))
                 }
               />
             </div>
@@ -573,7 +628,7 @@ export function PoolListPage() {
                 size="sm"
                 disabled={
                   !hasFilter &&
-                  !appliedFilters.poolId &&
+                  !appliedFilters.poolAddress &&
                   !appliedFilters.token &&
                   !appliedFilters.status
                 }
@@ -606,7 +661,7 @@ export function PoolListPage() {
             <div className="flex shrink-0 items-center gap-2">
               {/* 源 @refreshed="load"：依赖域拉齐后重拉当前视图 */}
               <SyncRefreshButton
-                domain={['pool', 'preauth', 'topup']}
+                domain={['pool', 'preauth', 'topup', 'pair']}
                 onRefreshed={() => void listQuery.refetch()}
               />
             </div>
@@ -760,7 +815,10 @@ export function PoolDetailPage() {
                 {pool.tokenName || <span className="text-muted-foreground">-</span>}
               </Field>
               <Field label="Token">
-                <TokenBadges row={pool} />
+                <TokenCell row={pool} />
+              </Field>
+              <Field label="Bank">
+                <BankCell row={pool} />
               </Field>
             </dl>
           </section>
