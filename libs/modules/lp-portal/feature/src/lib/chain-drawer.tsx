@@ -30,6 +30,7 @@ import {
 import {
   LP_PROJECT_ID,
   isServiceDown,
+  txStageEventTitle,
   useTokenMeta,
   useTxFlowChainQuery,
   type TxRow,
@@ -102,6 +103,8 @@ interface ChainItem {
 function buildItems(
   events: {
     flowId: number;
+    /** 阶段归属（0=通用事件）；阶段事件用业务动作名做标题。 */
+    step: number;
     eventTime: number;
     statusTo: number;
     title: string;
@@ -140,7 +143,9 @@ function buildItems(
     return {
       flowId: e.flowId,
       eventTime: e.eventTime,
-      title: e.title,
+      // 2026-11-03 三系统统一：阶段事件用业务动作名（同 admin/gateway 文案），
+      // 通用事件回退服务端文案（TxChainCopy）。
+      title: txStageEventTitle(e.step, e.title),
       tone: toneByStatusTo(e.statusTo),
       fields,
       remark: e.remark,

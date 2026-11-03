@@ -243,6 +243,32 @@ export interface LpChainResp {
   events: LpChainEvent[];
 }
 
+/**
+ * 链路节点业务标题（六段，文案与 kissen-gateway / kissen-admin
+ * `TX_STAGE_EVENT_TITLE` 一致）：step 1~6 = 报价 / 确认 / 源端划转 /
+ * 源端验证 / 垫资解付 / 入账。
+ *
+ * 服务端 `LpChainEventVO.title` 目前是状态文案（`TxChainCopy.externalOf`），
+ * 2026-11-03 三系统统一到阶段业务动作名；step 不在 1~6（通用事件）时仍回退
+ * 服务端文案。
+ */
+export const TX_STAGE_EVENT_TITLE: Record<number, string> = {
+  1: 'Quote Accepted',
+  2: 'User Confirmation',
+  3: 'Source Transfer Initiated',
+  4: 'Source Arrival Verified',
+  5: 'Disbursement Initiated',
+  6: 'Credited',
+};
+
+/** 链路节点标题：阶段事件用业务动作名，其余回退服务端文案。 */
+export function txStageEventTitle(
+  step: number | null | undefined,
+  fallback: string,
+): string {
+  return TX_STAGE_EVENT_TITLE[step ?? 0] ?? fallback;
+}
+
 // ===== 结算(POST /lp/settle/orders 分页 + POST /lp/settle/order-records;
 // v2.4 6c49396：records 独立分页端点退役，流水按结算单周期过滤随抽屉拉取) =====
 

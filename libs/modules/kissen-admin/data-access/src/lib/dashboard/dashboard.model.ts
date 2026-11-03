@@ -5,6 +5,8 @@ export interface DashboardStats {
   tokens: number;
   pairs: number;
   txToday: number;
+  /** 待我审批的节点数（口径同审批中心「待办」） */
+  pendingApprovals?: number;
 }
 
 /** 与后端 DashboardSummaryRespVO.PairBar 对齐（今日交易按 token 对，pairId=0 未匹配对） */
@@ -32,6 +34,8 @@ export interface DashboardLowPool {
   lackType: 'BALANCE' | 'AUTH';
   /** 水位 = 分子 ÷ Σ对侧 min（scale 4） */
   ratio: string | number;
+  /** 该池告急阈值（水位低于此值即告急，用于画阈值刻度线） */
+  remindThreshold?: string | number | null;
 }
 
 export type ExceptionGroupKey = 'PENDING' | 'REVERSED' | 'FAILED' | 'CANCELLED';
@@ -40,11 +44,15 @@ export interface DashboardExceptionGroup {
   key: ExceptionGroupKey;
   today: number;
   week: number;
+  /** 近 30 日 */
+  month?: number;
 }
 
 export interface DashboardExceptionStats {
   today: number;
   week: number;
+  /** 近 30 日 */
+  month?: number;
   groups: DashboardExceptionGroup[];
 }
 
@@ -61,4 +69,6 @@ export interface DashboardTrendRow {
   day: string;
   total: number;
   exception: number;
+  /** 当日成功笔数（35 已完成 / 40 历史已完成） */
+  completed?: number;
 }

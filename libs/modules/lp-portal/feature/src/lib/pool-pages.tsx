@@ -63,6 +63,7 @@ import {
 import { SyncRefreshButton } from './sync-refresh-button';
 import { LP_POOL_STATUS_MAP } from './proto-enums';
 import { formatTokenAmount, formatUtc8 } from './proto-format';
+import { computeLpPoolCoverage, useTokenMinLiquidity } from './pool-coverage';
 import {
   CopyableId,
   ProtoStatusBadge,
@@ -85,8 +86,9 @@ const LBL = {
     'No pools yet — pools open automatically once your token pair participation is approved',
   payoutSpenderHint: 'Address authorized to draw down this pool',
   coverageHint:
-    'Liquidity Coverage = min (Available Balance, Available Pre-Authorized) ÷ Min. Liquidity',
-  coverageLowHint: 'Low Liquidity Threshold: 20%',
+    "Liquidity Coverage = min (Wallet Balance, Available Pre-Authorized) ÷ the token's Min. Liquidity",
+  coverageLowHint:
+    'Coverage below 20% shows Low and triggers a notification to the LP',
   noPreauthSnapshot: 'No pre-authorization snapshot',
   rejectReasonPrefix: 'Rejection reason: ',
   notFoundTitle: 'Pool not found',
@@ -110,13 +112,10 @@ const POOL_STATUS_TONE: Record<number, ProtoTone> = {
 };
 
 /**
- * 水位条视觉（与 admin 资金池页同口径）：条宽 120px，0.456 位置为 100%
- * 刻度线（coverage 219% 才满条）。低水位阈值取池行 remindThreshold
- * （后端逐池配置，0~1），缺失回退 20%。
+ * 固定告警线：覆盖率低于 20% 即给 LP 发通知（2026-11-03 用户裁决）。
+ * 与后端 `PoolAlertMath.ALERT_RATIO`、admin 资金池页必须一致。
  */
-const COVERAGE_BAR_SCALE = 0.456;
-const MIN_LEVEL_MARK = COVERAGE_BAR_SCALE * 100;
-const DEFAULT_REMIND_THRESHOLD = 0.2;
+const COVERAGE_ALERT_PERCENT = 20;
 
 /**
  * STATIC-FILLER(GAP-LP-02): 原型筛选为服务端参数（poolId LIKE 模糊 /
@@ -208,33 +207,30 @@ function AuthorizedAmountCell({
 }
 
 /**
- * Liq. Coverage 单元格：水位条 + 最低流动性刻度 + % 文本 + Sufficient/Low 徽章。
- * level = 后端预计算比率（分子 min(可用余额, 可用授权) ÷ 分母 Σ 生效参与对门槛，
- * 与 admin 资金池页同式）；null（分母缺失）→ '-'。
- * 三档水位色（admin 同口径）：0 → 红，低于 remindThreshold → 琥珀，充足 → 绿。
+ * Liq. Coverage 单元格：水位条（0~100%）+ 20% 告警竖线 + % 文本 + Sufficient/Low 徽章。
+ * 口径见 ./pool-coverage：分子 min(钱包余额, 可用预授权) ÷ token 级 Min. Liquidity；
+ * 分母缺失 → '-'。三档水位色（admin 同口径）：0 → 红，低于 20% → 琥珀，充足 → 绿。
  */
 function CoverageCell({
-  level,
-  remindThreshold,
+  row,
+  minLiquidity,
 }: {
-  level: string | null;
-  remindThreshold?: string | number | null;
+  row: PoolRow;
+  minLiquidity: number | null;
 }) {
-  if (level == null) return <span className="text-muted-foreground">-</span>;
-  const numeric = Number(level);
-  const percent = Number.isFinite(numeric) ? Math.round(numeric * 100) : 0;
-  const thresholdRatio =
-    remindThreshold == null || remindThreshold === ''
-      ? DEFAULT_REMIND_THRESHOLD
-      : Number(remindThreshold);
-  const thresholdPercent = Number.isFinite(thresholdRatio)
-    ? thresholdRatio * 100
-    : DEFAULT_REMIND_THRESHOLD * 100;
-  const low = percent < thresholdPercent;
+  const coverage = computeLpPoolCoverage(row, minLiquidity);
+  if (coverage == null) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+  const { percentage: percent } = coverage;
+  const low = percent < COVERAGE_ALERT_PERCENT;
   const tone = percent <= 0 ? 'bg-destructive' : low ? 'bg-warning' : 'bg-success';
-  const fillWidth = Math.min(100, Math.round(percent * COVERAGE_BAR_SCALE));
+  const fillWidth = Math.min(100, Math.round(percent));
+  const breakdown =
+    `${formatTokenAmount(coverage.numerator)} ÷ ${formatTokenAmount(coverage.requiredMin)} = ${percent}%` +
+    `\nAlert line ${COVERAGE_ALERT_PERCENT}% (you are notified below this line)`;
   return (
-    <span className="inline-flex items-center gap-3">
+    <span className="inline-flex items-center gap-3" title={breakdown}>
       <span
         aria-hidden="true"
         className="relative h-1.5 w-[120px] shrink-0 rounded-full bg-border"
@@ -243,9 +239,10 @@ function CoverageCell({
           className={`absolute inset-y-0 left-0 rounded-full ${tone}`}
           style={{ width: `${fillWidth}%` }}
         />
+        {/* 20% 告警竖线：条越过它即达标，落在它左侧就会通知 LP */}
         <span
-          className="absolute -inset-y-[3px] w-0.5 bg-muted-foreground"
-          style={{ left: `${MIN_LEVEL_MARK}%` }}
+          className="absolute -inset-y-[3px] w-0.5 bg-foreground/40"
+          style={{ left: `${COVERAGE_ALERT_PERCENT}%` }}
         />
       </span>
       <span
@@ -333,13 +330,14 @@ function PoolStatusBadge({ row }: { row: PoolRow }) {
 /* 列表页                                                               */
 /* ================================================================== */
 
-type PoolTableRow = PoolRow & { id: string };
+type PoolTableRow = PoolRow & { id: string; minLiquidity: number | null };
 
 export function PoolListPage() {
   const router = useRouter();
   // 主表数据源（不分页全量；详情页共用同一快照）
   const listQuery = usePoolListQuery(LP_PROJECT_ID);
   const rows = listQuery.data ?? [];
+  const tokenMin = useTokenMinLiquidity();
 
   // GAP-LP-02：草稿筛选状态；点击 Search 后应用到本地全量快照
   // 2026-11-02：Pool ID 列删除后，筛选改按 Pool Address 子串（可见标识才可筛）
@@ -395,8 +393,12 @@ export function PoolListPage() {
       )
       .slice()
       .sort((a, b) => b.syncTime - a.syncTime)
-      .map((r) => ({ ...r, id: String(r.poolId) }));
-  }, [rows, appliedFilters]);
+      .map((r) => ({
+        ...r,
+        id: String(r.poolId),
+        minLiquidity: tokenMin.get(r.tokenId) ?? null,
+      }));
+  }, [rows, appliedFilters, tokenMin]);
 
   const columns = React.useMemo<ColumnDef<PoolTableRow>[]>(
     () => [
@@ -480,8 +482,8 @@ export function PoolListPage() {
           </div>
         ),
       },
-      // 列序 6：Liq. Coverage（ⓘ 表头口径说明与 admin 一致：分子取可用余额/可用授权较小者，
-      // 分母 = 该池地址被生效参与对引用的门槛合计）
+      // 列序 6：Liq. Coverage（ⓘ 表头口径说明与 admin 一致：分子取钱包余额/可用授权
+      // 较小者，分母 = 该 token 的 Min. Liquidity）
       {
         accessorKey: 'level',
         header: () => (
@@ -497,7 +499,9 @@ export function PoolListPage() {
                   <InfoIcon className="size-3.5" aria-hidden="true" />
                 </span>
               </TooltipTrigger>
-              <TooltipContent className="w-72">
+              {/* 提示语完整展示：定宽 + 允许换行，避免被 TooltipContent 的
+                  overflow-hidden 裁掉尾巴 */}
+              <TooltipContent className="w-80 max-w-[calc(100vw-2rem)] whitespace-normal break-words">
                 <div>{LBL.coverageHint}</div>
                 <div className="mt-1">{LBL.coverageLowHint}</div>
               </TooltipContent>
@@ -506,10 +510,7 @@ export function PoolListPage() {
         ),
         meta: { overflow: 'none' },
         cell: ({ row }) => (
-          <CoverageCell
-            level={row.original.level}
-            remindThreshold={row.original.remindThreshold}
-          />
+          <CoverageCell row={row.original} minLiquidity={row.original.minLiquidity} />
         ),
       },
       // 原型列序 8：Updated on（时间列头标 (UTC+8)，值 formatUtc8）
@@ -726,6 +727,7 @@ export function PoolDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const listQuery = usePoolListQuery(LP_PROJECT_ID);
+  const tokenMin = useTokenMinLiquidity();
 
   // GAP-LP-03：详情数据 = 列表快照内检索（?poolId=）
   const poolIdParam = searchParams.get('poolId');
@@ -847,7 +849,10 @@ export function PoolDetailPage() {
                 />
               </FieldRow>
               <FieldRow label="Liq. Coverage">
-                <CoverageCell level={pool.level} />
+                <CoverageCell
+                  row={pool}
+                  minLiquidity={tokenMin.get(pool.tokenId) ?? null}
+                />
               </FieldRow>
               <FieldRow label="Payout Spender">
                 <CopyableId value={pool.spenderAddress ?? null} />

@@ -1349,3 +1349,23 @@
 4. **`execCommand` 降级必须 `focus()` + `setSelectionRange(0, text.length)`**：原实现只 `select()`，部分浏览器只复制到可见片段；textarea 另需 `top/left: 0` + `pointer-events: none` 固定，避免 focus 引发页面滚动。LP 的 `tx-flow-pages.tsx` 原先另有一份重复实现，已改为复用 `proto-ui` 的 `writeClipboard`（三处复制入口同一份降级实现）。
 5. **jsdom 测不出 copy 事件目标**：jsdom 无 `ClipboardEvent`，且 `navigator.clipboard` 不存在；spec 用 `new Event('copy')` + `Object.defineProperty(event, 'clipboardData', {value: {setData: jest.fn()}})` 桩，配合 `document.createRange()` + `window.getSelection()` 造 Range。shared/ui 的 barrel 会带出 `mock-login` → `util-i18n` → next-intl（纯 ESM，@swc/jest 无法转换 node_modules 里的 ESM），组件级 spec 需 `jest.mock('@myorg/shared/util-i18n', ...)` 拦掉。
 6. **新增 jest 基建**：`libs/modules/kissen-admin/feature` 原无 jest 配置（kissen-gateway / lp-portal 已有），补 `jest.config.ts`（含 `moduleNameMapper` 把 `@myorg/*` 指到 `libs/*/src/index.ts`）+ `project.json` 的 `test` target。回归验证：把 `data.setData(...)` 去掉后 spec 必须失败（已验证 admin 两个层级 spec 都会红）。
+
+## 2026-11-03 Liq. Coverage 口径裁决（kissen-admin 资金池页）
+
+- 用户裁决：`Liq. Coverage = min(可用余额, 可用预授权) ÷ token 级 Min. Liquidity`（PRD v2.0 §2.4.3），**不是** 2026-09-09 引入的「Σ 引用该地址的生效参与对 min」（`requiredMinSum`）。联调库实拍印证：BRX 池（余额 9,875.7、可用授权 2,383.7、requiredMinSum=1,000、token min=10,000）旧算法 238% Sufficient → 新口径 24%；BXW 池（余额 33,209、可用授权 0、requiredMinSum=10,000、token min=10,000）旧算法 0% → 新口径仍是 0%。
+- **可用预授权为 0 必须照算成 0%**（用户明确要求）：授权侧没有可解付额度就是真实告急，不能用余额掩盖；只有预授权快照整体缺失（`preauthAvailable == null`）才回落余额。别再给「授权额为 0 视为无约束」的兜底。
+- 坑：`LpPageMapper.xml` 的 `lp_preauth` 联查取 `MAX(preauth_id)` 但未按 `status` 过滤，停用快照（status=50）的 0 会被当成可用授权参与计算——是否属缺陷由业务定，改动前先确认口径，不要自作主张加兜底。
+- 坑 2：`LpLiquidityServiceImpl.fillRequiredSums` 出的 `levelRatio`（Dashboard 低水位卡、LP 门户 `level` 字段）仍按 requiredMinSum 计算，与本次前端口径不一致，需后端同步后三端才同尺。
+- 计算逻辑已抽到 `libs/modules/kissen-admin/feature/src/lib/lp-coverage.ts`，`lp-coverage.spec.ts` 用上述两条真实数据锁口径（4 用例全绿）。
+- LP 门户侧同口径实现 `libs/modules/lp-portal/feature/src/lib/pool-coverage.ts`（`computeLpPoolCoverage` + `useTokenMinLiquidity` + `usePoolCoverageMap`，分母来自 `/lp/token/list` 的 `minLiquidity`）；**LP 资金池列表、详情、Dashboard「My Liquidity Pools」（含健康分桶/缺口/排序）都消费这一份**，禁止再读后端 `PoolRow.level`（Σ 门槛旧口径）。`pool-coverage.spec.ts` 锁四条：BRX 24% / BXW 0% / 快照缺失回落余额 / 分母缺失画 `-`。
+- Dashboard 顶排 KPI 已改为纯计数（token 对 / 资金池 / 累计完成笔数 / 今日笔数）：原「Total Pool Balance」跨 token 相加无意义，退役。
+- **资金池告警口径（2026-11-03 最终裁决，固定 20% 一条线）**：`覆盖率 = min(可用余额, 可用授权) ÷ token 最低流动性`，`覆盖率 < 20%` → 站内通知 + 邮件；实现见 `PoolAlertMath`（`ALERT_RATIO=0.20` / `alertFloor(min)` / `coverage` / `isLow` / `authorizationBound`）+ `TaskExecuteService.lpPoolMonitor`。约束侧（授权 < 余额）决定发 `LP_POOL_LOW_ALLOWANCE`（请增加授权）还是 `LP_POOL_LOW_BALANCE`（请补资）。**已被否决、不要再引入**：① 按池 `remind_threshold` 判（该列保留但不再参与判定）；② 「Σ Auth Threshold / 未配置回落 20%」的独立授权告警线。
+- 顺带修掉：告警/恢复邮件里的 `threshold_amount` 原来传的是提醒**比率**（0.5），模板按金额渲染成「0.5 BRX」；现传绝对金额（20% × token min）。
+- 界面同尺：admin 与 LP 资金池页水位条改为 **0~100% 量程**（原 219% 满条已废弃），条上只有一条 **20% 竖线**（`COVERAGE_ALERT_PERCENT`，与后端 `ALERT_RATIO` 必须一致），填充落在竖线左侧即 Low 并会触发通知；琥珀预警区方案已废弃。
+
+## 2026-11-03 交易链路节点标题三端统一（admin / gateway / lp-portal）
+
+- 用户裁决：Transaction Chain 的节点标题用**六段业务动作名**（网关口径）——`Quote Accepted / User Confirmation / Source Transfer Initiated / Source Arrival Verified / Disbursement Initiated / Credited`；admin 原来用状态码文案（`Quoted/Confirmed/Completed`），LP 用服务端 `TxChainCopy.externalOf(statusTo)`（`Quoted/Settled/...`），两端都改成同一份常量，通用事件（step=0、历史 7/8 段）才回退状态文案。
+- 常量位置：网关原有 `kissen-gateway/data-access/tx.model.ts:TX_STAGE_EVENT_TITLE`；本次在 `kissen-admin/data-access/transaction/transaction.model.ts` 与 `lp-portal/data-access/types.ts` 各加一份同名常量 + `txStageEventTitle(step, fallback)`，三处文案必须逐字一致（admin 侧 `tx-chain-title.spec.ts` 锁文案）。
+- LP 的 `TxChainEvent.title` 是服务端 `TxChainCopy.externalOf` 产物，前端只在渲染层覆盖；根治应在 `LpTxQueryServiceImpl` 把 title 换成阶段业务名，届时前端这层 override 可撤。LP 有两处消费链路事件：`tx-flow-pages.tsx`（详情页链路卡）与 `chain-drawer.tsx`（列表抽屉），改标题时两处都要动。
+- `chain-drawer.tsx:buildItems` 的事件入参是**局部结构化类型**（不是 `LpChainEvent`），要消费 `step` 必须同步给该入参加字段，否则 tsc 报 TS2339。

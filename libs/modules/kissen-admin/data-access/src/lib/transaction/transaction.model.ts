@@ -43,6 +43,32 @@ export const TRANSACTION_STATUS_LABEL: Record<number, string> = {
 };
 
 /**
+ * 链路节点业务标题（六段，文案与 kissen-gateway `TX_STAGE_EVENT_TITLE` 一致）：
+ * step 1~6 = 报价 / 确认 / 源端划转 / 源端验证 / 垫资解付 / 入账。
+ * 2026-11-03 三系统统一：链路节点标题用业务动作名，不再用状态码文案。
+ */
+export const TX_STAGE_EVENT_TITLE: Record<number, string> = {
+  1: 'Quote Accepted',
+  2: 'User Confirmation',
+  3: 'Source Transfer Initiated',
+  4: 'Source Arrival Verified',
+  5: 'Disbursement Initiated',
+  6: 'Credited',
+};
+
+/**
+ * 链路节点标题：阶段事件（step 1~6）用业务动作名；通用/分支事件
+ * （step=0 或历史 7/8）回退状态文案。
+ */
+export function txStageEventTitle(step: number | null | undefined, statusTo: number): string {
+  return (
+    TX_STAGE_EVENT_TITLE[step ?? 0] ??
+    TRANSACTION_STATUS_LABEL[statusTo] ??
+    `Status ${statusTo}`
+  );
+}
+
+/**
  * 状态码 → Badge variant（源 `txStatusTagType` 语义分层映射）。
  * 入账/完成 → default（成功）；冲正中 → secondary（警示）；已冲正/已取消 → outline（中性灰）；
  * 异常/失败 → destructive；在途（1~30）→ secondary。
@@ -95,6 +121,11 @@ export interface TransactionRow {
   createTime: number;
   /** 0 = 未完成。 */
   completedTime: number;
+  /**
+   * 失败/异常原因（2026-11-03 列表补充）：报价或 LP 匹配阶段即失败的行没有 pair/lp/金额，
+   * 列表靠这段原文说明为什么失败；成功行为空串。
+   */
+  failReason?: string | null;
 }
 
 /** 与后端 TransactionDetailRespVO 对齐（TransactionRespVO 全字段 + 详情字段）。 */

@@ -82,7 +82,7 @@ import {
   useTransactionLpOptionsQuery,
   useTransactionPairOptionsQuery,
   useTokenMeta,
-  TRANSACTION_STATUS_LABEL,
+  txStageEventTitle,
   type TransactionDetailRow,
   type TransactionFlowEvent,
   type TransactionPageFilter,
@@ -644,7 +644,9 @@ function TransactionChainSection({
           </span>
         }
       />
-      <div className="min-h-0 flex-1 p-6">
+      {/* 卡片跟随左栏拉伸（底部与左栏最后一卡齐平）；节点保持紧凑间距，
+          时间轴竖线贯穿到卡底，余量不表现为节点间的大间距。 */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
         {chainQuery.isPending ? (
           <Skeleton className="h-40 w-full" />
         ) : events.length === 0 ? (
@@ -652,16 +654,18 @@ function TransactionChainSection({
             No chain events available.
           </p>
         ) : (
-          <ol className="relative ml-1 border-l border-border">
+          <ol className="relative ml-1 flex flex-1 flex-col border-l border-border">
             {events.map((e) => {
               const rows = chainFieldRows(e, detail, decOf);
               // 动作类事件（statusTo=0，如「解付指令已生成」）无状态名，用其描述作标题
               const isAction = (e.statusTo ?? 0) <= 0;
+              // 2026-11-03 三系统统一：阶段事件用业务动作名（与网关同文案），
+              // 通用事件回退状态文案。
               const title = isAction
                 ? e.remark || 'Action'
-                : (TRANSACTION_STATUS_LABEL[e.statusTo] ?? `Status ${e.statusTo}`);
+                : txStageEventTitle(e.step, e.statusTo);
               return (
-                <li key={e.flowId} className="relative pb-4 pl-6 last:pb-0">
+                <li key={e.flowId} className="relative pb-5 pl-6 last:pb-0">
                   <span
                     aria-hidden="true"
                     className={`absolute left-0 top-1.5 size-2.5 -translate-x-1/2 rounded-full ${chainToneOf(e.statusTo)}`}
@@ -1299,11 +1303,13 @@ function TransactionListCore() {
           return (
             <div className="flex min-w-0 flex-col gap-0.5 leading-snug">
               <span className="font-bold tabular-nums">
-                {fmtAmount(
-                  r.userDeduction,
-                  r.sourceCurrency || undefined,
-                  decOf(r.sourceCurrency),
-                )}
+                {r.sourceCurrency
+                  ? fmtAmount(
+                      r.userDeduction,
+                      r.sourceCurrency,
+                      decOf(r.sourceCurrency),
+                    )
+                  : '-'}
               </span>
               <CopyableId
                 value={r.senderAccount}
@@ -1322,11 +1328,13 @@ function TransactionListCore() {
           return (
             <div className="flex min-w-0 flex-col gap-0.5 leading-snug">
               <span className="font-bold tabular-nums">
-                {fmtAmount(
-                  r.receiverAmount,
-                  r.targetCurrency || undefined,
-                  decOf(r.targetCurrency),
-                )}
+                {r.targetCurrency
+                  ? fmtAmount(
+                      r.receiverAmount,
+                      r.targetCurrency,
+                      decOf(r.targetCurrency),
+                    )
+                  : '-'}
               </span>
               <CopyableId
                 value={r.receiverAccount}
@@ -1352,7 +1360,9 @@ function TransactionListCore() {
         cell: ({ row }) => (
           <div className="flex justify-end">
             <span className="font-mono tabular-nums">
-              {formatRate(row.original.userRate)}
+              {Number(row.original.userRate) > 0
+                ? formatRate(row.original.userRate)
+                : '-'}
             </span>
           </div>
         ),
@@ -1387,13 +1397,30 @@ function TransactionListCore() {
             sortState={sortState("status")}
           />
         ),
-        cell: ({ row }) => (
-          <ProtoStatusBadge
-            tone={TX_STATUS_TONE[row.original.status] ?? 'muted'}
-          >
-            {protoStatusLabel(PROTO_TX_STATUS, row.original.status)}
-          </ProtoStatusBadge>
-        ),
+        cell: ({ row }) => {
+          // 失败/异常原因：报价或 LP 匹配阶段就失败的行没有 pair/lp/金额，
+          // 徽章悬停给原因，并补一行截断的原文（完整内容在 title）。
+          const reason = row.original.failReason?.trim();
+          return (
+            <div className="flex min-w-0 flex-col gap-1">
+              <span title={reason}>
+                <ProtoStatusBadge
+                  tone={TX_STATUS_TONE[row.original.status] ?? 'muted'}
+                >
+                  {protoStatusLabel(PROTO_TX_STATUS, row.original.status)}
+                </ProtoStatusBadge>
+              </span>
+              {reason ? (
+                <span
+                  className="max-w-[220px] truncate text-[11px] leading-4 text-muted-foreground"
+                  title={reason}
+                >
+                  {reason}
+                </span>
+              ) : null}
+            </div>
+          );
+        },
       },
       {
         id: 'createdOn',

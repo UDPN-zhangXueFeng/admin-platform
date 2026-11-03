@@ -11,10 +11,12 @@
  *   ② 告警横幅：{n} Pools Require Top-up / Pre-authorization Missing on {n}，
  *      全清时绿色 all-clear。summary 无此聚合字段（GAP-LP-01），由 /pool/list
  *      真实行推导（GAP 记录「pools 端点可换算则真数据」口径），可关闭。
- *   ③ KPI 四卡：Total Pool Balance（单 token 场景 BigInt 精确求和真算；跨
- *      token 禁相加显 '-'，GAP-LP-01）/ Active Token Pairs（stats.pairsActive）/
- *      FX Transactions Today（stats.txToday）/ Revenue Share (MTD)（静态补齐
- *      GAP-LP-01，不虚构金额）。
+ *   ③ KPI 四卡（2026-11-03 重设计）：四张卡统一为**纯计数**指标，单位无关、
+ *      不跨 token 求和 —— Active Token Pairs（stats.pairsActive，副行 x of y
+ *      configured）/ Liquidity Pools（启用池数，副行 above minimum 数）/
+ *      Completed Transactions（stats.txCompleted，All time）/ FX Transactions
+ *      Today（stats.txToday，副行窗口日均）。原「Total Pool Balance」因跨 token
+ *      余额相加无意义而退役。
  *   ④ My Liquidity Pools：All/Healthy/Below Minimum 筛选（默认 Below Minimum），
  *      每页 4 卡分页，真数据 /pool/list（activeFlag=1 为 Payout 池打标；水位条以 45.6% 刻度线
  *      标 Min. Liquidity，<100% 红显）。
@@ -30,27 +32,30 @@
  */
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from '@myorg/shared/util-i18n';
 import {
-  Activity,
-  AlertTriangle,
   ArrowLeftRight,
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-  Coins,
-  Info,
+  CheckCircle2,
+  Layers,
   RefreshCw,
-  ShieldCheck,
   TrendingUp,
-  X,
 } from 'lucide-react';
+
+import {
+  Area,
+  CartesianGrid,
+  ComposedChart,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 import { cn } from '@myorg/shared/util-classnames';
 import type { ColumnDef } from '@tanstack/react-table';
 
 import {
-  Alert,
-  AlertTitle,
   Badge,
   Button,
   Card,
@@ -61,10 +66,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from '@myorg/shared/ui';
 
 import {
@@ -78,6 +80,7 @@ import {
   useTxFlowListQuery,
   type PairRow,
   type PoolRow,
+  type VolumeRow,
   type TxFlowListReq,
   type TxRow,
 } from '@myorg/modules/lp-portal/data-access';
@@ -85,18 +88,13 @@ import {
 import {
   LP_PAIR_READINESS_MAP,
   LP_PAIR_STATUS_MAP,
-  LP_POOL_STATUS_MAP,
   LP_TX_STATUS_MAP,
 } from './proto-enums';
 import { formatRate, formatTokenAmount, formatUtc8 } from './proto-format';
 import { CopyableId, ProtoStatusBadge, type ProtoTone } from './proto-ui';
+import { usePoolCoverageMap, type LpPoolCoverage } from './pool-coverage';
 import { ServiceDownAlert } from './service-down-alert';
-import {
-  VolumeBarChart,
-  VolumeChartEmpty,
-  shortDayLabel,
-  type VolumePoint,
-} from './volume-chart';
+import { shortDayLabel, type VolumePoint } from './volume-chart';
 
 /* ================================================================== */
 /* 文案（原型 DashboardPage.jsx 英文 copy 逐字；插值 {var}）              */
@@ -116,15 +114,19 @@ const LBL = {
   bannerOkBody: 'No top-up or pre-authorization issues.',
   bannerTopUp: '{count} Pools Require Top-up',
   bannerPreAuth: 'Pre-authorization Missing on {count}',
-  kpiBalance: 'Total Pool Balance',
-  kpiBalanceInfo:
-    'Total Pool Balance = the sum of Available Balance across all active pools.',
-  kpiBalanceFoot: 'Across {pools} pools · {tokens} tokens',
   kpiPairs: 'Active Token Pairs',
-  kpiPairsFoot: 'Your active participations',
+  kpiPairsFoot: 'of {configured} configured',
+  kpiPairsFootPlain: 'Your active participations',
+  kpiPools: 'Liquidity Pools',
+  kpiPoolsFoot: '{healthy} of {total} above alert line',
+  kpiTotal: 'Completed Transactions',
+  kpiTotalInfo:
+    'Completed FX transfers (status 35/40) since onboarding. Counts only — amounts are per token and never summed across tokens.',
+  kpiTotalFoot: 'All time',
   kpiToday: 'FX Transactions Today',
   kpiTodayInfo: 'FX transactions completed in the current GMT+8 day.',
   kpiTodayFoot: 'Resets daily at 00:00 (UTC+8)',
+  kpiTodayAvgFoot: '{avg}/day avg',
   kpiMtd: 'Revenue Share (MTD)',
   kpiMtdInfo:
     'Revenue Share (MTD) = the sum of My Share in Revenue Share Details, accrued since the 1st of the current month.',
@@ -174,6 +176,21 @@ const LBL = {
   emptyRecords: 'No records found',
   failed: 'Failed to load.',
   retry: 'Retry',
+  scaleGroup: 'My network at a glance',
+  noActivePools: 'No active pools',
+  attentionTitle: 'Needs attention',
+  attentionTopUp: 'Pools requiring top-up',
+  attentionTopUpNote: 'Coverage is 0% — payouts will fail',
+  attentionPreAuth: 'Pre-authorization missing',
+  attentionPreAuthNote: 'Payouts need an approved pre-authorization',
+  attentionClear: 'Nothing needs attention right now.',
+  poolHealthTitle: 'Pool health',
+  healthHealthy: 'Above alert line',
+  healthBelow: 'Below alert line',
+  poolGapToLine: 'Below line by',
+  healthIdle: 'No active pairs',
+  volumeByPairTitle: 'Volume by pair',
+  badgeNoPreauth: 'Pre-auth missing',
 } as const;
 
 /* ================================================================== */
@@ -181,26 +198,14 @@ const LBL = {
 /* 语义见 .doc/kissen/kissen-bug/2026-09-23-原型对齐-API缺口与静态补齐记录.md）*/
 /* ================================================================== */
 
-// STATIC-FILLER(GAP-LP-01): 本月（MTD）My Share 合计无端点；以 0.00 占位，
-// 后端补齐前不虚构金额（口径 = 分成明细 my_share 当月合计，token 维度同缺）。
-const REVENUE_SHARE_MTD_FALLBACK = {
-  amount: '0.00' as string | null,
-  token: null as string | null,
-};
-
-// STATIC-FILLER(GAP-LP-01): Total Pool Balance 跨 token 合计无后端口径；
-// 多 token 时跨币种禁相加（方案 §9.5）→ null → '-'，仅单 token 场景真算合计。
-const TOTAL_POOL_BALANCE_MULTI_TOKEN = null as string | null;
+// 2026-11-03：原「Total Pool Balance」KPI 退役——跨 token 余额相加无意义
+// （不同币种单位不同，多 token 时只能显示 '-'，等于一个永远空着的卡片）。
+// 顶排改为纯计数指标：token 对 / 资金池 / 累计完成笔数 / 今日笔数，单位无关、可跨 token 比较。
 
 /* ================================================================== */
 /* 常量与渲染辅助                                                        */
 /* ================================================================== */
 
-/** 水位 100%（= Min. Liquidity）在轨道上的刻度线位置（原型 COVERAGE_BAR_SCALE）。 */
-const COVERAGE_BAR_SCALE = 0.456;
-const MIN_LEVEL_MARK = COVERAGE_BAR_SCALE * 100;
-/** 池卡每页 4 张（原型 POOLS_PAGE_SIZE）。 */
-const POOLS_PAGE_SIZE = 4;
 /** 图表窗口：端点固定取 30 天，7/14/30 客户端切片（原型 VOLUME_RANGES）。 */
 const VOLUME_WINDOW_DAYS = 30;
 const VOLUME_RANGES = [7, 14, 30] as const;
@@ -208,6 +213,12 @@ const VOLUME_RANGES = [7, 14, 30] as const;
 const RECENT_TX_PAGE_SIZE = 5;
 /** Active 池状态码（/pool 语义）。 */
 const STATUS_ACTIVE = 20;
+
+/**
+ * 固定告警线：覆盖率低于 20% 才算 Low 并会通知 LP（2026-11-03 裁决）。
+ * 与后端 `PoolAlertMath.ALERT_RATIO`、资金池页 `COVERAGE_ALERT_PERCENT` 必须一致。
+ */
+const COVERAGE_ALERT_PERCENT = 20;
 
 /** LBL 模板插值：'{count} configured' + {count: 3} → '3 configured'（原型 t() 同构）。 */
 /** token 身份键归一：tokenNo 优先（全网唯一），缺失回退 tokenCode（旧数据/BFF 未升级兼容）。 */
@@ -256,39 +267,6 @@ function amountText(
   return `${formatTokenAmount(v)} ${symbol}`;
 }
 
-/**
- * 十进制金额字符串精确求和（对齐小数位后 BigInt 相加；任一非法 → null）。
- * 跨 token 合计由调用方先行拦截，此处只做同币种算术。
- */
-function sumDecimalStrings(
-  values: Array<string | number | null | undefined>,
-): string | null {
-  const parts: Array<{ neg: boolean; digits: string; scale: number }> = [];
-  let maxScale = 0;
-  for (const v of values) {
-    if (v === null || v === undefined || v === '') continue;
-    const m = /^(-?)(\d*)(?:\.(\d*))?$/.exec(String(v).trim());
-    if (!m) return null;
-    const neg = m[1] === '-';
-    const int = m[2] === '' ? '0' : m[2];
-    const frac = m[3] ?? '';
-    maxScale = Math.max(maxScale, frac.length);
-    parts.push({ neg, digits: int + frac, scale: frac.length });
-  }
-  if (parts.length === 0) return null;
-  let total = 0n;
-  for (const p of parts) {
-    const padded = p.digits + '0'.repeat(maxScale - p.scale);
-    const value = BigInt(padded);
-    total += p.neg ? -value : value;
-  }
-  const neg = total < 0n;
-  const digits = (neg ? -total : total).toString().padStart(maxScale + 1, '0');
-  const body =
-    maxScale === 0 ? digits : `${digits.slice(0, -maxScale)}.${digits.slice(-maxScale)}`;
-  return (neg ? '-' : '') + body;
-}
-
 /** 近 N 天 GMT+8 日切 'YYYY-MM-DD' 序列（与 volume 端点 day 口径一致，旧 → 新）。 */
 function utc8Days(count: number): string[] {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -302,14 +280,6 @@ function utc8Days(count: number): string[] {
   return days;
 }
 
-/** 下个结算周期日（自然月制，下月 1 日 'YYYY-MM-01'；原型 lpp-routes 同构）。 */
-function nextCycleEndIso(): string {
-  const now = new Date();
-  const nextMonthIndex = (now.getUTCMonth() + 1) % 12;
-  const year = now.getUTCFullYear() + (nextMonthIndex === 0 ? 1 : 0);
-  return `${year}-${String(nextMonthIndex + 1).padStart(2, '0')}-01`;
-}
-
 /** 枚举映射条目缺码兜底：显原值。 */
 function enumLabel(
   map: Record<number, { label: string }>,
@@ -319,13 +289,6 @@ function enumLabel(
 }
 
 /* —— 状态 → 徽章语义色（生命周期能级：待审黄 / 生效绿 / 停用灰 / 驳回红） —— */
-
-const POOL_TONE: Record<number, ProtoTone> = {
-  5: 'warning',
-  20: 'success',
-  50: 'muted',
-  15: 'danger',
-};
 
 const PAIR_TONE: Record<number, ProtoTone> = {
   5: 'warning',
@@ -349,26 +312,6 @@ const TX_TONE: Record<number, ProtoTone> = {
   70: 'danger',
   80: 'danger',
   90: 'danger',
-};
-
-/** KPI 卡顶部色条（tone → 语义色）。 */
-const BAR_TONE: Record<ProtoTone, string> = {
-  success: 'bg-success',
-  warning: 'bg-warning',
-  danger: 'bg-destructive',
-  info: 'bg-info',
-  primary: 'bg-primary',
-  muted: 'bg-muted-foreground/40',
-};
-
-/** KPI 图标芯片底色（tone → 语义色 10% 底）。 */
-const CHIP_TONE: Record<ProtoTone, string> = {
-  success: 'bg-success/10 text-success',
-  warning: 'bg-warning/10 text-warning',
-  danger: 'bg-destructive/10 text-destructive',
-  info: 'bg-info/10 text-info',
-  primary: 'bg-primary/10 text-primary',
-  muted: 'bg-muted text-muted-foreground',
 };
 
 /* —— 表格数值排版（pair-pages .num 体系同构） —— */
@@ -412,50 +355,6 @@ function TokenPairCell({ tokens, banks }: { tokens: string; banks: string }) {
   );
 }
 
-/** ⓘ 口径提示（共享 Tooltip，禁原生 title）。 */
-function InfoHint({ text }: { text: string }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          tabIndex={0}
-          role="note"
-          aria-label={text}
-          className="inline-flex cursor-help items-center text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <Info className="h-[13px] w-[13px]" aria-hidden="true" />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-xs">{text}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-/** 双段金额：数值（formatTokenAmount）+ token 符号次级；空值整体 '-'。 */
-function AmountWithToken({
-  value,
-  token,
-  className = '',
-}: {
-  value: string | number | null | undefined;
-  token?: string | null;
-  className?: string;
-}) {
-  if (value === null || value === undefined || value === '') {
-    return <span className={className}>-</span>;
-  }
-  return (
-    <span className={className}>
-      {formatTokenAmount(value)}
-      {token ? (
-        <span className="ml-1 text-xs font-semibold text-muted-foreground">
-          {token}
-        </span>
-      ) : null}
-    </span>
-  );
-}
-
 /** 分区错误态（非 0024 降级；0024 由页面级 ServiceDownAlert 承担，旧数据保留）。 */
 function SectionError({ onRetry }: { onRetry: () => void }) {
   return (
@@ -471,347 +370,247 @@ function SectionError({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-/** KPI 卡（原型 StatCard：顶部色条 + label/ⓘ + 大数值 + 底部脚注）。 */
-function StatCard({
-  icon: Icon,
-  tone,
-  label,
-  info,
-  value,
-  footer,
-  failed = false,
-  onRetry,
+/** 统一面板卡（admin Dashboard 同构：标题行 + 内容，无内建 padding 假设）。 */
+function PanelCard({
+  title,
+  subtitle,
+  action,
+  className,
+  children,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
-  tone: ProtoTone;
-  label: string;
-  info?: string;
-  value: React.ReactNode;
-  footer?: React.ReactNode;
-  failed?: boolean;
-  onRetry?: () => void;
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <Card className="relative flex min-w-0 flex-col overflow-hidden">
-      <span
-        aria-hidden="true"
-        className={`absolute inset-x-0 top-0 h-0.5 ${BAR_TONE[tone]}`}
-      />
-      <CardContent className="panel-pad flex flex-1 flex-col gap-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <span className="t-supporting flex min-w-0 items-center gap-1 font-semibold tracking-wide text-muted-foreground">
-            {label}
-            {info ? <InfoHint text={info} /> : null}
-          </span>
-          <span
-            aria-hidden="true"
-            className={`grid size-7 shrink-0 place-items-center rounded-md ${CHIP_TONE[tone]}`}
-          >
-            <Icon className="h-[15px] w-[15px]" />
-          </span>
-        </div>
-        {failed ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm font-normal text-destructive">
-            <span>{LBL.failed}</span>
-            {onRetry ? (
-              <Button size="xs" variant="outline" onClick={onRetry}>
-                {LBL.retry}
-              </Button>
-            ) : null}
-          </div>
-        ) : (
-          <div className="min-w-0 text-2xl font-bold leading-none tracking-tight tabular-nums">
-            {value}
-          </div>
-        )}
-        {footer ? (
-          <div className="mt-auto border-t pt-2.5 text-xs text-muted-foreground">
-            {footer}
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ================================================================== */
-/* My Liquidity Pools                                                    */
-/* ================================================================== */
-
-/** 水位块：Liq. Coverage 百分比（口径 ⓘ）+ 轨道 + Min. Liquidity 刻度线。 */
-function PoolLevelBox({ level }: { level: string | null }) {
-  const n = level == null || level === '' ? null : Number(level);
-  const percent = n != null && Number.isFinite(n) ? Math.round(n * 100) : 0;
-  const belowMin = percent < 100;
-  const fillWidth = Math.min(100, Math.round(percent * COVERAGE_BAR_SCALE));
-  return (
-    <div className="space-y-1.5 rounded-lg bg-muted/40 p-2.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="t-supporting text-muted-foreground">
-          {LBL.poolLevel}
-        </span>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span
-              className={`t-data cursor-help font-bold ${belowMin ? 'text-destructive' : ''}`}
-            >
-              {percent}%
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>{LBL.poolLevelInfo}</TooltipContent>
-        </Tooltip>
-      </div>
-      <span
-        aria-hidden="true"
-        className="relative block h-1.5 rounded-full bg-muted-foreground/20"
-      >
-        <span
-          className={`absolute inset-y-0 left-0 rounded-full ${belowMin ? 'bg-destructive' : 'bg-success'}`}
-          style={{ width: `${fillWidth}%` }}
-        />
-        <span
-          className="absolute -inset-y-[3px] w-0.5 rounded-full bg-muted-foreground/60"
-          style={{ left: `${MIN_LEVEL_MARK}%` }}
-        />
-      </span>
-    </div>
-  );
-}
-
-/** 池卡（原型 PoolCard）：银行/token 芯片 + Payout 徽章 + 状态徽章 + 可用余额 +
- * 池地址 CopyableId + 水位块 + Authorized Amount/Avail。 */
-function PoolCard({ pool }: { pool: PoolRow }) {
-  const symbol = pool.tokenSymbol || pool.tokenNo || '';
-  return (
-    <Card className="flex min-w-0 flex-col">
-      <CardContent className="panel-pad flex flex-1 flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-            {pool.bankCode ? (
-              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground">
-                {pool.bankCode}
-              </span>
-            ) : null}
-            {symbol ? (
-              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground">
-                {symbol}
-              </span>
-            ) : null}
-            {pool.activeFlag === 1 ? (
-              <Badge variant="success" size="sm">
-                {LBL.poolPayout}
-              </Badge>
-            ) : null}
-          </span>
-          <ProtoStatusBadge
-            label={enumLabel(LP_POOL_STATUS_MAP, pool.status)}
-            tone={POOL_TONE[pool.status] ?? 'muted'}
-          />
-        </div>
+    <Card className={cn('flex min-w-0 flex-col p-4 min-[1600px]:p-6', className)}>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex min-w-0 items-baseline justify-between gap-x-3 gap-y-1">
-            <h3 className="t-body min-w-0 truncate font-semibold">
-              {pool.tokenName || symbol || '-'}
-            </h3>
-            <span className="t-data shrink-0 whitespace-nowrap font-bold">
-              <AmountWithToken value={pool.availableBalanceCache} token={symbol} />
-            </span>
-          </div>
-          <div className="mt-1 min-w-0">
-            <CopyableId
-              value={pool.poolAddress}
-              className="t-identifier text-muted-foreground"
-            />
-          </div>
-        </div>
-        <PoolLevelBox level={pool.level} />
-        <div className="mt-auto border-t pt-2.5">
-          <div className="flex items-center justify-between gap-3">
-            <span className="t-supporting text-muted-foreground">
-              {LBL.poolAuthorized}
-            </span>
-            <span className="t-data min-w-0 text-right font-semibold">
-              <AmountWithToken value={pool.preauthAuthAmount ?? null} token={symbol} />
-            </span>
-          </div>
-          {pool.preauthAvailableAmount != null &&
-          pool.preauthAvailableAmount !== '' ? (
-            <div className="mt-0.5 flex items-center justify-between gap-3">
-              <span className="t-supporting text-muted-foreground">
-                {LBL.poolAvail}
-              </span>
-              <span className="t-supporting min-w-0 text-right tabular-nums text-muted-foreground">
-                {amountText(pool.preauthAvailableAmount, symbol)}
-              </span>
-            </div>
+          <h2 className="text-sm font-semibold">{title}</h2>
+          {subtitle ? (
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
           ) : null}
         </div>
-      </CardContent>
+        {action}
+      </div>
+      {children}
     </Card>
   );
 }
+/* ================================================================== */
+/* 我的资金池                                                            */
+/* ================================================================== */
 
-type PoolTabKey = 'all' | 'healthy' | 'below';
+/** 预授权额度缺失 / 为 0：解付会失败，单独成一条告警。 */
+function isPreAuthMissing(pool: PoolRow): boolean {
+  const raw = pool.preauthAuthAmount;
+  if (raw == null || raw === '') return true;
+  const n = Number(raw);
+  return !Number.isFinite(n) || n === 0;
+}
 
-/** 池分区：All/Healthy/Below Minimum 筛选（Healthy = 水位 ≥100%；默认 Below Minimum）+ 每页 4 卡。 */
-function PoolsSection({
+/** 我的资金池（admin「Liquidity risk」版式：覆盖率升序 + 轨道 + 状态 + 缺口）。 */
+function PoolsListCard({
   pools,
+  coverageByPool,
   isPending,
   failed,
   onRetry,
 }: {
   pools: PoolRow[];
+  /** poolId → 覆盖率（与 /pool 列表页同一份口径：token 级 Min. Liquidity）。 */
+  coverageByPool: ReadonlyMap<number, LpPoolCoverage>;
   isPending: boolean;
   failed: boolean;
   onRetry: () => void;
 }) {
-  const [tab, setTab] = React.useState<PoolTabKey>('below');
-  const [page, setPage] = React.useState(1);
-
-  const { healthy, below } = React.useMemo(() => {
-    const ok: PoolRow[] = [];
-    const low: PoolRow[] = [];
-    for (const p of pools) {
-      const n = p.level == null || p.level === '' ? null : Number(p.level);
-      if (n != null && Number.isFinite(n) && n >= 1) ok.push(p);
-      else low.push(p);
-    }
-    return { healthy: ok, below: low };
-  }, [pools]);
-
-  const visible =
-    tab === 'healthy' ? healthy : tab === 'below' ? below : pools;
-  const totalPages = Math.max(1, Math.ceil(visible.length / POOLS_PAGE_SIZE));
-  const current = Math.min(page, totalPages);
-  const items = visible.slice(
-    (current - 1) * POOLS_PAGE_SIZE,
-    current * POOLS_PAGE_SIZE,
+  const sorted = React.useMemo(
+    () =>
+      [...pools].sort(
+        (a, b) =>
+          (coverageByPool.get(a.poolId)?.percentage ?? -1) -
+          (coverageByPool.get(b.poolId)?.percentage ?? -1),
+      ),
+    [pools, coverageByPool],
   );
 
-  const tabs: Array<{ key: PoolTabKey; label: string; count: number }> = [
-    { key: 'all', label: LBL.poolsTabAll, count: pools.length },
-    { key: 'healthy', label: LBL.poolsTabHealthy, count: healthy.length },
-    { key: 'below', label: LBL.poolsTabBelow, count: below.length },
-  ];
-
   return (
-    <Card>
-      <CardContent className="panel-pad">
-        {isPending ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 4 }, (_, i) => (
-              <Skeleton key={i} className="h-64 w-full" />
-            ))}
-          </div>
-        ) : failed ? (
-          <SectionError onRetry={onRetry} />
-        ) : pools.length === 0 ? (
-          <p className="t-body rounded-lg border border-dashed px-4 py-6 text-center text-muted-foreground">
-            {LBL.poolsEmpty}
-          </p>
-        ) : (
-          <>
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-x-3">
-              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-                <h2 className="t-section-title">{LBL.poolsTitle}</h2>
-                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
-                  {tpl(LBL.poolsConfigured, { count: pools.length })}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
-                  {tabs.map((t) => (
-                    <button
-                      key={t.key}
-                      type="button"
-                      aria-pressed={tab === t.key}
-                      onClick={() => {
-                        setTab(t.key);
-                        setPage(1);
-                      }}
-                      className={`whitespace-nowrap rounded px-2.5 py-1 text-xs font-semibold transition-colors ${
-                        tab === t.key
-                          ? 'border bg-background text-primary shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {`${t.label} (${t.count})`}
-                    </button>
-                  ))}
-                </span>
-              </div>
-              {visible.length > 0 ? (
-                <div className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-muted-foreground">
-                  <span>
-                    {tpl(LBL.poolsShowing, {
-                      from: (current - 1) * POOLS_PAGE_SIZE + 1,
-                      to: (current - 1) * POOLS_PAGE_SIZE + items.length,
-                      total: visible.length,
-                    })}
+    <PanelCard
+      title={LBL.poolsTitle}
+      subtitle={tpl(LBL.poolsConfigured, { count: pools.length })}
+      action={
+        <Link
+          className="text-xs font-medium text-primary hover:underline"
+          href="/pool"
+        >
+          {LBL.viewAll}
+        </Link>
+      }
+    >
+      {isPending ? (
+        <Skeleton className="h-64 w-full" />
+      ) : failed ? (
+        <SectionError onRetry={onRetry} />
+      ) : pools.length === 0 ? (
+        <p className="py-10 text-center text-sm text-muted-foreground">
+          {LBL.poolsEmpty}
+        </p>
+      ) : (
+        <div className="flex flex-col">
+          {sorted.map((pool) => {
+            const symbol = pool.tokenSymbol || pool.tokenNo || '';
+            const coverage = coverageByPool.get(pool.poolId) ?? null;
+            const percent = coverage?.percentage ?? null;
+            // 与资金池页/后端监控同一条线：覆盖率 < 20% 才算 Low（会通知 LP）
+            const low = percent != null && percent < COVERAGE_ALERT_PERCENT;
+            const noAuth = isPreAuthMissing(pool);
+            // 缺口 = 回到 20% 告警线还差多少（不是差到 100%，避免「23% 却显示缺 7,716」的割裂）
+            const gapToLine =
+              coverage != null
+                ? Math.max(
+                    0,
+                    Math.round(
+                      ((COVERAGE_ALERT_PERCENT / 100) * coverage.requiredMin -
+                        coverage.numerator) *
+                        100,
+                    ) / 100,
+                  )
+                : null;
+            return (
+              <div
+                key={pool.poolId}
+                className="space-y-2 border-b border-border py-3 first:pt-0 last:border-b-0 last:pb-0"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <span className="truncate text-sm font-medium">
+                      {pool.tokenName || symbol || '-'}
+                    </span>
+                    {symbol ? (
+                      <span className="text-xs text-muted-foreground">
+                        {symbol}
+                      </span>
+                    ) : null}
+                    {pool.activeFlag === 1 ? (
+                      <Badge variant="success" size="sm">
+                        {LBL.poolPayout}
+                      </Badge>
+                    ) : null}
                   </span>
-                  <span className="inline-flex items-center overflow-hidden rounded-lg border bg-background shadow-sm">
-                    <button
-                      type="button"
-                      aria-label={LBL.prev}
-                      disabled={current <= 1}
-                      onClick={() => setPage(current - 1)}
-                      className="border-r p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={LBL.next}
-                      disabled={current >= totalPages}
-                      onClick={() => setPage(current + 1)}
-                      className="p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
+                  <span
+                    className={cn(
+                      'shrink-0 font-mono text-sm font-semibold tabular-nums',
+                      low ? 'text-destructive' : 'text-foreground',
+                    )}
+                  >
+                    {percent == null ? '-' : `${percent}%`}
                   </span>
                 </div>
-              ) : null}
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {items.map((pool) => (
-                <PoolCard key={pool.poolId} pool={pool} />
-              ))}
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+                <CopyableId
+                  value={pool.poolAddress}
+                  className="t-identifier text-muted-foreground"
+                />
+                <div className="relative h-1.5 rounded bg-muted">
+                  <div
+                    className={cn(
+                      'h-full rounded',
+                      percent != null && percent <= 0
+                        ? 'bg-destructive'
+                        : low
+                          ? 'bg-warning'
+                          : 'bg-success',
+                    )}
+                    style={{
+                      width: `${Math.max(0, Math.min(100, percent ?? 0))}%`,
+                    }}
+                  />
+                  {/* 20% 告警竖线，与资金池页同一条线 */}
+                  <span
+                    aria-hidden="true"
+                    className="absolute -inset-y-[3px] w-0.5 bg-foreground/40"
+                    style={{ left: `${COVERAGE_ALERT_PERCENT}%` }}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <ProtoStatusBadge
+                    label={
+                      low
+                        ? LBL.healthBelow
+                        : noAuth
+                          ? LBL.badgeNoPreauth
+                          : LBL.healthHealthy
+                    }
+                    tone={low ? 'danger' : noAuth ? 'warning' : 'success'}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {gapToLine != null && gapToLine > 0 ? (
+                      <>
+                        {LBL.poolGapToLine}{' '}
+                        <span className="tabular-nums">
+                          {formatTokenAmount(gapToLine)}
+                          {symbol ? ` ${symbol}` : ''}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="tabular-nums">
+                        {formatTokenAmount(pool.availableBalanceCache)}
+                        {symbol ? ` ${symbol}` : ''}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </PanelCard>
   );
 }
 
 /* ================================================================== */
-/* Transaction Volume & Flow                                             */
+/* Transaction Volume（面积图 + 指标行）                                   */
 /* ================================================================== */
 
-/** 图表卡：7D/14D/30D 切片（30 天一次拉取）+ Total/Avg/Peak + 柱状图。
- * refreshSeq 由页头 Refresh 递增驱动重拉（旧 refreshSeq 惯用法）。 */
-function VolumeCard({ refreshSeq }: { refreshSeq: number }) {
-  const query = useDashboardVolumeQuery(LP_PROJECT_ID, VOLUME_WINDOW_DAYS);
-  const [range, setRange] = React.useState<number>(14);
-  const refetch = query.refetch;
+function RangeSelector({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (days: number) => void;
+}) {
+  return (
+    <div className="flex gap-1" role="group" aria-label={LBL.rangeGroup}>
+      {VOLUME_RANGES.map((days) => (
+        <Button
+          key={days}
+          size="sm"
+          variant={value === days ? 'default' : 'outline'}
+          aria-pressed={value === days}
+          onClick={() => onChange(days)}
+        >
+          Last {days} days
+        </Button>
+      ))}
+    </div>
+  );
+}
 
-  React.useEffect(() => {
-    if (refreshSeq > 0) void refetch();
-  }, [refreshSeq, refetch]);
-
-  /** 30 天 GMT+8 日切零填充 + 按日笔数求和（全状态，原型同口径）。 */
-  const points30 = React.useMemo<VolumePoint[]>(() => {
-    const byDay = new Map<string, number>();
-    for (const row of query.data ?? []) {
-      if (!row.day) continue;
-      const n = Number(row.txCount);
-      byDay.set(row.day, (byDay.get(row.day) ?? 0) + (Number.isFinite(n) ? n : 0));
-    }
-    return utc8Days(VOLUME_WINDOW_DAYS).map((day) => ({
-      day,
-      count: byDay.get(day) ?? 0,
-    }));
-  }, [query.data]);
-
-  const points = points30.slice(-range);
+function TrafficPanel({
+  points,
+  range,
+  isPending,
+  failed,
+  onRetry,
+}: {
+  points: VolumePoint[];
+  range: number;
+  isPending: boolean;
+  failed: boolean;
+  onRetry: () => void;
+}) {
   const total = points.reduce((sum, point) => sum + point.count, 0);
   const peak = points.reduce<VolumePoint | null>(
     (best, point) => (point.count > (best?.count ?? -1) ? point : best),
@@ -819,91 +618,227 @@ function VolumeCard({ refreshSeq }: { refreshSeq: number }) {
   );
   const avg =
     points.length > 0 ? Math.round((total / points.length) * 10) / 10 : 0;
-  const failed = query.error != null && query.data == null;
+  const series = points.map((point) => ({
+    day: point.day,
+    count: point.count,
+  }));
 
   return (
-    <Card className="h-full">
-      <CardContent className="panel-pad flex h-full flex-col">
-        <div className="mb-4 flex flex-col items-start justify-between gap-2.5 lg:flex-row lg:items-start lg:gap-x-3">
-          <div className="min-w-0">
-            <h2 className="t-section-title">{LBL.volumeTitle}</h2>
-            <p className="t-supporting mt-0.5 text-muted-foreground">
-              {tpl(LBL.volumeSub, { days: range })}
-            </p>
+    <PanelCard
+      title={LBL.volumeTitle}
+      subtitle={tpl(LBL.volumeSub, { days: range })}
+      action={
+        <span className="text-xs text-muted-foreground">Last {range} days</span>
+      }
+      className="h-full min-h-[420px]"
+    >
+      {isPending ? (
+        <Skeleton className="h-64 w-full" />
+      ) : failed ? (
+        <SectionError onRetry={onRetry} />
+      ) : (
+        <>
+          <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-border pb-3 text-xs">
+            <span className="text-muted-foreground">
+              Transfers
+              <span className="ml-2 font-mono text-sm font-semibold tabular-nums text-foreground">
+                {total.toLocaleString('en-US')}
+              </span>
+            </span>
+            <span className="text-muted-foreground">
+              Avg daily
+              <span className="ml-2 font-mono text-sm font-semibold tabular-nums text-foreground">
+                {avg}
+              </span>
+            </span>
+            <span className="text-muted-foreground">
+              Peak day
+              <span className="ml-2 font-mono text-sm font-semibold tabular-nums text-foreground">
+                {peak && peak.count > 0
+                  ? `${shortDayLabel(peak.day)} · ${peak.count}`
+                  : '—'}
+              </span>
+            </span>
           </div>
-          <span
-            role="group"
-            aria-label={LBL.rangeGroup}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg border bg-muted/40 p-1"
-          >
-            {VOLUME_RANGES.map((days) => (
-              <button
-                key={days}
-                type="button"
-                aria-pressed={range === days}
-                onClick={() => setRange(days)}
-                className={`rounded px-2.5 py-1 text-xs font-semibold tabular-nums transition-colors ${
-                  range === days
-                    ? 'border bg-background text-primary shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {`${days}D`}
-              </button>
-            ))}
-          </span>
-        </div>
-
-        {query.isPending ? (
-          <Skeleton className="h-[280px] w-full" />
-        ) : failed ? (
-          <SectionError onRetry={() => void refetch()} />
-        ) : (
-          <>
-            <div className="grid grid-cols-1 gap-3 pb-3 sm:grid-cols-3">
-              <div className="min-w-0">
-                <p className="t-supporting font-semibold text-muted-foreground">
-                  {LBL.volumeTotal}
-                </p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums">{total}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="t-supporting font-semibold text-muted-foreground">
-                  {LBL.volumeAvg}
-                </p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums">{avg}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="t-supporting flex min-w-0 items-center gap-1 font-semibold text-muted-foreground">
-                  {LBL.volumePeak}
-                  <InfoHint text={LBL.volumePeakInfo} />
-                </p>
-                <p className="mt-0.5 truncate text-lg font-bold tabular-nums text-primary">
-                  {peak && peak.count > 0
-                    ? `${shortDayLabel(peak.day)} · ${peak.count}`
-                    : '-'}
-                </p>
-              </div>
+          {total === 0 ? (
+            <p className="py-16 text-center text-sm text-muted-foreground">
+              {LBL.volumeEmpty}
+            </p>
+          ) : (
+            <div
+              className="h-64 flex-1"
+              role="img"
+              aria-label={LBL.volumeLegend}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={series}>
+                  <CartesianGrid
+                    stroke="hsl(var(--border))"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="day"
+                    tickFormatter={(value) => String(value).slice(5)}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{
+                      fontSize: 11,
+                      fill: 'hsl(var(--muted-foreground))',
+                    }}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    width={32}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{
+                      fontSize: 11,
+                      fill: 'hsl(var(--muted-foreground))',
+                    }}
+                  />
+                  <RechartsTooltip
+                    contentStyle={{
+                      background: 'hsl(var(--card))',
+                      borderColor: 'hsl(var(--border))',
+                      color: 'hsl(var(--foreground))',
+                      fontSize: 12,
+                    }}
+                    labelFormatter={(value) => `Date ${value}`}
+                    formatter={(value) => [String(value), LBL.volumeLegend]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    fill="hsl(var(--primary))"
+                    fillOpacity={0.14}
+                    activeDot={{ r: 4 }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
             </div>
-            {total === 0 ? (
-              <VolumeChartEmpty message={LBL.volumeEmpty} />
-            ) : (
-              <VolumeBarChart points={points} />
-            )}
-            <div className="mt-3 flex items-center gap-2 border-t pt-3 text-xs text-muted-foreground">
-              <span
-                aria-hidden="true"
-                className="size-2.5 rounded-sm bg-primary"
-              />
-              {LBL.volumeLegend}
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+          )}
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <span
+              aria-hidden="true"
+              className="h-0.5 w-3.5 rounded bg-primary"
+            />
+            {LBL.volumeLegend}
+          </div>
+        </>
+      )}
+    </PanelCard>
   );
 }
 
+/* ================================================================== */
+/* Volume by pair（纵向柱状图）                                           */
+/* ================================================================== */
+
+function VolumeByPairCard({
+  rows,
+  days,
+  isPending,
+  failed,
+  onRetry,
+}: {
+  rows: VolumeRow[];
+  days: number;
+  isPending: boolean;
+  failed: boolean;
+  onRetry: () => void;
+}) {
+  const { columns, total, max } = React.useMemo(() => {
+    const byPair = new Map<string, number>();
+    for (const row of rows) {
+      const label =
+        row.sourceTokenCode && row.targetTokenCode
+          ? `${row.sourceTokenCode}/${row.targetTokenCode}`
+          : row.pairCode;
+      const count = Number(row.txCount);
+      if (!label || !Number.isFinite(count)) continue;
+      byPair.set(label, (byPair.get(label) ?? 0) + count);
+    }
+    const sorted = [...byPair.entries()].sort((a, b) => b[1] - a[1]);
+    const columns = sorted.slice(0, 5).map(([label, count]) => ({
+      key: label,
+      label,
+      count,
+      muted: false,
+    }));
+    const rest = sorted.slice(5);
+    if (rest.length > 0) {
+      columns.push({
+        key: 'other',
+        label: `Other (${rest.length})`,
+        count: rest.reduce((sum, [, count]) => sum + count, 0),
+        muted: true,
+      });
+    }
+    const total = columns.reduce((sum, col) => sum + col.count, 0);
+    return {
+      columns,
+      total,
+      max: Math.max(1, ...columns.map((col) => col.count)),
+    };
+  }, [rows]);
+
+  return (
+    <PanelCard
+      title={LBL.volumeByPairTitle}
+      subtitle={`Last ${days} days · ${total.toLocaleString('en-US')} transfers`}
+    >
+      {isPending ? (
+        <Skeleton className="h-64 w-full" />
+      ) : failed ? (
+        <SectionError onRetry={onRetry} />
+      ) : columns.length === 0 ? (
+        <p className="py-16 text-center text-sm text-muted-foreground">
+          {LBL.volumeEmpty}
+        </p>
+      ) : (
+        <>
+          {/* 固定高度：柱子按百分比取高，父级必须是确定高度。 */}
+          <div className="flex h-[220px] items-end gap-4 border-b border-border pt-7">
+            {columns.map((col) => (
+              <div
+                key={col.key}
+                className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+                title={`${col.label} · ${col.count} transfers`}
+              >
+                <span className="mb-2 font-mono text-xs font-semibold tabular-nums">
+                  {col.count.toLocaleString('en-US')}
+                </span>
+                <div
+                  className={cn(
+                    'w-full max-w-[54px] rounded-t-[3px]',
+                    col.muted ? 'bg-muted-foreground/30' : 'bg-primary',
+                  )}
+                  style={{
+                    height: `${Math.max(1.5, (col.count / max) * 88)}%`,
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-4 pt-2.5">
+            {columns.map((col) => (
+              <div key={col.key} className="min-w-0 flex-1 text-center">
+                <div className="truncate font-mono text-[11px] text-muted-foreground">
+                  {col.label}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  {total ? Math.round((col.count / total) * 100) : 0}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </PanelCard>
+  );
+}
 /* ================================================================== */
 /* 底部双 Tab：Configured Pairs & Spread / Recent FX Transactions         */
 /* ================================================================== */
@@ -1258,17 +1193,19 @@ function BottomTabsCard({
 /* ================================================================== */
 
 export function DashboardPage() {
+  const routerPush = useRouter().push;
   const summaryQuery = useDashboardSummaryQuery(LP_PROJECT_ID);
   const poolQuery = usePoolListQuery(LP_PROJECT_ID);
   const pairQuery = usePairListQuery(LP_PROJECT_ID);
+  const volumeQuery = useDashboardVolumeQuery(LP_PROJECT_ID, VOLUME_WINDOW_DAYS);
   const recentTxParams = React.useMemo<TxFlowListReq>(
     () => ({ pageNum: 1, pageSize: RECENT_TX_PAGE_SIZE, filter: {} }),
     [],
   );
   const txQuery = useTxFlowListQuery(LP_PROJECT_ID, recentTxParams);
 
-  const [refreshSeq, setRefreshSeq] = React.useState(0);
-  const [bannerDismissed, setBannerDismissed] = React.useState(false);
+  /** 全页统一窗口：趋势图与「按交易对」共用（7D/14D/30D 客户端切片）。 */
+  const [days, setDays] = React.useState<number>(14);
 
   const pools = poolQuery.data ?? [];
   const activePools = React.useMemo(
@@ -1292,95 +1229,200 @@ export function DashboardPage() {
     return null;
   }, [summaryQuery.error, poolQuery.error, pairQuery.error, txQuery.error]);
 
+  /** 30 天 GMT+8 日切零填充 + 按日笔数求和（全状态，与成交柱状图同源）。 */
+  const points30 = React.useMemo<VolumePoint[]>(() => {
+    const byDay = new Map<string, number>();
+    for (const row of volumeQuery.data ?? []) {
+      if (!row.day) continue;
+      const n = Number(row.txCount);
+      byDay.set(row.day, (byDay.get(row.day) ?? 0) + (Number.isFinite(n) ? n : 0));
+    }
+    return utc8Days(VOLUME_WINDOW_DAYS).map((day) => ({
+      day,
+      count: byDay.get(day) ?? 0,
+    }));
+  }, [volumeQuery.data]);
+  const points = React.useMemo(() => points30.slice(-days), [points30, days]);
+
   /**
-   * 告警横幅（GAP-LP-01 换算口径，真实行推导）：Active 池水位 ≤0 = 需补资；
-   * Active 池预授权额度空/0 = 预授权缺失。无池数据不判 all-clear。
+   * 池覆盖率（与 /pool 列表页同一份口径：min(余额, 可用授权) ÷ token 级
+   * Min. Liquidity）。Dashboard 全页水位/缺口/健康分桶都消费这份结果，
+   * 不再用后端 `level`（Σ 参与对门槛旧口径）。
    */
-  const { poolsRequireTopUp, preAuthMissing } = React.useMemo(() => {
+  const coverageByPool = usePoolCoverageMap(activePools);
+
+  /** 池健康分布 + 需处理信号：分桶按 20% 告警线（与资金池页/后端监控同尺）。 */
+  const health = React.useMemo(() => {
+    let healthy = 0;
+    let below = 0;
+    let idle = 0;
     let topUp = 0;
     let preAuth = 0;
     for (const p of activePools) {
-      const level = p.level == null || p.level === '' ? null : Number(p.level);
-      if (level != null && Number.isFinite(level) && level <= 0) topUp += 1;
-      const auth =
-        p.preauthAuthAmount == null || p.preauthAuthAmount === ''
-          ? null
-          : Number(p.preauthAuthAmount);
-      if (auth == null || !Number.isFinite(auth) || auth === 0) preAuth += 1;
+      const percent = coverageByPool.get(p.poolId)?.percentage ?? null;
+      if (percent == null) idle += 1;
+      else if (percent >= COVERAGE_ALERT_PERCENT) healthy += 1;
+      else below += 1;
+      if (percent != null && percent <= 0) topUp += 1;
+      if (isPreAuthMissing(p)) preAuth += 1;
     }
-    return { poolsRequireTopUp: topUp, preAuthMissing: preAuth };
-  }, [activePools]);
-  const bannerWarn = poolsRequireTopUp > 0 || preAuthMissing > 0;
+    return { healthy, below, idle, topUp, preAuth };
+  }, [activePools, coverageByPool]);
 
-  /** KPI①：单 token 场景 BigInt 精确合计（跨 token → '-'，GAP-LP-01）。 */
-  const balance = React.useMemo(() => {
-    if (activePools.length === 0) {
-      return {
-        amount: null as string | null,
-        token: null as string | null,
-        poolCount: 0,
-        tokenCount: 0,
-      };
-    }
-    const tokenCount = new Set(activePools.map((p) => p.tokenCode)).size;
-    if (tokenCount !== 1) {
-      return {
-        amount: TOTAL_POOL_BALANCE_MULTI_TOKEN,
-        token: null,
-        poolCount: activePools.length,
-        tokenCount,
-      };
-    }
-    return {
-      amount: sumDecimalStrings(activePools.map((p) => p.availableBalanceCache)),
-      token: activePools[0].tokenSymbol || activePools[0].tokenNo || null,
-      poolCount: activePools.length,
-      tokenCount,
-    };
-  }, [activePools]);
+  /** 顶排计数指标用的派生值：配置对数 + 窗口内日均笔数（跨 token 唯一可加的量）。 */
+  const configuredPairs = pairQuery.data?.length ?? null;
+  const avgDailyTx = React.useMemo(() => {
+    if (points.length === 0) return null;
+    const sum = points.reduce((acc, point) => acc + point.count, 0);
+    return Math.round((sum / points.length) * 10) / 10;
+  }, [points]);
 
-  const summaryFailed =
-    summaryQuery.error != null && summaryQuery.data == null;
+  const summaryFailed = summaryQuery.error != null && summaryQuery.data == null;
   const poolFailed = poolQuery.error != null && poolQuery.data == null;
   const pairFailed = pairQuery.error != null && pairQuery.data == null;
   const txFailed = txQuery.error != null && txQuery.data == null;
+  const volumeFailed = volumeQuery.error != null && volumeQuery.data == null;
 
-  /** As of = 页级四路查询最新 dataUpdatedAt（无数据 → 0 不显）。 */
+  /** As of = 页级查询最新 dataUpdatedAt（无数据 → 0 不显）。 */
   const asOf = Math.max(
     summaryQuery.dataUpdatedAt,
     poolQuery.dataUpdatedAt,
     pairQuery.dataUpdatedAt,
     txQuery.dataUpdatedAt,
+    volumeQuery.dataUpdatedAt,
   );
 
   const anyFetching =
     summaryQuery.isFetching ||
     poolQuery.isFetching ||
     pairQuery.isFetching ||
-    txQuery.isFetching;
+    txQuery.isFetching ||
+    volumeQuery.isFetching;
 
   function refreshAll() {
-    setRefreshSeq((n) => n + 1);
     void summaryQuery.refetch();
     void poolQuery.refetch();
     void pairQuery.refetch();
     void txQuery.refetch();
+    void volumeQuery.refetch();
   }
+
+  /**
+   * 顶部规模条（2026-11-03 重设计）：四张卡统一为**纯计数**指标，单位无关、
+   * 不跨 token 求和 —— 交易对 / 资金池 / 累计完成笔数 / 今日笔数。
+   * 顺序 = 静态规模（我服务多少）→ 动态规模（我做了多少）。
+   */
+  const scale = [
+    {
+      key: 'pairs',
+      icon: ArrowLeftRight,
+      label: LBL.kpiPairs,
+      caption:
+        configuredPairs != null
+          ? tpl(LBL.kpiPairsFoot, { configured: configuredPairs })
+          : LBL.kpiPairsFootPlain,
+      value: (
+        <span className="tabular-nums">
+          {(stats?.pairsActive ?? 0).toLocaleString('en-US')}
+        </span>
+      ),
+      to: '/pair',
+      failed: summaryFailed,
+      onRetry: () => void summaryQuery.refetch(),
+    },
+    {
+      key: 'pools',
+      icon: Layers,
+      label: LBL.kpiPools,
+      caption:
+        activePools.length > 0
+          ? tpl(LBL.kpiPoolsFoot, {
+              healthy: health.healthy,
+              total: activePools.length,
+            })
+          : LBL.noActivePools,
+      value: (
+        <span className="tabular-nums">
+          {activePools.length.toLocaleString('en-US')}
+        </span>
+      ),
+      to: '/pool',
+      failed: poolFailed,
+      onRetry: () => void poolQuery.refetch(),
+    },
+    {
+      key: 'total',
+      icon: CheckCircle2,
+      label: LBL.kpiTotal,
+      caption: LBL.kpiTotalFoot,
+      value: (
+        <span className="tabular-nums">
+          {(stats?.txCompleted ?? 0).toLocaleString('en-US')}
+        </span>
+      ),
+      to: '/tx-flow',
+      failed: summaryFailed,
+      onRetry: () => void summaryQuery.refetch(),
+    },
+    {
+      key: 'today',
+      icon: TrendingUp,
+      label: LBL.kpiToday,
+      caption:
+        avgDailyTx != null
+          ? tpl(LBL.kpiTodayAvgFoot, { avg: avgDailyTx })
+          : LBL.kpiTodayFoot,
+      value: (
+        <span className="tabular-nums">
+          {(stats?.txToday ?? 0).toLocaleString('en-US')}
+        </span>
+      ),
+      to: '/tx-flow',
+      failed: summaryFailed,
+      onRetry: () => void summaryQuery.refetch(),
+    },
+  ];
+
+  const attention = [
+    health.topUp > 0
+      ? {
+          key: 'topup',
+          label: LBL.attentionTopUp,
+          note: LBL.attentionTopUpNote,
+          count: health.topUp,
+          bar: 'bg-destructive',
+        }
+      : null,
+    health.preAuth > 0
+      ? {
+          key: 'preauth',
+          label: LBL.attentionPreAuth,
+          note: LBL.attentionPreAuthNote,
+          count: health.preAuth,
+          bar: 'bg-warning',
+        }
+      : null,
+  ].filter((item): item is NonNullable<typeof item> => item !== null);
+
+  const healthRows = [
+    { key: 'healthy', label: LBL.healthHealthy, count: health.healthy },
+    { key: 'below', label: LBL.healthBelow, count: health.below },
+    { key: 'idle', label: LBL.healthIdle, count: health.idle },
+  ];
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="section-gap flex flex-col">
+      <div className="flex flex-col gap-4">
         {/* ① 页头 */}
-        <div className="flex flex-col items-start justify-between gap-3 lg:flex-row lg:items-end">
+        <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="t-page-title">{LBL.title}</h1>
-            <p className="t-body mt-0.5 text-muted-foreground">
-              {LBL.description}
-            </p>
+            <p className="text-xs text-muted-foreground">{LBL.description}</p>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <RangeSelector value={days} onChange={setDays} />
             {asOf > 0 ? (
-              <span className="t-supporting whitespace-nowrap tabular-nums text-muted-foreground">
+              <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
                 {`${LBL.asOf} ${formatUtc8(asOf)}`}
               </span>
             ) : null}
@@ -1391,143 +1433,152 @@ export function DashboardPage() {
               disabled={anyFetching}
             >
               <RefreshCw
-                className={`h-3.5 w-3.5 ${anyFetching ? 'animate-spin' : ''}`}
+                className={`h-4 w-4 ${anyFetching ? 'animate-spin' : ''}`}
                 aria-hidden="true"
               />
               {LBL.refresh}
             </Button>
           </div>
-        </div>
+        </header>
 
-        {/* ② 0024 降级条 + 告警横幅 */}
+        {/* ② 0024 降级条 */}
         {down ? <ServiceDownAlert traceId={down.traceId} /> : null}
-        {!bannerDismissed && poolQuery.data != null ? (
-          bannerWarn ? (
-            <Alert variant="warning">
-              <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <AlertTitle className="flex items-center gap-2">
-                  {LBL.bannerWarn}
-                  <button
-                    type="button"
-                    aria-label={LBL.dismiss}
-                    onClick={() => setBannerDismissed(true)}
-                    className="ml-auto rounded p-0.5 transition-colors hover:bg-warning/10"
-                  >
-                    <X className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
-                </AlertTitle>
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                  <span
-                    className={poolsRequireTopUp > 0 ? 'font-semibold' : ''}
-                  >
-                    {tpl(LBL.bannerTopUp, { count: poolsRequireTopUp })}
+
+        {/* ③ 规模条 */}
+        <section
+          aria-label={LBL.scaleGroup}
+          className="grid grid-cols-1 divide-y divide-border overflow-hidden rounded-xl border border-border/50 bg-card shadow-float sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x"
+        >
+          {scale.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => routerPush(item.to)}
+                className="flex min-w-0 flex-col gap-1.5 px-4 py-3.5 text-left motion-safe:transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                <span className="flex min-w-0 items-center gap-2 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Icon
+                    className="size-3.5 shrink-0 text-primary"
+                    aria-hidden="true"
+                  />
+                  <span className="truncate">{item.label}</span>
+                  <span className="ml-auto hidden shrink-0 text-[11px] font-normal normal-case tracking-normal sm:inline">
+                    {item.caption}
                   </span>
-                  <span aria-hidden="true" className="opacity-60">
-                    •
-                  </span>
-                  <span className={preAuthMissing > 0 ? 'font-semibold' : ''}>
-                    {tpl(LBL.bannerPreAuth, { count: preAuthMissing })}
-                  </span>
+                </span>
+                <span className="min-w-0 truncate text-2xl font-semibold tabular-nums">
+                  {item.failed ? (
+                    <span className="text-sm font-normal text-destructive">
+                      {LBL.failed}
+                    </span>
+                  ) : poolQuery.isPending || summaryQuery.isPending ? (
+                    <Skeleton className="h-8 w-16" />
+                  ) : (
+                    item.value
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </section>
+
+        {/* ④ 主区：趋势 + 待处理 */}
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="min-w-0 lg:col-span-2">
+            <TrafficPanel
+              points={points}
+              range={days}
+              isPending={volumeQuery.isPending}
+              failed={volumeFailed}
+              onRetry={() => void volumeQuery.refetch()}
+            />
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-4">
+            <Card className="flex min-w-0 flex-col overflow-hidden p-0">
+              <div className="border-b border-border px-4 py-3">
+                <h2 className="text-sm font-semibold">{LBL.attentionTitle}</h2>
+              </div>
+              {poolQuery.isPending ? (
+                <Skeleton className="m-4 h-24" />
+              ) : poolFailed ? (
+                <div className="p-4">
+                  <SectionError onRetry={() => void poolQuery.refetch()} />
                 </div>
-              </div>
-            </Alert>
-          ) : (
-            <Alert variant="success">
-              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <AlertTitle className="flex items-center gap-2">
-                  {LBL.bannerOk}
-                  <button
-                    type="button"
-                    aria-label={LBL.dismiss}
-                    onClick={() => setBannerDismissed(true)}
-                    className="ml-auto rounded p-0.5 transition-colors hover:bg-success/10"
+              ) : attention.length === 0 ? (
+                <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  {LBL.attentionClear}
+                </p>
+              ) : (
+                <div className="flex flex-1 flex-col">
+                  {attention.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => routerPush('/pool')}
+                      className="flex flex-1 items-center gap-3 border-b border-border px-4 py-3.5 text-left last:border-b-0 motion-safe:transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                    >
+                      <span
+                        className={cn(
+                          'w-1 self-stretch rounded-full',
+                          item.bar,
+                        )}
+                        aria-hidden="true"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {item.label}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {item.note}
+                        </span>
+                      </span>
+                      <span className="font-mono text-lg font-semibold tabular-nums">
+                        {item.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <PanelCard title={LBL.poolHealthTitle} className="flex-1">
+              <div className="divide-y divide-border">
+                {healthRows.map((row) => (
+                  <div
+                    key={row.key}
+                    className="flex items-baseline justify-between gap-2 py-2.5 text-sm first:pt-0 last:pb-0"
                   >
-                    <X className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
-                </AlertTitle>
-                <p className="mt-1 text-sm">{LBL.bannerOkBody}</p>
+                    <span className="min-w-0 truncate">{row.label}</span>
+                    <span className="shrink-0 font-mono text-sm font-semibold tabular-nums">
+                      {poolQuery.isPending ? '—' : row.count}
+                    </span>
+                  </div>
+                ))}
               </div>
-            </Alert>
-          )
-        ) : null}
-
-        {/* ③ KPI 四宫格 */}
-        {summaryQuery.isPending || poolQuery.isPending ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }, (_, i) => (
-              <Skeleton key={i} className="h-32 w-full" />
-            ))}
+            </PanelCard>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              icon={Coins}
-              tone="primary"
-              label={LBL.kpiBalance}
-              info={LBL.kpiBalanceInfo}
-              value={
-                <AmountWithToken value={balance.amount} token={balance.token} />
-              }
-              footer={
-                balance.poolCount > 0
-                  ? tpl(LBL.kpiBalanceFoot, {
-                      pools: balance.poolCount,
-                      tokens: balance.tokenCount,
-                    })
-                  : null
-              }
-              failed={poolFailed}
-              onRetry={() => void poolQuery.refetch()}
-            />
-            <StatCard
-              icon={ArrowLeftRight}
-              tone="info"
-              label={LBL.kpiPairs}
-              value={<span className="tabular-nums">{stats?.pairsActive ?? 0}</span>}
-              footer={LBL.kpiPairsFoot}
-              failed={summaryFailed}
-              onRetry={() => void summaryQuery.refetch()}
-            />
-            <StatCard
-              icon={Activity}
-              tone="primary"
-              label={LBL.kpiToday}
-              info={LBL.kpiTodayInfo}
-              value={<span className="tabular-nums">{stats?.txToday ?? 0}</span>}
-              footer={LBL.kpiTodayFoot}
-              failed={summaryFailed}
-              onRetry={() => void summaryQuery.refetch()}
-            />
-            <StatCard
-              icon={TrendingUp}
-              tone="success"
-              label={LBL.kpiMtd}
-              info={LBL.kpiMtdInfo}
-              value={
-                <AmountWithToken
-                  value={REVENUE_SHARE_MTD_FALLBACK.amount}
-                  token={REVENUE_SHARE_MTD_FALLBACK.token}
-                />
-              }
-              footer={tpl(LBL.kpiMtdFoot, {
-                date: shortDayLabel(nextCycleEndIso()),
-              })}
-            />
-          </div>
-        )}
+        </section>
 
-        {/* ④ My Liquidity Pools */}
-        <PoolsSection
-          pools={pools}
-          isPending={poolQuery.isPending}
-          failed={poolFailed}
-          onRetry={() => void poolQuery.refetch()}
-        />
-
-        {/* ⑤ Transaction Volume & Flow（全宽） */}
-        <VolumeCard refreshSeq={refreshSeq} />
+        {/* ⑤ 池 + 按交易对成交 */}
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.16fr_1fr]">
+          <PoolsListCard
+            pools={activePools}
+            coverageByPool={coverageByPool}
+            isPending={poolQuery.isPending}
+            failed={poolFailed}
+            onRetry={() => void poolQuery.refetch()}
+          />
+          <VolumeByPairCard
+            rows={volumeQuery.data ?? []}
+            days={days}
+            isPending={volumeQuery.isPending}
+            failed={volumeFailed}
+            onRetry={() => void volumeQuery.refetch()}
+          />
+        </section>
 
         {/* ⑥ 底部双 Tab */}
         <BottomTabsCard

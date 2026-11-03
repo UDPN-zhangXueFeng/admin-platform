@@ -27,6 +27,9 @@
  *    恢复 + Σ 门槛池快照），Freeze/Unfreeze 收敛到列表页。
  *  - pool/dashboard：水位分母换 requiredMinSum（引用地址的生效参与对累计
  *    门槛）；出款池概念退役提示。
+ * 2026-11-03 口径修正：Liq. Coverage 分母回退 token 级 Min. Liquidity（PRD
+ *   v2.0 §2.4.3），不再用 requiredMinSum；分子仍取 min(可用余额, 可用预授权)，
+ *   可用预授权为 0 时结果就是 0%（照算，不回落余额）。
  * P3 原型对齐（2026-09-23，行为规格 /tmp/kissen_prototype/udpn-kissen-network-mgt）：
  *  - lp-info 列表/详情（LpOnboardingPage / LpDetailsPage）：Onboard LP 按钮、
  *    Details+⋮ 动作列、Submit/Deactivate/Activate 三确认弹窗走 proto-ui
@@ -151,6 +154,7 @@ import {
   type ProtoStatusTone,
 } from './proto-ui';
 import { ApprovalQueue, ApprovalPendingTagWithDialog } from './inline-approval';
+import { computePoolCoverage } from './lp-coverage';
 
 /** KLPS LP 参与对启停审批 busCode（2026-10-22 P1）。 */
 const BUS_CODE_LP_PAIR_STATUS = 'kissen_lp_pair_status';
@@ -242,13 +246,12 @@ function InlineInfoTooltip({
           <button
             type="button"
             aria-label={label}
-            title={label}
             className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Info className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </TooltipTrigger>
-        <TooltipContent className="max-w-sm text-xs leading-relaxed">
+        <TooltipContent className="w-80 max-w-[calc(100vw-2rem)] whitespace-normal break-words text-xs leading-relaxed">
           {children}
         </TooltipContent>
       </Tooltip>
@@ -1156,6 +1159,13 @@ function PairPoolEditor({
           placeholder="Not checked if empty"
           onChange={(e) => onChange({ ...entry, [authKey]: e.target.value })}
         />
+        {/* 2026-11-03：资金池告警改按「覆盖率 = min(余额, 可用授权) ÷ token 最低流动性 < 提醒比率」，
+            此字段不再参与告警；目前仅被新增/改参的余额预检使用（按地址 Σ 后与实时余额比较）。
+            是否保留该字段待业务确认。 */}
+        <p className="text-[11px] leading-4 text-muted-foreground">
+          Balance pre-check only (summed per pool address). Pool alerts no longer use
+          this value — they follow the coverage ratio.
+        </p>
       </div>
     </div>
   );
@@ -1256,7 +1266,7 @@ function PrecheckDialog({
                 <th className="px-2 py-2">Pool Address</th>
                 <th className="px-2 py-2 text-right">Live Balance</th>
                 <th className="px-2 py-2 text-right">Σ Min. Liquidity</th>
-                <th className="px-2 py-2 text-right">Σ Auth Threshold</th>
+                <th className="px-2 py-2 text-right">Σ Min. Authorization</th>
                 <th className="px-2 py-2">Result</th>
               </tr>
             </thead>
@@ -3359,55 +3369,41 @@ function AuthorizedAmountCell({ row }: { row: LpPoolRow }) {
   );
 }
 
-/** 水位条比例：coverage 219% 才满条，45.6% 位置为 100% 刻度线（原型口径）。 */
-const POOL_COVERAGE_BAR_SCALE = 0.456;
+/**
+ * 固定告警线：覆盖率（条量程 0~100%）低于 20% 即给 LP 发通知（2026-11-03 用户裁决）。
+ * 与后端 `PoolAlertMath.ALERT_RATIO` 必须一致。
+ */
+const COVERAGE_ALERT_PERCENT = 20;
 
 /**
- * Liq. Coverage 水位单元格（原型 dashboard/LiquidityPoolManagement 同口径）：
- * 分子 = min(可用余额, 可用预授权)（未设置预授权时 = 余额），
- * 分母 = Σ生效参与对最低流动性（requiredMinSum）；分母无效（含未挂参与对）
- * 或分子缺失 → '-'。低水位判定用逐池 remindThreshold（原型列表页为全局
- * 20%，表头 ⓘ 文案保留 20% 原文）。
+ * Liq. Coverage 水位单元格（口径见 ./lp-coverage）：水位条（0~100%）+ 20% 告警竖线 +
+ * 百分比 + Sufficient/Low 徽章；分母无效 → '-'。
  */
 function PoolCoverageCell({ row }: { row: LpPoolRow }) {
-  const balance = Number(row.availableBalanceCache);
-  const avail =
-    row.preauthAvailable == null ? null : Number(row.preauthAvailable);
-  const numerator =
-    avail != null && !Number.isNaN(avail) && avail >= 0 && avail < balance
-      ? avail
-      : balance;
-  const requiredMinSum =
-    row.requiredMinSum == null ? Number.NaN : Number(row.requiredMinSum);
-  const hasCalculation =
-    Number.isFinite(numerator) &&
-    Number.isFinite(requiredMinSum) &&
-    requiredMinSum > 0;
-  const percentage = hasCalculation
-    ? Math.round((numerator / requiredMinSum) * 100)
-    : null;
-  // 三档水位色（原型 2026-09-20 口径）：0 → 红，低于提醒阈值 → 琥珀，充足 → 绿。
-  const remindThreshold = Number(row.remindThreshold);
-  const isLow =
-    percentage != null &&
-    Number.isFinite(remindThreshold) &&
-    percentage < remindThreshold * 100;
+  const coverage = computePoolCoverage(row);
+  const numerator = coverage?.numerator ?? Number.NaN;
+  const requiredMin = coverage?.requiredMin ?? Number.NaN;
+  const percentage = coverage?.percentage ?? null;
+  // 三档水位色：0 → 红，低于 20% 告警线 → 琥珀，充足 → 绿。
+  const isLow = percentage != null && percentage < COVERAGE_ALERT_PERCENT;
   const barTone =
     percentage != null && percentage <= 0
       ? 'bg-destructive'
       : isLow
         ? 'bg-warning'
         : 'bg-success';
-  const fillWidth =
-    percentage == null
-      ? 0
-      : Math.min(100, Math.round(percentage * POOL_COVERAGE_BAR_SCALE));
+  const fillWidth = percentage == null ? 0 : Math.min(100, Math.round(percentage));
 
-  if (!hasCalculation) {
+  if (percentage == null) {
     return <span className="block text-center text-muted-foreground">-</span>;
   }
+  // 行内 Tooltip：把分子/分母/告警线摊开，避免再被表头公式和 token 默认值误导。
+  const coveredSymbol = row.tokenSymbol ? ` ${row.tokenSymbol}` : '';
+  const breakdown =
+    `${formatAmount(numerator)} ÷ ${formatAmount(requiredMin)}${coveredSymbol}` +
+    ` = ${percentage}%\nAlert line ${COVERAGE_ALERT_PERCENT}% (LP is notified below this line)`;
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2" title={breakdown}>
       <span
         aria-hidden="true"
         className="relative h-1.5 w-[130px] shrink-0 rounded bg-muted"
@@ -3416,9 +3412,10 @@ function PoolCoverageCell({ row }: { row: LpPoolRow }) {
           className={cn('absolute inset-y-0 left-0 rounded', barTone)}
           style={{ width: `${fillWidth}%` }}
         />
+        {/* 20% 告警竖线：填充条越过它即达标，落在它左侧就会通知 LP */}
         <span
-          className="absolute -inset-y-[3px] w-0.5 bg-muted-foreground/50"
-          style={{ left: `${POOL_COVERAGE_BAR_SCALE * 100}%` }}
+          className="absolute -inset-y-[3px] w-0.5 bg-foreground/40"
+          style={{ left: `${COVERAGE_ALERT_PERCENT}%` }}
         />
       </span>
       <span className="w-[52px] text-xs tabular-nums text-muted-foreground">
@@ -3489,11 +3486,21 @@ const LP_POOL_TABLE_COLUMNS: ColumnDef<LpPoolRow & { id: string }>[] = [
       <div className="flex items-center gap-1.5">
         <span>Liq. Coverage</span>
         <InlineInfoTooltip label="Coverage formula">
-          <div>
-            Liquidity Coverage = min (Available Balance, Available
-            Pre-Authorized) ÷ Min. Liquidity
-          </div>
-          <div>Low Liquidity Threshold: 20%</div>
+          <p className="mb-1.5">
+            Coverage = min(Available Balance, Available Pre-Auth) ÷ the
+            token&apos;s Min. Liquidity
+          </p>
+          <p className="mb-1.5">
+            Min. Liquidity is the token-level setting (Token Management), not the
+            sum of the pair minimums. An available pre-authorization of 0 counts
+            as 0% — only a missing pre-authorization snapshot falls back to the
+            balance.
+          </p>
+          <p>
+            Coverage below <strong>20%</strong> shows Low and triggers a
+            notification to the LP (the vertical line on the bar). Hover a value
+            to see the numbers.
+          </p>
         </InlineInfoTooltip>
       </div>
     ),

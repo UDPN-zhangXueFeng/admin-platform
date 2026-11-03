@@ -57,6 +57,7 @@ import {
   LP_PROJECT_ID,
   isServiceDown,
   txNoText,
+  txStageEventTitle,
   useLpSessionQuery,
   useTokenMeta,
   useTxFlowChainQuery,
@@ -1088,9 +1089,11 @@ function TxDetailView({ txKey }: { txKey: string }) {
                       const fields: { label: string; value: string }[] = [];
                       // 动作类事件（statusTo=0）无状态名，用其描述作标题
                       const isAction = (e.statusTo ?? 0) <= 0;
+                      // 2026-11-03 三系统统一：阶段事件用业务动作名（与 admin/
+                      // gateway 同文案），通用事件回退服务端文案。
                       const title = isAction
                         ? e.remark || 'Action'
-                        : e.title;
+                        : txStageEventTitle(e.step, e.title);
                       if (e.statusTo === 5) {
                         // 2026-10-30：本金无意义，展示用户实付
                         fields.push({
