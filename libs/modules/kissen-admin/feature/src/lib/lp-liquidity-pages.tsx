@@ -1075,15 +1075,11 @@ function pairPoolEntryToReq(entry: PairPoolEntry): LpOnboardPair | null {
   if (!Number.isFinite(pairId) || pairId <= 0 || !sourceAddress || !targetAddress) {
     return null;
   }
-  const side = (address: string, min: string, auth: string) => ({
-    address,
-    ...(min.trim() !== '' ? { minLiquidity: min.trim() } : {}),
-    ...(auth.trim() !== '' ? { authRequired: auth.trim() } : {}),
-  });
+  // 2026-11-04 C 口径：只传地址；门槛由后端按 token 级最低流动性校验
   return {
     pairId,
-    source: side(sourceAddress, entry.sourceMin, entry.sourceAuth),
-    target: side(targetAddress, entry.targetMin, entry.targetAuth),
+    source: { address: sourceAddress },
+    target: { address: targetAddress },
   };
 }
 
@@ -1125,9 +1121,6 @@ function PairPoolEditor({
     sideLabel: 'Source' | 'Target',
     symbol: string | undefined,
     addressKey: 'sourceAddress' | 'targetAddress',
-    minKey: 'sourceMin' | 'targetMin',
-    authKey: 'sourceAuth' | 'targetAuth',
-    minDefault: string | number | null | undefined,
   ) => (
     <div className="flex-1 space-y-3 rounded-md border border-border/50 p-3">
       <div className="text-sm font-medium">
@@ -1144,35 +1137,12 @@ function PairPoolEditor({
           onChange={(e) => onChange({ ...entry, [addressKey]: e.target.value })}
         />
       </div>
-      <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">Min. Liquidity</label>
-        <Input
-          type="number"
-          min={0}
-          value={entry[minKey]}
-          placeholder={
-            minDefault != null && minDefault !== '' ? `Default: ${minDefault}` : 'Token default'
-          }
-          onChange={(e) => onChange({ ...entry, [minKey]: e.target.value })}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">Auth Threshold</label>
-        <Input
-          type="number"
-          min={0}
-          value={entry[authKey]}
-          placeholder="Not checked if empty"
-          onChange={(e) => onChange({ ...entry, [authKey]: e.target.value })}
-        />
-        {/* 2026-11-03：资金池告警改按「覆盖率 = min(余额, 可用授权) ÷ token 最低流动性 < 提醒比率」，
-            此字段不再参与告警；目前仅被新增/改参的余额预检使用（按地址 Σ 后与实时余额比较）。
-            是否保留该字段待业务确认。 */}
-        <p className="text-[11px] leading-4 text-muted-foreground">
-          Balance pre-check only (summed per pool address). Pool alerts no longer use
-          this value — they follow the coverage ratio.
-        </p>
-      </div>
+      {/* 2026-11-04 C 口径：门槛统一取 token 级最低流动性（Token Management），
+          对侧不再单独填写 Min. Liquidity / Auth Threshold；准入只校验地址余额 ≥ token 下限。 */}
+      <p className="text-[11px] leading-4 text-muted-foreground">
+        Admission requires this address to hold at least the token&apos;s Min.
+        Liquidity (set in Token Management). Balance is the only check.
+      </p>
     </div>
   );
 
@@ -1215,17 +1185,11 @@ function PairPoolEditor({
           'Source',
           selected ? selected.sourceSymbol || selected.sourceTokenCode : undefined,
           'sourceAddress',
-          'sourceMin',
-          'sourceAuth',
-          selected?.sourceMinLiquidity,
         )}
         {renderSide(
           'Target',
           selected ? selected.targetSymbol || selected.targetTokenCode : undefined,
           'targetAddress',
-          'targetMin',
-          'targetAuth',
-          selected?.targetMinLiquidity,
         )}
       </div>
     </div>
