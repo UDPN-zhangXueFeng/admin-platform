@@ -24,6 +24,7 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 import type { ClearStatus, SourceType } from '@myorg/modules/td-admin/data-access';
 import { SuspenseStatusBadge } from '.';
+import { createRowActionsColumn } from '../row-actions';
 
 const ALL = 'ALL';
 const PAGE_SIZE = 10;
@@ -83,6 +84,7 @@ export function SuspenseAdjustmentListPage() {
   const [queryValues, setQueryValues] =
     React.useState<SuspenseAdjustmentFilterForm>(EMPTY_FORM);
   const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE);
 
   const query = React.useMemo<SuspenseAdjustmentListQuery>(
     () => formToQuery(queryValues),
@@ -96,8 +98,8 @@ export function SuspenseAdjustmentListPage() {
   // client-side 分页（后端无分页，前端全量 + 切片，复刻源 pageSize:10 行为）。
   const total = allRows.length;
   const pagedRows = React.useMemo(
-    () => allRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-    [allRows, page],
+    () => allRows.slice((page - 1) * pageSize, page * pageSize),
+    [allRows, page, pageSize],
   );
 
   const sourceTypeOptions = React.useMemo(
@@ -190,41 +192,26 @@ export function SuspenseAdjustmentListPage() {
           />
         ),
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <div className="flex gap-3">
-              {r.canAdjust ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() =>
-                    router.push(
-                      `/suspense-adjustment/edit?id=${r.suspenseRecordId}&suspenseTxnId=${encodeURIComponent(
-                        r.suspenseTxnId,
-                      )}`,
-                    )
-                  }
-                >
-                  {t('action.adjust')}
-                </Button>
-              ) : null}
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(`/suspense-adjustment/view?id=${r.suspenseRecordId}`)
-                }
-              >
-                {t('action.viewDetails')}
-              </Button>
-            </div>
-          );
+      createRowActionsColumn<SuspenseAdjustmentListItem>({
+        detail: {
+          label: t('action.viewDetails'),
+          onClick: (r) => router.push(`/suspense-adjustment/view?id=${r.suspenseRecordId}`),
         },
-      },
+        menu: (r) =>
+          r.canAdjust
+            ? [
+                {
+                  label: t('action.adjust'),
+                  onClick: (row) =>
+                    router.push(
+                      `/suspense-adjustment/edit?id=${row.suspenseRecordId}&suspenseTxnId=${encodeURIComponent(
+                        row.suspenseTxnId,
+                      )}`,
+                    ),
+                },
+              ]
+            : [],
+      }),
     ],
     [t, router],
   );
@@ -305,9 +292,13 @@ export function SuspenseAdjustmentListPage() {
             emptyMessage={t('empty')}
             pagination={{
               page,
-              pageSize: PAGE_SIZE,
+              pageSize,
               total,
               onPageChange: setPage,
+              onPageSizeChange: (size) => {
+                setPage(1);
+                setPageSize(size);
+              },
             }}
           />
         </div>

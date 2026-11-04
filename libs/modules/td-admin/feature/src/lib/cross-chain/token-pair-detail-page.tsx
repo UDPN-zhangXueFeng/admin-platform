@@ -19,7 +19,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { usePermission } from '@myorg/shared/util-auth';
 import {
   CrossChainStatusBadge,
   CustomInformation,
@@ -36,6 +36,7 @@ import {
   EMPTY_DISPLAY,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 /** 「全部」占位 value。 */
 const ALL_VALUE = 'all';
@@ -259,6 +260,11 @@ export function TokenPairDetailPage(): React.JSX.Element {
   }, [detail, t, tCommon]);
 
   // ── 操作记录表列 ──
+  // 「查看」权限（原 PermissionGuard OP_RECORD_VIEW_BTN 的 hook 形态）。
+  const canOpRecordView = usePermission(
+    CROSS_CHAIN_PERMISSIONS.OP_RECORD_VIEW_BTN,
+  );
+
   const recordColumns = React.useMemo<ColumnDef<TokenPairRecordItem>[]>(
     () => [
       {
@@ -300,34 +306,24 @@ export function TokenPairDetailPage(): React.JSX.Element {
         header: t('filter.status'),
         cell: ({ row }) => <OpRecordStatusBadge status={row.original.status} />,
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <PermissionGuard
-              permission={CROSS_CHAIN_PERMISSIONS.OP_RECORD_VIEW_BTN}
-            >
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
+      // 行操作：查看 内联跳 /approval-manage/view（权限 OP_RECORD_VIEW_BTN，缺失时整列空）。
+      createRowActionsColumn<TokenPairRecordItem>(
+        canOpRecordView
+          ? {
+              detail: {
+                label: t('action.view'),
+                onClick: (r) =>
                   router.push(
                     `/approval-manage/view?id=${r.taskId ?? ''}&busCode=${
                       r.businessCode ?? ''
                     }`,
-                  )
-                }
-              >
-                {t('action.view')}
-              </Button>
-            </PermissionGuard>
-          );
-        },
-      },
+                  ),
+              },
+            }
+          : {},
+      ),
     ],
-    [t, router],
+    [t, router, canOpRecordView],
   );
 
   return (
@@ -401,6 +397,8 @@ export function TokenPairDetailPage(): React.JSX.Element {
                   total: recordTotal,
                   onPageChange: (p) =>
                     setRecordPagination((prev) => ({ ...prev, pageNum: p })),
+                  onPageSizeChange: (size) =>
+                    setRecordPagination({ pageNum: 1, pageSize: size }),
                 }}
               />
             </div>

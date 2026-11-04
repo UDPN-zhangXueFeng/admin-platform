@@ -90,7 +90,7 @@ export function ReserveAssetDrawer({
   // Currency：new 态下拉；edit 态只读展示 record.currency。
   const currencyQuery = useCurrencyListQuery();
   // Asset category list：new 态查 Cash id（源码 reserveAccountId:0 拉全量类别）。
-  const assetCategoryQuery = useAssetCategoryListQuery({});
+  const assetCategoryQuery = useAssetCategoryListQuery({ reserveAccountId: 0 });
 
   const currencyOptions = React.useMemo(() => {
     const seen = new Set<string>();

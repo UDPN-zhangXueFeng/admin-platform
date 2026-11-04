@@ -10,9 +10,10 @@
 import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
-import { Button, DataTable } from '@myorg/shared/ui';
+import { DataTable } from '@myorg/shared/ui';
+import { usePermission } from '@myorg/shared/util-auth';
+import { createRowActionsColumn } from '../../row-actions';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { PermissionGuard } from '@myorg/shared/util-auth';
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
@@ -33,6 +34,8 @@ function useWalletDetailColumns(
   onView: (row: WalletDetailItem) => void,
 ): ColumnDef<WalletDetailItem>[] {
   const t = useTranslations('modules.tokenized-deposit');
+  // 原 PermissionGuard(TD_PERMISSIONS.VIEW_WALLET)：无权限整格不渲染
+  const canViewWallet = usePermission(TD_PERMISSIONS.VIEW_WALLET);
   return React.useMemo(
     () => [
       {
@@ -98,23 +101,14 @@ function useWalletDetailColumns(
             } as ColumnDef<WalletDetailItem>,
           ]
         : []),
-      {
-        id: 'actions',
-        header: t('PUB_Action'),
-        cell: ({ row }) => (
-          <PermissionGuard permission={TD_PERMISSIONS.VIEW_WALLET}>
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => onView(row.original)}
-            >
-              {t('PUB_Detail')}
-            </Button>
-          </PermissionGuard>
-        ),
-      },
+      // 原 PermissionGuard 包裹的 Detail 按钮：无权限时不渲染任何操作
+      canViewWallet
+        ? createRowActionsColumn<WalletDetailItem>({
+            detail: { label: t('PUB_Detail'), onClick: (row) => onView(row) },
+          })
+        : createRowActionsColumn<WalletDetailItem>({}),
     ],
-    [onView, t, withStatus],
+    [canViewWallet, onView, t, withStatus],
   );
 }
 
@@ -138,15 +132,16 @@ export function DetailsOrHistoryBody({
   );
   // 分页（源 initialValues accountType/stablecoinId + useCustomTable 默认分页）。
   const [pageNum, setPageNum] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
   const params = React.useMemo(
     () => ({
       pageNum,
-      pageSize: DEFAULT_PAGE_SIZE,
+      pageSize,
       accountType: ctx.accountType,
       stablecoinId:
         ctx.stablecoinId != null ? Number(ctx.stablecoinId) : undefined,
     }),
-    [pageNum, ctx.accountType, ctx.stablecoinId],
+    [pageNum, pageSize, ctx.accountType, ctx.stablecoinId],
   );
 
   const detailQuery = useWalletDetailListQuery(params);
@@ -172,9 +167,13 @@ export function DetailsOrHistoryBody({
           isLoading={detailQuery.isLoading}
           pagination={{
             page: pageNum,
-            pageSize: DEFAULT_PAGE_SIZE,
+            pageSize,
             total,
             onPageChange: setPageNum,
+            onPageSizeChange: (size) => {
+              setPageNum(1);
+              setPageSize(size);
+            },
           }}
         />
       </div>
@@ -193,9 +192,13 @@ export function DetailsOrHistoryBody({
         isLoading={historyQuery.isLoading}
         pagination={{
           page: pageNum,
-          pageSize: DEFAULT_PAGE_SIZE,
+          pageSize,
           total: historyTotal,
           onPageChange: setPageNum,
+          onPageSizeChange: (size) => {
+            setPageNum(1);
+            setPageSize(size);
+          },
         }}
       />
     </div>

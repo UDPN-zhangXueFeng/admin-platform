@@ -1,9 +1,13 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
-import { Button } from '@myorg/shared/ui';
 import { ChartOfAccountsStatusTag } from '.';
 import type { CoaAction, CoaRow } from '@myorg/modules/td-admin/data-access';
+import {
+  createRowActionsColumn,
+  renderRowActions,
+  type RowActionsOptions,
+} from '../row-actions';
 
 /**
  * COA 树表格列定义（迁移自源 useChartOfAccounts coaColumns）。
@@ -33,6 +37,16 @@ function coaActionLabel(action: CoaAction, t: (key: string) => string): string {
 }
 
 export function buildCoaColumns({ t, onAction }: CoaColumnsOptions): ColumnDef<CoaRow>[] {
+  // COA 行无固定 Details 类操作（actions 数组按行动态给出）→ 全部收进 ⋮ 菜单。
+  const actionsOptions: RowActionsOptions<CoaRow> = {
+    menu: (row) =>
+      (row.actions ?? []).map((action) => ({
+        label: coaActionLabel(action, t),
+        onClick: () => onAction(action, row),
+      })),
+  };
+  const actionsColumn = createRowActionsColumn<CoaRow>(actionsOptions);
+
   return [
     {
       accessorKey: 'accountCode',
@@ -115,29 +129,12 @@ export function buildCoaColumns({ t, onAction }: CoaColumnsOptions): ColumnDef<C
       },
     },
     {
-      id: 'actions',
-      header: t('coa.actions'),
-      cell: ({ row }) => {
-        const r = row.original;
-        const actions = r.actions ?? [];
-        if (!actions.length) {
-          return <span className="text-muted-foreground">--</span>;
-        }
-        return (
-          <div className="flex flex-wrap gap-2">
-            {actions.map((action) => (
-              <Button
-                key={action}
-                variant="link"
-                className="h-auto p-0 leading-5"
-                onClick={() => onAction(action, r)}
-              >
-                {coaActionLabel(action, t)}
-              </Button>
-            ))}
-          </div>
-        );
-      },
+      ...actionsColumn,
+      // 旧行为：无操作的行显示 -- 占位（helper 本身对空操作渲染空白）。
+      cell: ({ row }) =>
+        renderRowActions(row.original, actionsOptions) ?? (
+          <span className="text-muted-foreground">--</span>
+        ),
     },
   ];
 }

@@ -187,6 +187,8 @@ export function FxRateDetailPage(): React.JSX.Element {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

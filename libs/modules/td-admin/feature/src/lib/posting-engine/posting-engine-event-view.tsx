@@ -24,6 +24,7 @@ import {
   type PostingHistoryItem,
 } from '@myorg/modules/td-admin/data-access';
 import { PostingStatusBadge } from '.';
+import { createRowActionsColumn } from '../row-actions';
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
@@ -246,34 +247,24 @@ export function PostingEngineEventView({
         header: t('versionHistory.status'),
         cell: ({ row }) => <PostingStatusBadge status={row.original.status} />,
       },
-      {
-        id: 'action',
-        header: t('versionHistory.action'),
-        cell: ({ row }) => (
-          <div className="flex gap-3">
-            {row.original.taskId && row.original.busCode ? (
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(
-                    `/approval-manage/view?id=${row.original.taskId}&busCode=${row.original.busCode}`
-                  )
-                }
-              >
-                {t('action.approval')}
-              </Button>
-            ) : null}
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => setSelected(row.original)}
-            >
-              {t('action.view')}
-            </Button>
-          </div>
-        ),
-      },
+      createRowActionsColumn<PostingHistoryItem>({
+        detail: {
+          label: t('action.view'),
+          onClick: (row) => setSelected(row),
+        },
+        menu: (row) =>
+          row.taskId && row.busCode
+            ? [
+                {
+                  label: t('action.approval'),
+                  onClick: (item) =>
+                    router.push(
+                      `/approval-manage/view?id=${item.taskId}&busCode=${item.busCode}`
+                    ),
+                },
+              ]
+            : [],
+      }),
     ],
     [t, router]
   );
@@ -426,6 +417,8 @@ export function PostingEngineEventView({
                   total: historyTotal,
                   onPageChange: (page) =>
                     setHistoryPage((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (size) =>
+                    setHistoryPage({ pageNum: 1, pageSize: size }),
                 }}
               />
             </div>

@@ -34,7 +34,7 @@ export default async function RootLayout({
       <head>
         <ThemeInjector colors={config.theme.colors} radius={config.theme.radius} />
       </head>
-      <body className="min-h-screen font-sans antialiased">
+      <body className="segmented-tabs min-h-screen font-sans antialiased">
         {children}
       </body>
     </html>

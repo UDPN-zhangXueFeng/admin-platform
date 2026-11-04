@@ -341,6 +341,8 @@ export function AccrualDetailPage() {
               total: walletTotal,
               onPageChange: (p) =>
                 setWalletPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setWalletPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

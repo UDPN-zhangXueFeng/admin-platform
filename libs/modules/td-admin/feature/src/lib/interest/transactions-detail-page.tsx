@@ -37,6 +37,7 @@ import {
 import { ALL_VALUE, TRANSACTION_STATUS_OPTIONS } from '.';
 import { TransactionStatusBadge } from '.';
 import { formatAdminTimestamp, formatAdminDate } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 const PAGE_SIZE = 10;
 
@@ -169,6 +170,8 @@ function DetailRecordsTab({ tokenBillId, t, tc }: { tokenBillId: number; t: (k: 
           total: data?.page?.total ?? 0,
           onPageChange: (page) =>
             setPagination((prev) => ({ ...prev, pageNum: page })),
+          onPageSizeChange: (size) =>
+            setPagination({ pageNum: 1, pageSize: size }),
         }}
         isLoading={isLoading}
       />
@@ -218,25 +221,17 @@ function OperationRecordsTab({ tokenBillId, tc }: { tokenBillId: number; tc: (k:
         );
       },
     },
-    {
-      id: 'actions',
-      header: tc('PUB_Action'),
-      cell: ({ row }) => {
-        const r = row.original;
-        if (!can('e338a3b41c21413db1d2ac7a90a65f5f')) return null;
-        return (
-          <Button
-            variant="link"
-            className="h-auto p-0"
-            onClick={() =>
-              router.push(`/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`)
-            }
-          >
-            {tc('Router_0010_4_3')}
-          </Button>
-        );
-      },
-    },
+    ...(can('e338a3b41c21413db1d2ac7a90a65f5f')
+      ? [
+          createRowActionsColumn<TransactionOperationRecord>({
+            detail: {
+              label: tc('Router_0010_4_3'),
+              onClick: (r) =>
+                router.push(`/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`),
+            },
+          }),
+        ]
+      : []),
   ];
 
   return (
@@ -249,6 +244,8 @@ function OperationRecordsTab({ tokenBillId, tc }: { tokenBillId: number; tc: (k:
         total: data?.page?.total ?? 0,
         onPageChange: (page) =>
           setPagination((prev) => ({ ...prev, pageNum: page })),
+        onPageSizeChange: (size) =>
+          setPagination({ pageNum: 1, pageSize: size }),
       }}
       isLoading={isLoading}
     />

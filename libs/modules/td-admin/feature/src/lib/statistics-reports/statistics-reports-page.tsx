@@ -246,6 +246,12 @@ export function StatisticsReportsPage() {
       total: listTotal,
       onPageChange: (page) =>
         setPagination((previous) => ({ ...previous, pageNum: page })),
+      onPageSizeChange: (size) =>
+        setPagination((previous) => ({
+          ...previous,
+          pageNum: 1,
+          pageSize: size,
+        })),
     }),
     [pagination.pageNum, pagination.pageSize, listTotal],
   );

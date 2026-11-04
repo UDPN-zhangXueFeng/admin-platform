@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import { Controller, useForm } from 'react-hook-form';
 import { getPermissionEmails, useAllExportTaskListQuery, useDeleteExportTaskMutation, useExportRuleDetailQuery, useMyExportTaskListQuery, type CreateExportTaskDTO, type ExportTaskListFilters } from '@myorg/modules/td-admin/data-access';
 import { downloadExportFile } from '@myorg/modules/td-admin/data-access/lib/statements';
@@ -153,30 +154,15 @@ function taskColumns(
           <span>{EMPTY_DISPLAY}</span>
         ),
     },
-    {
-      id: 'actions',
-      header: t('field.actions'),
-      cell: ({ row }) => (
-        <div className="flex gap-3">
-          {row.original.exportState === EXPORT_STATE_SUCCESS ? (
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => onDownload(row.original)}
-            >
-              {t('action.download')}
-            </Button>
-          ) : null}
-          <Button
-            variant="link"
-            className="h-auto p-0 text-red-600"
-            onClick={() => onDelete(row.original)}
-          >
-            {t('action.delete')}
-          </Button>
-        </div>
-      ),
-    },
+    // 无 Details 类操作：Download/Delete 折叠进 ⋮ 菜单
+    createRowActionsColumn<ExportTask>({
+      menu: (task) => [
+        ...(task.exportState === EXPORT_STATE_SUCCESS
+          ? [{ label: t('action.download'), onClick: () => onDownload(task) }]
+          : []),
+        { label: t('action.delete'), destructive: true, onClick: () => onDelete(task) },
+      ],
+    }),
   ];
 }
 
@@ -330,6 +316,7 @@ export function StatementsViewPage({
               pageSize: pagination.pageSize,
               total,
               onPageChange: (p) => setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) => setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>
@@ -558,6 +545,7 @@ export function StatementsExportPage() {
               pageSize: pagination.pageSize,
               total,
               onPageChange: (p) => setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) => setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

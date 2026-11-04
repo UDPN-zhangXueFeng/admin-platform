@@ -131,3 +131,47 @@
     animation: none;
   }
 }
+
+/* Segmented tab style, copied from kissen-admin's globals.css. Limited to Radix
+   tabs (data-orientation / data-state) so native role="tab" chip groups such as
+   token-selector-tabs-view keep their own styling. */
+body.segmented-tabs [role='tablist'][data-orientation] {
+  width: fit-content;
+  max-width: 100%;
+  height: auto;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: 0.75rem;
+  background-color: hsl(var(--muted) / 0.4);
+  padding: 0.25rem;
+}
+
+body.segmented-tabs [role='tab'][data-state] {
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background-color: transparent;
+  padding-inline: 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+body.segmented-tabs [role='tab'][data-state]::after {
+  display: none;
+}
+
+body.segmented-tabs [role='tab'][data-state]:not([data-state='active']) {
+  color: hsl(var(--muted-foreground));
+}
+
+body.segmented-tabs [role='tab'][data-state]:not([data-state='active']):hover {
+  background-color: hsl(var(--background) / 0.6);
+  color: hsl(var(--foreground));
+}
+
+body.segmented-tabs [role='tab'][data-state='active'] {
+  background-color: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.08);
+}

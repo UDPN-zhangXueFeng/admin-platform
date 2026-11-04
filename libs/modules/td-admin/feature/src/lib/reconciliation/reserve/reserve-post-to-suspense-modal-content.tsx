@@ -36,6 +36,7 @@ import {
   getReserveTypeKey,
 } from '..';
 import { toast } from 'sonner';
+import { createRowActionsColumn } from '../../row-actions';
 import { type ColumnDef } from '@tanstack/react-table';
 
 // ── 常量 ────────────────────────────────────────────────────────────────────────
@@ -307,24 +308,20 @@ export function ReservePostToSuspenseModalContent({
           />
         ),
       },
-      {
-        id: 'actions',
-        header: t('PUB_Action'),
-        cell: ({ row }) => (
-          <Button
-            variant="link"
-            size="sm"
-            className="h-auto p-0 text-destructive"
-            onClick={() =>
+      // EditableEntry 缺 DataTable 契约的 id；列泛型按注入 id 的行型声明后收窄。
+      createRowActionsColumn<EditableEntry & { id: string }>({
+        header: 'Actions',
+        menu: (row) => [
+          {
+            label: t('reconciliation_0126'),
+            destructive: true,
+            onClick: (data) =>
               setEntries((prev) =>
-                prev.filter((e) => e._rowKey !== row.original._rowKey),
-              )
-            }
-          >
-            {t('reconciliation_0126')}
-          </Button>
-        ),
-      },
+                prev.filter((e) => e._rowKey !== data._rowKey),
+              ),
+          },
+        ],
+      }) as ColumnDef<EditableEntry>,
     ],
     [t, debitAccounts, creditAccounts],
   );

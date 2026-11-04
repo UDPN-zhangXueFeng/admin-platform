@@ -50,6 +50,7 @@ import {
   transactionTypeLabelMap,
   signatureTypeMap,
 } from '.';
+import { createRowActionsColumn } from '../row-actions';
 
 
 /** Table row handed to DataTable — wire item plus its client-side row id. */
@@ -149,8 +150,7 @@ export function KeySignedTransactionsListPage() {
   const t = useTranslations('modules.key-management');
   const tCommon = useTranslations('common');
   const router = useRouter();
-  const [page, setPage] = React.useState(1);
-  const pageSize = 10;
+  const [page, setPage] = React.useState({ pageNum: 1, pageSize: 10 });
 
   const { register, reset, control, getValues } = useForm<FilterFormValues>({
     resolver: zodResolver(filterSchema),
@@ -192,10 +192,10 @@ export function KeySignedTransactionsListPage() {
       data.transactionHash = committed.transactionHash;
 
     return {
-      page: { pageSize, pageNum: page },
+      page: { pageSize: page.pageSize, pageNum: page.pageNum },
       data,
     };
-  }, [committed, page, pageSize]);
+  }, [committed, page]);
 
   const {
     data: listData,
@@ -213,17 +213,17 @@ export function KeySignedTransactionsListPage() {
 
   const handleQuery = () => {
     setCommitted(getValues());
-    setPage(1);
+    setPage((prev) => ({ ...prev, pageNum: 1 }));
   };
 
   const handleReset = () => {
     reset(DEFAULT_FILTER_VALUES);
     setCommitted(DEFAULT_FILTER_VALUES);
-    setPage(1);
+    setPage((prev) => ({ ...prev, pageNum: 1 }));
   };
 
-  const handleViewDetail = (txRecordId?: number) => {
-    if (txRecordId === undefined) return;
+  const handleViewDetail = (txRecordId?: number | null) => {
+    if (txRecordId == null) return;
     router.push(
       `/key-management/key-signed-transactions/detail?id=${txRecordId}`,
     );
@@ -320,20 +320,12 @@ export function KeySignedTransactionsListPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('key_management_0012'),
-        cell: ({ row }) => (
-          <Button
-            variant="link"
-            className="h-auto p-0"
-            disabled={row.original.txRecordId == null}
-            onClick={() => handleViewDetail(row.original.txRecordId)}
-          >
-            {t('key_management_0012')}
-          </Button>
-        ),
-      },
+      createRowActionsColumn<KeySignedTransactionRow>({
+        detail: {
+          label: t('key_management_0012'),
+          onClick: (r) => handleViewDetail(r.txRecordId),
+        },
+      }),
     ],
     [t, tCommon]
   );
@@ -492,10 +484,11 @@ export function KeySignedTransactionsListPage() {
           isLoading={isLoading}
           emptyMessage={t('PUB_NoData')}
           pagination={{
-            page,
-            pageSize,
+            page: page.pageNum,
+            pageSize: page.pageSize,
             total,
-            onPageChange: setPage,
+            onPageChange: (p) => setPage((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) => setPage({ pageNum: 1, pageSize: size }),
           }}
         />
       </div>

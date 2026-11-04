@@ -6,11 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 
-import {
-  Button,
-  DataTable,
-  type DataTablePagination,
-} from '@myorg/shared/ui';
+import { Button, DataTable, type DataTablePagination } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
@@ -28,6 +24,7 @@ import {
   formatTimestamp,
 } from '.';
 import { ReconciliationSection } from '.';
+import { createRowActionsColumn } from '../row-actions';
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
 
@@ -208,28 +205,25 @@ export function ReserveListPage() {
           </span>
         ),
       },
-      {
-        id: 'actions',
-        header: t('PUB_Detail'),
-        cell: ({ row }) => {
-          if (!canView) {
-            return <span className="text-muted-foreground">{EMPTY_FIELD_VALUE}</span>;
-          }
-          return (
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
-                router.push(
-                  `/reconciliation/reserve/view?id=${row.original.reserveAccountId}&tab=list`,
-                )
-              }
-            >
-              {t('PUB_Detail')}
-            </Button>
-          );
-        },
-      },
+      canView ? (
+        createRowActionsColumn<ReserveAssetSummaryRespVo>({
+          detail: {
+            label: t('PUB_Detail'),
+            onClick: (row) =>
+              router.push(
+                `/reconciliation/reserve/view?id=${row.reserveAccountId}&tab=list`,
+              ),
+          },
+        })
+      ) : (
+        {
+          id: 'actions',
+          header: 'Actions',
+          cell: () => (
+            <span className="text-muted-foreground">{EMPTY_FIELD_VALUE}</span>
+          ),
+        }
+      ),
     ],
     [t, canView, router],
   );
@@ -241,6 +235,8 @@ export function ReserveListPage() {
       total,
       onPageChange: (page) =>
         setPagination((prev) => ({ ...prev, pageNum: page })),
+      onPageSizeChange: (size) =>
+        setPagination({ pageNum: 1, pageSize: size }),
     }),
     [pagination.pageNum, pagination.pageSize, total],
   );

@@ -36,6 +36,7 @@ import {
 import { ALL_VALUE } from './interest.constants';
 import { InterestStatusBadge } from '.';
 import { formatAdminTimestamp, formatAdminDate } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
 
@@ -169,45 +170,41 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
 
   const columns: ColumnDef<InterestRule>[] = [
     ...baseColumns,
-    {
-      id: 'actions',
-      header: tc('PUB_Action'),
-      cell: ({ row }) => {
-        const r = row.original;
-        return (
-          <div className="flex items-center gap-3">
-            {can(INTEREST_PERMISSIONS.VIEW_POLICY) && (
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(`/interest/policy/view?id=${r.interestRuleId}`)
-                }
-              >
-                {tc('Router_0010_4_3')}
-              </Button>
-            )}
-            {can(INTEREST_PERMISSIONS.EDIT_POLICY) && (
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                disabled={r.status === 1}
-                onClick={() =>
-                  router.push(`${createPath}?id=${r.interestRuleId}`)
-                }
-              >
-                {tc('Router_0010_4_2')}
-              </Button>
-            )}
-            {can(INTEREST_PERMISSIONS.DISABLE_POLICY) && (
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                disabled={r.status !== 10}
-                onClick={async () => {
+    // 行操作：详情 内联；编辑 / 禁用 / 启用 折叠进 ⋮ 菜单
+    //（权限缺失隐藏对应项——与原 can() && 条件渲染一致；状态不满足时置灰）。
+    createRowActionsColumn<InterestRule>({
+      ...(can(INTEREST_PERMISSIONS.VIEW_POLICY)
+        ? {
+            detail: {
+              label: tc('Router_0010_4_3'),
+              onClick: (r) =>
+                router.push(`/interest/policy/view?id=${r.interestRuleId}`),
+            },
+          }
+        : {}),
+      menu: (r) => [
+        ...(can(INTEREST_PERMISSIONS.EDIT_POLICY)
+          ? [
+              {
+                label: tc('Router_0010_4_2'),
+                disabled: r.status === 1,
+                onClick: () =>
+                  router.push(`${createPath}?id=${r.interestRuleId}`),
+              },
+            ]
+          : []),
+        ...(can(INTEREST_PERMISSIONS.DISABLE_POLICY)
+          ? [
+              {
+                label: tc('Router_0010_4_5'),
+                disabled: r.status !== 10,
+                onClick: async () => {
                   if (
                     !window.confirm(
-                      t('interest_0008').replace('${name}', r.interestPolicyName),
+                      t('interest_0008').replace(
+                        '${name}',
+                        r.interestPolicyName,
+                      ),
                     )
                   )
                     return;
@@ -216,20 +213,22 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
                     state: 15,
                   });
                   toast.success(tc('PUB_Success'));
-                }}
-              >
-                {tc('Router_0010_4_5')}
-              </Button>
-            )}
-            {can(INTEREST_PERMISSIONS.ENABLE_POLICY) && (
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                disabled={r.status !== 15}
-                onClick={async () => {
+                },
+              },
+            ]
+          : []),
+        ...(can(INTEREST_PERMISSIONS.ENABLE_POLICY)
+          ? [
+              {
+                label: tc('Router_0010_4_4'),
+                disabled: r.status !== 15,
+                onClick: async () => {
                   if (
                     !window.confirm(
-                      t('interest_0007').replace('${name}', r.interestPolicyName),
+                      t('interest_0007').replace(
+                        '${name}',
+                        r.interestPolicyName,
+                      ),
                     )
                   )
                     return;
@@ -238,15 +237,12 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
                     state: 10,
                   });
                   toast.success(tc('PUB_Success'));
-                }}
-              >
-                {tc('Router_0010_4_4')}
-              </Button>
-            )}
-          </div>
-        );
-      },
-    },
+                },
+              },
+            ]
+          : []),
+      ],
+    }),
   ];
 
   return (
@@ -318,6 +314,8 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
           total: data?.page?.total ?? 0,
           onPageChange: (page) =>
             setPagination((prev) => ({ ...prev, pageNum: page })),
+          onPageSizeChange: (size) =>
+            setPagination({ pageNum: 1, pageSize: size }),
         }}
         isLoading={isLoading}
       />

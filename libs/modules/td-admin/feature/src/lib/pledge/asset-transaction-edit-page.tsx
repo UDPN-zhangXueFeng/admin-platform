@@ -139,6 +139,7 @@ export function AssetTransactionEditPage(): React.JSX.Element {
     control,
     handleSubmit,
     setValue,
+    getValues,
     watch,
     reset,
     formState: { errors },
@@ -176,6 +177,26 @@ export function AssetTransactionEditPage(): React.JSX.Element {
       });
     }
   }, [isPresetAsset, reserveAssetOptions, presetReserveAccountId, reset]);
+
+  // 非预设入口：默认选中首个储备资产及其币种（对齐旧项目，仅当前为空时）。
+  const defaultAssetAppliedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (isPresetAsset || defaultAssetAppliedRef.current) return;
+    const first = reserveAssetOptions[0];
+    if (!first) return;
+    defaultAssetAppliedRef.current = true;
+    setValue('reserveAssetName', first.key);
+    setValue('currency', first.currency);
+    setSelectedReserveAccountId(Number(first.key));
+  }, [isPresetAsset, reserveAssetOptions, setValue]);
+
+  // 资产类别默认选中首个（仅当前为空时）；依赖已选资产，预设回填 reset 后可重新补选。
+  const selectedAssetKey = watch('reserveAssetName');
+  React.useEffect(() => {
+    if (assetCategoryOptions.length === 0) return;
+    if (getValues('assetCategory')) return;
+    setValue('assetCategory', assetCategoryOptions[0].value);
+  }, [selectedAssetKey, assetCategoryOptions, getValues, setValue]);
 
   // ── 提交 ──
   const saveTxMutation = useSaveReserveAssetTxMutation();
@@ -349,7 +370,9 @@ export function AssetTransactionEditPage(): React.JSX.Element {
                     <div key={option.value} className="flex items-center gap-2">
                       <RadioGroupItem value={option.value} id={id} />
                       <label htmlFor={id} className="text-sm">
-                        {option.label}
+                        {option.value === 'Inflow'
+                          ? t('assetTxnList.direction.inflow')
+                          : t('assetTxnList.direction.outflow')}
                       </label>
                     </div>
                   );
@@ -438,7 +461,7 @@ export function AssetTransactionEditPage(): React.JSX.Element {
           >
             {t('categoryAdd.back')}
           </Button>
-          <Button type="button" onClick={onSubmit} disabled={saveTxMutation.isPending}>
+          <Button type="button" onClick={onSubmit} loading={saveTxMutation.isPending} disabled={saveTxMutation.isPending}>
             {t('categoryAdd.submit')}
           </Button>
         </div>

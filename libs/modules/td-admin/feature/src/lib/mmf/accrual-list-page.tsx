@@ -17,7 +17,7 @@ import {
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { formatDate } from '@myorg/shared/util-dates';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import {
   useAccrualRecordListQuery,
   useBlockchainListQuery,
@@ -40,6 +40,7 @@ import {
   AccrualApplyModal,
   type AccrualApplyModalProps,
 } from './accrual-apply-modal';
+import { createRowActionsColumn } from '../row-actions';
 
 const DATE_FMT = 'YYYY-MM-DD';
 
@@ -228,6 +229,10 @@ export function AccrualListPage() {
     [batchOpen, singleOpen, defaultRuleId, currentData],
   );
 
+  // ── 行操作权限（PermissionGuard → usePermission，供 actions 列条件渲染）──
+  const canSingleApply = usePermission(MMF_PERMISSIONS.ACCRUAL_SINGLE_APPLY_BTN);
+  const canViewAccrual = usePermission(MMF_PERMISSIONS.ACCRUAL_VIEW_BTN);
+
   const columns = React.useMemo<ColumnDef<AccrualRecordItem>[]>(
     () => [
       {
@@ -303,49 +308,35 @@ export function AccrualListPage() {
           <MmfStatusBadge kind="accrual" status={row.original.status} />
         ),
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <div className="flex gap-3">
-              {r.status === ACCRUAL_STATUS_PENDING_APPLY ? (
-                <PermissionGuard
-                  permission={MMF_PERMISSIONS.ACCRUAL_SINGLE_APPLY_BTN}
-                >
-                  <Button
-                    variant="link"
-                    className="h-auto p-0"
-                    onClick={() => openSingleApply(r)}
-                  >
-                    {t('action.apply')}
-                  </Button>
-                </PermissionGuard>
-              ) : null}
-              <PermissionGuard permission={MMF_PERMISSIONS.ACCRUAL_VIEW_BTN}>
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => {
-                    const id = r.accrualRecordId ?? '';
-                    const billCode = r.billCode ?? '';
-                    router.push(
-                      `/mmf/accrual/${id}${
-                        billCode ? `?billCode=${encodeURIComponent(billCode)}` : ''
-                      }`,
-                    );
-                  }}
-                >
-                  {t('action.view')}
-                </Button>
-              </PermissionGuard>
-            </div>
-          );
-        },
-      },
+      // Details（View）内联；Apply（待计提状态 + 权限）收进 ⋮ 菜单，权限缺失时按源
+      // PermissionGuard 语义直接不渲染。
+      createRowActionsColumn<AccrualRecordItem>({
+        detail: canViewAccrual
+          ? {
+              label: t('action.view'),
+              onClick: (r) => {
+                const id = r.accrualRecordId ?? '';
+                const billCode = r.billCode ?? '';
+                router.push(
+                  `/mmf/accrual/${id}${
+                    billCode ? `?billCode=${encodeURIComponent(billCode)}` : ''
+                  }`,
+                );
+              },
+            }
+          : undefined,
+        menu: (r) =>
+          r.status === ACCRUAL_STATUS_PENDING_APPLY && canSingleApply
+            ? [
+                {
+                  label: t('action.apply'),
+                  onClick: (row) => openSingleApply(row),
+                },
+              ]
+            : [],
+      }),
     ],
-    [t, router, pagination.pageNum, pagination.pageSize, openSingleApply],
+    [t, router, pagination.pageNum, pagination.pageSize, openSingleApply, canSingleApply, canViewAccrual],
   );
 
   const onSubmit = React.useCallback((f: AccrualFilterForm) => {
@@ -463,6 +454,8 @@ export function AccrualListPage() {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

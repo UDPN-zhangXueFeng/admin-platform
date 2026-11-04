@@ -14,11 +14,11 @@ import * as React from 'react';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 
 import { Button } from '@myorg/shared/ui';
 import { DataTable } from '@myorg/shared/ui';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 
 import {
   useProductsQuery,
@@ -32,6 +32,7 @@ import { ProductAvatar, ProductStatusBadge } from '.';
 
 import { PRODUCT_PERMISSIONS } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 const defaultParams: ProductListParams = {
   page: 1,
@@ -51,6 +52,7 @@ export function ProductListPage() {
 
   const { data, isLoading, isError } = useProductsQuery(projectId, params);
   const deleteMutation = useDeleteProductMutation(projectId);
+  const canDelete = usePermission(PRODUCT_PERMISSIONS.DELETE);
 
   const items = data?.data ?? [];
   const paginationMeta = data?.pagination;
@@ -104,34 +106,24 @@ export function ProductListPage() {
           </span>
         ),
       },
-      {
-        id: 'actions',
-        header: t('actions'),
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push(`/product/${row.original.id}`)}
-            >
-              {t('view')}
-            </Button>
-            <PermissionGuard permission={PRODUCT_PERMISSIONS.DELETE}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive"
-                onClick={() => handleDelete(row.original.id)}
-              >
-                <Trash2 className="mr-1 h-4 w-4" />
-                {t('delete')}
-              </Button>
-            </PermissionGuard>
-          </div>
-        ),
-      },
+      createRowActionsColumn<Product>({
+        detail: {
+          label: t('view'),
+          onClick: (row) => router.push(`/product/${row.id}`),
+        },
+        menu: (row) =>
+          canDelete
+            ? [
+                {
+                  label: t('delete'),
+                  destructive: true,
+                  onClick: (data) => handleDelete(data.id),
+                },
+              ]
+            : [],
+      }),
     ],
-    [router, handleDelete, t],
+    [router, handleDelete, t, canDelete],
   );
 
   if (isError) {
@@ -178,6 +170,8 @@ export function ProductListPage() {
                 total: paginationMeta.total,
                 onPageChange: (page) =>
                   setParams((prev) => ({ ...prev, page })),
+                onPageSizeChange: (size) =>
+                  setParams((prev) => ({ ...prev, page: 1, pageSize: size })),
               }
             : undefined
         }

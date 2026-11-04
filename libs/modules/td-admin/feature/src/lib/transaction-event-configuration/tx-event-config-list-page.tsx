@@ -28,6 +28,7 @@ import {
   statusToneClass,
 } from '.';
 import { ALL_VALUE } from './tx-event-config.constants';
+import { createRowActionsColumn } from '../row-actions';
 
 /**
  * react-hook-form 筛选表单形状。
@@ -197,26 +198,31 @@ export function TxEventConfigListPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) =>
-          canConfigureMappingRules ? (
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
+      // Actions：统一行操作列。无 Details 动作 → Configure Mapping Rules 放入 ⋮；
+      // 无权限时保留源 EMPTY_DISPLAY 占位（helper 无占位渲染）。
+      canConfigureMappingRules ? (
+        createRowActionsColumn<NormalizationBook>({
+          menu: (row) => [
+            {
+              label: t('action.configureMappingRules'),
+              onClick: () =>
                 router.push(
-                  `/transaction-event-configuration/mapping-rule?id=${row.original.financeBookId ?? ''}`
-                )
-              }
-            >
-              {t('action.configureMappingRules')}
-            </Button>
-          ) : (
+                  `/transaction-event-configuration/mapping-rule?id=${row.financeBookId ?? ''}`
+                ),
+            },
+          ],
+        })
+      ) : (
+        {
+          id: 'actions',
+          header: 'Actions',
+          enableSorting: false,
+          meta: { overflow: 'none', stickyRight: true },
+          cell: () => (
             <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>
           ),
-      },
+        }
+      ),
     ],
     [t, canConfigureMappingRules, router]
   );
@@ -294,6 +300,8 @@ export function TxEventConfigListPage() {
               total,
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

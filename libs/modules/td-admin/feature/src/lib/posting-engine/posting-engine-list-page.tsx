@@ -27,6 +27,7 @@ import {
   resolveTokenTypeMessageKey,
 } from '.';
 import { ALL_VALUE } from './posting-engine.constants';
+import { createRowActionsColumn } from '../row-actions';
 
 /**
  * react-hook-form 筛选表单形状。
@@ -206,39 +207,33 @@ export function PostingEngineListPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) =>
-          canViewDetails ? (
-            <div className="flex gap-3">
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
+      // Detail 内联；Mapping Rules 收进 ⋮ 菜单。无权限保留源 '--' 占位
+      // （helper 的 detail 是列级静态值，此处按权限整体降级为占位 cell）。
+      canViewDetails
+        ? createRowActionsColumn<PostingBook>({
+            detail: {
+              label: t('action.detail'),
+              onClick: (row) =>
+                router.push(
+                  `/posting-engine/book?id=${row.financeBookId ?? ''}`,
+                ),
+            },
+            menu: (row) => [
+              {
+                label: t('action.mappingRules'),
+                onClick: (r) =>
                   router.push(
-                    `/posting-engine/book?id=${row.original.financeBookId ?? ''}`
-                  )
-                }
-              >
-                {t('action.detail')}
-              </Button>
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(
-                    `/posting-engine/book?id=${row.original.financeBookId ?? ''}&tab=posting-engine-matrix`
-                  )
-                }
-              >
-                {t('action.mappingRules')}
-              </Button>
-            </div>
-          ) : (
-            <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>
-          ),
-      },
+                    `/posting-engine/book?id=${r.financeBookId ?? ''}&tab=posting-engine-matrix`,
+                  ),
+              },
+            ],
+          })
+        : {
+            ...createRowActionsColumn<PostingBook>({}),
+            cell: () => (
+              <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>
+            ),
+          },
     ],
     [t, canViewDetails, router]
   );
@@ -316,6 +311,8 @@ export function PostingEngineListPage() {
               total,
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

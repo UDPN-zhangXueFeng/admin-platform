@@ -28,25 +28,11 @@ export function formatValue(value: string): string {
  * @returns 格式化字符串，如 '1,234.56 HKD'
  */
 export function formatCurrency(amount: number, currency: string): string {
-  try {
-    return (
-      new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: currency.toUpperCase(),
-      })
-        .format(amount)
-        // 去掉 Intl 自动追加的货币码，统一用后缀格式
-        .replace(currency.toUpperCase(), '') + ` ${currency.toUpperCase()}`
-    );
-  } catch {
-    // 货币码非法（如 USDT），降级为纯数字 + 后缀
-    return (
-      new Intl.NumberFormat('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(amount) + ` ${currency.toUpperCase()}`
-    );
-  }
+  const code = currency.toUpperCase();
+  return `${new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)} ${code}`;
 }
 
 /**

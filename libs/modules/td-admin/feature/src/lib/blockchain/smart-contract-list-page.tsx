@@ -16,7 +16,7 @@ import {
   TooltipTrigger,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormField } from '@myorg/shared/ui-forms';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import {
   useDownloadSmartContractMutation,
   useSmartContractListQuery,
@@ -30,6 +30,7 @@ import {
   EMPTY_DISPLAY,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 /**
  * SmartContractListPage — 智能合约包列表页（含 blob 下载）。
@@ -121,6 +122,8 @@ export function SmartContractListPage(): React.JSX.Element {
     [downloadMutation, t],
   );
 
+  const canDownload = usePermission(BLOCKCHAIN_PERMISSIONS.SC_DOWNLOAD_BTN);
+
   const columns = React.useMemo<ColumnDef<SmartContractItem>[]>(
     () => [
       {
@@ -174,26 +177,16 @@ export function SmartContractListPage(): React.JSX.Element {
           </span>
         ),
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <PermissionGuard permission={BLOCKCHAIN_PERMISSIONS.SC_DOWNLOAD_BTN}>
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() => handleDownload(r)}
-              >
-                {t('action.download')}
-              </Button>
-            </PermissionGuard>
-          );
-        },
-      },
+      // 行内无 Details 类操作（下载为唯一操作）→ 全部收进 ⋮ 菜单。
+      createRowActionsColumn<SmartContractItem>({
+        menu: canDownload
+          ? (row) => [
+              { label: t('action.download'), onClick: () => handleDownload(row) },
+            ]
+          : () => [],
+      }),
     ],
-    [t, handleDownload],
+    [t, handleDownload, canDownload],
   );
 
   const onSubmit = React.useCallback((f: SmartContractFilterForm) => {
@@ -277,6 +270,8 @@ export function SmartContractListPage(): React.JSX.Element {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

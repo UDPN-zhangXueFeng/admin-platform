@@ -27,6 +27,7 @@ import {
   getTokenTypeKey,
 } from '.';
 import { ReconciliationSection } from '.';
+import { createRowActionsColumn } from '../row-actions';
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
 
@@ -326,42 +327,39 @@ export function RealTimeListPage() {
           </span>
         ),
       },
-      {
-        id: 'actions',
-        header: t('PUB_Detail'),
-        cell: ({ row }) => {
-          if (!canView) {
-            return <span className="text-muted-foreground">{EMPTY_FIELD_VALUE}</span>;
-          }
-          // 列表为 Token 维度汇总，Post to Suspense 实际作用于明细记录(reconciliationTxId)，
-          // 故列表与 Details 均跳详情页，在详情页对具体 Unmatched 记录执行调账。
-          const go = (tab: 'list' | 'investigation') =>
-            router.push(
-              `/reconciliation/real-time/view?id=${row.original.tokenId}&tab=${tab}`,
-            );
-          const hasUnmatched = (row.original.unmatchedCount ?? 0) > 0;
-          return (
-            <div className="flex items-center gap-3">
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() => go('list')}
-              >
-                {t('PUB_Detail')}
-              </Button>
-              {hasUnmatched && (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => go('investigation')}
-                >
-                  {t('reconciliation_0078')}
-                </Button>
-              )}
-            </div>
-          );
-        },
-      },
+      canView ? (
+        createRowActionsColumn<TokenReconSummaryRespVo>({
+          detail: {
+            label: t('PUB_Detail'),
+            // 列表为 Token 维度汇总，Post to Suspense 实际作用于明细记录(reconciliationTxId)，
+            // 故列表与 Details 均跳详情页，在详情页对具体 Unmatched 记录执行调账。
+            onClick: (row) =>
+              router.push(
+                `/reconciliation/real-time/view?id=${row.tokenId}&tab=list`,
+              ),
+          },
+          menu: (row) =>
+            (row.unmatchedCount ?? 0) > 0
+              ? [
+                  {
+                    label: t('reconciliation_0078'),
+                    onClick: (data) =>
+                      router.push(
+                        `/reconciliation/real-time/view?id=${data.tokenId}&tab=investigation`,
+                      ),
+                  },
+                ]
+              : [],
+        })
+      ) : (
+        {
+          id: 'actions',
+          header: 'Actions',
+          cell: () => (
+            <span className="text-muted-foreground">{EMPTY_FIELD_VALUE}</span>
+          ),
+        }
+      ),
     ],
     [t, canView, router],
   );
@@ -373,6 +371,8 @@ export function RealTimeListPage() {
       total,
       onPageChange: (page) =>
         setPagination((prev) => ({ ...prev, pageNum: page })),
+      onPageSizeChange: (size) =>
+        setPagination({ pageNum: 1, pageSize: size }),
     }),
     [pagination.pageNum, pagination.pageSize, total],
   );

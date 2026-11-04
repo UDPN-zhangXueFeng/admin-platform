@@ -53,6 +53,7 @@ import {
 
 import { PostToSuspenseModal } from './real-time/post-to-suspense-modal';
 import { RealTimeReconLogModal } from './real-time/recon-log-modal';
+import { createRowActionsColumn } from '../row-actions';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -373,39 +374,25 @@ export function RealTimeDetailPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('common_detail'),
-        cell: ({ row }) => {
-          const data = row.original;
-          // R2: only status===3 && canPostSuspense shows "Post to Suspense"
-          const canPost =
-            data.reconciliationStatus === 3 &&
-            data.canPostSuspense === true;
-
-          return (
-            <div className="flex gap-3">
-              {canPost ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => openPostModal(data)}
-                >
-                  {t('reconciliation_0095')}
-                </Button>
-              ) : (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => openLogModal(data)}
-                >
-                  {t('reconciliation_0110')}
-                </Button>
-              )}
-            </div>
-          );
-        },
-      },
+      createRowActionsColumn<TxReconDetailRespVo>({
+        header: 'Actions',
+        // R2: only status===3 && canPostSuspense shows "Post to Suspense",
+        // otherwise the recon log action.
+        menu: (row) =>
+          row.reconciliationStatus === 3 && row.canPostSuspense === true
+            ? [
+                {
+                  label: t('reconciliation_0095'),
+                  onClick: (data) => openPostModal(data),
+                },
+              ]
+            : [
+                {
+                  label: t('reconciliation_0110'),
+                  onClick: (data) => openLogModal(data),
+                },
+              ],
+      }),
     ],
     [t, basicInfo, openPostModal, openLogModal],
   );
@@ -671,6 +658,8 @@ export function RealTimeDetailPage() {
                 total: listResult.data?.page?.total ?? 0,
                 onPageChange: (page) =>
                   setListPage((prev) => ({ ...prev, pageNum: page })),
+                onPageSizeChange: (size) =>
+                  setListPage({ pageNum: 1, pageSize: size }),
               }}
             />
           </ReconciliationSection>
@@ -689,6 +678,8 @@ export function RealTimeDetailPage() {
                 total: investResult.data?.page?.total ?? 0,
                 onPageChange: (page) =>
                   setInvestPage((prev) => ({ ...prev, pageNum: page })),
+                onPageSizeChange: (size) =>
+                  setInvestPage({ pageNum: 1, pageSize: size }),
               }}
             />
           </ReconciliationSection>

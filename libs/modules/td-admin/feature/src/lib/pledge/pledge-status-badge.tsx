@@ -54,6 +54,10 @@ function toneClass(tone: string): string {
   return TONE_CLASS[tone] ?? TONE_CLASS.default;
 }
 
+// ── reserve 状态码集合（与 i18n status/statusColor 键一一对应，见 pledge.json）──
+
+const RESERVE_STATUS_CODES: ReadonlySet<number> = new Set([10, 15, 20, 50]);
+
 // ── categoryActive 二态色（源 view-basic Summary 表 `['gray','success'][s]`）──
 
 const CATEGORY_ACTIVE_TONE: Record<number, string> = {
@@ -121,8 +125,12 @@ export function PledgeStatusBadge({
     );
   }
 
-  // reserve：色 + 文案都走 i18n 动态 key（与 list-page 行 status 一致）
+  // reserve：色 + 文案都走 i18n 动态 key（与 list-page 行 status 一致）。
+  // 未知状态码（非 10/15/20/50）不走 i18n，避免 MISSING_MESSAGE，统一显示 fallback。
   if (variant === 'reserve') {
+    if (!RESERVE_STATUS_CODES.has(Number(status))) {
+      return <span className="text-sm text-muted-foreground">{fallback}</span>;
+    }
     const tone = t(`statusColor.${status}`);
     return (
       <span
@@ -137,17 +145,18 @@ export function PledgeStatusBadge({
 
   // assetTxn：色走 util，文案走 i18n txnStatus
   if (variant === 'assetTxn') {
-    const tone =
-      ASSET_TXN_STATUS_COLOR[
-        status as keyof typeof ASSET_TXN_STATUS_COLOR
-      ] ?? 'default';
+    // 未知状态码不查 i18n（next-intl 缺 key 会报 MISSING_MESSAGE），回落 unknown 文案。
+    const isKnownStatus = String(status) in ASSET_TXN_STATUS_COLOR;
+    const tone = isKnownStatus
+      ? ASSET_TXN_STATUS_COLOR[status as keyof typeof ASSET_TXN_STATUS_COLOR]
+      : 'default';
     return (
       <span
         className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${toneClass(
           tone,
         )}`}
       >
-        {t(`txnStatus.${status}`)}
+        {t(`txnStatus.${isKnownStatus ? status : 'unknown'}`)}
       </span>
     );
   }
@@ -156,8 +165,8 @@ export function PledgeStatusBadge({
   const info =
     OP_RECORD_STATUS[status as keyof typeof OP_RECORD_STATUS] ?? undefined;
   const tone = info?.color ?? 'default';
-  const label =
-    info?.label ?? t(`opRecordStatus.${status}`);
+  // 未知状态码不查 i18n（next-intl 缺 key 会报 MISSING_MESSAGE），回落原始状态码文本。
+  const label = info?.label ?? String(status);
   return (
     <span
       className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${toneClass(

@@ -20,6 +20,11 @@ import {
   textOrDash,
 } from '@myorg/modules/td-admin/data-access';
 import { SuspenseStatusBadge } from '.';
+import {
+  createRowActionsColumn,
+  renderRowActions,
+  type RowActionsOptions,
+} from '../row-actions';
 
 /** 审批业务码（源 view.tsx 常量，history 行无 busCode 时兜底）。 */
 const SUSPENSE_ADJUSTMENT_BUS_CODE = 'fin_suspense_adjustment';
@@ -115,7 +120,19 @@ export function SuspenseAdjustmentDetailPage() {
   const historyColumns = React.useMemo<
     ColumnDef<SuspenseAdjustmentHistoryItem>[]
   >(
-    () => [
+    () => {
+      const historyActionsOptions: RowActionsOptions<SuspenseAdjustmentHistoryItem> = {
+        detail: {
+          label: t('action.detail'),
+          onClick: (row) =>
+            router.push(
+              `/approval-manage/view?id=${
+                row.taskId ?? row.adjustmentId
+              }&busCode=${row.busCode ?? SUSPENSE_ADJUSTMENT_BUS_CODE}`,
+            ),
+        },
+      };
+      return [
       {
         accessorKey: 'postingDate',
         header: t('field.postingDate'),
@@ -163,30 +180,16 @@ export function SuspenseAdjustmentDetailPage() {
         ),
       },
       {
-        id: 'action',
-        header: t('field.actions'),
+        ...createRowActionsColumn<SuspenseAdjustmentHistoryItem>(historyActionsOptions),
         cell: ({ row }) =>
           row.original.canViewDetails ? (
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
-                router.push(
-                  `/approval-manage/view?id=${
-                    row.original.taskId ?? row.original.adjustmentId
-                  }&busCode=${
-                    row.original.busCode ?? SUSPENSE_ADJUSTMENT_BUS_CODE
-                  }`,
-                )
-              }
-            >
-              {t('action.detail')}
-            </Button>
+            renderRowActions(row.original, historyActionsOptions)
           ) : (
             <span className="text-muted-foreground">--</span>
           ),
       },
-    ],
+      ];
+    },
     [t, router],
   );
 

@@ -8,7 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { usePermission } from '@myorg/shared/util-auth';
 import {
   useCurrencyPairListQuery,
   useFxRateListQuery,
@@ -21,6 +21,7 @@ import {
   EMPTY_DISPLAY,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 /**
  * FxRateListPage — 汇率列表页。
@@ -104,6 +105,8 @@ export function FxRateListPage(): React.JSX.Element {
   const total = listResult.data?.page?.total ?? 0;
   const isLoading = listResult.isLoading || listResult.isFetching;
 
+  const canView = usePermission(CROSS_CHAIN_PERMISSIONS.FX_RATE_VIEW_BTN);
+
   const columns = React.useMemo<ColumnDef<FxRateItem>[]>(
     () => [
       {
@@ -144,32 +147,17 @@ export function FxRateListPage(): React.JSX.Element {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <PermissionGuard
-              permission={CROSS_CHAIN_PERMISSIONS.FX_RATE_VIEW_BTN}
-            >
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(
-                    `/cross-chain/fx-rate/view?rateId=${r.rateId ?? ''}`,
-                  )
-                }
-              >
-                {t('action.view')}
-              </Button>
-            </PermissionGuard>
-          );
-        },
-      },
+      createRowActionsColumn<FxRateItem>({
+        detail: canView
+          ? {
+              label: t('action.view'),
+              onClick: (row) =>
+                router.push(`/cross-chain/fx-rate/view?rateId=${row.rateId ?? ''}`),
+            }
+          : undefined,
+      }),
     ],
-    [t, router],
+    [t, router, canView],
   );
 
   const onSubmit = React.useCallback((f: FxRateFilterForm) => {
@@ -231,6 +219,8 @@ export function FxRateListPage(): React.JSX.Element {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

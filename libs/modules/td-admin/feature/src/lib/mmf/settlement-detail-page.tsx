@@ -16,7 +16,7 @@ import {
 } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatDate } from '@myorg/shared/util-dates';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { usePermission } from '@myorg/shared/util-auth';
 import {
   useSettlementApprovalRecordsQuery,
   useSettlementDetailQuery,
@@ -42,6 +42,7 @@ import {
   statusToneClass,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 const DATE_FMT = 'YYYY-MM-DD';
 
@@ -270,6 +271,9 @@ export function SettlementDetailPage() {
   const approvalTotal = approvalList.data?.page?.total ?? 0;
   const approvalLoading = approvalList.isLoading || approvalList.isFetching;
 
+  // ── 行操作权限（PermissionGuard → usePermission，供 actions 列条件渲染）──
+  const canViewRecord = usePermission(MMF_PERMISSIONS.SETTLEMENT_RECORD_VIEW_BTN);
+
   const approvalColumns = React.useMemo<ColumnDef<SettlementApprovalRecord>[]>(
     () => [
       {
@@ -325,30 +329,18 @@ export function SettlementDetailPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <PermissionGuard permission={MMF_PERMISSIONS.SETTLEMENT_RECORD_VIEW_BTN}>
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(
-                    buildApprovalViewUrl(r.taskId, r.businessCode),
-                  )
-                }
-              >
-                {t('action.view')}
-              </Button>
-            </PermissionGuard>
-          );
-        },
-      },
+      // View 内联；权限缺失时整列单元格不渲染（源 PermissionGuard 语义）。
+      createRowActionsColumn<SettlementApprovalRecord>({
+        detail: canViewRecord
+          ? {
+              label: t('action.view'),
+              onClick: (r) =>
+                router.push(buildApprovalViewUrl(r.taskId, r.businessCode)),
+            }
+          : undefined,
+      }),
     ],
-    [t, router, approvalPagination.pageNum, approvalPagination.pageSize],
+    [t, router, approvalPagination.pageNum, approvalPagination.pageSize, canViewRecord],
   );
 
   // ── 基本信息描述项（8 字段，不含 riskLevel / createUser 死代码）──
@@ -476,6 +468,8 @@ export function SettlementDetailPage() {
                   total: walletTotal,
                   onPageChange: (p) =>
                     setWalletPagination((prev) => ({ ...prev, pageNum: p })),
+                  onPageSizeChange: (size) =>
+                    setWalletPagination({ pageNum: 1, pageSize: size }),
                 }}
               />
             </div>
@@ -500,6 +494,8 @@ export function SettlementDetailPage() {
                   total: approvalTotal,
                   onPageChange: (p) =>
                     setApprovalPagination((prev) => ({ ...prev, pageNum: p })),
+                  onPageSizeChange: (size) =>
+                    setApprovalPagination({ pageNum: 1, pageSize: size }),
                 }}
               />
             </div>

@@ -231,6 +231,8 @@ export function WalletTypeDividendDrawer({
                   total,
                   onPageChange: (p) =>
                     setPage((prev) => ({ ...prev, pageNum: p })),
+                  onPageSizeChange: (size) =>
+                    setPage({ pageNum: 1, pageSize: size }),
                 }}
               />
             </div>

@@ -26,6 +26,7 @@ import {
   type WalletListParams,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn, type RowAction } from '../row-actions';
 import { WalletStatusBadge } from '.';
 import {
   custodyModelMessageKey,
@@ -349,116 +350,99 @@ export function UserWalletListPage() {
           return <span>{formatAdminTimestamp(ms)}</span>;
         },
       },
-      {
-        id: 'actions',
-        header: t('common.operate'),
-        cell: ({ row }) => {
-          const data = row.original;
+      createRowActionsColumn<UserWallet>({
+        detail: canViewDetail
+          ? {
+              label: t('userWallet.action.detail'),
+              onClick: (row) =>
+                router.push(`/wallet/user-wallet/view?walletId=${row.walletId ?? ''}`),
+            }
+          : undefined,
+        menu: (row): RowAction<UserWallet>[] => {
           // 行操作可用性（忠实搬运源 actions[].disabled 逻辑）。
-          const canFreezeWallet = canOperate && data.walletState === 1 && data.tdState !== 2;
+          const canFreezeWallet =
+            canOperate && row.walletState === 1 && row.tdState !== 2;
           const canUnfreezeWallet =
-            canOperate && data.walletState === 3 && data.tdState !== 2;
+            canOperate && row.walletState === 3 && row.tdState !== 2;
           const canChangeWalletType =
             canOperate &&
-            data.state === 1 &&
-            data.walletTypeChangeRecordId === null &&
-            data.tdState !== 2;
+            row.state === 1 &&
+            row.walletTypeChangeRecordId === null &&
+            row.tdState !== 2;
           // 资金冻结：源 disabled = state===3 ? true : !(walletState!==0 && stablecoinFreezeRecordId===null && tdState!==2)
           const fundsFrozenBusy =
-            data.state === 3 ||
+            row.state === 3 ||
             !(
-              (data.walletState === 0
+              (row.walletState === 0
                 ? false
-                : data.stablecoinFreezeRecordId === null) &&
-              data.tdState !== 2
+                : row.stablecoinFreezeRecordId === null) &&
+              row.tdState !== 2
             );
           const canFreezeFunds = canOperate && !fundsFrozenBusy;
           // 资金解冻：源 disabled = !((freezeCount==='0'?false:stablecoinUnfreezeRecordId===null) && tdState!==2)
           const canUnfreezeFunds =
             canOperate &&
-            (data.freezeCount === '0'
+            (row.freezeCount === '0'
               ? false
-              : data.stablecoinUnfreezeRecordId === null) &&
-            data.tdState !== 2;
+              : row.stablecoinUnfreezeRecordId === null) &&
+            row.tdState !== 2;
 
-          return (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              {canViewDetail ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() =>
-                    router.push(
-                      `/wallet/user-wallet/view?walletId=${data.walletId ?? ''}`
-                    )
-                  }
-                >
-                  {t('userWallet.action.detail')}
-                </Button>
-              ) : null}
-              {canViewHistory ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={data.state === 3 ? true : data.state === 0}
-                  onClick={() =>
-                    router.push(
-                      `/wallet/user-wallet/history?walletId=${data.walletId ?? ''}`
-                    )
-                  }
-                >
-                  {t('userWallet.action.history')}
-                </Button>
-              ) : null}
-              {canChangeWalletType ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => openAction('ChangeWalletType', data)}
-                >
-                  {t('userWallet.action.changeWalletType')}
-                </Button>
-              ) : null}
-              {canFreezeWallet ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => openAction('FreezeWallet', data)}
-                >
-                  {t('userWallet.action.freezeWallet')}
-                </Button>
-              ) : null}
-              {canUnfreezeWallet ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => openAction('UnfreezeWallet', data)}
-                >
-                  {t('userWallet.action.unfreezeWallet')}
-                </Button>
-              ) : null}
-              {canFreezeFunds ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => openAction('FreezeFunds', data)}
-                >
-                  {t('userWallet.action.freezeFunds')}
-                </Button>
-              ) : null}
-              {canUnfreezeFunds ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => openAction('UnfreezeFunds', data)}
-                >
-                  {t('userWallet.action.unfreezeFunds')}
-                </Button>
-              ) : null}
-            </div>
-          );
+          return [
+            ...(canViewHistory
+              ? [
+                  {
+                    label: t('userWallet.action.history'),
+                    disabled: row.state === 3 ? true : row.state === 0,
+                    onClick: (r: UserWallet) =>
+                      router.push(
+                        `/wallet/user-wallet/history?walletId=${r.walletId ?? ''}`
+                      ),
+                  },
+                ]
+              : []),
+            ...(canChangeWalletType
+              ? [
+                  {
+                    label: t('userWallet.action.changeWalletType'),
+                    onClick: (r: UserWallet) => openAction('ChangeWalletType', r),
+                  },
+                ]
+              : []),
+            ...(canFreezeWallet
+              ? [
+                  {
+                    label: t('userWallet.action.freezeWallet'),
+                    onClick: (r: UserWallet) => openAction('FreezeWallet', r),
+                  },
+                ]
+              : []),
+            ...(canUnfreezeWallet
+              ? [
+                  {
+                    label: t('userWallet.action.unfreezeWallet'),
+                    onClick: (r: UserWallet) => openAction('UnfreezeWallet', r),
+                  },
+                ]
+              : []),
+            ...(canFreezeFunds
+              ? [
+                  {
+                    label: t('userWallet.action.freezeFunds'),
+                    onClick: (r: UserWallet) => openAction('FreezeFunds', r),
+                  },
+                ]
+              : []),
+            ...(canUnfreezeFunds
+              ? [
+                  {
+                    label: t('userWallet.action.unfreezeFunds'),
+                    onClick: (r: UserWallet) => openAction('UnfreezeFunds', r),
+                  },
+                ]
+              : []),
+          ];
         },
-      },
+      }),
     ],
     [t, canViewDetail, canViewHistory, canOperate, router, openAction]
   );
@@ -580,6 +564,8 @@ export function UserWalletListPage() {
               total,
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

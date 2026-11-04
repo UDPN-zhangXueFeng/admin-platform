@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 import { useAuditTrailListQuery, type AuditTrailItem, type AuditTrailListFilters, type ExportAuditTaskReq } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainListQuery, useCreateExportTaskMutation, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/audit-trail';
@@ -250,36 +251,23 @@ export function AuditTrailListPage() {
           </span>
         ),
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => (
-          <div className="flex gap-3">
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
-                router.push(`/audit-trail/view?id=${row.original.traceId}`)
-              }
-            >
-              {t('action.detail')}
-            </Button>
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
-                handleExport({
-                  exportType: 1,
-                  moduleType: 10,
-                  auditTrailDownloadReqVO: { traceId: row.original.traceId },
-                })
-              }
-            >
-              {t('action.export')}
-            </Button>
-          </div>
-        ),
-      },
+      createRowActionsColumn<AuditTrailItem>({
+        detail: {
+          label: t('action.detail'),
+          onClick: (row) => router.push(`/audit-trail/view?id=${row.traceId}`),
+        },
+        menu: (row) => [
+          {
+            label: t('action.export'),
+            onClick: () =>
+              handleExport({
+                exportType: 1,
+                moduleType: 10,
+                auditTrailDownloadReqVO: { traceId: row.traceId },
+              }),
+          },
+        ],
+      }),
     ],
     [t, router, handleExport],
   );
@@ -404,6 +392,8 @@ export function AuditTrailListPage() {
               total,
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

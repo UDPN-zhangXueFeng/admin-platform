@@ -54,6 +54,7 @@ export function TransactionFlowPage() {
       pageSize: pg.pageSize,
       total: data?.page?.total || 0,
       onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })),
+      onPageSizeChange: (size: number) => setPg({ pageNum: 1, pageSize: size }),
     }),
     [pg.pageNum, pg.pageSize, data?.page?.total],
   );

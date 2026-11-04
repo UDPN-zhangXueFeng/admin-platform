@@ -196,6 +196,12 @@ export function RoleWallets({
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination((prev) => ({
+                  ...prev,
+                  pageNum: 1,
+                  pageSize: size,
+                })),
             }}
           />
         </div>

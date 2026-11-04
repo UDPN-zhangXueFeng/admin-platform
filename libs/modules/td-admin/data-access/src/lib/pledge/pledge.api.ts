@@ -71,15 +71,15 @@ interface ListRequestBody<TFilters> {
   page: { pageNum: number; pageSize: number };
 }
 
-/** 提取分页字段 + bookStatus（透传到 data 但不传后端）。 */
+/** 提取分页字段并剔除 bookStatus（前端伪状态，后端不认识；过滤在页面层完成）。 */
 function toListBody<T extends { pageNum: number; pageSize: number; bookStatus?: string }>(
   params: T,
 ): ListRequestBody<Omit<T, 'pageNum' | 'pageSize' | 'bookStatus'>> {
-  const { pageNum, pageSize, bookStatus, ...data } = params;
-  // bookStatus 是前端推导的伪状态，后端不存此字段，传到 data 供页面层全量拉取逻辑使用。
-  // 此处不过滤 bookStatus —— 页面层 query 的 select 做过滤。
+  const { pageNum, pageSize, ...rest } = params;
+  const data: Record<string, unknown> = { ...rest };
+  delete data.bookStatus;
   return {
-    data: { ...data, bookStatus } as Omit<T, 'pageNum' | 'pageSize' | 'bookStatus'>,
+    data: data as Omit<T, 'pageNum' | 'pageSize' | 'bookStatus'>,
     page: { pageNum, pageSize },
   };
 }

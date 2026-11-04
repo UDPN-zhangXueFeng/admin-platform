@@ -30,6 +30,7 @@ import {
   splitEntryDirection,
   toMillis,
 } from '.';
+import { createRowActionsColumn } from '../row-actions';
 
 const BASIC_TAB = 'basic-information';
 const MATRIX_TAB = 'posting-engine-matrix';
@@ -238,36 +239,21 @@ export function PostingEngineBookDetail({
         header: t('field.status'),
         cell: ({ row }) => <PostingStatusBadge status={row.original.status} />,
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => (
-          <div className="flex gap-3">
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
-                router.push(
-                  `/posting-engine/edit?id=${row.original.postingEventId ?? ''}`
-                )
-              }
-            >
-              {t('action.edit')}
-            </Button>
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
-                router.push(
-                  `/posting-engine/view?id=${row.original.postingEventId ?? ''}`
-                )
-              }
-            >
-              {t('action.view')}
-            </Button>
-          </div>
-        ),
-      },
+      // View（详情）内联；Edit 收进 ⋮ 菜单。
+      createRowActionsColumn<PostingEvent>({
+        detail: {
+          label: t('action.view'),
+          onClick: (row) =>
+            router.push(`/posting-engine/view?id=${row.postingEventId ?? ''}`),
+        },
+        menu: (row) => [
+          {
+            label: t('action.edit'),
+            onClick: (r) =>
+              router.push(`/posting-engine/edit?id=${r.postingEventId ?? ''}`),
+          },
+        ],
+      }),
     ],
     [t, router]
   );
@@ -342,6 +328,8 @@ export function PostingEngineBookDetail({
                   total: eventsTotal,
                   onPageChange: (page) =>
                     setMatrixPage((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (size) =>
+                    setMatrixPage({ pageNum: 1, pageSize: size }),
                 }}
               />
             </div>

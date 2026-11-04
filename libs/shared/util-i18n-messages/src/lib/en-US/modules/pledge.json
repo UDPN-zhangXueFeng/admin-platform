@@ -84,7 +84,8 @@
     "5": "Pending Approval",
     "10": "Under Approval",
     "15": "Rejected",
-    "35": "Approved"
+    "35": "Approved",
+    "unknown": "Unknown"
   },
   "opRecordStatus": {
     "5": "Pending Approval",

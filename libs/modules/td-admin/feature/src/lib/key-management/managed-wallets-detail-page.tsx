@@ -152,7 +152,10 @@ export function ManagedWalletsDetailPage() {
   } = useManagedWalletDetailQuery(chainAccountId);
 
   // ----- Rotation History: form + paginated query -----
-  const [historyPage, setHistoryPage] = React.useState(1);
+  const [historyPage, setHistoryPage] = React.useState({
+    pageNum: 1,
+    pageSize: HISTORY_PAGE_SIZE,
+  });
   const { register, reset, control, getValues } =
     useForm<HistoryFilterFormValues>({
       defaultValues: HISTORY_FILTER_DEFAULTS,
@@ -191,8 +194,8 @@ export function ManagedWalletsDetailPage() {
     }
 
     return {
-      pageNum: historyPage,
-      pageSize: HISTORY_PAGE_SIZE,
+      pageNum: historyPage.pageNum,
+      pageSize: historyPage.pageSize,
       filters: data,
     };
   }, [committedHistoryFilters, historyPage, chainAccountId]);
@@ -222,13 +225,13 @@ export function ManagedWalletsDetailPage() {
 
   const handleHistoryQuery = () => {
     setCommittedHistoryFilters(getValues());
-    setHistoryPage(1);
+    setHistoryPage((prev) => ({ ...prev, pageNum: 1 }));
   };
 
   const handleHistoryReset = () => {
     reset(HISTORY_FILTER_DEFAULTS);
     setCommittedHistoryFilters(HISTORY_FILTER_DEFAULTS);
-    setHistoryPage(1);
+    setHistoryPage((prev) => ({ ...prev, pageNum: 1 }));
   };
 
   const historyColumns = React.useMemo<ColumnDef<HistoryRow>[]>(
@@ -513,10 +516,13 @@ export function ManagedWalletsDetailPage() {
               isLoading={historyLoading}
               emptyMessage={t('PUB_NoData')}
               pagination={{
-                page: historyPage,
-                pageSize: HISTORY_PAGE_SIZE,
+                page: historyPage.pageNum,
+                pageSize: historyPage.pageSize,
                 total: historyTotal,
-                onPageChange: setHistoryPage,
+                onPageChange: (p) =>
+                  setHistoryPage((prev) => ({ ...prev, pageNum: p })),
+                onPageSizeChange: (size) =>
+                  setHistoryPage({ pageNum: 1, pageSize: size }),
               }}
             />
             <div className="mt-6 flex justify-end">

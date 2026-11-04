@@ -49,6 +49,7 @@ import {
   useKeyServiceConfigurationsQuery,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import { keyServiceStatusToneMap } from './constants';
 
 /** Non-empty sentinel — SelectItem forbids an empty-string value. */
@@ -90,6 +91,7 @@ export function KeyServiceConfigurationListPage() {
   const router = useRouter();
 
   const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE);
   const [keyServiceName, setKeyServiceName] = React.useState('');
   const [status, setStatus] = React.useState('');
   const [startCreateDate, setStartCreateDate] = React.useState('');
@@ -112,7 +114,7 @@ export function KeyServiceConfigurationListPage() {
     refetch,
   } = useKeyServiceConfigurationsQuery({
     pageNum: page,
-    pageSize: PAGE_SIZE,
+    pageSize,
     filters: {
       keyServiceName: committedFilters.keyServiceName || undefined,
       status: committedFilters.status
@@ -198,52 +200,6 @@ export function KeyServiceConfigurationListPage() {
     closeDeprecate();
   };
 
-  // ----- Row actions -----
-  // Upstream ships Edit/Deprecate hard-disabled (no backend write APIs).
-  // Per the frozen baseline (alignment.md D3) navigation entries are enabled:
-  // Edit opens the real-data edit preview; Deprecate stays disabled (its
-  // dialog is a non-persistent demo). Details stays gated on keyServiceCode.
-  const renderActions = (record: KeyServiceConfiguration) => {
-    const action = (
-      label: string,
-      onClick: () => void,
-      key: string,
-      disabled: boolean,
-    ) => (
-      <Button
-        key={key}
-        variant="link"
-        className="h-auto p-0"
-        disabled={disabled}
-        onClick={onClick}
-      >
-        {label}
-      </Button>
-    );
-
-    return (
-      <div className="flex items-center gap-3">
-        {action(
-          t('key_management_0010'),
-          () => goEdit(record.keyServiceCode),
-          'edit',
-          false,
-        )}
-        {action(
-          t('key_management_0011'),
-          () => openDeprecate(record),
-          'deprecate',
-          true,
-        )}
-        {action(
-          t('key_management_0012'),
-          () => goDetail(record.keyServiceCode),
-          'details',
-          !record.keyServiceCode,
-        )}
-      </div>
-    );
-  };
 
   // ----- Columns -----
   const columns = React.useMemo<ColumnDef<KeyServiceConfiguration>[]>(
@@ -290,13 +246,29 @@ export function KeyServiceConfigurationListPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('key_management_0062'),
-        cell: ({ row }) => renderActions(row.original),
-      },
+      // Upstream ships Edit/Deprecate hard-disabled (no backend write APIs).
+      // Per the frozen baseline (alignment.md D3) navigation entries are
+      // enabled: Edit opens the real-data edit preview; Deprecate stays
+      // disabled (its dialog is a non-persistent demo). Details navigation
+      // is guarded on keyServiceCode inside goDetail.
+      createRowActionsColumn<KeyServiceConfiguration>({
+        detail: {
+          label: t('key_management_0012'),
+          onClick: (r) => goDetail(r.keyServiceCode),
+        },
+        menu: (r) => [
+          {
+            label: t('key_management_0010'),
+            onClick: () => goEdit(r.keyServiceCode),
+          },
+          {
+            label: t('key_management_0011'),
+            disabled: true,
+            onClick: () => openDeprecate(r),
+          },
+        ],
+      }),
     ],
-    // renderActions / maps read only i18n-stable closures.
     [t],
   );
 
@@ -432,8 +404,12 @@ export function KeyServiceConfigurationListPage() {
             page,
             // Backend numbers may arrive as strings — upstream coerces
             // Number(...) before use (pitfall defense).
-            pageSize: Number(data?.page?.pageSize) || PAGE_SIZE,
+            pageSize: Number(data?.page?.pageSize) || pageSize,
             total: Number(data?.page?.total) || 0,
+            onPageSizeChange: (size) => {
+              setPage(1);
+              setPageSize(size);
+            },
             onPageChange: setPage,
           }}
         />

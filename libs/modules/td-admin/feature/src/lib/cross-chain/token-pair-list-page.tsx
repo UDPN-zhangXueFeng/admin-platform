@@ -19,7 +19,7 @@ import {
   Label,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import {
   CrossChainStatusBadge,
 } from '.';
@@ -32,6 +32,7 @@ import {
   TOKEN_PAIR_UPDATE_STATE,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 /** 「全部」占位 value（对齐 rd-bridge / fx-rate 列表筛选约定）。 */
 const ALL_VALUE = 'all';
@@ -260,6 +261,12 @@ export function TokenPairListPage(): React.JSX.Element {
     ? t(modalContext.action === 'Disable' ? 'cross_chain_0087' : 'cross_chain_0086')
     : '';
 
+  // 行操作权限（原 PermissionGuard 的 hook 形态，供 createRowActionsColumn 过滤项）。
+  const canView = usePermission(CROSS_CHAIN_PERMISSIONS.TP_VIEW_BTN);
+  const canEditPerm = usePermission(CROSS_CHAIN_PERMISSIONS.TP_EDIT_BTN);
+  const canDisablePerm = usePermission(CROSS_CHAIN_PERMISSIONS.TP_DISABLE_BTN);
+  const canEnablePerm = usePermission(CROSS_CHAIN_PERMISSIONS.TP_ENABLE_BTN);
+
   const columns = React.useMemo<ColumnDef<TokenPairItem>[]>(
     () => [
       // 索引列（源码 dataIndex='tokenCrossChainId' width 5%）。
@@ -342,78 +349,63 @@ export function TokenPairListPage(): React.JSX.Element {
           <CrossChainStatusBadge kind="token-pair" status={row.original.status} />
         ),
       },
-      // 行操作：查看 / 编辑(status∈{3,5,10}) / 禁用(status===5) / 启用(status===10)。
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          const canEdit = r.status === 10 || r.status === 5 || r.status === 3;
-          const canDisable = r.status === 5;
-          const canEnable = r.status === 10;
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.TP_VIEW_BTN}>
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() =>
-                    router.push(
-                      `/cross-chain/token-pair/view?id=${
-                        r.tokenCrossChainId ?? ''
-                      }`,
-                    )
-                  }
-                >
-                  {t('action.view')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.TP_EDIT_BTN}>
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={!canEdit}
-                  onClick={() =>
+      // 行操作：查看 内联；编辑(status∈{3,5,10}) / 禁用(status===5) / 启用(status===10)
+      // 折叠进 ⋮ 菜单（权限缺失隐藏，状态不满足禁用——与原 PermissionGuard+disabled 一致）。
+      createRowActionsColumn<TokenPairItem>({
+        ...(canView
+          ? {
+              detail: {
+                label: t('action.view'),
+                onClick: (r) =>
+                  router.push(
+                    `/cross-chain/token-pair/view?id=${
+                      r.tokenCrossChainId ?? ''
+                    }`,
+                  ),
+              },
+            }
+          : {}),
+        menu: (r) => [
+          ...(canEditPerm
+            ? [
+                {
+                  label: t('action.edit'),
+                  disabled: !(
+                    r.status === 10 ||
+                    r.status === 5 ||
+                    r.status === 3
+                  ),
+                  onClick: () =>
                     router.push(
                       `/cross-chain/token-pair/edit?id=${
                         r.tokenCrossChainId ?? ''
                       }`,
-                    )
-                  }
-                >
-                  {t('action.edit')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard
-                permission={CROSS_CHAIN_PERMISSIONS.TP_DISABLE_BTN}
-              >
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={!canDisable}
-                  onClick={() => openStatusModal(r, 'Disable')}
-                >
-                  {t('action.disable')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard
-                permission={CROSS_CHAIN_PERMISSIONS.TP_ENABLE_BTN}
-              >
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={!canEnable}
-                  onClick={() => openStatusModal(r, 'Enable')}
-                >
-                  {t('action.enable')}
-                </Button>
-              </PermissionGuard>
-            </div>
-          );
-        },
-      },
+                    ),
+                },
+              ]
+            : []),
+          ...(canDisablePerm
+            ? [
+                {
+                  label: t('action.disable'),
+                  disabled: r.status !== 5,
+                  onClick: () => openStatusModal(r, 'Disable'),
+                },
+              ]
+            : []),
+          ...(canEnablePerm
+            ? [
+                {
+                  label: t('action.enable'),
+                  disabled: r.status !== 10,
+                  onClick: () => openStatusModal(r, 'Enable'),
+                },
+              ]
+            : []),
+        ],
+      }),
     ],
-    [t, tCommon, router, openStatusModal],
+    [t, tCommon, router, openStatusModal, canView, canEditPerm, canDisablePerm, canEnablePerm],
   );
 
   const onSubmit = React.useCallback((f: TokenPairFilterForm) => {
@@ -511,6 +503,8 @@ export function TokenPairListPage(): React.JSX.Element {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

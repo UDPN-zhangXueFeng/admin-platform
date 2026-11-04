@@ -63,6 +63,7 @@ import {
   type PolicyListItem,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import { keyPolicyStatusMap, roleNameOptions } from '.';
 
 /** Non-empty sentinel for the "All" option — see plan §8.F. */
@@ -125,7 +126,7 @@ export function KeyPolicyConfigurationListPage() {
   const t = useTranslations('modules.key-management');
   const router = useRouter();
   const [page, setPage] = React.useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = React.useState(10);
 
   // ----- Filter form -----
   const { register, reset, getValues, control } =
@@ -244,42 +245,6 @@ export function KeyPolicyConfigurationListPage() {
 
   const isDisable = dialogMode === 'disable';
 
-  // ----- Status-driven row actions (faithful to source index.tsx getActions) -----
-  const renderActions = (record: PolicyListRow) => {
-    const actions: React.ReactNode[] = [];
-    const push = (
-      label: string,
-      onClick: () => void,
-      key: string,
-    ) => {
-      actions.push(
-        <Button
-          key={key}
-          variant="link"
-          className="h-auto p-0"
-          onClick={onClick}
-        >
-          {label}
-        </Button>,
-      );
-    };
-
-    if (record.status === 'Processing') {
-      push(t('key_management_0012'), () => goDetail(record.id), 'details');
-    } else if (record.status === 'Rejected') {
-      push(t('key_management_0028'), () => goEdit(record.id), 'resubmit');
-      push(t('key_management_0012'), () => goDetail(record.id), 'details');
-    } else if (record.status === 'Enabled') {
-      push(t('key_management_0010'), () => goEdit(record.id), 'edit');
-      push(t('KP_Disable'), () => openDialog(record, 'disable'), 'disable');
-      push(t('key_management_0012'), () => goDetail(record.id), 'details');
-    } else if (record.status === 'Disabled') {
-      push(t('key_management_0010'), () => goEdit(record.id), 'edit');
-      push(t('key_management_0026'), () => openDialog(record, 'enable'), 'enable');
-      push(t('key_management_0012'), () => goDetail(record.id), 'details');
-    }
-    return <div className="flex items-center gap-3">{actions}</div>;
-  };
 
   // ----- Columns -----
   const columns = React.useMemo<ColumnDef<PolicyListRow>[]>(
@@ -336,12 +301,27 @@ export function KeyPolicyConfigurationListPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('key_management_0062'),
-        cell: ({ row }) => renderActions(row.original),
-      },
-      // renderActions reads only props/closures stable for the page lifetime
+      // menu/detail read only props/closures stable for the page lifetime
+      createRowActionsColumn<PolicyListRow>({
+        detail: {
+          label: t('key_management_0012'),
+          onClick: (r) => goDetail(r.id),
+        },
+        menu: (r) => [
+          ...(r.status === 'Rejected'
+            ? [{ label: t('key_management_0028'), onClick: () => goEdit(r.id) }]
+            : []),
+          ...(r.status === 'Enabled' || r.status === 'Disabled'
+            ? [{ label: t('key_management_0010'), onClick: () => goEdit(r.id) }]
+            : []),
+          ...(r.status === 'Enabled'
+            ? [{ label: t('KP_Disable'), onClick: () => openDialog(r, 'disable') }]
+            : []),
+          ...(r.status === 'Disabled'
+            ? [{ label: t('key_management_0026'), onClick: () => openDialog(r, 'enable') }]
+            : []),
+        ],
+      }),
     ],
     [t],
   );
@@ -448,6 +428,10 @@ export function KeyPolicyConfigurationListPage() {
             pageSize,
             total,
             onPageChange: setPage,
+            onPageSizeChange: (size) => {
+              setPage(1);
+              setPageSize(size);
+            },
           }}
         />
       </div>

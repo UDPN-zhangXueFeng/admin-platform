@@ -9,7 +9,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Button, DataTable, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@myorg/shared/ui';
 import { FormDatePicker } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 
 import { WorkflowStatusTag } from '.';
 import {
@@ -25,6 +25,7 @@ import {
   type WorkflowListParams,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 /** `stablecoin` 是默认活动项目（见 configs/stablecoin.json）。 */
 const PROJECT_ID = 'stablecoin';
@@ -105,6 +106,13 @@ export function WorkflowListPage() {
   const { data: businessList } = useBusinessListQuery(PROJECT_ID);
   const { data, isLoading, isError } = useWorkflowListQuery(PROJECT_ID, params);
   const statusMutation = useModifyWorkflowStatusMutation(PROJECT_ID);
+
+  // 行操作权限（原各 PermissionGuard 的内联判断，收拢为布尔供菜单项条件渲染）。
+  const canViewRow = usePermission(WORKFLOW_PERMISSIONS.view);
+  const canEditRow = usePermission(WORKFLOW_PERMISSIONS.edit);
+  const canDisableRow = usePermission(WORKFLOW_PERMISSIONS.disable);
+  const canEnableRow = usePermission(WORKFLOW_PERMISSIONS.enable);
+  const canDeleteRow = usePermission(WORKFLOW_PERMISSIONS.delete);
 
   const rows = data?.rows ?? [];
   const page = data?.page;
@@ -191,82 +199,64 @@ export function WorkflowListPage() {
           />
         ),
       },
-      {
-        id: 'actions',
-        header: t('field.action'),
-        cell: ({ row }) => {
-          const item = row.original;
+      createRowActionsColumn<WorkflowItem & { id: string }>({
+        detail: canViewRow
+          ? {
+              label: t('action.view'),
+              onClick: (row) =>
+                router.push(`/sys/workflow/view?id=${row.workflowId}`),
+            }
+          : undefined,
+        menu: (row) => {
           // disabled 守卫精确复刻旧页 status 数字语义（workflow.md §6.1）。
-          const editDisabled = !(item.status === WorkflowStatus.Inactive);
-          const disableDisabled = !(item.status === WorkflowStatus.Active);
-          const enableDisabled = !(item.status === WorkflowStatus.Inactive);
-          const deleteDisabled = !(item.status === WorkflowStatus.Inactive);
-          return (
-            <div className="flex items-center gap-2">
-              <PermissionGuard permission={WORKFLOW_PERMISSIONS.view}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  onClick={() =>
-                    router.push(`/sys/workflow/view?id=${item.workflowId}`)
-                  }
-                >
-                  {t('action.view')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={WORKFLOW_PERMISSIONS.edit}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  disabled={editDisabled}
-                  onClick={() =>
-                    router.push(`/sys/workflow/edit?id=${item.workflowId}`)
-                  }
-                >
-                  {t('action.edit')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={WORKFLOW_PERMISSIONS.disable}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  disabled={disableDisabled}
-                  onClick={() => onModifyStatus(item, WorkflowStatus.Inactive)}
-                >
-                  {t('action.disable')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={WORKFLOW_PERMISSIONS.enable}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  disabled={enableDisabled}
-                  onClick={() => onModifyStatus(item, WorkflowStatus.Active)}
-                >
-                  {t('action.enable')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={WORKFLOW_PERMISSIONS.delete}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-destructive"
-                  disabled={deleteDisabled}
-                  onClick={() => onModifyStatus(item, WorkflowStatus.Deleted)}
-                >
-                  {t('action.delete')}
-                </Button>
-              </PermissionGuard>
-            </div>
-          );
+          const editDisabled = !(row.status === WorkflowStatus.Inactive);
+          const disableDisabled = !(row.status === WorkflowStatus.Active);
+          const enableDisabled = !(row.status === WorkflowStatus.Inactive);
+          const deleteDisabled = !(row.status === WorkflowStatus.Inactive);
+          return [
+            ...(canEditRow
+              ? [
+                  {
+                    label: t('action.edit'),
+                    disabled: editDisabled,
+                    onClick: (r: WorkflowItem & { id: string }) =>
+                      router.push(`/sys/workflow/edit?id=${r.workflowId}`),
+                  },
+                ]
+              : []),
+            ...(canDisableRow
+              ? [
+                  {
+                    label: t('action.disable'),
+                    disabled: disableDisabled,
+                    onClick: (r: WorkflowItem & { id: string }) => onModifyStatus(r, WorkflowStatus.Inactive),
+                  },
+                ]
+              : []),
+            ...(canEnableRow
+              ? [
+                  {
+                    label: t('action.enable'),
+                    disabled: enableDisabled,
+                    onClick: (r: WorkflowItem & { id: string }) => onModifyStatus(r, WorkflowStatus.Active),
+                  },
+                ]
+              : []),
+            ...(canDeleteRow
+              ? [
+                  {
+                    label: t('action.delete'),
+                    destructive: true,
+                    disabled: deleteDisabled,
+                    onClick: (r: WorkflowItem & { id: string }) => onModifyStatus(r, WorkflowStatus.Deleted),
+                  },
+                ]
+              : []),
+          ];
         },
-      },
+      }),
     ],
-    [t, page, params, router, onModifyStatus]
+    [t, page, params, router, onModifyStatus, canViewRow, canEditRow, canDisableRow, canEnableRow, canDeleteRow]
   );
 
   // DataTable 约束 { id: string }；workflow rowKey 为 workflowId:number，map 出 id（既有约定）。

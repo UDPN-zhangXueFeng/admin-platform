@@ -24,6 +24,7 @@ import {
   statusToneClass,
 } from '.';
 import { ALL_VALUE } from './tx-event-config.constants';
+import { createRowActionsColumn } from '../row-actions';
 
 const KNOWN_SOURCE_EVENTS = [
   'reserveIn',
@@ -232,28 +233,20 @@ export function TxEventHistoricalRecordsTab({
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          if (!row.original.taskId || !row.original.busCode) {
-            return <span>{EMPTY_DISPLAY}</span>;
-          }
-          return (
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
-                router.push(
-                  `/approval-manage/view?id=${row.original.taskId}&busCode=${row.original.busCode}`
-                )
-              }
-            >
-              {t('action.view')}
-            </Button>
-          );
+      // Actions：统一行操作列。源 View 链接在 taskId/busCode 缺失时显示
+      // EMPTY_DISPLAY 占位；helper 的 detail 无法按行隐藏 —— 以 onClick 守卫保留
+      // “缺失不跳转”行为（占位不再展示，链接恒渲染）。
+      createRowActionsColumn<NormalizationHistoryItem>({
+        detail: {
+          label: t('action.view'),
+          onClick: (row) => {
+            if (!row.taskId || !row.busCode) return;
+            router.push(
+              `/approval-manage/view?id=${row.taskId}&busCode=${row.busCode}`
+            );
+          },
         },
-      },
+      }),
     ],
     [t, bookId, eventType, router]
   );
@@ -337,6 +330,8 @@ export function TxEventHistoricalRecordsTab({
               total,
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

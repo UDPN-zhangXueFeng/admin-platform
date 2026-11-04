@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import {
   useBillTxListQuery,
   useCreateBillExportTaskMutation,
@@ -206,23 +207,13 @@ export function JournalEntriesView({
           </span>
         ),
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => (
-          <Button
-            variant="link"
-            className="h-auto p-0"
-            onClick={() =>
-              router.push(
-                `/transaction-flow/stablecoin?txHash=${row.original.txHash}`,
-              )
-            }
-          >
-            {t('action.view')}
-          </Button>
-        ),
-      },
+      createRowActionsColumn<BillTxItem>({
+        detail: {
+          label: t('action.view'),
+          onClick: (r) =>
+            router.push(`/transaction-flow/stablecoin?txHash=${r.txHash}`),
+        },
+      }),
     ],
     [t, router],
   );
@@ -298,6 +289,8 @@ export function JournalEntriesView({
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

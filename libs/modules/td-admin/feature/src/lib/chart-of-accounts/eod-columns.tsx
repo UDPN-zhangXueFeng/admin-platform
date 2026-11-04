@@ -1,7 +1,7 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
-import { Button } from '@myorg/shared/ui';
+import { createRowActionsColumn } from '../row-actions';
 import type {
   EodAccountingStatus,
   EodClearingStatus,
@@ -78,15 +78,13 @@ export function buildEodColumns({ t, onOpenDetail }: EodColumnsOptions): ColumnD
       header: t('eod.clearingStatus'),
       cell: ({ row }) => clearingStatusLabel(row.original.clearingStatus, t),
     },
-    {
-      id: 'actions',
-      header: t('eod.actions'),
-      cell: ({ row }) => (
-        <Button variant="link" className="h-auto p-0" onClick={() => onOpenDetail(row.original)}>
-          {actionLabel(row.original, t)}
-        </Button>
-      ),
-    },
+    // 行内主操作（Details / Review）；无需菜单。
+    createRowActionsColumn<EodStatementRow>({
+      detail: (row) => ({
+        label: actionLabel(row, t),
+        onClick: () => onOpenDetail(row),
+      }),
+    }),
   ];
 }
 
@@ -113,28 +111,21 @@ export function buildFirstBookEodColumns({
       cell: ({ row }) => clearingStatusLabel(row.original.clearingStatus, t),
     },
     { accessorKey: 'closedBy', header: t('eod.closedBy') },
-    {
-      id: 'actions',
-      header: t('eod.actions'),
-      cell: ({ row }) => {
-        const record = row.original;
-        if (record.actionType === 'post-to-suspense') {
-          return (
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => onPostToSuspense?.(record)}
-            >
-              {t('eod.actionPostToSuspense')}
-            </Button>
-          );
-        }
-        return (
-          <Button variant="link" className="h-auto p-0" onClick={() => onOpenDetail(record)}>
-            {actionLabel(record, t)}
-          </Button>
-        );
-      },
-    },
+    // post-to-suspense 行：仅菜单项；其余行：行内主操作。
+    createRowActionsColumn<EodStatementRow>({
+      detail: (row) =>
+        row.actionType === 'post-to-suspense'
+          ? undefined
+          : { label: actionLabel(row, t), onClick: () => onOpenDetail(row) },
+      menu: (row) =>
+        row.actionType === 'post-to-suspense'
+          ? [
+              {
+                label: t('eod.actionPostToSuspense'),
+                onClick: () => onPostToSuspense?.(row),
+              },
+            ]
+          : [],
+    }),
   ];
 }

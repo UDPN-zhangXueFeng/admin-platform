@@ -44,6 +44,7 @@ import {
   type KeyServiceOperationRecord,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import {
   keyServiceOperationStatusToneMap,
   keyServiceStatusToneMap,
@@ -204,6 +205,8 @@ export function KeyServiceConfigurationDetailPage() {
 
   // ----- Operation Records: form + paginated query -----
   const [recordsPage, setRecordsPage] = React.useState(1);
+  const [recordsPageSize, setRecordsPageSize] =
+    React.useState(RECORDS_PAGE_SIZE);
   // Sensitive parameter values (credentials) render masked until the
   // operator explicitly reveals one; values are never logged anywhere.
   const [revealedParamIds, setRevealedParamIds] = React.useState<Set<string>>(
@@ -228,7 +231,7 @@ export function KeyServiceConfigurationDetailPage() {
   const recordsParams = React.useMemo(
     () => ({
       pageNum: recordsPage,
-      pageSize: RECORDS_PAGE_SIZE,
+      pageSize: recordsPageSize,
       filters: {
         keyServiceCode: keyServiceCode ?? '',
         ...(filters.operationType && filters.operationType !== ALL_VALUE
@@ -236,7 +239,7 @@ export function KeyServiceConfigurationDetailPage() {
           : {}),
       },
     }),
-    [filters.operationType, recordsPage, keyServiceCode],
+    [filters.operationType, recordsPage, recordsPageSize, keyServiceCode],
   );
 
   const {
@@ -318,15 +321,15 @@ export function KeyServiceConfigurationDetailPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('key_management_0062'),
-        cell: () => (
-          <Button variant="link" className="h-auto p-0">
-            {t('key_management_0012')}
-          </Button>
-        ),
-      },
+      createRowActionsColumn<OperationRecordRow>({
+        detail: {
+          label: t('key_management_0012'),
+          // Source renders a `Details` link with no onClick — kept
+          // non-functional to mirror upstream.
+          disabled: true,
+          onClick: () => undefined,
+        },
+      }),
     ],
     // Map getters depend on i18n; exhaustive-deps would flag the closures.
     [t],
@@ -607,9 +610,13 @@ export function KeyServiceConfigurationDetailPage() {
               emptyMessage={t('PUB_NoData')}
               pagination={{
                 page: recordsPage,
-                pageSize: RECORDS_PAGE_SIZE,
+                pageSize: recordsPageSize,
                 total: recordsTotal,
                 onPageChange: setRecordsPage,
+                onPageSizeChange: (size) => {
+                  setRecordsPage(1);
+                  setRecordsPageSize(size);
+                },
               }}
             />
             <div className="mt-6 flex justify-end">

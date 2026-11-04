@@ -203,7 +203,7 @@ export function SpAccessSubmittedTransactionsSection({
       },
       {
         id: 'actions',
-        header: t('PUB_Action'),
+        header: 'Actions',
         enableSorting: false,
         cell: () => EMPTY_FIELD_VALUE,
       },

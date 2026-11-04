@@ -46,6 +46,7 @@ export function AdditionalWalletsTable({
   td: ApplyListItem;
 }): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
 
   const rows = React.useMemo<AdditionalWalletRow[]>(
     () =>
@@ -129,11 +130,12 @@ export function AdditionalWalletsTable({
         emptyMessage={t('empty')}
         pagination={{
           page: 1,
-          pageSize: DEFAULT_PAGE_SIZE,
+          pageSize,
           total: rows.length,
           onPageChange: () => {
             /* 源 pageSize: 10，静态数据无需翻页回调 */
           },
+          onPageSizeChange: setPageSize,
         }}
       />
     </div>

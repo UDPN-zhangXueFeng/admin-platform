@@ -23,6 +23,7 @@ import {
 } from '@myorg/shared/ui';
 import { useAuth } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 import {
   useCompletedListQuery,
@@ -75,6 +76,19 @@ const APPROVAL_STATUS_VALUES = new Set([1, 2, 3]);
 const TASK_STATUS_VALUES = new Set([
   1, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45,
 ]);
+
+/**
+ * !canView（无任何可用操作）时旧 cell 的占位列（保留 EMPTY_FIELD_VALUE 行为）。
+ */
+const EMPTY_ACTIONS_COLUMN: ColumnDef<ApprovalTask> = {
+  id: 'actions',
+  header: 'Actions',
+  enableSorting: false,
+  meta: { overflow: 'none', stickyRight: true },
+  cell: () => (
+    <span className="text-muted-foreground">{EMPTY_FIELD_VALUE}</span>
+  ),
+};
 
 /**
  * ApprovalManageListPage — 审批中心列表页（三 Tab + 撤回 Modal）。
@@ -271,22 +285,11 @@ export function ApprovalManageListPage() {
         ),
       },
       ...buildApprovalColumns(),
-      {
-        id: 'actions',
-        header: t('list.field.actions'),
-        cell: ({ row }) =>
-          canView ? (
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => goDetail(row.original)}
-            >
-              {t('list.action.detail')}
-            </Button>
-          ) : (
-            <span className="text-muted-foreground">{EMPTY_FIELD_VALUE}</span>
-          ),
-      },
+      canView
+        ? createRowActionsColumn<ApprovalTask>({
+            detail: { label: t('list.action.detail'), onClick: goDetail },
+          })
+        : EMPTY_ACTIONS_COLUMN,
     ],
     [t, todoPage.pageNum, todoPage.pageSize, buildApprovalColumns, canView, goDetail],
   );
@@ -304,22 +307,11 @@ export function ApprovalManageListPage() {
         ),
       },
       ...buildApprovalColumns(),
-      {
-        id: 'actions',
-        header: t('list.field.actions'),
-        cell: ({ row }) =>
-          canView ? (
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => goDetail(row.original)}
-            >
-              {t('list.action.detail')}
-            </Button>
-          ) : (
-            <span className="text-muted-foreground">{EMPTY_FIELD_VALUE}</span>
-          ),
-      },
+      canView
+        ? createRowActionsColumn<ApprovalTask>({
+            detail: { label: t('list.action.detail'), onClick: goDetail },
+          })
+        : EMPTY_ACTIONS_COLUMN,
     ],
     [
       t,
@@ -382,39 +374,28 @@ export function ApprovalManageListPage() {
           <TaskStatusBadge status={row.original.taskStatus} />
         ),
       },
-      {
-        id: 'actions',
-        header: t('list.field.actions'),
-        cell: ({ row }) => {
-          // 源 disabled 条件：!(taskStatus===5 && withdrawType===1)。
-          const canWithdrawRow =
-            row.original.taskStatus === 5 && row.original.withdrawType === 1;
-          return (
-            <div className="flex gap-3">
-              {canWithdraw && canWithdrawRow ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => openWithdraw(row.original)}
-                >
-                  {t('list.action.withdraw')}
-                </Button>
-              ) : null}
-              {canView ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => goDetail(row.original)}
-                >
-                  {t('list.action.detail')}
-                </Button>
-              ) : (
-                <span className="text-muted-foreground">{EMPTY_FIELD_VALUE}</span>
-              )}
-            </div>
-          );
-        },
-      },
+      canView || canWithdraw
+        ? createRowActionsColumn<ApprovalTask>({
+            detail: canView
+              ? { label: t('list.action.detail'), onClick: goDetail }
+              : undefined,
+            menu: canWithdraw
+              ? (row) => {
+                  // 源 disabled 条件：!(taskStatus===5 && withdrawType===1)。
+                  const canWithdrawRow =
+                    row.taskStatus === 5 && row.withdrawType === 1;
+                  return canWithdrawRow
+                    ? [
+                        {
+                          label: t('list.action.withdraw'),
+                          onClick: openWithdraw,
+                        },
+                      ]
+                    : [];
+                }
+              : undefined,
+          })
+        : EMPTY_ACTIONS_COLUMN,
     ],
     [
       t,
@@ -444,6 +425,9 @@ export function ApprovalManageListPage() {
             emptyMessage={t('list.empty')}
             pageNum={todoPage.pageNum}
             pageSize={todoPage.pageSize}
+            onPageSizeChange={(size) =>
+              setTodoPage({ pageNum: 1, pageSize: size })
+            }
             onPageChange={(page) =>
               setTodoPage((prev) => ({ ...prev, pageNum: page }))
             }
@@ -458,6 +442,9 @@ export function ApprovalManageListPage() {
             emptyMessage={t('list.empty')}
             pageNum={completedPage.pageNum}
             pageSize={completedPage.pageSize}
+            onPageSizeChange={(size) =>
+              setCompletedPage({ pageNum: 1, pageSize: size })
+            }
             onPageChange={(page) =>
               setCompletedPage((prev) => ({ ...prev, pageNum: page }))
             }
@@ -472,6 +459,9 @@ export function ApprovalManageListPage() {
             emptyMessage={t('list.empty')}
             pageNum={createdPage.pageNum}
             pageSize={createdPage.pageSize}
+            onPageSizeChange={(size) =>
+              setCreatedPage({ pageNum: 1, pageSize: size })
+            }
             onPageChange={(page) =>
               setCreatedPage((prev) => ({ ...prev, pageNum: page }))
             }
@@ -586,6 +576,7 @@ interface PanelProps {
   pageNum: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
 }
 
 function ApprovalTablePanel({
@@ -596,6 +587,7 @@ function ApprovalTablePanel({
   pageNum,
   pageSize,
   onPageChange,
+  onPageSizeChange,
 }: PanelProps) {
   const rows = result.data?.rows ?? [];
   const total = result.data?.page?.total ?? 0;
@@ -614,6 +606,7 @@ function ApprovalTablePanel({
             pageSize,
             total,
             onPageChange,
+            onPageSizeChange,
           }}
         />
       </div>

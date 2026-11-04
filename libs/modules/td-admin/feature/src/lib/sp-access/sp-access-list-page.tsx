@@ -1,5 +1,5 @@
 'use client';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@myorg/shared/util-i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import * as React from 'react';
 
@@ -26,11 +26,12 @@ import {
   type SpAccessListItem,
 } from '@myorg/modules/td-admin/data-access';
 import { SpAccessStatusBadge } from './sp-access-status-badge';
+import { EMPTY_FIELD_VALUE, formatTimestamp } from './formatters';
+import { createRowActionsColumn } from '../row-actions';
 import {
   SERVICE_PROVIDER_TYPE_VALUES,
   SP_ACCESS_PERMISSIONS,
 } from './constants';
-import { EMPTY_FIELD_VALUE, formatTimestamp } from './formatters';
 
 const PAGE_SIZE = 10;
 const ALL_VALUE = '';
@@ -159,39 +160,34 @@ export function SpAccessListPage() {
         header: t('PUB_Status'),
         cell: ({ row }) => <SpAccessStatusBadge kind="spStatus" status={row.original.state} />,
       },
-      {
-        id: 'actions',
-        header: t('PUB_Action'),
-        cell: ({ row }) => {
-          const record = row.original;
-          // 上游跳转参数：id=spId（非 spRecordId）
-          const detailParams = `id=${record.spId ?? ''}&spCode=${record.spCode ?? ''}`;
-          const editEnabled = record.state === 1 || record.state === 2;
-          return (
-            <div className="flex items-center gap-2">
-              {canEdit && editEnabled && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => router.push(`/sp-access/edit?${detailParams}`)}
-                >
-                  {t('Router_0004_3')}
-                </Button>
-              )}
-              {canView && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => router.push(`/sp-access/detail?${detailParams}`)}
-                >
-                  {t('Router_0004_4')}
-                </Button>
-              )}
-              {!canView && !(canEdit && editEnabled) && <span className="text-muted-foreground">--</span>}
-            </div>
-          );
-        },
-      },
+      // 上游跳转参数：id=spId（非 spRecordId）
+      !canView && !canEdit
+        ? {
+            // 沿用旧单元格的 '--' 占位（无任何可用操作时）
+            id: 'actions',
+            header: 'Actions',
+            enableSorting: false,
+            cell: () => <span className="text-muted-foreground">--</span>,
+          }
+        : createRowActionsColumn<SpAccessListItem & { id: string }>({
+            detail: canView
+              ? {
+                  label: t('Router_0004_4'),
+                  onClick: (record) =>
+                    router.push(`/sp-access/detail?id=${record.spId ?? ''}&spCode=${record.spCode ?? ''}`),
+                }
+              : undefined,
+            menu: (record) =>
+              canEdit && (record.state === 1 || record.state === 2)
+                ? [
+                    {
+                      label: t('Router_0004_3'),
+                      onClick: (r) =>
+                        router.push(`/sp-access/edit?id=${r.spId ?? ''}&spCode=${r.spCode ?? ''}`),
+                    },
+                  ]
+                : [],
+          }),
     ],
     [router, page, pageSize, canEdit, canView, t],
   );

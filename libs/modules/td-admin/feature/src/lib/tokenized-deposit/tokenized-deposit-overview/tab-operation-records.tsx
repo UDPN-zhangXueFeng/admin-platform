@@ -38,10 +38,11 @@
 import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
-import { Button, DataTable } from '@myorg/shared/ui';
+import { DataTable } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../../format-admin-time';
+import { createRowActionsColumn } from '../../row-actions';
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
@@ -96,6 +97,11 @@ export function OverviewOperationRecordsTab({
 }: OverviewOperationRecordsTabProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
   const router = useRouter();
+  // 源 limit '61dea32a...'（VIEW_OPERATION_RECORD）：PermissionGuard 隐藏语义，
+  // 无权限时整列空。
+  const hasViewOperationPerm = usePermission(
+    TD_PERMISSIONS.VIEW_OPERATION_RECORD
+  );
 
   const [pagination, setPagination] = React.useState({
     pageNum: 1,
@@ -203,24 +209,15 @@ export function OverviewOperationRecordsTab({
           />
         ),
       },
-      {
-        id: 'actions',
-        header: t('PUB_Action'),
-        cell: ({ row }) => (
-          // 源 limit '61dea32a...'（TD_PERMISSIONS.VIEW_OPERATION_RECORD），disabled: false。
-          <PermissionGuard permission={TD_PERMISSIONS.VIEW_OPERATION_RECORD}>
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => handleView(row.original)}
-            >
-              {t('PUB_Detail')}
-            </Button>
-          </PermissionGuard>
-        ),
-      },
+      // PUB_Action：统一行操作列。源 PermissionGuard(VIEW_OPERATION_RECORD) 包裹的
+      // Details 链接收敛为内联 link；无权限时不传 detail（渲染 null，对齐源隐藏）。
+      createRowActionsColumn<OperationRecordItem>(
+        hasViewOperationPerm
+          ? { detail: { label: t('PUB_Detail'), onClick: handleView } }
+          : {}
+      ),
     ],
-    [t, handleView],
+    [t, handleView, hasViewOperationPerm],
   );
 
   return (
@@ -235,6 +232,12 @@ export function OverviewOperationRecordsTab({
         total,
         onPageChange: (p) =>
           setPagination((prev) => ({ ...prev, pageNum: p })),
+        onPageSizeChange: (size) =>
+          setPagination((prev) => ({
+            ...prev,
+            pageNum: 1,
+            pageSize: size,
+          })),
       }}
     />
   );

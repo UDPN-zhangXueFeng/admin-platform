@@ -47,6 +47,7 @@ import {
 } from '.';
 
 import { ReserveReconLogModal } from './reserve/reserve-recon-log-modal';
+import { createRowActionsColumn } from '../row-actions';
 
 // ── 表格面板 ─────────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,7 @@ interface DetailTablePanelProps {
   pageNum: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
 }
 
 function DetailTablePanel({
@@ -70,6 +72,7 @@ function DetailTablePanel({
   pageNum,
   pageSize,
   onPageChange,
+  onPageSizeChange,
 }: DetailTablePanelProps) {
   return (
     <div className="p-4">
@@ -83,6 +86,7 @@ function DetailTablePanel({
           pageSize,
           total,
           onPageChange,
+          onPageSizeChange,
         }}
       />
     </div>
@@ -136,8 +140,9 @@ export function ReserveDetailPage() {
 
   // ── 分页状态（Tab 独立） ──────────────────────────────────────────────────
   const [listPageNum, setListPageNum] = React.useState(1);
+  const [listPageSize, setListPageSize] = React.useState(DEFAULT_PAGE_SIZE);
   const [investPageNum, setInvestPageNum] = React.useState(1);
-  const pageSize = DEFAULT_PAGE_SIZE;
+  const [investPageSize, setInvestPageSize] = React.useState(DEFAULT_PAGE_SIZE);
 
   // ── 筛选状态（Tab 独立；ALL_VALUE='all' 规避 Radix Select 空串崩溃） ────────
   // 对齐源 `formItems`（keyword / type / reconciliationStatus 三项可交互筛选；
@@ -169,6 +174,7 @@ export function ReserveDetailPage() {
   const makeReserveParams = React.useCallback(
     (
       pageNum: number,
+      pageSize: number,
       filters: ReserveFilterValues,
     ): ReconciliationListParams<ReserveReconListReqVo> => ({
       pageNum,
@@ -187,17 +193,17 @@ export function ReserveDetailPage() {
             : undefined,
       },
     }),
-    [reserveAccountId, pageSize],
+    [reserveAccountId],
   );
 
   // ── Recon List 查询 ───────────────────────────────────────────────────────
   const listResult = useReserveListQuery(
-    makeReserveParams(listPageNum, listFilterValues),
+    makeReserveParams(listPageNum, listPageSize, listFilterValues),
   );
 
   // ── Investigation 查询（R2: NOT pre-filtered） ────────────────────────────
   const investResult = useReserveInvestigationListQuery(
-    makeReserveParams(investPageNum, investFilterValues),
+    makeReserveParams(investPageNum, investPageSize, investFilterValues),
   );
 
   const investTotal = investResult.data?.page?.total ?? 0;
@@ -420,26 +426,22 @@ export function ReserveDetailPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('common_action'),
-        cell: ({ row }) => (
-          <Button
-            variant="link"
-            className="h-auto p-0"
-            onClick={() => {
+      createRowActionsColumn<ReserveReconDetailRespVo>({
+        header: 'Actions',
+        menu: (row) => [
+          {
+            label: t('reconciliation_0110'),
+            onClick: (data) => {
               setModal({
                 mode: 'log',
-                reconciliationReserveId:
-                  row.original.reconciliationReserveId,
-                unmatchedType: row.original.reconciliationStatus === 3 ? 3 : undefined,
+                reconciliationReserveId: data.reconciliationReserveId,
+                unmatchedType:
+                  data.reconciliationStatus === 3 ? 3 : undefined,
               });
-            }}
-          >
-            {t('reconciliation_0110')}
-          </Button>
-        ),
-      },
+            },
+          },
+        ],
+      }),
     ],
     [t],
   );
@@ -569,8 +571,12 @@ export function ReserveDetailPage() {
             total={listResult.data?.page?.total ?? 0}
             emptyMessage={t('common_no_data')}
             pageNum={listPageNum}
-            pageSize={pageSize}
+            pageSize={listPageSize}
             onPageChange={setListPageNum}
+            onPageSizeChange={(size) => {
+              setListPageNum(1);
+              setListPageSize(size);
+            }}
           />
         </TabsContent>
 
@@ -583,8 +589,12 @@ export function ReserveDetailPage() {
             total={investTotal}
             emptyMessage={t('common_no_data')}
             pageNum={investPageNum}
-            pageSize={pageSize}
+            pageSize={investPageSize}
             onPageChange={setInvestPageNum}
+            onPageSizeChange={(size) => {
+              setInvestPageNum(1);
+              setInvestPageSize(size);
+            }}
           />
         </TabsContent>
       </Tabs>

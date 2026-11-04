@@ -48,6 +48,7 @@ import {
 
 import { formatAdminTimestamp } from '../format-admin-time';
 import { walletStatusMap, roleNameMap } from '.';
+import { createRowActionsColumn } from '../row-actions';
 
 /** Non-empty sentinel for the "All" option — see managed-wallets.md §8.G. */
 const ALL_VALUE = 'all';
@@ -132,8 +133,7 @@ function formatTokenType(
 export function ManagedWalletsListPage() {
   const t = useTranslations('modules.key-management');
   const router = useRouter();
-  const [page, setPage] = React.useState(1);
-  const pageSize = 10;
+  const [page, setPage] = React.useState({ pageNum: 1, pageSize: 10 });
 
   const { register, reset, control, getValues } = useForm<FilterFormValues>({
     resolver: zodResolver(filterSchema),
@@ -164,11 +164,11 @@ export function ManagedWalletsListPage() {
     if (status !== undefined) data.status = status;
 
     return {
-      pageNum: page,
-      pageSize,
+      pageNum: page.pageNum,
+      pageSize: page.pageSize,
       filters: data,
     };
-  }, [committed, page, pageSize]);
+  }, [committed, page]);
 
   const {
     data: listData,
@@ -184,13 +184,13 @@ export function ManagedWalletsListPage() {
 
   const handleQuery = () => {
     setCommitted(getValues());
-    setPage(1);
+    setPage((prev) => ({ ...prev, pageNum: 1 }));
   };
 
   const handleReset = () => {
     reset(DEFAULT_FILTER_VALUES);
     setCommitted(DEFAULT_FILTER_VALUES);
-    setPage(1);
+    setPage((prev) => ({ ...prev, pageNum: 1 }));
   };
 
   const handleViewDetail = (chainAccountId?: number) => {
@@ -304,20 +304,17 @@ export function ManagedWalletsListPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('key_management_0012'),
-        cell: ({ row }) => (
-          <Button
-            variant="link"
-            className="h-auto p-0"
-            disabled={row.original.chainAccountId == null}
-            onClick={() => handleViewDetail(row.original.chainAccountId)}
-          >
-            {t('key_management_0012')}
-          </Button>
-        ),
-      },
+      createRowActionsColumn<ManagedWalletRow>({
+        detail: {
+          label: t('key_management_0012'),
+          // 源 cell 在 chainAccountId 为空时渲染 disabled 链接；helper 的
+          // detail.disabled 是列级静态值，无法按行表达，故把空值守卫移入 onClick。
+          onClick: (row) => {
+            if (row.chainAccountId == null) return;
+            handleViewDetail(row.chainAccountId);
+          },
+        },
+      }),
     ],
     [t],
   );
@@ -445,10 +442,11 @@ export function ManagedWalletsListPage() {
           isLoading={isLoading}
           emptyMessage={t('PUB_NoData')}
           pagination={{
-            page,
-            pageSize,
+            page: page.pageNum,
+            pageSize: page.pageSize,
             total,
-            onPageChange: setPage,
+            onPageChange: (p) => setPage((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) => setPage({ pageNum: 1, pageSize: size }),
           }}
         />
       </div>

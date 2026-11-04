@@ -85,6 +85,9 @@ export function UserWalletDetailHistoryContent({
             onPageChange={(p) =>
               setAuthPage((prev) => ({ ...prev, pageNum: p }))
             }
+            onPageSizeChange={(size) =>
+              setAuthPage({ pageNum: 1, pageSize: size })
+            }
           />
         </TabsContent>
 
@@ -99,6 +102,9 @@ export function UserWalletDetailHistoryContent({
             total={authorizedList.data?.page?.total ?? 0}
             onPageChange={(p) =>
               setAuthorizedPage((prev) => ({ ...prev, pageNum: p }))
+            }
+            onPageSizeChange={(size) =>
+              setAuthorizedPage({ pageNum: 1, pageSize: size })
             }
           />
         </TabsContent>
@@ -201,6 +207,7 @@ function HistoryTableSection<T extends { id: string }>({
   page,
   total,
   onPageChange,
+  onPageSizeChange,
 }: {
   title: string;
   columns: ColumnDef<T>[];
@@ -210,6 +217,7 @@ function HistoryTableSection<T extends { id: string }>({
   page: { pageNum: number; pageSize: number };
   total: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
 }) {
   return (
     <section className="rounded-lg border bg-card shadow-sm">
@@ -225,6 +233,7 @@ function HistoryTableSection<T extends { id: string }>({
             pageSize: page.pageSize,
             total,
             onPageChange,
+            onPageSizeChange,
           }}
         />
       </div>

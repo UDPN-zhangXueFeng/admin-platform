@@ -181,6 +181,8 @@ export function AccrualDetailPage() {
           total: historyData?.page?.total ?? 0,
           onPageChange: (page) =>
             setPagination((prev) => ({ ...prev, pageNum: page })),
+          onPageSizeChange: (size) =>
+            setPagination({ pageNum: 1, pageSize: size }),
         }}
         isLoading={historyLoading}
       />

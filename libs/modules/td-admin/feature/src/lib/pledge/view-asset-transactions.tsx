@@ -132,7 +132,9 @@ export function ViewAssetTransactions({
         header: t('assetTxn.type'),
         cell: ({ row }) => (
           <span>
-            {row.original.transactionDirection === 1 ? 'Inflow' : 'Outflow'}
+            {row.original.transactionDirection === 1
+              ? t('assetTxnList.direction.inflow')
+              : t('assetTxnList.direction.outflow')}
           </span>
         ),
       },
@@ -175,16 +177,17 @@ export function ViewAssetTransactions({
           if (status === undefined || status === null) {
             return <span>{EMPTY_DISPLAY}</span>;
           }
-          const color =
-            ASSET_TXN_STATUS_COLOR[
-              status as keyof typeof ASSET_TXN_STATUS_COLOR
-            ] ?? 'default';
+          // 未知状态码不查 i18n（next-intl 缺 key 会报 MISSING_MESSAGE），回落 unknown 文案。
+          const isKnownStatus = String(status) in ASSET_TXN_STATUS_COLOR;
+          const color = isKnownStatus
+            ? ASSET_TXN_STATUS_COLOR[status as keyof typeof ASSET_TXN_STATUS_COLOR]
+            : 'default';
           const toneClass = txnStatusToneClass(color);
           return (
             <span
               className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${toneClass}`}
             >
-              {t(`txnStatus.${status}`)}
+              {t(`txnStatus.${isKnownStatus ? status : 'unknown'}`)}
             </span>
           );
         },
@@ -237,9 +240,12 @@ export function ViewAssetTransactions({
             pagination={{
               page: pagination.pageNum,
               pageSize: pagination.pageSize,
+              pageSizeOptions: [TAB_PAGE_SIZE, 10, 20, 50],
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

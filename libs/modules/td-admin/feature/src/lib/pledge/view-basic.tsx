@@ -166,14 +166,17 @@ export function ViewBasic({
   // Summary 表前端分页（源 antd Table `pagination={{ pageSize: 5 }}` 自动切片；
   // DataTable 为 manualPagination，需调用方自行切片当前页数据）。
   // 同时补 id（DataTable 契约要求 { id: string }，源行用 key: number）。
-  const [summaryPage, setSummaryPage] = React.useState(1);
+  const [summaryPage, setSummaryPage] = React.useState({
+    pageNum: 1,
+    pageSize: SUMMARY_PAGE_SIZE,
+  });
   const summaryTotal = reserveSummaryRows.length;
   const summaryPageRows = React.useMemo<SummaryRow[]>(
     () =>
       reserveSummaryRows
         .slice(
-          (summaryPage - 1) * SUMMARY_PAGE_SIZE,
-          summaryPage * SUMMARY_PAGE_SIZE,
+          (summaryPage.pageNum - 1) * summaryPage.pageSize,
+          summaryPage.pageNum * summaryPage.pageSize,
         )
         .map((row) => ({ ...row, id: String(row.key) })),
     [reserveSummaryRows, summaryPage],
@@ -294,10 +297,13 @@ export function ViewBasic({
               data={summaryPageRows}
               emptyMessage={t('empty')}
               pagination={{
-                page: summaryPage,
-                pageSize: SUMMARY_PAGE_SIZE,
+                page: summaryPage.pageNum,
+                pageSize: summaryPage.pageSize,
                 total: summaryTotal,
-                onPageChange: (p) => setSummaryPage(p),
+                onPageChange: (p) =>
+                  setSummaryPage((prev) => ({ ...prev, pageNum: p })),
+                onPageSizeChange: (size) =>
+                  setSummaryPage({ pageNum: 1, pageSize: size }),
               }}
             />
           </div>

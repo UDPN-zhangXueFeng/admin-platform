@@ -248,6 +248,8 @@ export function MintingMeltingTab({
           pageSize: pagination.pageSize,
           total,
           onPageChange: (p) => setPagination((prev) => ({ ...prev, pageNum: p })),
+          onPageSizeChange: (size) =>
+            setPagination({ pageNum: 1, pageSize: size }),
         }}
       />
     </div>

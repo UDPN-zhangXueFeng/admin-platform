@@ -84,6 +84,7 @@ export interface ViewBasicProps {
 
 export function ReserveAssetDetailPage(): React.JSX.Element {
   const t = useTranslations('modules.pledge');
+  const tc = useTranslations('common');
 
   // 列表页跳 /pledge/reserve-asset-list/view?id=<reserveAccountId>：
   // catch-all 路由 slug[0]=view → pageKey=detail，id 走 query string。
@@ -131,13 +132,13 @@ export function ReserveAssetDetailPage(): React.JSX.Element {
   // categorieList → Reserve Asset Summary 汇总行（源 new-view reserveSummaryRows 映射）。
   const reserveSummaryRows = React.useMemo<ReserveSummaryRow[]>(() => {
     const list = detail?.categorieList ?? [];
-    const ccy = detail?.currency ?? basicInfo.currency ?? 'HKD';
+    const ccy = detail?.currency || 'HKD';
     return list.map((item, idx) => {
       const amount = Number(item.assetBalance ?? 0);
       return {
         key: idx + 1,
         category: String(item.assetTypeName ?? '--'),
-        value: `${formatCurrency(amount, String(item.currency ?? ccy))}`,
+        value: formatCurrency(amount, item.currency || ccy),
         share:
           typeof item.proportion === 'number'
             ? `${item.proportion}%`
@@ -147,7 +148,7 @@ export function ReserveAssetDetailPage(): React.JSX.Element {
         status: Number(item.status ?? 0),
       };
     });
-  }, [detail, basicInfo.currency]);
+  }, [detail]);
 
   // 总资产价值文案（balance + currency）。
   const totalAssetValueText = React.useMemo(() => {
@@ -158,8 +159,8 @@ export function ReserveAssetDetailPage(): React.JSX.Element {
   return (
     <div className="relative">
       {loading ? (
-        <div className="absolute right-0 top-0 z-10 text-xs text-muted-foreground">
-          {/* 轻量 loading 提示（shared/ui 无 Spin，对齐 cross-chain 用 isLoading 传 DataTable 的约定） */}
+        <div role="status" className="mb-3 text-sm text-muted-foreground">
+          {tc('loading')}
         </div>
       ) : null}
       <Tabs defaultValue="basic" className="w-full">

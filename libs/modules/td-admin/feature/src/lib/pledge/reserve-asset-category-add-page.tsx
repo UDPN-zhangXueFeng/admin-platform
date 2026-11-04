@@ -208,7 +208,7 @@ export function ReserveAssetCategoryAddPage(): React.JSX.Element {
           >
             {t('categoryAdd.back')}
           </Button>
-          <Button type="button" onClick={onSubmit} disabled={addCategoryMutation.isPending}>
+          <Button type="button" onClick={onSubmit} loading={addCategoryMutation.isPending} disabled={addCategoryMutation.isPending}>
             {t('categoryAdd.submit')}
           </Button>
         </div>

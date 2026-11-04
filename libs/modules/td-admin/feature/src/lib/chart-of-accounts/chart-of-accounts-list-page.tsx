@@ -6,16 +6,11 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { MoreHorizontal } from 'lucide-react';
 
 import {
   Button,
   CopyableEllipsisText,
   DataTable,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
@@ -43,6 +38,7 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 
 import { getFinancialBookMetaByBookId } from './financial-book-meta';
+import { createRowActionsColumn, type RowAction } from '../row-actions';
 
 /** 详情 tab 取值，与操作跳转一一对应。 */
 type DetailTab = 'basic-information' | 'chart-of-accounts' | 'eod-statements';
@@ -109,6 +105,19 @@ function formToFilters(
 
 // ── EOD 截止时间格式化（迁移自源项目 src/lib/financial/date-time.ts） ──
 const EMPTY_DISPLAY = '--';
+
+/** 无任何可见操作时旧 cell 的占位列（保留 EMPTY_DISPLAY 行为）。 */
+const EMPTY_ACTIONS_COLUMN: ColumnDef<ChartOfAccountsItem> = {
+  id: 'actions',
+  header: 'Actions',
+  enableSorting: false,
+  meta: { overflow: 'none', stickyRight: true },
+  cell: () => (
+    <div className="flex justify-center text-muted-foreground">
+      {EMPTY_DISPLAY}
+    </div>
+  ),
+};
 
 function formatOffsetMinutes(offsetMinutes: number): string {
   const sign = offsetMinutes >= 0 ? '+' : '-';
@@ -297,6 +306,11 @@ export function ChartOfAccountsListPage() {
     [router]
   );
 
+  const canSeeActions =
+    hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.Edit) ||
+    hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.ViewStatements) ||
+    hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.Detail);
+
   const columns = React.useMemo<ColumnDef<ChartOfAccountsItem>[]>(
     () => [
       {
@@ -420,65 +434,41 @@ export function ChartOfAccountsListPage() {
           return <ChartOfAccountsStatusTag tone={tone} label={label} />;
         },
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const record = row.original;
-          const actionItems: { key: string; label: string; onClick: () => void }[] = [];
-
-          if (hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.Edit)) {
-            actionItems.push({
-              key: 'edit',
-              label: t('action.edit'),
-              onClick: () => goToDetail(record, 'chart-of-accounts'),
-            });
-          }
-          if (hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.ViewStatements)) {
-            actionItems.push({
-              key: 'view-statements',
-              label: t('action.viewStatements'),
-              onClick: () => goToDetail(record, 'eod-statements'),
-            });
-          }
-          if (hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.Detail)) {
-            actionItems.push({
-              key: 'detail',
-              label: t('action.detail'),
-              onClick: () => goToDetail(record, 'basic-information'),
-            });
-          }
-
-          if (actionItems.length === 0) {
-            return (
-              <div className="flex justify-center text-muted-foreground">
-                {EMPTY_DISPLAY}
-              </div>
-            );
-          }
-
-          return (
-            <div className="flex justify-center">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label={t('field.actions')}>
-                    <MoreHorizontal className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {actionItems.map((item) => (
-                    <DropdownMenuItem key={item.key} onClick={item.onClick}>
-                      {item.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          );
-        },
-      },
+      canSeeActions
+        ? createRowActionsColumn<ChartOfAccountsItem>({
+            detail: hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.Detail)
+              ? {
+                  label: t('action.detail'),
+                  onClick: (row) => goToDetail(row, 'basic-information'),
+                }
+              : undefined,
+            menu: (row) => {
+              const items: RowAction<ChartOfAccountsItem>[] = [];
+              if (hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.Edit)) {
+                items.push({
+                  label: t('action.edit'),
+                  onClick: () => goToDetail(row, 'chart-of-accounts'),
+                });
+              }
+              if (hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.ViewStatements)) {
+                items.push({
+                  label: t('action.viewStatements'),
+                  onClick: () => goToDetail(row, 'eod-statements'),
+                });
+              }
+              return items;
+            },
+          })
+        : EMPTY_ACTIONS_COLUMN,
     ],
-    [t, statusCodes, tokenTypeLabelMap, hasPermission, goToDetail]
+    [
+      t,
+      statusCodes,
+      tokenTypeLabelMap,
+      hasPermission,
+      goToDetail,
+      canSeeActions,
+    ],
   );
 
   const onSubmit = React.useCallback((form: ChartOfAccountsFilterForm) => {
@@ -576,6 +566,8 @@ export function ChartOfAccountsListPage() {
               total,
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

@@ -19,6 +19,7 @@ import {
   type WalletTypeDetail,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import { WalletStatusBadge } from '.';
 import {
   DEFAULT_PAGE_SIZE,
@@ -328,19 +329,12 @@ export function WalletTypeMffViewContent({
           <WalletStatusBadge family="mmf-daily" status={row.original.status} />
         ),
       },
-      {
-        id: 'actions',
-        header: t('common.operate'),
-        cell: ({ row }) => (
-          <button
-            type="button"
-            className="text-sm font-medium text-primary hover:underline"
-            onClick={() => handleOpenDrawer(row.original.billCode)}
-          >
-            {t('walletType.action.details')}
-          </button>
-        ),
-      },
+      createRowActionsColumn<DailyYieldRow>({
+        detail: {
+          label: t('walletType.action.details'),
+          onClick: (row) => handleOpenDrawer(row.billCode),
+        },
+      }),
     ],
     [t, handleOpenDrawer]
   );
@@ -424,6 +418,8 @@ export function WalletTypeMffViewContent({
                     total: dailyTotal,
                     onPageChange: (page) =>
                       setDailyPage((prev) => ({ ...prev, pageNum: page })),
+                    onPageSizeChange: (size) =>
+                      setDailyPage({ pageNum: 1, pageSize: size }),
                   }}
                 />
               </div>

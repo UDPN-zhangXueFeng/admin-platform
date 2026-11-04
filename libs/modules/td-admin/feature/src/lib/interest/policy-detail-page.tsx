@@ -42,6 +42,7 @@ import {
   InterestTierTable,
 } from '.';
 import { formatAdminTimestamp, formatAdminDate } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 const PAGE_SIZE = 10;
 
@@ -219,25 +220,20 @@ function OperationRecordsTab({ interestRuleId, t, tc }: { interestRuleId: number
         );
       },
     },
-    {
-      id: 'actions',
-      header: tc('PUB_Action'),
-      cell: ({ row }) => {
-        const r = row.original;
-        if (!can('e338a3b41c21413db1d2ac7a90a65f5f')) return null;
-        return (
-          <Button
-            variant="link"
-            className="h-auto p-0"
-            onClick={() =>
-              router.push(`/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`)
-            }
-          >
-            {tc('Router_0010_4_3')}
-          </Button>
-        );
-      },
-    },
+    // 行操作：查看 审批详情 内联（权限 e338a3b4...，缺失时整列空——与原 `if (!can) return null` 一致）。
+    createRowActionsColumn<PolicyOperationRecord>(
+      can('e338a3b41c21413db1d2ac7a90a65f5f')
+        ? {
+            detail: {
+              label: tc('Router_0010_4_3'),
+              onClick: (r) =>
+                router.push(
+                  `/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`,
+                ),
+            },
+          }
+        : {},
+    ),
   ];
   return (
     <div>
@@ -265,6 +261,8 @@ function OperationRecordsTab({ interestRuleId, t, tc }: { interestRuleId: number
           total: data?.page?.total ?? 0,
           onPageChange: (page) =>
             setPagination((prev) => ({ ...prev, pageNum: page })),
+          onPageSizeChange: (size) =>
+            setPagination({ pageNum: 1, pageSize: size }),
         }}
         isLoading={isLoading}
       />

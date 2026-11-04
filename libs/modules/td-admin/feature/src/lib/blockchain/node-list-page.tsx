@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import {
   useBlockchainListQuery,
   useNodeListQuery,
@@ -40,6 +40,10 @@ import {
 import { ALL_VALUE } from './blockchain.constants';
 import { NodeDeleteModal } from './node-delete-modal';
 import { formatAdminTimestamp } from '../format-admin-time';
+import {
+  createRowActionsColumn,
+  type RowAction,
+} from '../row-actions';
 
 /**
  * 删除确认 Modal 所需上下文（由 bc-10 的 NodeDeleteModal 消费）。
@@ -225,6 +229,11 @@ export function NodeListPage(): React.JSX.Element {
     });
   }, []);
 
+  const canEdit = usePermission(BLOCKCHAIN_PERMISSIONS.NODE_EDIT_BTN);
+  const canDisable = usePermission(BLOCKCHAIN_PERMISSIONS.NODE_DISABLE_BTN);
+  const canEnable = usePermission(BLOCKCHAIN_PERMISSIONS.NODE_ENABLE_BTN);
+  const canDelete = usePermission(BLOCKCHAIN_PERMISSIONS.NODE_DELETE_BTN);
+
   const columns = React.useMemo<ColumnDef<NodeItem>[]>(
     () => [
       {
@@ -295,73 +304,54 @@ export function NodeListPage(): React.JSX.Element {
           <BlockchainStatusBadge kind="node" status={row.original.status} />
         ),
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <div className="flex gap-3">
-              <PermissionGuard permission={BLOCKCHAIN_PERMISSIONS.NODE_EDIT_BTN}>
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() =>
-                    router.push(
-                      `/blockchain/node/edit?blockchainId=${
-                        r.blockchainId ?? ''
-                      }&nodeLocationId=${r.nodeLocationId ?? ''}`,
-                    )
-                  }
-                >
-                  {t('action.edit')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard
-                permission={BLOCKCHAIN_PERMISSIONS.NODE_DISABLE_BTN}
-              >
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={r.status === NODE_STATE.DISABLE}
-                  onClick={() => handleToggleState(r, NODE_STATE.DISABLE)}
-                >
-                  {t('action.disable')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard
-                permission={BLOCKCHAIN_PERMISSIONS.NODE_ENABLE_BTN}
-              >
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={r.status === NODE_STATE.ENABLE}
-                  onClick={() => handleToggleState(r, NODE_STATE.ENABLE)}
-                >
-                  {t('action.enable')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard
-                permission={BLOCKCHAIN_PERMISSIONS.NODE_DELETE_BTN}
-              >
-                <Button
-                  variant="link"
-                  className="h-auto p-0 text-red-600"
-                  onClick={() => handleOpenDelete(r)}
-                >
-                  {t('action.delete')}
-                </Button>
-              </PermissionGuard>
-            </div>
-          );
+      createRowActionsColumn<NodeItem>({
+        menu: (r) => {
+          const items: RowAction<NodeItem>[] = [];
+          if (canEdit) {
+            items.push({
+              label: t('action.edit'),
+              onClick: () =>
+                router.push(
+                  `/blockchain/node/edit?blockchainId=${
+                    r.blockchainId ?? ''
+                  }&nodeLocationId=${r.nodeLocationId ?? ''}`,
+                ),
+            });
+          }
+          if (canDisable) {
+            items.push({
+              label: t('action.disable'),
+              disabled: r.status === NODE_STATE.DISABLE,
+              onClick: () => handleToggleState(r, NODE_STATE.DISABLE),
+            });
+          }
+          if (canEnable) {
+            items.push({
+              label: t('action.enable'),
+              disabled: r.status === NODE_STATE.ENABLE,
+              onClick: () => handleToggleState(r, NODE_STATE.ENABLE),
+            });
+          }
+          if (canDelete) {
+            items.push({
+              label: t('action.delete'),
+              destructive: true,
+              onClick: () => handleOpenDelete(r),
+            });
+          }
+          return items;
         },
-      },
+      }),
     ],
     [
       t,
       router,
       pagination.pageNum,
       pagination.pageSize,
+      canEdit,
+      canDisable,
+      canEnable,
+      canDelete,
       handleToggleState,
       handleOpenDelete,
     ],
@@ -474,6 +464,8 @@ export function NodeListPage(): React.JSX.Element {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

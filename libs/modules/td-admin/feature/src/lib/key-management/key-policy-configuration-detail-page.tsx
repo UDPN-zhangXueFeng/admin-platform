@@ -48,6 +48,7 @@ import {
   type PolicyDetail,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import { keyPolicyStatusMap, operationRecordStatusMap } from '.';
 import { operationTypeOptions } from './constants';
 
@@ -146,6 +147,8 @@ export function KeyPolicyConfigurationDetailPage() {
 
   // ----- Operation Records: form + front-end filter + pagination -----
   const [recordsPage, setRecordsPage] = React.useState(1);
+  const [recordsPageSize, setRecordsPageSize] =
+    React.useState(RECORDS_PAGE_SIZE);
   const { control, reset, getValues } = useForm<RecordsFilterFormValues>({
     defaultValues: RECORDS_FILTER_DEFAULTS,
   });
@@ -206,13 +209,15 @@ export function KeyPolicyConfigurationDetailPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('key_management_0062'),
-        // Plan §8.C.4: source renders a `Details` span with no onClick
-        // (dead link). Kept as a non-interactive placeholder to mirror it.
-        cell: () => <span className="text-blue-600">Details</span>,
-      },
+      createRowActionsColumn<OperationRecordRow>({
+        detail: {
+          label: 'Details',
+          // Source renders a dead `Details` span with no onClick (plan
+          // §8.C.4) — kept non-functional to mirror it.
+          disabled: true,
+          onClick: () => undefined,
+        },
+      }),
     ],
     [t],
   );
@@ -364,9 +369,13 @@ export function KeyPolicyConfigurationDetailPage() {
               emptyMessage={t('PUB_NoData')}
               pagination={{
                 page: recordsPage,
-                pageSize: RECORDS_PAGE_SIZE,
+                pageSize: recordsPageSize,
                 total: filteredRecords.length,
                 onPageChange: setRecordsPage,
+                onPageSizeChange: (size) => {
+                  setRecordsPage(1);
+                  setRecordsPageSize(size);
+                },
               }}
             />
             <div className="mt-6 flex justify-end">

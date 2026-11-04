@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@myorg/shared/util-i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   Button,
@@ -17,6 +17,7 @@ import {
 import { useSpAccessOperationRecordsQuery } from '@myorg/modules/td-admin/data-access';
 import type { SpAccessOperationRecord } from '@myorg/modules/td-admin/data-access';
 import { EMPTY_FIELD_VALUE, formatTimestamp } from './formatters';
+import { createRowActionsColumn } from '../row-actions';
 import { SpAccessStatusBadge } from './sp-access-status-badge';
 
 /**
@@ -81,31 +82,17 @@ export function SpAccessOperationRecordsSection({ spCode }: { spCode: string }) 
           <SpAccessStatusBadge kind="taskStatus" status={Number(getValue())} />
         ),
       },
-      {
-        id: 'actions',
-        header: t('PUB_Action'),
-        enableSorting: false,
-        cell: ({ row }) => {
-          const record = row.original;
-          const disabled = !record.taskId || !record.businessCode;
-          return (
-            <Button
-              type="button"
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              disabled={disabled}
-              onClick={() =>
-                router.push(
-                  `/approval-manage/view?id=${record.taskId}&busCode=${record.businessCode}`,
-                )
-              }
-            >
-              {t('Router_062')}
-            </Button>
-          );
+      createRowActionsColumn<SpAccessOperationRecord & { id: string }>({
+        detail: {
+          label: t('Router_062'),
+          // 旧单元格按行禁用（task/businessCode 缺失）；detail.disabled 为静态值，
+          // 改为在 onClick 内保持同样的守卫。
+          onClick: (record) => {
+            if (!record.taskId || !record.businessCode) return;
+            router.push(`/approval-manage/view?id=${record.taskId}&busCode=${record.businessCode}`);
+          },
         },
-      },
+      }),
     ],
     [t, router],
   );

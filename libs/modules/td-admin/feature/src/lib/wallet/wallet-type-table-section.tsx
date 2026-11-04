@@ -10,6 +10,7 @@ import {
 } from '@myorg/shared/ui';
 import { useAuth } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import { WalletStatusBadge } from '.';
 import {
   useWalletTypeTableQuery,
@@ -167,28 +168,25 @@ export function WalletTypeTableSection({
             />
           ),
         },
-        {
-          id: 'actions',
-          header: t('common.operate'),
-          cell: ({ row }) =>
-            canViewDetail ? (
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
+        canViewDetail
+          ? createRowActionsColumn<WalletTypeTableRow>({
+              detail: {
+                label: t('common.detail'),
+                onClick: (row) =>
                   router.push(
                     `/approval-manage/view?id=${encodeURIComponent(
-                      row.original.taskId ?? ''
-                    )}&busCode=${encodeURIComponent(row.original.businessCode ?? '')}`
-                  )
-                }
-              >
-                {t('common.detail')}
-              </Button>
-            ) : (
-              <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>
-            ),
-        },
+                      row.taskId ?? ''
+                    )}&busCode=${encodeURIComponent(row.businessCode ?? '')}`
+                  ),
+              },
+            })
+          : {
+              id: 'actions',
+              header: 'Actions',
+              cell: () => (
+                <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>
+              ),
+            },
       ];
     }
 
@@ -271,28 +269,25 @@ export function WalletTypeTableSection({
           />
         ),
       },
-      {
-        id: 'actions',
-        header: t('common.operate'),
-        cell: ({ row }) =>
-          canViewDetail ? (
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
+      canViewDetail
+        ? createRowActionsColumn<WalletTypeTableRow>({
+            detail: {
+              label: t('common.detail'),
+              onClick: (row) =>
                 router.push(
                   `/approval-manage/view?id=${encodeURIComponent(
-                    row.original.taskId ?? ''
-                  )}&busCode=${encodeURIComponent(row.original.businessCode ?? '')}`
-                )
-              }
-            >
-              {t('common.detail')}
-            </Button>
-          ) : (
-            <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>
-          ),
-      },
+                    row.taskId ?? ''
+                  )}&busCode=${encodeURIComponent(row.businessCode ?? '')}`
+                ),
+            },
+          })
+        : {
+            id: 'actions',
+            header: 'Actions',
+            cell: () => (
+              <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>
+            ),
+          },
     ];
   }, [t, isMmf, canViewDetail, router]);
 
@@ -344,6 +339,8 @@ export function WalletTypeTableSection({
               total,
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         )}

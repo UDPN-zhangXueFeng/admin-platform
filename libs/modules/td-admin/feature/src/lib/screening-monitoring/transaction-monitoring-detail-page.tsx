@@ -53,7 +53,7 @@ export function TransactionMonitoringDetailPage() {
     { id: 'txHash', header: t('screening_monitoring_0062'), accessorKey: 'transactionHash', cell: ({ getValue }) => { const v = getValue<string>(); return detail.browserUrl ? <a href={detail.browserUrl + 'tx/' + v} target="_blank" rel="noreferrer" className="text-blue-600">{v}</a> : v; } },
   ];
 
-  const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: txData?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })) }), [pg.pageNum, pg.pageSize, txData?.page?.total]);
+  const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: txData?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })), onPageSizeChange: (size: number) => setPg({ pageNum: 1, pageSize: size }) }), [pg.pageNum, pg.pageSize, txData?.page?.total]);
 
   return (
     <div>

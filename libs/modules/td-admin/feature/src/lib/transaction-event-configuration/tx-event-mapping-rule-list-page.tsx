@@ -29,6 +29,7 @@ import {
   resolveMappingRuleStatusMeta,
   statusToneClass,
 } from '.';
+import { createRowActionsColumn } from '../row-actions';
 
 /**
  * TxEventMappingRuleListPage — Mapping Rule 列表页（按 financeBookId）。
@@ -154,43 +155,29 @@ export function TxEventMappingRuleListPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => (
-          <div className="flex gap-3">
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => handlePreview(row.original.normalizationEventId)}
-            >
-              {t('action.preview')}
-            </Button>
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
-                router.push(
-                  `/transaction-event-configuration/mapping-rule/edit?id=${row.original.normalizationEventId ?? ''}&bookId=${financeBookId}`
-                )
-              }
-            >
-              {t('action.edit')}
-            </Button>
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
-                router.push(
-                  `/transaction-event-configuration/mapping-rule/view?id=${row.original.normalizationEventId ?? ''}&bookId=${financeBookId}`
-                )
-              }
-            >
-              {t('action.detail')}
-            </Button>
-          </div>
-        ),
-      },
+      // Actions：统一行操作列。Detail 内联；Preview/Edit 收进 ⋮（顺序对齐源单元格）。
+      createRowActionsColumn<NormalizationEvent>({
+        detail: {
+          label: t('action.detail'),
+          onClick: (row) =>
+            router.push(
+              `/transaction-event-configuration/mapping-rule/view?id=${row.normalizationEventId ?? ''}&bookId=${financeBookId}`
+            ),
+        },
+        menu: (row) => [
+          {
+            label: t('action.preview'),
+            onClick: () => handlePreview(row.normalizationEventId),
+          },
+          {
+            label: t('action.edit'),
+            onClick: () =>
+              router.push(
+                `/transaction-event-configuration/mapping-rule/edit?id=${row.normalizationEventId ?? ''}&bookId=${financeBookId}`
+              ),
+          },
+        ],
+      }),
     ],
     [t, financeBookId, router, handlePreview]
   );
@@ -224,6 +211,8 @@ export function TxEventMappingRuleListPage() {
               total,
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

@@ -10,10 +10,10 @@ import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
 import { DataTable } from '@myorg/shared/ui';
-import { Button } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../../format-admin-time';
+import { createRowActionsColumn } from '../../row-actions';
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
@@ -49,6 +49,8 @@ import type { OverviewRecordsTabProps } from './tab-records';
 export function SPRecordsTable({ td }: OverviewRecordsTabProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
   const router = useRouter();
+  // 源 limit：VIEW_RECORD 包裹 Details 链接（PermissionGuard 隐藏语义 → 无权限整列空）。
+  const hasViewRecordPerm = usePermission(TD_PERMISSIONS.VIEW_RECORD);
 
   const [pagination, setPagination] = React.useState({
     pageNum: 1,
@@ -174,27 +176,24 @@ export function SPRecordsTable({ td }: OverviewRecordsTabProps): React.JSX.Eleme
           <span>{row.original.orderNumber || EMPTY_DISPLAY}</span>
         ),
       },
-      {
-        id: 'actions',
-        header: t('PUB_Action'),
-        cell: ({ row }) => {
-          const disabled = row.original.taskId == null;
-          return (
-            <PermissionGuard permission={TD_PERMISSIONS.VIEW_RECORD}>
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                disabled={disabled}
-                onClick={() => handleView(row.original)}
-              >
-                {t('PUB_Detail')}
-              </Button>
-            </PermissionGuard>
-          );
-        },
-      },
+      // PUB_Action：统一行操作列。源 Details 链接在 taskId 为空时 disabled（不可点）；
+      // helper 的 detail.disabled 为列级静态值，无法按行表达 —— 改用 onClick 守卫
+      // 保留“无 taskId 不跳转”行为（按钮置灰态不再展示）。
+      createRowActionsColumn<SPRecordItem>(
+        hasViewRecordPerm
+          ? {
+              detail: {
+                label: t('PUB_Detail'),
+                onClick: (row) => {
+                  if (row.taskId == null) return;
+                  handleView(row);
+                },
+              },
+            }
+          : {}
+      ),
     ],
-    [t, handleView],
+    [t, handleView, hasViewRecordPerm],
   );
 
   return (
@@ -209,6 +208,12 @@ export function SPRecordsTable({ td }: OverviewRecordsTabProps): React.JSX.Eleme
         total,
         onPageChange: (p) =>
           setPagination((prev) => ({ ...prev, pageNum: p })),
+        onPageSizeChange: (size) =>
+          setPagination((prev) => ({
+            ...prev,
+            pageNum: 1,
+            pageSize: size,
+          })),
       }}
     />
   );

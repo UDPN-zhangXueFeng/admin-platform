@@ -10,6 +10,7 @@ import { toast } from '@myorg/shared/ui';
 import type { SuspiciousTransaction } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainOptions, useBusinessTypeList, useProcessSuspicious, useRetrySuspicious, useStablecoinOptions, useSuspiciousList } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import { ALL_VALUE } from './screening-monitoring.constants';
 import { PROCESS_REVERSE_OPTIONS, RISK_LEVEL_OPTIONS, SUSPICIOUS_STATUS_OPTIONS } from '.';
 import { ScreeningRiskLevelTag, ScreeningStatusBadge } from '.';
@@ -45,21 +46,19 @@ export function TransactionMonitoringListPage() {
     { id: 'handleType', header: t('screening_monitoring_0074'), accessorKey: 'handleType', cell: ({ getValue }) => t(`suggested_action_type_${getValue<number>()}`) },
     { id: 'state', header: tc('PUB_Status'), accessorKey: 'state', cell: ({ getValue }) => <ScreeningStatusBadge status={getValue<number>()} variant="suspicious" /> },
     { id: 'handleResult', header: t('screening_monitoring_0075'), accessorKey: 'handleResult', cell: ({ getValue, row }) => row.original.state === 3 ? (getValue<boolean>() ? t('screening_monitoring_0082') : t('screening_monitoring_0083')) : '--' },
-    {
-      id: 'actions', header: tc('PUB_Action'), cell: ({ row }) => {
-        const r = row.original;
-        return (
-          <div className="flex items-center gap-3">
-            <Button variant="link" className="h-auto p-0" onClick={() => router.push(`/screening-monitoring/transaction-monitoring/view?id=${r.suspiciousId}&type=${r.businessType}`)}>{tc('Router_0010_4_3')}</Button>
-            <Button variant="link" className="h-auto p-0" disabled={!(r.state === 1 || r.state === 4)} onClick={() => { setModalInfo(r); drawForm.reset(); setDrawerOpen(true); }}>{tc('Router_0012_2_1')}</Button>
-            <Button variant="link" className="h-auto p-0" disabled={r.state !== 5} onClick={async () => { setSpinning(true); try { await retryMut.mutateAsync({ suspiciousId: r.suspiciousId }); await refetch(); toast.success(tc('PUB_Success').replace('****', tc('PUB_Reset'))); } finally { setSpinning(false); } }}>{tc('Router_0012_2_4')}</Button>
-          </div>
-        );
+    createRowActionsColumn<SuspiciousTransaction>({
+      detail: {
+        label: tc('Router_0010_4_3'),
+        onClick: (r) => router.push(`/screening-monitoring/transaction-monitoring/view?id=${r.suspiciousId}&type=${r.businessType}`),
       },
-    },
+      menu: (r) => [
+        { label: tc('Router_0012_2_1'), disabled: !(r.state === 1 || r.state === 4), onClick: () => { setModalInfo(r); drawForm.reset(); setDrawerOpen(true); } },
+        { label: tc('Router_0012_2_4'), disabled: r.state !== 5, onClick: async () => { setSpinning(true); try { await retryMut.mutateAsync({ suspiciousId: r.suspiciousId }); await refetch(); toast.success(tc('PUB_Success').replace('****', tc('PUB_Reset'))); } finally { setSpinning(false); } } },
+      ],
+    }),
   ];
 
-  const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: data?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })) }), [pg.pageNum, pg.pageSize, data?.page?.total]);
+  const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: data?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })), onPageSizeChange: (size: number) => setPg({ pageNum: 1, pageSize: size }) }), [pg.pageNum, pg.pageSize, data?.page?.total]);
 
   return (
     <div>

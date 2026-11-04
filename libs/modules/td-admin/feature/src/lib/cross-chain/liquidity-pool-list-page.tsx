@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
 import { useLiquidityPoolListQuery, type LiquidityPoolItem, type LiquidityPoolListFilters } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainListQuery, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/cross-chain';
@@ -32,6 +32,7 @@ import {
   type LiquidityPoolModalInfo,
 } from './liquidity-pool-action-modal';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 /** 「全部」占位 value（对齐 cct / fx-rate / rd-bridge 列表筛选约定）。 */
 const ALL_VALUE = 'all';
@@ -208,6 +209,16 @@ export function LiquidityPoolListPage(): React.JSX.Element {
     setModalInfo(null);
   }, []);
 
+  // 行操作权限（原 PermissionGuard 的 hook 形态，供 createRowActionsColumn 过滤项）。
+  const canView = usePermission(CROSS_CHAIN_PERMISSIONS.LP_VIEW_BTN);
+  const canEditPerm = usePermission(CROSS_CHAIN_PERMISSIONS.LP_EDIT_BTN);
+  const canReauthPerm = usePermission(
+    CROSS_CHAIN_PERMISSIONS.LP_REAUTHORIZE_BTN,
+  );
+  const canTransferPerm = usePermission(
+    CROSS_CHAIN_PERMISSIONS.LP_TRANSFER_OUT_BTN,
+  );
+
   const columns = React.useMemo<ColumnDef<LiquidityPoolItem>[]>(
     () => [
       // 索引列（源码 dataIndex='liquidityPoolId' width 5%）。
@@ -288,77 +299,59 @@ export function LiquidityPoolListPage(): React.JSX.Element {
           />
         ),
       },
-      // 行操作：查看 / 编辑(status∈{0,5}) / 重新授权(status===5) / 转出(status===5)。
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          const canEdit = r.status === 0 || r.status === 5;
-          const canReauthOrTransfer = r.status === 5;
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.LP_VIEW_BTN}>
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() =>
-                    router.push(
-                      `/cross-chain/liquidity-pool/view?id=${
-                        r.liquidityPoolId ?? ''
-                      }`,
-                    )
-                  }
-                >
-                  {t('action.view')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.LP_EDIT_BTN}>
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={!canEdit}
-                  onClick={() =>
+      // 行操作：查看 内联；编辑(status∈{0,5}) / 重新授权(status===5) / 转出(status===5)
+      // 折叠进 ⋮ 菜单（权限缺失隐藏，状态不满足禁用——与原 PermissionGuard+disabled 一致）。
+      createRowActionsColumn<LiquidityPoolItem>({
+        ...(canView
+          ? {
+              detail: {
+                label: t('action.view'),
+                onClick: (r) =>
+                  router.push(
+                    `/cross-chain/liquidity-pool/view?id=${
+                      r.liquidityPoolId ?? ''
+                    }`,
+                  ),
+              },
+            }
+          : {}),
+        menu: (r) => [
+          ...(canEditPerm
+            ? [
+                {
+                  label: t('action.edit'),
+                  disabled: !(r.status === 0 || r.status === 5),
+                  onClick: () =>
                     router.push(
                       `/cross-chain/liquidity-pool/edit?id=${
                         r.liquidityPoolId ?? ''
                       }`,
-                    )
-                  }
-                >
-                  {t('action.edit')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard
-                permission={CROSS_CHAIN_PERMISSIONS.LP_REAUTHORIZE_BTN}
-              >
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={!canReauthOrTransfer}
-                  onClick={() => openActionModal(r, 'Reauthorize')}
-                >
-                  {t('cross_chain_0072')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard
-                permission={CROSS_CHAIN_PERMISSIONS.LP_TRANSFER_OUT_BTN}
-              >
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={!canReauthOrTransfer}
-                  onClick={() => openActionModal(r, 'TransferOut')}
-                >
-                  {t('cross_chain_0073')}
-                </Button>
-              </PermissionGuard>
-            </div>
-          );
-        },
-      },
+                    ),
+                },
+              ]
+            : []),
+          ...(canReauthPerm
+            ? [
+                {
+                  label: t('cross_chain_0072'),
+                  disabled: r.status !== 5,
+                  onClick: () => openActionModal(r, 'Reauthorize'),
+                },
+              ]
+            : []),
+          ...(canTransferPerm
+            ? [
+                {
+                  label: t('cross_chain_0073'),
+                  disabled: r.status !== 5,
+                  onClick: () => openActionModal(r, 'TransferOut'),
+                },
+              ]
+            : []),
+        ],
+      }),
     ],
-    [t, router, openActionModal],
+    [t, router, openActionModal, canView, canEditPerm, canReauthPerm, canTransferPerm],
   );
 
   const onSubmit = React.useCallback((f: LiquidityPoolFilterForm) => {
@@ -484,6 +477,8 @@ export function LiquidityPoolListPage(): React.JSX.Element {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

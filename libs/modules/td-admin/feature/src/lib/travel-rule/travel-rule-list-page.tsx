@@ -333,6 +333,8 @@ export function TravelRuleListPage() {
                   pageSize: paginationMeta.pageSize,
                   total: paginationMeta.total,
                   onPageChange: (page) => setParams((prev) => ({ ...prev, page })),
+                  onPageSizeChange: (size) =>
+                    setParams((prev) => ({ ...prev, page: 1, pageSize: size })),
                 }
               : undefined
           }

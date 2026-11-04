@@ -2,9 +2,10 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable, toast } from '@myorg/shared/ui';
+import { DataTable, toast } from '@myorg/shared/ui';
 import { downloadExportFile, useExportTaskList, type ExportTask } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 /** exportState → 静态 Tailwind 类名（动态拼接会被 JIT 清理，故预声明完整类串）。 */
 const STATUS_TONE: Record<number, string> = {
@@ -64,20 +65,17 @@ export function DataExportPage() {
           </span>
         ),
       },
-      {
-        id: 'actions',
-        header: tc('PUB_Operation'),
-        cell: ({ row }) => (
-          <Button
-            variant="link"
-            className="h-auto p-0"
-            disabled={row.original.exportState !== 2 || spinning}
-            onClick={() => handleDownload(row.original)}
-          >
-            {tc('PUB_Download')}
-          </Button>
-        ),
-      },
+      // 行操作：下载（唯一操作，非 Details 类）→ 收进 ⋮ 菜单；
+      // exportState===2 且非加载中才可用（其余状态置灰，与原按钮一致）。
+      createRowActionsColumn<ExportRow>({
+        menu: (r) => [
+          {
+            label: tc('PUB_Download'),
+            disabled: r.exportState !== 2 || spinning,
+            onClick: (row) => handleDownload(row),
+          },
+        ],
+      }),
     ],
     [t, tc, spinning, handleDownload],
   );
@@ -91,6 +89,7 @@ export function DataExportPage() {
         pageSize: pg.pageSize,
         total: data?.page?.total || 0,
         onPageChange: (page) => setPg((prev) => ({ ...prev, page })),
+        onPageSizeChange: (size) => setPg({ page: 1, pageSize: size }),
       }}
       isLoading={isLoading || spinning}
     />

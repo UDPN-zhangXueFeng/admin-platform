@@ -110,8 +110,7 @@ function formatTokenType(
 
 export function UserWalletsListPage() {
   const t = useTranslations('modules.key-management');
-  const [page, setPage] = React.useState(1);
-  const pageSize = 10;
+  const [page, setPage] = React.useState({ pageNum: 1, pageSize: 10 });
   const [applied, setApplied] = React.useState<FilterFormValues>(EMPTY_FILTERS);
 
   const { register, reset, handleSubmit, control } = useForm<FilterFormValues>({
@@ -190,19 +189,19 @@ export function UserWalletsListPage() {
 
   // Client-side pagination over the filtered rows.
   const rows = React.useMemo(() => {
-    const startIdx = (page - 1) * pageSize;
-    return filteredRows.slice(startIdx, startIdx + pageSize);
-  }, [filteredRows, page, pageSize]);
+    const startIdx = (page.pageNum - 1) * page.pageSize;
+    return filteredRows.slice(startIdx, startIdx + page.pageSize);
+  }, [filteredRows, page]);
 
   const onApply = (values: FilterFormValues) => {
     setApplied(values);
-    setPage(1);
+    setPage((prev) => ({ ...prev, pageNum: 1 }));
   };
 
   const handleReset = () => {
     reset({ ...EMPTY_FILTERS });
     setApplied({ ...EMPTY_FILTERS });
-    setPage(1);
+    setPage((prev) => ({ ...prev, pageNum: 1 }));
   };
 
   const columns = React.useMemo<ColumnDef<UserWalletRow>[]>(
@@ -359,10 +358,11 @@ export function UserWalletsListPage() {
           isLoading={isLoading}
           emptyMessage={t('PUB_NoData')}
           pagination={{
-            page,
-            pageSize,
+            page: page.pageNum,
+            pageSize: page.pageSize,
             total: filteredRows.length,
-            onPageChange: setPage,
+            onPageChange: (p) => setPage((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) => setPage({ pageNum: 1, pageSize: size }),
           }}
         />
       </div>

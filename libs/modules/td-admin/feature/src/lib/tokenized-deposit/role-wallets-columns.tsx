@@ -6,7 +6,8 @@
 
 import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
-import { Button, CopyableEllipsisText } from '@myorg/shared/ui';
+import { CopyableEllipsisText } from '@myorg/shared/ui';
+import { createRowActionsColumn } from '../row-actions';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { TokenizedDepositStatusBadge } from './tokenized-deposit-status-badge';
 import {
@@ -101,33 +102,13 @@ export function roleWalletColumns(
         </span>
       ),
     },
-    {
-      id: 'actions',
-      header: t('PUB_Action'),
-      cell: ({ row }) => {
-        const r = row.original;
-        return (
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 源 unshift Configure：仅 Unconfigured 行，排在 Details 前。 */}
-          {r.status === 'Unconfigured' ? (
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => onConfigure(r)}
-            >
-              {t('configure_wallet')}
-            </Button>
-          ) : null}
-          <Button
-            variant="link"
-            className="h-auto p-0"
-            onClick={() => openDetails(r)}
-          >
-            {t('wallet_details')}
-          </Button>
-        </div>
-        );
-      },
-    },
+    // 源 unshift Configure：仅 Unconfigured 行；按新约定 Configure 折叠进 ⋮ 菜单
+    createRowActionsColumn<RoleWalletItem>({
+      menu: (r) =>
+        r.status === 'Unconfigured'
+          ? [{ label: t('configure_wallet'), onClick: (row) => onConfigure(row) }]
+          : [],
+      detail: { label: t('wallet_details'), onClick: (row) => openDetails(row) },
+    }),
   ];
 }

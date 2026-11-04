@@ -26,7 +26,7 @@ import {
   Label,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
 import {
   useRdBridgeBlockchainListQuery,
@@ -42,6 +42,7 @@ import {
   RD_BRIDGE_STATE,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 /** 「全部」占位 value（对齐 fx-rate / cct 列表筛选约定）。 */
 const ALL_VALUE = 'all';
@@ -256,6 +257,12 @@ export function RdBridgeListPage(): React.JSX.Element {
       })
     : '';
 
+  // 行操作权限（原 PermissionGuard 的 hook 形态，供 createRowActionsColumn 过滤项）。
+  const canView = usePermission(CROSS_CHAIN_PERMISSIONS.RD_VIEW_BTN);
+  const canEditPerm = usePermission(CROSS_CHAIN_PERMISSIONS.RD_EDIT_BTN);
+  const canDisablePerm = usePermission(CROSS_CHAIN_PERMISSIONS.RD_DISABLE_BTN);
+  const canEnablePerm = usePermission(CROSS_CHAIN_PERMISSIONS.RD_ENABLE_BTN);
+
   const columns = React.useMemo<ColumnDef<RdBridgeItem>[]>(
     () => [
       // 索引列（源码 dataIndex='crossChainId' width 5%）。
@@ -332,74 +339,55 @@ export function RdBridgeListPage(): React.JSX.Element {
           />
         ),
       },
-      // 行操作：查看 / 编辑(status===50) / 禁用(status===35) / 启用(status===50)。
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          const canEdit = r.status === 50;
-          const canDisable = r.status === 35;
-          const canEnable = r.status === 50;
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.RD_VIEW_BTN}>
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() =>
-                    router.push(
-                      `/cross-chain/rd-bridge/view?id=${r.crossChainId ?? ''}`,
-                    )
-                  }
-                >
-                  {t('action.view')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.RD_EDIT_BTN}>
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={!canEdit}
-                  onClick={() =>
+      // 行操作：查看 内联；编辑(status===50) / 禁用(status===35) / 启用(status===50)
+      // 折叠进 ⋮ 菜单（权限缺失隐藏，状态不满足禁用——与原 PermissionGuard+disabled 一致）。
+      createRowActionsColumn<RdBridgeItem>({
+        ...(canView
+          ? {
+              detail: {
+                label: t('action.view'),
+                onClick: (r) =>
+                  router.push(
+                    `/cross-chain/rd-bridge/view?id=${r.crossChainId ?? ''}`,
+                  ),
+              },
+            }
+          : {}),
+        menu: (r) => [
+          ...(canEditPerm
+            ? [
+                {
+                  label: t('action.edit'),
+                  disabled: r.status !== 50,
+                  onClick: () =>
                     router.push(
                       `/cross-chain/rd-bridge/edit?id=${r.crossChainId ?? ''}`,
-                    )
-                  }
-                >
-                  {t('action.edit')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard
-                permission={CROSS_CHAIN_PERMISSIONS.RD_DISABLE_BTN}
-              >
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={!canDisable}
-                  onClick={() => openStatusModal(r, 'Disable')}
-                >
-                  {t('action.disable')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard
-                permission={CROSS_CHAIN_PERMISSIONS.RD_ENABLE_BTN}
-              >
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={!canEnable}
-                  onClick={() => openStatusModal(r, 'Enable')}
-                >
-                  {t('action.enable')}
-                </Button>
-              </PermissionGuard>
-            </div>
-          );
-        },
-      },
+                    ),
+                },
+              ]
+            : []),
+          ...(canDisablePerm
+            ? [
+                {
+                  label: t('action.disable'),
+                  disabled: r.status !== 35,
+                  onClick: () => openStatusModal(r, 'Disable'),
+                },
+              ]
+            : []),
+          ...(canEnablePerm
+            ? [
+                {
+                  label: t('action.enable'),
+                  disabled: r.status !== 50,
+                  onClick: () => openStatusModal(r, 'Enable'),
+                },
+              ]
+            : []),
+        ],
+      }),
     ],
-    [t, router, openStatusModal],
+    [t, router, openStatusModal, canView, canEditPerm, canDisablePerm, canEnablePerm],
   );
 
   const onSubmit = React.useCallback((f: RdBridgeFilterForm) => {
@@ -500,6 +488,8 @@ export function RdBridgeListPage(): React.JSX.Element {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

@@ -13,6 +13,7 @@ import {
   type OperateRecord,
 } from '@myorg/modules/td-admin/data-access';
 import { OPERATE_TYPE_OPTIONS, OP_RECORD_STATUS } from '.';
+import { createRowActionsColumn } from '../row-actions';
 
 const EMPTY_DISPLAY = '--';
 const TAB_PAGE_SIZE = 6;
@@ -149,24 +150,24 @@ export function ViewOperationRecords({
           if (status === undefined || status === null) {
             return <span>{EMPTY_DISPLAY}</span>;
           }
-          const info =
-            OP_RECORD_STATUS[status as keyof typeof OP_RECORD_STATUS] ?? {
-              label: String(status),
-              color: 'default',
-            };
+          const isKnownStatus = String(status) in OP_RECORD_STATUS;
+          const info = isKnownStatus
+            ? OP_RECORD_STATUS[status as keyof typeof OP_RECORD_STATUS]
+            : { label: String(status), color: 'default' };
           const toneClass = opRecordStatusToneClass(info.color);
           return (
             <span
               className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${toneClass}`}
             >
-              {t(`opRecordStatus.${status}`)}
+              {isKnownStatus ? t(`opRecordStatus.${status}`) : info.label}
             </span>
           );
         },
       },
       {
-        id: 'actions',
-        header: t('operationRecord.actions'),
+        // 列头/id/meta 走 helper；taskId 为空时保留源 '--' 占位
+        // （helper 的 detail 是列级静态值，无法按行降级为占位，故覆写 cell）。
+        ...createRowActionsColumn<OperationRow>({ header: t('operationRecord.actions') }),
         cell: ({ row }) => {
           const r = row.original;
           // taskId 为空时无审批流，不渲染链接（源 `row.taskId ? <a> : '--'`）。
@@ -241,9 +242,12 @@ export function ViewOperationRecords({
             pagination={{
               page: pagination.pageNum,
               pageSize: pagination.pageSize,
+              pageSizeOptions: [TAB_PAGE_SIZE, 10, 20, 50],
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

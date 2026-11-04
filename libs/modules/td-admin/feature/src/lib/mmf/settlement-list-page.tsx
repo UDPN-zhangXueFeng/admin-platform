@@ -9,7 +9,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatDate } from '@myorg/shared/util-dates';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { usePermission } from '@myorg/shared/util-auth';
 import {
   useFundListQuery,
   useSettlementRecordListQuery,
@@ -25,6 +25,7 @@ import {
   SETTLEMENT_TX_TYPE_KEY_PREFIX,
 } from '.';
 import { ALL_VALUE } from './mmf.constants';
+import { createRowActionsColumn } from '../row-actions';
 
 const DATETIME_FMT = 'YYYY-MM-DD';
 
@@ -136,6 +137,9 @@ export function SettlementListPage() {
     [t],
   );
 
+  // ── 行操作权限（PermissionGuard → usePermission，供 actions 列条件渲染）──
+  const canViewSettlement = usePermission(MMF_PERMISSIONS.SETTLEMENT_VIEW_BTN);
+
   const columns = React.useMemo<ColumnDef<SettlementRecordItem>[]>(
     () => [
       {
@@ -223,28 +227,17 @@ export function SettlementListPage() {
           <MmfStatusBadge kind="settlement" status={row.original.status} />
         ),
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <PermissionGuard permission={MMF_PERMISSIONS.SETTLEMENT_VIEW_BTN}>
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(`/mmf/settlement/${r.settlementId ?? ''}`)
-                }
-              >
-                {t('action.view')}
-              </Button>
-            </PermissionGuard>
-          );
-        },
-      },
+      // View 内联；权限缺失时整列单元格不渲染（源 PermissionGuard 语义）。
+      createRowActionsColumn<SettlementRecordItem>({
+        detail: canViewSettlement
+          ? {
+              label: t('action.view'),
+              onClick: (r) => router.push(`/mmf/settlement/${r.settlementId ?? ''}`),
+            }
+          : undefined,
+      }),
     ],
-    [t, router, pagination.pageNum, pagination.pageSize],
+    [t, router, pagination.pageNum, pagination.pageSize, canViewSettlement],
   );
 
   const onSubmit = React.useCallback((f: SettlementFilterForm) => {
@@ -321,6 +314,8 @@ export function SettlementListPage() {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

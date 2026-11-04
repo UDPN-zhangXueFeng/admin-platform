@@ -8,9 +8,10 @@
 import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
-import { Button, DataTable } from '@myorg/shared/ui';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { DataTable } from '@myorg/shared/ui';
+import { usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../../format-admin-time';
+import { createRowActionsColumn } from '../../row-actions';
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
@@ -54,6 +55,9 @@ export function WalletsTableInner({
   onOpenAdminWalletModal,
 }: WalletsTableInnerProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
+  const hasEditWalletPerm = usePermission(TD_PERMISSIONS.EDIT_WALLET);
+  const hasViewWalletPerm = usePermission(TD_PERMISSIONS.VIEW_WALLET);
+  const hasHistoryPerm = usePermission(TD_PERMISSIONS.HISTORY);
 
   const [pagination, setPagination] = React.useState({
     pageNum: 1,
@@ -164,51 +168,37 @@ export function WalletsTableInner({
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('PUB_Action'),
-        cell: ({ row }) => {
-          const r = row.original;
-          // Edit disabled（源 760）：!(approvalStatus === 0 && operateStatus === 35)
-          const editDisabled = !(
-            r.approvalStatus === 0 && r.operateStatus === 35
-          );
-          return (
-            <div className="flex items-center gap-3">
-              <PermissionGuard permission={TD_PERMISSIONS.EDIT_WALLET}>
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  disabled={editDisabled}
-                  onClick={() => handleEdit(r)}
-                >
-                  {t('tokenized_deposit_0122')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={TD_PERMISSIONS.VIEW_WALLET}>
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => handleView(r)}
-                >
-                  {t('PUB_Detail')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={TD_PERMISSIONS.HISTORY}>
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => handleHistory(r)}
-                >
-                  {t('Router_0003_19')}
-                </Button>
-              </PermissionGuard>
-            </div>
-          );
-        },
-      },
+      // PUB_Action：统一行操作列。Details（PUB_Detail）内联；Edit/History 收进 ⋮，
+      // 分别保留源 PermissionGuard 门（EDIT_WALLET / VIEW_WALLET / HISTORY）。
+      createRowActionsColumn<WalletItem>({
+        detail: hasViewWalletPerm
+          ? { label: t('PUB_Detail'), onClick: handleView }
+          : undefined,
+        menu: (row) => [
+          ...(hasEditWalletPerm
+            ? [
+                {
+                  // Edit disabled（源 760）：!(approvalStatus === 0 && operateStatus === 35)
+                  label: t('tokenized_deposit_0122'),
+                  disabled: !(
+                    row.approvalStatus === 0 && row.operateStatus === 35
+                  ),
+                  onClick: () => handleEdit(row),
+                },
+              ]
+            : []),
+          ...(hasHistoryPerm
+            ? [
+                {
+                  label: t('Router_0003_19'),
+                  onClick: () => handleHistory(row),
+                },
+              ]
+            : []),
+        ],
+      }),
     ],
-    [t, handleEdit, handleView, handleHistory],
+    [t, handleEdit, handleView, handleHistory, hasEditWalletPerm, hasViewWalletPerm, hasHistoryPerm],
   );
 
   // 刷新按钮（对齐源 727-746 CustomTableTitle 内的刷新 span）。
@@ -261,6 +251,12 @@ export function WalletsTableInner({
           total,
           onPageChange: (p) =>
             setPagination((prev) => ({ ...prev, pageNum: p })),
+          onPageSizeChange: (size) =>
+            setPagination((prev) => ({
+              ...prev,
+              pageNum: 1,
+              pageSize: size,
+            })),
         }}
       />
     </div>

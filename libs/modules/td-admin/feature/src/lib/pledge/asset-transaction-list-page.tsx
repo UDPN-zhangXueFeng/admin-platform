@@ -8,7 +8,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Button, DataTable, Input } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../format-admin-time';
 import {
   useAssetCategoryListQuery,
@@ -24,6 +24,7 @@ import {
   TRANSACTION_DIRECTION_FILTER,
 } from '.';
 import { ALL_VALUE } from './pledge.constants';
+import { createRowActionsColumn } from '../row-actions';
 
 const EMPTY_DISPLAY = '--';
 
@@ -131,7 +132,7 @@ export function AssetTransactionListPage(): React.JSX.Element {
 
   // 资产类别下拉：列表页不绑 reserveAccountId（全局），filter assetCategoryName 非空。
   // 源 buildAssetCategoryOptions 取 label=assetCategoryName、value=assetCategoryName。
-  const categoryQuery = useAssetCategoryListQuery();
+  const categoryQuery = useAssetCategoryListQuery({ reserveAccountId: null });
   const categoryOptions = React.useMemo(() => {
     const list = categoryQuery.data ?? [];
     const opts = list
@@ -230,6 +231,8 @@ export function AssetTransactionListPage(): React.JSX.Element {
     router.push({ pathname: '/pledge/asset-transaction/create' });
   }, [router]);
 
+  // ── 行操作权限（PermissionGuard → usePermission，供 actions 列条件渲染）──
+  const canTxnDetails = usePermission(PLEDGE_PERMISSIONS.txnDetails);
   // ── 列定义 ──
   const columns = React.useMemo<ColumnDef<AssetTxnRow>[]>(
     () => [
@@ -275,14 +278,13 @@ export function AssetTransactionListPage(): React.JSX.Element {
         header: t('assetTxnList.transactionType'),
         cell: ({ row }) => {
           const dir = row.original.transactionDirection;
+          // 对齐旧项目：1 Inflow、2 Outflow，其余统一 Refund。
           const text =
             dir === 1
               ? t('assetTxnList.direction.inflow')
               : dir === 2
                 ? t('assetTxnList.direction.outflow')
-                : dir === 3
-                  ? t('assetTxnList.direction.refund')
-                  : EMPTY_DISPLAY;
+                : t('assetTxnList.direction.refund');
           return <span>{text}</span>;
         },
       },
@@ -325,43 +327,34 @@ export function AssetTransactionListPage(): React.JSX.Element {
           if (status === undefined || status === null) {
             return <span>{EMPTY_DISPLAY}</span>;
           }
-          const color =
-            ASSET_TXN_STATUS_COLOR[
-              status as keyof typeof ASSET_TXN_STATUS_COLOR
-            ] ?? 'default';
+          const isKnownStatus = String(status) in ASSET_TXN_STATUS_COLOR;
+          const color = isKnownStatus
+            ? ASSET_TXN_STATUS_COLOR[status as keyof typeof ASSET_TXN_STATUS_COLOR]
+            : 'default';
           const toneClass = txnStatusToneClass(color);
           return (
             <span
               className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${toneClass}`}
             >
-              {t(`txnStatus.${status}`)}
+              {t(`txnStatus.${isKnownStatus ? status : 'unknown'}`)}
             </span>
           );
         },
       },
-      // 行操作：Details（taskId 为 null 时 disabled）。⚠️ 跳 approval-manage 可能 404。
-      {
-        id: 'actions',
+      // 行操作：Details 内联；权限缺失时整列不渲染（源 PermissionGuard 语义）。
+      // taskId 为空时按行禁用（源 disabled: data.taskId === null）。
+      createRowActionsColumn<AssetTxnRow>({
         header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          const disabled = r.taskId === null || r.taskId === undefined;
-          return (
-            <PermissionGuard permission={PLEDGE_PERMISSIONS.txnDetails}>
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                disabled={disabled}
-                onClick={() => handleDetails(r)}
-              >
-                {t('action.details')}
-              </Button>
-            </PermissionGuard>
-          );
-        },
-      },
+        detail: canTxnDetails
+          ? (r) => ({
+              label: t('action.details'),
+              disabled: r.taskId === null || r.taskId === undefined,
+              onClick: handleDetails,
+            })
+          : undefined,
+      }),
     ],
-    [t, pagination.pageNum, pagination.pageSize, handleDetails],
+    [t, pagination.pageNum, pagination.pageSize, handleDetails, canTxnDetails],
   );
 
   const onSubmit = React.useCallback((f: AssetTxnListFilterForm) => {
@@ -499,6 +492,8 @@ export function AssetTransactionListPage(): React.JSX.Element {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

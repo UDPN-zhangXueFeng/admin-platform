@@ -13,6 +13,7 @@ import { useAuth } from '@myorg/shared/util-auth';
 
 import { JournalTxHashCell } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import { useJournalListQuery, type JournalListFilters, type JournalListParams } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainListQuery, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/journal-entries-new';
 import type { JournalEntry } from '@myorg/modules/td-admin/data-access/lib/journal-entries-new';
@@ -268,26 +269,26 @@ export function JournalEntriesNewListPage() {
           <JournalTxHashCell value={row.original.txHash} copyLabel={t('copy')} />
         ),
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) =>
-          canViewDetails ? (
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
-                router.push(
-                  `/journal-entries-new/view?tdTxId=${row.original.tdTxId}`
-                )
-              }
-            >
-              {t('action.detail')}
-            </Button>
-          ) : (
-            <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>
-          ),
-      },
+      ...(canViewDetails
+        ? [
+            createRowActionsColumn<JournalEntry>({
+              detail: {
+                label: t('action.detail'),
+                onClick: (r) =>
+                  router.push(`/journal-entries-new/view?tdTxId=${r.tdTxId}`),
+              },
+            }),
+          ]
+        : [
+            {
+              id: 'actions',
+              header: 'Actions',
+              enableSorting: false,
+              cell: () => (
+                <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>
+              ),
+            },
+          ]),
     ],
     [t, canViewDetails, router]
   );
@@ -392,6 +393,8 @@ export function JournalEntriesNewListPage() {
               total,
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

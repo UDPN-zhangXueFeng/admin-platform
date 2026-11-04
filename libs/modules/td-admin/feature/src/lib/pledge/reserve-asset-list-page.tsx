@@ -23,7 +23,7 @@ import {
   Input,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { useChangeReserveAssetStatusMutation, type AssetCategory, type ReserveAssetListItem, type ReserveAssetListQuery } from '@myorg/modules/td-admin/data-access';
 import { useCurrencyListQuery, useReserveAssetListQuery } from '@myorg/modules/td-admin/data-access/lib/pledge';
@@ -39,6 +39,7 @@ import {
 } from '.';
 import { ALL_VALUE } from './pledge.constants';
 import { ReserveAssetDrawer, type DrawerState } from './reserve-asset-drawer';
+import { createRowActionsColumn, type RowAction } from '../row-actions';
 
 /**
  * DataTable 契约要求行带 `id: string`。源列表行以 reserveAccountId 为 key，
@@ -168,7 +169,8 @@ export function ReserveAssetListPage(): React.JSX.Element {
   const isBookStatusFiltering = queryValues.bookStatus !== ALL_VALUE;
   const requestParams = React.useMemo<ReserveAssetListQuery>(
     () => ({
-      pageNum: pagination.pageNum,
+      // 过滤态：后端只取第 1 页全量（1000 条），分页切片在前端 applyBookStatusFilter 完成。
+      pageNum: isBookStatusFiltering ? 1 : pagination.pageNum,
       pageSize: isBookStatusFiltering
         ? BOOK_STATUS_PAGE_SIZE
         : pagination.pageSize,
@@ -287,6 +289,24 @@ export function ReserveAssetListPage(): React.JSX.Element {
   }, []);
   const onDrawerClose = React.useCallback(() => setDrawerState(null), []);
 
+  // ── 行操作权限（PermissionGuard → usePermission，供 actions 列条件渲染）──
+  const canAddAssetCategory = usePermission(PLEDGE_PERMISSIONS.addAssetCategory);
+  const canReserveAssetEdit = usePermission(PLEDGE_PERMISSIONS.reserveAssetEdit);
+  const canDeactivate = usePermission(PLEDGE_PERMISSIONS.deactivate);
+  const canActivate = usePermission(PLEDGE_PERMISSIONS.activate);
+  const canReserveAssetDetails = usePermission(
+    PLEDGE_PERMISSIONS.reserveAssetDetails,
+  );
+  const canNewTransactionRow = usePermission(
+    PLEDGE_PERMISSIONS.newTransactionRow,
+  );
+
+  // Deactivate / Activate 的二次确认：⋮ 菜单项无法内嵌 AlertDialog 触发器，
+  // 改为受控弹窗（菜单 onClick 记录 kind+row，确认后走 handleStatusChange）。
+  const [confirmStatus, setConfirmStatus] = React.useState<{
+    kind: 'deactivate' | 'activate';
+    row: ReserveAssetRow;
+  } | null>(null);
   // ── 列定义 ──
   const columns = React.useMemo<ColumnDef<ReserveAssetRow>[]>(
     () => [
@@ -348,7 +368,7 @@ export function ReserveAssetListPage(): React.JSX.Element {
                               <th className="py-1 pr-4">
                                 {t('field.assetValue')}
                               </th>
-                              <th className="py-1">Share of Total Reserve</th>
+                              <th className="py-1">{t('viewBasic.summaryShare')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -413,7 +433,7 @@ export function ReserveAssetListPage(): React.JSX.Element {
                   className="inline-flex border-0 bg-transparent p-0 text-[#1677ff]"
                   onClick={() =>
                     router.push({
-                      pathname: '/financial/chart-of-accounts/view',
+                      pathname: '/chart-of-accounts/view',
                       query: {
                         financeBookId: String(r.financeBookId ?? ''),
                         tab: 'basic-information',
@@ -461,125 +481,53 @@ export function ReserveAssetListPage(): React.JSX.Element {
       },
       // 行操作：状态机分支（10/15→Details；20→Add/Edit/Deactivate/Details/Txn；50→Add/Edit/Activate/Details/Txn）。
       // actions 数组来自纯函数 getReserveAssetRowActions(status)（util 层单测守护）。
-      {
-        id: 'actions',
+      // Details 内联，其余收进 ⋮ 菜单；权限条件与源 PermissionGuard 一致（无权限 → 不渲染该项）。
+      createRowActionsColumn<ReserveAssetRow>({
         header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
+        detail: canReserveAssetDetails
+          ? {
+              label: t('action.details'),
+              onClick: (r) => handleRowAction(r, 'View'),
+            }
+          : undefined,
+        menu: (r) => {
           const actions = getReserveAssetRowActions(r.status);
-          return (
-            <div className="flex flex-wrap gap-3">
-              {actions.includes('AddAssetCategory') ? (
-                <PermissionGuard
-                  permission={PLEDGE_PERMISSIONS.addAssetCategory}
-                >
-                  <Button
-                    variant="link"
-                    className="h-auto p-0"
-                    onClick={() => handleRowAction(r, 'AddAssetCategory')}
-                  >
-                    {t('action.addAssetCategory')}
-                  </Button>
-                </PermissionGuard>
-              ) : null}
-              {actions.includes('Edit') ? (
-                <PermissionGuard permission={PLEDGE_PERMISSIONS.reserveAssetEdit}>
-                  <Button
-                    variant="link"
-                    className="h-auto p-0"
-                    onClick={() => handleRowAction(r, 'Edit')}
-                  >
-                    {t('action.edit')}
-                  </Button>
-                </PermissionGuard>
-              ) : null}
-              {/* Deactivate / Activate：AlertDialog 二次确认，confimStr 含 {accountName}（ICU 单花括号）。 */}
-              {actions.includes('Deactivate') ? (
-                <PermissionGuard
-                  permission={PLEDGE_PERMISSIONS.deactivate}
-                >
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="link" className="h-auto p-0">
-                        {t('action.deactivate')}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {t('confirmDeactivate', {
-                            accountName: r.accountName ?? '',
-                          })}
-                        </AlertDialogTitle>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>{t('action.cancel')}</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleStatusChange(r, 50)}
-                        >
-                          {t('action.confirm')}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </PermissionGuard>
-              ) : null}
-              {actions.includes('Activate') ? (
-                <PermissionGuard permission={PLEDGE_PERMISSIONS.activate}>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="link" className="h-auto p-0">
-                        {t('action.activate')}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {t('confirmActivate', {
-                            accountName: r.accountName ?? '',
-                          })}
-                        </AlertDialogTitle>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>{t('action.cancel')}</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleStatusChange(r, 20)}
-                        >
-                          {t('action.confirm')}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </PermissionGuard>
-              ) : null}
-              <PermissionGuard
-                permission={PLEDGE_PERMISSIONS.reserveAssetDetails}
-              >
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => handleRowAction(r, 'View')}
-                >
-                  {t('action.details')}
-                </Button>
-              </PermissionGuard>
-              {actions.includes('NewTransaction') ? (
-                <PermissionGuard
-                  permission={PLEDGE_PERMISSIONS.newTransactionRow}
-                >
-                  <Button
-                    variant="link"
-                    className="h-auto p-0"
-                    onClick={() => handleRowAction(r, 'NewTransaction')}
-                  >
-                    {t('action.newTransaction')}
-                  </Button>
-                </PermissionGuard>
-              ) : null}
-            </div>
-          );
+          const items: RowAction<ReserveAssetRow>[] = [];
+          if (actions.includes('AddAssetCategory') && canAddAssetCategory) {
+            items.push({
+              label: t('action.addAssetCategory'),
+              onClick: (row) => handleRowAction(row, 'AddAssetCategory'),
+            });
+          }
+          if (actions.includes('Edit') && canReserveAssetEdit) {
+            items.push({
+              label: t('action.edit'),
+              onClick: (row) => handleRowAction(row, 'Edit'),
+            });
+          }
+          // Deactivate / Activate：AlertDialog 二次确认改走受控弹窗（confirmStatus），
+          // 确认文案 confimStr 含 {accountName}（ICU 单花括号）。
+          if (actions.includes('Deactivate') && canDeactivate) {
+            items.push({
+              label: t('action.deactivate'),
+              onClick: (row) => setConfirmStatus({ kind: 'deactivate', row }),
+            });
+          }
+          if (actions.includes('Activate') && canActivate) {
+            items.push({
+              label: t('action.activate'),
+              onClick: (row) => setConfirmStatus({ kind: 'activate', row }),
+            });
+          }
+          if (actions.includes('NewTransaction') && canNewTransactionRow) {
+            items.push({
+              label: t('action.newTransaction'),
+              onClick: (row) => handleRowAction(row, 'NewTransaction'),
+            });
+          }
+          return items;
         },
-      },
+      }),
     ],
     [
       t,
@@ -587,7 +535,12 @@ export function ReserveAssetListPage(): React.JSX.Element {
       pagination.pageNum,
       pagination.pageSize,
       handleRowAction,
-      handleStatusChange,
+      canAddAssetCategory,
+      canReserveAssetEdit,
+      canDeactivate,
+      canActivate,
+      canReserveAssetDetails,
+      canNewTransactionRow,
     ],
   );
 
@@ -687,6 +640,8 @@ export function ReserveAssetListPage(): React.JSX.Element {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>
@@ -702,6 +657,43 @@ export function ReserveAssetListPage(): React.JSX.Element {
           // 此处仅作为成功后的额外钩子预留（当前无需额外操作）。
         }}
       />
+
+      {/* Deactivate / Activate 二次确认（受控；由行 ⋮ 菜单触发）。 */}
+      <AlertDialog
+        open={confirmStatus !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmStatus(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t(
+                confirmStatus?.kind === 'activate'
+                  ? 'confirmActivate'
+                  : 'confirmDeactivate',
+                { accountName: confirmStatus?.row.accountName ?? '' },
+              )}
+            </AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('action.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmStatus) {
+                  handleStatusChange(
+                    confirmStatus.row,
+                    confirmStatus.kind === 'activate' ? 20 : 50,
+                  );
+                }
+                setConfirmStatus(null);
+              }}
+            >
+              {t('action.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

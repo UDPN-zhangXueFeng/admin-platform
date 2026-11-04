@@ -27,6 +27,7 @@ import {
 } from '.';
 import { ALL_VALUE } from './interest.constants';
 import { formatAdminTimestamp, formatAdminDate } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 const PAGE_SIZE = 10;
 
@@ -122,27 +123,20 @@ export function AccrualListPage() {
       accessorKey: 'totalWallets',
       cell: ({ getValue }) => `${getValue<number>()}`,
     },
-    {
-      id: 'actions',
-      header: tc('Router_0010_4_3'),
-      cell: ({ row }) => {
-        const r = row.original;
-        if (!can(INTEREST_PERMISSIONS.VIEW_ACCRUAL)) return null;
-        return (
-          <Button
-            variant="link"
-            className="h-auto p-0"
-            onClick={() =>
-              router.push(
-                `/interest/accrual/view?id=${r.accrualRecordId}&tokenId=${r.tokenId}&feePeriod=${r.feePeriod}&feeType=${r.feeType}`,
-              )
-            }
-          >
-            {tc('Router_0010_4_3')}
-          </Button>
-        );
-      },
-    },
+    // 行操作：详情 内联（权限 VIEW_ACCRUAL，缺失时整列空——与原 `if (!can) return null` 一致）。
+    createRowActionsColumn<AccrualRecord>(
+      can(INTEREST_PERMISSIONS.VIEW_ACCRUAL)
+        ? {
+            detail: {
+              label: tc('Router_0010_4_3'),
+              onClick: (r) =>
+                router.push(
+                  `/interest/accrual/view?id=${r.accrualRecordId}&tokenId=${r.tokenId}&feePeriod=${r.feePeriod}&feeType=${r.feeType}`,
+                ),
+            },
+          }
+        : {},
+    ),
   ];
 
   const handleReset = () => form.reset(EMPTY_FORM);
@@ -204,6 +198,8 @@ export function AccrualListPage() {
           total: data?.page?.total ?? 0,
           onPageChange: (page) =>
             setPagination((prev) => ({ ...prev, pageNum: page })),
+          onPageSizeChange: (size) =>
+            setPagination({ pageNum: 1, pageSize: size }),
         }}
         isLoading={isLoading}
       />

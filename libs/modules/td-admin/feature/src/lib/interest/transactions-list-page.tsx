@@ -32,6 +32,7 @@ import {
 import { ALL_VALUE } from './interest.constants';
 import { TransactionStatusBadge } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 const PAGE_SIZE = 10;
 
@@ -129,67 +130,46 @@ export function TransactionsListPage() {
       accessorKey: 'status',
       cell: ({ getValue }) => <TransactionStatusBadge status={getValue<number>()} />,
     },
-    {
-      id: 'actions',
-      header: tc('PUB_Action'),
-      cell: ({ row }) => {
-        const r = row.original;
-        return (
-          <div className="flex items-center gap-3">
-            {can(INTEREST_PERMISSIONS.VIEW_TRANSACTION) && (
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(`/interest/transactions/view?id=${r.tokenBillId}`)
-                }
-              >
-                {tc('Router_0015_3_1')}
-              </Button>
-            )}
-            {can(INTEREST_PERMISSIONS.POST_TRANSACTION) && (
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                disabled={r.status !== 1}
-                onClick={async () => {
-                  if (
-                    !window.confirm(
-                      t('interest_0093').replace('${token}', r.tokenName),
-                    )
-                  )
-                    return;
+    createRowActionsColumn<TokenBill>({
+      detail: can(INTEREST_PERMISSIONS.VIEW_TRANSACTION)
+        ? {
+            label: tc('Router_0015_3_1'),
+            onClick: (r) => router.push(`/interest/transactions/view?id=${r.tokenBillId}`),
+          }
+        : undefined,
+      menu: (r) => [
+        ...(can(INTEREST_PERMISSIONS.POST_TRANSACTION)
+          ? [
+              {
+                label: tc('Router_0015_3_4'),
+                disabled: r.status !== 1,
+                onClick: async () => {
+                  if (!window.confirm(t('interest_0093').replace('${token}', r.tokenName))) return;
                   await postMutation.mutateAsync({ tokenBillId: r.tokenBillId });
-                }}
-              >
-                {tc('Router_0015_3_4')}
-              </Button>
-            )}
-            {can(INTEREST_PERMISSIONS.RETRY_TRANSACTION) && (
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                disabled={r.status !== 40}
-                onClick={async () => {
+                },
+              },
+            ]
+          : []),
+        ...(can(INTEREST_PERMISSIONS.RETRY_TRANSACTION)
+          ? [
+              {
+                label: tc('Router_0015_3_2'),
+                disabled: r.status !== 40,
+                onClick: async () => {
                   setSpinning(true);
                   try {
                     await retryMutation.mutateAsync({ tokenBillId: r.tokenBillId });
                     await refetch();
-                    toast.success(
-                      tc('PUB_Success').replace('****', tc('PUB_Reset')),
-                    );
+                    toast.success(tc('PUB_Success').replace('****', tc('PUB_Reset')));
                   } finally {
                     setSpinning(false);
                   }
-                }}
-              >
-                {tc('Router_0015_3_2')}
-              </Button>
-            )}
-          </div>
-        );
-      },
-    },
+                },
+              },
+            ]
+          : []),
+      ],
+    }),
   ];
 
   const handleReset = () => form.reset(EMPTY_FORM);
@@ -252,6 +232,8 @@ export function TransactionsListPage() {
           total: data?.page?.total ?? 0,
           onPageChange: (page) =>
             setPagination((prev) => ({ ...prev, pageNum: page })),
+          onPageSizeChange: (size) =>
+            setPagination({ pageNum: 1, pageSize: size }),
         }}
         isLoading={isLoading || spinning}
       />

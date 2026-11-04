@@ -19,6 +19,7 @@ import {
   Input,
   Label,
 } from '@myorg/shared/ui';
+import { createRowActionsColumn } from '../../row-actions';
 
 
 // ═════════════════════════════════════════════════════════════════════
@@ -102,31 +103,18 @@ export function ContractDeploymentTab(): React.JSX.Element {
       { accessorKey: 'proxyContractAddress', header: t('contract_manage_004') },
       { accessorKey: 'createdTime', header: t('PUB_CreatedTime') },
       { accessorKey: 'status', header: 'Status' },
-      {
-        id: 'actions',
-        header: 'Action',
-        cell: ({ row }) => (
-          <div className="flex gap-3 text-primary">
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => setUpdateOpen(true)}
-            >
-              Update
-            </Button>
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => {
-                setHideInitList(row.original.key === '2');
-                setDetailsOpen(true);
-              }}
-            >
-              Details
-            </Button>
-          </div>
-        ),
-      },
+      // Action：统一行操作列。Details 内联（保留 key==='2' 隐藏 Initialisation List
+      // 分支）；Update 收进 ⋮ 菜单。
+      createRowActionsColumn<ContractRow>({
+        detail: {
+          label: 'Details',
+          onClick: (row) => {
+            setHideInitList(row.key === '2');
+            setDetailsOpen(true);
+          },
+        },
+        menu: () => [{ label: 'Update', onClick: () => setUpdateOpen(true) }],
+      }),
     ],
     [t],
   );

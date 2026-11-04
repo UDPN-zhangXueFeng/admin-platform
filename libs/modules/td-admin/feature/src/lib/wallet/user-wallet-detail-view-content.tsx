@@ -521,6 +521,9 @@ export function UserWalletDetailViewContent({ walletId }: { walletId: number }) 
             page={txPage}
             total={txList.data?.page?.total ?? 0}
             onPageChange={(p) => setTxPage((prev) => ({ ...prev, pageNum: p }))}
+            onPageSizeChange={(size) =>
+              setTxPage({ pageNum: 1, pageSize: size })
+            }
           />
         </TabsContent>
 
@@ -534,6 +537,9 @@ export function UserWalletDetailViewContent({ walletId }: { walletId: number }) 
             page={opPage}
             total={opRecordList.data?.page?.total ?? 0}
             onPageChange={(p) => setOpPage((prev) => ({ ...prev, pageNum: p }))}
+            onPageSizeChange={(size) =>
+              setOpPage({ pageNum: 1, pageSize: size })
+            }
           />
         </TabsContent>
 
@@ -549,6 +555,9 @@ export function UserWalletDetailViewContent({ walletId }: { walletId: number }) 
               total={accrualList.data?.page?.total ?? 0}
               onPageChange={(p) =>
                 setAccrualPage((prev) => ({ ...prev, pageNum: p }))
+              }
+              onPageSizeChange={(size) =>
+                setAccrualPage({ pageNum: 1, pageSize: size })
               }
             />
           </TabsContent>
@@ -570,6 +579,9 @@ export function UserWalletDetailViewContent({ walletId }: { walletId: number }) 
                 total={distributeList.data?.page?.total ?? 0}
                 onPageChange={(p) =>
                   setDistributePage((prev) => ({ ...prev, pageNum: p }))
+                }
+                onPageSizeChange={(size) =>
+                  setDistributePage({ pageNum: 1, pageSize: size })
                 }
               />
             </section>
@@ -717,6 +729,7 @@ function DetailTableSection<T extends { id: string }>({
   page,
   total,
   onPageChange,
+  onPageSizeChange,
 }: {
   title: string;
   columns: ColumnDef<T>[];
@@ -726,6 +739,7 @@ function DetailTableSection<T extends { id: string }>({
   page: TxPage;
   total: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
 }) {
   return (
     <section className="rounded-lg border bg-card shadow-sm">
@@ -741,6 +755,7 @@ function DetailTableSection<T extends { id: string }>({
             pageSize: page.pageSize,
             total,
             onPageChange,
+            onPageSizeChange,
           }}
         />
       </div>

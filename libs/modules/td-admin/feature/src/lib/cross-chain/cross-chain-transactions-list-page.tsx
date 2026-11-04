@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
 import { useCrossChainTxListQuery, type CrossChainTxItem, type CrossChainTxListFilters } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainListQuery, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/cross-chain';
@@ -26,6 +26,7 @@ import {
   EMPTY_DISPLAY,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 /** 「全部」占位 value（对齐 fx-rate / blockchain 列表筛选约定）。 */
 const ALL_VALUE = 'all';
@@ -169,6 +170,8 @@ export function CrossChainTransactionsListPage(): React.JSX.Element {
   const total = listResult.data?.page?.total ?? 0;
   const isLoading = listResult.isLoading || listResult.isFetching;
 
+  const canView = usePermission(CROSS_CHAIN_PERMISSIONS.CCT_VIEW_BTN);
+
   const columns = React.useMemo<ColumnDef<CrossChainTxItem>[]>(
     () => [
       // 索引列（源码 dataIndex='transferId' width 5%，直接展示 transferId）。
@@ -296,32 +299,21 @@ export function CrossChainTransactionsListPage(): React.JSX.Element {
         ),
       },
       // 行操作：查看（Refund 死代码不迁移）。
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.CCT_VIEW_BTN}>
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(
-                    `/cross-chain/cross-chain-transactions/view?transferId=${
-                      r.transferId ?? ''
-                    }`,
-                  )
-                }
-              >
-                {t('action.view')}
-              </Button>
-            </PermissionGuard>
-          );
-        },
-      },
+      createRowActionsColumn<CrossChainTxItem>({
+        detail: canView
+          ? {
+              label: t('action.view'),
+              onClick: (row) =>
+                router.push(
+                  `/cross-chain/cross-chain-transactions/view?transferId=${
+                    row.transferId ?? ''
+                  }`,
+                ),
+            }
+          : undefined,
+      }),
     ],
-    [t, router],
+    [t, router, canView],
   );
 
   const onSubmit = React.useCallback((f: CrossChainTxFilterForm) => {
@@ -463,6 +455,8 @@ export function CrossChainTransactionsListPage(): React.JSX.Element {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

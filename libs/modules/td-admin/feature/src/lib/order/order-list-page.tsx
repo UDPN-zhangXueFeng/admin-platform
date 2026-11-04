@@ -3,12 +3,13 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
-import { Search, Plus, Trash2, Eye } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
 
 import { DataTable, Button, Input, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@myorg/shared/ui';
 import { useToast } from '@myorg/shared/ui';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { formatCurrency } from '@myorg/shared/util-formatting';
+import { createRowActionsColumn } from '../row-actions';
 
 import {
   useOrdersQuery,
@@ -135,30 +136,20 @@ export function OrderListPage() {
           </span>
         ),
       },
-      {
-        id: 'actions',
-        header: '操作',
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="查看详情"
-              onClick={() => router.push(`/zh-CN/order/${row.original.id}`)}
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="删除"
-              onClick={() => handleDelete(row.original.id)}
-            >
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </div>
-        ),
-      },
+      // 详情内联；删除（destructive）收进 ⋮ 菜单。源为两个 icon 按钮，文案取原 aria-label。
+      createRowActionsColumn<Order>({
+        detail: {
+          label: '查看详情',
+          onClick: (row) => router.push(`/zh-CN/order/${row.id}`),
+        },
+        menu: (row) => [
+          {
+            label: '删除',
+            destructive: true,
+            onClick: (r) => handleDelete(r.id),
+          },
+        ],
+      }),
     ],
     [router, handleDelete]
   );
@@ -231,6 +222,8 @@ export function OrderListPage() {
                 total: paginationMeta.total,
                 onPageChange: (page) =>
                   setParams((prev) => ({ ...prev, page })),
+                onPageSizeChange: (size) =>
+                  setParams((prev) => ({ ...prev, page: 1, pageSize: size })),
               }
             : undefined
         }

@@ -15,7 +15,8 @@ import {
   SelectValue,
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { usePermission } from '@myorg/shared/util-auth';
+import { createRowActionsColumn } from '../row-actions';
 import {
   useBlockchainListQuery,
   useDeploymentListQuery,
@@ -178,6 +179,8 @@ export function DeploymentListPage() {
     [blockchainList.data],
   );
 
+  const canView = usePermission(BLOCKCHAIN_PERMISSIONS.DEPLOYMENT_VIEW_BTN);
+
   const columns = React.useMemo<ColumnDef<DeploymentRecordItem>[]>(
     () => [
       {
@@ -258,32 +261,19 @@ export function DeploymentListPage() {
         // 写死 success（源码遗留：只展示成功部署记录）。
         cell: () => <StatusSuccessBadge label={t('token_task_status_10')} />,
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <PermissionGuard
-              permission={BLOCKCHAIN_PERMISSIONS.DEPLOYMENT_VIEW_BTN}
-            >
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(
-                    `/blockchain/deployment/view?recordId=${r.recordId ?? ''}`,
-                  )
-                }
-              >
-                {t('action.view')}
-              </Button>
-            </PermissionGuard>
-          );
-        },
-      },
+      createRowActionsColumn<DeploymentRecordItem>({
+        detail: canView
+          ? {
+              label: t('action.view'),
+              onClick: (row) =>
+                router.push(
+                  `/blockchain/deployment/view?recordId=${row.recordId ?? ''}`,
+                ),
+            }
+          : undefined,
+      }),
     ],
-    [t, router, pagination.pageNum, pagination.pageSize],
+    [t, router, pagination.pageNum, pagination.pageSize, canView],
   );
 
   const onSubmit = React.useCallback((f: DeploymentFilterForm) => {
@@ -406,6 +396,8 @@ export function DeploymentListPage() {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

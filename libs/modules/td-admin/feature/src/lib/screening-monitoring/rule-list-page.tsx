@@ -12,6 +12,7 @@ import { formatAdminTimestamp } from '../format-admin-time';
 import { ALL_VALUE } from './screening-monitoring.constants';
 import { RULE_STATUS_OPTIONS } from '.';
 import { ScreeningStatusBadge } from '.';
+import { createRowActionsColumn } from '../row-actions';
 
 const PAGE_SIZE = 10;
 interface Filters { ruleName: string; tokenId: string; blockchainId: string; businessType: string; startDate: string; endDate: string; status: string; }
@@ -43,24 +44,44 @@ export function RuleListPage() {
     { id: 'createUser', header: tc('PUB_Creater'), accessorKey: 'createUser' },
     { id: 'createDate', header: tc('PUB_CreateTime'), accessorKey: 'createDate', cell: ({ getValue }) => formatAdminTimestamp(Number(getValue<string>())) },
     { id: 'status', header: tc('PUB_Status'), accessorKey: 'status', cell: ({ getValue }) => <ScreeningStatusBadge status={getValue<number>()} variant="rule" /> },
-    {
-      id: 'actions', header: tc('PUB_Action'), cell: ({ row }) => {
-        const r = row.original;
-        const confirmDisable = () => t('screening_monitoring_0014').replace('${status}', t('screening_monitoring_0079')).replaceAll('${token}', r.tokenName).replace('${blockchain}', r.blockchainNameAbbreviation || '').replace('${Rule}', r.ruleName);
-        const confirmEnable = () => t('screening_monitoring_0014').replace('${status}', t('screening_monitoring_0080')).replaceAll('${token}', r.tokenName).replace('${blockchain}', r.blockchainNameAbbreviation || '').replace('${Rule}', r.ruleName);
-        return (
-          <div className="flex items-center gap-3">
-            <Button variant="link" className="h-auto p-0" onClick={() => router.push(`/screening-monitoring/rule/view?id=${r.ruleId}`)}>{tc('Router_0010_4_3')}</Button>
-            <Button variant="link" className="h-auto p-0" disabled={!(r.status === 10 || r.status === 15)} onClick={() => router.push(`/screening-monitoring/rule/edit?id=${r.ruleId}`)}>{tc('Router_0010_4_2')}</Button>
-            <Button variant="link" className="h-auto p-0" disabled={r.status !== 10} onClick={async () => { if (window.confirm(confirmDisable())) await op.mutateAsync({ ruleId: r.ruleId, state: 15 }); }}>{tc('Router_0010_4_5')}</Button>
-            <Button variant="link" className="h-auto p-0" disabled={!(r.buttonFlag === false && r.status === 15)} onClick={async () => { if (window.confirm(confirmEnable())) await op.mutateAsync({ ruleId: r.ruleId, state: 10 }); }}>{tc('Router_0010_4_4')}</Button>
-          </div>
-        );
+    createRowActionsColumn<RuleListItem>({
+      detail: {
+        label: tc('Router_0010_4_3'),
+        onClick: (row) =>
+          router.push(`/screening-monitoring/rule/view?id=${row.ruleId}`),
       },
-    },
+      menu: (row) => {
+        const confirmDisable = () => t('screening_monitoring_0014').replace('${status}', t('screening_monitoring_0079')).replaceAll('${token}', row.tokenName).replace('${blockchain}', row.blockchainNameAbbreviation || '').replace('${Rule}', row.ruleName);
+        const confirmEnable = () => t('screening_monitoring_0014').replace('${status}', t('screening_monitoring_0080')).replaceAll('${token}', row.tokenName).replace('${blockchain}', row.blockchainNameAbbreviation || '').replace('${Rule}', row.ruleName);
+        return [
+          {
+            label: tc('Router_0010_4_2'),
+            disabled: !(row.status === 10 || row.status === 15),
+            onClick: (data) =>
+              router.push(`/screening-monitoring/rule/edit?id=${data.ruleId}`),
+          },
+          {
+            label: tc('Router_0010_4_5'),
+            disabled: row.status !== 10,
+            onClick: async (data) => {
+              if (window.confirm(confirmDisable()))
+                await op.mutateAsync({ ruleId: data.ruleId, state: 15 });
+            },
+          },
+          {
+            label: tc('Router_0010_4_4'),
+            disabled: !(row.buttonFlag === false && row.status === 15),
+            onClick: async (data) => {
+              if (window.confirm(confirmEnable()))
+                await op.mutateAsync({ ruleId: data.ruleId, state: 10 });
+            },
+          },
+        ];
+      },
+    }),
   ];
 
-  const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: data?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })) }), [pg.pageNum, pg.pageSize, data?.page?.total]);
+  const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: data?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })), onPageSizeChange: (size: number) => setPg({ pageNum: 1, pageSize: size }) }), [pg.pageNum, pg.pageSize, data?.page?.total]);
 
   return (
     <div>

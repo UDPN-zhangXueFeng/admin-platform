@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
@@ -27,6 +27,7 @@ import type {
 } from '@myorg/modules/td-admin/data-access';
 import { EMPTY_FIELD_VALUE, formatAmount, formatTimestamp } from './formatters';
 import { SpAccessStatusBadge } from './sp-access-status-badge';
+import { createRowActionsColumn } from '../row-actions';
 
 /**
  * 详情页「用户钱包」Tab（上游 UserWalletsSection）：筛选 + 列表 +
@@ -200,27 +201,18 @@ export function SpAccessUserWalletsSection({ detail }: { detail: SpAccessDetail 
           <SpAccessStatusBadge kind="walletStatus" status={Number(getValue())} />
         ),
       },
-      {
-        id: 'actions',
-        header: t('PUB_Action'),
-        enableSorting: false,
-        cell: ({ row }) => {
-          const walletId = Number(row.original.walletId);
-          const disabled = !Number.isFinite(walletId) || walletId <= 0;
-          return (
-            <Button
-              type="button"
-              variant="link"
-              size="sm"
-              className="h-auto p-0"
-              disabled={disabled || viewingWalletId === walletId}
-              onClick={() => handleTxnDetails(row.original)}
-            >
-              {t('sp_access_0139')}
-            </Button>
-          );
+      createRowActionsColumn<SpAccessUserWallet & { id: string }>({
+        detail: {
+          label: t('sp_access_0139'),
+          // 旧单元格按行禁用（walletId 无效 / 查看中）；detail.disabled 为静态值，
+          // 改为在 onClick 内保持同样的守卫。
+          onClick: (record) => {
+            const walletId = Number(record.walletId);
+            if (!Number.isFinite(walletId) || walletId <= 0 || viewingWalletId === walletId) return;
+            handleTxnDetails(record);
+          },
         },
-      },
+      }),
     ],
     [t, viewingWalletId],
   );

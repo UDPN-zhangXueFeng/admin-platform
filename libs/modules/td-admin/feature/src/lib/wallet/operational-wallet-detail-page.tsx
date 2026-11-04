@@ -354,6 +354,8 @@ export function OperationalWalletDetailPage() {
                   total: txTotal,
                   onPageChange: (page) =>
                     setTxPage((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (size) =>
+                    setTxPage({ pageNum: 1, pageSize: size }),
                 }}
               />
             </div>
@@ -377,6 +379,8 @@ export function OperationalWalletDetailPage() {
                   total: opTotal,
                   onPageChange: (page) =>
                     setOpPage((prev) => ({ ...prev, pageNum: page })),
+                  onPageSizeChange: (size) =>
+                    setOpPage({ pageNum: 1, pageSize: size }),
                 }}
               />
             </div>

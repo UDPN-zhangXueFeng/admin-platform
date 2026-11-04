@@ -12,6 +12,7 @@ import { useRuleDetail, useRuleOperationLog, useRuleOperationRecords } from '@my
 import { formatAdminTimestamp } from '../format-admin-time';
 import { ALL_VALUE, RULE_OPERATION_OPTIONS } from '.';
 import { ScreeningRiskLevelTag, ScreeningStatusBadge } from '.';
+import { createRowActionsColumn } from '../row-actions';
 
 const PAGE_SIZE = 10;
 
@@ -85,9 +86,17 @@ function OperationRecordsTab({ ruleId, t, tc, router }: { ruleId: number; t: (k:
     { id: 'createUserName', header: tc('PUB_Creater'), accessorKey: 'createUserName' },
     { id: 'createTime', header: tc('PUB_CreateTime'), accessorKey: 'createTime', cell: ({ getValue }) => formatAdminTimestamp(Number(getValue<string>())) },
     { id: 'state', header: tc('PUB_Status'), accessorKey: 'state', cell: ({ getValue }) => tc(`common_task_status_${getValue<number>()}`) },
-    { id: 'actions', header: tc('PUB_Action'), cell: ({ row }) => <Button variant="link" className="h-auto p-0" onClick={() => router.push(`/approval-manage/view?id=${row.original.taskId}&busCode=${row.original.busCode}`)}>{tc('Router_0010_4_3')}</Button> },
+    createRowActionsColumn<RuleOperationRecord>({
+      detail: {
+        label: tc('Router_0010_4_3'),
+        onClick: (row) =>
+          router.push(
+            `/approval-manage/view?id=${row.taskId}&busCode=${row.busCode}`,
+          ),
+      },
+    }),
   ];
-  const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: data?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })) }), [pg.pageNum, pg.pageSize, data?.page?.total]);
+  const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: data?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })), onPageSizeChange: (size: number) => setPg({ pageNum: 1, pageSize: size }) }), [pg.pageNum, pg.pageSize, data?.page?.total]);
   return (
     <div>
       <div className="w-48 mb-4"><FormSelect name="recordType" label={t('screening_monitoring_0046')} control={control} options={RULE_OPERATION_OPTIONS.map(o => ({ label: o.label, value: o.value === ALL_VALUE ? ALL_VALUE : o.value }))} placeholder={tc('PUB_All')} /></div>
@@ -109,7 +118,7 @@ function ExecutionLogTab({ ruleId, t, tc }: { ruleId: number; t: (k: string) => 
     { id: 'totalWalletsScanned', header: t('screening_monitoring_0050'), accessorKey: 'totalWalletsScanned' },
     { id: 'anomalousWallets', header: t('screening_monitoring_0051'), accessorKey: 'anomalousWallets' },
   ];
-  const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: data?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })) }), [pg.pageNum, pg.pageSize, data?.page?.total]);
+  const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: data?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })), onPageSizeChange: (size: number) => setPg({ pageNum: 1, pageSize: size }) }), [pg.pageNum, pg.pageSize, data?.page?.total]);
   return (
     <div>
       <div className="w-64 mb-4 flex gap-4">

@@ -24,6 +24,7 @@ import {
   type WalletListParams,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import { WalletStatusBadge } from '.';
 import {
   accountTypeMessageKey,
@@ -231,28 +232,25 @@ export function OperationalWalletListPage() {
           />
         ),
       },
-      {
-        id: 'actions',
-        header: t('common.operate'),
-        cell: ({ row }) =>
-          canViewDetail ? (
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() =>
+      canViewDetail
+        ? createRowActionsColumn<OperationalWallet>({
+            detail: {
+              label: t('common.detail'),
+              onClick: (row) =>
                 router.push(
-                  `/wallet/operational-wallet/view?ruleWalletId=${row.original.ruleWalletId ?? ''}&walletAddress=${encodeURIComponent(
-                    row.original.walletAddress ?? ''
+                  `/wallet/operational-wallet/view?ruleWalletId=${row.ruleWalletId ?? ''}&walletAddress=${encodeURIComponent(
+                    row.walletAddress ?? ''
                   )}`
-                )
-              }
-            >
-              {t('common.detail')}
-            </Button>
-          ) : (
-            <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>
-          ),
-      },
+                ),
+            },
+          })
+        : {
+            id: 'actions',
+            header: 'Actions',
+            cell: () => (
+              <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>
+            ),
+          },
     ],
     [t, canViewDetail, router]
   );
@@ -347,6 +345,8 @@ export function OperationalWalletListPage() {
               total,
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

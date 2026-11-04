@@ -1369,3 +1369,41 @@
 - 常量位置：网关原有 `kissen-gateway/data-access/tx.model.ts:TX_STAGE_EVENT_TITLE`；本次在 `kissen-admin/data-access/transaction/transaction.model.ts` 与 `lp-portal/data-access/types.ts` 各加一份同名常量 + `txStageEventTitle(step, fallback)`，三处文案必须逐字一致（admin 侧 `tx-chain-title.spec.ts` 锁文案）。
 - LP 的 `TxChainEvent.title` 是服务端 `TxChainCopy.externalOf` 产物，前端只在渲染层覆盖；根治应在 `LpTxQueryServiceImpl` 把 title 换成阶段业务名，届时前端这层 override 可撤。LP 有两处消费链路事件：`tx-flow-pages.tsx`（详情页链路卡）与 `chain-drawer.tsx`（列表抽屉），改标题时两处都要动。
 - `chain-drawer.tsx:buildItems` 的事件入参是**局部结构化类型**（不是 `LpChainEvent`），要消费 `step` 必须同步给该入参加字段，否则 tsc 报 TS2339。
+
+## 2026-11-03 apps/admin 列表行操作统一（row-actions 公共组件）
+
+- 新增 `libs/modules/td-admin/feature/src/lib/row-actions.tsx`：`renderRowActions(row, { detail, menu })` 直接渲染单元格；`createRowActionsColumn<TData>({ detail, menu, header })` 生成整列，列 `id` 固定 `actions`、`meta` 固定 `{ overflow: 'none', stickyRight: true }`。`detail` 是主操作（内联为 link 按钮），`menu` 返回的其余操作收进 ⋮ `DropdownMenu`；`destructive: true` 用 destructive 文字色。
+- 76 个 td-admin feature 页面从「多个 icon / link 按钮平铺」改为「详情内联 + 其余收进 ⋮ 菜单」；改法保留原有 disabled 守卫与跳转参数，只换承载形式。
+- 权限从 `<PermissionGuard permission={…}>` 包按钮（91 处新增 `usePermission`、41 处仍保留 PermissionGuard 用于非行内区域）改为 `usePermission(code)` 布尔值后条件渲染 `detail` / `menu` 项；`detail` 传函数可按行决定是否渲染。
+- 坑：`libs/shared/ui` 的 data-table 对 `columnId === 'actions'` 跳过 ellipsis 截断并读 `meta.stickyRight`，所以自定义操作列的 `id` 必须是 `actions`；`meta.overflow` 只支持 `ellipsis | wrap | none`。
+
+## 2026-11-03 apps/admin 分页条数选择器贯通
+
+- `DataTable` 的 pagination 已支持 `onPageSizeChange`（不传则隐藏 size changer）。td-admin 91 个页面补 `onPageSizeChange: (size) => setX({ pageNum: 1, pageSize: size })`，改每页条数一律回第 1 页；页面内自定义的 `PanelProps` / `DetailTableSection` 也要显式透传该 prop，否则子表格不显示条数选择器。
+
+## 2026-11-03 apps/admin 分段 Tab 样式（segmented-tabs）
+
+- `apps/admin/src/app/globals.css` 新增 `body.segmented-tabs` 作用域下的 Radix tablist / tab 样式（对齐 kissen-admin 的分段控件外观），`apps/admin/src/app/layout.tsx` 的 `<body>` 加 `segmented-tabs` class 启用。
+- 样式限定 `[role='tab'][data-orientation]`（tablist）与 `[role='tab'][data-state]`（tab），只影响 Radix Tabs；原生 `role="tab"` 的 chip 分组（如 token-selector-tabs-view）保持自身样式。
+
+## 2026-11-03 pledge 列表请求与状态文案兜底修复
+
+- `pledge.api.ts` 的 `toListBody` **剔除** `bookStatus`（前端推导的伪状态，后端不认这个字段），此前它被透传进 `data`；过滤在页面层做。
+- `reserve-asset-list-page.tsx` 过滤态改为 `pageNum=1` + `pageSize=1000` 全量拉取后前端切片重算分页与总数；科目账簿跳转路由由 `/financial/chart-of-accounts/view` 修正为 `/chart-of-accounts/view`；「Share of Total Reserve」表头改走 i18n `viewBasic.summaryShare`。
+- `pledge.model.ts` 的 `AssetCategoryListQuery.reserveAccountId` 放宽为 `number | null`（交易列表「全部类别」要传 null，对齐旧项目请求体）。
+- 状态文案未知值兜底：`OP_RECORD_STATUS` / 资产状态映射补 `unknown` 键（zh-CN 与 en-US 同时补），渲染前先判 `String(status) in MAP` 再取文案，避免未知状态时 `t()` 取不到 key 显示空。
+
+## 2026-11-03 admin-optimizer 储备资产管理 round-01 基线证据
+
+- 产出 `.doc/admin/2026-11-03/reserve-asset-management/round-01/evidence/`：A/B 各自独立盘点（89 行 / 83 行）、并集映射与 12 项排除（X-001 ~ X-012）、冻结候选矩阵 v1（R-001 ~ R-119 共 89 行）、列表/详情与交易/类别两份 gap 分析、6 张浏览器截图。
+- 旧项目基线：`/Users/rnail/orca/td-manage` `feature/zxf` commit `eb5a929a2109df57f7e6de5d3b08614961c1ccab`（只读）。
+- **本轮未收口、无验收结论**：矩阵仍是「冻结候选 v1」（A/B 尚有 4 个裁决问题待确认），README 要求的 `verification.md` 未生成，因此**没有任何通过率**，不得宣称该模块已验收通过。
+- 归档位置坑：`.doc/` 在 `.gitignore`（第 59 行，与 `.playwright-mcp/` 同段），所以 `.doc/admin/YYYY-MM-DD/**` 的证据与截图**永远不会出现在 `git status --porcelain -uall` 的 `??` 段**；查「今天新增了哪些文件」不能只依赖 git status，要单独看 `.doc/admin/<日期>/` 目录与文件 mtime。
+- 反之，`git status --porcelain -uall` 当前唯一的未跟踪项是 `.omp/agents/admin-optimizer.md` 与 `.omp/config.yml`，二者 mtime 为 2026-10-29 / 2026-10-28，**不是今天产物**（`admin-optimizer` agent 定义与角色配置，见 `.doc/admin/README.md`）。
+
+## 2026-11-04 储备资产管理 round-01 收口 + 三条可复用事实
+
+- **admin-optimizer 门禁与派发**：`.omp/agents/admin-optimizer.md` 的验收门禁 = 冻结矩阵 + 两位**独立** reviewer（各自给逐行结论 + 原始证据）+ 真实浏览器/网络证据 + 唯一一份 `verification.md`；代码级通过率不能冒充端到端通过率。`reviewer` 子 agent 需由**父级**并发派发（一个 `tasks[]` 批次两个实例），子 agent 不跑 build/lint/test、父级集中跑一次。冻结矩阵实际是 **90** 行 R-ID（v1 文档头写的 89 是盘点口径误差）。
+- **储备资产的写操作是审批制**（新事实，影响所有 reserve/asset 写路径）：新增资产、编辑、停用/启用、新增类别、新增交易，请求 200 后都只生成**待审批任务**（审批中心 `approval-manage` 里一条 Pending Approval），资产状态要审批通过才翻转；同一账户重复提交同操作被后端拒绝（停用 `MSG_03_5017`、启用 `MSG_03_7029`，`code=1`）。因此「请求成功但状态没变」是正常语义，不是前端 bug；断言写路径要看审批任务是否生成，而不是看列表状态。
+- **本环境抓不到 HTTP 请求 body**：in-page `XMLHttpRequest.send`/`fetch` hook（app 侧在模块加载时已捕获原函数）、`page.on('request')`（注册后 `page.evaluate` 立刻抛 `Illegal invocation`）、HAR（`postData.text` 为 null）、`addInitScript`/`open({init_scripts})`（未执行）、`tab.route`（要 options 对象且 DataCloneError）——五种手段全部失败。替代取证法：① 页面内 `fetch` 带真实 token 直连后端读 `code/message`；② 设筛选项后看渲染结果做端到端断言；③ 审批中心反查写操作是否落任务。请求字段名只能靠代码级证据。
+- 补充：`.doc/td-manage/sync-state.json` 在本仓库**不存在** → td-manage-sync skill 的「首次运行锚定水位线」不适用；单模块对齐不要新建该文件、不要推进水位线。上游规格源用 `/Users/rnail/orca/td-manage`（admin-optimizer §1.1 规定），`~/repos/td-manage` 只作备选。

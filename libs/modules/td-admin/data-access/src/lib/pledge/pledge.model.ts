@@ -320,8 +320,8 @@ export interface OperateRecordResponse {
 
 /** 资产类别列表筛选 */
 export interface AssetCategoryListQuery {
-  /** Reserve Account Id */
-  reserveAccountId?: number;
+  /** Reserve Account Id；交易列表全量类别传 null（对齐旧项目请求体）。 */
+  reserveAccountId?: number | null;
   /** state 0:禁用 1:启用 */
   state?: number;
 }

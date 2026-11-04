@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import {
   useBillRuleListQuery,
   useBlockchainListQuery,
@@ -262,50 +263,35 @@ export function JournalEntriesListPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <div className="flex gap-3">
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(
-                    `/journal-entries/view?id=${r.ruleId}&type=${r.tokenType ?? ''}`,
-                  )
-                }
-              >
-                {t('action.view')}
-              </Button>
-              {r.state === RULE_STATE_ACTIVE ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() =>
-                    handleOperate(r, BILL_OPERATE_DISABLE, 'confirmDisable')
-                  }
-                >
-                  {t('action.disable')}
-                </Button>
-              ) : null}
-              {r.state === RULE_STATE_INACTIVE ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() =>
-                    handleOperate(r, BILL_OPERATE_ENABLE, 'confirmEnable')
-                  }
-                >
-                  {t('action.enable')}
-                </Button>
-              ) : null}
-            </div>
-          );
+      createRowActionsColumn<BillRule>({
+        detail: {
+          label: t('action.view'),
+          onClick: (r) =>
+            router.push(
+              `/journal-entries/view?id=${r.ruleId}&type=${r.tokenType ?? ''}`,
+            ),
         },
-      },
+        menu: (r) => [
+          ...(r.state === RULE_STATE_ACTIVE
+            ? [
+                {
+                  label: t('action.disable'),
+                  onClick: () =>
+                    handleOperate(r, BILL_OPERATE_DISABLE, 'confirmDisable'),
+                },
+              ]
+            : []),
+          ...(r.state === RULE_STATE_INACTIVE
+            ? [
+                {
+                  label: t('action.enable'),
+                  onClick: () =>
+                    handleOperate(r, BILL_OPERATE_ENABLE, 'confirmEnable'),
+                },
+              ]
+            : []),
+        ],
+      }),
     ],
     [t, router, pagination.pageNum, pagination.pageSize, handleOperate],
   );
@@ -406,6 +392,8 @@ export function JournalEntriesListPage() {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>

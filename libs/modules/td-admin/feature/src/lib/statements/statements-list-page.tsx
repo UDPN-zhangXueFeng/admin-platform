@@ -18,6 +18,7 @@ import {
 } from '@myorg/shared/ui';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 import {
   useBlockchainListQuery,
   useCreateExportRuleMutation,
@@ -304,59 +305,23 @@ export function StatementsListPage() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: t('field.actions'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <div className="flex gap-3">
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() =>
-                  router.push(`/statements/view?id=${r.exportRuleId}`)
-                }
-              >
-                {t('action.view')}
-              </Button>
-              {r.status === RULE_STATE_ACTIVE ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() =>
-                    handleOperate(r, RULE_OPERATE_DISABLE, 'confirmDisable')
-                  }
-                >
-                  {t('action.disable')}
-                </Button>
-              ) : null}
-              {r.status === RULE_STATE_INACTIVE ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() =>
-                    handleOperate(r, RULE_OPERATE_ENABLE, 'confirmEnable')
-                  }
-                >
-                  {t('action.enable')}
-                </Button>
-              ) : null}
-              {r.status === RULE_STATE_INACTIVE ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0 text-red-600"
-                  onClick={() =>
-                    handleOperate(r, RULE_OPERATE_DELETE, 'confirmDelete')
-                  }
-                >
-                  {t('action.delete')}
-                </Button>
-              ) : null}
-            </div>
-          );
+      createRowActionsColumn<ExportRule>({
+        detail: {
+          label: t('action.view'),
+          onClick: (r) => router.push(`/statements/view?id=${r.exportRuleId}`),
         },
-      },
+        menu: (r) => [
+          ...(r.status === RULE_STATE_ACTIVE
+            ? [{ label: t('action.disable'), onClick: () => handleOperate(r, RULE_OPERATE_DISABLE, 'confirmDisable') }]
+            : []),
+          ...(r.status === RULE_STATE_INACTIVE
+            ? [
+                { label: t('action.enable'), onClick: () => handleOperate(r, RULE_OPERATE_ENABLE, 'confirmEnable') },
+                { label: t('action.delete'), destructive: true, onClick: () => handleOperate(r, RULE_OPERATE_DELETE, 'confirmDelete') },
+              ]
+            : []),
+        ],
+      }),
     ],
     [t, router, pagination.pageNum, pagination.pageSize, handleOperate],
   );
@@ -506,6 +471,12 @@ export function StatementsListPage() {
               total,
               onPageChange: (p) =>
                 setPagination((prev) => ({ ...prev, pageNum: p })),
+              onPageSizeChange: (size) =>
+                setPagination((prev) => ({
+                  ...prev,
+                  pageNum: 1,
+                  pageSize: size,
+                })),
             }}
           />
         </div>

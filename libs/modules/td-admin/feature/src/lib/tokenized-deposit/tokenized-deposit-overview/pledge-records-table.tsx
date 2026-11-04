@@ -10,10 +10,10 @@ import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
 import { DataTable } from '@myorg/shared/ui';
-import { Button } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../../format-admin-time';
+import { createRowActionsColumn } from '../../row-actions';
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
@@ -49,6 +49,8 @@ import type { OverviewRecordsTabProps } from './tab-records';
 export function PledgeRecordsTable({ td }: OverviewRecordsTabProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
   const router = useRouter();
+  // 源 limit：VIEW_RECORD 包裹 Details 链接（PermissionGuard 隐藏语义 → 无权限整列空）。
+  const hasViewRecordPerm = usePermission(TD_PERMISSIONS.VIEW_RECORD);
 
   const [pagination, setPagination] = React.useState({
     pageNum: 1,
@@ -169,24 +171,15 @@ export function PledgeRecordsTable({ td }: OverviewRecordsTabProps): React.JSX.E
           />
         ),
       },
-      {
-        id: 'actions',
-        header: t('PUB_Action'),
-        cell: ({ row }) => (
-          <PermissionGuard permission={TD_PERMISSIONS.VIEW_RECORD}>
-            {/* 源 disabled: false（质押分支恒可点） */}
-            <Button
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => handleView(row.original)}
-            >
-              {t('PUB_Detail')}
-            </Button>
-          </PermissionGuard>
-        ),
-      },
+      // PUB_Action：统一行操作列。源 PermissionGuard(VIEW_RECORD) 包裹的 Details
+      // 链接收敛为内联 link；无权限时不传 detail（helper 渲染 null，对齐源隐藏）。
+      createRowActionsColumn<TDRecordItem>(
+        hasViewRecordPerm
+          ? { detail: { label: t('PUB_Detail'), onClick: handleView } }
+          : {}
+      ),
     ],
-    [t, handleView],
+    [t, handleView, hasViewRecordPerm],
   );
 
   return (
@@ -201,6 +194,12 @@ export function PledgeRecordsTable({ td }: OverviewRecordsTabProps): React.JSX.E
         total,
         onPageChange: (p) =>
           setPagination((prev) => ({ ...prev, pageNum: p })),
+        onPageSizeChange: (size) =>
+          setPagination((prev) => ({
+            ...prev,
+            pageNum: 1,
+            pageSize: size,
+          })),
       }}
     />
   );

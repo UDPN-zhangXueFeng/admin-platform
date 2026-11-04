@@ -8,7 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable, useToast } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 
 import {
   USER_PAGE_SIZE,
@@ -25,6 +25,7 @@ import {
   type UserRespVo,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { createRowActionsColumn } from '../row-actions';
 
 /** `stablecoin` 是默认活动项目（见 configs/stablecoin.json）。 */
 const PROJECT_ID = 'stablecoin';
@@ -77,6 +78,12 @@ export function UserListPage() {
   const statusMutation = useUpdateUserStatusMutation(PROJECT_ID);
   const resetMutation = useResetUserPasswordMutation(PROJECT_ID);
   const deleteMutation = useDeleteUserMutation(PROJECT_ID);
+  const canView = usePermission(USER_PERMISSIONS.view);
+  const canEdit = usePermission(USER_PERMISSIONS.edit);
+  const canDisable = usePermission(USER_PERMISSIONS.disable);
+  const canEnable = usePermission(USER_PERMISSIONS.enable);
+  const canReset = usePermission(USER_PERMISSIONS.reset);
+  const canDelete = usePermission(USER_PERMISSIONS.delete);
 
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
@@ -205,91 +212,77 @@ export function UserListPage() {
           />
         ),
       },
-      {
-        id: 'actions',
-        header: t('field.action'),
-        cell: ({ row }) => {
-          const item = row.original;
-          // 守卫精确复刻旧页（user.md §5.1）。
-          const editDisabled = !(item.status === 1);
-          const disableDisabled = !(item.status === 0);
-          const enableDisabled = !(item.status === 1);
-          const resetDisabled = !(item.status === 1);
-          const deleteDisabled = !(item.status === 1);
-
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <PermissionGuard permission={USER_PERMISSIONS.view}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  onClick={() => onView(item.userId)}
-                >
-                  {t('action.view')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={USER_PERMISSIONS.edit}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  disabled={editDisabled}
-                  onClick={() => onEdit(item.userId)}
-                >
-                  {t('action.edit')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={USER_PERMISSIONS.disable}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  disabled={disableDisabled}
-                  onClick={() => onToggleStatus(item)}
-                >
-                  {t('action.disable')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={USER_PERMISSIONS.enable}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  disabled={enableDisabled}
-                  onClick={() => onToggleStatus(item)}
-                >
-                  {t('action.enable')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={USER_PERMISSIONS.reset}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  disabled={resetDisabled}
-                  onClick={() => onResetPassword(item)}
-                >
-                  {t('action.reset')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={USER_PERMISSIONS.delete}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-destructive"
-                  disabled={deleteDisabled}
-                  onClick={() => onDelete(item)}
-                >
-                  {t('action.delete')}
-                </Button>
-              </PermissionGuard>
-            </div>
-          );
-        },
-      },
+      // Actions：统一行操作列。View 内联；Edit/Disable/Enable/Reset/Delete 收进 ⋮，
+      // 守卫精确复刻旧页（user.md §5.1），Delete 保留红色 destructive。
+      createRowActionsColumn<UserRespVo & { id: string }>({
+        detail: canView
+          ? { label: t('action.view'), onClick: (row) => onView(row.userId) }
+          : undefined,
+        menu: (row) => [
+          ...(canEdit
+            ? [
+                {
+                  label: t('action.edit'),
+                  disabled: !(row.status === 1),
+                  onClick: () => onEdit(row.userId),
+                },
+              ]
+            : []),
+          ...(canDisable
+            ? [
+                {
+                  label: t('action.disable'),
+                  disabled: !(row.status === 0),
+                  onClick: () => onToggleStatus(row),
+                },
+              ]
+            : []),
+          ...(canEnable
+            ? [
+                {
+                  label: t('action.enable'),
+                  disabled: !(row.status === 1),
+                  onClick: () => onToggleStatus(row),
+                },
+              ]
+            : []),
+          ...(canReset
+            ? [
+                {
+                  label: t('action.reset'),
+                  disabled: !(row.status === 1),
+                  onClick: () => onResetPassword(row),
+                },
+              ]
+            : []),
+          ...(canDelete
+            ? [
+                {
+                  label: t('action.delete'),
+                  destructive: true,
+                  disabled: !(row.status === 1),
+                  onClick: () => onDelete(row),
+                },
+              ]
+            : []),
+        ],
+      }),
     ],
-    [t, paginationMeta, onView, onEdit, onToggleStatus, onResetPassword, onDelete]
+    [
+      t,
+      paginationMeta,
+      onView,
+      onEdit,
+      onToggleStatus,
+      onResetPassword,
+      onDelete,
+      canView,
+      canEdit,
+      canDisable,
+      canEnable,
+      canReset,
+      canDelete,
+    ]
   );
 
   // DataTable 约束 { id: string }；user rowKey 为 userId:number，map 出 id（既有约定）。

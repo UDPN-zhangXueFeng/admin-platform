@@ -8,7 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable, useToast } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { PermissionGuard } from '@myorg/shared/util-auth';
+import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 
 import { RoleStatusTag } from '.';
 import {
@@ -16,6 +16,7 @@ import {
   ROLE_PERMISSIONS,
   RoleStatus,
 } from '.';
+import { createRowActionsColumn, type RowAction } from '../row-actions';
 import {
   useRoleListQuery,
   useUpdateRoleStatusMutation,
@@ -73,6 +74,12 @@ export function RoleListPage() {
   const { data, isLoading, isError } = useRoleListQuery(PROJECT_ID, params);
   const statusMutation = useUpdateRoleStatusMutation(PROJECT_ID);
   const deleteMutation = useDeleteRoleMutation(PROJECT_ID);
+  // 行操作权限点：PermissionGuard 改为 usePermission 布尔，配合行操作收纳进 ⋮ 菜单。
+  const canView = usePermission(ROLE_PERMISSIONS.view);
+  const canEdit = usePermission(ROLE_PERMISSIONS.edit);
+  const canDisable = usePermission(ROLE_PERMISSIONS.disable);
+  const canEnable = usePermission(ROLE_PERMISSIONS.enable);
+  const canDelete = usePermission(ROLE_PERMISSIONS.delete);
 
   const rows = data?.data ?? [];
   const paginationMeta = data?.pagination;
@@ -166,11 +173,14 @@ export function RoleListPage() {
           />
         ),
       },
-      {
-        id: 'actions',
-        header: t('field.action'),
-        cell: ({ row }) => {
-          const item = row.original;
+      createRowActionsColumn<RoleItem & { id: string }>({
+        detail: canView
+          ? {
+              label: t('action.view'),
+              onClick: (row) => onView(row.roleId),
+            }
+          : undefined,
+        menu: (row): RowAction<RoleItem & { id: string }>[] => {
           // roleType 守卫（role.md 5.1 / 7.1）：disabled 条件精确复刻旧页表达式。
           // 注意陷阱：OpenAPI 未声明 roleType，后端可能不返回 → roleType 为 undefined。
           //   而 `undefined !== 0` 在 JS 中为 **true**（非 false），故守卫并非"恒不生效"：
@@ -178,73 +188,53 @@ export function RoleListPage() {
           //   - Disable 仅在启用态(status==0)可用。
           // 后端若实际返回 roleType=0（系统内置角色），则 `roleType!==0`=false → 这些操作恒 disabled。
           // 此处不臆测后端语义，按旧页运算符原样保留（Rule 11/12）。
-          const editDisabled = !(item.status === 1 && item.roleType !== 0);
-          const disableDisabled = !(item.status === 0 && item.roleType !== 0);
-          const enableDisabled = !(item.status === 1 && item.roleType !== 0);
-          const deleteDisabled = !(item.status === 1 && item.roleType !== 0);
-
-          return (
-            <div className="flex items-center gap-2">
-              <PermissionGuard permission={ROLE_PERMISSIONS.view}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  onClick={() => onView(item.roleId)}
-                >
-                  {t('action.view')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={ROLE_PERMISSIONS.edit}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  disabled={editDisabled}
-                  onClick={() => onEdit(item.roleId)}
-                >
-                  {t('action.edit')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={ROLE_PERMISSIONS.disable}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  disabled={disableDisabled}
-                  onClick={() => onToggleStatus(item)}
-                >
-                  {t('action.disable')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={ROLE_PERMISSIONS.enable}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  disabled={enableDisabled}
-                  onClick={() => onToggleStatus(item)}
-                >
-                  {t('action.enable')}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard permission={ROLE_PERMISSIONS.delete}>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-destructive"
-                  disabled={deleteDisabled}
-                  onClick={() => onDelete(item)}
-                >
-                  {t('action.delete')}
-                </Button>
-              </PermissionGuard>
-            </div>
-          );
+          const editDisabled = !(row.status === 1 && row.roleType !== 0);
+          const disableDisabled = !(row.status === 0 && row.roleType !== 0);
+          const enableDisabled = !(row.status === 1 && row.roleType !== 0);
+          const deleteDisabled = !(row.status === 1 && row.roleType !== 0);
+          return [
+            ...(canEdit
+              ? [
+                  {
+                    label: t('action.edit'),
+                    disabled: editDisabled,
+                    onClick: (data: RoleItem & { id: string }) => onEdit(data.roleId),
+                  },
+                ]
+              : []),
+            ...(canDisable
+              ? [
+                  {
+                    label: t('action.disable'),
+                    disabled: disableDisabled,
+                    onClick: (data: RoleItem & { id: string }) => onToggleStatus(data),
+                  },
+                ]
+              : []),
+            ...(canEnable
+              ? [
+                  {
+                    label: t('action.enable'),
+                    disabled: enableDisabled,
+                    onClick: (data: RoleItem & { id: string }) => onToggleStatus(data),
+                  },
+                ]
+              : []),
+            ...(canDelete
+              ? [
+                  {
+                    label: t('action.delete'),
+                    destructive: true,
+                    disabled: deleteDisabled,
+                    onClick: (data: RoleItem & { id: string }) => onDelete(data),
+                  },
+                ]
+              : []),
+          ];
         },
-      },
+      }),
     ],
-    [t, paginationMeta, onView, onEdit, onToggleStatus, onDelete]
+    [t, paginationMeta, onView, onEdit, onToggleStatus, onDelete, canView, canEdit, canDisable, canEnable, canDelete]
   );
 
   // DataTable 约束 { id: string }；role rowKey 为 roleId:number，map 出 id（既有约定）。
