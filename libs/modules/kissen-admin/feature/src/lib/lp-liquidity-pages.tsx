@@ -2104,6 +2104,15 @@ export function LpInfoDetailPage() {
 
   const detail = detailQuery.data;
   const base = detail?.base;
+  /**
+   * 草稿/驳回/撤回的 LP 还没有 lp_token_pair 行（参与对要审批通过才落库），
+   * 但入网表单里的 token 对已经存在 lp_info.onboard_pools 里。这里取出来在
+   * Token Pairs 页签顶部列出来，避免「明明是配过的却显示空表」。
+   */
+  const onboardPairs = React.useMemo(
+    () => base?.pairs ?? [],
+    [base?.pairs],
+  );
   const poolRows = React.useMemo(
     () =>
       (poolsQuery.data?.data ?? []).map((r: LpPoolRow) => ({
@@ -2452,12 +2461,39 @@ export function LpInfoDetailPage() {
                   </Alert>
                 </div>
               ) : (
-                <DataTable
-                  columns={pairColumns}
-                  data={pairRows}
-                  isLoading={pairsQuery.isLoading}
-                  emptyMessage="No token pairs for this liquidity provider."
-                />
+                <>
+                  {onboardPairs.length > 0 && pairRows.length === 0 ? (
+                    <div className="border-b border-border/60 p-6">
+                      <Alert>
+                        <AlertTitle>
+                          Token pairs configured at onboarding (
+                          {onboardPairs.length})
+                        </AlertTitle>
+                        <AlertDescription>
+                          These pairs take effect after this liquidity provider
+                          is approved, and will then appear in the table below.
+                          <ul className="mt-2 list-disc space-y-1 pl-5">
+                            {onboardPairs.map((p) => (
+                              <li key={`${p.pairId}-${p.source?.address ?? ''}`}>
+                                {p.pairId}
+                                {' · '}
+                                {p.source?.address || '-'}
+                                {' → '}
+                                {p.target?.address || '-'}
+                              </li>
+                            ))}
+                          </ul>
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  ) : null}
+                  <DataTable
+                    columns={pairColumns}
+                    data={pairRows}
+                    isLoading={pairsQuery.isLoading}
+                    emptyMessage="No token pairs for this liquidity provider."
+                  />
+                </>
               )}
             </section>
           </TabsContent>
