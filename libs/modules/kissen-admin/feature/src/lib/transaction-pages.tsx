@@ -745,6 +745,13 @@ export function TxDetailPage() {
   const loading = detailQuery.isLoading && !detail;
   const notFound = !hasId || (!loading && !detailQuery.isError && !detail);
 
+  // 报价有效期（2026-11-03）：后端已把 quote_expire_time 与 confirm_expire_time 合并为同一期限，
+  // 取两者较大值兜底历史单；已过期只做展示提示，不改变任何业务行为。
+  const quoteValidUntil = detail
+    ? Math.max(detail.quoteExpireTime ?? 0, detail.confirmExpireTime ?? 0)
+    : 0;
+  const quoteExpired = quoteValidUntil > 0 && quoteValidUntil < Date.now();
+
   const handleCopySummary = React.useCallback(() => {
     if (!detail) return;
     const source = detail.sourceCurrency || '-';
@@ -955,13 +962,27 @@ export function TxDetailPage() {
                         ? `${detail.sourceCurrency}/${detail.targetCurrency}`
                         : '-'}
                     </TxDetailField>
-                    <TxDetailField label="Quote Version & SLA">
+                    {/* 2026-11-03：报价锁与确认窗口已合并为同一个有效期（后端 quote_expire == confirm_expire）。
+                        原型里的「60s Guaranteed Lock」不再存在——期限内价格与版本都不变，到期即取消。 */}
+                    <TxDetailField label="Quote Validity">
                       <span className="inline-flex flex-wrap items-center gap-2">
-                        <span className="font-mono tabular-nums">
+                        {quoteValidUntil > 0 ? (
+                          <>
+                            <span className="tabular-nums">
+                              {formatUtc8(quoteValidUntil)}
+                            </span>
+                            {quoteExpired ? (
+                              <Badge variant="mute" size="sm">
+                                Expired
+                              </Badge>
+                            ) : null}
+                          </>
+                        ) : (
+                          '-'
+                        )}
+                        <span className="font-mono text-xs text-muted-foreground">
                           v{detail.quoteVersion}
                         </span>
-                        {/* STATIC-FILLER(GAP-ADM-08): SLA 徽章为原型演示口径，后端无 SLA 字段。 */}
-                        <Badge variant="success">60s Guaranteed Lock</Badge>
                       </span>
                     </TxDetailField>
                   </dl>
