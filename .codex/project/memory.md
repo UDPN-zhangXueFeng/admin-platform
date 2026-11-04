@@ -1407,3 +1407,12 @@
 - **储备资产的写操作是审批制**（新事实，影响所有 reserve/asset 写路径）：新增资产、编辑、停用/启用、新增类别、新增交易，请求 200 后都只生成**待审批任务**（审批中心 `approval-manage` 里一条 Pending Approval），资产状态要审批通过才翻转；同一账户重复提交同操作被后端拒绝（停用 `MSG_03_5017`、启用 `MSG_03_7029`，`code=1`）。因此「请求成功但状态没变」是正常语义，不是前端 bug；断言写路径要看审批任务是否生成，而不是看列表状态。
 - **本环境抓不到 HTTP 请求 body**：in-page `XMLHttpRequest.send`/`fetch` hook（app 侧在模块加载时已捕获原函数）、`page.on('request')`（注册后 `page.evaluate` 立刻抛 `Illegal invocation`）、HAR（`postData.text` 为 null）、`addInitScript`/`open({init_scripts})`（未执行）、`tab.route`（要 options 对象且 DataCloneError）——五种手段全部失败。替代取证法：① 页面内 `fetch` 带真实 token 直连后端读 `code/message`；② 设筛选项后看渲染结果做端到端断言；③ 审批中心反查写操作是否落任务。请求字段名只能靠代码级证据。
 - 补充：`.doc/td-manage/sync-state.json` 在本仓库**不存在** → td-manage-sync skill 的「首次运行锚定水位线」不适用；单模块对齐不要新建该文件、不要推进水位线。上游规格源用 `/Users/rnail/orca/td-manage`（admin-optimizer §1.1 规定），`~/repos/td-manage` 只作备选。
+
+## 2026-11-04 交易异常处置（查证/重发/退款）+ 报价有效期统一
+
+- **异常单的处置入口在后端早就齐了，前端此前只暴露了 1/2/3**：`POST /manage/transaction/resolve` 支持 `action=1 完成 / 2 失败 / 3 冲正完成 / 4 重发解付 / 5 退款`，其中 4/5 会**产生新的划转指令**，必须带 `verifiedNotReceived=true`（退款还要 reason）。现在 ResolveDialog 五项全开，并在 4/5 时强制勾选核实、退款必填原因。
+- **裁定前先查证**：新增 `POST /manage/transaction/query-result`（→ transfer `/inner/tx/query-result`），返回 `SUCCESS / FAILED / PROCESSING / NOT_REGISTERED / NO_CREDENTIAL`。前端据结果推荐动作；后端 `redisburse`/`refundToSender` 内部也会拦 SUCCESS 与 PROCESSING，避免双付/重复退款（界面禁用只是提示，真正的闸门在后端）。
+- **报价只有一个有效期**：`quote_expire_time == confirm_expire_time`（`kissen.transfer.confirm-window-seconds`，默认 300s），期限内**不再自动重报价**（`quote-lock-seconds` 已停用、`slip-requote-enabled` 默认关）。因此详情页 `Quote Version & SLA` 改成了 `Quote Validity` + 截止时间，`quoteVersion` 退化为留痕字段（不再校验，落后也照常成交）。
+- **链路新状态**：解付结果未知（超时/5xx）会停在 `Disbursing` 由超时扫描收口，不再立刻冲正；只有"确定未下发"才自动冲正。冲正被拒/无凭证会**立刻**转 EXCEPTION 并带 `[REVERSAL_SEND_REJECTED]` / `[REVERSAL_NO_CREDENTIAL]` 前缀，管理端时间轴直接可见。
+- **入网/资金池的撤回(3) 状态**：撤回后可编辑重提；`saveLp` 保存时把 15/3 归为草稿(1)，KLO/KBO 审批动作后必须失效 `lpKeys.all` / `bankKeys.all`，否则详情页停在旧状态（此前 default 分支不失效）。
+- **后端 i18n 已收口**：参数校验、GlobalException、枚举标签、链路 remark、Swagger 摘要、审批 bus_desc、邮件/站内信正文全部英文；仅注释、日志、单测保留中文。前端新增中文文案时不要指望后端返回中文兜底。
