@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
-import { Button } from '@myorg/shared/ui';
+import { Button, Card } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import { WorkflowStatusTag } from '.';
@@ -45,7 +45,7 @@ export function WorkflowViewPage() {
 
   if (!id) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <p className="text-sm text-muted-foreground">{t('invalidId')}</p>
         <Button
           variant="outline"
@@ -54,7 +54,7 @@ export function WorkflowViewPage() {
         >
           {t('action.back')}
         </Button>
-      </div>
+      </Card>
     );
   }
 
@@ -76,7 +76,7 @@ export function WorkflowViewPage() {
         </div>
       ) : null}
       {/* 基础信息描述列表 */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-6 text-base font-semibold">{t('view.title')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <DescItem label={t('field.workflowName')} value={detail?.workflowName} loading={isLoading} />
@@ -105,10 +105,10 @@ export function WorkflowViewPage() {
             </div>
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* 流程节点 Steps（垂直点状） */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">{t('process.title')}</div>
         <ol className="relative space-y-6 pl-6">
           {/* 发起人占位（旧页固定首项） */}
@@ -131,7 +131,7 @@ export function WorkflowViewPage() {
           {/* End */}
           <StepItem title={t('process.end')} />
         </ol>
-      </section>
+      </Card>
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/sys/workflow')}>

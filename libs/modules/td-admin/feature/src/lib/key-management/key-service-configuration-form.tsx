@@ -28,6 +28,7 @@ import { z } from 'zod';
 
 import {
   Button,
+  Card,
   Checkbox,
   Input,
   Select,
@@ -223,7 +224,7 @@ export function KeyServiceConfigurationForm() {
         {t('key_management_0068')}
       </div>
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <Card className="p-6">
           <h2 className="mb-2 text-base font-bold">
             {t('key_management_0120')}
           </h2>
@@ -370,10 +371,10 @@ export function KeyServiceConfigurationForm() {
               )}
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* ---------- Block 2: Access Configuration ---------- */}
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <Card className="p-6">
           <h2 className="mb-2 text-base font-bold">{t('key_management_0129')}</h2>
           <p className="mb-6 text-sm text-muted-foreground">
             {t('key_management_0130')}
@@ -462,10 +463,10 @@ export function KeyServiceConfigurationForm() {
           <Button type="button" variant="outline" onClick={addParameter}>
             {t('key_management_0141')}
           </Button>
-        </div>
+        </Card>
 
         {/* ---------- Block 3: Supported Chains ---------- */}
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <Card className="p-6">
           <h2 className="mb-2 text-base font-bold">{t('key_management_0135')}</h2>
           <p className="mb-6 text-sm text-muted-foreground">
             {t('key_management_0136')}
@@ -532,7 +533,7 @@ export function KeyServiceConfigurationForm() {
             {/* Demo submit: gated by zod, never persisted (matrix D4). */}
             <Button type="submit">{t('key_management_0142')}</Button>
           </div>
-        </div>
+        </Card>
       </form>
     </div>
   );

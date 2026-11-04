@@ -1,7 +1,7 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Button, Card, DataTable } from '@myorg/shared/ui';
 import type { CoaRow } from '@myorg/modules/td-admin/data-access';
 
 /**
@@ -48,28 +48,26 @@ export function CoaTab({
         <p className="text-sm text-muted-foreground">{description}</p>
       ) : null}
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        {errorMessage ? (
-          <p className="m-4 text-sm text-destructive" role="alert">
-            {errorMessage}
-          </p>
-        ) : null}
-        {alertMessage ? (
-          <div className="m-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
-            {alertMessage}
-          </div>
-        ) : null}
-        {!errorMessage || rows.length > 0 ? (
-          <div className={alertMessage ? 'px-4 pb-4' : 'p-4'}>
-            <DataTable
-              columns={columns}
-              data={rows}
-              isLoading={loading}
-              emptyMessage={emptyMessage ?? '--'}
-            />
-          </div>
-        ) : null}
-      </div>
+      <Card>{errorMessage ? (
+        <p className="m-4 text-sm text-destructive" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
+      {alertMessage ? (
+        <div className="m-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
+          {alertMessage}
+        </div>
+      ) : null}
+      {!errorMessage || rows.length > 0 ? (
+        <div className={alertMessage ? 'px-4 pb-4' : 'p-4'}>
+          <DataTable
+            columns={columns}
+            data={rows}
+            isLoading={loading}
+            emptyMessage={emptyMessage ?? '--'}
+          />
+        </div>
+      ) : null}</Card>
 
       <div className="flex justify-end gap-3">
         {onSave && saveLabel ? (

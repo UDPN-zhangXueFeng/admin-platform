@@ -30,7 +30,8 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Button, Card, DataTable, cardSurfaceClass } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { formatAdminTimestamp } from '../format-admin-time';
 import {
   PledgeAssetCategoryPieChart,
@@ -185,13 +186,13 @@ export function ViewBasic({
   return (
     <div className="space-y-6">
       {/* 1. Reserve Asset Overview（3 卡片） */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <h3 className="mb-4 text-base font-semibold">
           {t('viewBasic.overviewTitle')}
         </h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {/* 基本信息卡片 */}
-          <div className="rounded-lg border bg-card p-4">
+          <Card className="p-4">
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">
@@ -223,10 +224,10 @@ export function ViewBasic({
                 </dd>
               </div>
             </dl>
-          </div>
+          </Card>
 
           {/* 总资产价值卡片（含饼图） */}
-          <div className="rounded-lg border bg-card p-4">
+          <div className={cn(cardSurfaceClass, 'p-4')}>
             <div className="flex h-full items-center">
               <div className="flex-1">
                 <div className="mb-3 flex items-center">
@@ -259,7 +260,7 @@ export function ViewBasic({
           </div>
 
           {/* Tokens 数卡片 */}
-          <div className="rounded-lg border bg-card p-4">
+          <div className={cn(cardSurfaceClass, 'p-4')}>
             <div className="flex h-full items-center">
               <div className="flex-1">
                 <div className="mb-3 flex items-center">
@@ -283,14 +284,14 @@ export function ViewBasic({
             </div>
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* 2. Reserve Asset Summary 表 */}
       <section>
         <h3 className="mb-2 text-base font-semibold">
           {t('viewBasic.summaryTitle')}
         </h3>
-        <div className="rounded-lg border bg-card shadow-sm">
+        <Card>
           <div className="p-4">
             <DataTable
               columns={summaryColumns}
@@ -307,7 +308,7 @@ export function ViewBasic({
               }}
             />
           </div>
-        </div>
+        </Card>
       </section>
 
       {/* 3. Tokens Overview（tokenList 存在时显示） */}
@@ -358,7 +359,7 @@ function TokenRow({
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {/* Token Details 卡片 */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <div className="flex items-center">
           <div className="mr-4 flex h-16 w-16 items-center justify-center rounded-full bg-orange-500">
             <span className="text-lg font-bold text-white">
@@ -386,10 +387,10 @@ function TokenRow({
             </div>
           </dl>
         </div>
-      </div>
+      </Card>
 
       {/* In Circulation 卡片 */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <div className="mt-4 flex items-center justify-center">
           <div>
             <div className="mb-4 text-base font-medium text-muted-foreground">
@@ -400,7 +401,7 @@ function TokenRow({
             </div>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

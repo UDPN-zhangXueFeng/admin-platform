@@ -45,6 +45,7 @@ import { z } from 'zod';
 
 import {
   Button,
+  Card,
   DataTable,
   Dialog,
   DialogContent,
@@ -367,7 +368,7 @@ export function KeyPolicyConfigurationListPage() {
       </div>
 
       {/* Query Form */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <FormSelect
@@ -408,10 +409,10 @@ export function KeyPolicyConfigurationListPage() {
           </Button>
           <Button onClick={handleQuery}>{t('PUB_Query')}</Button>
         </div>
-      </div>
+      </Card>
 
       {/* Table */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">{t('KP_PolicyListTitle')}</h3>
           <Button onClick={goNew}>{t('KP_NewButton')}</Button>
@@ -434,7 +435,7 @@ export function KeyPolicyConfigurationListPage() {
             },
           }}
         />
-      </div>
+      </Card>
 
       {/* Disable / Enable Dialog (mode-driven, single instance) */}
       <Dialog

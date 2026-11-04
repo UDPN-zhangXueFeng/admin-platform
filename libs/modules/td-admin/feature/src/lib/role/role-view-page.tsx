@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
-import { Button } from '@myorg/shared/ui';
+import { Button, Card } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import { RoleStatusTag, RoleMenuTree } from '.';
@@ -42,7 +42,7 @@ export function RoleViewPage() {
 
   if (!roleId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <p className="text-sm text-muted-foreground">{t('invalidId')}</p>
         <Button
           variant="outline"
@@ -51,7 +51,7 @@ export function RoleViewPage() {
         >
           {t('action.back')}
         </Button>
-      </div>
+      </Card>
     );
   }
 
@@ -62,7 +62,7 @@ export function RoleViewPage() {
           {t('loadFailed')}
         </div>
       ) : null}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-6 text-base font-semibold">{t('view.title')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
@@ -86,9 +86,9 @@ export function RoleViewPage() {
             </div>
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">{t('field.menu')}</div>
         {menuList?.length ? (
           <RoleMenuTree
@@ -100,7 +100,7 @@ export function RoleViewPage() {
         ) : (
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         )}
-      </section>
+      </Card>
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/sys/role')}>

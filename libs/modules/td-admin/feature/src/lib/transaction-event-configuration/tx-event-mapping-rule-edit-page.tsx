@@ -8,6 +8,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { addDays, format, parseISO, startOfDay } from 'date-fns';
 import {
   Button,
+  Card,
   Input,
   Select,
   SelectContent,
@@ -306,7 +307,7 @@ export function TxEventMappingRuleEditPage() {
 
   if (!normalizationEventId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
         <Button
           variant="outline"
@@ -315,7 +316,7 @@ export function TxEventMappingRuleEditPage() {
         >
           {t('action.back')}
         </Button>
-      </div>
+      </Card>
     );
   }
 
@@ -324,7 +325,7 @@ export function TxEventMappingRuleEditPage() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {/* Basic information */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <div className="mb-6 text-base font-semibold">
           {t('edit.basicInfoTitle')}
         </div>
@@ -365,10 +366,10 @@ export function TxEventMappingRuleEditPage() {
             ) : null}
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* Field mapping */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-base font-semibold">
           {t('edit.fieldMappingTitle')}
         </div>
@@ -576,7 +577,7 @@ export function TxEventMappingRuleEditPage() {
         >
           {t('action.add')}
         </Button>
-      </section>
+      </Card>
 
       <div className="flex justify-end gap-3">
         <Button

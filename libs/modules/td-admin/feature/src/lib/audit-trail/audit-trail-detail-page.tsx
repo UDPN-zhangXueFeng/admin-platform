@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 
-import { Button, CopyableEllipsisText } from '@myorg/shared/ui';
+import { Button, Card, CopyableEllipsisText } from '@myorg/shared/ui';
 import { formatAdminTimestamp } from '../format-admin-time';
 
 import {
@@ -60,24 +60,20 @@ export function AuditTrailDetailPage() {
 
   if (!traceId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.back()}
-        >
-          {t('action.back')}
-        </Button>
-      </div>
+      <Card className="p-6"><p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
+      <Button
+        variant="outline"
+        className="mt-4"
+        onClick={() => router.back()}
+      >
+        {t('action.back')}
+      </Button></Card>
     );
   }
 
   if (isLoading || !detail) {
     return (
-      <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground shadow-sm">
-        {isLoading ? '' : t('empty')}
-      </div>
+      <Card className="p-6 text-sm text-muted-foreground">{isLoading ? '' : t('empty')}</Card>
     );
   }
 
@@ -156,7 +152,7 @@ export function AuditTrailDetailPage() {
   return (
     <div className="space-y-4">
       {/* Basic Information */}
-      <section className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">
           {t('detail.basicInformation')}
         </div>
@@ -174,10 +170,10 @@ export function AuditTrailDetailPage() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
 
       {/* Audit Logs Timeline */}
-      <section className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">
           {t('detail.auditLogs')}
         </div>
@@ -194,7 +190,7 @@ export function AuditTrailDetailPage() {
             <p className="text-sm text-muted-foreground">{t('empty')}</p>
           )}
         </div>
-      </section>
+      </Card>
 
       <div className="flex justify-end">
         <Button variant="outline" onClick={() => router.back()}>

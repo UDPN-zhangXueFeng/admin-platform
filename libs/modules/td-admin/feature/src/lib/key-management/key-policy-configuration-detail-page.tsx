@@ -32,6 +32,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
   Button,
+  Card,
   DataTable,
   Tabs,
   TabsContent,
@@ -257,7 +258,7 @@ export function KeyPolicyConfigurationDetailPage() {
 
         {/* ---------- Tab 1: Basic Information ---------- */}
         <TabsContent value="basic" className="mt-4 space-y-6">
-          <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+          <Card>
             <div className="flex flex-col space-y-1.5 p-6">
               <h3 className="text-2xl font-semibold leading-none tracking-tight">
                 {t('KP_PolicyDetailsTitle')}
@@ -311,12 +312,12 @@ export function KeyPolicyConfigurationDetailPage() {
                 {t('key_management_0056')}
               </Button>
             </div>
-          </div>
+          </Card>
         </TabsContent>
 
         {/* ---------- Tab 2: Operation Records ---------- */}
         <TabsContent value="records" className="mt-4 space-y-6">
-          <div className="rounded-lg border bg-card p-4">
+          <Card className="p-4">
             <div className="mb-4 text-sm text-muted-foreground">
               {t('key_management_0047', {
                 name: `${record.businessName || '--'} Key Rotation Policy`,
@@ -358,9 +359,9 @@ export function KeyPolicyConfigurationDetailPage() {
                 {t('PUB_Query')}
               </Button>
             </div>
-          </div>
+          </Card>
 
-          <div className="rounded-lg border bg-card p-4">
+          <Card className="p-4">
             <DataTable
               columns={recordsColumns}
               data={filteredRecords.map(
@@ -383,7 +384,7 @@ export function KeyPolicyConfigurationDetailPage() {
                 {t('key_management_0056')}
               </Button>
             </div>
-          </div>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

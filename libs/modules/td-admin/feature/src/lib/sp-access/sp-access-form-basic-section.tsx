@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { Upload } from 'lucide-react';
-import { Input, Label, Textarea } from '@myorg/shared/ui';
+import { Card, Input, Label, Textarea } from '@myorg/shared/ui';
 import { BUSINESS_LICENSE_ACCEPT, DESCRIPTION_MAX_LENGTH, EMAIL_MAX_LENGTH, NAME_MAX_LENGTH, PHONE_MAX_LENGTH } from './constants';
 import type { SpAccessBasicValues } from './sp-access-form-utils';
 
@@ -37,7 +37,7 @@ export function SpAccessFormBasicSection({
   };
 
   return (
-    <section className="rounded-lg border bg-card p-6">
+    <Card className="p-6">
       <h2 className="mb-4 text-lg font-semibold">{t('sp_access_0009')}</h2>
       <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
@@ -86,6 +86,6 @@ export function SpAccessFormBasicSection({
           <p className="text-right text-xs text-muted-foreground">{description.length} / {DESCRIPTION_MAX_LENGTH}</p>
         </div>
       </div>
-    </section>
+    </Card>
   );
 }

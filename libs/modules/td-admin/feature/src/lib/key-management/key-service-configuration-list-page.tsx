@@ -26,6 +26,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import {
   Alert,
   Button,
+  Card,
   DataTable,
   Dialog,
   DialogContent,
@@ -299,7 +300,7 @@ export function KeyServiceConfigurationListPage() {
   return (
     <div className="space-y-6">
       {/* Query Form */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1.5">
@@ -374,10 +375,10 @@ export function KeyServiceConfigurationListPage() {
             {t('PUB_Reset')}
           </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Table */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">
             {t('key_management_0008')}
@@ -413,7 +414,7 @@ export function KeyServiceConfigurationListPage() {
             onPageChange: setPage,
           }}
         />
-      </div>
+      </Card>
 
       {/* Deprecate Dialog */}
       <Dialog

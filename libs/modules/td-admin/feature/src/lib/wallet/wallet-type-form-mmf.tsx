@@ -7,6 +7,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { toast } from 'sonner';
 import {
   Button,
+  Card,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -234,7 +235,7 @@ export function WalletTypeMmfForm({
       </h4>
 
       {/* ── 基金基本信息 ── */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <h4 className="border-0 border-b border-solid border-slate-200 pb-2">
           {t('walletType.form.section.mmfBasic')}
         </h4>
@@ -450,10 +451,10 @@ export function WalletTypeMmfForm({
             }
           />
         </div>
-      </section>
+      </Card>
 
       {/* ── 派息钱包 ── */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <h4 className="border-0 border-b border-solid border-slate-200 pb-2">
           {t('walletType.form.section.dividendWallet')}
         </h4>
@@ -559,10 +560,10 @@ export function WalletTypeMmfForm({
             />
           </>
         ) : null}
-      </section>
+      </Card>
 
       {/* ── 统计时间 ── */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <h4 className="border-0 border-b border-solid border-slate-200 pb-2">
           {t('walletType.form.section.statisticalTime')}
         </h4>
@@ -598,7 +599,7 @@ export function WalletTypeMmfForm({
             </div>
           )}
         />
-      </section>
+      </Card>
 
       {/* ── 底部操作 ── */}
       <div className="mt-10 flex justify-end gap-8">

@@ -6,7 +6,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { Button, Card, CopyableEllipsisText, DataTable, cardSurfaceClass } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import {
   useNormalizationHistoryListQuery,
@@ -266,7 +267,7 @@ export function TxEventHistoricalRecordsTab({
     <div className="space-y-4 p-6">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="mb-4 text-sm font-semibold">
           {t('history.queryTitle')}
@@ -314,7 +315,7 @@ export function TxEventHistoricalRecordsTab({
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">
           {t('history.recordsTitle')}
         </div>
@@ -335,7 +336,7 @@ export function TxEventHistoricalRecordsTab({
             }}
           />
         </div>
-      </div>
+      </Card>
 
       <div className="flex justify-end">
         <Button variant="outline" onClick={onBack}>

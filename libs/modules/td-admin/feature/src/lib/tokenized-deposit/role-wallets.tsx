@@ -5,10 +5,13 @@ import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import {
   Button,
+  Card,
   DataTable,
   Input,
   Label,
+  cardSurfaceClass,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import {
   useRoleWalletDetailQuery,
   useRoleWalletsListQuery,
@@ -141,7 +144,7 @@ export function RoleWallets({
       {/* 筛选区 */}
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div>
@@ -180,7 +183,7 @@ export function RoleWallets({
       </form>
 
       {/* 列表 */}
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3">
           <div className="text-sm font-semibold">{t('role_wallets_list')}</div>
         </div>
@@ -205,7 +208,7 @@ export function RoleWallets({
             }}
           />
         </div>
-      </div>
+      </Card>
 
 
       {/* Configure Wallet Modal（源 222-290，仅 Unconfigured 行可达；NF-3） */}

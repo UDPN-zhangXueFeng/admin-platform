@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import {
   Button,
+  Card,
   Tabs,
   TabsContent,
   TabsList,
@@ -44,7 +45,7 @@ export function TxEventMappingRuleDetailPage() {
 
   if (!normalizationEventId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
         <Button
           variant="outline"
@@ -53,7 +54,7 @@ export function TxEventMappingRuleDetailPage() {
         >
           {t('action.back')}
         </Button>
-      </div>
+      </Card>
     );
   }
 

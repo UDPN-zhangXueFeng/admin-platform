@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@myorg/shared/util-classnames';
+import { cardSurfaceClass } from '@myorg/shared/ui';
 import { ShoppingCart, Users, Package, TrendingUp } from 'lucide-react';
 
 export interface OrderSummaryCardProps {
@@ -35,7 +36,8 @@ export function OrderSummaryCard({
   return (
     <div
       className={cn(
-        'flex items-center gap-4 rounded-lg border bg-card p-4 text-card-foreground shadow-sm',
+        cardSurfaceClass,
+        'flex items-center gap-4 p-4',
         className
       )}
     >

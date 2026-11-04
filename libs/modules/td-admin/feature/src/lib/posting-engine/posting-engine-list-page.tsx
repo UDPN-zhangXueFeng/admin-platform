@@ -7,7 +7,8 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
@@ -253,7 +254,7 @@ export function PostingEngineListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="mb-4 text-sm font-semibold">{t('filter.title')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -295,7 +296,7 @@ export function PostingEngineListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">
           {t('records')}
         </div>
@@ -316,7 +317,7 @@ export function PostingEngineListPage() {
             }}
           />
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

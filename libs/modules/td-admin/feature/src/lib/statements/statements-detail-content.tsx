@@ -7,7 +7,8 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
-import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { Button, Card, cardSurfaceClass, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
@@ -220,9 +221,9 @@ export function StatementsViewPage({
 
   if (!exportRuleId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <p className="text-sm text-muted-foreground">{t('detail.title')}</p>
-      </div>
+      </Card>
     );
   }
 
@@ -279,7 +280,7 @@ export function StatementsViewPage({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">{t('detail.title')}</div>
         <div className="overflow-x-auto">
           <table className="w-full table-fixed border-collapse text-sm">
@@ -301,9 +302,9 @@ export function StatementsViewPage({
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">{t('list.title')}</div>
         <div className="p-4">
           <DataTable
@@ -320,7 +321,7 @@ export function StatementsViewPage({
             }}
           />
         </div>
-      </div>
+      </Card>
 
       <div className="flex justify-end">
         <Button variant="outline" onClick={() => router.back()}>{t('action.back')}</Button>
@@ -446,7 +447,7 @@ export function StatementsExportPage() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit(onSubmit)} className="rounded-lg border bg-card p-6 shadow-sm">
+      <form onSubmit={handleSubmit(onSubmit)} className={cn(cardSurfaceClass, 'p-6')}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">{t('field.tokenName')}</label>
@@ -532,7 +533,7 @@ export function StatementsExportPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">{t('list.title')}</div>
         <div className="p-4">
           <DataTable
@@ -549,7 +550,7 @@ export function StatementsExportPage() {
             }}
           />
         </div>
-      </div>
+      </Card>
 
       <div className="flex justify-end">
         <Button variant="outline" onClick={() => router.back()}>{t('action.back')}</Button>

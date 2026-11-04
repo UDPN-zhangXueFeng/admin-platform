@@ -8,6 +8,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { toast } from 'sonner';
 import {
   Button,
+  Card,
   Input,
   Select,
   SelectContent,
@@ -194,7 +195,7 @@ export function SuspenseAdjustmentFormPage() {
 
   if (!suspenseRecordId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
         <Button
           variant="outline"
@@ -203,15 +204,15 @@ export function SuspenseAdjustmentFormPage() {
         >
           {t('action.back')}
         </Button>
-      </div>
+      </Card>
     );
   }
 
   if (isLoading || !detail) {
     return (
-      <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground shadow-sm">
+      <Card className="p-6 text-sm text-muted-foreground">
         {isLoading ? '' : t('empty')}
-      </div>
+      </Card>
     );
   }
 
@@ -220,7 +221,7 @@ export function SuspenseAdjustmentFormPage() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {/* Overview */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">{t('edit.overview')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
@@ -248,10 +249,10 @@ export function SuspenseAdjustmentFormPage() {
             </div>
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* Basic Information 只读 */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">{t('edit.basicInfo')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
@@ -265,10 +266,10 @@ export function SuspenseAdjustmentFormPage() {
             <Input disabled value={textOrDash(detail.sourceTypeLabel)} />
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* New Adjustment Entry 表单 */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">{t('edit.title')}</div>
 
         <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -423,11 +424,11 @@ export function SuspenseAdjustmentFormPage() {
         >
           {t('edit.addEntry')}
         </Button>
-      </section>
+      </Card>
 
       {/* Adjustment Reason + Summary */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <section className="rounded-lg border bg-card p-6 shadow-sm">
+        <Card className="p-6">
           <div className="mb-4 text-sm font-semibold">
             {t('edit.reason')}
             <span className="text-red-500">*</span>
@@ -452,9 +453,9 @@ export function SuspenseAdjustmentFormPage() {
           <div className="mt-1 text-right text-xs text-muted-foreground">
             {reasonValue.length}/{ADJUSTMENT_REASON_MAX_LENGTH}
           </div>
-        </section>
+        </Card>
 
-        <section className="rounded-lg border bg-card p-6 shadow-sm">
+        <Card className="p-6">
           <div className="mb-4 text-sm font-semibold">{t('edit.summary')}</div>
           <div className="space-y-3">
             <div>
@@ -478,7 +479,7 @@ export function SuspenseAdjustmentFormPage() {
               </div>
             </div>
           </div>
-        </section>
+        </Card>
       </div>
 
       {/* Submit */}

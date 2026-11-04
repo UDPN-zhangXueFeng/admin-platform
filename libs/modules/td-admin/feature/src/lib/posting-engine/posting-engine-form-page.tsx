@@ -8,6 +8,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { parseISO, startOfDay } from 'date-fns';
 import {
   Button,
+  Card,
   Input,
   Select,
   SelectContent,
@@ -230,7 +231,7 @@ export function PostingEngineFormPage() {
 
   if (!postingEventId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
         <Button
           variant="outline"
@@ -239,7 +240,7 @@ export function PostingEngineFormPage() {
         >
           {t('action.back')}
         </Button>
-      </div>
+      </Card>
     );
   }
 
@@ -248,7 +249,7 @@ export function PostingEngineFormPage() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {/* Basic information */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-6 text-base font-semibold">{t('edit.title')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="space-y-1.5">
@@ -283,10 +284,10 @@ export function PostingEngineFormPage() {
             <Input disabled value={event?.currencyCode || EMPTY_DISPLAY} />
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* Transaction event fields */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">
           {t('detail.transactionEventFields')}
         </div>
@@ -304,10 +305,10 @@ export function PostingEngineFormPage() {
             <span className="text-sm text-muted-foreground">{t('empty')}</span>
           )}
         </div>
-      </section>
+      </Card>
 
       {/* Entry template (matrix) */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">
           {t('edit.entryTemplate')}
         </div>
@@ -417,7 +418,7 @@ export function PostingEngineFormPage() {
             )}
           </div>
         </div>
-      </section>
+      </Card>
 
       <div className="flex justify-end gap-3">
         <Button

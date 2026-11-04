@@ -7,6 +7,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { toast } from 'sonner';
 import {
   Button,
+  Card,
   Checkbox,
   Dialog,
   DialogContent,
@@ -313,7 +314,7 @@ export function WalletTypeRegularForm({
       </h4>
 
       {/* ── 基本信息段 ── */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <h4 className="border-0 border-b border-solid border-slate-200 pb-2">
           {tf('section.basic')}
         </h4>
@@ -387,10 +388,10 @@ export function WalletTypeRegularForm({
             )}
           />
         </div>
-      </section>
+      </Card>
 
       {/* ── 限额段 ── */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <h4 className="border-0 border-b border-solid border-slate-200 pb-2">
           {tf('section.limit')}
         </h4>
@@ -428,11 +429,11 @@ export function WalletTypeRegularForm({
           <AmountField control={control} name="minimumBalance" label={tf('label.minimumBalance')} symbol={symbol} error={errors.minimumBalance as undefined} t={t} />
           <AmountField control={control} name="dailyRedeemLimit" label={tf('label.dailyRedeemLimit')} symbol={symbol} error={errors.dailyRedeemLimit as undefined} t={t} />
         </div>
-      </section>
+      </Card>
 
       {/* ── 维护费段（仅 issueType===5）── */}
       {isTd ? (
-        <section className="rounded-lg border bg-card p-6 shadow-sm">
+        <Card className="p-6">
           <h4 className="border-0 border-b border-solid border-slate-200 pb-2">
             {tf('section.fee')}
           </h4>
@@ -527,7 +528,7 @@ export function WalletTypeRegularForm({
               locked={isEdit && Boolean(detail?.accountFeesWalletAddress)}
             />
           </div>
-        </section>
+        </Card>
       ) : null}
 
       {/* ── 利息 / 透支段 ── */}
@@ -607,7 +608,7 @@ function InterestOverdraftSection({
     isEdit && Boolean(detailLockedAddress[key]);
 
   return (
-    <section className="rounded-lg border bg-card p-6 shadow-sm">
+    <Card className="p-6">
       <h4 className="border-0 border-b border-solid border-slate-200 pb-2">
         {tf('section.interest')}
       </h4>
@@ -803,7 +804,7 @@ function InterestOverdraftSection({
           <AddressField control={control} name="receivingOverdraftInterestWalletAddress" label={tf('label.receivingOverdraftInterestWalletAddress')} error={undefined} t={t} locked={locked('receivingOverdraftInterestWalletAddress')} />
         </div>
       )}
-    </section>
+    </Card>
   );
 }
 

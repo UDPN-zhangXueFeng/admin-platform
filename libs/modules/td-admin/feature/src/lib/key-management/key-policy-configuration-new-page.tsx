@@ -30,6 +30,7 @@ import { z } from 'zod';
 
 import {
   Button,
+  Card,
   Input,
   RadioGroup,
   RadioGroupItem,
@@ -142,7 +143,7 @@ export function KeyPolicyConfigurationNewPage() {
         {t('KP_DemoBanner')}
       </div>
 
-      <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-6 text-base font-semibold">{t('KP_NewTitle')}</div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -168,7 +169,7 @@ export function KeyPolicyConfigurationNewPage() {
           </div>
 
           {/* Rotation Period Configuration */}
-          <div className="rounded-lg border bg-card p-6">
+          <Card className="p-6">
             <div className="mb-4 text-base font-semibold">
               {t('KP_RotationPeriodTitle')}
             </div>
@@ -266,7 +267,7 @@ export function KeyPolicyConfigurationNewPage() {
                 </p>
               )}
             </div>
-          </div>
+          </Card>
 
           {/* Demo notice — explicit non-persistence feedback. */}
           {demoSubmitted && (
@@ -287,7 +288,7 @@ export function KeyPolicyConfigurationNewPage() {
             <Button type="submit">{t('KP_SubmitDemo')}</Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

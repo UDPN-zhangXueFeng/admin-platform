@@ -10,7 +10,8 @@ import type {
   UseFormHandleSubmit,
 } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
-import { Button, Input } from '@myorg/shared/ui';
+import { Button, Input, cardSurfaceClass } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { REVIEW_SUBMIT_STATE_KEY_PREFIX } from '@myorg/modules/td-admin/data-access';
 
@@ -78,7 +79,7 @@ export function RecordFilterForm({
   return (
     <form
       onSubmit={handleSubmit(onFilterSubmit)}
-      className="grid grid-cols-1 gap-4 rounded-lg border bg-card p-4 md:grid-cols-2 lg:grid-cols-3"
+      className={cn(cardSurfaceClass, 'grid grid-cols-1 gap-4 p-4 md:grid-cols-2 lg:grid-cols-3')}
     >
       <div>
         <label

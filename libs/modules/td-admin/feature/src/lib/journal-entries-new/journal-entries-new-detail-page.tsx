@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Button, Card, DataTable } from '@myorg/shared/ui';
 
 import {
   useJournalDetailQuery,
@@ -273,19 +273,17 @@ export function JournalEntriesNewDetailPage() {
 
   if (!tdTxId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-        <Button variant="outline" className="mt-4" onClick={onBack}>
-          {t('action.back')}
-        </Button>
-      </div>
+      <Card className="p-6"><p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
+      <Button variant="outline" className="mt-4" onClick={onBack}>
+        {t('action.back')}
+      </Button></Card>
     );
   }
 
   return (
     <div className="space-y-6">
       {/* Raw Data */}
-      <section className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-4 text-base font-semibold">
           {t('detail.rawData')}
         </div>
@@ -322,10 +320,10 @@ export function JournalEntriesNewDetailPage() {
             </div>
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* Normalization Engine */}
-      <section className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-4 text-base font-semibold">
           {t('detail.normalizationEngine')}
         </div>
@@ -336,10 +334,10 @@ export function JournalEntriesNewDetailPage() {
             </pre>
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* Posting Entry */}
-      <section className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-4 text-base font-semibold">
           {t('detail.postingEntry')}
         </div>
@@ -351,10 +349,10 @@ export function JournalEntriesNewDetailPage() {
             emptyMessage={t('empty')}
           />
         </div>
-      </section>
+      </Card>
 
       {/* T-Account */}
-      <section className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-4 text-base font-semibold">
           {t('detail.tAccount')}
         </div>
@@ -405,7 +403,7 @@ export function JournalEntriesNewDetailPage() {
             )}
           </div>
         </div>
-      </section>
+      </Card>
 
       <div className="flex justify-end">
         <Button variant="outline" onClick={onBack}>

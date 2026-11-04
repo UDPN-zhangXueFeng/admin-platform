@@ -8,7 +8,8 @@ import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
@@ -287,7 +288,7 @@ export function AuditTrailListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
@@ -376,28 +377,26 @@ export function AuditTrailListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="border-b px-6 py-3 text-sm font-semibold">
-          {t('list.title')}
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (page) =>
-                setPagination((prev) => ({ ...prev, pageNum: page })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
-        </div>
+      <Card><div className="border-b px-6 py-3 text-sm font-semibold">
+        {t('list.title')}
       </div>
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (page) =>
+              setPagination((prev) => ({ ...prev, pageNum: page })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
     </div>
   );
 }

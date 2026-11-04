@@ -2,7 +2,8 @@
 
 import { useForm } from 'react-hook-form';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import type {
   EodClearingStatus,
@@ -77,7 +78,7 @@ export function EodBalancesContent({
 
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-4 shadow-sm"
+        className={cn(cardSurfaceClass, 'p-4')}
       >
         <div className="flex flex-wrap items-end gap-4">
           <FormDatePicker name="rangeFrom" control={control} label={t('eod.rangeFrom')} />
@@ -101,11 +102,9 @@ export function EodBalancesContent({
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="p-4">
-          <DataTable columns={columns} data={rows} emptyMessage="--" />
-        </div>
-      </div>
+      <Card><div className="p-4">
+        <DataTable columns={columns} data={rows} emptyMessage="--" />
+      </div></Card>
 
       <div className="flex justify-end">
         <Button variant="outline" onClick={onBack}>

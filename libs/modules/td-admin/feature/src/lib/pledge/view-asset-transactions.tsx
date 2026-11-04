@@ -4,7 +4,8 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import {
@@ -210,7 +211,7 @@ export function ViewAssetTransactions({
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormSelect
@@ -229,7 +230,7 @@ export function ViewAssetTransactions({
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="px-6 py-3" />
         <div className="p-4">
           <DataTable
@@ -249,7 +250,7 @@ export function ViewAssetTransactions({
             }}
           />
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

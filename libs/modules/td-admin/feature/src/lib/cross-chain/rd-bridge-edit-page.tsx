@@ -13,6 +13,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { toast } from 'sonner';
 import {
   Button,
+  Card,
   Checkbox,
   Input,
   Label,
@@ -180,7 +181,7 @@ export function RdBridgeEditPage(): React.JSX.Element {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {/* ── Card 1：链配置 ── */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <h4 className="border-0 border-b border-solid border-slate-200 pb-2">
           {t('cross_chain_0008')}
         </h4>
@@ -228,10 +229,10 @@ export function RdBridgeEditPage(): React.JSX.Element {
             </div>
           )}
         />
-      </section>
+      </Card>
 
       {/* ── Card 2：Bridge Smart Contracts Configuration ── */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <h4 className="mb-4 border-0 border-b border-solid border-slate-200 pb-2">
           {t('cross_chain_0010')}
         </h4>
@@ -292,10 +293,10 @@ export function RdBridgeEditPage(): React.JSX.Element {
             t={t}
           />
         </div>
-      </section>
+      </Card>
 
       {/* ── Card 3：Bridge Hub Configuration ── */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <h4 className="mb-4 border-0 border-b border-solid border-slate-200 pb-2">
           {t('cross_chain_0011')}
         </h4>
@@ -407,7 +408,7 @@ export function RdBridgeEditPage(): React.JSX.Element {
         <div className="py-4 text-primary">
           <span>{t('cross_chain_0018')}</span>
         </div>
-      </section>
+      </Card>
 
       {/* ── 底部操作 ── */}
       <div className="mt-10 flex justify-end gap-8">

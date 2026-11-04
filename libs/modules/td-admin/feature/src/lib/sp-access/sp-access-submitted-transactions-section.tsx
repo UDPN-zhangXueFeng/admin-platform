@@ -15,7 +15,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  cardSurfaceClass,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { useSpAccessSubmittedTransactionsQuery } from '@myorg/modules/td-admin/data-access';
 import type {
   SpAccessDetail,
@@ -216,7 +218,7 @@ export function SpAccessSubmittedTransactionsSection({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-card p-6">
+      <div className={cn(cardSurfaceClass, 'p-6')}>
         <div className="text-base font-semibold">{t('sp_access_0073')}</div>
         <p className="mt-2 text-sm text-muted-foreground">
           {t('sp_access_0075').replace('****', detail.spName || EMPTY_FIELD_VALUE)}

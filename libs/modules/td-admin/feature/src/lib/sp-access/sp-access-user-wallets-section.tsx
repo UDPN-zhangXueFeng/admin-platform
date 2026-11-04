@@ -16,7 +16,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  cardSurfaceClass,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import {
   useSpAccessUserWalletsQuery,
   useUserWalletTxListPreflightMutation,
@@ -222,7 +224,7 @@ export function SpAccessUserWalletsSection({ detail }: { detail: SpAccessDetail 
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-card p-6">
+      <div className={cn(cardSurfaceClass, 'p-6')}>
         <div className="text-base font-semibold">{t('sp_access_0051')}</div>
         <p className="mt-2 text-sm text-muted-foreground">
           {t('sp_access_0144').replace('****', detail.spName || EMPTY_FIELD_VALUE)}

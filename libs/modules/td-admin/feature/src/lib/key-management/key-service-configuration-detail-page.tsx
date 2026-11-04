@@ -26,6 +26,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import {
   Alert,
   Button,
+  Card,
   DataTable,
   Tabs,
   TabsContent,
@@ -465,7 +466,7 @@ export function KeyServiceConfigurationDetailPage() {
           ) : (
             <>
               {/* Card A — Key Service Details (9 fields) */}
-              <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+              <Card>
                 <div className="flex flex-col space-y-1.5 p-6">
                   <h3 className="text-2xl font-semibold leading-none tracking-tight">
                     {t('key_management_0038')}
@@ -510,10 +511,10 @@ export function KeyServiceConfigurationDetailPage() {
                     {formatTimestamp(detail?.updatedOn)}
                   </DetailItem>
                 </div>
-              </div>
+              </Card>
 
               {/* Card B — Access Parameter Details (url + Parameters table) */}
-              <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+              <Card>
                 <div className="flex flex-col space-y-1.5 p-6">
                   <h3 className="text-2xl font-semibold leading-none tracking-tight">
                     {t('key_management_0039')}
@@ -534,10 +535,10 @@ export function KeyServiceConfigurationDetailPage() {
                     emptyMessage={t('PUB_NoData')}
                   />
                 </div>
-              </div>
+              </Card>
 
               {/* Card C — Supported Chains Details (table) + Back */}
-              <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+              <Card>
                 <div className="flex flex-col space-y-1.5 p-6">
                   <h3 className="text-2xl font-semibold leading-none tracking-tight">
                     {t('key_management_0044')}
@@ -555,7 +556,7 @@ export function KeyServiceConfigurationDetailPage() {
                     {t('key_management_0056')}
                   </Button>
                 </div>
-              </div>
+              </Card>
             </>
           )}
         </TabsContent>
@@ -563,7 +564,7 @@ export function KeyServiceConfigurationDetailPage() {
         {/* ---------- Tab 2: Operation Records ---------- */}
         <TabsContent value="records" className="mt-4 space-y-6">
           {/* Query Form */}
-          <div className="rounded-lg border bg-card p-4">
+          <Card className="p-4">
             <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <FormSelect
@@ -582,10 +583,10 @@ export function KeyServiceConfigurationDetailPage() {
                 </Button>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Records Table */}
-          <div className="rounded-lg border bg-card p-4">
+          <Card className="p-4">
             <p className="mb-4 text-sm text-muted-foreground">
               {t('key_management_0047', {
                 name: detail?.keyServiceName
@@ -624,7 +625,7 @@ export function KeyServiceConfigurationDetailPage() {
                 {t('key_management_0056')}
               </Button>
             </div>
-          </div>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

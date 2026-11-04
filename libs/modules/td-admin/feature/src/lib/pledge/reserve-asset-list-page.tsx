@@ -19,9 +19,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
   Button,
+  Card,
   DataTable,
   Input,
+  cardSurfaceClass,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../format-admin-time';
@@ -558,7 +561,7 @@ export function ReserveAssetListPage(): React.JSX.Element {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <Controller
@@ -621,7 +624,7 @@ export function ReserveAssetListPage(): React.JSX.Element {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="flex justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">{t('title')}</div>
           <PermissionGuard permission={PLEDGE_PERMISSIONS.reserveAssetAdd}>
@@ -645,7 +648,7 @@ export function ReserveAssetListPage(): React.JSX.Element {
             }}
           />
         </div>
-      </div>
+      </Card>
 
       {/* 新增/编辑 Drawer（pl-5 抽出独立组件：new 态 Cash 默认 / edit 态 Checkbox + name→id 映射）。 */}
       <ReserveAssetDrawer

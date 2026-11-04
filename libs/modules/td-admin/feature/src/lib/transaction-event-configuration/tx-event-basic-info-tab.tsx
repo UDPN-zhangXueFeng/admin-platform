@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
-import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { Button, Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import type { NormalizationEvent } from '@myorg/modules/td-admin/data-access';
 import {
   EMPTY_DISPLAY,
@@ -155,7 +155,7 @@ export function TxEventBasicInfoTab({
 
   return (
     <div className="space-y-6 p-6">
-      <section className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">
           {t('detail.basicInformation')}
         </div>
@@ -173,9 +173,9 @@ export function TxEventBasicInfoTab({
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">
           {t('detail.fieldMappings')}
         </div>
@@ -187,7 +187,7 @@ export function TxEventBasicInfoTab({
             emptyMessage={t('empty')}
           />
         </div>
-      </section>
+      </Card>
 
       <div className="flex justify-end">
         <Button variant="outline" onClick={onBack}>

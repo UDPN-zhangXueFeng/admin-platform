@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
-import { Button, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { Button, Card, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
 import { FIXED_TOKEN_TYPES, useCoaBasicInfoQuery } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
 
@@ -123,44 +123,42 @@ export function ChartOfAccountsDetailPage() {
 
         {/* Basic Information */}
         <TabsContent value="basic-information">
-          <div className="rounded-lg border bg-card p-6 shadow-sm">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-base font-semibold">{t('detail.basicInformationTitle')}</h2>
-              <Button variant="outline" onClick={onBack}>{t('action.back')}</Button>
-            </div>
-            {basicInfoQuery.isError ? (
-              <p className="py-4 text-sm text-destructive" role="alert">
-                {t('coa.toggleFailed')}
-              </p>
-            ) : basicInfo ? (
-              <dl className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <DetailField label={t('field.bookName')}>{basicInfo.bookName || '--'}</DetailField>
-                <DetailField label={t('field.bookNo')}>{basicInfo.bookNo || '--'}</DetailField>
-                <DetailField label={t('detail.financeBookId')}>{financeBookIdStr || '--'}</DetailField>
-                <DetailField label={t('field.reserveAssetName')}>{basicInfo.reserveAssetName || '--'}</DetailField>
-                <DetailField label={t('field.currency')}>{basicInfo.currencyCode || '--'}</DetailField>
-                <DetailField label={t('field.tokenType')}>
-                  {basicInfo.tokenType != null
-                    ? tokenTypeLabels[basicInfo.tokenType] ?? String(basicInfo.tokenType)
-                    : '--'}
-                </DetailField>
-                <DetailField label={t('field.tokens')}>
-                  {(basicInfo.tokens ?? [])
-                    .map((token) => token.tokenName)
-                    .filter(Boolean)
-                    .join(', ') || '--'}
-                </DetailField>
-                <DetailField label={t('field.eodCutoffTime')}>{basicInfo.eodCutoffTime || '--'}</DetailField>
-                <DetailField label={t('field.lastEodPostingRun')}>{basicInfo.lastEodPostingRun || '--'}</DetailField>
-                <DetailField label={t('field.createdBy')}>{basicInfo.createdBy || '--'}</DetailField>
-                <DetailField label={t('field.createdOn')}>{formatAdminTimestamp(basicInfo.createdOn)}</DetailField>
-              </dl>
-            ) : basicInfoQuery.isLoading ? (
-              <Skeleton className="h-48" />
-            ) : (
-              <p className="py-4 text-sm text-muted-foreground">{tCommon('noData')}</p>
-            )}
+          <Card className="p-6"><div className="mb-6 flex items-center justify-between">
+            <h2 className="text-base font-semibold">{t('detail.basicInformationTitle')}</h2>
+            <Button variant="outline" onClick={onBack}>{t('action.back')}</Button>
           </div>
+          {basicInfoQuery.isError ? (
+            <p className="py-4 text-sm text-destructive" role="alert">
+              {t('coa.toggleFailed')}
+            </p>
+          ) : basicInfo ? (
+            <dl className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <DetailField label={t('field.bookName')}>{basicInfo.bookName || '--'}</DetailField>
+              <DetailField label={t('field.bookNo')}>{basicInfo.bookNo || '--'}</DetailField>
+              <DetailField label={t('detail.financeBookId')}>{financeBookIdStr || '--'}</DetailField>
+              <DetailField label={t('field.reserveAssetName')}>{basicInfo.reserveAssetName || '--'}</DetailField>
+              <DetailField label={t('field.currency')}>{basicInfo.currencyCode || '--'}</DetailField>
+              <DetailField label={t('field.tokenType')}>
+                {basicInfo.tokenType != null
+                  ? tokenTypeLabels[basicInfo.tokenType] ?? String(basicInfo.tokenType)
+                  : '--'}
+              </DetailField>
+              <DetailField label={t('field.tokens')}>
+                {(basicInfo.tokens ?? [])
+                  .map((token) => token.tokenName)
+                  .filter(Boolean)
+                  .join(', ') || '--'}
+              </DetailField>
+              <DetailField label={t('field.eodCutoffTime')}>{basicInfo.eodCutoffTime || '--'}</DetailField>
+              <DetailField label={t('field.lastEodPostingRun')}>{basicInfo.lastEodPostingRun || '--'}</DetailField>
+              <DetailField label={t('field.createdBy')}>{basicInfo.createdBy || '--'}</DetailField>
+              <DetailField label={t('field.createdOn')}>{formatAdminTimestamp(basicInfo.createdOn)}</DetailField>
+            </dl>
+          ) : basicInfoQuery.isLoading ? (
+            <Skeleton className="h-48" />
+          ) : (
+            <p className="py-4 text-sm text-muted-foreground">{tCommon('noData')}</p>
+          )}</Card>
         </TabsContent>
 
         {/* Chart of Accounts */}

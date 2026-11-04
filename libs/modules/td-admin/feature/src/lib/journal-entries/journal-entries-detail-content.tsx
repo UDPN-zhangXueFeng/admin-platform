@@ -7,7 +7,8 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
-import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { Button, Card, cardSurfaceClass, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
@@ -220,9 +221,7 @@ export function JournalEntriesView({
 
   if (!ruleId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('detail.title')}</p>
-      </div>
+      <Card className="p-6"><p className="text-sm text-muted-foreground">{t('detail.title')}</p></Card>
     );
   }
 
@@ -235,7 +234,7 @@ export function JournalEntriesView({
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
@@ -266,35 +265,33 @@ export function JournalEntriesView({
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">{t('detail.title')}</div>
-          <Button
-            variant="outline"
-            onClick={handleExport}
-            disabled={exportMutation.isPending}
-          >
-            {t('action.export')}
-          </Button>
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={listResult.isLoading || listResult.isFetching}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (p) =>
-                setPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
-        </div>
+      <Card><div className="flex justify-between border-b px-6 py-3">
+        <div className="text-sm font-semibold">{t('detail.title')}</div>
+        <Button
+          variant="outline"
+          onClick={handleExport}
+          disabled={exportMutation.isPending}
+        >
+          {t('action.export')}
+        </Button>
       </div>
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={listResult.isLoading || listResult.isFetching}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (p) =>
+              setPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
 
       <div className="flex justify-end">
         <Button variant="outline" onClick={() => router.back()}>

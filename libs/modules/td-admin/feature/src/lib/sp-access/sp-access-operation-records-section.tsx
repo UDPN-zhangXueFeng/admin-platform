@@ -13,7 +13,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  cardSurfaceClass,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { useSpAccessOperationRecordsQuery } from '@myorg/modules/td-admin/data-access';
 import type { SpAccessOperationRecord } from '@myorg/modules/td-admin/data-access';
 import { EMPTY_FIELD_VALUE, formatTimestamp } from './formatters';
@@ -99,7 +101,7 @@ export function SpAccessOperationRecordsSection({ spCode }: { spCode: string }) 
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-card p-6">
+      <div className={cn(cardSurfaceClass, 'p-6')}>
         <div className="mb-4 text-base font-semibold">{t('sp_access_0012')}</div>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 xl:grid-cols-4">
           <label className="flex flex-col gap-1 text-sm">

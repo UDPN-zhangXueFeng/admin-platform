@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Printer, Edit, Trash2 } from 'lucide-react';
 
-import { Button, Separator, Tabs, TabsList, TabsTrigger, TabsContent } from '@myorg/shared/ui';
+import { Button, Card, Separator, Tabs, TabsList, TabsTrigger, TabsContent } from '@myorg/shared/ui';
 import { useToast } from '@myorg/shared/ui';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { formatCurrency } from '@myorg/shared/util-formatting';
@@ -119,7 +119,7 @@ export function OrderDetailPage() {
         <TabsContent value="overview" className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             {/* Order info card */}
-            <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+            <Card className="p-6">
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 订单信息
               </h2>
@@ -145,10 +145,10 @@ export function OrderDetailPage() {
                   </div>
                 ) : null}
               </dl>
-            </div>
+            </Card>
 
             {/* Customer info card */}
-            <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+            <Card className="p-6">
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 客户信息
               </h2>
@@ -176,12 +176,12 @@ export function OrderDetailPage() {
                   </div>
                 ) : null}
               </dl>
-            </div>
+            </Card>
           </div>
         </TabsContent>
 
         <TabsContent value="timeline">
-          <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+          <Card className="p-6">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               订单生命周期
             </h2>
@@ -189,7 +189,7 @@ export function OrderDetailPage() {
               events={timelineEvents}
               currentStatus={order.status}
             />
-          </div>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

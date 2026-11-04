@@ -7,6 +7,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   Button,
+  Card,
   CopyableEllipsisText,
   DataTable,
   Tabs,
@@ -275,7 +276,7 @@ export function OperationalWalletDetailPage() {
 
   if (!ruleWalletId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <p className="text-sm text-muted-foreground">
           {t('operationalWallet.invalidId')}
         </p>
@@ -286,7 +287,7 @@ export function OperationalWalletDetailPage() {
         >
           {t('common.back')}
         </Button>
-      </div>
+      </Card>
     );
   }
 
@@ -306,7 +307,7 @@ export function OperationalWalletDetailPage() {
         </TabsList>
 
         <TabsContent value={BASIC_TAB}>
-          <section className="rounded-lg border bg-card shadow-sm">
+          <Card>
             <div className="border-b px-6 py-3 text-sm font-semibold">
               {t('operationalWallet.tab.basicInformation')}
             </div>
@@ -334,11 +335,11 @@ export function OperationalWalletDetailPage() {
                 </tbody>
               </table>
             </div>
-          </section>
+          </Card>
         </TabsContent>
 
         <TabsContent value={TX_TAB}>
-          <section className="rounded-lg border bg-card shadow-sm">
+          <Card>
             <div className="border-b px-6 py-3 text-sm font-semibold">
               {t('operationalWallet.tab.transactions')}
             </div>
@@ -359,11 +360,11 @@ export function OperationalWalletDetailPage() {
                 }}
               />
             </div>
-          </section>
+          </Card>
         </TabsContent>
 
         <TabsContent value={OP_RECORD_TAB}>
-          <section className="rounded-lg border bg-card shadow-sm">
+          <Card>
             <div className="border-b px-6 py-3 text-sm font-semibold">
               {t('operationalWallet.tab.operationRecords')}
             </div>
@@ -384,7 +385,7 @@ export function OperationalWalletDetailPage() {
                 }}
               />
             </div>
-          </section>
+          </Card>
         </TabsContent>
       </Tabs>
 

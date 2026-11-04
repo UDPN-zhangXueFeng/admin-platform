@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
+  Card,
   Checkbox,
   Dialog,
   DialogContent,
@@ -237,7 +238,7 @@ export function LiquidityPoolEditPage(): React.JSX.Element {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {/* ── Card 1：Liquidity Pool Wallet Configuration ── */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <h4 className="mb-4 border-0 border-b border-solid border-slate-200 pb-2">
           {t('cross_chain_0049')}
         </h4>
@@ -488,10 +489,10 @@ export function LiquidityPoolEditPage(): React.JSX.Element {
           </div>
           <div>{t('cross_chain_00140')}</div>
         </div>
-      </section>
+      </Card>
 
       {/* ── Card 2：Alert Configurations ── */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <h4 className="mb-4 border-0 border-b border-solid border-slate-200 pb-2">
           {t('cross_chain_0054')}
         </h4>
@@ -592,7 +593,7 @@ export function LiquidityPoolEditPage(): React.JSX.Element {
             <span>{t('cross_chain_0057')}</span>
           </label>
         </div>
-      </section>
+      </Card>
 
       {/* ── 底部操作 ── */}
       <div className="mt-10 flex justify-end gap-8">

@@ -23,6 +23,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import {
   Alert,
   Button,
+  Card,
   CopyableEllipsisText,
   DataTable,
   Input,
@@ -344,7 +345,7 @@ export function ManagedWalletsDetailPage() {
           ) : (
             <>
               {/* Card A — Current Wallet Details (10 fields) */}
-              <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+              <Card>
                 <div className="flex flex-col space-y-1.5 p-6">
                   <h3 className="text-2xl font-semibold leading-none tracking-tight">
                     {t('key_management_0084')}
@@ -397,10 +398,10 @@ export function ManagedWalletsDetailPage() {
                     {formatTimestamp(detail?.createdOn)}
                   </DetailItem>
                 </div>
-              </div>
+              </Card>
 
               {/* Card B — Key Rotation Details (5 fields, span 2) + Back */}
-              <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+              <Card>
                 <div className="flex flex-col space-y-1.5 p-6">
                   <h3 className="text-2xl font-semibold leading-none tracking-tight">
                     {t('key_management_0085')}
@@ -426,7 +427,7 @@ export function ManagedWalletsDetailPage() {
                 <div className="flex justify-end p-6 pt-0">
                   <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
                 </div>
-              </div>
+              </Card>
             </>
           )}
         </TabsContent>
@@ -440,7 +441,7 @@ export function ManagedWalletsDetailPage() {
             })}
           </p>
           {/* Query Form */}
-          <div className="rounded-lg border bg-card p-4">
+          <Card className="p-4">
             <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <div>
@@ -490,10 +491,10 @@ export function ManagedWalletsDetailPage() {
                 {t('PUB_Reset')}
               </Button>
             </div>
-          </div>
+          </Card>
 
           {/* History Table */}
-          <div className="rounded-lg border bg-card p-4">
+          <Card className="p-4">
             {historyIsError && (
               <Alert variant="destructive" className="mb-4">
                 <div className="flex items-center justify-between gap-4">
@@ -528,7 +529,7 @@ export function ManagedWalletsDetailPage() {
             <div className="mt-6 flex justify-end">
               <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
             </div>
-          </div>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Info } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
+  Card,
   Button,
   Checkbox,
   CopyableEllipsisText,
@@ -262,7 +263,7 @@ export function SpAccessBaseInfoSection({ detail }: { detail: SpAccessDetail }) 
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-lg border bg-card">
+      <Card>
         <div className="border-b p-4 text-base font-semibold">{t('sp_access_0107')}</div>
         <dl className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
           <DetailField label={t('sp_access_0000')}>
@@ -326,9 +327,9 @@ export function SpAccessBaseInfoSection({ detail }: { detail: SpAccessDetail }) 
               : EMPTY_FIELD_VALUE}
           </DetailField>
         </dl>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border bg-card">
+      <Card>
         <div className="border-b p-4 text-base font-semibold">{t('sp_access_0108')}</div>
         <div className="p-4">
           <div className="text-sm text-muted-foreground">{t('sp_access_0105')}</div>
@@ -341,9 +342,9 @@ export function SpAccessBaseInfoSection({ detail }: { detail: SpAccessDetail }) 
             ))}
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border bg-card">
+      <Card>
         <div className="border-b p-4 text-base font-semibold">{t('sp_access_0106')}</div>
         <div className="p-4">
           <div className="text-sm text-muted-foreground">{t('sp_access_0105')}</div>
@@ -356,7 +357,7 @@ export function SpAccessBaseInfoSection({ detail }: { detail: SpAccessDetail }) 
             ))}
           </div>
         </div>
-      </section>
+      </Card>
 
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

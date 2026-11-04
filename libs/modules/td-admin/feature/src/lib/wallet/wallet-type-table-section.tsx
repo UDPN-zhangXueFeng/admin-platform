@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   Button,
+  Card,
   DataTable,
 } from '@myorg/shared/ui';
 import { useAuth } from '@myorg/shared/util-auth';
@@ -292,7 +293,7 @@ export function WalletTypeTableSection({
   }, [t, isMmf, canViewDetail, router]);
 
   return (
-    <div className="rounded-lg border bg-card shadow-sm">
+    <Card>
       <div className="flex items-center justify-between border-b px-6 py-3">
         <div className="text-sm font-semibold">
           {isMmf ? t('walletType.mmfRecords') : t('walletType.records')}
@@ -345,6 +346,6 @@ export function WalletTypeTableSection({
           />
         )}
       </div>
-    </div>
+    </Card>
   );
 }

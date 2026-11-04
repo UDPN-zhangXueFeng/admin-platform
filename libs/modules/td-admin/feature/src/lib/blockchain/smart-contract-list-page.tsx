@@ -9,12 +9,15 @@ import { CircleHelp } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Button,
+  Card,
+  cardSurfaceClass,
   DataTable,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker, FormField } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import {
@@ -203,7 +206,7 @@ export function SmartContractListPage(): React.JSX.Element {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
@@ -231,51 +234,49 @@ export function SmartContractListPage(): React.JSX.Element {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">
-            {t('smartContract.title')}
-          </div>
-          {/*
-            顶部「新增」按钮（SC_ADD_BTN）：
-            源码 CustomTableTitle Add 分支有 limit + Tooltip（blockchain_0013），
-            但 actionClick 的 switch 无 'Add' case → 点击无效果（信息按钮，照搬）。
-            见迁移文档第 8 章「smart-contract 新增按钮无 actionClick」。
-          */}
-          <PermissionGuard permission={BLOCKCHAIN_PERMISSIONS.SC_ADD_BTN}>
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button type="button" variant="link" className="h-auto p-0">
-                    <span className="flex items-center">
-                      {t('action.add')}
-                      <CircleHelp className="ml-2 h-4 w-4" aria-hidden="true" />
-                    </span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t('blockchain_0013')}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </PermissionGuard>
+      <Card><div className="flex justify-between border-b px-6 py-3">
+        <div className="text-sm font-semibold">
+          {t('smartContract.title')}
         </div>
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (p) =>
-                setPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
-        </div>
+        {/*
+          顶部「新增」按钮（SC_ADD_BTN）：
+          源码 CustomTableTitle Add 分支有 limit + Tooltip（blockchain_0013），
+          但 actionClick 的 switch 无 'Add' case → 点击无效果（信息按钮，照搬）。
+          见迁移文档第 8 章「smart-contract 新增按钮无 actionClick」。
+        */}
+        <PermissionGuard permission={BLOCKCHAIN_PERMISSIONS.SC_ADD_BTN}>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" variant="link" className="h-auto p-0">
+                  <span className="flex items-center">
+                    {t('action.add')}
+                    <CircleHelp className="ml-2 h-4 w-4" aria-hidden="true" />
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('blockchain_0013')}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </PermissionGuard>
       </div>
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (p) =>
+              setPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
     </div>
   );
 }

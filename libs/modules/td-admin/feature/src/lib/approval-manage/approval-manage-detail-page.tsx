@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
-import { Button } from '@myorg/shared/ui';
+import { Button, Card } from '@myorg/shared/ui';
 
 import {
   useApprovedDetailQuery,
@@ -302,20 +302,16 @@ export function ApprovalManageDetailPage() {
   // ── 渲染 ──────────────────────────────────────────────────────────────────
   if (!taskId || !busCode) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">
-          {t('detail.invalidId')}
-        </p>
-      </div>
+      <Card className="p-6"><p className="text-sm text-muted-foreground">
+        {t('detail.invalidId')}
+      </p></Card>
     );
   }
 
   // 源 view.tsx:508 `{hasData ? <>主体</> : null}`：数据未就绪或 300ms 骨架期渲染 loading。
   if (!hasData) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('detail.loading')}</p>
-      </div>
+      <Card className="p-6"><p className="text-sm text-muted-foreground">{t('detail.loading')}</p></Card>
     );
   }
 

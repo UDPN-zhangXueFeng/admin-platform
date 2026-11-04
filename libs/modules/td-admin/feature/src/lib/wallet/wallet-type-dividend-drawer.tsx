@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import {
+  Card,
   DataTable,
   Drawer,
   DrawerContent,
@@ -215,7 +216,7 @@ export function WalletTypeDividendDrawer({
         </DrawerHeader>
         <div className="flex-1 space-y-4 overflow-auto p-4">
           <DividendSummarySection rows={summaryRows} />
-          <section className="rounded-lg border bg-card shadow-sm">
+          <Card>
             <div className="border-b px-6 py-3 text-sm font-semibold">
               {t('walletType.dividend.detailsTitle')}
             </div>
@@ -236,7 +237,7 @@ export function WalletTypeDividendDrawer({
                 }}
               />
             </div>
-          </section>
+          </Card>
         </div>
       </DrawerContent>
     </Drawer>
@@ -247,7 +248,7 @@ export function WalletTypeDividendDrawer({
 function DividendSummarySection({ rows }: { rows: KvRow[] }) {
   const t = useTranslations('modules.wallet');
   return (
-    <section className="rounded-lg border bg-card shadow-sm">
+    <Card>
       <div className="border-b px-6 py-3 text-sm font-semibold">
         {/* 源 mff/view.tsx items1 卡片标题 = wallet_type_120 (Summary)。 */}
         {t('walletType.dividend.summaryTitle')}
@@ -274,6 +275,6 @@ function DividendSummarySection({ rows }: { rows: KvRow[] }) {
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   );
 }

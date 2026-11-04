@@ -21,7 +21,7 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 
-import { Alert, Button, CopyableEllipsisText } from '@myorg/shared/ui';
+import { Alert, Button, Card, CopyableEllipsisText } from '@myorg/shared/ui';
 
 import { useKeySignedTransactionDetailQuery } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
@@ -145,7 +145,7 @@ export function KeySignedTransactionsDetailPage() {
   return (
     <div className="space-y-6">
       {/* Signature Details */}
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+      <Card>
         <div className="flex flex-col space-y-1.5 p-6">
           <h3 className="text-2xl font-semibold leading-none tracking-tight">{t('key_management_0104')}</h3>
         </div>
@@ -218,10 +218,10 @@ export function KeySignedTransactionsDetailPage() {
             )}
           </DetailItem>
         </div>
-      </div>
+      </Card>
 
       {/* Transaction Info */}
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+      <Card>
         <div className="flex flex-col space-y-1.5 p-6">
           <h3 className="text-2xl font-semibold leading-none tracking-tight">{t('key_management_0105')}</h3>
         </div>
@@ -242,10 +242,10 @@ export function KeySignedTransactionsDetailPage() {
               : '--'}
           </DetailItem>
         </div>
-      </div>
+      </Card>
 
       {/* Raw Message */}
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+      <Card>
         <div className="flex flex-col space-y-1.5 p-6">
           <h3 className="text-2xl font-semibold leading-none tracking-tight">{t('key_management_0106')}</h3>
         </div>
@@ -261,7 +261,7 @@ export function KeySignedTransactionsDetailPage() {
             <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

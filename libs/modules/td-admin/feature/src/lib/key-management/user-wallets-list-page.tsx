@@ -39,7 +39,7 @@ import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
-import { Alert, Button, DataTable, Input } from '@myorg/shared/ui';
+import { Alert, Button, Card, DataTable, Input } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
 
 import {
@@ -274,7 +274,7 @@ export function UserWalletsListPage() {
   return (
     <div className="space-y-6">
       {/* Query form — filters apply client-side over the full server dataset. */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
         <form onSubmit={handleSubmit(onApply)} noValidate>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -330,10 +330,10 @@ export function UserWalletsListPage() {
             <Button type="submit">{t('PUB_Query')}</Button>
           </div>
         </form>
-      </div>
+      </Card>
 
       {/* Table */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">{t('key_management_0093')}</h3>
         </div>
@@ -365,7 +365,7 @@ export function UserWalletsListPage() {
             onPageSizeChange: (size) => setPage({ pageNum: 1, pageSize: size }),
           }}
         />
-      </div>
+      </Card>
     </div>
   );
 }

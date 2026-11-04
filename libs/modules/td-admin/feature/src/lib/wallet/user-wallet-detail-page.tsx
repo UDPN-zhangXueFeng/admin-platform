@@ -3,7 +3,7 @@
 import { useParams, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { Button } from '@myorg/shared/ui';
+import { Button, Card } from '@myorg/shared/ui';
 import { UserWalletDetailHistoryContent } from './user-wallet-detail-history-content';
 import { UserWalletDetailViewContent } from './user-wallet-detail-view-content';
 
@@ -44,7 +44,7 @@ export function UserWalletDetailPage() {
 
   if (!walletId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <p className="text-sm text-muted-foreground">
           {t('userWallet.invalidId')}
         </p>
@@ -55,7 +55,7 @@ export function UserWalletDetailPage() {
         >
           {t('common.back')}
         </Button>
-      </div>
+      </Card>
     );
   }
 

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
-import { DataTable, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { Card, DataTable, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
 import {
   useUserAuthorizationQuery,
   useUserAuthorizedQuery,
@@ -220,7 +220,7 @@ function HistoryTableSection<T extends { id: string }>({
   onPageSizeChange: (pageSize: number) => void;
 }) {
   return (
-    <section className="rounded-lg border bg-card shadow-sm">
+    <Card>
       <div className="border-b px-6 py-3 text-sm font-semibold">{title}</div>
       <div className="p-4">
         <DataTable
@@ -237,6 +237,6 @@ function HistoryTableSection<T extends { id: string }>({
           }}
         />
       </div>
-    </section>
+    </Card>
   );
 }

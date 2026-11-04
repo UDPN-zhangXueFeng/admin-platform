@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { CopyableEllipsisText } from '@myorg/shared/ui';
+import { Card, CopyableEllipsisText } from '@myorg/shared/ui';
 import type {
   InterestRateTier,
   WalletTypeDetail,
@@ -61,7 +61,7 @@ function DescriptionsSection({
   rows: KvRow[];
 }) {
   return (
-    <section className="rounded-lg border bg-card shadow-sm">
+    <Card>
       <div className="border-b px-6 py-3 text-sm font-semibold">{title}</div>
       <div className="overflow-x-auto">
         <table className="w-full table-fixed border-collapse text-sm">
@@ -85,7 +85,7 @@ function DescriptionsSection({
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -462,9 +462,9 @@ export function WalletTypeDetailViewContent({
             </div>
           ) : accountType === 1 && interestEnabled ? (
             <div className="space-y-4">
-              <div className="rounded-lg border bg-card px-6 py-3 font-bold">
+              <Card className="px-6 py-3 font-bold">
                 {t('walletType.detail.interestPolicyInformation')}
-              </div>
+              </Card>
               <DescriptionsSection
                 title={t('walletType.detail.arrangedOverdraftInformation')}
                 rows={arrangedOverdraftRows}

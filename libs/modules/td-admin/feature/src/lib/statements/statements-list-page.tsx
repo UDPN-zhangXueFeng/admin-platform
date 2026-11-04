@@ -10,12 +10,15 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import {
   Button,
+  Card,
   DataTable,
   Drawer,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
+  cardSurfaceClass,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
@@ -386,7 +389,7 @@ export function StatementsListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormSelect
@@ -446,7 +449,7 @@ export function StatementsListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="flex justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">{t('list.title')}</div>
           <div className="flex gap-2">
@@ -480,7 +483,7 @@ export function StatementsListPage() {
             }}
           />
         </div>
-      </div>
+      </Card>
 
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
         <DrawerContent>

@@ -14,6 +14,7 @@ import {
   YAxis,
 } from 'recharts';
 import { cn } from '@myorg/shared/util-classnames';
+import { cardSurfaceClass } from '@myorg/shared/ui';
 import { toChartDate, toNumber } from './statistics-reports.utils';
 
 /** Raw API rows — numeric-string amounts are converted here. */
@@ -121,7 +122,7 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-w-0 rounded-lg border bg-card p-3">
+    <div className={cn(cardSurfaceClass, 'min-w-0 p-3')}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="truncate text-sm font-medium">{title}</div>
         {action}

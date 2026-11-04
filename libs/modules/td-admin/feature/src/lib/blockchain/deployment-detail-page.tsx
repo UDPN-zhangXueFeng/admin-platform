@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
-import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { Button, Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import {
   useDeploymentDetailQuery,
   type DeploymentContractRow,
@@ -163,36 +163,34 @@ export function DeploymentDetailPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-card shadow-sm">
-        {/* 标题区：tdName + 部署详情 */}
-        <div className="flex items-center justify-between border-b bg-muted/50 px-6 py-4">
-          <div className="text-base font-semibold">
-            {detail?.tdName
-              ? `${detail.tdName} ${t('blockchain_0024')}`
-              : t('blockchain_0024')}
-          </div>
-        </div>
-        {/* 包名 / 版本 / 部署时间 */}
-        <div className="space-y-4 px-6 py-6">
-          <div className="text-sm font-semibold">
-            {t('blockchain_0025')}
-            {detail?.packageVersion
-              ? ` V${detail.packageVersion}`
-              : ''}
-          </div>
-          <div className="text-sm text-muted-foreground">{deployTimeText}</div>
-        </div>
-
-        {/* 内嵌静态合约清单表格（无服务端分页） */}
-        <div className="px-4 pb-6">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            emptyMessage={t('empty')}
-          />
+      <Card>{/* 标题区：tdName + 部署详情 */}
+      <div className="flex items-center justify-between border-b bg-muted/50 px-6 py-4">
+        <div className="text-base font-semibold">
+          {detail?.tdName
+            ? `${detail.tdName} ${t('blockchain_0024')}`
+            : t('blockchain_0024')}
         </div>
       </div>
+      {/* 包名 / 版本 / 部署时间 */}
+      <div className="space-y-4 px-6 py-6">
+        <div className="text-sm font-semibold">
+          {t('blockchain_0025')}
+          {detail?.packageVersion
+            ? ` V${detail.packageVersion}`
+            : ''}
+        </div>
+        <div className="text-sm text-muted-foreground">{deployTimeText}</div>
+      </div>
+      
+      {/* 内嵌静态合约清单表格（无服务端分页） */}
+      <div className="px-4 pb-6">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          emptyMessage={t('empty')}
+        />
+      </div></Card>
 
       <div className="flex justify-end">
         <Button variant="outline" onClick={() => router.back()}>

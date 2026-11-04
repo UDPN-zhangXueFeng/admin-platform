@@ -3,7 +3,7 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { Card, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
 import { useSpAccessDetailQuery } from '@myorg/modules/td-admin/data-access';
 import { SpAccessBaseInfoSection } from './sp-access-base-info-section';
 import { SpAccessUserWalletsSection } from './sp-access-user-wallets-section';
@@ -39,7 +39,7 @@ export function SpAccessDetailPage() {
     return (
       <div className="space-y-4 p-6">
         <div className="h-8 w-64 animate-pulse rounded bg-muted" />
-        <div className="h-64 animate-pulse rounded-lg border bg-card" />
+        <Card className="h-64 animate-pulse" />
       </div>
     );
   }

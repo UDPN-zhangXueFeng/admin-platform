@@ -33,7 +33,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
-import { Alert, Button, DataTable, Input } from '@myorg/shared/ui';
+import { Alert, Button, Card, DataTable, Input } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
 
 import {
@@ -384,7 +384,7 @@ export function KeySignedTransactionsListPage() {
   return (
     <div className="space-y-6">
       {/* Query Form */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -457,10 +457,10 @@ export function KeySignedTransactionsListPage() {
             {t('PUB_Reset')}
           </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Table */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">{t('key_management_0155')}</h3>
         </div>
@@ -491,7 +491,7 @@ export function KeySignedTransactionsListPage() {
             onPageSizeChange: (size) => setPage({ pageNum: 1, pageSize: size }),
           }}
         />
-      </div>
+      </Card>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import {
+  Card,
   CopyableEllipsisText,
   DataTable,
   Tabs,
@@ -469,7 +470,7 @@ export function UserWalletDetailViewContent({ walletId }: { walletId: number }) 
         </TabsList>
 
         <TabsContent value={USER_WALLET_VIEW_TAB.Basic}>
-          <section className="rounded-lg border bg-card shadow-sm">
+          <Card>
             <div className="border-b px-6 py-3 text-sm font-semibold">
               {t('userWallet.section.basicDetails')}
             </div>
@@ -508,7 +509,7 @@ export function UserWalletDetailViewContent({ walletId }: { walletId: number }) 
                 value={EMPTY_DISPLAY}
               />
             </div>
-          </section>
+          </Card>
         </TabsContent>
 
         <TabsContent value={USER_WALLET_VIEW_TAB.Transactions}>
@@ -697,7 +698,7 @@ function DistributeSummary({ detail }: { detail?: UserWalletDetail }) {
     },
   ];
   return (
-    <section className="rounded-lg border bg-card shadow-sm">
+    <Card>
       <div className="border-b px-6 py-3 text-sm font-semibold">
         {t('userWallet.section.distributionDetails')}
       </div>
@@ -715,7 +716,7 @@ function DistributeSummary({ detail }: { detail?: UserWalletDetail }) {
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -742,7 +743,7 @@ function DetailTableSection<T extends { id: string }>({
   onPageSizeChange: (pageSize: number) => void;
 }) {
   return (
-    <section className="rounded-lg border bg-card shadow-sm">
+    <Card>
       <div className="border-b px-6 py-3 text-sm font-semibold">{title}</div>
       <div className="p-4">
         <DataTable
@@ -759,6 +760,6 @@ function DetailTableSection<T extends { id: string }>({
           }}
         />
       </div>
-    </section>
+    </Card>
   );
 }

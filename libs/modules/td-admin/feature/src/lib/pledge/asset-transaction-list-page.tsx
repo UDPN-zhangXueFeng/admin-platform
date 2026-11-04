@@ -6,7 +6,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, DataTable, Input } from '@myorg/shared/ui';
+import { Button, Card, cardSurfaceClass, DataTable, Input } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../format-admin-time';
@@ -371,7 +372,7 @@ export function AssetTransactionListPage(): React.JSX.Element {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <Controller
@@ -461,7 +462,7 @@ export function AssetTransactionListPage(): React.JSX.Element {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-6 py-3">
           <div className="text-sm font-semibold">{t('assetTxnList.title')}</div>
           <div className="flex flex-wrap gap-2">
@@ -497,7 +498,7 @@ export function AssetTransactionListPage(): React.JSX.Element {
             }}
           />
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

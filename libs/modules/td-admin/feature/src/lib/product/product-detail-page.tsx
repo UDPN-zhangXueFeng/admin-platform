@@ -13,7 +13,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 
-import { Button } from '@myorg/shared/ui';
+import { Button, Card } from '@myorg/shared/ui';
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -138,7 +138,7 @@ export function ProductDetailPage({
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <Card className="p-6">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             {t('basicInfo')}
           </h2>
@@ -162,7 +162,7 @@ export function ProductDetailPage({
               </dd>
             </div>
           </dl>
-        </div>
+        </Card>
       </div>
     </div>
   );

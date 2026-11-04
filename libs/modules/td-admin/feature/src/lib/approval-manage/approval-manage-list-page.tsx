@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 
 import {
   Button,
+  Card,
   DataTable,
   Dialog,
   DialogContent,
@@ -593,23 +594,21 @@ function ApprovalTablePanel({
   const total = result.data?.page?.total ?? 0;
   const isLoading = result.isLoading || result.isFetching;
   return (
-    <div className="rounded-lg border bg-card shadow-sm">
-      <div className="border-b px-6 py-3 text-sm font-semibold">{title}</div>
-      <div className="p-4">
-        <DataTable
-          columns={columns}
-          data={rows}
-          isLoading={isLoading}
-          emptyMessage={emptyMessage}
-          pagination={{
-            page: pageNum,
-            pageSize,
-            total,
-            onPageChange,
-            onPageSizeChange,
-          }}
-        />
-      </div>
-    </div>
+    <Card><div className="border-b px-6 py-3 text-sm font-semibold">{title}</div>
+    <div className="p-4">
+      <DataTable
+        columns={columns}
+        data={rows}
+        isLoading={isLoading}
+        emptyMessage={emptyMessage}
+        pagination={{
+          page: pageNum,
+          pageSize,
+          total,
+          onPageChange,
+          onPageSizeChange,
+        }}
+      />
+    </div></Card>
   );
 }

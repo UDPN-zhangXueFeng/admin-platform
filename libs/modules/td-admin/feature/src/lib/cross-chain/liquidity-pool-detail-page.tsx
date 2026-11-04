@@ -8,6 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import {
   Button,
+  Card,
   CopyableEllipsisText,
   DataTable,
   Select,
@@ -75,7 +76,7 @@ function BasicDetailsGroup({
   items: DetailItem[];
 }): React.JSX.Element {
   return (
-    <section className="rounded-lg border bg-card shadow-sm">
+    <Card>
       {title ? (
         <div className="border-b px-6 py-3 text-sm font-semibold">{title}</div>
       ) : null}
@@ -97,7 +98,7 @@ function BasicDetailsGroup({
           {EMPTY_DISPLAY}
         </div>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -723,28 +724,26 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
               setTxPagination({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
             }}
           />
-          <div className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              {t('cross_chain_0062')}
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={txColumns}
-                data={txRows}
-                isLoading={txLoading}
-                emptyMessage={t('empty')}
-                pagination={{
-                  page: txPagination.pageNum,
-                  pageSize: txPagination.pageSize,
-                  total: txTotal,
-                  onPageChange: (p) =>
-                    setTxPagination((prev) => ({ ...prev, pageNum: p })),
-                  onPageSizeChange: (size) =>
-                    setTxPagination({ pageNum: 1, pageSize: size }),
-                }}
-              />
-            </div>
+          <Card><div className="border-b px-6 py-3 text-sm font-semibold">
+            {t('cross_chain_0062')}
           </div>
+          <div className="p-4">
+            <DataTable
+              columns={txColumns}
+              data={txRows}
+              isLoading={txLoading}
+              emptyMessage={t('empty')}
+              pagination={{
+                page: txPagination.pageNum,
+                pageSize: txPagination.pageSize,
+                total: txTotal,
+                onPageChange: (p) =>
+                  setTxPagination((prev) => ({ ...prev, pageNum: p })),
+                onPageSizeChange: (size) =>
+                  setTxPagination({ pageNum: 1, pageSize: size }),
+              }}
+            />
+          </div></Card>
         </TabsContent>
 
         {/* Tab3 authorization 表（无行操作） */}
@@ -762,28 +761,26 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
               setAuthPagination({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
             }}
           />
-          <div className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              {t('cross_chain_0069')}
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={authColumns}
-                data={authRows}
-                isLoading={authLoading}
-                emptyMessage={t('empty')}
-                pagination={{
-                  page: authPagination.pageNum,
-                  pageSize: authPagination.pageSize,
-                  total: authTotal,
-                  onPageChange: (p) =>
-                    setAuthPagination((prev) => ({ ...prev, pageNum: p })),
-                  onPageSizeChange: (size) =>
-                    setAuthPagination({ pageNum: 1, pageSize: size }),
-                }}
-              />
-            </div>
+          <Card><div className="border-b px-6 py-3 text-sm font-semibold">
+            {t('cross_chain_0069')}
           </div>
+          <div className="p-4">
+            <DataTable
+              columns={authColumns}
+              data={authRows}
+              isLoading={authLoading}
+              emptyMessage={t('empty')}
+              pagination={{
+                page: authPagination.pageNum,
+                pageSize: authPagination.pageSize,
+                total: authTotal,
+                onPageChange: (p) =>
+                  setAuthPagination((prev) => ({ ...prev, pageNum: p })),
+                onPageSizeChange: (size) =>
+                  setAuthPagination({ pageNum: 1, pageSize: size }),
+              }}
+            />
+          </div></Card>
         </TabsContent>
 
         {/* Tab4 operationRecords 表 */}
@@ -800,28 +797,26 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
               setOpPagination({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
             }}
           />
-          <div className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              {t('cross_chain_0031')}
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={opColumns}
-                data={opRows}
-                isLoading={opLoading}
-                emptyMessage={t('empty')}
-                pagination={{
-                  page: opPagination.pageNum,
-                  pageSize: opPagination.pageSize,
-                  total: opTotal,
-                  onPageChange: (p) =>
-                    setOpPagination((prev) => ({ ...prev, pageNum: p })),
-                  onPageSizeChange: (size) =>
-                    setOpPagination({ pageNum: 1, pageSize: size }),
-                }}
-              />
-            </div>
+          <Card><div className="border-b px-6 py-3 text-sm font-semibold">
+            {t('cross_chain_0031')}
           </div>
+          <div className="p-4">
+            <DataTable
+              columns={opColumns}
+              data={opRows}
+              isLoading={opLoading}
+              emptyMessage={t('empty')}
+              pagination={{
+                page: opPagination.pageNum,
+                pageSize: opPagination.pageSize,
+                total: opTotal,
+                onPageChange: (p) =>
+                  setOpPagination((prev) => ({ ...prev, pageNum: p })),
+                onPageSizeChange: (size) =>
+                  setOpPagination({ pageNum: 1, pageSize: size }),
+              }}
+            />
+          </div></Card>
         </TabsContent>
       </Tabs>
 
@@ -897,114 +892,112 @@ function TxFilterBar({
   const [local, setLocal] = React.useState(filter);
   React.useEffect(() => setLocal(filter), [filter]);
   return (
-    <div className="rounded-lg border bg-card p-4 shadow-sm">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <div>
-          <label
-            htmlFor="lp-tx-walletAddress"
-            className="mb-1.5 block text-sm font-medium text-foreground"
-          >
-            {t('cross_chain_0024')}
-          </label>
-          <input
-            id="lp-tx-walletAddress"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            placeholder={t('cross_chain_0024')}
-            value={local.walletAddress}
-            onChange={(e) =>
-              setLocal((prev) => ({ ...prev, walletAddress: e.target.value }))
-            }
-          />
-        </div>
-        <div>
-          <label
-            htmlFor="lp-tx-transactionType"
-            className="mb-1.5 block text-sm font-medium text-foreground"
-          >
-            {t('cross_chain_0059')}
-          </label>
-          <Select
-            value={local.transactionType}
-            onValueChange={(v) =>
-              setLocal((prev) => ({ ...prev, transactionType: v }))
-            }
-          >
-            <SelectTrigger id="lp-tx-transactionType">
-              <SelectValue placeholder={t('filter.all')} />
-            </SelectTrigger>
-            <SelectContent>
-              {typeOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label
-            htmlFor="lp-tx-transactionHash"
-            className="mb-1.5 block text-sm font-medium text-foreground"
-          >
-            {t('cross_chain_0060')}
-          </label>
-          <input
-            id="lp-tx-transactionHash"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            placeholder={t('cross_chain_0060')}
-            value={local.transactionHash}
-            onChange={(e) =>
-              setLocal((prev) => ({ ...prev, transactionHash: e.target.value }))
-            }
-          />
-        </div>
-        <div>
-          <label
-            htmlFor="lp-tx-status"
-            className="mb-1.5 block text-sm font-medium text-foreground"
-          >
-            {t('filter.status')}
-          </label>
-          <Select
-            value={local.status}
-            onValueChange={(v) => setLocal((prev) => ({ ...prev, status: v }))}
-          >
-            <SelectTrigger id="lp-tx-status">
-              <SelectValue placeholder={t('filter.all')} />
-            </SelectTrigger>
-            <SelectContent>
-              {statusOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <DatePickerField
-          id="lp-tx-transactionTimeStart"
-          label={t('cross_chain_0061')}
-          value={local.transactionTimeStart}
-          onChange={(v) =>
-            setLocal((prev) => ({ ...prev, transactionTimeStart: v }))
-          }
-        />
-        <DatePickerField
-          id="lp-tx-transactionTimeEnd"
-          label={t('cross_chain_0061')}
-          value={local.transactionTimeEnd}
-          onChange={(v) =>
-            setLocal((prev) => ({ ...prev, transactionTimeEnd: v }))
+    <Card className="p-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div>
+        <label
+          htmlFor="lp-tx-walletAddress"
+          className="mb-1.5 block text-sm font-medium text-foreground"
+        >
+          {t('cross_chain_0024')}
+        </label>
+        <input
+          id="lp-tx-walletAddress"
+          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          placeholder={t('cross_chain_0024')}
+          value={local.walletAddress}
+          onChange={(e) =>
+            setLocal((prev) => ({ ...prev, walletAddress: e.target.value }))
           }
         />
       </div>
-      <div className="mt-4 flex gap-2">
-        <Button onClick={() => onChange(local)}>{t('filter.query')}</Button>
-        <Button type="button" variant="outline" onClick={onReset}>
-          {t('filter.reset')}
-        </Button>
+      <div>
+        <label
+          htmlFor="lp-tx-transactionType"
+          className="mb-1.5 block text-sm font-medium text-foreground"
+        >
+          {t('cross_chain_0059')}
+        </label>
+        <Select
+          value={local.transactionType}
+          onValueChange={(v) =>
+            setLocal((prev) => ({ ...prev, transactionType: v }))
+          }
+        >
+          <SelectTrigger id="lp-tx-transactionType">
+            <SelectValue placeholder={t('filter.all')} />
+          </SelectTrigger>
+          <SelectContent>
+            {typeOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+      <div>
+        <label
+          htmlFor="lp-tx-transactionHash"
+          className="mb-1.5 block text-sm font-medium text-foreground"
+        >
+          {t('cross_chain_0060')}
+        </label>
+        <input
+          id="lp-tx-transactionHash"
+          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          placeholder={t('cross_chain_0060')}
+          value={local.transactionHash}
+          onChange={(e) =>
+            setLocal((prev) => ({ ...prev, transactionHash: e.target.value }))
+          }
+        />
+      </div>
+      <div>
+        <label
+          htmlFor="lp-tx-status"
+          className="mb-1.5 block text-sm font-medium text-foreground"
+        >
+          {t('filter.status')}
+        </label>
+        <Select
+          value={local.status}
+          onValueChange={(v) => setLocal((prev) => ({ ...prev, status: v }))}
+        >
+          <SelectTrigger id="lp-tx-status">
+            <SelectValue placeholder={t('filter.all')} />
+          </SelectTrigger>
+          <SelectContent>
+            {statusOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <DatePickerField
+        id="lp-tx-transactionTimeStart"
+        label={t('cross_chain_0061')}
+        value={local.transactionTimeStart}
+        onChange={(v) =>
+          setLocal((prev) => ({ ...prev, transactionTimeStart: v }))
+        }
+      />
+      <DatePickerField
+        id="lp-tx-transactionTimeEnd"
+        label={t('cross_chain_0061')}
+        value={local.transactionTimeEnd}
+        onChange={(v) =>
+          setLocal((prev) => ({ ...prev, transactionTimeEnd: v }))
+        }
+      />
     </div>
+    <div className="mt-4 flex gap-2">
+      <Button onClick={() => onChange(local)}>{t('filter.query')}</Button>
+      <Button type="button" variant="outline" onClick={onReset}>
+        {t('filter.reset')}
+      </Button>
+    </div></Card>
   );
 }
 
@@ -1034,113 +1027,111 @@ function AuthFilterBar({
   const [local, setLocal] = React.useState(filter);
   React.useEffect(() => setLocal(filter), [filter]);
   return (
-    <div className="rounded-lg border bg-card p-4 shadow-sm">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <div>
-          <label
-            htmlFor="lp-auth-operationType"
-            className="mb-1.5 block text-sm font-medium text-foreground"
-          >
-            {t('cross_chain_0032')}
-          </label>
-          <Select
-            value={local.operationType}
-            onValueChange={(v) =>
-              setLocal((prev) => ({ ...prev, operationType: v }))
-            }
-          >
-            <SelectTrigger id="lp-auth-operationType">
-              <SelectValue placeholder={t('filter.all')} />
-            </SelectTrigger>
-            <SelectContent>
-              {opTypeOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <DatePickerField
-          id="lp-auth-operationTimeStart"
-          label={t('cross_chain_0068')}
-          value={local.operationTimeStart}
-          onChange={(v) =>
-            setLocal((prev) => ({ ...prev, operationTimeStart: v }))
+    <Card className="p-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div>
+        <label
+          htmlFor="lp-auth-operationType"
+          className="mb-1.5 block text-sm font-medium text-foreground"
+        >
+          {t('cross_chain_0032')}
+        </label>
+        <Select
+          value={local.operationType}
+          onValueChange={(v) =>
+            setLocal((prev) => ({ ...prev, operationType: v }))
           }
-        />
-        <DatePickerField
-          id="lp-auth-operationTimeEnd"
-          label={t('cross_chain_0068')}
-          value={local.operationTimeEnd}
-          onChange={(v) =>
-            setLocal((prev) => ({ ...prev, operationTimeEnd: v }))
-          }
-        />
-        <div>
-          <label
-            htmlFor="lp-auth-transactionHash"
-            className="mb-1.5 block text-sm font-medium text-foreground"
-          >
-            {t('cross_chain_0060')}
-          </label>
-          <input
-            id="lp-auth-transactionHash"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            placeholder={t('cross_chain_0060')}
-            value={local.transactionHash}
-            onChange={(e) =>
-              setLocal((prev) => ({ ...prev, transactionHash: e.target.value }))
-            }
-          />
-        </div>
-        <DatePickerField
-          id="lp-auth-transactionTimeStart"
-          label={t('cross_chain_0061')}
-          value={local.transactionTimeStart}
-          onChange={(v) =>
-            setLocal((prev) => ({ ...prev, transactionTimeStart: v }))
-          }
-        />
-        <DatePickerField
-          id="lp-auth-transactionTimeEnd"
-          label={t('cross_chain_0061')}
-          value={local.transactionTimeEnd}
-          onChange={(v) =>
-            setLocal((prev) => ({ ...prev, transactionTimeEnd: v }))
-          }
-        />
-        <div>
-          <label
-            htmlFor="lp-auth-status"
-            className="mb-1.5 block text-sm font-medium text-foreground"
-          >
-            {t('filter.status')}
-          </label>
-          <Select
-            value={local.status}
-            onValueChange={(v) => setLocal((prev) => ({ ...prev, status: v }))}
-          >
-            <SelectTrigger id="lp-auth-status">
-              <SelectValue placeholder={t('filter.all')} />
-            </SelectTrigger>
-            <SelectContent>
-              {statusOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        >
+          <SelectTrigger id="lp-auth-operationType">
+            <SelectValue placeholder={t('filter.all')} />
+          </SelectTrigger>
+          <SelectContent>
+            {opTypeOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-      <div className="mt-4 flex gap-2">
-        <Button onClick={() => onChange(local)}>{t('filter.query')}</Button>
-        <Button type="button" variant="outline" onClick={onReset}>
-          {t('filter.reset')}
-        </Button>
+      <DatePickerField
+        id="lp-auth-operationTimeStart"
+        label={t('cross_chain_0068')}
+        value={local.operationTimeStart}
+        onChange={(v) =>
+          setLocal((prev) => ({ ...prev, operationTimeStart: v }))
+        }
+      />
+      <DatePickerField
+        id="lp-auth-operationTimeEnd"
+        label={t('cross_chain_0068')}
+        value={local.operationTimeEnd}
+        onChange={(v) =>
+          setLocal((prev) => ({ ...prev, operationTimeEnd: v }))
+        }
+      />
+      <div>
+        <label
+          htmlFor="lp-auth-transactionHash"
+          className="mb-1.5 block text-sm font-medium text-foreground"
+        >
+          {t('cross_chain_0060')}
+        </label>
+        <input
+          id="lp-auth-transactionHash"
+          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          placeholder={t('cross_chain_0060')}
+          value={local.transactionHash}
+          onChange={(e) =>
+            setLocal((prev) => ({ ...prev, transactionHash: e.target.value }))
+          }
+        />
+      </div>
+      <DatePickerField
+        id="lp-auth-transactionTimeStart"
+        label={t('cross_chain_0061')}
+        value={local.transactionTimeStart}
+        onChange={(v) =>
+          setLocal((prev) => ({ ...prev, transactionTimeStart: v }))
+        }
+      />
+      <DatePickerField
+        id="lp-auth-transactionTimeEnd"
+        label={t('cross_chain_0061')}
+        value={local.transactionTimeEnd}
+        onChange={(v) =>
+          setLocal((prev) => ({ ...prev, transactionTimeEnd: v }))
+        }
+      />
+      <div>
+        <label
+          htmlFor="lp-auth-status"
+          className="mb-1.5 block text-sm font-medium text-foreground"
+        >
+          {t('filter.status')}
+        </label>
+        <Select
+          value={local.status}
+          onValueChange={(v) => setLocal((prev) => ({ ...prev, status: v }))}
+        >
+          <SelectTrigger id="lp-auth-status">
+            <SelectValue placeholder={t('filter.all')} />
+          </SelectTrigger>
+          <SelectContent>
+            {statusOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </div>
+    <div className="mt-4 flex gap-2">
+      <Button onClick={() => onChange(local)}>{t('filter.query')}</Button>
+      <Button type="button" variant="outline" onClick={onReset}>
+        {t('filter.reset')}
+      </Button>
+    </div></Card>
   );
 }
 
@@ -1160,41 +1151,39 @@ function OpFilterBar({
   const [local, setLocal] = React.useState(filter);
   React.useEffect(() => setLocal(filter), [filter]);
   return (
-    <div className="rounded-lg border bg-card p-4 shadow-sm">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="w-56">
-          <label
-            htmlFor="lp-op-operationType"
-            className="mb-1.5 block text-sm font-medium text-foreground"
-          >
-            {t('cross_chain_0032')}
-          </label>
-          <Select
-            value={local.operationType}
-            onValueChange={(v) =>
-              setLocal((prev) => ({ ...prev, operationType: v }))
-            }
-          >
-            <SelectTrigger id="lp-op-operationType">
-              <SelectValue placeholder={t('filter.all')} />
-            </SelectTrigger>
-            <SelectContent>
-              {opTypeOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="mt-4 flex gap-2">
-        <Button onClick={() => onChange(local)}>{t('filter.query')}</Button>
-        <Button type="button" variant="outline" onClick={onReset}>
-          {t('filter.reset')}
-        </Button>
+    <Card className="p-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="w-56">
+        <label
+          htmlFor="lp-op-operationType"
+          className="mb-1.5 block text-sm font-medium text-foreground"
+        >
+          {t('cross_chain_0032')}
+        </label>
+        <Select
+          value={local.operationType}
+          onValueChange={(v) =>
+            setLocal((prev) => ({ ...prev, operationType: v }))
+          }
+        >
+          <SelectTrigger id="lp-op-operationType">
+            <SelectValue placeholder={t('filter.all')} />
+          </SelectTrigger>
+          <SelectContent>
+            {opTypeOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </div>
+    <div className="mt-4 flex gap-2">
+      <Button onClick={() => onChange(local)}>{t('filter.query')}</Button>
+      <Button type="button" variant="outline" onClick={onReset}>
+        {t('filter.reset')}
+      </Button>
+    </div></Card>
   );
 }
 

@@ -11,6 +11,7 @@ import {
   CopyableEllipsisText,
   DataTable,
   Input,
+  cardSurfaceClass,
 } from '@myorg/shared/ui';
 import {
   Select,
@@ -19,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { useAuth } from '@myorg/shared/util-auth';
 import {
   useSpAccessListQuery,
@@ -221,7 +223,7 @@ export function SpAccessListPage() {
         {/* 上游 registerAlt 权限命中渲染第二枚同功能按钮，下游合并为一枚（alignment.md L-04 披露） */}
       </div>
 
-      <div className="rounded-lg border bg-card p-4">
+      <div className={cn(cardSurfaceClass, 'p-4')}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium">{t('sp_access_0000')}</label>

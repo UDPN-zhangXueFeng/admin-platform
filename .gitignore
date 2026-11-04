@@ -60,3 +60,5 @@ test-output
 .playwright-mcp/
 # Next.js stub build artifacts (unnamed package.json breaks Nx graph)
 .next-stub
+# omp配置
+.omp/

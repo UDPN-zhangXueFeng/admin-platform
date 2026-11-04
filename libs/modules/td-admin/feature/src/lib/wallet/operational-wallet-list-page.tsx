@@ -9,9 +9,12 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
 import {
   Button,
+  Card,
   CopyableEllipsisText,
   DataTable,
+  cardSurfaceClass,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
@@ -270,7 +273,7 @@ export function OperationalWalletListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="mb-4 text-sm font-semibold">
           {t('operationalWallet.filterTitle')}
@@ -329,7 +332,7 @@ export function OperationalWalletListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">
           {t('operationalWallet.records')}
         </div>
@@ -350,7 +353,7 @@ export function OperationalWalletListPage() {
             }}
           />
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

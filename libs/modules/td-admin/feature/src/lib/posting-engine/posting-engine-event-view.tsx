@@ -6,6 +6,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   Button,
+  Card,
   DataTable,
   Drawer,
   DrawerContent,
@@ -271,12 +272,12 @@ export function PostingEngineEventView({
 
   if (!postingEventId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
         <Button variant="outline" className="mt-4" onClick={() => router.back()}>
           {t('action.back')}
         </Button>
-      </div>
+      </Card>
     );
   }
 
@@ -294,7 +295,7 @@ export function PostingEngineEventView({
 
         <TabsContent value={BASIC_TAB}>
           <div className="space-y-4">
-            <section className="rounded-lg border bg-card shadow-sm">
+            <Card>
               <div className="border-b px-6 py-3 text-sm font-semibold">
                 {t('detail.basicInformation')}
               </div>
@@ -322,9 +323,9 @@ export function PostingEngineEventView({
                   </tbody>
                 </table>
               </div>
-            </section>
+            </Card>
 
-            <section className="rounded-lg border bg-card shadow-sm">
+            <Card>
               <div className="border-b px-6 py-3 text-sm font-semibold">
                 {t('detail.transactionEventFields')}
               </div>
@@ -349,9 +350,9 @@ export function PostingEngineEventView({
                   </span>
                 )}
               </div>
-            </section>
+            </Card>
 
-            <section className="rounded-lg border bg-card shadow-sm">
+            <Card>
               <div className="border-b px-6 py-3 text-sm font-semibold">
                 {t('detail.entryTemplate')}
               </div>
@@ -396,12 +397,12 @@ export function PostingEngineEventView({
                   </tbody>
                 </table>
               </div>
-            </section>
+            </Card>
           </div>
         </TabsContent>
 
         <TabsContent value={HISTORY_TAB}>
-          <section className="rounded-lg border bg-card shadow-sm">
+          <Card>
             <div className="border-b px-6 py-3 text-sm font-semibold">
               {t('detail.versionHistory')}
             </div>
@@ -422,7 +423,7 @@ export function PostingEngineEventView({
                 }}
               />
             </div>
-          </section>
+          </Card>
         </TabsContent>
       </Tabs>
 

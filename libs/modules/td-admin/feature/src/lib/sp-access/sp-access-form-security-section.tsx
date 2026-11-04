@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Checkbox, Label, RadioGroup, RadioGroupItem, Switch } from '@myorg/shared/ui';
+import { Card, Checkbox, Label, RadioGroup, RadioGroupItem, Switch } from '@myorg/shared/ui';
 
 interface SpAccessFormSecuritySectionProps {
   metaEnabled: boolean;
@@ -30,7 +30,7 @@ export function SpAccessFormSecuritySection({
 
   return (
     <>
-      <section className="rounded-lg border bg-card p-6">
+      <Card className="p-6">
         <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-3">
             <Label>{t('sp_access_0147')}</Label>
@@ -54,9 +54,9 @@ export function SpAccessFormSecuritySection({
             </p>
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border bg-card p-6">
+      <Card className="p-6">
         <h2 className="mb-1 text-lg font-semibold">{t('sp_access_0067')}</h2>
         <p className="mb-4 text-sm text-muted-foreground">{t('sp_access_0179')}</p>
         <div className="grid gap-3 md:grid-cols-3">
@@ -70,9 +70,9 @@ export function SpAccessFormSecuritySection({
             </label>
           ))}
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border bg-card p-6">
+      <Card className="p-6">
         <h2 className="mb-1 text-lg font-semibold">{t('sp_access_0149')}</h2>
         <p className="mb-4 text-sm text-muted-foreground">{t('sp_access_0178')}</p>
         <div className="flex flex-wrap gap-10">
@@ -83,7 +83,7 @@ export function SpAccessFormSecuritySection({
             </div>
           ))}
         </div>
-      </section>
+      </Card>
     </>
   );
 }

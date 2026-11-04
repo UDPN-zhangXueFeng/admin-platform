@@ -5,7 +5,7 @@ import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { toast } from 'sonner';
-import { Button } from '@myorg/shared/ui';
+import { Button, Card } from '@myorg/shared/ui';
 import {
   useBillRuleDetailQuery,
   useBillSubjectListQuery,
@@ -200,9 +200,7 @@ export function JournalEntriesForm({
 
   if (isEdit && detailQuery.isLoading) {
     return (
-      <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground shadow-sm">
-        {t('detail.title')}
-      </div>
+      <Card className="p-6 text-sm text-muted-foreground">{t('detail.title')}</Card>
     );
   }
 
@@ -211,7 +209,7 @@ export function JournalEntriesForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {/* 基本信息 */}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-base font-semibold">
           {isEdit ? t('action.edit') : t('action.add')}
         </div>
@@ -291,10 +289,10 @@ export function JournalEntriesForm({
             />
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* txTypeItems 动态（外层 useFieldArray）*/}
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-base font-semibold">{t('field.txType')}</div>
         <div className="space-y-4">
           {fields.map((item, i) => (
@@ -333,7 +331,7 @@ export function JournalEntriesForm({
             {t('action.add')}
           </Button>
         ) : null}
-      </section>
+      </Card>
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={() => router.back()}>

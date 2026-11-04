@@ -15,6 +15,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
+  Card,
+  cardSurfaceClass,
   CopyableEllipsisText,
   DataTable,
   Dialog,
@@ -25,6 +27,7 @@ import {
   Input,
   Label,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
@@ -404,7 +407,7 @@ export function RdBridgeListPage(): React.JSX.Element {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormSelect
@@ -464,36 +467,34 @@ export function RdBridgeListPage(): React.JSX.Element {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">{t('cross_chain_0006')}</div>
-          <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.RD_ADD_BTN}>
-            <Button
-              size="sm"
-              onClick={() => router.push('/cross-chain/rd-bridge/edit')}
-            >
-              {t('action.add')}
-            </Button>
-          </PermissionGuard>
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (p) =>
-                setPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
-        </div>
+      <Card><div className="flex justify-between border-b px-6 py-3">
+        <div className="text-sm font-semibold">{t('cross_chain_0006')}</div>
+        <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.RD_ADD_BTN}>
+          <Button
+            size="sm"
+            onClick={() => router.push('/cross-chain/rd-bridge/edit')}
+          >
+            {t('action.add')}
+          </Button>
+        </PermissionGuard>
       </div>
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (p) =>
+              setPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
 
       {/* ── Disable/Enable 共用 Modal ── */}
       <Dialog

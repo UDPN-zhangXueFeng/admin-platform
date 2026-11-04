@@ -212,6 +212,13 @@ Zustand 只用于客户端共享状态，例如：
 - 不在业务组件中硬编码大量一次性 magic color，优先使用设计 token 或现有语义色
 - UI 组件应支持基本 a11y：label、aria、focus 状态、键盘操作
 
+### Card 卡面（2026-11 定版）
+
+- 卡片容器统一使用 `libs/shared/ui` 的 `Card`（无边框、`shadow-float`、hover 加深为 `shadow-float-lg`）。
+- `<form>`/`<main>` 或依赖横向 flex 的容器不能换成 `Card` 时，使用 `cardSurfaceClass`（同文件导出，经 `@myorg/shared/ui` barrel 引用）+ `cn`，保留原标签和布局类。
+- 不要再手写 `rounded-lg border bg-card shadow-sm` 一类的散落卡面 class；卡面样式只允许出现在 `card.tsx` 一处。
+- `Card` root 含 `overflow-hidden`：卡内若需弹出层逃逸（Select/Popover 下拉），用 `cardSurfaceClass` 于原标签，不用 `Card`。
+
 ### 响应式桌面密度
 
 - `<1024px` 使用移动端或抽屉式布局
