@@ -756,7 +756,8 @@ export function LpInfoListPage() {
         cell: ({ row }) => {
           const item = row.original;
           // 原型 LpOnboardingPage：Details 文本按钮 + ⋮ 菜单。菜单按状态：
-          // Draft→Edit+Submit；Rejected→Edit；Pending/Under Approval→只读无菜单；
+          // Draft / Rejected→Edit+Submit（被驳回后改完要能重新提交，后端 submitOnboard
+          // 明确允许 status=15→5）；Pending/Under Approval→只读无菜单；
           // Active→Portal Account+Deactivate；Inactive→Activate。
           const menuItems: {
             label: string;
@@ -770,7 +771,9 @@ export function LpInfoListPage() {
               onSelect: () => router.push(lpRoute('lp-info', 'edit', item.lpId)),
             });
           }
-          if (item.status === 1) {
+          // 2026-11-04 修复：原来只有 Draft(1) 能提交，被驳回(15)的 LP 改完无法再次提交，
+          // 列表永远停在 Rejected（用户反馈「重新编辑后状态还是 rejected」）。
+          if (item.status === 1 || item.status === 15) {
             menuItems.push({
               label: 'Submit',
               disabled: submitMutation.isPending,
