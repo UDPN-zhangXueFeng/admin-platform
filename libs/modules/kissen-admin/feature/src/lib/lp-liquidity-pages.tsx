@@ -275,6 +275,7 @@ function lpToOptions(list: LpOption[] | undefined): SelectOption[] {
 /** LP 入网状态徽章（原型 LpStatus：六态语义色，文案走 PROTO_LP_STATUS）。 */
 const LP_STATUS_TONES: Record<number, ProtoStatusTone> = {
   1: 'muted',
+  3: 'muted',
   5: 'warning',
   10: 'warning',
   15: 'danger',
@@ -292,6 +293,7 @@ function LpStatusBadge({ status }: { status: number }) {
 
 /** 流动性池状态徽章（原型 PoolStatus：四态）。 */
 const LP_POOL_STATUS_TONES: Record<number, ProtoStatusTone> = {
+  3: 'muted',
   5: 'warning',
   15: 'danger',
   20: 'success',
@@ -312,6 +314,7 @@ function PoolStatusBadge({ status }: { status: number }) {
  */
 const LP_PAIR_STATUS_TONES: Record<number, ProtoStatusTone> = {
   1: 'muted',
+  3: 'muted',
   5: 'warning',
   10: 'warning',
   15: 'danger',
@@ -756,8 +759,8 @@ export function LpInfoListPage() {
         cell: ({ row }) => {
           const item = row.original;
           // 原型 LpOnboardingPage：Details 文本按钮 + ⋮ 菜单。菜单按状态：
-          // Draft→Edit+Submit；Rejected→只给 Edit（保存修改后后端把 15 归为草稿 1，
-          // 列表状态回到 Draft，届时才出现 Submit）；Pending/Under Approval→只读无菜单；
+          // Draft→Edit+Submit；Rejected(15)/Withdrawn(3)→只给 Edit（保存后后端归为草稿 1，
+          // 届时才出现 Submit）；Pending/Under Approval→只读无菜单；
           // Active→Portal Account+Deactivate；Inactive→Activate。
           const menuItems: {
             label: string;
@@ -765,14 +768,14 @@ export function LpInfoListPage() {
             disabled?: boolean;
             onSelect: () => void;
           }[] = [];
-          if (item.status === 1 || item.status === 15) {
+          if (item.status === 1 || item.status === 15 || item.status === 3) {
             menuItems.push({
               label: 'Edit',
               onSelect: () => router.push(lpRoute('lp-info', 'edit', item.lpId)),
             });
           }
-          // 2026-11-04：只保留草稿可提交——驳回针对上一版申请，不改内容就重提只会原样再被拒；
-          // 必须先编辑（后端保存时把 15 重置为 1），回到列表后才出现 Submit。
+          // 2026-11-04：只保留草稿可提交——驳回/撤回针对的是上一版申请，不改内容就重提只会
+          // 原样再被拒；必须先编辑（后端保存时把 15/3 重置为 1），回到列表后才出现 Submit。
           if (item.status === 1) {
             menuItems.push({
               label: 'Submit',
@@ -912,7 +915,7 @@ export function LpInfoListPage() {
               control={control}
               label="Status"
               placeholder={LBL.all}
-              options={[1, 5, 10, 15, 20].map((code) => ({
+              options={[1, 3, 5, 10, 15, 20].map((code) => ({
                 value: String(code),
                 label: protoStatusLabel(PROTO_LP_STATUS, code),
               }))}
@@ -1355,6 +1358,7 @@ export function LpInfoFormPage() {
 
   const { data: detail } = useLpDetailQuery(PROJECT_ID, lpId);
   const saveMutation = useSaveLpMutation(PROJECT_ID);
+  const submitMutation = useSubmitLpOnboardMutation(PROJECT_ID);
   const precheckMutation = useLpPoolPrecheckMutation();
   const { data: pairOptionsRaw } = useLpPairTokenPairOptionsQuery(PROJECT_ID, {
     status: 20,
@@ -1558,7 +1562,8 @@ export function LpInfoFormPage() {
     );
   };
 
-  const onSubmit = handleSubmit((values) => {
+  /** 保存草稿；resubmit=true 时保存成功后立即提交入网审批（草稿/驳回行的快捷路径）。 */
+  const performSave = (values: LpInfoFormValues, resubmit: boolean) => {
     const built = buildPairs();
     if (built == null) {
       toast.warning(
@@ -1576,14 +1581,34 @@ export function LpInfoFormPage() {
       pairs: built,
     };
     if (isEdit && lpId) req.lpId = lpId;
+    const onError = (e: unknown) => toast.error((e as Error).message);
     saveMutation.mutate(req, {
       onSuccess: () => {
-        toast.success(isEdit ? 'Saved' : 'Created (Draft)');
-        router.push(lpRoute('lp-info'));
+        if (!resubmit || lpId == null) {
+          toast.success(isEdit ? 'Saved' : 'Created (Draft)');
+          router.push(lpRoute('lp-info'));
+          return;
+        }
+        // 先落稿（驳回→草稿）再提交：两步分开是因为提交会创建审批轮次并通知审批人，
+        // 不该混在"保存"里静默发生；这里只是把两次点击合并成一次。
+        submitMutation.mutate(lpId, {
+          onSuccess: () => {
+            toast.success('Saved and submitted for approval');
+            router.push(lpRoute('lp-info'));
+          },
+          onError,
+        });
       },
-      onError: (e) => toast.error((e as Error).message),
+      onError,
     });
-  });
+  };
+  const onSubmit = handleSubmit((values) => performSave(values, false));
+  const onSaveAndResubmit = handleSubmit((values) => performSave(values, true));
+  /** 只有草稿/被驳回/已撤回可编辑，也就只有这三种状态给"保存并重新提交"。 */
+  const canResubmit =
+    isEdit &&
+    (detail?.status === 1 || detail?.status === 15 || detail?.status === 3);
+  const busy = saveMutation.isPending || submitMutation.isPending;
 
   const confirmDiscardChanges = () => {
     const navigation = pendingNavigation;
@@ -1971,9 +1996,21 @@ export function LpInfoFormPage() {
           >
             {LBL.cancel}
           </Button>
-          <Button type="submit" disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? LBL.saving : LBL.save}
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* 可重提时主操作是"保存并重提"，只存草稿降为次操作 */}
+            <Button
+              type="submit"
+              variant={canResubmit ? 'outline' : 'default'}
+              disabled={busy}
+            >
+              {saveMutation.isPending ? LBL.saving : LBL.save}
+            </Button>
+            {canResubmit ? (
+              <Button type="button" onClick={onSaveAndResubmit} disabled={busy}>
+                {submitMutation.isPending ? 'Submitting…' : 'Save & Resubmit'}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </form>
       <ConfirmDialog

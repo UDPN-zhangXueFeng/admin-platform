@@ -79,6 +79,8 @@ export const PROTO_PAIR_STATUS: Record<number, ProtoStatusMeta> = {
 export const PROTO_BANK_STATUS: Record<number, ProtoStatusMeta> = {
   1: { label: 'Draft', rank: 0 },
   2: { label: 'Registered', rank: 1 },
+  // 撤回（KBO 审批发起人撤回）：可改可重新入网，等同"待修改"
+  3: { label: 'Withdrawn', rank: 1.5 },
   5: { label: 'Pending Approval', rank: 2 },
   10: { label: 'Under Approval', rank: 3 },
   15: { label: 'Rejected', rank: 4 },
@@ -100,6 +102,8 @@ export const PROTO_INSTANCE_STATUS: Record<number, ProtoStatusMeta> = {
 /** LP 入网状态（码位 = CommonStatusEnum；label 取通用字典，业务语境 20=Enabled）。 */
 export const PROTO_LP_STATUS: Record<number, ProtoStatusMeta> = {
   1: { label: 'Draft', rank: 0 },
+  // 撤回（审批发起人撤回）：可编辑、需保存回草稿后才能重提，见 LpServiceImpl.saveLp
+  3: { label: 'Withdrawn', rank: 0.5 },
   5: { label: 'Pending Approval', rank: 1 },
   10: { label: 'Under Approval', rank: 2 },
   15: { label: 'Rejected', rank: 3 },
@@ -109,6 +113,8 @@ export const PROTO_LP_STATUS: Record<number, ProtoStatusMeta> = {
 
 /** 流动性池状态（值域 5/15/20/50；label 取通用字典，rank 按码值升序）。 */
 export const PROTO_POOL_STATUS: Record<number, ProtoStatusMeta> = {
+  // 撤回（KLPP 审批发起人撤回，LpPoolApproveStrategy 写入）
+  3: { label: 'Withdrawn', rank: -1 },
   5: { label: 'Pending Approval', rank: 0 },
   15: { label: 'Rejected', rank: 1 },
   20: { label: 'Enabled', rank: 2 },
@@ -121,6 +127,8 @@ export const PROTO_POOL_STATUS: Record<number, ProtoStatusMeta> = {
  */
 export const PROTO_LP_PAIR_STATUS: Record<number, ProtoStatusMeta> = {
   1: { label: 'Draft', rank: 0 },
+  // 撤回（KLP 审批发起人撤回，LpPairApproveStrategy 写入）：重提走 Add Token Pair 收养
+  3: { label: 'Withdrawn', rank: 0.5 },
   5: { label: 'Pending Approval', rank: 1 },
   10: { label: 'Under Approval', rank: 2 },
   15: { label: 'Rejected', rank: 3 },

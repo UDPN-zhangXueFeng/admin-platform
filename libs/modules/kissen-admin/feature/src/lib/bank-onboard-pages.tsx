@@ -214,11 +214,12 @@ function safeExternalUrl(value: string | null | undefined): string | undefined {
 }
 
 /** 银行状态 tone（2023418 值域，与 PROTO_BANK_STATUS 对齐）：
- * 1 Draft/2 Registered/5 Pending Approval/10 Under Approval/15 Rejected/
+ * 1 Draft/2 Registered/3 Withdrawn/5 Pending Approval/10 Under Approval/15 Rejected/
  * 20 Onboarded/50 Disabled；新增 2=info，10 在途沿用 warning。 */
 const BANK_STATUS_TONES: Record<number, ProtoStatusTone> = {
   1: 'muted',
   2: 'info',
+  3: 'muted',
   5: 'warning',
   10: 'warning',
   15: 'danger',
@@ -1089,8 +1090,9 @@ export function BankInfoListPage() {
         cell: ({ row }) => {
           const item = row.original;
           // 原型 D6/D7：Details 文本按钮 + ⋮ 菜单。菜单按状态（2023418 值域）：
-          // Disabled(50)→Activate；Draft(1)→Edit；Registered(2)/Enabled(20)
+          // Disabled(50)→Activate；Draft(1)/Withdrawn(3)→Edit；Registered(2)/Enabled(20)
           // →Deactivate（Registered 另可 Edit）；审批在途/结果态无菜单。
+          // 2026-11-04：撤回(3)原本无任何入口，银行改完也无法重提 → 至少给管理员 Edit。
           const menuItems: {
             label: string;
             danger?: boolean;
@@ -1102,7 +1104,7 @@ export function BankInfoListPage() {
               onSelect: () => setStatusAction({ row: item, kind: 'activate' }),
             });
           }
-          if (item.status === 1 || item.status === 2) {
+          if (item.status === 1 || item.status === 2 || item.status === 3) {
             menuItems.push({
               label: 'Edit',
               onSelect: () =>
