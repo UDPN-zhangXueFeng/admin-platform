@@ -63,6 +63,8 @@ export const PROTO_TOKEN_STATUS: Record<number, ProtoStatusMeta> = {
  * pair 表文案（与 token 表 'Inactive' 各自独立）。rank 按码值升序。
  */
 export const PROTO_PAIR_STATUS: Record<number, ProtoStatusMeta> = {
+  // 撤回（KPT 审批发起人撤回，TokenPairApproveStrategy 写入）：可编辑重提，等同驳回路径
+  3: { label: 'Withdrawn', rank: -0.5 },
   5: { label: 'Pending Approval', rank: 0 },
   10: { label: 'Under Approval', rank: 1 },
   15: { label: 'Rejected', rank: 2 },

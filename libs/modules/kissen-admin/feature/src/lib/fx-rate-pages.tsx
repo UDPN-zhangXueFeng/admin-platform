@@ -569,10 +569,10 @@ export function TokenPairListPage() {
         header: 'Actions',
         cell: ({ row }) => {
           const item = row.original;
-          // 原型行操作矩阵：15 → Edit（重提）；20 → Edit + Disable；
+          // 原型行操作矩阵：15/3 → Edit（重提）；20 → Edit + Disable；
           // 30/50 → Activate；5/10 审批在途无可操作项。
           const menuItems: React.ReactNode[] = [];
-          if (item.status === 15 || item.status === 20) {
+          if (item.status === 15 || item.status === 3 || item.status === 20) {
             menuItems.push(
               <DropdownMenuItem
                 key="edit"
@@ -1667,7 +1667,7 @@ function PairEditForm({ row }: { row: TokenPairRow }) {
   const clientRate = clientRateOf(form.baseRate, form.markupRate);
   // 已驳回（15）= KPT 重提：SaveReq 无 pairId，按 source+target 组合识别；
   // 其余可编辑状态 = KRC 参数变更（现值生效至审批通过）。
-  const isResubmit = row.status === 15;
+  const isResubmit = row.status === 15 || row.status === 3;
   const pending = row.pendingChange || row.status === 5;
 
   const onSubmit = React.useCallback(() => {
