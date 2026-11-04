@@ -24,7 +24,9 @@ export function useSaveLpMutation(projectId: string) {
   return useMutation({
     mutationFn: (data: LpSaveReq) => saveLp(data),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: lpKeys.lists(projectId) });
+      // 2026-11-04：保存会改状态（驳回→草稿），列表和详情/full 必须一起失效——
+      // 只失效 lists 时详情页 30s 内仍渲染旧状态，出现过"列表待审批、详情拒绝"。
+      void queryClient.invalidateQueries({ queryKey: lpKeys.all(projectId) });
     },
   });
 }
@@ -35,7 +37,8 @@ export function useSubmitLpOnboardMutation(projectId: string) {
   return useMutation({
     mutationFn: (lpId: number) => submitLpOnboard(lpId),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: lpKeys.lists(projectId) });
+      // 提交把状态推到待审：详情页同样要刷新，否则详情仍显示提交前的状态
+      void queryClient.invalidateQueries({ queryKey: lpKeys.all(projectId) });
     },
   });
 }
@@ -47,7 +50,8 @@ export function useLpFreezeToggleMutation(projectId: string) {
     mutationFn: (vars: { targetId: number; freeze: boolean }) =>
       lpFreezeToggle(vars.targetId, vars.freeze),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: lpKeys.lists(projectId) });
+      // 冻结/解冻改 status 20↔50，详情页状态徽章同步失效
+      void queryClient.invalidateQueries({ queryKey: lpKeys.all(projectId) });
     },
   });
 }
