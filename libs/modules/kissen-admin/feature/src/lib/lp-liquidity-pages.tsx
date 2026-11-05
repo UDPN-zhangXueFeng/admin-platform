@@ -2048,8 +2048,8 @@ export function LpInfoDetailPage() {
     void poolsQuery.refetch();
   }, [detailQuery, pairsQuery, poolsQuery]);
 
-  /** Deactivate/Activate Participation 确认提交（原型：Deactivate=50 立即退出匹配；
-   *  Activate=restore(1)+自动重提 KLP，后端无直接激活路径）。 */
+  /** Deactivate/Activate Participation 确认提交（Deactivate=50 退出匹配；
+   *  Activate=提交启停审批，通过后直接回到生效态 20，无需重新 Add Token Pair）。 */
   const onStatusConfirm = () => {
     if (!statusAction) return;
     const { row, kind } = statusAction;
@@ -2074,11 +2074,8 @@ export function LpInfoDetailPage() {
       { id: Number(row.id), targetStatus: LP_PAIR_TARGET_STATUS.restore },
       {
         onSuccess: () => {
-          // KLPS（2026-10-22 P1）起 /status 走审批非立即生效：恢复草稿审批通过后，
-          // 行回到草稿态，需经 Add Token Pair（全量 payload 会收养草稿行）重新提交
-          toast.success(
-            'Restore submitted for approval. After approval, use Add Token Pair to resubmit.',
-          );
+          // KLPS 走审批：审批通过后参与对直接恢复生效(20)，池随之重新激活
+          toast.success('Activation submitted for approval — takes effect after review');
           finish();
         },
         onError: (e) => toast.error((e as Error).message),
@@ -2986,7 +2983,7 @@ export function LpTokenPairListPage() {
       {
         onSuccess: () => {
           toast.success(
-            'Restore submitted for approval. After approval, use Add Token Pair to resubmit.',
+            'Activation submitted for approval — takes effect after review',
           );
           setStatusAction(null);
         },
