@@ -46,6 +46,7 @@ export * from './lib/disburse-spender';
 export * from './lib/gateway-instance';
 export * from './lib/access-key';
 export * from './lib/bank-interact';
+export * from './lib/biz-record';
 export * from './lib/operate-log';
 export * from './lib/transaction';
 export * from './lib/settle-order';
