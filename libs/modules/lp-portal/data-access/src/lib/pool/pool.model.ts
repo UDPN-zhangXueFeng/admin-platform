@@ -16,6 +16,9 @@ export type { PoolRow };
 
 /** 池状态文案（源 STATUS_TEXT{5申请中,15已驳回,20已开通,50停用}；未知码显原值）。 */
 export const POOL_STATUS_TEXT: Record<number, string> = {
+  // 2026-11-05：补 3 撤回 / 10 审批中
+  3: 'Withdrawn',
+  10: 'Under Approval',
   5: 'Pending',
   15: 'Rejected',
   20: 'Active',
@@ -30,7 +33,9 @@ export const POOL_STATUS_VARIANT: Record<
   number,
   'default' | 'secondary' | 'destructive' | 'outline'
 > = {
+  3: 'secondary',
   5: 'outline',
+  10: 'outline',
   15: 'destructive',
   20: 'default',
   50: 'secondary',

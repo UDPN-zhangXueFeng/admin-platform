@@ -53,6 +53,10 @@ export interface PairRow {
  * 剪除后消除，pair 域收回正名命名。
  */
 export const PAIR_STATUS_TEXT: Record<number, string> = {
+  // 2026-11-05：补 1 草稿 / 3 撤回 / 10 审批中（管理端会写入，缺档页面显裸数字）
+  1: 'Draft',
+  3: 'Withdrawn',
+  10: 'Under Approval',
   5: 'Pending',
   15: 'Rejected',
   20: 'Active',
@@ -69,7 +73,10 @@ export const PAIR_STATUS_VARIANT: Record<
   number,
   'default' | 'secondary' | 'destructive' | 'outline'
 > = {
+  1: 'secondary',
+  3: 'secondary',
   5: 'outline',
+  10: 'outline',
   15: 'destructive',
   20: 'default',
   50: 'secondary',
