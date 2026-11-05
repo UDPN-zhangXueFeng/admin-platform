@@ -89,6 +89,7 @@ import {
   protoStatusRank,
 } from './proto-enums';
 import { ProtoSortHeader, useProtoSort } from './proto-sort';
+import { OperateRecordTable } from './operate-record-table';
 
 const PROJECT_ID = KISSEN_PROJECT_ID;
 
@@ -1314,24 +1315,6 @@ export function TokenPairCreatePage() {
     </div>
   );
 }
-/** 操作记录列（原型 OperationRecordsTable 5 列；数据源见 GAP-ADM-02）。 */
-const operationsColumns: ColumnDef<{ id: string } & Record<string, string>>[] = [
-  {
-    id: 'timestamp',
-    header: 'Timestamp',
-    cell: ({ row }) => (
-      <span className="tabular-nums">{row.original.timestamp}</span>
-    ),
-  },
-  { id: 'operator', header: 'Operator', cell: ({ row }) => row.original.operator },
-  { id: 'module', header: 'Module', cell: ({ row }) => row.original.module },
-  { id: 'status', header: 'Status', cell: ({ row }) => row.original.status },
-  {
-    id: 'traceId',
-    header: 'Trace ID',
-    cell: ({ row }) => <span className="font-mono text-xs">{row.original.traceId}</span>,
-  },
-];
 // ---------------------------------------------------------------------------
 // TokenPairDetailPage — Token Pair Details（原型 FxPairDetailsPage）
 // ---------------------------------------------------------------------------
@@ -1618,12 +1601,12 @@ export function TokenPairDetailPage() {
         </TabsContent>
 
         <TabsContent value="operations" className="mt-0">
-          {/* STATIC-FILLER(GAP-ADM-02): 后端无逐对象操作历史端点，操作记录暂空。 */}
+          {/* biz_operate_record 真数据（objectType=TOKEN_PAIR），GAP-ADM-02 已闭环。 */}
           <section className="rounded-lg border border-border/60 bg-card p-4">
-            <DataTable
-              columns={operationsColumns}
-              data={[] as ({ id: string } & Record<string, string>)[]}
-              isLoading={false}
+            <OperateRecordTable
+              projectId={KISSEN_PROJECT_ID}
+              objectType="TOKEN_PAIR"
+              objectId={pairId}
               emptyMessage="No operations recorded yet."
             />
           </section>

@@ -58,6 +58,7 @@ import {
 import { peekRow } from './row-stash';
 import { ActionConfirmDialog, CopyableId, Dash } from './proto-ui';
 import { formatUtc8 } from './proto-format';
+import { OperateRecordTable } from './operate-record-table';
 import {
   ConnectivityBadge,
   HeartbeatHistoryDrawer,
@@ -78,14 +79,6 @@ const DISABLED_STATUS_CODE = 50;
  * Operation History 静态列契约（STATIC-FILLER GAP-ADM-02：operate-log 无按对象
  * （instanceId）过滤 API，先落列契约 + 空表，后端补齐后接真数据）。
  */
-const OPERATION_COLUMNS: ColumnDef<{ id: string }>[] = [
-  { id: 'timestamp', header: 'Timestamp' },
-  { id: 'operator', header: 'Operator' },
-  { id: 'module', header: 'Module' },
-  { id: 'status', header: 'Status' },
-  { id: 'traceId', header: 'Trace ID' },
-];
-
 function parseInstanceId(raw: string | null): number | undefined {
   if (!raw) return undefined;
   const id = Number(raw);
@@ -536,14 +529,13 @@ export function GatewayInstanceDetailPage() {
           </TabsContent>
 
 
-          {/* Tab 4：Operation History —— 静态空表（GAP-ADM-02）。 */}
+          {/* Tab 4：Operation History —— biz_operate_record 真数据（BANK_INSTANCE）。 */}
           <TabsContent value="operations" className="mt-0">
             <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-              {/* STATIC-FILLER(GAP-ADM-02): operate-log 无按对象（instanceId）过滤
-                  API，静态空表 + 列契约。 */}
-              <DataTable
-                columns={OPERATION_COLUMNS}
-                data={[] as { id: string }[]}
+              <OperateRecordTable
+                projectId={KISSEN_PROJECT_ID}
+                objectType="BANK_INSTANCE"
+                objectId={instanceId}
                 emptyMessage="No operations recorded yet."
               />
             </section>

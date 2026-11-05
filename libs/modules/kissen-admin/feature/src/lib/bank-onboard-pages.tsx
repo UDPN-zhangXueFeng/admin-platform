@@ -125,6 +125,7 @@ import {
 } from './proto-ui';
 import { formatTokenAmount, formatUtc8 } from './proto-format';
 import { PROTO_BANK_STATUS, protoStatusLabel } from './proto-enums';
+import { OperateRecordTable } from './operate-record-table';
 import {
   ApprovalQueue,
   ApprovalPendingTagWithDialog,
@@ -239,14 +240,6 @@ function BankStatusBadge({ status }: { status: number }) {
  * Operation History 静态列契约（STATIC-FILLER GAP-ADM-02：operate-log
  * 无按对象过滤 API，先落列契约 + 空表，后端补齐后接真数据）。
  */
-const BANK_OPERATION_COLUMNS: ColumnDef<{ id: string }>[] = [
-  { id: 'timestamp', header: 'Timestamp' },
-  { id: 'operator', header: 'Operator' },
-  { id: 'module', header: 'Module' },
-  { id: 'status', header: 'Status' },
-  { id: 'traceId', header: 'Trace ID' },
-];
-
 function DetailField({
   icon: Icon,
   label,
@@ -2130,14 +2123,13 @@ export function BankInfoDetailPage() {
             </section>
           </TabsContent>
 
-          {/* Tab 4：operations —— 静态空表（GAP-ADM-02）。 */}
+          {/* Tab 4：operations —— biz_operate_record 真数据（GAP-ADM-02 已闭环）。 */}
           <TabsContent value="operations" className="mt-0">
             <section className="rounded-xl border border-border bg-card shadow-sm">
-              {/* STATIC-FILLER(GAP-ADM-02): operate-log 无按对象（bankId）过滤 API，
-                  静态空表 + 列契约（Timestamp/Operator/Module/Status/Trace ID）。 */}
-              <DataTable
-                columns={BANK_OPERATION_COLUMNS}
-                data={[] as { id: string }[]}
+              <OperateRecordTable
+                projectId={KISSEN_PROJECT_ID}
+                objectType="BANK"
+                objectId={bankId}
                 emptyMessage="No operations recorded for this bank."
               />
             </section>

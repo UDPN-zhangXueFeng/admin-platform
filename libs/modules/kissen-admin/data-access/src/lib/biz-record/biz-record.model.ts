@@ -35,6 +35,7 @@ export type BizObjectType =
   | 'LP_POOL'
   | 'LP_PAIR'
   | 'BANK'
+  | 'BANK_INSTANCE'
   | 'TOKEN'
   | 'TOKEN_PAIR'
   | 'SETTLE'
