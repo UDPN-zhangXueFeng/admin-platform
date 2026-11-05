@@ -5,7 +5,7 @@
  */
 import * as React from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { tokenList, tokenListAll } from './token.api';
+import { tokenDetail, tokenList, tokenListAll } from './token.api';
 import { tokenKeys } from './token.keys';
 import type {
   TokenListFilter,
@@ -77,4 +77,17 @@ export function useTokenMeta(projectId: string) {
   );
 
   return { decimalsOf, symOf };
+}
+
+/** Token 基本信息（详情页）。 */
+export function useTokenDetailQuery(
+  projectId: string,
+  tokenId: number,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: tokenKeys.detail(projectId, tokenId),
+    queryFn: ({ signal }) => tokenDetail(tokenId, { signal }),
+    enabled: enabled && tokenId > 0,
+  });
 }

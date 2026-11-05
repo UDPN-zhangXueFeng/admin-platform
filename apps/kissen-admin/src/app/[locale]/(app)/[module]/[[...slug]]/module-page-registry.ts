@@ -75,6 +75,8 @@ const pages: Record<string, Record<string, PageLoader>> = {
 
   token: {
     list: loader((m) => m.TokenManageListPage),
+    // 2026-11-05：token 详情页（基本信息 + 操作历史 biz_operate_record）
+    detail: loader((m) => m.TokenDetailPage),
   },
 
   lp: {

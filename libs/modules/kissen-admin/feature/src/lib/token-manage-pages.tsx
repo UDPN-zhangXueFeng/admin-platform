@@ -15,9 +15,11 @@
  */
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  ArrowLeft,
   CircleCheck,
   CirclePause,
   Copy,
@@ -62,10 +64,15 @@ import {
   Label,
   PasswordField,
   Select,
+  Skeleton,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -99,6 +106,7 @@ import {
   useTokenApproveMutation,
   useTokenDisableMutation,
   useTokenEnableMutation,
+  useTokenDetailQuery,
   useTokenListPageQuery,
   useTokenRejectMutation,
   type HeartbeatRow,
@@ -107,6 +115,7 @@ import {
   type TokenRow,
 } from '@myorg/modules/kissen-admin/data-access';
 
+import { OperateRecordTable } from './operate-record-table';
 import { stashRow } from './row-stash';
 import {
   ActionConfirmDialog,
@@ -420,6 +429,7 @@ function tokenFormToFilter(form: TokenFilterForm): TokenListFilter {
 
 export function TokenManageListPage() {
   const toast = useToast();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [form, setForm] = React.useState<TokenFilterForm>(EMPTY_TOKEN_FILTER);
   const [filter, setFilter] = React.useState<TokenListFilter>({});
@@ -678,7 +688,13 @@ export function TokenManageListPage() {
         ),
       },
       createActionColumn<TokenRow & { id: string }>((item) => {
-        const actions: TableRowAction<TokenRow & { id: string }>[] = [];
+        const actions: TableRowAction<TokenRow & { id: string }>[] = [
+          {
+            label: 'Details',
+            onClick: () =>
+              router.push(`/onboard/token/detail?id=${item.tokenId}`),
+          },
+        ];
         if (item.status === 5) {
           actions.push(
             { label: 'Approve', onClick: () => onApprove(item) },
@@ -2081,6 +2097,230 @@ export function GatewayInstanceListPage() {
           instance={heartbeatInstance}
           onClose={() => setHeartbeatInstance(null)}
         />
+      ) : null}
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* TokenDetailPage — Token Details（基本信息 + 操作历史）              */
+/* ================================================================== */
+
+const TOKEN_LIST_PATH = '/onboard/token';
+
+type TokenDetailTab = 'basic' | 'operations';
+
+const TOKEN_DETAIL_TABS: { key: TokenDetailTab; label: string }[] = [
+  { key: 'basic', label: 'Basic Information' },
+  { key: 'operations', label: 'Operation History' },
+];
+
+/** 只读字段（label + 值；空值统一 Dash）。 */
+function DetailField({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: React.ReactNode;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <span
+        className={
+          mono
+            ? 'break-all font-mono text-sm text-foreground'
+            : 'text-sm text-foreground'
+        }
+      >
+        {value === null || value === undefined || value === '' ? <Dash /> : value}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Token 详情页（/onboard/token/detail?id=N&tab=basic|operations）。
+ * 基本信息来自 POST /manage/token/detail/{tokenId}；操作历史来自 biz_operate_record。
+ */
+export function TokenDetailPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tokenId = React.useMemo(() => {
+    const raw = Number(searchParams.get('id'));
+    return Number.isFinite(raw) && raw > 0 ? raw : 0;
+  }, [searchParams]);
+
+  const tabParam = searchParams.get('tab');
+  const activeTab: TokenDetailTab =
+    tabParam === 'operations' ? 'operations' : 'basic';
+
+  const handleTabChange = (next: string) => {
+    const qs = new URLSearchParams();
+    if (tokenId > 0) qs.set('id', String(tokenId));
+    if (next !== 'basic') qs.set('tab', next);
+    router.replace(`${TOKEN_LIST_PATH}/detail?${qs.toString()}`, {
+      scroll: false,
+    });
+  };
+
+  const detailQuery = useTokenDetailQuery(KISSEN_PROJECT_ID, tokenId);
+  const token = detailQuery.data;
+
+  if (tokenId <= 0) {
+    return (
+      <div className="space-y-4">
+        <Button variant="outline" onClick={() => router.push(TOKEN_LIST_PATH)}>
+          <ArrowLeft className="mr-1 size-4" aria-hidden="true" />
+          Back
+        </Button>
+        <div className="rounded-xl border border-border/60 bg-card p-6 text-sm text-muted-foreground">
+          Token not found. Open this page from the token list.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <Button
+            variant="outline"
+            size="icon"
+            className="mt-0.5 size-9 shrink-0"
+            onClick={() => router.push(TOKEN_LIST_PATH)}
+            aria-label="Back to token list"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </Button>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold tracking-tight text-foreground">
+              {token?.tokenName || token?.tokenCode || 'Token Details'}
+            </h1>
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              {token ? (
+                <>
+                  <span className="font-mono text-xs">{token.tokenCode}</span>
+                  <TokenStatusBadge
+                    status={token.status}
+                    rejectReason={token.auditReason}
+                  />
+                </>
+              ) : (
+                'Loading…'
+              )}
+            </p>
+          </div>
+        </div>
+      </header>
+
+      {detailQuery.isError ? (
+        <div className="rounded-xl border border-border/60 bg-card p-6">
+          <Alert variant="destructive">
+            <AlertTitle>Failed to load token details.</AlertTitle>
+          </Alert>
+        </div>
+      ) : detailQuery.isLoading ? (
+        <Skeleton className="h-48 w-full" />
+      ) : token ? (
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <TabsList>
+            {TOKEN_DETAIL_TABS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key}>
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          <TabsContent value="basic" className="mt-0">
+            <section className="space-y-6 rounded-xl border border-border/60 bg-card p-6">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">
+                  Basic Information
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Token metadata registered by the issuing bank.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+                <DetailField label="Token Code" value={token.tokenCode} mono />
+                <DetailField label="Symbol" value={token.symbol} mono />
+                <DetailField label="Token No." value={token.tokenNo} mono />
+                <DetailField
+                  label="Token Name"
+                  value={token.tokenName}
+                />
+                <DetailField label="Bank" value={token.bankName} />
+                <DetailField label="Bank BIC" value={token.bankBic} mono />
+                <DetailField
+                  label="Gateway Instance"
+                  value={
+                    token.instanceName
+                      ? `${token.instanceName}${token.instanceCode ? ` (${token.instanceCode})` : ''}`
+                      : token.instanceCode
+                  }
+                />
+                <DetailField label="Chain Type" value={token.chainType} />
+                <DetailField label="Anchor Fiat" value={token.anchorFiat} />
+                <DetailField
+                  label="Decimal Digits"
+                  value={token.decimalDigits}
+                />
+                <DetailField
+                  label="Min. Liquidity"
+                  value={formatTokenAmount(token.minLiquidity)}
+                />
+                <DetailField
+                  label="Contract Address"
+                  value={token.contractAddress}
+                  mono
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-x-8 gap-y-5 border-t border-border/50 pt-5 sm:grid-cols-2">
+                <DetailField label="Issuer" value={token.issuerDesc} />
+                <DetailField label="Remark" value={token.remark} />
+                <DetailField
+                  label="Registered on"
+                  value={
+                    token.createTime ? formatUtc8(token.createTime) : null
+                  }
+                />
+                <DetailField
+                  label="Last updated"
+                  value={
+                    token.updateTime ? formatUtc8(token.updateTime) : null
+                  }
+                />
+                <DetailField
+                  label="Audited on"
+                  value={token.auditTime ? formatUtc8(token.auditTime) : null}
+                />
+                <DetailField
+                  label="Audit reason"
+                  value={token.auditReason}
+                />
+              </div>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="operations" className="mt-0">
+            <section className="rounded-xl border border-border/60 bg-card">
+              <OperateRecordTable
+                projectId={KISSEN_PROJECT_ID}
+                objectType="TOKEN"
+                objectId={tokenId}
+                emptyMessage="No operations recorded for this token."
+              />
+            </section>
+          </TabsContent>
+        </Tabs>
       ) : null}
     </div>
   );

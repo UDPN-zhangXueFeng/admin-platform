@@ -8,6 +8,7 @@ import type {
   TokenListPageReq,
   TokenRejectReq,
   TokenRow,
+  TokenDetailRow,
 } from './token.model';
 
 /** Token 管理分页列表（POST /manage/token/list）。 */
@@ -101,4 +102,16 @@ export function tokenEnable(
   config?: AxiosRequestConfig,
 ): Promise<void> {
   return kissenRequest.post(`/manage/token/${tokenId}/enable`, undefined, config);
+}
+
+/** Token 基本信息（POST /manage/token/detail/{tokenId}）。 */
+export function tokenDetail(
+  tokenId: number,
+  config?: AxiosRequestConfig,
+) {
+  return kissenRequest.post<TokenDetailRow>(
+    `/manage/token/detail/${tokenId}`,
+    undefined,
+    config,
+  );
 }
