@@ -1094,7 +1094,6 @@ function PairPoolEditor({
   onChange,
   onRemove,
   pairLocked = false,
-  existingPools = [],
 }: {
   entry: PairPoolEntry;
   options: LpPairTokenPairOption[];
@@ -1102,11 +1101,6 @@ function PairPoolEditor({
   onRemove?: () => void;
   /** 改参场景：token 对不可更换，仅调两侧池参数。 */
   pairLocked?: boolean;
-  /**
-   * 该 LP 已有池地址（复用已有池时从下拉挑，避免手填错地址）。
-   * token 为该 token 的 symbol（回退 tokenCode，大写比对），用于按侧过滤。
-   */
-  existingPools?: { token: string; address: string }[];
 }) {
   const selected = options.find((o) => String(o.pairId) === entry.pairId);
   const pairSelectId = React.useId();
@@ -1123,19 +1117,10 @@ function PairPoolEditor({
     });
   };
 
-  /** 该 token 下已有的池地址，供地址输入做下拉复用。 */
-  const poolsFor = (token?: string) =>
-    token == null || token === ''
-      ? []
-      : existingPools
-          .filter((p) => p.token.toUpperCase() === token.toUpperCase())
-          .map((p) => ({ address: p.address, label: p.address }));
-
   const renderSide = (
     sideLabel: 'Source' | 'Target',
     symbol: string | undefined,
     addressKey: 'sourceAddress' | 'targetAddress',
-    poolOptions: { address: string; label: string }[] = [],
   ) => (
     <div className="flex-1 space-y-3 rounded-md border border-border/50 p-3">
       <div className="text-sm font-medium">
@@ -1148,30 +1133,9 @@ function PairPoolEditor({
         </label>
         <Input
           maxLength={128}
-          list={`${addressKey}-existing-pools`}
-          placeholder="Pick an existing pool or enter a new address"
           value={entry[addressKey]}
           onChange={(e) => onChange({ ...entry, [addressKey]: e.target.value })}
         />
-        <datalist id={`${addressKey}-existing-pools`}>
-          {poolOptions.map((p) => (
-            <option key={p.address} value={p.address}>
-              {p.label}
-            </option>
-          ))}
-        </datalist>
-        {(() => {
-          const used = poolOptions.find(
-            (p) =>
-              p.address.toLowerCase() ===
-              entry[addressKey].trim().toLowerCase(),
-          );
-          return used ? (
-            <p className="text-[11px] leading-4 text-muted-foreground">
-              Reuses existing pool — {used.label}
-            </p>
-          ) : null;
-        })()}
       </div>
       {/* 2026-11-04 C 口径：门槛统一取 token 级最低流动性（Token Management），
           对侧不再单独填写 Min. Liquidity / Auth Threshold；准入只校验地址余额 ≥ token 下限。 */}
@@ -1221,13 +1185,11 @@ function PairPoolEditor({
           'Source',
           selected ? selected.sourceSymbol || selected.sourceTokenCode : undefined,
           'sourceAddress',
-          poolsFor(selected?.sourceSymbol || selected?.sourceTokenCode),
         )}
         {renderSide(
           'Target',
           selected ? selected.targetSymbol || selected.targetTokenCode : undefined,
           'targetAddress',
-          poolsFor(selected?.targetSymbol || selected?.targetTokenCode),
         )}
       </div>
     </div>
@@ -2635,22 +2597,6 @@ function LpPairConfigDialog({
     status: 20,
   });
   const pairOptions = pairOptionsRaw ?? [];
-  // 复用已有池：把该 LP 已生效池按 token 归组，供地址输入下拉（避免手填错地址）
-  const { data: lpPoolsRaw } = useLpPoolListQuery(PROJECT_ID, {
-    pageNum: 1,
-    pageSize: 200,
-    filter: { lpId },
-  });
-  const existingPoolOptions = React.useMemo(
-    () =>
-      (lpPoolsRaw?.data ?? [])
-        .filter((p) => p.status === 20)
-        .map((p) => ({
-          token: (p.tokenSymbol || p.tokenCode || '').toUpperCase(),
-          address: p.accountAddress,
-        })),
-    [lpPoolsRaw],
-  );
   const precheckMutation = useLpPoolPrecheckMutation();
   const submitMutation = useSubmitLpPairMutation(PROJECT_ID);
   const changeMutation = useChangeLpPairMutation(PROJECT_ID);
@@ -2761,7 +2707,6 @@ function LpPairConfigDialog({
             options={pairOptions}
             onChange={setEntry}
             pairLocked={isChange}
-            existingPools={existingPoolOptions}
           />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
