@@ -118,6 +118,8 @@ export const PROTO_POOL_STATUS: Record<number, ProtoStatusMeta> = {
   // 撤回（KLPP 审批发起人撤回，LpPoolApproveStrategy 写入）
   3: { label: 'Withdrawn', rank: -1 },
   5: { label: 'Pending Approval', rank: 0 },
+  // 审批中（LpPoolApproveStrategy.updateProcessing 写入；此前缺这一档，列表会显示裸数字 10）
+  10: { label: 'Under Approval', rank: 0.5 },
   15: { label: 'Rejected', rank: 1 },
   20: { label: 'Enabled', rank: 2 },
   50: { label: 'Disabled', rank: 3 },
