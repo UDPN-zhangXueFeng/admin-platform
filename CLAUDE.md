@@ -23,21 +23,6 @@
 
 <!-- nx configuration end-->
 
-## 应用清单与「别改错仓库」
-
-本 monorepo 有三个 Next.js 门户应用，**都是现行目标**：
-
-| app | 站点 | 备注 |
-|---|---|---|
-| pps/kissen-admin | 管理后台（v2 重写，与旧 kissen-admin-frontend 并存） | |
-| pps/kissen-gateway-portal | 银行门户 | 2026-09 起取代旧 Vite 版 |
-| pps/lp-portal | LP 门户 | ⚠️ 业务页已迁完，但**部署尚未切换**；线上仍是旧 Vue 仓库 kissen-lp-portal-frontend |
-
-**LP 门户的新功能一律改这里（pps/lp-portal + libs/modules/lp-portal/*）**，不要再去改旧 Vue 仓库。
-改之前先看 ../docs/operations/前端仓库现状--v1.0-2026-11-06.md（含「什么情况才允许改老站」与切换清单）。
-
-
-
 ## 代码变更归档
 
 本项目通过 `.claude/hooks/post-edit.sh`（PostToolUse hook）自动将每次代码修改归档到 `.doc/` 目录。
