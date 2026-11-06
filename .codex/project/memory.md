@@ -1440,3 +1440,13 @@
 - **验证**：`npx nx lint modules-td-admin-feature` 0 error（2 个 warning 是 onSubmit 里既有的 `day`/`month` 未使用解构）；`npx tsc -p apps/admin/tsconfig.json --noEmit` 0 error；`npx nx test modules-td-admin-feature` 22 suites / 172 tests 通过；`npx nx build @admin-platform/admin` 通过；Orca 内置浏览器（已登录）实测全额/分段两种模式截图对齐，点 ✕ 删行后行数 3→2、URL 不变、无 toast（未误提交）。
 - **断点坑**：apps/admin 侧边栏约 240px，`lg`（1024）下若区块已左右分栏（左 288px），右侧两列每列只剩约 143px，利率输入框被挤到约 35px。所以 `PolicyFormSection` 用 `xl:` 才左右分栏，1024 下标题堆叠在上方，实测利率输入 215px。
 - **环境事实**：`npx nx build` 写 `.next/` 顶层，`next dev`（16.1.7）用 `.next/dev`，二者不冲突，build 时不必停 :3000 的 dev server。`modules-td-admin-feature` 只有 `lint`/`test` target，没有独立 tsconfig.lib.json，类型检查走 `apps/admin/tsconfig.json`。
+
+## 2026-11-06 列表搜索日期范围统一为单个 FormDateRangePicker
+
+- **约定变更（取代本文件早先“RangePicker → 两个 FormDatePicker/DatePicker”的口径）**：列表/表格筛选区的起止日期一律用 `@myorg/shared/ui-forms` 的 `FormDateRangePicker`（RHF：`startName`/`endName`/`control`/`label`）或受控 `DateRangePicker`（`value={{start,end}}`、`onChange({start,end})`）。一个输入框显示 `Start date → End date` + 日历图标，占一个栅格。表单仍是两个 `YYYY-MM-DD` 字符串字段，schema、reset、API mapper（startOfDay/endOfDay 转毫秒）都不用改。新建/编辑表单、弹窗里的单日期字段仍用 `FormDatePicker`。
+- **组件行为**：弹层显示两个月；第一次点击定开始，第二次点击定结束，倒序点击会自动交换；只点了一个日期就关闭弹层则丢弃这次选择；有值时显示“清除日期”。`calendar-utils.ts` 放 `parseDate` 和共享的 DayPicker classNames，`DatePicker`/`DateRangePicker` 共用。
+- **范围**：td-admin feature 52 个文件 58 处已迁移；起止 label key 改为合并 key，无引用的 `*From/*To`、`*_start/*_end` 文案已从 en-US/zh-CN 删除。
+- **行为差异**：`statistics-reports` 自定义区间原来用 min/max 禁选超过 1 个月的日期，现在可以选中，再由已有 `customRangeInvalid` 显示 `invalidDateRange` 并阻止查询。
+- **验证**：`npx tsc -p apps/admin/tsconfig.json --noEmit` 0 error；`npx nx run-many -t lint -p modules-td-admin-feature shared-ui-forms shared-util-i18n-messages` 0 error，改动文件里没有新增 warning；`npx nx test modules-td-admin-feature` 22 suites / 172 tests 通过；浏览器 `/en-US/key-management/managed-wallets` 实测倒序点 20→5 显示 `11/05/2026 → 11/20/2026`，查询请求体为 `startCreationDate=1793635200000`、`endCreationDate=1794326399999`（本地 00:00 / 23:59:59.999）。
+- **环境**：本地 dev 登录页会预填账号、密码和验证码，headless 浏览器直接点 Sign In 就能登录；`tab.requests()` 不返回请求体，要看 payload 用 `tab.run` 里的 `page.waitForRequest(...).postData()`。
+- **构建**：`npx nx build @admin-platform/admin` 通过。共享 `ui-forms` 有改动，另外跑了 `npx nx run-many -t build -p @admin-platform/kissen-admin @admin-platform/lp-portal @admin-platform/kissen-gateway-portal`，3 个都通过。
