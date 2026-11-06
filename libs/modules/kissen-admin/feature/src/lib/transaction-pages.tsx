@@ -98,6 +98,7 @@ import {
   formatUtc8,
 } from './proto-format';
 import { PROTO_TX_STATUS, protoStatusLabel, protoStatusRank } from './proto-enums';
+import { OperateRecordTable } from './operate-record-table';
 import {
   CopyableId,
   Dash,
@@ -1204,6 +1205,23 @@ export function TxDetailPage() {
               <TransactionChainSection detail={detail} txId={txId} />
             </aside>
           </div>
+
+          {/* 操作历史（biz_operate_record，objectType=TX）：人工裁定/重发/退款等动作 */}
+          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <div className="border-b border-border/50 px-6 py-4">
+              <h2 className="text-base font-semibold">Operation History</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Manual resolutions recorded for this transaction. The chain above
+                shows the state machine; this table shows who acted and why.
+              </p>
+            </div>
+            <OperateRecordTable
+              projectId={KISSEN_PROJECT_ID}
+              objectType="TX"
+              objectId={txId}
+              emptyMessage="No operations recorded for this transaction."
+            />
+          </section>
         </>
       ) : null}
     </div>

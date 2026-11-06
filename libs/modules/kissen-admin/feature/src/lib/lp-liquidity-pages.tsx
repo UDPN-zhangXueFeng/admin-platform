@@ -157,6 +157,8 @@ import {
 } from './proto-ui';
 import { ApprovalQueue, ApprovalPendingTagWithDialog } from './inline-approval';
 import { computePoolCoverage } from './lp-coverage';
+import { OperateRecordTable } from './operate-record-table';
+import { peekRow, stashRow } from './row-stash';
 
 /** KLPS LP 参与对启停审批 busCode（2026-10-22 P1）。 */
 const BUS_CODE_LP_PAIR_STATUS = 'kissen_lp_pair_status';
@@ -3569,7 +3571,13 @@ const LP_POOL_TABLE_COLUMNS: ColumnDef<LpPoolRow & { id: string }>[] = [
     header: 'LP Name',
     meta: { maxWidth: 180 },
     cell: ({ row }) => (
-      <span className="font-semibold">{row.original.lpName}</span>
+      <a
+        href={`${LP_BASE}/pool/detail?id=${row.original.poolId}`}
+        className="font-semibold text-foreground underline-offset-4 hover:underline"
+        onClick={() => stashRow('lp-pool', row.original.poolId, row.original)}
+      >
+        {row.original.lpName}
+      </a>
     ),
   },
   {
@@ -4084,6 +4092,196 @@ export function LpParticipationDetailPage() {
       ) : isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : null}
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* Pool detail — 资金池详情（基本信息 + 操作历史）                     */
+/* ================================================================== */
+
+/**
+ * 资金池详情（/lp-liquidity/pool/detail?id=N）。
+ *
+ * 后端无单池详情端点：优先用列表页暂存行（stashRow），缺失时回退池列表首页扫描
+ * （同 GatewayInstanceDetailPage 口径）。操作历史走 biz_operate_record
+ * （objectType=LP_POOL，来源为 KLPP 审批通过/驳回）。
+ */
+export function LpPoolDetailPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const poolId = parseId(searchParams.get('id'));
+
+  const stashed = React.useMemo(
+    () => (poolId != null ? peekRow<LpPoolRow>('lp-pool', poolId) : null),
+    [poolId],
+  );
+
+  const fallbackQuery = useLpPoolListQuery(
+    PROJECT_ID,
+    { pageNum: 1, pageSize: 200, filter: {} },
+    poolId != null && stashed == null,
+  );
+
+  const pool =
+    stashed ??
+    ((fallbackQuery.data?.data ?? []).find((r) => r.poolId === poolId) as
+      | LpPoolRow
+      | undefined) ??
+    null;
+
+  const backButton = (
+    <Button
+      variant="outline"
+      size="icon"
+      className="mt-0.5 size-9 shrink-0"
+      onClick={() => router.push(`${LP_BASE}/pool`)}
+      aria-label="Back to liquidity pools"
+    >
+      <ArrowLeft className="size-4" aria-hidden="true" />
+    </Button>
+  );
+
+  if (poolId == null) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          {backButton}
+          <h1 className="text-xl font-semibold">Liquidity Pool</h1>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+          Pool not found. Open this page from the liquidity pool list.
+        </div>
+      </div>
+    );
+  }
+
+  if (!pool) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          {backButton}
+          <h1 className="text-xl font-semibold">Liquidity Pool</h1>
+        </div>
+        {fallbackQuery.isLoading ? (
+          <Skeleton className="h-48 w-full rounded-xl" />
+        ) : (
+          <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+            Pool #{poolId} not found in the first page of the pool list.
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-3">
+        {backButton}
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold">Liquidity Pool</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">{pool.lpName}</span>
+            <PoolStatusBadge status={pool.status} />
+          </p>
+        </div>
+      </div>
+
+      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="border-b border-border/50 px-6 py-4">
+          <h2 className="text-base font-semibold">Pool Information</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pools are created when a participation pair is approved; the address is
+            unique per LP and token.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 px-6 py-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              LP Name
+            </span>
+            <span className="text-sm text-foreground">{pool.lpName}</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Token
+            </span>
+            <span className="font-mono text-sm text-foreground">
+              {pool.tokenSymbol || pool.tokenCode || <Dash />}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Token Bank
+            </span>
+            <span className="text-sm text-foreground">
+              {pool.tokenBankName || <Dash />}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Pool Address
+            </span>
+            <CopyableId value={pool.accountAddress} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Wallet Balance
+            </span>
+            <AmountWithToken
+              value={pool.availableBalanceCache}
+              token={pool.tokenSymbol || pool.tokenCode}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Available Pre-Auth
+            </span>
+            <span className="tabular-nums text-sm text-foreground">
+              {pool.preauthAvailable == null ? (
+                <Dash />
+              ) : (
+                formatTokenAmount(pool.preauthAvailable)
+              )}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Min. Liquidity Requirement
+            </span>
+            <span className="tabular-nums text-sm text-foreground">
+              {pool.requiredMinSum == null ? (
+                <Dash />
+              ) : (
+                formatTokenAmount(pool.requiredMinSum)
+              )}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Created on
+            </span>
+            <span className="tabular-nums text-sm text-foreground">
+              {pool.createTime ? formatUtc8(pool.createTime) : <Dash />}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="border-b border-border/50 px-6 py-4">
+          <h2 className="text-base font-semibold">Operation History</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Approvals and rejections recorded for this pool.
+          </p>
+        </div>
+        <OperateRecordTable
+          projectId={PROJECT_ID}
+          objectType="LP_POOL"
+          objectId={poolId}
+          emptyMessage="No operations recorded for this pool."
+        />
+      </section>
     </div>
   );
 }

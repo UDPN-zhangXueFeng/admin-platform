@@ -105,6 +105,8 @@ const pages: Record<string, Record<string, PageLoader>> = {
 
   pool: {
     list: loader((m) => m.LpPoolListPage),
+    // 2026-11-05：资金池详情（基本信息 + 操作历史 biz_operate_record）
+    detail: loader((m) => m.LpPoolDetailPage),
   },
 
   // ---- settle ----
