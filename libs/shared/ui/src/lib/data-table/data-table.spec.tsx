@@ -208,12 +208,34 @@ describe('DataTable row rhythm and theme surfaces', () => {
 });
 
 /**
- * Why: paginated list panels can become narrow after the application sidebar
- * is accounted for. When a page-size selector is present, the item total is
- * redundant and must not compete with the selector and navigation controls.
+ * Why: the page indicator is the only place operators can read the total page
+ * count, so it must render both with and without the page-size selector, and
+ * it must not be squeezed by the right-aligned controls on narrow panels.
  */
 describe('DataTable pagination layout', () => {
-  it('hides the redundant item total when page-size selection is enabled', () => {
+  it('shows the page indicator when the page-size selector is enabled', () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={rows}
+        pagination={{
+          page: 2,
+          pageSize: 10,
+          total: 61,
+          onPageChange: jest.fn(),
+          onPageSizeChange: jest.fn(),
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Page 2 of 7')).toBeInTheDocument();
+    expect(screen.getByText('Page 2 of 7')).toHaveClass('mr-auto', 'text-xs');
+    expect(screen.getByLabelText('Rows per page')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'First page' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Last page' })).toBeEnabled();
+  });
+
+  it('shows the page indicator without a page-size selector', () => {
     render(
       <DataTable
         columns={columns}
@@ -223,13 +245,13 @@ describe('DataTable pagination layout', () => {
           pageSize: 10,
           total: 3,
           onPageChange: jest.fn(),
-          onPageSizeChange: jest.fn(),
         }}
       />,
     );
 
-    expect(screen.queryByText('Total 3 items')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Rows per page')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'First page' })).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Rows per page')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'First page' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Last page' })).toBeDisabled();
   });
 });

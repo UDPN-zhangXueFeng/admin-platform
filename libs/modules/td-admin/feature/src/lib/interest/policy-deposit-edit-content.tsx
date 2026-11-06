@@ -1,10 +1,4 @@
-/**
- * 存款策略编辑表单内容（最复杂表单，829 行源码）。
- *
- * 三区块：① 策略配置（双计算方式 + 分段利率 Form.List + 生效日期）
- *         ② 日计息配置（TimePicker）
- *         ③ 月计息应用配置（Day Select + TimePicker）
- */
+/** 存款策略编辑表单。 */
 'use client';
 
 import * as React from 'react';
@@ -23,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
-import { FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormField } from '@myorg/shared/ui-forms';
 
 import {
   useEditInterestPolicy,
@@ -31,10 +25,9 @@ import {
   useSaveInterestPolicy,
 } from '@myorg/modules/td-admin/data-access';
 import type { DepositPolicyFormValues, SaveDetailsFormItem } from '@myorg/modules/td-admin/data-access';
-import {
-  INTEREST_RATE_PATTERN,
-  MAX_SAVE_DETAILS_ROWS,
-} from '.';
+import { INTEREST_RATE_PATTERN } from './interest.constants';
+import { DepositTierRates } from './policy-deposit-tier-rates';
+import { FIELD_HINT_CLASS, FIELD_LABEL_CLASS, PolicyFormSection, SignedRateInput } from './policy-form-parts';
 import { toast } from '@myorg/shared/ui';
 
 function buildInitialSaveDetails(t: (k: string) => string): SaveDetailsFormItem[] {
@@ -79,7 +72,7 @@ export function DepositEditContent() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const fieldArray = useFieldArray({
     control: form.control,
     name: 'saveDetails',
   });
@@ -88,8 +81,6 @@ export function DepositEditContent() {
     control: form.control,
     name: 'interestCalculationMethod',
   });
-
-  const currentSaveDetails = useWatch({ control: form.control, name: 'saveDetails' });
 
   // 初始化数据
   useEffect(() => {
@@ -198,265 +189,81 @@ export function DepositEditContent() {
   const isNameDisabled = isEdit && existingDetail && (existingDetail.status === 10 || existingDetail.status === 15);
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="bg-white shadow p-10 pt-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="bg-white shadow p-10 pt-6">
       <h4 className="text-lg font-medium mb-6">
         {t('interest_0090').replace('****', isEdit ? tc('PUB_Edit') : tc('PUB_New'))}
       </h4>
 
-      {/* 区块 1：策略配置 */}
-      <div className="flex justify-between py-6 mb-6 border-0 border-b border-solid border-gray-200">
-        <div className="w-[20%] flex flex-col">
-          <span className="font-bold">{t('interest_0021')}</span>
-          <span className="text-sm text-muted-foreground">{t('interest_0022')}</span>
-        </div>
-        <div className="w-[78%]">
-          <div className="flex w-[60%] gap-10">
-            <FormField
-              name="interestPolicyName"
-              label={t('interest_0002')}
-              register={form.register('interestPolicyName', { required: true })}
-              disabled={isNameDisabled}
-              maxLength={50}
-              placeholder={t('interest_0050')}
-            />
-            <div className="w-[35%]">
-              <label className="text-sm font-medium">{t('interest_0005')}</label>
-              <Select disabled defaultValue="2">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="2">{t('interest_account_type_2')}</SelectItem>
-                </SelectContent>
-              </Select>
+      <PolicyFormSection title={t('interest_0021')} description={t('interest_0022')}>
+        <div className="grid max-w-3xl grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+          <FormField name="interestPolicyName" label={t('interest_0002')}
+            register={form.register('interestPolicyName', { required: true })}
+            disabled={isNameDisabled} maxLength={50} placeholder={t('interest_0050')} />
+          <div>
+            <label className={FIELD_LABEL_CLASS}>{t('interest_0005')}</label>
+            <Select disabled defaultValue="2">
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="2">{t('interest_account_type_2')}</SelectItem></SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-2">
+            <span className={FIELD_LABEL_CLASS}>{t('interest_0032')}</span>
+            <div className="flex flex-wrap gap-6">
+              {[1, 2].map((method) => (
+                <label key={method} className="flex cursor-pointer items-center gap-2">
+                  <input type="radio" name="interestCalculationMethod"
+                    checked={interestCalculationMethod === method} onChange={() => handleMethodChange(method)} />
+                  <span>{t(`interest_method_${method}`)}</span>
+                </label>
+              ))}
             </div>
           </div>
-
-          <div className="flex justify-between mt-4">
-            <div className="w-[60%]">
-              {/* 计算方式 Radio */}
-              <div className="mb-4">
-                <label className="text-sm font-medium">{t('interest_0032')}</label>
-                <div className="flex gap-4 mt-1">
-                  {[1, 2].map((method) => (
-                    <label key={method} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="interestCalculationMethod"
-                        checked={interestCalculationMethod === method}
-                        onChange={() => handleMethodChange(method)}
-                      />
-                      <span>{t(`interest_method_${method}`)}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {interestCalculationMethod === 1 ? (
-                /* 全额模式 */
-                <div className="flex justify-between">
-                  <div className="w-[60%]">
-                    <div className="flex items-start gap-2">
-                      <div className="w-16">
-                        <FormSelect
-                          name="selectType"
-                          label=""
-                          control={form.control}
-                          options={[
-                            { label: '+', value: t('interest_00118') },
-                            { label: '-', value: t('interest_00119') },
-                          ]}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <FormField
-                          name="annualInterestRate"
-                          label={t('interest_0006')}
-                          type="number"
-                          register={form.register('annualInterestRate', {
-                            required: tc('PUB_Pleased').replace('****', t('interest_0006')),
-                            pattern: {
-                              value: INTEREST_RATE_PATTERN,
-                              message: t('interest_0057'),
-                            },
-                          })}
-                        />
-                      </div>
-                      <span className="mt-7">%</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground -mt-4">{t('interest_0011')}</div>
-                  </div>
-                  <div className="w-[35%]">
-                    <FormField
-                      name="effectiveTime"
-                      label={t('interest_0003')}
-                      type="date"
-                      register={form.register('effectiveTime', { required: true })}
-                    />
-                  </div>
-                </div>
-              ) : (
-                /* 分段模式 */
-                <>
-                  {fields.map((field, index) => (
-                    <div key={field.id} className="flex w-full mb-4 items-center gap-2">
-                      <div className="w-[20%]">
-                        <FormField
-                          name={`saveDetails.${index}.minValue`}
-                          label={index === 0 ? t('interest_0033') : ''}
-                          type="number"
-                          register={form.register(`saveDetails.${index}.minValue`, {
-                            required: tc('PUB_Pleased').replace('****', t('interest_0033')),
-                            validate: (value, formValues) => {
-                              const current = formValues.saveDetails?.[index];
-                              const previous = formValues.saveDetails?.[index - 1];
-                              if (current?.maxValue && Number(value) >= Number(current.maxValue))
-                                return t('interest_00120');
-                              if (previous && Number(value) < Number(previous.maxValue))
-                                return t('interest_00121');
-                              return true;
-                            },
-                          })}
-                        />
-                      </div>
-                      <span className="pt-5">-</span>
-                      <div className="w-[20%]">
-                        <FormField
-                          name={`saveDetails.${index}.maxValue`}
-                          label={index === 0 ? ' ' : ''}
-                          type="number"
-                          register={form.register(`saveDetails.${index}.maxValue`, {
-                            required: tc('PUB_Pleased').replace('****', t('interest_0033')),
-                            validate: (value, formValues) => {
-                              const current = formValues.saveDetails?.[index];
-                              if (current && Number(value) <= Number(current.minValue))
-                                return t('interest_00122');
-                              return true;
-                            },
-                          })}
-                        />
-                      </div>
-                      <div className="flex items-start gap-1 flex-1">
-                        <div className="w-14">
-                          <FormSelect
-                            name={`saveDetails.${index}.type`}
-                            label=""
-                            control={form.control}
-                            options={[
-                              { label: '+', value: t('interest_00118') },
-                              { label: '-', value: t('interest_00119') },
-                            ]}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <FormField
-                            name={`saveDetails.${index}.interestRate`}
-                            label={t('interest_0006')}
-                            type="number"
-                            register={form.register(`saveDetails.${index}.interestRate`, {
-                              required: tc('PUB_Pleased').replace('****', t('interest_0006')),
-                              pattern: {
-                                value: INTEREST_RATE_PATTERN,
-                                message: t('interest_0057'),
-                              },
-                            })}
-                          />
-                        </div>
-                        <span className="mt-7">%</span>
-                      </div>
-                      {currentSaveDetails && currentSaveDetails.length > 1 && currentSaveDetails.length === index + 1 && (
-                        <button type="button" className="text-red-500 pt-6" onClick={() => remove(index)}>
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {(!currentSaveDetails || currentSaveDetails.length < MAX_SAVE_DETAILS_ROWS) && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="mb-8"
-                      onClick={() =>
-                        append({ interestRate: '', maxValue: '', minValue: '', type: t('interest_00118') })
-                      }
-                    >
-                      {tc('PUB_Add')}
-                    </Button>
-                  )}
-                  <div className="w-[35%]">
-                    <FormField
-                      name="effectiveTime"
-                      label={t('interest_0003')}
-                      type="date"
-                      register={form.register('effectiveTime', { required: true })}
-                    />
-                  </div>
-                </>
-              )}
+          {interestCalculationMethod === 1 ? (
+            <div>
+              <SignedRateInput control={form.control} signName="selectType" rateName="annualInterestRate"
+                label={t('interest_0006')} rateRegister={form.register('annualInterestRate', {
+                  required: tc('PUB_Pleased').replace('****', t('interest_0006')),
+                  pattern: { value: INTEREST_RATE_PATTERN, message: t('interest_0057') },
+                })} />
+              <div className={FIELD_HINT_CLASS}>{t('interest_0011')}</div>
             </div>
+          ) : (
+            <div className="md:col-span-2"><DepositTierRates form={form} fieldArray={fieldArray} /></div>
+          )}
+          <FormField name="effectiveTime" label={t('interest_0003')} type="date"
+            register={form.register('effectiveTime', { required: true })} />
+        </div>
+      </PolicyFormSection>
+
+      <PolicyFormSection title={t('interest_0023')} description={t('interest_0024')}>
+        <div className="grid max-w-3xl grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+          <div>
+            <label className={FIELD_LABEL_CLASS}>{t('interest_0051')}</label>
+            <Input disabled value={t('interest_00123')} />
+          </div>
+          <div>
+            <FormField name="calculateTimeDay" label={t('interest_0012')} type="time"
+              register={form.register('calculateTimeDay', { required: true })} />
+            <div className={FIELD_HINT_CLASS}>{t('interest_0028')}</div>
           </div>
         </div>
-      </div>
+      </PolicyFormSection>
 
-      {/* 区块 2：日计息配置 */}
-      <div className="flex justify-between py-6 mb-6 border-0 border-b border-solid border-gray-200">
-        <div className="w-[20%] flex flex-col">
-          <span className="font-bold">{t('interest_0023')}</span>
-          <span className="text-sm text-muted-foreground">{t('interest_0024')}</span>
-        </div>
-        <div className="w-[78%]">
-          <div className="flex gap-4">
-            <div className="w-24">
-              <label className="text-sm">{t('interest_0051')}</label>
-              <Input disabled value={t('interest_00123')} />
+      <PolicyFormSection title={t('interest_0025')} description={t('interest_0026')}>
+        <div className="grid max-w-3xl grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+          <div className="flex items-end gap-2">
+            <div className="min-w-0 flex-1 [&_label]:whitespace-nowrap">
+              <FormField name="calculateDayMonth" label={t('interest_0052')} type="number"
+                register={form.register('calculateDayMonth', { required: true, min: 1, max: 28 })} />
             </div>
-            <div className="flex-1 max-w-xs">
-              <FormField
-                name="calculateTimeDay"
-                label={t('interest_0012')}
-                type="time"
-                register={form.register('calculateTimeDay', { required: true })}
-              />
-              <div className="text-xs text-muted-foreground -mt-4">{t('interest_0028')}</div>
-            </div>
+            <span className="flex h-10 items-center text-sm text-muted-foreground">{t('interest_00125')}</span>
           </div>
+          <FormField name="calculateTimeMonth" label={t('interest_0098')} type="time"
+            register={form.register('calculateTimeMonth', { required: true })} />
+          <div className={`${FIELD_HINT_CLASS} md:col-span-2`}>{t('interest_0053')}</div>
         </div>
-      </div>
+      </PolicyFormSection>
 
-      {/* 区块 3：月计息应用配置 */}
-      <div className="flex justify-between py-6 mb-6 border-0 border-b border-solid border-gray-200">
-        <div className="w-[20%] flex flex-col">
-          <span className="font-bold">{t('interest_0025')}</span>
-          <span className="text-sm text-muted-foreground">{t('interest_0026')}</span>
-        </div>
-        <div className="w-[78%]">
-          <div className="flex gap-4">
-            <div className="w-24">
-              <FormField
-                name="calculateDayMonth"
-                label={t('interest_0052')}
-                type="number"
-                register={form.register('calculateDayMonth', { required: true, min: 1, max: 28 })}
-              />
-            </div>
-            <div className="w-20">
-              <label className="text-sm">&nbsp;</label>
-              <Input disabled value={t('interest_00125')} />
-            </div>
-            <div className="flex-1 max-w-xs">
-              <FormField
-                name="calculateTimeMonth"
-                label={t('interest_0098')}
-                type="time"
-                register={form.register('calculateTimeMonth', { required: true })}
-              />
-            </div>
-          </div>
-          <div className="text-xs text-muted-foreground mt-2">{t('interest_0053')}</div>
-        </div>
-      </div>
-
-      {/* 提交按钮 */}
       <div className="flex justify-end gap-4 mt-10">
         <Button type="button" variant="outline" onClick={() => router.back()}>
           {tc('PUB_GoBack')}

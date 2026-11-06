@@ -342,11 +342,9 @@ export function DataTable<TData extends { id: string }>({
       {/* Pagination */}
       {pagination && (
         <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-4">
-          {!pagination.onPageSizeChange && (
-            <div className="mr-auto text-xs tabular-nums text-muted-foreground">
-              Page {currentPage} of {totalPages}
-            </div>
-          )}
+          <div className="mr-auto whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {pagination.onPageSizeChange && (
               <Select
