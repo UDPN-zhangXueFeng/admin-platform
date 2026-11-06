@@ -68,6 +68,7 @@ import {
 import { formatAmount } from './format';
 import { Dash, ProtoStatusBadge } from './proto-ui';
 import { ApprovalPendingTagWithDialog } from './inline-approval';
+import { OperateRecordTable } from './operate-record-table';
 
 /** KSV 结算单作废审批 busCode（2026-10-22 P1）。 */
 const BUS_CODE_SETTLE_VOID = 'kissen_settle_void';
@@ -269,7 +270,24 @@ export function SettleOrderDetailPage() {
       {isNotFound ? <SettleOrderNotFound /> : null}
 
       {detail && !detailQuery.isError ? (
-        <SettleOrderDetailContent key={detail.orderId} order={detail} />
+        <>
+          <SettleOrderDetailContent key={detail.orderId} order={detail} />
+          {/* 操作历史（biz_operate_record，objectType=SETTLE）：确认/作废等动作 */}
+          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <div className="border-b border-border/50 px-6 py-4">
+              <h2 className="text-base font-semibold">Operation History</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Confirmations, void and generation recorded for this statement.
+              </p>
+            </div>
+            <OperateRecordTable
+              projectId={KISSEN_PROJECT_ID}
+              objectType="SETTLE"
+              objectId={detail.orderId}
+              emptyMessage="No operations recorded for this statement."
+            />
+          </section>
+        </>
       ) : null}
     </div>
   );

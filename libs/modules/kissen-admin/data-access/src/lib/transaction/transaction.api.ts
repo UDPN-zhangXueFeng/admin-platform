@@ -1,4 +1,4 @@
-import type { AxiosRequestConfig } from 'axios';
+﻿import type { AxiosRequestConfig } from 'axios';
 import type { PaginatedResponse } from '@myorg/shared/model';
 
 import { kissenPage, kissenRequest, type KissenPageResult } from '../kissen-client';
@@ -9,6 +9,7 @@ import type {
   TransactionPageFilter,
   TransactionResolveReq,
   TransactionRow,
+  TxTargetQueryResult,
   TxBankOption,
   TxLpOption,
   TxPairOption,
@@ -62,6 +63,21 @@ export function resolveTransaction(
   config?: AxiosRequestConfig,
 ): Promise<void> {
   return kissenRequest.post<void>('/manage/transaction/resolve', req, config);
+}
+
+/**
+ * 裁定前查证（POST `/manage/transaction/query-result`，2026-11-04）：
+ * 问目标行「原解付到底成没成」，结果决定可用的裁定动作（成功只能标记完成）。
+ */
+export function queryTransactionTargetResult(
+  txId: number,
+  config?: AxiosRequestConfig,
+): Promise<TxTargetQueryResult> {
+  return kissenRequest.post<TxTargetQueryResult>(
+    '/manage/transaction/query-result',
+    { txId },
+    config,
+  );
 }
 
 /**

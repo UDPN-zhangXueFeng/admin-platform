@@ -155,6 +155,8 @@ import {
 } from './proto-ui';
 import { ApprovalQueue, ApprovalPendingTagWithDialog } from './inline-approval';
 import { computePoolCoverage } from './lp-coverage';
+import { OperateRecordTable } from './operate-record-table';
+import { peekRow, stashRow } from './row-stash';
 
 /** KLPS LP 参与对启停审批 busCode（2026-10-22 P1）。 */
 const BUS_CODE_LP_PAIR_STATUS = 'kissen_lp_pair_status';
@@ -275,6 +277,7 @@ function lpToOptions(list: LpOption[] | undefined): SelectOption[] {
 /** LP 入网状态徽章（原型 LpStatus：六态语义色，文案走 PROTO_LP_STATUS）。 */
 const LP_STATUS_TONES: Record<number, ProtoStatusTone> = {
   1: 'muted',
+  3: 'muted',
   5: 'warning',
   10: 'warning',
   15: 'danger',
@@ -292,7 +295,9 @@ function LpStatusBadge({ status }: { status: number }) {
 
 /** 流动性池状态徽章（原型 PoolStatus：四态）。 */
 const LP_POOL_STATUS_TONES: Record<number, ProtoStatusTone> = {
+  3: 'muted',
   5: 'warning',
+  10: 'warning',
   15: 'danger',
   20: 'success',
   50: 'muted',
@@ -312,6 +317,7 @@ function PoolStatusBadge({ status }: { status: number }) {
  */
 const LP_PAIR_STATUS_TONES: Record<number, ProtoStatusTone> = {
   1: 'muted',
+  3: 'muted',
   5: 'warning',
   10: 'warning',
   15: 'danger',
@@ -333,13 +339,6 @@ function LpPairStatusBadge({ status }: { status: number }) {
  * STATIC-FILLER(GAP-ADM-02): operate-log 无按对象（lpId/参与对 id）过滤端点——
  * 先落列契约 + 空表，后端补端点后接真数据。
  */
-const LP_OPERATION_COLUMNS: ColumnDef<{ id: string }>[] = [
-  { id: 'timestamp', header: 'Timestamp' },
-  { id: 'operator', header: 'Operator' },
-  { id: 'module', header: 'Module' },
-  { id: 'status', header: 'Status' },
-  { id: 'traceId', header: 'Trace ID' },
-];
 
 /** 只读字段（label + 值；弹窗回显用）。 */
 function ReadonlyField({
@@ -756,8 +755,8 @@ export function LpInfoListPage() {
         cell: ({ row }) => {
           const item = row.original;
           // 原型 LpOnboardingPage：Details 文本按钮 + ⋮ 菜单。菜单按状态：
-          // Draft / Rejected→Edit+Submit（被驳回后改完要能重新提交，后端 submitOnboard
-          // 明确允许 status=15→5）；Pending/Under Approval→只读无菜单；
+          // Draft→Edit+Submit；Rejected(15)/Withdrawn(3)→只给 Edit（保存后后端归为草稿 1，
+          // 届时才出现 Submit）；Pending/Under Approval→只读无菜单；
           // Active→Portal Account+Deactivate；Inactive→Activate。
           const menuItems: {
             label: string;
@@ -765,15 +764,15 @@ export function LpInfoListPage() {
             disabled?: boolean;
             onSelect: () => void;
           }[] = [];
-          if (item.status === 1 || item.status === 15) {
+          if (item.status === 1 || item.status === 15 || item.status === 3) {
             menuItems.push({
               label: 'Edit',
               onSelect: () => router.push(lpRoute('lp-info', 'edit', item.lpId)),
             });
           }
-          // 2026-11-04 修复：原来只有 Draft(1) 能提交，被驳回(15)的 LP 改完无法再次提交，
-          // 列表永远停在 Rejected（用户反馈「重新编辑后状态还是 rejected」）。
-          if (item.status === 1 || item.status === 15) {
+          // 2026-11-04：只保留草稿可提交——驳回/撤回针对的是上一版申请，不改内容就重提只会
+          // 原样再被拒；必须先编辑（后端保存时把 15/3 重置为 1），回到列表后才出现 Submit。
+          if (item.status === 1) {
             menuItems.push({
               label: 'Submit',
               disabled: submitMutation.isPending,
@@ -912,7 +911,7 @@ export function LpInfoListPage() {
               control={control}
               label="Status"
               placeholder={LBL.all}
-              options={[1, 5, 10, 15, 20].map((code) => ({
+              options={[1, 3, 5, 10, 15, 20].map((code) => ({
                 value: String(code),
                 label: protoStatusLabel(PROTO_LP_STATUS, code),
               }))}
@@ -1072,15 +1071,11 @@ function pairPoolEntryToReq(entry: PairPoolEntry): LpOnboardPair | null {
   if (!Number.isFinite(pairId) || pairId <= 0 || !sourceAddress || !targetAddress) {
     return null;
   }
-  const side = (address: string, min: string, auth: string) => ({
-    address,
-    ...(min.trim() !== '' ? { minLiquidity: min.trim() } : {}),
-    ...(auth.trim() !== '' ? { authRequired: auth.trim() } : {}),
-  });
+  // 2026-11-04 C 口径：只传地址；门槛由后端按 token 级最低流动性校验
   return {
     pairId,
-    source: side(sourceAddress, entry.sourceMin, entry.sourceAuth),
-    target: side(targetAddress, entry.targetMin, entry.targetAuth),
+    source: { address: sourceAddress },
+    target: { address: targetAddress },
   };
 }
 
@@ -1122,9 +1117,6 @@ function PairPoolEditor({
     sideLabel: 'Source' | 'Target',
     symbol: string | undefined,
     addressKey: 'sourceAddress' | 'targetAddress',
-    minKey: 'sourceMin' | 'targetMin',
-    authKey: 'sourceAuth' | 'targetAuth',
-    minDefault: string | number | null | undefined,
   ) => (
     <div className="flex-1 space-y-3 rounded-md border border-border/50 p-3">
       <div className="text-sm font-medium">
@@ -1141,35 +1133,12 @@ function PairPoolEditor({
           onChange={(e) => onChange({ ...entry, [addressKey]: e.target.value })}
         />
       </div>
-      <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">Min. Liquidity</label>
-        <Input
-          type="number"
-          min={0}
-          value={entry[minKey]}
-          placeholder={
-            minDefault != null && minDefault !== '' ? `Default: ${minDefault}` : 'Token default'
-          }
-          onChange={(e) => onChange({ ...entry, [minKey]: e.target.value })}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">Auth Threshold</label>
-        <Input
-          type="number"
-          min={0}
-          value={entry[authKey]}
-          placeholder="Not checked if empty"
-          onChange={(e) => onChange({ ...entry, [authKey]: e.target.value })}
-        />
-        {/* 2026-11-03：资金池告警改按「覆盖率 = min(余额, 可用授权) ÷ token 最低流动性 < 提醒比率」，
-            此字段不再参与告警；目前仅被新增/改参的余额预检使用（按地址 Σ 后与实时余额比较）。
-            是否保留该字段待业务确认。 */}
-        <p className="text-[11px] leading-4 text-muted-foreground">
-          Balance pre-check only (summed per pool address). Pool alerts no longer use
-          this value — they follow the coverage ratio.
-        </p>
-      </div>
+      {/* 2026-11-04 C 口径：门槛统一取 token 级最低流动性（Token Management），
+          对侧不再单独填写 Min. Liquidity / Auth Threshold；准入只校验地址余额 ≥ token 下限。 */}
+      <p className="text-[11px] leading-4 text-muted-foreground">
+        Admission requires this address to hold at least the token&apos;s Min.
+        Liquidity (set in Token Management). Balance is the only check.
+      </p>
     </div>
   );
 
@@ -1212,17 +1181,11 @@ function PairPoolEditor({
           'Source',
           selected ? selected.sourceSymbol || selected.sourceTokenCode : undefined,
           'sourceAddress',
-          'sourceMin',
-          'sourceAuth',
-          selected?.sourceMinLiquidity,
         )}
         {renderSide(
           'Target',
           selected ? selected.targetSymbol || selected.targetTokenCode : undefined,
           'targetAddress',
-          'targetMin',
-          'targetAuth',
-          selected?.targetMinLiquidity,
         )}
       </div>
     </div>
@@ -1355,6 +1318,7 @@ export function LpInfoFormPage() {
 
   const { data: detail } = useLpDetailQuery(PROJECT_ID, lpId);
   const saveMutation = useSaveLpMutation(PROJECT_ID);
+  const submitMutation = useSubmitLpOnboardMutation(PROJECT_ID);
   const precheckMutation = useLpPoolPrecheckMutation();
   const { data: pairOptionsRaw } = useLpPairTokenPairOptionsQuery(PROJECT_ID, {
     status: 20,
@@ -1558,7 +1522,8 @@ export function LpInfoFormPage() {
     );
   };
 
-  const onSubmit = handleSubmit((values) => {
+  /** 保存草稿；resubmit=true 时保存成功后立即提交入网审批（草稿/驳回行的快捷路径）。 */
+  const performSave = (values: LpInfoFormValues, resubmit: boolean) => {
     const built = buildPairs();
     if (built == null) {
       toast.warning(
@@ -1576,14 +1541,34 @@ export function LpInfoFormPage() {
       pairs: built,
     };
     if (isEdit && lpId) req.lpId = lpId;
+    const onError = (e: unknown) => toast.error((e as Error).message);
     saveMutation.mutate(req, {
       onSuccess: () => {
-        toast.success(isEdit ? 'Saved' : 'Created (Draft)');
-        router.push(lpRoute('lp-info'));
+        if (!resubmit || lpId == null) {
+          toast.success(isEdit ? 'Saved' : 'Created (Draft)');
+          router.push(lpRoute('lp-info'));
+          return;
+        }
+        // 先落稿（驳回→草稿）再提交：两步分开是因为提交会创建审批轮次并通知审批人，
+        // 不该混在"保存"里静默发生；这里只是把两次点击合并成一次。
+        submitMutation.mutate(lpId, {
+          onSuccess: () => {
+            toast.success('Saved and submitted for approval');
+            router.push(lpRoute('lp-info'));
+          },
+          onError,
+        });
       },
-      onError: (e) => toast.error((e as Error).message),
+      onError,
     });
-  });
+  };
+  const onSubmit = handleSubmit((values) => performSave(values, false));
+  const onSaveAndResubmit = handleSubmit((values) => performSave(values, true));
+  /** 只有草稿/被驳回/已撤回可编辑，也就只有这三种状态给"保存并重新提交"。 */
+  const canResubmit =
+    isEdit &&
+    (detail?.status === 1 || detail?.status === 15 || detail?.status === 3);
+  const busy = saveMutation.isPending || submitMutation.isPending;
 
   const confirmDiscardChanges = () => {
     const navigation = pendingNavigation;
@@ -1893,10 +1878,9 @@ export function LpInfoFormPage() {
                 </h2>
                 <p className="mt-1 max-w-[680px] text-xs text-muted-foreground">
                   Register one pool address for each side of every token pair.
-                  Leave Min. Liquidity blank to use the token default; leave the
-                  auth threshold blank to skip the check. An address shared
-                  across pairs is validated against the aggregated requirements.
-                  Draft LPs may be saved with no pairs.
+                  Admission requires each address to hold at least the token&apos;s
+                  Min. Liquidity (set in Token Management); an address may be
+                  shared across pairs. Draft LPs may be saved with no pairs.
                 </p>
               </div>
             </div>
@@ -1971,9 +1955,21 @@ export function LpInfoFormPage() {
           >
             {LBL.cancel}
           </Button>
-          <Button type="submit" disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? LBL.saving : LBL.save}
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* 可重提时主操作是"保存并重提"，只存草稿降为次操作 */}
+            <Button
+              type="submit"
+              variant={canResubmit ? 'outline' : 'default'}
+              disabled={busy}
+            >
+              {saveMutation.isPending ? LBL.saving : LBL.save}
+            </Button>
+            {canResubmit ? (
+              <Button type="button" onClick={onSaveAndResubmit} disabled={busy}>
+                {submitMutation.isPending ? 'Submitting…' : 'Save & Resubmit'}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </form>
       <ConfirmDialog
@@ -2040,6 +2036,7 @@ export function LpInfoDetailPage() {
     pageSize: 200,
     filter: { lpId: lpId ?? 0 },
   });
+
   const statusMutation = useUpdateLpPairStatusMutation(PROJECT_ID);
 
   const refresh = React.useCallback(() => {
@@ -2048,8 +2045,8 @@ export function LpInfoDetailPage() {
     void poolsQuery.refetch();
   }, [detailQuery, pairsQuery, poolsQuery]);
 
-  /** Deactivate/Activate Participation 确认提交（原型：Deactivate=50 立即退出匹配；
-   *  Activate=restore(1)+自动重提 KLP，后端无直接激活路径）。 */
+  /** Deactivate/Activate Participation 确认提交（Deactivate=50 退出匹配；
+   *  Activate=提交启停审批，通过后直接回到生效态 20，无需重新 Add Token Pair）。 */
   const onStatusConfirm = () => {
     if (!statusAction) return;
     const { row, kind } = statusAction;
@@ -2074,11 +2071,8 @@ export function LpInfoDetailPage() {
       { id: Number(row.id), targetStatus: LP_PAIR_TARGET_STATUS.restore },
       {
         onSuccess: () => {
-          // KLPS（2026-10-22 P1）起 /status 走审批非立即生效：恢复草稿审批通过后，
-          // 行回到草稿态，需经 Add Token Pair（全量 payload 会收养草稿行）重新提交
-          toast.success(
-            'Restore submitted for approval. After approval, use Add Token Pair to resubmit.',
-          );
+          // KLPS 走审批：审批通过后参与对直接恢复生效(20)，池随之重新激活
+          toast.success('Activation submitted for approval — takes effect after review');
           finish();
         },
         onError: (e) => toast.error((e as Error).message),
@@ -2103,6 +2097,15 @@ export function LpInfoDetailPage() {
 
   const detail = detailQuery.data;
   const base = detail?.base;
+  /**
+   * 草稿/驳回/撤回的 LP 还没有 lp_token_pair 行（参与对要审批通过才落库），
+   * 但入网表单里的 token 对已经存在 lp_info.onboard_pools 里。这里取出来在
+   * Token Pairs 页签顶部列出来，避免「明明是配过的却显示空表」。
+   */
+  const onboardPairs = React.useMemo(
+    () => base?.pairs ?? [],
+    [base?.pairs],
+  );
   const poolRows = React.useMemo(
     () =>
       (poolsQuery.data?.data ?? []).map((r: LpPoolRow) => ({
@@ -2451,24 +2454,50 @@ export function LpInfoDetailPage() {
                   </Alert>
                 </div>
               ) : (
-                <DataTable
-                  columns={pairColumns}
-                  data={pairRows}
-                  isLoading={pairsQuery.isLoading}
-                  emptyMessage="No token pairs for this liquidity provider."
-                />
+                <>
+                  {onboardPairs.length > 0 && pairRows.length === 0 ? (
+                    <div className="border-b border-border/60 p-6">
+                      <Alert>
+                        <AlertTitle>
+                          Token pairs configured at onboarding (
+                          {onboardPairs.length})
+                        </AlertTitle>
+                        <AlertDescription>
+                          These pairs take effect after this liquidity provider
+                          is approved, and will then appear in the table below.
+                          <ul className="mt-2 list-disc space-y-1 pl-5">
+                            {onboardPairs.map((p) => (
+                              <li key={`${p.pairId}-${p.source?.address ?? ''}`}>
+                                {p.pairId}
+                                {' · '}
+                                {p.source?.address || '-'}
+                                {' → '}
+                                {p.target?.address || '-'}
+                              </li>
+                            ))}
+                          </ul>
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  ) : null}
+                  <DataTable
+                    columns={pairColumns}
+                    data={pairRows}
+                    isLoading={pairsQuery.isLoading}
+                    emptyMessage="No token pairs for this liquidity provider."
+                  />
+                </>
               )}
             </section>
           </TabsContent>
 
-          {/* Tab 4：operations —— 静态空表（GAP-ADM-02）。 */}
+          {/* Tab 4：operations —— biz_operate_record 真数据（GAP-ADM-02 已闭环）。 */}
           <TabsContent value="operations" className="mt-0">
             <section className="rounded-xl border border-border bg-card shadow-sm">
-              {/* STATIC-FILLER(GAP-ADM-02): operate-log 无按对象（lpId）过滤端点，
-                  静态空表 + 列契约（Timestamp/Operator/Module/Status/Trace ID）。 */}
-              <DataTable
-                columns={LP_OPERATION_COLUMNS}
-                data={[] as { id: string }[]}
+              <OperateRecordTable
+                projectId={PROJECT_ID}
+                objectType="LP"
+                objectId={lpId}
                 emptyMessage="No operations recorded yet."
               />
             </section>
@@ -2950,7 +2979,7 @@ export function LpTokenPairListPage() {
       {
         onSuccess: () => {
           toast.success(
-            'Restore submitted for approval. After approval, use Add Token Pair to resubmit.',
+            'Activation submitted for approval — takes effect after review',
           );
           setStatusAction(null);
         },
@@ -3443,7 +3472,13 @@ const LP_POOL_TABLE_COLUMNS: ColumnDef<LpPoolRow & { id: string }>[] = [
     header: 'LP Name',
     meta: { maxWidth: 180 },
     cell: ({ row }) => (
-      <span className="font-semibold">{row.original.lpName}</span>
+      <a
+        href={`${LP_BASE}/pool/detail?id=${row.original.poolId}`}
+        className="font-semibold text-foreground underline-offset-4 hover:underline"
+        onClick={() => stashRow('lp-pool', row.original.poolId, row.original)}
+      >
+        {row.original.lpName}
+      </a>
     ),
   },
   {
@@ -3791,6 +3826,7 @@ export function LpParticipationDetailPage() {
     });
   };
 
+
   // STATIC-FILLER(GAP-ADM-05): 无单条参与对端点，借参与对列表首页（pageSize 200）
   // 扫行渲染；超出首页或命中失败按 not-found 处理，后端补端点后回写。
   const { data, isLoading, isError } = useLpPairListQuery(PROJECT_ID, {
@@ -3922,14 +3958,14 @@ export function LpParticipationDetailPage() {
             </section>
           </TabsContent>
 
-          {/* Tab 2：operations —— 操作流水（GAP-ADM-02 静态空表）。 */}
+          {/* Tab 2：operations —— biz_operate_record 真数据。 */}
           <TabsContent value="operations" className="mt-0">
             <section className="rounded-xl border border-border bg-card shadow-sm">
               <div className="p-4">
-                {/* STATIC-FILLER(GAP-ADM-02): 操作流水接口缺口，静态空表。 */}
-                <DataTable
-                  columns={LP_OPERATION_COLUMNS}
-                  data={[] as { id: string }[]}
+                <OperateRecordTable
+                  projectId={PROJECT_ID}
+                  objectType="LP_PAIR"
+                  objectId={participationId}
                   emptyMessage="No operations recorded yet."
                 />
               </div>
@@ -3939,6 +3975,196 @@ export function LpParticipationDetailPage() {
       ) : isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : null}
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* Pool detail — 资金池详情（基本信息 + 操作历史）                     */
+/* ================================================================== */
+
+/**
+ * 资金池详情（/lp-liquidity/pool/detail?id=N）。
+ *
+ * 后端无单池详情端点：优先用列表页暂存行（stashRow），缺失时回退池列表首页扫描
+ * （同 GatewayInstanceDetailPage 口径）。操作历史走 biz_operate_record
+ * （objectType=LP_POOL，来源为 KLPP 审批通过/驳回）。
+ */
+export function LpPoolDetailPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const poolId = parseId(searchParams.get('id'));
+
+  const stashed = React.useMemo(
+    () => (poolId != null ? peekRow<LpPoolRow>('lp-pool', poolId) : null),
+    [poolId],
+  );
+
+  const fallbackQuery = useLpPoolListQuery(
+    PROJECT_ID,
+    { pageNum: 1, pageSize: 200, filter: {} },
+    poolId != null && stashed == null,
+  );
+
+  const pool =
+    stashed ??
+    ((fallbackQuery.data?.data ?? []).find((r) => r.poolId === poolId) as
+      | LpPoolRow
+      | undefined) ??
+    null;
+
+  const backButton = (
+    <Button
+      variant="outline"
+      size="icon"
+      className="mt-0.5 size-9 shrink-0"
+      onClick={() => router.push(`${LP_BASE}/pool`)}
+      aria-label="Back to liquidity pools"
+    >
+      <ArrowLeft className="size-4" aria-hidden="true" />
+    </Button>
+  );
+
+  if (poolId == null) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          {backButton}
+          <h1 className="text-xl font-semibold">Liquidity Pool</h1>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+          Pool not found. Open this page from the liquidity pool list.
+        </div>
+      </div>
+    );
+  }
+
+  if (!pool) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          {backButton}
+          <h1 className="text-xl font-semibold">Liquidity Pool</h1>
+        </div>
+        {fallbackQuery.isLoading ? (
+          <Skeleton className="h-48 w-full rounded-xl" />
+        ) : (
+          <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+            Pool #{poolId} not found in the first page of the pool list.
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-3">
+        {backButton}
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold">Liquidity Pool</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">{pool.lpName}</span>
+            <PoolStatusBadge status={pool.status} />
+          </p>
+        </div>
+      </div>
+
+      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="border-b border-border/50 px-6 py-4">
+          <h2 className="text-base font-semibold">Pool Information</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pools are created when a participation pair is approved; the address is
+            unique per LP and token.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 px-6 py-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              LP Name
+            </span>
+            <span className="text-sm text-foreground">{pool.lpName}</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Token
+            </span>
+            <span className="font-mono text-sm text-foreground">
+              {pool.tokenSymbol || pool.tokenCode || <Dash />}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Token Bank
+            </span>
+            <span className="text-sm text-foreground">
+              {pool.tokenBankName || <Dash />}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Pool Address
+            </span>
+            <CopyableId value={pool.accountAddress} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Wallet Balance
+            </span>
+            <AmountWithToken
+              value={pool.availableBalanceCache}
+              token={pool.tokenSymbol || pool.tokenCode}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Available Pre-Auth
+            </span>
+            <span className="tabular-nums text-sm text-foreground">
+              {pool.preauthAvailable == null ? (
+                <Dash />
+              ) : (
+                formatTokenAmount(pool.preauthAvailable)
+              )}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Min. Liquidity Requirement
+            </span>
+            <span className="tabular-nums text-sm text-foreground">
+              {pool.requiredMinSum == null ? (
+                <Dash />
+              ) : (
+                formatTokenAmount(pool.requiredMinSum)
+              )}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Created on
+            </span>
+            <span className="tabular-nums text-sm text-foreground">
+              {pool.createTime ? formatUtc8(pool.createTime) : <Dash />}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="border-b border-border/50 px-6 py-4">
+          <h2 className="text-base font-semibold">Operation History</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Approvals and rejections recorded for this pool.
+          </p>
+        </div>
+        <OperateRecordTable
+          projectId={PROJECT_ID}
+          objectType="LP_POOL"
+          objectId={poolId}
+          emptyMessage="No operations recorded for this pool."
+        />
+      </section>
     </div>
   );
 }

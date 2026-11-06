@@ -1,17 +1,14 @@
 /**
  * LP 资金池域 raw API 层（源 `api/lp-pool.ts`）。
- * 监控视图只读；save 保留 API 层，供管理侧 KLPP 迁移入口复用。
+ * 监控视图只读；2026-11-04 起「独立开通/编辑资金池」入口下线（后端 /lp-pool/save 已移除）——
+ * 资金池只跟着 token 对走，由参与对审批通过时按两侧地址物化。
  */
 import type { AxiosRequestConfig } from 'axios';
 import type { PaginatedResponse } from '@myorg/shared/model';
 
 import { kissenPage, kissenRequest } from '../kissen-client';
 import type { LpOnboardPair } from '../lp/lp.model';
-import type {
-  LpPoolPrecheckResp,
-  LpPoolRow,
-  LpPoolSaveReq,
-} from './lp-pool.model';
+import type { LpPoolPrecheckResp, LpPoolRow } from './lp-pool.model';
 
 interface LpPoolPageReq {
   pageNum: number;
@@ -29,14 +26,6 @@ export function getLpPoolList(
     { pageNum: req.pageNum, pageSize: req.pageSize, filter: req.filter },
     config,
   );
-}
-
-/** 开通/编辑资金池（POST /manage/lp-pool/save；页面无入口，API 层保留）。 */
-export function saveLpPool(
-  req: LpPoolSaveReq,
-  config?: AxiosRequestConfig,
-): Promise<{ poolId: number }> {
-  return kissenRequest.post('/manage/lp-pool/save', req, config);
 }
 
 /**

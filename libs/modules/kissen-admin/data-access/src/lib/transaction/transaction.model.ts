@@ -214,9 +214,28 @@ export interface TransactionListReq {
 /** EXCEPTION(70) 人工裁定请求（源 `/manage/transaction/resolve`）。 */
 export interface TransactionResolveReq {
   txId: number;
-  /** 1 完成 / 2 失败 / 3 冲正完成。 */
-  action: 1 | 2 | 3;
+  /**
+   * 1 完成 / 2 失败 / 3 冲正完成 / 4 重新解付 / 5 退款（LP 源池→付款人）。
+   * 4、5 会产生新的划转指令，必须带 verifiedNotReceived=true。
+   */
+  action: 1 | 2 | 3 | 4 | 5;
   reason?: string;
+  /** action=4/5 必填 true：人工已在货币系统核实「原指令未受理」（双付/重复退款闸门）。 */
+  verifiedNotReceived?: boolean;
+}
+
+/** 裁定前查证结果（POST `/manage/transaction/query-result`）。 */
+export interface TxTargetQueryResult {
+  transactionId: number;
+  status: number;
+  targetCsTxId: string;
+  /** SUCCESS 只能标记完成；FAILED/NOT_REGISTERED/NO_CREDENTIAL 可重发或退款；PROCESSING 需等待。 */
+  result:
+    | 'SUCCESS'
+    | 'FAILED'
+    | 'PROCESSING'
+    | 'NOT_REGISTERED'
+    | 'NO_CREDENTIAL';
 }
 
 /* ------------------------------------------------------------------ */

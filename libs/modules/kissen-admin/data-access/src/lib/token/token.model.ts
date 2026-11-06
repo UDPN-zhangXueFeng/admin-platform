@@ -92,3 +92,31 @@ export const TOKEN_STATUS_VARIANT: Record<
   15: 'destructive',
   50: 'outline',
 };
+
+/** Token 基本信息（POST /manage/token/detail/{tokenId}）。 */
+export interface TokenDetailRow {
+  tokenId: number;
+  tokenNo: string;
+  bankId: number;
+  bankName: string;
+  bankBic: string;
+  instanceId: number;
+  instanceName: string;
+  instanceCode: string;
+  tokenCode: string;
+  tokenName: string;
+  symbol: string;
+  decimalDigits: number;
+  chainType: string;
+  anchorFiat: string;
+  minLiquidity: string | number;
+  contractAddress: string;
+  issuerDesc: string;
+  remark: string;
+  status: number;
+  auditUserId: number;
+  auditTime: number;
+  auditReason: string;
+  createTime: number;
+  updateTime: number;
+}

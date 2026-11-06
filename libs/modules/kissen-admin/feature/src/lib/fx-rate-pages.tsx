@@ -89,6 +89,7 @@ import {
   protoStatusRank,
 } from './proto-enums';
 import { ProtoSortHeader, useProtoSort } from './proto-sort';
+import { OperateRecordTable } from './operate-record-table';
 
 const PROJECT_ID = KISSEN_PROJECT_ID;
 
@@ -569,10 +570,10 @@ export function TokenPairListPage() {
         header: 'Actions',
         cell: ({ row }) => {
           const item = row.original;
-          // 原型行操作矩阵：15 → Edit（重提）；20 → Edit + Disable；
+          // 原型行操作矩阵：15/3 → Edit（重提）；20 → Edit + Disable；
           // 30/50 → Activate；5/10 审批在途无可操作项。
           const menuItems: React.ReactNode[] = [];
-          if (item.status === 15 || item.status === 20) {
+          if (item.status === 15 || item.status === 3 || item.status === 20) {
             menuItems.push(
               <DropdownMenuItem
                 key="edit"
@@ -1314,24 +1315,6 @@ export function TokenPairCreatePage() {
     </div>
   );
 }
-/** 操作记录列（原型 OperationRecordsTable 5 列；数据源见 GAP-ADM-02）。 */
-const operationsColumns: ColumnDef<{ id: string } & Record<string, string>>[] = [
-  {
-    id: 'timestamp',
-    header: 'Timestamp',
-    cell: ({ row }) => (
-      <span className="tabular-nums">{row.original.timestamp}</span>
-    ),
-  },
-  { id: 'operator', header: 'Operator', cell: ({ row }) => row.original.operator },
-  { id: 'module', header: 'Module', cell: ({ row }) => row.original.module },
-  { id: 'status', header: 'Status', cell: ({ row }) => row.original.status },
-  {
-    id: 'traceId',
-    header: 'Trace ID',
-    cell: ({ row }) => <span className="font-mono text-xs">{row.original.traceId}</span>,
-  },
-];
 // ---------------------------------------------------------------------------
 // TokenPairDetailPage — Token Pair Details（原型 FxPairDetailsPage）
 // ---------------------------------------------------------------------------
@@ -1618,12 +1601,12 @@ export function TokenPairDetailPage() {
         </TabsContent>
 
         <TabsContent value="operations" className="mt-0">
-          {/* STATIC-FILLER(GAP-ADM-02): 后端无逐对象操作历史端点，操作记录暂空。 */}
+          {/* biz_operate_record 真数据（objectType=TOKEN_PAIR），GAP-ADM-02 已闭环。 */}
           <section className="rounded-lg border border-border/60 bg-card p-4">
-            <DataTable
-              columns={operationsColumns}
-              data={[] as ({ id: string } & Record<string, string>)[]}
-              isLoading={false}
+            <OperateRecordTable
+              projectId={KISSEN_PROJECT_ID}
+              objectType="TOKEN_PAIR"
+              objectId={pairId}
               emptyMessage="No operations recorded yet."
             />
           </section>
@@ -1667,7 +1650,7 @@ function PairEditForm({ row }: { row: TokenPairRow }) {
   const clientRate = clientRateOf(form.baseRate, form.markupRate);
   // 已驳回（15）= KPT 重提：SaveReq 无 pairId，按 source+target 组合识别；
   // 其余可编辑状态 = KRC 参数变更（现值生效至审批通过）。
-  const isResubmit = row.status === 15;
+  const isResubmit = row.status === 15 || row.status === 3;
   const pending = row.pendingChange || row.status === 5;
 
   const onSubmit = React.useCallback(() => {

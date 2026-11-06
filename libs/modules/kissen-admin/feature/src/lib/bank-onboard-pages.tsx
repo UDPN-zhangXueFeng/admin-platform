@@ -125,6 +125,7 @@ import {
 } from './proto-ui';
 import { formatTokenAmount, formatUtc8 } from './proto-format';
 import { PROTO_BANK_STATUS, protoStatusLabel } from './proto-enums';
+import { OperateRecordTable } from './operate-record-table';
 import {
   ApprovalQueue,
   ApprovalPendingTagWithDialog,
@@ -214,11 +215,12 @@ function safeExternalUrl(value: string | null | undefined): string | undefined {
 }
 
 /** 银行状态 tone（2023418 值域，与 PROTO_BANK_STATUS 对齐）：
- * 1 Draft/2 Registered/5 Pending Approval/10 Under Approval/15 Rejected/
+ * 1 Draft/2 Registered/3 Withdrawn/5 Pending Approval/10 Under Approval/15 Rejected/
  * 20 Onboarded/50 Disabled；新增 2=info，10 在途沿用 warning。 */
 const BANK_STATUS_TONES: Record<number, ProtoStatusTone> = {
   1: 'muted',
   2: 'info',
+  3: 'muted',
   5: 'warning',
   10: 'warning',
   15: 'danger',
@@ -238,14 +240,6 @@ function BankStatusBadge({ status }: { status: number }) {
  * Operation History 静态列契约（STATIC-FILLER GAP-ADM-02：operate-log
  * 无按对象过滤 API，先落列契约 + 空表，后端补齐后接真数据）。
  */
-const BANK_OPERATION_COLUMNS: ColumnDef<{ id: string }>[] = [
-  { id: 'timestamp', header: 'Timestamp' },
-  { id: 'operator', header: 'Operator' },
-  { id: 'module', header: 'Module' },
-  { id: 'status', header: 'Status' },
-  { id: 'traceId', header: 'Trace ID' },
-];
-
 function DetailField({
   icon: Icon,
   label,
@@ -1089,8 +1083,9 @@ export function BankInfoListPage() {
         cell: ({ row }) => {
           const item = row.original;
           // 原型 D6/D7：Details 文本按钮 + ⋮ 菜单。菜单按状态（2023418 值域）：
-          // Disabled(50)→Activate；Draft(1)→Edit；Registered(2)/Enabled(20)
+          // Disabled(50)→Activate；Draft(1)/Withdrawn(3)→Edit；Registered(2)/Enabled(20)
           // →Deactivate（Registered 另可 Edit）；审批在途/结果态无菜单。
+          // 2026-11-04：撤回(3)原本无任何入口，银行改完也无法重提 → 至少给管理员 Edit。
           const menuItems: {
             label: string;
             danger?: boolean;
@@ -1102,7 +1097,7 @@ export function BankInfoListPage() {
               onSelect: () => setStatusAction({ row: item, kind: 'activate' }),
             });
           }
-          if (item.status === 1 || item.status === 2) {
+          if (item.status === 1 || item.status === 2 || item.status === 3) {
             menuItems.push({
               label: 'Edit',
               onSelect: () =>
@@ -2128,14 +2123,13 @@ export function BankInfoDetailPage() {
             </section>
           </TabsContent>
 
-          {/* Tab 4：operations —— 静态空表（GAP-ADM-02）。 */}
+          {/* Tab 4：operations —— biz_operate_record 真数据（GAP-ADM-02 已闭环）。 */}
           <TabsContent value="operations" className="mt-0">
             <section className="rounded-xl border border-border bg-card shadow-sm">
-              {/* STATIC-FILLER(GAP-ADM-02): operate-log 无按对象（bankId）过滤 API，
-                  静态空表 + 列契约（Timestamp/Operator/Module/Status/Trace ID）。 */}
-              <DataTable
-                columns={BANK_OPERATION_COLUMNS}
-                data={[] as { id: string }[]}
+              <OperateRecordTable
+                projectId={KISSEN_PROJECT_ID}
+                objectType="BANK"
+                objectId={bankId}
                 emptyMessage="No operations recorded for this bank."
               />
             </section>

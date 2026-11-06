@@ -74,6 +74,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import {
   KISSEN_PROJECT_ID,
   TX_STATUS_OPTIONS,
+  useQueryTargetResultMutation,
   useResolveTransactionMutation,
   useTransactionBankOptionsQuery,
   useTransactionChainQuery,
@@ -97,6 +98,7 @@ import {
   formatUtc8,
 } from './proto-format';
 import { PROTO_TX_STATUS, protoStatusLabel, protoStatusRank } from './proto-enums';
+import { OperateRecordTable } from './operate-record-table';
 import {
   CopyableId,
   Dash,
@@ -300,13 +302,31 @@ const RESOLVE_ACTION_OPTIONS: ReadonlyArray<{ value: string; label: string }> = 
   { value: '1', label: 'Complete' },
   { value: '2', label: 'Failed' },
   { value: '3', label: 'Reversal Completed' },
+  // 2026-11-04：补上资金处置动作（后端早已支持 action=4/5，界面此前没入口，
+  // 导致「钱卡在 LP 池」的异常单只能绕过界面调接口）
+  { value: '4', label: 'Retry Disbursement (target bank)' },
+  { value: '5', label: 'Refund to Sender (from LP source pool)' },
 ];
+
+/** 需要人工核实 + 会产生新划转指令的动作。 */
+const MONEY_ACTIONS = new Set(['4', '5']);
 
 /** 成功提示按 action 区分（源 RESOLVE_SUCCESS_MSG）。 */
 const RESOLVE_SUCCESS_MSG: Record<string, string> = {
   1: 'Transaction marked as completed',
   2: 'Transaction marked as failed',
   3: 'Reversal resolution completed',
+  4: 'Disbursement retried — watch the chain for the target result',
+  5: 'Refund submitted — transaction moves to Reversed once the transfer settles',
+};
+
+/** 查证结果 → 推荐动作（与后端 SUCCESS 硬拦截口径一致）。 */
+const TARGET_RESULT_HINT: Record<string, string> = {
+  SUCCESS: 'Target bank confirms the payment SUCCEEDED — only "Complete" is allowed.',
+  FAILED: 'Target bank confirms the payment FAILED — retry or refund.',
+  NOT_REGISTERED: 'Target bank has no record of this instruction — retry or refund.',
+  NO_CREDENTIAL: 'No disbursement credential was ever received — retry or refund.',
+  PROCESSING: 'Target bank is still processing — wait before acting.',
 };
 
 /**
@@ -324,28 +344,46 @@ function ResolveDialog({
 }) {
   const toast = useToast();
   const mutation = useResolveTransactionMutation(KISSEN_PROJECT_ID);
+  const targetQuery = useQueryTargetResultMutation();
   // 用户扣款按源 token 精度展示（4609208）。
   const { decimalsOf: decOf } = useTokenMeta(KISSEN_PROJECT_ID);
   const [action, setAction] = React.useState('');
   const [reason, setReason] = React.useState('');
+  const [verified, setVerified] = React.useState(false);
 
   // 每次打开重置表单（与源 reactive form 一致）。
   React.useEffect(() => {
     if (open) {
       setAction('');
       setReason('');
+      setVerified(false);
+      targetQuery.reset();
     }
   }, [open]);
 
   const submitting = mutation.isPending;
+  const isMoneyAction = MONEY_ACTIONS.has(action);
+  const targetResult = targetQuery.data?.result;
+  // 目标端「已成功 / 处理中」都禁止资金动作（重发会双付、退款会白送/重复退）
+  const blockedByTarget =
+    isMoneyAction &&
+    (targetResult === 'SUCCESS' || targetResult === 'PROCESSING');
+  const reasonRequired = action === '5';
+  const canSubmit =
+    Boolean(action) &&
+    !submitting &&
+    !blockedByTarget &&
+    (!isMoneyAction || verified) &&
+    (!reasonRequired || reason.trim().length > 0);
 
   const onSubmit = () => {
-    if (!row || !action) return;
+    if (!row || !canSubmit) return;
     mutation.mutate(
       {
         txId: row.transactionId,
-        action: Number(action) as 1 | 2 | 3,
+        action: Number(action) as 1 | 2 | 3 | 4 | 5,
         reason: reason.trim() || undefined,
+        verifiedNotReceived: isMoneyAction ? verified : undefined,
       },
       {
         onSuccess: () => {
@@ -416,16 +454,101 @@ function ResolveDialog({
               Failed: the transaction moves to Failed and the failure reason is recorded
               <br />
               Reversal Completed: create or complete the reversal order; the transaction moves to Reversed
+              <br />
+              Retry Disbursement: re-issue the payout instruction to the target bank (a NEW instruction)
+              <br />
+              Refund to Sender: send the principal back from the LP source pool to the payer (a NEW transfer, reason required)
             </p>
           </div>
 
-          {/* 裁定原因（选填 maxlength 200 带字数，入 flow 留痕） */}
+          {/* 2026-11-04：查证（问目标行原解付到底成没成），结果决定可用动作 */}
+          <div className="space-y-2 rounded-md border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm font-medium">
+                Verify with target bank
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!row || targetQuery.isPending}
+                onClick={() => row && targetQuery.mutate(row.transactionId)}
+              >
+                {targetQuery.isPending ? 'Querying…' : 'Query result'}
+              </Button>
+            </div>
+            {targetQuery.isError ? (
+              <p className="text-destructive text-xs">
+                {(targetQuery.error as Error).message}
+              </p>
+            ) : null}
+            {targetResult ? (
+              <div className="space-y-1 text-xs">
+                <p>
+                  Result:{' '}
+                  <span className="font-mono font-medium">{targetResult}</span>
+                  {targetQuery.data?.targetCsTxId ? (
+                    <span className="text-muted-foreground">
+                      {' '}
+                      (csTxId: {targetQuery.data.targetCsTxId})
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground"> (no credential)</span>
+                  )}
+                </p>
+                <p className="text-muted-foreground">
+                  {TARGET_RESULT_HINT[targetResult] ?? ''}
+                </p>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-xs">
+                Query the target bank before retrying or refunding — the money
+                must not be paid twice.
+              </p>
+            )}
+          </div>
+
+          {/* action=4/5 人工闸门：必须勾选「已核实未受理」 */}
+          {isMoneyAction ? (
+            <label className="flex items-start gap-2 rounded-md border border-dashed p-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={verified}
+                onChange={(e) => setVerified(e.target.checked)}
+              />
+              <span>
+                I have verified with the currency system that the original
+                instruction was <b>not accepted</b>. Retry and refund both create
+                a NEW transfer instruction.
+              </span>
+            </label>
+          ) : null}
+
+          {blockedByTarget ? (
+            <p className="text-destructive text-xs">
+              {targetResult === 'SUCCESS'
+                ? 'Target bank already confirmed SUCCESS — retry/refund are blocked. Use "Complete" instead.'
+                : 'Target bank is still PROCESSING — retry/refund are blocked until it settles. Query again later.'}
+            </p>
+          ) : null}
+
+          {/* 裁定原因（action=5 必填，其余选填 maxlength 200 带字数，入 flow 留痕） */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Resolution Reason</label>
+            <label className="text-sm font-medium">
+              Resolution Reason
+              {reasonRequired ? (
+                <span className="ml-0.5 text-destructive">*</span>
+              ) : null}
+            </label>
             <Textarea
               rows={3}
               maxLength={200}
-              placeholder="Optional, recorded in the flow log"
+              placeholder={
+                reasonRequired
+                  ? 'Required for refund (funds leave the LP pool; audit trail)'
+                  : 'Optional, recorded in the flow log'
+              }
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
@@ -441,7 +564,7 @@ function ResolveDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={onSubmit} disabled={!action || submitting}>
+          <Button onClick={onSubmit} disabled={!canSubmit}>
             {submitting ? 'Submitting…' : 'Submit'}
           </Button>
         </DialogFooter>
@@ -1082,6 +1205,23 @@ export function TxDetailPage() {
               <TransactionChainSection detail={detail} txId={txId} />
             </aside>
           </div>
+
+          {/* 操作历史（biz_operate_record，objectType=TX）：人工裁定/重发/退款等动作 */}
+          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <div className="border-b border-border/50 px-6 py-4">
+              <h2 className="text-base font-semibold">Operation History</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Manual resolutions recorded for this transaction. The chain above
+                shows the state machine; this table shows who acted and why.
+              </p>
+            </div>
+            <OperateRecordTable
+              projectId={KISSEN_PROJECT_ID}
+              objectType="TX"
+              objectId={txId}
+              emptyMessage="No operations recorded for this transaction."
+            />
+          </section>
         </>
       ) : null}
     </div>

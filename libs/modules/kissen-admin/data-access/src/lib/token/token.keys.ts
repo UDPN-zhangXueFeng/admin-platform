@@ -7,6 +7,8 @@ export const tokenKeys = {
     [...tokenKeys.all(projectId), 'list'] as const,
   list: (projectId: string, filter: TokenListFilter) =>
     [...tokenKeys.lists(projectId), filter] as const,
+  detail: (projectId: string, tokenId: number) =>
+    [...tokenKeys.all(projectId), 'detail', tokenId] as const,
   page: (projectId: string, req: TokenListPageReq) =>
     [...tokenKeys.lists(projectId), 'page', req] as const,
 } as const;

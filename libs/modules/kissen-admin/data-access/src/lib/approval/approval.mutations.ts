@@ -36,6 +36,14 @@ async function invalidateApprovalCaches(
   });
   const domainKeys: Array<readonly unknown[]> = [];
   switch (busCode) {
+    // 2026-11-04 补：入网审批（KLO/KBO）通过/驳回/撤回都会改 lp_info / bank_info 的 status，
+    // 原来是 default 分支什么都不失效，审批完列表和详情都停留在旧状态。
+    case 'kissen_lp_onboard':
+      domainKeys.push(lpKeys.all(projectId));
+      break;
+    case 'kissen_bank_onboard':
+      domainKeys.push(bankKeys.all(projectId));
+      break;
     case 'kissen_lp_pair':
     case 'kissen_lp_split':
       // 参与对/分成审批通过 → 参与对列表、LP 详情聚合、池快照都可能变化

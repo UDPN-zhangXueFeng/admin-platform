@@ -51,10 +51,13 @@ export const LP_TX_STATUS_MAP: Record<number, ProtoEnumEntry> = {
  * 的 'Disabled' → 'Inactive' 口径。
  */
 export const LP_POOL_STATUS_MAP: Record<number, ProtoEnumEntry> = {
+  // 2026-11-05：补 3 撤回 / 10 审批中（管理端 KLPP 会写这两档）
+  3: { label: 'Withdrawn', rank: -1 },
   5: { label: 'Pending', rank: 0 },
+  10: { label: 'Under Approval', rank: 0.5 },
+  15: { label: 'Rejected', rank: 3 },
   20: { label: 'Active', rank: 1 },
   50: { label: 'Inactive', rank: 2 },
-  15: { label: 'Rejected', rank: 3 },
 };
 
 /**
@@ -64,10 +67,15 @@ export const LP_POOL_STATUS_MAP: Record<number, ProtoEnumEntry> = {
  * 对」列表无对应码（Eligible 页签已裁），不映射。
  */
 export const LP_PAIR_STATUS_MAP: Record<number, ProtoEnumEntry> = {
+  // 2026-11-05：补齐管理端会写入的其余码位——1 草稿（恢复/重提路径）、3 撤回（审批发起人撤回）、
+  // 10 审批中；缺档会让页面直接显示裸数字。
+  1: { label: 'Draft', rank: -2 },
+  3: { label: 'Withdrawn', rank: -1 },
   5: { label: 'Pending', rank: 0 },
+  10: { label: 'Under Approval', rank: 0.5 },
+  15: { label: 'Rejected', rank: 3 },
   20: { label: 'Active', rank: 1 },
   50: { label: 'Inactive', rank: 2 },
-  15: { label: 'Rejected', rank: 3 },
 };
 
 /** Pair Readiness 语义键（由行 booleans 推导，见 {@link lpPairReadinessKey}）。 */

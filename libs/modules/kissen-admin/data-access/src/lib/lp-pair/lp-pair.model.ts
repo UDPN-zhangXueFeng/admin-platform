@@ -88,8 +88,11 @@ export interface LpPairListReq {
  * 50=停用（仅 20 可停）；1=恢复为草稿（仅 50 可恢复）。
  */
 export const LP_PAIR_TARGET_STATUS = {
-  /** 恢复为草稿（status 50 → 1）。 */
-  restore: 1,
+  /**
+   * 恢复启用（status 50 → 20）。2026-11-05 起启停审批通过直接回到生效态，
+   * 不再绕「草稿 + 重新 Add Token Pair」。
+   */
+  restore: 20,
   /** 停用（status 20 → 50）。 */
   disable: 50,
 } as const;
