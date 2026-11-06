@@ -20,7 +20,6 @@ import type { MenuTreeRespVO } from '@myorg/modules/lp-portal/data-access';
 export const MENU_ROUTE_MAP: Record<string, string> = {
   'lp:dashboard': '/dashboard',
   'lp:pool': '/pool',
-  'lp:token': '/token',
   'lp:pair': '/pair',
   'lp:txflow': '/tx-flow',
   'lp:settle': '/split-settle',
@@ -79,7 +78,6 @@ export const MENU_ICONS: Record<string, string> = {
   system: 'Settings',
   'lp:dashboard': 'LayoutDashboard',
   'lp:pool': 'WalletCards',
-  'lp:token': 'Coins',
   'lp:pair': 'ArrowLeftRight',
   'lp:txflow': 'ListChecks',
   'lp:settle': 'CircleDollarSign',
@@ -101,9 +99,7 @@ export function buildLpSidebarOrder(menuTree: MenuTreeRespVO[]): ModuleMenuItem[
       .filter(
         (n) =>
           n.menuType !== 4 &&
-          n.visible !== 1 &&
-          // Bank Token Query 已下线，不在 LP 侧栏展示。
-          n.menuKey !== 'lp:token',
+          n.visible !== 1,
       )
       .sort((a, b) => (a.orderNum ?? 0) - (b.orderNum ?? 0))
       .map((node) => {
