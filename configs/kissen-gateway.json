@@ -316,7 +316,7 @@
       {
         "id": "token",
         "icon": "Coins",
-        "label": "Token Management",
+        "label": "Token Registration",
         "path": "/token/manage",
         "group": ""
       },
