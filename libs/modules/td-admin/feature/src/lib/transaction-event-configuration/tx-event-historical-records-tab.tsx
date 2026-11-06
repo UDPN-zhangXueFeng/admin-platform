@@ -8,7 +8,11 @@ import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Button, Card, CopyableEllipsisText, DataTable, cardSurfaceClass } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import {
+  FormDateRangePicker,
+  FormField,
+  FormSelect,
+} from '@myorg/shared/ui-forms';
 import {
   useNormalizationHistoryListQuery,
   type NormalizationHistoryItem,
@@ -286,25 +290,17 @@ export function TxEventHistoricalRecordsTab({
             options={eventStatusOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="createdFrom"
+          <FormDateRangePicker
+            startName="createdFrom"
+            endName="createdTo"
             control={control}
-            label={t('field.createdFrom')}
+            label={t('field.createdOn')}
           />
-          <FormDatePicker
-            name="createdTo"
+          <FormDateRangePicker
+            startName="effectiveFrom"
+            endName="effectiveTo"
             control={control}
-            label={t('field.createdTo')}
-          />
-          <FormDatePicker
-            name="effectiveFrom"
-            control={control}
-            label={t('field.effectiveFrom')}
-          />
-          <FormDatePicker
-            name="effectiveTo"
-            control={control}
-            label={t('field.effectiveTo')}
+            label={t('field.effectiveDate')}
           />
         </div>
         <div className="mt-4 flex gap-2">

@@ -15,7 +15,7 @@ import {
   DataTable,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import { ChartOfAccountsStatusTag } from '.';
@@ -527,15 +527,11 @@ export function ChartOfAccountsListPage() {
             options={tokenTypeOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="createdOnFrom"
+          <FormDateRangePicker
+            startName="createdOnFrom"
+            endName="createdOnTo"
             control={control}
-            label={t('field.createdOnFrom')}
-          />
-          <FormDatePicker
-            name="createdOnTo"
-            control={control}
-            label={t('field.createdOnTo')}
+            label={t('field.createdOn')}
           />
           <FormSelect
             name="status"

@@ -9,7 +9,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
 import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import {
@@ -277,15 +277,11 @@ export function PostingEngineListPage() {
             options={tokenTypeOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="lastRuleUpdateFrom"
+          <FormDateRangePicker
+            startName="lastRuleUpdateFrom"
+            endName="lastRuleUpdateTo"
             control={control}
-            label={t('field.lastRuleUpdateFrom')}
-          />
-          <FormDatePicker
-            name="lastRuleUpdateTo"
-            control={control}
-            label={t('field.lastRuleUpdateTo')}
+            label={t('field.lastRuleUpdate')}
           />
         </div>
         <div className="mt-4 flex gap-2">

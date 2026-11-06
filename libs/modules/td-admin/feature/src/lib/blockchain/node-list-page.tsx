@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import {
   useBlockchainListQuery,
@@ -420,13 +420,9 @@ export function NodeListPage(): React.JSX.Element {
             options={nodeLocationOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="startCreateTime"
-            control={control}
-            label={t('field.createTime')}
-          />
-          <FormDatePicker
-            name="endCreateTime"
+          <FormDateRangePicker
+            startName="startCreateTime"
+            endName="endCreateTime"
             control={control}
             label={t('field.createTime')}
           />

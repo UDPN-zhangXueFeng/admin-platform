@@ -37,7 +37,7 @@ import {
   TooltipTrigger,
 } from '@myorg/shared/ui';
 
-import { FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
   useManagedWalletsQuery,
@@ -394,14 +394,12 @@ export function ManagedWalletsListPage() {
             options={blockchainOptions}
             placeholder={t('PUB_All')}
           />
-          <div>
-            <label className="text-sm font-medium">{t('key_management_0107')}</label>
-            <div className="flex items-center gap-2">
-              <Input type="date" {...register('startCreationDate')} />
-              <span className="text-muted-foreground">-</span>
-              <Input type="date" {...register('endCreationDate')} />
-            </div>
-          </div>
+          <FormDateRangePicker
+            startName="startCreationDate"
+            endName="endCreationDate"
+            control={control}
+            label={t('key_management_0107')}
+          />
           <FormSelect
             name="status"
             control={control}

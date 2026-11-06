@@ -144,8 +144,7 @@
       "createTime": "创建时间"
     },
     "field": {
-      "startCreateTime": "创建开始时间",
-      "endCreateTime": "创建结束时间",
+      "createTime": "创建时间",
       "walletAddress": "钱包地址",
       "creator": "创建人"
     },
@@ -181,8 +180,7 @@
       "dividendMethod": "分红方式"
     },
     "field": {
-      "startCreateTime": "创建开始时间",
-      "endCreateTime": "创建结束时间"
+      "createTime": "创建时间"
     },
     "column": {
       "walletAddress": "钱包地址",

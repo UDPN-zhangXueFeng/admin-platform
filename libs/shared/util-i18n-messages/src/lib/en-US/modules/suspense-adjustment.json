@@ -39,8 +39,6 @@
   },
   "field": {
     "postingDate": "Posting Date",
-    "postingDateFrom": "Posting Date From",
-    "postingDateTo": "Posting Date To",
     "suspenseTxnId": "Suspense Txn ID",
     "transactionId": "Transaction ID",
     "sourceType": "Source Type",

@@ -12,7 +12,7 @@ import type {
 import { useTranslations } from 'next-intl';
 import { Button, Input, cardSurfaceClass } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { REVIEW_SUBMIT_STATE_KEY_PREFIX } from '@myorg/modules/td-admin/data-access';
 
 
@@ -58,10 +58,6 @@ interface RecordFilterFormProps {
   handleSubmit: UseFormHandleSubmit<RecordFilterFormValues>;
   onFilterSubmit: (values: RecordFilterFormValues) => void;
   onFilterReset: () => void;
-  startCreateTime: string;
-  endCreateTime: string;
-  startReviewerTime: string;
-  endReviewerTime: string;
 }
 
 export function RecordFilterForm({
@@ -69,10 +65,6 @@ export function RecordFilterForm({
   handleSubmit,
   onFilterSubmit,
   onFilterReset,
-  startCreateTime,
-  endCreateTime,
-  startReviewerTime,
-  endReviewerTime,
 }: RecordFilterFormProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
 
@@ -119,47 +111,19 @@ export function RecordFilterForm({
         ]}
       />
 
-      <div>
-        <span className="mb-1.5 block text-sm font-medium">
-          {t('PUB_CreateTime')}
-        </span>
-        <div className="flex items-center gap-2">
-          <FormDatePicker
-            name="startCreateTime"
-            control={control}
-            label=""
-            max={endCreateTime || undefined}
-          />
-          <span className="text-muted-foreground">~</span>
-          <FormDatePicker
-            name="endCreateTime"
-            control={control}
-            label=""
-            min={startCreateTime || undefined}
-          />
-        </div>
-      </div>
+      <FormDateRangePicker
+        startName="startCreateTime"
+        endName="endCreateTime"
+        control={control}
+        label={t('PUB_CreateTime')}
+      />
 
-      <div>
-        <span className="mb-1.5 block text-sm font-medium">
-          {t('PUB_ReviewTime')}
-        </span>
-        <div className="flex items-center gap-2">
-          <FormDatePicker
-            name="startReviewerTime"
-            control={control}
-            label=""
-            max={endReviewerTime || undefined}
-          />
-          <span className="text-muted-foreground">~</span>
-          <FormDatePicker
-            name="endReviewerTime"
-            control={control}
-            label=""
-            min={startReviewerTime || undefined}
-          />
-        </div>
-      </div>
+      <FormDateRangePicker
+        startName="startReviewerTime"
+        endName="endReviewerTime"
+        control={control}
+        label={t('PUB_ReviewTime')}
+      />
 
       <div className="flex items-end gap-2">
         <Button type="submit">{t('PUB_Query')}</Button>

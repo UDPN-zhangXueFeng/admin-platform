@@ -28,13 +28,7 @@
     "notifyEmail": "邮件接收人",
     "selectAllUsers": "选择全部用户",
     "exportType": "文件类型",
-    "txTime": "交易时间",
-    "createTimeFrom": "创建时间起",
-    "createTimeTo": "创建时间止",
-    "lastExecutedFrom": "最后执行起",
-    "lastExecutedTo": "最后执行止",
-    "txTimeFrom": "交易时间起",
-    "txTimeTo": "交易时间止"
+    "txTime": "交易时间"
   },
   "action": {
     "view": "查看",

@@ -22,8 +22,6 @@
     "totalEvents": "Total Events",
     "configured": "Configured",
     "lastRuleUpdate": "Last Rule Update",
-    "lastRuleUpdateFrom": "Last Rule Update From",
-    "lastRuleUpdateTo": "Last Rule Update To",
     "status": "Status",
     "actions": "Actions"
   },

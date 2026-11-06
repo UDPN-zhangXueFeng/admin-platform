@@ -6,7 +6,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable, type DataTablePagination, Tabs, TabsList, TabsTrigger, TabsContent } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import type { RuleDetailItem, RuleOperationLog, RuleOperationRecord } from '@myorg/modules/td-admin/data-access';
 import { useRuleDetail, useRuleOperationLog, useRuleOperationRecords } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
@@ -121,9 +121,8 @@ function ExecutionLogTab({ ruleId, t, tc }: { ruleId: number; t: (k: string) => 
   const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: data?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })), onPageSizeChange: (size: number) => setPg({ pageNum: 1, pageSize: size }) }), [pg.pageNum, pg.pageSize, data?.page?.total]);
   return (
     <div>
-      <div className="w-64 mb-4 flex gap-4">
-        <FormDatePicker name="startDate" label={t('screening_monitoring_0048')} control={control} />
-        <FormDatePicker name="endDate" label={t('screening_monitoring_0048')} control={control} />
+      <div className="w-80 mb-4">
+        <FormDateRangePicker startName="startDate" endName="endDate" label={t('screening_monitoring_0048')} control={control} />
       </div>
       <DataTable columns={cols} data={(data?.rows ?? []).map(r => ({ ...r, id: String(r.logId) }))} pagination={tablePagination} isLoading={isLoading} />
     </div>

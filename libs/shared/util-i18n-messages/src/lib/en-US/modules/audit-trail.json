@@ -18,8 +18,6 @@
     "blockchain": "Blockchain",
     "txAmount": "Amount",
     "txTime": "Tx Time",
-    "txTimeFrom": "Tx Time From",
-    "txTimeTo": "Tx Time To",
     "txHash": "Tx Hash",
     "actions": "Action",
     "createTime": "Create Time",

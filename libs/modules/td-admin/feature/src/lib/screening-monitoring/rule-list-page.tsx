@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable, type DataTablePagination } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import type { RuleListItem } from '@myorg/modules/td-admin/data-access';
 import { useBusinessTypeList, useBlockchainOptions, useRuleList, useStablecoinOptions, useOperateRule } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
@@ -90,8 +90,7 @@ export function RuleListPage() {
         <FormSelect name="tokenId" label={t('screening_monitoring_0001')} control={control} options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(tokens ?? [])]} placeholder={tc('PUB_All')} />
         <FormSelect name="blockchainId" label={tc('PUB_Blockchain')} control={control} options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(chains ?? [])]} placeholder={tc('PUB_All')} />
         <FormSelect name="businessType" label={t('screening_monitoring_0002')} control={control} options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(bizTypes ?? []).map(b => ({ label: b.label, value: String(b.value) }))]} placeholder={tc('PUB_All')} />
-        <FormDatePicker name="startDate" label={tc('PUB_CreateTime')} control={control} />
-        <FormDatePicker name="endDate" label={tc('PUB_CreateTime')} control={control} />
+        <FormDateRangePicker startName="startDate" endName="endDate" label={tc('PUB_CreateTime')} control={control} />
         <FormSelect name="status" label={tc('PUB_Status')} control={control} options={RULE_STATUS_OPTIONS.map(o => ({ label: o.label, value: o.value === ALL_VALUE ? ALL_VALUE : o.value }))} placeholder={tc('PUB_All')} />
       </div>
       <div className="flex justify-between mb-4">

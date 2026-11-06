@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import type {
   EodClearingStatus,
   EodStatementRow,
@@ -14,7 +14,7 @@ import type {
  * EOD Statements tab 内容（迁移自源 EodBalancesContent.tsx）。
  *
  * antd Form + DatePicker.RangePicker + Select → react-hook-form +
- * FormDatePicker×2 + FormSelect（日期范围用两个 date input）。
+ * FormDateRangePicker + FormSelect（日期范围用单个 start → end range input）。
  * 筛选在 submit 时转换为 `[startMs, endMs]` + clearingStatus 交给上层。
  */
 const ALL_VALUE = 'all';
@@ -81,8 +81,12 @@ export function EodBalancesContent({
         className={cn(cardSurfaceClass, 'p-4')}
       >
         <div className="flex flex-wrap items-end gap-4">
-          <FormDatePicker name="rangeFrom" control={control} label={t('eod.rangeFrom')} />
-          <FormDatePicker name="rangeTo" control={control} label={t('eod.rangeTo')} />
+          <FormDateRangePicker
+            startName="rangeFrom"
+            endName="rangeTo"
+            control={control}
+            label={t('eod.eodDate')}
+          />
           <FormSelect
             name="clearingStatus"
             control={control}

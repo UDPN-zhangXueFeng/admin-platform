@@ -11,7 +11,11 @@ import {
   DataTable,
   type DataTablePagination,
 } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import {
+  FormDateRangePicker,
+  FormField,
+  FormSelect,
+} from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import {
@@ -114,7 +118,7 @@ function buildOptionsFromRows(rows: TokenReconSummaryRespVo[]): {
  *
  * 关键逻辑（源码逐行对照）：
  * - 7 项筛选：tokenName / tokenType(1/5) / blockchainId / financeBookName / bookNo
- *   / currencyCode / lastReconciliationDate 范围（RangePicker 拆 Start-End）。
+ *   / currencyCode / lastReconciliationDate 范围（单个起止日期区间输入）。
  * - 动态下拉 `updateAvailableOptions`：从 list 行抽取 blockchain/currency 可选项；
  *   非空用动态集，空则回退通用（目标侧通用 hook 未在本模块提供，回退空集，
  *   首次加载后由动态集接管，行为等价源“空回退”）。
@@ -436,13 +440,9 @@ export function RealTimeListPage() {
             options={currencyOptions}
             placeholder={t('PUB_All')}
           />
-          <FormDatePicker
-            name="lastReconciliationDateStart"
-            control={control}
-            label={t('reconciliation_0071')}
-          />
-          <FormDatePicker
-            name="lastReconciliationDateEnd"
+          <FormDateRangePicker
+            startName="lastReconciliationDateStart"
+            endName="lastReconciliationDateEnd"
             control={control}
             label={t('reconciliation_0071')}
           />

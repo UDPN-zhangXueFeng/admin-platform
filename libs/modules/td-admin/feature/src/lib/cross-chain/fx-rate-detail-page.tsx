@@ -9,7 +9,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker } from '@myorg/shared/ui-forms';
 import {
   useFxRateDetailListQuery,
   type FxRateDetailItem,
@@ -154,13 +154,9 @@ export function FxRateDetailPage(): React.JSX.Element {
         className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormDatePicker
-            name="startTime"
-            control={control}
-            label={t('cross_chain_0097')}
-          />
-          <FormDatePicker
-            name="endTime"
+          <FormDateRangePicker
+            startName="startTime"
+            endName="endTime"
             control={control}
             label={t('cross_chain_0097')}
           />

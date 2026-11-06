@@ -6,7 +6,7 @@
 
 import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { Button, DataTable } from '@myorg/shared/ui';
 import { PermissionGuard } from '@myorg/shared/util-auth';
@@ -65,10 +65,6 @@ export function MintingMeltingTab({
 
   const { control, handleSubmit, reset } = useForm<RecordFilterFormValues>({
     defaultValues: EMPTY_FILTER,
-  });
-  const [startCreateTime, endCreateTime, startReviewerTime, endReviewerTime] = useWatch({
-    control,
-    name: ['startCreateTime', 'endCreateTime', 'startReviewerTime', 'endReviewerTime'],
   });
 
   const params = React.useMemo<StablecoinRecordListParams>(
@@ -203,10 +199,6 @@ export function MintingMeltingTab({
         handleSubmit={handleSubmit}
         onFilterSubmit={onFilterSubmit}
         onFilterReset={onFilterReset}
-        startCreateTime={startCreateTime}
-        endCreateTime={endCreateTime}
-        startReviewerTime={startReviewerTime}
-        endReviewerTime={endReviewerTime}
       />
 
       {/* 标题区 + Mint / Melt 按钮（源 CustomTableTitle，tokenized_deposit_0015） */}

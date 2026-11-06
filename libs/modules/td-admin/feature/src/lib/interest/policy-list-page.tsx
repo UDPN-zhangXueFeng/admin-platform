@@ -20,7 +20,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 import { toast } from '@myorg/shared/ui';
 
@@ -255,23 +255,15 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
           register={form.register('interestPolicyName')}
           placeholder={tc('PUB_Query')}
         />
-        <FormDatePicker
-          name="effectiveTimeStart"
+        <FormDateRangePicker
+          startName="effectiveTimeStart"
+          endName="effectiveTimeEnd"
           label={t('interest_0003')}
           control={form.control}
         />
-        <FormDatePicker
-          name="effectiveTimeEnd"
-          label={t('interest_0003')}
-          control={form.control}
-        />
-        <FormDatePicker
-          name="createTimeStart"
-          label={tc('PUB_CreateTime')}
-          control={form.control}
-        />
-        <FormDatePicker
-          name="createTimeEnd"
+        <FormDateRangePicker
+          startName="createTimeStart"
+          endName="createTimeEnd"
           label={tc('PUB_CreateTime')}
           control={form.control}
         />

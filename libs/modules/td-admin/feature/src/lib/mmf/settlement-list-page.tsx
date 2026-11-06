@@ -8,7 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatDate } from '@myorg/shared/util-dates';
 import { usePermission } from '@myorg/shared/util-auth';
 import {
@@ -264,15 +264,11 @@ export function SettlementListPage() {
             register={register('settlementCode')}
             placeholder={t('field.settlementCode')}
           />
-          <FormDatePicker
-            name="appliedTimeFrom"
+          <FormDateRangePicker
+            startName="appliedTimeFrom"
+            endName="appliedTimeTo"
             control={control}
-            label={t('field.applyTimeFrom')}
-          />
-          <FormDatePicker
-            name="appliedTimeTo"
-            control={control}
-            label={t('field.applyTimeTo')}
+            label={t('field.applyTime')}
           />
           <FormSelect
             name="ruleId"

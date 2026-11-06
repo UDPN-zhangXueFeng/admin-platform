@@ -19,6 +19,7 @@ import {
   cardSurfaceClass,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
+import { DateRangePicker } from '@myorg/shared/ui-forms';
 import {
   useSpAccessUserWalletsQuery,
   useUserWalletTxListPreflightMutation,
@@ -288,21 +289,14 @@ export function SpAccessUserWalletsSection({ detail }: { detail: SpAccessDetail 
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span>{t('user_wallet_002')}</span>
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                aria-label={t('sp_access_0140')}
-                value={draft.createDateFrom}
-                onChange={(event) => setDraftField('createDateFrom', event.target.value)}
-              />
-              <span className="text-muted-foreground">–</span>
-              <Input
-                type="date"
-                aria-label={t('sp_access_0141')}
-                value={draft.createDateTo}
-                onChange={(event) => setDraftField('createDateTo', event.target.value)}
-              />
-            </div>
+            <DateRangePicker
+              value={{ start: draft.createDateFrom, end: draft.createDateTo }}
+              onChange={({ start, end }) => {
+                setDraftField('createDateFrom', start);
+                setDraftField('createDateTo', end);
+              }}
+              ariaLabel={t('user_wallet_002')}
+            />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span>{t('sp_access_0110')}</span>

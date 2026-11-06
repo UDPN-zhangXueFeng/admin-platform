@@ -7,7 +7,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import { Button, DataTable, type DataTablePagination } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import {
@@ -73,7 +73,7 @@ function renderAssociatedTokens(tokens?: TokenBrief[]): string {
  * 迁移自 td-manage `reconciliation/reserve/index.tsx`（183 行）。
  *
  * - 5 项筛选：reserveAssetName / financeBookName / financeBookId(=bookNo 文案) /
- *   currencySymbol(Select) / lastReconciliationDate 范围（RangePicker 拆 Start-End）。
+ *   currencySymbol(Select) / lastReconciliationDate 范围（单个起止日期区间输入）。
  * - 9 列汇总：reserveAccountName/assetValue/financeBookName/bookNo/currencySymbol/
  *   Tokens(associatedTokens 截断)/lastReconciliationTime/matched/exceptions，
  *   统计列着色（绿/红）。
@@ -289,13 +289,9 @@ export function ReserveListPage() {
             options={currencyOptions}
             placeholder={t('PUB_All')}
           />
-          <FormDatePicker
-            name="lastReconciliationDateStart"
-            control={control}
-            label={t('reconciliation_0071')}
-          />
-          <FormDatePicker
-            name="lastReconciliationDateEnd"
+          <FormDateRangePicker
+            startName="lastReconciliationDateStart"
+            endName="lastReconciliationDateEnd"
             control={control}
             label={t('reconciliation_0071')}
           />

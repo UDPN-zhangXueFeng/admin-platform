@@ -17,11 +17,7 @@
     "confirmationTime": "Confirmation Time",
     "transactionType": "Transaction Type",
     "transactionAmount": "Transaction Amount",
-    "transactionTime": "Transaction Time",
-    "transactionTimeFrom": "Transaction Time From",
-    "transactionTimeTo": "Transaction Time To",
-    "confirmationTimeFrom": "Confirmation Time From",
-    "confirmationTimeTo": "Confirmation Time To"
+    "transactionTime": "Transaction Time"
   },
   "placeholder": {
     "transactionHash": "Enter transaction hash",

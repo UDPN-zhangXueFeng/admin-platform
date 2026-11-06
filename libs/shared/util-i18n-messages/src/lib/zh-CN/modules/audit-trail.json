@@ -18,8 +18,6 @@
     "blockchain": "区块链",
     "txAmount": "金额",
     "txTime": "交易时间",
-    "txTimeFrom": "交易时间起",
-    "txTimeTo": "交易时间止",
     "txHash": "Tx Hash",
     "actions": "操作",
     "createTime": "创建时间",

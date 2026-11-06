@@ -43,7 +43,7 @@ import {
   SelectValue,
   Textarea,
 } from '@myorg/shared/ui';
-import { DatePicker } from '@myorg/shared/ui-forms';
+import { DateRangePicker } from '@myorg/shared/ui-forms';
 
 import {
   type KeyServiceConfiguration,
@@ -343,29 +343,18 @@ export function KeyServiceConfigurationListPage() {
           <div className="space-y-1.5">
             <label
               className="text-sm font-medium"
-              htmlFor="ksc-filter-start"
+              htmlFor="ksc-filter-date"
             >
-              {t('key_management_creation_date_start')}
+              {t('key_management_0002')}
             </label>
-            <DatePicker
-              id="ksc-filter-start"
-              value={startCreateDate}
-              onChange={setStartCreateDate}
-              ariaLabel={t('key_management_creation_date_start')}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label
-              className="text-sm font-medium"
-              htmlFor="ksc-filter-end"
-            >
-              {t('key_management_creation_date_end')}
-            </label>
-            <DatePicker
-              id="ksc-filter-end"
-              value={endCreateDate}
-              onChange={setEndCreateDate}
-              ariaLabel={t('key_management_creation_date_end')}
+            <DateRangePicker
+              id="ksc-filter-date"
+              value={{ start: startCreateDate, end: endCreateDate }}
+              onChange={({ start, end }) => {
+                setStartCreateDate(start);
+                setEndCreateDate(end);
+              }}
+              ariaLabel={t('key_management_0002')}
             />
           </div>
         </div>

@@ -15,7 +15,7 @@ import {
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
 import {
-  FormDatePicker,
+  FormDateRangePicker,
   FormField,
   FormSelect,
 } from '@myorg/shared/ui-forms';
@@ -293,25 +293,17 @@ export function TravelRuleListPage() {
             options={statusOptions}
             placeholder={t('statusFilter.all')}
           />
-          <FormDatePicker
-            name="transactionTimeFrom"
+          <FormDateRangePicker
+            startName="transactionTimeFrom"
+            endName="transactionTimeTo"
             control={control}
-            label={t('field.transactionTimeFrom')}
+            label={t('field.transactionTime')}
           />
-          <FormDatePicker
-            name="transactionTimeTo"
+          <FormDateRangePicker
+            startName="confirmationTimeFrom"
+            endName="confirmationTimeTo"
             control={control}
-            label={t('field.transactionTimeTo')}
-          />
-          <FormDatePicker
-            name="confirmationTimeFrom"
-            control={control}
-            label={t('field.confirmationTimeFrom')}
-          />
-          <FormDatePicker
-            name="confirmationTimeTo"
-            control={control}
-            label={t('field.confirmationTimeTo')}
+            label={t('field.confirmationTime')}
           />
         </div>
         <div className="mt-4 flex gap-2">

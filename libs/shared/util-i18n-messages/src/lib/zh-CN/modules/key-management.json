@@ -212,7 +212,5 @@
   "key_management_0156": "编辑密钥服务配置",
   "key_management_load_failed": "数据加载失败，请重试。",
   "key_management_retry": "重试",
-  "key_management_rotation_history_intro": "显示此角色（{role}）的所有钱包轮换记录。",
-  "key_management_creation_date_start": "创建日期（起）",
-  "key_management_creation_date_end": "创建日期（止）"
+  "key_management_rotation_history_intro": "显示此角色（{role}）的所有钱包轮换记录。"
 }

@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import { DataTable, type DataTablePagination } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import type { TxFlowItem } from '@myorg/modules/td-admin/data-access';
 import { useStablecoinsQuery, useTxFlowList } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
@@ -69,8 +69,7 @@ export function TransactionFlowPage() {
         <FormField name="txTo" label={t('transaction_flow_006')} register={form.register('txTo')} placeholder={t('transaction_flow_006')} />
         <FormSelect name="txType" label={t('transaction_flow_004')} control={form.control} options={[{ label: tc('PUB_All'), value: ALL }]} placeholder={tc('PUB_All')} />
         <FormSelect name="blockchainId" label={tc('PUB_Blockchain')} control={form.control} options={[{ label: tc('PUB_All'), value: ALL }]} placeholder={tc('PUB_All')} />
-        <FormDatePicker name="txStartTime" label={t('transaction_flow_003')} control={form.control} placeholder={t('transaction_flow_003')} />
-        <FormDatePicker name="txEndTime" label={t('transaction_flow_003')} control={form.control} placeholder={t('transaction_flow_003')} />
+        <FormDateRangePicker startName="txStartTime" endName="txEndTime" control={form.control} label={t('transaction_flow_003')} />
       </div>
       <DataTable columns={cols} data={(data?.rows || []).map((r, i) => ({ ...r, id: r.txHash + i }))} pagination={tablePagination} isLoading={isLoading} />
     </div>

@@ -25,7 +25,7 @@ import {
   cardSurfaceClass,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { useChangeReserveAssetStatusMutation, type AssetCategory, type ReserveAssetListItem, type ReserveAssetListQuery } from '@myorg/modules/td-admin/data-access';
@@ -598,13 +598,9 @@ export function ReserveAssetListPage(): React.JSX.Element {
             options={bookStatusOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="createTimeStart"
-            control={control}
-            label={t('field.createTime')}
-          />
-          <FormDatePicker
-            name="createTimeEnd"
+          <FormDateRangePicker
+            startName="createTimeStart"
+            endName="createTimeEnd"
             control={control}
             label={t('field.createTime')}
           />

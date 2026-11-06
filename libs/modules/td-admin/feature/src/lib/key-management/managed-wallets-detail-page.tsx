@@ -32,7 +32,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
-import { FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
   useManagedWalletDetailQuery,
@@ -458,18 +458,12 @@ export function ManagedWalletsDetailPage() {
                   {...register('keyId')}
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium">
-                  {t('key_management_creation_date_start')}
-                </label>
-                <Input type="date" {...register('creationStartDate')} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">
-                  {t('key_management_creation_date_end')}
-                </label>
-                <Input type="date" {...register('creationEndDate')} />
-              </div>
+              <FormDateRangePicker
+                startName="creationStartDate"
+                endName="creationEndDate"
+                control={control}
+                label={t('key_management_0002')}
+              />
               <div>
                 <label className="text-sm font-medium">{t('key_management_0078')}</label>
                 <Input

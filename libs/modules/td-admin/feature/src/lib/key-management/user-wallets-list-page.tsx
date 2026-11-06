@@ -40,7 +40,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
 import { Alert, Button, Card, DataTable, Input } from '@myorg/shared/ui';
-import { FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
   useUserWalletsQuery,
@@ -307,14 +307,12 @@ export function UserWalletsListPage() {
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...blockchainOptions]}
               placeholder={t('PUB_All')}
             />
-            <div>
-              <label className="text-sm font-medium">{t('key_management_0107')}</label>
-              <div className="flex items-center gap-2">
-                <Input type="date" {...register('startCreationDate')} />
-                <span className="text-muted-foreground">-</span>
-                <Input type="date" {...register('endCreationDate')} />
-              </div>
-            </div>
+            <FormDateRangePicker
+              startName="startCreationDate"
+              endName="endCreationDate"
+              control={control}
+              label={t('key_management_0107')}
+            />
             <FormSelect
               name="status"
               control={control}

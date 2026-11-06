@@ -9,7 +9,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
 import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import { JournalTxHashCell } from '.';
@@ -353,15 +353,11 @@ export function JournalEntriesNewListPage() {
             options={blockchainOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="transactionTimeFrom"
+          <FormDateRangePicker
+            startName="transactionTimeFrom"
+            endName="transactionTimeTo"
             control={control}
-            label={t('field.transactionTimeFrom')}
-          />
-          <FormDatePicker
-            name="transactionTimeTo"
-            control={control}
-            label={t('field.transactionTimeTo')}
+            label={t('field.transactionTime')}
           />
           <FormField
             name="transactionHash"

@@ -18,7 +18,7 @@ import {
   TooltipTrigger,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import {
   useDownloadSmartContractMutation,
@@ -215,13 +215,9 @@ export function SmartContractListPage(): React.JSX.Element {
             register={register('smartPackageName')}
             placeholder={t('field.smartContractName')}
           />
-          <FormDatePicker
-            name="startCreateTime"
-            control={control}
-            label={t('field.createTime')}
-          />
-          <FormDatePicker
-            name="endCreateTime"
+          <FormDateRangePicker
+            startName="startCreateTime"
+            endName="endCreateTime"
             control={control}
             label={t('field.createTime')}
           />

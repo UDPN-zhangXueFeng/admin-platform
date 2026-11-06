@@ -8,7 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 
 import { Button, Card, cardSurfaceClass, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
   useSuspenseAdjustmentListQuery,
@@ -236,15 +236,11 @@ export function SuspenseAdjustmentListPage() {
       >
         <div className="mb-4 text-sm font-semibold">{t('filter.title')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormDatePicker
-            name="postingDateFrom"
+          <FormDateRangePicker
+            startName="postingDateFrom"
+            endName="postingDateTo"
             control={control}
-            label={t('field.postingDateFrom')}
-          />
-          <FormDatePicker
-            name="postingDateTo"
-            control={control}
-            label={t('field.postingDateTo')}
+            label={t('field.postingDate')}
           />
           <FormField
             name="suspenseTxnId"

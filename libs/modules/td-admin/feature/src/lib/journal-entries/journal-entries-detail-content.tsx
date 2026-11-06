@@ -9,7 +9,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { Button, Card, cardSurfaceClass, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
 import {
@@ -250,12 +250,12 @@ export function JournalEntriesView({
             options={txTypeOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="timeFrom"
+          <FormDateRangePicker
+            startName="timeFrom"
+            endName="timeTo"
             control={control}
             label={t('field.dateTime')}
           />
-          <FormDatePicker name="timeTo" control={control} label="" />
         </div>
         <div className="mt-4 flex gap-2">
           <Button type="submit">{t('filter.query')}</Button>

@@ -28,7 +28,7 @@ import {
   Label,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
 import {
@@ -448,13 +448,9 @@ export function RdBridgeListPage(): React.JSX.Element {
             options={statusOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="createStartTime"
-            control={control}
-            label={t('cross_chain_0005')}
-          />
-          <FormDatePicker
-            name="createEndTime"
+          <FormDateRangePicker
+            startName="createStartTime"
+            endName="createEndTime"
             control={control}
             label={t('cross_chain_0005')}
           />

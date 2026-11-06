@@ -39,8 +39,6 @@
   },
   "field": {
     "postingDate": "记账日期",
-    "postingDateFrom": "记账日期起",
-    "postingDateTo": "记账日期止",
     "suspenseTxnId": "暂记事务号",
     "transactionId": "交易号",
     "sourceType": "来源类型",

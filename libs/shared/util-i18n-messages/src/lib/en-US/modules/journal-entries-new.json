@@ -18,8 +18,6 @@
     "transactionType": "Transaction Type",
     "transactionAmount": "Transaction Amount",
     "transactionTime": "Transaction Time",
-    "transactionTimeFrom": "Start date",
-    "transactionTimeTo": "End date",
     "transactionHash": "Transaction Hash",
     "contractAddress": "Contract Address",
     "actions": "Actions"

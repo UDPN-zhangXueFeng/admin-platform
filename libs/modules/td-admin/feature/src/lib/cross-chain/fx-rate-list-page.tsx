@@ -8,7 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { usePermission } from '@myorg/shared/util-auth';
 import {
   useCurrencyPairListQuery,
@@ -185,13 +185,9 @@ export function FxRateListPage(): React.JSX.Element {
             options={currencyPairOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="startTime"
-            control={control}
-            label={t('cross_chain_0025')}
-          />
-          <FormDatePicker
-            name="endTime"
+          <FormDateRangePicker
+            startName="startTime"
+            endName="endTime"
             control={control}
             label={t('cross_chain_0025')}
           />

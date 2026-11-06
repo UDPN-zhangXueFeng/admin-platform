@@ -21,7 +21,7 @@ import {
   Label,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import {
   CrossChainStatusBadge,
@@ -463,13 +463,9 @@ export function TokenPairListPage(): React.JSX.Element {
             options={statusOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="updateStartTime"
-            control={control}
-            label={t('cross_chain_0025')}
-          />
-          <FormDatePicker
-            name="updateEndTime"
+          <FormDateRangePicker
+            startName="updateStartTime"
+            endName="updateEndTime"
             control={control}
             label={t('cross_chain_0025')}
           />

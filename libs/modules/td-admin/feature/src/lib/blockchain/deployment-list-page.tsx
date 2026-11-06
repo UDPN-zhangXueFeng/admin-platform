@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { usePermission } from '@myorg/shared/util-auth';
 import { createRowActionsColumn } from '../row-actions';
 import {
@@ -360,13 +360,9 @@ export function DeploymentListPage() {
             options={typeOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="startDeploymentTime"
-            control={control}
-            label={t('field.deploymentDate')}
-          />
-          <FormDatePicker
-            name="endDeploymentTime"
+          <FormDateRangePicker
+            startName="startDeploymentTime"
+            endName="endDeploymentTime"
             control={control}
             label={t('field.deploymentDate')}
           />

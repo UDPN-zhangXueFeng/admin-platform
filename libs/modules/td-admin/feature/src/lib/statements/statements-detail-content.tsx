@@ -9,7 +9,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { Button, Card, cardSurfaceClass, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
 import { Controller, useForm } from 'react-hook-form';
@@ -478,8 +478,12 @@ export function StatementsExportPage() {
               {...register('walletAddress', { maxLength: 50 })}
             />
           </div>
-          <FormDatePicker name="txTimeFrom" control={control} label={t('field.txTimeFrom')} />
-          <FormDatePicker name="txTimeTo" control={control} label={t('field.txTimeTo')} />
+          <FormDateRangePicker
+            startName="txTimeFrom"
+            endName="txTimeTo"
+            control={control}
+            label={t('field.txTime')}
+          />
           <div className="space-y-1.5">
             <label className="text-sm font-medium">{t('field.txTypes')}</label>
             <div className="flex flex-wrap gap-3">

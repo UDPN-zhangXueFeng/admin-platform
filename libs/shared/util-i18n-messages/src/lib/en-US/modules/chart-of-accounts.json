@@ -20,8 +20,6 @@
     "lastEodPostingRun": "Last EOD Posting Run",
     "status": "Status",
     "actions": "Actions",
-    "createdOnFrom": "Created From",
-    "createdOnTo": "Created To",
     "createdBy": "Created by",
     "createdOn": "Created on"
   },
@@ -95,7 +93,7 @@
     "clearingSettled": "Settled", "clearingSuspensed": "Suspensed", "clearingAdjusted": "Adjusted",
     "clearingPending": "Pending", "clearingNone": "None",
     "actionPostToSuspense": "Post to Suspense", "actionReview": "Review", "actionDetails": "Details",
-    "rangeFrom": "From", "rangeTo": "To", "closedBy": "Closed by",
+    "closedBy": "Closed by",
     "detailTitle": "EOD Balances", "date": "Date", "bookId": "Book ID", "processedBy": "Processed by",
     "ofWhichSuspenseAssets": "of which suspense assets", "ofWhichSuspenseLiabilities": "of which suspense liabilities",
     "voucherId": "Voucher ID", "drCr": "Dr/Cr", "account": "Account", "amount": "Amount", "transactionId": "Transaction ID",

@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { formatDate } from '@myorg/shared/util-dates';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import {
@@ -359,15 +359,11 @@ export function AccrualListPage() {
         className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormDatePicker
-            name="accrualTimeFrom"
+          <FormDateRangePicker
+            startName="accrualTimeFrom"
+            endName="accrualTimeTo"
             control={control}
-            label={t('field.accrualTimeFrom')}
-          />
-          <FormDatePicker
-            name="accrualTimeTo"
-            control={control}
-            label={t('field.accrualTimeTo')}
+            label={t('field.accrualTime')}
           />
           <FormSelect
             name="ruleId"

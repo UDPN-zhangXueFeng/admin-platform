@@ -8,7 +8,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { Button, Card, cardSurfaceClass, DataTable, Input } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../format-admin-time';
 import {
@@ -93,8 +93,8 @@ function formatBalance(value: number | undefined | null): string {
  * 关键点：
  * 1. **筛选 7 项**：RefNo / 资产名（Input）；币种（currency/list，filter value 非空）；
  *    资产类别（category/list，filter assetCategoryName 非空）；交易类型（TRANSACTION_DIRECTION_FILTER，
- *    源 0=All → 页面归一为 ALL_VALUE，提交 `===ALL_VALUE` 转 undefined）；创建时间（起止两个
- *    FormDatePicker，源 RangePicker 用 "-" 拆分 startQueryTime/endQueryTime）；状态
+ *    源 0=All → 页面归一为 ALL_VALUE，提交 `===ALL_VALUE` 转 undefined）；创建时间（一个
+ *    FormDateRangePicker 渲染 startQueryTime/endQueryTime 两个字段，源 RangePicker 用 "-" 拆分）；状态
  *    （ASSET_TXN_STATUS_FILTER，0=All → ALL_VALUE）。
  * 2. **行操作 Details**：跳 `/approval-manage/view?busCode=save_reserve_asset_transaction&id=<taskId>`，
  *    taskId 为 null 时按钮 disabled。⚠️ approval-manage 模块本批未迁移，该路由可能 404。
@@ -436,13 +436,9 @@ export function AssetTransactionListPage(): React.JSX.Element {
             options={directionOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="startQueryTime"
-            control={control}
-            label={t('assetTxnList.createdOn')}
-          />
-          <FormDatePicker
-            name="endQueryTime"
+          <FormDateRangePicker
+            startName="startQueryTime"
+            endName="endQueryTime"
             control={control}
             label={t('assetTxnList.createdOn')}
           />

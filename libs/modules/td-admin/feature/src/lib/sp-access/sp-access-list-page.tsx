@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
+import { DateRangePicker } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 import {
   useSpAccessListQuery,
@@ -290,19 +291,14 @@ export function SpAccessListPage() {
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium">{t('PUB_CreateTime')}</label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                value={draft.createDateFrom}
-                onChange={(event) => setDraftField('createDateFrom', event.target.value)}
-              />
-              <span className="text-muted-foreground">-</span>
-              <Input
-                type="date"
-                value={draft.createDateTo}
-                onChange={(event) => setDraftField('createDateTo', event.target.value)}
-              />
-            </div>
+            <DateRangePicker
+              value={{ start: draft.createDateFrom, end: draft.createDateTo }}
+              onChange={({ start, end }) => {
+                setDraftField('createDateFrom', start);
+                setDraftField('createDateTo', end);
+              }}
+              ariaLabel={t('PUB_CreateTime')}
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium">{t('PUB_Status')}</label>

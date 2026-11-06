@@ -15,8 +15,6 @@
     "createTime": "Create Time",
     "status": "Status",
     "actions": "Action",
-    "createTimeFrom": "Create Time From",
-    "createTimeTo": "Create Time To",
     "tokenSymbol": "Token Symbol",
     "txType": "Tx Type",
     "loanType": "Loan Type",

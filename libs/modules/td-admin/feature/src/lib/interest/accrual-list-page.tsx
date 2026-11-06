@@ -12,7 +12,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import { Button, DataTable } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import type { AccrualRecord } from '@myorg/modules/td-admin/data-access';
@@ -146,13 +146,9 @@ export function AccrualListPage() {
       <h3 className="text-lg font-medium mb-4">{t('interest_0070')}</h3>
 
       <div className="grid grid-cols-4 gap-4 mb-4">
-        <FormDatePicker
-          name="accrualTimeStart"
-          label={t('interest_0065')}
-          control={form.control}
-        />
-        <FormDatePicker
-          name="accrualTimeEnd"
+        <FormDateRangePicker
+          startName="accrualTimeStart"
+          endName="accrualTimeEnd"
           label={t('interest_0065')}
           control={form.control}
         />

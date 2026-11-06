@@ -16,7 +16,11 @@ import {
   cardSurfaceClass,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import {
+  FormDateRangePicker,
+  FormField,
+  FormSelect,
+} from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import {
@@ -504,15 +508,11 @@ export function UserWalletListPage() {
             options={blockchainOptions}
             placeholder={t('common.all')}
           />
-          <FormDatePicker
-            name="startCreateTime"
+          <FormDateRangePicker
+            startName="startCreateTime"
+            endName="endCreateTime"
             control={control}
-            label={t('userWallet.field.startCreateTime')}
-          />
-          <FormDatePicker
-            name="endCreateTime"
-            control={control}
-            label={t('userWallet.field.endCreateTime')}
+            label={t('userWallet.field.createTime')}
           />
           <FormSelect
             name="state"

@@ -34,7 +34,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
 import { Alert, Button, Card, DataTable, Input } from '@myorg/shared/ui';
-import { FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
   useKeySignedTransactionsQuery,
@@ -430,22 +430,18 @@ export function KeySignedTransactionsListPage() {
             options={blockchainOptions}
             placeholder={t('PUB_All')}
           />
-          <div>
-            <label className="text-sm font-medium">{t('key_management_0102')}</label>
-            <div className="flex items-center gap-2">
-              <Input type="date" {...register('startSignatureDate')} />
-              <span className="text-muted-foreground">-</span>
-              <Input type="date" {...register('endSignatureDate')} />
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium">{t('key_management_0103')}</label>
-            <div className="flex items-center gap-2">
-              <Input type="date" {...register('startSubmissionDate')} />
-              <span className="text-muted-foreground">-</span>
-              <Input type="date" {...register('endSubmissionDate')} />
-            </div>
-          </div>
+          <FormDateRangePicker
+            startName="startSignatureDate"
+            endName="endSignatureDate"
+            control={control}
+            label={t('key_management_0102')}
+          />
+          <FormDateRangePicker
+            startName="startSubmissionDate"
+            endName="endSubmissionDate"
+            control={control}
+            label={t('key_management_0103')}
+          />
           <div>
             <label className="text-sm font-medium">{t('key_management_0078')}</label>
             <Input placeholder={t('key_management_0078')} {...register('transactionHash')} />

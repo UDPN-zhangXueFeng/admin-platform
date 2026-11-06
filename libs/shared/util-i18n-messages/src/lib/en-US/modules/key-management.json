@@ -212,7 +212,5 @@
   "key_management_0156": "Edit Key Service Configuration",
   "key_management_load_failed": "Failed to load data. Please retry.",
   "key_management_retry": "Retry",
-  "key_management_rotation_history_intro": "Displays all wallet rotation records for this {role}.",
-  "key_management_creation_date_start": "Creation Date (Start)",
-  "key_management_creation_date_end": "Creation Date (End)"
+  "key_management_rotation_history_intro": "Displays all wallet rotation records for this {role}."
 }

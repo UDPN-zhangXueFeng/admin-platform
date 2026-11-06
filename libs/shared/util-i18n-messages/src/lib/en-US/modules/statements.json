@@ -28,13 +28,7 @@
     "notifyEmail": "Email Recipients",
     "selectAllUsers": "Select All Users",
     "exportType": "File Type",
-    "txTime": "Tx Time",
-    "createTimeFrom": "Create Time From",
-    "createTimeTo": "Create Time To",
-    "lastExecutedFrom": "Last Executed From",
-    "lastExecutedTo": "Last Executed To",
-    "txTimeFrom": "Tx Time From",
-    "txTimeTo": "Tx Time To"
+    "txTime": "Tx Time"
   },
   "action": {
     "view": "View",

@@ -19,7 +19,7 @@ import {
   cardSurfaceClass,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
 import {
@@ -413,25 +413,17 @@ export function StatementsListPage() {
             options={frequencyOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="createTimeFrom"
+          <FormDateRangePicker
+            startName="createTimeFrom"
+            endName="createTimeTo"
             control={control}
-            label={t('field.createTimeFrom')}
+            label={t('field.createTime')}
           />
-          <FormDatePicker
-            name="createTimeTo"
+          <FormDateRangePicker
+            startName="lastExecutedFrom"
+            endName="lastExecutedTo"
             control={control}
-            label={t('field.createTimeTo')}
-          />
-          <FormDatePicker
-            name="lastExecutedFrom"
-            control={control}
-            label={t('field.lastExecutedFrom')}
-          />
-          <FormDatePicker
-            name="lastExecutedTo"
-            control={control}
-            label={t('field.lastExecutedTo')}
+            label={t('field.lastExecutedTime')}
           />
           <FormSelect
             name="status"

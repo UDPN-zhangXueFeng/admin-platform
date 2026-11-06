@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 
 import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
 
@@ -337,15 +337,11 @@ export function AuditTrailListPage() {
             options={blockchainOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="txTimeFrom"
+          <FormDateRangePicker
+            startName="txTimeFrom"
+            endName="txTimeTo"
             control={control}
-            label={t('field.txTimeFrom')}
-          />
-          <FormDatePicker
-            name="txTimeTo"
-            control={control}
-            label={t('field.txTimeTo')}
+            label={t('field.txTime')}
           />
           <FormField
             name="txHash"

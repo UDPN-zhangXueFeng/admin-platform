@@ -9,7 +9,11 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
 import { Button, Card, DataTable, cardSurfaceClass } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import {
+  FormDateRangePicker,
+  FormField,
+  FormSelect,
+} from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import {
@@ -266,15 +270,11 @@ export function TxEventConfigListPage() {
             register={register('currency')}
             placeholder={t('placeholder.currency')}
           />
-          <FormDatePicker
-            name="createdFrom"
+          <FormDateRangePicker
+            startName="createdFrom"
+            endName="createdTo"
             control={control}
-            label={t('field.createdFrom')}
-          />
-          <FormDatePicker
-            name="createdTo"
-            control={control}
-            label={t('field.createdTo')}
+            label={t('field.createdOn')}
           />
         </div>
         <div className="mt-4 flex gap-2">

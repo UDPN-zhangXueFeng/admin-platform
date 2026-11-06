@@ -18,8 +18,6 @@
     "transactionType": "交易类型",
     "transactionAmount": "交易金额",
     "transactionTime": "交易时间",
-    "transactionTimeFrom": "开始日期",
-    "transactionTimeTo": "结束日期",
     "transactionHash": "交易哈希",
     "contractAddress": "合约地址",
     "actions": "操作"

@@ -57,7 +57,7 @@ import {
   Label,
   Textarea,
 } from '@myorg/shared/ui';
-import { FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
   policyList,
@@ -130,7 +130,7 @@ export function KeyPolicyConfigurationListPage() {
   const [pageSize, setPageSize] = React.useState(10);
 
   // ----- Filter form -----
-  const { register, reset, getValues, control } =
+  const { reset, getValues, control } =
     useForm<FilterFormValues>({
       defaultValues: {
         roleName: ALL_VALUE,
@@ -392,16 +392,12 @@ export function KeyPolicyConfigurationListPage() {
             options={statusFilterOptions}
             placeholder={t('PUB_All')}
           />
-          <div>
-            <label className="text-sm font-medium">
-              {t('key_management_0002')}
-            </label>
-            <div className="flex items-center gap-2">
-              <Input type="date" {...register('startCreationDate')} />
-              <span className="text-muted-foreground">-</span>
-              <Input type="date" {...register('endCreationDate')} />
-            </div>
-          </div>
+          <FormDateRangePicker
+            startName="startCreationDate"
+            endName="endCreationDate"
+            control={control}
+            label={t('key_management_0002')}
+          />
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="outline" onClick={handleReset}>

@@ -20,8 +20,6 @@
     "lastEodPostingRun": "上次 EOD 过账运行",
     "status": "状态",
     "actions": "操作",
-    "createdOnFrom": "创建开始",
-    "createdOnTo": "创建结束",
     "createdBy": "创建人",
     "createdOn": "创建时间"
   },
@@ -95,7 +93,7 @@
     "clearingSettled": "已结算", "clearingSuspensed": "已暂记", "clearingAdjusted": "已调整",
     "clearingPending": "待处理", "clearingNone": "无",
     "actionPostToSuspense": "记入暂记", "actionReview": "审核", "actionDetails": "明细",
-    "rangeFrom": "开始", "rangeTo": "结束", "closedBy": "关账人",
+    "closedBy": "关账人",
     "detailTitle": "日终余额", "date": "日期", "bookId": "账本 ID", "processedBy": "处理人",
     "ofWhichSuspenseAssets": "其中暂记资产", "ofWhichSuspenseLiabilities": "其中暂记负债",
     "voucherId": "凭证号", "drCr": "借/贷", "account": "科目", "amount": "金额", "transactionId": "交易号",

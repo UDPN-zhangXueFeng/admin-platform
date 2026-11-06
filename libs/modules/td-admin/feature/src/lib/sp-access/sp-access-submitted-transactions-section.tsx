@@ -18,6 +18,7 @@ import {
   cardSurfaceClass,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
+import { DateRangePicker } from '@myorg/shared/ui-forms';
 import { useSpAccessSubmittedTransactionsQuery } from '@myorg/modules/td-admin/data-access';
 import type {
   SpAccessDetail,
@@ -296,21 +297,14 @@ export function SpAccessSubmittedTransactionsSection({
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span>{t('sp_access_0061')}</span>
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                aria-label={t('sp_access_0142')}
-                value={draft.txStartDate}
-                onChange={(event) => setDraftField('txStartDate', event.target.value)}
-              />
-              <span className="text-muted-foreground">–</span>
-              <Input
-                type="date"
-                aria-label={t('sp_access_0143')}
-                value={draft.txEndDate}
-                onChange={(event) => setDraftField('txEndDate', event.target.value)}
-              />
-            </div>
+            <DateRangePicker
+              value={{ start: draft.txStartDate, end: draft.txEndDate }}
+              onChange={({ start, end }) => {
+                setDraftField('txStartDate', start);
+                setDraftField('txEndDate', end);
+              }}
+              ariaLabel={t('sp_access_0061')}
+            />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span>{t('transaction_flow_007')}</span>

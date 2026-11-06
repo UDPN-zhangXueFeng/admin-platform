@@ -15,8 +15,6 @@
     "createTime": "创建时间",
     "status": "状态",
     "actions": "操作",
-    "createTimeFrom": "创建时间起",
-    "createTimeTo": "创建时间止",
     "tokenSymbol": "代币符号",
     "txType": "交易类型",
     "loanType": "借贷类型",

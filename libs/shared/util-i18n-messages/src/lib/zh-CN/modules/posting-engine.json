@@ -22,8 +22,6 @@
     "totalEvents": "事件总数",
     "configured": "已配置",
     "lastRuleUpdate": "最近规则更新",
-    "lastRuleUpdateFrom": "最近规则更新起",
-    "lastRuleUpdateTo": "最近规则更新止",
     "status": "状态",
     "actions": "操作"
   },

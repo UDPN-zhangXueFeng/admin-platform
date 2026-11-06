@@ -144,8 +144,7 @@
       "createTime": "Create Time"
     },
     "field": {
-      "startCreateTime": "Create Time Start",
-      "endCreateTime": "Create Time End",
+      "createTime": "Create Time",
       "walletAddress": "Wallet Address",
       "creator": "Creator"
     },
@@ -181,8 +180,7 @@
       "dividendMethod": "Dividend Method"
     },
     "field": {
-      "startCreateTime": "Create Time Start",
-      "endCreateTime": "Create Time End"
+      "createTime": "Create Time"
     },
     "column": {
       "walletAddress": "Wallet Address",

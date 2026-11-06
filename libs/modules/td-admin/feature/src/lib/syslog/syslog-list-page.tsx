@@ -8,7 +8,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
 import { Button, Card, cardSurfaceClass, DataTable, useToast } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 
 import { LogDescriptionText } from '.';
@@ -266,15 +266,11 @@ export function SysLogListPage() {
             label={t('field.sourceIp')}
             register={register('sourceIp')}
           />
-          <FormDatePicker
-            name="logTimeFrom"
+          <FormDateRangePicker
+            startName="logTimeFrom"
+            endName="logTimeTo"
             control={control}
-            label={t('field.logTimeFrom')}
-          />
-          <FormDatePicker
-            name="logTimeTo"
-            control={control}
-            label={t('field.logTimeTo')}
+            label={t('field.logTime')}
           />
         </div>
         <div className="mt-4 flex gap-2">

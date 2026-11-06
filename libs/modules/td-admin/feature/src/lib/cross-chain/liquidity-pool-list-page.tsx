@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
 import { useLiquidityPoolListQuery, type LiquidityPoolItem, type LiquidityPoolListFilters } from '@myorg/modules/td-admin/data-access';
@@ -437,13 +437,9 @@ export function LiquidityPoolListPage(): React.JSX.Element {
             options={statusOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="updatedTimeStart"
-            control={control}
-            label={t('cross_chain_0025')}
-          />
-          <FormDatePicker
-            name="updatedTimeEnd"
+          <FormDateRangePicker
+            startName="updatedTimeStart"
+            endName="updatedTimeEnd"
             control={control}
             label={t('cross_chain_0025')}
           />

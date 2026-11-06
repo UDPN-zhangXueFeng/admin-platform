@@ -8,7 +8,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
 import { Button, Card, DataTable, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cardSurfaceClass, useToast } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 
@@ -321,21 +321,13 @@ export function WorkflowListPage() {
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium">{t('field.createdDate')}</label>
-            <div className="flex items-center gap-2">
-              <FormDatePicker
-                name="beginDate"
-                control={control}
-                label={t('field.createdDate')}
-                hideLabel
-              />
-              <span className="text-muted-foreground">—</span>
-              <FormDatePicker
-                name="endDate"
-                control={control}
-                label={t('field.createdDate')}
-                hideLabel
-              />
-            </div>
+            <FormDateRangePicker
+              startName="beginDate"
+              endName="endDate"
+              control={control}
+              label={t('field.createdDate')}
+              hideLabel
+            />
           </div>
         </div>
         <div className="mt-4 flex gap-2">

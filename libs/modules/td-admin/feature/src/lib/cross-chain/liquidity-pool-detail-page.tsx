@@ -23,7 +23,7 @@ import {
 } from '@myorg/shared/ui';
 import { usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
-import { DatePicker } from '@myorg/shared/ui-forms';
+import { DateRangePicker } from '@myorg/shared/ui-forms';
 import { useLiquidityPoolAuthorizationQuery, useLiquidityPoolBasicInfoQuery, useLiquidityPoolOpRecordsQuery, useLiquidityPoolTransactionsQuery, type AuthorizationRecordItem, type LiquidityPoolBasicInfo, type TransactionRecordItem } from '@myorg/modules/td-admin/data-access';
 import type { OperationRecordItem } from '@myorg/modules/td-admin/data-access/lib/cross-chain';
 import {
@@ -975,20 +975,17 @@ function TxFilterBar({
           </SelectContent>
         </Select>
       </div>
-      <DatePickerField
-        id="lp-tx-transactionTimeStart"
+      <DateRangeField
+        id="lp-tx-transactionTime"
         label={t('cross_chain_0061')}
-        value={local.transactionTimeStart}
-        onChange={(v) =>
-          setLocal((prev) => ({ ...prev, transactionTimeStart: v }))
-        }
-      />
-      <DatePickerField
-        id="lp-tx-transactionTimeEnd"
-        label={t('cross_chain_0061')}
-        value={local.transactionTimeEnd}
-        onChange={(v) =>
-          setLocal((prev) => ({ ...prev, transactionTimeEnd: v }))
+        startValue={local.transactionTimeStart}
+        endValue={local.transactionTimeEnd}
+        onChange={({ start, end }) =>
+          setLocal((prev) => ({
+            ...prev,
+            transactionTimeStart: start,
+            transactionTimeEnd: end,
+          }))
         }
       />
     </div>
@@ -1053,20 +1050,17 @@ function AuthFilterBar({
           </SelectContent>
         </Select>
       </div>
-      <DatePickerField
-        id="lp-auth-operationTimeStart"
+      <DateRangeField
+        id="lp-auth-operationTime"
         label={t('cross_chain_0068')}
-        value={local.operationTimeStart}
-        onChange={(v) =>
-          setLocal((prev) => ({ ...prev, operationTimeStart: v }))
-        }
-      />
-      <DatePickerField
-        id="lp-auth-operationTimeEnd"
-        label={t('cross_chain_0068')}
-        value={local.operationTimeEnd}
-        onChange={(v) =>
-          setLocal((prev) => ({ ...prev, operationTimeEnd: v }))
+        startValue={local.operationTimeStart}
+        endValue={local.operationTimeEnd}
+        onChange={({ start, end }) =>
+          setLocal((prev) => ({
+            ...prev,
+            operationTimeStart: start,
+            operationTimeEnd: end,
+          }))
         }
       />
       <div>
@@ -1086,20 +1080,17 @@ function AuthFilterBar({
           }
         />
       </div>
-      <DatePickerField
-        id="lp-auth-transactionTimeStart"
+      <DateRangeField
+        id="lp-auth-transactionTime"
         label={t('cross_chain_0061')}
-        value={local.transactionTimeStart}
-        onChange={(v) =>
-          setLocal((prev) => ({ ...prev, transactionTimeStart: v }))
-        }
-      />
-      <DatePickerField
-        id="lp-auth-transactionTimeEnd"
-        label={t('cross_chain_0061')}
-        value={local.transactionTimeEnd}
-        onChange={(v) =>
-          setLocal((prev) => ({ ...prev, transactionTimeEnd: v }))
+        startValue={local.transactionTimeStart}
+        endValue={local.transactionTimeEnd}
+        onChange={({ start, end }) =>
+          setLocal((prev) => ({
+            ...prev,
+            transactionTimeStart: start,
+            transactionTimeEnd: end,
+          }))
         }
       />
       <div>
@@ -1188,23 +1179,25 @@ function OpFilterBar({
 }
 
 /**
- * 轻量日期选择字段（受控，value 为 '' 或 'YYYY-MM-DD' 字符串）。
+ * 轻量日期范围字段（受控，start/end 均为 '' 或 'YYYY-MM-DD' 字符串）。
  *
  * 子表筛选栏内嵌使用：直接受控于本地 useState，
- * 不依赖 react-hook-form（FormDatePicker 基于 RHF control，不便嵌入受控筛选栏）。
+ * 不依赖 react-hook-form（FormDateRangePicker 基于 RHF control，不便嵌入受控筛选栏）。
  * 输出 'YYYY-MM-DD' 字符串，与 startOfDay/endOfDay(parseISO(...)) 解析一致。
  * 视觉与筛选栏内 Input 文本框统一（h-9 + border-input + ring）。
  */
-function DatePickerField({
+function DateRangeField({
   id,
   label,
-  value,
+  startValue,
+  endValue,
   onChange,
 }: {
   id: string;
   label: string;
-  value: string;
-  onChange: (next: string) => void;
+  startValue: string;
+  endValue: string;
+  onChange: (next: { start: string; end: string }) => void;
 }): React.JSX.Element {
   return (
     <div>
@@ -1214,9 +1207,9 @@ function DatePickerField({
       >
         {label}
       </label>
-      <DatePicker
+      <DateRangePicker
         id={id}
-        value={value}
+        value={{ start: startValue, end: endValue }}
         onChange={onChange}
         ariaLabel={label}
         className="h-9 bg-transparent py-1 shadow-sm focus-visible:ring-1"

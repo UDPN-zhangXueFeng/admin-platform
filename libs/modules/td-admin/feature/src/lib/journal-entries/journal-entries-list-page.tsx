@@ -9,7 +9,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
 import {
@@ -355,15 +355,11 @@ export function JournalEntriesListPage() {
             options={stateOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="createTimeFrom"
+          <FormDateRangePicker
+            startName="createTimeFrom"
+            endName="createTimeTo"
             control={control}
-            label={t('field.createTimeFrom')}
-          />
-          <FormDatePicker
-            name="createTimeTo"
-            control={control}
-            label={t('field.createTimeTo')}
+            label={t('field.createTime')}
           />
         </div>
         <div className="mt-4 flex gap-2">

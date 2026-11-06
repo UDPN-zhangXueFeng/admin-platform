@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable, type DataTablePagination, Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose, Card, RadioGroup, RadioGroupItem, Textarea } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { toast } from '@myorg/shared/ui';
 import type { SuspiciousTransaction } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainOptions, useBusinessTypeList, useProcessSuspicious, useRetrySuspicious, useStablecoinOptions, useSuspiciousList } from '@myorg/modules/td-admin/data-access';
@@ -69,8 +69,7 @@ export function TransactionMonitoringListPage() {
         <FormSelect name="businessType" label={t('screening_monitoring_0002')} control={control} options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(bizTypes ?? []).map(b => ({ label: b.label, value: String(b.value) }))]} placeholder={tc('PUB_All')} />
         <FormSelect name="priority" label={t('screening_monitoring_0011')} control={control} options={RISK_LEVEL_OPTIONS.map(o => ({ label: o.label, value: o.value === ALL_VALUE ? ALL_VALUE : o.value }))} placeholder={tc('PUB_All')} />
         <FormSelect name="status" label={tc('PUB_Status')} control={control} options={SUSPICIOUS_STATUS_OPTIONS.map(o => ({ label: o.label, value: o.value === ALL_VALUE ? ALL_VALUE : o.value }))} placeholder={tc('PUB_All')} />
-        <FormDatePicker name="startDate" label={t('screening_monitoring_0016')} control={control} />
-        <FormDatePicker name="endDate" label={t('screening_monitoring_0016')} control={control} />
+        <FormDateRangePicker startName="startDate" endName="endDate" label={t('screening_monitoring_0016')} control={control} />
       </div>
       <div className="flex justify-between mb-4"><Button variant="outline" onClick={() => reset(EMPTY)}>{tc('PUB_Reset')}</Button></div>
       <DataTable columns={cols} data={(data?.rows ?? []).map(r => ({ ...r, id: String(r.suspiciousId) }))} pagination={tablePagination} isLoading={isLoading || spinning} />

@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
 import { useCrossChainTxListQuery, type CrossChainTxItem, type CrossChainTxListFilters } from '@myorg/modules/td-admin/data-access';
@@ -421,13 +421,9 @@ export function CrossChainTransactionsListPage(): React.JSX.Element {
             options={statusOptions}
             placeholder={t('filter.all')}
           />
-          <FormDatePicker
-            name="createdTimeStart"
-            control={control}
-            label={t('filter.createTime')}
-          />
-          <FormDatePicker
-            name="createdTimeEnd"
+          <FormDateRangePicker
+            startName="createdTimeStart"
+            endName="createdTimeEnd"
             control={control}
             label={t('filter.createTime')}
           />
