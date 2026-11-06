@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import type { ProjectConfig } from '@myorg/shared/util-config';
+import type { MenuIconVariant } from '@myorg/shared/ui';
 import { SidebarLayout } from './layouts/sidebar-layout';
 import { TopNavLayout } from './layouts/top-nav-layout';
 import { CompactLayout } from './layouts/compact-layout';
@@ -51,8 +52,8 @@ export interface AppShellProps {
   trailing?: React.ReactNode;
   /** Opt-in subtle brand tint for the main content surface. */
   themedContentSurface?: boolean;
-  /** Opt-in larger, slightly heavier Lucide icons in the primary sidebar menu. */
-  prominentMenuIcons?: boolean;
+  /** Icon treatment for primary sidebar entries: default, prominent (larger) or refined (smaller). */
+  menuIconVariant?: MenuIconVariant;
 }
 
 interface LayoutProps {
@@ -86,8 +87,8 @@ interface LayoutProps {
   trailing?: React.ReactNode;
   /** Opt-in subtle brand tint for the main content surface. */
   themedContentSurface?: boolean;
-  /** Opt-in larger, slightly heavier Lucide icons in the primary sidebar menu. */
-  prominentMenuIcons?: boolean;
+  /** Icon treatment for primary sidebar entries: default, prominent (larger) or refined (smaller). */
+  menuIconVariant?: MenuIconVariant;
 }
 
 
@@ -116,7 +117,7 @@ export function AppShell({
   logo,
   trailing,
   themedContentSurface,
-  prominentMenuIcons,
+  menuIconVariant,
 }: AppShellProps) {
   const Layout = layoutMap[config.layout.type] ?? SidebarLayout;
 
@@ -134,7 +135,7 @@ export function AppShell({
       logo={logo}
       trailing={trailing}
       themedContentSurface={themedContentSurface}
-      prominentMenuIcons={prominentMenuIcons}
+      menuIconVariant={menuIconVariant}
     >
       {children}
     </Layout>

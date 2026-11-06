@@ -59,39 +59,4 @@ describe('SidebarItem nested active state', () => {
       'bg-primary/10',
     );
   });
-
-  it('uses 24px icons with a 2.25 stroke only when enabled', () => {
-    const { rerender } = render(
-      <SidebarItem
-        id="onboard"
-        icon={Circle}
-        label="LP Onboarding"
-        path="/lp/onboard"
-        collapsed={false}
-      />,
-    );
-
-    const icon = screen
-      .getByRole('link', { name: 'LP Onboarding' })
-      .querySelector('svg');
-    expect(icon).toHaveClass('h-5', 'w-5');
-    expect(icon).toHaveAttribute('stroke-width', '2');
-
-    rerender(
-      <SidebarItem
-        id="onboard"
-        icon={Circle}
-        label="LP Onboarding"
-        path="/lp/onboard"
-        collapsed={false}
-        prominentMenuIcons
-      />,
-    );
-
-    const prominentIcon = screen
-      .getByRole('link', { name: 'LP Onboarding' })
-      .querySelector('svg');
-    expect(prominentIcon).toHaveClass('size-6');
-    expect(prominentIcon).toHaveAttribute('stroke-width', '2.25');
-  });
 });

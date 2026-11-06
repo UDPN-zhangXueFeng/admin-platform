@@ -97,21 +97,21 @@
       },
       {
         "id": "approval-manage",
-        "icon": "Calendar",
+        "icon": "ListChecks",
         "label": "Workflow Tasks",
         "path": "/approval-manage",
         "group": ""
       },
       {
         "id": "token-management",
-        "icon": "Ticket",
+        "icon": "Coins",
         "label": "Token Management",
         "path": "/tokenized-deposit",
         "group": ""
       },
       {
         "id": "key-management",
-        "icon": "Key",
+        "icon": "KeyRound",
         "label": "Key Management",
         "group": "",
         "children": [
@@ -149,13 +149,13 @@
       },
       {
         "id": "sp-access",
-        "icon": "SlidersVertical",
+        "icon": "ShieldCheck",
         "label": "SP Access Management",
         "group": ""
       },
       {
         "id": "reserve-asset",
-        "icon": "Layers",
+        "icon": "Vault",
         "label": "Reserve Asset Management",
         "group": "",
         "children": [
@@ -215,7 +215,7 @@
       },
       {
         "id": "accounting",
-        "icon": "BarChart3",
+        "icon": "Calculator",
         "label": "Accounting Management",
         "group": "",
         "children": [
@@ -277,7 +277,7 @@
       },
       {
         "id": "reconciliation",
-        "icon": "Building2",
+        "icon": "Scale",
         "label": "Reconciliation",
         "group": "",
         "children": [
@@ -299,7 +299,7 @@
       },
       {
         "id": "interest",
-        "icon": "Receipt",
+        "icon": "Percent",
         "label": "Interest Management",
         "group": "",
         "children": [
@@ -325,7 +325,7 @@
       },
       {
         "id": "screening",
-        "icon": "LineChart",
+        "icon": "ScanSearch",
         "label": "Screening & Monitoring",
         "group": "",
         "children": [
@@ -351,7 +351,7 @@
       },
       {
         "id": "statistics",
-        "icon": "TrendingUp",
+        "icon": "ChartColumn",
         "label": "Statistics & Analytics",
         "group": "",
         "children": [
@@ -372,12 +372,12 @@
       },
       {
         "id": "transaction-flow",
-        "icon": "Newspaper",
+        "icon": "ArrowLeftRight",
         "label": "Transaction Flow"
       },
       {
         "id": "mmf",
-        "icon": "LineChart",
+        "icon": "PiggyBank",
         "label": "MMF",
         "children": [
           {
@@ -396,7 +396,7 @@
       },
       {
         "id": "blockchain",
-        "icon": "Box",
+        "icon": "Blocks",
         "label": "Blockchain",
         "children": [
           {
@@ -489,7 +489,7 @@
       },
       {
         "id": "system",
-        "icon": "LayoutGrid",
+        "icon": "Settings",
         "label": "System",
         "children": [
           {

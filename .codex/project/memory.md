@@ -1,5 +1,15 @@
 # Codex 对话沉淀
 
+## 2026-11-06 admin 侧栏图标精修 + 本地登录预填
+
+- 侧栏图标仍用 Lucide 内联 SVG（`currentColor`，随 `dark` class 切换）。共享 Sidebar 的 `prominentMenuIcons` 布尔（零调用方）已换成 `menuIconVariant?: 'default' | 'prominent' | 'refined'`，单一来源 `libs/shared/ui/src/lib/sidebar/menu-icon.ts` 的 `getMenuIconProps`；只有 `apps/admin` 传 `refined`（16px / ≥1600px 18px、stroke 1.75、未激活 `text-muted-foreground`，激活继承前景色），kissen/lp/gateway 不传，渲染不变。
+- `configs/stablecoin.json` 顶级菜单图标已去重并按语义换（Workflow Tasks=`ListChecks`、Token=`Coins`、Screening=`ScanSearch`、MMF=`PiggyBank` 等）；子项 icon 不渲染，未动。
+- Admin 登录预填沿用 kissen-admin 口径：`NEXT_PUBLIC_DEV_LOGIN_NAME/PASSWORD` 仅 development 生效，`NEXT_PUBLIC_DISABLE_DEV_LOGIN_PREFILL=true` 关闭；本地值放 git 忽略的 `apps/admin/.env.development.local`，模板 `apps/admin/.env.development.local.example`。改 env 后必须重启 dev server。
+- 坑：dotenv 把未加引号值里的 `#` 当注释截断，含 `#` 的密码（如 `ab#123`）必须加单引号写成 `'ab#123'`，否则只预填 `#` 前的部分，登录失败（共享账号连续错 ~9 次会被锁）。
+- 事实：admin 目前**不跟随系统深浅色**。`apps/admin/src/providers/theme-provider.tsx` 从未挂载；`layout.tsx` 的 `ThemeInjector` 把 `configs/stablecoin.json` 的 11 个颜色写在 `:root`，注入顺序在 globals.css 之后、优先级相同，会盖掉 `.dark` 里的同名变量（实测 `--foreground` 不变，配置里没有的 `--muted-foreground` 正常切换）。`theme.mode: "system"` 目前不生效。2026-11-06 用户决定先保持浅色；以后要开深色，需要挂载 ThemeProvider、把注入改成 `:root:not(.dark)`，再逐页检查深色显示。
+- 验证途径：Orca 内置浏览器 `orca tab create/eval/screenshot --page <id>` 可直接复用其已登录会话。
+- 语言口径：系统默认且优先英文 `en-US`，其他语言为后续完善。`libs/shared/util-i18n` 的 `defaultLocale` 与 `configs/stablecoin.json` 的 `i18n.defaultLocale` 均为 `en-US`；实测中文浏览器（`Accept-Language: zh-CN` + `NEXT_LOCALE=zh-CN` cookie）访问无前缀路径仍跳 `/en-US/...`。验证、截图、直链一律用 `/en-US/...`，不要用 `/zh-CN`。
+
 ## 2026-10-30 admin 门户时间统一
 
 - 决策：`apps/admin` 及其渲染的 `libs/modules/td-admin/*` 所有时间戳展示统一为 kissen-admin 口径 `formatAdminDateTime` → `MMM d, yyyy, HH:mm:ss (UTC±offset)`；offset 取查看者时区，不再硬编码 `(UTC+8)`，也不再使用 `toLocaleString` / `YYYY-MM-DD HH:mm:ss`。这取代 2026-10-29 key-management D2 的 `YYYY-MM-DD HH:mm:ss` 本地口径。

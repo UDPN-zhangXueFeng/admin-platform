@@ -48,6 +48,7 @@ export function AdminAppShell({
   return (
     <AppShell
       config={config}
+      menuIconVariant="refined"
       onLogout={handleLogout}
       onChangePassword={() => setIsChangePasswordOpen(true)}
       logo={

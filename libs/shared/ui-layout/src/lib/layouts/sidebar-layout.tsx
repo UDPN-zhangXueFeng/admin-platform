@@ -11,7 +11,7 @@ import {
 import type { ProjectConfig } from '@myorg/shared/util-config';
 import { cn } from '@myorg/shared/util-classnames';
 import { Button, Sidebar } from '@myorg/shared/ui';
-import type { SidebarItemConfig } from '@myorg/shared/ui';
+import type { SidebarItemConfig, MenuIconVariant } from '@myorg/shared/ui';
 import { Header } from '../header/header';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
 
@@ -53,8 +53,8 @@ export interface SidebarLayoutProps {
   trailing?: React.ReactNode;
   /** Add a very subtle tint derived from the active theme to the content surface. */
   themedContentSurface?: boolean;
-  /** Use larger, slightly heavier Lucide icons in the primary sidebar menu. */
-  prominentMenuIcons?: boolean;
+  /** Icon treatment for primary sidebar entries: default, prominent (larger) or refined (smaller). */
+  menuIconVariant?: MenuIconVariant;
 }
 
 /**
@@ -82,7 +82,7 @@ export function SidebarLayout({
   compactHeader,
   trailing,
   themedContentSurface,
-  prominentMenuIcons,
+  menuIconVariant,
 }: SidebarLayoutProps) {
   const [collapsed, setCollapsed] = useState(() =>
     readPersistedCollapsed(persistKey),
@@ -167,7 +167,7 @@ export function SidebarLayout({
             items={sidebarItems}
             collapsed={collapsed}
             singleExpand={config.layout.sidebar.singleExpand}
-            prominentMenuIcons={prominentMenuIcons}
+            menuIconVariant={menuIconVariant}
             onToggle={toggleCollapsed}
             className={
               sidebarWidths

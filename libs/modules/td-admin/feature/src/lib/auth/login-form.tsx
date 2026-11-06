@@ -17,9 +17,17 @@ import { useAuthValidationMessages } from './use-auth-validation-messages';
 
 const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
 const CAPTCHA_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
+// Local dev only: credentials come from the git-ignored `.env.development.local`;
+// `NEXT_PUBLIC_DISABLE_DEV_LOGIN_PREFILL=true` turns the prefill off.
+const SHOULD_PREFILL_DEV_LOGIN =
+  IS_DEVELOPMENT && process.env.NEXT_PUBLIC_DISABLE_DEV_LOGIN_PREFILL !== 'true';
 const DEFAULT_LOGIN_VALUES: LoginFormValues = {
-  loginName: '',
-  password: '',
+  loginName: SHOULD_PREFILL_DEV_LOGIN
+    ? process.env.NEXT_PUBLIC_DEV_LOGIN_NAME ?? ''
+    : '',
+  password: SHOULD_PREFILL_DEV_LOGIN
+    ? process.env.NEXT_PUBLIC_DEV_LOGIN_PASSWORD ?? ''
+    : '',
   code: '',
 };
 

@@ -7,6 +7,7 @@ import { Link, usePathname } from '@myorg/shared/util-i18n';
 import { cn } from '@myorg/shared/util-classnames';
 import { SidebarGroup } from './sidebar-group';
 import { SidebarItem } from './sidebar-item';
+import { getMenuIconProps, type MenuIconVariant } from './menu-icon';
 import { SidebarActiveBackdrop } from './sidebar-active-backdrop';
 
 export interface SidebarItemConfig {
@@ -24,8 +25,8 @@ export interface SidebarProps {
   collapsed: boolean;
   /** Keep at most one parent menu expanded when enabled. */
   singleExpand?: boolean;
-  /** Use larger, slightly heavier Lucide icons for the primary menu entries. */
-  prominentMenuIcons?: boolean;
+  /** Icon treatment for primary menu entries: default, prominent (larger) or refined (smaller). */
+  menuIconVariant?: MenuIconVariant;
   onToggle: () => void;
   className?: string;
 }
@@ -50,7 +51,7 @@ export function Sidebar({
   items,
   collapsed,
   singleExpand = false,
-  prominentMenuIcons = false,
+  menuIconVariant = 'default',
   className,
 }: SidebarProps) {
   const grouped = React.useMemo(() => {
@@ -177,7 +178,7 @@ export function Sidebar({
                 key={item.id}
                 item={item}
                 collapsed={collapsed}
-                prominentMenuIcons={prominentMenuIcons}
+                menuIconVariant={menuIconVariant}
                 expandedIds={expandedIds}
                 onToggle={toggleExpanded}
                 onFlyoutOpen={openFlyout}
@@ -208,7 +209,7 @@ export function Sidebar({
 interface CollapsibleNavItemProps {
   item: SidebarItemConfig;
   collapsed: boolean;
-  prominentMenuIcons: boolean;
+  menuIconVariant: MenuIconVariant;
   expandedIds: Set<string>;
   onToggle: (id: string) => void;
   onFlyoutOpen: (item: SidebarItemConfig, target: HTMLButtonElement) => void;
@@ -219,7 +220,7 @@ interface CollapsibleNavItemProps {
 function CollapsibleNavItem({
   item,
   collapsed,
-  prominentMenuIcons,
+  menuIconVariant,
   expandedIds,
   onToggle,
   onFlyoutOpen,
@@ -248,7 +249,7 @@ function CollapsibleNavItem({
         label={item.label}
         path={item.path ?? '#'}
         collapsed={collapsed}
-        prominentMenuIcons={prominentMenuIcons}
+        menuIconVariant={menuIconVariant}
         disabled={item.disabled}
         onClick={collapsed ? onFlyoutClose : undefined}
       />
@@ -260,11 +261,13 @@ function CollapsibleNavItem({
       <CollapsedParentItem
         item={item}
         isActive={isActive}
-        prominentMenuIcons={prominentMenuIcons}
+        menuIconVariant={menuIconVariant}
         onOpen={(target) => onFlyoutOpen(item, target)}
       />
     );
   }
+
+  const iconProps = getMenuIconProps(menuIconVariant, isActive);
 
   return (
     <div>
@@ -283,11 +286,8 @@ function CollapsibleNavItem({
       >
         {isActive && <SidebarActiveBackdrop />}
         <item.icon
-          className={cn(
-            'relative z-10 shrink-0',
-            prominentMenuIcons ? 'size-6' : 'h-5 w-5',
-          )}
-          strokeWidth={prominentMenuIcons ? 2.25 : undefined}
+          className={iconProps.className}
+          strokeWidth={iconProps.strokeWidth}
           aria-hidden="true"
         />
         <span className="relative z-10 flex-1 truncate text-left">{item.label}</span>
@@ -330,7 +330,7 @@ function CollapsibleNavItem({
 interface CollapsedParentItemProps {
   item: SidebarItemConfig;
   isActive: boolean;
-  prominentMenuIcons: boolean;
+  menuIconVariant: MenuIconVariant;
   onOpen: (target: HTMLButtonElement) => void;
 }
 
@@ -338,9 +338,11 @@ interface CollapsedParentItemProps {
 function CollapsedParentItem({
   item,
   isActive,
-  prominentMenuIcons,
+  menuIconVariant,
   onOpen,
 }: CollapsedParentItemProps) {
+  const iconProps = getMenuIconProps(menuIconVariant, isActive);
+
   return (
     <div className="group relative flex justify-center">
       <button
@@ -358,11 +360,8 @@ function CollapsedParentItem({
       >
         {isActive && <SidebarActiveBackdrop />}
         <item.icon
-          className={cn(
-            'relative z-10 shrink-0',
-            prominentMenuIcons ? 'size-6' : 'h-5 w-5',
-          )}
-          strokeWidth={prominentMenuIcons ? 2.25 : undefined}
+          className={iconProps.className}
+          strokeWidth={iconProps.strokeWidth}
           aria-hidden="true"
         />
       </button>
