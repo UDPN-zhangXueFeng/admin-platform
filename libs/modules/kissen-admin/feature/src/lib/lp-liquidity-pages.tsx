@@ -135,8 +135,6 @@ import {
   useLpPairTokenPairOptionsQuery,
   useLpPoolListQuery,
   useLpPoolPrecheckMutation,
-  useBizRecordObjectQuery,
-  type BizRecordRow,
   usePortalAccountQuery,
   usePortalAccountResendInviteMutation,
   usePortalAccountResetMutation,
@@ -299,6 +297,7 @@ function LpStatusBadge({ status }: { status: number }) {
 const LP_POOL_STATUS_TONES: Record<number, ProtoStatusTone> = {
   3: 'muted',
   5: 'warning',
+  10: 'warning',
   15: 'danger',
   20: 'success',
   50: 'muted',
@@ -340,77 +339,6 @@ function LpPairStatusBadge({ status }: { status: number }) {
  * STATIC-FILLER(GAP-ADM-02): operate-log 无按对象（lpId/参与对 id）过滤端点——
  * 先落列契约 + 空表，后端补端点后接真数据。
  */
-/**
- * 业务操作历史列（2026-11-05 接真数据，原 GAP-ADM-02 静态空表已下线）。
- * 数据源：biz_operate_record（OperateRecorder 在业务事务内写入）。
- * 动作文案由后端 action_label 下发，前端不硬编码。
- */
-const LP_OPERATION_COLUMNS: ColumnDef<BizRecordRow & { id: string }>[] = [
-  {
-    accessorKey: 'operateTime',
-    header: 'Timestamp',
-    cell: ({ row }) => (
-      <span className="whitespace-nowrap tabular-nums">
-        {formatUtc8(row.original.operateTime)}
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'operatorName',
-    header: 'Operator',
-    cell: ({ row }) => <span>{row.original.operatorName || '—'}</span>,
-  },
-  {
-    accessorKey: 'actionLabel',
-    header: 'Action',
-    cell: ({ row }) => (
-      <div className="space-y-0.5">
-        <div className="font-medium">{row.original.actionLabel}</div>
-        {row.original.remarks ? (
-          <div className="text-[11px] leading-4 text-muted-foreground">
-            {row.original.remarks}
-          </div>
-        ) : null}
-      </div>
-    ),
-  },
-  {
-    id: 'statusChange',
-    header: 'Status change',
-    cell: ({ row }) => {
-      const { fromStatus, toStatus } = row.original;
-      if (fromStatus == null && toStatus == null) {
-        return <span className="text-muted-foreground">—</span>;
-      }
-      return (
-        <span className="whitespace-nowrap tabular-nums">
-          {fromStatus == null ? '—' : fromStatus} → {toStatus == null ? '—' : toStatus}
-        </span>
-      );
-    },
-  },
-  {
-    id: 'detail',
-    header: 'Detail',
-    cell: ({ row }) =>
-      row.original.payload ? (
-        <code className="break-all text-[11px] leading-4 text-muted-foreground">
-          {row.original.payload}
-        </code>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
-  },
-  {
-    accessorKey: 'traceId',
-    header: 'Trace ID',
-    cell: ({ row }) => (
-      <span className="break-all text-[11px] text-muted-foreground">
-        {row.original.traceId || '—'}
-      </span>
-    ),
-  },
-];
 
 /** 只读字段（label + 值；弹窗回显用）。 */
 function ReadonlyField({
@@ -2109,24 +2037,6 @@ export function LpInfoDetailPage() {
     filter: { lpId: lpId ?? 0 },
   });
 
-  /** 业务操作历史（biz_operate_record）：原 GAP-ADM-02 静态空表已接真数据。 */
-  const bizRecordQuery = useBizRecordObjectQuery(
-    PROJECT_ID,
-    {
-      pageNum: 1,
-      pageSize: 50,
-      filter: { objectType: 'LP', objectId: lpId ?? 0 },
-    },
-    (lpId ?? 0) > 0,
-  );
-  const operationRows = React.useMemo(
-    () =>
-      (bizRecordQuery.data?.data ?? []).map((r: BizRecordRow) => ({
-        ...r,
-        id: String(r.recordId),
-      })),
-    [bizRecordQuery.data],
-  );
   const statusMutation = useUpdateLpPairStatusMutation(PROJECT_ID);
 
   const refresh = React.useCallback(() => {
@@ -2370,7 +2280,6 @@ export function LpInfoDetailPage() {
   const tabCount = (tab: LpInfoDetailTab) => {
     if (tab === 'pools') return poolTotal;
     if (tab === 'pairs') return pairTotal;
-    if (tab === 'operations') return operationRows.length;
     return 0; // operations：GAP-ADM-02 静态空表，恒 0。
   };
 
@@ -2585,20 +2494,12 @@ export function LpInfoDetailPage() {
           {/* Tab 4：operations —— biz_operate_record 真数据（GAP-ADM-02 已闭环）。 */}
           <TabsContent value="operations" className="mt-0">
             <section className="rounded-xl border border-border bg-card shadow-sm">
-              {bizRecordQuery.isError ? (
-                <div className="p-6">
-                  <Alert variant="destructive">
-                    <AlertTitle>Failed to load operation history.</AlertTitle>
-                  </Alert>
-                </div>
-              ) : (
-                <DataTable
-                  columns={LP_OPERATION_COLUMNS}
-                  data={operationRows}
-                  isLoading={bizRecordQuery.isLoading}
-                  emptyMessage="No operations recorded yet."
-                />
-              )}
+              <OperateRecordTable
+                projectId={PROJECT_ID}
+                objectType="LP"
+                objectId={lpId}
+                emptyMessage="No operations recorded yet."
+              />
             </section>
           </TabsContent>
         </Tabs>
@@ -3925,24 +3826,6 @@ export function LpParticipationDetailPage() {
     });
   };
 
-  /** 业务操作历史（objectType=LP_PAIR）。 */
-  const bizRecordQuery = useBizRecordObjectQuery(
-    PROJECT_ID,
-    {
-      pageNum: 1,
-      pageSize: 50,
-      filter: { objectType: 'LP_PAIR', objectId: participationId ?? 0 },
-    },
-    (participationId ?? 0) > 0,
-  );
-  const operationRows = React.useMemo(
-    () =>
-      (bizRecordQuery.data?.data ?? []).map((r: BizRecordRow) => ({
-        ...r,
-        id: String(r.recordId),
-      })),
-    [bizRecordQuery.data],
-  );
 
   // STATIC-FILLER(GAP-ADM-05): 无单条参与对端点，借参与对列表首页（pageSize 200）
   // 扫行渲染；超出首页或命中失败按 not-found 处理，后端补端点后回写。
@@ -4079,10 +3962,10 @@ export function LpParticipationDetailPage() {
           <TabsContent value="operations" className="mt-0">
             <section className="rounded-xl border border-border bg-card shadow-sm">
               <div className="p-4">
-                <DataTable
-                  columns={LP_OPERATION_COLUMNS}
-                  data={operationRows}
-                  isLoading={bizRecordQuery.isLoading}
+                <OperateRecordTable
+                  projectId={PROJECT_ID}
+                  objectType="LP_PAIR"
+                  objectId={participationId}
                   emptyMessage="No operations recorded yet."
                 />
               </div>
