@@ -43,7 +43,6 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
-  createActionColumn,
   DataTable,
   Dialog,
   DialogContent,
@@ -687,39 +686,86 @@ export function TokenManageListPage() {
           </span>
         ),
       },
-      createActionColumn<TokenRow & { id: string }>((item) => {
-        const actions: TableRowAction<TokenRow & { id: string }>[] = [
-          {
-            label: 'Details',
-            onClick: () =>
-              router.push(`/onboard/token/detail?id=${item.tokenId}`),
-          },
-        ];
-        if (item.status === 5) {
-          actions.push(
-            { label: 'Approve', onClick: () => onApprove(item) },
-            { label: 'Reject', destructive: true, onClick: () => onReject(item) },
+      {
+        id: 'actions',
+        header: 'Actions',
+        enableSorting: false,
+        meta: { overflow: 'none', stickyRight: true },
+        cell: ({ row }) => {
+          const item = row.original;
+          // 原型：Details 常显为链接按钮，其余动作（按状态裁剪）收进 ⋮ 菜单。
+          const menuItems: TableRowAction<TokenRow & { id: string }>[] = [];
+          if (item.status === 5) {
+            menuItems.push(
+              { label: 'Approve', onClick: () => onApprove(item) },
+              { label: 'Reject', destructive: true, onClick: () => onReject(item) },
+            );
+          }
+          if (item.status === 20) {
+            menuItems.push(
+              {
+                label: 'Adjust Liquidity',
+                onClick: () => onAdjustMinLiquidity(item),
+              },
+              { label: 'Spender Wallet', onClick: () => setSpenderToken(item) },
+              {
+                label: 'Deactivate',
+                destructive: true,
+                onClick: () => setStatusAction({ row: item, kind: 'deactivate' }),
+              },
+            );
+          }
+          if (item.status === 50) {
+            menuItems.push({
+              label: 'Activate',
+              onClick: () => setStatusAction({ row: item, kind: 'activate' }),
+            });
+          }
+          return (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() =>
+                  router.push(`/onboard/token/detail?id=${item.tokenId}`)
+                }
+              >
+                Details
+              </Button>
+              {menuItems.length > 0 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label={`Actions for token ${item.tokenId}`}
+                    >
+                      <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {menuItems.map((menuItem) => (
+                      <DropdownMenuItem
+                        key={menuItem.label}
+                        className={
+                          menuItem.destructive
+                            ? 'text-destructive focus:text-destructive'
+                            : undefined
+                        }
+                        onClick={() => menuItem.onClick(item)}
+                      >
+                        {menuItem.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
           );
-        }
-        if (item.status === 20) {
-          actions.push(
-            { label: 'Adjust Liquidity', onClick: () => onAdjustMinLiquidity(item) },
-            { label: 'Spender Wallet', onClick: () => setSpenderToken(item) },
-            {
-              label: 'Deactivate',
-              destructive: true,
-              onClick: () => setStatusAction({ row: item, kind: 'deactivate' }),
-            },
-          );
-        }
-        if (item.status === 50) {
-          actions.push({
-            label: 'Activate',
-            onClick: () => setStatusAction({ row: item, kind: 'activate' }),
-          });
-        }
-        return actions;
-      }),
+        },
+      },
     ];
   }, [onApprove, onReject, onAdjustMinLiquidity, setSpenderToken, setStatusAction]);
 
