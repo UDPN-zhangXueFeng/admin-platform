@@ -76,7 +76,7 @@ export default function ChangePwdRoute() {
       <div className="w-full max-w-[420px] rounded-[10px] border bg-card p-9 pb-7 shadow-[0_8px_24px_rgba(26,29,33,0.08)]">
         {/* 源 login-brand：标题硬编码「Kissen 银行门户」+ eyebrow 副标题 */}
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-foreground">Kissen Bank Portal</h1>
+          <h1 className="text-xl font-bold text-foreground">UDPN Kissen Bank Gateway Management</h1>
           <p className="mt-1 text-xs tracking-[0.08em] text-muted-foreground">
             First login: change your password before continuing
           </p>
