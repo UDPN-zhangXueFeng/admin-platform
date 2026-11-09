@@ -10,8 +10,10 @@ import {
 } from 'lucide-react';
 import {
   Area,
+  Bar,
   CartesianGrid,
   ComposedChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -136,28 +138,6 @@ function trimAmount(value: string | null | undefined): string {
   return value.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 }
 
-/** Exception markers ride on the volume series: one dot per day that had any. */
-function renderExceptionDot(raw: unknown): React.ReactElement {
-  const props = raw as {
-    cx?: number;
-    cy?: number;
-    payload?: { exception?: number };
-  };
-  if (!props.payload?.exception || props.cx == null || props.cy == null) {
-    return <g />;
-  }
-  return (
-    <circle
-      cx={props.cx}
-      cy={props.cy}
-      r={3}
-      fill="hsl(var(--destructive))"
-      stroke="hsl(var(--card))"
-      strokeWidth={2}
-    />
-  );
-}
-
 export function DashboardPage() {
   const router = useRouter();
   const [days, setDays] = React.useState(7);
@@ -211,8 +191,12 @@ export function DashboardPage() {
     [trendData],
   );
 
-  // 窗口完成率：成功终态(35/40) ÷ 窗口内全部交易（含在途）。注意这是「完成率」，
-  // 与结算域的 settled（结算单 35）不是一回事，UI 上不要用 Settled 命名。
+  /** 窗口最后一天（今天）只跑了半天：图上标虚线、tooltip 注明 partial，不改分母口径。 */
+  const todayKey = trendData.length ? trendData[trendData.length - 1].day : undefined;
+
+  // 窗口完成率：成功终态(35/40) ÷ 窗口内全部交易（含在途、含不完整的今天）。
+  // 与 Transfers 共用同一分母，保证「Completed 18 of 32」能对账；
+  // 注意这是「完成率」，与结算域的 settled（结算单 35）不是一回事，UI 不要用 Settled 命名。
   const successRate = trendTotals.total
     ? (trendTotals.completed / trendTotals.total) * 100
     : undefined;
@@ -435,7 +419,9 @@ export function DashboardPage() {
                 <span className="ml-2 font-mono text-sm font-semibold tabular-nums text-foreground">
                   {trendTotals.completed.toLocaleString('en-US')}
                   <span className="ml-1 font-normal text-muted-foreground">
-                    {successRate == null ? '' : `(${successRate.toFixed(1)}%)`}
+                    {successRate == null
+                      ? ''
+                      : `of ${trendTotals.total.toLocaleString('en-US')} (${successRate.toFixed(1)}%)`}
                   </span>
                 </span>
               </span>
@@ -447,7 +433,7 @@ export function DashboardPage() {
               </span>
             </span>
             <span className="ml-auto text-muted-foreground">
-              Today is in progress
+              Today (right marker) is partial
             </span>
           </div>
           <div
@@ -470,8 +456,19 @@ export function DashboardPage() {
                   tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                 />
                 <YAxis
+                  yAxisId="volume"
                   allowDecimals={false}
                   width={32}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                />
+                {/* 右轴只服务异常柱：与左轴分开，异常 3 笔不会被压成贴地 */}
+                <YAxis
+                  yAxisId="exception"
+                  orientation="right"
+                  allowDecimals={false}
+                  width={28}
                   tickLine={false}
                   axisLine={false}
                   tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
@@ -483,10 +480,37 @@ export function DashboardPage() {
                     color: 'hsl(var(--foreground))',
                     fontSize: 12,
                   }}
-                  labelFormatter={(value) => `Date ${value}`}
-                  formatter={(value) => [String(value), 'Transfers']}
+                  labelFormatter={(value) => {
+                    const label = `Date ${value}`;
+                    return value === todayKey
+                      ? `${label} (today, partial)`
+                      : label;
+                  }}
+                  formatter={(value, name) => [
+                    String(value),
+                    name === 'exception' ? 'Exceptions' : 'Transfers',
+                  ]}
+                />
+                {/* 今天只跑了半天：竖虚线示意，且不计入完成率分母 */}
+                {todayKey ? (
+                  <ReferenceLine
+                    x={todayKey}
+                    yAxisId="volume"
+                    stroke="hsl(var(--border))"
+                    strokeDasharray="3 3"
+                  />
+                ) : null}
+                <Bar
+                  yAxisId="exception"
+                  dataKey="exception"
+                  name="exception"
+                  fill="hsl(var(--destructive))"
+                  fillOpacity={0.35}
+                  radius={[2, 2, 0, 0]}
+                  maxBarSize={14}
                 />
                 <Area
+                  yAxisId="volume"
                   type="monotone"
                   dataKey="total"
                   name="total"
@@ -494,7 +518,6 @@ export function DashboardPage() {
                   strokeWidth={2}
                   fill="hsl(var(--primary))"
                   fillOpacity={0.14}
-                  dot={renderExceptionDot}
                   activeDot={{ r: 4 }}
                 />
               </ComposedChart>
@@ -503,12 +526,13 @@ export function DashboardPage() {
           <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-2">
               <span className="h-0.5 w-3.5 rounded bg-primary" />
-              Transfers
+              Transfers (left axis)
             </span>
             <span className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-destructive" />
-              Exceptions
+              <span className="h-2.5 w-2.5 rounded-sm bg-destructive/35" />
+              Exceptions (right axis)
             </span>
+            <span>Dashed line marks today, which is still in progress.</span>
           </div>
         </PanelCard>
 
