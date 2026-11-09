@@ -93,6 +93,9 @@ const LBL = {
   rejectReasonPrefix: 'Rejection reason: ',
   notFoundTitle: 'Pool not found',
   notFoundDesc: 'This pool does not exist or has been removed.',
+  /** 只读提示（2026-11-09）：池数据是中心系统同步下来的副本，LP 在本门户不发起资金动作 */
+  readonlyHint:
+    'Wallet top-ups and pre-authorization can be managed in the currency system. Pool information here is view-only.',
   backToList: 'Back to pools',
   loading: 'Loading pool…',
   sectionBasic: 'Basic Information',
@@ -559,6 +562,15 @@ export function PoolListPage() {
             {LBL.eyebrow}
           </div>
           <h1 className="text-xl font-semibold">{LBL.title}</h1>
+        </div>
+
+        {/* 只读提示：充值与预授权在货币系统操作，本页仅展示同步副本 */}
+        <div
+          role="note"
+          className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/5 px-3 py-2 text-xs leading-relaxed text-muted-foreground"
+        >
+          <InfoIcon className="mt-0.5 size-3.5 shrink-0 text-info" aria-hidden="true" />
+          <span>{LBL.readonlyHint}</span>
         </div>
 
         {/* 原型筛选独立卡（§6.2 分区）：Pool ID / Token / Status */}
