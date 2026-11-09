@@ -278,7 +278,9 @@ export function DashboardPage() {
       ? {
           key: 'exception',
           label: 'Exceptions to handle',
-          note: 'Opened today',
+          // 后端按 create_time 分桶（buildExceptions），统计的是「今天创建且当前处于异常态」，
+          // 不是「今天变成异常」——文案别写 Opened，否则会读成状态迁移时间。
+          note: 'Created today',
           count: exceptionsToday,
           bar: 'bg-warning',
           to: '/transfer/tx?status=70',
@@ -557,7 +559,8 @@ export function DashboardPage() {
 
           <PanelCard
             title="Exceptions by category"
-            subtitle={`Today · last ${days} days`}
+            // 每行给「今天创建」与「窗口内创建」两个数；口径同 buildExceptions（按 create_time）
+            subtitle={`By status · created in last ${days} days`}
             action={
               <Button
                 variant="link"
