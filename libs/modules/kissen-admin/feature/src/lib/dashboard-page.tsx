@@ -211,7 +211,8 @@ export function DashboardPage() {
     [trendData],
   );
 
-  // 窗口成功率：成功终态 ÷ 窗口内全部交易（含在途，窗口越长越贴近真实水平）
+  // 窗口完成率：成功终态(35/40) ÷ 窗口内全部交易（含在途）。注意这是「完成率」，
+  // 与结算域的 settled（结算单 35）不是一回事，UI 上不要用 Settled 命名。
   const successRate = trendTotals.total
     ? (trendTotals.completed / trendTotals.total) * 100
     : undefined;
@@ -407,7 +408,7 @@ export function DashboardPage() {
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <PanelCard
           title="Transaction volume"
-          subtitle="Settled and in-flight transfers per day · UTC+8"
+          subtitle="Completed and in-flight transfers per day · UTC+8"
           action={
             <span className="text-xs text-muted-foreground">
               Last {days} days
@@ -426,9 +427,14 @@ export function DashboardPage() {
             </span>
             {hasCompletedData ? (
               <span className="text-muted-foreground">
-                Settled
+                {/* 35 = 交易完成（Completed），不是结算域的 Settled；
+                    分母含在途，所以同时给笔数与完成率，避免读成「已结算 18 笔」 */}
+                Completed
                 <span className="ml-2 font-mono text-sm font-semibold tabular-nums text-foreground">
-                  {successRate == null ? '—' : `${successRate.toFixed(1)}%`}
+                  {trendTotals.completed.toLocaleString('en-US')}
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    {successRate == null ? '' : `(${successRate.toFixed(1)}%)`}
+                  </span>
                 </span>
               </span>
             ) : null}
