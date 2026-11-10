@@ -78,6 +78,7 @@ export function ChangePasswordDialog({
   }, [open, reset]);
 
   const newPassword = watch('newPassword');
+  const oldPasswordValue = watch('oldPassword');
 
   const onClose = React.useCallback(() => {
     if (!force) onOpenChange(false);
@@ -156,6 +157,10 @@ export function ChangePasswordDialog({
                   value: PASSWORD_PATTERN,
                   message: 'At least 8 characters with letters and numbers',
                 },
+                // 2026-11-10：不允许原样沿用当前密码（首登强制改密曾被复制三次通过）
+                validate: (v) =>
+                  v !== oldPasswordValue ||
+                  'New password must be different from the current password',
               })}
             />
             {errors.newPassword && (

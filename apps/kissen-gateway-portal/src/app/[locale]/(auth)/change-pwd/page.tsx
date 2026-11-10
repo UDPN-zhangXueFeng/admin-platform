@@ -36,6 +36,11 @@ const changePwdSchema = z
   .refine((values) => values.confirm === values.newPassword, {
     path: ['confirm'],
     message: 'Passwords do not match',
+  })
+  // 2026-11-10：不允许原样沿用当前密码（首登强制改密曾被复制三次通过）
+  .refine((values) => values.newPassword !== values.oldPassword, {
+    path: ['newPassword'],
+    message: 'New password must be different from the current password',
   });
 
 type ChangePwdFormValues = z.infer<typeof changePwdSchema>;
