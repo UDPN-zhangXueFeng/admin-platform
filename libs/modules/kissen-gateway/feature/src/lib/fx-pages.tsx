@@ -26,7 +26,7 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 
 import {
   Button,
@@ -128,10 +128,14 @@ export function FxListPage() {
         meta: { overflow: 'wrap', maxWidth: 200 },
         cell: ({ row }) => {
           const pair = row.original.tokenPair;
+          // 2026-11-10：文本箭头 → 图标箭头（与详情页头一致，视觉更轻）
           return (
-            <span className="font-medium">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-medium">
               {pair.sourceTokenSymbol || pair.sourceTokenCode || '-'}
-              <span className="mx-1.5 text-muted-foreground">→</span>
+              <ArrowRight
+                className="size-3.5 shrink-0 text-muted-foreground/70"
+                aria-hidden="true"
+              />
               {pair.targetTokenSymbol || pair.targetTokenCode || '-'}
             </span>
           );
@@ -147,19 +151,15 @@ export function FxListPage() {
         ),
       },
       {
-        // 原型 LiquidityProviderCell：纵排纯文本行（去 Badge chips），空 → '-'。
+        // 2026-11-10：纵排多行在窄列里很难看 → 单行逗号分隔，溢出由 DataTable 省略+悬浮全文。
         id: 'lpNames',
         header: 'Liquidity Provider',
-        meta: { overflow: 'wrap', maxWidth: 220 },
+        meta: { overflow: 'ellipsis', maxWidth: 240 },
         cell: ({ row }) =>
           row.original.lpNames.length > 0 ? (
-            <div className="flex min-w-0 flex-col gap-0.5">
-              {row.original.lpNames.map((name) => (
-                <span key={name} className="truncate">
-                  {name}
-                </span>
-              ))}
-            </div>
+            <span className="block truncate">
+              {row.original.lpNames.join(', ')}
+            </span>
           ) : (
             <Dash />
           ),
@@ -485,33 +485,17 @@ export function FxDetailPage() {
     [detail],
   );
 
+  // 2026-11-10：银行侧只关心自己成交用的「用户汇率」——基础汇率与加价属平台内部口径，
+  // 不对外展示；历史同样只留 Client Rate + 同步时间。
   const snapshotColumns =
     React.useMemo<ColumnDef<FxRateSnapshot & { id: string }>[]>(
       () => [
         {
-          id: 'baseRate',
-          header: 'Base Rate',
-          cell: ({ row }) => (
-            <span className="block text-right tabular-nums">
-              {formatRate(row.original.baseRate)}
-            </span>
-          ),
-        },
-        {
-          id: 'markupRate',
-          header: 'Markup Rate',
-          cell: ({ row }) => (
-            <span className="block text-right tabular-nums">
-              {formatRate(row.original.markupRate)}
-            </span>
-          ),
-        },
-        {
-          // 术语对齐原型：'User Rate' → 'Client Rate'。
           id: 'clientRate',
           header: 'Client Rate',
+          meta: { overflow: 'none' },
           cell: ({ row }) => (
-            <span className="block text-right font-medium tabular-nums">
+            <span className="whitespace-nowrap font-medium tabular-nums">
               {formatRate(row.original.userRate)}
             </span>
           ),
@@ -519,8 +503,11 @@ export function FxDetailPage() {
         {
           id: 'pushTime',
           header: 'Synced on',
+          meta: { overflow: 'none' },
           cell: ({ row }) => (
-            <span className="tabular-nums">{formatUtc8(row.original.pushTime)}</span>
+            <span className="whitespace-nowrap tabular-nums">
+              {formatUtc8(row.original.pushTime)}
+            </span>
           ),
         },
       ],
@@ -559,8 +546,13 @@ export function FxDetailPage() {
         </Button>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="min-w-0 break-all text-xl font-semibold">
-              {srcLabel} → {tgtLabel}
+            <h1 className="flex min-w-0 items-center gap-2 text-xl font-semibold">
+              <span className="min-w-0 truncate">{srcLabel}</span>
+              <ArrowRight
+                className="size-4 shrink-0 text-muted-foreground/70"
+                aria-hidden="true"
+              />
+              <span className="min-w-0 truncate">{tgtLabel}</span>
             </h1>
             {pair ? (
               <ProtoStatusBadge
@@ -570,9 +562,7 @@ export function FxDetailPage() {
             ) : null}
           </div>
           {pair ? (
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <span className="tabular-nums">Pair ID: {pair.pairId}</span>
-              <span aria-hidden="true">|</span>
+            <p className="mt-1 text-sm text-muted-foreground">
               <span className="tabular-nums">
                 Synced on {formatUtc8(pair.pushTime)}
               </span>
@@ -607,11 +597,6 @@ export function FxDetailPage() {
                 <h2 className="mb-2.5 text-sm font-semibold text-foreground">
                   Token Pair Information
                 </h2>
-                <div className="mb-2">
-                  <DescField label="Pair ID">
-                    <span className="tabular-nums">{pair.pairId}</span>
-                  </DescField>
-                </div>
                 {/* Source/Target 对照表（原型 compare-table：行头 + 双侧列）。 */}
                 <table className="w-full">
                   <thead>
@@ -632,12 +617,6 @@ export function FxDetailPage() {
                         pair.targetTokenSymbol,
                         pair.targetTokenCode,
                       )}
-                    />
-                    {/* /fx/detail 响应无 chain 维度 → '-'（G-02 口径）。 */}
-                    <PairCompareRow
-                      label="BlockChain"
-                      source={<Dash />}
-                      target={<Dash />}
                     />
                     <PairCompareRow
                       label="Bank"
@@ -666,19 +645,9 @@ export function FxDetailPage() {
                   Latest Rate Snapshot
                 </h2>
                 {detail.latestRate ? (
-                  <DescGrid cols={2}>
-                    <DescField label="Base Rate">
-                      <span className="tabular-nums">
-                        {formatRate(detail.latestRate.baseRate)}
-                      </span>
-                    </DescField>
-                    <DescField label="Markup Rate">
-                      <span className="tabular-nums">
-                        {formatRate(detail.latestRate.markupRate)}
-                      </span>
-                    </DescField>
+                  <DescGrid cols={1}>
                     <DescField label="Client Rate">
-                      <span className="tabular-nums">
+                      <span className="text-lg font-semibold tabular-nums">
                         {formatRate(detail.latestRate.userRate)}
                       </span>
                     </DescField>
@@ -727,7 +696,8 @@ export function FxDetailPage() {
                   </span>
                 </h2>
               </div>
-              <div className="p-4">
+              {/* 2026-11-10：两列数据不再铺满整行（原先数字在半屏宽的格子里很散） */}
+              <div className="max-w-2xl p-4">
                 <DataTable
                   columns={snapshotColumns}
                   data={snapshotRows}
