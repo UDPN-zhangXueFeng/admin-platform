@@ -740,6 +740,12 @@ export function DashboardPage() {
                       {pool.lpName}{' '}
                       <span className="font-normal text-muted-foreground">
                         {pool.tokenSymbol}
+                        {/* 同一 LP+token 可能有多只池（多池模型），补地址尾号便于区分 */}
+                        {pool.accountAddress ? (
+                          <span className="ml-1 font-mono text-[11px]">
+                            {`${pool.accountAddress.slice(0, 6)}…${pool.accountAddress.slice(-4)}`}
+                          </span>
+                        ) : null}
                       </span>
                     </span>
                     <span className="relative h-1.5 min-w-[48px] flex-1 rounded bg-muted">

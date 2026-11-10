@@ -1671,9 +1671,14 @@ export function GatewayInstanceListPage() {
       {
         id: 'connectivity',
         header: 'Connectivity',
-        cell: ({ row }) => (
-          <ConnectivityBadge status={row.original.connectivityStatus} />
-        ),
+        cell: ({ row }) => {
+          // 停用(50)/未激活实例不再被心跳探测，旧连通结论会一直挂着
+          // （实测有实例显示 Connected 但心跳停在 3 个月前），这里显示为 —。
+          if (row.original.status !== 20) {
+            return <span className="text-muted-foreground">—</span>;
+          }
+          return <ConnectivityBadge status={row.original.connectivityStatus} />;
+        },
       },
       {
         accessorKey: 'status',
@@ -2320,7 +2325,14 @@ export function TokenDetailPage() {
                 />
                 <DetailField
                   label="Min. Liquidity"
-                  value={formatTokenAmount(token.minLiquidity)}
+                  // 详情页金额统一带币种（与列表页 "10,000 CF8" 口径一致）
+                  value={
+                    token.minLiquidity == null
+                      ? undefined
+                      : `${formatTokenAmount(token.minLiquidity)} ${
+                          token.symbol ?? token.tokenCode ?? ''
+                        }`.trim()
+                  }
                 />
                 <DetailField
                   label="Contract Address"

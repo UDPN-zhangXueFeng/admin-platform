@@ -1561,7 +1561,10 @@ function TransactionListCore() {
         cell: ({ row }) => {
           // 失败/异常原因：报价或 LP 匹配阶段就失败的行没有 pair/lp/金额，
           // 徽章悬停给原因，并补一行截断的原文（完整内容在 title）。
-          const reason = row.original.failReason?.trim();
+          const rawReason = row.original.failReason?.trim();
+          // 后端备注带内部码前缀（如 "[NO_CREDENTIAL] no disburse credential..."），
+          // 展示层去掉方括号码，完整原文仍放 title 里。
+          const reason = rawReason?.replace(/^\[[A-Z0-9_]+\]\s*/, '') || rawReason;
           return (
             <div className="flex min-w-0 flex-col gap-1">
               <span title={reason}>

@@ -3349,6 +3349,15 @@ export function LpTokenPairListPage() {
  * 金额与 token 单位同行展示（单位小号弱化），等宽半粗、右对齐；
  * 空值展示 '-' 且不追加单位。
  */
+/** 详情栅格里用的「金额 + 币种」单行文本（左对齐，与其它字段一致）。 */
+function amountWithUnit(
+  value: string | number | null | undefined,
+  token?: string | null,
+): string {
+  const amount = formatTokenAmount(value);
+  return token ? `${amount} ${token}` : amount;
+}
+
 function AmountWithToken({
   value,
   token,
@@ -4124,7 +4133,10 @@ export function LpPoolDetailPage() {
               {pool.preauthAvailable == null ? (
                 <Dash />
               ) : (
-                formatTokenAmount(pool.preauthAvailable)
+                amountWithUnit(
+                  pool.preauthAvailable,
+                  pool.tokenSymbol || pool.tokenCode,
+                )
               )}
             </span>
           </div>
@@ -4136,7 +4148,10 @@ export function LpPoolDetailPage() {
               {pool.requiredMinSum == null ? (
                 <Dash />
               ) : (
-                formatTokenAmount(pool.requiredMinSum)
+                amountWithUnit(
+                  pool.requiredMinSum,
+                  pool.tokenSymbol || pool.tokenCode,
+                )
               )}
             </span>
           </div>
@@ -4155,7 +4170,8 @@ export function LpPoolDetailPage() {
         <div className="border-b border-border/50 px-6 py-4">
           <h2 className="text-base font-semibold">Operation History</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Approvals and rejections recorded for this pool.
+            Approvals, parameter changes and status toggles recorded for this
+            pool.
           </p>
         </div>
         <OperateRecordTable

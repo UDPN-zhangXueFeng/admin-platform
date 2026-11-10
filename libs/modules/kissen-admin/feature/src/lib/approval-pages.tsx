@@ -184,7 +184,7 @@ function formatPercent(v: unknown): string {
 }
 
 /** 字段渲染声明（源 field-maps.ts FieldDef.render + enumMap）。 */
-type FieldRender = 'money' | 'percent' | 'rate' | 'status' | 'time';
+type FieldRender = 'money' | 'percent' | 'rate' | 'status' | 'time' | 'action';
 
 interface FieldDef {
   key: string;
@@ -199,6 +199,58 @@ const PERIOD_ENUM: Record<number, string> = {
   1: 'Daily',
   2: 'Weekly',
   3: 'Monthly',
+};
+
+/**
+ * 动作词条：后端各 DetailVO 的 action 取值大小写不统一（`disable` / `reset_key` /
+ * `Disable`），统一转成展示文案。
+ */
+const ACTION_ENUM: Record<string, string> = {
+  disable: 'Disable',
+  enable: 'Enable',
+  revoke: 'Revoke',
+  reset_key: 'Reset Key',
+  close: 'Close',
+  reopen: 'Reopen',
+};
+
+function formatAction(v: unknown): string {
+  const key = String(v ?? '').trim();
+  if (!key) return '-';
+  const mapped = ACTION_ENUM[key.toLowerCase()];
+  if (mapped) return mapped;
+  return key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+}
+
+/**
+ * 启停类审批的状态词表（2026-11-10）：通用字典把 20 叫 "Approved"，但在
+ * 币/对/实例/银行的启停语境里应显示 Enabled / Onboarded / Activated，
+ * 与列表页徽章保持一致。
+ */
+const TOGGLE_ENUM: Record<number, string> = {
+  3: 'Withdrawn',
+  5: 'Pending Approval',
+  10: 'Under Approval',
+  15: 'Rejected',
+  20: 'Enabled',
+  50: 'Disabled',
+};
+
+const BANK_TOGGLE_ENUM: Record<number, string> = {
+  1: 'Draft',
+  2: 'Registered',
+  5: 'Pending Approval',
+  10: 'Under Approval',
+  15: 'Rejected',
+  20: 'Onboarded',
+  50: 'Disabled',
+};
+
+const INSTANCE_TOGGLE_ENUM: Record<number, string> = {
+  1: 'Registered',
+  10: 'Key Pushed',
+  20: 'Activated',
+  50: 'Disabled',
 };
 
 /** 分成划转方向（split_transfer.direction）。 */
@@ -290,6 +342,63 @@ const FIELD_MAPS: Record<string, FieldDef[]> = {
     { key: 'status', label: 'Order Status', render: 'status' },
     { key: 'createTime', label: 'Requested At', render: 'time' },
   ],
+  // 启停/冻结类审批（2026-11-10 补齐）：后端各 DetailVO 字段不同，之前全部落到
+  // fallback，页面直接显示 pairCode / currentStatus 20 / targetStatus 50 这类裸字段。
+  kissen_pair_status: [
+    { key: 'pairCode', label: 'Token Pair Code' },
+    { key: 'currentStatus', label: 'Current Status', enumMap: TOGGLE_ENUM },
+    { key: 'action', label: 'Action', render: 'action' },
+    { key: 'targetStatus', label: 'Requested Status', enumMap: TOGGLE_ENUM },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
+  ],
+  kissen_lp_pair_status: [
+    { key: 'pairCode', label: 'Token Pair Code' },
+    { key: 'currentStatus', label: 'Current Status', enumMap: TOGGLE_ENUM },
+    { key: 'action', label: 'Action', render: 'action' },
+    { key: 'targetStatus', label: 'Requested Status', enumMap: TOGGLE_ENUM },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
+  ],
+  kissen_bank_toggle: [
+    { key: 'bankName', label: 'Bank Name' },
+    { key: 'bankBic', label: 'Bank Code (BIC)' },
+    { key: 'currentStatus', label: 'Current Status', enumMap: BANK_TOGGLE_ENUM },
+    { key: 'action', label: 'Action', render: 'action' },
+    { key: 'targetStatus', label: 'Requested Status', enumMap: BANK_TOGGLE_ENUM },
+    { key: 'instanceCount', label: 'Gateway Instances' },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
+  ],
+  kissen_gateway_toggle: [
+    { key: 'bankName', label: 'Bank Name' },
+    { key: 'instanceCode', label: 'Instance ID' },
+    { key: 'currentStatus', label: 'Current Status', enumMap: INSTANCE_TOGGLE_ENUM },
+    { key: 'action', label: 'Action', render: 'action' },
+    { key: 'targetStatus', label: 'Requested Status', enumMap: INSTANCE_TOGGLE_ENUM },
+    { key: 'downKeyFingerprint', label: 'Downlink Key Fingerprint' },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
+  ],
+  kissen_token_toggle: [
+    { key: 'tokenName', label: 'Token Name' },
+    { key: 'tokenCode', label: 'Token Code' },
+    { key: 'currentStatus', label: 'Current Status', enumMap: TOGGLE_ENUM },
+    { key: 'action', label: 'Action', render: 'action' },
+    { key: 'targetStatus', label: 'Requested Status', enumMap: TOGGLE_ENUM },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
+  ],
+  kissen_token_param: [
+    { key: 'tokenName', label: 'Token Name' },
+    { key: 'tokenCode', label: 'Token Code' },
+    { key: 'oldMinLiquidity', label: 'Current Min. Liquidity', render: 'money' },
+    { key: 'newMinLiquidity', label: 'Requested Min. Liquidity', render: 'money' },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
+  ],
+  kissen_access_key_revoke: [
+    { key: 'bankName', label: 'Bank Name' },
+    { key: 'keyFingerprint', label: 'Key Fingerprint' },
+    { key: 'currentStatus', label: 'Current Status', render: 'status' },
+    { key: 'action', label: 'Action', render: 'action' },
+    { key: 'reason', label: 'Reason' },
+    { key: 'createTime', label: 'Requested At', render: 'time' },
+  ],
   kissen_split_transfer: [
     { key: 'lpName', label: 'LP Name' },
     { key: 'direction', label: 'Transfer Direction', enumMap: DIRECTION_ENUM },
@@ -369,6 +478,8 @@ function renderFieldValue(def: FieldDef, value: unknown, busCode: string): strin
     }
     case 'time':
       return /^\d{10,13}$/.test(s) ? formatTimeCell(Number(s)) : s;
+    case 'action':
+      return formatAction(value);
     default:
       return s;
   }
