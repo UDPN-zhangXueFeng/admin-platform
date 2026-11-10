@@ -34,6 +34,7 @@ import {
 } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { cn } from '@myorg/shared/util-classnames';
+import { useAuth } from '@myorg/shared/util-auth';
 
 import {
   KISSEN_PROJECT_ID,
@@ -591,6 +592,8 @@ interface ApprovalListRow {
   stepName: string;
   /** 主表状态；业务键详情入口后端暂不返回 → undefined(渲染 Dash、禁用在途操作)。 */
   reviewerStatus: number | undefined;
+  /** 发起人 userId（撤回按钮按发起人兜底判定；业务键入口可能缺失）。 */
+  createUserId?: number;
   createUserName: string;
   createTime: number;
   /** 已办专属：节点结果 / 处理时间 / 我的意见。 */
@@ -610,6 +613,7 @@ function toApprovalListRow(row: ApprovalTodoRow | ApprovalDoneRow): ApprovalList
     busDesc: row.busDesc,
     stepName: row.stepName,
     reviewerStatus: row.reviewerStatus,
+    createUserId: row.createUserId,
     createUserName: row.createUserName,
     createTime: row.createTime,
     detailReviewerStatus:
@@ -1169,6 +1173,7 @@ export function ApprovalDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
+  const { user: currentUser } = useAuth();
 
   const taskIdParam = Number(searchParams.get('taskId'));
   const taskId =
@@ -1362,8 +1367,15 @@ export function ApprovalDetailPage() {
   const decidable = inFlight && canApprove;
   // 退回上一步：待审首页节点能力位（previousStepType=1）才可见，意见必填
   const canReturn = decidable && buttons.previousStepType === 1;
-  // 撤回：单据在途且发起人本人（withdrawType=1 能力位），意见可选
-  const canWithdraw = inFlight && buttons.withdrawType === 1;
+  // 撤回：单据在途且发起人本人（withdrawType=1 能力位），意见可选。
+  // withdrawType 是流程级开关（sys_workflow.withdraw_type），后端只在「发起人本人 + 待审(5)」
+  // 时置 1；这里再按 createUserId 兜一层，避免他人单据因流程开关为 1 而误显撤回。
+  // 缺少任一 id 时不额外收紧（仍以后端能力位为准）。
+  const isApplicant =
+    row.createUserId == null || !currentUser?.id
+      ? true
+      : String(row.createUserId) === String(currentUser.id);
+  const canWithdraw = inFlight && buttons.withdrawType === 1 && isApplicant;
 
   const actionCopy = action
     ? PROTO_APPROVAL_ACTION_TEXT[action](row.applyCode, businessName(row.businessCode))

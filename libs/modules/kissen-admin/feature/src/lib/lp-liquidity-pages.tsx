@@ -4089,13 +4089,13 @@ export function LpPoolDetailPage() {
         </div>
         <div className="grid grid-cols-1 gap-x-6 gap-y-5 px-6 py-5 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               LP Name
             </span>
             <span className="text-sm text-foreground">{pool.lpName}</span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Token
             </span>
             <span className="font-mono text-sm text-foreground">
@@ -4103,7 +4103,7 @@ export function LpPoolDetailPage() {
             </span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Token Bank
             </span>
             <span className="text-sm text-foreground">
@@ -4111,13 +4111,13 @@ export function LpPoolDetailPage() {
             </span>
           </div>
           <div className="flex flex-col gap-1 sm:col-span-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Pool Address
             </span>
             <CopyableId value={pool.accountAddress} />
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Wallet Balance
             </span>
             <AmountWithToken
@@ -4126,7 +4126,7 @@ export function LpPoolDetailPage() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Available Pre-Auth
             </span>
             <span className="tabular-nums text-sm text-foreground">
@@ -4141,7 +4141,7 @@ export function LpPoolDetailPage() {
             </span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Min. Liquidity Requirement
             </span>
             <span className="tabular-nums text-sm text-foreground">
@@ -4156,7 +4156,7 @@ export function LpPoolDetailPage() {
             </span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Created on
             </span>
             <span className="tabular-nums text-sm text-foreground">
