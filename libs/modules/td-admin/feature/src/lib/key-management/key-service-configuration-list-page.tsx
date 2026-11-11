@@ -318,6 +318,23 @@ export function KeyServiceConfigurationListPage() {
             />
           </div>
           <div className="space-y-1.5">
+            <label
+              className="text-sm font-medium"
+              htmlFor="ksc-filter-date"
+            >
+              {t('key_management_0002')}
+            </label>
+            <DateRangePicker
+              id="ksc-filter-date"
+              value={{ start: startCreateDate, end: endCreateDate }}
+              onChange={({ start, end }) => {
+                setStartCreateDate(start);
+                setEndCreateDate(end);
+              }}
+              ariaLabel={t('key_management_0002')}
+            />
+          </div>
+          <div className="space-y-1.5">
             <label className="text-sm font-medium">
               {t('key_management_0003')}
             </label>
@@ -339,23 +356,6 @@ export function KeyServiceConfigurationListPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <label
-              className="text-sm font-medium"
-              htmlFor="ksc-filter-date"
-            >
-              {t('key_management_0002')}
-            </label>
-            <DateRangePicker
-              id="ksc-filter-date"
-              value={{ start: startCreateDate, end: endCreateDate }}
-              onChange={({ start, end }) => {
-                setStartCreateDate(start);
-                setEndCreateDate(end);
-              }}
-              ariaLabel={t('key_management_0002')}
-            />
           </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
