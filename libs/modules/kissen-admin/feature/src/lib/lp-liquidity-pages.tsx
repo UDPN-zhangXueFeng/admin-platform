@@ -153,6 +153,7 @@ import {
   writeClipboard,
   type ProtoStatusTone,
 } from './proto-ui';
+import { PairArrow } from './pair-arrow';
 import { ApprovalQueue, ApprovalPendingTagWithDialog } from './inline-approval';
 import { computePoolCoverage } from './lp-coverage';
 import { OperateRecordTable } from './operate-record-table';
@@ -1156,7 +1157,12 @@ function PairPoolEditor({
             <div className="text-sm font-medium">
               {selected.sourceSymbol || selected.sourceTokenCode}/
               {selected.targetSymbol || selected.targetTokenCode} (
-              {selected.sourceBankName || '--'} → {selected.targetBankName || '--'})
+              <span className="inline-flex items-center gap-1 align-middle">
+                <span>{selected.sourceBankName || '--'}</span>
+                <PairArrow />
+                <span>{selected.targetBankName || '--'}</span>
+              </span>
+              )
             </div>
           ) : (
             <SearchableSelect
@@ -2470,9 +2476,11 @@ export function LpInfoDetailPage() {
                               <li key={`${p.pairId}-${p.source?.address ?? ''}`}>
                                 {p.pairId}
                                 {' · '}
-                                {p.source?.address || '-'}
-                                {' → '}
-                                {p.target?.address || '-'}
+                                <span className="inline-flex items-center gap-1 align-middle">
+                                  <span>{p.source?.address || '-'}</span>
+                                  <PairArrow />
+                                  <span>{p.target?.address || '-'}</span>
+                                </span>
                               </li>
                             ))}
                           </ul>
@@ -2755,8 +2763,10 @@ function lpPairUserRateText(row: Pick<LpPairRow, 'baseRate' | 'markupRate'>): st
 function LpPairSummaryCell({ row }: { row: LpPairTableRow }) {
   return (
     <div className="space-y-0.5">
-      <div className="font-mono text-sm font-semibold">
-        {row.sourceCurrency} → {row.targetCurrency}
+      <div className="flex items-center gap-1.5 font-mono text-sm font-semibold">
+        <span>{row.sourceCurrency}</span>
+        <PairArrow />
+        <span>{row.targetCurrency}</span>
       </div>
       <div className="font-mono text-xs text-muted-foreground">
         Pools: <CopyableId value={row.sourcePoolAddress} head={6} tail={4} /> (Recv) |{' '}
@@ -3940,8 +3950,10 @@ export function LpParticipationDetailPage() {
                 <ReadonlyField
                   label="Token Pair"
                   value={
-                    <span className="font-mono">
-                      {row.sourceCurrency} → {row.targetCurrency}
+                    <span className="inline-flex items-center gap-1.5 font-mono">
+                      <span>{row.sourceCurrency}</span>
+                      <PairArrow />
+                      <span>{row.targetCurrency}</span>
                     </span>
                   }
                 />

@@ -42,6 +42,7 @@ import {
 import { DescField, DescGrid } from './desc-grid';
 import { OPT_ALL, formatTime, orDash, toEpochMs } from './kit';
 import { CopyableId, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
+import { PairArrow } from './pair-arrow';
 import {
   formatDuration,
   formatRate,
@@ -564,7 +565,7 @@ export function TxListPage() {
                     {pair.sourceBankCode || '-'}
                   </span>
                 </div>
-                <span className="text-xs text-muted-foreground">→</span>
+                <PairArrow />
                 <div className="flex flex-col items-center gap-0.5">
                   <Badge
                     variant="outline"

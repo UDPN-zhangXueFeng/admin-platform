@@ -54,6 +54,7 @@ import { SyncRefreshButton } from './sync-refresh-button';
 import { LP_PAIR_STATUS_MAP } from './proto-enums';
 import { formatRate, formatUtc8 } from './proto-format';
 import { CopyableId, ProtoStatusBadge, type ProtoTone } from './proto-ui';
+import { PairArrow } from './pair-arrow';
 
 /* ================================================================== */
 /* 文案与渲染辅助                                                        */
@@ -128,14 +129,28 @@ function NumCell({ children }: { children: React.ReactNode }) {
  * 加粗（§3.14.3 币对一律 →，不用 /），下行 `bankOf(src) → bankOf(tgt)`
  * 次要色（GAP-LP-06(a)：银行名经 token 元数据派生）。
  */
-function Pairx({ tokens, banks }: { tokens: string; banks: string }) {
+function Pairx({
+  source,
+  target,
+  sourceBank,
+  targetBank,
+}: {
+  source: string;
+  target: string;
+  sourceBank: string;
+  targetBank: string;
+}) {
   return (
     <div className="flex min-w-0 flex-col">
-      <span className="whitespace-nowrap font-semibold tabular-nums text-foreground">
-        {tokens}
+      <span className="flex items-center gap-1 whitespace-nowrap font-semibold tabular-nums text-foreground">
+        <span>{source}</span>
+        <PairArrow />
+        <span>{target}</span>
       </span>
-      <span className="whitespace-nowrap text-xs text-muted-foreground">
-        {banks}
+      <span className="flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
+        <span>{sourceBank}</span>
+        <PairArrow />
+        <span>{targetBank}</span>
       </span>
     </div>
   );
@@ -250,8 +265,10 @@ export function PairListPage() {
           const r = row.original;
           return (
             <Pairx
-              tokens={`${symOf(r.sourceTokenNo)} → ${symOf(r.targetTokenNo)}`}
-              banks={`${bankOf(r.sourceTokenNo)} → ${bankOf(r.targetTokenNo)}`}
+              source={symOf(r.sourceTokenNo)}
+              target={symOf(r.targetTokenNo)}
+              sourceBank={bankOf(r.sourceTokenNo)}
+              targetBank={bankOf(r.targetTokenNo)}
             />
           );
         },

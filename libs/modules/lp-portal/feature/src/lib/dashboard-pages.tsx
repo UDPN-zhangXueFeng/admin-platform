@@ -53,6 +53,7 @@ import {
 } from 'recharts';
 
 import { cn } from '@myorg/shared/util-classnames';
+import { PairArrow } from './pair-arrow';
 import type { ColumnDef } from '@tanstack/react-table';
 
 import {
@@ -345,12 +346,31 @@ function NumCell({ children, className }: { children: React.ReactNode; className
   );
 }
 
-/** 币对单元格：第一行 symOf(src)/symOf(tgt) 等宽加粗、第二行发行行次行（§E24）。 */
-function TokenPairCell({ tokens, banks }: { tokens: string; banks: string }) {
+/**
+ * 币对单元格：第一行 symOf(src)/symOf(tgt) 等宽加粗、第二行发行行次行（§E24）。
+ * 2026-11-11：箭头改图标（原文本 `A → B` 拼在字符串里无法统一视觉）。
+ */
+function TokenPairCell({
+  source,
+  target,
+  sourceBank,
+  targetBank,
+}: {
+  source: string;
+  target: string;
+  sourceBank: string;
+  targetBank: string;
+}) {
   return (
     <div className="whitespace-nowrap">
-      <div className="font-mono text-xs font-semibold tabular-nums">{tokens}</div>
-      <div className="text-xs text-muted-foreground">{banks}</div>
+      <div className="font-mono text-xs font-semibold tabular-nums">
+        {source}/{target}
+      </div>
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <span>{sourceBank}</span>
+        <PairArrow />
+        <span>{targetBank}</span>
+      </div>
     </div>
   );
 }
@@ -896,8 +916,10 @@ function BottomTabsCard({
           const r = row.original;
           return (
             <TokenPairCell
-              tokens={`${symOf(srcKey(r))}/${symOf(tgtKey(r))}`}
-              banks={`${bankOf(srcKey(r))} → ${bankOf(tgtKey(r))}`}
+              source={symOf(srcKey(r))}
+              target={symOf(tgtKey(r))}
+              sourceBank={bankOf(srcKey(r))}
+              targetBank={bankOf(tgtKey(r))}
             />
           );
         },
@@ -1022,8 +1044,10 @@ function BottomTabsCard({
           const r = row.original;
           return (
             <TokenPairCell
-              tokens={`${symOf(srcKey(r))}/${symOf(tgtKey(r))}`}
-              banks={`${bankOf(srcKey(r))} → ${bankOf(tgtKey(r))}`}
+              source={symOf(srcKey(r))}
+              target={symOf(tgtKey(r))}
+              sourceBank={bankOf(srcKey(r))}
+              targetBank={bankOf(tgtKey(r))}
             />
           );
         },
@@ -1035,12 +1059,13 @@ function BottomTabsCard({
         cell: ({ row }) => {
           const r = row.original;
           return (
-            <span className="whitespace-nowrap font-mono text-xs tabular-nums">
+            <span className="inline-flex items-center gap-1 whitespace-nowrap font-mono text-xs tabular-nums">
               <span className="font-semibold">
                 {amountText(r.userDeduction, symOf(srcKey(r)))}
               </span>
+              <PairArrow />
               <span className="text-muted-foreground">
-                {` → ${amountText(r.receiverAmount, symOf(tgtKey(r)))}`}
+                {amountText(r.receiverAmount, symOf(tgtKey(r)))}
               </span>
             </span>
           );

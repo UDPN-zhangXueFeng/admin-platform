@@ -26,7 +26,7 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 
 import {
   Button,
@@ -50,6 +50,7 @@ import {
 } from '@myorg/modules/kissen-gateway/data-access';
 
 import { CopyableId, Dash, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
+import { PairArrow } from './pair-arrow';
 import { formatRate, formatUtc8 } from './proto-format';
 import { PROTO_PAIR_STATUS, protoStatusText } from './proto-enums';
 import { DescField, DescGrid } from './desc-grid';
@@ -132,10 +133,7 @@ export function FxListPage() {
           return (
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-medium">
               {pair.sourceTokenSymbol || pair.sourceTokenCode || '-'}
-              <ArrowRight
-                className="size-3.5 shrink-0 text-muted-foreground/70"
-                aria-hidden="true"
-              />
+              <PairArrow />
               {pair.targetTokenSymbol || pair.targetTokenCode || '-'}
             </span>
           );
@@ -548,10 +546,7 @@ export function FxDetailPage() {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="flex min-w-0 items-center gap-2 text-xl font-semibold">
               <span className="min-w-0 truncate">{srcLabel}</span>
-              <ArrowRight
-                className="size-4 shrink-0 text-muted-foreground/70"
-                aria-hidden="true"
-              />
+              <PairArrow className="size-4" />
               <span className="min-w-0 truncate">{tgtLabel}</span>
             </h1>
             {pair ? (

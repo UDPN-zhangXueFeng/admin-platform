@@ -78,6 +78,7 @@ import {
   ProtoStatusBadge,
   type ProtoStatusTone,
 } from './proto-ui';
+import { PairArrow } from './pair-arrow';
 import { ApprovalQueue, ApprovalPendingTagWithDialog } from './inline-approval';
 
 /** KPS Token 对启停审批 busCode（2026-10-22 P1）。 */
@@ -194,9 +195,10 @@ function TokenPairCell({
         {sourceSymbol || sourceTokenCode || '-'}/
         {targetSymbol || targetTokenCode || '-'}
       </span>
-      <span className="text-xs text-muted-foreground">
-        {sourceBankName || sourceBankCode || '-'} →{' '}
-        {targetBankName || targetBankCode || '-'}
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <span>{sourceBankName || sourceBankCode || '-'}</span>
+        <PairArrow />
+        <span>{targetBankName || targetBankCode || '-'}</span>
       </span>
     </div>
   );
@@ -1542,9 +1544,10 @@ export function TokenPairDetailPage() {
                 <span className="font-mono text-[13px] font-semibold">
                   {pairLabel(record)}
                 </span>
-                <span className="block text-xs text-muted-foreground">
-                  {record.sourceBankName || record.sourceBankCode || '-'} →{' '}
-                  {record.targetBankName || record.targetBankCode || '-'}
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span>{record.sourceBankName || record.sourceBankCode || '-'}</span>
+                  <PairArrow />
+                  <span>{record.targetBankName || record.targetBankCode || '-'}</span>
                 </span>
               </DetailField>
               <DetailField label="Source Bank">
@@ -1730,9 +1733,10 @@ function PairEditForm({ row }: { row: TokenPairRow }) {
             <ProtoStatusBadge tone={PAIR_STATUS_TONE[row.status] ?? 'muted'}>
               {protoStatusLabel(PROTO_PAIR_STATUS, row.status)}
             </ProtoStatusBadge>
-            <span className="text-sm text-muted-foreground">
-              {row.sourceBankName || row.sourceBankCode || '-'} →{' '}
-              {row.targetBankName || row.targetBankCode || '-'}
+            <span className="flex items-center gap-1 text-sm text-muted-foreground">
+              <span>{row.sourceBankName || row.sourceBankCode || '-'}</span>
+              <PairArrow />
+              <span>{row.targetBankName || row.targetBankCode || '-'}</span>
             </span>
           </div>
           <CopyableId value={row.pairCode} />

@@ -106,6 +106,7 @@ import {
   writeClipboard,
   type ProtoStatusTone,
 } from './proto-ui';
+import { PairArrow } from './pair-arrow';
 import {
   ProtoSortHeader,
   useProtoSort,
@@ -1448,8 +1449,14 @@ function TransactionListCore() {
               <span className="font-mono text-[13px] font-semibold">
                 {sourceToken || '-'}/{targetToken || '-'}
               </span>
-              <span className="truncate text-xs text-muted-foreground" title={banks}>
-                {banks}
+              {/* 2026-11-11：银行次行改图标箭头（title 仍给纯文本便于复制） */}
+              <span
+                className="flex items-center gap-1 truncate text-xs text-muted-foreground"
+                title={banks}
+              >
+                <span className="truncate">{r.sourceBankName || '-'}</span>
+                <PairArrow />
+                <span className="truncate">{r.targetBankName || '-'}</span>
               </span>
             </div>
           );

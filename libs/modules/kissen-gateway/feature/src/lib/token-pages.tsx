@@ -75,6 +75,7 @@ import {
 } from '@myorg/modules/kissen-gateway/data-access';
 
 import { CopyableId, ProtoStatusBadge, type ProtoStatusTone } from './proto-ui';
+import { PairArrow } from './pair-arrow';
 import { formatTokenAmount, formatUtc8 } from './proto-format';
 import {
   PROTO_TOKEN_STATUS,
@@ -1082,7 +1083,7 @@ export function TokenDetailPage() {
                   {pair.sourceBankCode || '-'}
                 </span>
               </div>
-              <span className="text-xs text-muted-foreground">→</span>
+              <PairArrow />
               <div className="flex flex-col items-center gap-0.5">
                 <Badge variant="outline">
                   {pair.targetTokenSymbol || pair.targetTokenCode || '-'}
