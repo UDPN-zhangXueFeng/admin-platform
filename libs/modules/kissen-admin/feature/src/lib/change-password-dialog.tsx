@@ -41,6 +41,11 @@ export interface ChangePasswordDialogProps {
   force?: boolean;
   /** force 模式下改密成功后的回调（源：markFirstLoginDone + router.push('/')）。 */
   onForceDone?: () => void;
+  /**
+   * force 模式下的「换账号登录」出口（2026-11-11）：强制改密是服务端 first_login 标记，
+   * 关浏览器/清缓存都绕不过；给一个显式退出，避免用户被卡死在这张弹窗里。
+   */
+  onSignOut?: () => void;
 }
 
 interface ChangePwdFormValues {
@@ -56,6 +61,7 @@ export function ChangePasswordDialog({
   onOpenChange,
   force = false,
   onForceDone,
+  onSignOut,
 }: ChangePasswordDialogProps) {
   const toast = useToast();
   const mutation = useUserChangePwdMutation();
@@ -221,6 +227,15 @@ export function ChangePasswordDialog({
               {mutation.isPending ? 'Submitting…' : 'Confirm'}
             </Button>
           </DialogFooter>
+          {force && onSignOut ? (
+            <button
+              type="button"
+              className="w-full text-center text-xs text-muted-foreground underline-offset-2 hover:underline"
+              onClick={onSignOut}
+            >
+              Sign in with another account
+            </button>
+          ) : null}
         </form>
       </DialogContent>
     </Dialog>

@@ -193,6 +193,18 @@ export function ChangePwdPage() {
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? 'Submitting…' : 'Confirm Change'}
           </Button>
+          {/* 2026-11-11：强制改密是服务端 first_login 标记决定的，清缓存/关浏览器都绕不过；
+              这里给一个显式出口，方便换账号（下次登录仍会被要求改密）。 */}
+          <button
+            type="button"
+            className="w-full text-center text-xs text-muted-foreground underline-offset-2 hover:underline"
+            onClick={() => {
+              clearLpSession();
+              window.location.assign(getLoginRedirectPath());
+            }}
+          >
+            Sign in with another account
+          </button>
         </form>
       </div>
     </div>

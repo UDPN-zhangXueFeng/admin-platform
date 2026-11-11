@@ -5,7 +5,11 @@ import { z } from 'zod';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { Button, Label, PasswordField, useToast } from '@myorg/shared/ui';
 import { createFormResolver } from '@myorg/shared/ui-forms';
-import { useAuthChangePwdMutation } from '@myorg/modules/kissen-gateway/data-access';
+import {
+  clearGatewaySession,
+  useAuthChangePwdMutation,
+} from '@myorg/modules/kissen-gateway/data-access';
+import { getLoginRedirectPath } from '@myorg/shared/util-auth';
 
 /**
  * 首次登录强制改密页 — /[locale]/change-pwd（源 `views/login/change-pwd.vue`）。
@@ -143,6 +147,18 @@ export default function ChangePwdRoute() {
           <Button type="submit" className="w-full" disabled={mutation.isPending}>
             {mutation.isPending ? 'Submitting…' : 'Confirm'}
           </Button>
+          {/* 2026-11-11：强制改密由服务端 first_login 标记决定，清缓存绕不过；
+              提供显式出口便于换账号（下次登录仍会被要求改密）。 */}
+          <button
+            type="button"
+            className="w-full text-center text-xs text-muted-foreground underline-offset-2 hover:underline"
+            onClick={() => {
+              clearGatewaySession();
+              window.location.assign(getLoginRedirectPath());
+            }}
+          >
+            Sign in with another account
+          </button>
         </form>
       </div>
     </div>

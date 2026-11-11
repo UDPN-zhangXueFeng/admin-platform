@@ -17,7 +17,7 @@ import {
   useToast,
 } from '@myorg/shared/ui';
 import { KissenHeaderMark } from '../../../../components/brand/kissen-brand-mark';
-import { useAuth } from '@myorg/shared/util-auth';
+import { clearSessionStorage, useAuth } from '@myorg/shared/util-auth';
 import type { User } from '@myorg/shared/util-auth';
 import { useTheme } from '@myorg/shared/util-config';
 import { useUserLoginMutation } from '@myorg/modules/kissen-admin/data-access';
@@ -337,6 +337,11 @@ export default function LoginRoute() {
         onOpenChange={setPwdVisible}
         force
         onForceDone={() => router.replace(redirectTarget)}
+        onSignOut={() => {
+          // 首登强制改密卡住时换账号：只清本地会话（未改密，服务端 token 由下次登录覆盖）
+          clearSessionStorage();
+          setPwdVisible(false);
+        }}
       />
     </>
   );

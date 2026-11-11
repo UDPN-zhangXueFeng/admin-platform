@@ -849,14 +849,15 @@ export function UserListPage() {
                       >
                         Activate
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => openConfirm(u, 'resetPassword')}
-                      >
-                        Reset Password
-                      </DropdownMenuItem>
                     </>
                   )}
+                  {/* 2026-11-11：重置密码与账号状态无关（后端无状态校验），无需先禁用 */}
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => openConfirm(u, 'resetPassword')}
+                  >
+                    Reset Password
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -1569,21 +1570,20 @@ export function UserDetailPage() {
                 </Button>
               </>
             ) : (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={() => setConfirmAction('activate')}
-                >
-                  Activate
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setConfirmAction('resetPassword')}
-                >
-                  Reset Password
-                </Button>
-              </>
+              <Button
+                variant="outline"
+                onClick={() => setConfirmAction('activate')}
+              >
+                Activate
+              </Button>
             )}
+            {/* 2026-11-11：重置密码与状态无关，常驻 */}
+            <Button
+              variant="outline"
+              onClick={() => setConfirmAction('resetPassword')}
+            >
+              Reset Password
+            </Button>
           </div>
         )}
       </div>

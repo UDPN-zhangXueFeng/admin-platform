@@ -893,11 +893,13 @@ export function SysUserListPage() {
                       <DropdownMenuItem onClick={() => setConfirm({ kind: 'activate', user: u })}>
                         Activate
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setConfirm({ kind: 'resetPassword', user: u })}>
-                        Reset Password
-                      </DropdownMenuItem>
                     </>
                   )}
+                  {/* 2026-11-11：重置密码与账号状态无关（后端本就无状态校验），
+                      禁用→重置→启用 的多余操作取消。重置后会踢掉该用户全部会话。 */}
+                  <DropdownMenuItem onClick={() => setConfirm({ kind: 'resetPassword', user: u })}>
+                    Reset Password
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
