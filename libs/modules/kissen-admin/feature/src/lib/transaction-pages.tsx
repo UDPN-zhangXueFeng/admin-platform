@@ -139,6 +139,27 @@ function pairText(source?: string, target?: string): string {
   return source && target ? `${source}→${target}` : '-';
 }
 
+/**
+ * 展示用用户汇率（2026-11-11）：= baseRate ÷ (1 + markupRate)，即报价时的固定汇率。
+ *
+ * 背景：后端历史上把 userRate 按「到账 ÷ 实付」反算，金额取整的尾差会摊到汇率上
+ * （20.12 BXW → 0.1998、23.34 BXW → 0.2001），看起来像随金额浮动。取整属于金额侧，
+ * 汇率应恒定；历史数据也按此公式回正，故显示统一走这里。
+ */
+function quotedUserRate(
+  baseRate: number | string | null | undefined,
+  markupRate: number | string | null | undefined,
+  fallback: number | string | null | undefined,
+): string | number | null | undefined {
+  const base = Number(baseRate);
+  if (!Number.isFinite(base) || base <= 0) {
+    return fallback;
+  }
+  const markup = Number(markupRate);
+  const divisor = 1 + (Number.isFinite(markup) ? markup : 0);
+  return divisor === 0 ? fallback : base / divisor;
+}
+
 /** 空值兜底展示（源 `|| '-'` 口径）。 */
 function orDash(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === '') return '-';
@@ -722,7 +743,9 @@ function chainFieldRows(
     // 用户汇率（成交口径：到账 ÷ 实付；非 baseRate 基础汇率）
     rows.push({
       label: 'Rate',
-      value: `1 ${detail.sourceCurrency} ≈ ${formatRate(detail.userRate)} ${detail.targetCurrency}`,
+      value: `1 ${detail.sourceCurrency} ≈ ${formatRate(
+        quotedUserRate(detail.baseRate, detail.markupRate, detail.userRate),
+      )} ${detail.targetCurrency}`,
     });
   }
   if (e.statusTo === 30 || e.statusTo === 35 || e.statusTo === 40) {
@@ -885,7 +908,9 @@ export function TxDetailPage() {
       `Token Pair: ${source}/${target}`,
       `Sold Amount: ${fmtAmount(detail.userDeduction, source, decOf(source))}`,
       `Credited Amount: ${fmtAmount(detail.receiverAmount, target, decOf(target))}`,
-      `FX Rate: 1 ${source} ≈ ${formatRate(detail.userRate)} ${target}`,
+      `FX Rate: 1 ${source} ≈ ${formatRate(
+        quotedUserRate(detail.baseRate, detail.markupRate, detail.userRate),
+      )} ${target}`,
       `LP: ${detail.lpName || '-'}`,
       `Created: ${formatUtc8(detail.createTime)}`,
       detail.completedTime > 0
@@ -1034,7 +1059,13 @@ export function TxDetailPage() {
                     <div className="flex min-w-0 shrink-0 flex-col items-center gap-2 md:px-6">
                       <Badge variant="outline" className="whitespace-nowrap tabular-nums">
                         1 {detail.sourceCurrency || '-'} ≈{' '}
-                        {formatRate(detail.userRate)}{' '}
+                        {formatRate(
+                          quotedUserRate(
+                            detail.baseRate,
+                            detail.markupRate,
+                            detail.userRate,
+                          ),
+                        )}{' '}
                         {detail.targetCurrency || '-'}
                       </Badge>
                       {/* 2026-10-30 三系统详情统一：admin/LP 展示双汇率（成交时基础汇率快照），gateway 仅用户汇率 */}
@@ -1510,8 +1541,20 @@ function TransactionListCore() {
         cell: ({ row }) => (
           <div className="flex justify-end">
             <span className="font-mono tabular-nums">
-              {Number(row.original.userRate) > 0
-                ? formatRate(row.original.userRate)
+              {Number(
+                quotedUserRate(
+                  row.original.baseRate,
+                  row.original.markupRate,
+                  row.original.userRate,
+                ),
+              ) > 0
+                ? formatRate(
+                    quotedUserRate(
+                      row.original.baseRate,
+                      row.original.markupRate,
+                      row.original.userRate,
+                    ),
+                  )
                 : '-'}
             </span>
           </div>
