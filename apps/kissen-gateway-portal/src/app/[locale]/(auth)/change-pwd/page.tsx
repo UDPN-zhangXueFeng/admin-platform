@@ -53,9 +53,12 @@ export default function ChangePwdRoute() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors },
   } = useForm<ChangePwdFormValues>({
     resolver: createFormResolver(changePwdSchema),
+    // 2026-11-11：与 LP/管理系统一致——失焦即校验、改字段即时复检（原先只在点确认时校验）
+    mode: 'onTouched',
     defaultValues: { oldPassword: '', newPassword: '', confirm: '' },
   });
 
@@ -68,8 +71,14 @@ export default function ChangePwdRoute() {
           router.replace('/system/user');
         },
         onError: (e) => {
-          // 源依赖拦截器 ElMessage；目标拦截器只抛 KissenApiError，这里统一提示。
-          toast.error((e as Error).message);
+          // 服务端「新密码与当前密码相同」回落到字段级提示（与前端校验同一处展示），
+          // 其余错误仍走全局 toast（源依赖拦截器 ElMessage 的语义）。
+          const message = (e as Error).message;
+          if (/must be different from the current password/i.test(message)) {
+            setError('newPassword', { type: 'server', message });
+            return;
+          }
+          toast.error(message);
         },
       },
     );

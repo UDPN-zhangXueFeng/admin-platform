@@ -64,9 +64,12 @@ export function ChangePasswordDialog({
     register,
     handleSubmit,
     reset,
+    setError,
     watch,
     formState: { errors },
   } = useForm<ChangePwdFormValues>({
+    // 2026-11-11：失焦即校验、改字段即时复检（原先只在点确认时校验）
+    mode: 'onTouched',
     defaultValues: { oldPassword: '', newPassword: '', confirm: '' },
   });
 
@@ -93,7 +96,15 @@ export function ChangePasswordDialog({
           onOpenChange(false);
           if (force) onForceDone?.();
         },
-        onError: (e) => toast.error((e as Error).message),
+        onError: (e) => {
+          // 服务端「新密码与当前密码相同」回落到字段级提示，其余走 toast
+          const message = (e as Error).message;
+          if (/must be different from the current password/i.test(message)) {
+            setError('newPassword', { type: 'server', message });
+            return;
+          }
+          toast.error(message);
+        },
       },
     );
   });
