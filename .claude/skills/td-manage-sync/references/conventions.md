@@ -1,6 +1,6 @@
 # 落点与实现约定：td-manage（Pages Router + SWR）→ apps/admin（App Router + Nx）
 
-事实来源优先级：本文件只写 td-manage-sync 特有约定；通用规范见 `.codex/project/rule.md`；结构与模块边界见 `.codex/project/pro.md`。与 admin-sync 的 conventions 同构，但上游是 Next.js 而非 Vue，下游是双语 configs 驱动而非 menuTree。
+事实来源优先级：本文件只写 td-manage-sync 特有约定；通用规范见 `.codex/project/rule.md`；结构与模块边界见 `.codex/project/pro.md`。与 kissen 系 sync skill 的 conventions 同构，但上游是 Next.js 而非 Vue，下游是双语 configs 驱动而非 menuTree。
 
 ## 1. 代码落点（Nx 边界）
 

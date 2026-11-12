@@ -3,6 +3,8 @@
   "records": "Transaction Records",
   "empty": "No Data",
   "copy": "Copy",
+  "copied": "Copied",
+  "copyFailed": "Copy failed",
   "filter": {
     "title": "Query",
     "query": "Query",
@@ -55,6 +57,7 @@
     "normalizationEngine": "Normalization Engine",
     "postingEntry": "Posting Entry",
     "tAccount": "T-Account",
+    "iso20022Payload": "ISO 20022 Payload",
     "columnName": "Column Name",
     "value": "Value",
     "logicType": "Logic Type",

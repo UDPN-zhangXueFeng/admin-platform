@@ -122,14 +122,18 @@ export function SuspenseAdjustmentDetailPage() {
   >(
     () => {
       const historyActionsOptions: RowActionsOptions<SuspenseAdjustmentHistoryItem> = {
-        detail: {
-          label: t('action.detail'),
-          onClick: (row) =>
-            router.push(
-              `/approval-manage/view?id=${
-                row.taskId ?? row.adjustmentId
-              }&busCode=${row.busCode ?? SUSPENSE_ADJUSTMENT_BUS_CODE}`,
-            ),
+        detail: (row) => {
+          const taskId = row.taskId ?? row.adjustmentId;
+          const busCode = row.busCode ?? SUSPENSE_ADJUSTMENT_BUS_CODE;
+          return taskId
+            ? {
+                label: t('action.detail'),
+                onClick: () =>
+                  router.push(
+                    `/approval-manage/view?id=${taskId}&busCode=${busCode}`,
+                  ),
+              }
+            : undefined;
         },
       };
       return [

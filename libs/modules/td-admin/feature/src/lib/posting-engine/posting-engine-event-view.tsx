@@ -1,9 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
+import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import {
   Button,
   Card,
@@ -13,11 +15,13 @@ import {
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
+  Input,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import {
   usePostingEventDetailQuery,
@@ -25,10 +29,13 @@ import {
   type PostingHistoryItem,
 } from '@myorg/modules/td-admin/data-access';
 import { PostingStatusBadge } from '.';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import {
+  ALL_VALUE,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
+  POSTING_STATUS,
   directionLabel,
   formatAccountLabel,
   getSourceEventTypeMessageKey,
@@ -56,6 +63,25 @@ interface KvRow {
   label: string;
   value: React.ReactNode;
 }
+
+/** Version History 筛选表单（Version ID / Effective Date / Created On / Status）。 */
+interface HistoryFilterForm {
+  versionId: string;
+  effectiveDateFrom: string;
+  effectiveDateTo: string;
+  createdOnFrom: string;
+  createdOnTo: string;
+  status: string;
+}
+
+const EMPTY_HISTORY_FILTER: HistoryFilterForm = {
+  versionId: '',
+  effectiveDateFrom: '',
+  effectiveDateTo: '',
+  createdOnFrom: '',
+  createdOnTo: '',
+  status: ALL_VALUE,
+};
 
 interface EntryTemplateRow {
   id: string;
@@ -87,16 +113,73 @@ export function PostingEngineEventView({
     pageNum: 1,
     pageSize: DEFAULT_PAGE_SIZE,
   });
-  const historyList = usePostingHistoryListQuery(
-    {
+  const {
+    control: filterControl,
+    register: filterRegister,
+    handleSubmit: handleFilterSubmit,
+    reset: resetFilterForm,
+  } = useForm<HistoryFilterForm>({ defaultValues: EMPTY_HISTORY_FILTER });
+  const [historyFilters, setHistoryFilters] =
+    React.useState<HistoryFilterForm>(EMPTY_HISTORY_FILTER);
+  const historyParams = React.useMemo(
+    () => ({
       pageNum: historyPage.pageNum,
       pageSize: historyPage.pageSize,
-      filters: { postingEventId: postingEventId ?? 0 },
-    },
+      filters: {
+        postingEventId: postingEventId ?? 0,
+        versionId: historyFilters.versionId.trim() || undefined,
+        status:
+          historyFilters.status !== ALL_VALUE
+            ? Number(historyFilters.status)
+            : undefined,
+        effectiveDateStart: historyFilters.effectiveDateFrom
+          ? startOfDay(parseISO(historyFilters.effectiveDateFrom)).getTime()
+          : undefined,
+        effectiveDateEnd: historyFilters.effectiveDateTo
+          ? endOfDay(parseISO(historyFilters.effectiveDateTo)).getTime()
+          : undefined,
+        createTimeStart: historyFilters.createdOnFrom
+          ? startOfDay(parseISO(historyFilters.createdOnFrom)).getTime()
+          : undefined,
+        createTimeEnd: historyFilters.createdOnTo
+          ? endOfDay(parseISO(historyFilters.createdOnTo)).getTime()
+          : undefined,
+      },
+    }),
+    [historyPage.pageNum, historyPage.pageSize, postingEventId, historyFilters]
+  );
+  const historyList = usePostingHistoryListQuery(
+    historyParams,
     Boolean(postingEventId)
   );
   const history = historyList.data?.rows ?? [];
   const historyTotal = historyList.data?.page?.total ?? 0;
+
+  const statusOptions = React.useMemo(
+    () => [
+      { value: ALL_VALUE, label: t('filter.all') },
+      { value: String(POSTING_STATUS.Pending), label: t('status.draft') },
+      {
+        value: String(POSTING_STATUS.PendingReview),
+        label: t('status.pendingReview'),
+      },
+      { value: String(POSTING_STATUS.Rejected), label: t('status.rejected') },
+      { value: String(POSTING_STATUS.InReview), label: t('status.inReview') },
+      { value: String(POSTING_STATUS.Approved), label: t('status.approved') },
+      { value: String(POSTING_STATUS.Disabled), label: t('status.disabled') },
+    ],
+    [t]
+  );
+
+  const onFilterSubmit = (values: HistoryFilterForm) => {
+    setHistoryPage((prev) => ({ ...prev, pageNum: 1 }));
+    setHistoryFilters(values);
+  };
+  const onFilterReset = () => {
+    resetFilterForm(EMPTY_HISTORY_FILTER);
+    setHistoryFilters(EMPTY_HISTORY_FILTER);
+    setHistoryPage({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
+  };
 
   const [selected, setSelected] = React.useState<PostingHistoryItem | null>(
     null
@@ -406,6 +489,53 @@ export function PostingEngineEventView({
             <div className="border-b px-6 py-3 text-sm font-semibold">
               {t('detail.versionHistory')}
             </div>
+            <form
+              onSubmit={handleFilterSubmit(onFilterSubmit)}
+              className="border-b p-4"
+            >
+              <QueryForm
+                variant="plain"
+                queryType="submit"
+                fields={[
+                  <div key="versionId" className="space-y-1.5">
+                    <label className="text-sm font-medium">
+                      {t('versionHistory.versionId')}
+                    </label>
+                    <Input
+                      placeholder={t('versionHistory.versionIdPlaceholder')}
+                      {...filterRegister('versionId')}
+                    />
+                  </div>,
+                  <FormDateRangePicker
+                    key="effectiveDate"
+                    startName="effectiveDateFrom"
+                    endName="effectiveDateTo"
+                    control={filterControl}
+                    label={t('versionHistory.effectiveDate')}
+                  />,
+                  <FormSelect
+                    key="status"
+                    name="status"
+                    control={filterControl}
+                    label={t('versionHistory.status')}
+                    options={statusOptions}
+                    placeholder={t('filter.all')}
+                  />,
+                ]}
+                advancedFields={[
+                  <FormDateRangePicker
+                    key="createdOn"
+                    startName="createdOnFrom"
+                    endName="createdOnTo"
+                    control={filterControl}
+                    label={t('versionHistory.createdOn')}
+                  />,
+                ]}
+                onReset={onFilterReset}
+                queryLabel={t('filter.query')}
+                resetLabel={t('filter.reset')}
+              />
+            </form>
             <div className="p-4">
               <DataTable
                 columns={historyColumns}

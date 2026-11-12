@@ -46,6 +46,12 @@ export interface HeaderProps {
    */
   hideManageAccount?: boolean;
   /**
+   * Open the "Manage Account" page (project-specific). When omitted the entry
+   * renders exactly as before and remains a no-op, so other projects are
+   * unaffected.
+   */
+  onManageAccount?: () => void;
+  /**
    * Opt-in brand mark replacing the default <img src="/logo-icon.svg">.
    * Use an inline component when the mark must track page CSS variables.
   */
@@ -79,6 +85,7 @@ export function Header({
   onLogout,
   onBrandClick,
   hideManageAccount,
+  onManageAccount,
   logo,
   hideProjectName = false,
   compact = false,
@@ -208,7 +215,7 @@ export function Header({
 
               <DropdownMenuContent align="end" className="min-w-[220px]">
                 {!hideManageAccount && (
-                  <DropdownMenuItem className="gap-2">
+                  <DropdownMenuItem className="gap-2" onClick={onManageAccount}>
                     <Settings className="h-4 w-4" aria-hidden="true" />
                     <span>Manage Account</span>
                   </DropdownMenuItem>

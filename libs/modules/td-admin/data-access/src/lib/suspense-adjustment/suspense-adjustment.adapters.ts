@@ -21,6 +21,7 @@ import {
   ADJUSTMENT_STATUS_MAP,
   CLEAR_STATUS_MAP,
   SOURCE_TYPE_MAP,
+  TRANSACTION_TYPE_LABEL_MAP,
 } from '.';
 import {
   epochToDateString,
@@ -97,6 +98,9 @@ export interface SuspenseEntryDetailRespVO {
   suspenseTxnId: string;
   status: string;
   sourceType: number;
+  /** 后端交易类型（与 txType 二选一返回）。 */
+  transactionType?: number | string;
+  txType?: number | string;
   age: number;
   financeBookId?: number;
   financeBookName?: string;
@@ -142,6 +146,9 @@ export interface SuspenseAdjustmentApprovalDetailVO {
   createdOn?: number;
   suspenseTxnId: string;
   sourceType: number;
+  /** Transaction type (one of transactionType / txType is returned). */
+  transactionType?: number | string;
+  txType?: number | string;
   age: number;
   financeBookName?: string;
   bookId?: string;
@@ -285,6 +292,18 @@ const adaptAdjustmentHistory = (
   };
 };
 
+/** 后端 transactionType / txType 原始值 → 展示文案；非法值原样返回。 */
+function resolveTransactionTypeLabel(
+  value: number | string | null | undefined,
+): string | undefined {
+  if (value == null || value === '') return undefined;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) {
+    return TRANSACTION_TYPE_LABEL_MAP[numeric] || String(value);
+  }
+  return String(value);
+}
+
 /** /entry-detail DTO → 详情 Domain。 */
 export const adaptSuspenseEntryDetail = (
   vo: SuspenseEntryDetailRespVO,
@@ -297,6 +316,9 @@ export const adaptSuspenseEntryDetail = (
     statusLabel: CLEAR_STATUS_MAP[status].label,
     sourceType,
     sourceTypeLabel: SOURCE_TYPE_MAP[sourceType].label,
+    transactionTypeLabel: resolveTransactionTypeLabel(
+      vo.transactionType ?? vo.txType,
+    ),
     age: vo.age ?? 0,
     financeBookId: vo.financeBookId,
     financeBookName: vo.financeBookName,
@@ -366,6 +388,9 @@ export const adaptSuspenseAdjustmentDetail = (
     suspenseTxnId: vo.suspenseTxnId,
     sourceType,
     sourceTypeLabel: SOURCE_TYPE_MAP[sourceType].label,
+    transactionTypeLabel: resolveTransactionTypeLabel(
+      vo.transactionType ?? vo.txType,
+    ),
     age: vo.age ?? 0,
     financeBookName: vo.financeBookName,
     bookId: vo.bookId,

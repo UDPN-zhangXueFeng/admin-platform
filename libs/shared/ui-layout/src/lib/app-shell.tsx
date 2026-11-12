@@ -38,6 +38,8 @@ export interface AppShellProps {
   sidebarWidths?: { expanded: string; collapsed: string };
   /** Click handler for the header brand block (logo + project name). */
   onBrandClick?: () => void;
+  /** Open the project's account-management page (passed through to Header). */
+  onManageAccount?: () => void;
   /** Hide the "Manage Account" user-menu entry (opt-in). */
   hideManageAccount?: boolean;
   /** Hide the config project name when a custom logo includes its own lockup. */
@@ -75,6 +77,8 @@ interface LayoutProps {
   sidebarWidths?: { expanded: string; collapsed: string };
   /** Click handler for the header brand block (logo + project name). */
   onBrandClick?: () => void;
+  /** Open the project's account-management page (passed through to Header). */
+  onManageAccount?: () => void;
   /** Hide the "Manage Account" user-menu entry (opt-in). */
   hideManageAccount?: boolean;
   /** Hide the config project name when a custom logo includes its own lockup. */
@@ -111,6 +115,7 @@ export function AppShell({
   persistKey,
   sidebarWidths,
   onBrandClick,
+  onManageAccount,
   hideManageAccount,
   hideProjectName,
   compactHeader,
@@ -129,6 +134,7 @@ export function AppShell({
       persistKey={persistKey}
       sidebarWidths={sidebarWidths}
       onBrandClick={onBrandClick}
+      onManageAccount={onManageAccount}
       hideManageAccount={hideManageAccount}
       hideProjectName={hideProjectName}
       compactHeader={compactHeader}

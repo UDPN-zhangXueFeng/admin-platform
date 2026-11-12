@@ -10,7 +10,7 @@ description: 把上游 GitLab 项目（td-manage，feature/zxf 分支，Next.js 
 - **上游**：`td-manage`，**分支 `feature/zxf`**，remote `http://10.0.6.203:8088/td_project/source-code/stack/td-manage`，本地 clone 于 `~/repos/td-manage`（不存在时先 clone，见脚本提示）。技术栈：Next.js Pages Router + SWR + Axios 全局 fetcher。
 - **下游**：本仓库 `apps/admin` + `libs/modules/<domain>/{feature,ui,data-access,util}`（非 kissen 系）+ `configs/*.json`。
 - **同步对象是行为，不是代码**：提取数据流、校验规则、状态机、API 语义（含 HTTP 方法）、边界情况；代码组织按 Nx 边界重写，不复制旧耦合。
-- **与 admin-sync（kissen）的关键差异**：
+- **与 kissen 系 sync skill（lp-sync / gateway-sync）的关键差异**：
   1. 上游与下游同为 Next.js，但上游是 Pages Router + SWR——不能因为「同栈」就搬代码，数据层必须落到 TanStack Query data-access；
   2. 下游是**双语文案**（next-intl，en-US/zh-CN 双份 messages），不是零 CJK——上游中文文案回填两份 locale 文件且键数对齐；
   3. 下游侧栏菜单是**静态 configs 多项目驱动**（`configs/{crm,ecommerce,education,hospital,stablecoin}.json`），没有后端 menuTree 运行时层；

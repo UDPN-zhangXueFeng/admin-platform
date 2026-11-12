@@ -52,6 +52,7 @@ const STABLECOIN_SEARCHES_URL = '/api/manage/v1/common/stablecoin/enabled/search
 const BLOCKCHAIN_LIST_URL = '/api/manage/v1/common/blockchain/list';
 const TOKEN_TYPE_LIST_URL = '/api/manage/v1/common/tokenType/list';
 const KEYSTORE_URL = '/api/manage/v1/util/wallet/keystore';
+const RESOURCES_SEARCH_URL = '/api/manage/v1/common/resources/search';
 
 const OW_LIST_URL = '/api/manage/v1/operational/wallet/list';
 const OW_DETAILS_URL = '/api/manage/v1/operational/wallet/details';
@@ -428,4 +429,54 @@ export function getDividendRecordsList(
     page,
     (row) => String(row.txHash ?? Math.random())
   );
+}
+
+// ── Common resource download (API Document) ──────────────────────────────────
+
+/** `resources/search` result pointing at a stored file. */
+export interface CommonResourceRef {
+  busId?: string | number;
+  busType?: string | number;
+}
+
+/** Resolve a stored file reference by menu key. */
+export function getCommonResource(menuKey: string): Promise<CommonResourceRef> {
+  return apiClient.post<CommonResourceRef>(RESOURCES_SEARCH_URL, { menuKey });
+}
+
+/**
+ * Open a stored resource (PDF) in a new tab.
+ *
+ * `sftp/download` returns a binary blob, so this bypasses apiClient envelope
+ * unwrapping (same pattern as statements `downloadExportFile`). The auth token
+ * is read from localStorage to match the axios interceptor.
+ */
+export async function openCommonResource(
+  busId: string | number,
+  busType: string | number,
+): Promise<void> {
+  const base = process.env.NEXT_PUBLIC_FILE_ID ?? '';
+  // The legacy env value ends with `/` (`/api/base/`); normalize to avoid `//v1`.
+  const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
+  const url = `${normalizedBase}/v1/sftp/download?busId=${encodeURIComponent(
+    String(busId),
+  )}&busType=${encodeURIComponent(String(busType))}`;
+  const token =
+    typeof window !== 'undefined'
+      ? window.localStorage.getItem('admin_platform_access_token') ?? ''
+      : '';
+  const res = await fetch(url, { headers: token ? { token } : {} });
+  if (!res.ok) throw new Error('Download failed');
+  const blob = new Blob([await res.blob()], { type: 'application/pdf' });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  // Keep the URL alive long enough for the new tab to load the PDF.
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }

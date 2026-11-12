@@ -47,6 +47,7 @@ import {
   type UserWalletItem,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { walletStatusMap, kycConfig } from '.';
 
 
@@ -274,61 +275,65 @@ export function UserWalletsListPage() {
   return (
     <div className="space-y-6">
       {/* Query form — filters apply client-side over the full server dataset. */}
-      <Card className="p-4">
-        <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
-        <form onSubmit={handleSubmit(onApply)} noValidate>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div>
+      <form onSubmit={handleSubmit(onApply)} noValidate>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <div key="wallet-address" className="space-y-1.5">
               <label className="text-sm font-medium">{t('key_management_0076')}</label>
               <Input placeholder={t('key_management_0076')} {...register('walletAddress')} />
-            </div>
-            <div>
+            </div>,
+            <div key="sp-name" className="space-y-1.5">
               <label className="text-sm font-medium">{t('key_management_0095')}</label>
               <Input placeholder={t('key_management_0149')} {...register('spName')} />
-            </div>
+            </div>,
             <FormSelect
+              key="td-name"
               name="tdName"
               control={control}
               label={t('key_management_0096')}
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...tokenNameOptions]}
               placeholder={t('PUB_All')}
-            />
+            />,
+          ]}
+          advancedFields={[
             <FormSelect
+              key="token-type"
               name="tokenType"
               control={control}
               label={t('key_management_0097')}
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...tokenTypeOptions]}
               placeholder={t('PUB_All')}
-            />
+            />,
             <FormSelect
+              key="blockchain-id"
               name="blockchainId"
               control={control}
               label={t('key_management_0063')}
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...blockchainOptions]}
               placeholder={t('PUB_All')}
-            />
+            />,
             <FormDateRangePicker
+              key="creation-date"
               startName="startCreationDate"
               endName="endCreationDate"
               control={control}
               label={t('key_management_0107')}
-            />
+            />,
             <FormSelect
+              key="status"
               name="status"
               control={control}
               label={t('key_management_0003')}
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...statusOptions]}
               placeholder={t('PUB_All')}
-            />
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={handleReset}>
-              {t('PUB_Reset')}
-            </Button>
-            <Button type="submit">{t('PUB_Query')}</Button>
-          </div>
-        </form>
-      </Card>
+            />,
+          ]}
+          onReset={handleReset}
+          queryLabel={t('PUB_Query')}
+          resetLabel={t('PUB_Reset')}
+        />
+      </form>
 
       {/* Table */}
       <Card className="p-4">

@@ -87,13 +87,16 @@ function OperationRecordsTab({ ruleId, t, tc, router }: { ruleId: number; t: (k:
     { id: 'createTime', header: tc('PUB_CreateTime'), accessorKey: 'createTime', cell: ({ getValue }) => formatAdminTimestamp(Number(getValue<string>())) },
     { id: 'state', header: tc('PUB_Status'), accessorKey: 'state', cell: ({ getValue }) => tc(`common_task_status_${getValue<number>()}`) },
     createRowActionsColumn<RuleOperationRecord>({
-      detail: {
-        label: tc('Router_0010_4_3'),
-        onClick: (row) =>
-          router.push(
-            `/approval-manage/view?id=${row.taskId}&busCode=${row.busCode}`,
-          ),
-      },
+      detail: (row) =>
+        row.taskId && row.busCode
+          ? {
+              label: tc('Router_0010_4_3'),
+              onClick: () =>
+                router.push(
+                  `/approval-manage/view?id=${row.taskId}&busCode=${row.busCode}`,
+                ),
+            }
+          : undefined,
     }),
   ];
   const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: data?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })), onPageSizeChange: (size: number) => setPg({ pageNum: 1, pageSize: size }) }), [pg.pageNum, pg.pageSize, data?.page?.total]);

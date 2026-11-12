@@ -40,7 +40,7 @@
     "export": "Export"
   },
   "status": { "active": "Active", "inactive": "Inactive" },
-  "tokenType": { "1": "Stablecoin", "5": "Tokenized Deposit" },
+  "tokenType": { "1": "Stablecoin", "5": "Tokenized Deposit", "20": "Tokenized MMF" },
   "lendingType": { "1": "Debit", "2": "Credit" },
   "empty": "No records",
   "operateSuccess": "Operation succeeded.",

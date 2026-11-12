@@ -64,6 +64,7 @@ import {
   type PolicyListItem,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import { keyPolicyStatusMap, roleNameOptions } from '.';
 
@@ -362,50 +363,48 @@ export function KeyPolicyConfigurationListPage() {
 
   return (
     <div className="space-y-6">
-      {/* Demo / read-only banner — no policy API exists; data is sample-only. */}
-      <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        {t('KP_DemoBanner')}
-      </div>
-
       {/* Query Form */}
-      <Card className="p-4">
-        <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <QueryForm
+        fields={[
           <FormSelect
+            key="roleName"
             name="roleName"
             control={control}
             label={t('KP_RoleName')}
             options={roleNameFilterOptions}
             placeholder={t('PUB_All')}
-          />
+          />,
           <FormSelect
-            name="rotationMethods"
-            control={control}
-            label={t('KP_RotationMethods')}
-            options={rotationMethodOptions}
-            placeholder={t('PUB_All')}
-          />
-          <FormSelect
+            key="status"
             name="status"
             control={control}
             label={t('key_management_0003')}
             options={statusFilterOptions}
             placeholder={t('PUB_All')}
-          />
+          />,
           <FormDateRangePicker
+            key="creation-date"
             startName="startCreationDate"
             endName="endCreationDate"
             control={control}
             label={t('key_management_0002')}
-          />
-        </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="outline" onClick={handleReset}>
-            {t('PUB_Reset')}
-          </Button>
-          <Button onClick={handleQuery}>{t('PUB_Query')}</Button>
-        </div>
-      </Card>
+          />,
+        ]}
+        advancedFields={[
+          <FormSelect
+            key="rotationMethods"
+            name="rotationMethods"
+            control={control}
+            label={t('KP_RotationMethods')}
+            options={rotationMethodOptions}
+            placeholder={t('PUB_All')}
+          />,
+        ]}
+        onQuery={handleQuery}
+        onReset={handleReset}
+        queryLabel={t('PUB_Query')}
+        resetLabel={t('PUB_Reset')}
+      />
 
       {/* Table */}
       <Card className="p-4">

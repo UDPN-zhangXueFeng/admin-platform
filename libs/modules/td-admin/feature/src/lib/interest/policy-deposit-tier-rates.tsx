@@ -92,7 +92,7 @@ export function DepositTierRates({ form, fieldArray }: DepositTierRatesProps) {
             showLabel={false}
           />
 
-          {rowCount > 1 && rowCount === index + 1 && (
+          {fields.length > 1 && (
             <button
               type="button"
               aria-label={tc('delete')}

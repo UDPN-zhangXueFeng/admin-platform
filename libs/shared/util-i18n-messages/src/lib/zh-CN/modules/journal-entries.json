@@ -40,7 +40,7 @@
     "export": "导出"
   },
   "status": { "active": "启用", "inactive": "禁用" },
-  "tokenType": { "1": "稳定币", "5": "代币化存款" },
+  "tokenType": { "1": "稳定币", "5": "代币化存款", "20": "代币化货币基金" },
   "lendingType": { "1": "借", "2": "贷" },
   "empty": "暂无记录",
   "operateSuccess": "操作成功。",

@@ -276,10 +276,7 @@ export function ApprovalManageOperationPanel({
           rules={{ required: true }}
           render={({ field }) => (
             <div>
-              <span className="mb-1.5 block text-sm font-medium text-foreground">
-                {t('approval_manage_0007')}
-                <span className="ml-0.5 text-destructive">*</span>
-              </span>
+              <span className="sr-only">Decision</span>
               <RadioGroup
                 value={field.value}
                 onValueChange={field.onChange}

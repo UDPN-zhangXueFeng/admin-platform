@@ -204,11 +204,6 @@ export function KeyPolicyConfigurationEditPage() {
 
   return (
     <div className="space-y-6">
-      {/* Demo banner — no update API exists; submission never persists. */}
-      <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        {t('KP_DemoBanner')}
-      </div>
-
       <Card className="p-6">
         <h2 className="mb-6 text-xl font-bold">{t('KP_EditTitle')}</h2>
 

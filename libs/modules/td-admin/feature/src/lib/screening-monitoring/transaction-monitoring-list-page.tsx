@@ -7,12 +7,13 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable, type DataTablePagination, Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose, Card, RadioGroup, RadioGroupItem, Textarea } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { toast } from '@myorg/shared/ui';
+import { useAuth } from '@myorg/shared/util-auth';
 import type { SuspiciousTransaction } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainOptions, useBusinessTypeList, useProcessSuspicious, useRetrySuspicious, useStablecoinOptions, useSuspiciousList } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
-import { createRowActionsColumn } from '../row-actions';
+import { createRowActionsColumn, type RowAction } from '../row-actions';
 import { ALL_VALUE } from './screening-monitoring.constants';
-import { PROCESS_REVERSE_OPTIONS, RISK_LEVEL_OPTIONS, SUSPICIOUS_STATUS_OPTIONS } from '.';
+import { PROCESS_REVERSE_OPTIONS, RISK_LEVEL_OPTIONS, SCREENING_PERMISSIONS, SUSPICIOUS_STATUS_OPTIONS } from '.';
 import { ScreeningRiskLevelTag, ScreeningStatusBadge } from '.';
 
 const PAGE_SIZE = 10;
@@ -22,6 +23,9 @@ const EMPTY: Filters = { walletAddress: '', tokenId: ALL_VALUE, blockchainId: AL
 export function TransactionMonitoringListPage() {
   const t = useTranslations('modules.screening-monitoring'); const tc = useTranslations('common');
   const router = useRouter();
+  const authPermissions = useAuth().permissions ?? new Set<string>();
+  /** 权限未配置（空集）时全放开，与 chart-of-accounts 一致。 */
+  const hasPermission = React.useCallback((uuid: string) => authPermissions.size === 0 || authPermissions.has(uuid), [authPermissions]);
   const { data: tokens } = useStablecoinOptions(); const { data: chains } = useBlockchainOptions(); const { data: bizTypes } = useBusinessTypeList();
   const [pg, setPg] = React.useState<{ pageNum: number; pageSize: number }>({ pageNum: 1, pageSize: PAGE_SIZE });
   const { register, control, watch, reset } = useForm<Filters>({ defaultValues: EMPTY }); const fv = watch();
@@ -47,14 +51,16 @@ export function TransactionMonitoringListPage() {
     { id: 'state', header: tc('PUB_Status'), accessorKey: 'state', cell: ({ getValue }) => <ScreeningStatusBadge status={getValue<number>()} variant="suspicious" /> },
     { id: 'handleResult', header: t('screening_monitoring_0075'), accessorKey: 'handleResult', cell: ({ getValue, row }) => row.original.state === 3 ? (getValue<boolean>() ? t('screening_monitoring_0082') : t('screening_monitoring_0083')) : '--' },
     createRowActionsColumn<SuspiciousTransaction>({
-      detail: {
+      detail: hasPermission(SCREENING_PERMISSIONS.VIEW_SUSPICIOUS) ? {
         label: tc('Router_0010_4_3'),
         onClick: (r) => router.push(`/screening-monitoring/transaction-monitoring/view?id=${r.suspiciousId}&type=${r.businessType}`),
+      } : undefined,
+      menu: (r) => {
+        const items: RowAction<SuspiciousTransaction>[] = [];
+        if (hasPermission(SCREENING_PERMISSIONS.PROCESS_SUSPICIOUS)) items.push({ label: tc('Router_0012_2_1'), disabled: !(r.state === 1 || r.state === 4), onClick: () => { setModalInfo(r); drawForm.reset(); setDrawerOpen(true); } });
+        if (hasPermission(SCREENING_PERMISSIONS.RETRY_SUSPICIOUS)) items.push({ label: tc('Router_0012_2_4'), disabled: r.state !== 5, onClick: async () => { setSpinning(true); try { await retryMut.mutateAsync({ suspiciousId: r.suspiciousId }); await refetch(); toast.success(tc('PUB_Success').replace('****', tc('PUB_Reset'))); } finally { setSpinning(false); } } });
+        return items;
       },
-      menu: (r) => [
-        { label: tc('Router_0012_2_1'), disabled: !(r.state === 1 || r.state === 4), onClick: () => { setModalInfo(r); drawForm.reset(); setDrawerOpen(true); } },
-        { label: tc('Router_0012_2_4'), disabled: r.state !== 5, onClick: async () => { setSpinning(true); try { await retryMut.mutateAsync({ suspiciousId: r.suspiciousId }); await refetch(); toast.success(tc('PUB_Success').replace('****', tc('PUB_Reset'))); } finally { setSpinning(false); } } },
-      ],
     }),
   ];
 
@@ -86,9 +92,12 @@ export function TransactionMonitoringListPage() {
             </Card>
             <h4 className="py-4 mt-4">{t('screening_monitoring_0077')}</h4>
             <Card>
-              <form onSubmit={drawForm.handleSubmit(async (v) => { await processMut.mutateAsync({ suspiciousId: modalInfo.suspiciousId, ...v }); setDrawerOpen(false); refetch(); })}>
-                <div className="mb-4"><label className="block text-sm mb-1">{t('screening_monitoring_0076')}</label><RadioGroup value={String(drawForm.watch('processRemark') ?? '')} onValueChange={(v) => drawForm.setValue('processRemark', Number(v))} className="flex gap-4">{PROCESS_REVERSE_OPTIONS.map(o => (<div key={o.value} className="flex items-center gap-2"><RadioGroupItem value={String(o.value)} id={`pr-${o.value}`} /><label htmlFor={`pr-${o.value}`}>{t(o.label)}</label></div>))}</RadioGroup></div>
-                <div className="mb-4"><label className="block text-sm mb-1">{t('screening_monitoring_0055')}</label><Textarea {...drawForm.register('comments')} /></div>
+              <form onSubmit={drawForm.handleSubmit(async (v) => {
+                if (v.processRemark !== 1 && v.processRemark !== 2) { drawForm.setError('processRemark', { type: 'required', message: t('screening_monitoring_0078') }); return; }
+                await processMut.mutateAsync({ suspiciousId: modalInfo.suspiciousId, ...v }); setDrawerOpen(false); refetch();
+              })}>
+                <div className="mb-4"><label className="block text-sm mb-1">{t('screening_monitoring_0076')}<span className="ml-0.5 text-destructive" aria-hidden="true">*</span></label><RadioGroup value={String(drawForm.watch('processRemark') ?? '')} onValueChange={(v) => { drawForm.setValue('processRemark', Number(v)); drawForm.clearErrors('processRemark'); }} className="flex gap-4">{PROCESS_REVERSE_OPTIONS.map(o => (<div key={o.value} className="flex items-center gap-2"><RadioGroupItem value={String(o.value)} id={`pr-${o.value}`} /><label htmlFor={`pr-${o.value}`}>{t(o.label)}</label></div>))}</RadioGroup>{drawForm.formState.errors.processRemark ? <p className="mt-1 text-sm text-destructive" role="alert">{drawForm.formState.errors.processRemark.message}</p> : null}</div>
+                <div className="mb-4"><label className="block text-sm mb-1">{t('screening_monitoring_0055')}<span className="ml-0.5 text-destructive" aria-hidden="true">*</span></label><Textarea {...drawForm.register('comments', { required: t('screening_monitoring_0078') })} aria-invalid={Boolean(drawForm.formState.errors.comments)} />{drawForm.formState.errors.comments ? <p className="mt-1 text-sm text-destructive" role="alert">{String(drawForm.formState.errors.comments.message ?? '')}</p> : null}</div>
                 <div className="flex justify-center gap-4"><Button type="button" variant="outline" onClick={() => { drawForm.reset(); setDrawerOpen(false); }}>{tc('PUB_Cancel')}</Button><Button type="submit">{tc('PUB_Submit')}</Button></div>
               </form>
             </Card>

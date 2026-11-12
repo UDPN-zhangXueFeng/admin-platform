@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable @nx/enforce-module-boundaries -- nx 误报 data-access lazy-loaded（同 detail-content），疑边界 case */
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
@@ -16,11 +15,10 @@ import {
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
-  cardSurfaceClass,
 } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
 import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import {
   useBlockchainListQuery,
@@ -167,6 +165,8 @@ export function StatementsListPage() {
     setValue: ruleSetValue,
     watch: ruleWatch,
     formState: ruleFormState,
+    setError: ruleSetError,
+    clearErrors: ruleClearErrors,
   } = useForm<NewRuleForm>({ defaultValues: EMPTY_RULE });
   const [txTypeOptions, setTxTypeOptions] = React.useState<number[]>([]);
 
@@ -342,6 +342,7 @@ export function StatementsListPage() {
   // Drawer
   const openDrawer = () => {
     ruleReset(EMPTY_RULE);
+    ruleClearErrors();
     setTxTypeOptions([]);
     setDrawerOpen(true);
   };
@@ -351,12 +352,20 @@ export function StatementsListPage() {
     );
     setTxTypeOptions([...getTxTypesByIssueType(opt?.issueType)]);
     ruleSetValue('txTypes', []);
+    ruleClearErrors('txTypes');
     ruleSetValue(
       'tokenType',
       opt ? t(`tokenType.${opt.issueType}`) : '',
     );
   };
   const onRuleSubmit = (v: NewRuleForm) => {
+    if (!v.txTypes.length) {
+      ruleSetError('txTypes', {
+        type: 'required',
+        message: t('validation.required'),
+      });
+      return;
+    }
     createMutation.mutate(
       {
         exportStrategy: v.exportStrategy,
@@ -387,58 +396,63 @@ export function StatementsListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormSelect
-            name="tokenId"
-            control={control}
-            label={t('field.tokenName')}
-            options={tokenNameOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="blockchainId"
-            control={control}
-            label={t('field.blockchain')}
-            options={blockchainOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="exportStrategy"
-            control={control}
-            label={t('field.exportStrategy')}
-            options={frequencyOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="createTimeFrom"
-            endName="createTimeTo"
-            control={control}
-            label={t('field.createTime')}
-          />
-          <FormDateRangePicker
-            startName="lastExecutedFrom"
-            endName="lastExecutedTo"
-            control={control}
-            label={t('field.lastExecutedTime')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('field.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormSelect
+              key="tokenId"
+              name="tokenId"
+              control={control}
+              label={t('field.tokenName')}
+              options={tokenNameOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="exportStrategy"
+              name="exportStrategy"
+              control={control}
+              label={t('field.exportStrategy')}
+              options={frequencyOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('field.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="blockchainId"
+              name="blockchainId"
+              control={control}
+              label={t('field.blockchain')}
+              options={blockchainOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="createTime"
+              startName="createTimeFrom"
+              endName="createTimeTo"
+              control={control}
+              label={t('field.createTime')}
+            />,
+            <FormDateRangePicker
+              key="lastExecuted"
+              startName="lastExecutedFrom"
+              endName="lastExecutedTo"
+              control={control}
+              label={t('field.lastExecutedTime')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card>
@@ -559,12 +573,18 @@ export function StatementsListPage() {
                             ? [...cur, tx]
                             : cur.filter((x) => x !== tx),
                         );
+                        ruleClearErrors('txTypes');
                       }}
                     />
                     {t(`txType.${tx}`)}
                   </label>
                 ))}
               </div>
+              {ruleFormState.errors.txTypes ? (
+                <p className="text-xs text-red-500">
+                  {ruleFormState.errors.txTypes.message}
+                </p>
+              ) : null}
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">

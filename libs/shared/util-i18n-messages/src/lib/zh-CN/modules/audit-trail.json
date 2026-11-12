@@ -35,6 +35,7 @@
     "ms": "毫秒"
   },
   "action": { "detail": "详情", "export": "导出", "back": "返回" },
+  "downloadCenter": "下载中心",
   "empty": "暂无记录",
   "exportSuccess": "导出任务已创建。",
   "exportFailed": "导出失败。",

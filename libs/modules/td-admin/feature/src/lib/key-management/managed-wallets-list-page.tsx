@@ -48,6 +48,7 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { walletStatusMap, roleNameMap } from '.';
 import { createRowActionsColumn } from '../row-actions';
 
@@ -362,59 +363,63 @@ export function ManagedWalletsListPage() {
   return (
     <div className="space-y-6">
       {/* Query Form */}
-      <Card className="p-4">
-        <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <QueryForm
+        fields={[
           <FormSelect
+            key="roleName"
             name="roleName"
             control={control}
             label={t('KP_RoleName')}
             options={roleNameOptions}
             placeholder={t('PUB_All')}
-          />
-          <div>
-            <label className="text-sm font-medium">{t('key_management_0074')}</label>
-            <Input placeholder={t('key_management_0074')} {...register('keyId')} />
-          </div>
-          <FormSelect
-            name="tokenId"
-            control={control}
-            label={t('key_management_0075')}
-            options={tokenOptions}
-            placeholder={t('PUB_All')}
-          />
-          <div>
+          />,
+          <div key="wallet-address" className="space-y-1.5">
             <label className="text-sm font-medium">{t('key_management_0076')}</label>
             <Input placeholder={t('key_management_0076')} {...register('walletAddress')} />
-          </div>
+          </div>,
           <FormSelect
-            name="blockchainId"
-            control={control}
-            label={t('key_management_0063')}
-            options={blockchainOptions}
-            placeholder={t('PUB_All')}
-          />
-          <FormDateRangePicker
-            startName="startCreationDate"
-            endName="endCreationDate"
-            control={control}
-            label={t('key_management_0107')}
-          />
-          <FormSelect
+            key="status"
             name="status"
             control={control}
             label={t('key_management_0003')}
             options={statusOptions}
             placeholder={t('PUB_All')}
-          />
-        </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button onClick={handleQuery}>{t('PUB_Query')}</Button>
-          <Button variant="outline" onClick={handleReset}>
-            {t('PUB_Reset')}
-          </Button>
-        </div>
-      </Card>
+          />,
+        ]}
+        advancedFields={[
+          <div key="key-id" className="space-y-1.5">
+            <label className="text-sm font-medium">{t('key_management_0074')}</label>
+            <Input placeholder={t('key_management_0074')} {...register('keyId')} />
+          </div>,
+          <FormSelect
+            key="token-id"
+            name="tokenId"
+            control={control}
+            label={t('key_management_0075')}
+            options={tokenOptions}
+            placeholder={t('PUB_All')}
+          />,
+          <FormSelect
+            key="blockchain-id"
+            name="blockchainId"
+            control={control}
+            label={t('key_management_0063')}
+            options={blockchainOptions}
+            placeholder={t('PUB_All')}
+          />,
+          <FormDateRangePicker
+            key="creation-date"
+            startName="startCreationDate"
+            endName="endCreationDate"
+            control={control}
+            label={t('key_management_0107')}
+          />,
+        ]}
+        onQuery={handleQuery}
+        onReset={handleReset}
+        queryLabel={t('PUB_Query')}
+        resetLabel={t('PUB_Reset')}
+      />
 
       {/* Table */}
       <Card className="p-4">

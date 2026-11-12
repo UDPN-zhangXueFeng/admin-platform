@@ -311,15 +311,16 @@ export function TokenPairDetailPage(): React.JSX.Element {
       createRowActionsColumn<TokenPairRecordItem>(
         canOpRecordView
           ? {
-              detail: {
-                label: t('action.view'),
-                onClick: (r) =>
-                  router.push(
-                    `/approval-manage/view?id=${r.taskId ?? ''}&busCode=${
-                      r.businessCode ?? ''
-                    }`,
-                  ),
-              },
+              detail: (r) =>
+                r.taskId && r.businessCode
+                  ? {
+                      label: t('action.view'),
+                      onClick: () =>
+                        router.push(
+                          `/approval-manage/view?id=${r.taskId}&busCode=${r.businessCode}`,
+                        ),
+                    }
+                  : undefined,
             }
           : {},
       ),

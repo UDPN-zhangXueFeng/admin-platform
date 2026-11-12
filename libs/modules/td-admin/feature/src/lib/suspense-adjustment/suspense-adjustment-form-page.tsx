@@ -34,9 +34,9 @@ import {
   formatAmount,
   getDefaultPostingDate,
   getOffsettingDirection,
-  textOrDash,
 } from '@myorg/modules/td-admin/data-access';
 import type { DrCr } from '@myorg/modules/td-admin/data-access';
+import { SuspenseEntriesDetails } from './suspense-entries-details';
 
 function parseId(raw: string | null | undefined): number | undefined {
   if (!raw) return undefined;
@@ -83,7 +83,8 @@ const mapAccountBriefToOption = (
  * SuspenseAdjustmentFormPage — New Adjustment Entry 调账页。
  *
  * 迁移自 td-manage src/pages/financial/adjustments/edit.tsx（915 行）。
- * 区块：Overview（原始/已清/未清）+ Basic Information 只读 + New Adjustment Entry
+ * 区块：Overview（原始/已清/未清 + View Details）+ Suspense Entries Details 只读 +
+ * New Adjustment Entry
  * 表单（postingDate / offsettingEntryFor 只读 / useFieldArray 动态 entries[accountCode
  * Select + amount] / Add）+ Adjustment Reason（TextArea, max 1000）+ Adjustment Summary
  *（thisAdjustment / remainingAfter, =0 绿）+ Submit。
@@ -239,6 +240,17 @@ export function SuspenseAdjustmentFormPage() {
             <div className="mt-1 text-lg font-semibold">
               {formatAmount(overview.totalAdjusted, overview.currency)}
             </div>
+            <Button
+              type="button"
+              variant="link"
+              size="xs"
+              className="mt-1 h-auto p-0 text-xs"
+              onClick={() =>
+                router.push(`/suspense-adjustment/view?id=${suspenseRecordId}`)
+              }
+            >
+              {t('action.viewDetails')}
+            </Button>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">
@@ -251,22 +263,8 @@ export function SuspenseAdjustmentFormPage() {
         </div>
       </Card>
 
-      {/* Basic Information 只读 */}
-      <Card className="p-6">
-        <div className="mb-4 text-sm font-semibold">{t('edit.basicInfo')}</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              {t('field.suspenseTxnId')}
-            </label>
-            <Input disabled value={textOrDash(detail.suspenseTxnId)} />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t('field.sourceType')}</label>
-            <Input disabled value={textOrDash(detail.sourceTypeLabel)} />
-          </div>
-        </div>
-      </Card>
+      {/* Suspense Entries Details 只读 */}
+      <SuspenseEntriesDetails detail={detail} />
 
       {/* New Adjustment Entry 表单 */}
       <Card className="p-6">

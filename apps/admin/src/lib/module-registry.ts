@@ -735,7 +735,27 @@ const moduleRegistry: Record<string, ModuleEntry> = {
   },
   'transaction-flow': {
     manifest: () => import('@myorg/modules/td-admin/feature').then((m) => m.transactionFlowManifest),
-    pages: { list: () => import('@myorg/modules/td-admin/feature').then((m) => ({ default: m.TransactionFlowPage as unknown as ComponentType<unknown> })) },
+    pages: {
+      list: () => import('@myorg/modules/td-admin/feature').then((m) => ({ default: m.TransactionFlowPage as unknown as ComponentType<unknown> })),
+      'kissen-transfer': () => import('@myorg/modules/td-admin/feature').then((m) => ({ default: m.KissenTransferListPage as unknown as ComponentType<unknown> })),
+      'kissen-transfer-detail': () => import('@myorg/modules/td-admin/feature').then((m) => ({ default: m.KissenTransferDetailPage as unknown as ComponentType<unknown> })),
+    },
+  },
+  documentation: {
+    manifest: () =>
+      import('@myorg/modules/td-admin/feature').then((m) => m.documentationManifest),
+    pages: {
+      list: () =>
+        import('@myorg/modules/td-admin/feature').then((m) => ({
+          default: m.DocumentationPage as unknown as ComponentType<unknown>,
+        })),
+      // Menu children (/documentation/api-documentation, /documentation/user-manual)
+      // resolve to pageKey "detail"; both render the full document list.
+      detail: () =>
+        import('@myorg/modules/td-admin/feature').then((m) => ({
+          default: m.DocumentationPage as unknown as ComponentType<unknown>,
+        })),
+    },
   },
   'data-export': {
     manifest: () => import('@myorg/modules/td-admin/feature').then((m) => m.dataExportManifest),

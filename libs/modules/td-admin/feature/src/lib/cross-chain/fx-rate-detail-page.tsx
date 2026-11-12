@@ -7,8 +7,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
+import { Button, Card, DataTable } from '@myorg/shared/ui';
 import { FormDateRangePicker } from '@myorg/shared/ui-forms';
 import {
   useFxRateDetailListQuery,
@@ -19,6 +18,7 @@ import {
   EMPTY_DISPLAY,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 
 /**
  * FxRateDetailPage — 汇率详情页（历史汇率分页列表）。
@@ -149,24 +149,22 @@ export function FxRateDetailPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormDateRangePicker
-            startName="startTime"
-            endName="endTime"
-            control={control}
-            label={t('cross_chain_0097')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormDateRangePicker
+              key="timeRange"
+              startName="startTime"
+              endName="endTime"
+              control={control}
+              label={t('cross_chain_0097')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card>{/* 标题为空（源码 CustomTableTitle title={''}），保留容器无标题。 */}

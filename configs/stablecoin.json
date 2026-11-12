@@ -69,6 +69,7 @@
       "screening-providers",
       "statistics",
       "statistics-reports",
+      "statistic-analysis",
       "approval-manage",
       "tokenized-deposit",
       "transaction-flow",
@@ -81,6 +82,7 @@
       "syslog",
       "role",
       "user",
+      "account-manage",
       "system",
       "workflow",
       "suspense-adjustment",
@@ -226,16 +228,16 @@
             "path": "/chart-of-accounts"
           },
           {
+            "id": "transaction-event-configuration",
+            "icon": "Settings2",
+            "label": "Normalization Engine",
+            "path": "/transaction-event-configuration"
+          },
+          {
             "id": "posting-engine",
             "icon": "BarChart3",
             "label": "Posting Engine",
             "path": "/posting-engine"
-          },
-          {
-            "id": "transaction-event-configuration",
-            "icon": "Settings2",
-            "label": "Transaction Event Configuration",
-            "path": "/transaction-event-configuration"
           },
           {
             "id": "journal-entries-new",
@@ -254,24 +256,6 @@
             "icon": "BarChart3",
             "label": "Audit Trail",
             "path": "/audit-trail"
-          },
-          {
-            "id": "travel-rule",
-            "icon": "BarChart3",
-            "label": "Travel Rule",
-            "path": "/travel-rule"
-          },
-          {
-            "id": "statements",
-            "icon": "FileText",
-            "label": "Statements",
-            "path": "/statements"
-          },
-          {
-            "id": "journal-entries",
-            "icon": "BookOpen",
-            "label": "Journal Entries",
-            "path": "/journal-entries"
           }
         ]
       },
@@ -367,13 +351,26 @@
             "icon": "TrendingUp",
             "label": "Statistics Reports",
             "path": "/statistics-reports"
+          },
+          {
+            "id": "statistic-analysis",
+            "icon": "ChartLine",
+            "label": "Statistic Analysis",
+            "path": "/statistic-analysis"
           }
         ]
       },
       {
         "id": "transaction-flow",
         "icon": "ArrowLeftRight",
-        "label": "Transaction Flow"
+        "label": "Transaction Flow",
+        "path": "/transaction-flow/stablecoin"
+      },
+      {
+        "id": "kissen-transfer",
+        "icon": "Banknote",
+        "label": "Kissen Cross-Bank Transfer",
+        "path": "/transaction-flow/kissen-transfer"
       },
       {
         "id": "mmf",
@@ -477,15 +474,16 @@
             "id": "api-documentation",
             "icon": "FileText",
             "label": "API Documentation",
-            "path": "#"
+            "path": "/documentation/api-documentation"
           },
           {
             "id": "user-manual",
             "icon": "FileText",
             "label": "User Manual",
-            "path": "#"
+            "path": "/documentation/user-manual"
           }
-        ]
+        ],
+        "path": "/documentation"
       },
       {
         "id": "system",

@@ -6,13 +6,13 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, Card, CopyableEllipsisText, DataTable, cardSurfaceClass } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
+import { Button, Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import {
   FormDateRangePicker,
   FormField,
   FormSelect,
 } from '@myorg/shared/ui-forms';
+import { QueryForm } from '../query-form';
 import {
   useNormalizationHistoryListQuery,
   type NormalizationHistoryItem,
@@ -242,15 +242,16 @@ export function TxEventHistoricalRecordsTab({
       // EMPTY_DISPLAY 占位；helper 的 detail 无法按行隐藏 —— 以 onClick 守卫保留
       // “缺失不跳转”行为（占位不再展示，链接恒渲染）。
       createRowActionsColumn<NormalizationHistoryItem>({
-        detail: {
-          label: t('action.view'),
-          onClick: (row) => {
-            if (!row.taskId || !row.busCode) return;
-            router.push(
-              `/approval-manage/view?id=${row.taskId}&busCode=${row.busCode}`
-            );
-          },
-        },
+        detail: (row) =>
+          row.taskId && row.busCode
+            ? {
+                label: t('action.view'),
+                onClick: () =>
+                  router.push(
+                    `/approval-manage/view?id=${row.taskId}&busCode=${row.busCode}`,
+                  ),
+              }
+            : undefined,
       }),
     ],
     [t, bookId, eventType, router]
@@ -269,46 +270,46 @@ export function TxEventHistoricalRecordsTab({
 
   return (
     <div className="space-y-4 p-6">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="mb-4 text-sm font-semibold">
-          {t('history.queryTitle')}
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="mappingRuleId"
-            label={t('field.mappingRuleId')}
-            register={register('mappingRuleId')}
-            placeholder={t('field.mappingRuleId')}
-          />
-          <FormSelect
-            name="eventStatus"
-            control={control}
-            label={t('field.status')}
-            options={eventStatusOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="createdFrom"
-            endName="createdTo"
-            control={control}
-            label={t('field.createdOn')}
-          />
-          <FormDateRangePicker
-            startName="effectiveFrom"
-            endName="effectiveTo"
-            control={control}
-            label={t('field.effectiveDate')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          fields={[
+            <FormField
+              key="mappingRuleId"
+              name="mappingRuleId"
+              label={t('field.mappingRuleId')}
+              register={register('mappingRuleId')}
+              placeholder={t('field.mappingRuleId')}
+            />,
+            <FormSelect
+              key="eventStatus"
+              name="eventStatus"
+              control={control}
+              label={t('field.status')}
+              options={eventStatusOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="createdRange"
+              startName="createdFrom"
+              endName="createdTo"
+              control={control}
+              label={t('field.createdOn')}
+            />,
+          ]}
+          advancedFields={[
+            <FormDateRangePicker
+              key="effectiveRange"
+              startName="effectiveFrom"
+              endName="effectiveTo"
+              control={control}
+              label={t('field.effectiveDate')}
+            />,
+          ]}
+          onReset={onReset}
+          queryType="submit"
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card>

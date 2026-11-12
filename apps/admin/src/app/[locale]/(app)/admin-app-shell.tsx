@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from '@myorg/shared/util-i18n';
 
 import { AppShell } from '@myorg/shared/ui-layout';
 import type { ProjectConfig } from '@myorg/shared/util-config';
@@ -33,6 +34,7 @@ export function AdminAppShell({
   config: ProjectConfig;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
 
   const handleLogout = React.useCallback(() => {
@@ -51,6 +53,7 @@ export function AdminAppShell({
       menuIconVariant="refined"
       onLogout={handleLogout}
       onChangePassword={() => setIsChangePasswordOpen(true)}
+      onManageAccount={() => router.push('/account-manage')}
       logo={
         <img
           src="/stablecoin/images/logo-icon.svg"

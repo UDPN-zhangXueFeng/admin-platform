@@ -6,8 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
+import { Card, DataTable } from '@myorg/shared/ui';
 import {
   Select,
   SelectContent,
@@ -17,6 +16,7 @@ import {
 } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { usePermission } from '@myorg/shared/util-auth';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import {
   useBlockchainListQuery,
@@ -289,90 +289,92 @@ export function DeploymentListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormSelect
-            name="tdId"
-            control={control}
-            label={t('field.stablecoin')}
-            options={stablecoinOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="tokenType"
-            control={control}
-            label={t('field.tokenType')}
-            options={tokenTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          {/*
-            链下拉：status!==1 的链单项 disabled（源码 deployment/index.tsx
-            options.disabled: el.status === 1 ? false : true）。
-            FormSelect 不透传单项 disabled，故手写 Controller + Select/SelectItem。
-          */}
-          <Controller
-            control={control}
-            name="blockchainId"
-            render={({ field }) => (
-              <div>
-                <label
-                  htmlFor="select-blockchainId"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('field.blockchain')}
-                </label>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                >
-                  <SelectTrigger id="select-blockchainId">
-                    <SelectValue placeholder={t('filter.all')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
-                    {blockchainOptions.map((b) => (
-                      <SelectItem
-                        key={b.key}
-                        value={String(b.key ?? '')}
-                        disabled={b.status !== 1}
-                      >
-                        {b.value ?? ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          />
-          <FormField
-            name="packageName"
-            label={t('field.packageName')}
-            register={register('packageName')}
-            placeholder={t('field.packageName')}
-          />
-          <FormSelect
-            name="type"
-            control={control}
-            label={t('field.type')}
-            options={typeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="startDeploymentTime"
-            endName="endDeploymentTime"
-            control={control}
-            label={t('field.deploymentDate')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormSelect
+              key="tdId"
+              name="tdId"
+              control={control}
+              label={t('field.stablecoin')}
+              options={stablecoinOptions}
+              placeholder={t('filter.all')}
+            />,
+            /*
+              链下拉：status!==1 的链单项 disabled（源码 deployment/index.tsx
+              options.disabled: el.status === 1 ? false : true）。
+              FormSelect 不透传单项 disabled，故手写 Controller + Select/SelectItem。
+            */
+            <Controller
+              key="blockchainId"
+              control={control}
+              name="blockchainId"
+              render={({ field }) => (
+                <div>
+                  <label
+                    htmlFor="select-blockchainId"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    {t('field.blockchain')}
+                  </label>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="select-blockchainId">
+                      <SelectValue placeholder={t('filter.all')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
+                      {blockchainOptions.map((b) => (
+                        <SelectItem
+                          key={b.key}
+                          value={String(b.key ?? '')}
+                          disabled={b.status !== 1}
+                        >
+                          {b.value ?? ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            />,
+            <FormField
+              key="packageName"
+              name="packageName"
+              label={t('field.packageName')}
+              register={register('packageName')}
+              placeholder={t('field.packageName')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="tokenType"
+              name="tokenType"
+              control={control}
+              label={t('field.tokenType')}
+              options={tokenTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="type"
+              name="type"
+              control={control}
+              label={t('field.type')}
+              options={typeOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="deploymentTime"
+              startName="startDeploymentTime"
+              endName="endDeploymentTime"
+              control={control}
+              label={t('field.deploymentDate')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="flex justify-between border-b px-6 py-3">

@@ -101,6 +101,8 @@ export interface JournalDetailData {
   rawData?: JournalRawData;
   normalizedJson?: Record<string, unknown>;
   normalizationData?: JournalNormalizationRow[];
+  /** ISO 20022 报文载荷（JSON 字符串或对象），详情页美化展示。 */
+  iso20022Payload?: string;
   tAccounts?: JournalTAccount[];
   taccounts?: JournalTAccount[];
 }

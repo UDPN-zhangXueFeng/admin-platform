@@ -10,11 +10,9 @@ import { toast } from 'sonner';
 import {
   Button,
   Card,
-  cardSurfaceClass,
   CopyableEllipsisText,
   DataTable,
 } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
 import {
   Select,
   SelectContent,
@@ -43,6 +41,7 @@ import {
 import { ALL_VALUE } from './blockchain.constants';
 import { NodeDeleteModal } from './node-delete-modal';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import {
   createRowActionsColumn,
   type RowAction,
@@ -372,74 +371,77 @@ export function NodeListPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {/*
-            链下拉：status!==1 的链单项 disabled（源码 node/index.tsx
-            options.disabled: el.status === 1 ? false : true）。
-            FormSelect 不透传单项 disabled，故手写 Controller + Select/SelectItem。
-          */}
-          <Controller
-            control={control}
-            name="chainId"
-            render={({ field }) => (
-              <div>
-                <label
-                  htmlFor="select-chainId"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('field.chainName')}
-                </label>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="select-chainId">
-                    <SelectValue placeholder={t('filter.all')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
-                    {blockchainOptions.map((b) => (
-                      <SelectItem
-                        key={b.key}
-                        value={String(b.key ?? '')}
-                        disabled={b.status !== 1}
-                      >
-                        {b.value ?? ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          />
-          <FormSelect
-            name="nodeLocationId"
-            control={control}
-            label={t('field.nodeLocation')}
-            options={nodeLocationOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="startCreateTime"
-            endName="endCreateTime"
-            control={control}
-            label={t('field.createTime')}
-          />
-          <FormSelect
-            name="state"
-            control={control}
-            label={t('field.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            /*
+              链下拉：status!==1 的链单项 disabled（源码 node/index.tsx
+              options.disabled: el.status === 1 ? false : true）。
+              FormSelect 不透传单项 disabled，故手写 Controller + Select/SelectItem。
+            */
+            <Controller
+              key="chainId"
+              control={control}
+              name="chainId"
+              render={({ field }) => (
+                <div>
+                  <label
+                    htmlFor="select-chainId"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    {t('field.chainName')}
+                  </label>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="select-chainId">
+                      <SelectValue placeholder={t('filter.all')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
+                      {blockchainOptions.map((b) => (
+                        <SelectItem
+                          key={b.key}
+                          value={String(b.key ?? '')}
+                          disabled={b.status !== 1}
+                        >
+                          {b.value ?? ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            />,
+            <FormSelect
+              key="nodeLocationId"
+              name="nodeLocationId"
+              control={control}
+              label={t('field.nodeLocation')}
+              options={nodeLocationOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="createTime"
+              startName="startCreateTime"
+              endName="endCreateTime"
+              control={control}
+              label={t('field.createTime')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="state"
+              name="state"
+              control={control}
+              label={t('field.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="flex justify-between border-b px-6 py-3">

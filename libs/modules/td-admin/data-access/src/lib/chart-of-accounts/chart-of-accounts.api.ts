@@ -13,6 +13,10 @@ import type {
   EodBalancesPagedResp,
   EodDetailRespVo,
   LegacyEodBalancesResp,
+  OperationRecordListParams,
+  OperationRecordsPagedResp,
+  TrialBalanceActivityResp,
+  TrialBalanceResp,
 } from './chart-of-accounts-detail.model';
 
 const COA_LIST_URL = '/api/finance/v1/finance/coa/list';
@@ -26,6 +30,8 @@ const COA_DISABLE_URL = '/api/finance/v1/finance/coa/account/disable';
 const COA_ENABLE_URL = '/api/finance/v1/finance/coa/account/enable';
 const EOD_BALANCES_URL = '/api/finance/v1/finance/coa/detail/eod-balances';
 const EOD_DETAIL_URL = '/api/finance/v1/finance/coa/detail/eod-detail';
+const COA_TRIAL_BALANCE_URL = '/api/finance/v1/finance/coa/detail/trial-balance';
+const COA_BOOK_RECORDS_URL = '/api/finance/v1/finance/coa/book/records';
 
 /**
  * 后端原始列表行（无 `id` 字段，`financeBookId` 为 number）。
@@ -178,6 +184,72 @@ export function getEodStatementDetail(
 ): Promise<EodDetailRespVo> {
   return apiClient.get<EodDetailRespVo>(
     `${EOD_DETAIL_URL}/${financeBookEodId}`,
+    config
+  );
+}
+
+// ── 详情页：Trial Balance ─────────────────────────────────────────────
+
+export interface TrialBalanceRequest {
+  /** epoch ms（源项目以时间戳传参，非 `YYYY-MM-DD`）。 */
+  startDate: number;
+  endDate: number;
+}
+
+/** 试算平衡（Trial Balance tab）。 */
+export function getTrialBalance(
+  financeBookId: number,
+  params: TrialBalanceRequest,
+  config?: ApiRequestConfig
+): Promise<TrialBalanceResp> {
+  return apiClient.get<TrialBalanceResp>(
+    `${COA_TRIAL_BALANCE_URL}/${financeBookId}`,
+    { ...config, params }
+  );
+}
+
+export interface TrialBalanceActivityRequest extends TrialBalanceRequest {
+  accountCode: string;
+}
+
+/** 科目活动明细（Trial Balance Activity drawer）。 */
+export function getTrialBalanceActivity(
+  financeBookId: number,
+  params: TrialBalanceActivityRequest,
+  config?: ApiRequestConfig
+): Promise<TrialBalanceActivityResp> {
+  return apiClient.get<TrialBalanceActivityResp>(
+    `${COA_TRIAL_BALANCE_URL}/${financeBookId}/activity`,
+    { ...config, params }
+  );
+}
+
+// ── 详情页：Operation Records ────────────────────────────────────────
+
+/**
+ * 操作记录列表（服务端分页）。
+ * 请求体结构与源项目一致：`{ data: filters, page: { pageNum, pageSize } }`。
+ */
+export function getCoaBookRecords(
+  financeBookId: number,
+  params: OperationRecordListParams,
+  config?: ApiRequestConfig
+): Promise<OperationRecordsPagedResp> {
+  const {
+    recordType,
+    createdBy,
+    createTimeStart,
+    createTimeEnd,
+    pageNum,
+    pageSize,
+  } = params;
+
+  return apiClient.post<OperationRecordsPagedResp>(
+    `${COA_BOOK_RECORDS_URL}/${financeBookId}`,
+    {
+      data: { recordType, createdBy, createTimeStart, createTimeEnd },
+      page: { pageNum, pageSize },
+    },
     config
   );
 }

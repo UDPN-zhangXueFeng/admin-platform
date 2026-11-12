@@ -6,6 +6,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import { Button, Card, DataTable } from '@myorg/shared/ui';
+import { toast } from 'sonner';
 
 import {
   useJournalDetailQuery,
@@ -151,13 +152,14 @@ function formatNormalizationValue(
 }
 
 /**
- * JournalEntriesNewDetailPage — 单笔 journal 详情（4 区块）。
+ * JournalEntriesNewDetailPage — 单笔 journal 详情（5 区块）。
  *
  * 迁移自源项目 `td-manage` 的 `detail.tsx`：
  * 1. Raw Data（左 blockData JSON / 右 rawData 键值表）
  * 2. Normalization Engine（normalizedJson 美化）
  * 3. Posting Entry（normalizationData 表）
  * 4. T-Account（TRAN_ID/Book ID + T 字账户卡片）
+ * 5. ISO 20022 Payload（美化 JSON + 复制）
  *
  * 读取 `tdTxId` query param，用 `useJournalDetailQuery` 加载。
  */
@@ -227,6 +229,21 @@ export function JournalEntriesNewDetailPage() {
     () => formatJsonText(detailData?.rawData?.blockData),
     [detailData?.rawData?.blockData]
   );
+
+  const iso20022PayloadString = React.useMemo(
+    () => formatJsonText(detailData?.iso20022Payload),
+    [detailData?.iso20022Payload]
+  );
+
+  const handleCopyIso20022Payload = React.useCallback(async () => {
+    if (iso20022PayloadString === EMPTY_DISPLAY) return;
+    try {
+      await navigator.clipboard.writeText(iso20022PayloadString);
+      toast.success(t('copied'));
+    } catch {
+      toast.error(t('copyFailed'));
+    }
+  }, [iso20022PayloadString, t]);
 
   const postingEntryColumns = React.useMemo<ColumnDef<PostingEntryRow>[]>(
     () => [
@@ -401,6 +418,31 @@ export function JournalEntriesNewDetailPage() {
                 {t('empty')}
               </div>
             )}
+          </div>
+        </div>
+      </Card>
+
+      {/* ISO 20022 Payload */}
+      <Card>
+        <div className="flex items-center justify-between gap-4 border-b px-6 py-4">
+          <div className="text-base font-semibold">
+            {t('detail.iso20022Payload')}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleCopyIso20022Payload}
+            disabled={iso20022PayloadString === EMPTY_DISPLAY}
+          >
+            {t('copy')}
+          </Button>
+        </div>
+        <div className="p-6">
+          <div className="max-h-[360px] overflow-auto rounded-md bg-muted/30 p-6 text-[13px] leading-6 text-muted-foreground">
+            <pre className="m-0 whitespace-pre-wrap break-all font-mono">
+              {iso20022PayloadString}
+            </pre>
           </div>
         </div>
       </Card>

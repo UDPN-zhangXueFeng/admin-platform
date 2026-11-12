@@ -7,8 +7,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
-import { Button, Card, DataTable, cardSurfaceClass } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
+import { Card, DataTable } from '@myorg/shared/ui';
 import {
   FormDateRangePicker,
   FormField,
@@ -33,6 +32,7 @@ import {
   statusToneClass,
 } from '.';
 import { ALL_VALUE } from './tx-event-config.constants';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 /**
@@ -245,44 +245,46 @@ export function TxEventConfigListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="mb-4 text-sm font-semibold">{t('filter.title')}</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="financialBookName"
-            label={t('field.bookName')}
-            register={register('financialBookName')}
-            placeholder={t('placeholder.bookName')}
-          />
-          <FormSelect
-            name="tokenType"
-            control={control}
-            label={t('field.tokenType')}
-            options={tokenTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormField
-            name="currency"
-            label={t('field.currency')}
-            register={register('currency')}
-            placeholder={t('placeholder.currency')}
-          />
-          <FormDateRangePicker
-            startName="createdFrom"
-            endName="createdTo"
-            control={control}
-            label={t('field.createdOn')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormField
+              key="financialBookName"
+              name="financialBookName"
+              label={t('field.bookName')}
+              register={register('financialBookName')}
+              placeholder={t('placeholder.bookName')}
+            />,
+            <FormSelect
+              key="tokenType"
+              name="tokenType"
+              control={control}
+              label={t('field.tokenType')}
+              options={tokenTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="createdOn"
+              startName="createdFrom"
+              endName="createdTo"
+              control={control}
+              label={t('field.createdOn')}
+            />,
+          ]}
+          advancedFields={[
+            <FormField
+              key="currency"
+              name="currency"
+              label={t('field.currency')}
+              register={register('currency')}
+              placeholder={t('placeholder.currency')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card>

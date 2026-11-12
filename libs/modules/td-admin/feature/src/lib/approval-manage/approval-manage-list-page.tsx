@@ -595,6 +595,16 @@ function ApprovalTablePanel({
   const isLoading = result.isLoading || result.isFetching;
   return (
     <Card><div className="border-b px-6 py-3 text-sm font-semibold">{title}</div>
+    {result.isError ? (
+      <div className="flex items-center justify-between gap-4 p-4" role="alert">
+        <p className="text-sm text-destructive">
+          {result.error instanceof Error ? result.error.message : 'Unable to load approval tasks.'}
+        </p>
+        <Button type="button" variant="outline" onClick={() => void result.refetch()}>
+          Retry
+        </Button>
+      </div>
+    ) : null}
     <div className="p-4">
       <DataTable
         columns={columns}

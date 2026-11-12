@@ -3,11 +3,11 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import {
   Badge,
-  Button,
   CopyableEllipsisText,
   DataTable,
   Input,
@@ -23,6 +23,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
+import { DateRangePicker } from '@myorg/shared/ui-forms';
 import {
   type ReconciliationListParams,
   type TxReconDetailRespVo,
@@ -53,6 +54,7 @@ import {
 
 import { PostToSuspenseModal } from './real-time/post-to-suspense-modal';
 import { RealTimeReconLogModal } from './real-time/recon-log-modal';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -97,6 +99,28 @@ function buildStatusOptions(
     };
   });
 }
+
+// ── Filter state ──────────────────────────────────────────────────────────────
+
+interface TxFilterValues {
+  reconciliationDateStart: string;
+  reconciliationDateEnd: string;
+  keyword: string;
+  txType: string;
+  txStartTime: string;
+  txEndTime: string;
+  reconciliationStatus: string;
+}
+
+const DEFAULT_FILTERS: TxFilterValues = {
+  reconciliationDateStart: '',
+  reconciliationDateEnd: '',
+  keyword: '',
+  txType: 'all',
+  txStartTime: '',
+  txEndTime: '',
+  reconciliationStatus: 'all',
+};
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -148,22 +172,10 @@ export function RealTimeDetailPage() {
   });
 
   // ── Filter state per tab ──────────────────────────────────────────────────
-  interface TxFilterValues {
-    keyword: string;
-    txType: string;
-    reconciliationStatus: string;
-  }
-
-  const defaultFilters: TxFilterValues = {
-    keyword: '',
-    txType: 'all',
-    reconciliationStatus: 'all',
-  };
-
   const [listFilterValues, setListFilterValues] =
-    React.useState<TxFilterValues>(defaultFilters);
+    React.useState<TxFilterValues>(DEFAULT_FILTERS);
   const [investFilterValues, setInvestFilterValues] =
-    React.useState<TxFilterValues>(defaultFilters);
+    React.useState<TxFilterValues>(DEFAULT_FILTERS);
 
   // ── Queries ───────────────────────────────────────────────────────────────
   const makeTxParams = React.useCallback(
@@ -176,11 +188,23 @@ export function RealTimeDetailPage() {
       pageSize,
       filters: {
         tokenId,
+        reconciliationDateStart: filters.reconciliationDateStart
+          ? startOfDay(parseISO(filters.reconciliationDateStart)).getTime()
+          : undefined,
+        reconciliationDateEnd: filters.reconciliationDateEnd
+          ? endOfDay(parseISO(filters.reconciliationDateEnd)).getTime()
+          : undefined,
         keyword: filters.keyword || undefined,
         txType:
           filters.txType && filters.txType !== 'all'
             ? Number(filters.txType)
             : undefined,
+        txStartTime: filters.txStartTime
+          ? startOfDay(parseISO(filters.txStartTime)).getTime()
+          : undefined,
+        txEndTime: filters.txEndTime
+          ? endOfDay(parseISO(filters.txEndTime)).getTime()
+          : undefined,
         reconciliationStatus:
           filters.reconciliationStatus &&          filters.reconciliationStatus !== 'all'
             ? Number(filters.reconciliationStatus)
@@ -199,9 +223,9 @@ export function RealTimeDetailPage() {
 
   // ── Filter handlers ───────────────────────────────────────────────────────
   const [listFormValues, setListFormValues] =
-    React.useState<TxFilterValues>(defaultFilters);
+    React.useState<TxFilterValues>(DEFAULT_FILTERS);
   const [investFormValues, setInvestFormValues] =
-    React.useState<TxFilterValues>(defaultFilters);
+    React.useState<TxFilterValues>(DEFAULT_FILTERS);
 
   const onListFilterSubmit = React.useCallback(
     (e: React.FormEvent) => {
@@ -422,76 +446,132 @@ export function RealTimeDetailPage() {
       const onSubmit =
         tab === 'list' ? onListFilterSubmit : onInvestFilterSubmit;
 
+      const onReset = () => {
+        setValues(DEFAULT_FILTERS);
+        if (tab === 'list') {
+          setListFilterValues(DEFAULT_FILTERS);
+          setListPage((prev) => ({ ...prev, pageNum: 1 }));
+        } else {
+          setInvestFilterValues(DEFAULT_FILTERS);
+          setInvestPage((prev) => ({ ...prev, pageNum: 1 }));
+        }
+      };
+
       return (
-        <form
-          onSubmit={onSubmit}
-          className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-5"
-        >
-          <div className="space-y-1.5">
-            <Label htmlFor={`${tab}-keyword`}>
-              {t('reconciliation_0138')}
-            </Label>
-            <Input
-              id={`${tab}-keyword`}
-              placeholder={t('reconciliation_0138')}
-              value={values.keyword}
-              onChange={(e) =>
-                setValues((prev) => ({ ...prev, keyword: e.target.value }))
-              }
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${tab}-txType`}>
-              {t('reconciliation_0055')}
-            </Label>
-            <Select
-              value={values.txType}
-              onValueChange={(v) =>
-                setValues((prev) => ({ ...prev, txType: v }))
-              }
-            >
-              <SelectTrigger id={`${tab}-txType`}>
-                <SelectValue placeholder={t('common_all')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('common_all')}</SelectItem>
-                {txTypeOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${tab}-reconStatus`}>
-              {t('reconciliation_0136')}
-            </Label>
-            <Select
-              value={values.reconciliationStatus}
-              onValueChange={(v) =>
-                setValues((prev) => ({
-                  ...prev,
-                  reconciliationStatus: v,
-                }))
-              }
-            >
-              <SelectTrigger id={`${tab}-reconStatus`}>
-                <SelectValue placeholder={t('common_all')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('common_all')}</SelectItem>
-                {statusOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-end">
-            <Button type="submit">{t('common_query')}</Button>
-          </div>
+        <form onSubmit={onSubmit} className="mb-4">
+          <QueryForm
+            variant="plain"
+            fields={[
+              <div key="reconciliationDate" className="space-y-1.5">
+                <Label htmlFor={`${tab}-reconciliationDate`}>
+                  {t('reconciliation_0137')}
+                </Label>
+                <DateRangePicker
+                  id={`${tab}-reconciliationDate`}
+                  ariaLabel={t('reconciliation_0137')}
+                  value={{
+                    start: values.reconciliationDateStart,
+                    end: values.reconciliationDateEnd,
+                  }}
+                  onChange={({ start, end }) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      reconciliationDateStart: start,
+                      reconciliationDateEnd: end,
+                    }))
+                  }
+                />
+              </div>,
+              <div key="keyword" className="space-y-1.5">
+                <Label htmlFor={`${tab}-keyword`}>
+                  {t('reconciliation_0138')}
+                </Label>
+                <Input
+                  id={`${tab}-keyword`}
+                  placeholder={t('reconciliation_0138')}
+                  value={values.keyword}
+                  onChange={(e) =>
+                    setValues((prev) => ({ ...prev, keyword: e.target.value }))
+                  }
+                />
+              </div>,
+              <div key="reconStatus" className="space-y-1.5">
+                <Label htmlFor={`${tab}-reconStatus`}>
+                  {t('reconciliation_0136')}
+                </Label>
+                <Select
+                  value={values.reconciliationStatus}
+                  onValueChange={(v) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      reconciliationStatus: v,
+                    }))
+                  }
+                >
+                  <SelectTrigger id={`${tab}-reconStatus`}>
+                    <SelectValue placeholder={t('common_all')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('common_all')}</SelectItem>
+                    {statusOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>,
+            ]}
+            advancedFields={[
+              <div key="txType" className="space-y-1.5">
+                <Label htmlFor={`${tab}-txType`}>
+                  {t('reconciliation_0055')}
+                </Label>
+                <Select
+                  value={values.txType}
+                  onValueChange={(v) =>
+                    setValues((prev) => ({ ...prev, txType: v }))
+                  }
+                >
+                  <SelectTrigger id={`${tab}-txType`}>
+                    <SelectValue placeholder={t('common_all')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('common_all')}</SelectItem>
+                    {txTypeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>,
+              <div key="txTime" className="space-y-1.5">
+                <Label htmlFor={`${tab}-txTime`}>
+                  {t('reconciliation_0139')}
+                </Label>
+                <DateRangePicker
+                  id={`${tab}-txTime`}
+                  ariaLabel={t('reconciliation_0139')}
+                  value={{
+                    start: values.txStartTime,
+                    end: values.txEndTime,
+                  }}
+                  onChange={({ start, end }) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      txStartTime: start,
+                      txEndTime: end,
+                    }))
+                  }
+                />
+              </div>,
+            ]}
+            onReset={onReset}
+            queryType="submit"
+            queryLabel={t('common_query')}
+            resetLabel={t('common_reset')}
+          />
         </form>
       );
     },

@@ -5,12 +5,19 @@ import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
 import { Button, Card, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
-import { FIXED_TOKEN_TYPES, useCoaBasicInfoQuery } from '@myorg/modules/td-admin/data-access';
+import {
+  FIXED_TOKEN_TYPES,
+  resolveBasicInfoStatus,
+  useCoaBasicInfoQuery,
+} from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
 
 import { getFinancialBookMetaByBookId } from './financial-book-meta';
+import { ChartOfAccountsStatusTag } from './coa-status-tag';
 import { useCoaTree } from './use-coa-tree';
 import { useEodBalances } from './use-eod-balances';
+import { useTrialBalance } from './use-trial-balance';
+import { useOperationRecords } from './use-operation-records';
 import { CoaTab } from './coa-tab';
 import { CoaAccountEditorDialog } from './coa-account-editor-dialog';
 import { CoaToggleDialog } from './coa-toggle-dialog';
@@ -18,8 +25,18 @@ import { EodBalancesContent } from './eod-balances-content';
 import { EodDetailDrawer } from './eod-detail-drawer';
 import { PostToSuspenseDialog } from './post-to-suspense-dialog';
 import { ReviewSuspensePostingsDrawer } from './review-suspense-postings-drawer';
+import { TrialBalanceContent } from './trial-balance-content';
+import { TrialBalanceActivityDrawer } from './trial-balance-activity-drawer';
+import { OperationRecordsContent } from './operation-records-content';
+import { OperationRecordDrawer } from './operation-record-drawer';
 
-const VALID_TABS = ['basic-information', 'chart-of-accounts', 'eod-statements'] as const;
+const VALID_TABS = [
+  'basic-information',
+  'chart-of-accounts',
+  'eod-statements',
+  'trial-balance',
+  'operation-records',
+] as const;
 type DetailTab = (typeof VALID_TABS)[number];
 
 function isDetailTab(value: string | null): value is DetailTab {
@@ -45,7 +62,9 @@ function DetailField({
  * ChartOfAccountsDetailPage — 详情视图（tabs 分发）。
  *
  * Basic Information（useCoaBasicInfoQuery：详情接口）+ Chart of Accounts（useCoaTree：树编辑/草稿/启停）+
- * EOD Statements（useEodBalances：余额列表/明细 drawer/post-to-suspense/review）。
+ * EOD Statements（useEodBalances：余额列表/明细 drawer/post-to-suspense/review）+
+ * Trial Balance（useTrialBalance：as-of 汇总/试算表/Activity drawer）+
+ * Operation Records（useOperationRecords：筛选/分页/明细 drawer/审批跳转）。
  * 读取 bookNo/financeBookId/tab query params，按 tab 激活对应数据查询。
  */
 export function ChartOfAccountsDetailPage() {
@@ -81,13 +100,29 @@ export function ChartOfAccountsDetailPage() {
 
   const coa = useCoaTree({
     financeBookId,
-    enabled: activeTab === 'chart-of-accounts',
+    enabled:
+      activeTab === 'chart-of-accounts' || activeTab === 'eod-statements',
   });
   const eod = useEodBalances({
     financeBookId,
     detailId,
     currency: eodCurrency,
+    coaRows: coa.coaRows,
     enabled: activeTab === 'eod-statements',
+  });
+  const displayBookId = basicInfo?.bookNo || bookNo || '--';
+  const trialBalance = useTrialBalance({
+    financeBookId,
+    enabled: activeTab === 'trial-balance',
+    basicInfoLoading: basicInfoQuery.isLoading,
+    lastEodPostingRun: basicInfo?.lastEodPostingRun,
+    basicInfo: { financialBookName: displayBookName, bookId: displayBookId },
+    fallbackCurrency: eodCurrency,
+    tokenType: basicInfo?.tokenType,
+  });
+  const operationRecords = useOperationRecords({
+    financeBookId,
+    enabled: activeTab === 'operation-records',
   });
 
   const handleTabChange = (value: string) => {
@@ -119,6 +154,8 @@ export function ChartOfAccountsDetailPage() {
           <TabsTrigger value="basic-information">{t('tab.basicInformation')}</TabsTrigger>
           <TabsTrigger value="chart-of-accounts">{t('tab.chartOfAccounts')}</TabsTrigger>
           <TabsTrigger value="eod-statements">{t('tab.eodStatements')}</TabsTrigger>
+          <TabsTrigger value="trial-balance">{t('tab.trialBalance')}</TabsTrigger>
+          <TabsTrigger value="operation-records">{t('tab.operationRecords')}</TabsTrigger>
         </TabsList>
 
         {/* Basic Information */}
@@ -134,6 +171,20 @@ export function ChartOfAccountsDetailPage() {
           ) : basicInfo ? (
             <dl className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               <DetailField label={t('field.bookName')}>{basicInfo.bookName || '--'}</DetailField>
+              <DetailField label={t('field.status')}>
+                {(() => {
+                  const status = resolveBasicInfoStatus(
+                    basicInfo.status,
+                    basicInfo.statusName
+                  );
+                  return (
+                    <ChartOfAccountsStatusTag
+                      tone={status}
+                      label={t(`status.${status}`)}
+                    />
+                  );
+                })()}
+              </DetailField>
               <DetailField label={t('field.bookNo')}>{basicInfo.bookNo || '--'}</DetailField>
               <DetailField label={t('detail.financeBookId')}>{financeBookIdStr || '--'}</DetailField>
               <DetailField label={t('field.reserveAssetName')}>{basicInfo.reserveAssetName || '--'}</DetailField>
@@ -189,6 +240,42 @@ export function ChartOfAccountsDetailPage() {
             onApplyFilters={eod.onApplyFilters}
             onBack={onBack}
             t={(key: string) => t(key)}
+          />
+        </TabsContent>
+
+        {/* Trial Balance */}
+        <TabsContent value="trial-balance">
+          <TrialBalanceContent
+            bookName={displayBookName}
+            filters={trialBalance.filters}
+            onFiltersChange={trialBalance.setFilters}
+            summary={trialBalance.summary}
+            loading={trialBalance.loading}
+            columns={trialBalance.columns}
+            t={(key: string, values?: Record<string, string | number>) =>
+              t(key, values)
+            }
+          />
+        </TabsContent>
+
+        {/* Operation Records */}
+        <TabsContent value="operation-records">
+          <OperationRecordsContent
+            bookName={displayBookName}
+            rows={operationRecords.rows}
+            columns={operationRecords.columns}
+            loading={operationRecords.loading}
+            total={operationRecords.total}
+            pagination={operationRecords.pagination}
+            initialFilters={operationRecords.appliedFilters}
+            onApplyFilters={operationRecords.applyFilters}
+            onResetFilters={operationRecords.resetFilters}
+            onPageChange={operationRecords.goToPage}
+            onPageSizeChange={operationRecords.changePageSize}
+            onBack={onBack}
+            t={(key: string, values?: Record<string, string | number>) =>
+              t(key, values)
+            }
           />
         </TabsContent>
       </Tabs>
@@ -257,7 +344,7 @@ export function ChartOfAccountsDetailPage() {
       />
       <PostToSuspenseDialog
         open={eod.postToSuspenseOpen}
-        config={null}
+        config={eod.postToSuspenseConfig}
         currency={eodCurrency}
         title={t('eod.postToSuspenseTitle')}
         t={(key: string) => t(key)}
@@ -266,6 +353,34 @@ export function ChartOfAccountsDetailPage() {
           eod.closePostToSuspense();
         }}
         onCancel={eod.closePostToSuspense}
+      />
+
+      {/* Trial Balance activity drawer */}
+      <TrialBalanceActivityDrawer
+        selectedRow={trialBalance.selectedRow}
+        summary={trialBalance.summary}
+        meta={trialBalance.activityMeta}
+        rows={trialBalance.activityRows}
+        loading={trialBalance.activityLoading}
+        columns={trialBalance.activityColumns}
+        basicInfo={{
+          financialBookName: displayBookName,
+          bookId: displayBookId,
+        }}
+        onClose={trialBalance.closeActivity}
+        t={(key: string, values?: Record<string, string | number>) =>
+          t(key, values)
+        }
+      />
+
+      {/* Operation record drawer */}
+      <OperationRecordDrawer
+        open={!!operationRecords.selectedRecord}
+        record={operationRecords.selectedRecord}
+        basicInfo={{ financialBookName: displayBookName }}
+        t={(key: string) => t(key)}
+        tCommon={(key: string) => tCommon(key)}
+        onClose={operationRecords.closeRecord}
       />
     </div>
   );

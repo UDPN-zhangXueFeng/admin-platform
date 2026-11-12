@@ -108,7 +108,7 @@ export function TransactionMonitoringDetailPage() {
               <td className="py-2 pr-4">{row.transactionHash || '--'}</td>
               <td className="py-2 pr-4">{formatAdminTimestamp(Number(row.transactionTime))}</td>
               <td className="py-2 pr-4"><span className={`text-xs ${tc(`approval_task_status_color_${row.status}`)}`}>{tc(`common_task_status_${row.status}`)}</span></td>
-              <td className="py-2 pr-4"><button className="text-blue-600 cursor-pointer" onClick={() => router.push(`/approval-manage/view?id=${row.taskId}&busCode=${row.businessCode}`)}>{tc('PUB_Detail')}</button></td>
+              <td className="py-2 pr-4">{row.taskId && row.businessCode ? <button className="text-blue-600 cursor-pointer" onClick={() => router.push(`/approval-manage/view?id=${row.taskId}&busCode=${row.businessCode}`)}>{tc('PUB_Detail')}</button> : <span>--</span>}</td>
             </tr>
           ))}
         </tbody>

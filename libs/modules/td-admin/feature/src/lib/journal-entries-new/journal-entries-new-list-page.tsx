@@ -7,13 +7,13 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
-import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
+import { Card, DataTable } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import { JournalTxHashCell } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import { useJournalListQuery, type JournalListFilters, type JournalListParams } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainListQuery, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/journal-entries-new';
@@ -307,71 +307,77 @@ export function JournalEntriesNewListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="mb-4 text-sm font-semibold">{t('filter.title')}</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <FormSelect
-            name="tokenName"
-            control={control}
-            label={t('field.tokenName')}
-            options={tokenNameOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="tokenType"
-            control={control}
-            label={t('field.tokenType')}
-            options={tokenTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormField
-            name="from"
-            label={t('field.from')}
-            register={register('from')}
-            placeholder={t('placeholder.address')}
-          />
-          <FormField
-            name="to"
-            label={t('field.to')}
-            register={register('to')}
-            placeholder={t('placeholder.address')}
-          />
-          <FormSelect
-            name="transactionType"
-            control={control}
-            label={t('field.transactionType')}
-            options={transactionTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="blockchainId"
-            control={control}
-            label={t('field.blockchain')}
-            options={blockchainOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="transactionTimeFrom"
-            endName="transactionTimeTo"
-            control={control}
-            label={t('field.transactionTime')}
-          />
-          <FormField
-            name="transactionHash"
-            label={t('field.transactionHash')}
-            register={register('transactionHash')}
-            placeholder={t('placeholder.transactionHash')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormSelect
+              key="tokenName"
+              name="tokenName"
+              control={control}
+              label={t('field.tokenName')}
+              options={tokenNameOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormField
+              key="transactionHash"
+              name="transactionHash"
+              label={t('field.transactionHash')}
+              register={register('transactionHash')}
+              placeholder={t('placeholder.transactionHash')}
+            />,
+            <FormDateRangePicker
+              key="transactionTime"
+              startName="transactionTimeFrom"
+              endName="transactionTimeTo"
+              control={control}
+              label={t('field.transactionTime')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="tokenType"
+              name="tokenType"
+              control={control}
+              label={t('field.tokenType')}
+              options={tokenTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormField
+              key="from"
+              name="from"
+              label={t('field.from')}
+              register={register('from')}
+              placeholder={t('placeholder.address')}
+            />,
+            <FormField
+              key="to"
+              name="to"
+              label={t('field.to')}
+              register={register('to')}
+              placeholder={t('placeholder.address')}
+            />,
+            <FormSelect
+              key="transactionType"
+              name="transactionType"
+              control={control}
+              label={t('field.transactionType')}
+              options={transactionTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="blockchainId"
+              name="blockchainId"
+              control={control}
+              label={t('field.blockchain')}
+              options={blockchainOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="border-b px-6 py-3 text-sm font-semibold">

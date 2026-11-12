@@ -40,6 +40,7 @@ export type { AccrualRecord } from './lib/interest'; // interest+wallet → 消�
 export type { ApiResponse } from './lib/cross-chain'; // cross-chain+pledge+tokenized-deposit → 首域
 export type { BlockchainOption } from './lib/tokenized-deposit'; // 消费方属性对账 virtualMachineCode → tokenized-deposit
 export type { BookTokenRel } from './lib/chart-of-accounts'; // chart-of-accounts+posting-engine+transaction-event-configuration → 首域
+export type { OperationRecordListParams } from './lib/chart-of-accounts'; // chart-of-accounts+tokenized-deposit → CoA 操作记录 Tab
 export type { CurrencyOption } from './lib/chart-of-accounts'; // chart-of-accounts+journal-entries+pledge+tokenized-deposit → 消费方@chart-of-accounts-list-page.tsx
 export { DEFAULT_PAGE_SIZE } from './lib/chart-of-accounts'; // chart-of-accounts+tokenized-deposit → 消费方@chart-of-accounts-list-page.tsx
 export type { ExportTask } from './lib/data-export'; // data-export+statements → 消费方@data-export-page.tsx

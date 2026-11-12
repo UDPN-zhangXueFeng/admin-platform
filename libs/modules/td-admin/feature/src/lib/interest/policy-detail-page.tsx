@@ -224,14 +224,16 @@ function OperationRecordsTab({ interestRuleId, t, tc }: { interestRuleId: number
     createRowActionsColumn<PolicyOperationRecord>(
       can('e338a3b41c21413db1d2ac7a90a65f5f')
         ? {
-            detail: {
-              label: tc('Router_0010_4_3'),
-              onClick: (r) =>
-                router.push(
-                  `/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`,
-                ),
+          detail: {
+            label: tc('Router_0010_4_3'),
+            onClick: (r) => {
+              if (!r.taskId || !r.busCode) return;
+              router.push(
+                `/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`,
+              );
             },
-          }
+          },
+        }
         : {},
     ),
   ];

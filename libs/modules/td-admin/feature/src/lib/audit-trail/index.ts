@@ -16,6 +16,7 @@ export {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
   ALL_VALUE,
+  AUDIT_TRAIL_PERMISSIONS,
   resolveTxTypeMessageKey,
   resolveTokenTypeMessageKey,
   resolveProcessingStatusMessageKey,

@@ -3,6 +3,7 @@
   "records": "过账账本",
   "empty": "暂无数据",
   "copy": "复制",
+  "validation": { "required": "必填" },
   "filter": {
     "title": "查询",
     "query": "查询",
@@ -89,6 +90,7 @@
   "versionHistory": {
     "sourceEventType": "源事件类型",
     "versionId": "版本 ID",
+    "versionIdPlaceholder": "请输入版本 ID",
     "entryDirection": "借贷方向",
     "effectiveDate": "生效日期",
     "createdBy": "创建人",
@@ -99,6 +101,7 @@
   "edit": {
     "title": "编辑过账规则",
     "effectiveDate": "生效日期",
+    "effectiveDateAfterToday": "生效日期必须晚于今天",
     "entryTemplate": "分录模板",
     "drCr": "借/贷",
     "account": "科目",

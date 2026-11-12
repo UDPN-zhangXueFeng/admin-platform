@@ -224,11 +224,16 @@ function OperationRecordsTab({ tokenBillId, tc }: { tokenBillId: number; tc: (k:
     ...(can('e338a3b41c21413db1d2ac7a90a65f5f')
       ? [
           createRowActionsColumn<TransactionOperationRecord>({
-            detail: {
-              label: tc('Router_0010_4_3'),
-              onClick: (r) =>
-                router.push(`/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`),
-            },
+            detail: (r) =>
+              r.taskId && r.busCode
+                ? {
+                    label: tc('Router_0010_4_3'),
+                    onClick: () =>
+                      router.push(
+                        `/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`,
+                      ),
+                  }
+                : undefined,
           }),
         ]
       : []),

@@ -53,7 +53,7 @@ bash .claude/skills/gateway-sync/scripts/diff-upstream.sh
 
 ### 第 5 步：验证（逐功能）
 
-- 先跑 `references/pitfalls.md` 逐条核对（诊断口径/类型收敛/冒烟工程，与 admin-sync/lp-sync 共享条目三处同步改）
+- 先跑 `references/pitfalls.md` 逐条核对（诊断口径/类型收敛/冒烟工程，与 lp-sync 共享条目两处同步改）
 - 类型收敛：`cd apps/kissen-gateway-portal && npx tsc --noEmit` 一次枚举全量类型错再批量修（勿用 nx build 逐轮暴露）
 - `npx nx build kissen-gateway-portal` + `npx nx lint kissen-gateway-portal`
 - dev 冒烟 + browser 驱动变更页面，覆盖 §7 涉及点（批量拆批 ≤4 页 + 显式 timeout；截图用 `page.screenshot({path})` 直存）

@@ -6,8 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
+import { Card, DataTable } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { usePermission } from '@myorg/shared/util-auth';
 import {
@@ -22,6 +21,7 @@ import {
   EMPTY_DISPLAY,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 /**
@@ -173,31 +173,30 @@ export function FxRateListPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormSelect
-            name="rateId"
-            control={control}
-            label={t('cross_chain_0095')}
-            options={currencyPairOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="startTime"
-            endName="endTime"
-            control={control}
-            label={t('cross_chain_0025')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormSelect
+              key="rateId"
+              name="rateId"
+              control={control}
+              label={t('cross_chain_0095')}
+              options={currencyPairOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="timeRange"
+              startName="startTime"
+              endName="endTime"
+              control={control}
+              label={t('cross_chain_0025')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="flex justify-between border-b px-6 py-3">

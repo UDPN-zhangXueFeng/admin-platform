@@ -1,5 +1,33 @@
 # Codex 对话沉淀
 
+## 2026-11-12 旧项目功能缺口审计与并行补齐
+
+- 审计方式：6 个只读 scout 按域对比 `td-manage`（feature/zxf）与 `apps/admin`，报告落 `.doc/admin/2026-11-12/gap-audit/`；随后 8 个 task 切片并行实现，父级统一接线。
+- 关键结论：菜单/页面基本齐全，缺口集中在页面内操作/筛选/字段/接口；唯一整块缺失是 **Kissen 跨行转账**（列表/详情/`/kissen/transfer/{listPage,detail}`）。`documentation` 菜单原先指向 `#` 且无模块；`account-manage` 整模块未启用且 Header 无入口。
+- 统计页接口必须用旧端点：GET `/api/manage/v1/common/stablecoin/enabled/searches`（响应字段 `issueType` 映射为 `tokenType`）、POST `/api/manage/v1/td/dashboard/{stablecoin,wallet,transaction}/statistics`；`statisticsReports/tokenizedDepositsList`、`common/stablecoin/searches` 会导致空数据。
+- transaction-flow 路由：`/transaction-flow/stablecoin` → `list`，`/transaction-flow/kissen-transfer` → `kissen-transfer`，`/…/kissen-transfer/<id>` → `kissen-transfer-detail`；registry 需对应三个 pageKey。菜单用 `configs/stablecoin.json` 的 `transaction-flow.path=/transaction-flow/stablecoin` + 顶级 `kissen-transfer` 项。
+- 共享 Header 新增可选 `onManageAccount`，透传链 `AppShell → LayoutProps → SidebarLayout → Header`；admin 用 `@myorg/shared/util-i18n` 的 `useRouter` push `/account-manage`（自动加 locale）。不传该 prop 的其他 app 行为不变。
+- 验证：`npx nx build admin` + `npx nx lint admin` 通过；共享库消费方 `@admin-platform/{kissen-admin,lp-portal,kissen-gateway-portal}` 三端 build 全部通过；Orca 8 条路由 + Kissen 详情 + CoA Trial Balance 实测 0 console error / 0 4xx；截图在 `.doc/admin/2026-11-12/gap-sync/evidence/`。admin lint 曾因扫描 `public/.../HostBase_files/main.js` 失败，已在 `apps/admin/eslint.config.mjs` 增加 `public/**/*` ignore。
+- 遗留：仪表盘 reserve 卡/图表导出、screening `t_edit` 仍为 MOCK、MetaMask 真实扩展未验证、statements 日期错误清除时机、next/image 宽高警告。详见 `gap-sync/issues.md`。
+
+## 2026-11-12 重建 admin 模块 agent（admin-optimizer）
+
+- 项目级 agent 定义：`.omp/agents/admin-optimizer.md`（`model: "@slow"` → `lingtu/gpt-6.1-terra:high`），使用说明 `.doc/admin/README.md`。`.omp/` 与 `.doc/` 均被 gitignore，仅本机生效，不入库。
+- 定位：一次同步一个 `apps/admin` 菜单模块，旧项目 `td-manage`（`/Users/rnail/orca/td-manage`，分支 `feature/zxf`，远端 GitLab `td_project/source-code/stack/td-manage`）是行为规格；旧 dev 端口 15000，新 dev 端口 3000。
+- 验收：功能同步率 ≥95%（通过数/旧清单冻结分母），关键项（金额精度/权限/状态流转/破坏性操作/保存后一致性）100%；必须有真实浏览器与接口证据，Next.js runtime/hydration/compile 错误为 0。
+- 浏览器工具：用户预先在 Orca 打开旧/新标签，agent 用 `orca tab list --json --worktree path:...` 定位，`orca snapshot/console/network/eval/click/type/keypress/wait/screenshot` 验收；`eval` 里检查 `nextjs-portal` overlay。
+- 品牌/菜单硬约束：菜单项只在目标品牌 `configs/<brand>.json`（`modules.enabled` + `modules.order`）显式定义，禁止隐式共享/继承；禁止组件硬编码品牌名、logo、菜单文案、主题色；新增菜单必须 config→路由 slug/pageKey→`module-registry.ts`→feature 四层同步。已记录违规：`admin-app-shell.tsx` logo 硬编码 `/stablecoin/images/logo-icon.svg`。
+- 归档：`.doc/admin/YYYY-MM-DD/<module-kebab>/round-XX/{verification.md,matrix.md,issues.md,evidence/}`；issues 用直白中文写现象/复现/预期/实际/影响/证据/定位/类型/状态，接口问题附方法、路径、状态码、请求体（脱敏）与响应片段。
+- 配置自检：已以 `agent: "admin-optimizer"` 实际派发只读实例验证发现与加载（见 `.doc/admin/2026-11-12/agent-setup/round-01/verification.md`，若存在）。
+
+## 2026-11-12 移除 admin-sync skill
+
+- 用户裁决：后续开发不再依赖 admin-sync，删除 `.claude/skills/admin-sync/`（SKILL.md + references + diff-upstream.sh 共 5 文件，`git rm` 已暂存）。当前分支 `gitlab/feat/zxf-set`。
+- 同步清理剩余 skill 中的悬空引用：gateway-sync SKILL/pitfalls、lp-sync pitfalls、td-manage-sync SKILL/conventions 中的「与 admin-sync 共享/同构」措辞，改为 kissen 系通用表述或仅保留来源出处。
+- 保留事实（供追溯）：上游 kissen 前端 GitLab 地址 `http://10.0.6.203:8088/udpn-kissen/source-code/kissen-admin-frontend.git`，功能同步分支 `v2.0-tokenization`（2026-11-12 tip `d61c0fb`，main tip `6055165`）；本仓库权威远端为 GitLab `http://10.0.6.203:8088/udpn-kissen/source-code/admin-platform.git`，GitHub `origin` 仅镜像。
+- 本 checkout 中 `.doc/kissen/project/admin/sync-state.json` 与 `~/repos/kissen-admin-frontend` 均不存在；skill 删除后不再需要重建。
+- 范围约束：用户明确后续修改只针对 `apps/admin`。
+
 ## 2026-11-06 admin 侧栏图标精修 + 本地登录预填
 
 - 侧栏图标仍用 Lucide 内联 SVG（`currentColor`，随 `dark` class 切换）。共享 Sidebar 的 `prominentMenuIcons` 布尔（零调用方）已换成 `menuIconVariant?: 'default' | 'prominent' | 'refined'`，单一来源 `libs/shared/ui/src/lib/sidebar/menu-icon.ts` 的 `getMenuIconProps`；只有 `apps/admin` 传 `refined`（16px / ≥1600px 18px、stroke 1.75、未激活 `text-muted-foreground`，激活继承前景色），kissen/lp/gateway 不传，渲染不变。
@@ -1450,3 +1478,30 @@
 - **验证**：`npx tsc -p apps/admin/tsconfig.json --noEmit` 0 error；`npx nx run-many -t lint -p modules-td-admin-feature shared-ui-forms shared-util-i18n-messages` 0 error，改动文件里没有新增 warning；`npx nx test modules-td-admin-feature` 22 suites / 172 tests 通过；浏览器 `/en-US/key-management/managed-wallets` 实测倒序点 20→5 显示 `11/05/2026 → 11/20/2026`，查询请求体为 `startCreationDate=1793635200000`、`endCreationDate=1794326399999`（本地 00:00 / 23:59:59.999）。
 - **环境**：本地 dev 登录页会预填账号、密码和验证码，headless 浏览器直接点 Sign In 就能登录；`tab.requests()` 不返回请求体，要看 payload 用 `tab.run` 里的 `page.waitForRequest(...).postData()`。
 - **构建**：`npx nx build @admin-platform/admin` 通过。共享 `ui-forms` 有改动，另外跑了 `npx nx run-many -t build -p @admin-platform/kissen-admin @admin-platform/lp-portal @admin-platform/kissen-gateway-portal`，3 个都通过。
+
+## 2026-11-12 admin 列表查询区统一为 QueryForm（单行筛选 + 更多）
+
+- **新组件**：`libs/modules/td-admin/feature/src/lib/query-form.tsx`（`QueryForm`，feature barrel 导出）。设计：删除 `Query` 标题；单行最多 3 个高频筛选；其余放 `advancedFields`，由内部 More/Collapse 展开；操作顺序 More → extra → Reset → Query（Query 最右）。字段容器 `flex flex-col justify-end` + 操作组 `items-end`，保证 input/select 与按钮底边对齐。
+- **用法**：onClick 页面传 `onQuery`/`onReset`；RHF 页面保留 `<form onSubmit={handleSubmit(...)}>`、去掉旧 `cardSurfaceClass`/grid 类，传 `queryType="submit"`。独立页面级筛选默认 `card`；嵌在 Card/DetailSection/ReconciliationSection 内用 `variant="plain"` 避免嵌套卡片。`extra` 承接旧筛选卡里的导出等按钮（保持 `type`/disabled/handler）。
+- **i18n**：`common.json` 新增 `more`/`collapse`（en-US: More/Collapse，zh-CN: 更多/收起），仅 QueryForm 使用；未改其他 app 代码。
+- **已迁移 52 个 admin 页面/筛选组件文件**（列表页、详情子表、tab 筛选栏；覆盖 key-management、audit-trail、blockchain、chart-of-accounts、cross-chain、journal-entries(-new)、mmf、statements、suspense-adjustment、posting-engine、pledge、wallet、reconciliation、sp-access、tokenized-deposit、transaction-event-configuration）。`interest` 与 `screening-monitoring` 的筛选是 `watch()` 实时过滤、没有 Query 按钮，本次未改行为；`mmf/accrual-apply-modal` 的批量查询栏本身已单行且 Query 按钮带 `disabled={batchLoading}`（QueryForm 未建模该禁用态），保持原样。
+- **布局事实**：1440 视口下 admin 内容区宽 1168，3 列输入（284px）+ 操作组稳定一行；1280 下输入约 250px；<1280 退化为 2 列，筛选自然换行。`sp-access` 三个 section 与 tokenized-deposit `record-filter-form` 原本就是自带 `cardSurfaceClass` 的独立筛选卡（只是位于 tab 内），应使用 card variant，不是 plain。
+- **验证**：`npx tsc -p apps/admin/tsconfig.json --noEmit`（新 tsBuildInfo）0 error；`npx nx test modules-td-admin-feature` 23 suites / 175 tests；`npx nx lint modules-td-admin-feature` 0 error；浏览器实测 key-service（3 字段 + Query/Reset 同行、无 Query 标题）、user-wallet/key-signed（More 展开/收起、zh 文案正确）、audit-trail（Export 在 extra）、sp-access 详情三 tab、reconciliation（plain 嵌 section 单行）。
+
+## 2026-11-12 Accounting Management 同步（3 个 admin-optimizer 任务）
+
+- **旧版菜单口径**：旧部署 `http://10.0.7.20:6231` 的 Accounting Management 只有 6 项：Chart of Accounts、Normalization Engine（=`/financial/transaction-event-configuration`，新版叫 Transaction Event Configuration）、Posting Engine、Journal Entries（=`/financial/journal-entries-new`）、Suspense Adjustment（=`/financial/adjustments`）、Audit Trail。旧菜单项按权限码过滤。
+- **旧版有页面但菜单隐藏**：Travel Rule `/financial/travel-rule`（权限码 `832c...` 过滤，页面本身可用）、Statements `/financial/statements`（菜单在 `usePoc3.tsx` 被注释，commit `73ea6b3b`；view/export 页面仍存在）、legacy Journal Entries `/financial/journal-entries`（菜单从未引用）。新版最初把这三项挂到了 Accounting Management 菜单下；2026-11-12 已按旧版展示对齐 `configs/stablecoin.json`：菜单只保留 Chart of Accounts / Normalization Engine / Posting Engine / Journal Entries / Suspense Adjustment / Audit Trail 六项，三页面保留直链但不再进菜单（详见 `.doc/admin/2026-11-12/accounting-menu-alignment.md`）。
+- **同步结论（round-01，严格真实证据）**：Chart of Accounts 17/22（77.3%）、Posting Engine 12/22（54.5%）、Transaction Event Config 25/25 代码映射（真实门禁未全过）、Journal Entries new 20/20、legacy 20/20（旧菜单隐藏边界）、Suspense Adjustment 26/26 代码映射（新版无记录，提交/审批未验）、Statements 11/16（68.8%）、Audit Trail 8/12（66.7%）、Travel Rule 13/14（92.9%，唯一差异是旧菜单权限隐藏）。未执行真实 mutation（导出/启停/删除/保存）的条目一律保留“待确认”，不用代码映射冒充通过。
+- **本轮修复**：Posting Engine Currency 筛选由文本框改为列表货币去重下拉，并把当前选中币种并入 options（对齐旧版 `index.tsx:140-162`，避免翻页后选中值消失）；Audit Trail 补齐详情/行导出/顶部导出三个旧 UUID 权限（空权限集兼容放开）、导出成功 toast 增加 Download Center action → `/data-export`、导出日期无值时传空串（旧契约）；Statements 补 `tokenType` 词条；journal-entries 补 `tokenType.20`（Tokenized MMF）中英文；`audit-trail/index.ts` 导出 `AUDIT_TRAIL_PERMISSIONS`（漏导出曾导致 dev server 编译失败）。
+- **验证**：`npx nx build admin` 通过；`npx nx lint modules-td-admin-feature` 0 error（20 条既有 warning）；`npx tsc -p apps/admin/tsconfig.json --noEmit` 0 error。Orca 真实页面：CoA Basic（financeBookId=45）Status Active、账户树、Trial Balance 结构、Operation Records 详情抽屉；Posting 事件 254 Basic/Version History/版本抽屉；Statements 三页；Audit Trail 详情。
+- **环境坑**：Orca `network`/`console` 对 Next dev 的已完成请求常返回空 entries，不能用它证明接口为空；要判断数据是否存在，直接看页面渲染或 `performance.getEntriesByType('resource')`。旧版默认 profile 可直接 `orca tab create --url http://10.0.7.20:6231/...` 访问，不需要登录。omp browser 已按要求关闭，只使用 Orca 浏览器。
+
+## 2026-11-12 approval-manage 深度同步（3 个 admin-optimizer slice）
+
+- **旧版事实**：`/approval-manage` 三 Tab（`approval_manage_0000/0001/0033` = Pending/Actioned/Sent，无查询条件），已完成列表 `queryCompletedList` 含通过/驳回；详情 `/approval-manage/view?id=<taskId>&busCode=<businessCode>`（reserve 类另带 `opType`），左右各 49%：左侧 busCode dispatcher 25+ 组件，右侧通过/驳回（remarks 必填）、可选的升级/退回上一步、MetaMask RSV 签名、Workflow Log Steps。旧版大量业务页（token/wallet/sp/pledge/financial/interest/screening/mmf/cross-chain）都有行操作跳到该详情。
+- **新版重设计**：审批详情改为“页头业务摘要（businessName → taskCreateInfo.businessName → busCode 可读 label）+ 主业务区 + sticky 操作栏/Workflow Log”；保留 dispatcher/opType/DTO 显隐/Steps 语义。列表 Completed Tab 英文由 `Approved` 改为 `Actioned`（原词会把驳回也标成“已通过”）；操作区 “Approval Details” 重复文案去掉，单选组用 sr-only Decision。
+- **入口防呆**：interest policy/transactions、screening rule/process、tx-event historical records、cross-chain LP/token-pair、suspense history 等审批跳转统一在 taskId/busCode 缺失时隐藏动作，避免 `id=undefined`；pledge reserve 的 `opType` 继续透传（组件按旧行为读 businessContent.operateType）。
+- **组件**：25 个 busCode 组件逐文件对照旧源码；Reserve Asset / Reserve Asset Transaction 空字段统一 `--`。真实详情只验证了 `id=5594&busCode=save_reserve_asset_transaction`（Inflow/+1.00 USD/资产/类别/数量/状态/操作区/日志，detail+task 接口 200，console 0）；其余组件与各业务入口缺真实 task 样本，未宣称 95%。
+- **验证**：`npx tsc -p apps/admin/tsconfig.json --noEmit` 0 error；`npx nx lint modules-td-admin-feature` 0 error；`npx nx build admin` 通过。Orca 实测列表三 Tab（Pending Approval/Actioned/Initiated by Me，10 行真实数据）与详情布局（1308 视口：header 1036 + 主区 572 + 侧栏 448，无横向滚动）；截图在 `.doc/admin/2026-11-12/approval-manage/shell-flow/round-01/evidence/`。
+- **未验证**：通过/驳回/退回/升级/撤回等真实 mutation（无丢弃测试任务）、MetaMask 扩展签名、其余 financial/token/wallet busCode 详情。文档分 `.doc/admin/2026-11-12/approval-manage/{shell-flow,financial-monitoring-crosschain,tokenized-wallet-reserve}/round-01/`。

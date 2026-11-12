@@ -11,12 +11,17 @@ import {
   enableCoaAccounts,
   getChartOfAccountsList,
   getCoaBasicInfo,
+  getCoaBookRecords,
   getCoaTree,
   getCurrencyList,
   getEodBalances,
   getEodStatementDetail,
+  getTrialBalance,
+  getTrialBalanceActivity,
   saveCoaAccounts,
   type EodBalancesRequest,
+  type TrialBalanceActivityRequest,
+  type TrialBalanceRequest,
 } from '../chart-of-accounts.api';
 import type {
   ChartOfAccountsListParams,
@@ -30,6 +35,10 @@ import type {
   EodBalancesPagedResp,
   EodDetailRespVo,
   LegacyEodBalancesResp,
+  OperationRecordListParams,
+  OperationRecordsPagedResp,
+  TrialBalanceActivityResp,
+  TrialBalanceResp,
 } from '../chart-of-accounts-detail.model';
 import { chartOfAccountsKeys } from './chart-of-accounts.keys';
 
@@ -106,6 +115,66 @@ export function useEodStatementDetailQuery(
     queryKey: chartOfAccountsKeys.eodDetail(financeBookEodId ?? 0),
     queryFn: ({ signal }) => getEodStatementDetail(financeBookEodId as number, { signal }),
     enabled: Boolean(financeBookEodId) && enabled,
+    retry: false,
+  });
+}
+
+/** 试算平衡（Trial Balance tab）；`params` 未就绪时不发起请求。 */
+export function useTrialBalanceQuery(
+  financeBookId: number | undefined,
+  params: TrialBalanceRequest | undefined,
+  enabled = true
+) {
+  return useQuery<TrialBalanceResp>({
+    queryKey: chartOfAccountsKeys.trialBalance(
+      financeBookId ?? 0,
+      params ?? { startDate: 0, endDate: 0 }
+    ),
+    queryFn: ({ signal }) =>
+      getTrialBalance(financeBookId as number, params as TrialBalanceRequest, {
+        signal,
+      }),
+    enabled: Boolean(financeBookId) && Boolean(params) && enabled,
+    retry: false,
+  });
+}
+
+/** 科目活动明细（Trial Balance Activity drawer）；无选中科目时不发起请求。 */
+export function useTrialBalanceActivityQuery(
+  financeBookId: number | undefined,
+  params: TrialBalanceActivityRequest | undefined,
+  enabled = true
+) {
+  return useQuery<TrialBalanceActivityResp>({
+    queryKey: chartOfAccountsKeys.trialBalanceActivity(
+      financeBookId ?? 0,
+      params ?? { accountCode: '', startDate: 0, endDate: 0 }
+    ),
+    queryFn: ({ signal }) =>
+      getTrialBalanceActivity(
+        financeBookId as number,
+        params as TrialBalanceActivityRequest,
+        { signal }
+      ),
+    enabled: Boolean(financeBookId) && Boolean(params) && enabled,
+    retry: false,
+  });
+}
+
+/** 操作记录列表（Operation Records tab，服务端分页，翻页保留旧数据）。 */
+export function useOperationRecordsQuery(
+  financeBookId: number | undefined,
+  params: OperationRecordListParams,
+  enabled = true
+) {
+  return useQuery<OperationRecordsPagedResp>({
+    queryKey: chartOfAccountsKeys.operationRecords(financeBookId ?? 0, {
+      ...params,
+    }),
+    queryFn: ({ signal }) =>
+      getCoaBookRecords(financeBookId as number, params, { signal }),
+    enabled: Boolean(financeBookId) && enabled,
+    placeholderData: keepPreviousData,
     retry: false,
   });
 }

@@ -51,6 +51,8 @@ export interface ApprovalManageApprovalLogProps {
   taskInfo?: ApprovalLog;
   /** 当前任务状态（决定 Steps.status error/process；detail-page 四套 status 派生结果）。 */
   status?: number;
+  /** 业务码（首节点 sp_open_wallet 例外：不展示创建人，源 view.tsx:276-282）。 */
+  busCode?: string;
 }
 
 /** 审批节点（首节点 taskCreateInfo + recordList 各条）。 */
@@ -94,6 +96,7 @@ function ReviewerNameList({
 export function ApprovalManageApprovalLog({
   taskInfo,
   status,
+  busCode,
 }: ApprovalManageApprovalLogProps): React.JSX.Element {
   const t = useTranslations('modules.approval-manage');
 
@@ -116,7 +119,12 @@ export function ApprovalManageApprovalLog({
     const taskCreateInfo = taskInfo?.taskCreateInfo;
     const recordList = taskInfo?.recordList ?? [];
 
-    // 首节点（源 view.tsx:275-285）：Create + 时间（+ 操作人，sp_open_wallet 无操作人）。
+    // 首节点（源 view.tsx:275-285）：Create + 时间（+ 创建人，sp_open_wallet 无创建人）。
+    const createUserName = taskCreateInfo?.createUserName;
+    const creatorSuffix =
+      busCode === 'sp_open_wallet' || !createUserName
+        ? ''
+        : `${t('approval_manage_0036')}${createUserName}`;
     const items: ApprovalStep[] = [
       {
         title: t('approval_manage_0035'),
@@ -127,6 +135,7 @@ export function ApprovalManageApprovalLog({
                 ? taskCreateInfo.createTime
                 : undefined,
             )}
+            {creatorSuffix}
           </div>
         ),
       },
@@ -213,7 +222,7 @@ export function ApprovalManageApprovalLog({
         : 1 + stepIndex - (flag ? 1 : 0);
 
     return { steps: items, current: resolvedCurrent };
-  }, [taskInfo, status, t, separator]);
+  }, [taskInfo, status, t, separator, busCode]);
 
   const isError = resolveApprovalStepStatus(status) === 'error';
   const lineColor = isError ? 'bg-red-500' : 'bg-primary';

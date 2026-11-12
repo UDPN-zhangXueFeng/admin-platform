@@ -6,8 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
+import { Card, DataTable } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatDate } from '@myorg/shared/util-dates';
 import { usePermission } from '@myorg/shared/util-auth';
@@ -26,6 +25,7 @@ import {
   SETTLEMENT_TX_TYPE_KEY_PREFIX,
 } from '.';
 import { ALL_VALUE } from './mmf.constants';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 const DATETIME_FMT = 'YYYY-MM-DD';
@@ -253,44 +253,47 @@ export function SettlementListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="settlementCode"
-            label={t('field.settlementCode')}
-            register={register('settlementCode')}
-            placeholder={t('field.settlementCode')}
-          />
-          <FormDateRangePicker
-            startName="appliedTimeFrom"
-            endName="appliedTimeTo"
-            control={control}
-            label={t('field.applyTime')}
-          />
-          <FormSelect
-            name="ruleId"
-            control={control}
-            label={t('field.fundName')}
-            options={fundOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('field.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormField
+              key="settlementCode"
+              name="settlementCode"
+              label={t('field.settlementCode')}
+              register={register('settlementCode')}
+              placeholder={t('field.settlementCode')}
+            />,
+            <FormDateRangePicker
+              key="appliedTime"
+              startName="appliedTimeFrom"
+              endName="appliedTimeTo"
+              control={control}
+              label={t('field.applyTime')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('field.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="ruleId"
+              name="ruleId"
+              control={control}
+              label={t('field.fundName')}
+              options={fundOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="flex justify-between border-b px-6 py-3">

@@ -49,6 +49,7 @@ import {
   type PolicyDetail,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import { keyPolicyStatusMap, operationRecordStatusMap } from '.';
 import { operationTypeOptions } from './constants';
@@ -243,11 +244,6 @@ export function KeyPolicyConfigurationDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Demo / read-only banner — no detail API exists; data is sample-only. */}
-      <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        {t('KP_DemoBanner')}
-      </div>
-
       <Tabs defaultValue="basic" className="w-full">
         <TabsList>
           <TabsTrigger value="basic">{t('key_management_0057')}</TabsTrigger>
@@ -323,42 +319,37 @@ export function KeyPolicyConfigurationDetailPage() {
                 name: `${record.businessName || '--'} Key Rotation Policy`,
               })}
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <FormSelect
-                name="operationType"
-                control={control}
-                label={t('key_management_0048')}
-                options={[
-                  { label: t('PUB_All'), value: ALL_VALUE },
-                  ...operationTypeOptions,
-                ]}
-              />
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  reset(RECORDS_FILTER_DEFAULTS);
-                  setCommittedOperationType(ALL_VALUE);
-                  setRecordsPage(1);
-                }}
-              >
-                {t('PUB_Reset')}
-              </Button>
-              <Button
-                onClick={() => {
-                  // Commit the current form value as the filter (Query-button
-                  // semantics — source uses onChange; we align with the
-                  // managed-wallets-detail Query pattern per the task spec).
-                  setCommittedOperationType(
-                    getValues('operationType') || ALL_VALUE,
-                  );
-                  setRecordsPage(1);
-                }}
-              >
-                {t('PUB_Query')}
-              </Button>
-            </div>
+            <QueryForm
+              variant="plain"
+              fields={[
+                <FormSelect
+                  key="operationType"
+                  name="operationType"
+                  control={control}
+                  label={t('key_management_0048')}
+                  options={[
+                    { label: t('PUB_All'), value: ALL_VALUE },
+                    ...operationTypeOptions,
+                  ]}
+                />,
+              ]}
+              onReset={() => {
+                reset(RECORDS_FILTER_DEFAULTS);
+                setCommittedOperationType(ALL_VALUE);
+                setRecordsPage(1);
+              }}
+              onQuery={() => {
+                // Commit the current form value as the filter (Query-button
+                // semantics — source uses onChange; we align with the
+                // managed-wallets-detail Query pattern per the task spec).
+                setCommittedOperationType(
+                  getValues('operationType') || ALL_VALUE,
+                );
+                setRecordsPage(1);
+              }}
+              queryLabel={t('PUB_Query')}
+              resetLabel={t('PUB_Reset')}
+            />
           </Card>
 
           <Card className="p-4">

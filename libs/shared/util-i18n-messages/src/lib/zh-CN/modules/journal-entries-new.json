@@ -3,6 +3,8 @@
   "records": "交易记录",
   "empty": "暂无数据",
   "copy": "复制",
+  "copied": "已复制",
+  "copyFailed": "复制失败",
   "filter": {
     "title": "查询",
     "query": "查询",
@@ -55,6 +57,7 @@
     "normalizationEngine": "标准化引擎",
     "postingEntry": "记账分录",
     "tAccount": "T 字账",
+    "iso20022Payload": "ISO 20022 报文",
     "columnName": "列名",
     "value": "值",
     "logicType": "逻辑类型",

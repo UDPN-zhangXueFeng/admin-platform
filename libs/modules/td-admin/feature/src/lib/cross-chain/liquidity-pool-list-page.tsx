@@ -9,7 +9,6 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import {
   Button,
   Card,
-  cardSurfaceClass,
   CopyableEllipsisText,
   DataTable,
   Select,
@@ -18,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
 import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
@@ -35,6 +33,7 @@ import {
   type LiquidityPoolModalInfo,
 } from './liquidity-pool-action-modal';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 /** 「全部」占位 value（对齐 cct / fx-rate / rd-bridge 列表筛选约定）。 */
@@ -369,87 +368,86 @@ export function LiquidityPoolListPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div>
-            <label
-              htmlFor="lp-liquidityPoolWalletAddress"
-              className="mb-1.5 block text-sm font-medium text-foreground"
-            >
-              {t('cross_chain_0045')}
-            </label>
-            <input
-              id="lp-liquidityPoolWalletAddress"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder={t('cross_chain_0045')}
-              {...register('liquidityPoolWalletAddress')}
-            />
-          </div>
-          <FormSelect
-            name="tokenId"
-            control={control}
-            label={t('cross_chain_0044')}
-            options={[{ value: ALL_VALUE, label: t('filter.all') }, ...tokenOptions]}
-            placeholder={t('filter.all')}
-          />
-          {/*
-            链：status!==1 的链单项 disabled（源码 options.disabled: el.status === 1 ? false : true）。
-            FormSelect 不透传单项 disabled，故手写 Controller + Select/SelectItem（对齐 cct-list）。
-          */}
-          <Controller
-            control={control}
-            name="blockchain"
-            render={({ field }) => (
-              <div>
-                <label
-                  htmlFor="lp-blockchain"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('cross_chain_0000')}
-                </label>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="lp-blockchain">
-                    <SelectValue placeholder={t('filter.all')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
-                    {blockchainOptions.map((b) => (
-                      <SelectItem
-                        key={b.key}
-                        value={String(b.key)}
-                        disabled={b.status !== 1}
-                      >
-                        {b.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('filter.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="updatedTimeStart"
-            endName="updatedTimeEnd"
-            control={control}
-            label={t('cross_chain_0025')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <div key="liquidityPoolWalletAddress">
+              <label
+                htmlFor="lp-liquidityPoolWalletAddress"
+                className="mb-1.5 block text-sm font-medium text-foreground"
+              >
+                {t('cross_chain_0045')}
+              </label>
+              <input
+                id="lp-liquidityPoolWalletAddress"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder={t('cross_chain_0045')}
+                {...register('liquidityPoolWalletAddress')}
+              />
+            </div>,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('filter.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="updatedTime"
+              startName="updatedTimeStart"
+              endName="updatedTimeEnd"
+              control={control}
+              label={t('cross_chain_0025')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="tokenId"
+              name="tokenId"
+              control={control}
+              label={t('cross_chain_0044')}
+              options={[{ value: ALL_VALUE, label: t('filter.all') }, ...tokenOptions]}
+              placeholder={t('filter.all')}
+            />,
+            <Controller
+              key="blockchain"
+              control={control}
+              name="blockchain"
+              render={({ field }) => (
+                <div>
+                  <label
+                    htmlFor="lp-blockchain"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    {t('cross_chain_0000')}
+                  </label>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="lp-blockchain">
+                      <SelectValue placeholder={t('filter.all')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
+                      {blockchainOptions.map((b) => (
+                        <SelectItem
+                          key={b.key}
+                          value={String(b.key)}
+                          disabled={b.status !== 1}
+                        >
+                          {b.value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="flex justify-between border-b px-6 py-3">

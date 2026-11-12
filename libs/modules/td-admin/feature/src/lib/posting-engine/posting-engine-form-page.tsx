@@ -109,6 +109,19 @@ export function PostingEngineFormPage() {
   });
   const { fields } = useFieldArray({ control, name: 'entries' });
 
+  /**
+   * 最小可选生效日期 = 明天（`YYYY-MM-DD`）。
+   *
+   * 迁移自源 edit.tsx `disabledEffectiveDate`：日期选择器禁用过去日期，
+   * 且 validator 阻止早于明天的提交。
+   */
+  const minEffectiveDate = React.useMemo(() => {
+    const tomorrow = new Date();
+    tomorrow.setHours(0, 0, 0, 0);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return formatDate(tomorrow, DATE_FMT);
+  }, []);
+
   /** 事务事件字段（来自 normalizedTargetFields 的 targetField/sourceField）。 */
   const transactionEventFields = React.useMemo(() => {
     return (event?.normalizedTargetFields ?? [])
@@ -266,13 +279,25 @@ export function PostingEngineFormPage() {
             <Controller
               control={control}
               name="effectiveDate"
-              rules={{ required: true }}
+              rules={{
+                required: t('validation.required'),
+                validate: (value: string) =>
+                  value >= minEffectiveDate ||
+                  t('edit.effectiveDateAfterToday'),
+              }}
               render={({ field }) => (
-                <Input type="date" {...field} />
+                <Input
+                  type="date"
+                  min={minEffectiveDate}
+                  formNoValidate
+                  {...field}
+                />
               )}
             />
             {formState.errors.effectiveDate ? (
-              <p className="text-xs text-red-500">{t('edit.effectiveDate')}</p>
+              <p className="text-xs text-red-500">
+                {formState.errors.effectiveDate.message}
+              </p>
             ) : null}
           </div>
           <div className="space-y-1.5">

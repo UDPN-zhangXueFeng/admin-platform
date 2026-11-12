@@ -35,6 +35,14 @@ import {
  * **字段类型**：detailInfo = approvedDetail.businessContent（宽松 Record，源 GlobalAny）。
  * 资产业务字段类型复用 pledge 模块语义，此处不重建实体类型（迁移文档 §0 复用策略）。
  */
+/** Render a stable placeholder instead of an empty grid cell. */
+function display(value: unknown): string {
+  if (value === null || value === undefined || String(value).trim() === '') {
+    return EMPTY_FIELD_VALUE;
+  }
+  return String(value);
+}
+
 export function ReserveAssetApproval({
   detailInfo,
   opType,
@@ -67,23 +75,23 @@ export function ReserveAssetApproval({
       {
         title: t('reserveAsset.informationTitle'),
         list: [
-          { label: t('reserveAsset.assetName'), value: d.assetName },
-          { label: t('reserveAsset.currency'), value: d.currency },
+          { label: t('reserveAsset.assetName'), value: display(d.assetName) },
+          { label: t('reserveAsset.currency'), value: display(d.currency) },
           {
             label: `${t('reserveAsset.assetCategories')}${
               isEditOperation ? ` ${t('reserveAsset.updateSuffix')}` : ''
             }`,
-            value: d.assetCategorys,
+            value: display(d.assetCategorys),
           },
           ...(isEditOperation
             ? [
                 {
                   label: t('reserveAsset.assetCategoriesOriginal'),
-                  value: d.originalAssetCategorys,
+                  value: display(d.originalAssetCategorys),
                 },
               ]
             : []),
-          { label: t('reserveAsset.createdBy'), value: d.createUser },
+          { label: t('reserveAsset.createdBy'), value: display(d.createUser) },
           {
             label: t('reserveAsset.createdOn'),
             value: formatTimestamp(toNumber(d.createTime)),

@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@myorg/shared/ui';
+import { toast } from 'sonner';
 import {
   useNormalizationMappingRulesQuery,
   usePreviewNormalizationMutation,
@@ -31,6 +32,15 @@ import {
   statusToneClass,
 } from '.';
 import { createRowActionsColumn } from '../row-actions';
+
+/** 列表 / Preview 共用的 Mapping Rule ID 派生（源项目 mapMappingRuleRow 同逻辑）。 */
+function resolveMappingRuleId(record: NormalizationEvent): string {
+  return (
+    record.eventCode ||
+    record.versionId ||
+    (record.normalizationEventId ? String(record.normalizationEventId) : '')
+  );
+}
 
 /**
  * TxEventMappingRuleListPage — Mapping Rule 列表页（按 financeBookId）。
@@ -49,7 +59,8 @@ export function TxEventMappingRuleListPage() {
     pageNum: 1,
     pageSize: DEFAULT_PAGE_SIZE,
   });
-  const [previewId, setPreviewId] = React.useState<number | null>(null);
+  const [previewRecord, setPreviewRecord] =
+    React.useState<NormalizationEvent | null>(null);
 
   const listResult = useNormalizationMappingRulesQuery(
     {
@@ -66,27 +77,36 @@ export function TxEventMappingRuleListPage() {
   const previewMutation = usePreviewNormalizationMutation();
 
   const handlePreview = React.useCallback(
-    (normalizationEventId?: number) => {
-      if (!normalizationEventId) return;
-      setPreviewId(normalizationEventId);
-      void previewMutation.mutate({ normalizationEventId });
+    (record: NormalizationEvent) => {
+      if (!record.normalizationEventId) return;
+      setPreviewRecord(record);
+      void previewMutation.mutate({
+        normalizationEventId: record.normalizationEventId,
+      });
     },
     [previewMutation]
   );
 
   const closePreview = React.useCallback(() => {
-    setPreviewId(null);
+    setPreviewRecord(null);
     previewMutation.reset();
   }, [previewMutation]);
 
   const previewJson = React.useMemo(() => {
     const data = previewMutation.data;
-    if (!data) return '';
+    if (!data || !previewRecord) return '';
+    const sourceEventType =
+      getSourceEventTypeByEventType(data.eventType) ??
+      getSourceEventTypeByEventType(previewRecord.eventType) ??
+      EMPTY_DISPLAY;
     return JSON.stringify(
       {
-        normalizationEventId: data.normalizationEventId ?? previewId,
+        mappingRuleId: resolveMappingRuleId(previewRecord) || EMPTY_DISPLAY,
+        normalizationEventId:
+          data.normalizationEventId ?? previewRecord.normalizationEventId,
         eventCode: data.eventCode || '--',
         eventType: data.eventType,
+        sourceEventType,
         mappings: (data.mappings ?? []).map((m) => ({
           sourceField: m.sourceField,
           targetField: m.targetField,
@@ -97,7 +117,17 @@ export function TxEventMappingRuleListPage() {
       null,
       2
     );
-  }, [previewMutation.data, previewId]);
+  }, [previewMutation.data, previewRecord]);
+
+  const handleCopyPreviewJson = React.useCallback(async () => {
+    if (!previewJson || previewMutation.isPending) return;
+    try {
+      await navigator.clipboard.writeText(previewJson);
+      toast.success(t('copied'));
+    } catch {
+      toast.error(t('copyFailed'));
+    }
+  }, [previewJson, previewMutation.isPending, t]);
 
   const columns = React.useMemo<ColumnDef<NormalizationEvent>[]>(
     () => [
@@ -105,12 +135,7 @@ export function TxEventMappingRuleListPage() {
         id: 'mappingRuleId',
         header: t('field.mappingRuleId'),
         cell: ({ row }) => {
-          const id =
-            row.original.eventCode ||
-            row.original.versionId ||
-            (row.original.normalizationEventId
-              ? String(row.original.normalizationEventId)
-              : '');
+          const id = resolveMappingRuleId(row.original);
           return id ? (
             <CopyableEllipsisText value={id} copyLabel={t('copy')} />
           ) : (
@@ -168,7 +193,7 @@ export function TxEventMappingRuleListPage() {
         menu: (row) => [
           {
             label: t('action.preview'),
-            onClick: () => handlePreview(row.normalizationEventId),
+            onClick: () => handlePreview(row),
           },
           {
             label: t('action.edit'),
@@ -225,16 +250,33 @@ export function TxEventMappingRuleListPage() {
         </Button>
       </div>
 
-      <Dialog open={previewId !== null} onOpenChange={(open) => !open && closePreview()}>
+      <Dialog
+        open={previewRecord !== null}
+        onOpenChange={(open) => !open && closePreview()}
+      >
         <DialogContent className="max-w-[560px]">
           <DialogHeader>
             <DialogTitle>{t('action.preview')}</DialogTitle>
           </DialogHeader>
-          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-4 text-xs leading-5">
-            {previewMutation.isPending
-              ? 'Loading...'
-              : previewJson || EMPTY_DISPLAY}
-          </pre>
+          <div className="overflow-hidden rounded border">
+            <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-2">
+              <span className="text-sm">Json</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                onClick={handleCopyPreviewJson}
+                disabled={!previewJson || previewMutation.isPending}
+              >
+                {t('copy')}
+              </Button>
+            </div>
+            <pre className="m-0 max-h-[60vh] overflow-auto whitespace-pre-wrap break-all p-4 text-xs leading-5">
+              {previewMutation.isPending
+                ? 'Loading...'
+                : previewJson || EMPTY_DISPLAY}
+            </pre>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

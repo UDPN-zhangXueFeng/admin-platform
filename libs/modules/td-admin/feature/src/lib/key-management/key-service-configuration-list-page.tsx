@@ -50,6 +50,7 @@ import {
   useKeyServiceConfigurationsQuery,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import { keyServiceStatusToneMap } from './constants';
 
@@ -299,15 +300,10 @@ export function KeyServiceConfigurationListPage() {
 
   return (
     <div className="space-y-6">
-      {/* Query Form */}
-      <Card className="p-4">
-        <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1.5">
-            <label
-              className="text-sm font-medium"
-              htmlFor="ksc-filter-name"
-            >
+      <QueryForm
+        fields={[
+          <div key="key-service-name" className="space-y-1.5">
+            <label className="text-sm font-medium" htmlFor="ksc-filter-name">
               {t('key_management_0001')}
             </label>
             <Input
@@ -316,12 +312,9 @@ export function KeyServiceConfigurationListPage() {
               onChange={(event) => setKeyServiceName(event.target.value)}
               placeholder=""
             />
-          </div>
-          <div className="space-y-1.5">
-            <label
-              className="text-sm font-medium"
-              htmlFor="ksc-filter-date"
-            >
+          </div>,
+          <div key="creation-date" className="space-y-1.5">
+            <label className="text-sm font-medium" htmlFor="ksc-filter-date">
               {t('key_management_0002')}
             </label>
             <DateRangePicker
@@ -333,8 +326,8 @@ export function KeyServiceConfigurationListPage() {
               }}
               ariaLabel={t('key_management_0002')}
             />
-          </div>
-          <div className="space-y-1.5">
+          </div>,
+          <div key="status" className="space-y-1.5">
             <label className="text-sm font-medium">
               {t('key_management_0003')}
             </label>
@@ -356,15 +349,13 @@ export function KeyServiceConfigurationListPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button onClick={handleQuery}>{t('PUB_Query')}</Button>
-          <Button variant="outline" onClick={handleReset}>
-            {t('PUB_Reset')}
-          </Button>
-        </div>
-      </Card>
+          </div>,
+        ]}
+        onQuery={handleQuery}
+        onReset={handleReset}
+        queryLabel={t('PUB_Query')}
+        resetLabel={t('PUB_Reset')}
+      />
 
       {/* Table */}
       <Card className="p-4">

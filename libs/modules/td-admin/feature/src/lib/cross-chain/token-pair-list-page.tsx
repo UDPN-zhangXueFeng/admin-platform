@@ -11,7 +11,6 @@ import { toast } from 'sonner';
 import {
   Button,
   Card,
-  cardSurfaceClass,
   DataTable,
   Dialog,
   DialogContent,
@@ -20,7 +19,6 @@ import {
   DialogTitle,
   Label,
 } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
 import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import {
@@ -35,6 +33,7 @@ import {
   TOKEN_PAIR_UPDATE_STATE,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 /** 「全部」占位 value（对齐 rd-bridge / fx-rate 列表筛选约定）。 */
@@ -423,59 +422,64 @@ export function TokenPairListPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormSelect
-            name="sendTokenId"
-            control={control}
-            label={t('cross_chain_0078')}
-            options={tokenOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="sendBlockchainId"
-            control={control}
-            label={t('cross_chain_0079')}
-            options={blockchainOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="receiveTokenId"
-            control={control}
-            label={t('cross_chain_0080')}
-            options={tokenOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="receiveBlockchainId"
-            control={control}
-            label={t('cross_chain_0081')}
-            options={blockchainOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('filter.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="updateStartTime"
-            endName="updateEndTime"
-            control={control}
-            label={t('cross_chain_0025')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormSelect
+              key="sendTokenId"
+              name="sendTokenId"
+              control={control}
+              label={t('cross_chain_0078')}
+              options={tokenOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('filter.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="updateTime"
+              startName="updateStartTime"
+              endName="updateEndTime"
+              control={control}
+              label={t('cross_chain_0025')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="sendBlockchainId"
+              name="sendBlockchainId"
+              control={control}
+              label={t('cross_chain_0079')}
+              options={blockchainOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="receiveTokenId"
+              name="receiveTokenId"
+              control={control}
+              label={t('cross_chain_0080')}
+              options={tokenOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="receiveBlockchainId"
+              name="receiveBlockchainId"
+              control={control}
+              label={t('cross_chain_0081')}
+              options={blockchainOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="flex justify-between border-b px-6 py-3">

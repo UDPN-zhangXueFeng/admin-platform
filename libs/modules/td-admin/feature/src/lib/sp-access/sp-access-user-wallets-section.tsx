@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  Button,
   CopyableEllipsisText,
   DataTable,
   Input,
@@ -16,9 +15,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  cardSurfaceClass,
 } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
 import { DateRangePicker } from '@myorg/shared/ui-forms';
 import {
   useSpAccessUserWalletsQuery,
@@ -30,6 +27,7 @@ import type {
 } from '@myorg/modules/td-admin/data-access';
 import { EMPTY_FIELD_VALUE, formatAmount, formatTimestamp } from './formatters';
 import { SpAccessStatusBadge } from './sp-access-status-badge';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 /**
@@ -225,37 +223,17 @@ export function SpAccessUserWalletsSection({ detail }: { detail: SpAccessDetail 
 
   return (
     <div className="space-y-4">
-      <div className={cn(cardSurfaceClass, 'p-6')}>
-        <div className="text-base font-semibold">{t('sp_access_0051')}</div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {t('sp_access_0144').replace('****', detail.spName || EMPTY_FIELD_VALUE)}
-        </p>
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          <label className="flex flex-col gap-1 text-sm">
+      <QueryForm
+        fields={[
+          <label key="walletAddress" className="flex flex-col gap-1 text-sm">
             <span>{t('user_wallet_001')}</span>
             <Input
               value={draft.walletAddress}
               placeholder={t('user_wallet_001')}
               onChange={(event) => setDraftField('walletAddress', event.target.value)}
             />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span>{t('sp_access_0108')}</span>
-            <Select value={draft.custodyModel} onValueChange={(value) => setDraftField('custodyModel', value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('PUB_All')}</SelectItem>
-                {CUSTODY_MODEL_FILTER_OPTIONS.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {t(`sp_access_011${value}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
+          </label>,
+          <label key="tokenName" className="flex flex-col gap-1 text-sm">
             <span>{t('transaction_flow_0018')}</span>
             <Select value={draft.tokenName} onValueChange={(value) => setDraftField('tokenName', value)}>
               <SelectTrigger>
@@ -270,48 +248,8 @@ export function SpAccessUserWalletsSection({ detail }: { detail: SpAccessDetail 
                 ))}
               </SelectContent>
             </Select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span>{t('tokenized_deposit_0062')}</span>
-            <Select value={draft.tokenType} onValueChange={(value) => setDraftField('tokenType', value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('PUB_All')}</SelectItem>
-                {TOKEN_TYPE_FILTER_OPTIONS.map((value) => (
-                  <SelectItem key={value} value={String(value)}>
-                    {t(`token_type_${value}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span>{t('user_wallet_002')}</span>
-            <DateRangePicker
-              value={{ start: draft.createDateFrom, end: draft.createDateTo }}
-              onChange={({ start, end }) => {
-                setDraftField('createDateFrom', start);
-                setDraftField('createDateTo', end);
-              }}
-              ariaLabel={t('user_wallet_002')}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span>{t('sp_access_0110')}</span>
-            <Select value={draft.kycRequired} onValueChange={(value) => setDraftField('kycRequired', value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('PUB_All')}</SelectItem>
-                <SelectItem value="1">{t('PUB_Yes')}</SelectItem>
-                <SelectItem value="0">{t('PUB_No')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
+          </label>,
+          <label key="status" className="flex flex-col gap-1 text-sm">
             <span>{t('PUB_Status')}</span>
             <Select value={draft.status} onValueChange={(value) => setDraftField('status', value)}>
               <SelectTrigger>
@@ -326,32 +264,79 @@ export function SpAccessUserWalletsSection({ detail }: { detail: SpAccessDetail 
                 ))}
               </SelectContent>
             </Select>
-          </label>
-        </div>
-        <div className="mt-4 flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setDraft(EMPTY_DRAFT);
-              setApplied(EMPTY_DRAFT);
-              setPage(1);
-              setPageSize(10);
-            }}
-          >
-            {t('PUB_Reset')}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              setApplied(draft);
-              setPage(1);
-            }}
-          >
-            {t('PUB_Query')}
-          </Button>
-        </div>
-      </div>
+          </label>,
+        ]}
+        advancedFields={[
+          <label key="custodyModel" className="flex flex-col gap-1 text-sm">
+            <span>{t('sp_access_0108')}</span>
+            <Select value={draft.custodyModel} onValueChange={(value) => setDraftField('custodyModel', value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>{t('PUB_All')}</SelectItem>
+                {CUSTODY_MODEL_FILTER_OPTIONS.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {t(`sp_access_011${value}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>,
+          <label key="tokenType" className="flex flex-col gap-1 text-sm">
+            <span>{t('tokenized_deposit_0062')}</span>
+            <Select value={draft.tokenType} onValueChange={(value) => setDraftField('tokenType', value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>{t('PUB_All')}</SelectItem>
+                {TOKEN_TYPE_FILTER_OPTIONS.map((value) => (
+                  <SelectItem key={value} value={String(value)}>
+                    {t(`token_type_${value}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>,
+          <label key="createTime" className="flex flex-col gap-1 text-sm">
+            <span>{t('user_wallet_002')}</span>
+            <DateRangePicker
+              value={{ start: draft.createDateFrom, end: draft.createDateTo }}
+              onChange={({ start, end }) => {
+                setDraftField('createDateFrom', start);
+                setDraftField('createDateTo', end);
+              }}
+              ariaLabel={t('user_wallet_002')}
+            />
+          </label>,
+          <label key="kycRequired" className="flex flex-col gap-1 text-sm">
+            <span>{t('sp_access_0110')}</span>
+            <Select value={draft.kycRequired} onValueChange={(value) => setDraftField('kycRequired', value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>{t('PUB_All')}</SelectItem>
+                <SelectItem value="1">{t('PUB_Yes')}</SelectItem>
+                <SelectItem value="0">{t('PUB_No')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </label>,
+        ]}
+        onQuery={() => {
+          setApplied(draft);
+          setPage(1);
+        }}
+        onReset={() => {
+          setDraft(EMPTY_DRAFT);
+          setApplied(EMPTY_DRAFT);
+          setPage(1);
+          setPageSize(10);
+        }}
+        queryLabel={t('PUB_Query')}
+        resetLabel={t('PUB_Reset')}
+      />
 
       <div>
         <div className="mb-3 text-base font-semibold">{t('user_wallet_000')}</div>

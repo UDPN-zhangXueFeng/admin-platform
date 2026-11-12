@@ -112,6 +112,8 @@ export interface SuspenseAdjustmentDetail {
   statusLabel: string;
   sourceType: SourceType;
   sourceTypeLabel: string;
+  /** 后端 transactionType / txType 映射后的展示文案（可选，后端未返回时为空）。 */
+  transactionTypeLabel?: string;
   age: number;
   financeBookId?: number;
   financeBookName?: string;
@@ -202,6 +204,8 @@ export interface AdjustedDetailDomain {
   suspenseTxnId: string;
   sourceType: SourceType;
   sourceTypeLabel: string;
+  /** Backend transaction type mapped to its display label (optional). */
+  transactionTypeLabel?: string;
   age: number;
   financeBookName?: string;
   bookId?: string;

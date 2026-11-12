@@ -69,7 +69,9 @@ export function CrossChainTransactionsDetailPage(): React.JSX.Element {
   const router = useRouter();
 
   const searchParams = useSearchParams();
-  const transferIdStr = searchParams.get('transferId') ?? '';
+  // 列表 / 流动性池详情跳转用 `transferId`；兼容旧深链 `?id=`（源码 view.tsx:25,30 读 query.id）。
+  const transferIdStr =
+    searchParams.get('transferId') ?? searchParams.get('id') ?? '';
   const transferId =
     transferIdStr !== '' ? Number(transferIdStr) : undefined;
   const hasTransferId = transferId != null && !Number.isNaN(transferId);

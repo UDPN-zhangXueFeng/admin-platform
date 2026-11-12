@@ -1,40 +1,33 @@
 /**
- * FinancialSuspenseAdjustmentApproval — 暂记调整审批详情（迁移自 td-manage
- * `src/pages/approval-manage/components/financial-suspense-adjustment.tsx`，270 行）。
+ * FinancialSuspenseAdjustmentApproval — suspense adjustment approval detail.
+ * Migrated from td-manage
+ * `src/pages/approval-manage/components/financial-suspense-adjustment.tsx`.
  *
- * 业务语义：审批「暂记调整（Suspense Adjustment）」请求，展示 Adjustment Amount +
- * Status + Created by/on + Basic Details（Suspense Txn ID/Source Type/Age/Transaction Type/
- * Financial Book/Original/Outstanding Amount）+ Adjustment Entry 表 + Adjustment Summary
- * （This Adjustment/Remaining After This/Adjustment Reason）。
+ * The source component is the only approval component that calls an API: it
+ * resolves `adjustmentId` from `detailInfo` (`adjustmentId ?? id`), loads
+ * `/finance/suspense-adjustment/detail` and renders the adapted
+ * `AdjustedDetailDomain`. Without an id — or when the API returns no data — it
+ * falls back to the raw `businessContent` passed by the dispatcher.
  *
- * ⚠️ **唯一调 API 组件**：源调 `fetchSuspenseAdjustmentDetail(adjustmentId)` 取
- * `AdjustedDetailDomain`（后端返回 label 化字段 statusLabel/sourceTypeLabel/
- * transactionTypeLabel 等），无 adjustmentId 时回退用 detailInfo 渲染。
+ * Field mapping mirrors the source: statusLabel / sourceTypeLabel /
+ * transactionTypeLabel / thisAdjustment / remainingAfterThis / amounts / book
+ * fields / createdBy / createdOn / adjustmentEntries. Labels are already
+ * localized by the data-access adapter, so no extra formatting is needed.
  *
- * **迁移限制（Rule 12 标注）**：
- * 目标 approval-manage detail-page 的 dispatcher 把 `businessContent` 透传为 detailInfo，
- * 但源组件消费的 `AdjustedDetailDomain` 是经 suspense-adjustment data-access 适配器加工后的
- * Domain（label 已本地化、字段名归一化）。businessContent 与该 Domain 字段名/语义并不一致
- * （例：Domain 有 statusLabel/sourceTypeLabel，businessContent 多为原始 status/sourceType 数字）。
- *
- * 为避免 approval-manage feature 跨模块依赖 suspense-adjustment data-access（耦合）
- * 且字段语义不可靠，本组件**不调 API，用 detailInfo 兜底渲染**（照任务 T11 指令），
- * 缺失字段显示 '--'（EMPTY_FIELD_VALUE）。状态 badge 走 statusLabel===Approved→green
- * 否则 orange（源 renderStatus 语义）。
- *
- * 后续若需完整字段（amount 计算/entry 表/summary），应：
- * 1. 在 approval-manage data-access 加 fetchSuspenseAdjustmentDetail 封装，或
- * 2. 引入 suspense-adjustment data-access 的 useSuspenseAdjustmentDetailQuery（跨模块依赖）。
- * 当前为最小可用只读展示（detailInfo 直渲），标记为已知限制。
- *
- * 复用 `financial-info-primitives` 的 InfoSection/InfoGrid（2 列布局，同 posting）。
- * i18n 经 useFinancialT 缺 key 回退 key 本身（不崩）。
+ * Reuses `financial-info-primitives` InfoSection/InfoGrid (same 2-column layout
+ * as the posting-rule approval). i18n goes through useFinancialT and falls back
+ * to the key itself when a translation is missing.
  */
 'use client';
 
 import * as React from 'react';
+import { Loader2 } from 'lucide-react';
 
 import { CopyableEllipsisText } from '@myorg/shared/ui';
+import {
+  useSuspenseAdjustmentDetailQuery,
+  type AdjustedDetailDomain,
+} from '@myorg/modules/td-admin/data-access/lib/suspense-adjustment';
 import { EMPTY_FIELD_VALUE } from '../..';
 
 import {
@@ -60,6 +53,54 @@ interface AdjustmentEntryRow {
   drCr: string;
   account: string;
   amount: string;
+}
+
+/**
+ * Resolve the adjustment id from `businessContent` (source `getAdjustmentId`).
+ * Returns undefined for empty / non-numeric ids so the query stays disabled.
+ */
+function resolveAdjustmentId(
+  detailInfo?: Record<string, unknown>,
+): number | undefined {
+  const raw = detailInfo?.adjustmentId ?? detailInfo?.id;
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  const id = Number(raw);
+  return Number.isFinite(id) ? id : undefined;
+}
+
+/**
+ * Map the adapted `AdjustedDetailDomain` to the flat render shape consumed by
+ * this component. The source reads exactly these field names off the fetched
+ * detail, so keeping them here avoids leaking domain-only fields into render.
+ */
+function mapAdjustedDetail(
+  domain: AdjustedDetailDomain,
+): Record<string, unknown> {
+  return {
+    statusLabel: domain.statusLabel,
+    thisAdjustment: domain.thisAdjustment,
+    originalAmount: domain.originalAmount,
+    outstandingAmount: domain.outstandingAmount,
+    remainingAfterThis: domain.remainingAfterThis,
+    currency: domain.currency,
+    bookId: domain.bookId,
+    bookNo: domain.bookNo,
+    financeBookName: domain.financeBookName,
+    suspenseTxnId: domain.suspenseTxnId,
+    sourceTypeLabel: domain.sourceTypeLabel,
+    transactionTypeLabel: domain.transactionTypeLabel,
+    age: domain.age,
+    offsettingEntryFor: domain.offsettingEntryFor,
+    adjustmentReason: domain.adjustmentReason,
+    createdBy: domain.createdBy,
+    createdOn: domain.createdOn,
+    adjustmentEntries: (domain.adjustmentEntries ?? []).map((entry) => ({
+      postingDate: entry.postingDate,
+      drCr: entry.drCr,
+      accountDisplay: entry.accountDisplay,
+      amount: entry.amount,
+    })),
+  };
 }
 
 /**
@@ -121,24 +162,45 @@ export function FinancialSuspenseAdjustmentApproval({
   detailInfo,
 }: FinancialSuspenseAdjustmentApprovalProps) {
   const t = useFinancialT();
-  const detail = (detailInfo ?? {}) as Record<string, unknown>;
+  const fallbackDetail = (detailInfo ?? {}) as Record<string, unknown>;
+  const adjustmentId = resolveAdjustmentId(fallbackDetail);
+  const detailQuery = useSuspenseAdjustmentDetailQuery(adjustmentId);
+  const adjustedDetail = detailQuery.data;
+
+  // API result wins; raw businessContent is the source fallback (same as source).
+  const detail = React.useMemo<Record<string, unknown>>(
+    () =>
+      adjustedDetail
+        ? mapAdjustedDetail(adjustedDetail)
+        : fallbackDetail,
+    [adjustedDetail, fallbackDetail],
+  );
+
+  if (adjustmentId && detailQuery.isLoading && !adjustedDetail) {
+    return (
+      <div className="flex items-center gap-2 rounded border bg-card p-5 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        Loading adjustment details...
+      </div>
+    );
+  }
 
   const currency = (detail.currency as string) || '';
   const statusLabel = textOrDash(detail.statusLabel);
   const thisAdjustment = formatAmount(
-    detail.thisAdjustment as number | string | null | undefined,
+    (detail.thisAdjustment as number | string | null | undefined) ?? 0,
     currency
   );
   const outstandingAmount = formatAmount(
-    detail.outstandingAmount as number | string | null | undefined,
+    (detail.outstandingAmount as number | string | null | undefined) ?? 0,
     currency
   );
   const remainingAfterThis = formatAmount(
-    detail.remainingAfterThis as number | string | null | undefined,
+    (detail.remainingAfterThis as number | string | null | undefined) ?? 0,
     currency
   );
   const originalAmount = formatAmount(
-    detail.originalAmount as number | string | null | undefined,
+    (detail.originalAmount as number | string | null | undefined) ?? 0,
     currency
   );
   const bookNo = textOrDash(detail.bookNo || detail.bookId);
@@ -154,7 +216,7 @@ export function FinancialSuspenseAdjustmentApproval({
             drCr: textOrDash(item.drCr),
             account: textOrDash(item.accountDisplay ?? item.account),
             amount: formatAmount(
-              item.amount as number | string | null | undefined,
+              (item.amount as number | string | null | undefined) ?? 0,
               currency
             ),
           };

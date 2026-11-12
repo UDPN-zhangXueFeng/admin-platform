@@ -6,8 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 
-import { Button, Card, cardSurfaceClass, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
+import { Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
@@ -25,6 +24,7 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 import type { ClearStatus, SourceType } from '@myorg/modules/td-admin/data-access';
 import { SuspenseStatusBadge } from '.';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 const ALL = 'ALL';
@@ -230,51 +230,54 @@ export function SuspenseAdjustmentListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="mb-4 text-sm font-semibold">{t('filter.title')}</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormDateRangePicker
-            startName="postingDateFrom"
-            endName="postingDateTo"
-            control={control}
-            label={t('field.postingDate')}
-          />
-          <FormField
-            name="suspenseTxnId"
-            label={t('field.suspenseTxnId')}
-            register={register('suspenseTxnId')}
-            placeholder={t('placeholder.suspenseTxnId')}
-          />
-          <FormField
-            name="transactionId"
-            label={t('field.transactionId')}
-            register={register('transactionId')}
-            placeholder={t('placeholder.transactionId')}
-          />
-          <FormSelect
-            name="sourceType"
-            control={control}
-            label={t('field.sourceType')}
-            options={sourceTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('field.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormDateRangePicker
+              key="postingDate"
+              startName="postingDateFrom"
+              endName="postingDateTo"
+              control={control}
+              label={t('field.postingDate')}
+            />,
+            <FormField
+              key="suspenseTxnId"
+              name="suspenseTxnId"
+              label={t('field.suspenseTxnId')}
+              register={register('suspenseTxnId')}
+              placeholder={t('placeholder.suspenseTxnId')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('field.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          advancedFields={[
+            <FormField
+              key="transactionId"
+              name="transactionId"
+              label={t('field.transactionId')}
+              register={register('transactionId')}
+              placeholder={t('placeholder.transactionId')}
+            />,
+            <FormSelect
+              key="sourceType"
+              name="sourceType"
+              control={control}
+              label={t('field.sourceType')}
+              options={sourceTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card>

@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl';
 import type { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import {
-  Button,
   CopyableEllipsisText,
   DataTable,
   Input,
@@ -15,9 +14,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  cardSurfaceClass,
 } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
 import { DateRangePicker } from '@myorg/shared/ui-forms';
 import { useSpAccessSubmittedTransactionsQuery } from '@myorg/modules/td-admin/data-access';
 import type {
@@ -30,6 +27,7 @@ import {
   formatTimestamp,
 } from './formatters';
 import { SpAccessStatusBadge } from './sp-access-status-badge';
+import { QueryForm } from '../query-form';
 import {
   SUBMITTED_TX_STATUS_FILTER_VALUES,
   TX_DATA_SOURCE_VALUES,
@@ -219,13 +217,9 @@ export function SpAccessSubmittedTransactionsSection({
 
   return (
     <div className="space-y-4">
-      <div className={cn(cardSurfaceClass, 'p-6')}>
-        <div className="text-base font-semibold">{t('sp_access_0073')}</div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {t('sp_access_0075').replace('****', detail.spName || EMPTY_FIELD_VALUE)}
-        </p>
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          <label className="flex flex-col gap-1 text-sm">
+      <QueryForm
+        fields={[
+          <label key="txType" className="flex flex-col gap-1 text-sm">
             <span>{t('sp_access_0060')}</span>
             <Select value={draft.txType} onValueChange={(value) => setDraftField('txType', value)}>
               <SelectTrigger>
@@ -240,8 +234,8 @@ export function SpAccessSubmittedTransactionsSection({
                 ))}
               </SelectContent>
             </Select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
+          </label>,
+          <label key="tokenCode" className="flex flex-col gap-1 text-sm">
             <span>{t('transaction_flow_0018')}</span>
             <Select
               value={draft.tokenCode}
@@ -259,8 +253,26 @@ export function SpAccessSubmittedTransactionsSection({
                 ))}
               </SelectContent>
             </Select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
+          </label>,
+          <label key="status" className="flex flex-col gap-1 text-sm">
+            <span>{t('PUB_Status')}</span>
+            <Select value={draft.status} onValueChange={(value) => setDraftField('status', value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>{t('PUB_All')}</SelectItem>
+                {SUBMITTED_TX_STATUS_FILTER_VALUES.map((value) => (
+                  <SelectItem key={value} value={String(value)}>
+                    {t(`common_task_status_${value}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>,
+        ]}
+        advancedFields={[
+          <label key="submissionMethod" className="flex flex-col gap-1 text-sm">
             <span>{t('sp_access_0079')}</span>
             <Select
               value={draft.submissionMethod}
@@ -278,24 +290,8 @@ export function SpAccessSubmittedTransactionsSection({
                 ))}
               </SelectContent>
             </Select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span>{t('PUB_Status')}</span>
-            <Select value={draft.status} onValueChange={(value) => setDraftField('status', value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('PUB_All')}</SelectItem>
-                {SUBMITTED_TX_STATUS_FILTER_VALUES.map((value) => (
-                  <SelectItem key={value} value={String(value)}>
-                    {t(`common_task_status_${value}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
+          </label>,
+          <label key="txTime" className="flex flex-col gap-1 text-sm">
             <span>{t('sp_access_0061')}</span>
             <DateRangePicker
               value={{ start: draft.txStartDate, end: draft.txEndDate }}
@@ -305,40 +301,29 @@ export function SpAccessSubmittedTransactionsSection({
               }}
               ariaLabel={t('sp_access_0061')}
             />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
+          </label>,
+          <label key="txHash" className="flex flex-col gap-1 text-sm">
             <span>{t('transaction_flow_007')}</span>
             <Input
               value={draft.txHash}
               placeholder={t('transaction_flow_007')}
               onChange={(event) => setDraftField('txHash', event.target.value)}
             />
-          </label>
-        </div>
-        <div className="mt-4 flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setDraft(EMPTY_DRAFT);
-              setApplied(EMPTY_DRAFT);
-              setPage(1);
-              setPageSize(PAGE_SIZE);
-            }}
-          >
-            {t('PUB_Reset')}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              setApplied(draft);
-              setPage(1);
-            }}
-          >
-            {t('PUB_Query')}
-          </Button>
-        </div>
-      </div>
+          </label>,
+        ]}
+        onQuery={() => {
+          setApplied(draft);
+          setPage(1);
+        }}
+        onReset={() => {
+          setDraft(EMPTY_DRAFT);
+          setApplied(EMPTY_DRAFT);
+          setPage(1);
+          setPageSize(PAGE_SIZE);
+        }}
+        queryLabel={t('PUB_Query')}
+        resetLabel={t('PUB_Reset')}
+      />
 
       <DataTable
         columns={columns}

@@ -4,14 +4,11 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import {
-  Button,
   Card,
   DataTable,
   Input,
   Label,
-  cardSurfaceClass,
 } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
 import {
   useRoleWalletDetailQuery,
   useRoleWalletsListQuery,
@@ -23,6 +20,7 @@ import {
   EMPTY_DISPLAY,
 } from '@myorg/modules/td-admin/data-access';
 import { roleWalletColumns } from './role-wallets-columns';
+import { QueryForm } from '../query-form';
 import { RoleWalletConfigureModal } from './role-wallets-configure-modal';
 import { RoleWalletDetailModal } from './role-wallets-detail-modal';
 
@@ -142,44 +140,41 @@ export function RoleWallets({
         {t('td_legacy_demo_notice')}
       </p>
       {/* 筛选区 */}
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div>
-            <Label
-              htmlFor="role-wallets-roleName"
-              className="mb-1.5 block text-sm font-medium"
-            >
-              {t('role_name')}
-            </Label>
-            <Input
-              id="role-wallets-roleName"
-              placeholder={t('role_name')}
-              {...register('roleName')}
-            />
-          </div>
-          <div>
-            <Label
-              htmlFor="role-wallets-walletAddress"
-              className="mb-1.5 block text-sm font-medium"
-            >
-              {t('wallet_address')}
-            </Label>
-            <Input
-              id="role-wallets-walletAddress"
-              placeholder={t('enter_wallet_address')}
-              {...register('walletAddress')}
-            />
-          </div>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('PUB_Query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('PUB_Reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <div key="roleName">
+              <Label
+                htmlFor="role-wallets-roleName"
+                className="mb-1.5 block text-sm font-medium"
+              >
+                {t('role_name')}
+              </Label>
+              <Input
+                id="role-wallets-roleName"
+                placeholder={t('role_name')}
+                {...register('roleName')}
+              />
+            </div>,
+            <div key="walletAddress">
+              <Label
+                htmlFor="role-wallets-walletAddress"
+                className="mb-1.5 block text-sm font-medium"
+              >
+                {t('wallet_address')}
+              </Label>
+              <Input
+                id="role-wallets-walletAddress"
+                placeholder={t('enter_wallet_address')}
+                {...register('walletAddress')}
+              />
+            </div>,
+          ]}
+          onReset={onReset}
+          queryLabel={t('PUB_Query')}
+          resetLabel={t('PUB_Reset')}
+        />
       </form>
 
       {/* 列表 */}

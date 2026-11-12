@@ -114,7 +114,6 @@
   "KP_Submit": "Submit",
   "KP_Days": "Day(s)",
   "KP_Months": "Month(s)",
-  "KP_DemoBanner": "Demo data — this module is not connected to a backend in this environment. All entries are sample data for read-only inspection.",
   "KP_DemoSubmitNotice": "Demo only — nothing was submitted and no data was changed.",
   "KP_SubmitDemo": "Submit (demo)",
   "KP_DisableDemo": "Disable (demo)",

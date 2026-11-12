@@ -6,11 +6,12 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 
-import { Button, DataTable, type DataTablePagination } from '@myorg/shared/ui';
+import { DataTable, type DataTablePagination } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import {
+  useCurrencyListQuery,
   useReserveAssetListQuery,
   type ReserveAssetListReqVo,
   type ReserveAssetSummaryRespVo,
@@ -24,6 +25,7 @@ import {
   formatTimestamp,
 } from '.';
 import { ReconciliationSection } from '.';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
@@ -127,12 +129,17 @@ export function ReserveListPage() {
   const total = result.data?.page?.total ?? 0;
   const isLoading = result.isLoading || result.isFetching;
 
-  // ── 币种下拉：仅“全部”（目标无通用币种 hook；后端汇总行 currencySymbol
-  //    不作列表筛选回显来源，与 real-time 不同，保持源 Select + 通用 currencyOptions
-  //    语义占位，待通用 hook 接入后替换） ────────────────────────────────────
+  // ── 币种下拉：`/common/currency/list`（旧 useCurrencyOptions 同源）。
+  //    `value=key` / `label=value`，与旧 hook 及 journal-entries 列表一致。
+  const currencyList = useCurrencyListQuery();
   const currencyOptions = React.useMemo(
-    () => [{ value: ALL_VALUE, label: t('PUB_All') }],
-    [t],
+    () => [
+      { value: ALL_VALUE, label: t('PUB_All') },
+      ...(currencyList.data ?? [])
+        .filter((c) => !!c.key)
+        .map((c) => ({ value: c.key as string, label: c.value ?? '' })),
+    ],
+    [t, currencyList.data],
   );
 
   // ── 列定义 ────────────────────────────────────────────────────────────────
@@ -260,47 +267,54 @@ export function ReserveListPage() {
         title={t('reconciliation_0206')}
         description={t('reconciliation_0200') ?? ''}
       >
-        <form
-          onSubmit={onSubmit}
-          className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
-        >
-          <FormField
-            name="reserveAssetName"
-            label={t('reconciliation_0201')}
-            register={register('reserveAssetName')}
-            placeholder={t('reconciliation_0201')}
+        <form onSubmit={onSubmit}>
+          <QueryForm
+            variant="plain"
+            queryType="submit"
+            fields={[
+              <FormField
+                key="reserveAssetName"
+                name="reserveAssetName"
+                label={t('reconciliation_0201')}
+                register={register('reserveAssetName')}
+                placeholder={t('reconciliation_0201')}
+              />,
+              <FormSelect
+                key="currencySymbol"
+                name="currencySymbol"
+                control={control}
+                label={t('reconciliation_0032')}
+                options={currencyOptions}
+                placeholder={t('PUB_All')}
+              />,
+              <FormDateRangePicker
+                key="lastReconciliationDate"
+                startName="lastReconciliationDateStart"
+                endName="lastReconciliationDateEnd"
+                control={control}
+                label={t('reconciliation_0071')}
+              />,
+            ]}
+            advancedFields={[
+              <FormField
+                key="financeBookName"
+                name="financeBookName"
+                label={t('reconciliation_0077')}
+                register={register('financeBookName')}
+                placeholder={t('reconciliation_0077')}
+              />,
+              <FormField
+                key="financeBookId"
+                name="financeBookId"
+                label={t('reconciliation_0048')}
+                register={register('financeBookId')}
+                placeholder={t('reconciliation_0048')}
+              />,
+            ]}
+            onReset={onReset}
+            queryLabel={t('PUB_Query')}
+            resetLabel={t('PUB_Reset')}
           />
-          <FormField
-            name="financeBookName"
-            label={t('reconciliation_0077')}
-            register={register('financeBookName')}
-            placeholder={t('reconciliation_0077')}
-          />
-          <FormField
-            name="financeBookId"
-            label={t('reconciliation_0048')}
-            register={register('financeBookId')}
-            placeholder={t('reconciliation_0048')}
-          />
-          <FormSelect
-            name="currencySymbol"
-            control={control}
-            label={t('reconciliation_0032')}
-            options={currencyOptions}
-            placeholder={t('PUB_All')}
-          />
-          <FormDateRangePicker
-            startName="lastReconciliationDateStart"
-            endName="lastReconciliationDateEnd"
-            control={control}
-            label={t('reconciliation_0071')}
-          />
-          <div className="flex items-end gap-2">
-            <Button type="submit">{t('PUB_Query')}</Button>
-            <Button type="button" variant="outline" onClick={onReset}>
-              {t('PUB_Reset')}
-            </Button>
-          </div>
         </form>
       </ReconciliationSection>
 

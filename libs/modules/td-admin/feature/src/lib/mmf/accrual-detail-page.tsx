@@ -25,6 +25,7 @@ import {
   EMPTY_DISPLAY,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 
 const DATE_FMT = 'YYYY-MM-DD';
 
@@ -309,26 +310,26 @@ export function AccrualDetailPage() {
       <div className="p-4">
         <form
           onSubmit={handleSubmit(onWalletSubmit)}
-          className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+          className="mb-4"
         >
-          <FormField
-            name="walletAddress"
-            label={t('field.walletAddress')}
-            register={register('walletAddress')}
-            placeholder={t('field.walletAddress')}
+          <QueryForm
+            variant="plain"
+            queryType="submit"
+            fields={[
+              <FormField
+                key="walletAddress"
+                name="walletAddress"
+                label={t('field.walletAddress')}
+                register={register('walletAddress')}
+                placeholder={t('field.walletAddress')}
+              />,
+            ]}
+            onReset={onWalletReset}
+            queryLabel={t('filter.query')}
+            resetLabel={t('filter.reset')}
           />
-          <div className="flex items-end gap-2">
-            <Button type="submit">{t('filter.query')}</Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onWalletReset}
-            >
-              {t('filter.reset')}
-            </Button>
-          </div>
         </form>
-      
+
         <DataTable
           columns={walletColumns}
           data={walletRows}

@@ -14,6 +14,13 @@ export const TX_TYPE_VALUES = [
 /** Token 类型（与 journal-entries-new FIXED_TOKEN_TYPES 一致）。 */
 export const FIXED_TOKEN_TYPES = [1, 5] as const;
 
+/** Legacy TDManage button permission UUIDs for row/detail/export actions. */
+export const AUDIT_TRAIL_PERMISSIONS = {
+  VIEW_DETAIL: 'e0ba83fd4b4e4a8c88c3a44a510906c3',
+  EXPORT_ALL: '6144d5a396984548a65da54d82a2b164',
+  EXPORT_ROW: 'c8db28e21db74560822b72eb48622d00',
+} as const;
+
 export const DEFAULT_PAGE_SIZE = 10;
 export const EMPTY_DISPLAY = '--';
 /** 下拉「全部」值（源用空串）。 */

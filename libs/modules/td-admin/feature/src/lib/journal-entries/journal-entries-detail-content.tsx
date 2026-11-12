@@ -7,10 +7,10 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
-import { Button, Card, cardSurfaceClass, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
+import { Button, Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import {
   useBillTxListQuery,
@@ -232,37 +232,37 @@ export function JournalEntriesView({
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="traceId"
-            label={t('field.traceId')}
-            register={register('traceId')}
-            placeholder={t('field.traceId')}
-          />
-          <FormSelect
-            name="txType"
-            control={control}
-            label={t('field.txType')}
-            options={txTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="timeFrom"
-            endName="timeTo"
-            control={control}
-            label={t('field.dateTime')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={() => reset(EMPTY_FILTER)}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          fields={[
+            <FormField
+              key="traceId"
+              name="traceId"
+              label={t('field.traceId')}
+              register={register('traceId')}
+              placeholder={t('field.traceId')}
+            />,
+            <FormSelect
+              key="txType"
+              name="txType"
+              control={control}
+              label={t('field.txType')}
+              options={txTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="timeRange"
+              startName="timeFrom"
+              endName="timeTo"
+              control={control}
+              label={t('field.dateTime')}
+            />,
+          ]}
+          onReset={() => reset(EMPTY_FILTER)}
+          queryType="submit"
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="flex justify-between border-b px-6 py-3">

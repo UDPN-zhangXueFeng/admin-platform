@@ -10,10 +10,12 @@ import {
   DataTable,
 } from '@myorg/shared/ui';
 import { useAuth } from '@myorg/shared/util-auth';
-import { formatAdminTimestamp } from '../format-admin-time';
+import { formatAdminDate, formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
 import { WalletStatusBadge } from '.';
 import {
+  getCommonResource,
+  openCommonResource,
   useWalletTypeTableQuery,
   type StablecoinSearchOption,
   type WalletTypeTableRow,
@@ -24,22 +26,18 @@ import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
   formatLimit,
+  MMF_API_DOC_FALLBACK_URL,
   toMillis,
   WALLET_PERMISSIONS,
+  WALLET_TYPE_API_DOC_MENU_KEY,
 } from '.';
 
 
 /**
- * `NEXT_PUBLIC_FILE_ID` PDF 下载基址（源 sftp/download blob）。
- *
- * KNOWN LIMITATION：data-access 未暴露 resources/search + sftp/download blob 端点，
- * 且 apiClient 只解包 `{code,message,data}` 信封（无 responseType=blob 能力）。
- * 环境未配置 `NEXT_PUBLIC_FILE_ID` 时，API 文档按钮降级为 disabled（不崩）。
- * 后续接入需：① data-access 新增 getResources/getDownloadBlob；② apiClient 支持
- * responseType=blob。详见迁移文档 §6 已知限制。
+ * MMF API document: resolved through `resources/search` + `sftp/download`
+ * (source behaviour). If the backend resource service is unavailable, the
+ * handler opens the bundled PDF instead of silently doing nothing.
  */
-const FILE_ID_BASE = process.env.NEXT_PUBLIC_FILE_ID ?? '';
-const PDF_DOWNLOAD_AVAILABLE = Boolean(FILE_ID_BASE);
 
 export interface WalletTypeTableSectionProps {
   /** 当前 stablecoin（提供 issueType / stablecoinId 等上下文）。 */
@@ -61,7 +59,7 @@ export interface WalletTypeTableSectionProps {
  *     成立日 / 创建人 / 创建时间 / 状态。
  * - 状态列 WalletStatusBadge（wallet-type 族：1/5/10/15/20/25）。
  * - 表头 Add 按钮（跳新增路径，按 issueType 分流 mff/常规）。
- * - MMF 表头额外 API 文档按钮（PDF 下载，依赖 NEXT_PUBLIC_FILE_ID，无则 disabled）。
+ * - MMF 表头额外 API 文档按钮（resources/search + sftp/download；后端不可用时打开内置 PDF）。
  * - 行操作 View：跳 `/approval-manage/view?id=taskId&busCode=businessCode`（源 actionClick
  *   View 忠实保留——表行是审批记录维度，非钱包类型详情）。
  * - stablecoin 未选 / state===2 时：表头写操作禁用；stablecoinId 缺失则 hook 不请求。
@@ -87,6 +85,28 @@ export function WalletTypeTableSection({
     pageNum: 1,
     pageSize: DEFAULT_PAGE_SIZE,
   });
+  const [apiDocLoading, setApiDocLoading] = React.useState(false);
+
+  const handleOpenApiDoc = React.useCallback(async () => {
+    setApiDocLoading(true);
+    try {
+      const resource = await getCommonResource(WALLET_TYPE_API_DOC_MENU_KEY);
+      if (resource?.busId === undefined || resource.busType === undefined) {
+        throw new Error('API document resource is not configured');
+      }
+      await openCommonResource(resource.busId, resource.busType);
+    } catch {
+      // Backend resource service unavailable: open the bundled PDF so the
+      // button still shows a document instead of a silent no-op.
+      window.open(
+        encodeURI(MMF_API_DOC_FALLBACK_URL),
+        '_blank',
+        'noopener,noreferrer'
+      );
+    } finally {
+      setApiDocLoading(false);
+    }
+  }, []);
 
   // stablecoin 切换时重置到第 1 页（源切 tab 后表重新加载）。
   React.useEffect(() => {
@@ -148,6 +168,64 @@ export function WalletTypeTableSection({
               {(row.original as WalletTypeTableRow & { walletTypeCode?: string }).walletTypeCode ||
                 EMPTY_DISPLAY}
             </span>
+          ),
+        },
+        {
+          id: 'fundType',
+          header: t('walletType.column.fundType'),
+          cell: ({ row }) => {
+            const fundType = row.original.fundType;
+            return (
+              <span>
+                {fundType
+                  ? t(`walletType.mmfFundType.${fundType}` as never)
+                  : EMPTY_DISPLAY}
+              </span>
+            );
+          },
+        },
+        {
+          id: 'riskLevel',
+          header: t('walletType.column.riskLevel'),
+          cell: ({ row }) => {
+            const riskLevel = row.original.riskLevel;
+            return (
+              <span>
+                {riskLevel
+                  ? t(`walletType.mmfRiskLevel.${riskLevel}` as never)
+                  : EMPTY_DISPLAY}
+              </span>
+            );
+          },
+        },
+        {
+          id: 'fundAssetValue',
+          header: t('walletType.column.fundAssetValue'),
+          cell: ({ row }) => {
+            const value = row.original.fundAssetValue;
+            if (value === undefined || value === null || value === '') {
+              return <span>{EMPTY_DISPLAY}</span>;
+            }
+            const symbol = row.original.currencySymbol ?? '';
+            return <span>{`${value} ${symbol}`.trim()}</span>;
+          },
+        },
+        {
+          id: 'fundInceptionTime',
+          header: t('walletType.column.fundInceptionTime'),
+          cell: ({ row }) => (
+            <span>
+              {formatAdminDate(
+                toMillis(Number(row.original.fundInceptionTime))
+              )}
+            </span>
+          ),
+        },
+        {
+          id: 'createUser',
+          header: t('walletType.column.creator'),
+          cell: ({ row }) => (
+            <span>{row.original.createUser || EMPTY_DISPLAY}</span>
           ),
         },
         {
@@ -304,12 +382,9 @@ export function WalletTypeTableSection({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!PDF_DOWNLOAD_AVAILABLE || !canEdit}
+                disabled={apiDocLoading || !canEdit}
                 onClick={() => {
-                  // KNOWN LIMITATION：PDF 下载需 resources/search + sftp/blob，
-                  // data-access 未建模、apiClient 无 blob 能力。环境配置 FILE_ID 后
-                  // 方可启用（task §6）。当前仅保留 UI 入口，点击无副作用。
-                  if (!PDF_DOWNLOAD_AVAILABLE) return;
+                  void handleOpenApiDoc();
                 }}
               >
                 {t('walletType.action.apiDoc')}

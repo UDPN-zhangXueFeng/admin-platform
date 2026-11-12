@@ -8,13 +8,10 @@ import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
 import {
-  Button,
   Card,
-  cardSurfaceClass,
   CopyableEllipsisText,
   DataTable,
 } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
@@ -41,10 +38,16 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 
 import { getFinancialBookMetaByBookId } from './financial-book-meta';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn, type RowAction } from '../row-actions';
 
 /** 详情 tab 取值，与操作跳转一一对应。 */
-type DetailTab = 'basic-information' | 'chart-of-accounts' | 'eod-statements';
+type DetailTab =
+  | 'basic-information'
+  | 'chart-of-accounts'
+  | 'eod-statements'
+  | 'trial-balance'
+  | 'operation-records';
 
 /** “全部”占位值（Radix Select 不允许空字符串 value，故用 `'all'`）。 */
 const ALL_VALUE = 'all';
@@ -489,64 +492,69 @@ export function ChartOfAccountsListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="mb-4 text-sm font-semibold">{t('filter.title')}</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <FormField
-            name="financialBookName"
-            label={t('field.bookName')}
-            register={register('financialBookName')}
-            placeholder={t('placeholder.bookName')}
-          />
-          <FormField
-            name="bookId"
-            label={t('field.bookNo')}
-            register={register('bookId')}
-            placeholder={t('placeholder.bookNo')}
-          />
-          <FormField
-            name="reserveAssetName"
-            label={t('field.reserveAssetName')}
-            register={register('reserveAssetName')}
-            placeholder={t('placeholder.reserveAssetName')}
-          />
-          <FormSelect
-            name="currency"
-            control={control}
-            label={t('field.currency')}
-            options={[{ value: ALL_VALUE, label: t('filter.all') }, ...currencyOptions]}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="tokenType"
-            control={control}
-            label={t('field.tokenType')}
-            options={tokenTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="createdOnFrom"
-            endName="createdOnTo"
-            control={control}
-            label={t('field.createdOn')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('field.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormField
+              key="financialBookName"
+              name="financialBookName"
+              label={t('field.bookName')}
+              register={register('financialBookName')}
+              placeholder={t('placeholder.bookName')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('field.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="createdOn"
+              startName="createdOnFrom"
+              endName="createdOnTo"
+              control={control}
+              label={t('field.createdOn')}
+            />,
+          ]}
+          advancedFields={[
+            <FormField
+              key="bookId"
+              name="bookId"
+              label={t('field.bookNo')}
+              register={register('bookId')}
+              placeholder={t('placeholder.bookNo')}
+            />,
+            <FormField
+              key="reserveAssetName"
+              name="reserveAssetName"
+              label={t('field.reserveAssetName')}
+              register={register('reserveAssetName')}
+              placeholder={t('placeholder.reserveAssetName')}
+            />,
+            <FormSelect
+              key="currency"
+              name="currency"
+              control={control}
+              label={t('field.currency')}
+              options={[{ value: ALL_VALUE, label: t('filter.all') }, ...currencyOptions]}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="tokenType"
+              name="tokenType"
+              control={control}
+              label={t('field.tokenType')}
+              options={tokenTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="border-b px-6 py-3 text-sm font-semibold">

@@ -3,6 +3,7 @@
   "records": "Posting Books",
   "empty": "No Data",
   "copy": "Copy",
+  "validation": { "required": "Required" },
   "filter": {
     "title": "Query",
     "query": "Query",
@@ -89,6 +90,7 @@
   "versionHistory": {
     "sourceEventType": "Source Event Type",
     "versionId": "Version ID",
+    "versionIdPlaceholder": "Enter Version ID",
     "entryDirection": "Entry Direction",
     "effectiveDate": "Effective Date",
     "createdBy": "Created By",
@@ -99,6 +101,7 @@
   "edit": {
     "title": "Edit Posting Rule",
     "effectiveDate": "Effective Date",
+    "effectiveDateAfterToday": "Effective Date must be later than today",
     "entryTemplate": "Entry Template",
     "drCr": "Dr/Cr",
     "account": "Account",

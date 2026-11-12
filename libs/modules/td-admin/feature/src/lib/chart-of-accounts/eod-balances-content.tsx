@@ -2,9 +2,9 @@
 
 import { useForm } from 'react-hook-form';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
+import { Button, Card, DataTable } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { QueryForm } from '../query-form';
 import type {
   EodClearingStatus,
   EodStatementRow,
@@ -76,34 +76,33 @@ export function EodBalancesContent({
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">{description}</p>
 
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-4')}
-      >
-        <div className="flex flex-wrap items-end gap-4">
-          <FormDateRangePicker
-            startName="rangeFrom"
-            endName="rangeTo"
-            control={control}
-            label={t('eod.eodDate')}
-          />
-          <FormSelect
-            name="clearingStatus"
-            control={control}
-            label={t('eod.clearingStatus')}
-            options={[
-              { value: ALL_VALUE, label: t('filter.all') },
-              ...CLEARING_STATUS_OPTIONS,
-            ]}
-            placeholder={t('filter.all')}
-          />
-          <div className="flex gap-2 pb-2">
-            <Button type="submit">{t('filter.query')}</Button>
-            <Button type="button" variant="outline" onClick={onReset}>
-              {t('filter.reset')}
-            </Button>
-          </div>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          fields={[
+            <FormDateRangePicker
+              key="range"
+              startName="rangeFrom"
+              endName="rangeTo"
+              control={control}
+              label={t('eod.eodDate')}
+            />,
+            <FormSelect
+              key="clearingStatus"
+              name="clearingStatus"
+              control={control}
+              label={t('eod.clearingStatus')}
+              options={[
+                { value: ALL_VALUE, label: t('filter.all') },
+                ...CLEARING_STATUS_OPTIONS,
+              ]}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryType="submit"
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="p-4">

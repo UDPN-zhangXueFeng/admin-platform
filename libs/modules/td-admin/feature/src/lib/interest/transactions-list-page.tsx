@@ -30,6 +30,7 @@ import {
   TRANSACTION_STATUS_OPTIONS,
 } from '.';
 import { ALL_VALUE } from './interest.constants';
+import { InterestFilterSelect } from './interest-filter-select';
 import { TransactionStatusBadge } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
@@ -192,12 +193,13 @@ export function TransactionsListPage() {
           options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(tokenOptions ?? [])]}
           placeholder={tc('PUB_All')}
         />
-        <FormSelect
+        <InterestFilterSelect
           name="blockchainId"
           label={tc('PUB_Blockchain')}
           control={form.control}
           options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(blockchainOptions ?? [])]}
           placeholder={tc('PUB_All')}
+          idPrefix="interest-transactions"
         />
         <FormSelect
           name="feeType"

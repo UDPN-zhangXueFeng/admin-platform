@@ -9,7 +9,6 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import {
   Button,
   Card,
-  cardSurfaceClass,
   DataTable,
   Select,
   SelectContent,
@@ -17,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
 import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { formatDate } from '@myorg/shared/util-dates';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
@@ -43,6 +41,7 @@ import {
   AccrualApplyModal,
   type AccrualApplyModalProps,
 } from './accrual-apply-modal';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 const DATE_FMT = 'YYYY-MM-DD';
@@ -354,76 +353,79 @@ export function AccrualListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormDateRangePicker
-            startName="accrualTimeFrom"
-            endName="accrualTimeTo"
-            control={control}
-            label={t('field.accrualTime')}
-          />
-          <FormSelect
-            name="ruleId"
-            control={control}
-            label={t('field.fundName')}
-            options={fundOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="tokenId"
-            control={control}
-            label={t('field.tokenSymbol')}
-            options={tokenOptions}
-            placeholder={t('filter.all')}
-          />
-          {/* 链：per-option disabled（status!==1）需绕过 FormSelect，
-              用原生 Radix Select + SelectItem disabled。 */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t('field.blockchain')}</label>
-            <Controller
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormDateRangePicker
+              key="accrualTime"
+              startName="accrualTimeFrom"
+              endName="accrualTimeTo"
               control={control}
-              name="blockchainId"
-              render={({ field }) => (
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t('filter.all')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
-                    {blockchainOptions.map((opt) => (
-                      <SelectItem
-                        key={opt.value}
-                        value={opt.value}
-                        disabled={opt.disabled}
-                      >
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('field.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+              label={t('field.accrualTime')}
+            />,
+            <FormSelect
+              key="ruleId"
+              name="ruleId"
+              control={control}
+              label={t('field.fundName')}
+              options={fundOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('field.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="tokenId"
+              name="tokenId"
+              control={control}
+              label={t('field.tokenSymbol')}
+              options={tokenOptions}
+              placeholder={t('filter.all')}
+            />,
+            /* 链：per-option disabled（status!==1）需绕过 FormSelect，
+                用原生 Radix Select + SelectItem disabled。 */
+            <div key="blockchainId" className="space-y-1.5">
+              <label className="text-sm font-medium">{t('field.blockchain')}</label>
+              <Controller
+                control={control}
+                name="blockchainId"
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={t('filter.all')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
+                      {blockchainOptions.map((opt) => (
+                        <SelectItem
+                          key={opt.value}
+                          value={opt.value}
+                          disabled={opt.disabled}
+                        >
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="flex justify-between border-b px-6 py-3">

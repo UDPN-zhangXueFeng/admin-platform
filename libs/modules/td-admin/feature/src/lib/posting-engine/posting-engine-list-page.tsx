@@ -7,8 +7,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
-import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
+import { Card, DataTable } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
@@ -28,6 +27,7 @@ import {
   resolveTokenTypeMessageKey,
 } from '.';
 import { ALL_VALUE } from './posting-engine.constants';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 /**
@@ -86,7 +86,7 @@ export function PostingEngineListPage() {
     authPermissions.size === 0 ||
     authPermissions.has(POSTING_ENGINE_PERMISSIONS.Detail);
 
-  const { register, control, handleSubmit, reset } =
+  const { register, control, handleSubmit, reset, watch } =
     useForm<PostingBookFilterForm>({ defaultValues: EMPTY_FORM });
 
   const [queryValues, setQueryValues] =
@@ -120,6 +120,24 @@ export function PostingEngineListPage() {
     ],
     [t]
   );
+  const selectedCurrency = watch('currencyCode').trim();
+  const currencyOptions = React.useMemo(() => {
+    const currencies = new Set(
+      rows
+        .map((row) => row.currencyCode?.trim())
+        .filter((value): value is string => Boolean(value))
+    );
+    if (selectedCurrency && selectedCurrency !== ALL_VALUE) {
+      currencies.add(selectedCurrency);
+    }
+    return [
+      { value: ALL_VALUE, label: t('filter.all') },
+      ...Array.from(currencies)
+        .sort()
+        .map((currency) => ({ value: currency, label: currency })),
+    ];
+  }, [rows, selectedCurrency, t]);
+
 
   const columns = React.useMemo<ColumnDef<PostingBook>[]>(
     () => [
@@ -252,44 +270,47 @@ export function PostingEngineListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="mb-4 text-sm font-semibold">{t('filter.title')}</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="financialBookName"
-            label={t('field.bookName')}
-            register={register('financialBookName')}
-            placeholder={t('placeholder.bookName')}
-          />
-          <FormField
-            name="currencyCode"
-            label={t('field.currency')}
-            register={register('currencyCode')}
-            placeholder={t('placeholder.currency')}
-          />
-          <FormSelect
-            name="tokenType"
-            control={control}
-            label={t('field.tokenType')}
-            options={tokenTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="lastRuleUpdateFrom"
-            endName="lastRuleUpdateTo"
-            control={control}
-            label={t('field.lastRuleUpdate')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormField
+              key="financialBookName"
+              name="financialBookName"
+              label={t('field.bookName')}
+              register={register('financialBookName')}
+              placeholder={t('placeholder.bookName')}
+            />,
+            <FormSelect
+              key="currencyCode"
+              name="currencyCode"
+              control={control}
+              label={t('field.currency')}
+              options={currencyOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="tokenType"
+              name="tokenType"
+              control={control}
+              label={t('field.tokenType')}
+              options={tokenTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          advancedFields={[
+            <FormDateRangePicker
+              key="lastRuleUpdate"
+              startName="lastRuleUpdateFrom"
+              endName="lastRuleUpdateTo"
+              control={control}
+              label={t('field.lastRuleUpdate')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card>

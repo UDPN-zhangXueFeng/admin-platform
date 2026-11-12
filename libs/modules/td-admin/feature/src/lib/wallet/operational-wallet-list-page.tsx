@@ -8,13 +8,10 @@ import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
 import {
-  Button,
   Card,
   CopyableEllipsisText,
   DataTable,
-  cardSurfaceClass,
 } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
 import {
   FormDateRangePicker,
   FormField,
@@ -31,6 +28,7 @@ import {
   type WalletListParams,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import { WalletStatusBadge } from '.';
 import {
@@ -275,61 +273,63 @@ export function OperationalWalletListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="mb-4 text-sm font-semibold">
-          {t('operationalWallet.filterTitle')}
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="walletAddress"
-            label={t('operationalWallet.column.walletAddress')}
-            register={register('walletAddress')}
-            placeholder={t('operationalWallet.placeholder.walletAddress')}
-          />
-          <FormSelect
-            name="accountType"
-            control={control}
-            label={t('operationalWallet.column.accountType')}
-            options={accountTypeOptions}
-            placeholder={t('common.all')}
-          />
-          <FormSelect
-            name="stablecoinId"
-            control={control}
-            label={t('operationalWallet.column.tokenName')}
-            options={stablecoinOptions}
-            placeholder={t('common.all')}
-          />
-          <FormSelect
-            name="blockchainKey"
-            control={control}
-            label={t('operationalWallet.column.blockchain')}
-            options={blockchainOptions}
-            placeholder={t('common.all')}
-          />
-          <FormDateRangePicker
-            startName="startCreateTime"
-            endName="endCreateTime"
-            control={control}
-            label={t('operationalWallet.field.createTime')}
-          />
-          <FormSelect
-            name="state"
-            control={control}
-            label={t('common.status')}
-            options={stateOptions}
-            placeholder={t('common.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('common.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('common.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormField
+              key="walletAddress"
+              name="walletAddress"
+              label={t('operationalWallet.column.walletAddress')}
+              register={register('walletAddress')}
+              placeholder={t('operationalWallet.placeholder.walletAddress')}
+            />,
+            <FormDateRangePicker
+              key="createTime"
+              startName="startCreateTime"
+              endName="endCreateTime"
+              control={control}
+              label={t('operationalWallet.field.createTime')}
+            />,
+            <FormSelect
+              key="state"
+              name="state"
+              control={control}
+              label={t('common.status')}
+              options={stateOptions}
+              placeholder={t('common.all')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="accountType"
+              name="accountType"
+              control={control}
+              label={t('operationalWallet.column.accountType')}
+              options={accountTypeOptions}
+              placeholder={t('common.all')}
+            />,
+            <FormSelect
+              key="stablecoinId"
+              name="stablecoinId"
+              control={control}
+              label={t('operationalWallet.column.tokenName')}
+              options={stablecoinOptions}
+              placeholder={t('common.all')}
+            />,
+            <FormSelect
+              key="blockchainKey"
+              name="blockchainKey"
+              control={control}
+              label={t('operationalWallet.column.blockchain')}
+              options={blockchainOptions}
+              placeholder={t('common.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('common.query')}
+          resetLabel={t('common.reset')}
+        />
       </form>
 
       <Card>

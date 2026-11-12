@@ -35,6 +35,7 @@
     "ms": "ms"
   },
   "action": { "detail": "Detail", "export": "Export", "back": "Back" },
+  "downloadCenter": "Download Center",
   "empty": "No records found",
   "exportSuccess": "Export task created.",
   "exportFailed": "Export failed.",

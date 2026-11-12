@@ -138,11 +138,6 @@ export function KeyPolicyConfigurationNewPage() {
 
   return (
     <div className="space-y-6">
-      {/* Demo banner — no create API exists; submission never persists. */}
-      <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        {t('KP_DemoBanner')}
-      </div>
-
       <Card className="p-6">
         <div className="mb-6 text-base font-semibold">{t('KP_NewTitle')}</div>
 

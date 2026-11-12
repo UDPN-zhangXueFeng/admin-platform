@@ -26,6 +26,7 @@ import {
   INTEREST_PERMISSIONS,
 } from '.';
 import { ALL_VALUE } from './interest.constants';
+import { InterestFilterSelect } from './interest-filter-select';
 import { formatAdminTimestamp, formatAdminDate } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
 
@@ -159,12 +160,13 @@ export function AccrualListPage() {
           options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(tokenOptions ?? [])]}
           placeholder={tc('PUB_All')}
         />
-        <FormSelect
+        <InterestFilterSelect
           name="blockchainId"
           label={tc('PUB_Blockchain')}
           control={form.control}
           options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(blockchainOptions ?? [])]}
           placeholder={tc('PUB_All')}
+          idPrefix="interest-accrual"
         />
         <FormSelect
           name="feeType"

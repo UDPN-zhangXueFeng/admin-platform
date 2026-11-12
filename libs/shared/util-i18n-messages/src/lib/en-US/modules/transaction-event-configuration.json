@@ -3,6 +3,8 @@
   "records": "Normalization Books",
   "empty": "No Data",
   "copy": "Copy",
+  "copied": "Copied",
+  "copyFailed": "Copy failed",
   "mappingRuleList": "Mapping Rules",
   "mappingRuleEdit": "Edit Mapping Rule",
   "mappingRuleDetail": "Mapping Rule Detail",

@@ -16,7 +16,6 @@ import {
   AlertDialogTitle,
   Button,
   Card,
-  cardSurfaceClass,
   CopyableEllipsisText,
   DataTable,
   Dialog,
@@ -27,7 +26,6 @@ import {
   Input,
   Label,
 } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
@@ -45,6 +43,7 @@ import {
   RD_BRIDGE_STATE,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 /** 「全部」占位 value（对齐 fx-rate / cct 列表筛选约定）。 */
@@ -405,62 +404,68 @@ export function RdBridgeListPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormSelect
-            name="blockchainId"
-            control={control}
-            label={t('cross_chain_0000')}
-            options={blockchainOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormField
-            name="endpointId"
-            label={t('cross_chain_0001')}
-            register={register('endpointId')}
-            placeholder={t('cross_chain_0001')}
-          />
-          <FormField
-            name="endpointContractAddress"
-            label={t('cross_chain_0037')}
-            register={register('endpointContractAddress')}
-            placeholder={t('cross_chain_0037')}
-          />
-          <FormField
-            name="sendContractAddress"
-            label={t('cross_chain_0035')}
-            register={register('sendContractAddress')}
-            placeholder={t('cross_chain_0035')}
-          />
-          <FormField
-            name="receiveContractAddress"
-            label={t('cross_chain_0036')}
-            register={register('receiveContractAddress')}
-            placeholder={t('cross_chain_0036')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('filter.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="createStartTime"
-            endName="createEndTime"
-            control={control}
-            label={t('cross_chain_0005')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormField
+              key="endpointId"
+              name="endpointId"
+              label={t('cross_chain_0001')}
+              register={register('endpointId')}
+              placeholder={t('cross_chain_0001')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('filter.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="createTime"
+              startName="createStartTime"
+              endName="createEndTime"
+              control={control}
+              label={t('cross_chain_0005')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="blockchainId"
+              name="blockchainId"
+              control={control}
+              label={t('cross_chain_0000')}
+              options={blockchainOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormField
+              key="endpointContractAddress"
+              name="endpointContractAddress"
+              label={t('cross_chain_0037')}
+              register={register('endpointContractAddress')}
+              placeholder={t('cross_chain_0037')}
+            />,
+            <FormField
+              key="sendContractAddress"
+              name="sendContractAddress"
+              label={t('cross_chain_0035')}
+              register={register('sendContractAddress')}
+              placeholder={t('cross_chain_0035')}
+            />,
+            <FormField
+              key="receiveContractAddress"
+              name="receiveContractAddress"
+              label={t('cross_chain_0036')}
+              register={register('receiveContractAddress')}
+              placeholder={t('cross_chain_0036')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="flex justify-between border-b px-6 py-3">

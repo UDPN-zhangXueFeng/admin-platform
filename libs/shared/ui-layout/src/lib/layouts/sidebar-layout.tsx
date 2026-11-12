@@ -36,6 +36,8 @@ export interface SidebarLayoutProps {
   sidebarWidths?: { expanded: string; collapsed: string };
   /** Click handler for the header brand block (logo + project name). */
   onBrandClick?: () => void;
+  /** Open the project's account-management page (passed through to Header). */
+  onManageAccount?: () => void;
   /**
    * Hide the "Manage Account" user-menu entry. Opt-in for projects whose
    * baseline user menu only offers Change Password / Log Out.
@@ -76,6 +78,7 @@ export function SidebarLayout({
   persistKey,
   sidebarWidths,
   onBrandClick,
+  onManageAccount,
   hideManageAccount,
   logo,
   hideProjectName,
@@ -134,6 +137,7 @@ export function SidebarLayout({
         config={config}
         onMenuToggle={() => setMobileOpen((v) => !v)}
         onChangePassword={onChangePassword}
+        onManageAccount={onManageAccount}
         onLogout={onLogout}
         onBrandClick={onBrandClick}
         hideManageAccount={hideManageAccount}

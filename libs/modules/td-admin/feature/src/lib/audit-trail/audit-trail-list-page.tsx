@@ -8,15 +8,17 @@ import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 
-import { Button, Card, cardSurfaceClass, DataTable } from '@myorg/shared/ui';
-import { cn } from '@myorg/shared/util-classnames';
+import { Button, Card, DataTable } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { useAuth } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 import { useAuditTrailListQuery, type AuditTrailItem, type AuditTrailListFilters, type ExportAuditTaskReq } from '@myorg/modules/td-admin/data-access';
 import { useBlockchainListQuery, useCreateExportTaskMutation, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/audit-trail';
 import {
+  AUDIT_TRAIL_PERMISSIONS,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
   FIXED_TOKEN_TYPES,
@@ -66,10 +68,10 @@ function formToFilters(form: AuditTrailFilterForm): AuditTrailListFilters {
       form.blockchainId !== ALL_VALUE ? form.blockchainId : undefined,
     txStartTime: form.txTimeFrom
       ? startOfDay(parseISO(form.txTimeFrom)).getTime()
-      : undefined,
+      : '',
     txEndTime: form.txTimeTo
       ? endOfDay(parseISO(form.txTimeTo)).getTime()
-      : undefined,
+      : '',
     txHash: form.txHash.trim() || undefined,
   };
 }
@@ -85,6 +87,15 @@ function formToFilters(form: AuditTrailFilterForm): AuditTrailListFilters {
 export function AuditTrailListPage() {
   const t = useTranslations('modules.audit-trail');
   const router = useRouter();
+  const authPermissions = useAuth().permissions;
+  const hasPermission = React.useCallback(
+    (permission: string) =>
+      authPermissions.size === 0 || authPermissions.has(permission),
+    [authPermissions],
+  );
+  const canViewDetail = hasPermission(AUDIT_TRAIL_PERMISSIONS.VIEW_DETAIL);
+  const canExportAll = hasPermission(AUDIT_TRAIL_PERMISSIONS.EXPORT_ALL);
+  const canExportRow = hasPermission(AUDIT_TRAIL_PERMISSIONS.EXPORT_ROW);
 
   const { register, control, handleSubmit, reset } =
     useForm<AuditTrailFilterForm>({ defaultValues: EMPTY_FORM });
@@ -155,11 +166,17 @@ export function AuditTrailListPage() {
   const handleExport = React.useCallback(
     (req: ExportAuditTaskReq) => {
       exportMutation.mutate(req, {
-        onSuccess: () => toast.success(t('exportSuccess')),
+        onSuccess: () =>
+          toast.success(t('exportSuccess'), {
+            action: {
+              label: t('downloadCenter'),
+              onClick: () => router.push('/data-export'),
+            },
+          }),
         onError: () => toast.error(t('exportFailed')),
       });
     },
-    [exportMutation, t],
+    [exportMutation, router, t],
   );
 
   const columns = React.useMemo<ColumnDef<AuditTrailItem>[]>(
@@ -253,24 +270,29 @@ export function AuditTrailListPage() {
         ),
       },
       createRowActionsColumn<AuditTrailItem>({
-        detail: {
-          label: t('action.detail'),
-          onClick: (row) => router.push(`/audit-trail/view?id=${row.traceId}`),
-        },
-        menu: (row) => [
-          {
-            label: t('action.export'),
-            onClick: () =>
-              handleExport({
-                exportType: 1,
-                moduleType: 10,
-                auditTrailDownloadReqVO: { traceId: row.traceId },
-              }),
-          },
-        ],
+        detail: canViewDetail
+          ? {
+              label: t('action.detail'),
+              onClick: (row) => router.push(`/audit-trail/view?id=${row.traceId}`),
+            }
+          : undefined,
+        menu: (row) =>
+          canExportRow
+            ? [
+                {
+                  label: t('action.export'),
+                  onClick: () =>
+                    handleExport({
+                      exportType: 1,
+                      moduleType: 10,
+                      auditTrailDownloadReqVO: { traceId: row.traceId },
+                    }),
+                },
+              ]
+            : [],
       }),
     ],
-    [t, router, handleExport],
+    [t, router, handleExport, canExportRow, canViewDetail],
   );
 
   const onSubmit = React.useCallback((form: AuditTrailFilterForm) => {
@@ -286,91 +308,101 @@ export function AuditTrailListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className={cn(cardSurfaceClass, 'p-6')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="traceId"
-            label={t('field.traceId')}
-            register={register('traceId')}
-            placeholder={t('field.traceId')}
-          />
-          <FormField
-            name="txFrom"
-            label={t('field.txFrom')}
-            register={register('txFrom')}
-            placeholder={t('field.txFrom')}
-          />
-          <FormField
-            name="txTo"
-            label={t('field.txTo')}
-            register={register('txTo')}
-            placeholder={t('field.txTo')}
-          />
-          <FormSelect
-            name="txType"
-            control={control}
-            label={t('field.txType')}
-            options={txTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="tokenName"
-            control={control}
-            label={t('field.tokenName')}
-            options={tokenNameOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="tokenType"
-            control={control}
-            label={t('field.tokenType')}
-            options={tokenTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="blockchainId"
-            control={control}
-            label={t('field.blockchain')}
-            options={blockchainOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDateRangePicker
-            startName="txTimeFrom"
-            endName="txTimeTo"
-            control={control}
-            label={t('field.txTime')}
-          />
-          <FormField
-            name="txHash"
-            label={t('field.txHash')}
-            register={register('txHash')}
-            placeholder={t('field.txHash')}
-          />
-          <div className="flex items-end gap-2 pb-1">
-            <Button
-              type="button"
-              onClick={() =>
-                handleExport({
-                  exportType: 1,
-                  moduleType: 10,
-                  auditTrailDownloadReqVO: formToFilters(queryValues),
-                })
-              }
-              disabled={exportMutation.isPending}
-            >
-              {t('action.export')}
-            </Button>
-          </div>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormField
+              key="traceId"
+              name="traceId"
+              label={t('field.traceId')}
+              register={register('traceId')}
+              placeholder={t('field.traceId')}
+            />,
+            <FormSelect
+              key="txType"
+              name="txType"
+              control={control}
+              label={t('field.txType')}
+              options={txTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="txTime"
+              startName="txTimeFrom"
+              endName="txTimeTo"
+              control={control}
+              label={t('field.txTime')}
+            />,
+          ]}
+          advancedFields={[
+            <FormField
+              key="txFrom"
+              name="txFrom"
+              label={t('field.txFrom')}
+              register={register('txFrom')}
+              placeholder={t('field.txFrom')}
+            />,
+            <FormField
+              key="txTo"
+              name="txTo"
+              label={t('field.txTo')}
+              register={register('txTo')}
+              placeholder={t('field.txTo')}
+            />,
+            <FormSelect
+              key="tokenName"
+              name="tokenName"
+              control={control}
+              label={t('field.tokenName')}
+              options={tokenNameOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="tokenType"
+              name="tokenType"
+              control={control}
+              label={t('field.tokenType')}
+              options={tokenTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="blockchainId"
+              name="blockchainId"
+              control={control}
+              label={t('field.blockchain')}
+              options={blockchainOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormField
+              key="txHash"
+              name="txHash"
+              label={t('field.txHash')}
+              register={register('txHash')}
+              placeholder={t('field.txHash')}
+            />,
+          ]}
+          extra={
+            canExportAll ? (
+              <Button
+                type="button"
+                onClick={() =>
+                  handleExport({
+                    exportType: 1,
+                    moduleType: 10,
+                    auditTrailDownloadReqVO: formToFilters(queryValues),
+                  })
+                }
+                disabled={exportMutation.isPending}
+              >
+                {t('action.export')}
+              </Button>
+            ) : undefined
+          }
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
       <Card><div className="border-b px-6 py-3 text-sm font-semibold">

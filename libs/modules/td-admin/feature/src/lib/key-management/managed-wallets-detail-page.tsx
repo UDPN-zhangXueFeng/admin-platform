@@ -41,6 +41,7 @@ import {
   type WalletRotationHistoryFilters,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import {
   roleNameMap,
   walletStatusMap,
@@ -441,51 +442,52 @@ export function ManagedWalletsDetailPage() {
             })}
           </p>
           {/* Query Form */}
-          <Card className="p-4">
-            <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <div>
+          <QueryForm
+            fields={[
+              <div key="wallet-address" className="space-y-1.5">
                 <label className="text-sm font-medium">{t('key_management_0076')}</label>
                 <Input
                   placeholder={t('key_management_0089')}
                   {...register('walletAddress')}
                 />
-              </div>
-              <div>
+              </div>,
+              <div key="key-id" className="space-y-1.5">
                 <label className="text-sm font-medium">{t('key_management_0074')}</label>
                 <Input
                   placeholder={t('key_management_0090')}
                   {...register('keyId')}
                 />
-              </div>
-              <FormDateRangePicker
-                startName="creationStartDate"
-                endName="creationEndDate"
-                control={control}
-                label={t('key_management_0002')}
-              />
-              <div>
-                <label className="text-sm font-medium">{t('key_management_0078')}</label>
-                <Input
-                  placeholder={t('key_management_0091')}
-                  {...register('transactionHash')}
-                />
-              </div>
+              </div>,
               <FormSelect
+                key="status"
                 name="status"
                 control={control}
                 label={t('key_management_0003')}
                 options={rotationStatusOptions}
                 placeholder={t('PUB_All')}
-              />
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button onClick={handleHistoryQuery}>{t('PUB_Query')}</Button>
-              <Button variant="outline" onClick={handleHistoryReset}>
-                {t('PUB_Reset')}
-              </Button>
-            </div>
-          </Card>
+              />,
+            ]}
+            advancedFields={[
+              <FormDateRangePicker
+                key="creation-date"
+                startName="creationStartDate"
+                endName="creationEndDate"
+                control={control}
+                label={t('key_management_0002')}
+              />,
+              <div key="transaction-hash" className="space-y-1.5">
+                <label className="text-sm font-medium">{t('key_management_0078')}</label>
+                <Input
+                  placeholder={t('key_management_0091')}
+                  {...register('transactionHash')}
+                />
+              </div>,
+            ]}
+            onQuery={handleHistoryQuery}
+            onReset={handleHistoryReset}
+            queryLabel={t('PUB_Query')}
+            resetLabel={t('PUB_Reset')}
+          />
 
           {/* History Table */}
           <Card className="p-4">

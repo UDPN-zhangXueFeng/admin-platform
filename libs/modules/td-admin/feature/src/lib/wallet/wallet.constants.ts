@@ -26,6 +26,19 @@ export const ISSUE_TYPE = {
   MMF: 20,
 } as const;
 
+/**
+ * Common resource menu key for the MMF API document.
+ * Source: td-manage wallet-type table hard-coded `a4b9a80b374f4387872b81e5f97acabb`.
+ */
+export const WALLET_TYPE_API_DOC_MENU_KEY = 'a4b9a80b374f4387872b81e5f97acabb';
+
+/**
+ * Bundled PDF used when the backend resource service is unavailable.
+ * Mirrors the industry API documentation shipped with the admin portal.
+ */
+export const MMF_API_DOC_FALLBACK_URL =
+  '/Token Management System for Tokenized Money Market Fund Operators v1.0.0.pdf';
+
 /** accountType：0=N/A，1=活期(Current)，2=储蓄(Savings)，3=MMF 基金账户。 */
 export const ACCOUNT_TYPE = {
   None: 0,

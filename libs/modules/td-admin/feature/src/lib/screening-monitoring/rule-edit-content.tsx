@@ -1,15 +1,15 @@
 'use client';
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useSearchParams } from 'next/navigation';
-import { Button, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@myorg/shared/ui';
+import { Button, Checkbox, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { toast } from '@myorg/shared/ui';
 import type { RuleFormValues, SaveDetailFormItem } from '@myorg/modules/td-admin/data-access';
-import { useBusinessTypeList, useEditRule, useRuleDetail, useSaveRule, useStablecoinOptions } from '@myorg/modules/td-admin/data-access';
+import { useBusinessTypeList, useEditRule, useRuleDetail, useRuleUserList, useSaveRule, useStablecoinOptions } from '@myorg/modules/td-admin/data-access';
 import { HANDLE_TYPE_MAP, RISK_LEVEL_MAP } from '.';
 
 export function RuleEditContent() {
@@ -33,8 +33,8 @@ export function RuleEditContent() {
       setLoaded(true);
       const { ruleName, tokenId, businessType: bt, monitorFrequency, monitorUnit, detailList, alertList } = existing;
       form.setValue('ruleName', ruleName); form.setValue('tokenId', tokenId); form.setValue('businessType', bt);
-      form.setValue('monitorFrequency', bt === 40 || bt === 50 ? monitorFrequency : Number(monitorFrequency));
-      form.setValue('monitorFrequencyType', monitorUnit); form.setValue('compareTo', 5);
+      form.setValue('monitorFrequency', bt === 40 || bt === 50 ? toHms(monitorFrequency) : Number(monitorFrequency));
+      form.setValue('monitorFrequencyType', monitorUnit); form.setValue('compareTo', existing.comperaTo ?? 5);
       form.setValue('saveDetails', (detailList || []).map((el: SaveDetailFormItem) => ({ minValue: el.minValue, maxValue: el.maxValue, riskScoring: el.riskScoring, priority: el.priority, handleType: el.handleType })));
       form.setValue('turnOnAlert', Boolean(alertList?.length));
       form.setValue('alertList', (alertList || []).map((a: { contactInfo: string; priority: number; notifyType: number }) => ({ contactInfo: a.contactInfo, priority: a.priority, notifyType: a.notifyType })));
@@ -56,7 +56,7 @@ export function RuleEditContent() {
     if (saveDetails?.length) {
       if (!turnOnAlert) { form.setValue('alertList', []); } else {
         const cur = form.getValues('alertList') || [];
-        form.setValue('alertList', saveDetails.map((el, i) => ({ contactInfo: cur[i]?.contactInfo || '', priority: Number(el.priority), notifyType: 1 })));
+        form.setValue('alertList', saveDetails.map((el, i) => ({ contactInfo: cur[i]?.contactInfo || '', priority: Number(el.priority), notifyType: 1, selectAllUsers: cur[i]?.selectAllUsers ?? false })));
       }
     }
   }, [saveDetails, turnOnAlert]);
@@ -66,9 +66,10 @@ export function RuleEditContent() {
     try {
       const { turnOnAlert: _ta, monitorFrequency, monitorFrequencyType, saveDetails: _sd, alertList: _al, ...rest } = v;
       const isTimeType = v.businessType === 40 || v.businessType === 50;
-      const mf = isTimeType ? monitorFrequency : monitorFrequency;
+      const mf = isTimeType ? toHms(monitorFrequency) : monitorFrequency;
       const mft = isTimeType ? (unitList[0]?.monitorUnit || 1) : monitorFrequencyType;
-      const params = { ...rest, monitorFrequency: mf, monitorFrequencyType: mft, saveDetails: _sd, alertList: _ta ? _al : [], compareTo: isTimeType ? v.compareTo : undefined };
+      const alertList = _ta ? _al.map(({ contactInfo, priority, notifyType }) => ({ contactInfo, priority, notifyType })) : [];
+      const params = { ...rest, monitorFrequency: mf, monitorFrequencyType: mft, saveDetails: _sd, alertList, compareTo: isTimeType ? v.compareTo : undefined };
       if (isEdit) await editMut.mutateAsync({ ...params, ruleId } as never);
       else await saveMut.mutateAsync(params as never);
       toast.success(tc('PUB_Success')); router.back();
@@ -103,7 +104,7 @@ export function RuleEditContent() {
           {isTimeType ? (
             <div className="flex flex-col">
               <div className="flex gap-4">
-                <div className="w-[20%]"><FormField name="monitorFrequency" label={t('screening_monitoring_0016')} register={form.register('monitorFrequency', { required: true })} type="time" /></div>
+                <div className="w-[20%]"><FormField name="monitorFrequency" label={t('screening_monitoring_0016')} register={form.register('monitorFrequency', { required: true })} type="time" step={1} /></div>
                 <div className="w-[20%]"><FormField name="compareTo" label={t('screening_monitoring_0026')} register={form.register('compareTo', { required: true })} type="number" /></div>
               </div>
               <div className="text-xs text-muted-foreground -mt-2 mb-6">{t('screening_monitoring_0027').replace('****', String(compareTo || 5))}</div>
@@ -147,20 +148,50 @@ export function RuleEditContent() {
   );
 }
 
-function AlertListFields({ form, t }: { form: ReturnType<typeof useForm<RuleFormValues>>; t: (k: string) => string }) {
+function AlertListFields({ form, t }: { form: UseFormReturn<RuleFormValues>; t: (k: string) => string }) {
   const alertFields = useFieldArray({ control: form.control, name: 'alertList' });
+  const tokenId = useWatch({ control: form.control, name: 'tokenId' });
+  const { refetch: refetchUsers } = useRuleUserList(Number(tokenId) || 0);
   if (alertFields.fields.length === 0) return null;
   return (
     <div>
       {alertFields.fields.map((field, idx) => {
         const priority = form.watch(`alertList.${idx}.priority`);
+        const selectAllUsers = form.watch(`alertList.${idx}.selectAllUsers`);
         return (
           <div key={field.id} className="mb-4">
             <div className="text-sm font-medium mb-1">{priority ? t(RISK_LEVEL_MAP[priority as number] || '') + ' - Risk ' + t('screening_monitoring_0034') : t('screening_monitoring_0034')}</div>
             <FormField name={`alertList.${idx}.contactInfo`} label="" register={form.register(`alertList.${idx}.contactInfo`, { validate: (val: string) => { if (!val) return true; const emails = val.split(','); if (emails.length > 20) return t('screening_monitoring_0037'); const re = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/; return emails.every((e: string) => re.test(e.trim())) ? true : t('screening_monitoring_0036'); } })} placeholder={t('screening_monitoring_0033')} />
+            <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+              <Checkbox
+                checked={Boolean(selectAllUsers)}
+                onCheckedChange={(checked) => {
+                  const next = checked === true;
+                  form.setValue(`alertList.${idx}.selectAllUsers`, next);
+                  if (next) {
+                    // 旧页面：勾选时调 rule/set/user/list，按 tokenId 取全员邮箱回填。
+                    void refetchUsers().then((res) => {
+                      form.setValue(`alertList.${idx}.contactInfo`, (res.data?.emailList ?? []).join(','), { shouldValidate: true });
+                    });
+                  } else {
+                    form.setValue(`alertList.${idx}.contactInfo`, '', { shouldValidate: true });
+                  }
+                }}
+              />
+              <span>{t('screening_monitoring_0035')}</span>
+            </label>
           </div>
         );
       })}
     </div>
   );
+}
+
+/** 统一监控时间为 HH:mm:ss（原生 time 输入产出 HH:mm，后端可能带毫秒/时区后缀）。 */
+function toHms(value: string | number): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(raw);
+  if (!match) return raw;
+  return `${match[1].padStart(2, '0')}:${match[2]}:${match[3] ?? '00'}`;
 }

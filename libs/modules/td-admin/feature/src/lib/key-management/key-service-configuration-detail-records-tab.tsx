@@ -16,6 +16,7 @@ import { useTranslations } from 'next-intl';
 import { Alert, Button, DataTable, DetailSection } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
 import { useKeyServiceOperationRecordsQuery } from '@myorg/modules/td-admin/data-access';
+import { QueryForm } from '../query-form';
 import {
   ALL_VALUE,
   RECORDS_FILTER_DEFAULTS,
@@ -98,21 +99,23 @@ export function KeyServiceOperationRecordsTab({
             name: keyServiceName ? `(${keyServiceName})` : '--',
           })}
         </p>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <FormSelect
-            name="operationType"
-            control={control}
-            label={t('key_management_0048')}
-            options={labels.operationTypeOptions}
-            placeholder={t('PUB_All')}
-          />
-          <div className="flex flex-wrap items-end gap-2">
-            <Button onClick={() => refetchRecords()}>{t('PUB_Query')}</Button>
-            <Button variant="outline" onClick={handleRecordsReset}>
-              {t('PUB_Reset')}
-            </Button>
-          </div>
-        </div>
+        <QueryForm
+          variant="plain"
+          fields={[
+            <FormSelect
+              key="operationType"
+              name="operationType"
+              control={control}
+              label={t('key_management_0048')}
+              options={labels.operationTypeOptions}
+              placeholder={t('PUB_All')}
+            />,
+          ]}
+          onQuery={() => refetchRecords()}
+          onReset={handleRecordsReset}
+          queryLabel={t('PUB_Query')}
+          resetLabel={t('PUB_Reset')}
+        />
       </div>
 
       {/* Records body — error banner + paginated table. */}

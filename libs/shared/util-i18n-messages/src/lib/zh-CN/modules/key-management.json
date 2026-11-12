@@ -114,7 +114,6 @@
   "KP_Submit": "提交",
   "KP_Days": "天",
   "KP_Months": "个月",
-  "KP_DemoBanner": "演示数据——本模块未接入后端，所有条目均为示例数据，仅供查看。",
   "KP_DemoSubmitNotice": "仅演示——未提交任何内容，数据未发生变更。",
   "KP_SubmitDemo": "提交（演示）",
   "KP_DisableDemo": "停用（演示）",

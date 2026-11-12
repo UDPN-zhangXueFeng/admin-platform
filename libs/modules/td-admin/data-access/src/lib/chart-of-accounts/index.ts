@@ -52,7 +52,27 @@ export type {
   EodStatementRow,
   EodSuspenseEntryRow,
   LegacyEodBalancesResp,
+  OperationFilterState,
+  OperationRecordListParams,
+  OperationRecordResp,
+  OperationRecordRow,
+  OperationRecordsPagedResp,
+  OperationRecordTypeParam,
+  OperationType,
+  PostToSuspenseConfig,
   PostToSuspenseFormValues,
+  TrialBalanceActivityItemResp,
+  TrialBalanceActivityMeta,
+  TrialBalanceActivityResp,
+  TrialBalanceActivityRow,
+  TrialBalanceAsOfOption,
+  TrialBalanceEventType,
+  TrialBalanceFilterState,
+  TrialBalanceItemResp,
+  TrialBalanceRange,
+  TrialBalanceResp,
+  TrialBalanceRow,
+  TrialBalanceSummary,
 } from './chart-of-accounts-detail.model';
 
 export {
@@ -65,7 +85,12 @@ export {
   disableCoaAccounts,
   getEodBalances,
   getEodStatementDetail,
+  getTrialBalance,
+  getTrialBalanceActivity,
+  getCoaBookRecords,
   type EodBalancesRequest,
+  type TrialBalanceRequest,
+  type TrialBalanceActivityRequest,
 } from './chart-of-accounts.api';
 
 export {
@@ -78,6 +103,9 @@ export {
   useCoaTreeQuery,
   useEodBalancesQuery,
   useEodStatementDetailQuery,
+  useTrialBalanceQuery,
+  useTrialBalanceActivityQuery,
+  useOperationRecordsQuery,
   useSaveCoaAccountsMutation,
   useToggleCoaAccountsMutation,
 } from './+queries/chart-of-accounts.queries';
@@ -89,6 +117,7 @@ export {
   getDirectionValue,
   getBalanceSideByDirectionValue,
   resolveCoaStatus,
+  resolveBasicInfoStatus,
   extractCoaTreeNodes,
   buildCoaRowsFromTree,
   getCoaDraftKey,
@@ -110,3 +139,20 @@ export {
   buildEodStatementRows,
   buildEodStatementDetail,
 } from './chart-of-accounts-eod.utils';
+
+export {
+  getTrialBalanceRange,
+  resolveTrialBalanceSectionType,
+  resolveTrialBalanceEventType,
+  buildTrialBalanceRow,
+  buildTrialBalanceSummary,
+  getTrialBalanceActivityItems,
+  buildTrialBalanceActivityRows,
+} from './chart-of-accounts-trial-balance.utils';
+
+export {
+  getOperationRecordTypeParam,
+  resolveOperationTypeByRecordType,
+  buildOperationRecordRow,
+  buildOperationRecordListParams,
+} from './chart-of-accounts-operation-records.utils';

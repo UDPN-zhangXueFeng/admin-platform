@@ -109,6 +109,15 @@ export default function ModulePage({
     // /screening-monitoring/rule/t_edit），识别为独立 pageKey，否则会落到 detail
     // 误渲染 RuleDetailPage。
     if (realSlug[0] === 't_edit') return 't_edit';
+    // transaction-flow：旧项目两个入口 /transaction-flow/stablecoin 与
+    // /transaction-flow/kissen-transfer。前者映射列表页，后者列表/详情分别
+    // 由 'kissen-transfer' 与 'kissen-transfer-detail' 承载。
+    if (module === 'transaction-flow') {
+      if (realSlug[0] === 'stablecoin') return 'list';
+      if (realSlug[0] === 'kissen-transfer') {
+        return realSlug.length > 1 ? 'kissen-transfer-detail' : 'kissen-transfer';
+      }
+    }
     return 'detail';
   }, [realSlug]);
 
