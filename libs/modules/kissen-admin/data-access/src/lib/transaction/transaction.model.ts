@@ -126,6 +126,12 @@ export interface TransactionRow {
    * 列表靠这段原文说明为什么失败；成功行为空串。
    */
   failReason?: string | null;
+  /**
+   * 源/目标端货币系统凭证（2026-11-12 列表补充）：裁定弹窗用它判断源端是否真的划出——
+   * 源端为空意味着付款人可能压根没被扣款，此时不允许重发/退款。
+   */
+  sourceCsTxId?: string | null;
+  targetCsTxId?: string | null;
 }
 
 /** 与后端 TransactionDetailRespVO 对齐（TransactionRespVO 全字段 + 详情字段）。 */

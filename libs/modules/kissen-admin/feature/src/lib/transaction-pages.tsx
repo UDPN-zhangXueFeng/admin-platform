@@ -390,10 +390,16 @@ function ResolveDialog({
     isMoneyAction &&
     (targetResult === 'SUCCESS' || targetResult === 'PROCESSING');
   const reasonRequired = action === '5';
+  // 2026-11-12：源端从未到账（没有源端凭证）时，付款人可能压根没被扣款——
+  // 此时重发解付/退款都是拿 LP 池的钱往外打，后端会拦，界面也要提前说清楚。
+  const sourceDebited = Boolean(row?.sourceCsTxId);
+  const blockedBySource = isMoneyAction && !sourceDebited;
+
   const canSubmit =
     Boolean(action) &&
     !submitting &&
     !blockedByTarget &&
+    !blockedBySource &&
     (!isMoneyAction || verified) &&
     (!reasonRequired || reason.trim().length > 0);
 
@@ -544,6 +550,21 @@ function ResolveDialog({
                 a NEW transfer instruction.
               </span>
             </label>
+          ) : null}
+
+          {blockedBySource ? (
+            <div className="rounded-md border border-dashed border-destructive/60 bg-destructive/5 p-3 text-xs leading-relaxed">
+              <p className="font-medium text-destructive">
+                Source transfer was never verified
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                This transaction failed on the source leg — no source-arrived
+                report and no source credential, so the payer may not have been
+                debited at all. Retry/Refund move real money out of the LP pool
+                and are blocked. Verify with the source bank first; if the payer
+                was never debited, use &quot;Failed&quot; to close it out.
+              </p>
+            </div>
           ) : null}
 
           {blockedByTarget ? (
