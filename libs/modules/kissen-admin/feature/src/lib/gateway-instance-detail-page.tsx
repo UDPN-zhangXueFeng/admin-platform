@@ -11,7 +11,6 @@
  * operations = 静态空表（GAP-ADM-02，operate-log 无按对象过滤 API）。
  *
  * 已登记偏差：
- *  - Service URL：InstanceRow 无该字段 → Dash（STATIC-FILLER GAP-ADM-08）。
  *  - 弹窗圆色：原型 Reset Key 为 warning 圆 + 主按钮；ActionConfirmDialog 仅
  *    confirm/destructive 两档，按全站收窄口径映射 confirm（同 token-manage-pages）。
  *  - stash 行兜底沿用旧实现（列表页 stashRow 预取，直跳 URL 时降级列表查询）。
@@ -451,11 +450,6 @@ export function GatewayInstanceDetailPage() {
                   </Field>
                   <Field label="Endpoint" mono>
                     {instance.endpointUrl || <Dash />}
-                  </Field>
-                  {/* STATIC-FILLER(GAP-ADM-08): InstanceRow 无 serviceUrl 字段，
-                      空值渲染 Dash 不编造。 */}
-                  <Field label="Service URL" mono>
-                    <Dash />
                   </Field>
                   <Field label="Token System Type">
                     {CS_TYPE_OPTIONS.find(
