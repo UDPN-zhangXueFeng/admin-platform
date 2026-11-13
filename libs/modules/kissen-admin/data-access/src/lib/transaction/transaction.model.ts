@@ -132,8 +132,6 @@ export interface TransactionRow {
    */
   sourceCsTxId?: string | null;
   targetCsTxId?: string | null;
-  /** 解付 execute 离线交易哈希（2026-11-13）：响应丢失时人工按此与 TD/银行核对。 */
-  disburseTxHash?: string | null;
 }
 
 /** 与后端 TransactionDetailRespVO 对齐（TransactionRespVO 全字段 + 详情字段）。 */
@@ -146,8 +144,6 @@ export interface TransactionDetailRow extends TransactionRow {
   receiverAccount: string;
   sourceCsTxId: string;
   targetCsTxId: string;
-  /** 解付 execute 离线交易哈希（2026-11-13）：响应丢失时人工按此与 TD/银行核对。 */
-  disburseTxHash?: string | null;
   /** LP 源 token 资金池地址（用户源端划转目的地；无池空串，55aa521）。 */
   lpSourcePoolAddress: string;
   /** LP 目标 token 资金池地址（解付资金来源；无池空串）。 */
