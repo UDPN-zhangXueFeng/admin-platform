@@ -564,6 +564,11 @@ function ResolveDialog({
                 and are blocked. Verify with the source bank first; if the payer
                 was never debited, use &quot;Failed&quot; to close it out.
               </p>
+              {row?.disburseTxHash ? (
+                <p className="mt-1 break-all font-mono text-muted-foreground">
+                  Disburse txHash: {row.disburseTxHash}
+                </p>
+              ) : null}
             </div>
           ) : null}
 
