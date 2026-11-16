@@ -140,6 +140,19 @@ export function truncateMiddle(value: string, head = 8, tail = 8): string {
     : `${value.slice(0, head)}…${value.slice(-tail)}`;
 }
 
+/** 降级 textarea 的宿主：打开的弹窗内容区，否则 body。
+ *
+ * Radix FocusScope 监听 focusin，焦点跑到弹窗容器外时会立刻抢回上一次焦点。
+ * 弹窗内点复制时，合成 textarea 若挂在 body，focus() 会被马上撤销，随后
+ * execCommand('copy') 复制的是空选区——剪贴板保持旧内容，execCommand 却返回
+ * true（用户看到「已复制」提示）。因此弹窗打开时必须把 textarea 放进弹窗节点内。 */
+function clipboardFallbackHost(): HTMLElement {
+  const dialogs = document.querySelectorAll<HTMLElement>(
+    '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+  );
+  return dialogs[dialogs.length - 1] ?? document.body;
+}
+
 /** 复制到剪贴板：navigator.clipboard 优先，非安全上下文降级 execCommand
  * （原型 lib/clipboard.js 同口径），返回是否成功。
  *
@@ -156,6 +169,10 @@ export async function writeClipboard(text: string): Promise<boolean> {
     // 落到 execCommand 降级分支
   }
   try {
+    const previousFocus =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.setAttribute('readonly', '');
@@ -164,13 +181,19 @@ export async function writeClipboard(text: string): Promise<boolean> {
     textarea.style.left = '0';
     textarea.style.opacity = '0';
     textarea.style.pointerEvents = 'none';
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.setSelectionRange(0, text.length);
-    textarea.select();
-    const ok = document.execCommand('copy');
-    textarea.remove();
-    return ok;
+    clipboardFallbackHost().appendChild(textarea);
+    try {
+      textarea.focus();
+      textarea.setSelectionRange(0, text.length);
+      textarea.select();
+      return document.execCommand('copy');
+    } finally {
+      textarea.remove();
+      // 焦点临时借给 textarea；归还给触发按钮，键盘用户不丢位置。
+      if (previousFocus?.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
+    }
   } catch {
     return false;
   }
