@@ -107,7 +107,6 @@ export {
 // 菜单管理（P1 原型对齐：左树右表单单页 + 树过滤；无子路由）
 export { MenuListPage } from './lib/system-pages';
 // 市场组（G2）：Token 总览（双 tab：平铺列表 + 按银行分组）。
-export { TokenListPage } from './lib/token-pages';
 // 流动性组（G3）：v2.4 6c49396——preauth 监控页与我的分成独立页退役，
 // 行为并入 split-settle 合并页与 pool/Dashboard 的预授权列。
 // 壳层组（G6）：通知铃铛抽屉（lp-app-shell 经 AppShell trailing 插槽挂载）。

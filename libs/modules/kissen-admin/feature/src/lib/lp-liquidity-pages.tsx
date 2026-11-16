@@ -153,6 +153,7 @@ import {
   writeClipboard,
   type ProtoStatusTone,
 } from './proto-ui';
+import { PairArrow } from './pair-arrow';
 import { ApprovalQueue, ApprovalPendingTagWithDialog } from './inline-approval';
 import { computePoolCoverage } from './lp-coverage';
 import { OperateRecordTable } from './operate-record-table';
@@ -1156,7 +1157,12 @@ function PairPoolEditor({
             <div className="text-sm font-medium">
               {selected.sourceSymbol || selected.sourceTokenCode}/
               {selected.targetSymbol || selected.targetTokenCode} (
-              {selected.sourceBankName || '--'} → {selected.targetBankName || '--'})
+              <span className="inline-flex items-center gap-1 align-middle">
+                <span>{selected.sourceBankName || '--'}</span>
+                <PairArrow />
+                <span>{selected.targetBankName || '--'}</span>
+              </span>
+              )
             </div>
           ) : (
             <SearchableSelect
@@ -2470,9 +2476,11 @@ export function LpInfoDetailPage() {
                               <li key={`${p.pairId}-${p.source?.address ?? ''}`}>
                                 {p.pairId}
                                 {' · '}
-                                {p.source?.address || '-'}
-                                {' → '}
-                                {p.target?.address || '-'}
+                                <span className="inline-flex items-center gap-1 align-middle">
+                                  <span>{p.source?.address || '-'}</span>
+                                  <PairArrow />
+                                  <span>{p.target?.address || '-'}</span>
+                                </span>
                               </li>
                             ))}
                           </ul>
@@ -2755,8 +2763,10 @@ function lpPairUserRateText(row: Pick<LpPairRow, 'baseRate' | 'markupRate'>): st
 function LpPairSummaryCell({ row }: { row: LpPairTableRow }) {
   return (
     <div className="space-y-0.5">
-      <div className="font-mono text-sm font-semibold">
-        {row.sourceCurrency} → {row.targetCurrency}
+      <div className="flex items-center gap-1.5 font-mono text-sm font-semibold">
+        <span>{row.sourceCurrency}</span>
+        <PairArrow />
+        <span>{row.targetCurrency}</span>
       </div>
       <div className="font-mono text-xs text-muted-foreground">
         Pools: <CopyableId value={row.sourcePoolAddress} head={6} tail={4} /> (Recv) |{' '}
@@ -3349,6 +3359,15 @@ export function LpTokenPairListPage() {
  * 金额与 token 单位同行展示（单位小号弱化），等宽半粗、右对齐；
  * 空值展示 '-' 且不追加单位。
  */
+/** 详情栅格里用的「金额 + 币种」单行文本（左对齐，与其它字段一致）。 */
+function amountWithUnit(
+  value: string | number | null | undefined,
+  token?: string | null,
+): string {
+  const amount = formatTokenAmount(value);
+  return token ? `${amount} ${token}` : amount;
+}
+
 function AmountWithToken({
   value,
   token,
@@ -3931,8 +3950,10 @@ export function LpParticipationDetailPage() {
                 <ReadonlyField
                   label="Token Pair"
                   value={
-                    <span className="font-mono">
-                      {row.sourceCurrency} → {row.targetCurrency}
+                    <span className="inline-flex items-center gap-1.5 font-mono">
+                      <span>{row.sourceCurrency}</span>
+                      <PairArrow />
+                      <span>{row.targetCurrency}</span>
                     </span>
                   }
                 />
@@ -4080,13 +4101,13 @@ export function LpPoolDetailPage() {
         </div>
         <div className="grid grid-cols-1 gap-x-6 gap-y-5 px-6 py-5 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               LP Name
             </span>
             <span className="text-sm text-foreground">{pool.lpName}</span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Token
             </span>
             <span className="font-mono text-sm text-foreground">
@@ -4094,7 +4115,7 @@ export function LpPoolDetailPage() {
             </span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Token Bank
             </span>
             <span className="text-sm text-foreground">
@@ -4102,13 +4123,13 @@ export function LpPoolDetailPage() {
             </span>
           </div>
           <div className="flex flex-col gap-1 sm:col-span-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Pool Address
             </span>
             <CopyableId value={pool.accountAddress} />
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Wallet Balance
             </span>
             <AmountWithToken
@@ -4117,31 +4138,37 @@ export function LpPoolDetailPage() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Available Pre-Auth
             </span>
             <span className="tabular-nums text-sm text-foreground">
               {pool.preauthAvailable == null ? (
                 <Dash />
               ) : (
-                formatTokenAmount(pool.preauthAvailable)
+                amountWithUnit(
+                  pool.preauthAvailable,
+                  pool.tokenSymbol || pool.tokenCode,
+                )
               )}
             </span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Min. Liquidity Requirement
             </span>
             <span className="tabular-nums text-sm text-foreground">
               {pool.requiredMinSum == null ? (
                 <Dash />
               ) : (
-                formatTokenAmount(pool.requiredMinSum)
+                amountWithUnit(
+                  pool.requiredMinSum,
+                  pool.tokenSymbol || pool.tokenCode,
+                )
               )}
             </span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Created on
             </span>
             <span className="tabular-nums text-sm text-foreground">
@@ -4155,7 +4182,8 @@ export function LpPoolDetailPage() {
         <div className="border-b border-border/50 px-6 py-4">
           <h2 className="text-base font-semibold">Operation History</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Approvals and rejections recorded for this pool.
+            Approvals, parameter changes and status toggles recorded for this
+            pool.
           </p>
         </div>
         <OperateRecordTable

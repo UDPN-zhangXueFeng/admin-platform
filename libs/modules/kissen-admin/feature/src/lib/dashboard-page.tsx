@@ -10,8 +10,10 @@ import {
 } from 'lucide-react';
 import {
   Area,
+  Bar,
   CartesianGrid,
   ComposedChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -136,28 +138,6 @@ function trimAmount(value: string | null | undefined): string {
   return value.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 }
 
-/** Exception markers ride on the volume series: one dot per day that had any. */
-function renderExceptionDot(raw: unknown): React.ReactElement {
-  const props = raw as {
-    cx?: number;
-    cy?: number;
-    payload?: { exception?: number };
-  };
-  if (!props.payload?.exception || props.cx == null || props.cy == null) {
-    return <g />;
-  }
-  return (
-    <circle
-      cx={props.cx}
-      cy={props.cy}
-      r={3}
-      fill="hsl(var(--destructive))"
-      stroke="hsl(var(--card))"
-      strokeWidth={2}
-    />
-  );
-}
-
 export function DashboardPage() {
   const router = useRouter();
   const [days, setDays] = React.useState(7);
@@ -211,7 +191,12 @@ export function DashboardPage() {
     [trendData],
   );
 
-  // 窗口成功率：成功终态 ÷ 窗口内全部交易（含在途，窗口越长越贴近真实水平）
+  /** 窗口最后一天（今天）只跑了半天：图上标虚线、tooltip 注明 partial，不改分母口径。 */
+  const todayKey = trendData.length ? trendData[trendData.length - 1].day : undefined;
+
+  // 窗口完成率：成功终态(35/40) ÷ 窗口内全部交易（含在途、含不完整的今天）。
+  // 与 Transfers 共用同一分母，保证「Completed 18 of 32」能对账；
+  // 注意这是「完成率」，与结算域的 settled（结算单 35）不是一回事，UI 不要用 Settled 命名。
   const successRate = trendTotals.total
     ? (trendTotals.completed / trendTotals.total) * 100
     : undefined;
@@ -277,7 +262,9 @@ export function DashboardPage() {
       ? {
           key: 'exception',
           label: 'Exceptions to handle',
-          note: 'Opened today',
+          // 后端按 create_time 分桶（buildExceptions），统计的是「今天创建且当前处于异常态」，
+          // 不是「今天变成异常」——文案别写 Opened，否则会读成状态迁移时间。
+          note: 'Created today',
           count: exceptionsToday,
           bar: 'bg-warning',
           to: '/transfer/tx?status=70',
@@ -407,7 +394,7 @@ export function DashboardPage() {
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <PanelCard
           title="Transaction volume"
-          subtitle="Settled and in-flight transfers per day · UTC+8"
+          subtitle="Completed and in-flight transfers per day · UTC+8"
           action={
             <span className="text-xs text-muted-foreground">
               Last {days} days
@@ -426,9 +413,16 @@ export function DashboardPage() {
             </span>
             {hasCompletedData ? (
               <span className="text-muted-foreground">
-                Settled
+                {/* 35 = 交易完成（Completed），不是结算域的 Settled；
+                    分母含在途，所以同时给笔数与完成率，避免读成「已结算 18 笔」 */}
+                Completed
                 <span className="ml-2 font-mono text-sm font-semibold tabular-nums text-foreground">
-                  {successRate == null ? '—' : `${successRate.toFixed(1)}%`}
+                  {trendTotals.completed.toLocaleString('en-US')}
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    {successRate == null
+                      ? ''
+                      : `of ${trendTotals.total.toLocaleString('en-US')} (${successRate.toFixed(1)}%)`}
+                  </span>
                 </span>
               </span>
             ) : null}
@@ -439,7 +433,7 @@ export function DashboardPage() {
               </span>
             </span>
             <span className="ml-auto text-muted-foreground">
-              Today is in progress
+              Today (right marker) is partial
             </span>
           </div>
           <div
@@ -462,8 +456,19 @@ export function DashboardPage() {
                   tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                 />
                 <YAxis
+                  yAxisId="volume"
                   allowDecimals={false}
                   width={32}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                />
+                {/* 右轴只服务异常柱：与左轴分开，异常 3 笔不会被压成贴地 */}
+                <YAxis
+                  yAxisId="exception"
+                  orientation="right"
+                  allowDecimals={false}
+                  width={28}
                   tickLine={false}
                   axisLine={false}
                   tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
@@ -475,10 +480,37 @@ export function DashboardPage() {
                     color: 'hsl(var(--foreground))',
                     fontSize: 12,
                   }}
-                  labelFormatter={(value) => `Date ${value}`}
-                  formatter={(value) => [String(value), 'Transfers']}
+                  labelFormatter={(value) => {
+                    const label = `Date ${value}`;
+                    return value === todayKey
+                      ? `${label} (today, partial)`
+                      : label;
+                  }}
+                  formatter={(value, name) => [
+                    String(value),
+                    name === 'exception' ? 'Exceptions' : 'Transfers',
+                  ]}
+                />
+                {/* 今天只跑了半天：竖虚线示意，且不计入完成率分母 */}
+                {todayKey ? (
+                  <ReferenceLine
+                    x={todayKey}
+                    yAxisId="volume"
+                    stroke="hsl(var(--border))"
+                    strokeDasharray="3 3"
+                  />
+                ) : null}
+                <Bar
+                  yAxisId="exception"
+                  dataKey="exception"
+                  name="exception"
+                  fill="hsl(var(--destructive))"
+                  fillOpacity={0.35}
+                  radius={[2, 2, 0, 0]}
+                  maxBarSize={14}
                 />
                 <Area
+                  yAxisId="volume"
                   type="monotone"
                   dataKey="total"
                   name="total"
@@ -486,7 +518,6 @@ export function DashboardPage() {
                   strokeWidth={2}
                   fill="hsl(var(--primary))"
                   fillOpacity={0.14}
-                  dot={renderExceptionDot}
                   activeDot={{ r: 4 }}
                 />
               </ComposedChart>
@@ -495,12 +526,13 @@ export function DashboardPage() {
           <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-2">
               <span className="h-0.5 w-3.5 rounded bg-primary" />
-              Transfers
+              Transfers (left axis)
             </span>
             <span className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-destructive" />
-              Exceptions
+              <span className="h-2.5 w-2.5 rounded-sm bg-destructive/35" />
+              Exceptions (right axis)
             </span>
+            <span>Dashed line marks today, which is still in progress.</span>
           </div>
         </PanelCard>
 
@@ -551,7 +583,8 @@ export function DashboardPage() {
 
           <PanelCard
             title="Exceptions by category"
-            subtitle={`Today · last ${days} days`}
+            // 每行给「今天创建」与「窗口内创建」两个数；口径同 buildExceptions（按 create_time）
+            subtitle={`By status · created in last ${days} days`}
             action={
               <Button
                 variant="link"
@@ -707,6 +740,12 @@ export function DashboardPage() {
                       {pool.lpName}{' '}
                       <span className="font-normal text-muted-foreground">
                         {pool.tokenSymbol}
+                        {/* 同一 LP+token 可能有多只池（多池模型），补地址尾号便于区分 */}
+                        {pool.accountAddress ? (
+                          <span className="ml-1 font-mono text-[11px]">
+                            {`${pool.accountAddress.slice(0, 6)}…${pool.accountAddress.slice(-4)}`}
+                          </span>
+                        ) : null}
                       </span>
                     </span>
                     <span className="relative h-1.5 min-w-[48px] flex-1 rounded bg-muted">

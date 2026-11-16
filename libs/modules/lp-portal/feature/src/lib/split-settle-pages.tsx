@@ -53,6 +53,7 @@ import {
   type SelectOption,
 } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { PairArrow } from './pair-arrow';
 
 import {
   LP_PROJECT_ID,
@@ -283,11 +284,15 @@ function PairX({
 }) {
   return (
     <div className="flex min-w-0 flex-col leading-normal">
-      <div className="font-mono text-xs font-semibold tabular-nums">
-        {symOf(source)} → {symOf(target)}
+      <div className="flex items-center gap-1 font-mono text-xs font-semibold tabular-nums">
+        <span>{symOf(source)}</span>
+        <PairArrow />
+        <span>{symOf(target)}</span>
       </div>
-      <div className="truncate text-xs text-muted-foreground">
-        {bankOf(source)} → {bankOf(target)}
+      <div className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+        <span>{bankOf(source)}</span>
+        <PairArrow />
+        <span>{bankOf(target)}</span>
       </div>
     </div>
   );

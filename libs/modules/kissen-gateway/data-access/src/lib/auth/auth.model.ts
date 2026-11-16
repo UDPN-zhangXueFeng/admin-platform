@@ -49,9 +49,10 @@ export interface Brand {
 
 /** 品牌回退默认值（源 store/brand.ts DEFAULT）。 */
 export const DEFAULT_BRAND: Brand = {
-  name: 'Kissen Bank Portal',
-  subtitle: 'Bank Portal Management Console',
+  // 2026-11-09 品牌定名：UDPN Kissen Bank Gateway Management（登录页 name 与侧栏 headerName 同值）
+  name: 'UDPN Kissen Bank Gateway Management',
+  subtitle: 'Bank Gateway Management Console',
   logo: '🏦',
   primaryColor: '#0B6B53',
-  headerName: 'UDPN Kissen Bank Portal',
+  headerName: 'UDPN Kissen Bank Gateway Management',
 };

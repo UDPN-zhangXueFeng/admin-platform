@@ -98,7 +98,6 @@ import {
   formatUtc8,
 } from './proto-format';
 import { PROTO_TX_STATUS, protoStatusLabel, protoStatusRank } from './proto-enums';
-import { OperateRecordTable } from './operate-record-table';
 import {
   CopyableId,
   Dash,
@@ -106,6 +105,7 @@ import {
   writeClipboard,
   type ProtoStatusTone,
 } from './proto-ui';
+import { PairArrow } from './pair-arrow';
 import {
   ProtoSortHeader,
   useProtoSort,
@@ -137,6 +137,27 @@ function fmtAmount(
 
 function pairText(source?: string, target?: string): string {
   return source && target ? `${source}→${target}` : '-';
+}
+
+/**
+ * 展示用用户汇率（2026-11-11）：= baseRate ÷ (1 + markupRate)，即报价时的固定汇率。
+ *
+ * 背景：后端历史上把 userRate 按「到账 ÷ 实付」反算，金额取整的尾差会摊到汇率上
+ * （20.12 BXW → 0.1998、23.34 BXW → 0.2001），看起来像随金额浮动。取整属于金额侧，
+ * 汇率应恒定；历史数据也按此公式回正，故显示统一走这里。
+ */
+function quotedUserRate(
+  baseRate: number | string | null | undefined,
+  markupRate: number | string | null | undefined,
+  fallback: number | string | null | undefined,
+): string | number | null | undefined {
+  const base = Number(baseRate);
+  if (!Number.isFinite(base) || base <= 0) {
+    return fallback;
+  }
+  const markup = Number(markupRate);
+  const divisor = 1 + (Number.isFinite(markup) ? markup : 0);
+  return divisor === 0 ? fallback : base / divisor;
 }
 
 /** 空值兜底展示（源 `|| '-'` 口径）。 */
@@ -369,10 +390,16 @@ function ResolveDialog({
     isMoneyAction &&
     (targetResult === 'SUCCESS' || targetResult === 'PROCESSING');
   const reasonRequired = action === '5';
+  // 2026-11-12：源端从未到账（没有源端凭证）时，付款人可能压根没被扣款——
+  // 此时重发解付/退款都是拿 LP 池的钱往外打，后端会拦，界面也要提前说清楚。
+  const sourceDebited = Boolean(row?.sourceCsTxId);
+  const blockedBySource = isMoneyAction && !sourceDebited;
+
   const canSubmit =
     Boolean(action) &&
     !submitting &&
     !blockedByTarget &&
+    !blockedBySource &&
     (!isMoneyAction || verified) &&
     (!reasonRequired || reason.trim().length > 0);
 
@@ -523,6 +550,22 @@ function ResolveDialog({
                 a NEW transfer instruction.
               </span>
             </label>
+          ) : null}
+
+          {blockedBySource ? (
+            <div className="rounded-md border border-dashed border-destructive/60 bg-destructive/5 p-3 text-xs leading-relaxed">
+              <p className="font-medium text-destructive">
+                Source transfer was never verified
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                This transaction failed on the source leg — no source-arrived
+                report and no source credential, so the payer may not have been
+                debited at all. Retry/Refund move real money out of the LP pool
+                and are blocked. Verify with the source bank first; if the payer
+                was never debited, use &quot;Failed&quot; to close it out.
+              </p>
+
+            </div>
           ) : null}
 
           {blockedByTarget ? (
@@ -722,7 +765,9 @@ function chainFieldRows(
     // 用户汇率（成交口径：到账 ÷ 实付；非 baseRate 基础汇率）
     rows.push({
       label: 'Rate',
-      value: `1 ${detail.sourceCurrency} ≈ ${formatRate(detail.userRate)} ${detail.targetCurrency}`,
+      value: `1 ${detail.sourceCurrency} ≈ ${formatRate(
+        quotedUserRate(detail.baseRate, detail.markupRate, detail.userRate),
+      )} ${detail.targetCurrency}`,
     });
   }
   if (e.statusTo === 30 || e.statusTo === 35 || e.statusTo === 40) {
@@ -885,7 +930,9 @@ export function TxDetailPage() {
       `Token Pair: ${source}/${target}`,
       `Sold Amount: ${fmtAmount(detail.userDeduction, source, decOf(source))}`,
       `Credited Amount: ${fmtAmount(detail.receiverAmount, target, decOf(target))}`,
-      `FX Rate: 1 ${source} ≈ ${formatRate(detail.userRate)} ${target}`,
+      `FX Rate: 1 ${source} ≈ ${formatRate(
+        quotedUserRate(detail.baseRate, detail.markupRate, detail.userRate),
+      )} ${target}`,
       `LP: ${detail.lpName || '-'}`,
       `Created: ${formatUtc8(detail.createTime)}`,
       detail.completedTime > 0
@@ -1034,7 +1081,13 @@ export function TxDetailPage() {
                     <div className="flex min-w-0 shrink-0 flex-col items-center gap-2 md:px-6">
                       <Badge variant="outline" className="whitespace-nowrap tabular-nums">
                         1 {detail.sourceCurrency || '-'} ≈{' '}
-                        {formatRate(detail.userRate)}{' '}
+                        {formatRate(
+                          quotedUserRate(
+                            detail.baseRate,
+                            detail.markupRate,
+                            detail.userRate,
+                          ),
+                        )}{' '}
                         {detail.targetCurrency || '-'}
                       </Badge>
                       {/* 2026-10-30 三系统详情统一：admin/LP 展示双汇率（成交时基础汇率快照），gateway 仅用户汇率 */}
@@ -1205,23 +1258,6 @@ export function TxDetailPage() {
               <TransactionChainSection detail={detail} txId={txId} />
             </aside>
           </div>
-
-          {/* 操作历史（biz_operate_record，objectType=TX）：人工裁定/重发/退款等动作 */}
-          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <div className="border-b border-border/50 px-6 py-4">
-              <h2 className="text-base font-semibold">Operation History</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Manual resolutions recorded for this transaction. The chain above
-                shows the state machine; this table shows who acted and why.
-              </p>
-            </div>
-            <OperateRecordTable
-              projectId={KISSEN_PROJECT_ID}
-              objectType="TX"
-              objectId={txId}
-              emptyMessage="No operations recorded for this transaction."
-            />
-          </section>
         </>
       ) : null}
     </div>
@@ -1448,8 +1484,14 @@ function TransactionListCore() {
               <span className="font-mono text-[13px] font-semibold">
                 {sourceToken || '-'}/{targetToken || '-'}
               </span>
-              <span className="truncate text-xs text-muted-foreground" title={banks}>
-                {banks}
+              {/* 2026-11-11：银行次行改图标箭头（title 仍给纯文本便于复制） */}
+              <span
+                className="flex items-center gap-1 truncate text-xs text-muted-foreground"
+                title={banks}
+              >
+                <span className="truncate">{r.sourceBankName || '-'}</span>
+                <PairArrow />
+                <span className="truncate">{r.targetBankName || '-'}</span>
               </span>
             </div>
           );
@@ -1521,8 +1563,20 @@ function TransactionListCore() {
         cell: ({ row }) => (
           <div className="flex justify-end">
             <span className="font-mono tabular-nums">
-              {Number(row.original.userRate) > 0
-                ? formatRate(row.original.userRate)
+              {Number(
+                quotedUserRate(
+                  row.original.baseRate,
+                  row.original.markupRate,
+                  row.original.userRate,
+                ),
+              ) > 0
+                ? formatRate(
+                    quotedUserRate(
+                      row.original.baseRate,
+                      row.original.markupRate,
+                      row.original.userRate,
+                    ),
+                  )
                 : '-'}
             </span>
           </div>
@@ -1561,7 +1615,10 @@ function TransactionListCore() {
         cell: ({ row }) => {
           // 失败/异常原因：报价或 LP 匹配阶段就失败的行没有 pair/lp/金额，
           // 徽章悬停给原因，并补一行截断的原文（完整内容在 title）。
-          const reason = row.original.failReason?.trim();
+          const rawReason = row.original.failReason?.trim();
+          // 后端备注带内部码前缀（如 "[NO_CREDENTIAL] no disburse credential..."），
+          // 展示层去掉方括号码，完整原文仍放 title 里。
+          const reason = rawReason?.replace(/^\[[A-Z0-9_]+\]\s*/, '') || rawReason;
           return (
             <div className="flex min-w-0 flex-col gap-1">
               <span title={reason}>

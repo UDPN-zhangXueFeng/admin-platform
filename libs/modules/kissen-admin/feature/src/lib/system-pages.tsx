@@ -893,11 +893,13 @@ export function SysUserListPage() {
                       <DropdownMenuItem onClick={() => setConfirm({ kind: 'activate', user: u })}>
                         Activate
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setConfirm({ kind: 'resetPassword', user: u })}>
-                        Reset Password
-                      </DropdownMenuItem>
                     </>
                   )}
+                  {/* 2026-11-11：重置密码与账号状态无关（后端本就无状态校验），
+                      禁用→重置→启用 的多余操作取消。重置后会踢掉该用户全部会话。 */}
+                  <DropdownMenuItem onClick={() => setConfirm({ kind: 'resetPassword', user: u })}>
+                    Reset Password
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -4438,7 +4440,10 @@ export function OperateLogListPage() {
     tableData,
     {
       timestamp: { value: (r) => r.operateTime, defaultDir: 'desc' },
-      operator: { value: (r) => r.operateName || `#${r.userId}` },
+      // 未登录上下文（LOGIN 等）后端不落 user_id/operate_name，之前会显示成 "#0"。
+    operator: {
+      value: (r) => r.operateName || (r.userId > 0 ? `#${r.userId}` : '—'),
+    },
       module: { value: (r) => r.module },
       duration: { value: (r) => r.costTime },
       status: { value: (r) => protoStatusRank(PROTO_OPERATE_LOG_RESULT, r.status) },
@@ -4477,7 +4482,10 @@ export function OperateLogListPage() {
             sortState={sortState('operator')}
           />
         ),
-        cell: ({ row }) => row.original.operateName || `#${row.original.userId}`,
+        // 未登录上下文（LOGIN 等）后端不落 user_id/operate_name，之前会显示成 "#0"。
+        cell: ({ row }) =>
+          row.original.operateName ||
+          (row.original.userId > 0 ? `#${row.original.userId}` : '—'),
       },
       {
         accessorKey: 'module',

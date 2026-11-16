@@ -5,7 +5,11 @@ import { z } from 'zod';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { Button, Label, PasswordField, useToast } from '@myorg/shared/ui';
 import { createFormResolver } from '@myorg/shared/ui-forms';
-import { useAuthChangePwdMutation } from '@myorg/modules/kissen-gateway/data-access';
+import {
+  clearGatewaySession,
+  useAuthChangePwdMutation,
+} from '@myorg/modules/kissen-gateway/data-access';
+import { getLoginRedirectPath } from '@myorg/shared/util-auth';
 
 /**
  * 首次登录强制改密页 — /[locale]/change-pwd（源 `views/login/change-pwd.vue`）。
@@ -36,6 +40,11 @@ const changePwdSchema = z
   .refine((values) => values.confirm === values.newPassword, {
     path: ['confirm'],
     message: 'Passwords do not match',
+  })
+  // 2026-11-10：不允许原样沿用当前密码（首登强制改密曾被复制三次通过）
+  .refine((values) => values.newPassword !== values.oldPassword, {
+    path: ['newPassword'],
+    message: 'New password must be different from the current password',
   });
 
 type ChangePwdFormValues = z.infer<typeof changePwdSchema>;
@@ -48,9 +57,12 @@ export default function ChangePwdRoute() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors },
   } = useForm<ChangePwdFormValues>({
     resolver: createFormResolver(changePwdSchema),
+    // 2026-11-11：与 LP/管理系统一致——失焦即校验、改字段即时复检（原先只在点确认时校验）
+    mode: 'onTouched',
     defaultValues: { oldPassword: '', newPassword: '', confirm: '' },
   });
 
@@ -63,8 +75,14 @@ export default function ChangePwdRoute() {
           router.replace('/system/user');
         },
         onError: (e) => {
-          // 源依赖拦截器 ElMessage；目标拦截器只抛 KissenApiError，这里统一提示。
-          toast.error((e as Error).message);
+          // 服务端「新密码与当前密码相同」回落到字段级提示（与前端校验同一处展示），
+          // 其余错误仍走全局 toast（源依赖拦截器 ElMessage 的语义）。
+          const message = (e as Error).message;
+          if (/must be different from the current password/i.test(message)) {
+            setError('newPassword', { type: 'server', message });
+            return;
+          }
+          toast.error(message);
         },
       },
     );
@@ -76,7 +94,7 @@ export default function ChangePwdRoute() {
       <div className="w-full max-w-[420px] rounded-[10px] border bg-card p-9 pb-7 shadow-[0_8px_24px_rgba(26,29,33,0.08)]">
         {/* 源 login-brand：标题硬编码「Kissen 银行门户」+ eyebrow 副标题 */}
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-foreground">Kissen Bank Portal</h1>
+          <h1 className="text-xl font-bold text-foreground">UDPN Kissen Bank Gateway Management</h1>
           <p className="mt-1 text-xs tracking-[0.08em] text-muted-foreground">
             First login: change your password before continuing
           </p>
@@ -129,6 +147,18 @@ export default function ChangePwdRoute() {
           <Button type="submit" className="w-full" disabled={mutation.isPending}>
             {mutation.isPending ? 'Submitting…' : 'Confirm'}
           </Button>
+          {/* 2026-11-11：强制改密由服务端 first_login 标记决定，清缓存绕不过；
+              提供显式出口便于换账号（下次登录仍会被要求改密）。 */}
+          <button
+            type="button"
+            className="w-full text-center text-xs text-muted-foreground underline-offset-2 hover:underline"
+            onClick={() => {
+              clearGatewaySession();
+              window.location.assign(getLoginRedirectPath());
+            }}
+          >
+            Sign in with another account
+          </button>
         </form>
       </div>
     </div>

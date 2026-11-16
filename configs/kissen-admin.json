@@ -372,7 +372,7 @@
             "id": "lp",
             "icon": "Users",
             "label": "LP Onboarding",
-            "path": "/onboard/lp",
+            "path": "/lp-liquidity/lp-info",
             "group": ""
           },
           {

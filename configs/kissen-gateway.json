@@ -1,7 +1,7 @@
 {
   "project": {
     "id": "kissen-gateway",
-    "name": "UDPN Kissen Bank Portal",
+    "name": "UDPN Kissen Bank Gateway Management",
     "subtitle": "",
     "logo": "/logo.svg",
     "favicon": "/favicon.svg"

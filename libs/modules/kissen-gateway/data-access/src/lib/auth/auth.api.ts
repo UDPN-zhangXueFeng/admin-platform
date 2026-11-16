@@ -45,7 +45,15 @@ const brandAxios = axios.create({
   timeout: 5000,
 });
 
-const LEGACY_GATEWAY_HEADER_NAME = 'UDPN Kissen Gateway Portal';
+/**
+ * 历史 headerName 集合：后端 gw_instance_config 里可能存有旧默认值，读到就归一到当前名称。
+ * - 'UDPN Kissen Gateway Portal'：2026-09-04 之前的侧栏名
+ * - 'UDPN Kissen Bank Portal'：2026-09-07 品牌重命名期写入的名字（2026-11-09 再次改名）
+ */
+const LEGACY_HEADER_NAMES = new Set([
+  'UDPN Kissen Gateway Portal',
+  'UDPN Kissen Bank Portal',
+]);
 
 /**
  * 品牌文案规整：后端 brand 接口的 name/subtitle/headerName 可能返回中文，
@@ -65,9 +73,7 @@ export function sanitizeBrandText(
 /** 将服务端已保存的旧默认产品名迁移为当前门户名称。 */
 function normalizeHeaderName(value: string | undefined): string {
   const headerName = sanitizeBrandText(value, DEFAULT_BRAND.headerName);
-  return headerName === LEGACY_GATEWAY_HEADER_NAME
-    ? DEFAULT_BRAND.headerName
-    : headerName;
+  return LEGACY_HEADER_NAMES.has(headerName) ? DEFAULT_BRAND.headerName : headerName;
 }
 
 export async function getBrand(): Promise<Brand> {

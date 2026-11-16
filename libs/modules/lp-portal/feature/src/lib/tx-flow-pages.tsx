@@ -52,6 +52,7 @@ import {
   type SelectOption,
 } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { PairArrow } from './pair-arrow';
 
 import {
   LP_PROJECT_ID,
@@ -468,13 +469,15 @@ function TxFlowListView() {
         ),
         cell: ({ row }) => (
           <div className="min-w-0">
-            <div className="font-mono text-xs font-semibold tabular-nums">
-              {symOf(srcKey(row.original))} →{' '}
-              {symOf(tgtKey(row.original))}
+            <div className="flex items-center gap-1 font-mono text-xs font-semibold tabular-nums">
+              <span>{symOf(srcKey(row.original))}</span>
+              <PairArrow />
+              <span>{symOf(tgtKey(row.original))}</span>
             </div>
-            <div className="truncate text-xs text-muted-foreground">
-              {bankOf(srcKey(row.original))} →{' '}
-              {bankOf(tgtKey(row.original))}
+            <div className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+              <span>{bankOf(srcKey(row.original))}</span>
+              <PairArrow />
+              <span>{bankOf(tgtKey(row.original))}</span>
             </div>
           </div>
         ),

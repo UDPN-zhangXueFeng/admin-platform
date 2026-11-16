@@ -130,7 +130,10 @@ export const COMMON_STATUS_MAP: Record<number, string> = {
   22: 'Audit Passed (Pending Enable)',
   25: 'Signed',
   30: 'Submitting',
-  35: 'Settled',
+  // 35 在 CommonStatusEnum 是 SUCCESSFUL（通用成功态）。结算单的 35 由
+  // PROTO_SETTLE_ORDER_STATUS / BUSINESS_STATUS_MAP.kissen_settle_confirm 各自覆盖为
+  // Settled，通用字典这里不能再借结算域的措辞，否则非结算实体出现 35 会显示 Settled。
+  35: 'Successful',
   40: 'Submit Failed',
   45: 'Deleted',
   50: 'Disabled',

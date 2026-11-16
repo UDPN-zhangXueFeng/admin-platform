@@ -41,6 +41,11 @@ export interface ChangePasswordDialogProps {
   force?: boolean;
   /** force 模式下改密成功后的回调（源：markFirstLoginDone + router.push('/')）。 */
   onForceDone?: () => void;
+  /**
+   * force 模式下的「换账号登录」出口（2026-11-11）：强制改密是服务端 first_login 标记，
+   * 关浏览器/清缓存都绕不过；给一个显式退出，避免用户被卡死在这张弹窗里。
+   */
+  onSignOut?: () => void;
 }
 
 interface ChangePwdFormValues {
@@ -56,6 +61,7 @@ export function ChangePasswordDialog({
   onOpenChange,
   force = false,
   onForceDone,
+  onSignOut,
 }: ChangePasswordDialogProps) {
   const toast = useToast();
   const mutation = useUserChangePwdMutation();
@@ -64,9 +70,12 @@ export function ChangePasswordDialog({
     register,
     handleSubmit,
     reset,
+    setError,
     watch,
     formState: { errors },
   } = useForm<ChangePwdFormValues>({
+    // 2026-11-11：失焦即校验、改字段即时复检（原先只在点确认时校验）
+    mode: 'onTouched',
     defaultValues: { oldPassword: '', newPassword: '', confirm: '' },
   });
 
@@ -78,6 +87,7 @@ export function ChangePasswordDialog({
   }, [open, reset]);
 
   const newPassword = watch('newPassword');
+  const oldPasswordValue = watch('oldPassword');
 
   const onClose = React.useCallback(() => {
     if (!force) onOpenChange(false);
@@ -92,7 +102,15 @@ export function ChangePasswordDialog({
           onOpenChange(false);
           if (force) onForceDone?.();
         },
-        onError: (e) => toast.error((e as Error).message),
+        onError: (e) => {
+          // 服务端「新密码与当前密码相同」回落到字段级提示，其余走 toast
+          const message = (e as Error).message;
+          if (/must be different from the current password/i.test(message)) {
+            setError('newPassword', { type: 'server', message });
+            return;
+          }
+          toast.error(message);
+        },
       },
     );
   });
@@ -156,6 +174,10 @@ export function ChangePasswordDialog({
                   value: PASSWORD_PATTERN,
                   message: 'At least 8 characters with letters and numbers',
                 },
+                // 2026-11-10：不允许原样沿用当前密码（首登强制改密曾被复制三次通过）
+                validate: (v) =>
+                  v !== oldPasswordValue ||
+                  'New password must be different from the current password',
               })}
             />
             {errors.newPassword && (
@@ -205,6 +227,15 @@ export function ChangePasswordDialog({
               {mutation.isPending ? 'Submitting…' : 'Confirm'}
             </Button>
           </DialogFooter>
+          {force && onSignOut ? (
+            <button
+              type="button"
+              className="w-full text-center text-xs text-muted-foreground underline-offset-2 hover:underline"
+              onClick={onSignOut}
+            >
+              Sign in with another account
+            </button>
+          ) : null}
         </form>
       </DialogContent>
     </Dialog>

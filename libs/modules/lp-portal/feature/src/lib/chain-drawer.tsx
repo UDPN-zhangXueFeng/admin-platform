@@ -45,6 +45,7 @@ import {
 } from './tx-chain';
 import { formatAmount, formatTime } from './format';
 import { ServiceDownAlert } from './service-down-alert';
+import { PairArrow } from './pair-arrow';
 
 /* ================================================================== */
 /* Unified chain rendering (v4)                                        */
@@ -374,9 +375,10 @@ export function ChainDrawer({ row, onClosed }: ChainDrawerProps) {
                     {symOf(srcKey(row))}/
                     {symOf(tgtKey(row))}
                   </div>
-                  <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                    {bankOf(srcKey(row))} →{' '}
-                    {bankOf(tgtKey(row))}
+                  <div className="mt-1 flex items-center gap-1 text-xs leading-5 text-muted-foreground">
+                    <span>{bankOf(srcKey(row))}</span>
+                    <PairArrow />
+                    <span>{bankOf(tgtKey(row))}</span>
                   </div>
                 </div>
                 <Badge
