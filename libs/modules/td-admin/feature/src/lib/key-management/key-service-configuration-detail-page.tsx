@@ -17,15 +17,14 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ChevronLeft } from 'lucide-react';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
-  Button,
   DataTable,
   DetailField,
   DetailGrid,
   DetailSection,
+  PageHeader,
   Skeleton,
   Tabs,
   TabsContent,
@@ -96,46 +95,25 @@ export function KeyServiceConfigurationDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page-level header zone (both tabs) — name/status shown once. */}
-      <div className="space-y-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="-ml-3"
-          onClick={() => router.back()}
-        >
-          <ChevronLeft aria-hidden="true" />
-          {t('key_management_0056')}
-        </Button>
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          {isLoading ? (
-            <>
-              <Skeleton
-                aria-hidden="true"
-                className="h-8 w-56 max-w-full"
-              />
-              <Skeleton
-                aria-hidden="true"
-                className="h-6 w-16 rounded-full"
-              />
-            </>
-          ) : (
-            <>
-              <h1 className="min-w-0 break-words text-2xl font-semibold tracking-tight">
-                {detail?.keyServiceName || '--'}
-              </h1>
-              {detail?.status ? (
-                <StatusBadge
-                  tone={keyServiceStatusToneMap[detail.status] ?? 'default'}
-                  label={labels.getStatusLabel(detail.status)}
-                />
-              ) : (
-                <span className="text-sm text-muted-foreground">--</span>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        backLabel={t('key_management_0056')}
+        onBack={() => router.back()}
+        title={isLoading ? (
+          <Skeleton aria-hidden="true" className="h-8 w-56 max-w-full" />
+        ) : (
+          detail?.keyServiceName || '--'
+        )}
+        actions={isLoading ? (
+          <Skeleton aria-hidden="true" className="h-6 w-16 rounded-full" />
+        ) : detail?.status ? (
+          <StatusBadge
+            tone={keyServiceStatusToneMap[detail.status] ?? 'default'}
+            label={labels.getStatusLabel(detail.status)}
+          />
+        ) : (
+          <span className="text-sm text-muted-foreground">--</span>
+        )}
+      />
 
       <Tabs defaultValue="basic" className="w-full">
         <TabsList>

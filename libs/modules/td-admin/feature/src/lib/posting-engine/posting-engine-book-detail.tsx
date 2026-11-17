@@ -5,10 +5,10 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import {
-  Button,
   Card,
   CopyableEllipsisText,
   DataTable,
+  PageHeader,
   Tabs,
   TabsContent,
   TabsList,
@@ -261,17 +261,28 @@ export function PostingEngineBookDetail({
 
   if (!financeBookId) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </Card>
+      <div className="space-y-4">
+        <PageHeader
+          backLabel={t('action.back')}
+          onBack={() => router.back()}
+          title={t('detail.bookTitle')}
+        />
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">
+            {t('detail.invalidId')}
+          </p>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        backLabel={t('action.back')}
+        onBack={() => router.back()}
+        title={t('detail.bookTitle')}
+      />
       <Tabs defaultValue={activeTab}>
         <TabsList>
           <TabsTrigger value={BASIC_TAB}>
@@ -337,12 +348,6 @@ export function PostingEngineBookDetail({
           </Card>
         </TabsContent>
       </Tabs>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

@@ -7,7 +7,6 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import {
-  Button,
   Card,
   DataTable,
   Drawer,
@@ -16,6 +15,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   Input,
+  PageHeader,
   Tabs,
   TabsContent,
   TabsList,
@@ -355,17 +355,28 @@ export function PostingEngineEventView({
 
   if (!postingEventId) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </Card>
+      <div className="space-y-4">
+        <PageHeader
+          backLabel={t('action.back')}
+          onBack={() => router.back()}
+          title={t('detail.eventTitle')}
+        />
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">
+            {t('detail.invalidId')}
+          </p>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        backLabel={t('action.back')}
+        onBack={() => router.back()}
+        title={t('detail.eventTitle')}
+      />
       <Tabs defaultValue={BASIC_TAB}>
         <TabsList>
           <TabsTrigger value={BASIC_TAB}>
@@ -556,12 +567,6 @@ export function PostingEngineEventView({
           </Card>
         </TabsContent>
       </Tabs>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
 
       <Drawer
         open={selected !== null}

@@ -1,10 +1,9 @@
 'use client';
 
-import * as React from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { Button } from '@myorg/shared/ui';
+import { PageHeader } from '@myorg/shared/ui';
 import { useWalletTypeDetailQuery } from '@myorg/modules/td-admin/data-access';
 import { WalletTypeDetailViewContent } from './wallet-type-detail-view-content';
 import { WalletTypeMffViewContent } from './wallet-type-mff-view-content';
@@ -47,6 +46,11 @@ export function WalletTypeDetailPage() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        backLabel={t('common.back')}
+        onBack={() => router.back()}
+        title={t('walletType.title')}
+      />
       {variant === 'mff' ? (
         <WalletTypeMffViewContent
           ruleId={ruleId}
@@ -56,12 +60,6 @@ export function WalletTypeDetailPage() {
       ) : (
         <WalletTypeDetailViewContent detail={detail} />
       )}
-
-      <div className="flex justify-center">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('common.back')}
-        </Button>
-      </div>
 
       {!ruleId ? (
         <p className="text-center text-sm text-muted-foreground">

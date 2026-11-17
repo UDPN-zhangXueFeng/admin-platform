@@ -31,9 +31,9 @@ import { ColumnDef } from '@tanstack/react-table';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
-  Button,
   Card,
   DataTable,
+  PageHeader,
   Tabs,
   TabsContent,
   TabsList,
@@ -226,8 +226,8 @@ export function KeyPolicyConfigurationDetailPage() {
   if (!record) {
     return (
       <div className="space-y-4">
+        <PageHeader backLabel={t('key_management_0056')} onBack={() => router.back()} title={t('KP_PolicyDetailsTitle')} />
         <p>{t('KP_PolicyNotFound')}</p>
-        <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
       </div>
     );
   }
@@ -244,6 +244,7 @@ export function KeyPolicyConfigurationDetailPage() {
 
   return (
     <div className="space-y-6">
+      <PageHeader backLabel={t('key_management_0056')} onBack={() => router.back()} title={t('KP_PolicyDetailsTitle')} />
       <Tabs defaultValue="basic" className="w-full">
         <TabsList>
           <TabsTrigger value="basic">{t('key_management_0057')}</TabsTrigger>
@@ -302,11 +303,6 @@ export function KeyPolicyConfigurationDetailPage() {
               <DetailItem label={t('key_management_0052')}>
                 {record.updatedOn || '--'}
               </DetailItem>
-            </div>
-            <div className="flex justify-end p-6 pt-0">
-              <Button onClick={() => router.back()}>
-                {t('key_management_0056')}
-              </Button>
             </div>
           </Card>
         </TabsContent>
@@ -370,11 +366,6 @@ export function KeyPolicyConfigurationDetailPage() {
                 },
               }}
             />
-            <div className="mt-6 flex justify-end">
-              <Button onClick={() => router.back()}>
-                {t('key_management_0056')}
-              </Button>
-            </div>
           </Card>
         </TabsContent>
       </Tabs>

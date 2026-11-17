@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
-import { Button, Card, DataTable } from '@myorg/shared/ui';
+import { Card, DataTable, PageHeader } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 import { formatDate } from '@myorg/shared/util-dates';
 import {
@@ -285,18 +285,22 @@ export function AccrualDetailPage() {
     ];
   }, [detail, t]);
 
+  const header = <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('accrual.detail.title')} />;
+
   if (!hasId) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-muted-foreground">
-          {t('accrual.detail.title')}
-        </p>
-      </Card>
+      <div className="space-y-4">
+        {header}
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">{t('accrual.detail.title')}</p>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {header}
       <MmfBasicDetails
         title={t('accrual.detail.title')}
         items={basicItems}
@@ -346,12 +350,6 @@ export function AccrualDetailPage() {
           }}
         />
       </div></Card>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

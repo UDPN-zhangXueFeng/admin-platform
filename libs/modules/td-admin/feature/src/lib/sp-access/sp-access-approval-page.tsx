@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   Label,
+  PageHeader,
   RadioGroup,
   RadioGroupItem,
   Textarea,
@@ -149,8 +150,11 @@ export function SpAccessApprovalPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-24 text-sm text-muted-foreground">
-        {t('sp_access_0045')}
+      <div className="space-y-4">
+        <PageHeader title={tc('PUB_Examine')} backLabel={tc('PUB_GoBack')} onBack={() => router.back()} />
+        <div className="flex items-center justify-center py-24 text-sm text-muted-foreground">
+          {t('sp_access_0045')}
+        </div>
       </div>
     );
   }
@@ -158,9 +162,7 @@ export function SpAccessApprovalPage() {
   if (!detail) {
     return (
       <div className="space-y-4">
-        <Button variant="outline" onClick={() => router.back()}>
-          {tc('PUB_GoBack')}
-        </Button>
+        <PageHeader title={tc('PUB_Examine')} backLabel={tc('PUB_GoBack')} onBack={() => router.back()} />
         <Card className="p-6 text-sm text-muted-foreground">
           {t('sp_access_0002')} · {EMPTY_FIELD_VALUE}
         </Card>
@@ -170,12 +172,7 @@ export function SpAccessApprovalPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{tc('PUB_Examine')}</h1>
-        <Button variant="outline" onClick={() => router.back()}>
-          {tc('PUB_GoBack')}
-        </Button>
-      </div>
+      <PageHeader title={tc('PUB_Examine')} backLabel={tc('PUB_GoBack')} onBack={() => router.back()} />
 
       <Card>
         <div className="border-b p-4 text-base font-semibold">{t('sp_access_0052')}</div>

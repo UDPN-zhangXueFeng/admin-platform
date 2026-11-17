@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 
-import { Button, Card, CopyableEllipsisText } from '@myorg/shared/ui';
+import { Card, CopyableEllipsisText, PageHeader } from '@myorg/shared/ui';
 import { formatAdminTimestamp } from '../format-admin-time';
 
 import {
@@ -60,20 +60,19 @@ export function AuditTrailDetailPage() {
 
   if (!traceId) {
     return (
-      <Card className="p-6"><p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-      <Button
-        variant="outline"
-        className="mt-4"
-        onClick={() => router.back()}
-      >
-        {t('action.back')}
-      </Button></Card>
+      <div className="space-y-4">
+        <PageHeader title={t('detail.title')} backLabel={t('action.back')} onBack={() => router.back()} />
+        <Card className="p-6"><p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p></Card>
+      </div>
     );
   }
 
   if (isLoading || !detail) {
     return (
-      <Card className="p-6 text-sm text-muted-foreground">{isLoading ? '' : t('empty')}</Card>
+      <div className="space-y-4">
+        <PageHeader title={t('detail.title')} backLabel={t('action.back')} onBack={() => router.back()} />
+        <Card className="p-6 text-sm text-muted-foreground">{isLoading ? '' : t('empty')}</Card>
+      </div>
     );
   }
 
@@ -153,8 +152,8 @@ export function AuditTrailDetailPage() {
     <div className="space-y-4">
       {/* Basic Information */}
       <Card>
-        <div className="border-b px-6 py-3 text-sm font-semibold">
-          {t('detail.basicInformation')}
+        <div className="border-b px-6 py-3">
+          <PageHeader title={t('detail.title')} backLabel={t('action.back')} onBack={() => router.back()} />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full table-fixed border-collapse text-sm">
@@ -192,11 +191,6 @@ export function AuditTrailDetailPage() {
         </div>
       </Card>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

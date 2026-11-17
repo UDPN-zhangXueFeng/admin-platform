@@ -2,7 +2,7 @@
 
 import { useForm } from 'react-hook-form';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Button, Card, DataTable } from '@myorg/shared/ui';
+import { Card, DataTable } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { QueryForm } from '../query-form';
 import type {
@@ -40,7 +40,6 @@ export interface EodBalancesContentProps {
     range: [number, number] | null,
     clearingStatus?: EodClearingStatus
   ) => void;
-  onBack: () => void;
   t: (key: string) => string;
 }
 
@@ -49,7 +48,6 @@ export function EodBalancesContent({
   columns,
   description,
   onApplyFilters,
-  onBack,
   t,
 }: EodBalancesContentProps) {
   const { control, handleSubmit, reset } = useForm<EodFilterForm>({
@@ -108,12 +106,6 @@ export function EodBalancesContent({
       <Card><div className="p-4">
         <DataTable columns={columns} data={rows} emptyMessage="--" />
       </div></Card>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={onBack}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

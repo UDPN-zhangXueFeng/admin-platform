@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Button, Card, DataTable } from '@myorg/shared/ui';
+import { Card, DataTable } from '@myorg/shared/ui';
 import {
   FormDateRangePicker,
   FormField,
@@ -70,15 +70,13 @@ export interface OperationRecordsContentProps {
   onResetFilters: () => void;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  onBack: () => void;
   t: (key: string, values?: Record<string, string | number>) => string;
 }
 
 /**
  * Operation Records tab 内容（迁移自源 `OperationRecordsContent.tsx`）。
  *
- * 操作类型 / 创建人 / 创建时间范围筛选 + Query / Reset，服务端分页表格，
- * 底部 Back。第一 / 第二账本列一致（源两份定义内容相同）。
+ * 操作类型 / 创建人 / 创建时间范围筛选 + Query / Reset，服务端分页表格。
  */
 export function OperationRecordsContent({
   bookName,
@@ -92,7 +90,6 @@ export function OperationRecordsContent({
   onResetFilters,
   onPageChange,
   onPageSizeChange,
-  onBack,
   t,
 }: OperationRecordsContentProps) {
   const { control, handleSubmit, register, reset } = useForm<OperationFilterForm>({
@@ -183,12 +180,6 @@ export function OperationRecordsContent({
           />
         </div>
       </Card>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={onBack}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

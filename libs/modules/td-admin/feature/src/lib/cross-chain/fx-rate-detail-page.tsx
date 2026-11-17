@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, Card, DataTable } from '@myorg/shared/ui';
+import { PageHeader, Card, DataTable } from '@myorg/shared/ui';
 import { FormDateRangePicker } from '@myorg/shared/ui-forms';
 import {
   useFxRateDetailListQuery,
@@ -35,7 +35,7 @@ import { QueryForm } from '../query-form';
  * - 请求前缀 `/api/fx/v1/`（非 manage），分页字段 pageNum/pageSize（data-access 已封装）。
  * - 货币对列渲染 `sendCurrencySymbol + '/' + receiveCurrencySymbol`（源码 dataIndex + item 拼接）。
  * - createTime 为时间戳，需 Number() 后格式化（源码 formatTimestamp(Number(createTime))）。
- * - 3 列：货币对 / 汇率（cross_chain_0067）/ 日期（cross_chain_0097）+ 底部「返回」按钮。
+ * - 3 列：货币对 / 汇率（cross_chain_0067）/ 日期（cross_chain_0097）。
  * - **fx-rate 无状态枚举、无写操作**（迁移文档第 8 章确认）。
  */
 interface FxRateDetailFilterForm {
@@ -149,6 +149,7 @@ export function FxRateDetailPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
+      <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('cross_chain_0067')} />
       <form onSubmit={handleSubmit(onSubmit)}>
         <QueryForm
           queryType="submit"
@@ -187,11 +188,6 @@ export function FxRateDetailPage(): React.JSX.Element {
         />
       </div></Card>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

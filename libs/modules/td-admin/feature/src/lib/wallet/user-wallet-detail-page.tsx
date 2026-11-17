@@ -3,7 +3,7 @@
 import { useParams, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { Button, Card } from '@myorg/shared/ui';
+import { Card, PageHeader } from '@myorg/shared/ui';
 import { UserWalletDetailHistoryContent } from './user-wallet-detail-history-content';
 import { UserWalletDetailViewContent } from './user-wallet-detail-view-content';
 
@@ -44,33 +44,33 @@ export function UserWalletDetailPage() {
 
   if (!walletId) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-muted-foreground">
-          {t('userWallet.invalidId')}
-        </p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.back()}
-        >
-          {t('common.back')}
-        </Button>
-      </Card>
+      <div className="space-y-4">
+        <PageHeader
+          backLabel={t('common.back')}
+          onBack={() => router.back()}
+          title={t('userWallet.title')}
+        />
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">
+            {t('userWallet.invalidId')}
+          </p>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        backLabel={t('common.back')}
+        onBack={() => router.back()}
+        title={t('userWallet.title')}
+      />
       {variant === 'history' ? (
         <UserWalletDetailHistoryContent walletId={walletId} />
       ) : (
         <UserWalletDetailViewContent walletId={walletId} />
       )}
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('common.back')}
-        </Button>
-      </div>
     </div>
   );
 }

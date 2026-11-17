@@ -6,9 +6,9 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import {
-  Button,
   Card,
   CopyableEllipsisText,
+  PageHeader,
   DataTable,
   Tabs,
   TabsContent,
@@ -274,25 +274,30 @@ export function OperationalWalletDetailPage() {
     [t]
   );
 
+  const header = (
+    <PageHeader
+      backLabel={t('common.back')}
+      onBack={() => router.back()}
+      title={t('operationalWallet.detailTitle')}
+    />
+  );
+
   if (!ruleWalletId) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-muted-foreground">
-          {t('operationalWallet.invalidId')}
-        </p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.back()}
-        >
-          {t('common.back')}
-        </Button>
-      </Card>
+      <div className="space-y-4">
+        {header}
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">
+            {t('operationalWallet.invalidId')}
+          </p>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {header}
       <Tabs defaultValue={BASIC_TAB}>
         <TabsList>
           <TabsTrigger value={BASIC_TAB}>
@@ -388,12 +393,6 @@ export function OperationalWalletDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('common.back')}
-        </Button>
-      </div>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
-import { Button, Card, cardSurfaceClass, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { Button, Card, cardSurfaceClass, CopyableEllipsisText, DataTable, PageHeader } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
 import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
@@ -327,8 +327,13 @@ export function StatementsViewPage({
 
   if (!exportRuleId) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-muted-foreground">{t('detail.title')}</p>
+      <Card className="space-y-4 p-6">
+        <PageHeader
+          backLabel={t('action.back')}
+          onBack={() => router.back()}
+          title={t('detail.title')}
+        />
+        <p className="text-sm text-muted-foreground">{t('empty')}</p>
       </Card>
     );
   }
@@ -387,7 +392,13 @@ export function StatementsViewPage({
   return (
     <div className="space-y-4">
       <Card>
-        <div className="border-b px-6 py-3 text-sm font-semibold">{t('detail.title')}</div>
+        <div className="border-b px-6 py-4">
+          <PageHeader
+            backLabel={t('action.back')}
+            onBack={() => router.back()}
+            title={t('detail.title')}
+          />
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full table-fixed border-collapse text-sm">
             <tbody>
@@ -470,10 +481,6 @@ export function StatementsViewPage({
           />
         </div>
       </Card>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>{t('action.back')}</Button>
-      </div>
     </div>
   );
 }
@@ -676,6 +683,12 @@ export function StatementsExportPage() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        backLabel={t('action.back')}
+        onBack={() => router.back()}
+        title={t('title')}
+      />
+
       <form onSubmit={handleSubmit(onSubmit)} className={cn(cardSurfaceClass, 'p-6')}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="space-y-1.5">
@@ -879,10 +892,6 @@ export function StatementsExportPage() {
           />
         </div>
       </Card>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>{t('action.back')}</Button>
-      </div>
     </div>
   );
 }

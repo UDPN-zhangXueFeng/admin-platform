@@ -81,6 +81,7 @@
   "approval_manage_0035": "Create",
   "approval_manage_0036": " by ",
   "approval_manage_0037": "Add {length} Approvers :",
+  "approval_manage_0050": "{count} more",
   "approve_type_1": " / ",
   "approve_type_2": " and ",
   "workflow_node_type_1": "Before Current Node",

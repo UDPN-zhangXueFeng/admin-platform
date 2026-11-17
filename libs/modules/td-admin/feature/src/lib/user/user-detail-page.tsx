@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
-import { Button, Card, Checkbox } from '@myorg/shared/ui';
+import { Card, Checkbox, PageHeader } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import { UserStatusBadge } from '.';
@@ -55,28 +55,22 @@ export function UserDetailPage() {
 
   if (!userId) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-muted-foreground">{t('invalidId')}</p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.push('/sys/user')}
-        >
-          {t('action.back')}
-        </Button>
-      </Card>
+      <div className="space-y-4">
+        <PageHeader title={t('view.title')} backLabel={t('action.back')} onBack={() => router.push('/sys/user')} />
+        <Card className="p-6"><p className="text-sm text-muted-foreground">{t('invalidId')}</p></Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {isError ? (
-        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-          {t('loadFailed')}
-        </div>
-      ) : null}
       <Card className="p-6">
-        <div className="mb-6 text-base font-semibold">{t('view.title')}</div>
+        <PageHeader className="mb-6" title={t('view.title')} backLabel={t('action.back')} onBack={() => router.push('/sys/user')} />
+        {isError ? (
+          <div role="alert" className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+            {t('loadFailed')}
+          </div>
+        ) : null}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <DetailField label={t('field.userName')}>
             {isLoading ? '—' : detail?.userName || '—'}
@@ -154,11 +148,6 @@ export function UserDetailPage() {
         )}
       </Card>
 
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => router.push('/sys/user')}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

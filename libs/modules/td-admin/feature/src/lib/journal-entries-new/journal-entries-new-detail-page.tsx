@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
-import { Button, Card, DataTable } from '@myorg/shared/ui';
+import { Button, Card, DataTable, PageHeader } from '@myorg/shared/ui';
 import { toast } from 'sonner';
 
 import {
@@ -287,18 +287,20 @@ export function JournalEntriesNewDetailPage() {
   );
 
   const onBack = () => router.back();
+  const header = <PageHeader backLabel={t('action.back')} onBack={onBack} title={t('title')} />;
 
   if (!tdTxId) {
     return (
-      <Card className="p-6"><p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-      <Button variant="outline" className="mt-4" onClick={onBack}>
-        {t('action.back')}
-      </Button></Card>
+      <div className="space-y-6">
+        {header}
+        <Card className="p-6"><p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p></Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {header}
       {/* Raw Data */}
       <Card>
         <div className="border-b px-6 py-4 text-base font-semibold">
@@ -446,12 +448,6 @@ export function JournalEntriesNewDetailPage() {
           </div>
         </div>
       </Card>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={onBack}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

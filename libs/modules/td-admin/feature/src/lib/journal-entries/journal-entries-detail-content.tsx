@@ -7,7 +7,13 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
-import { Button, Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import {
+  Button,
+  Card,
+  CopyableEllipsisText,
+  DataTable,
+  PageHeader,
+} from '@myorg/shared/ui';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { QueryForm } from '../query-form';
@@ -221,7 +227,11 @@ export function JournalEntriesView({
 
   if (!ruleId) {
     return (
-      <Card className="p-6"><p className="text-sm text-muted-foreground">{t('detail.title')}</p></Card>
+      <PageHeader
+        backLabel={t('action.back')}
+        onBack={() => router.back()}
+        title={t('detail.title')}
+      />
     );
   }
 
@@ -232,6 +242,21 @@ export function JournalEntriesView({
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        backLabel={t('action.back')}
+        onBack={() => router.back()}
+        title={t('detail.title')}
+        actions={
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            disabled={exportMutation.isPending}
+          >
+            {t('action.export')}
+          </Button>
+        }
+      />
+
       <form onSubmit={handleSubmit(onSubmit)}>
         <QueryForm
           fields={[
@@ -265,17 +290,7 @@ export function JournalEntriesView({
         />
       </form>
 
-      <Card><div className="flex justify-between border-b px-6 py-3">
-        <div className="text-sm font-semibold">{t('detail.title')}</div>
-        <Button
-          variant="outline"
-          onClick={handleExport}
-          disabled={exportMutation.isPending}
-        >
-          {t('action.export')}
-        </Button>
-      </div>
-      <div className="p-4">
+      <Card><div className="p-4">
         <DataTable
           columns={columns}
           data={rows}
@@ -292,12 +307,6 @@ export function JournalEntriesView({
           }}
         />
       </div></Card>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

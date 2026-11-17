@@ -1,10 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Printer, Edit, Trash2 } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { useRouter } from '@myorg/shared/util-i18n';
+import { useTranslations } from 'next-intl';
+import { Printer, Edit, Trash2 } from 'lucide-react';
 
-import { Button, Card, Separator, Tabs, TabsList, TabsTrigger, TabsContent } from '@myorg/shared/ui';
+import { Button, Card, PageHeader, Separator, Tabs, TabsList, TabsTrigger, TabsContent } from '@myorg/shared/ui';
 import { useToast } from '@myorg/shared/ui';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { formatCurrency } from '@myorg/shared/util-formatting';
@@ -25,6 +27,7 @@ import { getOrderTimelineEvents } from '.';
 export function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const tc = useTranslations('common');
   const toast = useToast();
   const projectId = 'ecommerce'; // In real app, from ConfigProvider
   const orderId = params?.id as string;
@@ -38,7 +41,7 @@ export function OrderDetailPage() {
     deleteMutation.mutate(order.id, {
       onSuccess: () => {
         toast.success('订单已删除');
-        router.push('/zh-CN/order');
+        router.push('/order');
       },
       onError: () => {
         toast.error('删除失败，请重试');
@@ -49,6 +52,7 @@ export function OrderDetailPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
+        <PageHeader backLabel={tc('PUB_GoBack')} onBack={() => router.push('/order')} title={`订单 ${orderId ?? ''}`} />
         <div className="h-8 w-1/3 animate-pulse rounded bg-muted" />
         <div className="grid gap-6 md:grid-cols-2">
           <div className="h-48 animate-pulse rounded-lg bg-muted" />
@@ -60,8 +64,11 @@ export function OrderDetailPage() {
 
   if (isError || !order) {
     return (
-      <div className="flex h-64 items-center justify-center text-destructive">
-        加载订单详情失败，请返回重试。
+      <div className="space-y-6">
+        <PageHeader backLabel={tc('PUB_GoBack')} onBack={() => router.push('/order')} title={`订单 ${orderId ?? ''}`} />
+        <div className="flex h-64 items-center justify-center text-destructive">
+          加载订单详情失败，请返回重试。
+        </div>
       </div>
     );
   }
@@ -70,28 +77,12 @@ export function OrderDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => router.push('/zh-CN/order')}
-            aria-label="返回列表"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-semibold">
-              订单 {order.orderNo}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              创建于 {formatAdminTimestamp(order.createdAt)}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <PageHeader
+        backLabel={tc('PUB_GoBack')}
+        onBack={() => router.push('/order')}
+        title={`订单 ${order.orderNo}`}
+        description={`创建于 ${formatAdminTimestamp(order.createdAt)}`}
+        actions={<div className="flex items-center gap-2">
           <Button variant="outline" size="sm">
             <Printer className="mr-2 h-4 w-4" />
             打印
@@ -104,8 +95,8 @@ export function OrderDetailPage() {
             <Trash2 className="mr-2 h-4 w-4" />
             删除
           </Button>
-        </div>
-      </div>
+        </div>}
+      />
 
       <Separator />
 

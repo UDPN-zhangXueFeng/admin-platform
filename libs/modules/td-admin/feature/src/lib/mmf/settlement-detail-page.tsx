@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import {
-  Button,
+  PageHeader,
   Card,
   DataTable,
   Tabs,
@@ -396,18 +396,22 @@ export function SettlementDetailPage() {
     ];
   }, [detail, t]);
 
+  const header = <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('settlement.detail.title')} />;
+
   if (!hasId) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-muted-foreground">
-          {t('settlement.detail.title')}
-        </p>
-      </Card>
+      <div className="space-y-4">
+        {header}
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">{t('settlement.detail.title')}</p>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {header}
       <Tabs defaultValue="basic">
         <TabsList>
           <TabsTrigger value="basic">{t('tabs.basicInfo')}</TabsTrigger>
@@ -501,12 +505,6 @@ export function SettlementDetailPage() {
           </div></Card>
         </TabsContent>
       </Tabs>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
-import { Button, Card, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { Card, PageHeader, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
 import {
   FIXED_TOKEN_TYPES,
   resolveBasicInfoStatus,
@@ -149,6 +149,7 @@ export function ChartOfAccountsDetailPage() {
 
   return (
     <div className="space-y-4">
+      <PageHeader title={t('title')} backLabel={t('action.back')} onBack={onBack} />
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="basic-information">{t('tab.basicInformation')}</TabsTrigger>
@@ -162,7 +163,6 @@ export function ChartOfAccountsDetailPage() {
         <TabsContent value="basic-information">
           <Card className="p-6"><div className="mb-6 flex items-center justify-between">
             <h2 className="text-base font-semibold">{t('detail.basicInformationTitle')}</h2>
-            <Button variant="outline" onClick={onBack}>{t('action.back')}</Button>
           </div>
           {basicInfoQuery.isError ? (
             <p className="py-4 text-sm text-destructive" role="alert">
@@ -222,8 +222,6 @@ export function ChartOfAccountsDetailPage() {
             errorMessage={coa.coaTreeError ? tCommon('common_task_status_40') : undefined}
             loading={coa.coaTreeLoading}
             emptyMessage={tCommon('noData')}
-            onBack={onBack}
-            backLabel={t('action.back')}
             onSave={coa.handleCoaDraftSubmit}
             saveLabel={t('coa.saveDraft')}
             saveLoading={coa.coaActionSubmitting}
@@ -238,7 +236,6 @@ export function ChartOfAccountsDetailPage() {
             columns={eod.columns}
             description={t('eod.tabDescription')}
             onApplyFilters={eod.onApplyFilters}
-            onBack={onBack}
             t={(key: string) => t(key)}
           />
         </TabsContent>
@@ -272,7 +269,6 @@ export function ChartOfAccountsDetailPage() {
             onResetFilters={operationRecords.resetFilters}
             onPageChange={operationRecords.goToPage}
             onPageSizeChange={operationRecords.changePageSize}
-            onBack={onBack}
             t={(key: string, values?: Record<string, string | number>) =>
               t(key, values)
             }

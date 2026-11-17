@@ -7,7 +7,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import {
-  Button,
+  PageHeader,
   Card,
   CopyableEllipsisText,
   DataTable,
@@ -697,6 +697,7 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
+      <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('cross_chain_0058')} />
       <Tabs defaultValue="basic">
         <TabsList>
           <TabsTrigger value="basic">{t('cross_chain_0033')}</TabsTrigger>
@@ -822,9 +823,6 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-center">
-        <Button onClick={() => router.back()}>{t('action.back')}</Button>
-      </div>
     </div>
   );
 }

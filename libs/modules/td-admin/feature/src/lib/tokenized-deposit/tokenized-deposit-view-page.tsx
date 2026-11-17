@@ -7,7 +7,8 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { Button, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { useRouter } from '@myorg/shared/util-i18n';
 import {
   useStablecoinInfoQuery,
   useStablecoinListQuery,
@@ -38,6 +39,7 @@ import { MintingMeltingTab } from './tokenized-deposit-view/minting-melting-tab'
  */
 export function TokenizedDepositViewPage(): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
+  const router = useRouter();
 
   // ── 稳定币列表（取 [0]，提交 Mint/Melt 时用 stablecoinId/name/symbol）──
   const stablecoinListQuery = useStablecoinListQuery();
@@ -62,6 +64,7 @@ export function TokenizedDepositViewPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
+      <PageHeader backLabel={t('PUB_GoBack')} onBack={() => router.back()} title={coinName} />
       {stablecoinListQuery.isError && (
         <div role="alert" className="flex items-center gap-3 text-sm text-destructive">
           <span>{t('td_query_load_failed')}</span>
@@ -70,7 +73,6 @@ export function TokenizedDepositViewPage(): React.JSX.Element {
           </Button>
         </div>
       )}
-      <div className="text-base font-medium">{coinName}</div>
 
       <Tabs defaultValue="1">
         <TabsList>

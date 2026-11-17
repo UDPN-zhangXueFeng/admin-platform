@@ -16,7 +16,10 @@ import {
   CardHeader,
   CardTitle,
   CopyableEllipsisText,
+  PageHeader,
   Skeleton,
+  Timeline,
+  type TimelineItem,
 } from '@myorg/shared/ui';
 import {
   useKissenTransferDetail,
@@ -173,11 +176,55 @@ export function KissenTransferDetailPage() {
     return fields;
   };
 
+  const chainItems: TimelineItem[] = flowNodes.map((node) => {
+    const stage = Number(node.stageStep ?? 0);
+    const title =
+      KISSEN_STAGE_TITLE_KEYS[stage] !== undefined
+        ? t(KISSEN_STAGE_TITLE_KEYS[stage])
+        : node.remark ||
+          (KISSEN_TX_STATUS[Number(node.statusTo)]
+            ? t(KISSEN_TX_STATUS[Number(node.statusTo)].labelKey)
+            : KISSEN_EMPTY_DISPLAY);
+    const fields = stageFieldsOf(node, info);
+    const remark = node.remark && stage !== 0 ? node.remark : null;
+    return {
+      key: String(node.flowId ?? `${node.step}-${node.eventTime}`),
+      title,
+      meta: formatAdminTimestamp(node.eventTime),
+      status: 'neutral',
+      description: fields.length > 0 || remark ? (
+        <>
+          {fields.length > 0 && (
+            <div className="space-y-1">
+              {fields.map((field) => (
+                <div key={field.label} className="flex items-baseline gap-2">
+                  <span className="w-14 shrink-0 text-muted-foreground">
+                    {field.label}
+                  </span>
+                  <span className="min-w-0 flex-1 break-all font-mono tabular-nums">
+                    {field.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {remark && (
+            <p className={fields.length > 0 ? 'mt-1 break-words leading-5' : 'break-words leading-5'}>
+              {remark}
+            </p>
+          )}
+        </>
+      ) : undefined,
+    };
+  });
+
   const goBack = () => router.back();
+  const header = <PageHeader backLabel={tc('PUB_GoBack')} onBack={goBack} title={t('kissen_transfer_detail_title')} />;
 
   if (isLoading) {
     return (
       <div className="space-y-5">
+        {header}
         <Skeleton className="h-24 w-full rounded-xl" />
         <div className="grid gap-5 xl:grid-cols-5">
           <Skeleton className="h-72 rounded-xl xl:col-span-3" />
@@ -190,6 +237,7 @@ export function KissenTransferDetailPage() {
   if (isError) {
     return (
       <div className="space-y-5">
+        {header}
         <Alert variant="destructive">
           <TriangleAlert className="size-4" aria-hidden="true" />
           <div>
@@ -206,11 +254,6 @@ export function KissenTransferDetailPage() {
             </AlertDescription>
           </div>
         </Alert>
-        <div className="flex justify-center">
-          <Button variant="outline" onClick={goBack}>
-            {tc('PUB_GoBack')}
-          </Button>
-        </div>
       </div>
     );
   }
@@ -218,6 +261,7 @@ export function KissenTransferDetailPage() {
   if (!data || transactionId <= 0) {
     return (
       <div className="space-y-5">
+        {header}
         <Alert variant="warning">
           <TriangleAlert className="size-4" aria-hidden="true" />
           <div>
@@ -229,17 +273,13 @@ export function KissenTransferDetailPage() {
             <AlertDescription>{t('kissen_transfer_not_found')}</AlertDescription>
           </div>
         </Alert>
-        <div className="flex justify-center">
-          <Button variant="outline" onClick={goBack}>
-            {tc('PUB_GoBack')}
-          </Button>
-        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-5">
+      {header}
       {info.found === false && (
         <Alert variant="warning">
           <TriangleAlert className="size-4" aria-hidden="true" />
@@ -254,9 +294,6 @@ export function KissenTransferDetailPage() {
       <Card>
         <CardHeader className="flex-col items-start gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <CardTitle className="text-xl">
-              {t('kissen_transfer_detail_title')}
-            </CardTitle>
             {statusMeta && (
               <Badge variant={statusMeta.variant} dot>
                 {t(statusMeta.labelKey)}
@@ -474,71 +511,10 @@ export function KissenTransferDetailPage() {
             </CardHeader>
             <CardContent>
               {flowNodes.length ? (
-                <ol className="space-y-0">
-                  {flowNodes.map((node, index) => {
-                    const stage = Number(node.stageStep ?? 0);
-                    const title =
-                      KISSEN_STAGE_TITLE_KEYS[stage] !== undefined
-                        ? t(KISSEN_STAGE_TITLE_KEYS[stage])
-                        : node.remark ||
-                          (KISSEN_TX_STATUS[Number(node.statusTo)]
-                            ? t(
-                                KISSEN_TX_STATUS[Number(node.statusTo)]
-                                  .labelKey,
-                              )
-                            : KISSEN_EMPTY_DISPLAY);
-                    const fields = stageFieldsOf(node, info);
-                    return (
-                      <li
-                        key={String(node.flowId ?? `${node.step}-${node.eventTime}`)}
-                        className="relative flex gap-3 pb-5 last:pb-0"
-                      >
-                        {index < flowNodes.length - 1 && (
-                          <span
-                            className="absolute left-[6px] top-4 h-full w-px bg-border"
-                            aria-hidden="true"
-                          />
-                        )}
-                        <span
-                          className="relative z-10 mt-1 size-3 shrink-0 rounded-full border-2 border-primary bg-card"
-                          aria-hidden="true"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-baseline justify-between gap-2">
-                            <span className="text-sm font-semibold">
-                              {title}
-                            </span>
-                            <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                              {formatAdminTimestamp(node.eventTime)}
-                            </span>
-                          </div>
-                          {fields.length > 0 && (
-                            <div className="mt-1 space-y-1">
-                              {fields.map((field) => (
-                                <div
-                                  key={field.label}
-                                  className="flex items-baseline gap-2 text-xs"
-                                >
-                                  <span className="w-14 shrink-0 text-muted-foreground">
-                                    {field.label}
-                                  </span>
-                                  <span className="min-w-0 flex-1 break-all font-mono tabular-nums">
-                                    {field.value}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {node.remark && stage !== 0 && (
-                            <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">
-                              {node.remark}
-                            </p>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
+                <Timeline
+                  items={chainItems}
+                  ariaLabel={t('kissen_transfer_chain_title')}
+                />
               ) : (
                 <p className="py-10 text-center text-sm text-muted-foreground">
                   {t('kissen_transfer_no_stages')}
@@ -549,11 +525,6 @@ export function KissenTransferDetailPage() {
         </div>
       </div>
 
-      <div className="flex justify-center">
-        <Button variant="outline" onClick={goBack}>
-          {tc('PUB_GoBack')}
-        </Button>
-      </div>
     </div>
   );
 }

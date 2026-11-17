@@ -81,6 +81,7 @@
   "approval_manage_0035": "创建",
   "approval_manage_0036": " 由 ",
   "approval_manage_0037": "新增 {length} 个审批人：",
+  "approval_manage_0050": "还有 {count} 人",
   "approve_type_1": " / ",
   "approve_type_2": " 和 ",
   "workflow_node_type_1": "当前节点之前",

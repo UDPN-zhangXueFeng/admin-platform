@@ -3,8 +3,9 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { ChevronDown } from 'lucide-react';
 import { formatAdminTimestamp } from '../format-admin-time';
-import { Button, Card } from '@myorg/shared/ui';
+import { Button, Card, PageHeader } from '@myorg/shared/ui';
 
 import {
   useApprovedDetailQuery,
@@ -371,27 +372,25 @@ export function ApprovalManageDetailPage() {
     <div className="space-y-4">
       {/* 重设计：页头摘要 + 主区业务信息 + sticky 操作栏/日志，避免旧版 49% 双栏拥挤。 */}
       <Card className="p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Workflow task
-            </p>
-            <h1 className="mt-1 truncate text-xl font-semibold">{businessName}</h1>
-            <p className="mt-1 break-all text-sm text-muted-foreground">
-              {busCode} · Task #{taskId}
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-            <div>
-              <span className="block text-xs text-muted-foreground">Created by</span>
-              <span>{creator}</span>
+        <PageHeader
+          backLabel={t('detail.back')}
+          onBack={() => window.history.back()}
+          eyebrow="Workflow task"
+          title={businessName}
+          description={`${busCode} · Task #${taskId}`}
+          actions={
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              <div>
+                <span className="block text-xs text-muted-foreground">Created by</span>
+                <span>{creator}</span>
+              </div>
+              <div>
+                <span className="block text-xs text-muted-foreground">Created at</span>
+                <span>{createdAt}</span>
+              </div>
             </div>
-            <div>
-              <span className="block text-xs text-muted-foreground">Created at</span>
-              <span>{createdAt}</span>
-            </div>
-          </div>
-        </div>
+          }
+        />
       </Card>
 
       {detailQuery.data == null ? (
@@ -424,7 +423,6 @@ export function ApprovalManageDetailPage() {
                   onSuccess={() => {
                     // Mutations invalidate approvalManageKeys and refresh detail/log queries.
                   }}
-                  onBack={() => window.history.back()}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground" role="status">
@@ -435,8 +433,9 @@ export function ApprovalManageDetailPage() {
 
             <Card className="p-4">
               <Collapsible defaultOpen>
-                <CollapsibleTrigger className="flex w-full items-center justify-between py-2 text-sm font-semibold">
+                <CollapsibleTrigger className="group flex w-full items-center justify-between py-2 text-sm font-semibold">
                   <span>{t('approval_manage_0008')}</span>
+                  <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-3">
                   {logQuery.isError ? (
@@ -463,12 +462,6 @@ export function ApprovalManageDetailPage() {
           </aside>
         </div>
       )}
-
-      <div className="mt-6 flex justify-center">
-        <Button variant="default" onClick={() => window.history.back()}>
-          {t('detail.back')}
-        </Button>
-      </div>
     </div>
   );
 }

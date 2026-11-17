@@ -1,10 +1,9 @@
 'use client';
 
-import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
-import { Button, Card } from '@myorg/shared/ui';
+import { Card, PageHeader, Timeline, type TimelineItem } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import { WorkflowStatusTag } from '.';
@@ -31,9 +30,6 @@ function parseId(raw: string | null): number | undefined {
  * - 基础信息描述列表：workflowName / businessName / workflowNodes（节点数）/
  *   withdrawType / previousStepType / escalationType（三项开关 1=Yes/2=No）/ createdDate / status。
  * - 流程节点：垂直 Steps（发起人占位 + detail.nodes[] 审批人 + End）。
- *
- * source 旧页用 antd Steps progressDot vertical；此处自渲染带圆点的垂直步骤列表，
- * 零新依赖（参考 role 自渲染思路）。
  */
 export function WorkflowViewPage() {
   const t = useTranslations('modules.workflow');
@@ -45,16 +41,10 @@ export function WorkflowViewPage() {
 
   if (!id) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-muted-foreground">{t('invalidId')}</p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.push('/sys/workflow')}
-        >
-          {t('action.back')}
-        </Button>
-      </Card>
+      <div className="space-y-4">
+        <PageHeader title={t('view.title')} backLabel={t('action.back')} onBack={() => router.push('/sys/workflow')} />
+        <Card className="p-6"><p className="text-sm text-muted-foreground">{t('invalidId')}</p></Card>
+      </div>
     );
   }
 
@@ -67,17 +57,36 @@ export function WorkflowViewPage() {
   };
 
   const nodes = detail?.nodes ?? [];
+  const timelineItems: TimelineItem[] = [
+    {
+      key: 'initiator',
+      title: t('process.initiator'),
+      description: `${t('field.assignees')}: ${t('process.authorizedUser')}`,
+      status: 'neutral',
+    },
+    ...nodes.map((node, idx): TimelineItem => ({
+      key: `${node.stepOrder}-${idx}`,
+      title: `${t('process.approver')} ${idx + 1}/${node.stepUsers.length}`,
+      description: (
+        <div className="space-y-0.5">
+          <div>{`${t('field.assignees')}: ${node.stepUsers.map((u) => u.userName).join(' / ')}`}</div>
+          <div>{`${t('field.executionMode')}: ${t('field.executionModeValue')}`}</div>
+        </div>
+      ),
+      status: 'neutral',
+    })),
+    { key: 'end', title: t('process.end'), status: 'neutral' },
+  ];
 
   return (
     <div className="space-y-4">
-      {isError ? (
-        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-          {t('loadFailed')}
-        </div>
-      ) : null}
-      {/* 基础信息描述列表 */}
       <Card className="p-6">
-        <div className="mb-6 text-base font-semibold">{t('view.title')}</div>
+        <PageHeader className="mb-6" title={t('view.title')} backLabel={t('action.back')} onBack={() => router.push('/sys/workflow')} />
+        {isError ? (
+          <div role="alert" className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+            {t('loadFailed')}
+          </div>
+        ) : null}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <DescItem label={t('field.workflowName')} value={detail?.workflowName} loading={isLoading} />
           <DescItem label={t('field.businessName')} value={detail?.businessName} loading={isLoading} />
@@ -110,34 +119,9 @@ export function WorkflowViewPage() {
       {/* 流程节点 Steps（垂直点状） */}
       <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">{t('process.title')}</div>
-        <ol className="relative space-y-6 pl-6">
-          {/* 发起人占位（旧页固定首项） */}
-          <StepItem
-            title={t('process.initiator')}
-            description={`${t('field.assignees')}: ${t('process.authorizedUser')}`}
-          />
-          {/* 审批节点 */}
-          {nodes.map((node, idx) => (
-            <StepItem
-              key={`${node.stepOrder}-${idx}`}
-              title={`${t('process.approver')} ${idx + 1}/${node.stepUsers.length}`}
-              description={`${t('field.assignees')}: ${node.stepUsers
-                .map((u) => u.userName)
-                .join(' / ')}\n${t('field.executionMode')}: ${t(
-                'field.executionModeValue'
-              )}`}
-            />
-          ))}
-          {/* End */}
-          <StepItem title={t('process.end')} />
-        </ol>
+        <Timeline items={timelineItems} ariaLabel={t('process.title')} />
       </Card>
 
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => router.push('/sys/workflow')}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }
@@ -159,23 +143,3 @@ function DescItem({
   );
 }
 
-function StepItem({
-  title,
-  description,
-}: {
-  title: string;
-  description?: string;
-}) {
-  return (
-    <li className="relative">
-      {/* 圆点 */}
-      <span className="absolute -left-6 top-1 h-3 w-3 rounded-full bg-theme ring-4 ring-theme/20" />
-      <div className="text-sm font-medium">{title}</div>
-      {description ? (
-        <div className="whitespace-pre-line text-sm text-muted-foreground">
-          {description}
-        </div>
-      ) : null}
-    </li>
-  );
-}

@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { useRouter } from '@myorg/shared/util-i18n';
 import {
   useReserveAssetDetailQuery,
   type ReserveAssetDetail,
@@ -85,6 +86,7 @@ export interface ViewBasicProps {
 export function ReserveAssetDetailPage(): React.JSX.Element {
   const t = useTranslations('modules.pledge');
   const tc = useTranslations('common');
+  const router = useRouter();
 
   // 列表页跳 /pledge/reserve-asset-list/view?id=<reserveAccountId>：
   // catch-all 路由 slug[0]=view → pageKey=detail，id 走 query string。
@@ -158,6 +160,7 @@ export function ReserveAssetDetailPage(): React.JSX.Element {
 
   return (
     <div className="relative">
+      <PageHeader backLabel={t('viewBasic.goBack')} onBack={() => router.back()} title={t('title')} className="mb-4" />
       {loading ? (
         <div role="status" className="mb-3 text-sm text-muted-foreground">
           {tc('loading')}

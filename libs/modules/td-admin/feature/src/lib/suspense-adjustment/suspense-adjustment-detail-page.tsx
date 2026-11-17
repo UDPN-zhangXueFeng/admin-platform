@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 
-import { Button, Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { Card, CopyableEllipsisText, DataTable, PageHeader } from '@myorg/shared/ui';
 
 import {
   useSuspenseEntryDetailQuery,
@@ -49,7 +49,7 @@ type EntryTableRow = SuspenseEntryLine & { id: string };
  *
  * 迁移自 td-manage src/pages/financial/adjustments/view.tsx（558 行）。
  * 4 区块（非 Tabs，与源一致）：Basic Details（kv）+ Suspense Entries（分录表）+
- * Amount Summary（金额汇总）+ Adjustment History（历史表 + 审批跳转 + Back）。
+ * Amount Summary（金额汇总）+ Adjustment History（历史表 + 审批跳转）。
  *
  * 路由：/suspense-adjustment/view?id=suspenseRecordId（dispatcher slug[0]=view → detail）。
  */
@@ -197,22 +197,27 @@ export function SuspenseAdjustmentDetailPage() {
     [t, router],
   );
 
+  const header = <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('detail.title')} />;
+
   if (!suspenseRecordId) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </Card>
+      <div className="space-y-4">
+        {header}
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
+        </Card>
+      </div>
     );
   }
 
   if (isLoading || !detail) {
     return (
-      <Card className="p-6 text-sm text-muted-foreground">
-        {isLoading ? '' : t('empty')}
-      </Card>
+      <div className="space-y-4">
+        {header}
+        <Card className="p-6 text-sm text-muted-foreground">
+          {isLoading ? '' : t('empty')}
+        </Card>
+      </div>
     );
   }
 
@@ -261,6 +266,7 @@ export function SuspenseAdjustmentDetailPage() {
 
   return (
     <div className="space-y-4">
+      {header}
       {/* Basic Details */}
       <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">
@@ -344,11 +350,6 @@ export function SuspenseAdjustmentDetailPage() {
             data={detail.adjustmentHistory}
             emptyMessage={t('empty')}
           />
-        </div>
-        <div className="flex justify-end p-4">
-          <Button variant="outline" onClick={() => router.back()}>
-            {t('action.back')}
-          </Button>
         </div>
       </Card>
     </div>

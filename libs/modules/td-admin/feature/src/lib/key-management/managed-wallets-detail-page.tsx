@@ -27,6 +27,7 @@ import {
   CopyableEllipsisText,
   DataTable,
   Input,
+  PageHeader,
   Tabs,
   TabsContent,
   TabsList,
@@ -317,6 +318,7 @@ export function ManagedWalletsDetailPage() {
 
   return (
     <div className="space-y-6">
+      <PageHeader backLabel={t('key_management_0056')} onBack={() => router.back()} title={t('key_management_0085')} />
       <Tabs defaultValue="basic" className="w-full">
         <TabsList>
         <TabsTrigger value="basic">{t('key_management_0057')}</TabsTrigger>
@@ -401,7 +403,7 @@ export function ManagedWalletsDetailPage() {
                 </div>
               </Card>
 
-              {/* Card B — Key Rotation Details (5 fields, span 2) + Back */}
+              {/* Card B — Key Rotation Details (5 fields, span 2) */}
               <Card>
                 <div className="flex flex-col space-y-1.5 p-6">
                   <h3 className="text-2xl font-semibold leading-none tracking-tight">
@@ -424,9 +426,6 @@ export function ManagedWalletsDetailPage() {
                   <DetailItem label={t('key_management_0088')}>
                     {formatTimestamp(detail?.nextRotationTime)}
                   </DetailItem>
-                </div>
-                <div className="flex justify-end p-6 pt-0">
-                  <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
                 </div>
               </Card>
             </>
@@ -522,9 +521,6 @@ export function ManagedWalletsDetailPage() {
                   setHistoryPage({ pageNum: 1, pageSize: size }),
               }}
             />
-            <div className="mt-6 flex justify-end">
-              <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
-            </div>
           </Card>
         </TabsContent>
       </Tabs>

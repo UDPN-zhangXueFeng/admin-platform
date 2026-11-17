@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
-import { Button, Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import type { NormalizationEvent } from '@myorg/modules/td-admin/data-access';
 import {
   EMPTY_DISPLAY,
@@ -61,12 +61,10 @@ export function TxEventBasicInfoTab({
   detail,
   loading,
   bookId,
-  onBack,
 }: {
   detail: NormalizationEvent | null;
   loading?: boolean;
   bookId?: string;
-  onBack: () => void;
 }) {
   const t = useTranslations('modules.transaction-event-configuration');
 
@@ -189,11 +187,6 @@ export function TxEventBasicInfoTab({
         </div>
       </Card>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={onBack}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

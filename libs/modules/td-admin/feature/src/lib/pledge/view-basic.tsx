@@ -28,9 +28,8 @@
  */
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Button, Card, DataTable, cardSurfaceClass } from '@myorg/shared/ui';
+import { Card, DataTable, cardSurfaceClass } from '@myorg/shared/ui';
 import { cn } from '@myorg/shared/util-classnames';
 import { formatAdminTimestamp } from '../format-admin-time';
 import {
@@ -93,7 +92,6 @@ export function ViewBasic({
   totalAssetValueText,
 }: ViewBasicProps): React.JSX.Element {
   const t = useTranslations('modules.pledge');
-  const router = useRouter();
 
   // 饼图数据（源 chartData useMemo）：categorieList → { value, name }
   const pieData = React.useMemo<AssetCategoryPieDatum[]>(() => {
@@ -335,12 +333,6 @@ export function ViewBasic({
         </section>
       ) : null}
 
-      {/* 返回按钮（源 view-basic 末尾 Go Back） */}
-      <div className="flex justify-end">
-        <Button type="button" variant="outline" onClick={() => router.back()}>
-          {t('viewBasic.goBack')}
-        </Button>
-      </div>
     </div>
   );
 }

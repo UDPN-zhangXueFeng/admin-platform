@@ -7,7 +7,7 @@ import type { CoaRow } from '@myorg/modules/td-admin/data-access';
 /**
  * Chart of Accounts tab 容器（迁移自源 ChartOfAccountsTab.tsx）。
  *
- * 仅负责呈现：描述 / 提示 / 错误提示 / DataTable（COA 树行）/ 返回 + 保存草稿按钮。
+ * 仅负责呈现：描述 / 提示 / 错误提示 / DataTable（COA 树行）/ 保存草稿按钮。
  * columns、rows、handlers 由上层 useCoaTree hook 提供（保持容器 dumb）。
  * antd Table + Alert → shared/ui DataTable + Tailwind 提示条。
  */
@@ -19,8 +19,6 @@ export interface CoaTabProps {
   errorMessage?: string;
   loading: boolean;
   emptyMessage?: string;
-  onBack: () => void;
-  backLabel: string;
   onSave?: () => void;
   saveLabel?: string;
   saveLoading?: boolean;
@@ -35,8 +33,6 @@ export function CoaTab({
   columns,
   loading,
   emptyMessage,
-  onBack,
-  backLabel,
   onSave,
   saveLabel,
   saveLoading,
@@ -75,9 +71,6 @@ export function CoaTab({
             {saveLoading ? '...' : saveLabel}
           </Button>
         ) : null}
-        <Button variant="outline" onClick={onBack}>
-          {backLabel}
-        </Button>
       </div>
     </div>
   );

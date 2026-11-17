@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { useRouter } from '@myorg/shared/util-i18n';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { type ColumnDef } from '@tanstack/react-table';
 
@@ -12,6 +13,7 @@ import {
   DataTable,
   Input,
   Label,
+  PageHeader,
   Select,
   SelectContent,
   SelectItem,
@@ -126,6 +128,8 @@ const DEFAULT_FILTERS: TxFilterValues = {
 
 export function RealTimeDetailPage() {
   const t = useTranslations('modules.reconciliation');
+  const tBack = useTranslations('modules.workflow');
+  const router = useRouter();
   const searchParams = useSearchParams();
   const tokenId = searchParams.get('id')
     ? Number(searchParams.get('id'))
@@ -590,7 +594,8 @@ export function RealTimeDetailPage() {
   return (
     <div className="space-y-4">
       {/* ── Basic Info Section ───────────────────────────────────────────── */}
-      <ReconciliationSection title={t('reconciliation_0145')}>
+      <PageHeader title={t('reconciliation_0072')} backLabel={tBack('action.back')} onBack={() => router.back()} />
+      <ReconciliationSection>
         {basicLoading ? (
           <Skeleton className="h-48" />
         ) : basicInfo ? (

@@ -7,7 +7,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { X } from 'lucide-react';
 import {
-  Button,
+  PageHeader,
   Card,
   CopyableEllipsisText,
   DataTable,
@@ -558,6 +558,7 @@ export function RdBridgeDetailPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
+      <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('cross_chain_0038')} />
       <Tabs defaultValue="basic">
         <TabsList>
           <TabsTrigger value="basic">{t('cross_chain_0033')}</TabsTrigger>
@@ -624,9 +625,6 @@ export function RdBridgeDetailPage(): React.JSX.Element {
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-center">
-        <Button onClick={() => router.back()}>{t('action.back')}</Button>
-      </div>
 
       {/* ── 操作记录 Drawer 详情 ── */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>

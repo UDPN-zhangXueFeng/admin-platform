@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import {
   FormDateRangePicker,
   FormField,
@@ -101,13 +101,11 @@ export function TxEventHistoricalRecordsTab({
   eventType,
   bookId,
   active,
-  onBack,
 }: {
   normalizationEventId: number;
   eventType?: number;
   bookId?: string;
   active?: boolean;
-  onBack: () => void;
 }) {
   const t = useTranslations('modules.transaction-event-configuration');
   const router = useRouter();
@@ -335,11 +333,6 @@ export function TxEventHistoricalRecordsTab({
         </div>
       </Card>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={onBack}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

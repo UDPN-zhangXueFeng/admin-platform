@@ -5,7 +5,6 @@
  * and renders three info cards: Signature Details, Transaction Info, Raw Message.
  *
  * Contract notes (vs upstream key-signed-transactions/detail.tsx):
- * - Upstream shows a Back button below the cards (routerBack); kept here.
  * - Status label uses `common_task_status_${n}` guarded by t.has; tone from
  *   `common.approval_task_status_color_${n}` (upstream statusColorMap):
  *   unknown/missing codes degrade to the raw number + neutral badge instead
@@ -21,7 +20,7 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 
-import { Alert, Button, Card, CopyableEllipsisText } from '@myorg/shared/ui';
+import { Alert, Button, Card, CopyableEllipsisText, PageHeader } from '@myorg/shared/ui';
 
 import { useKeySignedTransactionDetailQuery } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
@@ -105,9 +104,18 @@ export function KeySignedTransactionsDetailPage() {
     refetch,
   } = useKeySignedTransactionDetailQuery(txRecordId);
 
+  const header = (
+    <PageHeader
+      backLabel={t('key_management_0056')}
+      onBack={() => router.back()}
+      title={t('key_management_0104')}
+    />
+  );
+
   if (isLoading) {
     return (
       <div className="space-y-4">
+        {header}
         <div className="h-64 w-full animate-pulse rounded-md bg-muted" />
         <div className="h-32 w-full animate-pulse rounded-md bg-muted" />
         <div className="h-48 w-full animate-pulse rounded-md bg-muted" />
@@ -118,6 +126,7 @@ export function KeySignedTransactionsDetailPage() {
   if (isError) {
     return (
       <div className="space-y-4">
+        {header}
         <Alert variant="destructive">
           <div className="flex items-center justify-between gap-4">
             <span>{error instanceof Error ? error.message : t('key_management_load_failed')}</span>
@@ -126,24 +135,24 @@ export function KeySignedTransactionsDetailPage() {
             </Button>
           </div>
         </Alert>
-        <div className="flex justify-end">
-          <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
-        </div>
       </div>
     );
   }
 
   if (!detail) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-        <h2 className="text-2xl font-bold">{t('key_management_0060')}</h2>
-        <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
+      <div className="space-y-4">
+        {header}
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <h2 className="text-2xl font-bold">{t('key_management_0060')}</h2>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {header}
       {/* Signature Details */}
       <Card>
         <div className="flex flex-col space-y-1.5 p-6">
@@ -257,9 +266,6 @@ export function KeySignedTransactionsDetailPage() {
               '--'
             )}
           </DetailItem>
-          <div className="mt-6 flex justify-end">
-            <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
-          </div>
         </div>
       </Card>
     </div>

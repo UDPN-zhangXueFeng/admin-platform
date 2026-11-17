@@ -13,7 +13,7 @@ import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import {
-  Button,
+  PageHeader,
   Card,
   DataTable,
   Tabs,
@@ -268,11 +268,13 @@ export function TransactionsDetailPage() {
 
   const { data: detail, isLoading } = useTokenBillDetail(id);
 
-  if (isLoading) return <div className="p-8">{tc('PUB_Query')}...</div>;
-  if (!detail) return <div className="p-8 text-muted-foreground">Transaction not found</div>;
+  const header = <PageHeader backLabel={tc('PUB_GoBack')} onBack={() => router.back()} title={t('interest_00116')} />;
+  if (isLoading) return <div className="space-y-4">{header}<div className="p-8">{tc('PUB_Query')}...</div></div>;
+  if (!detail) return <div className="space-y-4">{header}<div className="p-8 text-muted-foreground">Transaction not found</div></div>;
 
   return (
-    <div>
+    <div className="space-y-4">
+      {header}
       <Tabs defaultValue="basic">
         <TabsList>
           <TabsTrigger value="basic">{t('interest_0009')}</TabsTrigger>
@@ -287,11 +289,6 @@ export function TransactionsDetailPage() {
           <OperationRecordsTab tokenBillId={id} tc={tc} />
         </TabsContent>
       </Tabs>
-      <div className="flex justify-center mt-6">
-        <Button variant="outline" onClick={() => router.back()}>
-          {tc('PUB_GoBack')}
-        </Button>
-      </div>
     </div>
   );
 }

@@ -5,8 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import {
-  Button,
   Card,
+  PageHeader,
   Tabs,
   TabsContent,
   TabsList,
@@ -45,21 +45,16 @@ export function TxEventMappingRuleDetailPage() {
 
   if (!normalizationEventId) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.back()}
-        >
-          {t('action.back')}
-        </Button>
-      </Card>
+      <div className="space-y-4">
+        <PageHeader title={t('mappingRuleDetail')} backLabel={t('action.back')} onBack={() => router.back()} />
+        <Card className="p-6"><p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p></Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <PageHeader title={t('mappingRuleDetail')} backLabel={t('action.back')} onBack={() => router.back()} />
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value={BASIC_TAB}>
@@ -74,7 +69,6 @@ export function TxEventMappingRuleDetailPage() {
             detail={detail ?? null}
             loading={isLoading}
             bookId={bookId}
-            onBack={() => router.back()}
           />
         </TabsContent>
         <TabsContent value={HISTORY_TAB}>
@@ -83,7 +77,6 @@ export function TxEventMappingRuleDetailPage() {
             eventType={detail?.eventType}
             bookId={bookId}
             active={activeTab === HISTORY_TAB}
-            onBack={() => router.back()}
           />
         </TabsContent>
       </Tabs>

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { useRouter } from '@myorg/shared/util-i18n';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { type ColumnDef } from '@tanstack/react-table';
 
@@ -11,6 +12,7 @@ import {
   DataTable,
   Input,
   Label,
+  PageHeader,
   Select,
   SelectContent,
   SelectItem,
@@ -142,6 +144,8 @@ const DEFAULT_FILTERS: ReserveFilterValues = {
  */
 export function ReserveDetailPage() {
   const t = useTranslations('modules.reconciliation');
+  const tBack = useTranslations('modules.workflow');
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const reserveAccountIdRaw = searchParams.get('id');
@@ -547,13 +551,14 @@ export function ReserveDetailPage() {
     const name =
       basicInfo?.reserveAssetName?.trim() ||
       basicInfo?.reserveAccountName?.trim();
-    return name ? `${name} Reconciliation` : t('reconciliation_0145');
+    return name ? `${name} Reconciliation` : t('reconciliation_0234');
   }, [basicInfo, t]);
 
   return (
     <div className="space-y-4">
       {/* 基本信息 */}
-      <ReconciliationSection title={title}>
+      <PageHeader title={title} backLabel={tBack('action.back')} onBack={() => router.back()} />
+      <ReconciliationSection>
         {basicLoading ? (
           <div className="grid grid-cols-2 gap-x-8 gap-y-4 md:grid-cols-3">
             {Array.from({ length: 8 }).map((_, i) => (
