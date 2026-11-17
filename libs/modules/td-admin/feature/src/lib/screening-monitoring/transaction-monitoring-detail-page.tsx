@@ -19,10 +19,10 @@ export function TransactionMonitoringDetailPage() {
   const [pg, setPg] = React.useState<{ pageNum: number; pageSize: number }>({ pageNum: 1, pageSize: PAGE_SIZE });
   const { data: txData, isLoading: txLoading } = useSuspiciousTransactions({ pageNum: pg.pageNum, pageSize: pg.pageSize, filters: { suspiciousId: id } });
 
+  const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: txData?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })), onPageSizeChange: (size: number) => setPg({ pageNum: 1, pageSize: size }) }), [pg.pageNum, pg.pageSize, txData?.page?.total]);
   if (isLoading) return <div className="p-8">Loading...</div>;
   if (!detail) return <div className="p-8 text-muted-foreground">Transaction not found</div>;
-
-  const isTimeSeries = bt === 40 || bt === 50;
+  const isTimeSeries = detail?.businessType === 40 || detail?.businessType === 50;
   const basicItems = isTimeSeries ? [
     { l: t('screening_monitoring_0015'), v: detail.walletAddress }, { l: t('screening_monitoring_0001'), v: detail.stablecoinName, s: 2 }, { l: t('screening_monitoring_0002'), v: detail.businessName },
     { l: t('screening_monitoring_0019'), v: (bt === 50 || bt === 40) ? detail.description + '%' : (bt === 20 || bt === 30) ? detail.description + t('screening_monitoring_0081') : detail.description, s: 2 },
@@ -42,25 +42,24 @@ export function TransactionMonitoringDetailPage() {
   const timeSeriesCols: ColumnDef<SuspiciousTransactionItem>[] = [
     { id: 'txDate', header: t('screening_monitoring_0063'), accessorKey: 'transactionDate', cell: ({ getValue }) => formatAdminTimestamp(Number(getValue<string>())) },
     { id: 'txType', header: t('screening_monitoring_0002'), accessorKey: 'transactionType', cell: () => t('transaction_monitoring_type_4') + (bt === 40 ? t('screening_monitoring_0084') : t('screening_monitoring_0085')) },
-    { id: 'txAmount', header: t('screening_monitoring_0068'), accessorKey: 'transactionAmount', cell: ({ getValue, row }) => (getValue<number>() ?? '-') + ' ' + (row.original.transactionUnit ?? '') },
+    { id: 'txAmount', header: t('screening_monitoring_0068'), accessorKey: 'transactionAmount', cell: ({ getValue, row }) => (getValue<number | string>() ?? '-') + ' ' + (row.original.transactionUnit ?? '') },
   ];
   const transferCols: ColumnDef<SuspiciousTransactionItem>[] = [
     { id: 'from', header: t('screening_monitoring_0066'), accessorKey: 'from' },
     { id: 'to', header: t('screening_monitoring_0067'), accessorKey: 'to' },
-    { id: 'txType2', header: t('screening_monitoring_0002'), accessorKey: 'transactionType', cell: ({ getValue }) => t(`transaction_monitoring_type_${getValue<number>()}`) },
-    { id: 'txAmount2', header: t('screening_monitoring_0068'), accessorKey: 'transactionAmount', cell: ({ getValue, row }) => (getValue<number>() ?? '-') + ' ' + (row.original.transactionUnit ?? '') },
+    { id: 'txType2', header: t('screening_monitoring_0002'), accessorKey: 'transactionType', cell: ({ getValue }) => { const value = getValue<number | string>(); return typeof value === 'number' && value >= 1 && value <= 4 ? t(`transaction_monitoring_type_${value}`) : String(value ?? '-'); } },
+    { id: 'txAmount2', header: t('screening_monitoring_0068'), accessorKey: 'transactionAmount', cell: ({ getValue, row }) => (getValue<number | string>() ?? '-') + ' ' + (row.original.transactionUnit ?? '') },
     { id: 'txDate2', header: t('screening_monitoring_0063'), accessorKey: 'transactionDate', cell: ({ getValue }) => formatAdminTimestamp(Number(getValue<string>())) },
     { id: 'txHash', header: t('screening_monitoring_0062'), accessorKey: 'transactionHash', cell: ({ getValue }) => { const v = getValue<string>(); return detail.browserUrl ? <a href={detail.browserUrl + 'tx/' + v} target="_blank" rel="noreferrer" className="text-blue-600">{v}</a> : v; } },
   ];
 
-  const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: txData?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })), onPageSizeChange: (size: number) => setPg({ pageNum: 1, pageSize: size }) }), [pg.pageNum, pg.pageSize, txData?.page?.total]);
 
   return (
     <div>
       <div className="grid grid-cols-3 gap-4 mb-6">
         {basicItems.map((item, i) => (<div key={i} className={item.s && item.s > 1 ? `col-span-${item.s}` : ''}><dt className="text-sm text-muted-foreground">{item.l}</dt><dd className="text-sm font-medium mt-1">{item.v}</dd></div>))}
       </div>
-      <DataTable columns={isTimeSeries ? timeSeriesCols : transferCols} data={(txData?.rows ?? []).map(r => ({ ...r, id: String(r.transactionDate || Math.random()) }))} pagination={tablePagination} isLoading={txLoading} />
+      <DataTable columns={isTimeSeries ? timeSeriesCols : transferCols} data={(txData?.rows ?? []).map((r, i) => ({ ...r, id: `${r.transactionHash ?? r.transactionDate ?? 'transaction'}-${i}` }))} pagination={tablePagination} isLoading={txLoading} />
 
       <div className="bg-white p-4 mt-8 font-bold">{t('screening_monitoring_0038')}</div>
       <table className="w-full text-sm border-collapse">
@@ -102,7 +101,7 @@ export function TransactionMonitoringDetailPage() {
           {(detail.processList || []).map((row: ProcessRecord, i: number) => (
             <tr key={i} className="border-b">
               <td className="py-2 pr-4">{row.processResult === 1 ? t('transaction_monitoring_type_1') : t('transaction_monitoring_type_2')}</td>
-              <td className="py-2 pr-4">{t(`suggested_action_type_${row.processingType}`)}</td>
+              <td className="py-2 pr-4">{row.processingType == null ? '--' : t(`suggested_action_type_${row.processingType}`)}</td>
               <td className="py-2 pr-4">{row.createdBy}</td>
               <td className="py-2 pr-4">{formatAdminTimestamp(Number(row.createdOn))}</td>
               <td className="py-2 pr-4">{row.transactionHash || '--'}</td>

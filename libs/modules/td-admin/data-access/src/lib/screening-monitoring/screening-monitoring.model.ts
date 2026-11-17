@@ -14,7 +14,7 @@ export interface BusinessTypeOption { businessType: number; businessName: string
 // ── Rule 列表/详情 ──
 export interface RuleListItem extends ScreeningRow { ruleId: number; ruleName: string; tokenName: string; blockchainName: string; blockchainNameAbbreviation?: string; businessType: number; businessName: string; monitorFrequencyName: string; createUser: string; createDate: string; status: number; buttonFlag?: boolean; }
 export interface RuleListFilters { ruleName?: string; tokenId?: string; blockchainId?: string; businessType?: string; startDate?: string; endDate?: string; status?: string; }
-export interface RuleDetail { ruleId: number; ruleName: string; tokenName: string; tokenId: number; blockchainName: string; businessType: number; businessName: string; monitorFrequencyName: string; monitorFrequency: string; monitorUnit: number; updateUser: string; updateDate: string; status: number; unit?: number; detailList: RuleDetailItem[]; alertList?: AlertItem[]; browserUrl?: string; ruleFrequency?: string; /** 旧接口字段名（拼写沿用后端） */ comperaTo?: number; }
+export interface RuleDetail { ruleId: number; ruleName: string; tokenName: string; tokenId: number; blockchainName: string; businessType: number; businessName: string; monitorFrequencyName: string; monitoringFrequency: string; monitorUnit: number; updateUser: string; updateDate: string; status: number; unit?: number; detailList: RuleDetailItem[]; alertList?: AlertItem[]; browserUrl?: string; ruleFrequency?: string; /** 旧接口字段名（拼写沿用后端） */ comperaTo?: number; }
 export interface RuleDetailItem { minValue: number; maxValue: number; riskScoring: string; priority: number; handleType: number; emailRecipients?: string; }
 export interface AlertItem { contactInfo: string; priority: number; notifyType: number; }
 export interface RuleOperationRecord extends ScreeningRow { ruleRecordId: number; recordType: number; createUserName: string; createTime: string; state: number; taskId?: string; busCode?: string; }
@@ -28,11 +28,11 @@ export interface SuspiciousListFilters { walletAddress?: string; tokenId?: strin
 export interface SuspiciousDetail { suspiciousId: number; businessType: number; businessName: string; walletAddress: string; stablecoinName: string; description: string; monitorDate: string; state: number; resultPriority: number; currentValue?: number; compareValue?: number; symbol?: string; compareToTime?: number; ruleDetails: SuspiciousRuleDetail[]; processList: ProcessRecord[]; browserUrl?: string; unit?: number; ruleName?: string; }
 export interface SuspiciousRuleDetail { minValue: number; maxValue: number; riskScoring: string; priority: number; }
 export interface ProcessRecord { processResult: number; processingType: number; createdBy: string; createdOn: string; transactionHash?: string; transactionTime?: string; status: number; taskId?: string; businessCode?: string; }
-export interface SuspiciousTransactionItem extends ScreeningRow { transactionDate?: string; transactionType?: string; transactionAmount?: number; transactionUnit?: string; from?: string; to?: string; transactionHash?: string; }
+export interface SuspiciousTransactionItem extends ScreeningRow { transactionDate?: string; transactionType?: string; transactionAmount?: string | number; transactionUnit?: string; from?: string; to?: string; transactionHash?: string; }
 export interface SuspiciousTransactionListFilters { suspiciousId: number; }
 
 // ── 表单值 ──
-export interface RuleFormValues { ruleName: string; tokenId: number; businessType: number; monitorFrequency: string | number; monitorFrequencyType: number; compareTo: number; saveDetails: SaveDetailFormItem[]; turnOnAlert: boolean; alertList: AlertFormItem[]; }
+export interface RuleFormValues { ruleName: string; tokenId: number; businessType: number; monitorFrequency: string | number; monitorFrequencyType: number | string; compareTo: number; saveDetails: SaveDetailFormItem[]; turnOnAlert: boolean; alertList: AlertFormItem[]; }
 export interface SaveDetailFormItem { minValue: number | string; maxValue: number | string; riskScoring: string; priority: number | string; handleType: number | string; }
 export interface AlertFormItem { contactInfo: string; priority: number; notifyType: number; /** 前端勾选态，提交前剔除 */ selectAllUsers?: boolean; }
 export interface ProcessFormValues { processRemark: number; comments: string; }

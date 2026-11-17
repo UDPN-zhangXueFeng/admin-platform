@@ -14,10 +14,11 @@ import { HANDLE_TYPE_MAP, RISK_LEVEL_MAP } from '.';
 
 export function RuleEditContent() {
   const t = useTranslations('modules.screening-monitoring'); const tc = useTranslations('common');
-  const router = useRouter(); const sp = useSearchParams(); const id = sp.get('id'); const isEdit = Boolean(id); const ruleId = Number(id);
+  const router = useRouter(); const sp = useSearchParams(); const id = sp.get('ruleId') ?? sp.get('id'); const isEdit = Boolean(id); const ruleId = Number(id);
   const { data: tdList } = useStablecoinOptions(); const { data: bizTypes } = useBusinessTypeList();
   const { data: existing } = useRuleDetail(isEdit ? ruleId : 0); const [loaded, setLoaded] = useState(false);
   const saveMut = useSaveRule(); const editMut = useEditRule(); const [submitting, setSubmitting] = useState(false);
+  const [invalidSubmit, setInvalidSubmit] = useState(false);
   const [unitList, setUnitList] = useState<{ monitorName: string; monitorUnit: number }[]>([]);
 
   const form = useForm<RuleFormValues>({ defaultValues: { ruleName: '', tokenId: 0, businessType: 0, monitorFrequency: '', monitorFrequencyType: 0, compareTo: 5, saveDetails: [], turnOnAlert: false, alertList: [] } });
@@ -31,11 +32,11 @@ export function RuleEditContent() {
   useEffect(() => {
     if (isEdit && existing && !loaded) {
       setLoaded(true);
-      const { ruleName, tokenId, businessType: bt, monitorFrequency, monitorUnit, detailList, alertList } = existing;
+      const { ruleName, tokenId, businessType: bt, monitoringFrequency, monitorUnit, detailList, alertList } = existing;
       form.setValue('ruleName', ruleName); form.setValue('tokenId', tokenId); form.setValue('businessType', bt);
-      form.setValue('monitorFrequency', bt === 40 || bt === 50 ? toHms(monitorFrequency) : Number(monitorFrequency));
-      form.setValue('monitorFrequencyType', monitorUnit); form.setValue('compareTo', existing.comperaTo ?? 5);
-      form.setValue('saveDetails', (detailList || []).map((el: SaveDetailFormItem) => ({ minValue: el.minValue, maxValue: el.maxValue, riskScoring: el.riskScoring, priority: el.priority, handleType: el.handleType })));
+      form.setValue('monitorFrequency', bt === 40 || bt === 50 ? toHms(monitoringFrequency) : Number(monitoringFrequency));
+      form.setValue('monitorFrequencyType', String(monitorUnit)); form.setValue('compareTo', existing.comperaTo ?? 5);
+      form.setValue('saveDetails', (detailList || []).map((el: SaveDetailFormItem) => ({ minValue: el.minValue, maxValue: el.maxValue, riskScoring: el.riskScoring, priority: String(el.priority), handleType: String(el.handleType) })));
       form.setValue('turnOnAlert', Boolean(alertList?.length));
       form.setValue('alertList', (alertList || []).map((a: { contactInfo: string; priority: number; notifyType: number }) => ({ contactInfo: a.contactInfo, priority: a.priority, notifyType: a.notifyType })));
       if (bizTypes) { const cur = bizTypes.find((b: { value: number }) => b.value === bt); if (cur) setUnitList(cur.unitList); }
@@ -43,11 +44,24 @@ export function RuleEditContent() {
       setLoaded(true);
       const first = bizTypes[0];
       form.setValue('businessType', first.value); setUnitList(first.unitList);
-      form.setValue('monitorFrequencyType', first.unitList[0]?.monitorUnit);
+      form.setValue('monitorFrequencyType', String(first.unitList[0]?.monitorUnit ?? ''));
       form.setValue('saveDetails', [{ minValue: '', maxValue: '', riskScoring: '', priority: '', handleType: '' }]);
     }
   }, [isEdit, existing, bizTypes, loaded, form]);
-
+  useEffect(() => {
+    if (!isEdit || !existing) return;
+    const current = bizTypes?.find((b: { value: number }) => b.value === existing.businessType);
+    if (current?.unitList?.length) {
+      setUnitList(current.unitList);
+      return;
+    }
+    const monitorUnit = Number(existing.monitorUnit);
+    if (monitorUnit > 0) {
+      const parsedName = existing.monitorFrequencyName?.match(/Every \d+ (.+)$/)?.[1];
+      const monitorName = parsedName?.toLowerCase() === 'hour' ? 'Hours' : parsedName || 'Hours';
+      setUnitList([{ monitorName, monitorUnit }]);
+    }
+  }, [bizTypes, existing, isEdit]);
   // Auto-fill tokenId for create
   useEffect(() => { if (!isEdit && tdList && tdList.length) { form.setValue('tokenId', Number(tdList[0]?.value)); } }, [isEdit, tdList]);
 
@@ -62,16 +76,25 @@ export function RuleEditContent() {
   }, [saveDetails, turnOnAlert]);
 
   const onSubmit = async (v: RuleFormValues) => {
+    const isTimeTypeValue = v.businessType === 40 || v.businessType === 50;
+    if (!v.ruleName.trim()) { toast.error('Please enter rule name'); return; }
+    if (!v.tokenId) { toast.error('Please select token'); return; }
+    if (!v.businessType) { toast.error('Please select transaction type'); return; }
+    if (v.monitorFrequency === '' || v.monitorFrequency == null) { toast.error('Please enter monitoring frequency'); return; }
+    if (isTimeTypeValue && (v.compareTo == null || v.compareTo < 1)) { toast.error('Please enter compare value'); return; }
+    if (!(v.saveDetails?.length) || v.saveDetails.some((row) => row.minValue === '' || row.maxValue === '' || row.riskScoring === '' || row.priority === '' || row.handleType === '')) {
+      toast.error('Please complete the risk level configuration'); return;
+    }
     setSubmitting(true);
     try {
       const { turnOnAlert: _ta, monitorFrequency, monitorFrequencyType, saveDetails: _sd, alertList: _al, ...rest } = v;
-      const isTimeType = v.businessType === 40 || v.businessType === 50;
-      const mf = isTimeType ? toHms(monitorFrequency) : monitorFrequency;
-      const mft = isTimeType ? (unitList[0]?.monitorUnit || 1) : monitorFrequencyType;
+      const mf = isTimeTypeValue ? toHms(monitorFrequency) : monitorFrequency;
+      const mft = isTimeTypeValue ? (unitList[0]?.monitorUnit || 1) : monitorFrequencyType;
       const alertList = _ta ? _al.map(({ contactInfo, priority, notifyType }) => ({ contactInfo, priority, notifyType })) : [];
-      const params = { ...rest, monitorFrequency: mf, monitorFrequencyType: mft, saveDetails: _sd, alertList, compareTo: isTimeType ? v.compareTo : undefined };
-      if (isEdit) await editMut.mutateAsync({ ...params, ruleId } as never);
-      else await saveMut.mutateAsync(params as never);
+      const params = { ...rest, monitorFrequency: mf, monitorFrequencyType: mft, saveDetails: _sd, alertList, compareTo: isTimeTypeValue ? v.compareTo : undefined };
+      const requestParams = { ...params, tokenId: Number(params.tokenId), monitorFrequencyType: Number(params.monitorFrequencyType) };
+      if (isEdit) await editMut.mutateAsync({ ...requestParams, ruleId } as never);
+      else await saveMut.mutateAsync(requestParams as never);
       toast.success(tc('PUB_Success')); router.back();
     } finally { setSubmitting(false); }
   };
@@ -79,13 +102,14 @@ export function RuleEditContent() {
   const isTimeType = businessType === 40 || businessType === 50;
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="bg-white shadow p-10 pt-4">
+    <form onSubmit={form.handleSubmit(onSubmit, () => { setInvalidSubmit(true); toast.error('Please complete the required fields'); })} className="bg-white shadow p-10 pt-4">
+      {invalidSubmit && <div role="alert" className="mb-4 text-sm text-destructive">Please complete the required fields.</div>}
       <h4 className="text-lg font-medium mb-6">{t('screening_monitoring_0005').replace('****', isEdit ? tc('PUB_Edit') : tc('PUB_New'))}</h4>
       {/* Basic Info */}
       <div className="flex justify-between py-6 mb-6 border-b">
         <div className="w-[20%]"><span className="font-bold">{t('screening_monitoring_0004')}</span><p className="text-sm text-muted-foreground">{t('screening_monitoring_0006')}</p></div>
         <div className="w-[78%] flex justify-between">
-          <div className="w-[35%]"><FormField name="ruleName" label={t('screening_monitoring_0000')} register={form.register('ruleName', { required: true })} disabled={isEdit} maxLength={50} placeholder={t('screening_monitoring_0052')} /></div>
+          <div className="w-[35%]"><FormField name="ruleName" label={t('screening_monitoring_0000')} register={form.register('ruleName', { required: true })} error={form.formState.errors.ruleName?.message || (invalidSubmit && !form.getValues('ruleName') ? 'Required' : undefined)} disabled={isEdit} maxLength={50} placeholder={t('screening_monitoring_0052')} /></div>
           <div className="w-[15%]"><FormSelect name="tokenId" label={t('screening_monitoring_0001')} control={form.control} options={tdList || []} disabled={isEdit} /></div>
           <div className="w-[43%]">
             <label className="mb-1.5 block text-sm font-medium text-foreground">{t('screening_monitoring_0002')}</label>
@@ -112,7 +136,7 @@ export function RuleEditContent() {
           ) : (
             <div className="flex gap-4">
               <div className="w-[25%]"><FormField name="monitorFrequency" label={t('screening_monitoring_0003')} register={form.register('monitorFrequency', { required: true })} type="number" /></div>
-              <div className="w-[15%]"><FormSelect name="monitorFrequencyType" label=" " control={form.control} options={unitList.map(u => ({ label: u.monitorName, value: String(u.monitorUnit) }))} /></div>
+              <div className="w-[15%]"><FormSelect name="monitorFrequencyType" label=" " control={form.control} options={(unitList.length ? unitList : (existing?.monitorUnit ? [{ monitorName: 'Hours', monitorUnit: existing.monitorUnit }] : [])).map(u => ({ label: u.monitorName, value: String(u.monitorUnit) }))} /></div>
             </div>
           )}
 

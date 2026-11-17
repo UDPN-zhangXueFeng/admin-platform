@@ -5,9 +5,9 @@
 'use client';
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-import { useForm, useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch, Controller, type Control, type UseFormReturn } from 'react-hook-form';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { Button, Checkbox, Switch } from '@myorg/shared/ui';
+import { Button, Checkbox, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@myorg/shared/ui';
 import { FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { toast } from '@myorg/shared/ui';
 import type { TEditFormValues, TEditRiskLevelRow } from '@myorg/modules/td-admin/data-access';
@@ -67,7 +67,7 @@ function scoreMaxValidator(index: number): RowValidator {
 export function RuleTEditPage() {
   const router = useRouter();
   const [spinning, setSpinning] = useState(false);
-  const form = useForm<TEditFormValues>({ defaultValues: { ruleName: '', ruleSource: 'custom', scanTiming: 'pre', tokenName: 'mmfcoin', compareTo: 5, riskLevelConfigs: [], enableEmailNotification: false, emailRecipients: [] } });
+  const form = useForm<TEditFormValues>({ defaultValues: { ruleName: '', ruleSource: 'custom', scanTiming: 'pre', tokenName: 'mmfcoin', transactionType: 'outbound_increase', compareTo: 5, riskLevelConfigs: [], enableEmailNotification: false, emailRecipients: [] } });
   const { errors } = form.formState;
   const ruleSource = useWatch({ control: form.control, name: 'ruleSource' });
   const scanTiming = useWatch({ control: form.control, name: 'scanTiming' });
@@ -78,6 +78,11 @@ export function RuleTEditPage() {
 
   const config = TEDIT_COLUMN_CONFIGS[ruleSource]?.[scanTiming] || TEDIT_COLUMN_CONFIGS.custom.pre;
   const isThirdPartyPost = THIRD_PARTY_POST_SOURCES.includes(ruleSource) && scanTiming === 'post';
+  const isStaticTransfer =
+    (THIRD_PARTY_POST_SOURCES.includes(ruleSource) && scanTiming === 'post') ||
+    ((ruleSource === 'elliptic' || ruleSource === 'misttrack') && scanTiming === 'pre');
+  const requiresTransactionType =
+    ruleSource === 'custom' || (ruleSource === 'chainalysis' && scanTiming === 'pre');
 
   useEffect(() => {
     form.setValue('ruleSource', 'custom'); form.setValue('scanTiming', 'pre');
@@ -101,7 +106,7 @@ export function RuleTEditPage() {
 
   const onFinish = async (v: TEditFormValues) => {
     setSpinning(true);
-    if (v.ruleSource === 'custom' && !v.transactionType) { toast.error('Please select transaction type'); setSpinning(false); return; }
+    if (requiresTransactionType && !v.transactionType) { toast.error('Please select transaction type'); setSpinning(false); return; }
     if (v.ruleSource === 'custom' && v.scanTiming === 'post' && !v.monitoringTime) { toast.error('Please select monitoring time'); setSpinning(false); return; }
     if (THIRD_PARTY_POST_SOURCES.includes(v.ruleSource) && v.scanTiming === 'post' && (v.monitoringFrequencyValue == null || v.monitoringFrequencyValue < 1)) { toast.error('Please enter frequency value'); setSpinning(false); return; }
     if (THIRD_PARTY_POST_SOURCES.includes(v.ruleSource) && v.scanTiming === 'post' && !v.monitoringFrequencyUnit) { toast.error('Please select frequency unit'); setSpinning(false); return; }
@@ -116,16 +121,15 @@ export function RuleTEditPage() {
     setTimeout(() => { toast.success('Rule saved successfully (MOCK)'); setSpinning(false); }, 500);
   };
 
-  const sourceOptions = TEDIT_RULE_SOURCE_OPTIONS.flatMap(g => g.options.map(o => ({ ...o, groupLabel: g.groupLabel })));
 
   return (
-    <form onSubmit={form.handleSubmit(onFinish)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(onFinish, () => toast.error('Please complete the required fields'))} className="space-y-6">
       <div className="bg-white shadow rounded-lg p-8">
         <h1 className="text-xl font-semibold mb-2">New Monitoring Rule</h1>
         <p className="text-gray-600 mb-8">Fill in the monitoring rule name and select a transaction type for Token.</p>
         <div className="grid grid-cols-2 gap-6 max-w-[60rem]">
           <FormField name="ruleName" label="Rule Name" required register={form.register('ruleName', { required: 'Please enter rule name', maxLength: { value: 50, message: 'Up to 50 alphanumeric characters' } })} error={errors.ruleName?.message} maxLength={50} placeholder="Up to 50 alphanumeric characters" />
-          <FormSelect name="ruleSource" label="Rule Source" required control={form.control} options={sourceOptions} />
+          <SourceSelect control={form.control} />
           <FormSelect name="scanTiming" label="Scan Timing" required control={form.control} options={TEDIT_SCAN_TIMING_OPTIONS} />
           <FormSelect name="tokenName" label="Token Name" required control={form.control} options={TEDIT_TOKEN_OPTIONS} />
         </div>
@@ -133,21 +137,40 @@ export function RuleTEditPage() {
 
       <div className="bg-white shadow rounded-lg p-8">
         <h2 className="text-lg font-semibold mb-2">Risk Level & Action</h2>
+        <p className="text-gray-600 mb-6">
+          {(THIRD_PARTY_POST_SOURCES.includes(ruleSource) && scanTiming === 'post')
+            ? 'Set Suggested Actions based on post-transaction (KYT) risk assessments provided by third-party services.'
+            : ((ruleSource === 'elliptic' || ruleSource === 'misttrack') && scanTiming === 'pre')
+              ? 'Set Suggested Actions based on pre-transaction (KYA) risk assessments provided by third-party services.'
+              : 'Set up monitoring rules and risk levels'}
+        </p>
         <div className="grid grid-cols-3 gap-6 mb-6 max-w-[60rem]">
-          {ruleSource === 'custom' && <FormSelect name="transactionType" label="Transaction Type" required control={form.control} options={TEDIT_TRANSACTION_TYPE_OPTIONS} />}
-          {ruleSource === 'custom' && scanTiming === 'post' ? <FormField name="monitoringTime" label="Monitoring Time" required register={form.register('monitoringTime', { required: 'Please select monitoring time' })} error={errors.monitoringTime?.message} type="time" step={1} /> : null}
-          {isThirdPartyPost ? (
+          {isStaticTransfer ? (
+            <div>
+              <div className="text-gray-700 font-medium mb-2">Transaction Type</div>
+              <div className="h-10 px-3 flex items-center bg-gray-50 border border-gray-300 rounded text-gray-700">Transfer</div>
+            </div>
+          ) : requiresTransactionType ? <FormSelect name="transactionType" label="Transaction Type" required control={form.control} options={TEDIT_TRANSACTION_TYPE_OPTIONS} /> : null}
+          {ruleSource === 'custom' && scanTiming === 'post' ? (
+            <FormField name="monitoringTime" label="Monitoring Time" required register={form.register('monitoringTime', { required: 'Please select monitoring time' })} error={errors.monitoringTime?.message} type="time" step={1} />
+          ) : isThirdPartyPost ? (
             <div>
               <div className="mb-1.5 block text-sm font-medium text-foreground">Monitoring Frequency<span className="ml-0.5 text-destructive" aria-hidden="true">*</span></div>
               <div className="flex gap-2">
-                <div className="w-[8rem] [&_label]:sr-only"><FormField name="monitoringFrequencyValue" label="Frequency Value" register={form.register('monitoringFrequencyValue', { required: 'Please enter frequency value', min: { value: 1, message: 'Must be at least 1' } })} error={errors.monitoringFrequencyValue?.message} type="number" min={1} /></div>
+                <div className="w-[8rem] [&_label]:sr-only"><FormField name="monitoringFrequencyValue" label="Frequency Value" register={form.register('monitoringFrequencyValue', { required: 'Please enter frequency value', min: { value: 1, message: 'Must be at least 1' } })} error={errors.monitoringFrequencyValue?.message} type="number" min={1} step="any" /></div>
                 <div className="w-32 [&_label]:sr-only"><FormSelect name="monitoringFrequencyUnit" label="Frequency Unit" required control={form.control} options={TEDIT_MONITORING_FREQ_OPTIONS} placeholder="Seconds" /></div>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div>
+              <div className="text-gray-700 font-medium mb-2">Monitoring Time</div>
+              <div className="text-sm text-gray-600 mb-1">Real-time Triggered</div>
+              <div className="text-xs text-gray-500">Triggered in real time based on transaction time.</div>
+            </div>
+          )}
           <div>
-            <FormField name="compareTo" label="Compared to Past" required register={form.register('compareTo', { required: 'Please enter compare value', min: { value: 1, message: 'Must be at least 1' } })} error={errors.compareTo?.message} type="number" min={1} placeholder="5" />
-            <div className="text-xs text-gray-600 mt-1">Compare over the last {compareTo || 5} days.</div>
+            <FormField name="compareTo" label="Compared to Past" required register={form.register('compareTo', { required: 'Please enter compare value', min: { value: 1, message: 'Must be at least 1' } })} error={errors.compareTo?.message} type="number" min={1} step="any" placeholder="5" />
+            <div className="text-sm text-gray-600">Compare the transaction amount over the past 24 hours to the customer&apos;s average transaction amount over the last {compareTo || '5'} days.</div>
           </div>
         </div>
 
@@ -163,8 +186,8 @@ export function RuleTEditPage() {
           const rowErrors = errors.riskLevelConfigs?.[idx];
           return (
             <div key={field.id} className="grid grid-cols-12 gap-4 mb-3 items-center">
-              {config.showPercentage && (config.percentageAsRange ? <div className="col-span-3 flex gap-1"><FormField name={`riskLevelConfigs.${idx}.minValue`} label="" register={form.register(`riskLevelConfigs.${idx}.minValue`, { required: 'Required', validate: rangeMinValidator(idx) })} error={rowErrors?.minValue?.message} type="number" /><span>-</span><FormField name={`riskLevelConfigs.${idx}.maxValue`} label="" register={form.register(`riskLevelConfigs.${idx}.maxValue`, { required: 'Required', validate: rangeMaxValidator(idx) })} error={rowErrors?.maxValue?.message} type="number" /></div> : <div className="col-span-3"><FormField name={`riskLevelConfigs.${idx}.minValue`} label="" register={form.register(`riskLevelConfigs.${idx}.minValue`, { required: 'Required' })} error={rowErrors?.minValue?.message} type="number" /></div>)}
-              {config.showRiskScore && <div className="col-span-2">{config.riskScoreAsRange ? <div className="flex gap-1"><FormField name={`riskLevelConfigs.${idx}.minRiskScore`} label="" register={form.register(`riskLevelConfigs.${idx}.minRiskScore`, { required: 'Required', validate: scoreMinValidator(idx) })} error={rowErrors?.minRiskScore?.message} type="number" /><span>-</span><FormField name={`riskLevelConfigs.${idx}.maxRiskScore`} label="" register={form.register(`riskLevelConfigs.${idx}.maxRiskScore`, { required: 'Required', validate: scoreMaxValidator(idx) })} error={rowErrors?.maxRiskScore?.message} type="number" /></div> : <FormField name={`riskLevelConfigs.${idx}.riskScore`} label="" register={form.register(`riskLevelConfigs.${idx}.riskScore`, { required: 'Required' })} error={rowErrors?.riskScore?.message} />}</div>}
+              {config.showPercentage && (config.percentageAsRange ? <div className="col-span-3 flex gap-1"><FormField name={`riskLevelConfigs.${idx}.minValue`} label="" register={form.register(`riskLevelConfigs.${idx}.minValue`, { required: 'Required', validate: rangeMinValidator(idx) })} error={rowErrors?.minValue?.message} type="number" step="any" /><span>-</span><FormField name={`riskLevelConfigs.${idx}.maxValue`} label="" register={form.register(`riskLevelConfigs.${idx}.maxValue`, { required: 'Required', validate: rangeMaxValidator(idx) })} error={rowErrors?.maxValue?.message} type="number" step="any" /></div> : <div className="col-span-3"><FormField name={`riskLevelConfigs.${idx}.minValue`} label="" register={form.register(`riskLevelConfigs.${idx}.minValue`, { required: 'Required' })} error={rowErrors?.minValue?.message} type="number" step="any" /></div>)}
+              {config.showRiskScore && <div className="col-span-2">{config.riskScoreAsRange ? <div className="flex gap-1"><FormField name={`riskLevelConfigs.${idx}.minRiskScore`} label="" register={form.register(`riskLevelConfigs.${idx}.minRiskScore`, { required: 'Required', validate: scoreMinValidator(idx) })} error={rowErrors?.minRiskScore?.message} type="number" step="any" /><span>-</span><FormField name={`riskLevelConfigs.${idx}.maxRiskScore`} label="" register={form.register(`riskLevelConfigs.${idx}.maxRiskScore`, { required: 'Required', validate: scoreMaxValidator(idx) })} error={rowErrors?.maxRiskScore?.message} type="number" step="any" /></div> : <FormField name={`riskLevelConfigs.${idx}.riskScore`} label="" register={form.register(`riskLevelConfigs.${idx}.riskScore`, { required: 'Required' })} error={rowErrors?.riskScore?.message} />}</div>}
               {config.showRiskLevel && <div className="col-span-2"><FormSelect name={`riskLevelConfigs.${idx}.riskLevel`} label="" control={form.control} options={TEDIT_RISK_LEVEL_OPTIONS} error={rowErrors?.riskLevel?.message} /></div>}
               {config.showTransactionAction && <div className="col-span-2"><FormSelect name={`riskLevelConfigs.${idx}.transactionAction`} label="" control={form.control} options={TEDIT_TRANSACTION_ACTION_OPTIONS} error={rowErrors?.transactionAction?.message} /></div>}
               {config.showWalletAction && <div className="col-span-2"><FormSelect name={`riskLevelConfigs.${idx}.walletAction`} label="" control={form.control} options={TEDIT_WALLET_ACTION_OPTIONS} error={rowErrors?.walletAction?.message} /></div>}
@@ -211,6 +234,27 @@ function EmailRecipientFields({ form }: { form: UseFormReturn<TEditFormValues> }
           </div>
         );
       })}
+    </div>
+  );
+}
+function SourceSelect({ control }: { control: Control<TEditFormValues> }) {
+  return (
+    <div>
+      <label htmlFor="t-edit-rule-source" className="mb-1.5 block text-sm font-medium text-foreground">Rule Source<span className="ml-0.5 text-destructive" aria-hidden="true">*</span></label>
+      <Controller
+        name="ruleSource"
+        control={control}
+        render={({ field }) => (
+          <Select value={field.value} onValueChange={field.onChange}>
+            <SelectTrigger id="t-edit-rule-source"><SelectValue placeholder="Custom Rule" /></SelectTrigger>
+            <SelectContent>
+              {TEDIT_RULE_SOURCE_OPTIONS.flatMap((group) => group.options.map((option) => (
+                <SelectItem key={option.value} value={option.value} disabled={option.disabled}>{option.label}</SelectItem>
+              )))}
+            </SelectContent>
+          </Select>
+        )}
+      />
     </div>
   );
 }
