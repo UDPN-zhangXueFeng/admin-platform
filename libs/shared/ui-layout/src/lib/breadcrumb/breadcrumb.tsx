@@ -31,6 +31,7 @@ type OrderItem = {
   id: string;
   label?: string;
   path?: string;
+  disabled?: boolean;
   children?: OrderItem[];
 };
 
@@ -78,6 +79,55 @@ function findPathLabels(
   return undefined;
 }
 
+/**
+ * Menu target for a breadcrumb segment:
+ * - group with children → first navigable child path (depth-first)
+ * - leaf with path → itself
+ * - no path → undefined (caller falls back to the URL-derived href)
+ */
+function firstNavigablePath(item: OrderItem): string | undefined {
+  if (item.path) return item.path;
+  for (const child of item.children ?? []) {
+    if (child.disabled) continue;
+    const path = firstNavigablePath(child);
+    if (path) return path;
+  }
+  return undefined;
+}
+
+/**
+ * Map every configured route prefix to the breadcrumb target.
+ *
+ * For a group such as `key-management` the prefix `/key-management` maps to the
+ * first navigable child (`/key-management/key-service-configuration`); for a
+ * leaf the exact path maps to itself. The first configured item for a prefix
+ * wins, so a group's first-child prefix stays that child's path.
+ */
+function buildBreadcrumbTargets(
+  items: OrderItem[] | undefined,
+): Map<string, string> {
+  const targets = new Map<string, string>();
+
+  const visit = (item: OrderItem) => {
+    if (!item.disabled) {
+      const target = firstNavigablePath(item);
+      if (target) {
+        const targetSegments = target
+          .split('/')
+          .filter((segment) => segment.length > 0 && !isLocaleSegment(segment));
+        for (let index = 1; index <= targetSegments.length; index += 1) {
+          const prefix = `/${targetSegments.slice(0, index).join('/')}`;
+          if (!targets.has(prefix)) targets.set(prefix, target);
+        }
+      }
+    }
+    for (const child of item.children ?? []) visit(child);
+  };
+
+  items?.forEach(visit);
+  return targets;
+}
+
 export function Breadcrumb({ className }: BreadcrumbProps) {
   const pathname = usePathname();
   const { order } = useModules();
@@ -90,6 +140,10 @@ export function Breadcrumb({ className }: BreadcrumbProps) {
   const pathLabels = React.useMemo(
     () => findPathLabels(order, segments),
     [order, segments],
+  );
+  const breadcrumbTargets = React.useMemo(
+    () => buildBreadcrumbTargets(order),
+    [order],
   );
 
   return (
@@ -111,13 +165,14 @@ export function Breadcrumb({ className }: BreadcrumbProps) {
 
         {segments.map((segment, index) => {
           const isLast = index === segments.length - 1;
-          const href = '/' + segments.slice(0, index + 1).join('/');
+          const pathHref = '/' + segments.slice(0, index + 1).join('/');
+          const href = breadcrumbTargets.get(pathHref) ?? pathHref;
           const label =
             pathLabels?.[index] ??
             findModuleLabel(order, segment) ??
             humanize(segment);
           return (
-            <React.Fragment key={href}>
+            <React.Fragment key={pathHref}>
               <li aria-hidden="true">
                 <ChevronRight className="h-3.5 w-3.5" />
               </li>

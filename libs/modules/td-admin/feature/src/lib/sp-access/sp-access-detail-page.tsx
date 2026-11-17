@@ -7,6 +7,7 @@ import { Card, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@myo
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useSpAccessDetailQuery } from '@myorg/modules/td-admin/data-access';
 import { SpAccessBaseInfoSection } from './sp-access-base-info-section';
+import { SpAccessStatusBadge } from './sp-access-status-badge';
 import { SpAccessUserWalletsSection } from './sp-access-user-wallets-section';
 import { SpAccessSubmittedTransactionsSection } from './sp-access-submitted-transactions-section';
 import { SpAccessOperationRecordsSection } from './sp-access-operation-records-section';
@@ -62,7 +63,17 @@ export function SpAccessDetailPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title={t('sp_access_0107')} backLabel={tBack('action.back')} onBack={() => router.back()} />
+      <PageHeader
+        title={t('sp_access_0107')}
+        backLabel={tBack('action.back')}
+        onBack={() => router.back()}
+        actions={
+          <SpAccessStatusBadge
+            kind="spStatus"
+            status={Number(detail.state)}
+          />
+        }
+      />
       <Tabs defaultValue="base-info" className="w-full">
         <TabsList>
           <TabsTrigger value="base-info">{t('sp_access_0038')}</TabsTrigger>

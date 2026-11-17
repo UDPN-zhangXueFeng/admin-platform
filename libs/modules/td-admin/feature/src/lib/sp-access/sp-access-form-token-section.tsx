@@ -55,6 +55,7 @@ export function SpAccessFormTokenSection({
   const renderPermissions = (key: string, config: TokenConfigState, field: 'apiPermissionKeys' | 'contractPermissionKeys') => (
     <div className="space-y-3 rounded-md border p-4">
       <p className="text-sm font-medium">{field === 'apiPermissionKeys' ? t('sp_access_0064') : t('sp_access_0047')}</p>
+      <p className="text-xs text-muted-foreground">{t('sp_access_0121')}</p>
       {typeOptions.map((typeOption) => (
         <div key={`${field}-${typeOption.accessConfId}`} className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">{typeOption.name ?? t('sp_access_0046')}</p>

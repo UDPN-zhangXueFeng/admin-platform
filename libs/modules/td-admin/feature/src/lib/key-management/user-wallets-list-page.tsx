@@ -39,7 +39,7 @@ import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
-import { Alert, Button, Card, DataTable, Input } from '@myorg/shared/ui';
+import { Alert, Button, Card, CopyableEllipsisText, DataTable, Input } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
@@ -210,7 +210,15 @@ export function UserWalletsListPage() {
       {
         accessorKey: 'walletAddress',
         header: t('key_management_0076'),
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        meta: { overflow: 'none' },
+        cell: ({ getValue }) => (
+          <CopyableEllipsisText
+            value={getValue() as string}
+            showCopyIcon
+            copyLabel={t('KP_Copy')}
+            maxWidth={220}
+          />
+        ),
       },
       {
         accessorKey: 'spName',

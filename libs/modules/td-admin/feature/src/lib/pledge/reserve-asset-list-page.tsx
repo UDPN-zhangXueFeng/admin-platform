@@ -40,7 +40,7 @@ import {
   RESERVE_STATUS_FILTER,
 } from '.';
 import { ALL_VALUE } from './pledge.constants';
-import { ReserveAssetDrawer, type DrawerState } from './reserve-asset-drawer';
+import { ReserveAssetFormDialog, type ReserveAssetFormState } from './reserve-asset-dialog';
 import { createRowActionsColumn, type RowAction } from '../row-actions';
 
 /**
@@ -85,7 +85,7 @@ function formatBalance(value: number | undefined): string {
   }).format(value);
 }
 
-/** Drawer 状态：pl-5 抽出的独立 Drawer 组件定义（type:'new'|'edit', record?）。 */
+/** 弹窗状态：pl-5 抽出的独立 Dialog 组件定义（type:'new'|'edit', record?）。 */
 
 /**
  * ReserveAssetListPage — 储备资产列表页（pledge 模块最复杂页面）。
@@ -108,7 +108,7 @@ function formatBalance(value: number | undefined): string {
  *
  * 歧义 9 结论：源码 setNewTransaction(true) 有对应渲染入口（<Drawer open={newTransaction}>），
  * 它就是 Add/Edit Drawer 的 open 状态（命名误导，实非"新建交易"Drawer）。
- * 此处还原为统一 Drawer state（type:'new'|'edit'），Drawer 表单逻辑由 pl-5 实现。
+ * 此处还原为统一 Dialog state（type:'new'|'edit'），Dialog 表单逻辑由 pl-5 实现。
  */
 export function ReserveAssetListPage(): React.JSX.Element {
   const t = useTranslations('modules.pledge');
@@ -125,11 +125,11 @@ export function ReserveAssetListPage(): React.JSX.Element {
     pageSize: 10,
   });
 
-  // Drawer 预留（pl-5 接入完整表单：Currency/Name + Checkbox.Group vs Cash Input + name→id 映射）
-  const [drawerState, setDrawerState] = React.useState<DrawerState | null>(null);
+  // 新增/编辑弹窗状态（Currency/Name + Checkbox.Group vs Cash Input + name→id 映射）
+  const [formState, setFormState] = React.useState<ReserveAssetFormState | null>(null);
 
   // ── 下拉数据源 ──
-  // Currency：筛选下拉。新增模式下默认 Cash 的资产类别 id 由 pl-5 Drawer 内取（useAssetCategoryListQuery）。
+  // Currency：筛选下拉。新增模式下默认 Cash 的资产类别 id 由 pl-5 Dialog 内取（useAssetCategoryListQuery）。
   const currencyQuery = useCurrencyListQuery();
 
   const currencyOptions = React.useMemo(
@@ -258,8 +258,8 @@ export function ReserveAssetListPage(): React.JSX.Element {
           });
           break;
         case 'Edit':
-          // 触发 pl-5 Drawer 编辑态（含资产类别 Checkbox.Group + name→id 映射）。
-          setDrawerState({ type: 'edit', record: row });
+          // 触发 pl-5 Dialog 编辑态（含资产类别 Checkbox.Group + name→id 映射）。
+          setFormState({ type: 'edit', record: row });
           break;
         case 'View':
           router.push({
@@ -285,11 +285,11 @@ export function ReserveAssetListPage(): React.JSX.Element {
     [changeStatusMutation, t, tc],
   );
 
-  // Drawer 处理器（pl-5 接入完整表单提交：addReserveAsset 默认 Cash / editReserveAsset name→id 映射）。
+  // Dialog 处理器（pl-5 接入完整表单提交：addReserveAsset 默认 Cash / editReserveAsset name→id 映射）。
   const onAdd = React.useCallback(() => {
-    setDrawerState({ type: 'new' });
+    setFormState({ type: 'new' });
   }, []);
-  const onDrawerClose = React.useCallback(() => setDrawerState(null), []);
+  const onFormClose = React.useCallback(() => setFormState(null), []);
 
   // ── 行操作权限（PermissionGuard → usePermission，供 actions 列条件渲染）──
   const canAddAssetCategory = usePermission(PLEDGE_PERMISSIONS.addAssetCategory);
@@ -649,11 +649,11 @@ export function ReserveAssetListPage(): React.JSX.Element {
         </div>
       </Card>
 
-      {/* 新增/编辑 Drawer（pl-5 抽出独立组件：new 态 Cash 默认 / edit 态 Checkbox + name→id 映射）。 */}
-      <ReserveAssetDrawer
-        open={drawerState !== null}
-        drawerState={drawerState}
-        onClose={onDrawerClose}
+      {/* 新增/编辑 Dialog（pl-5 抽出独立组件：new 态 Cash 默认 / edit 态 Checkbox + name→id 映射）。 */}
+      <ReserveAssetFormDialog
+        open={formState !== null}
+        formState={formState}
+        onClose={onFormClose}
         onSuccess={() => {
           // mutation 成功已 invalidate reserveAsset 域缓存，列表自动刷新；
           // 此处仅作为成功后的额外钩子预留（当前无需额外操作）。

@@ -1,8 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowLeft } from 'lucide-react';
-import { Button, Card } from '@myorg/shared/ui';
+import { Button, Card, PageHeader } from '@myorg/shared/ui';
 import { SpAccessFormBasicSection } from './sp-access-form-basic-section';
 import { SpAccessFormSecuritySection } from './sp-access-form-security-section';
 import { SpAccessFormTokenSection } from './sp-access-form-token-section';
@@ -13,7 +12,7 @@ export function SpAccessFormPage() {
 
   if (form.isEditMode && form.detailLoading) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4">
         <div className="h-8 w-64 animate-pulse rounded bg-muted" />
         <Card className="h-64 animate-pulse" />
       </div>
@@ -21,13 +20,12 @@ export function SpAccessFormPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
-      <div className="flex items-center gap-3">
-        <Button type="button" variant="ghost" size="icon" onClick={() => form.router.push('/sp-access')} aria-label={form.tc('PUB_GoBack')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-xl font-semibold">{form.isEditMode ? form.t('sp_access_0062') : form.t('sp_access_0050')}</h1>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title={form.isEditMode ? form.t('sp_access_0062') : form.t('sp_access_0050')}
+        backLabel={form.tc('PUB_GoBack')}
+        onBack={() => form.router.back()}
+      />
 
       <form onSubmit={form.onSubmit} className="space-y-6">
         <SpAccessFormBasicSection
@@ -60,7 +58,7 @@ export function SpAccessFormPage() {
 
         {form.formError ? <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{form.formError}</div> : null}
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => form.router.push('/sp-access')} disabled={form.submitting || form.mutationPending}>{form.tc('cancel')}</Button>
+          <Button type="button" variant="outline" onClick={() => form.router.back()} disabled={form.submitting || form.mutationPending}>{form.tc('cancel')}</Button>
           <Button type="submit" disabled={form.submitting || form.mutationPending || form.uploadingFile}>{form.submitting || form.mutationPending ? form.tc('loading') : form.isEditMode ? form.t('sp_access_0173') : form.tc('create')}</Button>
         </div>
       </form>

@@ -20,7 +20,15 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 
-import { Alert, Button, Card, CopyableEllipsisText, PageHeader } from '@myorg/shared/ui';
+import {
+  Alert,
+  Button,
+  CopyableEllipsisText,
+  DetailField,
+  DetailGrid,
+  DetailSection,
+  PageHeader,
+} from '@myorg/shared/ui';
 
 import { useKeySignedTransactionDetailQuery } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
@@ -69,20 +77,6 @@ function formatTaskStatus(
   return String(raw);
 }
 
-interface DetailItemProps {
-  label: string;
-  children: React.ReactNode;
-}
-
-function DetailItem({ label, children }: DetailItemProps) {
-  return (
-    <div className="space-y-1">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <div className="text-sm font-medium">{children}</div>
-    </div>
-  );
-}
-
 export function KeySignedTransactionsDetailPage() {
   const t = useTranslations('modules.key-management');
   const tCommon = useTranslations('common');
@@ -104,24 +98,39 @@ export function KeySignedTransactionsDetailPage() {
     refetch,
   } = useKeySignedTransactionDetailQuery(txRecordId);
 
+  const hasStatus =
+    detail?.status !== undefined &&
+    detail?.status !== null &&
+    String(detail.status) !== '';
+  const statusNumber = hasStatus ? Number(detail?.status) : NaN;
+  const statusTone =
+    hasStatus &&
+    Number.isFinite(statusNumber) &&
+    tCommon.has(`approval_task_status_color_${statusNumber}`)
+      ? tCommon(`approval_task_status_color_${statusNumber}`)
+      : 'default';
+  const statusLabel = formatTaskStatus(t, detail?.status);
+
   const header = (
     <PageHeader
       backLabel={t('key_management_0056')}
       onBack={() => router.back()}
       title={t('key_management_0104')}
+      actions={
+        hasStatus ? (
+          <span
+            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+              TONE_CLASS[statusTone] ?? TONE_CLASS.default
+            }`}
+          >
+            {statusLabel}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">--</span>
+        )
+      }
     />
   );
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {header}
-        <div className="h-64 w-full animate-pulse rounded-md bg-muted" />
-        <div className="h-32 w-full animate-pulse rounded-md bg-muted" />
-        <div className="h-48 w-full animate-pulse rounded-md bg-muted" />
-      </div>
-    );
-  }
 
   if (isError) {
     return (
@@ -139,7 +148,7 @@ export function KeySignedTransactionsDetailPage() {
     );
   }
 
-  if (!detail) {
+  if (!isLoading && !detail) {
     return (
       <div className="space-y-4">
         {header}
@@ -153,121 +162,145 @@ export function KeySignedTransactionsDetailPage() {
   return (
     <div className="space-y-6">
       {header}
-      {/* Signature Details */}
-      <Card>
-        <div className="flex flex-col space-y-1.5 p-6">
-          <h3 className="text-2xl font-semibold leading-none tracking-tight">{t('key_management_0104')}</h3>
-        </div>
-        <div className="p-6 pt-0 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <DetailItem label={t('key_management_0099')}>
-            {detail.signatureId ? (
-              <CopyableEllipsisText value={detail.signatureId} />
-            ) : (
-              '--'
-            )}
-          </DetailItem>
-          <DetailItem label={t('key_management_0003')}>
-            {detail.status !== undefined && detail.status !== null && String(detail.status) !== '' ? (
-              (() => {
-                const status = Number(detail.status);
-                const colorKey = `approval_task_status_color_${status}`;
-                const tone =
-                  Number.isFinite(status) && tCommon.has(colorKey)
-                    ? tCommon(colorKey)
-                    : 'default';
-                return (
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TONE_CLASS[tone] ?? TONE_CLASS.default}`}
-                  >
-                    {formatTaskStatus(t, detail.status)}
-                  </span>
-                );
-              })()
-            ) : (
-              '--'
-            )}
-          </DetailItem>
-          <DetailItem label={t('key_management_0001')}>
-            {detail.signatureProvider || '--'}
-          </DetailItem>
-          <DetailItem label={t('key_management_0101')}>
-            {detail.signatureType !== undefined && detail.signatureType !== null
-              ? signatureTypeMap[String(detail.signatureType)] ||
-                String(detail.signatureType)
-              : '--'}
-          </DetailItem>
-          <DetailItem label={t('key_management_0063')}>
-            {detail.blockchainName || '--'}
-          </DetailItem>
-          <DetailItem label={t('key_management_0074')}>
-            {detail.keyId ? (
-              <CopyableEllipsisText value={detail.keyId} />
-            ) : (
-              '--'
-            )}
-          </DetailItem>
-          <DetailItem label={t('key_management_0076')}>
-            {detail.walletAddress ? (
-              <CopyableEllipsisText value={detail.walletAddress} />
-            ) : (
-              '--'
-            )}
-          </DetailItem>
-          <DetailItem label={t('key_management_0102')}>
-            {formatAdminTimestamp(detail.signatureTime)}
-          </DetailItem>
-          <DetailItem label={t('key_management_0103')}>
-            {formatAdminTimestamp(detail.submissionTime)}
-          </DetailItem>
-          <DetailItem label={t('key_management_0078')}>
-            {detail.transactionHash ? (
-              <CopyableEllipsisText value={detail.transactionHash} />
-            ) : (
-              '--'
-            )}
-          </DetailItem>
-        </div>
-      </Card>
+      <DetailSection
+        title={t('key_management_0104')}
+        loading={isLoading}
+      >
+        <DetailGrid>
+          <DetailField
+            label={t('key_management_0099')}
+            value={
+              detail?.signatureId ? (
+                <CopyableEllipsisText
+                  value={detail.signatureId}
+                  showCopyIcon
+                  copyLabel={t('KP_Copy')}
+                  maxWidth={320}
+                />
+              ) : undefined
+            }
+            span="full"
+          />
+          <DetailField
+            label={t('key_management_0001')}
+            value={detail?.signatureProvider}
+          />
+          <DetailField
+            label={t('key_management_0101')}
+            value={
+              detail?.signatureType !== undefined &&
+              detail?.signatureType !== null
+                ? signatureTypeMap[String(detail.signatureType)] ||
+                  String(detail.signatureType)
+                : undefined
+            }
+          />
+          <DetailField
+            label={t('key_management_0063')}
+            value={detail?.blockchainName}
+          />
+          <DetailField
+            label={t('key_management_0074')}
+            value={
+              detail?.keyId ? (
+                <CopyableEllipsisText
+                  value={detail.keyId}
+                  showCopyIcon
+                  copyLabel={t('KP_Copy')}
+                  maxWidth={320}
+                />
+              ) : undefined
+            }
+          />
+          <DetailField
+            label={t('key_management_0076')}
+            value={
+              detail?.walletAddress ? (
+                <CopyableEllipsisText
+                  value={detail.walletAddress}
+                  showCopyIcon
+                  copyLabel={t('KP_Copy')}
+                  maxWidth={320}
+                />
+              ) : undefined
+            }
+            span="full"
+          />
+          <DetailField
+            label={t('key_management_0102')}
+            value={formatAdminTimestamp(detail?.signatureTime)}
+          />
+          <DetailField
+            label={t('key_management_0103')}
+            value={formatAdminTimestamp(detail?.submissionTime)}
+          />
+          <DetailField
+            label={t('key_management_0078')}
+            value={
+              detail?.transactionHash ? (
+                <CopyableEllipsisText
+                  value={detail.transactionHash}
+                  showCopyIcon
+                  copyLabel={t('KP_Copy')}
+                  maxWidth={1000}
+                />
+              ) : undefined
+            }
+            span="full"
+          />
+        </DetailGrid>
+      </DetailSection>
 
-      {/* Transaction Info */}
-      <Card>
-        <div className="flex flex-col space-y-1.5 p-6">
-          <h3 className="text-2xl font-semibold leading-none tracking-tight">{t('key_management_0105')}</h3>
-        </div>
-        <div className="p-6 pt-0 grid grid-cols-1 gap-6 md:grid-cols-2">
-          <DetailItem label={t('key_management_0100')}>
-            {detail.transactionType
-              ? transactionTypeLabelMap[detail.transactionType] ||
-                detail.transactionType
-              : '--'}
-          </DetailItem>
-          <DetailItem label={t('key_management_0075')}>
-            {detail.tokenName
-              ? `${detail.tokenName} (${
-                  detail.tokenType !== undefined && detail.tokenType !== null
-                    ? formatTokenType(t, detail.tokenType)
-                    : '--'
-                })`
-              : '--'}
-          </DetailItem>
-        </div>
-      </Card>
+      <DetailSection
+        title={t('key_management_0105')}
+        loading={isLoading}
+      >
+        <DetailGrid>
+          <DetailField
+            label={t('key_management_0100')}
+            value={
+              detail?.transactionType
+                ? transactionTypeLabelMap[detail.transactionType] ||
+                  detail.transactionType
+                : undefined
+            }
+          />
+          <DetailField
+            label={t('key_management_0075')}
+            value={
+              detail?.tokenName
+                ? `${detail.tokenName} (${
+                    detail.tokenType !== undefined &&
+                    detail.tokenType !== null
+                      ? formatTokenType(t, detail.tokenType)
+                      : '--'
+                  })`
+                : undefined
+            }
+          />
+        </DetailGrid>
+      </DetailSection>
 
-      {/* Raw Message */}
-      <Card>
-        <div className="flex flex-col space-y-1.5 p-6">
-          <h3 className="text-2xl font-semibold leading-none tracking-tight">{t('key_management_0106')}</h3>
-        </div>
-        <div className="p-6 pt-0">
-          <DetailItem label={t('key_management_0153')}>
-            {detail.rawMessage ? (
-              <CopyableEllipsisText value={detail.rawMessage} maxWidth={1000} />
-            ) : (
-              '--'
-            )}
-          </DetailItem>
-        </div>
-      </Card>
+      <DetailSection
+        title={t('key_management_0106')}
+        loading={isLoading}
+      >
+        <DetailGrid className="sm:grid-cols-1">
+          <DetailField
+            label={t('key_management_0153')}
+            value={
+              detail?.rawMessage ? (
+                <CopyableEllipsisText
+                  value={detail.rawMessage}
+                  showCopyIcon
+                  copyLabel={t('KP_Copy')}
+                  maxWidth={1000}
+                />
+              ) : undefined
+            }
+          />
+        </DetailGrid>
+      </DetailSection>
     </div>
   );
 }

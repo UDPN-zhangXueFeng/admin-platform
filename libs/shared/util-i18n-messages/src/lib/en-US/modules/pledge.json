@@ -6,7 +6,7 @@
     "all": "All"
   },
   "field": {
-    "index": "Index",
+    "index": "No.",
     "accountName": "Reserve Asset Name",
     "currency": "Currency",
     "bookStatus": "Book Status",

@@ -22,6 +22,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { Info } from 'lucide-react';
 import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
@@ -29,6 +30,7 @@ import {
   Alert,
   Button,
   Card,
+  CopyableEllipsisText,
   DataTable,
   Input,
   Tooltip,
@@ -218,7 +220,15 @@ export function ManagedWalletsListPage() {
       {
         accessorKey: 'keyId',
         header: t('key_management_0074'),
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        meta: { overflow: 'none' },
+        cell: ({ getValue }) => (
+          <CopyableEllipsisText
+            value={getValue() as string}
+            showCopyIcon
+            copyLabel={t('KP_Copy')}
+            maxWidth={220}
+          />
+        ),
       },
       {
         accessorKey: 'tokenName',
@@ -242,17 +252,31 @@ export function ManagedWalletsListPage() {
         header: () => (
           <div className="flex items-center gap-1">
             <span>{t('key_management_0076')}</span>
-            <TooltipProvider>
+            <TooltipProvider delayDuration={150}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="cursor-help text-muted-foreground">ⓘ</span>
+                  <button
+                    type="button"
+                    aria-label={t('key_management_0067')}
+                    className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <Info aria-hidden="true" className="size-3.5" />
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent>{t('key_management_0067')}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
         ),
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        meta: { overflow: 'none' },
+        cell: ({ getValue }) => (
+          <CopyableEllipsisText
+            value={getValue() as string}
+            showCopyIcon
+            copyLabel={t('KP_Copy')}
+            maxWidth={220}
+          />
+        ),
       },
       {
         accessorKey: 'blockchainName',

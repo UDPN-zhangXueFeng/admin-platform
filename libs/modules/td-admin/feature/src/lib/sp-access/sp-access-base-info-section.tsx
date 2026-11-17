@@ -6,11 +6,12 @@ import { toast } from 'sonner';
 import { Info } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  Card,
   Button,
-  Checkbox,
   CopyableEllipsisText,
   DataTable,
+  DetailField,
+  DetailGrid,
+  DetailSection,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -97,23 +98,6 @@ interface TokenPermissionRow {
   state: number;
 }
 
-function DetailField({
-  label,
-  children,
-  wide,
-}: {
-  label: string;
-  children: React.ReactNode;
-  wide?: boolean;
-}) {
-  return (
-    <div className={wide ? 'md:col-span-2 xl:col-span-4' : ''}>
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-sm font-medium">{children}</dd>
-    </div>
-  );
-}
-
 export function SpAccessBaseInfoSection({ detail }: { detail: SpAccessDetail }) {
   const t = useTranslations('modules.sp-access');
   const spInfoState = Number(detail.state ?? NaN);
@@ -155,6 +139,32 @@ export function SpAccessBaseInfoSection({ detail }: { detail: SpAccessDetail }) 
 
   const custodySelection = parseSelection(detail.privateKeyCustodyModel);
   const policySelection = parseSelection(detail.transactionPolicy);
+
+  const renderSelectionBadges = (
+    options: ReadonlyArray<{ key: string; labelKey: string }>,
+    selected: string[],
+  ) => {
+    const items = options.filter((option) => selected.includes(option.key));
+    if (!items.length) {
+      return (
+        <span className="text-sm text-muted-foreground">
+          {EMPTY_FIELD_VALUE}
+        </span>
+      );
+    }
+    return (
+      <div className="flex flex-wrap gap-2">
+        {items.map((option) => (
+          <span
+            key={option.key}
+            className="inline-flex items-center rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-foreground"
+          >
+            {t(option.labelKey)}
+          </span>
+        ))}
+      </div>
+    );
+  };
 
   const renderPermissionContent = (access?: SpAccessDetailAccessItem) => {
     if (!access) {
@@ -262,119 +272,149 @@ export function SpAccessBaseInfoSection({ detail }: { detail: SpAccessDetail }) 
   const reconciliationKey = Number(detail.reconciliationFrequency);
 
   return (
-    <div className="flex flex-col gap-6">
-      <Card>
-        <div className="border-b p-4 text-base font-semibold">{t('sp_access_0107')}</div>
-        <dl className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
-          <DetailField label={t('sp_access_0000')}>
-            {detail.spName || EMPTY_FIELD_VALUE}
-          </DetailField>
-          <DetailField label={t('PUB_Status')}>
-            <SpAccessStatusBadge kind="spStatus" status={spInfoState} />
-          </DetailField>
-          <DetailField label={t('sp_access_0065')}>
-            {detail.spType ? t(`service_provider_type_${detail.spType}`) : EMPTY_FIELD_VALUE}
-          </DetailField>
-          <DetailField label={t('sp_access_0039')}>
-            {detail.contactName || EMPTY_FIELD_VALUE}
-          </DetailField>
-          <DetailField label={t('PUB_Email')}>{detail.email || EMPTY_FIELD_VALUE}</DetailField>
-          <DetailField label={t('PUB_Phone')}>{detail.phone || EMPTY_FIELD_VALUE}</DetailField>
-          <DetailField label={t('sp_access_0041')}>
-            {detail.fileName ? (
-              <Button
-                type="button"
-                variant="link"
-                className="h-auto p-0"
-                disabled={downloadingLicense}
-                onClick={handleDownloadBusinessLicense}
-              >
-                {detail.fileName}
-              </Button>
-            ) : (
-              EMPTY_FIELD_VALUE
+    <div className="space-y-6">
+      <DetailSection title={t('sp_access_0038')}>
+        <DetailGrid className="sm:grid-cols-3">
+          <DetailField
+            label={t('sp_access_0000')}
+            value={detail.spName}
+          />
+          <DetailField
+            label={t('sp_access_0065')}
+            value={
+              detail.spType
+                ? t(`service_provider_type_${detail.spType}`)
+                : undefined
+            }
+          />
+          <DetailField
+            label={t('sp_access_0039')}
+            value={detail.contactName}
+          />
+          <DetailField label={t('PUB_Email')} value={detail.email} />
+          <DetailField label={t('PUB_Phone')} value={detail.phone} />
+          <DetailField
+            label={t('sp_access_0041')}
+            value={
+              detail.fileName ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0"
+                  disabled={downloadingLicense}
+                  onClick={handleDownloadBusinessLicense}
+                >
+                  {detail.fileName}
+                </Button>
+              ) : undefined
+            }
+          />
+          <DetailField
+            label={t('sp_access_0100')}
+            value={Number(detail.metaType) === 5 ? t('PUB_Yes') : t('PUB_No')}
+          />
+          <DetailField
+            label={t('sp_access_0101')}
+            value={
+              <span className="inline-flex items-center gap-1">
+                {RECONCILIATION_LABEL_KEYS[reconciliationKey]
+                  ? t(RECONCILIATION_LABEL_KEYS[reconciliationKey])
+                  : EMPTY_FIELD_VALUE}
+                {RECONCILIATION_TOOLTIP_KEYS[reconciliationKey] ? (
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={t(
+                            RECONCILIATION_TOOLTIP_KEYS[reconciliationKey],
+                          )}
+                          className="inline-flex size-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                          <Info aria-hidden="true" className="size-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-72">
+                        {t(RECONCILIATION_TOOLTIP_KEYS[reconciliationKey])}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : null}
+              </span>
+            }
+          />
+          <DetailField
+            label={t('PUB_Creater')}
+            value={detail.createUser}
+            muted
+          />
+          <DetailField
+            label={t('sp_access_0104')}
+            value={
+              detail.createTime && detail.createTime !== 0
+                ? formatTimestamp(detail.createTime)
+                : undefined
+            }
+            muted
+          />
+          <DetailField
+            label={t('sp_access_0040')}
+            value={detail.spDesc}
+            span="full"
+          />
+        </DetailGrid>
+      </DetailSection>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <DetailSection title={t('sp_access_0108')}>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {t('sp_access_0105')}
+            </p>
+            {renderSelectionBadges(
+              PRIVATE_KEY_MODEL_OPTIONS,
+              custodySelection,
             )}
-          </DetailField>
-          <DetailField label={t('sp_access_0100')}>
-            {Number(detail.metaType) === 5 ? t('PUB_Yes') : t('PUB_No')}
-          </DetailField>
-          <DetailField label={t('sp_access_0101')}>
-            <span className="inline-flex items-center gap-1">
-              {RECONCILIATION_LABEL_KEYS[reconciliationKey]
-                ? t(RECONCILIATION_LABEL_KEYS[reconciliationKey])
-                : EMPTY_FIELD_VALUE}
-              {RECONCILIATION_TOOLTIP_KEYS[reconciliationKey] ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 cursor-pointer text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-72">
-                      {t(RECONCILIATION_TOOLTIP_KEYS[reconciliationKey])}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : null}
-            </span>
-          </DetailField>
-          <DetailField label={t('sp_access_0040')} wide>
-            {detail.spDesc || EMPTY_FIELD_VALUE}
-          </DetailField>
-          <DetailField label={t('PUB_Creater')}>{detail.createUser || EMPTY_FIELD_VALUE}</DetailField>
-          <DetailField label={t('sp_access_0104')}>
-            {detail.createTime && detail.createTime !== 0
-              ? formatTimestamp(detail.createTime)
-              : EMPTY_FIELD_VALUE}
-          </DetailField>
-        </dl>
-      </Card>
-
-      <Card>
-        <div className="border-b p-4 text-base font-semibold">{t('sp_access_0108')}</div>
-        <div className="p-4">
-          <div className="text-sm text-muted-foreground">{t('sp_access_0105')}</div>
-          <div className="mt-2 flex flex-wrap gap-6">
-            {PRIVATE_KEY_MODEL_OPTIONS.map((model) => (
-              <label key={model.key} className="flex items-center gap-2 text-sm">
-                <Checkbox checked={custodySelection.includes(model.key)} disabled />
-                {t(model.labelKey)}
-              </label>
-            ))}
           </div>
-        </div>
-      </Card>
+        </DetailSection>
 
-      <Card>
-        <div className="border-b p-4 text-base font-semibold">{t('sp_access_0106')}</div>
-        <div className="p-4">
-          <div className="text-sm text-muted-foreground">{t('sp_access_0105')}</div>
-          <div className="mt-2 flex flex-wrap gap-6">
-            {TRANSACTION_POLICY_OPTIONS.map((policy) => (
-              <label key={policy.key} className="flex items-center gap-2 text-sm">
-                <Checkbox checked={policySelection.includes(policy.key)} disabled />
-                {t(policy.labelKey)}
-              </label>
-            ))}
+        <DetailSection title={t('sp_access_0106')}>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {t('sp_access_0105')}
+            </p>
+            {renderSelectionBadges(
+              TRANSACTION_POLICY_OPTIONS,
+              policySelection,
+            )}
           </div>
-        </div>
-      </Card>
+        </DetailSection>
+      </div>
 
-      <section>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-base font-semibold">{t('sp_access_0063')}</h3>
-          <div className="flex items-center gap-6">
-            <TooltipProvider>
+      <DetailSection
+        title={t('sp_access_0063')}
+        actions={
+          <>
+            <TooltipProvider delayDuration={150}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Info className="h-4 w-4 text-muted-foreground" />
+                  <button
+                    type="button"
+                    aria-label={t('sp_access_0054')}
+                    className="inline-flex size-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <Info aria-hidden="true" className="size-3.5" />
+                  </button>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-72">{t('sp_access_0054')}</TooltipContent>
+                <TooltipContent className="max-w-72">
+                  {t('sp_access_0054')}
+                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <Button
               type="button"
-              variant="link"
-              className="h-auto p-0 text-sm text-muted-foreground"
+              variant="outline"
+              size="sm"
               disabled={!isActive}
               onClick={handleDownloadSecretKey}
             >
@@ -382,14 +422,15 @@ export function SpAccessBaseInfoSection({ detail }: { detail: SpAccessDetail }) 
             </Button>
             <Button
               type="button"
-              variant="link"
-              className="h-auto p-0 text-sm"
+              variant="outline"
+              size="sm"
               onClick={() => window.open(SP_ACCESS_API_DOC_URL)}
             >
               {t('sp_access_0055')}
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      >
         <DataTable
           columns={tokenColumns}
           data={tokenRows}
@@ -400,7 +441,7 @@ export function SpAccessBaseInfoSection({ detail }: { detail: SpAccessDetail }) 
             onPageChange: () => undefined,
           }}
         />
-      </section>
+      </DetailSection>
     </div>
   );
 }

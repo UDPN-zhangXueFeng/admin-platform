@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { Copy } from 'lucide-react';
 import { cn } from '@myorg/shared/util-classnames';
 import {
   Tooltip,
@@ -33,6 +34,11 @@ export interface CopyableEllipsisTextProps
   emptyText?: string;
   /** Label of the copy action inside the tooltip. Default `'Copy'`. */
   copyLabel?: string;
+  /**
+   * Render a persistent inline copy icon next to the text. The tooltip then
+   * omits its redundant copy link. Default `false`.
+   */
+  showCopyIcon?: boolean;
 }
 
 /**
@@ -54,6 +60,7 @@ export function CopyableEllipsisText({
   truncate = 'end',
   emptyText = DEFAULT_EMPTY_DISPLAY,
   copyLabel = DEFAULT_COPY_LABEL,
+  showCopyIcon = false,
   className,
   ...rest
 }: CopyableEllipsisTextProps) {
@@ -106,7 +113,7 @@ export function CopyableEllipsisText({
           <TooltipContent>
             <div className="flex items-center gap-2">
               <span className="break-all">{raw}</span>
-              {copyable ? (
+              {copyable && !showCopyIcon ? (
                 <button
                   type="button"
                   onClick={handleCopy}
@@ -119,6 +126,18 @@ export function CopyableEllipsisText({
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+      {copyable && showCopyIcon ? (
+        <button
+          type="button"
+          data-copy-icon
+          aria-label={`${copyLabel}: ${raw}`}
+          title={copyLabel}
+          onClick={handleCopy}
+          className="ml-1 inline-flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <Copy aria-hidden="true" className="size-3.5" />
+        </button>
+      ) : null}
     </div>
   );
 }

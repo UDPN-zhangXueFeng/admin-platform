@@ -211,6 +211,7 @@ Zustand 只用于客户端共享状态，例如：
 - 不新增全局 CSS，除非是 reset、token 或 App 级全局能力
 - 不在业务组件中硬编码大量一次性 magic color，优先使用设计 token 或现有语义色
 - UI 组件应支持基本 a11y：label、aria、focus 状态、键盘操作
+- 带说明的 ⓘ 提示必须是 `<button type="button">`（`aria-label` 用说明文案）+ Tooltip，支持 hover 与键盘 focus；不要用裸 `<span>` 作为 TooltipTrigger。
 
 ### Card 卡面（2026-11 定版）
 
@@ -218,9 +219,11 @@ Zustand 只用于客户端共享状态，例如：
 - `<form>`/`<main>` 或依赖横向 flex 的容器不能换成 `Card` 时，使用 `cardSurfaceClass`（同文件导出，经 `@myorg/shared/ui` barrel 引用）+ `cn`，保留原标签和布局类。
 - 不要再手写 `rounded-lg border bg-card shadow-sm` 一类的散落卡面 class；卡面样式只允许出现在 `card.tsx` 一处。
 - `Card` root 含 `overflow-hidden`：卡内若需弹出层逃逸（Select/Popover 下拉），用 `cardSurfaceClass` 于原标签，不用 `Card`。
+- `DetailSection` 等详情区块的卡片表面必须复用 `cardSurfaceClass`（无边框 + `shadow-float`），不要在区块内部再叠加 `border-t`/`border-b`/`rounded border` 作为分隔线；用间距、muted 文本和区块标题分层。
 
 ### 响应式桌面密度
 
+- 页面级容器不要使用 `max-w-*` 或 `mx-auto` 限宽；admin 全项目保持内容区全宽。字段过宽用 `grid` 列宽或字段级子布局控制，不要缩窄整个页面。
 - `<1024px` 使用移动端或抽屉式布局
 - `1024px–1599px` 使用紧凑桌面密度，优先减少 Shell 尺寸、内容边距、卡片间距和高密度栅格列数
 - `>=1600px` 使用舒适桌面密度，可恢复大屏侧栏、Header、内容边距和多列 Dashboard

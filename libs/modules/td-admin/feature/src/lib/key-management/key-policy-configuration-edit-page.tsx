@@ -36,8 +36,14 @@ import {
   Button,
   Card,
   Input,
+  PageHeader,
   RadioGroup,
   RadioGroupItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
 } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
@@ -204,25 +210,28 @@ export function KeyPolicyConfigurationEditPage() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        backLabel={t('key_management_0056')}
+        onBack={() => router.back()}
+        title={t('KP_EditTitle')}
+      />
       <Card className="p-6">
-        <h2 className="mb-6 text-xl font-bold">{t('KP_EditTitle')}</h2>
-
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Business Name + Description */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <FormSelect
-              name="businessName"
-              control={control}
-              label={t('KP_BusinessName')}
-              options={roleNameOptions}
-              placeholder={t('KP_PleaseSelect')}
-              required
-              error={errors.businessName?.message}
-              // Disabled: the role cannot be changed when editing.
-              disabled
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <FormSelect
+                name="businessName"
+                control={control}
+                label={t('KP_BusinessName')}
+                options={roleNameOptions}
+                placeholder={t('KP_PleaseSelect')}
+                required
+                error={errors.businessName?.message}
+                // Disabled: the role cannot be changed when editing.
+                disabled
+              />
+            </div>
             <div className="md:col-span-2">
               <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t('key_management_0053')}
@@ -232,40 +241,80 @@ export function KeyPolicyConfigurationEditPage() {
           </div>
 
           {/* Rotation Period Configuration */}
-          <Card className="p-6">
-            <h3 className="mb-6 font-bold">{t('KP_RotationPeriodTitle')}</h3>
+          <div className="space-y-4">
+            <h3 className="text-base font-semibold">
+              {t('KP_RotationPeriodTitle')}
+            </h3>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
-              <div className="md:col-span-1">
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">
                   {t('KP_RotationFrequency')}
                   <span className="ml-0.5 text-destructive" aria-hidden="true">
                     *
                   </span>
                 </label>
-                <FormSelect
-                  name="frequencyNumber"
-                  control={control}
-                  label=""
-                  options={frequencyNumberOptions}
-                  placeholder="1"
-                  required
-                  error={errors.frequencyNumber?.message}
-                />
+                <div className="flex gap-2">
+                  <div className="w-24">
+                    <Controller
+                      name="frequencyNumber"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger
+                            aria-label={t('KP_RotationFrequency')}
+                          >
+                            <SelectValue placeholder="1" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {frequencyNumberOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </div>
+                  <div className="w-28">
+                    <Controller
+                      name="frequencyUnit"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger
+                            aria-label={t('KP_RotationFrequency')}
+                          >
+                            <SelectValue placeholder={t('KP_Months')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {localizedFrequencyUnitOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </div>
+                </div>
+                {(errors.frequencyNumber || errors.frequencyUnit) && (
+                  <p className="text-xs text-destructive">
+                    {t('KP_PleaseSelectFrequency')}
+                  </p>
+                )}
               </div>
-              <div className="md:col-span-1">
-                <FormSelect
-                  name="frequencyUnit"
-                  control={control}
-                  label=""
-                  options={localizedFrequencyUnitOptions}
-                  placeholder={t('KP_Months')}
-                  required
-                  error={errors.frequencyUnit?.message}
-                />
-              </div>
-              <div className="md:col-span-1">
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">
                   {t('KP_RotationTime')}
                   <span className="ml-0.5 text-destructive" aria-hidden="true">
                     *
@@ -286,8 +335,8 @@ export function KeyPolicyConfigurationEditPage() {
               </div>
             </div>
 
-            <div className="mt-6">
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
                 {t('KP_RotationMethods')}
                 <span className="ml-0.5 text-destructive" aria-hidden="true">
                   *
@@ -331,7 +380,7 @@ export function KeyPolicyConfigurationEditPage() {
                 </div>
               )}
             </div>
-          </Card>
+          </div>
 
           {/* Demo notice — explicit non-persistence feedback. */}
           {demoSubmitted && (
@@ -341,14 +390,7 @@ export function KeyPolicyConfigurationEditPage() {
           )}
 
           {/* Buttons */}
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.back()}
-            >
-              {t('key_management_0056')}
-            </Button>
+          <div className="flex justify-end">
             <Button type="submit">{t('KP_SubmitDemo')}</Button>
           </div>
         </form>

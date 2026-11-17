@@ -33,6 +33,9 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import {
   Card,
   DataTable,
+  DetailField,
+  DetailGrid,
+  DetailSection,
   PageHeader,
   Tabs,
   TabsContent,
@@ -96,20 +99,6 @@ function toneToBadgeClass(tone: string): string {
 
 /** DataTable row shape: mock `key` is a number → string id for the table. */
 type OperationRecordRow = OperationRecord & { id: string };
-
-interface DetailItemProps {
-  label: string;
-  children: React.ReactNode;
-}
-
-function DetailItem({ label, children }: DetailItemProps) {
-  return (
-    <div className="space-y-1">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <div className="text-sm font-medium">{children}</div>
-    </div>
-  );
-}
 
 /** react-hook-form values for the Operation Records query form. */
 interface RecordsFilterFormValues {
@@ -244,7 +233,24 @@ export function KeyPolicyConfigurationDetailPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader backLabel={t('key_management_0056')} onBack={() => router.back()} title={t('KP_PolicyDetailsTitle')} />
+      <PageHeader
+        backLabel={t('key_management_0056')}
+        onBack={() => router.back()}
+        title={t('KP_PolicyDetailsTitle')}
+        actions={
+          statusEntry ? (
+            <span
+              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${toneToBadgeClass(
+                statusEntry.tone,
+              )}`}
+            >
+              {statusLabelKey ? t(statusLabelKey) : statusEntry.label}
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">--</span>
+          )
+        }
+      />
       <Tabs defaultValue="basic" className="w-full">
         <TabsList>
           <TabsTrigger value="basic">{t('key_management_0057')}</TabsTrigger>
@@ -255,56 +261,56 @@ export function KeyPolicyConfigurationDetailPage() {
 
         {/* ---------- Tab 1: Basic Information ---------- */}
         <TabsContent value="basic" className="mt-4 space-y-6">
-          <Card>
-            <div className="flex flex-col space-y-1.5 p-6">
-              <h3 className="text-2xl font-semibold leading-none tracking-tight">
-                {t('KP_PolicyDetailsTitle')}
-              </h3>
-            </div>
-            <div className="grid grid-cols-1 gap-6 p-6 pt-0 md:grid-cols-2 lg:grid-cols-3">
-              <DetailItem label={t('KP_BusinessName')}>
-                {record.businessName || '--'}
-              </DetailItem>
-              <DetailItem label={t('key_management_0003')}>
-                {statusEntry ? (
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${toneToBadgeClass(
-                      statusEntry.tone,
-                    )}`}
-                  >
-                    {statusLabelKey ? t(statusLabelKey) : statusEntry.label}
-                  </span>
-                ) : (
-                  '--'
-                )}
-              </DetailItem>
-              <DetailItem label={t('key_management_0053')}>
-                {record.description || '--'}
-              </DetailItem>
-              <DetailItem label={t('KP_RotationFrequency')}>
-                {record.rotationFrequency || '--'}
-              </DetailItem>
-              <DetailItem label={t('KP_RotationTime')}>
-                {record.rotationTime || '--'}
-              </DetailItem>
-              <DetailItem label={t('KP_RotationMethods')}>
-                {record.rotationMethods || '--'}
-              </DetailItem>
-              <DetailItem label={t('key_management_0049')}>
-                {record.createdBy || '--'}
-              </DetailItem>
-              <DetailItem label={t('key_management_0005')}>
-                {/* Pre-formatted string (plan §8.C.1) — no formatTimestamp. */}
-                {record.createdOn || '--'}
-              </DetailItem>
-              <DetailItem label={t('key_management_0051')}>
-                {record.updatedBy || '--'}
-              </DetailItem>
-              <DetailItem label={t('key_management_0052')}>
-                {record.updatedOn || '--'}
-              </DetailItem>
-            </div>
-          </Card>
+          <DetailSection title={t('key_management_0057')}>
+            <DetailGrid>
+              <DetailField
+                label={t('KP_BusinessName')}
+                value={record.businessName}
+              />
+              <DetailField
+                label={t('key_management_0053')}
+                value={record.description}
+                span="full"
+              />
+              <DetailField
+                label={t('key_management_0049')}
+                value={record.createdBy}
+                muted
+              />
+              <DetailField
+                label={t('key_management_0005')}
+                value={record.createdOn}
+                muted
+              />
+              <DetailField
+                label={t('key_management_0051')}
+                value={record.updatedBy}
+                muted
+              />
+              <DetailField
+                label={t('key_management_0052')}
+                value={record.updatedOn}
+                muted
+              />
+            </DetailGrid>
+          </DetailSection>
+
+          <DetailSection title={t('KP_RotationPeriodTitle')}>
+            <DetailGrid className="sm:grid-cols-3">
+              <DetailField
+                label={t('KP_RotationFrequency')}
+                value={record.rotationFrequency}
+              />
+              <DetailField
+                label={t('KP_RotationTime')}
+                value={record.rotationTime}
+              />
+              <DetailField
+                label={t('KP_RotationMethods')}
+                value={record.rotationMethods}
+              />
+            </DetailGrid>
+          </DetailSection>
         </TabsContent>
 
         {/* ---------- Tab 2: Operation Records ---------- */}

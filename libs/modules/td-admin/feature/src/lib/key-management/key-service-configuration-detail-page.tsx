@@ -165,7 +165,7 @@ export function KeyServiceConfigurationDetailPage() {
                     {t('key_management_0040')}
                   </h3>
                 </div>
-                <div className="overflow-x-auto border-t border-border/60">
+                <div className="overflow-x-auto">
                   <DataTable
                     columns={parameterColumns}
                     data={parameterRows}

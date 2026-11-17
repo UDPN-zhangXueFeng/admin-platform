@@ -32,7 +32,7 @@
   "sp_access_0039": "Contact Name",
   "sp_access_0040": "Description",
   "sp_access_0041": "Business License",
-  "sp_access_0042": "Recommended logo format: PNG / JPG / GIF / BMP / JPEG, size within 2MB.",
+  "sp_access_0042": "Upload your Business License in PDF, PNG, JPG, JPEG, GIF, or BMP format (max size: 2MB).",
   "sp_access_0044": "Token Name",
   "sp_access_0045": "SP's Wallet Address (Whitelist)",
   "sp_access_0047": "Token Contract Permission",
@@ -231,5 +231,7 @@
   "sp_access_0196": "No tokens selected. Please select a token from the list to configure its permissions.",
   "sp_access_0197": "Please select a service provider type.",
   "sp_access_0198": "Please enter a description.",
-  "sp_access_0199": "Please provide SP wallet address."
+  "sp_access_0199": "Please provide SP wallet address.",
+  "sp_access_0200": "Transactions can be submitted via this SP.",
+  "sp_access_0201": "Wallet owner can submit transactions directly."
 }

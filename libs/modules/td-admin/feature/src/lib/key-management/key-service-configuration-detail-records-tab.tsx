@@ -93,7 +93,7 @@ export function KeyServiceOperationRecordsTab({
   return (
     <DetailSection title={t('key_management_0058')} contentPadding="none">
       {/* Toolbar — filter form inside the same block as the table. */}
-      <div className="border-b border-border/60 px-4 pb-4 sm:px-6 sm:pb-6">
+      <div className="px-4 pb-4 sm:px-6 sm:pb-6">
         <p className="mb-4 text-sm text-muted-foreground">
           {t('key_management_0047', {
             name: keyServiceName ? `(${keyServiceName})` : '--',

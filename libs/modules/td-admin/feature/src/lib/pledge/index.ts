@@ -27,13 +27,13 @@ export {
 export {
   ReserveAssetCategoryAddPage,
 } from './reserve-asset-category-add-page';
-// pl-5：新增/编辑储备资产共用 Drawer（从 reserve-asset-list-page 抽出，避免单文件过大触发 nx lazy 误报）。
+// pl-5：新增/编辑储备资产共用居中弹窗（从 reserve-asset-list-page 抽出，避免单文件过大触发 nx lazy 误报）。
 export {
-  ReserveAssetDrawer,
-} from './reserve-asset-drawer';
+  ReserveAssetFormDialog,
+} from './reserve-asset-dialog';
 export type {
-  DrawerState,
-} from './reserve-asset-drawer';
+  ReserveAssetFormState,
+} from './reserve-asset-dialog';
 
 // pl-1：2 个子模块 manifest（group 机制：group 容器不进 registry，每子模块各自 manifest，
 // id=子模块名，routes component 用通用 key list/detail/create）。对齐 cross-chain feature 结构。

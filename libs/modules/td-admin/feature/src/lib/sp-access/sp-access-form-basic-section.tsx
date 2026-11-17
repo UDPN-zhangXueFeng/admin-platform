@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { Upload } from 'lucide-react';
-import { Card, Input, Label, Textarea } from '@myorg/shared/ui';
+import { Card, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@myorg/shared/ui';
 import { BUSINESS_LICENSE_ACCEPT, DESCRIPTION_MAX_LENGTH, EMAIL_MAX_LENGTH, NAME_MAX_LENGTH, PHONE_MAX_LENGTH } from './constants';
 import type { SpAccessBasicValues } from './sp-access-form-utils';
 
@@ -35,28 +35,54 @@ export function SpAccessFormBasicSection({
   const updateBasic = (field: keyof SpAccessBasicValues, value: string) => {
     setBasic((previous) => ({ ...previous, [field]: value }));
   };
+  const requiredMark = (
+    <span className="ml-0.5 text-destructive" aria-hidden="true">
+      *
+    </span>
+  );
 
   return (
     <Card className="p-6">
       <h2 className="mb-4 text-lg font-semibold">{t('sp_access_0009')}</h2>
       <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
-          <Label htmlFor="sp-name">{t('sp_access_0000')}</Label>
-          <Input id="sp-name" value={basic.spName} maxLength={NAME_MAX_LENGTH} disabled={isEditMode} placeholder={t('sp_access_0162')} onChange={(event) => updateBasic('spName', event.target.value)} />
+          <Label htmlFor="sp-name">
+            {t('sp_access_0000')}
+            {!isEditMode ? requiredMark : null}
+          </Label>
+          <Input id="sp-name" value={basic.spName} maxLength={NAME_MAX_LENGTH} disabled={isEditMode} aria-required={!isEditMode} placeholder={t('sp_access_0162')} onChange={(event) => updateBasic('spName', event.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="sp-type">{t('sp_access_0065')}</Label>
-          <select id="sp-type" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={basic.spType} onChange={(event) => updateBasic('spType', event.target.value)}>
-            {[1, 5, 10, 15, 20, 25].map((value) => <option key={value} value={value}>{t(`service_provider_type_${value}`)}</option>)}
-          </select>
+          <Label htmlFor="sp-type">
+            {t('sp_access_0065')}
+            {requiredMark}
+          </Label>
+          <Select value={basic.spType} onValueChange={(value) => updateBasic('spType', value)}>
+            <SelectTrigger id="sp-type" aria-required="true">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[1, 5, 10, 15, 20, 25].map((value) => (
+                <SelectItem key={value} value={String(value)}>
+                  {t(`service_provider_type_${value}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="contact-name">{t('sp_access_0039')}</Label>
-          <Input id="contact-name" value={basic.contactName} maxLength={NAME_MAX_LENGTH} placeholder={t('sp_access_0163')} onChange={(event) => updateBasic('contactName', event.target.value)} />
+          <Label htmlFor="contact-name">
+            {t('sp_access_0039')}
+            {requiredMark}
+          </Label>
+          <Input id="contact-name" value={basic.contactName} maxLength={NAME_MAX_LENGTH} aria-required="true" placeholder={t('sp_access_0163')} onChange={(event) => updateBasic('contactName', event.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="sp-email">{t('PUB_Email')}</Label>
-          <Input id="sp-email" type="email" value={basic.email} maxLength={EMAIL_MAX_LENGTH} placeholder={t('sp_access_0164')} onChange={(event) => updateBasic('email', event.target.value)} />
+          <Label htmlFor="sp-email">
+            {t('PUB_Email')}
+            {requiredMark}
+          </Label>
+          <Input id="sp-email" type="email" value={basic.email} maxLength={EMAIL_MAX_LENGTH} aria-required="true" placeholder={t('sp_access_0164')} onChange={(event) => updateBasic('email', event.target.value)} />
           <p className="text-xs text-muted-foreground">{t('sp_access_0029')}</p>
         </div>
         <div className="space-y-2">
@@ -64,7 +90,10 @@ export function SpAccessFormBasicSection({
           <Input id="sp-phone" value={basic.phone} maxLength={PHONE_MAX_LENGTH} placeholder={t('sp_access_0165')} onChange={(event) => updateBasic('phone', event.target.value.replace(/[^+\d]/g, ''))} />
         </div>
         <div className="space-y-2">
-          <Label>{t('sp_access_0041')}</Label>
+          <Label>
+            {t('sp_access_0041')}
+            {requiredMark}
+          </Label>
           {isEditMode ? (
             <div className="text-sm">
               {licenseLoading ? <span className="text-muted-foreground">...</span> : licensePreviewUrl?.startsWith('data:image/') ? <img src={licensePreviewUrl} alt={t('sp_access_0041')} className="h-28 rounded border" /> : licensePreviewUrl?.startsWith('data:application/pdf') ? <iframe title={t('sp_access_0041')} src={licensePreviewUrl} className="h-40 w-full rounded border" /> : licensePreviewUrl ? <a href={licensePreviewUrl} target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">{t('sp_access_0167')}</a> : <span className="text-muted-foreground">{t('sp_access_0168')}</span>}
@@ -81,8 +110,11 @@ export function SpAccessFormBasicSection({
           )}
         </div>
         <div className="space-y-2 md:col-span-3">
-          <Label htmlFor="sp-desc">{t('sp_access_0040')}</Label>
-          <Textarea id="sp-desc" value={description} maxLength={DESCRIPTION_MAX_LENGTH} rows={4} placeholder={t('sp_access_0166')} onChange={(event) => setDescription(event.target.value)} />
+          <Label htmlFor="sp-desc">
+            {t('sp_access_0040')}
+            {requiredMark}
+          </Label>
+          <Textarea id="sp-desc" value={description} maxLength={DESCRIPTION_MAX_LENGTH} rows={4} aria-required="true" placeholder={t('sp_access_0166')} onChange={(event) => setDescription(event.target.value)} />
           <p className="text-right text-xs text-muted-foreground">{description.length} / {DESCRIPTION_MAX_LENGTH}</p>
         </div>
       </div>

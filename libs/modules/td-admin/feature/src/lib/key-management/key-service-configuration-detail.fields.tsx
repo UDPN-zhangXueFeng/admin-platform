@@ -189,7 +189,7 @@ export function KeyServiceBasicFields({
       </DetailGrid>
 
       {/* Audit fields paired as create-by/create-on and update-by/update-on. */}
-      <DetailGrid className="mt-5 border-t border-border/60 pt-4">
+      <DetailGrid className="mt-5">
         <DetailField
           label={t('key_management_0049')}
           value={detail?.createdBy}

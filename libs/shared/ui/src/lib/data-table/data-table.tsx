@@ -190,6 +190,12 @@ export function DataTable<TData extends { id: string }>({
     ? Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
     : 1;
 
+  const pageSizeOptions = React.useMemo(() => {
+    const base = pagination?.pageSizeOptions ?? [10, 20, 50];
+    if (!pagination || base.includes(pagination.pageSize)) return base;
+    return [...base, pagination.pageSize].sort((left, right) => left - right);
+  }, [pagination]);
+
   const tablePagination: PaginationState | undefined = pagination
     ? { pageIndex: Math.max(0, pagination.page - 1), pageSize: pagination.pageSize }
     : undefined;
@@ -355,7 +361,7 @@ export function DataTable<TData extends { id: string }>({
                   <SelectValue className="whitespace-nowrap" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(pagination.pageSizeOptions ?? [10, 20, 50]).map((size) => (
+                  {pageSizeOptions.map((size) => (
                     <SelectItem key={size} value={String(size)}>
                       {size} / page
                     </SelectItem>

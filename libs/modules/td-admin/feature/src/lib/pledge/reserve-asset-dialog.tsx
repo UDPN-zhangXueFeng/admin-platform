@@ -7,11 +7,11 @@ import { toast } from 'sonner';
 import {
   Button,
   Checkbox,
-  Drawer,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Input,
   Select,
   SelectContent,
@@ -29,12 +29,13 @@ import {
 import { buildNameToIdMap } from '.';
 
 /**
- * ReserveAssetDrawer —— 储备资产新增/编辑共用 Drawer（从 reserve-asset-list-page 抽出）。
+ * ReserveAssetFormDialog —— 储备资产新增/编辑共用居中弹窗（从 reserve-asset-list-page 抽出）。
  *
  * 迁移自 td-manage src/pages/pledge/reserve-asset-list/index.tsx 的 form1 双表单
- * （line 540-591 onFinish + line 600-700 Drawer 渲染）。antd Form/Checkbox.Group →
- * react-hook-form + Radix Checkbox 列表（@myorg/shared/ui 无 Checkbox.Group，用
- * Controller 包多个 Checkbox 实现 name 数组的勾选/取消）。
+ * （line 540-591 onFinish + line 600-700 Drawer 渲染），目标 UI 用 Dialog 弹出层。
+ * antd Form/Checkbox.Group → react-hook-form + Radix Checkbox 列表
+ * （@myorg/shared/ui 无 Checkbox.Group，用 Controller 包多个 Checkbox 实现
+ * name 数组的勾选/取消）。
  *
  * type 分支（对照源码 form1）：
  * - 'new'：Currency（Select 必填）+ assetName（Input，30 字符正则）+ Asset Category
@@ -49,25 +50,25 @@ import { buildNameToIdMap } from '.';
  * AssetCateGoryRespVo 实际字段是 `assetTypeId`（见 typings data-contracts.ts:6519），
  * 源码的 assetCategoryId 取不到值 —— 此处按 typings 正确字段 assetTypeId 实现。
  */
-export interface DrawerState {
+export interface ReserveAssetFormState {
   type: 'new' | 'edit';
   record?: ReserveAssetListItem;
 }
 
-export interface ReserveAssetDrawerProps {
+export interface ReserveAssetFormDialogProps {
   open: boolean;
-  drawerState: DrawerState | null;
+  formState: ReserveAssetFormState | null;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
 /**
- * Drawer 表单值（new/edit 共用一个 form 实例）。
+ * Dialog 表单值（new/edit 共用一个 form 实例）。
  * - currency / assetName：两态都有（new 可编辑，edit 只读）。
  * - assetCategories：edit 态为勾选的 assetTypeName 数组；new 态不使用（Cash 为
  *   只读展示，不进 form 状态/校验/提交）。
  */
-interface DrawerFormValues {
+interface ReserveAssetFormValues {
   currency: string;
   assetName: string;
   assetCategories?: string[];
@@ -76,15 +77,15 @@ interface DrawerFormValues {
 /** 资产名正则：1-30 位字母/数字/空格/下划线/连字符（对齐源码）。 */
 const ASSET_NAME_PATTERN = /^[A-Za-z0-9 _-]{1,30}$/;
 
-export function ReserveAssetDrawer({
+export function ReserveAssetFormDialog({
   open,
-  drawerState,
+  formState,
   onClose,
   onSuccess,
-}: ReserveAssetDrawerProps): React.JSX.Element {
+}: ReserveAssetFormDialogProps): React.JSX.Element {
   const t = useTranslations('modules.pledge');
   const tc = useTranslations('common');
-  const isEdit = drawerState?.type === 'edit';
+  const isEdit = formState?.type === 'edit';
 
   // ── 下拉数据源 ──
   // Currency：new 态下拉；edit 态只读展示 record.currency。
@@ -115,14 +116,14 @@ export function ReserveAssetDrawer({
   // edit 态：Checkbox 选项（value=assetTypeName）+ 默认勾选（status===1）。
   // filter assetTypeName 非空（对齐源码 line 488-494 buildAssetCategoryOptions）。
   const categoryCheckboxes = React.useMemo(() => {
-    const list = drawerState?.record?.categorieList ?? [];
+    const list = formState?.record?.categorieList ?? [];
     return list
       .filter((el) => !!el?.assetTypeName)
       .map((el) => ({
         label: el.assetTypeName as string,
         value: el.assetTypeName as string,
       }));
-  }, [drawerState?.record?.categorieList]);
+  }, [formState?.record?.categorieList]);
 
   // ── 表单 ──
   // new 与 edit 共用一个 form 实例，按 isEdit 切换校验规则与 disabled。
@@ -132,7 +133,7 @@ export function ReserveAssetDrawer({
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<DrawerFormValues>({
+  } = useForm<ReserveAssetFormValues>({
     defaultValues: {
       currency: '',
       assetName: '',
@@ -142,20 +143,20 @@ export function ReserveAssetDrawer({
 
   // open/type 变化时回填：edit 态塞 record 字段 + status===1 勾选；new 态清空。
   React.useEffect(() => {
-    if (!open || !drawerState) return;
-    if (drawerState.type === 'edit') {
-      const selected = (drawerState.record?.categorieList ?? [])
+    if (!open || !formState) return;
+    if (formState.type === 'edit') {
+      const selected = (formState.record?.categorieList ?? [])
         .filter((el) => !!el?.assetTypeName && el.status === 1)
         .map((el) => el.assetTypeName as string);
       reset({
-        currency: drawerState.record?.currency ?? '',
-        assetName: drawerState.record?.accountName ?? '',
+        currency: formState.record?.currency ?? '',
+        assetName: formState.record?.accountName ?? '',
         assetCategories: selected,
       });
     } else {
       reset({ currency: '', assetName: '', assetCategories: [] });
     }
-  }, [open, drawerState, reset]);
+  }, [open, formState, reset]);
 
   // ── 提交 ──
   const addMutation = useAddReserveAssetMutation();
@@ -163,8 +164,8 @@ export function ReserveAssetDrawer({
   const isPending = addMutation.isPending || editMutation.isPending;
 
   const onSubmit = handleSubmit((values) => {
-    if (!drawerState) return;
-    if (drawerState.type === 'new') {
+    if (!formState) return;
+    if (formState.type === 'new') {
       // new：默认 Cash id（取不到传空数组，对齐源码 cashCategoryId ? [id] : []）。
       addMutation.mutate(
         {
@@ -185,7 +186,7 @@ export function ReserveAssetDrawer({
       // edit：name→id 映射（record.categorieList 的 assetTypeName→assetTypeId，
       // filter typeof assetTypeId === 'number'，对齐源码 line 562-572）。
       // 纯函数 buildNameToIdMap 已抽到 util 层并单测守护（空 categorieList 兜底）。
-      const nameToIdMap = buildNameToIdMap(drawerState.record?.categorieList);
+      const nameToIdMap = buildNameToIdMap(formState.record?.categorieList);
       const selectedNames = values.assetCategories ?? [];
       const selectedIds = selectedNames
         .map((name) => nameToIdMap.get(name))
@@ -193,7 +194,7 @@ export function ReserveAssetDrawer({
 
       editMutation.mutate(
         {
-          reserveAccountId: drawerState.record?.reserveAccountId ?? 0,
+          reserveAccountId: formState.record?.reserveAccountId ?? 0,
           assetCategoryList: selectedIds,
         },
         {
@@ -213,22 +214,22 @@ export function ReserveAssetDrawer({
   }, [onClose]);
 
   return (
-    <Drawer
+    <Dialog
       open={open}
       onOpenChange={(next) => {
         if (!next) handleCancel();
       }}
     >
-      <DrawerContent className="sm:w-[480px] sm:max-w-[480px]">
-        <DrawerHeader>
-          <DrawerTitle>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
             {isEdit ? t('drawer.editTitle') : t('drawer.newTitle')}
-          </DrawerTitle>
-        </DrawerHeader>
+          </DialogTitle>
+        </DialogHeader>
 
         <form
           onSubmit={onSubmit}
-          className="flex flex-col gap-4 px-6 pb-2 pt-2"
+          className="flex flex-col gap-4"
           aria-label={isEdit ? t('drawer.editTitle') : t('drawer.newTitle')}
         >
           {/* Currency：new 态 Select 必填；edit 态 disabled 只读。 */}
@@ -373,19 +374,19 @@ export function ReserveAssetDrawer({
               <Input value="Cash" disabled readOnly />
             )}
           </div>
-        </form>
 
-        <DrawerFooter className="px-6 pb-6">
-          <Button type="button" variant="outline" onClick={handleCancel}>
-            {t('action.cancel')}
-          </Button>
-          <Button type="button" onClick={onSubmit} disabled={isPending}>
-            {t('action.confirm')}
-          </Button>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleCancel}>
+              {t('action.cancel')}
+            </Button>
+            <Button type="submit" disabled={isPending}>
+              {t('action.confirm')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-export default ReserveAssetDrawer;
+export default ReserveAssetFormDialog;

@@ -5,6 +5,7 @@ import { RefreshCw } from 'lucide-react';
 import { cn } from '@myorg/shared/util-classnames';
 import { Alert } from '../alert';
 import { Button } from '../button';
+import { cardSurfaceClass } from '../card';
 
 /**
  * DetailSection —— 详情区块（标题 + 可选右侧操作 + 内容/骨架/错误三态）。
@@ -112,7 +113,7 @@ export function DetailSection({
   return (
     <section
       aria-labelledby={headingId}
-      className="flex flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground"
+      className={cn('flex flex-col overflow-hidden', cardSurfaceClass)}
     >
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-4 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-6">
         <h2
