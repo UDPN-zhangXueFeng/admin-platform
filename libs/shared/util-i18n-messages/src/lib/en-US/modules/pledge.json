@@ -34,7 +34,7 @@
     "50": "default"
   },
   "action": {
-    "add": "Add",
+    "add": "New",
     "edit": "Edit",
     "details": "Details",
     "activate": "Activate",
