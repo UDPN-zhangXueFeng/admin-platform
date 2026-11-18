@@ -5,6 +5,7 @@
  * NOTE: keystore 密码加密 `getEncryptionData` 已在 Phase 7 移植到
  * `./wallet.encryption.ts`（barrel 一并导出），此处不重复定义。
  */
+import type { WalletTypeCard } from '@myorg/modules/td-admin/data-access';
 import { UNLIMITED_THRESHOLD } from './wallet.constants';
 
 /** 时间戳归一：秒 → 毫秒（< 1e12 视为秒）。迁移自源项目 `v >= 1e12 ? v : v * 1000`。 */
@@ -87,4 +88,24 @@ export function resolveWalletViewTabKey(tab?: string | null): UserWalletViewTab 
 /** MMF 判定：issueType === 20。 */
 export function isMmf(issueType?: number | null): boolean {
   return issueType === 20;
+}
+
+/**
+ * 钱包类型卡片按 `size` 切片，末组不足补 `'new'` 占位；空数组补 3 个占位。
+ * 迁移自源 `libs/utils/get/getGroup.ts`（外层每页 1 组）。
+ */
+export function groupWalletTypeCards(
+  cards: WalletTypeCard[],
+  size: number
+): (WalletTypeCard | 'new')[][] {
+  if (cards.length === 0) {
+    return [['new', 'new', 'new']];
+  }
+  const groups: (WalletTypeCard | 'new')[][] = [];
+  for (let i = 0; i < cards.length; i += size) {
+    const slice: (WalletTypeCard | 'new')[] = cards.slice(i, i + size);
+    while (slice.length < size) slice.push('new');
+    groups.push(slice);
+  }
+  return groups;
 }
