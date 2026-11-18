@@ -58,7 +58,7 @@
   "custodyModel": {
     "issuerCustody": "Issuer Custody",
     "spCustody": "SP Custody",
-    "selfCustody": "Self Custody"
+    "selfCustody": "Self-Custody (End User)"
   },
   "kyc": {
     "yes": "Yes",
@@ -78,38 +78,55 @@
     "7": "Unfreeze Funds"
   },
   "operateContent": {
-    "created": "Wallet created",
+    "created": "Wallet Creation",
     "frozen": "Freeze Wallet",
-    "frozenNewStatus": "New Status",
-    "frozenOldStatus": "Old Status",
+    "frozenNewStatus": "Update Status: Frozen",
+    "frozenOldStatus": "Original Status: Active",
     "unfrozen": "Unfreeze Wallet",
-    "unfrozenNewStatus": "New Status",
-    "unfrozenOldStatus": "Old Status",
+    "unfrozenNewStatus": "Update Status: Unfrozen",
+    "unfrozenOldStatus": "Original Status: Freeze",
     "changeType": "Change Wallet Type",
-    "changeNewStatus": "New Status",
-    "changeOldStatus": "Old Status",
-    "freezeFunds": "Frozen Amount",
-    "unfreezeFunds": "Unfrozen Amount"
+    "changeNewStatus": "Update Type",
+    "changeOldStatus": "Original Type",
+    "freezeFunds": "Freeze Amount",
+    "unfreezeFunds": "Unfreeze Amount"
   },
   "tdTransactionType": {
     "1": "Mint",
-    "2": "Burn",
-    "3": "Transfer",
-    "4": "Redeem"
+    "2": "Melt",
+    "3": "Top-up",
+    "4": "Transfer",
+    "5": "Authorized Transfer",
+    "6": "Withdrawal",
+    "7": "WithdrawByBank",
+    "8": "Deposit Interest",
+    "9": "Maintenance Fee",
+    "10": "Minimum Balance Fee",
+    "11": "Deposit Interest",
+    "12": "Arranged Overdraft Fee",
+    "13": "Unarranged Overdraft Fee",
+    "14": "Overdraft Interest",
+    "15": "Overdraft Interest",
+    "16": "Deposit Interest",
+    "17": "Overdraft Interest",
+    "18": "Fund Dividend Distribution"
   },
   "userFeeType": {
-    "10": "Maintenance Fee",
-    "20": "Minimum Balance Fee",
-    "25": "Interest Fee",
-    "30": "Other Fee"
+    "1": "Maintenance Fee",
+    "5": "Minimum Balance Fee",
+    "10": "Deposit Interest",
+    "15": "Arranged Overdraft Fee",
+    "20": "Overdraft Interest",
+    "25": "Unarranged Overdraft Fee",
+    "30": "Unoverdraft Interest"
   },
   "authorizedOperationType": {
     "1": "Authorize",
-    "2": "Revoke"
+    "2": "De-authorize"
   },
   "changeType": {
-    "1": "Authorize",
-    "2": "Revoke"
+    "1": "Increase",
+    "2": "Decrease"
   },
   "commonTaskStatus": {
     "30": "Processing",
@@ -164,14 +181,18 @@
     "records": "User Wallet List",
     "invalidId": "Missing wallet identifier. Please open this page from the list.",
     "copy": "Copy",
+    "loadFailed": "Could not load wallet data.",
+    "retry": "Retry",
+    "jumpPage": "Go to page",
+    "notAvailable": "N/A",
     "tab": {
       "basic": "Basic Information",
       "transactions": "Transactions",
       "operations": "Operation Records",
       "accrual": "Accrual Records",
       "distribution": "Distribution Records",
-      "authorization": "Authorization Records",
-      "authorized": "Authorized Records"
+      "authorization": "Authorization Outflows",
+      "authorized": "Authorization Inflows"
     },
     "section": {
       "basicDetails": "Wallet Details",
@@ -180,13 +201,24 @@
       "verifiableCredential": "Verifiable Credential",
       "distributionDetails": "Distribution Details",
       "fundName": "Fund Name",
-      "fundAssetValue": "Fund Asset Value",
+      "fundAssetValue": "Fixed Net Asset Value",
       "dividendMethod": "Dividend Method"
     },
     "field": {
-      "createTime": "Create Time"
+      "kycStatus": "KYC Status",
+      "maxTxCountDaily": "Daily Transaction Limit",
+      "maxTxCountPer": "Single Transaction Limit",
+      "stablecoinLimitCount": "Maximum Balance Limit",
+      "withdrawTime": "Inactive Timestamp",
+      "walletStatus": "Wallet Status"
+    },
+    "filter": {
+      "appliedDate": "Applied Date"
     },
     "column": {
+      "toWallet": "To Wallet Address",
+      "fromWallet": "From Wallet Address",
+      "authorizedAmount": "Authorized Amount",
       "walletAddress": "Wallet Address",
       "blockchain": "Blockchain",
       "sp": "SP",
@@ -219,8 +251,7 @@
       "dividendUnits": "Dividend Units",
       "type": "Change Type",
       "amount": "Amount",
-      "operationTime": "Operation Time",
-      "status": "Status"
+      "operationTime": "Operation Time"
     },
     "placeholder": {
       "walletAddress": "Enter wallet address",
@@ -236,10 +267,13 @@
       "unfreezeFunds": "UnFreeze Funds"
     },
     "submissionPolicy": {
+      "endUser": "End User",
       "sp": "Via Current SP",
       "direct": "Direct (End User)"
     },
     "modal": {
+      "noAvailableTypes": "No wallet types are available.",
+      "submitFailed": "Could not submit the request.",
       "freezeWalletTitle": "Freeze Wallet",
       "freezeWalletSubTitle": "Please enter the reason for freezing the wallet, and then submit your request for approval.",
       "freezeWalletTip": "Freezing the user's wallet will prohibit the user's fund flow, please consider carefully before performing the operation.",

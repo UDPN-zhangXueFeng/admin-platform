@@ -56,9 +56,9 @@
     "60": "透支利息"
   },
   "custodyModel": {
-    "issuerCustody": "发行方托管",
+    "issuerCustody": "Issuer 托管",
     "spCustody": "SP 托管",
-    "selfCustody": "自托管"
+    "selfCustody": "用户自托管"
   },
   "kyc": {
     "yes": "是",
@@ -78,38 +78,55 @@
     "7": "解冻资金"
   },
   "operateContent": {
-    "created": "钱包已创建",
+    "created": "创建钱包",
     "frozen": "冻结钱包",
-    "frozenNewStatus": "新状态",
-    "frozenOldStatus": "原状态",
+    "frozenNewStatus": "更新状态：已冻结",
+    "frozenOldStatus": "原状态：正常",
     "unfrozen": "解冻钱包",
-    "unfrozenNewStatus": "新状态",
-    "unfrozenOldStatus": "原状态",
+    "unfrozenNewStatus": "更新状态：已解冻",
+    "unfrozenOldStatus": "原状态：已冻结",
     "changeType": "修改钱包类型",
-    "changeNewStatus": "新状态",
-    "changeOldStatus": "原状态",
-    "freezeFunds": "冻结数量",
-    "unfreezeFunds": "解冻数量"
+    "changeNewStatus": "新类型",
+    "changeOldStatus": "原类型",
+    "freezeFunds": "冻结金额",
+    "unfreezeFunds": "解冻金额"
   },
   "tdTransactionType": {
     "1": "铸造",
     "2": "销毁",
-    "3": "转账",
-    "4": "赎回"
+    "3": "充值",
+    "4": "转账",
+    "5": "授权转账",
+    "6": "提现",
+    "7": "银行提现",
+    "8": "存款利息",
+    "9": "维护费",
+    "10": "最低余额费",
+    "11": "存款利息",
+    "12": "约定透支费",
+    "13": "非约定透支费",
+    "14": "透支利息",
+    "15": "透支利息",
+    "16": "存款利息",
+    "17": "透支利息",
+    "18": "基金分红"
   },
   "userFeeType": {
-    "10": "维护费",
-    "20": "最低余额费",
-    "25": "利息费",
-    "30": "其他费用"
+    "1": "维护费",
+    "5": "最低余额费",
+    "10": "存款利息",
+    "15": "约定透支费",
+    "20": "透支利息",
+    "25": "非约定透支费",
+    "30": "未透支利息"
   },
   "authorizedOperationType": {
     "1": "授权",
     "2": "撤销"
   },
   "changeType": {
-    "1": "授权",
-    "2": "撤销"
+    "1": "增加",
+    "2": "减少"
   },
   "commonTaskStatus": {
     "30": "处理中",
@@ -164,6 +181,10 @@
     "records": "用户钱包列表",
     "invalidId": "缺少钱包标识，请从列表进入该页面。",
     "copy": "复制",
+    "loadFailed": "无法加载钱包数据。",
+    "retry": "重试",
+    "jumpPage": "跳转到页",
+    "notAvailable": "不适用",
     "tab": {
       "basic": "基本信息",
       "transactions": "交易记录",
@@ -171,7 +192,7 @@
       "accrual": "应计记录",
       "distribution": "分配记录",
       "authorization": "授权记录",
-      "authorized": "已授权记录"
+      "authorized": "被授权记录"
     },
     "section": {
       "basicDetails": "钱包详情",
@@ -180,13 +201,24 @@
       "verifiableCredential": "可验证凭证",
       "distributionDetails": "分配详情",
       "fundName": "基金名称",
-      "fundAssetValue": "基金资产价值",
+      "fundAssetValue": "固定净资产价值",
       "dividendMethod": "分红方式"
     },
     "field": {
-      "createTime": "创建时间"
+      "kycStatus": "KYC 状态",
+      "maxTxCountDaily": "日交易限额",
+      "maxTxCountPer": "钱包单笔限额",
+      "stablecoinLimitCount": "最大余额限额",
+      "withdrawTime": "注销时间",
+      "walletStatus": "钱包状态"
+    },
+    "filter": {
+      "appliedDate": "申请日期"
     },
     "column": {
+      "toWallet": "被授权钱包地址",
+      "fromWallet": "授权方钱包地址",
+      "authorizedAmount": "授权数量",
       "walletAddress": "钱包地址",
       "blockchain": "区块链",
       "sp": "SP",
@@ -218,9 +250,8 @@
       "dividendAmount": "分红数量",
       "dividendUnits": "分红份额",
       "type": "变更类型",
-      "amount": "数量",
-      "operationTime": "操作时间",
-      "status": "状态"
+      "amount": "金额",
+      "operationTime": "操作时间"
     },
     "placeholder": {
       "walletAddress": "请输入钱包地址",
@@ -236,10 +267,13 @@
       "unfreezeFunds": "解冻资金"
     },
     "submissionPolicy": {
+      "endUser": "终端用户",
       "sp": "通过当前 SP",
       "direct": "直连（终端用户）"
     },
     "modal": {
+      "noAvailableTypes": "没有可用的钱包类型。",
+      "submitFailed": "请求提交失败。",
       "freezeWalletTitle": "冻结钱包",
       "freezeWalletSubTitle": "请输入冻结钱包的原因，然后提交审批。",
       "freezeWalletTip": "冻结用户钱包将禁止用户资金流动，操作前请谨慎评估。",

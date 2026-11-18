@@ -71,6 +71,7 @@ import type {
   UserWallet,
   UserWalletDetail,
   UserWalletFilters,
+  UserWalletRecordFilters,
   WalletListParams,
   WalletListResponse,
   WalletOperatePayload,
@@ -208,65 +209,65 @@ export function useUserTxQuery(
 export function useUserOpRecordQuery(
   walletId: number | undefined,
   page: Page,
-  enabled = true
+  filters: UserWalletRecordFilters = {}
 ) {
   return useQuery<WalletListResponse<UserOpRecord>>({
-    queryKey: walletKeys.userOpRecord(walletId ?? 0, page),
-    queryFn: () => getUserOpRecordList(walletId as number, page),
+    queryKey: walletKeys.userOpRecord(walletId ?? 0, { ...page, filters }),
+    queryFn: () => getUserOpRecordList(walletId as number, page, filters),
     placeholderData: keepPreviousData,
-    enabled: Boolean(walletId) && enabled,
+    enabled: Boolean(walletId),
   });
 }
 
 export function useUserAccrualQuery(
   walletId: number | undefined,
   page: Page,
-  enabled = true
+  filters: UserWalletRecordFilters = {}
 ) {
   return useQuery<WalletListResponse<AccrualRecord>>({
-    queryKey: walletKeys.userAccrual(walletId ?? 0, page),
-    queryFn: () => getUserAccrualRecords(walletId as number, page),
+    queryKey: walletKeys.userAccrual(walletId ?? 0, { ...page, filters }),
+    queryFn: () => getUserAccrualRecords(walletId as number, page, filters),
     placeholderData: keepPreviousData,
-    enabled: Boolean(walletId) && enabled,
+    enabled: Boolean(walletId),
   });
 }
 
 export function useUserDistributeQuery(
   walletId: number | undefined,
   page: Page,
-  enabled = true
+  filters: UserWalletRecordFilters = {}
 ) {
   return useQuery<WalletListResponse<DistributeRecord>>({
-    queryKey: walletKeys.userDistribute(walletId ?? 0, page),
-    queryFn: () => getUserDistributeRecords(walletId as number, page),
+    queryKey: walletKeys.userDistribute(walletId ?? 0, { ...page, filters }),
+    queryFn: () => getUserDistributeRecords(walletId as number, page, filters),
     placeholderData: keepPreviousData,
-    enabled: Boolean(walletId) && enabled,
+    enabled: Boolean(walletId),
   });
 }
 
 export function useUserAuthorizationQuery(
   walletId: number | undefined,
   page: Page,
-  enabled = true
+  filters: UserWalletRecordFilters = {}
 ) {
   return useQuery<WalletListResponse<AuthRecord>>({
-    queryKey: walletKeys.userAuthorization(walletId ?? 0, page),
-    queryFn: () => getUserAuthorizationRecords(walletId as number, page),
+    queryKey: walletKeys.userAuthorization(walletId ?? 0, { ...page, filters }),
+    queryFn: () => getUserAuthorizationRecords(walletId as number, page, filters),
     placeholderData: keepPreviousData,
-    enabled: Boolean(walletId) && enabled,
+    enabled: Boolean(walletId),
   });
 }
 
 export function useUserAuthorizedQuery(
   walletId: number | undefined,
   page: Page,
-  enabled = true
+  filters: UserWalletRecordFilters = {}
 ) {
   return useQuery<WalletListResponse<AuthRecord>>({
-    queryKey: walletKeys.userAuthorized(walletId ?? 0, page),
-    queryFn: () => getUserAuthorizedRecords(walletId as number, page),
+    queryKey: walletKeys.userAuthorized(walletId ?? 0, { ...page, filters }),
+    queryFn: () => getUserAuthorizedRecords(walletId as number, page, filters),
     placeholderData: keepPreviousData,
-    enabled: Boolean(walletId) && enabled,
+    enabled: Boolean(walletId),
   });
 }
 

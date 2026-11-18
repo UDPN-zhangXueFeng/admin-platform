@@ -59,6 +59,9 @@ export interface TokenTypeOption {
   key?: number | string;
   value?: string;
   label?: string;
+  tokenTypeId?: number;
+  tokenTypeName?: string;
+  status?: number;
   [k: string]: unknown;
 }
 
@@ -144,6 +147,8 @@ export interface UserWallet extends WalletRow {
   walletType?: string;
   stablecoinCount?: string | number;
   symbol?: string;
+  usableCount?: string | number;
+  freezeCount?: string | number;
   state?: number;
   walletState?: number;
   createTime?: number | string;
@@ -157,11 +162,31 @@ export interface UserWallet extends WalletRow {
 
 export interface UserWalletFilters {
   stablecoinId?: number;
-  blockchainKey?: string | number;
+  blockchainId?: string | number;
   tokenType?: number;
   walletAddress?: string;
   state?: number;
   walletType?: string;
+  spName?: string;
+  startCreateTime?: number;
+  endCreateTime?: number;
+  custodyModel?: number;
+  kycRequired?: number;
+  submissionPolicyStatic?: string;
+}
+
+export interface UserWalletRecordFilters {
+  operationType?: number;
+  accrualTimeStart?: number;
+  accrualTimeEnd?: number;
+  feeType?: number;
+  payableTimeStart?: number;
+  payableTimeEnd?: number;
+  authorizedAddress?: string;
+  operationStartTime?: number;
+  operationEndTime?: number;
+  status?: number;
+  txHash?: string;
 }
 
 export interface UserWalletDetail {

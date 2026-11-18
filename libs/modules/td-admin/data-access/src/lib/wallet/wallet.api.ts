@@ -31,6 +31,7 @@ import type {
   UserWallet,
   UserWalletDetail,
   UserWalletFilters,
+  UserWalletRecordFilters,
   WalletOperatePayload,
   WalletTypeCard,
   WalletTypeDetail,
@@ -230,11 +231,12 @@ export function getUserTxList(
 
 export function getUserOpRecordList(
   walletId: number,
-  page: { pageNum: number; pageSize: number }
+  page: { pageNum: number; pageSize: number },
+  filters: UserWalletRecordFilters = {}
 ): Promise<WalletListResponseApi<UserOpRecord>> {
   return postListWithData<UserOpRecord>(
     UW_OP_RECORD_URL,
-    { walletId },
+    { ...filters, walletId },
     page,
     (row) => String(row.taskId ?? row.txHash ?? Math.random())
   );
@@ -242,11 +244,12 @@ export function getUserOpRecordList(
 
 export function getUserAccrualRecords(
   walletId: number,
-  page: { pageNum: number; pageSize: number }
+  page: { pageNum: number; pageSize: number },
+  filters: UserWalletRecordFilters = {}
 ): Promise<WalletListResponseApi<AccrualRecord>> {
   return postListWithData<AccrualRecord>(
     UW_ACCRUAL_URL,
-    { walletId },
+    { ...filters, walletId },
     page,
     (row) => String(row.accrualTime ?? Math.random())
   );
@@ -254,11 +257,12 @@ export function getUserAccrualRecords(
 
 export function getUserDistributeRecords(
   walletId: number,
-  page: { pageNum: number; pageSize: number }
+  page: { pageNum: number; pageSize: number },
+  filters: UserWalletRecordFilters = {}
 ): Promise<WalletListResponseApi<DistributeRecord>> {
   return postListWithData<DistributeRecord>(
     UW_DISTRIBUTE_URL,
-    { walletId },
+    { ...filters, walletId },
     page,
     (row) => String(row.txHash ?? row.payableOn ?? Math.random())
   );
@@ -266,11 +270,12 @@ export function getUserDistributeRecords(
 
 export function getUserAuthorizationRecords(
   walletId: number,
-  page: { pageNum: number; pageSize: number }
+  page: { pageNum: number; pageSize: number },
+  filters: UserWalletRecordFilters = {}
 ): Promise<WalletListResponseApi<AuthRecord>> {
   return postListWithData<AuthRecord>(
     UW_AUTH_RECORD_URL,
-    { walletId },
+    { ...filters, walletId },
     page,
     (row) => String(row.authId ?? row.txHash ?? Math.random())
   );
@@ -278,11 +283,12 @@ export function getUserAuthorizationRecords(
 
 export function getUserAuthorizedRecords(
   walletId: number,
-  page: { pageNum: number; pageSize: number }
+  page: { pageNum: number; pageSize: number },
+  filters: UserWalletRecordFilters = {}
 ): Promise<WalletListResponseApi<AuthRecord>> {
   return postListWithData<AuthRecord>(
     UW_AUTHORIZED_RECORD_URL,
-    { walletId },
+    { ...filters, walletId },
     page,
     (row) => String(row.authId ?? row.txHash ?? Math.random())
   );

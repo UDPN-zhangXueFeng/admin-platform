@@ -58,6 +58,14 @@ export function UserWalletDetailPage() {
       </div>
     );
   }
+  if (variant === 'history') {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-xl font-semibold">{t('userWallet.historyTitle')}</h1>
+        <UserWalletDetailHistoryContent walletId={walletId} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -66,11 +74,7 @@ export function UserWalletDetailPage() {
         onBack={() => router.back()}
         title={t('userWallet.title')}
       />
-      {variant === 'history' ? (
-        <UserWalletDetailHistoryContent walletId={walletId} />
-      ) : (
-        <UserWalletDetailViewContent walletId={walletId} />
-      )}
+      <UserWalletDetailViewContent walletId={walletId} />
     </div>
   );
 }

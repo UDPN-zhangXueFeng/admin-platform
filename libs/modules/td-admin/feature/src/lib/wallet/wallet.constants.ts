@@ -101,14 +101,14 @@ const OPERATIONAL_WALLET_STATUS: StatusMap = {
 };
 
 /**
- * user-wallet 状态族（源 commonapprovalTaskStatus）。
- * 0=processing, 1=success, 2/3=gray。
+ * user-wallet 状态族（源 user_wallet_state_* / commonapprovalTaskStatus）。
+ * 0=Processing, 1=Active, 2=Frozen, 3=Rejected（灰）。
  */
 const USER_WALLET_STATUS: StatusMap = {
   0: { labelKey: 'status.processing', tone: 'warning' },
   1: { labelKey: 'status.active', tone: 'success' },
   2: { labelKey: 'status.frozen', tone: 'default' },
-  3: { labelKey: 'status.inactive', tone: 'default' },
+  3: { labelKey: 'status.rejected', tone: 'default' },
 };
 
 /**

@@ -1,242 +1,60 @@
 'use client';
 
-import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { ColumnDef } from '@tanstack/react-table';
-import { Card, DataTable, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
-import {
-  useUserAuthorizationQuery,
-  useUserAuthorizedQuery,
-  type AuthRecord,
-} from '@myorg/modules/td-admin/data-access';
-import { formatAdminTimestamp } from '../format-admin-time';
-import { WalletStatusBadge } from '.';
-import {
-  DEFAULT_PAGE_SIZE,
-  EMPTY_DISPLAY,
-  toMillis,
-} from '.';
+import type { ColumnDef } from '@tanstack/react-table';
+import { CopyableEllipsisText, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { useUserAuthorizationQuery, useUserAuthorizedQuery, type AuthRecord, type UserWalletRecordFilters } from '@myorg/modules/td-admin/data-access';
+import { ApprovalStatusBadge } from '../approval-manage/approval-status-badge';
+import { UserWalletRecordFilter } from './user-wallet-record-filter';
+import { UserWalletTable, useWalletTableState } from './user-wallet-table';
+import { amountWithSymbol, walletTime } from './user-wallet-rules';
+import { EMPTY_DISPLAY } from './wallet.constants';
 
-const AUTH_TAB = 'authorization';
-const AUTHORIZED_TAB = 'authorized';
+const historyTabs = ['authorization', 'authorized'] as const;
 
+export function UserWalletDetailHistoryContent({ walletId }: { walletId: number }) {
+  const t = useTranslations('modules.wallet');
+  return (
+    <Tabs defaultValue="authorization">
+      <TabsList>{historyTabs.map((tab) => <TabsTrigger key={tab} value={tab}>{t(`userWallet.tab.${tab}`)}</TabsTrigger>)}</TabsList>
+      {historyTabs.map((tab) => (
+        <TabsContent key={tab} value={tab}>
+          <HistoryTable walletId={walletId} variant={tab} useRecords={tab === 'authorization' ? useUserAuthorizationQuery : useUserAuthorizedQuery} />
+        </TabsContent>
+      ))}
+    </Tabs>
+  );
+}
 
-/**
- * UserWalletDetailHistoryContent — 用户钱包授权历史 history 变体（2 tab）。
- *
- * 迁移自 td-manage `src/pages/wallet/user-wallet/history.tsx`（299 行）。
- * tab：authorization（授权记录，useUserAuthorizationQuery）+ authorized（已授权记录，
- * useUserAuthorizedQuery）。两表同构（AuthRecord），区别在 endpoint 与默认 tab。
- *
- * status 列沿用源 `common_task_status_${status}` 语义：通过 user-wallet 状态族渲染，
- * 30/35/40 由 i18n commonTaskStatus 补全（badge label）。
- *
- * 由 UserWalletDetailPage 在 slug[1]=`history` 时渲染。
- */
-export function UserWalletDetailHistoryContent({
-  walletId,
-}: {
+function HistoryTable({ walletId, variant, useRecords }: {
   walletId: number;
+  variant: typeof historyTabs[number];
+  useRecords: typeof useUserAuthorizationQuery;
 }) {
   const t = useTranslations('modules.wallet');
-
-  const [authPage, setAuthPage] = React.useState({
-    pageNum: 1,
-    pageSize: DEFAULT_PAGE_SIZE,
-  });
-  const authList = useUserAuthorizationQuery(walletId, authPage);
-
-  const [authorizedPage, setAuthorizedPage] = React.useState({
-    pageNum: 1,
-    pageSize: DEFAULT_PAGE_SIZE,
-  });
-  const authorizedList = useUserAuthorizedQuery(walletId, authorizedPage);
-
-  const authColumns = React.useMemo<ColumnDef<AuthRecord>[]>(
-    () => buildAuthColumns(t),
-    [t]
-  );
-  const authorizedColumns = React.useMemo<ColumnDef<AuthRecord>[]>(
-    () => buildAuthColumns(t),
-    [t]
-  );
-
-  return (
-    <div className="space-y-4">
-      <Tabs defaultValue={AUTH_TAB}>
-        <TabsList>
-          <TabsTrigger value={AUTH_TAB}>
-            {t('userWallet.tab.authorization')}
-          </TabsTrigger>
-          <TabsTrigger value={AUTHORIZED_TAB}>
-            {t('userWallet.tab.authorized')}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={AUTH_TAB}>
-          <HistoryTableSection
-            title={t('userWallet.tab.authorization')}
-            columns={authColumns}
-            data={authList.data?.rows ?? []}
-            isLoading={authList.isLoading || authList.isFetching}
-            emptyMessage={t('common.noData')}
-            page={authPage}
-            total={authList.data?.page?.total ?? 0}
-            onPageChange={(p) =>
-              setAuthPage((prev) => ({ ...prev, pageNum: p }))
-            }
-            onPageSizeChange={(size) =>
-              setAuthPage({ pageNum: 1, pageSize: size })
-            }
-          />
-        </TabsContent>
-
-        <TabsContent value={AUTHORIZED_TAB}>
-          <HistoryTableSection
-            title={t('userWallet.tab.authorized')}
-            columns={authorizedColumns}
-            data={authorizedList.data?.rows ?? []}
-            isLoading={authorizedList.isLoading || authorizedList.isFetching}
-            emptyMessage={t('common.noData')}
-            page={authorizedPage}
-            total={authorizedList.data?.page?.total ?? 0}
-            onPageChange={(p) =>
-              setAuthorizedPage((prev) => ({ ...prev, pageNum: p }))
-            }
-            onPageSizeChange={(size) =>
-              setAuthorizedPage({ pageNum: 1, pageSize: size })
-            }
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
-
-/** 授权/已授权两表同构列定义（迁移自源 history.tsx 两张表）。 */
-function buildAuthColumns(
-  t: ReturnType<typeof useTranslations>
-): ColumnDef<AuthRecord>[] {
-  return [
-    {
-      accessorKey: 'walletAddress',
-      header: t('userWallet.column.walletAddress'),
-      cell: ({ row }) => (
-        <span className="break-all">
-          {row.original.walletAddress || EMPTY_DISPLAY}
-        </span>
-      ),
-    },
-    {
-      id: 'type',
-      header: t('userWallet.column.type'),
-      cell: ({ row }) => {
-        const key = row.original.type
-          ? `changeType.${row.original.type}`
-          : undefined;
-        return <span>{key ? t(key as never) : EMPTY_DISPLAY}</span>;
-      },
-    },
-    {
-      accessorKey: 'blockchainName',
-      header: t('userWallet.column.blockchain'),
-      cell: ({ row }) => (
-        <span>{row.original.blockchainName || EMPTY_DISPLAY}</span>
-      ),
-    },
-    {
-      id: 'amount',
-      header: t('userWallet.column.amount'),
-      cell: ({ row }) => (
-        <span>
-          {row.original.amount != null
-            ? `${row.original.amount} ${row.original.symbol ?? ''}`.trim()
-            : EMPTY_DISPLAY}
-        </span>
-      ),
-    },
-    {
-      id: 'operationType',
-      header: t('userWallet.column.operateType'),
-      cell: ({ row }) => {
-        const key = row.original.type
-          ? `authorizedOperationType.${row.original.type}`
-          : undefined;
-        return <span>{key ? t(key as never) : EMPTY_DISPLAY}</span>;
-      },
-    },
-    {
-      id: 'operationTime',
-      header: t('userWallet.column.operationTime'),
-      cell: ({ row }) => (
-        <span>
-          {formatAdminTimestamp(
-            toMillis(
-              typeof row.original.operationTime === 'string'
-                ? Number(row.original.operationTime)
-                : row.original.operationTime,
-            ),
-          )}
-        </span>
-      ),
-    },
-    {
-      id: 'status',
-      header: t('userWallet.column.status'),
-      cell: ({ row }) => (
-        <WalletStatusBadge family="user-wallet" status={row.original.status} />
-      ),
-    },
-    {
-      accessorKey: 'txHash',
-      header: t('userWallet.column.txHash'),
-      cell: ({ row }) => (
-        <span className="break-all">{row.original.txHash || EMPTY_DISPLAY}</span>
-      ),
-    },
+  const table = useWalletTableState<UserWalletRecordFilters>({});
+  const query = useRecords(walletId, table.request, table.request.filters);
+  const columns: ColumnDef<AuthRecord>[] = [
+    { accessorKey: 'walletAddress', header: t(`userWallet.column.${variant === 'authorization' ? 'toWallet' : 'fromWallet'}`),
+      cell: ({ row }) => <CopyableEllipsisText value={row.original.walletAddress} copyLabel={t('userWallet.copy')} /> },
+    { accessorKey: 'type', header: t('userWallet.column.type'), cell: ({ row }) => {
+      const key = `changeType.${row.original.type}`;
+      return t.has(key) ? t(key) : EMPTY_DISPLAY;
+    } },
+    { accessorKey: 'blockchainName', header: t('userWallet.column.blockchain') },
+    { accessorKey: 'amount', header: t('userWallet.column.authorizedAmount'), cell: ({ row }) => amountWithSymbol(row.original.amount, row.original.symbol) },
+    { id: 'operationType', header: t('userWallet.column.operateType'), cell: ({ row }) => {
+      const key = `authorizedOperationType.${row.original.type}`;
+      return t.has(key) ? t(key) : EMPTY_DISPLAY;
+    } },
+    { accessorKey: 'operationTime', header: t('userWallet.column.operationTime'), cell: ({ row }) => walletTime(row.original.operationTime) },
+    { accessorKey: 'status', header: t('common.status'), cell: ({ row }) => <ApprovalStatusBadge family="task" status={row.original.status} /> },
+    { accessorKey: 'txHash', header: t('userWallet.column.txHash'), cell: ({ row }) => <CopyableEllipsisText value={row.original.txHash} copyLabel={t('userWallet.copy')} /> },
   ];
-}
-
-/** 授权历史表格区段（标题 + DataTable 服务端分页）。 */
-function HistoryTableSection<T extends { id: string }>({
-  title,
-  columns,
-  data,
-  isLoading,
-  emptyMessage,
-  page,
-  total,
-  onPageChange,
-  onPageSizeChange,
-}: {
-  title: string;
-  columns: ColumnDef<T>[];
-  data: T[];
-  isLoading: boolean;
-  emptyMessage: string;
-  page: { pageNum: number; pageSize: number };
-  total: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
-}) {
   return (
-    <Card>
-      <div className="border-b px-6 py-3 text-sm font-semibold">{title}</div>
-      <div className="p-4">
-        <DataTable
-          columns={columns}
-          data={data}
-          isLoading={isLoading}
-          emptyMessage={emptyMessage}
-          pagination={{
-            page: page.pageNum,
-            pageSize: page.pageSize,
-            total,
-            onPageChange,
-            onPageSizeChange,
-          }}
-        />
-      </div>
-    </Card>
+    <UserWalletTable title={t(`userWallet.tab.${variant}`)} columns={columns} query={query} page={table.request}
+      onPageChange={table.onPageChange} onPageSizeChange={table.onPageSizeChange}>
+      <UserWalletRecordFilter variant={variant} onApply={(filters) => table.apply(filters, query.refetch)} onReset={() => table.apply({}, query.refetch, true)} />
+    </UserWalletTable>
   );
 }
