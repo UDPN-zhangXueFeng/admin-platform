@@ -19,7 +19,7 @@ import {
   accountTypeMessageKey,
   EMPTY_DISPLAY,
 } from './wallet.constants';
-import { formatLimit } from './wallet.helpers';
+import { formatLimitAmount } from './wallet.helpers';
 import { WalletStatusBadge } from './wallet-status-badge';
 import type { WalletTypeEarningsTarget } from './wallet-type-earnings-dialog';
 
@@ -67,13 +67,14 @@ export function WalletTypeCardItem({
   const t = useTranslations('modules.wallet');
   const router = useRouter();
 
-  // 源 `item.operate === true`：运行时为布尔，model 标 number 宽松兜底。
-  const canAct = Boolean(card.operate);
+  const canAct = card.operate === true;
   const isStateActive = card.state === 10;
   const isStateDisabled = card.state === 15;
   const showEnableDisable =
     canAct && canOperate && (isStateActive || isStateDisabled);
-  const accountType = accountTypeMessageKey(card.accountType);
+  const accountType = card.accountType === 0
+    ? 'accountType.0'
+    : accountTypeMessageKey(card.accountType);
   const title = card.name || EMPTY_DISPLAY;
 
   return (
@@ -97,12 +98,7 @@ export function WalletTypeCardItem({
               <CardTitle className="truncate" title={title}>
                 {title}
               </CardTitle>
-              {canAct ? (
-                <WalletStatusBadge
-                  family="wallet-type-card"
-                  status={card.state}
-                />
-              ) : null}
+              <WalletStatusBadge family="wallet-type-card" status={canAct ? card.state : -1} />
             </div>
             {showAccountType ? (
               <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -163,24 +159,24 @@ export function WalletTypeCardItem({
             <>
               <Metric
                 label={t('walletType.field.maxTxCountPer')}
-                value={`${formatLimit(Number(card.maxTxCountPer))} ${symbol}`.trim()}
+                value={`${formatLimitAmount(Number(card.maxTxCountPer))} ${symbol}`.trim()}
               />
               <Metric
                 label={t('walletType.field.maxTxCountDaily')}
-                value={`${formatLimit(Number(card.maxTxCountDaily))} ${symbol}`.trim()}
+                value={`${formatLimitAmount(Number(card.maxTxCountDaily))} ${symbol}`.trim()}
               />
               <Metric
                 label={t('walletType.field.stablecoinCount')}
-                value={`${formatLimit(Number(card.stablecoinCount))} ${symbol}`.trim()}
+                value={`${formatLimitAmount(Number(card.stablecoinCount))} ${symbol}`.trim()}
               />
               <Metric
                 label={t('walletType.field.minimumBalance')}
-                value={`${formatLimit(Number(card.minimumBalance))} ${symbol}`.trim()}
+                value={`${formatLimitAmount(Number(card.minimumBalance))} ${symbol}`.trim()}
               />
               <Metric
                 className="col-span-2"
                 label={t('walletType.field.maximumRedeemLimit')}
-                value={`${formatLimit(Number(card.maximumRedeemLimit))} ${symbol}`.trim()}
+                value={`${formatLimitAmount(Number(card.maximumRedeemLimit))} ${symbol}`.trim()}
               />
             </>
           )}
@@ -271,9 +267,11 @@ function Metric({
 /** 「新增钱包类型」占位卡（源 getGroup 末尾 'new' 项）。 */
 export function WalletTypeAddCard({
   disabled,
+  canAdd,
   onAdd,
 }: {
   disabled: boolean;
+  canAdd: boolean;
   onAdd: () => void;
 }): React.JSX.Element {
   const t = useTranslations('modules.wallet');
@@ -286,9 +284,11 @@ export function WalletTypeAddCard({
         >
           <Plus className="h-5 w-5" />
         </span>
-        <Button size="sm" variant="outline" disabled={disabled} onClick={onAdd}>
-          {t('walletType.card.newCard')}
-        </Button>
+        {canAdd ? (
+          <Button size="sm" variant="outline" disabled={disabled} onClick={onAdd}>
+            {t('walletType.card.newCard')}
+          </Button>
+        ) : null}
       </div>
     </Card>
   );

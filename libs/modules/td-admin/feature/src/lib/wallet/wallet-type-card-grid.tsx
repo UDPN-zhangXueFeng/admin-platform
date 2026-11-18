@@ -21,7 +21,7 @@ import {
   type StablecoinSearchOption,
   type WalletTypeCard,
 } from '@myorg/modules/td-admin/data-access';
-import { WALLET_PERMISSIONS } from './wallet.constants';
+import { WALLET_TYPE_ACTION_PERMISSIONS } from './wallet.constants';
 import { groupWalletTypeCards } from './wallet.helpers';
 import { useAuth } from '@myorg/shared/util-auth';
 import {
@@ -78,14 +78,13 @@ export function WalletTypeCardGrid({
   const t = useTranslations('modules.wallet');
   const router = useRouter();
   const updateStateMutation = useUpdateWalletTypeStateMutation();
-  const authPermissions = useAuth().permissions ?? new Set<string>();
-
-  // 权限空集全放行（posting-engine 模式）。
-  const canEdit =
-    authPermissions.size === 0 || authPermissions.has(WALLET_PERMISSIONS.WalletTypeEdit);
-  const canOperate =
-    authPermissions.size === 0 ||
-    authPermissions.has(WALLET_PERMISSIONS.WalletTypeOperate);
+  const { permissions } = useAuth();
+  const canAdd = permissions.has(WALLET_TYPE_ACTION_PERMISSIONS.add);
+  const canEdit = permissions.has(WALLET_TYPE_ACTION_PERMISSIONS.edit);
+  const canToggle = (card: WalletTypeCard) => canEdit && permissions.has(
+    card.state === 10 ? WALLET_TYPE_ACTION_PERMISSIONS.disable : WALLET_TYPE_ACTION_PERMISSIONS.enable
+  );
+  const submitting = React.useRef(false);
 
   const issueType = stablecoin?.issueType;
   const isMmf = issueType === 20;
@@ -154,25 +153,22 @@ export function WalletTypeCardGrid({
     [stablecoin, isMmf]
   );
 
-  const handleConfirmState = React.useCallback(() => {
-    if (!confirmTarget) return;
-    const card = confirmTarget;
-    updateStateMutation.mutate(
-      {
-        ruleId: card.ruleId ?? 0,
-        walletState: card.state === 10 ? 4 : 3,
-      },
-      {
-        onSuccess: () => {
-          toast.success(t('common.submit') + ' ' + t('common.success'));
-          setConfirmTarget(null);
-        },
-        onError: () => {
-          setConfirmTarget(null);
-        },
-      }
-    );
-  }, [confirmTarget, updateStateMutation, t]);
+  const handleConfirmState = async () => {
+    if (!confirmTarget?.ruleId || stablecoinDisabled || !canToggle(confirmTarget) || submitting.current) return;
+    submitting.current = true;
+    try {
+      await updateStateMutation.mutateAsync({
+        ruleId: confirmTarget.ruleId,
+        walletState: confirmTarget.state === 10 ? 4 : 3,
+      });
+      toast.success(t('common.submit') + ' ' + t('common.success'));
+      setConfirmTarget(null);
+    } catch {
+      // API client reports the business error. Keep the confirmation available.
+    } finally {
+      submitting.current = false;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -209,7 +205,8 @@ export function WalletTypeCardGrid({
             return (
               <WalletTypeAddCard
                 key={`new-${idx}`}
-                disabled={stablecoinDisabled || !canEdit}
+                disabled={stablecoinDisabled}
+                canAdd={canAdd}
                 onAdd={() => router.push(buildAddPath())}
               />
             );
@@ -224,7 +221,7 @@ export function WalletTypeCardGrid({
               symbol={symbol}
               stablecoinDisabled={stablecoinDisabled}
               canEdit={canEdit}
-              canOperate={canOperate}
+              canOperate={canToggle(card)}
               editHref={buildEditPath(card)}
               detailHref={buildDetailPath(card)}
               onToggleState={setConfirmTarget}
@@ -262,7 +259,7 @@ export function WalletTypeCardGrid({
       {/* 启用/禁用二次确认（源 Modal.confirm） */}
       <AlertDialog
         open={Boolean(confirmTarget)}
-        onOpenChange={(next) => !next && setConfirmTarget(null)}
+        onOpenChange={(next) => !next && !submitting.current && setConfirmTarget(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -283,7 +280,7 @@ export function WalletTypeCardGrid({
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={updateStateMutation.isPending}
-              onClick={handleConfirmState}
+              onClick={(event) => { event.preventDefault(); void handleConfirmState(); }}
             >
               {t('common.confirm')}
             </AlertDialogAction>

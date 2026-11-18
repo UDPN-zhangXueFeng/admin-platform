@@ -2,7 +2,13 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
+import { useRouter } from '@myorg/shared/util-i18n';
+import { useAuth } from '@myorg/shared/util-auth';
+import { Button } from '@myorg/shared/ui';
+import { toast } from 'sonner';
 import {
+  getWalletBalanceCalculate,
+  type BalanceCalcResult,
   useStablecoinsQuery,
   useWalletTypeCardsQuery,
 } from '@myorg/modules/td-admin/data-access';
@@ -15,7 +21,9 @@ import {
 } from '../tokenized-deposit/token-selector';
 import { WalletTypeCardGrid } from './wallet-type-card-grid';
 import { WalletTypeTableSection } from './wallet-type-table-section';
+import { WALLET_TYPE_ACTION_PERMISSIONS } from './wallet.constants';
 import {
+  earningsToday,
   WalletTypeEarningsDialog,
   type WalletTypeEarningsTarget,
 } from './wallet-type-earnings-dialog';
@@ -54,6 +62,9 @@ function toTokenSelectorType(
  */
 export function WalletTypeListPage() {
   const selectorT = useTranslations('modules.tokenized-deposit');
+  const t = useTranslations('modules.wallet');
+  const router = useRouter();
+  const canOnboard = useAuth().permissions.has(WALLET_TYPE_ACTION_PERMISSIONS.onboard);
   const [selectorMode, setSelectorMode] =
     React.useState<TokenSelectorMode>('tabs');
 
@@ -123,14 +134,25 @@ export function WalletTypeListPage() {
     setCardPage(1);
   }, [activeStablecoin?.stablecoinId]);
 
-  // 收益派发弹窗上下文。
-  const [earningsOpen, setEarningsOpen] = React.useState(false);
-  const [earningsTarget, setEarningsTarget] =
-    React.useState<WalletTypeEarningsTarget | null>(null);
-  const openEarnings = React.useCallback((target: WalletTypeEarningsTarget) => {
-    setEarningsTarget(target);
-    setEarningsOpen(true);
-  }, []);
+  const earningsRequest = React.useRef<symbol | null>(null);
+  const [earnings, setEarnings] = React.useState<{ target: WalletTypeEarningsTarget; date: string; balance: BalanceCalcResult }>();
+  React.useEffect(() => () => { earningsRequest.current = null; }, [activeStablecoinId]);
+  const openEarnings = async (target: WalletTypeEarningsTarget) => {
+    if (earningsRequest.current || !target.ruleId) return;
+    const request = Symbol();
+    earningsRequest.current = request;
+    const date = earningsToday();
+    try {
+      const balance = await getWalletBalanceCalculate({ ruleId: target.ruleId, earningsDate: date });
+      if (earningsRequest.current !== request) return;
+      if (balance?.totalUnits == null) throw new Error('Missing calculated wallet balance');
+      setEarnings({ target, date, balance });
+    } catch {
+      if (earningsRequest.current === request) toast.error(t('walletType.earnings.balanceCalcFailed'));
+    } finally {
+      if (earningsRequest.current === request) earningsRequest.current = null;
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -143,7 +165,17 @@ export function WalletTypeListPage() {
         mode={selectorMode}
         labels={selectorLabels}
         loading={stablecoinsResult.isLoading}
-        onModeChange={setSelectorMode}
+        action={canOnboard ? (
+          <Button size="sm" onClick={() => router.push('/tokenized-deposit/onboard')}>
+            {t('walletType.action.onboard')}
+          </Button>
+        ) : null}
+        onModeChange={(mode) => {
+          if (mode === selectorMode) return;
+          setSelectorMode(mode);
+          setActiveIndex(0);
+          setCardPage(1);
+        }}
         onValueChange={(id) => {
           const nextIndex = selectorOptions.findIndex(
             (option) => option.id === id,
@@ -152,25 +184,27 @@ export function WalletTypeListPage() {
         }}
       />
 
-      {/* 卡片网格 */}
-      <WalletTypeCardGrid
-        stablecoin={activeStablecoin}
-        cards={cards}
-        isLoading={cardsLoading}
-        page={cardPage}
-        onPageChange={setCardPage}
-        onOpenEarnings={openEarnings}
-      />
+      {stablecoinsResult.isError || cardsResult.isError ? (
+        <p role="alert" className="text-sm text-destructive">{t('walletType.loadFailed')}</p>
+      ) : activeStablecoin ? (
+        <WalletTypeCardGrid
+          key={`cards-${activeStablecoinId}`}
+          stablecoin={activeStablecoin}
+          cards={cards}
+          isLoading={cardsLoading}
+          page={cardPage}
+          onPageChange={setCardPage}
+          onOpenEarnings={openEarnings}
+        />
+      ) : null}
 
       {/* 两张表 */}
-      <WalletTypeTableSection stablecoin={activeStablecoin} />
+      {!stablecoinsResult.isLoading && !stablecoinsResult.isError ? (
+        <WalletTypeTableSection key={`table-${activeStablecoinId}`} stablecoin={activeStablecoin} />
+      ) : null}
 
       {/* 收益派发弹窗 */}
-      <WalletTypeEarningsDialog
-        open={earningsOpen}
-        target={earningsTarget}
-        onClose={() => setEarningsOpen(false)}
-      />
+      {earnings && <WalletTypeEarningsDialog target={earnings.target} initialDate={earnings.date} initialBalance={earnings.balance} onClose={() => setEarnings(undefined)} />}
     </div>
   );
 }

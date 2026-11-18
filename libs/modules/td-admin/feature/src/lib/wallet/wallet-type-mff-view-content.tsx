@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
+import { useAuth } from '@myorg/shared/util-auth';
 import {
   Card,
   cardSurfaceClass,
@@ -30,6 +31,7 @@ import {
   toMillis,
 } from '.';
 import { WalletTypeDividendDrawer } from './wallet-type-dividend-drawer';
+import { WALLET_TYPE_ACTION_PERMISSIONS } from './wallet.constants';
 
 const DATE_FMT = 'YYYY-MM-DD';
 
@@ -125,6 +127,7 @@ export function WalletTypeMffViewContent({
   isLoading,
 }: WalletTypeMffViewContentProps) {
   const t = useTranslations('modules.wallet');
+  const canViewRecord = useAuth().permissions.has(WALLET_TYPE_ACTION_PERMISSIONS.viewRecord);
 
   const [dailyPage, setDailyPage] = React.useState<TxPage>({
     pageNum: 1,
@@ -332,14 +335,14 @@ export function WalletTypeMffViewContent({
           <WalletStatusBadge family="mmf-daily" status={row.original.status} />
         ),
       },
-      createRowActionsColumn<DailyYieldRow>({
+      ...(canViewRecord ? [createRowActionsColumn<DailyYieldRow>({
         detail: {
           label: t('walletType.action.details'),
           onClick: (row) => handleOpenDrawer(row.billCode),
         },
-      }),
+      })] : []),
     ],
-    [t, handleOpenDrawer]
+    [t, handleOpenDrawer, canViewRecord]
   );
 
   const dailyRows = dailyList.data?.rows ?? [];

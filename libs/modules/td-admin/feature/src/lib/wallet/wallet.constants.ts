@@ -26,18 +26,15 @@ export const ISSUE_TYPE = {
   MMF: 20,
 } as const;
 
-/**
- * Common resource menu key for the MMF API document.
- * Source: td-manage wallet-type table hard-coded `a4b9a80b374f4387872b81e5f97acabb`.
- */
-export const WALLET_TYPE_API_DOC_MENU_KEY = 'a4b9a80b374f4387872b81e5f97acabb';
-
-/**
- * Bundled PDF used when the backend resource service is unavailable.
- * Mirrors the industry API documentation shipped with the admin portal.
- */
-export const MMF_API_DOC_FALLBACK_URL =
-  '/Token Management System for Tokenized Money Market Fund Operators v1.0.0.pdf';
+/** Backend button permissions from the upstream wallet-type screens. */
+export const WALLET_TYPE_ACTION_PERMISSIONS = {
+  add: 'a4b9a80b374f4387872b81e5f97acabb',
+  edit: '8013e875ca0b40999f1b7764a40f8593',
+  enable: '3f6ea34c0b5747ca9f608c8582f1bd5e',
+  disable: '59d33a905df2468f9c6fa81d51ccd566',
+  viewRecord: 'e4017cb5418f430aa4bcfc41f9e99488',
+  onboard: '8c0561507ff643e8a7015b62b46eb125',
+} as const;
 
 /** accountType：0=N/A，1=活期(Current)，2=储蓄(Savings)，3=MMF 基金账户。 */
 export const ACCOUNT_TYPE = {
@@ -124,16 +121,17 @@ const WALLET_TYPE_CARD_STATUS: StatusMap = {
 };
 
 /**
- * wallet-type 详情/表状态族（源 walletTypeStatus）。
- * 1=processing, 5=error, 10/25=success, 15/20=gray。
+ * wallet-type 详情/表状态族（源 walletTypeStatus / wallet_type_state_*）。
+ * 1=Pending Approval, 5=Rejected, 10=Enabled, 15/20=Disabled, 25=Enabling。
+ * 色名对齐源 approvalTaskStatus：1=processing, 5=error, 10/25=success, 15/20=gray。
  */
 const WALLET_TYPE_STATUS: StatusMap = {
-  1: { labelKey: 'status.processing', tone: 'warning' },
-  5: { labelKey: 'status.error', tone: 'danger' },
+  1: { labelKey: 'status.pendingApproval', tone: 'warning' },
+  5: { labelKey: 'status.rejected', tone: 'danger' },
   10: { labelKey: 'status.enabled', tone: 'success' },
   15: { labelKey: 'status.disabled', tone: 'default' },
-  20: { labelKey: 'status.inactive', tone: 'default' },
-  25: { labelKey: 'status.success', tone: 'success' },
+  20: { labelKey: 'status.disabled', tone: 'default' },
+  25: { labelKey: 'status.enabling', tone: 'success' },
 };
 
 /**

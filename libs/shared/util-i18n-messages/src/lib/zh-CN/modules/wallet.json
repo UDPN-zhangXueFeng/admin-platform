@@ -33,9 +33,13 @@
     "success": "成功",
     "error": "失败",
     "pending": "待处理",
+    "pendingApproval": "待审批",
+    "rejected": "已拒绝",
+    "enabling": "启用中",
     "unknown": "未知"
   },
   "accountType": {
+    "0": "不适用",
     "1": "活期",
     "2": "储蓄",
     "3": "基金"
@@ -275,6 +279,8 @@
     "records": "钱包类型列表",
     "mmfRecords": "MMF 钱包类型列表",
     "invalidStablecoin": "未选择稳定币。",
+    "loadFailed": "无法加载钱包类型数据。",
+    "apiDocFailed": "无法打开 API 文档。",
     "column": {
       "name": "名称",
       "walletTypeCode": "钱包类型编码",
@@ -322,6 +328,7 @@
     },
     "action": {
       "add": "新增",
+      "onboard": "新增代币",
       "edit": "编辑",
       "detail": "详情",
       "enable": "启用",
@@ -352,24 +359,28 @@
       "earningsCalcFailed": "收益计算失败，请重试。"
     },
     "mmfFundType": {
-      "1": "货币市场",
-      "2": "固定收益",
-      "3": "权益类",
-      "4": "平衡型",
-      "5": "指数型",
-      "6": "债券型",
-      "7": "REITs",
-      "8": "另类"
+      "1": "零售优势基金",
+      "2": "机构优选基金",
+      "3": "政府安全基金",
+      "4": "优选策略基金",
+      "5": "免税增长基金",
+      "6": "全球视野基金",
+      "7": "其他多元化基金",
+      "8": "其他"
     },
     "mmfRiskLevel": {
-      "1": "低风险",
-      "2": "中低风险",
-      "3": "中高风险",
-      "4": "高风险"
+      "1": "低风险 (R1)",
+      "2": "中低风险 (R2)",
+      "3": "中风险 (R3)",
+      "4": "中高风险 (R4)"
     },
     "maintenanceFeeCycle": {
-      "1": "每日",
-      "5": "每月"
+      "1": "每月",
+      "5": "每年"
+    },
+    "maintenanceFeePeriod": {
+      "1": "月",
+      "5": "年"
     },
     "form": {
       "title": "钱包类型 ${type}",
@@ -435,6 +446,8 @@
         "fundInceptionTime": "基金成立日期",
         "dailyStatisticalTime": "每日统计时间",
         "statisticalMonth": "月份",
+        "distributionFrequency": "派发频率",
+        "everyDay": "每天",
         "generateWalletLink": "生成钱包",
         "keystorePassword": "Keystore 密码",
         "keystorePasswordHint": "该密码用于加密 keystore，请妥善保管。"
@@ -444,7 +457,9 @@
         "walletTypeCode": "请输入钱包类型编码"
       },
       "validation": {
-        "amount": "仅支持数字，最多 2 位小数。",
+        "amount": "请输入非负金额，最多两位小数且不超过 99,999,999,999。",
+        "decimal": "请输入非负金额，最多两位小数。",
+        "futureDate": "请选择今天或更早的日期。",
         "required": "请输入{field}",
         "namePattern": "仅支持字母、数字、空格、连字符和斜杠。",
         "codePattern": "仅支持字母、数字、点、下划线和连字符。"

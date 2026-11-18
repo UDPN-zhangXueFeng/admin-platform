@@ -33,9 +33,13 @@
     "success": "Success",
     "error": "Error",
     "pending": "Pending",
+    "pendingApproval": "Pending Approval",
+    "rejected": "Rejected",
+    "enabling": "Enabling",
     "unknown": "Unknown"
   },
   "accountType": {
+    "0": "N/A",
     "1": "Current",
     "2": "Savings",
     "3": "Fund"
@@ -275,6 +279,8 @@
     "records": "Wallet Type List",
     "mmfRecords": "MMF Wallet Type List",
     "invalidStablecoin": "No stablecoin selected.",
+    "loadFailed": "Could not load wallet type data.",
+    "apiDocFailed": "Could not open the API documentation.",
     "column": {
       "name": "Name",
       "walletTypeCode": "Wallet Type Code",
@@ -322,6 +328,7 @@
     },
     "action": {
       "add": "Add",
+      "onboard": "Onboard Token",
       "edit": "Edit",
       "detail": "Detail",
       "enable": "Enable",
@@ -352,24 +359,28 @@
       "earningsCalcFailed": "Failed to calculate earnings, please retry."
     },
     "mmfFundType": {
-      "1": "Money Market",
-      "2": "Fixed Income",
-      "3": "Equity",
-      "4": "Balanced",
-      "5": "Index",
-      "6": "Bond",
-      "7": "REIT",
-      "8": "Alternative"
+      "1": "Retail Advantage Fund",
+      "2": "Institutional Prime Fund",
+      "3": "Government Secure Fund",
+      "4": "Prime Strategy Fund",
+      "5": "Tax-Free Growth Fund",
+      "6": "Global Horizon Fund",
+      "7": "Other Diversified Fund",
+      "8": "Other"
     },
     "mmfRiskLevel": {
-      "1": "Low",
-      "2": "Medium Low",
-      "3": "Medium High",
-      "4": "High"
+      "1": "Low Risk (R1)",
+      "2": "Moderately Low Risk (R2)",
+      "3": "Moderate Risk (R3)",
+      "4": "Moderately High Risk (R4)"
     },
     "maintenanceFeeCycle": {
-      "1": "Daily",
-      "5": "Monthly"
+      "1": "Monthly",
+      "5": "Annual"
+    },
+    "maintenanceFeePeriod": {
+      "1": "month",
+      "5": "year"
     },
     "form": {
       "title": "Wallet Type ${type}",
@@ -435,6 +446,8 @@
         "fundInceptionTime": "Fund Inception Date",
         "dailyStatisticalTime": "Daily Statistical Time",
         "statisticalMonth": "Month",
+        "distributionFrequency": "Distribution Frequency",
+        "everyDay": "Every Day",
         "generateWalletLink": "Generate Wallet",
         "keystorePassword": "Keystore Password",
         "keystorePasswordHint": "The password is used to encrypt the keystore. Please keep it safe."
@@ -444,7 +457,9 @@
         "walletTypeCode": "Enter wallet type code"
       },
       "validation": {
-        "amount": "Only numbers with up to 2 decimal places are allowed.",
+        "amount": "Enter a non-negative amount with up to 2 decimals, no greater than 99,999,999,999.",
+        "decimal": "Enter a non-negative amount with up to 2 decimals.",
+        "futureDate": "Choose today or an earlier date.",
         "required": "Please enter the {field}",
         "namePattern": "Only letters, digits, spaces, hyphens and slashes are allowed.",
         "codePattern": "Only letters, digits, dots, underscores and hyphens are allowed."

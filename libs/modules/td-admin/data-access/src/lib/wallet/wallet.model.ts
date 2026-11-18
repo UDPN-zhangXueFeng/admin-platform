@@ -277,7 +277,7 @@ export interface WalletTypeCard extends WalletRow {
   createUser?: string;
   createTime?: number | string;
   state?: number;
-  operate?: number;
+  operate?: boolean;
   fundType?: number;
   riskLevel?: number;
   fundAssetValue?: string | number;
@@ -340,6 +340,7 @@ export interface WalletTypeDetail {
   arrangedInterestRate?: string | number;
   arrangedInterestEffectiveDate?: number | string;
   arrangedCalculateType?: number;
+  arrangedAnnualInterestRates?: InterestRateTier[];
   arrangedInterestAccrualApplicationTime?: number | string;
   arrangedOverdraftAmount?: string | number;
   overdraftBufferAmount?: string | number;
@@ -460,7 +461,7 @@ export interface ChangeWalletTypePayload {
 
 export interface UpdateWalletTypeStatePayload {
   ruleId: number;
-  walletState: 3 | 4; // 3=禁用，4=启用
+  walletState: 3 | 4; // 3=启用，4=禁用
 }
 
 export interface EarningsSendPayload {

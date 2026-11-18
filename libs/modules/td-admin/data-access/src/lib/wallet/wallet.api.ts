@@ -362,9 +362,7 @@ export function getWalletTypeDetails(ruleId: number): Promise<WalletTypeDetail> 
 export function getAccountTypeList(
   stablecoinId: number
 ): Promise<AccountTypeOption[]> {
-  return apiClient.get<AccountTypeOption[]>(WT_ACCOUNT_TYPE_LIST_URL, {
-    params: { stablecoinId },
-  });
+  return apiClient.post<AccountTypeOption[]>(WT_ACCOUNT_TYPE_LIST_URL, { stablecoinId });
 }
 
 export function getInterestPolicy(input: {

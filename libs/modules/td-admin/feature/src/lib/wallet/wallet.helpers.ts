@@ -6,7 +6,7 @@
  * `./wallet.encryption.ts`（barrel 一并导出），此处不重复定义。
  */
 import type { WalletTypeCard } from '@myorg/modules/td-admin/data-access';
-import { UNLIMITED_THRESHOLD } from './wallet.constants';
+import { EMPTY_DISPLAY, UNLIMITED_THRESHOLD } from './wallet.constants';
 
 /** 时间戳归一：秒 → 毫秒（< 1e12 视为秒）。迁移自源项目 `v >= 1e12 ? v : v * 1000`。 */
 export function toMillis(value?: number | null): number | undefined {
@@ -34,6 +34,17 @@ export function normalizeRowId(
 export function formatLimit(value?: number | null): string {
   if (value === undefined || value === null) return '';
   return value >= UNLIMITED_THRESHOLD ? '∞' : String(value);
+}
+
+/**
+ * 限额展示（列表/卡片）：与旧版 `reSet` 一致，2 位小数 + 千分位；
+ * ≥ 阈值显示 ∞，负数/非法值显示占位。
+ */
+export function formatLimitAmount(value?: number | null): string {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) return EMPTY_DISPLAY;
+  if (num >= UNLIMITED_THRESHOLD) return '∞';
+  return num.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, '$1,');
 }
 
 /**

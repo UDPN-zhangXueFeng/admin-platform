@@ -39,6 +39,7 @@ export function WalletTypeDetailPage() {
   const slug = params.slug ?? [];
   const variant = slug[1] === 'mff' ? 'mff' : 'view';
   const ruleId = parseId(searchParams.get('id'));
+  const issueType = parseId(searchParams.get('issueType'));
 
   // 详情两变体共用；id 缺失时 hook 不发起请求。
   const detailQuery = useWalletTypeDetailQuery(ruleId);
@@ -51,14 +52,16 @@ export function WalletTypeDetailPage() {
         onBack={() => router.back()}
         title={t('walletType.title')}
       />
-      {variant === 'mff' ? (
+      {detailQuery.isError ? (
+        <p role="alert" className="text-sm text-destructive">{t('walletType.loadFailed')}</p>
+      ) : variant === 'mff' ? (
         <WalletTypeMffViewContent
           ruleId={ruleId}
           detail={detail}
           isLoading={detailQuery.isLoading}
         />
       ) : (
-        <WalletTypeDetailViewContent detail={detail} />
+        <WalletTypeDetailViewContent detail={detail} issueType={issueType} />
       )}
 
       {!ruleId ? (
