@@ -56,6 +56,18 @@ export interface AppShellProps {
   themedContentSurface?: boolean;
   /** Icon treatment for primary sidebar entries: default, prominent (larger) or refined (smaller). */
   menuIconVariant?: MenuIconVariant;
+  /**
+   * Opt-in callback fired when a sidebar menu entry is activated (leaf link,
+   * parent expander, collapsed parent flyout trigger, or flyout child link).
+   * Undefined = no behavior.
+   */
+  onMenuClick?: () => void;
+  /**
+   * Opt-in decorative header background replacing the platform banner,
+   * forwarded to the active layout's `banner` prop. When omitted the
+   * platform default renders unchanged.
+   */
+  banner?: React.ReactNode;
 }
 
 interface LayoutProps {
@@ -93,6 +105,18 @@ interface LayoutProps {
   themedContentSurface?: boolean;
   /** Icon treatment for primary sidebar entries: default, prominent (larger) or refined (smaller). */
   menuIconVariant?: MenuIconVariant;
+  /**
+   * Opt-in callback fired when a sidebar menu entry is activated (leaf link,
+   * parent expander, collapsed parent flyout trigger, or flyout child link).
+   * Undefined = no behavior.
+   */
+  onMenuClick?: () => void;
+  /**
+   * Opt-in decorative header background replacing the platform banner.
+   * Consumed by layouts that forward it to Header; opt-in, undefined keeps
+   * the platform default.
+   */
+  banner?: React.ReactNode;
 }
 
 
@@ -123,6 +147,8 @@ export function AppShell({
   trailing,
   themedContentSurface,
   menuIconVariant,
+  onMenuClick,
+  banner,
 }: AppShellProps) {
   const Layout = layoutMap[config.layout.type] ?? SidebarLayout;
 
@@ -142,6 +168,8 @@ export function AppShell({
       trailing={trailing}
       themedContentSurface={themedContentSurface}
       menuIconVariant={menuIconVariant}
+      onMenuClick={onMenuClick}
+      banner={banner}
     >
       {children}
     </Layout>

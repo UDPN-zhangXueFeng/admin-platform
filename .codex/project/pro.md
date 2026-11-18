@@ -55,6 +55,8 @@ apps/admin/src/app/
 │   └── not-found.tsx
 ├── globals.css
 └── layout.tsx
+
+apps/admin/src/components/    # 仅 admin 使用的装配层展示组件（如 AdminHeaderBanner）
 ```
 
 当前动态模块路由入口在：

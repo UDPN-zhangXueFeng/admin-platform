@@ -1,4 +1,8 @@
+'use client';
+
 import dynamic from 'next/dynamic';
+
+import { markHeaderSweepOnLogin } from '@/lib/header-sweep';
 
 const LoginPage = dynamic(
   () => import('@myorg/modules/td-admin/feature/lib/auth').then((module) => module.LoginPage),
@@ -11,5 +15,5 @@ const LoginPage = dynamic(
  * centered card without sidebar/header.
  */
 export default function LoginRoute() {
-  return <LoginPage />;
+  return <LoginPage onLoginSuccess={markHeaderSweepOnLogin} />;
 }

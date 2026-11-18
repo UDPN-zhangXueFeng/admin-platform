@@ -66,6 +66,11 @@ export interface HeaderProps {
    * Like the rest of the actions area it is hidden in minimal mode.
    */
   trailing?: React.ReactNode;
+  /**
+   * Opt-in content rendered as the decorative header background, replacing
+   * the platform banner. When omitted the platform default renders unchanged.
+   */
+  banner?: React.ReactNode;
 }
 
 /**
@@ -90,6 +95,7 @@ export function Header({
   hideProjectName = false,
   compact = false,
   trailing,
+  banner,
 }: HeaderProps) {
   const { user } = useAuth();
   const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] =
@@ -160,8 +166,16 @@ export function Header({
         config.layout.header.sticky && 'sticky top-0 z-30',
       )}
     >
-      <AnimatedBannerBackground />
-      <div className="absolute inset-0 bg-[#171654]/15" aria-hidden="true" />
+      {banner ?? (
+        <>
+          <AnimatedBannerBackground />
+          <div
+            className="absolute inset-0 bg-[#171654]/15"
+            data-testid="header-default-scrim"
+            aria-hidden="true"
+          />
+        </>
+      )}
 
       <div className="relative flex items-center justify-between gap-3 px-4 sm:px-6 min-[1600px]:gap-4 min-[1600px]:px-8">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -272,6 +286,7 @@ function AnimatedBannerBackground() {
   return (
     <svg
       aria-hidden="true"
+      data-testid="header-default-banner"
       className="absolute inset-0 h-full w-full"
       preserveAspectRatio="none"
       viewBox="0 0 1600 112"

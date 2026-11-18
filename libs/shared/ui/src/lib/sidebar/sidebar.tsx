@@ -27,6 +27,12 @@ export interface SidebarProps {
   singleExpand?: boolean;
   /** Icon treatment for primary menu entries: default, prominent (larger) or refined (smaller). */
   menuIconVariant?: MenuIconVariant;
+  /**
+   * Opt-in callback fired when a menu entry is activated (leaf link, parent
+   * expander, collapsed parent flyout trigger, or flyout child link).
+   * Undefined = no behavior.
+   */
+  onMenuClick?: () => void;
   onToggle: () => void;
   className?: string;
 }
@@ -52,6 +58,7 @@ export function Sidebar({
   collapsed,
   singleExpand = false,
   menuIconVariant = 'default',
+  onMenuClick,
   className,
 }: SidebarProps) {
   const grouped = React.useMemo(() => {
@@ -183,6 +190,7 @@ export function Sidebar({
                 onToggle={toggleExpanded}
                 onFlyoutOpen={openFlyout}
                 onFlyoutClose={() => setFlyout(null)}
+                onMenuClick={onMenuClick}
               />
             ))}
           </SidebarGroup>
@@ -195,6 +203,7 @@ export function Sidebar({
             pathname={pathname}
             top={flyout.top}
             onClose={() => setFlyout(null)}
+            onMenuClick={onMenuClick}
           />,
           document.body,
         )}
@@ -214,6 +223,7 @@ interface CollapsibleNavItemProps {
   onToggle: (id: string) => void;
   onFlyoutOpen: (item: SidebarItemConfig, target: HTMLButtonElement) => void;
   onFlyoutClose: () => void;
+  onMenuClick?: () => void;
 }
 
 /** Renders a leaf link or a collapsible parent with indented children. */
@@ -225,6 +235,7 @@ function CollapsibleNavItem({
   onToggle,
   onFlyoutOpen,
   onFlyoutClose,
+  onMenuClick,
 }: CollapsibleNavItemProps) {
   const pathname = usePathname();
   const hasChildren = item.children && item.children.length > 0;
@@ -251,7 +262,10 @@ function CollapsibleNavItem({
         collapsed={collapsed}
         menuIconVariant={menuIconVariant}
         disabled={item.disabled}
-        onClick={collapsed ? onFlyoutClose : undefined}
+        onClick={() => {
+          onMenuClick?.();
+          if (collapsed) onFlyoutClose();
+        }}
       />
     );
   }
@@ -263,6 +277,7 @@ function CollapsibleNavItem({
         isActive={isActive}
         menuIconVariant={menuIconVariant}
         onOpen={(target) => onFlyoutOpen(item, target)}
+        onMenuClick={onMenuClick}
       />
     );
   }
@@ -274,7 +289,10 @@ function CollapsibleNavItem({
       {/* Parent toggle button */}
       <button
         type="button"
-        onClick={() => onToggle(item.id)}
+        onClick={() => {
+          onMenuClick?.();
+          onToggle(item.id);
+        }}
         aria-expanded={isExpanded}
         className={cn(
           'group relative flex h-10 w-full items-center gap-3 overflow-hidden rounded-xl px-3 text-[13px] font-medium motion-safe:transition-colors min-[1600px]:h-11 min-[1600px]:text-sm',
@@ -319,6 +337,7 @@ function CollapsibleNavItem({
               collapsed={collapsed}
               disabled={child.disabled}
               nested
+              onClick={onMenuClick}
             />
           ))}
         </div>
@@ -332,6 +351,7 @@ interface CollapsedParentItemProps {
   isActive: boolean;
   menuIconVariant: MenuIconVariant;
   onOpen: (target: HTMLButtonElement) => void;
+  onMenuClick?: () => void;
 }
 
 /** Icon-only parent entry that opens its secondary navigation in a flyout. */
@@ -340,6 +360,7 @@ function CollapsedParentItem({
   isActive,
   menuIconVariant,
   onOpen,
+  onMenuClick,
 }: CollapsedParentItemProps) {
   const iconProps = getMenuIconProps(menuIconVariant, isActive);
 
@@ -349,7 +370,10 @@ function CollapsedParentItem({
         type="button"
         title={item.label}
         aria-label={item.label}
-        onClick={(event) => onOpen(event.currentTarget)}
+        onClick={(event) => {
+          onMenuClick?.();
+          onOpen(event.currentTarget);
+        }}
         className={cn(
           'group relative flex size-10 items-center justify-center overflow-hidden rounded-xl text-[13px] font-medium motion-safe:transition-colors min-[1600px]:size-11 min-[1600px]:text-sm',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
@@ -380,10 +404,17 @@ interface SidebarFlyoutProps {
   pathname: string | null;
   top: number;
   onClose: () => void;
+  onMenuClick?: () => void;
 }
 
 /** Fixed overlay used by collapsed parent items to expose their child routes. */
-function SidebarFlyout({ item, pathname, top, onClose }: SidebarFlyoutProps) {
+function SidebarFlyout({
+  item,
+  pathname,
+  top,
+  onClose,
+  onMenuClick,
+}: SidebarFlyoutProps) {
   const Icon = item.icon;
 
   return (
@@ -427,7 +458,10 @@ function SidebarFlyout({ item, pathname, top, onClose }: SidebarFlyoutProps) {
                 <Link
                   href={child.path ?? '#'}
                   role="menuitem"
-                  onClick={onClose}
+                  onClick={() => {
+                    onMenuClick?.();
+                    onClose();
+                  }}
                   className={cn(
                     'flex min-h-9 w-full items-center rounded-lg px-3 text-[13px] motion-safe:transition-colors hover:bg-primary/5 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-[1600px]:text-sm',
                     isActive &&

@@ -57,6 +57,17 @@ export interface SidebarLayoutProps {
   themedContentSurface?: boolean;
   /** Icon treatment for primary sidebar entries: default, prominent (larger) or refined (smaller). */
   menuIconVariant?: MenuIconVariant;
+  /**
+   * Opt-in callback fired when a menu entry is activated (leaf link, parent
+   * expander, collapsed parent flyout trigger, or flyout child link).
+   * Undefined = no behavior.
+   */
+  onMenuClick?: () => void;
+  /**
+   * Opt-in decorative header background replacing the platform banner
+   * (passed through to Header). When omitted the platform default renders.
+   */
+  banner?: React.ReactNode;
 }
 
 /**
@@ -86,6 +97,8 @@ export function SidebarLayout({
   trailing,
   themedContentSurface,
   menuIconVariant,
+  onMenuClick,
+  banner,
 }: SidebarLayoutProps) {
   const [collapsed, setCollapsed] = useState(() =>
     readPersistedCollapsed(persistKey),
@@ -145,6 +158,7 @@ export function SidebarLayout({
         hideProjectName={hideProjectName}
         compact={compactHeader}
         trailing={trailing}
+        banner={banner}
       />
 
       {/* Body: Sidebar + Content */}
@@ -173,6 +187,7 @@ export function SidebarLayout({
             singleExpand={config.layout.sidebar.singleExpand}
             menuIconVariant={menuIconVariant}
             onToggle={toggleCollapsed}
+            onMenuClick={onMenuClick}
             className={
               sidebarWidths
                 ? collapsed

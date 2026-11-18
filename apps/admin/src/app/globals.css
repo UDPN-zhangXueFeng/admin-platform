@@ -36,6 +36,10 @@
     --banner-glow: #aaa9ff;
     --banner-highlight: #8987f4;
     --banner-wave: #ffffff;
+    /* #5d5ae8 is the project primary hsl(241.268 75.532% 63.137%). */
+    --admin-banner-accent: #5d5ae8;
+    --admin-banner-light: #d5d3ff;
+    --admin-banner-line: #e5e4ff;
   }
 
   .dark {
@@ -72,6 +76,9 @@
     --banner-glow: #8582f4;
     --banner-highlight: #aeacff;
     --banner-wave: #d9d8ff;
+    --admin-banner-accent: #6b68f0;
+    --admin-banner-light: #e0deff;
+    --admin-banner-line: #efeeff;
   }
 }
 
@@ -128,6 +135,36 @@
   .app-banner-orb-one,
   .app-banner-orb-two,
   .app-banner-wave {
+    animation: none;
+  }
+}
+
+/* Admin-only header banner ("brand light field"). Palette lives here so the
+   SVG component stays markup-only; ids/classes are prefixed admin-banner- to
+   avoid colliding with the shared app-banner-* gradients. The left→right light
+   sweep is click-triggered (one 1.6s pass per sidebar menu click) and parks at
+   its end state instead of hiding; every other banner shape is static. */
+@keyframes admin-banner-sheen-sweep {
+  0% {
+    transform: translateX(-260px);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(1780px);
+    opacity: 1;
+  }
+}
+
+.admin-banner-sheen {
+  opacity: 0;
+  animation: admin-banner-sheen-sweep 1.6s ease-out 1 forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-banner-sheen {
     animation: none;
   }
 }
