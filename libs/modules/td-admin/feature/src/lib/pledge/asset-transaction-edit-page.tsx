@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
+import { ArrowLeft } from 'lucide-react';
 import {
   Button,
   Input,
@@ -234,7 +235,20 @@ export function AssetTransactionEditPage(): React.JSX.Element {
 
   return (
     <div className="rounded-lg bg-white p-6 shadow">
-      <div className="mb-4 text-base font-bold">{t('assetTxnList.newTransaction')}</div>
+      <div className="mb-4 flex items-center gap-3">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => router.back()}
+          disabled={saveTxMutation.isPending}
+          aria-label={t('categoryAdd.back')}
+          title={t('categoryAdd.back')}
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div className="text-base font-bold">{t('assetTxnList.newTransaction')}</div>
+      </div>
 
       <form
         onSubmit={onSubmit}
@@ -451,16 +465,8 @@ export function AssetTransactionEditPage(): React.JSX.Element {
           )}
         />
 
-        {/* 操作按钮（源码 Back / Submit）。 */}
-        <div className="mt-8 flex justify-center gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            disabled={saveTxMutation.isPending}
-          >
-            {t('categoryAdd.back')}
-          </Button>
+        {/* 操作按钮：Submit 左对齐（Back 已移至顶部 icon）。 */}
+        <div className="mt-8 flex justify-start">
           <Button type="button" onClick={onSubmit} loading={saveTxMutation.isPending} disabled={saveTxMutation.isPending}>
             {t('categoryAdd.submit')}
           </Button>
