@@ -99,7 +99,7 @@ export function ReserveAssetCategoryAddPage(): React.JSX.Element {
       <div className="mb-4 flex items-center gap-3">
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="icon"
           onClick={() => router.back()}
           disabled={addCategoryMutation.isPending}
