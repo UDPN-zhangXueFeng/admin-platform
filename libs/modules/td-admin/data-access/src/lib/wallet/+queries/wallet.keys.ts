@@ -20,12 +20,12 @@ export const walletKeys = {
     [...walletKeys.all, 'operational-wallets', 'detail', ruleWalletId] as const,
   operationalTx: (ruleWalletId: number, page: unknown) =>
     [...walletKeys.all, 'operational-wallets', 'tx', ruleWalletId, page] as const,
-  operationalOpRecord: (ruleWalletId: number, page: unknown) =>
+  operationalOpRecord: (data: { ruleWalletId?: number; walletAddress?: string }, page: unknown) =>
     [
       ...walletKeys.all,
       'operational-wallets',
       'opRecord',
-      ruleWalletId,
+      data,
       page,
     ] as const,
 

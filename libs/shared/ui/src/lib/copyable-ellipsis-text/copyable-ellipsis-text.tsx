@@ -34,6 +34,10 @@ export interface CopyableEllipsisTextProps
   emptyText?: string;
   /** Label of the copy action inside the tooltip. Default `'Copy'`. */
   copyLabel?: string;
+  /** Success toast text. Default `Copied: <value>`. */
+  copySuccessMessage?: string;
+  /** Failure toast text. Default `'Copy failed'`. */
+  copyErrorMessage?: string;
   /**
    * Render a persistent inline copy icon next to the text. The tooltip then
    * omits its redundant copy link. Default `false`.
@@ -60,6 +64,8 @@ export function CopyableEllipsisText({
   truncate = 'end',
   emptyText = DEFAULT_EMPTY_DISPLAY,
   copyLabel = DEFAULT_COPY_LABEL,
+  copySuccessMessage,
+  copyErrorMessage,
   showCopyIcon = false,
   className,
   ...rest
@@ -79,11 +85,11 @@ export function CopyableEllipsisText({
     if (value === null || value === undefined) return;
     try {
       await navigator.clipboard.writeText(String(value));
-      toast.success(`Copied: ${String(value)}`);
+      toast.success(copySuccessMessage ?? `Copied: ${String(value)}`);
     } catch {
-      toast.error('Copy failed');
+      toast.error(copyErrorMessage ?? 'Copy failed');
     }
-  }, [value, toast]);
+  }, [value, toast, copySuccessMessage, copyErrorMessage]);
 
   if (isEmpty) {
     return (

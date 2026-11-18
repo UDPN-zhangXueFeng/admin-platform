@@ -84,14 +84,13 @@ export interface OperationalWallet extends WalletRow {
 }
 
 export interface OperationalWalletFilters {
-  stablecoinId?: number;
-  blockchainKey?: string | number;
-  accountType?: number;
-  feeType?: number;
-  state?: number;
+  tokenId?: number | string;
+  blockchainId?: number | string;
+  accountType?: string;
+  state?: string;
   walletAddress?: string;
-  startCreateTime?: number | string;
-  endCreateTime?: number | string;
+  startCreateTime?: number | '';
+  endCreateTime?: number | '';
 }
 
 export interface OperationalWalletDetail {
@@ -107,6 +106,7 @@ export interface OperationalWalletDetail {
 }
 
 export interface OperationalTx extends WalletRow {
+  ruleRecordId?: number | string;
   txFrom?: string;
   txTo?: string;
   blockchainName?: string;
@@ -119,6 +119,7 @@ export interface OperationalTx extends WalletRow {
 }
 
 export interface OperationalOpRecord extends WalletRow {
+  ruleRecordId?: number | string;
   operateType?: number;
   oldWalletAddress?: string;
   walletAddress?: string;

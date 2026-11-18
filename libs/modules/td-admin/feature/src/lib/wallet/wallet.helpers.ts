@@ -7,6 +7,7 @@
  */
 import type { WalletTypeCard } from '@myorg/modules/td-admin/data-access';
 import { EMPTY_DISPLAY, UNLIMITED_THRESHOLD } from './wallet.constants';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /** 时间戳归一：秒 → 毫秒（< 1e12 视为秒）。迁移自源项目 `v >= 1e12 ? v : v * 1000`。 */
 export function toMillis(value?: number | null): number | undefined {
@@ -45,6 +46,37 @@ export function formatLimitAmount(value?: number | null): string {
   if (!Number.isFinite(num) || num < 0) return EMPTY_DISPLAY;
   if (num >= UNLIMITED_THRESHOLD) return '∞';
   return num.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, '$1,');
+}
+
+const operationalBalanceFormat = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** Unlike transaction amounts, balances show two decimals. Keep decimal strings exact. */
+export function formatOperationalBalance(value?: string | number, symbol?: string): string {
+  if (!value) return EMPTY_DISPLAY;
+  let amount = EMPTY_DISPLAY;
+  if (typeof value === 'number') {
+    if (Number.isFinite(value) && value >= 0) amount = operationalBalanceFormat.format(value);
+  } else {
+    const parts = /^\+?(\d+)(?:\.(\d*))?$/.exec(value.trim());
+    if (parts) {
+      const fraction = (parts[2] ?? '').padEnd(3, '0');
+      const cents = BigInt(parts[1] + fraction.slice(0, 2)) + (fraction[2] >= '5' ? 1n : 0n);
+      amount = `${(cents / 100n).toLocaleString('en-US')}.${String(cents % 100n).padStart(2, '0')}`;
+    } else {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric) && numeric >= 0) {
+        amount = operationalBalanceFormat.format(numeric);
+      }
+    }
+  }
+  return symbol ? `${amount} ${symbol}` : amount;
+}
+
+export function formatOperationalWalletTime(value?: string | number): string {
+  return formatAdminTimestamp(value == null ? undefined : Number(value));
 }
 
 /**

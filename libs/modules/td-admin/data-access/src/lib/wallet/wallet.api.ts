@@ -173,8 +173,9 @@ export function getOperationalWalletList(
 
 export function getOperationalWalletDetails(
   ruleWalletId: number
-): Promise<OperationalWalletDetail> {
-  return apiClient.post<OperationalWalletDetail>(OW_DETAILS_URL, { ruleWalletId });
+): Promise<OperationalWalletDetail | null> {
+  return apiClient.post<OperationalWalletDetail>(OW_DETAILS_URL, { ruleWalletId })
+    .then((detail) => detail ?? null);
 }
 
 export function getOperationalTxList(
@@ -185,7 +186,7 @@ export function getOperationalTxList(
     OW_TX_LIST_URL,
     { ruleWalletId },
     page,
-    (row) => String(row.txHash ?? Math.random())
+    (row) => String(row.ruleRecordId ?? row.txHash ?? Math.random())
   );
 }
 
@@ -195,9 +196,9 @@ export function getOperationalOpRecordList(
 ): Promise<WalletListResponseApi<OperationalOpRecord>> {
   return postListWithData<OperationalOpRecord>(
     OW_OP_RECORD_URL,
-    data as unknown as Record<string, unknown>,
+    data,
     page,
-    (row) => String(row.taskId ?? row.txHash ?? Math.random())
+    (row) => String(row.ruleRecordId ?? row.taskId ?? row.txHash ?? Math.random())
   );
 }
 

@@ -140,6 +140,33 @@
     "records": "营运钱包列表",
     "invalidId": "缺少钱包标识，请从列表页进入。",
     "copy": "复制",
+    "copySuccess": "复制成功！",
+    "copyFailed": "复制失败",
+    "details": "详情",
+    "jumpPage": "跳转到页",
+    "loadFailed": "无法加载营运钱包数据。",
+    "retry": "重试",
+    "filterAddress": "营运钱包",
+    "accountType": {
+      "1": "活期账户",
+      "2": "储蓄账户",
+      "3": "生息账户"
+    },
+    "feeType": {
+      "10": "账户费用",
+      "15": "透支费用",
+      "20": "透支利息",
+      "25": "存款利息（收款）",
+      "30": "存款利息（付款）",
+      "35": "基金分红",
+      "70": "基金分红"
+    },
+    "operationType": {
+      "1": "新增",
+      "2": "编辑",
+      "3": "启用",
+      "4": "停用"
+    },
     "tab": {
       "basicInformation": "基本信息",
       "transactions": "交易记录",
@@ -149,19 +176,20 @@
       "index": "序号",
       "walletAddress": "钱包地址",
       "accountType": "账户类型",
-      "feeType": "费用类型",
-      "tokenName": "代币",
+      "feeType": "钱包用途",
+      "tokenName": "代币名称",
       "walletType": "钱包类型",
       "blockchain": "区块链",
       "balance": "余额",
       "txFrom": "转出地址",
       "txTo": "转入地址",
       "txType": "交易类型",
-      "txAmount": "数量",
+      "txAmount": "交易金额",
       "txTime": "交易时间",
       "txHash": "交易哈希",
       "operateType": "操作类型",
-      "oldWalletAddress": "原钱包地址",
+      "oldWalletAddress": "原值",
+      "newWalletAddress": "更新值",
       "createTime": "创建时间"
     },
     "field": {

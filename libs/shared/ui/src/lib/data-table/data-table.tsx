@@ -49,6 +49,8 @@ export interface DataTablePagination {
   onPageSizeChange?: (pageSize: number) => void;
   /** Selector options; defaults to [10, 20, 50]. */
   pageSizeOptions?: number[];
+  /** Disables all pagination controls (e.g. while the current filter response is still loading). */
+  disabled?: boolean;
 }
 
 export interface DataTableSelection {
@@ -355,6 +357,7 @@ export function DataTable<TData extends { id: string }>({
             {pagination.onPageSizeChange && (
               <Select
                 value={String(pagination.pageSize)}
+                disabled={pagination.disabled}
                 onValueChange={(v) => pagination.onPageSizeChange?.(Number(v))}
               >
                 <SelectTrigger className="h-8 w-32 shrink-0" aria-label="Rows per page">
@@ -371,28 +374,28 @@ export function DataTable<TData extends { id: string }>({
             )}
             <PaginationButton
               aria-label="First page"
-              disabled={currentPage <= 1}
+              disabled={pagination.disabled || currentPage <= 1}
               onClick={() => pagination.onPageChange(1)}
             >
               <ChevronsLeft className="h-4 w-4" />
             </PaginationButton>
             <PaginationButton
               aria-label="Previous page"
-              disabled={currentPage <= 1}
+              disabled={pagination.disabled || currentPage <= 1}
               onClick={() => pagination.onPageChange(currentPage - 1)}
             >
               <ChevronLeft className="h-4 w-4" />
             </PaginationButton>
             <PaginationButton
               aria-label="Next page"
-              disabled={currentPage >= totalPages}
+              disabled={pagination.disabled || currentPage >= totalPages}
               onClick={() => pagination.onPageChange(currentPage + 1)}
             >
               <ChevronRight className="h-4 w-4" />
             </PaginationButton>
             <PaginationButton
               aria-label="Last page"
-              disabled={currentPage >= totalPages}
+              disabled={pagination.disabled || currentPage >= totalPages}
               onClick={() => pagination.onPageChange(totalPages)}
             >
               <ChevronsRight className="h-4 w-4" />

@@ -140,34 +140,62 @@
     "records": "Operational Wallet List",
     "invalidId": "Missing wallet identifier. Please open this page from the list.",
     "copy": "Copy",
+    "copySuccess": "Copy Successfully!",
+    "copyFailed": "Copy failed",
+    "details": "Details",
+    "jumpPage": "Go to page",
+    "loadFailed": "Unable to load operational wallet data.",
+    "retry": "Retry",
+    "filterAddress": "Operational Wallet",
+    "accountType": {
+      "1": "Current account",
+      "2": "Savings account",
+      "3": "Yield-Bearing Account"
+    },
+    "feeType": {
+      "10": "Account Fees",
+      "15": "Overdraft Fee",
+      "20": "Overdraft Interest",
+      "25": "Deposit Interest (for receiving)",
+      "30": "Deposit Interest (for payment)",
+      "35": "Fund Dividend Distribution",
+      "70": "Fund Dividend Distribution"
+    },
+    "operationType": {
+      "1": "Add",
+      "2": "Edit",
+      "3": "Activate",
+      "4": "Deactivate"
+    },
     "tab": {
       "basicInformation": "Basic Information",
-      "transactions": "Transaction Records",
+      "transactions": "Transactions",
       "operationRecords": "Operation Records"
     },
     "column": {
-      "index": "Index",
+      "index": "No.",
       "walletAddress": "Wallet Address",
       "accountType": "Account Type",
-      "feeType": "Fee Type",
-      "tokenName": "Token",
+      "feeType": "Wallet Purpose",
+      "tokenName": "Token Name",
       "walletType": "Wallet Type",
       "blockchain": "Blockchain",
       "balance": "Balance",
       "txFrom": "From",
       "txTo": "To",
       "txType": "Transaction Type",
-      "txAmount": "Amount",
+      "txAmount": "Transaction Amount",
       "txTime": "Transaction Time",
       "txHash": "Transaction Hash",
       "operateType": "Operation Type",
-      "oldWalletAddress": "Old Wallet Address",
-      "createTime": "Create Time"
+      "oldWalletAddress": "Original Value",
+      "newWalletAddress": "Updated",
+      "createTime": "Created on"
     },
     "field": {
-      "createTime": "Create Time",
+      "createTime": "Created on",
       "walletAddress": "Wallet Address",
-      "creator": "Creator"
+      "creator": "Created by"
     },
     "placeholder": {
       "walletAddress": "Enter wallet address"

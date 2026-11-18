@@ -36,6 +36,9 @@ export const WALLET_TYPE_ACTION_PERMISSIONS = {
   onboard: '8c0561507ff643e8a7015b62b46eb125',
 } as const;
 
+/** Backend View button grant; the manifest keeps its separate semantic permission. */
+export const OPERATIONAL_WALLET_VIEW_PERMISSION = '6c726bcf2ac8457481d72333cd2f70db';
+
 /** accountType：0=N/A，1=活期(Current)，2=储蓄(Savings)，3=MMF 基金账户。 */
 export const ACCOUNT_TYPE = {
   None: 0,
@@ -93,11 +96,26 @@ type StatusMap = Record<number, WalletStatusMeta>;
  * 1=processing, 8/10=success, 5/15=gray。
  */
 const OPERATIONAL_WALLET_STATUS: StatusMap = {
-  1: { labelKey: 'status.processing', tone: 'warning' },
-  5: { labelKey: 'status.unknown', tone: 'default' },
+  1: { labelKey: 'status.processing', tone: 'info' },
+  5: { labelKey: 'status.rejected', tone: 'default' },
   8: { labelKey: 'status.success', tone: 'success' },
   10: { labelKey: 'status.active', tone: 'success' },
   15: { labelKey: 'status.inactive', tone: 'default' },
+};
+
+/** Approval workflow status, distinct from the state of the wallet itself. */
+export const OPERATIONAL_WALLET_RECORD_TONES: Partial<StatusMap> = {
+  1: { labelKey: 'common_task_status_1', tone: 'info' },
+  3: { labelKey: 'common_task_status_3', tone: 'default' },
+  5: { labelKey: 'common_task_status_5', tone: 'warning' },
+  10: { labelKey: 'common_task_status_10', tone: 'warning' },
+  15: { labelKey: 'common_task_status_15', tone: 'danger' },
+  20: { labelKey: 'common_task_status_20', tone: 'success' },
+  25: { labelKey: 'common_task_status_25', tone: 'success' },
+  30: { labelKey: 'common_task_status_30', tone: 'info' },
+  35: { labelKey: 'common_task_status_35', tone: 'success' },
+  40: { labelKey: 'common_task_status_40', tone: 'danger' },
+  45: { labelKey: 'common_task_status_45', tone: 'danger' },
 };
 
 /**

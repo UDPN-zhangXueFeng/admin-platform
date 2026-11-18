@@ -133,7 +133,7 @@ export function useOperationalWalletDetailQuery(
   ruleWalletId: number | undefined,
   enabled = true
 ) {
-  return useQuery<OperationalWalletDetail>({
+  return useQuery<OperationalWalletDetail | null>({
     queryKey: walletKeys.operationalWalletDetail(ruleWalletId ?? 0),
     queryFn: () => getOperationalWalletDetails(ruleWalletId as number),
     enabled: Boolean(ruleWalletId) && enabled,
@@ -156,13 +156,13 @@ export function useOperationalTxQuery(
 
 /** 营运钱包操作记录（详情 tab，分页；透传 walletAddress）。 */
 export function useOperationalOpRecordQuery(
-  data: { ruleWalletId: number; walletAddress?: string },
+  data: { ruleWalletId?: number; walletAddress?: string },
   page: Page,
   enabled = true
 ) {
   return useQuery<WalletListResponse<OperationalOpRecord>>({
-    queryKey: walletKeys.operationalOpRecord(data.ruleWalletId, page),
-    queryFn: () => getOperationalOpRecordList(data, page),
+    queryKey: walletKeys.operationalOpRecord(data, page),
+    queryFn: () => getOperationalOpRecordList({ ...data, ruleWalletId: data.ruleWalletId as number }, page),
     placeholderData: keepPreviousData,
     enabled: Boolean(data.ruleWalletId) && enabled,
   });
