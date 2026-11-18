@@ -143,7 +143,6 @@
     "copySuccess": "Copy Successfully!",
     "copyFailed": "Copy failed",
     "details": "Details",
-    "jumpPage": "Go to page",
     "loadFailed": "Unable to load operational wallet data.",
     "retry": "Retry",
     "filterAddress": "Operational Wallet",
@@ -211,7 +210,6 @@
     "copy": "Copy",
     "loadFailed": "Could not load wallet data.",
     "retry": "Retry",
-    "jumpPage": "Go to page",
     "notAvailable": "N/A",
     "tab": {
       "basic": "Basic Information",

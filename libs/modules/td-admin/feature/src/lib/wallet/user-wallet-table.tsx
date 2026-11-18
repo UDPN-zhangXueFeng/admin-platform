@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { hashKey } from '@tanstack/react-query';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { Button, Card, CopyableEllipsisText, DataTable, Input } from '@myorg/shared/ui';
+import { Button, Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import { DEFAULT_PAGE_SIZE } from './wallet.constants';
 
 export const FIRST_PAGE = { pageNum: 1, pageSize: DEFAULT_PAGE_SIZE };
@@ -52,7 +52,6 @@ export function UserWalletTable<R extends { id: string }>({
 }) {
   const t = useTranslations('modules.wallet');
   const total = query.data?.page?.total ?? 0;
-  const pageCount = Math.ceil(total / page.pageSize);
   const copyLabel = t('userWallet.copy');
   const copyableColumns = columns.map((column): ColumnDef<R> => {
     const { cell } = column;
@@ -80,18 +79,6 @@ export function UserWalletTable<R extends { id: string }>({
                 pageSizeOptions: [10, 20, 50, 100], onPageChange, onPageSizeChange,
               }}
             />
-            {pageCount > 1 && (
-              <form className="flex items-center justify-end gap-2" onSubmit={(event) => {
-                event.preventDefault();
-                const value = Number(new FormData(event.currentTarget).get('page'));
-                if (Number.isInteger(value) && value >= 1 && value <= pageCount) onPageChange(value);
-              }}>
-                <Input type="number" name="page" min={1} max={pageCount} required
-                  key={page.pageNum} defaultValue={page.pageNum}
-                  aria-label={t('userWallet.jumpPage')} className="w-20" />
-                <Button type="submit" size="sm" variant="outline">{t('userWallet.jumpPage')}</Button>
-              </form>
-            )}
           </div>
         )}
       </Card>

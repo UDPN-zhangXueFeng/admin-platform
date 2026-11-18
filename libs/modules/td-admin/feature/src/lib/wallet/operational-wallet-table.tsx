@@ -3,7 +3,7 @@
 import { isValidElement, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Button, Card, CopyableEllipsisText, DataTable, Input } from '@myorg/shared/ui';
+import { Button, Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import { DEFAULT_PAGE_SIZE } from './wallet.constants';
 
 interface OperationalWalletPaging {
@@ -58,11 +58,6 @@ export function OperationalWalletTable<R extends { id: string }>({
     const maxPage = Math.max(1, pageCount);
     if (pageNum > maxPage) onPageChange(maxPage);
   }, [staleTotals, query.isFetching, pageCount, pageNum, onPageChange]);
-  const firstVisiblePage = Math.max(1, Math.min(pageNum - 2, pageCount - 4));
-  const pageNumbers = Array.from(
-    { length: Math.min(5, pageCount) },
-    (_, index) => firstVisiblePage + index,
-  );
   const copyLabel = t('operationalWallet.copy');
   const copySuccess = t('operationalWallet.copySuccess');
   const copyFailed = t('operationalWallet.copyFailed');
@@ -101,27 +96,6 @@ export function OperationalWalletTable<R extends { id: string }>({
               disabled: staleTotals,
             } : undefined}
           />
-          {pageCount > 1 && (
-            <form className="flex items-center justify-end gap-2" onSubmit={(event) => {
-              event.preventDefault();
-              const next = Number(new FormData(event.currentTarget).get('page'));
-              if (Number.isInteger(next) && next >= 1 && next <= pageCount) onPageChange(next);
-            }}>
-              {pageNumbers.map((number) => (
-                <Button key={number} type="button" size="sm"
-                  variant={number === pageNum ? 'default' : 'outline'}
-                  aria-current={number === pageNum ? 'page' : undefined}
-                  disabled={staleTotals}
-                  onClick={() => onPageChange(number)}>
-                  {number}
-                </Button>
-              ))}
-              <Input type="number" name="page" min={1} max={pageCount} required
-                key={pageNum} defaultValue={pageNum} disabled={staleTotals}
-                aria-label={t('operationalWallet.jumpPage')} className="w-20" />
-              <Button type="submit" size="sm" variant="outline" disabled={staleTotals}>{t('operationalWallet.jumpPage')}</Button>
-            </form>
-          )}
         </div>
       )}
     </Card>

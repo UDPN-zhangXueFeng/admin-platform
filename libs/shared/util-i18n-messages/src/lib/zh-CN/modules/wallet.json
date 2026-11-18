@@ -143,7 +143,6 @@
     "copySuccess": "复制成功！",
     "copyFailed": "复制失败",
     "details": "详情",
-    "jumpPage": "跳转到页",
     "loadFailed": "无法加载营运钱包数据。",
     "retry": "重试",
     "filterAddress": "营运钱包",
@@ -211,7 +210,6 @@
     "copy": "复制",
     "loadFailed": "无法加载钱包数据。",
     "retry": "重试",
-    "jumpPage": "跳转到页",
     "notAvailable": "不适用",
     "tab": {
       "basic": "基本信息",
