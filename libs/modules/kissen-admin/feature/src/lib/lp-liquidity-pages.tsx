@@ -3735,6 +3735,7 @@ export function LpPoolListPage() {
               <div className="flex items-center gap-1.5">
                 <Input
                   type="date"
+                  lang="en-US"
                   value={filter.createdFrom}
                   onChange={(e) =>
                     setFilter((prev) => ({
@@ -3748,6 +3749,7 @@ export function LpPoolListPage() {
                 </span>
                 <Input
                   type="date"
+                  lang="en-US"
                   value={filter.createdTo}
                   onChange={(e) =>
                     setFilter((prev) => ({

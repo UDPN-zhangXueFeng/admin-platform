@@ -4627,12 +4627,14 @@ export function OperateLogListPage() {
             <div className="grid grid-cols-2 gap-2">
               <Input
                 type="date"
+                lang="en-US"
                 aria-label="Date Range from"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
               />
               <Input
                 type="date"
+                lang="en-US"
                 aria-label="Date Range to"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}

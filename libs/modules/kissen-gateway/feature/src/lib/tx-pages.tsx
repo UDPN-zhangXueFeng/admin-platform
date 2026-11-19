@@ -866,12 +866,14 @@ export function TxListPage() {
               name="startTime"
               label="Created From"
               type="date"
+              lang="en-US"
               register={register('startTime')}
             />
             <FormField
               name="endTime"
               label="Created To"
               type="date"
+              lang="en-US"
               register={register('endTime')}
             />
           </div>
