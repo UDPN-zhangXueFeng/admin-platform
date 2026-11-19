@@ -11,7 +11,7 @@ import {
 import type { ProjectConfig } from '@myorg/shared/util-config';
 import { cn } from '@myorg/shared/util-classnames';
 import { Button, Sidebar } from '@myorg/shared/ui';
-import type { SidebarItemConfig } from '@myorg/shared/ui';
+import type { SidebarItemConfig, MenuIconVariant } from '@myorg/shared/ui';
 import { Header } from '../header/header';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
 
@@ -36,6 +36,8 @@ export interface SidebarLayoutProps {
   sidebarWidths?: { expanded: string; collapsed: string };
   /** Click handler for the header brand block (logo + project name). */
   onBrandClick?: () => void;
+  /** Open the project's account-management page (passed through to Header). */
+  onManageAccount?: () => void;
   /**
    * Hide the "Manage Account" user-menu entry. Opt-in for projects whose
    * baseline user menu only offers Change Password / Log Out.
@@ -53,8 +55,19 @@ export interface SidebarLayoutProps {
   trailing?: React.ReactNode;
   /** Add a very subtle tint derived from the active theme to the content surface. */
   themedContentSurface?: boolean;
-  /** Use larger, slightly heavier Lucide icons in the primary sidebar menu. */
-  prominentMenuIcons?: boolean;
+  /** Icon treatment for primary sidebar entries: default, prominent (larger) or refined (smaller). */
+  menuIconVariant?: MenuIconVariant;
+  /**
+   * Opt-in callback fired when a menu entry is activated (leaf link, parent
+   * expander, collapsed parent flyout trigger, or flyout child link).
+   * Undefined = no behavior.
+   */
+  onMenuClick?: () => void;
+  /**
+   * Opt-in decorative header background replacing the platform banner
+   * (passed through to Header). When omitted the platform default renders.
+   */
+  banner?: React.ReactNode;
 }
 
 /**
@@ -76,13 +89,16 @@ export function SidebarLayout({
   persistKey,
   sidebarWidths,
   onBrandClick,
+  onManageAccount,
   hideManageAccount,
   logo,
   hideProjectName,
   compactHeader,
   trailing,
   themedContentSurface,
-  prominentMenuIcons,
+  menuIconVariant,
+  onMenuClick,
+  banner,
 }: SidebarLayoutProps) {
   const [collapsed, setCollapsed] = useState(() =>
     readPersistedCollapsed(persistKey),
@@ -134,6 +150,7 @@ export function SidebarLayout({
         config={config}
         onMenuToggle={() => setMobileOpen((v) => !v)}
         onChangePassword={onChangePassword}
+        onManageAccount={onManageAccount}
         onLogout={onLogout}
         onBrandClick={onBrandClick}
         hideManageAccount={hideManageAccount}
@@ -141,6 +158,7 @@ export function SidebarLayout({
         hideProjectName={hideProjectName}
         compact={compactHeader}
         trailing={trailing}
+        banner={banner}
       />
 
       {/* Body: Sidebar + Content */}
@@ -167,8 +185,9 @@ export function SidebarLayout({
             items={sidebarItems}
             collapsed={collapsed}
             singleExpand={config.layout.sidebar.singleExpand}
-            prominentMenuIcons={prominentMenuIcons}
+            menuIconVariant={menuIconVariant}
             onToggle={toggleCollapsed}
+            onMenuClick={onMenuClick}
             className={
               sidebarWidths
                 ? collapsed

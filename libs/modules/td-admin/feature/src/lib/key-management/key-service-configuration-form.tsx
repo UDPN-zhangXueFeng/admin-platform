@@ -23,24 +23,23 @@ import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Info } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { z } from 'zod';
 
 import {
   Button,
+  Card,
   Checkbox,
   Input,
+  PageHeader,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
   Textarea,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 /** (Configure-only — the edit view is a separate read-only page.) */
@@ -218,139 +217,42 @@ export function KeyServiceConfigurationForm() {
 
   return (
     <div className="space-y-6">
-      {/* Write APIs not available — honest prototype banner. */}
-      <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-400">
-        {t('key_management_0068')}
-      </div>
+      <PageHeader
+        backLabel={t('key_management_0056')}
+        onBack={handleBack}
+        title={t('key_management_0120')}
+        description={t('key_management_0121')}
+      />
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <h2 className="mb-2 text-base font-bold">
-            {t('key_management_0120')}
+        <Card className="p-6">
+          <h2 className="mb-5 text-base font-semibold">
+            {t('key_management_0057')}
           </h2>
-          <p className="mb-6 text-sm text-muted-foreground">
-            {t('key_management_0121')}
-          </p>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium" htmlFor="key-service-name">
-                {t('key_management_0001')}
-                <span className="ml-0.5 text-destructive">*</span>
-              </label>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Field
+              label={t('key_management_0001')}
+              htmlFor="key-service-name"
+              required
+              error={errors.keyServiceName?.message}
+            >
               <Input
                 id="key-service-name"
                 placeholder={t('key_management_0127')}
                 {...register('keyServiceName')}
               />
-              {errors.keyServiceName && (
-                <p className="text-xs text-destructive">
-                  {errors.keyServiceName.message}
-                </p>
-              )}
-            </div>
-          </div>
+            </Field>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-            {/* Wallet Attribute */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">
-                {t('key_management_0122')}
-                <span className="ml-0.5 text-destructive">*</span>
-              </label>
-              <div className="flex flex-col gap-2">
-                <Controller
-                  control={control}
-                  name="hotWallet"
-                  render={({ field }) => (
-                    <label className="flex items-center gap-2">
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={(checked) =>
-                          field.onChange(checked === true)
-                        }
-                      />
-                      <span className="text-sm">{t('key_management_0123')}</span>
-                    </label>
-                  )}
-                />
-                <div className="flex items-center gap-1">
-                  <Controller
-                    control={control}
-                    name="coldWallet"
-                    render={({ field }) => (
-                      <label className="flex items-center gap-2">
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={(checked) =>
-                            field.onChange(checked === true)
-                          }
-                        />
-                        <span className="text-sm">{t('key_management_0124')}</span>
-                      </label>
-                    )}
-                  />
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label={t('key_management_0124')}
-                          className="text-muted-foreground"
-                        >
-                          <Info className="h-4 w-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {t('key_management_0125')}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </div>
-            </div>
-
-            {/* Wallet Group ID — conditional inputs driven by checkboxes */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">
-                {t('key_management_0126')}
-                <span className="ml-0.5 text-destructive">*</span>
-              </label>
-              <div className="flex flex-col gap-2">
-                {hotWallet && (
-                  <div className="space-y-1">
-                    <Input
-                      placeholder={t('key_management_0123')}
-                      {...register('hotWalletGroupId')}
-                    />
-                    {errors.hotWalletGroupId && (
-                      <p className="text-xs text-destructive">
-                        {errors.hotWalletGroupId.message}
-                      </p>
-                    )}
-                  </div>
-                )}
-                {coldWallet && (
-                  <div className="space-y-1">
-                    <Input
-                      placeholder={t('key_management_0124')}
-                      {...register('coldWalletGroupId')}
-                    />
-                    {errors.coldWalletGroupId && (
-                      <p className="text-xs text-destructive">
-                        {errors.coldWalletGroupId.message}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium" htmlFor="description">
-                {t('key_management_0053')}
-              </label>
+            <Field
+              label={t('key_management_0053')}
+              htmlFor="description"
+              hint={
+                <span className="flex justify-end text-xs text-muted-foreground">
+                  {description?.length ?? 0}/200
+                </span>
+              }
+              error={errors.description?.message}
+            >
               <Textarea
                 id="description"
                 rows={3}
@@ -358,182 +260,325 @@ export function KeyServiceConfigurationForm() {
                 placeholder={t('key_management_0128')}
                 {...register('description')}
               />
-              <div className="flex justify-end">
-                <span className="text-xs text-muted-foreground">
-                  {description?.length ?? 0}/200
-                </span>
+            </Field>
+          </div>
+
+          <div className="mt-6 border-t border-border pt-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-3">
+                <div className="text-sm font-medium">
+                  {t('key_management_0122')}
+                  <span className="ml-0.5 text-destructive">*</span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Controller
+                    control={control}
+                    name="hotWallet"
+                    render={({ field }) => (
+                      <label
+                        className={cn(
+                          'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                          field.value
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border'
+                        )}
+                      >
+                        <Checkbox
+                          className="mt-0.5"
+                          checked={field.value}
+                          onCheckedChange={(checked) =>
+                            field.onChange(checked === true)
+                          }
+                        />
+                        <span className="text-sm font-medium">
+                          {t('key_management_0123')}
+                        </span>
+                      </label>
+                    )}
+                  />
+                  <Controller
+                    control={control}
+                    name="coldWallet"
+                    render={({ field }) => (
+                      <label
+                        className={cn(
+                          'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                          field.value
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border'
+                        )}
+                      >
+                        <Checkbox
+                          className="mt-0.5"
+                          checked={field.value}
+                          onCheckedChange={(checked) =>
+                            field.onChange(checked === true)
+                          }
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium">
+                            {t('key_management_0124')}
+                          </span>
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            {t('key_management_0125')}
+                          </span>
+                        </span>
+                      </label>
+                    )}
+                  />
+                </div>
               </div>
-              {errors.description && (
-                <p className="text-xs text-destructive">
-                  {errors.description.message}
-                </p>
+
+              {(hotWallet || coldWallet) && (
+                <div className="space-y-3">
+                  <div className="text-sm font-medium">
+                    {t('key_management_0126')}
+                    <span className="ml-0.5 text-destructive">*</span>
+                  </div>
+                  <div className="space-y-3">
+                    {hotWallet && (
+                      <Field
+                        label={t('key_management_0123')}
+                        htmlFor="hot-wallet-group-id"
+                        error={errors.hotWalletGroupId?.message}
+                      >
+                        <Input
+                          id="hot-wallet-group-id"
+                          placeholder={t('key_management_0123')}
+                          {...register('hotWalletGroupId')}
+                        />
+                      </Field>
+                    )}
+                    {coldWallet && (
+                      <Field
+                        label={t('key_management_0124')}
+                        htmlFor="cold-wallet-group-id"
+                        error={errors.coldWalletGroupId?.message}
+                      >
+                        <Input
+                          id="cold-wallet-group-id"
+                          placeholder={t('key_management_0124')}
+                          {...register('coldWalletGroupId')}
+                        />
+                      </Field>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* ---------- Block 2: Access Configuration ---------- */}
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <h2 className="mb-2 text-base font-bold">{t('key_management_0129')}</h2>
+        <Card className="p-6">
+          <h2 className="mb-2 text-base font-semibold">{t('key_management_0129')}</h2>
           <p className="mb-6 text-sm text-muted-foreground">
             {t('key_management_0130')}
           </p>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium" htmlFor="url">
-                {t('key_management_0154')}
-                <span className="ml-0.5 text-destructive">*</span>
-              </label>
-              <Input id="url" placeholder="" {...register('url')} />
-              {errors.url && (
-                <p className="text-xs text-destructive">{errors.url.message}</p>
-              )}
+          <Field
+            label={t('key_management_0154')}
+            htmlFor="url"
+            required
+            error={errors.url?.message}
+          >
+            <Input id="url" placeholder="" {...register('url')} />
+          </Field>
+
+          <div className="mt-6">
+            <div className="mb-3 text-sm font-medium">
+              {t('key_management_0131')}
             </div>
-          </div>
 
-          <div className="mb-4 mt-6 text-sm font-medium">
-            {t('key_management_0131')}
-          </div>
+            <div className="hidden gap-3 px-3 text-xs font-medium text-muted-foreground md:grid md:grid-cols-12">
+              <div className="col-span-3">{t('key_management_0132')}</div>
+              <div className="col-span-3">{t('key_management_0133')}</div>
+              <div className="col-span-5">{t('key_management_0134')}</div>
+              <div className="col-span-1" />
+            </div>
 
-          {/* Parameter header row */}
-          <div className="mb-2 grid grid-cols-12 gap-4 text-sm text-muted-foreground">
-            <div className="col-span-3">{t('key_management_0132')}</div>
-            <div className="col-span-3">{t('key_management_0133')}</div>
-            <div className="col-span-5">{t('key_management_0134')}</div>
-            <div className="col-span-1" />
-          </div>
-
-          {/* Parameter rows */}
-          {parameters.map((param, index) => (
-            <div className="mb-3 grid grid-cols-12 gap-4" key={param.id}>
-              <div className="col-span-3">
-                <Select
-                  value={param.type}
-                  onValueChange={(value) =>
-                    updateParameter(param.id, 'type', value)
-                  }
+            <div className="mt-2 space-y-2">
+              {parameters.map((param, index) => (
+                <div
+                  className="grid gap-3 rounded-lg border border-border p-3 md:grid-cols-12 md:items-center"
+                  key={param.id}
                 >
-                  <SelectTrigger aria-label={t('key_management_0132')}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {parameterTypeOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {t(opt.i18nKey)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-3">
-                <Input
-                  value={param.key}
-                  onChange={(e) =>
-                    updateParameter(param.id, 'key', e.target.value)
-                  }
-                  placeholder={t('key_management_0133')}
-                />
-              </div>
-              <div className="col-span-5">
-                <Input
-                  value={param.value}
-                  onChange={(e) =>
-                    updateParameter(param.id, 'value', e.target.value)
-                  }
-                  placeholder={t('key_management_0134')}
-                />
-              </div>
-              <div className="col-span-1 flex items-center">
-                {index > 0 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="text-destructive"
-                    onClick={() => removeParameter(param.id)}
-                  >
-                    {t('key_management_0027')}
-                  </Button>
-                )}
-              </div>
+                  <div className="md:col-span-3">
+                    <Select
+                      value={param.type}
+                      onValueChange={(value) =>
+                        updateParameter(param.id, 'type', value)
+                      }
+                    >
+                      <SelectTrigger aria-label={t('key_management_0132')}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {parameterTypeOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {t(opt.i18nKey)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-3">
+                    <Input
+                      aria-label={t('key_management_0133')}
+                      value={param.key}
+                      onChange={(e) =>
+                        updateParameter(param.id, 'key', e.target.value)
+                      }
+                      placeholder={t('key_management_0133')}
+                    />
+                  </div>
+                  <div className="md:col-span-5">
+                    <Input
+                      aria-label={t('key_management_0134')}
+                      value={param.value}
+                      onChange={(e) =>
+                        updateParameter(param.id, 'value', e.target.value)
+                      }
+                      placeholder={t('key_management_0134')}
+                    />
+                  </div>
+                  <div className="flex justify-end md:col-span-1 md:justify-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="iconSm"
+                      className="text-destructive"
+                      aria-label={`${t('key_management_0027')} ${
+                        index + 1
+                      }`}
+                      disabled={parameters.length === 1}
+                      onClick={() => removeParameter(param.id)}
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
 
-          <Button type="button" variant="outline" onClick={addParameter}>
-            {t('key_management_0141')}
-          </Button>
-        </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={addParameter}
+            >
+              {t('key_management_0141')}
+            </Button>
+          </div>
+        </Card>
 
         {/* ---------- Block 3: Supported Chains ---------- */}
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <h2 className="mb-2 text-base font-bold">{t('key_management_0135')}</h2>
+        <Card className="p-6">
+          <h2 className="mb-2 text-base font-semibold">{t('key_management_0135')}</h2>
           <p className="mb-6 text-sm text-muted-foreground">
             {t('key_management_0136')}
           </p>
 
-          {/* Chain header row */}
-          <div className="mb-4 grid grid-cols-12 gap-4 text-sm text-muted-foreground">
-            <div className="col-span-3" />
-            <div className="col-span-4">{t('key_management_0137')}</div>
-            <div className="col-span-4">{t('key_management_0138')}</div>
-            <div className="col-span-1" />
+          <div className="space-y-3">
+            {supportedChains.map((chain) => {
+              const selected = selectedChains[chain.key] ?? false;
+              return (
+                <div
+                  key={chain.key}
+                  className={cn(
+                    'rounded-lg border p-4 transition-colors',
+                    selected ? 'border-primary/40 bg-primary/5' : 'border-border'
+                  )}
+                >
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                    <Checkbox
+                      checked={selected}
+                      onCheckedChange={(checked) =>
+                        toggleChain(chain.key, checked === true)
+                      }
+                    />
+                    {chain.label}
+                  </label>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <Field
+                      label={t('key_management_0137')}
+                      htmlFor={`chain-${chain.key}-name`}
+                    >
+                      <Input
+                        id={`chain-${chain.key}-name`}
+                        value={chainData[chain.key]?.name ?? ''}
+                        onChange={(e) =>
+                          updateChainData(chain.key, 'name', e.target.value)
+                        }
+                        disabled={!selected}
+                        placeholder=""
+                      />
+                    </Field>
+                    <Field
+                      label={t('key_management_0138')}
+                      htmlFor={`chain-${chain.key}-id`}
+                    >
+                      <Input
+                        id={`chain-${chain.key}-id`}
+                        value={chainData[chain.key]?.id ?? ''}
+                        onChange={(e) =>
+                          updateChainData(chain.key, 'id', e.target.value)
+                        }
+                        disabled={!selected}
+                        placeholder=""
+                      />
+                    </Field>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-
-          {/* Chain rows */}
-          {supportedChains.map((chain) => (
-            <div className="mb-4 grid grid-cols-12 gap-4" key={chain.key}>
-              <div className="col-span-3 flex items-center">
-                <label className="flex items-center gap-2">
-                  <Checkbox
-                    checked={selectedChains[chain.key] ?? false}
-                    onCheckedChange={(checked) =>
-                      toggleChain(chain.key, checked === true)
-                    }
-                  />
-                  <span className="text-sm">{chain.label}</span>
-                </label>
-              </div>
-              <div className="col-span-4">
-                <Input
-                  value={chainData[chain.key]?.name ?? ''}
-                  onChange={(e) =>
-                    updateChainData(chain.key, 'name', e.target.value)
-                  }
-                  disabled={!selectedChains[chain.key]}
-                  placeholder=""
-                />
-              </div>
-              <div className="col-span-4">
-                <Input
-                  value={chainData[chain.key]?.id ?? ''}
-                  onChange={(e) =>
-                    updateChainData(chain.key, 'id', e.target.value)
-                  }
-                  disabled={!selectedChains[chain.key]}
-                  placeholder=""
-                />
-              </div>
-              <div className="col-span-1" />
-            </div>
-          ))}
 
           {/* Demo notice — explicit non-persistence feedback (KM-022). */}
           {demoSubmitted && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               {t('key_management_0073')}
             </div>
           )}
 
           {/* Action buttons */}
-          <div className="mt-6 flex justify-end gap-4">
-            <Button type="button" variant="outline" onClick={handleBack}>
-              {t('key_management_0056')}
-            </Button>
+          <div className="mt-6 flex justify-end">
             {/* Demo submit: gated by zod, never persisted (matrix D4). */}
             <Button type="submit">{t('key_management_0142')}</Button>
           </div>
-        </div>
+        </Card>
       </form>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  required,
+  error,
+  hint,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  required?: boolean;
+  error?: string;
+  hint?: React.ReactNode;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium" htmlFor={htmlFor}>
+        {label}
+        {required ? (
+          <span className="ml-0.5 text-destructive">*</span>
+        ) : null}
+      </label>
+      {children}
+      {hint ? <div className="text-xs text-muted-foreground">{hint}</div> : null}
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }

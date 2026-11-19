@@ -7,8 +7,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, DataTable } from '@myorg/shared/ui';
-import { FormDatePicker } from '@myorg/shared/ui-forms';
+import { PageHeader, Card, DataTable } from '@myorg/shared/ui';
+import { FormDateRangePicker } from '@myorg/shared/ui-forms';
 import {
   useFxRateDetailListQuery,
   type FxRateDetailItem,
@@ -18,6 +18,7 @@ import {
   EMPTY_DISPLAY,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 
 /**
  * FxRateDetailPage — 汇率详情页（历史汇率分页列表）。
@@ -34,7 +35,7 @@ import { formatAdminTimestamp } from '../format-admin-time';
  * - 请求前缀 `/api/fx/v1/`（非 manage），分页字段 pageNum/pageSize（data-access 已封装）。
  * - 货币对列渲染 `sendCurrencySymbol + '/' + receiveCurrencySymbol`（源码 dataIndex + item 拼接）。
  * - createTime 为时间戳，需 Number() 后格式化（源码 formatTimestamp(Number(createTime))）。
- * - 3 列：货币对 / 汇率（cross_chain_0067）/ 日期（cross_chain_0097）+ 底部「返回」按钮。
+ * - 3 列：货币对 / 汇率（cross_chain_0067）/ 日期（cross_chain_0097）。
  * - **fx-rate 无状态枚举、无写操作**（迁移文档第 8 章确认）。
  */
 interface FxRateDetailFilterForm {
@@ -148,57 +149,45 @@ export function FxRateDetailPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormDatePicker
-            name="startTime"
-            control={control}
-            label={t('cross_chain_0097')}
-          />
-          <FormDatePicker
-            name="endTime"
-            control={control}
-            label={t('cross_chain_0097')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('cross_chain_0067')} />
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormDateRangePicker
+              key="timeRange"
+              startName="startTime"
+              endName="endTime"
+              control={control}
+              label={t('cross_chain_0097')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        {/* 标题为空（源码 CustomTableTitle title={''}），保留容器无标题。 */}
-        <div className="px-6 py-3" />
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (p) =>
-                setPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
-        </div>
-      </div>
+      <Card>{/* 标题为空（源码 CustomTableTitle title={''}），保留容器无标题。 */}
+      <div className="px-6 py-3" />
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (p) =>
+              setPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

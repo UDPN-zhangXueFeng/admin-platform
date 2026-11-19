@@ -3,9 +3,11 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { Card, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { useRouter } from '@myorg/shared/util-i18n';
 import { useSpAccessDetailQuery } from '@myorg/modules/td-admin/data-access';
 import { SpAccessBaseInfoSection } from './sp-access-base-info-section';
+import { SpAccessStatusBadge } from './sp-access-status-badge';
 import { SpAccessUserWalletsSection } from './sp-access-user-wallets-section';
 import { SpAccessSubmittedTransactionsSection } from './sp-access-submitted-transactions-section';
 import { SpAccessOperationRecordsSection } from './sp-access-operation-records-section';
@@ -20,6 +22,8 @@ export function SpAccessDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const t = useTranslations('modules.sp-access');
+  const tBack = useTranslations('modules.workflow');
+  const router = useRouter();
 
   const rawId = searchParams.get('id');
   const spCode = searchParams.get('spCode') ?? '';
@@ -38,17 +42,19 @@ export function SpAccessDetailPage() {
   if (isLoading) {
     return (
       <div className="space-y-4 p-6">
-        <div className="h-8 w-64 animate-pulse rounded bg-muted" />
-        <div className="h-64 animate-pulse rounded-lg border bg-card" />
+        <PageHeader title={t('sp_access_0107')} backLabel={tBack('action.back')} onBack={() => router.back()} />
+        <Card className="h-64 animate-pulse" />
       </div>
     );
   }
 
   if (!detail) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
-        <h2 className="text-xl font-bold">{t('sp_access_0146')}</h2>
-        <p className="text-sm text-muted-foreground">{spCode}</p>
+      <div className="space-y-4">
+        <PageHeader title={t('sp_access_0107')} backLabel={tBack('action.back')} onBack={() => router.back()} />
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+          <p className="text-sm text-muted-foreground">{spCode}</p>
+        </div>
       </div>
     );
   }
@@ -57,6 +63,17 @@ export function SpAccessDetailPage() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        title={t('sp_access_0107')}
+        backLabel={tBack('action.back')}
+        onBack={() => router.back()}
+        actions={
+          <SpAccessStatusBadge
+            kind="spStatus"
+            status={Number(detail.state)}
+          />
+        }
+      />
       <Tabs defaultValue="base-info" className="w-full">
         <TabsList>
           <TabsTrigger value="base-info">{t('sp_access_0038')}</TabsTrigger>

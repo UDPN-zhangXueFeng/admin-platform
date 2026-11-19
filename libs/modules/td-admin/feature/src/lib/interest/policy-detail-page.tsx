@@ -13,7 +13,7 @@ import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import {
-  Button,
+  PageHeader,
   DataTable,
   Tabs,
   TabsContent,
@@ -59,11 +59,6 @@ function PolicyBasicInfo({ detail, t }: { detail: InterestRuleDetail; t: (k: str
 
   return (
     <div>
-      {/* 根据 interestType 切换标题 */}
-      <h3 className="text-lg font-medium mb-4">
-        {isDeposit ? t('interest_0056') : t('interest_0055')}
-      </h3>
-
       <div className="grid grid-cols-3 gap-4">
         <InfoItem label={t('interest_0002')} value={detail.interestPolicyName} />
         <InfoItem
@@ -224,14 +219,16 @@ function OperationRecordsTab({ interestRuleId, t, tc }: { interestRuleId: number
     createRowActionsColumn<PolicyOperationRecord>(
       can('e338a3b41c21413db1d2ac7a90a65f5f')
         ? {
-            detail: {
-              label: tc('Router_0010_4_3'),
-              onClick: (r) =>
-                router.push(
-                  `/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`,
-                ),
+          detail: {
+            label: tc('Router_0010_4_3'),
+            onClick: (r) => {
+              if (!r.taskId || !r.busCode) return;
+              router.push(
+                `/approval-manage/view?id=${r.taskId}&busCode=${r.busCode}`,
+              );
             },
-          }
+          },
+        }
         : {},
     ),
   ];
@@ -281,11 +278,13 @@ export function PolicyDetailPage() {
 
   const { data: detail, isLoading } = useInterestPolicyDetail(id);
 
-  if (isLoading) return <div className="p-8">{tc('PUB_Query')}...</div>;
-  if (!detail) return <div className="p-8 text-muted-foreground">Policy not found</div>;
+  const header = <PageHeader backLabel={tc('PUB_GoBack')} onBack={() => router.back()} title={detail ? t(detail.interestType === 2 ? 'interest_0001' : 'interest_0000') : t('interest_0009')} />;
+  if (isLoading) return <div className="space-y-4">{header}<div className="p-8">{tc('PUB_Query')}...</div></div>;
+  if (!detail) return <div className="space-y-4">{header}<div className="p-8 text-muted-foreground">Policy not found</div></div>;
 
   return (
-    <div>
+    <div className="space-y-4">
+      {header}
       <Tabs defaultValue="basic">
         <TabsList>
           <TabsTrigger value="basic">{t('interest_0009')}</TabsTrigger>
@@ -301,11 +300,6 @@ export function PolicyDetailPage() {
           <OperationRecordsTab interestRuleId={id} t={t} tc={tc} />
         </TabsContent>
       </Tabs>
-      <div className="flex justify-center mt-6">
-        <Button variant="outline" onClick={() => router.back()}>
-          {tc('PUB_GoBack')}
-        </Button>
-      </div>
     </div>
   );
 }

@@ -107,6 +107,19 @@ export const SOURCE_TYPE_OPTIONS: Array<{
   { label: SOURCE_TYPE_MAP.LOC.label, value: 'LOC' },
 ];
 
+/** 后端 transactionType / txType 原始值 → 展示文案（迁移自源项目同一映射）。 */
+export const TRANSACTION_TYPE_LABEL_MAP: Record<number, string> = {
+  1: 'Reserve in',
+  3: 'Funding in',
+  5: 'Mint',
+  10: 'Repository Out',
+  15: 'Transfer',
+  20: 'Repository In',
+  25: 'Melt',
+  30: 'Reserve out',
+  35: 'Funding out',
+};
+
 /** Clear Status / 页面状态展示映射：枚举 → label + 标签色值。 */
 export const CLEAR_STATUS_MAP: Record<ClearStatus, StatusTone> = {
   OUTSTANDING: { color: 'red', label: 'Outstanding' },
@@ -137,7 +150,7 @@ export const CLEAR_STATUS_LABEL_TO_ENUM: Record<string, ClearStatus> = {
 
 /** Adjustment 审批状态展示映射。 */
 export const ADJUSTMENT_STATUS_MAP: Record<AdjustmentStatus, StatusTone> = {
-  PENDING_REVIEW: { color: 'gold', label: 'Pending Review' },
+  PENDING_REVIEW: { color: 'gold', label: 'Pending Approval' },
   IN_PROCESS_REVIEW: { color: 'blue', label: 'In Process Review' },
   REJECTED: { color: 'red', label: 'Rejected' },
   APPROVED: { color: 'green', label: 'Approved' },

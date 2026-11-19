@@ -65,11 +65,15 @@ interface SpAccessSubmittedTransactionApiResponse {
   page?: SpAccessPageInfo;
 }
 
-function normalizePage(page: SpAccessPageInfo | undefined, rowCount: number, fallbackPageSize = 10) {
+function normalizePage(
+  page: SpAccessPageInfo | undefined,
+  rowCount: number,
+  requested: { pageNum: number; pageSize: number },
+) {
   return {
     total: page?.total ?? rowCount,
-    pageNum: page?.pageNum ?? 1,
-    pageSize: page?.pageSize ?? (rowCount || fallbackPageSize),
+    pageNum: page?.pageNum ?? requested.pageNum,
+    pageSize: page?.pageSize ?? requested.pageSize,
   };
 }
 
@@ -104,7 +108,7 @@ export async function getSpAccessList(params: SpAccessListParams): Promise<SpAcc
   );
 
   const rows = response.rows ?? [];
-  return { rows, ...normalizePage(response.page, rows.length) };
+  return { rows, ...normalizePage(response.page, rows.length, params) };
 }
 
 // ---------- 详情 ----------
@@ -160,7 +164,7 @@ export async function getSpAccessUserWallets(
   });
 
   const rows = response.rows ?? [];
-  return { rows, ...normalizePage(response.page, rows.length) };
+  return { rows, ...normalizePage(response.page, rows.length, params) };
 }
 
 export async function getSpAccessSubmittedTransactions(
@@ -187,7 +191,7 @@ export async function getSpAccessSubmittedTransactions(
   });
 
   const rows = response.rows ?? [];
-  return { rows, ...normalizePage(response.page, rows.length) };
+  return { rows, ...normalizePage(response.page, rows.length, params) };
 }
 
 export async function getSpAccessOperationRecords(
@@ -211,7 +215,7 @@ export async function getSpAccessOperationRecords(
   });
 
   const rows = response.rows ?? [];
-  return { rows, ...normalizePage(response.page, rows.length) };
+  return { rows, ...normalizePage(response.page, rows.length, params) };
 }
 
 // ---------- 配置数据 ----------

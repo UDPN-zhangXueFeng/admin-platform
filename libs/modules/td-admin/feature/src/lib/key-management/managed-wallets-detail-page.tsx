@@ -23,15 +23,20 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import {
   Alert,
   Button,
+  Card,
   CopyableEllipsisText,
   DataTable,
+  DetailField,
+  DetailGrid,
+  DetailSection,
   Input,
+  PageHeader,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
-import { FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
   useManagedWalletDetailQuery,
@@ -40,6 +45,7 @@ import {
   type WalletRotationHistoryFilters,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import {
   roleNameMap,
   walletStatusMap,
@@ -85,20 +91,6 @@ function getDisplayRoleName(roleValue?: string | number): string {
 }
 
 
-
-interface DetailItemProps {
-  label: string;
-  children: React.ReactNode;
-}
-
-function DetailItem({ label, children }: DetailItemProps) {
-  return (
-    <div className="space-y-1">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <div className="text-sm font-medium">{children}</div>
-    </div>
-  );
-}
 
 /** react-hook-form values for the Rotation History query form. */
 interface HistoryFilterFormValues {
@@ -313,8 +305,36 @@ export function ManagedWalletsDetailPage() {
     [t],
   );
 
+  const walletStatusEntry =
+    detail?.status !== undefined &&
+    detail?.status !== null &&
+    String(detail.status) !== ''
+      ? walletStatusMap[Number(detail.status)]
+      : undefined;
+  const walletStatusLabel = walletStatusEntry
+    ? t(walletStatusEntry.i18nKey)
+    : undefined;
+
   return (
     <div className="space-y-6">
+      <PageHeader
+        backLabel={t('key_management_0056')}
+        onBack={() => router.back()}
+        title={t('key_management_0085')}
+        actions={
+          walletStatusEntry ? (
+            <span
+              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                TONE_CLASS[walletStatusEntry.tone] ?? TONE_CLASS.default
+              }`}
+            >
+              {walletStatusLabel}
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">--</span>
+          )
+        }
+      />
       <Tabs defaultValue="basic" className="w-full">
         <TabsList>
         <TabsTrigger value="basic">{t('key_management_0057')}</TabsTrigger>
@@ -323,12 +343,7 @@ export function ManagedWalletsDetailPage() {
 
         {/* ---------- Tab 1: Basic Information ---------- */}
         <TabsContent value="basic" className="mt-4 space-y-6">
-          {isLoading ? (
-            <div className="space-y-4">
-              <div className="h-64 w-full animate-pulse rounded-md bg-muted" />
-              <div className="h-32 w-full animate-pulse rounded-md bg-muted" />
-            </div>
-          ) : detailIsError ? (
+          {detailIsError ? (
             <Alert variant="destructive">
               <div className="flex items-center justify-between gap-4">
                 <span>
@@ -343,90 +358,107 @@ export function ManagedWalletsDetailPage() {
             </Alert>
           ) : (
             <>
-              {/* Card A — Current Wallet Details (10 fields) */}
-              <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-                <div className="flex flex-col space-y-1.5 p-6">
-                  <h3 className="text-2xl font-semibold leading-none tracking-tight">
-                    {t('key_management_0084')}
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 gap-6 p-6 pt-0 md:grid-cols-2 lg:grid-cols-3">
-                  <DetailItem label={t('KP_RoleName')}>
-                    {getDisplayRoleName(detail?.roleName)}
-                  </DetailItem>
-                  <DetailItem label={t('key_management_0003')}>
-                    {(() => {
-                      const raw = detail?.status;
-                      if (raw === undefined || raw === null || String(raw) === '') return '--';
-                      const status = Number(raw);
-                      const entry = Number.isFinite(status)
-                        ? walletStatusMap[status]
-                        : undefined;
-                      const tone = entry?.tone ?? 'default';
-                      return (
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TONE_CLASS[tone] ?? TONE_CLASS.default}`}
-                        >
-                          {entry ? t(entry.i18nKey) : String(raw)}
-                        </span>
-                      );
-                    })()}
-                  </DetailItem>
-                  <DetailItem label={t('key_management_0074')}>
-                    <CopyableEllipsisText value={detail?.keyId} />
-                  </DetailItem>
-                  <DetailItem label={t('key_management_0075')}>
-                    {detail?.token || '--'}
-                  </DetailItem>
-                  <DetailItem label={t('key_management_0076')}>
-                    <CopyableEllipsisText value={detail?.walletAddress} />
-                  </DetailItem>
-                  <DetailItem label={t('key_management_0077')}>
-                    <CopyableEllipsisText value={detail?.publicKey} />
-                  </DetailItem>
-                  <DetailItem label={t('key_management_0063')}>
-                    {detail?.blockchainName || '--'}
-                  </DetailItem>
-                  <DetailItem label={t('key_management_0001')}>
-                    {detail?.keyServiceName || '--'}
-                  </DetailItem>
-                  <DetailItem label={t('key_management_0049')}>
-                    {detail?.createdBy || '--'}
-                  </DetailItem>
-                  <DetailItem label={t('key_management_0050')}>
-                    {formatTimestamp(detail?.createdOn)}
-                  </DetailItem>
-                </div>
-              </div>
+              <DetailSection
+                title={t('key_management_0084')}
+                loading={isLoading}
+              >
+                <DetailGrid>
+                  <DetailField
+                    label={t('KP_RoleName')}
+                    value={getDisplayRoleName(detail?.roleName)}
+                  />
+                  <DetailField
+                    label={t('key_management_0075')}
+                    value={detail?.token}
+                  />
+                  <DetailField
+                    label={t('key_management_0063')}
+                    value={detail?.blockchainName}
+                  />
+                  <DetailField
+                    label={t('key_management_0001')}
+                    value={detail?.keyServiceName}
+                  />
+                  <DetailField
+                    label={t('key_management_0074')}
+                    value={
+                      detail?.keyId ? (
+                        <CopyableEllipsisText
+                          value={detail.keyId}
+                          showCopyIcon
+                          copyLabel={t('KP_Copy')}
+                          maxWidth={320}
+                        />
+                      ) : undefined
+                    }
+                  />
+                  <DetailField
+                    label={t('key_management_0076')}
+                    value={
+                      detail?.walletAddress ? (
+                        <CopyableEllipsisText
+                          value={detail.walletAddress}
+                          showCopyIcon
+                          copyLabel={t('KP_Copy')}
+                          maxWidth={320}
+                        />
+                      ) : undefined
+                    }
+                  />
+                  <DetailField
+                    label={t('key_management_0077')}
+                    value={
+                      detail?.publicKey ? (
+                        <CopyableEllipsisText
+                          value={detail.publicKey}
+                          showCopyIcon
+                          copyLabel={t('KP_Copy')}
+                          maxWidth={1000}
+                        />
+                      ) : undefined
+                    }
+                    span="full"
+                  />
+                  <DetailField
+                    label={t('key_management_0049')}
+                    value={detail?.createdBy}
+                    muted
+                  />
+                  <DetailField
+                    label={t('key_management_0050')}
+                    value={formatTimestamp(detail?.createdOn)}
+                    muted
+                  />
+                </DetailGrid>
+              </DetailSection>
 
-              {/* Card B — Key Rotation Details (5 fields, span 2) + Back */}
-              <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-                <div className="flex flex-col space-y-1.5 p-6">
-                  <h3 className="text-2xl font-semibold leading-none tracking-tight">
-                    {t('key_management_0085')}
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 gap-6 p-6 pt-0 md:grid-cols-2">
-                  <DetailItem label={t('key_management_0108')}>
-                    {detail?.rotationFrequency || '--'}
-                  </DetailItem>
-                  <DetailItem label={t('KP_RotationTime')}>
-                    {detail?.rotationTime || '--'}
-                  </DetailItem>
-                  <DetailItem label={t('KP_RotationMethods')}>
-                    {detail?.rotationMethods || '--'}
-                  </DetailItem>
-                  <DetailItem label={t('key_management_0087')}>
-                    {formatTimestamp(detail?.lastRotationTime)}
-                  </DetailItem>
-                  <DetailItem label={t('key_management_0088')}>
-                    {formatTimestamp(detail?.nextRotationTime)}
-                  </DetailItem>
-                </div>
-                <div className="flex justify-end p-6 pt-0">
-                  <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
-                </div>
-              </div>
+              <DetailSection
+                title={t('key_management_0085')}
+                loading={isLoading}
+              >
+                <DetailGrid className="sm:grid-cols-3">
+                  <DetailField
+                    label={t('key_management_0108')}
+                    value={detail?.rotationFrequency}
+                  />
+                  <DetailField
+                    label={t('KP_RotationTime')}
+                    value={detail?.rotationTime}
+                  />
+                  <DetailField
+                    label={t('KP_RotationMethods')}
+                    value={detail?.rotationMethods}
+                  />
+                  <DetailField
+                    label={t('key_management_0087')}
+                    value={formatTimestamp(detail?.lastRotationTime)}
+                  />
+                  <DetailField
+                    label={t('key_management_0088')}
+                    value={formatTimestamp(detail?.nextRotationTime)}
+                  />
+                </DetailGrid>
+              </DetailSection>
             </>
           )}
         </TabsContent>
@@ -440,60 +472,55 @@ export function ManagedWalletsDetailPage() {
             })}
           </p>
           {/* Query Form */}
-          <div className="rounded-lg border bg-card p-4">
-            <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <div>
+          <QueryForm
+            fields={[
+              <div key="wallet-address" className="space-y-1.5">
                 <label className="text-sm font-medium">{t('key_management_0076')}</label>
                 <Input
                   placeholder={t('key_management_0089')}
                   {...register('walletAddress')}
                 />
-              </div>
-              <div>
+              </div>,
+              <div key="key-id" className="space-y-1.5">
                 <label className="text-sm font-medium">{t('key_management_0074')}</label>
                 <Input
                   placeholder={t('key_management_0090')}
                   {...register('keyId')}
                 />
-              </div>
-              <div>
-                <label className="text-sm font-medium">
-                  {t('key_management_creation_date_start')}
-                </label>
-                <Input type="date" {...register('creationStartDate')} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">
-                  {t('key_management_creation_date_end')}
-                </label>
-                <Input type="date" {...register('creationEndDate')} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">{t('key_management_0078')}</label>
-                <Input
-                  placeholder={t('key_management_0091')}
-                  {...register('transactionHash')}
-                />
-              </div>
+              </div>,
               <FormSelect
+                key="status"
                 name="status"
                 control={control}
                 label={t('key_management_0003')}
                 options={rotationStatusOptions}
                 placeholder={t('PUB_All')}
-              />
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button onClick={handleHistoryQuery}>{t('PUB_Query')}</Button>
-              <Button variant="outline" onClick={handleHistoryReset}>
-                {t('PUB_Reset')}
-              </Button>
-            </div>
-          </div>
+              />,
+            ]}
+            advancedFields={[
+              <FormDateRangePicker
+                key="creation-date"
+                startName="creationStartDate"
+                endName="creationEndDate"
+                control={control}
+                label={t('key_management_0002')}
+              />,
+              <div key="transaction-hash" className="space-y-1.5">
+                <label className="text-sm font-medium">{t('key_management_0078')}</label>
+                <Input
+                  placeholder={t('key_management_0091')}
+                  {...register('transactionHash')}
+                />
+              </div>,
+            ]}
+            onQuery={handleHistoryQuery}
+            onReset={handleHistoryReset}
+            queryLabel={t('PUB_Query')}
+            resetLabel={t('PUB_Reset')}
+          />
 
           {/* History Table */}
-          <div className="rounded-lg border bg-card p-4">
+          <Card className="p-4">
             {historyIsError && (
               <Alert variant="destructive" className="mb-4">
                 <div className="flex items-center justify-between gap-4">
@@ -525,10 +552,7 @@ export function ManagedWalletsDetailPage() {
                   setHistoryPage({ pageNum: 1, pageSize: size }),
               }}
             />
-            <div className="mt-6 flex justify-end">
-              <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
-            </div>
-          </div>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

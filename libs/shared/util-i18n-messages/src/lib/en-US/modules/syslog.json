@@ -12,8 +12,6 @@
   "field": {
     "logId": "Log ID",
     "logTime": "Log Time",
-    "logTimeFrom": "Log Time From",
-    "logTimeTo": "Log Time To",
     "userName": "User",
     "module": "Module",
     "operationType": "Operation Type",

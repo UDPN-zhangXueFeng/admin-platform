@@ -94,7 +94,7 @@ export const ALL_VALUE = 'all';
 // ── 权限码（共 10 个）───────────────────────────────────────────────────────
 export const INTEREST_PERMISSIONS = {
   CREATE_POLICY: '1533a5824226411c902baf02a632b56f',
-  VIEW_POLICY: 'a572edeedf814f4fca76e40acf822c11b',
+  VIEW_POLICY: 'a572edeedf814f3ca76e40acf822c11b',
   EDIT_POLICY: '7d94af987806492b8c2dbe604847da6e',
   DISABLE_POLICY: '5bf84826d7da49a6a0a650613935d32c',
   ENABLE_POLICY: 'a6fc701d44f94121b0b9d0dcc698cea7',

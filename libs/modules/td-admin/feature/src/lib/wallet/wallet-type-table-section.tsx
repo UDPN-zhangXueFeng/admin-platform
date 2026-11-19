@@ -4,15 +4,19 @@ import * as React from 'react';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
+import { toast } from 'sonner';
 import {
   Button,
+  Card,
   DataTable,
 } from '@myorg/shared/ui';
 import { useAuth } from '@myorg/shared/util-auth';
-import { formatAdminTimestamp } from '../format-admin-time';
+import { formatAdminDate, formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
-import { WalletStatusBadge } from '.';
+import { ApprovalStatusBadge } from '../approval-manage';
 import {
+  getCommonResource,
+  openCommonResource,
   useWalletTypeTableQuery,
   type StablecoinSearchOption,
   type WalletTypeTableRow,
@@ -22,23 +26,10 @@ import {
   accountTypeMessageKey,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
-  formatLimit,
+  formatLimitAmount,
   toMillis,
-  WALLET_PERMISSIONS,
+  WALLET_TYPE_ACTION_PERMISSIONS,
 } from '.';
-
-
-/**
- * `NEXT_PUBLIC_FILE_ID` PDF 下载基址（源 sftp/download blob）。
- *
- * KNOWN LIMITATION：data-access 未暴露 resources/search + sftp/download blob 端点，
- * 且 apiClient 只解包 `{code,message,data}` 信封（无 responseType=blob 能力）。
- * 环境未配置 `NEXT_PUBLIC_FILE_ID` 时，API 文档按钮降级为 disabled（不崩）。
- * 后续接入需：① data-access 新增 getResources/getDownloadBlob；② apiClient 支持
- * responseType=blob。详见迁移文档 §6 已知限制。
- */
-const FILE_ID_BASE = process.env.NEXT_PUBLIC_FILE_ID ?? '';
-const PDF_DOWNLOAD_AVAILABLE = Boolean(FILE_ID_BASE);
 
 export interface WalletTypeTableSectionProps {
   /** 当前 stablecoin（提供 issueType / stablecoinId 等上下文）。 */
@@ -58,9 +49,9 @@ export interface WalletTypeTableSectionProps {
  *     最大赎回 / 创建人 / 创建时间 / 状态。
  *   - MMF（issueType === 20）：name / walletTypeCode / 基金类型 / 风险 / 净值 /
  *     成立日 / 创建人 / 创建时间 / 状态。
- * - 状态列 WalletStatusBadge（wallet-type 族：1/5/10/15/20/25）。
+ * - 状态列 ApprovalStatusBadge（task 族：common_task_status_1/3/5/10/15/20/25）。
  * - 表头 Add 按钮（跳新增路径，按 issueType 分流 mff/常规）。
- * - MMF 表头额外 API 文档按钮（PDF 下载，依赖 NEXT_PUBLIC_FILE_ID，无则 disabled）。
+ * - MMF 表头额外 API 文档按钮（resources/search + sftp/download）。
  * - 行操作 View：跳 `/approval-manage/view?id=taskId&busCode=businessCode`（源 actionClick
  *   View 忠实保留——表行是审批记录维度，非钱包类型详情）。
  * - stablecoin 未选 / state===2 时：表头写操作禁用；stablecoinId 缺失则 hook 不请求。
@@ -70,13 +61,9 @@ export function WalletTypeTableSection({
 }: WalletTypeTableSectionProps): React.JSX.Element {
   const t = useTranslations('modules.wallet');
   const router = useRouter();
-  const authPermissions = useAuth().permissions ?? new Set<string>();
-
-  const canEdit =
-    authPermissions.size === 0 || authPermissions.has(WALLET_PERMISSIONS.WalletTypeEdit);
-  const canViewDetail =
-    authPermissions.size === 0 ||
-    authPermissions.has(WALLET_PERMISSIONS.WalletTypeDetail);
+  const { permissions } = useAuth();
+  const canAdd = permissions.has(WALLET_TYPE_ACTION_PERMISSIONS.add);
+  const canViewDetail = permissions.has(WALLET_TYPE_ACTION_PERMISSIONS.viewRecord);
 
   const isMmf = stablecoin?.issueType === 20;
   const stablecoinDisabled = stablecoin?.state === 2;
@@ -86,11 +73,22 @@ export function WalletTypeTableSection({
     pageNum: 1,
     pageSize: DEFAULT_PAGE_SIZE,
   });
+  const [apiDocLoading, setApiDocLoading] = React.useState(false);
 
-  // stablecoin 切换时重置到第 1 页（源切 tab 后表重新加载）。
-  React.useEffect(() => {
-    setPagination({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
-  }, [stablecoinId]);
+  const handleOpenApiDoc = React.useCallback(async () => {
+    setApiDocLoading(true);
+    try {
+      const resource = await getCommonResource(WALLET_TYPE_ACTION_PERMISSIONS.add);
+      if (resource?.busId === undefined || resource.busType === undefined) {
+        throw new Error('API document resource is not configured');
+      }
+      await openCommonResource(resource.busId, resource.busType);
+    } catch {
+      toast.error(t('walletType.apiDocFailed'));
+    } finally {
+      setApiDocLoading(false);
+    }
+  }, [t]);
 
   const params = React.useMemo<
     WalletListParams<Record<string, unknown>>
@@ -150,6 +148,64 @@ export function WalletTypeTableSection({
           ),
         },
         {
+          id: 'fundType',
+          header: t('walletType.column.fundType'),
+          cell: ({ row }) => {
+            const fundType = row.original.fundType;
+            return (
+              <span>
+                {fundType
+                  ? t(`walletType.mmfFundType.${fundType}` as never)
+                  : EMPTY_DISPLAY}
+              </span>
+            );
+          },
+        },
+        {
+          id: 'riskLevel',
+          header: t('walletType.column.riskLevel'),
+          cell: ({ row }) => {
+            const riskLevel = row.original.riskLevel;
+            return (
+              <span>
+                {riskLevel
+                  ? t(`walletType.mmfRiskLevel.${riskLevel}` as never)
+                  : EMPTY_DISPLAY}
+              </span>
+            );
+          },
+        },
+        {
+          id: 'fundAssetValue',
+          header: t('walletType.column.fundAssetValue'),
+          cell: ({ row }) => {
+            const value = row.original.fundAssetValue;
+            if (value === undefined || value === null || value === '') {
+              return <span>{EMPTY_DISPLAY}</span>;
+            }
+            const symbol = row.original.currencySymbol ?? '';
+            return <span>{`${value} ${symbol}`.trim()}</span>;
+          },
+        },
+        {
+          id: 'fundInceptionTime',
+          header: t('walletType.column.fundInceptionTime'),
+          cell: ({ row }) => (
+            <span>
+              {formatAdminDate(
+                toMillis(Number(row.original.fundInceptionTime))
+              )}
+            </span>
+          ),
+        },
+        {
+          id: 'createUser',
+          header: t('walletType.column.creator'),
+          cell: ({ row }) => (
+            <span>{row.original.createUser || EMPTY_DISPLAY}</span>
+          ),
+        },
+        {
           id: 'createTime',
           header: t('common.createTime'),
           cell: ({ row }) => (
@@ -162,8 +218,8 @@ export function WalletTypeTableSection({
           id: 'state',
           header: t('common.status'),
           cell: ({ row }) => (
-            <WalletStatusBadge
-              family="wallet-type"
+            <ApprovalStatusBadge
+              family="task"
               status={row.original.state}
             />
           ),
@@ -196,7 +252,11 @@ export function WalletTypeTableSection({
         id: 'accountType',
         header: t('walletType.column.accountType'),
         cell: ({ row }) => {
-          const key = accountTypeMessageKey(row.original.accountType);
+          const accountType = row.original.accountType;
+          if (accountType === 0) {
+            return <span>{t('accountType.0')}</span>;
+          }
+          const key = accountTypeMessageKey(accountType);
           return <span>{key ? t(key as never) : EMPTY_DISPLAY}</span>;
         },
       },
@@ -204,28 +264,28 @@ export function WalletTypeTableSection({
         id: 'maxTxCountPer',
         header: t('walletType.column.maxTxCountPer'),
         cell: ({ row }) => (
-          <span>{formatLimit(Number(row.original.maxTxCountPer))}</span>
+          <span>{formatLimitAmount(Number(row.original.maxTxCountPer))}</span>
         ),
       },
       {
         id: 'maxTxCountDaily',
         header: t('walletType.column.maxTxCountDaily'),
         cell: ({ row }) => (
-          <span>{formatLimit(Number(row.original.maxTxCountDaily))}</span>
+          <span>{formatLimitAmount(Number(row.original.maxTxCountDaily))}</span>
         ),
       },
       {
         id: 'stablecoinCount',
         header: t('walletType.column.stablecoinCount'),
         cell: ({ row }) => (
-          <span>{formatLimit(Number(row.original.stablecoinCount))}</span>
+          <span>{formatLimitAmount(Number(row.original.stablecoinCount))}</span>
         ),
       },
       {
         id: 'minimumBalance',
         header: t('walletType.column.minimumBalance'),
         cell: ({ row }) => (
-          <span>{formatLimit(Number(row.original.minimumBalance))}</span>
+          <span>{formatLimitAmount(Number(row.original.minimumBalance))}</span>
         ),
       },
       {
@@ -233,7 +293,7 @@ export function WalletTypeTableSection({
         header: t('walletType.column.maximumRedeemLimit'),
         cell: ({ row }) => (
           <span>
-            {formatLimit(
+            {formatLimitAmount(
               Number(
                 (row.original as WalletTypeTableRow & {
                   maximumRedeemLimit?: number;
@@ -263,8 +323,8 @@ export function WalletTypeTableSection({
         id: 'state',
         header: t('common.status'),
         cell: ({ row }) => (
-          <WalletStatusBadge
-            family="wallet-type"
+          <ApprovalStatusBadge
+            family="task"
             status={row.original.state}
           />
         ),
@@ -292,33 +352,28 @@ export function WalletTypeTableSection({
   }, [t, isMmf, canViewDetail, router]);
 
   return (
-    <div className="rounded-lg border bg-card shadow-sm">
+    <Card>
       <div className="flex items-center justify-between border-b px-6 py-3">
         <div className="text-sm font-semibold">
           {isMmf ? t('walletType.mmfRecords') : t('walletType.records')}
         </div>
-        {stablecoin && !stablecoinDisabled ? (
+        {stablecoin && !stablecoinDisabled && canAdd ? (
           <div className="flex gap-2">
             {isMmf ? (
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!PDF_DOWNLOAD_AVAILABLE || !canEdit}
+                disabled={apiDocLoading}
                 onClick={() => {
-                  // KNOWN LIMITATION：PDF 下载需 resources/search + sftp/blob，
-                  // data-access 未建模、apiClient 无 blob 能力。环境配置 FILE_ID 后
-                  // 方可启用（task §6）。当前仅保留 UI 入口，点击无副作用。
-                  if (!PDF_DOWNLOAD_AVAILABLE) return;
+                  void handleOpenApiDoc();
                 }}
               >
                 {t('walletType.action.apiDoc')}
               </Button>
             ) : null}
-            {canEdit ? (
               <Button size="sm" onClick={() => router.push(buildAddPath())}>
                 {t('walletType.action.add')}
               </Button>
-            ) : null}
           </div>
         ) : null}
       </div>
@@ -327,6 +382,8 @@ export function WalletTypeTableSection({
           <div className="py-8 text-center text-sm text-muted-foreground">
             {t('walletType.invalidStablecoin')}
           </div>
+        ) : listResult.isError ? (
+          <p role="alert" className="text-sm text-destructive">{t('walletType.loadFailed')}</p>
         ) : (
           <DataTable
             columns={columns}
@@ -345,6 +402,6 @@ export function WalletTypeTableSection({
           />
         )}
       </div>
-    </div>
+    </Card>
   );
 }

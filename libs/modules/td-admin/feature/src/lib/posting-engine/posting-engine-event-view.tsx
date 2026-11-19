@@ -1,515 +1,209 @@
 'use client';
 
-import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { ColumnDef } from '@tanstack/react-table';
-import {
-  Button,
-  DataTable,
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@myorg/shared/ui';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Card, CopyableEllipsisText, DataTable, DetailField, DetailGrid, DetailSection, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { usePostingEventDetailQuery, type PostingEvent } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { PostingEngineHistory } from './posting-engine-history';
+import { PostingStatusBadge } from './posting-status-badge';
+import { PostingEventFields } from './posting-information';
+import { formatPostingDate } from './posting-engine-dates';
 import {
-  usePostingEventDetailQuery,
-  usePostingHistoryListQuery,
-  type PostingHistoryItem,
-} from '@myorg/modules/td-admin/data-access';
-import { PostingStatusBadge } from '.';
-import { createRowActionsColumn } from '../row-actions';
-import {
-  DEFAULT_PAGE_SIZE,
-  EMPTY_DISPLAY,
-  directionLabel,
-  formatAccountLabel,
-  getSourceEventTypeMessageKey,
-  mappingMethodMessageKey,
-  resolveTokenTypeMessageKey,
-  splitEntryDirection,
-  toMillis,
-} from '.';
+  DEFAULT_AMOUNT_EXPRESSION, EMPTY_DISPLAY, POSTING_ENGINE_PATH, parsePostingId, getSourceEventTypeMessageKey,
+  directionLabel, formatAccountLabel, mappingMethodMessageKey, resolveTokenTypeMessageKey, toMillis,
+} from './posting-engine.constants';
 
 const BASIC_TAB = 'basic-information';
 const HISTORY_TAB = 'version-history';
 
-function parseId(raw?: string | null): number | undefined {
-  if (!raw) return undefined;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
-function formatTs(ts?: number): string {
-  return formatAdminTimestamp(toMillis(ts));
-}
-
-interface KvRow {
-  key: string;
-  label: string;
-  value: React.ReactNode;
-}
-
-interface EntryTemplateRow {
-  id: string;
-  drCr: string;
-  account: string;
-  method: string;
-  value: string;
-}
-
-/**
- * 事件详情（迁移自 view.tsx）。
- *
- * 两 tab：Basic Information（事件元信息 + 事务事件字段 chips + 分录模板表）+
- * Version History（版本列表 + 行查看 Drawer + 审批跳转）。
- */
-export function PostingEngineEventView({
-  postingEventIdRaw,
-}: {
+export function PostingEngineEventView({ postingEventIdRaw, initialTab }: {
   postingEventIdRaw?: string | null;
+  initialTab?: string | null;
 }) {
   const t = useTranslations('modules.posting-engine');
   const router = useRouter();
-  const postingEventId = parseId(postingEventIdRaw);
-
-  const { data: event, isLoading } =
-    usePostingEventDetailQuery(postingEventId);
-
-  const [historyPage, setHistoryPage] = React.useState({
-    pageNum: 1,
-    pageSize: DEFAULT_PAGE_SIZE,
-  });
-  const historyList = usePostingHistoryListQuery(
-    {
-      pageNum: historyPage.pageNum,
-      pageSize: historyPage.pageSize,
-      filters: { postingEventId: postingEventId ?? 0 },
-    },
-    Boolean(postingEventId)
-  );
-  const history = historyList.data?.rows ?? [];
-  const historyTotal = historyList.data?.page?.total ?? 0;
-
-  const [selected, setSelected] = React.useState<PostingHistoryItem | null>(
-    null
-  );
-
-  const basicRows = React.useMemo<KvRow[]>(() => {
-    if (!event) return [];
-    const sourceKey = getSourceEventTypeMessageKey(event.eventType);
-    const tokenTypeKey = resolveTokenTypeMessageKey(event.tokenType);
-    return [
-      {
-        key: 'sourceEventType',
-        label: t('detail.sourceEventType'),
-        value: sourceKey ? t(sourceKey) : EMPTY_DISPLAY,
-      },
-      {
-        key: 'eventCode',
-        label: t('detail.eventCode'),
-        value: event.eventCode || EMPTY_DISPLAY,
-      },
-      {
-        key: 'versionId',
-        label: t('detail.versionId'),
-        value: event.versionId || EMPTY_DISPLAY,
-      },
-      {
-        key: 'status',
-        label: t('field.status'),
-        value: <PostingStatusBadge status={event.status} />,
-      },
-      {
-        key: 'effectiveDate',
-        label: t('detail.effectiveDate'),
-        value: formatTs(event.effectiveDate),
-      },
-      {
-        key: 'currency',
-        label: t('field.currency'),
-        value: event.currencyCode || EMPTY_DISPLAY,
-      },
-      {
-        key: 'tokenType',
-        label: t('field.tokenType'),
-        value: tokenTypeKey ? t(tokenTypeKey) : EMPTY_DISPLAY,
-      },
-      {
-        key: 'bookName',
-        label: t('field.bookName'),
-        value: event.bookName || EMPTY_DISPLAY,
-      },
-      {
-        key: 'reserveAsset',
-        label: t('detail.reserveAsset'),
-        value: event.reserveAssetName || EMPTY_DISPLAY,
-      },
-      {
-        key: 'lastRuleUpdate',
-        label: t('field.lastRuleUpdate'),
-        value: event.lastRuleUpdate || EMPTY_DISPLAY,
-      },
-      {
-        key: 'creator',
-        label: t('detail.creator'),
-        value: event.createdBy || EMPTY_DISPLAY,
-      },
-      {
-        key: 'createdOn',
-        label: t('detail.updateTime'),
-        value: formatTs(event.createdOn),
-      },
-    ];
-  }, [event, t]);
-
-  const eventFields = event?.normalizedTargetFields ?? [];
-
-  const entryRows = React.useMemo<EntryTemplateRow[]>(() => {
-    return (event?.mappings ?? [])
-      .slice()
-      .sort(
-        (a, b) =>
-          (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
-          (a.direction ?? 0) - (b.direction ?? 0)
-      )
-      .map((m, index) => {
-        const methodKey = mappingMethodMessageKey(m.mappingMethod);
-        return {
-          id: String(index),
-          drCr: directionLabel(m.direction) || EMPTY_DISPLAY,
-          account: formatAccountLabel(m.accountCode, m.accountName) || EMPTY_DISPLAY,
-          method: methodKey ? t(methodKey) : EMPTY_DISPLAY,
-          value: m.amountExpression || EMPTY_DISPLAY,
-        };
-      });
-  }, [event?.mappings, t]);
-
-  const historyColumns = React.useMemo<ColumnDef<PostingHistoryItem>[]>(
-    () => [
-      {
-        id: 'sourceEventType',
-        header: t('versionHistory.sourceEventType'),
-        cell: ({ row }) => (
-          <span>{row.original.sourceEventType || EMPTY_DISPLAY}</span>
-        ),
-      },
-      {
-        accessorKey: 'versionId',
-        header: t('versionHistory.versionId'),
-        cell: ({ row }) => (
-          <span>{row.original.versionId || EMPTY_DISPLAY}</span>
-        ),
-      },
-      {
-        id: 'entryDirection',
-        header: t('versionHistory.entryDirection'),
-        cell: ({ row }) => {
-          const lines = splitEntryDirection(row.original.entryDirection);
-          if (!lines.length)
-            return <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>;
-          return (
-            <div className="space-y-0.5">
-              {lines.map((line, index) => (
-                <div key={index} className="text-xs">
-                  {line}
-                </div>
-              ))}
-            </div>
-          );
-        },
-      },
-      {
-        id: 'effectiveDate',
-        header: t('versionHistory.effectiveDate'),
-        cell: ({ row }) => <span>{formatTs(row.original.effectiveDate)}</span>,
-      },
-      {
-        id: 'createdBy',
-        header: t('versionHistory.createdBy'),
-        cell: ({ row }) => (
-          <span>{row.original.createdBy || EMPTY_DISPLAY}</span>
-        ),
-      },
-      {
-        id: 'createdOn',
-        header: t('versionHistory.createdOn'),
-        cell: ({ row }) => <span>{formatTs(row.original.createdOn)}</span>,
-      },
-      {
-        id: 'status',
-        header: t('versionHistory.status'),
-        cell: ({ row }) => <PostingStatusBadge status={row.original.status} />,
-      },
-      createRowActionsColumn<PostingHistoryItem>({
-        detail: {
-          label: t('action.view'),
-          onClick: (row) => setSelected(row),
-        },
-        menu: (row) =>
-          row.taskId && row.busCode
-            ? [
-                {
-                  label: t('action.approval'),
-                  onClick: (item) =>
-                    router.push(
-                      `/approval-manage/view?id=${item.taskId}&busCode=${item.busCode}`
-                    ),
-                },
-              ]
-            : [],
-      }),
-    ],
-    [t, router]
-  );
-
-  if (!postingEventId) {
-    return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
-    );
-  }
+  const id = parsePostingId(postingEventIdRaw);
+  const activeTab = initialTab === HISTORY_TAB ? HISTORY_TAB : BASIC_TAB;
+  const { data: event, isLoading, isError } = usePostingEventDetailQuery(id);
 
   return (
     <div className="space-y-4">
-      <Tabs defaultValue={BASIC_TAB}>
-        <TabsList>
-          <TabsTrigger value={BASIC_TAB}>
-            {t('detail.basicInformation')}
-          </TabsTrigger>
-          <TabsTrigger value={HISTORY_TAB}>
-            {t('detail.versionHistory')}
-          </TabsTrigger>
-        </TabsList>
+      <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('detail.eventTitle')} />
+      {!id ? <Card className="p-6">{t('detail.invalidId')}</Card> : (
+        <Tabs value={activeTab} onValueChange={(tab) => router.replace(`${POSTING_ENGINE_PATH}/view?id=${id}&tab=${tab}`, { scroll: false })}>
+          <TabsList>
+            <TabsTrigger value={BASIC_TAB}>{t('detail.basicInformation')}</TabsTrigger>
+            <TabsTrigger value={HISTORY_TAB}>{t('detail.versionHistory')}</TabsTrigger>
+          </TabsList>
+          <TabsContent value={BASIC_TAB}>
+            {event ? (
+              <EventBasicInformation event={event} />
+            ) : (
+              <DetailSection
+                title={t('detail.basicInformation')}
+                loading={isLoading}
+                skeleton="fields"
+              >
+                <p
+                  role={isError ? 'alert' : undefined}
+                  className={
+                    isError
+                      ? 'text-sm text-destructive'
+                      : 'text-sm text-muted-foreground'
+                  }
+                >
+                  {t(isError ? 'loadError' : 'empty')}
+                </p>
+              </DetailSection>
+            )}
+          </TabsContent>
+          <TabsContent value={HISTORY_TAB}>
+            <PostingEngineHistory key={id} postingEventId={id} tokenType={event?.tokenType} />
+          </TabsContent>
+        </Tabs>
+      )}
+    </div>
+  );
+}
 
-        <TabsContent value={BASIC_TAB}>
-          <div className="space-y-4">
-            <section className="rounded-lg border bg-card shadow-sm">
-              <div className="border-b px-6 py-3 text-sm font-semibold">
-                {t('detail.basicInformation')}
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full table-fixed border-collapse text-sm">
-                  <tbody>
-                    {isLoading || !basicRows.length ? (
-                      <tr>
-                        <td className="px-4 py-8 text-center text-muted-foreground">
-                          {isLoading ? '' : t('empty')}
-                        </td>
-                      </tr>
-                    ) : (
-                      basicRows.map((row) => (
-                        <tr key={row.key}>
-                          <td className="w-[34%] border bg-muted/30 px-4 py-3 font-medium">
-                            {row.label}
-                          </td>
-                          <td className="break-all border px-4 py-3">
-                            {row.value}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+function EventBasicInformation({ event }: { event: PostingEvent }) {
+  const t = useTranslations('modules.posting-engine');
+  const source = event.sourceEventType || event.eventType;
+  const sourceKey = getSourceEventTypeMessageKey(source, event.tokenType);
+  const tokenTypeKey = resolveTokenTypeMessageKey(event.tokenType);
+  const copy = (value?: string) => <CopyableEllipsisText value={value} copyLabel={t('copy')} showCopyIcon />;
+  const fields = (event.normalizedTargetFields ?? [])
+    .map(({ targetField, sourceField }) => targetField || sourceField)
+    .filter((value): value is string => Boolean(value));
 
-            <section className="rounded-lg border bg-card shadow-sm">
-              <div className="border-b px-6 py-3 text-sm font-semibold">
-                {t('detail.transactionEventFields')}
-              </div>
-              <div className="flex flex-wrap gap-2 p-4">
-                {eventFields.length ? (
-                  eventFields.map((field, index) => {
-                    const fieldLabel = field.targetField || field.sourceField;
-                    return (
-                      <span
-                        key={`${fieldLabel ?? ''}-${index}`}
-                        className="inline-flex items-center rounded-md border bg-muted/40 px-2 py-1 text-xs"
-                      >
-                        <span className="font-medium">
-                          {fieldLabel || EMPTY_DISPLAY}
-                        </span>
-                      </span>
-                    );
-                  })
-                ) : (
-                  <span className="text-sm text-muted-foreground">
-                    {t('empty')}
-                  </span>
-                )}
-              </div>
-            </section>
+  const mappings = (event.mappings ?? []).slice().sort((a, b) =>
+    (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || (a.direction ?? 0) - (b.direction ?? 0)
+  );
 
-            <section className="rounded-lg border bg-card shadow-sm">
-              <div className="border-b px-6 py-3 text-sm font-semibold">
-                {t('detail.entryTemplate')}
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-muted/30 text-left">
-                      <th className="border px-4 py-2 font-medium">
-                        {t('edit.drCr')}
-                      </th>
-                      <th className="border px-4 py-2 font-medium">
-                        {t('edit.account')}
-                      </th>
-                      <th className="border px-4 py-2 font-medium">
-                        {t('edit.method')}
-                      </th>
-                      <th className="border px-4 py-2 font-medium">
-                        {t('edit.value')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {entryRows.length ? (
-                      entryRows.map((row) => (
-                        <tr key={row.id}>
-                          <td className="border px-4 py-2">{row.drCr}</td>
-                          <td className="border px-4 py-2">{row.account}</td>
-                          <td className="border px-4 py-2">{row.method}</td>
-                          <td className="border px-4 py-2">{row.value}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan={4}
-                          className="border px-4 py-8 text-center text-muted-foreground"
-                        >
-                          {t('empty')}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </div>
-        </TabsContent>
+  interface EntryTemplateRow {
+    id: string;
+    drCr: string;
+    account: string;
+    method: string;
+    value: string;
+  }
 
-        <TabsContent value={HISTORY_TAB}>
-          <section className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              {t('detail.versionHistory')}
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={historyColumns}
-                data={history}
-                isLoading={historyList.isLoading || historyList.isFetching}
-                emptyMessage={t('detail.noVersion')}
-                pagination={{
-                  page: historyPage.pageNum,
-                  pageSize: historyPage.pageSize,
-                  total: historyTotal,
-                  onPageChange: (page) =>
-                    setHistoryPage((prev) => ({ ...prev, pageNum: page })),
-                  onPageSizeChange: (size) =>
-                    setHistoryPage({ pageNum: 1, pageSize: size }),
-                }}
+  const entryRows: EntryTemplateRow[] = mappings.map((mapping, index) => {
+    const methodKey = mappingMethodMessageKey(mapping.mappingMethod);
+    return {
+      id: String(index),
+      drCr: directionLabel(mapping.direction) || EMPTY_DISPLAY,
+      account:
+        formatAccountLabel(mapping.accountCode, mapping.accountName) ||
+        EMPTY_DISPLAY,
+      method: methodKey ? t(methodKey) : EMPTY_DISPLAY,
+      value: mapping.amountExpression || DEFAULT_AMOUNT_EXPRESSION,
+    };
+  });
+
+  const entryColumns: ColumnDef<EntryTemplateRow>[] = [
+    { accessorKey: 'drCr', header: t('edit.drCr') },
+    { accessorKey: 'account', header: t('edit.account') },
+    { accessorKey: 'method', header: t('edit.method') },
+    { accessorKey: 'value', header: t('edit.value') },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <DetailSection title={t('detail.basicInformation')}>
+        <DetailGrid>
+          <DetailField
+            label={t('detail.eventCode')}
+            value={
+              <CopyableEllipsisText
+                value={event.eventCode}
+                copyLabel={t('copy')}
+                maxWidth={480}
               />
+            }
+          />
+          <DetailField
+            label={t('field.status')}
+            value={
+              <PostingStatusBadge
+                status={event.status}
+                statusName={event.statusName}
+              />
+            }
+          />
+          <DetailField
+            label={t('detail.sourceEventType')}
+            value={
+              event.eventTypeName ||
+              (sourceKey ? t(sourceKey) : source ?? EMPTY_DISPLAY)
+            }
+          />
+          <DetailField
+            label={t('field.bookName')}
+            value={event.bookName || event.financialBookName}
+          />
+          <DetailField
+            label={t('field.bookNo')}
+            value={
+              <CopyableEllipsisText
+                value={event.bookNo || event.bookId}
+                copyLabel={t('copy')}
+                maxWidth={320}
+              />
+            }
+          />
+          <DetailField
+            label={t('field.currency')}
+            value={event.currencyCode || event.accountCurrency}
+          />
+          <DetailField
+            label={t('detail.reserveAsset')}
+            value={event.reserveAssetName}
+          />
+          <DetailField
+            label={t('field.tokenType')}
+            value={tokenTypeKey ? t(tokenTypeKey) : event.tokenType}
+          />
+          <DetailField
+            label={t('detail.creator')}
+            value={event.createdBy}
+            muted
+          />
+          <DetailField
+            label={t('versionHistory.createdOn')}
+            value={formatAdminTimestamp(toMillis(event.createTime))}
+            muted
+          />
+        </DetailGrid>
+      </DetailSection>
+      <PostingEventFields title={t('detail.transactionEventFields')} fields={fields} emptyMessage={t('empty')} />
+      <DetailSection title={t('detail.entryTemplate')}>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="text-muted-foreground">
+                {t('detail.versionId')}
+              </span>
+              {copy(event.versionId)}
             </div>
-          </section>
-        </TabsContent>
-      </Tabs>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
-
-      <Drawer
-        open={selected !== null}
-        onOpenChange={(open) => {
-          if (!open) setSelected(null);
-        }}
-      >
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>{t('detail.versionHistory')}</DrawerTitle>
-            <DrawerDescription>
-              {selected?.versionId || EMPTY_DISPLAY}
-            </DrawerDescription>
-          </DrawerHeader>
-          {selected ? (
-            <div className="overflow-x-auto px-6 pb-8">
-              <table className="w-full table-fixed border-collapse text-sm">
-                <tbody>
-                  {[
-                    {
-                      label: t('versionHistory.sourceEventType'),
-                      value: selected.sourceEventType || EMPTY_DISPLAY,
-                    },
-                    {
-                      label: t('versionHistory.versionId'),
-                      value: selected.versionId || EMPTY_DISPLAY,
-                    },
-                    {
-                      label: t('versionHistory.effectiveDate'),
-                      value: formatTs(selected.effectiveDate),
-                    },
-                    {
-                      label: t('versionHistory.createdBy'),
-                      value: selected.createdBy || EMPTY_DISPLAY,
-                    },
-                    {
-                      label: t('versionHistory.createdOn'),
-                      value: formatTs(selected.createdOn),
-                    },
-                    {
-                      label: t('versionHistory.status'),
-                      value: <PostingStatusBadge status={selected.status} />,
-                    },
-                  ].map((row) => (
-                    <tr key={row.label}>
-                      <td className="w-[34%] border bg-muted/30 px-4 py-3 font-medium">
-                        {row.label}
-                      </td>
-                      <td className="break-all border px-4 py-3">{row.value}</td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <td className="border bg-muted/30 px-4 py-3 align-top font-medium">
-                      {t('versionHistory.entryDirection')}
-                    </td>
-                    <td className="border px-4 py-3">
-                      {splitEntryDirection(selected.entryDirection).length ? (
-                        <div className="space-y-0.5">
-                          {splitEntryDirection(selected.entryDirection).map(
-                            (line, index) => (
-                              <div key={index} className="text-xs">
-                                {line}
-                              </div>
-                            )
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          {EMPTY_DISPLAY}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">
+                {t('detail.effectiveDate')}
+              </span>
+              <span className="font-medium tabular-nums">
+                {formatPostingDate(event.effectiveDate)}
+              </span>
             </div>
-          ) : null}
-        </DrawerContent>
-      </Drawer>
+          </div>
+          <DataTable
+            columns={entryColumns}
+            data={entryRows}
+            emptyMessage={t('empty')}
+          />
+        </div>
+      </DetailSection>
     </div>
   );
 }

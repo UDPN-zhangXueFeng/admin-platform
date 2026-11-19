@@ -9,13 +9,14 @@ import { CircleHelp } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Button,
+  Card,
   DataTable,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@myorg/shared/ui';
-import { FormDatePicker, FormField } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import {
   useDownloadSmartContractMutation,
@@ -30,6 +31,7 @@ import {
   EMPTY_DISPLAY,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 /**
@@ -201,81 +203,74 @@ export function SmartContractListPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="smartPackageName"
-            label={t('field.smartContractName')}
-            register={register('smartPackageName')}
-            placeholder={t('field.smartContractName')}
-          />
-          <FormDatePicker
-            name="startCreateTime"
-            control={control}
-            label={t('field.createTime')}
-          />
-          <FormDatePicker
-            name="endCreateTime"
-            control={control}
-            label={t('field.createTime')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormField
+              key="smartPackageName"
+              name="smartPackageName"
+              label={t('field.smartContractName')}
+              register={register('smartPackageName')}
+              placeholder={t('field.smartContractName')}
+            />,
+            <FormDateRangePicker
+              key="createTime"
+              startName="startCreateTime"
+              endName="endCreateTime"
+              control={control}
+              label={t('field.createTime')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">
-            {t('smartContract.title')}
-          </div>
-          {/*
-            顶部「新增」按钮（SC_ADD_BTN）：
-            源码 CustomTableTitle Add 分支有 limit + Tooltip（blockchain_0013），
-            但 actionClick 的 switch 无 'Add' case → 点击无效果（信息按钮，照搬）。
-            见迁移文档第 8 章「smart-contract 新增按钮无 actionClick」。
-          */}
-          <PermissionGuard permission={BLOCKCHAIN_PERMISSIONS.SC_ADD_BTN}>
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button type="button" variant="link" className="h-auto p-0">
-                    <span className="flex items-center">
-                      {t('action.add')}
-                      <CircleHelp className="ml-2 h-4 w-4" aria-hidden="true" />
-                    </span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t('blockchain_0013')}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </PermissionGuard>
+      <Card><div className="flex justify-between border-b px-6 py-3">
+        <div className="text-sm font-semibold">
+          {t('smartContract.title')}
         </div>
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (p) =>
-                setPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
-        </div>
+        {/*
+          顶部「新增」按钮（SC_ADD_BTN）：
+          源码 CustomTableTitle Add 分支有 limit + Tooltip（blockchain_0013），
+          但 actionClick 的 switch 无 'Add' case → 点击无效果（信息按钮，照搬）。
+          见迁移文档第 8 章「smart-contract 新增按钮无 actionClick」。
+        */}
+        <PermissionGuard permission={BLOCKCHAIN_PERMISSIONS.SC_ADD_BTN}>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" variant="link" className="h-auto p-0">
+                  <span className="flex items-center">
+                    {t('action.add')}
+                    <CircleHelp className="ml-2 h-4 w-4" aria-hidden="true" />
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('blockchain_0013')}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </PermissionGuard>
       </div>
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (p) =>
+              setPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
     </div>
   );
 }

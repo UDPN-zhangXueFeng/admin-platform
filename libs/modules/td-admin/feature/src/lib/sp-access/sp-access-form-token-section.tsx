@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Checkbox, Input, Label, Switch } from '@myorg/shared/ui';
+import { Card, Checkbox, Input, Label, Switch } from '@myorg/shared/ui';
 import type { SpAccessTypeOption, SpAccessWalletRule } from '@myorg/modules/td-admin/data-access';
 import { buildPermissionKey, type TokenConfigState } from './sp-access-form-utils';
 
@@ -55,6 +55,7 @@ export function SpAccessFormTokenSection({
   const renderPermissions = (key: string, config: TokenConfigState, field: 'apiPermissionKeys' | 'contractPermissionKeys') => (
     <div className="space-y-3 rounded-md border p-4">
       <p className="text-sm font-medium">{field === 'apiPermissionKeys' ? t('sp_access_0064') : t('sp_access_0047')}</p>
+      <p className="text-xs text-muted-foreground">{t('sp_access_0121')}</p>
       {typeOptions.map((typeOption) => (
         <div key={`${field}-${typeOption.accessConfId}`} className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">{typeOption.name ?? t('sp_access_0046')}</p>
@@ -129,7 +130,7 @@ export function SpAccessFormTokenSection({
   };
 
   return (
-    <section className="rounded-lg border bg-card p-6">
+    <Card className="p-6">
       <div className="mb-1 flex items-center justify-between gap-3"><h2 className="text-lg font-semibold">{t('sp_access_0063')}</h2><span className="text-sm text-muted-foreground">{t('sp_access_0184')}: {selectedTokenCount}</span></div>
       <p className="mb-4 text-sm text-muted-foreground">{t('sp_access_0043')}</p>
       <div className="grid gap-6 lg:grid-cols-[minmax(220px,1fr)_minmax(0,3fr)]">
@@ -153,6 +154,6 @@ export function SpAccessFormTokenSection({
           {selectedTokenCount === 0 ? <p className="text-sm text-muted-foreground">{t('sp_access_0196')}</p> : <div className="space-y-6">{walletRules.map(renderTokenCard)}</div>}
         </div>
       </div>
-    </section>
+    </Card>
   );
 }

@@ -1,26 +1,25 @@
 /**
  * Journal Entries New 共享常量与无依赖纯函数。
  *
- * 位于 `util`（最低可导入层），供 `ui` / `data-access` / `feature` 共享同一份
- * 权限码、下拉枚举与标签解析逻辑，避免循环依赖。常量值 1:1 来自源项目
+ * 常量值 1:1 来自源项目
  * `td-manage` 的 `src/pages/financial/journal-entries-new/index.tsx`。
  */
 
-/**
- * 详情查看权限 UUID（TDManage 环境下用于 `userPermission` 校验）。
- * 迁移后用于 `useAuth().permissions` 的可见性判断；权限未配置（空集）时全放开，
- * 等价于源项目非 TDManage 环境（恒为 true）。
- */
+/** 后端 UUID，仅用于 TDManage 环境下详情行操作的可见性。 */
 export const JOURNAL_ENTRIES_PERMISSIONS = {
   Detail: 'df7766a41ce44febb121870a640d3aaa',
 } as const;
+
+/** This admin defaults to TDManage unless the deployment explicitly sets a different mode. */
+export function canViewJournalDetails(environment: string | undefined, permissions: ReadonlySet<string>): boolean {
+  return (environment ?? 'TDManage') !== 'TDManage' || permissions.has(JOURNAL_ENTRIES_PERMISSIONS.Detail);
+}
 
 /** 列表分页大小（源项目 `DEFAULT_PAGE_SIZE`）。 */
 export const DEFAULT_PAGE_SIZE = 10;
 
 /**
- * 固定 token type 下拉选项（源项目 `resolveTokenTypeLabelKey` 仅对 1/5 有文案）。
- * 与 chart-of-accounts 的 `FIXED_TOKEN_TYPES` 语义一致。
+ * Token Type 过滤范围及已知列表标签；选项名称和状态始终从接口读取。
  */
 export const FIXED_TOKEN_TYPES = [1, 5] as const;
 
@@ -66,8 +65,8 @@ export function resolveTokenTypeMessageKey(
  */
 export function resolveTxTypeMessageKey(
   txType?: number | null
-): `transactionType.${number}` | undefined {
-  if (txType && txType >= 1 && txType <= 7) {
+): `transactionType.${1 | 2 | 3 | 4 | 5 | 6 | 7}` | undefined {
+  if (txType === 1 || txType === 2 || txType === 3 || txType === 4 || txType === 5 || txType === 6 || txType === 7) {
     return `transactionType.${txType}`;
   }
   return undefined;

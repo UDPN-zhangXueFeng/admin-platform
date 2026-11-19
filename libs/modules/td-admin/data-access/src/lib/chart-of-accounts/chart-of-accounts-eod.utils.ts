@@ -1,17 +1,13 @@
 /**
  * Chart of Accounts 详情页 EOD 数据转换。
  *
- * 1:1 迁移自源项目 `view/utils.ts` 的 EOD 部分，适配：Dayjs → date-fns +
- * epoch ms（`parseDateToMs`、`eodDateValue: number`、`getUtc8DayTimestampRange`
- * 接收 `[startMs, endMs]`）。`EodStatementRow` 注入 `id = key`。
- *
- * 时区说明：源用 dayjs `utcOffset(8)` 强制 UTC+8；这里用 date-fns 本地时区
- * `startOfDay/endOfDay` 简化（mock 数据场景可接受；接后端后若需严格 UTC+8 再换 date-fns-tz）。
+ * Date filter values represent calendar dates in the backend's UTC+8 timezone.
  */
-import { endOfDay, format, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import { formatAdminDateTime } from '@myorg/shared/util-dates';
-import { normalizeTextValue } from '.';
+import { normalizeTextValue } from './chart-of-accounts.constants';
 import { toSafeNumber } from './chart-of-accounts-detail.utils';
+import { addBookAmounts, formatBookAmount, negateBookAmount, parseBookAmount, zeroAmount } from './chart-of-accounts-money';
 import type {
   EodAccountingStatus,
   EodBalanceRowResp,
@@ -49,15 +45,10 @@ export function parseDateToMs(value?: string | number): number {
 
 /** 金额格式化（2 位小数 + 可选货币码）。 */
 export function formatMoneyWithCurrency(
-  amount?: number,
+  amount?: string | number,
   currencyCode?: string
 ): string {
-  const numeric = Number(amount || 0);
-  const formatted = numeric.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return currencyCode ? `${formatted} ${currencyCode}` : formatted;
+  return formatBookAmount(parseBookAmount(amount) ?? zeroAmount, currencyCode);
 }
 
 /** 金额格式化，空值返回 '--'。 */
@@ -65,11 +56,8 @@ export function formatOptionalMoneyWithCurrency(
   amount: unknown,
   currencyCode?: string
 ): string {
-  if (amount === undefined || amount === null || amount === '') return '--';
-  const numeric = Number(amount);
-  return Number.isFinite(numeric)
-    ? formatMoneyWithCurrency(numeric, currencyCode)
-    : '--';
+  const decimal = parseBookAmount(amount);
+  return decimal ? formatBookAmount(decimal, currencyCode) : '--';
 }
 
 /** epoch ms → kissen-admin timestamp format (`Oct 30, 2026, 14:23:45 (UTC+8)`)，无效返回 '--'。 */
@@ -89,15 +77,16 @@ function formatEodDate(ms: number): string {
   }
 }
 
-/** 日期范围 `[startMs, endMs]` → 当天起止 ms（用于 EOD 查询 / 列表过滤）。 */
+/** Convert date-picker calendar dates to inclusive UTC+8 day bounds. */
 export function getUtc8DayTimestampRange(
-  range: [number, number] | null
+  from: string,
+  to: string
 ): { startDate: number; endDate: number } | undefined {
-  if (!range?.[0] || !range?.[1]) return undefined;
-  return {
-    startDate: startOfDay(range[0]).getTime(),
-    endDate: endOfDay(range[1]).getTime(),
-  };
+  const startDate = Date.parse(`${from}T00:00:00.000+08:00`);
+  const endDate = Date.parse(`${to}T23:59:59.999+08:00`);
+  return Number.isFinite(startDate) && Number.isFinite(endDate) && startDate <= endDate
+    ? { startDate, endDate }
+    : undefined;
 }
 
 export function resolveEodAccountingStatus(value?: number): EodAccountingStatus {
@@ -116,10 +105,10 @@ interface EodDetailAccountBalanceSource {
   eodAccountBalanceId?: number;
   accountCode?: string;
   accountName?: string;
-  openingBalance?: number;
-  debitBalance?: number;
-  creditBalance?: number;
-  closingBalance?: number;
+  openingBalance?: string | number;
+  debitBalance?: string | number;
+  creditBalance?: string | number;
+  closingBalance?: string | number;
 }
 
 /** EOD 明细：账户余额 → 展示行（注入 id=key）。 */
@@ -152,6 +141,11 @@ export function toEodDetailAccountRows(
   });
 }
 
+function absoluteVariance(assets: typeof zeroAmount, liabilities: typeof zeroAmount) {
+  const difference = addBookAmounts(assets, negateBookAmount(liabilities));
+  return difference.units < 0n ? negateBookAmount(difference) : difference;
+}
+
 /** 从单行分页数据构建 EodStatementRow。 */
 function buildRowFromPaged(
   row: EodBalanceRowResp,
@@ -171,9 +165,9 @@ function buildRowFromPaged(
       ? createdOnMs
       : 0;
 
-  const totalAssetsValue = parseCurrencyAmount(String(row.totalAssets));
-  const totalLiabilitiesValue = parseCurrencyAmount(String(row.totalLiabilities));
-  const varianceValue = Math.abs(totalAssetsValue - totalLiabilitiesValue);
+  const totalAssetsValue = parseBookAmount(row.totalAssets) ?? zeroAmount;
+  const totalLiabilitiesValue = parseBookAmount(row.totalLiabilities) ?? zeroAmount;
+  const variance = absoluteVariance(totalAssetsValue, totalLiabilitiesValue);
   const financeBookEodId =
     toPositiveNumber(row.financeBookEodId) ??
     toPositiveNumber((row as unknown as { eodId?: number }).eodId);
@@ -186,13 +180,12 @@ function buildRowFromPaged(
     financeBookEodId,
     eodDate: hasValidPostingDate ? formatEodDate(postingMs) : '--',
     eodDateValue,
-    totalAssets: formatMoneyWithCurrency(totalAssetsValue, rowCurrencyCode),
-    totalLiabilities: formatMoneyWithCurrency(totalLiabilitiesValue, rowCurrencyCode),
+    totalAssets: formatBookAmount(totalAssetsValue, rowCurrencyCode),
+    totalLiabilities: formatBookAmount(totalLiabilitiesValue, rowCurrencyCode),
     suspenseEntries: Number.isFinite(Number(row.suspenseEntries))
       ? Number(row.suspenseEntries)
       : 0,
-    variance: formatMoneyWithCurrency(varianceValue, rowCurrencyCode),
-    varianceValue,
+    variance: formatBookAmount(variance, rowCurrencyCode),
     createdOn:
       row.createdOn && row.createdOn > 0 ? formatTimestamp(row.createdOn) : '--',
     accountingStatus: resolveEodAccountingStatus(row.accountingStatus),
@@ -244,15 +237,14 @@ export function buildEodStatementRows(
     const postingMs = parseDateToMs(postingDate);
     if (!Number.isFinite(postingMs)) return;
 
-    const totalAssets = entries.reduce(
-      (sum, entry) => (entry.direction === 'Dr' ? sum + Number(entry.amount || 0) : sum),
-      0
-    );
-    const totalLiabilities = entries.reduce(
-      (sum, entry) => (entry.direction === 'Cr' ? sum + Number(entry.amount || 0) : sum),
-      0
-    );
-    const varianceValue = Math.abs(totalAssets - totalLiabilities);
+    let totalAssets = zeroAmount;
+    let totalLiabilities = zeroAmount;
+    for (const entry of entries) {
+      const amount = parseBookAmount(entry.amount) ?? zeroAmount;
+      if (entry.direction === 'Dr') totalAssets = addBookAmounts(totalAssets, amount);
+      if (entry.direction === 'Cr') totalLiabilities = addBookAmounts(totalLiabilities, amount);
+    }
+    const variance = absoluteVariance(totalAssets, totalLiabilities);
     const suspenseEntriesCount = (oldData.suspenseEntries || []).filter(
       (entry) => entry.postingDate?.trim() === postingDate
     ).length;
@@ -267,13 +259,12 @@ export function buildEodStatementRows(
       financeBookEodId,
       eodDate: formatEodDate(postingMs),
       eodDateValue: postingMs,
-      totalAssets: formatMoneyWithCurrency(totalAssets, currencyCode),
-      totalLiabilities: formatMoneyWithCurrency(totalLiabilities, currencyCode),
+      totalAssets: formatBookAmount(totalAssets, currencyCode),
+      totalLiabilities: formatBookAmount(totalLiabilities, currencyCode),
       suspenseEntries: suspenseEntriesCount,
-      variance: formatMoneyWithCurrency(varianceValue, currencyCode),
-      varianceValue,
+      variance: formatBookAmount(variance, currencyCode),
       createdOn: '--',
-      accountingStatus: varianceValue === 0 ? 'balanced' : 'unbalanced',
+      accountingStatus: variance.units === 0n ? 'balanced' : 'unbalanced',
       clearingStatus: 'none',
       closedBy: '--',
       actionType: 'details',
@@ -389,11 +380,11 @@ export function buildEodStatementDetail(
   const accountRows = toEodDetailAccountRows(accountBalances, currencyCode);
 
   const suspenseAssets = formatMoneyWithCurrency(
-    (detail.suspenseAssets ?? detail.suspenseAssetAmount ?? 0) as number,
+    detail.suspenseAssets ?? detail.suspenseAssetAmount,
     currencyCode
   );
   const suspenseLiabilities = formatMoneyWithCurrency(
-    (detail.suspenseLiabilities ?? detail.suspenseLiabilityAmount ?? 0) as number,
+    detail.suspenseLiabilities ?? detail.suspenseLiabilityAmount,
     currencyCode
   );
 
@@ -443,7 +434,7 @@ export function buildEodStatementDetail(
             [line.accountCode, line.accountName].filter(Boolean).join(' - ') ||
             '--',
           amount: formatMoneyWithCurrency(
-            Number(line.amount ?? line.balance ?? 0),
+            line.amount ?? line.balance,
             currencyCode
           ),
           transactionId: sharedTransactionId,
@@ -473,11 +464,11 @@ export function buildEodStatementDetail(
       fallbackStatement?.closedBy ||
       '--',
     summaryTotalAssets: formatMoneyWithCurrency(
-      Number(detail.totalAssets ?? 0),
+      detail.totalAssets,
       currencyCode
     ),
     summaryTotalLiabilities: formatMoneyWithCurrency(
-      Number(detail.totalLiabilities ?? 0),
+      detail.totalLiabilities,
       currencyCode
     ),
     suspenseAssets,

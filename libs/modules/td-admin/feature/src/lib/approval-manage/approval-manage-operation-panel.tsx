@@ -74,8 +74,6 @@ export interface ApprovalManageOperationPanelProps {
   busCode: string;
   /** 操作成功回调（刷新详情 + 日志）。 */
   onSuccess?: () => void;
-  /** 返回上一页（源 routerBack）。 */
-  onBack?: () => void;
 }
 
 /** 通过/驳回表单值（源 onFinish values）。 */
@@ -104,7 +102,6 @@ export function ApprovalManageOperationPanel({
   taskId,
   busCode,
   onSuccess,
-  onBack,
 }: ApprovalManageOperationPanelProps): React.JSX.Element {
   const t = useTranslations('modules.approval-manage');
 
@@ -276,10 +273,7 @@ export function ApprovalManageOperationPanel({
           rules={{ required: true }}
           render={({ field }) => (
             <div>
-              <span className="mb-1.5 block text-sm font-medium text-foreground">
-                {t('approval_manage_0007')}
-                <span className="ml-0.5 text-destructive">*</span>
-              </span>
+              <span className="sr-only">Decision</span>
               <RadioGroup
                 value={field.value}
                 onValueChange={field.onChange}
@@ -329,11 +323,8 @@ export function ApprovalManageOperationPanel({
           )}
         />
 
-        {/* 操作按钮（源 L721-774）：Back + Submit + MetaMask（T13 接入 ethers v6 签名）。 */}
+        {/* 操作按钮（源 L721-774）：Submit + MetaMask（T13 接入 ethers v6 签名）。 */}
         <div className="flex items-center justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => onBack?.()}>
-            {t('PUB_GoBack')}
-          </Button>
           <Button type="submit" disabled={processMutation.isPending}>
             {t('PUB_Submit')}
           </Button>

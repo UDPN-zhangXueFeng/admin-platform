@@ -1,22 +1,24 @@
 'use client';
 
-/* eslint-disable @nx/enforce-module-boundaries -- nx 误报 data-access lazy-loaded（shell useSearchParams + 传递依赖），posting-engine 同模式不报，疑边界 case；功能不受影响 */
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
-import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
-import { FormDatePicker } from '@myorg/shared/ui-forms';
+import { Button, Card, cardSurfaceClass, CopyableEllipsisText, DataTable, PageHeader } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import { Controller, useForm } from 'react-hook-form';
-import { getPermissionEmails, useAllExportTaskListQuery, useDeleteExportTaskMutation, useExportRuleDetailQuery, useMyExportTaskListQuery, type CreateExportTaskDTO, type ExportTaskListFilters } from '@myorg/modules/td-admin/data-access';
+import { getPermissionEmails, useAllExportTaskListQuery, useBlockchainListQuery, useDeleteExportTaskMutation, useExportRuleDetailQuery, useMyExportTaskListQuery, type CreateExportTaskDTO, type ExportTaskListFilters } from '@myorg/modules/td-admin/data-access';
 import { downloadExportFile } from '@myorg/modules/td-admin/data-access/lib/statements';
 import { useCreateExportTaskMutation, useStablecoinSearchesQuery } from '@myorg/modules/td-admin/data-access/lib/statements';
 import type { ExportTask } from '@myorg/modules/td-admin/data-access/lib/statements';
 import {
+  ALL_VALUE,
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
   EXPORT_STATE_SUCCESS,
@@ -36,6 +38,57 @@ function parseId(raw: string | null | undefined): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/** 任务/文件列表筛选表单（规则详情 + 我的导出共用字段超集）。 */
+interface TaskFilterForm {
+  tokenId: string;
+  blockchainId: string;
+  fileId: string;
+  filterTxTimeFrom: string;
+  filterTxTimeTo: string;
+  filterCreateTimeFrom: string;
+  filterCreateTimeTo: string;
+  exportState: string;
+}
+
+const EMPTY_TASK_FILTER: TaskFilterForm = {
+  tokenId: ALL_VALUE,
+  blockchainId: ALL_VALUE,
+  fileId: '',
+  filterTxTimeFrom: '',
+  filterTxTimeTo: '',
+  filterCreateTimeFrom: '',
+  filterCreateTimeTo: '',
+  exportState: ALL_VALUE,
+};
+
+/** 表单值 → 任务列表 filters（空值不下发，日期转 start/end of day 毫秒）。 */
+function taskFormToFilters(f: TaskFilterForm): ExportTaskListFilters {
+  return {
+    tokenId: f.tokenId !== ALL_VALUE ? f.tokenId : undefined,
+    blockchainId: f.blockchainId !== ALL_VALUE ? f.blockchainId : undefined,
+    fileId: f.fileId.trim() || undefined,
+    txStartTime: f.filterTxTimeFrom
+      ? startOfDay(parseISO(f.filterTxTimeFrom)).getTime()
+      : undefined,
+    txEndTime: f.filterTxTimeTo
+      ? endOfDay(parseISO(f.filterTxTimeTo)).getTime()
+      : undefined,
+    createStartTime: f.filterCreateTimeFrom
+      ? startOfDay(parseISO(f.filterCreateTimeFrom)).getTime()
+      : undefined,
+    createEndTime: f.filterCreateTimeTo
+      ? endOfDay(parseISO(f.filterCreateTimeTo)).getTime()
+      : undefined,
+    exportState: f.exportState !== ALL_VALUE ? Number(f.exportState) : undefined,
+  };
+}
+
+/** Stablecoin 下拉 label："name (abbr)"（迁移自源 export/index 下拉文案）。 */
+function tokenOptionLabel(name?: string, abbreviation?: string): string {
+  if (!name) return '';
+  return abbreviation ? `${name} (${abbreviation})` : name;
 }
 
 function StatusBadge({ meta }: { meta?: { tone: string; labelKey: string } }) {
@@ -106,6 +159,13 @@ function taskColumns(
               </span>
             ),
           },
+          {
+            accessorKey: 'walletAddress',
+            header: t('field.walletAddress'),
+            cell: ({ row }: { row: { original: ExportTask } }) => (
+              <span>{row.original.walletAddress || EMPTY_DISPLAY}</span>
+            ),
+          },
         ]
       : []),
     {
@@ -145,6 +205,21 @@ function taskColumns(
       ),
     },
     {
+      id: 'proofHash',
+      header: t('field.proofHash'),
+      cell: ({ row }) =>
+        row.original.proofHash ? (
+          <CopyableEllipsisText value={row.original.proofHash} />
+        ) : (
+          <span>{EMPTY_DISPLAY}</span>
+        ),
+    },
+    {
+      accessorKey: 'proofTime',
+      header: t('field.proofTime'),
+      cell: ({ row }) => <span>{formatAdminTimestamp(row.original.proofTime)}</span>,
+    },
+    {
       id: 'proofState',
       header: t('field.proofState'),
       cell: ({ row }) =>
@@ -182,13 +257,24 @@ export function StatementsViewPage({
     pageNum: 1,
     pageSize: DEFAULT_PAGE_SIZE,
   });
+  const {
+    control: filterControl,
+    register: filterRegister,
+    handleSubmit: handleFilterSubmit,
+    reset: resetFilterForm,
+  } = useForm<TaskFilterForm>({ defaultValues: EMPTY_TASK_FILTER });
+  const [queryFilters, setQueryFilters] =
+    React.useState<TaskFilterForm>(EMPTY_TASK_FILTER);
   const taskParams = React.useMemo(
     () => ({
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize,
-      filters: { exportRuleId: exportRuleId ?? 0 } as ExportTaskListFilters,
+      filters: {
+        exportRuleId: exportRuleId ?? 0,
+        ...taskFormToFilters(queryFilters),
+      } as ExportTaskListFilters,
     }),
-    [pagination.pageNum, pagination.pageSize, exportRuleId],
+    [pagination.pageNum, pagination.pageSize, exportRuleId, queryFilters],
   );
   const taskList = useAllExportTaskListQuery(taskParams);
   const rows = taskList.data?.rows ?? [];
@@ -218,11 +304,37 @@ export function StatementsViewPage({
     [t, pagination, handleDownload, handleDelete],
   );
 
+  const exportStateOptions = React.useMemo(
+    () => [
+      { value: ALL_VALUE, label: t('filter.all') },
+      ...Object.keys(EXPORT_STATUS_META).map((state) => ({
+        value: state,
+        label: t(EXPORT_STATUS_META[Number(state)].labelKey),
+      })),
+    ],
+    [t],
+  );
+
+  const onFilterSubmit = (values: TaskFilterForm) => {
+    setPagination((prev) => ({ ...prev, pageNum: 1 }));
+    setQueryFilters(values);
+  };
+  const onFilterReset = () => {
+    resetFilterForm(EMPTY_TASK_FILTER);
+    setQueryFilters(EMPTY_TASK_FILTER);
+    setPagination({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
+  };
+
   if (!exportRuleId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('detail.title')}</p>
-      </div>
+      <Card className="space-y-4 p-6">
+        <PageHeader
+          backLabel={t('action.back')}
+          onBack={() => router.back()}
+          title={t('detail.title')}
+        />
+        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+      </Card>
     );
   }
 
@@ -279,8 +391,14 @@ export function StatementsViewPage({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border bg-card shadow-sm">
-        <div className="border-b px-6 py-3 text-sm font-semibold">{t('detail.title')}</div>
+      <Card>
+        <div className="border-b px-6 py-4">
+          <PageHeader
+            backLabel={t('action.back')}
+            onBack={() => router.back()}
+            title={t('detail.title')}
+          />
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full table-fixed border-collapse text-sm">
             <tbody>
@@ -301,9 +419,51 @@ export function StatementsViewPage({
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <form onSubmit={handleFilterSubmit(onFilterSubmit)}>
+        <QueryForm
+          fields={[
+            <div key="fileId" className="space-y-1.5">
+              <label className="text-sm font-medium">{t('field.fileId')}</label>
+              <input
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                {...filterRegister('fileId')}
+              />
+            </div>,
+            <FormDateRangePicker
+              key="filterTxTime"
+              startName="filterTxTimeFrom"
+              endName="filterTxTimeTo"
+              control={filterControl}
+              label={t('field.txTime')}
+            />,
+            <FormSelect
+              key="exportState"
+              name="exportState"
+              control={filterControl}
+              label={t('field.exportState')}
+              options={exportStateOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          advancedFields={[
+            <FormDateRangePicker
+              key="filterCreateTime"
+              startName="filterCreateTimeFrom"
+              endName="filterCreateTimeTo"
+              control={filterControl}
+              label={t('field.createTime')}
+            />,
+          ]}
+          onReset={onFilterReset}
+          queryType="submit"
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
+      </form>
+
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">{t('list.title')}</div>
         <div className="p-4">
           <DataTable
@@ -320,11 +480,7 @@ export function StatementsViewPage({
             }}
           />
         </div>
-      </div>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>{t('action.back')}</Button>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -332,6 +488,7 @@ export function StatementsViewPage({
 interface ExportFormValues {
   tokenId: string;
   walletAddress: string;
+  exportType: string;
   txTimeFrom: string;
   txTimeTo: string;
   txTypes: number[];
@@ -342,6 +499,7 @@ interface ExportFormValues {
 const EMPTY_EXPORT_FORM: ExportFormValues = {
   tokenId: '',
   walletAddress: '',
+  exportType: '0',
   txTimeFrom: '',
   txTimeTo: '',
   txTypes: [],
@@ -355,11 +513,29 @@ export function StatementsExportPage() {
   const tc = useTranslations('common');
   const router = useRouter();
   const stablecoinSearches = useStablecoinSearchesQuery();
+  const blockchainList = useBlockchainListQuery();
   const createMutation = useCreateExportTaskMutation();
   const [txTypeOptions, setTxTypeOptions] = React.useState<number[]>([]);
 
-  const { control, register, handleSubmit, reset, setValue, watch, formState } =
-    useForm<ExportFormValues>({ defaultValues: EMPTY_EXPORT_FORM });
+  const {
+    control,
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState,
+    setError,
+    clearErrors,
+  } = useForm<ExportFormValues>({ defaultValues: EMPTY_EXPORT_FORM });
+  const {
+    control: filterControl,
+    register: filterRegister,
+    handleSubmit: handleFilterSubmit,
+    reset: resetFilterForm,
+  } = useForm<TaskFilterForm>({ defaultValues: EMPTY_TASK_FILTER });
+  const [queryFilters, setQueryFilters] =
+    React.useState<TaskFilterForm>(EMPTY_TASK_FILTER);
   const [pagination, setPagination] = React.useState({
     pageNum: 1,
     pageSize: DEFAULT_PAGE_SIZE,
@@ -368,9 +544,12 @@ export function StatementsExportPage() {
     () => ({
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize,
-      filters: { moduleType: 5 } as ExportTaskListFilters,
+      filters: {
+        moduleType: 5,
+        ...taskFormToFilters(queryFilters),
+      } as ExportTaskListFilters,
     }),
-    [pagination.pageNum, pagination.pageSize],
+    [pagination.pageNum, pagination.pageSize, queryFilters],
   );
   const listResult = useMyExportTaskListQuery(listParams);
   const rows = listResult.data?.rows ?? [];
@@ -381,9 +560,35 @@ export function StatementsExportPage() {
     () =>
       (stablecoinSearches.data ?? []).map((s) => ({
         value: String(s.stablecoinId ?? ''),
-        label: s.name ?? '',
+        label: tokenOptionLabel(s.name, s.blockchainNameAbbreviation),
       })),
     [stablecoinSearches.data],
+  );
+  const tokenFilterOptions = React.useMemo(
+    () => [{ value: ALL_VALUE, label: t('filter.all') }, ...tokenOptions],
+    [t, tokenOptions],
+  );
+  const blockchainFilterOptions = React.useMemo(
+    () => [
+      { value: ALL_VALUE, label: t('filter.all') },
+      ...(blockchainList.data ?? [])
+        .filter((b) => b.status === 1)
+        .map((b) => ({
+          value: String(b.key ?? ''),
+          label: b.value ?? '',
+        })),
+    ],
+    [t, blockchainList.data],
+  );
+  const exportStateOptions = React.useMemo(
+    () => [
+      { value: ALL_VALUE, label: t('filter.all') },
+      ...Object.keys(EXPORT_STATUS_META).map((state) => ({
+        value: state,
+        label: t(EXPORT_STATUS_META[Number(state)].labelKey),
+      })),
+    ],
+    [t],
   );
 
   const handleDownload = (task: ExportTask) => {
@@ -414,10 +619,29 @@ export function StatementsExportPage() {
     );
     setTxTypeOptions([...getTxTypesByIssueType(opt?.issueType)]);
     setValue('txTypes', []);
+    clearErrors('txTypes');
   };
   const onSubmit = (v: ExportFormValues) => {
+    clearErrors(['txTimeFrom', 'txTypes']);
+    let invalid = false;
+    if (!v.txTimeFrom || !v.txTimeTo) {
+      setError('txTimeFrom', {
+        type: 'required',
+        message: t('validation.required'),
+      });
+      invalid = true;
+    }
+    if (!v.txTypes.length) {
+      setError('txTypes', {
+        type: 'required',
+        message: t('validation.required'),
+      });
+      invalid = true;
+    }
+    if (invalid) return;
+
     const dto: CreateExportTaskDTO = {
-      exportType: 0,
+      exportType: Number(v.exportType),
       moduleType: 5,
       notifyEmail: v.notifyEmail || undefined,
       transactionRecordsListReqVO: {
@@ -443,16 +667,39 @@ export function StatementsExportPage() {
       setValue('notifyEmail', '');
     }
   };
+  const onResetExportForm = () => {
+    reset(EMPTY_EXPORT_FORM);
+    setTxTypeOptions([]);
+  };
+  const onFilterSubmit = (values: TaskFilterForm) => {
+    setPagination((prev) => ({ ...prev, pageNum: 1 }));
+    setQueryFilters(values);
+  };
+  const onFilterReset = () => {
+    resetFilterForm(EMPTY_TASK_FILTER);
+    setQueryFilters(EMPTY_TASK_FILTER);
+    setPagination({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
+  };
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit(onSubmit)} className="rounded-lg border bg-card p-6 shadow-sm">
+      <PageHeader
+        backLabel={t('action.back')}
+        onBack={() => router.back()}
+        title={t('title')}
+      />
+
+      <form onSubmit={handleSubmit(onSubmit)} className={cn(cardSurfaceClass, 'p-6')}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t('field.tokenName')}</label>
+            <label className="text-sm font-medium">
+              {t('field.tokenName')}
+              <span className="ml-0.5 text-red-500">*</span>
+            </label>
             <Controller
               control={control}
               name="tokenId"
+              rules={{ required: t('validation.required') }}
               render={({ field }) => (
                 <select
                   className="w-full rounded-md border px-3 py-2 text-sm"
@@ -469,6 +716,11 @@ export function StatementsExportPage() {
                 </select>
               )}
             />
+            {formState.errors.tokenId ? (
+              <p className="text-xs text-red-500">
+                {formState.errors.tokenId.message}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">{t('field.walletAddress')}</label>
@@ -477,10 +729,36 @@ export function StatementsExportPage() {
               {...register('walletAddress', { maxLength: 50 })}
             />
           </div>
-          <FormDatePicker name="txTimeFrom" control={control} label={t('field.txTimeFrom')} />
-          <FormDatePicker name="txTimeTo" control={control} label={t('field.txTimeTo')} />
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t('field.txTypes')}</label>
+            <label className="text-sm font-medium">
+              {t('field.exportType')}
+              <span className="ml-0.5 text-red-500">*</span>
+            </label>
+            <select
+              className="w-full rounded-md border px-3 py-2 text-sm"
+              {...register('exportType', { required: t('validation.required') })}
+            >
+              <option value="0">Excel</option>
+            </select>
+            {formState.errors.exportType ? (
+              <p className="text-xs text-red-500">
+                {formState.errors.exportType.message}
+              </p>
+            ) : null}
+          </div>
+          <FormDateRangePicker
+            startName="txTimeFrom"
+            endName="txTimeTo"
+            control={control}
+            label={t('field.txTime')}
+            required
+            error={formState.errors.txTimeFrom?.message}
+          />
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">
+              {t('field.txTypes')}
+              <span className="ml-0.5 text-red-500">*</span>
+            </label>
             <div className="flex flex-wrap gap-3">
               {txTypeOptions.map((tx) => (
                 <label key={tx} className="flex items-center gap-1 text-sm">
@@ -493,12 +771,18 @@ export function StatementsExportPage() {
                         'txTypes',
                         e.target.checked ? [...cur, tx] : cur.filter((x) => x !== tx),
                       );
+                      clearErrors('txTypes');
                     }}
                   />
                   {t(`txType.${tx}`)}
                 </label>
               ))}
             </div>
+            {formState.errors.txTypes ? (
+              <p className="text-xs text-red-500">
+                {formState.errors.txTypes.message}
+              </p>
+            ) : null}
           </div>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -526,13 +810,71 @@ export function StatementsExportPage() {
         </div>
         <div className="mt-4 flex gap-2">
           <Button type="submit" disabled={createMutation.isPending}>{t('action.export')}</Button>
-          <Button type="button" variant="outline" onClick={() => reset(EMPTY_EXPORT_FORM)}>
+          <Button type="button" variant="outline" onClick={onResetExportForm}>
             {t('filter.reset')}
           </Button>
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <form onSubmit={handleFilterSubmit(onFilterSubmit)}>
+        <QueryForm
+          fields={[
+            <FormSelect
+              key="tokenId"
+              name="tokenId"
+              control={filterControl}
+              label={t('field.tokenName')}
+              options={tokenFilterOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="blockchainId"
+              name="blockchainId"
+              control={filterControl}
+              label={t('field.blockchain')}
+              options={blockchainFilterOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="exportState"
+              name="exportState"
+              control={filterControl}
+              label={t('field.exportState')}
+              options={exportStateOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          advancedFields={[
+            <div key="fileId" className="space-y-1.5">
+              <label className="text-sm font-medium">{t('field.fileId')}</label>
+              <input
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                {...filterRegister('fileId')}
+              />
+            </div>,
+            <FormDateRangePicker
+              key="filterTxTime"
+              startName="filterTxTimeFrom"
+              endName="filterTxTimeTo"
+              control={filterControl}
+              label={t('field.txTime')}
+            />,
+            <FormDateRangePicker
+              key="filterCreateTime"
+              startName="filterCreateTimeFrom"
+              endName="filterCreateTimeTo"
+              control={filterControl}
+              label={t('field.createTime')}
+            />,
+          ]}
+          onReset={onFilterReset}
+          queryType="submit"
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
+      </form>
+
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">{t('list.title')}</div>
         <div className="p-4">
           <DataTable
@@ -549,11 +891,7 @@ export function StatementsExportPage() {
             }}
           />
         </div>
-      </div>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>{t('action.back')}</Button>
-      </div>
+      </Card>
     </div>
   );
 }

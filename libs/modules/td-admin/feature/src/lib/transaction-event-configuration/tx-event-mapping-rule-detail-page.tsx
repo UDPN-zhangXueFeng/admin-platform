@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import {
-  Button,
+  Card,
+  PageHeader,
   Tabs,
   TabsContent,
   TabsList,
@@ -22,7 +23,7 @@ const HISTORY_TAB = 'historical-records';
 function parseId(raw?: string | null): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
+  return Number.isSafeInteger(n) && n > 0 ? n : undefined;
 }
 
 /**
@@ -39,26 +40,22 @@ export function TxEventMappingRuleDetailPage() {
   const bookId = searchParams.get('bookId') ?? '';
 
   const [activeTab, setActiveTab] = React.useState(BASIC_TAB);
-  const { data: detail, isLoading } =
+  const { data: detail, isLoading, error } =
     useNormalizationDetailQuery(normalizationEventId);
 
   if (!normalizationEventId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.back()}
-        >
-          {t('action.back')}
-        </Button>
+      <div className="space-y-4">
+        <PageHeader title={t('mappingRuleDetail')} backLabel={t('action.back')} onBack={() => router.back()} />
+        <Card className="p-6"><p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p></Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <PageHeader title={t('mappingRuleDetail')} backLabel={t('action.back')} onBack={() => router.back()} />
+      {error && <p role="alert" className="text-sm text-destructive">{error.message}</p>}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value={BASIC_TAB}>
@@ -73,17 +70,17 @@ export function TxEventMappingRuleDetailPage() {
             detail={detail ?? null}
             loading={isLoading}
             bookId={bookId}
-            onBack={() => router.back()}
           />
         </TabsContent>
         <TabsContent value={HISTORY_TAB}>
-          <TxEventHistoricalRecordsTab
-            normalizationEventId={normalizationEventId}
-            eventType={detail?.eventType}
-            bookId={bookId}
-            active={activeTab === HISTORY_TAB}
-            onBack={() => router.back()}
-          />
+          {activeTab === HISTORY_TAB && !isLoading && (
+            <TxEventHistoricalRecordsTab
+              normalizationEventId={normalizationEventId}
+              eventType={detail?.eventType}
+              bookId={bookId}
+              active
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>

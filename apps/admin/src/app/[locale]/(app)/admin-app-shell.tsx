@@ -2,11 +2,15 @@
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from '@myorg/shared/util-i18n';
 
 import { AppShell } from '@myorg/shared/ui-layout';
 import type { ProjectConfig } from '@myorg/shared/util-config';
 import { logoutAndRedirect } from '@myorg/shared/util-auth';
 import { logoutApiInBackground } from '@myorg/modules/td-admin/data-access';
+
+import { AdminHeaderBanner } from '@/components/admin-header-banner';
+import { consumeHeaderSweepOnLogin } from '@/lib/header-sweep';
 
 // The feature library is lazy-loaded in this app (the module page registry
 // imports it dynamically); the change-password dialog only renders after the
@@ -33,7 +37,17 @@ export function AdminAppShell({
   config: ProjectConfig;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
+  const [sweepRun, setSweepRun] = React.useState(0);
+
+  // One-shot sweep after a fresh login: the login page leaves a per-tab
+  // sessionStorage marker that this mount consumes exactly once.
+  React.useEffect(() => {
+    if (consumeHeaderSweepOnLogin()) {
+      setSweepRun((run) => run + 1);
+    }
+  }, []);
 
   const handleLogout = React.useCallback(() => {
     // The server-side logout is slow on the live backend (~10s), so it must
@@ -48,8 +62,12 @@ export function AdminAppShell({
   return (
     <AppShell
       config={config}
+      banner={<AdminHeaderBanner sweepRun={sweepRun} />}
+      onMenuClick={() => setSweepRun((run) => run + 1)}
+      menuIconVariant="refined"
       onLogout={handleLogout}
       onChangePassword={() => setIsChangePasswordOpen(true)}
+      onManageAccount={() => router.push('/account-manage')}
       logo={
         <img
           src="/stablecoin/images/logo-icon.svg"

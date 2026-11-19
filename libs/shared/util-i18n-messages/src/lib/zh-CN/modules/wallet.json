@@ -33,9 +33,13 @@
     "success": "成功",
     "error": "失败",
     "pending": "待处理",
+    "pendingApproval": "待审批",
+    "rejected": "已拒绝",
+    "enabling": "启用中",
     "unknown": "未知"
   },
   "accountType": {
+    "0": "不适用",
     "1": "活期",
     "2": "储蓄",
     "3": "基金"
@@ -52,9 +56,9 @@
     "60": "透支利息"
   },
   "custodyModel": {
-    "issuerCustody": "发行方托管",
+    "issuerCustody": "Issuer 托管",
     "spCustody": "SP 托管",
-    "selfCustody": "自托管"
+    "selfCustody": "用户自托管"
   },
   "kyc": {
     "yes": "是",
@@ -74,38 +78,55 @@
     "7": "解冻资金"
   },
   "operateContent": {
-    "created": "钱包已创建",
+    "created": "创建钱包",
     "frozen": "冻结钱包",
-    "frozenNewStatus": "新状态",
-    "frozenOldStatus": "原状态",
+    "frozenNewStatus": "更新状态：已冻结",
+    "frozenOldStatus": "原状态：正常",
     "unfrozen": "解冻钱包",
-    "unfrozenNewStatus": "新状态",
-    "unfrozenOldStatus": "原状态",
+    "unfrozenNewStatus": "更新状态：已解冻",
+    "unfrozenOldStatus": "原状态：已冻结",
     "changeType": "修改钱包类型",
-    "changeNewStatus": "新状态",
-    "changeOldStatus": "原状态",
-    "freezeFunds": "冻结数量",
-    "unfreezeFunds": "解冻数量"
+    "changeNewStatus": "新类型",
+    "changeOldStatus": "原类型",
+    "freezeFunds": "冻结金额",
+    "unfreezeFunds": "解冻金额"
   },
   "tdTransactionType": {
     "1": "铸造",
     "2": "销毁",
-    "3": "转账",
-    "4": "赎回"
+    "3": "充值",
+    "4": "转账",
+    "5": "授权转账",
+    "6": "提现",
+    "7": "银行提现",
+    "8": "存款利息",
+    "9": "维护费",
+    "10": "最低余额费",
+    "11": "存款利息",
+    "12": "约定透支费",
+    "13": "非约定透支费",
+    "14": "透支利息",
+    "15": "透支利息",
+    "16": "存款利息",
+    "17": "透支利息",
+    "18": "基金分红"
   },
   "userFeeType": {
-    "10": "维护费",
-    "20": "最低余额费",
-    "25": "利息费",
-    "30": "其他费用"
+    "1": "维护费",
+    "5": "最低余额费",
+    "10": "存款利息",
+    "15": "约定透支费",
+    "20": "透支利息",
+    "25": "非约定透支费",
+    "30": "未透支利息"
   },
   "authorizedOperationType": {
     "1": "授权",
     "2": "撤销"
   },
   "changeType": {
-    "1": "授权",
-    "2": "撤销"
+    "1": "增加",
+    "2": "减少"
   },
   "commonTaskStatus": {
     "30": "处理中",
@@ -119,6 +140,32 @@
     "records": "营运钱包列表",
     "invalidId": "缺少钱包标识，请从列表页进入。",
     "copy": "复制",
+    "copySuccess": "复制成功！",
+    "copyFailed": "复制失败",
+    "details": "详情",
+    "loadFailed": "无法加载营运钱包数据。",
+    "retry": "重试",
+    "filterAddress": "营运钱包",
+    "accountType": {
+      "1": "活期账户",
+      "2": "储蓄账户",
+      "3": "生息账户"
+    },
+    "feeType": {
+      "10": "账户费用",
+      "15": "透支费用",
+      "20": "透支利息",
+      "25": "存款利息（收款）",
+      "30": "存款利息（付款）",
+      "35": "基金分红",
+      "70": "基金分红"
+    },
+    "operationType": {
+      "1": "新增",
+      "2": "编辑",
+      "3": "启用",
+      "4": "停用"
+    },
     "tab": {
       "basicInformation": "基本信息",
       "transactions": "交易记录",
@@ -128,24 +175,24 @@
       "index": "序号",
       "walletAddress": "钱包地址",
       "accountType": "账户类型",
-      "feeType": "费用类型",
-      "tokenName": "代币",
+      "feeType": "钱包用途",
+      "tokenName": "代币名称",
       "walletType": "钱包类型",
       "blockchain": "区块链",
       "balance": "余额",
       "txFrom": "转出地址",
       "txTo": "转入地址",
       "txType": "交易类型",
-      "txAmount": "数量",
+      "txAmount": "交易金额",
       "txTime": "交易时间",
       "txHash": "交易哈希",
       "operateType": "操作类型",
-      "oldWalletAddress": "原钱包地址",
+      "oldWalletAddress": "原值",
+      "newWalletAddress": "更新值",
       "createTime": "创建时间"
     },
     "field": {
-      "startCreateTime": "创建开始时间",
-      "endCreateTime": "创建结束时间",
+      "createTime": "创建时间",
       "walletAddress": "钱包地址",
       "creator": "创建人"
     },
@@ -161,6 +208,9 @@
     "records": "用户钱包列表",
     "invalidId": "缺少钱包标识，请从列表进入该页面。",
     "copy": "复制",
+    "loadFailed": "无法加载钱包数据。",
+    "retry": "重试",
+    "notAvailable": "不适用",
     "tab": {
       "basic": "基本信息",
       "transactions": "交易记录",
@@ -168,7 +218,7 @@
       "accrual": "应计记录",
       "distribution": "分配记录",
       "authorization": "授权记录",
-      "authorized": "已授权记录"
+      "authorized": "被授权记录"
     },
     "section": {
       "basicDetails": "钱包详情",
@@ -177,14 +227,24 @@
       "verifiableCredential": "可验证凭证",
       "distributionDetails": "分配详情",
       "fundName": "基金名称",
-      "fundAssetValue": "基金资产价值",
+      "fundAssetValue": "固定净资产价值",
       "dividendMethod": "分红方式"
     },
     "field": {
-      "startCreateTime": "创建开始时间",
-      "endCreateTime": "创建结束时间"
+      "kycStatus": "KYC 状态",
+      "maxTxCountDaily": "日交易限额",
+      "maxTxCountPer": "钱包单笔限额",
+      "stablecoinLimitCount": "最大余额限额",
+      "withdrawTime": "注销时间",
+      "walletStatus": "钱包状态"
+    },
+    "filter": {
+      "appliedDate": "申请日期"
     },
     "column": {
+      "toWallet": "被授权钱包地址",
+      "fromWallet": "授权方钱包地址",
+      "authorizedAmount": "授权数量",
       "walletAddress": "钱包地址",
       "blockchain": "区块链",
       "sp": "SP",
@@ -216,9 +276,8 @@
       "dividendAmount": "分红数量",
       "dividendUnits": "分红份额",
       "type": "变更类型",
-      "amount": "数量",
-      "operationTime": "操作时间",
-      "status": "状态"
+      "amount": "金额",
+      "operationTime": "操作时间"
     },
     "placeholder": {
       "walletAddress": "请输入钱包地址",
@@ -234,10 +293,13 @@
       "unfreezeFunds": "解冻资金"
     },
     "submissionPolicy": {
+      "endUser": "终端用户",
       "sp": "通过当前 SP",
       "direct": "直连（终端用户）"
     },
     "modal": {
+      "noAvailableTypes": "没有可用的钱包类型。",
+      "submitFailed": "请求提交失败。",
       "freezeWalletTitle": "冻结钱包",
       "freezeWalletSubTitle": "请输入冻结钱包的原因，然后提交审批。",
       "freezeWalletTip": "冻结用户钱包将禁止用户资金流动，操作前请谨慎评估。",
@@ -277,6 +339,8 @@
     "records": "钱包类型列表",
     "mmfRecords": "MMF 钱包类型列表",
     "invalidStablecoin": "未选择稳定币。",
+    "loadFailed": "无法加载钱包类型数据。",
+    "apiDocFailed": "无法打开 API 文档。",
     "column": {
       "name": "名称",
       "walletTypeCode": "钱包类型编码",
@@ -324,6 +388,7 @@
     },
     "action": {
       "add": "新增",
+      "onboard": "新增代币",
       "edit": "编辑",
       "detail": "详情",
       "enable": "启用",
@@ -354,24 +419,28 @@
       "earningsCalcFailed": "收益计算失败，请重试。"
     },
     "mmfFundType": {
-      "1": "货币市场",
-      "2": "固定收益",
-      "3": "权益类",
-      "4": "平衡型",
-      "5": "指数型",
-      "6": "债券型",
-      "7": "REITs",
-      "8": "另类"
+      "1": "零售优势基金",
+      "2": "机构优选基金",
+      "3": "政府安全基金",
+      "4": "优选策略基金",
+      "5": "免税增长基金",
+      "6": "全球视野基金",
+      "7": "其他多元化基金",
+      "8": "其他"
     },
     "mmfRiskLevel": {
-      "1": "低风险",
-      "2": "中低风险",
-      "3": "中高风险",
-      "4": "高风险"
+      "1": "低风险 (R1)",
+      "2": "中低风险 (R2)",
+      "3": "中风险 (R3)",
+      "4": "中高风险 (R4)"
     },
     "maintenanceFeeCycle": {
-      "1": "每日",
-      "5": "每月"
+      "1": "每月",
+      "5": "每年"
+    },
+    "maintenanceFeePeriod": {
+      "1": "月",
+      "5": "年"
     },
     "form": {
       "title": "钱包类型 ${type}",
@@ -437,6 +506,8 @@
         "fundInceptionTime": "基金成立日期",
         "dailyStatisticalTime": "每日统计时间",
         "statisticalMonth": "月份",
+        "distributionFrequency": "派发频率",
+        "everyDay": "每天",
         "generateWalletLink": "生成钱包",
         "keystorePassword": "Keystore 密码",
         "keystorePasswordHint": "该密码用于加密 keystore，请妥善保管。"
@@ -446,7 +517,9 @@
         "walletTypeCode": "请输入钱包类型编码"
       },
       "validation": {
-        "amount": "仅支持数字，最多 2 位小数。",
+        "amount": "请输入非负金额，最多两位小数且不超过 99,999,999,999。",
+        "decimal": "请输入非负金额，最多两位小数。",
+        "futureDate": "请选择今天或更早的日期。",
         "required": "请输入{field}",
         "namePattern": "仅支持字母、数字、空格、连字符和斜杠。",
         "codePattern": "仅支持字母、数字、点、下划线和连字符。"

@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
+  Card,
   CopyableEllipsisText,
   DataTable,
   Dialog,
@@ -25,7 +26,7 @@ import {
   Input,
   Label,
 } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
 import {
@@ -42,6 +43,7 @@ import {
   RD_BRIDGE_STATE,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 /** 「全部」占位 value（对齐 fx-rate / cct 列表筛选约定）。 */
@@ -402,98 +404,98 @@ export function RdBridgeListPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormSelect
-            name="blockchainId"
-            control={control}
-            label={t('cross_chain_0000')}
-            options={blockchainOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormField
-            name="endpointId"
-            label={t('cross_chain_0001')}
-            register={register('endpointId')}
-            placeholder={t('cross_chain_0001')}
-          />
-          <FormField
-            name="endpointContractAddress"
-            label={t('cross_chain_0037')}
-            register={register('endpointContractAddress')}
-            placeholder={t('cross_chain_0037')}
-          />
-          <FormField
-            name="sendContractAddress"
-            label={t('cross_chain_0035')}
-            register={register('sendContractAddress')}
-            placeholder={t('cross_chain_0035')}
-          />
-          <FormField
-            name="receiveContractAddress"
-            label={t('cross_chain_0036')}
-            register={register('receiveContractAddress')}
-            placeholder={t('cross_chain_0036')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('filter.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDatePicker
-            name="createStartTime"
-            control={control}
-            label={t('cross_chain_0005')}
-          />
-          <FormDatePicker
-            name="createEndTime"
-            control={control}
-            label={t('cross_chain_0005')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormField
+              key="endpointId"
+              name="endpointId"
+              label={t('cross_chain_0001')}
+              register={register('endpointId')}
+              placeholder={t('cross_chain_0001')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('filter.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="createTime"
+              startName="createStartTime"
+              endName="createEndTime"
+              control={control}
+              label={t('cross_chain_0005')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="blockchainId"
+              name="blockchainId"
+              control={control}
+              label={t('cross_chain_0000')}
+              options={blockchainOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormField
+              key="endpointContractAddress"
+              name="endpointContractAddress"
+              label={t('cross_chain_0037')}
+              register={register('endpointContractAddress')}
+              placeholder={t('cross_chain_0037')}
+            />,
+            <FormField
+              key="sendContractAddress"
+              name="sendContractAddress"
+              label={t('cross_chain_0035')}
+              register={register('sendContractAddress')}
+              placeholder={t('cross_chain_0035')}
+            />,
+            <FormField
+              key="receiveContractAddress"
+              name="receiveContractAddress"
+              label={t('cross_chain_0036')}
+              register={register('receiveContractAddress')}
+              placeholder={t('cross_chain_0036')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">{t('cross_chain_0006')}</div>
-          <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.RD_ADD_BTN}>
-            <Button
-              size="sm"
-              onClick={() => router.push('/cross-chain/rd-bridge/edit')}
-            >
-              {t('action.add')}
-            </Button>
-          </PermissionGuard>
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (p) =>
-                setPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
-        </div>
+      <Card><div className="flex justify-between border-b px-6 py-3">
+        <div className="text-sm font-semibold">{t('cross_chain_0006')}</div>
+        <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.RD_ADD_BTN}>
+          <Button
+            size="sm"
+            onClick={() => router.push('/cross-chain/rd-bridge/edit')}
+          >
+            {t('action.add')}
+          </Button>
+        </PermissionGuard>
       </div>
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (p) =>
+              setPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
 
       {/* ── Disable/Enable 共用 Modal ── */}
       <Dialog

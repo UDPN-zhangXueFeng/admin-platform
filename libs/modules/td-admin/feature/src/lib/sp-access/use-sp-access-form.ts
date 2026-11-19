@@ -296,7 +296,7 @@ export function useSpAccessForm(): SpAccessFormController {
         await createSpAccess({ spName: basic.spName.trim(), ...payload });
       }
       toast.success(t('sp_access_0174'));
-      router.push('/sp-access');
+      router.back();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : t('sp_access_0175'));
     } finally {

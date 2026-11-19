@@ -158,6 +158,8 @@ export interface WithdrawPayload {
  */
 export interface ApprovalTaskCreateInfo {
   createTime?: number | string;
+  /** Task creator shown on the first log node (hidden for sp_open_wallet). */
+  createUserName?: string;
   [k: string]: unknown;
 }
 

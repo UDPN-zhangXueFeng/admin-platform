@@ -31,8 +31,12 @@ import { ColumnDef } from '@tanstack/react-table';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import {
-  Button,
+  Card,
   DataTable,
+  DetailField,
+  DetailGrid,
+  DetailSection,
+  PageHeader,
   Tabs,
   TabsContent,
   TabsList,
@@ -48,6 +52,7 @@ import {
   type PolicyDetail,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import { keyPolicyStatusMap, operationRecordStatusMap } from '.';
 import { operationTypeOptions } from './constants';
@@ -94,20 +99,6 @@ function toneToBadgeClass(tone: string): string {
 
 /** DataTable row shape: mock `key` is a number → string id for the table. */
 type OperationRecordRow = OperationRecord & { id: string };
-
-interface DetailItemProps {
-  label: string;
-  children: React.ReactNode;
-}
-
-function DetailItem({ label, children }: DetailItemProps) {
-  return (
-    <div className="space-y-1">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <div className="text-sm font-medium">{children}</div>
-    </div>
-  );
-}
 
 /** react-hook-form values for the Operation Records query form. */
 interface RecordsFilterFormValues {
@@ -224,8 +215,8 @@ export function KeyPolicyConfigurationDetailPage() {
   if (!record) {
     return (
       <div className="space-y-4">
+        <PageHeader backLabel={t('key_management_0056')} onBack={() => router.back()} title={t('KP_PolicyDetailsTitle')} />
         <p>{t('KP_PolicyNotFound')}</p>
-        <Button onClick={() => router.back()}>{t('key_management_0056')}</Button>
       </div>
     );
   }
@@ -242,11 +233,24 @@ export function KeyPolicyConfigurationDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Demo / read-only banner — no detail API exists; data is sample-only. */}
-      <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        {t('KP_DemoBanner')}
-      </div>
-
+      <PageHeader
+        backLabel={t('key_management_0056')}
+        onBack={() => router.back()}
+        title={t('KP_PolicyDetailsTitle')}
+        actions={
+          statusEntry ? (
+            <span
+              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${toneToBadgeClass(
+                statusEntry.tone,
+              )}`}
+            >
+              {statusLabelKey ? t(statusLabelKey) : statusEntry.label}
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">--</span>
+          )
+        }
+      />
       <Tabs defaultValue="basic" className="w-full">
         <TabsList>
           <TabsTrigger value="basic">{t('key_management_0057')}</TabsTrigger>
@@ -257,110 +261,100 @@ export function KeyPolicyConfigurationDetailPage() {
 
         {/* ---------- Tab 1: Basic Information ---------- */}
         <TabsContent value="basic" className="mt-4 space-y-6">
-          <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-            <div className="flex flex-col space-y-1.5 p-6">
-              <h3 className="text-2xl font-semibold leading-none tracking-tight">
-                {t('KP_PolicyDetailsTitle')}
-              </h3>
-            </div>
-            <div className="grid grid-cols-1 gap-6 p-6 pt-0 md:grid-cols-2 lg:grid-cols-3">
-              <DetailItem label={t('KP_BusinessName')}>
-                {record.businessName || '--'}
-              </DetailItem>
-              <DetailItem label={t('key_management_0003')}>
-                {statusEntry ? (
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${toneToBadgeClass(
-                      statusEntry.tone,
-                    )}`}
-                  >
-                    {statusLabelKey ? t(statusLabelKey) : statusEntry.label}
-                  </span>
-                ) : (
-                  '--'
-                )}
-              </DetailItem>
-              <DetailItem label={t('key_management_0053')}>
-                {record.description || '--'}
-              </DetailItem>
-              <DetailItem label={t('KP_RotationFrequency')}>
-                {record.rotationFrequency || '--'}
-              </DetailItem>
-              <DetailItem label={t('KP_RotationTime')}>
-                {record.rotationTime || '--'}
-              </DetailItem>
-              <DetailItem label={t('KP_RotationMethods')}>
-                {record.rotationMethods || '--'}
-              </DetailItem>
-              <DetailItem label={t('key_management_0049')}>
-                {record.createdBy || '--'}
-              </DetailItem>
-              <DetailItem label={t('key_management_0005')}>
-                {/* Pre-formatted string (plan §8.C.1) — no formatTimestamp. */}
-                {record.createdOn || '--'}
-              </DetailItem>
-              <DetailItem label={t('key_management_0051')}>
-                {record.updatedBy || '--'}
-              </DetailItem>
-              <DetailItem label={t('key_management_0052')}>
-                {record.updatedOn || '--'}
-              </DetailItem>
-            </div>
-            <div className="flex justify-end p-6 pt-0">
-              <Button onClick={() => router.back()}>
-                {t('key_management_0056')}
-              </Button>
-            </div>
-          </div>
+          <DetailSection title={t('key_management_0057')}>
+            <DetailGrid>
+              <DetailField
+                label={t('KP_BusinessName')}
+                value={record.businessName}
+              />
+              <DetailField
+                label={t('key_management_0053')}
+                value={record.description}
+                span="full"
+              />
+              <DetailField
+                label={t('key_management_0049')}
+                value={record.createdBy}
+                muted
+              />
+              <DetailField
+                label={t('key_management_0005')}
+                value={record.createdOn}
+                muted
+              />
+              <DetailField
+                label={t('key_management_0051')}
+                value={record.updatedBy}
+                muted
+              />
+              <DetailField
+                label={t('key_management_0052')}
+                value={record.updatedOn}
+                muted
+              />
+            </DetailGrid>
+          </DetailSection>
+
+          <DetailSection title={t('KP_RotationPeriodTitle')}>
+            <DetailGrid className="sm:grid-cols-3">
+              <DetailField
+                label={t('KP_RotationFrequency')}
+                value={record.rotationFrequency}
+              />
+              <DetailField
+                label={t('KP_RotationTime')}
+                value={record.rotationTime}
+              />
+              <DetailField
+                label={t('KP_RotationMethods')}
+                value={record.rotationMethods}
+              />
+            </DetailGrid>
+          </DetailSection>
         </TabsContent>
 
         {/* ---------- Tab 2: Operation Records ---------- */}
         <TabsContent value="records" className="mt-4 space-y-6">
-          <div className="rounded-lg border bg-card p-4">
+          <Card className="p-4">
             <div className="mb-4 text-sm text-muted-foreground">
               {t('key_management_0047', {
                 name: `${record.businessName || '--'} Key Rotation Policy`,
               })}
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <FormSelect
-                name="operationType"
-                control={control}
-                label={t('key_management_0048')}
-                options={[
-                  { label: t('PUB_All'), value: ALL_VALUE },
-                  ...operationTypeOptions,
-                ]}
-              />
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  reset(RECORDS_FILTER_DEFAULTS);
-                  setCommittedOperationType(ALL_VALUE);
-                  setRecordsPage(1);
-                }}
-              >
-                {t('PUB_Reset')}
-              </Button>
-              <Button
-                onClick={() => {
-                  // Commit the current form value as the filter (Query-button
-                  // semantics — source uses onChange; we align with the
-                  // managed-wallets-detail Query pattern per the task spec).
-                  setCommittedOperationType(
-                    getValues('operationType') || ALL_VALUE,
-                  );
-                  setRecordsPage(1);
-                }}
-              >
-                {t('PUB_Query')}
-              </Button>
-            </div>
-          </div>
+            <QueryForm
+              variant="plain"
+              fields={[
+                <FormSelect
+                  key="operationType"
+                  name="operationType"
+                  control={control}
+                  label={t('key_management_0048')}
+                  options={[
+                    { label: t('PUB_All'), value: ALL_VALUE },
+                    ...operationTypeOptions,
+                  ]}
+                />,
+              ]}
+              onReset={() => {
+                reset(RECORDS_FILTER_DEFAULTS);
+                setCommittedOperationType(ALL_VALUE);
+                setRecordsPage(1);
+              }}
+              onQuery={() => {
+                // Commit the current form value as the filter (Query-button
+                // semantics — source uses onChange; we align with the
+                // managed-wallets-detail Query pattern per the task spec).
+                setCommittedOperationType(
+                  getValues('operationType') || ALL_VALUE,
+                );
+                setRecordsPage(1);
+              }}
+              queryLabel={t('PUB_Query')}
+              resetLabel={t('PUB_Reset')}
+            />
+          </Card>
 
-          <div className="rounded-lg border bg-card p-4">
+          <Card className="p-4">
             <DataTable
               columns={recordsColumns}
               data={filteredRecords.map(
@@ -378,12 +372,7 @@ export function KeyPolicyConfigurationDetailPage() {
                 },
               }}
             />
-            <div className="mt-6 flex justify-end">
-              <Button onClick={() => router.back()}>
-                {t('key_management_0056')}
-              </Button>
-            </div>
-          </div>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

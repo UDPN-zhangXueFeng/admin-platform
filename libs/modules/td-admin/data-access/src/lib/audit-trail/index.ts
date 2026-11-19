@@ -33,4 +33,5 @@ export {
   useCreateExportTaskMutation,
   useStablecoinSearchesQuery,
   useBlockchainListQuery,
+  useAuditTrailTokenTypeListQuery,
 } from './+queries/audit-trail.queries';

@@ -9,7 +9,7 @@
 import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
-import { DataTable } from '@myorg/shared/ui';
+import { DataTable, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../../format-admin-time';
@@ -56,6 +56,9 @@ export function SPRecordsTable({ td }: OverviewRecordsTabProps): React.JSX.Eleme
     pageNum: 1,
     pageSize: DEFAULT_PAGE_SIZE,
   });
+  const [detailRecord, setDetailRecord] = React.useState<SPRecordItem | null>(
+    null
+  );
 
   const params = React.useMemo(
     () => ({
@@ -73,13 +76,19 @@ export function SPRecordsTable({ td }: OverviewRecordsTabProps): React.JSX.Eleme
 
   const handleView = React.useCallback(
     (row: SPRecordItem) => {
-      router.push(
-        `${APPROVAL_VIEW_ROUTE}?id=${row.taskId ?? ''}&busCode=${
-          row.businessCode ?? ''
-        }`,
-      );
+      // 有审批任务时进入审批详情；SP 直铸记录通常没有 taskId
+      // （无需审批的直接铸币），此时展示当前行完整记录，避免按钮无响应。
+      if (row.taskId != null && row.businessCode) {
+        router.push(
+          `${APPROVAL_VIEW_ROUTE}?id=${row.taskId}&busCode=${encodeURIComponent(
+            row.businessCode
+          )}`
+        );
+        return;
+      }
+      setDetailRecord(row);
     },
-    [router],
+    [router]
   );
 
   const columns = React.useMemo<ColumnDef<SPRecordItem>[]>(
@@ -176,18 +185,14 @@ export function SPRecordsTable({ td }: OverviewRecordsTabProps): React.JSX.Eleme
           <span>{row.original.orderNumber || EMPTY_DISPLAY}</span>
         ),
       },
-      // PUB_Action：统一行操作列。源 Details 链接在 taskId 为空时 disabled（不可点）；
-      // helper 的 detail.disabled 为列级静态值，无法按行表达 —— 改用 onClick 守卫
-      // 保留“无 taskId 不跳转”行为（按钮置灰态不再展示）。
+      // PUB_Action：统一行操作列。有 taskId → 审批详情；
+      // 无 taskId 的 SP 直铸记录 → 打开只读记录详情。
       createRowActionsColumn<SPRecordItem>(
         hasViewRecordPerm
           ? {
               detail: {
                 label: t('PUB_Detail'),
-                onClick: (row) => {
-                  if (row.taskId == null) return;
-                  handleView(row);
-                },
+                onClick: handleView,
               },
             }
           : {}
@@ -196,25 +201,124 @@ export function SPRecordsTable({ td }: OverviewRecordsTabProps): React.JSX.Eleme
     [t, handleView, hasViewRecordPerm],
   );
 
+  const amountLabel =
+    detailRecord?.txAmount != null
+      ? `${formatAmount(detailRecord.txAmount)} ${detailRecord.symbol ?? ''}`.trim()
+      : EMPTY_DISPLAY;
+
   return (
-    <DataTable
-      columns={columns}
-      data={rows}
-      isLoading={isLoading}
-      emptyMessage={t('empty')}
-      pagination={{
-        page: pagination.pageNum,
-        pageSize: pagination.pageSize,
-        total,
-        onPageChange: (p) =>
-          setPagination((prev) => ({ ...prev, pageNum: p })),
-        onPageSizeChange: (size) =>
-          setPagination((prev) => ({
-            ...prev,
-            pageNum: 1,
-            pageSize: size,
-          })),
-      }}
-    />
+    <>
+      <DataTable
+        columns={columns}
+        data={rows}
+        isLoading={isLoading}
+        emptyMessage={t('empty')}
+        pagination={{
+          page: pagination.pageNum,
+          pageSize: pagination.pageSize,
+          total,
+          onPageChange: (p) =>
+            setPagination((prev) => ({ ...prev, pageNum: p })),
+          onPageSizeChange: (size) =>
+            setPagination((prev) => ({
+              ...prev,
+              pageNum: 1,
+              pageSize: size,
+            })),
+        }}
+      />
+
+      <Dialog
+        open={detailRecord !== null}
+        onOpenChange={(open) => {
+          if (!open) setDetailRecord(null);
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{t('PUB_Detail')}</DialogTitle>
+            <DialogDescription>
+              {detailRecord?.orderNumber || EMPTY_DISPLAY}
+            </DialogDescription>
+          </DialogHeader>
+
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+            <RecordDetailField label={t('tokenized_deposit_0160')}>
+              {detailRecord?.spName || EMPTY_DISPLAY}
+            </RecordDetailField>
+            <RecordDetailField label={t('tokenized_deposit_0161')}>
+              {detailRecord?.walletAddress ? (
+                <TokenizedDepositCopy
+                  text={detailRecord.walletAddress}
+                  ellipsis
+                />
+              ) : (
+                EMPTY_DISPLAY
+              )}
+            </RecordDetailField>
+            <RecordDetailField label={t('transaction_flow_004')}>
+              {detailRecord?.txType != null
+                ? t(`${ORDER_TYPE_KEY_PREFIX}${detailRecord.txType}`)
+                : EMPTY_DISPLAY}
+            </RecordDetailField>
+            <RecordDetailField label={t('transaction_flow_005')}>
+              {amountLabel}
+            </RecordDetailField>
+            <RecordDetailField label={t('PUB_CreateTime')}>
+              {detailRecord?.createTime
+                ? formatAdminTimestamp(detailRecord.createTime)
+                : EMPTY_DISPLAY}
+            </RecordDetailField>
+            <RecordDetailField label={t('transaction_flow_003')}>
+              {detailRecord?.txTime
+                ? formatAdminTimestamp(detailRecord.txTime)
+                : EMPTY_DISPLAY}
+            </RecordDetailField>
+            <RecordDetailField label={t('transaction_flow_007')}>
+              {detailRecord?.txHash ? (
+                <TokenizedDepositCopy
+                  text={detailRecord.txHash}
+                  href={buildTxBrowserHref(
+                    detailRecord.browserUrl,
+                    detailRecord.txHash
+                  )}
+                  ellipsis
+                />
+              ) : (
+                EMPTY_DISPLAY
+              )}
+            </RecordDetailField>
+            <RecordDetailField label={t('PUB_Status')}>
+              {detailRecord?.status != null ? (
+                <TokenizedDepositStatusBadge
+                  dimension="task"
+                  status={detailRecord.status}
+                />
+              ) : (
+                EMPTY_DISPLAY
+              )}
+            </RecordDetailField>
+            <RecordDetailField label="Serial No.">
+              {detailRecord?.orderNumber || EMPTY_DISPLAY}
+            </RecordDetailField>
+          </dl>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function RecordDetailField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 break-words font-medium">{children}</dd>
+    </div>
   );
 }

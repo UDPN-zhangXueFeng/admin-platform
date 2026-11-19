@@ -40,7 +40,7 @@ export function useSuspenseEntryDetailQuery(
   suspenseRecordId: number | undefined,
   enabled = true,
 ) {
-  return useQuery<SuspenseAdjustmentDetail | undefined>({
+  return useQuery<SuspenseAdjustmentDetail | null>({
     queryKey: suspenseAdjustmentKeys.entryDetail(suspenseRecordId ?? 0),
     queryFn: ({ signal }) =>
       getSuspenseEntryDetail(suspenseRecordId as number, { signal }),
@@ -53,7 +53,7 @@ export function useSuspenseAdjustmentDetailQuery(
   adjustmentId: number | undefined,
   enabled = true,
 ) {
-  return useQuery<AdjustedDetailDomain | undefined>({
+  return useQuery<AdjustedDetailDomain | null>({
     queryKey: suspenseAdjustmentKeys.adjustmentDetail(adjustmentId ?? 0),
     queryFn: ({ signal }) =>
       getSuspenseAdjustmentDetail(adjustmentId as number, { signal }),
@@ -66,7 +66,7 @@ export function useTxAccountsLeafQuery(
   financeBookId: number | undefined,
   enabled = true,
 ) {
-  return useQuery<LeafAccountsResp | undefined>({
+  return useQuery<LeafAccountsResp | null>({
     queryKey: suspenseAdjustmentKeys.accountOptions(financeBookId ?? 0),
     queryFn: ({ signal }) =>
       getTxAccountsLeaf(financeBookId as number, { signal }),
@@ -76,16 +76,15 @@ export function useTxAccountsLeafQuery(
 
 /**
  * 提交暂记调账 mutation。
- * 成功后失效列表缓存（adjust 后 outstanding / status 变化）。
+ * 成功后失效列表和受影响的记录详情。
  */
 export function useSubmitSuspenseAdjustmentMutation() {
   const queryClient = useQueryClient();
-  return useMutation<AdjustmentSubmitResult, Error, NewAdjustmentForm>({
+  return useMutation<AdjustmentSubmitResult | null, Error, NewAdjustmentForm>({
     mutationFn: (form: NewAdjustmentForm) => submitSuspenseAdjustment(form),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: suspenseAdjustmentKeys.lists(),
-      });
-    },
+    onSuccess: (_, form) => Promise.all([
+      queryClient.invalidateQueries({ queryKey: suspenseAdjustmentKeys.lists() }),
+      queryClient.invalidateQueries({ queryKey: suspenseAdjustmentKeys.entryDetail(form.suspenseRecordId) }),
+    ]),
   });
 }

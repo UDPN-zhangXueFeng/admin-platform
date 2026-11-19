@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
-import { Button } from '@myorg/shared/ui';
+import { Card, PageHeader } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import { RoleStatusTag, RoleMenuTree } from '.';
@@ -42,28 +42,22 @@ export function RoleViewPage() {
 
   if (!roleId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('invalidId')}</p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.push('/sys/role')}
-        >
-          {t('action.back')}
-        </Button>
+      <div className="space-y-4">
+        <PageHeader title={t('view.title')} backLabel={t('action.back')} onBack={() => router.push('/sys/role')} />
+        <Card className="p-6"><p className="text-sm text-muted-foreground">{t('invalidId')}</p></Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {isError ? (
-        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-          {t('loadFailed')}
-        </div>
-      ) : null}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <div className="mb-6 text-base font-semibold">{t('view.title')}</div>
+      <Card className="p-6">
+        <PageHeader className="mb-6" title={t('view.title')} backLabel={t('action.back')} onBack={() => router.push('/sys/role')} />
+        {isError ? (
+          <div role="alert" className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+            {t('loadFailed')}
+          </div>
+        ) : null}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">{t('field.roleName')}</label>
@@ -86,9 +80,9 @@ export function RoleViewPage() {
             </div>
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">{t('field.menu')}</div>
         {menuList?.length ? (
           <RoleMenuTree
@@ -100,13 +94,8 @@ export function RoleViewPage() {
         ) : (
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         )}
-      </section>
+      </Card>
 
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => router.push('/sys/role')}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

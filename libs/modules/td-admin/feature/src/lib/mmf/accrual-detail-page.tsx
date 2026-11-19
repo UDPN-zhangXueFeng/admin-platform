@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Card, DataTable, PageHeader } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 import { formatDate } from '@myorg/shared/util-dates';
 import {
@@ -25,6 +25,7 @@ import {
   EMPTY_DISPLAY,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 
 const DATE_FMT = 'YYYY-MM-DD';
 
@@ -284,18 +285,22 @@ export function AccrualDetailPage() {
     ];
   }, [detail, t]);
 
+  const header = <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('accrual.detail.title')} />;
+
   if (!hasId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">
-          {t('accrual.detail.title')}
-        </p>
+      <div className="space-y-4">
+        {header}
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">{t('accrual.detail.title')}</p>
+        </Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {header}
       <MmfBasicDetails
         title={t('accrual.detail.title')}
         items={basicItems}
@@ -303,56 +308,48 @@ export function AccrualDetailPage() {
         emptyMessage={t('empty')}
       />
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="border-b px-6 py-3 text-sm font-semibold">
-          {t('accrual.detail.walletRecords')}
-        </div>
-        <div className="p-4">
-          <form
-            onSubmit={handleSubmit(onWalletSubmit)}
-            className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
-          >
-            <FormField
-              name="walletAddress"
-              label={t('field.walletAddress')}
-              register={register('walletAddress')}
-              placeholder={t('field.walletAddress')}
-            />
-            <div className="flex items-end gap-2">
-              <Button type="submit">{t('filter.query')}</Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onWalletReset}
-              >
-                {t('filter.reset')}
-              </Button>
-            </div>
-          </form>
-
-          <DataTable
-            columns={walletColumns}
-            data={walletRows}
-            isLoading={walletLoading}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: walletPagination.pageNum,
-              pageSize: walletPagination.pageSize,
-              total: walletTotal,
-              onPageChange: (p) =>
-                setWalletPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setWalletPagination({ pageNum: 1, pageSize: size }),
-            }}
+      <Card><div className="border-b px-6 py-3 text-sm font-semibold">
+        {t('accrual.detail.walletRecords')}
+      </div>
+      <div className="p-4">
+        <form
+          onSubmit={handleSubmit(onWalletSubmit)}
+          className="mb-4"
+        >
+          <QueryForm
+            variant="plain"
+            queryType="submit"
+            fields={[
+              <FormField
+                key="walletAddress"
+                name="walletAddress"
+                label={t('field.walletAddress')}
+                register={register('walletAddress')}
+                placeholder={t('field.walletAddress')}
+              />,
+            ]}
+            onReset={onWalletReset}
+            queryLabel={t('filter.query')}
+            resetLabel={t('filter.reset')}
           />
-        </div>
-      </div>
+        </form>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
+        <DataTable
+          columns={walletColumns}
+          data={walletRows}
+          isLoading={walletLoading}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: walletPagination.pageNum,
+            pageSize: walletPagination.pageSize,
+            total: walletTotal,
+            onPageChange: (p) =>
+              setWalletPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setWalletPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
     </div>
   );
 }

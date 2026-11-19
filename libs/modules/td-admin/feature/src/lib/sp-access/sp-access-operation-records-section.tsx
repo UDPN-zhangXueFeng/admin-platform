@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  Button,
+  Card,
   DataTable,
   Select,
   SelectContent,
@@ -17,6 +17,7 @@ import {
 import { useSpAccessOperationRecordsQuery } from '@myorg/modules/td-admin/data-access';
 import type { SpAccessOperationRecord } from '@myorg/modules/td-admin/data-access';
 import { EMPTY_FIELD_VALUE, formatTimestamp } from './formatters';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import { SpAccessStatusBadge } from './sp-access-status-badge';
 
@@ -99,53 +100,45 @@ export function SpAccessOperationRecordsSection({ spCode }: { spCode: string }) 
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-card p-6">
-        <div className="mb-4 text-base font-semibold">{t('sp_access_0012')}</div>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          <label className="flex flex-col gap-1 text-sm">
-            <span>{t('sp_access_0013')}</span>
-            <Select
-              value={draftType}
-              onValueChange={(value) => setDraftType(value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('PUB_All')}</SelectItem>
-                {OPERATION_TYPE_OPTIONS.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {t(`operation_type_${value}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-        </div>
-        <div className="mt-4 flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setDraftType(ALL_VALUE);
-              setAppliedType(ALL_VALUE);
-              setPage(1);
-              setPageSize(PAGE_SIZE);
-            }}
-          >
-            {t('PUB_Reset')}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              setAppliedType(draftType);
-              setPage(1);
-            }}
-          >
-            {t('PUB_Query')}
-          </Button>
-        </div>
-      </div>
+      <Card className="p-4">
+        <div className="mb-3 text-base font-semibold">{t('sp_access_0012')}</div>
+        <QueryForm
+          variant="plain"
+          fields={[
+            <label key="operationType" className="flex flex-col gap-1 text-sm">
+              <span>{t('sp_access_0013')}</span>
+              <Select
+                value={draftType}
+                onValueChange={(value) => setDraftType(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_VALUE}>{t('PUB_All')}</SelectItem>
+                  {OPERATION_TYPE_OPTIONS.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {t(`operation_type_${value}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>,
+          ]}
+          onQuery={() => {
+            setAppliedType(draftType);
+            setPage(1);
+          }}
+          onReset={() => {
+            setDraftType(ALL_VALUE);
+            setAppliedType(ALL_VALUE);
+            setPage(1);
+            setPageSize(PAGE_SIZE);
+          }}
+          queryLabel={t('PUB_Query')}
+          resetLabel={t('PUB_Reset')}
+        />
+      </Card>
 
       <DataTable
         columns={columns}

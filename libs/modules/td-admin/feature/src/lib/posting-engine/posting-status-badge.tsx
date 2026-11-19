@@ -1,10 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import {
-  postingStatusToneClass,
-  resolvePostingStatusMeta,
-} from '.';
+import { EMPTY_DISPLAY, postingStatusToneClass, resolvePostingStatusMeta } from './posting-engine.constants';
 
 /**
  * Posting Engine 状态 badge。
@@ -15,19 +12,21 @@ import {
 export function PostingStatusBadge({
   status,
   statusName,
+  scope = 'event',
 }: {
   status?: number;
   statusName?: string;
+  scope?: 'book' | 'matrix' | 'event';
 }) {
   const t = useTranslations('modules.posting-engine');
-  const meta = resolvePostingStatusMeta(status, statusName);
+  const meta = resolvePostingStatusMeta(status, statusName, scope);
   return (
     <span
       className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${postingStatusToneClass(
         meta.tone
       )}`}
     >
-      {t(meta.labelKey)}
+      {statusName || (meta.labelKey ? t(meta.labelKey) : status ?? EMPTY_DISPLAY)}
     </span>
   );
 }

@@ -6,8 +6,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, DataTable } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { Card, DataTable } from '@myorg/shared/ui';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatDate } from '@myorg/shared/util-dates';
 import { usePermission } from '@myorg/shared/util-auth';
 import {
@@ -25,6 +25,7 @@ import {
   SETTLEMENT_TX_TYPE_KEY_PREFIX,
 } from '.';
 import { ALL_VALUE } from './mmf.constants';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 const DATETIME_FMT = 'YYYY-MM-DD';
@@ -252,74 +253,71 @@ export function SettlementListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="settlementCode"
-            label={t('field.settlementCode')}
-            register={register('settlementCode')}
-            placeholder={t('field.settlementCode')}
-          />
-          <FormDatePicker
-            name="appliedTimeFrom"
-            control={control}
-            label={t('field.applyTimeFrom')}
-          />
-          <FormDatePicker
-            name="appliedTimeTo"
-            control={control}
-            label={t('field.applyTimeTo')}
-          />
-          <FormSelect
-            name="ruleId"
-            control={control}
-            label={t('field.fundName')}
-            options={fundOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('field.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormField
+              key="settlementCode"
+              name="settlementCode"
+              label={t('field.settlementCode')}
+              register={register('settlementCode')}
+              placeholder={t('field.settlementCode')}
+            />,
+            <FormDateRangePicker
+              key="appliedTime"
+              startName="appliedTimeFrom"
+              endName="appliedTimeTo"
+              control={control}
+              label={t('field.applyTime')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('field.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="ruleId"
+              name="ruleId"
+              control={control}
+              label={t('field.fundName')}
+              options={fundOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">
-            {t('settlement.list.title')}
-          </div>
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (p) =>
-                setPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
+      <Card><div className="flex justify-between border-b px-6 py-3">
+        <div className="text-sm font-semibold">
+          {t('settlement.list.title')}
         </div>
       </div>
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (p) =>
+              setPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
     </div>
   );
 }

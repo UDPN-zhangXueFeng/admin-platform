@@ -10,8 +10,9 @@ import type {
   UseFormHandleSubmit,
 } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
-import { Button, Input } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { Input } from '@myorg/shared/ui';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { QueryForm } from '../../query-form';
 import { REVIEW_SUBMIT_STATE_KEY_PREFIX } from '@myorg/modules/td-admin/data-access';
 
 
@@ -57,10 +58,6 @@ interface RecordFilterFormProps {
   handleSubmit: UseFormHandleSubmit<RecordFilterFormValues>;
   onFilterSubmit: (values: RecordFilterFormValues) => void;
   onFilterReset: () => void;
-  startCreateTime: string;
-  endCreateTime: string;
-  startReviewerTime: string;
-  endReviewerTime: string;
 }
 
 export function RecordFilterForm({
@@ -68,104 +65,72 @@ export function RecordFilterForm({
   handleSubmit,
   onFilterSubmit,
   onFilterReset,
-  startCreateTime,
-  endCreateTime,
-  startReviewerTime,
-  endReviewerTime,
 }: RecordFilterFormProps): React.JSX.Element {
   const t = useTranslations('modules.tokenized-deposit');
 
   return (
-    <form
-      onSubmit={handleSubmit(onFilterSubmit)}
-      className="grid grid-cols-1 gap-4 rounded-lg border bg-card p-4 md:grid-cols-2 lg:grid-cols-3"
-    >
-      <div>
-        <label
-          htmlFor="view-filter-txHash"
-          className="mb-1.5 block text-sm font-medium"
-        >
-          {t('stablecoin_settings_002')}
-        </label>
-        <Input
-          id="view-filter-txHash"
-          {...control.register('txHash')}
-          placeholder={t('stablecoin_settings_002')}
-        />
-      </div>
-
-      <FormSelect
-        name="type"
-        control={control}
-        label={t('PUB_Type')}
-        options={[
-          { value: 'all', label: t('PUB_All') },
-          { value: '1', label: t('stablecoin_record_type_1') },
-          { value: '2', label: t('stablecoin_record_type_2') },
+    <form onSubmit={handleSubmit(onFilterSubmit)}>
+      <QueryForm
+        queryType="submit"
+        fields={[
+          <div key="txHash">
+            <label
+              htmlFor="view-filter-txHash"
+              className="mb-1.5 block text-sm font-medium"
+            >
+              {t('stablecoin_settings_002')}
+            </label>
+            <Input
+              id="view-filter-txHash"
+              {...control.register('txHash')}
+              placeholder={t('stablecoin_settings_002')}
+            />
+          </div>,
+          <FormSelect
+            key="type"
+            name="type"
+            control={control}
+            label={t('PUB_Type')}
+            options={[
+              { value: 'all', label: t('PUB_All') },
+              { value: '1', label: t('stablecoin_record_type_1') },
+              { value: '2', label: t('stablecoin_record_type_2') },
+            ]}
+          />,
+          <FormSelect
+            key="state"
+            name="state"
+            control={control}
+            label={t('PUB_Status')}
+            options={[
+              { value: 'all', label: t('PUB_All') },
+              ...REVIEW_SUBMIT_STATES.map((s) => ({
+                value: String(s),
+                label: t(`${REVIEW_SUBMIT_STATE_KEY_PREFIX}${s}`),
+              })),
+            ]}
+          />,
         ]}
-      />
-
-      <FormSelect
-        name="state"
-        control={control}
-        label={t('PUB_Status')}
-        options={[
-          { value: 'all', label: t('PUB_All') },
-          ...REVIEW_SUBMIT_STATES.map((s) => ({
-            value: String(s),
-            label: t(`${REVIEW_SUBMIT_STATE_KEY_PREFIX}${s}`),
-          })),
+        advancedFields={[
+          <FormDateRangePicker
+            key="createTime"
+            startName="startCreateTime"
+            endName="endCreateTime"
+            control={control}
+            label={t('PUB_CreateTime')}
+          />,
+          <FormDateRangePicker
+            key="reviewTime"
+            startName="startReviewerTime"
+            endName="endReviewerTime"
+            control={control}
+            label={t('PUB_ReviewTime')}
+          />,
         ]}
+        onReset={onFilterReset}
+        queryLabel={t('PUB_Query')}
+        resetLabel={t('PUB_Reset')}
       />
-
-      <div>
-        <span className="mb-1.5 block text-sm font-medium">
-          {t('PUB_CreateTime')}
-        </span>
-        <div className="flex items-center gap-2">
-          <FormDatePicker
-            name="startCreateTime"
-            control={control}
-            label=""
-            max={endCreateTime || undefined}
-          />
-          <span className="text-muted-foreground">~</span>
-          <FormDatePicker
-            name="endCreateTime"
-            control={control}
-            label=""
-            min={startCreateTime || undefined}
-          />
-        </div>
-      </div>
-
-      <div>
-        <span className="mb-1.5 block text-sm font-medium">
-          {t('PUB_ReviewTime')}
-        </span>
-        <div className="flex items-center gap-2">
-          <FormDatePicker
-            name="startReviewerTime"
-            control={control}
-            label=""
-            max={endReviewerTime || undefined}
-          />
-          <span className="text-muted-foreground">~</span>
-          <FormDatePicker
-            name="endReviewerTime"
-            control={control}
-            label=""
-            min={startReviewerTime || undefined}
-          />
-        </div>
-      </div>
-
-      <div className="flex items-end gap-2">
-        <Button type="submit">{t('PUB_Query')}</Button>
-        <Button type="button" variant="outline" onClick={onFilterReset}>
-          {t('PUB_Reset')}
-        </Button>
-      </div>
     </form>
   );
 }

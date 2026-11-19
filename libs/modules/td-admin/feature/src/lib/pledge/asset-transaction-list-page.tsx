@@ -6,10 +6,11 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, DataTable, Input } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { Button, Card, DataTable, Input } from '@myorg/shared/ui';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import {
   useAssetCategoryListQuery,
   useCurrencyListQuery,
@@ -92,11 +93,11 @@ function formatBalance(value: number | undefined | null): string {
  * 关键点：
  * 1. **筛选 7 项**：RefNo / 资产名（Input）；币种（currency/list，filter value 非空）；
  *    资产类别（category/list，filter assetCategoryName 非空）；交易类型（TRANSACTION_DIRECTION_FILTER，
- *    源 0=All → 页面归一为 ALL_VALUE，提交 `===ALL_VALUE` 转 undefined）；创建时间（起止两个
- *    FormDatePicker，源 RangePicker 用 "-" 拆分 startQueryTime/endQueryTime）；状态
+ *    源 0=All → 页面归一为 ALL_VALUE，提交 `===ALL_VALUE` 转 undefined）；创建时间（一个
+ *    FormDateRangePicker 渲染 startQueryTime/endQueryTime 两个字段，源 RangePicker 用 "-" 拆分）；状态
  *    （ASSET_TXN_STATUS_FILTER，0=All → ALL_VALUE）。
  * 2. **行操作 Details**：跳 `/approval-manage/view?busCode=save_reserve_asset_transaction&id=<taskId>`，
- *    taskId 为 null 时按钮 disabled。⚠️ approval-manage 模块本批未迁移，该路由可能 404。
+ *    taskId 为 null 时按钮 disabled。
  * 3. **顶部按钮**：New（权限 newTransaction）跳 `/pledge/asset-transaction/create`
  *    （⚠️ 用 `/create` 非 `/edit`——registry/manifest 的 asset-transaction 子模块只有通用 key `create`，
  *    源 `/edit` 已映射为 `create`，见 module-manifest.ts）；Import（权限 importTransactions）/Adjustment
@@ -212,7 +213,7 @@ export function AssetTransactionListPage(): React.JSX.Element {
   const total = listResult.data?.page?.total ?? 0;
   const isLoading = listResult.isLoading || listResult.isFetching;
 
-  // ── 行操作 Details ── ⚠️ approval-manage 本批未迁移，可能 404。
+  // ── 行操作 Details ──
   const handleDetails = React.useCallback(
     (row: AssetTxnRow) => {
       router.push({
@@ -369,99 +370,101 @@ export function AssetTransactionListPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <Controller
-            control={control}
-            name="orderSerialNumber"
-            render={({ field }) => (
-              <div>
-                <label
-                  htmlFor="atxn-orderSerialNumber"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('assetTxnList.transactionRefNo')}
-                </label>
-                <Input
-                  id="atxn-orderSerialNumber"
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                />
-              </div>
-            )}
-          />
-          <Controller
-            control={control}
-            name="assetName"
-            render={({ field }) => (
-              <div>
-                <label
-                  htmlFor="atxn-assetName"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('assetTxnList.assetName')}
-                </label>
-                <Input
-                  id="atxn-assetName"
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                />
-              </div>
-            )}
-          />
-          <FormSelect
-            name="currency"
-            control={control}
-            label={t('field.currency')}
-            options={currencyOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="assetCategoryName"
-            control={control}
-            label={t('assetTxnList.assetCategory')}
-            options={categoryOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="transactionDirection"
-            control={control}
-            label={t('assetTxnList.transactionType')}
-            options={directionOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDatePicker
-            name="startQueryTime"
-            control={control}
-            label={t('assetTxnList.createdOn')}
-          />
-          <FormDatePicker
-            name="endQueryTime"
-            control={control}
-            label={t('assetTxnList.createdOn')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('field.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <Controller
+              key="orderSerialNumber"
+              control={control}
+              name="orderSerialNumber"
+              render={({ field }) => (
+                <div>
+                  <label
+                    htmlFor="atxn-orderSerialNumber"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    {t('assetTxnList.transactionRefNo')}
+                  </label>
+                  <Input
+                    id="atxn-orderSerialNumber"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                  />
+                </div>
+              )}
+            />,
+            <FormSelect
+              key="transactionDirection"
+              name="transactionDirection"
+              control={control}
+              label={t('assetTxnList.transactionType')}
+              options={directionOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="queryTime"
+              startName="startQueryTime"
+              endName="endQueryTime"
+              control={control}
+              label={t('assetTxnList.createdOn')}
+            />,
+          ]}
+          advancedFields={[
+            <Controller
+              key="assetName"
+              control={control}
+              name="assetName"
+              render={({ field }) => (
+                <div>
+                  <label
+                    htmlFor="atxn-assetName"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    {t('assetTxnList.assetName')}
+                  </label>
+                  <Input
+                    id="atxn-assetName"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                  />
+                </div>
+              )}
+            />,
+            <FormSelect
+              key="currency"
+              name="currency"
+              control={control}
+              label={t('field.currency')}
+              options={currencyOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="assetCategoryName"
+              name="assetCategoryName"
+              control={control}
+              label={t('assetTxnList.assetCategory')}
+              options={categoryOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('field.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-6 py-3">
           <div className="text-sm font-semibold">{t('assetTxnList.title')}</div>
           <div className="flex flex-wrap gap-2">
@@ -497,7 +500,7 @@ export function AssetTransactionListPage(): React.JSX.Element {
             }}
           />
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

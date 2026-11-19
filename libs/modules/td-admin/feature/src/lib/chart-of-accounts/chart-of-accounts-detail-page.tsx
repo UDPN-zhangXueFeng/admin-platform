@@ -1,51 +1,48 @@
 'use client';
 
-import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { useTranslations } from 'next-intl';
-import { Button, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
-import { FIXED_TOKEN_TYPES, useCoaBasicInfoQuery } from '@myorg/modules/td-admin/data-access';
-import { formatAdminTimestamp } from '../format-admin-time';
+import { PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@myorg/shared/ui';
+import { useCoaBasicInfoQuery } from '@myorg/modules/td-admin/data-access';
 
 import { getFinancialBookMetaByBookId } from './financial-book-meta';
+import { CoaBasicInformation } from './coa-basic-information';
 import { useCoaTree } from './use-coa-tree';
 import { useEodBalances } from './use-eod-balances';
+import { useTrialBalance } from './use-trial-balance';
+import { useOperationRecords } from './use-operation-records';
 import { CoaTab } from './coa-tab';
 import { CoaAccountEditorDialog } from './coa-account-editor-dialog';
 import { CoaToggleDialog } from './coa-toggle-dialog';
 import { EodBalancesContent } from './eod-balances-content';
 import { EodDetailDrawer } from './eod-detail-drawer';
-import { PostToSuspenseDialog } from './post-to-suspense-dialog';
 import { ReviewSuspensePostingsDrawer } from './review-suspense-postings-drawer';
+import { TrialBalanceContent } from './trial-balance-content';
+import { TrialBalanceActivityDrawer } from './trial-balance-activity-drawer';
+import { OperationRecordsContent } from './operation-records-content';
 
-const VALID_TABS = ['basic-information', 'chart-of-accounts', 'eod-statements'] as const;
+const VALID_TABS = [
+  'basic-information',
+  'chart-of-accounts',
+  'eod-balances',
+  'trial-balance',
+  'operation-records',
+] as const;
 type DetailTab = (typeof VALID_TABS)[number];
 
 function isDetailTab(value: string | null): value is DetailTab {
   return !!value && (VALID_TABS as readonly string[]).includes(value);
 }
 
-function DetailField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-sm font-medium break-words">{children}</dd>
-    </div>
-  );
-}
 
 /**
  * ChartOfAccountsDetailPage — 详情视图（tabs 分发）。
  *
  * Basic Information（useCoaBasicInfoQuery：详情接口）+ Chart of Accounts（useCoaTree：树编辑/草稿/启停）+
- * EOD Statements（useEodBalances：余额列表/明细 drawer/post-to-suspense/review）。
+ * EOD Statements（useEodBalances：余额列表/明细 drawer/post-to-suspense/review）+
+ * Trial Balance（useTrialBalance：as-of 汇总/试算表/Activity drawer）+
+ * Operation Records（useOperationRecords：筛选/分页/明细 drawer/审批跳转）。
  * 读取 bookNo/financeBookId/tab query params，按 tab 激活对应数据查询。
  */
 export function ChartOfAccountsDetailPage() {
@@ -55,29 +52,19 @@ export function ChartOfAccountsDetailPage() {
   const searchParams = useSearchParams();
 
   const bookNo = searchParams.get('bookNo') ?? '';
-  const financeBookIdStr = searchParams.get('financeBookId') ?? '';
-  const financeBookId = financeBookIdStr ? Number(financeBookIdStr) : undefined;
-  const initialTab = searchParams.get('tab');
-
-  const [activeTab, setActiveTab] = React.useState<DetailTab>(
-    isDetailTab(initialTab) ? initialTab : 'basic-information'
-  );
-
+  const bookName = searchParams.get('bookName');
+  const id = Number(searchParams.get('financeBookId'));
+  const financeBookId = Number.isSafeInteger(id) && id > 0 ? id : undefined;
+  const tab = searchParams.get('tab');
+  const normalizedTab = tab === 'eod-statements' ? 'eod-balances' : tab;
+  const activeTab = isDetailTab(normalizedTab) ? normalizedTab : 'basic-information';
   const meta = getFinancialBookMetaByBookId(bookNo);
-  const detailId = meta.id;
+  const detailId = searchParams.get('id') === '2' ? '2' : meta.id;
   const basicInfoQuery = useCoaBasicInfoQuery(financeBookId);
   const basicInfo = basicInfoQuery.data;
-  /** 展示名：live basicInfo.bookName → query param bookNo → '--'（不使用本地 sample meta）。 */
-  const displayBookName = basicInfo?.bookName || bookNo || '--';
+  const displayBookName = basicInfo?.bookName || bookName || bookNo || '--';
   /** EOD 货币：live basicInfo.currencyCode → 空串（不伪造 meta.currency）。 */
   const eodCurrency = basicInfo?.currencyCode || '';
-  const tokenTypeLabels = React.useMemo(
-    () =>
-      Object.fromEntries(
-        FIXED_TOKEN_TYPES.map((tokenType) => [tokenType, t(`tokenType.${tokenType}`)])
-      ) as Record<number, string>,
-    [t]
-  );
 
   const coa = useCoaTree({
     financeBookId,
@@ -87,13 +74,30 @@ export function ChartOfAccountsDetailPage() {
     financeBookId,
     detailId,
     currency: eodCurrency,
-    enabled: activeTab === 'eod-statements',
+    enabled: activeTab === 'eod-balances',
+  });
+  const displayBookId = basicInfo?.bookNo || bookNo || '--';
+  const trialBalance = useTrialBalance({
+    financeBookId,
+    enabled: activeTab === 'trial-balance',
+    basicInfoLoading: basicInfoQuery.isLoading,
+    lastEodPostingRun: basicInfo?.lastEodPostingRun,
+    basicInfo: { financialBookName: displayBookName, bookId: displayBookId },
+    fallbackCurrency: eodCurrency,
+    tokenType: basicInfo?.tokenType,
+  });
+  const operationRecords = useOperationRecords({
+    financeBookId,
+    enabled: activeTab === 'operation-records',
   });
 
   const handleTabChange = (value: string) => {
-    if (isDetailTab(value)) setActiveTab(value);
+    if (!isDetailTab(value)) return;
+    const query = new URLSearchParams(searchParams.toString());
+    query.set('tab', value);
+    window.history.replaceState(null, '', `?${query.toString()}`);
   };
-  const onBack = () => router.back();
+  const onBack = () => router.push('/accounting/chart-of-accounts');
 
   // AccountEditorDialog 的 open（new-primary / new-sub / edit）
   const editorOpen =
@@ -114,53 +118,25 @@ export function ChartOfAccountsDetailPage() {
 
   return (
     <div className="space-y-4">
+      <PageHeader title={t('title')} backLabel={t('action.back')} onBack={onBack} />
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="basic-information">{t('tab.basicInformation')}</TabsTrigger>
           <TabsTrigger value="chart-of-accounts">{t('tab.chartOfAccounts')}</TabsTrigger>
-          <TabsTrigger value="eod-statements">{t('tab.eodStatements')}</TabsTrigger>
+          <TabsTrigger value="eod-balances">{t(eod.isFirstBook ? 'tab.eodBalances' : 'tab.eodStatements')}</TabsTrigger>
+          <TabsTrigger value="trial-balance">{t('tab.trialBalance')}</TabsTrigger>
+          <TabsTrigger value="operation-records">{t('tab.operationRecords')}</TabsTrigger>
         </TabsList>
 
         {/* Basic Information */}
         <TabsContent value="basic-information">
-          <div className="rounded-lg border bg-card p-6 shadow-sm">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-base font-semibold">{t('detail.basicInformationTitle')}</h2>
-              <Button variant="outline" onClick={onBack}>{t('action.back')}</Button>
-            </div>
-            {basicInfoQuery.isError ? (
-              <p className="py-4 text-sm text-destructive" role="alert">
-                {t('coa.toggleFailed')}
-              </p>
-            ) : basicInfo ? (
-              <dl className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <DetailField label={t('field.bookName')}>{basicInfo.bookName || '--'}</DetailField>
-                <DetailField label={t('field.bookNo')}>{basicInfo.bookNo || '--'}</DetailField>
-                <DetailField label={t('detail.financeBookId')}>{financeBookIdStr || '--'}</DetailField>
-                <DetailField label={t('field.reserveAssetName')}>{basicInfo.reserveAssetName || '--'}</DetailField>
-                <DetailField label={t('field.currency')}>{basicInfo.currencyCode || '--'}</DetailField>
-                <DetailField label={t('field.tokenType')}>
-                  {basicInfo.tokenType != null
-                    ? tokenTypeLabels[basicInfo.tokenType] ?? String(basicInfo.tokenType)
-                    : '--'}
-                </DetailField>
-                <DetailField label={t('field.tokens')}>
-                  {(basicInfo.tokens ?? [])
-                    .map((token) => token.tokenName)
-                    .filter(Boolean)
-                    .join(', ') || '--'}
-                </DetailField>
-                <DetailField label={t('field.eodCutoffTime')}>{basicInfo.eodCutoffTime || '--'}</DetailField>
-                <DetailField label={t('field.lastEodPostingRun')}>{basicInfo.lastEodPostingRun || '--'}</DetailField>
-                <DetailField label={t('field.createdBy')}>{basicInfo.createdBy || '--'}</DetailField>
-                <DetailField label={t('field.createdOn')}>{formatAdminTimestamp(basicInfo.createdOn)}</DetailField>
-              </dl>
-            ) : basicInfoQuery.isLoading ? (
-              <Skeleton className="h-48" />
-            ) : (
-              <p className="py-4 text-sm text-muted-foreground">{tCommon('noData')}</p>
-            )}
-          </div>
+          <CoaBasicInformation
+            info={basicInfo}
+            bookNo={bookNo}
+            loading={basicInfoQuery.isLoading}
+            error={basicInfoQuery.isError}
+            onRetry={() => { void basicInfoQuery.refetch(); }}
+          />
         </TabsContent>
 
         {/* Chart of Accounts */}
@@ -170,11 +146,9 @@ export function ChartOfAccountsDetailPage() {
             alertMessage={t('coa.tabAlert')}
             rows={coa.coaRows}
             columns={coa.columns}
-            errorMessage={coa.coaTreeError ? tCommon('common_task_status_40') : undefined}
+            errorMessage={coa.coaTreeError ? t('common.loadFailed') : undefined}
             loading={coa.coaTreeLoading}
             emptyMessage={tCommon('noData')}
-            onBack={onBack}
-            backLabel={t('action.back')}
             onSave={coa.handleCoaDraftSubmit}
             saveLabel={t('coa.saveDraft')}
             saveLoading={coa.coaActionSubmitting}
@@ -183,14 +157,54 @@ export function ChartOfAccountsDetailPage() {
         </TabsContent>
 
         {/* EOD Statements */}
-        <TabsContent value="eod-statements">
+        <TabsContent value="eod-balances">
           <EodBalancesContent
             rows={eod.filteredEodRows}
             columns={eod.columns}
-            description={t('eod.tabDescription')}
+            loading={eod.balancesLoading}
+            error={eod.balancesError}
+            initialFilters={eod.appliedFilters}
+            title={t(eod.isFirstBook ? 'tab.eodBalances' : 'tab.eodStatements')}
             onApplyFilters={eod.onApplyFilters}
-            onBack={onBack}
+            onRetry={eod.retryBalances}
             t={(key: string) => t(key)}
+          />
+        </TabsContent>
+
+        {/* Trial Balance */}
+        <TabsContent value="trial-balance">
+          <TrialBalanceContent
+            bookName={displayBookName}
+            filters={trialBalance.filters}
+            onFiltersChange={trialBalance.setFilters}
+            summary={trialBalance.summary}
+            loading={trialBalance.loading}
+            error={trialBalance.error}
+            columns={trialBalance.columns}
+            t={(key: string, values?: Record<string, string | number>) =>
+              t(key, values)
+            }
+          />
+        </TabsContent>
+
+        {/* Operation Records */}
+        <TabsContent value="operation-records">
+          <OperationRecordsContent
+            bookName={displayBookName}
+            rows={operationRecords.rows}
+            columns={operationRecords.columns}
+            loading={operationRecords.loading}
+            error={operationRecords.error}
+            total={operationRecords.total}
+            pagination={operationRecords.pagination}
+            initialFilters={operationRecords.appliedFilters}
+            onApplyFilters={operationRecords.applyFilters}
+            onResetFilters={operationRecords.resetFilters}
+            onPageChange={operationRecords.goToPage}
+            onPageSizeChange={operationRecords.changePageSize}
+            t={(key: string, values?: Record<string, string | number>) =>
+              t(key, values)
+            }
           />
         </TabsContent>
       </Tabs>
@@ -243,6 +257,8 @@ export function ChartOfAccountsDetailPage() {
         open={eod.drawerOpen}
         statement={eod.selectedStatement}
         detail={eod.selectedDetail}
+        loading={eod.detailLoading}
+        error={eod.detailError}
         basicInfo={{ financialBookName: displayBookName }}
         onClose={eod.closeDetail}
         t={(key: string) => t(key)}
@@ -250,24 +266,29 @@ export function ChartOfAccountsDetailPage() {
       <ReviewSuspensePostingsDrawer
         open={eod.reviewOpen}
         detail={eod.selectedDetail}
+        loading={eod.detailLoading}
+        error={eod.detailError}
         t={(key: string) => t(key)}
         onCancel={eod.closeDetail}
-        onConfirm={() => {
-          /* TODO: 接入审核确认后端 */
-          eod.closeDetail();
-        }}
       />
-      <PostToSuspenseDialog
-        open={eod.postToSuspenseOpen}
-        config={null}
-        currency={eodCurrency}
-        title={t('eod.postToSuspenseTitle')}
-        t={(key: string) => t(key)}
-        onSubmit={() => {
-          /* TODO: 接入 post-to-suspense 后端（高风险） */
-          eod.closePostToSuspense();
+
+      {/* Trial Balance activity drawer */}
+      <TrialBalanceActivityDrawer
+        selectedRow={trialBalance.selectedRow}
+        summary={trialBalance.summary}
+        meta={trialBalance.activityMeta}
+        rows={trialBalance.activityRows}
+        loading={trialBalance.activityLoading}
+        error={trialBalance.activityError}
+        columns={trialBalance.activityColumns}
+        basicInfo={{
+          financialBookName: displayBookName,
+          bookId: displayBookId,
         }}
-        onCancel={eod.closePostToSuspense}
+        onClose={trialBalance.closeActivity}
+        t={(key: string, values?: Record<string, string | number>) =>
+          t(key, values)
+        }
       />
     </div>
   );

@@ -27,6 +27,14 @@ import {
  *
  * **字段类型**：detailInfo = approvedDetail.businessContent（宽松 Record，源 GlobalAny）。
  */
+/** Render a stable placeholder instead of an empty grid cell. */
+function display(value: unknown): string {
+  if (value === null || value === undefined || String(value).trim() === '') {
+    return EMPTY_FIELD_VALUE;
+  }
+  return String(value);
+}
+
 export function ReserveAssetTransactionApproval({
   detailInfo,
 }: ApprovalComponentProps) {
@@ -64,14 +72,20 @@ export function ReserveAssetTransactionApproval({
       {
         title: t('reserveAssetTransaction.informationTitle'),
         list: [
-          { label: t('reserveAsset.assetName'), value: d.assetName },
-          { label: t('reserveAsset.currency'), value: d.currency },
-          { label: t('reserveAssetTransaction.assetCategory'), value: d.assetCategoryName },
+          { label: t('reserveAsset.assetName'), value: display(d.assetName) },
+          { label: t('reserveAsset.currency'), value: display(d.currency) },
+          {
+            label: t('reserveAssetTransaction.assetCategory'),
+            value: display(d.assetCategoryName),
+          },
           {
             label: t('reserveAssetTransaction.quantity'),
-            value: d.unit || EMPTY_FIELD_VALUE,
+            value: display(d.unit),
           },
-          { label: t('reserveAssetTransaction.createdBy'), value: d.createdName },
+          {
+            label: t('reserveAssetTransaction.createdBy'),
+            value: display(d.createdName),
+          },
           {
             label: t('reserveAssetTransaction.createdOn'),
             value: formatTimestamp(toNumber(d.createdTime)),

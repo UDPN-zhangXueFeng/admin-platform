@@ -14,8 +14,8 @@
   },
   "edit": {
     "title": "新建调账分录",
-    "basicInfo": "基本信息",
     "overview": "概览",
+    "suspenseEntriesDetails": "暂记分录明细",
     "offsettingEntryFor": "抵账分录",
     "addEntry": "+ 新增分录",
     "reason": "调账原因",
@@ -25,7 +25,15 @@
     "remainingAfter": "本次后剩余",
     "amountExceed": "合计不能超过未清金额（{amount} {currency}）。",
     "submitSuccess": "调账提交成功。",
-    "submitFailed": "调账提交失败。"
+    "submitFailed": "调账提交失败。",
+    "dateRequired": "请选择记账日期。",
+    "accountRequired": "请选择科目。",
+    "searchAccounts": "搜索科目",
+    "noAccounts": "没有匹配的末级科目。",
+    "amountRequired": "请输入金额。",
+    "amountInvalid": "金额至少为 0.01，最多保留两位小数。",
+    "reasonRequired": "请输入调账原因。",
+    "removeEntry": "删除分录"
   },
   "filter": {
     "title": "查询",
@@ -39,11 +47,10 @@
   },
   "field": {
     "postingDate": "记账日期",
-    "postingDateFrom": "记账日期起",
-    "postingDateTo": "记账日期止",
     "suspenseTxnId": "暂记事务号",
     "transactionId": "交易号",
     "sourceType": "来源类型",
+    "transactionType": "交易类型",
     "drCr": "借/贷",
     "account": "科目",
     "originalAmount": "原始金额",
@@ -56,6 +63,8 @@
     "bookId": "账本编号",
     "debit": "借方",
     "credit": "贷方",
+    "debitAmount": "借方金额",
+    "creditAmount": "贷方金额",
     "exceptionContext": "异常上下文",
     "createdBy": "创建人",
     "createdOn": "创建时间",
@@ -72,6 +81,9 @@
     "submit": "提交",
     "cancel": "取消"
   },
+  "loading": "正在加载暂记分录…",
+  "originalAmountHelp": "合计包含待审批金额",
+  "range": "{start} - {end}，共 {total} 条",
   "empty": "暂无暂记分录",
   "ageDays": "{count} 天"
 }

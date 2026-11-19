@@ -32,7 +32,7 @@ export async function getJournalList(
   params: JournalListParams,
   config?: ApiRequestConfig
 ): Promise<JournalListResponse> {
-  const response = await apiClient.post<JournalListResponseApi>(
+  const response = await apiClient.post<JournalListResponseApi | null>(
     JOURNAL_LIST_URL,
     {
       data: params.filters,
@@ -42,8 +42,8 @@ export async function getJournalList(
   );
 
   return {
-    page: response.page,
-    rows: (response.rows ?? []).map((row): JournalEntry => ({
+    page: response?.page,
+    rows: (response?.rows ?? []).map((row): JournalEntry => ({
       ...row,
       id: String(row.tdTxId),
     })),
@@ -59,9 +59,9 @@ export async function getJournalList(
 export function getJournalDetail(
   tdTxId: number | string,
   config?: ApiRequestConfig
-): Promise<JournalDetailData> {
-  return apiClient.get<JournalDetailData>(
-    `${JOURNAL_DETAIL_URL}/${tdTxId}`,
+): Promise<JournalDetailData | null> {
+  return apiClient.get<JournalDetailData | null>(
+    `${JOURNAL_DETAIL_URL}/${encodeURIComponent(tdTxId)}`,
     config
   );
 }

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@myorg/shared/ui';
+import { Timeline, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, type TimelineItem } from '@myorg/shared/ui';
 
 import type { ApprovalLog } from '@myorg/modules/td-admin/data-access';
 import {
@@ -17,12 +17,7 @@ import {
  * 迁移自 td-manage `src/pages/approval-manage/view.tsx` 的 `taskApprovedSteps`
  * useMemo（L272-439）+ Collapse 内 `<Steps direction="vertical">`（L779-793）。
  *
- * **为什么自己渲染 timeline 而非用 antd Steps**：目标库 `@myorg/shared/ui` 未导出
- * Steps 组件（计划 §6.4「实现期确认，否则简单 timeline」）。此处用语义化 `<ol>` 实现
- * 垂直步骤条，逐节点保留源 Steps 的 title/description/current/status 语义：
- * - 已完成节点：实心圆 + 主色连线（源 `finish`）。
- * - 当前节点：主色描边圆（源 `process`）；status error 时整条变红（源 Steps.status）。
- * - 未来节点：灰圆。
+ * 使用共享 Timeline 呈现垂直步骤，保留源 Steps 的 title/description/current/status 语义。
  *
  * **节点标题 5 态（源 view.tsx:292-311，逐行对照）**：
  * - operationType === 0 → `Approval (1 out of {total} approvers)`（待审批N人）
@@ -39,8 +34,8 @@ import {
  * - stepIndex===-1 → current = items.length - (flag?1:0)
  * - 否则            → current = 1 + stepIndex - (flag?1:0)
  *
- * **reviewerUserNameList>5 折叠（源 view.tsx:321-356 / 378-416）**：slice(0,5)+'...'，
- * 其余 Tooltip（trigger=click），分隔符 `approve_type_{approveType}`（' / ' 或 ' and '）。
+ * **reviewerUserNameList>5 折叠**：前五人后通过可聚焦的 Tooltip 展示其余人，
+ * 分隔符 `approve_type_{approveType}`（' / ' 或 ' and '）。
  *
  * **Steps.status（源 view.tsx:783-787）**：status===3||15||40 ? 'error' : 'process'
  * （util `resolveApprovalStepStatus` 已抽出，复用）。
@@ -51,6 +46,8 @@ export interface ApprovalManageApprovalLogProps {
   taskInfo?: ApprovalLog;
   /** 当前任务状态（决定 Steps.status error/process；detail-page 四套 status 派生结果）。 */
   status?: number;
+  /** 业务码（首节点 sp_open_wallet 例外：不展示创建人，源 view.tsx:276-282）。 */
+  busCode?: string;
 }
 
 /** 审批节点（首节点 taskCreateInfo + recordList 各条）。 */
@@ -69,31 +66,33 @@ function ReviewerNameList({
   names: string[];
   separator: string;
 }): React.JSX.Element {
+  const t = useTranslations('modules.approval-manage');
   if (names.length > 5) {
     const rest = names.slice(5);
     return (
-      <span>
+      <span className="text-foreground">
         {names.slice(0, 5).join(separator)}
-        {'...'}
-        <TooltipProvider delayDuration={200}>
+        {'…'}
+        <TooltipProvider delayDuration={150}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="ml-1 cursor-pointer text-primary underline">
-                {`${rest.length} more`}
-              </span>
+              <button type="button" className="ml-1 cursor-pointer text-primary underline">
+                {t('approval_manage_0050', { count: rest.length })}
+              </button>
             </TooltipTrigger>
-            <TooltipContent>{rest.join(separator)}</TooltipContent>
+            <TooltipContent className="max-w-xs whitespace-normal">{rest.join(separator)}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </span>
     );
   }
-  return <span>{names.join(separator)}</span>;
+  return <span className="text-foreground">{names.join(separator)}</span>;
 }
 
 export function ApprovalManageApprovalLog({
   taskInfo,
   status,
+  busCode,
 }: ApprovalManageApprovalLogProps): React.JSX.Element {
   const t = useTranslations('modules.approval-manage');
 
@@ -116,17 +115,20 @@ export function ApprovalManageApprovalLog({
     const taskCreateInfo = taskInfo?.taskCreateInfo;
     const recordList = taskInfo?.recordList ?? [];
 
-    // 首节点（源 view.tsx:275-285）：Create + 时间（+ 操作人，sp_open_wallet 无操作人）。
+    // 首节点（源 view.tsx:275-285）：Create + 时间（+ 创建人，sp_open_wallet 无创建人）。
+    const createUserName = taskCreateInfo?.createUserName;
+    const showCreator = busCode !== 'sp_open_wallet' && !!createUserName;
     const items: ApprovalStep[] = [
       {
         title: t('approval_manage_0035'),
         description: (
-          <div className="mt-1 text-foreground">
+          <div>
             {formatTimestamp(
               typeof taskCreateInfo?.createTime === 'number'
                 ? taskCreateInfo.createTime
                 : undefined,
             )}
+            {showCreator ? <>{t('approval_manage_0036')}<span className="text-foreground">{createUserName}</span></> : null}
           </div>
         ),
       },
@@ -166,9 +168,9 @@ export function ApprovalManageApprovalLog({
         // 待审批：Pending + Assignees 列表（源 view.tsx:314-358）。
         description = (
           <div>
-            <div className="mt-1">{t('approval_manage_0030')}</div>
-            <div className="mt-1 flex items-start">
-              <span className="mr-2">{`${t('approval_manage_0031')}:`}</span>
+            <div>{t('approval_manage_0030')}</div>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span>{`${t('approval_manage_0031')}:`}</span>
               <ReviewerNameList names={names} separator={separator} />
             </div>
           </div>
@@ -177,14 +179,14 @@ export function ApprovalManageApprovalLog({
         // 已操作：时间 + 操作人 + 备注；升级(operationType===2)额外展示审批人列表
         // （源 view.tsx:360-418）。
         description = (
-          <div className="text-foreground">
-            <div className="mt-1">
+          <div>
+            <div>
               {formatTimestamp(
                 typeof el.operationTime === 'number' ? el.operationTime : undefined,
               )}
-              {el.operationUserName ? ` ${t('approval_manage_0036')}${el.operationUserName}` : ''}
+              {el.operationUserName ? <> {t('approval_manage_0036')}<span className="text-foreground">{el.operationUserName}</span></> : null}
             </div>
-            <div className="mt-1">{`${t('PUB_Comment')} : ${el.operationRemarks ?? ''}`}</div>
+            <div className="mt-1">{`${t('PUB_Comment')} : `}<span className="text-foreground">{el.operationRemarks ?? ''}</span></div>
             {operationType === 2 && names.length > 0 ? (
               <div className="mt-1 flex items-start">
                 <span className="max-w-[25%] pr-1">
@@ -213,63 +215,18 @@ export function ApprovalManageApprovalLog({
         : 1 + stepIndex - (flag ? 1 : 0);
 
     return { steps: items, current: resolvedCurrent };
-  }, [taskInfo, status, t, separator]);
+  }, [taskInfo, status, t, separator, busCode]);
 
   const isError = resolveApprovalStepStatus(status) === 'error';
-  const lineColor = isError ? 'bg-red-500' : 'bg-primary';
+  const errorIndex = isError ? Math.min(current, steps.length - 1) : -1;
+  const items: TimelineItem[] = steps.map((step, idx) => ({
+    key: idx,
+    title: step.title,
+    description: step.description,
+    status: idx === errorIndex ? 'error' : idx < current ? 'complete' : idx === current ? 'current' : 'upcoming',
+  }));
 
-  return (
-    <ol className="flex flex-col gap-0">
-      {steps.map((step, idx) => {
-        const isLast = idx === steps.length - 1;
-        const isCurrent = idx === current;
-        const isDone = idx < current;
-        return (
-          <li key={idx} className="flex gap-3 pb-6 last:pb-0">
-            {/* 指示圆 + 连线 */}
-            <div className="flex flex-col items-center">
-              <span
-                className={`mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
-                  isCurrent
-                    ? isError
-                      ? 'border-red-500'
-                      : 'border-primary'
-                    : isDone
-                      ? `border-primary ${lineColor}`
-                      : 'border-muted-foreground/40'
-                }`}
-                aria-hidden="true"
-              >
-                {isDone ? (
-                  <span className={`h-1.5 w-1.5 rounded-full ${lineColor}`} />
-                ) : null}
-              </span>
-              {!isLast ? (
-                <span
-                  className={`mt-1 w-0.5 flex-1 ${isDone ? lineColor : 'bg-muted-foreground/30'}`}
-                />
-              ) : null}
-            </div>
-            {/* 内容 */}
-            <div className="min-w-0 flex-1 -mt-0.5">
-              <div
-                className={`text-sm font-medium ${
-                  isError && (isCurrent || isDone)
-                    ? 'text-red-600'
-                    : 'text-foreground'
-                }`}
-              >
-                {step.title}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {step.description}
-              </div>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
+  return <Timeline items={items} ariaLabel={t('approval_manage_0008')} />;
 }
 
 export default ApprovalManageApprovalLog;

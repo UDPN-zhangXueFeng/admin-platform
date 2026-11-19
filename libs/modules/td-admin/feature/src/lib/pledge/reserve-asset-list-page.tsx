@@ -19,12 +19,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
   Button,
+  Card,
   DataTable,
   Input,
 } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { useChangeReserveAssetStatusMutation, type AssetCategory, type ReserveAssetListItem, type ReserveAssetListQuery } from '@myorg/modules/td-admin/data-access';
 import { useCurrencyListQuery, useReserveAssetListQuery } from '@myorg/modules/td-admin/data-access/lib/pledge';
 import {
@@ -38,7 +40,7 @@ import {
   RESERVE_STATUS_FILTER,
 } from '.';
 import { ALL_VALUE } from './pledge.constants';
-import { ReserveAssetDrawer, type DrawerState } from './reserve-asset-drawer';
+import { ReserveAssetFormDialog, type ReserveAssetFormState } from './reserve-asset-dialog';
 import { createRowActionsColumn, type RowAction } from '../row-actions';
 
 /**
@@ -83,7 +85,7 @@ function formatBalance(value: number | undefined): string {
   }).format(value);
 }
 
-/** Drawer 状态：pl-5 抽出的独立 Drawer 组件定义（type:'new'|'edit', record?）。 */
+/** 弹窗状态：pl-5 抽出的独立 Dialog 组件定义（type:'new'|'edit', record?）。 */
 
 /**
  * ReserveAssetListPage — 储备资产列表页（pledge 模块最复杂页面）。
@@ -102,11 +104,11 @@ function formatBalance(value: number | undefined): string {
  *    Deactivate→changeReserveAssetStatus(50) / Activate→(20)，成功 invalidate 列表。
  * 3. **资产类别列 AlertDialog 预览**：弹窗内嵌预览表（filter assetTypeName 非空），
  *    More 跳详情。
- * 4. **bookStatus 列 configured 外链** `/financial/chart-of-accounts/view`。
+ * 4. **bookStatus 列 configured 外链** `/accounting/chart-of-accounts/view`。
  *
  * 歧义 9 结论：源码 setNewTransaction(true) 有对应渲染入口（<Drawer open={newTransaction}>），
  * 它就是 Add/Edit Drawer 的 open 状态（命名误导，实非"新建交易"Drawer）。
- * 此处还原为统一 Drawer state（type:'new'|'edit'），Drawer 表单逻辑由 pl-5 实现。
+ * 此处还原为统一 Dialog state（type:'new'|'edit'），Dialog 表单逻辑由 pl-5 实现。
  */
 export function ReserveAssetListPage(): React.JSX.Element {
   const t = useTranslations('modules.pledge');
@@ -123,11 +125,11 @@ export function ReserveAssetListPage(): React.JSX.Element {
     pageSize: 10,
   });
 
-  // Drawer 预留（pl-5 接入完整表单：Currency/Name + Checkbox.Group vs Cash Input + name→id 映射）
-  const [drawerState, setDrawerState] = React.useState<DrawerState | null>(null);
+  // 新增/编辑弹窗状态（Currency/Name + Checkbox.Group vs Cash Input + name→id 映射）
+  const [formState, setFormState] = React.useState<ReserveAssetFormState | null>(null);
 
   // ── 下拉数据源 ──
-  // Currency：筛选下拉。新增模式下默认 Cash 的资产类别 id 由 pl-5 Drawer 内取（useAssetCategoryListQuery）。
+  // Currency：筛选下拉。新增模式下默认 Cash 的资产类别 id 由 pl-5 Dialog 内取（useAssetCategoryListQuery）。
   const currencyQuery = useCurrencyListQuery();
 
   const currencyOptions = React.useMemo(
@@ -256,8 +258,8 @@ export function ReserveAssetListPage(): React.JSX.Element {
           });
           break;
         case 'Edit':
-          // 触发 pl-5 Drawer 编辑态（含资产类别 Checkbox.Group + name→id 映射）。
-          setDrawerState({ type: 'edit', record: row });
+          // 触发 pl-5 Dialog 编辑态（含资产类别 Checkbox.Group + name→id 映射）。
+          setFormState({ type: 'edit', record: row });
           break;
         case 'View':
           router.push({
@@ -283,11 +285,11 @@ export function ReserveAssetListPage(): React.JSX.Element {
     [changeStatusMutation, t, tc],
   );
 
-  // Drawer 处理器（pl-5 接入完整表单提交：addReserveAsset 默认 Cash / editReserveAsset name→id 映射）。
+  // Dialog 处理器（pl-5 接入完整表单提交：addReserveAsset 默认 Cash / editReserveAsset name→id 映射）。
   const onAdd = React.useCallback(() => {
-    setDrawerState({ type: 'new' });
+    setFormState({ type: 'new' });
   }, []);
-  const onDrawerClose = React.useCallback(() => setDrawerState(null), []);
+  const onFormClose = React.useCallback(() => setFormState(null), []);
 
   // ── 行操作权限（PermissionGuard → usePermission，供 actions 列条件渲染）──
   const canAddAssetCategory = usePermission(PLEDGE_PERMISSIONS.addAssetCategory);
@@ -433,7 +435,7 @@ export function ReserveAssetListPage(): React.JSX.Element {
                   className="inline-flex border-0 bg-transparent p-0 text-[#1677ff]"
                   onClick={() =>
                     router.push({
-                      pathname: '/chart-of-accounts/view',
+                      pathname: '/accounting/chart-of-accounts/view',
                       query: {
                         financeBookId: String(r.financeBookId ?? ''),
                         tab: 'basic-information',
@@ -556,72 +558,72 @@ export function ReserveAssetListPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <Controller
-            control={control}
-            name="accountName"
-            render={({ field }) => (
-              <div>
-                <label
-                  htmlFor="reserve-accountName"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('field.accountName')}
-                </label>
-                <Input
-                  id="reserve-accountName"
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                />
-              </div>
-            )}
-          />
-          <FormSelect
-            name="currency"
-            control={control}
-            label={t('field.currency')}
-            options={currencyOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="bookStatus"
-            control={control}
-            label={t('field.bookStatus')}
-            options={bookStatusOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDatePicker
-            name="createTimeStart"
-            control={control}
-            label={t('field.createTime')}
-          />
-          <FormDatePicker
-            name="createTimeEnd"
-            control={control}
-            label={t('field.createTime')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('field.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <Controller
+              key="accountName"
+              control={control}
+              name="accountName"
+              render={({ field }) => (
+                <div>
+                  <label
+                    htmlFor="reserve-accountName"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    {t('field.accountName')}
+                  </label>
+                  <Input
+                    id="reserve-accountName"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                  />
+                </div>
+              )}
+            />,
+            <FormDateRangePicker
+              key="createTime"
+              startName="createTimeStart"
+              endName="createTimeEnd"
+              control={control}
+              label={t('field.createTime')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('field.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="currency"
+              name="currency"
+              control={control}
+              label={t('field.currency')}
+              options={currencyOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="bookStatus"
+              name="bookStatus"
+              control={control}
+              label={t('field.bookStatus')}
+              options={bookStatusOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="flex justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">{t('title')}</div>
           <PermissionGuard permission={PLEDGE_PERMISSIONS.reserveAssetAdd}>
@@ -645,13 +647,13 @@ export function ReserveAssetListPage(): React.JSX.Element {
             }}
           />
         </div>
-      </div>
+      </Card>
 
-      {/* 新增/编辑 Drawer（pl-5 抽出独立组件：new 态 Cash 默认 / edit 态 Checkbox + name→id 映射）。 */}
-      <ReserveAssetDrawer
-        open={drawerState !== null}
-        drawerState={drawerState}
-        onClose={onDrawerClose}
+      {/* 新增/编辑 Dialog（pl-5 抽出独立组件：new 态 Cash 默认 / edit 态 Checkbox + name→id 映射）。 */}
+      <ReserveAssetFormDialog
+        open={formState !== null}
+        formState={formState}
+        onClose={onFormClose}
         onSuccess={() => {
           // mutation 成功已 invalidate reserveAsset 域缓存，列表自动刷新；
           // 此处仅作为成功后的额外钩子预留（当前无需额外操作）。

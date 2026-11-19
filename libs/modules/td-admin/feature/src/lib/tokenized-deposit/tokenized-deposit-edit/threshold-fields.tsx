@@ -43,11 +43,11 @@ export function ThresholdFields({
   const t = useTranslations('modules.tokenized-deposit');
   const thresholdType = useWatch({ control, name: 'thresholdType' }) ?? 'volume';
   return (
-    <div className="md:col-span-2 border-t pt-6">
+    <div className="mt-5 border-t pt-6 md:col-span-2">
       <h3 className="mb-3 text-sm font-semibold">
         {t('td_threshold_title')}
       </h3>
-      <FieldGroup className="flex w-full items-end gap-0">
+      <FieldGroup className="flex-row items-end gap-0">
         <Controller
           control={control}
           name="thresholdType"

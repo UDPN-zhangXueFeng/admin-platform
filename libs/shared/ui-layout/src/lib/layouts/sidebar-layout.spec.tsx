@@ -200,33 +200,6 @@ describe('SidebarLayout themed content surface', () => {
   });
 });
 
-describe('SidebarLayout prominent menu icons', () => {
-  it('keeps defaults unless the larger icon treatment is opted in', () => {
-    const { rerender } = renderLayout();
-
-    const defaultParentButton = screen.getByRole('button', {
-      name: 'System Management',
-    });
-    const defaultIcon = defaultParentButton.querySelector('svg');
-    expect(defaultIcon).toHaveClass('h-5', 'w-5');
-    expect(defaultIcon).toHaveAttribute('stroke-width', '2');
-
-    rerender(
-      <SidebarLayout config={config} prominentMenuIcons>
-        <div>content</div>
-      </SidebarLayout>,
-    );
-
-    const prominentParentButton = screen.getByRole('button', {
-      name: 'System Management',
-    });
-    const prominentIcon = prominentParentButton.querySelector('svg');
-
-    expect(prominentIcon).toHaveClass('size-6');
-    expect(prominentIcon).toHaveAttribute('stroke-width', '2.25');
-  });
-});
-
 describe('SidebarLayout header opt-in props', () => {
   it('renders a static brand block by default', () => {
     renderLayout();

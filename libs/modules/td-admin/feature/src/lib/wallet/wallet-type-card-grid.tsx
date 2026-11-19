@@ -14,44 +14,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
+  Card,
 } from '@myorg/shared/ui';
-import { WalletStatusBadge } from '.';
 import {
   useUpdateWalletTypeStateMutation,
   type StablecoinSearchOption,
   type WalletTypeCard,
 } from '@myorg/modules/td-admin/data-access';
-import {
-  accountTypeMessageKey,
-  EMPTY_DISPLAY,
-  formatLimit,
-  WALLET_PERMISSIONS,
-} from '.';
+import { WALLET_TYPE_ACTION_PERMISSIONS } from './wallet.constants';
+import { groupWalletTypeCards } from './wallet.helpers';
 import { useAuth } from '@myorg/shared/util-auth';
-import { formatDate } from '@myorg/shared/util-dates';
+import {
+  WalletTypeAddCard,
+  WalletTypeCardItem,
+} from './wallet-type-card-item';
 import type { WalletTypeEarningsTarget } from './wallet-type-earnings-dialog';
-
-/** 限额/时间展示格式（与 operational-wallet 一致）。 */
-const DATE_FMT = 'YYYY-MM-DD';
-
-/**
- * 把扁平卡片数组按 `size` 切片分组，末组不足补 `'new'` 占位（忠实源 getGroup 逻辑）。
- *
- * 源 `libs/utils/get/getGroup.ts`：空数组补三个 'new'；每个切片不足 size 的用 'new' 填满。
- * 返回二维数组，外层按页（每页 1 组）消费。
- */
-function groupCards(cards: WalletTypeCard[], size: number): (WalletTypeCard | 'new')[][] {
-  if (cards.length === 0) {
-    return [['new', 'new', 'new']];
-  }
-  const groups: (WalletTypeCard | 'new')[][] = [];
-  for (let i = 0; i < cards.length; i += size) {
-    const slice: (WalletTypeCard | 'new')[] = cards.slice(i, i + size);
-    while (slice.length < size) slice.push('new');
-    groups.push(slice);
-  }
-  return groups;
-}
 
 export interface WalletTypeCardGridProps {
   /** 当前 stablecoin（提供 issueType / state / name / symbol 等卡片渲染所需上下文）。 */
@@ -87,7 +64,8 @@ export interface WalletTypeCardGridProps {
  * - `operate !== true` 时仅显示详情按钮（源 `item.operate === true` 门控编辑/启停）。
  * - stablecoin.state === 2（禁用态）时禁用所有写操作按钮（源多处 `coinData[ativeKey].state === 2`）。
  *
- * 占位卡片（'new'）：源用 antd Image 占位图 + 新增按钮；目标用简洁卡片 + 新增按钮（无静态图资源）。
+ * 卡片视觉走 shared/ui Card（shadow-float + rounded-xl），单卡结构拆到
+ * `wallet-type-card-item.tsx`：标题/状态在头部，指标双列栅格在主体，操作收进底栏。
  */
 export function WalletTypeCardGrid({
   stablecoin,
@@ -100,21 +78,20 @@ export function WalletTypeCardGrid({
   const t = useTranslations('modules.wallet');
   const router = useRouter();
   const updateStateMutation = useUpdateWalletTypeStateMutation();
-  const authPermissions = useAuth().permissions ?? new Set<string>();
-
-  // 权限空集全放行（posting-engine 模式）。
-  const canEdit =
-    authPermissions.size === 0 || authPermissions.has(WALLET_PERMISSIONS.WalletTypeEdit);
-  const canOperate =
-    authPermissions.size === 0 ||
-    authPermissions.has(WALLET_PERMISSIONS.WalletTypeOperate);
+  const { permissions } = useAuth();
+  const canAdd = permissions.has(WALLET_TYPE_ACTION_PERMISSIONS.add);
+  const canEdit = permissions.has(WALLET_TYPE_ACTION_PERMISSIONS.edit);
+  const canToggle = (card: WalletTypeCard) => canEdit && permissions.has(
+    card.state === 10 ? WALLET_TYPE_ACTION_PERMISSIONS.disable : WALLET_TYPE_ACTION_PERMISSIONS.enable
+  );
+  const submitting = React.useRef(false);
 
   const issueType = stablecoin?.issueType;
   const isMmf = issueType === 20;
   const stablecoinDisabled = stablecoin?.state === 2;
   const symbol = stablecoin?.symbol ?? '';
 
-  const groups = React.useMemo(() => groupCards(cards, 3), [cards]);
+  const groups = React.useMemo(() => groupWalletTypeCards(cards, 3), [cards]);
   const totalPages = groups.length;
   const currentGroup = groups[Math.min(page - 1, totalPages - 1)] ?? [];
 
@@ -176,34 +153,44 @@ export function WalletTypeCardGrid({
     [stablecoin, isMmf]
   );
 
-  const handleConfirmState = React.useCallback(() => {
-    if (!confirmTarget) return;
-    const card = confirmTarget;
-    updateStateMutation.mutate(
-      {
-        ruleId: card.ruleId ?? 0,
-        walletState: card.state === 10 ? 4 : 3,
-      },
-      {
-        onSuccess: () => {
-          toast.success(t('common.submit') + ' ' + t('common.success'));
-          setConfirmTarget(null);
-        },
-        onError: () => {
-          setConfirmTarget(null);
-        },
-      }
-    );
-  }, [confirmTarget, updateStateMutation, t]);
+  const handleConfirmState = async () => {
+    if (!confirmTarget?.ruleId || stablecoinDisabled || !canToggle(confirmTarget) || submitting.current) return;
+    submitting.current = true;
+    try {
+      await updateStateMutation.mutateAsync({
+        ruleId: confirmTarget.ruleId,
+        walletState: confirmTarget.state === 10 ? 4 : 3,
+      });
+      toast.success(t('common.submit') + ' ' + t('common.success'));
+      setConfirmTarget(null);
+    } catch {
+      // API client reports the business error. Keep the confirmation available.
+    } finally {
+      submitting.current = false;
+    }
+  };
 
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="h-48 animate-pulse rounded-lg border bg-muted/40"
-          />
+          <Card key={i} className="h-full min-h-[17rem] animate-pulse p-5" aria-hidden="true">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 shrink-0 rounded-lg bg-muted" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-1/2 rounded bg-muted" />
+                <div className="h-3 w-1/3 rounded bg-muted" />
+              </div>
+            </div>
+            <div className="mt-6 grid grid-cols-2 gap-4">
+              {[0, 1, 2, 3, 4].map((j) => (
+                <div key={j} className="space-y-2">
+                  <div className="h-3 w-2/3 rounded bg-muted" />
+                  <div className="h-4 w-1/2 rounded bg-muted" />
+                </div>
+              ))}
+            </div>
+          </Card>
         ))}
       </div>
     );
@@ -216,179 +203,30 @@ export function WalletTypeCardGrid({
           // 占位「新建」卡片（源 getGroup 末尾 'new'）。
           if (item === 'new') {
             return (
-              <div
+              <WalletTypeAddCard
                 key={`new-${idx}`}
-                className="flex min-h-[12rem] flex-col items-center justify-center rounded-lg border border-dashed p-6"
-              >
-                <Button
-                  disabled={stablecoinDisabled || !canEdit}
-                  onClick={() => router.push(buildAddPath())}
-                >
-                  {t('walletType.card.newCard')}
-                </Button>
-              </div>
+                disabled={stablecoinDisabled}
+                canAdd={canAdd}
+                onAdd={() => router.push(buildAddPath())}
+              />
             );
           }
           const card = item;
-          // 源 `item.operate === true`：运行时为布尔，model 标 number 宽松兜底，
-          // 此处以 Boolean 兼容（数字非 0 或 true 均视为可操作）。
-          const canAct = Boolean(card.operate);
-          const dimmed = card.state === 15 && canAct;
-          const isStateActive = card.state === 10;
-          const isStateDisabled = card.state === 15;
-          const showEnableDisable =
-            canAct && canOperate && (isStateActive || isStateDisabled);
           return (
-            <div
+            <WalletTypeCardItem
               key={`card-${card.ruleId ?? idx}`}
-              className={`flex flex-col rounded-lg border p-4 ${
-                dimmed ? 'bg-muted/40' : 'bg-card'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-base font-medium">
-                    {card.name || EMPTY_DISPLAY}
-                  </span>
-                  {canAct ? (
-                    <WalletStatusBadge
-                      family="wallet-type-card"
-                      status={card.state}
-                    />
-                  ) : null}
-                </div>
-                <div className="flex flex-wrap justify-end gap-2">
-                  {canEdit && canAct && (isStateActive || isStateDisabled) ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={stablecoinDisabled}
-                      onClick={() => router.push(buildEditPath(card))}
-                    >
-                      {t('walletType.action.edit')}
-                    </Button>
-                  ) : null}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => router.push(buildDetailPath(card))}
-                  >
-                    {t('walletType.action.detail')}
-                  </Button>
-                  {showEnableDisable ? (
-                    <Button
-                      size="sm"
-                      variant={isStateActive ? 'destructive' : 'default'}
-                      disabled={stablecoinDisabled}
-                      onClick={() => setConfirmTarget(card)}
-                    >
-                      {isStateActive
-                        ? t('walletType.action.disable')
-                        : t('walletType.action.enable')}
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* accountType：源 issueType !== 1 时显示。 */}
-              {issueType !== 1 ? (
-                <CardRow
-                  label={t('walletType.field.accountType')}
-                  value={
-                    accountTypeMessageKey(card.accountType)
-                      ? t(accountTypeMessageKey(card.accountType) as never)
-                      : EMPTY_DISPLAY
-                  }
-                />
-              ) : null}
-
-              {isMmf ? (
-                <>
-                  <CardRow
-                    label={t('walletType.field.fundType')}
-                    value={
-                      card.fundType
-                        ? t(
-                            `walletType.mmfFundType.${card.fundType}` as never
-                          )
-                        : EMPTY_DISPLAY
-                    }
-                  />
-                  <CardRow
-                    label={t('walletType.field.riskLevel')}
-                    value={
-                      card.riskLevel
-                        ? t(
-                            `walletType.mmfRiskLevel.${card.riskLevel}` as never
-                          )
-                        : EMPTY_DISPLAY
-                    }
-                  />
-                  <CardRow
-                    label={t('walletType.field.fundAssetValue')}
-                    value={
-                      card.fundAssetValue
-                        ? `${card.fundAssetValue} ${card.currencySymbol ?? ''}`.trim()
-                        : EMPTY_DISPLAY
-                    }
-                  />
-                  <CardRow
-                    label={t('walletType.field.fundInceptionTime')}
-                    value={
-                      card.fundInceptionTime
-                        ? formatDate(Number(card.fundInceptionTime), DATE_FMT)
-                        : EMPTY_DISPLAY
-                    }
-                  />
-                  <CardRow
-                    label={t('walletType.field.fundlastPayoutTime')}
-                    value={
-                      card.fundlastPayoutTime
-                        ? formatDate(Number(card.fundlastPayoutTime), DATE_FMT)
-                        : EMPTY_DISPLAY
-                    }
-                  />
-                  <div className="mt-2 flex justify-end">
-                    <Button
-                      variant="link"
-                      className="h-auto p-0"
-                      onClick={() =>
-                        onOpenEarnings({
-                          ruleId: card.ruleId ?? 0,
-                          symbol: card.tdSymbol ?? symbol,
-                          currentSymbol: card.currencySymbol ?? symbol,
-                        })
-                      }
-                    >
-                      {t('walletType.earnings.distribute')}
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <CardRow
-                    label={t('walletType.field.maxTxCountPer')}
-                    value={`${formatLimit(Number(card.maxTxCountPer))} ${symbol}`.trim()}
-                  />
-                  <CardRow
-                    label={t('walletType.field.maxTxCountDaily')}
-                    value={`${formatLimit(Number(card.maxTxCountDaily))} ${symbol}`.trim()}
-                  />
-                  <CardRow
-                    label={t('walletType.field.stablecoinCount')}
-                    value={`${formatLimit(Number(card.stablecoinCount))} ${symbol}`.trim()}
-                  />
-                  <CardRow
-                    label={t('walletType.field.minimumBalance')}
-                    value={`${formatLimit(Number(card.minimumBalance))} ${symbol}`.trim()}
-                  />
-                  <CardRow
-                    label={t('walletType.field.maximumRedeemLimit')}
-                    value={`${formatLimit(Number(card.maximumRedeemLimit))} ${symbol}`.trim()}
-                  />
-                </>
-              )}
-            </div>
+              card={card}
+              isMmf={isMmf}
+              showAccountType={issueType !== 1}
+              symbol={symbol}
+              stablecoinDisabled={stablecoinDisabled}
+              canEdit={canEdit}
+              canOperate={canToggle(card)}
+              editHref={buildEditPath(card)}
+              detailHref={buildDetailPath(card)}
+              onToggleState={setConfirmTarget}
+              onOpenEarnings={onOpenEarnings}
+            />
           );
         })}
       </div>
@@ -421,7 +259,7 @@ export function WalletTypeCardGrid({
       {/* 启用/禁用二次确认（源 Modal.confirm） */}
       <AlertDialog
         open={Boolean(confirmTarget)}
-        onOpenChange={(next) => !next && setConfirmTarget(null)}
+        onOpenChange={(next) => !next && !submitting.current && setConfirmTarget(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -442,29 +280,13 @@ export function WalletTypeCardGrid({
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={updateStateMutation.isPending}
-              onClick={handleConfirmState}
+              onClick={(event) => { event.preventDefault(); void handleConfirmState(); }}
             >
               {t('common.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  );
-}
-
-/** 卡片内单行 label/value（源 mt-4 flex justify-between）。 */
-function CardRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}): React.JSX.Element {
-  return (
-    <div className="mt-3 flex items-baseline justify-between gap-2 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium">{value}</span>
     </div>
   );
 }

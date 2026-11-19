@@ -46,6 +46,12 @@ export interface HeaderProps {
    */
   hideManageAccount?: boolean;
   /**
+   * Open the "Manage Account" page (project-specific). When omitted the entry
+   * renders exactly as before and remains a no-op, so other projects are
+   * unaffected.
+   */
+  onManageAccount?: () => void;
+  /**
    * Opt-in brand mark replacing the default <img src="/logo-icon.svg">.
    * Use an inline component when the mark must track page CSS variables.
   */
@@ -60,6 +66,11 @@ export interface HeaderProps {
    * Like the rest of the actions area it is hidden in minimal mode.
    */
   trailing?: React.ReactNode;
+  /**
+   * Opt-in content rendered as the decorative header background, replacing
+   * the platform banner. When omitted the platform default renders unchanged.
+   */
+  banner?: React.ReactNode;
 }
 
 /**
@@ -79,10 +90,12 @@ export function Header({
   onLogout,
   onBrandClick,
   hideManageAccount,
+  onManageAccount,
   logo,
   hideProjectName = false,
   compact = false,
   trailing,
+  banner,
 }: HeaderProps) {
   const { user } = useAuth();
   const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] =
@@ -153,8 +166,16 @@ export function Header({
         config.layout.header.sticky && 'sticky top-0 z-30',
       )}
     >
-      <AnimatedBannerBackground />
-      <div className="absolute inset-0 bg-[#171654]/15" aria-hidden="true" />
+      {banner ?? (
+        <>
+          <AnimatedBannerBackground />
+          <div
+            className="absolute inset-0 bg-[#171654]/15"
+            data-testid="header-default-scrim"
+            aria-hidden="true"
+          />
+        </>
+      )}
 
       <div className="relative flex items-center justify-between gap-3 px-4 sm:px-6 min-[1600px]:gap-4 min-[1600px]:px-8">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -208,7 +229,7 @@ export function Header({
 
               <DropdownMenuContent align="end" className="min-w-[220px]">
                 {!hideManageAccount && (
-                  <DropdownMenuItem className="gap-2">
+                  <DropdownMenuItem className="gap-2" onClick={onManageAccount}>
                     <Settings className="h-4 w-4" aria-hidden="true" />
                     <span>Manage Account</span>
                   </DropdownMenuItem>
@@ -265,6 +286,7 @@ function AnimatedBannerBackground() {
   return (
     <svg
       aria-hidden="true"
+      data-testid="header-default-banner"
       className="absolute inset-0 h-full w-full"
       preserveAspectRatio="none"
       viewBox="0 0 1600 112"

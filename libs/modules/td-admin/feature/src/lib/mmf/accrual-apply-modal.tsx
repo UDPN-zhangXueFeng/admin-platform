@@ -24,7 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@myorg/shared/ui';
-import { FormDatePicker } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker } from '@myorg/shared/ui-forms';
 import { formatDate } from '@myorg/shared/util-dates';
 import {
   useApplyAccrualMutation,
@@ -330,13 +330,9 @@ function BatchApplyModal({
                 )}
               />
             </div>
-            <FormDatePicker
-              name="applyDateFrom"
-              control={control}
-              label={t('modal.appliedDate')}
-            />
-            <FormDatePicker
-              name="applyDateTo"
+            <FormDateRangePicker
+              startName="applyDateFrom"
+              endName="applyDateTo"
               control={control}
               label={t('modal.appliedDate')}
             />

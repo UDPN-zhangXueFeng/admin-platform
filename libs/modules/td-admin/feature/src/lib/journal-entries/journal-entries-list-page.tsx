@@ -7,9 +7,10 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
-import { Button, DataTable } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { Button, Card, DataTable } from '@myorg/shared/ui';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import {
   useBillRuleListQuery,
@@ -308,96 +309,96 @@ export function JournalEntriesListPage() {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="ledgerName"
-            label={t('field.ledgerName')}
-            register={register('ledgerName')}
-            placeholder={t('field.ledgerName')}
-          />
-          <FormSelect
-            name="stablecoinId"
-            control={control}
-            label={t('field.tokenName')}
-            options={stablecoinOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="tokenType"
-            control={control}
-            label={t('field.tokenType')}
-            options={tokenTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="currencySymbol"
-            control={control}
-            label={t('field.currency')}
-            options={currencyOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="blockchainId"
-            control={control}
-            label={t('field.blockchain')}
-            options={blockchainOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="state"
-            control={control}
-            label={t('field.status')}
-            options={stateOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDatePicker
-            name="createTimeFrom"
-            control={control}
-            label={t('field.createTimeFrom')}
-          />
-          <FormDatePicker
-            name="createTimeTo"
-            control={control}
-            label={t('field.createTimeTo')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormField
+              key="ledgerName"
+              name="ledgerName"
+              label={t('field.ledgerName')}
+              register={register('ledgerName')}
+              placeholder={t('field.ledgerName')}
+            />,
+            <FormSelect
+              key="stablecoinId"
+              name="stablecoinId"
+              control={control}
+              label={t('field.tokenName')}
+              options={stablecoinOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="state"
+              name="state"
+              control={control}
+              label={t('field.status')}
+              options={stateOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="tokenType"
+              name="tokenType"
+              control={control}
+              label={t('field.tokenType')}
+              options={tokenTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="currencySymbol"
+              name="currencySymbol"
+              control={control}
+              label={t('field.currency')}
+              options={currencyOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="blockchainId"
+              name="blockchainId"
+              control={control}
+              label={t('field.blockchain')}
+              options={blockchainOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="createTime"
+              startName="createTimeFrom"
+              endName="createTimeTo"
+              control={control}
+              label={t('field.createTime')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">{t('list.title')}</div>
-          <Button onClick={() => router.push('/journal-entries/create')}>
-            {t('action.add')}
-          </Button>
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (p) =>
-                setPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
-        </div>
+      <Card><div className="flex justify-between border-b px-6 py-3">
+        <div className="text-sm font-semibold">{t('list.title')}</div>
+        <Button onClick={() => router.push('/journal-entries/create')}>
+          {t('action.add')}
+        </Button>
       </div>
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (p) =>
+              setPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
     </div>
   );
 }

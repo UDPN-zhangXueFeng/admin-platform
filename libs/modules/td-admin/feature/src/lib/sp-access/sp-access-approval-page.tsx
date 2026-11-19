@@ -6,7 +6,9 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
   Button,
+  Card,
   Label,
+  PageHeader,
   RadioGroup,
   RadioGroupItem,
   Textarea,
@@ -61,7 +63,7 @@ function TokenPermissionCard({ token }: { token: SpAccessDetailTd }) {
     );
   };
   return (
-    <div className="rounded-lg border bg-card p-4">
+    <Card className="p-4">
       <div className="flex items-center gap-2">
         <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-[10px] font-semibold">
           {Number.isFinite(Number(token.tokenType)) ? `T${Number(token.tokenType)}` : 'T'}
@@ -81,7 +83,7 @@ function TokenPermissionCard({ token }: { token: SpAccessDetailTd }) {
           {renderPermission(contractAccess)}
         </div>
       ) : null}
-    </div>
+    </Card>
   );
 }
 
@@ -148,8 +150,11 @@ export function SpAccessApprovalPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-24 text-sm text-muted-foreground">
-        {t('sp_access_0045')}
+      <div className="space-y-4">
+        <PageHeader title={tc('PUB_Examine')} backLabel={tc('PUB_GoBack')} onBack={() => router.back()} />
+        <div className="flex items-center justify-center py-24 text-sm text-muted-foreground">
+          {t('sp_access_0045')}
+        </div>
       </div>
     );
   }
@@ -157,26 +162,19 @@ export function SpAccessApprovalPage() {
   if (!detail) {
     return (
       <div className="space-y-4">
-        <Button variant="outline" onClick={() => router.back()}>
-          {tc('PUB_GoBack')}
-        </Button>
-        <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+        <PageHeader title={tc('PUB_Examine')} backLabel={tc('PUB_GoBack')} onBack={() => router.back()} />
+        <Card className="p-6 text-sm text-muted-foreground">
           {t('sp_access_0002')} · {EMPTY_FIELD_VALUE}
-        </div>
+        </Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{tc('PUB_Examine')}</h1>
-        <Button variant="outline" onClick={() => router.back()}>
-          {tc('PUB_GoBack')}
-        </Button>
-      </div>
+      <PageHeader title={tc('PUB_Examine')} backLabel={tc('PUB_GoBack')} onBack={() => router.back()} />
 
-      <section className="rounded-lg border bg-card">
+      <Card>
         <div className="border-b p-4 text-base font-semibold">{t('sp_access_0052')}</div>
         <dl className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
           <div>
@@ -233,9 +231,9 @@ export function SpAccessApprovalPage() {
             </dd>
           </div>
         </dl>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border bg-card">
+      <Card>
         <div className="border-b p-4 text-base font-semibold">{t('sp_access_0107')}</div>
         <div className="grid gap-4 p-4 md:grid-cols-2">
           {(detail.tdList ?? []).map((token, index) => (
@@ -245,9 +243,9 @@ export function SpAccessApprovalPage() {
             <div className="text-sm text-muted-foreground">{EMPTY_FIELD_VALUE}</div>
           ) : null}
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <div className="mb-4 text-base font-semibold">{tc('PUB_Examine')}</div>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
@@ -291,7 +289,7 @@ export function SpAccessApprovalPage() {
             </Button>
           </div>
         </form>
-      </section>
+      </Card>
     </div>
   );
 }

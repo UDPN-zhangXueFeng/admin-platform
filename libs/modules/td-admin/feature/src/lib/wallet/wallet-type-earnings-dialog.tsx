@@ -14,36 +14,17 @@ import {
   Input,
   Label,
 } from '@myorg/shared/ui';
+import { formatDate } from '@myorg/shared/util-dates';
 import { FormDatePicker } from '@myorg/shared/ui-forms';
 import {
   earningsCalculate,
   getWalletBalanceCalculate,
   useEarningsSendMutation,
+  type BalanceCalcResult,
 } from '@myorg/modules/td-admin/data-access';
 import { EMPTY_DISPLAY } from '.';
 
-/**
- * WalletTypeEarningsDialog — MMF 钱包类型「收益派发」三段流弹窗。
- *
- * 迁移自 td-manage `src/pages/wallet/wallet-type/index.tsx` 的 CustomModal + CustomForms
- * 收益派发表单（业务热点 #1 后半）。
- *
- * 三段流（命令式触发，非 useQuery——calc 结果回填表单字段而非进缓存）：
- * 1. 选/改日期 → `getWalletBalanceCalculate({ruleId, earningsDate})` → 回填 totalUnits
- *    （余额）+ dailyStatisticalTime（统计时间）。
- * 2. 输入 totalEarnings → `earningsCalculate({ruleId, earningsDate, totalEarnings})`
- *    → 回填 earningsPerUnit（每单位收益）。
- * 3. 提交 → `useEarningsSendMutation`（EarningsSendPayload：ruleId/totalEarnings/
- *    earningsDate）→ 成功 toast + 关闭 + 失效缓存（mutation onSuccess 已 invalidate
- *    wallet.all，卡片/表自动刷新）。
- *
- * calc 失败不崩：balance calc 失败保留旧 totalUnits、弹 toast；earnings calc 失败
- * 清空 earningsPerUnit、弹 toast（忠实源 `res.data.code !== 0 return` 的静默降级 +
- * 显式错误提示）。
- *
- * 入口（卡片「收益派发」链接）打开弹窗时，父组件已用「今天」触发首次 balance calc；
- * 此组件在 `open` 由 false→true 时再次确保 totalUnits 已就绪（防御首开竞态）。
- */
+/** Earnings use the initial balance from the card action, then recalculate per date. */
 export interface WalletTypeEarningsTarget {
   /** 目标钱包类型 ruleId。 */
   ruleId: number;
@@ -53,12 +34,10 @@ export interface WalletTypeEarningsTarget {
   currentSymbol: string;
 }
 
-export interface WalletTypeEarningsDialogProps {
-  /** 弹窗打开/关闭（受控）。 */
-  open: boolean;
-  /** 目标钱包类型。null 表示关闭态（与 open=false 等价，额外防御 ruleId 缺失）。 */
-  target: WalletTypeEarningsTarget | null;
-  /** 关闭回调。 */
+interface WalletTypeEarningsDialogProps {
+  target: WalletTypeEarningsTarget;
+  initialDate: string;
+  initialBalance: BalanceCalcResult;
   onClose: () => void;
 }
 
@@ -68,82 +47,58 @@ interface EarningsFormValues {
   totalEarnings: string;
 }
 
-const TODAY = (): string => new Date().toISOString().slice(0, 10);
+export const earningsToday = () => formatDate(new Date(), 'yyyy-MM-dd');
 
 export function WalletTypeEarningsDialog({
-  open,
   target,
+  initialDate,
+  initialBalance,
   onClose,
 }: WalletTypeEarningsDialogProps): React.JSX.Element | null {
   const t = useTranslations('modules.wallet');
   const sendMutation = useEarningsSendMutation();
 
-  const { control, register, handleSubmit, reset, watch, setValue } =
-    useForm<EarningsFormValues>({
-      defaultValues: { earningsDate: TODAY(), totalEarnings: '' },
-    });
-
-  // 命令式 calc 结果（不入 react-query 缓存，回填到本地 state + 表单字段）。
-  const [totalUnits, setTotalUnits] = React.useState<string | number>('');
-  const [dailyStatisticalTime, setDailyStatisticalTime] = React.useState('');
-  const [earningsPerUnit, setEarningsPerUnit] = React.useState<
-    string | number
-  >('');
+  const { control, register, handleSubmit, watch, setValue, setError, formState: { errors } } =
+    useForm<EarningsFormValues>({ defaultValues: { earningsDate: initialDate, totalEarnings: '' } });
+  const [balance, setBalance] = React.useState({ date: initialDate, data: initialBalance });
   const [balanceLoading, setBalanceLoading] = React.useState(false);
+  const [earningsResult, setEarningsResult] = React.useState<{ date: string; amount: string; value: string | number }>();
   const [earningsLoading, setEarningsLoading] = React.useState(false);
-
-  const ruleId = target?.ruleId;
+  const submitLock = React.useRef(false);
+  const ruleId = target.ruleId;
   const watchedDate = watch('earningsDate');
   const watchedEarnings = watch('totalEarnings');
+  const balanceMatchesDate = balance.date === watchedDate;
+  const totalUnits = balanceMatchesDate ? balance.data.totalUnits : undefined;
+  const dailyStatisticalTime = balanceMatchesDate ? balance.data.dailyStatisticalTime : undefined;
+  const validEarnings = (value: string) => value.trim() !== '' && Number.isFinite(Number(value));
 
-  // 第一段：余额计算。日期或 ruleId 变化时触发（命令式 await）。
-  const runBalanceCalc = React.useCallback(
-    async (date: string, rid: number) => {
-      if (!date || !rid) return;
-      setBalanceLoading(true);
-      try {
-        const res = await getWalletBalanceCalculate({
-          ruleId: rid,
-          earningsDate: date,
-        });
-        setDailyStatisticalTime(String(res?.dailyStatisticalTime ?? ''));
-        setTotalUnits(res?.totalUnits ?? '');
-        setValue('totalEarnings', '', { shouldValidate: false });
-        setEarningsPerUnit('');
-      } catch {
-        // calc 失败不崩：保留旧值 + toast 提示（忠实源静默 return 的语义增强）。
-        toast.error(t('walletType.earnings.balanceCalcFailed'));
-      } finally {
-        setBalanceLoading(false);
-      }
-    },
-    [setValue, t]
-  );
-
-  // 弹窗打开（或切换目标）时：重置表单 + 用「今天」触发首次余额计算（对齐源入口逻辑）。
   React.useEffect(() => {
-    if (open && ruleId) {
-      reset({ earningsDate: TODAY(), totalEarnings: '' });
-      setEarningsPerUnit('');
-      void runBalanceCalc(TODAY(), ruleId);
-    }
-  }, [open, ruleId, reset, runBalanceCalc]);
-
-  // 弹窗内改日期 → 再次余额计算（源 DatePicker onChange → getWalletBalanceCalculate）。
-  React.useEffect(() => {
-    if (open && ruleId && watchedDate) {
-      void runBalanceCalc(watchedDate, ruleId);
-    }
-  }, [watchedDate, open, ruleId, runBalanceCalc]);
+    if (balanceMatchesDate || !watchedDate) return;
+    let active = true;
+    setValue('totalEarnings', '');
+    setBalanceLoading(true);
+    getWalletBalanceCalculate({ ruleId, earningsDate: watchedDate }).then((data) => {
+      if (!active) return;
+      if (data?.totalUnits == null) throw new Error('Missing calculated wallet balance');
+      setBalance({ date: watchedDate, data });
+      setBalanceLoading(false);
+    }).catch(() => {
+      if (!active) return;
+      setBalanceLoading(false);
+      toast.error(t('walletType.earnings.balanceCalcFailed'));
+    });
+    return () => { active = false; };
+  }, [balanceMatchesDate, watchedDate, ruleId, setValue, t]);
 
   // 第二段：收益计算。totalEarnings 变化时触发（源 InputNumber onChange → earningsCalculate）。
   React.useEffect(() => {
-    if (!open || !ruleId || !watchedDate) return;
-    const raw = String(watchedEarnings ?? '').trim();
-    if (!raw || !Number.isFinite(Number(raw))) {
-      setEarningsPerUnit('');
+    if (!balanceMatchesDate || !validEarnings(watchedEarnings)) {
+      setEarningsLoading(false);
+      setEarningsResult(undefined);
       return;
     }
+    const raw = watchedEarnings.trim();
     let cancelled = false;
     setEarningsLoading(true);
     earningsCalculate({
@@ -153,11 +108,12 @@ export function WalletTypeEarningsDialog({
     })
       .then((res) => {
         if (cancelled) return;
-        setEarningsPerUnit(res?.earningsPerUnit ?? '');
+        if (res?.earningsPerUnit == null) throw new Error('Missing calculated earnings per unit');
+        setEarningsResult({ date: watchedDate, amount: raw, value: res.earningsPerUnit });
       })
       .catch(() => {
         if (cancelled) return;
-        setEarningsPerUnit('');
+        setEarningsResult(undefined);
         toast.error(t('walletType.earnings.earningsCalcFailed'));
       })
       .finally(() => {
@@ -166,49 +122,30 @@ export function WalletTypeEarningsDialog({
     return () => {
       cancelled = true;
     };
-  }, [watchedEarnings, watchedDate, open, ruleId, t]);
+  }, [watchedEarnings, watchedDate, balanceMatchesDate, ruleId, t]);
 
-  // 第三段：提交派发（源 earningsSendApi onFinish）。
-  const onSubmit = React.useCallback(
-    (values: EarningsFormValues) => {
-      if (!ruleId) return;
-      sendMutation.mutate(
-        {
-          ruleId,
-          totalEarnings: values.totalEarnings,
-          earningsDate: values.earningsDate,
-        },
-        {
-          onSuccess: () => {
-            toast.success(t('walletType.earnings.submitSuccess'));
-            reset({ earningsDate: TODAY(), totalEarnings: '' });
-            setEarningsPerUnit('');
-            onClose();
-          },
-          onError: () => {
-            // mutation 抛错由全局拦截器处理；此处不额外 toast，避免重复。
-          },
-        }
-      );
-    },
-    [ruleId, sendMutation, reset, onClose, t]
-  );
-
-  const handleClose = React.useCallback(() => {
-    if (sendMutation.isPending) return;
-    reset({ earningsDate: TODAY(), totalEarnings: '' });
-    setEarningsPerUnit('');
-    onClose();
-  }, [sendMutation.isPending, reset, onClose]);
-
-  if (!open || !target) return null;
+  const earningsPerUnit = earningsResult?.date === watchedDate && earningsResult.amount === watchedEarnings.trim()
+    ? earningsResult.value : undefined;
+  const onSubmit = (values: EarningsFormValues) => {
+    if (!values.earningsDate) {
+      setError('earningsDate', { message: t('walletType.form.validation.required', { field: t('walletType.earnings.earningsDate') }) });
+      return;
+    }
+    if (!balanceMatchesDate || earningsPerUnit == null || earningsLoading || submitLock.current) return;
+    submitLock.current = true;
+    sendMutation.mutate({ ruleId, totalEarnings: values.totalEarnings, earningsDate: values.earningsDate }, {
+      onSuccess: () => { toast.success(t('walletType.earnings.submitSuccess')); onClose(); },
+      onSettled: () => { submitLock.current = false; },
+    });
+  };
+  const handleClose = () => { if (!submitLock.current) onClose(); };
 
   const unitSuffix = target.symbol || EMPTY_DISPLAY;
   const earningsSuffix = target.currentSymbol || EMPTY_DISPLAY;
   const submitting = sendMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
+    <Dialog open onOpenChange={(next) => !next && handleClose()}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>{t('walletType.earnings.modalTitle')}</DialogTitle>
@@ -224,6 +161,8 @@ export function WalletTypeEarningsDialog({
             control={control}
             label={t('walletType.earnings.earningsDate')}
             required
+            error={errors.earningsDate?.message}
+            disabled={submitting}
           />
           {/* totalUnits：余额（只读回填，带单位后缀 + 统计时间提示） */}
           <div className="space-y-1.5">
@@ -233,7 +172,7 @@ export function WalletTypeEarningsDialog({
             <div className="flex items-center gap-2">
               <Input
                 id="wt-total-units"
-                value={totalUnits === '' ? '' : String(totalUnits)}
+                value={totalUnits == null ? '' : String(totalUnits)}
                 readOnly
                 disabled={balanceLoading}
                 aria-readonly
@@ -264,17 +203,17 @@ export function WalletTypeEarningsDialog({
                 inputMode="decimal"
                 step="any"
                 autoComplete="off"
+                disabled={submitting || !balanceMatchesDate}
+                aria-invalid={!!errors.totalEarnings}
                 {...register('totalEarnings', {
-                  validate: (v) => {
-                    const n = Number(v);
-                    return Number.isFinite(n) && n > 0;
-                  },
+                  validate: (value) => validEarnings(value) || t('walletType.form.validation.required', { field: t('walletType.earnings.totalEarnings') }),
                 })}
               />
               <span className="shrink-0 text-sm text-muted-foreground">
                 {earningsSuffix}
               </span>
             </div>
+            {errors.totalEarnings?.message && <p role="alert" className="text-sm text-destructive">{errors.totalEarnings.message}</p>}
             {/* 计算结果提示框（源 extra 信息块，含公式回显） */}
             <div className="space-y-1 rounded-md bg-indigo-50 p-2 text-xs text-indigo-700">
               <div className="font-medium">
@@ -283,14 +222,14 @@ export function WalletTypeEarningsDialog({
               <div className="text-indigo-600">
                 {t('walletType.earnings.calcTipHint')}
               </div>
-              {watchedEarnings && Number(watchedEarnings) > 0 ? (
+              {validEarnings(watchedEarnings) ? (
                 <div className="mt-1 flex flex-col gap-0.5">
                   <span>{t('walletType.earnings.formulaLabel')}</span>
                   <span>
-                    {`=  ${watchedEarnings} ${earningsSuffix} / ${totalUnits || 0}`}
+                    {`= ${watchedEarnings} ${earningsSuffix} / ${totalUnits ?? EMPTY_DISPLAY}`}
                   </span>
                   <span>
-                    {`= ${earningsLoading ? '...' : earningsPerUnit || '--'} ${earningsSuffix}`}
+                    {`= ${earningsLoading ? '...' : earningsPerUnit ?? EMPTY_DISPLAY} ${earningsSuffix}`}
                   </span>
                 </div>
               ) : (
@@ -309,7 +248,7 @@ export function WalletTypeEarningsDialog({
             >
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={submitting || balanceLoading}>
+            <Button type="submit" disabled={submitting || balanceLoading || earningsLoading || (validEarnings(watchedEarnings) && earningsPerUnit == null)}>
               {t('common.submit')}
             </Button>
           </DialogFooter>

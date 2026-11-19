@@ -28,13 +28,7 @@
     "notifyEmail": "Email Recipients",
     "selectAllUsers": "Select All Users",
     "exportType": "File Type",
-    "txTime": "Tx Time",
-    "createTimeFrom": "Create Time From",
-    "createTimeTo": "Create Time To",
-    "lastExecutedFrom": "Last Executed From",
-    "lastExecutedTo": "Last Executed To",
-    "txTimeFrom": "Tx Time From",
-    "txTimeTo": "Tx Time To"
+    "txTime": "Tx Time"
   },
   "action": {
     "view": "View",
@@ -52,6 +46,7 @@
   "exportStatus": { "0": "Pending", "1": "Processing", "2": "Success", "3": "Error" },
   "proofStatus": { "2": "Pending", "3": "Processing", "4": "Processing", "5": "Success", "6": "Error" },
   "frequency": { "1": "Daily", "7": "Weekly", "30": "Monthly" },
+  "tokenType": { "1": "Stablecoin", "5": "Tokenized Deposit" },
   "fileType": { "0": "Excel" },
   "txType": {
     "1": "Type 1", "2": "Type 2", "3": "Type 3", "4": "Type 4",
@@ -63,6 +58,7 @@
     "invalidSeparator": "Use English comma to separate emails",
     "tooMany": "Up to 20 recipients"
   },
+  "validation": { "required": "Required" },
   "empty": "No records",
   "newRule": "New Export Rule",
   "confirmDisable": "Disable rule \"{taskName}\"?",

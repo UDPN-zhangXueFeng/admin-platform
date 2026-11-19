@@ -4,7 +4,9 @@ import type { ModuleManifest } from '@myorg/shared/model';
  * Chart of Accounts 模块清单。
  *
  * 作为 `accounting` 分组下的子模块挂载（见 configs/stablecoin.json），
- * 但路由按顶层模块机制解析：`/chart-of-accounts` → moduleId=`chart-of-accounts`。
+ * 路由按分组机制解析：第一段 `accounting` 是分组、第二段是模块：
+ * `/accounting/chart-of-accounts` → moduleId=`chart-of-accounts`。
+ * 旧扁平路由 `/chart-of-accounts` 仍由 registry 兼容，但不再是规范路径。
  */
 export const manifest: ModuleManifest = {
   id: 'chart-of-accounts',
@@ -12,12 +14,12 @@ export const manifest: ModuleManifest = {
   icon: 'BarChart3',
   routes: [
     {
-      path: '/chart-of-accounts',
+      path: '/accounting/chart-of-accounts',
       component: 'list',
       label: 'Chart of Accounts',
     },
     {
-      path: '/chart-of-accounts/view',
+      path: '/accounting/chart-of-accounts/view',
       component: 'detail',
       label: 'Chart of Accounts Detail',
     },

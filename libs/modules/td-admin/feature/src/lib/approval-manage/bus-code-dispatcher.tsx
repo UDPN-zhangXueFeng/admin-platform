@@ -18,10 +18,12 @@ import {
  * **顺序敏感**：精确匹配优先于模糊匹配（由 util resolveApprovalComponent 保证，
  * 见 bus-code-map.ts 注释）。dispatcher 不重写映射，只做渲染分发（Rule 3：surgical）。
  *
- * **占位策略**：T6-T11 的 25 个审核组件尚未实现。dispatcher 接收一个「组件注册表」
- * （Record<ApprovalComponentKey, ComponentType>）；注册表项缺失时渲染占位卡片
- * （显示 busCode + "TODO: <ComponentName>"），不报错。T6-T11 接入时把实现填入注册表即可，
- * dispatcher 与 detail-page 无需改动。
+ * **Registry strategy**: all 25 approval components are implemented and registered by
+ * `approval-manage-detail-page.tsx`. The dispatcher still accepts a registry
+ * (`Partial<Record<ApprovalComponentKey, ComponentType>>`) and renders a defensive
+ * placeholder when an entry is missing, so an unknown or future busCode never crashes.
+ * Add new components by registering their key in `COMPONENT_REGISTRY`; the dispatcher
+ * itself needs no changes.
  *
  * **props 透传**：源 dispatcher 各组件接收的字段子集不同（有的只 detailInfo，financial
  * 五件套 detailInfo+approvalInfo+taskInfo+approvalStatus+busCode，reserveAsset 多 opType）。
@@ -78,10 +80,10 @@ export interface ApprovalComponentProps {
 export type ApprovalComponent = React.ComponentType<ApprovalComponentProps>;
 
 /**
- * 组件注册表：ApprovalComponentKey → 实际组件。
+ * Component registry: ApprovalComponentKey → actual component.
  *
- * detail-page 构建此注册表；未填入的 key 由 dispatcher 渲染占位卡片。
- * T6-T11 实现各组件后填入对应项即可。
+ * detail-page registers all 25 keys. `Partial` is kept as a defensive type; a
+ * missing entry renders the placeholder card instead of crashing.
  */
 export type ApprovalComponentRegistry = Partial<
   Record<ApprovalComponentKey, ApprovalComponent>
@@ -124,11 +126,14 @@ export interface BusCodeDispatcherProps extends ApprovalComponentProps {
 }
 
 /**
- * 占位卡片：busCode 未命中映射、或命中组件尚未实现时渲染（不崩）。
+ * Placeholder card: rendered when the busCode cannot be resolved, or (defensively)
+ * when the resolved key is missing from the registry. Never throws.
  *
- * 两种场景：
- * 1. resolveApprovalComponent 返回 null（busCode 不在任何精确/模糊匹配中）→ "Unknown busCode"。
- * 2. 命中但注册表无该组件（T6-T11 未实现）→ "TODO: <ComponentName>"。
+ * Two scenarios:
+ * 1. resolveApprovalComponent returns null (busCode not in any exact/fuzzy match)
+ *    → "Unknown busCode".
+ * 2. Key resolved but the registry has no entry (should not happen: all 25 keys are
+ *    registered) → "Missing component: <ComponentName>".
  */
 function PlaceholderCard({
   busCode,
@@ -143,13 +148,13 @@ function PlaceholderCard({
     <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-6">
       <p className="text-sm font-medium text-muted-foreground">
         {resolved
-          ? `TODO: ${componentName ?? 'Approval Component'}`
+          ? `Missing component: ${componentName ?? 'Approval Component'}`
           : `Unknown busCode: ${busCode || '(empty)'}`}
       </p>
       <p className="mt-1 text-xs text-muted-foreground/70">
         {resolved
-          ? `busCode=${busCode}（审核组件待 T6-T11 接入）`
-          : '该 busCode 未在 BUS_CODE_MAP / FINANCIAL_FUZZY_MATCHERS 中注册'}
+          ? `busCode=${busCode} (component is not registered)`
+          : 'This busCode is not registered in BUS_CODE_MAP / FINANCIAL_FUZZY_MATCHERS'}
       </p>
     </div>
   );
@@ -181,7 +186,7 @@ export function BusCodeDispatcher({
   const displayName = COMPONENT_DISPLAY_NAME[resolved.component];
 
   if (!Component) {
-    // 命中映射但组件未实现（T6-T11 待接入）→ 占位，不崩。
+    // Defensive: the registry is missing an entry that should be registered.
     return (
       <PlaceholderCard
         busCode={busCode}

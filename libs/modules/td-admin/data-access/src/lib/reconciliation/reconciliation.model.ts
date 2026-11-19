@@ -129,10 +129,11 @@ export interface TxReconDetailRespVo extends ReconciliationRow {
 /** Tx 明细列表请求筛选。 */
 export interface TxReconListReqVo {
   tokenId?: number;
-  reconciliationDateStart?: string;
-  reconciliationDateEnd?: string;
-  txStartTime?: string;
-  txEndTime?: string;
+  /** 对账日期范围，startOfDay / endOfDay 毫秒（对齐旧 CustomTable RangePicker）。 */
+  reconciliationDateStart?: number;
+  reconciliationDateEnd?: number;
+  txStartTime?: number;
+  txEndTime?: number;
   keyword?: string;
   txType?: number;
   reconciliationStatus?: number;
@@ -322,10 +323,11 @@ export interface ReserveReconDetailRespVo extends ReconciliationRow {
 
 export interface ReserveReconListReqVo {
   reserveAccountId: number;
-  reconciliationDateStart?: string;
-  reconciliationDateEnd?: string;
-  txStartTime?: string;
-  txEndTime?: string;
+  /** 对账日期范围，startOfDay / endOfDay 毫秒（对齐旧 CustomTable RangePicker）。 */
+  reconciliationDateStart?: number;
+  reconciliationDateEnd?: number;
+  txStartTime?: number;
+  txEndTime?: number;
   keyword?: string;
   type?: number;
   reconciliationStatus?: number;

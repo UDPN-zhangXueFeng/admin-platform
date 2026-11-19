@@ -24,21 +24,56 @@ import type {
   SourceType,
 } from './suspense-adjustment.constants';
 
+/** Parse plain decimal amounts without converting backend strings to floats. */
+function decimal(value: string | number | null | undefined) {
+  const match = /^([+-]?)(\d+)(?:\.(\d+))?(?:e([+-]?\d{1,3}))?$/i.exec(String(value));
+  if (!match) return null;
+  const [, sign, whole, fraction = '', exponent = '0'] = match;
+  const places = fraction.length - Number(exponent);
+  const units = BigInt(`${sign}${whole}${fraction}`);
+  return { units: places < 0 ? units * 10n ** BigInt(-places) : units, places: Math.max(0, places) };
+}
+
+function decimalString(units: bigint, places: number): string {
+  const digits = (units < 0n ? -units : units).toString().padStart(places + 1, '0');
+  const value = places === 0 ? digits : `${digits.slice(0, -places)}.${digits.slice(-places)}`;
+  return units < 0n ? `-${value}` : value;
+}
+
+/** Normalize an entry to an exact JSON decimal literal, or reject it. */
+export function adjustmentEntryAmount(value: string | number | null): string | null {
+  if (!/^\d+(?:\.\d{1,2})?$/.test(String(value))) return null;
+  const amount = decimal(value);
+  return amount && amount.units > 0n ? decimalString(amount.units, amount.places) : null;
+}
+
+function amountDifference(a: string | number, b: string | number) {
+  const x = decimal(a) ?? { units: 0n, places: 0 };
+  const y = decimal(b) ?? { units: 0n, places: 0 };
+  const places = Math.max(x.places, y.places);
+  return { units: x.units * 10n ** BigInt(places - x.places) - y.units * 10n ** BigInt(places - y.places), places };
+}
+
+export const amountExceeds = (a: string | number, b: string | number): boolean =>
+  amountDifference(a, b).units > 0n;
+
 /**
  * 金额格式化：千分位 + 2 位小数 + 可选币种，例如 '1,000.00 EUR'。
  * 空值 / 非数回 '--'，避免在多个页面重复定义。
  */
 export const formatAmount = (
-  amount: number | null | undefined,
+  amount: string | number | null | undefined,
   currency?: string,
 ): string => {
-  if (amount == null || Number.isNaN(Number(amount))) {
-    return currency ? `-- ${currency}` : '--';
-  }
-  const formatted = Number(amount).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const parsed = decimal(amount);
+  if (!parsed) return currency ? `-- ${currency}` : '--';
+  const { units, places } = parsed;
+  const divisor = 10n ** BigInt(Math.max(0, places - 2));
+  const absolute = units < 0n ? -units : units;
+  const cents = places < 2
+    ? absolute * 10n ** BigInt(2 - places)
+    : (absolute + divisor / 2n) / divisor;
+  const formatted = `${units < 0n ? '-' : ''}${(cents / 100n).toLocaleString('en-US')}.${(cents % 100n).toString().padStart(2, '0')}`;
   return currency ? `${formatted} ${currency}` : formatted;
 };
 
@@ -80,13 +115,18 @@ export const mapClearStatus = (
   if (value == null) return undefined;
   if (typeof value === 'number') return CLEAR_STATUS_CODE_MAP[value];
   const normalized = value.trim().toLowerCase();
+  if (/^[1-3]$/.test(normalized)) return CLEAR_STATUS_CODE_MAP[Number(normalized)];
   switch (normalized) {
     case 'outstanding':
+    case '未清账':
       return 'OUTSTANDING';
     case 'partially cleared':
+    case 'partially_cleared':
+    case '部分清账':
     case 'partially':
       return 'PARTIALLY_CLEARED';
     case 'cleared':
+    case '已清账':
       return 'CLEARED';
     default:
       return undefined;
@@ -110,21 +150,27 @@ export const getAgeTagTone = (age: number): string => {
  * 纯累加，不做上限校验（上限校验由表单层负责，保持函数单一职责）。
  */
 export const calculateThisAdjustment = (
-  entries: Array<{ amount: number | null }>,
-): number =>
-  entries.reduce<number>((sum, e) => {
-    const n = typeof e.amount === 'number' && e.amount > 0 ? e.amount : 0;
-    return sum + n;
-  }, 0);
+  entries: readonly { amount: string | number | null }[],
+): string => {
+  let cents = 0n;
+  for (const entry of entries) {
+    const amount = decimal(adjustmentEntryAmount(entry.amount));
+    if (amount) cents += amount.units * 10n ** BigInt(2 - amount.places);
+  }
+  return decimalString(cents, 2);
+};
 
 /**
  * 本次后剩余 = outstandingAmount - thisAdjustment。
  * 不允许负数，下限 clamp 到 0。
  */
 export const calculateRemainingAfter = (
-  outstandingAmount: number,
-  thisAdjustment: number,
-): number => Math.max(0, (outstandingAmount ?? 0) - (thisAdjustment ?? 0));
+  outstandingAmount: string | number,
+  thisAdjustment: string | number,
+): string => {
+  const { units, places } = amountDifference(outstandingAmount, thisAdjustment);
+  return units <= 0n ? '0' : decimalString(units, places);
+};
 
 /**
  * Adjust 表单 Posting Date 默认值。
@@ -144,8 +190,9 @@ export const getDefaultPostingDate = (detail?: {
 export const epochToDateString = (
   millis: number | null | undefined,
 ): string | undefined => {
-  if (millis == null || Number.isNaN(Number(millis))) return undefined;
-  return new Date(Number(millis)).toISOString().slice(0, 10);
+  if (millis == null) return undefined;
+  const date = new Date(millis);
+  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : undefined;
 };
 
 /**

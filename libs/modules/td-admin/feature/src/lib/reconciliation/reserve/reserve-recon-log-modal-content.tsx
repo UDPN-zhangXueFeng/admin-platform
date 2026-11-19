@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { CopyableEllipsisText } from '@myorg/shared/ui';
+import { Card, CopyableEllipsisText } from '@myorg/shared/ui';
 import {
   InfoItem,
   ReconciliationDrawerCard,
@@ -449,10 +449,10 @@ function ComparisonCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-[240px] rounded-lg border bg-card p-4">
+    <Card className="min-h-[240px] p-4">
       <h4 className="mb-3 text-sm font-semibold text-foreground">{title}</h4>
       {children}
-    </div>
+    </Card>
   );
 }
 

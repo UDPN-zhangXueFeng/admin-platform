@@ -13,6 +13,11 @@ import {
 import { useAuthUIStore } from '@myorg/modules/td-admin/data-access';
 import { Separator } from '@myorg/shared/ui';
 
+export interface LoginPageProps {
+  /** Opt-in callback fired when the session becomes authenticated (after password, 2FA, or MetaMask login). */
+  onLoginSuccess?: () => void;
+}
+
 /**
  * Login page — assembles all three login modes.
  *
@@ -21,7 +26,7 @@ import { Separator } from '@myorg/shared/ui';
  *
  * Authenticated users are redirected to the dashboard by the parent layout.
  */
-export function LoginPage() {
+export function LoginPage({ onLoginSuccess }: LoginPageProps = {}) {
   const t = useTranslations('auth');
   const router = useRouter();
   const { config } = useConfig();
@@ -31,9 +36,10 @@ export function LoginPage() {
   // Redirect authenticated users away from login
   useEffect(() => {
     if (isAuthenticated) {
+      onLoginSuccess?.();
       router.replace('/dashboard');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, onLoginSuccess, router]);
 
   // Align with td-manage: entering the login page clears the previous session footprint.
   useEffect(() => {

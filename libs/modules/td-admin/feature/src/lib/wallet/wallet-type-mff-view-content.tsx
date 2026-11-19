@@ -3,7 +3,10 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
+import { useAuth } from '@myorg/shared/util-auth';
 import {
+  Card,
+  cardSurfaceClass,
   CopyableEllipsisText,
   DataTable,
   Tabs,
@@ -11,6 +14,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { formatDate } from '@myorg/shared/util-dates';
 import {
   useAccumulatedEarningsQuery,
@@ -27,6 +31,7 @@ import {
   toMillis,
 } from '.';
 import { WalletTypeDividendDrawer } from './wallet-type-dividend-drawer';
+import { WALLET_TYPE_ACTION_PERMISSIONS } from './wallet.constants';
 
 const DATE_FMT = 'YYYY-MM-DD';
 
@@ -70,7 +75,7 @@ function DescriptionsSection({
   rows: KvRow[];
 }) {
   return (
-    <section className="rounded-lg border bg-card shadow-sm">
+    <Card>
       {title ? (
         <div className="border-b px-6 py-3 text-sm font-semibold">{title}</div>
       ) : null}
@@ -96,7 +101,7 @@ function DescriptionsSection({
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -122,6 +127,7 @@ export function WalletTypeMffViewContent({
   isLoading,
 }: WalletTypeMffViewContentProps) {
   const t = useTranslations('modules.wallet');
+  const canViewRecord = useAuth().permissions.has(WALLET_TYPE_ACTION_PERMISSIONS.viewRecord);
 
   const [dailyPage, setDailyPage] = React.useState<TxPage>({
     pageNum: 1,
@@ -329,14 +335,14 @@ export function WalletTypeMffViewContent({
           <WalletStatusBadge family="mmf-daily" status={row.original.status} />
         ),
       },
-      createRowActionsColumn<DailyYieldRow>({
+      ...(canViewRecord ? [createRowActionsColumn<DailyYieldRow>({
         detail: {
           label: t('walletType.action.details'),
           onClick: (row) => handleOpenDrawer(row.billCode),
         },
-      }),
+      })] : []),
     ],
-    [t, handleOpenDrawer]
+    [t, handleOpenDrawer, canViewRecord]
   );
 
   const dailyRows = dailyList.data?.rows ?? [];
@@ -389,7 +395,7 @@ export function WalletTypeMffViewContent({
                 },
               ]}
             />
-            <div className="flex items-start gap-2 rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground">
+            <div className={cn(cardSurfaceClass, 'flex items-start gap-2 px-4 py-3 text-sm text-muted-foreground')}>
               <span className="text-primary">ⓘ</span>
               <span className="flex-1">{t('walletType.detail.dividendSnapshotTip')}</span>
             </div>
@@ -402,7 +408,7 @@ export function WalletTypeMffViewContent({
               title={t('walletType.detail.summary')}
               rows={summaryRows}
             />
-            <section className="rounded-lg border bg-card shadow-sm">
+            <Card>
               <div className="border-b px-6 py-3 text-sm font-semibold">
                 {t('walletType.detail.dailyYieldList')}
               </div>
@@ -423,7 +429,7 @@ export function WalletTypeMffViewContent({
                   }}
                 />
               </div>
-            </section>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>

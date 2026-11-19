@@ -5,7 +5,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
-import { Button, Checkbox, Input, useToast } from '@myorg/shared/ui';
+import { Button, Card, Checkbox, Input, useToast } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { PermissionGuard } from '@myorg/shared/util-auth';
 
@@ -184,7 +184,7 @@ export function UserFormPage() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-6 text-base font-semibold">
           {isEdit ? t('edit.title') : t('create.title')}
         </div>
@@ -225,10 +225,10 @@ export function UserFormPage() {
             <Input maxLength={20} {...register('phoneNumber')} />
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* roleIds 多选（user.md §5.3）。onChange 触发联动。 */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">
           {t('field.roleIds')}
           <span className="ml-0.5 text-red-500">*</span>
@@ -274,10 +274,10 @@ export function UserFormPage() {
         ) : (
           <p className="text-sm text-muted-foreground">{t('emptyOptions.role')}</p>
         )}
-      </section>
+      </Card>
 
       {/* tdIds 多选（user.md §5.3）。含管理员角色时整体禁用并全选。 */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">{t('field.tdIds')}</div>
         {tdList?.length ? (
           <Controller
@@ -316,7 +316,7 @@ export function UserFormPage() {
         ) : (
           <p className="text-sm text-muted-foreground">{t('emptyOptions.td')}</p>
         )}
-      </section>
+      </Card>
 
       <div className="flex justify-end gap-3">
         <Button

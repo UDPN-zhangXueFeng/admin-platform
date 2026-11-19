@@ -45,7 +45,7 @@
 - **3576c80 链路英文化**：NODE_TITLES 13 键 + extras 标签（Principal/Target amount/Rate/Ref）+兜底 Transaction updated/Processing；tx-flow 列表 TX_STATUS_MAP 上游仍中文，下游维持既有英文映射不动。
 - **邀请落地页（a522963/d90d91a，§D2b/§E38）**：免登录 (auth) 路由 + middleware 公开前缀；确认密码校验比较响应式 password；token 一次性；错误双通道（拦截器 toast + 内联 alert，标题按 23_0029/30/31）；无 token 参数不发请求直接错误态。
 
-## 跨 app 通用陷阱（来源：admin-sync 2026-08-28 v2.0 全量补同步，三 skill 共享条目）
+## 跨 app 通用陷阱（来源：kissen admin 2026-08-28 v2.0 全量补同步）
 
 - 「远程新增功能/菜单没同步」先分诊两类根因：①前端仓库增量（`git ls-remote` 对 branch tip vs lastSyncedSha）；②后端运行时数据（侧栏菜单 = 登录响应 menuTree 驱动，后端重构菜单时仓库无 diff 也会缺功能）。LP 侧已是 menuTree + MENU_LABELS 模式，此项天然免疫②，但诊断顺序通用。
 - 上游脏数据不照搬：残留无 view 的路由键、链向已删页面的死链——保语义、去死链、留档。

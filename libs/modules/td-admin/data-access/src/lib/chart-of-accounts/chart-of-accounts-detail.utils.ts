@@ -3,9 +3,10 @@
  *
  * 1:1 迁移自源项目 `td-manage` 的 `view/utils.ts`，仅做一项适配：每个生成的
  * `CoaRow` 注入 `id = key` 以满足 shared DataTable 的 `{ id: string }` 契约。
- * Trial Balance / Operation Records 的转换不在用户范围内，未迁移。
+ * Trial Balance / Operation Records 的转换见
+ * `chart-of-accounts-trial-balance.utils.ts` / `chart-of-accounts-operation-records.utils.ts`。
  */
-import { ACTIVE_STATUS_CODES } from '.';
+import { ACTIVE_STATUS_CODES, INACTIVE_STATUS_CODES } from '.';
 import type {
   BookAccountSaveReqVO,
   CoaAction,
@@ -81,6 +82,26 @@ export function resolveCoaStatus(
   if (numericStatus !== undefined) {
     return ACTIVE_STATUS_CODES.has(numericStatus) ? 'active' : 'inactive';
   }
+
+  return 'active';
+}
+
+/**
+ * 账本基本信息状态解析（迁移自源 `resolveBasicInfoStatus`）。
+ * 状态码优先；无可用码时回退 `statusName` 文本；均无法判定按 active 处理（源行为）。
+ */
+export function resolveBasicInfoStatus(
+  status?: number | string,
+  statusName?: string
+): 'active' | 'inactive' {
+  const numericStatus = toSafeNumber(status);
+  if (numericStatus !== undefined) {
+    if (ACTIVE_STATUS_CODES.has(numericStatus)) return 'active';
+    if (INACTIVE_STATUS_CODES.has(numericStatus)) return 'inactive';
+  }
+
+  const normalizedStatusName = statusName?.trim().toLowerCase();
+  if (normalizedStatusName === 'inactive') return 'inactive';
 
   return 'active';
 }
@@ -409,8 +430,8 @@ export function applyCoaDraftAccounts(
 
     // 新增子账户时，父账户不再允许过账
     const rowsWithUpdatedParent = currentRows.map((row, index) => {
-      if (index === parentIndex && row.allowPosting !== false) {
-        return { ...row, allowPosting: false };
+      if (index === parentIndex && (row.allowPosting || row.suspenseAccount)) {
+        return { ...row, allowPosting: false, suspenseAccount: false };
       }
       return row;
     });

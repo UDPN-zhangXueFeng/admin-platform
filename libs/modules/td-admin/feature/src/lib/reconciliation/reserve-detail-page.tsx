@@ -3,14 +3,16 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { useRouter } from '@myorg/shared/util-i18n';
+import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import {
-  Button,
   CopyableEllipsisText,
   DataTable,
   Input,
   Label,
+  PageHeader,
   Select,
   SelectContent,
   SelectItem,
@@ -21,6 +23,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
+import { DateRangePicker } from '@myorg/shared/ui-forms';
 import {
   InfoItem,
   ReconciliationMetricCard,
@@ -47,6 +50,7 @@ import {
 } from '.';
 
 import { ReserveReconLogModal } from './reserve/reserve-recon-log-modal';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 // ── 表格面板 ─────────────────────────────────────────────────────────────────────
@@ -101,6 +105,29 @@ interface ModalState {
   unmatchedType?: number;
 }
 
+// ── Filter state ──────────────────────────────────────────────────────────────
+
+// 对齐源 `formItems`：reconciliationDate / tx 时间两段 RangePicker + keyword / type / status。
+interface ReserveFilterValues {
+  reconciliationDateStart: string;
+  reconciliationDateEnd: string;
+  txStartTime: string;
+  txEndTime: string;
+  keyword: string;
+  type: string;
+  reconciliationStatus: string;
+}
+
+const DEFAULT_FILTERS: ReserveFilterValues = {
+  reconciliationDateStart: '',
+  reconciliationDateEnd: '',
+  txStartTime: '',
+  txEndTime: '',
+  keyword: '',
+  type: 'all',
+  reconciliationStatus: 'all',
+};
+
 // ── 页面组件 ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -117,6 +144,8 @@ interface ModalState {
  */
 export function ReserveDetailPage() {
   const t = useTranslations('modules.reconciliation');
+  const tBack = useTranslations('modules.workflow');
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const reserveAccountIdRaw = searchParams.get('id');
@@ -145,31 +174,17 @@ export function ReserveDetailPage() {
   const [investPageSize, setInvestPageSize] = React.useState(DEFAULT_PAGE_SIZE);
 
   // ── 筛选状态（Tab 独立；ALL_VALUE='all' 规避 Radix Select 空串崩溃） ────────
-  // 对齐源 `formItems`（keyword / type / reconciliationStatus 三项可交互筛选；
-  // 源两段 RangePicker 在目标侧详情页按 real-time 同级约定省略）。
-  interface ReserveFilterValues {
-    keyword: string;
-    type: string;
-    reconciliationStatus: string;
-  }
-
-  const defaultFilters: ReserveFilterValues = {
-    keyword: '',
-    type: 'all',
-    reconciliationStatus: 'all',
-  };
-
   // 已提交（驱动查询）的筛选值
   const [listFilterValues, setListFilterValues] =
-    React.useState<ReserveFilterValues>(defaultFilters);
+    React.useState<ReserveFilterValues>(DEFAULT_FILTERS);
   const [investFilterValues, setInvestFilterValues] =
-    React.useState<ReserveFilterValues>(defaultFilters);
+    React.useState<ReserveFilterValues>(DEFAULT_FILTERS);
 
   // 表单内编辑态（提交前不触发查询）
   const [listFormValues, setListFormValues] =
-    React.useState<ReserveFilterValues>(defaultFilters);
+    React.useState<ReserveFilterValues>(DEFAULT_FILTERS);
   const [investFormValues, setInvestFormValues] =
-    React.useState<ReserveFilterValues>(defaultFilters);
+    React.useState<ReserveFilterValues>(DEFAULT_FILTERS);
 
   const makeReserveParams = React.useCallback(
     (
@@ -181,6 +196,18 @@ export function ReserveDetailPage() {
       pageSize,
       filters: {
         reserveAccountId: reserveAccountId ?? 0,
+        reconciliationDateStart: filters.reconciliationDateStart
+          ? startOfDay(parseISO(filters.reconciliationDateStart)).getTime()
+          : undefined,
+        reconciliationDateEnd: filters.reconciliationDateEnd
+          ? endOfDay(parseISO(filters.reconciliationDateEnd)).getTime()
+          : undefined,
+        txStartTime: filters.txStartTime
+          ? startOfDay(parseISO(filters.txStartTime)).getTime()
+          : undefined,
+        txEndTime: filters.txEndTime
+          ? endOfDay(parseISO(filters.txEndTime)).getTime()
+          : undefined,
         keyword: filters.keyword || undefined,
         type:
           filters.type && filters.type !== 'all'
@@ -240,79 +267,134 @@ export function ReserveDetailPage() {
       const onSubmit =
         tab === 'list' ? onListFilterSubmit : onInvestFilterSubmit;
 
+      const onReset = () => {
+        setValues(DEFAULT_FILTERS);
+        if (tab === 'list') {
+          setListFilterValues(DEFAULT_FILTERS);
+          setListPageNum(1);
+        } else {
+          setInvestFilterValues(DEFAULT_FILTERS);
+          setInvestPageNum(1);
+        }
+      };
+
       return (
-        <form
-          onSubmit={onSubmit}
-          className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-4"
-        >
-          <div className="space-y-1.5">
-            <Label htmlFor={`${tab}-keyword`}>
-              {t('reconciliation_0138')}
-            </Label>
-            <Input
-              id={`${tab}-keyword`}
-              placeholder={t('reconciliation_0138')}
-              value={values.keyword}
-              onChange={(e) =>
-                setValues((prev) => ({ ...prev, keyword: e.target.value }))
-              }
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${tab}-type`}>{t('reconciliation_0055')}</Label>
-            <Select
-              value={values.type}
-              onValueChange={(v) =>
-                setValues((prev) => ({ ...prev, type: v }))
-              }
-            >
-              <SelectTrigger id={`${tab}-type`}>
-                <SelectValue placeholder={t('common_all')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('common_all')}</SelectItem>
-                <SelectItem value="1">
-                  {t('reserve_type_1' as never)}
-                </SelectItem>
-                <SelectItem value="2">
-                  {t('reserve_type_2' as never)}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${tab}-reconStatus`}>
-              {t('reconciliation_0136')}
-            </Label>
-            <Select
-              value={values.reconciliationStatus}
-              onValueChange={(v) =>
-                setValues((prev) => ({
-                  ...prev,
-                  reconciliationStatus: v,
-                }))
-              }
-            >
-              <SelectTrigger id={`${tab}-reconStatus`}>
-                <SelectValue placeholder={t('common_all')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('common_all')}</SelectItem>
-                <SelectItem value="2">
-                  {t('reserve_status_2' as never)}
-                </SelectItem>
-                <SelectItem value="3">
-                  {t('reserve_status_3' as never)}
-                </SelectItem>
-                <SelectItem value="4">
-                  {t('reserve_status_4' as never)}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-end">
-            <Button type="submit">{t('common_query')}</Button>
-          </div>
+        <form onSubmit={onSubmit} className="mb-4">
+          <QueryForm
+            fields={[
+              <div key="reconciliationDate" className="space-y-1.5">
+                <Label htmlFor={`${tab}-reconciliationDate`}>
+                  {t('reconciliation_0137')}
+                </Label>
+                <DateRangePicker
+                  id={`${tab}-reconciliationDate`}
+                  ariaLabel={t('reconciliation_0137')}
+                  value={{
+                    start: values.reconciliationDateStart,
+                    end: values.reconciliationDateEnd,
+                  }}
+                  onChange={({ start, end }) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      reconciliationDateStart: start,
+                      reconciliationDateEnd: end,
+                    }))
+                  }
+                />
+              </div>,
+              <div key="keyword" className="space-y-1.5">
+                <Label htmlFor={`${tab}-keyword`}>
+                  {t('reconciliation_0138')}
+                </Label>
+                <Input
+                  id={`${tab}-keyword`}
+                  placeholder={t('reconciliation_0138')}
+                  value={values.keyword}
+                  onChange={(e) =>
+                    setValues((prev) => ({ ...prev, keyword: e.target.value }))
+                  }
+                />
+              </div>,
+              <div key="reconStatus" className="space-y-1.5">
+                <Label htmlFor={`${tab}-reconStatus`}>
+                  {t('reconciliation_0136')}
+                </Label>
+                <Select
+                  value={values.reconciliationStatus}
+                  onValueChange={(v) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      reconciliationStatus: v,
+                    }))
+                  }
+                >
+                  <SelectTrigger id={`${tab}-reconStatus`}>
+                    <SelectValue placeholder={t('common_all')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('common_all')}</SelectItem>
+                    <SelectItem value="2">
+                      {t('reserve_status_2' as never)}
+                    </SelectItem>
+                    <SelectItem value="3">
+                      {t('reserve_status_3' as never)}
+                    </SelectItem>
+                    <SelectItem value="4">
+                      {t('reserve_status_4' as never)}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>,
+            ]}
+            advancedFields={[
+              <div key="txTime" className="space-y-1.5">
+                <Label htmlFor={`${tab}-txTime`}>
+                  {t('reconciliation_0139')}
+                </Label>
+                <DateRangePicker
+                  id={`${tab}-txTime`}
+                  ariaLabel={t('reconciliation_0139')}
+                  value={{
+                    start: values.txStartTime,
+                    end: values.txEndTime,
+                  }}
+                  onChange={({ start, end }) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      txStartTime: start,
+                      txEndTime: end,
+                    }))
+                  }
+                />
+              </div>,
+              <div key="type" className="space-y-1.5">
+                <Label htmlFor={`${tab}-type`}>{t('reconciliation_0055')}</Label>
+                <Select
+                  value={values.type}
+                  onValueChange={(v) =>
+                    setValues((prev) => ({ ...prev, type: v }))
+                  }
+                >
+                  <SelectTrigger id={`${tab}-type`}>
+                    <SelectValue placeholder={t('common_all')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('common_all')}</SelectItem>
+                    <SelectItem value="1">
+                      {t('reserve_type_1' as never)}
+                    </SelectItem>
+                    <SelectItem value="2">
+                      {t('reserve_type_2' as never)}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>,
+            ]}
+            onReset={onReset}
+            queryType="submit"
+            queryLabel={t('common_query')}
+            resetLabel={t('common_reset')}
+          />
         </form>
       );
     },
@@ -469,13 +551,14 @@ export function ReserveDetailPage() {
     const name =
       basicInfo?.reserveAssetName?.trim() ||
       basicInfo?.reserveAccountName?.trim();
-    return name ? `${name} Reconciliation` : t('reconciliation_0145');
+    return name ? `${name} Reconciliation` : t('reconciliation_0234');
   }, [basicInfo, t]);
 
   return (
     <div className="space-y-4">
       {/* 基本信息 */}
-      <ReconciliationSection title={title}>
+      <PageHeader title={title} backLabel={tBack('action.back')} onBack={() => router.back()} />
+      <ReconciliationSection>
         {basicLoading ? (
           <div className="grid grid-cols-2 gap-x-8 gap-y-4 md:grid-cols-3">
             {Array.from({ length: 8 }).map((_, i) => (

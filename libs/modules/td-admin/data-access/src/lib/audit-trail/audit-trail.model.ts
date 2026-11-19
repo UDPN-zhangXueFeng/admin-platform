@@ -38,8 +38,8 @@ export interface AuditTrailListFilters {
   tokenName?: string;
   tokenType?: number | string;
   blockchainId?: number | string;
-  txStartTime?: number;
-  txEndTime?: number;
+  txStartTime?: number | string;
+  txEndTime?: number | string;
   txHash?: string;
 }
 

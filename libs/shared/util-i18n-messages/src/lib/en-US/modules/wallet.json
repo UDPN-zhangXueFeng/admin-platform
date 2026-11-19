@@ -33,9 +33,13 @@
     "success": "Success",
     "error": "Error",
     "pending": "Pending",
+    "pendingApproval": "Pending Approval",
+    "rejected": "Rejected",
+    "enabling": "Enabling",
     "unknown": "Unknown"
   },
   "accountType": {
+    "0": "N/A",
     "1": "Current",
     "2": "Savings",
     "3": "Fund"
@@ -54,7 +58,7 @@
   "custodyModel": {
     "issuerCustody": "Issuer Custody",
     "spCustody": "SP Custody",
-    "selfCustody": "Self Custody"
+    "selfCustody": "Self-Custody (End User)"
   },
   "kyc": {
     "yes": "Yes",
@@ -74,38 +78,55 @@
     "7": "Unfreeze Funds"
   },
   "operateContent": {
-    "created": "Wallet created",
+    "created": "Wallet Creation",
     "frozen": "Freeze Wallet",
-    "frozenNewStatus": "New Status",
-    "frozenOldStatus": "Old Status",
+    "frozenNewStatus": "Update Status: Frozen",
+    "frozenOldStatus": "Original Status: Active",
     "unfrozen": "Unfreeze Wallet",
-    "unfrozenNewStatus": "New Status",
-    "unfrozenOldStatus": "Old Status",
+    "unfrozenNewStatus": "Update Status: Unfrozen",
+    "unfrozenOldStatus": "Original Status: Freeze",
     "changeType": "Change Wallet Type",
-    "changeNewStatus": "New Status",
-    "changeOldStatus": "Old Status",
-    "freezeFunds": "Frozen Amount",
-    "unfreezeFunds": "Unfrozen Amount"
+    "changeNewStatus": "Update Type",
+    "changeOldStatus": "Original Type",
+    "freezeFunds": "Freeze Amount",
+    "unfreezeFunds": "Unfreeze Amount"
   },
   "tdTransactionType": {
     "1": "Mint",
-    "2": "Burn",
-    "3": "Transfer",
-    "4": "Redeem"
+    "2": "Melt",
+    "3": "Top-up",
+    "4": "Transfer",
+    "5": "Authorized Transfer",
+    "6": "Withdrawal",
+    "7": "WithdrawByBank",
+    "8": "Deposit Interest",
+    "9": "Maintenance Fee",
+    "10": "Minimum Balance Fee",
+    "11": "Deposit Interest",
+    "12": "Arranged Overdraft Fee",
+    "13": "Unarranged Overdraft Fee",
+    "14": "Overdraft Interest",
+    "15": "Overdraft Interest",
+    "16": "Deposit Interest",
+    "17": "Overdraft Interest",
+    "18": "Fund Dividend Distribution"
   },
   "userFeeType": {
-    "10": "Maintenance Fee",
-    "20": "Minimum Balance Fee",
-    "25": "Interest Fee",
-    "30": "Other Fee"
+    "1": "Maintenance Fee",
+    "5": "Minimum Balance Fee",
+    "10": "Deposit Interest",
+    "15": "Arranged Overdraft Fee",
+    "20": "Overdraft Interest",
+    "25": "Unarranged Overdraft Fee",
+    "30": "Unoverdraft Interest"
   },
   "authorizedOperationType": {
     "1": "Authorize",
-    "2": "Revoke"
+    "2": "De-authorize"
   },
   "changeType": {
-    "1": "Authorize",
-    "2": "Revoke"
+    "1": "Increase",
+    "2": "Decrease"
   },
   "commonTaskStatus": {
     "30": "Processing",
@@ -119,35 +140,61 @@
     "records": "Operational Wallet List",
     "invalidId": "Missing wallet identifier. Please open this page from the list.",
     "copy": "Copy",
+    "copySuccess": "Copy Successfully!",
+    "copyFailed": "Copy failed",
+    "details": "Details",
+    "loadFailed": "Unable to load operational wallet data.",
+    "retry": "Retry",
+    "filterAddress": "Operational Wallet",
+    "accountType": {
+      "1": "Current account",
+      "2": "Savings account",
+      "3": "Yield-Bearing Account"
+    },
+    "feeType": {
+      "10": "Account Fees",
+      "15": "Overdraft Fee",
+      "20": "Overdraft Interest",
+      "25": "Deposit Interest (for receiving)",
+      "30": "Deposit Interest (for payment)",
+      "35": "Fund Dividend Distribution",
+      "70": "Fund Dividend Distribution"
+    },
+    "operationType": {
+      "1": "Add",
+      "2": "Edit",
+      "3": "Activate",
+      "4": "Deactivate"
+    },
     "tab": {
       "basicInformation": "Basic Information",
-      "transactions": "Transaction Records",
+      "transactions": "Transactions",
       "operationRecords": "Operation Records"
     },
     "column": {
-      "index": "Index",
+      "index": "No.",
       "walletAddress": "Wallet Address",
       "accountType": "Account Type",
-      "feeType": "Fee Type",
-      "tokenName": "Token",
+      "feeType": "Wallet Purpose",
+      "tokenName": "Token Name",
       "walletType": "Wallet Type",
       "blockchain": "Blockchain",
       "balance": "Balance",
       "txFrom": "From",
       "txTo": "To",
       "txType": "Transaction Type",
-      "txAmount": "Amount",
+      "txAmount": "Transaction Amount",
       "txTime": "Transaction Time",
       "txHash": "Transaction Hash",
       "operateType": "Operation Type",
-      "oldWalletAddress": "Old Wallet Address",
-      "createTime": "Create Time"
+      "oldWalletAddress": "Original Value",
+      "newWalletAddress": "Updated",
+      "createTime": "Created on"
     },
     "field": {
-      "startCreateTime": "Create Time Start",
-      "endCreateTime": "Create Time End",
+      "createTime": "Created on",
       "walletAddress": "Wallet Address",
-      "creator": "Creator"
+      "creator": "Created by"
     },
     "placeholder": {
       "walletAddress": "Enter wallet address"
@@ -161,14 +208,17 @@
     "records": "User Wallet List",
     "invalidId": "Missing wallet identifier. Please open this page from the list.",
     "copy": "Copy",
+    "loadFailed": "Could not load wallet data.",
+    "retry": "Retry",
+    "notAvailable": "N/A",
     "tab": {
       "basic": "Basic Information",
       "transactions": "Transactions",
       "operations": "Operation Records",
       "accrual": "Accrual Records",
       "distribution": "Distribution Records",
-      "authorization": "Authorization Records",
-      "authorized": "Authorized Records"
+      "authorization": "Authorization Outflows",
+      "authorized": "Authorization Inflows"
     },
     "section": {
       "basicDetails": "Wallet Details",
@@ -177,14 +227,24 @@
       "verifiableCredential": "Verifiable Credential",
       "distributionDetails": "Distribution Details",
       "fundName": "Fund Name",
-      "fundAssetValue": "Fund Asset Value",
+      "fundAssetValue": "Fixed Net Asset Value",
       "dividendMethod": "Dividend Method"
     },
     "field": {
-      "startCreateTime": "Create Time Start",
-      "endCreateTime": "Create Time End"
+      "kycStatus": "KYC Status",
+      "maxTxCountDaily": "Daily Transaction Limit",
+      "maxTxCountPer": "Single Transaction Limit",
+      "stablecoinLimitCount": "Maximum Balance Limit",
+      "withdrawTime": "Inactive Timestamp",
+      "walletStatus": "Wallet Status"
+    },
+    "filter": {
+      "appliedDate": "Applied Date"
     },
     "column": {
+      "toWallet": "To Wallet Address",
+      "fromWallet": "From Wallet Address",
+      "authorizedAmount": "Authorized Amount",
       "walletAddress": "Wallet Address",
       "blockchain": "Blockchain",
       "sp": "SP",
@@ -217,8 +277,7 @@
       "dividendUnits": "Dividend Units",
       "type": "Change Type",
       "amount": "Amount",
-      "operationTime": "Operation Time",
-      "status": "Status"
+      "operationTime": "Operation Time"
     },
     "placeholder": {
       "walletAddress": "Enter wallet address",
@@ -234,10 +293,13 @@
       "unfreezeFunds": "UnFreeze Funds"
     },
     "submissionPolicy": {
+      "endUser": "End User",
       "sp": "Via Current SP",
       "direct": "Direct (End User)"
     },
     "modal": {
+      "noAvailableTypes": "No wallet types are available.",
+      "submitFailed": "Could not submit the request.",
       "freezeWalletTitle": "Freeze Wallet",
       "freezeWalletSubTitle": "Please enter the reason for freezing the wallet, and then submit your request for approval.",
       "freezeWalletTip": "Freezing the user's wallet will prohibit the user's fund flow, please consider carefully before performing the operation.",
@@ -277,6 +339,8 @@
     "records": "Wallet Type List",
     "mmfRecords": "MMF Wallet Type List",
     "invalidStablecoin": "No stablecoin selected.",
+    "loadFailed": "Could not load wallet type data.",
+    "apiDocFailed": "Could not open the API documentation.",
     "column": {
       "name": "Name",
       "walletTypeCode": "Wallet Type Code",
@@ -324,6 +388,7 @@
     },
     "action": {
       "add": "Add",
+      "onboard": "Onboard Token",
       "edit": "Edit",
       "detail": "Detail",
       "enable": "Enable",
@@ -354,24 +419,28 @@
       "earningsCalcFailed": "Failed to calculate earnings, please retry."
     },
     "mmfFundType": {
-      "1": "Money Market",
-      "2": "Fixed Income",
-      "3": "Equity",
-      "4": "Balanced",
-      "5": "Index",
-      "6": "Bond",
-      "7": "REIT",
-      "8": "Alternative"
+      "1": "Retail Advantage Fund",
+      "2": "Institutional Prime Fund",
+      "3": "Government Secure Fund",
+      "4": "Prime Strategy Fund",
+      "5": "Tax-Free Growth Fund",
+      "6": "Global Horizon Fund",
+      "7": "Other Diversified Fund",
+      "8": "Other"
     },
     "mmfRiskLevel": {
-      "1": "Low",
-      "2": "Medium Low",
-      "3": "Medium High",
-      "4": "High"
+      "1": "Low Risk (R1)",
+      "2": "Moderately Low Risk (R2)",
+      "3": "Moderate Risk (R3)",
+      "4": "Moderately High Risk (R4)"
     },
     "maintenanceFeeCycle": {
-      "1": "Daily",
-      "5": "Monthly"
+      "1": "Monthly",
+      "5": "Annual"
+    },
+    "maintenanceFeePeriod": {
+      "1": "month",
+      "5": "year"
     },
     "form": {
       "title": "Wallet Type ${type}",
@@ -437,6 +506,8 @@
         "fundInceptionTime": "Fund Inception Date",
         "dailyStatisticalTime": "Daily Statistical Time",
         "statisticalMonth": "Month",
+        "distributionFrequency": "Distribution Frequency",
+        "everyDay": "Every Day",
         "generateWalletLink": "Generate Wallet",
         "keystorePassword": "Keystore Password",
         "keystorePasswordHint": "The password is used to encrypt the keystore. Please keep it safe."
@@ -446,7 +517,9 @@
         "walletTypeCode": "Enter wallet type code"
       },
       "validation": {
-        "amount": "Only numbers with up to 2 decimal places are allowed.",
+        "amount": "Enter a non-negative amount with up to 2 decimals, no greater than 99,999,999,999.",
+        "decimal": "Enter a non-negative amount with up to 2 decimals.",
+        "futureDate": "Choose today or an earlier date.",
         "required": "Please enter the {field}",
         "namePattern": "Only letters, digits, spaces, hyphens and slashes are allowed.",
         "codePattern": "Only letters, digits, dots, underscores and hyphens are allowed."

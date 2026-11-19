@@ -1,4 +1,4 @@
-import { apiClient, type ApiRequestConfig } from '@myorg/shared/data-access-api';
+import { apiClient, ApiError, axiosClient, type ApiRequestConfig } from '@myorg/shared/data-access-api';
 import type {
   PostingAccountOption,
   PostingBook,
@@ -34,7 +34,13 @@ const UPDATE_URL = `${POSTING_BASE}/update`;
 /** 后端原始行（无 `id`）。仅用于在 API 层完成 `id` 注入，不对外暴露。 */
 type PostingBookApi = Omit<PostingBook, 'id'>;
 type PostingEventApi = Omit<PostingEvent, 'id'>;
-type PostingHistoryApi = Omit<PostingHistoryItem, 'id'>;
+type PostingHistoryApi = Omit<PostingHistoryItem, 'id'> & {
+  taskID?: number | string;
+  approvalTaskId?: number | string;
+  workflowTaskId?: number | string;
+  detailId?: number | string;
+  businessCode?: string;
+};
 
 /** 列表响应原始结构（rows 无 `id`）。 */
 interface ListResponseApi<TRow> {
@@ -61,8 +67,8 @@ export async function getPostingBooks(
   );
 
   return {
-    page: response.page,
-    rows: (response.rows ?? []).map((row): PostingBook => ({
+    page: response?.page,
+    rows: (response?.rows ?? []).map((row): PostingBook => ({
       ...row,
       id: String(row.financeBookId ?? ''),
     })),
@@ -75,12 +81,12 @@ export async function getPostingBooks(
 export async function getPostingBookDetail(
   financeBookId: number | string,
   config?: ApiRequestConfig
-): Promise<PostingBook> {
-  const row = await apiClient.get<PostingBookApi>(
+): Promise<PostingBook | null> {
+  const row = await apiClient.get<PostingBookApi | null>(
     `${BOOK_DETAIL_URL}/${financeBookId}`,
     config
   );
-  return { ...row, id: String(row.financeBookId ?? financeBookId) };
+  return row ? { ...row, id: String(row.financeBookId ?? financeBookId) } : null;
 }
 
 /**
@@ -100,8 +106,8 @@ export async function getPostingEventList(
   );
 
   return {
-    page: response.page,
-    rows: (response.rows ?? []).map((row): PostingEvent => ({
+    page: response?.page,
+    rows: (response?.rows ?? []).map((row): PostingEvent => ({
       ...row,
       id: String(row.postingEventId ?? ''),
     })),
@@ -114,12 +120,12 @@ export async function getPostingEventList(
 export async function getPostingEventDetail(
   postingEventId: number | string,
   config?: ApiRequestConfig
-): Promise<PostingEvent> {
-  const row = await apiClient.get<PostingEventApi>(
+): Promise<PostingEvent | null> {
+  const row = await apiClient.get<PostingEventApi | null>(
     `${EVENT_DETAIL_URL}/${postingEventId}`,
     config
   );
-  return { ...row, id: String(row.postingEventId ?? postingEventId) };
+  return row ? { ...row, id: String(row.postingEventId ?? postingEventId) } : null;
 }
 
 /**
@@ -127,15 +133,15 @@ export async function getPostingEventDetail(
  *
  * `direction`：1=Debit，2=Credit。
  */
-export function getPostingEventAccounts(
+export async function getPostingEventAccounts(
   postingEventId: number | string,
   direction: number,
   config?: ApiRequestConfig
 ): Promise<PostingAccountOption[]> {
-  return apiClient.get<PostingAccountOption[]>(
-    `${EVENT_ACCOUNTS_URL}/${postingEventId}?direction=${direction}`,
-    config
-  );
+  return (await apiClient.get<PostingAccountOption[] | null>(
+    `${EVENT_ACCOUNTS_URL}/${postingEventId}`,
+    { ...config, params: { direction } }
+  )) ?? [];
 }
 
 /**
@@ -155,24 +161,24 @@ export async function getPostingHistoryList(
   );
 
   return {
-    page: response.page,
-    rows: (response.rows ?? []).map((row): PostingHistoryItem => ({
+    page: response?.page,
+    rows: (response?.rows ?? []).map((row): PostingHistoryItem => ({
       ...row,
-      id: String(row.recordId ?? ''),
+      taskId: row.taskId || row.taskID || row.approvalTaskId || row.workflowTaskId || row.detailId,
+      busCode: row.busCode || row.businessCode,
+      id: String(row.recordId || row.detailId || row.versionId || row.taskId || row.postingEventId || ''),
     })),
   };
 }
 
-/**
- * 更新记账事件（update；编辑页保存用）。
- *
- * NOTE: 请求体按 `PostingEventUpdateReqVo` 直传（未包裹 `{ data }`）。
- * 若后端实际要求包裹，需在此调整——迁移时按 typings 的直传形态实现。
- */
+/** The backend accepts the unwrapped DTO. Only an explicit business code 0 is success. */
 export async function updatePostingEvent(
   dto: SavePostingEventDTO,
   config?: ApiRequestConfig
-): Promise<PostingEvent> {
-  const row = await apiClient.post<PostingEventApi>(UPDATE_URL, dto, config);
-  return { ...row, id: String(row.postingEventId ?? dto.postingEventId) };
+): Promise<void> {
+  const response = await axiosClient.post<{ code?: number | string; message?: string }>(UPDATE_URL, dto, config);
+  // The shared interceptor already rejects nonzero business codes with their backend message.
+  if (response.data?.code !== 0 && response.data?.code !== '0') {
+    throw new ApiError({ status: response.status, code: -1, message: response.data?.message ?? '' });
+  }
 }

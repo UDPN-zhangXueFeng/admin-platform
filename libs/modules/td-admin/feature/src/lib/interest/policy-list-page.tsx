@@ -20,7 +20,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 import { toast } from '@myorg/shared/ui';
 
@@ -88,7 +88,14 @@ function usePolicyColumns(
       id: 'annualInterestRate',
       header: t('interest_0006'),
       accessorKey: 'annualInterestRate',
-      cell: ({ getValue }) => `${getValue<string>()}%`,
+      cell: ({ row }) => {
+        const { annualInterestRate, interestCalculationMethod } = row.original;
+        if (!annualInterestRate) return '-';
+        // 源码 policy/index.tsx:261-265：仅全额计息（1）拼 `%`；分段计息（2）原样展示。
+        return interestCalculationMethod === 1
+          ? `${annualInterestRate}%`
+          : annualInterestRate;
+      },
     },
     {
       id: 'effectiveTime',
@@ -127,9 +134,11 @@ interface PolicyTabProps {
   interestType: number; // 1=Overdraft, 2=Deposit
   /** 新建跳转路径 */
   createPath: string;
+  /** 编辑跳转路径（不含 id，调用处补 `?id=` 与 `type`） */
+  editPath: string;
 }
 
-function PolicyTab({ interestType, createPath }: PolicyTabProps) {
+function PolicyTab({ interestType, createPath, editPath }: PolicyTabProps) {
   const t = useTranslations('modules.interest');
   const tc = useTranslations('common');
   const router = useRouter();
@@ -189,7 +198,11 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
                 label: tc('Router_0010_4_2'),
                 disabled: r.status === 1,
                 onClick: () =>
-                  router.push(`${createPath}?id=${r.interestRuleId}`),
+                  router.push(
+                    `${editPath}?id=${r.interestRuleId}&type=${
+                      interestType === 2 ? 'deposit' : 'overdraft'
+                    }`,
+                  ),
               },
             ]
           : []),
@@ -255,23 +268,15 @@ function PolicyTab({ interestType, createPath }: PolicyTabProps) {
           register={form.register('interestPolicyName')}
           placeholder={tc('PUB_Query')}
         />
-        <FormDatePicker
-          name="effectiveTimeStart"
+        <FormDateRangePicker
+          startName="effectiveTimeStart"
+          endName="effectiveTimeEnd"
           label={t('interest_0003')}
           control={form.control}
         />
-        <FormDatePicker
-          name="effectiveTimeEnd"
-          label={t('interest_0003')}
-          control={form.control}
-        />
-        <FormDatePicker
-          name="createTimeStart"
-          label={tc('PUB_CreateTime')}
-          control={form.control}
-        />
-        <FormDatePicker
-          name="createTimeEnd"
+        <FormDateRangePicker
+          startName="createTimeStart"
+          endName="createTimeEnd"
           label={tc('PUB_CreateTime')}
           control={form.control}
         />
@@ -340,12 +345,14 @@ export function PolicyListPage() {
         <PolicyTab
           interestType={2}
           createPath="/interest/policy/create?type=deposit"
+          editPath="/interest/policy/edit"
         />
       </TabsContent>
       <TabsContent value="overdraft">
         <PolicyTab
           interestType={1}
           createPath="/interest/policy/create?type=overdraft"
+          editPath="/interest/policy/edit"
         />
       </TabsContent>
     </Tabs>

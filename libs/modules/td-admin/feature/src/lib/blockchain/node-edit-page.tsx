@@ -8,6 +8,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { toast } from 'sonner';
 import {
   Button,
+  Card,
   Select,
   SelectContent,
   SelectItem,
@@ -223,188 +224,186 @@ export function NodeEditPage(): React.JSX.Element {
   );
 
   return (
-    <div className="rounded-lg border bg-card p-6 shadow-sm">
-      <div className="mb-6 text-base font-semibold">
-        {isEdit ? t('editTitle') : t('newTitle')}
-      </div>
-
-      <form
-        onSubmit={handleSubmit(onValid)}
-        className="w-full max-w-[60%]"
-        noValidate
-      >
-        <div className="flex justify-between gap-6">
-          {/* 链名 Select：编辑态 disabled；单项 status!==1 disabled；onChange 预填 browserUrl + 拉动态字段 */}
-          <Controller
-            control={control}
-            name="chainName"
-            rules={{ required: t('blockchain_0000') }}
-            render={({ field }) => (
-              <div className="w-2/5">
-                <label
-                  htmlFor="select-chainName"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('blockchain_0000')}
-                  <span className="ml-0.5 text-destructive" aria-hidden="true">
-                    *
-                  </span>
-                </label>
-                <Select
-                  value={(field.value as string) ?? ''}
-                  onValueChange={(v) => {
-                    field.onChange(v);
-                    handleChainChange(v);
-                  }}
-                  disabled={isEdit}
-                >
-                  <SelectTrigger
-                    id="select-chainName"
-                    aria-invalid={!!errors.chainName}
-                  >
-                    <SelectValue placeholder={t('blockchain_0000')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(blockchainList.data ?? []).map((b) => (
-                      <SelectItem
-                        key={b.key}
-                        value={String(b.key)}
-                        disabled={b.status !== 1}
-                      >
-                        {b.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.chainName ? (
-                  <p className="mt-1 text-sm text-destructive" role="alert">
-                    {String(errors.chainName.message ?? '')}
-                  </p>
-                ) : null}
-              </div>
-            )}
-          />
-
-          {/* 节点位置 Select：编辑态 disabled；onChange 拉动态字段 */}
-          <Controller
-            control={control}
-            name="nodeLocation"
-            rules={{ required: t('blockchain_0001') }}
-            render={({ field }) => (
-              <div className="w-2/5">
-                <label
-                  htmlFor="select-nodeLocation"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('blockchain_0001')}
-                  <span className="ml-0.5 text-destructive" aria-hidden="true">
-                    *
-                  </span>
-                </label>
-                <Select
-                  value={(field.value as string) ?? ''}
-                  onValueChange={(v) => {
-                    field.onChange(v);
-                    handleNodeLocationChange(v);
-                  }}
-                  disabled={isEdit}
-                >
-                  <SelectTrigger
-                    id="select-nodeLocation"
-                    aria-invalid={!!errors.nodeLocation}
-                  >
-                    <SelectValue placeholder={t('blockchain_0001')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(nodeLocationList.data ?? []).map((nl) => (
-                      <SelectItem key={nl.key} value={String(nl.key)}>
-                        {nl.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.nodeLocation ? (
-                  <p className="mt-1 text-sm text-destructive" role="alert">
-                    {String(errors.nodeLocation.message ?? '')}
-                  </p>
-                ) : null}
-              </div>
-            )}
-          />
-        </div>
-
-        {/* 动态参数字段（params/search 返回的 nodeParamsDetail map 出 N 个 Input）。
-            name=paramKey / label=paramName / required。运行时通过 register(paramKey) 注册。 */}
-        {filedArrObj.map((el) => (
-          <FormField
-            key={el.paramKey}
-            name={el.paramKey}
-            label={el.paramName}
-            required
-            register={register(el.paramKey, { required: t('blockchain_0001') })}
-          />
-        ))}
-
-        {/* browserUrl：URL 正则校验（源码同款正则）。 */}
+    <Card className="p-6"><div className="mb-6 text-base font-semibold">
+      {isEdit ? t('editTitle') : t('newTitle')}
+    </div>
+    
+    <form
+      onSubmit={handleSubmit(onValid)}
+      className="w-full max-w-[60%]"
+      noValidate
+    >
+      <div className="flex justify-between gap-6">
+        {/* 链名 Select：编辑态 disabled；单项 status!==1 disabled；onChange 预填 browserUrl + 拉动态字段 */}
         <Controller
           control={control}
-          name="browserUrl"
-          rules={{
-            required: t('blockchain_0031'),
-            validate: (value) => {
-              const v = typeof value === 'string' ? value : '';
-              if (!URL_REGEX.test(v)) {
-                return t('blockchain_0034');
-              }
-              return true;
-            },
-          }}
+          name="chainName"
+          rules={{ required: t('blockchain_0000') }}
           render={({ field }) => (
-            <div className="mt-4">
+            <div className="w-2/5">
               <label
-                htmlFor="field-browserUrl"
+                htmlFor="select-chainName"
                 className="mb-1.5 block text-sm font-medium text-foreground"
               >
-                {t('blockchain_0031')}
+                {t('blockchain_0000')}
                 <span className="ml-0.5 text-destructive" aria-hidden="true">
                   *
                 </span>
               </label>
-              <input
-                id="field-browserUrl"
-                type="text"
+              <Select
                 value={(field.value as string) ?? ''}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-                name={field.name}
-                ref={field.ref}
-                placeholder={t('blockchain_0031')}
-                aria-invalid={!!errors.browserUrl}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              />
-              {errors.browserUrl ? (
+                onValueChange={(v) => {
+                  field.onChange(v);
+                  handleChainChange(v);
+                }}
+                disabled={isEdit}
+              >
+                <SelectTrigger
+                  id="select-chainName"
+                  aria-invalid={!!errors.chainName}
+                >
+                  <SelectValue placeholder={t('blockchain_0000')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(blockchainList.data ?? []).map((b) => (
+                    <SelectItem
+                      key={b.key}
+                      value={String(b.key)}
+                      disabled={b.status !== 1}
+                    >
+                      {b.value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.chainName ? (
                 <p className="mt-1 text-sm text-destructive" role="alert">
-                  {String(errors.browserUrl.message ?? '')}
+                  {String(errors.chainName.message ?? '')}
                 </p>
               ) : null}
             </div>
           )}
         />
-
-        <div className="mt-8 flex justify-center gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            disabled={submitting}
-          >
-            {t('action.cancel')}
-          </Button>
-          <Button type="submit" disabled={submitting}>
-            {t('action.submit')}
-          </Button>
-        </div>
-      </form>
-    </div>
+    
+        {/* 节点位置 Select：编辑态 disabled；onChange 拉动态字段 */}
+        <Controller
+          control={control}
+          name="nodeLocation"
+          rules={{ required: t('blockchain_0001') }}
+          render={({ field }) => (
+            <div className="w-2/5">
+              <label
+                htmlFor="select-nodeLocation"
+                className="mb-1.5 block text-sm font-medium text-foreground"
+              >
+                {t('blockchain_0001')}
+                <span className="ml-0.5 text-destructive" aria-hidden="true">
+                  *
+                </span>
+              </label>
+              <Select
+                value={(field.value as string) ?? ''}
+                onValueChange={(v) => {
+                  field.onChange(v);
+                  handleNodeLocationChange(v);
+                }}
+                disabled={isEdit}
+              >
+                <SelectTrigger
+                  id="select-nodeLocation"
+                  aria-invalid={!!errors.nodeLocation}
+                >
+                  <SelectValue placeholder={t('blockchain_0001')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(nodeLocationList.data ?? []).map((nl) => (
+                    <SelectItem key={nl.key} value={String(nl.key)}>
+                      {nl.value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.nodeLocation ? (
+                <p className="mt-1 text-sm text-destructive" role="alert">
+                  {String(errors.nodeLocation.message ?? '')}
+                </p>
+              ) : null}
+            </div>
+          )}
+        />
+      </div>
+    
+      {/* 动态参数字段（params/search 返回的 nodeParamsDetail map 出 N 个 Input）。
+          name=paramKey / label=paramName / required。运行时通过 register(paramKey) 注册。 */}
+      {filedArrObj.map((el) => (
+        <FormField
+          key={el.paramKey}
+          name={el.paramKey}
+          label={el.paramName}
+          required
+          register={register(el.paramKey, { required: t('blockchain_0001') })}
+        />
+      ))}
+    
+      {/* browserUrl：URL 正则校验（源码同款正则）。 */}
+      <Controller
+        control={control}
+        name="browserUrl"
+        rules={{
+          required: t('blockchain_0031'),
+          validate: (value) => {
+            const v = typeof value === 'string' ? value : '';
+            if (!URL_REGEX.test(v)) {
+              return t('blockchain_0034');
+            }
+            return true;
+          },
+        }}
+        render={({ field }) => (
+          <div className="mt-4">
+            <label
+              htmlFor="field-browserUrl"
+              className="mb-1.5 block text-sm font-medium text-foreground"
+            >
+              {t('blockchain_0031')}
+              <span className="ml-0.5 text-destructive" aria-hidden="true">
+                *
+              </span>
+            </label>
+            <input
+              id="field-browserUrl"
+              type="text"
+              value={(field.value as string) ?? ''}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              name={field.name}
+              ref={field.ref}
+              placeholder={t('blockchain_0031')}
+              aria-invalid={!!errors.browserUrl}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            {errors.browserUrl ? (
+              <p className="mt-1 text-sm text-destructive" role="alert">
+                {String(errors.browserUrl.message ?? '')}
+              </p>
+            ) : null}
+          </div>
+        )}
+      />
+    
+      <div className="mt-8 flex justify-center gap-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => router.back()}
+          disabled={submitting}
+        >
+          {t('action.cancel')}
+        </Button>
+        <Button type="submit" disabled={submitting}>
+          {t('action.submit')}
+        </Button>
+      </div>
+    </form></Card>
   );
 }

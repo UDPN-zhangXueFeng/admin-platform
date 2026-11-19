@@ -114,3 +114,30 @@ describe('Header logout confirmation', () => {
     expect(mockLogoutAndRedirect).not.toHaveBeenCalled();
   });
 });
+
+describe('Header banner slot', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ user: { name: 'Cui Ning' } });
+  });
+
+  it('renders the platform default banner unless a custom banner replaces it', () => {
+    const { unmount } = render(<Header config={config} />);
+    expect(screen.getByTestId('header-default-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('header-default-scrim')).toBeInTheDocument();
+    unmount();
+
+    render(
+      <Header
+        config={config}
+        banner={<div data-testid="custom-header-banner" />}
+      />,
+    );
+    expect(screen.getByTestId('custom-header-banner')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('header-default-banner'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('header-default-scrim'),
+    ).not.toBeInTheDocument();
+  });
+});

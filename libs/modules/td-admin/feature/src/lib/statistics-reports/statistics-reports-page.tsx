@@ -18,7 +18,7 @@ import {
   useToast,
   type DataTablePagination,
 } from '@myorg/shared/ui';
-import { DatePicker } from '@myorg/shared/ui-forms';
+import { DateRangePicker } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
@@ -124,22 +124,6 @@ export function StatisticsReportsPage() {
     setCustomEnd(endIso);
     setTimeRange('custom');
     setDateRange(customRange(startIso, endIso));
-  };
-
-  const handleCustomStart = (value: string) => {
-    if (customEnd && dayjs(value).isAfter(dayjs(customEnd))) {
-      applyCustomDates(value, ''); // reversed input clears the end date
-    } else {
-      applyCustomDates(value, customEnd);
-    }
-  };
-
-  const handleCustomEnd = (value: string) => {
-    if (customStart && dayjs(value).isBefore(dayjs(customStart))) {
-      applyCustomDates('', value);
-    } else {
-      applyCustomDates(customStart, value);
-    }
   };
 
   const customRangeInvalid =
@@ -518,25 +502,12 @@ export function StatisticsReportsPage() {
             </SelectContent>
           </Select>
           {timeRange === 'custom' && (
-            <div className="flex flex-wrap items-center gap-2">
-              <DatePicker
-                value={customStart}
-                onChange={handleCustomStart}
-                max={customEnd || undefined}
-                min={customEnd ? dayjs(customEnd).subtract(1, 'month').format('YYYY-MM-DD') : undefined}
-                ariaLabel={t('date')}
-                className="w-40"
-              />
-              <span className="text-sm text-muted-foreground">{t('statistics_reports_0044')}</span>
-              <DatePicker
-                value={customEnd}
-                onChange={handleCustomEnd}
-                min={customStart || undefined}
-                max={customStart ? dayjs(customStart).add(1, 'month').format('YYYY-MM-DD') : undefined}
-                ariaLabel={t('date')}
-                className="w-40"
-              />
-            </div>
+            <DateRangePicker
+              value={{ start: customStart, end: customEnd }}
+              onChange={({ start, end }) => applyCustomDates(start, end)}
+              ariaLabel={t('date')}
+              className="w-full lg:w-72"
+            />
           )}
           {coinsLoading && <span className="text-sm text-muted-foreground">{t('loading')}</span>}
           {coinsError && (

@@ -13,7 +13,12 @@ import {
 } from './transaction.api';
 import type { TransactionListReq } from './transaction.model';
 
-/** 交易分页列表（翻页/筛选时保留旧数据，提升体验）。 */
+/**
+ * 交易分页列表（翻页/筛选时保留旧数据，提升体验）。
+ *
+ * 列表不做数据缓存（staleTime/gcTime 归零，重进页面必拉最新），
+ * 并每 15s 轮询一次（标签页可见时生效），贴合运营实时盯单场景。
+ */
 export function useTransactionListQuery(
   projectId: string,
   params: TransactionListReq,
@@ -23,6 +28,9 @@ export function useTransactionListQuery(
     queryKey: transactionKeys.list(projectId, params),
     queryFn: ({ signal }) => getTransactionList(params, { signal }),
     placeholderData: keepPreviousData,
+    staleTime: 0,
+    gcTime: 0,
+    refetchInterval: 15_000,
     enabled,
   });
 }

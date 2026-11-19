@@ -6,7 +6,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import {
-  Button,
+  PageHeader,
+  Card,
   CopyableEllipsisText,
   DataTable,
   Select,
@@ -310,15 +311,16 @@ export function TokenPairDetailPage(): React.JSX.Element {
       createRowActionsColumn<TokenPairRecordItem>(
         canOpRecordView
           ? {
-              detail: {
-                label: t('action.view'),
-                onClick: (r) =>
-                  router.push(
-                    `/approval-manage/view?id=${r.taskId ?? ''}&busCode=${
-                      r.businessCode ?? ''
-                    }`,
-                  ),
-              },
+              detail: (r) =>
+                r.taskId && r.businessCode
+                  ? {
+                      label: t('action.view'),
+                      onClick: () =>
+                        router.push(
+                          `/approval-manage/view?id=${r.taskId}&busCode=${r.businessCode}`,
+                        ),
+                    }
+                  : undefined,
             }
           : {},
       ),
@@ -328,6 +330,7 @@ export function TokenPairDetailPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
+      <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('cross_chain_00108')} />
       <Tabs defaultValue="basic">
         <TabsList>
           <TabsTrigger value="basic">{t('cross_chain_0033')}</TabsTrigger>
@@ -356,59 +359,54 @@ export function TokenPairDetailPage(): React.JSX.Element {
 
         {/* Tab2 操作记录表 */}
         <TabsContent value="records" className="space-y-4 pt-4">
-          <div className="rounded-lg border bg-card shadow-sm">
-            <div className="flex items-center gap-4 border-b px-6 py-3">
-              <div className="w-56">
-                <label
-                  htmlFor="token-pair-recordType"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('cross_chain_0032')}
-                </label>
-                <Select
-                  value={recordFilter.recordType}
-                  onValueChange={(v) => {
-                    setRecordFilter({ recordType: v });
-                    setRecordPagination((p) => ({ ...p, pageNum: 1 }));
-                  }}
-                >
-                  <SelectTrigger id="token-pair-recordType">
-                    <SelectValue placeholder={t('filter.all')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {recordTypeOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={recordColumns}
-                data={recordRows}
-                isLoading={recordLoading}
-                emptyMessage={t('empty')}
-                pagination={{
-                  page: recordPagination.pageNum,
-                  pageSize: recordPagination.pageSize,
-                  total: recordTotal,
-                  onPageChange: (p) =>
-                    setRecordPagination((prev) => ({ ...prev, pageNum: p })),
-                  onPageSizeChange: (size) =>
-                    setRecordPagination({ pageNum: 1, pageSize: size }),
+          <Card><div className="flex items-center gap-4 border-b px-6 py-3">
+            <div className="w-56">
+              <label
+                htmlFor="token-pair-recordType"
+                className="mb-1.5 block text-sm font-medium text-foreground"
+              >
+                {t('cross_chain_0032')}
+              </label>
+              <Select
+                value={recordFilter.recordType}
+                onValueChange={(v) => {
+                  setRecordFilter({ recordType: v });
+                  setRecordPagination((p) => ({ ...p, pageNum: 1 }));
                 }}
-              />
+              >
+                <SelectTrigger id="token-pair-recordType">
+                  <SelectValue placeholder={t('filter.all')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {recordTypeOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
+          <div className="p-4">
+            <DataTable
+              columns={recordColumns}
+              data={recordRows}
+              isLoading={recordLoading}
+              emptyMessage={t('empty')}
+              pagination={{
+                page: recordPagination.pageNum,
+                pageSize: recordPagination.pageSize,
+                total: recordTotal,
+                onPageChange: (p) =>
+                  setRecordPagination((prev) => ({ ...prev, pageNum: p })),
+                onPageSizeChange: (size) =>
+                  setRecordPagination({ pageNum: 1, pageSize: size }),
+              }}
+            />
+          </div></Card>
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-center">
-        <Button onClick={() => router.back()}>{t('action.back')}</Button>
-      </div>
     </div>
   );
 }

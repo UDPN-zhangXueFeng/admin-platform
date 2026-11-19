@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
-import { Button, Checkbox } from '@myorg/shared/ui';
+import { Card, Checkbox, PageHeader } from '@myorg/shared/ui';
 import { useRouter } from '@myorg/shared/util-i18n';
 
 import { UserStatusBadge } from '.';
@@ -55,28 +55,22 @@ export function UserDetailPage() {
 
   if (!userId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('invalidId')}</p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.push('/sys/user')}
-        >
-          {t('action.back')}
-        </Button>
+      <div className="space-y-4">
+        <PageHeader title={t('view.title')} backLabel={t('action.back')} onBack={() => router.push('/sys/user')} />
+        <Card className="p-6"><p className="text-sm text-muted-foreground">{t('invalidId')}</p></Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {isError ? (
-        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-          {t('loadFailed')}
-        </div>
-      ) : null}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <div className="mb-6 text-base font-semibold">{t('view.title')}</div>
+      <Card className="p-6">
+        <PageHeader className="mb-6" title={t('view.title')} backLabel={t('action.back')} onBack={() => router.push('/sys/user')} />
+        {isError ? (
+          <div role="alert" className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+            {t('loadFailed')}
+          </div>
+        ) : null}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <DetailField label={t('field.userName')}>
             {isLoading ? '—' : detail?.userName || '—'}
@@ -105,10 +99,10 @@ export function UserDetailPage() {
             )}
           </DetailField>
         </div>
-      </section>
+      </Card>
 
       {/* TD 多选回显（user.md §5.2，复刻旧页 Checkbox.Group disabled）。 */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">{t('field.tdIds')}</div>
         {tdList?.length ? (
           <div className="flex flex-col gap-3">
@@ -129,10 +123,10 @@ export function UserDetailPage() {
         ) : (
           <p className="text-sm text-muted-foreground">{t('emptyOptions.td')}</p>
         )}
-      </section>
+      </Card>
 
       {/* 角色多选回显（user.md §5.2）。 */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">{t('field.roleIds')}</div>
         {roleList?.length ? (
           <div className="flex flex-col gap-3">
@@ -152,13 +146,8 @@ export function UserDetailPage() {
         ) : (
           <p className="text-sm text-muted-foreground">{t('emptyOptions.role')}</p>
         )}
-      </section>
+      </Card>
 
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => router.push('/sys/user')}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

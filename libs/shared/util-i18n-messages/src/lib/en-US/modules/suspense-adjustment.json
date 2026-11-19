@@ -14,8 +14,8 @@
   },
   "edit": {
     "title": "New Adjustment Entry",
-    "basicInfo": "Basic Information",
     "overview": "Overview",
+    "suspenseEntriesDetails": "Suspense Entries Details",
     "offsettingEntryFor": "Offsetting Entry For",
     "addEntry": "+ Add Entry",
     "reason": "Adjustment Reason",
@@ -25,7 +25,15 @@
     "remainingAfter": "Remaining After This",
     "amountExceed": "Total cannot exceed outstanding amount ({amount} {currency}).",
     "submitSuccess": "Adjustment submitted successfully.",
-    "submitFailed": "Failed to submit adjustment."
+    "submitFailed": "Failed to submit adjustment.",
+    "dateRequired": "Select a posting date.",
+    "accountRequired": "Select an account.",
+    "searchAccounts": "Search accounts",
+    "noAccounts": "No matching leaf accounts.",
+    "amountRequired": "Enter an amount.",
+    "amountInvalid": "Enter at least 0.01, with up to two decimal places.",
+    "reasonRequired": "Enter an adjustment reason.",
+    "removeEntry": "Remove entry"
   },
   "filter": {
     "title": "Query",
@@ -39,11 +47,10 @@
   },
   "field": {
     "postingDate": "Posting Date",
-    "postingDateFrom": "Posting Date From",
-    "postingDateTo": "Posting Date To",
     "suspenseTxnId": "Suspense Txn ID",
     "transactionId": "Transaction ID",
     "sourceType": "Source Type",
+    "transactionType": "Transaction Type",
     "drCr": "Dr/Cr",
     "account": "Account",
     "originalAmount": "Original Amount",
@@ -56,6 +63,8 @@
     "bookId": "Book ID",
     "debit": "Debit",
     "credit": "Credit",
+    "debitAmount": "Debit Amount",
+    "creditAmount": "Credit Amount",
     "exceptionContext": "Exception Context",
     "createdBy": "Created By",
     "createdOn": "Created On",
@@ -72,6 +81,9 @@
     "submit": "Submit",
     "cancel": "Cancel"
   },
+  "loading": "Loading suspense entry…",
+  "originalAmountHelp": "Total includes amounts pending approval",
+  "range": "{start} - {end} of {total}",
   "empty": "No suspense entries found",
   "ageDays": "{count} Day(s)"
 }

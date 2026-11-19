@@ -114,11 +114,11 @@
   "KP_Submit": "提交",
   "KP_Days": "天",
   "KP_Months": "个月",
-  "KP_DemoBanner": "演示数据——本模块未接入后端，所有条目均为示例数据，仅供查看。",
-  "KP_DemoSubmitNotice": "仅演示——未提交任何内容，数据未发生变更。",
-  "KP_SubmitDemo": "提交（演示）",
-  "KP_DisableDemo": "停用（演示）",
-  "KP_EnableDemo": "启用（演示）",
+  "KP_Copy": "复制",
+  "KP_DemoSubmitNotice": "未提交任何内容，数据未发生变更。",
+  "KP_SubmitDemo": "提交",
+  "KP_DisableDemo": "停用",
+  "KP_EnableDemo": "启用",
   "KP_DemoActionHint": "演示操作——不会提交任何内容，数据不会变更。",
   "KP_PolicyNotFound": "未找到示例策略。",
   "key_management_0068": "后端暂未提供 Key 服务写入接口，本页面为原型演示，提交仅作演示、不会保存。",
@@ -212,7 +212,5 @@
   "key_management_0156": "编辑密钥服务配置",
   "key_management_load_failed": "数据加载失败，请重试。",
   "key_management_retry": "重试",
-  "key_management_rotation_history_intro": "显示此角色（{role}）的所有钱包轮换记录。",
-  "key_management_creation_date_start": "创建日期（起）",
-  "key_management_creation_date_end": "创建日期（止）"
+  "key_management_rotation_history_intro": "显示此角色（{role}）的所有钱包轮换记录。"
 }

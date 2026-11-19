@@ -12,7 +12,7 @@
 export interface JournalEntry {
   /** DataTable 契约要求；由 `tdTxId` 转换而来。 */
   id: string;
-  tdTxId: number;
+  tdTxId: number | string;
   txHash?: string;
   fromAddress?: string;
   toAddress?: string;
@@ -62,7 +62,7 @@ export interface JournalListResponse {
 
 /** Raw Data 区块原始字段（源项目 `JournalRawData`）。 */
 export interface JournalRawData {
-  tdTxId?: number;
+  tdTxId?: number | string;
   fromAddress?: string;
   toAddress?: string;
   txHash?: string;
@@ -73,7 +73,7 @@ export interface JournalRawData {
   blockHash?: string;
   contractAddress?: string;
   /** 区块原始数据（JSON 字符串或对象），Raw Data 左侧展示。 */
-  blockData?: string;
+  blockData?: unknown;
   blockDate?: number;
 }
 
@@ -81,7 +81,7 @@ export interface JournalRawData {
 export interface JournalNormalizationRow {
   sourceField?: string;
   mappingField?: string;
-  fieldValue?: string;
+  fieldValue?: string | number | null;
   /** 1=DIRECT, 2=CONSTANT, 3=GENERATE */
   mappingMethod?: number;
 }
@@ -101,6 +101,8 @@ export interface JournalDetailData {
   rawData?: JournalRawData;
   normalizedJson?: Record<string, unknown>;
   normalizationData?: JournalNormalizationRow[];
+  /** ISO 20022 报文载荷（JSON 字符串或对象），详情页美化展示。 */
+  iso20022Payload?: unknown;
   tAccounts?: JournalTAccount[];
   taccounts?: JournalTAccount[];
 }

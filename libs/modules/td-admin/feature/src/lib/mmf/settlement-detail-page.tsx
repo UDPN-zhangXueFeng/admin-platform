@@ -7,7 +7,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import {
-  Button,
+  PageHeader,
+  Card,
   DataTable,
   Tabs,
   TabsContent,
@@ -42,6 +43,7 @@ import {
   statusToneClass,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 const DATE_FMT = 'YYYY-MM-DD';
@@ -394,18 +396,22 @@ export function SettlementDetailPage() {
     ];
   }, [detail, t]);
 
+  const header = <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('settlement.detail.title')} />;
+
   if (!hasId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">
-          {t('settlement.detail.title')}
-        </p>
+      <div className="space-y-4">
+        {header}
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">{t('settlement.detail.title')}</p>
+        </Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {header}
       <Tabs defaultValue="basic">
         <TabsList>
           <TabsTrigger value="basic">{t('tabs.basicInfo')}</TabsTrigger>
@@ -423,91 +429,82 @@ export function SettlementDetailPage() {
             emptyMessage={t('empty')}
           />
 
-          <div className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              {t('tabs.walletRecords')}
-            </div>
-            <div className="p-4">
-              <form
-                onSubmit={handleSubmit(onWalletSubmit)}
-                className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
-              >
-                <FormField
-                  name="walletAddress"
-                  label={t('field.walletAddress')}
-                  register={register('walletAddress')}
-                  placeholder={t('field.walletAddress')}
-                />
-                <FormSelect
-                  name="status"
-                  control={control}
-                  label={t('field.status')}
-                  options={walletStatusOptions}
-                  placeholder={t('filter.all')}
-                />
-                <div className="flex items-end gap-2">
-                  <Button type="submit">{t('filter.query')}</Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onWalletReset}
-                  >
-                    {t('filter.reset')}
-                  </Button>
-                </div>
-              </form>
-
-              <DataTable
-                columns={walletColumns}
-                data={walletRows}
-                isLoading={walletLoading}
-                emptyMessage={t('empty')}
-                pagination={{
-                  page: walletPagination.pageNum,
-                  pageSize: walletPagination.pageSize,
-                  total: walletTotal,
-                  onPageChange: (p) =>
-                    setWalletPagination((prev) => ({ ...prev, pageNum: p })),
-                  onPageSizeChange: (size) =>
-                    setWalletPagination({ pageNum: 1, pageSize: size }),
-                }}
-              />
-            </div>
+          <Card><div className="border-b px-6 py-3 text-sm font-semibold">
+            {t('tabs.walletRecords')}
           </div>
+          <div className="p-4">
+            <form
+              onSubmit={handleSubmit(onWalletSubmit)}
+              className="mb-4"
+            >
+              <QueryForm
+                variant="plain"
+                queryType="submit"
+                fields={[
+                  <FormField
+                    key="walletAddress"
+                    name="walletAddress"
+                    label={t('field.walletAddress')}
+                    register={register('walletAddress')}
+                    placeholder={t('field.walletAddress')}
+                  />,
+                  <FormSelect
+                    key="status"
+                    name="status"
+                    control={control}
+                    label={t('field.status')}
+                    options={walletStatusOptions}
+                    placeholder={t('filter.all')}
+                  />,
+                ]}
+                onReset={onWalletReset}
+                queryLabel={t('filter.query')}
+                resetLabel={t('filter.reset')}
+              />
+            </form>
+
+            <DataTable
+              columns={walletColumns}
+              data={walletRows}
+              isLoading={walletLoading}
+              emptyMessage={t('empty')}
+              pagination={{
+                page: walletPagination.pageNum,
+                pageSize: walletPagination.pageSize,
+                total: walletTotal,
+                onPageChange: (p) =>
+                  setWalletPagination((prev) => ({ ...prev, pageNum: p })),
+                onPageSizeChange: (size) =>
+                  setWalletPagination({ pageNum: 1, pageSize: size }),
+              }}
+            />
+          </div></Card>
         </TabsContent>
 
         {/* Tab2：审批记录子表格 */}
         <TabsContent value="approval" className="pt-4">
-          <div className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              {t('tabs.approvalRecords')}
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={approvalColumns}
-                data={approvalRows}
-                isLoading={approvalLoading}
-                emptyMessage={t('empty')}
-                pagination={{
-                  page: approvalPagination.pageNum,
-                  pageSize: approvalPagination.pageSize,
-                  total: approvalTotal,
-                  onPageChange: (p) =>
-                    setApprovalPagination((prev) => ({ ...prev, pageNum: p })),
-                  onPageSizeChange: (size) =>
-                    setApprovalPagination({ pageNum: 1, pageSize: size }),
-                }}
-              />
-            </div>
+          <Card><div className="border-b px-6 py-3 text-sm font-semibold">
+            {t('tabs.approvalRecords')}
           </div>
+          <div className="p-4">
+            <DataTable
+              columns={approvalColumns}
+              data={approvalRows}
+              isLoading={approvalLoading}
+              emptyMessage={t('empty')}
+              pagination={{
+                page: approvalPagination.pageNum,
+                pageSize: approvalPagination.pageSize,
+                total: approvalTotal,
+                onPageChange: (p) =>
+                  setApprovalPagination((prev) => ({ ...prev, pageNum: p })),
+                onPageSizeChange: (size) =>
+                  setApprovalPagination({ pageNum: 1, pageSize: size }),
+              }}
+            />
+          </div></Card>
         </TabsContent>
       </Tabs>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

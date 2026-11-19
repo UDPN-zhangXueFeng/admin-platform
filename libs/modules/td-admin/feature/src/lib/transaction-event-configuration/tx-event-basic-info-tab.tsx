@@ -3,7 +3,13 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
-import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import {
+  CopyableEllipsisText,
+  DataTable,
+  DetailField,
+  DetailGrid,
+  DetailSection,
+} from '@myorg/shared/ui';
 import type { NormalizationEvent } from '@myorg/modules/td-admin/data-access';
 import {
   EMPTY_DISPLAY,
@@ -61,12 +67,10 @@ export function TxEventBasicInfoTab({
   detail,
   loading,
   bookId,
-  onBack,
 }: {
   detail: NormalizationEvent | null;
   loading?: boolean;
   bookId?: string;
-  onBack: () => void;
 }) {
   const t = useTranslations('modules.transaction-event-configuration');
 
@@ -83,62 +87,26 @@ export function TxEventBasicInfoTab({
     return getSourceEventTypeMessageKey(se, bookId);
   })();
 
-  const statusMeta = resolveEventStatusMeta(detail?.status);
-
-  const basicRows: { key: string; label: string; value: React.ReactNode }[] = [
-    {
-      key: 'mappingRuleId',
-      label: t('field.mappingRuleId'),
-      value: (
-        <CopyableEllipsisText value={mappingRuleId} copyLabel={t('copy')} />
-      ),
-    },
-    {
-      key: 'status',
-      label: t('field.status'),
-      value: statusMeta ? (
-        <span
-          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${statusToneClass(
-            statusMeta.tone
-          )}`}
-        >
-          {t(statusMeta.labelKey)}
-        </span>
-      ) : (
-        EMPTY_DISPLAY
-      ),
-    },
-    {
-      key: 'sourceEventType',
-      label: t('field.sourceEventType'),
-      value: sourceEventKey ? t(sourceEventKey) : EMPTY_DISPLAY,
-    },
-    {
-      key: 'effectiveDate',
-      label: t('field.effectiveDate'),
-      value: formatDate(detail?.effectiveDate),
-    },
-    {
-      key: 'creator',
-      label: t('field.creator'),
-      value: detail?.createUser || EMPTY_DISPLAY,
-    },
-    {
-      key: 'createTime',
-      label: t('field.createdOn'),
-      value: formatDateTime(detail?.createTime),
-    },
-  ];
+  const statusMeta = detail?.status === 30 ? null : resolveEventStatusMeta(detail?.status);
+  const statusBadge = statusMeta ? (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${statusToneClass(
+        statusMeta.tone
+      )}`}
+    >
+      {t(statusMeta.labelKey)}
+    </span>
+  ) : undefined;
 
   const fieldRows = React.useMemo<FieldMappingRow[]>(() => {
     return (detail?.mappings ?? []).map((item, index) => {
-      const methodKey = mappingMethodMessageKey(item.mappingMethod);
+      const methodKey = mappingMethodMessageKey(item.mappingType || item.mappingMethod);
       return {
         id: String(item.normalizationEventMappingId ?? index),
-        targetField: fieldLabel(t, item.mappingField),
+        targetField: fieldLabel(t, item.targetField || item.mappingField),
         mappingMethod: methodKey ? t(methodKey) : EMPTY_DISPLAY,
         sourceField: item.fieldDesc || fieldLabel(t, item.sourceField),
-        description: item.remarks || item.fieldValue || EMPTY_DISPLAY,
+        description: item.description || item.remarks || item.fieldValue || EMPTY_DISPLAY,
       };
     });
   }, [detail?.mappings, t]);
@@ -154,46 +122,58 @@ export function TxEventBasicInfoTab({
   );
 
   return (
-    <div className="space-y-6 p-6">
-      <section className="rounded-lg border bg-card shadow-sm">
-        <div className="border-b px-6 py-3 text-sm font-semibold">
-          {t('detail.basicInformation')}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full table-fixed border-collapse text-sm">
-            <tbody>
-              {basicRows.map((row) => (
-                <tr key={row.key}>
-                  <td className="w-[34%] border bg-muted/30 px-4 py-3 font-medium">
-                    {row.label}
-                  </td>
-                  <td className="break-all border px-4 py-3">{row.value}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="rounded-lg border bg-card shadow-sm">
-        <div className="border-b px-6 py-3 text-sm font-semibold">
-          {t('detail.fieldMappings')}
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={fieldColumns}
-            data={fieldRows}
-            isLoading={loading}
-            emptyMessage={t('empty')}
+    <div className="space-y-4">
+      <DetailSection
+        title={t('detail.basicInformation')}
+        actions={statusBadge}
+        loading={loading}
+        skeleton="fields"
+      >
+        <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
+          <DetailField
+            span="full"
+            label={t('field.mappingRuleId')}
+            value={
+              detail ? (
+                <CopyableEllipsisText
+                  value={mappingRuleId}
+                  copyLabel={t('copy')}
+                  maxWidth={480}
+                />
+              ) : undefined
+            }
           />
-        </div>
-      </section>
+          <DetailField
+            label={t('field.sourceEventType')}
+            value={sourceEventKey ? t(sourceEventKey) : undefined}
+          />
+          <DetailField
+            label={t('field.effectiveDate')}
+            value={formatDate(detail?.effectiveDate)}
+          />
+          <DetailField
+            label={t('field.creator')}
+            value={detail?.createUser || detail?.createUserName}
+          />
+          <DetailField
+            label={t('field.createdOn')}
+            value={formatDateTime(detail?.createTime)}
+          />
+        </DetailGrid>
+      </DetailSection>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={onBack}>
-          {t('action.back')}
-        </Button>
-      </div>
+      <DetailSection
+        title={t('detail.fieldMappings')}
+        loading={loading}
+        skeleton="table"
+      >
+        <DataTable
+          columns={fieldColumns}
+          data={fieldRows}
+          isLoading={loading}
+          emptyMessage={t('empty')}
+        />
+      </DetailSection>
     </div>
   );
 }

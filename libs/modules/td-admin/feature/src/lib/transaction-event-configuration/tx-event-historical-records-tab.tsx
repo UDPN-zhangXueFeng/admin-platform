@@ -6,8 +6,13 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { Button, Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import {
+  FormDateRangePicker,
+  FormField,
+  FormSelect,
+} from '@myorg/shared/ui-forms';
+import { QueryForm } from '../query-form';
 import {
   useNormalizationHistoryListQuery,
   type NormalizationHistoryItem,
@@ -21,22 +26,10 @@ import {
   getSourceEventTypeByEventType,
   getSourceEventTypeMessageKey,
   resolveEventStatusMeta,
+  resolveHistorySourceEvent,
   statusToneClass,
 } from '.';
 import { ALL_VALUE } from './tx-event-config.constants';
-import { createRowActionsColumn } from '../row-actions';
-
-const KNOWN_SOURCE_EVENTS = [
-  'reserveIn',
-  'mint',
-  'repositoryOut',
-  'transfer',
-  'repositoryIn',
-  'melt',
-  'reserveOut',
-  'fundingIn',
-  'fundingOut',
-] as const;
 
 interface HistoryFilterForm {
   mappingRuleId: string;
@@ -84,25 +77,16 @@ function formToFilters(
   };
 }
 
-/**
- * HistoricalRecords tab — 迁移自 td-manage HistoricalRecordsTab.tsx。
- * 筛选（mappingRuleId / eventStatus / 创建日期范围 / 生效日期范围）+ 历史记录表
- * （mappingRuleId / sourceEventType / creator / createdOn / effectiveDate / status / 审批跳转）。
- *
- * `active` 为 false 时不发请求（复刻源「切到本 tab 才加载」行为）。
- */
 export function TxEventHistoricalRecordsTab({
   normalizationEventId,
   eventType,
   bookId,
   active,
-  onBack,
 }: {
   normalizationEventId: number;
   eventType?: number;
   bookId?: string;
   active?: boolean;
-  onBack: () => void;
 }) {
   const t = useTranslations('modules.transaction-event-configuration');
   const router = useRouter();
@@ -120,24 +104,14 @@ export function TxEventHistoricalRecordsTab({
     () => ({
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize,
-      filters: formToFilters(
-        queryValues,
-        normalizationEventId,
-        eventType
-      ),
+      filters: formToFilters(queryValues, normalizationEventId, eventType),
     }),
-    [
-      pagination.pageNum,
-      pagination.pageSize,
-      queryValues,
-      normalizationEventId,
-      eventType,
-    ]
+    [pagination.pageNum, pagination.pageSize, queryValues, normalizationEventId, eventType]
   );
 
   const historyResult = useNormalizationHistoryListQuery(
     params,
-    Boolean(active && normalizationEventId)
+    Boolean(active && normalizationEventId && eventType)
   );
   const rows = historyResult.data?.rows ?? [];
   const total = historyResult.data?.page?.total ?? 0;
@@ -177,17 +151,8 @@ export function TxEventHistoricalRecordsTab({
         id: 'sourceEventType',
         header: t('field.sourceEventType'),
         cell: ({ row }) => {
-          const raw = row.original.eventType;
-          let key: string | undefined;
-          if (raw && (KNOWN_SOURCE_EVENTS as readonly string[]).includes(raw)) {
-            key = `sourceEvent.${raw}`;
-          } else if (eventType) {
-            key = getSourceEventTypeMessageKey(
-              getSourceEventTypeByEventType(eventType),
-              bookId
-            );
-          }
-          return <span>{key ? t(key) : raw || EMPTY_DISPLAY}</span>;
+          const key = getSourceEventTypeMessageKey(resolveHistorySourceEvent(row.original.eventType, eventType), bookId);
+          return key ? t(key) : EMPTY_DISPLAY;
         },
       },
       {
@@ -233,20 +198,17 @@ export function TxEventHistoricalRecordsTab({
           );
         },
       },
-      // Actions：统一行操作列。源 View 链接在 taskId/busCode 缺失时显示
-      // EMPTY_DISPLAY 占位；helper 的 detail 无法按行隐藏 —— 以 onClick 守卫保留
-      // “缺失不跳转”行为（占位不再展示，链接恒渲染）。
-      createRowActionsColumn<NormalizationHistoryItem>({
-        detail: {
-          label: t('action.view'),
-          onClick: (row) => {
-            if (!row.taskId || !row.busCode) return;
-            router.push(
-              `/approval-manage/view?id=${row.taskId}&busCode=${row.busCode}`
-            );
-          },
-        },
-      }),
+      {
+        id: 'actions',
+        header: t('field.actions'),
+        enableSorting: false,
+        meta: { overflow: 'none', stickyRight: true },
+        cell: ({ row: { original: { taskId, busCode } } }) => taskId && busCode ? (
+          <Button variant="link" size="sm" className="h-auto p-0" onClick={() => router.push(`/approval-manage/view?id=${taskId}&busCode=${encodeURIComponent(busCode)}`)}>
+            {t('action.detail')}
+          </Button>
+        ) : EMPTY_DISPLAY,
+      },
     ],
     [t, bookId, eventType, router]
   );
@@ -261,60 +223,54 @@ export function TxEventHistoricalRecordsTab({
     setQueryValues(EMPTY_FORM);
     setPagination({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
   }, [reset]);
+  const eventLabelKey = getSourceEventTypeMessageKey(getSourceEventTypeByEventType(eventType), bookId);
+  const eventLabel = eventLabelKey ? t(eventLabelKey) : EMPTY_DISPLAY;
 
   return (
-    <div className="space-y-4 p-6">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="mb-4 text-sm font-semibold">
-          {t('history.queryTitle')}
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="mappingRuleId"
-            label={t('field.mappingRuleId')}
-            register={register('mappingRuleId')}
-            placeholder={t('field.mappingRuleId')}
-          />
-          <FormSelect
-            name="eventStatus"
-            control={control}
-            label={t('field.status')}
-            options={eventStatusOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDatePicker
-            name="createdFrom"
-            control={control}
-            label={t('field.createdFrom')}
-          />
-          <FormDatePicker
-            name="createdTo"
-            control={control}
-            label={t('field.createdTo')}
-          />
-          <FormDatePicker
-            name="effectiveFrom"
-            control={control}
-            label={t('field.effectiveFrom')}
-          />
-          <FormDatePicker
-            name="effectiveTo"
-            control={control}
-            label={t('field.effectiveTo')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+    <div className="space-y-4">
+      <p className="text-sm font-medium">{t('field.sourceEventType')}: {eventLabel}</p>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          fields={[
+            <FormField
+              key="mappingRuleId"
+              name="mappingRuleId"
+              label={t('field.mappingRuleId')}
+              register={register('mappingRuleId')}
+              placeholder={t('field.mappingRuleId')}
+            />,
+            <FormSelect
+              key="eventStatus"
+              name="eventStatus"
+              control={control}
+              label={t('field.status')}
+              options={eventStatusOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="createdRange"
+              startName="createdFrom"
+              endName="createdTo"
+              control={control}
+              label={t('field.createdOn')}
+            />,
+            <FormDateRangePicker
+              key="effectiveRange"
+              startName="effectiveFrom"
+              endName="effectiveTo"
+              control={control}
+              label={t('field.effectiveDate')}
+            />,
+          ]}
+          onReset={onReset}
+          queryType="submit"
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
+      {historyResult.error && <p role="alert" className="text-sm text-destructive">{historyResult.error.message}</p>}
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">
           {t('history.recordsTitle')}
         </div>
@@ -328,20 +284,13 @@ export function TxEventHistoricalRecordsTab({
               page: pagination.pageNum,
               pageSize: pagination.pageSize,
               total,
+              summary: t('resultRange', { start: rows.length ? (pagination.pageNum - 1) * pagination.pageSize + 1 : 0, end: (pagination.pageNum - 1) * pagination.pageSize + rows.length, total }),
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>
-      </div>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={onBack}>
-          {t('action.back')}
-        </Button>
-      </div>
+      </Card>
     </div>
   );
 }

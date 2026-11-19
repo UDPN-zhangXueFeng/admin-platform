@@ -1,117 +1,90 @@
 'use client';
 
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
-import type {
-  EodClearingStatus,
-  EodStatementRow,
-} from '@myorg/modules/td-admin/data-access';
+import { DataTable, DetailSection } from '@myorg/shared/ui';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
+import type { EodClearingStatus, EodStatementRow } from '@myorg/modules/td-admin/data-access';
+import { QueryForm } from '../query-form';
+import type { EodFilters } from './use-eod-balances';
 
-/**
- * EOD Statements tab 内容（迁移自源 EodBalancesContent.tsx）。
- *
- * antd Form + DatePicker.RangePicker + Select → react-hook-form +
- * FormDatePicker×2 + FormSelect（日期范围用两个 date input）。
- * 筛选在 submit 时转换为 `[startMs, endMs]` + clearingStatus 交给上层。
- */
-const ALL_VALUE = 'all';
+const CLEARING_OPTIONS = {
+  settled: 'eod.clearingSettled',
+  suspensed: 'eod.clearingSuspensed',
+  adjusted: 'eod.clearingAdjusted',
+  pending: 'eod.clearingPending',
+} as const;
 
-const CLEARING_STATUS_OPTIONS = [
-  { label: 'Settled', value: 'settled' },
-  { label: 'Suspensed', value: 'suspensed' },
-  { label: 'Adjusted', value: 'adjusted' },
-  { label: 'Pending', value: 'pending' },
-] as const;
-
-interface EodFilterForm {
-  rangeFrom?: string;
-  rangeTo?: string;
-  clearingStatus?: string;
-}
+type FilterValues = Omit<EodFilters, 'clearingStatus'> & { clearingStatus: EodClearingStatus | 'all' };
+const EMPTY: FilterValues = { rangeFrom: '', rangeTo: '', clearingStatus: 'all' };
 
 export interface EodBalancesContentProps {
   rows: EodStatementRow[];
   columns: ColumnDef<EodStatementRow>[];
-  description: string;
-  onApplyFilters: (
-    range: [number, number] | null,
-    clearingStatus?: EodClearingStatus
-  ) => void;
-  onBack: () => void;
+  title: string;
+  loading: boolean;
+  error: boolean;
+  initialFilters: EodFilters;
+  onApplyFilters: (filters: EodFilters) => void;
+  onRetry: () => void;
   t: (key: string) => string;
 }
 
-export function EodBalancesContent({
-  rows,
-  columns,
-  description,
-  onApplyFilters,
-  onBack,
-  t,
-}: EodBalancesContentProps) {
-  const { control, handleSubmit, reset } = useForm<EodFilterForm>({
-    defaultValues: { rangeFrom: '', rangeTo: '', clearingStatus: ALL_VALUE },
+export function EodBalancesContent({ rows, columns, title, loading, error, initialFilters, onApplyFilters, onRetry, t }: EodBalancesContentProps) {
+  const { control, handleSubmit, reset } = useForm<FilterValues>({
+    defaultValues: { ...initialFilters, clearingStatus: initialFilters.clearingStatus ?? 'all' },
   });
-
-  const onSubmit = (form: EodFilterForm) => {
-    const from = form.rangeFrom ? new Date(form.rangeFrom).getTime() : undefined;
-    const to = form.rangeTo ? new Date(form.rangeTo).getTime() : undefined;
-    const range = from && to ? ([from, to] as [number, number]) : null;
-    const clearing =
-      form.clearingStatus && form.clearingStatus !== ALL_VALUE
-        ? (form.clearingStatus as EodClearingStatus)
-        : undefined;
-    onApplyFilters(range, clearing);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const apply = ({ clearingStatus, ...dates }: FilterValues) => {
+    setPage(1);
+    onApplyFilters({ ...dates, clearingStatus: clearingStatus === 'all' ? undefined : clearingStatus });
   };
-
-  const onReset = () => {
-    reset({ rangeFrom: '', rangeTo: '', clearingStatus: ALL_VALUE });
-    onApplyFilters(null, undefined);
-  };
+  const currentPage = Math.min(page, Math.max(1, Math.ceil(rows.length / pageSize)));
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">{description}</p>
-
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-4 shadow-sm"
-      >
-        <div className="flex flex-wrap items-end gap-4">
-          <FormDatePicker name="rangeFrom" control={control} label={t('eod.rangeFrom')} />
-          <FormDatePicker name="rangeTo" control={control} label={t('eod.rangeTo')} />
-          <FormSelect
-            name="clearingStatus"
-            control={control}
-            label={t('eod.clearingStatus')}
-            options={[
-              { value: ALL_VALUE, label: t('filter.all') },
-              ...CLEARING_STATUS_OPTIONS,
-            ]}
-            placeholder={t('filter.all')}
-          />
-          <div className="flex gap-2 pb-2">
-            <Button type="submit">{t('filter.query')}</Button>
-            <Button type="button" variant="outline" onClick={onReset}>
-              {t('filter.reset')}
-            </Button>
-          </div>
-        </div>
+      <form onSubmit={handleSubmit(apply)}>
+        <QueryForm
+          fields={[
+            <FormDateRangePicker key="range" startName="rangeFrom" endName="rangeTo" control={control} label={t('eod.postingDate')} />,
+            <FormSelect
+              key="clearingStatus"
+              name="clearingStatus"
+              control={control}
+              label={t('eod.clearingStatus')}
+              options={[
+                { value: 'all', label: t('filter.all') },
+                ...Object.entries(CLEARING_OPTIONS).map(([value, key]) => ({ value, label: t(key) })),
+              ]}
+            />,
+          ]}
+          onReset={() => { reset(EMPTY); apply(EMPTY); }}
+          queryType="submit"
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
-
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="p-4">
-          <DataTable columns={columns} data={rows} emptyMessage="--" />
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={onBack}>
-          {t('action.back')}
-        </Button>
-      </div>
+      <DetailSection
+        title={title}
+        loading={loading}
+        skeleton="table"
+        error={error ? { message: t('common.loadFailed'), retryLabel: t('common.retry'), onRetry } : undefined}
+      >
+        <DataTable
+          columns={columns}
+          data={rows.slice((currentPage - 1) * pageSize, currentPage * pageSize)}
+          emptyMessage="--"
+          pagination={{
+            page: currentPage,
+            pageSize,
+            total: rows.length,
+            onPageChange: setPage,
+            onPageSizeChange: (size) => { setPageSize(size); setPage(1); },
+          }}
+        />
+      </DetailSection>
     </div>
   );
 }

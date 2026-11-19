@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
+import { DateRangePicker } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 import {
   useSpAccessListQuery,
@@ -27,6 +28,7 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 import { SpAccessStatusBadge } from './sp-access-status-badge';
 import { EMPTY_FIELD_VALUE, formatTimestamp } from './formatters';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import {
   SERVICE_PROVIDER_TYPE_VALUES,
@@ -221,17 +223,17 @@ export function SpAccessListPage() {
         {/* 上游 registerAlt 权限命中渲染第二枚同功能按钮，下游合并为一枚（alignment.md L-04 披露） */}
       </div>
 
-      <div className="rounded-lg border bg-card p-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div>
+      <QueryForm
+        fields={[
+          <div key="spName">
             <label className="mb-1.5 block text-sm font-medium">{t('sp_access_0000')}</label>
             <Input
               value={draft.spName}
               onChange={(event) => setDraftField('spName', event.target.value)}
               placeholder={t('PUB_Pleased')}
             />
-          </div>
-          <div>
+          </div>,
+          <div key="spType">
             <label className="mb-1.5 block text-sm font-medium">{t('sp_access_0065')}</label>
             <Select
               value={draft.spType || ALL_VALUE}
@@ -249,16 +251,35 @@ export function SpAccessListPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
+          </div>,
+          <div key="state">
+            <label className="mb-1.5 block text-sm font-medium">{t('PUB_Status')}</label>
+            <Select
+              value={draft.state || ALL_VALUE}
+              onValueChange={(value) => setDraftField('state', value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>{t('PUB_All')}</SelectItem>
+                <SelectItem value="0">{t('sp_status_0')}</SelectItem>
+                <SelectItem value="1">{t('sp_status_1')}</SelectItem>
+                <SelectItem value="2">{t('sp_status_2')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>,
+        ]}
+        advancedFields={[
+          <div key="contactName">
             <label className="mb-1.5 block text-sm font-medium">{t('sp_access_0039')}</label>
             <Input
               value={draft.contactName}
               onChange={(event) => setDraftField('contactName', event.target.value)}
               placeholder={t('PUB_Pleased')}
             />
-          </div>
-          <div>
+          </div>,
+          <div key="email">
             <label className="mb-1.5 block text-sm font-medium">{t('PUB_Email')}</label>
             <Input
               type="email"
@@ -266,8 +287,8 @@ export function SpAccessListPage() {
               onChange={(event) => setDraftField('email', event.target.value)}
               placeholder={t('PUB_Pleased')}
             />
-          </div>
-          <div>
+          </div>,
+          <div key="tdName">
             <label className="mb-1.5 block text-sm font-medium">{t('sp_access_0044')}</label>
             <Select
               value={draft.tdName || ALL_VALUE}
@@ -285,48 +306,24 @@ export function SpAccessListPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
+          </div>,
+          <div key="createTime">
             <label className="mb-1.5 block text-sm font-medium">{t('PUB_CreateTime')}</label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                value={draft.createDateFrom}
-                onChange={(event) => setDraftField('createDateFrom', event.target.value)}
-              />
-              <span className="text-muted-foreground">-</span>
-              <Input
-                type="date"
-                value={draft.createDateTo}
-                onChange={(event) => setDraftField('createDateTo', event.target.value)}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">{t('PUB_Status')}</label>
-            <Select
-              value={draft.state || ALL_VALUE}
-              onValueChange={(value) => setDraftField('state', value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t('PUB_All')}</SelectItem>
-                <SelectItem value="0">{t('sp_status_0')}</SelectItem>
-                <SelectItem value="1">{t('sp_status_1')}</SelectItem>
-                <SelectItem value="2">{t('sp_status_2')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button onClick={handleQuery}>{t('PUB_Query')}</Button>
-          <Button variant="outline" onClick={handleReset}>
-            {t('PUB_Reset')}
-          </Button>
-        </div>
-      </div>
+            <DateRangePicker
+              value={{ start: draft.createDateFrom, end: draft.createDateTo }}
+              onChange={({ start, end }) => {
+                setDraftField('createDateFrom', start);
+                setDraftField('createDateTo', end);
+              }}
+              ariaLabel={t('PUB_CreateTime')}
+            />
+          </div>,
+        ]}
+        onQuery={handleQuery}
+        onReset={handleReset}
+        queryLabel={t('PUB_Query')}
+        resetLabel={t('PUB_Reset')}
+      />
 
       <DataTable
         columns={columns}

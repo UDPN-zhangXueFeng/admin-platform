@@ -7,7 +7,7 @@
 import * as React from 'react';
 import { render } from '@testing-library/react';
 
-import { CopyableId } from './proto-ui';
+import { CopyableId, writeClipboard } from './proto-ui';
 
 // shared/ui 的 barrel 会带出 mock-login → util-i18n → next-intl（纯 ESM，
 // @swc/jest 无法转换 node_modules 里的 ESM）。这里整体替换 util-i18n：
@@ -109,5 +109,76 @@ describe('CopyableId — 框选复制得到全量标识符', () => {
     display.dispatchEvent(event);
 
     expect(setData).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * 非安全上下文（http 内网 IP）没有 navigator.clipboard，复制按钮走 execCommand。
+ * 弹窗内合成 textarea 若挂在 body，Radix FocusScope 会把焦点抢回弹窗，复制到空选区
+ * （用户反馈：提示已复制，粘贴出来是上一次的内容）。
+ */
+describe('writeClipboard — 弹窗内降级复制', () => {
+  const originalExecCommand = document.execCommand;
+
+  afterEach(() => {
+    document.execCommand = originalExecCommand;
+    delete (navigator as Navigator & { clipboard?: unknown }).clipboard;
+    document
+      .querySelectorAll('[role="dialog"], [role="alertdialog"]')
+      .forEach((node) => node.remove());
+  });
+
+  it('focuses the copy textarea inside the open dialog so the focus trap keeps it', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: undefined,
+      configurable: true,
+    });
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('data-state', 'open');
+    document.body.appendChild(dialog);
+    const trigger = document.createElement('button');
+    trigger.textContent = 'Copy';
+    dialog.appendChild(trigger);
+    trigger.focus();
+
+    let observed: {
+      tag?: string;
+      value?: string;
+      insideDialog?: boolean;
+    } = {};
+    document.execCommand = jest.fn(() => {
+      const active = document.activeElement as HTMLTextAreaElement | null;
+      observed = {
+        tag: active?.tagName,
+        value: active?.value,
+        insideDialog: !!active && dialog.contains(active),
+      };
+      return true;
+    }) as unknown as typeof document.execCommand;
+
+    await expect(writeClipboard('OTP-123')).resolves.toBe(true);
+
+    expect(observed).toEqual({
+      tag: 'TEXTAREA',
+      value: 'OTP-123',
+      insideDialog: true,
+    });
+    expect(document.activeElement).toBe(trigger);
+    expect(document.querySelector('textarea')).toBeNull();
+  });
+
+  it('uses the async Clipboard API when the context is secure', async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+    document.execCommand = jest.fn() as unknown as typeof document.execCommand;
+
+    await expect(writeClipboard('OTP-456')).resolves.toBe(true);
+
+    expect(writeText).toHaveBeenCalledWith('OTP-456');
+    expect(document.execCommand).not.toHaveBeenCalled();
   });
 });

@@ -44,4 +44,40 @@ export const chartOfAccountsKeys = {
   /** EOD 明细 key。 */
   eodDetail: (financeBookEodId: number | string) =>
     [...chartOfAccountsKeys.details(), 'eod-detail', financeBookEodId] as const,
+
+  /** 试算平衡 key。 */
+  trialBalance: (
+    financeBookId: number,
+    params: { startDate: number; endDate: number }
+  ) =>
+    [
+      ...chartOfAccountsKeys.details(),
+      'trial-balance',
+      financeBookId,
+      params,
+    ] as const,
+
+  /** 科目活动明细 key。 */
+  trialBalanceActivity: (
+    financeBookId: number,
+    params: { accountCode: string; startDate: number; endDate: number }
+  ) =>
+    [
+      ...chartOfAccountsKeys.details(),
+      'trial-balance-activity',
+      financeBookId,
+      params,
+    ] as const,
+
+  /** 操作记录列表 key。 */
+  operationRecords: (
+    financeBookId: number,
+    params: Record<string, unknown>
+  ) =>
+    [
+      ...chartOfAccountsKeys.details(),
+      'operation-records',
+      financeBookId,
+      params,
+    ] as const,
 } as const;

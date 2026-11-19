@@ -36,3 +36,6 @@ export * from './lib/skeleton';
 export * from './lib/mock-page';
 export * from './lib/mock-login';
 export * from './lib/stepper';
+export * from './lib/detail-view';
+export * from './lib/timeline';
+export * from './lib/page-header';

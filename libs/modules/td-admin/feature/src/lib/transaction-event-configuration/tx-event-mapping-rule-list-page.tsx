@@ -7,13 +7,18 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   Button,
+  Card,
   CopyableEllipsisText,
   DataTable,
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
+  PageHeader,
 } from '@myorg/shared/ui';
+import { toast } from 'sonner';
 import {
   useNormalizationMappingRulesQuery,
   usePreviewNormalizationMutation,
@@ -31,6 +36,15 @@ import {
 } from '.';
 import { createRowActionsColumn } from '../row-actions';
 
+/** 列表 / Preview 共用的 Mapping Rule ID 派生（源项目 mapMappingRuleRow 同逻辑）。 */
+function resolveMappingRuleId(record: NormalizationEvent): string {
+  return (
+    record.eventCode ||
+    record.versionId ||
+    (record.normalizationEventId ? String(record.normalizationEventId) : '')
+  );
+}
+
 /**
  * TxEventMappingRuleListPage — Mapping Rule 列表页（按 financeBookId）。
  *
@@ -42,13 +56,16 @@ export function TxEventMappingRuleListPage() {
   const t = useTranslations('modules.transaction-event-configuration');
   const router = useRouter();
   const searchParams = useSearchParams();
-  const financeBookId = searchParams.get('id') ?? '';
+  const rawBookId = searchParams.get('id') ?? '';
+  const financeBookId = /^[1-9]\d*$/.test(rawBookId) ? rawBookId : '';
+  const goBack = () => router.push('/accounting/transaction-event-configuration');
 
   const [pagination, setPagination] = React.useState({
     pageNum: 1,
     pageSize: DEFAULT_PAGE_SIZE,
   });
-  const [previewId, setPreviewId] = React.useState<number | null>(null);
+  const [previewRecord, setPreviewRecord] =
+    React.useState<NormalizationEvent | null>(null);
 
   const listResult = useNormalizationMappingRulesQuery(
     {
@@ -65,27 +82,36 @@ export function TxEventMappingRuleListPage() {
   const previewMutation = usePreviewNormalizationMutation();
 
   const handlePreview = React.useCallback(
-    (normalizationEventId?: number) => {
-      if (!normalizationEventId) return;
-      setPreviewId(normalizationEventId);
-      void previewMutation.mutate({ normalizationEventId });
+    (record: NormalizationEvent) => {
+      if (!record.normalizationEventId) return;
+      setPreviewRecord(record);
+      void previewMutation.mutate({
+        normalizationEventId: record.normalizationEventId,
+      });
     },
     [previewMutation]
   );
 
   const closePreview = React.useCallback(() => {
-    setPreviewId(null);
+    setPreviewRecord(null);
     previewMutation.reset();
   }, [previewMutation]);
 
   const previewJson = React.useMemo(() => {
     const data = previewMutation.data;
-    if (!data) return '';
+    if (!data || !previewRecord) return '';
+    const sourceEventType =
+      getSourceEventTypeByEventType(data.eventType) ??
+      getSourceEventTypeByEventType(previewRecord.eventType) ??
+      EMPTY_DISPLAY;
     return JSON.stringify(
       {
-        normalizationEventId: data.normalizationEventId ?? previewId,
+        mappingRuleId: resolveMappingRuleId(previewRecord) || EMPTY_DISPLAY,
+        normalizationEventId:
+          data.normalizationEventId ?? previewRecord.normalizationEventId,
         eventCode: data.eventCode || '--',
         eventType: data.eventType,
+        sourceEventType,
         mappings: (data.mappings ?? []).map((m) => ({
           sourceField: m.sourceField,
           targetField: m.targetField,
@@ -96,7 +122,17 @@ export function TxEventMappingRuleListPage() {
       null,
       2
     );
-  }, [previewMutation.data, previewId]);
+  }, [previewMutation.data, previewRecord]);
+
+  const handleCopyPreviewJson = React.useCallback(async () => {
+    if (!previewJson || previewMutation.isPending) return;
+    try {
+      await navigator.clipboard.writeText(previewJson);
+      toast.success(t('copied'));
+    } catch {
+      toast.error(t('copyFailed'));
+    }
+  }, [previewJson, previewMutation.isPending, t]);
 
   const columns = React.useMemo<ColumnDef<NormalizationEvent>[]>(
     () => [
@@ -104,12 +140,7 @@ export function TxEventMappingRuleListPage() {
         id: 'mappingRuleId',
         header: t('field.mappingRuleId'),
         cell: ({ row }) => {
-          const id =
-            row.original.eventCode ||
-            row.original.versionId ||
-            (row.original.normalizationEventId
-              ? String(row.original.normalizationEventId)
-              : '');
+          const id = resolveMappingRuleId(row.original);
           return id ? (
             <CopyableEllipsisText value={id} copyLabel={t('copy')} />
           ) : (
@@ -161,19 +192,19 @@ export function TxEventMappingRuleListPage() {
           label: t('action.detail'),
           onClick: (row) =>
             router.push(
-              `/transaction-event-configuration/mapping-rule/view?id=${row.normalizationEventId ?? ''}&bookId=${financeBookId}`
+              `/accounting/transaction-event-configuration/mapping-rule/view?id=${row.normalizationEventId ?? ''}&bookId=${financeBookId}`
             ),
         },
         menu: (row) => [
           {
             label: t('action.preview'),
-            onClick: () => handlePreview(row.normalizationEventId),
+            onClick: () => handlePreview(row),
           },
           {
             label: t('action.edit'),
             onClick: () =>
               router.push(
-                `/transaction-event-configuration/mapping-rule/edit?id=${row.normalizationEventId ?? ''}&bookId=${financeBookId}`
+                `/accounting/transaction-event-configuration/mapping-rule/edit?id=${row.normalizationEventId ?? ''}&bookId=${financeBookId}`
               ),
           },
         ],
@@ -184,21 +215,28 @@ export function TxEventMappingRuleListPage() {
 
   if (!financeBookId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
+      <div className="space-y-4">
+        <PageHeader
+          title={t('mappingRuleList')}
+          backLabel={t('action.back')}
+          onBack={goBack}
+        />
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
+        </Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="border-b px-6 py-3 text-sm font-semibold">
-          {t('mappingRuleList')}
-        </div>
+      <PageHeader
+        title={t('mappingRuleList')}
+        backLabel={t('action.back')}
+        onBack={goBack}
+      />
+      {listResult.error && <p role="alert" className="text-sm text-destructive">{listResult.error.message}</p>}
+      <Card>
         <div className="p-4">
           <DataTable
             columns={columns}
@@ -209,31 +247,46 @@ export function TxEventMappingRuleListPage() {
               page: pagination.pageNum,
               pageSize: pagination.pageSize,
               total,
+              summary: t('resultRange', { start: rows.length ? (pagination.pageNum - 1) * pagination.pageSize + 1 : 0, end: (pagination.pageNum - 1) * pagination.pageSize + rows.length, total }),
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>
-      </div>
+      </Card>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
-
-      <Dialog open={previewId !== null} onOpenChange={(open) => !open && closePreview()}>
-        <DialogContent className="max-w-[560px]">
+      <Dialog
+        open={previewRecord !== null}
+        onOpenChange={(open) => !open && closePreview()}
+      >
+        <DialogContent className="max-w-[560px]" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>{t('action.preview')}</DialogTitle>
+            <DialogDescription className="sr-only">{t('previewDescription')}</DialogDescription>
           </DialogHeader>
-          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-4 text-xs leading-5">
-            {previewMutation.isPending
-              ? 'Loading...'
-              : previewJson || EMPTY_DISPLAY}
-          </pre>
+          <div className="overflow-hidden rounded border">
+            <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-2">
+              <span className="text-sm">Json</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                onClick={handleCopyPreviewJson}
+                disabled={!previewJson || previewMutation.isPending}
+              >
+                {t('copy')}
+              </Button>
+            </div>
+            {previewMutation.error && <p role="alert" className="px-4 py-2 text-sm text-destructive">{previewMutation.error.message}</p>}
+            <pre className="m-0 max-h-[60vh] overflow-auto whitespace-pre-wrap break-all p-4 text-xs leading-5">
+              {previewMutation.isPending
+                ? t('loading')
+                : previewJson || EMPTY_DISPLAY}
+            </pre>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closePreview}>{t('action.close')}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

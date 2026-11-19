@@ -12,8 +12,6 @@
   "field": {
     "logId": "日志ID",
     "logTime": "日志时间",
-    "logTimeFrom": "日志时间起",
-    "logTimeTo": "日志时间止",
     "userName": "操作用户",
     "module": "模块",
     "operationType": "操作类型",

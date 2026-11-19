@@ -7,7 +7,8 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import {
-  Button,
+  PageHeader,
+  Card,
   CopyableEllipsisText,
   DataTable,
   Select,
@@ -22,7 +23,7 @@ import {
 } from '@myorg/shared/ui';
 import { usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
-import { DatePicker } from '@myorg/shared/ui-forms';
+import { DateRangePicker } from '@myorg/shared/ui-forms';
 import { useLiquidityPoolAuthorizationQuery, useLiquidityPoolBasicInfoQuery, useLiquidityPoolOpRecordsQuery, useLiquidityPoolTransactionsQuery, type AuthorizationRecordItem, type LiquidityPoolBasicInfo, type TransactionRecordItem } from '@myorg/modules/td-admin/data-access';
 import type { OperationRecordItem } from '@myorg/modules/td-admin/data-access/lib/cross-chain';
 import {
@@ -31,6 +32,7 @@ import {
   EMPTY_DISPLAY,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import {
   createRowActionsColumn,
   renderRowActions,
@@ -75,7 +77,7 @@ function BasicDetailsGroup({
   items: DetailItem[];
 }): React.JSX.Element {
   return (
-    <section className="rounded-lg border bg-card shadow-sm">
+    <Card>
       {title ? (
         <div className="border-b px-6 py-3 text-sm font-semibold">{title}</div>
       ) : null}
@@ -97,7 +99,7 @@ function BasicDetailsGroup({
           {EMPTY_DISPLAY}
         </div>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -299,7 +301,7 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
               label: t('action.view'),
               onClick: (r) =>
                 router.push(
-                  `/cross-chain/cross-chain-transactions/view?id=${
+                  `/cross-chain/cross-chain-transactions/view?transferId=${
                     r.transactionId ?? ''
                   }`,
                 ),
@@ -676,15 +678,16 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
       createRowActionsColumn<OperationRecordItem>(
         canOpRecordView
           ? {
-              detail: {
-                label: t('action.view'),
-                onClick: (r) =>
-                  router.push(
-                    `/approval-manage/view?id=${r.taskId ?? ''}&busCode=${
-                      r.businessCode ?? ''
-                    }`,
-                  ),
-              },
+              detail: (r) =>
+                r.taskId && r.businessCode
+                  ? {
+                      label: t('action.view'),
+                      onClick: () =>
+                        router.push(
+                          `/approval-manage/view?id=${r.taskId}&busCode=${r.businessCode}`,
+                        ),
+                    }
+                  : undefined,
             }
           : {},
       ),
@@ -694,6 +697,7 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
+      <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('cross_chain_0058')} />
       <Tabs defaultValue="basic">
         <TabsList>
           <TabsTrigger value="basic">{t('cross_chain_0033')}</TabsTrigger>
@@ -723,28 +727,26 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
               setTxPagination({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
             }}
           />
-          <div className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              {t('cross_chain_0062')}
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={txColumns}
-                data={txRows}
-                isLoading={txLoading}
-                emptyMessage={t('empty')}
-                pagination={{
-                  page: txPagination.pageNum,
-                  pageSize: txPagination.pageSize,
-                  total: txTotal,
-                  onPageChange: (p) =>
-                    setTxPagination((prev) => ({ ...prev, pageNum: p })),
-                  onPageSizeChange: (size) =>
-                    setTxPagination({ pageNum: 1, pageSize: size }),
-                }}
-              />
-            </div>
+          <Card><div className="border-b px-6 py-3 text-sm font-semibold">
+            {t('cross_chain_0062')}
           </div>
+          <div className="p-4">
+            <DataTable
+              columns={txColumns}
+              data={txRows}
+              isLoading={txLoading}
+              emptyMessage={t('empty')}
+              pagination={{
+                page: txPagination.pageNum,
+                pageSize: txPagination.pageSize,
+                total: txTotal,
+                onPageChange: (p) =>
+                  setTxPagination((prev) => ({ ...prev, pageNum: p })),
+                onPageSizeChange: (size) =>
+                  setTxPagination({ pageNum: 1, pageSize: size }),
+              }}
+            />
+          </div></Card>
         </TabsContent>
 
         {/* Tab3 authorization 表（无行操作） */}
@@ -762,28 +764,26 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
               setAuthPagination({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
             }}
           />
-          <div className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              {t('cross_chain_0069')}
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={authColumns}
-                data={authRows}
-                isLoading={authLoading}
-                emptyMessage={t('empty')}
-                pagination={{
-                  page: authPagination.pageNum,
-                  pageSize: authPagination.pageSize,
-                  total: authTotal,
-                  onPageChange: (p) =>
-                    setAuthPagination((prev) => ({ ...prev, pageNum: p })),
-                  onPageSizeChange: (size) =>
-                    setAuthPagination({ pageNum: 1, pageSize: size }),
-                }}
-              />
-            </div>
+          <Card><div className="border-b px-6 py-3 text-sm font-semibold">
+            {t('cross_chain_0069')}
           </div>
+          <div className="p-4">
+            <DataTable
+              columns={authColumns}
+              data={authRows}
+              isLoading={authLoading}
+              emptyMessage={t('empty')}
+              pagination={{
+                page: authPagination.pageNum,
+                pageSize: authPagination.pageSize,
+                total: authTotal,
+                onPageChange: (p) =>
+                  setAuthPagination((prev) => ({ ...prev, pageNum: p })),
+                onPageSizeChange: (size) =>
+                  setAuthPagination({ pageNum: 1, pageSize: size }),
+              }}
+            />
+          </div></Card>
         </TabsContent>
 
         {/* Tab4 operationRecords 表 */}
@@ -800,34 +800,29 @@ export function LiquidityPoolDetailPage(): React.JSX.Element {
               setOpPagination({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
             }}
           />
-          <div className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              {t('cross_chain_0031')}
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={opColumns}
-                data={opRows}
-                isLoading={opLoading}
-                emptyMessage={t('empty')}
-                pagination={{
-                  page: opPagination.pageNum,
-                  pageSize: opPagination.pageSize,
-                  total: opTotal,
-                  onPageChange: (p) =>
-                    setOpPagination((prev) => ({ ...prev, pageNum: p })),
-                  onPageSizeChange: (size) =>
-                    setOpPagination({ pageNum: 1, pageSize: size }),
-                }}
-              />
-            </div>
+          <Card><div className="border-b px-6 py-3 text-sm font-semibold">
+            {t('cross_chain_0031')}
           </div>
+          <div className="p-4">
+            <DataTable
+              columns={opColumns}
+              data={opRows}
+              isLoading={opLoading}
+              emptyMessage={t('empty')}
+              pagination={{
+                page: opPagination.pageNum,
+                pageSize: opPagination.pageSize,
+                total: opTotal,
+                onPageChange: (p) =>
+                  setOpPagination((prev) => ({ ...prev, pageNum: p })),
+                onPageSizeChange: (size) =>
+                  setOpPagination({ pageNum: 1, pageSize: size }),
+              }}
+            />
+          </div></Card>
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-center">
-        <Button onClick={() => router.back()}>{t('action.back')}</Button>
-      </div>
     </div>
   );
 }
@@ -897,9 +892,9 @@ function TxFilterBar({
   const [local, setLocal] = React.useState(filter);
   React.useEffect(() => setLocal(filter), [filter]);
   return (
-    <div className="rounded-lg border bg-card p-4 shadow-sm">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <div>
+    <QueryForm
+      fields={[
+        <div key="walletAddress">
           <label
             htmlFor="lp-tx-walletAddress"
             className="mb-1.5 block text-sm font-medium text-foreground"
@@ -915,8 +910,8 @@ function TxFilterBar({
               setLocal((prev) => ({ ...prev, walletAddress: e.target.value }))
             }
           />
-        </div>
-        <div>
+        </div>,
+        <div key="transactionType">
           <label
             htmlFor="lp-tx-transactionType"
             className="mb-1.5 block text-sm font-medium text-foreground"
@@ -940,25 +935,8 @@ function TxFilterBar({
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div>
-          <label
-            htmlFor="lp-tx-transactionHash"
-            className="mb-1.5 block text-sm font-medium text-foreground"
-          >
-            {t('cross_chain_0060')}
-          </label>
-          <input
-            id="lp-tx-transactionHash"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            placeholder={t('cross_chain_0060')}
-            value={local.transactionHash}
-            onChange={(e) =>
-              setLocal((prev) => ({ ...prev, transactionHash: e.target.value }))
-            }
-          />
-        </div>
-        <div>
+        </div>,
+        <div key="status">
           <label
             htmlFor="lp-tx-status"
             className="mb-1.5 block text-sm font-medium text-foreground"
@@ -980,31 +958,46 @@ function TxFilterBar({
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <DatePickerField
-          id="lp-tx-transactionTimeStart"
+        </div>,
+      ]}
+      advancedFields={[
+        <div key="transactionHash">
+          <label
+            htmlFor="lp-tx-transactionHash"
+            className="mb-1.5 block text-sm font-medium text-foreground"
+          >
+            {t('cross_chain_0060')}
+          </label>
+          <input
+            id="lp-tx-transactionHash"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            placeholder={t('cross_chain_0060')}
+            value={local.transactionHash}
+            onChange={(e) =>
+              setLocal((prev) => ({ ...prev, transactionHash: e.target.value }))
+            }
+          />
+        </div>,
+        <DateRangeField
+          key="transactionTime"
+          id="lp-tx-transactionTime"
           label={t('cross_chain_0061')}
-          value={local.transactionTimeStart}
-          onChange={(v) =>
-            setLocal((prev) => ({ ...prev, transactionTimeStart: v }))
+          startValue={local.transactionTimeStart}
+          endValue={local.transactionTimeEnd}
+          onChange={({ start, end }) =>
+            setLocal((prev) => ({
+              ...prev,
+              transactionTimeStart: start,
+              transactionTimeEnd: end,
+            }))
           }
-        />
-        <DatePickerField
-          id="lp-tx-transactionTimeEnd"
-          label={t('cross_chain_0061')}
-          value={local.transactionTimeEnd}
-          onChange={(v) =>
-            setLocal((prev) => ({ ...prev, transactionTimeEnd: v }))
-          }
-        />
-      </div>
-      <div className="mt-4 flex gap-2">
-        <Button onClick={() => onChange(local)}>{t('filter.query')}</Button>
-        <Button type="button" variant="outline" onClick={onReset}>
-          {t('filter.reset')}
-        </Button>
-      </div>
-    </div>
+        />,
+      ]}
+      onQuery={() => onChange(local)}
+      onReset={onReset}
+      queryLabel={t('filter.query')}
+      resetLabel={t('filter.reset')}
+    />
   );
 }
 
@@ -1034,9 +1027,9 @@ function AuthFilterBar({
   const [local, setLocal] = React.useState(filter);
   React.useEffect(() => setLocal(filter), [filter]);
   return (
-    <div className="rounded-lg border bg-card p-4 shadow-sm">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <div>
+    <QueryForm
+      fields={[
+        <div key="operationType">
           <label
             htmlFor="lp-auth-operationType"
             className="mb-1.5 block text-sm font-medium text-foreground"
@@ -1060,24 +1053,8 @@ function AuthFilterBar({
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <DatePickerField
-          id="lp-auth-operationTimeStart"
-          label={t('cross_chain_0068')}
-          value={local.operationTimeStart}
-          onChange={(v) =>
-            setLocal((prev) => ({ ...prev, operationTimeStart: v }))
-          }
-        />
-        <DatePickerField
-          id="lp-auth-operationTimeEnd"
-          label={t('cross_chain_0068')}
-          value={local.operationTimeEnd}
-          onChange={(v) =>
-            setLocal((prev) => ({ ...prev, operationTimeEnd: v }))
-          }
-        />
-        <div>
+        </div>,
+        <div key="transactionHash">
           <label
             htmlFor="lp-auth-transactionHash"
             className="mb-1.5 block text-sm font-medium text-foreground"
@@ -1093,24 +1070,8 @@ function AuthFilterBar({
               setLocal((prev) => ({ ...prev, transactionHash: e.target.value }))
             }
           />
-        </div>
-        <DatePickerField
-          id="lp-auth-transactionTimeStart"
-          label={t('cross_chain_0061')}
-          value={local.transactionTimeStart}
-          onChange={(v) =>
-            setLocal((prev) => ({ ...prev, transactionTimeStart: v }))
-          }
-        />
-        <DatePickerField
-          id="lp-auth-transactionTimeEnd"
-          label={t('cross_chain_0061')}
-          value={local.transactionTimeEnd}
-          onChange={(v) =>
-            setLocal((prev) => ({ ...prev, transactionTimeEnd: v }))
-          }
-        />
-        <div>
+        </div>,
+        <div key="status">
           <label
             htmlFor="lp-auth-status"
             className="mb-1.5 block text-sm font-medium text-foreground"
@@ -1132,15 +1093,43 @@ function AuthFilterBar({
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </div>
-      <div className="mt-4 flex gap-2">
-        <Button onClick={() => onChange(local)}>{t('filter.query')}</Button>
-        <Button type="button" variant="outline" onClick={onReset}>
-          {t('filter.reset')}
-        </Button>
-      </div>
-    </div>
+        </div>,
+      ]}
+      advancedFields={[
+        <DateRangeField
+          key="operationTime"
+          id="lp-auth-operationTime"
+          label={t('cross_chain_0068')}
+          startValue={local.operationTimeStart}
+          endValue={local.operationTimeEnd}
+          onChange={({ start, end }) =>
+            setLocal((prev) => ({
+              ...prev,
+              operationTimeStart: start,
+              operationTimeEnd: end,
+            }))
+          }
+        />,
+        <DateRangeField
+          key="transactionTime"
+          id="lp-auth-transactionTime"
+          label={t('cross_chain_0061')}
+          startValue={local.transactionTimeStart}
+          endValue={local.transactionTimeEnd}
+          onChange={({ start, end }) =>
+            setLocal((prev) => ({
+              ...prev,
+              transactionTimeStart: start,
+              transactionTimeEnd: end,
+            }))
+          }
+        />,
+      ]}
+      onQuery={() => onChange(local)}
+      onReset={onReset}
+      queryLabel={t('filter.query')}
+      resetLabel={t('filter.reset')}
+    />
   );
 }
 
@@ -1160,9 +1149,9 @@ function OpFilterBar({
   const [local, setLocal] = React.useState(filter);
   React.useEffect(() => setLocal(filter), [filter]);
   return (
-    <div className="rounded-lg border bg-card p-4 shadow-sm">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="w-56">
+    <QueryForm
+      fields={[
+        <div key="operationType" className="w-56">
           <label
             htmlFor="lp-op-operationType"
             className="mb-1.5 block text-sm font-medium text-foreground"
@@ -1186,36 +1175,36 @@ function OpFilterBar({
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </div>
-      <div className="mt-4 flex gap-2">
-        <Button onClick={() => onChange(local)}>{t('filter.query')}</Button>
-        <Button type="button" variant="outline" onClick={onReset}>
-          {t('filter.reset')}
-        </Button>
-      </div>
-    </div>
+        </div>,
+      ]}
+      onQuery={() => onChange(local)}
+      onReset={onReset}
+      queryLabel={t('filter.query')}
+      resetLabel={t('filter.reset')}
+    />
   );
 }
 
 /**
- * 轻量日期选择字段（受控，value 为 '' 或 'YYYY-MM-DD' 字符串）。
+ * 轻量日期范围字段（受控，start/end 均为 '' 或 'YYYY-MM-DD' 字符串）。
  *
  * 子表筛选栏内嵌使用：直接受控于本地 useState，
- * 不依赖 react-hook-form（FormDatePicker 基于 RHF control，不便嵌入受控筛选栏）。
+ * 不依赖 react-hook-form（FormDateRangePicker 基于 RHF control，不便嵌入受控筛选栏）。
  * 输出 'YYYY-MM-DD' 字符串，与 startOfDay/endOfDay(parseISO(...)) 解析一致。
  * 视觉与筛选栏内 Input 文本框统一（h-9 + border-input + ring）。
  */
-function DatePickerField({
+function DateRangeField({
   id,
   label,
-  value,
+  startValue,
+  endValue,
   onChange,
 }: {
   id: string;
   label: string;
-  value: string;
-  onChange: (next: string) => void;
+  startValue: string;
+  endValue: string;
+  onChange: (next: { start: string; end: string }) => void;
 }): React.JSX.Element {
   return (
     <div>
@@ -1225,9 +1214,9 @@ function DatePickerField({
       >
         {label}
       </label>
-      <DatePicker
+      <DateRangePicker
         id={id}
-        value={value}
+        value={{ start: startValue, end: endValue }}
         onChange={onChange}
         ariaLabel={label}
         className="h-9 bg-transparent py-1 shadow-sm focus-visible:ring-1"

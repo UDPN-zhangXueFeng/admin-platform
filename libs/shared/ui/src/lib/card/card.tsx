@@ -10,15 +10,20 @@ import { cn } from '@myorg/shared/util-classnames';
  * 去掉 v4 spacing 变量(`--card-spacing`/`--spacing()`)与 `data-slot` 选择器，
  * padding 由 CardHeader/Content/Footer 各自的默认值或调用方 className 控制。
  *
- * P2 边界口径（P1 Golden Page 已验证）：root `border-border/50`，footer
- * `border-t border-border/50 + bg-muted/40`；header/body 分隔优先 whitespace
+ * P2 边界口径（P1 Golden Page 已验证）：root 无边框、仅 `shadow-float`，hover 加深为
+ * `shadow-float-lg`；footer `border-t border-border/50 + bg-muted/40`；header/body 分隔优先 whitespace
  * （py-5），toolbar 型 header 由调用方加 `border-b border-border/50`。
  */
+/** 非 div 容器（form/main/特殊布局）共用的卡面样式；与 Card root 保持同源。 */
+export const cardSurfaceClass =
+  'rounded-xl bg-card text-card-foreground shadow-float motion-safe:transition-shadow motion-safe:duration-150 hover:shadow-float-lg';
+
 function Card({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       className={cn(
-        'flex flex-col overflow-hidden rounded-xl border border-border/50 bg-card text-card-foreground shadow-float motion-safe:transition-shadow motion-safe:duration-150 hover:shadow-float-lg',
+        'flex flex-col overflow-hidden',
+        cardSurfaceClass,
         className,
       )}
       {...props}

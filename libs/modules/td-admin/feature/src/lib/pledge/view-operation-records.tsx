@@ -5,9 +5,10 @@ import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Button, Card, DataTable } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import {
   useOperateRecordListQuery,
   type OperateRecord,
@@ -18,7 +19,7 @@ import { createRowActionsColumn } from '../row-actions';
 const EMPTY_DISPLAY = '--';
 const TAB_PAGE_SIZE = 6;
 
-/** 已知限制：approval-manage 模块本批未迁移，该跳转目标路由可能 404。 */
+/** Approval detail route shared with workflow task records. */
 const APPROVAL_MANAGE_VIEW_PATH = '/approval-manage/view';
 
 /**
@@ -35,8 +36,7 @@ const APPROVAL_MANAGE_VIEW_PATH = '/approval-manage/view';
  *   提交时 Number() 还原——operateType===0 时 api 层 `toOperateRecordBody` 已转空串 ''（后端约定）。
  * - status 用 OP_RECORD_STATUS（**以 view-operation-records 内嵌 statusDict 为准**；
  *   new-view 传入的 opStatusColors 数组是键不一致的死参数，忽略）。
- * - 行 Details 跳 `/approval-manage/view?busCode=<>&opType=<label>&id=<taskId>`（**approval-manage 本批未迁移，
- *   404 风险**）。taskId 为空时不渲染链接（源 `row.taskId ? <a> : '--'`）。
+ * - 行 Details 跳 `/approval-manage/view?busCode=<>&opType=<label>&id=<taskId>`。taskId 为空时不渲染链接（源 `row.taskId ? <a> : '--'`）。
  */
 export interface ViewOperationRecordsProps {
   /** 储备资产 ID（详情页 query.id）。 */
@@ -210,28 +210,26 @@ export function ViewOperationRecords({
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormSelect
-            name="type"
-            control={control}
-            label={t('operationRecord.type')}
-            options={operateTypeOptions}
-            placeholder={t('filter.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormSelect
+              key="type"
+              name="type"
+              control={control}
+              label={t('operationRecord.type')}
+              options={operateTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="px-6 py-3" />
         <div className="p-4">
           <DataTable
@@ -251,7 +249,7 @@ export function ViewOperationRecords({
             }}
           />
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { CopyableEllipsisText } from '@myorg/shared/ui';
+import { Card, CopyableEllipsisText } from '@myorg/shared/ui';
 import type {
   InterestRateTier,
   WalletTypeDetail,
@@ -42,7 +42,7 @@ function amountWithSymbol(
   symbol?: string
 ): string {
   if (value === undefined || value === null || value === '') return EMPTY_DISPLAY;
-  const base = Number(value) >= UNLIMITED_THRESHOLD ? '∞' : reSet(value);
+  const base = Number(value) === -1 ? '∞' : reSet(value);
   return symbol ? `${base} ${symbol}` : base;
 }
 
@@ -61,7 +61,7 @@ function DescriptionsSection({
   rows: KvRow[];
 }) {
   return (
-    <section className="rounded-lg border bg-card shadow-sm">
+    <Card>
       <div className="border-b px-6 py-3 text-sm font-semibold">{title}</div>
       <div className="overflow-x-auto">
         <table className="w-full table-fixed border-collapse text-sm">
@@ -85,12 +85,13 @@ function DescriptionsSection({
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   );
 }
 
 interface WalletTypeDetailViewContentProps {
   detail?: WalletTypeDetail;
+  issueType?: number;
 }
 
 /**
@@ -107,11 +108,10 @@ interface WalletTypeDetailViewContentProps {
  */
 export function WalletTypeDetailViewContent({
   detail,
+  issueType,
 }: WalletTypeDetailViewContentProps) {
   const t = useTranslations('modules.wallet');
 
-  // 源 query.issueType 默认 TD（5）；目标 detail 未携带 issueType 字段，沿用默认。
-  const issueType = 5;
   const isDefaultName = detail?.name === 'Default';
   const accountType = detail?.accountType;
   const interestEnabled = detail?.interestFeatureEnablement === 2;
@@ -196,8 +196,8 @@ export function WalletTypeDetailViewContent({
 
   const accountFeeRows = React.useMemo<KvRow[]>(() => {
     if (!detail) return [];
-    const cycleKey = detail.feeCycle
-      ? `walletType.maintenanceFeeCycle.${detail.feeCycle}`
+    const periodKey = detail.feeCycle
+      ? `walletType.maintenanceFeePeriod.${detail.feeCycle}`
       : undefined;
     return [
       {
@@ -205,7 +205,7 @@ export function WalletTypeDetailViewContent({
         label: t('walletType.detail.maintenanceFee'),
         value: detail.maintenanceFee
           ? `${reSet(detail.maintenanceFee)} ${tdSymbol ?? ''} ${t('walletType.detail.per')} ${
-              cycleKey ? t(cycleKey as never) : ''
+              periodKey ? t(periodKey as never) : ''
             }`.replace(/\s+/g, ' ').trim()
           : EMPTY_DISPLAY,
       },
@@ -325,8 +325,10 @@ export function WalletTypeDetailViewContent({
   }, [detail, tdSymbol, unarrangedFirstRate, t]);
 
   // interestPolicyInformation：arrangedCalculateType 决定单一利率 vs 阶梯利率。
-  const isTiered = detail?.arrangedCalculateType !== 1;
-  const hasTierRange = String(arrangedFirstRate).indexOf('-') > -1;
+  const isTiered = detail?.arrangedCalculateType === 2;
+  const isNegativeRate = isTiered
+    ? arrangedAnnualRates.some((tier) => String(tier.interestRate).startsWith('-'))
+    : String(arrangedFirstRate).startsWith('-');
 
   const interestPolicyRows = React.useMemo<KvRow[]>(() => {
     if (!detail) return [];
@@ -371,7 +373,7 @@ export function WalletTypeDetailViewContent({
         key: 'depositInterestWalletAddress',
         label:
           t('walletType.detail.walletAddress') +
-          (hasTierRange
+          (isNegativeRate
             ? t('walletType.detail.forReceivingDepositInterest')
             : t('walletType.detail.forDepositInterestPayments')),
         value: detail.depositInterestWalletAddress ? (
@@ -384,8 +386,7 @@ export function WalletTypeDetailViewContent({
         ),
       },
     ];
-    // 源：interestRate 含 '-'（阶梯）时不展示 accountClosureInterestWalletAddress。
-    if (!hasTierRange && detail.accountClosureInterestWalletAddress) {
+    if (!isNegativeRate && detail.accountClosureInterestWalletAddress) {
       rows.push({
         key: 'accountClosureInterestWalletAddress',
         label:
@@ -400,7 +401,7 @@ export function WalletTypeDetailViewContent({
       });
     }
     return rows;
-  }, [detail, arrangedAnnualRates, arrangedFirstRate, isTiered, hasTierRange, t]);
+  }, [detail, arrangedAnnualRates, arrangedFirstRate, isTiered, isNegativeRate, t]);
 
   const walletRows = React.useMemo<KvRow[]>(() => {
     if (!detail) return [];
@@ -462,9 +463,9 @@ export function WalletTypeDetailViewContent({
             </div>
           ) : accountType === 1 && interestEnabled ? (
             <div className="space-y-4">
-              <div className="rounded-lg border bg-card px-6 py-3 font-bold">
+              <Card className="px-6 py-3 font-bold">
                 {t('walletType.detail.interestPolicyInformation')}
-              </div>
+              </Card>
               <DescriptionsSection
                 title={t('walletType.detail.arrangedOverdraftInformation')}
                 rows={arrangedOverdraftRows}

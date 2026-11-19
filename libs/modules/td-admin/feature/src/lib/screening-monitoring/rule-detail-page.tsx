@@ -6,7 +6,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Button, DataTable, type DataTablePagination, Tabs, TabsList, TabsTrigger, TabsContent } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import type { RuleDetailItem, RuleOperationLog, RuleOperationRecord } from '@myorg/modules/td-admin/data-access';
 import { useRuleDetail, useRuleOperationLog, useRuleOperationRecords } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
@@ -18,7 +18,7 @@ const PAGE_SIZE = 10;
 
 export function RuleDetailPage() {
   const t = useTranslations('modules.screening-monitoring'); const tc = useTranslations('common');
-  const router = useRouter(); const sp = useSearchParams(); const id = Number(sp.get('id'));
+  const router = useRouter(); const sp = useSearchParams(); const id = Number(sp.get('ruleId') ?? sp.get('id'));
   const { data: detail, isLoading } = useRuleDetail(id);
 
   if (isLoading) return <div className="p-8">Loading...</div>;
@@ -61,7 +61,7 @@ export function RuleDetailPage() {
                   <td className="py-2 pr-4">{item.riskScoring}</td>
                   <td className="py-2 pr-4"><ScreeningRiskLevelTag priority={item.priority} /></td>
                   <td className="py-2 pr-4">{t(`rule_action_${item.handleType}`)}</td>
-                  <td className="py-2 pr-4 max-w-xs truncate block">{item.emailRecipients || '-'}</td>
+                  <td className="py-2 pr-4 max-w-xs truncate"><CopyText value={item.emailRecipients} /></td>
                 </tr>
               ))}
             </tbody>
@@ -87,19 +87,22 @@ function OperationRecordsTab({ ruleId, t, tc, router }: { ruleId: number; t: (k:
     { id: 'createTime', header: tc('PUB_CreateTime'), accessorKey: 'createTime', cell: ({ getValue }) => formatAdminTimestamp(Number(getValue<string>())) },
     { id: 'state', header: tc('PUB_Status'), accessorKey: 'state', cell: ({ getValue }) => tc(`common_task_status_${getValue<number>()}`) },
     createRowActionsColumn<RuleOperationRecord>({
-      detail: {
-        label: tc('Router_0010_4_3'),
-        onClick: (row) =>
-          router.push(
-            `/approval-manage/view?id=${row.taskId}&busCode=${row.busCode}`,
-          ),
-      },
+      detail: (row) =>
+        row.taskId && row.busCode
+          ? {
+              label: tc('Router_0010_4_3'),
+              onClick: () =>
+                router.push(
+                  `/approval-manage/view?id=${row.taskId}&busCode=${row.busCode}`,
+                ),
+            }
+          : undefined,
     }),
   ];
   const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: data?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })), onPageSizeChange: (size: number) => setPg({ pageNum: 1, pageSize: size }) }), [pg.pageNum, pg.pageSize, data?.page?.total]);
   return (
     <div>
-      <div className="w-48 mb-4"><FormSelect name="recordType" label={t('screening_monitoring_0046')} control={control} options={RULE_OPERATION_OPTIONS.map(o => ({ label: o.label, value: o.value === ALL_VALUE ? ALL_VALUE : o.value }))} placeholder={tc('PUB_All')} /></div>
+      <div className="w-48 mb-4"><FormSelect name="recordType" label={t('screening_monitoring_0046')} control={control} options={RULE_OPERATION_OPTIONS.map(o => ({ label: o.label === 'PUB_All' ? tc('PUB_All') : t(o.label), value: o.value === ALL_VALUE ? ALL_VALUE : o.value }))} placeholder={tc('PUB_All')} /></div>
       <DataTable columns={cols} data={(data?.rows ?? []).map(r => ({ ...r, id: String(r.ruleRecordId) }))} pagination={tablePagination} isLoading={isLoading} />
     </div>
   );
@@ -121,9 +124,8 @@ function ExecutionLogTab({ ruleId, t, tc }: { ruleId: number; t: (k: string) => 
   const tablePagination = React.useMemo<DataTablePagination>(() => ({ page: pg.pageNum, pageSize: pg.pageSize, total: data?.page?.total ?? 0, onPageChange: (page: number) => setPg((prev) => ({ ...prev, pageNum: page })), onPageSizeChange: (size: number) => setPg({ pageNum: 1, pageSize: size }) }), [pg.pageNum, pg.pageSize, data?.page?.total]);
   return (
     <div>
-      <div className="w-64 mb-4 flex gap-4">
-        <FormDatePicker name="startDate" label={t('screening_monitoring_0048')} control={control} />
-        <FormDatePicker name="endDate" label={t('screening_monitoring_0048')} control={control} />
+      <div className="w-80 mb-4">
+        <FormDateRangePicker startName="startDate" endName="endDate" label={t('screening_monitoring_0048')} control={control} />
       </div>
       <DataTable columns={cols} data={(data?.rows ?? []).map(r => ({ ...r, id: String(r.logId) }))} pagination={tablePagination} isLoading={isLoading} />
     </div>
@@ -131,3 +133,7 @@ function ExecutionLogTab({ ruleId, t, tc }: { ruleId: number; t: (k: string) => 
 }
 
 function KV({ label, value, span = 1 }: { label: string; value: React.ReactNode; span?: number }) { return <div className={span > 1 ? `col-span-${span}` : ''}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="text-sm font-medium mt-1">{value}</dd></div>; }
+function CopyText({ value }: { value?: string }) {
+  if (!value) return <>-</>;
+  return <button type="button" className="truncate text-left underline" title="Copy email recipients" onClick={() => { void navigator.clipboard?.writeText(value); }}>{value}</button>;
+}

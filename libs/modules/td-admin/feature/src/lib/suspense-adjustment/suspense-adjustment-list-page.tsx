@@ -6,8 +6,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 
-import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { Card, CopyableEllipsisText, DataTable, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@myorg/shared/ui';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
   useSuspenseAdjustmentListQuery,
@@ -24,6 +24,7 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 import type { ClearStatus, SourceType } from '@myorg/modules/td-admin/data-access';
 import { SuspenseStatusBadge } from '.';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 const ALL = 'ALL';
@@ -65,15 +66,6 @@ function formToQuery(
   };
 }
 
-/**
- * SuspenseAdjustmentListPage — 暂记户调账列表页。
- *
- * 迁移自 td-manage src/pages/financial/adjustments/index.tsx（346 行）。
- * 保留：多维筛选（postingDate 范围 / suspenseTxnId / transactionId /
- * sourceType / status）、Adjust / View Details 操作、age 与 status 色值标签。
- *
- * 与源差异：antd Form+Table → RHF + DataTable；后端无分页（前端全量 + client-side 切片）。
- */
 export function SuspenseAdjustmentListPage() {
   const t = useTranslations('modules.suspense-adjustment');
   const router = useRouter();
@@ -84,7 +76,6 @@ export function SuspenseAdjustmentListPage() {
   const [queryValues, setQueryValues] =
     React.useState<SuspenseAdjustmentFilterForm>(EMPTY_FORM);
   const [page, setPage] = React.useState(1);
-  const [pageSize, setPageSize] = React.useState(PAGE_SIZE);
 
   const query = React.useMemo<SuspenseAdjustmentListQuery>(
     () => formToQuery(queryValues),
@@ -92,15 +83,11 @@ export function SuspenseAdjustmentListPage() {
   );
 
   const listResult = useSuspenseAdjustmentListQuery(query);
+  const { refetch } = listResult;
   const allRows = listResult.data?.rows ?? [];
   const isLoading = listResult.isLoading || listResult.isFetching;
-
-  // client-side 分页（后端无分页，前端全量 + 切片，复刻源 pageSize:10 行为）。
   const total = allRows.length;
-  const pagedRows = React.useMemo(
-    () => allRows.slice((page - 1) * pageSize, page * pageSize),
-    [allRows, page, pageSize],
-  );
+  const pagedRows = allRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const sourceTypeOptions = React.useMemo(
     () =>
@@ -131,7 +118,7 @@ export function SuspenseAdjustmentListPage() {
         header: t('field.suspenseTxnId'),
         cell: ({ row }) =>
           row.original.suspenseTxnId ? (
-            <CopyableEllipsisText value={row.original.suspenseTxnId} />
+            <CopyableEllipsisText value={row.original.suspenseTxnId} showCopyIcon />
           ) : (
             <span className="text-muted-foreground">--</span>
           ),
@@ -153,7 +140,17 @@ export function SuspenseAdjustmentListPage() {
       },
       {
         accessorKey: 'originalAmount',
-        header: t('field.originalAmount'),
+        header: () => (
+          <span className="inline-flex items-center gap-2">
+            {t('field.originalAmount')}
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger type="button" className="rounded-full border px-1.5" aria-label={t('originalAmountHelp')}>i</TooltipTrigger>
+                <TooltipContent>{t('originalAmountHelp')}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </span>
+        ),
         cell: ({ row }) => (
           <span>{formatAmount(row.original.originalAmount, row.original.currency)}</span>
         ),
@@ -195,96 +192,94 @@ export function SuspenseAdjustmentListPage() {
       createRowActionsColumn<SuspenseAdjustmentListItem>({
         detail: {
           label: t('action.viewDetails'),
-          onClick: (r) => router.push(`/suspense-adjustment/view?id=${r.suspenseRecordId}`),
+          onClick: (r) =>
+            router.push(
+              `/accounting/suspense-adjustment/view?id=${r.suspenseRecordId}`,
+            ),
         },
         menu: (r) =>
-          r.canAdjust
-            ? [
-                {
-                  label: t('action.adjust'),
-                  onClick: (row) =>
-                    router.push(
-                      `/suspense-adjustment/edit?id=${row.suspenseRecordId}&suspenseTxnId=${encodeURIComponent(
-                        row.suspenseTxnId,
-                      )}`,
-                    ),
-                },
-              ]
-            : [],
+          r.status !== 'CLEARED' ? [{
+            label: t('action.adjust'),
+            disabled: !r.canAdjust,
+            onClick: (row) => {
+              const params = new URLSearchParams({ id: row.id, suspenseTxnId: row.suspenseTxnId, status: row.status, statusLabel: row.statusLabel, age: String(row.age) });
+              router.push(`/accounting/suspense-adjustment/edit?${params}`);
+            },
+          }] : [],
       }),
     ],
     [t, router],
   );
 
-  const onSubmit = React.useCallback((form: SuspenseAdjustmentFilterForm) => {
+  const onSubmit = (values: SuspenseAdjustmentFilterForm) => {
     setPage(1);
-    setQueryValues(form);
-  }, []);
+    if (JSON.stringify(formToQuery(values)) === JSON.stringify(query)) void refetch();
+    else setQueryValues(values);
+  };
 
-  const onReset = React.useCallback(() => {
+  const onReset = () => {
     reset(EMPTY_FORM);
-    setQueryValues(EMPTY_FORM);
-    setPage(1);
-  }, [reset]);
-
+    onSubmit(EMPTY_FORM);
+  };
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
-      >
-        <div className="mb-4 text-sm font-semibold">{t('filter.title')}</div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormDatePicker
-            name="postingDateFrom"
-            control={control}
-            label={t('field.postingDateFrom')}
-          />
-          <FormDatePicker
-            name="postingDateTo"
-            control={control}
-            label={t('field.postingDateTo')}
-          />
-          <FormField
-            name="suspenseTxnId"
-            label={t('field.suspenseTxnId')}
-            register={register('suspenseTxnId')}
-            placeholder={t('placeholder.suspenseTxnId')}
-          />
-          <FormField
-            name="transactionId"
-            label={t('field.transactionId')}
-            register={register('transactionId')}
-            placeholder={t('placeholder.transactionId')}
-          />
-          <FormSelect
-            name="sourceType"
-            control={control}
-            label={t('field.sourceType')}
-            options={sourceTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('field.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormDateRangePicker
+              key="postingDate"
+              startName="postingDateFrom"
+              endName="postingDateTo"
+              control={control}
+              label={t('field.postingDate')}
+            />,
+            <FormField
+              key="suspenseTxnId"
+              name="suspenseTxnId"
+              label={t('field.suspenseTxnId')}
+              register={register('suspenseTxnId')}
+              placeholder={t('placeholder.suspenseTxnId')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('field.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          advancedFields={[
+            <FormField
+              key="transactionId"
+              name="transactionId"
+              label={t('field.transactionId')}
+              register={register('transactionId')}
+              placeholder={t('placeholder.transactionId')}
+            />,
+            <FormSelect
+              key="sourceType"
+              name="sourceType"
+              control={control}
+              label={t('field.sourceType')}
+              options={sourceTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">
           {t('list.title')}
+          <p className="mt-1 font-normal text-muted-foreground">{t('list.description')}</p>
         </div>
         <div className="p-4">
+          {listResult.error ? <p role="alert" className="mb-2 text-sm text-destructive">{listResult.error.message}</p> : null}
           <DataTable
             columns={columns}
             data={pagedRows}
@@ -292,17 +287,14 @@ export function SuspenseAdjustmentListPage() {
             emptyMessage={t('empty')}
             pagination={{
               page,
-              pageSize,
+              pageSize: PAGE_SIZE,
               total,
               onPageChange: setPage,
-              onPageSizeChange: (size) => {
-                setPage(1);
-                setPageSize(size);
-              },
+              summary: t('range', { start: total ? (page - 1) * PAGE_SIZE + 1 : 0, end: Math.min(page * PAGE_SIZE, total), total }),
             }}
           />
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

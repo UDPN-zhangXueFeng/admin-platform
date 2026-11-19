@@ -6,6 +6,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { getTokenTypeList } from '../../blockchain/blockchain.api';
 import {
   createExportTask,
   getAuditTrailDetail,
@@ -37,7 +38,7 @@ export function useAuditTrailDetailQuery(
   traceId: number | string | undefined,
   enabled = true,
 ) {
-  return useQuery<AuditTrailDetail | undefined>({
+  return useQuery<AuditTrailDetail | null>({
     queryKey: auditTrailKeys.detail(traceId ?? ''),
     queryFn: ({ signal }) =>
       getAuditTrailDetail(traceId as number | string, { signal }),
@@ -50,6 +51,7 @@ export function useCreateExportTaskMutation() {
   const queryClient = useQueryClient();
   return useMutation<unknown, Error, ExportAuditTaskReq>({
     mutationFn: (req: ExportAuditTaskReq) => createExportTask(req),
+    retry: false,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: auditTrailKeys.lists() });
     },
@@ -69,5 +71,13 @@ export function useBlockchainListQuery() {
   return useQuery<BlockchainOption[]>({
     queryKey: auditTrailKeys.blockchainList(),
     queryFn: ({ signal }) => getBlockchainList({ signal }),
+  });
+}
+
+/** Unlike the blockchain module, Audit Trail shows inactive token types disabled. */
+export function useAuditTrailTokenTypeListQuery() {
+  return useQuery({
+    queryKey: auditTrailKeys.tokenTypeList(),
+    queryFn: async ({ signal }) => (await getTokenTypeList({ signal })) ?? [],
   });
 }

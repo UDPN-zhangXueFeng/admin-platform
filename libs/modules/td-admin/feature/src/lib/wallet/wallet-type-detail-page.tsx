@@ -1,10 +1,9 @@
 'use client';
 
-import * as React from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { Button } from '@myorg/shared/ui';
+import { PageHeader } from '@myorg/shared/ui';
 import { useWalletTypeDetailQuery } from '@myorg/modules/td-admin/data-access';
 import { WalletTypeDetailViewContent } from './wallet-type-detail-view-content';
 import { WalletTypeMffViewContent } from './wallet-type-mff-view-content';
@@ -40,6 +39,7 @@ export function WalletTypeDetailPage() {
   const slug = params.slug ?? [];
   const variant = slug[1] === 'mff' ? 'mff' : 'view';
   const ruleId = parseId(searchParams.get('id'));
+  const issueType = parseId(searchParams.get('issueType'));
 
   // 详情两变体共用；id 缺失时 hook 不发起请求。
   const detailQuery = useWalletTypeDetailQuery(ruleId);
@@ -47,21 +47,22 @@ export function WalletTypeDetailPage() {
 
   return (
     <div className="space-y-4">
-      {variant === 'mff' ? (
+      <PageHeader
+        backLabel={t('common.back')}
+        onBack={() => router.back()}
+        title={t('walletType.title')}
+      />
+      {detailQuery.isError ? (
+        <p role="alert" className="text-sm text-destructive">{t('walletType.loadFailed')}</p>
+      ) : variant === 'mff' ? (
         <WalletTypeMffViewContent
           ruleId={ruleId}
           detail={detail}
           isLoading={detailQuery.isLoading}
         />
       ) : (
-        <WalletTypeDetailViewContent detail={detail} />
+        <WalletTypeDetailViewContent detail={detail} issueType={issueType} />
       )}
-
-      <div className="flex justify-center">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('common.back')}
-        </Button>
-      </div>
 
       {!ruleId ? (
         <p className="text-center text-sm text-muted-foreground">

@@ -12,7 +12,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 
-import { Button, Card, DataTable } from '@myorg/shared/ui';
+import { Card, DataTable, PageHeader } from '@myorg/shared/ui';
 import { FormField } from '@myorg/shared/ui-forms';
 
 import type {
@@ -34,11 +34,9 @@ interface HistoryFilters {
 function AccrualBasicInfo({
   detail,
   t,
-  tc,
 }: {
   detail: AccrualRecordDetail;
   t: (k: string) => string;
-  tc: (k: string) => string;
 }) {
   return (
     <Card title={t('interest_0073')}>
@@ -106,8 +104,9 @@ export function AccrualDetailPage() {
     filters: historyFilters,
   });
 
-  if (isLoading) return <div className="p-8">{tc('PUB_Query')}...</div>;
-  if (!detail) return <div className="p-8 text-muted-foreground">Record not found</div>;
+  const header = <PageHeader backLabel={tc('PUB_GoBack')} onBack={() => router.back()} title={t('interest_0073')} />;
+  if (isLoading) return <div className="space-y-4">{header}<div className="p-8">{tc('PUB_Query')}...</div></div>;
+  if (!detail) return <div className="space-y-4">{header}<div className="p-8 text-muted-foreground">Record not found</div></div>;
 
   // 存款表：feeType===50；透支表：多 billType 列
   const isDeposit = feeType === 50;
@@ -157,8 +156,9 @@ export function AccrualDetailPage() {
   ];
 
   return (
-    <div>
-      <AccrualBasicInfo detail={detail} t={t} tc={tc} />
+    <div className="space-y-4">
+      {header}
+      <AccrualBasicInfo detail={detail} t={t} />
       <div className="mb-8" />
 
       <div className="w-64 mb-4">
@@ -186,12 +186,6 @@ export function AccrualDetailPage() {
         }}
         isLoading={historyLoading}
       />
-
-      <div className="flex justify-center mt-6">
-        <Button variant="outline" onClick={() => router.back()}>
-          {tc('PUB_GoBack')}
-        </Button>
-      </div>
     </div>
   );
 }

@@ -9,10 +9,13 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import {
   Button,
   CopyableEllipsisText,
+  Card,
   DataTable,
+  cardSurfaceClass,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import {
-  FormDatePicker,
+  FormDateRangePicker,
   FormField,
   FormSelect,
 } from '@myorg/shared/ui-forms';
@@ -230,7 +233,7 @@ export function TravelRuleListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="mb-4 text-sm font-semibold">{t('query')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -290,25 +293,17 @@ export function TravelRuleListPage() {
             options={statusOptions}
             placeholder={t('statusFilter.all')}
           />
-          <FormDatePicker
-            name="transactionTimeFrom"
+          <FormDateRangePicker
+            startName="transactionTimeFrom"
+            endName="transactionTimeTo"
             control={control}
-            label={t('field.transactionTimeFrom')}
+            label={t('field.transactionTime')}
           />
-          <FormDatePicker
-            name="transactionTimeTo"
+          <FormDateRangePicker
+            startName="confirmationTimeFrom"
+            endName="confirmationTimeTo"
             control={control}
-            label={t('field.transactionTimeTo')}
-          />
-          <FormDatePicker
-            name="confirmationTimeFrom"
-            control={control}
-            label={t('field.confirmationTimeFrom')}
-          />
-          <FormDatePicker
-            name="confirmationTimeTo"
-            control={control}
-            label={t('field.confirmationTimeTo')}
+            label={t('field.confirmationTime')}
           />
         </div>
         <div className="mt-4 flex gap-2">
@@ -319,7 +314,7 @@ export function TravelRuleListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">{t('records')}</div>
         <DataTable
           columns={columns}
@@ -339,7 +334,7 @@ export function TravelRuleListPage() {
               : undefined
           }
         />
-      </div>
+      </Card>
     </div>
   );
 }

@@ -49,6 +49,10 @@ export interface DataTablePagination {
   onPageSizeChange?: (pageSize: number) => void;
   /** Selector options; defaults to [10, 20, 50]. */
   pageSizeOptions?: number[];
+  /** Optional localized result range in place of the default page count. */
+  summary?: string;
+  /** Disables all pagination controls (e.g. while the current filter response is still loading). */
+  disabled?: boolean;
 }
 
 export interface DataTableSelection {
@@ -189,6 +193,12 @@ export function DataTable<TData extends { id: string }>({
   const pageCount = pagination
     ? Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
     : 1;
+
+  const pageSizeOptions = React.useMemo(() => {
+    const base = pagination?.pageSizeOptions ?? [10, 20, 50];
+    if (!pagination || base.includes(pagination.pageSize)) return base;
+    return [...base, pagination.pageSize].sort((left, right) => left - right);
+  }, [pagination]);
 
   const tablePagination: PaginationState | undefined = pagination
     ? { pageIndex: Math.max(0, pagination.page - 1), pageSize: pagination.pageSize }
@@ -342,22 +352,21 @@ export function DataTable<TData extends { id: string }>({
       {/* Pagination */}
       {pagination && (
         <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-4">
-          {!pagination.onPageSizeChange && (
-            <div className="mr-auto text-xs tabular-nums text-muted-foreground">
-              Page {currentPage} of {totalPages}
-            </div>
-          )}
+          <div className="mr-auto whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+            {pagination.summary ?? `Page ${currentPage} of ${totalPages}`}
+          </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {pagination.onPageSizeChange && (
               <Select
                 value={String(pagination.pageSize)}
+                disabled={pagination.disabled}
                 onValueChange={(v) => pagination.onPageSizeChange?.(Number(v))}
               >
                 <SelectTrigger className="h-8 w-32 shrink-0" aria-label="Rows per page">
                   <SelectValue className="whitespace-nowrap" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(pagination.pageSizeOptions ?? [10, 20, 50]).map((size) => (
+                  {pageSizeOptions.map((size) => (
                     <SelectItem key={size} value={String(size)}>
                       {size} / page
                     </SelectItem>
@@ -367,28 +376,28 @@ export function DataTable<TData extends { id: string }>({
             )}
             <PaginationButton
               aria-label="First page"
-              disabled={currentPage <= 1}
+              disabled={pagination.disabled || currentPage <= 1}
               onClick={() => pagination.onPageChange(1)}
             >
               <ChevronsLeft className="h-4 w-4" />
             </PaginationButton>
             <PaginationButton
               aria-label="Previous page"
-              disabled={currentPage <= 1}
+              disabled={pagination.disabled || currentPage <= 1}
               onClick={() => pagination.onPageChange(currentPage - 1)}
             >
               <ChevronLeft className="h-4 w-4" />
             </PaginationButton>
             <PaginationButton
               aria-label="Next page"
-              disabled={currentPage >= totalPages}
+              disabled={pagination.disabled || currentPage >= totalPages}
               onClick={() => pagination.onPageChange(currentPage + 1)}
             >
               <ChevronRight className="h-4 w-4" />
             </PaginationButton>
             <PaginationButton
               aria-label="Last page"
-              disabled={currentPage >= totalPages}
+              disabled={pagination.disabled || currentPage >= totalPages}
               onClick={() => pagination.onPageChange(totalPages)}
             >
               <ChevronsRight className="h-4 w-4" />

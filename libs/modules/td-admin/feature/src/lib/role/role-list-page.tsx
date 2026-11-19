@@ -5,7 +5,8 @@ import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 
-import { Button, DataTable, useToast } from '@myorg/shared/ui';
+import { Button, Card, cardSurfaceClass, DataTable, useToast } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { FormField } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
@@ -247,7 +248,7 @@ export function RoleListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="mb-4 text-sm font-semibold">{t('query')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -265,7 +266,7 @@ export function RoleListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="flex items-center justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">{t('records')}</div>
           <PermissionGuard permission={ROLE_PERMISSIONS.add}>
@@ -302,7 +303,7 @@ export function RoleListPage() {
               : undefined
           }
         />
-      </div>
+      </Card>
     </div>
   );
 }

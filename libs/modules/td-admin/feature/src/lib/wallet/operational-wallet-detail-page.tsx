@@ -6,9 +6,9 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import {
-  Button,
+  Card,
   CopyableEllipsisText,
-  DataTable,
+  PageHeader,
   Tabs,
   TabsContent,
   TabsList,
@@ -21,16 +21,10 @@ import {
   type OperationalOpRecord,
   type OperationalTx,
 } from '@myorg/modules/td-admin/data-access';
-import { formatAdminTimestamp } from '../format-admin-time';
-import { WalletStatusBadge } from '.';
-import {
-  accountTypeMessageKey,
-  DEFAULT_PAGE_SIZE,
-  EMPTY_DISPLAY,
-  feeTypeMessageKey,
-  operateTypeMessageKey,
-  toMillis,
-} from '.';
+import { formatOperationalWalletTime } from './wallet.helpers';
+import { WalletStatusBadge } from './wallet-status-badge';
+import { EMPTY_DISPLAY, OPERATIONAL_WALLET_RECORD_TONES, walletStatusToneClass } from './wallet.constants';
+import { OperationalWalletLoadError, OperationalWalletTable, useOperationalWalletPage } from './operational-wallet-table';
 
 const BASIC_TAB = 'basic-information';
 const TX_TAB = 'transactions';
@@ -40,12 +34,7 @@ const OP_RECORD_TAB = 'operation-records';
 function parseId(raw?: string | null): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
-/** 时间戳格式化（秒/毫秒自适应），无值返回占位（kissen-admin 约定）。 */
-function formatTs(ts?: number | string | null): string {
-  return formatAdminTimestamp(toMillis(typeof ts === 'string' ? Number(ts) : ts));
+  return Number.isSafeInteger(n) && n > 0 ? n : undefined;
 }
 
 interface KvRow {
@@ -54,50 +43,30 @@ interface KvRow {
   value: React.ReactNode;
 }
 
-/**
- * OperationalWalletDetailPage — 营运钱包详情页（3 tab）。
- *
- * 迁移自 td-manage `src/pages/wallet/operational-wallet/view.tsx`（293 行）。
- * query：`ruleWalletId`（详情/交易/操作记录三接口共用）、`walletAddress`（操作记录透传）。
- * tab：Basic Information（kv）+ Transaction Records（DataTable 分页）+
- * Operation Records（DataTable 分页，含状态列 WalletStatusBadge）。
- *
- * 路由：/wallet/operational-wallet/view?ruleWalletId=&walletAddress=
- */
+/** Accept legacy id links as well as previously issued admin ruleWalletId links. */
 export function OperationalWalletDetailPage() {
+  const searchParams = useSearchParams();
+  const idParam = parseId(searchParams.get('id'));
+  const legacyParam = parseId(searchParams.get('ruleWalletId'));
+  const ruleWalletId = idParam ?? legacyParam;
+  const walletAddress = searchParams.get('walletAddress') ?? undefined;
+  return <OperationalWalletDetail key={JSON.stringify([ruleWalletId, walletAddress])} ruleWalletId={ruleWalletId} walletAddress={walletAddress} />;
+}
+
+function OperationalWalletDetail({ ruleWalletId, walletAddress }: { ruleWalletId?: number; walletAddress?: string }) {
   const t = useTranslations('modules.wallet');
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const ruleWalletId = parseId(searchParams.get('ruleWalletId'));
-  const walletAddress = searchParams.get('walletAddress') ?? '';
-
-  const { data: detail, isLoading } = useOperationalWalletDetailQuery(
-    ruleWalletId
-  );
-
-  const [txPage, setTxPage] = React.useState({
-    pageNum: 1,
-    pageSize: DEFAULT_PAGE_SIZE,
-  });
-  const txList = useOperationalTxQuery(ruleWalletId, txPage);
-  const txRows = txList.data?.rows ?? [];
-  const txTotal = txList.data?.page?.total ?? 0;
-
-  const [opPage, setOpPage] = React.useState({
-    pageNum: 1,
-    pageSize: DEFAULT_PAGE_SIZE,
-  });
-  const opRecordList = useOperationalOpRecordQuery(
-    { ruleWalletId: ruleWalletId as number, walletAddress },
-    opPage
-  );
-  const opRows = opRecordList.data?.rows ?? [];
-  const opTotal = opRecordList.data?.page?.total ?? 0;
+  const detailQuery = useOperationalWalletDetailQuery(ruleWalletId);
+  const { data: detail } = detailQuery;
+  const txPaging = useOperationalWalletPage();
+  const opPaging = useOperationalWalletPage();
+  const txList = useOperationalTxQuery(ruleWalletId, txPaging.page);
+  const opRecordList = useOperationalOpRecordQuery({ ruleWalletId, walletAddress }, opPaging.page);
 
   const basicRows = React.useMemo<KvRow[]>(() => {
     if (!detail) return [];
-    const feeTypeKey = feeTypeMessageKey(detail.feeType);
-    const accountTypeKey = accountTypeMessageKey(detail.accountType);
+    const feeTypeKey = `operationalWallet.feeType.${detail.feeType}`;
+    const accountTypeKey = `operationalWallet.accountType.${detail.accountType}`;
     return [
       {
         key: 'walletAddress',
@@ -106,18 +75,22 @@ export function OperationalWalletDetailPage() {
           <CopyableEllipsisText
             value={detail.walletAddress ?? ''}
             copyLabel={t('operationalWallet.copy')}
+            copySuccessMessage={t('operationalWallet.copySuccess')}
+            copyErrorMessage={t('operationalWallet.copyFailed')}
+            showCopyIcon
+            maxWidth={640}
           />
         ),
       },
       {
         key: 'feeType',
         label: t('operationalWallet.column.feeType'),
-        value: feeTypeKey ? t(feeTypeKey as never) : EMPTY_DISPLAY,
+        value: t.has(feeTypeKey) ? t(feeTypeKey) : EMPTY_DISPLAY,
       },
       {
         key: 'accountType',
         label: t('operationalWallet.column.accountType'),
-        value: accountTypeKey ? t(accountTypeKey as never) : EMPTY_DISPLAY,
+        value: t.has(accountTypeKey) ? t(accountTypeKey) : EMPTY_DISPLAY,
       },
       {
         key: 'blockchainName',
@@ -132,7 +105,7 @@ export function OperationalWalletDetailPage() {
       {
         key: 'createTime',
         label: t('operationalWallet.column.createTime'),
-        value: formatTs(detail.createTime),
+        value: formatOperationalWalletTime(detail.createTime),
       },
       {
         key: 'state',
@@ -142,156 +115,69 @@ export function OperationalWalletDetailPage() {
     ];
   }, [detail, t]);
 
-  const txColumns = React.useMemo<ColumnDef<OperationalTx>[]>(
-    () => [
-      {
-        accessorKey: 'txFrom',
-        header: t('operationalWallet.column.txFrom'),
-        cell: ({ row }) => (
-          <span>{row.original.txFrom || EMPTY_DISPLAY}</span>
-        ),
-      },
-      {
-        accessorKey: 'txTo',
-        header: t('operationalWallet.column.txTo'),
-        cell: ({ row }) => <span>{row.original.txTo || EMPTY_DISPLAY}</span>,
-      },
-      {
-        accessorKey: 'blockchainName',
-        header: t('operationalWallet.column.blockchain'),
-        cell: ({ row }) => (
-          <span>{row.original.blockchainName || EMPTY_DISPLAY}</span>
-        ),
-      },
-      {
-        id: 'txType',
-        header: t('operationalWallet.column.txType'),
-        cell: ({ row }) => {
-          const key = feeTypeMessageKey(
-            typeof row.original.txType === 'string'
-              ? Number(row.original.txType)
-              : row.original.txType
-          );
-          return <span>{key ? t(key as never) : EMPTY_DISPLAY}</span>;
-        },
-      },
-      {
-        id: 'txAmount',
-        header: t('operationalWallet.column.txAmount'),
-        cell: ({ row }) => (
-          <span>
-            {row.original.txAmount != null
-              ? `${row.original.txAmount} ${row.original.symbol ?? ''}`.trim()
-              : EMPTY_DISPLAY}
-          </span>
-        ),
-      },
-      {
-        id: 'txTime',
-        header: t('operationalWallet.column.txTime'),
-        cell: ({ row }) => <span>{formatTs(row.original.txTime)}</span>,
-      },
-      {
-        accessorKey: 'txHash',
-        header: t('operationalWallet.column.txHash'),
-        cell: ({ row }) => (
-          <span className="break-all">{row.original.txHash || EMPTY_DISPLAY}</span>
-        ),
-      },
-    ],
-    [t]
-  );
+  const common = useTranslations('common');
+  const txColumns = React.useMemo<ColumnDef<OperationalTx>[]>(() => [
+    { accessorKey: 'txFrom', header: t('operationalWallet.column.txFrom') },
+    { accessorKey: 'txTo', header: t('operationalWallet.column.txTo') },
+    { accessorKey: 'blockchainName', header: t('operationalWallet.column.blockchain') },
+    { accessorKey: 'txType', header: t('operationalWallet.column.txType'), cell: ({ row }) => {
+      const key = `operationalWallet.feeType.${row.original.txType}`;
+      return t.has(key) ? t(key) : EMPTY_DISPLAY;
+    } },
+    { accessorKey: 'txAmount', header: t('operationalWallet.column.txAmount'), cell: ({ row }) => {
+      const { txAmount, symbol } = row.original;
+      return txAmount == null || txAmount === '' ? EMPTY_DISPLAY : `${txAmount} ${symbol ?? ''}`.trimEnd();
+    } },
+    { accessorKey: 'txTime', header: t('operationalWallet.column.txTime'), cell: ({ row }) => formatOperationalWalletTime(row.original.txTime) },
+    { accessorKey: 'txHash', header: t('operationalWallet.column.txHash') },
+  ], [t]);
 
-  const opColumns = React.useMemo<ColumnDef<OperationalOpRecord>[]>(
-    () => [
-      {
-        id: 'operateType',
-        header: t('operationalWallet.column.operateType'),
-        cell: ({ row }) => {
-          const key = operateTypeMessageKey(row.original.operateType);
-          return <span>{key ? t(key as never) : EMPTY_DISPLAY}</span>;
-        },
-      },
-      {
-        accessorKey: 'oldWalletAddress',
-        header: t('operationalWallet.column.oldWalletAddress'),
-        cell: ({ row }) => (
-          <span>{row.original.oldWalletAddress || EMPTY_DISPLAY}</span>
-        ),
-      },
-      {
-        accessorKey: 'walletAddress',
-        header: t('operationalWallet.column.walletAddress'),
-        cell: ({ row }) => (
-          <span className="break-all">
-            {row.original.walletAddress || EMPTY_DISPLAY}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'blockchainName',
-        header: t('operationalWallet.column.blockchain'),
-        cell: ({ row }) => (
-          <span>{row.original.blockchainName || EMPTY_DISPLAY}</span>
-        ),
-      },
-      {
-        accessorKey: 'createUser',
-        header: t('operationalWallet.field.creator'),
-        cell: ({ row }) => (
-          <span>{row.original.createUser || EMPTY_DISPLAY}</span>
-        ),
-      },
-      {
-        id: 'createTime',
-        header: t('operationalWallet.column.createTime'),
-        cell: ({ row }) => <span>{formatTs(row.original.createTime)}</span>,
-      },
-      {
-        accessorKey: 'txHash',
-        header: t('operationalWallet.column.txHash'),
-        cell: ({ row }) => (
-          <span className="break-all">{row.original.txHash || EMPTY_DISPLAY}</span>
-        ),
-      },
-      {
-        id: 'txTime',
-        header: t('operationalWallet.column.txTime'),
-        cell: ({ row }) => <span>{formatTs(row.original.txTime)}</span>,
-      },
-      {
-        id: 'operationStatus',
-        header: t('common.status'),
-        cell: ({ row }) => (
-          <WalletStatusBadge
-            family="operational-wallet"
-            status={row.original.operationStatus}
-          />
-        ),
-      },
-    ],
-    [t]
+  const opColumns = React.useMemo<ColumnDef<OperationalOpRecord>[]>(() => [
+    { accessorKey: 'operateType', header: t('operationalWallet.column.operateType'), cell: ({ row }) => {
+      const key = `operationalWallet.operationType.${row.original.operateType}`;
+      return t.has(key) ? t(key) : EMPTY_DISPLAY;
+    } },
+    { accessorKey: 'oldWalletAddress', header: t('operationalWallet.column.oldWalletAddress'), cell: ({ row }) =>
+      row.original.oldWalletAddress || EMPTY_DISPLAY },
+    { accessorKey: 'walletAddress', header: t('operationalWallet.column.newWalletAddress') },
+    { accessorKey: 'blockchainName', header: t('operationalWallet.column.blockchain') },
+    { accessorKey: 'createUser', header: t('operationalWallet.field.creator') },
+    { accessorKey: 'createTime', header: t('operationalWallet.column.createTime'), cell: ({ row }) => formatOperationalWalletTime(row.original.createTime) },
+    { accessorKey: 'txHash', header: t('operationalWallet.column.txHash') },
+    { accessorKey: 'txTime', header: t('operationalWallet.column.txTime'), cell: ({ row }) => formatOperationalWalletTime(row.original.txTime) },
+    { accessorKey: 'operationStatus', header: t('common.status'), cell: ({ row }) => {
+      const status = OPERATIONAL_WALLET_RECORD_TONES[Number(row.original.operationStatus)];
+      if (!status) return EMPTY_DISPLAY;
+      return <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${walletStatusToneClass(status.tone)}`}>
+        {common(status.labelKey)}
+      </span>;
+    } },
+  ], [t, common]);
+
+  const header = (
+    <PageHeader
+      backLabel={t('common.back')}
+      onBack={() => router.back()}
+      title={t('operationalWallet.detailTitle')}
+    />
   );
 
   if (!ruleWalletId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">
-          {t('operationalWallet.invalidId')}
-        </p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.back()}
-        >
-          {t('common.back')}
-        </Button>
+      <div className="space-y-4">
+        {header}
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">
+            {t('operationalWallet.invalidId')}
+          </p>
+        </Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {header}
       <Tabs defaultValue={BASIC_TAB}>
         <TabsList>
           <TabsTrigger value={BASIC_TAB}>
@@ -306,17 +192,18 @@ export function OperationalWalletDetailPage() {
         </TabsList>
 
         <TabsContent value={BASIC_TAB}>
-          <section className="rounded-lg border bg-card shadow-sm">
+          <Card>
             <div className="border-b px-6 py-3 text-sm font-semibold">
               {t('operationalWallet.tab.basicInformation')}
             </div>
+            {detailQuery.isError && !detailQuery.isFetching ? <OperationalWalletLoadError retry={detailQuery.refetch} /> : (
             <div className="overflow-x-auto">
               <table className="w-full table-fixed border-collapse text-sm">
                 <tbody>
-                  {isLoading || !basicRows.length ? (
+                  {detailQuery.isPending || !basicRows.length ? (
                     <tr>
                       <td className="px-4 py-8 text-center text-muted-foreground">
-                        {isLoading ? '' : t('common.noData')}
+                        {detailQuery.isPending ? t('loading') : t('common.noData')}
                       </td>
                     </tr>
                   ) : (
@@ -334,65 +221,18 @@ export function OperationalWalletDetailPage() {
                 </tbody>
               </table>
             </div>
-          </section>
+            )}
+          </Card>
         </TabsContent>
 
         <TabsContent value={TX_TAB}>
-          <section className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              {t('operationalWallet.tab.transactions')}
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={txColumns}
-                data={txRows}
-                isLoading={txList.isLoading || txList.isFetching}
-                emptyMessage={t('common.noData')}
-                pagination={{
-                  page: txPage.pageNum,
-                  pageSize: txPage.pageSize,
-                  total: txTotal,
-                  onPageChange: (page) =>
-                    setTxPage((prev) => ({ ...prev, pageNum: page })),
-                  onPageSizeChange: (size) =>
-                    setTxPage({ pageNum: 1, pageSize: size }),
-                }}
-              />
-            </div>
-          </section>
+          <OperationalWalletTable title={t('operationalWallet.tab.transactions')} columns={txColumns} query={txList} paging={txPaging} />
         </TabsContent>
 
         <TabsContent value={OP_RECORD_TAB}>
-          <section className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              {t('operationalWallet.tab.operationRecords')}
-            </div>
-            <div className="p-4">
-              <DataTable
-                columns={opColumns}
-                data={opRows}
-                isLoading={opRecordList.isLoading || opRecordList.isFetching}
-                emptyMessage={t('common.noData')}
-                pagination={{
-                  page: opPage.pageNum,
-                  pageSize: opPage.pageSize,
-                  total: opTotal,
-                  onPageChange: (page) =>
-                    setOpPage((prev) => ({ ...prev, pageNum: page })),
-                  onPageSizeChange: (size) =>
-                    setOpPage({ pageNum: 1, pageSize: size }),
-                }}
-              />
-            </div>
-          </section>
+          <OperationalWalletTable title={t('operationalWallet.tab.operationRecords')} columns={opColumns} query={opRecordList} paging={opPaging} />
         </TabsContent>
       </Tabs>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('common.back')}
-        </Button>
-      </div>
     </div>
   );
 }

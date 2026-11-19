@@ -5,7 +5,9 @@
  * NOTE: keystore 密码加密 `getEncryptionData` 已在 Phase 7 移植到
  * `./wallet.encryption.ts`（barrel 一并导出），此处不重复定义。
  */
-import { UNLIMITED_THRESHOLD } from './wallet.constants';
+import type { WalletTypeCard } from '@myorg/modules/td-admin/data-access';
+import { EMPTY_DISPLAY, UNLIMITED_THRESHOLD } from './wallet.constants';
+import { formatAdminTimestamp } from '../format-admin-time';
 
 /** 时间戳归一：秒 → 毫秒（< 1e12 视为秒）。迁移自源项目 `v >= 1e12 ? v : v * 1000`。 */
 export function toMillis(value?: number | null): number | undefined {
@@ -33,6 +35,48 @@ export function normalizeRowId(
 export function formatLimit(value?: number | null): string {
   if (value === undefined || value === null) return '';
   return value >= UNLIMITED_THRESHOLD ? '∞' : String(value);
+}
+
+/**
+ * 限额展示（列表/卡片）：与旧版 `reSet` 一致，2 位小数 + 千分位；
+ * ≥ 阈值显示 ∞，负数/非法值显示占位。
+ */
+export function formatLimitAmount(value?: number | null): string {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) return EMPTY_DISPLAY;
+  if (num >= UNLIMITED_THRESHOLD) return '∞';
+  return num.toFixed(2).replace(/(\d)(?=(\d{3})+\.)/g, '$1,');
+}
+
+const operationalBalanceFormat = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** Unlike transaction amounts, balances show two decimals. Keep decimal strings exact. */
+export function formatOperationalBalance(value?: string | number, symbol?: string): string {
+  if (!value) return EMPTY_DISPLAY;
+  let amount = EMPTY_DISPLAY;
+  if (typeof value === 'number') {
+    if (Number.isFinite(value) && value >= 0) amount = operationalBalanceFormat.format(value);
+  } else {
+    const parts = /^\+?(\d+)(?:\.(\d*))?$/.exec(value.trim());
+    if (parts) {
+      const fraction = (parts[2] ?? '').padEnd(3, '0');
+      const cents = BigInt(parts[1] + fraction.slice(0, 2)) + (fraction[2] >= '5' ? 1n : 0n);
+      amount = `${(cents / 100n).toLocaleString('en-US')}.${String(cents % 100n).padStart(2, '0')}`;
+    } else {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric) && numeric >= 0) {
+        amount = operationalBalanceFormat.format(numeric);
+      }
+    }
+  }
+  return symbol ? `${amount} ${symbol}` : amount;
+}
+
+export function formatOperationalWalletTime(value?: string | number): string {
+  return formatAdminTimestamp(value == null ? undefined : Number(value));
 }
 
 /**
@@ -66,8 +110,10 @@ const TAB_ALIASES: Record<string, UserWalletViewTab> = {
   basic: USER_WALLET_VIEW_TAB.Basic,
   '2': USER_WALLET_VIEW_TAB.Transactions,
   transactions: USER_WALLET_VIEW_TAB.Transactions,
+  transaction: USER_WALLET_VIEW_TAB.Transactions,
   '3': USER_WALLET_VIEW_TAB.Operations,
   operations: USER_WALLET_VIEW_TAB.Operations,
+  operation: USER_WALLET_VIEW_TAB.Operations,
   '4': USER_WALLET_VIEW_TAB.Accrual,
   accrual: USER_WALLET_VIEW_TAB.Accrual,
   '5': USER_WALLET_VIEW_TAB.Distribution,
@@ -87,4 +133,24 @@ export function resolveWalletViewTabKey(tab?: string | null): UserWalletViewTab 
 /** MMF 判定：issueType === 20。 */
 export function isMmf(issueType?: number | null): boolean {
   return issueType === 20;
+}
+
+/**
+ * 钱包类型卡片按 `size` 切片，末组不足补 `'new'` 占位；空数组补 3 个占位。
+ * 迁移自源 `libs/utils/get/getGroup.ts`（外层每页 1 组）。
+ */
+export function groupWalletTypeCards(
+  cards: WalletTypeCard[],
+  size: number
+): (WalletTypeCard | 'new')[][] {
+  if (cards.length === 0) {
+    return [['new', 'new', 'new']];
+  }
+  const groups: (WalletTypeCard | 'new')[][] = [];
+  for (let i = 0; i < cards.length; i += size) {
+    const slice: (WalletTypeCard | 'new')[] = cards.slice(i, i + size);
+    while (slice.length < size) slice.push('new');
+    groups.push(slice);
+  }
+  return groups;
 }

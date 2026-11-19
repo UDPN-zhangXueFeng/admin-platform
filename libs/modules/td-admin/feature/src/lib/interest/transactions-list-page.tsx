@@ -12,7 +12,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import { Button, DataTable } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 import { toast } from '@myorg/shared/ui';
 
@@ -30,6 +30,7 @@ import {
   TRANSACTION_STATUS_OPTIONS,
 } from '.';
 import { ALL_VALUE } from './interest.constants';
+import { InterestFilterSelect } from './interest-filter-select';
 import { TransactionStatusBadge } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
 import { createRowActionsColumn } from '../row-actions';
@@ -179,13 +180,9 @@ export function TransactionsListPage() {
       <h3 className="text-lg font-medium mb-4">{t('interest_0076')}</h3>
 
       <div className="grid grid-cols-5 gap-4 mb-4">
-        <FormDatePicker
-          name="postTimeStart"
-          label={t('interest_00113')}
-          control={form.control}
-        />
-        <FormDatePicker
-          name="postTimeEnd"
+        <FormDateRangePicker
+          startName="postTimeStart"
+          endName="postTimeEnd"
           label={t('interest_00113')}
           control={form.control}
         />
@@ -196,12 +193,13 @@ export function TransactionsListPage() {
           options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(tokenOptions ?? [])]}
           placeholder={tc('PUB_All')}
         />
-        <FormSelect
+        <InterestFilterSelect
           name="blockchainId"
           label={tc('PUB_Blockchain')}
           control={form.control}
           options={[{ label: tc('PUB_All'), value: ALL_VALUE }, ...(blockchainOptions ?? [])]}
           placeholder={tc('PUB_All')}
+          idPrefix="interest-transactions"
         />
         <FormSelect
           name="feeType"

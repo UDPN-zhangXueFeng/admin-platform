@@ -26,6 +26,19 @@ export const ISSUE_TYPE = {
   MMF: 20,
 } as const;
 
+/** Backend button permissions from the upstream wallet-type screens. */
+export const WALLET_TYPE_ACTION_PERMISSIONS = {
+  add: 'a4b9a80b374f4387872b81e5f97acabb',
+  edit: '8013e875ca0b40999f1b7764a40f8593',
+  enable: '3f6ea34c0b5747ca9f608c8582f1bd5e',
+  disable: '59d33a905df2468f9c6fa81d51ccd566',
+  viewRecord: 'e4017cb5418f430aa4bcfc41f9e99488',
+  onboard: '8c0561507ff643e8a7015b62b46eb125',
+} as const;
+
+/** Backend View button grant; the manifest keeps its separate semantic permission. */
+export const OPERATIONAL_WALLET_VIEW_PERMISSION = '6c726bcf2ac8457481d72333cd2f70db';
+
 /** accountType：0=N/A，1=活期(Current)，2=储蓄(Savings)，3=MMF 基金账户。 */
 export const ACCOUNT_TYPE = {
   None: 0,
@@ -83,22 +96,37 @@ type StatusMap = Record<number, WalletStatusMeta>;
  * 1=processing, 8/10=success, 5/15=gray。
  */
 const OPERATIONAL_WALLET_STATUS: StatusMap = {
-  1: { labelKey: 'status.processing', tone: 'warning' },
-  5: { labelKey: 'status.unknown', tone: 'default' },
+  1: { labelKey: 'status.processing', tone: 'info' },
+  5: { labelKey: 'status.rejected', tone: 'default' },
   8: { labelKey: 'status.success', tone: 'success' },
   10: { labelKey: 'status.active', tone: 'success' },
   15: { labelKey: 'status.inactive', tone: 'default' },
 };
 
+/** Approval workflow status, distinct from the state of the wallet itself. */
+export const OPERATIONAL_WALLET_RECORD_TONES: Partial<StatusMap> = {
+  1: { labelKey: 'common_task_status_1', tone: 'info' },
+  3: { labelKey: 'common_task_status_3', tone: 'default' },
+  5: { labelKey: 'common_task_status_5', tone: 'warning' },
+  10: { labelKey: 'common_task_status_10', tone: 'warning' },
+  15: { labelKey: 'common_task_status_15', tone: 'danger' },
+  20: { labelKey: 'common_task_status_20', tone: 'success' },
+  25: { labelKey: 'common_task_status_25', tone: 'success' },
+  30: { labelKey: 'common_task_status_30', tone: 'info' },
+  35: { labelKey: 'common_task_status_35', tone: 'success' },
+  40: { labelKey: 'common_task_status_40', tone: 'danger' },
+  45: { labelKey: 'common_task_status_45', tone: 'danger' },
+};
+
 /**
- * user-wallet 状态族（源 commonapprovalTaskStatus）。
- * 0=processing, 1=success, 2/3=gray。
+ * user-wallet 状态族（源 user_wallet_state_* / commonapprovalTaskStatus）。
+ * 0=Processing, 1=Active, 2=Frozen, 3=Rejected（灰）。
  */
 const USER_WALLET_STATUS: StatusMap = {
   0: { labelKey: 'status.processing', tone: 'warning' },
   1: { labelKey: 'status.active', tone: 'success' },
   2: { labelKey: 'status.frozen', tone: 'default' },
-  3: { labelKey: 'status.inactive', tone: 'default' },
+  3: { labelKey: 'status.rejected', tone: 'default' },
 };
 
 /**
@@ -111,16 +139,17 @@ const WALLET_TYPE_CARD_STATUS: StatusMap = {
 };
 
 /**
- * wallet-type 详情/表状态族（源 walletTypeStatus）。
- * 1=processing, 5=error, 10/25=success, 15/20=gray。
+ * wallet-type 详情/表状态族（源 walletTypeStatus / wallet_type_state_*）。
+ * 1=Pending Approval, 5=Rejected, 10=Enabled, 15/20=Disabled, 25=Enabling。
+ * 色名对齐源 approvalTaskStatus：1=processing, 5=error, 10/25=success, 15/20=gray。
  */
 const WALLET_TYPE_STATUS: StatusMap = {
-  1: { labelKey: 'status.processing', tone: 'warning' },
-  5: { labelKey: 'status.error', tone: 'danger' },
+  1: { labelKey: 'status.pendingApproval', tone: 'warning' },
+  5: { labelKey: 'status.rejected', tone: 'danger' },
   10: { labelKey: 'status.enabled', tone: 'success' },
   15: { labelKey: 'status.disabled', tone: 'default' },
-  20: { labelKey: 'status.inactive', tone: 'default' },
-  25: { labelKey: 'status.success', tone: 'success' },
+  20: { labelKey: 'status.disabled', tone: 'default' },
+  25: { labelKey: 'status.enabling', tone: 'success' },
 };
 
 /**

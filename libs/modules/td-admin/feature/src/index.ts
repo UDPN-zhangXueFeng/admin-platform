@@ -6,7 +6,9 @@ export * from './lib/blockchain';
 export * from './lib/chart-of-accounts';
 export * from './lib/cross-chain';
 export * from './lib/data-export';
+export * from './lib/documentation';
 export * from './lib/format-admin-time';
+export * from './lib/query-form';
 export * from './lib/interest';
 export * from './lib/inventory';
 export * from './lib/journal-entries';
@@ -45,7 +47,7 @@ export { DYNAMIC_I18N_KEY_PREFIXES } from './lib/approval-manage'; // approval-m
 export { EMPTY_DISPLAY } from './lib/audit-trail'; // audit-trail+blockchain+cross-chain+journal-entries+mmf+posting-engine+statements+transaction-event-configuration+wallet → 首域
 export { EMPTY_FIELD_VALUE } from './lib/approval-manage'; // approval-manage+reconciliation+transaction-event-configuration → 首域
 export { EVENT_TYPE_SOURCE_EVENT_MAP } from './lib/approval-manage'; // approval-manage+posting-engine+transaction-event-configuration → 首域
-export { FIXED_TOKEN_TYPES } from './lib/audit-trail'; // audit-trail+journal-entries-new+posting-engine+transaction-event-configuration → 首域
+export { FIXED_TOKEN_TYPES } from './lib/journal-entries-new'; // journal-entries-new+posting-engine+transaction-event-configuration → 首域
 export { RULE_STATE_ACTIVE } from './lib/journal-entries'; // journal-entries+statements → 首域
 export { RULE_STATE_INACTIVE } from './lib/journal-entries'; // journal-entries+statements → 首域
 export { RULE_STATUS_META } from './lib/journal-entries'; // journal-entries+statements → 首域

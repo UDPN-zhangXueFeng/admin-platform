@@ -1,6 +1,7 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
+import { Badge } from '@myorg/shared/ui';
 import { createRowActionsColumn } from '../row-actions';
 import type {
   EodAccountingStatus,
@@ -16,21 +17,14 @@ import type {
 export interface EodColumnsOptions {
   t: (key: string) => string;
   onOpenDetail: (record: EodStatementRow) => void;
-  onPostToSuspense?: (record: EodStatementRow) => void;
 }
 
 function accountingStatusTag(status: EodAccountingStatus, t: (k: string) => string) {
   const isBalanced = status === 'balanced';
   return (
-    <span
-      className={
-        isBalanced
-          ? 'inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300'
-          : 'inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800 dark:bg-red-900/30 dark:text-red-300'
-      }
-    >
+    <Badge variant={isBalanced ? 'success' : 'destructive'} dot>
       {isBalanced ? t('eod.balanced') : t('eod.unbalanced')}
-    </span>
+    </Badge>
   );
 }
 
@@ -50,14 +44,7 @@ function clearingStatusLabel(status: EodClearingStatus, t: (k: string) => string
 }
 
 function actionLabel(record: EodStatementRow, t: (k: string) => string) {
-  switch (record.actionType) {
-    case 'post-to-suspense':
-      return t('eod.actionPostToSuspense');
-    case 'review-confirm':
-      return t('eod.actionReview');
-    default:
-      return t('eod.actionDetails');
-  }
+  return record.clearingStatus === 'pending' ? t('eod.actionReview') : t('eod.actionDetails');
 }
 
 /** 第二账本 EOD 列表列（8 列）。 */
@@ -80,6 +67,7 @@ export function buildEodColumns({ t, onOpenDetail }: EodColumnsOptions): ColumnD
     },
     // 行内主操作（Details / Review）；无需菜单。
     createRowActionsColumn<EodStatementRow>({
+      header: t('field.actions'),
       detail: (row) => ({
         label: actionLabel(row, t),
         onClick: () => onOpenDetail(row),
@@ -92,7 +80,6 @@ export function buildEodColumns({ t, onOpenDetail }: EodColumnsOptions): ColumnD
 export function buildFirstBookEodColumns({
   t,
   onOpenDetail,
-  onPostToSuspense,
 }: EodColumnsOptions): ColumnDef<EodStatementRow>[] {
   return [
     { accessorKey: 'eodDate', header: t('eod.postingDate') },
@@ -111,21 +98,11 @@ export function buildFirstBookEodColumns({
       cell: ({ row }) => clearingStatusLabel(row.original.clearingStatus, t),
     },
     { accessorKey: 'closedBy', header: t('eod.closedBy') },
-    // post-to-suspense 行：仅菜单项；其余行：行内主操作。
     createRowActionsColumn<EodStatementRow>({
-      detail: (row) =>
-        row.actionType === 'post-to-suspense'
-          ? undefined
-          : { label: actionLabel(row, t), onClick: () => onOpenDetail(row) },
-      menu: (row) =>
-        row.actionType === 'post-to-suspense'
-          ? [
-              {
-                label: t('eod.actionPostToSuspense'),
-                onClick: () => onPostToSuspense?.(row),
-              },
-            ]
-          : [],
+      header: t('field.actions'),
+      detail: (row) => row.actionType === 'post-to-suspense'
+        ? { label: t('eod.actionPostToSuspense'), disabled: true, onClick: onOpenDetail }
+        : { label: actionLabel(row, t), onClick: onOpenDetail },
     }),
   ];
 }

@@ -6,8 +6,9 @@ import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
-import { Button, DataTable, useToast } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import { Button, Card, cardSurfaceClass, DataTable, useToast } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
 
 import { LogDescriptionText } from '.';
@@ -230,7 +231,7 @@ export function SysLogListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="mb-4 text-sm font-semibold">{t('query')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -265,15 +266,11 @@ export function SysLogListPage() {
             label={t('field.sourceIp')}
             register={register('sourceIp')}
           />
-          <FormDatePicker
-            name="logTimeFrom"
+          <FormDateRangePicker
+            startName="logTimeFrom"
+            endName="logTimeTo"
             control={control}
-            label={t('field.logTimeFrom')}
-          />
-          <FormDatePicker
-            name="logTimeTo"
-            control={control}
-            label={t('field.logTimeTo')}
+            label={t('field.logTime')}
           />
         </div>
         <div className="mt-4 flex gap-2">
@@ -284,7 +281,7 @@ export function SysLogListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="flex items-center justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">{t('records')}</div>
           <Button type="button" variant="outline" size="sm" onClick={onExport}>
@@ -315,7 +312,7 @@ export function SysLogListPage() {
               : undefined
           }
         />
-      </div>
+      </Card>
     </div>
   );
 }

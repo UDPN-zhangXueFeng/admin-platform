@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Checkbox, Label, RadioGroup, RadioGroupItem, Switch } from '@myorg/shared/ui';
+import { Card, Checkbox, Label, RadioGroup, RadioGroupItem, Switch } from '@myorg/shared/ui';
 
 interface SpAccessFormSecuritySectionProps {
   metaEnabled: boolean;
@@ -30,18 +30,28 @@ export function SpAccessFormSecuritySection({
 
   return (
     <>
-      <section className="rounded-lg border bg-card p-6">
+      <Card className="p-6">
         <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-3">
-            <Label>{t('sp_access_0147')}</Label>
+            <Label>
+              {t('sp_access_0147')}
+              <span className="ml-0.5 text-destructive" aria-hidden="true">
+                *
+              </span>
+            </Label>
             <div className="flex items-center gap-3">
-              <Switch checked={metaEnabled} onCheckedChange={setMetaEnabled} aria-label={t('sp_access_0147')} />
+              <Switch checked={metaEnabled} onCheckedChange={setMetaEnabled} aria-label={t('sp_access_0147')} aria-required="true" />
               <span className="text-sm text-muted-foreground">{metaEnabled ? t('PUB_Yes') : t('PUB_No')}</span>
             </div>
           </div>
           <div className="space-y-3">
-            <Label>{t('sp_access_0148')}</Label>
-            <RadioGroup value={reconciliation} onValueChange={setReconciliation} className="flex flex-wrap gap-4">
+            <Label>
+              {t('sp_access_0148')}
+              <span className="ml-0.5 text-destructive" aria-hidden="true">
+                *
+              </span>
+            </Label>
+            <RadioGroup value={reconciliation} onValueChange={setReconciliation} className="flex flex-wrap gap-4" aria-required="true">
               {[['1', 'sp_access_0150'], ['2', 'sp_access_0151'], ['3', 'sp_access_0152']].map(([value, key]) => (
                 <label key={value} className="flex items-center gap-2 text-sm">
                   <RadioGroupItem value={value} />
@@ -54,9 +64,9 @@ export function SpAccessFormSecuritySection({
             </p>
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border bg-card p-6">
+      <Card className="p-6">
         <h2 className="mb-1 text-lg font-semibold">{t('sp_access_0067')}</h2>
         <p className="mb-4 text-sm text-muted-foreground">{t('sp_access_0179')}</p>
         <div className="grid gap-3 md:grid-cols-3">
@@ -70,20 +80,36 @@ export function SpAccessFormSecuritySection({
             </label>
           ))}
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border bg-card p-6">
+      <Card className="p-6">
         <h2 className="mb-1 text-lg font-semibold">{t('sp_access_0149')}</h2>
         <p className="mb-4 text-sm text-muted-foreground">{t('sp_access_0178')}</p>
         <div className="flex flex-wrap gap-10">
-          {[['sp_access_0180', 'sp_access_0180'], ['sp_access_0181', 'sp_access_0181']].map(([label, aria]) => (
-            <div key={label} className="flex items-start gap-3">
-              <Switch checked disabled aria-label={t(aria)} />
-              <p className="text-sm font-medium">{t(label)}</p>
+          {[
+            {
+              label: 'sp_access_0180',
+              aria: 'sp_access_0180',
+              description: 'sp_access_0200',
+            },
+            {
+              label: 'sp_access_0181',
+              aria: 'sp_access_0181',
+              description: 'sp_access_0201',
+            },
+          ].map((policy) => (
+            <div key={policy.label} className="flex items-start gap-3">
+              <Switch checked disabled aria-label={t(policy.aria)} />
+              <div>
+                <p className="text-sm font-medium">{t(policy.label)}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t(policy.description)}
+                </p>
+              </div>
             </div>
           ))}
         </div>
-      </section>
+      </Card>
     </>
   );
 }

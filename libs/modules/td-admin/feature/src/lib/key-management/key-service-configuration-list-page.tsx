@@ -26,6 +26,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import {
   Alert,
   Button,
+  Card,
   DataTable,
   Dialog,
   DialogContent,
@@ -42,13 +43,14 @@ import {
   SelectValue,
   Textarea,
 } from '@myorg/shared/ui';
-import { DatePicker } from '@myorg/shared/ui-forms';
+import { DateRangePicker } from '@myorg/shared/ui-forms';
 
 import {
   type KeyServiceConfiguration,
   useKeyServiceConfigurationsQuery,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import { keyServiceStatusToneMap } from './constants';
 
@@ -298,15 +300,10 @@ export function KeyServiceConfigurationListPage() {
 
   return (
     <div className="space-y-6">
-      {/* Query Form */}
-      <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1.5">
-            <label
-              className="text-sm font-medium"
-              htmlFor="ksc-filter-name"
-            >
+      <QueryForm
+        fields={[
+          <div key="key-service-name" className="space-y-1.5">
+            <label className="text-sm font-medium" htmlFor="ksc-filter-name">
               {t('key_management_0001')}
             </label>
             <Input
@@ -315,8 +312,22 @@ export function KeyServiceConfigurationListPage() {
               onChange={(event) => setKeyServiceName(event.target.value)}
               placeholder=""
             />
-          </div>
-          <div className="space-y-1.5">
+          </div>,
+          <div key="creation-date" className="space-y-1.5">
+            <label className="text-sm font-medium" htmlFor="ksc-filter-date">
+              {t('key_management_0002')}
+            </label>
+            <DateRangePicker
+              id="ksc-filter-date"
+              value={{ start: startCreateDate, end: endCreateDate }}
+              onChange={({ start, end }) => {
+                setStartCreateDate(start);
+                setEndCreateDate(end);
+              }}
+              ariaLabel={t('key_management_0002')}
+            />
+          </div>,
+          <div key="status" className="space-y-1.5">
             <label className="text-sm font-medium">
               {t('key_management_0003')}
             </label>
@@ -338,46 +349,16 @@ export function KeyServiceConfigurationListPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <label
-              className="text-sm font-medium"
-              htmlFor="ksc-filter-start"
-            >
-              {t('key_management_creation_date_start')}
-            </label>
-            <DatePicker
-              id="ksc-filter-start"
-              value={startCreateDate}
-              onChange={setStartCreateDate}
-              ariaLabel={t('key_management_creation_date_start')}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label
-              className="text-sm font-medium"
-              htmlFor="ksc-filter-end"
-            >
-              {t('key_management_creation_date_end')}
-            </label>
-            <DatePicker
-              id="ksc-filter-end"
-              value={endCreateDate}
-              onChange={setEndCreateDate}
-              ariaLabel={t('key_management_creation_date_end')}
-            />
-          </div>
-        </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button onClick={handleQuery}>{t('PUB_Query')}</Button>
-          <Button variant="outline" onClick={handleReset}>
-            {t('PUB_Reset')}
-          </Button>
-        </div>
-      </div>
+          </div>,
+        ]}
+        onQuery={handleQuery}
+        onReset={handleReset}
+        queryLabel={t('PUB_Query')}
+        resetLabel={t('PUB_Reset')}
+      />
 
       {/* Table */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">
             {t('key_management_0008')}
@@ -413,7 +394,7 @@ export function KeyServiceConfigurationListPage() {
             onPageChange: setPage,
           }}
         />
-      </div>
+      </Card>
 
       {/* Deprecate Dialog */}
       <Dialog

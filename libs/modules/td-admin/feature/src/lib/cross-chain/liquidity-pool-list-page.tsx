@@ -8,6 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import {
   Button,
+  Card,
   CopyableEllipsisText,
   DataTable,
   Select,
@@ -16,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
 import { useLiquidityPoolListQuery, type LiquidityPoolItem, type LiquidityPoolListFilters } from '@myorg/modules/td-admin/data-access';
@@ -32,6 +33,7 @@ import {
   type LiquidityPoolModalInfo,
 } from './liquidity-pool-action-modal';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 /** 「全部」占位 value（对齐 cct / fx-rate / rd-bridge 列表筛选约定）。 */
@@ -366,123 +368,116 @@ export function LiquidityPoolListPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div>
-            <label
-              htmlFor="lp-liquidityPoolWalletAddress"
-              className="mb-1.5 block text-sm font-medium text-foreground"
-            >
-              {t('cross_chain_0045')}
-            </label>
-            <input
-              id="lp-liquidityPoolWalletAddress"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder={t('cross_chain_0045')}
-              {...register('liquidityPoolWalletAddress')}
-            />
-          </div>
-          <FormSelect
-            name="tokenId"
-            control={control}
-            label={t('cross_chain_0044')}
-            options={[{ value: ALL_VALUE, label: t('filter.all') }, ...tokenOptions]}
-            placeholder={t('filter.all')}
-          />
-          {/*
-            链：status!==1 的链单项 disabled（源码 options.disabled: el.status === 1 ? false : true）。
-            FormSelect 不透传单项 disabled，故手写 Controller + Select/SelectItem（对齐 cct-list）。
-          */}
-          <Controller
-            control={control}
-            name="blockchain"
-            render={({ field }) => (
-              <div>
-                <label
-                  htmlFor="lp-blockchain"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('cross_chain_0000')}
-                </label>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="lp-blockchain">
-                    <SelectValue placeholder={t('filter.all')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
-                    {blockchainOptions.map((b) => (
-                      <SelectItem
-                        key={b.key}
-                        value={String(b.key)}
-                        disabled={b.status !== 1}
-                      >
-                        {b.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('filter.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDatePicker
-            name="updatedTimeStart"
-            control={control}
-            label={t('cross_chain_0025')}
-          />
-          <FormDatePicker
-            name="updatedTimeEnd"
-            control={control}
-            label={t('cross_chain_0025')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <div key="liquidityPoolWalletAddress">
+              <label
+                htmlFor="lp-liquidityPoolWalletAddress"
+                className="mb-1.5 block text-sm font-medium text-foreground"
+              >
+                {t('cross_chain_0045')}
+              </label>
+              <input
+                id="lp-liquidityPoolWalletAddress"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder={t('cross_chain_0045')}
+                {...register('liquidityPoolWalletAddress')}
+              />
+            </div>,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('filter.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="updatedTime"
+              startName="updatedTimeStart"
+              endName="updatedTimeEnd"
+              control={control}
+              label={t('cross_chain_0025')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="tokenId"
+              name="tokenId"
+              control={control}
+              label={t('cross_chain_0044')}
+              options={[{ value: ALL_VALUE, label: t('filter.all') }, ...tokenOptions]}
+              placeholder={t('filter.all')}
+            />,
+            <Controller
+              key="blockchain"
+              control={control}
+              name="blockchain"
+              render={({ field }) => (
+                <div>
+                  <label
+                    htmlFor="lp-blockchain"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    {t('cross_chain_0000')}
+                  </label>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="lp-blockchain">
+                      <SelectValue placeholder={t('filter.all')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
+                      {blockchainOptions.map((b) => (
+                        <SelectItem
+                          key={b.key}
+                          value={String(b.key)}
+                          disabled={b.status !== 1}
+                        >
+                          {b.value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">{t('cross_chain_0046')}</div>
-          <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.LP_ADD_BTN}>
-            <Button
-              size="sm"
-              onClick={() => router.push('/cross-chain/liquidity-pool/edit')}
-            >
-              {t('action.add')}
-            </Button>
-          </PermissionGuard>
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (p) =>
-                setPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
-        </div>
+      <Card><div className="flex justify-between border-b px-6 py-3">
+        <div className="text-sm font-semibold">{t('cross_chain_0046')}</div>
+        <PermissionGuard permission={CROSS_CHAIN_PERMISSIONS.LP_ADD_BTN}>
+          <Button
+            size="sm"
+            onClick={() => router.push('/cross-chain/liquidity-pool/edit')}
+          >
+            {t('action.add')}
+          </Button>
+        </PermissionGuard>
       </div>
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (p) =>
+              setPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
 
       <LiquidityPoolActionModal
         modalInfo={modalInfo}

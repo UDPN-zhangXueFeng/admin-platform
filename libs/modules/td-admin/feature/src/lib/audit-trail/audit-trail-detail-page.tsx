@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 
-import { Button, CopyableEllipsisText } from '@myorg/shared/ui';
+import { Card, CopyableEllipsisText, PageHeader } from '@myorg/shared/ui';
 import { formatAdminTimestamp } from '../format-admin-time';
 
 import {
@@ -17,7 +17,8 @@ import {
   resolveProcessingStatusMessageKey,
   resolveTokenTypeMessageKey,
   resolveTxTypeMessageKey,
-} from '.';
+} from './audit-trail.constants';
+import { formatAuditAmount } from './audit-trail.filters';
 
 interface KvRow {
   key: string;
@@ -46,7 +47,7 @@ function formatTime(ts?: number): string {
  * 区块：Basic Information（kv 10）+ Audit Logs（logList Timeline，每项 9 kv grid +
  * requestData/responseData JSON <pre>）+ Back。
  *
- * 路由：/audit-trail/view?id=traceId（dispatcher slug[0]=view → detail）。
+ * 路由：/accounting/audit-trail/view?id=traceId（dispatcher slug[0]=view → detail）。
  */
 export function AuditTrailDetailPage() {
   const t = useTranslations('modules.audit-trail');
@@ -54,76 +55,66 @@ export function AuditTrailDetailPage() {
   const searchParams = useSearchParams();
   const traceId = searchParams.get('id') ?? '';
 
-  const { data: detail, isLoading } = useAuditTrailDetailQuery(
+  const { data: detail, isLoading, isError } = useAuditTrailDetailQuery(
     traceId || undefined,
   );
 
   if (!traceId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.back()}
-        >
-          {t('action.back')}
-        </Button>
+      <div className="space-y-4">
+        <PageHeader title={t('detail.title')} backLabel={t('action.back')} onBack={() => router.back()} />
+        <Card className="p-6"><p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p></Card>
       </div>
     );
   }
 
   if (isLoading || !detail) {
     return (
-      <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground shadow-sm">
-        {isLoading ? '' : t('empty')}
+      <div className="space-y-4">
+        <PageHeader title={t('detail.title')} backLabel={t('action.back')} onBack={() => router.back()} />
+        <Card className="p-6 text-sm text-muted-foreground">{isLoading ? '' : t(isError ? 'loadFailed' : 'empty')}</Card>
       </div>
     );
   }
 
   const txTypeKey = resolveTxTypeMessageKey(detail.txType);
   const tokenTypeKey = resolveTokenTypeMessageKey(detail.tokenType);
+  const txType = txTypeKey && t.has(txTypeKey) ? t(txTypeKey) : detail.txType;
 
   const basicRows: KvRow[] = [
     {
       key: 'traceId',
       label: t('field.traceId'),
-      value: <CopyableEllipsisText value={detail.traceId ?? ''} />,
+      value: <CopyableEllipsisText value={detail.traceId ?? ''} showCopyIcon />,
     },
     {
       key: 'txType',
       label: t('field.txType'),
-      value: <span>{txTypeKey ? t(txTypeKey) : EMPTY_DISPLAY}</span>,
+      value: <span>{txType ?? EMPTY_DISPLAY}</span>,
     },
     {
       key: 'txFrom',
       label: t('field.txFrom'),
-      value: <CopyableEllipsisText value={detail.txFrom ?? ''} />,
+      value: <CopyableEllipsisText value={detail.txFrom ?? ''} showCopyIcon />,
     },
     {
       key: 'txTo',
       label: t('field.txTo'),
-      value: <CopyableEllipsisText value={detail.txTo ?? ''} />,
+      value: <CopyableEllipsisText value={detail.txTo ?? ''} showCopyIcon />,
     },
     {
       key: 'txAmount',
       label: t('field.txAmount'),
-      value: (
-        <span>
-          {detail.txAmount != null
-            ? `${detail.txAmount} ${detail.symbol ?? ''}`.trim()
-            : EMPTY_DISPLAY}
-        </span>
-      ),
+      value: formatAuditAmount(detail.txAmount, detail.symbol),
     },
     {
       key: 'tokenName',
-      label: t('field.tokenName'),
+      label: t('field.tokenNameAndType'),
       value: (
         <span>
           {detail.tokenName
             ? `${detail.tokenName}${
-                tokenTypeKey ? ` (${t(tokenTypeKey)})` : ''
+                tokenTypeKey && t.has(tokenTypeKey) ? ` (${t(tokenTypeKey)})` : ''
               }`
             : EMPTY_DISPLAY}
         </span>
@@ -147,7 +138,7 @@ export function AuditTrailDetailPage() {
     {
       key: 'txHash',
       label: t('field.txHash'),
-      value: <CopyableEllipsisText value={detail.txHash ?? ''} />,
+      value: <CopyableEllipsisText value={detail.txHash ?? ''} showCopyIcon />,
     },
   ];
 
@@ -155,10 +146,9 @@ export function AuditTrailDetailPage() {
 
   return (
     <div className="space-y-4">
-      {/* Basic Information */}
-      <section className="rounded-lg border bg-card shadow-sm">
-        <div className="border-b px-6 py-3 text-sm font-semibold">
-          {t('detail.basicInformation')}
+      <Card>
+        <div className="border-b px-6 py-3">
+          <PageHeader title={txType != null ? t('detail.typeTitle', { type: txType }) : t('detail.title')} backLabel={t('action.back')} onBack={() => router.back()} />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full table-fixed border-collapse text-sm">
@@ -174,10 +164,10 @@ export function AuditTrailDetailPage() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
 
       {/* Audit Logs Timeline */}
-      <section className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">
           {t('detail.auditLogs')}
         </div>
@@ -194,13 +184,7 @@ export function AuditTrailDetailPage() {
             <p className="text-sm text-muted-foreground">{t('empty')}</p>
           )}
         </div>
-      </section>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -266,7 +250,7 @@ function AuditLogCard({
     {
       key: 'processingStatus',
       label: t('field.processingStatus'),
-      value: <span>{statusKey ? t(statusKey) : EMPTY_DISPLAY}</span>,
+      value: <span>{statusKey && t.has(statusKey) ? t(statusKey) : (log.processingStatus ?? EMPTY_DISPLAY)}</span>,
     },
   ];
 

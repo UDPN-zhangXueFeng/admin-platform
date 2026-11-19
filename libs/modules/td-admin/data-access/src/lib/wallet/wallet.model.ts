@@ -59,6 +59,9 @@ export interface TokenTypeOption {
   key?: number | string;
   value?: string;
   label?: string;
+  tokenTypeId?: number;
+  tokenTypeName?: string;
+  status?: number;
   [k: string]: unknown;
 }
 
@@ -81,14 +84,13 @@ export interface OperationalWallet extends WalletRow {
 }
 
 export interface OperationalWalletFilters {
-  stablecoinId?: number;
-  blockchainKey?: string | number;
-  accountType?: number;
-  feeType?: number;
-  state?: number;
+  tokenId?: number | string;
+  blockchainId?: number | string;
+  accountType?: string;
+  state?: string;
   walletAddress?: string;
-  startCreateTime?: number | string;
-  endCreateTime?: number | string;
+  startCreateTime?: number | '';
+  endCreateTime?: number | '';
 }
 
 export interface OperationalWalletDetail {
@@ -104,6 +106,7 @@ export interface OperationalWalletDetail {
 }
 
 export interface OperationalTx extends WalletRow {
+  ruleRecordId?: number | string;
   txFrom?: string;
   txTo?: string;
   blockchainName?: string;
@@ -116,6 +119,7 @@ export interface OperationalTx extends WalletRow {
 }
 
 export interface OperationalOpRecord extends WalletRow {
+  ruleRecordId?: number | string;
   operateType?: number;
   oldWalletAddress?: string;
   walletAddress?: string;
@@ -144,6 +148,8 @@ export interface UserWallet extends WalletRow {
   walletType?: string;
   stablecoinCount?: string | number;
   symbol?: string;
+  usableCount?: string | number;
+  freezeCount?: string | number;
   state?: number;
   walletState?: number;
   createTime?: number | string;
@@ -157,11 +163,31 @@ export interface UserWallet extends WalletRow {
 
 export interface UserWalletFilters {
   stablecoinId?: number;
-  blockchainKey?: string | number;
+  blockchainId?: string | number;
   tokenType?: number;
   walletAddress?: string;
   state?: number;
   walletType?: string;
+  spName?: string;
+  startCreateTime?: number;
+  endCreateTime?: number;
+  custodyModel?: number;
+  kycRequired?: number;
+  submissionPolicyStatic?: string;
+}
+
+export interface UserWalletRecordFilters {
+  operationType?: number;
+  accrualTimeStart?: number;
+  accrualTimeEnd?: number;
+  feeType?: number;
+  payableTimeStart?: number;
+  payableTimeEnd?: number;
+  authorizedAddress?: string;
+  operationStartTime?: number;
+  operationEndTime?: number;
+  status?: number;
+  txHash?: string;
 }
 
 export interface UserWalletDetail {
@@ -277,7 +303,7 @@ export interface WalletTypeCard extends WalletRow {
   createUser?: string;
   createTime?: number | string;
   state?: number;
-  operate?: number;
+  operate?: boolean;
   fundType?: number;
   riskLevel?: number;
   fundAssetValue?: string | number;
@@ -340,6 +366,7 @@ export interface WalletTypeDetail {
   arrangedInterestRate?: string | number;
   arrangedInterestEffectiveDate?: number | string;
   arrangedCalculateType?: number;
+  arrangedAnnualInterestRates?: InterestRateTier[];
   arrangedInterestAccrualApplicationTime?: number | string;
   arrangedOverdraftAmount?: string | number;
   overdraftBufferAmount?: string | number;
@@ -460,7 +487,7 @@ export interface ChangeWalletTypePayload {
 
 export interface UpdateWalletTypeStatePayload {
   ruleId: number;
-  walletState: 3 | 4; // 3=禁用，4=启用
+  walletState: 3 | 4; // 3=启用，4=禁用
 }
 
 export interface EarningsSendPayload {

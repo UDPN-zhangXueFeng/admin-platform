@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ArrowRightCircle } from 'lucide-react';
-import { Button, CopyableEllipsisText } from '@myorg/shared/ui';
+import { PageHeader, CopyableEllipsisText, Timeline, type TimelineItem } from '@myorg/shared/ui';
 import {
   useCrossChainTxDetailQuery,
   useCrossChainTxTreeQuery,
@@ -61,7 +61,6 @@ function BlockchainCodeChip({
  *   35=success 详细（含 txHash 外链 browserUrl + 'tx/' + txHash + 色块 blockShortName + transactionId/tokenCount）、
  *   20·30=空、40=error 简略（仅状态文案）。完整搬运源码时序，勿简化。
  * - current：自动定位首个非成功节点（txStatus∈{20,30,40}）。
- * - isErrorStatus：检测任一节点 txStatus===40 → Steps status='error'。
  */
 export function CrossChainTransactionsDetailPage(): React.JSX.Element {
   const t = useTranslations('modules.cross-chain');
@@ -69,7 +68,9 @@ export function CrossChainTransactionsDetailPage(): React.JSX.Element {
   const router = useRouter();
 
   const searchParams = useSearchParams();
-  const transferIdStr = searchParams.get('transferId') ?? '';
+  // 列表 / 流动性池详情跳转用 `transferId`；兼容旧深链 `?id=`（源码 view.tsx:25,30 读 query.id）。
+  const transferIdStr =
+    searchParams.get('transferId') ?? searchParams.get('id') ?? '';
   const transferId =
     transferIdStr !== '' ? Number(transferIdStr) : undefined;
   const hasTransferId = transferId != null && !Number.isNaN(transferId);
@@ -79,20 +80,29 @@ export function CrossChainTransactionsDetailPage(): React.JSX.Element {
   const detail = detailResult.data;
   const nodes = treeResult.data ?? [];
 
-  // current：首个非成功节点（txStatus∈{20,30,40}）；全部成功则定位到末尾。
-  // isErrorStatus：任一节点 txStatus===40。
-  const { current, isErrorStatus } = React.useMemo(() => {
-    const errorIdx = nodes.findIndex(
-      (el) => el.txStatus === 40,
-    );
+  // current：首个非成功节点（txStatus∈{20,30,40}）；全部成功则定位到节点之后。
+  const current = React.useMemo(() => {
     const stepIdx = nodes.findIndex(
       (el) => el.txStatus === 20 || el.txStatus === 30 || el.txStatus === 40,
     );
-    return {
-      current: stepIdx === -1 ? nodes.length : stepIdx,
-      isErrorStatus: errorIdx > -1,
-    };
+    return stepIdx === -1 ? nodes.length : stepIdx;
   }, [nodes]);
+
+  const timelineItems: TimelineItem[] = nodes.map((el, index) => {
+    const isSuccess = el.txStatus === 35;
+    const isError = el.txStatus === 40;
+    const status = isError ? 'error' : isSuccess ? 'complete' : index === current ? 'current' : 'upcoming';
+    return {
+      key: index,
+      title: t(`cross_chain_transactions_log_title_${index}`),
+      description: renderDescription({
+        node: el, index, isEmpty: el.txStatus === 20 || el.txStatus === 30,
+        isSuccess, isError, t, tCommon,
+        statusKey: `cross_chain_transactions_status_${el.txStatus ?? ''}`,
+      }),
+      status,
+    };
+  });
 
   // ── 顶部信息区 8 字段（源码 items useMemo）──
   const infoItems = React.useMemo(() => {
@@ -223,6 +233,7 @@ export function CrossChainTransactionsDetailPage(): React.JSX.Element {
     <div className="space-y-4">
       {/* 顶部信息区 */}
       <div className="bg-card p-4 shadow-sm">
+        <PageHeader className="mb-4" backLabel={t('action.back')} onBack={() => router.back()} title={t('cross_chain_0093')} />
         <div className="mb-4">{t('cross_chain_00102')}</div>
         <div className="mb-4 rounded-md border border-solid border-slate-200 p-4">
           {infoItems.map((item, key) => (
@@ -238,100 +249,14 @@ export function CrossChainTransactionsDetailPage(): React.JSX.Element {
       <div className="mt-4 bg-card p-4 shadow-sm">
         <div className="mb-4">{t('cross_chain_00103')}</div>
         <div className="mb-4 rounded-md border border-solid border-slate-200 p-4">
-          <ol className="space-y-8">
-            {nodes.map((el, index) => (
-              <StepItem
-                key={index}
-                node={el}
-                index={index}
-                isErrorStatus={isErrorStatus}
-                current={current}
-              />
-            ))}
-          </ol>
+          <Timeline items={timelineItems} ariaLabel={t('cross_chain_00103')} />
         </div>
       </div>
 
-      <div className="flex justify-center">
-        <Button onClick={() => router.back()}>{t('action.back')}</Button>
-      </div>
     </div>
   );
 }
 
-/**
- * 单个时间线节点（按 index 0/1/2/3+ 分支渲染）。
- *
- * 完整搬运源码 view.tsx transactionLog useMemo 的分支结构：
- * - index===0：35=详细（状态 + transactionId copyable + tokenCount/tokenSymbol/方向文案 +
- *   txHash 外链 browserUrl+'tx/'+txHash + 色块 blockShortName + txTime）；20·30=空；40=仅状态。
- * - index===1：35=状态+txTime；20·30=空；40=状态+txTime。
- * - index===2：35=状态+remarks+txTime；20·30=空；40=仅状态。
- * - index===3：35=状态+txHash 外链+色块+txTime；20·30=空；40=仅状态。
- * - index>=4：35=状态+tokenCount/tokenSymbol（方向相反文案）+txHash 外链+色块+txTime；
- *   20·30=空；40=仅状态。
- *
- * current/isErrorStatus 仅用于节点圆点高亮态（对齐 antd Steps current/status）。
- */
-function StepItem({
-  node,
-  index,
-  isErrorStatus,
-  current,
-}: {
-  node: TransactionTreeNode;
-  index: number;
-  isErrorStatus: boolean;
-  current: number;
-}): React.JSX.Element {
-  const t = useTranslations('modules.cross-chain');
-  const tCommon = useTranslations('common');
-
-  const isActive = index === current;
-  const isError = node.txStatus === 40;
-  const isSuccess = node.txStatus === 35;
-  const isEmpty = node.txStatus === 20 || node.txStatus === 30;
-
-  // 圆点态：error 红 / success 绿 / 当前 process 蓝 / 其余灰。
-  const dotClass = isError
-    ? 'border-red-500 bg-red-500'
-    : isSuccess
-      ? 'border-green-500 bg-green-500'
-      : isActive && !isErrorStatus
-        ? 'border-primary bg-primary'
-        : 'border-muted-foreground/40 bg-muted-foreground/40';
-
-  const statusKey = `cross_chain_transactions_status_${node.txStatus ?? ''}`;
-
-  return (
-    <li className="relative flex gap-4">
-      {/* 圆点 + 连接线 */}
-      <div className="flex flex-col items-center">
-        <span
-          className={`mt-1 h-3 w-3 shrink-0 rounded-full border-2 ${dotClass}`}
-        />
-      </div>
-      {/* 内容 */}
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium">
-          {t(`cross_chain_transactions_log_title_${index}`)}
-        </div>
-        <div className="mt-1 space-y-1 text-sm text-muted-foreground">
-          {renderDescription({
-            node,
-            index,
-            isEmpty,
-            isSuccess,
-            isError,
-            t,
-            tCommon,
-            statusKey,
-          })}
-        </div>
-      </div>
-    </li>
-  );
-}
 
 /** 按分支渲染节点描述（完整搬运源码逻辑，保持 index 0/1/2/3/>=4 各自结构）。 */
 function renderDescription(args: {
@@ -516,11 +441,11 @@ function TxHashLink({
   );
 }
 
-/** 带「・」前缀的描述行（对齐源码 `<span className="text-2xl">・</span>`）。 */
+/** 带圆点前缀的描述行。 */
 function BulletRow({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
     <div className="flex items-start">
-      <span className="mr-1 text-lg leading-none">・</span>
+      <span aria-hidden="true" className="mt-[7px] mr-2 size-1 shrink-0 rounded-full bg-muted-foreground/50" />
       <span className="min-w-0">{children}</span>
     </div>
   );

@@ -3,8 +3,9 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-
-import { Button } from '@myorg/shared/ui';
+import { ChevronDown } from 'lucide-react';
+import { formatAdminTimestamp } from '../format-admin-time';
+import { Button, Card, PageHeader } from '@myorg/shared/ui';
 
 import {
   useApprovedDetailQuery,
@@ -18,10 +19,28 @@ import {
 } from '@myorg/shared/ui';
 import {
   BusCodeDispatcher,
+  resolveApprovalComponent,
   type ApprovalComponentRegistry,
 } from '.';
 import { ApprovalManageOperationPanel } from './approval-manage-operation-panel';
 import { ApprovalManageApprovalLog } from './approval-manage-approval-log';
+
+function resolveApprovalBusinessLabel(busCode: string): string {
+  const normalized = busCode.trim().toLowerCase();
+  if (!resolveApprovalComponent(normalized)) return 'Approval Detail';
+  if (normalized.startsWith('fin_coa_')) return 'Chart of Accounts';
+  if (normalized.includes('posting')) return 'Posting Rule';
+  if (normalized.includes('normalization')) return 'Event Normalization';
+  if (normalized.includes('suspense') && normalized.includes('adjust')) {
+    return 'Suspense Adjustment';
+  }
+  const words = normalized
+    .replace(/^(td_|sp_|save_|update_|activate_|deactivate_|approve_|apply_)/, '')
+    .split('_')
+    .filter(Boolean);
+  if (words.length === 0) return 'Approval Detail';
+  return words.map((word) => word[0].toUpperCase() + word.slice(1)).join(' ');
+}
 
 // ── 6 子域审核组件（T6-T11）──────────────────────────────────────────────────
 // 按 util BUS_CODE_MAP / FINANCIAL_FUZZY_MATCHERS 的 ApprovalComponentKey 装配注册表。
@@ -69,8 +88,8 @@ import {
  * `src/pages/approval-manage/view.tsx`，1074 行的 dispatcher 核心）。
  *
  * 读 URL `?id={taskId}&busCode={businessCode}`（reserveAsset 另读 `?opType=`），
- * 调 approvedDetailApi + taskApprovedDetailApi，派生四套 status + selectType，
- * 左侧 <BusCodeDispatcher> 按 busCode 渲染对应审核组件，右侧审批操作区占位（T12）。
+ * 调 approvedDetailApi + taskApprovedDetailApi，派生四套 status + selectType。
+ * 页面采用页头任务摘要 + 主区业务信息 + sticky 操作栏/日志的重设计布局。
  *
  * **路由解析**：列表行 View 跳 `/approval-manage/view?id=&busCode=`，catch-all 路由
  * realSlug[0]='view' → pageKey='detail'（见 apps/admin [module]/[[...slug]]/page.tsx），
@@ -94,11 +113,10 @@ import {
  * 挂回 `businessContent.selectType`（供 ServiceProvider/WalletType 审核组件回填勾选项）。
  *
  * **hasData 骨架（源 view.tsx:138-140）**：源用 setTimeout(300ms) 控制 hasData，
- * 骨架期渲染空。迁移保留 300ms 延迟语义（detail 数据加载完 + 300ms 后才渲染，
- * 避免 status 派生/组件挂载时序导致的闪烁）。
+ * 目标保留 300ms 延迟语义，并在接口错误/空数据时明确呈现错误或空态，避免页面空白。
  *
- * **右侧审批操作区（占位）**：T12 实现（approve/remarks 表单 + MetaMask + 退回 Modal +
- * 升级 Drawer + Steps 日志）。此处渲染占位卡片。
+ * **右侧审批操作区**：approveButtonDTO.approveType===1 时渲染通过/驳回、MetaMask、
+ * 退回和升级；否则显示无操作提示。审批日志始终保留 Steps 语义。
  */
 
 /** selectType 派生触发的 busCode 集合（源 view.tsx:163-167）。 */
@@ -302,76 +320,148 @@ export function ApprovalManageDetailPage() {
   // ── 渲染 ──────────────────────────────────────────────────────────────────
   if (!taskId || !busCode) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">
+      <Card className="p-6">
+        <p className="text-sm text-muted-foreground" role="alert">
           {t('detail.invalidId')}
         </p>
-      </div>
+      </Card>
+    );
+  }
+
+  if (detailQuery.isError) {
+    return (
+      <Card className="space-y-3 p-6">
+        <p className="text-sm text-destructive" role="alert">
+          {detailQuery.error instanceof Error
+            ? detailQuery.error.message
+            : 'Unable to load approval details.'}
+        </p>
+        <Button type="button" variant="outline" onClick={() => void detailQuery.refetch()}>
+          Retry
+        </Button>
+      </Card>
     );
   }
 
   // 源 view.tsx:508 `{hasData ? <>主体</> : null}`：数据未就绪或 300ms 骨架期渲染 loading。
   if (!hasData) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Card className="p-6">
         <p className="text-sm text-muted-foreground">{t('detail.loading')}</p>
-      </div>
+      </Card>
     );
   }
 
+  const businessName =
+    typeof detailInfo?.businessName === 'string' && detailInfo.businessName.trim()
+      ? detailInfo.businessName
+      : typeof logQuery.data?.taskCreateInfo?.businessName === 'string' &&
+          logQuery.data.taskCreateInfo.businessName.trim()
+        ? logQuery.data.taskCreateInfo.businessName
+        : resolveApprovalBusinessLabel(busCode);
+  const creator = String(
+    detailInfo?.createUserName ?? logQuery.data?.taskCreateInfo?.createUserName ?? '--',
+  );
+  const createTime = detailInfo?.createTime ?? logQuery.data?.taskCreateInfo?.createTime;
+  const createdAt =
+    typeof createTime === 'number' || typeof createTime === 'string'
+      ? formatAdminTimestamp(createTime)
+      : '--';
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:justify-between">
-        {/* 左侧：业务审核组件（dispatcher 按 busCode 分发） */}
-        <div className="w-full rounded-lg bg-card p-4 shadow-sm lg:w-[49%]">
-          <BusCodeDispatcher
-            busCode={busCode}
-            components={COMPONENT_REGISTRY}
-            detailInfo={detailInfo}
-            approvalInfo={approvedDetail}
-            taskInfo={logQuery.data}
-            approvalStatus={status}
-            opType={opType}
-          />
-        </div>
+      {/* 重设计：页头摘要 + 主区业务信息 + sticky 操作栏/日志，避免旧版 49% 双栏拥挤。 */}
+      <Card className="p-5">
+        <PageHeader
+          backLabel={t('detail.back')}
+          onBack={() => window.history.back()}
+          eyebrow="Workflow task"
+          title={businessName}
+          description={`${busCode} · Task #${taskId}`}
+          actions={
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              <div>
+                <span className="block text-xs text-muted-foreground">Created by</span>
+                <span>{creator}</span>
+              </div>
+              <div>
+                <span className="block text-xs text-muted-foreground">Created at</span>
+                <span>{createdAt}</span>
+              </div>
+            </div>
+          }
+        />
+      </Card>
 
-        {/* 右侧：审批操作区（approveType===1 时渲染操作面板）+ Steps 审批日志（始终）。
-            源 view.tsx:650-793：approveButtonDTO.approveType===1 显示操作区，
-            Collapse 审批日志（taskApprovedSteps）始终显示。 */}
-        <div className="w-full space-y-4 rounded-lg bg-card p-4 shadow-sm lg:w-[49%]">
-          {approvedDetail?.approveButtonDTO?.approveType === 1 ? (
-            <ApprovalManageOperationPanel
-              approvedDetail={approvedDetail}
-              taskId={taskId}
+      {detailQuery.data == null ? (
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground" role="status">
+            Approval details are empty for this task. Check the task id, bus code, or backend data.
+          </p>
+        </Card>
+      ) : (
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,28rem)]">
+          <Card className="min-w-0 p-4">
+            <BusCodeDispatcher
               busCode={busCode}
-              onSuccess={() => {
-                // mutation 成功已 invalidate(approvalManageKeys.all)，自动重取详情+日志。
-                // 此处无需手动 refetch（同源 getApprovedDetail/getTaskApprovedDetail 由
-                // query invalidation 触发）。
-              }}
-              onBack={() => window.history.back()}
+              components={COMPONENT_REGISTRY}
+              detailInfo={detailInfo}
+              approvalInfo={approvedDetail}
+              taskInfo={logQuery.data}
+              approvalStatus={status}
+              opType={opType}
             />
-          ) : null}
+          </Card>
 
-          <Collapsible defaultOpen>
-            <CollapsibleTrigger className="flex w-full items-center justify-between py-2 text-sm font-semibold">
-              <span>{t('approval_manage_0008')}</span>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <ApprovalManageApprovalLog
-                taskInfo={logQuery.data}
-                status={status}
-              />
-            </CollapsibleContent>
-          </Collapsible>
+          <aside className="space-y-4 lg:sticky lg:top-4">
+            <Card className="p-4">
+              {approvedDetail?.approveButtonDTO?.approveType === 1 ? (
+                <ApprovalManageOperationPanel
+                  approvedDetail={approvedDetail}
+                  taskId={taskId}
+                  busCode={busCode}
+                  onSuccess={() => {
+                    // Mutations invalidate approvalManageKeys and refresh detail/log queries.
+                  }}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground" role="status">
+                  No approval actions are available for this task.
+                </p>
+              )}
+            </Card>
+
+            <Card className="p-4">
+              <Collapsible defaultOpen>
+                <CollapsibleTrigger className="group flex w-full items-center justify-between py-2 text-sm font-semibold">
+                  <span>{t('approval_manage_0008')}</span>
+                  <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3">
+                  {logQuery.isError ? (
+                    <div className="space-y-3" role="alert">
+                      <p className="text-sm text-destructive">
+                        {logQuery.error instanceof Error
+                          ? logQuery.error.message
+                          : 'Unable to load workflow log.'}
+                      </p>
+                      <Button type="button" variant="outline" onClick={() => void logQuery.refetch()}>
+                        Retry
+                      </Button>
+                    </div>
+                  ) : (
+                    <ApprovalManageApprovalLog
+                      taskInfo={logQuery.data}
+                      status={status}
+                      busCode={busCode}
+                    />
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+          </aside>
         </div>
-      </div>
-
-      <div className="mt-6 flex justify-center">
-        <Button variant="default" onClick={() => window.history.back()}>
-          {t('detail.back')}
-        </Button>
-      </div>
+      )}
     </div>
   );
 }

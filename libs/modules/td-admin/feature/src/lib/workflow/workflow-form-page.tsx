@@ -12,6 +12,7 @@ import {
 
 import {
   Button,
+  Card,
   Input,
   RadioGroup,
   RadioGroupItem,
@@ -376,7 +377,7 @@ export function WorkflowFormPage() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {/* 基础信息区 */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-6 text-base font-semibold">
           {isEdit ? t('edit.title') : t('create.title')}
         </div>
@@ -423,10 +424,10 @@ export function WorkflowFormPage() {
             <p className="text-xs text-theme">{t('business.hint')}</p>
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* 审批节点区 */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">{t('process.title')}</div>
 
         {/* 表头 */}
@@ -648,10 +649,10 @@ export function WorkflowFormPage() {
           <Plus className="mr-1 h-4 w-4" />
           {t('action.add')}
         </Button>
-      </section>
+      </Card>
 
       {/* 三项配置开关 */}
-      <section className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+      <Card className="p-6">
         <div className="mb-4 text-sm font-semibold">{t('config.title')}</div>
         <div className="space-y-6">
           <SwitchRow
@@ -676,7 +677,7 @@ export function WorkflowFormPage() {
             name="escalationType"
           />
         </div>
-      </section>
+      </Card>
 
       <div className="flex justify-end gap-3">
         <Button

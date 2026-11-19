@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { useTranslations } from 'next-intl';
-import { Button, DataTable } from '@myorg/shared/ui';
+import { Button, Card, DataTable } from '@myorg/shared/ui';
 import { formatAdminDateTime, formatDate } from '@myorg/shared/util-dates';
 import {
   useMMFSummaryQuery,
@@ -180,7 +180,7 @@ export function Summary({ tokenCode }: SummaryProps): React.JSX.Element {
   );
 
   return (
-    <div className="rounded-lg border bg-card shadow-sm">
+    <Card>
       {/* 标题行：tokenized_deposit_0158 + 副标题 */}
       <div className="flex items-center justify-between border-b px-6 py-3">
         <div className="flex items-center gap-2">
@@ -222,6 +222,6 @@ export function Summary({ tokenCode }: SummaryProps): React.JSX.Element {
           }}
         />
       </div>
-    </div>
+    </Card>
   );
 }

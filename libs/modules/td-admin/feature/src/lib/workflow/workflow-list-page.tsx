@@ -6,8 +6,9 @@ import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
-import { Button, DataTable, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@myorg/shared/ui';
-import { FormDatePicker } from '@myorg/shared/ui-forms';
+import { Button, Card, DataTable, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cardSurfaceClass, useToast } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
+import { FormDateRangePicker } from '@myorg/shared/ui-forms';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 
@@ -269,7 +270,7 @@ export function WorkflowListPage() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+        className={cn(cardSurfaceClass, 'p-6')}
       >
         <div className="mb-4 text-sm font-semibold">{t('query')}</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -320,21 +321,13 @@ export function WorkflowListPage() {
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium">{t('field.createdDate')}</label>
-            <div className="flex items-center gap-2">
-              <FormDatePicker
-                name="beginDate"
-                control={control}
-                label={t('field.createdDate')}
-                hideLabel
-              />
-              <span className="text-muted-foreground">—</span>
-              <FormDatePicker
-                name="endDate"
-                control={control}
-                label={t('field.createdDate')}
-                hideLabel
-              />
-            </div>
+            <FormDateRangePicker
+              startName="beginDate"
+              endName="endDate"
+              control={control}
+              label={t('field.createdDate')}
+              hideLabel
+            />
           </div>
         </div>
         <div className="mt-4 flex gap-2">
@@ -345,7 +338,7 @@ export function WorkflowListPage() {
         </div>
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
+      <Card>
         <div className="flex items-center justify-between border-b px-6 py-3">
           <div className="text-sm font-semibold">{t('records')}</div>
           <PermissionGuard permission={WORKFLOW_PERMISSIONS.add}>
@@ -382,7 +375,7 @@ export function WorkflowListPage() {
               : undefined
           }
         />
-      </div>
+      </Card>
     </div>
   );
 }

@@ -39,14 +39,15 @@ import { useTranslations } from 'next-intl';
 import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
-import { Alert, Button, DataTable, Input } from '@myorg/shared/ui';
-import { FormSelect } from '@myorg/shared/ui-forms';
+import { Alert, Button, Card, CopyableEllipsisText, DataTable, Input } from '@myorg/shared/ui';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
   useUserWalletsQuery,
   type UserWalletItem,
 } from '@myorg/modules/td-admin/data-access';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { walletStatusMap, kycConfig } from '.';
 
 
@@ -209,7 +210,15 @@ export function UserWalletsListPage() {
       {
         accessorKey: 'walletAddress',
         header: t('key_management_0076'),
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        meta: { overflow: 'none' },
+        cell: ({ getValue }) => (
+          <CopyableEllipsisText
+            value={getValue() as string}
+            showCopyIcon
+            copyLabel={t('KP_Copy')}
+            maxWidth={220}
+          />
+        ),
       },
       {
         accessorKey: 'spName',
@@ -274,66 +283,68 @@ export function UserWalletsListPage() {
   return (
     <div className="space-y-6">
       {/* Query form — filters apply client-side over the full server dataset. */}
-      <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
-        <form onSubmit={handleSubmit(onApply)} noValidate>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div>
+      <form onSubmit={handleSubmit(onApply)} noValidate>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <div key="wallet-address" className="space-y-1.5">
               <label className="text-sm font-medium">{t('key_management_0076')}</label>
               <Input placeholder={t('key_management_0076')} {...register('walletAddress')} />
-            </div>
-            <div>
+            </div>,
+            <div key="sp-name" className="space-y-1.5">
               <label className="text-sm font-medium">{t('key_management_0095')}</label>
               <Input placeholder={t('key_management_0149')} {...register('spName')} />
-            </div>
+            </div>,
             <FormSelect
+              key="td-name"
               name="tdName"
               control={control}
               label={t('key_management_0096')}
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...tokenNameOptions]}
               placeholder={t('PUB_All')}
-            />
+            />,
+          ]}
+          advancedFields={[
             <FormSelect
+              key="token-type"
               name="tokenType"
               control={control}
               label={t('key_management_0097')}
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...tokenTypeOptions]}
               placeholder={t('PUB_All')}
-            />
+            />,
             <FormSelect
+              key="blockchain-id"
               name="blockchainId"
               control={control}
               label={t('key_management_0063')}
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...blockchainOptions]}
               placeholder={t('PUB_All')}
-            />
-            <div>
-              <label className="text-sm font-medium">{t('key_management_0107')}</label>
-              <div className="flex items-center gap-2">
-                <Input type="date" {...register('startCreationDate')} />
-                <span className="text-muted-foreground">-</span>
-                <Input type="date" {...register('endCreationDate')} />
-              </div>
-            </div>
+            />,
+            <FormDateRangePicker
+              key="creation-date"
+              startName="startCreationDate"
+              endName="endCreationDate"
+              control={control}
+              label={t('key_management_0107')}
+            />,
             <FormSelect
+              key="status"
               name="status"
               control={control}
               label={t('key_management_0003')}
               options={[{ label: t('PUB_All'), value: ALL_VALUE }, ...statusOptions]}
               placeholder={t('PUB_All')}
-            />
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={handleReset}>
-              {t('PUB_Reset')}
-            </Button>
-            <Button type="submit">{t('PUB_Query')}</Button>
-          </div>
-        </form>
-      </div>
+            />,
+          ]}
+          onReset={handleReset}
+          queryLabel={t('PUB_Query')}
+          resetLabel={t('PUB_Reset')}
+        />
+      </form>
 
       {/* Table */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">{t('key_management_0093')}</h3>
         </div>
@@ -365,7 +376,7 @@ export function UserWalletsListPage() {
             onPageSizeChange: (size) => setPage({ pageNum: 1, pageSize: size }),
           }}
         />
-      </div>
+      </Card>
     </div>
   );
 }

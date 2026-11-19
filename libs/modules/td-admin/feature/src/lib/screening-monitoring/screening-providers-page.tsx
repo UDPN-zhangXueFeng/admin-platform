@@ -3,12 +3,12 @@ import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 
 const PROVIDERS = [
-  { img: '/stablecoin/images/screen1.png', name: 'Chainalysis', href: 'https://www.chainalysis.com/', features: ['screening_providers_0003','screening_providers_0004','screening_providers_0005','screening_providers_0006','screening_providers_0007'], tag: 'KYA / KYT' },
-  { img: '/stablecoin/images/screen2.svg', name: 'Elliptic', href: 'https://www.elliptic.co/', features: ['screening_providers_0008','screening_providers_0009','screening_providers_0010','screening_providers_0011'], tag: 'KYA / KYT' },
-  { img: '/stablecoin/images/screen3.svg', name: 'MistTrack', href: 'https://misttrack.io/', features: ['screening_providers_0012','screening_providers_0013','screening_providers_0014','screening_providers_0015'], tag: 'KYA / KYT' },
-  { img: '/stablecoin/images/screen4.svg', name: 'LexisNexis Risk Solutions', href: 'https://risk.lexisnexis.com/', features: ['screening_providers_0017','screening_providers_0018','screening_providers_0019','screening_providers_0020','screening_providers_0021'], tag: 'AML / CFT' },
-  { img: '/stablecoin/images/screen5.svg', name: 'Oracle', href: 'https://www.oracle.com/financial-services/aml-financial-crime-compliance/', features: ['screening_providers_0022','screening_providers_0023','screening_providers_0024','screening_providers_0025'], tag: 'AML / CFT' },
-  { img: '/stablecoin/images/screen6.svg', name: 'SAS', href: 'https://www.sas.com/en_us/solutions/fraud-security-intelligence/solutions/aml-cft-compliance.html', features: ['screening_providers_0026','screening_providers_0027','screening_providers_0028','screening_providers_0029','screening_providers_0030'], tag: 'AML / CFT' },
+  { img: '/stablecoin/images/screen1.png', name: 'Chainalysis', href: 'https://www.chainalysis.com/', features: ['screening_providers_0003','screening_providers_0004','screening_providers_0005','screening_providers_0006','screening_providers_0007'], tag: 'KYA / KYT', imageHeight: 120 },
+  { img: '/stablecoin/images/screen2.svg', name: 'Elliptic', href: 'https://www.elliptic.co/', features: ['screening_providers_0008','screening_providers_0009','screening_providers_0010','screening_providers_0011'], tag: 'KYA / KYT', imageHeight: 120 },
+  { img: '/stablecoin/images/screen3.svg', name: 'MistTrack', href: 'https://misttrack.io/', features: ['screening_providers_0012','screening_providers_0013','screening_providers_0014','screening_providers_0015'], tag: 'KYA / KYT', imageHeight: 120 },
+  { img: '/stablecoin/images/screen4.svg', name: 'LexisNexis Risk Solutions', href: 'https://risk.lexisnexis.com/', features: ['screening_providers_0017','screening_providers_0018','screening_providers_0019','screening_providers_0020','screening_providers_0021'], tag: 'AML / CFT', imageHeight: 120 },
+  { img: '/stablecoin/images/screen5.svg', name: 'Oracle', href: 'https://www.oracle.com/financial-services/aml-financial-crime-compliance/', features: ['screening_providers_0022','screening_providers_0023','screening_providers_0024','screening_providers_0025'], tag: 'AML / CFT', imageHeight: 120 },
+  { img: '/stablecoin/images/screen6.svg', name: 'SAS', href: 'https://www.sas.com/en_us/solutions/fraud-security-intelligence/solutions/aml-cft-compliance.html', features: ['screening_providers_0026','screening_providers_0027','screening_providers_0028','screening_providers_0029','screening_providers_0030'], tag: 'AML / CFT', imageHeight: 70 },
 ];
 
 export function ScreeningProvidersPage() {
@@ -23,8 +23,8 @@ export function ScreeningProvidersPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
           {PROVIDERS.map((p) => (
             <div key={p.name} className="bg-white rounded-lg shadow-lg p-8">
-              <div className="flex items-center mb-6">
-                <Image src={p.img} alt={p.name} width={300} height={120} className="mr-3 object-contain" />
+              <div className={`flex items-center mb-6${p.imageHeight === 70 ? ' h-[120px]' : ''}`}>
+                <Image src={p.img} alt={p.name} width={300} height={p.imageHeight} className="mr-3 object-contain" style={{ width: '100%', height: 'auto' }} />
               </div>
               <div className="space-y-4 mb-8 min-h-[10rem]">
                 {p.features.map((fk) => (<div key={fk} className="flex items-center"><div className="w-2 h-2 bg-blue-500 rounded-full mr-3" /><span className="text-gray-700">{t(fk)}</span></div>))}

@@ -6,12 +6,12 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { type ColumnDef } from '@tanstack/react-table';
 
+import { DataTable, type DataTablePagination } from '@myorg/shared/ui';
 import {
-  Button,
-  DataTable,
-  type DataTablePagination,
-} from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+  FormDateRangePicker,
+  FormField,
+  FormSelect,
+} from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import {
@@ -27,6 +27,7 @@ import {
   getTokenTypeKey,
 } from '.';
 import { ReconciliationSection } from '.';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
@@ -114,7 +115,7 @@ function buildOptionsFromRows(rows: TokenReconSummaryRespVo[]): {
  *
  * 关键逻辑（源码逐行对照）：
  * - 7 项筛选：tokenName / tokenType(1/5) / blockchainId / financeBookName / bookNo
- *   / currencyCode / lastReconciliationDate 范围（RangePicker 拆 Start-End）。
+ *   / currencyCode / lastReconciliationDate 范围（单个起止日期区间输入）。
  * - 动态下拉 `updateAvailableOptions`：从 list 行抽取 blockchain/currency 可选项；
  *   非空用动态集，空则回退通用（目标侧通用 hook 未在本模块提供，回退空集，
  *   首次加载后由动态集接管，行为等价源“空回退”）。
@@ -393,65 +394,70 @@ export function RealTimeListPage() {
   return (
     <div className="space-y-4">
       <ReconciliationSection title={t('reconciliation_0072')}>
-        <form
-          onSubmit={onSubmit}
-          className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
-        >
-          <FormField
-            name="tokenName"
-            label={t('reconciliation_0052')}
-            register={register('tokenName')}
-            placeholder={t('reconciliation_0052')}
+        <form onSubmit={onSubmit}>
+          <QueryForm
+            variant="plain"
+            queryType="submit"
+            fields={[
+              <FormField
+                key="tokenName"
+                name="tokenName"
+                label={t('reconciliation_0052')}
+                register={register('tokenName')}
+                placeholder={t('reconciliation_0052')}
+              />,
+              <FormSelect
+                key="tokenType"
+                name="tokenType"
+                control={control}
+                label={t('reconciliation_0053')}
+                options={tokenTypeOptions}
+                placeholder={t('PUB_All')}
+              />,
+              <FormSelect
+                key="blockchainId"
+                name="blockchainId"
+                control={control}
+                label={t('PUB_Blockchain')}
+                options={blockchainOptions}
+                placeholder={t('PUB_All')}
+              />,
+            ]}
+            advancedFields={[
+              <FormField
+                key="financeBookName"
+                name="financeBookName"
+                label={t('reconciliation_0077')}
+                register={register('financeBookName')}
+                placeholder={t('reconciliation_0077')}
+              />,
+              <FormField
+                key="bookNo"
+                name="bookNo"
+                label={t('reconciliation_0048')}
+                register={register('bookNo')}
+                placeholder={t('reconciliation_0048')}
+              />,
+              <FormSelect
+                key="currencyCode"
+                name="currencyCode"
+                control={control}
+                label={t('reconciliation_0032')}
+                options={currencyOptions}
+                placeholder={t('PUB_All')}
+              />,
+              <FormDateRangePicker
+                key="lastReconciliationDate"
+                startName="lastReconciliationDateStart"
+                endName="lastReconciliationDateEnd"
+                control={control}
+                label={t('reconciliation_0071')}
+              />,
+            ]}
+            onReset={onReset}
+            queryLabel={t('PUB_Query')}
+            resetLabel={t('PUB_Reset')}
           />
-          <FormSelect
-            name="tokenType"
-            control={control}
-            label={t('reconciliation_0053')}
-            options={tokenTypeOptions}
-            placeholder={t('PUB_All')}
-          />
-          <FormSelect
-            name="blockchainId"
-            control={control}
-            label={t('PUB_Blockchain')}
-            options={blockchainOptions}
-            placeholder={t('PUB_All')}
-          />
-          <FormField
-            name="financeBookName"
-            label={t('reconciliation_0077')}
-            register={register('financeBookName')}
-            placeholder={t('reconciliation_0077')}
-          />
-          <FormField
-            name="bookNo"
-            label={t('reconciliation_0048')}
-            register={register('bookNo')}
-            placeholder={t('reconciliation_0048')}
-          />
-          <FormSelect
-            name="currencyCode"
-            control={control}
-            label={t('reconciliation_0032')}
-            options={currencyOptions}
-            placeholder={t('PUB_All')}
-          />
-          <FormDatePicker
-            name="lastReconciliationDateStart"
-            control={control}
-            label={t('reconciliation_0071')}
-          />
-          <FormDatePicker
-            name="lastReconciliationDateEnd"
-            control={control}
-            label={t('reconciliation_0071')}
-          />
-          <div className="flex items-end gap-2">
-            <Button type="submit">{t('PUB_Query')}</Button>
-            <Button type="button" variant="outline" onClick={onReset}>
-              {t('PUB_Reset')}
-            </Button>
-          </div>
         </form>
       </ReconciliationSection>
 

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { cn } from '@myorg/shared/util-classnames';
+import { cardSurfaceClass } from '@myorg/shared/ui';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#e0e7ff'];
 
@@ -41,7 +42,7 @@ export function StatisticsPieCard({
   const total = data.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
 
   return (
-    <div className={cn('flex h-full flex-col rounded-lg border bg-card p-4', className)}>
+    <div className={cn(cardSurfaceClass, 'flex h-full flex-col p-4', className)}>
       <div className="text-sm text-muted-foreground">{title}</div>
       <div className="mb-2 text-2xl font-bold">{count}</div>
       {showChart && data.length > 0 && (

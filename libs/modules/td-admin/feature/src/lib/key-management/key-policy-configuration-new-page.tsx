@@ -30,9 +30,16 @@ import { z } from 'zod';
 
 import {
   Button,
+  Card,
   Input,
+  PageHeader,
   RadioGroup,
   RadioGroupItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
 } from '@myorg/shared/ui';
 import { FormSelect } from '@myorg/shared/ui-forms';
@@ -137,14 +144,12 @@ export function KeyPolicyConfigurationNewPage() {
 
   return (
     <div className="space-y-6">
-      {/* Demo banner — no create API exists; submission never persists. */}
-      <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        {t('KP_DemoBanner')}
-      </div>
-
-      <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <div className="mb-6 text-base font-semibold">{t('KP_NewTitle')}</div>
-
+      <PageHeader
+        backLabel={t('key_management_0056')}
+        onBack={() => router.back()}
+        title={t('KP_NewTitle')}
+      />
+      <Card className="p-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Business Name + linked Description */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -168,7 +173,7 @@ export function KeyPolicyConfigurationNewPage() {
           </div>
 
           {/* Rotation Period Configuration */}
-          <div className="rounded-lg border bg-card p-6">
+          <Card className="p-6">
             <div className="mb-4 text-base font-semibold">
               {t('KP_RotationPeriodTitle')}
             </div>
@@ -182,19 +187,51 @@ export function KeyPolicyConfigurationNewPage() {
                 </label>
                 <div className="flex gap-2">
                   <div className="w-20">
-                    <FormSelect
-                      name="frequencyNumber"
+                    <Controller
                       control={control}
-                      label=""
-                      options={frequencyNumberOptions}
+                      name="frequencyNumber"
+                      render={({ field }) => (
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger
+                            aria-label={t('KP_RotationFrequency')}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {frequencyNumberOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     />
                   </div>
                   <div className="w-28">
-                    <FormSelect
-                      name="frequencyUnit"
+                    <Controller
                       control={control}
-                      label=""
-                      options={localizedFrequencyUnitOptions}
+                      name="frequencyUnit"
+                      render={({ field }) => (
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger aria-label={t('KP_RotationFrequency')}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {localizedFrequencyUnitOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     />
                   </div>
                 </div>
@@ -266,7 +303,7 @@ export function KeyPolicyConfigurationNewPage() {
                 </p>
               )}
             </div>
-          </div>
+          </Card>
 
           {/* Demo notice — explicit non-persistence feedback. */}
           {demoSubmitted && (
@@ -276,18 +313,11 @@ export function KeyPolicyConfigurationNewPage() {
           )}
 
           {/* Buttons */}
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.back()}
-            >
-              {t('key_management_0056')}
-            </Button>
+          <div className="flex justify-end">
             <Button type="submit">{t('KP_SubmitDemo')}</Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

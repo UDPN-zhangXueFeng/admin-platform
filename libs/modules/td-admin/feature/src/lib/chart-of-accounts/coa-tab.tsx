@@ -1,15 +1,22 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable } from '@myorg/shared/ui';
+import { CircleAlert, Info } from 'lucide-react';
+import {
+  Alert,
+  AlertDescription,
+  Button,
+  Card,
+  DataTable,
+} from '@myorg/shared/ui';
 import type { CoaRow } from '@myorg/modules/td-admin/data-access';
 
 /**
  * Chart of Accounts tab 容器（迁移自源 ChartOfAccountsTab.tsx）。
  *
- * 仅负责呈现：描述 / 提示 / 错误提示 / DataTable（COA 树行）/ 返回 + 保存草稿按钮。
+ * 仅负责呈现：描述 / 提示 / 错误提示 / DataTable（COA 树行）/ 保存草稿按钮。
  * columns、rows、handlers 由上层 useCoaTree hook 提供（保持容器 dumb）。
- * antd Table + Alert → shared/ui DataTable + Tailwind 提示条。
+ * antd Table + Alert → shared/ui DataTable + shared/ui Alert。
  */
 export interface CoaTabProps {
   description: string;
@@ -19,8 +26,6 @@ export interface CoaTabProps {
   errorMessage?: string;
   loading: boolean;
   emptyMessage?: string;
-  onBack: () => void;
-  backLabel: string;
   onSave?: () => void;
   saveLabel?: string;
   saveLoading?: boolean;
@@ -35,8 +40,6 @@ export function CoaTab({
   columns,
   loading,
   emptyMessage,
-  onBack,
-  backLabel,
   onSave,
   saveLabel,
   saveLoading,
@@ -48,28 +51,34 @@ export function CoaTab({
         <p className="text-sm text-muted-foreground">{description}</p>
       ) : null}
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        {errorMessage ? (
-          <p className="m-4 text-sm text-destructive" role="alert">
-            {errorMessage}
-          </p>
-        ) : null}
-        {alertMessage ? (
-          <div className="m-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
-            {alertMessage}
-          </div>
-        ) : null}
-        {!errorMessage || rows.length > 0 ? (
-          <div className={alertMessage ? 'px-4 pb-4' : 'p-4'}>
+      <Card>
+        <div className="space-y-4 p-4">
+          {errorMessage ? (
+            <Alert variant="destructive">
+              <CircleAlert className="size-4" aria-hidden="true" />
+              <AlertDescription className="text-destructive">
+                {errorMessage}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {alertMessage ? (
+            <Alert variant="info">
+              <Info className="size-4" aria-hidden="true" />
+              <AlertDescription className="leading-relaxed">
+                {alertMessage}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {!errorMessage || rows.length > 0 ? (
             <DataTable
               columns={columns}
               data={rows}
               isLoading={loading}
               emptyMessage={emptyMessage ?? '--'}
             />
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      </Card>
 
       <div className="flex justify-end gap-3">
         {onSave && saveLabel ? (
@@ -77,9 +86,6 @@ export function CoaTab({
             {saveLoading ? '...' : saveLabel}
           </Button>
         ) : null}
-        <Button variant="outline" onClick={onBack}>
-          {backLabel}
-        </Button>
       </div>
     </div>
   );

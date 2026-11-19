@@ -3,7 +3,7 @@
 import { useParams, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { Button } from '@myorg/shared/ui';
+import { Card, PageHeader } from '@myorg/shared/ui';
 import { UserWalletDetailHistoryContent } from './user-wallet-detail-history-content';
 import { UserWalletDetailViewContent } from './user-wallet-detail-view-content';
 
@@ -44,33 +44,37 @@ export function UserWalletDetailPage() {
 
   if (!walletId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">
-          {t('userWallet.invalidId')}
-        </p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => router.back()}
-        >
-          {t('common.back')}
-        </Button>
+      <div className="space-y-4">
+        <PageHeader
+          backLabel={t('common.back')}
+          onBack={() => router.back()}
+          title={t('userWallet.title')}
+        />
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">
+            {t('userWallet.invalidId')}
+          </p>
+        </Card>
+      </div>
+    );
+  }
+  if (variant === 'history') {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-xl font-semibold">{t('userWallet.historyTitle')}</h1>
+        <UserWalletDetailHistoryContent walletId={walletId} />
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {variant === 'history' ? (
-        <UserWalletDetailHistoryContent walletId={walletId} />
-      ) : (
-        <UserWalletDetailViewContent walletId={walletId} />
-      )}
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('common.back')}
-        </Button>
-      </div>
+      <PageHeader
+        backLabel={t('common.back')}
+        onBack={() => router.back()}
+        title={t('userWallet.title')}
+      />
+      <UserWalletDetailViewContent walletId={walletId} />
     </div>
   );
 }

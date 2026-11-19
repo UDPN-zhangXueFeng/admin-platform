@@ -15,6 +15,7 @@
  * 并注入已格式化的 ReactNode（金额拼接 reSet、时间 formatTimestamp、状态 Badge 等）。
  */
 import * as React from 'react';
+import { Card } from '@myorg/shared/ui';
 
 /** 网格总列数（与源 Descriptions column=3 一致）。 */
 const GRID_COLUMNS = 3;
@@ -73,9 +74,7 @@ export function MmfBasicDetails({
   const showEmpty = !isLoading && items.length === 0;
 
   return (
-    <section
-      className={`rounded-lg border bg-card shadow-sm ${className ?? ''}`}
-    >
+    <Card className={`${className ?? ''}`}>
       {title ? (
         <div className="border-b px-6 py-3 text-sm font-semibold">{title}</div>
       ) : null}
@@ -109,7 +108,7 @@ export function MmfBasicDetails({
           </div>
         )}
       </div>
-    </section>
+    </Card>
   );
 }
 

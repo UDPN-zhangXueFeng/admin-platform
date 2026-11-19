@@ -22,12 +22,15 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
+import { Info } from 'lucide-react';
 import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
 import {
   Alert,
   Button,
+  Card,
+  CopyableEllipsisText,
   DataTable,
   Input,
   Tooltip,
@@ -36,7 +39,7 @@ import {
   TooltipTrigger,
 } from '@myorg/shared/ui';
 
-import { FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
   useManagedWalletsQuery,
@@ -47,6 +50,7 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { walletStatusMap, roleNameMap } from '.';
 import { createRowActionsColumn } from '../row-actions';
 
@@ -216,7 +220,15 @@ export function ManagedWalletsListPage() {
       {
         accessorKey: 'keyId',
         header: t('key_management_0074'),
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        meta: { overflow: 'none' },
+        cell: ({ getValue }) => (
+          <CopyableEllipsisText
+            value={getValue() as string}
+            showCopyIcon
+            copyLabel={t('KP_Copy')}
+            maxWidth={220}
+          />
+        ),
       },
       {
         accessorKey: 'tokenName',
@@ -240,17 +252,31 @@ export function ManagedWalletsListPage() {
         header: () => (
           <div className="flex items-center gap-1">
             <span>{t('key_management_0076')}</span>
-            <TooltipProvider>
+            <TooltipProvider delayDuration={150}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="cursor-help text-muted-foreground">ⓘ</span>
+                  <button
+                    type="button"
+                    aria-label={t('key_management_0067')}
+                    className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <Info aria-hidden="true" className="size-3.5" />
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent>{t('key_management_0067')}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
         ),
-        cell: ({ getValue }) => (getValue() as string) || '--',
+        meta: { overflow: 'none' },
+        cell: ({ getValue }) => (
+          <CopyableEllipsisText
+            value={getValue() as string}
+            showCopyIcon
+            copyLabel={t('KP_Copy')}
+            maxWidth={220}
+          />
+        ),
       },
       {
         accessorKey: 'blockchainName',
@@ -361,64 +387,66 @@ export function ManagedWalletsListPage() {
   return (
     <div className="space-y-6">
       {/* Query Form */}
-      <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <QueryForm
+        fields={[
           <FormSelect
+            key="roleName"
             name="roleName"
             control={control}
             label={t('KP_RoleName')}
             options={roleNameOptions}
             placeholder={t('PUB_All')}
-          />
-          <div>
-            <label className="text-sm font-medium">{t('key_management_0074')}</label>
-            <Input placeholder={t('key_management_0074')} {...register('keyId')} />
-          </div>
-          <FormSelect
-            name="tokenId"
-            control={control}
-            label={t('key_management_0075')}
-            options={tokenOptions}
-            placeholder={t('PUB_All')}
-          />
-          <div>
+          />,
+          <div key="wallet-address" className="space-y-1.5">
             <label className="text-sm font-medium">{t('key_management_0076')}</label>
             <Input placeholder={t('key_management_0076')} {...register('walletAddress')} />
-          </div>
+          </div>,
           <FormSelect
-            name="blockchainId"
-            control={control}
-            label={t('key_management_0063')}
-            options={blockchainOptions}
-            placeholder={t('PUB_All')}
-          />
-          <div>
-            <label className="text-sm font-medium">{t('key_management_0107')}</label>
-            <div className="flex items-center gap-2">
-              <Input type="date" {...register('startCreationDate')} />
-              <span className="text-muted-foreground">-</span>
-              <Input type="date" {...register('endCreationDate')} />
-            </div>
-          </div>
-          <FormSelect
+            key="status"
             name="status"
             control={control}
             label={t('key_management_0003')}
             options={statusOptions}
             placeholder={t('PUB_All')}
-          />
-        </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button onClick={handleQuery}>{t('PUB_Query')}</Button>
-          <Button variant="outline" onClick={handleReset}>
-            {t('PUB_Reset')}
-          </Button>
-        </div>
-      </div>
+          />,
+        ]}
+        advancedFields={[
+          <div key="key-id" className="space-y-1.5">
+            <label className="text-sm font-medium">{t('key_management_0074')}</label>
+            <Input placeholder={t('key_management_0074')} {...register('keyId')} />
+          </div>,
+          <FormSelect
+            key="token-id"
+            name="tokenId"
+            control={control}
+            label={t('key_management_0075')}
+            options={tokenOptions}
+            placeholder={t('PUB_All')}
+          />,
+          <FormSelect
+            key="blockchain-id"
+            name="blockchainId"
+            control={control}
+            label={t('key_management_0063')}
+            options={blockchainOptions}
+            placeholder={t('PUB_All')}
+          />,
+          <FormDateRangePicker
+            key="creation-date"
+            startName="startCreationDate"
+            endName="endCreationDate"
+            control={control}
+            label={t('key_management_0107')}
+          />,
+        ]}
+        onQuery={handleQuery}
+        onReset={handleReset}
+        queryLabel={t('PUB_Query')}
+        resetLabel={t('PUB_Reset')}
+      />
 
       {/* Table */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">{t('key_management_0092')}</h3>
         </div>
@@ -449,7 +477,7 @@ export function ManagedWalletsListPage() {
             onPageSizeChange: (size) => setPage({ pageNum: 1, pageSize: size }),
           }}
         />
-      </div>
+      </Card>
     </div>
   );
 }

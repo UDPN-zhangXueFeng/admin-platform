@@ -9,6 +9,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import {
   Button,
+  Card,
   CopyableEllipsisText,
   DataTable,
 } from '@myorg/shared/ui';
@@ -19,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { PermissionGuard, usePermission } from '@myorg/shared/util-auth';
 import {
   useBlockchainListQuery,
@@ -40,6 +41,7 @@ import {
 import { ALL_VALUE } from './blockchain.constants';
 import { NodeDeleteModal } from './node-delete-modal';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import {
   createRowActionsColumn,
   type RowAction,
@@ -369,107 +371,104 @@ export function NodeListPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {/*
-            链下拉：status!==1 的链单项 disabled（源码 node/index.tsx
-            options.disabled: el.status === 1 ? false : true）。
-            FormSelect 不透传单项 disabled，故手写 Controller + Select/SelectItem。
-          */}
-          <Controller
-            control={control}
-            name="chainId"
-            render={({ field }) => (
-              <div>
-                <label
-                  htmlFor="select-chainId"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('field.chainName')}
-                </label>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="select-chainId">
-                    <SelectValue placeholder={t('filter.all')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
-                    {blockchainOptions.map((b) => (
-                      <SelectItem
-                        key={b.key}
-                        value={String(b.key ?? '')}
-                        disabled={b.status !== 1}
-                      >
-                        {b.value ?? ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          />
-          <FormSelect
-            name="nodeLocationId"
-            control={control}
-            label={t('field.nodeLocation')}
-            options={nodeLocationOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDatePicker
-            name="startCreateTime"
-            control={control}
-            label={t('field.createTime')}
-          />
-          <FormDatePicker
-            name="endCreateTime"
-            control={control}
-            label={t('field.createTime')}
-          />
-          <FormSelect
-            name="state"
-            control={control}
-            label={t('field.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            /*
+              链下拉：status!==1 的链单项 disabled（源码 node/index.tsx
+              options.disabled: el.status === 1 ? false : true）。
+              FormSelect 不透传单项 disabled，故手写 Controller + Select/SelectItem。
+            */
+            <Controller
+              key="chainId"
+              control={control}
+              name="chainId"
+              render={({ field }) => (
+                <div>
+                  <label
+                    htmlFor="select-chainId"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    {t('field.chainName')}
+                  </label>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="select-chainId">
+                      <SelectValue placeholder={t('filter.all')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
+                      {blockchainOptions.map((b) => (
+                        <SelectItem
+                          key={b.key}
+                          value={String(b.key ?? '')}
+                          disabled={b.status !== 1}
+                        >
+                          {b.value ?? ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            />,
+            <FormSelect
+              key="nodeLocationId"
+              name="nodeLocationId"
+              control={control}
+              label={t('field.nodeLocation')}
+              options={nodeLocationOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="createTime"
+              startName="startCreateTime"
+              endName="endCreateTime"
+              control={control}
+              label={t('field.createTime')}
+            />,
+          ]}
+          advancedFields={[
+            <FormSelect
+              key="state"
+              name="state"
+              control={control}
+              label={t('field.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">{t('node.title')}</div>
-          <PermissionGuard permission={BLOCKCHAIN_PERMISSIONS.NODE_ADD_BTN}>
-            <Button onClick={() => router.push('/blockchain/node/edit')}>
-              {t('action.add')}
-            </Button>
-          </PermissionGuard>
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (p) =>
-                setPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
-        </div>
+      <Card><div className="flex justify-between border-b px-6 py-3">
+        <div className="text-sm font-semibold">{t('node.title')}</div>
+        <PermissionGuard permission={BLOCKCHAIN_PERMISSIONS.NODE_ADD_BTN}>
+          <Button onClick={() => router.push('/blockchain/node/edit')}>
+            {t('action.add')}
+          </Button>
+        </PermissionGuard>
       </div>
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (p) =>
+              setPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
 
       {/* 删除确认 Modal：输入 URL 严格校验 + updateState(state:3)。 */}
       <NodeDeleteModal

@@ -8,7 +8,13 @@
 
 export const DEFAULT_PAGE_SIZE = 10;
 export const EMPTY_DISPLAY = '--';
-export const ALL_VALUE = '';
+/**
+ * 筛选下拉「全部」占位值。
+ *
+ * 非空字符串：Radix Select 不允许 `SelectItem` 使用空串 value，
+ * 用 `all` 让「全部」选项可被渲染与回选。
+ */
+export const ALL_VALUE = 'all';
 
 // ── 状态映射（4 套）──
 export interface StatusMeta {

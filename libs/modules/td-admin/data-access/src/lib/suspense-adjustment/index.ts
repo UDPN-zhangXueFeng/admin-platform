@@ -21,6 +21,7 @@ export {
   ADJUSTMENT_STATUS_CODE_MAP,
   SOURCE_TYPE_MAP,
   SOURCE_TYPE_OPTIONS,
+  TRANSACTION_TYPE_LABEL_MAP,
   CLEAR_STATUS_MAP,
   CLEAR_STATUS_OPTIONS,
   CLEAR_STATUS_LABEL_TO_ENUM,
@@ -34,6 +35,8 @@ export {
 // ── 纯函数 ──
 export {
   formatAmount,
+  adjustmentEntryAmount,
+  amountExceeds,
   textOrDash,
   mapSourceType,
   mapAdjustmentStatus,

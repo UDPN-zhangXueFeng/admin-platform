@@ -85,17 +85,25 @@ type Translate = ReturnType<typeof useTranslations>;
 const AMOUNT_PATTERN = /^[0-9]+(\.[0-9]{1,2})?$/;
 
 /** 金额校验工厂（返回 RHF rules.validate）。空 → 必填错误；不匹配 → 格式错误。 */
-function amountRules(t: Translate, label: string) {
+export function amountRules(t: Translate, label: string, limit = true) {
   return {
     required: t('walletType.form.validation.required', { field: label }),
     validate: (value: unknown) => {
       const v = value === undefined || value === null ? '' : String(value);
       if (!v) return t('walletType.form.validation.required', { field: label });
       return (
-        AMOUNT_PATTERN.test(v) || t('walletType.form.validation.amount')
+        (AMOUNT_PATTERN.test(v) && (!limit || validLimit(v))) ||
+        t(limit ? 'walletType.form.validation.amount' : 'walletType.form.validation.decimal')
       );
     },
   };
+}
+
+function validLimit(value: string): boolean {
+  const [whole, decimal] = value.split('.');
+  const digits = whole.replace(/^0+/, '');
+  return digits.length < 11 || (digits.length === 11 &&
+    (digits !== '99999999999' || !decimal || /^0+$/.test(decimal)));
 }
 
 /**
@@ -111,6 +119,8 @@ export function AmountField({
   symbol,
   error,
   t,
+  limit = true,
+  prefix,
 }: {
   control: Control<WalletTypeFormValues>;
   name: Path<WalletTypeFormValues>;
@@ -118,27 +128,27 @@ export function AmountField({
   symbol?: string;
   error: FieldError | undefined;
   t: Translate;
+  limit?: boolean;
+  prefix?: React.ReactNode;
 }): React.JSX.Element {
   return (
     <Controller
       control={control}
       name={name}
-      rules={amountRules(t, label)}
+      rules={amountRules(t, label, limit)}
       render={({ field }) => (
         <div className="w-[45%] min-w-[200px]">
-          <Label className="mb-1.5 block text-sm font-medium">{label}</Label>
+          <Label htmlFor={field.name} className="mb-1.5 block text-sm font-medium">{label}</Label>
           <div className="flex items-stretch">
+            {prefix}
             <Input
-              type="number"
-              value={field.value === undefined ? '' : String(field.value)}
-              onChange={(e) => {
-                const v = e.target.value;
-                field.onChange(v === '' ? undefined : Number(v));
-              }}
+              id={field.name}
+              inputMode="decimal"
+              value={field.value == null ? '' : String(field.value)}
+              onChange={field.onChange}
               onBlur={field.onBlur}
               name={field.name}
               ref={field.ref}
-              max={99999999999}
               className="rounded-r-none"
               aria-invalid={!!error}
             />

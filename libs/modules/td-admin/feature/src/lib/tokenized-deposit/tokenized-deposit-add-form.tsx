@@ -12,7 +12,9 @@ import {
   AlertDialogTitle,
   Card,
   CardContent,
+  cardSurfaceClass,
 } from '@myorg/shared/ui';
+import { cn } from '@myorg/shared/util-classnames';
 import { formatDraftTime } from '@myorg/modules/td-admin/data-access';
 
 import {
@@ -106,7 +108,7 @@ function AddWizard({ s }: { s: TokenizedDepositFormState }): React.JSX.Element {
         />
       ) : null}
 
-      <main className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+      <main className={cn(cardSurfaceClass, 'overflow-hidden')}>
         <WizardStepper
           steps={wizardSteps}
           current={currentStep}

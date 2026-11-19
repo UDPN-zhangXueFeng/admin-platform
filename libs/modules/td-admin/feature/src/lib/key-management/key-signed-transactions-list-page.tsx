@@ -33,8 +33,8 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { z } from 'zod';
 
-import { Alert, Button, DataTable, Input } from '@myorg/shared/ui';
-import { FormSelect } from '@myorg/shared/ui-forms';
+import { Alert, Button, Card, DataTable, Input } from '@myorg/shared/ui';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 
 import {
   useKeySignedTransactionsQuery,
@@ -46,6 +46,7 @@ import {
 } from '@myorg/modules/td-admin/data-access';
 
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import {
   transactionTypeLabelMap,
   signatureTypeMap,
@@ -384,83 +385,85 @@ export function KeySignedTransactionsListPage() {
   return (
     <div className="space-y-6">
       {/* Query Form */}
-      <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-4 text-lg font-semibold">{t('PUB_Query')}</h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div>
+      <QueryForm
+        fields={[
+          <div key="signature-id" className="space-y-1.5">
             <label className="text-sm font-medium">{t('key_management_0099')}</label>
             <Input placeholder={t('key_management_0150')} {...register('signatureId')} />
-          </div>
+          </div>,
           <FormSelect
+            key="key-service"
             name="thirdPartyPlatformId"
             control={control}
             label={t('key_management_0001')}
             options={keyServiceOptions}
             placeholder={t('PUB_All')}
-          />
-          <div>
+          />,
+          <div key="wallet-address" className="space-y-1.5">
             <label className="text-sm font-medium">{t('key_management_0076')}</label>
             <Input placeholder={t('key_management_0076')} {...register('walletAddress')} />
-          </div>
+          </div>,
+        ]}
+        advancedFields={[
           <FormSelect
+            key="transaction-type"
             name="transactionType"
             control={control}
             label={t('key_management_0100')}
             options={transactionTypeOptions}
             placeholder={t('PUB_All')}
-          />
+          />,
           <FormSelect
+            key="signature-type"
             name="signatureType"
             control={control}
             label={t('key_management_0101')}
             options={signatureTypeSelectOptions}
             placeholder={t('PUB_All')}
-          />
+          />,
           <FormSelect
+            key="token-id"
             name="tokenId"
             control={control}
             label={t('key_management_0075')}
             options={tokenOptions}
             placeholder={t('PUB_All')}
-          />
+          />,
           <FormSelect
+            key="blockchain-id"
             name="blockchainId"
             control={control}
             label={t('key_management_0063')}
             options={blockchainOptions}
             placeholder={t('PUB_All')}
-          />
-          <div>
-            <label className="text-sm font-medium">{t('key_management_0102')}</label>
-            <div className="flex items-center gap-2">
-              <Input type="date" {...register('startSignatureDate')} />
-              <span className="text-muted-foreground">-</span>
-              <Input type="date" {...register('endSignatureDate')} />
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium">{t('key_management_0103')}</label>
-            <div className="flex items-center gap-2">
-              <Input type="date" {...register('startSubmissionDate')} />
-              <span className="text-muted-foreground">-</span>
-              <Input type="date" {...register('endSubmissionDate')} />
-            </div>
-          </div>
-          <div>
+          />,
+          <FormDateRangePicker
+            key="signature-date"
+            startName="startSignatureDate"
+            endName="endSignatureDate"
+            control={control}
+            label={t('key_management_0102')}
+          />,
+          <FormDateRangePicker
+            key="submission-date"
+            startName="startSubmissionDate"
+            endName="endSubmissionDate"
+            control={control}
+            label={t('key_management_0103')}
+          />,
+          <div key="transaction-hash" className="space-y-1.5">
             <label className="text-sm font-medium">{t('key_management_0078')}</label>
             <Input placeholder={t('key_management_0078')} {...register('transactionHash')} />
-          </div>
-        </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button onClick={handleQuery}>{t('PUB_Query')}</Button>
-          <Button variant="outline" onClick={handleReset}>
-            {t('PUB_Reset')}
-          </Button>
-        </div>
-      </div>
+          </div>,
+        ]}
+        onQuery={handleQuery}
+        onReset={handleReset}
+        queryLabel={t('PUB_Query')}
+        resetLabel={t('PUB_Reset')}
+      />
 
       {/* Table */}
-      <div className="rounded-lg border bg-card p-4">
+      <Card className="p-4">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">{t('key_management_0155')}</h3>
         </div>
@@ -491,7 +494,7 @@ export function KeySignedTransactionsListPage() {
             onPageSizeChange: (size) => setPage({ pageNum: 1, pageSize: size }),
           }}
         />
-      </div>
+      </Card>
     </div>
   );
 }

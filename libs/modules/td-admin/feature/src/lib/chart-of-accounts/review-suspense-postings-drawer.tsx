@@ -8,6 +8,7 @@ import {
   DataTable,
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
 } from '@myorg/shared/ui';
@@ -19,9 +20,10 @@ import type {
 export interface ReviewSuspensePostingsDrawerProps {
   open: boolean;
   detail: EodStatementDetail | null;
+  loading: boolean;
+  error: boolean;
   t: (key: string) => string;
   onCancel: () => void;
-  onConfirm: (comments: string) => void;
 }
 
 /**
@@ -31,9 +33,10 @@ export interface ReviewSuspensePostingsDrawerProps {
 export function ReviewSuspensePostingsDrawer({
   open,
   detail,
+  loading,
+  error,
   t,
   onCancel,
-  onConfirm,
 }: ReviewSuspensePostingsDrawerProps) {
   const [comments, setComments] = useState('');
 
@@ -86,6 +89,7 @@ export function ReviewSuspensePostingsDrawer({
       <DrawerContent className="max-w-5xl sm:w-[min(1080px,100vw)]">
         <DrawerHeader>
           <DrawerTitle>{t('eod.reviewSuspenseTitle')}</DrawerTitle>
+          <DrawerDescription className="sr-only">{t('eod.proposedSuspenseEntries')}</DrawerDescription>
         </DrawerHeader>
 
         <div className="max-h-[80vh] overflow-auto px-4 pb-4">
@@ -117,7 +121,8 @@ export function ReviewSuspensePostingsDrawer({
           <div className="mb-2 mt-4 text-sm font-semibold">
             {t('eod.proposedSuspenseEntries')}
           </div>
-          <DataTable columns={columns} data={detail?.suspenseRows ?? []} emptyMessage="--" />
+          {error && <p role="alert" className="text-sm text-destructive">{t('common.loadFailed')}</p>}
+          <DataTable columns={columns} data={detail?.suspenseRows ?? []} isLoading={loading} emptyMessage="--" />
 
           <div className="mb-1 mt-4 text-sm">
             <span className="text-red-600">*</span> {t('eod.comments')}
@@ -130,12 +135,13 @@ export function ReviewSuspensePostingsDrawer({
             onChange={(event) => setComments(event.target.value)}
             className="flex w-full rounded-md border bg-background px-3 py-2 text-sm"
           />
+          <p className="text-right text-xs text-muted-foreground">{comments.length} / 200</p>
 
           <div className="mt-4 flex justify-end gap-3">
             <Button variant="outline" onClick={onCancel}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={() => onConfirm(comments)}>{t('common.confirm')}</Button>
+            <Button disabled>{t('common.confirm')}</Button>
           </div>
         </div>
       </DrawerContent>

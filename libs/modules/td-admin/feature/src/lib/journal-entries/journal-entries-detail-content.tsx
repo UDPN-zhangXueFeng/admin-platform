@@ -7,9 +7,16 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
-import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
-import { FormDatePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
+import {
+  Button,
+  Card,
+  CopyableEllipsisText,
+  DataTable,
+  PageHeader,
+} from '@myorg/shared/ui';
+import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 import {
   useBillTxListQuery,
@@ -220,9 +227,11 @@ export function JournalEntriesView({
 
   if (!ruleId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('detail.title')}</p>
-      </div>
+      <PageHeader
+        backLabel={t('action.back')}
+        onBack={() => router.back()}
+        title={t('detail.title')}
+      />
     );
   }
 
@@ -233,42 +242,11 @@ export function JournalEntriesView({
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormField
-            name="traceId"
-            label={t('field.traceId')}
-            register={register('traceId')}
-            placeholder={t('field.traceId')}
-          />
-          <FormSelect
-            name="txType"
-            control={control}
-            label={t('field.txType')}
-            options={txTypeOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDatePicker
-            name="timeFrom"
-            control={control}
-            label={t('field.dateTime')}
-          />
-          <FormDatePicker name="timeTo" control={control} label="" />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={() => reset(EMPTY_FILTER)}>
-            {t('filter.reset')}
-          </Button>
-        </div>
-      </form>
-
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">{t('detail.title')}</div>
+      <PageHeader
+        backLabel={t('action.back')}
+        onBack={() => router.back()}
+        title={t('detail.title')}
+        actions={
           <Button
             variant="outline"
             onClick={handleExport}
@@ -276,31 +254,59 @@ export function JournalEntriesView({
           >
             {t('action.export')}
           </Button>
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={listResult.isLoading || listResult.isFetching}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (p) =>
-                setPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
-        </div>
-      </div>
+        }
+      />
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          fields={[
+            <FormField
+              key="traceId"
+              name="traceId"
+              label={t('field.traceId')}
+              register={register('traceId')}
+              placeholder={t('field.traceId')}
+            />,
+            <FormSelect
+              key="txType"
+              name="txType"
+              control={control}
+              label={t('field.txType')}
+              options={txTypeOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="timeRange"
+              startName="timeFrom"
+              endName="timeTo"
+              control={control}
+              label={t('field.dateTime')}
+            />,
+          ]}
+          onReset={() => reset(EMPTY_FILTER)}
+          queryType="submit"
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
+      </form>
+
+      <Card><div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={listResult.isLoading || listResult.isFetching}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (p) =>
+              setPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
     </div>
   );
 }

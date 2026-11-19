@@ -7,7 +7,7 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 import { ArrowRightCircle } from 'lucide-react';
-import { Button, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import {
   Select,
   SelectContent,
@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@myorg/shared/ui';
-import { FormDatePicker, FormSelect } from '@myorg/shared/ui-forms';
+import { FormDateRangePicker, FormSelect } from '@myorg/shared/ui-forms';
 import { usePermission } from '@myorg/shared/util-auth';
 import { CrossChainStatusBadge } from '.';
 import { useCrossChainTxListQuery, type CrossChainTxItem, type CrossChainTxListFilters } from '@myorg/modules/td-admin/data-access';
@@ -26,22 +26,11 @@ import {
   EMPTY_DISPLAY,
 } from '.';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
 /** 「全部」占位 value（对齐 fx-rate / blockchain 列表筛选约定）。 */
 const ALL_VALUE = 'all';
-
-/**
- * 钱包地址缩写（迁移自 td-manage src/utils/index.ts:62 `showAddress`）。
- *
- * 源码：val.substring(0, 4) + '....' + val.substring(len - 4)。
- * 完整搬运勿简化（前 4 + 四个点 + 后 4）。
- */
-function showAddress(val: string | undefined | null): string {
-  if (!val) return EMPTY_DISPLAY;
-  const len = val.length;
-  return val.substring(0, 4) + '....' + val.substring(len - 4, len);
-}
 
 /**
  * CrossChainTransactionsListPage — 跨链交易记录列表页。
@@ -58,7 +47,7 @@ function showAddress(val: string | undefined | null): string {
  *   FormSelect 不透传单项 disabled，故手写 Controller + Select/SelectItem（对齐 blockchain node-list-page）。
  * - transferId 列展示索引（源码 dataIndex='transferId' width 5%）。
  * - tokens 列：sourceTokenName + ArrowRightCircle + destinationTokenName，下方币种-pegged（源码 cross_chain_00104）。
- * - from/to 列：CopyableEllipsisText 缩写 + 副行 count + symbol。
+ * - from/to 列：CopyableEllipsisText 完整地址（truncate=middle 视觉缩写，复制值为完整地址）+ 副行 count + symbol。
  * - serviceFee 列：serviceFee + sourceSymbol + cross_chain_0090（per transaction）。
  * - fxRate 列：sourceCurrencySymbol/destinationCurrencySymbol = fxRate。
  * - 状态列走 CrossChainStatusBadge kind="cross-chain-tx"（CROSS_CHAIN_TX_STATUS_COLOR + cross_chain_transactions_status_${status}）。
@@ -211,7 +200,7 @@ export function CrossChainTransactionsListPage(): React.JSX.Element {
           );
         },
       },
-      // from 列：showAddress 缩写 + copyable + 副行 count + sourceSymbol。
+      // from 列：完整地址（truncate=middle 仅视觉缩写）+ 复制完整值 + 副行 count + sourceSymbol。
       {
         accessorKey: 'fromAddress',
         header: t('cross_chain_0063'),
@@ -220,7 +209,8 @@ export function CrossChainTransactionsListPage(): React.JSX.Element {
           return (
             <div>
               <CopyableEllipsisText
-                value={showAddress(r.fromAddress)}
+                value={r.fromAddress}
+                truncate="middle"
                 maxWidth={180}
               />
               <div className="text-xs">{`${
@@ -239,7 +229,8 @@ export function CrossChainTransactionsListPage(): React.JSX.Element {
           return (
             <div>
               <CopyableEllipsisText
-                value={showAddress(r.toAddress)}
+                value={r.toAddress}
+                truncate="middle"
                 maxWidth={180}
               />
               <div className="text-xs">{`${
@@ -328,139 +319,134 @@ export function CrossChainTransactionsListPage(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="rounded-lg border bg-card p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormSelect
-            name="sourceTokenId"
-            control={control}
-            label={t('cross_chain_0078')}
-            options={[{ value: ALL_VALUE, label: t('filter.all') }, ...tokenOptions]}
-            placeholder={t('filter.all')}
-          />
-          {/*
-            源链：status!==1 的链单项 disabled（源码 options.disabled: el.status === 1 ? false : true）。
-            FormSelect 不透传单项 disabled，故手写 Controller + Select/SelectItem。
-          */}
-          <Controller
-            control={control}
-            name="sourceBlockchainId"
-            render={({ field }) => (
-              <div>
-                <label
-                  htmlFor="cct-sourceBlockchainId"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('cross_chain_0079')}
-                </label>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="cct-sourceBlockchainId">
-                    <SelectValue placeholder={t('filter.all')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
-                    {blockchainOptions.map((b) => (
-                      <SelectItem
-                        key={b.key}
-                        value={String(b.key)}
-                        disabled={b.status !== 1}
-                      >
-                        {b.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          />
-          <FormSelect
-            name="destinationTokenId"
-            control={control}
-            label={t('cross_chain_0080')}
-            options={[{ value: ALL_VALUE, label: t('filter.all') }, ...tokenOptions]}
-            placeholder={t('filter.all')}
-          />
-          <Controller
-            control={control}
-            name="destinationBlockchainId"
-            render={({ field }) => (
-              <div>
-                <label
-                  htmlFor="cct-destinationBlockchainId"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  {t('cross_chain_0081')}
-                </label>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="cct-destinationBlockchainId">
-                    <SelectValue placeholder={t('filter.all')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
-                    {blockchainOptions.map((b) => (
-                      <SelectItem
-                        key={b.key}
-                        value={String(b.key)}
-                        disabled={b.status !== 1}
-                      >
-                        {b.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          />
-          <FormSelect
-            name="status"
-            control={control}
-            label={t('filter.status')}
-            options={statusOptions}
-            placeholder={t('filter.all')}
-          />
-          <FormDatePicker
-            name="createdTimeStart"
-            control={control}
-            label={t('filter.createTime')}
-          />
-          <FormDatePicker
-            name="createdTimeEnd"
-            control={control}
-            label={t('filter.createTime')}
-          />
-        </div>
-        <div className="mt-4 flex gap-2">
-          <Button type="submit">{t('filter.query')}</Button>
-          <Button type="button" variant="outline" onClick={onReset}>
-            {t('filter.reset')}
-          </Button>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <QueryForm
+          queryType="submit"
+          fields={[
+            <FormSelect
+              key="sourceTokenId"
+              name="sourceTokenId"
+              control={control}
+              label={t('cross_chain_0078')}
+              options={[{ value: ALL_VALUE, label: t('filter.all') }, ...tokenOptions]}
+              placeholder={t('filter.all')}
+            />,
+            <FormSelect
+              key="status"
+              name="status"
+              control={control}
+              label={t('filter.status')}
+              options={statusOptions}
+              placeholder={t('filter.all')}
+            />,
+            <FormDateRangePicker
+              key="createdTime"
+              startName="createdTimeStart"
+              endName="createdTimeEnd"
+              control={control}
+              label={t('filter.createTime')}
+            />,
+          ]}
+          advancedFields={[
+            <Controller
+              key="sourceBlockchainId"
+              control={control}
+              name="sourceBlockchainId"
+              render={({ field }) => (
+                <div>
+                  <label
+                    htmlFor="cct-sourceBlockchainId"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    {t('cross_chain_0079')}
+                  </label>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="cct-sourceBlockchainId">
+                      <SelectValue placeholder={t('filter.all')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
+                      {blockchainOptions.map((b) => (
+                        <SelectItem
+                          key={b.key}
+                          value={String(b.key)}
+                          disabled={b.status !== 1}
+                        >
+                          {b.value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            />,
+            <FormSelect
+              key="destinationTokenId"
+              name="destinationTokenId"
+              control={control}
+              label={t('cross_chain_0080')}
+              options={[{ value: ALL_VALUE, label: t('filter.all') }, ...tokenOptions]}
+              placeholder={t('filter.all')}
+            />,
+            <Controller
+              key="destinationBlockchainId"
+              control={control}
+              name="destinationBlockchainId"
+              render={({ field }) => (
+                <div>
+                  <label
+                    htmlFor="cct-destinationBlockchainId"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    {t('cross_chain_0081')}
+                  </label>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="cct-destinationBlockchainId">
+                      <SelectValue placeholder={t('filter.all')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_VALUE}>{t('filter.all')}</SelectItem>
+                      {blockchainOptions.map((b) => (
+                        <SelectItem
+                          key={b.key}
+                          value={String(b.key)}
+                          disabled={b.status !== 1}
+                        >
+                          {b.value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            />,
+          ]}
+          onReset={onReset}
+          queryLabel={t('filter.query')}
+          resetLabel={t('filter.reset')}
+        />
       </form>
 
-      <div className="rounded-lg border bg-card shadow-sm">
-        <div className="flex justify-between border-b px-6 py-3">
-          <div className="text-sm font-semibold">{t('cross_chain_0093')}</div>
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            emptyMessage={t('empty')}
-            pagination={{
-              page: pagination.pageNum,
-              pageSize: pagination.pageSize,
-              total,
-              onPageChange: (p) =>
-                setPagination((prev) => ({ ...prev, pageNum: p })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
-            }}
-          />
-        </div>
+      <Card><div className="flex justify-between border-b px-6 py-3">
+        <div className="text-sm font-semibold">{t('cross_chain_0093')}</div>
       </div>
+      <div className="p-4">
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          emptyMessage={t('empty')}
+          pagination={{
+            page: pagination.pageNum,
+            pageSize: pagination.pageSize,
+            total,
+            onPageChange: (p) =>
+              setPagination((prev) => ({ ...prev, pageNum: p })),
+            onPageSizeChange: (size) =>
+              setPagination({ pageNum: 1, pageSize: size }),
+          }}
+        />
+      </div></Card>
     </div>
   );
 }

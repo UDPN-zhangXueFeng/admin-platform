@@ -3,11 +3,13 @@
 import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
+  Badge,
   Button,
   CopyableEllipsisText,
   DataTable,
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
 } from '@myorg/shared/ui';
@@ -29,6 +31,8 @@ export interface EodDetailDrawerProps {
   open: boolean;
   statement: EodStatementRow | null;
   detail: EodStatementDetail | null;
+  loading: boolean;
+  error: boolean;
   basicInfo: { financialBookName: string };
   onClose: () => void;
   t: (key: string) => string;
@@ -38,6 +42,8 @@ export function EodDetailDrawer({
   open,
   statement,
   detail,
+  loading,
+  error,
   basicInfo,
   onClose,
   t,
@@ -54,7 +60,7 @@ export function EodDetailDrawer({
         accessorKey: 'drCr',
         header: t('eod.drCr'),
         cell: ({ row }) => (
-          <span className={row.original.drCr === 'Cr' ? 'text-red-600' : 'text-blue-600'}>
+          <span className={row.original.drCr === 'Cr' ? 'text-destructive' : 'text-info'}>
             {row.original.drCr}
           </span>
         ),
@@ -85,6 +91,7 @@ export function EodDetailDrawer({
             {t('eod.detailTitle')}: {titleBookName || '--'}
             {titleCurrency}
           </DrawerTitle>
+          <DrawerDescription className="sr-only">{t('eod.suspenseEntries')}</DrawerDescription>
         </DrawerHeader>
 
         {statement ? (
@@ -111,17 +118,13 @@ export function EodDetailDrawer({
               </div>
               <div>
                 <div className="mb-1 text-xs text-muted-foreground">{t('eod.accountingStatus')}</div>
-                <div
-                  className={
-                    !detail
-                      ? 'text-sm font-semibold text-muted-foreground'
-                      : isBalanced
-                        ? 'text-sm font-semibold text-green-600'
-                        : 'text-sm font-semibold text-red-600'
-                  }
-                >
-                  {!detail ? '--' : isBalanced ? t('eod.balanced') : t('eod.unbalanced')}
-                </div>
+                {detail ? (
+                  <Badge variant={isBalanced ? 'success' : 'destructive'} dot>
+                    {isBalanced ? t('eod.balanced') : t('eod.unbalanced')}
+                  </Badge>
+                ) : (
+                  <span className="text-sm font-semibold text-muted-foreground">--</span>
+                )}
               </div>
               <div>
                 <div className="mb-1 text-xs text-muted-foreground">{t('eod.processedBy')}</div>
@@ -159,9 +162,11 @@ export function EodDetailDrawer({
 
             {/* Suspense Entries */}
             <div className="mb-2 mt-6 text-sm font-semibold">{t('eod.suspenseEntries')}</div>
+            {error && <p role="alert" className="text-sm text-destructive">{t('common.loadFailed')}</p>}
             <DataTable
               columns={suspenseColumns}
               data={detail?.suspenseRows ?? []}
+              isLoading={loading}
               emptyMessage="--"
             />
 

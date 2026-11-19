@@ -5,15 +5,20 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import {
-  Button,
+  Card,
   CopyableEllipsisText,
   DataTable,
+  DetailField,
+  DetailGrid,
+  DetailSection,
+  PageHeader,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from '@myorg/shared/ui';
 import { formatAdminTimestamp } from '../format-admin-time';
+import { formatPostingDate } from './posting-engine-dates';
 import {
   usePostingBookDetailQuery,
   usePostingEventListQuery,
@@ -23,6 +28,9 @@ import { PostingStatusBadge } from '.';
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_DISPLAY,
+  POSTING_ENGINE_PATH,
+  paginationRange,
+  parsePostingId,
   directionLabel,
   formatAccountLabel,
   getSourceEventTypeMessageKey,
@@ -35,17 +43,6 @@ import { createRowActionsColumn } from '../row-actions';
 const BASIC_TAB = 'basic-information';
 const MATRIX_TAB = 'posting-engine-matrix';
 
-/** 将 query 值解析为正整数，非法返回 `undefined`。 */
-function parseId(raw?: string | null): number | undefined {
-  if (!raw) return undefined;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
-/** 时间戳格式化（秒/毫秒自适应），无值返回占位。 */
-function formatTs(ts?: number): string {
-  return formatAdminTimestamp(toMillis(ts));
-}
 
 /** 解析事件的借贷方向展示行（entryDirection 优先，否则从 mappings 重建）。 */
 function resolveEntryLines(event: PostingEvent): string[] {
@@ -67,12 +64,6 @@ function resolveEntryLines(event: PostingEvent): string[] {
     .filter(Boolean);
 }
 
-interface KvRow {
-  key: string;
-  label: string;
-  value: React.ReactNode;
-}
-
 /**
  * 账本详情（迁移自 detail.tsx）。
  *
@@ -88,9 +79,9 @@ export function PostingEngineBookDetail({
 }) {
   const t = useTranslations('modules.posting-engine');
   const router = useRouter();
-  const financeBookId = parseId(financeBookIdRaw);
-
-  const { data: book, isLoading } = usePostingBookDetailQuery(financeBookId);
+  const financeBookId = parsePostingId(financeBookIdRaw);
+  const activeTab = initialTab === MATRIX_TAB ? MATRIX_TAB : BASIC_TAB;
+  const { data: book, isLoading, isError } = usePostingBookDetailQuery(financeBookId);
 
   const [matrixPage, setMatrixPage] = React.useState({
     pageNum: 1,
@@ -102,81 +93,15 @@ export function PostingEngineBookDetail({
       pageSize: matrixPage.pageSize,
       financeBookId,
     },
-    Boolean(financeBookId)
+    Boolean(book) && activeTab === MATRIX_TAB
   );
-  const events = eventList.data?.rows ?? [];
-  const eventsTotal = eventList.data?.page?.total ?? 0;
-
-  const activeTab = initialTab === MATRIX_TAB ? MATRIX_TAB : BASIC_TAB;
-
-  const basicRows = React.useMemo<KvRow[]>(() => {
-    if (!book) return [];
-    const tokenTypeKey = resolveTokenTypeMessageKey(book.tokenType);
-    return [
-      {
-        key: 'bookName',
-        label: t('field.bookName'),
-        value: book.bookName || EMPTY_DISPLAY,
-      },
-      {
-        key: 'status',
-        label: t('field.status'),
-        value: <PostingStatusBadge status={book.status} />,
-      },
-      {
-        key: 'bookNo',
-        label: t('field.bookNo'),
-        value: (
-          <CopyableEllipsisText value={book.bookNo} copyLabel={t('copy')} />
-        ),
-      },
-      {
-        key: 'reserveAsset',
-        label: t('detail.reserveAsset'),
-        value: book.reserveAssetName || EMPTY_DISPLAY,
-      },
-      {
-        key: 'currency',
-        label: t('field.currency'),
-        value: book.currencyCode || EMPTY_DISPLAY,
-      },
-      {
-        key: 'tokenType',
-        label: t('field.tokenType'),
-        value: tokenTypeKey ? t(tokenTypeKey) : EMPTY_DISPLAY,
-      },
-      {
-        key: 'tokenCount',
-        label: t('field.tokenCount'),
-        value: book.tokens?.length ?? EMPTY_DISPLAY,
-      },
-      {
-        key: 'totalEvents',
-        label: t('field.totalEvents'),
-        value: book.totalEvents ?? EMPTY_DISPLAY,
-      },
-      {
-        key: 'configured',
-        label: t('field.configured'),
-        value: book.configured ?? EMPTY_DISPLAY,
-      },
-      {
-        key: 'lastRuleUpdate',
-        label: t('field.lastRuleUpdate'),
-        value: book.lastRuleUpdate || EMPTY_DISPLAY,
-      },
-      {
-        key: 'creator',
-        label: t('detail.creator'),
-        value: book.createdBy || EMPTY_DISPLAY,
-      },
-      {
-        key: 'createTime',
-        label: t('detail.createTime'),
-        value: formatTs(book.createTime),
-      },
-    ];
-  }, [book, t]);
+  const events = eventList.isError ? [] : eventList.data?.rows ?? [];
+  const eventsTotal = eventList.isError ? 0 : eventList.data?.page?.total ?? 0;
+  const tokenTypeKey = resolveTokenTypeMessageKey(book?.tokenType);
+  const tokenNames = book?.tokens
+    ?.map((token) => token.tokenName?.trim())
+    .filter(Boolean)
+    .join(', ');
 
   const matrixColumns = React.useMemo<ColumnDef<PostingEvent>[]>(
     () => [
@@ -184,26 +109,24 @@ export function PostingEngineBookDetail({
         id: 'sourceEventType',
         header: t('detail.sourceEventType'),
         cell: ({ row }) => {
-          const key = getSourceEventTypeMessageKey(row.original.eventType);
-          return (
-            <span>
-              {key ? t(key) : row.original.eventCode || EMPTY_DISPLAY}
-            </span>
-          );
+          const event = row.original;
+          const source = event.sourceEventType || event.eventType;
+          const key = getSourceEventTypeMessageKey(source, event.tokenType ?? book?.tokenType);
+          return event.eventTypeName || (key ? t(key) : source ?? EMPTY_DISPLAY);
         },
       },
       {
         accessorKey: 'eventCode',
         header: t('detail.eventCode'),
         cell: ({ row }) => (
-          <span>{row.original.eventCode || EMPTY_DISPLAY}</span>
+          <CopyableEllipsisText value={row.original.eventCode} copyLabel={t('copy')} showCopyIcon />
         ),
       },
       {
         accessorKey: 'versionId',
         header: t('detail.versionId'),
         cell: ({ row }) => (
-          <span>{row.original.versionId || EMPTY_DISPLAY}</span>
+          <CopyableEllipsisText value={row.original.versionId} copyLabel={t('copy')} showCopyIcon />
         ),
       },
       {
@@ -227,51 +150,61 @@ export function PostingEngineBookDetail({
       {
         id: 'effectiveDate',
         header: t('detail.effectiveDate'),
-        cell: ({ row }) => <span>{formatTs(row.original.effectiveDate)}</span>,
+        cell: ({ row }) => formatPostingDate(row.original.effectiveDate),
       },
       {
         id: 'updateTime',
         header: t('detail.updateTime'),
-        cell: ({ row }) => <span>{formatTs(row.original.updateTime)}</span>,
+        cell: ({ row }) => formatAdminTimestamp(toMillis(row.original.updateTime)),
       },
       {
         id: 'status',
         header: t('field.status'),
-        cell: ({ row }) => <PostingStatusBadge status={row.original.status} />,
+        cell: ({ row }) => <PostingStatusBadge status={row.original.status} scope="matrix" />,
       },
-      // View（详情）内联；Edit 收进 ⋮ 菜单。
       createRowActionsColumn<PostingEvent>({
-        detail: {
-          label: t('action.view'),
-          onClick: (row) =>
-            router.push(`/posting-engine/view?id=${row.postingEventId ?? ''}`),
-        },
-        menu: (row) => [
-          {
-            label: t('action.edit'),
-            onClick: (r) =>
-              router.push(`/posting-engine/edit?id=${r.postingEventId ?? ''}`),
-          },
-        ],
+        header: t('field.actions'),
+        detail: (row) => row.postingEventId ? {
+          label: t('action.detail'),
+          onClick: () => router.push(`${POSTING_ENGINE_PATH}/view?id=${row.postingEventId}`),
+        } : undefined,
+        menu: (row) => row.postingEventId ? [{
+          label: t('action.edit'),
+          onClick: () => router.push(`${POSTING_ENGINE_PATH}/edit?id=${row.postingEventId}`),
+        }] : [],
       }),
     ],
-    [t, router]
+    [t, router, book?.tokenType]
   );
 
   if (!financeBookId) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
+      <div className="space-y-4">
+        <PageHeader
+          backLabel={t('action.back')}
+          onBack={() => router.back()}
+          title={t('detail.bookTitle')}
+        />
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">
+            {t('detail.invalidId')}
+          </p>
+        </Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <Tabs defaultValue={activeTab}>
+      <PageHeader
+        backLabel={t('action.back')}
+        onBack={() => router.back()}
+        title={t('detail.bookTitle')}
+      />
+      <Tabs value={activeTab} onValueChange={(tab) => {
+        setMatrixPage({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
+        router.replace(`${POSTING_ENGINE_PATH}/book?id=${financeBookId}&tab=${tab}`, { scroll: false });
+      }}>
         <TabsList>
           <TabsTrigger value={BASIC_TAB}>
             {t('detail.basicInformation')}
@@ -282,66 +215,121 @@ export function PostingEngineBookDetail({
         </TabsList>
 
         <TabsContent value={BASIC_TAB}>
-          <section className="rounded-lg border bg-card shadow-sm">
-            <div className="border-b px-6 py-3 text-sm font-semibold">
-              {t('detail.basicInformation')}
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full table-fixed border-collapse text-sm">
-                <tbody>
-                  {isLoading || !basicRows.length ? (
-                    <tr>
-                      <td className="px-4 py-8 text-center text-muted-foreground">
-                        {isLoading ? '' : t('empty')}
-                      </td>
-                    </tr>
-                  ) : (
-                    basicRows.map((row) => (
-                      <tr key={row.key}>
-                        <td className="w-[34%] border bg-muted/30 px-4 py-3 font-medium">
-                          {row.label}
-                        </td>
-                        <td className="break-all border px-4 py-3">{row.value}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          <DetailSection
+            title={t('detail.basicInformation')}
+            loading={isLoading}
+            skeleton="fields"
+          >
+            {book ? (
+              <DetailGrid>
+                <DetailField
+                  label={t('field.bookName')}
+                  value={book.bookName}
+                />
+                <DetailField
+                  label={t('field.status')}
+                  value={
+                    <PostingStatusBadge
+                      status={book.status}
+                      statusName={book.statusName}
+                      scope="book"
+                    />
+                  }
+                />
+                <DetailField
+                  label={t('field.bookNo')}
+                  value={
+                    <CopyableEllipsisText
+                      value={book.bookNo}
+                      copyLabel={t('copy')}
+                      maxWidth={320}
+                    />
+                  }
+                />
+                <DetailField
+                  label={t('detail.reserveAsset')}
+                  value={book.reserveAssetName}
+                />
+                <DetailField
+                  label={t('field.currency')}
+                  value={book.currencyCode}
+                />
+                <DetailField
+                  label={t('field.tokenType')}
+                  value={tokenTypeKey ? t(tokenTypeKey) : undefined}
+                />
+                <DetailField
+                  label={t('detail.tokenNames')}
+                  value={
+                    <CopyableEllipsisText
+                      value={tokenNames}
+                      maxWidth={320}
+                    />
+                  }
+                />
+                <DetailField
+                  label={t('field.totalEvents')}
+                  value={book.totalEvents}
+                />
+                <DetailField
+                  label={t('field.configured')}
+                  value={book.configured}
+                />
+                <DetailField
+                  label={t('field.lastRuleUpdate')}
+                  value={book.lastRuleUpdate}
+                />
+                <DetailField
+                  label={t('detail.creator')}
+                  value={book.createdBy}
+                  muted
+                />
+                <DetailField
+                  label={t('detail.createTime')}
+                  value={formatAdminTimestamp(toMillis(book.createTime))}
+                  muted
+                />
+              </DetailGrid>
+            ) : (
+              <p
+                role={isError ? 'alert' : undefined}
+                className={
+                  isError
+                    ? 'text-sm text-destructive'
+                    : 'text-sm text-muted-foreground'
+                }
+              >
+                {t(isError ? 'loadError' : 'empty')}
+              </p>
+            )}
+          </DetailSection>
         </TabsContent>
 
         <TabsContent value={MATRIX_TAB}>
-          <section className="rounded-lg border bg-card shadow-sm">
+          <Card>
             <div className="border-b px-6 py-3 text-sm font-semibold">
               {t('detail.postingEngineMatrix')}
             </div>
+            <p className="px-6 pt-3 text-sm text-muted-foreground">{t('detail.matrixDescription')}</p>
             <div className="p-4">
               <DataTable
                 columns={matrixColumns}
                 data={events}
                 isLoading={eventList.isLoading || eventList.isFetching}
-                emptyMessage={t('empty')}
+                emptyMessage={t(isError || eventList.isError ? 'loadError' : 'empty')}
                 pagination={{
                   page: matrixPage.pageNum,
                   pageSize: matrixPage.pageSize,
                   total: eventsTotal,
                   onPageChange: (page) =>
                     setMatrixPage((prev) => ({ ...prev, pageNum: page })),
-                  onPageSizeChange: (size) =>
-                    setMatrixPage({ pageNum: 1, pageSize: size }),
+                  summary: t('pagination.range', paginationRange(matrixPage.pageNum, eventsTotal)),
                 }}
               />
             </div>
-          </section>
+          </Card>
         </TabsContent>
       </Tabs>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
     </div>
   );
 }

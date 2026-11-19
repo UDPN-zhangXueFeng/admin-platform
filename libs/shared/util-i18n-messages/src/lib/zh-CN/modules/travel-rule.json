@@ -17,11 +17,7 @@
     "confirmationTime": "确认时间",
     "transactionType": "交易类型",
     "transactionAmount": "交易金额",
-    "transactionTime": "交易时间",
-    "transactionTimeFrom": "交易时间(起)",
-    "transactionTimeTo": "交易时间(止)",
-    "confirmationTimeFrom": "确认时间(起)",
-    "confirmationTimeTo": "确认时间(止)"
+    "transactionTime": "交易时间"
   },
   "placeholder": {
     "transactionHash": "请输入交易哈希",

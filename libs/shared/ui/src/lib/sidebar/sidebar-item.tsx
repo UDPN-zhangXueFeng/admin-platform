@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Link, usePathname } from '@myorg/shared/util-i18n';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@myorg/shared/util-classnames';
+import { getMenuIconProps, type MenuIconVariant } from './menu-icon';
 import { SidebarActiveBackdrop } from './sidebar-active-backdrop';
 
 export interface SidebarItemProps {
@@ -15,8 +16,8 @@ export interface SidebarItemProps {
   disabled?: boolean;
   /** Child entries follow the reference sidebar's compact text-only treatment. */
   nested?: boolean;
-  /** Use a larger, slightly heavier Lucide icon for primary menu entries. */
-  prominentMenuIcons?: boolean;
+  /** Icon treatment for the entry: default, prominent (larger) or refined (smaller). */
+  menuIconVariant?: MenuIconVariant;
   onClick?: () => void;
 }
 
@@ -37,11 +38,12 @@ export function SidebarItem({
   collapsed,
   disabled = false,
   nested = false,
-  prominentMenuIcons = false,
+  menuIconVariant = 'default',
   onClick,
 }: SidebarItemProps) {
   const pathname = usePathname();
   const isActive = pathname === path || pathname?.startsWith(`${path}/`);
+  const iconProps = getMenuIconProps(menuIconVariant, isActive);
 
   const content = (
     <Link
@@ -67,11 +69,8 @@ export function SidebarItem({
       {isActive && !nested && <SidebarActiveBackdrop />}
       {!nested && (
         <Icon
-          className={cn(
-            'relative z-10 shrink-0',
-            prominentMenuIcons ? 'size-6' : 'h-5 w-5',
-          )}
-          strokeWidth={prominentMenuIcons ? 2.25 : undefined}
+          className={iconProps.className}
+          strokeWidth={iconProps.strokeWidth}
           aria-hidden="true"
         />
       )}
