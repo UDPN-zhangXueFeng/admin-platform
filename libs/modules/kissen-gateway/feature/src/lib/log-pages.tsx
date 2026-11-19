@@ -509,11 +509,13 @@ export function LogListPage() {
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   type="date"
+                  lang="en-US"
                   aria-label="Date Range from"
                   {...register('startTime')}
                 />
                 <Input
                   type="date"
+                  lang="en-US"
                   aria-label="Date Range to"
                   {...register('endTime')}
                 />

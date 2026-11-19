@@ -1833,11 +1833,13 @@ function TransactionListCore() {
                 <div className="grid grid-cols-2 gap-2">
                   <Input
                     type="date"
+                    lang="en-US"
                     aria-label="Creation date from"
                     {...register('createdFrom')}
                   />
                   <Input
                     type="date"
+                    lang="en-US"
                     aria-label="Creation date to"
                     {...register('createdTo')}
                   />
