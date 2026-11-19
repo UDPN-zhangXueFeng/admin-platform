@@ -1,6 +1,7 @@
 'use client';
 
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, skipToken, useQuery } from '@tanstack/react-query';
+import { ApiError } from '@myorg/shared/data-access-api';
 import {
   getBlockchainList,
   getJournalDetail,
@@ -16,6 +17,10 @@ import type {
 } from '../journal-entries-new.model';
 import { journalEntriesKeys } from './journal-entries-new.keys';
 
+// A business rejection in a successful HTTP response is final, not a transient query failure.
+const retryJournalRead = (failureCount: number, error: Error) =>
+  !(error instanceof ApiError && error.status < 500 && error.status > 0) && failureCount < 2;
+
 /**
  * Journal 列表查询 hook（服务端分页）。
  *
@@ -27,6 +32,7 @@ export function useJournalListQuery(params: JournalListParams) {
     queryKey: journalEntriesKeys.list(params),
     queryFn: ({ signal }) => getJournalList(params, { signal }),
     placeholderData: keepPreviousData,
+    retry: retryJournalRead,
   });
 }
 
@@ -35,14 +41,11 @@ export function useJournalListQuery(params: JournalListParams) {
  *
  * `tdTxId` 缺失时不发起请求（`enabled`）。
  */
-export function useJournalDetailQuery(
-  tdTxId: number | undefined,
-  enabled = true
-) {
-  return useQuery<JournalDetailData>({
-    queryKey: journalEntriesKeys.detail(tdTxId ?? 0),
-    queryFn: ({ signal }) => getJournalDetail(tdTxId as number, { signal }),
-    enabled: Boolean(tdTxId) && enabled,
+export function useJournalDetailQuery(tdTxId: string | undefined) {
+  return useQuery<JournalDetailData | null>({
+    queryKey: journalEntriesKeys.detail(tdTxId ?? ''),
+    queryFn: tdTxId ? ({ signal }) => getJournalDetail(tdTxId, { signal }) : skipToken,
+    retry: retryJournalRead,
   });
 }
 

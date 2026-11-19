@@ -215,6 +215,7 @@ export function useTrialBalance({
     setFilters,
     summary,
     loading: balanceQuery.isLoading || balanceQuery.isFetching,
+    error: balanceQuery.isError,
     columns,
     selectedRow,
     openActivity,
@@ -222,6 +223,7 @@ export function useTrialBalance({
     activityRows,
     activityMeta,
     activityColumns,
+    activityError: activityQuery.isError,
     activityLoading:
       activityQuery.isLoading || activityQuery.isFetching,
   };

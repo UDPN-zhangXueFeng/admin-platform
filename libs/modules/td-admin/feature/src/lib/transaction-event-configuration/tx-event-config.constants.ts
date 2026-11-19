@@ -140,15 +140,14 @@ export const EVENT_TYPE_SOURCE_EVENT_MAP: Record<number, SourceEventTypeKey> = {
 /** TD 账本 bookId（源 getFinancialBookMetaById 用其区分 stablecoin / td 文案）。 */
 export const TD_BOOK_ID = '2';
 
-// ── 权限 ──────────────────────────────────────────────────────────────────────
-
-/**
- * 权限键（语义化占位）。源项目在 TDManage 环境用 localStorage UUID（MAPPING_RULES_PERMISSION
- * ='91ce483ff5fe47fc94073cdc25256935'）做门控；真实 UUID 待确认，当前权限空集时页面全放开。
- */
+/** Backend button permission from the legacy Normalization Books list. */
 export const TX_EVENT_CONFIG_PERMISSIONS = {
-  ViewMappingRules: 'transaction-event-configuration:view-mapping-rules',
+  ViewMappingRules: '91ce483ff5fe47fc94073cdc25256935',
 } as const;
+
+export function canViewMappingRules(permissions: ReadonlySet<string>): boolean {
+  return permissions.has(TX_EVENT_CONFIG_PERMISSIONS.ViewMappingRules);
+}
 
 // ── 状态码自适应 ──────────────────────────────────────────────────────────────
 
@@ -161,10 +160,11 @@ export function resolveBookListStatus(
   statusName?: string
 ): BookListStatus {
   const lower = (statusName ?? '').trim().toLowerCase();
-  if (status === 1 || lower === 'active') return 'active';
+  const code = Number(status);
+  if (code === 1 || lower === 'active') return 'active';
   if (
-    status === 0 ||
-    status === 2 ||
+    code === 0 ||
+    code === 2 ||
     lower === 'inactive' ||
     lower === 'in-active'
   ) {
@@ -279,8 +279,9 @@ export function statusToneClass(tone: StatusTone): string {
 export function normalizeTimestamp(
   value?: number | null
 ): number | undefined {
-  if (value === null || value === undefined) return undefined;
-  return value >= 1e12 ? value : value * 1000;
+  if (!value) return undefined;
+  const timestamp = value >= 1e12 ? Number(value) : value * 1000;
+  return Number.isFinite(new Date(timestamp).getTime()) ? timestamp : undefined;
 }
 
 /** 完整日期时间格式化（委托 ../format-admin-time 的 formatAdminTimestamp）。 */
@@ -290,27 +291,24 @@ export function formatDateTime(value?: number | null): string {
   return formatAdminTimestamp(ts);
 }
 
-/** 仅日期格式化（迁移自 formatDate；日期展示不附加固定时区标签）。 */
+/** Calendar day with the viewer-local timezone offset, matching the legacy date display. */
 export function formatDate(value?: number | null): string {
   const ts = normalizeTimestamp(value);
   if (!ts) return EMPTY_DISPLAY;
-  return format(new Date(ts), 'MMM d, yyyy');
+  return format(new Date(ts), 'MMM d, yyyy (O)').replace('GMT', 'UTC');
 }
 
 /** 资产价值格式化（迁移自 formatAssetValue，支持纯数字与「数值 单位」字符串）。 */
 export function formatAssetValue(value?: string | number | null): string {
-  if (value === undefined || value === null || value === '') {
-    return EMPTY_DISPLAY;
-  }
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value.toFixed(2) : EMPTY_DISPLAY;
-  }
-  const match = value.trim().match(/^(-?\d+(?:\.\d+)?)(.*)$/);
+  if (typeof value === 'number') return Number.isFinite(value) ? value.toFixed(2) : EMPTY_DISPLAY;
+  if (value == null) return EMPTY_DISPLAY;
+  const match = /^([+-]?)(\d+)(?:\.(\d+))?(.*)$/.exec(String(value).trim());
   if (!match) return EMPTY_DISPLAY;
-  const num = Number(match[1]);
-  if (!Number.isFinite(num)) return EMPTY_DISPLAY;
-  const suffix = match[2].trim();
-  return suffix ? `${num.toFixed(2)} ${suffix}` : num.toFixed(2);
+  const [, sign, whole, fraction = '', unit] = match;
+  const cents = BigInt(whole) * 100n + BigInt(fraction.slice(0, 2).padEnd(2, '0')) +
+    (fraction[2] && fraction[2] >= '5' ? 1n : 0n);
+  const amount = `${sign === '-' ? '-' : ''}${cents / 100n}.${String(cents % 100n).padStart(2, '0')}`;
+  return unit.trim() ? `${amount} ${unit.trim()}` : amount;
 }
 
 /** 文本归一：trim，空 → undefined（API 请求参数用）。 */
@@ -353,6 +351,13 @@ export function getSourceEventTypeByEventType(
   return EVENT_TYPE_SOURCE_EVENT_MAP[eventType];
 }
 
+export function resolveHistorySourceEvent(raw?: string, fallback?: number): SourceEventTypeKey | undefined {
+  const normalized = String(raw ?? '').trim().replaceAll('_', '').toLowerCase();
+  return (normalized ? getSourceEventTypeByEventType(Number(normalized)) : undefined) ??
+    Object.values(EVENT_TYPE_SOURCE_EVENT_MAP).find((key) => key.toLowerCase() === normalized) ??
+    getSourceEventTypeByEventType(fallback);
+}
+
 /**
  * sourceEventType + bookId → 模块 i18n key。
  *
@@ -372,8 +377,9 @@ export function getSourceEventTypeMessageKey(
 }
 
 /** mappingMethod → i18n key（'mappingMethod.direct' 等，小写）。 */
-export function mappingMethodMessageKey(method?: number): string | undefined {
-  const label = getMappingMethodLabel(method);
-  if (label === EMPTY_FIELD_VALUE) return undefined;
+export function mappingMethodMessageKey(method?: number | string): string | undefined {
+  const label = typeof method === 'string' && !/^\d+$/.test(method.trim())
+    ? method.trim().toUpperCase() : getMappingMethodLabel(Number(method));
+  if (label !== 'DIRECT' && label !== 'CONSTANT' && label !== 'GENERATE') return undefined;
   return `mappingMethod.${label.toLowerCase()}`;
 }

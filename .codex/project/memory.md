@@ -1554,3 +1554,48 @@
 
 - **约定**：所有表格分页只使用共享 `DataTable` 内置 footer（`Page X of Y` + 页大小选择 + 首页/上一页/下一页/末页），页面不得自加页码列表或 `Go to page` 表单。用户明确反馈这些是“乱加”的控件。
 - **已清理**：`user-wallet-table.tsx`、`operational-wallet-table.tsx` 的自定义跳页/页码表单全部删除；`userWallet.jumpPage` / `operationalWallet.jumpPage` 文案同步移除。`DataTablePagination.disabled` 仍保留，仅用于 `keepPreviousData` 期间禁用旧分页。
+
+## 2026-11-19 admin 面包屑按菜单层级 + Accounting/Statistics 路由分层
+
+- **面包屑根因**：旧 `Breadcrumb` 把 `findPathLabels` 返回的菜单链按 URL 段下标对齐；Accounting 子项是 1 段扁平路径而菜单链 2 层，`pathLabels[0]` 取到父级，子项标签被丢弃。现改为 `findRouteMatch`（最长路径前缀，同长度取更深菜单链）+ `buildBreadcrumbEntries`：按菜单链逐项出 crumb，再补超出菜单深度的路径段与详情段；无配置匹配时保留逐段 fallback。
+- **路由分层**：stablecoin 的 Accounting/Statistics 9 条路径改为 `/accounting/<child>`、`/statistics/<child>`；`GROUP_ENABLED_KEY` 增加 `accounting`/`statistics`，动态段按分组解析。旧扁平 URL 仍可渲染（registry/enabled 未删），但站内链接已全部切到新路径。
+- **分组 dispatcher 坑**：`useParams().slug` 对分组路由仍含模块段。`posting-engine-detail-page` 与 `tx-event-config-detail-page` 按 `slug[0]==='<module>' ? slug[1] : slug[0]` 取分支，否则新 URL 会误渲染；旧扁平 URL 同步兼容。
+- **验证**：`shared-ui-layout` 3 suites/28 tests、`modules-td-admin-feature` 23 suites/175 tests、lint 0 error（19 既有 warning）、`nx build admin` 通过；Orca 实测 10 条新路由 + 3 条旧 URL、两处列表→详情跳转、面包屑三级、console error 0。审计详情页既有 `modules.audit-trail.processingStatus.10` 缺词（与本轮无关）。
+
+## 2026-11-19 Chart of Accounts 同步（admin-optimizer round-01）
+
+- 以 td-manage `11e4b99a` 冻结 53 项：实测 38/53（71.7%），关键 10/15，未达标。已修复列表筛选/复制/状态列、详情科目校验/本地草稿、EOD、Trial Balance、Operation Records；门禁 build/lint/test/tsc 全绿，NEW console 0 error、最终 80 条网络请求 HTTP 200。
+- 阻塞：C07–C09 发布/启停回读需后端预置专用 QA 账簿（无独立建账契约；Inner API 属 Token 审批链，禁止绕过）。数据受限：Inactive 账簿 0、Pending EOD 0、非 Create 工作流记录 0；列表每页 20 时 `total=20` 但切 50 可见 39 行，待后端确认。
+- 矩阵/问题/证据在 `.doc/admin/2026-11-19/chart-of-accounts/round-01/`（git 忽略，未提交）。
+
+## 2026-11-19 Normalization Engine 同步（admin-optimizer round-01）
+
+- 以 td-manage `11e4b99a` 冻结 33 项：实测 30/33（90.91%），关键 7/9，未达标。已同步账套筛选/分页/复制/权限、规则列表/预览/详情/历史、编辑校验与 4 级路由面包屑；门禁 build/lint/test/tsc 全绿，NEW console 0 error、模块请求 HTTP 200。
+- 阻塞：H05 历史审批详情需一条同时含 `taskId`+`busCode` 的既有记录；E08/E09 规则更新与回读需明确写授权 + 专用可消耗账套。未发送 `normalization/update`，未写共享业务数据。
+- 权限口径：`NEXT_PUBLIC_SYS_ENV=TDManage` 为旧部署遗留，已改用 backend permission UUID（当前 NEW 登录含该 UUID）；未扩展 shared config。共享 DataTable 仅新增可选 `pagination.summary`，`shared-ui` 18 tests + lint + 三门户 build 通过。
+- 矩阵/问题/证据在 `.doc/admin/2026-11-19/normalization-engine/round-01/`（git 忽略，未提交）。
+
+## 2026-11-19 Posting Engine 同步（admin-optimizer round-01）
+
+- 以 td-manage `11e4b99a` 冻结 50 项：实测 43/50（86%），关键 4/8，未达标。已同步 Posting Books 列表、账簿详情、事件矩阵、事件详情/版本历史、矩阵编辑与借贷科目选择；门禁 build/lint/test/tsc 全绿，六个页面 console 0 error。
+- 未通过：L12 缺单权限/无权限角色；M05/H08 缺第 2 页真实样本（账簿最多 9 事件、历史最多 2 条）；E03 缺空科目/GET 失败样本；E06/E07 写测试未授权，`posting/update` 未发送。候选 payload 已存档。
+- 另记 Approval Manage 既有缺词 `financial_0300/financial_0161`，未改该模块。矩阵/证据在 `.doc/admin/2026-11-19/posting-engine/round-01/`（未提交）。
+
+## 2026-11-19 Journal Entries（new）同步（admin-optimizer round-01）
+
+- 以 td-manage `11e4b99a` 冻结 27 项：实测 25/27（92.59%），关键 7/9，未达标。已同步列表筛选/分页/复制、详情五区、ISO 20022 全文复制与返回；金额/区块高度保持字符串精度。门禁 build/lint/test/tsc 全绿，NEW console 0 error。
+- 未通过：L17 无权限隐藏 Details（只有授权会话，拒绝分支仅单测）；L18 列表业务非 0 清空旧结果（无真实可复现响应）。两项代码已实现但不计通过，恢复条件见报告。
+- 矩阵/证据在 `.doc/admin/2026-11-19/journal-entries-new/round-01/`（git 忽略，未提交）。
+
+## 2026-11-19 Suspense Adjustment 同步（admin-optimizer round-01）
+
+- 以 td-manage `11e4b99a` 冻结 32 项：实测 28/32（87.5%），关键 10/13，未达标。已同步列表筛选/清账状态/复制、详情与历史、调整表单（真实 leaf account、Dr/Cr、金额上限、原因字数），金额保持十进制字符串；门禁 build/lint/test/tsc 全绿。
+- 修复审批任务 #5465 的 Hook 顺序崩溃：仅改 `approval-manage/components/financial/financial-suspense-adjustment-approval.tsx`，复验 0 运行错误、0 新增 console error。
+- 未通过：L11 分页（仅 8 条真实数据）；E10–E12 提交/拒绝/回读（未授权写，`suspense-adjustment/adjust` 未发送）。矩阵/证据在 `.doc/admin/2026-11-19/suspense-adjustment/round-01/`（未提交）。
+
+## 2026-11-19 Audit Trail 同步（admin-optimizer round-01）
+
+- 以 td-manage `11e4b99a` 冻结 34 项：实测 28/34（82.35%），关键 5/8，未达标。已同步列表筛选/查询/重置/服务端分页/空态、详情规范路由/日志/四个复制按钮；金额与 66 位哈希保持字符串精度。
+- 修复真实缺词：`modules.audit-trail.processingStatus` 按旧版补齐 1 Pending / 5 Processing / 10 Success / 15 Failed；真实详情三条 code 10 均显示 Success，复验 console 0 error。
+- 未通过：E01–E04 Export/Download Center（两端账号均无两个 Export UUID，未发任务请求）；D10 日志纯文本/空体边界（无真实样本）。共同后端问题：Mint（txType 1）新旧均 HTTP 500。
+- 矩阵/证据在 `.doc/admin/2026-11-19/audit-trail/round-01/`（git 忽略，未提交）。

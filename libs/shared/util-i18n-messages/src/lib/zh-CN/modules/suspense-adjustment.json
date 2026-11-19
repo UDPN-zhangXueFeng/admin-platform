@@ -25,7 +25,15 @@
     "remainingAfter": "本次后剩余",
     "amountExceed": "合计不能超过未清金额（{amount} {currency}）。",
     "submitSuccess": "调账提交成功。",
-    "submitFailed": "调账提交失败。"
+    "submitFailed": "调账提交失败。",
+    "dateRequired": "请选择记账日期。",
+    "accountRequired": "请选择科目。",
+    "searchAccounts": "搜索科目",
+    "noAccounts": "没有匹配的末级科目。",
+    "amountRequired": "请输入金额。",
+    "amountInvalid": "金额至少为 0.01，最多保留两位小数。",
+    "reasonRequired": "请输入调账原因。",
+    "removeEntry": "删除分录"
   },
   "filter": {
     "title": "查询",
@@ -73,6 +81,9 @@
     "submit": "提交",
     "cancel": "取消"
   },
+  "loading": "正在加载暂记分录…",
+  "originalAmountHelp": "合计包含待审批金额",
+  "range": "{start} - {end}，共 {total} 条",
   "empty": "暂无暂记分录",
   "ageDays": "{count} 天"
 }

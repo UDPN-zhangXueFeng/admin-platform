@@ -35,6 +35,8 @@ export {
 // ── 纯函数 ──
 export {
   formatAmount,
+  adjustmentEntryAmount,
+  amountExceeds,
   textOrDash,
   mapSourceType,
   mapAdjustmentStatus,

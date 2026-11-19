@@ -46,6 +46,7 @@ export interface PostingBook {
   configured?: number;
   lastRuleUpdate?: string;
   status?: number;
+  statusName?: string;
   reserveAssetName?: string;
   createdBy?: string;
   createTime?: number;
@@ -106,8 +107,10 @@ export interface PostingEvent {
   eventCode?: string;
   versionId?: string;
   eventType?: number;
+  sourceEventType?: string | number;
   effectiveDate?: number;
   status?: number;
+  statusName?: string;
   remarks?: string;
   createTime?: number;
   updateTime?: number;
@@ -124,6 +127,9 @@ export interface PostingEvent {
   bookName?: string;
   bookNo?: string;
   reserveAssetName?: string;
+  financialBookName?: string;
+  bookId?: string;
+  accountCurrency?: string;
   /** 事件类型名（后端可能直出，用于标签展示）。 */
   eventTypeName?: string;
 }
@@ -186,7 +192,7 @@ export interface PostingAccountOption {
 /** 版本历史行（PostingHistoryRespVo）。 */
 export interface PostingHistoryItem {
   id: string;
-  recordId?: number;
+  recordId?: number | string;
   postingEventId?: number;
   sourceEventType?: string;
   versionId?: string;
@@ -195,8 +201,9 @@ export interface PostingHistoryItem {
   createdBy?: string;
   createdOn?: number;
   status?: number;
+  statusName?: string;
   /** 审批任务 ID（有值时行操作跳转审批详情）。 */
-  taskId?: number;
+  taskId?: number | string;
   busCode?: string;
 }
 

@@ -6,12 +6,19 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 
-import { Card, CopyableEllipsisText, DataTable, PageHeader } from '@myorg/shared/ui';
+import {
+  Card,
+  CopyableEllipsisText,
+  DataTable,
+  DetailField,
+  DetailGrid,
+  DetailSection,
+  PageHeader,
+} from '@myorg/shared/ui';
 
 import {
   useSuspenseEntryDetailQuery,
   type SuspenseAdjustmentHistoryItem,
-  type SuspenseEntryLine,
 } from '@myorg/modules/td-admin/data-access';
 import {
   ADJUSTMENT_STATUS_MAP,
@@ -20,6 +27,7 @@ import {
   textOrDash,
 } from '@myorg/modules/td-admin/data-access';
 import { SuspenseStatusBadge } from '.';
+import { SuspenseEntryTable } from './suspense-entry-table';
 import {
   createRowActionsColumn,
   renderRowActions,
@@ -35,87 +43,14 @@ function parseId(raw: string | null | undefined): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
-interface KvRow {
-  key: string;
-  label: string;
-  value: React.ReactNode;
-}
-
-/** SuspenseEntryLine 注入 id 满足 DataTable `{ id: string }` 契约。 */
-type EntryTableRow = SuspenseEntryLine & { id: string };
-
-/**
- * SuspenseAdjustmentDetailPage — 暂记分录详情页。
- *
- * 迁移自 td-manage src/pages/financial/adjustments/view.tsx（558 行）。
- * 4 区块（非 Tabs，与源一致）：Basic Details（kv）+ Suspense Entries（分录表）+
- * Amount Summary（金额汇总）+ Adjustment History（历史表 + 审批跳转）。
- *
- * 路由：/suspense-adjustment/view?id=suspenseRecordId（dispatcher slug[0]=view → detail）。
- */
 export function SuspenseAdjustmentDetailPage() {
   const t = useTranslations('modules.suspense-adjustment');
   const router = useRouter();
   const searchParams = useSearchParams();
   const suspenseRecordId = parseId(searchParams.get('id'));
 
-  const { data: detail, isLoading } =
-    useSuspenseEntryDetailQuery(suspenseRecordId);
+  const { data: detail, isLoading, error } = useSuspenseEntryDetailQuery(suspenseRecordId);
 
-  const entryColumns = React.useMemo<ColumnDef<EntryTableRow>[]>(
-    () => [
-      {
-        accessorKey: 'drCr',
-        header: t('field.drCr'),
-        cell: ({ row }) => <span>{textOrDash(row.original.drCr)}</span>,
-      },
-      {
-        accessorKey: 'accountDisplay',
-        header: t('field.account'),
-        cell: ({ row }) => <span>{textOrDash(row.original.accountDisplay)}</span>,
-      },
-      {
-        id: 'debit',
-        header: t('field.debit'),
-        cell: ({ row }) => (
-          <span>
-            {row.original.debitAmount != null
-              ? formatAmount(row.original.debitAmount, '')
-              : '--'}
-          </span>
-        ),
-      },
-      {
-        id: 'credit',
-        header: t('field.credit'),
-        cell: ({ row }) => (
-          <span>
-            {row.original.creditAmount != null
-              ? formatAmount(row.original.creditAmount, '')
-              : '--'}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'exceptionContext',
-        header: t('field.exceptionContext'),
-        cell: ({ row }) => (
-          <span>{textOrDash(row.original.exceptionContext)}</span>
-        ),
-      },
-      {
-        accessorKey: 'createdBy',
-        header: t('field.createdBy'),
-        cell: ({ row }) => <span>{textOrDash(row.original.createdBy)}</span>,
-      },
-      {
-        accessorKey: 'createdOn',
-        header: t('field.createdOn'),
-        cell: ({ row }) => <span>{textOrDash(row.original.createdOn)}</span>,
-      },
-    ],
-    [t],
-  );
 
   const historyColumns = React.useMemo<
     ColumnDef<SuspenseAdjustmentHistoryItem>[]
@@ -130,7 +65,7 @@ export function SuspenseAdjustmentDetailPage() {
                 label: t('action.detail'),
                 onClick: () =>
                   router.push(
-                    `/approval-manage/view?id=${taskId}&busCode=${busCode}`,
+                    `/approval-manage/view?${new URLSearchParams({ id: String(taskId), busCode })}`,
                   ),
               }
             : undefined;
@@ -152,9 +87,7 @@ export function SuspenseAdjustmentDetailPage() {
       {
         accessorKey: 'amount',
         header: t('field.amount'),
-        cell: ({ row }) => (
-          <span>{formatAmount(row.original.amount, '')}</span>
-        ),
+        cell: ({ row }) => formatAmount(row.original.amount, detail?.currency),
       },
       {
         accessorKey: 'adjustmentReason',
@@ -194,7 +127,7 @@ export function SuspenseAdjustmentDetailPage() {
       },
       ];
     },
-    [t, router],
+    [t, router, detail?.currency],
   );
 
   const header = <PageHeader backLabel={t('action.back')} onBack={() => router.back()} title={t('detail.title')} />;
@@ -214,144 +147,127 @@ export function SuspenseAdjustmentDetailPage() {
     return (
       <div className="space-y-4">
         {header}
-        <Card className="p-6 text-sm text-muted-foreground">
-          {isLoading ? '' : t('empty')}
-        </Card>
+        <DetailSection
+          title={t('detail.basicInformation')}
+          loading={isLoading}
+          skeleton="fields"
+        >
+          <p
+            role={error ? 'alert' : undefined}
+            className={
+              error
+                ? 'text-sm text-destructive'
+                : 'text-sm text-muted-foreground'
+            }
+          >
+            {error?.message || t('empty')}
+          </p>
+        </DetailSection>
       </div>
     );
   }
-
-  const entryRows: EntryTableRow[] = detail.suspenseEntries.map((e, i) => ({
-    ...e,
-    id: `${e.accountCode}-${e.drCr}-${i}`,
-  }));
-
-  const basicRows: KvRow[] = [
-    {
-      key: 'suspenseTxnId',
-      label: t('field.suspenseTxnId'),
-      value: <CopyableEllipsisText value={detail.suspenseTxnId} />,
-    },
-    {
-      key: 'status',
-      label: t('field.status'),
-      value: (
-        <SuspenseStatusBadge
-          tone={CLEAR_STATUS_MAP[detail.status]?.color ?? 'default'}
-          label={detail.statusLabel}
-        />
-      ),
-    },
-    {
-      key: 'sourceType',
-      label: t('field.sourceType'),
-      value: <span>{textOrDash(detail.sourceTypeLabel)}</span>,
-    },
-    {
-      key: 'age',
-      label: t('field.age'),
-      value: <span>{t('ageDays', { count: detail.age })}</span>,
-    },
-    {
-      key: 'financeBookName',
-      label: t('field.financeBookName'),
-      value: <span>{textOrDash(detail.financeBookName)}</span>,
-    },
-    {
-      key: 'bookId',
-      label: t('field.bookId'),
-      value: <CopyableEllipsisText value={textOrDash(detail.bookId)} />,
-    },
-  ];
 
   return (
     <div className="space-y-4">
       {header}
       {/* Basic Details */}
-      <Card>
-        <div className="border-b px-6 py-3 text-sm font-semibold">
-          {t('detail.basicInformation')}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full table-fixed border-collapse text-sm">
-            <tbody>
-              {basicRows.map((row) => (
-                <tr key={row.key}>
-                  <td className="w-[34%] border bg-muted/30 px-4 py-3 font-medium">
-                    {row.label}
-                  </td>
-                  <td className="break-all border px-4 py-3">{row.value}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <DetailSection title={t('detail.basicInformation')}>
+        <DetailGrid>
+          <DetailField
+            span="full"
+            label={t('field.suspenseTxnId')}
+            value={
+              <CopyableEllipsisText
+                value={detail.suspenseTxnId}
+                showCopyIcon
+                maxWidth={480}
+              />
+            }
+          />
+          <DetailField
+            label={t('field.status')}
+            value={
+              <SuspenseStatusBadge
+                tone={CLEAR_STATUS_MAP[detail.status]?.color ?? 'default'}
+                label={detail.statusLabel}
+              />
+            }
+          />
+          <DetailField
+            label={t('field.sourceType')}
+            value={textOrDash(detail.sourceTypeLabel)}
+          />
+          <DetailField
+            label={t('field.age')}
+            value={t('ageDays', { count: detail.age })}
+          />
+          <DetailField
+            label={t('field.transactionType')}
+            value={textOrDash(detail.transactionTypeLabel)}
+          />
+          <DetailField
+            label={t('field.financeBookName')}
+            value={textOrDash(detail.financeBookName)}
+          />
+          <DetailField
+            label={t('field.bookId')}
+            value={
+              <CopyableEllipsisText
+                value={detail.bookNo || detail.bookId}
+                showCopyIcon
+                maxWidth={320}
+              />
+            }
+          />
+        </DetailGrid>
+      </DetailSection>
 
       {/* Suspense Entries */}
-      <Card>
-        <div className="border-b px-6 py-3 text-sm font-semibold">
-          {t('detail.suspenseEntries')}
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={entryColumns}
-            data={entryRows}
-            emptyMessage={t('empty')}
-          />
-        </div>
-      </Card>
+      <DetailSection title={t('detail.suspenseEntries')}>
+        <SuspenseEntryTable detail={detail} />
+      </DetailSection>
 
       {/* Amount Summary */}
-      <Card>
-        <div className="border-b px-6 py-3 text-sm font-semibold">
-          {t('detail.amountSummary')}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full table-fixed border-collapse text-sm">
-            <tbody>
-              <tr>
-                <td className="w-[34%] border bg-muted/30 px-4 py-3 font-medium">
-                  {t('field.originalAmount')}
-                </td>
-                <td className="border px-4 py-3 font-semibold">
-                  {formatAmount(detail.originalAmount, detail.currency)}
-                </td>
-              </tr>
-              <tr>
-                <td className="border bg-muted/30 px-4 py-3 font-medium">
-                  {t('field.totalAdjusted')}
-                </td>
-                <td className="border px-4 py-3">
-                  {formatAmount(detail.totalAdjusted, detail.currency)}
-                </td>
-              </tr>
-              <tr>
-                <td className="border bg-muted/30 px-4 py-3 font-medium">
-                  {t('field.outstandingAmount')}
-                </td>
-                <td className="border px-4 py-3 text-red-600">
-                  {formatAmount(detail.outstandingAmount, detail.currency)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <DetailSection title={t('detail.amountSummary')}>
+        <DetailGrid className="sm:grid-cols-3">
+          <DetailField
+            label={t('field.originalAmount')}
+            value={
+              <span className="font-semibold">
+                {formatAmount(detail.originalAmount, detail.currency)}
+              </span>
+            }
+          />
+          <DetailField
+            label={t('field.totalAdjusted')}
+            value={formatAmount(detail.totalAdjusted, detail.currency)}
+          />
+          <DetailField
+            label={t('field.outstandingAmount')}
+            value={
+              <span className="font-semibold text-destructive">
+                {formatAmount(detail.outstandingAmount, detail.currency)}
+              </span>
+            }
+          />
+        </DetailGrid>
+      </DetailSection>
 
       {/* Adjustment History */}
-      <Card>
-        <div className="border-b px-6 py-3 text-sm font-semibold">
-          {t('detail.adjustmentHistory')}
-        </div>
-        <div className="p-4">
-          <DataTable
-            columns={historyColumns}
-            data={detail.adjustmentHistory}
-            emptyMessage={t('empty')}
-          />
-        </div>
-      </Card>
+      <DetailSection title={t('detail.adjustmentHistory')}>
+        <DataTable
+          columns={historyColumns}
+          data={detail.adjustmentHistory}
+          emptyMessage={t('empty')}
+        />
+        <p className="mt-3 text-xs text-muted-foreground">
+          {t('range', {
+            start: detail.adjustmentHistory.length ? 1 : 0,
+            end: detail.adjustmentHistory.length,
+            total: detail.adjustmentHistory.length,
+          })}
+        </p>
+      </DetailSection>
     </div>
   );
 }

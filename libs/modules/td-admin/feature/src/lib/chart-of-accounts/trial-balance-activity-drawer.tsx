@@ -6,6 +6,7 @@ import {
   DataTable,
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
 } from '@myorg/shared/ui';
@@ -22,6 +23,7 @@ export interface TrialBalanceActivityDrawerProps {
   meta: TrialBalanceActivityMeta;
   rows: TrialBalanceActivityRow[];
   loading: boolean;
+  error: boolean;
   columns: ColumnDef<TrialBalanceActivityRow>[];
   basicInfo: { financialBookName: string; bookId: string };
   onClose: () => void;
@@ -38,6 +40,7 @@ export function TrialBalanceActivityDrawer({
   meta,
   rows,
   loading,
+  error,
   columns,
   basicInfo,
   onClose,
@@ -59,6 +62,7 @@ export function TrialBalanceActivityDrawer({
                 })
               : t('trialBalance.activityTitle')}
           </DrawerTitle>
+          <DrawerDescription className="sr-only">{t('trialBalance.transactionJournal')}</DrawerDescription>
         </DrawerHeader>
 
         {selectedRow ? (
@@ -160,6 +164,7 @@ export function TrialBalanceActivityDrawer({
               </div>
             </div>
 
+            {error && <p role="alert" className="text-sm text-destructive">{t('common.loadFailed')}</p>}
             <DataTable
               columns={columns}
               data={rows}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useQueryClient } from '@tanstack/react-query';
@@ -51,6 +51,7 @@ export function useCoaTree({ financeBookId, enabled = true }: UseCoaTreeOptions)
   const [coaDraftAccounts, setCoaDraftAccounts] = useState<CoaDraftAccount[]>([]);
   const [coaActionSubmitting, setCoaActionSubmitting] = useState(false);
 
+  const mutationInFlight = useRef(false);
   const treeQuery = useCoaTreeQuery(financeBookId, enabled);
 
   // 接口成功过（含空响应、refetch 失败时的缓存）→ 只用真实树；失败 / 空响应 / 未启用 → 无演示数据。
@@ -173,7 +174,7 @@ export function useCoaTree({ financeBookId, enabled = true }: UseCoaTreeOptions)
           coaModalState.type === 'new-sub-account'
             ? coaModalState.record.accountCode
             : coaModalState.record.parentCode;
-        if (!/^\d{2}$/.test(accountCodeSuffixInput)) {
+        if (!isPersistedAccountEdit && !/^\d{2}$/.test(accountCodeSuffixInput)) {
           toast.error(t('coa.code2Digit'));
           return;
         }
@@ -284,9 +285,23 @@ export function useCoaTree({ financeBookId, enabled = true }: UseCoaTreeOptions)
         );
         if (idx === -1) return [...prev, draftAccount];
         const next = [...prev];
-        next[idx] = draftAccount;
+        next[idx] = { ...draftAccount, draftType: prev[idx].draftType };
+        if (prev[idx].accountCode !== draftAccount.accountCode) {
+          const prefix = `${prev[idx].accountCode}.`;
+          for (const [index, child] of next.entries()) {
+            if (!child.accountCode.startsWith(prefix)) continue;
+            const accountCode = `${draftAccount.accountCode}.${child.accountCode.slice(prefix.length)}`;
+            const parentCode = child.parentCode?.replace(
+              new RegExp(`^${prev[idx].accountCode.replaceAll('.', '\\.')}($|\\.)`),
+              `${draftAccount.accountCode}$1`
+            );
+            const updated = { ...child, accountCode, parentCode };
+            next[index] = { ...updated, draftKey: getCoaDraftKey(updated) };
+          }
+        }
         return next;
       });
+      toast.success(t('coa.draftSaved'));
       closeCoaModal();
     },
     [coaModalState, financeBookId, coaRows, closeCoaModal, toast, t]
@@ -306,10 +321,15 @@ export function useCoaTree({ financeBookId, enabled = true }: UseCoaTreeOptions)
         return;
       }
 
-      const bookAccountIds = [
-        coaModalState.record.bookAccountId,
-        ...(values.childAccountKeys ?? []).map((key) => Number(key)),
-      ].filter((id): id is number => Number.isFinite(id));
+      if (mutationInFlight.current) return;
+      const childIds = coaModalState.type === 'deactivate'
+        ? toggleChildAccounts.map((row) => row.bookAccountId)
+        : toggleChildAccounts
+            .filter((row) => values.childAccountKeys?.includes(String(row.bookAccountId)))
+            .map((row) => row.bookAccountId);
+      const bookAccountIds = [...new Set([coaModalState.record.bookAccountId, ...childIds])]
+        .filter((id): id is number => typeof id === 'number' && Number.isInteger(id) && id > 0);
+      mutationInFlight.current = true;
 
       setCoaActionSubmitting(true);
       try {
@@ -320,35 +340,64 @@ export function useCoaTree({ financeBookId, enabled = true }: UseCoaTreeOptions)
         } else {
           await enableCoaAccounts(req);
         }
-        await queryClient.invalidateQueries({ queryKey: chartOfAccountsKeys.coaTrees() });
+        await queryClient.invalidateQueries({ queryKey: chartOfAccountsKeys.coaTree(financeBookId) });
         closeCoaModal();
       } catch {
         toast.error(t('coa.toggleFailed'));
       } finally {
+        mutationInFlight.current = false;
         setCoaActionSubmitting(false);
       }
     },
-    [coaModalState, financeBookId, queryClient, closeCoaModal, toast, t]
+    [coaModalState, financeBookId, toggleChildAccounts, queryClient, closeCoaModal, toast, t]
   );
 
   // ── 批量保存草稿 ──
   const handleCoaDraftSubmit = useCallback(async () => {
-    if (!coaDraftAccounts.length || !financeBookId) return;
+    if (!coaDraftAccounts.length || !financeBookId || mutationInFlight.current) return;
+    const childParentCodes = new Set(
+      coaDraftAccounts.flatMap((draft) =>
+        draft.draftType === 'new-sub-account' && draft.parentCode ? [draft.parentCode] : []
+      )
+    );
+    const forceNonPosting = { allowPosting: 2, suspenseAccount: 2 };
+    const accounts = coaDraftAccounts.map((draft) => ({
+      ...toCoaSavePayload(draft),
+      ...(childParentCodes.has(draft.accountCode) ? forceNonPosting : {}),
+    }));
+    const draftCodes = new Set(accounts.map((account) => account.accountCode));
+    const parentUpdates = baseCoaRows.flatMap((row): BookAccountSaveReqVO[] =>
+      row.bookAccountId && row.accountCode && childParentCodes.has(row.accountCode) && !draftCodes.has(row.accountCode)
+        ? [{
+            financeBookId,
+            bookAccountId: row.bookAccountId,
+            accountCode: row.accountCode,
+            accountName: row.accountName ?? '',
+            parentCode: row.parentCode,
+            level: row.level,
+            type: row.typeValue ?? getAccountTypeValue(row.accountType) ?? 1,
+            direction: row.directionValue ?? getDirectionValue(row.accountType),
+            ...forceNonPosting,
+          }]
+        : []
+    );
+    mutationInFlight.current = true;
     setCoaActionSubmitting(true);
     try {
       await saveCoaAccounts({
         financeBookId,
-        accounts: coaDraftAccounts.map(toCoaSavePayload),
+        accounts: [...parentUpdates, ...accounts],
       });
       setCoaDraftAccounts([]);
-      await queryClient.invalidateQueries({ queryKey: chartOfAccountsKeys.coaTrees() });
+      await queryClient.invalidateQueries({ queryKey: chartOfAccountsKeys.coaTree(financeBookId) });
       toast.success(t('coa.saveSuccess'));
     } catch {
       toast.error(t('coa.saveFailed'));
     } finally {
+      mutationInFlight.current = false;
       setCoaActionSubmitting(false);
     }
-  }, [coaDraftAccounts, financeBookId, queryClient, toast, t]);
+  }, [coaDraftAccounts, baseCoaRows, financeBookId, queryClient, toast, t]);
 
   // ── Modal 文案（迁移自 view.tsx 的 currentModalTitle / modalAccountTypeLabel 等） ──
   const modalAccountType =

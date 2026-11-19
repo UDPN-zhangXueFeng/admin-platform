@@ -1,4 +1,4 @@
-import { apiClient, type ApiRequestConfig } from '@myorg/shared/data-access-api';
+import { ApiError, apiClient, axiosClient, type ApiRequestConfig } from '@myorg/shared/data-access-api';
 import type {
   AuditTrailDetail,
   AuditTrailListParams,
@@ -39,7 +39,7 @@ export async function getAuditTrailList(
   params: AuditTrailListParams,
   config?: ApiRequestConfig,
 ): Promise<AuditTrailListResponse> {
-  const response = await apiClient.post<ListResponseApi>(
+  const response = await apiClient.post<ListResponseApi | null>(
     AUDIT_LIST_URL,
     {
       data: params.filters,
@@ -48,8 +48,8 @@ export async function getAuditTrailList(
     config,
   );
   return {
-    page: response.page,
-    rows: (response.rows ?? []).map((row): AuditTrailItem => ({
+    page: response?.page,
+    rows: (response?.rows ?? []).map((row): AuditTrailItem => ({
       ...row,
       id: String(row.traceId ?? ''),
     })),
@@ -62,40 +62,39 @@ export async function getAuditTrailList(
 export async function getAuditTrailDetail(
   traceId: number | string,
   config?: ApiRequestConfig,
-): Promise<AuditTrailDetail | undefined> {
-  const data = await apiClient.post<AuditTrailDetail | null>(
-    AUDIT_DETAIL_URL,
-    { traceId },
-    config,
-  );
-  return data ?? undefined;
+): Promise<AuditTrailDetail | null> {
+  return apiClient.post<AuditTrailDetail | null>(AUDIT_DETAIL_URL, { traceId }, config);
 }
 
 /**
  * 创建导出任务（exportTaskcreateApi）。
- * - 顶部 Download：auditTrailDownloadReqVO = 全筛选条件。
+ * - 顶部 Download：auditTrailDownloadReqVO = 当前表单条件（旧契约不传 blockchainId）。
  * - 行 Download：auditTrailDownloadReqVO = { traceId }。
  */
-export function createExportTask(
+export async function createExportTask(
   req: ExportAuditTaskReq,
   config?: ApiRequestConfig,
 ): Promise<unknown> {
-  return apiClient.post(EXPORT_TASK_URL, req, config);
+  // Unlike reads, a successful task creation need not return a data field.
+  const { data, status } = await axiosClient.post<{ code?: number | string; message?: string; data?: unknown }>(
+    EXPORT_TASK_URL, req, config,
+  );
+  if (data?.code !== 0) {
+    throw new ApiError({ status, code: Number(data?.code) || -1, message: data?.message || 'Export task was not confirmed.' });
+  }
+  return data.data;
 }
 
 /** 查询启用的 stablecoin（token 名称下拉）。 */
-export function getStablecoinSearches(
+export async function getStablecoinSearches(
   config?: ApiRequestConfig,
 ): Promise<StablecoinSearchOption[]> {
-  return apiClient.get<StablecoinSearchOption[]>(
-    STABLECOIN_SEARCHES_URL,
-    config,
-  );
+  return (await apiClient.get<StablecoinSearchOption[] | null>(STABLECOIN_SEARCHES_URL, config)) ?? [];
 }
 
 /** 查询区块链下拉。 */
-export function getBlockchainList(
+export async function getBlockchainList(
   config?: ApiRequestConfig,
 ): Promise<BlockchainOption[]> {
-  return apiClient.get<BlockchainOption[]>(BLOCKCHAIN_LIST_URL, config);
+  return (await apiClient.get<BlockchainOption[] | null>(BLOCKCHAIN_LIST_URL, config)) ?? [];
 }

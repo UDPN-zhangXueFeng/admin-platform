@@ -16,6 +16,9 @@ export const DEFAULT_PAGE_SIZE = 10;
 /** 空值占位展示。 */
 export const EMPTY_DISPLAY = '--';
 
+/** When a mapping omits its expression, the legacy rule uses the transaction amount. */
+export const DEFAULT_AMOUNT_EXPRESSION = 'Transaction Amount';
+
 /** Posting Engine 支持的 tokenType（1=Stablecoin，5=Tokenized Deposit）。 */
 export const FIXED_TOKEN_TYPES = [1, 5] as const;
 
@@ -46,17 +49,19 @@ export const EVENT_TYPE_SOURCE_EVENT_MAP: Record<number, string> = {
   35: 'fundingOut',
 };
 
-/**
- * Posting Engine 权限键。
- *
- * NOTE: 源项目在 TDManage 环境用 localStorage 中的 UUID 做操作门控。真实 UUID 待从
- * td-manage 权限配置确认后补全（见记忆「auth 验证限制」），当前以语义化键占位，
- * 权限为空集时页面全放开（等价源项目非 TDManage 环境）。
- */
+/** Row-action grants from td-manage; separate from menu access. */
 export const POSTING_ENGINE_PERMISSIONS = {
-  Detail: 'posting-engine:detail',
-  Edit: 'posting-engine:edit',
+  MappingRules: 'cb15dddd13a54a27b50917f17d301362',
+  Details: '1ceca88b72224410bb0db06b4d545d7b',
 } as const;
+
+export const POSTING_ENGINE_PATH = '/accounting/posting-engine';
+
+export function parsePostingId(raw?: string | null): number | undefined {
+  if (!raw || !/^\d+$/.test(raw)) return undefined;
+  const id = Number(raw);
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+}
 
 // ── 状态码 ──────────────────────────────────────────────────────────────────
 
@@ -64,13 +69,13 @@ export const POSTING_ENGINE_PERMISSIONS = {
 export const POSTING_STATUS = {
   LegacyActive: 1,
   Pending: 5,
-  PendingReview: 10,
+  UnderApproval: 10,
   Rejected: 15,
-  Submitted: 25,
-  InReview: 30,
+  Configured: 25,
+  Scheduled: 30,
   Active: 20,
-  Approved: 35,
-  Disabled: 45,
+  Effective: 35,
+  Expired: 45,
 } as const;
 
 /** badge 色调（语义化，由页面映射 Tailwind class，解耦具体 Badge 组件 API）。 */
@@ -81,55 +86,43 @@ export type PostingStatusTone =
   | 'info'
   | 'default';
 
-export interface PostingStatusMeta {
-  /** 模块命名空间 i18n key（如 'status.approved'）。 */
-  labelKey: string;
-  /** badge 色调。 */
+interface PostingStatusMeta {
+  labelKey?: string;
   tone: PostingStatusTone;
-  /** 是否为激活态（列表 active 判定用）。 */
-  isActive: boolean;
 }
 
-/**
- * 解析状态码 → 展示元信息（迁移自 view.tsx getStatusMeta / BasicInformationTab isActive）。
- *
- * 明细码：5/10 橙、15 红、25/30 蓝、35 绿、45 灰；
- * legacy/Basic：1/20 或 statusName='active' → 绿；其余 → 灰 + inactive。
- */
 export function resolvePostingStatusMeta(
   status?: number,
-  statusName?: string
+  statusName?: string,
+  scope: 'book' | 'matrix' | 'event' = 'event'
 ): PostingStatusMeta {
-  const isStatusNameActive =
-    typeof statusName === 'string' && statusName.toLowerCase() === 'active';
-
-  switch (status) {
-    case POSTING_STATUS.Pending:
-      return { labelKey: 'status.draft', tone: 'warning', isActive: false };
-    case POSTING_STATUS.PendingReview:
-      return {
-        labelKey: 'status.pendingReview',
-        tone: 'warning',
-        isActive: false,
-      };
-    case POSTING_STATUS.Rejected:
-      return { labelKey: 'status.rejected', tone: 'danger', isActive: false };
-    case POSTING_STATUS.Submitted:
-      return { labelKey: 'status.submitted', tone: 'info', isActive: false };
-    case POSTING_STATUS.InReview:
-      return { labelKey: 'status.inReview', tone: 'info', isActive: false };
-    case POSTING_STATUS.Approved:
-      return { labelKey: 'status.approved', tone: 'success', isActive: true };
-    case POSTING_STATUS.Disabled:
-      return { labelKey: 'status.disabled', tone: 'default', isActive: false };
-    default:
-      break;
+  const code = Number(status);
+  if (scope !== 'book') {
+    switch (code) {
+      case POSTING_STATUS.Pending:
+        return { labelKey: 'status.pending', tone: 'warning' };
+      case POSTING_STATUS.UnderApproval:
+        return { labelKey: 'status.underApproval', tone: 'warning' };
+      case POSTING_STATUS.Rejected:
+        return { labelKey: 'status.rejected', tone: 'danger' };
+      case POSTING_STATUS.Configured:
+        return { labelKey: scope === 'matrix' ? 'status.configured' : 'status.scheduled', tone: 'info' };
+      case POSTING_STATUS.Scheduled:
+        if (scope === 'event') return { labelKey: 'status.scheduled', tone: 'info' };
+        break;
+      case POSTING_STATUS.Effective:
+        return { labelKey: 'status.active', tone: 'success' };
+      case POSTING_STATUS.Expired:
+        return { labelKey: 'status.expired', tone: 'default' };
+    }
   }
-
-  if (status === POSTING_STATUS.LegacyActive || status === POSTING_STATUS.Active || isStatusNameActive) {
-    return { labelKey: 'status.active', tone: 'success', isActive: true };
+  if (code === POSTING_STATUS.LegacyActive || code === POSTING_STATUS.Active || statusName?.toLowerCase() === 'active') {
+    return { labelKey: 'status.active', tone: 'success' };
   }
-  return { labelKey: 'status.inactive', tone: 'default', isActive: false };
+  if (scope === 'book' && (code === 0 || code === 30)) {
+    return { labelKey: 'status.inactive', tone: 'default' };
+  }
+  return { tone: 'default' };
 }
 
 /** 色调 → Tailwind class（border + bg + text，呼应源项目 Tag 配色）。 */
@@ -151,9 +144,10 @@ export function postingStatusToneClass(tone: PostingStatusTone): string {
 // ── 展示 helpers ─────────────────────────────────────────────────────────────
 
 /** 时间戳归一：秒 → 毫秒（< 1e12 视为秒）。迁移自源项目 `v >= 1e12 ? v : v * 1000`。 */
-export function toMillis(value?: number | null): number | undefined {
-  if (value === null || value === undefined) return undefined;
-  return value >= 1e12 ? value : value * 1000;
+export function toMillis(value?: number | string | null): number | undefined {
+  const timestamp = Number(value);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return undefined;
+  return timestamp >= 1e12 ? timestamp : timestamp * 1000;
 }
 
 /** 解析借贷方向串（换行 / 分号分隔）。迁移自 entryDirectionUtils.splitEntryDirection。 */
@@ -170,16 +164,33 @@ export function resolveTokenTypeMessageKey(
   tokenType?: number
 ): string | undefined {
   if (tokenType === undefined || tokenType === null) return undefined;
-  return `tokenType.${tokenType}`;
+  return FIXED_TOKEN_TYPES.some((type) => type === Number(tokenType))
+    ? `tokenType.${tokenType}`
+    : undefined;
 }
 
-/** eventType → sourceEventType i18n key（'sourceEvent.mint' 等）。 */
 export function getSourceEventTypeMessageKey(
-  eventType?: number
+  eventType?: number | string,
+  tokenType?: number
 ): string | undefined {
   if (eventType === undefined || eventType === null) return undefined;
-  const key = EVENT_TYPE_SOURCE_EVENT_MAP[eventType];
+  const code = Number(eventType);
+  if (Number(tokenType) === 5 && code === 1) return 'sourceEvent.fundingIn';
+  if (Number(tokenType) === 5 && code === 30) return 'sourceEvent.fundingOut';
+  const key = EVENT_TYPE_SOURCE_EVENT_MAP[code] ?? Object.values(EVENT_TYPE_SOURCE_EVENT_MAP).find(
+    (value) => value.toLowerCase() === String(eventType).replaceAll('_', '').toLowerCase()
+  );
+  if (Number(tokenType) === 5 && key === 'reserveIn') return 'sourceEvent.fundingIn';
+  if (Number(tokenType) === 5 && key === 'reserveOut') return 'sourceEvent.fundingOut';
   return key ? `sourceEvent.${key}` : undefined;
+}
+
+export function paginationRange(page: number, total: number) {
+  return {
+    from: total ? (page - 1) * DEFAULT_PAGE_SIZE + 1 : 0,
+    to: Math.min(page * DEFAULT_PAGE_SIZE, total),
+    total,
+  };
 }
 
 /** direction → 'Dr' | 'Cr' | ''（1=Dr，2=Cr）。 */
@@ -208,20 +219,4 @@ export function formatAccountLabel(code?: string, name?: string): string {
   if (!code) return name ?? '';
   if (!name) return code;
   return `${code} - ${name}`;
-}
-
-/** 从 "code - name" label 反向解析（保存 payload 用）。 */
-export function parseAccountLabel(label: string): {
-  accountCode: string;
-  accountName: string;
-} {
-  const trimmed = label.trim();
-  const idx = trimmed.indexOf(' - ');
-  if (idx === -1) {
-    return { accountCode: trimmed, accountName: trimmed };
-  }
-  return {
-    accountCode: trimmed.slice(0, idx).trim(),
-    accountName: trimmed.slice(idx + 3).trim(),
-  };
 }

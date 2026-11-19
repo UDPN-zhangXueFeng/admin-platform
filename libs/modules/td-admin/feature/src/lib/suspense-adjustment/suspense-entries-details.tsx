@@ -8,6 +8,7 @@ import {
   CLEAR_STATUS_MAP,
   formatAmount,
   textOrDash,
+  type ClearStatus,
   type SuspenseAdjustmentDetail,
 } from '@myorg/modules/td-admin/data-access';
 import { SuspenseStatusBadge } from './suspense-status-badge';
@@ -29,17 +30,23 @@ interface MetaCell {
  */
 export function SuspenseEntriesDetails({
   detail,
+  status,
+  statusLabel,
+  age,
 }: {
   detail: SuspenseAdjustmentDetail;
+  status: ClearStatus;
+  statusLabel: string;
+  age: number;
 }) {
   const t = useTranslations('modules.suspense-adjustment');
-  const statusMeta = CLEAR_STATUS_MAP[detail.status];
+  const statusMeta = CLEAR_STATUS_MAP[status];
 
   const metaCells: MetaCell[] = [
     {
       key: 'suspenseTxnId',
       label: t('field.suspenseTxnId'),
-      value: <CopyableEllipsisText value={detail.suspenseTxnId} />,
+      value: <CopyableEllipsisText value={detail.suspenseTxnId} showCopyIcon />,
     },
     {
       key: 'sourceType',
@@ -60,7 +67,7 @@ export function SuspenseEntriesDetails({
       key: 'bookId',
       label: t('field.bookId'),
       value: (
-        <CopyableEllipsisText value={textOrDash(detail.bookNo || detail.bookId)} />
+        <CopyableEllipsisText value={detail.bookNo || detail.bookId} showCopyIcon />
       ),
     },
     {
@@ -84,10 +91,10 @@ export function SuspenseEntriesDetails({
         <div className="flex flex-wrap items-center gap-2">
           <SuspenseStatusBadge
             tone={statusMeta?.color ?? 'default'}
-            label={`${t('field.status')}: ${detail.statusLabel}`}
+            label={`${t('field.status')}: ${statusLabel}`}
           />
           <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            {t('field.age')}: {t('ageDays', { count: detail.age })}
+            {t('field.age')}: {t('ageDays', { count: age })}
           </span>
         </div>
       </div>
@@ -150,16 +157,18 @@ export function SuspenseEntriesDetails({
               {detail.suspenseEntries.length ? (
                 detail.suspenseEntries.map((line, index) => (
                   <tr key={`${line.drCr}-${line.accountCode}-${index}`}>
-                    <td className="border px-3 py-3">
-                      {textOrDash(line.postingDate)}
-                    </td>
-                    <td className="border px-3 py-3">
-                      {line.transactionId ? (
-                        <CopyableEllipsisText value={line.transactionId} />
-                      ) : (
-                        '--'
-                      )}
-                    </td>
+                    {index === 0 ? (
+                      <>
+                        <td className="border px-3 py-3" rowSpan={detail.suspenseEntries.length}>
+                          {textOrDash(detail.postingDate || line.postingDate)}
+                        </td>
+                        <td className="border px-3 py-3" rowSpan={detail.suspenseEntries.length}>
+                          {detail.transactionId || line.transactionId ? (
+                            <CopyableEllipsisText value={detail.transactionId || line.transactionId} showCopyIcon />
+                          ) : '--'}
+                        </td>
+                      </>
+                    ) : null}
                     <td
                       className={`border px-3 py-3 font-medium ${
                         line.drCr === 'Dr' ? 'text-primary' : 'text-red-600'
@@ -180,11 +189,11 @@ export function SuspenseEntriesDetails({
                         ? formatAmount(line.creditAmount, detail.currency)
                         : '--'}
                     </td>
-                    <td className="border px-3 py-3">
-                      {textOrDash(
-                        line.exceptionContext || detail.exceptionContext,
-                      )}
-                    </td>
+                    {index === 0 ? (
+                      <td className="border px-3 py-3" rowSpan={detail.suspenseEntries.length}>
+                        {textOrDash(detail.exceptionContext || line.exceptionContext)}
+                      </td>
+                    ) : null}
                   </tr>
                 ))
               ) : (

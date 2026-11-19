@@ -7,12 +7,13 @@ import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
-import { Card, DataTable } from '@myorg/shared/ui';
+import { Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
 import {
   usePostingBooksQuery,
+  useTokenTypeOptionsQuery,
   type PostingBook,
   type PostingBookListFilters,
   type PostingBookListParams,
@@ -22,11 +23,11 @@ import {
   EMPTY_DISPLAY,
   FIXED_TOKEN_TYPES,
   POSTING_ENGINE_PERMISSIONS,
-  postingStatusToneClass,
-  resolvePostingStatusMeta,
-  resolveTokenTypeMessageKey,
-} from '.';
-import { ALL_VALUE } from './posting-engine.constants';
+  POSTING_ENGINE_PATH,
+  ALL_VALUE,
+  paginationRange,
+} from './posting-engine.constants';
+import { PostingStatusBadge } from './posting-status-badge';
 import { QueryForm } from '../query-form';
 import { createRowActionsColumn } from '../row-actions';
 
@@ -55,7 +56,7 @@ const EMPTY_FORM: PostingBookFilterForm = {
 function formToFilters(form: PostingBookFilterForm): PostingBookListFilters {
   return {
     financialBookName: form.financialBookName.trim() || undefined,
-    currencyCode: form.currencyCode.trim() || undefined,
+    currencyCode: form.currencyCode === ALL_VALUE ? undefined : form.currencyCode.trim() || undefined,
     tokenType:
       form.tokenType && form.tokenType !== ALL_VALUE
         ? Number(form.tokenType)
@@ -80,11 +81,9 @@ function formToFilters(form: PostingBookFilterForm): PostingBookListFilters {
 export function PostingEngineListPage() {
   const t = useTranslations('modules.posting-engine');
   const router = useRouter();
-  const authPermissions = useAuth().permissions ?? new Set<string>();
-  /** 权限未配置（空集）时全放开，兼容权限未接入场景。 */
-  const canViewDetails =
-    authPermissions.size === 0 ||
-    authPermissions.has(POSTING_ENGINE_PERMISSIONS.Detail);
+  const { permissions } = useAuth();
+  const canViewDetails = permissions.has(POSTING_ENGINE_PERMISSIONS.Details);
+  const canViewRules = permissions.has(POSTING_ENGINE_PERMISSIONS.MappingRules);
 
   const { register, control, handleSubmit, reset, watch } =
     useForm<PostingBookFilterForm>({ defaultValues: EMPTY_FORM });
@@ -106,26 +105,24 @@ export function PostingEngineListPage() {
   );
 
   const listResult = usePostingBooksQuery(params);
-  const rows = listResult.data?.rows ?? [];
-  const total = listResult.data?.page?.total ?? 0;
+  const rows = listResult.isError ? [] : listResult.data?.rows ?? [];
+  const total = listResult.isError ? 0 : listResult.data?.page?.total ?? 0;
   const isLoading = listResult.isLoading || listResult.isFetching;
 
-  const tokenTypeOptions = React.useMemo(
-    () => [
-      { value: ALL_VALUE, label: t('filter.all') },
-      ...FIXED_TOKEN_TYPES.map((tokenType) => ({
-        value: String(tokenType),
-        label: t(`tokenType.${tokenType}`),
-      })),
-    ],
-    [t]
-  );
+  const { data: tokenTypes } = useTokenTypeOptionsQuery();
+  const filteredTokenTypes = React.useMemo(() => (tokenTypes ?? []).flatMap((item) => {
+    const id = Number(item.tokenTypeId);
+    return FIXED_TOKEN_TYPES.some((type) => type === id) && item.tokenTypeName
+      ? [{ value: String(id), label: item.tokenTypeName, disabled: Number(item.status) === 0 }]
+      : [];
+  }), [tokenTypes]);
+  const tokenTypeOptions = [{ value: ALL_VALUE, label: t('filter.all') }, ...filteredTokenTypes];
   const selectedCurrency = watch('currencyCode').trim();
   const currencyOptions = React.useMemo(() => {
     const currencies = new Set(
       rows
         .map((row) => row.currencyCode?.trim())
-        .filter((value): value is string => Boolean(value))
+        .filter((value): value is string => Boolean(value && value !== EMPTY_DISPLAY))
     );
     if (selectedCurrency && selectedCurrency !== ALL_VALUE) {
       currencies.add(selectedCurrency);
@@ -145,16 +142,14 @@ export function PostingEngineListPage() {
         accessorKey: 'bookName',
         header: t('field.bookName'),
         cell: ({ row }) => (
-          <span>{row.original.bookName || EMPTY_DISPLAY}</span>
+          <CopyableEllipsisText value={row.original.bookName} copyLabel={t('copy')} showCopyIcon />
         ),
       },
       {
         accessorKey: 'bookNo',
         header: t('field.bookNo'),
         cell: ({ row }) => (
-          <span className="font-mono text-xs">
-            {row.original.bookNo || EMPTY_DISPLAY}
-          </span>
+          <CopyableEllipsisText value={row.original.bookNo} copyLabel={t('copy')} showCopyIcon />
         ),
       },
       {
@@ -168,40 +163,26 @@ export function PostingEngineListPage() {
         accessorKey: 'tokenType',
         header: t('field.tokenType'),
         cell: ({ row }) => {
-          const key = resolveTokenTypeMessageKey(row.original.tokenType);
-          return <span>{key ? t(key) : EMPTY_DISPLAY}</span>;
+          return filteredTokenTypes.find(({ value }) => value === String(row.original.tokenType))?.label
+            ?? EMPTY_DISPLAY;
         },
       },
       {
         id: 'tokenCount',
         header: t('field.tokenCount'),
         cell: ({ row }) => (
-          <span>{row.original.tokens?.length ?? EMPTY_DISPLAY}</span>
+          <span>{row.original.tokens?.length ?? 0}</span>
         ),
       },
       {
         accessorKey: 'totalEvents',
         header: t('field.totalEvents'),
-        cell: ({ row }) => (
-          <span>
-            {row.original.totalEvents === undefined ||
-            row.original.totalEvents === null
-              ? EMPTY_DISPLAY
-              : row.original.totalEvents}
-          </span>
-        ),
+        cell: ({ row }) => row.original.totalEvents ?? 0,
       },
       {
         accessorKey: 'configured',
         header: t('field.configured'),
-        cell: ({ row }) => (
-          <span>
-            {row.original.configured === undefined ||
-            row.original.configured === null
-              ? EMPTY_DISPLAY
-              : row.original.configured}
-          </span>
-        ),
+        cell: ({ row }) => row.original.configured ?? 0,
       },
       {
         accessorKey: 'lastRuleUpdate',
@@ -213,48 +194,23 @@ export function PostingEngineListPage() {
       {
         accessorKey: 'status',
         header: t('field.status'),
-        cell: ({ row }) => {
-          const meta = resolvePostingStatusMeta(row.original.status);
-          return (
-            <span
-              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${postingStatusToneClass(
-                meta.tone
-              )}`}
-            >
-              {t(meta.labelKey)}
-            </span>
-          );
-        },
+        cell: ({ row }) => <PostingStatusBadge scope="book" status={row.original.status} statusName={row.original.statusName} />,
       },
-      // Detail 内联；Mapping Rules 收进 ⋮ 菜单。无权限保留源 '--' 占位
-      // （helper 的 detail 是列级静态值，此处按权限整体降级为占位 cell）。
-      canViewDetails
+      canViewDetails || canViewRules
         ? createRowActionsColumn<PostingBook>({
-            detail: {
+            header: t('field.actions'),
+            detail: canViewDetails ? {
               label: t('action.detail'),
-              onClick: (row) =>
-                router.push(
-                  `/posting-engine/book?id=${row.financeBookId ?? ''}`,
-                ),
-            },
-            menu: (row) => [
-              {
-                label: t('action.mappingRules'),
-                onClick: (r) =>
-                  router.push(
-                    `/posting-engine/book?id=${r.financeBookId ?? ''}&tab=posting-engine-matrix`,
-                  ),
-              },
-            ],
+              onClick: (row) => router.push(`${POSTING_ENGINE_PATH}/book?id=${row.financeBookId}`),
+            } : undefined,
+            menu: canViewRules ? () => [{
+              label: t('action.mappingRules'),
+              onClick: (row) => router.push(`${POSTING_ENGINE_PATH}/book?id=${row.financeBookId}&tab=posting-engine-matrix`),
+            }] : undefined,
           })
-        : {
-            ...createRowActionsColumn<PostingBook>({}),
-            cell: () => (
-              <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>
-            ),
-          },
+        : { ...createRowActionsColumn<PostingBook>({ header: t('field.actions') }), cell: () => EMPTY_DISPLAY },
     ],
-    [t, canViewDetails, router]
+    [t, canViewDetails, canViewRules, router, filteredTokenTypes]
   );
 
   const onSubmit = React.useCallback((form: PostingBookFilterForm) => {
@@ -322,15 +278,14 @@ export function PostingEngineListPage() {
             columns={columns}
             data={rows}
             isLoading={isLoading}
-            emptyMessage={t('empty')}
+            emptyMessage={listResult.isError ? t('loadError') : t('empty')}
             pagination={{
               page: pagination.pageNum,
               pageSize: pagination.pageSize,
               total,
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
+              summary: t('pagination.range', paginationRange(pagination.pageNum, total)),
             }}
           />
         </div>

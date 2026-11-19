@@ -6,7 +6,7 @@
  * 这些函数依赖业务 Domain Model，故放 data-access 层（util 不可依赖 data-access）。
  */
 import type { DrCr } from '.';
-import { dateStringToEpoch } from '.';
+import { adjustmentEntryAmount, amountExceeds, dateStringToEpoch } from './suspense-adjustment.helpers';
 import type {
   NewAdjustmentForm,
   SuspenseAdjustmentDetail,
@@ -22,7 +22,7 @@ export interface AdjustPayload {
     accountCode: string;
     accountName: string;
     direction: number;
-    amount: number;
+    amount: string;
   }>;
   adjustmentReason: string;
 }
@@ -37,7 +37,7 @@ const drCrToDirectionCode = (drCr: DrCr): number => (drCr === 'Dr' ? 1 : 2);
 export const getSuspenseAccountLine = (
   detail: Pick<SuspenseAdjustmentDetail, 'suspenseEntries'>,
 ): SuspenseEntryLine | undefined => {
-  const first = detail.suspenseEntries?.find((e) => e.amount > 0);
+  const first = detail.suspenseEntries?.find((e) => amountExceeds(e.amount, 0));
   if (!first) return detail.suspenseEntries?.[0];
   return detail.suspenseEntries?.find((e) => e.drCr === first.drCr) ?? first;
 };
@@ -53,35 +53,45 @@ export const getOffsettingEntryFor = (
   const line = getSuspenseAccountLine(detail);
   if (!line) return '';
   const direction: DrCr = line.drCr === 'Dr' ? 'Cr' : 'Dr';
-  return `${direction} ${line.accountDisplay}`.trim();
+  return `${direction} - ${line.accountDisplay}`;
 };
 
 /**
  * 由 New Adjustment 表单构造 /adjust 请求体。
  * - postingDate 字符串 → epoch millis。
- * - entries 取 accountCode / accountName / direction / amount，过滤空行与非法金额。
+ * - Validate each row; do not silently omit invalid entries.
  */
 export const buildAdjustPayload = (form: NewAdjustmentForm): AdjustPayload => {
-  const postingDate = dateStringToEpoch(form.postingDate) ?? Date.now();
-  const entries = form.entries
-    .map((e) => ({
-      accountCode: e.accountCode,
-      accountName: e.accountName,
-      direction: drCrToDirectionCode(e.drCr),
-      amount: e.amount as number,
-    }))
-    .filter(
-      (e) =>
-        e.accountCode &&
-        Number.isFinite(e.amount) &&
-        typeof e.amount === 'number' &&
-        e.amount > 0,
-    );
+  const postingDate = dateStringToEpoch(form.postingDate);
+  const adjustmentReason = form.adjustmentReason.trim();
+  if (postingDate == null || !form.entries.length || !adjustmentReason) {
+    throw new Error('Invalid adjustment form');
+  }
+  const entries = form.entries.map((entry) => {
+    const amount = adjustmentEntryAmount(entry.amount);
+    if (!entry.accountCode || amount == null) throw new Error('Invalid adjustment entry');
+    return {
+      accountCode: entry.accountCode,
+      accountName: entry.accountName,
+      direction: drCrToDirectionCode(entry.drCr),
+      amount,
+    };
+  });
   return {
     suspenseRecordId: form.suspenseRecordId,
     suspenseTxnId: form.suspenseTxnId,
     postingDate,
     entries,
-    adjustmentReason: form.adjustmentReason?.trim() ?? '',
+    adjustmentReason,
   };
 };
+
+/** The API requires JSON numbers; emit validated decimal tokens verbatim. */
+export function serializeAdjustPayload({ entries, ...fields }: AdjustPayload): string {
+  const serialized = entries.map(({ amount, ...entry }) => {
+    const literal = adjustmentEntryAmount(amount);
+    if (literal == null) throw new Error('Invalid adjustment amount');
+    return `${JSON.stringify(entry).slice(0, -1)},"amount":${literal}}`;
+  });
+  return `${JSON.stringify(fields).slice(0, -1)},"entries":[${serialized.join(',')}]}`;
+}

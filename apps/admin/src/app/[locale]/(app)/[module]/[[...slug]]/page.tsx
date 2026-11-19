@@ -42,10 +42,16 @@ const KEY_MANAGEMENT_STANDARD_ROUTES = new Set([
  *   /en/user/create    → module=user, slug=["create"] → pageKey="create"
  *   /en/user/123       → module=user, slug=["123"]   → pageKey="detail"
  *   /en/order/456      → module=order, slug=["456"]  → pageKey="detail"
+ *   /en/accounting/chart-of-accounts
+ *                      → module=accounting (group), slug=["chart-of-accounts"]
+ *                        → moduleId="chart-of-accounts", pageKey="list"
+ *   /en/accounting/chart-of-accounts/view
+ *                      → moduleId="chart-of-accounts", pageKey="detail"
  *
- * The module must be listed in config.modules.enabled, otherwise a 404-like
- * message is shown. The actual page component is loaded via loadModulePage
- * which uses next/dynamic with ssr:false for code splitting.
+ * The module (or, for grouped routes, the group key in GROUP_ENABLED_KEY)
+ * must be listed in config.modules.enabled, otherwise a 404-like message is
+ * shown. The actual page component is loaded via loadModulePage which uses
+ * next/dynamic with ssr:false for code splitting.
  */
 export default function ModulePage({
   params,
@@ -60,7 +66,9 @@ export default function ModulePage({
   // 模块的 list / create / detail。sys 分组的启用状态对应 config.modules.enabled 的 'system'。
   // 分组模块：第一段 slug 当子模块名，剩余 slug 透传。`/sys/role` → role 模块；
   // `/wallet/wallet-type` → wallet-type 模块。enabled key 见 GROUP_ENABLED_KEY。
-  // nav 配置 configs/stablecoin.json 已把 wallet 作分组（3 子项 path 写死 /wallet/<child>）。
+  // nav 配置 configs/stablecoin.json 已把 wallet 作分组（3 子项 path 写死 /wallet/<child>），
+  // accounting / statistics 分组同理：`/accounting/chart-of-accounts` → chart-of-accounts，
+  // `/statistics/statistic-analysis` → statistic-analysis。
   const GROUP_ENABLED_KEY: Record<string, string> = {
     sys: 'system',
     wallet: 'wallet',
@@ -71,6 +79,8 @@ export default function ModulePage({
     reconciliation: 'reconciliation',
     interest: 'interest',
     'screening-monitoring': 'screening',
+    accounting: 'accounting',
+    statistics: 'statistics',
   };
   const groupKey = GROUP_ENABLED_KEY[module];
   const isGroup = Boolean(groupKey);

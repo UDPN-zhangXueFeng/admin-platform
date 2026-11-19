@@ -45,8 +45,6 @@ export function useOperationRecords({
     pageNum: 1,
     pageSize: DEFAULT_PAGE_SIZE,
   });
-  const [selectedRecord, setSelectedRecord] =
-    useState<OperationRecordRow | null>(null);
 
   const params = useMemo(
     () =>
@@ -88,11 +86,6 @@ export function useOperationRecords({
     setPagination({ pageNum: 1, pageSize });
   }, []);
 
-  const openRecord = useCallback(
-    (record: OperationRecordRow) => setSelectedRecord(record),
-    []
-  );
-  const closeRecord = useCallback(() => setSelectedRecord(null), []);
 
   const openWorkflowDetail = useCallback(
     (record: OperationRecordRow) => {
@@ -100,9 +93,8 @@ export function useOperationRecords({
         toast.error(t('operationRecords.missingTask'));
         return;
       }
-      router.push(
-        `/approval-manage/view?id=${record.taskId}&busCode=${record.busCode}`
-      );
+      const query = new URLSearchParams({ id: String(record.taskId), busCode: record.busCode });
+      router.push(`/approval-manage/view?${query.toString()}`);
     },
     [router, t, toast]
   );
@@ -113,15 +105,15 @@ export function useOperationRecords({
         t: (key: string) => t(key),
         tCommon: (key: string) => tCommon(key),
         onOpenDetails: openWorkflowDetail,
-        onOpenRecord: openRecord,
       }),
-    [openRecord, openWorkflowDetail, t, tCommon]
+    [openWorkflowDetail, t, tCommon]
   );
 
   return {
     rows,
     total,
     loading: recordsQuery.isLoading || recordsQuery.isFetching,
+    error: recordsQuery.isError,
     columns,
     pagination,
     appliedFilters,
@@ -129,8 +121,5 @@ export function useOperationRecords({
     resetFilters,
     goToPage,
     changePageSize,
-    selectedRecord,
-    openRecord,
-    closeRecord,
   };
 }

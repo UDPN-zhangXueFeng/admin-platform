@@ -225,37 +225,37 @@
             "id": "chart-of-accounts",
             "icon": "BarChart3",
             "label": "Chart of Accounts",
-            "path": "/chart-of-accounts"
+            "path": "/accounting/chart-of-accounts"
           },
           {
             "id": "transaction-event-configuration",
             "icon": "Settings2",
             "label": "Normalization Engine",
-            "path": "/transaction-event-configuration"
+            "path": "/accounting/transaction-event-configuration"
           },
           {
             "id": "posting-engine",
             "icon": "BarChart3",
             "label": "Posting Engine",
-            "path": "/posting-engine"
+            "path": "/accounting/posting-engine"
           },
           {
             "id": "journal-entries-new",
             "icon": "BarChart3",
             "label": "Journal Entries",
-            "path": "/journal-entries-new"
+            "path": "/accounting/journal-entries-new"
           },
           {
             "id": "suspense-adjustment",
             "icon": "BarChart3",
             "label": "Suspense Adjustment",
-            "path": "/suspense-adjustment"
+            "path": "/accounting/suspense-adjustment"
           },
           {
             "id": "audit-trail",
             "icon": "BarChart3",
             "label": "Audit Trail",
-            "path": "/audit-trail"
+            "path": "/accounting/audit-trail"
           }
         ]
       },
@@ -343,20 +343,20 @@
             "id": "ai-analytics",
             "icon": "TrendingUp",
             "label": "AI Analytics",
-            "path": "/statistics-reports/ai-analytics",
+            "path": "/statistics/statistics-reports/ai-analytics",
             "disabled": true
           },
           {
             "id": "statistics-reports",
             "icon": "TrendingUp",
             "label": "Statistics Reports",
-            "path": "/statistics-reports"
+            "path": "/statistics/statistics-reports"
           },
           {
             "id": "statistic-analysis",
             "icon": "ChartLine",
             "label": "Statistic Analysis",
-            "path": "/statistic-analysis"
+            "path": "/statistics/statistic-analysis"
           }
         ]
       },

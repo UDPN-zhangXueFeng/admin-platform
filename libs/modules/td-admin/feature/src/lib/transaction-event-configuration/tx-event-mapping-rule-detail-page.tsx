@@ -23,7 +23,7 @@ const HISTORY_TAB = 'historical-records';
 function parseId(raw?: string | null): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
+  return Number.isSafeInteger(n) && n > 0 ? n : undefined;
 }
 
 /**
@@ -40,7 +40,7 @@ export function TxEventMappingRuleDetailPage() {
   const bookId = searchParams.get('bookId') ?? '';
 
   const [activeTab, setActiveTab] = React.useState(BASIC_TAB);
-  const { data: detail, isLoading } =
+  const { data: detail, isLoading, error } =
     useNormalizationDetailQuery(normalizationEventId);
 
   if (!normalizationEventId) {
@@ -55,6 +55,7 @@ export function TxEventMappingRuleDetailPage() {
   return (
     <div className="space-y-4">
       <PageHeader title={t('mappingRuleDetail')} backLabel={t('action.back')} onBack={() => router.back()} />
+      {error && <p role="alert" className="text-sm text-destructive">{error.message}</p>}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value={BASIC_TAB}>
@@ -72,12 +73,14 @@ export function TxEventMappingRuleDetailPage() {
           />
         </TabsContent>
         <TabsContent value={HISTORY_TAB}>
-          <TxEventHistoricalRecordsTab
-            normalizationEventId={normalizationEventId}
-            eventType={detail?.eventType}
-            bookId={bookId}
-            active={activeTab === HISTORY_TAB}
-          />
+          {activeTab === HISTORY_TAB && !isLoading && (
+            <TxEventHistoricalRecordsTab
+              normalizationEventId={normalizationEventId}
+              eventType={detail?.eventType}
+              bookId={bookId}
+              active
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>

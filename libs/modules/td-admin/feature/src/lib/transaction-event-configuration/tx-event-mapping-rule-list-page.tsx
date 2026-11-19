@@ -12,8 +12,11 @@ import {
   DataTable,
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
+  PageHeader,
 } from '@myorg/shared/ui';
 import { toast } from 'sonner';
 import {
@@ -53,7 +56,9 @@ export function TxEventMappingRuleListPage() {
   const t = useTranslations('modules.transaction-event-configuration');
   const router = useRouter();
   const searchParams = useSearchParams();
-  const financeBookId = searchParams.get('id') ?? '';
+  const rawBookId = searchParams.get('id') ?? '';
+  const financeBookId = /^[1-9]\d*$/.test(rawBookId) ? rawBookId : '';
+  const goBack = () => router.push('/accounting/transaction-event-configuration');
 
   const [pagination, setPagination] = React.useState({
     pageNum: 1,
@@ -187,7 +192,7 @@ export function TxEventMappingRuleListPage() {
           label: t('action.detail'),
           onClick: (row) =>
             router.push(
-              `/transaction-event-configuration/mapping-rule/view?id=${row.normalizationEventId ?? ''}&bookId=${financeBookId}`
+              `/accounting/transaction-event-configuration/mapping-rule/view?id=${row.normalizationEventId ?? ''}&bookId=${financeBookId}`
             ),
         },
         menu: (row) => [
@@ -199,7 +204,7 @@ export function TxEventMappingRuleListPage() {
             label: t('action.edit'),
             onClick: () =>
               router.push(
-                `/transaction-event-configuration/mapping-rule/edit?id=${row.normalizationEventId ?? ''}&bookId=${financeBookId}`
+                `/accounting/transaction-event-configuration/mapping-rule/edit?id=${row.normalizationEventId ?? ''}&bookId=${financeBookId}`
               ),
           },
         ],
@@ -210,21 +215,28 @@ export function TxEventMappingRuleListPage() {
 
   if (!financeBookId) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </Card>
+      <div className="space-y-4">
+        <PageHeader
+          title={t('mappingRuleList')}
+          backLabel={t('action.back')}
+          onBack={goBack}
+        />
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">{t('detail.invalidId')}</p>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        title={t('mappingRuleList')}
+        backLabel={t('action.back')}
+        onBack={goBack}
+      />
+      {listResult.error && <p role="alert" className="text-sm text-destructive">{listResult.error.message}</p>}
       <Card>
-        <div className="border-b px-6 py-3 text-sm font-semibold">
-          {t('mappingRuleList')}
-        </div>
         <div className="p-4">
           <DataTable
             columns={columns}
@@ -235,28 +247,22 @@ export function TxEventMappingRuleListPage() {
               page: pagination.pageNum,
               pageSize: pagination.pageSize,
               total,
+              summary: t('resultRange', { start: rows.length ? (pagination.pageNum - 1) * pagination.pageSize + 1 : 0, end: (pagination.pageNum - 1) * pagination.pageSize + rows.length, total }),
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>
       </Card>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => router.back()}>
-          {t('action.back')}
-        </Button>
-      </div>
-
       <Dialog
         open={previewRecord !== null}
         onOpenChange={(open) => !open && closePreview()}
       >
-        <DialogContent className="max-w-[560px]">
+        <DialogContent className="max-w-[560px]" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>{t('action.preview')}</DialogTitle>
+            <DialogDescription className="sr-only">{t('previewDescription')}</DialogDescription>
           </DialogHeader>
           <div className="overflow-hidden rounded border">
             <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-2">
@@ -271,12 +277,16 @@ export function TxEventMappingRuleListPage() {
                 {t('copy')}
               </Button>
             </div>
+            {previewMutation.error && <p role="alert" className="px-4 py-2 text-sm text-destructive">{previewMutation.error.message}</p>}
             <pre className="m-0 max-h-[60vh] overflow-auto whitespace-pre-wrap break-all p-4 text-xs leading-5">
               {previewMutation.isPending
-                ? 'Loading...'
+                ? t('loading')
                 : previewJson || EMPTY_DISPLAY}
             </pre>
           </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closePreview}>{t('action.close')}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

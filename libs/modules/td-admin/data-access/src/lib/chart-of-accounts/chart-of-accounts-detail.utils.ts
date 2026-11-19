@@ -430,8 +430,8 @@ export function applyCoaDraftAccounts(
 
     // 新增子账户时，父账户不再允许过账
     const rowsWithUpdatedParent = currentRows.map((row, index) => {
-      if (index === parentIndex && row.allowPosting !== false) {
-        return { ...row, allowPosting: false };
+      if (index === parentIndex && (row.allowPosting || row.suspenseAccount)) {
+        return { ...row, allowPosting: false, suspenseAccount: false };
       }
       return row;
     });

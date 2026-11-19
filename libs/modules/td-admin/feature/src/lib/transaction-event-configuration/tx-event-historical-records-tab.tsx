@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
 import { ColumnDef } from '@tanstack/react-table';
 import { endOfDay, parseISO, startOfDay } from 'date-fns';
-import { Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
+import { Button, Card, CopyableEllipsisText, DataTable } from '@myorg/shared/ui';
 import {
   FormDateRangePicker,
   FormField,
@@ -26,22 +26,10 @@ import {
   getSourceEventTypeByEventType,
   getSourceEventTypeMessageKey,
   resolveEventStatusMeta,
+  resolveHistorySourceEvent,
   statusToneClass,
 } from '.';
 import { ALL_VALUE } from './tx-event-config.constants';
-import { createRowActionsColumn } from '../row-actions';
-
-const KNOWN_SOURCE_EVENTS = [
-  'reserveIn',
-  'mint',
-  'repositoryOut',
-  'transfer',
-  'repositoryIn',
-  'melt',
-  'reserveOut',
-  'fundingIn',
-  'fundingOut',
-] as const;
 
 interface HistoryFilterForm {
   mappingRuleId: string;
@@ -89,13 +77,6 @@ function formToFilters(
   };
 }
 
-/**
- * HistoricalRecords tab — 迁移自 td-manage HistoricalRecordsTab.tsx。
- * 筛选（mappingRuleId / eventStatus / 创建日期范围 / 生效日期范围）+ 历史记录表
- * （mappingRuleId / sourceEventType / creator / createdOn / effectiveDate / status / 审批跳转）。
- *
- * `active` 为 false 时不发请求（复刻源「切到本 tab 才加载」行为）。
- */
 export function TxEventHistoricalRecordsTab({
   normalizationEventId,
   eventType,
@@ -123,24 +104,14 @@ export function TxEventHistoricalRecordsTab({
     () => ({
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize,
-      filters: formToFilters(
-        queryValues,
-        normalizationEventId,
-        eventType
-      ),
+      filters: formToFilters(queryValues, normalizationEventId, eventType),
     }),
-    [
-      pagination.pageNum,
-      pagination.pageSize,
-      queryValues,
-      normalizationEventId,
-      eventType,
-    ]
+    [pagination.pageNum, pagination.pageSize, queryValues, normalizationEventId, eventType]
   );
 
   const historyResult = useNormalizationHistoryListQuery(
     params,
-    Boolean(active && normalizationEventId)
+    Boolean(active && normalizationEventId && eventType)
   );
   const rows = historyResult.data?.rows ?? [];
   const total = historyResult.data?.page?.total ?? 0;
@@ -180,17 +151,8 @@ export function TxEventHistoricalRecordsTab({
         id: 'sourceEventType',
         header: t('field.sourceEventType'),
         cell: ({ row }) => {
-          const raw = row.original.eventType;
-          let key: string | undefined;
-          if (raw && (KNOWN_SOURCE_EVENTS as readonly string[]).includes(raw)) {
-            key = `sourceEvent.${raw}`;
-          } else if (eventType) {
-            key = getSourceEventTypeMessageKey(
-              getSourceEventTypeByEventType(eventType),
-              bookId
-            );
-          }
-          return <span>{key ? t(key) : raw || EMPTY_DISPLAY}</span>;
+          const key = getSourceEventTypeMessageKey(resolveHistorySourceEvent(row.original.eventType, eventType), bookId);
+          return key ? t(key) : EMPTY_DISPLAY;
         },
       },
       {
@@ -236,21 +198,17 @@ export function TxEventHistoricalRecordsTab({
           );
         },
       },
-      // Actions：统一行操作列。源 View 链接在 taskId/busCode 缺失时显示
-      // EMPTY_DISPLAY 占位；helper 的 detail 无法按行隐藏 —— 以 onClick 守卫保留
-      // “缺失不跳转”行为（占位不再展示，链接恒渲染）。
-      createRowActionsColumn<NormalizationHistoryItem>({
-        detail: (row) =>
-          row.taskId && row.busCode
-            ? {
-                label: t('action.view'),
-                onClick: () =>
-                  router.push(
-                    `/approval-manage/view?id=${row.taskId}&busCode=${row.busCode}`,
-                  ),
-              }
-            : undefined,
-      }),
+      {
+        id: 'actions',
+        header: t('field.actions'),
+        enableSorting: false,
+        meta: { overflow: 'none', stickyRight: true },
+        cell: ({ row: { original: { taskId, busCode } } }) => taskId && busCode ? (
+          <Button variant="link" size="sm" className="h-auto p-0" onClick={() => router.push(`/approval-manage/view?id=${taskId}&busCode=${encodeURIComponent(busCode)}`)}>
+            {t('action.detail')}
+          </Button>
+        ) : EMPTY_DISPLAY,
+      },
     ],
     [t, bookId, eventType, router]
   );
@@ -265,9 +223,12 @@ export function TxEventHistoricalRecordsTab({
     setQueryValues(EMPTY_FORM);
     setPagination({ pageNum: 1, pageSize: DEFAULT_PAGE_SIZE });
   }, [reset]);
+  const eventLabelKey = getSourceEventTypeMessageKey(getSourceEventTypeByEventType(eventType), bookId);
+  const eventLabel = eventLabelKey ? t(eventLabelKey) : EMPTY_DISPLAY;
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4">
+      <p className="text-sm font-medium">{t('field.sourceEventType')}: {eventLabel}</p>
       <form onSubmit={handleSubmit(onSubmit)}>
         <QueryForm
           fields={[
@@ -293,8 +254,6 @@ export function TxEventHistoricalRecordsTab({
               control={control}
               label={t('field.createdOn')}
             />,
-          ]}
-          advancedFields={[
             <FormDateRangePicker
               key="effectiveRange"
               startName="effectiveFrom"
@@ -309,6 +268,7 @@ export function TxEventHistoricalRecordsTab({
           resetLabel={t('filter.reset')}
         />
       </form>
+      {historyResult.error && <p role="alert" className="text-sm text-destructive">{historyResult.error.message}</p>}
 
       <Card>
         <div className="border-b px-6 py-3 text-sm font-semibold">
@@ -324,15 +284,13 @@ export function TxEventHistoricalRecordsTab({
               page: pagination.pageNum,
               pageSize: pagination.pageSize,
               total,
+              summary: t('resultRange', { start: rows.length ? (pagination.pageNum - 1) * pagination.pageSize + 1 : 0, end: (pagination.pageNum - 1) * pagination.pageSize + rows.length, total }),
               onPageChange: (page) =>
                 setPagination((prev) => ({ ...prev, pageNum: page })),
-              onPageSizeChange: (size) =>
-                setPagination({ pageNum: 1, pageSize: size }),
             }}
           />
         </div>
       </Card>
-
     </div>
   );
 }

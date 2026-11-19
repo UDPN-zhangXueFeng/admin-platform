@@ -36,9 +36,9 @@ export interface SuspenseAdjustmentListItem {
   drCr: DrCr;
   /** 科目展示串（code - name）。 */
   accountDisplay: string;
-  originalAmount: number;
-  totalAdjusted: number;
-  outstandingAmount: number;
+  originalAmount: string | number;
+  totalAdjusted: string | number;
+  outstandingAmount: string | number;
   currency: string;
   age: number;
   status: ClearStatus;
@@ -74,10 +74,10 @@ export interface SuspenseEntryLine {
   accountName: string;
   accountDisplay: string;
   /** 借方金额（drCr=Dr 时有值）。 */
-  debitAmount?: number | null;
+  debitAmount?: string | number | null;
   /** 贷方金额（drCr=Cr 时有值）。 */
-  creditAmount?: number | null;
-  amount: number;
+  creditAmount?: string | number | null;
+  amount: string | number;
   exceptionContext?: string;
   createdBy?: string;
   createdOn?: string;
@@ -95,7 +95,7 @@ export interface SuspenseAdjustmentHistoryItem {
   postingDate: string;
   /** 对方 / 抵账科目展示串。 */
   offsetAccountDisplay: string;
-  amount: number;
+  amount: string | number;
   adjustmentReason: string;
   createdBy?: string;
   createdOn?: string;
@@ -120,9 +120,10 @@ export interface SuspenseAdjustmentDetail {
   bookId?: string;
   bookNo?: string;
   currency: string;
-  originalAmount: number;
-  totalAdjusted: number;
-  outstandingAmount: number;
+  originalAmount: string | number;
+  totalAdjusted: string | number;
+  outstandingAmount: string | number;
+  offsettingEntryFor?: string;
   suspenseEntries: SuspenseEntryLine[];
   exceptionContext?: string;
   postingDate?: string;
@@ -144,7 +145,7 @@ export interface NewAdjustmentEntryItem {
   accountCode: string;
   accountName: string;
   accountDisplay: string;
-  amount: number | null;
+  amount: string | number | null;
   currency: string;
 }
 
@@ -161,8 +162,8 @@ export interface NewAdjustmentForm {
 
 /** Adjustment Summary 实时汇总（表单右侧）。 */
 export interface AdjustmentSummary {
-  thisAdjustment: number;
-  remainingAfterThis: number;
+  thisAdjustment: string;
+  remainingAfterThis: string;
   currency: string;
   isFullyCleared: boolean;
 }
@@ -197,8 +198,8 @@ export interface LeafAccountsResp {
 export interface AdjustedDetailDomain {
   adjustmentId: number;
   applyCode: string;
-  thisAdjustment: number;
-  remainingAfterThis: number;
+  thisAdjustment: string | number;
+  remainingAfterThis: string | number;
   status: AdjustmentStatus;
   statusLabel: string;
   suspenseTxnId: string;
@@ -211,8 +212,8 @@ export interface AdjustedDetailDomain {
   bookId?: string;
   bookNo?: string;
   currency: string;
-  originalAmount: number;
-  outstandingAmount: number;
+  originalAmount: string | number;
+  outstandingAmount: string | number;
   /** 后端返回的 offsetting 文案，原样透传到表单只读展示。 */
   offsettingEntryFor: string;
   transactionId?: string;

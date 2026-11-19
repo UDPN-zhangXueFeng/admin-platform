@@ -1,4 +1,5 @@
 {
+  "missingEodId": "该报表缺少编号，无法打开详情。",
   "title": "会计科目表",
   "records": "财务账本",
   "empty": "暂无财务账本",
@@ -38,7 +39,7 @@
   },
   "action": {
     "edit": "编辑",
-    "viewStatements": "查看报表",
+    "viewStatements": "查看日终报表",
     "detail": "详情",
     "back": "返回"
   },
@@ -46,6 +47,7 @@
     "basicInformation": "基本信息",
     "chartOfAccounts": "会计科目表",
     "eodStatements": "EOD 报表",
+    "eodBalances": "日终余额",
     "trialBalance": "试算平衡",
     "operationRecords": "操作记录"
   },
@@ -56,12 +58,13 @@
   },
   "common": {
     "cancel": "取消", "save": "保存", "confirm": "确认", "close": "关闭",
+    "loadFailed": "加载数据失败。", "retry": "重试", "loading": "加载中…",
     "edit": "编辑", "deactivate": "停用", "activate": "启用", "yes": "是", "no": "否"
   },
   "coa": {
     "tabDescription": "{bookName} 的会计科目表",
-    "tabAlert": "草稿在本地保存，点击“保存草稿”后提交。",
-    "saveDraft": "保存草稿",
+    "tabAlert": "更改暂存在本地，点击“验证并发布”后才会提交。",
+    "saveDraft": "验证并发布",
     "newPrimaryHint": "在 {accountType} 下创建新的一级科目。",
     "subAccountAlert": "新增子科目将禁用父科目的过账。",
     "deactivateAlert": "停用该科目可能影响其子科目。",
@@ -84,6 +87,7 @@
     "activateParentFirst": "请先启用父科目",
     "duplicateCode": "科目代码已存在", "duplicateName": "科目名称已存在",
     "invalidAccountType": "科目类型无效", "toggleFailed": "操作失败",
+    "draftSaved": "更改已暂存在本地。",
     "saveSuccess": "保存成功", "saveFailed": "保存失败"
   },
   "eod": {

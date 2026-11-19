@@ -13,4 +13,5 @@ export const auditTrailKeys = {
   stablecoinSearches: () =>
     [...auditTrailKeys.all, 'stablecoin-searches'] as const,
   blockchainList: () => [...auditTrailKeys.all, 'blockchain-list'] as const,
+  tokenTypeList: () => [...auditTrailKeys.all, 'token-type-list'] as const,
 } as const;

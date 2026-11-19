@@ -31,14 +31,12 @@ import { postingEngineKeys } from './posting-engine.keys';
 
 /**
  * 账本列表查询（服务端分页）。
- *
- * `keepPreviousData` 让翻页 / 筛选切换时旧数据保持可见。
+ * Do not show results from a different filter while waiting for the server.
  */
 export function usePostingBooksQuery(params: PostingBookListParams) {
   return useQuery<PostingBookListResponse>({
     queryKey: postingEngineKeys.booksList(params),
     queryFn: ({ signal }) => getPostingBooks(params, { signal }),
-    placeholderData: keepPreviousData,
   });
 }
 
@@ -47,7 +45,7 @@ export function usePostingBookDetailQuery(
   financeBookId: number | undefined,
   enabled = true
 ) {
-  return useQuery<PostingBook>({
+  return useQuery<PostingBook | null>({
     queryKey: postingEngineKeys.bookDetail(financeBookId ?? 0),
     queryFn: ({ signal }) =>
       getPostingBookDetail(financeBookId as number, { signal }),
@@ -73,7 +71,7 @@ export function usePostingEventDetailQuery(
   postingEventId: number | undefined,
   enabled = true
 ) {
-  return useQuery<PostingEvent>({
+  return useQuery<PostingEvent | null>({
     queryKey: postingEngineKeys.eventDetail(postingEventId ?? 0),
     queryFn: ({ signal }) =>
       getPostingEventDetail(postingEventId as number, { signal }),
@@ -115,25 +113,19 @@ export function usePostingHistoryListQuery(
   return useQuery<PostingHistoryListResponse>({
     queryKey: postingEngineKeys.historyList(params),
     queryFn: ({ signal }) => getPostingHistoryList(params, { signal }),
-    placeholderData: keepPreviousData,
     enabled,
   });
 }
 
 /**
- * 更新记账事件 mutation（编辑页保存）。
- *
- * 成功后失效事件维度缓存（列表 + 当前详情），确保返回详情页时数据刷新。
+ * Refresh the affected event, book summaries, and version history after acceptance.
  */
 export function useUpdatePostingEventMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (dto: SavePostingEventDTO) => updatePostingEvent(dto),
-    onSuccess: (_data, dto) => {
-      void queryClient.invalidateQueries({ queryKey: postingEngineKeys.events() });
-      void queryClient.invalidateQueries({
-        queryKey: postingEngineKeys.eventDetail(dto.postingEventId),
-      });
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: postingEngineKeys.all });
     },
   });
 }

@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   Input,
   Label,
   Switch,
@@ -69,7 +70,7 @@ export function CoaAccountEditorDialog({
   const showSuspenseAccount = isNewPrimary || isNewSubAccount || isEdit;
   const disableAccountCode = isEdit && !!record?.bookAccountId;
 
-  const { register, handleSubmit, control, reset, setValue, watch } =
+  const { register, handleSubmit, control, reset, setValue, watch, formState: { errors } } =
     useForm<AccountEditorFormValues>({ defaultValues: {} });
 
   useEffect(() => {
@@ -82,12 +83,12 @@ export function CoaAccountEditorDialog({
           ? record?.accountCode?.split('.').pop() ?? ''
           : undefined,
         accountName: record?.accountName ?? '',
-        allowPosting: record?.allowPosting ?? false,
-        suspenseAccount: record?.suspenseAccount ?? false,
+        allowPosting: !isEdit || (!isParentAccount && !!record?.allowPosting),
+        suspenseAccount: isEdit && !isParentAccount && !!record?.allowPosting && !!record.suspenseAccount,
         description,
       });
     }
-  }, [open, modalState, record, isSubAccount, reset]);
+  }, [open, modalState, record, isSubAccount, isEdit, isParentAccount, reset]);
 
   if (
     !open ||
@@ -113,6 +114,7 @@ export function CoaAccountEditorDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">{t('coa.tabAlert')}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -145,13 +147,15 @@ export function CoaAccountEditorDialog({
           ) : null}
 
           <div className="space-y-1">
-            <Label>{t('coa.accountCode')}</Label>
+            <Label htmlFor="coa-account-code">{t('coa.accountCode')}</Label>
             {isSubAccount && parentAccountCode ? (
               <div className="flex items-center">
                 <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 bg-muted px-3 text-sm">
                   {parentAccountCode}.
                 </span>
                 <input
+                  id="coa-account-code"
+                  aria-invalid={!!errors.accountCodeSuffix}
                   {...register('accountCodeSuffix', {
                     required: t('coa.codeRequired'),
                     pattern: { value: /^\d{2}$/, message: t('coa.code2Digit') },
@@ -164,6 +168,8 @@ export function CoaAccountEditorDialog({
               </div>
             ) : (
               <input
+                id="coa-account-code"
+                aria-invalid={!!errors.accountCode}
                 {...register('accountCode', {
                   required: t('coa.codeRequired'),
                   pattern: { value: /^\d{4}$/, message: t('coa.code4Digit') },
@@ -173,13 +179,20 @@ export function CoaAccountEditorDialog({
                 className="flex h-9 w-full rounded-md border bg-background px-3 text-sm"
               />
             )}
+            {(errors.accountCodeSuffix || errors.accountCode) && (
+              <p role="alert" className="text-sm text-destructive">
+                {errors.accountCodeSuffix?.message ?? errors.accountCode?.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">
-            <Label>{t('coa.accountName')}</Label>
+            <Label htmlFor="coa-account-name">{t('coa.accountName')}</Label>
             <input
+              id="coa-account-name"
+              aria-invalid={!!errors.accountName}
               {...register('accountName', {
-                required: t('coa.nameRequired'),
+                validate: (value) => !!value?.trim() || t('coa.nameRequired'),
                 maxLength: { value: 50, message: t('coa.nameMax') },
                 pattern: { value: /^[A-Za-z\s-]+$/, message: t('coa.namePattern') },
               })}
@@ -187,17 +200,19 @@ export function CoaAccountEditorDialog({
               placeholder={t('coa.accountName')}
               className="flex h-9 w-full rounded-md border bg-background px-3 text-sm"
             />
+            {errors.accountName && <p role="alert" className="text-sm text-destructive">{errors.accountName.message}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-1">
-              <Label>{t('coa.allowPosting')}</Label>
+              <Label htmlFor="coa-allow-posting">{t('coa.allowPosting')}</Label>
               <div className="flex items-center gap-2">
                 <Controller
                   control={control}
                   name="allowPosting"
                   render={({ field }) => (
                     <Switch
+                      id="coa-allow-posting"
                       checked={!!field.value}
                       disabled={isParentAccount}
                       onCheckedChange={(checked) => {
@@ -207,19 +222,20 @@ export function CoaAccountEditorDialog({
                     />
                   )}
                 />
-                <span className="text-sm">{allowPostingValue ? 'Yes' : 'No'}</span>
+                <span className="text-sm">{t(allowPostingValue ? 'common.yes' : 'common.no')}</span>
               </div>
             </div>
 
             {showSuspenseAccount ? (
               <div className="space-y-1">
-                <Label>{t('coa.suspenseAccount')}</Label>
+                <Label htmlFor="coa-suspense-account">{t('coa.suspenseAccount')}</Label>
                 <div className="flex items-center gap-2">
                   <Controller
                     control={control}
                     name="suspenseAccount"
                     render={({ field }) => (
                       <Switch
+                        id="coa-suspense-account"
                         checked={!!field.value}
                         disabled={isParentAccount || !allowPostingValue}
                         onCheckedChange={field.onChange}
@@ -227,7 +243,7 @@ export function CoaAccountEditorDialog({
                     )}
                   />
                   <span className="text-sm">
-                    {watch('suspenseAccount') ? 'Yes' : 'No'}
+                    {t(watch('suspenseAccount') ? 'common.yes' : 'common.no')}
                   </span>
                 </div>
               </div>
@@ -235,15 +251,18 @@ export function CoaAccountEditorDialog({
           </div>
 
           <div className="space-y-1">
-            <Label>{t('coa.description')}</Label>
+            <Label htmlFor="coa-description">{t('coa.description')}</Label>
             <textarea
+              id="coa-description"
+              aria-invalid={!!errors.description}
               {...register('description', {
-                required: t('coa.descriptionRequired'),
+                validate: (value) => !!value?.trim() || t('coa.descriptionRequired'),
               })}
               rows={4}
               maxLength={200}
               className="flex w-full rounded-md border bg-background px-3 py-2 text-sm"
             />
+            {errors.description && <p role="alert" className="text-sm text-destructive">{errors.description.message}</p>}
           </div>
 
           <div className="flex justify-end gap-3 pt-2">

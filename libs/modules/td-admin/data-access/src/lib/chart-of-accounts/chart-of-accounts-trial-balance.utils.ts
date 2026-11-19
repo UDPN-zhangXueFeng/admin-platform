@@ -26,6 +26,7 @@ import {
   formatOptionalMoneyWithCurrency,
   parseDateToMs,
 } from './chart-of-accounts-eod.utils';
+import { addBookAmounts, formatBookAmount, negateBookAmount, parseBookAmount, zeroAmount } from './chart-of-accounts-money';
 import type {
   TrialBalanceActivityItemResp,
   TrialBalanceActivityResp,
@@ -330,22 +331,8 @@ export function buildTrialBalanceSummary(
     rootItems: TrialBalanceItemResp[]
   ): TrialBalanceRow => {
     const firstLevelItems = getFirstLevelTrialBalanceItems(rootItems);
-    const openingTotal = firstLevelItems.reduce(
-      (sum, item) => sum + Number(item.openingBalance || 0),
-      0
-    );
-    const debitTotal = firstLevelItems.reduce(
-      (sum, item) => sum + Number(item.periodDebit || 0),
-      0
-    );
-    const creditTotal = firstLevelItems.reduce(
-      (sum, item) => sum + Number(item.periodCredit || 0),
-      0
-    );
-    const closingTotal = firstLevelItems.reduce(
-      (sum, item) => sum + Number(item.closingBalance || 0),
-      0
-    );
+    const sum = (field: 'openingBalance' | 'periodDebit' | 'periodCredit' | 'closingBalance') =>
+      firstLevelItems.reduce((total, item) => addBookAmounts(total, parseBookAmount(item[field]) ?? zeroAmount), zeroAmount);
     const firstItem = firstLevelItems[0];
     const summaryValue =
       sectionType === 'assets'
@@ -365,16 +352,16 @@ export function buildTrialBalanceSummary(
       openingSide:
         formatTrialBalanceDrCr(firstItem?.openingDrCr) ||
         (sectionType === 'assets' ? 'Dr' : 'Cr'),
-      opening: formatMoneyWithCurrency(openingTotal, currencyCode),
-      debit: formatMoneyWithCurrency(debitTotal, currencyCode),
-      credit: formatMoneyWithCurrency(creditTotal, currencyCode),
+      opening: formatBookAmount(sum('openingBalance'), currencyCode),
+      debit: formatBookAmount(sum('periodDebit'), currencyCode),
+      credit: formatBookAmount(sum('periodCredit'), currencyCode),
       activitySide:
         formatTrialBalanceDrCr(firstItem?.activityDrCr) ||
         (sectionType === 'assets' ? 'Dr' : 'Cr'),
       closing:
         summaryValue !== '--'
           ? summaryValue
-          : formatMoneyWithCurrency(closingTotal, currencyCode),
+          : formatBookAmount(sum('closingBalance'), currencyCode),
       hasActivity: false,
     };
   };
@@ -491,21 +478,19 @@ export function buildTrialBalanceActivityRows(
   }
 ): TrialBalanceActivityRow[] {
   const items = getTrialBalanceActivityItems(data);
-  let runningBalance = 0;
+  let runningBalance = zeroAmount;
 
   return items.map((item, index) => {
-    const amount = Number(item.amount || 0);
+    const amount = parseBookAmount(item.amount) ?? zeroAmount;
     const directionText = String(item.direction ?? '').trim().toUpperCase();
     const isDebit =
       item.direction === 1 ||
       directionText === 'DEBIT' ||
       directionText === 'DR';
-    runningBalance += isDebit ? amount : -amount;
+    runningBalance = addBookAmounts(runningBalance, isDebit ? amount : negateBookAmount(amount));
 
     const postingMs = parseDateToMs(item.createTime ?? item.postingDate);
-    const runningBalanceValue = Number.isFinite(Number(item.runningBalance))
-      ? Number(item.runningBalance)
-      : runningBalance;
+    const runningBalanceValue = parseBookAmount(item.runningBalance) ?? runningBalance;
     const accountCode =
       normalizeTextValue(item.accountCode) ||
       normalizeTextValue(params.accountCode) ||
@@ -545,12 +530,12 @@ export function buildTrialBalanceActivityRows(
           ? `${item.offsettingAccountCode} – ${item.offsettingAccountName}`
           : item.offsettingAccountName || item.offsettingAccountCode || '--',
       debitAmount: isDebit
-        ? formatMoneyWithCurrency(amount, params.currencyCode)
+        ? formatBookAmount(amount, params.currencyCode)
         : '--',
       creditAmount: isDebit
         ? '--'
-        : formatMoneyWithCurrency(amount, params.currencyCode),
-      runningBalance: formatMoneyWithCurrency(
+        : formatBookAmount(amount, params.currencyCode),
+      runningBalance: formatBookAmount(
         runningBalanceValue,
         item.currencyCode || params.currencyCode
       ),

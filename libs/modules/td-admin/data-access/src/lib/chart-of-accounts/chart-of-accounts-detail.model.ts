@@ -137,7 +137,6 @@ export interface EodStatementRow {
   totalLiabilities: string;
   suspenseEntries: number;
   variance: string;
-  varianceValue: number;
   createdOn: string;
   accountingStatus: EodAccountingStatus;
   clearingStatus: EodClearingStatus;
@@ -298,14 +297,14 @@ export interface TrialBalanceItemResp {
   level?: number;
   /** 科目分组 1:ASSET 2:LIABILITY 3:EQUITY 4:INCOME_EXPENSE */
   sectionType?: number | string;
-  openingBalance?: number;
+  openingBalance?: number | string;
   /** 期初方向 1:Dr 2:Cr */
   openingDrCr?: number | string;
   /** 本期发生额方向 1:Dr 2:Cr */
   activityDrCr?: number | string;
-  periodDebit?: number;
-  periodCredit?: number;
-  closingBalance?: number;
+  periodDebit?: number | string;
+  periodCredit?: number | string;
+  closingBalance?: number | string;
   hasActivity?: boolean;
   children?: TrialBalanceItemResp[];
 }
@@ -315,8 +314,8 @@ export interface TrialBalanceResp {
   bookName?: string;
   bookId?: string | number;
   currencyCode?: string;
-  totalAssets?: number;
-  totalLiabilities?: number;
+  totalAssets?: number | string;
+  totalLiabilities?: number | string;
   /** Balanced / Unbalanced */
   balancingCheck?: string;
   items?: TrialBalanceItemResp[];
@@ -378,9 +377,9 @@ export interface TrialBalanceActivityItemResp {
   financeBookId?: number | string;
   /** 方向 1:DEBIT 2:CREDIT */
   direction?: number | string;
-  amount?: number;
+  amount?: number | string;
   postingDate?: string;
-  runningBalance?: number;
+  runningBalance?: number | string;
   offsettingAccountCode?: string;
   offsettingAccountName?: string;
   currencyCode?: string;
@@ -547,10 +546,10 @@ export interface EodDetailAccountBalanceItem {
   eodAccountBalanceId?: number;
   accountCode?: string;
   accountName?: string;
-  openingBalance?: number;
-  debitBalance?: number;
-  creditBalance?: number;
-  closingBalance?: number;
+  openingBalance?: number | string;
+  debitBalance?: number | string;
+  creditBalance?: number | string;
+  closingBalance?: number | string;
   currencyCode?: string;
 }
 
@@ -574,10 +573,10 @@ export interface EodDetailRespVo {
   exceptionContext?: string;
   exceptionReason?: string;
   reason?: string;
-  suspenseAssets?: number;
-  suspenseAssetAmount?: number;
-  suspenseLiabilities?: number;
-  suspenseLiabilityAmount?: number;
+  suspenseAssets?: number | string;
+  suspenseAssetAmount?: number | string;
+  suspenseLiabilities?: number | string;
+  suspenseLiabilityAmount?: number | string;
   accountBalances?: EodDetailAccountBalanceItem[];
   suspenseEntries?: unknown[];
   suspenseEntryRows?: unknown[];

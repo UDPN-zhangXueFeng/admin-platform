@@ -95,7 +95,8 @@ export function resolveStatusCode(
  * 避免 `util` → `data-access` 循环依赖，同时保持可单测。
  */
 export function resolveStatusCodes(
-  rows: ReadonlyArray<{ status?: number | null }>
+  rows: ReadonlyArray<{ status?: number | null }>,
+  previous = { active: DEFAULT_ACTIVE_STATUS_CODE, inactive: DEFAULT_INACTIVE_STATUS_CODE }
 ): { active: number; inactive: number } {
   const codes = new Set(
     rows
@@ -104,12 +105,8 @@ export function resolveStatusCodes(
   );
 
   return {
-    active: codes.has(20) ? 20 : codes.has(1) ? 1 : DEFAULT_ACTIVE_STATUS_CODE,
-    inactive: codes.has(30)
-      ? 30
-      : codes.has(0)
-        ? 0
-        : DEFAULT_INACTIVE_STATUS_CODE,
+    active: codes.has(20) ? 20 : codes.has(1) ? 1 : previous.active,
+    inactive: codes.has(30) ? 30 : codes.has(0) ? 0 : previous.inactive,
   };
 }
 

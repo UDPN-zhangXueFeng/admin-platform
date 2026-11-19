@@ -150,7 +150,7 @@ export const CLEAR_STATUS_LABEL_TO_ENUM: Record<string, ClearStatus> = {
 
 /** Adjustment 审批状态展示映射。 */
 export const ADJUSTMENT_STATUS_MAP: Record<AdjustmentStatus, StatusTone> = {
-  PENDING_REVIEW: { color: 'gold', label: 'Pending Review' },
+  PENDING_REVIEW: { color: 'gold', label: 'Pending Approval' },
   IN_PROCESS_REVIEW: { color: 'blue', label: 'In Process Review' },
   REJECTED: { color: 'red', label: 'Rejected' },
   APPROVED: { color: 'green', label: 'Approved' },

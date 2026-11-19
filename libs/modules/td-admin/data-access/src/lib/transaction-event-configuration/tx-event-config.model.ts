@@ -39,7 +39,7 @@ export interface NormalizationBook {
   bookName?: string;
   tokenType?: number;
   reserveAssetName?: string;
-  assetValue?: string;
+  assetValue?: string | number;
   tokens?: BookTokenRel[];
   createdOn?: number;
   status?: number;
@@ -90,6 +90,9 @@ export interface NormalizationEventMapping {
   remarks?: string;
   /** 源字段描述（取自 fin_table_field_info）。 */
   fieldDesc?: string;
+  targetField?: string;
+  mappingType?: string | number;
+  description?: string;
   createTime?: number;
 }
 
@@ -109,6 +112,7 @@ export interface NormalizationEvent {
   createTime?: number;
   updateTime?: number;
   createUser?: string;
+  createUserName?: string;
   taskId?: number;
   busCode?: string;
   mappings?: NormalizationEventMapping[];

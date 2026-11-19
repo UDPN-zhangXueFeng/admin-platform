@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   Label,
 } from '@myorg/shared/ui';
 import type { CoaRow, CoaToggleFormValues } from '@myorg/modules/td-admin/data-access';
@@ -80,6 +81,7 @@ export function CoaToggleDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">{alertMessage}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -117,7 +119,7 @@ export function CoaToggleDialog({
                       className="flex items-center gap-2 text-sm"
                     >
                       <Checkbox
-                        checked={childKeys.includes(key)}
+                        checked={isDeactivate || childKeys.includes(key)}
                         disabled={isDeactivate}
                         onCheckedChange={(checked) =>
                           toggleChild(key, checked === true)
@@ -134,8 +136,9 @@ export function CoaToggleDialog({
           ) : null}
 
           <div className="space-y-1">
-            <Label>{commentLabel}</Label>
+            <Label htmlFor="coa-toggle-comment">{commentLabel}</Label>
             <textarea
+              id="coa-toggle-comment"
               value={comment}
               onChange={(event) => setComment(event.target.value)}
               rows={4}

@@ -14,16 +14,23 @@ export interface BreadcrumbProps {
  * Dynamic breadcrumb derived from the current URL pathname.
  *
  * Features:
- * - Splits pathname into segments and renders each as a link.
+ * - Resolves crumbs from the configured menu hierarchy matched against the
+ *   pathname, falling back to URL segments when no menu path matches.
  * - Skips locale segments (e.g. /en, /zh-CN) automatically.
  * - Home link is always present.
- * - Last segment is non-interactive (current page).
+ * - Last entry is non-interactive (current page).
  *
  * Module labels:
- * - Each segment resolves its label from `config.modules.order` (including
- *   nested group children) so the breadcrumb stays in sync with sidebar menu
- *   labels (e.g. /system/user → "User Management", not "User").
- * - Segments matching no module id fall back to the humanized URL slug
+ * - The configured menu path that matches the longest URL prefix wins, and
+ *   the whole matched menu chain renders as one crumb per menu entry
+ *   (ancestors first), so grouped menus with flat child routes keep their
+ *   hierarchy (e.g. /chart-of-accounts →
+ *   "Accounting Management" > "Chart of Accounts").
+ * - Route segments after the matched path (detail views) and path segments
+ *   beyond the matched menu depth (e.g. /transaction-flow/stablecoin) render
+ *   after the chain.
+ * - URLs matching no configured path fall back to per-segment labels resolved
+ *   from `config.modules.order` ids, then to the humanized URL slug
  *   (e.g. "user-list" → "User List"; detail ids show the id itself).
  */
 
@@ -51,32 +58,61 @@ function findModuleLabel(
   return undefined;
 }
 
+type BreadcrumbEntry = {
+  key: string;
+  label: string;
+  href?: string;
+};
+
+type RouteMatch = {
+  chain: OrderItem[];
+  pathSegments: string[];
+};
+
+/** Split a configured path into locale-free, non-empty segments. */
+function toPathSegments(path: string | undefined): string[] {
+  if (!path) return [];
+  return path
+    .split('/')
+    .filter((segment) => segment.length > 0 && !isLocaleSegment(segment));
+}
+
 /**
- * Resolve labels from configured route paths so nested groups with duplicate
- * ids (for example the LP group and its `lp` child) keep their hierarchy.
+ * Find the configured menu entry whose path is the longest prefix of the URL.
+ *
+ * Ties go to the deeper menu chain, so a child route wins over its parent when
+ * both declare the same path (e.g. System Management > User Management both at
+ * `/system/user`).
  */
-function findPathLabels(
+function findRouteMatch(
   items: OrderItem[] | undefined,
   segments: string[],
-): string[] | undefined {
-  if (!items) return undefined;
+): RouteMatch | undefined {
+  let best: RouteMatch | undefined;
 
-  for (const item of items) {
-    const nested = findPathLabels(item.children, segments);
-    if (nested) return item.label ? [item.label, ...nested] : nested;
+  const visit = (item: OrderItem, ancestors: OrderItem[]) => {
+    const chain = [...ancestors, item];
+    const pathSegments = toPathSegments(item.path);
+    const isPrefix =
+      pathSegments.length > 0 &&
+      pathSegments.length <= segments.length &&
+      pathSegments.every((segment, index) => segments[index] === segment);
 
-    const pathSegments = item.path
-      ?.split('/')
-      .filter((segment) => segment.length > 0 && !isLocaleSegment(segment));
     if (
-      pathSegments?.length &&
-      pathSegments.every((segment, index) => segments[index] === segment)
+      isPrefix &&
+      (!best ||
+        pathSegments.length > best.pathSegments.length ||
+        (pathSegments.length === best.pathSegments.length &&
+          chain.length > best.chain.length))
     ) {
-      return item.label ? [item.label] : [];
+      best = { chain, pathSegments };
     }
-  }
 
-  return undefined;
+    item.children?.forEach((child) => visit(child, chain));
+  };
+
+  items?.forEach((item) => visit(item, []));
+  return best;
 }
 
 /**
@@ -128,6 +164,74 @@ function buildBreadcrumbTargets(
   return targets;
 }
 
+/**
+ * Build breadcrumb entries for the current URL.
+ *
+ * A matched menu chain renders one entry per menu item even when the URL has
+ * fewer segments (flat child routes under a group). Ancestors keep the sidebar
+ * group-link semantics; trailing route segments render as path/detail crumbs.
+ * Without a configured match the URL segments remain the source of truth.
+ */
+function buildBreadcrumbEntries(
+  items: OrderItem[] | undefined,
+  segments: string[],
+  targets: Map<string, string>,
+): BreadcrumbEntry[] {
+  const match = findRouteMatch(items, segments);
+
+  if (!match) {
+    return segments.map((segment, index) => {
+      const pathHref = `/${segments.slice(0, index + 1).join('/')}`;
+      return {
+        key: `url:${index}:${segment}`,
+        label: findModuleLabel(items, segment) ?? humanize(segment),
+        href:
+          index === segments.length - 1
+            ? undefined
+            : targets.get(pathHref) ?? pathHref,
+      };
+    });
+  }
+
+  const entries: BreadcrumbEntry[] = match.chain.map((item, index) => ({
+    key: `menu:${index}:${item.id}`,
+    label: item.label ?? humanize(item.id),
+    href: item.path ?? firstNavigablePath(item),
+  }));
+
+  const matchedPathLength = match.pathSegments.length;
+
+  const appendRouteSegment = (index: number, keyPrefix: string) => {
+    const segment = segments[index];
+    const pathHref = `/${segments.slice(0, index + 1).join('/')}`;
+    entries.push({
+      key: `${keyPrefix}:${index}:${segment}`,
+      label: findModuleLabel(items, segment) ?? humanize(segment),
+      href: targets.get(pathHref) ?? pathHref,
+    });
+  };
+
+  // Path segments beyond the matched menu depth belong to the selected menu
+  // item's own path (e.g. `/transaction-flow/stablecoin`).
+  for (let index = match.chain.length; index < matchedPathLength; index += 1) {
+    appendRouteSegment(index, 'path');
+  }
+
+  // Segments after the matched path are detail views (`.../view`, ids, ...).
+  for (let index = matchedPathLength; index < segments.length; index += 1) {
+    appendRouteSegment(index, 'detail');
+  }
+
+  if (entries.length > 0) {
+    entries[entries.length - 1] = {
+      ...entries[entries.length - 1],
+      href: undefined,
+    };
+  }
+
+  return entries;
+}
+
 export function Breadcrumb({ className }: BreadcrumbProps) {
   const pathname = usePathname();
   const { order } = useModules();
@@ -137,13 +241,13 @@ export function Breadcrumb({ className }: BreadcrumbProps) {
       .split('/')
       .filter((s) => s.length > 0 && !isLocaleSegment(s));
   }, [pathname]);
-  const pathLabels = React.useMemo(
-    () => findPathLabels(order, segments),
-    [order, segments],
-  );
   const breadcrumbTargets = React.useMemo(
     () => buildBreadcrumbTargets(order),
     [order],
+  );
+  const entries = React.useMemo(
+    () => buildBreadcrumbEntries(order, segments, breadcrumbTargets),
+    [order, segments, breadcrumbTargets],
   );
 
   return (
@@ -163,16 +267,10 @@ export function Breadcrumb({ className }: BreadcrumbProps) {
           </Link>
         </li>
 
-        {segments.map((segment, index) => {
-          const isLast = index === segments.length - 1;
-          const pathHref = '/' + segments.slice(0, index + 1).join('/');
-          const href = breadcrumbTargets.get(pathHref) ?? pathHref;
-          const label =
-            pathLabels?.[index] ??
-            findModuleLabel(order, segment) ??
-            humanize(segment);
+        {entries.map((entry, index) => {
+          const isLast = index === entries.length - 1;
           return (
-            <React.Fragment key={pathHref}>
+            <React.Fragment key={entry.key}>
               <li aria-hidden="true">
                 <ChevronRight className="h-3.5 w-3.5" />
               </li>
@@ -182,18 +280,20 @@ export function Breadcrumb({ className }: BreadcrumbProps) {
                     className="font-medium text-foreground"
                     aria-current="page"
                   >
-                    {label}
+                    {entry.label}
                   </span>
-                ) : (
+                ) : entry.href ? (
                   <Link
-                    href={href}
+                    href={entry.href}
                     className={cn(
                       'transition-colors hover:text-foreground',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                     )}
                   >
-                    {label}
+                    {entry.label}
                   </Link>
+                ) : (
+                  <span>{entry.label}</span>
                 )}
               </li>
             </React.Fragment>

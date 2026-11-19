@@ -41,6 +41,7 @@ export interface TrialBalanceContentProps {
   onFiltersChange: (filters: TrialBalanceFilterState) => void;
   summary: TrialBalanceSummary;
   loading: boolean;
+  error: boolean;
   columns: ColumnDef<TrialBalanceRow>[];
   t: (key: string, values?: Record<string, string | number>) => string;
 }
@@ -57,6 +58,7 @@ export function TrialBalanceContent({
   onFiltersChange,
   summary,
   loading,
+  error,
   columns,
   t,
 }: TrialBalanceContentProps) {
@@ -69,6 +71,7 @@ export function TrialBalanceContent({
       <p className="text-sm text-muted-foreground">
         {t('trialBalance.description', { bookName })}
       </p>
+      {error && <p role="alert" className="text-sm text-destructive">{t('common.loadFailed')}</p>}
 
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-1">

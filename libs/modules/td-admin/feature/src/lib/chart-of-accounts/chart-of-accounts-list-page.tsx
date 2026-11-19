@@ -4,23 +4,18 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@myorg/shared/util-i18n';
-import { ColumnDef } from '@tanstack/react-table';
-import { endOfDay, parseISO, startOfDay } from 'date-fns';
 
 import {
   Card,
-  CopyableEllipsisText,
   DataTable,
 } from '@myorg/shared/ui';
 import { FormDateRangePicker, FormField, FormSelect } from '@myorg/shared/ui-forms';
 import { useAuth } from '@myorg/shared/util-auth';
 
-import { ChartOfAccountsStatusTag } from '.';
 import {
   useChartOfAccountsListQuery,
   useCurrencyListQuery,
   type ChartOfAccountsItem,
-  type ChartOfAccountsListFilters,
   type ChartOfAccountsListParams,
   type CurrencyOption,
 } from '@myorg/modules/td-admin/data-access';
@@ -31,150 +26,14 @@ import {
   DEFAULT_PAGE_SIZE,
   FIXED_TOKEN_TYPES,
   normalizeCurrencyCode,
-  normalizeTextValue,
-  resolveStatusCode,
   resolveStatusCodes,
-  type ChartOfAccountsStatusFilter,
 } from '@myorg/modules/td-admin/data-access';
 
 import { getFinancialBookMetaByBookId } from './financial-book-meta';
 import { QueryForm } from '../query-form';
-import { createRowActionsColumn, type RowAction } from '../row-actions';
+import { buildFinancialBookColumns, type DetailTab } from './financial-book-columns';
 
-/** 详情 tab 取值，与操作跳转一一对应。 */
-type DetailTab =
-  | 'basic-information'
-  | 'chart-of-accounts'
-  | 'eod-statements'
-  | 'trial-balance'
-  | 'operation-records';
-
-/** “全部”占位值（Radix Select 不允许空字符串 value，故用 `'all'`）。 */
-const ALL_VALUE = 'all';
-
-/**
- * react-hook-form 筛选表单形状。
- * 文本空串 = 无筛选；下拉 `'all'` = 无筛选；日期为 `YYYY-MM-DD` 字符串。
- */
-interface ChartOfAccountsFilterForm {
-  financialBookName?: string;
-  bookId?: string;
-  reserveAssetName?: string;
-  currency?: string;
-  tokenType?: string;
-  createdOnFrom?: string;
-  createdOnTo?: string;
-  status?: string;
-}
-
-const EMPTY_FORM: ChartOfAccountsFilterForm = {
-  financialBookName: '',
-  bookId: '',
-  reserveAssetName: '',
-  currency: ALL_VALUE,
-  tokenType: ALL_VALUE,
-  createdOnFrom: '',
-  createdOnTo: '',
-  status: ALL_VALUE,
-};
-
-/** 将表单值转换为后端筛选条件（纯函数，便于单测）。 */
-function formToFilters(
-  form: ChartOfAccountsFilterForm,
-  activeStatusCode: number,
-  inactiveStatusCode: number
-): ChartOfAccountsListFilters {
-  const statusValue =
-    form.status && form.status !== ALL_VALUE
-      ? (form.status as ChartOfAccountsStatusFilter)
-      : undefined;
-
-  return {
-    bookName: normalizeTextValue(form.financialBookName),
-    bookNo: normalizeTextValue(form.bookId),
-    reserveAssetName: normalizeTextValue(form.reserveAssetName),
-    currencyCode:
-      form.currency && form.currency !== ALL_VALUE ? form.currency : undefined,
-    tokenType:
-      form.tokenType && form.tokenType !== ALL_VALUE
-        ? Number(form.tokenType)
-        : undefined,
-    status: resolveStatusCode(statusValue, activeStatusCode, inactiveStatusCode),
-    createTimeStart: form.createdOnFrom
-      ? startOfDay(parseISO(form.createdOnFrom)).getTime()
-      : undefined,
-    createTimeEnd: form.createdOnTo
-      ? endOfDay(parseISO(form.createdOnTo)).getTime()
-      : undefined,
-  };
-}
-
-// ── EOD 截止时间格式化（迁移自源项目 src/lib/financial/date-time.ts） ──
-const EMPTY_DISPLAY = '--';
-
-/** 无任何可见操作时旧 cell 的占位列（保留 EMPTY_DISPLAY 行为）。 */
-const EMPTY_ACTIONS_COLUMN: ColumnDef<ChartOfAccountsItem> = {
-  id: 'actions',
-  header: 'Actions',
-  enableSorting: false,
-  meta: { overflow: 'none', stickyRight: true },
-  cell: () => (
-    <div className="flex justify-center text-muted-foreground">
-      {EMPTY_DISPLAY}
-    </div>
-  ),
-};
-
-function formatOffsetMinutes(offsetMinutes: number): string {
-  const sign = offsetMinutes >= 0 ? '+' : '-';
-  const absMinutes = Math.abs(offsetMinutes);
-  const hours = Math.floor(absMinutes / 60);
-  const minutes = absMinutes % 60;
-
-  return minutes === 0
-    ? `UTC${sign}${hours}`
-    : `UTC${sign}${hours}:${String(minutes).padStart(2, '0')}`;
-}
-
-function getUtcOffsetLabel(timeZone?: string | null, date = new Date()): string | undefined {
-  const normalizedTimeZone = timeZone?.trim();
-  if (!normalizedTimeZone) {
-    return undefined;
-  }
-
-  try {
-    const localDate = new Date(
-      date.toLocaleString('en-US', { timeZone: normalizedTimeZone })
-    );
-    const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
-    const offsetMinutes = Math.round(
-      (localDate.getTime() - utcDate.getTime()) / 60000
-    );
-
-    if (!Number.isFinite(offsetMinutes)) {
-      return undefined;
-    }
-
-    return formatOffsetMinutes(offsetMinutes);
-  } catch {
-    return undefined;
-  }
-}
-
-function formatEodCutoffTime(
-  value?: string | number | null,
-  timeZone?: string | null
-): string {
-  const text =
-    value === undefined || value === null ? '' : String(value).trim();
-  const displayValue = text || EMPTY_DISPLAY;
-  if (displayValue === EMPTY_DISPLAY) {
-    return displayValue;
-  }
-
-  const utcOffsetLabel = getUtcOffsetLabel(timeZone || undefined);
-  return utcOffsetLabel ? `${displayValue} (${utcOffsetLabel})` : displayValue;
-}
+import { ALL_VALUE, EMPTY_FORM, formToFilters, type ChartOfAccountsFilterForm } from './financial-book-filters';
 
 /**
  * ChartOfAccountsListPage — 复杂筛选 + 服务端分页 + 操作菜单。
@@ -186,10 +45,9 @@ function formatEodCutoffTime(
 export function ChartOfAccountsListPage() {
   const t = useTranslations('modules.chart-of-accounts');
   const router = useRouter();
-  const authPermissions = useAuth().permissions ?? new Set<string>();
-  /** 权限未配置（空集）时全放开，兼容权限未接入场景（等价源项目非 TDManage 环境）。 */
+  const { permissions: authPermissions } = useAuth();
   const hasPermission = React.useCallback(
-    (uuid: string) => authPermissions.size === 0 || authPermissions.has(uuid),
+    (uuid: string) => authPermissions.has(uuid),
     [authPermissions]
   );
 
@@ -228,14 +86,13 @@ export function ChartOfAccountsListPage() {
   const total = listResult.data?.page?.total ?? 0;
 
   React.useEffect(() => {
-    const next = resolveStatusCodes(rows);
-    if (
-      next.active !== statusCodes.active ||
-      next.inactive !== statusCodes.inactive
-    ) {
-      setStatusCodes(next);
-    }
-  }, [rows, statusCodes.active, statusCodes.inactive]);
+    setStatusCodes((current) => {
+      const next = resolveStatusCodes(rows, current);
+      return next.active === current.active && next.inactive === current.inactive
+        ? current
+        : next;
+    });
+  }, [rows]);
 
   const tokenTypeLabelMap = React.useMemo(
     () =>
@@ -305,9 +162,10 @@ export function ChartOfAccountsListPage() {
         id: meta.id,
         financeBookId: String(record.financeBookId ?? ''),
         bookNo: record.bookNo,
+        bookName: record.bookName,
         tab,
       });
-      router.push(`/chart-of-accounts/view?${query.toString()}`);
+      router.push(`/accounting/chart-of-accounts/view?${query.toString()}`);
     },
     [router]
   );
@@ -317,156 +175,8 @@ export function ChartOfAccountsListPage() {
     hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.ViewStatements) ||
     hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.Detail);
 
-  const columns = React.useMemo<ColumnDef<ChartOfAccountsItem>[]>(
-    () => [
-      {
-        accessorKey: 'bookName',
-        header: t('field.bookName'),
-        cell: ({ row }) => (
-          <CopyableEllipsisText value={row.original.bookName} maxWidth={220} />
-        ),
-      },
-      {
-        accessorKey: 'bookNo',
-        header: t('field.bookNo'),
-        cell: ({ row }) => (
-          <CopyableEllipsisText value={row.original.bookNo} maxWidth={130} />
-        ),
-      },
-      {
-        accessorKey: 'reserveAssetName',
-        header: t('field.reserveAssetName'),
-        cell: ({ row }) => (
-          <CopyableEllipsisText
-            value={row.original.reserveAssetName}
-            maxWidth={190}
-          />
-        ),
-      },
-      {
-        accessorKey: 'currencyCode',
-        header: t('field.currency'),
-        cell: ({ row }) => (
-          <CopyableEllipsisText
-            value={row.original.currencyCode}
-            copyable={false}
-            maxWidth={70}
-          />
-        ),
-      },
-      {
-        accessorKey: 'eodCutoffTime',
-        header: t('field.eodCutoffTime'),
-        cell: ({ row }) => (
-          <CopyableEllipsisText
-            value={formatEodCutoffTime(
-              row.original.eodCutoffTime,
-              row.original.timeZone
-            )}
-            copyable={false}
-            maxWidth={140}
-          />
-        ),
-      },
-      {
-        accessorKey: 'lastEodPostingRun',
-        header: t('field.lastEodPostingRun'),
-        cell: ({ row }) => (
-          <CopyableEllipsisText
-            value={row.original.lastEodPostingRun}
-            copyable={false}
-            maxWidth={240}
-          />
-        ),
-      },
-      {
-        accessorKey: 'tokenType',
-        header: t('field.tokenType'),
-        cell: ({ row }) => {
-          const { tokenType } = row.original;
-          if (tokenType === undefined || tokenType === null) {
-            return <span className="text-muted-foreground">{EMPTY_DISPLAY}</span>;
-          }
-          return (
-            <span>
-              {tokenTypeLabelMap.get(tokenType) ?? String(tokenType)}
-            </span>
-          );
-        },
-      },
-      {
-        accessorKey: 'tokens',
-        header: t('field.tokens'),
-        cell: ({ row }) => {
-          const tokenNames = (row.original.tokens ?? [])
-            .map((item) => item.tokenName)
-            .filter((item): item is string => Boolean(item));
-
-          return (
-            <CopyableEllipsisText
-              value={tokenNames.length ? tokenNames.join(', ') : undefined}
-              maxWidth={300}
-            />
-          );
-        },
-      },
-      {
-        id: 'status',
-        header: t('field.status'),
-        cell: ({ row }) => {
-          const { status, statusName } = row.original;
-          const isActive =
-            status === statusCodes.active ||
-            (statusName ?? '').toLowerCase() === 'active';
-          const isInactive =
-            status === statusCodes.inactive ||
-            (statusName ?? '').toLowerCase() === 'inactive';
-
-          const tone = isActive
-            ? 'active'
-            : isInactive
-              ? 'inactive'
-              : 'default';
-
-          const label = isActive
-            ? t('status.active')
-            : isInactive
-              ? t('status.inactive')
-              : statusName ||
-                (status === undefined || status === null
-                  ? EMPTY_DISPLAY
-                  : String(status));
-
-          return <ChartOfAccountsStatusTag tone={tone} label={label} />;
-        },
-      },
-      canSeeActions
-        ? createRowActionsColumn<ChartOfAccountsItem>({
-            detail: hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.Detail)
-              ? {
-                  label: t('action.detail'),
-                  onClick: (row) => goToDetail(row, 'basic-information'),
-                }
-              : undefined,
-            menu: (row) => {
-              const items: RowAction<ChartOfAccountsItem>[] = [];
-              if (hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.Edit)) {
-                items.push({
-                  label: t('action.edit'),
-                  onClick: () => goToDetail(row, 'chart-of-accounts'),
-                });
-              }
-              if (hasPermission(CHART_OF_ACCOUNTS_PERMISSIONS.ViewStatements)) {
-                items.push({
-                  label: t('action.viewStatements'),
-                  onClick: () => goToDetail(row, 'eod-statements'),
-                });
-              }
-              return items;
-            },
-          })
-        : EMPTY_ACTIONS_COLUMN,
-    ],
+  const columns = React.useMemo(
+    () => buildFinancialBookColumns({ t, statusCodes, tokenTypeLabelMap, hasPermission, goToDetail, canSeeActions }),
     [
       t,
       statusCodes,
@@ -523,7 +233,7 @@ export function ChartOfAccountsListPage() {
             <FormField
               key="bookId"
               name="bookId"
-              label={t('field.bookNo')}
+              label={t('field.bookId')}
               register={register('bookId')}
               placeholder={t('placeholder.bookNo')}
             />,

@@ -104,7 +104,7 @@ function formatBalance(value: number | undefined): string {
  *    Deactivate→changeReserveAssetStatus(50) / Activate→(20)，成功 invalidate 列表。
  * 3. **资产类别列 AlertDialog 预览**：弹窗内嵌预览表（filter assetTypeName 非空），
  *    More 跳详情。
- * 4. **bookStatus 列 configured 外链** `/financial/chart-of-accounts/view`。
+ * 4. **bookStatus 列 configured 外链** `/accounting/chart-of-accounts/view`。
  *
  * 歧义 9 结论：源码 setNewTransaction(true) 有对应渲染入口（<Drawer open={newTransaction}>），
  * 它就是 Add/Edit Drawer 的 open 状态（命名误导，实非"新建交易"Drawer）。
@@ -435,7 +435,7 @@ export function ReserveAssetListPage(): React.JSX.Element {
                   className="inline-flex border-0 bg-transparent p-0 text-[#1677ff]"
                   onClick={() =>
                     router.push({
-                      pathname: '/chart-of-accounts/view',
+                      pathname: '/accounting/chart-of-accounts/view',
                       query: {
                         financeBookId: String(r.financeBookId ?? ''),
                         tab: 'basic-information',

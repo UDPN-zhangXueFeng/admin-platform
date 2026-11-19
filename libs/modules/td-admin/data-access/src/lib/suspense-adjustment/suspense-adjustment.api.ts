@@ -1,4 +1,4 @@
-import { apiClient, type ApiRequestConfig } from '@myorg/shared/data-access-api';
+import { apiClient, ApiError, axiosClient, type ApiRequestConfig } from '@myorg/shared/data-access-api';
 import {
   CLEAR_STATUS_ENUM_TO_CODE,
   SOURCE_TYPE_ENUM_TO_CODE,
@@ -23,14 +23,14 @@ import type {
   SuspenseAdjustmentListQuery,
   SuspenseAdjustmentListResponse,
 } from './suspense-adjustment.model';
-import { buildAdjustPayload } from './suspense-adjustment.utils';
+import { buildAdjustPayload, serializeAdjustPayload } from './suspense-adjustment.utils';
 
 /**
  * Suspense Adjustment API。
  *
- * 所有 endpoint base：`/api/finance/v1/finance/suspense-adjustment/`（源自
- * td-manage api.ts，已确认）。`apiClient` 自动解包 `{ code, message, data }` 信封
- * 并在 `code !== 0` 时抛错，故各函数返回值即信封内 data（经 adapter 转 Domain）。
+ * Endpoint base: `/api/finance/v1/finance/suspense-adjustment/`.
+ * Reads unwrap the regular API envelope. The suspense endpoints also accept
+ * numeric business code 200 (except the shared leaf-account endpoint).
  *
  * 不迁移源的 MOCK 开关 / SWR / customFetch（与 posting-engine 一致，靠 query
  * loading / empty 降级）。
@@ -40,6 +40,32 @@ const LIST_URL = `${BASE}/list`;
 const ENTRY_DETAIL_URL = `${BASE}/entry-detail`;
 const ADJUST_URL = `${BASE}/adjust`;
 const DETAIL_URL = `${BASE}/detail`;
+
+async function suspensePost<T>(url: string, data: unknown, config?: ApiRequestConfig): Promise<T | null> {
+  const headers = typeof data === 'string'
+    ? { ...config?.headers, 'Content-Type': 'application/json' }
+    : config?.headers;
+  const response = await axiosClient.post<{ code: number | string; data?: T | null }>(url, data, {
+    ...config,
+    headers,
+    // The shared interceptor still handles session expiry and business errors.
+    transformResponse: (raw: string) => {
+      if (typeof raw !== 'string' || !raw) return raw;
+      let envelope;
+      try {
+        envelope = JSON.parse(raw);
+      } catch {
+        return raw;
+      }
+      return envelope?.code === 200 ? { ...envelope, code: 0 } : envelope;
+    },
+  });
+  const code = response.data?.code;
+  if (code !== 0 && code !== '0') {
+    throw new ApiError({ status: response.status, code: -1, message: 'Invalid suspense adjustment response.' });
+  }
+  return response.data?.data ?? null;
+}
 
 /**
  * 列表查询 Domain → 后端请求体。
@@ -69,12 +95,6 @@ const buildListPayload = (
   return payload;
 };
 
-/** 后端列表响应原始结构（rows 无 id，由 adapter 注入）。 */
-interface ListResponseApi {
-  rows?: SuspenseAdjustListRespVO[];
-  page?: { total?: number };
-}
-
 /**
  * 列表查询（/list）。前端无真实分页，total 取 rows.length。
  */
@@ -82,28 +102,28 @@ export async function getSuspenseAdjustmentList(
   query: SuspenseAdjustmentListQuery,
   config?: ApiRequestConfig,
 ): Promise<SuspenseAdjustmentListResponse> {
-  const response = await apiClient.post<ListResponseApi>(
+  const response = await suspensePost<SuspenseAdjustListRespVO[]>(
     LIST_URL,
     buildListPayload(query),
     config,
   );
-  const rows = (response.rows ?? []).map(adaptSuspenseAdjustmentListItem);
-  return { page: { total: response.page?.total ?? rows.length }, rows };
+  const rows = (response ?? []).map(adaptSuspenseAdjustmentListItem);
+  return { page: { total: rows.length }, rows };
 }
 
 /**
- * 暂记分录详情（/entry-detail，列表 → 详情页）。后端 data 缺失时返回 undefined。
+ * 暂记分录详情（/entry-detail，列表 → 详情页）。后端 data 缺失时返回 null。
  */
 export async function getSuspenseEntryDetail(
   suspenseRecordId: number,
   config?: ApiRequestConfig,
-): Promise<SuspenseAdjustmentDetail | undefined> {
-  const vo = await apiClient.post<SuspenseEntryDetailRespVO | null>(
+): Promise<SuspenseAdjustmentDetail | null> {
+  const vo = await suspensePost<SuspenseEntryDetailRespVO>(
     ENTRY_DETAIL_URL,
     { suspenseRecordId },
     config,
   );
-  return vo ? adaptSuspenseEntryDetail(vo) : undefined;
+  return vo ? adaptSuspenseEntryDetail(vo) : null;
 }
 
 /**
@@ -112,29 +132,29 @@ export async function getSuspenseEntryDetail(
 export async function submitSuspenseAdjustment(
   form: NewAdjustmentForm,
   config?: ApiRequestConfig,
-): Promise<AdjustmentSubmitResult> {
-  const vo = await apiClient.post<SuspenseAdjustRespVO>(
+): Promise<AdjustmentSubmitResult | null> {
+  const vo = await suspensePost<SuspenseAdjustRespVO>(
     ADJUST_URL,
-    buildAdjustPayload(form),
+    serializeAdjustPayload(buildAdjustPayload(form)),
     config,
   );
-  return adaptAdjustSubmitResult(vo);
+  return vo ? adaptAdjustSubmitResult(vo) : null;
 }
 
 /**
  * 调账 / 审批详情（/detail，adjustmentId → 详情）。返回带 adjustmentEntries /
- * offsettingEntryFor 的复合 Domain；后端 data 缺失时返回 undefined。
+ * offsettingEntryFor 的复合 Domain；后端 data 缺失时返回 null。
  */
 export async function getSuspenseAdjustmentDetail(
   adjustmentId: number,
   config?: ApiRequestConfig,
-): Promise<AdjustedDetailDomain | undefined> {
-  const vo = await apiClient.post<SuspenseAdjustmentApprovalDetailVO | null>(
+): Promise<AdjustedDetailDomain | null> {
+  const vo = await suspensePost<SuspenseAdjustmentApprovalDetailVO>(
     DETAIL_URL,
     { adjustmentId },
     config,
   );
-  return vo ? adaptSuspenseAdjustmentDetail(vo) : undefined;
+  return vo ? adaptSuspenseAdjustmentDetail(vo) : null;
 }
 
 /** 科目下拉 endpoint（reconciliation 域，编辑页选科目用）。 */
@@ -143,16 +163,15 @@ const ACCOUNTS_LEAF_URL =
 
 /**
  * 查询末级科目（accounts/leaf，按 financeBookId）。
- * 返回 debit / credit 分组科目；后端 data 缺失时返回 undefined。
+ * 返回 debit / credit 分组科目；后端 data 缺失时返回 null。
  */
 export async function getTxAccountsLeaf(
   financeBookId: number,
   config?: ApiRequestConfig,
-): Promise<LeafAccountsResp | undefined> {
-  const data = await apiClient.post<LeafAccountsResp | null>(
+): Promise<LeafAccountsResp | null> {
+  return apiClient.post<LeafAccountsResp | null>(
     ACCOUNTS_LEAF_URL,
     { financeBookId },
     config,
   );
-  return data ?? undefined;
 }

@@ -49,6 +49,8 @@ export interface DataTablePagination {
   onPageSizeChange?: (pageSize: number) => void;
   /** Selector options; defaults to [10, 20, 50]. */
   pageSizeOptions?: number[];
+  /** Optional localized result range in place of the default page count. */
+  summary?: string;
   /** Disables all pagination controls (e.g. while the current filter response is still loading). */
   disabled?: boolean;
 }
@@ -351,7 +353,7 @@ export function DataTable<TData extends { id: string }>({
       {pagination && (
         <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-4">
           <div className="mr-auto whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-            Page {currentPage} of {totalPages}
+            {pagination.summary ?? `Page ${currentPage} of ${totalPages}`}
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {pagination.onPageSizeChange && (

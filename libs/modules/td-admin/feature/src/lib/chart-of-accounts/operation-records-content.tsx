@@ -63,6 +63,7 @@ export interface OperationRecordsContentProps {
   rows: OperationRecordRow[];
   columns: ColumnDef<OperationRecordRow>[];
   loading: boolean;
+  error: boolean;
   total: number;
   pagination: { pageNum: number; pageSize: number };
   initialFilters: OperationFilterState;
@@ -83,6 +84,7 @@ export function OperationRecordsContent({
   rows,
   columns,
   loading,
+  error,
   total,
   pagination,
   initialFilters,
@@ -165,6 +167,7 @@ export function OperationRecordsContent({
 
       <Card>
         <div className="p-4">
+          {error && <p role="alert" className="mb-3 text-sm text-destructive">{t('common.loadFailed')}</p>}
           <DataTable
             columns={columns}
             data={rows}
@@ -176,6 +179,7 @@ export function OperationRecordsContent({
               total,
               onPageChange,
               onPageSizeChange,
+              disabled: loading,
             }}
           />
         </div>

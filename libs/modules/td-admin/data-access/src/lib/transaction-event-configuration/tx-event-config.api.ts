@@ -1,4 +1,4 @@
-import { apiClient, type ApiRequestConfig } from '@myorg/shared/data-access-api';
+import { ApiError, apiClient, axiosClient, type ApiRequestConfig } from '@myorg/shared/data-access-api';
 import type {
   NormalizationBook,
   NormalizationBookListParams,
@@ -131,10 +131,13 @@ export function getSourceFields(
 /** 更新标准化事件（update，POST 直传 NormalizationEventUpdateReqVo body）。 */
 export async function updateNormalizationEvent(
   dto: SaveNormalizationEventDTO,
-  config?: ApiRequestConfig
+  config?: ApiRequestConfig,
 ): Promise<NormalizationEvent> {
-  const row = await apiClient.post<EventApi>(UPDATE_URL, dto, config);
-  return { ...row, id: String(row.normalizationEventId ?? dto.normalizationEventId) };
+  const { data: envelope, status } = await axiosClient.post<{ code?: number | string; message?: string; data?: EventApi | null }>(UPDATE_URL, dto, config);
+  if (envelope?.code !== 0 && envelope?.code !== '0') {
+    throw new ApiError({ status, code: Number(envelope?.code ?? status), message: envelope?.message || `Missing success code from ${UPDATE_URL}` });
+  }
+  return { ...envelope.data, id: String(envelope.data?.normalizationEventId ?? dto.normalizationEventId) };
 }
 
 /**

@@ -11,9 +11,6 @@ export const TX_TYPE_VALUES = [
   1, 2, 3, 4, 5, 6, 9, 10, 12, 13, 16, 17, 18,
 ] as const;
 
-/** Token 类型（与 journal-entries-new FIXED_TOKEN_TYPES 一致）。 */
-export const FIXED_TOKEN_TYPES = [1, 5] as const;
-
 /** Legacy TDManage button permission UUIDs for row/detail/export actions. */
 export const AUDIT_TRAIL_PERMISSIONS = {
   VIEW_DETAIL: 'e0ba83fd4b4e4a8c88c3a44a510906c3',
@@ -23,8 +20,8 @@ export const AUDIT_TRAIL_PERMISSIONS = {
 
 export const DEFAULT_PAGE_SIZE = 10;
 export const EMPTY_DISPLAY = '--';
-/** 下拉「全部」值（源用空串）。 */
-export const ALL_VALUE = '';
+/** Non-empty UI sentinel. Never sent to the backend. */
+export const ALL_VALUE = 'all';
 
 /**
  * txType → i18n message key（modules.audit-trail.txType.${n}）。

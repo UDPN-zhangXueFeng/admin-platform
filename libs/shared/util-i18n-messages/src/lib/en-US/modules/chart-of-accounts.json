@@ -1,4 +1,5 @@
 {
+  "missingEodId": "The statement has no ID; its details cannot be opened.",
   "title": "Chart of Accounts",
   "records": "Financial Books",
   "empty": "No financial books",
@@ -38,14 +39,15 @@
   },
   "action": {
     "edit": "Edit",
-    "viewStatements": "View Statements",
-    "detail": "Detail",
+    "viewStatements": "View EOD Statements",
+    "detail": "Details",
     "back": "Back"
   },
   "tab": {
     "basicInformation": "Basic Information",
     "chartOfAccounts": "Chart of Accounts",
     "eodStatements": "EOD Statements",
+    "eodBalances": "EOD Balances",
     "trialBalance": "Trial Balance",
     "operationRecords": "Operation Records"
   },
@@ -56,12 +58,13 @@
   },
   "common": {
     "cancel": "Cancel", "save": "Save", "confirm": "Confirm", "close": "Close",
+    "loadFailed": "Could not load data.", "retry": "Retry", "loading": "Loading…",
     "edit": "Edit", "deactivate": "Deactivate", "activate": "Activate", "yes": "Yes", "no": "No"
   },
   "coa": {
     "tabDescription": "Chart of accounts for {bookName}",
-    "tabAlert": "Drafts are saved locally and submitted on Save Draft.",
-    "saveDraft": "Save Draft",
+    "tabAlert": "Changes are staged locally until you select Validate & Publish.",
+    "saveDraft": "Validate & Publish",
     "newPrimaryHint": "Create a new primary account under {accountType}.",
     "subAccountAlert": "Adding a sub-account disables posting on the parent.",
     "deactivateAlert": "Deactivating this account may affect child accounts.",
@@ -84,6 +87,7 @@
     "activateParentFirst": "Please activate the parent account first",
     "duplicateCode": "Account code already exists", "duplicateName": "Account name already exists",
     "invalidAccountType": "Account type is invalid", "toggleFailed": "Operation failed",
+    "draftSaved": "Change saved locally.",
     "saveSuccess": "Saved successfully", "saveFailed": "Save failed"
   },
   "eod": {

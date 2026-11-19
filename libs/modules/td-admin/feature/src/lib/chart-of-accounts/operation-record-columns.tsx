@@ -15,8 +15,6 @@ export interface OperationRecordColumnsOptions {
   tCommon: (key: string) => string;
   /** 审批任务详情跳转（非 Create 且存在 taskId + busCode 时）。 */
   onOpenDetails: (record: OperationRecordRow) => void;
-  /** 操作记录明细抽屉（Create 行；源列在 Create 行展示 '--'，抽屉在源项目未被打开）。 */
-  onOpenRecord: (record: OperationRecordRow) => void;
 }
 
 function operationTypeLabel(
@@ -41,7 +39,6 @@ export function buildOperationRecordColumns({
   t,
   tCommon,
   onOpenDetails,
-  onOpenRecord,
 }: OperationRecordColumnsOptions): ColumnDef<OperationRecordRow>[] {
   return [
     {
@@ -84,18 +81,7 @@ export function buildOperationRecordColumns({
       size: 110,
       cell: ({ row }) => {
         const record = row.original;
-        if (record.operationType === 'create') {
-          return (
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto p-0"
-              onClick={() => onOpenRecord(record)}
-            >
-              {t('operationRecords.details')}
-            </Button>
-          );
-        }
+        if (record.operationType === 'create') return '--';
         return (
           <Button
             type="button"
