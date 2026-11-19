@@ -1421,17 +1421,19 @@ export const INSTANCE_DIALOG_COPY: Record<
   },
   resetKey: {
     title: 'Reset Downstream Key',
-    confirmLabel: 'Reset Key',
+    confirmLabel: 'Submit for Approval',
     // 原型为 warning 圆 + 主按钮；ActionConfirmDialog 仅 confirm/destructive 两档，
     // 按收窄口径映射 confirm（success 圆）——登记偏差。
     variant: 'confirm',
     icon: KeyRound,
     body1: (row) =>
-      `Reset the downstream key for instance ${
+      `Submit a downstream key reset request for instance ${
         row.instanceCode || row.instanceId
       }?`,
+    // 2026-11-19：动作已改审批制（GKR），点击只建审批单，不立即换钥——文案必须说清楚，
+    // 否则用户会以为点完就生效（原文案 "will be generated ... will be pushed" 有歧义）。
     body2: () =>
-      'A new key pair will be generated, and the new public key will be pushed to the gateway. The old key will be revoked immediately.',
+      'A reset request will be submitted for approval. Once approved, a new key pair is generated and its public key is pushed to the gateway; the old key is retired at that point.',
   },
   disable: {
     title: 'Disable Instance',
@@ -1619,9 +1621,12 @@ export function GatewayInstanceListPage() {
       return;
     }
     if (kind === 'resetKey') {
+      // 2026-11-19：该动作是**提交审批**，接口返回 ResultInfo<Void>（data=null）。
+      // 原实现读 res.downKeyFingerprint → data 为 null 时抛 TypeError，onSuccess 中断：
+      // toast 不弹、弹窗不关、列表不刷新，用户看到的就是「点了没反应」。
       resetKeyMutation.mutate(row.instanceId, {
-        onSuccess: (res) => {
-          toast.success(`Reset (new fingerprint ${res.downKeyFingerprint || '-'})`);
+        onSuccess: () => {
+          toast.success('Key reset submitted for approval');
           setInstanceAction(null);
           refresh();
         },

@@ -59,12 +59,19 @@ export function instanceVerify(
   );
 }
 
-/** 重置下行密钥（POST /manage/bank-gateway/reset-key/{instanceId}；返回新指纹）。 */
+/**
+ * 提交下行密钥重置审批（POST /manage/bank-gateway/reset-key/{instanceId}）。
+ *
+ * 2026-10-22 起该动作改为审批制（GKR）：本接口只创建审批单并立即返回
+ * `ResultInfo<Void>`（data=null），真正的密钥生成与公钥推送在审批通过后的策略回调里执行。
+ * 因此**没有 downKeyFingerprint 可回显**——原类型声明为 `{ downKeyFingerprint: string }`
+ * 与后端契约不符，调用方按它取值会在 data=null 时抛 TypeError。
+ */
 export function instanceResetKey(
   instanceId: number,
   config?: AxiosRequestConfig,
-): Promise<{ downKeyFingerprint: string }> {
-  return kissenRequest.post<{ downKeyFingerprint: string }>(
+): Promise<void> {
+  return kissenRequest.post<void>(
     `/manage/bank-gateway/reset-key/${instanceId}`,
     undefined,
     config,
