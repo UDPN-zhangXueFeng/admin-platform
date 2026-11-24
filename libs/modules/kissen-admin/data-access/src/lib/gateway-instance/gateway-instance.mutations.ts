@@ -42,7 +42,7 @@ export function useInstanceVerifyMutation(projectId: string) {
   });
 }
 
-/** 重置下行密钥（返回新指纹）。 */
+/** 提交下行密钥重置审批（审批制，立即返回，无指纹回显）。 */
 export function useInstanceResetKeyMutation(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({

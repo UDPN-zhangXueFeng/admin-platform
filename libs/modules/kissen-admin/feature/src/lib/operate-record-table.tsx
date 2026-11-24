@@ -19,6 +19,46 @@ import { formatUtc8 } from './proto-format';
 
 export type OperateRecordRow = BizRecordRow & { id: string };
 
+/**
+ * 业务对象状态码 → 展示文案（2026-11-19）。
+ *
+ * <p>WHY：`biz_operate_record.from_status/to_status` 存的是原始码，直接渲染会出现
+ * 「50 → 20」这种用户无法理解的列（实测网关实例详情页）。这里按对象类型映射成
+ * 可读文案；未登记的码原样显示，避免掩盖未知状态。
+ *
+ * <p>注意：不同对象的同一数字含义不同（如 20 对实例是 Activated、对通用实体是 Approved），
+ * 因此映射按 objectType 区分，而不是全局一张表。
+ */
+const STATUS_LABELS: Record<string, Record<number, string>> = {
+  // BankGatewayInstance：1=Registered 10=Key pushed 20=Activated 50=Disabled
+  BANK_INSTANCE: {
+    1: 'Registered',
+    10: 'Key pushed',
+    20: 'Active',
+    50: 'Disabled',
+  },
+  // 其余对象沿用通用状态：20=Approved(启用) 35=Completed 50=Stopped
+  DEFAULT: {
+    1: 'Registered',
+    20: 'Approved',
+    35: 'Completed',
+    50: 'Disabled',
+  },
+};
+
+function statusLabel(objectType: string | undefined, code: number | null | undefined): string {
+  if (code == null) {
+    return '—';
+  }
+  const table = STATUS_LABELS[objectType ?? ''] ?? STATUS_LABELS.DEFAULT;
+  return table[code] ?? String(code);
+}
+
+/** Trace ID 中段省略：首 8 + 尾 5（完整值放 title，可悬停查看）。 */
+function shortTrace(trace: string): string {
+  return trace.length <= 16 ? trace : `${trace.slice(0, 8)}…${trace.slice(-5)}`;
+}
+
 export const operateRecordColumns: ColumnDef<OperateRecordRow>[] = [
   {
     accessorKey: 'operateTime',
@@ -52,13 +92,19 @@ export const operateRecordColumns: ColumnDef<OperateRecordRow>[] = [
     id: 'statusChange',
     header: 'Status change',
     cell: ({ row }) => {
-      const { fromStatus, toStatus } = row.original;
+      const { fromStatus, toStatus, objectType } = row.original;
       if (fromStatus == null && toStatus == null) {
         return <span className="text-muted-foreground">—</span>;
       }
+      // 原始码放 title，需要时悬停可查（排查问题时仍要能对上库里的值）
       return (
-        <span className="whitespace-nowrap tabular-nums">
-          {fromStatus == null ? '—' : fromStatus} → {toStatus == null ? '—' : toStatus}
+        <span
+          className="whitespace-nowrap"
+          title={`${fromStatus ?? '-'} → ${toStatus ?? '-'}`}
+        >
+          {statusLabel(objectType, fromStatus)}
+          <span className="mx-1 text-muted-foreground">→</span>
+          {statusLabel(objectType, toStatus)}
         </span>
       );
     },
@@ -78,11 +124,18 @@ export const operateRecordColumns: ColumnDef<OperateRecordRow>[] = [
   {
     accessorKey: 'traceId',
     header: 'Trace ID',
-    cell: ({ row }) => (
-      <span className="break-all text-[11px] text-muted-foreground">
-        {row.original.traceId || '—'}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const trace = row.original.traceId;
+      if (!trace) {
+        return <span className="text-muted-foreground">—</span>;
+      }
+      // traceId 是 32 位 hex，完整展示会把整列撑开；截断后 title 悬停可见全文
+      return (
+        <span className="font-mono text-[11px] text-muted-foreground" title={trace}>
+          {shortTrace(trace)}
+        </span>
+      );
+    },
   },
 ];
 
