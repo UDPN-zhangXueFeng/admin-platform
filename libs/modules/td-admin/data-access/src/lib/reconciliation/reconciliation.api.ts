@@ -35,15 +35,6 @@ import type {
   PostSuspenseRespVo,
   ReconciliationListParams,
   ReconciliationListResponse,
-  ReserveAssetBasicDetailReqVo,
-  ReserveAssetBasicDetailRespVo,
-  ReserveAssetListReqVo,
-  ReserveAssetSummaryRespVo,
-  ReservePostSuspenseReqVo,
-  ReserveReconDetailRespVo,
-  ReserveReconListReqVo,
-  ReserveReconLogReqVo,
-  ReserveReconLogRespVo,
   TokenReconBasicDetailReqVo,
   TokenReconBasicDetailRespVo,
   TokenReconListReqVo,
@@ -53,6 +44,17 @@ import type {
   TxReconLogReqVo,
   TxReconLogRespVo,
 } from './reconciliation.model';
+import type {
+  ReserveAssetBasicDetailReqVo,
+  ReserveAssetBasicDetailRespVo,
+  ReserveAssetListReqVo,
+  ReserveAssetSummaryRespVo,
+  ReservePostSuspenseReqVo,
+  ReserveReconDetailRespVo,
+  ReserveReconListReqVo,
+  ReserveReconLogReqVo,
+  ReserveReconLogRespVo,
+} from './reserve.model';
 
 // ── Real-time (Token) 域 URL ───────────────────────────────────────────────────
 

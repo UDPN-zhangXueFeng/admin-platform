@@ -57,10 +57,11 @@ export interface TokenReconSummaryRespVo extends ReconciliationRow {
   bookNo?: string;
   financeBookName?: string;
   currencySymbol?: string;
+  currencyCode?: string;
   matchedCount: number;
   unmatchedCount: number;
   actionedCount: number;
-  lastReconciliationTime?: string;
+  lastReconciliationTime?: string | number;
   reconStartTime?: string;
   /** 列表行回显，用于动态筛选项构造。 */
   blockchainId?: number | string;
@@ -74,8 +75,8 @@ export interface TokenReconListReqVo {
   financeBookName?: string;
   bookNo?: string;
   currencyCode?: string;
-  lastReconciliationDateStart?: string;
-  lastReconciliationDateEnd?: string;
+  lastReconciliationDateStart?: number;
+  lastReconciliationDateEnd?: number;
 }
 
 export interface TokenReconBasicDetailReqVo {
@@ -92,8 +93,8 @@ export interface TokenReconBasicDetailRespVo {
   bookNo?: string;
   currencySymbol?: string;
   createdBy?: string;
-  createTime?: string;
-  lastReconciliationTime?: string;
+  createTime?: string | number;
+  lastReconciliationTime?: string | number;
   matchedCount: number;
   unmatchedCount: number;
   actionedCount: number;
@@ -107,22 +108,25 @@ export interface TxReconDetailRespVo extends ReconciliationRow {
   tranId?: string;
   /** 5/10/15/20/25。 */
   txType: number;
-  blockHeight?: number;
-  financeAmount?: number;
-  chainAmount?: number;
-  financeCount?: number;
-  chainCount?: number;
+  blockHeight?: number | string;
+  financeAmount?: number | string | null;
+  chainAmount?: number | string | null;
+  financeCount?: number | string | null;
+  chainCount?: number | string | null;
+  financeTokenAmount?: number | string | null;
+  chainTokenAmount?: number | string | null;
+  tokenCount?: number | string | null;
   currencyCode?: string;
   tokenSymbol?: string;
   financeAccountAddress?: string;
   chainAccountAddress?: string;
-  financeTxTime?: string;
-  chainTxTime?: string;
+  financeTxTime?: string | number;
+  chainTxTime?: string | number;
   /** 1=System Only, 2=On-chain Only, 3=Amount Mismatched。 */
   unmatchedType?: number;
   /** 1-6。 */
   reconciliationStatus: number;
-  lastReconciliationTime?: string;
+  lastReconciliationTime?: string | number;
   canPostSuspense?: boolean;
 }
 
@@ -151,33 +155,38 @@ export interface JournalEntry {
   transactionId?: string;
 }
 
+export interface TokenJournalEntry extends Omit<JournalEntry, 'amount' | 'tokenCount'> {
+  amount: string | number;
+  tokenCount?: string | number;
+}
+
 /** 链上详情（recon-log 子结构）。 */
 export interface OnchainDetails {
   hash?: string;
-  blockHeight?: number;
+  blockHeight?: number | string;
   fromAddress?: string;
   toAddress?: string;
-  amount?: number;
-  tokenCount?: number;
+  amount?: number | string;
+  tokenCount?: number | string;
   tokenSymbol?: string;
-  txTime?: string;
+  txTime?: string | number;
 }
 
 /** 原始分录。 */
 export interface OriginalEntry {
   tranId?: string;
-  postingDate?: string;
-  entries: JournalEntry[];
+  postingDate?: string | number;
+  entries: TokenJournalEntry[];
 }
 
 /** 挂账分录。 */
 export interface SuspenseEntries {
-  postingDate?: string;
+  postingDate?: string | number;
   tranId?: string;
   exceptionContext?: string;
   processedBy?: string;
-  processedTime?: string;
-  entries: JournalEntry[];
+  processedTime?: string | number;
+  entries: TokenJournalEntry[];
   originalAmount?: number;
   adjustedAmount?: number;
   outstandingAmount?: number;
@@ -193,7 +202,7 @@ export interface TxReconLogReqVo {
 }
 
 export interface TxReconLogRespVo {
-  reconciliationTime?: string;
+  reconciliationTime?: string | number;
   reconciliationNo: string;
   reconciliationTxId: number;
   txHash?: string;
@@ -207,7 +216,7 @@ export interface TxReconLogRespVo {
   originalEntry?: OriginalEntry;
   suspenseEntries?: SuspenseEntries;
   /** Post 挂账回显建议分录（只读，不可手增）。 */
-  suggestedSuspenseEntries?: JournalEntry[];
+  suggestedSuspenseEntries?: TokenJournalEntry[];
   adjustmentHistory?: AdjustmentHistoryItem[];
 }
 
@@ -215,8 +224,8 @@ export interface TxReconLogRespVo {
 export interface PostSuspenseReqVo {
   reconciliationTxId: number;
   exceptionContext: string;
-  postingDate: string;
-  suspenseEntries: JournalEntry[];
+  postingDate: number;
+  suspenseEntries: TokenJournalEntry[];
 }
 
 export interface PostSuspenseRespVo {
@@ -244,162 +253,4 @@ export interface LeafAccountsRespVo {
   financeBookId: number;
   debitAccounts: AccountBrief[];
   creditAccounts: AccountBrief[];
-}
-
-// ── Reserve 域 ─────────────────────────────────────────────────────────────────
-
-export interface TokenBrief {
-  tokenId: number;
-  tokenName: string;
-  tokenCode?: string;
-  blockchainName?: string;
-}
-
-/** 储备资产汇总（列表行，rowKey=reserveAccountId）。 */
-export interface ReserveAssetSummaryRespVo extends ReconciliationRow {
-  reserveAccountId: number;
-  reserveAccountName: string;
-  reserveAccount?: string;
-  currencySymbol?: string;
-  assetValue?: number;
-  bookNo?: string;
-  financeBookName?: string;
-  associatedTokens: TokenBrief[];
-  matchedCount: number;
-  exceptionsCount: number;
-  lastReconciliationTime?: string;
-  reconStartTime?: string;
-}
-
-export interface ReserveAssetListReqVo {
-  reserveAssetName?: string;
-  currencySymbol?: string;
-  financeBookName?: string;
-  bookNo?: string;
-  lastReconciliationDateStart?: string;
-  lastReconciliationDateEnd?: string;
-}
-
-export interface ReserveAssetBasicDetailReqVo {
-  reserveAccountId: number;
-}
-
-export interface ReserveAssetBasicDetailRespVo {
-  reserveAssetName?: string;
-  reserveAccountName: string;
-  assetValue?: number;
-  currencySymbol?: string;
-  financeBookName?: string;
-  bookNo?: string;
-  createdBy?: string;
-  associatedTokens: TokenBrief[];
-  createTime?: string;
-  lastReconciliationTime?: string;
-  matchedCount: number;
-  exceptionsCount: number;
-}
-
-/** Reserve 明细行（rowKey=reconciliationReserveId）。 */
-export interface ReserveReconDetailRespVo extends ReconciliationRow {
-  reconciliationNo: string;
-  reconciliationReserveId: number;
-  lastReconciliationTime?: string;
-  txHash?: string;
-  /** 1=Mint, 2=Reserve Out/Melt。 */
-  type: number;
-  expectedAmount?: number;
-  actualAmount?: number;
-  tokenCount?: number;
-  tokenUnitPrice?: number;
-  availableBalanceAtApproval?: number;
-  /** actual-available，负=超额。 */
-  reserveDiff?: number;
-  /** 0-5。 */
-  reconciliationStatus: number;
-  orderSerialNumber?: string;
-  currency?: string;
-  tokenSymbol?: string;
-}
-
-export interface ReserveReconListReqVo {
-  reserveAccountId: number;
-  /** 对账日期范围，startOfDay / endOfDay 毫秒（对齐旧 CustomTable RangePicker）。 */
-  reconciliationDateStart?: number;
-  reconciliationDateEnd?: number;
-  txStartTime?: number;
-  txEndTime?: number;
-  keyword?: string;
-  type?: number;
-  reconciliationStatus?: number;
-}
-
-export interface MintableCapacity {
-  mintableCapacity?: number;
-  mintableCapacityCurrency?: string;
-  mintableCapacityToken?: number;
-  mintableCapacityTokenSymbol?: string;
-  snapshotTime?: string;
-}
-
-export interface ReserveActualExecution {
-  senderWalletAddress?: string;
-  receiverWalletAddress?: string;
-  executionAmount?: number;
-  executionAmountCurrency?: string;
-  executionTokenAmount?: number;
-  executionTokenSymbol?: string;
-  executionTime?: string;
-  executionTxHash?: string;
-}
-
-export interface MeltActualExecution {
-  transactionRef?: string;
-  refundAmount?: number;
-  refundCurrencySymbol?: string;
-  receiverBankAccount?: string;
-  receiverBankName?: string;
-  executionTime?: string;
-}
-
-export interface TransactionRequest {
-  meltingAmount?: number;
-  meltingAmountCurrency?: string;
-  meltingTokenAmount?: number;
-  meltingTokenSymbol?: string;
-  tokenName?: string;
-  tokenType?: number;
-  blockchainName?: string;
-  createdBy?: string;
-  createdTime?: string;
-}
-
-export interface ReserveReconLogReqVo {
-  reconciliationReserveId: number;
-}
-
-export interface ReserveReconLogRespVo {
-  reconciliationTime?: string;
-  reconciliationNo: string;
-  reconciliationReserveId: number;
-  txType?: number;
-  reconciliationStatus: number;
-  financeBookName?: string;
-  financeBookId?: number;
-  currencySymbol?: string;
-  txHash?: string;
-  txAmount?: number;
-  txAmountCurrency?: string;
-  tokenCount?: number;
-  tokenSymbol?: string;
-  mintableCapacity?: MintableCapacity;
-  actualExecution?: ReserveActualExecution;
-  transactionRequest?: TransactionRequest;
-  meltActualExecution?: MeltActualExecution;
-}
-
-/** reserve 挂账提交（后端端点缺失，暂以 feature-flag 隐藏，见 R1）。 */
-export interface ReservePostSuspenseReqVo {
-  reconciliationReserveId: number;
-  exceptionContext: string;
-  suspenseEntries: JournalEntry[];
 }

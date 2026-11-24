@@ -17,15 +17,6 @@ import {
 import type {
   ReconciliationListParams,
   ReconciliationListResponse,
-  ReserveAssetBasicDetailReqVo,
-  ReserveAssetBasicDetailRespVo,
-  ReserveAssetListReqVo,
-  ReserveAssetSummaryRespVo,
-  ReserveReconDetailRespVo,
-  ReserveReconListReqVo,
-  ReserveReconLogReqVo,
-  ReserveReconLogRespVo,
-  TokenReconBasicDetailReqVo,
   TokenReconBasicDetailRespVo,
   TokenReconListReqVo,
   TokenReconSummaryRespVo,
@@ -36,6 +27,16 @@ import type {
   LeafAccountsReqVo,
   LeafAccountsRespVo,
 } from '../reconciliation.model';
+import type {
+  ReserveAssetBasicDetailReqVo,
+  ReserveAssetBasicDetailRespVo,
+  ReserveAssetListReqVo,
+  ReserveAssetSummaryRespVo,
+  ReserveReconDetailRespVo,
+  ReserveReconListReqVo,
+  ReserveReconLogReqVo,
+  ReserveReconLogRespVo,
+} from '../reserve.model';
 import { reconciliationKeys } from './reconciliation.keys';
 
 // ── Real-time 列表（服务端分页，keepPreviousData 平滑翻页） ────────────────────
@@ -54,33 +55,32 @@ export function useTokenListQuery(
 /** Tx 明细列表（real-time 详情页 Reconciliation List Tab）。 */
 export function useTxListQuery(
   params: ReconciliationListParams<TxReconListReqVo>,
+  enabled = true,
 ) {
   return useQuery<ReconciliationListResponse<TxReconDetailRespVo>>({
     queryKey: reconciliationKeys.txList(params),
     queryFn: () => getTxList(params),
     placeholderData: keepPreviousData,
+    enabled: enabled && Boolean(params.filters.tokenId),
   });
 }
 
-/**
- * Tx investigation 列表（real-time 详情页 Investigation Tab）。
- *
- * 保留旧系统语义（R2）：后端返回全集，前端 `select` 二次过滤
- * `reconciliationStatus===3` 并重算 `total`，避免角标/分页不符。
- */
+/** The queue only displays unmatched records. Preserve the server total when the page already contains only unmatched rows. */
 export function useTxInvestigationListQuery(
   params: ReconciliationListParams<TxReconListReqVo>,
+  enabled = true,
 ) {
   return useQuery<ReconciliationListResponse<TxReconDetailRespVo>>({
     queryKey: reconciliationKeys.txInvestigation(params),
     queryFn: () => getTxInvestigationList(params),
     placeholderData: keepPreviousData,
+    enabled: enabled && Boolean(params.filters.tokenId),
     select: (data) => {
       const filtered = (data.rows ?? []).filter(
-        (r) => r.reconciliationStatus === 3,
+        (r) => Number(r.reconciliationStatus) === 3,
       );
       return {
-        page: { ...data.page, total: filtered.length },
+        page: { ...data.page, total: filtered.length === data.rows.length ? data.page?.total : filtered.length },
         rows: filtered,
       };
     },
@@ -100,7 +100,7 @@ export function useTokenBasicDetailQuery(
         ? reconciliationKeys.tokenBasicDetail(tokenId)
         : reconciliationKeys.all,
     queryFn: () =>
-      getTokenBasicDetail({ tokenId: tokenId as number } as TokenReconBasicDetailReqVo),
+      getTokenBasicDetail({ tokenId: tokenId as number }),
     enabled: enabled && tokenId != null,
   });
 }

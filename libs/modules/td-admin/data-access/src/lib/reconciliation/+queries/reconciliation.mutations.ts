@@ -2,10 +2,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { postReserveSuspense, postTokenSuspense } from '../reconciliation.api';
-import type {
-  PostSuspenseReqVo,
-  ReservePostSuspenseReqVo,
-} from '../reconciliation.model';
+import type { PostSuspenseReqVo } from '../reconciliation.model';
+import type { ReservePostSuspenseReqVo } from '../reserve.model';
 import { reconciliationKeys } from './reconciliation.keys';
 
 /**
@@ -25,6 +23,12 @@ export function usePostTokenSuspenseMutation() {
       });
       queryClient.invalidateQueries({
         queryKey: [...reconciliationKeys.all, 'real-time', 'tx-investigation'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...reconciliationKeys.all, 'real-time', 'token-basic-detail'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...reconciliationKeys.all, 'real-time', 'token-list'],
       });
     },
   });

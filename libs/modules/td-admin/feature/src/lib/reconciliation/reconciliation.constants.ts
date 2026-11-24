@@ -43,7 +43,7 @@ export function getTokenTypeKey(tokenType?: number): string | undefined {
 export const TX_TYPE_VALUES = new Set<number>([5, 10, 15, 20, 25]);
 
 /** TD token 可选 tx 类型子集（详情页 tokenType=TD 时裁剪为 3 类）。 */
-export const TD_TX_TYPE_VALUES = new Set<number>([10, 15, 25]);
+export const TD_TX_TYPE_VALUES = new Set<number>([5, 15, 25]);
 
 /** txType → i18n key（`tx_type_${n}`）。 */
 export function getTxTypeKey(txType?: number): string | undefined {
@@ -65,10 +65,10 @@ export function getReconStatusKey(status?: number): string | undefined {
 /** real-time status → badge tone。Record 静态查找表。 */
 export const RECON_STATUS_TONE: Record<number, string> = {
   1: 'default',
-  2: 'warning',
+  2: 'success',
   3: 'destructive',
-  4: 'secondary',
-  5: 'info',
+  4: 'info',
+  5: 'warning',
   6: 'success',
 };
 
