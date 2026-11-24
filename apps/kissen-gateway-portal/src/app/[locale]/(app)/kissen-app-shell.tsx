@@ -42,6 +42,7 @@ const InstanceKeyDrawer = dynamic(
   { ssr: false },
 );
 
+import { BrandLogo } from '@/components/brand/brand-logo';
 import { LogoMark } from '@/components/brand/logo-mark';
 import { MENU_ROUTE_MAP } from '@/lib/gateway-routes';
 
@@ -335,13 +336,12 @@ export function KissenAppShell({
         logo={
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-[60px] w-[160px] shrink-0 items-center justify-center">
-              <span
-                role="img"
-                aria-label={brand.name}
-                className="text-2xl leading-none"
-              >
-                {brand.logo}
-              </span>
+              <BrandLogo
+                logo={brand.logo}
+                name={brand.name}
+                imageClassName="max-h-[44px] w-auto max-w-[160px]"
+                textClassName="text-2xl leading-none"
+              />
             </span>
             <span className="truncate text-sm font-semibold tracking-tight text-white sm:text-base">
               {brand.name}

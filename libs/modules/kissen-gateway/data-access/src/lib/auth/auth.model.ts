@@ -47,6 +47,27 @@ export interface Brand {
   headerName: string;
 }
 
+/**
+ * 品牌保存载荷（PUT /bankgw/portal/brand）。
+ *
+ * logo 三态：
+ * - 省略（undefined）：保留服务端当前 logo；
+ * - 纯文本（≤4 字符，如 emoji/缩写）：文本 logo；
+ * - `data:image/png|jpeg|gif|bmp;base64,...`：图片 logo（后端压缩为 PNG）。
+ */
+export interface BrandUpdatePayload {
+  name: string;
+  subtitle: string;
+  primaryColor: string;
+  /** Omit (undefined) to keep the server's current logo; send to overwrite. */
+  logo?: string;
+}
+
+/** 是否为图片 logo（data URL）：仅非空且以 `data:image/` 开头的字符串。 */
+export function isImageLogo(value: string | null | undefined): boolean {
+  return typeof value === 'string' && value.startsWith('data:image/');
+}
+
 /** 品牌回退默认值（源 store/brand.ts DEFAULT）。 */
 export const DEFAULT_BRAND: Brand = {
   // 2026-11-09 品牌定名：UDPN Kissen Bank Gateway Management（登录页 name 与侧栏 headerName 同值）

@@ -20,6 +20,7 @@ import {
   useAuthLoginMutation,
   useBrandQuery,
 } from '@myorg/modules/kissen-gateway/data-access';
+import { BrandLogo } from '@/components/brand/brand-logo';
 import { LoginIllustration } from '@/components/brand/login-illustration';
 import { LogoMark } from '@/components/brand/logo-mark';
 
@@ -160,9 +161,12 @@ export default function LoginRoute() {
                 <div
                   className="flex shrink-0 items-center justify-center rounded-2xl text-2xl shadow-sm"
                 >
-                  <span role="img" aria-label={brand.name}>
-                    {brand.logo}
-                  </span>
+                  <BrandLogo
+                    logo={brand.logo}
+                    name={brand.name}
+                    imageClassName="h-auto w-auto max-h-[40px] max-w-[180px]"
+                    textClassName="text-2xl"
+                  />
                 </div>
                 <div>
                   <p className="text-sm font-semibold tracking-tight text-white">
@@ -213,9 +217,12 @@ export default function LoginRoute() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-3">
                   <div className="flex shrink-0 items-center justify-center rounded-2xl text-2xl shadow-sm">
-                    <span role="img" aria-label={brand.name}>
-                      {brand.logo}
-                    </span>
+                    <BrandLogo
+                      logo={brand.logo}
+                      name={brand.name}
+                      imageClassName="h-auto w-auto max-h-[44px] max-w-[200px]"
+                      textClassName="text-2xl"
+                    />
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-lg font-semibold tracking-tight text-slate-950">

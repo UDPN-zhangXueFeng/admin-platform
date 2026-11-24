@@ -6,7 +6,7 @@ import { authKeys } from './auth.keys';
 import { authChangePwd, authLogin, authLogout, getBrand, updateBrand } from './auth.api';
 import {
   DEFAULT_BRAND,
-  type Brand,
+  type BrandUpdatePayload,
   type ChangePwdReq,
   type LoginReq,
   type LoginRespVO,
@@ -66,16 +66,23 @@ export function useBrandQuery(projectId: string) {
  */
 export function useUpdateBrandMutation() {
   return useMutation({
-    mutationFn: (data: Brand) => updateBrand(data),
+    mutationFn: (data: BrandUpdatePayload) => updateBrand(data),
   });
 }
 
 /**
  * 品牌恢复默认（源 system/ui.vue onReset，PUT DEFAULT）——与保存同通道，
- * 仅载荷固定为 DEFAULT_BRAND（源 onReset 调 updateBrand(DEFAULT)）。
+ * 仅载荷固定为 DEFAULT_BRAND 的可写字段（源 onReset 调 updateBrand(DEFAULT)）。
+ * headerName 非写接口字段，不随载荷发送。
  */
 export function useResetBrandMutation() {
   return useMutation({
-    mutationFn: () => updateBrand(DEFAULT_BRAND),
+    mutationFn: () =>
+      updateBrand({
+        name: DEFAULT_BRAND.name,
+        subtitle: DEFAULT_BRAND.subtitle,
+        primaryColor: DEFAULT_BRAND.primaryColor,
+        logo: DEFAULT_BRAND.logo,
+      }),
   });
 }

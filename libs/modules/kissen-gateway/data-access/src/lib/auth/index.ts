@@ -14,8 +14,9 @@ export type {
   MenuTreeRespVO,
   ChangePwdReq,
   Brand,
+  BrandUpdatePayload,
 } from './auth.model';
-export { DEFAULT_BRAND } from './auth.model';
+export { DEFAULT_BRAND, isImageLogo } from './auth.model';
 export {
   GATEWAY_TOKEN_COOKIE,
   getGatewayToken,

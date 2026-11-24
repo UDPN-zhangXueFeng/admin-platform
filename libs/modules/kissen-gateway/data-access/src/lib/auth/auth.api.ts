@@ -4,6 +4,7 @@ import { kissenRequest } from '../kissen-gateway-client';
 import {
   DEFAULT_BRAND,
   type Brand,
+  type BrandUpdatePayload,
   type ChangePwdReq,
   type LoginReq,
   type LoginRespVO,
@@ -103,15 +104,18 @@ export async function getBrand(): Promise<Brand> {
  *
  * 与公开 GET 不同：写操作在登录后发起，走带 token 的 kissenRequest
  * （baseURL /kissen-api/bankgw/portal），而非免 token 的 brandAxios。
+ *
+ * logo 三态（后端契约）：字段省略 → 保留服务端当前 logo；纯文本（≤4 字符，
+ * emoji/缩写）→ 文本 logo；`data:image/...` → 图片 logo。因此仅当调用方
+ * 显式传入 `logo`（含空串）时才发送，`undefined` 时整字段不出现。
+ * headerName 不由该接口维护，始终不发送。
  */
 export function updateBrand(
-  data: Brand,
+  data: BrandUpdatePayload,
   config?: AxiosRequestConfig,
 ): Promise<Brand> {
-  const { name, subtitle, logo, primaryColor } = data;
-  return kissenRequest.put<Brand>(
-    '/brand',
-    { name, subtitle, logo, primaryColor },
-    config,
-  );
+  const { name, subtitle, primaryColor, logo } = data;
+  const body: BrandUpdatePayload = { name, subtitle, primaryColor };
+  if (logo !== undefined) body.logo = logo;
+  return kissenRequest.put<Brand>('/brand', body, config);
 }

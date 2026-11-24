@@ -1599,3 +1599,9 @@
 - 修复真实缺词：`modules.audit-trail.processingStatus` 按旧版补齐 1 Pending / 5 Processing / 10 Success / 15 Failed；真实详情三条 code 10 均显示 Success，复验 console 0 error。
 - 未通过：E01–E04 Export/Download Center（两端账号均无两个 Export UUID，未发任务请求）；D10 日志纯文本/空体边界（无真实样本）。共同后端问题：Mint（txType 1）新旧均 HTTP 500。
 - 矩阵/证据在 `.doc/admin/2026-11-19/audit-trail/round-01/`（git 忽略，未提交）。
+
+## 2026-11-24 Gateway UI Settings Logo 图片支持（v1.1）
+
+- 契约：`PUT /bankgw/portal/brand` 的 `logo` 三态——省略/空 → 保留原值；≤4 字符文本；`data:image/(png|jpeg|gif|bmp);base64,` 图片（后端压 PNG、长边 ≤192、解码 ≤1MB）。前端必须先经 canvas 把 SVG/其他格式转 PNG（≤512 长边、目标 ≤512KB），保存时仅在用户改动 logo 时携带该字段。DM 层 `BrandUpdatePayload`/`isImageLogo` 落在 `libs/modules/kissen-gateway/data-access/src/lib/auth/`。
+- 实现：UI 卡片拆到 `feature/src/lib/brand-customization-card.tsx` + `brand-logo-field.tsx` + `brand-logo.ts`（`system-ui-pages.tsx` 只剩 26 行页面壳，满足 300 行限制）；`logoDirty` 控制载荷省略，未保存/失败保留 dirty；Restore Default 仍只回填本地，Save 才落库。三处展示统一走 app 的 `components/brand/brand-logo.tsx`（登录页两处 + 壳层品牌槽），`data:image/` 渲染 `<img>`，历史 emoji 仍渲染文本。
+- 验证：`nx test modules-kissen-gateway-feature` 4 suites/22 tests、data-access 23 tests、两侧 lint 0 error、`nx build kissen-gateway-portal` 通过；用本地 mock 后端 + 浏览器实测 PNG/SVG/大图上传、仅改名保存不带 logo（mock 日志 `logoKey=false`）、>10MB 与损坏图内联报错、空 logo 阻止保存、文字 logo 回写，登录页/壳层图片与文字两态均正常。真实 10.0.7.87 后端测试账号密码已变更（MSG_24_0002），未做真实写库联调；生产联调需有效 `bank:ui:setting` 会话。
