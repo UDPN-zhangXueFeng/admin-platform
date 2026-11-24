@@ -291,7 +291,10 @@ export function GatewayInstanceDetailPage() {
     [],
   );
 
-  /** 弹窗确认（verify/resetKey），成功 toast 回显下游公钥指纹（列表页同口径）。 */
+  /**
+   * 弹窗确认（verify/resetKey）：verify 成功回显下游公钥指纹；
+   * resetKey 自 2026-10-22 起为审批制，接口只提交审批单（data=null），无指纹可回显。
+   */
   const onActionConfirm = () => {
     if (!actionKind || !instance) return;
     const onError = (e: unknown) => toast.error((e as Error).message);
@@ -316,10 +319,8 @@ export function GatewayInstanceDetailPage() {
       return;
     }
     resetKeyMutation.mutate(instance.instanceId, {
-      onSuccess: (res) => {
-        toast.success(
-          `Reset (new fingerprint ${res.downKeyFingerprint || '-'})`,
-        );
+      onSuccess: () => {
+        toast.success('Key reset submitted for approval');
         setActionKind(null);
         refresh();
       },
